@@ -27,16 +27,18 @@ import type { UserProfile } from '@/types/profile';
 
 const ROOMMATE_STORY_AGE_BAND_CODES = ['20', '21', '22', '23', '24', '25_PLUS'] as const;
 
-export type RoommateStoryCategory = 'search' | 'detail' | 'action' | 'responsive';
+export type RoommateStoryCategory = 'search' | 'detail' | 'action';
 export type RoommateStorySeasonGroup = 'offSeason' | 'seasonOpen' | 'seasonMatching' | 'postMatch';
 export type RoommateStoryAutoOpen =
+  | 'bookmark-toggle'
   | 'filter-sheet'
   | 'detail'
   | 'match-request-dialog'
-  | 'match-request-stale-submit'
+  | 'match-request-submit'
   | 'block-dialog'
   | 'block-submit'
   | 'report-dialog'
+  | 'report-submit'
   | 'report-optional-block-submit';
 export type RoommateStoryViewportHint = 'mobile' | 'desktop' | 'long-content';
 
@@ -49,6 +51,11 @@ export interface RoommateStoryScenario {
   readonly viewportHint: RoommateStoryViewportHint;
   readonly autoOpen?: RoommateStoryAutoOpen;
   readonly searchEntryAllowed?: boolean;
+  readonly searchClosedMessage?: string;
+  readonly sameDormitoryRestrictedEmptyState?: {
+    readonly title: string;
+    readonly message: string;
+  };
   readonly viewer: UserProfile;
   readonly seasonContext: SeasonContextValue;
   readonly searchResponse: RoommateSearchResponse;
@@ -58,23 +65,32 @@ export interface RoommateStoryScenario {
   readonly searchErrorStatus?: number;
   readonly searchResponseDelayMs?: number;
   readonly bookmarkResponse: BookmarkListResponse;
+  readonly bookmarkError?: { code: string; status: number };
   readonly profileByTargetUserId: Readonly<Record<string, PublicProfile>>;
   readonly profileErrorByTargetUserId?: Readonly<Record<string, { code: string; status: number }>>;
   readonly matchRequestResponse: MatchRequestActionResponse;
   readonly matchRequestError?: { code: string; status: number };
   readonly responseDelayMs?: number;
   readonly blockResponse: CreateBlockResponse;
+  readonly blockError?: { code: string; status: number };
   readonly reportResponse: CreateReportResponse;
+  readonly reportError?: { code: string; status: number };
 }
 
 export const ROOMMATE_STORY_SCENARIO_KEYS = [
   'offSeasonClosed',
   'seasonOpenRegistered',
+  'seasonOpenRegisteredChatting',
   'seasonOpenNotRegistered',
+  'seasonOpenDeregistered',
   'seasonOpenRegisteredEmpty',
   'seasonOpenSearchError',
   'seasonOpenLoadingSkeleton',
   'seasonMatchingRegistered',
+  'seasonMatchingRegisteredChatting',
+  'seasonMatchingActiveMatched',
+  'seasonMatchingUnmatched',
+  'seasonMatchingDeregistered',
   'seasonMatchingNotRegistered',
   'seasonMatchingNotRegisteredEmpty',
   'seasonMatchingRegisteredEmpty',
@@ -85,14 +101,31 @@ export const ROOMMATE_STORY_SCENARIO_KEYS = [
   'seasonMatchingExceptionDetailUnavailable',
   'seasonMatchingExceptionAccessRecheckFailed',
   'seasonMatchingMatchRequestDialog',
-  'seasonMatchingMatchRequestStaleError',
+  'seasonMatchingMatchRequestPending',
+  'seasonMatchingMatchRequestSuccess',
+  'seasonMatchingPendingRequests',
+  'seasonMatchingMatchRequestFailed',
+  'seasonMatchingMatchRequestAlreadyPending',
+  'seasonMatchingMatchRequestLimitReached',
+  'seasonMatchingMatchRequestTargetMatched',
+  'seasonMatchingMatchRequestTargetDeregistered',
+  'seasonMatchingBookmarkStaleFailure',
+  'seasonMatchingActionBlockedUser',
   'seasonMatchingBlockDialog',
+  'seasonMatchingBlockPending',
+  'seasonMatchingBlockFailed',
   'seasonMatchingBlockSuccessReceipt',
   'seasonMatchingReportDialog',
+  'seasonMatchingReportPending',
+  'seasonMatchingReportFailed',
+  'seasonMatchingReportSuccessReceipt',
   'seasonMatchingReportOptionalBlockReceipt',
-  'seasonMatchingMobileBookmarkIconState',
-  'seasonMatchingActionPendingDisabled',
-  'postMatchCohortReview',
+  'postMatchRegistered',
+  'postMatchNotRegistered',
+  'postMatchDeregistered',
+  'postMatchEmpty',
+  'postMatchSearchError',
+  'postMatchLoadingSkeleton',
 ] as const;
 
 export type RoommateStoryScenarioKey = (typeof ROOMMATE_STORY_SCENARIO_KEYS)[number];
@@ -101,17 +134,28 @@ export const ROOMMATE_STORY_CATEGORY_KEYS = {
   search: [
     'offSeasonClosed',
     'seasonOpenRegistered',
+    'seasonOpenRegisteredChatting',
     'seasonOpenNotRegistered',
+    'seasonOpenDeregistered',
     'seasonOpenRegisteredEmpty',
     'seasonOpenSearchError',
     'seasonOpenLoadingSkeleton',
     'seasonMatchingRegistered',
+    'seasonMatchingRegisteredChatting',
+    'seasonMatchingActiveMatched',
+    'seasonMatchingUnmatched',
+    'seasonMatchingDeregistered',
     'seasonMatchingNotRegistered',
     'seasonMatchingNotRegisteredEmpty',
     'seasonMatchingRegisteredEmpty',
     'seasonMatchingSearchError',
     'seasonMatchingLoadingSkeleton',
-    'postMatchCohortReview',
+    'postMatchRegistered',
+    'postMatchNotRegistered',
+    'postMatchDeregistered',
+    'postMatchEmpty',
+    'postMatchSearchError',
+    'postMatchLoadingSkeleton',
   ],
   detail: [
     'seasonMatchingDetailFullCompatibility',
@@ -121,28 +165,45 @@ export const ROOMMATE_STORY_CATEGORY_KEYS = {
   ],
   action: [
     'seasonMatchingMatchRequestDialog',
-    'seasonMatchingMatchRequestStaleError',
+    'seasonMatchingMatchRequestPending',
+    'seasonMatchingMatchRequestSuccess',
+    'seasonMatchingPendingRequests',
+    'seasonMatchingMatchRequestFailed',
+    'seasonMatchingMatchRequestAlreadyPending',
+    'seasonMatchingMatchRequestLimitReached',
+    'seasonMatchingMatchRequestTargetMatched',
+    'seasonMatchingMatchRequestTargetDeregistered',
+    'seasonMatchingBookmarkStaleFailure',
+    'seasonMatchingActionBlockedUser',
     'seasonMatchingBlockDialog',
+    'seasonMatchingBlockPending',
+    'seasonMatchingBlockFailed',
     'seasonMatchingBlockSuccessReceipt',
     'seasonMatchingReportDialog',
+    'seasonMatchingReportPending',
+    'seasonMatchingReportFailed',
+    'seasonMatchingReportSuccessReceipt',
     'seasonMatchingReportOptionalBlockReceipt',
-    'seasonMatchingMobileBookmarkIconState',
-    'seasonMatchingActionPendingDisabled',
   ],
-  responsive: ['seasonMatchingMobileBookmarkIconState', 'seasonMatchingReportDialog'],
 } as const satisfies Record<RoommateStoryCategory, readonly RoommateStoryScenarioKey[]>;
 
 export const ROOMMATE_STORY_SEASON_GROUP_KEYS = {
   offSeason: ['offSeasonClosed'],
   seasonOpen: [
     'seasonOpenRegistered',
+    'seasonOpenRegisteredChatting',
     'seasonOpenNotRegistered',
+    'seasonOpenDeregistered',
     'seasonOpenRegisteredEmpty',
     'seasonOpenSearchError',
     'seasonOpenLoadingSkeleton',
   ],
   seasonMatching: [
     'seasonMatchingRegistered',
+    'seasonMatchingRegisteredChatting',
+    'seasonMatchingActiveMatched',
+    'seasonMatchingUnmatched',
+    'seasonMatchingDeregistered',
     'seasonMatchingNotRegistered',
     'seasonMatchingNotRegisteredEmpty',
     'seasonMatchingRegisteredEmpty',
@@ -153,27 +214,46 @@ export const ROOMMATE_STORY_SEASON_GROUP_KEYS = {
     'seasonMatchingExceptionDetailUnavailable',
     'seasonMatchingExceptionAccessRecheckFailed',
     'seasonMatchingMatchRequestDialog',
-    'seasonMatchingMatchRequestStaleError',
+    'seasonMatchingMatchRequestPending',
+    'seasonMatchingMatchRequestSuccess',
+    'seasonMatchingPendingRequests',
+    'seasonMatchingMatchRequestFailed',
+    'seasonMatchingMatchRequestAlreadyPending',
+    'seasonMatchingMatchRequestLimitReached',
+    'seasonMatchingMatchRequestTargetMatched',
+    'seasonMatchingMatchRequestTargetDeregistered',
+    'seasonMatchingBookmarkStaleFailure',
+    'seasonMatchingActionBlockedUser',
     'seasonMatchingBlockDialog',
+    'seasonMatchingBlockPending',
+    'seasonMatchingBlockFailed',
     'seasonMatchingBlockSuccessReceipt',
     'seasonMatchingReportDialog',
+    'seasonMatchingReportPending',
+    'seasonMatchingReportFailed',
+    'seasonMatchingReportSuccessReceipt',
     'seasonMatchingReportOptionalBlockReceipt',
-    'seasonMatchingMobileBookmarkIconState',
-    'seasonMatchingActionPendingDisabled',
   ],
-  postMatch: ['postMatchCohortReview'],
+  postMatch: [
+    'postMatchRegistered',
+    'postMatchNotRegistered',
+    'postMatchDeregistered',
+    'postMatchEmpty',
+    'postMatchSearchError',
+    'postMatchLoadingSkeleton',
+  ],
 } as const satisfies Record<RoommateStorySeasonGroup, readonly RoommateStoryScenarioKey[]>;
 
 const ISO_NOW = '2026-07-06T03:00:00.000Z';
 const TARGET_JIWOO = 'story-roommate-jiwoo';
 const TARGET_HAYOON = 'story-roommate-hayoon';
 const TARGET_CAMPUS = 'story-roommate-campus-preview';
-const TARGET_POST = 'story-roommate-post-match';
+const TARGET_VIEWER_ALREADY_MATCHED = 'story-roommate-viewer-already-matched';
 const TARGET_TOMBSTONE = 'story-roommate-tombstone';
 const TARGET_ERROR = 'story-roommate-hidden';
+const TARGET_BLOCKED = 'story-roommate-blocked';
 
 const GENERAL_RELATION: PublicTargetRelation = { type: 'GENERAL' };
-const MATCHED_RELATION: PublicTargetRelation = { type: 'MATCHED_PARTNER' };
 const FULL_EXPOSURE: PublicTargetExposure = {
   listSummaryVisible: true,
   detailViewable: true,
@@ -191,10 +271,6 @@ const TOMBSTONE_EXPOSURE: PublicTargetExposure = {
   detailViewable: false,
   canViewFull: false,
   scoreVisible: false,
-};
-const RESULT_READ: PublicTargetResultRead = {
-  resultReadable: true,
-  context: 'CURRENT_MATCHED_PARTNER',
 };
 const NO_RESULT_READ: PublicTargetResultRead = { resultReadable: false, context: 'NONE' };
 const ACTIONABLE_ACTIONS: PublicProfileActionCapabilities = {
@@ -215,11 +291,29 @@ const SUMMARY_ONLY_ACTIONS: PublicProfileActionCapabilities = {
   canStartChat: false,
   unavailableReasons: ['DIFFERENT_DORMITORY'],
 };
-const POST_MATCH_ACTIONS: PublicProfileActionCapabilities = {
+const POST_MATCH_CLOSED_ACTIONS: PublicProfileActionCapabilities = {
   canBookmark: false,
   canRequestMatch: false,
-  canStartChat: true,
+  canStartChat: false,
   unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+};
+const VIEWER_ALREADY_MATCHED_ACTIONS: PublicProfileActionCapabilities = {
+  canBookmark: false,
+  canRequestMatch: false,
+  canStartChat: false,
+  unavailableReasons: ['VIEWER_ALREADY_MATCHED'],
+};
+const SAFETY_RESTRICTED_ACTIONS: PublicProfileActionCapabilities = {
+  canBookmark: false,
+  canRequestMatch: false,
+  canStartChat: false,
+  unavailableReasons: ['SAFETY_OR_VISIBILITY_RESTRICTED'],
+};
+const DIRECTION_LIMIT_REACHED_ACTIONS: PublicProfileActionCapabilities = {
+  canBookmark: true,
+  canRequestMatch: false,
+  canStartChat: true,
+  unavailableReasons: ['MATCH_REQUEST_DIRECTION_LIMIT_REACHED'],
 };
 const TOMBSTONE_ACTIONS: PublicProfileActionCapabilities = {
   canBookmark: false,
@@ -528,6 +622,8 @@ function createSummary(input: {
   resultRead?: PublicTargetResultRead;
   matchScore?: number;
   bookmarked?: boolean;
+  pendingMatchRequest?: RoommateSearchSummary['pendingMatchRequest'];
+  activeChatThread?: RoommateSearchSummary['activeChatThread'];
   detailContext?: string;
   smokingBehavior?: RoommateSearchSummary['profileSummary']['smokingBehavior'];
   sleepHabit?: RoommateSearchSummary['profileSummary']['sleepHabit'];
@@ -551,6 +647,10 @@ function createSummary(input: {
     bookmark: input.bookmarked
       ? { bookmarked: true, bookmarkedAt: ISO_NOW }
       : { bookmarked: false },
+    ...(input.pendingMatchRequest !== undefined
+      ? { pendingMatchRequest: input.pendingMatchRequest }
+      : {}),
+    ...(input.activeChatThread !== undefined ? { activeChatThread: input.activeChatThread } : {}),
     ...(input.detailContext ? { detailEntryToken: input.detailContext } : {}),
   };
 }
@@ -589,6 +689,77 @@ const hayoonSummary = createSummary({
   detailContext: 'story-detail-context-hayoon',
   sleepHabit: 'TALKING',
 });
+const seasonOpenChattingSummary = createSummary({
+  id: 'story-roommate-open-chatting',
+  nickname: '오픈대화중',
+  intro: '시즌 오픈 기간에 이미 대화를 시작한 같은 건물 후보예요.',
+  exposure: FULL_EXPOSURE,
+  actions: SEASON_OPEN_SAME_DORMITORY_ACTIONS,
+  matchScore: 84,
+  detailContext: 'story-detail-context-open-chatting',
+  activeChatThread: {
+    id: 'story-chat-thread-open',
+    threadKind: 'DIRECT',
+    status: 'OPEN',
+    lastMessageAt: '2026-07-06T05:00:00.000Z',
+  },
+});
+const seasonMatchingChattingSummary = createSummary({
+  id: 'story-roommate-matching-chatting',
+  nickname: '매칭대화중',
+  intro: '매칭 기간에 생활패턴을 확인하며 대화 중인 후보예요.',
+  exposure: FULL_EXPOSURE,
+  actions: ACTIONABLE_ACTIONS,
+  matchScore: 83,
+  detailContext: 'story-detail-context-matching-chatting',
+  activeChatThread: {
+    id: 'story-chat-thread-matching',
+    threadKind: 'DIRECT',
+    status: 'OPEN',
+    lastMessageAt: '2026-07-06T05:30:00.000Z',
+  },
+});
+const sentPendingRequestSummary = createSummary({
+  id: 'story-roommate-sent-pending',
+  nickname: '보낸요청',
+  intro: '이미 보낸 매칭 요청의 응답을 기다리는 후보예요.',
+  exposure: FULL_EXPOSURE,
+  actions: ACTIONABLE_ACTIONS,
+  matchScore: 82,
+  detailContext: 'story-detail-context-sent-pending',
+  pendingMatchRequest: {
+    id: 'story-match-request-sent',
+    direction: 'SENT',
+    createdAt: ISO_NOW,
+    expiresAt: '2026-07-11T03:00:00.000Z',
+  },
+});
+const receivedPendingRequestSummary = createSummary({
+  id: 'story-roommate-received-pending',
+  nickname: '받은요청',
+  intro: '상대가 먼저 보낸 매칭 요청을 매칭 탭에서 확인할 수 있어요.',
+  exposure: FULL_EXPOSURE,
+  actions: ACTIONABLE_ACTIONS,
+  matchScore: 79,
+  detailContext: 'story-detail-context-received-pending',
+  pendingMatchRequest: {
+    id: 'story-match-request-received',
+    direction: 'RECEIVED',
+    createdAt: ISO_NOW,
+    expiresAt: '2026-07-11T03:00:00.000Z',
+  },
+});
+const directionLimitReachedSummary = createSummary({
+  id: 'story-roommate-direction-limit',
+  nickname: '횟수초과',
+  intro:
+    '이번 시즌에 이미 여러 번 요청했던 후보예요. 대화는 가능하지만 새 매칭 요청은 닫혀 있어요.',
+  exposure: FULL_EXPOSURE,
+  actions: DIRECTION_LIMIT_REACHED_ACTIONS,
+  matchScore: 76,
+  detailContext: 'story-detail-context-direction-limit',
+  sleepHabit: 'SNORING',
+});
 const campusPreviewSummary = createSummary({
   id: TARGET_CAMPUS,
   nickname: '캠퍼스 미리보기',
@@ -598,16 +769,15 @@ const campusPreviewSummary = createSummary({
   smokingBehavior: null,
   sleepHabit: null,
 });
-const postMatchSummary = createSummary({
-  id: TARGET_POST,
-  nickname: '현재 매칭 상대',
-  intro: '매칭 결과 맥락으로 읽기만 가능한 상태예요.',
-  exposure: FULL_EXPOSURE,
-  actions: POST_MATCH_ACTIONS,
-  relation: MATCHED_RELATION,
-  resultRead: RESULT_READ,
-  matchScore: 88,
-  detailContext: 'story-detail-context-post-match',
+const viewerAlreadyMatchedSummary = createSummary({
+  id: TARGET_VIEWER_ALREADY_MATCHED,
+  nickname: '새 후보 제한',
+  intro: '이미 매칭이 확정된 상태라 새 후보의 상세 비교와 매칭 요청은 닫혀 있어요.',
+  exposure: SUMMARY_ONLY_EXPOSURE,
+  actions: VIEWER_ALREADY_MATCHED_ACTIONS,
+  smokingBehavior: 'NO',
+  sleepHabit: 'NONE',
+  relationshipStyle: 'CASUAL',
 });
 const tombstoneSummary = createSummary({
   id: TARGET_TOMBSTONE,
@@ -626,6 +796,16 @@ const errorSummary = createSummary({
   actions: ACTIONABLE_ACTIONS,
   matchScore: 86,
   detailContext: 'story-detail-context-hidden',
+});
+const blockedUserSummary = createSummary({
+  id: TARGET_BLOCKED,
+  nickname: '숨김 처리된 후보',
+  intro: '서버 오류로 이 후보와의 새 행동은 잠시 닫혀 있어요.',
+  exposure: { ...SUMMARY_ONLY_EXPOSURE, listSummaryVisible: true },
+  actions: SAFETY_RESTRICTED_ACTIONS,
+  smokingBehavior: null,
+  sleepHabit: null,
+  relationshipStyle: null,
 });
 
 const SEASON_OPEN_CAMPUS_BE_FIXTURE_CANDIDATES = [
@@ -852,15 +1032,6 @@ const defaultProfiles: Readonly<Record<string, PublicProfile>> = {
     intro: '청소 주기를 미리 맞춰두는 편이에요.',
     matchScore: 85,
   }),
-  [TARGET_POST]: createPublicProfileFull({
-    id: TARGET_POST,
-    nickname: '현재 매칭 상대',
-    intro: '매칭 결과 맥락으로 읽기만 가능한 상태예요.',
-    matchScore: 88,
-    actions: POST_MATCH_ACTIONS,
-    relation: MATCHED_RELATION,
-    resultRead: RESULT_READ,
-  }),
   [TARGET_TOMBSTONE]: createPublicProfileTombstone({
     id: TARGET_TOMBSTONE,
     displayName: '하린',
@@ -871,7 +1042,7 @@ const defaultProfiles: Readonly<Record<string, PublicProfile>> = {
 const seasonOpenProfileByTargetUserId: Readonly<Record<string, PublicProfile>> = {
   ...defaultProfiles,
   ...Object.fromEntries(
-    seasonOpenSameDormitorySummaries.map((summary) => [
+    [...seasonOpenSameDormitorySummaries, seasonOpenChattingSummary].map((summary) => [
       summary.id,
       createPublicProfileFull({
         id: summary.id,
@@ -887,14 +1058,20 @@ const seasonOpenProfileByTargetUserId: Readonly<Record<string, PublicProfile>> =
 const seasonMatchingProfileByTargetUserId: Readonly<Record<string, PublicProfile>> = {
   ...defaultProfiles,
   ...Object.fromEntries(
-    seasonMatchingSameDormitorySummaries.map((summary) => [
+    [
+      ...seasonMatchingSameDormitorySummaries,
+      seasonMatchingChattingSummary,
+      sentPendingRequestSummary,
+      receivedPendingRequestSummary,
+      directionLimitReachedSummary,
+    ].map((summary) => [
       summary.id,
       createPublicProfileFull({
         id: summary.id,
         nickname: summary.profileSummary.nickname,
         intro: summary.profileSummary.intro ?? '매칭 기간 같은 건물 후보 상세 정보예요.',
         matchScore: summary.matchScore,
-        actions: ACTIONABLE_ACTIONS,
+        actions: summary.actions,
       }),
     ]),
   ),
@@ -957,14 +1134,24 @@ function createReportResponse(optionalBlock: boolean): CreateReportResponse {
 }
 
 const SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY = {
-  campusMerged: false,
+  campusMerged: true,
   sameBuildingOnly: true,
 } as const satisfies RoommateSearchResponse['scopeAvailability'];
 
 const SEASON_MATCHING_NOT_REGISTERED_SCOPE_AVAILABILITY = {
   campusMerged: true,
-  sameBuildingOnly: false,
+  sameBuildingOnly: true,
 } as const satisfies RoommateSearchResponse['scopeAvailability'];
+
+const DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY = {
+  campusMerged: true,
+  sameBuildingOnly: true,
+} as const satisfies RoommateSearchResponse['scopeAvailability'];
+
+const DEREGISTERED_SAME_DORMITORY_EMPTY_STATE = {
+  title: '시즌 참여 철회 후 같은 건물 후보를 볼 수 없어요.',
+  message: '캠퍼스 전체 요약은 볼 수 있지만, 같은 건물 후보 리스트와 생활패턴 비교는 닫혀요.',
+} as const;
 
 const actionableSearch = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
@@ -988,6 +1175,71 @@ const seasonMatchingRegisteredSameDormitory = createSearchResponse({
   items: seasonMatchingSameDormitorySummaries,
   scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
 });
+const seasonMatchingRegisteredCampusMerged = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  items: seasonOpenCampusPreviewSummaries,
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingRegisteredChattingSearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  notices: [{ code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'INFO' }],
+  items: [seasonMatchingChattingSummary, ...seasonMatchingSameDormitorySummaries.slice(0, 2)],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingRegisteredSearchResponses = {
+  CAMPUS_MERGED: seasonMatchingRegisteredCampusMerged,
+  SAME_BUILDING_ONLY: seasonMatchingRegisteredSameDormitory,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const seasonMatchingRegisteredChattingSearchResponses = {
+  CAMPUS_MERGED: seasonMatchingRegisteredCampusMerged,
+  SAME_BUILDING_ONLY: seasonMatchingRegisteredChattingSearch,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+
+const seasonMatchingActiveMatchedSearch = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  items: seasonOpenCampusPreviewSummaries,
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingActiveMatchedSameDormitory = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'BROAD_PREVIEW',
+  notices: [
+    {
+      code: 'MATCHED_TARGETS_EXCLUDED',
+      severity: 'INFO',
+      message: '이미 매칭된 상태에서는 새 후보 매칭 행동이 닫혀요.',
+    },
+  ],
+  items: [viewerAlreadyMatchedSummary],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingActiveMatchedSearchResponses = {
+  CAMPUS_MERGED: seasonMatchingActiveMatchedSearch,
+  SAME_BUILDING_ONLY: seasonMatchingActiveMatchedSameDormitory,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+
+const seasonMatchingUnmatchedSearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  notices: [{ code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'INFO' }],
+  items: [jiwooSummary, hayoonSummary, directionLimitReachedSummary],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingUnmatchedSearchResponses = {
+  CAMPUS_MERGED: seasonMatchingRegisteredCampusMerged,
+  SAME_BUILDING_ONLY: seasonMatchingUnmatchedSearch,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+
+const seasonMatchingPendingRequestsSearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  notices: [{ code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'INFO' }],
+  items: [sentPendingRequestSummary, receivedPendingRequestSummary],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
 
 const seasonMatchingNotRegisteredCampusMerged = createSearchResponse({
   scope: 'CAMPUS_MERGED',
@@ -1002,6 +1254,34 @@ const seasonMatchingNotRegisteredCampusMergedEmpty = createSearchResponse({
   items: [],
   scopeAvailability: SEASON_MATCHING_NOT_REGISTERED_SCOPE_AVAILABILITY,
 });
+const seasonMatchingNotRegisteredSameDormitoryGate = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'BROAD_PREVIEW',
+  items: [],
+  scopeAvailability: SEASON_MATCHING_NOT_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingNotRegisteredSearchResponses = {
+  CAMPUS_MERGED: seasonMatchingNotRegisteredCampusMerged,
+  SAME_BUILDING_ONLY: seasonMatchingNotRegisteredSameDormitoryGate,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const seasonMatchingNotRegisteredEmptySearchResponses = {
+  CAMPUS_MERGED: seasonMatchingNotRegisteredCampusMergedEmpty,
+  SAME_BUILDING_ONLY: seasonMatchingNotRegisteredSameDormitoryGate,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+
+const seasonMatchingDeregisteredCampusMerged = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  items: seasonOpenCampusPreviewSummaries,
+  scopeAvailability: DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY,
+});
+
+const seasonMatchingDeregisteredSameDormitoryGate = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'BROAD_PREVIEW',
+  items: [],
+  scopeAvailability: DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY,
+});
 
 const seasonMatchingRegisteredEmpty = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
@@ -1010,6 +1290,16 @@ const seasonMatchingRegisteredEmpty = createSearchResponse({
   items: [],
   scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
 });
+const seasonMatchingRegisteredCampusMergedEmpty = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  items: [],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const seasonMatchingRegisteredEmptySearchResponses = {
+  CAMPUS_MERGED: seasonMatchingRegisteredCampusMergedEmpty,
+  SAME_BUILDING_ONLY: seasonMatchingRegisteredEmpty,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
 
 const campusMergedForUnregistered = createSearchResponse({
   scope: 'CAMPUS_MERGED',
@@ -1028,6 +1318,11 @@ const seasonOpenRegisteredSameDormitory = createSearchResponse({
   purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
   items: seasonOpenSameDormitorySummaries,
 });
+const seasonOpenRegisteredChattingSearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  items: [seasonOpenChattingSummary, ...seasonOpenSameDormitorySummaries.slice(0, 2)],
+});
 const seasonOpenRegisteredCampusMergedEmpty = createSearchResponse({
   scope: 'CAMPUS_MERGED',
   purpose: 'BROAD_PREVIEW',
@@ -1045,8 +1340,22 @@ const seasonOpenNotRegisteredCampusMerged = createSearchResponse({
 });
 const seasonOpenNotRegisteredSameDormitoryGate = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
-  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  purpose: 'BROAD_PREVIEW',
   items: [],
+});
+
+const seasonOpenDeregisteredCampusMerged = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  items: seasonOpenCampusPreviewSummaries,
+  scopeAvailability: DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY,
+});
+
+const seasonOpenDeregisteredSameDormitoryGate = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'BROAD_PREVIEW',
+  items: [],
+  scopeAvailability: DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY,
 });
 const seasonOpenRegisteredSearchResponses = {
   CAMPUS_MERGED: seasonOpenRegisteredCampusMerged,
@@ -1060,12 +1369,106 @@ const seasonOpenNotRegisteredSearchResponses = {
   CAMPUS_MERGED: seasonOpenNotRegisteredCampusMerged,
   SAME_BUILDING_ONLY: seasonOpenNotRegisteredSameDormitoryGate,
 } as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
-const postMatch = createSearchResponse({
+const seasonOpenDeregisteredSearchResponses = {
+  CAMPUS_MERGED: seasonOpenDeregisteredCampusMerged,
+  SAME_BUILDING_ONLY: seasonOpenDeregisteredSameDormitoryGate,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const seasonMatchingDeregisteredSearchResponses = {
+  CAMPUS_MERGED: seasonMatchingDeregisteredCampusMerged,
+  SAME_BUILDING_ONLY: seasonMatchingDeregisteredSameDormitoryGate,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const POST_MATCH_NOT_REGISTERED_SAME_DORMITORY_EMPTY_STATE = {
+  title: '시즌 등록 이력이 있어야 목록을 볼 수 있어요.',
+  message: '같은 건물 시즌 참여자 목록은 시즌 참여한 사용자에게만 열려요.',
+} as const;
+
+const postMatchSameDormitorySummaries = seasonOpenSameDormitorySummaries
+  .slice(0, 6)
+  .map((summary, index) => {
+    const {
+      matchScore: _matchScore,
+      detailEntryToken: _detailEntryToken,
+      ...summaryWithoutDetail
+    } = summary;
+    void _matchScore;
+    void _detailEntryToken;
+
+    return {
+      ...summaryWithoutDetail,
+      exposure: SUMMARY_ONLY_EXPOSURE,
+      actions: POST_MATCH_CLOSED_ACTIONS,
+      resultRead: NO_RESULT_READ,
+      profileSummary: {
+        ...summary.profileSummary,
+        intro:
+          index % 2 === 0
+            ? `${summary.profileSummary.nickname}님은 같은 건물에서 시즌에 참여했던 사용자예요. 결과 정리 기간에는 요약만 확인할 수 있어요.`
+            : `${summary.profileSummary.nickname}님의 공개 요약을 확인해 보세요. 새 요청과 상세 비교는 매칭 기간에만 열려요.`,
+      },
+      bookmark: { bookmarked: false },
+    };
+  });
+
+const postMatchCampusMerged = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
+  items: seasonOpenCampusPreviewSummaries.slice(0, 6),
+});
+const postMatchSameDormitory = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
   purpose: 'POST_MATCH_COHORT_REVIEW',
   notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
-  items: [postMatchSummary],
+  items: postMatchSameDormitorySummaries,
 });
+const postMatchCampusMergedEmpty = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
+  items: [],
+});
+const postMatchSameDormitoryEmpty = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'POST_MATCH_COHORT_REVIEW',
+  notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
+  items: [],
+});
+const postMatchNotRegisteredSameDormitoryGate = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'POST_MATCH_COHORT_REVIEW',
+  notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
+  items: [],
+});
+const postMatchDeregisteredSameDormitoryGate = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'POST_MATCH_COHORT_REVIEW',
+  notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
+  items: [],
+  scopeAvailability: DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY,
+});
+const postMatchDeregisteredCampusMerged = createSearchResponse({
+  scope: 'CAMPUS_MERGED',
+  purpose: 'BROAD_PREVIEW',
+  notices: [{ code: 'POST_MATCH_ACTION_CLOSED', severity: 'INFO' }],
+  items: seasonOpenCampusPreviewSummaries.slice(0, 6),
+  scopeAvailability: DEREGISTERED_SCOPE_TOGGLE_AVAILABILITY,
+});
+const postMatchRegisteredSearchResponses = {
+  CAMPUS_MERGED: postMatchCampusMerged,
+  SAME_BUILDING_ONLY: postMatchSameDormitory,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const postMatchNotRegisteredSearchResponses = {
+  CAMPUS_MERGED: postMatchCampusMerged,
+  SAME_BUILDING_ONLY: postMatchNotRegisteredSameDormitoryGate,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const postMatchDeregisteredSearchResponses = {
+  CAMPUS_MERGED: postMatchDeregisteredCampusMerged,
+  SAME_BUILDING_ONLY: postMatchDeregisteredSameDormitoryGate,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
+const postMatchEmptySearchResponses = {
+  CAMPUS_MERGED: postMatchCampusMergedEmpty,
+  SAME_BUILDING_ONLY: postMatchSameDormitoryEmpty,
+} as const satisfies Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
 const tombstoneSearch = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
   purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
@@ -1077,6 +1480,13 @@ const errorDetailSearch = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
   purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
   items: [errorSummary],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const blockedUserActionClosedSearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  notices: [{ code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'WARNING' }],
+  items: [blockedUserSummary],
   scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
 });
 
@@ -1125,16 +1535,24 @@ function baseScenario(input: {
   viewportHint?: RoommateStoryViewportHint;
   autoOpen?: RoommateStoryAutoOpen;
   searchEntryAllowed?: boolean;
+  searchClosedMessage?: string;
+  sameDormitoryRestrictedEmptyState?: {
+    readonly title: string;
+    readonly message: string;
+  };
   searchResponse?: RoommateSearchResponse;
   searchResponsesByScope?: Partial<Record<RoommateSearchScope, RoommateSearchResponse>>;
   manifestResponse?: RoommateSearchManifestResponse;
   bookmarkResponse?: BookmarkListResponse;
+  bookmarkError?: { code: string; status: number };
   profileByTargetUserId?: Readonly<Record<string, PublicProfile>>;
   profileErrorByTargetUserId?: Readonly<Record<string, { code: string; status: number }>>;
   matchRequestError?: { code: string; status: number };
   responseDelayMs?: number;
   blockResponse?: CreateBlockResponse;
+  blockError?: { code: string; status: number };
   reportResponse?: CreateReportResponse;
+  reportError?: { code: string; status: number };
   searchErrorCode?: string;
   searchErrorStatus?: number;
   searchResponseDelayMs?: number;
@@ -1165,6 +1583,10 @@ function baseScenario(input: {
     viewer: input.viewer ?? storyViewer,
     seasonContext,
     searchEntryAllowed: input.searchEntryAllowed ?? true,
+    ...(input.searchClosedMessage ? { searchClosedMessage: input.searchClosedMessage } : {}),
+    ...(input.sameDormitoryRestrictedEmptyState
+      ? { sameDormitoryRestrictedEmptyState: input.sameDormitoryRestrictedEmptyState }
+      : {}),
     searchResponse,
     ...(searchResponsesByScope ? { searchResponsesByScope } : {}),
     ...(manifestResponse ? { manifestResponse } : {}),
@@ -1174,6 +1596,7 @@ function baseScenario(input: {
       ? { searchResponseDelayMs: input.searchResponseDelayMs }
       : {}),
     bookmarkResponse: input.bookmarkResponse ?? bookmarksEmpty,
+    ...(input.bookmarkError ? { bookmarkError: input.bookmarkError } : {}),
     profileByTargetUserId: input.profileByTargetUserId ?? defaultProfiles,
     ...(input.profileErrorByTargetUserId
       ? { profileErrorByTargetUserId: input.profileErrorByTargetUserId }
@@ -1184,7 +1607,9 @@ function baseScenario(input: {
       ? { responseDelayMs: input.responseDelayMs }
       : {}),
     blockResponse: input.blockResponse ?? createBlockResponse(TARGET_JIWOO),
+    ...(input.blockError ? { blockError: input.blockError } : {}),
     reportResponse: input.reportResponse ?? createReportResponse(false),
+    ...(input.reportError ? { reportError: input.reportError } : {}),
   };
 }
 
@@ -1213,6 +1638,17 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     seasonContext: createSeasonContext('SEASON_OPEN'),
     profileByTargetUserId: seasonOpenProfileByTargetUserId,
   }),
+  seasonOpenRegisteredChatting: baseScenario({
+    key: 'seasonOpenRegisteredChatting',
+    title: 'Season Open + Registered / chatting candidate',
+    description:
+      '시즌 오픈 기간 같은 건물 후보 중 이미 대화가 진행 중인 상대를 대화 중 표시와 이어가기 버튼으로 보여줍니다.',
+    category: 'search',
+    seasonGroup: 'seasonOpen',
+    searchResponse: seasonOpenRegisteredChattingSearch,
+    seasonContext: createSeasonContext('SEASON_OPEN'),
+    profileByTargetUserId: seasonOpenProfileByTargetUserId,
+  }),
   seasonOpenNotRegistered: baseScenario({
     key: 'seasonOpenNotRegistered',
     title: 'Season Open + Not Registered / scope-controlled preview',
@@ -1224,6 +1660,20 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     searchResponsesByScope: seasonOpenNotRegisteredSearchResponses,
     seasonContext: createSeasonContext('SEASON_OPEN'),
     viewer: { ...storyViewer, dormitoryId: null },
+    profileByTargetUserId: seasonOpenProfileByTargetUserId,
+  }),
+  seasonOpenDeregistered: baseScenario({
+    key: 'seasonOpenDeregistered',
+    title: 'Season Open + De-registration / campus preview and same-dormitory limited',
+    description:
+      '시즌 오픈 기간에 참여를 철회한 사용자는 캠퍼스 전체 공개 요약은 볼 수 있고 같은 건물 후보·상세 비교는 제한 안내로 확인합니다.',
+    category: 'search',
+    seasonGroup: 'seasonOpen',
+    seasonContext: createSeasonContext('SEASON_OPEN'),
+    viewer: { ...storyViewer, dormitoryId: null },
+    searchResponse: seasonOpenDeregisteredCampusMerged,
+    searchResponsesByScope: seasonOpenDeregisteredSearchResponses,
+    sameDormitoryRestrictedEmptyState: DEREGISTERED_SAME_DORMITORY_EMPTY_STATE,
     profileByTargetUserId: seasonOpenProfileByTargetUserId,
   }),
   seasonOpenRegisteredEmpty: baseScenario({
@@ -1256,7 +1706,7 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     key: 'seasonOpenLoadingSkeleton',
     title: 'Season Open + Loading Skeleton',
     description:
-      '느린 네트워크에서 같은 건물 후보 목록과 우측 검색·필터 패널이 도착하기 전 스켈레톤을 보여주는 상태입니다.',
+      '느린 네트워크에서 같은 건물 기본 목록과 우측 검색·필터 패널이 도착하기 전 스켈레톤을 보여주는 상태입니다.',
     category: 'search',
     seasonGroup: 'seasonOpen',
     searchResponse: seasonOpenRegisteredSameDormitory,
@@ -1267,20 +1717,65 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
   }),
   seasonMatchingRegistered: baseScenario({
     key: 'seasonMatchingRegistered',
-    title: 'Season Matching + Registered / actionable same-building candidates',
+    title: 'Season Matching + Registered / scope-controlled exploration',
     description:
-      '매칭 기간 등록 완료 사용자는 같은 건물 후보만 탐색하며 상세 비교, 관심 저장, 매칭 요청, 대화 가능 상태를 확인합니다.',
+      '매칭 기간 등록 완료 사용자가 캠퍼스 전체와 같은 건물 탐색 범위를 한 story에서 전환해 확인합니다.',
     category: 'search',
     searchResponse: seasonMatchingRegisteredSameDormitory,
+    searchResponsesByScope: seasonMatchingRegisteredSearchResponses,
+    profileByTargetUserId: seasonMatchingProfileByTargetUserId,
+  }),
+  seasonMatchingRegisteredChatting: baseScenario({
+    key: 'seasonMatchingRegisteredChatting',
+    title: 'Season Matching + Registered / chatting candidate',
+    description:
+      '매칭 기간 같은 건물 후보 중 이미 대화가 진행 중인 상대를 대화 중 표시와 이어가기 버튼으로 보여줍니다.',
+    category: 'search',
+    searchResponse: seasonMatchingRegisteredChattingSearch,
+    searchResponsesByScope: seasonMatchingRegisteredChattingSearchResponses,
+    profileByTargetUserId: seasonMatchingProfileByTargetUserId,
+  }),
+  seasonMatchingActiveMatched: baseScenario({
+    key: 'seasonMatchingActiveMatched',
+    title: 'Season Matching + Active Matched / summary-only search',
+    description:
+      '매칭이 확정된 viewer가 캠퍼스 전체와 같은 건물 후보 리스트를 요약으로만 확인하고 새 action은 닫힌 상태를 확인합니다.',
+    category: 'search',
+    searchResponse: seasonMatchingActiveMatchedSameDormitory,
+    searchResponsesByScope: seasonMatchingActiveMatchedSearchResponses,
+    profileByTargetUserId: seasonMatchingProfileByTargetUserId,
+  }),
+  seasonMatchingUnmatched: baseScenario({
+    key: 'seasonMatchingUnmatched',
+    title: 'Season Matching + Unmatched / discovery reopened',
+    description:
+      '확정 매칭이 상호 해제된 뒤 active match가 없는 viewer가 cooldown/횟수 제한을 반영한 신규 후보 탐색으로 돌아온 상태입니다.',
+    category: 'search',
+    searchResponse: seasonMatchingUnmatchedSearch,
+    searchResponsesByScope: seasonMatchingUnmatchedSearchResponses,
+    profileByTargetUserId: seasonMatchingProfileByTargetUserId,
+  }),
+  seasonMatchingDeregistered: baseScenario({
+    key: 'seasonMatchingDeregistered',
+    title: 'Season Matching + De-registration / campus preview and same-dormitory limited',
+    description:
+      '매칭 기간에 active match 없이 시즌 참여를 철회한 사용자는 캠퍼스 전체 공개 요약은 볼 수 있고 같은 건물 후보·매칭 action은 제한됩니다.',
+    category: 'search',
+    seasonContext: createSeasonContext('SEASON_MATCHING'),
+    viewer: { ...storyViewer, dormitoryId: null },
+    searchResponse: seasonMatchingDeregisteredCampusMerged,
+    searchResponsesByScope: seasonMatchingDeregisteredSearchResponses,
+    sameDormitoryRestrictedEmptyState: DEREGISTERED_SAME_DORMITORY_EMPTY_STATE,
     profileByTargetUserId: seasonMatchingProfileByTargetUserId,
   }),
   seasonMatchingNotRegistered: baseScenario({
     key: 'seasonMatchingNotRegistered',
     title: 'Season Matching + Not Registered / campus summary preview',
     description:
-      '매칭 기간 등록 전 사용자는 캠퍼스 공개 요약만 둘러볼 수 있고 같은 건물 actionable 후보와 상세/점수/action은 열리지 않습니다.',
+      '매칭 기간 등록 전 사용자가 캠퍼스 전체 둘러보기와 같은 건물 선택 시 등록 안내를 한 story에서 확인합니다.',
     category: 'search',
     searchResponse: seasonMatchingNotRegisteredCampusMerged,
+    searchResponsesByScope: seasonMatchingNotRegisteredSearchResponses,
     viewer: { ...storyViewer, dormitoryId: null },
     profileByTargetUserId: seasonMatchingProfileByTargetUserId,
   }),
@@ -1291,6 +1786,7 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
       '매칭 기간 등록 전 사용자가 캠퍼스 통합 공개 요약 범위에서 확인 가능한 후보가 없을 때 empty 안내를 확인합니다.',
     category: 'search',
     searchResponse: seasonMatchingNotRegisteredCampusMergedEmpty,
+    searchResponsesByScope: seasonMatchingNotRegisteredEmptySearchResponses,
     viewer: { ...storyViewer, dormitoryId: null },
     profileByTargetUserId: seasonMatchingProfileByTargetUserId,
   }),
@@ -1298,9 +1794,10 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     key: 'seasonMatchingRegisteredEmpty',
     title: 'Season Matching + Registered + candidate 0',
     description:
-      '매칭 기간 등록 완료 사용자의 같은 건물 actionable scope에 조건에 맞는 신규 후보가 없을 때 empty 안내를 확인합니다.',
+      '매칭 기간 등록 완료 사용자가 캠퍼스 전체와 같은 건물 범위를 전환해도 후보가 0명일 때 empty 안내를 확인합니다.',
     category: 'search',
     searchResponse: seasonMatchingRegisteredEmpty,
+    searchResponsesByScope: seasonMatchingRegisteredEmptySearchResponses,
     profileByTargetUserId: seasonMatchingProfileByTargetUserId,
   }),
   seasonMatchingSearchError: baseScenario({
@@ -1310,6 +1807,7 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
       '매칭 기간 search BFF 실패 시 등록 상태와 무관하게 raw upstream detail 없이 사용자 재시도 안내만 노출합니다.',
     category: 'search',
     searchResponse: seasonMatchingRegisteredSameDormitory,
+    searchResponsesByScope: seasonMatchingRegisteredSearchResponses,
     profileByTargetUserId: seasonMatchingProfileByTargetUserId,
     searchErrorCode: 'BFF_UPSTREAM_UNAVAILABLE',
     searchErrorStatus: 503,
@@ -1318,9 +1816,10 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     key: 'seasonMatchingLoadingSkeleton',
     title: 'Season Matching + Loading Skeleton',
     description:
-      '매칭 기간 같은 건물 actionable 후보 목록과 검색·필터 패널이 도착하기 전 스켈레톤을 보여주는 상태입니다.',
+      '매칭 기간 같은 건물 기본 목록과 검색·필터 패널이 도착하기 전 스켈레톤을 보여주는 상태입니다.',
     category: 'search',
     searchResponse: seasonMatchingRegisteredSameDormitory,
+    searchResponsesByScope: seasonMatchingRegisteredSearchResponses,
     profileByTargetUserId: seasonMatchingProfileByTargetUserId,
     searchResponseDelayMs: 20_000,
   }),
@@ -1374,20 +1873,105 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
   }),
   seasonMatchingMatchRequestDialog: baseScenario({
     key: 'seasonMatchingMatchRequestDialog',
-    title: 'Season Matching + Registered / match request dialog',
+    title: 'Season Matching + Registered / Match Request Dialog',
     description:
-      '매칭 기간 같은 건물 actionable 후보 상세에서 매칭 요청 confirmation dialog와 optional note 제한 copy를 확인합니다.',
+      '매칭 기간 같은 건물 후보 상세에서 매칭 요청 dialog와 요청 메시지 입력/글자 수 제한을 확인합니다.',
     category: 'action',
     autoOpen: 'match-request-dialog',
   }),
-  seasonMatchingMatchRequestStaleError: baseScenario({
-    key: 'seasonMatchingMatchRequestStaleError',
-    title: 'Season Matching + Registered / match request stale feedback',
+  seasonMatchingMatchRequestPending: baseScenario({
+    key: 'seasonMatchingMatchRequestPending',
+    title: 'Season Matching + Registered / Request Pending',
     description:
-      '매칭 요청 전송 시점 재검증에서 거절된 경우 safe stale feedback과 refresh path를 확인합니다.',
+      '매칭 요청 전송 중 dialog submit 버튼이 pending label과 disabled 상태로 중복 제출을 막는지 확인합니다.',
     category: 'action',
-    autoOpen: 'match-request-stale-submit',
-    matchRequestError: { code: 'MATCH_REQUEST_NOT_ALLOWED', status: 409 },
+    autoOpen: 'match-request-submit',
+    responseDelayMs: 20_000,
+  }),
+  seasonMatchingMatchRequestSuccess: baseScenario({
+    key: 'seasonMatchingMatchRequestSuccess',
+    title: 'Season Matching + Registered / Request Success',
+    description:
+      '매칭 요청을 보낸 뒤 dialog와 상세를 닫고 화면 위에 떠 있는 성공 안내를 확인합니다.',
+    category: 'action',
+    autoOpen: 'match-request-submit',
+  }),
+  seasonMatchingPendingRequests: baseScenario({
+    key: 'seasonMatchingPendingRequests',
+    title: 'Season Matching + Registered / Pending Request Status',
+    description:
+      '내가 이미 요청을 보낸 후보와 나에게 요청을 보낸 후보가 search summary pill과 상세 CTA에서 새 요청을 막는 상태를 확인합니다.',
+    category: 'action',
+    searchResponse: seasonMatchingPendingRequestsSearch,
+    profileByTargetUserId: seasonMatchingProfileByTargetUserId,
+  }),
+  seasonMatchingMatchRequestFailed: baseScenario({
+    key: 'seasonMatchingMatchRequestFailed',
+    title: 'Season Matching + Registered / Request Failed',
+    description:
+      '일시적인 요청 처리 실패가 발생했을 때 dialog 내부에 실패 메시지를 남기고 다시 시도할 수 있는 상태입니다.',
+    category: 'action',
+    autoOpen: 'match-request-submit',
+    matchRequestError: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
+  }),
+  seasonMatchingMatchRequestAlreadyPending: baseScenario({
+    key: 'seasonMatchingMatchRequestAlreadyPending',
+    title: 'Season Matching / Stale Pending Request Race (Already Pending 예외)',
+    description:
+      '최신 search summary에는 pending 상태가 반영되어야 하지만, 오래된 상세 dialog나 다른 탭 race로 중복 요청이 서버에서 거절되는 예외 복구 상태입니다.',
+    category: 'action',
+    autoOpen: 'match-request-submit',
+    matchRequestError: { code: 'MATCH_REQUEST_ALREADY_PENDING', status: 409 },
+  }),
+  seasonMatchingMatchRequestLimitReached: baseScenario({
+    key: 'seasonMatchingMatchRequestLimitReached',
+    title: 'Season Matching + Registered / Request Limit Reached',
+    description:
+      'viewer to target 방향 요청 횟수를 모두 사용한 후보가 search summary pill과 상세의 blocked CTA로 매칭 요청 불가 사유를 보여주는 상태입니다.',
+    category: 'action',
+    autoOpen: 'detail',
+    searchResponse: createSearchResponse({
+      scope: 'SAME_BUILDING_ONLY',
+      purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+      items: [directionLimitReachedSummary],
+      scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+    }),
+    profileByTargetUserId: seasonMatchingProfileByTargetUserId,
+  }),
+  seasonMatchingMatchRequestTargetMatched: baseScenario({
+    key: 'seasonMatchingMatchRequestTargetMatched',
+    title: 'Season Matching 예외 / 전송 직전 상대 매칭 완료',
+    description:
+      '후보 목록에는 있었지만 매칭 요청 전송 직전에 상대가 다른 사용자와 매칭되어 요청이 닫히는 복구 상태입니다.',
+    category: 'action',
+    autoOpen: 'match-request-submit',
+    matchRequestError: { code: 'ACTIVE_MATCH_ALREADY_EXISTS', status: 409 },
+  }),
+  seasonMatchingMatchRequestTargetDeregistered: baseScenario({
+    key: 'seasonMatchingMatchRequestTargetDeregistered',
+    title: 'Season Matching 예외 / 전송 직전 시즌 등록 철회',
+    description:
+      '매칭 요청 전송 직전에 상대가 시즌 등록을 철회해 dialog 내부 안내와 목록 재조회로 복구하는 상태입니다.',
+    category: 'action',
+    autoOpen: 'match-request-submit',
+    matchRequestError: { code: 'MATCH_REQUEST_TARGET_NOT_FOUND', status: 404 },
+  }),
+  seasonMatchingBookmarkStaleFailure: baseScenario({
+    key: 'seasonMatchingBookmarkStaleFailure',
+    title: 'Season Matching 예외 / 관심 목록 저장 직전 대상 상태 변경',
+    description:
+      '관심 목록 저장 직전에 상대가 더 이상 저장 가능한 대상이 아니게 되어 낙관적 상태를 되돌리고 최신 목록 확인 안내를 보여주는 상태입니다.',
+    category: 'action',
+    autoOpen: 'bookmark-toggle',
+    bookmarkError: { code: 'TARGET_NOT_BOOKMARKABLE', status: 404 },
+  }),
+  seasonMatchingActionBlockedUser: baseScenario({
+    key: 'seasonMatchingActionBlockedUser',
+    title: 'Season Matching 예외 / blocked user action closed',
+    description:
+      '차단 관계나 안전 제한으로 남아 있는 후보 카드에서 상세/대화/요청 행동이 모두 닫힌 상태를 확인합니다.',
+    category: 'action',
+    searchResponse: blockedUserActionClosedSearch,
   }),
   seasonMatchingBlockDialog: baseScenario({
     key: 'seasonMatchingBlockDialog',
@@ -1396,6 +1980,23 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
       '매칭 기간 같은 건물 후보 상세에서 차단 확인 dialog와 optional memo copy를 확인합니다.',
     category: 'action',
     autoOpen: 'block-dialog',
+  }),
+  seasonMatchingBlockPending: baseScenario({
+    key: 'seasonMatchingBlockPending',
+    title: 'Season Matching + Registered / block pending',
+    description: '차단 제출 후 응답을 기다리는 동안 dialog 내부 pending 버튼 상태를 확인합니다.',
+    category: 'action',
+    autoOpen: 'block-submit',
+    responseDelayMs: 20_000,
+  }),
+  seasonMatchingBlockFailed: baseScenario({
+    key: 'seasonMatchingBlockFailed',
+    title: 'Season Matching + Registered / block failed',
+    description:
+      '차단 제출이 실패했을 때 dialog 내부에 실패 메시지를 남기고 다시 제출할 수 있는 상태입니다.',
+    category: 'action',
+    autoOpen: 'block-submit',
+    blockError: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
   }),
   seasonMatchingBlockSuccessReceipt: baseScenario({
     key: 'seasonMatchingBlockSuccessReceipt',
@@ -1414,6 +2015,35 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     autoOpen: 'report-dialog',
     viewportHint: 'long-content',
   }),
+  seasonMatchingReportPending: baseScenario({
+    key: 'seasonMatchingReportPending',
+    title: 'Season Matching + Registered / report pending',
+    description:
+      '신고 접수 응답을 기다리는 동안 dialog 내부 pending 버튼 상태와 입력 비활성화를 확인합니다.',
+    category: 'action',
+    autoOpen: 'report-submit',
+    viewportHint: 'long-content',
+    responseDelayMs: 20_000,
+  }),
+  seasonMatchingReportFailed: baseScenario({
+    key: 'seasonMatchingReportFailed',
+    title: 'Season Matching + Registered / report failed',
+    description:
+      '신고 접수가 실패했을 때 dialog 내부에 실패 메시지를 남기고 다시 제출할 수 있는 상태입니다.',
+    category: 'action',
+    autoOpen: 'report-submit',
+    viewportHint: 'long-content',
+    reportError: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
+  }),
+  seasonMatchingReportSuccessReceipt: baseScenario({
+    key: 'seasonMatchingReportSuccessReceipt',
+    title: 'Season Matching + Registered / report success receipt',
+    description:
+      '신고 접수 성공 후 dialog를 닫고 후속 조치 비공개 안내 receipt를 보여주는 상태입니다.',
+    category: 'action',
+    autoOpen: 'report-submit',
+    viewportHint: 'long-content',
+  }),
   seasonMatchingReportOptionalBlockReceipt: baseScenario({
     key: 'seasonMatchingReportOptionalBlockReceipt',
     title: 'Season Matching + Registered / report with optional block receipt',
@@ -1423,38 +2053,82 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     viewportHint: 'long-content',
     reportResponse: createReportResponse(true),
   }),
-  seasonMatchingMobileBookmarkIconState: baseScenario({
-    key: 'seasonMatchingMobileBookmarkIconState',
-    title: 'Season Matching + Registered / mobile bookmark icon affordance',
+  postMatchRegistered: baseScenario({
+    key: 'postMatchRegistered',
+    title: 'Post Match + Registered / summary browse',
     description:
-      '매칭 기간 같은 건물 후보 모바일 카드 상단에서 bookmark icon만으로 저장/해제 용도를 드러내는 상태입니다.',
-    category: 'responsive',
-    viewportHint: 'mobile',
-    searchResponse: createSearchResponse({
-      scope: 'SAME_BUILDING_ONLY',
-      purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
-      notices: [{ code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'INFO' }],
-      items: [hayoonSummary, jiwooSummary],
-    }),
-  }),
-  seasonMatchingActionPendingDisabled: baseScenario({
-    key: 'seasonMatchingActionPendingDisabled',
-    title: 'Season Matching + Registered / pending duplicate submit guard',
-    description:
-      '매칭 기간 매칭 요청 전송 중 duplicate submit을 막는 버튼 pending label을 빠르게 확인하는 상태입니다.',
-    category: 'action',
-    autoOpen: 'match-request-stale-submit',
-    responseDelayMs: 20_000,
-  }),
-  postMatchCohortReview: baseScenario({
-    key: 'postMatchCohortReview',
-    title: 'Post Match / cohort review action closed',
-    description:
-      '시즌 종료 후 cohort review에서는 result-read 맥락만 유지하고 새 요청 action은 닫힙니다.',
+      '시즌 등록 이력이 있는 사용자가 캠퍼스 전체 요약과 같은 건물 시즌 참여자 목록을 전환해 확인합니다. 새 요청·상세 비교·점수 정렬은 닫힙니다.',
     category: 'search',
     seasonGroup: 'postMatch',
-    searchResponse: postMatch,
+    searchResponse: postMatchSameDormitory,
+    searchResponsesByScope: postMatchRegisteredSearchResponses,
     seasonContext: createSeasonContext('SEASON_POST_MATCH'),
+    profileByTargetUserId: seasonOpenProfileByTargetUserId,
+  }),
+  postMatchNotRegistered: baseScenario({
+    key: 'postMatchNotRegistered',
+    title: 'Post Match + Not Registered / campus summary preview',
+    description:
+      '시즌 등록 이력이 없는 사용자는 캠퍼스 전체 공개 요약만 확인하고, 같은 건물 목록은 등록 이력 안내로 닫히는 상태입니다.',
+    category: 'search',
+    seasonGroup: 'postMatch',
+    searchResponse: postMatchCampusMerged,
+    searchResponsesByScope: postMatchNotRegisteredSearchResponses,
+    seasonContext: createSeasonContext('SEASON_POST_MATCH'),
+    viewer: { ...storyViewer, dormitoryId: null },
+    sameDormitoryRestrictedEmptyState: POST_MATCH_NOT_REGISTERED_SAME_DORMITORY_EMPTY_STATE,
+    profileByTargetUserId: seasonOpenProfileByTargetUserId,
+  }),
+  postMatchDeregistered: baseScenario({
+    key: 'postMatchDeregistered',
+    title: 'Post Match + De-registration / campus summary and restricted same-dormitory',
+    description:
+      '시즌 참여를 철회한 사용자는 캠퍼스 전체 공개 요약은 볼 수 있고 같은 건물 시즌 참여자 목록은 철회 안내로 닫히는 상태입니다.',
+    category: 'search',
+    seasonGroup: 'postMatch',
+    searchResponse: postMatchDeregisteredCampusMerged,
+    searchResponsesByScope: postMatchDeregisteredSearchResponses,
+    seasonContext: createSeasonContext('SEASON_POST_MATCH'),
+    viewer: { ...storyViewer, dormitoryId: null },
+    sameDormitoryRestrictedEmptyState: DEREGISTERED_SAME_DORMITORY_EMPTY_STATE,
+    profileByTargetUserId: seasonOpenProfileByTargetUserId,
+  }),
+  postMatchEmpty: baseScenario({
+    key: 'postMatchEmpty',
+    title: 'Post Match + Empty',
+    description:
+      '포스트매치 결과 정리 기간에 캠퍼스 전체와 같은 건물 목록 모두 표시할 사용자가 없을 때 empty 안내를 확인합니다.',
+    category: 'search',
+    seasonGroup: 'postMatch',
+    searchResponse: postMatchSameDormitoryEmpty,
+    searchResponsesByScope: postMatchEmptySearchResponses,
+    seasonContext: createSeasonContext('SEASON_POST_MATCH'),
+    profileByTargetUserId: seasonOpenProfileByTargetUserId,
+  }),
+  postMatchSearchError: baseScenario({
+    key: 'postMatchSearchError',
+    title: 'Post Match / retry-safe search error',
+    description:
+      '포스트매치 search BFF 실패 시 검색 결과/필터 섹션 없이 사용자 재시도 안내만 노출합니다.',
+    category: 'search',
+    seasonGroup: 'postMatch',
+    searchResponse: postMatchCampusMerged,
+    searchResponsesByScope: postMatchRegisteredSearchResponses,
+    seasonContext: createSeasonContext('SEASON_POST_MATCH'),
+    searchErrorCode: 'BFF_UPSTREAM_UNAVAILABLE',
+    searchErrorStatus: 503,
+  }),
+  postMatchLoadingSkeleton: baseScenario({
+    key: 'postMatchLoadingSkeleton',
+    title: 'Post Match + Loading Skeleton',
+    description:
+      '느린 네트워크에서 포스트매치 요약 목록과 검색 결과 패널이 도착하기 전 스켈레톤을 보여주는 상태입니다.',
+    category: 'search',
+    seasonGroup: 'postMatch',
+    searchResponse: postMatchSameDormitory,
+    searchResponsesByScope: postMatchRegisteredSearchResponses,
+    seasonContext: createSeasonContext('SEASON_POST_MATCH'),
+    searchResponseDelayMs: 20_000,
   }),
 };
 

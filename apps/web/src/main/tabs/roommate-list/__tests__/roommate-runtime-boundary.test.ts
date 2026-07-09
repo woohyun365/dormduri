@@ -166,6 +166,21 @@ describe('RoommateTab runtime boundary', () => {
     expect(violations).toEqual([]);
   });
 
+  it('action success receipt names the counterpart without a status pill and supports block dialog receipt', () => {
+    const source = readFileSync(
+      join(roommateRoot, 'overlays/RoommateActionReceiptDialog.tsx'),
+      'utf8',
+    );
+    const tabSource = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
+
+    expect(source).toContain('counterpartNickname');
+    expect(source).toContain('noticeItems');
+    expect(source).toContain('매칭 요청 후 알아야 할 사항');
+    expect(source).toContain('차단 후 알아야 할 사항');
+    expect(source).not.toContain('이미 요청을 보낸 사용자');
+    expect(tabSource).toContain("receipt?.actionKind === 'block'");
+  });
+
   it('Phase 4 card renders only the card view model and never raw search contract/token fields', () => {
     const source = readFileSync(join(roommateRoot, 'components/RoommateSummaryCard.tsx'), 'utf8');
     const violations = FORBIDDEN_PHASE4_CARD_SOURCE_PATTERNS.filter((pattern) =>

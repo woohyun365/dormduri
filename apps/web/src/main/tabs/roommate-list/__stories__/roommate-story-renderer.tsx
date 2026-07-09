@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react';
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { StoryObj } from '@storybook/nextjs-vite';
 import type { RefObject } from 'react';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import RoommateListTab from '../RoommateListTab';
 import { useRoommateStoryApiFixtures } from './roommate-story-api-fixtures';
-import { roommateStoryScenarios, type RoommateStoryScenario } from './roommate-story-scenarios';
+import type { RoommateStoryScenario } from './roommate-story-scenarios';
 
 interface RoommateListTabStorySurfaceProps {
   scenario: RoommateStoryScenario;
 }
 
-function RoommateListTabStorySurface({ scenario }: RoommateListTabStorySurfaceProps) {
+export function RoommateListTabStorySurface({ scenario }: RoommateListTabStorySurfaceProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   useRoommateStoryApiFixtures(scenario);
   useRoommateStoryAutoOpen(scenario, rootRef);
@@ -25,6 +25,8 @@ function RoommateListTabStorySurface({ scenario }: RoommateListTabStorySurfacePr
           <RoommateListTab
             user={scenario.viewer}
             searchEntryAllowed={scenario.searchEntryAllowed ?? true}
+            searchClosedMessage={scenario.searchClosedMessage}
+            sameDormitoryRestrictedEmptyState={scenario.sameDormitoryRestrictedEmptyState}
             onNavigate={() => undefined}
           />
         </div>
@@ -33,31 +35,7 @@ function RoommateListTabStorySurface({ scenario }: RoommateListTabStorySurfacePr
   );
 }
 
-const meta = {
-  title: 'Main/RoommateTab',
-  component: RoommateListTabStorySurface,
-  parameters: {
-    docs: {
-      description: {
-        component:
-          'DB seed나 로그인 세션 없이 RoommateTab의 search/bookmark/detail/action policy state를 빠르게 비교하기 위한 story-only visual workshop입니다. 실제 BFF/API/auth 통합 정합성은 targeted test와 full-stack smoke가 소유합니다.',
-      },
-    },
-  },
-  argTypes: {
-    scenario: {
-      table: {
-        disable: true,
-      },
-    },
-  },
-} satisfies Meta<typeof RoommateListTabStorySurface>;
-
-export default meta;
-
-type Story = StoryObj<typeof meta>;
-
-function createStory(scenario: RoommateStoryScenario): Story {
+export function createRoommateStory(scenario: RoommateStoryScenario) {
   return {
     name: scenario.title,
     args: { scenario },
@@ -68,7 +46,7 @@ function createStory(scenario: RoommateStoryScenario): Story {
         },
       },
     },
-  };
+  } satisfies StoryObj<typeof RoommateListTabStorySurface>;
 }
 
 function useRoommateStoryAutoOpen(
@@ -103,13 +81,18 @@ async function runAutoOpenSteps(
     return;
   }
 
+  if (autoOpen === 'bookmark-toggle') {
+    await clickButton(root, /관심 목록 저장|관심 목록 해제/u, isCancelled);
+    return;
+  }
+
   await clickButton(root, /프로필 열람하기/u, isCancelled);
 
   if (autoOpen === 'detail') return;
 
   if (autoOpen.startsWith('match-request')) {
     await clickButton(root, /^매칭 요청 보내기$/u, isCancelled, 'first');
-    if (autoOpen === 'match-request-stale-submit') {
+    if (autoOpen === 'match-request-submit') {
       await clickButton(document, /^매칭 요청 보내기$/u, isCancelled, 'last');
     }
     return;
@@ -125,14 +108,19 @@ async function runAutoOpenSteps(
 
   if (autoOpen.startsWith('report')) {
     await clickButton(root, /^신고하기$/u, isCancelled);
-    if (autoOpen === 'report-optional-block-submit') {
-      await prepareReportDialog(isCancelled);
+    if (autoOpen === 'report-submit' || autoOpen === 'report-optional-block-submit') {
+      await prepareReportDialog(isCancelled, {
+        optionalBlock: autoOpen === 'report-optional-block-submit',
+      });
       await clickButton(document, /^신고 접수$/u, isCancelled, 'last');
     }
   }
 }
 
-async function prepareReportDialog(isCancelled: () => boolean) {
+async function prepareReportDialog(
+  isCancelled: () => boolean,
+  options: { readonly optionalBlock: boolean },
+) {
   const dialog = await waitForElement(
     () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].at(-1) ?? null,
     isCancelled,
@@ -146,9 +134,15 @@ async function prepareReportDialog(isCancelled: () => boolean) {
   }
 
   const checkboxes = [...dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
-  checkboxes.forEach((checkbox) => {
-    if (!checkbox.checked) checkbox.click();
-  });
+  const optionalBlockCheckbox = checkboxes[0];
+  const disclaimerCheckbox = checkboxes.at(-1);
+
+  if (options.optionalBlock && optionalBlockCheckbox && !optionalBlockCheckbox.checked) {
+    optionalBlockCheckbox.click();
+  }
+  if (disclaimerCheckbox && !disclaimerCheckbox.checked) {
+    disclaimerCheckbox.click();
+  }
 }
 
 async function clickButton(
@@ -190,69 +184,3 @@ async function waitForElement<T extends Element>(
   }
   return null;
 }
-
-export const OffSeasonClosed = createStory(roommateStoryScenarios.offSeasonClosed);
-export const SeasonOpenRegistered = createStory(roommateStoryScenarios.seasonOpenRegistered);
-export const SeasonOpenNotRegistered = createStory(roommateStoryScenarios.seasonOpenNotRegistered);
-export const SeasonOpenRegisteredEmpty = createStory(
-  roommateStoryScenarios.seasonOpenRegisteredEmpty,
-);
-export const SeasonOpenSearchError = createStory(roommateStoryScenarios.seasonOpenSearchError);
-export const SeasonOpenLoadingSkeleton = createStory(
-  roommateStoryScenarios.seasonOpenLoadingSkeleton,
-);
-export const SeasonMatchingRegistered = createStory(
-  roommateStoryScenarios.seasonMatchingRegistered,
-);
-export const SeasonMatchingNotRegistered = createStory(
-  roommateStoryScenarios.seasonMatchingNotRegistered,
-);
-export const SeasonMatchingNotRegisteredEmpty = createStory(
-  roommateStoryScenarios.seasonMatchingNotRegisteredEmpty,
-);
-export const SeasonMatchingRegisteredEmpty = createStory(
-  roommateStoryScenarios.seasonMatchingRegisteredEmpty,
-);
-export const SeasonMatchingSearchError = createStory(
-  roommateStoryScenarios.seasonMatchingSearchError,
-);
-export const SeasonMatchingLoadingSkeleton = createStory(
-  roommateStoryScenarios.seasonMatchingLoadingSkeleton,
-);
-export const SeasonMatchingDetailFullCompatibility = createStory(
-  roommateStoryScenarios.seasonMatchingDetailFullCompatibility,
-);
-export const SeasonMatchingExceptionScoreCalculationFailed = createStory(
-  roommateStoryScenarios.seasonMatchingExceptionScoreCalculationFailed,
-);
-export const SeasonMatchingExceptionDetailUnavailable = createStory(
-  roommateStoryScenarios.seasonMatchingExceptionDetailUnavailable,
-);
-export const SeasonMatchingExceptionAccessRecheckFailed = createStory(
-  roommateStoryScenarios.seasonMatchingExceptionAccessRecheckFailed,
-);
-export const SeasonMatchingMatchRequestDialog = createStory(
-  roommateStoryScenarios.seasonMatchingMatchRequestDialog,
-);
-export const SeasonMatchingMatchRequestStaleError = createStory(
-  roommateStoryScenarios.seasonMatchingMatchRequestStaleError,
-);
-export const SeasonMatchingBlockDialog = createStory(
-  roommateStoryScenarios.seasonMatchingBlockDialog,
-);
-export const SeasonMatchingBlockSuccessReceipt = createStory(
-  roommateStoryScenarios.seasonMatchingBlockSuccessReceipt,
-);
-export const SeasonMatchingReportDialog = createStory(
-  roommateStoryScenarios.seasonMatchingReportDialog,
-);
-export const SeasonMatchingReportOptionalBlockReceipt = createStory(
-  roommateStoryScenarios.seasonMatchingReportOptionalBlockReceipt,
-);
-export const SeasonMatchingMobileBookmarkIconState = createStory(
-  roommateStoryScenarios.seasonMatchingMobileBookmarkIconState,
-);
-export const SeasonMatchingActionPendingDisabled = createStory(
-  roommateStoryScenarios.seasonMatchingActionPendingDisabled,
-);
-export const PostMatchCohortReview = createStory(roommateStoryScenarios.postMatchCohortReview);

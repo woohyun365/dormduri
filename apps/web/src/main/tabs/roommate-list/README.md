@@ -11,7 +11,7 @@ RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owne
 
 - `roommate-search` summary list response를 기준으로 후보 카드, scope, sort, filter, pagination, availability notice를 렌더링한다.
 - 정상 search entry가 제공한 `detailEntryToken`을 통해 profile detail BFF/API로 진입한다.
-- bookmark, block, report, match request CTA는 각 owner API의 `actions`/response/error reason을 사용자-facing copy로 안전하게 변환한다.
+- bookmark, block, report, match request CTA는 각 owner API의 `actions`/response/error reason을 사용자-facing copy로 안전하게 변환한다. 진행 중인 match request는 search summary의 `pendingMatchRequest`로 표시해 중복 요청 CTA를 막는다.
 - loading, empty, error, stale query, tombstone, disabled action reason, duplicate submit 상태를 제품 UX로 다룬다.
 - 모바일과 데스크톱에서 같은 정보 구조를 유지하되 filter sheet, detail dialog, action dialog의 interaction chrome만 viewport에 맞춘다.
 - FE gating은 UX hint이며, 최종 허용/거부 판단은 BE/API/shared contract를 따른다.
@@ -90,14 +90,14 @@ RoommateTab 내부는 최종적으로 `api/`, `model/`, `hooks/`, `sections/`, `
 
 Phase 4에서 `RoommateListTab.tsx`는 tab-level shell과 hook composition만 담당한다. UI state와 card capability 판단은 아래 파일로 분리한다.
 
-| 파일                                                   | 책임                                                                                                                                |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `model/search/roommateSearchViewModel.ts`              | search item `exposure`/`actions`/`resultRead`/`bookmark`/`matchScore`/`detailEntryToken`을 card view model로 변환한다.              |
-| `sections/header/RoommateSearchHeader.tsx`             | title과 runtime status message만 렌더링한다. availability notice는 header card로 노출하지 않고 empty/error state 판단에만 사용한다. |
-| `sections/scope-switcher/RoommateSearchControls.tsx`   | scope/sort controls와 filter disabled policy copy를 렌더링한다.                                                                     |
-| `sections/empty-states/RoommateSearchStateSection.tsx` | closed/loading/error/empty state를 role/status/alert 기준으로 렌더링한다.                                                           |
-| `sections/results/RoommateSearchResultsSection.tsx`    | result list semantic과 cursor 기반 `더 보기` button을 렌더링한다.                                                                   |
-| `components/RoommateSummaryCard.tsx`                   | card view model만 받아 summary facts, score badge, result-read/action/bookmark state copy를 표시한다.                               |
+| 파일                                                   | 책임                                                                                                                                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model/search/roommateSearchViewModel.ts`              | search item `exposure`/`actions`/`bookmark`/`pendingMatchRequest`/`matchScore`/`detailEntryToken`을 card view model로 변환한다. `resultRead`는 list badge로 노출하지 않는다. |
+| `sections/header/RoommateSearchHeader.tsx`             | title과 runtime status message만 렌더링한다. availability notice는 header card로 노출하지 않고 empty/error state 판단에만 사용한다.                                          |
+| `sections/scope-switcher/RoommateSearchControls.tsx`   | scope/sort controls와 filter disabled policy copy를 렌더링한다.                                                                                                              |
+| `sections/empty-states/RoommateSearchStateSection.tsx` | closed/loading/error/empty state를 role/status/alert 기준으로 렌더링한다.                                                                                                    |
+| `sections/results/RoommateSearchResultsSection.tsx`    | result list semantic과 cursor 기반 `더 보기` button을 렌더링한다.                                                                                                            |
+| `components/RoommateSummaryCard.tsx`                   | card view model만 받아 summary facts, score badge, action/bookmark state copy를 표시한다.                                                                                    |
 
 Card는 shared summary를 직접 다시 해석하지 않는다. `detailEntryToken`은 view model에 보존하지만 DOM에는 렌더링하지 않으며, detail modal과 mutation CTA는 Phase 6~8에서 owner API와 함께 연결한다.
 
@@ -112,7 +112,7 @@ Phase 5에서 상세 필터와 관심 목록은 legacy local state가 아니라 
 | `overlays/RoommateFilterSheet.tsx`             | `BaseBottomSheet` 기반 manifest field editor다. legacy `BottomSheet`/`FilterState`/`DEFAULT_FILTERS`를 사용하지 않는다.                                                                   |
 | `api/roommateActions.client.ts`                | `/api/bookmarks/:targetUserId` POST/DELETE를 shared bookmark schema로 parse한다. `/api/bookmarks` list client는 owner contract helper로 남기되 RoommateTab 화면 page로 렌더링하지 않는다. |
 | `hooks/useRoommateBookmarkList.ts`             | bookmark action pending/optimistic rollback state를 소유한다. list auto-load는 RoommateTab에서 사용하지 않는다.                                                                           |
-| `model/search/roommateSearchViewModel.ts`      | search summary와 bookmark list item을 같은 card VM으로 변환하되 `targetUserId`, bookmark pending/optimistic overlay를 명시한다.                                                           |
+| `model/search/roommateSearchViewModel.ts`      | search summary와 bookmark list item을 같은 card VM으로 변환하되 `targetUserId`, bookmark pending/optimistic overlay, 진행 중 match request pill을 명시한다.                               |
 
 Filter support matrix:
 
@@ -182,7 +182,7 @@ Phase 8에서 RoommateTab은 detail modal의 다음 행동 영역을 `useRoommat
 | `model/actions/roommateActionReasonCopy.ts`      | action unavailable reason, match stale/domain error, report reason/optional block status를 raw code 없이 safe copy로 변환한다. |
 | `overlays/RoommateBlockDialog.tsx`               | optional block note form과 pending/error live status를 렌더링한다.                                                             |
 | `overlays/RoommateReportDialog.tsx`              | profile report reason/detail/disclaimer/optional block form과 receipt-safe UX를 렌더링한다.                                    |
-| `overlays/RoommateMatchRequestDialog.tsx`        | optional request note와 server revalidation/stale race 안내를 포함한 match request confirmation UX를 렌더링한다.               |
+| `overlays/RoommateMatchRequestDialog.tsx`        | optional request note, 최대 5일 요청 유효기간 안내, modal-local 실패 복구를 포함한 match request confirmation UX를 렌더링한다. |
 | `overlays/RoommateProfileDetailDialog.tsx`       | FULL detail에서 match request/chat/block/report action handoff를 제공하고 TOMBSTONE에서는 disabled action copy만 유지한다.     |
 
 Action rules:
@@ -191,8 +191,9 @@ Action rules:
 - Block success 또는 report optional block success는 search list와 bookmark list를 재조회한다. Block create의 bookmark side-effect를 FE local 제거로 대체하지 않는다.
 - Report는 intake-only receipt만 표시한다. 제재/운영 판단 여부, raw report detail, block note, internal risk tier는 UI에 표시하지 않는다.
 - Match request stale/domain rejection은 crash가 아니라 “목록 이후 상태가 바뀌었을 수 있음” copy와 list refresh로 처리한다.
-- Duplicate submit은 `pendingTargetUserIds`로 target 단위 차단한다.
+- Duplicate submit은 `pendingTargetUserIds`로 target 단위 차단한다. 이미 존재하는 pending request는 `roommate-search` summary의 `pendingMatchRequest`로 표시하고 detail CTA에서는 새 요청 대신 대기/확인 CTA를 보여준다.
 - Chat action은 ChatTab send/resume mutation을 만들지 않고, 가능한 경우 대화 탭 이동 handoff로 제한한다.
+- Search summary의 `activeChatThread`는 chat owner의 `ConversationThread` current row가 `OPEN`이고 양쪽 member가 `ACTIVE`인 경우만 전달한다. 이는 신규 채팅 가능(`actions.canStartChat`)과 구분되는 “대화 중” 상태이며, RoommateTab은 “대화 이어가기” handoff만 제공한다.
 
 ## Phase 9 Storybook visual workshop
 
@@ -200,7 +201,8 @@ Phase 9에서 RoommateTab은 Storybook에서 policy state를 빠르게 비교할
 
 | 파일                                            | 책임                                                                                                                                        |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `__stories__/RoommateListTab.stories.tsx`       | `SeasonProvider` + `RoommateListTab` story surface와 search/bookmark/detail/action named stories를 제공한다.                                |
+| `__stories__/roommate-story-renderer.tsx`       | `SeasonProvider` + `RoommateListTab` story surface, auto-open smoke helper, 공통 story factory를 제공한다.                                  |
+| `__stories__/RoommateListTab.*.stories.tsx`     | `{시즌}/{도메인}` title hierarchy로 search/detail/action/responsive named stories를 나눠 제공한다.                                          |
 | `__stories__/roommate-story-scenarios.ts`       | shared/owner contract schema를 만족하는 typed scenario matrix와 policy-state metadata를 제공한다.                                           |
 | `__stories__/roommate-story-api-fixtures.ts`    | story mount 중에만 `window.fetch`를 가로채고 unmount 시 원래 fetch를 복원한다. non-RoommateTab request는 original fetch로 pass-through한다. |
 | `__tests__/roommate-story-scenarios.test.ts`    | Storybook config/typecheck include, story source boundary, scenario schema sanity, privacy guard를 검증한다.                                |
@@ -239,13 +241,13 @@ Color semantics:
 
 주요 scenario map:
 
-- Search: `SeasonOpenRegistered`, `SeasonOpenNotRegistered`, `SeasonMatchingRegistered`, `SeasonMatchingNotRegistered`, `SeasonMatchingNotRegisteredEmpty`, `SeasonMatchingRegisteredEmpty`, `SeasonMatchingSearchError`, `SeasonMatchingLoadingSkeleton`, `PostMatchCohortReview`
+- Search: `SeasonOpenRegistered`, `SeasonOpenNotRegistered`, `SeasonMatchingRegistered`, `SeasonMatchingNotRegistered`, `SeasonMatchingNotRegisteredEmpty`, `SeasonMatchingRegisteredEmpty`, `SeasonMatchingSearchError`, `SeasonMatchingLoadingSkeleton`, `PostMatchRegistered`, `PostMatchNotRegistered`, `PostMatchDeregistered`, `PostMatchEmpty`, `PostMatchSearchError`, `PostMatchLoadingSkeleton`
 - Bookmark affordance: `MobileBookmarkIconState`와 search 결과 내 `저장한 후보만 보기` toggle
-- Detail: `DetailFullCompatibility`, `ExceptionScoreCalculationFailed`, `ExceptionDetailUnavailable`, `ExceptionAccessRecheckFailed`
+- Detail: `DetailFullCompatibility`, `ExceptionScoreCalculationFailed`, `ExceptionDetailUnavailable`, `ExceptionAccessRecheckFailed` (Post Match 결과 상세는 Home/Matching result owner가 담당하므로 RoommateTab list story에 두지 않는다)
   - `ExceptionScoreCalculationFailed`: 서버 점수 계산 오류 상태를 summary amber pill과 detail amber 안내로 표시한다.
   - `ExceptionDetailUnavailable`: 정상 카드 진입 후 상대가 시즌 참여를 철회한 경우를 compact 안내로 표시하고 summary 점수는 유지한다.
   - `ExceptionAccessRecheckFailed`: 서버 재확인 실패를 target 존재 여부 없이 generic 안내로 표시하고 summary 점수는 유지한다.
-- Actions: `MatchRequestDialog`, `MatchRequestStaleError`, `BlockDialog`, `BlockSuccessReceipt`, `ReportDialog`, `ReportOptionalBlockReceipt`, `ActionPendingDisabled`
+- Actions: `MatchRequestDialog`, `RequestPending`, `RequestSuccess`, `PendingRequestStatus`, `RequestFailed`, `RequestAlreadyPending`, `RequestLimitReached`, `RequestTargetMatched`, `ActionBlockedUser`, `BlockDialog`, `BlockSuccessReceipt`, `ReportDialog`, `ReportOptionalBlockReceipt` (Post Match 신규 action은 닫혀 Search-only로 둔다)
 
 실행 명령:
 

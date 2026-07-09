@@ -17,12 +17,20 @@ type StoryFetchStore = {
   originalFetch: typeof fetch;
   refCount: number;
   scenario: RoommateStoryScenario;
+  submittedMatchRequest: StorySubmittedMatchRequest | null;
 };
 
 export type StoryRequest = {
   method: string;
   pathname: string;
   searchParams: URLSearchParams;
+};
+
+type StorySubmittedMatchRequest = {
+  targetUserId: string;
+  requestId: string;
+  createdAt: string;
+  expiresAt: string;
 };
 
 export function useRoommateStoryApiFixtures(scenario: RoommateStoryScenario) {
@@ -36,6 +44,7 @@ export function useRoommateStoryApiFixtures(scenario: RoommateStoryScenario) {
     if (globalStore[ROOMMATE_STORY_FETCH_KEY]) {
       globalStore[ROOMMATE_STORY_FETCH_KEY].refCount += 1;
       globalStore[ROOMMATE_STORY_FETCH_KEY].scenario = scenario;
+      globalStore[ROOMMATE_STORY_FETCH_KEY].submittedMatchRequest = null;
       return () => releaseRoommateStoryFetchShim(globalStore);
     }
 
@@ -44,13 +53,14 @@ export function useRoommateStoryApiFixtures(scenario: RoommateStoryScenario) {
       originalFetch: window.fetch,
       refCount: 1,
       scenario,
+      submittedMatchRequest: null,
     };
 
     window.fetch = async (input, init) => {
       const store = globalStore[ROOMMATE_STORY_FETCH_KEY];
       const activeScenario = store?.scenario ?? scenario;
       const request = resolveStoryRequest(input, init);
-      const response = resolveRoommateStoryResponse(request, activeScenario);
+      const response = resolveRoommateStoryResponse(request, activeScenario, store ?? null);
       if (response) return response;
       return originalFetch(input, init);
     };
@@ -90,6 +100,7 @@ function resolveStoryRequest(input: Parameters<typeof fetch>[0], init?: RequestI
 function resolveRoommateStoryResponse(
   request: StoryRequest,
   scenario: RoommateStoryScenario,
+  store: StoryFetchStore | null,
 ): Response | Promise<Response> | null {
   if (request.method === 'GET' && request.pathname === '/api/roommate-search/manifest') {
     return createMaybeDelayedStoryJsonResponse(
@@ -109,7 +120,7 @@ function resolveRoommateStoryResponse(
       );
     }
     return createMaybeDelayedStoryJsonResponse(
-      createRoommateStorySearchResponse(scenario, request),
+      createRoommateStorySearchResponse(scenario, request, store?.submittedMatchRequest ?? null),
       scenario.searchResponseDelayMs,
     );
   }
@@ -119,6 +130,12 @@ function resolveRoommateStoryResponse(
   }
 
   if (/^\/api\/bookmarks\/[^/]+$/.test(request.pathname) && request.method === 'POST') {
+    if (scenario.bookmarkError) {
+      return createStoryJsonResponse(
+        { code: scenario.bookmarkError.code },
+        scenario.bookmarkError.status,
+      );
+    }
     const targetUserId = decodeURIComponent(request.pathname.split('/').at(-1) ?? 'story-target');
     return createStoryJsonResponse({
       bookmark: {
@@ -133,6 +150,12 @@ function resolveRoommateStoryResponse(
   }
 
   if (/^\/api\/bookmarks\/[^/]+$/.test(request.pathname) && request.method === 'DELETE') {
+    if (scenario.bookmarkError) {
+      return createStoryJsonResponse(
+        { code: scenario.bookmarkError.code },
+        scenario.bookmarkError.status,
+      );
+    }
     return createStoryJsonResponse({
       deleted: true,
       listMetadata: { sort: 'RECENT', serverTime: ISO_NOW },
@@ -154,6 +177,7 @@ function resolveRoommateStoryResponse(
       return createDelayedStoryJsonResponse(
         scenario.matchRequestResponse,
         scenario.responseDelayMs,
+        () => recordSubmittedMatchRequest(store, scenario),
       );
     }
     if (scenario.matchRequestError) {
@@ -162,14 +186,33 @@ function resolveRoommateStoryResponse(
         scenario.matchRequestError.status,
       );
     }
+    recordSubmittedMatchRequest(store, scenario);
     return createStoryJsonResponse(scenario.matchRequestResponse);
   }
 
   if (/^\/api\/blocks\/[^/]+$/.test(request.pathname) && request.method === 'POST') {
+    if (typeof scenario.responseDelayMs === 'number') {
+      return createDelayedStoryJsonResponse(scenario.blockResponse, scenario.responseDelayMs);
+    }
+    if (scenario.blockError) {
+      return createStoryJsonResponse(
+        { code: scenario.blockError.code },
+        scenario.blockError.status,
+      );
+    }
     return createStoryJsonResponse(scenario.blockResponse);
   }
 
   if (request.pathname === '/api/reports' && request.method === 'POST') {
+    if (typeof scenario.responseDelayMs === 'number') {
+      return createDelayedStoryJsonResponse(scenario.reportResponse, scenario.responseDelayMs);
+    }
+    if (scenario.reportError) {
+      return createStoryJsonResponse(
+        { code: scenario.reportError.code },
+        scenario.reportError.status,
+      );
+    }
     return createStoryJsonResponse(scenario.reportResponse);
   }
 
@@ -179,13 +222,17 @@ function resolveRoommateStoryResponse(
 export function createRoommateStorySearchResponse(
   scenario: RoommateStoryScenario,
   request: StoryRequest,
+  submittedMatchRequest: StorySubmittedMatchRequest | null = null,
 ): RoommateSearchResponse {
   const response = resolveScenarioSearchResponse(
     scenario,
     resolveRequestedSearchScope(request.searchParams),
   );
   return paginateSearchResponse(
-    sortStorySearchResponse(response, resolveRequestedSearchSort(request.searchParams)),
+    sortStorySearchResponse(
+      decorateSubmittedMatchRequest(response, submittedMatchRequest),
+      resolveRequestedSearchSort(request.searchParams),
+    ),
     request.searchParams,
   );
 }
@@ -199,6 +246,44 @@ function resolveScenarioSearchResponse(
   }
 
   return scenario.searchResponse;
+}
+
+function recordSubmittedMatchRequest(
+  store: StoryFetchStore | null,
+  scenario: RoommateStoryScenario,
+) {
+  if (!store) return;
+  const request = scenario.matchRequestResponse.request;
+  store.submittedMatchRequest = {
+    targetUserId: request.counterpartUserId,
+    requestId: request.id,
+    createdAt: request.createdAt,
+    expiresAt: request.expiresAt,
+  };
+}
+
+function decorateSubmittedMatchRequest(
+  response: RoommateSearchResponse,
+  submittedMatchRequest: StorySubmittedMatchRequest | null,
+): RoommateSearchResponse {
+  if (!submittedMatchRequest) return response;
+
+  return {
+    ...response,
+    items: response.items.map((item) =>
+      item.id === submittedMatchRequest.targetUserId
+        ? {
+            ...item,
+            pendingMatchRequest: {
+              id: submittedMatchRequest.requestId,
+              direction: 'SENT',
+              createdAt: submittedMatchRequest.createdAt,
+              expiresAt: submittedMatchRequest.expiresAt,
+            },
+          }
+        : item,
+    ),
+  };
 }
 
 function paginateSearchResponse(
@@ -305,7 +390,12 @@ function createMaybeDelayedStoryJsonResponse(
   return createStoryJsonResponse(json);
 }
 
-async function createDelayedStoryJsonResponse(json: unknown, delayMs: number): Promise<Response> {
+async function createDelayedStoryJsonResponse(
+  json: unknown,
+  delayMs: number,
+  beforeRespond?: () => void,
+): Promise<Response> {
   await new Promise((done) => window.setTimeout(done, delayMs));
+  beforeRespond?.();
   return createStoryJsonResponse(json);
 }

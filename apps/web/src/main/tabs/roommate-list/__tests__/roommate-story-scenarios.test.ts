@@ -37,41 +37,50 @@ describe('RoommateTab Storybook architecture boundary', () => {
   });
 
   it('uses a story-only API fixture layer and does not add ChatTab or MatchingTab owners', () => {
-    const storySource = readFileSync(
-      join(ROOMMATE_ROOT, '__stories__/RoommateListTab.stories.tsx'),
-      'utf8',
-    );
+    const storySource = readStorybookStorySources();
     const fixtureSource = readFileSync(
       join(ROOMMATE_ROOT, '__stories__/roommate-story-api-fixtures.ts'),
       'utf8',
     );
+    const rendererSource = readFileSync(
+      join(ROOMMATE_ROOT, '__stories__/roommate-story-renderer.tsx'),
+      'utf8',
+    );
 
-    expect(storySource).toContain('./roommate-story-api-fixtures');
+    expect(rendererSource).toContain('./roommate-story-api-fixtures');
     expect(storySource).toContain('./roommate-story-scenarios');
-    expect(storySource).toContain("title: 'Main/RoommateTab'");
+    expect(storySource).toContain('Main/RoommateTab/Season Matching/Action/MatchRequest');
+    expect(storySource).toContain('Main/RoommateTab/Season Matching/Action/Bookmark');
+    expect(storySource).toContain('Main/RoommateTab/Season Matching/Action/Block');
+    expect(storySource).toContain('Main/RoommateTab/Season Matching/Action/Report');
+    expect(storySource).toContain('Main/RoommateTab/Season Matching/Detail');
+    expect(storySource).toContain('Main/RoommateTab/Season Open/Search');
     expect(storySource).not.toContain('ChatTab');
     expect(storySource).not.toContain('MatchingTab');
+    expect(storySource).toContain("title: 'Main/RoommateTab/Season Matching/Action/MatchRequest'");
+    expect(storySource).not.toContain("title: 'Main/RoommateTab/Season Matching/Action'");
     expect(fixtureSource).toContain('originalFetch');
     expect(fixtureSource).toContain('refCount');
     expect(fixtureSource).toContain('return originalFetch(input, init)');
   });
 
   it('lets every scenario respond to the actual Storybook viewport instead of clamping non-desktop stories to mobile width', () => {
-    const storySource = readFileSync(
-      join(ROOMMATE_ROOT, '__stories__/RoommateListTab.stories.tsx'),
+    const rendererSource = readFileSync(
+      join(ROOMMATE_ROOT, '__stories__/roommate-story-renderer.tsx'),
       'utf8',
     );
+    const storySource = readStorybookStorySources();
 
-    expect(storySource).toContain('max-w-md');
-    expect(storySource).toContain('lg:max-w-7xl');
-    expect(storySource).toContain('candidate && !candidate.disabled');
+    expect(rendererSource).toContain('max-w-md');
+    expect(rendererSource).toContain('lg:max-w-7xl');
+    expect(rendererSource).toContain('candidate && !candidate.disabled');
     expect(storySource).toContain('OffSeasonClosed');
-    expect(storySource).toContain('SeasonOpenRegistered');
-    expect(storySource).toContain('SeasonOpenNotRegistered');
-    expect(storySource).toContain('SeasonMatchingRegistered');
-    expect(storySource).toContain('SeasonMatchingNotRegistered');
-    expect(storySource).toContain('PostMatchCohortReview');
-    expect(storySource).not.toContain("scenario.viewportHint === 'desktop'");
+    expect(storySource).toContain('seasonOpenRegistered');
+    expect(storySource).toContain('seasonOpenNotRegistered');
+    expect(storySource).toContain('seasonMatchingRegistered');
+    expect(storySource).toContain('seasonMatchingNotRegistered');
+    expect(storySource).toContain('postMatchRegistered');
+    expect(rendererSource).not.toContain("scenario.viewportHint === 'desktop'");
   });
 
   it('keeps story fixtures out of production RoommateTab runtime files', () => {
@@ -84,8 +93,8 @@ describe('RoommateTab Storybook architecture boundary', () => {
 });
 
 describe('roommateStoryScenarios policy matrix', () => {
-  it('exposes search, detail, action, and responsive scenario categories', () => {
-    expect(ROOMMATE_STORY_SCENARIO_KEYS).toHaveLength(25);
+  it('exposes search, detail, and action scenario categories', () => {
+    expect(ROOMMATE_STORY_SCENARIO_KEYS).toHaveLength(48);
 
     for (const key of ROOMMATE_STORY_SCENARIO_KEYS) {
       expect(roommateStoryScenarios[key]).toBeDefined();
@@ -96,17 +105,28 @@ describe('roommateStoryScenarios policy matrix', () => {
       expect.arrayContaining([
         'offSeasonClosed',
         'seasonMatchingRegistered',
+        'seasonMatchingRegisteredChatting',
+        'seasonMatchingActiveMatched',
+        'seasonMatchingUnmatched',
+        'seasonMatchingDeregistered',
         'seasonMatchingNotRegistered',
         'seasonMatchingNotRegisteredEmpty',
         'seasonMatchingRegisteredEmpty',
         'seasonMatchingSearchError',
         'seasonMatchingLoadingSkeleton',
         'seasonOpenRegistered',
+        'seasonOpenRegisteredChatting',
         'seasonOpenNotRegistered',
+        'seasonOpenDeregistered',
         'seasonOpenRegisteredEmpty',
         'seasonOpenSearchError',
         'seasonOpenLoadingSkeleton',
-        'postMatchCohortReview',
+        'postMatchRegistered',
+        'postMatchNotRegistered',
+        'postMatchDeregistered',
+        'postMatchEmpty',
+        'postMatchSearchError',
+        'postMatchLoadingSkeleton',
       ]),
     );
     expect(ROOMMATE_STORY_CATEGORY_KEYS.detail).toEqual(
@@ -120,16 +140,72 @@ describe('roommateStoryScenarios policy matrix', () => {
     expect(ROOMMATE_STORY_CATEGORY_KEYS.action).toEqual(
       expect.arrayContaining([
         'seasonMatchingMatchRequestDialog',
-        'seasonMatchingMatchRequestStaleError',
+        'seasonMatchingMatchRequestPending',
+        'seasonMatchingMatchRequestSuccess',
+        'seasonMatchingPendingRequests',
+        'seasonMatchingMatchRequestFailed',
+        'seasonMatchingMatchRequestAlreadyPending',
+        'seasonMatchingMatchRequestLimitReached',
+        'seasonMatchingMatchRequestTargetMatched',
+        'seasonMatchingMatchRequestTargetDeregistered',
+        'seasonMatchingBookmarkStaleFailure',
+        'seasonMatchingActionBlockedUser',
+        'seasonMatchingBlockDialog',
+        'seasonMatchingBlockPending',
+        'seasonMatchingBlockFailed',
+        'seasonMatchingBlockSuccessReceipt',
+        'seasonMatchingReportDialog',
+        'seasonMatchingReportPending',
+        'seasonMatchingReportFailed',
+        'seasonMatchingReportSuccessReceipt',
         'seasonMatchingReportOptionalBlockReceipt',
       ]),
     );
-    expect(ROOMMATE_STORY_CATEGORY_KEYS.responsive).toEqual(
-      expect.arrayContaining(['seasonMatchingMobileBookmarkIconState']),
-    );
-    expect(roommateStoryScenarios.seasonMatchingActionPendingDisabled).toMatchObject({
-      autoOpen: 'match-request-stale-submit',
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestPending).toMatchObject({
+      autoOpen: 'match-request-submit',
       responseDelayMs: expect.any(Number),
+    });
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestSuccess).toMatchObject({
+      autoOpen: 'match-request-submit',
+    });
+    expect(roommateStoryScenarios.seasonMatchingPendingRequests.searchResponse.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pendingMatchRequest: expect.objectContaining({ direction: 'SENT' }),
+        }),
+        expect.objectContaining({
+          pendingMatchRequest: expect.objectContaining({ direction: 'RECEIVED' }),
+        }),
+      ]),
+    );
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestFailed).toMatchObject({
+      autoOpen: 'match-request-submit',
+      matchRequestError: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
+    });
+    expect(roommateStoryScenarios.seasonMatchingBlockPending).toMatchObject({
+      autoOpen: 'block-submit',
+      responseDelayMs: expect.any(Number),
+    });
+    expect(roommateStoryScenarios.seasonMatchingBlockFailed).toMatchObject({
+      autoOpen: 'block-submit',
+      blockError: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
+    });
+    expect(roommateStoryScenarios.seasonMatchingReportPending).toMatchObject({
+      autoOpen: 'report-submit',
+      responseDelayMs: expect.any(Number),
+    });
+    expect(roommateStoryScenarios.seasonMatchingReportFailed).toMatchObject({
+      autoOpen: 'report-submit',
+      reportError: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
+    });
+    expect(roommateStoryScenarios.seasonMatchingReportSuccessReceipt).toMatchObject({
+      autoOpen: 'report-submit',
+    });
+    expect(roommateStoryScenarios.seasonMatchingReportOptionalBlockReceipt).toMatchObject({
+      autoOpen: 'report-optional-block-submit',
+      reportResponse: expect.objectContaining({
+        optionalActionResult: expect.objectContaining({ status: 'SUCCEEDED' }),
+      }),
     });
   });
 
@@ -138,13 +214,19 @@ describe('roommateStoryScenarios policy matrix', () => {
       offSeason: ['offSeasonClosed'],
       seasonOpen: [
         'seasonOpenRegistered',
+        'seasonOpenRegisteredChatting',
         'seasonOpenNotRegistered',
+        'seasonOpenDeregistered',
         'seasonOpenRegisteredEmpty',
         'seasonOpenSearchError',
         'seasonOpenLoadingSkeleton',
       ],
       seasonMatching: expect.arrayContaining([
         'seasonMatchingRegistered',
+        'seasonMatchingRegisteredChatting',
+        'seasonMatchingActiveMatched',
+        'seasonMatchingUnmatched',
+        'seasonMatchingDeregistered',
         'seasonMatchingNotRegistered',
         'seasonMatchingNotRegisteredEmpty',
         'seasonMatchingRegisteredEmpty',
@@ -152,8 +234,26 @@ describe('roommateStoryScenarios policy matrix', () => {
         'seasonMatchingLoadingSkeleton',
         'seasonMatchingDetailFullCompatibility',
         'seasonMatchingMatchRequestDialog',
+        'seasonMatchingMatchRequestPending',
+        'seasonMatchingMatchRequestSuccess',
+        'seasonMatchingPendingRequests',
+        'seasonMatchingMatchRequestFailed',
+        'seasonMatchingMatchRequestTargetMatched',
+        'seasonMatchingMatchRequestTargetDeregistered',
+        'seasonMatchingBookmarkStaleFailure',
+        'seasonMatchingBlockDialog',
+        'seasonMatchingBlockPending',
+        'seasonMatchingBlockFailed',
+        'seasonMatchingBlockSuccessReceipt',
       ]),
-      postMatch: ['postMatchCohortReview'],
+      postMatch: [
+        'postMatchRegistered',
+        'postMatchNotRegistered',
+        'postMatchDeregistered',
+        'postMatchEmpty',
+        'postMatchSearchError',
+        'postMatchLoadingSkeleton',
+      ],
     });
 
     for (const [seasonGroup, keys] of Object.entries(ROOMMATE_STORY_SEASON_GROUP_KEYS)) {
@@ -174,7 +274,7 @@ describe('roommateStoryScenarios policy matrix', () => {
       viewer: { dormitoryId: expect.any(String) },
       searchResponse: {
         scope: 'SAME_BUILDING_ONLY',
-        scopeAvailability: { sameBuildingOnly: true },
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
         manifest: { purpose: 'ACTIONABLE_DETAIL_DISCOVERY' },
       },
     });
@@ -214,6 +314,23 @@ describe('roommateStoryScenarios policy matrix', () => {
         }),
       ]),
     );
+    expect(roommateStoryScenarios.seasonOpenRegisteredChatting).toMatchObject({
+      seasonGroup: 'seasonOpen',
+      seasonContext: { state: 'SEASON_OPEN' },
+      searchResponse: {
+        scope: 'SAME_BUILDING_ONLY',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            profileSummary: expect.objectContaining({ nickname: '오픈대화중' }),
+            actions: expect.objectContaining({ canStartChat: true }),
+            activeChatThread: expect.objectContaining({
+              status: 'OPEN',
+              threadKind: 'DIRECT',
+            }),
+          }),
+        ]),
+      },
+    });
     const registeredSameDormScores =
       roommateStoryScenarios.seasonOpenRegistered.searchResponsesByScope?.SAME_BUILDING_ONLY?.items.map(
         (item) => item.matchScore,
@@ -252,7 +369,30 @@ describe('roommateStoryScenarios policy matrix', () => {
     ).toMatchObject({
       scope: 'SAME_BUILDING_ONLY',
       items: [],
-      manifest: { purpose: 'ACTIONABLE_DETAIL_DISCOVERY' },
+      manifest: { purpose: 'BROAD_PREVIEW' },
+    });
+    expect(roommateStoryScenarios.seasonOpenDeregistered).toMatchObject({
+      seasonGroup: 'seasonOpen',
+      searchEntryAllowed: true,
+      viewer: { dormitoryId: null },
+      seasonContext: { state: 'SEASON_OPEN' },
+      searchResponse: {
+        scope: 'CAMPUS_MERGED',
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+        manifest: { purpose: 'BROAD_PREVIEW' },
+      },
+      sameDormitoryRestrictedEmptyState: {
+        title: expect.stringContaining('같은 건물 후보를 볼 수 없어요'),
+        message: expect.stringContaining('캠퍼스 전체'),
+      },
+    });
+    expect(
+      roommateStoryScenarios.seasonOpenDeregistered.searchResponsesByScope?.SAME_BUILDING_ONLY,
+    ).toMatchObject({
+      scope: 'SAME_BUILDING_ONLY',
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      items: [],
+      manifest: { purpose: 'BROAD_PREVIEW' },
     });
     expect(roommateStoryScenarios.seasonOpenRegisteredEmpty).toMatchObject({
       seasonGroup: 'seasonOpen',
@@ -300,11 +440,25 @@ describe('roommateStoryScenarios policy matrix', () => {
       viewer: { dormitoryId: expect.any(String) },
       searchResponse: {
         scope: 'SAME_BUILDING_ONLY',
-        scopeAvailability: { campusMerged: false, sameBuildingOnly: true },
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
         manifest: { purpose: 'ACTIONABLE_DETAIL_DISCOVERY' },
       },
     });
-    expect(roommateStoryScenarios.seasonMatchingRegistered.searchResponse.items).toEqual(
+    expect(roommateStoryScenarios.seasonMatchingRegistered.searchResponsesByScope).toMatchObject({
+      CAMPUS_MERGED: {
+        scope: 'CAMPUS_MERGED',
+        manifest: { purpose: 'BROAD_PREVIEW' },
+      },
+      SAME_BUILDING_ONLY: {
+        scope: 'SAME_BUILDING_ONLY',
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+        manifest: { purpose: 'ACTIONABLE_DETAIL_DISCOVERY' },
+      },
+    });
+    expect(
+      roommateStoryScenarios.seasonMatchingRegistered.searchResponsesByScope?.SAME_BUILDING_ONLY
+        ?.items,
+    ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           profileSummary: expect.objectContaining({ nickname: '가온' }),
@@ -317,8 +471,108 @@ describe('roommateStoryScenarios policy matrix', () => {
         }),
       ]),
     );
+    expect(roommateStoryScenarios.seasonMatchingRegisteredChatting).toMatchObject({
+      seasonGroup: 'seasonMatching',
+      seasonContext: { state: 'SEASON_MATCHING' },
+      searchResponse: {
+        scope: 'SAME_BUILDING_ONLY',
+      },
+      searchResponsesByScope: {
+        SAME_BUILDING_ONLY: {
+          scope: 'SAME_BUILDING_ONLY',
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              profileSummary: expect.objectContaining({ nickname: '매칭대화중' }),
+              actions: expect.objectContaining({ canStartChat: true }),
+              activeChatThread: expect.objectContaining({
+                status: 'OPEN',
+                threadKind: 'DIRECT',
+              }),
+            }),
+          ]),
+        },
+      },
+    });
+    expect(roommateStoryScenarios.seasonMatchingActiveMatched).toMatchObject({
+      seasonGroup: 'seasonMatching',
+      seasonContext: { state: 'SEASON_MATCHING' },
+      searchResponse: {
+        scope: 'SAME_BUILDING_ONLY',
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+        manifest: { purpose: 'BROAD_PREVIEW' },
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            exposure: expect.objectContaining({ detailViewable: false, scoreVisible: false }),
+            actions: expect.objectContaining({
+              canBookmark: false,
+              canRequestMatch: false,
+              canStartChat: false,
+              unavailableReasons: ['VIEWER_ALREADY_MATCHED'],
+            }),
+          }),
+        ]),
+      },
+      searchResponsesByScope: {
+        SAME_BUILDING_ONLY: {
+          scope: 'SAME_BUILDING_ONLY',
+          manifest: { purpose: 'BROAD_PREVIEW' },
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              exposure: expect.objectContaining({ detailViewable: false, scoreVisible: false }),
+              actions: expect.objectContaining({
+                canBookmark: false,
+                canRequestMatch: false,
+                canStartChat: false,
+                unavailableReasons: ['VIEWER_ALREADY_MATCHED'],
+              }),
+            }),
+          ]),
+        },
+      },
+    });
+    expect(roommateStoryScenarios.seasonMatchingUnmatched).toMatchObject({
+      seasonGroup: 'seasonMatching',
+      seasonContext: { state: 'SEASON_MATCHING' },
+      searchResponse: {
+        scope: 'SAME_BUILDING_ONLY',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            actions: expect.objectContaining({ canRequestMatch: true }),
+          }),
+          expect.objectContaining({
+            actions: expect.objectContaining({
+              unavailableReasons: ['MATCH_REQUEST_DIRECTION_LIMIT_REACHED'],
+            }),
+          }),
+        ]),
+      },
+    });
+    expect(roommateStoryScenarios.seasonMatchingDeregistered).toMatchObject({
+      seasonGroup: 'seasonMatching',
+      searchEntryAllowed: true,
+      viewer: { dormitoryId: null },
+      seasonContext: { state: 'SEASON_MATCHING' },
+      searchResponse: {
+        scope: 'CAMPUS_MERGED',
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+        manifest: { purpose: 'BROAD_PREVIEW' },
+      },
+      sameDormitoryRestrictedEmptyState: {
+        title: expect.stringContaining('같은 건물 후보를 볼 수 없어요'),
+        message: expect.stringContaining('생활패턴 비교'),
+      },
+    });
     expect(
-      roommateStoryScenarios.seasonMatchingRegistered.searchResponse.availabilityNotices,
+      roommateStoryScenarios.seasonMatchingDeregistered.searchResponsesByScope?.SAME_BUILDING_ONLY,
+    ).toMatchObject({
+      scope: 'SAME_BUILDING_ONLY',
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      items: [],
+      manifest: { purpose: 'BROAD_PREVIEW' },
+    });
+    expect(
+      roommateStoryScenarios.seasonMatchingRegistered.searchResponsesByScope?.SAME_BUILDING_ONLY
+        ?.availabilityNotices,
     ).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'DISCOVERY_ACTIONABLE_ONLY' })]),
     );
@@ -372,7 +626,7 @@ describe('roommateStoryScenarios policy matrix', () => {
       viewer: { dormitoryId: null },
       searchResponse: {
         scope: 'CAMPUS_MERGED',
-        scopeAvailability: { campusMerged: true, sameBuildingOnly: false },
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
         manifest: { purpose: 'BROAD_PREVIEW' },
       },
     });
@@ -395,13 +649,21 @@ describe('roommateStoryScenarios policy matrix', () => {
         expect.objectContaining({ code: 'SCOPE_RESTRICTED_BY_VIEWER_STATE' }),
       ]),
     );
+    expect(
+      roommateStoryScenarios.seasonMatchingNotRegistered.searchResponsesByScope?.SAME_BUILDING_ONLY,
+    ).toMatchObject({
+      scope: 'SAME_BUILDING_ONLY',
+      items: [],
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      manifest: { purpose: 'BROAD_PREVIEW' },
+    });
     expect(roommateStoryScenarios.seasonMatchingNotRegisteredEmpty).toMatchObject({
       seasonGroup: 'seasonMatching',
       viewer: { dormitoryId: null },
       searchResponse: {
         scope: 'CAMPUS_MERGED',
         items: [],
-        scopeAvailability: { campusMerged: true, sameBuildingOnly: false },
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
         manifest: { purpose: 'BROAD_PREVIEW' },
       },
     });
@@ -410,8 +672,15 @@ describe('roommateStoryScenarios policy matrix', () => {
       searchResponse: {
         scope: 'SAME_BUILDING_ONLY',
         items: [],
-        scopeAvailability: { campusMerged: false, sameBuildingOnly: true },
+        scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
         manifest: { purpose: 'ACTIONABLE_DETAIL_DISCOVERY' },
+      },
+      searchResponsesByScope: {
+        SAME_BUILDING_ONLY: {
+          scope: 'SAME_BUILDING_ONLY',
+          items: [],
+          manifest: { purpose: 'ACTIONABLE_DETAIL_DISCOVERY' },
+        },
       },
     });
     expect(roommateStoryScenarios.seasonMatchingSearchError).toMatchObject({
@@ -425,10 +694,129 @@ describe('roommateStoryScenarios policy matrix', () => {
       searchResponse: { scope: 'SAME_BUILDING_ONLY', appliedSort: 'MATCH_SCORE' },
       searchResponseDelayMs: expect.any(Number),
     });
-    expect(roommateStoryScenarios.postMatchCohortReview).toMatchObject({
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestAlreadyPending).toMatchObject({
+      title: expect.stringContaining('Stale Pending Request Race'),
+      autoOpen: 'match-request-submit',
+      matchRequestError: { code: 'MATCH_REQUEST_ALREADY_PENDING', status: 409 },
+    });
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestLimitReached).toMatchObject({
+      autoOpen: 'detail',
+      searchResponse: {
+        scope: 'SAME_BUILDING_ONLY',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            profileSummary: expect.objectContaining({ nickname: '횟수초과' }),
+            actions: expect.objectContaining({
+              canRequestMatch: false,
+              canStartChat: true,
+              unavailableReasons: ['MATCH_REQUEST_DIRECTION_LIMIT_REACHED'],
+            }),
+          }),
+        ]),
+      },
+    });
+    expect(
+      roommateStoryScenarios.seasonMatchingMatchRequestLimitReached.searchResponse.items.map(
+        (item) => item.profileSummary.nickname,
+      ),
+    ).toEqual(['횟수초과']);
+    expect(
+      roommateStoryScenarios.seasonMatchingMatchRequestLimitReached.matchRequestError,
+    ).toBeUndefined();
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestTargetMatched).toMatchObject({
+      autoOpen: 'match-request-submit',
+      matchRequestError: { code: 'ACTIVE_MATCH_ALREADY_EXISTS', status: 409 },
+    });
+    expect(
+      roommateStoryScenarios.seasonMatchingMatchRequestTargetMatched.searchResponse.items,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: { type: 'GENERAL' },
+          resultRead: { resultReadable: false, context: 'NONE' },
+          actions: expect.objectContaining({
+            canRequestMatch: true,
+            canStartChat: true,
+            unavailableReasons: [],
+          }),
+        }),
+      ]),
+    );
+    expect(roommateStoryScenarios.seasonMatchingMatchRequestTargetDeregistered).toMatchObject({
+      autoOpen: 'match-request-submit',
+      matchRequestError: { code: 'MATCH_REQUEST_TARGET_NOT_FOUND', status: 404 },
+    });
+    expect(roommateStoryScenarios.seasonMatchingBookmarkStaleFailure).toMatchObject({
+      autoOpen: 'bookmark-toggle',
+      bookmarkError: { code: 'TARGET_NOT_BOOKMARKABLE', status: 404 },
+    });
+    expect(roommateStoryScenarios.seasonMatchingActionBlockedUser.searchResponse.items).toEqual([
+      expect.objectContaining({
+        exposure: expect.objectContaining({ detailViewable: false, scoreVisible: false }),
+        actions: expect.objectContaining({
+          canBookmark: false,
+          canRequestMatch: false,
+          canStartChat: false,
+          unavailableReasons: ['SAFETY_OR_VISIBILITY_RESTRICTED'],
+        }),
+      }),
+    ]);
+    expect(roommateStoryScenarios.postMatchRegistered).toMatchObject({
       seasonGroup: 'postMatch',
       seasonContext: { state: 'SEASON_POST_MATCH' },
-      searchResponse: { manifest: { purpose: 'POST_MATCH_COHORT_REVIEW' } },
+      category: 'search',
+      searchResponse: {
+        scope: 'SAME_BUILDING_ONLY',
+        manifest: { purpose: 'POST_MATCH_COHORT_REVIEW' },
+      },
+    });
+    expect(roommateStoryScenarios.postMatchRegistered.searchResponsesByScope).toMatchObject({
+      CAMPUS_MERGED: { scope: 'CAMPUS_MERGED', manifest: { purpose: 'BROAD_PREVIEW' } },
+      SAME_BUILDING_ONLY: {
+        scope: 'SAME_BUILDING_ONLY',
+        manifest: { purpose: 'POST_MATCH_COHORT_REVIEW' },
+      },
+    });
+    expect(roommateStoryScenarios.postMatchRegistered.searchResponse.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: { type: 'GENERAL' },
+          resultRead: { resultReadable: false, context: 'NONE' },
+          exposure: expect.objectContaining({
+            detailViewable: false,
+            canViewFull: false,
+            scoreVisible: false,
+          }),
+          actions: expect.objectContaining({
+            canBookmark: false,
+            canRequestMatch: false,
+            canStartChat: false,
+            unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+          }),
+        }),
+      ]),
+    );
+    expect(roommateStoryScenarios.postMatchNotRegistered).toMatchObject({
+      seasonGroup: 'postMatch',
+      viewer: expect.objectContaining({ dormitoryId: null }),
+      sameDormitoryRestrictedEmptyState: expect.objectContaining({
+        title: '시즌 등록 이력이 있어야 목록을 볼 수 있어요.',
+      }),
+    });
+    expect(roommateStoryScenarios.postMatchDeregistered).toMatchObject({
+      seasonGroup: 'postMatch',
+      viewer: expect.objectContaining({ dormitoryId: null }),
+      sameDormitoryRestrictedEmptyState: expect.objectContaining({
+        title: '시즌 참여 철회 후 같은 건물 후보를 볼 수 없어요.',
+      }),
+    });
+    expect(roommateStoryScenarios.postMatchEmpty.searchResponse.items).toEqual([]);
+    expect(roommateStoryScenarios.postMatchSearchError).toMatchObject({
+      searchErrorCode: 'BFF_UPSTREAM_UNAVAILABLE',
+      searchErrorStatus: 503,
+    });
+    expect(roommateStoryScenarios.postMatchLoadingSkeleton).toMatchObject({
+      searchResponseDelayMs: expect.any(Number),
     });
   });
 
@@ -499,6 +887,36 @@ describe('roommateStoryScenarios policy matrix', () => {
     ]);
   });
 
+  it('match request success story refreshes the submitted target as sent pending request', () => {
+    const scenario = roommateStoryScenarios.seasonMatchingMatchRequestSuccess;
+    const response = createRoommateStorySearchResponse(
+      scenario,
+      {
+        method: 'GET',
+        pathname: '/api/roommate-search',
+        searchParams: new URLSearchParams('scope=SAME_BUILDING_ONLY'),
+      },
+      {
+        targetUserId: scenario.matchRequestResponse.request.counterpartUserId,
+        requestId: scenario.matchRequestResponse.request.id,
+        createdAt: scenario.matchRequestResponse.request.createdAt,
+        expiresAt: scenario.matchRequestResponse.request.expiresAt,
+      },
+    );
+
+    expect(response.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: scenario.matchRequestResponse.request.counterpartUserId,
+          pendingMatchRequest: expect.objectContaining({
+            id: scenario.matchRequestResponse.request.id,
+            direction: 'SENT',
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('validates story fixture payloads with owner/shared schemas', () => {
     for (const scenario of Object.values(roommateStoryScenarios)) {
       expect(() => roommateSearchResponseSchema.parse(scenario.searchResponse)).not.toThrow();
@@ -557,6 +975,14 @@ describe('roommateStoryScenarios policy matrix', () => {
     expect(visibleMetadata).not.toContain('retained payload');
   });
 });
+
+function readStorybookStorySources(): string {
+  const storyDir = join(ROOMMATE_ROOT, '__stories__');
+  return readdirSync(storyDir)
+    .filter((entry) => entry.endsWith('.stories.tsx'))
+    .map((entry) => readFileSync(join(storyDir, entry), 'utf8'))
+    .join('\n');
+}
 
 function collectRuntimeSources(dir: string): Array<{ path: string; source: string }> {
   const entries = readdirSync(dir);
