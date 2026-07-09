@@ -12,6 +12,7 @@ import {
   toStoredWakeTime,
 } from '../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
+import { isParticipantRegistered } from '../../season-participants/policies/index.js';
 
 export interface RoommateSearchCandidateQueryDeps {
   prisma: PrismaService;
@@ -41,6 +42,13 @@ export function createRoommateSearchCandidateQuery(deps: RoommateSearchCandidate
       if (
         !input.viewerContext.currentSeasonId ||
         input.viewerContext.serviceState.seasonState === 'OFF_SEASON'
+      ) {
+        return Promise.resolve([]);
+      }
+
+      if (
+        input.scope === 'SAME_BUILDING_ONLY' &&
+        !isParticipantRegistered(input.viewerContext.viewerParticipant)
       ) {
         return Promise.resolve([]);
       }

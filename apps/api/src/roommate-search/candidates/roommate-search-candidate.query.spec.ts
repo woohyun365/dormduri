@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { buildRoommateSearchCandidateWhere } from './roommate-search-candidate.query.js';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  buildRoommateSearchCandidateWhere,
+  createRoommateSearchCandidateQuery,
+} from './roommate-search-candidate.query.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 import { currentParticipant } from '../../season-participants/test-support/season-participants.spec-fixtures.js';
 
@@ -35,6 +38,41 @@ const viewerContext = {
 } satisfies VisibleProfileViewerContext;
 
 describe('roommate-search-candidate.query', () => {
+  it('미등록 viewer의 SAME_BUILDING_ONLY gate scope는 후보 DB 조회 없이 빈 목록을 반환한다', async () => {
+    const findMany = vi.fn();
+    const query = createRoommateSearchCandidateQuery({
+      prisma: {
+        seasonParticipant: { findMany },
+      } as never,
+    });
+
+    const result = await query.findCandidates({
+      viewerContext: {
+        ...viewerContext,
+        viewerParticipant: currentParticipant({
+          id: 'viewer-participant',
+          userId: 'viewer-user',
+          participationIntent: 'UNDECIDED',
+          registeredAt: null,
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+          participantStatus: 'NOT_STARTED',
+        }) as NonNullable<VisibleProfileViewerContext['viewerParticipant']>,
+        viewerSelection: {
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+          source: 'SEASON_PARTICIPANT',
+        },
+        viewerHasOperatedAssignedDormitory: false,
+      },
+      scope: 'SAME_BUILDING_ONLY',
+      query: { scope: 'SAME_BUILDING_ONLY', limit: 20 },
+    });
+
+    expect(result).toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
   it('SAME_BUILDING_ONLY candidate query는 registration complete public target 후보를 DB 조건으로 먼저 줄인다', () => {
     const where = buildRoommateSearchCandidateWhere({
       viewerContext,
