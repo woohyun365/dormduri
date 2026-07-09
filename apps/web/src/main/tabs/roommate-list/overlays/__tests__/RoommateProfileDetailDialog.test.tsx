@@ -147,6 +147,82 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).not.toHaveTextContent('entry-token-secret');
   });
 
+  it('pending match request가 있으면 새 요청 CTA 대신 pending 상태 CTA를 표시한다', async () => {
+    const onOpenMatchingRequests = vi.fn();
+    renderDialog(
+      {
+        status: 'success',
+        target: {
+          ...target,
+          pendingMatchRequest: {
+            id: 'request-received',
+            direction: 'RECEIVED',
+            label: '매칭 요청을 받은 사용자',
+            description: '매칭 탭에서 수락하거나 거절할 수 있어요.',
+          },
+        },
+        profile: createPublicProfileFull({
+          id: 'target-action',
+          nickname: '액션친구',
+          actions: {
+            canBookmark: true,
+            canRequestMatch: true,
+            canStartChat: false,
+            unavailableReasons: [],
+          },
+        }),
+        error: null,
+      },
+      { onOpenMatchingRequests, onRequestMatch: vi.fn() },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(dialog).toHaveTextContent('매칭 탭에서 수락하거나 거절할 수 있어요.');
+    expect(
+      within(dialog).queryByRole('button', { name: '매칭 요청 보내기' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '받은 요청 확인하기' }));
+    expect(onOpenMatchingRequests).toHaveBeenCalledTimes(1);
+  });
+
+  it('direction limit reached target은 상세에서 매칭 요청 CTA를 amber blocked 상태로 표시한다', () => {
+    const onRequestMatch = vi.fn();
+    const onStartChat = vi.fn();
+    renderDialog(
+      {
+        status: 'success',
+        target,
+        profile: createPublicProfileFull({
+          id: 'target-direction-limit',
+          nickname: '횟수초과',
+          actions: {
+            canBookmark: true,
+            canRequestMatch: false,
+            canStartChat: true,
+            unavailableReasons: ['MATCH_REQUEST_DIRECTION_LIMIT_REACHED'],
+          },
+        }),
+        error: null,
+      },
+      { onRequestMatch, onStartChat },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(dialog).toHaveTextContent(
+      '이번 시즌에는 해당 유저에게 더 이상 매칭 요청을 보낼 수 없어요',
+    );
+    expect(within(dialog).getByRole('button', { name: '매칭 요청 횟수 초과' })).toBeDisabled();
+    expect(
+      within(dialog).queryByRole('button', { name: '매칭 요청 보내기' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: '대화 화면에서 이어가기' }),
+    ).not.toBeInTheDocument();
+    expect(onRequestMatch).not.toHaveBeenCalled();
+    expect(onStartChat).not.toHaveBeenCalled();
+  });
+
   it('TOMBSTONE detail은 사용자 친화적인 예외 안내만 표시하고 compatibility를 렌더링하지 않는다', () => {
     renderDialog({
       status: 'success',
@@ -169,6 +245,49 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).not.toHaveTextContent('retained payload');
     expect(dialog).not.toHaveTextContent('적합도 한눈에 보기');
     expect(dialog).not.toHaveTextContent('축별 적합도');
+  });
+
+  it('retryable detail error의 다시 시도는 현재 detail target retry를 호출한다', async () => {
+    const onRetry = vi.fn();
+    renderDialog(
+      {
+        status: 'error',
+        target,
+        profile: null,
+        error: createRoommateApiError({
+          code: 'ROOMMATE_PROFILE_DETAIL_SCHEMA_INVALID',
+          status: 502,
+        }),
+      },
+      { onRetry },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '다시 시도' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('TOMBSTONE detail의 목록 새로고침은 list refresh를 호출한다', async () => {
+    const onRefreshList = vi.fn();
+    renderDialog(
+      {
+        status: 'success',
+        target,
+        profile: createPublicProfileTombstone({
+          tombstone: {
+            reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+            displayName: '하린',
+            message: '상대가 시즌 참여를 철회해 프로필을 볼 수 없어요.',
+          },
+        }),
+        error: null,
+      },
+      { onRefreshList },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '목록 새로고침' }));
+    expect(onRefreshList).toHaveBeenCalledTimes(1);
   });
 
   it('404/probing error는 generic copy와 list refresh CTA로 닫는다', async () => {

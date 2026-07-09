@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import { CompatibilityAxisList } from '../components/CompatibilityAxisList';
@@ -9,6 +10,7 @@ import {
 } from '../model/actions/roommateActionReasonCopy';
 import type { RoommateProfileDetailState } from '../hooks/useRoommateProfileDetail';
 import type { RoommateActionTargetSnapshot } from '../hooks/useRoommateActions';
+import type { RoommatePendingMatchRequestViewModel } from '../model/search/roommateSearchViewModel';
 import type {
   PublicProfileFullDetail,
   PublicProfileDetailLifestyle,
@@ -27,6 +29,7 @@ interface RoommateProfileDetailDialogProps {
   readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
   readonly onReport?: (target: RoommateActionTargetSnapshot) => void;
   readonly onStartChat?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onOpenMatchingRequests?: () => void;
 }
 
 interface DetailRowViewModel {
@@ -48,6 +51,7 @@ export function RoommateProfileDetailDialog({
   onBlock,
   onReport,
   onStartChat,
+  onOpenMatchingRequests,
 }: RoommateProfileDetailDialogProps) {
   return (
     <BaseBottomSheet
@@ -68,11 +72,13 @@ export function RoommateProfileDetailDialog({
           <FullDetailContent
             profile={state.profile}
             viewerLifestyle={viewerLifestyle}
+            pendingMatchRequest={state.target.pendingMatchRequest ?? null}
             actionPendingTargetIds={actionPendingTargetIds}
             onRequestMatch={onRequestMatch}
             onBlock={onBlock}
             onReport={onReport}
             onStartChat={onStartChat}
+            onOpenMatchingRequests={onOpenMatchingRequests}
           />
         ) : null}
         {state.status === 'success' && state.profile.detailState === 'TOMBSTONE' ? (
@@ -114,16 +120,18 @@ function DetailError({
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white"
           >
+            <RefreshCw className="h-4 w-4" aria-hidden />
             다시 시도
           </button>
         ) : null}
         <button
           type="button"
           onClick={onRefreshList}
-          className="rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-primary)"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-primary)"
         >
+          <RefreshCw className="h-4 w-4" aria-hidden />
           목록 새로고침
         </button>
       </div>
@@ -134,19 +142,23 @@ function DetailError({
 function FullDetailContent({
   profile,
   viewerLifestyle,
+  pendingMatchRequest,
   actionPendingTargetIds,
   onRequestMatch,
   onBlock,
   onReport,
   onStartChat,
+  onOpenMatchingRequests,
 }: {
   readonly profile: PublicProfileFullDetail;
   readonly viewerLifestyle: LifestyleData;
+  readonly pendingMatchRequest: RoommatePendingMatchRequestViewModel | null;
   readonly actionPendingTargetIds: readonly string[];
   readonly onRequestMatch?: (target: RoommateActionTargetSnapshot) => void;
   readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
   readonly onReport?: (target: RoommateActionTargetSnapshot) => void;
   readonly onStartChat?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onOpenMatchingRequests?: () => void;
 }) {
   const compatibility = profile.compatibility
     ? mapCompatibilityToChartViewModel(profile.compatibility)
@@ -214,11 +226,13 @@ function FullDetailContent({
       </div>
       <ActionSummary
         target={{ targetUserId: profile.id, nickname: profile.nickname, actions: profile.actions }}
+        pendingMatchRequest={pendingMatchRequest}
         pending={actionPendingTargetIds.includes(profile.id)}
         onRequestMatch={onRequestMatch}
         onBlock={onBlock}
         onReport={onReport}
         onStartChat={onStartChat}
+        onOpenMatchingRequests={onOpenMatchingRequests}
       />
     </div>
   );
@@ -244,8 +258,9 @@ function TombstoneDetailContent({
       <button
         type="button"
         onClick={onRefreshList}
-        className="mt-5 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white"
+        className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white"
       >
+        <RefreshCw className="h-4 w-4" aria-hidden />
         목록 새로고침
       </button>
     </section>
@@ -289,28 +304,63 @@ function DetailRowsSection({
 
 function ActionSummary({
   target,
+  pendingMatchRequest,
   pending,
   onRequestMatch,
   onBlock,
   onReport,
   onStartChat,
+  onOpenMatchingRequests,
 }: {
   readonly target: RoommateActionTargetSnapshot;
+  readonly pendingMatchRequest: RoommatePendingMatchRequestViewModel | null;
   readonly pending: boolean;
   readonly onRequestMatch?: (target: RoommateActionTargetSnapshot) => void;
   readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
   readonly onReport?: (target: RoommateActionTargetSnapshot) => void;
   readonly onStartChat?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onOpenMatchingRequests?: () => void;
 }) {
-  const label = buildPrimaryActionCopy(target.actions);
+  const label = pendingMatchRequest
+    ? pendingMatchRequest.description
+    : buildPrimaryActionCopy(target.actions);
   const primaryUnavailableReason = target.actions.unavailableReasons[0] ?? null;
+  const directionLimitReached = target.actions.unavailableReasons.includes(
+    'MATCH_REQUEST_DIRECTION_LIMIT_REACHED',
+  );
 
   return (
     <section className="rounded-3xl border border-(--knu-border) bg-white p-4">
       <p className="text-sm font-bold text-(--knu-text-primary)">다음 행동</p>
       <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">{label}</p>
       <div className="mt-4 grid gap-2">
-        {target.actions.canRequestMatch && onRequestMatch ? (
+        {directionLimitReached ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+            이번 시즌에는 해당 유저에게 더 이상 매칭 요청을 보낼 수 없어요
+          </div>
+        ) : null}
+        {pendingMatchRequest ? (
+          pendingMatchRequest.direction === 'RECEIVED' && onOpenMatchingRequests ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onOpenMatchingRequests}
+              className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              받은 요청 확인하기
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="rounded-2xl bg-(--knu-background-alt) px-4 py-3 text-sm font-semibold text-(--knu-text-secondary) disabled:cursor-not-allowed"
+            >
+              {pendingMatchRequest.direction === 'SENT'
+                ? '요청 응답 대기 중'
+                : '매칭 탭에서 확인할 수 있어요'}
+            </button>
+          )
+        ) : target.actions.canRequestMatch && onRequestMatch ? (
           <button
             type="button"
             disabled={pending}
@@ -318,6 +368,14 @@ function ActionSummary({
             className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? '요청 처리 중' : '매칭 요청 보내기'}
+          </button>
+        ) : directionLimitReached ? (
+          <button
+            type="button"
+            disabled
+            className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 disabled:cursor-not-allowed"
+          >
+            매칭 요청 횟수 초과
           </button>
         ) : target.actions.canStartChat && onStartChat ? (
           <button

@@ -13,6 +13,9 @@ export interface RoommateActionSafeCopy {
   readonly message: string;
 }
 
+export const ACTIVE_MATCH_ALREADY_EXISTS_MESSAGE =
+  '상대가 매칭이 완료되어 매칭 요청을 보낼 수 없어요. 목록을 새로고침 후 다른 후보를 찾아보세요.';
+
 const UNAVAILABLE_REASON_LABELS: Record<PublicTargetActionUnavailableReason, string> = {
   VIEWER_NOT_REGISTERED: '시즌 등록 후 요청할 수 있어요.',
   VIEWER_PROFILE_INCOMPLETE: '프로필 완성 후 요청할 수 있어요.',
@@ -25,7 +28,9 @@ const UNAVAILABLE_REASON_LABELS: Record<PublicTargetActionUnavailableReason, str
   ROOM_SELECTION_CUTOFF: '호실 선택 마감 이후에는 요청할 수 없어요.',
   THREAD_READ_ONLY: '기존 대화가 읽기 전용 상태예요.',
   TARGET_DELETED_OR_DEIDENTIFIED: '상대 정보가 더 이상 제공되지 않아요.',
-  SAFETY_OR_VISIBILITY_RESTRICTED: '안전 정책상 요청할 수 없어요.',
+  SAFETY_OR_VISIBILITY_RESTRICTED: '서버 오류로 이용할 수 없어요. 목록을 새로고침해 주세요.',
+  MATCH_REQUEST_DIRECTION_LIMIT_REACHED:
+    '이번 시즌에는 해당 유저에게 더 이상 매칭 요청을 보낼 수 없어요',
 };
 
 const REPORT_REASON_LABELS: Record<ReportReason, string> = {
@@ -59,33 +64,41 @@ const ACTION_GENERIC_ERROR: Record<RoommateActionKind, RoommateActionSafeCopy> =
 };
 
 const MATCH_REQUEST_ERROR_COPY: Record<string, RoommateActionSafeCopy> = {
+  BFF_UPSTREAM_UNAVAILABLE: {
+    title: '매칭 요청을 보내지 못했어요.',
+    message: '연결이 원활하지 않아요. 잠시 후 다시 시도해 주세요.',
+  },
   MATCH_REQUEST_TARGET_NOT_FOUND: {
     title: '매칭 요청을 보낼 수 없어요.',
-    message: '목록 이후 상대 공개 상태가 바뀌었을 수 있어요. 최신 목록으로 다시 확인해 주세요.',
+    message: '상대가 시즌 등록을 철회하여 매칭 요청을 보낼 수 없어요.',
   },
   MATCH_REQUEST_NOT_ALLOWED: {
     title: '매칭 요청을 보낼 수 없어요.',
-    message: '현재 시즌·기숙사·프로필 상태 기준으로 요청이 닫혔어요. 목록을 새로고침했어요.',
+    message: '현재 상태에서는 매칭 요청을 보낼 수 없어요. 목록을 새로고침했어요.',
+  },
+  ACTIVE_MATCH_ALREADY_EXISTS: {
+    title: '매칭 요청을 보낼 수 없어요.',
+    message: ACTIVE_MATCH_ALREADY_EXISTS_MESSAGE,
   },
   MATCH_REQUEST_SELF_TARGET_NOT_ALLOWED: {
     title: '매칭 요청을 보낼 수 없어요.',
     message: '자기 자신에게는 매칭 요청을 보낼 수 없어요.',
   },
   MATCH_REQUEST_ALREADY_PENDING: {
-    title: '이미 진행 중인 요청이 있어요.',
-    message: '같은 상대에게 보낸 진행 중 요청이 있어요. 매칭 현황에서 확인해 주세요.',
+    title: '매칭 요청을 보내지 못했어요.',
+    message: '이미 매칭 요청을 보낸 상대에요. 매칭 탭에서 확인해주세요.',
   },
   MATCH_REQUEST_PENDING_LIMIT_REACHED: {
-    title: '동시에 보낼 수 있는 요청 수를 넘었어요.',
+    title: '매칭 요청을 보내지 못했어요.',
     message: '진행 중인 요청을 먼저 확인한 뒤 다시 시도해 주세요.',
   },
   MATCH_REQUEST_DIRECTION_LIMIT_REACHED: {
-    title: '이번 시즌 요청 횟수를 모두 사용했어요.',
-    message: '같은 상대에게 보낼 수 있는 이번 시즌 요청 횟수를 모두 사용했어요.',
+    title: '매칭 요청을 보내지 못했어요.',
+    message: '이번 시즌에는 해당 유저에게 더 이상 매칭 요청을 보낼 수 없어요',
   },
   MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE: {
     title: '아직 다시 요청할 수 없어요.',
-    message: '같은 방향 요청은 정책상 일정 시간이 지난 뒤 다시 보낼 수 있어요.',
+    message: '같은 상대에게는 잠시 기다린 뒤 다시 요청할 수 있어요.',
   },
   MATCH_REQUEST_NOTE_MODERATION_REJECTED: {
     title: '요청 메시지를 수정해 주세요.',
@@ -94,6 +107,10 @@ const MATCH_REQUEST_ERROR_COPY: Record<string, RoommateActionSafeCopy> = {
 };
 
 const BLOCK_ERROR_COPY: Record<string, RoommateActionSafeCopy> = {
+  BFF_UPSTREAM_UNAVAILABLE: {
+    title: '차단을 완료하지 못했어요.',
+    message: '잠시 후 다시 시도해 주세요.',
+  },
   INVALID_BLOCK_TARGET: {
     title: '차단할 수 없는 상대예요.',
     message: '목록 이후 상대 상태가 바뀌었을 수 있어요. 최신 목록으로 다시 확인해 주세요.',
@@ -109,6 +126,14 @@ const BLOCK_ERROR_COPY: Record<string, RoommateActionSafeCopy> = {
 };
 
 const REPORT_ERROR_COPY: Record<string, RoommateActionSafeCopy> = {
+  BFF_UPSTREAM_UNAVAILABLE: {
+    title: '신고를 접수하지 못했어요.',
+    message: '잠시 후 다시 시도해 주세요.',
+  },
+  ROOMMATE_ACTION_NETWORK_ERROR: {
+    title: '신고를 접수하지 못했어요.',
+    message: '잠시 후 다시 시도해 주세요.',
+  },
   INVALID_REPORT_REQUEST: {
     title: '신고 내용을 다시 확인해 주세요.',
     message: '신고 사유와 허위 신고 안내 동의를 확인한 뒤 다시 접수해 주세요.',
@@ -131,6 +156,9 @@ export function formatTargetActionUnavailableReason(
 
 export function buildPrimaryActionCopy(actions: PublicProfileActionCapabilities): string {
   if (actions.canRequestMatch) return '매칭 요청 가능한 상대예요.';
+  if (actions.unavailableReasons.includes('MATCH_REQUEST_DIRECTION_LIMIT_REACHED')) {
+    return formatTargetActionUnavailableReason('MATCH_REQUEST_DIRECTION_LIMIT_REACHED');
+  }
   if (actions.canStartChat) return '대화 가능한 상대예요.';
   const primaryReason = actions.unavailableReasons[0];
   return primaryReason
@@ -165,7 +193,7 @@ export function matchRequestSuccessCopy(request: MatchRequestSummary): RoommateA
     : expiresAt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
   return {
     title: '매칭 요청을 보냈어요.',
-    message: `상대가 수락하면 바로 매칭이 확정돼요. 요청은 ${expiresLabel}까지 유효해요.`,
+    message: `상대가 수락하면 바로 매칭이 확정돼요.\n요청은 ${expiresLabel}까지 유효해요.`,
   };
 }
 

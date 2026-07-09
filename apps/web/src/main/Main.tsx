@@ -352,6 +352,7 @@ function MainLegacyDashboardContent({
               user={profileState.user}
               onNavigate={handleNavigate}
               searchEntryAllowed={dashboard.viewer.capabilities.canEnterRoommateSearch}
+              viewerSeasonRegistered={dashboard.viewer.seasonProfile.registered}
             />
           )}
           {activeTab === 'matching' && legacyData && (

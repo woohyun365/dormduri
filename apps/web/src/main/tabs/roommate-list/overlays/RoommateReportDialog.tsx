@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { RoommateActionConfirmationDialog } from './RoommateActionConfirmationDialog';
 import {
   getReportReasonOptions,
   reportReasonLabel,
 } from '../model/actions/roommateActionReasonCopy';
 import type {
   RoommateActionDialogState,
-  RoommateActionTargetSnapshot,
   RoommateProfileReportFormValue,
 } from '../hooks/useRoommateActions';
 import type { ReportReason } from '@repo/shared/social-safety/report';
@@ -31,29 +30,39 @@ export function RoommateReportDialog({
   const target = state.kind === 'report' ? state.target : null;
 
   return (
-    <BaseBottomSheet isOpen={target !== null} onClose={onClose} title="룸메이트 신고">
+    <RoommateActionConfirmationDialog
+      isOpen={target !== null}
+      onClose={onClose}
+      title="룸메이트 신고"
+      tone="amber"
+      headline={target ? `${target.nickname}님을 신고할까요?` : ''}
+      noticeTitle="신고 전 알아야 할 사항"
+      noticeItems={[
+        '신고가 접수되면 검토 완료 시 알림으로 안내드려요.',
+        '내부 검토 과정과 세부 조치 내용은 공개하지 않아요.',
+        '상대에게 신고자 정보와 차단 여부를 알리지 않아요.',
+        '신고 사유를 이해하는 데 필요한 내용만 작성해 주세요.',
+      ]}
+    >
       {target ? (
         <RoommateReportForm
           key={target.targetUserId}
-          target={target}
           submitting={submitting}
           errorMessage={errorMessage}
           onClose={onClose}
           onSubmit={onSubmit}
         />
       ) : null}
-    </BaseBottomSheet>
+    </RoommateActionConfirmationDialog>
   );
 }
 
 function RoommateReportForm({
-  target,
   submitting,
   errorMessage,
   onClose,
   onSubmit,
 }: {
-  readonly target: RoommateActionTargetSnapshot;
   readonly submitting: boolean;
   readonly errorMessage?: string | null;
   readonly onClose: () => void;
@@ -69,7 +78,7 @@ function RoommateReportForm({
 
   return (
     <form
-      className="space-y-5 px-5 py-5"
+      className="space-y-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (!reason) {
@@ -88,15 +97,6 @@ function RoommateReportForm({
         onSubmit({ reason, detail: trimmedDetail || null, optionalBlock });
       }}
     >
-      <section className="rounded-3xl border border-(--knu-border) bg-white p-4">
-        <p className="text-sm font-bold text-(--knu-text-primary)">
-          {target.nickname}님의 프로필을 신고해요.
-        </p>
-        <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
-          신고는 접수 전용이며, 조치 여부나 내부 검토 내용은 상대 또는 신고자에게 공개하지 않아요.
-        </p>
-      </section>
-
       <label className="block" htmlFor="roommate-report-reason">
         <span className="text-sm font-semibold text-(--knu-text-primary)">신고 사유</span>
         <select

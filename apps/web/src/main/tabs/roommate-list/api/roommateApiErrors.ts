@@ -16,6 +16,7 @@ export type RoommateApiErrorCode =
   | 'MATCH_REQUEST_DIRECTION_LIMIT_REACHED'
   | 'MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE'
   | 'MATCH_REQUEST_NOTE_MODERATION_REJECTED'
+  | 'ACTIVE_MATCH_ALREADY_EXISTS'
   | 'INVALID_BLOCK_TARGET'
   | 'TARGET_NOT_BLOCKABLE'
   | 'ACTIVE_MATCH_BLOCK_NOT_ALLOWED'
@@ -68,6 +69,7 @@ const SAFE_ERROR_MESSAGES: Record<RoommateApiErrorCode, string> = {
   MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE:
     '같은 방향 요청은 일정 시간이 지난 뒤 다시 보낼 수 있어요.',
   MATCH_REQUEST_NOTE_MODERATION_REJECTED: '요청 메시지를 수정해 주세요.',
+  ACTIVE_MATCH_ALREADY_EXISTS: '이미 매칭이 완료된 상대예요.',
   INVALID_BLOCK_TARGET: '차단 대상을 다시 확인할 수 없어요.',
   TARGET_NOT_BLOCKABLE: '현재 상태에서는 차단할 수 없어요.',
   ACTIVE_MATCH_BLOCK_NOT_ALLOWED: '매칭이 성사된 상대는 여기서 차단할 수 없어요.',

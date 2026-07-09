@@ -31,6 +31,17 @@ describe('RoommateReportDialog', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: '룸메이트 신고' });
+    expect(within(dialog).getByText('신고 전 알아야 할 사항')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('신고가 접수되면 검토 완료 시 알림으로 안내드려요.'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('내부 검토 과정과 세부 조치 내용은 공개하지 않아요.'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('상대에게 신고자 정보와 차단 여부를 알리지 않아요.'),
+    ).toBeInTheDocument();
+
     await userEvent.click(within(dialog).getByRole('button', { name: '신고 접수' }));
     expect(within(dialog).getByRole('alert')).toHaveTextContent('신고 사유를 선택');
 

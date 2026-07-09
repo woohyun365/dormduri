@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { BLOCK_NOTE_MAX_LENGTH } from '@repo/shared/social-safety/block';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
-import type {
-  RoommateActionDialogState,
-  RoommateActionTargetSnapshot,
-} from '../hooks/useRoommateActions';
+import { RoommateActionConfirmationDialog } from './RoommateActionConfirmationDialog';
+import type { RoommateActionDialogState } from '../hooks/useRoommateActions';
 
 interface RoommateBlockDialogProps {
   readonly state: RoommateActionDialogState;
@@ -24,29 +21,38 @@ export function RoommateBlockDialog({
   const target = state.kind === 'block' ? state.target : null;
 
   return (
-    <BaseBottomSheet isOpen={target !== null} onClose={onClose} title="룸메이트 차단">
+    <RoommateActionConfirmationDialog
+      isOpen={target !== null}
+      onClose={onClose}
+      title="룸메이트 차단"
+      tone="red"
+      headline={target ? `${target.nickname}님을 차단할까요?` : ''}
+      noticeTitle="차단 전 알아야 할 사항"
+      noticeItems={[
+        '차단하면 서로의 룸메 목록에서 보이지 않아요.',
+        '기존 비매칭 대화는 읽기 전용으로 바뀔 수 있어요.',
+        '차단은 차단 목록에서 해제할 수 있고, 상대에게 알리지 않아요.',
+      ]}
+    >
       {target ? (
         <RoommateBlockForm
           key={target.targetUserId}
-          target={target}
           submitting={submitting}
           errorMessage={errorMessage}
           onClose={onClose}
           onSubmit={onSubmit}
         />
       ) : null}
-    </BaseBottomSheet>
+    </RoommateActionConfirmationDialog>
   );
 }
 
 function RoommateBlockForm({
-  target,
   submitting,
   errorMessage,
   onClose,
   onSubmit,
 }: {
-  readonly target: RoommateActionTargetSnapshot;
   readonly submitting: boolean;
   readonly errorMessage?: string | null;
   readonly onClose: () => void;
@@ -59,7 +65,7 @@ function RoommateBlockForm({
 
   return (
     <form
-      className="space-y-5 px-5 py-5"
+      className="space-y-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (trimmedNote.length > BLOCK_NOTE_MAX_LENGTH) {
@@ -70,16 +76,6 @@ function RoommateBlockForm({
         onSubmit({ note: trimmedNote || null });
       }}
     >
-      <section className="rounded-3xl border border-(--knu-border) bg-white p-4">
-        <p className="text-sm font-bold text-(--knu-text-primary)">
-          {target.nickname}님을 차단할까요?
-        </p>
-        <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
-          차단하면 서로의 목록과 관심 목록에서 보이지 않을 수 있고, 기존 비매칭 대화는 읽기 전용으로
-          바뀔 수 있어요.
-        </p>
-      </section>
-
       <label className="block" htmlFor="roommate-block-note">
         <span className="text-sm font-semibold text-(--knu-text-primary)">차단 메모 (선택)</span>
         <textarea
@@ -87,10 +83,14 @@ function RoommateBlockForm({
           value={note}
           maxLength={BLOCK_NOTE_MAX_LENGTH + 1}
           disabled={submitting}
-          aria-describedby="roommate-block-note-help roommate-block-status"
+          aria-describedby={
+            currentError
+              ? 'roommate-block-note-help roommate-block-status'
+              : 'roommate-block-note-help'
+          }
           onChange={(event) => setNote(event.target.value)}
           className="mt-2 min-h-28 w-full rounded-2xl border border-(--knu-border) px-3 py-3 text-sm outline-none focus:border-(--knu-primary) disabled:opacity-60"
-          placeholder="운영 판단용이 아닌 본인 참고 메모예요."
+          placeholder="추후에 차단 이유를 확인하는 본인 참고용 메모예요."
         />
       </label>
       <p id="roommate-block-note-help" className="text-xs text-(--knu-text-tertiary)">
@@ -101,11 +101,7 @@ function RoommateBlockForm({
         <p id="roommate-block-status" role="alert" className="text-sm font-semibold text-red-600">
           {currentError}
         </p>
-      ) : (
-        <p id="roommate-block-status" role="status" className="text-xs text-(--knu-text-tertiary)">
-          차단 요청은 서버에서 최신 상태를 다시 확인해 처리돼요.
-        </p>
-      )}
+      ) : null}
 
       <div className="grid gap-2">
         <button

@@ -14,6 +14,7 @@ import {
   type RoommateSummaryCardViewModel,
 } from './model/search/roommateSearchViewModel';
 import type { RoommateSearchQueryCriteria } from './model/search/roommateSearchQuery';
+import { RoommateActionReceiptDialog } from './overlays/RoommateActionReceiptDialog';
 import { RoommateBlockDialog } from './overlays/RoommateBlockDialog';
 import { RoommateFilterSheet } from './overlays/RoommateFilterSheet';
 import { RoommateMatchRequestDialog } from './overlays/RoommateMatchRequestDialog';
@@ -285,6 +286,7 @@ export default function RoommateListTab({
         onBlock={actions.openBlockDialog}
         onReport={actions.openReportDialog}
         onStartChat={() => onNavigate('chat')}
+        onOpenMatchingRequests={() => onNavigate('matching')}
       />
       <RoommateBlockDialog
         state={actions.activeDialog}
@@ -306,6 +308,10 @@ export default function RoommateListTab({
         errorMessage={actionDialogErrorMessage(actions, 'matchRequest')}
         onClose={actions.closeDialog}
         onSubmit={(input) => void actions.submitMatchRequest(input)}
+      />
+      <RoommateActionReceiptDialog
+        receipt={getDialogReceipt(actions.lastReceipt)}
+        onDismiss={actions.dismissFeedback}
       />
     </div>
   );
@@ -352,9 +358,16 @@ function RoommateActionFeedbackBanner({
   readonly error: RoommateActionFeedback | null;
   readonly onDismiss: () => void;
 }) {
-  const feedback = error ?? receipt;
+  const visibleError = error?.actionKind === 'matchRequest' ? null : error;
+  const visibleReceipt =
+    receipt?.actionKind === 'matchRequest' ||
+    receipt?.actionKind === 'block' ||
+    receipt?.actionKind === 'report'
+      ? null
+      : receipt;
+  const feedback = visibleError ?? visibleReceipt;
   if (!feedback) return null;
-  const isError = error !== null;
+  const isError = visibleError !== null;
   return (
     <section
       role={isError ? 'alert' : 'status'}
@@ -375,6 +388,17 @@ function RoommateActionFeedbackBanner({
       </button>
     </section>
   );
+}
+
+function getDialogReceipt(receipt: RoommateActionReceipt | null): RoommateActionReceipt | null {
+  if (
+    receipt?.actionKind === 'matchRequest' ||
+    receipt?.actionKind === 'block' ||
+    receipt?.actionKind === 'report'
+  ) {
+    return receipt;
+  }
+  return null;
 }
 
 function RoommateBookmarkErrorBanner({
@@ -431,8 +455,9 @@ function actionDialogErrorMessage(
   actions: UseRoommateActionsResult,
   actionKind: RoommateActionKind,
 ): string | null {
-  if (!actions.lastError || actions.lastError.actionKind !== actionKind) return null;
-  return actions.lastError.message;
+  if (!actions.dialogError || actions.dialogError.actionKind !== actionKind) return null;
+  if (actionKind === 'matchRequest') return actions.dialogError.message;
+  return `${actions.dialogError.title} ${actions.dialogError.message}`;
 }
 
 function toDetailTarget(item: RoommateSummaryCardViewModel) {

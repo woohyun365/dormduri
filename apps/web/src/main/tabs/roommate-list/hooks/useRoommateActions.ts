@@ -50,8 +50,15 @@ export interface RoommateActionFeedback {
   readonly message: string;
 }
 
+export interface RoommateActionReceiptNotice {
+  readonly title: string;
+  readonly message: string;
+}
+
 export interface RoommateActionReceipt extends RoommateActionFeedback {
   readonly receiptId?: string;
+  readonly counterpartNickname?: string;
+  readonly secondaryNotice?: RoommateActionReceiptNotice;
 }
 
 export interface RoommateActionsClientPort {
@@ -83,6 +90,7 @@ export interface UseRoommateActionsResult {
   readonly pendingTargetUserIds: readonly string[];
   readonly lastError: RoommateActionFeedback | null;
   readonly lastReceipt: RoommateActionReceipt | null;
+  readonly dialogError: RoommateActionFeedback | null;
   readonly isTargetPending: (targetUserId: string) => boolean;
   readonly openBlockDialog: (target: RoommateActionTargetSnapshot) => void;
   readonly openReportDialog: (target: RoommateActionTargetSnapshot) => void;
@@ -110,6 +118,7 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
   const pendingRef = useRef(new Set<string>());
   const [lastError, setLastError] = useState<RoommateActionFeedback | null>(null);
   const [lastReceipt, setLastReceipt] = useState<RoommateActionReceipt | null>(null);
+  const [dialogError, setDialogError] = useState<RoommateActionFeedback | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const sequenceRef = useRef(0);
 
@@ -133,6 +142,7 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
   const openDialog = useCallback(
     (dialog: Exclude<RoommateActionDialogState, { kind: 'closed' }>) => {
       setLastError(null);
+      setDialogError(null);
       setActiveDialog(dialog);
       activeDialogRef.current = dialog;
     },
@@ -145,6 +155,7 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
     abortRef.current = null;
     setActiveDialog(CLOSED_DIALOG);
     activeDialogRef.current = CLOSED_DIALOG;
+    setDialogError(null);
   }, []);
 
   const beginPending = useCallback(
@@ -170,33 +181,6 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
     [syncPending],
   );
 
-  const handleError = useCallback(
-    async (input: {
-      readonly actionKind: RoommateActionKind;
-      readonly error: unknown;
-      readonly refreshAfterError: boolean;
-      readonly closeDetailAfterError: boolean;
-    }) => {
-      if (isAbortError(input.error)) return;
-      const safeError = isRoommateApiError(input.error)
-        ? input.error
-        : ({ code: 'UNKNOWN_ROOMMATE_ACTION_ERROR' } satisfies Pick<RoommateApiError, 'code'>);
-      setLastError({
-        actionKind: input.actionKind,
-        ...formatRoommateActionError(safeError, input.actionKind),
-      });
-      setActiveDialog(CLOSED_DIALOG);
-      activeDialogRef.current = CLOSED_DIALOG;
-      if (input.closeDetailAfterError) {
-        options.onCloseDetail();
-      }
-      if (input.refreshAfterError) {
-        await Promise.allSettled([options.onRefreshSearch(), options.onRefreshBookmarks()]);
-      }
-    },
-    [options],
-  );
-
   const submitBlock = useCallback(
     async (input: { readonly note?: string | null }) => {
       const dialog = activeDialogRef.current;
@@ -215,7 +199,8 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
         setLastReceipt({
           actionKind: 'block',
           title: '차단을 반영했어요.',
-          message: '목록과 관심 목록은 최신 차단 상태를 기준으로 다시 확인했어요.',
+          message: '상대에게 차단 사실을 알리지 않아요.\n차단 목록에서 확인 및 해제 가능해요.',
+          counterpartNickname: target.nickname,
         });
         setActiveDialog(CLOSED_DIALOG);
         activeDialogRef.current = CLOSED_DIALOG;
@@ -223,17 +208,21 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
         await Promise.allSettled([options.onRefreshSearch(), options.onRefreshBookmarks()]);
       } catch (error) {
         if (!isCurrent(pending.sequence, pending.controller, sequenceRef.current)) return;
-        await handleError({
+        if (isAbortError(error)) return;
+        const safeError = isRoommateApiError(error)
+          ? error
+          : ({ code: 'UNKNOWN_ROOMMATE_ACTION_ERROR' } satisfies Pick<RoommateApiError, 'code'>);
+        setLastError(null);
+        setDialogError({
           actionKind: 'block',
-          error,
-          refreshAfterError: true,
-          closeDetailAfterError: true,
+          ...formatRoommateActionError(safeError, 'block'),
         });
+        await Promise.allSettled([options.onRefreshSearch(), options.onRefreshBookmarks()]);
       } finally {
         finishPending(target.targetUserId);
       }
     },
-    [beginPending, client, finishPending, handleError, options],
+    [beginPending, client, finishPending, options],
   );
 
   const submitReport = useCallback(
@@ -257,35 +246,37 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
           { signal: pending.controller.signal },
         );
         if (!isCurrent(pending.sequence, pending.controller, sequenceRef.current)) return;
-        const optionalCopy = reportOptionalActionResultCopy(response.optionalActionResult);
         setLastError(null);
         setLastReceipt({
           actionKind: 'report',
           title: '신고를 접수했어요.',
-          message: optionalCopy
-            ? `${reportReasonLabel(response.report.reason)} 신고가 접수됐어요. ${optionalCopy}`
-            : `${reportReasonLabel(response.report.reason)} 신고가 접수됐어요. 후속 조치 여부는 별도로 공개하지 않아요.`,
+          message: buildReportReceiptMessage(response),
           receiptId: response.report.id,
+          counterpartNickname: target.nickname,
+          secondaryNotice: buildReportOptionalBlockNotice(response),
         });
         setActiveDialog(CLOSED_DIALOG);
         activeDialogRef.current = CLOSED_DIALOG;
+        options.onCloseDetail();
         if (response.optionalActionResult?.status === 'SUCCEEDED') {
-          options.onCloseDetail();
           await Promise.allSettled([options.onRefreshSearch(), options.onRefreshBookmarks()]);
         }
       } catch (error) {
         if (!isCurrent(pending.sequence, pending.controller, sequenceRef.current)) return;
-        await handleError({
+        if (isAbortError(error)) return;
+        const safeError = isRoommateApiError(error)
+          ? error
+          : ({ code: 'UNKNOWN_ROOMMATE_ACTION_ERROR' } satisfies Pick<RoommateApiError, 'code'>);
+        setLastError(null);
+        setDialogError({
           actionKind: 'report',
-          error,
-          refreshAfterError: false,
-          closeDetailAfterError: false,
+          ...formatRoommateActionError(safeError, 'report'),
         });
       } finally {
         finishPending(target.targetUserId);
       }
     },
-    [beginPending, client, finishPending, handleError, options],
+    [beginPending, client, finishPending, options],
   );
 
   const submitMatchRequest = useCallback(
@@ -305,10 +296,12 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
         );
         if (!isCurrent(pending.sequence, pending.controller, sequenceRef.current)) return;
         setLastError(null);
+        setDialogError(null);
         setLastReceipt({
           actionKind: 'matchRequest',
           ...matchRequestSuccessCopy(response.request),
           receiptId: response.request.id,
+          counterpartNickname: response.request.counterpartSummary.profileSummary.nickname,
         });
         setActiveDialog(CLOSED_DIALOG);
         activeDialogRef.current = CLOSED_DIALOG;
@@ -316,17 +309,21 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
         await Promise.allSettled([options.onRefreshSearch(), options.onRefreshBookmarks()]);
       } catch (error) {
         if (!isCurrent(pending.sequence, pending.controller, sequenceRef.current)) return;
-        await handleError({
+        if (isAbortError(error)) return;
+        const safeError = isRoommateApiError(error)
+          ? error
+          : ({ code: 'UNKNOWN_ROOMMATE_ACTION_ERROR' } satisfies Pick<RoommateApiError, 'code'>);
+        setLastError(null);
+        setDialogError({
           actionKind: 'matchRequest',
-          error,
-          refreshAfterError: true,
-          closeDetailAfterError: true,
+          ...formatRoommateActionError(safeError, 'matchRequest'),
         });
+        await Promise.allSettled([options.onRefreshSearch(), options.onRefreshBookmarks()]);
       } finally {
         finishPending(target.targetUserId);
       }
     },
-    [beginPending, client, finishPending, handleError, options],
+    [beginPending, client, finishPending, options],
   );
 
   const pendingSet = useMemo(() => new Set(pendingTargetUserIds), [pendingTargetUserIds]);
@@ -336,6 +333,7 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
     pendingTargetUserIds,
     lastError,
     lastReceipt,
+    dialogError,
     isTargetPending: (targetUserId: string) => pendingSet.has(targetUserId),
     openBlockDialog: (target) => openDialog({ kind: 'block', target }),
     openReportDialog: (target) => openDialog({ kind: 'report', target }),
@@ -347,6 +345,7 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
     dismissFeedback: () => {
       setLastError(null);
       setLastReceipt(null);
+      setDialogError(null);
     },
   };
 }
@@ -354,6 +353,31 @@ export function useRoommateActions(options: UseRoommateActionsOptions): UseRoomm
 function normalizeNullableText(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildReportReceiptMessage(response: CreateReportResponse): string {
+  const lines = [`${reportReasonLabel(response.report.reason)} 신고가 접수됐어요.`];
+  const optionalCopy = reportOptionalActionResultCopy(response.optionalActionResult);
+
+  if (optionalCopy && response.optionalActionResult?.status !== 'SUCCEEDED') {
+    lines.push(optionalCopy);
+  }
+
+  lines.push('검토가 완료되면 알림으로 안내드려요.');
+  lines.push('내부 검토 과정과 세부 조치 내용은 공개하지 않아요.');
+  return lines.join('\n');
+}
+
+function buildReportOptionalBlockNotice(
+  response: CreateReportResponse,
+): RoommateActionReceiptNotice | undefined {
+  if (response.optionalActionResult?.status !== 'SUCCEEDED') return undefined;
+
+  return {
+    title: '차단 후 알아야 할 사항',
+    message:
+      '신고와 함께 차단도 반영했어요.\n상대에게 차단 사실을 알리지 않아요.\n차단 목록에서 확인 및 해제 가능해요.',
+  };
 }
 
 function isCurrent(
