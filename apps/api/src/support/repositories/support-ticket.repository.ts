@@ -39,7 +39,7 @@ export type SupportTicketMessageRecord = Prisma.SupportTicketMessageGetPayload<{
 
 export type SupportTicketRepositoryClient = Pick<
   Prisma.TransactionClient,
-  'supportTicket' | 'supportTicketMessage'
+  'supportTicket' | 'supportTicketMessage' | 'reportCase' | 'seasonParticipant'
 >;
 
 @Injectable()
@@ -104,6 +104,35 @@ export class SupportTicketRepository {
     return client.supportTicket.findFirst({
       where: { id: input.id, requesterUserId: input.requesterUserId },
       select: supportTicketSelect,
+    });
+  }
+
+  findOwnedReportCase(input: {
+    client: SupportTicketRepositoryClient;
+    reportCaseId: string;
+    requesterUserId: string;
+  }): Promise<{ id: string } | null> {
+    return input.client.reportCase.findFirst({
+      where: { id: input.reportCaseId, reporterUserId: input.requesterUserId },
+      select: { id: true },
+    });
+  }
+
+  findOwnedEnforcementNotice(input: {
+    client: SupportTicketRepositoryClient;
+    enforcementNoticeId: string;
+    requesterUserId: string;
+  }): Promise<{ id: string } | null> {
+    const participantId = parseEnforcementNoticeParticipantId(input.enforcementNoticeId);
+    if (!participantId) return Promise.resolve(null);
+
+    return input.client.seasonParticipant.findFirst({
+      where: {
+        id: participantId,
+        userId: input.requesterUserId,
+        OR: [{ hiddenByAdminAt: { not: null } }, { deactivatedAt: { not: null } }],
+      },
+      select: { id: true },
     });
   }
 
@@ -196,6 +225,13 @@ export class SupportTicketRepository {
       select: supportTicketSelect,
     });
   }
+}
+
+function parseEnforcementNoticeParticipantId(value: string): string | null {
+  const prefix = 'season-participant:';
+  if (!value.startsWith(prefix)) return null;
+  const participantId = value.slice(prefix.length).trim();
+  return participantId.length > 0 ? participantId : null;
 }
 
 function cursorWhere(cursor: SupportTicketCursor): Prisma.SupportTicketWhereInput {

@@ -41,7 +41,11 @@ const supportTicketIdSchema = z.string().trim().min(1).max(128);
 const supportCursorSchema = z.string().trim().min(1).max(512);
 
 function requireAppealCategoryForAppeal(
-  value: { category: SupportTicketCategory; appealCategory?: SupportAppealCategory | null },
+  value: {
+    category: SupportTicketCategory;
+    appealCategory?: SupportAppealCategory | null;
+    relatedEntityId?: string | null;
+  },
   ctx: z.RefinementCtx,
 ) {
   if (value.category === SupportTicketCategory.APPEAL && !value.appealCategory) {
@@ -49,6 +53,18 @@ function requireAppealCategoryForAppeal(
       code: 'custom',
       path: ['appealCategory'],
       message: 'appealCategory is required when category is APPEAL',
+    });
+  }
+
+  if (
+    value.category === SupportTicketCategory.APPEAL &&
+    value.appealCategory === SupportAppealCategory.REPORT_RESULT &&
+    !value.relatedEntityId
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['relatedEntityId'],
+      message: 'relatedEntityId is required when appealCategory is REPORT_RESULT',
     });
   }
 }

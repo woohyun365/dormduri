@@ -79,7 +79,7 @@ describe('Support integration', () => {
       .set('Authorization', `Bearer ${userAToken}`)
       .send({
         category: 'APPEAL',
-        appealCategory: 'REPORT_RESULT',
+        appealCategory: 'SANCTION',
         subject: '신고 처리 결과 문의',
         body: '상세 내용은 ticket detail에만 남아야 합니다.',
         emailReplyConsent: true,

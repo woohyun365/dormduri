@@ -69,6 +69,7 @@ describe('supportPageApi', () => {
         subject: '신고 처리 이의 신청',
         body: '처리 결과 재검토를 요청합니다.',
         emailReplyConsent: false,
+        relatedEntityId: 'report-1',
       }),
     ).resolves.toMatchObject({ ticket: { category: 'APPEAL' } });
 
@@ -83,7 +84,62 @@ describe('supportPageApi', () => {
       subject: '신고 처리 이의 신청',
       body: '처리 결과 재검토를 요청합니다.',
       emailReplyConsent: false,
+      relatedEntityId: 'report-1',
     });
+  });
+
+  it('내 신고 내역 list를 report BFF contract로 조회한다', async () => {
+    const fetchMock = stubFetch({
+      items: [
+        {
+          id: 'report-1',
+          targetType: 'PROFILE',
+          targetLabel: '감자친구님',
+          reason: 'FALSE_PROFILE',
+          receivedAt: iso,
+          status: 'RECEIVED',
+        },
+      ],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
+
+    await expect(supportPageApi.listReports({ limit: 10 })).resolves.toMatchObject({
+      items: [{ id: 'report-1', targetLabel: '감자친구님' }],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/reports?limit=10',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('내 이용 제한 내역 list를 enforcement BFF contract로 조회한다', async () => {
+    const fetchMock = stubFetch({
+      items: [
+        {
+          id: 'season-participant:participant-1',
+          actionType: 'MATCHING_RESTRICTION',
+          reasonCategory: 'HATE_OR_DISCRIMINATION',
+          status: 'ACTIVE',
+          seasonLabel: '2026년 2학기',
+          scopeLabel: '2026년 2학기 · 다산관 룸메 탐색/매칭',
+          policyBasisSummary: '서비스 이용 기준에 따라 필요한 범위에서 적용된 제한이에요.',
+          effectiveFrom: iso,
+          effectiveUntil: '2026-08-31T00:00:00.000Z',
+          createdAt: iso,
+        },
+      ],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
+
+    await expect(supportPageApi.listEnforcements({ limit: 10 })).resolves.toMatchObject({
+      items: [{ id: 'season-participant:participant-1', reasonCategory: 'HATE_OR_DISCRIMINATION' }],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/enforcements?limit=10',
+      expect.objectContaining({ method: 'GET' }),
+    );
   });
 
   it('schema mismatch는 raw internal 값을 노출하지 않는 typed error로 반환한다', async () => {

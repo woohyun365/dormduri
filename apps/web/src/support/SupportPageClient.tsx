@@ -9,8 +9,12 @@ import type {
   SupportTicketDetailResponse,
   SupportTicketResponse,
 } from '@repo/shared/support';
+import type { EnforcementNotice } from '@repo/shared/social-safety/enforcement';
+import type { ReportListItem } from '@repo/shared/social-safety/report';
 import { supportPageApi } from './api/support-page.api';
+import { SupportEnforcementNoticeList } from './components/SupportEnforcementNoticeList';
 import { SupportFaqList } from './components/SupportFaqList';
+import { SupportReportList } from './components/SupportReportList';
 import { SupportTicketForm, type SupportTicketFormValues } from './components/SupportTicketForm';
 import { SupportTicketList } from './components/SupportTicketList';
 import { SupportTicketThread } from './components/SupportTicketThread';
@@ -24,6 +28,7 @@ const DEFAULT_FORM_VALUES: SupportTicketFormValues = {
   subject: '',
   body: '',
   emailReplyConsent: false,
+  relatedEntityId: null,
 };
 
 export default function SupportPageClient({
@@ -37,6 +42,8 @@ export default function SupportPageClient({
   const [error, setError] = useState<string | null>(null);
   const [faqs, setFaqs] = useState<SupportFaqItem[]>([]);
   const [tickets, setTickets] = useState<SupportTicketResponse[]>([]);
+  const [reports, setReports] = useState<ReportListItem[]>([]);
+  const [enforcementNotices, setEnforcementNotices] = useState<EnforcementNotice[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicketId);
   const selectedTicketIdRef = useRef(selectedTicketId);
   const [ticketDetail, setTicketDetail] = useState<SupportTicketDetailResponse | null>(null);
@@ -56,12 +63,16 @@ export default function SupportPageClient({
     setStatus('loading');
     setError(null);
     try {
-      const [faqResponse, ticketResponse] = await Promise.all([
+      const [faqResponse, ticketResponse, reportResponse, enforcementResponse] = await Promise.all([
         supportPageApi.listFaq({ surface: 'SUPPORT_CENTER' }),
         supportPageApi.listTickets({ limit: 20 }),
+        supportPageApi.listReports({ limit: 20 }),
+        supportPageApi.listEnforcements({ limit: 20 }),
       ]);
       setFaqs(faqResponse.items);
       setTickets(ticketResponse.items);
+      setReports(reportResponse.items);
+      setEnforcementNotices(enforcementResponse.items);
       setStatus('success');
       if (!selectedTicketIdRef.current) {
         const nextTicketId = ticketResponse.items[0]?.id ?? null;
@@ -105,6 +116,35 @@ export default function SupportPageClient({
   }, [loadTicketDetail, selectedTicketId]);
 
   const ticketItems = useMemo(() => tickets.map(toSupportTicketListItemViewModel), [tickets]);
+  const reportItems = useMemo(
+    () =>
+      reports.map((report) => ({
+        ...report,
+        linkedTicketId:
+          tickets.find(
+            (ticket) =>
+              ticket.category === 'APPEAL' &&
+              ticket.appealCategory === 'REPORT_RESULT' &&
+              ticket.relatedEntityId === report.id,
+          )?.id ?? null,
+      })),
+    [reports, tickets],
+  );
+  const enforcementNoticeItems = useMemo(
+    () =>
+      enforcementNotices.map((notice) => ({
+        ...notice,
+        linkedTicketId:
+          tickets.find(
+            (ticket) =>
+              ticket.category === 'APPEAL' &&
+              (ticket.appealCategory === 'SANCTION' ||
+                ticket.appealCategory === 'TEMPORARY_RESTRICTION') &&
+              ticket.relatedEntityId === notice.id,
+          )?.id ?? null,
+      })),
+    [enforcementNotices, tickets],
+  );
 
   async function handleCreateTicket() {
     setFormSubmitting(true);
@@ -116,6 +156,7 @@ export default function SupportPageClient({
         subject: formValues.subject.trim(),
         body: formValues.body.trim(),
         emailReplyConsent: formValues.emailReplyConsent,
+        relatedEntityId: formValues.relatedEntityId,
       });
       setTickets((current) => [response.ticket, ...current]);
       setSelectedTicketId(response.ticket.id);
@@ -125,6 +166,36 @@ export default function SupportPageClient({
     } finally {
       setFormSubmitting(false);
     }
+  }
+
+  function handleCreateReportAppeal(report: ReportListItem) {
+    setFormError(null);
+    setFormValues({
+      category: 'APPEAL',
+      appealCategory: 'REPORT_RESULT',
+      subject: '신고 처리 이의 신청',
+      body: `${report.targetLabel}에 대한 신고 처리 결과 재검토를 요청합니다.
+
+이의 사유: `,
+      emailReplyConsent: false,
+      relatedEntityId: report.id,
+    });
+  }
+
+  function handleCreateEnforcementAppeal(notice: EnforcementNotice) {
+    setFormError(null);
+    const appealCategory =
+      notice.status === 'ACTIVE' && notice.effectiveUntil ? 'TEMPORARY_RESTRICTION' : 'SANCTION';
+    setFormValues({
+      category: 'APPEAL',
+      appealCategory,
+      subject: '이용 제한 이의 신청',
+      body: `${notice.scopeLabel}에 적용된 이용 제한에 대해 재검토를 요청합니다.
+
+이의 사유: `,
+      emailReplyConsent: false,
+      relatedEntityId: notice.id,
+    });
   }
 
   async function handleAppendMessage() {
@@ -217,6 +288,16 @@ export default function SupportPageClient({
                 error={formError}
                 onChange={setFormValues}
                 onSubmit={() => void handleCreateTicket()}
+              />
+              <SupportReportList
+                reports={reportItems}
+                onCreateAppeal={handleCreateReportAppeal}
+                onSelectTicket={setSelectedTicketId}
+              />
+              <SupportEnforcementNoticeList
+                notices={enforcementNoticeItems}
+                onCreateAppeal={handleCreateEnforcementAppeal}
+                onSelectTicket={setSelectedTicketId}
               />
               <section className="rounded-3xl border border-(--knu-border) bg-white p-4 shadow-sm">
                 <h2 className="text-base font-black text-(--knu-text-primary)">문의 내역</h2>

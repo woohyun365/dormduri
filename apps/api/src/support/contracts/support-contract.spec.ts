@@ -25,15 +25,26 @@ describe('support shared/API contract', () => {
     ).toBe(false);
 
     expect(
+      createSupportTicketRequestSchema.safeParse({
+        category: 'APPEAL',
+        appealCategory: 'REPORT_RESULT',
+        subject: '신고 처리 이의 신청',
+        body: '재검토를 요청합니다.',
+      }).success,
+    ).toBe(false);
+
+    expect(
       createSupportTicketRequestSchema.parse({
         category: 'APPEAL',
         appealCategory: 'REPORT_RESULT',
+        relatedEntityId: 'report-1',
         subject: '소명 요청',
         body: '소명을 요청합니다.',
       }),
     ).toMatchObject({
       category: 'APPEAL',
       appealCategory: 'REPORT_RESULT',
+      relatedEntityId: 'report-1',
       emailReplyConsent: false,
     });
 

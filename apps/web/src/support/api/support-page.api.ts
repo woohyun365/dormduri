@@ -18,6 +18,18 @@ import {
   type SupportTicketDetailResponse,
   type SupportTicketListResponse,
 } from '@repo/shared/support';
+import {
+  enforcementNoticeListResponseSchema,
+  listEnforcementNoticesQuerySchema,
+  type EnforcementNoticeListResponse,
+  type ListEnforcementNoticesQuery,
+} from '@repo/shared/social-safety/enforcement';
+import {
+  listReportsQuerySchema,
+  reportListResponseSchema,
+  type ListReportsQuery,
+  type ReportListResponse,
+} from '@repo/shared/social-safety/report';
 
 export class SupportPageFetchError extends Error {
   constructor(
@@ -121,6 +133,22 @@ function buildTicketListPath(query: Partial<ListSupportTicketsQuery> = {}) {
   })}`;
 }
 
+function buildReportListPath(query: Partial<ListReportsQuery> = {}) {
+  const parsed = listReportsQuerySchema.parse(query);
+  return `/api/reports${buildQueryString({
+    cursor: parsed.cursor,
+    limit: parsed.limit,
+  })}`;
+}
+
+function buildEnforcementNoticeListPath(query: Partial<ListEnforcementNoticesQuery> = {}) {
+  const parsed = listEnforcementNoticesQuerySchema.parse(query);
+  return `/api/enforcements${buildQueryString({
+    cursor: parsed.cursor,
+    limit: parsed.limit,
+  })}`;
+}
+
 async function listFaq(
   query: Partial<ListSupportFaqQuery> = { surface: 'SUPPORT_CENTER' },
 ): Promise<SupportFaqListResponse> {
@@ -131,6 +159,16 @@ async function listTickets(
   query: Partial<ListSupportTicketsQuery> = {},
 ): Promise<SupportTicketListResponse> {
   return fetchAndParse(buildTicketListPath(query), supportTicketListResponseSchema);
+}
+
+async function listReports(query: Partial<ListReportsQuery> = {}): Promise<ReportListResponse> {
+  return fetchAndParse(buildReportListPath(query), reportListResponseSchema);
+}
+
+async function listEnforcements(
+  query: Partial<ListEnforcementNoticesQuery> = {},
+): Promise<EnforcementNoticeListResponse> {
+  return fetchAndParse(buildEnforcementNoticeListPath(query), enforcementNoticeListResponseSchema);
 }
 
 async function getTicket(ticketId: string): Promise<SupportTicketDetailResponse> {
@@ -165,6 +203,8 @@ async function appendMessage(
 export const supportPageApi = {
   listFaq,
   listTickets,
+  listReports,
+  listEnforcements,
   getTicket,
   createTicket,
   appendMessage,

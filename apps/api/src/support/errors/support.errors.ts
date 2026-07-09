@@ -1,4 +1,4 @@
-import { conflictError, notFoundError } from '../../platform/http/api-error.js';
+import { badRequestError, conflictError, notFoundError } from '../../platform/http/api-error.js';
 
 export const supportErrors = {
   ticketNotFound() {
@@ -6,6 +6,24 @@ export const supportErrors = {
   },
   ticketClosed() {
     return conflictError('SUPPORT_TICKET_CLOSED', '종료된 문의에는 메시지를 추가할 수 없습니다.');
+  },
+  relatedReportRequired() {
+    return badRequestError(
+      'SUPPORT_RELATED_REPORT_REQUIRED',
+      '신고 처리 이의 신청에는 신고 접수 ID가 필요합니다.',
+    );
+  },
+  relatedReportNotFound() {
+    return notFoundError(
+      'SUPPORT_RELATED_REPORT_NOT_FOUND',
+      '연결할 수 있는 신고 내역을 찾을 수 없습니다.',
+    );
+  },
+  relatedEnforcementNoticeNotFound() {
+    return notFoundError(
+      'SUPPORT_RELATED_ENFORCEMENT_NOTICE_NOT_FOUND',
+      '연결할 수 있는 이용 제한 내역을 찾을 수 없습니다.',
+    );
   },
   invalidTicketTransition() {
     return conflictError(

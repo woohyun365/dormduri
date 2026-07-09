@@ -12,6 +12,7 @@ export type SupportTicketFormValues = Readonly<{
   subject: string;
   body: string;
   emailReplyConsent: boolean;
+  relatedEntityId: string | null;
 }>;
 
 export function SupportTicketForm({
@@ -27,11 +28,18 @@ export function SupportTicketForm({
   onChange: (values: SupportTicketFormValues) => void;
   onSubmit: () => void;
 }) {
+  const appealCategories =
+    values.relatedEntityId && values.appealCategory === 'REPORT_RESULT'
+      ? SUPPORT_APPEAL_FORM_CATEGORIES.filter((category) => category.value === 'REPORT_RESULT')
+      : SUPPORT_APPEAL_FORM_CATEGORIES.filter((category) => category.value !== 'REPORT_RESULT');
+
   const submitDisabled =
     submitting ||
     !values.subject.trim() ||
     !values.body.trim() ||
-    (values.category === 'APPEAL' && !values.appealCategory);
+    (values.category === 'APPEAL' &&
+      (!values.appealCategory ||
+        (values.appealCategory === 'REPORT_RESULT' && !values.relatedEntityId)));
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,6 +70,7 @@ export function SupportTicketForm({
                 category,
                 appealCategory:
                   category === 'APPEAL' ? (values.appealCategory ?? 'SANCTION') : null,
+                relatedEntityId: category === 'APPEAL' ? values.relatedEntityId : null,
               });
             }}
             className="mt-1 w-full rounded-2xl border border-(--knu-border) bg-white px-3 py-2.5 text-sm font-bold text-(--knu-text-primary) outline-none focus:border-emerald-500"
@@ -73,6 +82,15 @@ export function SupportTicketForm({
             ))}
           </select>
         </label>
+
+        {values.category === 'APPEAL' && values.relatedEntityId && (
+          <p className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold leading-relaxed text-amber-800">
+            {values.appealCategory === 'REPORT_RESULT'
+              ? '신고 내역과 연결된 이의 신청이에요.'
+              : '이용 제한 내역과 연결된 이의 신청이에요.'}{' '}
+            이미지나 추가 파일 없이 텍스트로만 접수돼요.
+          </p>
+        )}
 
         {values.category === 'APPEAL' && (
           <label className="block text-xs font-bold text-(--knu-text-tertiary)">
@@ -87,7 +105,7 @@ export function SupportTicketForm({
               }
               className="mt-1 w-full rounded-2xl border border-(--knu-border) bg-white px-3 py-2.5 text-sm font-bold text-(--knu-text-primary) outline-none focus:border-emerald-500"
             >
-              {SUPPORT_APPEAL_FORM_CATEGORIES.map((category) => (
+              {appealCategories.map((category) => (
                 <option key={category.value} value={category.value}>
                   {category.label}
                 </option>
