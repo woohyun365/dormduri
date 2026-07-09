@@ -1,4 +1,7 @@
-import { LIFESTYLE_FIELD_NAMES, LIFESTYLE_LABELS } from '@/constants/lifestyle';
+import {
+  formatLifestyleFieldName,
+  formatLifestyleOptionLabel,
+} from '@/main/model/lifestyleDisplayCopy';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { RoommateSearchFilterOperator } from '@repo/shared/roommate-search/contract';
 import type {
@@ -27,19 +30,19 @@ const SCALAR_FILTER_LIFESTYLE_FIELDS = {
 const FIELD_COPY = {
   smokingBehavior: {
     title: '원하는 상대의 흡연 여부',
-    chipLabel: LIFESTYLE_FIELD_NAMES.smokingBehavior,
+    chipLabel: formatLifestyleFieldName('smokingBehavior'),
   },
   bedtime: {
     title: '원하는 상대의 취침 시간',
-    chipLabel: LIFESTYLE_FIELD_NAMES.bedtime,
+    chipLabel: formatLifestyleFieldName('bedtime'),
   },
   wakeTime: {
     title: '원하는 상대의 기상 시간',
-    chipLabel: LIFESTYLE_FIELD_NAMES.wakeTime,
+    chipLabel: formatLifestyleFieldName('wakeTime'),
   },
   noiseSensitivity: {
     title: '원하는 상대의 잠귀 밝음 정도',
-    chipLabel: LIFESTYLE_FIELD_NAMES.noiseSensitivity,
+    chipLabel: formatLifestyleFieldName('noiseSensitivity'),
   },
   cleanLevel: {
     title: '원하는 상대의 방 정리 습관',
@@ -47,15 +50,15 @@ const FIELD_COPY = {
   },
   sleepHabit: {
     title: '원하는 상대의 잠버릇',
-    chipLabel: LIFESTYLE_FIELD_NAMES.sleepHabit,
+    chipLabel: formatLifestyleFieldName('sleepHabit'),
   },
   indoorEating: {
     title: '원하는 상대의 실내 취식 습관',
-    chipLabel: LIFESTYLE_FIELD_NAMES.indoorEating,
+    chipLabel: formatLifestyleFieldName('indoorEating'),
   },
   relationshipStyle: {
     title: '원하는 상대의 관계 스타일',
-    chipLabel: LIFESTYLE_FIELD_NAMES.relationshipStyle,
+    chipLabel: formatLifestyleFieldName('relationshipStyle'),
   },
   college: {
     title: '원하는 상대의 단과대',
@@ -114,7 +117,7 @@ export function formatRoommateSearchFilterOptionLabel(
 
   if (isScalarFilterKey(key)) {
     const lifestyleField = SCALAR_FILTER_LIFESTYLE_FIELDS[key];
-    return LIFESTYLE_LABELS[lifestyleField][code] ?? fallback;
+    return formatLifestyleOptionLabel(lifestyleField, code, fallback);
   }
 
   if (key === 'grade') {

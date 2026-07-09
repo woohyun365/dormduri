@@ -4,7 +4,7 @@
  * 이 hook은 /main UI state와 toast만 얇게 연결한다.
  */
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { matchingApi } from '@/api/matching';
+import { legacyMatchingApi as matchingApi } from '@/main/legacy/matchingLegacyClient';
 import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';

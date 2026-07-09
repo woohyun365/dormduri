@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { HomeQuickMenuSection } from './sections/quick-actions/HomeQuickMenuSection';
 import { HomeDashboardLayout } from './layout/HomeDashboardLayout';
 import { HomeHeader } from './layout/HomeHeader';
@@ -59,8 +58,6 @@ export default function HomeTab({
 
   return (
     <div>
-      <OfflineBanner />
-
       <HomeHeader
         viewModel={viewModel}
         seasonState={seasonState}

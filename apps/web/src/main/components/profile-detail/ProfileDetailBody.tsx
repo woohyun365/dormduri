@@ -4,7 +4,6 @@ import { ADDITIONAL_FIELD_NAMES, GRADES, getCollegeLabel } from '@/constants/add
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
-import { ContextualTip } from '@/components/ContextualTip';
 import { CompatibilityReport } from '../CompatibilityReport';
 import type { RoommateProfile } from '@/types/profile';
 import type { MatchScoreType } from '@/utils/matchScore';
@@ -35,16 +34,12 @@ interface ProfileDetailBodyProps {
   profile: RoommateProfile;
   scoreType?: MatchScoreType;
   userLifestyle?: LifestyleData;
-  showMatchRequestTip?: boolean;
-  onDismissMatchRequestTip?: () => void;
 }
 
 export function ProfileDetailBody({
   profile,
   scoreType = 'full',
   userLifestyle,
-  showMatchRequestTip,
-  onDismissMatchRequestTip,
 }: ProfileDetailBodyProps) {
   const dormLabel = getDormitoryLabel(profile.dormitoryId);
   const avatarColor = getAvatarColor(profile.nickname);
@@ -196,14 +191,6 @@ export function ProfileDetailBody({
           </div>
           <p className="text-sm text-blue-800 leading-relaxed">{profile.messageToRoommate}</p>
         </div>
-      )}
-
-      {/* Match Request Tip */}
-      {showMatchRequestTip && onDismissMatchRequestTip && (
-        <ContextualTip
-          message="상대방이 수락하면 매칭이 성사돼요"
-          onDismiss={onDismissMatchRequestTip}
-        />
       )}
     </div>
   );

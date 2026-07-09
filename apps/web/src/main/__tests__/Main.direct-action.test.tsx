@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import Main from '../Main';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import { homeDashboardApi } from '@/main/api/home-dashboard.api';
-import { profileApi } from '@/api/profile';
+import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 
 const roommateListTabMock = vi.hoisted(() =>
@@ -177,9 +177,15 @@ describe('Main direct-action baseline', () => {
         user: expect.objectContaining({ id: 'user-1' }),
         onNavigate: expect.any(Function),
         searchEntryAllowed: true,
+        viewerSeasonRegistered: true,
       }),
     );
-    expect(Object.keys(props ?? {}).sort()).toEqual(['onNavigate', 'searchEntryAllowed', 'user']);
+    expect(Object.keys(props ?? {}).sort()).toEqual([
+      'onNavigate',
+      'searchEntryAllowed',
+      'user',
+      'viewerSeasonRegistered',
+    ]);
   });
 
   it('passes closed search entry capability without loading legacy list data', async () => {

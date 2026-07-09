@@ -1,7 +1,13 @@
-import { CAMPUS_NAMES } from '@/constants/dormitory';
-import { getCollegeLabel, GRADES } from '@/constants/additional-profile';
-import { getLifestyleLabel, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
-import type { LifestyleData } from '@/types/lifestyle';
+import {
+  formatCampusName,
+  formatCollegeName,
+  formatGenderLabel,
+  formatGradeLabel,
+} from '@/main/model/profileDisplayCopy';
+import {
+  formatLifestyleFieldName,
+  formatLifestyleOptionLabel,
+} from '@/main/model/lifestyleDisplayCopy';
 import type { PublicProfile, PublicProfileFullDetail } from '@repo/shared/profile/contract';
 import type { HomeProfileDisplayRow } from './seasonProfileDisplay.mapper';
 
@@ -31,13 +37,10 @@ export function buildPublicProfileIdentityRows(profile: PublicProfile): HomeProf
 
   return [
     { label: '닉네임', value: profile.nickname },
-    { label: '성별', value: profile.gender === 'M' ? '남' : '여' },
-    { label: '캠퍼스', value: CAMPUS_NAMES[profile.campus] },
-    { label: '단과대', value: getCollegeLabel(profile.additional.college) ?? '미입력' },
-    {
-      label: '학년',
-      value: GRADES.find((grade) => grade.value === profile.additional.grade)?.label ?? '미입력',
-    },
+    { label: '성별', value: formatGenderLabel(profile.gender) },
+    { label: '캠퍼스', value: formatCampusName(profile.campus) },
+    { label: '단과대', value: formatCollegeName(profile.additional.college) },
+    { label: '학년', value: formatGradeLabel(profile.additional.grade) },
     { label: 'MBTI', value: profile.additional.mbti ?? '미입력' },
     ...(typeof profile.matchScore === 'number'
       ? [{ label: '매칭도', value: `${profile.matchScore}%` }]
@@ -49,8 +52,8 @@ export function buildPublicProfileLifestyleRows(profile: PublicProfile): HomePro
   if (profile.detailState === 'TOMBSTONE') return [];
 
   return PUBLIC_PROFILE_LIFESTYLE_FIELDS.map((field) => ({
-    label: LIFESTYLE_FIELD_NAMES[field as keyof LifestyleData],
-    value: getLifestyleLabel(field as keyof LifestyleData, profile.lifestyle[field]),
+    label: formatLifestyleFieldName(field),
+    value: formatLifestyleOptionLabel(field, profile.lifestyle[field]),
   }));
 }
 

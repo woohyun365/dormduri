@@ -1,6 +1,15 @@
 import { RefreshCw } from 'lucide-react';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
-import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
+import {
+  formatLifestyleFieldName,
+  formatLifestyleOptionLabel,
+} from '@/main/model/lifestyleDisplayCopy';
+import {
+  formatCampusName,
+  formatCollegeName,
+  formatGenderNoun,
+  formatGradeLabel,
+} from '@/main/model/profileDisplayCopy';
 import { CompatibilityAxisList } from '../components/CompatibilityAxisList';
 import { CompatibilityRadar } from '../components/CompatibilityRadar';
 import { mapCompatibilityToChartViewModel } from '../model/compatibility/compatibilityChart.mapper';
@@ -429,14 +438,11 @@ function buildIdentityRows(profile: PublicProfileFullDetail): readonly DetailRow
   return [
     {
       label: '성별',
-      value: profile.gender === 'F' ? '여성' : profile.gender === 'M' ? '남성' : profile.gender,
+      value: formatGenderNoun(profile.gender),
     },
-    { label: '캠퍼스', value: profile.campus === 'CHUNCHEON' ? '춘천캠퍼스' : profile.campus },
-    { label: '단과대', value: profile.additional.college ?? '비공개' },
-    {
-      label: '학년',
-      value: profile.additional.grade ? `${profile.additional.grade}학년` : '비공개',
-    },
+    { label: '캠퍼스', value: formatCampusName(profile.campus) },
+    { label: '단과대', value: formatCollegeName(profile.additional.college, '비공개') },
+    { label: '학년', value: formatGradeLabel(profile.additional.grade, '비공개') },
     { label: 'MBTI', value: profile.additional.mbti ?? '비공개' },
   ];
 }
@@ -471,16 +477,16 @@ function buildTargetLifestyleRows(
   lifestyle: PublicProfileDetailLifestyle,
 ): readonly DetailRowViewModel[] {
   return TARGET_LIFESTYLE_FIELDS.map((field) => ({
-    label: LIFESTYLE_FIELD_NAMES[field],
-    value: getLifestyleLabel(field, lifestyle[field]),
+    label: formatLifestyleFieldName(field),
+    value: formatLifestyleOptionLabel(field, lifestyle[field]),
   }));
 }
 
 function buildViewerPreferenceRows(lifestyle: LifestyleData): readonly DetailRowViewModel[] {
   return [
     ...VIEWER_PREFERENCE_FIELDS.map((field) => ({
-      label: LIFESTYLE_FIELD_NAMES[field],
-      value: getLifestyleLabel(field, lifestyle[field]),
+      label: formatLifestyleFieldName(field),
+      value: formatLifestyleOptionLabel(field, lifestyle[field]),
     })),
     {
       label: '음주',

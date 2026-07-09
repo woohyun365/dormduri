@@ -174,7 +174,7 @@ describe('RoommateTab runtime boundary', () => {
     const tabSource = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
 
     expect(source).toContain('counterpartNickname');
-    expect(source).toContain('noticeItems');
+    expect(source).toContain('noticeSections');
     expect(source).toContain('매칭 요청 후 알아야 할 사항');
     expect(source).toContain('차단 후 알아야 할 사항');
     expect(source).not.toContain('이미 요청을 보낸 사용자');

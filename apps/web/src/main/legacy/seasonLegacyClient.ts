@@ -60,7 +60,7 @@ export const seasonApi = {
       const season = getDateOverriddenSeason(mock.CURRENT_SEASON);
       const daysUntilEnd = mock.calcDaysUntilEnd(season);
 
-      // DevPanel 시즌 오버라이드 체크
+      // legacy local season override 체크
       if (typeof window !== 'undefined') {
         const override = localStorage.getItem(SEASON_OVERRIDE_KEY);
         if (

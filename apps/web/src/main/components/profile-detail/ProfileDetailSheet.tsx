@@ -28,8 +28,6 @@ interface ProfileDetailSheetProps {
   scoreType?: MatchScoreType;
   userLifestyle?: LifestyleData;
   customFooter?: React.ReactNode;
-  showMatchRequestTip?: boolean;
-  onDismissMatchRequestTip?: () => void;
 }
 
 export function ProfileDetailSheet({
@@ -48,8 +46,6 @@ export function ProfileDetailSheet({
   scoreType,
   userLifestyle,
   customFooter,
-  showMatchRequestTip,
-  onDismissMatchRequestTip,
 }: ProfileDetailSheetProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
@@ -115,13 +111,7 @@ export function ProfileDetailSheet({
         }
         footer={footer}
       >
-        <ProfileDetailBody
-          profile={profile}
-          scoreType={scoreType}
-          userLifestyle={userLifestyle}
-          showMatchRequestTip={showMatchRequestTip}
-          onDismissMatchRequestTip={onDismissMatchRequestTip}
-        />
+        <ProfileDetailBody profile={profile} scoreType={scoreType} userLifestyle={userLifestyle} />
 
         {/* More Menu — absolute 위치이므로 BaseBottomSheet 내부 유지 */}
         <ProfileDetailMoreMenu

@@ -61,7 +61,7 @@ RoommateTab은 아래 흐름을 직접 소유하지 않는다.
 RoommateTab production runtime/import graph는 아래를 source of truth로 사용하지 않는다.
 
 - `@/api/profile`, `profileApi.getProfiles`, production empty fallback.
-- `@/main/dev-only/fixtures`, `mockRawProfiles`, `mockDb`, local mock DB.
+- 삭제된 `@/main/dev-only/fixtures` mock surface, `mockRawProfiles`, `mockDb`, local mock DB.
 - `calcMatchScoreWithGating` 기반 사용자-facing search score 계산.
 - legacy `FilterState`, `DEFAULT_FILTERS`, fixed local filter option set.
 - local `bookmarkedUserIds` / `blockedUserIds` `Set` truth.

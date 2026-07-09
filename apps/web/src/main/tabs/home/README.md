@@ -132,7 +132,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 - 실행: `pnpm --dir apps/web storybook`
 - 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
 - 현재 HomeTab story matrix는 시즌/매칭/프로필 상태를 중심으로 구성하고, operations error/empty/list 상태는 `Main/HomeTab/Operations Pages` story 하위에서 `/notices`, `/notifications`, `/support` 전용 page별로 분리해 확인한다.
-- story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `main/dev-only/fixtures`를 import하면 안 된다.
+- story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, 삭제된 `main/dev-only/fixtures` mock surface를 import하면 안 된다.
 - `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 
 ## Playwright / browser smoke boundary
@@ -143,7 +143,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 따라서 Home browser evidence는 다음처럼 분리한다.
 
 - Web-only Playwright: public routes와 unauthenticated protected-route redirect를 검증한다.
-- Home logged-in behavior: Vitest component/hook/BFF route tests로 빠르게 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, Home runtime code는 `@/main/dev-only/fixtures`를 직접 참조하지 않는다.
+- Home logged-in behavior: Vitest component/hook/BFF route tests로 빠르게 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, Home runtime code는 삭제된 `@/main/dev-only/fixtures` mock surface를 직접 참조하지 않는다.
 - API-backed `/main` mobile/desktop smoke: `home-e2e-viewer@kangwon.ac.kr` seed 계정으로 current season, active match, pending request, unread chat, non-operated campus fail-closed matrix를 검증한다.
 
 Home/Auth handoff final-readiness full-stack matrix는 아래 명령으로 실행한다.
@@ -197,9 +197,9 @@ pnpm --dir apps/api prisma:seed:run
 
 ## Runtime fixture boundary
 
-- `/main` Home first render path와 Home API client는 `@/main/dev-only/fixtures`를 direct/dynamic import하지 않는다.
+- `/main` Home first render path와 Home API client는 삭제된 `@/main/dev-only/fixtures` mock surface를 direct/dynamic import하지 않는다.
 - `/main` Home first render path는 `profileApi.getMyProfile()` failure/null을 Home render blocker로 삼지 않는다.
-- root `apps/web/src/__fixtures__`는 제거됐고, mock DB/matching service는 `apps/web/src/main/dev-only/fixtures` local development/test-support boundary로 이동했다. Home API client는 이 mock surface를 import하지 않는다.
+- root `apps/web/src/__fixtures__`와 `apps/web/src/main/dev-only/fixtures` mock DB/matching service는 제거됐다. Home API client는 local mock surface를 import하지 않는다.
 - `SeasonState`는 `@repo/shared/season/runtime`을 직접 import하며, Web-local season compatibility re-export는 사용하지 않는다.
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.

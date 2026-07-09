@@ -2,7 +2,8 @@
 
 import { Bookmark, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { CAMPUS_NAMES, getDormitoryById } from '@/constants/dormitory';
+import { getDormitoryDisplayById } from '@/main/model/dormitoryDisplay.adapter';
+import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
 import { useSeasonContext, type SeasonContextValue } from '@/main/contexts/SeasonContext';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { useRoommateActions } from './hooks/useRoommateActions';
@@ -89,7 +90,7 @@ export default function RoommateListTab({
         : (searchClosedMessage ?? ENTRY_CLOSED_MESSAGE);
   const searchClosed = closedMessage !== null;
   const assignedDormitory = isDormitoryAssigned(user.dormitoryId)
-    ? (getDormitoryById(user.dormitoryId) ?? null)
+    ? getDormitoryDisplayById(user.dormitoryId)
     : null;
   const registeredWithDormitory =
     (viewerSeasonRegistered ?? assignedDormitory !== null) && assignedDormitory !== null;
@@ -657,11 +658,7 @@ function getSearchSummaryContextLabel(
   assignedDormitoryName: string | null,
 ): string | null {
   const scope = search.response?.scope ?? search.query.scope;
-  if (scope === 'CAMPUS_MERGED') return CAMPUS_NAMES[user.campus];
-  if (assignedDormitoryName) return `${assignedDormitoryName} (${genderLabel(user.gender)})`;
+  if (scope === 'CAMPUS_MERGED') return formatCampusName(user.campus);
+  if (assignedDormitoryName) return `${assignedDormitoryName} (${formatGenderLabel(user.gender)})`;
   return null;
-}
-
-function genderLabel(gender: UserProfile['gender']): string {
-  return gender === 'M' ? '남' : '여';
 }
