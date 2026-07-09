@@ -59,7 +59,10 @@
 ## Appeal policy
 
 - 이의 신청은 support ticket의 category로 접수하되, 판단 owner는 incident-enforcement review다.
-- 이의 신청에는 제재/임시조치 대상, 사용자 설명, 필요한 경우 첨부 자료가 포함될 수 있다.
+- 신고자가 신고 처리 결과에 이의가 있는 경우 `category=APPEAL`, `appealCategory=REPORT_RESULT`, `relatedEntityId=reportCaseId`로 접수한다.
+- 피신고자가 제재나 임시 제한에 이의가 있는 경우 `category=APPEAL`, `appealCategory=SANCTION` 또는 `TEMPORARY_RESTRICTION`로 접수한다.
+- Support 화면에서 social-safety owner의 self-read 제재 내역을 제공할 수 있는 경우 `relatedEntityId=enforcementNoticeId`로 ticket을 연결한다. 연결 ID는 본인에게 노출 가능한 제재/제한 pointer이며 신고 원장, 신고인 정보, 내부 심사 메모를 대체하지 않는다.
+- 현재 사용자-facing 이의 신청은 텍스트 설명만 받는다. 이미지 파일이나 추가 자료 제출은 별도 attachment owner와 검토/보관 정책이 확정될 때까지 제외한다.
 - user-facing reply에는 신고인 정보, 내부 심사 메모, RRPD payload, 운영자 개인 식별 정보를 포함하지 않는다.
 - 이의 결과 알림은 in-app notification이 primary이며, 사용자가 이메일 회신에 동의한 경우 이메일 사본을 보낼 수 있다.
 
@@ -96,7 +99,7 @@ MVP의 사용자 통지는 in-app notification이 primary다. Push와 native ema
 
 ## 보관/개인정보 경계
 
-- support ticket 본문과 첨부는 운영 문의 처리 목적의 개인정보가 될 수 있다.
+- support ticket 본문은 운영 문의 처리 목적의 개인정보가 될 수 있다. 파일/이미지 첨부는 별도 attachment owner 전까지 사용자-facing support intake 범위에서 제외한다.
 - 신고/제재 관련 ticket은 incident/report retention과 같은 3년 보관 기준에 맞춘다.
 - 일반 support ticket은 처리 완료 후 운영상 필요한 기간만 보관하고, 구체 기간은 [data-retention.md](./data-retention.md)가 소유한다.
 - support notification payload에는 raw support body, 이메일 주소, 첨부 원문, RRPD payload를 넣지 않는다.
@@ -117,3 +120,4 @@ MVP의 사용자 통지는 in-app notification이 primary다. Push와 native ema
 | 2026-06-08 | support ticket, appeal, FAQ, email optional consent, notification handoff baseline을 추가했다            | #79 / #220 / #196 |
 | 2026-06-08 | support ticket/FAQ backend route, capability, self-only access, notification writer 구현 기준을 반영했다 | #79 / #220        |
 | 2026-06-22 | FAQ 공개 surface placement 기준을 추가해 Landing 노출과 support center 노출을 분리했다                   | Landing FAQ       |
+| 2026-07-08 | 신고 처리 결과 이의 경로를 `APPEAL` + `REPORT_RESULT`로 명시하고, 텍스트-only 이의 신청 범위를 추가했다  | #263 / #264       |

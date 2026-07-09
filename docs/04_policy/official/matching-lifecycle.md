@@ -165,11 +165,11 @@
 
 ### 자발적 이탈 시 전이
 
-| 보유 상태 | 처리                                                  |
-| --------- | ----------------------------------------------------- |
-| `ACTIVE`  | **이탈 불가**. `UNMATCHED` 또는 관리자 개입 선행 필요 |
-| `PENDING` | 자동 취소 (`CANCELLED`)                               |
-| 관계 없음 | 리스트 제거                                           |
+| 보유 상태 | 처리                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------- |
+| `ACTIVE`  | **이탈 불가**. `UNMATCHED` 또는 관리자 개입 선행 필요                                                 |
+| `PENDING` | 자동 취소 (`CANCELLED`)                                                                               |
+| 관계 없음 | same-dormitory/actionable 리스트 제거. `CAMPUS_MERGED` summary browse는 미등록 viewer와 동일하게 유지 |
 
 ## 신청 플로우
 
@@ -350,19 +350,19 @@ Metadata는 작은 allowlist snapshot만 허용한다. 허용 후보는 `transit
 | 새로운 매칭 신청 | 불가                                                                                                                                                                                                                                                                                                                                                                               |
 | 필터             | `매칭 가능한 유저만 보기` 제공                                                                                                                                                                                                                                                                                                                                                     |
 
-여기서 `GENERAL` target은 public target cohort 중 viewer의 matched partner가 아닌 registration complete participant를 뜻한다. `summary-only`는 detail/score 노출이 닫힌 exposure level이고, read-only/result-read는 이미 형성된 match result나 thread/history를 읽는 맥락이다.
+여기서 `GENERAL` target은 public target cohort 중 viewer의 matched partner가 아닌 registration complete participant를 뜻한다. `summary-only`는 detail/score 노출이 닫힌 exposure level이고, read-only/result-read는 이미 형성된 match result나 thread/history를 읽는 맥락이다. Active matched viewer도 `CAMPUS_MERGED` summary browse와 `SAME_BUILDING_ONLY` summary list를 볼 수 있지만, 둘 다 신규 후보 action surface가 아니므로 카드 CTA는 닫고 단일 안내 pill로 action-closed 상태를 설명한다.
 
 ## 자발적 이탈
 
-| 항목             | 정책                                                                                         |
-| ---------------- | -------------------------------------------------------------------------------------------- |
-| 방식             | 시즌 참여 철회(de-registration) action                                                       |
-| 이탈 시 처리     | 미결 request 취소 + 열린 비매칭 conversation 정리 + 리스트 제거                              |
-| terminal reason  | request/history는 `WITHDRAWN_PARTICIPANT`, thread는 `PARTICIPANT_WITHDRAWN` 계열 reason 사용 |
-| 확인 단계        | 결과 사전 고지 dialog                                                                        |
-| 복귀             | 같은 시즌 재참여 불가                                                                        |
-| 자동 비활성      | 두지 않음                                                                                    |
-| `ACTIVE` 보유 시 | 사용자 직접 철회 불가. `UNMATCHED` 또는 관리자 개입 후에만 별도 처리                         |
+| 항목             | 정책                                                                                                                 |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 방식             | 시즌 참여 철회(de-registration) action                                                                               |
+| 이탈 시 처리     | 미결 request 취소 + 열린 비매칭 conversation 정리 + same-dormitory/actionable 리스트 제거                            |
+| terminal reason  | request/history는 `WITHDRAWN_PARTICIPANT`, thread는 `PARTICIPANT_WITHDRAWN` 계열 reason 사용                         |
+| 확인 단계        | 결과 사전 고지 dialog                                                                                                |
+| 복귀             | 같은 시즌 재참여 불가. 단, registration 완료 target의 `CAMPUS_MERGED` summary browse는 미등록 viewer와 동일하게 허용 |
+| 자동 비활성      | 두지 않음                                                                                                            |
+| `ACTIVE` 보유 시 | 사용자 직접 철회 불가. `UNMATCHED` 또는 관리자 개입 후에만 별도 처리                                                 |
 
 ## 기숙사별 매칭 종료
 
@@ -508,6 +508,7 @@ Metadata는 작은 allowlist snapshot만 허용한다. 허용 후보는 `transit
 | 2026-06-02 | match history hot row/public API/retained payload에서 chat-derived `hadConversation`/conversation count를 제거하고, 대화 통계는 chat domain stats surface가 소유한다고 명시                                                                                                                                                                                                             | #198       |
 | 2026-06-08 | 북마크 owner를 `social-safety/bookmarks`로 명시하고 create/delete/list/sort/empty/block side-effect/season cleanup 기준을 구현 가능한 baseline으로 보강했다                                                                                                                                                                                                                             | #196       |
 | 2026-06-10 | `ActiveMatchLifecycleEvent`를 `ActiveMatch` current-state를 대체하지 않는 운영/audit/debug trace로 정의하고, same-transaction append boundary와 metadata allowlist/no-PII 금지 payload를 명시                                                                                                                                                                                           | #227       |
+| 2026-07-09 | live `ActiveMatch` viewer도 `SEASON_MATCHING` roommate-search에서 `CAMPUS_MERGED`와 `SAME_BUILDING_ONLY` summary list를 볼 수 있지만, 신규 후보 action surface가 아니므로 카드 CTA를 닫고 단일 안내 pill로 설명한다고 정리                                                                                                                                                              | #195       |
 
 ## 원문 소스
 

@@ -23,15 +23,15 @@
 
 ## Notification owner matrix
 
-| 이벤트 계열                         | owner                                | writer 사용                                | payload 허용 범위                                        |
-| ----------------------------------- | ------------------------------------ | ------------------------------------------ | -------------------------------------------------------- |
-| chat thread created                 | chat                                 | chat compatibility writer → generic writer | thread id, actor/recipient id, occurredAt                |
-| match request / active match notice | matching                             | generic writer                             | match request id, active match id, season id, occurredAt |
-| report status / enforcement notice  | social-safety / incident-enforcement | generic writer                             | report/ticket id, status category, generic reason code   |
-| profile mismatch feedback           | social-safety → notifications        | generic writer                             | report id, feedback prompt code, occurredAt              |
-| support ticket update               | support                              | generic writer                             | support ticket id, category, status/action code          |
-| season lifecycle notice             | seasons/lifecycle                    | generic writer                             | season id/campus/dormitory id, notice kind, deadline     |
-| system notice                       | operations/system                    | generic writer                             | notice id, title key, severity                           |
+| 이벤트 계열                                  | owner                                | writer 사용                                | payload 허용 범위                                                           |
+| -------------------------------------------- | ------------------------------------ | ------------------------------------------ | --------------------------------------------------------------------------- |
+| chat thread created                          | chat                                 | chat compatibility writer → generic writer | thread id, actor/recipient id, occurredAt                                   |
+| match request / active match notice          | matching                             | generic writer                             | match request id, active match id, season id, occurredAt                    |
+| report receipt / status / enforcement notice | social-safety / incident-enforcement | generic writer                             | report/support id, status category, coarse result code, generic reason code |
+| profile mismatch feedback                    | social-safety → notifications        | generic writer                             | report id, feedback prompt code, occurredAt                                 |
+| support ticket update                        | support                              | generic writer                             | support ticket id, category, status/action code                             |
+| season lifecycle notice                      | seasons/lifecycle                    | generic writer                             | season id/campus/dormitory id, notice kind, deadline                        |
+| system notice                                | operations/system                    | generic writer                             | notice id, title key, severity                                              |
 
 Notification writer는 durable `UserNotification` row와 outbox append를 같은 transaction boundary에서 수행한다. 외부 도메인은 notification outbox/repository/dispatcher concrete를 직접 import하지 않는다.
 
@@ -89,6 +89,21 @@ Matching 알림은 “요청/수락/거절/매칭 확정이 발생했다”는 �
 - `SUPPORT_TICKET_ACTION_REQUIRED`와 `SUPPORT_APPEAL_RESOLVED`는 contract/policy allowlist로 남기되, 실제 action-required/appeal-result delivery는 해당 owner 구현 시점에 연결한다.
 - support ticket body, reply body, email, raw appeal detail, RRPD payload는 notification payload에 넣지 않는다.
 
+### Report notification payload
+
+- `REPORT_RECEIVED`는 신고 접수 직후 receipt pointer다. payload는 `reportId`, `status=RECEIVED`, `occurredAt`만 포함하고 신고 상세 원문, 증거 본문, 내부 risk tier, 운영자 메모를 넣지 않는다.
+- `REPORT_STATUS_UPDATED`는 review/decision owner가 검토 상태 또는 완료 결과를 확정한 뒤 발행한다. 검토 완료 알림은 신고자에게 검토 완료, 정책 위반 확인, 추가 조치 없음, 서비스 이용 제한 또는 경고 조치 같은 coarse result까지만 전달할 수 있다.
+- 피신고인 개인정보, 세부 제재 기간, 내부 risk tier, 운영자 메모, RRPD/vault payload는 report notification payload에 넣지 않는다.
+- 신고 처리 결과에 대한 이의 신청 CTA가 필요한 경우 notification payload에는 report/support pointer만 두고, support owner가 `APPEAL` + `REPORT_RESULT` ticket 생성 시 `relatedEntityId`로 연결한다.
+
+### Enforcement notification payload
+
+- `ENFORCEMENT_NOTICE`는 피신고인에게 제재/임시 제한 decision이 적용됐음을 알리는 pointer다.
+- payload는 `enforcementNoticeId`, `actionType`, `reasonCategory`, `occurredAt`만 포함한다.
+- 알림 copy는 “서비스 이용 제한이 적용됐어요”, “위반 사유: {category}”, “이의가 있으면 고객센터에서 재검토를 요청할 수 있어요” 수준으로 제한한다.
+- 적용 범위/기간과 정책 기준 요약은 social-safety owner의 self-read API와 Support 화면에서 다시 권한 확인 후 제공한다.
+- 신고인 정보, 신고 원문, 증거 원문, 내부 risk tier, 운영자 메모, 세부 제재 산정 기준은 notification payload에 넣지 않는다.
+
 ### Profile mismatch feedback
 
 허위 프로필 신고 중 생활패턴/주관적 필드 불일치는 제재 알림이 아니라 다음 시즌 프로필 재검토를 유도하는 feedback/prompt pointer다.
@@ -129,3 +144,4 @@ Matching 알림은 “요청/수락/거절/매칭 확정이 발생했다”는 �
 | 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220    |
 | 2026-07-03 | global notice와 개인 notification inbox의 API/preview/body 경계를 분리했다                                     | Home Phase 6  |
 | 2026-07-05 | matching request/status notification kind와 pointer-only payload 기준, Storybook 시나리오를 추가했다           | Home Phase 10 |
+| 2026-07-08 | 신고 접수 receipt와 검토 완료 coarse result 알림의 payload privacy, support appeal pointer 경계를 추가했다     | #263 / #264   |

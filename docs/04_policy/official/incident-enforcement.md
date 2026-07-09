@@ -30,14 +30,17 @@
 
 Report intake는 신고 원장을 생성하고 접수 사실을 기록하는 단계다. Intake만으로 `SeasonParticipant.hidden*`, `deactivatedAt`, 계정 정지, 채팅 archive 같은 제재 projection을 직접 변경하지 않는다. Exposure/action을 닫는 projection은 운영 검토, 시스템 rule, 관리자 결정이 있는 별도 decision/write owner가 수행한다.
 
-| 항목      | 정책                                                                                                           |
-| --------- | -------------------------------------------------------------------------------------------------------------- |
-| 신고 사유 | 위 8개 카테고리 중 하나를 필수 선택. lifestyle mismatch는 `허위 프로필`의 경미/피드백 후보로 시작              |
-| 신고 대상 | profile, match request note, chat thread/message, support/운영 사건 등 구현 owner가 허용한 target              |
-| 중복 신고 | 동일 reporter/target/category/open case는 idempotent 처리 또는 기존 case에 누적                                |
-| 접수 응답 | 접수 완료와 후속 검토 안내. 피신고인 조치 여부나 내부 위험도는 노출하지 않음                                   |
-| 접수 알림 | 신고인에게 in-app receipt 가능. 피신고인에게는 제재/임시조치 decision 이후 필요한 범위만 고지                  |
-| 즉시 효과 | 없음. 고위험 신고도 operator alert/protective review 후보일 뿐 intake command가 직접 숨김/정지를 수행하지 않음 |
+| 항목           | 정책                                                                                                                                                                  |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 신고 사유      | 위 8개 카테고리 중 하나를 필수 선택. lifestyle mismatch는 `허위 프로필`의 경미/피드백 후보로 시작                                                                     |
+| 신고 대상      | profile, match request note, chat thread/message, support/운영 사건 등 구현 owner가 허용한 target                                                                     |
+| 중복 신고      | 동일 reporter/target/category/open case는 idempotent 처리 또는 기존 case에 누적                                                                                       |
+| 접수 응답      | 접수 완료와 후속 검토 안내만 제공한다. 피신고인 조치 여부, 내부 risk tier, 운영자 메모는 접수 응답에 노출하지 않는다                                                  |
+| 접수 receipt   | 신고인에게 신고 접수 완료, 접수 ID/시간, 검토 완료 시 알림 예정, 내부 검토 과정/세부 조치 비공개를 제한적으로 안내할 수 있다                                          |
+| 검토 완료 알림 | review/decision owner가 처리 완료 후 신고자에게 coarse result(검토 완료, 정책 위반 확인, 추가 조치 없음, 서비스 이용 제한 또는 경고 조치)를 알림함으로 고지할 수 있다 |
+| 알림 privacy   | 피신고인 개인정보, 세부 제재 기간, 내부 risk tier, 운영자 메모, 신고 상세 원문, RRPD/vault payload는 신고자 알림과 피신고인 알림 모두에 포함하지 않는다               |
+| 피신고인 고지  | 피신고인에게는 제재/임시조치 decision 이후 필요한 범위에서 제재 사실, 위반 사유 카테고리, 이의 신청 방법만 고지한다                                                   |
+| 즉시 효과      | 없음. 고위험 신고도 operator alert/protective review 후보일 뿐 intake command가 직접 숨김/정지를 수행하지 않음                                                        |
 
 ### False report / disclaimer
 
@@ -207,19 +210,26 @@ ACTIVE ──(임시조치)──→ HIDDEN ──(이의 없음/30일)──→
 
 ### 신고인 고지
 
-| 항목      | 정책                                                     |
-| --------- | -------------------------------------------------------- |
-| 고지 내용 | 처리 완료 사실 + 조치 수준 (경고/제한/정지 중 어느 수준) |
-| 비고지    | 피신고인 개인정보 (닉네임 포함)                          |
-| 시점      | 제재 조치 확정 후                                        |
+신고인 고지는 접수 receipt와 검토 완료 알림을 분리한다. 접수 receipt는 제한적 사실 고지이고, 검토 완료 알림은 review/decision owner가 확정한 coarse result까지만 허용한다.
+
+| 시점         | 고지 내용                                                                                                      | 비고지                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 접수 직후    | 신고 접수 완료, 접수 ID/시간, 검토 완료 시 알림 예정, 내부 검토 과정/세부 조치 비공개 안내                     | 피신고인 조치 여부, 내부 risk tier, 운영자 메모, 신고 상세 원문                            |
+| 검토 완료 후 | 검토 완료, 정책 위반 확인, 추가 조치 없음, 서비스 이용 제한 또는 경고 조치 같은 coarse result                  | 피신고인 개인정보, 세부 제재 기간, 내부 risk tier, 운영자 메모, RRPD/vault payload         |
+| 이의 경로    | 신고 처리 결과에 이의가 있으면 support ticket `APPEAL` + `REPORT_RESULT`로 재검토를 요청할 수 있음을 안내 가능 | 신고자의 이의 내용은 support/incident review owner에서 권한 확인 후 처리하고 raw 알림 제외 |
+
+신고자 알림 화면에서 신고 대상 표시가 필요한 경우 notification payload에 raw nickname을 싣지 않는다. 각 owner read model이 권한을 다시 확인해, 신고 당시 사용자가 볼 수 있었던 안전한 표시명 또는 “신고한 사용자” 같은 대체 문구로 degrade한다.
 
 ### 피신고인 고지
 
-| 항목      | 정책                                              |
-| --------- | ------------------------------------------------- |
-| 고지 내용 | 제재 사실 + 위반 사유 (카테고리) + 이의 신청 방법 |
-| 비고지    | 신고인 정보                                       |
-| 시점      | 제재 조치 실행 시                                 |
+피신고인 고지는 알림함 pointer와 상세/Support 화면을 분리한다. 알림함은 제재 사실, 위반 사유 category, 이의 신청 경로만 안내하고, 상세/Support 화면은 본인이 방어권을 행사하는 데 필요한 제한적 제재 정보를 제공한다.
+
+| Surface        | 고지 가능                                                                                                                                             | 비고지                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 알림함         | “서비스 이용 제한이 적용됐어요”, 위반 사유 category(예: 혐오/차별 표현), 고객센터 재검토 요청 가능 안내                                               | 신고인 정보, 신고 원문, 증거 원문, 내부 risk tier, 운영자 메모, 세부 탐지 기준        |
+| 상세/Support   | 제재 종류(경고/매칭 제한/채팅 제한/계정 제한 등), 적용 범위와 기간, 위반 사유 category, 적용된 정책 기준 요약, 이의 신청 CTA                          | 신고인 정보, 신고 상세 원문, 제3자 개인정보, 세부 제재 산정 로직, 내부 risk tier/메모 |
+| 시점           | 제재/임시조치 decision 실행 후                                                                                                                        | intake 직후에는 피신고인에게 조치 여부를 고지하지 않음                                |
+| 이의 신청 경로 | `category=APPEAL`, `appealCategory=SANCTION` 또는 `TEMPORARY_RESTRICTION`, 가능하면 `relatedEntityId=enforcementNoticeId`로 제재/제한 내역에 연결한다 | 이의 본문은 support/incident review owner에서 권한 확인 후 처리하고 raw 알림 제외     |
 
 양측 모두 상대방 신원을 공개하지 않는다 (2차 분쟁 방지).
 
@@ -318,13 +328,13 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 
 이 정책의 구체적 구현은 social-safety/support/notification 구현 이슈에서 단계적으로 다룬다. 신고 접수/차단/bookmark는 #196, 문의/이의 신청은 #79, FAQ/알림 확장은 #220을 기준으로 분리한다. 관리자 백오피스와 operator alert 화면은 별도 후속 범위다.
 
-| 구현 항목                    | 해당 이슈   | Sprint                    |
-| ---------------------------- | ----------- | ------------------------- |
-| 신고 접수/차단/bookmark API  | #196        | social-safety plan        |
-| 사용자 제출 자료 저장 테이블 | #196 / #148 | BE 전용, RRPD 경계 준수   |
-| 이의 신청 → 문의하기 통합    | #79         | support ticket category   |
-| FAQ / support notification   | #220        | support/notification plan |
-| 닉네임 제재 알림             | #100        | 후속 알림 kind            |
+| 구현 항목                    | 해당 이슈   | Sprint                                                                                     |
+| ---------------------------- | ----------- | ------------------------------------------------------------------------------------------ |
+| 신고 접수/차단/bookmark API  | #196        | social-safety plan                                                                         |
+| 사용자 제출 자료 저장 테이블 | #196 / #148 | BE 전용, RRPD 경계 준수. 파일/이미지 추가 자료 제출 UI는 별도 attachment owner 전까지 제외 |
+| 이의 신청 → 문의하기 통합    | #79         | support ticket category와 `REPORT_RESULT` appeal metadata                                  |
+| FAQ / support notification   | #220        | support/notification plan                                                                  |
+| 닉네임 제재 알림             | #100        | 후속 알림 kind                                                                             |
 
 ## RRPD disclosure와 운영 증거 접근
 
@@ -334,19 +344,20 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                 | 관련 이슈          |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 2026-03-17 | 약관(terms.ts) 제9조 즉시 정지 트리거를 "즉시 영구정지"로 동기화                                                                                                                                          | #147               |
-| 2026-03-17 | 신규 작성                                                                                                                                                                                                 | #150               |
-| 2026-03-19 | 비의도적 불일치 대응 원칙 추가 (잠버릇 등 인지 불가 필드 고려)                                                                                                                                            | #157, #171         |
-| 2026-05-14 | 탈퇴 후 신고 처리 기준을 채팅 90일 파기 전제에서 기본 archive + retained identity 제한 조회 + 접근 로그 구조로 갱신                                                                                       | #76 / #148 / #195  |
-| 2026-05-20 | #195 profile field 정리에 맞춰 공개 영역 임시조치 대상을 season profile `intro`와 매칭 요청 note 중심으로 정리                                                                                            | #195               |
-| 2026-05-25 | 신고/제재 운영 증거 접근에 RRPD disclosure 승인 사유, 접근 로그, product API 복원 금지 원칙을 추가                                                                                                        | #195               |
-| 2026-05-26 | BE/DB 최종 retention 구조에 맞춰 RRPD disclosure 접근 로그 명칭을 통합 모델인 `RetentionAccessLog`로 정합화                                                                                               | #195               |
-| 2026-06-05 | `SeasonParticipant.hidden*`를 신고/차단 원장이 아닌 participant-level current visibility projection으로 정의하고, `ParticipantHiddenReasonCode` taxonomy와 #196 social-safety handoff boundary를 추가했다 | #222 / #223 / #196 |
-| 2026-06-08 | report intake-only 경계, 허위 신고 disclaimer, riskTier/operator alert 후보, support/notification handoff를 구현 baseline으로 보강했다                                                                    | #196 / #79 / #220  |
-| 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196        |
-| 2026-06-22 | 구현 파일명에 묶인 금지행위 초안 표현을 제품 이용약관과 신고/제재 사용자 안내 기준으로 정리했다                                                                                                           | web terms/privacy  |
+| 날짜       | 변경 내용                                                                                                                                                                                                 | 관련 이슈                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 2026-03-17 | 약관(terms.ts) 제9조 즉시 정지 트리거를 "즉시 영구정지"로 동기화                                                                                                                                          | #147                         |
+| 2026-03-17 | 신규 작성                                                                                                                                                                                                 | #150                         |
+| 2026-03-19 | 비의도적 불일치 대응 원칙 추가 (잠버릇 등 인지 불가 필드 고려)                                                                                                                                            | #157, #171                   |
+| 2026-05-14 | 탈퇴 후 신고 처리 기준을 채팅 90일 파기 전제에서 기본 archive + retained identity 제한 조회 + 접근 로그 구조로 갱신                                                                                       | #76 / #148 / #195            |
+| 2026-05-20 | #195 profile field 정리에 맞춰 공개 영역 임시조치 대상을 season profile `intro`와 매칭 요청 note 중심으로 정리                                                                                            | #195                         |
+| 2026-05-25 | 신고/제재 운영 증거 접근에 RRPD disclosure 승인 사유, 접근 로그, product API 복원 금지 원칙을 추가                                                                                                        | #195                         |
+| 2026-05-26 | BE/DB 최종 retention 구조에 맞춰 RRPD disclosure 접근 로그 명칭을 통합 모델인 `RetentionAccessLog`로 정합화                                                                                               | #195                         |
+| 2026-06-05 | `SeasonParticipant.hidden*`를 신고/차단 원장이 아닌 participant-level current visibility projection으로 정의하고, `ParticipantHiddenReasonCode` taxonomy와 #196 social-safety handoff boundary를 추가했다 | #222 / #223 / #196           |
+| 2026-06-08 | report intake-only 경계, 허위 신고 disclaimer, riskTier/operator alert 후보, support/notification handoff를 구현 baseline으로 보강했다                                                                    | #196 / #79 / #220            |
+| 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196                  |
+| 2026-06-22 | 구현 파일명에 묶인 금지행위 초안 표현을 제품 이용약관과 신고/제재 사용자 안내 기준으로 정리했다                                                                                                           | web terms/privacy            |
+| 2026-07-08 | 신고 접수 receipt와 검토 완료 알림을 분리하고, 검토 완료 후에는 coarse result만 허용하며 신고 처리 결과 이의 경로를 support appeal로 연결한다고 명시했다                                                  | #263 / #264 / support appeal |
 
 ## 원문 소스
 
