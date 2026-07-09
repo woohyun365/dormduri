@@ -14,6 +14,7 @@ import { CHAT_BLOCK_SIDE_EFFECT_PORT } from '../application/ports/chat-block-sid
 import { CHAT_LIFECYCLE_SWEEP_PORT } from '../application/ports/chat-lifecycle-sweep.port.js';
 import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from '../application/ports/chat-match-thread-lifecycle.port.js';
 import { CHAT_REPORT_TARGET_CONTEXT_PORT } from '../application/ports/chat-report-target-context.port.js';
+import { CHAT_THREAD_SEARCH_METADATA_READER_PORT } from '../application/ports/chat-thread-search-metadata-reader.port.js';
 import { ChatThreadContextGuard } from '../context/chat-thread-context.guard.js';
 import { ChatThreadContextResolver } from '../context/chat-thread-context.resolver.js';
 import { ChatReportTargetContextResolver } from '../reports/chat-report-target-context.resolver.js';
@@ -23,6 +24,7 @@ import { ConversationThreadLifecycleEventWriter } from '../lifecycle-events/conv
 import { ChatMatchThreadLifecycleService } from '../lifecycle/chat-match-thread-lifecycle.service.js';
 import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
 import { ChatSubscriptionQueryService } from '../queries/chat-subscription-query.service.js';
+import { ChatThreadSearchMetadataQuery } from '../queries/chat-thread-search-metadata.query.js';
 import { ChatRealtimeAuthService } from '../realtime/chat-realtime-auth.service.js';
 import { ChatRealtimeDispatcherService } from '../realtime/chat-realtime-dispatcher.service.js';
 import { ChatRealtimeGateway } from '../realtime/chat-realtime.gateway.js';
@@ -36,10 +38,15 @@ export const CHAT_APPLICATION_PROVIDERS: Provider[] = [
   ChatThreadContextGuard,
   ChatThreadContextResolver,
   ChatSubscriptionQueryService,
+  ChatThreadSearchMetadataQuery,
   ChatReportTargetContextResolver,
   {
     provide: CHAT_REPORT_TARGET_CONTEXT_PORT,
     useExisting: ChatReportTargetContextResolver,
+  },
+  {
+    provide: CHAT_THREAD_SEARCH_METADATA_READER_PORT,
+    useExisting: ChatThreadSearchMetadataQuery,
   },
 ];
 
