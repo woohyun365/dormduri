@@ -6,6 +6,7 @@ const config: StorybookConfig = {
     options: {},
   },
   stories: [
+    '../src/legal/__stories__/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/home/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/roommate-list/**/*.stories.@(ts|tsx|mdx)',
   ],
