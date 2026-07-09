@@ -214,6 +214,10 @@
     "./date": {
       "types": "./dist/date/index.d.ts",
       "default": "./dist/date/index.js"
+    },
+    "./social-safety/enforcement": {
+      "types": "./dist/social-safety/enforcement.d.ts",
+      "default": "./dist/social-safety/enforcement.js"
     }
   },
   "scripts": {

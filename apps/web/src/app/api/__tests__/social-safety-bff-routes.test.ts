@@ -15,6 +15,7 @@ import {
 import { GET as listBlocks } from '../blocks/route';
 import { DELETE as deleteBlock, POST as createBlock } from '../blocks/[targetUserId]/route';
 import { GET as listReports, POST as createReport } from '../reports/route';
+import { GET as listEnforcements } from '../enforcements/route';
 import { GET as listSupportFaq } from '../support/faq/route';
 import { GET as getSupportFaq } from '../support/faq/[articleId]/route';
 import { GET as listSupportTickets, POST as createSupportTicket } from '../support/tickets/route';
@@ -225,6 +226,30 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
     );
     expect(existsSync(join(process.cwd(), 'src/app/api/operations/reports'))).toBe(false);
     expect(existsSync(join(process.cwd(), 'src/app/api/reports/[reportId]'))).toBe(false);
+  });
+
+  it('enforcement BFF는 피신고인 본인용 제재 내역 query만 protected forwarding한다', async () => {
+    const fetchMock = stubJsonFetch({
+      items: [],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
+    const request = createRequest('/api/enforcements?limit=10&cursor=c1&ignored=1', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    await listEnforcements(request);
+
+    expect(firstFetchInput(fetchMock)).toBe(
+      'http://localhost:4000/api/enforcements?limit=10&cursor=c1&ignored=1',
+    );
+    expect(firstFetchInit(fetchMock)).toEqual(
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: `Bearer ${AUTH_TOKEN}` }),
+      }),
+    );
+    expect(existsSync(join(process.cwd(), 'src/app/api/operations/enforcements'))).toBe(false);
+    expect(existsSync(join(process.cwd(), 'src/app/api/enforcements/[enforcementId]'))).toBe(false);
   });
 
   it('support FAQ list/detail은 public route라 auth cookie가 있어도 Authorization을 전달하지 않는다', async () => {

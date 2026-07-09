@@ -49,6 +49,7 @@ import { ChatController } from '../../chat/chat.controller.js';
 import { BlockController } from '../../social-safety/blocks/block.controller.js';
 import { ReportController } from '../../social-safety/reports/report.controller.js';
 import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
+import { EnforcementNoticeController } from '../../social-safety/enforcements/enforcement-notice.controller.js';
 import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
 import { HealthController } from '../../health/health.controller.js';
 import { HomeDashboardController } from '../../home-dashboard/home-dashboard.controller.js';
@@ -485,6 +486,13 @@ const expectedRoutes: ExpectedRoute[] = [
     handler: 'create',
     method: RequestMethod.POST,
     path: 'api/reports',
+    access: 'protected',
+  },
+  {
+    controller: EnforcementNoticeController,
+    handler: 'listOwn',
+    method: RequestMethod.GET,
+    path: 'api/enforcements',
     access: 'protected',
   },
 

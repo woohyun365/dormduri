@@ -53,6 +53,40 @@ describe('notification shared contract guards', () => {
     ).toBe(false);
   });
 
+  it('피신고인 제재 고지 payload는 coarse category와 owner pointer만 허용한다', () => {
+    const notification = {
+      id: 'notification-enforcement-1',
+      recipientUserId: 'target-user',
+      actorUserId: 'system',
+      kind: 'ENFORCEMENT_NOTICE',
+      sourceType: 'ENFORCEMENT_NOTICE',
+      sourceId: 'season-participant:participant-1',
+      payload: {
+        kind: 'ENFORCEMENT_NOTICE',
+        enforcementNoticeId: 'season-participant:participant-1',
+        actionType: 'MATCHING_RESTRICTION',
+        reasonCategory: 'HATE_OR_DISCRIMINATION',
+        occurredAt,
+      },
+      readAt: null,
+      createdAt: occurredAt,
+    };
+
+    expect(notificationContract.userNotificationSchema.safeParse(notification).success).toBe(true);
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        ...notification,
+        payload: {
+          ...notification.payload,
+          reporterUserId: 'reporter-user',
+          reportDetail: 'raw report detail',
+          operatorMemo: 'internal memo',
+          sanctionDurationDays: 7,
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it('profile mismatch feedback과 read-all response contract를 허용한다', () => {
     expect(
       notificationContract.userNotificationSchema.safeParse({
