@@ -8,11 +8,13 @@ import {
 import { createRoommateApiError } from '../api/roommateApiErrors';
 import { isRoommateApiError, type RoommateApiError } from '../api/roommateSearch.client';
 import type { PublicProfile } from '@repo/shared/profile/contract';
+import type { RoommatePendingMatchRequestViewModel } from '../model/search/roommateSearchViewModel';
 
 export interface RoommateProfileDetailTarget {
   readonly targetUserId: string;
   readonly nickname: string;
   readonly detailEntryToken: string | null;
+  readonly pendingMatchRequest?: RoommatePendingMatchRequestViewModel | null;
 }
 
 export type RoommateProfileDetailState =

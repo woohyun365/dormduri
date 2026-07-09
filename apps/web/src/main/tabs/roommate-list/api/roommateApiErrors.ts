@@ -19,6 +19,9 @@ export type RoommateApiErrorCode =
   | 'INVALID_BLOCK_TARGET'
   | 'TARGET_NOT_BLOCKABLE'
   | 'ACTIVE_MATCH_BLOCK_NOT_ALLOWED'
+  | 'INVALID_BOOKMARK_TARGET'
+  | 'INVALID_BOOKMARK_QUERY'
+  | 'TARGET_NOT_BOOKMARKABLE'
   | 'INVALID_REPORT_REQUEST'
   | 'REPORT_TARGET_NOT_REPORTABLE'
   | 'REPORT_TARGET_NOT_SUPPORTED'
@@ -68,6 +71,9 @@ const SAFE_ERROR_MESSAGES: Record<RoommateApiErrorCode, string> = {
   INVALID_BLOCK_TARGET: '차단 대상을 다시 확인할 수 없어요.',
   TARGET_NOT_BLOCKABLE: '현재 상태에서는 차단할 수 없어요.',
   ACTIVE_MATCH_BLOCK_NOT_ALLOWED: '매칭이 성사된 상대는 여기서 차단할 수 없어요.',
+  INVALID_BOOKMARK_TARGET: '관심 목록 대상을 다시 확인할 수 없어요.',
+  INVALID_BOOKMARK_QUERY: '관심 목록 요청이 올바르지 않아요.',
+  TARGET_NOT_BOOKMARKABLE: '현재 상태에서는 관심 목록에 저장할 수 없어요.',
   INVALID_REPORT_REQUEST: '신고 내용을 다시 확인해 주세요.',
   REPORT_TARGET_NOT_REPORTABLE: '현재 상태에서는 신고할 수 없어요.',
   REPORT_TARGET_NOT_SUPPORTED: '아직 지원하지 않는 신고 대상이에요.',

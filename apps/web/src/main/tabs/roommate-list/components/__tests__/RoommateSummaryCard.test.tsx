@@ -19,7 +19,7 @@ const baseCard: RoommateSummaryCardViewModel = {
   scoreLabel: '매칭점수 88점',
   summaryOnly: false,
   detailViewable: true,
-  resultReadLabel: '현재 매칭 결과 읽기',
+  pendingMatchRequest: null,
   actionStateLabel: '매칭 요청 가능',
   actionStateBadges: [
     { label: '대화 가능', tone: 'green' },
@@ -55,7 +55,7 @@ describe('RoommateSummaryCard', () => {
     expect(within(article).queryByText('🚭')).not.toBeInTheDocument();
     expect(within(article).getByText('예지원 (여)')).toBeInTheDocument();
     expect(within(article).getByText('프로필 열람 가능')).toBeInTheDocument();
-    expect(within(article).getByText('현재 매칭 결과 읽기')).toBeInTheDocument();
+    expect(within(article).queryByText('현재 매칭 결과 읽기')).not.toBeInTheDocument();
     expect(within(article).queryByText('관심 목록에 있음')).not.toBeInTheDocument();
     expect(within(article).getByText('대화 가능')).toHaveClass('text-emerald-700');
     expect(within(article).getByText('매칭 신청 불가')).toHaveClass('text-amber-700');
@@ -68,6 +68,36 @@ describe('RoommateSummaryCard', () => {
     expect(within(article).getByText('테')).toHaveClass('bg-rose-100', 'text-rose-600');
   });
 
+  it('받은 매칭 요청 pill은 다른 상태 pill처럼 별도 테두리 없이 렌더링한다', () => {
+    render(
+      <RoommateSummaryCard
+        item={{
+          ...baseCard,
+          actionStateBadges: [{ label: '매칭 요청을 받은 사용자', tone: 'purple' }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('매칭 요청을 받은 사용자')).toHaveClass(
+      'bg-purple-50',
+      'text-purple-700',
+    );
+    expect(screen.getByText('매칭 요청을 받은 사용자')).not.toHaveClass('border-purple-200');
+  });
+
+  it('대화 중 pill은 HomeTab 대화 metric과 맞춘 teal tone으로 렌더링한다', () => {
+    render(
+      <RoommateSummaryCard
+        item={{
+          ...baseCard,
+          actionStateBadges: [{ label: '대화 중', tone: 'teal' }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('대화 중')).toHaveClass('bg-teal-50', 'text-teal-700');
+  });
+
   it('summary-only card는 score/token/private field를 노출하지 않는다', () => {
     render(
       <RoommateSummaryCard
@@ -77,7 +107,6 @@ describe('RoommateSummaryCard', () => {
           summaryOnly: true,
           detailViewable: false,
           metadataLabel: '춘천캠퍼스',
-          resultReadLabel: null,
           profileVisibilityBadge: null,
           bookmarked: false,
           bookmarkAction: null,

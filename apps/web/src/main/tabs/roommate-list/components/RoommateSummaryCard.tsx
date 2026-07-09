@@ -146,11 +146,6 @@ export function RoommateSummaryCard({
             {profileVisibilityBadge.label}
           </span>
         ) : null}
-        {item.resultReadLabel ? (
-          <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
-            {item.resultReadLabel}
-          </span>
-        ) : null}
         {actionStateBadges.map((badge) => (
           <span
             key={`${item.id}-${badge.label}`}
@@ -240,6 +235,8 @@ function getActionBadgeClassName(badge: RoommateSummaryCardStatusBadgeViewModel)
   const classes: Record<RoommateSummaryCardStatusBadgeViewModel['tone'], string> = {
     green: 'bg-emerald-50 text-emerald-700',
     amber: 'bg-amber-50 text-amber-700',
+    purple: 'bg-purple-50 text-purple-700',
+    teal: 'bg-teal-50 text-teal-700',
     slate: 'bg-slate-100 text-slate-600',
   };
   return classes[badge.tone];

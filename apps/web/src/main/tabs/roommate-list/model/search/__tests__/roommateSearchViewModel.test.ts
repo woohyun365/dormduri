@@ -81,6 +81,33 @@ describe('roommateSearchViewModel', () => {
     expect(vm.metadataLabel).toBe('춘천캠퍼스');
   });
 
+  it('이미 매칭된 viewer의 summary-only 후보는 단일 slate 안내 pill만 표시한다', () => {
+    const item = createSummary('viewer-already-matched');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      exposure: {
+        ...item.exposure,
+        detailViewable: false,
+        canViewFull: false,
+        scoreVisible: false,
+      },
+      actions: {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+        unavailableReasons: ['VIEWER_ALREADY_MATCHED'],
+      },
+    });
+
+    expect(vm.profileVisibilityBadge).toBeNull();
+    expect(vm.actionStateLabel).toBe('매칭 상대 외에는 프로필 요약만 확인 가능해요');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '매칭 상대 외에는 프로필 요약만 확인 가능해요', tone: 'slate' },
+    ]);
+    expect(vm.bookmarkAction).toBeNull();
+    expect(vm.chatAction).toBeNull();
+  });
+
   it('detail-viewable search card도 카드 맥락 label을 우선 표시한다', () => {
     const vm = mapRoommateSearchItemToCardViewModel(createSummary('same-dorm'), {
       summaryContextLabel: '예지원 (여)',
@@ -89,7 +116,7 @@ describe('roommateSearchViewModel', () => {
     expect(vm.metadataLabel).toBe('예지원 (여)');
   });
 
-  it('result-read context와 bookmark/detail token을 보존한다', () => {
+  it('result-read context는 list badge로 노출하지 않고 bookmark/detail token만 보존한다', () => {
     const item = createSummary('result-read');
     const vm = mapRoommateSearchItemToCardViewModel({
       ...item,
@@ -98,21 +125,103 @@ describe('roommateSearchViewModel', () => {
       detailEntryToken: 'detail-entry-token-safe',
     });
 
-    expect(vm.resultReadLabel).toBe('현재 매칭 결과 읽기');
     expect(vm.bookmarked).toBe(true);
     expect(vm.targetUserId).toBe('result-read');
     expect(vm.bookmarkAction?.accessibilityLabel).toBe('테스트-result-read 관심 목록 해제');
     expect(vm.detailEntryToken).toBe('detail-entry-token-safe');
   });
 
-  it('resultReadable=false이면 context가 있어도 result-read badge를 만들지 않는다', () => {
-    const item = createSummary('result-read-closed');
+  it('pending match request 상태를 카드 pill과 상세 target용 view model로 보존한다', () => {
+    const item = createSummary('pending-sent');
     const vm = mapRoommateSearchItemToCardViewModel({
       ...item,
-      resultRead: { resultReadable: false, context: 'CURRENT_MATCHED_PARTNER' },
+      pendingMatchRequest: {
+        id: 'request-1',
+        direction: 'SENT',
+        createdAt: '2026-07-06T03:00:00.000Z',
+        expiresAt: '2026-07-11T03:00:00.000Z',
+      },
     });
 
-    expect(vm.resultReadLabel).toBeNull();
+    expect(vm.pendingMatchRequest).toEqual({
+      id: 'request-1',
+      direction: 'SENT',
+      label: '이미 요청을 보낸 사용자',
+      description: '상대의 응답을 기다리는 중이에요.',
+    });
+    expect(vm.actionStateLabel).toBe('이미 요청을 보낸 사용자');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '대화 불가', tone: 'amber' },
+      { label: '이미 요청을 보낸 사용자', tone: 'amber' },
+    ]);
+  });
+
+  it('받은 pending match request는 purple 강조 pill로 표시한다', () => {
+    const item = createSummary('pending-received');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      pendingMatchRequest: {
+        id: 'request-2',
+        direction: 'RECEIVED',
+        createdAt: '2026-07-06T03:00:00.000Z',
+        expiresAt: '2026-07-11T03:00:00.000Z',
+      },
+    });
+
+    expect(vm.pendingMatchRequest?.label).toBe('매칭 요청을 받은 사용자');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '대화 불가', tone: 'amber' },
+      { label: '매칭 요청을 받은 사용자', tone: 'purple' },
+    ]);
+  });
+
+  it('안전 제한 fail-closed reason은 서버 오류 안내와 amber 대화 불가 pill로 표시한다', () => {
+    const item = createSummary('safety-restricted');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      exposure: {
+        ...item.exposure,
+        detailViewable: false,
+        canViewFull: false,
+        scoreVisible: false,
+      },
+      actions: {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+        unavailableReasons: ['SAFETY_OR_VISIBILITY_RESTRICTED'],
+      },
+    });
+
+    expect(vm.actionStateLabel).toBe('서버 오류로 이용할 수 없어요. 목록을 새로고침해 주세요');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '대화 불가', tone: 'amber' },
+      { label: '매칭 신청 불가', tone: 'amber' },
+      { label: '서버 오류로 이용할 수 없어요. 목록을 새로고침해 주세요', tone: 'slate' },
+    ]);
+  });
+
+  it('direction limit reason은 매칭 요청 횟수 초과 pill로 표시한다', () => {
+    const item = createSummary('direction-limit');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: true,
+        unavailableReasons: ['MATCH_REQUEST_DIRECTION_LIMIT_REACHED'],
+      },
+    });
+
+    expect(vm.actionStateBadges).toEqual([
+      { label: '대화 가능', tone: 'green' },
+      { label: '매칭 요청 횟수 초과', tone: 'amber' },
+    ]);
+    expect(vm.chatAction).toEqual({
+      visible: true,
+      label: '채팅하기',
+      accessibilityLabel: '테스트-direction-limit 채팅하기',
+    });
   });
 
   it('canStartChat=true이면 카드용 대화 CTA view model을 만든다', () => {
@@ -136,6 +245,36 @@ describe('roommateSearchViewModel', () => {
       visible: true,
       label: '채팅하기',
       accessibilityLabel: '테스트-chat-open 채팅하기',
+    });
+  });
+
+  it('active chat thread가 있으면 대화 가능 대신 대화 중 pill과 이어가기 CTA를 만든다', () => {
+    const item = createSummary('chatting');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: true,
+        unavailableReasons: [],
+      },
+      activeChatThread: {
+        id: 'thread-1',
+        threadKind: 'DIRECT',
+        status: 'OPEN',
+        lastMessageAt: '2026-07-08T03:00:00.000Z',
+      },
+    });
+
+    expect(vm.actionStateLabel).toBe('대화 중');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '대화 중', tone: 'teal' },
+      { label: '매칭 신청 불가', tone: 'amber' },
+    ]);
+    expect(vm.chatAction).toEqual({
+      visible: true,
+      label: '대화 이어가기',
+      accessibilityLabel: '테스트-chatting 대화 이어가기',
     });
   });
 

@@ -65,6 +65,7 @@ export interface UseRoommateBookmarkListResult extends RoommateBookmarkListSnaps
   readonly loadMore: () => Promise<void>;
   readonly changeSort: (sort: BookmarkSort) => Promise<void>;
   readonly toggleBookmark: (targetUserId: string, bookmarked: boolean) => Promise<void>;
+  readonly dismissError: () => void;
 }
 
 const defaultRoommateBookmarkClient: RoommateBookmarkClientPort = {
@@ -251,6 +252,13 @@ export function useRoommateBookmarkList(
         } finally {
           setPending(targetUserId, false);
         }
+      },
+      dismissError: () => {
+        setSnapshot((current) => {
+          const next = { ...current, error: null };
+          snapshotRef.current = next;
+          return next;
+        });
       },
     }),
     [client, runList, setOptimisticBookmark, setPending],

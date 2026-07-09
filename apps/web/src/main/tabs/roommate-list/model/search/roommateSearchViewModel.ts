@@ -1,9 +1,12 @@
 import type { BookmarkListItem } from '@repo/shared/social-safety/bookmark';
-import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
+import type {
+  RoommateSearchActiveChatThread,
+  RoommateSearchPendingMatchRequest,
+  RoommateSearchSummary,
+} from '@repo/shared/roommate-search/contract';
 import type {
   PublicProfileActionCapabilities,
   PublicTargetActionUnavailableReason,
-  PublicTargetResultReadContext,
 } from '@repo/shared/profile/contract';
 
 export interface RoommateSummaryCardFactViewModel {
@@ -25,11 +28,18 @@ export interface RoommateChatActionViewModel {
   readonly accessibilityLabel: string;
 }
 
-export type RoommateSummaryCardStatusBadgeTone = 'green' | 'amber' | 'slate';
+export type RoommateSummaryCardStatusBadgeTone = 'green' | 'amber' | 'purple' | 'teal' | 'slate';
 
 export interface RoommateSummaryCardStatusBadgeViewModel {
   readonly label: string;
   readonly tone: RoommateSummaryCardStatusBadgeTone;
+}
+
+export interface RoommatePendingMatchRequestViewModel {
+  readonly id: string;
+  readonly direction: RoommateSearchPendingMatchRequest['direction'];
+  readonly label: string;
+  readonly description: string;
 }
 
 export interface RoommateSummaryCardViewModel {
@@ -42,7 +52,7 @@ export interface RoommateSummaryCardViewModel {
   readonly scoreLabel: string | null;
   readonly summaryOnly: boolean;
   readonly detailViewable: boolean;
-  readonly resultReadLabel: string | null;
+  readonly pendingMatchRequest: RoommatePendingMatchRequestViewModel | null;
   readonly profileVisibilityBadge?: RoommateSummaryCardStatusBadgeViewModel | null;
   readonly actionStateLabel: string;
   readonly actionStateBadges?: readonly RoommateSummaryCardStatusBadgeViewModel[];
@@ -66,6 +76,7 @@ export interface RoommateCardBookmarkStateOptions {
 
 const EMPTY_INTRO_COPY = '아직 자기소개가 없어요.';
 const HIDDEN_BOOKMARK_INTRO_COPY = '저장한 항목이 현재 정책상 보이지 않아요.';
+const VIEWER_ALREADY_MATCHED_SUMMARY_LABEL = '매칭 상대 외에는 프로필 요약만 확인 가능해요';
 
 export function mapRoommateSearchItemsToCardViewModels(
   items: readonly RoommateSearchSummary[],
@@ -82,7 +93,13 @@ export function mapRoommateSearchItemToCardViewModel(
   const fallbackBookmarked = item.bookmark?.bookmarked === true;
   const bookmarked = options.getBookmarked?.(item.id, fallbackBookmarked) ?? fallbackBookmarked;
   const pending = options.isPending?.(item.id) ?? false;
-  const actionStateBadges = buildActionStateBadges(item.actions);
+  const pendingMatchRequest = buildPendingMatchRequestViewModel(item.pendingMatchRequest ?? null);
+  const activeChatThread = item.activeChatThread ?? null;
+  const actionStateBadges = buildActionStateBadges(
+    item.actions,
+    pendingMatchRequest,
+    activeChatThread,
+  );
   const profileVisibilityBadge = buildProfileVisibilityBadge(detailViewable, item.actions);
 
   return {
@@ -95,11 +112,9 @@ export function mapRoommateSearchItemToCardViewModel(
     scoreLabel: buildScoreLabel(item),
     summaryOnly: !detailViewable,
     detailViewable,
-    resultReadLabel: item.resultRead.resultReadable
-      ? buildResultReadLabel(item.resultRead.context)
-      : null,
+    pendingMatchRequest,
     profileVisibilityBadge,
-    actionStateLabel: buildActionStateLabel(item.actions),
+    actionStateLabel: buildActionStateLabel(item.actions, pendingMatchRequest, activeChatThread),
     actionStateBadges,
     bookmarked,
     bookmarkAction: buildBookmarkAction({
@@ -113,6 +128,7 @@ export function mapRoommateSearchItemToCardViewModel(
     chatAction: buildChatAction({
       nickname: item.profileSummary.nickname,
       visible: item.actions.canStartChat,
+      activeChatThread,
     }),
     detailEntryToken: normalizeDetailEntryToken(item.detailEntryToken),
   };
@@ -146,7 +162,7 @@ export function mapBookmarkListItemToCardViewModel(
     scoreLabel: buildBookmarkScoreLabel(item),
     summaryOnly: true,
     detailViewable: false,
-    resultReadLabel: null,
+    pendingMatchRequest: null,
     profileVisibilityBadge: { label: '프로필 열람 불가', tone: 'amber' },
     actionStateLabel: profileSummary ? '관심 목록에서 관리 중' : '현재 정책상 요약을 볼 수 없어요',
     actionStateBadges: profileSummary
@@ -230,29 +246,49 @@ function buildBookmarkAction(input: {
 function buildChatAction(input: {
   nickname: string;
   visible: boolean;
+  activeChatThread?: RoommateSearchActiveChatThread | null;
 }): RoommateChatActionViewModel | null {
   if (!input.visible) return null;
+  const label = input.activeChatThread ? '대화 이어가기' : '채팅하기';
   return {
     visible: true,
-    label: '채팅하기',
-    accessibilityLabel: `${input.nickname} 채팅하기`,
+    label,
+    accessibilityLabel: `${input.nickname} ${label}`,
   };
 }
 
-function buildResultReadLabel(context: PublicTargetResultReadContext): string | null {
-  const labels: Record<Exclude<PublicTargetResultReadContext, 'NONE'>, string> = {
-    CURRENT_MATCHED_PARTNER: '현재 매칭 결과 읽기',
-    PAST_MATCH_HISTORY: '과거 매칭 결과',
-    EXISTING_THREAD: '기존 대화 맥락',
-  };
+function buildPendingMatchRequestViewModel(
+  pendingMatchRequest: RoommateSearchPendingMatchRequest | null,
+): RoommatePendingMatchRequestViewModel | null {
+  if (!pendingMatchRequest) return null;
+  if (pendingMatchRequest.direction === 'SENT') {
+    return {
+      id: pendingMatchRequest.id,
+      direction: pendingMatchRequest.direction,
+      label: '이미 요청을 보낸 사용자',
+      description: '상대의 응답을 기다리는 중이에요.',
+    };
+  }
 
-  return context === 'NONE' ? null : labels[context];
+  return {
+    id: pendingMatchRequest.id,
+    direction: pendingMatchRequest.direction,
+    label: '매칭 요청을 받은 사용자',
+    description: '매칭 탭에서 수락하거나 거절할 수 있어요.',
+  };
 }
 
-function buildActionStateLabel(actions: PublicProfileActionCapabilities): string {
+function buildActionStateLabel(
+  actions: PublicProfileActionCapabilities,
+  pendingMatchRequest: RoommatePendingMatchRequestViewModel | null,
+  activeChatThread: RoommateSearchActiveChatThread | null,
+): string {
+  if (pendingMatchRequest) return pendingMatchRequest.label;
   if (actions.canRequestMatch) return '매칭 요청 가능';
+  if (actions.canStartChat && activeChatThread) return '대화 중';
   if (actions.canStartChat) return '대화 가능';
   if (actions.canBookmark) return '관심 등록 가능';
+  if (isViewerAlreadyMatchedSummary(actions)) return VIEWER_ALREADY_MATCHED_SUMMARY_LABEL;
 
   const primaryReason = actions.unavailableReasons[0];
   return primaryReason ? actionUnavailableReasonLabel(primaryReason) : '요약 정보만 표시';
@@ -260,26 +296,48 @@ function buildActionStateLabel(actions: PublicProfileActionCapabilities): string
 
 function buildActionStateBadges(
   actions: PublicProfileActionCapabilities,
+  pendingMatchRequest: RoommatePendingMatchRequestViewModel | null,
+  activeChatThread: RoommateSearchActiveChatThread | null,
 ): readonly RoommateSummaryCardStatusBadgeViewModel[] {
   if (isDifferentDormitorySummary(actions)) {
     return [{ label: actionUnavailableReasonLabel('DIFFERENT_DORMITORY'), tone: 'slate' }];
+  }
+  if (isViewerAlreadyMatchedSummary(actions)) {
+    return [{ label: VIEWER_ALREADY_MATCHED_SUMMARY_LABEL, tone: 'slate' }];
   }
 
   const badges: RoommateSummaryCardStatusBadgeViewModel[] = [];
 
   if (actions.canStartChat) {
-    badges.push({ label: '대화 가능', tone: 'green' });
+    badges.push(
+      activeChatThread ? { label: '대화 중', tone: 'teal' } : { label: '대화 가능', tone: 'green' },
+    );
   } else {
-    badges.push({ label: '대화 불가', tone: 'slate' });
+    badges.push({
+      label: '대화 불가',
+      tone: 'amber',
+    });
+  }
+
+  if (pendingMatchRequest) {
+    badges.push({
+      label: pendingMatchRequest.label,
+      tone: pendingMatchRequest.direction === 'RECEIVED' ? 'purple' : 'amber',
+    });
+    return badges;
   }
 
   if (actions.canRequestMatch) {
     badges.push({ label: '매칭 신청 가능', tone: 'green' });
   } else {
-    badges.push({ label: '매칭 신청 불가', tone: 'amber' });
     const reason = actions.unavailableReasons[0];
-    if (reason) {
-      badges.push({ label: actionUnavailableReasonLabel(reason), tone: 'slate' });
+    if (reason === 'MATCH_REQUEST_DIRECTION_LIMIT_REACHED') {
+      badges.push({ label: actionUnavailableReasonLabel(reason), tone: 'amber' });
+    } else {
+      badges.push({ label: '매칭 신청 불가', tone: 'amber' });
+      if (reason) {
+        badges.push({ label: actionUnavailableReasonLabel(reason), tone: 'slate' });
+      }
     }
   }
 
@@ -295,6 +353,7 @@ function buildProfileVisibilityBadge(
   actions: PublicProfileActionCapabilities,
 ): RoommateSummaryCardStatusBadgeViewModel | null {
   if (isDifferentDormitorySummary(actions)) return null;
+  if (isViewerAlreadyMatchedSummary(actions)) return null;
   return detailViewable
     ? { label: '프로필 열람 가능', tone: 'green' }
     : { label: '프로필 열람 불가', tone: 'amber' };
@@ -302,6 +361,15 @@ function buildProfileVisibilityBadge(
 
 function isDifferentDormitorySummary(actions: PublicProfileActionCapabilities): boolean {
   return actions.unavailableReasons.includes('DIFFERENT_DORMITORY');
+}
+
+function isViewerAlreadyMatchedSummary(actions: PublicProfileActionCapabilities): boolean {
+  return (
+    !actions.canBookmark &&
+    !actions.canRequestMatch &&
+    !actions.canStartChat &&
+    actions.unavailableReasons.includes('VIEWER_ALREADY_MATCHED')
+  );
 }
 
 function actionUnavailableReasonLabel(reason: PublicTargetActionUnavailableReason): string {
@@ -317,7 +385,8 @@ function actionUnavailableReasonLabel(reason: PublicTargetActionUnavailableReaso
     ROOM_SELECTION_CUTOFF: '호실 선택 마감 이후에는 요청할 수 없어요',
     THREAD_READ_ONLY: '기존 대화 읽기 전용 상태예요',
     TARGET_DELETED_OR_DEIDENTIFIED: '상대 정보가 더 이상 제공되지 않아요',
-    SAFETY_OR_VISIBILITY_RESTRICTED: '안전 정책상 요청할 수 없어요',
+    SAFETY_OR_VISIBILITY_RESTRICTED: '서버 오류로 이용할 수 없어요. 목록을 새로고침해 주세요',
+    MATCH_REQUEST_DIRECTION_LIMIT_REACHED: '매칭 요청 횟수 초과',
   };
   return labels[reason];
 }

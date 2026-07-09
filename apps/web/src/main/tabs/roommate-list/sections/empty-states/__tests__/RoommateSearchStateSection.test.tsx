@@ -38,15 +38,15 @@ describe('RoommateSearchStateSection', () => {
       <RoommateSearchStateSection
         state={{
           kind: 'empty',
-          title: '조건에 맞는 룸메이트가 아직 없어요',
-          message: '필터를 조금 넓히거나 다른 정렬로 다시 확인해 보세요.',
+          title: '조건에 맞는 룸메이트가 아직 없어요.',
+          message: '필터를 조금 넓히거나 새로고침 후 다시 확인해 보세요.',
         }}
       />,
     );
 
-    expect(screen.getByText('조건에 맞는 룸메이트가 아직 없어요')).toBeInTheDocument();
+    expect(screen.getByText('조건에 맞는 룸메이트가 아직 없어요.')).toBeInTheDocument();
     expect(
-      screen.getByText('필터를 조금 넓히거나 다른 정렬로 다시 확인해 보세요.'),
+      screen.getByText('필터를 조금 넓히거나 새로고침 후 다시 확인해 보세요.'),
     ).toBeInTheDocument();
   });
 
