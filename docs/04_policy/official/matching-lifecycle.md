@@ -509,10 +509,3 @@ Metadata는 작은 allowlist snapshot만 허용한다. 허용 후보는 `transit
 | 2026-06-08 | 북마크 owner를 `social-safety/bookmarks`로 명시하고 create/delete/list/sort/empty/block side-effect/season cleanup 기준을 구현 가능한 baseline으로 보강했다                                                                                                                                                                                                                             | #196       |
 | 2026-06-10 | `ActiveMatchLifecycleEvent`를 `ActiveMatch` current-state를 대체하지 않는 운영/audit/debug trace로 정의하고, same-transaction append boundary와 metadata allowlist/no-PII 금지 payload를 명시                                                                                                                                                                                           | #227       |
 | 2026-07-09 | live `ActiveMatch` viewer도 `SEASON_MATCHING` roommate-search에서 `CAMPUS_MERGED`와 `SAME_BUILDING_ONLY` summary list를 볼 수 있지만, 신규 후보 action surface가 아니므로 카드 CTA를 닫고 단일 안내 pill로 설명한다고 정리                                                                                                                                                              | #195       |
-
-## 원문 소스
-
-- `docs/04_policy/matching.md`
-- `docs/04_policy/profile-exposure.md`
-- `docs/04_policy/service-scope.md`
-- `docs/04_policy/season-policy.md`

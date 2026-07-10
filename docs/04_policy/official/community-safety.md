@@ -205,9 +205,3 @@ helper 안내 예시: "건강, 장애, 성적 지향 등 민감한 개인정보�
 | 2026-04-30 | 매칭 요청 note를 moderation 적용 대상에 포함하고, read-only thread 신고 허용 및 고위험 신고 즉시 보호 조치/일반 신고 관리자 판단 원칙을 추가                      | #195              |
 | 2026-05-20 | #195 profile field 정리에 맞춰 legacy roommate message field 표현을 제거하고, 공개 텍스트 moderation 대상을 season profile `intro`와 매칭 요청 note 중심으로 정리 | #195              |
 | 2026-06-08 | UGC/social interaction 안전 baseline으로 신고/차단/문의/알림 owner 문서를 연결했다                                                                                | #196 / #79 / #220 |
-
-## 원문 소스
-
-- `docs/04_policy/content-filter.md`
-- `docs/04_policy/inclusion.md`
-- `docs/04_policy/nickname.md`

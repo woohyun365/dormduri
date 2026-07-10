@@ -277,10 +277,3 @@ Signup/auth는 profile orchestration을 하지 않는다. 가입 후 서비스 �
 | 2026-05-30 | draft/registration 준비 UI의 account 표시 source를 명확화했다. 닉네임은 `CurrentUserResponse.displayIdentity`, 단과대/출생연도는 `CurrentUserResponse.academicIdentity`를 사용하며 `SeasonProfileDraftResponse`에는 account identity를 포함하지 않는다고 명시했다                                                                                                                                                                                                              | #195           |
 | 2026-05-30 | `birthYear` correction은 1회 카운터가 아니라 최초 `SEASON_REGISTRATION` snapshot 존재 여부 기준이며, registration finalize 전에는 횟수 제한 없이 account setup mistake correction을 허용한다고 명시했다                                                                                                                                                                                                                                                                        | #195           |
 | 2026-06-04 | Auth 제품 정책 기준을 반영했다. auth/signup은 lifestyle/condition/intro parser를 소유하지 않고, lifestyle validation owner는 shared lifestyle contract와 season-participants/profile domain이라고 명시했다                                                                                                                                                                                                                                                                     | Auth 제품 완성 |
-
-## 원문 소스
-
-- `docs/04_policy/profile-lifestyle.md`
-- `docs/04_policy/nickname.md`
-- `docs/04_policy/content-filter.md`
-- `docs/04_policy/eligibility.md`

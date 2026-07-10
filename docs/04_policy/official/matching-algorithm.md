@@ -236,8 +236,3 @@ score = 1.0 - (|indexA - indexB| / 2)
 | 2026-03-19 | Pair 6 소리/빛 2축 분리: 단일 3×3 → 소리 3×2(Pair 6) + 빛 3×2(Pair 6b). sleepEnvPreference 3→2옵션, screenTolerance 신규. 12→13쌍, dynamicMax 31→34                                                                                                   | #157      |
 | 2026-03-19 | Pair 6 근거 재정의: "소리" → "미디어 사용(소리+화면 빛)". EARPHONE×QUIET_ONLY=0.0 유지 근거 명시                                                                                                                                                      | #157      |
 | 2026-05-11 | 사용자-facing canonical score를 `perspectiveScore(viewer, target)` 단일값으로 고정하고, 문서의 `min(A,B)`/partial 설명을 제거. 알고리즘 문서는 관점 점수 계산식 자체만 소유하도록 정리                                                                | #195      |
-
-## 원문 소스
-
-- `docs/03_planning/sprint-5/152-step4-redesign-lifestyle21.md` (결정 과정 상세)
-- `docs/04_policy/matching.md` (가중치 결정 원본)

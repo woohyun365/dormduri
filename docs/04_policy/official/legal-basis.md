@@ -5,7 +5,6 @@
 이 문서는 서비스에 적용되는 법령을 단일 참조 문서로 관리한다. 각 정책 문서가 개별적으로 법령을 인용하지 않고, 이 문서를 참조한다.
 
 - 검증 근거: `docs/98_analyze/2026-03-14-legal-verification-and-corrections.md`
-- 계층 구조 근거: `docs/98_analyze/2026-03-14-claude-official-policy-consistency-and-legal-compliance-analysis.md`
 
 ## 적용 법령 계층 구조
 

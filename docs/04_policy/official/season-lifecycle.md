@@ -394,9 +394,3 @@ D-7/D-3 안내는 별도 상태(`APPROACHING_END`)가 아닌 `SEASON_MATCHING` �
 | 2026-06-05 | API 구현 cleanup에서 season participant backfill owner를 lifecycle command로 이동했지만, backfill은 여전히 current season eligible verified users에 participant row를 보강하고 lifecycle event는 audit trace로만 남긴다는 정책을 유지한다고 명시했다                                                                                                               | #222 / #224       |
 | 2026-06-05 | season operations override는 current state 계산 override이며 audit/history 원장이 아니고, future row/current row/운영 campus semantics는 유지해야 한다고 명시했다. #209 cache는 request-level 최적화일 뿐 Postgres source of truth를 대체하지 않는다고 정리했다                                                                                                    | #208 / #209       |
 | 2026-06-08 | 시즌 종료 시 bookmark cleanup owner와 시즌 안내의 in-app notification primary/Push 제외 경계를 notification-inbox.md와 정합화했다                                                                                                                                                                                                                                  | #196 / #220       |
-
-## 원문 소스
-
-- `docs/04_policy/season-policy.md`
-- `docs/04_policy/eligibility.md`
-- `docs/04_policy/profile-exposure.md`

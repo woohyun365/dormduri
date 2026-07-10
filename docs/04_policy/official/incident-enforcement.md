@@ -358,8 +358,3 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 | 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196                  |
 | 2026-06-22 | 구현 파일명에 묶인 금지행위 초안 표현을 제품 이용약관과 신고/제재 사용자 안내 기준으로 정리했다                                                                                                           | web terms/privacy            |
 | 2026-07-08 | 신고 접수 receipt와 검토 완료 알림을 분리하고, 검토 완료 후에는 coarse result만 허용하며 신고 처리 결과 이의 경로를 support appeal로 연결한다고 명시했다                                                  | #263 / #264 / support appeal |
-
-## 원문 소스
-
-- `docs/04_policy/service-scope.md` (시나리오별 대응표)
-- `docs/04_policy/content-filter.md` (제재 사다리, 콘텐츠 처리 규칙)
