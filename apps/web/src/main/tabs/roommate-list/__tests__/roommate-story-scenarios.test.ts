@@ -90,11 +90,33 @@ describe('RoommateTab Storybook architecture boundary', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('keeps the public scenario entry small and delegates authoring to fixtures/scenario modules', () => {
+    const entrySource = readFileSync(
+      join(ROOMMATE_ROOT, '__stories__/roommate-story-scenarios.ts'),
+      'utf8',
+    );
+    const authoringSource = readStorybookAuthoringSources();
+
+    expect(entrySource.split('\n').length).toBeLessThan(500);
+    expect(entrySource).toContain('./fixtures/roommateStoryTypes');
+    expect(entrySource).toContain('./scenarios/roommateStoryRegistry');
+    expect(authoringSource).toContain('__stories__/fixtures');
+    expect(authoringSource).toContain('roommateStorySearchResponses');
+    expect(authoringSource).toContain('roommateStoryRegistry');
+  });
 });
 
 describe('roommateStoryScenarios policy matrix', () => {
   it('exposes search, detail, and action scenario categories', () => {
     expect(ROOMMATE_STORY_SCENARIO_KEYS).toHaveLength(51);
+    expect(new Set(ROOMMATE_STORY_SCENARIO_KEYS)).toHaveLength(ROOMMATE_STORY_SCENARIO_KEYS.length);
+    expect(new Set(Object.keys(roommateStoryScenarios))).toHaveLength(
+      ROOMMATE_STORY_SCENARIO_KEYS.length,
+    );
+    expect(Object.keys(roommateStoryScenarios).sort()).toEqual(
+      [...ROOMMATE_STORY_SCENARIO_KEYS].sort(),
+    );
 
     for (const key of ROOMMATE_STORY_SCENARIO_KEYS) {
       expect(roommateStoryScenarios[key]).toBeDefined();
@@ -970,10 +992,7 @@ describe('roommateStoryScenarios policy matrix', () => {
 
   it('uses one viewer-condition fixture with smoking and sleep score matrix targets', () => {
     const scenario = roommateStoryScenarios.seasonMatchingDetailFullCompatibility;
-    const storyScenarioSource = readFileSync(
-      join(ROOMMATE_ROOT, '__stories__/roommate-story-scenarios.ts'),
-      'utf8',
-    );
+    const storyScenarioSource = readStorybookAuthoringSources();
 
     expect(scenario.searchResponse.items).toHaveLength(9);
     expect(scenario.searchResponse.items.map((item) => item.matchScore)).toContain(100);
@@ -1167,6 +1186,31 @@ function readStorybookStorySources(): string {
     .filter((entry) => entry.endsWith('.stories.tsx'))
     .map((entry) => readFileSync(join(storyDir, entry), 'utf8'))
     .join('\n');
+}
+
+function readStorybookAuthoringSources(): string {
+  return collectStorybookAuthoringSources(join(ROOMMATE_ROOT, '__stories__'))
+    .map(({ path, source }) => `${path}\n${source}`)
+    .join('\n');
+}
+
+function collectStorybookAuthoringSources(dir: string): Array<{ path: string; source: string }> {
+  const entries = readdirSync(dir);
+  const sources: Array<{ path: string; source: string }> = [];
+
+  for (const entry of entries) {
+    const path = join(dir, entry);
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      sources.push(...collectStorybookAuthoringSources(path));
+      continue;
+    }
+
+    if (!/\.(ts|tsx)$/.test(entry)) continue;
+    sources.push({ path: relative(ROOT, path), source: readFileSync(path, 'utf8') });
+  }
+
+  return sources;
 }
 
 function collectRuntimeSources(dir: string): Array<{ path: string; source: string }> {

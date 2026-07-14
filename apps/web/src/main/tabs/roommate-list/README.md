@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 12 working-tree 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. Phase 11은 compatibility axis list를 public entry shell, list composition, shared tone/config, axis별 detail module로 분리했다. Phase 12는 수면 환경/통화·미디어/청소 루틴이 공유하는 2-lane range UI와 320px 상대 pill rule을 primitive로 추출했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
+현재 Phase 13 working-tree 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. Phase 11은 compatibility axis list를 public entry shell, list composition, shared tone/config, axis별 detail module로 분리했다. Phase 12는 수면 환경/통화·미디어/청소 루틴이 공유하는 2-lane range UI와 320px 상대 pill rule을 primitive로 추출했다. Phase 13은 Storybook scenario public entry를 500 lines 이하 re-export shell로 축소하고, scenario type/builders/profile fixtures/search responses/registry authoring 책임을 story-only module로 분리했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
 
 이 repo의 UI/UX 의사결정은 root `DESIGN.md`를 제품 디자인 source로 참고하고, RoommateTab feature boundary의 세부 구현 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README를 따른다.
 
@@ -263,6 +263,22 @@ Phase 12에서 반복되던 2-lane range UI는 `components/compatibility-axis/pr
 
 Domain detail module은 여전히 각 domain의 option, copy, support matrix inference만 소유한다. Generic primitive로 policy/score inference나 raw condition/lifestyle 값을 끌어올리지 않는다.
 
+## Phase 13 Storybook scenario authoring split
+
+Phase 13에서 `__stories__/roommate-story-scenarios.ts`는 Storybook/runtime이 import하는 public entry shell만 담당한다. 실제 scenario authoring은 `__stories__/fixtures/`와 `__stories__/scenarios/` 하위 story-only module로 분리하며 production RoommateTab runtime graph로 유입하지 않는다.
+
+| 파일                                                   | 책임                                                                                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `__stories__/roommate-story-scenarios.ts`              | scenario key/type, age option helper, manifest helper, scenario registry를 re-export하는 public entry다.                     |
+| `__stories__/fixtures/roommateStoryTypes.ts`           | scenario key/category/season group/type metadata를 소유한다.                                                                 |
+| `__stories__/fixtures/roommateStoryBuilders.ts`        | season context, manifest/search response/summary builder, shared story viewer/action capability constants를 제공한다.        |
+| `__stories__/fixtures/roommateStoryProfiles.ts`        | summary card fixture, public profile detail/tombstone fixture, full compatibility target fixture와 action response를 만든다. |
+| `__stories__/fixtures/roommateStorySearchResponses.ts` | season/scope별 search response, scope availability, manifest binding helper를 소유한다.                                      |
+| `__stories__/scenarios/roommateStoryRegistry.ts`       | fixture module을 조합해 RoommateTab Storybook scenario registry와 manifest response helper를 제공한다.                       |
+| `__tests__/roommate-story-scenarios.test.ts`           | scenario key 중복 guard, entry size guard, story-only import boundary, shared contract schema validation을 검증한다.         |
+
+Storybook scenario split은 behavior-preserving refactor다. 새 UI scenario를 추가하지 않고 기존 scenario key와 sidebar nesting을 유지한다. Full compatibility fixture는 shared compatibility-scoring helper를 계속 사용해 fixture drift를 막고, scenario registry 중복 key는 test guard로 실패시킨다.
+
 ### Phase 9 responsive design baseline
 
 - 근거(source-backed fact): Android Developers의 Material-derived canonical layout guidance는 list-detail/feed/supporting pane을 다양한 화면 크기에서 검증된 layout으로 설명하고, supporting pane은 compact 화면에서는 아래나 sheet로, expanded 화면에서는 main 옆 보조 pane으로 배치할 수 있다고 설명한다. URL: https://developer.android.com/develop/adaptive-apps/guides/canonical-layouts
@@ -506,4 +522,5 @@ pnpm --dir apps/web storybook:build
 - Phase 9는 Storybook/visual/mobile scenario matrix를 검증한다.
 - Phase 10은 `RoommateProfileDetailDialog.tsx`를 orchestration shell로 축소하고 profile detail section module을 분리했다.
 - Phase 11은 `CompatibilityAxisList.tsx` public path를 re-export shell로 유지하고 axis domain별 detail module을 분리했다.
-- Phase 12는 2-lane range UI primitive와 320px active 상대 pill source-of-truth를 추출했다. Phase 13~14는 scenario/search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.
+- Phase 12는 2-lane range UI primitive와 320px active 상대 pill source-of-truth를 추출했다.
+- Phase 13은 Storybook scenario public entry를 re-export shell로 축소하고 fixture/builder/search response/registry authoring module을 분리했다. Phase 14는 search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.
