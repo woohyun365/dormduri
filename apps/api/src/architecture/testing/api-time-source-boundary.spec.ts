@@ -123,6 +123,19 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
       'query cursor decodes an ISO timestamp string; it does not create source-of-truth time.',
   }),
   entry({
+    path: 'src/social-safety/enforcements/queries/enforcement-notice-list.cursor.ts',
+    owner: 'social-safety/enforcements',
+    category: 'parser',
+    rationale:
+      'enforcement notice cursor decodes an ISO updatedAt timestamp string for pagination only.',
+  }),
+  entry({
+    path: 'src/social-safety/reports/queries/report-list.cursor.ts',
+    owner: 'social-safety/reports',
+    category: 'parser',
+    rationale: 'report list cursor decodes an ISO receivedAt timestamp string for pagination only.',
+  }),
+  entry({
     path: 'src/chat/realtime/chat-realtime-allow-request-limiter.ts',
     owner: 'chat/realtime',
     category: 'cache-ttl',
