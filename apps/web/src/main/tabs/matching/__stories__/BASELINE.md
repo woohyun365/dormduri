@@ -45,7 +45,7 @@ pnpm --dir apps/web storybook:build
 
 - 작업 브랜치: `issue/web-main-matching-tab-refactor-plan`
 - 구현 시작 baseline: `dev` / `e0b03b7`
-- Phase 0 구현 commit: 아직 생성하지 않음
+- Phase 0 구현 commit: `e5418d2da1b09c47eaee8bd09962d79cdeb40beb`
 - `MatchingTab.baseline-current.test.tsx`: 11개 fixture/menu/dialog smoke 통과
 - `pnpm --dir apps/web lint`, `pnpm --dir apps/web typecheck`, `pnpm --dir apps/web typecheck:storybook`: 통과
 - `pnpm --dir apps/web storybook:build`: 통과
