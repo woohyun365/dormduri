@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 9 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정한다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
+현재 Phase 10 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
 
 이 repo의 UI/UX 의사결정은 root `DESIGN.md`를 제품 디자인 source로 참고하고, RoommateTab feature boundary의 세부 구현 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README를 따른다.
 
@@ -68,7 +68,7 @@ RoommateTab production runtime/import graph는 아래를 source of truth로 사�
 - list-tab local `displayCount` / `slice()` 기반 pagination truth.
 - Main에서 전달하는 old list props bridge: `profiles`, `filters`, `bookmarkedUserIds`, `blockedUserIds`, `matchRequests`, `activeMatch`.
 
-다른 탭 때문에 legacy file 자체가 남아야 하는 경우에도 RoommateTab runtime/import graph에서는 제거한다. Phase 중간에 임시 compatibility bridge를 만들면 같은 Phase 완료 전 삭제하거나, 늦어도 Phase 10 final guard의 삭제 조건으로 명시한다.
+다른 탭 때문에 legacy file 자체가 남아야 하는 경우에도 RoommateTab runtime/import graph에서는 제거한다. Phase 중간에 임시 compatibility bridge를 만들면 같은 Phase 완료 전 삭제하거나, 늦어도 Phase 15 final guard의 삭제 조건으로 명시한다.
 
 ## Target boundary summary
 
@@ -215,6 +215,23 @@ Storybook boundary rules:
 - Scenario data는 shared public contract allowlist만 사용하고, 음주 raw field나 target condition value를 detail/compatibility payload에 넣지 않는다.
 - Block/report/match request story는 Phase 8 mutation surface만 재현한다. ChatTab send/resume UI와 MatchingTab request inbox/accept/reject/cancel flow는 만들지 않는다.
 - Storybook에서 자동으로 일부 dialog를 여는 helper는 visual workshop 전용이다. 제품 runtime state injection prop을 추가하지 않는다.
+
+## Phase 10 profile detail dialog split
+
+Phase 10에서 `RoommateProfileDetailDialog.tsx`는 dialog open/close 상태, detail state switch, callback wiring만 담당한다. 사용자에게 보이는 각 section은 `overlays/profile-detail/` 하위 module로 분리한다.
+
+| 파일                                                      | 책임                                                                                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `overlays/RoommateProfileDetailDialog.tsx`                | `BaseBottomSheet` shell, `loading`/`error`/`FULL`/`TOMBSTONE` state switch, owner callback wiring만 담당한다.    |
+| `overlays/profile-detail/ProfileDetailLoading.tsx`        | profile detail pending skeleton을 렌더링한다. 작은 안내 card 대신 실제 detail 구조와 유사한 skeleton을 유지한다. |
+| `overlays/profile-detail/ProfileDetailError.tsx`          | retry/list refresh CTA와 probing-safe generic error copy를 렌더링한다. raw backend code는 노출하지 않는다.       |
+| `overlays/profile-detail/ProfileHeroSection.tsx`          | 닉네임, 캠퍼스, 기숙사, 나이, 단과대/학년, MBTI 등 public 기본 정보를 렌더링한다.                                |
+| `overlays/profile-detail/ProfileIntroBlock.tsx`           | 자기소개 2줄 overflow 측정, expand/collapse, `aria-controls`/`aria-expanded`를 소유한다.                         |
+| `overlays/profile-detail/ProfileCompatibilitySection.tsx` | compatibility availability, legend, insight badge, radar, axis list composition을 담당한다.                      |
+| `overlays/profile-detail/ProfileDetailContent.tsx`        | FULL/TOMBSTONE detail content composition을 담당한다.                                                            |
+| `overlays/profile-detail/ProfileActionSummary.tsx`        | pending request, direction limit, match/chat/report/block CTA fallback을 렌더링한다.                             |
+
+Phase 10은 behavior-preserving refactor다. Profile detail copy, action policy, compatibility score/bucket 계산, BFF/API contract는 변경하지 않는다.
 
 ### Phase 9 responsive design baseline
 
@@ -457,4 +474,4 @@ pnpm --dir apps/web storybook:build
 - Phase 7은 RoommateTab detail modal과 repo-native compatibility visualization을 제품 경로로 연결했다.
 - Phase 8은 detail modal action CTA를 block/report/match request owner API와 stale-safe feedback으로 연결했다.
 - Phase 9는 Storybook/visual/mobile scenario matrix를 검증한다.
-- Phase 10은 남은 compatibility bridge와 금지 패턴을 final guard로 닫는다.
+- Phase 10은 `RoommateProfileDetailDialog.tsx`를 orchestration shell로 축소하고 profile detail section module을 분리했다. Phase 11~14는 compatibility axis/list/scenario/search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.
