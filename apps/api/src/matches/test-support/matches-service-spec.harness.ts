@@ -6,6 +6,7 @@ import { ActiveMatchLifecycleEventRepository } from '../active/lifecycle-events/
 import { ActiveMatchLifecycleEventWriter } from '../active/lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../active/persistence/active-match.repository.js';
 import { ActiveMatchViewQuery } from '../active/queries/active-match-view.query.js';
+import { MatchOverviewQuery } from '../overview/match-overview.query.js';
 import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
 import { AcceptMatchRequestCommand } from '../requests/commands/accept-match-request.command.js';
 import { CancelMatchRequestCommand } from '../requests/commands/cancel-match-request.command.js';
@@ -210,6 +211,12 @@ function createMatchesServiceSpecHarnessImpl() {
     seasonsService as never,
     seasonParticipantsService as never,
   );
+  const matchOverviewQuery = new MatchOverviewQuery(
+    prisma as never,
+    seasonsService as never,
+    seasonParticipantsService as never,
+    activeMatchViewQuery,
+  );
   const resolveTerminalMatchRequestCommand = new ResolveTerminalMatchRequestCommand(
     prisma as never,
     seasonsService as never,
@@ -231,6 +238,7 @@ function createMatchesServiceSpecHarnessImpl() {
     seasonParticipantsService as never,
     activeMatchViewQuery,
     listCurrentSeasonRequestsQuery,
+    matchOverviewQuery,
     new CreateMatchRequestCommand(
       prisma as never,
       matchRequestCreationEvaluator,

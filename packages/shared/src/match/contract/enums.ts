@@ -43,9 +43,38 @@ export const activeMatchUnmatchProgressStateSchema = z.enum([
 
 export const requestDirectionSchema = z.enum(['SENT', 'RECEIVED']);
 
+/**
+ * 현재 viewer가 matching overview를 읽을 수 없는 public 사유다.
+ * 내부 moderation/audit reason은 이 contract에 포함하지 않는다.
+ */
+export const matchCapabilityReasonSchema = z.enum([
+  'CAMPUS_NOT_OPERATED',
+  'VIEWER_NOT_REGISTERED',
+  'VIEWER_PROFILE_INCOMPLETE',
+  'VIEWER_NOT_ASSIGNED',
+  'SEASON_NOT_ACTIONABLE',
+  'SAFETY_OR_VISIBILITY_RESTRICTED',
+]);
+
+/**
+ * 현재 row/action을 실행할 수 없는 public 사유다. FE는 이 값을 다시 판정하지 않는다.
+ */
+export const matchActionDisabledReasonSchema = z.enum([
+  'SEASON_NOT_ACTIONABLE',
+  'ROOM_SELECTION_CUTOFF',
+  'REQUEST_EXPIRED',
+  'REQUEST_ALREADY_RESOLVED',
+  'MATCH_PRECONDITION_FAILED',
+  'ACTIVE_MATCH_NOT_ACTIONABLE',
+  'UNMATCH_ALREADY_PENDING',
+  'TARGET_UNAVAILABLE',
+]);
+
 export type MatchRequestStatus = z.infer<typeof matchRequestStatusSchema>;
 export type MatchRequestTerminalReason = z.infer<typeof matchRequestTerminalReasonSchema>;
 export type ActiveMatchStatus = z.infer<typeof activeMatchStatusSchema>;
 export type ActiveMatchEndReason = z.infer<typeof activeMatchEndReasonSchema>;
 export type ActiveMatchUnmatchProgressState = z.infer<typeof activeMatchUnmatchProgressStateSchema>;
 export type RequestDirection = z.infer<typeof requestDirectionSchema>;
+export type MatchCapabilityReason = z.infer<typeof matchCapabilityReasonSchema>;
+export type MatchActionDisabledReason = z.infer<typeof matchActionDisabledReasonSchema>;

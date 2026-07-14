@@ -5,10 +5,18 @@ import {
   activeMatchEndReasonSchema,
   activeMatchStatusSchema,
   activeMatchUnmatchProgressStateSchema,
+  matchActionDisabledReasonSchema,
   matchRequestStatusSchema,
   matchRequestTerminalReasonSchema,
   requestDirectionSchema,
 } from './enums.js';
+
+export const matchRequestActionsSchema = z.strictObject({
+  canAccept: z.boolean(),
+  canReject: z.boolean(),
+  canCancel: z.boolean(),
+  disabledReason: matchActionDisabledReasonSchema.nullable(),
+});
 
 export const activeMatchUnmatchProgressSchema = z.strictObject({
   state: activeMatchUnmatchProgressStateSchema,
@@ -35,6 +43,12 @@ export const matchRequestSummarySchema = z.strictObject({
   terminalAt: isoDateTimeStringSchema.nullable(),
   acceptedAt: isoDateTimeStringSchema.nullable(),
   terminalReason: matchRequestTerminalReasonSchema.nullable(),
+  actions: matchRequestActionsSchema.optional(),
+});
+
+/** overview read는 row별 action capability를 항상 함께 제공한다. */
+export const matchRequestWithActionsSchema = matchRequestSummarySchema.extend({
+  actions: matchRequestActionsSchema,
 });
 
 export const activeMatchSummarySchema = z.strictObject({
@@ -54,5 +68,7 @@ export const activeMatchSummarySchema = z.strictObject({
 });
 
 export type ActiveMatchUnmatchProgress = z.infer<typeof activeMatchUnmatchProgressSchema>;
+export type MatchRequestActions = z.infer<typeof matchRequestActionsSchema>;
 export type MatchRequestSummary = z.infer<typeof matchRequestSummarySchema>;
+export type MatchRequestWithActions = z.infer<typeof matchRequestWithActionsSchema>;
 export type ActiveMatchSummary = z.infer<typeof activeMatchSummarySchema>;

@@ -5,6 +5,7 @@ import type {
   ActiveMatchSummary,
   CreateMatchRequestRequest,
   MatchHistoryResponse,
+  MatchOverviewResponse,
   MatchRequestActionResponse,
   MatchRequestListResponse,
 } from '@repo/shared/match/contract';
@@ -29,6 +30,7 @@ import { CreateMatchRequestCommand } from '../requests/commands/create-match-req
 import { RejectMatchRequestCommand } from '../requests/commands/reject-match-request.command.js';
 import { CancelMatchRequestCommand } from '../requests/commands/cancel-match-request.command.js';
 import { ListCurrentSeasonRequestsQuery } from '../requests/queries/list-current-season-requests.query.js';
+import { MatchOverviewQuery } from '../overview/match-overview.query.js';
 
 @Injectable()
 export class MatchesService {
@@ -39,6 +41,7 @@ export class MatchesService {
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly activeMatchViewQuery: ActiveMatchViewQuery,
     private readonly listCurrentSeasonRequestsQuery: ListCurrentSeasonRequestsQuery,
+    private readonly matchOverviewQuery: MatchOverviewQuery,
     private readonly createMatchRequestCommand: CreateMatchRequestCommand,
     private readonly acceptMatchRequestCommand: AcceptMatchRequestCommand,
     private readonly rejectMatchRequestCommand: RejectMatchRequestCommand,
@@ -80,6 +83,10 @@ export class MatchesService {
     authUser: AuthenticatedUserContext,
   ): Promise<MatchRequestListResponse> {
     return this.listCurrentSeasonRequestsQuery.execute(authUser);
+  }
+
+  async getMatchOverview(authUser: AuthenticatedUserContext): Promise<MatchOverviewResponse> {
+    return this.matchOverviewQuery.execute(authUser);
   }
 
   async getMatchHistory(authUser: AuthenticatedUserContext): Promise<MatchHistoryResponse> {

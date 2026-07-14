@@ -1,4 +1,4 @@
-import type { MatchRequestSummary } from '@repo/shared/match/contract';
+import type { MatchRequestActions, MatchRequestWithActions } from '@repo/shared/match/contract';
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
 import { resolvePublicCounterpartNickname } from '../../../privacy/deidentification/deidentified-display.policy.js';
 import type { MatchRequestRecord } from '../persistence/match-request.select.js';
@@ -6,7 +6,8 @@ import type { MatchRequestRecord } from '../persistence/match-request.select.js'
 export function toMatchRequestSummary(
   request: MatchRequestRecord,
   viewerParticipantId: string,
-): MatchRequestSummary {
+  actions: MatchRequestActions = toStaticMatchRequestActions(request, viewerParticipantId),
+): MatchRequestWithActions {
   const sent = request.requesterParticipantId === viewerParticipantId;
 
   return {
@@ -24,10 +25,30 @@ export function toMatchRequestSummary(
     terminalAt: request.terminalAt?.toISOString() ?? null,
     acceptedAt: request.acceptedAt?.toISOString() ?? null,
     terminalReason: request.terminalReason,
+    actions,
     counterpartSummary: toMatchRequestCounterpartSummary(
       sent ? request.receiverParticipant : request.requesterParticipant,
     ),
   };
+}
+
+function toStaticMatchRequestActions(
+  request: MatchRequestRecord,
+  viewerParticipantId: string,
+): MatchRequestActions {
+  if (request.status !== 'PENDING') {
+    return {
+      canAccept: false,
+      canReject: false,
+      canCancel: false,
+      disabledReason: request.status === 'EXPIRED' ? 'REQUEST_EXPIRED' : 'REQUEST_ALREADY_RESOLVED',
+    };
+  }
+
+  const sent = request.requesterParticipantId === viewerParticipantId;
+  return sent
+    ? { canAccept: false, canReject: false, canCancel: true, disabledReason: null }
+    : { canAccept: true, canReject: true, canCancel: false, disabledReason: null };
 }
 
 function toMatchRequestCounterpartSummary(

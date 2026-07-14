@@ -14,7 +14,7 @@ type FutureMatchContract = {
 
 const futureMatchContract = matchContract as typeof matchContract & FutureMatchContract;
 
-describe('Phase 1 intentionally red policy and contract guards', () => {
+describe('Phase 1 policy and contract guards', () => {
   it.fails(
     'Phase 6 red: POST_MATCH active result는 request/unmatch action을 노출하지 않아야 한다',
     () => {
@@ -58,35 +58,32 @@ describe('Phase 1 intentionally red policy and contract guards', () => {
     expect(screen.getByRole('alertdialog', { name: '요청 수락' })).toBeInTheDocument();
   });
 
-  it.fails(
-    'Phase 2 red: pair overview는 public capability/action reason taxonomy를 shared contract로 제공해야 한다',
-    () => {
-      expect(futureMatchContract.matchCapabilityReasonSchema.options).toEqual([
-        'CAMPUS_NOT_OPERATED',
-        'VIEWER_NOT_REGISTERED',
-        'VIEWER_PROFILE_INCOMPLETE',
-        'VIEWER_NOT_ASSIGNED',
-        'SEASON_NOT_ACTIONABLE',
-        'SAFETY_OR_VISIBILITY_RESTRICTED',
-      ]);
-      expect(futureMatchContract.matchActionDisabledReasonSchema.options).toEqual([
-        'SEASON_NOT_ACTIONABLE',
-        'ROOM_SELECTION_CUTOFF',
-        'REQUEST_EXPIRED',
-        'REQUEST_ALREADY_RESOLVED',
-        'MATCH_PRECONDITION_FAILED',
-        'ACTIVE_MATCH_NOT_ACTIONABLE',
-        'UNMATCH_ALREADY_PENDING',
-        'TARGET_UNAVAILABLE',
-      ]);
-      expect(Object.keys(futureMatchContract.matchOverviewResponseSchema.shape)).toEqual([
-        'serverNow',
-        'season',
-        'capability',
-        'sentRequests',
-        'receivedRequests',
-        'activeMatch',
-      ]);
-    },
-  );
+  it('Phase 2 contract: pair overview는 public capability/action reason taxonomy를 shared contract로 제공한다', () => {
+    expect(futureMatchContract.matchCapabilityReasonSchema.options).toEqual([
+      'CAMPUS_NOT_OPERATED',
+      'VIEWER_NOT_REGISTERED',
+      'VIEWER_PROFILE_INCOMPLETE',
+      'VIEWER_NOT_ASSIGNED',
+      'SEASON_NOT_ACTIONABLE',
+      'SAFETY_OR_VISIBILITY_RESTRICTED',
+    ]);
+    expect(futureMatchContract.matchActionDisabledReasonSchema.options).toEqual([
+      'SEASON_NOT_ACTIONABLE',
+      'ROOM_SELECTION_CUTOFF',
+      'REQUEST_EXPIRED',
+      'REQUEST_ALREADY_RESOLVED',
+      'MATCH_PRECONDITION_FAILED',
+      'ACTIVE_MATCH_NOT_ACTIONABLE',
+      'UNMATCH_ALREADY_PENDING',
+      'TARGET_UNAVAILABLE',
+    ]);
+    expect(Object.keys(futureMatchContract.matchOverviewResponseSchema.shape)).toEqual([
+      'serverNow',
+      'season',
+      'capability',
+      'sentRequests',
+      'receivedRequests',
+      'activeMatch',
+    ]);
+  });
 });

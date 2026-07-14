@@ -6,6 +6,7 @@ import { MatchesController } from './matches.controller.js';
 describe('MatchesController', () => {
   const matchesService = {
     listCurrentSeasonRequests: vi.fn(),
+    getMatchOverview: vi.fn(),
     createMatchRequest: vi.fn(),
     acceptMatchRequest: vi.fn(),
     rejectMatchRequest: vi.fn(),
@@ -29,6 +30,17 @@ describe('MatchesController', () => {
 
   it('controller class는 protected auth metadata로 보호된다', () => {
     expect(Reflect.getMetadata(AUTH_ACCESS_METADATA_KEY, MatchesController)).toBe('protected');
+  });
+
+  it('overview read는 auth actor를 그대로 service에 위임한다', async () => {
+    matchesService.getMatchOverview.mockResolvedValueOnce({
+      serverNow: '2026-02-10T03:00:00.000Z',
+    });
+
+    await expect(controller.getOverview(authUser as never)).resolves.toEqual({
+      serverNow: '2026-02-10T03:00:00.000Z',
+    });
+    expect(matchesService.getMatchOverview).toHaveBeenCalledWith(authUser);
   });
 
   it('unmatch 요청은 active match context가 있으면 actor/param 일치 후 service로 위임한다', async () => {

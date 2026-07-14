@@ -28,6 +28,8 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - External domain이 필요한 최소 match view/lifecycle/history/block side-effect port 제공.
 - Season participant withdrawal로 인한 pending match request cancellation state transition.
 - Match-specific user-facing error contract and response projection.
+- Current overview read: sent/received request rows와 active relation을 한 serializable read snapshot으로
+  반환한다. history/group은 overview에 합치지 않는다.
 
 ## Non-responsibilities
 
@@ -70,6 +72,9 @@ Final subdirectory targets:
 - Create/accept/unmatch commands recheck stale state inside the transaction after locks are acquired.
 - ActiveMatch lifecycle event append must happen inside the same Prisma transaction as the state mutation it explains.
 - Pending request expiration, room-selection cutoff, hidden/deactivated/withdrawn/expired/deleted/deidentified participant state, active match presence, and target visibility are fail-closed.
+- `GET /api/matches/overview`는 같은 DB `now`로 해석한 current season metadata와 함께 due pending
+  request 정리, sent/received row, active relation을 한 serializable read로 반환한다. current row는
+  `createdAt DESC, id DESC` 전체 목록이며, history/group projection은 포함하지 않는다.
 - Redis/cache may be introduced only as an optimization/metric gate; it is not a correctness source for match state transitions.
 
 ## Query/index and RDS cost guardrails

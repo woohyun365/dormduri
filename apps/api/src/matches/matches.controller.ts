@@ -22,6 +22,11 @@ export class MatchesController {
     return this.matchesService.listCurrentSeasonRequests(authUser);
   }
 
+  @Get('overview')
+  async getOverview(@CurrentUser() authUser: AuthenticatedUserContext) {
+    return this.matchesService.getMatchOverview(authUser);
+  }
+
   @Post('requests')
   async createRequest(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
     const parsed = parseRequestBody(createMatchRequestSchema, body);
