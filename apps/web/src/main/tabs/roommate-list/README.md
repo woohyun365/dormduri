@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 11 working-tree 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. Phase 11은 compatibility axis list를 public entry shell, list composition, shared tone/config, axis별 detail module로 분리했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
+현재 Phase 12 working-tree 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. Phase 11은 compatibility axis list를 public entry shell, list composition, shared tone/config, axis별 detail module로 분리했다. Phase 12는 수면 환경/통화·미디어/청소 루틴이 공유하는 2-lane range UI와 320px 상대 pill rule을 primitive로 추출했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
 
 이 repo의 UI/UX 의사결정은 root `DESIGN.md`를 제품 디자인 source로 참고하고, RoommateTab feature boundary의 세부 구현 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README를 따른다.
 
@@ -251,6 +251,18 @@ Phase 11에서 기존 `components/CompatibilityAxisList.tsx` public import path�
 
 Phase 11 module은 shared scoring owner나 raw lifestyle/condition 값을 새로 계산하지 않는다. Detail module은 이미 `compatibilityChart.mapper`가 만든 public `axis.comparison`/bucket/tone만 해석해 시각화한다.
 
+## Phase 12 compatibility visualization primitives
+
+Phase 12에서 반복되던 2-lane range UI는 `components/compatibility-axis/primitives/` 하위 primitive로 모았다. 이 primitive는 RoommateTab compatibility 내부 전용이며 전역 디자인 시스템으로 승격하지 않는다.
+
+| 파일                                                                           | 책임                                                                                                          |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `components/compatibility-axis/primitives/TwoLaneRangeCard.tsx`                | title, target usage label, viewer range label, range tone, accepted/outside option layout, note를 렌더링한다. |
+| `components/compatibility-axis/primitives/TwoLaneOptionItem.tsx`               | active/in-range/outside option style, `aria-current`, 320px `상대` pill hide rule을 한 곳에서 관리한다.       |
+| `components/compatibility-axis/primitives/__tests__/TwoLaneRangeCard.test.tsx` | primitive의 조건 범위 semantics와 320px hide class source-of-truth를 검증한다.                                |
+
+Domain detail module은 여전히 각 domain의 option, copy, support matrix inference만 소유한다. Generic primitive로 policy/score inference나 raw condition/lifestyle 값을 끌어올리지 않는다.
+
 ### Phase 9 responsive design baseline
 
 - 근거(source-backed fact): Android Developers의 Material-derived canonical layout guidance는 list-detail/feed/supporting pane을 다양한 화면 크기에서 검증된 layout으로 설명하고, supporting pane은 compact 화면에서는 아래나 sheet로, expanded 화면에서는 main 옆 보조 pane으로 배치할 수 있다고 설명한다. URL: https://developer.android.com/develop/adaptive-apps/guides/canonical-layouts
@@ -493,4 +505,5 @@ pnpm --dir apps/web storybook:build
 - Phase 8은 detail modal action CTA를 block/report/match request owner API와 stale-safe feedback으로 연결했다.
 - Phase 9는 Storybook/visual/mobile scenario matrix를 검증한다.
 - Phase 10은 `RoommateProfileDetailDialog.tsx`를 orchestration shell로 축소하고 profile detail section module을 분리했다.
-- Phase 11은 `CompatibilityAxisList.tsx` public path를 re-export shell로 유지하고 axis domain별 detail module을 분리했다. Phase 12~14는 common primitive/scenario/search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.
+- Phase 11은 `CompatibilityAxisList.tsx` public path를 re-export shell로 유지하고 axis domain별 detail module을 분리했다.
+- Phase 12는 2-lane range UI primitive와 320px active 상대 pill source-of-truth를 추출했다. Phase 13~14는 scenario/search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.

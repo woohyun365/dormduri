@@ -1,7 +1,10 @@
 import { Info, Sparkles, Utensils } from 'lucide-react';
-import type { ElementType } from 'react';
-import { RANGE_FRAME_CLASS, RANGE_TEXT_CLASS } from '../axisTone';
-import type { CompatibilityAxis, CompatibilityBucketTone } from '../types';
+import {
+  TwoLaneRangeCard,
+  type TwoLaneOption,
+  type TwoLaneSupportLevel,
+} from '../primitives/TwoLaneRangeCard';
+import type { CompatibilityAxis } from '../types';
 
 type CleanSpaceValueKind =
   | 'cleanImmediately'
@@ -18,7 +21,7 @@ type CleanSpaceValueKind =
   | 'anyEating'
   | 'unknown';
 
-type CleanSpaceSupportLevel = 'match' | 'partial' | 'outside';
+type CleanSpaceSupportLevel = TwoLaneSupportLevel;
 
 interface CleanSpaceCoordinationChannel {
   readonly id: 'clean' | 'eating';
@@ -33,11 +36,7 @@ interface CleanSpaceCoordinationChannel {
   readonly note: string | null;
 }
 
-interface CleanSpaceLaneOption {
-  readonly id: CleanSpaceValueKind;
-  readonly label: string;
-  readonly Icon: ElementType<{ className?: string; 'aria-hidden'?: boolean }>;
-}
+type CleanSpaceLaneOption = TwoLaneOption<CleanSpaceValueKind>;
 
 const CLEAN_LEVEL_LANE_OPTIONS: readonly CleanSpaceLaneOption[] = [
   { id: 'cleanImmediately', label: '바로 정리', Icon: Sparkles },
@@ -113,7 +112,7 @@ export function CleanSpaceCoordinationCard({
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="상대방 청소 루틴 2-lane">
         {channels.map((channel) => (
-          <CleanSpaceLaneCard
+          <TwoLaneRangeCard
             key={channel.id}
             title={channel.title}
             targetUsageLabel={channel.targetUsageLabel}
@@ -122,139 +121,11 @@ export function CleanSpaceCoordinationCard({
             viewerLabel={channel.viewerLabel}
             supportByKind={channel.supportByKind}
             options={channel.options}
-            note={channel.note}
+            note={channel.note ? { text: channel.note, Icon: Info } : null}
           />
         ))}
       </div>
     </div>
-  );
-}
-
-function CleanSpaceLaneCard({
-  title,
-  targetUsageLabel,
-  rangeTone,
-  targetKind,
-  viewerLabel,
-  supportByKind: supportConfig,
-  options,
-  note,
-}: {
-  readonly title: string;
-  readonly targetUsageLabel: string;
-  readonly rangeTone: CompatibilityBucketTone;
-  readonly targetKind: CleanSpaceValueKind;
-  readonly viewerLabel: string;
-  readonly supportByKind: Partial<Record<CleanSpaceValueKind, CleanSpaceSupportLevel>>;
-  readonly options: readonly CleanSpaceLaneOption[];
-  readonly note: string | null;
-}) {
-  const supportByKind = Object.fromEntries(
-    options.map((option) => [option.id, supportConfig[option.id] ?? 'outside']),
-  ) as Record<CleanSpaceValueKind, CleanSpaceSupportLevel>;
-  const acceptedOptions = options.filter((option) => supportByKind[option.id] !== 'outside');
-  const outsideOptions = options.filter((option) => supportByKind[option.id] === 'outside');
-
-  return (
-    <div
-      className="rounded-2xl border border-slate-200 bg-white/85 p-3 shadow-sm"
-      aria-label={`${title} 2-lane`}
-    >
-      <p className="text-[11px] font-extrabold leading-4 text-slate-900">{title}</p>
-
-      <div className="mt-3 space-y-1.5">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <p className={`text-[10px] font-extrabold leading-4 ${RANGE_TEXT_CLASS[rangeTone]}`}>
-            나의 조건 범위
-          </p>
-          <p
-            className={`text-right text-[10px] font-bold leading-4 ${RANGE_TEXT_CLASS[rangeTone]}`}
-          >
-            {viewerLabel}
-          </p>
-        </div>
-        <ul className="grid gap-1.5" aria-label={`${title} 상대방 상태`}>
-          {acceptedOptions.length > 0 ? (
-            <li
-              className={`rounded-2xl border-2 p-1.5 ${RANGE_FRAME_CLASS[rangeTone]}`}
-              aria-label={`${title} 나의 조건 범위`}
-            >
-              <p className="mb-1 px-1 text-[10px] font-extrabold leading-4 text-slate-600">
-                {targetUsageLabel}
-              </p>
-              <ul className="grid gap-1.5">
-                {acceptedOptions.map((option) => (
-                  <CleanSpaceLaneOptionItem
-                    key={option.id}
-                    option={option}
-                    active={option.id === targetKind}
-                    supportLevel={supportByKind[option.id]}
-                  />
-                ))}
-              </ul>
-            </li>
-          ) : null}
-          {outsideOptions.map((option) => (
-            <CleanSpaceLaneOptionItem
-              key={option.id}
-              option={option}
-              active={option.id === targetKind}
-              supportLevel={supportByKind[option.id]}
-            />
-          ))}
-        </ul>
-      </div>
-
-      {note ? (
-        <div className="mt-2 flex items-start gap-1.5 rounded-2xl border border-sky-100 bg-sky-50 px-2.5 py-2 text-[10px] font-semibold leading-4 text-sky-700">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span>{note}</span>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function CleanSpaceLaneOptionItem({
-  option,
-  active,
-  supportLevel,
-}: {
-  readonly option: CleanSpaceLaneOption;
-  readonly active: boolean;
-  readonly supportLevel: CleanSpaceSupportLevel;
-}) {
-  const Icon = option.Icon;
-  const inRange = supportLevel !== 'outside';
-  const itemClassName = active
-    ? 'border-sky-300 bg-sky-50/90 text-sky-900 shadow-sm ring-1 ring-sky-200'
-    : inRange
-      ? 'border-indigo-100 bg-white/85 text-slate-700'
-      : 'border-slate-100 bg-slate-50/70 text-slate-500';
-  const iconClassName = active
-    ? 'bg-white text-sky-700 ring-1 ring-sky-100'
-    : 'bg-white/80 text-slate-400';
-
-  return (
-    <li
-      className={`flex min-w-0 items-start gap-2 rounded-xl border px-2.5 py-2 ${itemClassName}`}
-      aria-current={active ? 'true' : undefined}
-    >
-      <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${iconClassName}`}
-        aria-hidden="true"
-      >
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <span className="min-w-0 flex-1 break-keep text-[11px] leading-4 font-extrabold whitespace-normal">
-        {option.label}
-      </span>
-      {active ? (
-        <span className="ml-auto hidden shrink-0 rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700 min-[361px]:inline-flex">
-          상대
-        </span>
-      ) : null}
-    </li>
   );
 }
 
