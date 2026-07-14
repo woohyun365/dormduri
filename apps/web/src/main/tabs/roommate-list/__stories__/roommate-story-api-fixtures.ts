@@ -169,7 +169,7 @@ function resolveRoommateStoryResponse(
 
     const profile = scenario.profileByTargetUserId[targetUserId];
     if (!profile) return createStoryJsonResponse({ code: 'PROFILE_NOT_VISIBLE' }, 404);
-    return createStoryJsonResponse(profile);
+    return createMaybeDelayedStoryJsonResponse(profile, scenario.profileResponseDelayMs);
   }
 
   if (request.pathname === '/api/matches/requests' && request.method === 'POST') {

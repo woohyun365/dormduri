@@ -81,6 +81,19 @@ describe('roommateSearchViewModel', () => {
     expect(vm.metadataLabel).toBe('춘천캠퍼스');
   });
 
+  it('빈 intro는 summary card에서 기본 안내 문구로 normalize한다', () => {
+    const item = createSummary('empty-intro');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      profileSummary: {
+        ...item.profileSummary,
+        intro: '   ',
+      },
+    });
+
+    expect(vm.intro).toBe('-');
+  });
+
   it('이미 매칭된 viewer의 summary-only 후보는 단일 slate 안내 pill만 표시한다', () => {
     const item = createSummary('viewer-already-matched');
     const vm = mapRoommateSearchItemToCardViewModel({

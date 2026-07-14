@@ -74,7 +74,7 @@ export interface RoommateCardBookmarkStateOptions {
   readonly summaryContextLabel?: string | null;
 }
 
-const EMPTY_INTRO_COPY = '아직 자기소개가 없어요.';
+const EMPTY_INTRO_COPY = '-';
 const HIDDEN_BOOKMARK_INTRO_COPY = '저장한 항목이 현재 정책상 보이지 않아요.';
 const VIEWER_ALREADY_MATCHED_SUMMARY_LABEL = '매칭 상대 외에는 프로필 요약만 확인 가능해요';
 

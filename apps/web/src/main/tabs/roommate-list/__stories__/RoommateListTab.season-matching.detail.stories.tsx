@@ -28,8 +28,17 @@ type Story = StoryObj<typeof RoommateListTabStorySurface>;
 export const FullCompatibility: Story = createRoommateStory(
   roommateStoryScenarios.seasonMatchingDetailFullCompatibility,
 );
+export const Pending: Story = createRoommateStory(
+  roommateStoryScenarios.seasonMatchingDetailPending,
+);
+export const EmptyIntro: Story = createRoommateStory(
+  roommateStoryScenarios.seasonMatchingDetailEmptyIntro,
+);
 export const ExceptionScoreCalculationFailed: Story = createRoommateStory(
   roommateStoryScenarios.seasonMatchingExceptionScoreCalculationFailed,
+);
+export const ExceptionDetailFetchFailed: Story = createRoommateStory(
+  roommateStoryScenarios.seasonMatchingExceptionDetailFetchFailed,
 );
 export const ExceptionDetailUnavailable: Story = createRoommateStory(
   roommateStoryScenarios.seasonMatchingExceptionDetailUnavailable,

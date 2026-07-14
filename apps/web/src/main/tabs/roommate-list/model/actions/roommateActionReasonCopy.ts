@@ -1,8 +1,5 @@
 import type { RoommateApiError } from '../../api/roommateApiErrors';
-import type {
-  PublicTargetActionUnavailableReason,
-  PublicProfileActionCapabilities,
-} from '@repo/shared/profile/contract';
+import type { PublicTargetActionUnavailableReason } from '@repo/shared/profile/contract';
 import type { MatchRequestSummary } from '@repo/shared/match/contract';
 import type { ReportOptionalActionResult, ReportReason } from '@repo/shared/social-safety/report';
 
@@ -152,18 +149,6 @@ export function formatTargetActionUnavailableReason(
   reason: PublicTargetActionUnavailableReason,
 ): string {
   return UNAVAILABLE_REASON_LABELS[reason];
-}
-
-export function buildPrimaryActionCopy(actions: PublicProfileActionCapabilities): string {
-  if (actions.canRequestMatch) return '매칭 요청 가능한 상대예요.';
-  if (actions.unavailableReasons.includes('MATCH_REQUEST_DIRECTION_LIMIT_REACHED')) {
-    return formatTargetActionUnavailableReason('MATCH_REQUEST_DIRECTION_LIMIT_REACHED');
-  }
-  if (actions.canStartChat) return '대화 가능한 상대예요.';
-  const primaryReason = actions.unavailableReasons[0];
-  return primaryReason
-    ? formatTargetActionUnavailableReason(primaryReason)
-    : '현재 가능한 추가 행동이 없어요.';
 }
 
 export function reportReasonLabel(reason: ReportReason): string {

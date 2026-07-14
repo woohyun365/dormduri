@@ -15,6 +15,7 @@ export interface RoommateProfileDetailTarget {
   readonly nickname: string;
   readonly detailEntryToken: string | null;
   readonly pendingMatchRequest?: RoommatePendingMatchRequestViewModel | null;
+  readonly dormitoryLabel?: string | null;
 }
 
 export type RoommateProfileDetailState =

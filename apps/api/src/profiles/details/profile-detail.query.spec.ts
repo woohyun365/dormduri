@@ -36,9 +36,42 @@ const COMPLETE_LIFESTYLE: LifestyleData = {
 
 const PUBLIC_COMPATIBILITY = {
   overallScore: 91,
+  dimensions: [
+    { id: 'SMOKING', score: 100, bucket: 'HIGH', axisIds: ['SMOKING'] },
+    { id: 'SLEEP_RHYTHM', score: null, bucket: 'UNKNOWN', axisIds: ['BEDTIME', 'WAKE_TIME'] },
+    { id: 'SLEEP_HABIT', score: null, bucket: 'UNKNOWN', axisIds: ['SLEEP_HABIT'] },
+    {
+      id: 'SLEEP_ENVIRONMENT',
+      score: null,
+      bucket: 'UNKNOWN',
+      axisIds: ['SCREEN_USAGE', 'SLEEP_ENVIRONMENT'],
+    },
+    { id: 'DEVICE_USAGE', score: null, bucket: 'UNKNOWN', axisIds: ['PHONE', 'EARPHONE'] },
+    {
+      id: 'CLEAN_SPACE',
+      score: 100,
+      bucket: 'HIGH',
+      axisIds: ['CLEAN_LEVEL', 'INDOOR_EATING'],
+    },
+    { id: 'TEMPERATURE', score: null, bucket: 'UNKNOWN', axisIds: ['TEMPERATURE'] },
+    { id: 'RELATIONSHIP_STYLE', score: null, bucket: 'UNKNOWN', axisIds: ['RELATIONSHIP'] },
+  ],
   axes: [
-    { id: 'SMOKING', score: 100, bucket: 'HIGH' },
-    { id: 'CLEAN_LEVEL', score: 100, bucket: 'HIGH' },
+    {
+      id: 'SMOKING',
+      score: 100,
+      bucket: 'HIGH',
+      comparison: { targetText: '비흡연', viewerText: '비흡연자가 좋아요' },
+    },
+    {
+      id: 'CLEAN_LEVEL',
+      score: 100,
+      bucket: 'HIGH',
+      comparison: {
+        targetText: '바로 정리하는 편이에요',
+        viewerText: '바로 정리하는 게 좋아요',
+      },
+    },
   ],
   hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
 } as const;
@@ -274,6 +307,16 @@ describe('ProfilesService Step 6 public detail', () => {
     expect(result).toHaveProperty('matchScore', 91);
     expect(result).toHaveProperty('compatibility', PUBLIC_COMPATIBILITY);
     expect(result.compatibility?.overallScore).toBe(result.matchScore);
+    expect(result.compatibility?.dimensions).toHaveLength(8);
+    expect(result.compatibility?.dimensions[0]).toMatchObject({
+      id: 'SMOKING',
+      axisIds: ['SMOKING'],
+    });
+    expect(result.compatibility?.axes[0]).toHaveProperty('comparison.targetText', '비흡연');
+    expect(result.compatibility?.axes[0]).toHaveProperty(
+      'comparison.viewerText',
+      '비흡연자가 좋아요',
+    );
     expect(matchScoreProjection.buildPublicProfileCompatibility).toHaveBeenCalledWith({
       viewerLifestyle: COMPLETE_LIFESTYLE,
       targetLifestyle: COMPLETE_LIFESTYLE,

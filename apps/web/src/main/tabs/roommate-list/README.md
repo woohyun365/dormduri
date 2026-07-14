@@ -227,9 +227,8 @@ Storybook boundary rules:
 
 Detail comparison anatomy:
 
-1. `상대 생활 패턴 ↔ 나의 원하는 룸메 조건 비교` — radar + axis list를 먼저 보여주고 Green/blue/slate의 의미를 안내한다.
-2. `상대 생활패턴` — public profile detail contract의 allowlist field만 표시한다.
-3. `나의 원하는 룸메 조건` — current viewer의 roommate condition/lifestyle snapshot을 표시한다. 정책상 음주 raw value는 비교 상세에서 제외한다.
+1. `생활패턴 적합도 분석` — 핵심 포인트, radar, axis list/detail로 Green/blue/slate의 의미와 축별 차이를 안내한다.
+2. public profile detail contract의 allowlist field와 viewer condition snapshot은 별도 원본 섹션으로 반복 노출하지 않고, 축별 detail 안에서 필요한 비교 정보만 compact하게 표시한다.
 
 Color semantics:
 

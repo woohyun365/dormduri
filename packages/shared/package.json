@@ -71,6 +71,10 @@
       "types": "./dist/profile/contract/index.d.ts",
       "default": "./dist/profile/contract/index.js"
     },
+    "./profile/compatibility-scoring": {
+      "types": "./dist/profile/compatibility-scoring.d.ts",
+      "default": "./dist/profile/compatibility-scoring.js"
+    },
     "./lifestyle": {
       "types": "./dist/lifestyle/index.d.ts",
       "default": "./dist/lifestyle/index.js"

@@ -40,3 +40,14 @@ export function formatGradeLabel(
 ): string {
   return grade ? GRADE_DISPLAY_LABELS[grade] : fallback;
 }
+
+export function formatKoreanAgeLabel(
+  birthYear: number | null | undefined,
+  referenceDate: Date = new Date(),
+  fallback: string = '나이 비공개',
+): string {
+  if (!birthYear) return fallback;
+  const koreanAge = referenceDate.getFullYear() - birthYear + 1;
+  if (!Number.isFinite(koreanAge) || koreanAge <= 0) return `${birthYear}년생`;
+  return `${koreanAge}세 (${birthYear}년생)`;
+}

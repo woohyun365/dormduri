@@ -10,15 +10,25 @@ import {
   type RoommateSearchSummary,
 } from '@repo/shared/roommate-search/contract';
 import type { MatchRequestActionResponse, MatchRequestSummary } from '@repo/shared/match/contract';
+import {
+  buildPublicProfileCompatibility,
+  calcViewerMatchScore,
+} from '@repo/shared/profile/compatibility-scoring';
 import type {
   PublicProfile,
   PublicProfileActionCapabilities,
+  PublicProfileCompatibility,
+  PublicProfileCompatibilityAxis,
+  PublicProfileCompatibilityAxisId,
+  PublicProfileCompatibilityBucket,
+  PublicProfileCompatibilityDimension,
   PublicProfileFullDetail,
   PublicProfileTombstone,
   PublicTargetExposure,
   PublicTargetRelation,
   PublicTargetResultRead,
 } from '@repo/shared/profile/contract';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { BookmarkListResponse } from '@repo/shared/social-safety/bookmark';
 import type { CreateBlockResponse } from '@repo/shared/social-safety/block';
 import type { CreateReportResponse } from '@repo/shared/social-safety/report';
@@ -64,6 +74,7 @@ export interface RoommateStoryScenario {
   readonly searchErrorCode?: string;
   readonly searchErrorStatus?: number;
   readonly searchResponseDelayMs?: number;
+  readonly profileResponseDelayMs?: number;
   readonly bookmarkResponse: BookmarkListResponse;
   readonly bookmarkError?: { code: string; status: number };
   readonly profileByTargetUserId: Readonly<Record<string, PublicProfile>>;
@@ -97,7 +108,10 @@ export const ROOMMATE_STORY_SCENARIO_KEYS = [
   'seasonMatchingSearchError',
   'seasonMatchingLoadingSkeleton',
   'seasonMatchingDetailFullCompatibility',
+  'seasonMatchingDetailPending',
+  'seasonMatchingDetailEmptyIntro',
   'seasonMatchingExceptionScoreCalculationFailed',
+  'seasonMatchingExceptionDetailFetchFailed',
   'seasonMatchingExceptionDetailUnavailable',
   'seasonMatchingExceptionAccessRecheckFailed',
   'seasonMatchingMatchRequestDialog',
@@ -159,7 +173,10 @@ export const ROOMMATE_STORY_CATEGORY_KEYS = {
   ],
   detail: [
     'seasonMatchingDetailFullCompatibility',
+    'seasonMatchingDetailPending',
+    'seasonMatchingDetailEmptyIntro',
     'seasonMatchingExceptionScoreCalculationFailed',
+    'seasonMatchingExceptionDetailFetchFailed',
     'seasonMatchingExceptionDetailUnavailable',
     'seasonMatchingExceptionAccessRecheckFailed',
   ],
@@ -210,7 +227,10 @@ export const ROOMMATE_STORY_SEASON_GROUP_KEYS = {
     'seasonMatchingSearchError',
     'seasonMatchingLoadingSkeleton',
     'seasonMatchingDetailFullCompatibility',
+    'seasonMatchingDetailPending',
+    'seasonMatchingDetailEmptyIntro',
     'seasonMatchingExceptionScoreCalculationFailed',
+    'seasonMatchingExceptionDetailFetchFailed',
     'seasonMatchingExceptionDetailUnavailable',
     'seasonMatchingExceptionAccessRecheckFailed',
     'seasonMatchingMatchRequestDialog',
@@ -247,6 +267,13 @@ export const ROOMMATE_STORY_SEASON_GROUP_KEYS = {
 const ISO_NOW = '2026-07-06T03:00:00.000Z';
 const TARGET_JIWOO = 'story-roommate-jiwoo';
 const TARGET_HAYOON = 'story-roommate-hayoon';
+const TARGET_FULL_COMPATIBILITY_DASOM = 'story-roommate-full-dasom';
+const TARGET_FULL_COMPATIBILITY_RAHEE = 'story-roommate-full-rahee';
+const TARGET_FULL_COMPATIBILITY_YUJIN = 'story-roommate-full-yujin';
+const TARGET_FULL_COMPATIBILITY_MINSEO = 'story-roommate-full-minseo';
+const TARGET_FULL_COMPATIBILITY_SEOYUN = 'story-roommate-full-seoyun';
+const TARGET_FULL_COMPATIBILITY_SUA = 'story-roommate-full-sua';
+const TARGET_FULL_COMPATIBILITY_MINJU = 'story-roommate-full-minju';
 const TARGET_CAMPUS = 'story-roommate-campus-preview';
 const TARGET_VIEWER_ALREADY_MATCHED = 'story-roommate-viewer-already-matched';
 const TARGET_TOMBSTONE = 'story-roommate-tombstone';
@@ -352,14 +379,31 @@ const storyViewer: UserProfile = {
     relationshipStyle: 'CASUAL',
     temperatureSensitivity: 'NORMAL',
     smokingTolerance: 'NO_ONLY',
-    phoneTolerance: 'BRIEF_OK',
+    phoneTolerance: 'ANY',
     earphoneExpectation: 'MUST',
     sleepEnvPreference: 'NO_SPEAKER',
     screenTolerance: 'NO_SCREEN',
-    indoorEatingTolerance: 'CLEAN_OK',
-    cleanExpectation: 'BASIC',
+    indoorEatingTolerance: 'NO_SMELL',
+    cleanExpectation: 'STRICT',
     drinkingTolerance: 'LOW_ONLY',
   },
+};
+
+const fullCompatibilityViewerLifestyle: LifestyleData = {
+  ...storyViewer.lifestyle,
+  smokingTolerance: 'E_CIG_OK',
+  drinkingTolerance: 'LOW_ONLY',
+  noiseSensitivity: 'NORMAL',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'LOW_VOLUME_OK',
+  sleepEnvPreference: 'SPEAKER_OK',
+  screenTolerance: 'LOW_OK',
+  cleanExpectation: 'BASIC',
+  indoorEatingTolerance: 'CLEAN_OK',
+  bedtime: '24_02',
+  wakeTime: 'FLEXIBLE',
+  temperatureSensitivity: 'NORMAL',
+  relationshipStyle: 'CLOSE',
 };
 
 function createSeasonContext(state: SeasonContextValue['state']): SeasonContextValue {
@@ -661,10 +705,13 @@ type StorySummaryFactCombination = {
   readonly relationshipStyle: RoommateSearchSummary['profileSummary']['relationshipStyle'];
 };
 
+const JIWOO_TWO_LINE_INTRO =
+  '아침에는 조용히 준비하고 밤에는 불을 일찍 끄는 편이에요. 시험 기간에는 서로 방해되지 않도록 조명과 알람 시간을 미리 맞추고, 평소에는 주 2회 정도 청소 루틴을 정해 깔끔한 방 분위기를 유지하고 싶어요. 늦은 시간에는 이어폰을 사용하고, 과제나 동아리 일정이 늦어질 때는 미리 공유해서 서로 놀라지 않게 지내고 싶어요. 주말에는 가볍게 카페나 도서관에 가는 편이라 방에서는 조용히 쉬는 시간을 존중해 줄 룸메이트를 찾고 있어요.';
+
 const jiwooSummary = createSummary({
   id: TARGET_JIWOO,
   nickname: '지우',
-  intro: '아침형이고 조용한 방 분위기를 좋아해요.',
+  intro: JIWOO_TWO_LINE_INTRO,
   exposure: FULL_EXPOSURE,
   actions: ACTIONABLE_ACTIONS,
   matchScore: 92,
@@ -677,6 +724,15 @@ const scoreCalculationFailedSummary = createSummary({
   exposure: { ...FULL_EXPOSURE, scoreVisible: false },
   actions: ACTIONABLE_ACTIONS,
   detailContext: 'story-detail-context-jiwoo-score-unavailable',
+});
+const emptyIntroSummary = createSummary({
+  id: 'story-roommate-empty-intro',
+  nickname: '무소개',
+  intro: '',
+  exposure: FULL_EXPOSURE,
+  actions: ACTIONABLE_ACTIONS,
+  matchScore: 81,
+  detailContext: 'story-detail-context-empty-intro',
 });
 const hayoonSummary = createSummary({
   id: TARGET_HAYOON,
@@ -941,8 +997,19 @@ function createPublicProfileFull(input: {
   actions?: PublicProfileActionCapabilities;
   relation?: PublicTargetRelation;
   resultRead?: PublicTargetResultRead;
+  additional?: Partial<PublicProfileFullDetail['additional']>;
+  gender?: PublicProfileFullDetail['gender'];
+  campus?: PublicProfileFullDetail['campus'];
+  lifestyle?: Partial<PublicProfileFullDetail['lifestyle']>;
+  compatibility?: PublicProfileCompatibility;
 }): PublicProfileFullDetail {
   const scoreVisible = input.scoreVisible ?? typeof input.matchScore === 'number';
+  const compatibility =
+    input.compatibility ??
+    (typeof input.matchScore === 'number'
+      ? createDefaultPublicProfileCompatibility(input.matchScore)
+      : null);
+
   return {
     id: input.id,
     detailState: 'FULL',
@@ -963,9 +1030,10 @@ function createPublicProfileFull(input: {
       grade: '3',
       mbti: 'INFJ',
       birthYear: 2002,
+      ...input.additional,
     },
-    gender: 'F',
-    campus: 'CHUNCHEON',
+    gender: input.gender ?? 'F',
+    campus: input.campus ?? 'CHUNCHEON',
     lifestyle: {
       bedtime: '22_24',
       wakeTime: '07_08',
@@ -980,24 +1048,390 @@ function createPublicProfileFull(input: {
       cleanLevel: 'WEEKLY_3_UP',
       relationshipStyle: 'CASUAL',
       temperatureSensitivity: 'NORMAL',
+      ...input.lifestyle,
     },
     ...(typeof input.matchScore === 'number' ? { matchScore: input.matchScore } : {}),
-    ...(scoreVisible && typeof input.matchScore === 'number'
-      ? {
-          compatibility: {
-            overallScore: input.matchScore,
-            axes: [
-              { id: 'SLEEP_HABIT', score: 95, bucket: 'HIGH' },
-              { id: 'PHONE', score: 86, bucket: 'HIGH' },
-              { id: 'CLEAN_LEVEL', score: 78, bucket: 'MEDIUM' },
-              { id: 'RELATIONSHIP', score: 82, bucket: 'HIGH' },
-            ],
-            hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
-          },
-        }
-      : {}),
+    ...(scoreVisible && compatibility ? { compatibility } : {}),
   };
 }
+
+const COMPATIBILITY_DIMENSION_AXIS_IDS = {
+  SMOKING: ['SMOKING'],
+  SLEEP_RHYTHM: ['BEDTIME', 'WAKE_TIME'],
+  SLEEP_HABIT: ['SLEEP_HABIT'],
+  SLEEP_ENVIRONMENT: ['SCREEN_USAGE', 'SLEEP_ENVIRONMENT'],
+  DEVICE_USAGE: ['PHONE', 'EARPHONE'],
+  CLEAN_SPACE: ['CLEAN_LEVEL', 'INDOOR_EATING'],
+  TEMPERATURE: ['TEMPERATURE'],
+  RELATIONSHIP_STYLE: ['RELATIONSHIP'],
+} as const satisfies Record<
+  PublicProfileCompatibilityDimension['id'],
+  readonly PublicProfileCompatibilityAxisId[]
+>;
+
+const FULL_COMPATIBILITY_VIEWER_CONDITION_FIXTURE = {
+  SMOKING: '전담까지는 OK',
+  BEDTIME: '24~02시',
+  WAKE_TIME: '수업에 따라 유동적',
+  SLEEP_HABIT: '보통',
+  SLEEP_ENVIRONMENT: '작은 소리는 괜찮아요',
+  SCREEN_USAGE: '밝기 낮추면 괜찮아요',
+  TEMPERATURE: '보통',
+  PHONE: '가끔·짧게는 괜찮아요',
+  EARPHONE: '작게 틀면 괜찮아요',
+  CLEAN_LEVEL: '눈에 띄면 정리하면 괜찮아요',
+  INDOOR_EATING: '환기·정리 잘하면 OK',
+  RELATIONSHIP: '친하게 지내요',
+} as const satisfies Record<PublicProfileCompatibilityAxisId, string>;
+
+const DEFAULT_FULL_COMPATIBILITY_TARGET_TEXT = {
+  SMOKING: '비흡연',
+  BEDTIME: '22~24시 사이에 잠들어요',
+  WAKE_TIME: '7~8시에 일어나요',
+  SLEEP_HABIT: '잠버릇 없음',
+  SLEEP_ENVIRONMENT: '잘 때 전자기기 소리를 틀지 않아요',
+  SCREEN_USAGE: '잠들 때 화면을 거의 보지 않아요',
+  TEMPERATURE: '온도 민감도는 보통이에요',
+  PHONE: '실내 통화는 거의 하지 않아요',
+  EARPHONE: '늦은 시간에는 이어폰을 사용해요',
+  CLEAN_LEVEL: '주 3회 이상 정리해요',
+  INDOOR_EATING: '간단한 간식만 먹어요',
+  RELATIONSHIP: '각자 생활하되 필요한 건 이야기해요',
+} as const satisfies Record<PublicProfileCompatibilityAxisId, string>;
+
+function createDefaultPublicProfileCompatibility(overallScore: number): PublicProfileCompatibility {
+  return createStoryCompatibility({
+    overallScore,
+    dimensions: [
+      createStoryDimension('SMOKING', 100, 'HIGH'),
+      createStoryDimension('SLEEP_RHYTHM', 88, 'HIGH'),
+      createStoryDimension('SLEEP_HABIT', 95, 'HIGH'),
+      createStoryDimension('SLEEP_ENVIRONMENT', 62, 'MEDIUM'),
+      createStoryDimension('DEVICE_USAGE', 86, 'HIGH'),
+      createStoryDimension('CLEAN_SPACE', 78, 'HIGH'),
+      createStoryDimension('TEMPERATURE', 76, 'HIGH'),
+      createStoryDimension('RELATIONSHIP_STYLE', 82, 'HIGH'),
+    ],
+    axes: [
+      createStoryAxis('SMOKING', 100, 'HIGH', '비흡연'),
+      createStoryAxis('BEDTIME', 86, 'HIGH', '22~24시 사이에 잠들어요'),
+      createStoryAxis('WAKE_TIME', 90, 'HIGH', '7~8시에 일어나요'),
+      createStoryAxis('SLEEP_HABIT', 95, 'HIGH', '잠버릇 없음'),
+      createStoryAxis('SLEEP_ENVIRONMENT', 82, 'HIGH', '잘 때 전자기기 소리를 틀지 않아요'),
+      createStoryAxis('SCREEN_USAGE', 42, 'LOW', '잠들 때 화면을 켜는 편이에요'),
+      createStoryAxis('TEMPERATURE', 76, 'HIGH', '온도 민감도는 보통이에요'),
+      createStoryAxis('PHONE', 86, 'HIGH', '실내 통화를 거의 하지 않아요'),
+      createStoryAxis('EARPHONE', 86, 'HIGH', '늦은 시간에는 이어폰을 사용해요'),
+      createStoryAxis('CLEAN_LEVEL', 78, 'HIGH', '눈에 띄면 바로 정리해요'),
+      createStoryAxis('INDOOR_EATING', 78, 'HIGH', '간단한 간식은 방에서 먹어요'),
+      createStoryAxis('RELATIONSHIP', 82, 'HIGH', '각자 생활하되 필요한 건 이야기해요'),
+    ],
+  });
+}
+
+function createStoryCompatibility(input: {
+  overallScore: number;
+  dimensions: readonly PublicProfileCompatibilityDimension[];
+  axes: readonly PublicProfileCompatibilityAxis[];
+}): PublicProfileCompatibility {
+  return {
+    overallScore: input.overallScore,
+    dimensions: [...input.dimensions],
+    axes: [...input.axes],
+    hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+  };
+}
+
+function createStoryDimension(
+  id: PublicProfileCompatibilityDimension['id'],
+  score: number,
+  bucket: PublicProfileCompatibilityBucket,
+): PublicProfileCompatibilityDimension {
+  return { id, score, bucket, axisIds: [...COMPATIBILITY_DIMENSION_AXIS_IDS[id]] };
+}
+
+function createStoryAxis(
+  id: PublicProfileCompatibilityAxisId,
+  score: number | null,
+  bucket: PublicProfileCompatibilityBucket,
+  targetText: string = DEFAULT_FULL_COMPATIBILITY_TARGET_TEXT[id],
+): PublicProfileCompatibilityAxis {
+  return {
+    id,
+    score,
+    bucket,
+    comparison: {
+      targetText,
+      viewerText: FULL_COMPATIBILITY_VIEWER_CONDITION_FIXTURE[id],
+    },
+  };
+}
+
+type FullCompatibilityTargetFixture = {
+  readonly id: string;
+  readonly nickname: string;
+  readonly intro: string;
+  readonly matchScore: number;
+  readonly compatibility: PublicProfileCompatibility;
+  readonly additional?: Partial<PublicProfileFullDetail['additional']>;
+  readonly lifestyle: Partial<PublicProfileFullDetail['lifestyle']>;
+  readonly scoringLifestyle: LifestyleData;
+  readonly smokingBehavior: RoommateSearchSummary['profileSummary']['smokingBehavior'];
+  readonly sleepHabit: RoommateSearchSummary['profileSummary']['sleepHabit'];
+  readonly relationshipStyle: RoommateSearchSummary['profileSummary']['relationshipStyle'];
+};
+
+const PUBLIC_PROFILE_DETAIL_LIFESTYLE_FIELDS = [
+  'bedtime',
+  'wakeTime',
+  'sleepHabit',
+  'sleepEnvironment',
+  'screenUsage',
+  'noiseSensitivity',
+  'smokingBehavior',
+  'indoorEating',
+  'phoneBehavior',
+  'earphoneUsage',
+  'cleanLevel',
+  'relationshipStyle',
+  'temperatureSensitivity',
+] as const satisfies readonly (keyof PublicProfileFullDetail['lifestyle'])[];
+
+function createFullCompatibilityScoringLifestyle(overrides: Partial<LifestyleData>): LifestyleData {
+  return {
+    ...fullCompatibilityViewerLifestyle,
+    drinkingFrequency: 'NONE',
+    ...overrides,
+  };
+}
+
+function pickPublicProfileDetailLifestyle(
+  lifestyle: LifestyleData,
+): Partial<PublicProfileFullDetail['lifestyle']> {
+  return Object.fromEntries(
+    PUBLIC_PROFILE_DETAIL_LIFESTYLE_FIELDS.map((field) => [field, lifestyle[field]]),
+  ) as Partial<PublicProfileFullDetail['lifestyle']>;
+}
+
+function createFullCompatibilityTargetFixture(input: {
+  readonly id: string;
+  readonly nickname: string;
+  readonly intro: string;
+  readonly scoringLifestyle: LifestyleData;
+  readonly additional?: Partial<PublicProfileFullDetail['additional']>;
+}): FullCompatibilityTargetFixture {
+  const compatibility = buildPublicProfileCompatibility(
+    fullCompatibilityViewerLifestyle,
+    input.scoringLifestyle,
+  );
+  const matchScore = calcViewerMatchScore(fullCompatibilityViewerLifestyle, input.scoringLifestyle);
+
+  if (matchScore !== compatibility.overallScore) {
+    throw new Error(`Full compatibility fixture score mismatch: ${input.id}`);
+  }
+
+  return {
+    id: input.id,
+    nickname: input.nickname,
+    intro: input.intro,
+    matchScore: compatibility.overallScore,
+    compatibility,
+    ...(input.additional ? { additional: input.additional } : {}),
+    lifestyle: pickPublicProfileDetailLifestyle(input.scoringLifestyle),
+    scoringLifestyle: input.scoringLifestyle,
+    smokingBehavior: input.scoringLifestyle.smokingBehavior,
+    sleepHabit: input.scoringLifestyle.sleepHabit,
+    relationshipStyle: input.scoringLifestyle.relationshipStyle,
+  };
+}
+
+const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTargetFixture[] = [
+  createFullCompatibilityTargetFixture({
+    id: TARGET_JIWOO,
+    nickname: '지우',
+    intro: JIWOO_TWO_LINE_INTRO,
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      wakeTime: 'AFTER_10',
+      sleepHabit: 'NONE',
+      sleepEnvironment: 'QUIET',
+      screenUsage: 'NONE',
+      phoneBehavior: 'RARELY',
+      earphoneUsage: 'ALWAYS',
+      indoorEating: 'RARELY',
+      cleanLevel: 'WEEKLY_3_UP',
+    }),
+    additional: { college: 'IT', grade: '3', mbti: 'INFJ', birthYear: 2002 },
+  }),
+
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_SUA,
+    nickname: '수아',
+    intro: '화면은 끄고 이어폰으로 음악을 듣는 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: 'BEFORE_22',
+      wakeTime: 'FLEXIBLE',
+      sleepHabit: 'TALKING',
+      sleepEnvironment: 'EARPHONE',
+      screenUsage: 'AUDIO',
+      smokingBehavior: 'E_CIG',
+      indoorEating: 'SNACK',
+      phoneBehavior: 'SOMETIMES',
+      earphoneUsage: 'MOSTLY',
+      cleanLevel: 'WEEKLY_3_UP',
+      drinkingFrequency: 'NONE',
+      relationshipStyle: 'CASUAL',
+      temperatureSensitivity: 'NORMAL',
+    }),
+    additional: { college: 'IT', grade: '2', mbti: 'ENFJ', birthYear: 2004 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_HAYOON,
+    nickname: '하윤',
+    intro: '통화는 거의 없고 영상 소리는 주로 스피커를 작게 쓰는 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: '22_24',
+      wakeTime: '07_08',
+      sleepHabit: 'GRINDING',
+      sleepEnvironment: 'LOW_SPEAKER',
+      screenUsage: 'AUDIO',
+      smokingBehavior: 'NO',
+      indoorEating: 'MEAL',
+      phoneBehavior: 'RARELY',
+      earphoneUsage: 'MOSTLY_SPEAKER',
+      cleanLevel: 'WEEKLY_3_UP',
+      drinkingFrequency: 'NONE',
+      relationshipStyle: 'CLOSE',
+      temperatureSensitivity: 'NORMAL',
+    }),
+    additional: { college: 'BUSINESS', grade: '2', mbti: 'ISFJ', birthYear: 2003 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_DASOM,
+    nickname: '다솜',
+    intro: '가끔 실내 통화를 하고 영상 소리는 주로 스피커를 작게 쓰는 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: '22_24',
+      wakeTime: 'FLEXIBLE',
+      sleepHabit: 'SNORING',
+      sleepEnvironment: 'QUIET',
+      screenUsage: 'SCREEN',
+      smokingBehavior: 'E_CIG',
+      indoorEating: 'RARELY',
+      phoneBehavior: 'SOMETIMES',
+      earphoneUsage: 'MOSTLY_SPEAKER',
+      cleanLevel: 'WEEKLY_1_2',
+      drinkingFrequency: 'OFTEN',
+      relationshipStyle: 'CASUAL',
+      temperatureSensitivity: 'COLD',
+    }),
+    additional: { college: 'ARTS_ENGINEERING', grade: '4+', mbti: 'ENTP', birthYear: 2001 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_RAHEE,
+    nickname: '라희',
+    intro: '실내 통화는 거의 없지만 영상 소리를 항상 스피커로 듣는 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: '24_02',
+      wakeTime: '08_09',
+      sleepHabit: 'NONE',
+      sleepEnvironment: 'EARPHONE',
+      screenUsage: 'SCREEN',
+      smokingBehavior: 'YES',
+      indoorEating: 'SNACK',
+      phoneBehavior: 'RARELY',
+      earphoneUsage: 'ALWAYS_SPEAKER',
+      cleanLevel: 'WEEKLY_1_2',
+      drinkingFrequency: 'OFTEN',
+      relationshipStyle: 'CLOSE',
+      temperatureSensitivity: 'HOT',
+    }),
+    additional: { college: 'SOCIAL_SCIENCES', grade: '1', mbti: 'INTJ', birthYear: 2006 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_YUJIN,
+    nickname: '유진',
+    intro: '실내 통화는 자주 하지만 영상 소리는 항상 이어폰으로 듣는 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: '24_02',
+      wakeTime: 'FLEXIBLE',
+      sleepHabit: 'TALKING',
+      sleepEnvironment: 'LOW_SPEAKER',
+      screenUsage: 'SCREEN',
+      smokingBehavior: 'YES',
+      indoorEating: 'MEAL',
+      phoneBehavior: 'OFTEN',
+      earphoneUsage: 'ALWAYS',
+      cleanLevel: 'WEEKLY_1_2',
+      drinkingFrequency: 'RARELY',
+      relationshipStyle: 'CLOSE',
+      temperatureSensitivity: 'NORMAL',
+    }),
+    additional: { college: 'NATURAL_SCIENCES', grade: '3', mbti: 'INTP', birthYear: 2002 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_MINSEO,
+    nickname: '민서',
+    intro: '화면을 보면서 스피커를 작게 트는 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: 'AFTER_02',
+      wakeTime: '09_10',
+      sleepHabit: 'GRINDING',
+      sleepEnvironment: 'LOW_SPEAKER',
+      screenUsage: 'SCREEN',
+      smokingBehavior: 'YES',
+      indoorEating: 'RARELY',
+      phoneBehavior: 'OFTEN',
+      earphoneUsage: 'MOSTLY_SPEAKER',
+      cleanLevel: 'WHEN_DIRTY',
+      drinkingFrequency: 'SOMETIMES',
+      relationshipStyle: 'CLOSE',
+      temperatureSensitivity: 'NORMAL',
+    }),
+    additional: { college: 'HUMANITIES', grade: '2', mbti: 'ENFP', birthYear: 2004 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_SEOYUN,
+    nickname: '서윤',
+    intro: '화면 빛과 스피커 소리가 함께 있어 가장 조율이 필요한 조합이에요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      bedtime: 'AFTER_02',
+      wakeTime: 'AFTER_10',
+      sleepHabit: 'SNORING',
+      sleepEnvironment: 'LOW_SPEAKER',
+      screenUsage: 'SCREEN',
+      smokingBehavior: 'YES',
+      indoorEating: 'MEAL',
+      phoneBehavior: 'OFTEN',
+      earphoneUsage: 'ALWAYS_SPEAKER',
+      cleanLevel: 'WHEN_DIRTY',
+      drinkingFrequency: 'SOMETIMES',
+      relationshipStyle: 'CLOSE',
+      temperatureSensitivity: 'HOT',
+    }),
+    additional: { college: 'OPEN_MAJOR', grade: '1', mbti: 'ESFP', birthYear: 2006 },
+  }),
+  createFullCompatibilityTargetFixture({
+    id: TARGET_FULL_COMPATIBILITY_MINJU,
+    nickname: '민주',
+    intro: '보편적인 생활 기준에 가까운 후보로, 화면과 소리 사용을 함께 비교해 볼 수 있어요.',
+    scoringLifestyle: createFullCompatibilityScoringLifestyle({
+      smokingBehavior: 'NO',
+      drinkingFrequency: 'SOMETIMES',
+      sleepHabit: 'NONE',
+      phoneBehavior: 'SOMETIMES',
+      earphoneUsage: 'MOSTLY_SPEAKER',
+      sleepEnvironment: 'LOW_SPEAKER',
+      screenUsage: 'SCREEN',
+      cleanLevel: 'WEEKLY_1_2',
+      indoorEatingTolerance: 'CLEAN_OK',
+      bedtime: '24_02',
+      wakeTime: 'FLEXIBLE',
+      temperatureSensitivity: 'NORMAL',
+      relationshipStyle: 'CLOSE',
+    }),
+    additional: { college: 'BUSINESS', grade: '3', mbti: 'ESFJ', birthYear: 2003 },
+  }),
+];
 
 function createPublicProfileTombstone(input: {
   id: string;
@@ -1023,7 +1457,7 @@ const defaultProfiles: Readonly<Record<string, PublicProfile>> = {
   [TARGET_JIWOO]: createPublicProfileFull({
     id: TARGET_JIWOO,
     nickname: '지우',
-    intro: '아침형이고 조용한 방 분위기를 좋아해요.',
+    intro: JIWOO_TWO_LINE_INTRO,
     matchScore: 92,
   }),
   [TARGET_HAYOON]: createPublicProfileFull({
@@ -1037,6 +1471,40 @@ const defaultProfiles: Readonly<Record<string, PublicProfile>> = {
     displayName: '하린',
     message: '상대가 시즌 참여를 철회해 프로필을 볼 수 없어요.',
   }),
+};
+
+const fullCompatibilitySummaries = FULL_COMPATIBILITY_TARGET_FIXTURES.map((target, index) =>
+  createSummary({
+    id: target.id,
+    nickname: target.nickname,
+    intro: target.intro,
+    exposure: FULL_EXPOSURE,
+    actions: ACTIONABLE_ACTIONS,
+    matchScore: target.matchScore,
+    bookmarked: index === 1,
+    detailContext: `story-detail-context-full-compatibility-${index + 1}`,
+    ...(target.smokingBehavior ? { smokingBehavior: target.smokingBehavior } : {}),
+    ...(target.sleepHabit ? { sleepHabit: target.sleepHabit } : {}),
+    ...(target.relationshipStyle ? { relationshipStyle: target.relationshipStyle } : {}),
+  }),
+);
+
+const fullCompatibilityProfileByTargetUserId: Readonly<Record<string, PublicProfile>> = {
+  ...defaultProfiles,
+  ...Object.fromEntries(
+    FULL_COMPATIBILITY_TARGET_FIXTURES.map((target) => [
+      target.id,
+      createPublicProfileFull({
+        id: target.id,
+        nickname: target.nickname,
+        intro: target.intro,
+        matchScore: target.matchScore,
+        ...(target.additional ? { additional: target.additional } : {}),
+        lifestyle: target.lifestyle,
+        compatibility: target.compatibility,
+      }),
+    ]),
+  ),
 };
 
 const seasonOpenProfileByTargetUserId: Readonly<Record<string, PublicProfile>> = {
@@ -1161,10 +1629,24 @@ const actionableSearch = createSearchResponse({
   scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
 });
 
+const fullCompatibilitySearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  notices: [{ code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'INFO' }],
+  items: fullCompatibilitySummaries,
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+
 const scoreCalculationFailedSearch = createSearchResponse({
   scope: 'SAME_BUILDING_ONLY',
   purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
   items: [scoreCalculationFailedSummary],
+  scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
+});
+const emptyIntroDetailSearch = createSearchResponse({
+  scope: 'SAME_BUILDING_ONLY',
+  purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+  items: [emptyIntroSummary],
   scopeAvailability: SEASON_MATCHING_REGISTERED_SCOPE_AVAILABILITY,
 });
 
@@ -1556,6 +2038,7 @@ function baseScenario(input: {
   searchErrorCode?: string;
   searchErrorStatus?: number;
   searchResponseDelayMs?: number;
+  profileResponseDelayMs?: number;
   seasonContext?: SeasonContextValue;
   viewer?: UserProfile;
 }): RoommateStoryScenario {
@@ -1594,6 +2077,9 @@ function baseScenario(input: {
     ...(input.searchErrorStatus ? { searchErrorStatus: input.searchErrorStatus } : {}),
     ...(typeof input.searchResponseDelayMs === 'number'
       ? { searchResponseDelayMs: input.searchResponseDelayMs }
+      : {}),
+    ...(typeof input.profileResponseDelayMs === 'number'
+      ? { profileResponseDelayMs: input.profileResponseDelayMs }
       : {}),
     bookmarkResponse: input.bookmarkResponse ?? bookmarksEmpty,
     ...(input.bookmarkError ? { bookmarkError: input.bookmarkError } : {}),
@@ -1827,10 +2313,40 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
     key: 'seasonMatchingDetailFullCompatibility',
     title: 'Season Matching + Registered / detail full compatibility',
     description:
-      '매칭 기간 같은 건물 actionable 후보의 FULL detail, 매칭점수 radar, axis list, privacy notice가 함께 보이는 상태입니다.',
+      '동일한 viewer condition 기준으로 9명 후보의 잘 맞음·조율 가능·서로 다름·유동적 조합과 FULL detail 시각화를 함께 확인합니다.',
     category: 'detail',
     autoOpen: 'detail',
-    searchResponse: actionableSearch,
+    searchResponse: fullCompatibilitySearch,
+    profileByTargetUserId: fullCompatibilityProfileByTargetUserId,
+  }),
+  seasonMatchingDetailPending: baseScenario({
+    key: 'seasonMatchingDetailPending',
+    title: 'Season Matching + Registered / detail pending',
+    description:
+      '같은 건물 후보의 프로필 상세를 여는 동안 공개 가능 정보 확인을 기다리는 pending UI를 확인합니다.',
+    category: 'detail',
+    autoOpen: 'detail',
+    searchResponse: fullCompatibilitySearch,
+    profileByTargetUserId: fullCompatibilityProfileByTargetUserId,
+    profileResponseDelayMs: 20_000,
+  }),
+  seasonMatchingDetailEmptyIntro: baseScenario({
+    key: 'seasonMatchingDetailEmptyIntro',
+    title: 'Season Matching + Registered / detail without intro',
+    description:
+      'intro를 작성하지 않은 같은 건물 후보가 summary card와 profile detail 모두에서 빈 영역 없이 기본 안내 문구로 보이는 상태입니다.',
+    category: 'detail',
+    autoOpen: 'detail',
+    searchResponse: emptyIntroDetailSearch,
+    profileByTargetUserId: {
+      ...defaultProfiles,
+      [emptyIntroSummary.id]: createPublicProfileFull({
+        id: emptyIntroSummary.id,
+        nickname: emptyIntroSummary.profileSummary.nickname,
+        intro: '',
+        matchScore: emptyIntroSummary.matchScore,
+      }),
+    },
   }),
   seasonMatchingExceptionScoreCalculationFailed: baseScenario({
     key: 'seasonMatchingExceptionScoreCalculationFailed',
@@ -1848,6 +2364,18 @@ export const roommateStoryScenarios: Record<RoommateStoryScenarioKey, RoommateSt
         intro: '아침형이고 조용한 방 분위기를 좋아해요.',
         scoreVisible: false,
       }),
+    },
+  }),
+  seasonMatchingExceptionDetailFetchFailed: baseScenario({
+    key: 'seasonMatchingExceptionDetailFetchFailed',
+    title: 'Season Matching 예외 / 프로필 상세 연결 실패',
+    description:
+      '목록은 렌더링됐지만 상세 API 연결이 실패해 최신 목록 확인과 재시도를 안내하는 상태입니다.',
+    category: 'detail',
+    autoOpen: 'detail',
+    searchResponse: actionableSearch,
+    profileErrorByTargetUserId: {
+      [TARGET_JIWOO]: { code: 'BFF_UPSTREAM_UNAVAILABLE', status: 503 },
     },
   }),
   seasonMatchingExceptionDetailUnavailable: baseScenario({

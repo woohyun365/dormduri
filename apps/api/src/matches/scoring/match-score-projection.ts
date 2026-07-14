@@ -7,7 +7,7 @@ import {
   buildPublicProfileCompatibility as buildPublicProfileCompatibilityFromScoreOwner,
   calcViewerMatchScore,
   canComputeMatchScore,
-} from './match-score.algorithm.js';
+} from '@repo/shared/profile/compatibility-scoring';
 import type {
   MatchScoreProjectionPort,
   MatchScoreProjectionVisibilityInput,

@@ -39,7 +39,7 @@ export function BaseBottomSheet({
     >
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div className="relative flex h-[min(90dvh,720px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-(--knu-border) bg-white shadow-2xl ring-1 ring-black/5 md:h-auto md:max-h-[min(760px,calc(100dvh-2rem))] md:rounded-3xl">
+      <div className="relative flex h-[min(90dvh,720px)] w-full min-w-0 max-w-[100dvw] flex-col overflow-hidden rounded-t-3xl border border-(--knu-border) bg-white shadow-2xl ring-1 ring-black/5 sm:max-w-3xl md:h-auto md:max-h-[min(760px,calc(100dvh-2rem))] md:rounded-3xl">
         {/* Header */}
         <div className="sticky top-0 flex shrink-0 items-center justify-between border-b border-(--knu-border) bg-white px-5 py-4 md:rounded-t-3xl">
           <h2 className="text-xl font-bold text-(--knu-text-primary)">{title}</h2>
@@ -56,7 +56,9 @@ export function BaseBottomSheet({
         </div>
 
         {/* Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+          {children}
+        </div>
 
         {/* Footer */}
         {footer && (

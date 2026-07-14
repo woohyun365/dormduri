@@ -94,7 +94,7 @@ describe('RoommateTab Storybook architecture boundary', () => {
 
 describe('roommateStoryScenarios policy matrix', () => {
   it('exposes search, detail, and action scenario categories', () => {
-    expect(ROOMMATE_STORY_SCENARIO_KEYS).toHaveLength(48);
+    expect(ROOMMATE_STORY_SCENARIO_KEYS).toHaveLength(51);
 
     for (const key of ROOMMATE_STORY_SCENARIO_KEYS) {
       expect(roommateStoryScenarios[key]).toBeDefined();
@@ -132,6 +132,7 @@ describe('roommateStoryScenarios policy matrix', () => {
     expect(ROOMMATE_STORY_CATEGORY_KEYS.detail).toEqual(
       expect.arrayContaining([
         'seasonMatchingDetailFullCompatibility',
+        'seasonMatchingDetailPending',
         'seasonMatchingExceptionScoreCalculationFailed',
         'seasonMatchingExceptionDetailUnavailable',
         'seasonMatchingExceptionAccessRecheckFailed',
@@ -161,6 +162,11 @@ describe('roommateStoryScenarios policy matrix', () => {
         'seasonMatchingReportOptionalBlockReceipt',
       ]),
     );
+    expect(roommateStoryScenarios.seasonMatchingDetailPending).toMatchObject({
+      autoOpen: 'detail',
+      category: 'detail',
+      profileResponseDelayMs: expect.any(Number),
+    });
     expect(roommateStoryScenarios.seasonMatchingMatchRequestPending).toMatchObject({
       autoOpen: 'match-request-submit',
       responseDelayMs: expect.any(Number),
@@ -960,6 +966,185 @@ describe('roommateStoryScenarios policy matrix', () => {
     if (tombstone?.detailState !== 'TOMBSTONE') throw new Error('expected TOMBSTONE story profile');
     expect('compatibility' in tombstone).toBe(false);
     expect('matchScore' in tombstone).toBe(false);
+  });
+
+  it('uses one viewer-condition fixture with smoking and sleep score matrix targets', () => {
+    const scenario = roommateStoryScenarios.seasonMatchingDetailFullCompatibility;
+    const storyScenarioSource = readFileSync(
+      join(ROOMMATE_ROOT, '__stories__/roommate-story-scenarios.ts'),
+      'utf8',
+    );
+
+    expect(scenario.searchResponse.items).toHaveLength(9);
+    expect(scenario.searchResponse.items.map((item) => item.matchScore)).toContain(100);
+    expect(storyScenarioSource).toContain("from '@repo/shared/profile/compatibility-scoring'");
+    expect(storyScenarioSource).toContain('buildPublicProfileCompatibility');
+
+    const fullProfiles = scenario.searchResponse.items.map((item) => {
+      const profile = scenario.profileByTargetUserId[item.id];
+      expect(profile?.detailState).toBe('FULL');
+      if (profile?.detailState !== 'FULL') {
+        throw new Error(`expected FULL profile for ${item.id}`);
+      }
+      return profile;
+    });
+
+    const dimensionBuckets = new Set(
+      fullProfiles.flatMap(
+        (profile) => profile.compatibility?.dimensions.map((dimension) => dimension.bucket) ?? [],
+      ),
+    );
+    expect(dimensionBuckets).toEqual(new Set(['HIGH', 'MEDIUM', 'LOW']));
+
+    expect(
+      fullProfiles.some((profile) =>
+        profile.compatibility?.dimensions.every((dimension) => dimension.bucket === 'HIGH'),
+      ),
+    ).toBe(true);
+    expect(
+      fullProfiles.some((profile) =>
+        profile.compatibility?.dimensions.some((dimension) => dimension.bucket === 'LOW'),
+      ),
+    ).toBe(true);
+    expect(
+      fullProfiles.some((profile) =>
+        profile.compatibility?.dimensions.some((dimension) => dimension.bucket === 'MEDIUM'),
+      ),
+    ).toBe(true);
+    expect(
+      fullProfiles.find((profile) => profile.id === 'story-roommate-full-minju')?.compatibility,
+    ).toMatchObject({
+      dimensions: expect.arrayContaining([
+        expect.objectContaining({ id: 'SMOKING', score: 100, bucket: 'HIGH' }),
+      ]),
+      axes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'SMOKING',
+          score: 100,
+          bucket: 'HIGH',
+          comparison: expect.objectContaining({
+            targetText: '비흡연',
+            viewerText: '전담까지는 OK',
+          }),
+        }),
+      ]),
+    });
+    expect(
+      fullProfiles.find((profile) => profile.id === 'story-roommate-full-sua')?.compatibility,
+    ).toMatchObject({
+      axes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'WAKE_TIME',
+          score: null,
+          bucket: 'UNKNOWN',
+          comparison: expect.objectContaining({
+            targetText: '수업에 따라 유동적',
+            viewerText: '수업에 따라 유동적',
+          }),
+        }),
+      ]),
+    });
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'SMOKING')?.score ?? null,
+      ),
+    ).toEqual([100, 100, 100, 100, 0, 0, 0, 0, 100]);
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'BEDTIME')?.score ?? null,
+      ),
+    ).toEqual([100, 33, 67, 67, 100, 100, 67, 67, 100]);
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'WAKE_TIME')?.score ?? null,
+      ),
+    ).toEqual([null, null, null, null, null, null, null, null, null]);
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'WAKE_TIME')?.comparison
+            .targetText ?? null,
+      ),
+    ).toEqual([
+      '10시 이후',
+      '수업에 따라 유동적',
+      '7~8시',
+      '수업에 따라 유동적',
+      '8~9시',
+      '수업에 따라 유동적',
+      '9~10시',
+      '10시 이후',
+      '수업에 따라 유동적',
+    ]);
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'SLEEP_HABIT')?.score ?? null,
+      ),
+    ).toEqual([100, 80, 50, 20, 100, 80, 50, 20, 100]);
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'SLEEP_HABIT')?.comparison
+            .targetText ?? null,
+      ),
+    ).toEqual(['없음', '잠꼬대', '이갈이', '코골이', '없음', '잠꼬대', '이갈이', '코골이', '없음']);
+    expect(
+      fullProfiles.map(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'TEMPERATURE')?.comparison
+            .targetText ?? null,
+      ),
+    ).toEqual([
+      '보통',
+      '보통',
+      '보통',
+      '추위 타요',
+      '더위 타요',
+      '보통',
+      '보통',
+      '더위 타요',
+      '보통',
+    ]);
+    expect(
+      fullProfiles.every(
+        (profile) =>
+          profile.compatibility?.axes.find((axis) => axis.id === 'SLEEP_HABIT')?.comparison
+            .viewerText === '보통',
+      ),
+    ).toBe(true);
+
+    for (const profile of fullProfiles) {
+      expect(profile.compatibility?.dimensions).toHaveLength(8);
+      expect(profile.compatibility?.axes).toHaveLength(12);
+      expect(profile.compatibility?.axes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'SMOKING',
+            comparison: expect.objectContaining({ viewerText: '전담까지는 OK' }),
+          }),
+          expect.objectContaining({
+            id: 'RELATIONSHIP',
+            comparison: expect.objectContaining({
+              viewerText: '친하게 지내요',
+            }),
+          }),
+        ]),
+      );
+      expect(
+        profile.compatibility?.axes
+          .filter((axis) => axis.id === 'RELATIONSHIP')
+          .every((axis) => axis.score === 0 || axis.score === 100),
+      ).toBe(true);
+      expect(
+        profile.compatibility?.axes
+          .filter((axis) => axis.id === 'SMOKING')
+          .every((axis) => axis.score === 0 || axis.score === 100),
+      ).toBe(true);
+    }
   });
 
   it('does not expose raw backend codes or entry context values in visible story metadata', () => {

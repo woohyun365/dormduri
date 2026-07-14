@@ -14,6 +14,7 @@ const target = {
   targetUserId: 'target-1',
   nickname: '테스트 룸메이트',
   detailEntryToken: 'entry-token-secret',
+  dormitoryLabel: '다산관',
 };
 
 const viewerLifestyle = {
@@ -33,7 +34,7 @@ const viewerLifestyle = {
   temperatureSensitivity: 'NORMAL',
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
+  earphoneExpectation: 'LOW_VOLUME_OK',
   sleepEnvPreference: 'NO_SPEAKER',
   screenTolerance: 'LOW_OK',
   indoorEatingTolerance: 'CLEAN_OK',
@@ -55,7 +56,26 @@ function renderDialog(state: RoommateProfileDetailState, overrides = {}) {
 }
 
 describe('RoommateProfileDetailDialog', () => {
-  it('FULL detail은 score badge, radar, axis list, public rows, privacy note를 표시한다', () => {
+  it('loading detail은 작은 안내 Card 대신 profile skeleton을 유지한다', () => {
+    renderDialog({
+      status: 'loading',
+      target,
+      profile: null,
+      error: null,
+    });
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    const loading = within(dialog).getByRole('status', {
+      name: '테스트 룸메이트 프로필 상세를 불러오는 중',
+    });
+
+    expect(loading).toHaveAttribute('data-testid', 'roommate-detail-loading-skeleton');
+    expect(dialog).not.toHaveTextContent('상세 정보를 불러오는 중이에요.');
+    expect(dialog).not.toHaveTextContent('정상 목록 진입 맥락을 확인한 뒤');
+    expect(loading.querySelectorAll('.bg-gray-200').length).toBeGreaterThan(0);
+  });
+
+  it('FULL detail은 hero identity, radar, axis list, privacy note를 표시한다', () => {
     renderDialog({
       status: 'success',
       target,
@@ -65,17 +85,55 @@ describe('RoommateProfileDetailDialog', () => {
 
     const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
     expect(within(dialog).getByRole('heading', { name: '감자친구' })).toBeInTheDocument();
-    expect(within(dialog).getByText('적합도 92점')).toBeInTheDocument();
-    expect(within(dialog).getByRole('heading', { name: '적합도 한눈에 보기' })).toBeInTheDocument();
-    expect(within(dialog).getByRole('heading', { name: '축별 적합도' })).toBeInTheDocument();
-    expect(within(dialog).getAllByText('흡연').length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText('청소').length).toBeGreaterThan(0);
-    expect(within(dialog).getByText('상대 생활패턴')).toBeInTheDocument();
-    expect(within(dialog).getByText('나의 원하는 룸메 조건')).toBeInTheDocument();
+    expect(within(dialog).getByText('상대 프로필')).toBeInTheDocument();
+    expect(within(dialog).getByText('프로필 기본 정보')).toBeInTheDocument();
+    expect(within(dialog).getByText('닉네임')).toBeInTheDocument();
+    expect(within(dialog).getByText('단과대 / 학년')).toBeInTheDocument();
+    expect(within(dialog).getByText('MBTI')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Display Identity')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('프로필에 표시되는 이름')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('추가 프로필')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('적합도 92점')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('여성')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('춘천캠퍼스')).toBeInTheDocument();
+    expect(within(dialog).getByText('다산관')).toBeInTheDocument();
     expect(
-      within(dialog).getByText('상대 생활 패턴 ↔ 나의 원하는 룸메 조건 비교'),
+      within(dialog).getByText(`${new Date().getFullYear() - 2004 + 1}세 (2004년생)`),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText(/민감 항목이나 상대의 룸메 조건 원본값/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/3학년/)).toBeInTheDocument();
+    expect(within(dialog).getByText('ENFJ')).toBeInTheDocument();
+    expect(dialog.querySelector('#roommate-detail-intro')).toHaveTextContent(
+      '아침형 생활패턴이고 조용한 방을 선호해요.',
+    );
+    expect(within(dialog).getByText('매칭점수 분석')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('heading', { name: '축별 적합도 한눈에 보기' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: '축별 적합도' })).toBeInTheDocument();
+    expect(within(dialog).getByText('먼저 확인하면 좋은 포인트')).toBeInTheDocument();
+    expect(within(dialog).queryByText('생활 리듬 한눈에 보기')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('항목별 상세 비교')).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('항목별 상세 비교 목록')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('대화 시작 포인트')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('매칭 요청 전 가볍게 맞춰볼 주제')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('매칭 요청 가능한 상대예요.')).not.toBeInTheDocument();
+    expect(within(dialog).getAllByText('흡연').length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText('청소 습관').length).toBeGreaterThan(0);
+    expect(within(dialog).queryByText('상대 생활패턴')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('나의 원하는 룸메 조건')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('생활패턴 비교')).toBeInTheDocument();
+    expect(within(dialog).getByText('생활패턴 적합도 분석 결과')).toBeInTheDocument();
+    expect(within(dialog).getByText('색상별 의미:')).toBeInTheDocument();
+    expect(within(dialog).getByText('핵심 포인트')).toBeInTheDocument();
+    expect(within(dialog).getByText('잘 맞는 부분 / 대화로 맞출 부분')).toBeInTheDocument();
+    expect(within(dialog).getByText('잘 안 맞는 부분')).toBeInTheDocument();
+    expect(within(dialog).queryByText('대화로 맞출 부분')).not.toBeInTheDocument();
+    const legend = within(dialog).getByRole('list', { name: '적합도 색상 안내' });
+    expect(within(legend).getByText('조율 가능')).toBeInTheDocument();
+    expect(within(legend).getByText('서로 다름')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('상세 적합도는 공개 가능한 생활패턴 축만 사용해요.'),
+    ).toBeInTheDocument();
     expect(findCompatibilityPrivacyViolations(dialog.textContent ?? '')).toEqual([]);
     expect(dialog).not.toHaveTextContent('entry-token-secret');
   });
@@ -99,9 +157,71 @@ describe('RoommateProfileDetailDialog', () => {
 
     const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
     expect(dialog).not.toHaveTextContent('적합도 92점');
-    expect(dialog).not.toHaveTextContent('적합도 한눈에 보기');
+    expect(dialog).not.toHaveTextContent('매칭점수 분석');
     expect(dialog).toHaveTextContent('서버 오류로 매칭점수를 제공하지 못했어요.');
     expect(dialog).toHaveTextContent('목록을 새로고침해 다시 확인해 주세요.');
+  });
+
+  it('intro는 글자 수가 아니라 렌더링 2줄 초과 여부로 줄이고 버튼으로 inline 확장한다', async () => {
+    const viewportWrappedIntro = '아침 준비는 조용히 하고 밤에는 불을 일찍 끄고 싶어요.';
+    const originalGetComputedStyle = window.getComputedStyle;
+    const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = originalGetComputedStyle(elt);
+      return {
+        ...style,
+        lineHeight: '28px',
+        getPropertyValue: style.getPropertyValue.bind(style),
+      } as CSSStyleDeclaration;
+    });
+    const scrollHeightSpy = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockImplementation(function getScrollHeight(this: HTMLElement) {
+        return this.textContent?.trim() === viewportWrappedIntro ? 84 : 0;
+      });
+
+    try {
+      renderDialog({
+        status: 'success',
+        target,
+        profile: createPublicProfileFull({ nickname: '짧은소개', intro: viewportWrappedIntro }),
+        error: null,
+      });
+
+      const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+      const intro = dialog.querySelector('#roommate-detail-intro');
+      const expandButton = await within(dialog).findByRole('button', {
+        name: '자기소개 더 보기',
+      });
+
+      expect(within(dialog).getByText('자기소개')).toBeInTheDocument();
+      expect(intro).toHaveTextContent(viewportWrappedIntro);
+      expect(intro).toHaveClass('line-clamp-2');
+      expect(expandButton).toHaveAttribute('aria-expanded', 'false');
+
+      await userEvent.click(expandButton);
+
+      expect(intro).not.toHaveClass('line-clamp-2');
+      expect(within(dialog).getByRole('button', { name: '자기소개 접기' })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    } finally {
+      getComputedStyleSpy.mockRestore();
+      scrollHeightSpy.mockRestore();
+    }
+  });
+
+  it('intro가 비어 있는 FULL detail은 기본 안내 문구를 표시한다', () => {
+    renderDialog({
+      status: 'success',
+      target,
+      profile: createPublicProfileFull({ nickname: '무소개', intro: '' }),
+      error: null,
+    });
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(within(dialog).getByRole('heading', { name: '무소개' })).toBeInTheDocument();
+    expect(dialog.querySelector('#roommate-detail-intro')).toHaveTextContent('-');
   });
 
   it('FULL detail action CTA는 token 없이 action target snapshot만 전달한다', async () => {
@@ -243,7 +363,7 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).toHaveTextContent('목록을 새로고침해 현재 참여 중인 후보만 다시 확인해 주세요.');
     expect(dialog).not.toHaveTextContent('다음 행동');
     expect(dialog).not.toHaveTextContent('retained payload');
-    expect(dialog).not.toHaveTextContent('적합도 한눈에 보기');
+    expect(dialog).not.toHaveTextContent('매칭점수 분석');
     expect(dialog).not.toHaveTextContent('축별 적합도');
   });
 

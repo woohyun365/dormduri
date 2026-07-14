@@ -69,6 +69,10 @@ describe('match-score-projection', () => {
       hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
     });
     expect(compatibility?.axes.map((axis) => axis.id)).not.toContain('DRINKING');
+    expect(compatibility?.dimensions).toHaveLength(8);
+    expect(compatibility?.dimensions[0]).toMatchObject({ id: 'SMOKING', axisIds: ['SMOKING'] });
+    expect(compatibility?.axes[0]).toHaveProperty('comparison.targetText');
+    expect(compatibility?.axes[0]).toHaveProperty('comparison.viewerText');
 
     expect(
       buildPublicProfileCompatibility({

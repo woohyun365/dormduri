@@ -1,6 +1,7 @@
 import {
   Bookmark,
   BookmarkCheck,
+  BatteryLow,
   Bed,
   Cigarette,
   CigaretteOff,
@@ -49,6 +50,7 @@ export function RoommateSummaryCard({
           tone: item.summaryOnly ? 'amber' : 'green',
         } satisfies RoommateSummaryCardStatusBadgeViewModel)
       : item.profileVisibilityBadge;
+  const introPlaceholder = item.intro === '-';
   const actionStateBadges = item.actionStateBadges ?? [
     {
       label: item.actionStateLabel,
@@ -128,9 +130,22 @@ export function RoommateSummaryCard({
         </>
       ) : null}
 
-      <div className="mb-3 flex items-start gap-1.5 rounded-xl bg-blue-50 px-3 py-2">
-        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" aria-hidden="true" />
-        <p className="line-clamp-2 text-xs font-medium leading-relaxed text-blue-700">
+      <div
+        className={`mb-3 flex items-start gap-1.5 rounded-xl px-3 py-2 ${
+          introPlaceholder ? 'bg-slate-50' : 'bg-blue-50'
+        }`}
+      >
+        <MessageCircle
+          className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+            introPlaceholder ? 'text-slate-400' : 'text-blue-500'
+          }`}
+          aria-hidden="true"
+        />
+        <p
+          className={`line-clamp-2 text-xs font-medium leading-relaxed ${
+            introPlaceholder ? 'text-slate-500' : 'text-blue-700'
+          }`}
+        >
           <span className="sr-only">자기소개: </span>
           {item.intro}
         </p>
@@ -208,6 +223,7 @@ function RoommateSummaryFactIcon({ fact }: { readonly fact: RoommateSummaryCardF
   const className = `h-3.5 w-3.5 ${getFactIconClassName(fact)}`;
   if (fact.value === '비공개') return <Lock className={className} aria-hidden />;
   if (fact.label === '흡연 여부') {
+    if (fact.value === '전자담배') return <BatteryLow className={className} aria-hidden />;
     return fact.value === '비흡연' ? (
       <CigaretteOff className={className} aria-hidden />
     ) : (
@@ -251,7 +267,12 @@ function getFactIconClassName(fact: RoommateSummaryCardFactViewModel): string {
   }
 
   const tones: Record<string, string> = {
-    '흡연 여부': fact.value === '비흡연' ? 'text-slate-500' : 'text-rose-400',
+    '흡연 여부':
+      fact.value === '비흡연'
+        ? 'text-slate-500'
+        : fact.value === '전자담배'
+          ? 'text-rose-300'
+          : 'text-rose-400',
     잠버릇: fact.value === '잠버릇 있음' ? 'text-amber-400' : 'text-slate-500',
     관계: 'text-slate-500',
   };

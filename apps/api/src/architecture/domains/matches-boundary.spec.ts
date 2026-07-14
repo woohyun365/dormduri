@@ -34,11 +34,17 @@ const finalSharedMatchExports: Record<string, PackageExportTarget> = {
   },
 };
 
-const phase10ScoringFiles = [
-  'scoring/match-score.algorithm.ts',
-  'scoring/match-score.algorithm.spec.ts',
+const finalSharedProfileScoringExports: Record<string, PackageExportTarget> = {
+  './profile/compatibility-scoring': {
+    types: './dist/profile/compatibility-scoring.d.ts',
+    default: './dist/profile/compatibility-scoring.js',
+  },
+};
+
+const scoreProjectionOwnerFiles = [
   'scoring/match-score-projection.ts',
   'scoring/match-score-projection.spec.ts',
+  'scoring/match-score.shared-algorithm.spec.ts',
   'application/ports/match-score-projection.port.ts',
 ] as const;
 
@@ -106,15 +112,22 @@ function readSharedPackageJson() {
 }
 
 describe('matches architecture boundary', () => {
-  it('keeps score algorithm and projection in the scoring owner', () => {
-    for (const relativePath of phase10ScoringFiles) {
+  it('keeps score projection in matches while pure compatibility scoring lives in shared', () => {
+    for (const relativePath of scoreProjectionOwnerFiles) {
       expect(existsSync(join(matchesRoot, relativePath))).toBe(true);
     }
+
+    expect(existsSync(join(sharedSrc, 'profile/compatibility-scoring.ts'))).toBe(true);
+    expect(readSource(join(matchesRoot, 'scoring/match-score-projection.ts'))).toContain(
+      '@repo/shared/profile/compatibility-scoring',
+    );
 
     for (const removedRootFile of [
       'match-score-projection.ts',
       'match-score-projection.spec.ts',
       'match-score.spec.ts',
+      'scoring/match-score.algorithm.ts',
+      'scoring/match-score.algorithm.spec.ts',
     ]) {
       expect(existsSync(join(matchesRoot, removedRootFile))).toBe(false);
     }
@@ -167,7 +180,7 @@ describe('matches architecture boundary', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps shared match contract independent from the API-owned score algorithm', () => {
+  it('keeps shared match contract independent and exposes only profile compatibility scoring explicitly', () => {
     const rootMatchFiles = readdirSync(sharedSrc, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
       .map((entry) => entry.name)
@@ -181,6 +194,12 @@ describe('matches architecture boundary', () => {
     for (const [publicPath, expectedTarget] of Object.entries(finalSharedMatchExports)) {
       expect(sharedPackageJson.exports[publicPath]).toEqual(expectedTarget);
     }
+    for (const [publicPath, expectedTarget] of Object.entries(finalSharedProfileScoringExports)) {
+      expect(sharedPackageJson.exports[publicPath]).toEqual(expectedTarget);
+    }
+    expect(readSource(join(sharedSrc, 'match/contract/index.ts'))).not.toContain(
+      'compatibility-scoring',
+    );
     for (const publicPath of removedSharedMatchFlatExports) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
     }

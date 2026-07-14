@@ -7,9 +7,42 @@ import {
 
 const compatibilityFixture = {
   overallScore: 92,
+  dimensions: [
+    { id: 'SMOKING', score: 100, bucket: 'HIGH', axisIds: ['SMOKING'] },
+    { id: 'SLEEP_RHYTHM', score: null, bucket: 'UNKNOWN', axisIds: ['BEDTIME', 'WAKE_TIME'] },
+    { id: 'SLEEP_HABIT', score: null, bucket: 'UNKNOWN', axisIds: ['SLEEP_HABIT'] },
+    {
+      id: 'SLEEP_ENVIRONMENT',
+      score: null,
+      bucket: 'UNKNOWN',
+      axisIds: ['SCREEN_USAGE', 'SLEEP_ENVIRONMENT'],
+    },
+    { id: 'DEVICE_USAGE', score: null, bucket: 'UNKNOWN', axisIds: ['PHONE', 'EARPHONE'] },
+    {
+      id: 'CLEAN_SPACE',
+      score: 30,
+      bucket: 'LOW',
+      axisIds: ['CLEAN_LEVEL', 'INDOOR_EATING'],
+    },
+    { id: 'TEMPERATURE', score: null, bucket: 'UNKNOWN', axisIds: ['TEMPERATURE'] },
+    { id: 'RELATIONSHIP_STYLE', score: null, bucket: 'UNKNOWN', axisIds: ['RELATIONSHIP'] },
+  ],
   axes: [
-    { id: 'SMOKING', score: 100, bucket: 'HIGH' },
-    { id: 'CLEAN_LEVEL', score: 30, bucket: 'LOW' },
+    {
+      id: 'SMOKING',
+      score: 100,
+      bucket: 'HIGH',
+      comparison: { targetText: '비흡연', viewerText: '비흡연자가 좋아요' },
+    },
+    {
+      id: 'CLEAN_LEVEL',
+      score: 30,
+      bucket: 'LOW',
+      comparison: {
+        targetText: '바로 정리하는 편이에요',
+        viewerText: '바로 정리하는 게 좋아요',
+      },
+    },
   ],
   hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
 } satisfies PublicProfileCompatibility;
@@ -136,6 +169,21 @@ describe('PublicProfileCompatibility contract', () => {
         }).success,
       ).toBe(false);
     }
+
+    expect(
+      publicProfileCompatibilitySchema.safeParse({
+        ...compatibilityFixture,
+        axes: [
+          {
+            ...compatibilityFixture.axes[0]!,
+            comparison: {
+              ...compatibilityFixture.axes[0]!.comparison,
+              fieldKey: 'smokingBehavior',
+            },
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it('hidden notice code allowlist 밖의 값을 거부한다', () => {

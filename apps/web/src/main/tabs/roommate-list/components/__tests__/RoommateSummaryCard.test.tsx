@@ -98,6 +98,14 @@ describe('RoommateSummaryCard', () => {
     expect(screen.getByText('대화 중')).toHaveClass('bg-teal-50', 'text-teal-700');
   });
 
+  it('빈 자기소개는 slate placeholder로 렌더링한다', () => {
+    render(<RoommateSummaryCard item={{ ...baseCard, intro: '-' }} />);
+
+    const placeholder = screen.getByText('-');
+    expect(placeholder).toHaveClass('text-slate-500');
+    expect(placeholder.closest('div')).toHaveClass('bg-slate-50');
+  });
+
   it('summary-only card는 score/token/private field를 노출하지 않는다', () => {
     render(
       <RoommateSummaryCard

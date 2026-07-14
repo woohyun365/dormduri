@@ -17,7 +17,7 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   temperatureSensitivity: 'NORMAL',
   smokingTolerance: 'E_CIG_OK',
   phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
+  earphoneExpectation: 'LOW_VOLUME_OK',
   sleepEnvPreference: 'SPEAKER_OK',
   screenTolerance: 'NO_SCREEN',
   indoorEatingTolerance: 'CLEAN_OK',

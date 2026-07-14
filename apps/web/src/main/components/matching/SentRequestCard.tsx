@@ -32,7 +32,7 @@ export function SentRequestCard({
 }: SentRequestCardProps) {
   const avatarColor = getAvatarColor(nickname);
   const dormLabel = getDormitoryLabel(dormitoryId);
-  const { timeLeft, isExpired, totalSeconds } = useExpiryCountdown(expiresAt);
+  const { isExpired, totalSeconds } = useExpiryCountdown(expiresAt);
   const isUrgent = !isExpired && totalSeconds <= 24 * 60 * 60;
 
   const [menuOpen, setMenuOpen] = useState(false);

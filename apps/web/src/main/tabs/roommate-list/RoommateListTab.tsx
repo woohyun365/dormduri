@@ -467,7 +467,14 @@ function toDetailTarget(item: RoommateSummaryCardViewModel) {
     nickname: item.nickname,
     detailEntryToken: item.detailEntryToken,
     pendingMatchRequest: item.pendingMatchRequest,
+    dormitoryLabel: parseDormitoryLabel(item.metadataLabel),
   };
+}
+
+function parseDormitoryLabel(metadataLabel: string | undefined): string | null {
+  const trimmed = metadataLabel?.trim();
+  if (!trimmed || trimmed.includes('캠퍼스') || trimmed.includes('프로필')) return null;
+  return trimmed.replace(/\s*\([^)]*\)\s*$/u, '');
 }
 
 function RoommateListControlsPanel({

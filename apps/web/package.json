@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
+    "@tabler/icons-react": "^3.44.0",
     "lucide-react": "^0.456.0",
     "motion": "^12.38.0",
     "next": "catalog:",

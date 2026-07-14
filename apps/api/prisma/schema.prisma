@@ -599,7 +599,7 @@ enum RoommatePhoneTolerance {
 
 enum RoommateEarphoneExpectation {
   MUST
-  STUDY
+  LOW_VOLUME_OK
   ANY
 }
 
