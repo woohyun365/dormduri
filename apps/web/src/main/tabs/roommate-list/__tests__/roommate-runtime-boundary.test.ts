@@ -171,14 +171,17 @@ describe('RoommateTab runtime boundary', () => {
       join(roommateRoot, 'overlays/RoommateActionReceiptDialog.tsx'),
       'utf8',
     );
-    const tabSource = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
+    const feedbackSource = readFileSync(
+      join(roommateRoot, 'components/search/RoommateSearchFeedback.tsx'),
+      'utf8',
+    );
 
     expect(source).toContain('counterpartNickname');
     expect(source).toContain('noticeSections');
     expect(source).toContain('매칭 요청 후 알아야 할 사항');
     expect(source).toContain('차단 후 알아야 할 사항');
     expect(source).not.toContain('이미 요청을 보낸 사용자');
-    expect(tabSource).toContain("receipt?.actionKind === 'block'");
+    expect(feedbackSource).toContain("receipt?.actionKind === 'block'");
   });
 
   it('Phase 4 card renders only the card view model and never raw search contract/token fields', () => {

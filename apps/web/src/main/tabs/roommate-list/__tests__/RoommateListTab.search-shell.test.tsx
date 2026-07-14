@@ -741,6 +741,7 @@ describe('RoommateListTab search shell', () => {
       targetUserId: 'target-detail',
       nickname: '테스트-target-detail',
       detailEntryToken: 'detail-token-target-detail',
+      dormitoryLabel: '다산관',
       pendingMatchRequest: null,
     });
   });
