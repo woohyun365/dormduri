@@ -34,6 +34,48 @@ const COMPLETE_LIFESTYLE: LifestyleData = {
   drinkingTolerance: 'LOW_ONLY',
 };
 
+const PUBLIC_COMPATIBILITY = {
+  overallScore: 91,
+  dimensions: [
+    { id: 'SMOKING', score: 100, bucket: 'HIGH', axisIds: ['SMOKING'] },
+    { id: 'SLEEP_RHYTHM', score: null, bucket: 'UNKNOWN', axisIds: ['BEDTIME', 'WAKE_TIME'] },
+    { id: 'SLEEP_HABIT', score: null, bucket: 'UNKNOWN', axisIds: ['SLEEP_HABIT'] },
+    {
+      id: 'SLEEP_ENVIRONMENT',
+      score: null,
+      bucket: 'UNKNOWN',
+      axisIds: ['SCREEN_USAGE', 'SLEEP_ENVIRONMENT'],
+    },
+    { id: 'DEVICE_USAGE', score: null, bucket: 'UNKNOWN', axisIds: ['PHONE', 'EARPHONE'] },
+    {
+      id: 'CLEAN_SPACE',
+      score: 100,
+      bucket: 'HIGH',
+      axisIds: ['CLEAN_LEVEL', 'INDOOR_EATING'],
+    },
+    { id: 'TEMPERATURE', score: null, bucket: 'UNKNOWN', axisIds: ['TEMPERATURE'] },
+    { id: 'RELATIONSHIP_STYLE', score: null, bucket: 'UNKNOWN', axisIds: ['RELATIONSHIP'] },
+  ],
+  axes: [
+    {
+      id: 'SMOKING',
+      score: 100,
+      bucket: 'HIGH',
+      comparison: { targetText: '비흡연', viewerText: '비흡연자가 좋아요' },
+    },
+    {
+      id: 'CLEAN_LEVEL',
+      score: 100,
+      bucket: 'HIGH',
+      comparison: {
+        targetText: '바로 정리하는 편이에요',
+        viewerText: '바로 정리하는 게 좋아요',
+      },
+    },
+  ],
+  hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+} as const;
+
 function makeParticipant(
   overrides: Partial<CurrentSeasonParticipantRecord> = {},
 ): CurrentSeasonParticipantRecord {
@@ -169,6 +211,7 @@ describe('ProfilesService Step 6 public detail', () => {
   const matchScoreProjection = {
     shouldExposePublicMatchScore: vi.fn(),
     calculateQueryTimeRoommateSearchScore: vi.fn(),
+    buildPublicProfileCompatibility: vi.fn(),
   };
   const blockVisibilityReader = {
     getExcludedTargetUserIds: vi.fn(),
@@ -214,6 +257,7 @@ describe('ProfilesService Step 6 public detail', () => {
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
     matchScoreProjection.shouldExposePublicMatchScore.mockReturnValue(true);
     matchScoreProjection.calculateQueryTimeRoommateSearchScore.mockReturnValue(91);
+    matchScoreProjection.buildPublicProfileCompatibility.mockReturnValue(PUBLIC_COMPATIBILITY);
   });
 
   it('같은 건물 registration complete target만 detail/score/action capability를 가진다', async () => {
@@ -260,9 +304,70 @@ describe('ProfilesService Step 6 public detail', () => {
     if (result.detailState !== 'FULL') {
       throw new Error('expected full profile detail');
     }
-    expect(result).toHaveProperty('matchScore');
-    expect(result.lifestyle).not.toHaveProperty('drinkingFrequency');
-    expect(result.lifestyle).not.toHaveProperty('drinkingTolerance');
+    expect(result).toHaveProperty('matchScore', 91);
+    expect(result).toHaveProperty('compatibility', PUBLIC_COMPATIBILITY);
+    expect(result.compatibility?.overallScore).toBe(result.matchScore);
+    expect(result.compatibility?.dimensions).toHaveLength(8);
+    expect(result.compatibility?.dimensions[0]).toMatchObject({
+      id: 'SMOKING',
+      axisIds: ['SMOKING'],
+    });
+    expect(result.compatibility?.axes[0]).toHaveProperty('comparison.targetText', '비흡연');
+    expect(result.compatibility?.axes[0]).toHaveProperty(
+      'comparison.viewerText',
+      '비흡연자가 좋아요',
+    );
+    expect(matchScoreProjection.buildPublicProfileCompatibility).toHaveBeenCalledWith({
+      viewerLifestyle: COMPLETE_LIFESTYLE,
+      targetLifestyle: COMPLETE_LIFESTYLE,
+      scoreVisible: true,
+    });
+    const hiddenLifestyleFields = [
+      'drinkingFrequency',
+      'drinkingTolerance',
+      'smokingTolerance',
+      'phoneTolerance',
+      'earphoneExpectation',
+      'sleepEnvPreference',
+      'screenTolerance',
+      'indoorEatingTolerance',
+      'cleanExpectation',
+    ];
+    for (const field of hiddenLifestyleFields) {
+      expect(result.lifestyle).not.toHaveProperty(field);
+    }
+    expect(JSON.stringify(result.compatibility)).not.toContain('drinkingFrequency');
+    expect(JSON.stringify(result.compatibility)).not.toContain('drinkingTolerance');
+    expect(JSON.stringify(result.compatibility)).not.toContain('targetCondition');
+  });
+
+  it('scoreVisible=false FULL detail은 matchScore와 compatibility를 모두 제외한다', async () => {
+    matchScoreProjection.shouldExposePublicMatchScore.mockReturnValue(false);
+    const target = makeParticipant({
+      id: 'participant-target',
+      userId: 'peer-1',
+      profile: {
+        ...makeParticipant().profile!,
+        participantId: 'participant-target',
+      },
+    });
+    prisma.seasonParticipant.findFirst.mockResolvedValue(toRawParticipant(target, 'peer-1'));
+
+    const result = await service.getProfileByUserId(
+      { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
+      'peer-1',
+      { detailEntryToken: detailEntryToken({}) },
+    );
+
+    expect(result.detailState).toBe('FULL');
+    if (result.detailState !== 'FULL') {
+      throw new Error('expected full profile detail');
+    }
+    expect(result.exposure.scoreVisible).toBe(false);
+    expect(result).not.toHaveProperty('matchScore');
+    expect(result).not.toHaveProperty('compatibility');
+    expect(matchScoreProjection.calculateQueryTimeRoommateSearchScore).not.toHaveBeenCalled();
+    expect(matchScoreProjection.buildPublicProfileCompatibility).not.toHaveBeenCalled();
   });
 
   it('미등록 viewer는 summary entry token이 있어도 tombstone 안내만 받는다', async () => {

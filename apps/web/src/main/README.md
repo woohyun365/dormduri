@@ -12,10 +12,10 @@
 
 ## Runtime fixture boundary
 
-- Home first render와 `apps/web/src/main/api/home-dashboard.api.ts`는 `@/main/dev-only/fixtures`를 direct/dynamic import하지 않는다.
-- `apps/web/src/main/dev-only/fixtures`는 root `src/__fixtures__`를 대체한 local development/test-support boundary다.
-- `DevPanel`과 `HomeDevTool`은 `process.env.NODE_ENV === 'development'`일 때만 loader가 렌더링하는 local-only surface다.
-- dev panel 내부의 `mock-db` / `mock-matching-service` 사용은 local scenario override 전용이며, Home/Main product correctness evidence로 사용하지 않는다.
+- Home first render와 `apps/web/src/main/api/home-dashboard.api.ts`는 삭제된 `@/main/dev-only/fixtures` mock surface를 direct/dynamic import하지 않는다.
+- `apps/web/src/main/dev-only/fixtures`와 root `src/__fixtures__`는 production correctness 근거가 아니므로 재도입하지 않는다.
+- `apps/web/src/components/*Dev*Loader` 기반 floating dev surface는 제거되었다. local scenario override는 Storybook/test-support 또는 explicit test fixture lane에서만 다룬다.
+- legacy dev override storage나 `mock-db` / `mock-matching-service` 사용은 Home/Main product correctness evidence로 사용하지 않는다.
 - `api/profile.ts`와 `api/matching.ts`의 development fallback은 non-Home legacy tab migration debt이며 Home dashboard API 완료 근거가 아니다.
 - Home/Main unit tests는 `test-support/*builder*`의 typed builders를 사용한다.
 - 로그인 사용자 mobile/desktop browser smoke는 `apps/web/playwright.fullstack.config.ts`의 API + DB seed 기반 full-stack Playwright lane에서 검증한다.

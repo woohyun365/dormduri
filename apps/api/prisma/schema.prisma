@@ -392,6 +392,7 @@ enum ConversationMessageTombstoneReason {
 
 enum NotificationKind {
   CHAT_THREAD_CREATED
+  ENFORCEMENT_NOTICE
   REPORT_RECEIVED
   REPORT_STATUS_UPDATED
   PROFILE_MISMATCH_FEEDBACK
@@ -598,7 +599,7 @@ enum RoommatePhoneTolerance {
 
 enum RoommateEarphoneExpectation {
   MUST
-  STUDY
+  LOW_VOLUME_OK
   ANY
 }
 

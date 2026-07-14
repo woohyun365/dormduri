@@ -28,6 +28,24 @@ function createNotification(overrides: Partial<UserNotification>): UserNotificat
 describe('toNotificationDisplay', () => {
   it.each([
     [
+      'ENFORCEMENT_NOTICE',
+      '서비스 이용 제한이 적용됐어요',
+      '위반 사유: 혐오/차별 표현. 이의가 있으면 고객센터에서 재검토를 요청할 수 있어요.',
+      '고객센터에서 확인',
+      createNotification({
+        kind: 'ENFORCEMENT_NOTICE',
+        sourceType: 'ENFORCEMENT_NOTICE',
+        sourceId: 'season-participant:participant-1',
+        payload: {
+          kind: 'ENFORCEMENT_NOTICE',
+          enforcementNoticeId: 'season-participant:participant-1',
+          actionType: 'MATCHING_RESTRICTION',
+          reasonCategory: 'HATE_OR_DISCRIMINATION',
+          occurredAt,
+        },
+      }),
+    ],
+    [
       'MATCH_REQUEST_RECEIVED',
       '새 매칭 요청이 도착했어요',
       '받은 요청에서 상대의 정보를 확인하고 수락 여부를 결정할 수 있어요.',

@@ -3,6 +3,7 @@ import { isoDateTimeStringSchema } from '../date/primitives.js';
 
 export const notificationKindSchema = z.enum([
   'CHAT_THREAD_CREATED',
+  'ENFORCEMENT_NOTICE',
   'REPORT_RECEIVED',
   'REPORT_STATUS_UPDATED',
   'PROFILE_MISMATCH_FEEDBACK',
@@ -18,6 +19,7 @@ export const notificationKindSchema = z.enum([
 ]);
 export const notificationSourceTypeSchema = z.enum([
   'CONVERSATION_THREAD',
+  'ENFORCEMENT_NOTICE',
   'REPORT_CASE',
   'MATCH_REQUEST',
   'ACTIVE_MATCH',
@@ -30,6 +32,31 @@ export const chatThreadCreatedNotificationPayloadSchema = z.strictObject({
   threadId: z.string().min(1),
   actorUserId: z.string().min(1),
   recipientUserId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const enforcementNoticeNotificationPayloadSchema = z.strictObject({
+  enforcementNoticeId: z.string().min(1),
+  actionType: z.enum([
+    'WARNING',
+    'MATCHING_RESTRICTION',
+    'CHAT_RESTRICTION',
+    'ACCOUNT_RESTRICTION',
+    'CONTENT_VISIBILITY_RESTRICTION',
+  ]),
+  reasonCategory: z.enum([
+    'SEXUAL_HARASSMENT',
+    'THREAT',
+    'PERSONAL_INFO_EXPOSURE',
+    'GENDER_IMPERSONATION',
+    'FALSE_PROFILE',
+    'SPAM_OR_AD',
+    'HATE_OR_DISCRIMINATION',
+    'POLICY_VIOLATION',
+    'SAFETY_REVIEW',
+    'ADMIN_ACTION',
+    'OTHER',
+  ]),
   occurredAt: isoDateTimeStringSchema,
 });
 
@@ -112,6 +139,9 @@ export const supportAppealResolvedNotificationPayloadSchema = z.strictObject({
 export const notificationPayloadSchema = z.discriminatedUnion('kind', [
   chatThreadCreatedNotificationPayloadSchema.extend({
     kind: z.literal('CHAT_THREAD_CREATED'),
+  }),
+  enforcementNoticeNotificationPayloadSchema.extend({
+    kind: z.literal('ENFORCEMENT_NOTICE'),
   }),
   reportReceivedNotificationPayloadSchema.extend({
     kind: z.literal('REPORT_RECEIVED'),
@@ -204,6 +234,9 @@ export type NotificationKind = z.infer<typeof notificationKindSchema>;
 export type NotificationSourceType = z.infer<typeof notificationSourceTypeSchema>;
 export type ChatThreadCreatedNotificationPayload = z.infer<
   typeof chatThreadCreatedNotificationPayloadSchema
+>;
+export type EnforcementNoticeNotificationPayload = z.infer<
+  typeof enforcementNoticeNotificationPayloadSchema
 >;
 export type ReportReceivedNotificationPayload = z.infer<
   typeof reportReceivedNotificationPayloadSchema

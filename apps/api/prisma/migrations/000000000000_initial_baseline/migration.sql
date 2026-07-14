@@ -251,7 +251,7 @@ CREATE TYPE "RoommateSmokingTolerance" AS ENUM ('NO_ONLY', 'E_CIG_OK', 'ANY');
 CREATE TYPE "RoommatePhoneTolerance" AS ENUM ('OUTSIDE_ONLY', 'BRIEF_OK', 'ANY');
 
 -- CreateEnum
-CREATE TYPE "RoommateEarphoneExpectation" AS ENUM ('MUST', 'STUDY', 'ANY');
+CREATE TYPE "RoommateEarphoneExpectation" AS ENUM ('MUST', 'LOW_VOLUME_OK', 'ANY');
 
 -- CreateEnum
 CREATE TYPE "RoommateSleepEnvPreference" AS ENUM ('NO_SPEAKER', 'SPEAKER_OK');

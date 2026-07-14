@@ -91,13 +91,13 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
   },
   sleepEnvironment: {
     QUIET: '안 틀어요',
-    EARPHONE: '이어폰으로',
+    EARPHONE: '이어폰 사용',
     LOW_SPEAKER: '스피커로 작게',
   },
   screenUsage: {
     NONE: '안 봐요',
-    AUDIO: '음악만',
-    SCREEN: '봐요',
+    AUDIO: '음악만 들어요',
+    SCREEN: '화면을 봐요',
   },
   noiseSensitivity: {
     SENSITIVE: '민감',
@@ -140,7 +140,7 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
   },
   relationshipStyle: {
     CLOSE: '친하게 지내요',
-    CASUAL: '각자 생활',
+    CASUAL: '각자 생활해요',
   },
   temperatureSensitivity: {
     COLD: '추위 타요',
@@ -152,7 +152,7 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
   smokingTolerance: {
     NO_ONLY: '비흡연자가 좋아요',
     E_CIG_OK: '전담까지는 OK',
-    ANY: '흡연자도 괜찮아요',
+    ANY: '상관없음',
   },
   phoneTolerance: {
     OUTSIDE_ONLY: '안 했으면 좋겠어요',
@@ -160,8 +160,8 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     ANY: '상관없어요',
   },
   earphoneExpectation: {
-    MUST: '꼭 써줬으면 좋겠어요',
-    STUDY: '스피커도 크지만 않으면 괜찮아요',
+    MUST: '소리는 이어폰으로 들어줬으면 좋겠어요',
+    LOW_VOLUME_OK: '작게 틀면 괜찮아요',
     ANY: '상관없어요',
   },
   sleepEnvPreference: {
@@ -179,7 +179,7 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     ANY: '상관없어요',
   },
   cleanExpectation: {
-    STRICT: '바로 정리하는 사람이 좋아요',
+    STRICT: '바로 정리하는 게 좋아요',
     BASIC: '눈에 띄면 정리하면 괜찮아요',
     FLEXIBLE: '몰아서 해도 괜찮아요',
   },

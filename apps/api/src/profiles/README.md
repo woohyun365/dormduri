@@ -8,6 +8,7 @@ External domain production code should not import profile detail internals direc
 
 - `ProfilesModule`: profile detail route and provider wiring.
 - `GET /api/profiles/:targetUserId`: public profile detail read. The route validates the viewer context and the search entry context before returning full detail or a tombstone shell.
+- Profile detail compatibility is a privacy-safe extension of FULL detail only. `profiles` may attach `compatibility` only when match scoring is visible and the shared compatibility-scoring algorithm can compute the same `overallScore` as `matchScore`; API scoring projection remains the visibility/policy owner.
 - Profile public target reader port: the narrow read surface used by result-read/search consumers when a domain needs profile target materialization without depending on profile internals.
 
 `profiles` owns profile detail/read projection. It does not own roommate-search summary/list orchestration, season profile draft writes, account identity writes, match scoring authority, social-safety relations, or Web rendering.
@@ -34,6 +35,7 @@ The product boundary is:
 - Profile detail entry token is context proof, not authorization by itself. Detail reads must re-check latest public target policy at request time.
 - Full detail unavailability after a valid summary entry can degrade to a tombstone shell. Direct/probing access without valid context fails closed.
 - Do not restore retained vault payload for user-facing profile detail. Restricted recovery belongs to the retention/disclosure boundary.
+- Do not expose `drinkingFrequency`, `drinkingTolerance`, target roommate condition fields, raw lifestyle values, scoring matrix keys, or debug fields through profile detail or compatibility payloads. Public compatibility axes must come from `packages/shared/src/profile/contract/compatibility.ts`.
 - Do not introduce root compatibility re-export paths for shared profile or roommate-search contracts.
 - Do not add Web/BFF/rendering/hook/page/component behavior here.
 - Do not add Redis/cache/materialized search projection from this module without operational evidence and the owning follow-up decision.
@@ -58,7 +60,7 @@ Architecture specs own cross-cutting fitness rules:
 - Roommate-search summary/search behavior: `apps/api/src/roommate-search`.
 - Season profile draft/write/registration completeness: `apps/api/src/season-participants`.
 - Account display/academic identity: `apps/api/src/users`.
-- Match score authority: `apps/api/src/matches/scoring` and match score ports.
+- Match score authority is split deliberately: `packages/shared/src/profile/compatibility-scoring.ts` owns the pure scoring matrices/normalization used by API and Storybook fixtures, while `apps/api/src/matches/scoring` owns visibility, projection, and ports. Web runtime must render API payloads and must not reimplement scoring matrices.
 - Bookmark/block relation authority: `apps/api/src/social-safety`.
 - Policy source of truth: `docs/04_policy/official/profile-model.md`, `docs/04_policy/official/roommate-searching.md`, and `docs/04_policy/official/season-participation.md`.
 - Shared API contract source of truth: `packages/shared` profile and roommate-search contract surfaces.

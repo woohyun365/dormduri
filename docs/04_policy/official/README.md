@@ -46,23 +46,6 @@
 14. **운영 관측, 로그, 메트릭, stress/release gate, 서버 스펙 선택 기준은 `runtime-observability-and-release.md`가 단독 소유한다.**
 15. **BE API/RDS production 배포 준비, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준은 `production-deployment-readiness.md`가 단독 소유한다.**
 
-## 원문과의 대응
-
-| 원문                   | 재구성 반영 위치                                                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `auth.md`              | `account-authentication.md`                                                                                            |
-| `password.md`          | `account-authentication.md`                                                                                            |
-| `nickname.md`          | `profile-model.md`                                                                                                     |
-| `eligibility.md`       | `access-eligibility.md`, `season-lifecycle.md`                                                                         |
-| `season-policy.md`     | `season-lifecycle.md`, `season-participation.md`                                                                       |
-| `profile-lifestyle.md` | `profile-model.md`                                                                                                     |
-| `profile-exposure.md`  | `roommate-searching.md`, `season-lifecycle.md`, `season-participation.md`, `matching-lifecycle.md`, `profile-model.md` |
-| `matching.md`          | `matching-lifecycle.md`, `chat-lifecycle.md`                                                                           |
-| `service-scope.md`     | `service-boundary.md`                                                                                                  |
-| `content-filter.md`    | `community-safety.md`, `incident-enforcement.md`                                                                       |
-| `inclusion.md`         | `community-safety.md`                                                                                                  |
-| `service-scope.md`     | `service-boundary.md`, `incident-enforcement.md`                                                                       |
-
 ## 변경 이력 규칙
 
 정책 문서를 수정할 때는 해당 문서 하단에 변경 이력을 추가한다.

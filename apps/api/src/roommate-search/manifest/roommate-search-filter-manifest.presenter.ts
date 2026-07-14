@@ -10,7 +10,7 @@ import { ROOMMATE_SEARCH_MIN_SCORE_PRESETS } from '@repo/shared/roommate-search/
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 
 const FILTER_POLICY_VERSION = 'roommate-search-filter-manifest-v1';
-const AGE_BAND_OPTIONS = ['19', '20', '21', '22', '23', '24', '25_PLUS'] as const;
+const AGE_BAND_OPTIONS = ['20', '21', '22', '23', '24', '25_PLUS'] as const;
 const MBTI_TRAIT_OPTIONS = ['E', 'I', 'N', 'S', 'T', 'F', 'J', 'P'] as const;
 
 export interface RoommateSearchCollegeOption {
@@ -34,7 +34,10 @@ export function buildRoommateSearchManifest(input: {
     filters: filtersEnabled
       ? {
           enabled: true,
-          fields: buildEnabledFilterFields(input),
+          fields: buildEnabledFilterFields({
+            activeCollegeOptions: input.activeCollegeOptions,
+            seasonReferenceYear: input.viewerContext.seasonReferenceYear,
+          }),
         }
       : {
           enabled: false,
@@ -64,6 +67,7 @@ function buildManifestRevision(input: {
 
 function buildEnabledFilterFields(input: {
   activeCollegeOptions: RoommateSearchCollegeOption[];
+  seasonReferenceYear: number | null;
 }): RoommateSearchManifest['filters']['fields'] {
   return {
     smokingBehavior: enumField(LIFESTYLE_FIELD_OPTIONS.smokingBehavior),
@@ -96,7 +100,7 @@ function buildEnabledFilterFields(input: {
       source: 'AGE_BAND',
       options: AGE_BAND_OPTIONS.map((value) => ({
         code: value,
-        label: value === '25_PLUS' ? '25세 이상' : `${value}세`,
+        label: formatAgeBandOptionLabel(value, input.seasonReferenceYear),
       })),
     },
     minScore: {
@@ -108,6 +112,22 @@ function buildEnabledFilterFields(input: {
       })),
     },
   };
+}
+
+function formatAgeBandOptionLabel(
+  value: (typeof AGE_BAND_OPTIONS)[number],
+  seasonReferenceYear: number | null,
+) {
+  const ageLabel = value === '25_PLUS' ? '25세 이상' : `${value}세`;
+  if (!seasonReferenceYear) {
+    return ageLabel;
+  }
+
+  if (value === '25_PLUS') {
+    return `${ageLabel} (${seasonReferenceYear - 25 + 1}년생 이하)`;
+  }
+
+  return `${ageLabel} (${seasonReferenceYear - Number(value) + 1}년생)`;
 }
 
 function enumField(values: readonly string[]) {

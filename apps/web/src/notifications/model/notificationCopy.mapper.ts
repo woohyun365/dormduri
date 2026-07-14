@@ -47,6 +47,8 @@ function resolveNotificationTitle(notification: UserNotification): string {
       return '문의에 추가 확인이 필요해요';
     case 'SUPPORT_APPEAL_RESOLVED':
       return '이의 신청 결과가 업데이트됐어요';
+    case 'ENFORCEMENT_NOTICE':
+      return '서비스 이용 제한이 적용됐어요';
     case 'CHAT_THREAD_CREATED':
       return '새 대화가 시작됐어요';
     case 'REPORT_RECEIVED':
@@ -80,6 +82,8 @@ function resolveNotificationBody(notification: UserNotification): string {
       return '문의 내역에서 운영팀이 요청한 추가 확인을 확인해주세요.';
     case 'SUPPORT_APPEAL_RESOLVED':
       return '이의 신청 결과는 문의 내역에서 확인할 수 있어요.';
+    case 'ENFORCEMENT_NOTICE':
+      return `위반 사유: ${resolveEnforcementReasonLabel(notification)}. 이의가 있으면 고객센터에서 재검토를 요청할 수 있어요.`;
     case 'CHAT_THREAD_CREATED':
       return '대화 탭에서 새 대화를 이어갈 수 있어요.';
     case 'REPORT_RECEIVED':
@@ -105,12 +109,44 @@ function resolveNotificationBody(notification: UserNotification): string {
 
 function resolveNotificationHelper(notification: UserNotification): string {
   if (notification.sourceType === 'SUPPORT_TICKET') return '문의 내역으로 이동';
+  if (notification.sourceType === 'ENFORCEMENT_NOTICE') return '고객센터에서 확인';
   if (notification.sourceType === 'CONVERSATION_THREAD') return '대화 탭에서 확인';
   if (notification.sourceType === 'MATCH_REQUEST') return '매칭 탭에서 확인';
   if (notification.sourceType === 'ACTIVE_MATCH') return '매칭 결과 확인';
   if (notification.sourceType === 'REPORT_CASE') return '신고 처리 상태';
   if (notification.sourceType === 'SEASON') return '시즌 안내 확인';
   return '관련 화면에서 확인';
+}
+
+function resolveEnforcementReasonLabel(notification: UserNotification): string {
+  const payload = notification.payload;
+  if (payload.kind !== 'ENFORCEMENT_NOTICE') return '정책 위반';
+
+  switch (payload.reasonCategory) {
+    case 'SEXUAL_HARASSMENT':
+      return '성희롱/성적 불쾌감';
+    case 'THREAT':
+      return '협박/위협';
+    case 'PERSONAL_INFO_EXPOSURE':
+      return '개인정보 노출';
+    case 'GENDER_IMPERSONATION':
+      return '성별 사칭';
+    case 'FALSE_PROFILE':
+      return '허위 프로필';
+    case 'SPAM_OR_AD':
+      return '스팸/광고';
+    case 'HATE_OR_DISCRIMINATION':
+      return '혐오/차별 표현';
+    case 'SAFETY_REVIEW':
+      return '운영 검토';
+    case 'ADMIN_ACTION':
+      return '운영 조치';
+    case 'OTHER':
+      return '기타';
+    case 'POLICY_VIOLATION':
+    default:
+      return '정책 위반';
+  }
 }
 
 function extractSupportTicketId(notification: UserNotification): string | null {

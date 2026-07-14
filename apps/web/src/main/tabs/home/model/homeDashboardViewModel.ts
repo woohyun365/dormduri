@@ -1,8 +1,9 @@
 import {
-  CAMPUS_NAMES,
-  getDormitoryById,
-  isCampusOperated as isCampusOperatedFn,
-} from '@/constants/dormitory';
+  getDormitoryDisplayById,
+  isCampusOperatedByDormitoryDisplayCatalog,
+  type DormitoryDisplayItem,
+} from '@/main/model/dormitoryDisplay.adapter';
+import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import {
   calcDaysUntilTimestamp,
@@ -117,7 +118,7 @@ export interface HomeDashboardViewModel {
   campusName: string;
   viewerIdentity: HomeDashboardViewerIdentityViewModel;
   isUnassigned: boolean;
-  dormitory: NonNullable<ReturnType<typeof getDormitoryById>> | null;
+  dormitory: DormitoryDisplayItem | null;
   hasActiveMatch: boolean;
   activeMatch: ActiveMatch | null;
   statsBar: HomeDashboardStatsBarViewModel;
@@ -187,7 +188,8 @@ export function buildHomeDashboardViewModel({
     dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0;
   const viewerIdentity = buildHomeViewerIdentityViewModel(dashboard);
   const isCampusOperated =
-    dashboard.viewer.campusOperated && isCampusOperatedFn(viewerIdentity.campus);
+    dashboard.viewer.campusOperated &&
+    isCampusOperatedByDormitoryDisplayCatalog(viewerIdentity.campus);
   const selectedDormitoryId = dashboard.viewer.selection.dormitoryId;
   const hasDashboardAssignedDormitory =
     (dashboard.viewer.selection.state === 'SELECTED' ||
@@ -195,7 +197,7 @@ export function buildHomeDashboardViewModel({
     isDormitoryAssigned(selectedDormitoryId);
   const isUnassigned = !hasDashboardAssignedDormitory;
   const dormitory = hasDashboardAssignedDormitory
-    ? (getDormitoryById(selectedDormitoryId) ?? null)
+    ? getDormitoryDisplayById(selectedDormitoryId)
     : null;
   const rawActiveMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   const activeMatch = toHomeActiveMatch(dashboard);
@@ -302,9 +304,9 @@ function buildHomeViewerIdentityViewModel(
     nickname,
     avatarInitial: nickname.charAt(0) || '룸',
     gender: user.gender,
-    genderLabel: user.gender === 'M' ? '남' : '여',
+    genderLabel: formatGenderLabel(user.gender),
     campus: user.campus,
-    campusName: CAMPUS_NAMES[user.campus],
+    campusName: formatCampusName(user.campus),
   };
 }
 
@@ -507,7 +509,7 @@ function buildOperatedDormitoryViewModel(
   return operations
     .filter((operation) => operation.isOperated)
     .map((operation) => {
-      const dormitory = getDormitoryById(operation.dormitoryId);
+      const dormitory = getDormitoryDisplayById(operation.dormitoryId);
 
       return {
         id: operation.dormitoryId,

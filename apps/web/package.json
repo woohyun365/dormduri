@@ -16,12 +16,13 @@
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "e2e": "playwright test",
     "e2e:fullstack": "playwright test -c playwright.fullstack.config.ts",
-    "storybook": "STORYBOOK_DISABLE_TELEMETRY=1 storybook dev -p 6006",
-    "storybook:build": "STORYBOOK_DISABLE_TELEMETRY=1 storybook build",
+    "storybook": "pnpm --filter @repo/shared build && STORYBOOK_DISABLE_TELEMETRY=1 storybook dev -p 6006",
+    "storybook:build": "pnpm --filter @repo/shared build && STORYBOOK_DISABLE_TELEMETRY=1 storybook build",
     "typecheck:storybook": "tsc -p tsconfig.storybook.json --noEmit"
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
+    "@tabler/icons-react": "^3.44.0",
     "lucide-react": "^0.456.0",
     "motion": "^12.38.0",
     "next": "catalog:",

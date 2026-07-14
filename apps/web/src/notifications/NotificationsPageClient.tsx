@@ -101,7 +101,7 @@ export default function NotificationsPageClient() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-8 md:py-12">
-        <section className="rounded-3xl border border-purple-100 bg-gradient-to-br from-purple-50 via-white to-violet-50 p-6 shadow-sm md:p-8">
+        <section className="rounded-3xl border border-purple-100 bg-linear-to-br from-purple-50 via-white to-violet-50 p-6 shadow-sm md:p-8">
           <p className="text-sm font-extrabold text-purple-700">알림함</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-(--knu-text-primary) md:text-4xl">
             내 알림을 한곳에서 확인해요

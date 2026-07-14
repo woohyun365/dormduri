@@ -93,7 +93,7 @@ export function LandingProfilePreviewCard({ profile }: LandingProfilePreviewCard
       </div>
 
       <p className="text-[11px] leading-relaxed text-(--knu-text-tertiary)">
-        실제 사용자, 실제 점수, 매칭 또는 호실 선택 성공을 의미하지 않습니다.
+        실제 사용자가 아닌 이해를 돕기 위한 예시이며, 서비스 내부 디자인과 다를 수 있어요.
       </p>
     </article>
   );

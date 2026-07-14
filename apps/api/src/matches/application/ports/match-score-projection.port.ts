@@ -1,4 +1,7 @@
-import type { PublicTargetResultReadContext } from '@repo/shared/profile/contract';
+import type {
+  PublicProfileCompatibility,
+  PublicTargetResultReadContext,
+} from '@repo/shared/profile/contract';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonState } from '@repo/shared/season/runtime';
 
@@ -23,4 +26,10 @@ export interface MatchScoreProjectionPort {
     targetLifestyle: LifestyleData | null;
     scoreVisible: boolean;
   }): number | null;
+
+  buildPublicProfileCompatibility(input: {
+    viewerLifestyle: LifestyleData | null;
+    targetLifestyle: LifestyleData | null;
+    scoreVisible: boolean;
+  }): PublicProfileCompatibility | null;
 }

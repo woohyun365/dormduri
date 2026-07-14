@@ -5,8 +5,15 @@ import userEvent from '@testing-library/user-event';
 import Main from '../Main';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import { homeDashboardApi } from '@/main/api/home-dashboard.api';
-import { profileApi } from '@/api/profile';
+import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
+
+const roommateListTabMock = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => {
+    void props;
+    return null;
+  }),
+);
 
 vi.mock('../components/BottomTabBar', () => ({
   BottomTabBar: ({
@@ -20,6 +27,9 @@ vi.mock('../components/BottomTabBar', () => ({
       </button>
       <button type="button" onClick={() => onTabChange('list')}>
         룸메이트 찾기
+      </button>
+      <button type="button" onClick={() => onTabChange('matching')}>
+        매칭 현황
       </button>
     </nav>
   ),
@@ -53,7 +63,7 @@ vi.mock('../tabs/home/HomeTab', () => ({
 }));
 
 vi.mock('../tabs/roommate-list/RoommateListTab', () => ({
-  default: () => null,
+  default: roommateListTabMock,
 }));
 
 vi.mock('../tabs/profile/ProfileTab', () => ({
@@ -106,20 +116,10 @@ vi.mock('../hooks/useMainMatchingState', () => ({
   }),
 }));
 
-vi.mock('../hooks/useMainListViewState', () => ({
-  useMainListViewState: () => ({
-    sortMode: 'recommended',
-    setSortMode: vi.fn(),
-    filters: {},
-    setFilters: vi.fn(),
-    viewMode: 'card',
-    setViewMode: vi.fn(),
-  }),
-}));
-
 describe('Main direct-action baseline', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    roommateListTabMock.mockClear();
     sessionStorage.clear();
     vi.spyOn(seasonApi, 'getCurrentSeason').mockResolvedValue({
       season: { name: '2026년 1학기', roomSelectionDate: '2099-04-30' },
@@ -155,7 +155,7 @@ describe('Main direct-action baseline', () => {
     expect(screen.getByRole('dialog', { name: '배정 건물 선택' })).toBeInTheDocument();
   });
 
-  it('loads legacy roommate data lazily only after moving to a non-Home tab', async () => {
+  it('does not load legacy roommate data after moving to the list tab', async () => {
     const user = userEvent.setup();
     render(<Main />);
 
@@ -164,6 +164,69 @@ describe('Main direct-action baseline', () => {
     expect(profileApi.getProfiles).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+
+    await waitFor(() => expect(roommateListTabMock).toHaveBeenCalled());
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+
+    const props = roommateListTabMock.mock.lastCall?.[0];
+    expect(props).toBeDefined();
+    expect(props).toEqual(
+      expect.objectContaining({
+        user: expect.objectContaining({ id: 'user-1' }),
+        onNavigate: expect.any(Function),
+        searchEntryAllowed: true,
+        viewerSeasonRegistered: true,
+      }),
+    );
+    expect(Object.keys(props ?? {}).sort()).toEqual([
+      'onNavigate',
+      'searchEntryAllowed',
+      'user',
+      'viewerSeasonRegistered',
+    ]);
+  });
+
+  it('passes closed search entry capability without loading legacy list data', async () => {
+    const user = userEvent.setup();
+    const dashboard = createHomeDashboardTestResponse();
+    vi.mocked(homeDashboardApi.getDashboard).mockResolvedValue({
+      ...dashboard,
+      viewer: {
+        ...dashboard.viewer,
+        capabilities: {
+          ...dashboard.viewer.capabilities,
+          canEnterRoommateSearch: false,
+        },
+      },
+    });
+
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+
+    await waitFor(() => expect(roommateListTabMock).toHaveBeenCalled());
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
+
+    expect(roommateListTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        searchEntryAllowed: false,
+      }),
+    );
+  });
+
+  it('keeps legacy roommate data lazy-loading for matching tab', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: '매칭 현황' }));
 
     await waitFor(() => expect(seasonApi.getCurrentSeason).toHaveBeenCalledTimes(1));
     expect(profileApi.getProfiles).toHaveBeenCalledWith('CHUNCHEON', 'F', 'dasan');

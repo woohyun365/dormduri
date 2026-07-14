@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { AlertTriangle } from 'lucide-react';
-import { AnimatedCounter } from '@/components/AnimatedCounter';
+import { AnimatedCounter } from './AnimatedCounter';
 import type { ComponentType, ReactNode } from 'react';
 
 export type MatchingMetricTone = 'amber' | 'purple' | 'teal' | 'indigo' | 'cyan' | 'slate';

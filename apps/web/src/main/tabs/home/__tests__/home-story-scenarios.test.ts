@@ -1,19 +1,33 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { homeStoryScenarios } from '../__stories__/home-story-scenarios';
 
 describe('HomeTab Storybook source boundary', () => {
   it('uses owner paths and the story API fixture layer instead of deleted component facades', () => {
-    const storySource = readFileSync(
-      join(process.cwd(), 'src/main/tabs/home/__stories__/HomeTab.stories.tsx'),
+    const storySource = readHomeTabStorySources();
+    const rendererSource = readFileSync(
+      join(process.cwd(), 'src/main/tabs/home/__stories__/home-story-renderer.tsx'),
       'utf8',
     );
 
-    expect(storySource).toContain('./home-story-api-fixtures');
-    expect(storySource).toContain('../layout/HomeDashboardErrorState');
+    expect(rendererSource).toContain('./home-story-api-fixtures');
+    expect(rendererSource).toContain('../layout/HomeDashboardErrorState');
     expect(storySource).not.toContain('../components/');
+    expect(rendererSource).not.toContain('../components/');
     expect(storySource).not.toContain('useHomeProfileDetailStoryApiFixtures');
+    expect(rendererSource).not.toContain('useHomeProfileDetailStoryApiFixtures');
+  });
+
+  it('registers HomeTab stories by season instead of one flat scenario group', () => {
+    const storySource = readHomeTabStorySources();
+
+    expect(storySource).toContain("title: 'Main/HomeTab/Off Season/Dashboard'");
+    expect(storySource).toContain("title: 'Main/HomeTab/Season Open/Dashboard'");
+    expect(storySource).toContain("title: 'Main/HomeTab/Season Matching/Dashboard'");
+    expect(storySource).toContain("title: 'Main/HomeTab/Post Match/Dashboard'");
+    expect(storySource).toContain("title: 'Main/HomeTab/System/Fallback'");
+    expect(storySource).not.toContain("title: 'Main/HomeTab'");
   });
 
   it('keeps dedicated operations page flow stories connected through HomeTab entries', () => {
@@ -22,7 +36,7 @@ describe('HomeTab Storybook source boundary', () => {
       'utf8',
     );
 
-    expect(storySource).toContain("title: 'Main/HomeTab/Operations Pages'");
+    expect(storySource).toContain("title: 'Main/HomeTab/Operations/Pages'");
     expect(storySource).toContain('NoticesPageClient');
     expect(storySource).toContain('NotificationsPageClient');
     expect(storySource).toContain('SupportPageClient');
@@ -34,19 +48,18 @@ describe('HomeTab Storybook source boundary', () => {
     expect(storySource).toContain('Notifications / active match created');
     expect(storySource).toContain('Notifications / support reply');
     expect(storySource).toContain('Notifications / report status updated');
+    expect(storySource).toContain('Notifications / enforcement notice');
     expect(storySource).toContain('Notifications / season notice');
     expect(storySource).toContain('Notifications / chat thread created');
     expect(storySource).toContain('Notifications / empty');
     expect(storySource).toContain('Notifications / error');
     expect(storySource).toContain('Notices / empty');
     expect(storySource).toContain('Support / error');
+    expect(storySource).toContain('Support / enforcement notice handoff');
   });
 
   it('does not expose operations error states as HomeTab scenarios', () => {
-    const storySource = readFileSync(
-      join(process.cwd(), 'src/main/tabs/home/__stories__/HomeTab.stories.tsx'),
-      'utf8',
-    );
+    const storySource = readHomeTabStorySources();
 
     expect(storySource).not.toContain('OperationsPartialError');
     expect(storySource).not.toContain('OperationsAllError');
@@ -299,3 +312,11 @@ describe('homeStoryScenarios modal fixture matrix', () => {
     ).not.toBeNull();
   });
 });
+
+function readHomeTabStorySources(): string {
+  const storyDir = join(process.cwd(), 'src/main/tabs/home/__stories__');
+  return readdirSync(storyDir)
+    .filter((entry) => entry.startsWith('HomeTab.') && entry.endsWith('.stories.tsx'))
+    .map((entry) => readFileSync(join(storyDir, entry), 'utf8'))
+    .join('\n');
+}

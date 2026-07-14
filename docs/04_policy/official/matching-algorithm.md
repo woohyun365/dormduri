@@ -77,12 +77,12 @@ LOW_ONLY: score = 1.0 - (index / 3)
 | ----------- | --------- | ------ | ---- |
 | NONE        | 1.0       | 1.0    | 1.0  |
 | TALKING     | 0.3       | 0.8    | 1.0  |
-| SNORING     | 0.0       | 0.3    | 0.8  |
+| SNORING     | 0.0       | 0.2    | 0.6  |
 | GRINDING    | 0.0       | 0.5    | 1.0  |
 
 - NONE: 잠버릇 없음 → 모든 잠귀에 만점
 - TALKING: 잠꼬대 → 민감한 잠귀에 경미한 수용 가능성(0.3)
-- SNORING: 코골이 → 지속적·고볼륨. 보통 잠귀도 새벽 각성 시 재입면 어려움(0.3). 잠귀 둔해도 심한 경우 영향(0.8)
+- SNORING: 코골이 → 지속적·고볼륨. 보통 잠귀도 새벽 각성 시 재입면 어려움이 커서 낮은 수용 가능성(0.2)으로 본다. 잠귀가 둔해도 완전 호환으로 보지 않고 조율 필요 수준(0.6)으로 제한한다.
 - GRINDING: 이갈이 → 날카롭지만 간헐적. 보통 잠귀는 버틸 수 있음(0.5). 잠귀 둔하면 무영향(1.0)
 
 ### Pair 4: phoneBehavior × phoneTolerance (T2=3, TYPE B)
@@ -95,17 +95,19 @@ LOW_ONLY: score = 1.0 - (index / 3)
 
 ### Pair 5: earphoneUsage × earphoneExpectation (T2=3, TYPE B)
 
-| 행동 \ 조건    | MUST | STUDY | ANY |
-| -------------- | ---- | ----- | --- |
-| ALWAYS         | 1.0  | 1.0   | 1.0 |
-| MOSTLY         | 0.7  | 1.0   | 1.0 |
-| MOSTLY_SPEAKER | 0.0  | 0.7   | 1.0 |
-| ALWAYS_SPEAKER | 0.0  | 0.3   | 1.0 |
+| 행동 \ 조건    | MUST | LOW_VOLUME_OK | ANY |
+| -------------- | ---- | ------------- | --- |
+| ALWAYS         | 1.0  | 1.0           | 1.0 |
+| MOSTLY         | 0.7  | 1.0           | 1.0 |
+| MOSTLY_SPEAKER | 0.0  | 0.7           | 1.0 |
+| ALWAYS_SPEAKER | 0.0  | 0.3           | 1.0 |
 
+- MUST: 늦은 시간 소리는 이어폰 사용을 기대하는 조건이다.
+- LOW_VOLUME_OK: 스피커를 쓰더라도 작은 볼륨이면 수용하는 조건이다.
 - ALWAYS: 항상 이어폰 → MUST 완벽 충족
 - MOSTLY: 주로 이어폰 → MUST에 높은 충족(0.7, 대부분 상황에서 이어폰)
-- MOSTLY_SPEAKER: 주로 스피커 → STUDY에 부분 수용(0.7)
-- ALWAYS_SPEAKER: 항상 스피커 → STUDY에 약간 수용(0.3)
+- MOSTLY_SPEAKER: 주로 스피커 → LOW_VOLUME_OK에 부분 수용(0.7)
+- ALWAYS_SPEAKER: 항상 스피커 → LOW_VOLUME_OK에 약간 수용(0.3)
 
 ### Pair 6: sleepEnvironment × sleepEnvPreference (T2=3, TYPE B) — 소리 축
 
@@ -224,20 +226,16 @@ score = 1.0 - (|indexA - indexB| / 2)
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                                                             | 관련 이슈 |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 2026-03-18 | nightStudyLight × nightLightTolerance(Pair 6) 제거: 체크리스트 근거 없음, 커뮤니티 분석 무영향, bedtime이 빛 갈등 근본 원인 커버. 13→12쌍, dynamicMax 33→31                                                                                           | #152      |
-| 2026-03-18 | nightStudyLocation→nightStudyLight 리프레이밍: 장소가 아닌 빛 갈등 직접 포착. 옵션 ROOM/OUTSIDE/BOTH→OUTSIDE/LOW_LIGHT/DESK_LAMP. nightStudyTolerance→nightLightTolerance, QUIET_OK→LOW_OK                                                            | #152      |
-| 2026-03-18 | 가중치 스왑: temperatureSensitivity T4→T2(에어컨/난방 공유 자원 갈등), nightStudy T2→T3(시험기간 한정, 대화 해결 가능), indoorEating T3→T4(선호 수준). dynamicMax 33 유지                                                                             | #152      |
-| 2026-03-18 | sleepHabit×noise 행렬 수정: SNORING 패널티 강화(NORMAL 0.5→0.3, DEEP 1.0→0.8), GRINDING 완화(NORMAL 0.3→0.5). 코골이가 이갈이보다 지속적·고볼륨                                                                                                       | #152      |
-| 2026-03-18 | 초안 작성: 13쌍 점수 행렬, 정규화 공식, FLEXIBLE 처리                                                                                                                                                                                                 | #152      |
-| 2026-03-19 | Phase D 룸메 조건 재설계: Pair 2 drinkingTolerance 3→2옵션(LOW_ONLY/ANY), TYPE A→하이브리드(거리+무조건), 4×3→4×2 매트릭스. Pair 6b screenTolerance 2→3옵션(NO_SCREEN/LOW_OK/SCREEN_OK), 3×2→3×3 매트릭스(SCREEN×LOW_OK=0.5). 13쌍·dynamicMax 35 유지 | #157      |
-| 2026-03-19 | Phase C 생활 패턴 재설계: Pair 2 RARELY행 추가(4×3), Pair 4 enum 변경(OFTEN×ANY=0.7), Pair 5 4단계 그라디언트, Pair 7b indoorEating×indoorEatingTolerance 신규(T3=2 TYPE B), Pair 11 indoorEating 일치 제거. 13쌍 유지, dynamicMax 34→35              | #157      |
-| 2026-03-19 | Pair 6 소리/빛 2축 분리: 단일 3×3 → 소리 3×2(Pair 6) + 빛 3×2(Pair 6b). sleepEnvPreference 3→2옵션, screenTolerance 신규. 12→13쌍, dynamicMax 31→34                                                                                                   | #157      |
-| 2026-03-19 | Pair 6 근거 재정의: "소리" → "미디어 사용(소리+화면 빛)". EARPHONE×QUIET_ONLY=0.0 유지 근거 명시                                                                                                                                                      | #157      |
-| 2026-05-11 | 사용자-facing canonical score를 `perspectiveScore(viewer, target)` 단일값으로 고정하고, 문서의 `min(A,B)`/partial 설명을 제거. 알고리즘 문서는 관점 점수 계산식 자체만 소유하도록 정리                                                                | #195      |
-
-## 원문 소스
-
-- `docs/03_planning/sprint-5/152-step4-redesign-lifestyle21.md` (결정 과정 상세)
-- `docs/04_policy/matching.md` (가중치 결정 원본)
+| 날짜       | 변경 내용                                                                                                                                                                                                                                             | 관련 이슈   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 2026-03-18 | nightStudyLight × nightLightTolerance(Pair 6) 제거: 체크리스트 근거 없음, 커뮤니티 분석 무영향, bedtime이 빛 갈등 근본 원인 커버. 13→12쌍, dynamicMax 33→31                                                                                           | #152        |
+| 2026-03-18 | nightStudyLocation→nightStudyLight 리프레이밍: 장소가 아닌 빛 갈등 직접 포착. 옵션 ROOM/OUTSIDE/BOTH→OUTSIDE/LOW_LIGHT/DESK_LAMP. nightStudyTolerance→nightLightTolerance, QUIET_OK→LOW_OK                                                            | #152        |
+| 2026-03-18 | 가중치 스왑: temperatureSensitivity T4→T2(에어컨/난방 공유 자원 갈등), nightStudy T2→T3(시험기간 한정, 대화 해결 가능), indoorEating T3→T4(선호 수준). dynamicMax 33 유지                                                                             | #152        |
+| 2026-03-18 | sleepHabit×noise 행렬 수정: SNORING 패널티 강화(NORMAL 0.5→0.3, DEEP 1.0→0.8), GRINDING 완화(NORMAL 0.3→0.5). 코골이가 이갈이보다 지속적·고볼륨                                                                                                       | #152        |
+| 2026-03-18 | 초안 작성: 13쌍 점수 행렬, 정규화 공식, FLEXIBLE 처리                                                                                                                                                                                                 | #152        |
+| 2026-03-19 | Phase D 룸메 조건 재설계: Pair 2 drinkingTolerance 3→2옵션(LOW_ONLY/ANY), TYPE A→하이브리드(거리+무조건), 4×3→4×2 매트릭스. Pair 6b screenTolerance 2→3옵션(NO_SCREEN/LOW_OK/SCREEN_OK), 3×2→3×3 매트릭스(SCREEN×LOW_OK=0.5). 13쌍·dynamicMax 35 유지 | #157        |
+| 2026-03-19 | Phase C 생활 패턴 재설계: Pair 2 RARELY행 추가(4×3), Pair 4 enum 변경(OFTEN×ANY=0.7), Pair 5 4단계 그라디언트, Pair 7b indoorEating×indoorEatingTolerance 신규(T3=2 TYPE B), Pair 11 indoorEating 일치 제거. 13쌍 유지, dynamicMax 34→35              | #157        |
+| 2026-03-19 | Pair 6 소리/빛 2축 분리: 단일 3×3 → 소리 3×2(Pair 6) + 빛 3×2(Pair 6b). sleepEnvPreference 3→2옵션, screenTolerance 신규. 12→13쌍, dynamicMax 31→34                                                                                                   | #157        |
+| 2026-03-19 | Pair 6 근거 재정의: "소리" → "미디어 사용(소리+화면 빛)". EARPHONE×QUIET_ONLY=0.0 유지 근거 명시                                                                                                                                                      | #157        |
+| 2026-05-11 | 사용자-facing canonical score를 `perspectiveScore(viewer, target)` 단일값으로 고정하고, 문서의 `min(A,B)`/partial 설명을 제거. 알고리즘 문서는 관점 점수 계산식 자체만 소유하도록 정리                                                                | #195        |
+| 2026-07-10 | sleepHabit×noise 행렬에서 SNORING 패널티를 추가 강화했다. NORMAL은 0.3→0.2, DEEP은 0.8→0.6으로 낮춰 코골이가 잠귀가 둔한 사용자에게도 조율 필요 축으로 남도록 했다.                                                                                   | RoommateTab |

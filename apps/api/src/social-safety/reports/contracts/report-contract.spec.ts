@@ -5,6 +5,8 @@ import { notificationPayloadSchema } from '@repo/shared/notifications';
 import {
   createReportRequestSchema,
   createReportResponseSchema,
+  listReportsQuerySchema,
+  reportListResponseSchema,
   reportReceiptSchema,
 } from '@repo/shared/social-safety/report';
 
@@ -124,6 +126,43 @@ describe('report shared contract', () => {
         targetId: 'target-user-1',
         reason: 'SPAM',
         falseReportDisclaimerAccepted: true,
+      }),
+    ).toThrow();
+  });
+
+  it('report list contract는 신고자 본인용 접수 내역만 노출하고 운영 판단 필드를 거부한다', () => {
+    expect(listReportsQuerySchema.parse({ limit: '10' })).toMatchObject({ limit: 10 });
+
+    expect(
+      reportListResponseSchema.parse({
+        items: [
+          {
+            id: 'report-1',
+            targetType: 'PROFILE',
+            targetLabel: '지우님',
+            reason: 'FALSE_PROFILE',
+            receivedAt: serverTime,
+            status: 'RECEIVED',
+          },
+        ],
+        pageInfo: { hasNextPage: false, nextCursor: null },
+      }),
+    ).toMatchObject({ items: [{ targetLabel: '지우님', status: 'RECEIVED' }] });
+
+    expect(() =>
+      reportListResponseSchema.parse({
+        items: [
+          {
+            id: 'report-1',
+            targetType: 'PROFILE',
+            targetLabel: '지우님',
+            reason: 'FALSE_PROFILE',
+            receivedAt: serverTime,
+            status: 'RECEIVED',
+            riskTier: 'HIGH',
+          },
+        ],
+        pageInfo: { hasNextPage: false, nextCursor: null },
       }),
     ).toThrow();
   });

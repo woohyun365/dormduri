@@ -337,9 +337,3 @@ Phase 2+(PAIR_OPEN~GROUP_FINAL)는 ACTIVE 동등이므로, **그룹 내 멤버 �
 | 2026-05-11 | 그룹 매칭도 게이팅을 2인실 capability 정책과 맞춰 `full/gated` 2-state로 정리. pairwise directional score 중 하나라도 gated면 그룹 카드 점수는 비노출된다고 명시                                                                                                                                                                                          | #195      |
 | 2026-05-20 | #195 capability 용어 보정에 맞춰 그룹 매칭도 게이팅을 `scoreVisible` 기반으로 정리                                                                                                                                                                                                                                                                        | #195      |
 | 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                                                                                                                                                                                                                       | #195      |
-
-## 원문 소스
-
-- `docs/04_policy/official/matching-lifecycle.md` (2인실 정책)
-- `docs/04_policy/official/chat-lifecycle.md` (채팅 생명주기)
-- `docs/04_policy/official/season-lifecycle.md` (시즌 운영)

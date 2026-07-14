@@ -40,7 +40,7 @@ const DRINKING_MATRIX: Record<string, Record<string, number>> = {
 const SLEEP_HABIT_MATRIX: Record<string, Record<string, number>> = {
   NONE: { SENSITIVE: 1.0, NORMAL: 1.0, DEEP: 1.0 },
   TALKING: { SENSITIVE: 0.3, NORMAL: 0.8, DEEP: 1.0 },
-  SNORING: { SENSITIVE: 0.0, NORMAL: 0.3, DEEP: 0.8 },
+  SNORING: { SENSITIVE: 0.0, NORMAL: 0.2, DEEP: 0.6 },
   GRINDING: { SENSITIVE: 0.0, NORMAL: 0.5, DEEP: 1.0 },
 };
 
@@ -53,10 +53,10 @@ const PHONE_MATRIX: Record<string, Record<string, number>> = {
 
 // Pair 5: earphoneUsage × earphoneExpectation (T2)
 const EARPHONE_MATRIX: Record<string, Record<string, number>> = {
-  ALWAYS: { MUST: 1.0, STUDY: 1.0, ANY: 1.0 },
-  MOSTLY: { MUST: 0.7, STUDY: 1.0, ANY: 1.0 },
-  MOSTLY_SPEAKER: { MUST: 0.0, STUDY: 0.7, ANY: 1.0 },
-  ALWAYS_SPEAKER: { MUST: 0.0, STUDY: 0.3, ANY: 1.0 },
+  ALWAYS: { MUST: 1.0, LOW_VOLUME_OK: 1.0, ANY: 1.0 },
+  MOSTLY: { MUST: 0.7, LOW_VOLUME_OK: 1.0, ANY: 1.0 },
+  MOSTLY_SPEAKER: { MUST: 0.0, LOW_VOLUME_OK: 0.7, ANY: 1.0 },
+  ALWAYS_SPEAKER: { MUST: 0.0, LOW_VOLUME_OK: 0.3, ANY: 1.0 },
 };
 
 // Pair 6: sleepEnvironment × sleepEnvPreference (T2) — 소리 축

@@ -7,7 +7,7 @@ export function HomeNoticeSurface() {
     <section aria-label="공지사항" className="overflow-hidden rounded-3xl">
       <Link
         href={'/notices' as Route}
-        className="group block w-full rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-sky-50 p-4 text-left shadow-sm transition-colors hover:border-blue-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary) md:p-5"
+        className="group block w-full rounded-3xl border border-blue-100 bg-linear-to-br from-blue-50 via-white to-sky-50 p-4 text-left shadow-sm transition-colors hover:border-blue-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary) md:p-5"
       >
         <span className="flex items-start gap-3 md:items-center md:gap-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 md:size-11">

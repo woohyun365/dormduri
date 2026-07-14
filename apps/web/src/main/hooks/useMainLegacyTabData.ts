@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { UNASSIGNED_ID } from '@/constants/dormitory';
-import { profileApi } from '@/api/profile';
+import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import type { Season } from '@/main/season/seasonFallback';
 import type { PastSeasonData } from '@/types/match';

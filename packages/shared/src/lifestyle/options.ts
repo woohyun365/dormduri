@@ -15,7 +15,7 @@ export const LIFESTYLE_FIELD_OPTIONS = {
   temperatureSensitivity: ['COLD', 'NORMAL', 'HOT'],
   smokingTolerance: ['NO_ONLY', 'E_CIG_OK', 'ANY'],
   phoneTolerance: ['OUTSIDE_ONLY', 'BRIEF_OK', 'ANY'],
-  earphoneExpectation: ['MUST', 'STUDY', 'ANY'],
+  earphoneExpectation: ['MUST', 'LOW_VOLUME_OK', 'ANY'],
   sleepEnvPreference: ['NO_SPEAKER', 'SPEAKER_OK'],
   screenTolerance: ['NO_SCREEN', 'LOW_OK', 'SCREEN_OK'],
   indoorEatingTolerance: ['NO_SMELL', 'CLEAN_OK', 'ANY'],

@@ -166,8 +166,3 @@
 | 2026-05-20 | #195 2026-05-20 결정에 맞춰 signup/profile orchestration과 자동 `UNASSIGNED` 등록 완료를 제거하고, registration 완료 조건을 `REGISTERED + ASSIGNED + complete season profile`로 정리했다. 비운영 캠퍼스/current season 선택 불가 상황은 registration unavailable로 안내하며 legacy `UNASSIGNED` browse 표현은 historical record로 둔다 | #195       |
 | 2026-05-21 | dormitory selection을 registration 전 current `SeasonParticipant` row의 `SELECTED + dormitoryId` draft로 명시하고, 별도 account-level selection row 없이 registration 전 저장/변경 가능하되 finalize에서 complete profile과 함께 재검증한다고 정리했다                                                                                 | #195       |
 | 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                                                                                                                                                                                                    | #195       |
-
-## 원문 소스
-
-- `docs/04_policy/eligibility.md`
-- `docs/04_policy/auth.md`

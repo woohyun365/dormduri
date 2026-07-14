@@ -87,6 +87,14 @@ describe('landing visible policy copy', () => {
     }
 
     expect(screen.getAllByText('예시')).toHaveLength(2);
+    expect(
+      screen.getAllByText(
+        /실제 사용자가 아닌 이해를 돕기 위한 예시이며, 서비스 내부 디자인과 다를 수 있어요\./,
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByText(/실제 사용자, 실제 점수, 매칭 또는 호실 선택 성공/),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('같은 기숙사 후보와 직접 대화')).toBeInTheDocument();
     expect(screen.getByText(/매칭 요청·수락은 시즌 매칭 기간에만 열립니다/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(

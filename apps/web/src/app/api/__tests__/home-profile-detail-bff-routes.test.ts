@@ -156,6 +156,84 @@ describe('home profile detail BFF routes', () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${AUTH_TOKEN}` }),
       }),
     );
-    await expect(response.json()).resolves.toMatchObject({ detailState: 'FULL' });
+    await expect(response.json()).resolves.toMatchObject({
+      detailState: 'FULL',
+      compatibility: {
+        overallScore: 92,
+        hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+      },
+    });
+  });
+
+  it('public profile route는 compatibility hidden/raw field drift를 fail closed 처리한다', async () => {
+    stubJsonFetch({
+      ...createPublicProfileFull(),
+      compatibility: {
+        overallScore: 92,
+        axes: [
+          {
+            id: 'SMOKING',
+            score: 100,
+            bucket: 'HIGH',
+            targetCondition: 'NO_ONLY',
+          },
+        ],
+        hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+      },
+    });
+    const request = createRequest('/api/profiles/user-2?detailEntryToken=token-1', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    const response = await getPublicProfile(request, { params: { userId: 'user-2' } });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      code: 'BFF_UPSTREAM_SCHEMA_INVALID',
+    });
+  });
+
+  it('public profile route는 scoreVisible=false compatibility drift를 fail closed 처리한다', async () => {
+    stubJsonFetch({
+      ...createPublicProfileFull(),
+      exposure: {
+        ...createPublicProfileFull().exposure,
+        scoreVisible: false,
+      },
+    });
+    const request = createRequest('/api/profiles/user-2?detailEntryToken=token-1', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    const response = await getPublicProfile(request, { params: { userId: 'user-2' } });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      code: 'BFF_UPSTREAM_SCHEMA_INVALID',
+    });
+  });
+
+  it('public profile route는 tombstone compatibility drift를 fail closed 처리한다', async () => {
+    stubJsonFetch({
+      ...createPublicProfileTombstone(),
+      compatibility: {
+        overallScore: 92,
+        axes: [{ id: 'SMOKING', score: 100, bucket: 'HIGH' }],
+        hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+      },
+    });
+    const request = createRequest('/api/profiles/user-removed?detailEntryToken=token-1', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    const response = await getPublicProfile(request, { params: { userId: 'user-removed' } });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      code: 'BFF_UPSTREAM_SCHEMA_INVALID',
+    });
   });
 });

@@ -390,6 +390,14 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
             scoreVisible,
           })
         : null;
+      const compatibility =
+        typeof matchScore === 'number'
+          ? deps.matchScoreProjection.buildPublicProfileCompatibility({
+              viewerLifestyle: viewerContext.viewerLifestyle,
+              targetLifestyle,
+              scoreVisible,
+            })
+          : null;
 
       return toPublicProfile(
         {
@@ -404,6 +412,7 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
           resultRead: publicTargetPolicy.resultRead,
           scoreVisible,
           ...(typeof matchScore === 'number' ? { matchScore } : {}),
+          ...(compatibility ? { compatibility } : {}),
         },
       );
     }

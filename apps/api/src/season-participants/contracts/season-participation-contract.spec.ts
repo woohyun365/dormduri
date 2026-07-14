@@ -35,7 +35,7 @@ const VALID_LIFESTYLE: LifestyleData = {
   temperatureSensitivity: 'NORMAL',
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
+  earphoneExpectation: 'LOW_VOLUME_OK',
   sleepEnvPreference: 'NO_SPEAKER',
   screenTolerance: 'LOW_OK',
   indoorEatingTolerance: 'CLEAN_OK',

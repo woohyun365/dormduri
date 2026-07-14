@@ -22,12 +22,6 @@ export function resolveRoommateSearchScopeAvailability(
   viewerContext: VisibleProfileViewerContext,
 ): RoommateSearchScopeAvailability {
   const seasonState = viewerContext.serviceState.seasonState;
-  const viewerRegistered = isParticipantRegistered(viewerContext.viewerParticipant);
-  const sameBuildingOnly =
-    viewerRegistered &&
-    viewerHasAssignedDormitory(viewerContext.viewerParticipant, viewerContext) &&
-    seasonState !== null &&
-    seasonState !== 'OFF_SEASON';
 
   if (seasonState === null || seasonState === 'OFF_SEASON') {
     return {
@@ -36,23 +30,9 @@ export function resolveRoommateSearchScopeAvailability(
     };
   }
 
-  if (seasonState === 'SEASON_OPEN' || seasonState === 'SEASON_POST_MATCH') {
-    return {
-      campusMerged: true,
-      sameBuildingOnly,
-    };
-  }
-
-  if (viewerRegistered) {
-    return {
-      campusMerged: false,
-      sameBuildingOnly,
-    };
-  }
-
   return {
     campusMerged: true,
-    sameBuildingOnly: false,
+    sameBuildingOnly: true,
   };
 }
 
@@ -86,6 +66,14 @@ export function resolveRoommateSearchPurpose(
     return 'POST_MATCH_COHORT_REVIEW';
   }
 
+  if (
+    !viewerCanUseActionableSameBuilding(viewerContext) ||
+    (viewerContext.serviceState.seasonState === 'SEASON_MATCHING' &&
+      viewerHasActiveMatch(viewerContext.viewerParticipant))
+  ) {
+    return 'BROAD_PREVIEW';
+  }
+
   return 'ACTIONABLE_DETAIL_DISCOVERY';
 }
 
@@ -102,6 +90,14 @@ function viewerHasAssignedDormitory(
     viewerContext.viewerHasOperatedAssignedDormitory &&
     viewerContext.viewerSelection.dormitoryId !== null
   );
+}
+
+function viewerCanUseActionableSameBuilding(viewerContext: VisibleProfileViewerContext) {
+  return viewerHasAssignedDormitory(viewerContext.viewerParticipant, viewerContext);
+}
+
+function viewerHasActiveMatch(participant: CurrentSeasonParticipantRecord | null) {
+  return participant?.participantStatus === 'MATCHED' || participant?.matchedAt != null;
 }
 
 function resolveDefaultScope(

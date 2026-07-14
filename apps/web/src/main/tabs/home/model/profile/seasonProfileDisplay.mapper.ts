@@ -1,5 +1,8 @@
-import { getLifestyleLabel, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
-import { GRADES } from '@/constants/additional-profile';
+import {
+  formatLifestyleFieldName,
+  formatLifestyleOptionLabel,
+} from '@/main/model/lifestyleDisplayCopy';
+import { formatGradeLabel } from '@/main/model/profileDisplayCopy';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { SeasonProfileDraftResponse } from '@repo/shared/season/participation';
 
@@ -45,7 +48,7 @@ export function buildSeasonProfileStatusRows(
       value: profile.completion.dormitorySelectionRequired ? '설정 필요' : '완료',
     },
     { label: '수정 가능', value: profile.draftWritable ? '가능' : '읽기 전용' },
-    { label: '학년', value: formatGrade(profile.additional.grade) },
+    { label: '학년', value: formatGradeLabel(profile.additional.grade) },
     { label: 'MBTI', value: profile.additional.mbti ?? '미입력' },
   ];
 }
@@ -54,17 +57,13 @@ export function buildSeasonProfileLifestyleRows(
   profile: SeasonProfileDraftResponse,
 ): HomeProfileDisplayRow[] {
   return SEASON_PROFILE_LIFESTYLE_FIELDS.map((field) => ({
-    label: LIFESTYLE_FIELD_NAMES[field],
-    value: getLifestyleLabel(field, profile.lifestyle[field]),
+    label: formatLifestyleFieldName(field),
+    value: formatLifestyleOptionLabel(field, profile.lifestyle[field]),
   }));
 }
 
 export function formatSeasonProfileIntro(profile: SeasonProfileDraftResponse): string {
   return profile.intro.trim() || '아직 소개 문구가 없어요.';
-}
-
-function formatGrade(value: SeasonProfileDraftResponse['additional']['grade']): string {
-  return GRADES.find((grade) => grade.value === value)?.label ?? '미입력';
 }
 
 function formatProfileState(state: SeasonProfileDraftResponse['state']): string {

@@ -156,15 +156,24 @@ describe('calcMatchScore', () => {
   // =========================================================
   describe('AC-N6: TYPE B (Matrix) 부분점수', () => {
     describe('Pair 3: sleepHabit × noiseSensitivity (T1=5)', () => {
-      it('SNORING × DEEP → 0.8', () => {
+      it('SNORING × DEEP → 0.6', () => {
         const a = make({ noiseSensitivity: 'DEEP', sleepHabit: 'NONE' });
         const b = make({ sleepHabit: 'SNORING', noiseSensitivity: 'DEEP' });
-        // a evaluates b: noiseSensitivity=DEEP, target sleepHabit=SNORING → 0.8
+        // a evaluates b: noiseSensitivity=DEEP, target sleepHabit=SNORING → 0.6
         // b evaluates a: noiseSensitivity=DEEP, target sleepHabit=NONE → 1.0
-        // a perspective: (0.8×5)/5 × 100 = 80
+        // a perspective: (0.6×5)/5 × 100 = 60
         // b perspective: (1.0×5)/5 × 100 = 100
-        // min(80, 100) = 80
-        expect(calcMatchScore(a, b)).toBe(80);
+        // min(60, 100) = 60
+        expect(calcMatchScore(a, b)).toBe(60);
+      });
+
+      it('SNORING × NORMAL → 0.2', () => {
+        const a = make({ noiseSensitivity: 'NORMAL', sleepHabit: 'NONE' });
+        const b = make({ sleepHabit: 'SNORING', noiseSensitivity: 'DEEP' });
+        // a evaluates b: NORMAL vs SNORING → 0.2
+        // b evaluates a: DEEP vs NONE → 1.0
+        // min(20, 100) = 20
+        expect(calcMatchScore(a, b)).toBe(20);
       });
 
       it('TALKING × SENSITIVE → 0.3', () => {
@@ -261,10 +270,10 @@ describe('calcMatchScore', () => {
         expect(calcMatchScore(a, b)).toBe(70);
       });
 
-      it('MOSTLY_SPEAKER × STUDY → 0.7', () => {
-        const a = make({ earphoneExpectation: 'STUDY', earphoneUsage: 'ALWAYS' });
+      it('MOSTLY_SPEAKER × LOW_VOLUME_OK → 0.7', () => {
+        const a = make({ earphoneExpectation: 'LOW_VOLUME_OK', earphoneUsage: 'ALWAYS' });
         const b = make({ earphoneUsage: 'MOSTLY_SPEAKER', earphoneExpectation: 'ANY' });
-        // a: STUDY vs MOSTLY_SPEAKER → 0.7
+        // a: LOW_VOLUME_OK vs MOSTLY_SPEAKER → 0.7
         expect(calcMatchScore(a, b)).toBe(70);
       });
 
@@ -286,10 +295,10 @@ describe('calcMatchScore', () => {
         expect(calcMatchScore(a, b)).toBe(100);
       });
 
-      it('ALWAYS_SPEAKER × STUDY → 0.3', () => {
-        const a = make({ earphoneExpectation: 'STUDY', earphoneUsage: 'ALWAYS' });
+      it('ALWAYS_SPEAKER × LOW_VOLUME_OK → 0.3', () => {
+        const a = make({ earphoneExpectation: 'LOW_VOLUME_OK', earphoneUsage: 'ALWAYS' });
         const b = make({ earphoneUsage: 'ALWAYS_SPEAKER', earphoneExpectation: 'ANY' });
-        // a: STUDY vs ALWAYS_SPEAKER → 0.3
+        // a: LOW_VOLUME_OK vs ALWAYS_SPEAKER → 0.3
         expect(calcMatchScore(a, b)).toBe(30);
       });
     });

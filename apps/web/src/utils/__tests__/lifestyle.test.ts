@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isConditionComplete, isLifestyleRequiredComplete } from '../lifestyle';
-import { makeLifestyle } from '@/main/dev-only/fixtures/test-helpers';
-import { LIFESTYLE_EMPTY } from '@/main/dev-only/fixtures/test-helpers';
+import { makeLifestyle, LIFESTYLE_EMPTY } from '@/test-support/lifestyle.factory';
 
 // -- isConditionComplete --
 

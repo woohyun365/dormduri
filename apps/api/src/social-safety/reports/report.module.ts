@@ -7,6 +7,7 @@ import { ReportIntakeService } from './application/report-intake.service.js';
 import { CreateReportCommand } from './commands/create-report.command.js';
 import { ReportNotificationService } from './notifications/report-notification.service.js';
 import { ReportPresenter } from './presenters/report.presenter.js';
+import { ReportListQuery } from './queries/report-list.query.js';
 import { ReportRepository } from './repositories/report.repository.js';
 import { ReportTargetContextResolver } from './resolvers/report-target-context.resolver.js';
 import { ReportRetentionReferenceService } from './retention/report-retention-reference.service.js';
@@ -18,6 +19,7 @@ import { ReportController } from './report.controller.js';
   providers: [
     ReportIntakeService,
     CreateReportCommand,
+    ReportListQuery,
     ReportTargetContextResolver,
     ReportRepository,
     ReportNotificationService,

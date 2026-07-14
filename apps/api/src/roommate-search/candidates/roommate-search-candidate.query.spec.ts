@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { buildRoommateSearchCandidateWhere } from './roommate-search-candidate.query.js';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  buildRoommateSearchCandidateWhere,
+  createRoommateSearchCandidateQuery,
+} from './roommate-search-candidate.query.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 import { currentParticipant } from '../../season-participants/test-support/season-participants.spec-fixtures.js';
 
@@ -35,6 +38,41 @@ const viewerContext = {
 } satisfies VisibleProfileViewerContext;
 
 describe('roommate-search-candidate.query', () => {
+  it('미등록 viewer의 SAME_BUILDING_ONLY gate scope는 후보 DB 조회 없이 빈 목록을 반환한다', async () => {
+    const findMany = vi.fn();
+    const query = createRoommateSearchCandidateQuery({
+      prisma: {
+        seasonParticipant: { findMany },
+      } as never,
+    });
+
+    const result = await query.findCandidates({
+      viewerContext: {
+        ...viewerContext,
+        viewerParticipant: currentParticipant({
+          id: 'viewer-participant',
+          userId: 'viewer-user',
+          participationIntent: 'UNDECIDED',
+          registeredAt: null,
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+          participantStatus: 'NOT_STARTED',
+        }) as NonNullable<VisibleProfileViewerContext['viewerParticipant']>,
+        viewerSelection: {
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+          source: 'SEASON_PARTICIPANT',
+        },
+        viewerHasOperatedAssignedDormitory: false,
+      },
+      scope: 'SAME_BUILDING_ONLY',
+      query: { scope: 'SAME_BUILDING_ONLY', limit: 20 },
+    });
+
+    expect(result).toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
   it('SAME_BUILDING_ONLY candidate query는 registration complete public target 후보를 DB 조건으로 먼저 줄인다', () => {
     const where = buildRoommateSearchCandidateWhere({
       viewerContext,
@@ -43,7 +81,7 @@ describe('roommate-search-candidate.query', () => {
         scope: 'SAME_BUILDING_ONLY',
         college: { operator: 'EXCLUDE', values: ['IT'] },
         mbtiTraits: { energy: 'E', decision: 'T' },
-        ageBand: { values: ['24'] },
+        ageBand: { values: ['20'] },
         limit: 20,
       },
     });
@@ -103,8 +141,42 @@ describe('roommate-search-candidate.query', () => {
     });
     expect(filterCondition).toMatchObject({
       collegeCode: { notIn: ['IT'] },
-      OR: [{ birthYear: 2002 }],
+      OR: [{ birthYear: 2007 }],
     });
     expect(filterCondition.mbti.in).toEqual(expect.arrayContaining(['ENTJ', 'ESTJ']));
+  });
+
+  it('ageBand query는 시즌 기준 연도가 바뀌면 같은 한국식 나이 code를 다음 birthYear로 변환한다', () => {
+    const where = buildRoommateSearchCandidateWhere({
+      viewerContext: {
+        ...viewerContext,
+        seasonReferenceYear: 2027,
+      },
+      scope: 'SAME_BUILDING_ONLY',
+      query: {
+        scope: 'SAME_BUILDING_ONLY',
+        ageBand: { values: ['20', '25_PLUS'] },
+        limit: 20,
+      },
+    });
+
+    const profileWhere = where.profile;
+    if (
+      !profileWhere ||
+      typeof profileWhere !== 'object' ||
+      !('is' in profileWhere) ||
+      !profileWhere.is ||
+      typeof profileWhere.is !== 'object' ||
+      !('AND' in profileWhere.is) ||
+      !Array.isArray(profileWhere.is.AND)
+    ) {
+      throw new Error('expected profile AND candidate where');
+    }
+
+    const filterCondition = profileWhere.is.AND.at(1) as {
+      OR: Array<{ birthYear: number } | { birthYear: { lte: number } }>;
+    };
+
+    expect(filterCondition.OR).toEqual([{ birthYear: 2008 }, { birthYear: { lte: 2003 } }]);
   });
 });

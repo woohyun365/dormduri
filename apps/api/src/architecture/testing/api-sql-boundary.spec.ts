@@ -157,6 +157,49 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'chat realtime replay listing stays ordered, bounded, and generated.',
   }),
   sqlEntry({
+    path: 'prisma/sql/findActiveChatThreadSearchMetadata.sql',
+    owner: 'chat/queries',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /FROM\s+"ConversationThread"\s+AS\s+conversation/i,
+      /INNER\s+JOIN\s+"ConversationThreadMember"\s+AS\s+viewer_member/i,
+      /viewer_member\."memberState"\s+=\s+'ACTIVE'::"ConversationThreadMemberState"/i,
+      /target_member\."memberState"\s+=\s+'ACTIVE'::"ConversationThreadMemberState"/i,
+      /conversation\."status"\s+=\s+'OPEN'::"ConversationThreadStatus"/i,
+      /ANY\(\$3::text\[\]\)/i,
+    ],
+    rationale:
+      'roommate-search summary decorates visible candidates with active OPEN chat thread state through a chat-owned generated TypedSQL query.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/findDirectionLimitReachedMatchRequestSearchMetadata.sql',
+    owner: 'matches/requests',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /FROM\s+"MatchRequest"/i,
+      /"requesterParticipantId"\s+=\s+\$2/i,
+      /"receiverParticipantId"\s+=\s+ANY\(\$3::text\[\]\)/i,
+      /GROUP\s+BY\s+request\."receiverParticipantId"/i,
+      /HAVING\s+COUNT\(\*\)\s+>=\s+5/i,
+    ],
+    rationale:
+      'roommate-search summary decorates visible candidates whose viewer-to-target direction has exhausted match-request attempts without exposing unrelated pair history.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/findPendingMatchRequestSearchMetadata.sql',
+    owner: 'matches/requests',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /FROM\s+"MatchRequest"/i,
+      /"status"\s+=\s+'PENDING'::"MatchRequestStatus"/i,
+      /"expiresAt"\s+>\s+\$4/i,
+      /ANY\(\$3::text\[\]\)/i,
+      /ORDER\s+BY\s+request\."createdAt"\s+DESC,\s*request\."id"\s+DESC/i,
+    ],
+    rationale:
+      'roommate-search summary decorates visible candidates with live pending match-request direction through a bounded generated TypedSQL query.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/getActiveLoginLock.sql',
     owner: 'auth/login-attempts',
     category: 'db-time',

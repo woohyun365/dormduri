@@ -131,7 +131,3 @@ DB credential 경계도 서비스 책임에 포함한다. 일반 API runtime은 
 | 2026-05-25 | RRPD retained vault가 user-facing/product read path에서 복원되지 않고, 운영 disclosure도 승인/로그 기반으로 제한된다는 서비스 경계를 추가       | #195        |
 | 2026-05-26 | RRPD 접근 경계에 DB credential 분리와 retention 운영 관측/alert signal 책임을 추가                                                              | #195        |
 | 2026-06-09 | RRPD 접근 경계에 domain-owned source row semantics 원칙을 추가하고, retention boundary가 product API retained payload 복원 통로가 아니라고 명시 | #230 / #229 |
-
-## 원문 소스
-
-- `docs/04_policy/service-scope.md`

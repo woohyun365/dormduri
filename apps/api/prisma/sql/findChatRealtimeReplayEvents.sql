@@ -1,3 +1,7 @@
+-- @param {String} $1:param1
+-- @param {DateTime} $2:param2
+-- @param {DateTime} $4:param4
+-- @param {String} $5:param5
 SELECT
   recipient."eventId" AS "eventId",
   recipient."cursor" AS "cursor",

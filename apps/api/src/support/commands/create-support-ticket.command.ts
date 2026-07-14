@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { CreateSupportTicketRequest, CreateSupportTicketResponse } from '@repo/shared/support';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { SupportNotificationService } from '../notifications/support-notification.service.js';
+import { supportErrors } from '../errors/support.errors.js';
 import { toSupportTicketResponse } from '../presenters/support-ticket.presenter.js';
 import { SupportTicketRepository } from '../repositories/support-ticket.repository.js';
 
@@ -20,6 +22,17 @@ export class CreateSupportTicketCommand {
   }): Promise<CreateSupportTicketResponse> {
     const now = await this.prisma.getDatabaseNow();
     const ticket = await this.prisma.runSerializableTransaction(async (tx) => {
+      await this.assertReportResultAppealRelatedEntity({
+        tx,
+        authUser: input.authUser,
+        request: input.request,
+      });
+      await this.assertEnforcementAppealRelatedEntity({
+        tx,
+        authUser: input.authUser,
+        request: input.request,
+      });
+
       const { ticket } = await this.repository.createTicketWithMessage({
         client: tx,
         requesterUserId: input.authUser.id,
@@ -44,5 +57,52 @@ export class CreateSupportTicketCommand {
     });
 
     return { ticket: toSupportTicketResponse(ticket) };
+  }
+
+  private async assertReportResultAppealRelatedEntity(input: {
+    tx: Prisma.TransactionClient;
+    authUser: AuthenticatedUserContext;
+    request: CreateSupportTicketRequest;
+  }): Promise<void> {
+    if (input.request.category !== 'APPEAL' || input.request.appealCategory !== 'REPORT_RESULT') {
+      return;
+    }
+
+    if (!input.request.relatedEntityId) {
+      throw supportErrors.relatedReportRequired();
+    }
+
+    const report = await this.repository.findOwnedReportCase({
+      client: input.tx,
+      reportCaseId: input.request.relatedEntityId,
+      requesterUserId: input.authUser.id,
+    });
+    if (!report) {
+      throw supportErrors.relatedReportNotFound();
+    }
+  }
+
+  private async assertEnforcementAppealRelatedEntity(input: {
+    tx: Prisma.TransactionClient;
+    authUser: AuthenticatedUserContext;
+    request: CreateSupportTicketRequest;
+  }): Promise<void> {
+    if (
+      input.request.category !== 'APPEAL' ||
+      (input.request.appealCategory !== 'SANCTION' &&
+        input.request.appealCategory !== 'TEMPORARY_RESTRICTION') ||
+      !input.request.relatedEntityId
+    ) {
+      return;
+    }
+
+    const notice = await this.repository.findOwnedEnforcementNotice({
+      client: input.tx,
+      enforcementNoticeId: input.request.relatedEntityId,
+      requesterUserId: input.authUser.id,
+    });
+    if (!notice) {
+      throw supportErrors.relatedEnforcementNoticeNotFound();
+    }
   }
 }

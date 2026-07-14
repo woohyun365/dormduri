@@ -107,7 +107,7 @@ function OperationsPageFlow({ initialRoute, operationsMode }: OperationsPageFlow
 }
 
 const meta = {
-  title: 'Main/HomeTab/Operations Pages',
+  title: 'Main/HomeTab/Operations/Pages',
   component: OperationsPageFlow,
   parameters: {
     docs: {
@@ -214,6 +214,13 @@ export const NotificationsReportStatusUpdated = createOperationsPageStory(
   '신고 처리 상태 변경 알림이 민감한 신고 원문 없이 표시되는지 확인합니다.',
 );
 
+export const NotificationsEnforcementNotice = createOperationsPageStory(
+  'Notifications / enforcement notice',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-enforcement-notice',
+  '피신고인 제재 고지가 신고자/증거 원문 없이 coarse category와 이의 경로만 표시되는지 확인합니다.',
+);
+
 export const NotificationsSeasonSystemNotice = createOperationsPageStory(
   'Notifications / season notice',
   { kind: 'notifications', label: '/notifications' },
@@ -247,6 +254,34 @@ export const SupportWithTicket = createOperationsPageStory(
   { kind: 'support', label: '/support', ticketId: 'story-support-ticket-1' },
   'loaded',
   '문의하기 page에서 FAQ, 내 문의 목록, 선택된 ticket thread를 확인합니다.',
+);
+
+export const SupportReportListHandoff = createOperationsPageStory(
+  'Support / report success handoff',
+  { kind: 'support', label: '/support' },
+  'support-report-list',
+  '신고 접수 receipt 이후 Support page에서 내 신고 내역을 확인하고 신고 처리 이의 신청으로 이어지는 상태입니다.',
+);
+
+export const SupportReportListWithAppealThread = createOperationsPageStory(
+  'Support / report list + appeal thread',
+  { kind: 'support', label: '/support', ticketId: 'story-support-report-ticket-1' },
+  'support-report-list',
+  '신고 접수 후 Support page에서 내 신고 내역과 연결된 신고 처리 이의 thread를 확인합니다.',
+);
+
+export const SupportEnforcementNoticeListHandoff = createOperationsPageStory(
+  'Support / enforcement notice handoff',
+  { kind: 'support', label: '/support' },
+  'support-enforcement-list',
+  '제재 고지 이후 Support page에서 내 이용 제한 내역과 이의 신청 CTA를 확인합니다.',
+);
+
+export const SupportEnforcementNoticeWithAppealThread = createOperationsPageStory(
+  'Support / enforcement notice + appeal thread',
+  { kind: 'support', label: '/support', ticketId: 'story-support-enforcement-ticket-1' },
+  'support-enforcement-list',
+  '이용 제한 내역과 연결된 제재/임시 제한 이의 thread를 확인합니다.',
 );
 
 export const SupportEmpty = createOperationsPageStory(

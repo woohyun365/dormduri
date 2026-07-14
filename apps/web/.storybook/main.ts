@@ -5,7 +5,11 @@ const config: StorybookConfig = {
     name: '@storybook/nextjs-vite',
     options: {},
   },
-  stories: ['../src/main/tabs/home/**/*.stories.@(ts|tsx|mdx)'],
+  stories: [
+    '../src/legal/__stories__/**/*.stories.@(ts|tsx|mdx)',
+    '../src/main/tabs/home/**/*.stories.@(ts|tsx|mdx)',
+    '../src/main/tabs/roommate-list/**/*.stories.@(ts|tsx|mdx)',
+  ],
   addons: ['@storybook/addon-docs'],
   staticDirs: [],
 };

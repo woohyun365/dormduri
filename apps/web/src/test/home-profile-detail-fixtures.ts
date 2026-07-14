@@ -126,6 +126,116 @@ export function createPublicProfileFull(
       temperatureSensitivity: 'NORMAL',
     },
     matchScore: 92,
+    compatibility: {
+      overallScore: 92,
+      dimensions: [
+        { id: 'SMOKING', score: 100, bucket: 'HIGH', axisIds: ['SMOKING'] },
+        { id: 'SLEEP_RHYTHM', score: 90, bucket: 'HIGH', axisIds: ['BEDTIME', 'WAKE_TIME'] },
+        { id: 'SLEEP_HABIT', score: 40, bucket: 'LOW', axisIds: ['SLEEP_HABIT'] },
+        {
+          id: 'SLEEP_ENVIRONMENT',
+          score: 40,
+          bucket: 'LOW',
+          axisIds: ['SCREEN_USAGE', 'SLEEP_ENVIRONMENT'],
+        },
+        { id: 'DEVICE_USAGE', score: 86, bucket: 'HIGH', axisIds: ['PHONE', 'EARPHONE'] },
+        {
+          id: 'CLEAN_SPACE',
+          score: 50,
+          bucket: 'MEDIUM',
+          axisIds: ['CLEAN_LEVEL', 'INDOOR_EATING'],
+        },
+        { id: 'TEMPERATURE', score: 100, bucket: 'HIGH', axisIds: ['TEMPERATURE'] },
+        { id: 'RELATIONSHIP_STYLE', score: 82, bucket: 'HIGH', axisIds: ['RELATIONSHIP'] },
+      ],
+      axes: [
+        {
+          id: 'SMOKING',
+          score: 100,
+          bucket: 'HIGH',
+          comparison: { targetText: '비흡연', viewerText: '비흡연자가 좋아요' },
+        },
+        {
+          id: 'BEDTIME',
+          score: 100,
+          bucket: 'HIGH',
+          comparison: { targetText: '22~24시', viewerText: '22~24시' },
+        },
+        {
+          id: 'WAKE_TIME',
+          score: 75,
+          bucket: 'HIGH',
+          comparison: { targetText: '7~8시', viewerText: '7~8시' },
+        },
+        {
+          id: 'SLEEP_HABIT',
+          score: 40,
+          bucket: 'LOW',
+          comparison: { targetText: '코골이', viewerText: '보통' },
+        },
+        {
+          id: 'SCREEN_USAGE',
+          score: 40,
+          bucket: 'LOW',
+          comparison: {
+            targetText: '잠들 때 화면을 켜는 편이에요',
+            viewerText: '잘 때 화면은 안 켰으면 좋겠어요',
+          },
+        },
+        {
+          id: 'SLEEP_ENVIRONMENT',
+          score: 40,
+          bucket: 'LOW',
+          comparison: {
+            targetText: '스피커로 작게 틀어요',
+            viewerText: '잘 때 스피커는 껐으면 좋겠어요',
+          },
+        },
+        {
+          id: 'PHONE',
+          score: 86,
+          bucket: 'HIGH',
+          comparison: { targetText: '가끔 해요', viewerText: '가끔·짧게는 괜찮아요' },
+        },
+        {
+          id: 'EARPHONE',
+          score: 86,
+          bucket: 'HIGH',
+          comparison: {
+            targetText: '항상 이어폰',
+            viewerText: '소리는 이어폰으로 들어줬으면 좋겠어요',
+          },
+        },
+        {
+          id: 'CLEAN_LEVEL',
+          score: 50,
+          bucket: 'MEDIUM',
+          comparison: {
+            targetText: '눈에 띄면 정리해요',
+            viewerText: '눈에 띄면 정리하면 괜찮아요',
+          },
+        },
+        {
+          id: 'INDOOR_EATING',
+          score: 50,
+          bucket: 'MEDIUM',
+          comparison: { targetText: '간식은 먹어요', viewerText: '환기·정리 잘하면 OK' },
+        },
+        {
+          id: 'TEMPERATURE',
+          score: 100,
+          bucket: 'HIGH',
+          comparison: { targetText: '보통', viewerText: '보통' },
+        },
+        {
+          id: 'RELATIONSHIP',
+          score: 82,
+          bucket: 'HIGH',
+          comparison: { targetText: '친하게 지내요', viewerText: '친하게 지내요' },
+        },
+      ],
+      hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+    },
     ...overrides,
   };
 }

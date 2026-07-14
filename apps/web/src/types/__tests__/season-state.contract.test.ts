@@ -25,7 +25,7 @@ describe('Web SeasonState contract', () => {
     expect(postMatch).toBe('SEASON_POST_MATCH');
   });
 
-  it('DevPanel season override can force SEASON_POST_MATCH', () => {
+  it('legacy local season override can force SEASON_POST_MATCH', () => {
     const source = readSource(SEASON_LEGACY_CLIENT_SOURCE);
 
     expect(source).toContain("override === 'SEASON_POST_MATCH'");

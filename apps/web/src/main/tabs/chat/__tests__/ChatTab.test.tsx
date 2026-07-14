@@ -23,7 +23,7 @@ const baseLifestyle: UserProfile['lifestyle'] = {
   temperatureSensitivity: 'NORMAL',
   smokingTolerance: 'E_CIG_OK',
   phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
+  earphoneExpectation: 'LOW_VOLUME_OK',
   sleepEnvPreference: 'SPEAKER_OK',
   screenTolerance: 'SCREEN_OK',
   indoorEatingTolerance: 'CLEAN_OK',

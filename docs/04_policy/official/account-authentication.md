@@ -234,10 +234,10 @@
 
 `UserAcademicIdentity`는 계정 레벨의 학업/연령 identity를 소유한다. 이 값은 닉네임처럼 사용자가 자신을 나타내는 기본 정보지만, season profile draft의 선택 필드가 아니다.
 
-| 필드          | 수집 시점              | 정책                                                                                                                                                                                                                                                        |
-| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다                                                                                                             |
-| `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. 신규 입력/정정 UI guard는 현재 연도 기준 18~30세(`currentYear - 30` ~ `currentYear - 18`) 범위로 제한한다. `ageBand`는 roommate-search filter에서 season reference year 기준으로 계산하는 derived value이며 DB 입력값이 아니다 |
+| 필드          | 수집 시점              | 정책                                                                                                                                                                                                                                                                                            |
+| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다                                                                                                                                                 |
+| `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. 신규 입력/정정 UI guard는 현재 연도 기준 18~30세(`currentYear - 30` ~ `currentYear - 18`) 범위로 제한한다. `ageBand`는 roommate-search filter에서 한국식 나이 code를 season reference year 기준 birthYear bucket으로 변환하는 derived value이며 DB 입력값이 아니다 |
 
 Readiness / correction 규칙:
 
@@ -318,8 +318,3 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 | 2026-06-04 | Official policy standalone wording cleanup을 수행했다. 계획 단계 의존 표현을 제품 정책 언어로 바꾸고, opaque DB-backed session, Postgres authoritative, Web UX 후속 범위, operations health boundary를 독립 정책 문장으로 정리했다                                                                                                                                                                                                                                      | Auth 제품 완성                  |
 | 2026-06-17 | Production 이메일 발송 baseline을 추가했다. Stub/log sender는 local/test/development 전용이고, production은 SES 또는 동등 provider, verified identity, DKIM 권장, sandbox 해제 기준을 따른다고 명시했다                                                                                                                                                                                                                                                                 | production deployment readiness |
 | 2026-06-17 | SESv2 auth email sender adapter 기준을 반영했다. Production은 `EMAIL_PROVIDER=ses`와 monitored `EMAIL_SENDER` wrapper 뒤의 SES delegate를 사용하고, provider failure는 bounded category로만 기록한다.                                                                                                                                                                                                                                                                   | production deployment readiness |
-
-## 원문 소스
-
-- `docs/04_policy/auth.md`
-- `docs/04_policy/password.md`
