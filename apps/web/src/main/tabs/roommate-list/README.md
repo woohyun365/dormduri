@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 10 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
+현재 Phase 11 working-tree 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 search summary bookmark state 기반 저장한 후보 toggle을 통해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. Phase 9는 이 상태들을 Storybook visual workshop으로 고정했고, Phase 10은 profile detail dialog를 state orchestration shell과 사용자-visible section module로 분리했다. Phase 11은 compatibility axis list를 public entry shell, list composition, shared tone/config, axis별 detail module로 분리했다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
 
 이 repo의 UI/UX 의사결정은 root `DESIGN.md`를 제품 디자인 source로 참고하고, RoommateTab feature boundary의 세부 구현 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README를 따른다.
 
@@ -156,7 +156,7 @@ Phase 7에서 RoommateTab은 search summary card의 detail action을 `useRoommat
 | `model/compatibility/compatibilityChart.mapper.ts`   | `PublicProfileCompatibility`를 radar point와 text list view model로 변환하되 score matrix나 raw field 비교를 재구현하지 않는다.           |
 | `model/compatibility/compatibilityPrivacy.policy.ts` | copy/view model에 hidden/raw/debug key가 섞였는지 테스트가 검증할 수 있는 guard helper를 제공한다.                                        |
 | `components/CompatibilityRadar.tsx`                  | 새 chart dependency 없이 repo-native SVG radar를 보조 시각화로 렌더링한다.                                                                |
-| `components/CompatibilityAxisList.tsx`               | screen reader/readable text fallback으로 모든 축 label, bucket, score를 표시한다.                                                         |
+| `components/CompatibilityAxisList.tsx`               | 기존 public path re-export다. 실제 axis list/detail 구현은 `components/compatibility-axis/` 하위 module이 담당한다.                       |
 | `overlays/RoommateProfileDetailDialog.tsx`           | FULL/TOMBSTONE/loading/error 상태, public rows, compatibility visualization, privacy note, Phase 8 action handoff copy를 표시한다.        |
 
 Detail modal rules:
@@ -232,6 +232,24 @@ Phase 10에서 `RoommateProfileDetailDialog.tsx`는 dialog open/close 상태, de
 | `overlays/profile-detail/ProfileActionSummary.tsx`        | pending request, direction limit, match/chat/report/block CTA fallback을 렌더링한다.                             |
 
 Phase 10은 behavior-preserving refactor다. Profile detail copy, action policy, compatibility score/bucket 계산, BFF/API contract는 변경하지 않는다.
+
+## Phase 11 compatibility axis domain split
+
+Phase 11에서 기존 `components/CompatibilityAxisList.tsx` public import path는 유지하되, 실제 구현은 `components/compatibility-axis/` 하위로 이동한다. 이 분리는 behavior-preserving refactor이며 score bucket, policy copy, public compatibility contract는 변경하지 않는다.
+
+| 파일                                                           | 책임                                                                                                         |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `components/CompatibilityAxisList.tsx`                         | 기존 public import path를 유지하는 re-export shell이다.                                                      |
+| `components/compatibility-axis/CompatibilityAxisList.tsx`      | axis list section, dimension loop, score bar, comparison/detail section composition을 담당한다.              |
+| `components/compatibility-axis/types.ts`                       | chart view model에서 파생한 axis/dimension/tone type을 leaf dependency로 제공한다.                           |
+| `components/compatibility-axis/axisTone.ts`                    | tone, border, bar, range frame/text class를 한 곳에서 제공한다.                                              |
+| `components/compatibility-axis/axisVisualConfig.tsx`           | axis id별 icon/color visual config를 제공한다.                                                               |
+| `components/compatibility-axis/CompactAxisComparisonCards.tsx` | 각 dimension의 상대/나 비교 요약 card와 compact label/order mapper를 담당한다.                               |
+| `components/compatibility-axis/DimensionAxisDetails.tsx`       | `<details>` shell, summary label, axis detail registry를 담당한다.                                           |
+| `components/compatibility-axis/details/*Detail.tsx`            | 흡연, 수면 리듬, 잠버릇, 수면 환경, 통화·미디어, 청소 루틴, 온도 조절, 친밀도 domain별 detail UI를 담당한다. |
+| `components/compatibility-axis/details/MobileValueCard.tsx`    | mobile detail value card shared helper다.                                                                    |
+
+Phase 11 module은 shared scoring owner나 raw lifestyle/condition 값을 새로 계산하지 않는다. Detail module은 이미 `compatibilityChart.mapper`가 만든 public `axis.comparison`/bucket/tone만 해석해 시각화한다.
 
 ### Phase 9 responsive design baseline
 
@@ -474,4 +492,5 @@ pnpm --dir apps/web storybook:build
 - Phase 7은 RoommateTab detail modal과 repo-native compatibility visualization을 제품 경로로 연결했다.
 - Phase 8은 detail modal action CTA를 block/report/match request owner API와 stale-safe feedback으로 연결했다.
 - Phase 9는 Storybook/visual/mobile scenario matrix를 검증한다.
-- Phase 10은 `RoommateProfileDetailDialog.tsx`를 orchestration shell로 축소하고 profile detail section module을 분리했다. Phase 11~14는 compatibility axis/list/scenario/search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.
+- Phase 10은 `RoommateProfileDetailDialog.tsx`를 orchestration shell로 축소하고 profile detail section module을 분리했다.
+- Phase 11은 `CompatibilityAxisList.tsx` public path를 re-export shell로 유지하고 axis domain별 detail module을 분리했다. Phase 12~14는 common primitive/scenario/search-action boundary 리팩토링을 이어가며, Phase 15가 최종 cleanup/final guard를 닫는다.
