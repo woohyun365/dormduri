@@ -2,11 +2,23 @@
 
 ## 문서 범위
 
-이 문서는 2인실 기준의 매칭 점수 계산, match request 상태 전이, 확정/해제, 북마크, 리스트 표현을 다룬다. 채팅 thread 생성/아카이브/쓰기 권한은 [chat-lifecycle.md](./chat-lifecycle.md)에서 정의하고, 3인실 그룹 매칭은 [group-matching-lifecycle.md](./group-matching-lifecycle.md)에서 별도로 다룬다.
+이 문서는 현재 학생 대상 제품이 제공하는 **2인(pair) 매칭**의 점수 계산, match request 상태 전이,
+확정/해제, 북마크, 리스트 표현을 다룬다. 채팅 thread 생성/아카이브/쓰기 권한은
+[chat-lifecycle.md](./chat-lifecycle.md)에서 정의한다.
 
 - 시즌 참여자 등록의 의미와 등록 상태: [season-participation.md](./season-participation.md)
 
 이 문서가 **매칭 상태와 리스트 표현의 최종 소유 문서**다.
+
+### 지원 범위
+
+- 현재 FE/BFF/API/BE/Prisma/shared contract는 2인 매칭만 제공한다.
+- 3인실 기숙사 객실, 수용 인원, room type metadata가 존재하는 것과 3인 group matching 기능 제공
+  여부는 별개다. 이 metadata를 group matching capability나 UI 활성화 근거로 사용하지 않는다.
+- 3인 group matching용 상태, action, API/BFF route, persistence aggregate, shared contract, 제품 UI는
+  현재 제품 계약에 존재하지 않는다.
+- 과거에 작성된 group matching 문서는 운영 이력 보존을 위한 archive이며 현재 구현 요구사항이나
+  지원 기능의 근거가 아니다.
 
 ## 호환도 계산
 
@@ -391,7 +403,8 @@ Metadata는 작은 allowlist snapshot만 허용한다. 허용 후보는 `transit
 ## Current matching overview read contract
 
 현재 시즌의 보낸/받은 request와 `ACTIVE` relation은 하나의 current overview read로 제공한다.
-overview는 history나 group projection을 포함하지 않으며, 둘은 각각의 owner/read path에서 별도로 읽는다.
+overview는 history를 포함하지 않으며 history는 별도 owner/read path에서 읽는다. group projection은
+pair-only 제품 계약에 존재하지 않는다.
 
 | 항목                  | 계약                                                                                                                                                                                          |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -460,9 +473,18 @@ withdrawn, deleted, deidentified target과 raw audit/moderation payload는 curre
 | 신고                    | **독립적 행위**. 차단해도 자동 신고 아님              |
 | 동시 pending 슬롯 (3건) | `PENDING` 자동 취소로 슬롯 회복                       |
 
-## 3인실 그룹 매칭
+## 3인실 기숙사와 pair-only 매칭 범위
 
-3인실 매칭의 전체 정책은 [group-matching-lifecycle.md](./group-matching-lifecycle.md)를 참조한다. 이 문서(matching-lifecycle.md)는 **2인실 전용**이다.
+3인실 기숙사의 room capacity와 room type은 기숙사 운영·배정 metadata다. 학생 대상 매칭 기능은
+객실 수용 인원과 무관하게 **2인 매칭만 지원**하며, 3인 group matching을 제공하지 않는다.
+
+- FE는 room capacity 또는 `getMatchGroupSize()` 결과로 group 전용 card, progress, dialog, action을
+  노출하지 않는다.
+- BFF/API/BE는 group route와 group lifecycle command를 제공하지 않는다.
+- shared contract와 Prisma schema는 group matching 상태/aggregate를 export하거나 저장하지 않는다.
+- 과거 `group-matching-lifecycle.md`는
+  `docs/00_archive/07_stale_policy/official/group-matching-lifecycle.md`로 이동했으며, historical record일
+  뿐 current policy가 아니다.
 
 ## 건물 변경과 매칭 상태
 
@@ -500,7 +522,8 @@ withdrawn, deleted, deidentified target과 raw audit/moderation payload는 curre
 
 | 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                               | 관련 이슈                |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| 2026-07-14 | current matching overview를 sent/received request와 active relation의 single snapshot read로 정의하고, public capability/action-disabled reason, serverNow, stable current-row ordering, history/group 분리, mutation 후 refetch 및 internal audit/target raw data 비노출 경계를 추가했다                                                                                               | Web MatchingTab refactor |
+| 2026-07-14 | 학교 운영 범위와 PO 결정을 반영해 학생 대상 제품 계약을 pair-only로 확정했다. 3인실 room capacity와 group matching 기능을 분리하고, 현재 FE/BFF/API/BE/Prisma/shared contract에는 group matching이 존재하지 않음을 명시했다. 기존 group 정책 문서는 archive로 이동해 current policy 및 구현 근거에서 제외했다.                                                                          | Web MatchingTab refactor |
+| 2026-07-14 | current matching overview를 sent/received request와 active relation의 single snapshot read로 정의하고, public capability/action-disabled reason, serverNow, stable current-row ordering, history 분리, group projection 부재, mutation 후 refetch 및 internal audit/target raw data 비노출 경계를 추가했다                                                                              | Web MatchingTab refactor |
 | 2026-03-14 | 매칭 참여 자격 섹션 추가                                                                                                                                                                                                                                                                                                                                                                | #135                     |
 | 2026-03-17 | 재신청 규칙 시즌 단위 적용 명문화: 시즌 종료 시 차단 이력/시도 횟수 초기화                                                                                                                                                                                                                                                                                                              | #151                     |
 | 2026-03-17 | 재신청 규칙 횟수 해석 명확화: "총 시도 수 3회" → "같은 방향 시도 수 3회". 방향별 독립 카운팅, 요청 생성이 1회(터미널 상태 무관)                                                                                                                                                                                                                                                         | #151                     |

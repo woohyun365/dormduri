@@ -15,7 +15,7 @@
 | [season-lifecycle.md](./season-lifecycle.md)                                   | 시즌 운영            | 시즌 기간, 지원 건물, 시즌별 기능 on/off, 시즌 전환 데이터 처리                                          |
 | [season-participation.md](./season-participation.md)                           | 시즌 참여            | 시즌 참여자 등록의 의미, `SeasonParticipantProfile` draft/final, registration 완료 조건, capability 용어 |
 | [profile-model.md](./profile-model.md)                                         | 프로필 구조          | `UserDisplayIdentity`, `SeasonParticipantProfile`, profile history, 필드 레벨 노출                       |
-| [matching-lifecycle.md](./matching-lifecycle.md)                               | 매칭 상태            | 호환도 계산, 신청/대화/확정 상태 전이, 북마크, 리스트 표현, 3인실 그룹 매칭                              |
+| [matching-lifecycle.md](./matching-lifecycle.md)                               | 매칭 상태            | 2인(pair) 매칭 호환도, 신청/대화/확정 상태 전이, 북마크, 리스트 표현, group matching 비지원 경계         |
 | [chat-lifecycle.md](./chat-lifecycle.md)                                       | 채팅 상태            | 1:1 chat thread 생성/쓰기/read-only/archive, block/report/realtime/retention 경계                        |
 | [roommate-searching.md](./roommate-searching.md)                               | 룸메이트 찾기 UX     | 검색 scope, summary/detail/action capability, manifest/filter/sort/cursor 계약                           |
 | [service-boundary.md](./service-boundary.md)                                   | 서비스 책임 범위     | 채팅 포함 범위, 시스템 보장 한계, 면책, 분쟁 시 서비스 역할                                              |

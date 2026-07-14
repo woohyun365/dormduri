@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import * as matchContract from '@repo/shared/match/contract';
+import { MatchingTabView } from '../MatchingTab';
 import { MatchingTabStorySurface } from '../__stories__/matching-story-renderer';
 import { matchingTabStoryScenarios } from '../__stories__/matching-story-scenarios';
 
@@ -15,16 +16,41 @@ type FutureMatchContract = {
 const futureMatchContract = matchContract as typeof matchContract & FutureMatchContract;
 
 describe('Phase 1 policy and contract guards', () => {
-  it.fails(
-    'Phase 6 red: POST_MATCH active result는 request/unmatch action을 노출하지 않아야 한다',
-    () => {
-      render(
-        <MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonPostMatchActive} />,
-      );
+  it('Phase 6 regression: canonical POST_MATCH active result는 request/unmatch action을 노출하지 않는다', () => {
+    render(
+      <MatchingTabView
+        state={{
+          kind: 'season-post-match',
+          activeMatch: {
+            id: 'match-1',
+            seasonId: 'season-1',
+            counterpartUserId: 'user-2',
+            counterpartParticipantId: 'participant-2',
+            counterpartNickname: '도윤',
+            status: 'ACTIVE',
+            startedAt: '2026-08-01T00:00:00.000Z',
+            endedAt: null,
+            endReason: null,
+            createdFromRequestId: 'request-1',
+            unmatchProgress: {
+              state: 'NONE',
+              requestedByViewerAt: null,
+              requestedByCounterpartAt: null,
+              progressCount: 0,
+              requiredCount: 2,
+              canRequest: false,
+              canCancel: false,
+              availableUntil: null,
+            },
+          },
+          historySummary: { seasons: 1, matchedCount: 1, unmatchedCount: 0 },
+        }}
+      />,
+    );
 
-      expect(screen.queryByRole('button', { name: '매칭 취소하기' })).not.toBeInTheDocument();
-    },
-  );
+    expect(screen.getByText('도윤님과의 확정 결과를 확인할 수 있어요.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '매칭 취소하기' })).not.toBeInTheDocument();
+  });
 
   it.fails(
     'Phase 10 red: current/past와 sent/received 전환은 APG tab semantics를 제공해야 한다',

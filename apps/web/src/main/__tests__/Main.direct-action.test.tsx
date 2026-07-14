@@ -14,6 +14,12 @@ const roommateListTabMock = vi.hoisted(() =>
     return null;
   }),
 );
+const matchingTabMock = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => {
+    void props;
+    return <section data-testid="main-matching">matching tab</section>;
+  }),
+);
 
 vi.mock('../components/BottomTabBar', () => ({
   BottomTabBar: ({
@@ -71,7 +77,7 @@ vi.mock('../tabs/profile/ProfileTab', () => ({
 }));
 
 vi.mock('../tabs/matching/MatchingTab', () => ({
-  default: () => null,
+  default: matchingTabMock,
 }));
 
 vi.mock('../tabs/chat/ChatTab', () => ({
@@ -120,6 +126,7 @@ describe('Main direct-action baseline', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     roommateListTabMock.mockClear();
+    matchingTabMock.mockClear();
     sessionStorage.clear();
     vi.spyOn(seasonApi, 'getCurrentSeason').mockResolvedValue({
       season: { name: '2026년 1학기', roomSelectionDate: '2099-04-30' },
@@ -218,7 +225,7 @@ describe('Main direct-action baseline', () => {
     );
   });
 
-  it('keeps legacy roommate data lazy-loading for matching tab', async () => {
+  it('matching tab에는 canonical viewer/season shell만 전달하고 legacy data를 불러오지 않는다', async () => {
     const user = userEvent.setup();
     render(<Main />);
 
@@ -228,9 +235,18 @@ describe('Main direct-action baseline', () => {
 
     await user.click(screen.getByRole('button', { name: '매칭 현황' }));
 
-    await waitFor(() => expect(seasonApi.getCurrentSeason).toHaveBeenCalledTimes(1));
-    expect(profileApi.getProfiles).toHaveBeenCalledWith('CHUNCHEON', 'F', 'dasan');
+    await screen.findByTestId('main-matching');
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
     expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(matchingTabMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewerId: 'user-1',
+        seasonShell: { id: 'season-2026-2', state: 'SEASON_OPEN' },
+        onBadgeCountChange: expect.any(Function),
+      }),
+      undefined,
+    );
   });
 
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {

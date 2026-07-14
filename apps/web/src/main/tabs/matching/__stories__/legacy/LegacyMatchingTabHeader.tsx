@@ -9,12 +9,12 @@ import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
 import type { UserProfile } from '@/types/profile';
 
-interface MatchingTabHeaderProps {
+interface LegacyMatchingTabHeaderProps {
   user: UserProfile;
   onNavigateProfile?: () => void;
 }
 
-export function MatchingTabHeader({ user, onNavigateProfile }: MatchingTabHeaderProps) {
+export function LegacyMatchingTabHeader({ user, onNavigateProfile }: LegacyMatchingTabHeaderProps) {
   const { state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
 
   const dormitory = isDormitoryAssigned(user.dormitoryId)

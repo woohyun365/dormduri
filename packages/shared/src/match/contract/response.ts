@@ -21,7 +21,7 @@ export const matchOverviewCapabilitySchema = z.strictObject({
 
 /**
  * current request rows와 active relation은 API의 단일 serializable read에서 파생한다.
- * history와 group projection은 별도 ownership/phase로 분리한다.
+ * history는 별도 ownership/phase로 분리한다. pair-only 제품 계약에는 group projection이 없다.
  */
 export const matchOverviewResponseSchema = z.strictObject({
   serverNow: isoDateTimeStringSchema,

@@ -68,6 +68,13 @@ docs/07_tech/frontend/*
 docs/04_policy/*
 !docs/04_policy/official/
 !docs/04_policy/official/**
+!docs/00_archive/
+docs/00_archive/*
+!docs/00_archive/07_stale_policy/
+docs/00_archive/07_stale_policy/*
+!docs/00_archive/07_stale_policy/official/
+docs/00_archive/07_stale_policy/official/*
+!docs/00_archive/07_stale_policy/official/group-matching-lifecycle.md
 !docs/06_trouble-shooting/
 docs/06_trouble-shooting/*
 !docs/06_trouble-shooting/observability/

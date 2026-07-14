@@ -12,10 +12,22 @@ afterEach(() => {
 });
 
 describe('MatchingTab current baseline stories', () => {
-  it.each(Object.values(matchingTabStoryScenarios))('$title fixture를 렌더링한다', (scenario) => {
+  const currentScenarios = Object.values(matchingTabStoryScenarios).filter(
+    (scenario) => scenario.key !== 'season-matching-group-legacy',
+  );
+
+  it.each(currentScenarios)('$title fixture를 렌더링한다', (scenario) => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date(MATCHING_BASELINE_NOW).getTime());
 
     render(<MatchingTabStorySurface scenario={scenario} />);
+
+    expect(screen.getByTestId('matching-tab-story-surface')).toBeInTheDocument();
+  });
+
+  it('unsupported group fixture는 legacy comparison surface에서만 렌더링한다', () => {
+    render(
+      <MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingGroupLegacy} />,
+    );
 
     expect(screen.getByTestId('matching-tab-story-surface')).toBeInTheDocument();
   });

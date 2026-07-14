@@ -9,12 +9,12 @@ import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
-import { MatchingRuntimeTab } from './tabs/matching/MatchingRuntimeTab';
+import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
-import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
+import { MatchingTabSkeleton } from './tabs/matching/layout/MatchingTabSkeleton';
 import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
@@ -125,10 +125,8 @@ function MainDashboardContent({
   dashboard: HomeDashboardResponse;
   homeDashboard: UseMainHomeDashboardResult;
 }) {
-  const [matchingNavOptions, setMatchingNavOptions] = useState<MatchingNavOptions>({});
   const handleNavigate = useCallback(
-    (tab: TabId, options?: MatchingNavOptions) => {
-      setMatchingNavOptions(tab === 'matching' && options ? options : {});
+    (tab: TabId, _options?: MatchingNavOptions) => {
       onTabChange(tab);
     },
     [onTabChange],
@@ -160,7 +158,6 @@ function MainDashboardContent({
       onTabChange={onTabChange}
       dashboard={dashboard}
       onNavigate={handleNavigate}
-      matchingNavOptions={matchingNavOptions}
       seasonContextValue={seasonContextValue}
       campusOperated={campusOperated}
       featureFlags={featureFlags}
@@ -264,7 +261,6 @@ function MainLegacyDashboardContent({
   onTabChange,
   dashboard,
   onNavigate,
-  matchingNavOptions,
   seasonContextValue,
   campusOperated,
   featureFlags,
@@ -273,7 +269,6 @@ function MainLegacyDashboardContent({
   onTabChange: Dispatch<SetStateAction<TabId>>;
   dashboard: HomeDashboardResponse;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
-  matchingNavOptions: MatchingNavOptions;
   seasonContextValue: ReturnType<typeof toMainSeasonContext>;
   campusOperated: boolean;
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
@@ -355,8 +350,12 @@ function MainLegacyDashboardContent({
             />
           )}
           {activeTab === 'matching' && (
-            <MatchingRuntimeTab
+            <MatchingTab
               viewerId={profileState.user.id}
+              seasonShell={{
+                id: dashboard.season.summary?.id ?? null,
+                state: dashboard.season.state,
+              }}
               onBadgeCountChange={setMatchingBadgeCount}
             />
           )}

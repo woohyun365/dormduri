@@ -2,7 +2,9 @@
 
 ## 목적
 
-이 디렉터리는 `MatchingTab`을 새 contract/BFF/리디자인으로 교체하기 전의 화면과 상호작용을 동결한다. production 코드나 legacy 상태 모델을 정당화하지 않으며, 이후 Phase에서 정책과 다르면 **story를 맞추기 위해 정책을 낮추지 않는다**.
+이 디렉터리는 canonical `MatchingTab`으로 교체하기 전의 화면과 상호작용을
+`legacy/LegacyMatchingTabBaseline.tsx`에 동결한다. production 코드나 legacy 상태 모델을
+정당화하지 않으며, 이후 Phase에서 정책과 다르면 **story를 맞추기 위해 정책을 낮추지 않는다**.
 
 ## 고정 기준
 
@@ -21,15 +23,17 @@
 - `SEASON_MATCHING · 받은 요청`
 - `SEASON_MATCHING · 활성 매칭`
 - `SEASON_MATCHING · 매칭 취소 대기`
-- `SEASON_MATCHING · 3인실 그룹 legacy`
+- `SEASON_MATCHING · 3인실 그룹 legacy` — 별도 `Baseline/Legacy/UnsupportedGroup` namespace
 - `POST_MATCH 사용자 라벨 → SEASON_POST_MATCH · 활성 결과`
 - 받은 요청 메뉴/수락 dialog smoke
 
 ## 현재 evidence와 의도적 미수정 항목
 
 1. `SubNav`, `SegmentControl`은 아직 button 묶음이며 APG tab 역할·화살표/Home/End keyboard 동작을 제공하지 않는다. Phase 0에서는 현재 a11y defect를 보존하고, Phase 10에서 수정한다.
-2. `SEASON_POST_MATCH` fixture도 current `MatchingTab`의 active-match early return을 통과한다. 따라서 신규 매칭/해제 action이 닫혀야 한다는 정책과 다른 UI가 보일 수 있다. 이 story는 해당 gap의 회귀 증거이며 Phase 1/8에서 해결한다.
-3. current `MatchingTab`은 `calcMatchScoreWithGating`으로 local score를 계산한다. server visibility/capability 기반 score로 교체하는 작업은 Phase 2~5 범위다.
+2. `SEASON_POST_MATCH` fixture도 legacy baseline의 active-match early return을 통과한다. canonical
+   runtime에서는 request/unmatch action이 닫혀 있으며 이 story는 redesign-before 차이만 보존한다.
+3. legacy baseline은 `calcMatchScoreWithGating`으로 local score를 계산한다. canonical runtime은
+   server visibility/capability만 사용한다.
 4. current shell은 `max-w-md` mobile column을 유지하므로 1280/1440px story는 목표 desktop two-column layout이 아니라 현 상태의 빈 여백과 overflow를 확인하기 위한 baseline이다.
 5. Storybook에 별도 interaction-test addon은 추가하지 않았다. 동일 menu/dialog 동선은 `../__tests__/MatchingTab.baseline-current.test.tsx`가 fixture와 함께 smoke하며, story의 `play` function은 Storybook test surface가 활성화된 환경에서 실행된다.
 

@@ -1,10 +1,16 @@
 # 3인실 그룹 매칭 라이프사이클 정책
 
+> [!WARNING]
+> 이 문서는 출시되지 않은 3인 group matching 설계의 역사적 기록이며 current policy가 아니다.
+> 2026-07-14 학교 운영 범위와 PO 결정에 따라 학생 대상 제품 계약은 pair-only로 확정됐다.
+> 구현과 검증은 [현재 매칭 라이프사이클 정책](../../../04_policy/official/matching-lifecycle.md)을 따른다.
+
 ## 문서 범위
 
-이 문서는 3인실(2+1 모델) 그룹 매칭의 호환도 계산, 상태 전이, 신청/대화/확정, 북마크, 리스트 표현, 자발적 이탈, 차단을 다룬다. 2인실 정책은 [matching-lifecycle.md](./matching-lifecycle.md), 채팅방 구조는 [chat-lifecycle.md](./chat-lifecycle.md)를 참조한다.
+이 문서는 과거 검토된 3인실(2+1 모델) group matching의 호환도 계산, 상태 전이,
+신청/대화/확정, 북마크, 리스트 표현, 자발적 이탈, 차단 설계를 보존한다.
 
-이 문서가 **3인실 그룹 매칭 상태와 리스트 표현의 최종 소유 문서**다.
+이 문서는 **현재 제품 계약이나 구현의 소유 문서가 아니다**.
 
 ### 대상 건물
 
@@ -48,7 +54,8 @@ A-B가 2인 확정(ACTIVE)에 도달한 시점부터 PAIR_OPEN, GROUP_FORMING, G
 
 ## 호환도 계산
 
-2인실 호환도 계산(비교 구조, 가중치, 표현 원칙)은 [matching-lifecycle.md](./matching-lifecycle.md)와 동일하다.
+2인실 호환도 계산(비교 구조, 가중치, 표현 원칙)은
+[matching-lifecycle.md](../../../04_policy/official/matching-lifecycle.md)와 동일하다.
 
 ### 그룹 매칭도
 
@@ -185,7 +192,8 @@ Phase 4: 그룹 확정
 
 ### Phase 1: A-B 개인 매칭
 
-2인실 신청 플로우와 동일. [matching-lifecycle.md](./matching-lifecycle.md) 참조.
+2인실 신청 플로우와 동일.
+[matching-lifecycle.md](../../../04_policy/official/matching-lifecycle.md) 참조.
 
 ### Phase 2+: GROUP_CONV_JOIN
 
@@ -300,7 +308,7 @@ X 시점에서 A, B 각각의 매칭도 **평균**을 그룹 카드에 표시. �
 
 ### 차단 원칙
 
-Phase 2+(PAIR_OPEN~GROUP_FINAL)는 ACTIVE 동등이므로, **그룹 내 멤버 차단 불가**. 위험 상황은 신고를 통해 관리자가 처리한다 ([incident-enforcement.md](./incident-enforcement.md) 참조).
+Phase 2+(PAIR_OPEN~GROUP_FINAL)는 ACTIVE 동등이므로, **그룹 내 멤버 차단 불가**. 위험 상황은 신고를 통해 관리자가 처리한다 ([incident-enforcement.md](../../../04_policy/official/incident-enforcement.md) 참조).
 
 ### 차단의 그룹 전이
 
@@ -317,23 +325,25 @@ Phase 2+(PAIR_OPEN~GROUP_FINAL)는 ACTIVE 동등이므로, **그룹 내 멤버 �
 
 ### 차단과 다른 시스템의 독립성
 
-2인실과 동일. [matching-lifecycle.md](./matching-lifecycle.md) 차단 섹션 참조.
+2인실과 동일. [matching-lifecycle.md](../../../04_policy/official/matching-lifecycle.md) 차단 섹션 참조.
 
 ## 건물 변경과 매칭 상태
 
-2인실과 동일. [matching-lifecycle.md](./matching-lifecycle.md) 참조.
+2인실과 동일. [matching-lifecycle.md](../../../04_policy/official/matching-lifecycle.md) 참조.
 
 ## 매칭 참여 자격
 
-2인실과 동일. [matching-lifecycle.md](./matching-lifecycle.md) 참조.
+2인실과 동일. [matching-lifecycle.md](../../../04_policy/official/matching-lifecycle.md) 참조.
 
 ## 변경 이력
 
-> Superseded note: 아래 변경 이력의 legacy 용어(`UserProfile`, base profile, `messageToRoommate`, `LIMITED/FULL`, `full/gated`, 자동 `UNASSIGNED` 등)는 historical record다. 현재 정책은 이 문서의 본문과 최신 변경 이력 행을 따른다.
+> Archive note: 이 문서의 본문과 아래 변경 이력은 historical record다. 현재 제품 정책과 구현은
+> `docs/04_policy/official/matching-lifecycle.md`를 따른다.
 
-| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                 | 관련 이슈 |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 2026-03-31 | 문서 신설. matching-lifecycle.md에서 3인실 정책 분리. 2+1 모델 전체 정책 정의: 상태 전이도, GROUP_CONV_JOIN, 대화 병렬 무제한, GROUP_FORMING/GROUP_FINAL 이탈 규칙, 전원 동등 Member, 재교류(조합=그룹 엔티티), 리스트 표현(그룹 카드+하단 정렬), 자발적 이탈(Phase 2+ 불가), 차단(그룹 전이), 북마크(그룹 불가/개인 가능), 호환도(평균), 대화 TTL 이원화 | #65       |
-| 2026-05-11 | 그룹 매칭도 게이팅을 2인실 capability 정책과 맞춰 `full/gated` 2-state로 정리. pairwise directional score 중 하나라도 gated면 그룹 카드 점수는 비노출된다고 명시                                                                                                                                                                                          | #195      |
-| 2026-05-20 | #195 capability 용어 보정에 맞춰 그룹 매칭도 게이팅을 `scoreVisible` 기반으로 정리                                                                                                                                                                                                                                                                        | #195      |
-| 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                                                                                                                                                                                                                       | #195      |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                 | 관련 이슈                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| 2026-07-14 | 학교 운영 범위와 PO 결정에 따라 3인 group matching은 미출시·미제공으로 확정하고 학생 대상 제품 계약을 pair-only로 정리했다. 이 문서를 current official policy에서 archive로 이동했으며 FE/BFF/API/BE/Prisma/shared contract 구현 근거로 사용하지 않는다.                                                                                                  | Web MatchingTab refactor |
+| 2026-03-31 | 문서 신설. matching-lifecycle.md에서 3인실 정책 분리. 2+1 모델 전체 정책 정의: 상태 전이도, GROUP_CONV_JOIN, 대화 병렬 무제한, GROUP_FORMING/GROUP_FINAL 이탈 규칙, 전원 동등 Member, 재교류(조합=그룹 엔티티), 리스트 표현(그룹 카드+하단 정렬), 자발적 이탈(Phase 2+ 불가), 차단(그룹 전이), 북마크(그룹 불가/개인 가능), 호환도(평균), 대화 TTL 이원화 | #65                      |
+| 2026-05-11 | 그룹 매칭도 게이팅을 2인실 capability 정책과 맞춰 `full/gated` 2-state로 정리. pairwise directional score 중 하나라도 gated면 그룹 카드 점수는 비노출된다고 명시                                                                                                                                                                                          | #195                     |
+| 2026-05-20 | #195 capability 용어 보정에 맞춰 그룹 매칭도 게이팅을 `scoreVisible` 기반으로 정리                                                                                                                                                                                                                                                                        | #195                     |
+| 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                                                                                                                                                                                                                       | #195                     |

@@ -44,9 +44,6 @@ export const SeasonMatchingActive = createMatchingStory(
 export const SeasonMatchingUnmatchPending = createMatchingStory(
   matchingTabStoryScenarios.seasonMatchingUnmatchPending,
 );
-export const SeasonMatchingGroupLegacy = createMatchingStory(
-  matchingTabStoryScenarios.seasonMatchingGroupLegacy,
-);
 export const SeasonPostMatchActive = createMatchingStory(
   matchingTabStoryScenarios.seasonPostMatchActive,
 );
