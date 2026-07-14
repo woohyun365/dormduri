@@ -21,6 +21,7 @@ const FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS = [
   'DEFAULT_FILTERS',
   'FilterState',
   '@/main/components/BottomSheet',
+  '@/types/filter',
   'drinkingFrequency',
   'drinkingTolerance',
   'targetCondition',
@@ -82,6 +83,22 @@ const PHASE8_SPLIT_FILES = [
   'overlays/RoommateBlockDialog.tsx',
   'overlays/RoommateReportDialog.tsx',
   'overlays/RoommateMatchRequestDialog.tsx',
+] as const;
+
+const PHASE14_SPLIT_FILES = [
+  'components/search/RoommateListControlsPanel.tsx',
+  'components/search/RoommateSearchFeedback.tsx',
+  'hooks/useDesktopRoommateLayout.ts',
+  'model/actions/roommateActionDialogState.ts',
+  'model/search/roommateListShellModel.ts',
+] as const;
+
+const FINAL_LEGACY_ABSENCE_FILES = [
+  'src/api/profile.ts',
+  'src/main/dev-only/fixtures/index.ts',
+  'src/main/tabs/roommate-list/hooks/useRoommateListViewModel.ts',
+  'src/main/tabs/roommate-list/components/RoommateListHeader.tsx',
+  'src/main/tabs/roommate-list/components/RoommateListResults.tsx',
 ] as const;
 
 const phase8MatchRequestBffRoute = join(process.cwd(), 'src/app/api/matches/requests/route.ts');
@@ -251,5 +268,26 @@ describe('RoommateTab runtime boundary', () => {
     expect(actionClientSource).toContain('/api/matches/requests');
     expect(actionsHookSource).toContain('pendingTargetUserIds');
     expect(actionsHookSource).not.toContain('detailEntryToken');
+  });
+
+  it('Phase 14 keeps RoommateListTab as a thin shell with split search/action presentation files', () => {
+    const missingFiles = PHASE14_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
+      (file) => !existsSync(file),
+    );
+    const shellSource = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
+
+    expect(missingFiles).toEqual([]);
+    expect(shellSource.split('\n').length).toBeLessThanOrEqual(350);
+    expect(shellSource).not.toContain('function RoommateActionFeedbackBanner');
+    expect(shellSource).not.toContain('function RoommateListControlsPanel');
+    expect(shellSource).not.toContain('function getSearchStateSectionState');
+  });
+
+  it('Phase 15 final guard keeps deleted legacy RoommateTab surfaces absent', () => {
+    const existingLegacyFiles = FINAL_LEGACY_ABSENCE_FILES.map((file) =>
+      join(process.cwd(), file),
+    ).filter((file) => existsSync(file));
+
+    expect(existingLegacyFiles).toEqual([]);
   });
 });
