@@ -6,6 +6,7 @@ import { toMatchingApiErrorMessage } from './api/matching.api';
 import { matchCapabilityReasonCopy } from './model/matching-action-capability';
 import { toMatchingViewState } from './model/matching-view-model';
 import { useMatchingOverview } from './hooks/useMatchingOverview';
+import { SeasonStateRenderer } from './sections/SeasonStateRenderer';
 
 export function MatchingRuntimeTab({
   viewerId: _viewerId,
@@ -44,41 +45,30 @@ export function MatchingRuntimeTab({
     );
   if (view.kind === 'unavailable')
     return <MatchingRuntimeFeedback message={matchCapabilityReasonCopy(view.reason)} />;
-  if (view.kind === 'season-matching')
-    return (
-      <MatchingRuntimeContent
-        message={`보낸 요청 ${view.current.sentRequests.length}건, 받은 요청 ${view.current.receivedPendingCount}건을 확인할 수 있어요.`}
-        celebration={celebration}
-        onCloseCelebration={() => setCelebration(null)}
-      />
-    );
-  if (view.kind === 'season-post-match')
-    return (
-      <MatchingRuntimeContent
-        message={
-          view.activeMatch
-            ? '이번 시즌 매칭 결과를 확인할 수 있어요.'
-            : '이번 시즌 매칭 결과가 없어요.'
-        }
-        celebration={celebration}
-        onCloseCelebration={() => setCelebration(null)}
-      />
-    );
-  return <MatchingRuntimeFeedback message="현재 매칭 요청은 열려 있지 않아요." />;
+  return (
+    <MatchingRuntimeContent
+      state={view}
+      celebration={celebration}
+      onCloseCelebration={() => setCelebration(null)}
+    />
+  );
 }
 
 function MatchingRuntimeContent({
-  message,
+  state,
   celebration,
   onCloseCelebration,
 }: {
-  readonly message: string;
+  readonly state: Exclude<
+    ReturnType<typeof toMatchingViewState>,
+    { kind: 'loading' | 'error' | 'unavailable' }
+  >;
   readonly celebration: string | null;
   readonly onCloseCelebration: () => void;
 }) {
   return (
     <>
-      <MatchingRuntimeFeedback message={message} />
+      <SeasonStateRenderer state={state} />
       {celebration && (
         <div
           role="dialog"
