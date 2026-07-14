@@ -1,9 +1,9 @@
-import type {
-  MatchHistoryResponse,
-  MatchOverviewResponse,
-  MatchRequestWithActions,
-} from '@repo/shared/match/contract';
+import type { MatchHistoryResponse, MatchOverviewResponse } from '@repo/shared/match/contract';
 import type { MatchingApiError } from '../api/matching.api';
+import {
+  toMatchingRequestSectionView,
+  type MatchingRequestSectionView,
+} from './matching-request-view';
 import { getMatchingSeasonStateRule } from './matching-state-matrix';
 
 export interface MatchHistorySummary {
@@ -14,8 +14,9 @@ export interface MatchHistorySummary {
 
 export interface CurrentMatchingView {
   readonly activeMatch: MatchOverviewResponse['activeMatch'];
-  readonly sentRequests: readonly MatchRequestWithActions[];
-  readonly receivedRequests: readonly MatchRequestWithActions[];
+  readonly serverNow: string;
+  readonly roomSelectionDate: string | null;
+  readonly requestSection: MatchingRequestSectionView;
   readonly receivedPendingCount: number;
 }
 
@@ -52,8 +53,12 @@ export function partitionCurrentRequests(overview: MatchOverviewResponse): Curre
   );
   return {
     activeMatch: overview.activeMatch,
-    sentRequests: overview.sentRequests,
-    receivedRequests: overview.receivedRequests,
+    serverNow: overview.serverNow,
+    roomSelectionDate: overview.season.roomSelectionDate,
+    requestSection: toMatchingRequestSectionView({
+      sentRequests: overview.sentRequests,
+      receivedRequests: overview.receivedRequests,
+    }),
     receivedPendingCount: pendingReceived.length,
   };
 }
@@ -64,7 +69,7 @@ export function toMatchingViewState(input: {
   readonly error?: MatchingApiError | null;
   readonly loading?: boolean;
 }): MatchingViewState {
-  if (input.loading) return { kind: 'loading' };
+  if (input.loading && !input.overview) return { kind: 'loading' };
   if (input.error) return { kind: 'error', error: input.error };
   if (!input.overview) return { kind: 'loading' };
   if (!input.overview.capability.canViewMatching) {

@@ -13,22 +13,29 @@ import { MatchingPolicyRail } from './layout/MatchingPolicyRail';
 import { MatchingTabSkeleton } from './layout/MatchingTabSkeleton';
 import { toMatchingApiErrorMessage } from './api/matching.api';
 import { useMatchingOverview } from './hooks/useMatchingOverview';
+import { useMatchingActions } from './hooks/useMatchingActions';
 import { matchCapabilityReasonCopy } from './model/matching-action-capability';
 import { resolveMatchingShellConsistency } from './model/matching-shell-consistency';
 import { toMatchingViewState } from './model/matching-view-model';
 import { SeasonStateRenderer } from './sections/SeasonStateRenderer';
 import { MatchingUnavailableState } from './sections/system/MatchingUnavailableState';
+import type { MatchingRequestCommands } from './sections/requests/PairRequestSection';
+import type { MatchingRequestTab } from './components/MatchingSegmentTabs';
 
 export interface MatchingTabProps {
   readonly viewerId: string;
   readonly seasonShell: MatchingSeasonShell;
   readonly onBadgeCountChange?: (count: number) => void;
+  readonly onNavigateChat?: () => void;
+  readonly initialRequestTab?: MatchingRequestTab;
 }
 
 export default function MatchingTab({
   viewerId,
   seasonShell,
   onBadgeCountChange,
+  onNavigateChat,
+  initialRequestTab,
 }: MatchingTabProps) {
   const identityKey = `${viewerId}:${seasonShell.id ?? 'none'}:${seasonShell.state ?? 'none'}`;
   return (
@@ -37,6 +44,8 @@ export default function MatchingTab({
       identityKey={identityKey}
       seasonShell={seasonShell}
       onBadgeCountChange={onBadgeCountChange}
+      onNavigateChat={onNavigateChat}
+      initialRequestTab={initialRequestTab}
     />
   );
 }
@@ -45,12 +54,17 @@ function MatchingTabRuntime({
   identityKey,
   seasonShell,
   onBadgeCountChange,
+  onNavigateChat,
+  initialRequestTab,
 }: {
   readonly identityKey: string;
   readonly seasonShell: MatchingSeasonShell;
   readonly onBadgeCountChange?: (count: number) => void;
+  readonly onNavigateChat?: () => void;
+  readonly initialRequestTab?: MatchingRequestTab;
 }) {
   const overview = useMatchingOverview({ identityKey });
+  const actions = useMatchingActions({ refetchOverview: overview.refresh });
   const view = toMatchingViewState({
     overview: overview.data,
     error: overview.error,
@@ -126,6 +140,11 @@ function MatchingTabRuntime({
       celebration={celebration}
       onCloseCelebration={() => setCelebration(null)}
       onRetry={overview.refresh}
+      requestCommands={actions}
+      requestActionError={actions.error ? toMatchingApiErrorMessage(actions.error.code) : null}
+      onDismissRequestActionError={actions.dismissError}
+      onNavigateChat={onNavigateChat}
+      initialRequestTab={initialRequestTab}
     />
   );
 }
@@ -136,12 +155,22 @@ export function MatchingTabView({
   celebration = null,
   onCloseCelebration,
   onRetry,
+  requestCommands,
+  requestActionError = null,
+  onDismissRequestActionError,
+  onNavigateChat,
+  initialRequestTab,
 }: {
   readonly state: MatchingViewState;
   readonly consistency?: MatchingShellConsistency | null;
   readonly celebration?: string | null;
   readonly onCloseCelebration?: () => void;
   readonly onRetry?: () => Promise<void>;
+  readonly requestCommands?: MatchingRequestCommands;
+  readonly requestActionError?: string | null;
+  readonly onDismissRequestActionError?: () => void;
+  readonly onNavigateChat?: () => void;
+  readonly initialRequestTab?: MatchingRequestTab;
 }) {
   if (state.kind === 'loading') return <MatchingTabSkeleton />;
 
@@ -164,7 +193,41 @@ export function MatchingTabView({
       />
     );
   } else {
-    content = <SeasonStateRenderer state={state} />;
+    const commands: MatchingRequestCommands =
+      requestCommands ??
+      ({
+        accept: async () => 'error' as const,
+        reject: async () => 'error' as const,
+        cancel: async () => 'error' as const,
+        isPending: () => false,
+      } satisfies MatchingRequestCommands);
+    content = (
+      <>
+        {requestActionError ? (
+          <div
+            role="alert"
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          >
+            <span>{requestActionError}</span>
+            {onDismissRequestActionError ? (
+              <button
+                type="button"
+                className="min-h-11 rounded-xl px-3 font-semibold underline underline-offset-4"
+                onClick={onDismissRequestActionError}
+              >
+                닫기
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <SeasonStateRenderer
+          state={state}
+          requestCommands={commands}
+          onNavigateChat={onNavigateChat}
+          initialRequestTab={initialRequestTab}
+        />
+      </>
+    );
   }
 
   return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
@@ -43,7 +43,7 @@ function MainShellFrame({
   children,
 }: {
   activeTab: TabId;
-  onTabChange: Dispatch<SetStateAction<TabId>>;
+  onTabChange: (tab: TabId) => void;
   children: ReactNode;
 }) {
   return (
@@ -77,17 +77,19 @@ function MainLegacyDataErrorState({ onRetry }: { onRetry: () => void }) {
 
 function MainInitialContent({
   activeTab,
-  onTabChange,
+  onNavigate,
+  matchingNavOptions,
   homeDashboard,
 }: {
   activeTab: TabId;
-  onTabChange: Dispatch<SetStateAction<TabId>>;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  matchingNavOptions: MatchingNavOptions | null;
   homeDashboard: UseMainHomeDashboardResult;
 }) {
   if (homeDashboard.loading || !homeDashboard.dashboard) {
     if (homeDashboard.error) {
       return (
-        <MainShellFrame activeTab={activeTab} onTabChange={onTabChange}>
+        <MainShellFrame activeTab={activeTab} onTabChange={onNavigate}>
           <HomeDashboardErrorState
             message={homeDashboard.error}
             refreshing={homeDashboard.refreshing}
@@ -98,7 +100,7 @@ function MainInitialContent({
     }
 
     return (
-      <MainShellFrame activeTab={activeTab} onTabChange={onTabChange}>
+      <MainShellFrame activeTab={activeTab} onTabChange={onNavigate}>
         {activeTab === 'matching' ? <MatchingTabSkeleton /> : <HomeTabSkeleton />}
       </MainShellFrame>
     );
@@ -107,7 +109,8 @@ function MainInitialContent({
   return (
     <MainDashboardContent
       activeTab={activeTab}
-      onTabChange={onTabChange}
+      onNavigate={onNavigate}
+      matchingNavOptions={matchingNavOptions}
       dashboard={homeDashboard.dashboard}
       homeDashboard={homeDashboard}
     />
@@ -116,21 +119,17 @@ function MainInitialContent({
 
 function MainDashboardContent({
   activeTab,
-  onTabChange,
+  onNavigate,
+  matchingNavOptions,
   dashboard,
   homeDashboard,
 }: {
   activeTab: TabId;
-  onTabChange: Dispatch<SetStateAction<TabId>>;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  matchingNavOptions: MatchingNavOptions | null;
   dashboard: HomeDashboardResponse;
   homeDashboard: UseMainHomeDashboardResult;
 }) {
-  const handleNavigate = useCallback(
-    (tab: TabId, _options?: MatchingNavOptions) => {
-      onTabChange(tab);
-    },
-    [onTabChange],
-  );
   const seasonContextValue = toMainSeasonContext(dashboard);
   const campusOperated = dashboard.viewer.campusOperated;
   const featureFlags = getMainFeatureFlags({
@@ -145,7 +144,7 @@ function MainDashboardContent({
         activeTab={activeTab}
         dashboard={dashboard}
         homeDashboard={homeDashboard}
-        onNavigate={handleNavigate}
+        onNavigate={onNavigate}
         campusOperated={campusOperated}
         featureFlags={featureFlags}
       />
@@ -155,9 +154,9 @@ function MainDashboardContent({
   return (
     <MainLegacyDashboardContent
       activeTab={activeTab}
-      onTabChange={onTabChange}
       dashboard={dashboard}
-      onNavigate={handleNavigate}
+      onNavigate={onNavigate}
+      matchingNavOptions={matchingNavOptions}
       seasonContextValue={seasonContextValue}
       campusOperated={campusOperated}
       featureFlags={featureFlags}
@@ -258,17 +257,17 @@ function MainHomeDashboardContent({
 
 function MainLegacyDashboardContent({
   activeTab,
-  onTabChange,
   dashboard,
   onNavigate,
+  matchingNavOptions,
   seasonContextValue,
   campusOperated,
   featureFlags,
 }: {
   activeTab: TabId;
-  onTabChange: Dispatch<SetStateAction<TabId>>;
   dashboard: HomeDashboardResponse;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  matchingNavOptions: MatchingNavOptions | null;
   seasonContextValue: ReturnType<typeof toMainSeasonContext>;
   campusOperated: boolean;
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
@@ -357,6 +356,8 @@ function MainLegacyDashboardContent({
                 state: dashboard.season.state,
               }}
               onBadgeCountChange={setMatchingBadgeCount}
+              onNavigateChat={() => handleNavigate('chat')}
+              initialRequestTab={matchingNavOptions?.requestTab}
             />
           )}
           {activeTab === 'profile' && (
@@ -392,7 +393,7 @@ function MainLegacyDashboardContent({
 
         <BottomTabBar
           activeTab={activeTab}
-          onTabChange={onTabChange}
+          onTabChange={handleNavigate}
           badges={matchingBadgeCount > 0 ? { matching: matchingBadgeCount } : undefined}
           disabledTabs={featureFlags.disabledTabs}
         />
@@ -417,7 +418,13 @@ function MainContent() {
     }
     return 'home';
   });
+  const [matchingNavOptions, setMatchingNavOptions] = useState<MatchingNavOptions | null>(null);
   const homeDashboard = useMainHomeDashboard();
+
+  const handleNavigate = useCallback((tab: TabId, options?: MatchingNavOptions) => {
+    setMatchingNavOptions(tab === 'matching' ? (options ?? null) : null);
+    setActiveTab(tab);
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -428,7 +435,8 @@ function MainContent() {
   return (
     <MainInitialContent
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onNavigate={handleNavigate}
+      matchingNavOptions={matchingNavOptions}
       homeDashboard={homeDashboard}
     />
   );

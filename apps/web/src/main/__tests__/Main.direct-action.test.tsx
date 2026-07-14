@@ -58,11 +58,23 @@ vi.mock('../components/MatchCelebrationModal', () => ({
 }));
 
 vi.mock('../tabs/home/HomeTab', () => ({
-  default: ({ onOpenBuildingSelect }: { onOpenBuildingSelect?: () => void }) => (
+  default: ({
+    onOpenBuildingSelect,
+    onNavigate,
+  }: {
+    onOpenBuildingSelect?: () => void;
+    onNavigate: (
+      tab: 'home' | 'list' | 'matching' | 'chat' | 'profile',
+      options?: { requestTab?: 'sent' | 'received' },
+    ) => void;
+  }) => (
     <section data-testid="main-home">
       home tab
       <button type="button" onClick={onOpenBuildingSelect}>
         기숙사 선택 시작
+      </button>
+      <button type="button" onClick={() => onNavigate('matching', { requestTab: 'received' })}>
+        받은 요청 바로가기
       </button>
     </section>
   ),
@@ -246,6 +258,19 @@ describe('Main direct-action baseline', () => {
         onBadgeCountChange: expect.any(Function),
       }),
       undefined,
+    );
+  });
+
+  it('Home의 requestTab deep-link option을 canonical MatchingTab에 전달한다', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '받은 요청 바로가기' }));
+
+    await screen.findByTestId('main-matching');
+    expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ initialRequestTab: 'received' }),
     );
   });
 

@@ -17,6 +17,14 @@ const unsupportedGroupStorySource = readFileSync(
   join(matchingRoot, '__stories__/MatchingTab.baseline-unsupported-group.stories.tsx'),
   'utf8',
 );
+const requestViewSource = readFileSync(
+  join(matchingRoot, 'model/matching-request-view.ts'),
+  'utf8',
+);
+const requestSectionSource = readFileSync(
+  join(matchingRoot, 'sections/requests/PairRequestSection.tsx'),
+  'utf8',
+);
 
 describe('MatchingTab runtime boundary', () => {
   it('새 state matrix는 shared season enum과 server score visibility만 소유한다', () => {
@@ -46,5 +54,13 @@ describe('MatchingTab runtime boundary', () => {
       "title: 'Main/MatchingTab/Baseline/Legacy/UnsupportedGroup'",
     );
     expect(unsupportedGroupStorySource).toContain('seasonMatchingGroupLegacy');
+  });
+
+  it('pair request runtime은 client 정렬/group 상태 없이 server capability와 canonical ordering을 쓴다', () => {
+    expect(requestViewSource).not.toContain('.sort(');
+    expect(requestViewSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
+    expect(requestSectionSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
+    expect(requestViewSource).toContain('request.actions.canAccept');
+    expect(requestViewSource).toContain('request.actions.disabledReason');
   });
 });

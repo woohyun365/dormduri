@@ -61,4 +61,67 @@ describe('useMatchingActions', () => {
     expect(result.current.error?.code).toBe('MATCHING_API_STATE_CHANGED');
     expect(refetchOverview).toHaveBeenCalledTimes(1);
   });
+
+  it('network error는 row를 authoritative refetch하지 않고 같은 action retry를 허용한다', async () => {
+    const acceptRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined);
+    const refetchOverview = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useMatchingActions({
+        client: {
+          acceptRequest,
+          rejectRequest: vi.fn(),
+          cancelRequest: vi.fn(),
+          requestUnmatch: vi.fn(),
+          cancelUnmatchRequest: vi.fn(),
+        } as never,
+        refetchOverview,
+      }),
+    );
+
+    await act(async () => {
+      expect(await result.current.accept('request-1')).toBe('error');
+    });
+    expect(result.current.error?.code).toBe('MATCHING_API_NETWORK');
+    expect(refetchOverview).not.toHaveBeenCalled();
+
+    await act(async () => {
+      expect(await result.current.accept('request-1')).toBe('success');
+    });
+    expect(acceptRequest).toHaveBeenCalledTimes(2);
+    expect(refetchOverview).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('unmount하면 진행 중인 request action AbortSignal을 취소한다', async () => {
+    let signal: AbortSignal | undefined;
+    const acceptRequest = vi.fn(
+      (_id: string, nextSignal?: AbortSignal) =>
+        new Promise<void>((_resolve, reject) => {
+          signal = nextSignal;
+          nextSignal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+    const { result, unmount } = renderHook(() =>
+      useMatchingActions({
+        client: {
+          acceptRequest,
+          rejectRequest: vi.fn(),
+          cancelRequest: vi.fn(),
+          requestUnmatch: vi.fn(),
+          cancelUnmatchRequest: vi.fn(),
+        } as never,
+        refetchOverview: vi.fn(),
+      }),
+    );
+
+    act(() => void result.current.accept('request-1'));
+    expect(signal?.aborted).toBe(false);
+    unmount();
+    expect(signal?.aborted).toBe(true);
+  });
 });

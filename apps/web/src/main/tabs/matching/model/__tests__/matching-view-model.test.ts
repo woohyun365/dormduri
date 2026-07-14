@@ -52,12 +52,34 @@ describe('matching view model', () => {
     ).toThrow('requires a reason');
   });
 
+  it('authoritative refetch 중 기존 overview가 있으면 request shell을 unmount하지 않는다', () => {
+    expect(
+      toMatchingViewState({ loading: true, overview: overview('SEASON_MATCHING') as never }),
+    ).toMatchObject({ kind: 'season-matching' });
+  });
+
   it('disabled reason copy와 description id는 exhaustive하고 stable하다', () => {
     expect(matchCapabilityReasonCopy('VIEWER_NOT_ASSIGNED')).toContain('기숙사');
     expect(matchActionDisabledReasonCopy('REQUEST_EXPIRED')).toContain('유효 시간');
     expect(
       getDisabledReasonDescriptionId({ actionId: 'request-1', reason: 'REQUEST_EXPIRED' }),
     ).toBe('matching-action-request-1-reason-request_expired');
+  });
+
+  it.each([
+    'SEASON_NOT_ACTIONABLE',
+    'ROOM_SELECTION_CUTOFF',
+    'REQUEST_EXPIRED',
+    'REQUEST_ALREADY_RESOLVED',
+    'MATCH_PRECONDITION_FAILED',
+    'ACTIVE_MATCH_NOT_ACTIONABLE',
+    'UNMATCH_ALREADY_PENDING',
+    'TARGET_UNAVAILABLE',
+  ] as const)('public action disabled reason matrix를 누락 없이 제공한다: %s', (reason) => {
+    expect(matchActionDisabledReasonCopy(reason)).not.toHaveLength(0);
+    expect(getDisabledReasonDescriptionId({ actionId: 'request-1', reason })).toBe(
+      `matching-action-request-1-reason-${reason.toLowerCase()}`,
+    );
   });
 
   it('fixed server clock 경계에서 request countdown을 계산한다', () => {

@@ -17,8 +17,9 @@ describe('SeasonStateRenderer', () => {
         kind: 'season-matching',
         current: {
           activeMatch: null,
-          sentRequests: [],
-          receivedRequests: [],
+          serverNow: '2026-08-01T00:00:00.000Z',
+          roomSelectionDate: null,
+          requestSection: { quota: { used: 0, limit: 3, remaining: 3 }, sent: [], received: [] },
           receivedPendingCount: 2,
         },
       },
@@ -33,7 +34,17 @@ describe('SeasonStateRenderer', () => {
       '이번 시즌 매칭 결과가 없어요',
     ],
   ])('official state를 명시적 strategy component로 렌더링한다', (state, text) => {
-    render(<SeasonStateRenderer state={state as never} />);
+    render(
+      <SeasonStateRenderer
+        state={state as never}
+        requestCommands={{
+          accept: async () => 'success' as const,
+          reject: async () => 'success' as const,
+          cancel: async () => 'success' as const,
+          isPending: () => false,
+        }}
+      />,
+    );
     expect(screen.getByRole('heading', { level: 2, name: text })).toBeInTheDocument();
   });
 });

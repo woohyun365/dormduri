@@ -53,8 +53,9 @@ export const SeasonMatchingEmpty = story({
   kind: 'season-matching',
   current: {
     activeMatch: null,
-    sentRequests: [],
-    receivedRequests: [],
+    serverNow: '2026-08-01T00:00:00.000Z',
+    roomSelectionDate: '2026-08-10',
+    requestSection: { quota: { used: 0, limit: 3, remaining: 3 }, sent: [], received: [] },
     receivedPendingCount: 0,
   },
 });
