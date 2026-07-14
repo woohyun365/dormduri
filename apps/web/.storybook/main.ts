@@ -8,6 +8,7 @@ const config: StorybookConfig = {
   stories: [
     '../src/legal/__stories__/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/home/**/*.stories.@(ts|tsx|mdx)',
+    '../src/main/tabs/matching/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/roommate-list/**/*.stories.@(ts|tsx|mdx)',
   ],
   addons: ['@storybook/addon-docs'],

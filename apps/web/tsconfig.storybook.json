@@ -18,6 +18,8 @@
     "src/main/tabs/home/**/*.stories.tsx",
     "src/main/tabs/home/__stories__/**/*.ts",
     "src/main/tabs/home/__stories__/**/*.tsx",
+    "src/main/tabs/matching/**/*.stories.ts",
+    "src/main/tabs/matching/**/*.stories.tsx",
     "src/main/tabs/roommate-list/**/*.stories.ts",
     "src/main/tabs/roommate-list/**/*.stories.tsx",
     "src/main/tabs/roommate-list/__stories__/**/*.ts",
