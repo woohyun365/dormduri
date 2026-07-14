@@ -6,11 +6,10 @@ import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
-import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
-import MatchingTab from './tabs/matching/MatchingTab';
+import { MatchingRuntimeTab } from './tabs/matching/MatchingRuntimeTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
@@ -36,7 +35,7 @@ import type { HomeDashboardResponse } from '@repo/shared/home';
 
 export type { TabId } from '@/types/profile';
 
-const LEGACY_DATA_TABS = new Set<TabId>(['matching', 'chat']);
+const LEGACY_DATA_TABS = new Set<TabId>(['chat']);
 
 function MainShellFrame({
   activeTab,
@@ -306,6 +305,7 @@ function MainLegacyDashboardContent({
   const legacyData = legacyTabData.data;
 
   const socialState = useMainSocialState(showToast);
+  const [matchingBadgeCount, setMatchingBadgeCount] = useState(0);
 
   const matchingState = useMainMatchingState(
     showToast,
@@ -314,7 +314,6 @@ function MainLegacyDashboardContent({
     needsLegacyData,
   );
   const legacyProfiles = legacyData?.profiles ?? [];
-  const legacyPastSeasons = legacyData?.pastSeasons ?? [];
   const legacyMatchRequests = matchingState.matchRequests;
   const legacyActiveMatch = matchingState.activeMatch;
   const legacyBlockedUserIds = socialState.blockedUserIds;
@@ -355,24 +354,10 @@ function MainLegacyDashboardContent({
               viewerSeasonRegistered={dashboard.viewer.seasonProfile.registered}
             />
           )}
-          {activeTab === 'matching' && legacyData && (
-            <MatchingTab
-              user={profileState.user}
-              matchRequests={legacyMatchRequests}
-              activeMatch={legacyActiveMatch}
-              profiles={legacyProfiles}
-              pastSeasons={legacyPastSeasons}
-              onCancelRequest={matchingState.handleCancelRequest}
-              onAcceptRequest={matchingState.handleAcceptRequest}
-              onRejectRequest={matchingState.handleRejectRequest}
-              onConfirmMatch={matchingState.handleConfirmMatch}
-              onRevokeConfirmMatch={matchingState.handleRevokeConfirmMatch}
-              onFinalizePairGroup={matchingState.handleFinalizePairGroup}
-              onEndConversation={matchingState.handleEndConversation}
-              onEndMatch={matchingState.handleEndMatch}
-              onNavigate={onTabChange}
-              initialSection={matchingNavOptions.section}
-              initialRequestTab={matchingNavOptions.requestTab}
+          {activeTab === 'matching' && (
+            <MatchingRuntimeTab
+              viewerId={profileState.user.id}
+              onBadgeCountChange={setMatchingBadgeCount}
             />
           )}
           {activeTab === 'profile' && (
@@ -409,11 +394,7 @@ function MainLegacyDashboardContent({
         <BottomTabBar
           activeTab={activeTab}
           onTabChange={onTabChange}
-          badges={
-            matchingState.receivedPendingCount > 0
-              ? { matching: matchingState.receivedPendingCount }
-              : undefined
-          }
+          badges={matchingBadgeCount > 0 ? { matching: matchingBadgeCount } : undefined}
           disabledTabs={featureFlags.disabledTabs}
         />
 
@@ -423,14 +404,6 @@ function MainLegacyDashboardContent({
             onClose={profileState.handleCloseGuide}
           />
         )}
-
-        <MatchCelebrationModal
-          isOpen={matchingState.showCelebration !== null}
-          onClose={matchingState.closeCelebration}
-          partnerNickname={matchingState.showCelebration?.nickname ?? ''}
-          matchScore={matchingState.showCelebration?.score ?? 0}
-          kind={matchingState.showCelebration?.kind ?? 'pair'}
-        />
       </div>
     </SeasonProvider>
   );
