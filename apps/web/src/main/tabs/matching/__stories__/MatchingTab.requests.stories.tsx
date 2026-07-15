@@ -91,6 +91,31 @@ export const MultipleReceivedCanonicalOrder: Story = {
     section: section([], [request('new', 'RECEIVED'), request('old', 'RECEIVED')]),
   },
 };
+export const ReceivedLongKoreanCopy: Story = {
+  args: {
+    section: section(
+      [],
+      [
+        request('long-copy', 'RECEIVED', {
+          nickname: '여러 줄로 자연스럽게 표시되어야 하는 아주 긴 룸메이트 닉네임',
+          intro:
+            '320px 모바일 화면에서도 소개와 핵심 action이 가려지지 않는지 확인하기 위한 아주 긴 한글 소개 문장입니다. 서로의 수면 시간과 공부 시간을 존중하면서 차분하고 안전하게 생활하고 싶어요.',
+          note: '함께 보낸 메모도 줄임표로 숨기지 않고 충분한 높이에서 끝까지 읽을 수 있어야 해요. 공용 공간 사용 시간과 청소 약속을 미리 조율하고 싶습니다.',
+          actions: {
+            canAccept: false,
+            canReject: false,
+            canCancel: false,
+            disabledReason: 'MATCH_PRECONDITION_FAILED',
+            disabledReasonCopy:
+              '매칭 조건이 변경되어 이 작업을 할 수 없어요. 최신 매칭 현황에서 다시 확인해주세요.',
+            disabledReasonDescriptionId:
+              'matching-action-disabled-reason-match_precondition_failed',
+          },
+        }),
+      ],
+    ),
+  },
+};
 export const ScoreHiddenAndActionDisabled: Story = {
   args: {
     section: section(

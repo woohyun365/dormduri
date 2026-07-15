@@ -23,6 +23,14 @@ partial/error state로 닫는다. 이 경로에서 local season이나 action cap
 - mobile은 single column이며 supporting policy content는 primary content 뒤에 남는다.
 - desktop shell은 `1152px / minmax(0, 720px) 320px / 24px` 계약을 사용한다.
 - loading/error/denied/four-season state는 동일 header, grid, policy rail을 사용한다.
+- current/past와 sent/received는 APG manual-activation tab이다. Arrow/Home/End는 focus만 옮기고
+  Enter/Space/click만 panel selection을 바꾼다. past history fetch도 explicit selection에서만 시작한다.
+- request expiry는 screen reader에 매 초 숫자를 알리지 않고 day/hour/expired threshold가 바뀔 때만
+  polite 안내를 갱신한다. canonical matching은 auto-rotating banner를 만들지 않으며 interaction
+  transition은 `motion-reduce`에서 최소화한다.
+- canonical Storybook responsive matrix는 `matchingMobile320`, `matchingMobile360`,
+  `matchingMobile390`, `matchingMobile430`, `matchingDesktop1280`, `matchingDesktop1440` viewport와
+  request long-copy, active progress, history long-copy/tombstone story를 함께 사용한다.
 
 ## Legacy baseline
 

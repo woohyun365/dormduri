@@ -5,6 +5,8 @@ import { MatchingTabView } from '../MatchingTab';
 import { MatchingTabStorySurface } from '../__stories__/matching-story-renderer';
 import { matchingTabStoryScenarios } from '../__stories__/matching-story-scenarios';
 import { MATCHING_BASELINE_NOW } from '../__stories__/matching-story-scenarios';
+import { MatchingSectionTabs } from '../components/MatchingSectionTabs';
+import { MatchRequestSummaryCard } from '../components/MatchRequestSummaryCard';
 
 type FutureMatchContract = {
   readonly matchCapabilityReasonSchema: { readonly options: readonly string[] };
@@ -62,26 +64,25 @@ describe('Phase 1 policy and contract guards', () => {
     expect(screen.queryByRole('button', { name: '매칭 취소하기' })).not.toBeInTheDocument();
   });
 
-  it.fails(
-    'Phase 10 red: current/past와 sent/received 전환은 APG tab semantics를 제공해야 한다',
-    () => {
-      render(
-        <MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingReceived} />,
-      );
+  it('Phase 10 regression: canonical current/past tabs는 stable APG ids를 제공한다', () => {
+    render(<MatchingSectionTabs selected="current" onSelect={() => undefined} />);
 
-      expect(screen.getAllByRole('tablist')).toHaveLength(2);
-      expect(screen.getAllByRole('tab')).toHaveLength(4);
-    },
-  );
-
-  it.fails('Phase 10 red: request menu trigger는 menu ARIA state를 제공해야 한다', () => {
-    render(<MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingReceived} />);
-
-    expect(screen.getByRole('button', { name: '더보기' })).toHaveAttribute('aria-haspopup', 'menu');
-    expect(screen.getByRole('button', { name: '더보기' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
+    expect(screen.getByRole('tablist', { name: '매칭 기록 구분' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '현재 매칭' })).toHaveAttribute(
+      'aria-controls',
+      'matching-section-panel-current',
     );
+    expect(screen.getByRole('tab', { name: '지난 기록' })).toHaveAttribute(
+      'aria-controls',
+      'matching-section-panel-past',
+    );
+  });
+
+  it('Phase 10 regression: canonical request runtime은 menu가 아닌 direct action을 유지한다', () => {
+    const source = String(MatchRequestSummaryCard);
+    expect(source).not.toContain('더보기');
+    expect(source).not.toContain('aria-haspopup');
+    expect(source).toContain('onDecision');
   });
 
   it('current confirmation dialog는 alertdialog baseline을 유지한다', async () => {

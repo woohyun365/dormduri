@@ -122,4 +122,32 @@ describe('ActiveMatchSection', () => {
     expect(screen.queryByText('매칭 해제 동의')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '매칭 해제 요청' })).not.toBeInTheDocument();
   });
+
+  it('긴 active nickname과 unmatch 안내는 320px reflow utility를 유지한다', () => {
+    const longName = '여러 줄로 자연스럽게 표시되어야 하는 아주 긴 확정 룸메이트 닉네임';
+    render(
+      <div style={{ width: 320 }}>
+        <ActiveMatchSection
+          activeMatch={{
+            ...activeMatch('WAITING_FOR_ME'),
+            counterpartNickname: longName,
+            counterpartSummary: {
+              ...activeMatch('WAITING_FOR_ME').counterpartSummary!,
+              profileSummary: {
+                ...activeMatch('WAITING_FOR_ME').counterpartSummary!.profileSummary,
+                nickname: longName,
+              },
+            },
+          }}
+          readOnly={false}
+          commands={commands}
+        />
+      </div>,
+    );
+
+    expect(screen.getByRole('heading', { level: 3, name: longName })).toHaveClass(
+      'wrap-break-word',
+    );
+    expect(screen.getByText(/상대가 해제를 요청했어요/)).toHaveClass('wrap-break-word');
+  });
 });

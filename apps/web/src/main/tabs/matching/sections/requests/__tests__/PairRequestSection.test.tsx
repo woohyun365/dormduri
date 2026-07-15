@@ -123,6 +123,9 @@ describe('PairRequestSection', () => {
     expect(screen.getAllByRole('button', { name: '수락' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: '거절' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: '채팅하기' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('matching-request-direct-actions')).toHaveLength(2);
     expect(screen.queryByText(/GROUP|그룹 모집/)).not.toBeInTheDocument();
   });
 
@@ -193,8 +196,8 @@ describe('PairRequestSection', () => {
       reason.id,
     );
     expect(container.querySelector('article')).toHaveClass('min-w-0');
-    expect(screen.getByRole('heading', { level: 3 })).toHaveClass('break-words');
-    expect(screen.getByText(disabledRequest.note)).toHaveClass('break-words');
-    expect(reason).toHaveClass('break-words');
+    expect(screen.getByRole('heading', { level: 3 })).toHaveClass('wrap-break-word');
+    expect(screen.getByText(disabledRequest.note)).toHaveClass('wrap-break-word');
+    expect(reason).toHaveClass('wrap-break-word');
   });
 });

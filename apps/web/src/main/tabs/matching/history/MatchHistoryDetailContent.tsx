@@ -67,10 +67,10 @@ export function MatchHistoryDetailContent({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="break-words text-xl font-bold text-(--knu-text-primary)">
+        <h3 className="wrap-break-word text-xl font-bold text-(--knu-text-primary)">
           {profile.nickname}
         </h3>
-        <p className="mt-2 break-words text-sm leading-6 text-(--knu-text-secondary)">
+        <p className="mt-2 wrap-break-word text-sm leading-6 text-(--knu-text-secondary)">
           {profile.intro || '작성된 자기소개가 없어요.'}
         </p>
       </div>

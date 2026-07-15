@@ -89,3 +89,21 @@ export const AdminEnded: Story = {
     },
   },
 };
+export const LongKoreanCopy: Story = {
+  args: {
+    data: {
+      items: [
+        {
+          ...baseHistory.items[0]!,
+          seasonName: '2026년 1학기 아주 긴 기숙사 배정 및 매칭 결과 확인 시즌',
+          history: [
+            {
+              ...baseHistory.items[0]!.history[0]!,
+              counterpartNickname: '여러 줄로 자연스럽게 표시되어야 하는 아주 긴 상대 닉네임',
+            },
+          ],
+        },
+      ],
+    },
+  },
+};

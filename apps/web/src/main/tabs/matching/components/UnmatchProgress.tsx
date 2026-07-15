@@ -9,7 +9,7 @@ export function UnmatchProgress({ progress }: { readonly progress: MatchingActiv
           {progress.progressText}
         </span>
       </div>
-      <p className="mt-2 break-words text-sm leading-6 text-(--knu-text-secondary)">
+      <p className="mt-2 wrap-break-word text-sm leading-6 text-(--knu-text-secondary)">
         {progress.statusCopy}
       </p>
       {progress.availableUntil ? (
@@ -23,7 +23,7 @@ export function UnmatchProgress({ progress }: { readonly progress: MatchingActiv
       {progress.disabledReasonCopy && progress.disabledReasonDescriptionId ? (
         <p
           id={progress.disabledReasonDescriptionId}
-          className="mt-2 break-words text-sm leading-6 text-(--knu-text-tertiary)"
+          className="mt-2 wrap-break-word text-sm leading-6 text-(--knu-text-tertiary)"
         >
           {progress.disabledReasonCopy}
         </p>

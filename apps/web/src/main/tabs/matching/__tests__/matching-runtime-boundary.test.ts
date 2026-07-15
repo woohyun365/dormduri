@@ -39,6 +39,14 @@ const historyDetailSource = readFileSync(
   'utf8',
 );
 const historyExportSource = readFileSync(join(matchingRoot, 'history/index.ts'), 'utf8');
+const sectionTabsSource = readFileSync(
+  join(matchingRoot, 'components/MatchingSectionTabs.tsx'),
+  'utf8',
+);
+const requestCardSource = readFileSync(
+  join(matchingRoot, 'components/MatchRequestSummaryCard.tsx'),
+  'utf8',
+);
 
 describe('MatchingTab runtime boundary', () => {
   it('새 state matrix는 shared season enum과 server score visibility만 소유한다', () => {
@@ -95,5 +103,14 @@ describe('MatchingTab runtime boundary', () => {
     expect(historyDetailSource).not.toContain('calcMatchScoreWithGating');
     expect(historyDetailSource).not.toContain('canStartChat');
     expect(historyExportSource).toContain('MatchHistoryDetailContent');
+  });
+
+  it('Phase 10 canonical surface는 manual tabs, direct action, reduced motion만 사용한다', () => {
+    expect(sectionTabsSource).toContain("event.key === 'ArrowRight'");
+    expect(sectionTabsSource).toContain("event.key === 'Enter' || event.key === ' '");
+    expect(sectionTabsSource).toContain('motion-reduce:transition-none');
+    expect(requestCardSource).toContain('matching-request-direct-actions');
+    expect(requestCardSource).not.toContain('aria-haspopup');
+    expect(matchingTabSource).not.toMatch(/auto.?rotat|setInterval|requestAnimationFrame/i);
   });
 });

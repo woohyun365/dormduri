@@ -184,6 +184,41 @@ describe('MatchingTab canonical runtime', () => {
     );
   });
 
+  it('current/past tab은 Arrow 이동만으로 history를 읽지 않고 explicit activation 뒤 선택 panel heading에 focus한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(Response.json(createMatchHistoryResponse()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+
+    const current = await screen.findByRole('tab', { name: '현재 매칭' });
+    const past = screen.getByRole('tab', { name: '지난 기록' });
+    await waitFor(() => expect(screen.getByRole('heading', { name: '매칭 현황' })).toHaveFocus());
+    current.focus();
+    await user.keyboard('{ArrowRight}');
+
+    expect(past).toHaveFocus();
+    expect(current).toHaveAttribute('aria-selected', 'true');
+    expect(fetchMock.mock.calls.map(([path]) => path)).not.toContain('/api/matches/history');
+
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('heading', { name: '매칭 기록' })).toHaveFocus();
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map(([path]) => path)).toContain('/api/matches/history'),
+    );
+
+    await user.click(current);
+    await waitFor(() => expect(screen.getByRole('heading', { name: '현재 매칭' })).toHaveFocus());
+  });
+
   it('chat owner capability가 열리면 Main shell navigation command만 호출한다', async () => {
     const user = userEvent.setup();
     const onNavigateChat = vi.fn();

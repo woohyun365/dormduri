@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { MatchRequestDecisionDialog } from '../MatchRequestDecisionDialog';
@@ -41,5 +41,26 @@ describe('MatchRequestDecisionDialog', () => {
     await user.click(screen.getByRole('button', { name: '돌아가기' }));
     expect(onConfirm).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('열릴 때 destructive confirm 대신 dialog context를 focus하고 Escape로 닫는다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <MatchRequestDecisionDialog
+        decision="accept"
+        nickname="도윤"
+        pending={false}
+        onClose={onClose}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '매칭 요청을 수락할까요?' });
+    await waitFor(() => expect(dialog).toHaveFocus());
+    expect(screen.getByRole('button', { name: '수락하기' })).not.toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

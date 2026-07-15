@@ -156,8 +156,9 @@ function MatchingTabRuntime({
   }, [historyData, historyError, historyLoading, loadHistory, section]);
 
   useEffect(() => {
-    if (section !== 'past') return;
-    queueMicrotask(() => document.getElementById('matching-history-heading')?.focus());
+    const headingId =
+      section === 'past' ? 'matching-history-heading' : 'matching-current-section-heading';
+    queueMicrotask(() => document.getElementById(headingId)?.focus());
   }, [section]);
 
   return (
@@ -322,6 +323,9 @@ export function MatchingTabView({
               role="tabpanel"
               aria-labelledby="matching-section-tab-current"
             >
+              <h2 id="matching-current-section-heading" tabIndex={-1} className="sr-only">
+                현재 매칭
+              </h2>
               {currentContent}
             </div>
           )}

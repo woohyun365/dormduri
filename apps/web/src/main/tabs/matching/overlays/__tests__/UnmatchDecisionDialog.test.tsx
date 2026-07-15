@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { MatchingActiveUnmatchView } from '../../model/matching-active-view';
@@ -36,5 +36,26 @@ describe('UnmatchDecisionDialog', () => {
     expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled();
     await user.keyboard('{Escape}');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('열릴 때 destructive confirm을 자동 focus하지 않고 Escape close를 허용한다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <UnmatchDecisionDialog
+        unmatch={unmatch}
+        nickname="도윤"
+        pending={false}
+        onClose={onClose}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '매칭 해제에 동의할까요?' });
+    await waitFor(() => expect(dialog).toHaveFocus());
+    expect(screen.getByRole('button', { name: '해제 동의하기' })).not.toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

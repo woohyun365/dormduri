@@ -20,10 +20,10 @@ export function ActiveMatchSummaryCard({
     <article className="min-w-0 rounded-3xl border border-(--knu-border) bg-white p-5 shadow-sm">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-(--knu-primary)">현재 룸메이트</p>
-        <h3 className="mt-1 break-words text-xl font-bold text-(--knu-text-primary)">
+        <h3 className="mt-1 wrap-break-word text-xl font-bold text-(--knu-text-primary)">
           {activeMatch.nickname}
         </h3>
-        <p className="mt-2 break-words text-sm leading-6 text-(--knu-text-secondary)">
+        <p className="mt-2 wrap-break-word text-sm leading-6 text-(--knu-text-secondary)">
           {activeMatch.intro ?? '공개된 자기소개가 없어요.'}
         </p>
         <p className="mt-2 text-xs text-(--knu-text-tertiary)">

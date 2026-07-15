@@ -63,7 +63,7 @@ export function MatchHistorySection({
       aria-busy={loading || undefined}
       className="rounded-3xl border border-(--knu-border) bg-white p-5 shadow-sm sm:p-6"
     >
-      <div>
+      <div className="min-w-0">
         <p className="text-sm font-semibold text-(--knu-primary)">지난 시즌</p>
         <h2
           id="matching-history-heading"
@@ -118,11 +118,11 @@ export function MatchHistorySection({
                   className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none hover:bg-(--knu-background-alt) focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--knu-primary)"
                   onClick={() => toggleSeason(season.id)}
                 >
-                  <span>
-                    <span className="block font-semibold text-(--knu-text-primary)">
+                  <span className="min-w-0">
+                    <span className="block wrap-break-word font-semibold text-(--knu-text-primary)">
                       {season.name}
                     </span>
-                    <span className="mt-1 block text-xs text-(--knu-text-secondary)">
+                    <span className="mt-1 block wrap-break-word text-xs leading-5 text-(--knu-text-secondary)">
                       {season.summary}
                     </span>
                   </span>
@@ -146,20 +146,20 @@ export function MatchHistorySection({
                         {season.entries.map((entry) => (
                           <li key={entry.id} className="rounded-2xl bg-(--knu-background-alt) p-4">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <p className="font-semibold text-(--knu-text-primary)">
+                              <div className="min-w-0">
+                                <p className="wrap-break-word font-semibold text-(--knu-text-primary)">
                                   {entry.nickname}
                                 </p>
-                                <p className="mt-1 text-xs text-(--knu-text-tertiary)">
+                                <p className="mt-1 wrap-break-word text-xs leading-5 text-(--knu-text-tertiary)">
                                   {entry.stageLabel} · {entry.directionLabel} · {entry.eventLabel}{' '}
                                   {entry.eventDateLabel}
                                 </p>
                               </div>
-                              <span className="text-sm font-semibold text-(--knu-primary)">
+                              <span className="shrink-0 text-sm font-semibold text-(--knu-primary)">
                                 {entry.resultLabel}
                               </span>
                             </div>
-                            <p className="mt-3 text-sm leading-6 text-(--knu-text-secondary)">
+                            <p className="mt-3 wrap-break-word text-sm leading-6 text-(--knu-text-secondary)">
                               {entry.description}
                             </p>
                             {entry.canOpenDetail ? (

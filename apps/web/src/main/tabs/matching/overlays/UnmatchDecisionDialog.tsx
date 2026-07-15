@@ -65,7 +65,9 @@ export function UnmatchDecisionDialog({
       }
     >
       <div className="space-y-3 px-5 py-6">
-        <p className="break-words font-semibold text-(--knu-text-primary)">{nickname}님과의 매칭</p>
+        <p className="wrap-break-word font-semibold text-(--knu-text-primary)">
+          {nickname}님과의 매칭
+        </p>
         <p className="text-sm leading-6 text-(--knu-text-secondary)">{description}</p>
         {errorMessage ? (
           <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-950">

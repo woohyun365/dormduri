@@ -47,7 +47,7 @@ export function MatchingSegmentTabs({
             tabIndex={focused === tab ? 0 : -1}
             aria-selected={selected === tab}
             aria-controls={`matching-requests-panel-${tab}`}
-            className={`min-h-11 rounded-xl px-3 py-2 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-(--knu-primary) focus-visible:ring-offset-2 ${
+            className={`min-h-11 rounded-xl px-3 py-2 text-sm font-semibold outline-none transition motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-(--knu-primary) focus-visible:ring-offset-2 ${
               selected === tab
                 ? 'bg-white text-(--knu-primary) shadow-sm'
                 : 'text-(--knu-text-secondary)'

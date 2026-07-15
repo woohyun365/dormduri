@@ -22,6 +22,7 @@ describe('MatchHistoryDetailContent', () => {
 
     expect(screen.getByText('당시 매칭도 91점')).toBeInTheDocument();
     expect(screen.queryByText('현재 매칭도 91점')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '감자친구' })).toHaveClass('wrap-break-word');
   });
 
   it('tombstone은 score와 full profile을 보강하지 않는다', () => {
