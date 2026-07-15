@@ -358,6 +358,7 @@ function MainLegacyDashboardContent({
               onBadgeCountChange={setMatchingBadgeCount}
               onNavigateChat={() => handleNavigate('chat')}
               initialRequestTab={matchingNavOptions?.requestTab}
+              initialSection={matchingNavOptions?.section}
             />
           )}
           {activeTab === 'profile' && (

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
 import { MatchingApiError, matchingApi } from '../matching.api';
 
 describe('matchingApi', () => {
@@ -69,6 +70,40 @@ describe('matchingApi', () => {
 
     await expect(matchingApi.getOverview()).rejects.toEqual(
       expect.objectContaining<Partial<MatchingApiError>>({ code: 'MATCHING_API_ABORTED' }),
+    );
+  });
+
+  it('history detail의 server eligibility error는 raw body 없이 non-retry public error로 정규화한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              success: false,
+              code: 'MATCH_HISTORY_PROFILE_NOT_AVAILABLE',
+              detail: 'raw',
+            }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+    );
+
+    await expect(matchingApi.getHistoryCounterpartProfile('entry 1/2')).rejects.toMatchObject({
+      code: 'MATCHING_HISTORY_DETAIL_UNAVAILABLE',
+      message: '이 기록의 상대 프로필은 더 이상 확인할 수 없어요.',
+    });
+  });
+
+  it('history detail은 entry id를 encode한 result-read route만 호출한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(createPublicProfileFull()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await matchingApi.getHistoryCounterpartProfile('entry 1/2');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/matches/history/entries/entry%201%2F2/counterpart-profile',
+      expect.objectContaining({ method: 'GET' }),
     );
   });
 });

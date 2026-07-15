@@ -1,4 +1,3 @@
-import { matchHistoryResponseSchema, type MatchHistoryResponse } from '@repo/shared/match/contract';
 import { publicProfileSchema, type PublicProfile } from '@repo/shared/profile/contract';
 import {
   previousSeasonProfileResponseSchema,
@@ -107,38 +106,8 @@ async function getPublicProfileByUserId(userId: string): Promise<PublicProfile> 
   return parsed.data;
 }
 
-async function getMatchHistory(): Promise<MatchHistoryResponse> {
-  const parsed = matchHistoryResponseSchema.safeParse(await fetchJson('/api/matches/history'));
-  if (!parsed.success) {
-    throw new HomeProfileDetailFetchError(
-      'HOME_PROFILE_DETAIL_UPSTREAM_INVALID',
-      'Match history response did not match the public contract.',
-    );
-  }
-
-  return parsed.data;
-}
-
-async function getMatchHistoryCounterpartProfile(entryId: string): Promise<PublicProfile> {
-  const parsed = publicProfileSchema.safeParse(
-    await fetchJson(
-      `/api/matches/history/entries/${encodeURIComponent(entryId)}/counterpart-profile`,
-    ),
-  );
-  if (!parsed.success) {
-    throw new HomeProfileDetailFetchError(
-      'HOME_PROFILE_DETAIL_UPSTREAM_INVALID',
-      'Match history counterpart profile response did not match the public contract.',
-    );
-  }
-
-  return parsed.data;
-}
-
 export const homeProfileDetailApi = {
   getCurrentSeasonProfile,
   getPreviousSeasonProfile,
   getPublicProfileByUserId,
-  getMatchHistory,
-  getMatchHistoryCounterpartProfile,
 };

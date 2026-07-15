@@ -8,7 +8,6 @@ import type {
 import type { ReportListItem, ReportListResponse } from '@repo/shared/social-safety/report';
 import type { SupportFaqItem, SupportTicketResponse } from '@repo/shared/support';
 import {
-  createMatchHistoryResponse,
   createPreviousSeasonProfileResponse,
   createPublicProfileFull,
   createSeasonProfileDraftResponse,
@@ -157,10 +156,6 @@ function resolveProfileFixtureResponse(
 
   if (request.pathname === '/api/seasons/previous/profile') {
     return createStoryJsonResponse(createPreviousSeasonProfileResponse());
-  }
-
-  if (request.pathname === '/api/matches/history') {
-    return createStoryJsonResponse(createMatchHistoryResponse());
   }
 
   if (/^\/api\/profiles\/[^/]+$/.test(request.pathname)) {

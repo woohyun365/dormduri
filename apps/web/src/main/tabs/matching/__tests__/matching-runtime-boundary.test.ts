@@ -30,6 +30,15 @@ const activeSectionSource = readFileSync(
   join(matchingRoot, 'sections/active/ActiveMatchSection.tsx'),
   'utf8',
 );
+const historySectionSource = readFileSync(
+  join(matchingRoot, 'sections/history/MatchHistorySection.tsx'),
+  'utf8',
+);
+const historyDetailSource = readFileSync(
+  join(matchingRoot, 'history/MatchHistoryDetailContent.tsx'),
+  'utf8',
+);
+const historyExportSource = readFileSync(join(matchingRoot, 'history/index.ts'), 'utf8');
 
 describe('MatchingTab runtime boundary', () => {
   it('새 state matrix는 shared season enum과 server score visibility만 소유한다', () => {
@@ -51,6 +60,7 @@ describe('MatchingTab runtime boundary', () => {
     expect(mainSource).toContain("import MatchingTab from './tabs/matching/MatchingTab'");
     expect(mainSource).not.toContain('MatchingRuntimeTab');
     expect(existsSync(join(matchingRoot, 'MatchingRuntimeTab.tsx'))).toBe(false);
+    expect(mainSource).toContain('initialSection={matchingNavOptions?.section}');
   });
 
   it('unsupported group baseline은 current/canonical story matrix와 분리된다', () => {
@@ -76,5 +86,14 @@ describe('MatchingTab runtime boundary', () => {
     expect(activeViewSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
     expect(activeSectionSource).not.toContain('@/types/match');
     expect(activeSectionSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
+  });
+
+  it('history runtime은 entry-id owner만 사용하고 group/chat/local score fallback을 만들지 않는다', () => {
+    expect(historySectionSource).toContain('useMatchHistoryCounterpartDetail');
+    expect(historySectionSource).not.toContain('/api/profiles/');
+    expect(historySectionSource).not.toMatch(/GROUP_|groupMatching|groupSize|hadConversation/);
+    expect(historyDetailSource).not.toContain('calcMatchScoreWithGating');
+    expect(historyDetailSource).not.toContain('canStartChat');
+    expect(historyExportSource).toContain('MatchHistoryDetailContent');
   });
 });

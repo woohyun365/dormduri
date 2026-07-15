@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MatchingApiError } from '../api/matching.api';
 import MatchingTab, { MatchingTabView } from '../MatchingTab';
 import {
+  createMatchHistoryResponse,
   createPublicProfileFull,
   createPublicProfileTombstone,
 } from '@/test/home-profile-detail-fixtures';
@@ -151,6 +152,35 @@ describe('MatchingTab canonical runtime', () => {
     expect(fetch).toHaveBeenCalledWith(
       '/api/matches/overview',
       expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('past initial section은 history만 lazy load하고 current 선택은 history를 eager load하지 않는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(Response.json(createMatchHistoryResponse()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+    await screen.findByText('현재 요청을 확인해보세요');
+    expect(fetchMock.mock.calls.map(([path]) => path)).not.toContain('/api/matches/history');
+
+    rerender(
+      <MatchingTab
+        viewerId="viewer-2"
+        seasonShell={{ id: 'season-2', state: 'SEASON_MATCHING' }}
+        initialSection="past"
+      />,
+    );
+    expect(await screen.findByRole('heading', { name: '매칭 기록' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map(([path]) => path)).toContain('/api/matches/history'),
     );
   });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MatchingViewState } from './model/matching-view-model';
 import type {
   MatchingSeasonShell,
@@ -14,6 +14,7 @@ import { MatchingTabSkeleton } from './layout/MatchingTabSkeleton';
 import { toMatchingApiErrorMessage } from './api/matching.api';
 import { useMatchingOverview } from './hooks/useMatchingOverview';
 import { useMatchingActions } from './hooks/useMatchingActions';
+import { useMatchingHistory } from './hooks/useMatchingHistory';
 import { matchCapabilityReasonCopy } from './model/matching-action-capability';
 import { resolveMatchingShellConsistency } from './model/matching-shell-consistency';
 import { toMatchingViewState } from './model/matching-view-model';
@@ -22,6 +23,8 @@ import { MatchingUnavailableState } from './sections/system/MatchingUnavailableS
 import type { MatchingRequestCommands } from './sections/requests/PairRequestSection';
 import type { MatchingActiveCommands } from './sections/active/ActiveMatchSection';
 import type { MatchingRequestTab } from './components/MatchingSegmentTabs';
+import { MatchingSectionTabs, type MatchingSection } from './components/MatchingSectionTabs';
+import { MatchHistorySection } from './sections/history/MatchHistorySection';
 
 export interface MatchingTabProps {
   readonly viewerId: string;
@@ -29,6 +32,7 @@ export interface MatchingTabProps {
   readonly onBadgeCountChange?: (count: number) => void;
   readonly onNavigateChat?: () => void;
   readonly initialRequestTab?: MatchingRequestTab;
+  readonly initialSection?: MatchingSection;
 }
 
 export default function MatchingTab({
@@ -37,6 +41,7 @@ export default function MatchingTab({
   onBadgeCountChange,
   onNavigateChat,
   initialRequestTab,
+  initialSection,
 }: MatchingTabProps) {
   const identityKey = `${viewerId}:${seasonShell.id ?? 'none'}:${seasonShell.state ?? 'none'}`;
   return (
@@ -47,6 +52,7 @@ export default function MatchingTab({
       onBadgeCountChange={onBadgeCountChange}
       onNavigateChat={onNavigateChat}
       initialRequestTab={initialRequestTab}
+      initialSection={initialSection}
     />
   );
 }
@@ -57,14 +63,23 @@ function MatchingTabRuntime({
   onBadgeCountChange,
   onNavigateChat,
   initialRequestTab,
+  initialSection,
 }: {
   readonly identityKey: string;
   readonly seasonShell: MatchingSeasonShell;
   readonly onBadgeCountChange?: (count: number) => void;
   readonly onNavigateChat?: () => void;
   readonly initialRequestTab?: MatchingRequestTab;
+  readonly initialSection?: MatchingSection;
 }) {
   const overview = useMatchingOverview({ identityKey });
+  const history = useMatchingHistory({ identityKey });
+  const {
+    data: historyData,
+    error: historyError,
+    loading: historyLoading,
+    load: loadHistory,
+  } = history;
   const actions = useMatchingActions({ refetchOverview: overview.refresh });
   const view = toMatchingViewState({
     overview: overview.data,
@@ -76,6 +91,7 @@ function MatchingTabRuntime({
   const headingFocused = useRef(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [mismatchCount, setMismatchCount] = useState(0);
+  const [section, setSection] = useState<MatchingSection>(initialSection ?? 'current');
 
   const consistency = useMemo<MatchingShellConsistency | null>(() => {
     if (!overview.data) return null;
@@ -134,6 +150,16 @@ function MatchingTabRuntime({
     previousActiveId.current = activeId;
   }, [consistency?.kind, overview.data?.activeMatch]);
 
+  useEffect(() => {
+    if (section !== 'past' || historyData || historyLoading || historyError) return;
+    void loadHistory();
+  }, [historyData, historyError, historyLoading, loadHistory, section]);
+
+  useEffect(() => {
+    if (section !== 'past') return;
+    queueMicrotask(() => document.getElementById('matching-history-heading')?.focus());
+  }, [section]);
+
   return (
     <MatchingTabView
       state={view}
@@ -155,6 +181,16 @@ function MatchingTabRuntime({
       onDismissUnmatchCompletion={actions.dismissUnmatchCompletion}
       onNavigateChat={onNavigateChat}
       initialRequestTab={initialRequestTab}
+      selectedSection={section}
+      onSelectSection={setSection}
+      pastContent={
+        <MatchHistorySection
+          data={historyData}
+          loading={historyLoading}
+          error={historyError}
+          onRetry={loadHistory}
+        />
+      }
     />
   );
 }
@@ -175,6 +211,9 @@ export function MatchingTabView({
   onDismissUnmatchCompletion,
   onNavigateChat,
   initialRequestTab,
+  selectedSection = 'current',
+  onSelectSection,
+  pastContent,
 }: {
   readonly state: MatchingViewState;
   readonly consistency?: MatchingShellConsistency | null;
@@ -191,22 +230,27 @@ export function MatchingTabView({
   readonly onDismissUnmatchCompletion?: () => void;
   readonly onNavigateChat?: () => void;
   readonly initialRequestTab?: MatchingRequestTab;
+  readonly selectedSection?: MatchingSection;
+  readonly onSelectSection?: (section: MatchingSection) => void;
+  readonly pastContent?: ReactNode;
 }) {
-  if (state.kind === 'loading') return <MatchingTabSkeleton />;
+  if (state.kind === 'loading' && selectedSection === 'current') return <MatchingTabSkeleton />;
 
-  let content;
-  if (state.kind === 'error') {
-    content = (
+  let currentContent: ReactNode;
+  if (state.kind === 'loading') {
+    currentContent = <MatchingTabSkeleton />;
+  } else if (state.kind === 'error') {
+    currentContent = (
       <MatchingTabError message={toMatchingApiErrorMessage(state.error.code)} onRetry={onRetry} />
     );
   } else if (state.kind === 'unavailable') {
-    content = <MatchingUnavailableState message={matchCapabilityReasonCopy(state.reason)} />;
+    currentContent = <MatchingUnavailableState message={matchCapabilityReasonCopy(state.reason)} />;
   } else if (consistency?.kind === 'transitioning') {
-    content = (
+    currentContent = (
       <MatchingUnavailableState message="시즌 전환을 확인하고 있어요. 잠시만 기다려주세요." />
     );
   } else if (consistency?.kind === 'mismatch') {
-    content = (
+    currentContent = (
       <MatchingTabError
         message="홈과 매칭의 시즌 정보가 달라 최신 상태를 다시 확인해야 해요."
         onRetry={onRetry}
@@ -228,7 +272,7 @@ export function MatchingTabView({
         cancelUnmatchRequest: async () => 'error' as const,
         isPending: () => false,
       } satisfies MatchingActiveCommands);
-    content = (
+    currentContent = (
       <>
         {requestActionError ? (
           <div
@@ -265,7 +309,23 @@ export function MatchingTabView({
   return (
     <>
       <MatchingTabLayout header={<MatchingTabHeader />} rail={<MatchingPolicyRail />}>
-        {content}
+        <div className="space-y-4">
+          <MatchingSectionTabs
+            selected={selectedSection}
+            onSelect={onSelectSection ?? (() => undefined)}
+          />
+          {selectedSection === 'past' ? (
+            pastContent
+          ) : (
+            <div
+              id="matching-section-panel-current"
+              role="tabpanel"
+              aria-labelledby="matching-section-tab-current"
+            >
+              {currentContent}
+            </div>
+          )}
+        </div>
       </MatchingTabLayout>
       {celebration && (
         <div

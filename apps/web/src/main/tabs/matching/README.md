@@ -63,6 +63,12 @@ Canonical runtime Storybook은 deterministic state workshop을 위해 `MatchingT
   `availableUntil`로 authorization을 재판정하지 않는다.
 - `SEASON_POST_MATCH`는 같은 active result card의 read-only 변형을 사용하며 unmatch control을
   생성하지 않는다. profile/chat은 각 owner capability가 열린 경우에만 유지한다.
+- past history는 `GET /api/matches/history`의 season ordering을 그대로 표시하고, 더 보기는 받은
+  season group을 3개씩 여는 client-side reveal이다. cursor/page API를 합성하지 않는다.
+- 과거 상대 상세는 `MATCHED_SUCCESS` entry의 entry-id route만 사용한다. `UNMATCHED_AFTER_SUCCESS`와
+  request terminal row는 summary-only이며 generic profile route로 우회하지 않는다.
+- `history/MatchHistoryDetailContent`는 stable feature export다. FULL에는 materialized `matchScore`
+  snapshot만 표시하고, tombstone에는 score나 full profile snapshot을 보강하지 않는다.
 
 ## Remaining compatibility debt
 

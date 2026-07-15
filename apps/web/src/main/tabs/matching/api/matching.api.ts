@@ -18,7 +18,8 @@ export type MatchingApiErrorCode =
   | 'MATCHING_API_ABORTED'
   | 'MATCHING_API_NETWORK'
   | 'MATCHING_API_RESPONSE_INVALID'
-  | 'MATCHING_API_STATE_CHANGED';
+  | 'MATCHING_API_STATE_CHANGED'
+  | 'MATCHING_HISTORY_DETAIL_UNAVAILABLE';
 
 export class MatchingApiError extends Error {
   constructor(
@@ -36,6 +37,8 @@ export function toMatchingApiErrorMessage(code: MatchingApiErrorCode): string {
       return '요청이 취소되었어요.';
     case 'MATCHING_API_STATE_CHANGED':
       return '매칭 상태가 변경되었어요. 최신 상태를 다시 확인해주세요.';
+    case 'MATCHING_HISTORY_DETAIL_UNAVAILABLE':
+      return '이 기록의 상대 프로필은 더 이상 확인할 수 없어요.';
     case 'MATCHING_API_NETWORK':
       return '매칭 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
     case 'MATCHING_API_RESPONSE_INVALID':
@@ -78,10 +81,21 @@ async function fetchMatchingJson<T>(input: {
   }
 
   if (!response.ok) {
+    const upstreamCode =
+      typeof payload === 'object' && payload !== null && 'code' in payload
+        ? (payload as { code?: unknown }).code
+        : null;
+    const historyDetailUnavailable =
+      input.path.includes('/api/matches/history/entries/') &&
+      (upstreamCode === 'MATCH_HISTORY_ENTRY_ACCESS_DENIED' ||
+        upstreamCode === 'MATCH_HISTORY_ENTRY_NOT_FOUND' ||
+        upstreamCode === 'MATCH_HISTORY_PROFILE_NOT_AVAILABLE');
     throw new MatchingApiError(
-      response.status === 409 || response.status === 422
-        ? 'MATCHING_API_STATE_CHANGED'
-        : 'MATCHING_API_NETWORK',
+      historyDetailUnavailable
+        ? 'MATCHING_HISTORY_DETAIL_UNAVAILABLE'
+        : response.status === 409 || response.status === 422
+          ? 'MATCHING_API_STATE_CHANGED'
+          : 'MATCHING_API_NETWORK',
       response.status,
     );
   }

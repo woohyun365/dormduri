@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  createMatchHistoryResponse,
   createPreviousSeasonProfileResponse,
   createPublicProfileFull,
   createPublicProfileTombstone,
@@ -69,25 +68,6 @@ describe('homeProfileDetailApi', () => {
     await expect(homeProfileDetailApi.getPublicProfileByUserId('removed')).resolves.toMatchObject({
       detailState: 'TOMBSTONE',
     });
-  });
-
-  it('match history와 counterpart profile route를 contract 기반으로 읽는다', async () => {
-    const historyFetchMock = stubHomeProfileDetailFetch(createMatchHistoryResponse());
-
-    await expect(homeProfileDetailApi.getMatchHistory()).resolves.toMatchObject({
-      items: [{ seasonId: 'season-2026-1' }],
-    });
-    expect(historyFetchMock).toHaveBeenCalledWith('/api/matches/history', expect.any(Object));
-
-    vi.unstubAllGlobals();
-    const counterpartFetchMock = stubHomeProfileDetailFetch(createPublicProfileFull());
-    await expect(
-      homeProfileDetailApi.getMatchHistoryCounterpartProfile('entry 1/2'),
-    ).resolves.toMatchObject({ nickname: '감자친구' });
-    expect(counterpartFetchMock).toHaveBeenCalledWith(
-      '/api/matches/history/entries/entry%201%2F2/counterpart-profile',
-      expect.any(Object),
-    );
   });
 
   it('schema mismatch는 typed error로 반환한다', async () => {
