@@ -48,6 +48,22 @@ Canonical runtime Storybook은 deterministic state workshop을 위해 `MatchingT
 - `채팅하기`는 counterpart summary의 chat-owner `canStartChat` capability가 열릴 때만 노출하며,
   matching은 thread 상태를 다시 판정하지 않고 Main의 shell navigation command만 호출한다.
 
+## Current active match and mutual unmatch
+
+- overview와 active GET은 current `ACTIVE` relation만 반환한다. terminal `UNMATCHED` summary는
+  mutual unmatch action response에서만 읽고, overview refetch 후 `activeMatch=null`로 수렴한다.
+- `matching-active-view.ts`는 public counterpart summary, score exposure, result-read, chat action과
+  unmatch capability를 표시 모델로 변환한다. optional/불일치 projection은 detail·score·chat을
+  fail-closed하며 nickname fallback만 유지한다.
+- active profile detail은 request의 `detailEntryToken`을 재사용하지 않는다. `/api/profiles/:userId`를
+  token 없이 호출하고 API가 current `MATCHED_PARTNER` result-read 관계와 visibility를 다시 검증한다.
+- mutual unmatch는 `0/2`, 내가 요청한 `1/2`, 상대가 요청한 `1/2`, action response의 `2/2`를
+  구분한다. request/cancel은 relation 단위로 충돌 잠금하고 success/stale 이후 overview를 다시 읽는다.
+- action이 닫힌 이유는 `unmatchProgress.disabledReason`이 소유한다. FE는 season, cutoff,
+  `availableUntil`로 authorization을 재판정하지 않는다.
+- `SEASON_POST_MATCH`는 같은 active result card의 read-only 변형을 사용하며 unmatch control을
+  생성하지 않는다. profile/chat은 각 owner capability가 열린 경우에만 유지한다.
+
 ## Remaining compatibility debt
 
 `useMainMatchingState`와 `main/legacy/matchingLegacyClient.ts`는 ChatTab compatibility를 위해 남아 있다.

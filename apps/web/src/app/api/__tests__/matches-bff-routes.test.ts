@@ -87,6 +87,7 @@ function createActiveMatchActionResponse() {
         requiredCount: 2,
         canRequest: false,
         canCancel: true,
+        disabledReason: null,
         availableUntil: '2026-06-13T00:00:00.000Z',
       },
     },

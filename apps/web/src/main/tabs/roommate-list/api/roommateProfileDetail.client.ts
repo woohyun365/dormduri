@@ -15,6 +15,10 @@ export interface RoommateProfileDetailQuery {
   readonly detailEntryToken: string;
 }
 
+export interface CurrentMatchedProfileDetailQuery {
+  readonly targetUserId: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -82,6 +86,25 @@ export function getRoommateProfileDetail(
   const params = new URLSearchParams({ detailEntryToken });
   return fetchRoommateProfileDetailJson({
     path: `/api/profiles/${encodeURIComponent(targetUserId)}?${params.toString()}`,
+    schema: publicProfileSchema,
+    options,
+  });
+}
+
+/** API가 current MATCHED_PARTNER result-read 관계를 다시 검증하는 전용 entry다. */
+export function getCurrentMatchedProfileDetail(
+  query: CurrentMatchedProfileDetailQuery,
+  options?: RoommateSearchRequestOptions,
+): Promise<PublicProfile> {
+  const targetUserId = query.targetUserId.trim();
+  if (!targetUserId) {
+    return Promise.reject(
+      createRoommateApiError({ code: 'ROOMMATE_PROFILE_DETAIL_ENTRY_REQUIRED', status: 400 }),
+    );
+  }
+
+  return fetchRoommateProfileDetailJson({
+    path: `/api/profiles/${encodeURIComponent(targetUserId)}`,
     schema: publicProfileSchema,
     options,
   });

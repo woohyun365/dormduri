@@ -1,9 +1,12 @@
 import type { MatchOverviewResponse } from '@repo/shared/match/contract';
+import { ActiveMatchSection } from '../active/ActiveMatchSection';
 
 export function SeasonPostMatchState({
   activeMatch,
+  onNavigateChat,
 }: {
   readonly activeMatch: MatchOverviewResponse['activeMatch'];
+  readonly onNavigateChat?: () => void;
 }) {
   return (
     <section className="rounded-3xl border border-(--knu-border) bg-white p-6 shadow-sm">
@@ -19,6 +22,9 @@ export function SeasonPostMatchState({
       <p className="mt-4 text-sm font-medium text-(--knu-text-secondary)">
         이 화면은 결과 확인 전용이에요.
       </p>
+      {activeMatch ? (
+        <ActiveMatchSection activeMatch={activeMatch} readOnly onNavigateChat={onNavigateChat} />
+      ) : null}
     </section>
   );
 }

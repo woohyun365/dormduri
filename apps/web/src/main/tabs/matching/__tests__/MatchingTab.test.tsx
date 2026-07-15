@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { MatchingApiError } from '../api/matching.api';
 import MatchingTab, { MatchingTabView } from '../MatchingTab';
-import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
+import {
+  createPublicProfileFull,
+  createPublicProfileTombstone,
+} from '@/test/home-profile-detail-fixtures';
 
 function counterpartSummary(nickname: string) {
   return {
@@ -74,6 +77,40 @@ function overviewFixture(overrides: Record<string, unknown> = {}) {
     sentRequests: [],
     receivedRequests: [receivedRequest()],
     activeMatch: null,
+    ...overrides,
+  };
+}
+
+function currentActiveMatch(overrides: Record<string, unknown> = {}) {
+  const summary = counterpartSummary('도윤');
+  return {
+    id: 'active-1',
+    seasonId: 'season-1',
+    counterpartUserId: 'user-2',
+    counterpartParticipantId: 'participant-2',
+    counterpartNickname: '도윤',
+    counterpartSummary: {
+      ...summary,
+      relation: { type: 'MATCHED_PARTNER' },
+      resultRead: { resultReadable: true, context: 'CURRENT_MATCHED_PARTNER' },
+    },
+    status: 'ACTIVE',
+    startedAt: '2026-08-01T01:00:00.000Z',
+    endedAt: null,
+    endReason: null,
+    createdFromRequestId: 'request-1',
+    matchScore: 91,
+    unmatchProgress: {
+      state: 'NONE',
+      requestedByViewerAt: null,
+      requestedByCounterpartAt: null,
+      progressCount: 0,
+      requiredCount: 2,
+      canRequest: true,
+      canCancel: false,
+      disabledReason: null,
+      availableUntil: '2026-08-10T14:59:59.999Z',
+    },
     ...overrides,
   };
 }
@@ -263,6 +300,7 @@ describe('MatchingTab canonical runtime', () => {
               requiredCount: 2,
               canRequest: false,
               canCancel: false,
+              disabledReason: null,
               availableUntil: null,
             },
           },
@@ -300,6 +338,7 @@ describe('MatchingTab canonical runtime', () => {
         requiredCount: 2,
         canRequest: true,
         canCancel: false,
+        disabledReason: null,
         availableUntil: '2026-08-10T00:00:00.000Z',
       },
     };
@@ -387,5 +426,154 @@ describe('MatchingTab canonical runtime', () => {
     );
     expect(screen.getByText('요청 종료')).toBeInTheDocument();
     expect(screen.queryByText(/raw upstream target hidden/)).not.toBeInTheDocument();
+  });
+
+  it('active profile은 request token 없이 current MATCHED_PARTNER result-read를 다시 확인한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(overviewFixture({ receivedRequests: [], activeMatch: currentActiveMatch() })),
+      )
+      .mockResolvedValueOnce(
+        Response.json(createPublicProfileFull({ id: 'user-2', nickname: '도윤' })),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
+    expect(
+      await screen.findByRole('dialog', { name: '확정된 룸메이트 프로필' }),
+    ).toBeInTheDocument();
+    const detailUrl = new URL(String(fetchMock.mock.calls[1]?.[0]), 'http://localhost');
+    expect(detailUrl.pathname).toBe('/api/profiles/user-2');
+    expect(detailUrl.search).toBe('');
+  });
+
+  it('active result-read가 tombstone이면 full detail 대신 최소 결과만 표시한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(overviewFixture({ receivedRequests: [], activeMatch: currentActiveMatch() })),
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          createPublicProfileTombstone({
+            id: 'user-2',
+            resultRead: { resultReadable: true, context: 'CURRENT_MATCHED_PARTNER' },
+            tombstone: {
+              reason: 'DETAIL_CONTEXT_NO_LONGER_VALID',
+              displayName: '탈퇴한 사용자',
+              message: '현재는 상대 프로필 상세 정보를 볼 수 없어요.',
+            },
+          }),
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
+    const dialog = await screen.findByRole('dialog', { name: '확정된 룸메이트 프로필' });
+    expect(within(dialog).getByText('탈퇴한 사용자')).toBeInTheDocument();
+    expect(within(dialog).queryByText('현재 매칭도 92점')).not.toBeInTheDocument();
+  });
+
+  it('active result-read의 retryable 오류는 public copy와 같은 관계 맥락의 재시도를 유지한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(overviewFixture({ receivedRequests: [], activeMatch: currentActiveMatch() })),
+      )
+      .mockRejectedValueOnce(new Error('raw upstream profile error'))
+      .mockResolvedValueOnce(
+        Response.json(createPublicProfileFull({ id: 'user-2', nickname: '도윤' })),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
+    const dialog = await screen.findByRole('dialog', { name: '확정된 룸메이트 프로필' });
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('프로필을 확인하지 못했어요');
+    expect(within(dialog).queryByText(/raw upstream profile error/)).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: '다시 시도' }));
+    expect(await within(dialog).findByRole('heading', { name: '도윤' })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('상대 요청에 동의하면 terminal response와 overview refetch 뒤 완료 feedback으로 수렴한다', async () => {
+    const user = userEvent.setup();
+    const activeMatch = currentActiveMatch({
+      unmatchProgress: {
+        ...currentActiveMatch().unmatchProgress,
+        state: 'WAITING_FOR_ME',
+        requestedByCounterpartAt: '2026-08-02T00:00:00.000Z',
+        progressCount: 1,
+      },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture({ receivedRequests: [], activeMatch })))
+      .mockResolvedValueOnce(
+        Response.json({
+          activeMatch: {
+            ...activeMatch,
+            status: 'UNMATCHED',
+            endedAt: '2026-08-02T01:00:00.000Z',
+            endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+            unmatchProgress: {
+              ...activeMatch.unmatchProgress,
+              state: 'COMPLETED',
+              requestedByViewerAt: '2026-08-02T01:00:00.000Z',
+              progressCount: 2,
+              canRequest: false,
+              disabledReason: 'ACTIVE_MATCH_NOT_ACTIONABLE',
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json(overviewFixture({ receivedRequests: [], activeMatch: null })),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: '매칭 해제에 동의' }));
+    await user.click(screen.getByRole('button', { name: '해제 동의하기' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '두 사람 모두 동의해 매칭이 해제되었어요.',
+    );
+    expect(screen.queryByRole('heading', { name: '확정된 룸메이트' })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/matches/active/active-1/unmatch-request',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 });

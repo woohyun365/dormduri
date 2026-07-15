@@ -363,6 +363,13 @@ const expectedRoutes: ExpectedRoute[] = [
   },
   {
     controller: MatchesController,
+    handler: 'getOverview',
+    method: RequestMethod.GET,
+    path: 'api/matches/overview',
+    access: 'protected',
+  },
+  {
+    controller: MatchesController,
     handler: 'getRequests',
     method: RequestMethod.GET,
     path: 'api/matches/requests',

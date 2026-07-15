@@ -42,6 +42,7 @@ const activeMatch: NonNullable<HomeMatchingSummaryProps['activeMatch']> = {
     requiredCount: 2,
     canRequest: true,
     canCancel: false,
+    disabledReason: null,
     availableUntil: '2026-08-06T14:59:59.000Z',
   },
   counterpartSummary: {

@@ -124,4 +124,96 @@ describe('useMatchingActions', () => {
     unmount();
     expect(signal?.aborted).toBe(true);
   });
+
+  it('같은 active relation의 request/cancel을 하나의 conflict key로 잠근다', async () => {
+    let resolveRequest: (value: unknown) => void = () => undefined;
+    const requestUnmatch = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    const cancelUnmatchRequest = vi.fn();
+    const { result } = renderHook(() =>
+      useMatchingActions({
+        client: {
+          acceptRequest: vi.fn(),
+          rejectRequest: vi.fn(),
+          cancelRequest: vi.fn(),
+          requestUnmatch,
+          cancelUnmatchRequest,
+        } as never,
+        refetchOverview: vi.fn().mockResolvedValue(undefined),
+      }),
+    );
+
+    act(() => {
+      void result.current.requestUnmatch('active-1');
+      void result.current.cancelUnmatchRequest('active-1');
+    });
+    expect(requestUnmatch).toHaveBeenCalledTimes(1);
+    expect(cancelUnmatchRequest).not.toHaveBeenCalled();
+    expect(result.current.isPending('requestUnmatch', 'active-1')).toBe(true);
+    expect(result.current.isPending('cancelUnmatchRequest', 'active-1')).toBe(true);
+
+    await act(async () => {
+      resolveRequest({ activeMatch: { status: 'ACTIVE' } });
+    });
+  });
+
+  it('mutual unmatch 완료 response를 refetch 뒤 1회성 feedback으로 보존한다', async () => {
+    const requestUnmatch = vi.fn().mockResolvedValue({
+      activeMatch: {
+        id: 'active-1',
+        status: 'UNMATCHED',
+        endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+      },
+    });
+    const refetchOverview = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useMatchingActions({
+        client: {
+          acceptRequest: vi.fn(),
+          rejectRequest: vi.fn(),
+          cancelRequest: vi.fn(),
+          requestUnmatch,
+          cancelUnmatchRequest: vi.fn(),
+        } as never,
+        refetchOverview,
+      }),
+    );
+
+    await act(async () => {
+      expect(await result.current.requestUnmatch('active-1')).toBe('success');
+    });
+    expect(refetchOverview).toHaveBeenCalledTimes(1);
+    expect(result.current.unmatchCompletion).toEqual({
+      activeMatchId: 'active-1',
+      message: '두 사람 모두 동의해 매칭이 해제되었어요.',
+    });
+
+    act(() => result.current.dismissUnmatchCompletion());
+    expect(result.current.unmatchCompletion).toBeNull();
+  });
+
+  it('request와 active action error를 서로 다른 scope로 유지한다', async () => {
+    const { result } = renderHook(() =>
+      useMatchingActions({
+        client: {
+          acceptRequest: vi.fn(),
+          rejectRequest: vi.fn(),
+          cancelRequest: vi.fn(),
+          requestUnmatch: vi.fn().mockRejectedValue(new Error('offline')),
+          cancelUnmatchRequest: vi.fn(),
+        } as never,
+        refetchOverview: vi.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.requestUnmatch('active-1');
+    });
+    expect(result.current.requestError).toBeNull();
+    expect(result.current.activeError?.code).toBe('MATCHING_API_NETWORK');
+  });
 });

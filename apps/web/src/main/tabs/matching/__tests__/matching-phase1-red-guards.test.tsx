@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as matchContract from '@repo/shared/match/contract';
 import { MatchingTabView } from '../MatchingTab';
 import { MatchingTabStorySurface } from '../__stories__/matching-story-renderer';
 import { matchingTabStoryScenarios } from '../__stories__/matching-story-scenarios';
+import { MATCHING_BASELINE_NOW } from '../__stories__/matching-story-scenarios';
 
 type FutureMatchContract = {
   readonly matchCapabilityReasonSchema: { readonly options: readonly string[] };
@@ -14,6 +15,14 @@ type FutureMatchContract = {
 };
 
 const futureMatchContract = matchContract as typeof matchContract & FutureMatchContract;
+
+beforeEach(() => {
+  vi.spyOn(Date, 'now').mockReturnValue(new Date(MATCHING_BASELINE_NOW).getTime());
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('Phase 1 policy and contract guards', () => {
   it('Phase 6 regression: canonical POST_MATCH active result는 request/unmatch action을 노출하지 않는다', () => {
@@ -40,6 +49,7 @@ describe('Phase 1 policy and contract guards', () => {
               requiredCount: 2,
               canRequest: false,
               canCancel: false,
+              disabledReason: null,
               availableUntil: null,
             },
           },

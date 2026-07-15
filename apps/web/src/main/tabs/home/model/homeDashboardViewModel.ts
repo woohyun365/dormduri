@@ -458,6 +458,7 @@ function buildMatchingSummaryViewModel({
             requiredCount: 2,
             canRequest: false,
             canCancel: false,
+            disabledReason: 'ACTIVE_MATCH_NOT_ACTIONABLE',
             availableUntil: null,
           },
           ...(rawActiveMatch?.counterpartSummary

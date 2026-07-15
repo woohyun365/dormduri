@@ -23,6 +23,7 @@ const activeMatch = {
     requiredCount: 2,
     canRequest: false,
     canCancel: false,
+    disabledReason: null,
     availableUntil: null,
   },
 } as const;

@@ -214,6 +214,14 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
       'match history retention archive는 retained vault write와 redaction을 atomic하게 보존한다.',
   }),
   entry({
+    path: 'src/matches/overview/match-overview.query.ts',
+    owner: 'matches/overview',
+    coverageClass: 'transaction-atomicity',
+    coverageRefs: ['src/matches/overview/match-overview.query.spec.ts'],
+    rationale:
+      'current request expiry와 ACTIVE relation projection은 같은 serializable snapshot으로 읽어야 한다.',
+  }),
+  entry({
     path: 'src/matches/requests/commands/accept-match-request.command.ts',
     owner: 'matches/requests',
     coverageClass: 'concurrency-race',

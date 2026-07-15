@@ -771,6 +771,7 @@ function createPostMatchMatchedDashboard(): HomeDashboardResponse {
       requiredCount: 2,
       canRequest: false,
       canCancel: false,
+      disabledReason: null,
       availableUntil: null,
     },
   });
@@ -932,6 +933,7 @@ function createActiveMatch(overrides: Partial<ActiveMatchSummary> = {}): ActiveM
       requiredCount: 2,
       canRequest: true,
       canCancel: false,
+      disabledReason: null,
       availableUntil: '2026-04-30T14:59:59.000Z',
     },
   };
@@ -1381,6 +1383,7 @@ export const homeStoryScenarios = {
         requiredCount: 2,
         canRequest: true,
         canCancel: false,
+        disabledReason: null,
         availableUntil: '2026-04-30T14:59:59.000Z',
       },
     }),
@@ -1398,6 +1401,7 @@ export const homeStoryScenarios = {
         requiredCount: 2,
         canRequest: false,
         canCancel: true,
+        disabledReason: null,
         availableUntil: '2026-04-30T14:59:59.000Z',
       },
     }),

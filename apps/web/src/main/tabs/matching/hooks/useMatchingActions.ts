@@ -11,6 +11,19 @@ type MatchingAction =
   | 'cancelUnmatchRequest';
 type MatchingActionsClient = Pick<typeof matchingApi, MatchingAction>;
 export type MatchingActionRunResult = 'success' | 'state-changed' | 'error' | 'aborted';
+type MatchingActionScope = 'request' | 'active';
+
+interface MatchingActionFailure {
+  readonly scope: MatchingActionScope;
+  readonly action: MatchingAction;
+  readonly id: string;
+  readonly error: MatchingApiError;
+}
+
+export interface UnmatchCompletion {
+  readonly activeMatchId: string;
+  readonly message: string;
+}
 
 export function useMatchingActions(options: {
   readonly client?: MatchingActionsClient;
@@ -21,7 +34,8 @@ export function useMatchingActions(options: {
   const pendingRef = useRef(new Set<string>());
   const controllersRef = useRef(new Map<string, AbortController>());
   const [pendingKeys, setPendingKeys] = useState<readonly string[]>([]);
-  const [error, setError] = useState<MatchingApiError | null>(null);
+  const [failure, setFailure] = useState<MatchingActionFailure | null>(null);
+  const [unmatchCompletion, setUnmatchCompletion] = useState<UnmatchCompletion | null>(null);
   const sync = useCallback(() => setPendingKeys([...pendingRef.current]), []);
   useEffect(
     () => () => {
@@ -31,16 +45,27 @@ export function useMatchingActions(options: {
   );
   const run = useCallback(
     async (action: MatchingAction, id: string): Promise<MatchingActionRunResult> => {
-      const key = `${action}:${id}`;
+      const key = toPendingKey(action, id);
       if (pendingRef.current.has(key)) return 'aborted';
       const controller = new AbortController();
       pendingRef.current.add(key);
       controllersRef.current.set(key, controller);
       sync();
-      setError(null);
+      setFailure(null);
       try {
-        await client[action](id, controller.signal);
+        const response = await client[action](id, controller.signal);
         await refetchOverview();
+        const activeMatch = response?.activeMatch;
+        if (
+          action === 'requestUnmatch' &&
+          activeMatch?.status === 'UNMATCHED' &&
+          activeMatch.endReason === 'UNMATCHED_BY_MUTUAL_CONSENT'
+        ) {
+          setUnmatchCompletion({
+            activeMatchId: id,
+            message: '두 사람 모두 동의해 매칭이 해제되었어요.',
+          });
+        }
         return 'success';
       } catch (caught) {
         if (controller.signal.aborted) return 'aborted';
@@ -50,10 +75,10 @@ export function useMatchingActions(options: {
             : new MatchingApiError('MATCHING_API_NETWORK');
         if (safe.code === 'MATCHING_API_STATE_CHANGED') {
           await refetchOverview();
-          setError(safe);
+          setFailure({ scope: toActionScope(action), action, id, error: safe });
           return 'state-changed';
         }
-        setError(safe);
+        setFailure({ scope: toActionScope(action), action, id, error: safe });
         return 'error';
       } finally {
         pendingRef.current.delete(key);
@@ -65,15 +90,32 @@ export function useMatchingActions(options: {
   );
   return {
     pendingKeys,
-    error,
-    isPending: (action: MatchingAction, id: string) => pendingKeys.includes(`${action}:${id}`),
+    error: failure?.error ?? null,
+    requestError: failure?.scope === 'request' ? failure.error : null,
+    activeError: failure?.scope === 'active' ? failure.error : null,
+    unmatchCompletion,
+    isPending: (action: MatchingAction, id: string) =>
+      pendingKeys.includes(toPendingKey(action, id)),
     accept: (id: string) => run('acceptRequest', id),
     reject: (id: string) => run('rejectRequest', id),
     cancel: (id: string) => run('cancelRequest', id),
     requestUnmatch: (id: string) => run('requestUnmatch', id),
     cancelUnmatchRequest: (id: string) => run('cancelUnmatchRequest', id),
     abort: (action: MatchingAction, id: string) =>
-      controllersRef.current.get(`${action}:${id}`)?.abort(),
-    dismissError: () => setError(null),
+      controllersRef.current.get(toPendingKey(action, id))?.abort(),
+    dismissError: () => setFailure(null),
+    dismissRequestError: () =>
+      setFailure((current) => (current?.scope === 'request' ? null : current)),
+    dismissActiveError: () =>
+      setFailure((current) => (current?.scope === 'active' ? null : current)),
+    dismissUnmatchCompletion: () => setUnmatchCompletion(null),
   };
+}
+
+function toActionScope(action: MatchingAction): MatchingActionScope {
+  return action === 'requestUnmatch' || action === 'cancelUnmatchRequest' ? 'active' : 'request';
+}
+
+function toPendingKey(action: MatchingAction, id: string): string {
+  return toActionScope(action) === 'active' ? `active:${id}` : `${action}:${id}`;
 }

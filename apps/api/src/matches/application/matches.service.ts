@@ -3,6 +3,7 @@ import type {
   ActiveMatchActionResponse,
   ActiveMatchResponse,
   ActiveMatchSummary,
+  CurrentActiveMatchSummary,
   CreateMatchRequestRequest,
   MatchHistoryResponse,
   MatchOverviewResponse,
@@ -161,7 +162,7 @@ export class MatchesService {
     seasonContext: CurrentSeasonContext,
     participantId: string,
     now: Date,
-  ): Promise<ActiveMatchSummary | null> {
+  ): Promise<CurrentActiveMatchSummary | null> {
     return this.activeMatchViewQuery.getCurrentActiveMatchSummaryForParticipant(
       seasonContext,
       participantId,

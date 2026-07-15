@@ -103,6 +103,15 @@ describe('MatchOverviewQuery', () => {
 
     expect(harness.prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
     expect(harness.transaction.matchRequest.updateMany).toHaveBeenCalledTimes(1);
+    expect(harness.transaction.activeMatch.findFirst).toHaveBeenCalledWith({
+      where: {
+        seasonId: 'season-1',
+        status: 'ACTIVE',
+        endedAt: null,
+        OR: [{ participantAId: 'participant-1' }, { participantBId: 'participant-1' }],
+      },
+      select: { id: true },
+    });
   });
 
   it('운영 중인 현재 season이 없으면 fail-closed capability와 빈 current snapshot을 반환한다', async () => {

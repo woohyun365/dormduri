@@ -264,6 +264,7 @@ describe('homeStoryScenarios post-match matrix', () => {
       unmatchProgress: {
         canRequest: false,
         canCancel: false,
+        disabledReason: null,
         availableUntil: null,
       },
     });

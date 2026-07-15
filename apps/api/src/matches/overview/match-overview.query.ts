@@ -118,6 +118,7 @@ export class MatchOverviewQuery {
     const activeMatch = await tx.activeMatch.findFirst({
       where: {
         seasonId: season.season.id,
+        status: 'ACTIVE',
         endedAt: null,
         OR: [{ participantAId: participantId }, { participantBId: participantId }],
       },

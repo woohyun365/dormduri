@@ -26,6 +26,7 @@ export const activeMatchUnmatchProgressSchema = z.strictObject({
   requiredCount: z.literal(2),
   canRequest: z.boolean(),
   canCancel: z.boolean(),
+  disabledReason: matchActionDisabledReasonSchema.nullable(),
   availableUntil: isoDateTimeStringSchema.nullable(),
 });
 
@@ -67,8 +68,16 @@ export const activeMatchSummarySchema = z.strictObject({
   unmatchProgress: activeMatchUnmatchProgressSchema,
 });
 
+/** current read model은 종료되지 않은 ACTIVE 관계만 표현한다. */
+export const currentActiveMatchSummarySchema = activeMatchSummarySchema.extend({
+  status: z.literal('ACTIVE'),
+  endedAt: z.null(),
+  endReason: z.null(),
+});
+
 export type ActiveMatchUnmatchProgress = z.infer<typeof activeMatchUnmatchProgressSchema>;
 export type MatchRequestActions = z.infer<typeof matchRequestActionsSchema>;
 export type MatchRequestSummary = z.infer<typeof matchRequestSummarySchema>;
 export type MatchRequestWithActions = z.infer<typeof matchRequestWithActionsSchema>;
 export type ActiveMatchSummary = z.infer<typeof activeMatchSummarySchema>;
+export type CurrentActiveMatchSummary = z.infer<typeof currentActiveMatchSummarySchema>;

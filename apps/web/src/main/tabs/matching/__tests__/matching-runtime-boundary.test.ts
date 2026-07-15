@@ -25,6 +25,11 @@ const requestSectionSource = readFileSync(
   join(matchingRoot, 'sections/requests/PairRequestSection.tsx'),
   'utf8',
 );
+const activeViewSource = readFileSync(join(matchingRoot, 'model/matching-active-view.ts'), 'utf8');
+const activeSectionSource = readFileSync(
+  join(matchingRoot, 'sections/active/ActiveMatchSection.tsx'),
+  'utf8',
+);
 
 describe('MatchingTab runtime boundary', () => {
   it('새 state matrix는 shared season enum과 server score visibility만 소유한다', () => {
@@ -62,5 +67,14 @@ describe('MatchingTab runtime boundary', () => {
     expect(requestSectionSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
     expect(requestViewSource).toContain('request.actions.canAccept');
     expect(requestViewSource).toContain('request.actions.disabledReason');
+  });
+
+  it('current active runtime은 legacy/group/local score 없이 shared capability만 사용한다', () => {
+    expect(activeViewSource).toContain('CurrentActiveMatchSummary');
+    expect(activeViewSource).toContain('progress.disabledReason');
+    expect(activeViewSource).not.toContain('calcMatchScoreWithGating');
+    expect(activeViewSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
+    expect(activeSectionSource).not.toContain('@/types/match');
+    expect(activeSectionSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
   });
 });

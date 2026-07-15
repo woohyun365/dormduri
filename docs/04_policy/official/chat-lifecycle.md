@@ -52,15 +52,15 @@
 
 ## Thread transition matrix
 
-| 전이/상황                         | 사용자-facing current state                                            | realtime/outbox                    | lifecycle event trace                                                              | retention workflow                                            |
-| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| direct/matched thread 생성·재개   | `OPEN`, 쓰기 가능                                                      | thread/message 변경 outbox append  | `THREAD_CREATED` 또는 `THREAD_REOPENED` 후보                                       | 없음                                                          |
-| room selection cutoff             | 대상 thread를 `READ_ONLY`로 전환, 쓰기 불가                            | `chat.thread.updated`              | `THREAD_READ_ONLY` / `ROOM_SELECTION_CUTOFF` 후보                                  | 없음                                                          |
-| season end sweep                  | `READ_ONLY` 또는 archive 후보                                          | `chat.thread.updated` 또는 archive | `THREAD_READ_ONLY` 또는 `THREAD_ARCHIVED` / season reason                          | archive 조건 충족 시 `ArchiveJob(THREAD_RETENTION)` 후보      |
-| participant withdrawal            | 관련 thread를 `READ_ONLY` 또는 fail-closed surface로 전환              | `chat.thread.updated`              | `THREAD_READ_ONLY` / `PARTICIPANT_WITHDRAWN` 후보                                  | 없음                                                          |
-| user block                        | non-matched direct thread를 `READ_ONLY`, visibility는 fail-closed 가능 | `chat.thread.updated`              | `THREAD_READ_ONLY` / `USER_BLOCKED`; block note 저장 금지                          | 없음                                                          |
-| moderation/admin close 후보       | 운영 결정에 따라 `READ_ONLY` 또는 archive 후보                         | user-facing 상태 변경 시 outbox    | `THREAD_READ_ONLY` / `MODERATION_ACTION` 또는 `ADMIN_ACTION`; raw detail 저장 금지 | source policy와 retention/disclosure workflow 기준            |
-| archive 후 `THREAD_RETENTION` job | `ARCHIVED`, 쓰기 불가, 제한/tombstone read                             | `chat.thread.archived`             | `THREAD_ARCHIVED`; archive job id pointer만 허용                                   | `ArchiveJob`, `RetainedVaultObject`, review/access log가 소유 |
+| 전이/상황                         | 사용자-facing current state                                                                                     | realtime/outbox                    | lifecycle event trace                                                              | retention workflow                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| direct/matched thread 생성·재개   | `OPEN`, 쓰기 가능                                                                                               | thread/message 변경 outbox append  | `THREAD_CREATED` 또는 `THREAD_REOPENED` 후보                                       | 없음                                                          |
+| room selection cutoff             | non-matched direct thread를 `READ_ONLY`로 전환. active matched pair thread는 `seasonEndDate` 전까지 `OPEN` 유지 | `chat.thread.updated`              | `THREAD_READ_ONLY` / `ROOM_SELECTION_CUTOFF` 후보                                  | 없음                                                          |
+| season end sweep                  | `READ_ONLY` 또는 archive 후보                                                                                   | `chat.thread.updated` 또는 archive | `THREAD_READ_ONLY` 또는 `THREAD_ARCHIVED` / season reason                          | archive 조건 충족 시 `ArchiveJob(THREAD_RETENTION)` 후보      |
+| participant withdrawal            | 관련 thread를 `READ_ONLY` 또는 fail-closed surface로 전환                                                       | `chat.thread.updated`              | `THREAD_READ_ONLY` / `PARTICIPANT_WITHDRAWN` 후보                                  | 없음                                                          |
+| user block                        | non-matched direct thread를 `READ_ONLY`, visibility는 fail-closed 가능                                          | `chat.thread.updated`              | `THREAD_READ_ONLY` / `USER_BLOCKED`; block note 저장 금지                          | 없음                                                          |
+| moderation/admin close 후보       | 운영 결정에 따라 `READ_ONLY` 또는 archive 후보                                                                  | user-facing 상태 변경 시 outbox    | `THREAD_READ_ONLY` / `MODERATION_ACTION` 또는 `ADMIN_ACTION`; raw detail 저장 금지 | source policy와 retention/disclosure workflow 기준            |
+| archive 후 `THREAD_RETENTION` job | `ARCHIVED`, 쓰기 불가, 제한/tombstone read                                                                      | `chat.thread.archived`             | `THREAD_ARCHIVED`; archive job id pointer만 허용                                   | `ArchiveJob`, `RetainedVaultObject`, review/access log가 소유 |
 
 ## 생성/쓰기 권한
 
@@ -74,6 +74,11 @@
 | 양방향 active block 중 하나라도 존재                                  | 신규 send/resume fail-closed                                                                        |
 
 non-matched direct chat은 매칭 수락 전 상대를 알아보기 위한 대화 surface로 사용할 수 있다. 다만 match request 생성은 chat UI 자체가 아니라 `actions.canRequestMatch = true`인 프로필/탐색/상세 surface에서만 수행한다.
+
+`roomSelectionDate` cutoff는 신규 매칭과 non-matched direct write를 닫는 경계다. 이미 확정된
+active matched pair thread에는 이 cutoff를 적용하지 않으며, 해당 thread의 쓰기 가능 여부는
+chat owner가 제공하는 capability를 따라 `seasonEndDate` 전까지 유지한다. Matching UI는 season
+이름이나 날짜로 chat capability를 다시 계산하지 않는다.
 
 쓰기 가능 여부는 realtime event가 아니라 DB 상태와 REST snapshot이 source of truth다. Realtime event가 누락되어도 client는 REST snapshot으로 수렴해야 한다.
 
@@ -148,8 +153,9 @@ Lifecycle event metadata는 allowlist 기반 pointer만 저장한다.
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                          | 관련 이슈              |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 2026-06-08 | official policy set의 누락된 chat lifecycle source-of-truth를 추가하고 block/report/notification/retention 경계를 Phase 0 baseline에 맞춰 정리했다                                 | #196 / #198 / #220     |
-| 2026-06-12 | `ConversationThread` current row, lifecycle event trace, realtime outbox, retention workflow state의 책임 경계를 분리하고, lifecycle event metadata privacy 기준을 추가했다        | #228                   |
-| 2026-06-19 | non-matched direct chat이 매칭 수락 전 상대를 알아보는 대화 surface일 수 있지만, match request 생성은 chat UI가 아니라 허용된 프로필/탐색/상세 surface에서만 수행한다고 명확화했다 | #281 / Landing content |
+| 날짜       | 변경 내용                                                                                                                                                                                             | 관련 이슈              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 2026-06-08 | official policy set의 누락된 chat lifecycle source-of-truth를 추가하고 block/report/notification/retention 경계를 Phase 0 baseline에 맞춰 정리했다                                                    | #196 / #198 / #220     |
+| 2026-06-12 | `ConversationThread` current row, lifecycle event trace, realtime outbox, retention workflow state의 책임 경계를 분리하고, lifecycle event metadata privacy 기준을 추가했다                           | #228                   |
+| 2026-06-19 | non-matched direct chat이 매칭 수락 전 상대를 알아보는 대화 surface일 수 있지만, match request 생성은 chat UI가 아니라 허용된 프로필/탐색/상세 surface에서만 수행한다고 명확화했다                    | #281 / Landing content |
+| 2026-07-15 | `roomSelectionDate` cutoff의 대상이 non-matched direct thread임을 명시하고, active matched pair thread는 chat capability에 따라 `seasonEndDate` 전까지 쓰기를 유지하도록 transition matrix를 정렬했다 | MatchingTab Phase 8    |

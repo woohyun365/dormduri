@@ -20,6 +20,7 @@ import { toMatchingViewState } from './model/matching-view-model';
 import { SeasonStateRenderer } from './sections/SeasonStateRenderer';
 import { MatchingUnavailableState } from './sections/system/MatchingUnavailableState';
 import type { MatchingRequestCommands } from './sections/requests/PairRequestSection';
+import type { MatchingActiveCommands } from './sections/active/ActiveMatchSection';
 import type { MatchingRequestTab } from './components/MatchingSegmentTabs';
 
 export interface MatchingTabProps {
@@ -141,8 +142,17 @@ function MatchingTabRuntime({
       onCloseCelebration={() => setCelebration(null)}
       onRetry={overview.refresh}
       requestCommands={actions}
-      requestActionError={actions.error ? toMatchingApiErrorMessage(actions.error.code) : null}
-      onDismissRequestActionError={actions.dismissError}
+      activeCommands={actions}
+      requestActionError={
+        actions.requestError ? toMatchingApiErrorMessage(actions.requestError.code) : null
+      }
+      activeActionError={
+        actions.activeError ? toMatchingApiErrorMessage(actions.activeError.code) : null
+      }
+      unmatchCompletion={actions.unmatchCompletion?.message ?? null}
+      onDismissRequestActionError={actions.dismissRequestError}
+      onDismissActiveActionError={actions.dismissActiveError}
+      onDismissUnmatchCompletion={actions.dismissUnmatchCompletion}
       onNavigateChat={onNavigateChat}
       initialRequestTab={initialRequestTab}
     />
@@ -156,8 +166,13 @@ export function MatchingTabView({
   onCloseCelebration,
   onRetry,
   requestCommands,
+  activeCommands,
   requestActionError = null,
+  activeActionError = null,
+  unmatchCompletion = null,
   onDismissRequestActionError,
+  onDismissActiveActionError,
+  onDismissUnmatchCompletion,
   onNavigateChat,
   initialRequestTab,
 }: {
@@ -167,8 +182,13 @@ export function MatchingTabView({
   readonly onCloseCelebration?: () => void;
   readonly onRetry?: () => Promise<void>;
   readonly requestCommands?: MatchingRequestCommands;
+  readonly activeCommands?: MatchingActiveCommands;
   readonly requestActionError?: string | null;
+  readonly activeActionError?: string | null;
+  readonly unmatchCompletion?: string | null;
   readonly onDismissRequestActionError?: () => void;
+  readonly onDismissActiveActionError?: () => void;
+  readonly onDismissUnmatchCompletion?: () => void;
   readonly onNavigateChat?: () => void;
   readonly initialRequestTab?: MatchingRequestTab;
 }) {
@@ -201,6 +221,13 @@ export function MatchingTabView({
         cancel: async () => 'error' as const,
         isPending: () => false,
       } satisfies MatchingRequestCommands);
+    const resolvedActiveCommands: MatchingActiveCommands =
+      activeCommands ??
+      ({
+        requestUnmatch: async () => 'error' as const,
+        cancelUnmatchRequest: async () => 'error' as const,
+        isPending: () => false,
+      } satisfies MatchingActiveCommands);
     content = (
       <>
         {requestActionError ? (
@@ -223,6 +250,11 @@ export function MatchingTabView({
         <SeasonStateRenderer
           state={state}
           requestCommands={commands}
+          activeCommands={resolvedActiveCommands}
+          activeActionError={activeActionError}
+          unmatchCompletion={unmatchCompletion}
+          onDismissActiveActionError={onDismissActiveActionError}
+          onDismissUnmatchCompletion={onDismissUnmatchCompletion}
           onNavigateChat={onNavigateChat}
           initialRequestTab={initialRequestTab}
         />

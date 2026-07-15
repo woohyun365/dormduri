@@ -4,6 +4,7 @@ import { seasonStateSchema } from '../../season/runtime/primitives.js';
 import { matchCapabilityReasonSchema } from './enums.js';
 import {
   activeMatchSummarySchema,
+  currentActiveMatchSummarySchema,
   matchRequestSummarySchema,
   matchRequestWithActionsSchema,
 } from './summary.js';
@@ -29,7 +30,7 @@ export const matchOverviewResponseSchema = z.strictObject({
   capability: matchOverviewCapabilitySchema,
   sentRequests: z.array(matchRequestWithActionsSchema),
   receivedRequests: z.array(matchRequestWithActionsSchema),
-  activeMatch: activeMatchSummarySchema.nullable(),
+  activeMatch: currentActiveMatchSummarySchema.nullable(),
 });
 
 export const matchRequestListResponseSchema = z.strictObject({
@@ -37,7 +38,7 @@ export const matchRequestListResponseSchema = z.strictObject({
 });
 
 export const activeMatchResponseSchema = z.strictObject({
-  activeMatch: activeMatchSummarySchema.nullable(),
+  activeMatch: currentActiveMatchSummarySchema.nullable(),
 });
 
 export const activeMatchActionResponseSchema = z.strictObject({
@@ -46,7 +47,7 @@ export const activeMatchActionResponseSchema = z.strictObject({
 
 export const matchRequestActionResponseSchema = z.strictObject({
   request: matchRequestSummarySchema,
-  activeMatch: activeMatchSummarySchema.nullable(),
+  activeMatch: currentActiveMatchSummarySchema.nullable(),
 });
 
 export type MatchRequestListResponse = z.infer<typeof matchRequestListResponseSchema>;
