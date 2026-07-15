@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createBffRequest as createRequest,
@@ -16,6 +18,17 @@ import { GET as getMatchRequests } from '../matches/requests/route';
 import { POST as acceptMatchRequest } from '../matches/requests/[id]/accept/route';
 
 const AUTH_TOKEN = `v1.session-matches.${'a'.repeat(43)}`;
+const matchesBffRoot = join(process.cwd(), 'src/app/api/matches');
+
+function matchBffRouteFiles(root = matchesBffRoot): string[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      return matchBffRouteFiles(path);
+    }
+    return entry.isFile() && entry.name === 'route.ts' ? [relative(matchesBffRoot, path)] : [];
+  });
+}
 
 function createMatchRequestActionResponse() {
   const serverTime = '2026-06-08T00:00:00.000Z';
@@ -97,6 +110,22 @@ function createActiveMatchActionResponse() {
 describe('matches BFF forwarding routes', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('pair-only product contract에는 group BFF route가 없다', () => {
+    expect(existsSync(join(matchesBffRoot, 'groups'))).toBe(false);
+    expect(matchBffRouteFiles().sort()).toEqual([
+      'active/[id]/unmatch-request/cancel/route.ts',
+      'active/[id]/unmatch-request/route.ts',
+      'active/route.ts',
+      'history/entries/[entryId]/counterpart-profile/route.ts',
+      'history/route.ts',
+      'overview/route.ts',
+      'requests/[id]/accept/route.ts',
+      'requests/[id]/cancel/route.ts',
+      'requests/[id]/reject/route.ts',
+      'requests/route.ts',
+    ]);
   });
 
   it('active match unmatch request/cancel route는 protected forwarding으로 path segment를 encode한다', async () => {
