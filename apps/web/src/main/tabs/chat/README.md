@@ -11,3 +11,12 @@
   소유한다.
 - legacy pair/group Storybook 증거는 matching feature의 `__stories__/legacy/**`에만 존재하며 ChatTab
   production import graph에는 포함되지 않는다.
+
+## Storybook scenario matrix
+
+- canonical Chat story는 `Off Season`, `Season Open`, `Season Matching`, `Post Match`, `System` namespace로
+  분류한다. 시즌은 fixture의 정책 맥락이며, ChatTab이 write/report 권한을 local season 조건으로 다시
+  계산하는 입력이 아니다.
+- fixture는 `/api/chat/**`와 `/api/reports` owner response만 가로챈다. direct cutoff read-only와
+  post-match matched pair write 유지처럼 시즌만으로 추론하면 틀릴 수 있는 상태는 `status`와
+  `canSendMessage` capability를 명시해 표현한다.

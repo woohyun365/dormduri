@@ -41,6 +41,8 @@ Phase 0 redesign-before 화면은 `__stories__/legacy/LegacyMatchingTabBaseline.
 `roomType` metadata는 매칭 UI를 열지 않는다. 제품 runtime은 2인 매칭만 제공한다.
 Canonical runtime Storybook은 deterministic state workshop을 위해 `MatchingTabView`를 사용하며,
 실제 BFF fetch/identity reset 경계는 `MatchingTab.test.tsx`와 `useMatchingOverview.test.tsx`가 검증한다.
+Canonical scenario namespace는 `Off Season`, `Season Open`, `Season Matching`, `Post Match`, `System`으로
+분리한다. 세부 request/active/history interaction story는 각 feature section namespace가 계속 소유한다.
 
 ## Pair request management
 
