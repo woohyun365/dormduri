@@ -8,7 +8,7 @@ const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 
 export type ChatRoomState = 'active' | 'conversation' | 'archived';
-export type ChatRoomKind = 'pair' | 'group';
+export type ChatRoomKind = 'pair';
 export type MatchCancelState = 'idle' | 'requested_by_me' | 'requested_by_other';
 
 export interface ChatTimelineEntry {
@@ -149,29 +149,14 @@ function buildPairProfile(
   };
 }
 
-function buildRoomKey(kind: ChatRoomKind, participantIds: string[]): string {
-  return `${kind}:${[...participantIds].sort().join(':')}`;
+function buildRoomKey(participantId: string): string {
+  return `pair:${participantId}`;
 }
 
-function getRequestParticipantIds(request: MatchRequest, currentUserId: string): string[] {
-  const ids = new Set<string>();
-  ids.add(request.fromUserId);
-  ids.add(request.toUserId);
-  request.groupTargetUserIds?.forEach((id) => ids.add(id));
-  ids.delete(currentUserId);
-  return [...ids];
-}
-
-function getRequestParticipantNames(
-  participantIds: string[],
-  profileMap: Map<string, Omit<RoommateProfile, 'matchScore'>>,
-): string[] {
-  return participantIds.map((id) => profileMap.get(id)?.nickname ?? id);
-}
-
-function buildTitle(memberNames: string[]): string {
-  if (memberNames.length <= 1) return memberNames[0] ?? '대화';
-  return `${memberNames[0]} 외 ${memberNames.length - 1}명`;
+function getRequestParticipantId(request: MatchRequest, currentUserId: string): string | null {
+  if (request.fromUserId === currentUserId) return request.toUserId;
+  if (request.toUserId === currentUserId) return request.fromUserId;
+  return null;
 }
 
 function getDormitoryContext(dormitoryId: string | null | undefined): string | null {
@@ -289,21 +274,16 @@ function buildContextLine({
   scoreType,
   dormitoryLabel,
   stateLabel,
-  roomKind,
-  memberCount,
 }: {
   score: number | null;
   scoreType: MatchScoreType | null;
   dormitoryLabel: string | null;
   stateLabel: string;
-  roomKind: ChatRoomKind;
-  memberCount: number;
 }): string {
   const parts: string[] = [];
   if (scoreType === 'gated') parts.push('매칭도 잠금');
   else if (score !== null) parts.push(`매칭도 ${score}%`);
   if (dormitoryLabel) parts.push(dormitoryLabel);
-  if (roomKind === 'group' && memberCount > 2) parts.push(`${memberCount}인 대화`);
   parts.push(stateLabel);
   return parts.join(' · ');
 }
@@ -357,7 +337,6 @@ function findPairActiveRequest(
   return matchRequests.find(
     (request) =>
       request.status === 'ACTIVE' &&
-      !request.requestKind &&
       ((request.fromUserId === currentUserId && request.toUserId === partnerUserId) ||
         (request.fromUserId === partnerUserId && request.toUserId === currentUserId)),
   );
@@ -374,36 +353,19 @@ export function deriveChatRooms({
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
 
   if (activeMatch) {
-    const activeParticipantIds =
-      activeMatch.kind === 'group'
-        ? (activeMatch.groupMembers ?? [])
-            .map((member) => member.userId)
-            .filter((userId) => userId !== currentUser.id)
-        : [activeMatch.partnerUserId];
-    const activeParticipantNames =
-      activeMatch.kind === 'group'
-        ? (activeMatch.groupMembers ?? [])
-            .filter((member) => member.userId !== currentUser.id)
-            .map((member) => member.nickname)
-        : [activeMatch.partnerNickname];
-    const roomKind: ChatRoomKind = activeParticipantIds.length > 1 ? 'group' : 'pair';
-    const roomKey = buildRoomKey(roomKind, activeParticipantIds);
-    const partnerUserId = roomKind === 'pair' ? (activeParticipantIds[0] ?? null) : null;
+    const partnerUserId = activeMatch.partnerUserId;
+    const roomKey = buildRoomKey(partnerUserId);
 
     if (!isBlockedPair(partnerUserId, blockedUserIds)) {
-      const pairProfile = partnerUserId ? profileMap.get(partnerUserId) : undefined;
-      const pairScore =
-        roomKind === 'pair' && pairProfile
-          ? buildPairProfile(currentUser, pairProfile)
-          : {
-              profile: null,
-              matchScore: activeMatch.matchScore ?? null,
-              scoreType: activeMatch.scoreType,
-            };
-      const activeRequest =
-        partnerUserId != null
-          ? findPairActiveRequest(matchRequests, currentUser.id, partnerUserId)
-          : undefined;
+      const pairProfile = profileMap.get(partnerUserId);
+      const pairScore = pairProfile
+        ? buildPairProfile(currentUser, pairProfile)
+        : {
+            profile: null,
+            matchScore: activeMatch.matchScore ?? null,
+            scoreType: activeMatch.scoreType,
+          };
+      const activeRequest = findPairActiveRequest(matchRequests, currentUser.id, partnerUserId);
       const dormitoryLabel = getDormitoryContext(
         pairProfile?.dormitoryId ?? activeMatch.partnerDormitoryId ?? currentUser.dormitoryId,
       );
@@ -420,21 +382,18 @@ export function deriveChatRooms({
         roomKey,
         requestId: activeRequest?.id ?? null,
         partnerUserId,
-        title: buildTitle(activeParticipantNames),
-        memberNames: activeParticipantNames,
-        memberCount: activeParticipantNames.length + 1,
-        roomKind,
+        title: activeMatch.partnerNickname,
+        memberNames: [activeMatch.partnerNickname],
+        memberCount: 2,
+        roomKind: 'pair',
         chatState: 'active',
         sourceStatus: 'ACTIVE_MATCH',
         statusLabel: activeMatch.cancelRequestedAt ? '해제 진행 중' : '매칭 확정',
         contextLine: buildContextLine({
-          score:
-            roomKind === 'pair' ? (pairScore.matchScore ?? activeMatch.matchScore ?? null) : null,
-          scoreType: roomKind === 'pair' ? (pairScore.scoreType ?? activeMatch.scoreType) : null,
+          score: pairScore.matchScore ?? activeMatch.matchScore ?? null,
+          scoreType: pairScore.scoreType ?? activeMatch.scoreType,
           dormitoryLabel,
           stateLabel: activeMatch.cancelRequestedAt ? '해제 진행 중' : '매칭 확정',
-          roomKind,
-          memberCount: activeParticipantNames.length + 1,
         }),
         previewText:
           activeRequest?.message ??
@@ -443,10 +402,9 @@ export function deriveChatRooms({
         expiresAt: null,
         expiresSoonText: null,
         readOnly: false,
-        matchScore:
-          roomKind === 'pair' ? (pairScore.matchScore ?? activeMatch.matchScore ?? null) : null,
-        scoreType: roomKind === 'pair' ? (pairScore.scoreType ?? activeMatch.scoreType) : null,
-        profile: roomKind === 'pair' ? pairScore.profile : null,
+        matchScore: pairScore.matchScore ?? activeMatch.matchScore ?? null,
+        scoreType: pairScore.scoreType ?? activeMatch.scoreType,
+        profile: pairScore.profile,
         timeline,
         selfConfirmed: false,
         cancelState: activeMatch.cancelRequestedAt
@@ -454,12 +412,12 @@ export function deriveChatRooms({
             ? 'requested_by_me'
             : 'requested_by_other'
           : 'idle',
-        canOpenProfile: roomKind === 'pair' && pairScore.profile != null,
+        canOpenProfile: pairScore.profile != null,
         canConfirmInChat: false,
         canEndConversationInChat: false,
-        canManageMatchInChat: roomKind === 'pair',
+        canManageMatchInChat: true,
         canBlock: false,
-        canReport: roomKind === 'pair',
+        canReport: true,
       });
     }
   }
@@ -471,27 +429,16 @@ export function deriveChatRooms({
       continue;
     }
 
-    const participantIds = getRequestParticipantIds(request, currentUser.id);
-    if (participantIds.length === 0) continue;
+    const partnerUserId = getRequestParticipantId(request, currentUser.id);
+    if (partnerUserId === null) continue;
 
-    const roomKind: ChatRoomKind =
-      request.requestKind === 'GROUP_CONV_JOIN' || participantIds.length > 1 ? 'group' : 'pair';
-    const roomKey = buildRoomKey(roomKind, participantIds);
-    const partnerUserId = roomKind === 'pair' ? (participantIds[0] ?? null) : null;
+    const roomKey = buildRoomKey(partnerUserId);
     if (isBlockedPair(partnerUserId, blockedUserIds)) continue;
 
     if (request.status === 'ACTIVE' && rooms.has(roomKey)) continue;
 
-    const memberNames = getRequestParticipantNames(participantIds, profileMap);
-    const pairProfile = partnerUserId ? profileMap.get(partnerUserId) : undefined;
-    const pairScore =
-      roomKind === 'pair'
-        ? buildPairProfile(currentUser, pairProfile)
-        : {
-            profile: null,
-            matchScore: null,
-            scoreType: null,
-          };
+    const pairProfile = profileMap.get(partnerUserId);
+    const pairScore = buildPairProfile(currentUser, pairProfile);
     const dormitoryLabel = getDormitoryContext(pairProfile?.dormitoryId ?? currentUser.dormitoryId);
     const chatState: ChatRoomState =
       request.status === 'IN_CONVERSATION'
@@ -515,10 +462,10 @@ export function deriveChatRooms({
       roomKey,
       requestId: request.id,
       partnerUserId,
-      title: buildTitle(memberNames),
-      memberNames,
-      memberCount: memberNames.length + 1,
-      roomKind,
+      title: pairProfile?.nickname ?? partnerUserId,
+      memberNames: [pairProfile?.nickname ?? partnerUserId],
+      memberCount: 2,
+      roomKind: 'pair',
       chatState,
       sourceStatus: request.status,
       statusLabel,
@@ -527,8 +474,6 @@ export function deriveChatRooms({
         scoreType: pairScore.scoreType,
         dormitoryLabel,
         stateLabel: statusLabel,
-        roomKind,
-        memberCount: memberNames.length + 1,
       }),
       previewText:
         request.message ??
@@ -539,16 +484,16 @@ export function deriveChatRooms({
       readOnly: chatState === 'archived',
       matchScore: pairScore.matchScore,
       scoreType: pairScore.scoreType,
-      profile: roomKind === 'pair' ? pairScore.profile : null,
+      profile: pairScore.profile,
       timeline,
-      selfConfirmed: request.approvalUserIds?.includes(currentUser.id) === true,
+      selfConfirmed: false,
       cancelState: 'idle',
-      canOpenProfile: roomKind === 'pair' && pairScore.profile != null,
-      canConfirmInChat: request.status === 'IN_CONVERSATION' && roomKind === 'pair',
-      canEndConversationInChat: request.status === 'IN_CONVERSATION' && roomKind === 'pair',
+      canOpenProfile: pairScore.profile != null,
+      canConfirmInChat: request.status === 'IN_CONVERSATION',
+      canEndConversationInChat: request.status === 'IN_CONVERSATION',
       canManageMatchInChat: false,
-      canBlock: roomKind === 'pair' && request.status !== 'ACTIVE',
-      canReport: roomKind === 'pair',
+      canBlock: request.status !== 'ACTIVE',
+      canReport: true,
     });
   }
 

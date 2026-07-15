@@ -44,8 +44,6 @@ export interface MatchingCompactCardProps {
   matchScore: number;
   scoreType: MatchScoreType;
 
-  /** 기본 아바타 대신 커스텀 슬롯 (그룹 겹침 아바타 등) */
-  avatarSlot?: React.ReactNode;
   /** 테두리 색상 */
   borderColor?: string;
   /** 카드 투명도 (이력용) */
@@ -102,7 +100,6 @@ export function MatchingCompactCard({
   dormitoryId,
   matchScore,
   scoreType,
-  avatarSlot,
   borderColor = 'border-[var(--knu-border)]',
   opacity = 1,
   hoverEffect = true,
@@ -186,13 +183,11 @@ export function MatchingCompactCard({
 
       {/* 1행: 아바타 + 닉네임/건물/상태 + 매칭도 */}
       <div className="flex items-center gap-2.5 mb-2">
-        {avatarSlot ?? (
-          <div
-            className={`h-9 w-9 ${avatarColor.bg} rounded-full flex items-center justify-center text-sm font-bold ${avatarColor.text} flex-shrink-0 ring-2 ring-white`}
-          >
-            {nickname.charAt(0)}
-          </div>
-        )}
+        <div
+          className={`h-9 w-9 ${avatarColor.bg} rounded-full flex items-center justify-center text-sm font-bold ${avatarColor.text} flex-shrink-0 ring-2 ring-white`}
+        >
+          {nickname.charAt(0)}
+        </div>
 
         <div className="flex-1 min-w-0">
           <p className="text-[0.9rem] font-bold leading-tight text-[var(--knu-text-primary)] truncate">

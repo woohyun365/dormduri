@@ -21,8 +21,6 @@ interface MatchRequestCardProps {
   direction: 'sent' | 'received';
   partnerProfile: Omit<RoommateProfile, 'matchScore'> & { matchScore: number };
   scoreType?: MatchScoreType;
-  viewerId?: string;
-  groupTargetNicknames?: string[];
   isNew?: boolean;
   onCancel?: (requestId: string) => void;
   onAccept?: (requestId: string) => void;
@@ -35,8 +33,6 @@ export function MatchRequestCard({
   direction,
   partnerProfile,
   scoreType = 'full',
-  viewerId,
-  groupTargetNicknames,
   isNew,
   onCancel,
   onAccept,
@@ -49,11 +45,6 @@ export function MatchRequestCard({
   const dormLabel = getDormitoryLabel(partnerProfile.dormitoryId);
   const isRecommended = partnerProfile.matchScore >= 85 && direction === 'received';
   const isSent = direction === 'sent';
-  const isGroupJoinSent = isSent && request.requestKind === 'GROUP_CONV_JOIN';
-  const approvalCount = request.approvalUserIds?.length ?? 0;
-  const approvalTotal =
-    request.requestKind === 'GROUP_CONV_JOIN' ? (request.groupTargetUserIds?.length ?? 2) : 1;
-  const viewerApproved = viewerId ? request.approvalUserIds?.includes(viewerId) === true : false;
   const tone: MatchingTone = isSent
     ? 'slate'
     : isUrgent
@@ -88,13 +79,8 @@ export function MatchRequestCard({
           <div className="flex items-center gap-2">
             <span className={matchingChip(isSent ? 'slate' : tone)}>
               {isSent ? <Send className="h-3 w-3" /> : <Inbox className="h-3 w-3" />}
-              {isGroupJoinSent ? '보낸 그룹 요청' : isSent ? '보낸 요청' : '받은 요청'}
+              {isSent ? '보낸 요청' : '받은 요청'}
             </span>
-            {request.requestKind === 'GROUP_CONV_JOIN' && !isGroupJoinSent && (
-              <span className={matchingChip('cobalt')}>
-                {approvalCount}/{approvalTotal} 승인
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-1.5">
             {isNew && !isSent && (
@@ -122,35 +108,15 @@ export function MatchRequestCard({
         {/* 아바타 + 닉네임(+추천) + 건물·타이머 + 매칭도 */}
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            {isGroupJoinSent && groupTargetNicknames && groupTargetNicknames.length >= 2 ? (
-              <div className="relative h-10 w-14 flex-shrink-0">
-                {groupTargetNicknames.slice(0, 2).map((name, index) => {
-                  const color = getAvatarColor(name);
-                  return (
-                    <div
-                      key={name}
-                      className={`absolute top-0 h-10 w-10 rounded-full ring-2 ring-white flex items-center justify-center text-sm font-bold ${color.bg} ${color.text} ${
-                        index === 0 ? 'left-0 z-10' : 'left-4'
-                      }`}
-                    >
-                      {name.charAt(0)}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div
-                className={`h-10 w-10 ${avatarColor.bg} rounded-full flex items-center justify-center text-sm font-bold ${avatarColor.text} flex-shrink-0 ring-2 ring-white`}
-              >
-                {partnerProfile.nickname.charAt(0)}
-              </div>
-            )}
+            <div
+              className={`h-10 w-10 ${avatarColor.bg} rounded-full flex items-center justify-center text-sm font-bold ${avatarColor.text} flex-shrink-0 ring-2 ring-white`}
+            >
+              {partnerProfile.nickname.charAt(0)}
+            </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h4 className="font-bold text-[var(--knu-text-primary)] truncate">
-                  {isGroupJoinSent && groupTargetNicknames && groupTargetNicknames.length >= 2
-                    ? `${groupTargetNicknames[0]} · ${groupTargetNicknames[1]}`
-                    : partnerProfile.nickname}
+                  {partnerProfile.nickname}
                 </h4>
                 {isRecommended && (
                   <span className="flex items-center gap-0.5 text-xs font-bold text-purple-600">
@@ -170,13 +136,11 @@ export function MatchRequestCard({
               </p>
             </div>
           </div>
-          {!isGroupJoinSent && (
-            <MatchingBadge
-              score={partnerProfile.matchScore}
-              gated={scoreType === 'gated'}
-              partial={scoreType === 'partial'}
-            />
-          )}
+          <MatchingBadge
+            score={partnerProfile.matchScore}
+            gated={scoreType === 'gated'}
+            partial={scoreType === 'partial'}
+          />
         </div>
 
         {/* 메시지 (있으면만) */}
@@ -221,20 +185,16 @@ export function MatchRequestCard({
               </motion.button>
               <motion.button
                 onClick={() => onAccept?.(request.id)}
-                disabled={isExpired || viewerApproved}
+                disabled={isExpired}
                 whileHover={isExpired ? undefined : { scale: 1.01 }}
                 whileTap={isExpired ? undefined : { scale: 0.99 }}
                 className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
-                  isExpired || viewerApproved
+                  isExpired
                     ? 'cursor-not-allowed bg-slate-100 text-slate-400'
                     : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
                 }`}
               >
-                {request.requestKind === 'GROUP_CONV_JOIN'
-                  ? viewerApproved
-                    ? '내 승인 완료'
-                    : '합류 승인하기'
-                  : '수락하고 대화 열기'}
+                수락하고 대화 열기
               </motion.button>
             </>
           )}

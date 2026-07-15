@@ -12,9 +12,7 @@ afterEach(() => {
 });
 
 describe('MatchingTab current baseline stories', () => {
-  const currentScenarios = Object.values(matchingTabStoryScenarios).filter(
-    (scenario) => scenario.key !== 'season-matching-group-legacy',
-  );
+  const currentScenarios = Object.values(matchingTabStoryScenarios);
 
   it.each(currentScenarios)('$title fixture를 렌더링한다', (scenario) => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date(MATCHING_BASELINE_NOW).getTime());
@@ -24,12 +22,8 @@ describe('MatchingTab current baseline stories', () => {
     expect(screen.getByTestId('matching-tab-story-surface')).toBeInTheDocument();
   });
 
-  it('unsupported group fixture는 legacy comparison surface에서만 렌더링한다', () => {
-    render(
-      <MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingGroupLegacy} />,
-    );
-
-    expect(screen.getByTestId('matching-tab-story-surface')).toBeInTheDocument();
+  it('current fixture matrix에 출시되지 않은 group fixture를 넣지 않는다', () => {
+    expect(matchingTabStoryScenarios).not.toHaveProperty('seasonMatchingGroupLegacy');
   });
 
   it('받은 요청의 더보기 메뉴를 연다', async () => {

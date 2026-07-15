@@ -23,9 +23,11 @@
 - `SEASON_MATCHING · 받은 요청`
 - `SEASON_MATCHING · 활성 매칭`
 - `SEASON_MATCHING · 매칭 취소 대기`
-- `SEASON_MATCHING · 3인실 그룹 legacy` — 별도 `Baseline/Legacy/UnsupportedGroup` namespace
 - `POST_MATCH 사용자 라벨 → SEASON_POST_MATCH · 활성 결과`
 - 받은 요청 메뉴/수락 dialog smoke
+
+`Baseline/Legacy/UnsupportedGroup`은 위 matrix와 분리된 정적 historical snapshot이다. 현재 fixture,
+legacy renderer, 제품 import graph를 공유하지 않으며 product correctness/acceptance 근거로 사용하지 않는다.
 
 ## 현재 evidence와 의도적 미수정 항목
 
@@ -36,6 +38,8 @@
    server visibility/capability만 사용한다.
 4. current shell은 `max-w-md` mobile column을 유지하므로 1280/1440px story는 목표 desktop two-column layout이 아니라 현 상태의 빈 여백과 overflow를 확인하기 위한 baseline이다.
 5. Storybook에 별도 interaction-test addon은 추가하지 않았다. 동일 menu/dialog 동선은 `../__tests__/MatchingTab.baseline-current.test.tsx`가 fixture와 함께 smoke하며, story의 `play` function은 Storybook test surface가 활성화된 환경에서 실행된다.
+6. 3인실 건물 metadata는 수용 인원 데이터로만 남는다. `roomType: 3`은 매칭 인원이나 group UI를 여는
+   근거가 아니며, 제품은 2인 매칭만 제공한다.
 
 ## Phase 0 검증 명령
 

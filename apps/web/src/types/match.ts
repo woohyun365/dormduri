@@ -18,15 +18,7 @@ export type MatchScoreType = 'full' | 'partial' | 'gated';
 export type HistoryStage = 'SENT_REQUEST' | 'RECEIVED_REQUEST' | 'CONVERSATION' | 'MATCH';
 export type HistoryResolvedBy = 'self' | 'other' | 'system';
 
-export type ActiveMatchKind = 'pair' | 'group';
-export type ActiveMatchGroupRole = 'group_core' | 'group_candidate';
-export type ActiveMatchGroupStage = 'PAIR_OPEN' | 'PAIR_FINAL' | 'GROUP_FORMING' | 'GROUP_FINAL';
-export type CancelRequestKind = 'MATCH_CANCEL' | 'MEMBER_LEAVE';
-
-export interface GroupMemberSnapshot {
-  userId: string;
-  nickname: string;
-}
+export type CancelRequestKind = 'MATCH_CANCEL';
 
 // 매칭 요청
 export interface MatchRequest {
@@ -41,9 +33,6 @@ export interface MatchRequest {
   acceptedAt: string | null; // PENDING → IN_CONVERSATION 시점
   resolvedAt: string | null; // 터미널 상태 진입 시점 (이력 정렬)
   resolvedBy?: string | 'system' | null;
-  requestKind?: 'PERSONAL' | 'GROUP_CONV_JOIN';
-  groupTargetUserIds?: string[];
-  approvalUserIds?: string[];
 }
 
 // 현재 활성 매칭 (1인 1매칭)
@@ -57,14 +46,7 @@ export interface ActiveMatch {
   matchedAt: string;
   cancelRequestedAt: string | null; // 해제 요청 시점 (null = 정상)
   cancelRequestedBy: string | null; // 요청자 ID
-  cancelApprovalUserIds?: string[];
   cancelRequestKind?: CancelRequestKind | null;
-  kind?: ActiveMatchKind; // 기본 pair, 3인실은 group
-  groupRole?: ActiveMatchGroupRole | null;
-  groupStage?: ActiveMatchGroupStage | null;
-  groupCapacity?: 2 | 3;
-  groupMemberCount?: 2 | 3;
-  groupMembers?: GroupMemberSnapshot[];
 }
 
 // 터미널 상태 (이력 표시용)
@@ -77,8 +59,6 @@ export const TERMINAL_STATUSES: MatchStatus[] = [
 ];
 
 // 이력 카드 데이터 (현재 시즌 + 과거 시즌 공용)
-export type GroupHistoryType = 'pair_final' | 'group_final' | 'group_conv_join_failed';
-
 export type HistoryItemData =
   | {
       id: string;
@@ -88,8 +68,6 @@ export type HistoryItemData =
       stage?: HistoryStage;
       resolvedBy?: HistoryResolvedBy;
       preset?: undefined;
-      groupType?: GroupHistoryType;
-      groupNicknames?: string[]; // 그룹 멤버 닉네임 (2인=[A,B], 3인=[A,B,C])
     }
   | {
       id: string;
@@ -98,8 +76,6 @@ export type HistoryItemData =
       date?: string;
       stage?: 'MATCH' | 'RECEIVED_REQUEST';
       resolvedBy?: undefined;
-      groupType?: GroupHistoryType;
-      groupNicknames?: string[];
     };
 
 // 과거 시즌 이력 데이터
@@ -108,7 +84,7 @@ export interface PastSeasonData {
   name: string; // "2025-1학기"
   dormitoryIdSnapshot?: string | null; // 당시 본인 배정 건물 스냅샷 (건물 단위)
   matchResult: 'success' | 'no_match';
-  matchedWith?: string[]; // 매칭 성공 시 상대 닉네임 배열 (2인=[A], 3인=[A,B])
+  matchedWith?: string[]; // 매칭 성공 시 상대 닉네임 배열
   receivedCount: number;
   sentCount: number;
   chatCount: number;
@@ -121,7 +97,6 @@ export type MatchButtonState =
   | { type: 'PENDING_SENT'; label: string; requestId: string; expiresAt: string }
   | { type: 'PENDING_RECEIVED'; label: string; requestId: string; expiresAt: string }
   | { type: 'MATCHED'; label: '매칭됨' }
-  | { type: 'GROUP_OPEN'; label: '그룹 모집 중' }
   | { type: 'SAME_DIRECTION_BLOCKED'; label: string }
   | { type: 'ATTEMPTS_EXHAUSTED'; label: string }
   | { type: 'BLOCKED'; label: '차단됨' }

@@ -1,10 +1,9 @@
 import type { Meta } from '@storybook/nextjs-vite';
-import { createMatchingStory, MatchingTabStorySurface } from './matching-story-renderer';
-import { matchingTabStoryScenarios } from './matching-story-scenarios';
+import { UnsupportedGroupLegacySnapshot } from './legacy/unsupported-group/UnsupportedGroupLegacySnapshot';
 
 const meta = {
   title: 'Main/MatchingTab/Baseline/Legacy/UnsupportedGroup',
-  component: MatchingTabStorySurface,
+  component: UnsupportedGroupLegacySnapshot,
   parameters: {
     docs: {
       description: {
@@ -13,10 +12,8 @@ const meta = {
       },
     },
   },
-} satisfies Meta<typeof MatchingTabStorySurface>;
+} satisfies Meta<typeof UnsupportedGroupLegacySnapshot>;
 
 export default meta;
 
-export const SeasonMatchingGroupLegacy = createMatchingStory(
-  matchingTabStoryScenarios.seasonMatchingGroupLegacy,
-);
+export const HistoricalSnapshot = {};

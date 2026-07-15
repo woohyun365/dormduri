@@ -148,31 +148,6 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'MATCHED', label: '매칭됨' });
   });
 
-  it('4-b. 3인실 그룹 모집 중이면 GROUP_OPEN', () => {
-    const activeMatch: ActiveMatch = {
-      matchId: 'm-1',
-      partnerUserId: 'someone',
-      partnerNickname: '룸메',
-      partnerDormitoryId: 'toegye',
-      matchScore: 85,
-      scoreType: 'full',
-      matchedAt: new Date().toISOString(),
-      cancelRequestedAt: null,
-      cancelRequestedBy: null,
-      kind: 'group',
-      groupRole: 'group_core',
-      groupStage: 'PAIR_OPEN',
-      groupCapacity: 3,
-      groupMemberCount: 2,
-      groupMembers: [
-        { userId: 'me', nickname: '나' },
-        { userId: 'someone', nickname: '룸메' },
-      ],
-    };
-    const params = { ...defaultParams(), activeMatch };
-    expect(getMatchButtonState(params)).toEqual({ type: 'GROUP_OPEN', label: '그룹 모집 중' });
-  });
-
   it('5. 보낸 PENDING 요청 → PENDING_SENT', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({ id: 'r-sent', fromUserId: 'me', toUserId: 'target' });

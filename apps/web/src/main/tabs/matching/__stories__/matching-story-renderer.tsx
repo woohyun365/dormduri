@@ -28,7 +28,6 @@ export function MatchingTabStorySurface({ scenario }: MatchingTabStorySurfacePro
           onRejectRequest={() => undefined}
           onConfirmMatch={() => undefined}
           onRevokeConfirmMatch={() => undefined}
-          onFinalizePairGroup={() => undefined}
           onEndConversation={() => undefined}
           onEndMatch={() => undefined}
           onNavigate={() => undefined}

@@ -113,7 +113,6 @@ describe('deriveChatRooms', () => {
       rejectedAt: null,
       acceptedAt: '2026-03-02T00:00:00.000Z',
       resolvedAt: null,
-      approvalUserIds: ['me'],
     };
     const activeMatch: ActiveMatch = {
       matchId: 'match-1',

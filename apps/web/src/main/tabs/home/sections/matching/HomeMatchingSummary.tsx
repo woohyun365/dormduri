@@ -20,9 +20,6 @@ export interface MatchingSummaryActiveMatch {
   matchedAt: string;
   unmatchProgress: ActiveMatchUnmatchProgress;
   counterpartSummary?: RoommateSearchSummary;
-  groupStage?: 'PAIR_OPEN' | 'PAIR_FINAL' | 'GROUP_FORMING' | 'GROUP_FINAL' | null;
-  groupMemberCount?: 2 | 3;
-  groupCapacity?: 2 | 3;
 }
 
 export interface ActiveMatchRoomSelectionSummary {

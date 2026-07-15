@@ -17,8 +17,6 @@ interface ActiveMatchCardProps {
   cancelPending?: boolean;
   cancelRequestedByCurrentUser?: boolean;
   cancelRequestKind?: CancelRequestKind | null;
-  cancelApprovalCount?: number;
-  cancelApprovalTotal?: number;
   onViewProfile: () => void;
   onRelease: () => void;
 }
@@ -31,8 +29,6 @@ export function ActiveMatchCard({
   cancelPending = false,
   cancelRequestedByCurrentUser = false,
   cancelRequestKind = null,
-  cancelApprovalCount = 0,
-  cancelApprovalTotal = 1,
   onViewProfile,
   onRelease,
 }: ActiveMatchCardProps) {
@@ -105,11 +101,6 @@ export function ActiveMatchCard({
               cancelRequestedByCurrentUser,
             })}
           </p>
-          {cancelPending && !cancelRequestedByCurrentUser && (
-            <p className="mt-2 text-xs font-semibold text-green-700">
-              현재 승인 {cancelApprovalCount}/{cancelApprovalTotal}
-            </p>
-          )}
         </div>
 
         <div className="space-y-2.5">

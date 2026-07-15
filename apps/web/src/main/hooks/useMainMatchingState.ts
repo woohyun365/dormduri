@@ -9,12 +9,6 @@ import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 
-function shouldCelebrate(activeMatch: ActiveMatch | null): boolean {
-  if (!activeMatch) return false;
-  if (activeMatch.kind !== 'group') return true;
-  return activeMatch.groupStage === 'PAIR_FINAL' || activeMatch.groupStage === 'GROUP_FINAL';
-}
-
 export function useMainMatchingState(
   showToast: (msg: string) => void,
   currentUser: Pick<UserProfile, 'id' | 'nickname' | 'dormitoryId' | 'lifestyle'>,
@@ -28,7 +22,6 @@ export function useMainMatchingState(
   const [showCelebration, setShowCelebration] = useState<{
     nickname: string;
     score: number;
-    kind: 'pair' | 'pair_final' | 'group_final';
   } | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -89,12 +82,7 @@ export function useMainMatchingState(
       const result = await matchingApi.acceptRequest(requestId, currentUserId);
       setMatchRequests(result.requests);
       setActiveMatch(result.activeMatch);
-      const updated = result.requests.find((request) => request.id === requestId);
-      if (updated?.requestKind === 'GROUP_CONV_JOIN' && updated.status === 'PENDING') {
-        showToast('합류 승인 의사가 기록됐어요. 다른 코어 멤버 승인 후 대화가 열립니다.');
-      } else {
-        showToast('요청을 수락했어요. 대화를 시작하세요!');
-      }
+      showToast('요청을 수락했어요. 대화를 시작하세요!');
     },
     [showToast, currentUserId],
   );
@@ -123,16 +111,10 @@ export function useMainMatchingState(
       setMatchRequests(result.requests);
       setActiveMatch(result.activeMatch);
       const celebratedMatch = result.activeMatch;
-      if (celebratedMatch && shouldCelebrate(celebratedMatch)) {
+      if (celebratedMatch) {
         setShowCelebration({
           nickname: celebratedMatch.partnerNickname,
           score: celebratedMatch.matchScore,
-          kind:
-            celebratedMatch.kind === 'group'
-              ? celebratedMatch.groupStage === 'GROUP_FINAL'
-                ? 'group_final'
-                : 'pair_final'
-              : 'pair',
         });
       } else {
         showToast('내 확정이 기록됐어요. 상대가 확정하면 최종 적용됩니다.');
@@ -140,21 +122,6 @@ export function useMainMatchingState(
     },
     [currentUser, currentUserId, profiles, showToast, userLifestyle],
   );
-
-  const handleFinalizePairGroup = useCallback(async () => {
-    const result = await matchingApi.finalizePairGroup(currentUserId);
-    setMatchRequests(result.requests);
-    setActiveMatch(result.activeMatch);
-    const celebratedMatch = result.activeMatch;
-    if (celebratedMatch && shouldCelebrate(celebratedMatch)) {
-      setShowCelebration({
-        nickname: celebratedMatch.partnerNickname,
-        score: celebratedMatch.matchScore,
-        kind: 'pair_final',
-      });
-    }
-    showToast('2인으로 그룹을 마감했어요');
-  }, [currentUserId, showToast]);
 
   const handleRevokeConfirmMatch = useCallback(
     async (requestId: string) => {
@@ -183,19 +150,9 @@ export function useMainMatchingState(
     setActiveMatch(result.activeMatch);
 
     if (before?.cancelRequestedAt && result.activeMatch && !result.activeMatch.cancelRequestedAt) {
-      showToast(
-        before.cancelRequestKind === 'MEMBER_LEAVE'
-          ? '이탈 요청을 철회했어요'
-          : '취소 요청을 철회했어요',
-      );
+      showToast('취소 요청을 철회했어요');
     } else if (result.activeMatch?.cancelRequestedAt) {
-      showToast(
-        result.activeMatch.cancelRequestKind === 'MEMBER_LEAVE'
-          ? result.activeMatch.cancelRequestedBy === currentUserId
-            ? '그룹 이탈 요청이 기록됐어요. 코어 승인 후 복원됩니다.'
-            : '멤버 이탈 승인 의사가 기록됐어요.'
-          : '매칭 취소 요청이 기록됐어요. 상대 승인 후 해제됩니다.',
-      );
+      showToast('매칭 취소 요청이 기록됐어요. 상대 승인 후 해제됩니다.');
     } else {
       showToast('매칭이 해제되었어요');
     }
@@ -222,7 +179,6 @@ export function useMainMatchingState(
     handleRejectRequest,
     handleConfirmMatch,
     handleRevokeConfirmMatch,
-    handleFinalizePairGroup,
     handleEndConversation,
     handleEndMatch,
     receivedPendingCount,

@@ -11,7 +11,6 @@ import {
   MessageCircle,
   ShieldAlert,
   Sparkles,
-  Users,
 } from 'lucide-react';
 import { isCampusOperated } from '@/constants/dormitory';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
@@ -65,14 +64,6 @@ function StatusPill({ room }: { room: ChatRoomSummary }) {
 }
 
 function RoomAvatar({ room }: { room: ChatRoomSummary }) {
-  if (room.roomKind === 'group') {
-    return (
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--knu-primary-light)] text-[var(--knu-primary)]">
-        <Users className="h-5 w-5" />
-      </div>
-    );
-  }
-
   const color = getAvatarColor(room.title);
   return (
     <div

@@ -63,8 +63,3 @@ export function getAvailableDormitories(campus: Campus, gender: 'M' | 'F'): Dorm
 export function getDormitoryById(id: string): Dormitory | undefined {
   return DORMITORIES.find((d) => d.id === id);
 }
-
-/** 건물의 인실 수 = 매칭에 필요한 인원 수 */
-export function getMatchGroupSize(dormitoryId: string): number {
-  return getDormitoryById(dormitoryId)?.roomType ?? 2;
-}

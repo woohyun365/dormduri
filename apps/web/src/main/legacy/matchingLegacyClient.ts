@@ -52,8 +52,6 @@ export const legacyMatchingApi = {
   revokeConfirmMatch: async (_requestId: string, _userId: string): Promise<MatchingResult> =>
     emptyMatchingResult(),
 
-  finalizePairGroup: async (_userId: string): Promise<MatchingResult> => emptyMatchingResult(),
-
   endConversation: async (_requestId: string, _userId: string): Promise<MatchingResult> =>
     emptyMatchingResult(),
 

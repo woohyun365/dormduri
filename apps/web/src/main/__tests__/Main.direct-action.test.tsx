@@ -128,7 +128,6 @@ vi.mock('../hooks/useMainMatchingState', () => ({
     handleCancelRequest: vi.fn(),
     handleConfirmMatch: vi.fn(),
     handleRevokeConfirmMatch: vi.fn(),
-    handleFinalizePairGroup: vi.fn(),
     handleEndConversation: vi.fn(),
     handleEndMatch: vi.fn(),
   }),

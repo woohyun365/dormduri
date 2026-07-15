@@ -14,7 +14,6 @@ import {
   MoreVertical,
   ShieldAlert,
   Sparkles,
-  Users,
   XCircle,
 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -50,14 +49,6 @@ function formatExactDateTime(value: string): string {
 }
 
 function RoomAvatar({ room }: { room: ChatRoomSummary }) {
-  if (room.roomKind === 'group') {
-    return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white">
-        <Users className="h-5 w-5" />
-      </div>
-    );
-  }
-
   const color = getAvatarColor(room.title);
   return (
     <div
@@ -197,16 +188,6 @@ export default function ChatRoomView({
       };
     }
 
-    if (room.roomKind === 'group') {
-      return {
-        icon: Users,
-        tone: 'info' as const,
-        title: '그룹 대화 안내',
-        description:
-          '그룹 대화의 확정/종료/해제 규칙은 1:1과 달라요. 상태 변경은 매칭 현황에서 확인해 주세요.',
-      };
-    }
-
     if (room.chatState === 'conversation' && room.expiresAt) {
       return {
         icon: CalendarClock,
@@ -225,14 +206,7 @@ export default function ChatRoomView({
           ? `매칭 확정 대화는 시즌 종료(D-${daysUntilEnd})까지 유지돼요. 호실 선택은 학교 시스템에서 직접 진행해 주세요.`
           : '매칭 확정 대화는 시즌 종료 전까지 유지돼요. 호실 선택은 학교 시스템에서 직접 진행해 주세요.',
     };
-  }, [
-    daysUntilEnd,
-    room.chatState,
-    room.expiresAt,
-    room.expiresSoonText,
-    room.roomKind,
-    seasonState,
-  ]);
+  }, [daysUntilEnd, room.chatState, room.expiresAt, room.expiresSoonText, seasonState]);
 
   const confirmConfig = useMemo(() => {
     switch (pendingAction) {
@@ -461,15 +435,6 @@ export default function ChatRoomView({
           )}
 
           <PolicyCard {...roomPolicyCard} />
-
-          {room.roomKind === 'group' && room.memberNames.length > 1 && (
-            <div className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3">
-              <h2 className="text-sm font-semibold text-[var(--knu-text-primary)]">참여자</h2>
-              <p className="mt-1 text-sm text-[var(--knu-text-secondary)]">
-                {room.memberNames.join(', ')}
-              </p>
-            </div>
-          )}
 
           <div className="space-y-3 pb-6">
             {room.timeline.map((entry, index) => {

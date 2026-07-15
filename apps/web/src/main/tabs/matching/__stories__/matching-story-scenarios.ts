@@ -83,28 +83,6 @@ const profiles: Omit<RoommateProfile, 'matchScore'>[] = [
     messageToRoommate: '편하게 이야기해요.',
     additional: { college: null, grade: null, mbti: 'INTP', birthYear: null },
   },
-  {
-    id: 'baseline-core-a',
-    nickname: '준호',
-    gender: 'M',
-    campus: 'CHUNCHEON',
-    dormitoryId: 'toegye',
-    lifestyle,
-    intro: '그룹 생활을 준비하고 있어요.',
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: 'ENTJ', birthYear: null },
-  },
-  {
-    id: 'baseline-core-b',
-    nickname: '현우',
-    gender: 'M',
-    campus: 'CHUNCHEON',
-    dormitoryId: 'toegye',
-    lifestyle,
-    intro: '생활 규칙을 중요하게 생각해요.',
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: 'INFJ', birthYear: null },
-  },
 ];
 
 const pastSeasons: PastSeasonData[] = [
@@ -166,28 +144,6 @@ const activePair: ActiveMatch = {
   matchedAt: '2026-07-12T12:00:00.000Z',
   cancelRequestedAt: null,
   cancelRequestedBy: null,
-  kind: 'pair',
-};
-
-const activeGroupCore: ActiveMatch = {
-  matchId: 'baseline-group-match',
-  partnerUserId: 'baseline-partner',
-  partnerNickname: '도윤',
-  partnerDormitoryId: 'toegye',
-  matchScore: 84,
-  scoreType: 'full',
-  matchedAt: '2026-07-12T12:00:00.000Z',
-  cancelRequestedAt: null,
-  cancelRequestedBy: null,
-  kind: 'group',
-  groupRole: 'group_core',
-  groupStage: 'PAIR_OPEN',
-  groupCapacity: 3,
-  groupMemberCount: 2,
-  groupMembers: [
-    { userId: user.id, nickname: user.nickname },
-    { userId: 'baseline-partner', nickname: '도윤' },
-  ],
 };
 
 const defaultScenario = {
@@ -276,27 +232,6 @@ export const matchingTabStoryScenarios = {
       cancelRequestedAt: '2026-07-14T10:00:00.000Z',
       cancelRequestedBy: 'baseline-partner',
     },
-  },
-  seasonMatchingGroupLegacy: {
-    ...defaultScenario,
-    key: 'season-matching-group-legacy',
-    title: 'SEASON_MATCHING · 3인실 그룹 legacy',
-    description:
-      '현재 PAIR_OPEN 그룹 코어가 받는 합류 요청 UI입니다. 이는 Phase 11 이후의 최종 group contract가 아닌 legacy baseline입니다.',
-    seasonContext: seasonContext('SEASON_MATCHING'),
-    matchRequests: [
-      request({
-        id: 'baseline-group-request',
-        fromUserId: 'baseline-candidate',
-        toUserId: user.id,
-        requestKind: 'GROUP_CONV_JOIN',
-        groupTargetUserIds: [user.id, 'baseline-partner'],
-        approvalUserIds: [],
-        message: '두 분과 함께 3인실에 합류하고 싶어요.',
-      }),
-    ],
-    activeMatch: activeGroupCore,
-    initialRequestTab: 'received' as const,
   },
   seasonPostMatchActive: {
     ...defaultScenario,

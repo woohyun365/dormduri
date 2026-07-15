@@ -167,11 +167,6 @@ export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch
       : requestedByCounterpartAt
         ? 'counterpart'
         : null,
-    kind: 'pair',
-    groupRole: null,
-    groupStage: null,
-    groupCapacity: 2,
-    groupMemberCount: 2,
   };
 }
 
@@ -464,9 +459,6 @@ function buildMatchingSummaryViewModel({
           ...(rawActiveMatch?.counterpartSummary
             ? { counterpartSummary: rawActiveMatch.counterpartSummary }
             : {}),
-          groupStage: activeMatch.groupStage,
-          groupMemberCount: activeMatch.groupMemberCount,
-          groupCapacity: activeMatch.groupCapacity,
         }
       : undefined,
     receivedRequesters,
