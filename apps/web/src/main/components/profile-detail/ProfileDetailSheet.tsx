@@ -10,6 +10,7 @@ import type { RoommateProfile } from '@/types/profile';
 import type { MatchScoreType } from '@/utils/matchScore';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { ReportReason } from '@/types/report';
+import type { MatchButtonState } from '@/types/match';
 
 interface ProfileDetailSheetProps {
   profile: RoommateProfile | null;
@@ -19,6 +20,7 @@ interface ProfileDetailSheetProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   hideMatchButton?: boolean;
+  matchButtonState?: MatchButtonState;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   isBookmarked?: boolean;
@@ -36,6 +38,7 @@ export function ProfileDetailSheet({
   disabled,
   onDisabledClick,
   hideMatchButton,
+  matchButtonState,
   onBlock,
   onReport,
   isBookmarked,
@@ -63,6 +66,7 @@ export function ProfileDetailSheet({
       ? customFooter
       : buildProfileDetailFooter({
           hideMatchButton,
+          matchButtonState,
           disabled,
           onDisabledClick,
           onRequestMatch,

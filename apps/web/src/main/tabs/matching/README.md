@@ -34,7 +34,7 @@ partial/error state로 닫는다. 이 경로에서 local season이나 action cap
 
 ## Legacy baseline
 
-Phase 0 redesign-before 화면은 `__stories__/legacy/pair/LegacyMatchingTabBaseline.tsx`에 격리되어 있다.
+Phase 0 redesign-before 화면은 `__stories__/legacy/LegacyMatchingTabBaseline.tsx`에 격리되어 있다.
 이는 Storybook/test-only comparison surface이며 product import graph와 canonical correctness 근거가
 아니다. 출시되지 않은 group variant는 `Baseline/Legacy/UnsupportedGroup` namespace에서만 유지한다.
 해당 namespace는 current fixture/renderer와 연결하지 않은 정적 historical snapshot이며, 3인실
@@ -80,8 +80,7 @@ Canonical runtime Storybook은 deterministic state workshop을 위해 `MatchingT
 - `history/MatchHistoryDetailContent`는 stable feature export다. FULL에는 materialized `matchScore`
   snapshot만 표시하고, tombstone에는 score나 full profile snapshot을 보강하지 않는다.
 
-## Chat ownership boundary
+## Remaining compatibility debt
 
-ChatTab은 `/api/chat/threads` BFF와 `@repo/shared/chat` contract만 사용한다. 매칭 확정·해제와
-request lifecycle action은 canonical MatchingTab만 소유하며, ChatTab은 thread의 `status`,
-`canSendMessage`, `canReport` capability를 다시 판정하거나 프로필/매칭도 fallback으로 보강하지 않는다.
+`useMainMatchingState`와 `main/legacy/matchingLegacyClient.ts`는 ChatTab compatibility를 위해 남아 있다.
+Canonical MatchingTab은 이를 import하지 않으며 Chat owner migration에서 제거한다.

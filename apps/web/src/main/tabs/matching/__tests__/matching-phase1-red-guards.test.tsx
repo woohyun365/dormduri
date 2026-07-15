@@ -85,11 +85,14 @@ describe('Phase 1 policy and contract guards', () => {
     expect(source).toContain('onDecision');
   });
 
-  it('legacy pair baseline은 canonical dialog contract의 근거가 아니다', () => {
-    render(<MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingReceived} />);
+  it('current confirmation dialog는 alertdialog baseline을 유지한다', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const ui = userEvent.setup();
 
-    expect(screen.getByText('Baseline · Legacy · Pair only')).toBeInTheDocument();
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    render(<MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingReceived} />);
+    await ui.click(screen.getByRole('button', { name: '수락하기' }));
+
+    expect(screen.getByRole('alertdialog', { name: '요청 수락' })).toBeInTheDocument();
   });
 
   it('Phase 2 contract: pair overview는 public capability/action reason taxonomy를 shared contract로 제공한다', () => {
