@@ -80,7 +80,8 @@ Canonical runtime Storybook은 deterministic state workshop을 위해 `MatchingT
 - `history/MatchHistoryDetailContent`는 stable feature export다. FULL에는 materialized `matchScore`
   snapshot만 표시하고, tombstone에는 score나 full profile snapshot을 보강하지 않는다.
 
-## Remaining compatibility debt
+## Chat ownership boundary
 
-`useMainMatchingState`와 `main/legacy/matchingLegacyClient.ts`는 ChatTab compatibility를 위해 남아 있다.
-Canonical MatchingTab은 이를 import하지 않으며 Chat owner migration에서 제거한다.
+ChatTab은 `/api/chat/threads` BFF와 `@repo/shared/chat` contract만 사용한다. 매칭 확정·해제와
+request lifecycle action은 canonical MatchingTab만 소유하며, ChatTab은 thread의 `status`,
+`canSendMessage`, `canReport` capability를 다시 판정하거나 프로필/매칭도 fallback으로 보강하지 않는다.

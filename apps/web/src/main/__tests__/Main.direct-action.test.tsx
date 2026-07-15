@@ -53,10 +53,6 @@ vi.mock('../components/DormitoryGuideSheet', () => ({
   DormitoryGuideSheet: () => null,
 }));
 
-vi.mock('../components/MatchCelebrationModal', () => ({
-  MatchCelebrationModal: () => null,
-}));
-
 vi.mock('../tabs/home/HomeTab', () => ({
   default: ({
     onOpenBuildingSelect,
@@ -112,24 +108,6 @@ vi.mock('../hooks/useMainSocialState', () => ({
     handleUnblockUser: vi.fn(),
     handleBlockUser: vi.fn(),
     handleReportUser: vi.fn(),
-  }),
-}));
-
-vi.mock('../hooks/useMainMatchingState', () => ({
-  useMainMatchingState: () => ({
-    matchRequests: [],
-    activeMatch: null,
-    receivedPendingCount: 0,
-    showCelebration: null,
-    closeCelebration: vi.fn(),
-    handleSendRequest: vi.fn(),
-    handleAcceptRequest: vi.fn(),
-    handleRejectRequest: vi.fn(),
-    handleCancelRequest: vi.fn(),
-    handleConfirmMatch: vi.fn(),
-    handleRevokeConfirmMatch: vi.fn(),
-    handleEndConversation: vi.fn(),
-    handleEndMatch: vi.fn(),
   }),
 }));
 
