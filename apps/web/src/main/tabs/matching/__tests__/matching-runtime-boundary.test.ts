@@ -51,29 +51,27 @@ const requestCardSource = readFileSync(
   join(matchingRoot, 'components/MatchRequestSummaryCard.tsx'),
   'utf8',
 );
-const pairOnlyProductSources = [
-  join(process.cwd(), 'src/types/match.ts'),
-  join(process.cwd(), 'src/constants/dormitory.ts'),
-  join(process.cwd(), 'src/constants/index.ts'),
-  join(process.cwd(), 'src/main/hooks/useMainMatchingState.ts'),
-  join(process.cwd(), 'src/main/legacy/matchingLegacyClient.ts'),
-  join(process.cwd(), 'src/main/components/MatchRequestCard.tsx'),
-  join(process.cwd(), 'src/main/components/MatchCelebrationModal.tsx'),
-  join(process.cwd(), 'src/main/components/matching/MatchingCompactCard.tsx'),
-  join(process.cwd(), 'src/main/components/matching/ActiveMatchCard.tsx'),
-  join(process.cwd(), 'src/main/components/matching/PastSeasonAccordion.tsx'),
-  join(process.cwd(), 'src/main/components/matching/policyCopy.ts'),
-  join(process.cwd(), 'src/main/tabs/chat/chatViewModel.ts'),
-  join(process.cwd(), 'src/main/tabs/chat/ChatTab.tsx'),
+const chatTabSource = readFileSync(join(process.cwd(), 'src/main/tabs/chat/ChatTab.tsx'), 'utf8');
+const chatRoomSource = readFileSync(
   join(process.cwd(), 'src/main/tabs/chat/ChatRoomView.tsx'),
-  join(process.cwd(), 'src/main/tabs/home/model/homeDashboardViewModel.ts'),
-  join(process.cwd(), 'src/main/tabs/home/sections/matching/HomeMatchingSummary.tsx'),
-  join(process.cwd(), 'src/utils/matchButtonStyle.ts'),
-  join(process.cwd(), 'src/utils/matchRequest.ts'),
-  join(matchingRoot, '__stories__/matching-story-scenarios.ts'),
-  join(matchingRoot, '__stories__/matching-story-renderer.tsx'),
-  join(matchingRoot, '__stories__/legacy/LegacyMatchingTabBaseline.tsx'),
-].map((file) => ({ file, source: readFileSync(file, 'utf8') }));
+  'utf8',
+);
+const legacyPairStorySource = readFileSync(
+  join(matchingRoot, '__stories__/legacy/pair/LegacyMatchingTabBaseline.tsx'),
+  'utf8',
+);
+const removedLegacyFiles = [
+  'src/types/match.ts',
+  'src/constants/match.ts',
+  'src/utils/matchButtonStyle.ts',
+  'src/utils/matchRequest.ts',
+  'src/main/hooks/useMainMatchingState.ts',
+  'src/main/hooks/useMainLegacyTabData.ts',
+  'src/main/legacy/matchingLegacyClient.ts',
+  'src/main/components/MatchRequestCard.tsx',
+  'src/main/components/MatchCelebrationModal.tsx',
+  'src/main/components/matching',
+];
 
 const forbiddenPairOnlyTokens = [
   'PAIR_OPEN',
@@ -124,17 +122,38 @@ describe('MatchingTab runtime boundary', () => {
     );
     expect(unsupportedGroupStorySource).toContain('UnsupportedGroupLegacySnapshot');
     expect(unsupportedGroupStorySource).not.toContain('matching-story-scenarios');
-    expect(unsupportedGroupSnapshotSource).toContain('제품 runtime에서 사용되지 않습니다');
+    expect(unsupportedGroupSnapshotSource).toMatch(/제품\s*runtime에서 사용되지 않습니다/);
     expect(unsupportedGroupSnapshotSource).not.toContain('@/types/match');
     expect(unsupportedGroupSnapshotSource).not.toContain('@/main/components');
     expect(unsupportedGroupSnapshotSource).not.toContain('fetch(');
   });
 
-  it('shipping compatibility와 current story fixture는 pair-only 토큰을 만들지 않는다', () => {
-    for (const { file, source } of pairOnlyProductSources) {
-      for (const token of forbiddenPairOnlyTokens) {
-        expect(source, `${file} must not contain ${token}`).not.toContain(token);
-      }
+  it('Phase 13은 legacy local match model과 old matching product directory를 삭제한다', () => {
+    for (const path of removedLegacyFiles) {
+      expect(existsSync(join(process.cwd(), path)), `${path} must be removed`).toBe(false);
+    }
+  });
+
+  it('Main과 Chat은 local match state, score, lifecycle callback을 다시 import하지 않는다', () => {
+    for (const source of [mainSource, chatTabSource, chatRoomSource]) {
+      expect(source).not.toContain('@/types/match');
+      expect(source).not.toContain('calcMatchScoreWithGating');
+      expect(source).not.toContain('main/legacy');
+      expect(source).not.toContain('useMainMatchingState');
+    }
+    expect(chatTabSource).not.toContain('onConfirmMatch');
+    expect(chatTabSource).not.toContain('onEndMatch');
+    expect(chatRoomSource).not.toContain('onToggleConfirm');
+    expect(chatRoomSource).not.toContain('onManageMatch');
+  });
+
+  it('legacy pair evidence는 story-local model만 사용하고 canonical runtime으로 재수출되지 않는다', () => {
+    expect(legacyPairStorySource).toContain("from './model'");
+    expect(legacyPairStorySource).not.toContain('@/types/match');
+    expect(legacyPairStorySource).not.toContain('@/main/components/matching');
+    expect(legacyPairStorySource).not.toContain('../../../../components/matching');
+    for (const token of forbiddenPairOnlyTokens) {
+      expect(legacyPairStorySource).not.toContain(token);
     }
   });
 

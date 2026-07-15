@@ -393,7 +393,6 @@ describe('homeDashboardViewModel', () => {
       matchId: 'match-1',
       partnerNickname: '상대방',
       matchScore: 88,
-      scoreType: 'full',
     });
   });
 });

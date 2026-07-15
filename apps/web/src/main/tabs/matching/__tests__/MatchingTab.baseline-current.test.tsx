@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MatchingTabStorySurface } from '../__stories__/matching-story-renderer';
 import {
@@ -26,25 +25,12 @@ describe('MatchingTab current baseline stories', () => {
     expect(matchingTabStoryScenarios).not.toHaveProperty('seasonMatchingGroupLegacy');
   });
 
-  it('받은 요청의 더보기 메뉴를 연다', async () => {
+  it('받은 요청 baseline은 story-local pair artifact로 렌더링한다', () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date(MATCHING_BASELINE_NOW).getTime());
-    const ui = userEvent.setup();
 
     render(<MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingReceived} />);
 
-    await ui.click(screen.getByRole('button', { name: '더보기' }));
-
-    expect(screen.getByRole('button', { name: '프로필 보기' })).toBeInTheDocument();
-  });
-
-  it('받은 요청 수락 확인 dialog를 연다', async () => {
-    vi.spyOn(Date, 'now').mockReturnValue(new Date(MATCHING_BASELINE_NOW).getTime());
-    const ui = userEvent.setup();
-
-    render(<MatchingTabStorySurface scenario={matchingTabStoryScenarios.seasonMatchingReceived} />);
-
-    await ui.click(screen.getByRole('button', { name: '수락하기' }));
-
-    expect(screen.getByRole('alertdialog', { name: '요청 수락' })).toBeInTheDocument();
+    expect(screen.getByText('Baseline · Legacy · Pair only')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '수락하기' })).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import type { StoryObj } from '@storybook/nextjs-vite';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
-import { LegacyMatchingTabBaseline } from './legacy/LegacyMatchingTabBaseline';
+import { LegacyMatchingTabBaseline } from './legacy/pair/LegacyMatchingTabBaseline';
 import { MATCHING_BASELINE_NOW, type MatchingTabStoryScenario } from './matching-story-scenarios';
 
 export const MATCHING_TAB_BASELINE_DESCRIPTION =

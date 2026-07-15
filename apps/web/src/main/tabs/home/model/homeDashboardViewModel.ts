@@ -10,7 +10,6 @@ import {
   formatDateDot,
   formatDateMonthDayDot,
 } from '@/main/tabs/home/model/homeDateDisplay';
-import type { ActiveMatch } from '@/types/match';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
 import type {
@@ -49,6 +48,15 @@ export interface HomeDashboardMatchingSummaryViewModel {
   activeMatch?: MatchingSummaryActiveMatch;
   receivedRequesters: string[];
   gatingReason: 'registration_required' | null;
+}
+
+/** 홈 화면이 shared dashboard 응답에서 투영한 표시 전용 활성 매칭 값입니다. */
+export interface HomeActiveMatchView {
+  matchId: string;
+  partnerUserId: string;
+  partnerNickname: string;
+  matchScore: number;
+  matchedAt: string;
 }
 
 export interface HomeDashboardPreparationViewModel {
@@ -120,7 +128,7 @@ export interface HomeDashboardViewModel {
   isUnassigned: boolean;
   dormitory: DormitoryDisplayItem | null;
   hasActiveMatch: boolean;
-  activeMatch: ActiveMatch | null;
+  activeMatch: HomeActiveMatchView | null;
   statsBar: HomeDashboardStatsBarViewModel;
   matchingSummary: HomeDashboardMatchingSummaryViewModel;
   preparation: HomeDashboardPreparationViewModel;
@@ -144,29 +152,18 @@ interface BuildHomeDashboardViewModelInput {
 
 const MS_48_HOURS = 48 * 60 * 60 * 1000;
 
-export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch | null {
+export function toHomeActiveMatch(dashboard: HomeDashboardResponse): HomeActiveMatchView | null {
   const activeMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   if (!activeMatch) {
     return null;
   }
 
-  const requestedByViewerAt = activeMatch.unmatchProgress.requestedByViewerAt;
-  const requestedByCounterpartAt = activeMatch.unmatchProgress.requestedByCounterpartAt;
-
   return {
     matchId: activeMatch.id,
     partnerUserId: activeMatch.counterpartUserId,
     partnerNickname: activeMatch.counterpartNickname ?? '상대',
-    partnerDormitoryId: null,
     matchScore: activeMatch.matchScore ?? 0,
-    scoreType: activeMatch.matchScore == null ? 'gated' : 'full',
     matchedAt: activeMatch.startedAt,
-    cancelRequestedAt: requestedByViewerAt ?? requestedByCounterpartAt,
-    cancelRequestedBy: requestedByViewerAt
-      ? 'self'
-      : requestedByCounterpartAt
-        ? 'counterpart'
-        : null,
   };
 }
 
@@ -402,7 +399,7 @@ function buildMatchingSummaryViewModel({
   seasonState: SeasonState;
   isCampusOperated: boolean;
   registrationReady: boolean;
-  activeMatch: ActiveMatch | null;
+  activeMatch: HomeActiveMatchView | null;
   rawActiveMatch: HomeDashboardResponse['matching']['activeMatch'];
   renderedAt: number;
 }): HomeDashboardMatchingSummaryViewModel {

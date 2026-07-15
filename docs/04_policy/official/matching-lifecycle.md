@@ -286,7 +286,11 @@ direct match request 수신 화면은 수신자가 수락/거절 전 최소한 �
 | ACTIVE 생성 시 thread 없음            | 첫 post-match 메시지 전송 시 matched chat lazy 생성 |
 | ACTIVE 생성 시 다른 conversation      | read-only/archive                                   |
 
-채팅방 구조와 close reason/visibility는 [chat-lifecycle.md](./chat-lifecycle.md)가 소유한다.
+채팅방 구조와 close reason/visibility는 [chat-lifecycle.md](./chat-lifecycle.md)가 소유한다. 현재
+제품 ChatTab은 chat owner의 thread 목록/detail/write capability와 owner cursor pagination만 소비하며,
+매칭 확정·해제나 request 상태 전이 버튼을 제공하지 않는다. `canReport = true`인 thread 신고는
+social-safety owner의 `CHAT_THREAD` report contract로 접수한다. chat contract에 없는
+nickname/profile/매칭점수는 local lookup이나 재계산으로 보강하지 않는다.
 
 ## 매칭 확정과 해제
 
@@ -577,3 +581,4 @@ withdrawn, deleted, deidentified target과 raw audit/moderation payload는 curre
 | 2026-06-08 | 북마크 owner를 `social-safety/bookmarks`로 명시하고 create/delete/list/sort/empty/block side-effect/season cleanup 기준을 구현 가능한 baseline으로 보강했다                                                                                                                                                                                                                             | #196                     |
 | 2026-06-10 | `ActiveMatchLifecycleEvent`를 `ActiveMatch` current-state를 대체하지 않는 운영/audit/debug trace로 정의하고, same-transaction append boundary와 metadata allowlist/no-PII 금지 payload를 명시                                                                                                                                                                                           | #227                     |
 | 2026-07-09 | live `ActiveMatch` viewer도 `SEASON_MATCHING` roommate-search에서 `CAMPUS_MERGED`와 `SAME_BUILDING_ONLY` summary list를 볼 수 있지만, 신규 후보 action surface가 아니므로 카드 CTA를 닫고 단일 안내 pill로 설명한다고 정리                                                                                                                                                              | #195                     |
+| 2026-07-15 | ChatTab이 chat owner BFF/shared contract만 직접 소비하도록 legacy local match compatibility를 제거했다. 채팅은 match lifecycle action과 profile/score fallback을 소유하지 않으며, cursor pagination과 `CHAT_THREAD` 신고는 각 owner contract로 처리한다.                                                                                                                                | #299                     |

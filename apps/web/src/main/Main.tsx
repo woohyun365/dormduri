@@ -13,18 +13,15 @@ import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
-import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/layout/MatchingTabSkeleton';
 import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
-import { useMainMatchingState } from './hooks/useMainMatchingState';
 import {
   useMainHomeDashboard,
   type UseMainHomeDashboardResult,
 } from './hooks/useMainHomeDashboard';
 import { seasonParticipationApi } from './api/season-participation.api';
-import { useMainLegacyTabData } from './hooks/useMainLegacyTabData';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import { getMainTabDocumentTitle } from './utils/mainTabTitle';
@@ -34,8 +31,6 @@ import type { MatchingNavOptions, TabId } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 export type { TabId } from '@/types/profile';
-
-const LEGACY_DATA_TABS = new Set<TabId>(['chat']);
 
 function MainShellFrame({
   activeTab,
@@ -51,27 +46,6 @@ function MainShellFrame({
       {children}
       <BottomTabBar activeTab={activeTab} onTabChange={onTabChange} />
     </div>
-  );
-}
-
-function MainLegacyDataErrorState({ onRetry }: { onRetry: () => void }) {
-  return (
-    <section
-      role="alert"
-      className="mx-auto mt-16 w-[calc(100%-2rem)] max-w-md rounded-3xl border border-(--knu-border) bg-white p-6 text-center shadow-sm"
-    >
-      <p className="text-sm font-semibold text-(--knu-primary)">탭 정보를 불러오지 못했어요</p>
-      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">
-        잠시 후 다시 시도하거나 다른 탭을 이용해주세요.
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-5 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white transition hover:bg-(--knu-primary-dark)"
-      >
-        다시 시도
-      </button>
-    </section>
   );
 }
 
@@ -290,37 +264,8 @@ function MainLegacyDashboardContent({
     markGuideSeen,
   });
 
-  const needsLegacyData = LEGACY_DATA_TABS.has(activeTab);
-  const legacyTabData = useMainLegacyTabData({
-    enabled: needsLegacyData,
-    currentUser: profileState.user,
-    currentDormitoryId: profileState.user.dormitoryId,
-  });
-  const legacyData = legacyTabData.data;
-
   const socialState = useMainSocialState(showToast);
   const [matchingBadgeCount, setMatchingBadgeCount] = useState(0);
-
-  const matchingState = useMainMatchingState(
-    showToast,
-    profileState.user,
-    legacyData?.profiles ?? [],
-    needsLegacyData,
-  );
-  const legacyProfiles = legacyData?.profiles ?? [];
-  const legacyMatchRequests = matchingState.matchRequests;
-  const legacyActiveMatch = matchingState.activeMatch;
-  const legacyBlockedUserIds = socialState.blockedUserIds;
-
-  function renderLegacyDataFallback() {
-    if (!needsLegacyData || legacyData) return null;
-
-    if (legacyTabData.error) {
-      return <MainLegacyDataErrorState onRetry={legacyTabData.retry} />;
-    }
-
-    return activeTab === 'matching' ? <MatchingTabSkeleton /> : <AppShellSkeleton />;
-  }
 
   return (
     <SeasonProvider value={seasonContextValue}>
@@ -339,7 +284,6 @@ function MainLegacyDashboardContent({
             />
           )}
         <main>
-          {renderLegacyDataFallback()}
           {activeTab === 'list' && (
             <RoommateListTab
               user={profileState.user}
@@ -374,21 +318,8 @@ function MainLegacyDashboardContent({
               onUnblock={socialState.handleUnblockUser}
             />
           )}
-          {activeTab === 'chat' && legacyData && (
-            <ChatTab
-              user={profileState.user}
-              profiles={legacyProfiles}
-              matchRequests={legacyMatchRequests}
-              activeMatch={legacyActiveMatch}
-              blockedUserIds={legacyBlockedUserIds}
-              onBlock={socialState.handleBlockUser}
-              onReport={socialState.handleReportUser}
-              onConfirmMatch={matchingState.handleConfirmMatch}
-              onRevokeConfirmMatch={matchingState.handleRevokeConfirmMatch}
-              onEndConversation={matchingState.handleEndConversation}
-              onEndMatch={matchingState.handleEndMatch}
-              onNavigate={handleNavigate}
-            />
+          {activeTab === 'chat' && (
+            <ChatTab viewerId={profileState.user.id} onNavigate={handleNavigate} />
           )}
         </main>
 

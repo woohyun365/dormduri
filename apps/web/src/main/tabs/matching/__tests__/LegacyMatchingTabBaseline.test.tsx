@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
-import { LegacyMatchingTabBaseline } from '../__stories__/legacy/LegacyMatchingTabBaseline';
+import { LegacyMatchingTabBaseline } from '../__stories__/legacy/pair/LegacyMatchingTabBaseline';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
-import type { ActiveMatch, MatchRequest } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
+import type { LegacyActiveMatch, LegacyMatchRequest } from '../__stories__/legacy/pair/model';
 
 const lifestyle = {
   bedtime: '22_24',
@@ -58,7 +58,7 @@ const profiles: Omit<RoommateProfile, 'matchScore'>[] = [
   },
 ];
 
-const request: MatchRequest = {
+const request: LegacyMatchRequest = {
   id: 'req-1',
   fromUserId: 'partner-1',
   toUserId: 'user-1',
@@ -66,21 +66,14 @@ const request: MatchRequest = {
   message: '함께 지내고 싶어요',
   createdAt: '2099-01-01T00:00:00.000Z',
   expiresAt: '2099-01-06T00:00:00.000Z',
-  rejectedAt: null,
-  acceptedAt: null,
-  resolvedAt: null,
 };
 
-const activeMatch: ActiveMatch = {
+const activeMatch: LegacyActiveMatch = {
   matchId: 'match-1',
   partnerUserId: 'partner-1',
   partnerNickname: '파트너',
-  partnerDormitoryId: 'dasan',
   matchScore: 84,
-  scoreType: 'full',
   matchedAt: '2099-01-01T00:00:00.000Z',
-  cancelRequestedAt: null,
-  cancelRequestedBy: null,
 };
 
 function renderBaseline(overrides: Partial<ComponentProps<typeof LegacyMatchingTabBaseline>> = {}) {

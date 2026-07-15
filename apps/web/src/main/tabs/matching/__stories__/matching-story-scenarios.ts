@@ -1,6 +1,10 @@
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { ActiveMatch, MatchRequest, PastSeasonData } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
+import type {
+  LegacyActiveMatch as ActiveMatch,
+  LegacyMatchRequest as MatchRequest,
+  LegacyPastSeasonData as PastSeasonData,
+} from './legacy/pair/model';
 
 /**
  * Legacy MatchingTab이 timer를 계산하는 기준 시각입니다.
@@ -89,12 +93,7 @@ const pastSeasons: PastSeasonData[] = [
   {
     id: '2025-2',
     name: '2025년 2학기',
-    dormitoryIdSnapshot: 'toegye',
     matchResult: 'no_match',
-    receivedCount: 2,
-    sentCount: 1,
-    chatCount: 1,
-    history: [],
   },
 ];
 
@@ -121,9 +120,6 @@ function request(overrides: Partial<MatchRequest>): MatchRequest {
     message: '생활 패턴이 잘 맞는 것 같아요.',
     createdAt: '2026-07-14T09:00:00.000Z',
     expiresAt: '2026-07-19T12:00:00.000Z',
-    rejectedAt: null,
-    acceptedAt: null,
-    resolvedAt: null,
     ...overrides,
   };
 }
@@ -131,19 +127,14 @@ function request(overrides: Partial<MatchRequest>): MatchRequest {
 const activeRequest = request({
   id: 'baseline-active-request',
   status: 'ACTIVE',
-  acceptedAt: '2026-07-12T12:00:00.000Z',
 });
 
 const activePair: ActiveMatch = {
   matchId: 'baseline-active-match',
   partnerUserId: 'baseline-partner',
   partnerNickname: '도윤',
-  partnerDormitoryId: 'toegye',
   matchScore: 84,
-  scoreType: 'full',
   matchedAt: '2026-07-12T12:00:00.000Z',
-  cancelRequestedAt: null,
-  cancelRequestedBy: null,
 };
 
 const defaultScenario = {
@@ -229,8 +220,6 @@ export const matchingTabStoryScenarios = {
     matchRequests: [activeRequest],
     activeMatch: {
       ...activePair,
-      cancelRequestedAt: '2026-07-14T10:00:00.000Z',
-      cancelRequestedBy: 'baseline-partner',
     },
   },
   seasonPostMatchActive: {
