@@ -252,6 +252,11 @@ enum MatchRequestTerminalReason {
   ADMIN_ACTION
 }
 
+enum MatchHistorySystemCancellationCause {
+  VIEWER_MATCHED
+  COUNTERPART_MATCHED
+}
+
 enum ActiveMatchStatus {
   ACTIVE
   UNMATCHED
@@ -1436,6 +1441,7 @@ model MatchRequest {
   note                   String?
   status                 MatchRequestStatus          @default(PENDING)
   terminalReason         MatchRequestTerminalReason?
+  systemCancellationActiveMatchId String?
   createdAt              DateTime                    @default(now()) @db.Timestamptz(3)
   expiresAt              DateTime                    @db.Timestamptz(3)
   terminalAt             DateTime?                   @db.Timestamptz(3)
@@ -1444,6 +1450,7 @@ model MatchRequest {
   requesterParticipant   SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
   receiverParticipant    SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
   createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
+  systemCancellationActiveMatch ActiveMatch?         @relation("MatchRequestSystemCancellationCause", fields: [systemCancellationActiveMatchId], references: [id], onDelete: SetNull)
 
   @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
   @@index([seasonId, requesterParticipantId, createdAt, id])
@@ -1452,6 +1459,7 @@ model MatchRequest {
   @@index([expiresAt, status])
   @@index([seasonId, status, expiresAt])
   @@index([seasonId, pairKey, status])
+  @@index([systemCancellationActiveMatchId])
 }
 
 model ActiveMatch {
@@ -1473,6 +1481,7 @@ model ActiveMatch {
   createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
   unmatchRequests      ActiveMatchUnmatchRequest[]
   lifecycleEvents      ActiveMatchLifecycleEvent[]
+  systemCancelledRequests MatchRequest[]             @relation("MatchRequestSystemCancellationCause")
   conversationThread   ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
@@ -1533,6 +1542,8 @@ model SeasonMatchHistoryEntry {
   sourceActiveMatchId                       String?
   createdFromRequestId                      String?
   matchScore                                Int?
+  compatibilitySnapshot                    Json?
+  compatibilitySchemaVersion               String?                                @db.VarChar(64)
   viewerSmokingToleranceSnapshot            RoommateSmokingTolerance?
   viewerPhoneToleranceSnapshot              RoommatePhoneTolerance?
   viewerEarphoneExpectationSnapshot         RoommateEarphoneExpectation?
@@ -1567,6 +1578,8 @@ model SeasonMatchHistoryEntry {
   unmatchedAt                               DateTime?                              @db.Timestamptz(3)
   finalizedAt                               DateTime                               @db.Timestamptz(3)
   requestTerminalReason                     MatchRequestTerminalReason?
+  systemCancellationCause                   MatchHistorySystemCancellationCause?
+  systemCancellationGroupId                 String?
   activeMatchEndReason                      ActiveMatchEndReason?
   createdAt                                 DateTime                               @default(now()) @db.Timestamptz(3)
   updatedAt                                 DateTime                               @default(now()) @updatedAt @db.Timestamptz(3)

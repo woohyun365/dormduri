@@ -131,6 +131,9 @@ CREATE TYPE "SeasonMatchHistoryEntryType" AS ENUM ('REQUEST', 'MATCH');
 CREATE TYPE "SeasonMatchHistoryEntryResult" AS ENUM ('REQUEST_REJECTED', 'REQUEST_CANCELLED', 'REQUEST_EXPIRED', 'MATCHED_SUCCESS', 'UNMATCHED_AFTER_SUCCESS');
 
 -- CreateEnum
+CREATE TYPE "MatchHistorySystemCancellationCause" AS ENUM ('VIEWER_MATCHED', 'COUNTERPART_MATCHED');
+
+-- CreateEnum
 CREATE TYPE "ConversationThreadKind" AS ENUM ('DIRECT', 'MATCHED');
 
 -- CreateEnum
@@ -161,7 +164,7 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
+CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'ENFORCEMENT_NOTICE', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'MATCH_REQUEST_RECEIVED', 'MATCH_REQUEST_ACCEPTED', 'MATCH_REQUEST_REJECTED', 'ACTIVE_MATCH_CREATED', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
 
 -- CreateEnum
 CREATE TYPE "NotificationOutboxStatus" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED');
@@ -896,6 +899,7 @@ CREATE TABLE "MatchRequest" (
     "note" TEXT,
     "status" "MatchRequestStatus" NOT NULL DEFAULT 'PENDING',
     "terminalReason" "MatchRequestTerminalReason",
+    "systemCancellationActiveMatchId" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "terminalAt" TIMESTAMPTZ(3),
@@ -967,6 +971,8 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "sourceActiveMatchId" TEXT,
     "createdFromRequestId" TEXT,
     "matchScore" INTEGER,
+    "compatibilitySnapshot" JSONB,
+    "compatibilitySchemaVersion" VARCHAR(64),
     "viewerSmokingToleranceSnapshot" "RoommateSmokingTolerance",
     "viewerPhoneToleranceSnapshot" "RoommatePhoneTolerance",
     "viewerEarphoneExpectationSnapshot" "RoommateEarphoneExpectation",
@@ -1001,12 +1007,19 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "unmatchedAt" TIMESTAMPTZ(3),
     "finalizedAt" TIMESTAMPTZ(3) NOT NULL,
     "requestTerminalReason" "MatchRequestTerminalReason",
+    "systemCancellationCause" "MatchHistorySystemCancellationCause",
+    "systemCancellationGroupId" TEXT,
     "activeMatchEndReason" "ActiveMatchEndReason",
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SeasonMatchHistoryEntry_pkey" PRIMARY KEY ("id")
 );
+
+-- AddCheckConstraint
+ALTER TABLE "SeasonMatchHistoryEntry"
+ADD CONSTRAINT "SeasonMatchHistoryEntry_compatibility_snapshot_version_check"
+CHECK (("compatibilitySnapshot" IS NULL) = ("compatibilitySchemaVersion" IS NULL));
 
 -- CreateTable
 CREATE TABLE "ConversationThread" (
@@ -1119,6 +1132,22 @@ CREATE TABLE "ChatRealtimeEventRecipient" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRealtimeEventRecipient_pkey" PRIMARY KEY ("eventId","userId")
+);
+
+-- CreateTable
+CREATE TABLE "GlobalNotice" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "summary" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "severity" TEXT NOT NULL DEFAULT 'INFO',
+    "relatedSeasonId" TEXT,
+    "publishedAt" TIMESTAMPTZ(3),
+    "expiresAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "GlobalNotice_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1749,6 +1778,9 @@ CREATE INDEX "MatchRequest_seasonId_status_expiresAt_idx" ON "MatchRequest"("sea
 CREATE INDEX "MatchRequest_seasonId_pairKey_status_idx" ON "MatchRequest"("seasonId", "pairKey", "status");
 
 -- CreateIndex
+CREATE INDEX "MatchRequest_systemCancellationActiveMatchId_idx" ON "MatchRequest"("systemCancellationActiveMatchId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ActiveMatch_createdFromRequestId_key" ON "ActiveMatch"("createdFromRequestId");
 
 -- CreateIndex
@@ -1895,6 +1927,15 @@ CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEven
 
 -- CreateIndex
 CREATE INDEX "ChatRealtimeEventRecipient_threadId_createdAt_eventId_idx" ON "ChatRealtimeEventRecipient"("threadId", "createdAt", "eventId");
+
+-- CreateIndex
+CREATE INDEX "GlobalNotice_publishedAt_expiresAt_id_idx" ON "GlobalNotice"("publishedAt", "expiresAt", "id");
+
+-- CreateIndex
+CREATE INDEX "GlobalNotice_severity_publishedAt_id_idx" ON "GlobalNotice"("severity", "publishedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "GlobalNotice_relatedSeasonId_publishedAt_id_idx" ON "GlobalNotice"("relatedSeasonId", "publishedAt", "id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UserNotification_recipientUserId_kind_sourceType_sourceId_key" ON "UserNotification"("recipientUserId", "kind", "sourceType", "sourceId");
@@ -2226,6 +2267,9 @@ ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_requesterParticipantId_f
 
 -- AddForeignKey
 ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_receiverParticipantId_fkey" FOREIGN KEY ("receiverParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_systemCancellationActiveMatchId_fkey" FOREIGN KEY ("systemCancellationActiveMatchId") REFERENCES "ActiveMatch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ActiveMatch" ADD CONSTRAINT "ActiveMatch_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
