@@ -252,6 +252,7 @@ function createChatServiceSpecHarnessImpl() {
     selectCanonicalSelection: vi.fn(),
     pickCurrentSeasonParticipant: vi.fn(),
     hasRegistrationSnapshotForParticipant: vi.fn(),
+    findRegistrationSnapshotParticipantIdSet: vi.fn(),
   };
 
   const conversationThreadLifecycleEventWriter = new ConversationThreadLifecycleEventWriter(
@@ -330,6 +331,9 @@ function createChatServiceSpecHarnessImpl() {
       participants?.[0] ?? null,
   );
   seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
+  seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
+    new Set(['participant-1', 'participant-2']),
+  );
   prisma.activeMatch.findFirst.mockResolvedValue(null);
   prismaUserBlockFindFirst.mockResolvedValue(null);
   txUserBlockFindFirst.mockResolvedValue(null);

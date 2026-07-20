@@ -11,6 +11,7 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
   PreviousSeasonProfileController,
+  SeasonProfileHistoryController,
 } from './current-season-participation.controller.js';
 
 @Module({
@@ -25,6 +26,7 @@ import {
   controllers: [
     CurrentSeasonProfileController,
     PreviousSeasonProfileController,
+    SeasonProfileHistoryController,
     CurrentSeasonParticipationController,
   ],
   providers: SEASON_PARTICIPANTS_PROVIDERS,

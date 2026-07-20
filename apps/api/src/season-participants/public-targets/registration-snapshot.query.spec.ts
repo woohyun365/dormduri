@@ -32,6 +32,7 @@ describe('registration-snapshot.query', () => {
         participantId: { in: ['participant-1', 'participant-2'] },
         source: 'SEASON_REGISTRATION',
         registeredAtSnapshot: { not: null },
+        redactedAt: null,
       },
       select: { participantId: true },
     });
@@ -54,6 +55,7 @@ describe('registration-snapshot.query', () => {
         participantId: 'target',
         source: 'SEASON_REGISTRATION',
         registeredAtSnapshot: { not: null },
+        redactedAt: null,
       },
       select: { participantId: true },
     });

@@ -252,7 +252,7 @@ describe('ProfilesService Step 6 public detail', () => {
     );
     seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(makeParticipant());
     seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
-      new Set(['participant-target']),
+      new Set(['participant-1', 'participant-target']),
     );
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
     matchScoreProjection.shouldExposePublicMatchScore.mockReturnValue(true);

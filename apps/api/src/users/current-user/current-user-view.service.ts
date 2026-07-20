@@ -12,6 +12,13 @@ import {
   isNicknameLockedByCurrentSeasonRegistration,
 } from '../identity/display/display-identity-edit.policy.js';
 import { CurrentSeasonParticipationViewQuery } from '../../season-participants/application/current-season-participation-view.query.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
+import {
+  buildCurrentUserCapabilities,
+  buildCurrentUserCapabilityInput,
+} from '../../season-participants/capabilities/index.js';
+import { canCurrentDormitoryMatch } from '../../season-participants/policies/index.js';
+import { toOperatedDormitoryIdSet } from '../../season-participants/public-target-policy/index.js';
 import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
@@ -37,6 +44,7 @@ export class CurrentUserViewService {
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly currentSeasonParticipationViewOwner: CurrentSeasonParticipationViewQuery,
+    private readonly seasonParticipantsService: SeasonParticipantsService,
     @Inject(MATCH_ACTIVE_VIEW_PORT)
     private readonly matchActiveView: MatchActiveViewPort,
   ) {}
@@ -100,6 +108,40 @@ export class CurrentUserViewService {
       nicknameLockedBySeason,
       nicknameCooldownActive,
     });
+    const registrationSnapshotExists = seasonSegment.seasonProfile.registered;
+    const seasonProfileComplete = seasonSegment.participant
+      ? this.seasonParticipantsService.validateSeasonProfileCompleteness(
+          seasonSegment.participant.profile,
+        ).complete
+      : false;
+    const operatedDormitoryIds = serviceState.seasonContext
+      ? toOperatedDormitoryIdSet(serviceState.seasonContext)
+      : new Set<string>();
+    const currentDormitoryCanMatch = serviceState.seasonContext
+      ? canCurrentDormitoryMatch(
+          serviceState.seasonContext,
+          seasonSegment.selection.dormitoryId,
+          now,
+        )
+      : false;
+    const publicActionCapabilities = buildCurrentUserCapabilities(
+      buildCurrentUserCapabilityInput({
+        campusOperated: serviceState.campusOperated,
+        seasonState: serviceState.seasonState,
+        participant: seasonSegment.participant,
+        registrationSnapshotExists,
+        participantMatched: activeMatch !== null,
+        seasonProfileComplete,
+        selection: {
+          dormitoryId: seasonSegment.selection.dormitoryId,
+          dormitorySelectionState: seasonSegment.selection.state,
+        },
+        operatedDormitoryIds,
+        currentDormitoryCanMatch,
+        nicknameLockedBySeason,
+        nicknameCooldownActive,
+      }),
+    );
 
     const identity = buildCurrentUserIdentitySegment(user);
 
@@ -111,6 +153,7 @@ export class CurrentUserViewService {
       capabilities: buildCurrentUserCapabilitySegment(
         serviceState,
         seasonSegment,
+        publicActionCapabilities,
         displayIdentityEditUnavailableReasons,
       ),
       onboarding: buildCurrentUserOnboardingSegment(user.dismissedNotices ?? []),

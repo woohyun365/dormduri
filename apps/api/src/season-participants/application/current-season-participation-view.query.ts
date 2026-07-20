@@ -70,7 +70,16 @@ export class CurrentSeasonParticipationViewQuery {
       ? mapCurrentSeasonParticipantRecord(currentParticipant)
       : null;
 
-    const participantRegistered = isParticipantRegistered(participant);
+    const profileComplete = this.seasonParticipantsService.validateSeasonProfileCompleteness(
+      participant?.profile,
+    ).complete;
+    const registrationSnapshotExists = participant
+      ? await this.seasonParticipantsService.hasRegistrationSnapshotForParticipant(participant.id)
+      : false;
+    const registrationMarkersComplete = isParticipantRegistered(participant);
+    const participantRegistered =
+      registrationMarkersComplete && profileComplete && registrationSnapshotExists;
+    const registrationAggregateInvalid = registrationMarkersComplete && !participantRegistered;
     const canonicalSelection = selectCanonicalSelection(participant, participantRegistered);
     const activeSeasonPhase =
       input.seasonState === 'SEASON_OPEN' || input.seasonState === 'SEASON_MATCHING';
@@ -78,11 +87,10 @@ export class CurrentSeasonParticipationViewQuery {
       ? isParticipantRegistrationLocked(participant)
       : false;
     const accountOrParticipantInactive = Boolean(
-      input.user.deletedAt || (participant ? isParticipantInactive(participant) : false),
+      input.user.deletedAt ||
+      registrationAggregateInvalid ||
+      (participant ? isParticipantInactive(participant) : false),
     );
-    const profileComplete = this.seasonParticipantsService.validateSeasonProfileCompleteness(
-      participant?.profile,
-    ).complete;
     const selectableDormitoriesAvailable = activeSeasonPhase
       ? participant
         ? await this.seasonParticipantsService.hasSelectableDormitoriesForCurrentParticipant(

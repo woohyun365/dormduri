@@ -47,6 +47,7 @@ describe('current-user-capability-input.mapper', () => {
       campusOperated: true,
       seasonState: 'SEASON_MATCHING',
       participant: makeParticipant(),
+      registrationSnapshotExists: true,
       participantMatched: false,
       seasonProfileComplete: true,
       selection: {

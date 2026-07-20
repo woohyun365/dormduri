@@ -20,7 +20,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantUseCase
   const containerOwner = createSeasonParticipantContainerOwner(deps);
   const lifecycleEventWriter = createSeasonParticipantLifecycleEventWriter();
   const profileDraftQuery = createGetCurrentSeasonProfileQuery(deps, containerOwner);
-  const previousProfileQuery = createGetPreviousSeasonProfileQuery(deps);
+  const profileHistoryQuery = createGetPreviousSeasonProfileQuery(deps);
   const profileDraftCommand = createUpsertSeasonProfileDraftCommand(deps, containerOwner);
   const dormitorySelectionReadiness = createDormitorySelectionReadinessEvaluator(deps);
   const dormitorySelectionQuery = createListCurrentSeasonSelectableDormitoriesQuery(
@@ -52,7 +52,8 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantUseCase
     ensureCurrentSeasonParticipant: containerOwner.ensureCurrentSeasonParticipant,
     findCurrentSeasonParticipant: containerOwner.findCurrentSeasonParticipant,
     getCurrentSeasonProfile: profileDraftQuery.getCurrentSeasonProfile,
-    getPreviousSeasonProfile: previousProfileQuery.getPreviousSeasonProfile,
+    getPreviousSeasonProfile: profileHistoryQuery.getPreviousSeasonProfile,
+    getSeasonProfileHistory: profileHistoryQuery.getSeasonProfileHistory,
     createOrUpdateSeasonProfileDraft: profileDraftCommand.createOrUpdateSeasonProfileDraft,
     validateSeasonProfileCompleteness,
     assertSeasonProfileCompleteForRegistration,

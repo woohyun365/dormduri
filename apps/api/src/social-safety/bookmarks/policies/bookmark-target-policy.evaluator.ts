@@ -243,9 +243,13 @@ export class BookmarkTargetPolicyEvaluator {
     const targetParticipant = mapCurrentSeasonParticipantRecord(input.target);
     const targetSelection =
       this.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
+    const participantIds = [
+      input.viewerContext.viewerParticipant?.id ?? null,
+      targetParticipant.id,
+    ].filter((participantId): participantId is string => participantId !== null);
     const registrationSnapshotParticipantIds =
       await this.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet(
-        [targetParticipant.id],
+        participantIds,
         input.client,
       );
     const activeMatchMap = await this.loadActiveMatchMap({
@@ -262,6 +266,9 @@ export class BookmarkTargetPolicyEvaluator {
         campusOperated: input.viewerContext.serviceState.campusOperated,
         seasonState: input.viewerContext.serviceState.seasonState,
         participant: input.viewerContext.viewerParticipant,
+        registrationSnapshotExists: input.viewerContext.viewerParticipant
+          ? registrationSnapshotParticipantIds.has(input.viewerContext.viewerParticipant.id)
+          : false,
         matched: viewerActiveMatch !== null,
         seasonProfileComplete: input.viewerContext.viewerSeasonProfileComplete,
         matchedPartnerParticipantId: viewerActiveMatch?.counterpartParticipantId ?? null,

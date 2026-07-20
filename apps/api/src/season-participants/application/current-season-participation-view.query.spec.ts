@@ -16,6 +16,7 @@ describe('current-season-participation-view.query', () => {
     hasSelectableDormitoriesForCurrentParticipant: vi.fn(),
     hasSelectableDormitoriesForCurrentUser: vi.fn(),
     hasValidDormitorySelectionForCurrentParticipant: vi.fn(),
+    hasRegistrationSnapshotForParticipant: vi.fn(),
   };
   const owner = new CurrentSeasonParticipationViewQuery(
     prisma as never,
@@ -30,6 +31,7 @@ describe('current-season-participation-view.query', () => {
     seasonParticipantsService.hasValidDormitorySelectionForCurrentParticipant.mockResolvedValue(
       false,
     );
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
   });
 
   it('participant row가 없어도 사용자 snapshot 기준 selectable dormitory가 있으면 selection capability는 열린다', async () => {
@@ -221,6 +223,41 @@ describe('current-season-participation-view.query', () => {
     expect(result.seasonProfile.profileState).toBe('REGISTRATION_FINALIZED');
     expect(result.seasonProfile.draftWritable).toBe(false);
     expect(result.capabilities).toMatchObject({
+      canCreateOrUpdateSeasonProfileDraft: false,
+      canSelectDormitory: false,
+      canFinalizeSeasonRegistration: false,
+    });
+  });
+
+  it('registration snapshot이 없는 finalized-looking row는 registered로 해석하지 않고 write/action을 닫는다', async () => {
+    prisma.seasonParticipant.findUnique.mockResolvedValue(
+      participant({
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        dormitorySelectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        participantStatus: 'ACTIVE',
+        profile: profile(),
+      }),
+    );
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(false);
+
+    const result = await owner.buildCurrentUserSeasonParticipationSegment({
+      user: {
+        id: 'user-1',
+        emailVerifiedAt: now,
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        deletedAt: null,
+      },
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
+      seasonContext: seasonContext() as never,
+      now,
+    });
+
+    expect(result.seasonProfile.registered).toBe(false);
+    expect(result.capabilities).toEqual({
       canCreateOrUpdateSeasonProfileDraft: false,
       canSelectDormitory: false,
       canFinalizeSeasonRegistration: false,

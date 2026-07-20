@@ -481,7 +481,9 @@ describe('chat pair entry regression', () => {
     });
   });
   it('target registration snapshot이 없으면 등록/배정 상태여도 새 채팅 entry와 send를 닫는다', async () => {
-    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValueOnce(false);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValueOnce(
+      new Set(['participant-1']),
+    );
 
     const entry = await service.getThreadEntry(
       {
@@ -499,7 +501,9 @@ describe('chat pair entry regression', () => {
       canSendMessage: false,
     });
 
-    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValueOnce(false);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValueOnce(
+      new Set(['participant-1']),
+    );
 
     await expect(
       service.sendMessage(

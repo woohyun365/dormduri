@@ -12,6 +12,7 @@ export function buildCurrentUserCapabilityInput(input: {
   campusOperated: boolean;
   seasonState: SeasonState | null;
   participant: CurrentSeasonParticipantRecord | null;
+  registrationSnapshotExists: boolean;
   participantMatched: boolean;
   seasonProfileComplete: boolean;
   selection: SelectionLike;
@@ -23,7 +24,8 @@ export function buildCurrentUserCapabilityInput(input: {
   return {
     campusOperated: input.campusOperated,
     seasonState: input.seasonState,
-    participantRegistered: isParticipantRegistered(input.participant),
+    participantRegistered:
+      isParticipantRegistered(input.participant) && input.registrationSnapshotExists,
     participantRegistrationLocked:
       input.participant?.participationIntent === 'DECLINED' ||
       input.participant?.participantStatus === 'WITHDRAWN',

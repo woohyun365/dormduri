@@ -28,6 +28,7 @@ export function buildPublicTargetPolicyViewerInput(input: {
   campusOperated: boolean;
   seasonState: SeasonState | null;
   participant: CurrentSeasonParticipantRecord | null;
+  registrationSnapshotExists: boolean;
   matched: boolean;
   seasonProfileComplete: boolean;
   matchedPartnerParticipantId: string | null;
@@ -38,7 +39,7 @@ export function buildPublicTargetPolicyViewerInput(input: {
   return {
     campusOperated: input.campusOperated,
     seasonState: input.seasonState,
-    registered: isParticipantRegistered(input.participant),
+    registered: isParticipantRegistered(input.participant) && input.registrationSnapshotExists,
     matched: input.matched,
     seasonProfileComplete: input.seasonProfileComplete,
     matchedPartnerParticipantId: input.matchedPartnerParticipantId,

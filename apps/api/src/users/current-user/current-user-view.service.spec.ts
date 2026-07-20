@@ -91,6 +91,10 @@ function createServiceTestKit() {
   const currentSeasonParticipationViewOwner = {
     buildCurrentUserSeasonParticipationSegment: vi.fn(),
   };
+  const seasonParticipantsService = {
+    hasRegistrationSnapshotForParticipant: vi.fn().mockResolvedValue(true),
+    validateSeasonProfileCompleteness: vi.fn().mockReturnValue({ complete: true }),
+  };
   const matchesService = { getCurrentActiveMatchSummaryForParticipant: vi.fn() };
   const currentUserQuery = new CurrentUserQuery(prisma as never);
   const service = new CurrentUserViewService(
@@ -98,6 +102,7 @@ function createServiceTestKit() {
     currentUserQuery,
     seasonsService as never,
     currentSeasonParticipationViewOwner as never,
+    seasonParticipantsService as never,
     matchesService as never,
   );
 
@@ -114,6 +119,7 @@ function createServiceTestKit() {
     prisma,
     seasonsService,
     currentSeasonParticipationViewOwner,
+    seasonParticipantsService,
     matchesService,
   };
 }

@@ -82,6 +82,7 @@ describe('public-target-policy-input.mapper', () => {
       campusOperated: true,
       seasonState: 'SEASON_MATCHING',
       participant: makeParticipant(),
+      registrationSnapshotExists: true,
       matched: true,
       seasonProfileComplete: false,
       matchedPartnerParticipantId: 'participant-2',
