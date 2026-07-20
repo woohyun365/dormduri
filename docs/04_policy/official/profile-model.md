@@ -145,6 +145,8 @@ Direct match request의 선택 note는 profile field가 아니라 request payloa
 ### 기본 원칙
 
 1. `OFF_SEASON`에는 current season profile create/edit을 열지 않는다. 사용자는 표시 identity와 과거 season profile/history만 읽거나 닉네임 정책에 따라 수정한다.
+   - 직전 시즌 shortcut은 `GET /api/seasons/previous/profile`을 사용한다.
+   - 종료된 특정 시즌의 자기 registration snapshot은 authenticated owner에 한해 `GET /api/seasons/:seasonId/profile/me`로 읽는다. 해당 시즌 참여자가 아니거나 registration snapshot이 없거나 redacted된 경우 full detail을 합성하지 않고 EMPTY로 응답한다.
 2. `SEASON_OPEN` / `SEASON_MATCHING`에는 registration 전까지 current season profile을 생성/수정할 수 있다.
 3. 기숙사 선택 저장은 registration 전 draft 상태이며 별도 `UserDormitorySelection`/account-level row가 아니라 current `SeasonParticipant` row의 `dormitorySelectionState = SELECTED`, `dormitoryId != null`만 저장한다. 이 단계에서는 complete profile, `REGISTERED`, `registeredAt`, history snapshot을 만들거나 요구하지 않고 registration 전까지 변경 가능하다.
 4. 시즌 registration finalize는 저장된 기숙사 선택과 complete profile을 다시 검증한 뒤 같은 transaction에서 `REGISTERED + ASSIGNED + registeredAt + history snapshot`을 확정한다.

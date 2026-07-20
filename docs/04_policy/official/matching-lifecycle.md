@@ -327,14 +327,23 @@ nickname/profile/매칭점수는 local lookup이나 재계산으로 보강하지
   - `ACTIVE` 도달 후 `UNMATCHED` 된 수
 - 이후 같은 pair가 다시 매칭 성공하더라도 **새로운 `ActiveMatch` 이력**으로 기록한다. 즉, `매칭 성공 → 해제 → 재매칭 성공`은 서로 다른 두 success 이력이다.
 
+### active match 확정에 따른 request 자동 종료 귀속
+
+- match request 수락 transaction은 다른 pending request를 `CANCELLED_BY_SYSTEM_ACTIVE_MATCH`로 종료할 때 원인이 된 `ActiveMatch` id를 `MatchRequest.systemCancellationActiveMatchId`에 함께 저장한다.
+- 종료 시즌 history materialization은 causal active match의 참가자와 history viewer를 비교해 공개 원인을 `VIEWER_MATCHED` 또는 `COUNTERPART_MATCHED`로 좁힌다. 상대가 누구와 매칭됐는지는 공개하지 않는다.
+- `VIEWER_MATCHED` request만 같은 causal active match id로 묶어 “내 매칭 확정으로 종료된 요청”으로 집계할 수 있다. 수락 transaction은 두 매칭 참가자가 requester 또는 receiver로 포함된 다른 pending request를 모두 종료하므로, viewer history의 한 group에는 보낸 요청과 받은 요청이 함께 포함될 수 있다. `COUNTERPART_MATCHED` request는 상대별 개별 종료 이력으로 표시한다.
+- causal relation이 없는 기존 row는 terminal timestamp가 같더라도 원인을 추정하거나 묶지 않는다.
+- 이 attribution은 수락, active match 생성, pending request 종료와 같은 serializable transaction 안에서 기록되며 transaction rollback 시 함께 남지 않는다.
+
 ### success 해석
 
-| 층위                                  | 기준                                                                                                                                                                               |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 운영 지표                             | `ACTIVE` 도달                                                                                                                                                                      |
-| 사용자-facing 시즌 결과               | `seasonEndDate` 시점의 past-season snapshot success                                                                                                                                |
-| 사용자-facing 과거 counterpart detail | 최종 매칭 상대(`MATCHED_SUCCESS`)만 허용. `UNMATCHED_AFTER_SUCCESS`는 “매칭 후 해제된 이력” summary로만 남기고 counterpart final detail을 열지 않음                                |
-| 사용자-facing 과거 counterpart score  | `MATCHED_SUCCESS` final counterpart detail에서만 `SeasonMatchHistoryEntry.matchScore` snapshot을 노출. 현재 profile로 재계산하지 않으며 tombstone detail에는 score를 포함하지 않음 |
+| 층위                                  | 기준                                                                                                                                                                                                                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 운영 지표                             | `ACTIVE` 도달                                                                                                                                                                                                                                                           |
+| 사용자-facing 시즌 결과               | `seasonEndDate` 시점의 past-season snapshot success                                                                                                                                                                                                                     |
+| 사용자-facing 과거 counterpart detail | 최종 매칭 상대(`MATCHED_SUCCESS`)만 허용. `UNMATCHED_AFTER_SUCCESS`는 “매칭 후 해제된 이력” summary로만 남기고 counterpart final detail을 열지 않음                                                                                                                     |
+| 사용자-facing 과거 counterpart score  | `MATCHED_SUCCESS` final counterpart detail에서만 `SeasonMatchHistoryEntry.matchScore` snapshot을 노출. 현재 profile로 재계산하지 않으며 tombstone detail에는 score를 포함하지 않음                                                                                      |
+| 사용자-facing 과거 compatibility      | match history materialization 시점의 공개 가능 `PublicProfileCompatibility` projection과 `compatibilitySchemaVersion`을 함께 저장한다. 알려진 버전·strict contract·동일 `matchScore`를 모두 만족할 때만 노출하며 현재 profile 기반 재계산이나 추정 backfill은 금지한다. |
 
 ### ActiveMatch lifecycle event log
 

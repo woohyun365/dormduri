@@ -64,6 +64,7 @@ docs/07_tech/*
 !docs/07_tech/frontend/
 docs/07_tech/frontend/*
 !docs/07_tech/frontend/web-infra-ci-test-config.md
+!docs/07_tech/frontend/action-capability-source-of-truth.md
 !docs/04_policy/
 docs/04_policy/*
 !docs/04_policy/official/

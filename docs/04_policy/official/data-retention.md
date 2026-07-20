@@ -148,13 +148,13 @@ Retention core는 queue, retention case, retained vault, access log, review/disc
 
 이름이 비슷한 reason enum은 아래처럼 책임을 분리한다. `RetentionCaseReason`은 삭제 계정 식별 anchor hold(`RetainedIdentityHold`)와 retained vault payload hold(`RetainedVaultObjectHold`)가 함께 참조하는 canonical 보존 사유다. 예를 들어 일반 탈퇴 identity anchor는 `ACCOUNT_DELETION` hold로 5일 후 폐기될 수 있지만, 같은 thread의 chat payload는 survivor 공동 이력/신고 가능성을 이유로 별도 `CHAT_THREAD_ARCHIVE` case에 묶일 수 있다.
 
-| 대상                    | hot row 처리                                                                                                    | retained vault 처리                                                            |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| nickname audit          | 이전/다음 닉네임을 tombstone/redacted 값으로 최소화                                                             | 원 previous/next nickname, actor/reason metadata 보존                          |
-| academic identity audit | hot audit row의 이전/다음 `collegeCode`/`birthYear`와 직접 식별 가능한 actor detail을 redaction marker로 최소화 | 원 academic identity change event payload, actor/reason/approval metadata 보존 |
-| season profile history  | registration evidence는 유지, lifestyle/condition/intro/additional detail은 null/empty로 최소화                 | 원 시즌 프로필 snapshot 보존                                                   |
-| match history           | event fact/count/result는 유지, 삭제 subject의 nickname/profile/score snapshot은 최소화                         | role별(`VIEWER`/`COUNTERPART`) 원 snapshot 보존                                |
-| chat message body       | `ConversationMessage`는 tombstone event shell만 유지                                                            | `CHAT_MESSAGE_BODY` payload로 원문 보존                                        |
+| 대상                    | hot row 처리                                                                                                                       | retained vault 처리                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| nickname audit          | 이전/다음 닉네임을 tombstone/redacted 값으로 최소화                                                                                | 원 previous/next nickname, actor/reason metadata 보존                          |
+| academic identity audit | hot audit row의 이전/다음 `collegeCode`/`birthYear`와 직접 식별 가능한 actor detail을 redaction marker로 최소화                    | 원 academic identity change event payload, actor/reason/approval metadata 보존 |
+| season profile history  | registration evidence는 유지, lifestyle/condition/intro/additional detail은 null/empty로 최소화                                    | 원 시즌 프로필 snapshot 보존                                                   |
+| match history           | event fact/count/result는 유지, 삭제 subject의 nickname/profile/score/public compatibility snapshot과 schema version은 함께 최소화 | role별(`VIEWER`/`COUNTERPART`) 원 snapshot 보존                                |
+| chat message body       | `ConversationMessage`는 tombstone event shell만 유지                                                                               | `CHAT_MESSAGE_BODY` payload로 원문 보존                                        |
 
 일반 product/user-facing read path는 `RetainedVaultObject`를 복원하지 않는다. 운영 disclosure는 `accessedBy`, `accessReason`, `approvalReference`, `purpose`를 요구하고 `RetentionAccessLog`를 남긴다. retained payload는 retained 중 HMAC digest를 가질 수 있으나, disposal 시 `encryptedPayload`, `keyVersion`, `payloadDigest`를 모두 null 처리한다.
 

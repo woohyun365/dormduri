@@ -10,6 +10,7 @@ import { HomeDashboardCountsQuery } from './home-dashboard-counts.query.js';
 import { HomeDashboardHistoryQuery } from './home-dashboard-history.query.js';
 import { HomeDashboardNextSeasonQuery } from './home-dashboard-next-season.query.js';
 import { HomeDashboardPresenter } from './home-dashboard.presenter.js';
+import { MatchOverviewQuery } from '../../matches/overview/match-overview.query.js';
 
 @Injectable()
 export class HomeDashboardQuery {
@@ -22,6 +23,7 @@ export class HomeDashboardQuery {
     private readonly historyQuery: HomeDashboardHistoryQuery,
     private readonly nextSeasonQuery: HomeDashboardNextSeasonQuery,
     private readonly presenter: HomeDashboardPresenter,
+    private readonly matchOverviewQuery: MatchOverviewQuery,
   ) {}
 
   async execute(authUser: AuthenticatedUserContext) {
@@ -31,10 +33,13 @@ export class HomeDashboardQuery {
       ? await this.seasonsService.getCurrentSeasonContext(authUser.campus, now)
       : null;
     const participant = await this.countsQuery.findCurrentParticipant(seasonContext, authUser.id);
+    const matchOverview = seasonContext
+      ? await this.matchOverviewQuery.executeAt(authUser, now)
+      : null;
     const [stats, matching, hasMatchHistory, seasonHistorySummary, nextSeasonPreview] =
       await Promise.all([
         this.countsQuery.getStats({ seasonContext, participant, now }),
-        this.countsQuery.getMatching({ seasonContext, participant, now }),
+        this.countsQuery.getMatching({ seasonContext, participant, now }, matchOverview),
         this.countsQuery.hasMatchHistory(authUser.id),
         this.historyQuery.getSeasonHistorySummary({
           campusCode: authUser.campus,
