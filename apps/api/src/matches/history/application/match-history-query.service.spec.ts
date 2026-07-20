@@ -12,6 +12,9 @@ describe('MatchHistoryQueryService', () => {
     expect(source).toContain('listPastSeasonHistoryForUser');
     expect(source).toContain('getFinalCounterpartProfileForEntry');
     expect(source).toContain('DEIDENTIFIED_USER_DISPLAY_NAME');
+    expect(source).toContain('readMatchHistoryCompatibilitySnapshot(entry)');
+    expect(source).toContain('compatibilitySnapshot: true');
+    expect(source).not.toContain('buildPublicProfileCompatibility');
     expect(source).not.toContain('conversationThreads');
   });
 });

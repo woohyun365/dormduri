@@ -37,18 +37,26 @@ function toStaticMatchRequestActions(
   viewerParticipantId: string,
 ): MatchRequestActions {
   if (request.status !== 'PENDING') {
+    const reason = request.status === 'EXPIRED' ? 'REQUEST_EXPIRED' : 'REQUEST_ALREADY_RESOLVED';
     return {
-      canAccept: false,
-      canReject: false,
-      canCancel: false,
-      disabledReason: request.status === 'EXPIRED' ? 'REQUEST_EXPIRED' : 'REQUEST_ALREADY_RESOLVED',
+      accept: { allowed: false, reason },
+      reject: { allowed: false, reason },
+      cancel: { allowed: false, reason },
     };
   }
 
   const sent = request.requesterParticipantId === viewerParticipantId;
   return sent
-    ? { canAccept: false, canReject: false, canCancel: true, disabledReason: null }
-    : { canAccept: true, canReject: true, canCancel: false, disabledReason: null };
+    ? {
+        accept: { allowed: false, reason: null },
+        reject: { allowed: false, reason: null },
+        cancel: { allowed: true, reason: null },
+      }
+    : {
+        accept: { allowed: true, reason: null },
+        reject: { allowed: true, reason: null },
+        cancel: { allowed: false, reason: null },
+      };
 }
 
 function toMatchRequestCounterpartSummary(

@@ -28,4 +28,19 @@ describe('match history row builder', () => {
     expect(source).not.toContain('hadConversation');
     expect(source).not.toContain('lastMessageAt');
   });
+
+  it('public compatibility snapshot은 상세 조회가 허용되는 MATCH row에만 저장한다', () => {
+    const source = readFileSync(sourcePath, 'utf8');
+    const requestBuilder = source.slice(
+      source.indexOf('export function buildRequestHistoryRow'),
+      source.indexOf('export function buildMatchHistoryRow'),
+    );
+    const matchBuilder = source.slice(source.indexOf('export function buildMatchHistoryRow'));
+
+    expect(requestBuilder).not.toContain('compatibilitySnapshot');
+    expect(requestBuilder).not.toContain('compatibilitySchemaVersion');
+    expect(matchBuilder).toContain('buildMatchHistoryCompatibilitySnapshot');
+    expect(matchBuilder).toContain('compatibilitySnapshot');
+    expect(matchBuilder).toContain('compatibilitySchemaVersion');
+  });
 });

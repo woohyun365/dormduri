@@ -10,6 +10,7 @@ import type {
   MatchRequestSearchMetadataDirection,
   MatchRequestSearchMetadataReaderPort,
 } from '../../application/ports/match-request-search-metadata-reader.port.js';
+import { isCooldownActive } from '../policies/match-request-expiration.policy.js';
 
 @Injectable()
 export class MatchRequestSearchMetadataQuery implements MatchRequestSearchMetadataReaderPort {
@@ -82,6 +83,91 @@ export class MatchRequestSearchMetadataQuery implements MatchRequestSearchMetada
       });
     }
     return metadata;
+  }
+
+  async isPendingSentLimitReached(input: {
+    seasonId: string;
+    viewerParticipantId: string;
+    now: Date;
+  }): Promise<boolean> {
+    const count = await this.prisma.matchRequest.count({
+      where: {
+        seasonId: input.seasonId,
+        requesterParticipantId: input.viewerParticipantId,
+        status: 'PENDING',
+        expiresAt: { gt: input.now },
+      },
+    });
+    return count >= 3;
+  }
+
+  async getDirectionCooldownActiveTargetIds(input: {
+    seasonId: string;
+    viewerParticipantId: string;
+    targetParticipantIds: readonly string[];
+    now: Date;
+  }): Promise<ReadonlySet<string>> {
+    const targetParticipantIds = [...new Set(input.targetParticipantIds)];
+    if (targetParticipantIds.length === 0) {
+      return new Set();
+    }
+
+    const [terminalRequests, unmatchedRelations] = await Promise.all([
+      this.prisma.matchRequest.findMany({
+        where: {
+          seasonId: input.seasonId,
+          requesterParticipantId: input.viewerParticipantId,
+          receiverParticipantId: { in: targetParticipantIds },
+          status: { in: ['REJECTED', 'CANCELLED_BY_REQUESTER', 'EXPIRED'] },
+          terminalAt: { not: null },
+        },
+        select: { receiverParticipantId: true, terminalAt: true },
+      }),
+      this.prisma.activeMatch.findMany({
+        where: {
+          seasonId: input.seasonId,
+          status: 'UNMATCHED',
+          endedAt: { not: null },
+          createdFromRequest: {
+            requesterParticipantId: input.viewerParticipantId,
+            receiverParticipantId: { in: targetParticipantIds },
+          },
+        },
+        select: {
+          endedAt: true,
+          createdFromRequest: { select: { receiverParticipantId: true } },
+        },
+      }),
+    ]);
+
+    const latestByTarget = new Map<string, Date>();
+    terminalRequests.forEach((request) => {
+      if (request.terminalAt) {
+        keepLatest(latestByTarget, request.receiverParticipantId, request.terminalAt);
+      }
+    });
+    unmatchedRelations.forEach((relation) => {
+      if (relation.endedAt) {
+        keepLatest(
+          latestByTarget,
+          relation.createdFromRequest.receiverParticipantId,
+          relation.endedAt,
+        );
+      }
+    });
+
+    return new Set(
+      [...latestByTarget.entries()]
+        .filter(([, referenceAt]) => isCooldownActive(referenceAt, input.now))
+        .map(([targetParticipantId]) => targetParticipantId),
+    );
+  }
+}
+
+function keepLatest(values: Map<string, Date>, key: string, candidate: Date) {
+  const current = values.get(key);
+  if (!current || candidate.getTime() > current.getTime()) {
+    values.set(key, candidate);
   }
 }
 

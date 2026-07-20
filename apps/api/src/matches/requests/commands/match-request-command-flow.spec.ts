@@ -59,7 +59,9 @@ describe('match request command flow', () => {
     });
   });
   it('target registration snapshot이 없으면 등록/배정 상태여도 매칭 요청 action을 닫는다', async () => {
-    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValueOnce(false);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValueOnce(
+      new Set(['participant-1']),
+    );
 
     await expect(
       service.createMatchRequest(
@@ -278,6 +280,7 @@ describe('match request command flow', () => {
       data: {
         status: 'CANCELLED_BY_SYSTEM',
         terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+        systemCancellationActiveMatchId: 'active-1',
       },
     });
 

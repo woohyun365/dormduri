@@ -6,6 +6,7 @@ import { MATCH_LIFECYCLE_SWEEP_PORT } from '../application/ports/match-lifecycle
 import { MATCH_REQUEST_SEARCH_METADATA_READER_PORT } from '../application/ports/match-request-search-metadata-reader.port.js';
 import { MATCH_SCORE_PROJECTION_PORT } from '../application/ports/match-score-projection.port.js';
 import { MatchLifecycleModule } from '../lifecycle/match-lifecycle.module.js';
+import { MatchOverviewQuery } from '../overview/match-overview.query.js';
 
 export const MATCHES_EXPORTS = [
   MATCH_ACTIVE_VIEW_PORT,
@@ -14,5 +15,6 @@ export const MATCHES_EXPORTS = [
   MATCH_BLOCK_SIDE_EFFECT_PORT,
   MATCH_SCORE_PROJECTION_PORT,
   MATCH_REQUEST_SEARCH_METADATA_READER_PORT,
+  MatchOverviewQuery,
   MatchLifecycleModule,
 ] satisfies NonNullable<ModuleMetadata['exports']>;

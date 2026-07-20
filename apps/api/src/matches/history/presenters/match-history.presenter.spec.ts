@@ -34,6 +34,8 @@ function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): Mat
     unmatchedAt: null,
     finalizedAt: new Date('2026-02-28T03:00:00.000Z'),
     requestTerminalReason: null,
+    systemCancellationCause: null,
+    systemCancellationGroupId: null,
     activeMatchEndReason: null,
     ...overrides,
   };
@@ -75,6 +77,34 @@ describe('match history read model', () => {
     expect(entry).not.toHaveProperty('threadClosedAt');
   });
 
+  it('system cancellation 원인과 grouping key를 viewer-facing contract로 전달한다', () => {
+    const response = toMatchHistoryResponse({
+      seasons: [
+        {
+          participantId: 'viewer-participant-1',
+          seasonId: 'season-1',
+          seasonName: '2026-1',
+          viewerDormitoryIdSnapshot: 'dormitory-1',
+        },
+      ],
+      entries: [
+        makeHistoryEntryRow({
+          entryType: 'REQUEST',
+          entryResult: 'REQUEST_CANCELLED',
+          matchedAt: null,
+          requestTerminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+          systemCancellationCause: 'VIEWER_MATCHED',
+          systemCancellationGroupId: 'active-match-1',
+        }),
+      ],
+    });
+
+    expect(response.items[0]?.history[0]).toMatchObject({
+      systemCancellationCause: 'VIEWER_MATCHED',
+      systemCancellationGroupId: 'active-match-1',
+    });
+  });
+
   it('match history contract는 chat closed reason 필드를 거부한다', () => {
     expect(
       matchHistoryEntrySchema.safeParse({
@@ -88,6 +118,8 @@ describe('match history read model', () => {
         unmatchedAt: null,
         finalizedAt: '2026-02-28T03:00:00.000Z',
         requestTerminalReason: null,
+        systemCancellationCause: null,
+        systemCancellationGroupId: null,
         activeMatchEndReason: null,
         threadClosedReason: 'SEASON_ENDED',
         threadClosedAt: '2026-02-28T03:00:00.000Z',
@@ -109,6 +141,8 @@ describe('match history read model', () => {
         unmatchedAt: null,
         finalizedAt: '2026-02-28T03:00:00.000Z',
         requestTerminalReason: null,
+        systemCancellationCause: null,
+        systemCancellationGroupId: null,
         activeMatchEndReason: null,
       }).success,
     ).toBe(false);

@@ -15,7 +15,7 @@ function makeHarness() {
       findMany: vi.fn(),
     },
     activeMatch: {
-      findFirst: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
   };
   const runSerializableTransaction = vi.fn(
@@ -25,6 +25,7 @@ function makeHarness() {
   const prisma = {
     getDatabaseNow: vi.fn().mockResolvedValue(now),
     user: { findUnique: vi.fn().mockResolvedValue(makeUserSeed()) },
+    campusMaster: { findUnique: vi.fn().mockResolvedValue({ isOperated: true }) },
     runSerializableTransaction,
   };
   const seasonsService = {
@@ -49,6 +50,9 @@ function makeHarness() {
       dormitorySelectionState: 'ASSIGNED',
       source: 'SEASON_PARTICIPANT',
     }),
+    findRegistrationSnapshotParticipantIdSet: vi
+      .fn()
+      .mockResolvedValue(new Set(['participant-1', 'participant-2'])),
   };
   const activeMatchViewQuery = { getDetailedActiveMatchSummaryForViewer: vi.fn() };
 
@@ -79,12 +83,12 @@ describe('MatchOverviewQuery', () => {
         terminalAt: null,
         acceptedAt: null,
         terminalReason: null,
+        systemCancellationActiveMatchId: null,
+        systemCancellationActiveMatch: null,
         requesterParticipant: makeMatchRequestParticipant('user-1'),
         receiverParticipant: makeMatchRequestParticipant('user-2'),
       },
     ]);
-    harness.transaction.activeMatch.findFirst.mockResolvedValue(null);
-
     await expect(
       harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
     ).resolves.toMatchObject({
@@ -94,27 +98,20 @@ describe('MatchOverviewQuery', () => {
       sentRequests: [
         {
           id: 'request-sent',
-          actions: { canCancel: true, disabledReason: null },
+          actions: { cancel: { allowed: true, reason: null } },
         },
       ],
       receivedRequests: [],
       activeMatch: null,
+      activity: [],
     });
 
     expect(harness.prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
     expect(harness.transaction.matchRequest.updateMany).toHaveBeenCalledTimes(1);
-    expect(harness.transaction.activeMatch.findFirst).toHaveBeenCalledWith({
-      where: {
-        seasonId: 'season-1',
-        status: 'ACTIVE',
-        endedAt: null,
-        OR: [{ participantAId: 'participant-1' }, { participantBId: 'participant-1' }],
-      },
-      select: { id: true },
-    });
+    expect(harness.transaction.activeMatch.findMany).toHaveBeenCalledTimes(2);
   });
 
-  it('운영 중인 현재 season이 없으면 fail-closed capability와 빈 current snapshot을 반환한다', async () => {
+  it('운영 campus에 현재 season이 없으면 OFF_SEASON history 진입을 허용하고 current action은 비운다', async () => {
     const harness = makeHarness();
     harness.seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
 
@@ -122,10 +119,51 @@ describe('MatchOverviewQuery', () => {
       harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
     ).resolves.toMatchObject({
       season: { id: null, state: 'OFF_SEASON', roomSelectionDate: null },
-      capability: { canViewMatching: false, reason: 'CAMPUS_NOT_OPERATED' },
+      capability: { canViewMatching: true, reason: null },
       sentRequests: [],
       receivedRequests: [],
       activeMatch: null,
+      activity: [],
+    });
+    expect(harness.prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('비운영 campus에는 OFF_SEASON history surface를 열지 않는다', async () => {
+    const harness = makeHarness();
+    harness.seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
+    harness.prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: false });
+
+    await expect(
+      harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
+    ).resolves.toMatchObject({
+      season: { id: null, state: 'OFF_SEASON', roomSelectionDate: null },
+      capability: { canViewMatching: false, reason: 'CAMPUS_NOT_OPERATED' },
+    });
+  });
+
+  it('운영자 override OFF_SEASON도 history-only surface로 반환한다', async () => {
+    const harness = makeHarness();
+    harness.seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'OFF_SEASON',
+      operatedDormitories: [],
+      schedule: {
+        preparationStart: '2026-02-01',
+        matchingStart: '2026-02-05',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+
+    await expect(
+      harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
+    ).resolves.toMatchObject({
+      season: { id: 'season-1', state: 'OFF_SEASON', roomSelectionDate: null },
+      capability: { canViewMatching: true, reason: null },
+      sentRequests: [],
+      receivedRequests: [],
+      activeMatch: null,
+      activity: [],
     });
     expect(harness.prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
@@ -135,41 +173,77 @@ describe('MatchOverviewQuery', () => {
     ['deactivated', { deactivatedAt: now }],
     ['withdrawn', { withdrawnAt: now, participantStatus: 'WITHDRAWN' }],
     ['deleted', { user: { deletedAt: now } }],
-  ])('%s counterpart의 pending request action을 fail-closed 처리한다', async (_, overrides) => {
+  ])(
+    '%s requester의 pending request는 수락만 fail-closed하고 거절은 유지한다',
+    async (_, overrides) => {
+      const harness = makeHarness();
+      harness.transaction.matchRequest.findMany.mockResolvedValue([
+        {
+          id: 'request-unavailable-target',
+          seasonId: 'season-1',
+          requesterParticipantId: 'participant-2',
+          receiverParticipantId: 'participant-1',
+          status: 'PENDING',
+          note: null,
+          createdAt: now,
+          expiresAt: new Date('2026-02-11T03:00:00.000Z'),
+          terminalAt: null,
+          acceptedAt: null,
+          terminalReason: null,
+          systemCancellationActiveMatchId: null,
+          systemCancellationActiveMatch: null,
+          requesterParticipant: makeMatchRequestParticipant('user-2', overrides),
+          receiverParticipant: makeMatchRequestParticipant('user-1'),
+        },
+      ]);
+      await expect(
+        harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
+      ).resolves.toMatchObject({
+        receivedRequests: [
+          {
+            id: 'request-unavailable-target',
+            actions: {
+              accept: { allowed: false, reason: 'TARGET_UNAVAILABLE' },
+              reject: { allowed: true, reason: null },
+              cancel: { allowed: false, reason: null },
+            },
+          },
+        ],
+      });
+    },
+  );
+
+  it('participant row가 존재해도 canonical registration aggregate가 불완전하면 미등록으로 투영한다', async () => {
     const harness = makeHarness();
-    harness.transaction.matchRequest.findMany.mockResolvedValue([
-      {
-        id: 'request-unavailable-target',
-        seasonId: 'season-1',
-        requesterParticipantId: 'participant-1',
-        receiverParticipantId: 'participant-2',
-        status: 'PENDING',
-        note: null,
-        createdAt: now,
-        expiresAt: new Date('2026-02-11T03:00:00.000Z'),
-        terminalAt: null,
-        acceptedAt: null,
-        terminalReason: null,
-        requesterParticipant: makeMatchRequestParticipant('user-1'),
-        receiverParticipant: makeMatchRequestParticipant('user-2', overrides),
-      },
-    ]);
-    harness.transaction.activeMatch.findFirst.mockResolvedValue(null);
+    harness.seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
+      makeParticipant({
+        participationIntent: 'UNDECIDED',
+        registeredAt: null,
+        dormitorySelectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+      }),
+    );
+    harness.transaction.matchRequest.findMany.mockResolvedValue([]);
 
     await expect(
       harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
     ).resolves.toMatchObject({
-      sentRequests: [
-        {
-          id: 'request-unavailable-target',
-          actions: {
-            canAccept: false,
-            canReject: false,
-            canCancel: false,
-            disabledReason: 'TARGET_UNAVAILABLE',
-          },
-        },
-      ],
+      season: { id: 'season-1', state: 'SEASON_MATCHING' },
+      capability: { canViewMatching: false, reason: 'VIEWER_NOT_REGISTERED' },
+    });
+  });
+
+  it('registration snapshot이 없으면 live row가 완전해 보여도 미등록으로 투영한다', async () => {
+    const harness = makeHarness();
+    harness.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
+      new Set(['participant-2']),
+    );
+    harness.transaction.matchRequest.findMany.mockResolvedValue([]);
+
+    await expect(
+      harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
+    ).resolves.toMatchObject({
+      capability: { canViewMatching: false, reason: 'VIEWER_NOT_REGISTERED' },
     });
   });
 });

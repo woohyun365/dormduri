@@ -87,10 +87,11 @@ export class MatchRequestCreationEvaluator {
 
     const targetSelection =
       this.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
-    const targetRegistrationSnapshotExists =
-      await this.seasonParticipantsService.hasRegistrationSnapshotForParticipant(
+    const registrationSnapshotParticipantIds =
+      await this.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet([
+        requesterContext.participant.id,
         targetParticipant.id,
-      );
+      ]);
     const activeMatchMap = await this.getLiveActiveMatchMapForParticipantIds(
       requesterContext.seasonContext.season.id,
       [requesterContext.participant.id, targetParticipant.id],
@@ -113,6 +114,9 @@ export class MatchRequestCreationEvaluator {
         campusOperated: true,
         seasonState: requesterContext.seasonContext.state,
         participant: requesterContext.participant,
+        registrationSnapshotExists: registrationSnapshotParticipantIds.has(
+          requesterContext.participant.id,
+        ),
         participantMatched: requesterActiveMatch !== null,
         seasonProfileComplete: requesterSeasonProfileComplete,
         selection: requesterContext.selection,
@@ -127,6 +131,9 @@ export class MatchRequestCreationEvaluator {
         campusOperated: true,
         seasonState: requesterContext.seasonContext.state,
         participant: requesterContext.participant,
+        registrationSnapshotExists: registrationSnapshotParticipantIds.has(
+          requesterContext.participant.id,
+        ),
         matched: requesterActiveMatch !== null,
         seasonProfileComplete: requesterSeasonProfileComplete,
         matchedPartnerParticipantId: requesterActiveMatch?.counterpartParticipantId ?? null,
@@ -139,7 +146,7 @@ export class MatchRequestCreationEvaluator {
         participant: targetParticipant,
         matched: targetActiveMatch !== null,
         selection: targetSelection,
-        registrationSnapshotExists: targetRegistrationSnapshotExists,
+        registrationSnapshotExists: registrationSnapshotParticipantIds.has(targetParticipant.id),
       }),
     );
 

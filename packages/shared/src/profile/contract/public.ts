@@ -24,7 +24,10 @@ export const publicTargetActionUnavailableReasonSchema = z.enum([
   'THREAD_READ_ONLY',
   'TARGET_DELETED_OR_DEIDENTIFIED',
   'SAFETY_OR_VISIBILITY_RESTRICTED',
+  'MATCH_REQUEST_ALREADY_PENDING',
+  'MATCH_REQUEST_PENDING_LIMIT_REACHED',
   'MATCH_REQUEST_DIRECTION_LIMIT_REACHED',
+  'MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE',
 ]);
 export const publicProfileDetailStateSchema = z.enum(['FULL', 'TOMBSTONE']);
 export const publicProfileTombstoneReasonSchema = z.enum([

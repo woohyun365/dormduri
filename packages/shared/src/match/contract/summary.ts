@@ -11,11 +11,20 @@ import {
   requestDirectionSchema,
 } from './enums.js';
 
+export const matchActionDecisionSchema = z.strictObject({
+  allowed: z.boolean(),
+  reason: matchActionDisabledReasonSchema.nullable(),
+});
+
+/**
+ * 요청 row의 각 mutation은 서로 다른 precondition을 가진다.
+ * 예를 들어 수락이 stale precondition으로 닫혀도 거절은 여전히 가능할 수 있으므로
+ * 하나의 공용 disabledReason으로 세 action을 뭉치지 않는다.
+ */
 export const matchRequestActionsSchema = z.strictObject({
-  canAccept: z.boolean(),
-  canReject: z.boolean(),
-  canCancel: z.boolean(),
-  disabledReason: matchActionDisabledReasonSchema.nullable(),
+  accept: matchActionDecisionSchema,
+  reject: matchActionDecisionSchema,
+  cancel: matchActionDecisionSchema,
 });
 
 export const activeMatchUnmatchProgressSchema = z.strictObject({
@@ -76,6 +85,7 @@ export const currentActiveMatchSummarySchema = activeMatchSummarySchema.extend({
 });
 
 export type ActiveMatchUnmatchProgress = z.infer<typeof activeMatchUnmatchProgressSchema>;
+export type MatchActionDecision = z.infer<typeof matchActionDecisionSchema>;
 export type MatchRequestActions = z.infer<typeof matchRequestActionsSchema>;
 export type MatchRequestSummary = z.infer<typeof matchRequestSummarySchema>;
 export type MatchRequestWithActions = z.infer<typeof matchRequestWithActionsSchema>;

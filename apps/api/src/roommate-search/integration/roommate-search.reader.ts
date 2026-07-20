@@ -94,13 +94,21 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
       const filteredDiscovery = filterRoommateSearchDiscoveryEntries(filteredEntries, {
         excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
       });
-      const [activeBookmarkMap, pendingMatchRequestMap, directionLimitMap, activeChatThreadMap] =
-        await Promise.all([
-          loadActiveBookmarkMap(viewerContext, filteredDiscovery.entries),
-          loadPendingMatchRequestMap(viewerContext, filteredDiscovery.entries, now),
-          loadDirectionLimitMap(viewerContext, filteredDiscovery.entries),
-          loadActiveChatThreadMap(viewerContext, filteredDiscovery.entries),
-        ]);
+      const [
+        activeBookmarkMap,
+        pendingMatchRequestMap,
+        directionLimitMap,
+        pendingSentLimitReached,
+        cooldownActiveTargetIds,
+        activeChatThreadMap,
+      ] = await Promise.all([
+        loadActiveBookmarkMap(viewerContext, filteredDiscovery.entries),
+        loadPendingMatchRequestMap(viewerContext, filteredDiscovery.entries, now),
+        loadDirectionLimitMap(viewerContext, filteredDiscovery.entries),
+        loadPendingSentLimitReached(viewerContext, filteredDiscovery.entries, now),
+        loadDirectionCooldownActiveTargetIds(viewerContext, filteredDiscovery.entries, now),
+        loadActiveChatThreadMap(viewerContext, filteredDiscovery.entries),
+      ]);
       const filteredItems = filteredDiscovery.entries.map((entry) => {
         const item = responsePresenter.toMaterializedItem({
           entry,
@@ -113,10 +121,12 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
         const pendingMatchRequest = pendingMatchRequestMap.get(entry.targetParticipant.id);
         const directionLimit = directionLimitMap.get(entry.targetParticipant.id);
         const activeChatThread = activeChatThreadMap.get(entry.targetParticipant.id);
-        const actions = applyDirectionLimitToActions({
+        const actions = applyMatchRequestPreconditionsToActions({
           actions: item.summary.actions,
           directionLimit,
           pendingMatchRequest,
+          pendingSentLimitReached,
+          directionCooldownActive: cooldownActiveTargetIds.has(entry.targetParticipant.id),
         });
         const exposedActiveChatThread = actions.canStartChat ? activeChatThread : undefined;
         return {
@@ -314,6 +324,45 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     });
   }
 
+  async function loadPendingSentLimitReached(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+    now: Date,
+  ): Promise<boolean> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return false;
+    }
+    return deps.matchRequestSearchMetadataReader.isPendingSentLimitReached({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      now,
+    });
+  }
+
+  async function loadDirectionCooldownActiveTargetIds(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+    now: Date,
+  ): Promise<ReadonlySet<string>> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return new Set();
+    }
+    return deps.matchRequestSearchMetadataReader.getDirectionCooldownActiveTargetIds({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      targetParticipantIds: entries.map((entry) => entry.targetParticipant.id),
+      now,
+    });
+  }
+
   async function loadActiveChatThreadMap(
     viewerContext: VisibleProfileViewerContext,
     entries: ResolvedVisibleProfileEntry[],
@@ -383,22 +432,32 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
   }
 }
 
-function applyDirectionLimitToActions(input: {
+export function applyMatchRequestPreconditionsToActions(input: {
   actions: PublicProfileActionCapabilities;
   directionLimit: MatchRequestDirectionLimitMetadata | undefined;
   pendingMatchRequest: MatchRequestSearchMetadata | undefined;
+  pendingSentLimitReached: boolean;
+  directionCooldownActive: boolean;
 }): PublicProfileActionCapabilities {
-  if (!input.directionLimit || input.pendingMatchRequest || !input.actions.canRequestMatch) {
+  if (!input.actions.canRequestMatch) {
     return input.actions;
   }
+
+  const reason = input.pendingMatchRequest
+    ? 'MATCH_REQUEST_ALREADY_PENDING'
+    : input.pendingSentLimitReached
+      ? 'MATCH_REQUEST_PENDING_LIMIT_REACHED'
+      : input.directionLimit
+        ? 'MATCH_REQUEST_DIRECTION_LIMIT_REACHED'
+        : input.directionCooldownActive
+          ? 'MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE'
+          : null;
+  if (!reason) return input.actions;
 
   return {
     ...input.actions,
     canRequestMatch: false,
-    unavailableReasons: appendUnavailableReason(
-      input.actions.unavailableReasons,
-      'MATCH_REQUEST_DIRECTION_LIMIT_REACHED',
-    ),
+    unavailableReasons: appendUnavailableReason(input.actions.unavailableReasons, reason),
   };
 }
 

@@ -184,6 +184,9 @@ function createMatchesServiceSpecHarnessImpl() {
     findCurrentSeasonParticipant: vi.fn(),
     selectCanonicalSelection: vi.fn(),
     hasRegistrationSnapshotForParticipant: vi.fn(),
+    findRegistrationSnapshotParticipantIdSet: vi
+      .fn()
+      .mockResolvedValue(new Set(['participant-1', 'participant-2'])),
   };
 
   const chatMatchThreadLifecycle = {
@@ -206,17 +209,13 @@ function createMatchesServiceSpecHarnessImpl() {
     activeMatchViewQuery,
     noteModerationAdapter,
   );
-  const listCurrentSeasonRequestsQuery = new ListCurrentSeasonRequestsQuery(
-    prisma as never,
-    seasonsService as never,
-    seasonParticipantsService as never,
-  );
   const matchOverviewQuery = new MatchOverviewQuery(
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
     activeMatchViewQuery,
   );
+  const listCurrentSeasonRequestsQuery = new ListCurrentSeasonRequestsQuery(matchOverviewQuery);
   const resolveTerminalMatchRequestCommand = new ResolveTerminalMatchRequestCommand(
     prisma as never,
     seasonsService as never,
@@ -305,6 +304,9 @@ function createMatchesServiceSpecHarnessImpl() {
       }),
     );
     seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
+      new Set(['participant-1', 'participant-2']),
+    );
     prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
       Promise.resolve(
         where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),

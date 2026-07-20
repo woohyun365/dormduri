@@ -152,6 +152,7 @@ export class MatchRequestAcceptanceRepository {
   async cancelOtherPendingRequestsAfterActiveMatch(
     tx: Prisma.TransactionClient,
     request: MatchRequestRecord,
+    activeMatchId: string,
     now: Date,
   ): Promise<number> {
     const result = await tx.matchRequest.updateMany({
@@ -175,6 +176,7 @@ export class MatchRequestAcceptanceRepository {
       data: {
         status: 'CANCELLED_BY_SYSTEM',
         terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+        systemCancellationActiveMatchId: activeMatchId,
         terminalAt: now,
       },
     });

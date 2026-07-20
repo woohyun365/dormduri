@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isoDateTimeStringSchema, localDateStringSchema } from '../../date/primitives.js';
 import { seasonStateSchema } from '../../season/runtime/primitives.js';
 import { matchCapabilityReasonSchema } from './enums.js';
+import { currentMatchActivityEntrySchema } from './activity.js';
 import {
   activeMatchSummarySchema,
   currentActiveMatchSummarySchema,
@@ -15,6 +16,10 @@ export const matchOverviewSeasonSchema = z.strictObject({
   roomSelectionDate: localDateStringSchema.nullable(),
 });
 
+/**
+ * overview shell/read 접근 capability다. `canViewMatching=true`는 mutation 허용을 뜻하지 않으며,
+ * request/active action은 각 row의 server-owned action capability가 별도로 소유한다.
+ */
 export const matchOverviewCapabilitySchema = z.strictObject({
   canViewMatching: z.boolean(),
   reason: matchCapabilityReasonSchema.nullable(),
@@ -31,6 +36,7 @@ export const matchOverviewResponseSchema = z.strictObject({
   sentRequests: z.array(matchRequestWithActionsSchema),
   receivedRequests: z.array(matchRequestWithActionsSchema),
   activeMatch: currentActiveMatchSummarySchema.nullable(),
+  activity: z.array(currentMatchActivityEntrySchema),
 });
 
 export const matchRequestListResponseSchema = z.strictObject({

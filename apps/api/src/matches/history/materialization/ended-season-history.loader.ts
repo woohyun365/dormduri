@@ -51,6 +51,11 @@ export interface SeasonHistorySource {
       | null;
     terminalAt: Date | null;
     createdAt: Date;
+    systemCancellationActiveMatchId: string | null;
+    systemCancellationActiveMatch: {
+      participantAId: string;
+      participantBId: string;
+    } | null;
   }>;
   activeMatches: Array<{
     id: string;
@@ -148,6 +153,13 @@ export async function loadSeasonHistorySource(
           terminalReason: true,
           terminalAt: true,
           createdAt: true,
+          systemCancellationActiveMatchId: true,
+          systemCancellationActiveMatch: {
+            select: {
+              participantAId: true,
+              participantBId: true,
+            },
+          },
         },
       },
       activeMatches: {
