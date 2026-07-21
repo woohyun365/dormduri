@@ -3,7 +3,6 @@ import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import type { Season } from '@/main/season/seasonFallback';
-import type { PastSeasonData } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 import type { SeasonState } from '@repo/shared/season/runtime';
 
@@ -13,7 +12,6 @@ type MainLegacyTabDataStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export interface MainLegacyTabData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
-  pastSeasons: PastSeasonData[];
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -89,16 +87,11 @@ export function useMainLegacyTabData({
                 currentUser.gender,
                 dormitoryIdForFilter,
               );
-        // Past season history is no longer loaded through homeDashboardApi.
-        // Keep the non-Home legacy tab contract stable until Phase 8 moves it to an owner API.
-        const pastSeasons: PastSeasonData[] = [];
-
         if (cancelled) return;
 
         setState({
           data: {
             profiles,
-            pastSeasons,
             season: season.season,
             isOpen: season.isOpen,
             isMatching: season.isMatching,

@@ -9,18 +9,6 @@ const stateMatrixSource = readFileSync(
   'utf8',
 );
 const mainSource = readFileSync(join(process.cwd(), 'src/main/Main.tsx'), 'utf8');
-const currentBaselineStorySource = readFileSync(
-  join(matchingRoot, '__stories__/MatchingTab.baseline-current.stories.tsx'),
-  'utf8',
-);
-const unsupportedGroupStorySource = readFileSync(
-  join(matchingRoot, '__stories__/MatchingTab.baseline-unsupported-group.stories.tsx'),
-  'utf8',
-);
-const unsupportedGroupSnapshotSource = readFileSync(
-  join(matchingRoot, '__stories__/legacy/unsupported-group/UnsupportedGroupLegacySnapshot.tsx'),
-  'utf8',
-);
 const requestViewSource = readFileSync(
   join(matchingRoot, 'model/matching-request-view.ts'),
   'utf8',
@@ -55,24 +43,12 @@ const pairOnlyProductSources = [
   join(process.cwd(), 'src/types/match.ts'),
   join(process.cwd(), 'src/constants/dormitory.ts'),
   join(process.cwd(), 'src/constants/index.ts'),
-  join(process.cwd(), 'src/main/hooks/useMainMatchingState.ts'),
-  join(process.cwd(), 'src/main/legacy/matchingLegacyClient.ts'),
-  join(process.cwd(), 'src/main/components/MatchRequestCard.tsx'),
-  join(process.cwd(), 'src/main/components/MatchCelebrationModal.tsx'),
-  join(process.cwd(), 'src/main/components/matching/MatchingCompactCard.tsx'),
-  join(process.cwd(), 'src/main/components/matching/ActiveMatchCard.tsx'),
-  join(process.cwd(), 'src/main/components/matching/PastSeasonAccordion.tsx'),
-  join(process.cwd(), 'src/main/components/matching/policyCopy.ts'),
   join(process.cwd(), 'src/main/tabs/chat/chatViewModel.ts'),
   join(process.cwd(), 'src/main/tabs/chat/ChatTab.tsx'),
   join(process.cwd(), 'src/main/tabs/chat/ChatRoomView.tsx'),
   join(process.cwd(), 'src/main/tabs/home/model/homeDashboardViewModel.ts'),
   join(process.cwd(), 'src/main/tabs/home/sections/matching/HomeMatchingSummary.tsx'),
   join(process.cwd(), 'src/utils/matchButtonStyle.ts'),
-  join(process.cwd(), 'src/utils/matchRequest.ts'),
-  join(matchingRoot, '__stories__/matching-story-scenarios.ts'),
-  join(matchingRoot, '__stories__/matching-story-renderer.tsx'),
-  join(matchingRoot, '__stories__/legacy/LegacyMatchingTabBaseline.tsx'),
 ].map((file) => ({ file, source: readFileSync(file, 'utf8') }));
 
 const forbiddenPairOnlyTokens = [
@@ -91,7 +67,6 @@ const forbiddenPairOnlyTokens = [
   'getMatchGroupSize',
   'finalizePairGroup',
   'onFinalizePairGroup',
-  'GroupInfoTipCard',
 ];
 
 describe('MatchingTab runtime boundary', () => {
@@ -100,13 +75,11 @@ describe('MatchingTab runtime boundary', () => {
     expect(stateMatrixSource).toContain('scoreVisible');
     expect(stateMatrixSource).not.toContain('calcMatchScoreWithGating');
     expect(stateMatrixSource).not.toContain('@/types/match');
-    expect(stateMatrixSource).not.toContain('legacyMatchingApi');
   });
 
-  it('canonical MatchingTab은 local status, score, legacy/story dependency를 사용하지 않는다', () => {
+  it('canonical MatchingTab은 local status, score, story dependency를 사용하지 않는다', () => {
     expect(matchingTabSource).not.toContain('@/types/match');
     expect(matchingTabSource).not.toContain('calcMatchScoreWithGating');
-    expect(matchingTabSource).not.toContain('matchingLegacyClient');
     expect(matchingTabSource).not.toContain('__stories__');
   });
 
@@ -117,20 +90,7 @@ describe('MatchingTab runtime boundary', () => {
     expect(mainSource).toContain('initialSection={matchingNavOptions?.section}');
   });
 
-  it('unsupported group baseline은 current/canonical story matrix와 분리된다', () => {
-    expect(currentBaselineStorySource).not.toContain('SeasonMatchingGroupLegacy');
-    expect(unsupportedGroupStorySource).toContain(
-      "title: 'Main/MatchingTab/Baseline/Legacy/UnsupportedGroup'",
-    );
-    expect(unsupportedGroupStorySource).toContain('UnsupportedGroupLegacySnapshot');
-    expect(unsupportedGroupStorySource).not.toContain('matching-story-scenarios');
-    expect(unsupportedGroupSnapshotSource).toContain('제품 runtime에서 사용되지 않습니다');
-    expect(unsupportedGroupSnapshotSource).not.toContain('@/types/match');
-    expect(unsupportedGroupSnapshotSource).not.toContain('@/main/components');
-    expect(unsupportedGroupSnapshotSource).not.toContain('fetch(');
-  });
-
-  it('shipping compatibility와 current story fixture는 pair-only 토큰을 만들지 않는다', () => {
+  it('shipping compatibility는 pair-only 토큰을 만들지 않는다', () => {
     for (const { file, source } of pairOnlyProductSources) {
       for (const token of forbiddenPairOnlyTokens) {
         expect(source, `${file} must not contain ${token}`).not.toContain(token);

@@ -32,13 +32,8 @@ partial/error state로 닫는다. 이 경로에서 local season이나 action cap
   `matchingMobile390`, `matchingMobile430`, `matchingDesktop1280`, `matchingDesktop1440` viewport와
   request long-copy, active progress, history long-copy/tombstone story를 함께 사용한다.
 
-## Legacy baseline
+## Storybook boundary
 
-Phase 0 redesign-before 화면은 `__stories__/legacy/LegacyMatchingTabBaseline.tsx`에 격리되어 있다.
-이는 Storybook/test-only comparison surface이며 product import graph와 canonical correctness 근거가
-아니다. 출시되지 않은 group variant는 `Baseline/Legacy/UnsupportedGroup` namespace에서만 유지한다.
-해당 namespace는 current fixture/renderer와 연결하지 않은 정적 historical snapshot이며, 3인실
-`roomType` metadata는 매칭 UI를 열지 않는다. 제품 runtime은 2인 매칭만 제공한다.
 Canonical runtime Storybook은 deterministic state workshop을 위해 `MatchingTabView`를 사용하며,
 실제 BFF fetch/identity reset 경계는 `MatchingTab.test.tsx`와 `useMatchingOverview.test.tsx`가 검증한다.
 Canonical scenario namespace는 `Off Season`, `Season Open`, `Season Matching`, `Post Match`, `System`으로

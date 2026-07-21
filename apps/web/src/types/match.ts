@@ -10,15 +10,8 @@ export type MatchStatus =
   | 'CONVERSATION_ENDED' // 대화 종료 (수동/자동)
   | 'UNMATCHED'; // 매칭 해제 (양측 동의/3일 자동)
 
-// 요청 방향
-export type MatchDirection = 'SENT' | 'RECEIVED';
-
 // 점수 게이팅 타입
 export type MatchScoreType = 'full' | 'partial' | 'gated';
-export type HistoryStage = 'SENT_REQUEST' | 'RECEIVED_REQUEST' | 'CONVERSATION' | 'MATCH';
-export type HistoryResolvedBy = 'self' | 'other' | 'system';
-
-export type CancelRequestKind = 'MATCH_CANCEL';
 
 // 매칭 요청
 export interface MatchRequest {
@@ -46,49 +39,6 @@ export interface ActiveMatch {
   matchedAt: string;
   cancelRequestedAt: string | null; // 해제 요청 시점 (null = 정상)
   cancelRequestedBy: string | null; // 요청자 ID
-  cancelRequestKind?: CancelRequestKind | null;
-}
-
-// 터미널 상태 (이력 표시용)
-export const TERMINAL_STATUSES: MatchStatus[] = [
-  'EXPIRED',
-  'REJECTED',
-  'CANCELLED',
-  'CONVERSATION_ENDED',
-  'UNMATCHED',
-];
-
-// 이력 카드 데이터 (현재 시즌 + 과거 시즌 공용)
-export type HistoryItemData =
-  | {
-      id: string;
-      nickname: string;
-      status: MatchStatus;
-      date: string; // ISO string
-      stage?: HistoryStage;
-      resolvedBy?: HistoryResolvedBy;
-      preset?: undefined;
-    }
-  | {
-      id: string;
-      nickname: string;
-      preset: 'MATCHED_SUCCESS' | 'MATCH_UNMATCHED' | 'RECEIVED_CANCELLED';
-      date?: string;
-      stage?: 'MATCH' | 'RECEIVED_REQUEST';
-      resolvedBy?: undefined;
-    };
-
-// 과거 시즌 이력 데이터
-export interface PastSeasonData {
-  id: string;
-  name: string; // "2025-1학기"
-  dormitoryIdSnapshot?: string | null; // 당시 본인 배정 건물 스냅샷 (건물 단위)
-  matchResult: 'success' | 'no_match';
-  matchedWith?: string[]; // 매칭 성공 시 상대 닉네임 배열
-  receivedCount: number;
-  sentCount: number;
-  chatCount: number;
-  history: HistoryItemData[];
 }
 
 // 버튼 상태 머신 반환 타입 (14종)

@@ -26,7 +26,6 @@ apps/web/src/auth/
 내부 파일명은 리팩터링 과정에서 바뀔 수 있다.
 안정적으로 지켜야 하는 것은 `auth/api`, `auth/bff`, `auth/components`, `auth/hooks`, `auth/model`, `auth/flows/*`의 소유권과 import boundary다.
 
-`useExpiryCountdown`은 auth 외부 product usage가 있어 auth-only migration target으로 취급하지 않는다.
 `CAMPUS_OPTIONS`는 signup/account identity UI data이므로 `src/auth/flows/signup/model/campus-options.ts`에 둔다.
 
 ## Ownership
