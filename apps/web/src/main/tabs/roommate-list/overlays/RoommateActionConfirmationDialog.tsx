@@ -1,4 +1,4 @@
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import type { ReactNode } from 'react';
 
 type RoommateActionConfirmationTone = 'amber' | 'indigo' | 'red';

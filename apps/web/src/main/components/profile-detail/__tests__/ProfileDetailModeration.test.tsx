@@ -24,7 +24,7 @@ vi.mock('../../ProfileMoreMenu', () => ({
     ) : null,
 }));
 
-vi.mock('@/components/ConfirmDialog', () => ({
+vi.mock('@/main/components/overlays/ConfirmDialog', () => ({
   ConfirmDialog: ({
     isOpen,
     onConfirm,

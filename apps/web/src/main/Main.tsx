@@ -11,7 +11,7 @@ import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
-import { HomeTabSkeleton } from '@/components/Skeleton';
+import { HomeTabSkeleton } from '@/main/components/feedback/Skeleton';
 import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
 import { MatchingTabSkeleton } from './tabs/matching/layout/MatchingTabSkeleton';
 import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';

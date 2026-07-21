@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Bookmark, BookmarkCheck, MoreHorizontal } from 'lucide-react';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { ProfileDetailBody } from './ProfileDetailBody';
 import { buildProfileDetailFooter } from './ProfileDetailFooter';
 import { ProfileDetailMoreMenu, ProfileDetailDialogs } from './ProfileDetailModeration';

@@ -1,6 +1,6 @@
 'use client';
 
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 
 export type MatchRequestDecision = 'accept' | 'reject' | 'cancel';
 

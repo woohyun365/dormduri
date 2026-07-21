@@ -1,6 +1,6 @@
 'use client';
 
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import type { MatchingActiveUnmatchView } from '../model/matching-active-view';
 
 export function UnmatchDecisionDialog({

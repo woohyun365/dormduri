@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import {
   LIFESTYLE_LABELS,
   LIFESTYLE_FIELD_NAMES,
@@ -138,7 +138,7 @@ export function LifestyleEditSheet({
           const { locked, reason } = getFieldLockState(field, isSeasonLocked);
           return (
             <div key={field}>
-              <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
+              <label className="block text-sm font-semibold text-(--knu-text-primary) mb-3">
                 {LIFESTYLE_FIELD_NAMES[field]}
                 {locked && (
                   <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-gray-400">
@@ -148,7 +148,7 @@ export function LifestyleEditSheet({
                 )}
               </label>
               {isDrinking && !locked && (
-                <p className="text-xs text-[var(--knu-text-tertiary)] mb-2">
+                <p className="text-xs text-(--knu-text-tertiary) mb-2">
                   매칭 점수에만 반영되며 상대방에게는 표시되지 않아요
                 </p>
               )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import type { RoommateProfileDetailState } from '../../roommate-list/hooks/useRoommateProfileDetail';
 
 export function MatchingProfileDialog({

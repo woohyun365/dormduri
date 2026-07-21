@@ -2,7 +2,7 @@
 
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
 import type { FilterState } from '@/types/filter';
 export { DEFAULT_FILTERS } from '@/types/filter';
@@ -71,7 +71,7 @@ export function BottomSheet({
             field === 'sleepHabit' ? { NONE: '없음', HAS: '있음' } : LIFESTYLE_LABELS[field];
           return (
             <div key={field}>
-              <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
+              <label className="block text-sm font-semibold text-(--knu-text-primary) mb-3">
                 {LIFESTYLE_FIELD_NAMES[field]}
               </label>
               <div className="flex flex-wrap gap-2">

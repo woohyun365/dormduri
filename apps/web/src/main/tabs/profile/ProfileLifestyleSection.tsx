@@ -1,5 +1,5 @@
 import { Cigarette, Moon, Sun, Coffee, Volume2, Sparkles, Heart, Edit2, Lock } from 'lucide-react';
-import { SectionHeading } from '@/components/SectionHeading';
+import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import { getLifestyleLabel } from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 
@@ -18,7 +18,7 @@ export function ProfileLifestyleSection({
     <section>
       <div className="flex items-center justify-between mb-3">
         <SectionHeading
-          icon={<Sparkles className="w-5 h-5 text-[var(--knu-primary)]" />}
+          icon={<Sparkles className="w-5 h-5 text-(--knu-primary)" />}
           title="생활패턴 프로필"
         />
         <div className="flex items-center gap-2">
@@ -30,14 +30,14 @@ export function ProfileLifestyleSection({
           )}
           <button
             onClick={onEdit}
-            className="flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+            className="flex items-center gap-1 text-sm font-semibold text-(--knu-primary)"
           >
             <Edit2 className="w-4 h-4" />
             수정
           </button>
         </div>
       </div>
-      <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+      <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-5">
         <div className="grid grid-cols-2 gap-4">
           <GridItem
             icon={<Cigarette className="w-4 h-4 text-red-600" />}
@@ -106,13 +106,13 @@ function GridItem({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+      <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center shrink-0`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-[var(--knu-text-tertiary)]">{label}</p>
+        <p className="text-xs text-(--knu-text-tertiary)">{label}</p>
         <p
-          className={`text-sm font-semibold truncate ${value === '미입력' ? 'text-[var(--knu-text-tertiary)]' : 'text-[var(--knu-text-primary)]'}`}
+          className={`text-sm font-semibold truncate ${value === '미입력' ? 'text-(--knu-text-tertiary)' : 'text-(--knu-text-primary)'}`}
         >
           {value}
         </p>

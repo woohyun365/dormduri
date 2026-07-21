@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppShellSkeleton } from '@/components/AppShellSkeleton';
+import { AppShellSkeleton } from '@/app/main/components/AppShellSkeleton';
 import { useAuthSession } from '@/auth/hooks';
 import Main from '@/main/Main';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Skeleton, SkeletonCard } from '@/components/Skeleton';
+import { Skeleton, SkeletonCard } from '@/main/components/feedback/Skeleton';
 import { MatchingTabHeader } from './MatchingTabHeader';
 import { MatchingTabLayout } from './MatchingTabLayout';
 

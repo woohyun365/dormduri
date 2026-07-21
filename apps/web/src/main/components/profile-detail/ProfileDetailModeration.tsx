@@ -1,4 +1,4 @@
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
 import { ProfileMoreMenu } from '../ProfileMoreMenu';
 import { ReportSheet } from '../ReportSheet';
 import type { RoommateProfile } from '@/types/profile';

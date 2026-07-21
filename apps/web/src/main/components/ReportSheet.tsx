@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { REPORT_REASONS, REPORT_DETAIL_MAX_LENGTH } from '@/constants/report';
 import type { ReportReason } from '@/types/report';
 
@@ -50,7 +50,7 @@ export function ReportSheet({ isOpen, onClose, onSubmit }: ReportSheetProps) {
       }
     >
       <div className="p-5 space-y-4">
-        <p className="text-sm text-[var(--knu-text-secondary)]">신고 사유를 선택해주세요.</p>
+        <p className="text-sm text-(--knu-text-secondary)">신고 사유를 선택해주세요.</p>
 
         <div className="space-y-2">
           {REASON_ENTRIES.map(([key, label]) => (
@@ -59,7 +59,7 @@ export function ReportSheet({ isOpen, onClose, onSubmit }: ReportSheetProps) {
               className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                 selectedReason === key
                   ? 'border-red-400 bg-red-50'
-                  : 'border-[var(--knu-border)] hover:border-[var(--knu-text-tertiary)]'
+                  : 'border-(--knu-border) hover:border-(--knu-text-tertiary)'
               }`}
             >
               <input
@@ -70,13 +70,13 @@ export function ReportSheet({ isOpen, onClose, onSubmit }: ReportSheetProps) {
                 onChange={() => setSelectedReason(key)}
                 className="w-4 h-4 accent-red-500"
               />
-              <span className="text-sm font-medium text-[var(--knu-text-primary)]">{label}</span>
+              <span className="text-sm font-medium text-(--knu-text-primary)">{label}</span>
             </label>
           ))}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[var(--knu-text-secondary)] mb-1.5">
+          <label className="block text-sm font-medium text-(--knu-text-secondary) mb-1.5">
             상세 내용 (선택)
           </label>
           <textarea
@@ -84,9 +84,9 @@ export function ReportSheet({ isOpen, onClose, onSubmit }: ReportSheetProps) {
             onChange={(e) => setDetail(e.target.value.slice(0, REPORT_DETAIL_MAX_LENGTH))}
             placeholder="추가 설명을 입력해주세요"
             rows={3}
-            className="w-full px-3.5 py-3 border-2 border-[var(--knu-border)] rounded-xl text-sm text-[var(--knu-text-primary)] placeholder:text-[var(--knu-text-tertiary)] resize-none focus:outline-none focus:border-[var(--knu-primary)] transition-colors"
+            className="w-full px-3.5 py-3 border-2 border-(--knu-border) rounded-xl text-sm text-(--knu-text-primary) placeholder:text-(--knu-text-tertiary) resize-none focus:outline-none focus:border-(--knu-primary) transition-colors"
           />
-          <p className="text-xs text-[var(--knu-text-tertiary)] text-right mt-1">
+          <p className="text-xs text-(--knu-text-tertiary) text-right mt-1">
             {detail.length}/{REPORT_DETAIL_MAX_LENGTH}
           </p>
         </div>

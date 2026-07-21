@@ -1,4 +1,4 @@
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { DetailError } from './profile-detail/ProfileDetailError';
 import { DetailLoading } from './profile-detail/ProfileDetailLoading';
 import { FullDetailContent, TombstoneDetailContent } from './profile-detail/ProfileDetailContent';

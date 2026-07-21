@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderWithProviders, screen } from '../../test/render';
+import { renderWithProviders, screen } from '../../../../test/render';
 import { describe, it, expect, vi } from 'vitest';
 import { EmptyState } from '../EmptyState';
 

@@ -1,4 +1,4 @@
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { MatchHistoryDetailContent } from '../../history';
 import type { MatchHistoryDetailState } from '../../hooks/useMatchHistoryCounterpartDetail';
 

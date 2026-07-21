@@ -14,7 +14,7 @@ vi.mock('@/auth/hooks', () => ({
   useAuthSession: vi.fn(),
 }));
 
-vi.mock('@/components/AppShellSkeleton', () => ({
+vi.mock('@/app/main/components/AppShellSkeleton', () => ({
   AppShellSkeleton: () => <div data-testid="app-shell-skeleton">loading app shell</div>,
 }));
 

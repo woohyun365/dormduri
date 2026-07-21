@@ -1,5 +1,5 @@
 import { Eye, MessageCircle } from 'lucide-react';
-import { SectionHeading } from '@/components/SectionHeading';
+import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import { LifestyleChipSummary } from '../../components/LifestyleChipSummary';
 import type { UserProfile } from '@/types/profile';
 import type { Dormitory } from '@/constants/dormitory';
@@ -20,11 +20,11 @@ export function ProfilePreviewSection({
   return (
     <section>
       <SectionHeading
-        icon={<Eye className="w-5 h-5 text-[var(--knu-primary)]" />}
+        icon={<Eye className="w-5 h-5 text-(--knu-primary)" />}
         title="다른 사람에게 보이는 내 카드"
       />
       <button type="button" onClick={onShowDetail} className="cursor-pointer w-full text-left">
-        <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4 hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-4 hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div
@@ -33,11 +33,9 @@ export function ProfilePreviewSection({
                 {user.nickname.charAt(0)}
               </div>
               <div>
-                <h3 className="font-bold text-sm text-[var(--knu-text-primary)]">
-                  {user.nickname}
-                </h3>
+                <h3 className="font-bold text-sm text-(--knu-text-primary)">{user.nickname}</h3>
                 {dormitory && (
-                  <p className="text-xs text-[var(--knu-text-tertiary)]">
+                  <p className="text-xs text-(--knu-text-tertiary)">
                     {dormitory.name} {dormitory.roomType}인실
                   </p>
                 )}
@@ -50,12 +48,12 @@ export function ProfilePreviewSection({
           <div className="mb-3">
             <LifestyleChipSummary lifestyle={user.lifestyle} />
           </div>
-          <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed line-clamp-1 mb-3">
+          <p className="text-sm text-(--knu-text-secondary) leading-relaxed line-clamp-1 mb-3">
             {user.intro}
           </p>
           {user.messageToRoommate && (
             <div className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 rounded-xl">
-              <MessageCircle className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+              <MessageCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
               <p className="text-xs text-blue-700 font-medium line-clamp-1">
                 {user.messageToRoommate}
               </p>

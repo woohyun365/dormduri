@@ -1,6 +1,6 @@
 import { GraduationCap } from 'lucide-react';
 import { Chip } from '@/components/ui/Chip';
-import { SectionHeading } from '@/components/SectionHeading';
+import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import {
   COLLEGE_OPTIONS,
   GRADES,
@@ -23,17 +23,17 @@ export function ProfileAdditionalSection({
   return (
     <section>
       <SectionHeading
-        icon={<GraduationCap className="w-5 h-5 text-[var(--knu-primary)]" />}
+        icon={<GraduationCap className="w-5 h-5 text-(--knu-primary)" />}
         title="추가 정보"
         suffix="(선택)"
       />
-      <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 space-y-5">
+      <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-5 space-y-5">
         {/* 단대 */}
         <div>
-          <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
+          <p className="text-sm font-semibold text-(--knu-text-primary) mb-2">
             {ADDITIONAL_FIELD_NAMES.college}
             <span
-              className={`ml-2 font-normal ${additional.college ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+              className={`ml-2 font-normal ${additional.college ? 'text-(--knu-primary)' : 'text-(--knu-text-tertiary)'}`}
             >
               {getCollegeLabel(additional.college) ?? '-'}
             </span>
@@ -57,10 +57,10 @@ export function ProfileAdditionalSection({
 
         {/* 학년 */}
         <div>
-          <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
+          <p className="text-sm font-semibold text-(--knu-text-primary) mb-2">
             {ADDITIONAL_FIELD_NAMES.grade}
             <span
-              className={`ml-2 font-normal ${additional.grade ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+              className={`ml-2 font-normal ${additional.grade ? 'text-(--knu-primary)' : 'text-(--knu-text-tertiary)'}`}
             >
               {GRADES.find((g) => g.value === additional.grade)?.label ?? '-'}
             </span>
@@ -87,10 +87,10 @@ export function ProfileAdditionalSection({
 
         {/* 출생연도 */}
         <div>
-          <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
+          <p className="text-sm font-semibold text-(--knu-text-primary) mb-2">
             {ADDITIONAL_FIELD_NAMES.birthYear}
             <span
-              className={`ml-2 font-normal ${additional.birthYear ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+              className={`ml-2 font-normal ${additional.birthYear ? 'text-(--knu-primary)' : 'text-(--knu-text-tertiary)'}`}
             >
               {additional.birthYear != null ? `${additional.birthYear}년` : '-'}
             </span>

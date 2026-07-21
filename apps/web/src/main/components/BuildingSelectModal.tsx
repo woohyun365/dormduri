@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Building2, Check, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getAvailableDormitories, getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
@@ -64,7 +64,7 @@ export function BuildingSelectModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-white flex flex-col"
+      className="fixed inset-0 z-60 bg-white flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label="배정 건물 선택"
@@ -79,7 +79,7 @@ export function BuildingSelectModal({
             className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
             aria-label="닫기"
           >
-            <X className="w-5 h-5 text-[var(--knu-text-secondary)]" />
+            <X className="w-5 h-5 text-(--knu-text-secondary)" />
           </button>
         </div>
       )}
@@ -87,13 +87,13 @@ export function BuildingSelectModal({
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-md mx-auto px-5 py-8">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-[var(--knu-primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Building2 className="w-8 h-8 text-[var(--knu-primary)]" />
+            <div className="w-16 h-16 bg-(--knu-primary-light) rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Building2 className="w-8 h-8 text-(--knu-primary)" />
             </div>
-            <h1 className="text-2xl font-bold text-[var(--knu-text-primary)] mb-2">
+            <h1 className="text-2xl font-bold text-(--knu-text-primary) mb-2">
               배정 건물을 선택해주세요
             </h1>
-            <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed">
+            <p className="text-sm text-(--knu-text-secondary) leading-relaxed">
               배정받은 기숙사 건물을 선택하면
               <br />
               같은 건물 룸메이트를 찾을 수 있어요
@@ -108,10 +108,10 @@ export function BuildingSelectModal({
               className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                 selectedId === UNASSIGNED_ID
                   ? 'border-orange-400 bg-orange-50'
-                  : 'border-dashed border-[var(--knu-border)] bg-[var(--knu-background-alt)] hover:border-gray-300'
+                  : 'border-dashed border-(--knu-border) bg-(--knu-background-alt) hover:border-gray-300'
               }`}
             >
-              <span className="font-semibold text-[var(--knu-text-secondary)] keep-all">
+              <span className="font-semibold text-(--knu-text-secondary) keep-all">
                 아직 배정 결과를 확인하지 못했어요
               </span>
               {selectedId === UNASSIGNED_ID && (
@@ -124,7 +124,7 @@ export function BuildingSelectModal({
             {/* Warning when unassigned selected */}
             {selectedId === UNASSIGNED_ID && (
               <div className="flex items-start gap-3 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
-                <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-orange-800 mb-1">
                     건물을 선택하면 룸메 탐색을 시작할 수 있어요
@@ -144,18 +144,16 @@ export function BuildingSelectModal({
                   onClick={() => setSelectedId(dorm.id)}
                   className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                     selectedId === dorm.id
-                      ? 'border-[var(--knu-primary)] bg-[var(--knu-primary-light)]'
-                      : 'border-[var(--knu-border)] bg-white hover:border-gray-300'
+                      ? 'border-(--knu-primary) bg-(--knu-primary-light)'
+                      : 'border-(--knu-border) bg-white hover:border-gray-300'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold text-[var(--knu-text-primary)]">
-                      {dorm.name}
-                    </span>
+                    <span className="font-semibold text-(--knu-text-primary)">{dorm.name}</span>
                     <Chip label={`${dorm.roomType}인실`} variant="badge" />
                   </div>
                   {selectedId === dorm.id && (
-                    <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-(--knu-primary) rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
@@ -166,7 +164,7 @@ export function BuildingSelectModal({
                     ref={warningRef}
                     className="mt-2 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl"
                   >
-                    <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-semibold text-red-800">
                         시즌 중에는 건물을 변경할 수 없어요
@@ -183,7 +181,7 @@ export function BuildingSelectModal({
         </div>
       </div>
 
-      <div className="sticky bottom-0 bg-white border-t-2 border-[var(--knu-border)] px-5 py-4">
+      <div className="sticky bottom-0 bg-white border-t-2 border-(--knu-border) px-5 py-4">
         <div className="max-w-md mx-auto">
           <Button
             variant="primary"
