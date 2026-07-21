@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
-import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
+import { DormitoryGuideSheet } from './components/dormitory-guide/DormitoryGuideSheet';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
@@ -26,9 +26,11 @@ import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import { getMainTabDocumentTitle } from './utils/mainTabTitle';
 import { toMainSeasonContext, toMainLegacyUserProfile } from './utils/mainDashboardAdapters';
-import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
+import { getDormitoryDisplayFromSeasonOperations } from '@/main/model/dormitoryDisplay.adapter';
 import type { MatchingNavOptions, TabId } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
+import type { MatchingNavigationIntent } from './tabs/matching/model/matching-navigation-intent';
+import { formatCampusName } from './model/profileDisplayCopy';
 
 export type { TabId } from '@/types/profile';
 
@@ -159,16 +161,19 @@ function MainHomeDashboardContent({
   const viewerUser = dashboard.viewer.identity.user;
 
   const handleSelectDormitory = useCallback(
-    (dormitoryId: string) => {
+    (dormitoryId: string | null) => {
       setShowBuildingSelect(false);
-      if (dormitoryId === UNASSIGNED_ID) {
+      if (!dormitoryId) {
         showToast('건물 미배정으로 설정했어요');
         return;
       }
-      const dormitory = getDormitoryById(dormitoryId);
+      const dormitory = getDormitoryDisplayFromSeasonOperations(
+        dormitoryId,
+        dashboard.season.operatedDormitories,
+      );
       showToast(dormitory ? `${dormitory.name}(으)로 설정했어요` : '건물이 설정되었어요');
     },
-    [showToast],
+    [dashboard.season.operatedDormitories, showToast],
   );
 
   const handleDeregisterSeasonParticipation = useCallback(async () => {
@@ -247,6 +252,13 @@ function MainLegacyDashboardContent({
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
 }) {
   const initialUser = useMemo(() => toMainLegacyUserProfile(dashboard), [dashboard]);
+  const dormitories = useMemo(
+    () =>
+      dashboard.season.operatedDormitories.flatMap((operation) =>
+        operation.dormitory ? [operation.dormitory] : [],
+      ),
+    [dashboard.season.operatedDormitories],
+  );
   const showToast = useCallback((msg: string) => toast(msg), []);
 
   const handleNavigate = useCallback(
@@ -262,10 +274,34 @@ function MainLegacyDashboardContent({
     showToast,
     hasSeenGuide,
     markGuideSeen,
+    dormitories,
   });
 
   const socialState = useMainSocialState(showToast);
   const [matchingBadgeCount, setMatchingBadgeCount] = useState(0);
+
+  const handleMatchingNavigationIntent = useCallback(
+    (intent: MatchingNavigationIntent) => {
+      switch (intent) {
+        case 'home':
+          handleNavigate('home');
+          return;
+        case 'roommate':
+          handleNavigate('list');
+          return;
+        case 'chat':
+          handleNavigate('chat');
+          return;
+        case 'history':
+          // MatchingTab 내부 section 이동으로 처리한다. Main은 overview/history state를 소유하지 않는다.
+          return;
+        case 'profile':
+          handleNavigate('profile');
+          return;
+      }
+    },
+    [handleNavigate],
+  );
 
   return (
     <SeasonProvider value={seasonContextValue}>
@@ -295,12 +331,23 @@ function MainLegacyDashboardContent({
           {activeTab === 'matching' && (
             <MatchingTab
               viewerId={profileState.user.id}
+              viewerHeader={{
+                nickname: profileState.user.nickname,
+                gender: profileState.user.gender,
+                campusLabel: formatCampusName(profileState.user.campus),
+                residenceLabel: profileState.user.dormitoryId
+                  ? profileState.user.dormitory
+                    ? `${profileState.user.dormitory.name} · ${profileState.user.dormitory.roomType}인실`
+                    : null
+                  : null,
+              }}
               seasonShell={{
                 id: dashboard.season.summary?.id ?? null,
                 state: dashboard.season.state,
               }}
               onBadgeCountChange={setMatchingBadgeCount}
               onNavigateChat={() => handleNavigate('chat')}
+              onNavigationIntent={handleMatchingNavigationIntent}
               initialRequestTab={matchingNavOptions?.requestTab}
               initialSection={matchingNavOptions?.section}
             />
@@ -310,7 +357,6 @@ function MainLegacyDashboardContent({
               user={profileState.user}
               onDormitoryChange={profileState.handleSelectDormitory}
               onIntroChange={profileState.handleIntroChange}
-              onMessageChange={profileState.handleMessageChange}
               onLifestyleChange={profileState.handleLifestyleChange}
               onAdditionalChange={profileState.handleAdditionalChange}
               onShowGuide={profileState.handleShowGuide}

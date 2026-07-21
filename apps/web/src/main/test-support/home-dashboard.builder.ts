@@ -1,5 +1,22 @@
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
+const DORMITORY_SUMMARIES = {
+  daon: { id: 'daon', name: '다온관', roomType: 2, genderPolicy: 'BOTH' },
+  dasan: { id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M' },
+  irum: { id: 'irum', name: '이룸관', roomType: 2, genderPolicy: 'BOTH' },
+  saerom: { id: 'saerom', name: '새롬관', roomType: 2, genderPolicy: 'BOTH' },
+  yeji: { id: 'yeji', name: '예지원', roomType: 2, genderPolicy: 'F' },
+} as const;
+
+function createDormitoryOperation(dormitoryId: keyof typeof DORMITORY_SUMMARIES) {
+  return {
+    dormitoryId,
+    dormitory: DORMITORY_SUMMARIES[dormitoryId],
+    isOperated: true,
+    roomSelectionDate: '2026-08-06' as const,
+  };
+}
+
 export function createHomeDashboardTestResponse(
   overrides: Partial<HomeDashboardResponse> = {},
 ): HomeDashboardResponse {
@@ -26,11 +43,11 @@ export function createHomeDashboardTestResponse(
       daysUntilMatchingEnd: 54,
       daysUntilSeasonEnd: 65,
       operatedDormitories: [
-        { dormitoryId: 'daon', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'irum', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'yeji', isOperated: true, roomSelectionDate: '2026-08-06' },
+        createDormitoryOperation('daon'),
+        createDormitoryOperation('dasan'),
+        createDormitoryOperation('irum'),
+        createDormitoryOperation('saerom'),
+        createDormitoryOperation('yeji'),
       ],
     },
     viewer: {
@@ -140,11 +157,11 @@ export function createHomeDashboardTestResponse(
       seasonEndDate: '2026-08-31',
       visibleToUser: true,
       operatedDormitories: [
-        { dormitoryId: 'daon', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'irum', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-08-06' },
-        { dormitoryId: 'yeji', isOperated: true, roomSelectionDate: '2026-08-06' },
+        createDormitoryOperation('daon'),
+        createDormitoryOperation('dasan'),
+        createDormitoryOperation('irum'),
+        createDormitoryOperation('saerom'),
+        createDormitoryOperation('yeji'),
       ],
     },
     matching: {

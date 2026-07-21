@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isoDateTimeStringSchema, localDateStringSchema } from '../../date/primitives.js';
+import { dormitoryPublicSummarySchema } from '../../dormitory/catalog.js';
 
 export const seasonStateSchema = z.enum([
   'OFF_SEASON',
@@ -18,6 +19,7 @@ export const seasonSummarySchema = z.strictObject({
 
 export const dormitorySeasonOperationSchema = z.strictObject({
   dormitoryId: z.string(),
+  dormitory: dormitoryPublicSummarySchema.optional(),
   isOperated: z.boolean(),
   roomSelectionDate: localDateStringSchema,
 });

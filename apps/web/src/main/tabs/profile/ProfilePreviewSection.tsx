@@ -1,12 +1,12 @@
-import { Eye, MessageCircle } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import { LifestyleChipSummary } from '../../components/LifestyleChipSummary';
 import type { UserProfile } from '@/types/profile';
-import type { Dormitory } from '@/constants/dormitory';
+import type { DormitoryDisplayItem } from '@/main/model/dormitoryDisplay.adapter';
 
 interface ProfilePreviewSectionProps {
   user: UserProfile;
-  dormitory: Dormitory | null;
+  dormitory: DormitoryDisplayItem | null;
   avatarColor: { bg: string; text: string };
   onShowDetail: () => void;
 }
@@ -51,14 +51,6 @@ export function ProfilePreviewSection({
           <p className="text-sm text-(--knu-text-secondary) leading-relaxed line-clamp-1 mb-3">
             {user.intro}
           </p>
-          {user.messageToRoommate && (
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 rounded-xl">
-              <MessageCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-              <p className="text-xs text-blue-700 font-medium line-clamp-1">
-                {user.messageToRoommate}
-              </p>
-            </div>
-          )}
         </div>
       </button>
     </section>

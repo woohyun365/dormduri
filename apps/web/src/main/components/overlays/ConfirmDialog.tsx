@@ -4,7 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Button } from '@/components/ui/Button';
-import { Z_INDEX } from '@/constants/ui';
+import { UI_LAYER } from '@/styles/layers';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -38,7 +38,7 @@ export function ConfirmDialog({
   return (
     <div
       className="fixed inset-0 flex items-center justify-center px-5"
-      style={{ zIndex: Z_INDEX.toast }}
+      style={{ zIndex: UI_LAYER.dialog }}
       role="alertdialog"
       aria-modal="true"
       aria-label={title}

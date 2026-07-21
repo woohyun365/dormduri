@@ -60,6 +60,12 @@ describe('season shared contract', () => {
         operatedDormitories: [
           {
             dormitoryId: 'dasan',
+            dormitory: {
+              id: 'dasan',
+              name: '다산관',
+              roomType: 2,
+              genderPolicy: 'M',
+            },
             isOperated: true,
             roomSelectionDate: '2026-02-11',
           },
@@ -85,7 +91,11 @@ describe('season shared contract', () => {
           endsAt: null,
         },
       }),
-    ).toMatchObject({ state: 'SEASON_MATCHING', isMatching: true });
+    ).toMatchObject({
+      state: 'SEASON_MATCHING',
+      isMatching: true,
+      operatedDormitories: [{ dormitory: { name: '다산관', roomType: 2 } }],
+    });
   });
 
   it('season operations contract는 schedule/override/concurrency/audit response shape를 고정한다', () => {

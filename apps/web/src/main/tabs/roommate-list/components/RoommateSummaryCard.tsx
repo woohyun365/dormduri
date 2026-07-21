@@ -12,7 +12,12 @@ import {
   Users,
 } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
-import { getMatchScoreColor } from '@/utils/matchScoreColor';
+import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
+import {
+  CounterpartActionFooter,
+  CounterpartCardShell,
+  CounterpartIntroPanel,
+} from '@/main/components/counterpart-card';
 import type {
   RoommateSummaryCardFactViewModel,
   RoommateSummaryCardStatusBadgeViewModel,
@@ -50,7 +55,7 @@ export function RoommateSummaryCard({
           tone: item.summaryOnly ? 'amber' : 'green',
         } satisfies RoommateSummaryCardStatusBadgeViewModel)
       : item.profileVisibilityBadge;
-  const introPlaceholder = item.intro === '-';
+  const actionGridClass = chatAction && detailAction ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2';
   const actionStateBadges = item.actionStateBadges ?? [
     {
       label: item.actionStateLabel,
@@ -59,9 +64,11 @@ export function RoommateSummaryCard({
   ];
 
   return (
-    <article
-      aria-labelledby={headingId}
-      className="group h-full rounded-2xl border-2 border-(--knu-border) bg-white p-4 shadow-md transition-all hover:-translate-y-0.5 hover:border-indigo-100 hover:shadow-xl"
+    <CounterpartCardShell
+      labelledBy={headingId}
+      tone="neutral"
+      interactive
+      className="h-full shadow-md"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -130,25 +137,8 @@ export function RoommateSummaryCard({
         </>
       ) : null}
 
-      <div
-        className={`mb-3 flex items-start gap-1.5 rounded-xl px-3 py-2 ${
-          introPlaceholder ? 'bg-slate-50' : 'bg-blue-50'
-        }`}
-      >
-        <MessageCircle
-          className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-            introPlaceholder ? 'text-slate-400' : 'text-blue-500'
-          }`}
-          aria-hidden="true"
-        />
-        <p
-          className={`line-clamp-2 text-xs font-medium leading-relaxed ${
-            introPlaceholder ? 'text-slate-500' : 'text-blue-700'
-          }`}
-        >
-          <span className="sr-only">자기소개: </span>
-          {item.intro}
-        </p>
+      <div className="mb-3">
+        <CounterpartIntroPanel intro={item.intro} />
       </div>
 
       <div className="mb-3 flex flex-wrap gap-1.5" aria-label="룸메이트 카드 상태">
@@ -174,13 +164,13 @@ export function RoommateSummaryCard({
       </div>
 
       {chatAction || detailAction ? (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <CounterpartActionFooter className={actionGridClass}>
           {chatAction ? (
             <button
               type="button"
               aria-label={chatAction.accessibilityLabel}
               onClick={() => onStartChat?.(item)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-(--knu-primary-hover)"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-800 transition-all hover:border-teal-300 hover:bg-teal-100"
             >
               <MessageCircle className="h-4 w-4" aria-hidden />
               {chatAction.label}
@@ -202,11 +192,11 @@ export function RoommateSummaryCard({
               {detailAction.label}
             </button>
           ) : null}
-        </div>
+        </CounterpartActionFooter>
       ) : null}
 
       {item.bookmarkAction ? <p className="sr-only">{item.bookmarkAction.label}</p> : null}
-    </article>
+    </CounterpartCardShell>
   );
 }
 

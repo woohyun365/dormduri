@@ -1,5 +1,5 @@
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import { isLifestyleRequiredComplete } from '@/utils/lifestyle';
+import { isLifestyleCoreComplete } from '@repo/shared/lifestyle';
 import type { UserProfile } from '@/types/profile';
 
 export type ChecklistNavigateTo = 'building' | 'profile' | 'list';
@@ -25,7 +25,8 @@ export function getChecklistItems(
     {
       id: 'lifestyle',
       label: '생활패턴 입력하기',
-      completed: isLifestyleRequiredComplete(user.lifestyle),
+      completed:
+        isLifestyleCoreComplete(user.lifestyle) && user.lifestyle.drinkingTolerance !== null,
       navigateTo: 'profile',
     },
     {

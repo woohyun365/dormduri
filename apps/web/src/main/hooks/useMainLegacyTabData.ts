@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import type { Season } from '@/main/season/seasonFallback';
@@ -76,11 +75,9 @@ export function useMainLegacyTabData({
         if (cancelled) return;
 
         const season = seasonResult ?? toEmptyOffSeasonData();
-        const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
-        const dormitoryIdForFilter =
-          season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
+        const dormitoryIdForFilter = season.isOpen || season.isMatching ? currentDormitoryId : null;
         const profiles =
-          (season.isOpen || season.isMatching) && isUnassignedId
+          (season.isOpen || season.isMatching) && !currentDormitoryId
             ? []
             : await profileApi.getProfiles(
                 currentUser.campus,

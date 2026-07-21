@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
-import { REPORT_REASONS, REPORT_DETAIL_MAX_LENGTH } from '@/constants/report';
+import { REPORT_DETAIL_MAX_LENGTH } from '@repo/shared/social-safety/report';
+import { getReportReasonOptions } from '@/social-safety/model/reportPresentation';
 import type { ReportReason } from '@/types/report';
 
 interface ReportSheetProps {
@@ -10,8 +11,6 @@ interface ReportSheetProps {
   onClose: () => void;
   onSubmit: (reason: ReportReason, detail: string | null) => void;
 }
-
-const REASON_ENTRIES = Object.entries(REPORT_REASONS) as [ReportReason, string][];
 
 export function ReportSheet({ isOpen, onClose, onSubmit }: ReportSheetProps) {
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
@@ -53,7 +52,7 @@ export function ReportSheet({ isOpen, onClose, onSubmit }: ReportSheetProps) {
         <p className="text-sm text-(--knu-text-secondary)">신고 사유를 선택해주세요.</p>
 
         <div className="space-y-2">
-          {REASON_ENTRIES.map(([key, label]) => (
+          {getReportReasonOptions().map(({ value: key, label }) => (
             <label
               key={key}
               className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${

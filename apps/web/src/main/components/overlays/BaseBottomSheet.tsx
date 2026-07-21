@@ -1,9 +1,10 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { Z_INDEX } from '@/constants/ui';
+import { UI_LAYER } from '@/styles/layers';
 
 interface BaseBottomSheetProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface BaseBottomSheetProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   headerRight?: React.ReactNode;
+  interactionDisabled?: boolean;
+  layer?: 'base' | 'nested';
 }
 
 export function BaseBottomSheet({
@@ -21,18 +24,24 @@ export function BaseBottomSheet({
   children,
   footer,
   headerRight,
+  interactionDisabled = false,
+  layer = 'base',
 }: BaseBottomSheetProps) {
   useBodyScrollLock(isOpen);
-  const containerRef = useFocusTrap(isOpen, onClose);
+  const containerRef = useFocusTrap(isOpen && !interactionDisabled, onClose);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none px-0 pb-0 pt-4 outline-none sm:px-4 sm:pb-4 md:items-center md:py-4"
-      style={{ zIndex: Z_INDEX.bottomSheet }}
+      className={`fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none px-0 pb-0 pt-4 outline-none sm:px-4 sm:pb-4 md:items-center md:py-4 ${
+        interactionDisabled ? 'pointer-events-none' : ''
+      }`}
+      style={{ zIndex: layer === 'nested' ? UI_LAYER.nestedBottomSheet : UI_LAYER.bottomSheet }}
       role="dialog"
-      aria-modal="true"
+      aria-modal={!interactionDisabled}
+      aria-hidden={interactionDisabled || undefined}
+      inert={interactionDisabled || undefined}
       aria-label={title}
       ref={containerRef}
       tabIndex={-1}
@@ -41,13 +50,13 @@ export function BaseBottomSheet({
 
       <div className="relative flex h-[min(90dvh,720px)] w-full min-w-0 max-w-dvw flex-col overflow-hidden rounded-t-3xl border border-(--knu-border) bg-white shadow-2xl ring-1 ring-black/5 sm:max-w-3xl md:h-auto md:max-h-[min(760px,calc(100dvh-2rem))] md:rounded-3xl">
         {/* Header */}
-        <div className="sticky top-0 flex shrink-0 items-center justify-between border-b border-(--knu-border) bg-white px-5 py-4 md:rounded-t-3xl">
+        <div className="relative z-10 flex shrink-0 items-center justify-between border-b border-(--knu-border) bg-white px-5 py-4 md:rounded-t-3xl">
           <h2 className="text-xl font-bold text-(--knu-text-primary)">{title}</h2>
           <div className="flex items-center gap-1">
             {headerRight}
             <button
               onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-(--knu-background-alt)"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-slate-100"
               aria-label="닫기"
             >
               <X className="h-6 w-6 text-(--knu-text-secondary)" />
@@ -62,11 +71,12 @@ export function BaseBottomSheet({
 
         {/* Footer */}
         {footer && (
-          <div className="sticky bottom-0 shrink-0 border-t border-(--knu-border) bg-white p-5">
+          <div className="relative z-10 shrink-0 border-t border-(--knu-border) bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             {footer}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

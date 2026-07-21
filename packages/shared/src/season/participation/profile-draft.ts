@@ -6,9 +6,11 @@ import {
 } from '../../profile/contract/fields.js';
 import { seasonParticipationCompletionStateSchema, seasonProfileStateSchema } from './state.js';
 
+export const SEASON_PROFILE_INTRO_MAX_LENGTH = 200;
+
 export const seasonProfileDraftRequestSchema = z.strictObject({
   lifestyle: lifestyleSchema,
-  intro: z.string().trim().max(200).optional().default(''),
+  intro: z.string().trim().max(SEASON_PROFILE_INTRO_MAX_LENGTH).optional().default(''),
   additional: additionalProfileSchema,
 });
 

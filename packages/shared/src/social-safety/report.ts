@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { isoDateTimeStringSchema } from '../date/primitives.js';
 
+export const REPORT_DETAIL_MAX_LENGTH = 2_000;
+
 export const reportReasonSchema = z.enum([
   'SEXUAL_HARASSMENT',
   'THREAT',
@@ -28,7 +30,7 @@ export const createReportRequestSchema = z.strictObject({
   targetType: reportTargetTypeSchema,
   targetId: z.string().trim().min(1).max(128),
   reason: reportReasonSchema,
-  detail: z.string().trim().max(2_000).optional().nullable(),
+  detail: z.string().trim().max(REPORT_DETAIL_MAX_LENGTH).optional().nullable(),
   evidenceAttachmentIds: z.array(z.string().trim().min(1).max(128)).max(10).optional().default([]),
   optionalAction: reportOptionalActionSchema.optional().nullable(),
   falseReportDisclaimerAccepted: z.literal(true),

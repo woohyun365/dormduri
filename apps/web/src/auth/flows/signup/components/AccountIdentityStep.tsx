@@ -12,7 +12,7 @@ import { validatePassword, validatePasswordConfirm, validateNickname } from '@/u
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/auth/model';
 import { CAMPUS_OPTIONS } from '../model/campus-options';
 import { PasswordRequirementList } from '@/auth/components';
-import { NICKNAME_MAX } from '@/constants/ui';
+import { DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH } from '@repo/shared/user/identity';
 import { User } from 'lucide-react';
 import { focusAndScroll } from '@/utils/focus';
 import { authApi } from '@/auth/api';
@@ -311,7 +311,7 @@ export function AccountIdentityStep({
           }}
           error={nicknameError}
           helper="다른 사용자에게 보여지는 이름입니다."
-          maxLength={NICKNAME_MAX}
+          maxLength={DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH}
           required
         />
 

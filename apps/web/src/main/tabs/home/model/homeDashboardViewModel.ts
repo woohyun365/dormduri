@@ -1,6 +1,5 @@
 import {
-  getDormitoryDisplayById,
-  isCampusOperatedByDormitoryDisplayCatalog,
+  getDormitoryDisplayFromSeasonOperations,
   type DormitoryDisplayItem,
 } from '@/main/model/dormitoryDisplay.adapter';
 import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
@@ -182,9 +181,7 @@ export function buildHomeDashboardViewModel({
   const daysUntilEnd =
     dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0;
   const viewerIdentity = buildHomeViewerIdentityViewModel(dashboard);
-  const isCampusOperated =
-    dashboard.viewer.campusOperated &&
-    isCampusOperatedByDormitoryDisplayCatalog(viewerIdentity.campus);
+  const isCampusOperated = dashboard.viewer.campusOperated;
   const selectedDormitoryId = dashboard.viewer.selection.dormitoryId;
   const hasDashboardAssignedDormitory =
     (dashboard.viewer.selection.state === 'SELECTED' ||
@@ -192,7 +189,10 @@ export function buildHomeDashboardViewModel({
     isDormitoryAssigned(selectedDormitoryId);
   const isUnassigned = !hasDashboardAssignedDormitory;
   const dormitory = hasDashboardAssignedDormitory
-    ? getDormitoryDisplayById(selectedDormitoryId)
+    ? getDormitoryDisplayFromSeasonOperations(
+        selectedDormitoryId,
+        dashboard.season.operatedDormitories,
+      )
     : null;
   const rawActiveMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   const activeMatch = toHomeActiveMatch(dashboard);
@@ -502,7 +502,7 @@ function buildOperatedDormitoryViewModel(
   return operations
     .filter((operation) => operation.isOperated)
     .map((operation) => {
-      const dormitory = getDormitoryDisplayById(operation.dormitoryId);
+      const dormitory = operation.dormitory ?? null;
 
       return {
         id: operation.dormitoryId,

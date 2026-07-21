@@ -6,12 +6,12 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import {
-  LIFESTYLE_LABELS,
-  LIFESTYLE_FIELD_NAMES,
-  SLEEP_FIELDS,
-  LIVING_FIELDS,
-  CONDITION_FIELDS,
-} from '@/constants/lifestyle';
+  CONDITION_LIFESTYLE_FIELDS,
+  getLifestyleFormOptions,
+  LIVING_LIFESTYLE_FIELDS,
+  SLEEP_LIFESTYLE_FIELDS,
+  formatLifestyleFieldName,
+} from '@/main/tabs/profile/model/lifestyleFormFields';
 import type { LifestyleData } from '@/types/lifestyle';
 
 interface LifestyleEditSheetProps {
@@ -49,9 +49,9 @@ const FIELD_ORDER: FieldKey[] = [
   'drinkingTolerance',
 ];
 
-const SLEEP_FIELD_SET = new Set<FieldKey>(SLEEP_FIELDS);
-const LIVING_FIELD_SET = new Set<FieldKey>(LIVING_FIELDS);
-const CONDITION_FIELD_SET = new Set<FieldKey>(CONDITION_FIELDS);
+const SLEEP_FIELD_SET = new Set<FieldKey>(SLEEP_LIFESTYLE_FIELDS);
+const LIVING_FIELD_SET = new Set<FieldKey>(LIVING_LIFESTYLE_FIELDS);
+const CONDITION_FIELD_SET = new Set<FieldKey>(CONDITION_LIFESTYLE_FIELDS);
 
 function getFieldLockState(
   field: FieldKey,
@@ -133,13 +133,13 @@ export function LifestyleEditSheet({
     >
       <div className="p-5 space-y-6 pb-5">
         {FIELD_ORDER.map((field) => {
-          const labels = LIFESTYLE_LABELS[field];
+          const options = getLifestyleFormOptions(field);
           const isDrinking = field === 'drinkingFrequency' || field === 'drinkingTolerance';
           const { locked, reason } = getFieldLockState(field, isSeasonLocked);
           return (
             <div key={field}>
               <label className="block text-sm font-semibold text-(--knu-text-primary) mb-3">
-                {LIFESTYLE_FIELD_NAMES[field]}
+                {formatLifestyleFieldName(field)}
                 {locked && (
                   <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-gray-400">
                     <Lock className="w-3 h-3" />
@@ -153,7 +153,7 @@ export function LifestyleEditSheet({
                 </p>
               )}
               <div className={`flex flex-wrap gap-2 ${locked ? 'opacity-50' : ''}`}>
-                {Object.entries(labels).map(([value, label]) => (
+                {options.map(({ value, label }) => (
                   <Chip
                     key={value}
                     label={label}

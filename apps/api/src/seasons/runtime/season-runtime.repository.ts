@@ -18,6 +18,14 @@ export const seasonRuntimeSelect = {
   dormitoryOperations: {
     select: {
       dormitoryId: true,
+      dormitory: {
+        select: {
+          id: true,
+          nameKo: true,
+          roomType: true,
+          genderPolicy: true,
+        },
+      },
       isOperated: true,
       roomSelectionDate: true,
     },

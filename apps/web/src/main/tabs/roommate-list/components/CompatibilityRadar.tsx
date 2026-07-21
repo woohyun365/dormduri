@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { IconEar } from '@tabler/icons-react';
 import type { ElementType } from 'react';
-import { getMatchScoreColor } from '@/utils/matchScoreColor';
+import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
 import type { CompatibilityChartViewModel } from '../model/compatibility/compatibilityChart.mapper';
 import type { PublicProfileCompatibilityDimensionId } from '@repo/shared/profile/contract';
 

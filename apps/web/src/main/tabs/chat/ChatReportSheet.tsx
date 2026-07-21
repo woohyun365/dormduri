@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { REPORT_REASONS } from '@/constants/report';
+import { REPORT_DETAIL_MAX_LENGTH } from '@repo/shared/social-safety/report';
+import { getReportReasonOptions } from '@/social-safety/model/reportPresentation';
 import type { ReportReason } from '@repo/shared/social-safety/report';
 
 export function ChatReportSheet({
@@ -49,7 +50,7 @@ export function ChatReportSheet({
           onChange={(event) => setReason(event.target.value as ReportReason)}
           className="mt-1 w-full rounded-xl border border-(--knu-border) p-3 text-sm"
         >
-          {Object.entries(REPORT_REASONS).map(([value, label]) => (
+          {getReportReasonOptions().map(({ value, label }) => (
             <option key={value} value={value}>
               {label}
             </option>
@@ -62,7 +63,7 @@ export function ChatReportSheet({
           id="chat-report-detail"
           value={detail}
           onChange={(event) => setDetail(event.target.value)}
-          maxLength={2000}
+          maxLength={REPORT_DETAIL_MAX_LENGTH}
           className="mt-1 min-h-24 w-full rounded-xl border border-(--knu-border) p-3 text-sm"
         />
         <label className="mt-4 flex items-start gap-2 text-xs text-(--knu-text-secondary)">

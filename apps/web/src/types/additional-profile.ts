@@ -1,1 +1,5 @@
-export type { College, Grade, AdditionalProfile } from '@/constants/additional-profile';
+export type {
+  ProfileCollege as College,
+  ProfileGrade as Grade,
+  ProfileAdditional as AdditionalProfile,
+} from '@/main/tabs/profile/model/profileFieldOptions';

@@ -67,8 +67,8 @@ describe('getChecklistItems', () => {
     expect(items[0]).toMatchObject({ id: 'building', completed: true });
   });
 
-  it('미배정(UNASSIGNED_ID)은 건물 선택 미완료이다', () => {
-    const user = createUser({ dormitoryId: 'unassigned' });
+  it('건물 id가 없으면 건물 선택 미완료이다', () => {
+    const user = createUser({ dormitoryId: null });
     const items = getChecklistItems(user, new Set());
 
     expect(items[0]).toMatchObject({ id: 'building', completed: false });

@@ -62,7 +62,17 @@ describe('HomeDashboardNextSeasonQuery', () => {
       seasonEndDate: '2026-12-20',
       visibleToUser: true,
       operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-20' },
+        {
+          dormitoryId: 'dasan',
+          dormitory: {
+            id: 'dasan',
+            name: '다산관',
+            roomType: 2,
+            genderPolicy: 'M',
+          },
+          isOperated: true,
+          roomSelectionDate: '2026-08-20',
+        },
       ],
     });
     expect(prisma.season.findMany).toHaveBeenCalledWith(
@@ -96,6 +106,12 @@ function makeSeasonRow({
     dormitoryOperations: [
       {
         dormitoryId: 'dasan',
+        dormitory: {
+          id: 'dasan',
+          nameKo: '다산관',
+          roomType: 2,
+          genderPolicy: 'M',
+        },
         isOperated: true,
         roomSelectionDate: new Date(`${preparation}T00:00:00.000Z`),
       },

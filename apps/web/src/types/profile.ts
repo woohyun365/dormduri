@@ -1,5 +1,6 @@
 import type { LifestyleData } from './lifestyle';
 import type { AdditionalProfile } from '@/types/additional-profile';
+import type { DormitoryPublicSummary } from '@repo/shared/dormitory';
 
 export type TabId = 'home' | 'list' | 'matching' | 'chat' | 'profile';
 
@@ -19,6 +20,7 @@ export interface UserProfile {
   gender: 'M' | 'F';
   campus: Campus;
   dormitoryId: DormitoryId;
+  dormitory?: DormitoryPublicSummary | null;
   lifestyle: LifestyleData;
   intro: string;
   messageToRoommate: string | null;
@@ -31,6 +33,7 @@ export interface RoommateProfile {
   gender: 'M' | 'F';
   campus: Campus;
   dormitoryId: DormitoryId;
+  dormitory?: DormitoryPublicSummary | null;
   lifestyle: LifestyleData;
   intro: string;
   messageToRoommate: string | null;

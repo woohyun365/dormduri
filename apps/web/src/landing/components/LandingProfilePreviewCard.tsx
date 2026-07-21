@@ -1,7 +1,7 @@
 import { MessageCircle } from 'lucide-react';
 import { Chip } from '@/components/ui/Chip';
-import { LIFESTYLE_LABELS } from '@/constants/lifestyle';
-import { getMatchScoreColor } from '@/utils/matchScoreColor';
+import { formatLifestyleOptionLabel } from '@repo/shared/lifestyle';
+import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
 import type { LandingProfilePreviewItem } from '../content/landing-profile-preview.examples';
 
 interface LandingProfilePreviewCardProps {
@@ -12,13 +12,13 @@ function buildSummaryBadges(profile: LandingProfilePreviewItem): string[] {
   const { profileSummary } = profile;
   const badges = [
     profileSummary.smokingBehavior
-      ? LIFESTYLE_LABELS.smokingBehavior[profileSummary.smokingBehavior]
+      ? formatLifestyleOptionLabel('smokingBehavior', profileSummary.smokingBehavior)
       : null,
     profileSummary.sleepHabit
-      ? `잠버릇 ${LIFESTYLE_LABELS.sleepHabit[profileSummary.sleepHabit]}`
+      ? `잠버릇 ${formatLifestyleOptionLabel('sleepHabit', profileSummary.sleepHabit)}`
       : null,
     profileSummary.relationshipStyle
-      ? LIFESTYLE_LABELS.relationshipStyle[profileSummary.relationshipStyle]
+      ? formatLifestyleOptionLabel('relationshipStyle', profileSummary.relationshipStyle)
       : null,
   ];
 

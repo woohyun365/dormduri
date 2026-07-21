@@ -3,11 +3,11 @@ import { Chip } from '@/components/ui/Chip';
 import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import {
   COLLEGE_OPTIONS,
-  GRADES,
-  BIRTH_YEARS,
-  ADDITIONAL_FIELD_NAMES,
+  GRADE_OPTIONS,
+  BIRTH_YEAR_OPTIONS,
+  ADDITIONAL_FIELD_LABELS,
   getCollegeLabel,
-} from '@/constants/additional-profile';
+} from '@/main/tabs/profile/model/profileFieldOptions';
 import { ProfileMbtiSelector } from './ProfileMbtiSelector';
 import type { AdditionalProfile } from '@/types/additional-profile';
 
@@ -31,7 +31,7 @@ export function ProfileAdditionalSection({
         {/* 단대 */}
         <div>
           <p className="text-sm font-semibold text-(--knu-text-primary) mb-2">
-            {ADDITIONAL_FIELD_NAMES.college}
+            {ADDITIONAL_FIELD_LABELS.college}
             <span
               className={`ml-2 font-normal ${additional.college ? 'text-(--knu-primary)' : 'text-(--knu-text-tertiary)'}`}
             >
@@ -58,15 +58,15 @@ export function ProfileAdditionalSection({
         {/* 학년 */}
         <div>
           <p className="text-sm font-semibold text-(--knu-text-primary) mb-2">
-            {ADDITIONAL_FIELD_NAMES.grade}
+            {ADDITIONAL_FIELD_LABELS.grade}
             <span
               className={`ml-2 font-normal ${additional.grade ? 'text-(--knu-primary)' : 'text-(--knu-text-tertiary)'}`}
             >
-              {GRADES.find((g) => g.value === additional.grade)?.label ?? '-'}
+              {GRADE_OPTIONS.find((g) => g.value === additional.grade)?.label ?? '-'}
             </span>
           </p>
           <div className="flex flex-wrap gap-2">
-            {GRADES.map((g) => (
+            {GRADE_OPTIONS.map((g) => (
               <Chip
                 key={g.value}
                 label={g.label}
@@ -88,7 +88,7 @@ export function ProfileAdditionalSection({
         {/* 출생연도 */}
         <div>
           <p className="text-sm font-semibold text-(--knu-text-primary) mb-2">
-            {ADDITIONAL_FIELD_NAMES.birthYear}
+            {ADDITIONAL_FIELD_LABELS.birthYear}
             <span
               className={`ml-2 font-normal ${additional.birthYear ? 'text-(--knu-primary)' : 'text-(--knu-text-tertiary)'}`}
             >
@@ -96,7 +96,7 @@ export function ProfileAdditionalSection({
             </span>
           </p>
           <div className="flex flex-wrap gap-2">
-            {BIRTH_YEARS.map((y) => (
+            {BIRTH_YEAR_OPTIONS.map((y) => (
               <Chip
                 key={y.value}
                 label={y.label}

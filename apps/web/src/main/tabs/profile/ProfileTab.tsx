@@ -5,12 +5,10 @@ import {
   Building2,
   ChevronRight,
   FileText,
-  MessageCircle,
   Shield,
   HelpCircle,
   Mail,
   AlertCircle,
-  ExternalLink,
   LogOut,
   Ban,
   Trash2,
@@ -20,9 +18,7 @@ import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import { ComingSoonBadge } from '@/main/tabs/profile/components/ComingSoonBadge';
 import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
 import { InlineTextEditor } from '@/main/tabs/profile/components/InlineTextEditor';
-import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
-import { DORM_HOMEPAGE_URL } from '@/constants/dormitory-guide';
-import { INTRO_MAX_LENGTH, MESSAGE_MAX_LENGTH } from '@/constants/ui';
+import { SEASON_PROFILE_INTRO_MAX_LENGTH } from '@repo/shared/season/participation';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { BuildingSelectModal } from '../../components/BuildingSelectModal';
 import { BlockManageSheet } from '../../components/BlockManageSheet';
@@ -39,9 +35,8 @@ import type { BlockedUser } from '@/types/report';
 
 interface ProfileTabProps {
   user: UserProfile;
-  onDormitoryChange: (dormitoryId: string) => void;
+  onDormitoryChange: (dormitoryId: string | null) => void;
   onIntroChange: (intro: string) => void;
-  onMessageChange: (message: string | null) => void;
   onLifestyleChange: (lifestyle: LifestyleData) => void;
   onAdditionalChange: (additional: AdditionalProfile) => void;
   onShowGuide?: () => void;
@@ -53,7 +48,6 @@ export default function ProfileTab({
   user,
   onDormitoryChange,
   onIntroChange,
-  onMessageChange,
   onLifestyleChange,
   onAdditionalChange,
   onShowGuide,
@@ -61,7 +55,7 @@ export default function ProfileTab({
   onUnblock,
 }: ProfileTabProps) {
   const { isOpen, isMatching } = useSeasonContext();
-  const hasRealBuilding = !!user.dormitoryId && user.dormitoryId !== UNASSIGNED_ID;
+  const hasRealBuilding = user.dormitoryId !== null;
   const canChangeDormitory = (isOpen || isMatching) && !hasRealBuilding;
   const isProfileLocked = isMatching && hasRealBuilding;
   const [showBuildingModal, setShowBuildingModal] = useState(false);
@@ -71,8 +65,7 @@ export default function ProfileTab({
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [showBlockManage, setShowBlockManage] = useState(false);
 
-  const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
-  const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
+  const dormitory = user.dormitory ?? null;
   const avatarColor = getAvatarColor(user.nickname);
 
   // Build a RoommateProfile for self-preview
@@ -82,6 +75,7 @@ export default function ProfileTab({
     gender: user.gender,
     campus: user.campus,
     dormitoryId: user.dormitoryId,
+    dormitory,
     lifestyle: user.lifestyle,
     intro: user.intro,
     messageToRoommate: user.messageToRoommate,
@@ -141,7 +135,7 @@ export default function ProfileTab({
                     </button>
                   )}
                 </div>
-              ) : isUnassigned ? (
+              ) : !hasRealBuilding ? (
                 <button
                   onClick={canChangeDormitory ? () => setShowBuildingModal(true) : undefined}
                   className={`flex items-center gap-1 text-sm transition-opacity ${
@@ -189,26 +183,8 @@ export default function ProfileTab({
             <InlineTextEditor
               value={user.intro}
               onSave={onIntroChange}
-              maxLength={INTRO_MAX_LENGTH}
+              maxLength={SEASON_PROFILE_INTRO_MAX_LENGTH}
               placeholder="예) 도서관 자주 가고, 방에선 조용히 지내는 편이에요."
-            />
-          </div>
-        </section>
-
-        {/* 룸메에게 한마디 */}
-        <section>
-          <SectionHeading
-            icon={<MessageCircle className="w-5 h-5 text-(--knu-primary)" />}
-            title="룸메에게 한마디"
-          />
-          <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-5">
-            <InlineTextEditor
-              value={user.messageToRoommate ?? ''}
-              onSave={(val) => onMessageChange(val || null)}
-              maxLength={MESSAGE_MAX_LENGTH}
-              placeholder="공용물품, 가져갈 것 등 룸메에게 전할 메시지를 남겨보세요"
-              rows={2}
-              allowEmpty
             />
           </div>
         </section>
@@ -286,20 +262,6 @@ export default function ProfileTab({
                 <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
               </button>
             )}
-            <a
-              href={DORM_HOMEPAGE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <ExternalLink className="w-5 h-5 text-(--knu-text-tertiary)" />
-                <span className="text-sm font-semibold text-(--knu-text-primary)">
-                  학생생활관 홈페이지
-                </span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
-            </a>
             <Link
               href="/terms"
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"

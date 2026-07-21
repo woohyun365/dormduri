@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { REPORT_DETAIL_MAX_LENGTH } from '@repo/shared/social-safety/report';
 import { RoommateActionConfirmationDialog } from './RoommateActionConfirmationDialog';
 import {
   getReportReasonOptions,
@@ -9,8 +10,6 @@ import type {
   RoommateProfileReportFormValue,
 } from '../hooks/useRoommateActions';
 import type { ReportReason } from '@repo/shared/social-safety/report';
-
-const REPORT_DETAIL_MAX_LENGTH = 2000;
 
 interface RoommateReportDialogProps {
   readonly state: RoommateActionDialogState;
