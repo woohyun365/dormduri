@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { CheckCircle } from 'lucide-react';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 import { focusAndScroll } from '@/utils/focus';
 
 interface PasswordResetCompleteStepProps {

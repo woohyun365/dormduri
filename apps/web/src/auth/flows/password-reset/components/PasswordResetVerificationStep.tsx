@@ -4,9 +4,9 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Mail } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/Button';
-import { StepHeader } from '@/components/StepHeader';
-import { InputField } from '@/components/form/InputField';
+import { Button } from '@/components/ui/Button';
+import { StepHeader } from '@/auth/components/StepHeader';
+import { InputField } from '@/auth/components/form/InputField';
 import { focusAndScroll } from '@/utils/focus';
 import type { PasswordResetActionResult } from '../model/password-reset-flow.types';
 

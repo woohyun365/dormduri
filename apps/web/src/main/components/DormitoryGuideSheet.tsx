@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Building2, AlertTriangle, Phone, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
+import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Z_INDEX } from '@/constants/ui';

@@ -1,4 +1,4 @@
-import { Chip } from '@/components/Chip';
+import { Chip } from '@/components/ui/Chip';
 import { getLifestyleLabel } from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 

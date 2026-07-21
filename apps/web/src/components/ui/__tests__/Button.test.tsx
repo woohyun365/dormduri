@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderWithProviders, screen } from '../../test/render';
+import { renderWithProviders, screen } from '../../../test/render';
 import { describe, it, expect } from 'vitest';
 import { Button } from '../Button';
 

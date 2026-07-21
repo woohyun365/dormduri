@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Mail } from 'lucide-react';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 
 interface LoginSecondaryActionsProps {
   onPasswordResetClick: () => void;

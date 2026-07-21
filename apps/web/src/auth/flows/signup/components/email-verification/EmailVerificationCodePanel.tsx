@@ -1,5 +1,5 @@
-import { InputField } from '@/components/form/InputField';
-import { Button } from '@/components/Button';
+import { InputField } from '@/auth/components/form/InputField';
+import { Button } from '@/components/ui/Button';
 
 interface EmailVerificationCodePanelProps {
   email: string;

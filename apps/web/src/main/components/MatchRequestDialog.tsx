@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 import { Z_INDEX, MESSAGE_MAX_LENGTH } from '@/constants/ui';
 
 interface MatchRequestDialogProps {

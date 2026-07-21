@@ -1,7 +1,7 @@
 'use client';
 
-import { Chip } from '@/components/Chip';
-import { Button } from '@/components/Button';
+import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
 import type { FilterState } from '@/types/filter';

@@ -1,5 +1,5 @@
 import { MessageCircle } from 'lucide-react';
-import { Chip } from '@/components/Chip';
+import { Chip } from '@/components/ui/Chip';
 import { LIFESTYLE_LABELS } from '@/constants/lifestyle';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import type { LandingProfilePreviewItem } from '../content/landing-profile-preview.examples';

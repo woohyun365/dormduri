@@ -1,8 +1,8 @@
 'use client';
 
-import { InputField } from '@/components/form/InputField';
-import { Button } from '@/components/Button';
-import { StepHeader } from '@/components/StepHeader';
+import { InputField } from '@/auth/components/form/InputField';
+import { Button } from '@/components/ui/Button';
+import { StepHeader } from '@/auth/components/StepHeader';
 import { useSignupEmailVerification } from './useSignupEmailVerification';
 import { EmailVerificationRequestPanel } from './EmailVerificationRequestPanel';
 import { EmailVerificationCodePanel } from './EmailVerificationCodePanel';

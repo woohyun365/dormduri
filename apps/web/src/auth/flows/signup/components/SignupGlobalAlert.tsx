@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 
 interface SignupGlobalAlertProps {
   message: string;

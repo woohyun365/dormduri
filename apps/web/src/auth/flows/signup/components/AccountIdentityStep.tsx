@@ -3,11 +3,11 @@
 import { useId, useRef, useState } from 'react';
 import { getCollegeCatalog, type CollegeCode } from '@repo/shared/college';
 import { profileBirthYearSchema } from '@repo/shared/profile/contract';
-import { InputField } from '@/components/form/InputField';
-import { StepHeader } from '@/components/StepHeader';
-import { StepNavigation } from '@/components/form/StepNavigation';
-import { FieldError } from '@/components/form/FieldError';
-import { Chip } from '@/components/Chip';
+import { InputField } from '@/auth/components/form/InputField';
+import { StepHeader } from '@/auth/components/StepHeader';
+import { StepNavigation } from './StepNavigation';
+import { FieldError } from '@/auth/components/form/FieldError';
+import { Chip } from '@/components/ui/Chip';
 import { validatePassword, validatePasswordConfirm, validateNickname } from '@/utils/validation';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/auth/model';
 import { CAMPUS_OPTIONS } from '../model/campus-options';

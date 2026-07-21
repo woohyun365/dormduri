@@ -6,9 +6,9 @@ import type {
   LegalDocumentResponse,
   SignupLegalAcceptances,
 } from '@repo/shared/legal';
-import { StepHeader } from '@/components/StepHeader';
-import { StepNavigation } from '@/components/form/StepNavigation';
-import { FieldError } from '@/components/form/FieldError';
+import { StepHeader } from '@/auth/components/StepHeader';
+import { StepNavigation } from './StepNavigation';
+import { FieldError } from '@/auth/components/form/FieldError';
 import { getSignupLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
 import { LegalConsentSummaryCard } from '@/legal/components/LegalConsentSummaryCard';
 import { LegalDocumentDialog } from '@/legal/components/LegalDocumentDialog';

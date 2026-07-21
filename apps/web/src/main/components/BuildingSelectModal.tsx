@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Building2, Check, X, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
+import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';

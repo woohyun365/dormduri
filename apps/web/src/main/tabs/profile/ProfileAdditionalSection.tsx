@@ -1,5 +1,5 @@
 import { GraduationCap } from 'lucide-react';
-import { Chip } from '@/components/Chip';
+import { Chip } from '@/components/ui/Chip';
 import { SectionHeading } from '@/components/SectionHeading';
 import {
   COLLEGE_OPTIONS,

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Lock } from 'lucide-react';
-import { Button } from '@/components/Button';
-import { Checkbox } from '@/components/form/Checkbox';
-import { InputField } from '@/components/form/InputField';
+import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/auth/components/form/Checkbox';
+import { InputField } from '@/auth/components/form/InputField';
 import { LoginPasswordResetAction } from './LoginSecondaryActions';
 import { LoginRememberMeHint } from './LoginRememberMeHint';
 import { LoginStatusAlert } from './LoginStatusAlert';

@@ -1,4 +1,4 @@
-import { ProgressBar } from '@/components/form/ProgressBar';
+import { ProgressBar } from './ProgressBar';
 
 interface PasswordResetProgressProps {
   currentStep: number;

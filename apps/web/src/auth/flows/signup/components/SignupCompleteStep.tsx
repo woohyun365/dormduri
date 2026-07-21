@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 import { CheckCircle, Info } from 'lucide-react';
 
 interface SignupCompleteStepProps {

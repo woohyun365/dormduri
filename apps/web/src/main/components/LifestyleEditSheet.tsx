@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
-import { Chip } from '@/components/Chip';
-import { Button } from '@/components/Button';
+import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
 import {
   LIFESTYLE_LABELS,
