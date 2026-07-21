@@ -8,8 +8,7 @@
     ],
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "composite": true
+    }
   },
   "include": [
     "next-env.d.ts",
