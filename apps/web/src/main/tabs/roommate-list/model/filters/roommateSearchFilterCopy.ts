@@ -2,7 +2,7 @@ import {
   formatLifestyleFieldName,
   formatLifestyleOptionLabel,
 } from '@/main/model/lifestyleDisplayCopy';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { RoommateSearchFilterOperator } from '@repo/shared/roommate-search/contract';
 import type {
   RoommateSearchCriteriaFilterKey,

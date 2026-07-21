@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import type { Season } from '@/main/season/seasonFallback';
-import type { RoommateProfile, UserProfile } from '@/types/profile';
+import type { RoommateProfile, UserProfile } from '@/main/model/profile';
 import type { SeasonState } from '@repo/shared/season/runtime';
 
 const MAIN_LEGACY_DATA_ERROR_MESSAGE = '탭 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';

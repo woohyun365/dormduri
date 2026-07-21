@@ -6,11 +6,13 @@ import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { ProfileDetailBody } from './ProfileDetailBody';
 import { buildProfileDetailFooter } from './ProfileDetailFooter';
 import { ProfileDetailMoreMenu, ProfileDetailDialogs } from './ProfileDetailModeration';
-import type { RoommateProfile } from '@/types/profile';
-import type { MatchScoreType } from '@/types/match';
-import type { LifestyleData } from '@/types/lifestyle';
-import type { ReportReason } from '@/types/report';
-import type { MatchButtonState } from '@/types/match';
+import type {
+  ProfileDetailMatchActionState,
+  ProfileDetailMatchScoreType,
+} from './model/profileDetailMatchAction';
+import type { RoommateProfile } from '@/main/model/profile';
+import type { LifestyleData } from '@repo/shared/lifestyle';
+import type { ReportReason } from '@repo/shared/social-safety/report';
 
 interface ProfileDetailSheetProps {
   profile: RoommateProfile | null;
@@ -20,12 +22,12 @@ interface ProfileDetailSheetProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   hideMatchButton?: boolean;
-  matchButtonState?: MatchButtonState;
+  matchButtonState?: ProfileDetailMatchActionState;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   isBookmarked?: boolean;
   onToggleBookmark?: () => void;
-  scoreType?: MatchScoreType;
+  scoreType?: ProfileDetailMatchScoreType;
   userLifestyle?: LifestyleData;
   customFooter?: React.ReactNode;
 }

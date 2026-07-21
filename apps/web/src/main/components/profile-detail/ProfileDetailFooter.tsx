@@ -1,10 +1,12 @@
 import { ChevronRight } from 'lucide-react';
-import { getMatchButtonStyle } from '@/utils/matchButtonStyle';
-import type { MatchButtonState } from '@/types/match';
+import {
+  getProfileDetailMatchActionStyle,
+  type ProfileDetailMatchActionState,
+} from './model/profileDetailMatchAction';
 
 interface ProfileDetailFooterProps {
   hideMatchButton?: boolean;
-  matchButtonState?: MatchButtonState;
+  matchButtonState?: ProfileDetailMatchActionState;
   disabled?: boolean;
   onDisabledClick?: () => void;
   onRequestMatch: () => void;
@@ -20,7 +22,7 @@ export function buildProfileDetailFooter({
   if (hideMatchButton) return undefined;
 
   if (matchButtonState) {
-    const style = getMatchButtonStyle(matchButtonState);
+    const style = getProfileDetailMatchActionStyle(matchButtonState);
     return (
       <button
         onClick={() => {

@@ -1,6 +1,6 @@
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { isLifestyleCoreComplete } from '@repo/shared/lifestyle';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 
 export type ChecklistNavigateTo = 'building' | 'profile' | 'list';
 

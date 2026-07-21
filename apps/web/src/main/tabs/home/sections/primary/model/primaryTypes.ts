@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { SeasonState } from '@repo/shared/season/runtime';
-import type { MatchingNavOptions, TabId } from '@/types/profile';
+import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 
 export interface HomePrimaryStateCardProps {

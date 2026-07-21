@@ -1,5 +1,5 @@
 import type { ElementType } from 'react';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 

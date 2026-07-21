@@ -13,7 +13,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { HomeDashboardResponse } from '@repo/shared/home';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import { formatDateDot } from '../../model/homeDateDisplay';
 import type { HomeDashboardViewModel } from '../../model/homeDashboardViewModel';
 

@@ -4,7 +4,7 @@ import { DetailLoading } from './profile-detail/ProfileDetailLoading';
 import { FullDetailContent, TombstoneDetailContent } from './profile-detail/ProfileDetailContent';
 import type { RoommateProfileDetailState } from '../hooks/useRoommateProfileDetail';
 import type { RoommateActionTargetSnapshot } from '../hooks/useRoommateActions';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface RoommateProfileDetailDialogProps {
   readonly state: RoommateProfileDetailState;

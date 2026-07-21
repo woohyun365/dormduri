@@ -57,8 +57,8 @@ const blockedRootBarrelRules = [
 ] as const;
 
 const authOwnedProfileForbiddenPatterns = [
-  '@/types/profile',
-  '@/types/lifestyle',
+  '@/main/model/profile',
+  '@repo/shared/lifestyle',
   'UserProfile',
   'toUserProfile',
   'to-user-profile',
@@ -221,7 +221,10 @@ describe('web auth final boundary guard', () => {
     }
 
     for (const barrelRule of blockedRootBarrelRules) {
-      const source = readFileSync(join(webSrc, barrelRule.path), 'utf8');
+      const barrelPath = join(webSrc, barrelRule.path);
+      if (!existsSync(barrelPath)) continue;
+
+      const source = readFileSync(barrelPath, 'utf8');
 
       for (const forbiddenSymbol of barrelRule.forbiddenSymbols) {
         expect(source, `${barrelRule.path} should not re-export ${forbiddenSymbol}`).not.toContain(

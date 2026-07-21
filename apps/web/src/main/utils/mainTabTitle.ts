@@ -1,4 +1,4 @@
-import type { TabId } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
 
 const MAIN_TAB_DOCUMENT_TITLE_SUFFIX = 'KNU 룸메';
 

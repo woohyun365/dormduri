@@ -42,7 +42,8 @@ import { RoommateSearchFilterBar } from './sections/filters/RoommateSearchFilter
 import { RoommateSearchHeader } from './sections/header/RoommateSearchHeader';
 import { RoommateSearchResultsSection } from './sections/results/RoommateSearchResultsSection';
 import { RoommateSearchControls } from './sections/scope-switcher/RoommateSearchControls';
-import type { TabId, UserProfile } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
+import type { UserProfile } from '@/main/model/profile';
 
 interface RoommateListTabProps {
   user: UserProfile;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getChecklistItems, isChecklistComplete } from '../onboarding';
-import type { UserProfile } from '@/types/profile';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { UserProfile } from '@/main/model/profile';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 /** 최소 유저 프로필 생성 헬퍼 */
 function createUser(overrides: Partial<UserProfile> = {}): UserProfile {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { REPORT_DETAIL_MAX_LENGTH } from '@repo/shared/social-safety/report';
 import { getReportReasonOptions } from '@/social-safety/model/reportPresentation';
-import type { ReportReason } from '@/types/report';
+import type { ReportReason } from '@repo/shared/social-safety/report';
 
 interface ReportSheetProps {
   isOpen: boolean;

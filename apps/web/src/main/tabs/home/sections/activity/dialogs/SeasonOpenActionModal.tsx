@@ -4,7 +4,7 @@ import { HomeResponsiveSheet } from '../../../overlays/HomeResponsiveSheet';
 import { DetailRow } from '../ActivityDetailRows';
 import { SeasonProfileDetailContent } from '../../../profile-modals/HomeProfileDetailContent';
 import { useCurrentSeasonProfileDetail } from '../../../profile-modals/useHomeProfileDetail';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 import type { SeasonOpenModalKind } from '../model/activityTypes';
 

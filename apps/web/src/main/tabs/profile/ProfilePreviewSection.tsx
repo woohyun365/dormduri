@@ -1,7 +1,7 @@
 import { Eye } from 'lucide-react';
 import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import { LifestyleChipSummary } from '../../components/LifestyleChipSummary';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 import type { DormitoryDisplayItem } from '@/main/model/dormitoryDisplay.adapter';
 
 interface ProfilePreviewSectionProps {

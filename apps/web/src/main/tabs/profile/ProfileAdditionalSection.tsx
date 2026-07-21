@@ -9,11 +9,11 @@ import {
   getCollegeLabel,
 } from '@/main/tabs/profile/model/profileFieldOptions';
 import { ProfileMbtiSelector } from './ProfileMbtiSelector';
-import type { AdditionalProfile } from '@/types/additional-profile';
+import type { ProfileAdditional } from '@/main/tabs/profile/model/profileFieldOptions';
 
 interface ProfileAdditionalSectionProps {
-  additional: AdditionalProfile;
-  onFieldChange: (field: keyof AdditionalProfile, value: string | null) => void;
+  additional: ProfileAdditional;
+  onFieldChange: (field: keyof ProfileAdditional, value: string | null) => void;
 }
 
 export function ProfileAdditionalSection({

@@ -1,6 +1,6 @@
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { LifestyleData } from '@/types/lifestyle';
-import type { UserProfile } from '@/types/profile';
+import type { LifestyleData } from '@repo/shared/lifestyle';
+import type { UserProfile } from '@/main/model/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import { getDormitoryDisplayFromSeasonOperations } from '@/main/model/dormitoryDisplay.adapter';
 

@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 import { Home, Users, Handshake, MessageCircle, User } from 'lucide-react';
-import type { TabId } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
 
 interface BottomTabBarProps {
   activeTab: TabId;

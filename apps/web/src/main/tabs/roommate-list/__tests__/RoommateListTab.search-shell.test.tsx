@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SeasonProvider, type SeasonContextValue } from '@/main/contexts/SeasonContext';
 import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 import { createRoommateApiError } from '../api/roommateApiErrors';
 import RoommateListTab from '../RoommateListTab';
 import {

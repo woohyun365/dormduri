@@ -9,7 +9,6 @@ import {
   formatDateDot,
   formatDateMonthDayDot,
 } from '@/main/tabs/home/model/homeDateDisplay';
-import type { ActiveMatch } from '@/types/match';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
 import type {
@@ -105,6 +104,18 @@ export interface HomeDashboardViewerIdentityViewModel {
   campusName: string;
 }
 
+export interface HomeActiveMatchViewModel {
+  matchId: string;
+  partnerUserId: string;
+  partnerNickname: string;
+  partnerDormitoryId: string | null;
+  matchScore: number;
+  scoreType: 'full' | 'gated';
+  matchedAt: string;
+  cancelRequestedAt: string | null;
+  cancelRequestedBy: 'self' | 'counterpart' | null;
+}
+
 export interface HomeDashboardViewModel {
   hasCurrentSeason: boolean;
   seasonState: SeasonState;
@@ -119,7 +130,7 @@ export interface HomeDashboardViewModel {
   isUnassigned: boolean;
   dormitory: DormitoryDisplayItem | null;
   hasActiveMatch: boolean;
-  activeMatch: ActiveMatch | null;
+  activeMatch: HomeActiveMatchViewModel | null;
   statsBar: HomeDashboardStatsBarViewModel;
   matchingSummary: HomeDashboardMatchingSummaryViewModel;
   preparation: HomeDashboardPreparationViewModel;
@@ -143,7 +154,9 @@ interface BuildHomeDashboardViewModelInput {
 
 const MS_48_HOURS = 48 * 60 * 60 * 1000;
 
-export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch | null {
+export function toHomeActiveMatch(
+  dashboard: HomeDashboardResponse,
+): HomeActiveMatchViewModel | null {
   const activeMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   if (!activeMatch) {
     return null;
@@ -402,7 +415,7 @@ function buildMatchingSummaryViewModel({
   seasonState: SeasonState;
   isCampusOperated: boolean;
   registrationReady: boolean;
-  activeMatch: ActiveMatch | null;
+  activeMatch: HomeActiveMatchViewModel | null;
   rawActiveMatch: HomeDashboardResponse['matching']['activeMatch'];
   renderedAt: number;
 }): HomeDashboardMatchingSummaryViewModel {

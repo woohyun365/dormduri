@@ -5,7 +5,7 @@ import { StaticActivityCard } from '../StaticActivityCard';
 import { OperatedDormitoryListModal } from '../dialogs/OperatedDormitoryListModal';
 import { SeasonOpenActionModal } from '../dialogs/SeasonOpenActionModal';
 import { resolveSeasonOpenActivityContent } from '../model/activityContent';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 import type { SeasonOpenModalKind } from '../model/activityTypes';
 

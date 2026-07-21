@@ -9,9 +9,9 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { CompatibilityReport } from '../CompatibilityReport';
-import type { RoommateProfile } from '@/types/profile';
-import type { MatchScoreType } from '@/types/match';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { ProfileDetailMatchScoreType } from './model/profileDetailMatchAction';
+import type { RoommateProfile } from '@/main/model/profile';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 // 음주 필드(drinkingFrequency, drinkingTolerance)는 정책(AC-N8)에 따라 표시 제외
 const DISPLAY_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [
@@ -36,7 +36,7 @@ const DISPLAY_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [
 
 interface ProfileDetailBodyProps {
   profile: RoommateProfile;
-  scoreType?: MatchScoreType;
+  scoreType?: ProfileDetailMatchScoreType;
   userLifestyle?: LifestyleData;
 }
 

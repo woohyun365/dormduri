@@ -1,6 +1,6 @@
 import { Chip } from '@/components/ui/Chip';
 import { formatLifestyleOptionLabel } from '@repo/shared/lifestyle';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface LifestyleChipSummaryProps {
   lifestyle: LifestyleData;

@@ -11,7 +11,7 @@ import {
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import { PostMatchCounterpartProfileModal } from '../dialogs/PostMatchCounterpartProfileModal';
 import { PostMatchDetailModal } from '../dialogs/PostMatchDetailModal';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 import type { PostMatchDetailModalKind, StaticActivityMetric } from '../model/activityTypes';
 import { resolvePostMatchActivityContent } from '../model/activityContent';

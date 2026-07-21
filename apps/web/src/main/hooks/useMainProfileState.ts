@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { DormitoryPublicSummary } from '@repo/shared/dormitory';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 
 interface ProfileStateOptions {
   showToast: (msg: string) => void;

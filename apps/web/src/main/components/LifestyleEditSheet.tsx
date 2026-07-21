@@ -12,7 +12,7 @@ import {
   SLEEP_LIFESTYLE_FIELDS,
   formatLifestyleFieldName,
 } from '@/main/tabs/profile/model/lifestyleFormFields';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface LifestyleEditSheetProps {
   isOpen: boolean;

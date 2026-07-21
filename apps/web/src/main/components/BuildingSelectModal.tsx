@@ -9,7 +9,7 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { dormitoriesApi } from '@/main/api/dormitories.api';
 import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
-import type { Campus } from '@/types/profile';
+import type { Campus } from '@repo/shared/identity/primitives';
 
 interface BuildingSelectModalProps {
   campus: Campus;

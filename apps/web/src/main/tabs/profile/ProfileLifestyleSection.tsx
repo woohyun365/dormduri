@@ -1,7 +1,7 @@
 import { Cigarette, Moon, Sun, Coffee, Volume2, Sparkles, Heart, Edit2, Lock } from 'lucide-react';
 import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
 import { formatLifestyleOptionLabel } from '@repo/shared/lifestyle';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface ProfileLifestyleSectionProps {
   lifestyle: LifestyleData;

@@ -1,4 +1,4 @@
-import type { TabId } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
 
 interface MainFeatureFlagParams {
   campusOperated: boolean;

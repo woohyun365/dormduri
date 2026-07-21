@@ -9,7 +9,7 @@ import type { BookmarkListResponse } from '@repo/shared/social-safety/bookmark';
 import type { CreateBlockResponse } from '@repo/shared/social-safety/block';
 import type { CreateReportResponse } from '@repo/shared/social-safety/report';
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 
 export const ROOMMATE_STORY_AGE_BAND_CODES = ['20', '21', '22', '23', '24', '25_PLUS'] as const;
 

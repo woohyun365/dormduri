@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useMainProfileState } from '../useMainProfileState';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 
 const baseLifestyle: UserProfile['lifestyle'] = {
   bedtime: '22_24',

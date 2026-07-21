@@ -4,7 +4,7 @@ import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { EmptyState } from '@/main/components/feedback/EmptyState';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { Ban } from 'lucide-react';
-import type { BlockedUser } from '@/types/report';
+import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 
 interface BlockManageSheetProps {
   isOpen: boolean;

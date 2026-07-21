@@ -1,6 +1,6 @@
 import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 import type { RoommateProfileDetailTarget } from '../../hooks/useRoommateProfileDetail';
 import type { RoommateSearchStateSectionState } from '../../sections/empty-states/RoommateSearchStateSection';
 import type { UseRoommateSearchResult } from '../../hooks/useRoommateSearch';

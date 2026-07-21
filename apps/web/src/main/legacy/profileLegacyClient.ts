@@ -1,4 +1,5 @@
-import type { Campus, RoommateProfile } from '@/types/profile';
+import type { Campus } from '@repo/shared/identity/primitives';
+import type { RoommateProfile } from '@/main/model/profile';
 
 /**
  * Legacy matching/chat profile bridge.

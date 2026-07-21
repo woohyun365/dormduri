@@ -3,7 +3,7 @@ import {
   formatLifestyleOptionLabel,
 } from '@/main/model/lifestyleDisplayCopy';
 import { formatGradeLabel } from '@/main/model/profileDisplayCopy';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonProfileDraftResponse } from '@repo/shared/season/participation';
 
 const SEASON_PROFILE_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [

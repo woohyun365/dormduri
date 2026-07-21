@@ -1,4 +1,4 @@
-import { getCollegeCatalog, getCollegeLabel, type CollegeCode } from '@repo/shared/college';
+import { getCollegeCatalog, getCollegeLabel } from '@repo/shared/college';
 import { PROFILE_GRADE_VALUES, type PublicProfileAdditional } from '@repo/shared/profile/contract';
 
 const PROFILE_BIRTH_YEAR_MIN = 1998;
@@ -43,8 +43,6 @@ export const ADDITIONAL_FIELD_LABELS: Record<keyof PublicProfileAdditional, stri
   birthYear: '출생연도',
 };
 
-export type ProfileCollege = CollegeCode;
-export type ProfileGrade = NonNullable<PublicProfileAdditional['grade']>;
 export type ProfileAdditional = PublicProfileAdditional;
 
 export { getCollegeLabel };

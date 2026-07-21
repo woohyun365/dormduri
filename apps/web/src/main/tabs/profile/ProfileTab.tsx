@@ -27,18 +27,18 @@ import { LifestyleEditSheet } from '../../components/LifestyleEditSheet';
 import { ProfilePreviewSection } from './ProfilePreviewSection';
 import { ProfileLifestyleSection } from './ProfileLifestyleSection';
 import { ProfileAdditionalSection } from './ProfileAdditionalSection';
-import type { AdditionalProfile } from '@/types/additional-profile';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { ProfileAdditional } from '@/main/tabs/profile/model/profileFieldOptions';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
-import type { UserProfile, RoommateProfile } from '@/types/profile';
-import type { BlockedUser } from '@/types/report';
+import type { UserProfile, RoommateProfile } from '@/main/model/profile';
+import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 
 interface ProfileTabProps {
   user: UserProfile;
   onDormitoryChange: (dormitoryId: string | null) => void;
   onIntroChange: (intro: string) => void;
   onLifestyleChange: (lifestyle: LifestyleData) => void;
-  onAdditionalChange: (additional: AdditionalProfile) => void;
+  onAdditionalChange: (additional: ProfileAdditional) => void;
   onShowGuide?: () => void;
   blockedUsers?: BlockedUser[];
   onUnblock?: (userId: string, nickname: string) => void;
@@ -83,7 +83,7 @@ export default function ProfileTab({
     matchScore: 100,
   };
 
-  const handleAdditionalField = (field: keyof AdditionalProfile, value: string | null) => {
+  const handleAdditionalField = (field: keyof ProfileAdditional, value: string | null) => {
     const converted = field === 'birthYear' && value !== null ? Number(value) : value;
     onAdditionalChange({ ...user.additional, [field]: converted });
   };

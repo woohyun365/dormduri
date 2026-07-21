@@ -27,12 +27,12 @@ import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import { getMainTabDocumentTitle } from './utils/mainTabTitle';
 import { toMainSeasonContext, toMainLegacyUserProfile } from './utils/mainDashboardAdapters';
 import { getDormitoryDisplayFromSeasonOperations } from '@/main/model/dormitoryDisplay.adapter';
-import type { MatchingNavOptions, TabId } from '@/types/profile';
+import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import type { MatchingNavigationIntent } from './tabs/matching/model/matching-navigation-intent';
 import { formatCampusName } from './model/profileDisplayCopy';
 
-export type { TabId } from '@/types/profile';
+export type { TabId } from '@/main/model/navigation';
 
 function MainShellFrame({
   activeTab,

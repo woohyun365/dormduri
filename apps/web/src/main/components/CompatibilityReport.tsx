@@ -9,7 +9,7 @@ import {
   WAKE_TIME_ORDER,
   TEMPERATURE_SENSITIVITY_ORDER,
 } from '@/main/tabs/profile/model/lifestyleFormFields';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface CompatibilityReportProps {
   userLifestyle: LifestyleData;

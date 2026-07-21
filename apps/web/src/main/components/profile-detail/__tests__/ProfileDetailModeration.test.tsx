@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileDetailMoreMenu, ProfileDetailDialogs } from '../ProfileDetailModeration';
-import type { RoommateProfile } from '@/types/profile';
+import type { RoommateProfile } from '@/main/model/profile';
 import { createRef } from 'react';
 
 vi.mock('../../ProfileMoreMenu', () => ({

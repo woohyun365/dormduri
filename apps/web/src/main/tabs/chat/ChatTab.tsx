@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Archive, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 import type { ConversationThreadSummary } from '@repo/shared/chat';
-import type { MatchingNavOptions, TabId } from '@/types/profile';
+import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import ChatRoomView from './ChatRoomView';
 import { useChatThreadDetail } from './hooks/useChatThreadDetail';
 import { useChatThreads } from './hooks/useChatThreads';
