@@ -17,11 +17,8 @@ export function RoommateListTabStorySurface({ scenario }: RoommateListTabStorySu
 
   return (
     <SeasonProvider value={scenario.seasonContext}>
-      <div className="min-h-screen bg-(--knu-background-alt) px-0 py-4 sm:px-4">
-        <div
-          ref={rootRef}
-          className="mx-auto w-full max-w-md overflow-hidden rounded-4xl border border-(--knu-border) bg-white/80 shadow-sm lg:max-w-7xl lg:bg-white/70"
-        >
+      <div className="min-h-screen bg-(--knu-background-alt)">
+        <div ref={rootRef} className="min-h-screen w-full">
           <RoommateListTab
             user={scenario.viewer}
             searchEntryAllowed={scenario.searchEntryAllowed ?? true}

@@ -10,7 +10,7 @@ const cards: RoommateSummaryCardViewModel[] = [
     targetUserId: 'target-one',
     nickname: '첫 번째',
     intro: '아침형 생활을 선호해요.',
-    facts: [{ label: '흡연', value: '비흡연' }],
+    facts: [{ label: '흡연 여부', value: '비흡연' }],
     scoreLabel: '매칭점수 91점',
     summaryOnly: false,
     detailViewable: true,

@@ -83,7 +83,7 @@ export function applyRoommateSearchScopeChange(
   snapshot: RoommateSearchRuntimeSnapshot,
   scope: RoommateSearchScope,
 ): RoommateSearchRuntimeSnapshot {
-  return resetResults({
+  return prepareReplacement({
     ...snapshot,
     query: {
       ...snapshot.query,
@@ -99,7 +99,7 @@ export function applyRoommateSearchSortChange(
   snapshot: RoommateSearchRuntimeSnapshot,
   sort: RoommateSearchSort,
 ): RoommateSearchRuntimeSnapshot {
-  return resetResults({
+  return prepareReplacement({
     ...snapshot,
     query: {
       ...snapshot.query,
@@ -114,7 +114,7 @@ export function applyRoommateSearchFilters(
   snapshot: RoommateSearchRuntimeSnapshot,
   filters: RoommateSearchFilterCriteria,
 ): RoommateSearchRuntimeSnapshot {
-  return resetResults({
+  return prepareReplacement({
     ...snapshot,
     query: {
       ...snapshot.query,
@@ -129,7 +129,7 @@ export function removeRoommateSearchFilter(
   snapshot: RoommateSearchRuntimeSnapshot,
   key: RoommateSearchCriteriaFilterKey,
 ): RoommateSearchRuntimeSnapshot {
-  return resetResults({
+  return prepareReplacement({
     ...snapshot,
     query: {
       ...snapshot.query,
@@ -162,7 +162,7 @@ export function applyRoommateSearchManifestLoaded(
     notices: mapRoommateSearchAvailabilityNotices(response.availabilityNotices),
     statusMessage: sanitizeResult.statusMessage ?? snapshot.statusMessage,
     nextCursor: sanitizeResult.cursorShouldReset ? null : snapshot.nextCursor,
-    items: sanitizeResult.cursorShouldReset ? [] : snapshot.items,
+    items: snapshot.items,
     error: null,
   };
 }
@@ -197,7 +197,7 @@ export function recoverRoommateSearchInvalidQuery(
   response: RoommateSearchManifestResponse,
 ): RoommateSearchRuntimeSnapshot {
   const recovered = applyRoommateSearchManifestLoaded(snapshot, response);
-  return resetResults({
+  return prepareReplacement({
     ...recovered,
     status: 'idle',
     statusMessage: INVALID_QUERY_RECOVERED_MESSAGE,
@@ -229,5 +229,14 @@ function resetResults(snapshot: RoommateSearchRuntimeSnapshot): RoommateSearchRu
     response: null,
     nextCursor: null,
     items: [],
+  };
+}
+
+function prepareReplacement(
+  snapshot: RoommateSearchRuntimeSnapshot,
+): RoommateSearchRuntimeSnapshot {
+  return {
+    ...snapshot,
+    nextCursor: null,
   };
 }

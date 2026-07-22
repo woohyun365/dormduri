@@ -7,7 +7,7 @@ import {
 } from '../api/roommateProfileDetail.client';
 import { createRoommateApiError } from '../api/roommateApiErrors';
 import { isRoommateApiError, type RoommateApiError } from '../api/roommateSearch.client';
-import type { PublicProfile } from '@repo/shared/profile/contract';
+import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile/contract';
 import type { RoommatePendingMatchRequestViewModel } from '../model/search/roommateSearchViewModel';
 
 export interface RoommateProfileDetailTarget {
@@ -15,6 +15,7 @@ export interface RoommateProfileDetailTarget {
   readonly nickname: string;
   readonly detailEntryToken: string | null;
   readonly pendingMatchRequest?: RoommatePendingMatchRequestViewModel | null;
+  readonly actions?: PublicProfileActionCapabilities;
   readonly dormitoryLabel?: string | null;
 }
 

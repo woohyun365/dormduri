@@ -19,11 +19,11 @@ export function RoommateListControlsPanel({
   const className =
     variant === 'desktopAside'
       ? 'space-y-4 rounded-3xl border border-(--knu-border) bg-white/80 p-4 shadow-sm'
-      : 'space-y-4 rounded-none border-y border-(--knu-border) bg-transparent py-4 shadow-none lg:hidden';
+      : 'space-y-4 rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm lg:hidden';
 
   return (
     <section className={className} aria-label="검색 결과 설정">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-stretch gap-3 min-[361px]:flex-row min-[361px]:items-center min-[361px]:justify-between">
         <div className="inline-flex items-center gap-2">
           <Search className="h-4 w-4 text-(--knu-primary)" aria-hidden />
           <p className="text-sm font-bold text-(--knu-text-primary)">검색 결과</p>
@@ -98,7 +98,7 @@ function RoommateBookmarkOnlyToggle({
       aria-label="저장한 후보만 보기"
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition min-[361px]:w-auto disabled:cursor-not-allowed disabled:opacity-50 ${
         checked
           ? 'border-amber-200 bg-amber-50 text-amber-700'
           : 'border-(--knu-border) bg-white text-(--knu-text-secondary) hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700'

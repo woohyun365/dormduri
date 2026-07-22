@@ -18,7 +18,7 @@ import {
 } from './roommateSearchTestFixtures';
 
 describe('roommateSearchState', () => {
-  it('scope/sort/filter 변경은 cursor와 현재 items를 reset한다', () => {
+  it('scope/sort/filter 변경은 cursor만 reset하고 재조회 동안 현재 items를 유지한다', () => {
     const success = applyRoommateSearchSuccess(
       createInitialRoommateSearchSnapshot({ scope: 'SAME_BUILDING_ONLY', sort: 'MATCH_SCORE' }),
       createSearchResponse({ nextCursor: 'cursor-next' }),
@@ -32,8 +32,10 @@ describe('roommateSearchState', () => {
     expect(applyRoommateSearchScopeChange(success, 'SAME_BUILDING_ONLY').query.sort).toBe(
       'MATCH_SCORE',
     );
-    expect(applyRoommateSearchSortChange(success, 'NICKNAME').items).toEqual([]);
-    expect(applyRoommateSearchFilters(success, { smokingBehavior: 'NO' }).items).toEqual([]);
+    expect(applyRoommateSearchSortChange(success, 'NICKNAME').items).toEqual(success.items);
+    expect(applyRoommateSearchFilters(success, { smokingBehavior: 'NO' }).items).toEqual(
+      success.items,
+    );
   });
 
   it('response embedded manifest를 preflight manifest보다 우선해서 query를 다시 sanitize한다', () => {
@@ -61,7 +63,7 @@ describe('roommateSearchState', () => {
     expect(success.items.map((item) => item.id)).toEqual(['campus-1']);
   });
 
-  it('manifest가 scope를 조정하면 cursor와 items를 reset한다', () => {
+  it('manifest가 scope를 조정해도 새 결과가 오기 전까지 기존 items를 유지한다', () => {
     const current = applyRoommateSearchSuccess(
       createInitialRoommateSearchSnapshot({ scope: 'SAME_BUILDING_ONLY', sort: 'MATCH_SCORE' }),
       createSearchResponse({ items: [createSummary('old')], nextCursor: 'cursor-old' }),
@@ -75,7 +77,7 @@ describe('roommateSearchState', () => {
     expect(updated.query.scope).toBe('CAMPUS_MERGED');
     expect(updated.query.sort).toBe('NICKNAME');
     expect(updated.nextCursor).toBeNull();
-    expect(updated.items).toEqual([]);
+    expect(updated.items).toEqual(current.items);
     expect(updated.statusMessage).toContain('조정');
   });
 

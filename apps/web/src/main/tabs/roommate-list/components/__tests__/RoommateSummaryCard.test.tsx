@@ -20,9 +20,15 @@ const baseCard: RoommateSummaryCardViewModel = {
   summaryOnly: false,
   detailViewable: true,
   pendingMatchRequest: null,
+  actions: {
+    canBookmark: true,
+    canRequestMatch: false,
+    canStartChat: false,
+    unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+  },
   actionStateLabel: '매칭 요청 가능',
   actionStateBadges: [
-    { label: '대화 가능', tone: 'green' },
+    { label: '대화 불가', tone: 'amber' },
     { label: '매칭 신청 불가', tone: 'amber' },
     { label: '매칭 기간에만 매칭이 가능해요', tone: 'slate' },
   ],
@@ -43,8 +49,11 @@ describe('RoommateSummaryCard', () => {
     const { container } = render(<RoommateSummaryCard item={baseCard} />);
 
     const article = screen.getByRole('article', { name: '테스트 룸메이트' });
+    const intro = within(article).getByText('조용한 생활을 선호해요.');
     expect(article).toBeInTheDocument();
-    expect(within(article).getByText('조용한 생활을 선호해요.')).toBeInTheDocument();
+    expect(within(article).getByText('자기소개')).toBeInTheDocument();
+    expect(intro).toHaveClass('text-(--knu-text-secondary)');
+    expect(intro.closest('section')).toHaveClass('border-slate-100', 'bg-(--knu-background-alt)');
     expect(within(article).getByText('매칭점수 88점')).toBeInTheDocument();
     expect(within(article).getAllByText('비흡연').length).toBeGreaterThan(0);
     expect(within(article).getAllByText('잠버릇 없음').length).toBeGreaterThan(0);
@@ -57,7 +66,7 @@ describe('RoommateSummaryCard', () => {
     expect(within(article).getByText('프로필 열람 가능')).toBeInTheDocument();
     expect(within(article).queryByText('현재 매칭 결과 읽기')).not.toBeInTheDocument();
     expect(within(article).queryByText('관심 목록에 있음')).not.toBeInTheDocument();
-    expect(within(article).getByText('대화 가능')).toHaveClass('text-emerald-700');
+    expect(within(article).getByText('대화 불가')).toHaveClass('text-amber-700');
     expect(within(article).getByText('매칭 신청 불가')).toHaveClass('text-amber-700');
     expect(within(article).getByText('매칭 기간에만 매칭이 가능해요')).toHaveClass(
       'text-slate-600',
@@ -103,7 +112,10 @@ describe('RoommateSummaryCard', () => {
 
     const placeholder = screen.getByText('-');
     expect(placeholder).toHaveClass('text-slate-500');
-    expect(placeholder.closest('div')).toHaveClass('bg-slate-50');
+    expect(placeholder.closest('section')).toHaveClass(
+      'border-slate-100',
+      'bg-(--knu-background-alt)',
+    );
   });
 
   it('summary-only card는 score/token/private field를 노출하지 않는다', () => {
@@ -206,11 +218,20 @@ describe('RoommateSummaryCard', () => {
             accessibilityLabel: '테스트 룸메이트 채팅하기',
           },
         }}
+        detailAction={{
+          enabled: true,
+          label: '프로필 열람하기',
+          accessibilityLabel: '테스트 룸메이트 프로필 열람하기',
+          onOpen: vi.fn(),
+        }}
         onStartChat={onStartChat}
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '테스트 룸메이트 채팅하기' }));
+    const chatButton = screen.getByRole('button', { name: '테스트 룸메이트 채팅하기' });
+    expect(chatButton.closest('footer')).toHaveClass('grid', 'sm:grid-cols-2');
+    expect(chatButton.closest('footer')).not.toHaveClass('grid-cols-2');
+    await userEvent.click(chatButton);
     expect(onStartChat).toHaveBeenCalledWith(
       expect.objectContaining({ targetUserId: 'target-1', nickname: '테스트 룸메이트' }),
     );

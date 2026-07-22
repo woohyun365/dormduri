@@ -64,15 +64,16 @@ describe('RoommateTab Storybook architecture boundary', () => {
     expect(fixtureSource).toContain('return originalFetch(input, init)');
   });
 
-  it('lets every scenario respond to the actual Storybook viewport instead of clamping non-desktop stories to mobile width', () => {
+  it('lets every scenario use the production full-width shell without a Storybook-only outer card', () => {
     const rendererSource = readFileSync(
       join(ROOMMATE_ROOT, '__stories__/roommate-story-renderer.tsx'),
       'utf8',
     );
     const storySource = readStorybookStorySources();
 
-    expect(rendererSource).toContain('max-w-md');
-    expect(rendererSource).toContain('lg:max-w-7xl');
+    expect(rendererSource).toContain('min-h-screen w-full');
+    expect(rendererSource).not.toContain('rounded-4xl border');
+    expect(rendererSource).not.toContain('max-w-md');
     expect(rendererSource).toContain('candidate && !candidate.disabled');
     expect(storySource).toContain('OffSeasonClosed');
     expect(storySource).toContain('seasonOpenRegistered');

@@ -1,4 +1,5 @@
-import { ClipboardCheck, RefreshCw, Search } from 'lucide-react';
+import { ClipboardCheck, Handshake, RefreshCw, Search } from 'lucide-react';
+import { PairMatchingEmptyState } from '@/main/tabs/matching/components/pair/PairMatchingEmptyState';
 
 export type RoommateSearchStateSectionState =
   | { readonly kind: 'closed'; readonly message: string }
@@ -24,12 +25,18 @@ interface RoommateSearchStateSectionProps {
 export function RoommateSearchStateSection({ state }: RoommateSearchStateSectionProps) {
   if (state.kind === 'closed') {
     return (
-      <section
-        role="status"
-        className="mt-5 rounded-3xl border border-(--knu-border) bg-white p-6 text-center shadow-sm"
-      >
-        <Search className="mx-auto h-8 w-8 text-(--knu-text-tertiary)" />
-        <p className="mt-3 text-sm font-semibold text-(--knu-text-primary)">{state.message}</p>
+      <section role="status" className="min-w-0">
+        <PairMatchingEmptyState
+          icon={Handshake}
+          title="현재는 비시즌입니다"
+          description={
+            <>
+              <span className="block">새로운 룸메이트 탐색은 다음 시즌에 열려요.</span>
+              <span className="mt-1 block">{state.message}</span>
+            </>
+          }
+          tone="blue"
+        />
       </section>
     );
   }
@@ -55,11 +62,8 @@ export function RoommateSearchStateSection({ state }: RoommateSearchStateSection
 
   if (state.kind === 'loading') {
     return (
-      <section
-        role="status"
-        className="rounded-3xl border border-(--knu-border) bg-white p-5 shadow-sm"
-      >
-        <div className="text-center">
+      <section role="status" className="min-w-0">
+        <div className="px-3 text-center">
           <p className="text-sm font-semibold text-(--knu-text-primary)">
             {LOADING_SEARCH_MESSAGE}
           </p>
@@ -126,7 +130,7 @@ export function RoommateSearchStateSection({ state }: RoommateSearchStateSection
 
 function RoommateSearchLoadingSkeletonCard() {
   return (
-    <div className="rounded-2xl border-2 border-(--knu-border) bg-white p-4">
+    <div className="min-w-0 overflow-hidden rounded-2xl border-2 border-(--knu-border) bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-slate-200" />

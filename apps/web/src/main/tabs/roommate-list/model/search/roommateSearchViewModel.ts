@@ -8,11 +8,12 @@ import type {
   PublicProfileActionCapabilities,
   PublicTargetActionUnavailableReason,
 } from '@repo/shared/profile/contract';
+import {
+  buildProfileSummaryFacts,
+  type ProfileSummaryFact,
+} from '@/main/model/profileSummaryFacts';
 
-export interface RoommateSummaryCardFactViewModel {
-  readonly label: string;
-  readonly value: string;
-}
+export type RoommateSummaryCardFactViewModel = ProfileSummaryFact;
 
 export interface RoommateBookmarkActionViewModel {
   readonly visible: boolean;
@@ -39,7 +40,6 @@ export interface RoommatePendingMatchRequestViewModel {
   readonly id: string;
   readonly direction: RoommateSearchPendingMatchRequest['direction'];
   readonly label: string;
-  readonly description: string;
 }
 
 export interface RoommateSummaryCardViewModel {
@@ -53,6 +53,7 @@ export interface RoommateSummaryCardViewModel {
   readonly summaryOnly: boolean;
   readonly detailViewable: boolean;
   readonly pendingMatchRequest: RoommatePendingMatchRequestViewModel | null;
+  readonly actions?: PublicProfileActionCapabilities;
   readonly profileVisibilityBadge?: RoommateSummaryCardStatusBadgeViewModel | null;
   readonly actionStateLabel: string;
   readonly actionStateBadges?: readonly RoommateSummaryCardStatusBadgeViewModel[];
@@ -60,12 +61,6 @@ export interface RoommateSummaryCardViewModel {
   readonly bookmarkAction: RoommateBookmarkActionViewModel | null;
   readonly chatAction?: RoommateChatActionViewModel | null;
   readonly detailEntryToken: string | null;
-}
-
-interface SummaryFactSource {
-  readonly smokingBehavior: string | null;
-  readonly sleepHabit: string | null;
-  readonly relationshipStyle: string | null;
 }
 
 export interface RoommateCardBookmarkStateOptions {
@@ -108,11 +103,12 @@ export function mapRoommateSearchItemToCardViewModel(
     nickname: item.profileSummary.nickname,
     intro: normalizeIntro(item.profileSummary.intro),
     metadataLabel: buildSearchCardMetadataLabel(detailViewable, options.summaryContextLabel),
-    facts: buildSummaryFacts(item.profileSummary),
+    facts: buildProfileSummaryFacts(item.profileSummary),
     scoreLabel: buildScoreLabel(item),
     summaryOnly: !detailViewable,
     detailViewable,
     pendingMatchRequest,
+    actions: item.actions,
     profileVisibilityBadge,
     actionStateLabel: buildActionStateLabel(item.actions, pendingMatchRequest, activeChatThread),
     actionStateBadges,
@@ -158,7 +154,7 @@ export function mapBookmarkListItemToCardViewModel(
     nickname,
     intro: profileSummary ? normalizeIntro(profileSummary.intro) : HIDDEN_BOOKMARK_INTRO_COPY,
     metadataLabel: '관심 목록',
-    facts: profileSummary ? buildSummaryFacts(profileSummary) : [],
+    facts: profileSummary ? buildProfileSummaryFacts(profileSummary) : [],
     scoreLabel: buildBookmarkScoreLabel(item),
     summaryOnly: true,
     detailViewable: false,
@@ -185,16 +181,6 @@ export function mapBookmarkListItemToCardViewModel(
 function normalizeIntro(intro: string): string {
   const trimmed = intro.trim();
   return trimmed.length > 0 ? trimmed : EMPTY_INTRO_COPY;
-}
-
-function buildSummaryFacts(
-  summary: SummaryFactSource,
-): readonly RoommateSummaryCardFactViewModel[] {
-  return [
-    { label: '흡연 여부', value: smokingBehaviorLabel(summary.smokingBehavior) },
-    { label: '잠버릇', value: sleepHabitLabel(summary.sleepHabit) },
-    { label: '관계', value: relationshipStyleLabel(summary.relationshipStyle) },
-  ];
 }
 
 function buildScoreLabel(item: RoommateSearchSummary): string | null {
@@ -266,7 +252,6 @@ function buildPendingMatchRequestViewModel(
       id: pendingMatchRequest.id,
       direction: pendingMatchRequest.direction,
       label: '이미 요청을 보낸 사용자',
-      description: '상대의 응답을 기다리는 중이에요.',
     };
   }
 
@@ -274,7 +259,6 @@ function buildPendingMatchRequestViewModel(
     id: pendingMatchRequest.id,
     direction: pendingMatchRequest.direction,
     label: '매칭 요청을 받은 사용자',
-    description: '매칭 탭에서 수락하거나 거절할 수 있어요.',
   };
 }
 
@@ -308,15 +292,10 @@ function buildActionStateBadges(
 
   const badges: RoommateSummaryCardStatusBadgeViewModel[] = [];
 
-  if (actions.canStartChat) {
-    badges.push(
-      activeChatThread ? { label: '대화 중', tone: 'teal' } : { label: '대화 가능', tone: 'green' },
-    );
-  } else {
-    badges.push({
-      label: '대화 불가',
-      tone: 'amber',
-    });
+  if (actions.canStartChat && activeChatThread) {
+    badges.push({ label: '대화 중', tone: 'teal' });
+  } else if (!actions.canStartChat) {
+    badges.push({ label: '대화 불가', tone: 'amber' });
   }
 
   if (pendingMatchRequest) {
@@ -386,7 +365,10 @@ function actionUnavailableReasonLabel(reason: PublicTargetActionUnavailableReaso
     THREAD_READ_ONLY: '기존 대화 읽기 전용 상태예요',
     TARGET_DELETED_OR_DEIDENTIFIED: '상대 정보가 더 이상 제공되지 않아요',
     SAFETY_OR_VISIBILITY_RESTRICTED: '서버 오류로 이용할 수 없어요. 목록을 새로고침해 주세요',
+    MATCH_REQUEST_ALREADY_PENDING: '진행 중인 매칭 요청이 있어요',
+    MATCH_REQUEST_PENDING_LIMIT_REACHED: '진행 중인 요청을 먼저 확인해 주세요',
     MATCH_REQUEST_DIRECTION_LIMIT_REACHED: '매칭 요청 횟수 초과',
+    MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE: '잠시 후 다시 요청할 수 있어요',
   };
   return labels[reason];
 }
@@ -395,36 +377,4 @@ function normalizeDetailEntryToken(token: string | undefined): string | null {
   if (!token) return null;
   const trimmed = token.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function smokingBehaviorLabel(value: string | null): string {
-  if (!value) return '비공개';
-  const labels: Record<string, string> = {
-    NO: '비흡연',
-    E_CIG: '전자담배',
-    YES: '흡연',
-  };
-  return labels[value] ?? value;
-}
-
-function sleepHabitLabel(value: string | null): string {
-  if (!value) return '비공개';
-  const labels: Record<string, string> = {
-    NONE: '잠버릇 없음',
-    TALKING: '잠버릇 있음',
-    SNORING: '잠버릇 있음',
-    GRINDING: '잠버릇 있음',
-    HAS: '잠버릇 있음',
-  };
-  return labels[value] ?? value;
-}
-
-function relationshipStyleLabel(value: string | null): string {
-  if (!value) return '비공개';
-  const labels: Record<string, string> = {
-    CLOSE: '친하게 지내요',
-    CASUAL: '각자 생활해요',
-    DISTANT: '각자 생활해요',
-  };
-  return labels[value] ?? value;
 }
