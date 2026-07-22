@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const webSourceRoot = join(process.cwd(), 'src');
 const legacyTypesRoot = join(webSourceRoot, 'types');
+const legacyUtilsRoot = join(webSourceRoot, 'utils');
 
 function listTypeScriptSources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -13,7 +14,7 @@ function listTypeScriptSources(directory: string): string[] {
   });
 }
 
-describe('Web type ownership boundary', () => {
+describe('Web ownership boundary', () => {
   it('root compatibility types directory를 다시 만들지 않는다', () => {
     expect(existsSync(legacyTypesRoot)).toBe(false);
   });
@@ -23,6 +24,15 @@ describe('Web type ownership boundary', () => {
       /from\s+['"]@\/types(?:\/|['"])/u.test(readFileSync(path, 'utf8')),
     );
 
+    expect(staleImports).toEqual([]);
+  });
+
+  it('root compatibility utils directory와 import를 다시 만들지 않는다', () => {
+    const staleImports = listTypeScriptSources(webSourceRoot).filter((path) =>
+      /from\s+['"]@\/utils\//u.test(readFileSync(path, 'utf8')),
+    );
+
+    expect(existsSync(legacyUtilsRoot)).toBe(false);
     expect(staleImports).toEqual([]);
   });
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { focusAndScroll } from '@/utils/focus';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 
 interface PasswordResetCompleteStepProps {
   onGoToLogin: () => void;

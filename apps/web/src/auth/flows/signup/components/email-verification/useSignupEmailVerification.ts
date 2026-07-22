@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthCountdown } from '@/auth/hooks';
-import { validateKnuEmail } from '@/utils/validation';
+import { validateKnuEmailFormat as validateKnuEmail } from '@repo/shared/auth/policy';
 import { SIGNUP_VERIFICATION_CODE_TTL } from '@/auth/model';
 import { authApi } from '@/auth/api';
 

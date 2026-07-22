@@ -5,9 +5,9 @@ import {
   GRADE_OPTIONS,
   getCollegeLabel,
 } from '@/main/tabs/profile/model/profileFieldOptions';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
+import { formatDormitoryDisplayLabel } from '@/main/model/dormitoryDisplay.adapter';
 import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
-import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { CompatibilityReport } from '../CompatibilityReport';
 import type { ProfileDetailMatchScoreType } from './model/profileDetailMatchAction';
 import type { RoommateProfile } from '@/main/model/profile';
@@ -45,7 +45,7 @@ export function ProfileDetailBody({
   scoreType = 'full',
   userLifestyle,
 }: ProfileDetailBodyProps) {
-  const dormLabel = getDormitoryLabel(profile.dormitoryId, profile.dormitory);
+  const dormLabel = formatDormitoryDisplayLabel(profile.dormitoryId, profile.dormitory);
   const avatarColor = getAvatarColor(profile.nickname);
 
   return (

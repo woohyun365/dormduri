@@ -8,8 +8,9 @@ import { PasswordRequirementList } from '@/auth/components';
 import { StepHeader } from '@/auth/components/StepHeader';
 import { InputField } from '@/auth/components/form/InputField';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/auth/model';
-import { focusAndScroll } from '@/utils/focus';
-import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
+import { validatePasswordConfirm } from '@/auth/model/authFormValidation';
+import { validatePasswordStructure as validatePassword } from '@repo/shared/auth/policy';
 import type { PasswordResetActionResult } from '../model/password-reset-flow.types';
 
 interface PasswordResetNewPasswordStepProps {

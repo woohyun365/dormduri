@@ -2,7 +2,7 @@
 
 import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { EmptyState } from '@/main/components/feedback/EmptyState';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import { Ban } from 'lucide-react';
 import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 

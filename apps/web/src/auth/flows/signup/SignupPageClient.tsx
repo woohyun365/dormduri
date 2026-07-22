@@ -14,7 +14,7 @@ import { SignupGlobalAlert } from './components/SignupGlobalAlert';
 import { authApi } from '@/auth/api';
 import { createSignupRequest } from './model/signup-request.mapper';
 import { useRedirectIfAuthenticated } from '@/auth/hooks';
-import { focusAndScroll } from '@/utils/focus';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import { useSignupDraftStorage } from './hooks/useSignupDraftStorage';
 import { SIGNUP_DRAFT_STORAGE_KEY } from './model/signup-draft-storage';
 import type { SignupDraftSnapshot } from './model/signup-draft.types';

@@ -20,3 +20,11 @@ export function getDormitoryDisplayFromSeasonOperations(
   const operation = operations.find((item) => item.dormitoryId === dormitoryId);
   return operation?.dormitory ?? null;
 }
+
+export function formatDormitoryDisplayLabel(
+  dormitoryId: string | null | undefined,
+  dormitory: DormitoryPublicSummary | null | undefined,
+): string {
+  if (!dormitoryId || dormitory?.id !== dormitoryId) return '';
+  return `${dormitory.name} ${dormitory.roomType}인실`;
+}

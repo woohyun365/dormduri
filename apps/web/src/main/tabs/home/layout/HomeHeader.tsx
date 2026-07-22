@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 import { AlertTriangle, Building2, Calendar, School } from 'lucide-react';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeHeaderProps {

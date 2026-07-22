@@ -8,13 +8,17 @@ import { StepHeader } from '@/auth/components/StepHeader';
 import { StepNavigation } from './StepNavigation';
 import { FieldError } from '@/auth/components/form/FieldError';
 import { Chip } from '@/components/ui/Chip';
-import { validatePassword, validatePasswordConfirm, validateNickname } from '@/utils/validation';
+import { validatePasswordConfirm } from '@/auth/model/authFormValidation';
+import { validatePasswordStructure as validatePassword } from '@repo/shared/auth/policy';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/auth/model';
 import { CAMPUS_OPTIONS } from '../model/campus-options';
 import { PasswordRequirementList } from '@/auth/components';
-import { DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH } from '@repo/shared/user/identity';
+import {
+  DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH,
+  validateDisplayIdentityNicknameStructure as validateNickname,
+} from '@repo/shared/user/identity';
 import { User } from 'lucide-react';
-import { focusAndScroll } from '@/utils/focus';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import { authApi } from '@/auth/api';
 
 import type { Campus } from '@repo/shared/auth';

@@ -3,7 +3,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { formatCampusName } from '@/main/model/profileDisplayCopy';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
-import { isDormitoryAssigned } from '@/utils/dormitory';
 import {
   RoommateListControlsPanel,
   RoommateListDesktopAsideSkeleton,
@@ -76,7 +75,7 @@ export default function RoommateListTab({
     searchClosedMessage,
   });
   const searchClosed = closedMessage !== null;
-  const assignedDormitory = isDormitoryAssigned(user.dormitoryId) ? (user.dormitory ?? null) : null;
+  const assignedDormitory = user.dormitory?.id === user.dormitoryId ? user.dormitory : null;
   const registeredWithDormitory =
     (viewerSeasonRegistered ?? assignedDormitory !== null) && assignedDormitory !== null;
   const search = useRoommateSearch({

@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  validateKnuEmail,
-  validatePassword,
-  validatePasswordConfirm,
-  validateNickname,
-} from '../validation';
+  validateKnuEmailFormat as validateKnuEmail,
+  validatePasswordStructure as validatePassword,
+} from '@repo/shared/auth/policy';
+import { validateDisplayIdentityNicknameStructure as validateNickname } from '@repo/shared/user/identity';
+import { validatePasswordConfirm } from '../authFormValidation';
 
 describe('validateKnuEmail', () => {
   it('정상 강원대 이메일 -> 빈 문자열', () => {

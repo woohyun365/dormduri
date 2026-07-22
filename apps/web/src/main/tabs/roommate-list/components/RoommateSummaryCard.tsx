@@ -11,7 +11,7 @@ import {
   UserRoundSearch,
   Users,
 } from 'lucide-react';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
 import {
   CounterpartActionFooter,

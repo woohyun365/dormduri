@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { StepHeader } from '@/auth/components/StepHeader';
 import { InputField } from '@/auth/components/form/InputField';
-import { focusAndScroll } from '@/utils/focus';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import type { PasswordResetActionResult } from '../model/password-reset-flow.types';
 
 interface PasswordResetVerificationStepProps {

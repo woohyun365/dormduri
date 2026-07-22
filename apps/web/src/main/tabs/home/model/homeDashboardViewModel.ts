@@ -3,7 +3,6 @@ import {
   type DormitoryDisplayItem,
 } from '@/main/model/dormitoryDisplay.adapter';
 import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
-import { isDormitoryAssigned } from '@/utils/dormitory';
 import {
   calcDaysUntilTimestamp,
   formatDateDot,
@@ -199,7 +198,7 @@ export function buildHomeDashboardViewModel({
   const hasDashboardAssignedDormitory =
     (dashboard.viewer.selection.state === 'SELECTED' ||
       dashboard.viewer.selection.state === 'ASSIGNED') &&
-    isDormitoryAssigned(selectedDormitoryId);
+    selectedDormitoryId !== null;
   const isUnassigned = !hasDashboardAssignedDormitory;
   const dormitory = hasDashboardAssignedDormitory
     ? getDormitoryDisplayFromSeasonOperations(

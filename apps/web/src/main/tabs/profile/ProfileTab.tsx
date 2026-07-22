@@ -19,7 +19,7 @@ import { ComingSoonBadge } from '@/main/tabs/profile/components/ComingSoonBadge'
 import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
 import { InlineTextEditor } from '@/main/tabs/profile/components/InlineTextEditor';
 import { SEASON_PROFILE_INTRO_MAX_LENGTH } from '@repo/shared/season/participation';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import { BuildingSelectModal } from '../../components/BuildingSelectModal';
 import { BlockManageSheet } from '../../components/BlockManageSheet';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
