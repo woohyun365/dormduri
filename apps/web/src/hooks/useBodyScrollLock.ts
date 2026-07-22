@@ -3,23 +3,13 @@ import { useEffect } from 'react';
 interface BodyScrollLockSnapshot {
   bodyOverflow: string;
   bodyPaddingRight: string;
-  bodyPosition: string;
-  bodyTop: string;
-  bodyLeft: string;
-  bodyRight: string;
-  bodyWidth: string;
   documentOverflow: string;
-  scrollY: number;
 }
 
 const lockState: { count: number; snapshot: BodyScrollLockSnapshot | null } = {
   count: 0,
   snapshot: null,
 };
-
-function getCurrentScrollY() {
-  return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-}
 
 function getScrollbarWidth() {
   const documentWidth = document.documentElement.clientWidth;
@@ -38,28 +28,18 @@ function shouldCompensateScrollbar() {
 function applyBodyScrollLock() {
   const body = document.body;
   const documentElement = document.documentElement;
-  const scrollY = getCurrentScrollY();
   const scrollbarWidth = getScrollbarWidth();
 
   lockState.snapshot = {
     bodyOverflow: body.style.overflow,
     bodyPaddingRight: body.style.paddingRight,
-    bodyPosition: body.style.position,
-    bodyTop: body.style.top,
-    bodyLeft: body.style.left,
-    bodyRight: body.style.right,
-    bodyWidth: body.style.width,
     documentOverflow: documentElement.style.overflow,
-    scrollY,
   };
 
-  body.style.overflow = 'hidden';
-  body.style.position = 'fixed';
-  body.style.top = scrollY > 0 ? `-${scrollY}px` : '0px';
-  body.style.left = '0';
-  body.style.right = '0';
-  body.style.width = '100%';
-  documentElement.style.overflow = 'hidden';
+  // `hidden`은 새 scroll container를 만들어 background의 sticky header 기준을 바꾼다.
+  // `clip`은 scrolling 자체를 막되 scroll container는 만들지 않아 현재 sticky 위치를 보존한다.
+  body.style.overflow = 'clip';
+  documentElement.style.overflow = 'clip';
 
   if (scrollbarWidth > 0 && shouldCompensateScrollbar()) {
     const currentPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
@@ -77,13 +57,7 @@ function restoreBodyScrollLock() {
 
   body.style.overflow = snapshot.bodyOverflow;
   body.style.paddingRight = snapshot.bodyPaddingRight;
-  body.style.position = snapshot.bodyPosition;
-  body.style.top = snapshot.bodyTop;
-  body.style.left = snapshot.bodyLeft;
-  body.style.right = snapshot.bodyRight;
-  body.style.width = snapshot.bodyWidth;
   documentElement.style.overflow = snapshot.documentOverflow;
-  window.scrollTo(0, snapshot.scrollY);
   lockState.snapshot = null;
 }
 

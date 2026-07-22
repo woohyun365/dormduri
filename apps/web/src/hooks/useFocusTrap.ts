@@ -19,7 +19,7 @@ export function useFocusTrap(
 
     // Focus the container on open
     const timer = setTimeout(() => {
-      containerRef.current?.focus();
+      containerRef.current?.focus({ preventScroll: true });
     }, 0);
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -41,12 +41,12 @@ export function useFocusTrap(
       if (e.shiftKey) {
         if (document.activeElement === first) {
           e.preventDefault();
-          last.focus();
+          last.focus({ preventScroll: true });
         }
       } else {
         if (document.activeElement === last) {
           e.preventDefault();
-          first.focus();
+          first.focus({ preventScroll: true });
         }
       }
     };
@@ -56,7 +56,7 @@ export function useFocusTrap(
     return () => {
       clearTimeout(timer);
       document.removeEventListener('keydown', handleKeyDown);
-      previousFocusRef.current?.focus();
+      previousFocusRef.current?.focus({ preventScroll: true });
     };
   }, [isOpen]);
 
