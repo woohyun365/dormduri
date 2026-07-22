@@ -1,37 +1,30 @@
 import { LandingSentenceText } from '../components/LandingSentenceText';
 import { Section } from '../components/Section';
-import { landingTrustBoundaryItems } from '../content/landing-copy';
+import { landingTrustBoundaryCopy, landingTrustBoundaryItems } from '../content/landing-copy';
+import { LandingTrustBoundaryCard } from './trust-boundary/LandingTrustBoundaryCard';
 
 export function LandingTrustBoundarySection() {
   return (
     <Section id="trust-boundary" background="alt" className="py-14 md:py-18">
-      <div className="mb-8 max-w-3xl">
-        <p className="text-sm font-semibold text-(--knu-primary) mb-3">먼저 확인할 경계</p>
-        <h2 className="text-3xl md:text-4xl font-bold text-(--knu-text-primary) mb-4">
-          서비스 경계를 먼저 확인하세요
-        </h2>
-        <LandingSentenceText
-          text="KNU 룸메는 룸메이트 탐색을 돕는 공개 서비스입니다. 학교가 결정하는 기숙사 배정·호실 선택과 서비스 안의 매칭은 서로 다른 영역입니다."
-          className="text-lg text-(--knu-text-secondary) leading-relaxed"
-        />
-      </div>
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(260px,0.7fr)_minmax(0,1.3fr)] lg:items-start lg:gap-12">
+        <div className="max-w-md">
+          <p className="mb-3 text-sm font-semibold text-(--knu-primary)">
+            {landingTrustBoundaryCopy.eyebrow}
+          </p>
+          <h2 className="mb-4 text-3xl/10 font-bold tracking-tight text-(--knu-text-primary) md:text-4xl/12">
+            {landingTrustBoundaryCopy.title}
+          </h2>
+          <LandingSentenceText
+            text={landingTrustBoundaryCopy.description}
+            className="text-base/7 text-(--knu-text-secondary) sm:text-lg/8"
+          />
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {landingTrustBoundaryItems.map((item) => (
-          <article
-            key={item.id}
-            className="bg-white border-2 border-(--knu-border) rounded-2xl p-5"
-          >
-            <div className="w-12 h-12 rounded-xl bg-(--knu-primary-light) flex items-center justify-center mb-4">
-              <item.icon className={`w-6 h-6 ${item.iconColor}`} aria-hidden="true" />
-            </div>
-            <h3 className="text-lg font-bold text-(--knu-text-primary) mb-2">{item.title}</h3>
-            <LandingSentenceText
-              text={item.description}
-              className="text-sm text-(--knu-text-secondary) leading-relaxed"
-            />
-          </article>
-        ))}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          {landingTrustBoundaryItems.map((item) => (
+            <LandingTrustBoundaryCard key={item.id} item={item} />
+          ))}
+        </div>
       </div>
     </Section>
   );

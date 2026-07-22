@@ -12,7 +12,7 @@ import {
   LANDING_POLICY_LINKED_CONTENT_GROUPS,
   landingSeasonPolicyCards,
 } from '../content/landing-copy';
-import { landingProfilePreviewItems } from '../content/landing-profile-preview.examples';
+import { landingHeroProfilePreview } from '../content/landing-profile-preview.examples';
 import type { LandingPolicyCopyId } from '../content/landing-content.types';
 
 const FORBIDDEN_PUBLIC_CONTENT_PATTERNS = [
@@ -148,21 +148,18 @@ describe('landing content policy contract', () => {
   });
 
   it('marks profile preview examples as examples instead of real users or guaranteed results', () => {
-    expect(landingProfilePreviewItems.length).toBeGreaterThanOrEqual(2);
+    const profile = landingHeroProfilePreview;
 
-    for (const profile of landingProfilePreviewItems) {
-      expect(profile.displayDormitoryLabel).toMatch(/^(다온관|새롬관|이룸관) \((남|여)\)$/);
-      expect(profile.displayDormitoryLabel).not.toContain('예시');
-      expect(profile.profileSummary.intro).not.toContain('예시');
-      expect('message' in profile).toBe(false);
-      expect(profile.profileSummary.smokingBehavior).not.toBeNull();
-      expect(profile.profileSummary.sleepHabit).not.toBeNull();
-      expect(profile.profileSummary.relationshipStyle).not.toBeNull();
-      expect(profile.actions.canRequestMatch).toBe(true);
-      expect(profile.actions.canStartChat).toBe(true);
-      expect(profile.exposure.scoreVisible).toBe(true);
-      expect(profile.matchScore).toBeGreaterThan(0);
-      expect(profile.matchScore).toBeLessThanOrEqual(100);
-    }
+    expect(profile.displayDormitoryLabel).toMatch(/^(다온관|새롬관|이룸관) \((남|여)\)$/);
+    expect(profile.displayDormitoryLabel).not.toContain('예시');
+    expect(profile.profileSummary.intro).not.toContain('예시');
+    expect('message' in profile).toBe(false);
+    expect(profile.profileSummary.smokingBehavior).not.toBeNull();
+    expect(profile.profileSummary.sleepHabit).not.toBeNull();
+    expect(profile.profileSummary.relationshipStyle).not.toBeNull();
+    expect(profile.matchScore).toBeGreaterThan(0);
+    expect(profile.matchScore).toBeLessThanOrEqual(100);
+    expect(profile).not.toHaveProperty('actions');
+    expect(profile).not.toHaveProperty('exposure');
   });
 });

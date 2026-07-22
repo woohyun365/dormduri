@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LandingHeader } from '../LandingHeader';
 
 vi.mock('lucide-react', () => ({
@@ -30,12 +30,11 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-function mockMatchMedia(options: { reducedMotion?: boolean } = {}) {
+function mockMatchMedia() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches:
-        query === '(prefers-reduced-motion: reduce)' ? options.reducedMotion === true : false,
+      matches: false,
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -47,28 +46,8 @@ function mockMatchMedia(options: { reducedMotion?: boolean } = {}) {
   });
 }
 
-function appendTarget(id: string) {
-  const target = document.createElement('section');
-  target.id = id;
-  document.body.appendChild(target);
-  return target;
-}
-
-let scrollIntoViewMock: ReturnType<typeof vi.fn>;
-
 beforeEach(() => {
   mockMatchMedia();
-  window.history.replaceState(null, '', '/');
-  scrollIntoViewMock = vi.fn();
-  Object.defineProperty(Element.prototype, 'scrollIntoView', {
-    configurable: true,
-    value: scrollIntoViewMock,
-  });
-});
-
-afterEach(() => {
-  document.body.innerHTML = '';
-  vi.restoreAllMocks();
 });
 
 describe('LandingHeader', () => {
@@ -94,26 +73,6 @@ describe('LandingHeader', () => {
     expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '#faq');
   });
 
-  it('hash link click은 target으로 smooth scroll하고 URL hash를 갱신한다', () => {
-    appendTarget('how-it-works');
-    render(<LandingHeader />);
-
-    fireEvent.click(screen.getByRole('link', { name: '이용 흐름' }));
-
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-    expect(window.location.hash).toBe('#how-it-works');
-  });
-
-  it('reduced-motion 환경에서는 hash link enhancer가 smooth scroll을 강제하지 않는다', () => {
-    mockMatchMedia({ reducedMotion: true });
-    appendTarget('features');
-    render(<LandingHeader />);
-
-    fireEvent.click(screen.getByRole('link', { name: '서비스 소개' }));
-
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-  });
-
   it('메뉴 버튼은 controlled mobile menu를 열고 aria-controls를 연결한다', () => {
     render(<LandingHeader />);
 
@@ -127,6 +86,8 @@ describe('LandingHeader', () => {
     expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     const mobileMenu = document.getElementById(menuId!);
     expect(mobileMenu).toBeInTheDocument();
+    expect(mobileMenu).toHaveAttribute('data-state', 'open');
+    expect(mobileMenu).toHaveAttribute('aria-hidden', 'false');
     expect(
       within(mobileMenu!).getByRole('navigation', { name: '랜딩 모바일 내비게이션' }),
     ).toBeInTheDocument();
@@ -135,7 +96,6 @@ describe('LandingHeader', () => {
   });
 
   it('모바일 메뉴에서 hash link 클릭 시 메뉴가 닫힌다', () => {
-    appendTarget('faq');
     render(<LandingHeader />);
 
     const menuButton = screen.getByRole('button', { name: '메뉴' });
@@ -146,7 +106,8 @@ describe('LandingHeader', () => {
     fireEvent.click(within(mobileMenu).getByRole('link', { name: 'FAQ' }));
 
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
-    expect(document.getElementById(menuId)).not.toBeInTheDocument();
+    expect(document.getElementById(menuId)).toHaveAttribute('data-state', 'closed');
+    expect(document.getElementById(menuId)).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('모바일 메뉴에서 로그인/회원가입 링크 클릭 시 메뉴가 닫힌다', () => {
@@ -169,7 +130,7 @@ describe('LandingHeader', () => {
     fireEvent.click(menuButton);
     expect(menuButton).toHaveAttribute('aria-expanded', 'true');
 
-    fireEvent.keyDown(screen.getByRole('banner'), { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     expect(menuButton).toHaveFocus();

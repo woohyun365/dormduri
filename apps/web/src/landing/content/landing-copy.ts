@@ -27,7 +27,19 @@ export interface LandingHeroCopy {
   eyebrow: string;
   headlineLines: readonly string[];
   description: string;
-  policyCopyIds: readonly LandingPolicyCopyId[];
+  trustNotice: {
+    title: string;
+    description: string;
+    actionLabel: string;
+    targetId: string;
+    policyCopyIds: readonly LandingPolicyCopyId[];
+  };
+  preview: {
+    label: string;
+    title: string;
+    description: string;
+    caption: string;
+  };
   primaryCta: LandingCtaCopy;
   secondaryCta: {
     label: string;
@@ -44,12 +56,15 @@ export interface LandingIconCopyItem {
   policyCopyIds?: readonly LandingPolicyCopyId[];
 }
 
+export interface LandingTrustBoundaryItem extends LandingIconCopyItem {
+  iconSurfaceClass: string;
+}
+
 export interface LandingHowItWorksStep {
   id: string;
   order: string;
   title: string;
   description: string;
-  note?: string;
   policyCopyIds?: readonly LandingPolicyCopyId[];
 }
 
@@ -71,15 +86,26 @@ export interface LandingFinalCtaCopy {
 }
 
 export const landingHeroCopy = {
-  eyebrow: '강원대학교 춘천캠퍼스 룸메이트 탐색 도우미',
-  headlineLines: ['학기 시작 전,', '생활패턴이 맞는', '룸메 후보를 확인하세요'],
-  description:
-    '학교 이메일 인증 후 같은 캠퍼스·시즌 조건의 룸메 후보를 생활패턴 기준으로 비교합니다.',
-  policyCopyIds: [
-    'service_independent_notice',
-    'school_system_not_connected',
-    'room_selection_not_guaranteed',
-  ],
+  eyebrow: '강원대 기숙사 룸메이트 탐색 도우미',
+  headlineLines: ['학기 시작 전,', '생활패턴이 맞는', '룸메이트를 찾아요'],
+  description: '같은 캠퍼스의 후보를 생활패턴 기준으로 비교해요.',
+  trustNotice: {
+    title: '이용 전 확인',
+    description: '학교 공식 서비스가 아니며, 기숙사 배정·호실 선택과 별도로 운영돼요.',
+    actionLabel: '서비스 범위 보기',
+    targetId: 'trust-boundary',
+    policyCopyIds: [
+      'service_independent_notice',
+      'school_system_not_connected',
+      'room_selection_not_guaranteed',
+    ],
+  },
+  preview: {
+    label: '서비스 화면 예시',
+    title: '룸메 후보 목록은 이렇게 보여요',
+    description: '서로 잘 맞는지 한눈에 비교할 수 있어요.',
+    caption: '실제 사용자 정보가 아닌 이해를 돕기 위한 예시예요.',
+  },
   primaryCta: {
     label: '이메일로 시작하기',
     href: '/signup',
@@ -90,11 +116,18 @@ export const landingHeroCopy = {
   },
 } as const satisfies LandingHeroCopy;
 
+export const landingTrustBoundaryCopy = {
+  eyebrow: '서비스 범위',
+  title: 'KNU 룸메 서비스',
+  description: 'KNU 룸메는 룸메이트를 구하는 과정을 도와요.',
+} as const;
+
 export const landingTrustBoundaryItems = [
   {
     id: 'independent-service',
     icon: Shield,
     iconColor: 'text-(--knu-primary)',
+    iconSurfaceClass: 'border-blue-100 bg-blue-50',
     title: '독립 운영 서비스',
     description: getLandingPolicyCopy('service_independent_notice').copy,
     policyCopyIds: ['service_independent_notice'],
@@ -103,6 +136,7 @@ export const landingTrustBoundaryItems = [
     id: 'not-connected-to-school',
     icon: CircleDashed,
     iconColor: 'text-slate-500',
+    iconSurfaceClass: 'border-slate-200 bg-slate-100',
     title: '학교 시스템 미연동',
     description: getLandingPolicyCopy('school_system_not_connected').copy,
     policyCopyIds: ['school_system_not_connected'],
@@ -111,7 +145,8 @@ export const landingTrustBoundaryItems = [
     id: 'room-selection-not-guaranteed',
     icon: AlertTriangle,
     iconColor: 'text-amber-600',
-    title: '호실 선택 보장 아님',
+    iconSurfaceClass: 'border-amber-100 bg-amber-50',
+    title: '호실 선택은 별도',
     description: getLandingPolicyCopy('room_selection_not_guaranteed').copy,
     policyCopyIds: ['room_selection_not_guaranteed'],
   },
@@ -119,38 +154,44 @@ export const landingTrustBoundaryItems = [
     id: 'lifestyle-survey-disclaimer',
     icon: ClipboardCheck,
     iconColor: 'text-emerald-600',
+    iconSurfaceClass: 'border-emerald-100 bg-emerald-50',
     title: '생활패턴은 참고용',
     description: getLandingPolicyCopy('lifestyle_survey_disclaimer').copy,
     policyCopyIds: ['lifestyle_survey_disclaimer'],
   },
-] as const satisfies readonly LandingIconCopyItem[];
+] as const satisfies readonly LandingTrustBoundaryItem[];
 
 export const landingHowItWorksSteps = [
   {
     id: 'email-signup',
     order: '01',
     title: '학교 이메일로 가입',
-    description: '@kangwon.ac.kr 인증 후 지원 캠퍼스와 시즌 상태를 확인합니다.',
+    description: '학교 이메일로 재학생 인증하고 회원가입해요.',
   },
   {
     id: 'profile-registration',
     order: '02',
     title: '시즌 프로필 작성',
-    description:
-      '등록 전에는 기숙사 선택 정보와 생활패턴을 작성·수정합니다. 등록 완료 후에는 시즌 프로필과 기숙사 선택 정보가 잠깁니다.',
-    note: getLandingPolicyCopy('season_capability_boundary').copy,
-    policyCopyIds: ['season_capability_boundary'],
+    description: '나의 생활패턴·원하는 룸메 조건을 입력해요.',
   },
   {
     id: 'search-and-chat',
     order: '03',
     title: '후보 탐색과 대화',
-    description:
-      '열려 있는 시즌·기숙사 범위에서 후보를 확인합니다. 조건을 만족하면 매칭 전에도 대화하고, 허용된 화면에서 매칭을 요청할 수 있습니다.',
-    note: '실제 호실 선택과 기숙사 배정은 학교 시스템에서 진행됩니다.',
-    policyCopyIds: ['school_system_not_connected', 'room_selection_not_guaranteed'],
+    description: '같은 기숙사 후보를 살펴보고, 대화하거나 매칭을 요청해요.',
   },
 ] as const satisfies readonly LandingHowItWorksStep[];
+
+export const landingHowItWorksCopy = {
+  eyebrow: '이용 순서',
+  title: '이렇게 이용해요',
+  description: '같은 기숙사 후보의 시즌 프로필을 확인하고 대화해요.',
+  notice: {
+    title: '학기별 매칭 일정이 있어요',
+    description: '프로필 등록·후보 탐색·매칭은 정해진 기간에만 이용할 수 있어요.',
+    policyCopyIds: ['season_capability_boundary'],
+  },
+} as const;
 
 export const landingFeatureItems = [
   {
@@ -314,7 +355,7 @@ export const landingSectionIds = [
 
 export const landingSectionHeadings = [
   '생활패턴이 맞는',
-  '서비스 경계를 먼저 확인하세요',
+  'KNU 룸메 서비스',
   '이렇게 이용해요',
   '주요 기능',
   '시즌별로 열리는 기능이 달라요',
@@ -324,6 +365,8 @@ export const landingSectionHeadings = [
 ] as const;
 
 export const LANDING_POLICY_LINKED_CONTENT_GROUPS = [
+  [landingHeroCopy.trustNotice],
+  [landingHowItWorksCopy.notice],
   landingTrustBoundaryItems,
   landingHowItWorksSteps,
   landingFeatureItems,
