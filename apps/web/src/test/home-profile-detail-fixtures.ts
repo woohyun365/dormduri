@@ -297,6 +297,8 @@ export function createMatchHistoryResponse(
             unmatchedAt: null,
             finalizedAt: '2026-08-06T00:00:00.000Z',
             requestTerminalReason: null,
+            systemCancellationCause: null,
+            systemCancellationGroupId: null,
             activeMatchEndReason: null,
           },
         ],

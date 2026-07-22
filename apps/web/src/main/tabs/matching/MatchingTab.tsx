@@ -22,6 +22,7 @@ import { toMatchingApiErrorMessage } from './api/matching.api';
 import { useMatchingOverview } from './hooks/useMatchingOverview';
 import { useMatchingActions, type RequestActionCompletion } from './hooks/useMatchingActions';
 import { useMatchingHistory } from './hooks/useMatchingHistory';
+import { useConversationStats } from '../chat/hooks/useConversationStats';
 import { toMatchingShellPresentation } from './model/matching-shell-presentation';
 import { resolveMatchingShellConsistency } from './model/matching-shell-consistency';
 import { toMatchingViewState } from './model/matching-view-model';
@@ -97,12 +98,19 @@ function MatchingTabRuntime({
 }) {
   const overview = useMatchingOverview({ identityKey });
   const history = useMatchingHistory({ identityKey });
+  const conversationStats = useConversationStats({ identityKey });
   const {
     data: historyData,
     error: historyError,
     loading: historyLoading,
     load: loadHistory,
   } = history;
+  const {
+    data: conversationStatsData,
+    error: conversationStatsError,
+    loading: conversationStatsLoading,
+    load: loadConversationStats,
+  } = conversationStats;
   const actions = useMatchingActions({ refetchOverview: overview.refresh });
   const view = toMatchingViewState({
     overview: overview.data,
@@ -191,6 +199,23 @@ function MatchingTabRuntime({
   }, [historyData, historyError, historyLoading, loadHistory, section]);
 
   useEffect(() => {
+    if (
+      section !== 'past' ||
+      conversationStatsData ||
+      conversationStatsLoading ||
+      conversationStatsError
+    )
+      return;
+    void loadConversationStats();
+  }, [
+    conversationStatsData,
+    conversationStatsError,
+    conversationStatsLoading,
+    loadConversationStats,
+    section,
+  ]);
+
+  useEffect(() => {
     const headingId =
       section === 'past' ? 'matching-history-heading' : 'matching-current-section-heading';
     queueMicrotask(() => document.getElementById(headingId)?.focus({ preventScroll: true }));
@@ -228,7 +253,11 @@ function MatchingTabRuntime({
           data={historyData}
           loading={historyLoading}
           error={historyError}
-          onRetry={loadHistory}
+          onRetry={() => {
+            void loadHistory();
+            void loadConversationStats();
+          }}
+          conversationStats={conversationStatsData}
         />
       }
     />
