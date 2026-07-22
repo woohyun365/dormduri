@@ -50,8 +50,8 @@ export function buildProfileDetailFooter({
       onClick={handleClick}
       className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
         disabled
-          ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
-          : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+          ? 'bg-[(--knu-primary)] text-white opacity-40 cursor-not-allowed'
+          : 'bg-[(--knu-primary)] text-white hover:bg-[(--knu-primary-hover)]'
       }`}
     >
       매칭 요청
