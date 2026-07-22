@@ -50,6 +50,7 @@ export const requestDirectionSchema = z.enum(['SENT', 'RECEIVED']);
 export const matchCapabilityReasonSchema = z.enum([
   'CAMPUS_NOT_OPERATED',
   'VIEWER_NOT_REGISTERED',
+  'VIEWER_DEREGISTERED',
   'SEASON_NOT_ACTIONABLE',
   'SAFETY_OR_VISIBILITY_RESTRICTED',
 ]);

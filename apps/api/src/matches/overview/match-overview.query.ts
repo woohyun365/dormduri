@@ -1,10 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { MatchCapabilityReason, MatchOverviewResponse } from '@repo/shared/match/contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
+import {
+  CHAT_THREAD_SEARCH_METADATA_READER_PORT,
+  type ChatThreadSearchMetadataReaderPort,
+} from '../../chat/application/ports/chat-thread-search-metadata-reader.port.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { parseLifestyleOrNull } from '../../profiles/contracts/public-profile.presenter.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import { isParticipantRegistered } from '../../season-participants/policies/index.js';
+import {
+  canCurrentDormitoryMatch,
+  isParticipantRegistered,
+} from '../../season-participants/policies/index.js';
 import {
   SEASON_CONTEXT_PORT,
   type CurrentSeasonContext,
@@ -38,6 +45,8 @@ export class MatchOverviewQuery {
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly activeMatchViewQuery: ActiveMatchViewQuery,
+    @Inject(CHAT_THREAD_SEARCH_METADATA_READER_PORT)
+    private readonly chatThreadSearchMetadataReader: ChatThreadSearchMetadataReaderPort,
   ) {}
 
   private get contextOwner() {
@@ -71,8 +80,11 @@ export class MatchOverviewQuery {
     }
 
     if (context.seasonContext.state === 'OFF_SEASON') {
-      if (context.participant && isViewerRestricted(context.participant)) {
-        return this.toUnavailableOverview(now, 'SAFETY_OR_VISIBILITY_RESTRICTED');
+      const restrictionReason = context.participant
+        ? resolveViewerRestrictionReason(context.participant)
+        : null;
+      if (restrictionReason) {
+        return this.toUnavailableOverview(now, restrictionReason);
       }
       return this.toOffSeasonOverview(now, context.seasonContext.season.id);
     }
@@ -82,6 +94,10 @@ export class MatchOverviewQuery {
     }
 
     const season = context.seasonContext;
+    const restrictionReason = resolveViewerRestrictionReason(context.participant);
+    if (restrictionReason === 'SAFETY_OR_VISIBILITY_RESTRICTED') {
+      return this.toUnavailableOverview(now, restrictionReason, season);
+    }
 
     return this.prisma.runSerializableTransaction(async (tx) => {
       await expireDuePendingRequests(tx, season.season.id, now);
@@ -110,6 +126,27 @@ export class MatchOverviewQuery {
           select: currentActivityActiveMatchSelect,
         }),
       ]);
+      const activity = toCurrentMatchActivity({
+        viewerParticipantId: context.participant!.id,
+        requests,
+        activeMatches: activityActiveMatches,
+      });
+      if (restrictionReason === 'VIEWER_DEREGISTERED') {
+        return {
+          serverNow: now.toISOString(),
+          season: {
+            id: season.season.id,
+            state: season.state,
+            roomSelectionDate: null,
+            seasonEndDate: season.season.seasonEndDate,
+          },
+          capability: { canViewMatching: false, reason: restrictionReason },
+          sentRequests: [],
+          receivedRequests: [],
+          activeMatch: null,
+          activity,
+        };
+      }
       const currentActiveMatch = activityActiveMatches.find(
         (activeMatch) => activeMatch.status === 'ACTIVE' && activeMatch.endedAt === null,
       );
@@ -123,6 +160,15 @@ export class MatchOverviewQuery {
           [...requestParticipantIds],
           tx,
         );
+      const counterpartParticipantIds = [...requestParticipantIds].filter(
+        (participantId) => participantId !== context.participant!.id,
+      );
+      const activeChatThreadByParticipantId =
+        await this.chatThreadSearchMetadataReader.getActiveThreadMetadata({
+          seasonId: season.season.id,
+          viewerParticipantId: context.participant!.id,
+          targetParticipantIds: counterpartParticipantIds,
+        });
       const activeRequestRelations = requests.length
         ? await tx.activeMatch.findMany({
             where: {
@@ -162,6 +208,19 @@ export class MatchOverviewQuery {
             activeParticipantIds,
             now,
           }),
+          {
+            viewerUserId: authUser.id,
+            now,
+            seasonState: season.state,
+            registrationSnapshotParticipantIds,
+            activeParticipantIds,
+            activeChatThreadByParticipantId,
+            currentDormitoryCanMatch: canCurrentDormitoryMatch(
+              season,
+              context.selection.dormitoryId,
+              now,
+            ),
+          },
         ),
       );
 
@@ -174,6 +233,7 @@ export class MatchOverviewQuery {
             season,
             context.selection.dormitoryId,
           ),
+          seasonEndDate: season.season.seasonEndDate,
         },
         capability: resolveOverviewCapability(
           context,
@@ -182,11 +242,7 @@ export class MatchOverviewQuery {
         sentRequests: rows.filter((request) => request.direction === 'SENT'),
         receivedRequests: rows.filter((request) => request.direction === 'RECEIVED'),
         activeMatch,
-        activity: toCurrentMatchActivity({
-          viewerParticipantId: context.participant!.id,
-          requests,
-          activeMatches: activityActiveMatches,
-        }),
+        activity,
       };
     });
   }
@@ -194,7 +250,12 @@ export class MatchOverviewQuery {
   private toOffSeasonOverview(now: Date, seasonId: string | null): MatchOverviewResponse {
     return {
       serverNow: now.toISOString(),
-      season: { id: seasonId, state: 'OFF_SEASON', roomSelectionDate: null },
+      season: {
+        id: seasonId,
+        state: 'OFF_SEASON',
+        roomSelectionDate: null,
+        seasonEndDate: null,
+      },
       capability: { canViewMatching: true, reason: null },
       sentRequests: [],
       receivedRequests: [],
@@ -214,6 +275,7 @@ export class MatchOverviewQuery {
         id: seasonContext?.season.id ?? null,
         state: seasonContext?.state ?? 'OFF_SEASON',
         roomSelectionDate: null,
+        seasonEndDate: seasonContext?.season.seasonEndDate ?? null,
       },
       capability: { canViewMatching: false, reason },
       sentRequests: [],
@@ -235,8 +297,9 @@ function resolveOverviewCapability(
   if (!seasonContext || !participant) {
     return { canViewMatching: false, reason: 'VIEWER_NOT_REGISTERED' };
   }
-  if (isViewerRestricted(participant)) {
-    return { canViewMatching: false, reason: 'SAFETY_OR_VISIBILITY_RESTRICTED' };
+  const restrictionReason = resolveViewerRestrictionReason(participant);
+  if (restrictionReason) {
+    return { canViewMatching: false, reason: restrictionReason };
   }
   if (seasonContext.state === 'OFF_SEASON') {
     return { canViewMatching: false, reason: 'SEASON_NOT_ACTIONABLE' };
@@ -255,8 +318,14 @@ function resolveOverviewCapability(
   return { canViewMatching: true, reason: null };
 }
 
-function isViewerRestricted(participant: NonNullable<MatchUserContext['participant']>) {
-  return Boolean(
-    participant.hiddenByAdminAt || participant.deactivatedAt || participant.withdrawnAt,
-  );
+function resolveViewerRestrictionReason(
+  participant: NonNullable<MatchUserContext['participant']>,
+): MatchCapabilityReason | null {
+  if (participant.withdrawnAt || participant.participantStatus === 'WITHDRAWN') {
+    return 'VIEWER_DEREGISTERED';
+  }
+  if (participant.hiddenByAdminAt || participant.deactivatedAt) {
+    return 'SAFETY_OR_VISIBILITY_RESTRICTED';
+  }
+  return null;
 }

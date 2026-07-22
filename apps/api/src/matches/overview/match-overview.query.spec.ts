@@ -30,7 +30,7 @@ function makeHarness() {
   };
   const seasonsService = {
     getCurrentSeasonContext: vi.fn().mockResolvedValue({
-      season: { id: 'season-1' },
+      season: { id: 'season-1', seasonEndDate: '2026-02-28' },
       state: 'SEASON_MATCHING',
       operatedDormitories: [
         { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
@@ -55,14 +55,25 @@ function makeHarness() {
       .mockResolvedValue(new Set(['participant-1', 'participant-2'])),
   };
   const activeMatchViewQuery = { getDetailedActiveMatchSummaryForViewer: vi.fn() };
+  const chatThreadSearchMetadataReader = {
+    getActiveThreadMetadata: vi.fn().mockResolvedValue(new Map()),
+  };
 
   return {
-    ...{ prisma, seasonsService, seasonParticipantsService, transaction, activeMatchViewQuery },
+    ...{
+      prisma,
+      seasonsService,
+      seasonParticipantsService,
+      transaction,
+      activeMatchViewQuery,
+      chatThreadSearchMetadataReader,
+    },
     query: new MatchOverviewQuery(
       prisma as never,
       seasonsService as never,
       seasonParticipantsService as never,
       activeMatchViewQuery as never,
+      chatThreadSearchMetadataReader,
     ),
   };
 }
@@ -70,6 +81,20 @@ function makeHarness() {
 describe('MatchOverviewQuery', () => {
   it('current request와 active match를 하나의 serializable read snapshot에서 분리해 반환한다', async () => {
     const harness = makeHarness();
+    harness.chatThreadSearchMetadataReader.getActiveThreadMetadata.mockResolvedValue(
+      new Map([
+        [
+          'participant-2',
+          {
+            threadId: 'thread-1',
+            targetParticipantId: 'participant-2',
+            threadKind: 'DIRECT',
+            status: 'OPEN',
+            lastMessageAt: now,
+          },
+        ],
+      ]),
+    );
     harness.transaction.matchRequest.findMany.mockResolvedValue([
       {
         id: 'request-sent',
@@ -89,26 +114,106 @@ describe('MatchOverviewQuery', () => {
         receiverParticipant: makeMatchRequestParticipant('user-2'),
       },
     ]);
-    await expect(
-      harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
-    ).resolves.toMatchObject({
+    const result = await harness.query.execute({
+      id: 'user-1',
+      campus: 'CHUNCHEON',
+      gender: 'M',
+    } as never);
+    expect(result).toMatchObject({
       serverNow: now.toISOString(),
-      season: { id: 'season-1', state: 'SEASON_MATCHING', roomSelectionDate: '2026-02-11' },
+      season: {
+        id: 'season-1',
+        state: 'SEASON_MATCHING',
+        roomSelectionDate: '2026-02-11',
+        seasonEndDate: '2026-02-28',
+      },
       capability: { canViewMatching: true, reason: null },
       sentRequests: [
         {
           id: 'request-sent',
           actions: { cancel: { allowed: true, reason: null } },
+          counterpartSummary: {
+            actions: { canStartChat: true },
+            activeChatThread: {
+              id: 'thread-1',
+              threadKind: 'DIRECT',
+              status: 'OPEN',
+              lastMessageAt: now.toISOString(),
+            },
+            exposure: {
+              detailViewable: true,
+              canViewFull: true,
+              scoreVisible: true,
+            },
+          },
         },
       ],
       receivedRequests: [],
       activeMatch: null,
       activity: [],
     });
+    expect(typeof result.sentRequests[0]?.counterpartSummary.detailEntryToken).toBe('string');
+    expect(typeof result.sentRequests[0]?.counterpartSummary.matchScore).toBe('number');
+    expect(harness.chatThreadSearchMetadataReader.getActiveThreadMetadata).toHaveBeenCalledWith({
+      seasonId: 'season-1',
+      viewerParticipantId: 'participant-1',
+      targetParticipantIds: ['participant-2'],
+    });
 
     expect(harness.prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
     expect(harness.transaction.matchRequest.updateMany).toHaveBeenCalledTimes(1);
     expect(harness.transaction.activeMatch.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('시즌 참여 철회 viewer는 action surface를 닫고 viewer-owned current activity는 유지한다', async () => {
+    const harness = makeHarness();
+    harness.seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
+      makeParticipant({
+        participantStatus: 'WITHDRAWN',
+        withdrawnAt: now,
+      }),
+    );
+    harness.transaction.matchRequest.findMany.mockResolvedValue([
+      {
+        id: 'request-withdrawn',
+        seasonId: 'season-1',
+        requesterParticipantId: 'participant-1',
+        receiverParticipantId: 'participant-2',
+        status: 'CANCELLED_BY_SYSTEM',
+        note: null,
+        createdAt: new Date('2026-02-08T03:00:00.000Z'),
+        expiresAt: new Date('2026-02-11T03:00:00.000Z'),
+        terminalAt: now,
+        acceptedAt: null,
+        terminalReason: 'WITHDRAWN_PARTICIPANT',
+        systemCancellationActiveMatchId: null,
+        systemCancellationActiveMatch: null,
+        requesterParticipant: makeMatchRequestParticipant('user-1', {
+          participantStatus: 'WITHDRAWN',
+          withdrawnAt: now,
+        }),
+        receiverParticipant: makeMatchRequestParticipant('user-2'),
+      },
+    ]);
+
+    await expect(
+      harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
+    ).resolves.toMatchObject({
+      capability: { canViewMatching: false, reason: 'VIEWER_DEREGISTERED' },
+      sentRequests: [],
+      receivedRequests: [],
+      activeMatch: null,
+      activity: [
+        {
+          result: 'REQUEST_CANCELLED',
+          requestTerminalReason: 'WITHDRAWN_PARTICIPANT',
+        },
+      ],
+    });
+    expect(harness.chatThreadSearchMetadataReader.getActiveThreadMetadata).not.toHaveBeenCalled();
+    expect(
+      harness.activeMatchViewQuery.getDetailedActiveMatchSummaryForViewer,
+    ).not.toHaveBeenCalled();
   });
 
   it('운영 campus에 현재 season이 없으면 OFF_SEASON history 진입을 허용하고 current action은 비운다', async () => {
@@ -118,7 +223,7 @@ describe('MatchOverviewQuery', () => {
     await expect(
       harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
     ).resolves.toMatchObject({
-      season: { id: null, state: 'OFF_SEASON', roomSelectionDate: null },
+      season: { id: null, state: 'OFF_SEASON', roomSelectionDate: null, seasonEndDate: null },
       capability: { canViewMatching: true, reason: null },
       sentRequests: [],
       receivedRequests: [],
@@ -136,7 +241,7 @@ describe('MatchOverviewQuery', () => {
     await expect(
       harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
     ).resolves.toMatchObject({
-      season: { id: null, state: 'OFF_SEASON', roomSelectionDate: null },
+      season: { id: null, state: 'OFF_SEASON', roomSelectionDate: null, seasonEndDate: null },
       capability: { canViewMatching: false, reason: 'CAMPUS_NOT_OPERATED' },
     });
   });
@@ -158,7 +263,12 @@ describe('MatchOverviewQuery', () => {
     await expect(
       harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
     ).resolves.toMatchObject({
-      season: { id: 'season-1', state: 'OFF_SEASON', roomSelectionDate: null },
+      season: {
+        id: 'season-1',
+        state: 'OFF_SEASON',
+        roomSelectionDate: null,
+        seasonEndDate: null,
+      },
       capability: { canViewMatching: true, reason: null },
       sentRequests: [],
       receivedRequests: [],
@@ -196,9 +306,12 @@ describe('MatchOverviewQuery', () => {
           receiverParticipant: makeMatchRequestParticipant('user-1'),
         },
       ]);
-      await expect(
-        harness.query.execute({ id: 'user-1', campus: 'CHUNCHEON', gender: 'M' } as never),
-      ).resolves.toMatchObject({
+      const result = await harness.query.execute({
+        id: 'user-1',
+        campus: 'CHUNCHEON',
+        gender: 'M',
+      } as never);
+      expect(result).toMatchObject({
         receivedRequests: [
           {
             id: 'request-unavailable-target',
@@ -207,9 +320,17 @@ describe('MatchOverviewQuery', () => {
               reject: { allowed: true, reason: null },
               cancel: { allowed: false, reason: null },
             },
+            counterpartSummary: {
+              exposure: {
+                detailViewable: true,
+                canViewFull: false,
+                scoreVisible: false,
+              },
+            },
           },
         ],
       });
+      expect(typeof result.receivedRequests[0]?.counterpartSummary.detailEntryToken).toBe('string');
     },
   );
 

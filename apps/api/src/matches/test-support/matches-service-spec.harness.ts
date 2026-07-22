@@ -199,6 +199,9 @@ function createMatchesServiceSpecHarnessImpl() {
     new ActiveMatchLifecycleEventRepository(),
   );
   const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never, activeMatchRepository);
+  const chatThreadSearchMetadataReader = {
+    getActiveThreadMetadata: vi.fn().mockResolvedValue(new Map()),
+  };
   const noteModerationAdapter = new MatchRequestNoteModerationAdapter(moderationService as never);
   const matchRequestRepository = new MatchRequestRepository();
   const matchRequestAcceptanceRepository = new MatchRequestAcceptanceRepository();
@@ -214,6 +217,7 @@ function createMatchesServiceSpecHarnessImpl() {
     seasonsService as never,
     seasonParticipantsService as never,
     activeMatchViewQuery,
+    chatThreadSearchMetadataReader,
   );
   const listCurrentSeasonRequestsQuery = new ListCurrentSeasonRequestsQuery(matchOverviewQuery);
   const resolveTerminalMatchRequestCommand = new ResolveTerminalMatchRequestCommand(

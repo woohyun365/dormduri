@@ -14,11 +14,13 @@ export const matchOverviewSeasonSchema = z.strictObject({
   id: z.string().nullable(),
   state: seasonStateSchema,
   roomSelectionDate: localDateStringSchema.nullable(),
+  seasonEndDate: localDateStringSchema.nullable(),
 });
 
 /**
- * overview shell/read 접근 capability다. `canViewMatching=true`는 mutation 허용을 뜻하지 않으며,
+ * overview action surface 접근 capability다. `canViewMatching=true`는 mutation 허용을 뜻하지 않으며,
  * request/active action은 각 row의 server-owned action capability가 별도로 소유한다.
+ * `VIEWER_DEREGISTERED`에서는 false여도 viewer-owned terminal activity가 남을 수 있다.
  */
 export const matchOverviewCapabilitySchema = z.strictObject({
   canViewMatching: z.boolean(),

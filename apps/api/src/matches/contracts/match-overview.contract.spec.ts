@@ -10,6 +10,7 @@ const validOverview = {
     id: 'season-1',
     state: 'SEASON_MATCHING',
     roomSelectionDate: '2026-02-11',
+    seasonEndDate: '2026-02-28',
   },
   capability: {
     canViewMatching: true,
@@ -74,6 +75,15 @@ describe('match overview shared contract', () => {
     expect(matchOverviewResponseSchema.safeParse({ ...validOverview, audit: {} }).success).toBe(
       false,
     );
+  });
+
+  it('철회 capability는 action surface를 닫아도 viewer-owned terminal activity를 허용한다', () => {
+    expect(
+      matchOverviewResponseSchema.safeParse({
+        ...validOverview,
+        capability: { canViewMatching: false, reason: 'VIEWER_DEREGISTERED' },
+      }).success,
+    ).toBe(true);
   });
 
   it('request action은 accept/reject/cancel별 decision과 reason을 독립적으로 검증한다', () => {
