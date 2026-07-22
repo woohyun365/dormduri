@@ -91,7 +91,6 @@ export async function findEndedSeasonIds(prisma: PrismaService, now: Date, userI
         ? {
             some: {
               userId,
-              participationIntent: 'REGISTERED',
               registeredAt: { not: null },
             },
           }

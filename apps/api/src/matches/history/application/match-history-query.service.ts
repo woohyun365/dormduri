@@ -29,7 +29,6 @@ export class MatchHistoryQueryService {
     const seasons = await this.prisma.seasonParticipant.findMany({
       where: {
         userId,
-        participationIntent: 'REGISTERED',
         registeredAt: { not: null },
         season: {
           seasonEndDate: {
