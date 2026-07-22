@@ -17,36 +17,10 @@ const target = {
   dormitoryLabel: '다산관',
 };
 
-const viewerLifestyle = {
-  bedtime: '22_24',
-  wakeTime: '07_08',
-  sleepHabit: 'NONE',
-  sleepEnvironment: 'QUIET',
-  screenUsage: 'NONE',
-  noiseSensitivity: 'NORMAL',
-  smokingBehavior: 'NO',
-  indoorEating: 'SNACK',
-  phoneBehavior: 'SOMETIMES',
-  earphoneUsage: 'ALWAYS',
-  cleanLevel: 'WEEKLY_1_2',
-  drinkingFrequency: 'RARELY',
-  relationshipStyle: 'CASUAL',
-  temperatureSensitivity: 'NORMAL',
-  smokingTolerance: 'NO_ONLY',
-  phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'LOW_VOLUME_OK',
-  sleepEnvPreference: 'NO_SPEAKER',
-  screenTolerance: 'LOW_OK',
-  indoorEatingTolerance: 'CLEAN_OK',
-  cleanExpectation: 'BASIC',
-  drinkingTolerance: 'LOW_ONLY',
-} as const;
-
 function renderDialog(state: RoommateProfileDetailState, overrides = {}) {
   return render(
     <RoommateProfileDetailDialog
       state={state}
-      viewerLifestyle={viewerLifestyle}
       onClose={vi.fn()}
       onRetry={vi.fn()}
       onRefreshList={vi.fn()}
@@ -162,6 +136,33 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).toHaveTextContent('목록을 새로고침해 다시 확인해 주세요.');
   });
 
+  it('과거 매칭 detail은 compatibility snapshot이 없어도 저장 점수를 오류로 오인하지 않는다', () => {
+    renderDialog(
+      {
+        status: 'success',
+        target,
+        profile: createPublicProfileFull({
+          resultRead: { resultReadable: true, context: 'PAST_MATCH_HISTORY' },
+          actions: {
+            canBookmark: false,
+            canRequestMatch: false,
+            canStartChat: false,
+            unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+          },
+          matchScore: 88,
+          compatibility: undefined,
+        }),
+        error: null,
+      },
+      { title: '당시 상대 프로필', onRefreshList: undefined },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '당시 상대 프로필' });
+    expect(dialog).toHaveTextContent('매칭도 88점');
+    expect(dialog).toHaveTextContent('세부 적합도 기록은 제공되지 않아요.');
+    expect(dialog).not.toHaveTextContent('서버 오류로 매칭점수를 제공하지 못했어요.');
+  });
+
   it('intro는 글자 수가 아니라 렌더링 2줄 초과 여부로 줄이고 버튼으로 inline 확장한다', async () => {
     const viewportWrappedIntro = '아침 준비는 조용히 하고 밤에는 불을 일찍 끄고 싶어요.';
     const originalGetComputedStyle = window.getComputedStyle;
@@ -267,6 +268,32 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).not.toHaveTextContent('entry-token-secret');
   });
 
+  it('action owner가 외부에 있으면 상세 정보만 표시하고 CTA section을 만들지 않는다', () => {
+    renderDialog(
+      {
+        status: 'success',
+        target,
+        profile: createPublicProfileFull({ nickname: '확정 룸메이트' }),
+        error: null,
+      },
+      {
+        showActionSummary: false,
+        onStartChat: vi.fn(),
+        onReport: vi.fn(),
+        onBlock: vi.fn(),
+      },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(within(dialog).getByRole('heading', { name: '확정 룸메이트' })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('heading', { name: '생활패턴 적합도 분석 결과' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '대화 화면에서 이어가기' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: '신고하기' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: '차단하기' })).toBeNull();
+  });
+
   it('pending match request가 있으면 새 요청 CTA 대신 pending 상태 CTA를 표시한다', async () => {
     const onOpenMatchingRequests = vi.fn();
     renderDialog(
@@ -278,7 +305,6 @@ describe('RoommateProfileDetailDialog', () => {
             id: 'request-received',
             direction: 'RECEIVED',
             label: '매칭 요청을 받은 사용자',
-            description: '매칭 탭에서 수락하거나 거절할 수 있어요.',
           },
         },
         profile: createPublicProfileFull({
@@ -297,13 +323,82 @@ describe('RoommateProfileDetailDialog', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
-    expect(dialog).toHaveTextContent('매칭 탭에서 수락하거나 거절할 수 있어요.');
+    expect(dialog).not.toHaveTextContent('public summary');
     expect(
       within(dialog).queryByRole('button', { name: '매칭 요청 보내기' }),
     ).not.toBeInTheDocument();
 
     await userEvent.click(within(dialog).getByRole('button', { name: '받은 요청 확인하기' }));
     expect(onOpenMatchingRequests).toHaveBeenCalledTimes(1);
+  });
+
+  it('검색 preflight가 상세 기본 capability보다 엄격하면 요청 CTA를 다시 열지 않는다', () => {
+    renderDialog(
+      {
+        status: 'success',
+        target: {
+          ...target,
+          actions: {
+            canBookmark: true,
+            canRequestMatch: false,
+            canStartChat: true,
+            unavailableReasons: ['MATCH_REQUEST_PENDING_LIMIT_REACHED'],
+          },
+        },
+        profile: createPublicProfileFull({
+          actions: {
+            canBookmark: true,
+            canRequestMatch: true,
+            canStartChat: true,
+            unavailableReasons: [],
+          },
+        }),
+        error: null,
+      },
+      { onRequestMatch: vi.fn(), onStartChat: vi.fn() },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(within(dialog).queryByRole('button', { name: '매칭 요청 보내기' })).toBeNull();
+    expect(within(dialog).getByRole('button', { name: '대화 화면에서 이어가기' })).toBeEnabled();
+  });
+
+  it('시즌 오픈에는 채팅 CTA 대신 연결되지 않은 slate 매칭 요청 안내를 표시한다', () => {
+    const onStartChat = vi.fn();
+    renderDialog(
+      {
+        status: 'success',
+        target: {
+          ...target,
+          actions: {
+            canBookmark: true,
+            canRequestMatch: false,
+            canStartChat: true,
+            unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+          },
+        },
+        profile: createPublicProfileFull({
+          actions: {
+            canBookmark: true,
+            canRequestMatch: false,
+            canStartChat: true,
+            unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+          },
+        }),
+        error: null,
+      },
+      { onStartChat },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(within(dialog).getByRole('button', { name: '매칭 요청 보내기' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      within(dialog).queryByRole('button', { name: '대화 화면에서 이어가기' }),
+    ).not.toBeInTheDocument();
+    expect(onStartChat).not.toHaveBeenCalled();
   });
 
   it('direction limit reached target은 상세에서 매칭 요청 CTA를 amber blocked 상태로 표시한다', () => {
@@ -450,7 +545,6 @@ describe('RoommateProfileDetailDialog', () => {
         <button type="button">상세 열기 트리거</button>
         <RoommateProfileDetailDialog
           state={closedState}
-          viewerLifestyle={viewerLifestyle}
           onClose={onClose}
           onRetry={vi.fn()}
           onRefreshList={vi.fn()}
@@ -466,7 +560,6 @@ describe('RoommateProfileDetailDialog', () => {
         <button type="button">상세 열기 트리거</button>
         <RoommateProfileDetailDialog
           state={successState}
-          viewerLifestyle={viewerLifestyle}
           onClose={onClose}
           onRetry={vi.fn()}
           onRefreshList={vi.fn()}
@@ -484,7 +577,6 @@ describe('RoommateProfileDetailDialog', () => {
         <button type="button">상세 열기 트리거</button>
         <RoommateProfileDetailDialog
           state={closedState}
-          viewerLifestyle={viewerLifestyle}
           onClose={onClose}
           onRetry={vi.fn()}
           onRefreshList={vi.fn()}
