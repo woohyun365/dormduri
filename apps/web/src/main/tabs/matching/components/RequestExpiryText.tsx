@@ -13,6 +13,7 @@ export function RequestExpiryText(props: {
   readonly serverNow: string;
   readonly expiresAt: string;
   readonly roomSelectionDate: string | null;
+  readonly compact?: boolean;
 }) {
   const timing = useMatchingRequestClock(props);
   const prefix = timing.limitingEvent === 'cutoff' ? '호실 선택 마감 기준' : '요청 만료까지';
@@ -23,7 +24,7 @@ export function RequestExpiryText(props: {
   return (
     <>
       <p className="text-xs leading-5 text-(--knu-text-secondary)">
-        {timing.kind === 'remaining' ? `${prefix} ${timing.label}` : timing.label}
+        {timing.kind === 'remaining' && !props.compact ? `${prefix} ${timing.label}` : timing.label}
       </p>
       <span
         data-testid="matching-request-expiry-announcement"

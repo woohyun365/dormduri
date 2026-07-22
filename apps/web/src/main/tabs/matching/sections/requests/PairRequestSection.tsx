@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { List, Send, Inbox } from 'lucide-react';
 import { MatchRequestSummaryCard } from '../../components/MatchRequestSummaryCard';
 import { MatchingSegmentTabs, type MatchingRequestTab } from '../../components/MatchingSegmentTabs';
 import type {
@@ -11,6 +12,11 @@ import {
   MatchRequestDecisionDialog,
   type MatchRequestDecision,
 } from '../../overlays/MatchRequestDecisionDialog';
+import { PairRequestOrderControl } from '../../components/pair/PairRequestOrderControl';
+import {
+  orderReceivedMatchRequests,
+  type MatchingReceivedRequestOrder,
+} from '../../model/matching-request-ordering';
 
 export type MatchingRequestCommandResult = 'success' | 'state-changed' | 'error' | 'aborted';
 
@@ -35,7 +41,6 @@ export function PairRequestSection({
   roomSelectionDate,
   commands,
   onOpenProfile,
-  onNavigateChat,
   initialTab,
 }: {
   readonly section: MatchingRequestSectionView;
@@ -43,7 +48,6 @@ export function PairRequestSection({
   readonly roomSelectionDate: string | null;
   readonly commands: MatchingRequestCommands;
   readonly onOpenProfile?: (request: MatchingRequestCardView, trigger: HTMLButtonElement) => void;
-  readonly onNavigateChat?: () => void;
   readonly initialTab?: MatchingRequestTab;
 }) {
   const [selected, setSelected] = useState<MatchingRequestTab>(
@@ -54,8 +58,16 @@ export function PairRequestSection({
         : 'sent'),
   );
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [receivedOrder, setReceivedOrder] = useState<MatchingReceivedRequestOrder>('expires-soon');
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const rows = selected === 'received' ? section.received : section.sent;
+  const orderedReceived = useMemo(
+    () => orderReceivedMatchRequests(section.received, receivedOrder),
+    [receivedOrder, section.received],
+  );
+  const rows = selected === 'received' ? orderedReceived : section.sent;
+  const receivedPendingCount = section.received.filter(
+    (request) => request.presentation === 'pending',
+  ).length;
 
   const actionName = dialog
     ? dialog.decision === 'accept'
@@ -70,10 +82,10 @@ export function PairRequestSection({
     const trigger = triggerRef.current;
     queueMicrotask(() => {
       if (trigger?.isConnected) {
-        trigger.focus();
+        trigger.focus({ preventScroll: true });
         return;
       }
-      document.getElementById(`matching-requests-tab-${selected}`)?.focus();
+      document.getElementById(`matching-requests-tab-${selected}`)?.focus({ preventScroll: true });
     });
   };
 
@@ -90,38 +102,61 @@ export function PairRequestSection({
   };
 
   return (
-    <section aria-labelledby="matching-requests-heading" className="mt-5 min-w-0">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2
-            id="matching-requests-heading"
-            className="text-lg font-bold text-(--knu-text-primary)"
-          >
-            매칭 요청
-          </h2>
-          <p className="mt-1 text-sm text-(--knu-text-secondary)">
-            보낸 요청 {section.quota.used}/{section.quota.limit}건 사용 · 남은 슬롯{' '}
-            {section.quota.remaining}건
-          </p>
-        </div>
+    <section aria-labelledby="matching-requests-heading" className="mt-6 min-w-0">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="h-5 w-1 rounded-full bg-sky-400" aria-hidden />
+        <h2
+          id="matching-requests-heading"
+          className="flex items-center gap-2 text-lg font-bold text-(--knu-text-primary)"
+        >
+          <List className="h-4.5 w-4.5 text-sky-500" aria-hidden />
+          요청 관리
+        </h2>
+      </div>
+      <p className="sr-only">
+        보낸 요청 {section.quota.used}/{section.quota.limit}건 사용, 남은 슬롯{' '}
+        {section.quota.remaining}건
+      </p>
+
+      <div className="mb-4">
+        <MatchingSegmentTabs
+          selected={selected}
+          onSelect={setSelected}
+          quota={section.quota}
+          receivedPendingCount={receivedPendingCount}
+        />
       </div>
 
-      <MatchingSegmentTabs
-        selected={selected}
-        onSelect={setSelected}
-        counts={{ received: section.received.length, sent: section.sent.length }}
-      />
+      {selected === 'received' && section.received.length > 1 ? (
+        <div className="mb-3">
+          <PairRequestOrderControl value={receivedOrder} onChange={setReceivedOrder} />
+        </div>
+      ) : null}
 
       <div
         id={`matching-requests-panel-${selected}`}
         role="tabpanel"
         aria-labelledby={`matching-requests-tab-${selected}`}
         tabIndex={0}
-        className="mt-4 min-w-0 space-y-3 outline-none focus-visible:ring-2 focus-visible:ring-(--knu-primary) focus-visible:ring-offset-2"
+        className="min-w-0 space-y-3 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-(--knu-primary) focus-visible:ring-offset-2"
       >
         {rows.length === 0 ? (
-          <div className="rounded-2xl bg-(--knu-background-alt) p-5 text-sm leading-6 text-(--knu-text-secondary)">
-            {selected === 'sent' ? '아직 보낸 요청이 없어요.' : '아직 받은 요청이 없어요.'}
+          <div className="py-6 text-center">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-(--knu-background-alt) text-(--knu-primary)">
+              {selected === 'sent' ? (
+                <Send className="h-5 w-5" aria-hidden />
+              ) : (
+                <Inbox className="h-5 w-5" aria-hidden />
+              )}
+            </span>
+            <p className="mt-3 text-sm font-semibold text-(--knu-text-primary)">
+              {selected === 'sent' ? '보낸 요청이 없어요.' : '받은 요청이 없어요.'}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-(--knu-text-tertiary)">
+              {selected === 'sent'
+                ? '생활 패턴이 잘 맞는 상대를 찾아보세요.'
+                : '새 요청이 오면 확인하고 응답할 수 있어요.'}
+            </p>
           </div>
         ) : (
           rows.map((request) => {
@@ -137,7 +172,6 @@ export function PairRequestSection({
                 roomSelectionDate={roomSelectionDate}
                 pending={requestPending}
                 onOpenProfile={onOpenProfile}
-                onNavigateChat={onNavigateChat}
                 onDecision={(decision, trigger) => {
                   triggerRef.current = trigger;
                   setDialog({ decision, request });

@@ -17,6 +17,10 @@ describe('MatchingSectionTabs', () => {
     const current = screen.getByRole('tab', { name: '현재 매칭' });
     const past = screen.getByRole('tab', { name: '지난 기록' });
 
+    expect(screen.getByLabelText('매칭 화면 구분')).toHaveAttribute(
+      'data-design-source',
+      'legacy-pair',
+    );
     expect(current).toHaveAttribute('aria-selected', 'true');
     expect(current).toHaveAttribute('aria-controls', 'matching-section-panel-current');
     expect(past).toHaveAttribute('aria-selected', 'false');

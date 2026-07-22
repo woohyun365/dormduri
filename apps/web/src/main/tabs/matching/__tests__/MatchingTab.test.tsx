@@ -60,12 +60,15 @@ function receivedRequest(
     terminalReason: status === 'PENDING' ? null : 'MATCH_PRECONDITION_FAILED',
     actions:
       status === 'PENDING'
-        ? { canAccept: true, canReject: true, canCancel: false, disabledReason: null }
+        ? {
+            accept: { allowed: true, reason: null },
+            reject: { allowed: true, reason: null },
+            cancel: { allowed: false, reason: null },
+          }
         : {
-            canAccept: false,
-            canReject: false,
-            canCancel: false,
-            disabledReason: 'MATCH_PRECONDITION_FAILED',
+            accept: { allowed: false, reason: 'MATCH_PRECONDITION_FAILED' },
+            reject: { allowed: false, reason: 'MATCH_PRECONDITION_FAILED' },
+            cancel: { allowed: false, reason: 'MATCH_PRECONDITION_FAILED' },
           },
   };
 }
@@ -73,11 +76,34 @@ function receivedRequest(
 function overviewFixture(overrides: Record<string, unknown> = {}) {
   return {
     serverNow: '2026-08-01T00:00:00.000Z',
-    season: { id: 'season-1', state: 'SEASON_MATCHING', roomSelectionDate: '2026-08-10' },
+    season: {
+      id: 'season-1',
+      state: 'SEASON_MATCHING',
+      roomSelectionDate: '2026-08-10',
+      seasonEndDate: '2026-08-31',
+    },
     capability: { canViewMatching: true, reason: null },
     sentRequests: [],
     receivedRequests: [receivedRequest()],
     activeMatch: null,
+    activity: [],
+    ...overrides,
+  };
+}
+
+function currentActivity(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'request:request-2',
+    counterpartParticipantId: 'participant-request-2',
+    counterpartNickname: '민준',
+    stage: 'RECEIVED_REQUEST',
+    result: 'REQUEST_CANCELLED',
+    direction: 'RECEIVED',
+    occurredAt: '2026-08-01T01:00:00.000Z',
+    requestTerminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+    systemCancellationCause: 'VIEWER_MATCHED',
+    systemCancellationGroupId: 'active-1',
+    activeMatchEndReason: null,
     ...overrides,
   };
 }
@@ -127,11 +153,17 @@ describe('MatchingTab canonical runtime', () => {
         new Response(
           JSON.stringify({
             serverNow: '2026-08-01T00:00:00.000Z',
-            season: { id: 'season-1', state: 'SEASON_MATCHING', roomSelectionDate: '2026-08-10' },
+            season: {
+              id: 'season-1',
+              state: 'SEASON_MATCHING',
+              roomSelectionDate: '2026-08-10',
+              seasonEndDate: '2026-08-31',
+            },
             capability: { canViewMatching: true, reason: null },
             sentRequests: [],
             receivedRequests: [],
             activeMatch: null,
+            activity: [],
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
@@ -147,7 +179,7 @@ describe('MatchingTab canonical runtime', () => {
     );
 
     await screen.findByText('현재 요청을 확인해보세요');
-    await waitFor(() => expect(screen.getByRole('heading', { name: '매칭 현황' })).toHaveFocus());
+    await waitFor(() => expect(document.getElementById('matching-tab-heading')).toHaveFocus());
     await waitFor(() => expect(onBadgeCountChange).toHaveBeenLastCalledWith(0));
     expect(fetch).toHaveBeenCalledWith(
       '/api/matches/overview',
@@ -184,6 +216,39 @@ describe('MatchingTab canonical runtime', () => {
     );
   });
 
+  it.each([
+    { seasonState: 'OFF_SEASON', label: '비시즌' },
+    { seasonState: 'SEASON_OPEN', label: '시즌 준비' },
+  ] as const)('$label은 지난 기록을 기본 선택하고 history를 읽는다', async ({ seasonState }) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(
+          overviewFixture({
+            season: {
+              id: 'season-1',
+              state: seasonState,
+              roomSelectionDate: null,
+              seasonEndDate: '2026-08-31',
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(Response.json(createMatchHistoryResponse()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab viewerId="viewer-1" seasonShell={{ id: 'season-1', state: seasonState }} />,
+    );
+
+    const historyHeading = await screen.findByRole('heading', { name: '매칭 기록' });
+    await waitFor(() => expect(historyHeading).toHaveFocus());
+    expect(screen.getByRole('tab', { name: '지난 기록' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map(([path]) => path)).toContain('/api/matches/history'),
+    );
+  });
+
   it('current/past tab은 Arrow 이동만으로 history를 읽지 않고 explicit activation 뒤 선택 panel heading에 focus한다', async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -201,7 +266,7 @@ describe('MatchingTab canonical runtime', () => {
 
     const current = await screen.findByRole('tab', { name: '현재 매칭' });
     const past = screen.getByRole('tab', { name: '지난 기록' });
-    await waitFor(() => expect(screen.getByRole('heading', { name: '매칭 현황' })).toHaveFocus());
+    await waitFor(() => expect(document.getElementById('matching-tab-heading')).toHaveFocus());
     current.focus();
     await user.keyboard('{ArrowRight}');
 
@@ -222,7 +287,16 @@ describe('MatchingTab canonical runtime', () => {
   it('chat owner capability가 열리면 Main shell navigation command만 호출한다', async () => {
     const user = userEvent.setup();
     const onNavigateChat = vi.fn();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(overviewFixture())));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            overviewFixture({ receivedRequests: [], activeMatch: currentActiveMatch() }),
+          ),
+        ),
+    );
 
     render(
       <MatchingTab
@@ -256,6 +330,9 @@ describe('MatchingTab canonical runtime', () => {
     await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
     const dialog = await screen.findByRole('dialog', { name: '요청 상대 프로필' });
     expect(within(dialog).getByRole('heading', { name: '도윤' })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('heading', { name: '생활패턴 적합도 분석 결과' }),
+    ).toBeInTheDocument();
 
     const detailCall = fetchMock.mock.calls[1];
     const detailUrl = new URL(String(detailCall?.[0]), 'http://localhost');
@@ -263,11 +340,49 @@ describe('MatchingTab canonical runtime', () => {
     expect(detailUrl.searchParams.get('detailEntryToken')).toBe('detail-token-1');
   });
 
+  it('request summary 이후 상대가 시즌 참여를 철회하면 tombstone detail로 degrade한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(
+        Response.json(
+          createPublicProfileTombstone({
+            id: 'user-request-1',
+            relation: { type: 'GENERAL' },
+            resultRead: { resultReadable: false, context: 'NONE' },
+            tombstone: {
+              reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+              displayName: '도윤',
+              message: '상대가 시즌 참여를 철회해 프로필을 볼 수 없어요.',
+            },
+          }),
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
+    const dialog = await screen.findByRole('dialog', { name: '요청 상대 프로필' });
+    expect(within(dialog).getByText('상대가 시즌 참여를 철회했어요.')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('상대가 시즌 참여를 철회해 프로필을 볼 수 없어요.'),
+    ).toBeInTheDocument();
+  });
+
   it.each([
     { kind: 'loading' } as const,
     {
       kind: 'unavailable',
       reason: 'VIEWER_NOT_REGISTERED',
+      seasonState: 'SEASON_MATCHING',
+      historySummary: { seasons: 0, matchedCount: 0, unmatchedCount: 0 },
     } as const,
     {
       kind: 'off-season',
@@ -276,9 +391,53 @@ describe('MatchingTab canonical runtime', () => {
   ])('loading/denied/season state가 같은 heading과 responsive shell을 사용한다', (state) => {
     const { container } = render(<MatchingTabView state={state} />);
 
-    expect(screen.getByRole('heading', { level: 1, name: '매칭 현황' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByTestId('matching-tab-hero')).toBeInTheDocument();
     expect(screen.getByTestId('matching-tab-layout')).toBeInTheDocument();
     expect(container.querySelector('main')).not.toBeInTheDocument();
+  });
+
+  it('loading은 viewer identity와 production main/supporting grid를 유지한다', () => {
+    render(
+      <MatchingTabView
+        state={{ kind: 'loading' }}
+        viewerHeader={{
+          nickname: '나',
+          gender: 'M',
+          campusLabel: '춘천캠퍼스',
+          residenceLabel: '다산관 · 2인실',
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: '나님' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '매칭 정보를 불러오는 중' })).toBeInTheDocument();
+    expect(screen.getByTestId('matching-tab-layout')).toHaveClass('max-w-md', 'md:max-w-5xl');
+    expect(screen.getByTestId('matching-tab-loading-layout')).toHaveClass(
+      'md:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)]',
+    );
+  });
+
+  it('비시즌 header는 현재 기숙사 대신 HomeTab과 같은 캠퍼스 맥락을 표시한다', () => {
+    render(
+      <MatchingTabView
+        state={{
+          kind: 'off-season',
+          historySummary: { seasons: 0, matchedCount: 0, unmatchedCount: 0 },
+        }}
+        viewerHeader={{
+          nickname: '나',
+          gender: 'M',
+          campusLabel: '춘천캠퍼스',
+          residenceLabel: '다산관 · 2인실',
+        }}
+        selectedSection="past"
+        pastContent={<p>지난 기록</p>}
+      />,
+    );
+
+    expect(screen.getByText('춘천캠퍼스')).toBeInTheDocument();
+    expect(screen.queryByText('다산관 · 2인실')).not.toBeInTheDocument();
   });
 
   it('error retry는 public copy만 노출하고 overview refetch를 호출한다', async () => {
@@ -299,6 +458,8 @@ describe('MatchingTab canonical runtime', () => {
       screen.getByText('매칭 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/raw upstream/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('matching-tab-layout')).toHaveClass('max-w-md', 'md:max-w-5xl');
+    expect(screen.getByTestId('matching-tab-error')).toHaveClass('max-w-3xl');
     await ui.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -323,12 +484,14 @@ describe('MatchingTab canonical runtime', () => {
               activeMatch: null,
               serverNow: '2026-08-01T00:00:00.000Z',
               roomSelectionDate: null,
+              seasonEndDate: '2026-08-31',
               requestSection: {
                 quota: { used: 0, limit: 3, remaining: 3 },
                 sent: [],
                 received: [],
               },
               receivedPendingCount: 0,
+              activity: [],
             },
           }}
           consistency={consistency}
@@ -370,13 +533,13 @@ describe('MatchingTab canonical runtime', () => {
             },
           },
           historySummary: { seasons: 1, matchedCount: 1, unmatchedCount: 0 },
+          activity: [],
         }}
       />,
     );
 
-    expect(
-      screen.getByText('매칭된 사용자님과의 확정 결과를 확인할 수 있어요.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '매칭된 사용자' })).toBeInTheDocument();
+    expect(screen.getByTestId('matching-tab-layout')).toHaveClass('md:max-w-5xl');
   });
 
   it('수락 confirm 뒤 endpoint를 한 번 호출하고 authoritative overview로 active 전환한다', async () => {
@@ -414,10 +577,9 @@ describe('MatchingTab canonical runtime', () => {
       terminalAt: '2026-08-01T01:00:00.000Z',
       terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH' as const,
       actions: {
-        canAccept: false,
-        canReject: false,
-        canCancel: false,
-        disabledReason: 'REQUEST_ALREADY_RESOLVED' as const,
+        accept: { allowed: false, reason: 'REQUEST_ALREADY_RESOLVED' as const },
+        reject: { allowed: false, reason: 'REQUEST_ALREADY_RESOLVED' as const },
+        cancel: { allowed: false, reason: 'REQUEST_ALREADY_RESOLVED' as const },
       },
     };
     const fetchMock = vi
@@ -432,7 +594,13 @@ describe('MatchingTab canonical runtime', () => {
         }),
       )
       .mockResolvedValueOnce(
-        Response.json(overviewFixture({ receivedRequests: [systemCancelledSibling], activeMatch })),
+        Response.json(
+          overviewFixture({
+            receivedRequests: [systemCancelledSibling],
+            activeMatch,
+            activity: [currentActivity()],
+          }),
+        ),
       );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -450,7 +618,7 @@ describe('MatchingTab canonical runtime', () => {
     await user.click(screen.getByRole('button', { name: '수락하기' }));
 
     await screen.findByRole('dialog', { name: '매칭 완료' });
-    expect(screen.getByText('요청 종료')).toBeInTheDocument();
+    expect(screen.getByText('요청 1건 자동 종료')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/matches/requests/request-1/accept',
       expect.objectContaining({ method: 'POST' }),
@@ -471,7 +639,16 @@ describe('MatchingTab canonical runtime', () => {
       )
       .mockResolvedValueOnce(
         Response.json(
-          overviewFixture({ receivedRequests: [receivedRequest('CANCELLED_BY_SYSTEM')] }),
+          overviewFixture({
+            receivedRequests: [receivedRequest('CANCELLED_BY_SYSTEM')],
+            activity: [
+              currentActivity({
+                requestTerminalReason: 'MATCH_PRECONDITION_FAILED',
+                systemCancellationCause: null,
+                systemCancellationGroupId: null,
+              }),
+            ],
+          }),
         ),
       );
     vi.stubGlobal('fetch', fetchMock);
@@ -489,7 +666,7 @@ describe('MatchingTab canonical runtime', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '매칭 상태가 변경되었어요. 최신 상태를 다시 확인해주세요.',
     );
-    expect(screen.getByText('요청 종료')).toBeInTheDocument();
+    expect(screen.getByText('요청 1건 자동 종료')).toBeInTheDocument();
     expect(screen.queryByText(/raw upstream target hidden/)).not.toBeInTheDocument();
   });
 
@@ -513,8 +690,10 @@ describe('MatchingTab canonical runtime', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
+    const dialog = await screen.findByRole('dialog', { name: '확정된 룸메이트 프로필' });
+    expect(dialog).toBeInTheDocument();
     expect(
-      await screen.findByRole('dialog', { name: '확정된 룸메이트 프로필' }),
+      within(dialog).getByRole('heading', { name: '생활패턴 적합도 분석 결과' }),
     ).toBeInTheDocument();
     const detailUrl = new URL(String(fetchMock.mock.calls[1]?.[0]), 'http://localhost');
     expect(detailUrl.pathname).toBe('/api/profiles/user-2');
@@ -552,7 +731,7 @@ describe('MatchingTab canonical runtime', () => {
 
     await user.click(await screen.findByRole('button', { name: '도윤 프로필 상세 보기' }));
     const dialog = await screen.findByRole('dialog', { name: '확정된 룸메이트 프로필' });
-    expect(within(dialog).getByText('탈퇴한 사용자')).toBeInTheDocument();
+    expect(within(dialog).getByText('상대가 시즌 참여를 철회했어요.')).toBeInTheDocument();
     expect(within(dialog).queryByText('현재 매칭도 92점')).not.toBeInTheDocument();
   });
 

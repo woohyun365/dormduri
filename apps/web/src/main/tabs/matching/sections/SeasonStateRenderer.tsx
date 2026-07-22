@@ -6,6 +6,7 @@ import { SeasonPostMatchState } from './current/SeasonPostMatchState';
 import type { MatchingRequestCommands } from './requests/PairRequestSection';
 import type { MatchingRequestTab } from '../components/MatchingSegmentTabs';
 import type { MatchingActiveCommands } from './active/ActiveMatchSection';
+import type { MatchingNavigationIntent } from '../model/matching-navigation-intent';
 
 export function SeasonStateRenderer({
   state,
@@ -16,9 +17,14 @@ export function SeasonStateRenderer({
   onDismissActiveActionError,
   onDismissUnmatchCompletion,
   onNavigateChat,
+  onNavigationIntent,
+  onRefreshOverview,
   initialRequestTab,
 }: {
-  readonly state: Exclude<MatchingViewState, { kind: 'loading' | 'error' | 'unavailable' }>;
+  readonly state: Exclude<
+    MatchingViewState,
+    { kind: 'loading' | 'error' | 'unavailable' | 'deregistered' }
+  >;
   readonly requestCommands: MatchingRequestCommands;
   readonly activeCommands?: MatchingActiveCommands;
   readonly activeActionError?: string | null;
@@ -26,13 +32,19 @@ export function SeasonStateRenderer({
   readonly onDismissActiveActionError?: () => void;
   readonly onDismissUnmatchCompletion?: () => void;
   readonly onNavigateChat?: () => void;
+  readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
+  readonly onRefreshOverview?: () => Promise<void>;
   readonly initialRequestTab?: MatchingRequestTab;
 }) {
   switch (state.kind) {
     case 'off-season':
-      return <OffSeasonState historySummary={state.historySummary} />;
+      return (
+        <OffSeasonState historySummary={state.historySummary} onNavigate={onNavigationIntent} />
+      );
     case 'season-open':
-      return <SeasonOpenState historySummary={state.historySummary} />;
+      return (
+        <SeasonOpenState historySummary={state.historySummary} onNavigate={onNavigationIntent} />
+      );
     case 'season-matching':
       const resolvedActiveCommands =
         activeCommands ??
@@ -51,12 +63,19 @@ export function SeasonStateRenderer({
           onDismissActiveActionError={onDismissActiveActionError}
           onDismissUnmatchCompletion={onDismissUnmatchCompletion}
           onNavigateChat={onNavigateChat}
+          onRefreshOverview={onRefreshOverview}
           initialRequestTab={initialRequestTab}
         />
       );
     case 'season-post-match':
       return (
-        <SeasonPostMatchState activeMatch={state.activeMatch} onNavigateChat={onNavigateChat} />
+        <SeasonPostMatchState
+          activeMatch={state.activeMatch}
+          roomSelectionDate={state.roomSelectionDate}
+          seasonEndDate={state.seasonEndDate}
+          activity={state.activity}
+          onNavigateChat={onNavigateChat}
+        />
       );
   }
 }

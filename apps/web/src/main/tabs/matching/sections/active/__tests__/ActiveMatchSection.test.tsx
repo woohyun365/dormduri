@@ -68,11 +68,37 @@ const commands = {
 };
 
 describe('ActiveMatchSection', () => {
-  it('0/2 상태와 영향 고지를 거쳐 해제 요청을 실행한다', async () => {
+  it('정상 매칭에서는 관계와 주요 행동을 먼저 보여주고 매칭 관리 안에서 해제 요청을 실행한다', async () => {
     const user = userEvent.setup();
-    render(<ActiveMatchSection activeMatch={activeMatch()} readOnly={false} commands={commands} />);
+    const onNavigateChat = vi.fn();
+    render(
+      <ActiveMatchSection
+        activeMatch={activeMatch()}
+        readOnly={false}
+        roomSelectionDate="2026-08-10"
+        seasonEndDate="2026-08-31"
+        commands={commands}
+        onNavigateChat={onNavigateChat}
+      />,
+    );
 
-    expect(screen.getByText('0/2')).toBeInTheDocument();
+    expect(screen.getByTestId('matching-active-summary-card')).toHaveAttribute(
+      'data-tone',
+      'success',
+    );
+    expect(screen.getByRole('heading', { name: '도윤' })).toBeInTheDocument();
+    expect(screen.getByText('매칭 종료일')).toBeInTheDocument();
+    expect(screen.getByText('호실 선택일')).toBeInTheDocument();
+    expect(screen.getByText('시즌 종료일')).toBeInTheDocument();
+    expect(screen.getByText('26. 08. 10.')).toBeInTheDocument();
+    expect(screen.getByText('26. 08. 31.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '채팅하기' }));
+    expect(onNavigateChat).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('0/2')).not.toBeInTheDocument();
+    const management = screen.getByRole('button', { name: /매칭 관리/ });
+    expect(management).toHaveAttribute('aria-expanded', 'false');
+    await user.click(management);
+    expect(management).toHaveAttribute('aria-expanded', 'true');
     await user.click(screen.getByRole('button', { name: '매칭 해제 요청' }));
     expect(screen.getByRole('dialog', { name: '매칭 해제를 요청할까요?' })).toHaveTextContent(
       '상대도 동의해야 매칭이 해제돼요',
@@ -91,7 +117,14 @@ describe('ActiveMatchSection', () => {
       />,
     );
 
-    expect(screen.getByText('1/2')).toBeInTheDocument();
+    expect(screen.getByText('동의 1/2')).toBeInTheDocument();
+    expect(screen.queryByText('매칭 해제 동의가 필요해요.')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('상대가 요청했어요. 매칭 관리에서 확인해 주세요.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('내 응답 필요')).toBeInTheDocument();
+    expect(screen.getByText('상대의 이유를 먼저 들어보세요.')).toBeInTheDocument();
+    expect(screen.queryByText(/응답 기한/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '매칭 해제에 동의' }));
     expect(screen.getByRole('dialog', { name: '매칭 해제에 동의할까요?' })).toHaveTextContent(
       '즉시 해제돼요',
@@ -108,10 +141,32 @@ describe('ActiveMatchSection', () => {
       />,
     );
 
+    expect(screen.getByText('상대에게 이유를 설명해 주세요.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '내 해제 요청 철회' }));
     expect(
       screen.getByRole('dialog', { name: '내 매칭 해제 요청을 철회할까요?' }),
     ).toHaveTextContent('현재 매칭 관계는 그대로 유지돼요');
+  });
+
+  it('호실 선택 cutoff 이후에는 매칭 관리 섹션을 렌더링하지 않는다', () => {
+    const cutoffMatch = activeMatch();
+    render(
+      <ActiveMatchSection
+        activeMatch={{
+          ...cutoffMatch,
+          unmatchProgress: {
+            ...cutoffMatch.unmatchProgress,
+            canRequest: false,
+            disabledReason: 'ROOM_SELECTION_CUTOFF',
+          },
+        }}
+        readOnly={false}
+        commands={commands}
+      />,
+    );
+
+    expect(screen.queryByText('매칭 관리')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '매칭 해제 요청' })).not.toBeInTheDocument();
   });
 
   it('POST_MATCH read-only variant는 unmatch control을 생성하지 않고 profile/chat capability만 유지한다', () => {
@@ -119,7 +174,7 @@ describe('ActiveMatchSection', () => {
 
     expect(screen.getByRole('button', { name: '도윤 프로필 상세 보기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '채팅하기' })).toBeInTheDocument();
-    expect(screen.queryByText('매칭 해제 동의')).not.toBeInTheDocument();
+    expect(screen.queryByText('매칭 관리')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '매칭 해제 요청' })).not.toBeInTheDocument();
   });
 
@@ -145,9 +200,7 @@ describe('ActiveMatchSection', () => {
       </div>,
     );
 
-    expect(screen.getByRole('heading', { level: 3, name: longName })).toHaveClass(
-      'wrap-break-word',
-    );
-    expect(screen.getByText(/상대가 해제를 요청했어요/)).toHaveClass('wrap-break-word');
+    expect(screen.getByRole('heading', { level: 3, name: longName })).toBeInTheDocument();
+    expect(screen.getByText('대화 후 해제 여부를 결정해요.')).toBeInTheDocument();
   });
 });

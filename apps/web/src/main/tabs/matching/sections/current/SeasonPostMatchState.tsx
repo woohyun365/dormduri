@@ -1,30 +1,50 @@
 import type { MatchOverviewResponse } from '@repo/shared/match/contract';
 import { ActiveMatchSection } from '../active/ActiveMatchSection';
+import { PairMatchingFlowTipCard } from '../../components/pair/PairMatchingFlowTipCard';
+import type { CurrentMatchActivityItemView } from '../../model/matching-current-activity-view';
+import { CurrentMatchActivitySection } from './CurrentMatchActivitySection';
 
 export function SeasonPostMatchState({
   activeMatch,
+  roomSelectionDate,
+  seasonEndDate,
+  activity,
   onNavigateChat,
 }: {
   readonly activeMatch: MatchOverviewResponse['activeMatch'];
+  readonly roomSelectionDate?: string | null;
+  readonly seasonEndDate?: string | null;
+  readonly activity: readonly CurrentMatchActivityItemView[];
   readonly onNavigateChat?: () => void;
 }) {
   return (
-    <section className="rounded-3xl border border-(--knu-border) bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-(--knu-primary)">시즌 결과</p>
-      <h2 className="mt-1 text-xl font-bold text-(--knu-text-primary)">
-        {activeMatch ? '이번 시즌 룸메이트가 정해졌어요' : '이번 시즌 매칭 결과가 없어요'}
+    <section className="min-w-0">
+      <h2 className="sr-only">
+        {activeMatch ? '이번 시즌 매칭 결과를 확인해보세요' : '이번 시즌 결과를 확인해보세요'}
       </h2>
-      <p className="mt-3 text-sm leading-6 text-(--knu-text-secondary)">
-        {activeMatch
-          ? `${activeMatch.counterpartNickname ?? '매칭된 사용자'}님과의 확정 결과를 확인할 수 있어요.`
-          : '시즌은 종료됐으며 새로운 요청이나 매칭 해제 작업은 할 수 없어요.'}
-      </p>
-      <p className="mt-4 text-sm font-medium text-(--knu-text-secondary)">
-        이 화면은 결과 확인 전용이에요.
-      </p>
-      {activeMatch ? (
-        <ActiveMatchSection activeMatch={activeMatch} readOnly onNavigateChat={onNavigateChat} />
-      ) : null}
+      <div
+        data-testid="matching-post-match-layout"
+        className="grid items-start gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)]"
+      >
+        <div className="order-last min-w-0 space-y-5 md:order-first">
+          {activeMatch ? (
+            <ActiveMatchSection
+              activeMatch={activeMatch}
+              readOnly
+              roomSelectionDate={roomSelectionDate}
+              seasonEndDate={seasonEndDate}
+              onNavigateChat={onNavigateChat}
+            />
+          ) : null}
+          <CurrentMatchActivitySection items={activity} />
+        </div>
+        <aside
+          className="order-first min-w-0 md:sticky md:top-[calc(var(--matching-sticky-stack-height,224px)_+_1.25rem)] md:order-last"
+          aria-label="2인실 매칭 안내"
+        >
+          <PairMatchingFlowTipCard phase="post-match" matched={Boolean(activeMatch)} />
+        </aside>
+      </div>
     </section>
   );
 }

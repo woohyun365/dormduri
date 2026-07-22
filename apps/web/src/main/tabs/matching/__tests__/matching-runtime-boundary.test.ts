@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -27,18 +27,41 @@ const historySectionSource = readFileSync(
   'utf8',
 );
 const historyDetailSource = readFileSync(
-  join(matchingRoot, 'history/MatchHistoryDetailContent.tsx'),
+  join(matchingRoot, 'sections/history/HistoryEntryDialog.tsx'),
   'utf8',
 );
-const historyExportSource = readFileSync(join(matchingRoot, 'history/index.ts'), 'utf8');
 const sectionTabsSource = readFileSync(
-  join(matchingRoot, 'components/MatchingSectionTabs.tsx'),
+  join(matchingRoot, 'components/pair/PairMatchingSectionTabs.tsx'),
   'utf8',
 );
 const requestCardSource = readFileSync(
-  join(matchingRoot, 'components/MatchRequestSummaryCard.tsx'),
+  join(matchingRoot, 'components/pair/PairRequestCard.tsx'),
   'utf8',
 );
+const sharedHeaderFrame = join(process.cwd(), 'src/main/components/layout/MainTabHeaderFrame.tsx');
+const roommateHeaderSource = readFileSync(
+  join(process.cwd(), 'src/main/tabs/roommate-list/sections/header/RoommateSearchHeader.tsx'),
+  'utf8',
+);
+const pairPresentationFiles = [
+  'components/pair/PairMatchingIdentityHeader.tsx',
+  'components/pair/PairMatchingSectionTabs.tsx',
+  'components/pair/PairRequestTabs.tsx',
+  'components/pair/PairRequestOrderControl.tsx',
+  'components/pair/PairRequestCard.tsx',
+  'components/pair/PairActiveMatchCard.tsx',
+  'components/pair/PairMatchingFlowTipCard.tsx',
+] as const;
+const canonicalProductSourceEntries = readdirSync(matchingRoot, { recursive: true }).flatMap(
+  (entry) => (typeof entry === 'string' ? [entry] : []),
+);
+const canonicalProductSources = canonicalProductSourceEntries
+  .filter((entry) => /\.(?:ts|tsx)$/u.test(entry))
+  .filter((entry) => !entry.includes('__stories__') && !entry.includes('__tests__'))
+  .map((entry) => ({
+    file: join(matchingRoot, entry),
+    source: readFileSync(join(matchingRoot, entry), 'utf8'),
+  }));
 const pairOnlyProductSources = [
   join(process.cwd(), 'src/types/match.ts'),
   join(process.cwd(), 'src/constants/dormitory.ts'),
@@ -49,7 +72,10 @@ const pairOnlyProductSources = [
   join(process.cwd(), 'src/main/tabs/home/model/homeDashboardViewModel.ts'),
   join(process.cwd(), 'src/main/tabs/home/sections/matching/HomeMatchingSummary.tsx'),
   join(process.cwd(), 'src/utils/matchButtonStyle.ts'),
-].map((file) => ({ file, source: readFileSync(file, 'utf8') }));
+  join(process.cwd(), 'src/utils/matchRequest.ts'),
+]
+  .filter(existsSync)
+  .map((file) => ({ file, source: readFileSync(file, 'utf8') }));
 
 const forbiddenPairOnlyTokens = [
   'PAIR_OPEN',
@@ -70,6 +96,17 @@ const forbiddenPairOnlyTokens = [
 ];
 
 describe('MatchingTab runtime boundary', () => {
+  it('RoommateTab과 MatchingTab은 공통 header frame을 쓰고 pair UI를 feature 내부에 둔다', () => {
+    expect(existsSync(sharedHeaderFrame)).toBe(true);
+    expect(roommateHeaderSource).toContain('MainTabHeaderFrame');
+    expect(readFileSync(join(matchingRoot, 'layout/MatchingTabHeader.tsx'), 'utf8')).toContain(
+      'MainTabHeaderFrame',
+    );
+    expect(pairPresentationFiles.filter((file) => !existsSync(join(matchingRoot, file)))).toEqual(
+      [],
+    );
+  });
+
   it('새 state matrix는 shared season enum과 server score visibility만 소유한다', () => {
     expect(stateMatrixSource).toContain('@repo/shared/season/runtime');
     expect(stateMatrixSource).toContain('scoreVisible');
@@ -83,11 +120,38 @@ describe('MatchingTab runtime boundary', () => {
     expect(matchingTabSource).not.toContain('__stories__');
   });
 
+  it('Phase 13-1 canonical presentation은 local matching model import를 되살리지 않는다', () => {
+    for (const { file, source } of canonicalProductSources) {
+      expect(source, `${file} must not import local legacy match type`).not.toContain(
+        '@/types/match',
+      );
+      expect(source, `${file} must not calculate a local match score`).not.toContain(
+        'calcMatchScoreWithGating',
+      );
+      expect(source, `${file} must not import Storybook fixtures`).not.toContain('__stories__');
+    }
+  });
+
   it('Main은 canonical MatchingTab만 mount하고 별도 runtime entry를 두지 않는다', () => {
     expect(mainSource).toContain("import MatchingTab from './tabs/matching/MatchingTab'");
     expect(mainSource).not.toContain('MatchingRuntimeTab');
     expect(existsSync(join(matchingRoot, 'MatchingRuntimeTab.tsx'))).toBe(false);
     expect(mainSource).toContain('initialSection={matchingNavOptions?.section}');
+  });
+
+  it('Post Match story는 flat Runtime 대신 Active, History, Policy owner로 분리한다', () => {
+    expect(
+      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.runtime.stories.tsx')),
+    ).toBe(false);
+    expect(
+      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.active.stories.tsx')),
+    ).toBe(true);
+    expect(
+      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.history.stories.tsx')),
+    ).toBe(true);
+    expect(
+      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.policy.stories.tsx')),
+    ).toBe(true);
   });
 
   it('shipping compatibility는 pair-only 토큰을 만들지 않는다', () => {
@@ -98,12 +162,13 @@ describe('MatchingTab runtime boundary', () => {
     }
   });
 
-  it('pair request runtime은 client 정렬/group 상태 없이 server capability와 canonical ordering을 쓴다', () => {
+  it('pair request runtime은 server capability를 유지하고 받은 요청 정렬은 표시용 복사본에만 적용한다', () => {
     expect(requestViewSource).not.toContain('.sort(');
     expect(requestViewSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
     expect(requestSectionSource).not.toMatch(/GROUP_|groupMatching|groupSize/);
-    expect(requestViewSource).toContain('request.actions.canAccept');
-    expect(requestViewSource).toContain('request.actions.disabledReason');
+    expect(requestSectionSource).toContain('orderReceivedMatchRequests');
+    expect(requestViewSource).toContain('request.actions.accept');
+    expect(requestViewSource).toContain('decision.reason');
   });
 
   it('current active runtime은 legacy/group/local score 없이 shared capability만 사용한다', () => {
@@ -120,11 +185,12 @@ describe('MatchingTab runtime boundary', () => {
     expect(historySectionSource).not.toContain('/api/profiles/');
     expect(historySectionSource).not.toMatch(/GROUP_|groupMatching|groupSize|hadConversation/);
     expect(historyDetailSource).not.toContain('calcMatchScoreWithGating');
-    expect(historyDetailSource).not.toContain('canStartChat');
-    expect(historyExportSource).toContain('MatchHistoryDetailContent');
+    expect(historyDetailSource).toContain('RoommateProfileDetailDialog');
+    expect(historyDetailSource).toContain('MATCHING_HISTORY_DETAIL_UNAVAILABLE');
+    expect(historyDetailSource).not.toContain('BaseBottomSheet');
   });
 
-  it('Phase 10 canonical surface는 manual tabs, direct action, reduced motion만 사용한다', () => {
+  it('pair surface는 manual tabs, direct action, reduced motion을 유지한다', () => {
     expect(sectionTabsSource).toContain("event.key === 'ArrowRight'");
     expect(sectionTabsSource).toContain("event.key === 'Enter' || event.key === ' '");
     expect(sectionTabsSource).toContain('motion-reduce:transition-none');

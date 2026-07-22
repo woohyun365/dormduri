@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Main from '../Main';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
@@ -248,6 +248,27 @@ describe('Main direct-action baseline', () => {
     await screen.findByTestId('main-matching');
     expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ initialRequestTab: 'received' }),
+    );
+  });
+
+  it('MatchingTab navigation intent는 Main의 기존 tab owner로만 전달한다', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '매칭 현황' }));
+    await screen.findByTestId('main-matching');
+
+    const onNavigationIntent = matchingTabMock.mock.lastCall?.[0]?.onNavigationIntent;
+    expect(onNavigationIntent).toEqual(expect.any(Function));
+
+    await act(async () => {
+      (onNavigationIntent as (intent: 'roommate') => void)('roommate');
+    });
+
+    await waitFor(() => expect(roommateListTabMock).toHaveBeenCalled());
+    expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ onNavigationIntent: expect.any(Function) }),
     );
   });
 

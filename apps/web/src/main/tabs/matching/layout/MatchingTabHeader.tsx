@@ -1,17 +1,40 @@
-export function MatchingTabHeader() {
+import { MainTabHeaderFrame } from '@/main/components/layout/MainTabHeaderFrame';
+import { PairMatchingIdentityHeader } from '../components/pair/PairMatchingIdentityHeader';
+import type { MatchingShellHeroView } from '../model/matching-shell-presentation';
+import type { MatchingViewerHeader } from '../model/matching-viewer-header';
+
+const defaultHero: MatchingShellHeroView = {
+  tone: 'neutral',
+  eyebrow: '매칭 현황',
+  statusLabel: '상태 확인',
+  title: '매칭 현황',
+  description: '요청과 확정 결과는 서버에서 확인한 최신 상태를 기준으로 안내해요.',
+};
+
+export function MatchingTabHeader({
+  hero = defaultHero,
+  viewer,
+  deadlineLabel = null,
+  showSeasonResidence = true,
+  onNavigateProfile,
+  sticky = true,
+}: {
+  readonly hero?: MatchingShellHeroView;
+  readonly viewer?: MatchingViewerHeader;
+  readonly deadlineLabel?: string | null;
+  readonly showSeasonResidence?: boolean;
+  readonly onNavigateProfile?: () => void;
+  readonly sticky?: boolean;
+}) {
   return (
-    <header className="rounded-3xl border border-(--knu-border) bg-white px-5 py-5 shadow-sm sm:px-6">
-      <p className="text-sm font-semibold text-(--knu-primary)">현재 시즌</p>
-      <h1
-        id="matching-tab-heading"
-        tabIndex={-1}
-        className="mt-1 text-2xl font-bold tracking-tight text-(--knu-text-primary)"
-      >
-        매칭 현황
-      </h1>
-      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">
-        요청과 확정 결과는 서버에서 확인한 최신 상태를 기준으로 안내해요.
-      </p>
-    </header>
+    <MainTabHeaderFrame tone="primary" width="home" sticky={sticky}>
+      <PairMatchingIdentityHeader
+        hero={hero}
+        viewer={viewer}
+        deadlineLabel={deadlineLabel}
+        showSeasonResidence={showSeasonResidence}
+        onNavigateProfile={onNavigateProfile}
+      />
+    </MainTabHeaderFrame>
   );
 }

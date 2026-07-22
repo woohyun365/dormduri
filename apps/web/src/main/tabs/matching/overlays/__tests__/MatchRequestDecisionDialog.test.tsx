@@ -5,9 +5,9 @@ import { MatchRequestDecisionDialog } from '../MatchRequestDecisionDialog';
 
 describe('MatchRequestDecisionDialog', () => {
   it.each([
-    ['accept', '매칭 요청을 수락할까요?', '다른 미결 요청은 시스템에서 종료'],
-    ['reject', '매칭 요청을 거절할까요?', '내부 사유는 공개되지 않아요'],
-    ['cancel', '보낸 요청을 취소할까요?', '이 요청만 종료'],
+    ['accept', '매칭 요청을 수락할까요?', '다른 유저와의 매칭 요청·채팅은 자동으로 종료'],
+    ['reject', '매칭 요청을 거절할까요?', '상대에게 거절 의사를 전달할 수 있어요'],
+    ['cancel', '보낸 요청을 취소할까요?', '이 요청만 종료되고 상대에게 요청을 다시 보낼 수 있어요'],
   ] as const)('%s decision의 policy copy를 표시한다', (decision, title, copy) => {
     render(
       <MatchRequestDecisionDialog

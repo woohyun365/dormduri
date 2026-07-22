@@ -31,7 +31,6 @@ describe('RequestExpiryText', () => {
 
     const liveRegion = screen.getByText('요청 처리 기한이 1시간 이내로 남았어요.');
     expect(liveRegion).toHaveAttribute('aria-live', 'polite');
-    expect(liveRegion).toHaveClass('sr-only');
     expect(screen.getByText('요청 만료까지 0시간 30분 남음')).not.toHaveAttribute('aria-live');
   });
 

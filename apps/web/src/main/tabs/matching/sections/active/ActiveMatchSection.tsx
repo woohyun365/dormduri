@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { CurrentActiveMatchSummary } from '@repo/shared/match/contract';
-import { ActiveMatchSummaryCard } from '../../components/ActiveMatchSummaryCard';
+import { PairActiveMatchCard } from '../../components/pair/PairActiveMatchCard';
 import { useActiveMatchProfileDetail } from '../../hooks/useActiveMatchProfileDetail';
 import { toMatchingActiveView } from '../../model/matching-active-view';
 import { MatchingProfileDialog } from '../../overlays/MatchingProfileDialog';
@@ -21,6 +21,8 @@ export function ActiveMatchSection({
   commands,
   actionError,
   completionMessage,
+  roomSelectionDate,
+  seasonEndDate,
   onDismissActionError,
   onDismissCompletion,
   onNavigateChat,
@@ -30,6 +32,8 @@ export function ActiveMatchSection({
   readonly commands?: MatchingActiveCommands;
   readonly actionError?: string | null;
   readonly completionMessage?: string | null;
+  readonly roomSelectionDate?: string | null;
+  readonly seasonEndDate?: string | null;
   readonly onDismissActionError?: () => void;
   readonly onDismissCompletion?: () => void;
   readonly onNavigateChat?: () => void;
@@ -48,12 +52,12 @@ export function ActiveMatchSection({
     setDecisionOpen(false);
     const trigger = decisionTriggerRef.current;
     queueMicrotask(() => {
-      if (trigger?.isConnected) trigger.focus();
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
       else {
         const fallback =
           document.getElementById('matching-active-heading') ??
           document.getElementById('matching-tab-heading');
-        fallback?.focus();
+        fallback?.focus({ preventScroll: true });
       }
     });
   };
@@ -68,11 +72,7 @@ export function ActiveMatchSection({
 
   return (
     <section aria-labelledby="matching-active-heading" className="mt-5 min-w-0">
-      <h2
-        id="matching-active-heading"
-        tabIndex={-1}
-        className="mb-3 text-lg font-bold text-(--knu-text-primary) outline-none"
-      >
+      <h2 id="matching-active-heading" tabIndex={-1} className="sr-only">
         확정된 룸메이트
       </h2>
       {completionMessage ? (
@@ -109,10 +109,13 @@ export function ActiveMatchSection({
           ) : null}
         </div>
       ) : null}
-      <ActiveMatchSummaryCard
+      <PairActiveMatchCard
+        key={`${view.id}:${view.unmatch.state}`}
         activeMatch={view}
         readOnly={readOnly}
         pending={pending}
+        roomSelectionDate={roomSelectionDate}
+        seasonEndDate={seasonEndDate}
         onOpenProfile={(trigger) => detail.open(view, trigger)}
         onNavigateChat={onNavigateChat}
         onUnmatchDecision={

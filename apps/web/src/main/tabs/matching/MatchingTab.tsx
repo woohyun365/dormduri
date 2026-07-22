@@ -1,6 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { MatchingViewState } from './model/matching-view-model';
 import type {
   MatchingSeasonShell,
@@ -9,37 +17,46 @@ import type {
 import { MatchingTabError } from './layout/MatchingTabError';
 import { MatchingTabHeader } from './layout/MatchingTabHeader';
 import { MatchingTabLayout } from './layout/MatchingTabLayout';
-import { MatchingPolicyRail } from './layout/MatchingPolicyRail';
 import { MatchingTabSkeleton } from './layout/MatchingTabSkeleton';
 import { toMatchingApiErrorMessage } from './api/matching.api';
 import { useMatchingOverview } from './hooks/useMatchingOverview';
-import { useMatchingActions } from './hooks/useMatchingActions';
+import { useMatchingActions, type RequestActionCompletion } from './hooks/useMatchingActions';
 import { useMatchingHistory } from './hooks/useMatchingHistory';
-import { matchCapabilityReasonCopy } from './model/matching-action-capability';
+import { toMatchingShellPresentation } from './model/matching-shell-presentation';
 import { resolveMatchingShellConsistency } from './model/matching-shell-consistency';
 import { toMatchingViewState } from './model/matching-view-model';
 import { SeasonStateRenderer } from './sections/SeasonStateRenderer';
+import { MatchingCurrentPolicyGate } from './sections/current/MatchingCurrentPolicyGate';
 import { MatchingUnavailableState } from './sections/system/MatchingUnavailableState';
 import type { MatchingRequestCommands } from './sections/requests/PairRequestSection';
 import type { MatchingActiveCommands } from './sections/active/ActiveMatchSection';
 import type { MatchingRequestTab } from './components/MatchingSegmentTabs';
 import { MatchingSectionTabs, type MatchingSection } from './components/MatchingSectionTabs';
 import { MatchHistorySection } from './sections/history/MatchHistorySection';
+import type { MatchingNavigationIntent } from './model/matching-navigation-intent';
+import { getMatchingDefaultSection } from './model/matching-default-section';
+import type { MatchingViewerHeader } from './model/matching-viewer-header';
+import { MatchRequestResultDialog } from './overlays/MatchRequestResultDialog';
+import { DeregisteredMatchingState } from './sections/current/DeregisteredMatchingState';
 
 export interface MatchingTabProps {
   readonly viewerId: string;
+  readonly viewerHeader?: MatchingViewerHeader;
   readonly seasonShell: MatchingSeasonShell;
   readonly onBadgeCountChange?: (count: number) => void;
   readonly onNavigateChat?: () => void;
+  readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly initialRequestTab?: MatchingRequestTab;
   readonly initialSection?: MatchingSection;
 }
 
 export default function MatchingTab({
   viewerId,
+  viewerHeader,
   seasonShell,
   onBadgeCountChange,
   onNavigateChat,
+  onNavigationIntent,
   initialRequestTab,
   initialSection,
 }: MatchingTabProps) {
@@ -48,9 +65,11 @@ export default function MatchingTab({
     <MatchingTabRuntime
       key={identityKey}
       identityKey={identityKey}
+      viewerHeader={viewerHeader}
       seasonShell={seasonShell}
       onBadgeCountChange={onBadgeCountChange}
       onNavigateChat={onNavigateChat}
+      onNavigationIntent={onNavigationIntent}
       initialRequestTab={initialRequestTab}
       initialSection={initialSection}
     />
@@ -59,16 +78,20 @@ export default function MatchingTab({
 
 function MatchingTabRuntime({
   identityKey,
+  viewerHeader,
   seasonShell,
   onBadgeCountChange,
   onNavigateChat,
+  onNavigationIntent,
   initialRequestTab,
   initialSection,
 }: {
   readonly identityKey: string;
+  readonly viewerHeader?: MatchingViewerHeader;
   readonly seasonShell: MatchingSeasonShell;
   readonly onBadgeCountChange?: (count: number) => void;
   readonly onNavigateChat?: () => void;
+  readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly initialRequestTab?: MatchingRequestTab;
   readonly initialSection?: MatchingSection;
 }) {
@@ -83,6 +106,7 @@ function MatchingTabRuntime({
   const actions = useMatchingActions({ refetchOverview: overview.refresh });
   const view = toMatchingViewState({
     overview: overview.data,
+    history: historyData,
     error: overview.error,
     loading: overview.loading,
   });
@@ -91,7 +115,18 @@ function MatchingTabRuntime({
   const headingFocused = useRef(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [mismatchCount, setMismatchCount] = useState(0);
-  const [section, setSection] = useState<MatchingSection>(initialSection ?? 'current');
+  const [selectedSection, setSelectedSection] = useState<MatchingSection | null>(
+    initialSection ?? null,
+  );
+  const section = selectedSection ?? getMatchingDefaultSection(view);
+
+  const handleNavigationIntent = (intent: MatchingNavigationIntent) => {
+    if (intent === 'history') {
+      setSelectedSection('past');
+      return;
+    }
+    onNavigationIntent?.(intent);
+  };
 
   const consistency = useMemo<MatchingShellConsistency | null>(() => {
     if (!overview.data) return null;
@@ -158,12 +193,13 @@ function MatchingTabRuntime({
   useEffect(() => {
     const headingId =
       section === 'past' ? 'matching-history-heading' : 'matching-current-section-heading';
-    queueMicrotask(() => document.getElementById(headingId)?.focus());
+    queueMicrotask(() => document.getElementById(headingId)?.focus({ preventScroll: true }));
   }, [section]);
 
   return (
     <MatchingTabView
       state={view}
+      viewerHeader={viewerHeader}
       consistency={consistency}
       celebration={celebration}
       onCloseCelebration={() => setCelebration(null)}
@@ -173,17 +209,20 @@ function MatchingTabRuntime({
       requestActionError={
         actions.requestError ? toMatchingApiErrorMessage(actions.requestError.code) : null
       }
+      requestActionCompletion={actions.requestCompletion}
       activeActionError={
         actions.activeError ? toMatchingApiErrorMessage(actions.activeError.code) : null
       }
       unmatchCompletion={actions.unmatchCompletion?.message ?? null}
       onDismissRequestActionError={actions.dismissRequestError}
+      onDismissRequestActionCompletion={actions.dismissRequestCompletion}
       onDismissActiveActionError={actions.dismissActiveError}
       onDismissUnmatchCompletion={actions.dismissUnmatchCompletion}
       onNavigateChat={onNavigateChat}
+      onNavigationIntent={handleNavigationIntent}
       initialRequestTab={initialRequestTab}
       selectedSection={section}
-      onSelectSection={setSection}
+      onSelectSection={setSelectedSection}
       pastContent={
         <MatchHistorySection
           data={historyData}
@@ -198,6 +237,7 @@ function MatchingTabRuntime({
 
 export function MatchingTabView({
   state,
+  viewerHeader,
   consistency = null,
   celebration = null,
   onCloseCelebration,
@@ -205,18 +245,22 @@ export function MatchingTabView({
   requestCommands,
   activeCommands,
   requestActionError = null,
+  requestActionCompletion = null,
   activeActionError = null,
   unmatchCompletion = null,
   onDismissRequestActionError,
+  onDismissRequestActionCompletion,
   onDismissActiveActionError,
   onDismissUnmatchCompletion,
   onNavigateChat,
+  onNavigationIntent,
   initialRequestTab,
   selectedSection = 'current',
   onSelectSection,
   pastContent,
 }: {
   readonly state: MatchingViewState;
+  readonly viewerHeader?: MatchingViewerHeader;
   readonly consistency?: MatchingShellConsistency | null;
   readonly celebration?: string | null;
   readonly onCloseCelebration?: () => void;
@@ -224,18 +268,51 @@ export function MatchingTabView({
   readonly requestCommands?: MatchingRequestCommands;
   readonly activeCommands?: MatchingActiveCommands;
   readonly requestActionError?: string | null;
+  readonly requestActionCompletion?: RequestActionCompletion | null;
   readonly activeActionError?: string | null;
   readonly unmatchCompletion?: string | null;
   readonly onDismissRequestActionError?: () => void;
+  readonly onDismissRequestActionCompletion?: () => void;
   readonly onDismissActiveActionError?: () => void;
   readonly onDismissUnmatchCompletion?: () => void;
   readonly onNavigateChat?: () => void;
+  readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly initialRequestTab?: MatchingRequestTab;
   readonly selectedSection?: MatchingSection;
   readonly onSelectSection?: (section: MatchingSection) => void;
   readonly pastContent?: ReactNode;
 }) {
-  if (state.kind === 'loading' && selectedSection === 'current') return <MatchingTabSkeleton />;
+  const stickyStackRef = useRef<HTMLDivElement | null>(null);
+  const [stickyStackHeight, setStickyStackHeight] = useState(224);
+  useLayoutEffect(() => {
+    const node = stickyStackRef.current;
+    if (!node) return;
+    const updateHeight = () => setStickyStackHeight(Math.ceil(node.getBoundingClientRect().height));
+    updateHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const presentation = toMatchingShellPresentation({ state, consistency });
+  const deadlineLabel = toMatchingDeadlineLabel(state);
+  const handleNavigationIntent = (intent: MatchingNavigationIntent) => {
+    if (intent === 'history') {
+      handleSectionSelect('past');
+      return;
+    }
+    onNavigationIntent?.(intent);
+  };
+  const handleSectionSelect = (section: MatchingSection) => {
+    if (section === selectedSection) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    onSelectSection?.(section);
+  };
+
+  if (state.kind === 'loading' && selectedSection === 'current') {
+    return <MatchingTabSkeleton presentation={presentation} viewer={viewerHeader} />;
+  }
 
   let currentContent: ReactNode;
   if (state.kind === 'loading') {
@@ -245,7 +322,26 @@ export function MatchingTabView({
       <MatchingTabError message={toMatchingApiErrorMessage(state.error.code)} onRetry={onRetry} />
     );
   } else if (state.kind === 'unavailable') {
-    currentContent = <MatchingUnavailableState message={matchCapabilityReasonCopy(state.reason)} />;
+    currentContent = (
+      <MatchingCurrentPolicyGate
+        gate={{
+          kind: 'capability',
+          reason: state.reason,
+          seasonState: state.seasonState,
+          hasHistory: state.historySummary.seasons > 0,
+        }}
+        onNavigate={handleNavigationIntent}
+      />
+    );
+  } else if (state.kind === 'deregistered') {
+    currentContent = (
+      <DeregisteredMatchingState
+        seasonState={state.seasonState}
+        historySummary={state.historySummary}
+        activity={state.activity}
+        onNavigate={handleNavigationIntent}
+      />
+    );
   } else if (consistency?.kind === 'transitioning') {
     currentContent = (
       <MatchingUnavailableState message="시즌 전환을 확인하고 있어요. 잠시만 기다려주세요." />
@@ -301,6 +397,8 @@ export function MatchingTabView({
           onDismissActiveActionError={onDismissActiveActionError}
           onDismissUnmatchCompletion={onDismissUnmatchCompletion}
           onNavigateChat={onNavigateChat}
+          onNavigationIntent={handleNavigationIntent}
+          onRefreshOverview={onRetry}
           initialRequestTab={initialRequestTab}
         />
       </>
@@ -309,50 +407,78 @@ export function MatchingTabView({
 
   return (
     <>
-      <MatchingTabLayout header={<MatchingTabHeader />} rail={<MatchingPolicyRail />}>
-        <div className="space-y-4">
-          <MatchingSectionTabs
-            selected={selectedSection}
-            onSelect={onSelectSection ?? (() => undefined)}
+      <div
+        className="min-h-full bg-[var(--knu-background-alt)]"
+        style={
+          {
+            '--matching-sticky-stack-height': `${stickyStackHeight}px`,
+          } as CSSProperties
+        }
+      >
+        <div ref={stickyStackRef} className="sticky top-0 z-40">
+          <MatchingTabHeader
+            hero={presentation.hero}
+            viewer={viewerHeader}
+            deadlineLabel={deadlineLabel}
+            showSeasonResidence={state.kind !== 'off-season'}
+            onNavigateProfile={
+              onNavigationIntent ? () => handleNavigationIntent('profile') : undefined
+            }
+            sticky={false}
           />
-          {selectedSection === 'past' ? (
-            pastContent
-          ) : (
-            <div
-              id="matching-section-panel-current"
-              role="tabpanel"
-              aria-labelledby="matching-section-tab-current"
-            >
-              <h2 id="matching-current-section-heading" tabIndex={-1} className="sr-only">
-                현재 매칭
-              </h2>
-              {currentContent}
+          <div className="border-b border-slate-200/80 bg-[var(--knu-background-alt)]/95 py-3 shadow-sm backdrop-blur">
+            <div className="mx-auto w-full max-w-md px-4 min-[361px]:px-5 md:max-w-5xl">
+              <MatchingSectionTabs selected={selectedSection} onSelect={handleSectionSelect} />
             </div>
-          )}
-        </div>
-      </MatchingTabLayout>
-      {celebration && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="매칭 완료"
-          className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
-        >
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-xl">
-            <h2 className="text-lg font-bold text-(--knu-text-primary)">매칭이 완료되었어요</h2>
-            <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">
-              {celebration}님과 룸메이트가 되었어요.
-            </p>
-            <button
-              type="button"
-              className="mt-5 min-h-11 rounded-2xl bg-(--knu-primary) px-5 py-2 text-sm font-semibold text-white"
-              onClick={onCloseCelebration}
-            >
-              확인
-            </button>
           </div>
         </div>
-      )}
+        <MatchingTabLayout
+          width={
+            selectedSection === 'past' ||
+            state.kind === 'off-season' ||
+            state.kind === 'season-open' ||
+            state.kind === 'season-matching' ||
+            state.kind === 'season-post-match' ||
+            state.kind === 'deregistered' ||
+            state.kind === 'unavailable' ||
+            state.kind === 'error'
+              ? 'archive'
+              : 'compact'
+          }
+        >
+          <div className="space-y-4">
+            {selectedSection === 'past' ? (
+              pastContent
+            ) : (
+              <div
+                id="matching-section-panel-current"
+                role="tabpanel"
+                aria-labelledby="matching-section-tab-current"
+              >
+                <h2 id="matching-current-section-heading" tabIndex={-1} className="sr-only">
+                  현재 매칭
+                </h2>
+                {currentContent}
+              </div>
+            )}
+          </div>
+        </MatchingTabLayout>
+      </div>
+      <MatchRequestResultDialog
+        celebration={celebration}
+        completion={requestActionCompletion}
+        onCloseCelebration={onCloseCelebration}
+        onCloseCompletion={onDismissRequestActionCompletion}
+      />
     </>
   );
+}
+
+function toMatchingDeadlineLabel(state: MatchingViewState): string | null {
+  if (state.kind !== 'season-matching' || !state.current.roomSelectionDate) return null;
+  const deadline = Date.parse(`${state.current.roomSelectionDate}T23:59:59.999+09:00`);
+  const serverNow = Date.parse(state.current.serverNow);
+  if (!Number.isFinite(deadline) || !Number.isFinite(serverNow)) return null;
+  const days = Math.max(0, Math.ceil((deadline - serverNow) / 86_400_000));
+  return days === 0 ? '오늘 마감' : `D-${days}`;
 }
