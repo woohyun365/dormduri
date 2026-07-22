@@ -25,6 +25,12 @@ export interface UnmatchCompletion {
   readonly message: string;
 }
 
+export interface RequestActionCompletion {
+  readonly action: 'rejectRequest' | 'cancelRequest';
+  readonly requestId: string;
+  readonly message: string;
+}
+
 export function useMatchingActions(options: {
   readonly client?: MatchingActionsClient;
   readonly refetchOverview: () => Promise<unknown>;
@@ -35,6 +41,7 @@ export function useMatchingActions(options: {
   const controllersRef = useRef(new Map<string, AbortController>());
   const [pendingKeys, setPendingKeys] = useState<readonly string[]>([]);
   const [failure, setFailure] = useState<MatchingActionFailure | null>(null);
+  const [requestCompletion, setRequestCompletion] = useState<RequestActionCompletion | null>(null);
   const [unmatchCompletion, setUnmatchCompletion] = useState<UnmatchCompletion | null>(null);
   const sync = useCallback(() => setPendingKeys([...pendingRef.current]), []);
   useEffect(
@@ -52,6 +59,7 @@ export function useMatchingActions(options: {
       controllersRef.current.set(key, controller);
       sync();
       setFailure(null);
+      if (toActionScope(action) === 'request') setRequestCompletion(null);
       try {
         const response = await client[action](id, controller.signal);
         await refetchOverview();
@@ -64,6 +72,16 @@ export function useMatchingActions(options: {
           setUnmatchCompletion({
             activeMatchId: id,
             message: '두 사람 모두 동의해 매칭이 해제되었어요.',
+          });
+        }
+        if (action === 'rejectRequest' || action === 'cancelRequest') {
+          setRequestCompletion({
+            action,
+            requestId: id,
+            message:
+              action === 'rejectRequest'
+                ? '매칭 요청을 거절했어요.'
+                : '보낸 매칭 요청을 취소했어요.',
           });
         }
         return 'success';
@@ -93,6 +111,7 @@ export function useMatchingActions(options: {
     error: failure?.error ?? null,
     requestError: failure?.scope === 'request' ? failure.error : null,
     activeError: failure?.scope === 'active' ? failure.error : null,
+    requestCompletion,
     unmatchCompletion,
     isPending: (action: MatchingAction, id: string) =>
       pendingKeys.includes(toPendingKey(action, id)),
@@ -108,6 +127,7 @@ export function useMatchingActions(options: {
       setFailure((current) => (current?.scope === 'request' ? null : current)),
     dismissActiveError: () =>
       setFailure((current) => (current?.scope === 'active' ? null : current)),
+    dismissRequestCompletion: () => setRequestCompletion(null),
     dismissUnmatchCompletion: () => setUnmatchCompletion(null),
   };
 }

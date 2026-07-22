@@ -13,6 +13,10 @@ import {
   type MatchRequestActionResponse,
 } from '@repo/shared/match/contract';
 import { publicProfileSchema, type PublicProfile } from '@repo/shared/profile/contract';
+import {
+  previousSeasonProfileResponseSchema,
+  type PreviousSeasonProfileResponse,
+} from '@repo/shared/season/participation';
 
 export type MatchingApiErrorCode =
   | 'MATCHING_API_ABORTED'
@@ -150,6 +154,17 @@ export const matchingApi = {
       path: `/api/matches/history/entries/${encodeURIComponent(entryId)}/counterpart-profile`,
       method: 'GET',
       schema: publicProfileSchema,
+      signal,
+    });
+  },
+  getHistorySelfProfile(
+    seasonId: string,
+    signal?: AbortSignal,
+  ): Promise<PreviousSeasonProfileResponse> {
+    return fetchMatchingJson({
+      path: `/api/seasons/${encodeURIComponent(seasonId)}/profile/me`,
+      method: 'GET',
+      schema: previousSeasonProfileResponseSchema,
       signal,
     });
   },

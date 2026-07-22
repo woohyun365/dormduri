@@ -14,7 +14,13 @@ describe('useMatchHistoryCounterpartDetail', () => {
     };
     const { result } = renderHook(() => useMatchHistoryCounterpartDetail({ client }));
 
-    act(() => result.current.open('entry 1/2'));
+    act(() =>
+      result.current.open({
+        entryId: 'entry 1/2',
+        nickname: '감자친구',
+        seasonName: '2026년 1학기',
+      }),
+    );
     await waitFor(() =>
       expect(client.getHistoryCounterpartProfile).toHaveBeenCalledWith(
         'entry 1/2',
@@ -36,7 +42,13 @@ describe('useMatchHistoryCounterpartDetail', () => {
     };
     const { result } = renderHook(() => useMatchHistoryCounterpartDetail({ client }));
 
-    act(() => result.current.open('history-1'));
+    act(() =>
+      result.current.open({
+        entryId: 'history-1',
+        nickname: '감자친구',
+        seasonName: '2026년 1학기',
+      }),
+    );
     await waitFor(() => expect(result.current.status).toBe('error'));
     act(() => result.current.retry());
     await waitFor(() => expect(result.current.status).toBe('success'));

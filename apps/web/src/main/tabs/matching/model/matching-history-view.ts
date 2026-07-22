@@ -1,3 +1,4 @@
+import type { ConversationStatsResponse } from '@repo/shared/chat';
 import type {
   ActiveMatchEndReason,
   MatchHistoryEntry,
@@ -6,28 +7,41 @@ import type {
   MatchHistorySeasonFinalResult,
   MatchHistorySeasonSummary,
   MatchHistoryStage,
-  MatchRequestTerminalReason,
+  MatchHistorySystemCancellationCause,
 } from '@repo/shared/match/contract';
 
 export const MATCH_HISTORY_SEASONS_PER_PAGE = 3;
 
 export interface MatchingHistoryEntryView {
   readonly id: string;
+  readonly stage: MatchHistoryStage;
+  readonly result: MatchHistoryEntryResult;
   readonly nickname: string;
+  readonly viewerRequested: boolean;
+  readonly headline: string;
   readonly stageLabel: string;
   readonly directionLabel: string;
   readonly resultLabel: string;
-  readonly description: string;
-  readonly eventLabel: string;
+  readonly description: string | null;
+  readonly eventAt: string;
   readonly eventDateLabel: string;
+  readonly matchedAt: string | null;
+  readonly unmatchedAt: string | null;
+  readonly finalizedAt: string;
+  readonly requestTerminalReason: MatchHistoryEntry['requestTerminalReason'];
+  readonly systemCancellationCause: MatchHistorySystemCancellationCause | null;
+  readonly systemCancellationGroupId: string | null;
   readonly canOpenDetail: boolean;
 }
 
 export interface MatchingHistorySeasonView {
   readonly id: string;
   readonly name: string;
+  readonly result: MatchHistorySeasonFinalResult;
   readonly resultLabel: string;
-  readonly summary: string;
+  readonly sentRequestCount: number;
+  readonly receivedRequestCount: number;
+  readonly conversationUserCount: number | null;
   readonly entries: readonly MatchingHistoryEntryView[];
 }
 
@@ -38,20 +52,9 @@ const stageLabels: Record<MatchHistoryStage, string> = {
 };
 
 const seasonResultLabels: Record<MatchHistorySeasonFinalResult, string> = {
-  NO_MATCH: '매칭 결과 없음',
+  NO_MATCH: '매칭 미성사',
   MATCHED_SUCCESS: '매칭 완료',
-  UNMATCHED_AFTER_SUCCESS: '매칭 후 해제',
-};
-
-const requestReasonLabels: Record<MatchRequestTerminalReason, string> = {
-  ACCEPTED: '요청이 수락되었어요.',
-  REJECTED_BY_RECEIVER: '요청이 거절되었어요.',
-  CANCELLED_BY_REQUESTER: '요청이 취소되었어요.',
-  CANCELLED_BY_SYSTEM_ACTIVE_MATCH: '상대의 매칭 확정으로 요청이 종료되었어요.',
-  EXPIRED: '응답 기한이 지나 요청이 종료되었어요.',
-  WITHDRAWN_PARTICIPANT: '참여 상태가 변경되어 요청이 종료되었어요.',
-  MATCH_PRECONDITION_FAILED: '매칭 조건이 변경되어 요청이 종료되었어요.',
-  ADMIN_ACTION: '운영 처리로 요청이 종료되었어요.',
+  UNMATCHED_AFTER_SUCCESS: '매칭 미성사',
 };
 
 const activeReasonLabels: Record<ActiveMatchEndReason, string> = {
@@ -66,31 +69,74 @@ function formatDate(value: string): string {
   if (Number.isNaN(date.getTime())) return '기록된 날짜';
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric',
-    month: 'long',
+    month: 'numeric',
     day: 'numeric',
   }).format(date);
 }
 
-function entryDescription(entry: MatchHistoryEntry): string {
+function entryDescription(entry: MatchHistoryEntry): string | null {
   switch (entry.result) {
     case 'REQUEST_REJECTED':
-      return entry.requestTerminalReason
-        ? requestReasonLabels[entry.requestTerminalReason]
-        : '요청이 종료되었어요.';
+      return null;
     case 'REQUEST_CANCELLED':
-      return entry.requestTerminalReason
-        ? requestReasonLabels[entry.requestTerminalReason]
-        : '요청이 취소되었어요.';
+      switch (entry.requestTerminalReason) {
+        case 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH':
+          if (entry.systemCancellationCause === 'COUNTERPART_MATCHED') {
+            return '상대 매칭 확정으로 정리됐어요.';
+          }
+          if (entry.systemCancellationCause === 'VIEWER_MATCHED') {
+            return '내 매칭 확정으로 정리됐어요.';
+          }
+          return '다른 매칭이 확정되어 요청이 자동으로 종료되었어요.';
+        case 'WITHDRAWN_PARTICIPANT':
+          return '시즌 참여 취소 요청이 종료됐어요.';
+        case 'MATCH_PRECONDITION_FAILED':
+          return '매칭 참여 조건이 충족되지 않아 요청이 종료됐어요.';
+        case 'ADMIN_ACTION':
+          return '운영 처리로 요청이 종료되었어요.';
+        default:
+          return null;
+      }
     case 'REQUEST_EXPIRED':
-      return entry.requestTerminalReason
-        ? requestReasonLabels[entry.requestTerminalReason]
-        : '응답 기한이 지나 요청이 종료되었어요.';
+      return null;
     case 'MATCHED_SUCCESS':
-      return '최종 매칭이 완료되었어요. 당시 상대 프로필을 확인할 수 있어요.';
+      return null;
     case 'UNMATCHED_AFTER_SUCCESS':
       return entry.activeMatchEndReason
         ? activeReasonLabels[entry.activeMatchEndReason]
         : '매칭 후 해제된 기록이에요.';
+  }
+}
+
+function counterpartDisplayName(nickname: string): string {
+  return nickname.endsWith('님') ? nickname : `${nickname}님`;
+}
+
+function entryHeadline(entry: MatchHistoryEntry, nickname: string): string {
+  const counterpart = counterpartDisplayName(nickname);
+
+  switch (entry.result) {
+    case 'REQUEST_REJECTED':
+      return entry.viewerRequested
+        ? `${counterpart}이 내 요청을 거절했어요`
+        : `${counterpart}의 요청을 거절했어요`;
+    case 'REQUEST_CANCELLED':
+      if (entry.requestTerminalReason === 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH') {
+        return entry.viewerRequested
+          ? `${counterpart}에게 보낸 요청이 자동으로 종료되었어요`
+          : `${counterpart}의 요청이 자동으로 종료되었어요`;
+      }
+      return entry.viewerRequested
+        ? `${counterpart}에게 보낸 요청을 취소했어요`
+        : `${counterpart}이 요청을 취소했어요`;
+    case 'REQUEST_EXPIRED':
+      return entry.viewerRequested
+        ? `${counterpart}에게 보낸 요청이 만료됐어요`
+        : `${counterpart}의 요청이 만료됐어요`;
+    case 'MATCHED_SUCCESS':
+      return `${counterpart}과 매칭되었어요`;
+    case 'UNMATCHED_AFTER_SUCCESS':
+      return `${counterpart}과의 매칭이 종료되었어요`;
   }
 }
 
@@ -102,46 +148,86 @@ const resultLabels: Record<MatchHistoryEntryResult, string> = {
   UNMATCHED_AFTER_SUCCESS: '매칭 후 해제',
 };
 
+function entryResultLabel(entry: MatchHistoryEntry): string {
+  if (entry.result === 'REQUEST_CANCELLED') {
+    if (entry.requestTerminalReason === 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH') {
+      return '요청 자동 종료';
+    }
+    if (
+      entry.requestTerminalReason === 'WITHDRAWN_PARTICIPANT' ||
+      entry.requestTerminalReason === 'MATCH_PRECONDITION_FAILED' ||
+      entry.requestTerminalReason === 'ADMIN_ACTION'
+    ) {
+      return '요청 종료';
+    }
+  }
+  return resultLabels[entry.result];
+}
+
 export function canOpenMatchHistoryDetail(entry: MatchHistoryEntry): boolean {
   return entry.stage === 'MATCH' && entry.result === 'MATCHED_SUCCESS';
 }
 
 export function toMatchingHistoryEntryView(entry: MatchHistoryEntry): MatchingHistoryEntryView {
-  const event =
+  const eventDate =
     entry.result === 'MATCHED_SUCCESS'
-      ? { label: '매칭일', value: entry.matchedAt ?? entry.finalizedAt }
+      ? (entry.matchedAt ?? entry.finalizedAt)
       : entry.result === 'UNMATCHED_AFTER_SUCCESS'
-        ? { label: '해제일', value: entry.unmatchedAt ?? entry.finalizedAt }
-        : { label: '종료일', value: entry.finalizedAt };
+        ? (entry.unmatchedAt ?? entry.finalizedAt)
+        : entry.finalizedAt;
+  const nickname = entry.counterpartNickname.trim() || '사용자';
+
   return {
     id: entry.id,
-    nickname: entry.counterpartNickname.trim() || '사용자',
+    stage: entry.stage,
+    result: entry.result,
+    nickname,
+    viewerRequested: entry.viewerRequested,
+    headline: entryHeadline(entry, nickname),
     stageLabel: stageLabels[entry.stage],
-    directionLabel: entry.viewerRequested ? '내가 보낸 요청' : '받은 요청',
-    resultLabel: resultLabels[entry.result],
+    directionLabel:
+      entry.stage === 'MATCH' ? '매칭 상대' : entry.viewerRequested ? '보낸 요청' : '받은 요청',
+    resultLabel: entryResultLabel(entry),
     description: entryDescription(entry),
-    eventLabel: event.label,
-    eventDateLabel: formatDate(event.value),
+    eventAt: eventDate,
+    eventDateLabel: formatDate(eventDate),
+    matchedAt: entry.matchedAt,
+    unmatchedAt: entry.unmatchedAt,
+    finalizedAt: entry.finalizedAt,
+    requestTerminalReason: entry.requestTerminalReason,
+    systemCancellationCause: entry.systemCancellationCause,
+    systemCancellationGroupId: entry.systemCancellationGroupId,
     canOpenDetail: canOpenMatchHistoryDetail(entry),
   };
 }
 
 export function toMatchingHistorySeasonView(
   season: MatchHistorySeasonSummary,
+  conversationUserCount: number | null = null,
 ): MatchingHistorySeasonView {
   return {
     id: season.seasonId,
     name: season.seasonName,
+    result: season.finalResult,
     resultLabel: seasonResultLabels[season.finalResult],
-    summary: `보낸 요청 ${season.sentRequestCount}건 · 받은 요청 ${season.receivedRequestCount}건`,
+    sentRequestCount: season.sentRequestCount,
+    receivedRequestCount: season.receivedRequestCount,
+    conversationUserCount,
     entries: season.history.map(toMatchingHistoryEntryView),
   };
 }
 
 export function toMatchingHistoryView(
   response: MatchHistoryResponse,
+  conversationStats?: ConversationStatsResponse | null,
 ): readonly MatchingHistorySeasonView[] {
-  return response.items.map(toMatchingHistorySeasonView);
+  const conversationCountBySeasonId = new Map(
+    conversationStats?.past.map((season) => [season.seasonId, season.conversationUserCount]) ?? [],
+  );
+
+  return response.items.map((season) =>
+    toMatchingHistorySeasonView(season, conversationCountBySeasonId.get(season.seasonId) ?? null),
+  );
 }
 
 export function getVisibleHistorySeasonCount(total: number, pages: number): number {

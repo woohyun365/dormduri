@@ -102,12 +102,12 @@ export function useActiveMatchProfileDetail(
     const trigger = triggerRef.current;
     triggerRef.current = null;
     queueMicrotask(() => {
-      if (trigger?.isConnected) trigger.focus();
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
       else {
         const fallback =
           document.getElementById('matching-active-heading') ??
           document.getElementById('matching-tab-heading');
-        fallback?.focus();
+        fallback?.focus({ preventScroll: true });
       }
     });
   }, []);

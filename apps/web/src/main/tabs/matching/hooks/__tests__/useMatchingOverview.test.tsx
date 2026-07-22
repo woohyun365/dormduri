@@ -6,11 +6,17 @@ import { useMatchingOverview } from '../useMatchingOverview';
 function overview(id: string): MatchOverviewResponse {
   return {
     serverNow: '2026-08-01T00:00:00.000Z',
-    season: { id, state: 'SEASON_MATCHING', roomSelectionDate: '2026-08-10' },
+    season: {
+      id,
+      state: 'SEASON_MATCHING',
+      roomSelectionDate: '2026-08-10',
+      seasonEndDate: '2026-08-31',
+    },
     capability: { canViewMatching: true, reason: null },
     sentRequests: [],
     receivedRequests: [],
     activeMatch: null,
+    activity: [],
   };
 }
 

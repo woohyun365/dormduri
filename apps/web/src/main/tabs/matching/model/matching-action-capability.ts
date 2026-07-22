@@ -5,11 +5,9 @@ export function matchCapabilityReasonCopy(reason: MatchCapabilityReason): string
     case 'CAMPUS_NOT_OPERATED':
       return '현재 캠퍼스에서는 매칭을 운영하지 않아요.';
     case 'VIEWER_NOT_REGISTERED':
-      return '시즌 참여 등록을 완료하면 매칭 현황을 확인할 수 있어요.';
-    case 'VIEWER_PROFILE_INCOMPLETE':
-      return '매칭 프로필을 모두 작성한 뒤 이용할 수 있어요.';
-    case 'VIEWER_NOT_ASSIGNED':
-      return '기숙사 배정이 확정된 뒤 이용할 수 있어요.';
+      return '시즌 참여 등록 후에 이용 가능해요.';
+    case 'VIEWER_DEREGISTERED':
+      return '이번 시즌 참여를 취소한 상태예요.';
     case 'SEASON_NOT_ACTIONABLE':
       return '현재 시즌에는 매칭을 이용할 수 없어요.';
     case 'SAFETY_OR_VISIBILITY_RESTRICTED':

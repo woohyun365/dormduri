@@ -11,11 +11,12 @@ import { toMatchingViewState } from '../matching-view-model';
 function overview(state: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH') {
   return {
     serverNow: '2026-08-01T00:00:00.000Z',
-    season: { id: 's1', state, roomSelectionDate: null },
+    season: { id: 's1', state, roomSelectionDate: null, seasonEndDate: '2026-08-31' },
     capability: { canViewMatching: true, reason: null },
     sentRequests: [],
     receivedRequests: [],
     activeMatch: null,
+    activity: [],
   } as const;
 }
 
@@ -27,6 +28,101 @@ describe('matching view model', () => {
     ['SEASON_POST_MATCH', 'season-post-match'],
   ] as const)('모든 official season state를 명시적으로 모델링한다: %s', (state, kind) => {
     expect(toMatchingViewState({ overview: overview(state) as never })).toMatchObject({ kind });
+  });
+
+  it('current request 관리에는 pending만 두고 terminal result는 활동 이력으로 분리한다', () => {
+    const state = toMatchingViewState({
+      overview: {
+        ...overview('SEASON_MATCHING'),
+        sentRequests: [
+          {
+            id: 'request-ended',
+            status: 'REJECTED',
+          },
+        ],
+        activity: [
+          {
+            id: 'request:request-ended',
+            counterpartParticipantId: 'participant-2',
+            counterpartNickname: '봄날',
+            stage: 'SENT_REQUEST',
+            result: 'REQUEST_REJECTED',
+            direction: 'SENT',
+            occurredAt: '2026-08-02T03:00:00.000Z',
+            requestTerminalReason: 'REJECTED_BY_RECEIVER',
+            systemCancellationCause: null,
+            systemCancellationGroupId: null,
+            activeMatchEndReason: null,
+          },
+        ],
+      } as never,
+    });
+
+    expect(state).toMatchObject({
+      kind: 'season-matching',
+      current: {
+        requestSection: { sent: [] },
+        activity: [{ kind: 'entry', entry: { title: '요청 거절' } }],
+      },
+    });
+  });
+
+  it('Post Match도 overview current activity를 read-only result와 함께 유지한다', () => {
+    const state = toMatchingViewState({
+      overview: {
+        ...overview('SEASON_POST_MATCH'),
+        activity: [
+          {
+            id: 'request:request-ended',
+            counterpartParticipantId: 'participant-2',
+            counterpartNickname: '봄날',
+            stage: 'SENT_REQUEST',
+            result: 'REQUEST_REJECTED',
+            direction: 'SENT',
+            occurredAt: '2026-08-02T03:00:00.000Z',
+            requestTerminalReason: 'REJECTED_BY_RECEIVER',
+            systemCancellationCause: null,
+            systemCancellationGroupId: null,
+            activeMatchEndReason: null,
+          },
+        ],
+      } as never,
+    });
+
+    expect(state).toMatchObject({
+      kind: 'season-post-match',
+      activity: [{ kind: 'entry', entry: { title: '요청 거절' } }],
+    });
+  });
+
+  it('철회 viewer는 current action 대신 viewer-owned activity read state로 분리한다', () => {
+    const state = toMatchingViewState({
+      overview: {
+        ...overview('SEASON_MATCHING'),
+        capability: { canViewMatching: false, reason: 'VIEWER_DEREGISTERED' },
+        activity: [
+          {
+            id: 'request:withdrawn',
+            counterpartParticipantId: 'participant-2',
+            counterpartNickname: '봄날',
+            stage: 'SENT_REQUEST',
+            result: 'REQUEST_CANCELLED',
+            direction: 'SENT',
+            occurredAt: '2026-08-02T03:00:00.000Z',
+            requestTerminalReason: 'WITHDRAWN_PARTICIPANT',
+            systemCancellationCause: null,
+            systemCancellationGroupId: null,
+            activeMatchEndReason: null,
+          },
+        ],
+      } as never,
+    });
+
+    expect(state).toMatchObject({
+      kind: 'deregistered',
+      seasonState: 'SEASON_MATCHING',
+      activity: [{ kind: 'auto-closed-group', cause: 'PARTICIPATION_CANCELLED' }],
+    });
   });
 
   it('loading, public error와 capability denied를 silent fallback 없이 분리한다', () => {
@@ -41,7 +137,11 @@ describe('matching view model', () => {
           capability: { canViewMatching: false, reason: 'VIEWER_NOT_REGISTERED' },
         } as never,
       }),
-    ).toEqual({ kind: 'unavailable', reason: 'VIEWER_NOT_REGISTERED' });
+    ).toMatchObject({
+      kind: 'unavailable',
+      reason: 'VIEWER_NOT_REGISTERED',
+      seasonState: 'SEASON_MATCHING',
+    });
     expect(() =>
       toMatchingViewState({
         overview: {
@@ -59,7 +159,7 @@ describe('matching view model', () => {
   });
 
   it('disabled reason copy와 description id는 exhaustive하고 stable하다', () => {
-    expect(matchCapabilityReasonCopy('VIEWER_NOT_ASSIGNED')).toContain('기숙사');
+    expect(matchCapabilityReasonCopy('VIEWER_NOT_REGISTERED')).toContain('시즌 참여 등록');
     expect(matchActionDisabledReasonCopy('REQUEST_EXPIRED')).toContain('유효 시간');
     expect(
       getDisabledReasonDescriptionId({ actionId: 'request-1', reason: 'REQUEST_EXPIRED' }),

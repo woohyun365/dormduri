@@ -8,7 +8,12 @@ describe('matching shell consistency', () => {
     expect(
       resolveMatchingShellConsistency({
         shell,
-        overview: { id: 'season-1', state: 'SEASON_MATCHING', roomSelectionDate: null },
+        overview: {
+          id: 'season-1',
+          state: 'SEASON_MATCHING',
+          roomSelectionDate: null,
+          seasonEndDate: '2026-08-31',
+        },
         consecutiveMismatchCount: 2,
       }),
     ).toEqual({ kind: 'consistent', nextMismatchCount: 0 });
@@ -18,7 +23,12 @@ describe('matching shell consistency', () => {
     expect(
       resolveMatchingShellConsistency({
         shell,
-        overview: { id: 'season-2', state: 'SEASON_OPEN', roomSelectionDate: null },
+        overview: {
+          id: 'season-2',
+          state: 'SEASON_OPEN',
+          roomSelectionDate: null,
+          seasonEndDate: '2026-08-31',
+        },
         consecutiveMismatchCount: 0,
       }),
     ).toEqual({ kind: 'transitioning', nextMismatchCount: 1 });
@@ -28,7 +38,12 @@ describe('matching shell consistency', () => {
     expect(
       resolveMatchingShellConsistency({
         shell,
-        overview: { id: 'season-2', state: 'SEASON_OPEN', roomSelectionDate: null },
+        overview: {
+          id: 'season-2',
+          state: 'SEASON_OPEN',
+          roomSelectionDate: null,
+          seasonEndDate: '2026-08-31',
+        },
         consecutiveMismatchCount: 1,
       }),
     ).toEqual({ kind: 'mismatch', nextMismatchCount: 2 });

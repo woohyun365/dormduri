@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   useRoommateProfileDetail,
   type RoommateProfileDetailTarget,
@@ -11,10 +11,12 @@ import type { MatchingRequestCardView } from '../model/matching-request-view';
 export function useMatchingRequestProfileDetail() {
   const detail = useRoommateProfileDetail();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [request, setRequest] = useState<MatchingRequestCardView | null>(null);
 
   const open = (request: MatchingRequestCardView, trigger: HTMLButtonElement) => {
     if (!request.detailEntryToken) return;
     triggerRef.current = trigger;
+    setRequest(request);
     detail.open({
       targetUserId: request.counterpartUserId,
       nickname: request.nickname,
@@ -23,18 +25,18 @@ export function useMatchingRequestProfileDetail() {
         id: request.id,
         direction: request.direction,
         label:
-          request.direction === 'RECEIVED' ? '매칭 요청을 받은 사용자' : '매칭 요청을 보낸 사용자',
-        description: '현재 매칭 요청의 public summary에서 연 프로필이에요.',
+          request.direction === 'RECEIVED' ? '매칭 요청을 받은 사용자' : '이미 요청을 보낸 사용자',
       },
     } satisfies RoommateProfileDetailTarget);
   };
 
   const close = () => {
     detail.close();
+    setRequest(null);
     const trigger = triggerRef.current;
     triggerRef.current = null;
-    queueMicrotask(() => trigger?.focus());
+    queueMicrotask(() => trigger?.focus({ preventScroll: true }));
   };
 
-  return { ...detail, open, close };
+  return { ...detail, request, open, close };
 }

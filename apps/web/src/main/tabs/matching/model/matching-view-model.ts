@@ -5,6 +5,10 @@ import {
   type MatchingRequestSectionView,
 } from './matching-request-view';
 import { getMatchingSeasonStateRule } from './matching-state-matrix';
+import {
+  toCurrentMatchActivityItems,
+  type CurrentMatchActivityItemView,
+} from './matching-current-activity-view';
 
 export interface MatchHistorySummary {
   readonly seasons: number;
@@ -16,8 +20,10 @@ export interface CurrentMatchingView {
   readonly activeMatch: MatchOverviewResponse['activeMatch'];
   readonly serverNow: string;
   readonly roomSelectionDate: string | null;
+  readonly seasonEndDate: string | null;
   readonly requestSection: MatchingRequestSectionView;
   readonly receivedPendingCount: number;
+  readonly activity: readonly CurrentMatchActivityItemView[];
 }
 
 export type MatchingViewState =
@@ -26,6 +32,14 @@ export type MatchingViewState =
   | {
       readonly kind: 'unavailable';
       readonly reason: NonNullable<MatchOverviewResponse['capability']['reason']>;
+      readonly seasonState: MatchOverviewResponse['season']['state'];
+      readonly historySummary: MatchHistorySummary;
+    }
+  | {
+      readonly kind: 'deregistered';
+      readonly seasonState: MatchOverviewResponse['season']['state'];
+      readonly historySummary: MatchHistorySummary;
+      readonly activity: readonly CurrentMatchActivityItemView[];
     }
   | { readonly kind: 'off-season'; readonly historySummary: MatchHistorySummary }
   | { readonly kind: 'season-open'; readonly historySummary: MatchHistorySummary }
@@ -33,7 +47,10 @@ export type MatchingViewState =
   | {
       readonly kind: 'season-post-match';
       readonly activeMatch: MatchOverviewResponse['activeMatch'];
+      readonly roomSelectionDate?: string | null;
+      readonly seasonEndDate?: string | null;
       readonly historySummary: MatchHistorySummary;
+      readonly activity: readonly CurrentMatchActivityItemView[];
     };
 
 export function summarizeMatchHistory(
@@ -55,11 +72,13 @@ export function partitionCurrentRequests(overview: MatchOverviewResponse): Curre
     activeMatch: overview.activeMatch,
     serverNow: overview.serverNow,
     roomSelectionDate: overview.season.roomSelectionDate,
+    seasonEndDate: overview.season.seasonEndDate,
     requestSection: toMatchingRequestSectionView({
-      sentRequests: overview.sentRequests,
-      receivedRequests: overview.receivedRequests,
+      sentRequests: overview.sentRequests.filter((request) => request.status === 'PENDING'),
+      receivedRequests: overview.receivedRequests.filter((request) => request.status === 'PENDING'),
     }),
     receivedPendingCount: pendingReceived.length,
+    activity: toCurrentMatchActivityItems(overview.activity),
   };
 }
 
@@ -72,13 +91,26 @@ export function toMatchingViewState(input: {
   if (input.loading && !input.overview) return { kind: 'loading' };
   if (input.error) return { kind: 'error', error: input.error };
   if (!input.overview) return { kind: 'loading' };
+  const historySummary = summarizeMatchHistory(input.history);
   if (!input.overview.capability.canViewMatching) {
     if (!input.overview.capability.reason)
       throw new Error('Unavailable matching overview requires a reason');
-    return { kind: 'unavailable', reason: input.overview.capability.reason };
+    if (input.overview.capability.reason === 'VIEWER_DEREGISTERED') {
+      return {
+        kind: 'deregistered',
+        seasonState: input.overview.season.state,
+        historySummary,
+        activity: toCurrentMatchActivityItems(input.overview.activity),
+      };
+    }
+    return {
+      kind: 'unavailable',
+      reason: input.overview.capability.reason,
+      seasonState: input.overview.season.state,
+      historySummary,
+    };
   }
 
-  const historySummary = summarizeMatchHistory(input.history);
   switch (getMatchingSeasonStateRule(input.overview.season.state).view) {
     case 'off-season':
       return { kind: 'off-season', historySummary };
@@ -87,6 +119,13 @@ export function toMatchingViewState(input: {
     case 'season-matching':
       return { kind: 'season-matching', current: partitionCurrentRequests(input.overview) };
     case 'season-post-match':
-      return { kind: 'season-post-match', activeMatch: input.overview.activeMatch, historySummary };
+      return {
+        kind: 'season-post-match',
+        activeMatch: input.overview.activeMatch,
+        roomSelectionDate: input.overview.season.roomSelectionDate,
+        seasonEndDate: input.overview.season.seasonEndDate,
+        historySummary,
+        activity: toCurrentMatchActivityItems(input.overview.activity),
+      };
   }
 }

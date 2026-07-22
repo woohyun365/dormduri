@@ -15,6 +15,7 @@ import {
 import { GET as getMatchHistory } from '../matches/history/route';
 import { GET as getMatchHistoryCounterpartProfile } from '../matches/history/entries/[entryId]/counterpart-profile/route';
 import { GET as getPublicProfile } from '../profiles/[userId]/route';
+import { GET as getSeasonProfileHistory } from '../seasons/[seasonId]/profile/me/route';
 import { GET as getCurrentSeasonProfile } from '../seasons/current/profile/route';
 import { GET as getPreviousSeasonProfile } from '../seasons/previous/profile/route';
 
@@ -67,6 +68,33 @@ describe('home profile detail BFF routes', () => {
       detailState: 'FULL',
       seasonName: '2026년 1학기',
       dormitoryName: '다산관',
+    });
+  });
+
+  it('season profile history route는 season id를 encode하고 해당 시즌 프로필 contract만 전달한다', async () => {
+    const fetchMock = stubJsonFetch(createPreviousSeasonProfileResponse());
+    const request = createRequest('/api/seasons/season%202026%2F1/profile/me', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    const response = await getSeasonProfileHistory(request, {
+      params: { seasonId: 'season 2026/1' },
+    });
+
+    expect(firstFetchInput(fetchMock)).toBe(
+      'http://localhost:4000/api/seasons/season%202026%2F1/profile/me',
+    );
+    expect(firstFetchInit(fetchMock)).toEqual(
+      expect.objectContaining({
+        method: 'GET',
+        cache: 'no-store',
+        headers: expect.objectContaining({ Authorization: `Bearer ${AUTH_TOKEN}` }),
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      detailState: 'FULL',
+      seasonId: 'season-2026-1',
+      seasonName: '2026년 1학기',
     });
   });
 

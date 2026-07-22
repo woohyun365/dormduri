@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
+import {
+  createPreviousSeasonProfileResponse,
+  createPublicProfileFull,
+} from '@/test/home-profile-detail-fixtures';
 import { MatchingApiError, matchingApi } from '../matching.api';
 
 describe('matchingApi', () => {
@@ -10,11 +13,17 @@ describe('matchingApi', () => {
       new Response(
         JSON.stringify({
           serverNow: '2026-02-10T03:00:00.000Z',
-          season: { id: 'season-1', state: 'SEASON_MATCHING', roomSelectionDate: '2026-02-11' },
+          season: {
+            id: 'season-1',
+            state: 'SEASON_MATCHING',
+            roomSelectionDate: '2026-02-11',
+            seasonEndDate: '2026-02-28',
+          },
           capability: { canViewMatching: true, reason: null },
           sentRequests: [],
           receivedRequests: [],
           activeMatch: null,
+          activity: [],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
@@ -76,18 +85,16 @@ describe('matchingApi', () => {
   it('history detail의 server eligibility error는 raw body 없이 non-retry public error로 정규화한다', async () => {
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              success: false,
-              code: 'MATCH_HISTORY_PROFILE_NOT_AVAILABLE',
-              detail: 'raw',
-            }),
-            { status: 404, headers: { 'Content-Type': 'application/json' } },
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: false,
+            code: 'MATCH_HISTORY_PROFILE_NOT_AVAILABLE',
+            detail: 'raw',
+          }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } },
         ),
+      ),
     );
 
     await expect(matchingApi.getHistoryCounterpartProfile('entry 1/2')).rejects.toMatchObject({
@@ -103,6 +110,22 @@ describe('matchingApi', () => {
     await matchingApi.getHistoryCounterpartProfile('entry 1/2');
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/matches/history/entries/entry%201%2F2/counterpart-profile',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('history self profile은 season id를 encode한 viewer-owned route를 호출한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(createPreviousSeasonProfileResponse()));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(matchingApi.getHistorySelfProfile('season 2026/1')).resolves.toMatchObject({
+      detailState: 'FULL',
+      seasonId: 'season-2026-1',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/seasons/season%202026%2F1/profile/me',
       expect.objectContaining({ method: 'GET' }),
     );
   });

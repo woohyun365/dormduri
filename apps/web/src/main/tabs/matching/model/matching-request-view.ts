@@ -8,16 +8,24 @@ import {
   getDisabledReasonDescriptionId,
   matchActionDisabledReasonCopy,
 } from './matching-action-capability';
+import {
+  buildProfileSummaryFacts,
+  type ProfileSummaryFact,
+} from '@/main/model/profileSummaryFacts';
 
 export const MATCHING_SENT_REQUEST_LIMIT = 3;
 
+export interface MatchingRequestActionDecisionView {
+  readonly allowed: boolean;
+  readonly reason: MatchActionDisabledReason | null;
+  readonly reasonCopy: string | null;
+  readonly reasonDescriptionId: string | null;
+}
+
 export interface MatchingRequestActionsView {
-  readonly canAccept: boolean;
-  readonly canReject: boolean;
-  readonly canCancel: boolean;
-  readonly disabledReason: MatchActionDisabledReason | null;
-  readonly disabledReasonCopy: string | null;
-  readonly disabledReasonDescriptionId: string | null;
+  readonly accept: MatchingRequestActionDecisionView;
+  readonly reject: MatchingRequestActionDecisionView;
+  readonly cancel: MatchingRequestActionDecisionView;
 }
 
 export interface MatchingRequestCardView {
@@ -26,12 +34,14 @@ export interface MatchingRequestCardView {
   readonly direction: RequestDirection;
   readonly presentation: 'pending' | 'terminal';
   readonly nickname: string;
+  readonly facts: readonly ProfileSummaryFact[];
   readonly intro: string;
   readonly note: string | null;
   readonly score: number | null;
   readonly scoreHiddenCopy: string | null;
   readonly detailEntryToken: string | null;
   readonly canStartChat: boolean;
+  readonly hasActiveChatThread?: boolean;
   readonly createdAt: string;
   readonly expiresAt: string;
   readonly statusLabel: string;
@@ -63,7 +73,6 @@ function requestStatusLabel(status: MatchRequestStatus): string {
 
 function toRequestCardView(request: MatchRequestWithActions): MatchingRequestCardView {
   const pending = request.status === 'PENDING';
-  const disabledReason = pending ? request.actions.disabledReason : null;
   const scoreVisible = request.counterpartSummary.exposure.scoreVisible;
   const score = scoreVisible ? (request.counterpartSummary.matchScore ?? null) : null;
   const detailVisible = request.counterpartSummary.exposure.detailViewable;
@@ -74,6 +83,7 @@ function toRequestCardView(request: MatchRequestWithActions): MatchingRequestCar
     direction: request.direction,
     presentation: pending ? 'pending' : 'terminal',
     nickname: request.counterpartSummary.profileSummary.nickname.trim() || '사용자',
+    facts: buildProfileSummaryFacts(request.counterpartSummary.profileSummary),
     intro: request.counterpartSummary.profileSummary.intro.trim(),
     note: request.note?.trim() || null,
     score,
@@ -87,19 +97,32 @@ function toRequestCardView(request: MatchRequestWithActions): MatchingRequestCar
       ? request.counterpartSummary.detailEntryToken?.trim() || null
       : null,
     canStartChat: request.counterpartSummary.actions.canStartChat,
+    hasActiveChatThread: request.counterpartSummary.activeChatThread != null,
     createdAt: request.createdAt,
     expiresAt: request.expiresAt,
     statusLabel: requestStatusLabel(request.status),
     actions: {
-      canAccept: request.actions.canAccept,
-      canReject: request.actions.canReject,
-      canCancel: request.actions.canCancel,
-      disabledReason,
-      disabledReasonCopy: disabledReason ? matchActionDisabledReasonCopy(disabledReason) : null,
-      disabledReasonDescriptionId: disabledReason
-        ? getDisabledReasonDescriptionId({ actionId: request.id, reason: disabledReason })
-        : null,
+      accept: toActionDecisionView(request.id, 'accept', request.actions.accept, pending),
+      reject: toActionDecisionView(request.id, 'reject', request.actions.reject, pending),
+      cancel: toActionDecisionView(request.id, 'cancel', request.actions.cancel, pending),
     },
+  };
+}
+
+function toActionDecisionView(
+  requestId: string,
+  action: 'accept' | 'reject' | 'cancel',
+  decision: MatchRequestWithActions['actions']['accept'],
+  pending: boolean,
+): MatchingRequestActionDecisionView {
+  const reason = pending ? decision.reason : null;
+  return {
+    allowed: decision.allowed,
+    reason,
+    reasonCopy: reason ? matchActionDisabledReasonCopy(reason) : null,
+    reasonDescriptionId: reason
+      ? getDisabledReasonDescriptionId({ actionId: `${requestId}-${action}`, reason })
+      : null,
   };
 }
 

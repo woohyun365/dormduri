@@ -174,11 +174,17 @@ describe('matches BFF forwarding routes', () => {
   it('overview, active read, request list/action route는 authenticated schema-validated upstream path를 사용한다', async () => {
     const overviewFetch = stubJsonFetch({
       serverNow: '2026-02-10T03:00:00.000Z',
-      season: { id: 'season-1', state: 'SEASON_MATCHING', roomSelectionDate: '2026-02-11' },
+      season: {
+        id: 'season-1',
+        state: 'SEASON_MATCHING',
+        roomSelectionDate: '2026-02-11',
+        seasonEndDate: '2026-02-28',
+      },
       capability: { canViewMatching: true, reason: null },
       sentRequests: [],
       receivedRequests: [],
       activeMatch: null,
+      activity: [],
     });
     await expect(
       getMatchOverview(

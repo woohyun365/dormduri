@@ -38,6 +38,12 @@ function request(
       },
       detailEntryToken: `detail-${id}`,
       matchScore: 88,
+      activeChatThread: {
+        id: `thread-${id}`,
+        threadKind: 'DIRECT',
+        status: 'OPEN',
+        lastMessageAt: '2026-08-01T04:00:00.000Z',
+      },
     },
     status: 'PENDING',
     note: '  잘 부탁해요.  ',
@@ -46,7 +52,11 @@ function request(
     terminalAt: null,
     acceptedAt: null,
     terminalReason: null,
-    actions: { canAccept: false, canReject: false, canCancel: true, disabledReason: null },
+    actions: {
+      accept: { allowed: false, reason: null },
+      reject: { allowed: false, reason: null },
+      cancel: { allowed: true, reason: null },
+    },
     ...overrides,
   };
 }
@@ -67,7 +77,11 @@ describe('matching request view model', () => {
   it('API의 canonical ordering을 보존하고 score/note/detail exposure를 정규화한다', () => {
     const visible = request('received-new', {
       direction: 'RECEIVED',
-      actions: { canAccept: true, canReject: true, canCancel: false, disabledReason: null },
+      actions: {
+        accept: { allowed: true, reason: null },
+        reject: { allowed: true, reason: null },
+        cancel: { allowed: false, reason: null },
+      },
     });
     const hidden = request('received-old', {
       direction: 'RECEIVED',
@@ -91,7 +105,16 @@ describe('matching request view model', () => {
     });
 
     expect(view.received.map((item) => item.id)).toEqual(['received-new', 'received-old']);
-    expect(view.received[0]).toMatchObject({ note: '잘 부탁해요.', score: 88 });
+    expect(view.received[0]).toMatchObject({
+      note: '잘 부탁해요.',
+      score: 88,
+      hasActiveChatThread: true,
+      facts: [
+        { label: '흡연 여부', value: '비흡연' },
+        { label: '잠버릇', value: '비공개' },
+        { label: '관계', value: '비공개' },
+      ],
+    });
     expect(view.received[1]).toMatchObject({ note: null, score: null, detailEntryToken: null });
     expect(view.received[1]?.scoreHiddenCopy).toContain('공개되지');
   });
@@ -110,10 +133,9 @@ describe('matching request view model', () => {
           terminalAt: '2026-08-02T00:00:00.000Z',
           terminalReason: status === 'ACCEPTED' ? 'ACCEPTED' : 'ADMIN_ACTION',
           actions: {
-            canAccept: false,
-            canReject: false,
-            canCancel: false,
-            disabledReason: 'REQUEST_ALREADY_RESOLVED',
+            accept: { allowed: false, reason: 'REQUEST_ALREADY_RESOLVED' },
+            reject: { allowed: false, reason: 'REQUEST_ALREADY_RESOLVED' },
+            cancel: { allowed: false, reason: 'REQUEST_ALREADY_RESOLVED' },
           },
         }),
       ],

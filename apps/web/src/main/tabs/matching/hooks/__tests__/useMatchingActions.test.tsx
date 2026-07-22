@@ -216,4 +216,32 @@ describe('useMatchingActions', () => {
     expect(result.current.requestError).toBeNull();
     expect(result.current.activeError?.code).toBe('MATCHING_API_NETWORK');
   });
+
+  it('거절과 취소 성공을 overview refetch 이후 1회성 feedback으로 보존한다', async () => {
+    const { result } = renderHook(() =>
+      useMatchingActions({
+        client: {
+          acceptRequest: vi.fn(),
+          rejectRequest: vi.fn().mockResolvedValue(undefined),
+          cancelRequest: vi.fn().mockResolvedValue(undefined),
+          requestUnmatch: vi.fn(),
+          cancelUnmatchRequest: vi.fn(),
+        } as never,
+        refetchOverview: vi.fn().mockResolvedValue(undefined),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.reject('request-received');
+    });
+    expect(result.current.requestCompletion?.message).toBe('매칭 요청을 거절했어요.');
+
+    await act(async () => {
+      await result.current.cancel('request-sent');
+    });
+    expect(result.current.requestCompletion?.message).toBe('보낸 매칭 요청을 취소했어요.');
+
+    act(() => result.current.dismissRequestCompletion());
+    expect(result.current.requestCompletion).toBeNull();
+  });
 });
