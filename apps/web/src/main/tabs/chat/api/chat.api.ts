@@ -1,4 +1,5 @@
 import {
+  conversationStatsResponseSchema,
   conversationThreadDetailResponseSchema,
   conversationThreadListResponseSchema,
   leaveConversationThreadResponseSchema,
@@ -6,6 +7,7 @@ import {
   sendConversationMessageResponseSchema,
   updateChatReadMarkerRequestSchema,
   updateConversationReadMarkerResponseSchema,
+  type ConversationStatsResponse,
   type ConversationThreadDetailResponse,
   type ConversationThreadListResponse,
   type LeaveConversationThreadResponse,
@@ -99,6 +101,14 @@ async function fetchChatJson<T>(input: {
 }
 
 export const chatApi = {
+  getConversationStats(signal?: AbortSignal): Promise<ConversationStatsResponse> {
+    return fetchChatJson({
+      path: '/api/chat/conversation-stats',
+      method: 'GET',
+      schema: conversationStatsResponseSchema,
+      signal,
+    });
+  },
   getThreads(
     options: { cursor?: string | null; limit?: number } = {},
     signal?: AbortSignal,

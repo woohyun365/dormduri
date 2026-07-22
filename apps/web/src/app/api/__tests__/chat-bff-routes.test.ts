@@ -44,6 +44,7 @@ describe('chat BFF forwarding routes', () => {
   it('chat owner route allowlist 밖의 matching/group BFF surface를 만들지 않는다', () => {
     expect(existsSync(join(chatBffRoot, 'groups'))).toBe(false);
     expect(chatBffRouteFiles().sort()).toEqual([
+      'conversation-stats/route.ts',
       'messages/route.ts',
       'threads/[id]/leave/route.ts',
       'threads/[id]/read-marker/route.ts',

@@ -48,6 +48,23 @@ describe('chatApi', () => {
     });
   });
 
+  it('시즌별 대화 상대 통계는 chat owner endpoint와 strict schema를 사용한다', async () => {
+    const fetchMock = stubFetch({
+      current: null,
+      past: [{ seasonId: 'season-1', seasonName: '2026년 1학기', conversationUserCount: 4 }],
+    });
+
+    await expect(chatApi.getConversationStats()).resolves.toMatchObject({
+      past: [{ seasonId: 'season-1', conversationUserCount: 4 }],
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/chat/conversation-stats', {
+      method: 'GET',
+      headers: undefined,
+      cache: 'no-store',
+      signal: undefined,
+    });
+  });
+
   it('chat thread 신고는 social-safety owner endpoint와 strict request/response schema를 사용한다', async () => {
     const fetchMock = stubFetch({
       report: {
