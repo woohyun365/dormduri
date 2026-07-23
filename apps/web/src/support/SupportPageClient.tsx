@@ -64,7 +64,7 @@ export default function SupportPageClient({
     setError(null);
     try {
       const [faqResponse, ticketResponse, reportResponse, enforcementResponse] = await Promise.all([
-        supportPageApi.listFaq({ surface: 'SUPPORT_CENTER' }),
+        supportPageApi.listFaq(),
         supportPageApi.listTickets({ limit: 20 }),
         supportPageApi.listReports({ limit: 20 }),
         supportPageApi.listEnforcements({ limit: 20 }),

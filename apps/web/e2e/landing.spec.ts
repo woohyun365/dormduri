@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Landing public experience', () => {
-  test('공개 랜딩은 hero, 정책 고지, CTA, FAQ fallback을 전체 페이지 실패 없이 렌더링한다', async ({
-    page,
-  }) => {
+  test('공개 랜딩은 hero, 정책 고지, CTA, 이용 도움을 렌더링한다', async ({ page }) => {
     await page.goto('/');
 
     await expect(page).toHaveTitle('강원대 룸메이트 찾기');
@@ -17,9 +15,15 @@ test.describe('Landing public experience', () => {
     ).toBeVisible();
 
     await expect(page.getByRole('link', { name: '이메일로 시작하기' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '이용 흐름 보기' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: '자주 묻는 질문' })).toBeVisible();
-    await expect(page.getByText(/기본 안내를 보여드려요/)).toBeVisible();
+    await expect(page.getByRole('link', { name: '이용 흐름 보기' })).toHaveAttribute(
+      'href',
+      '#how-it-works',
+    );
+    await expect(
+      page.getByRole('heading', { name: '서비스 이용 중 도움이 필요하다면' }),
+    ).toBeVisible();
+    await expect(page.getByText('신고·차단')).toBeVisible();
+    await expect(page.getByText('로그인 후 문의하기')).toBeVisible();
   });
 
   test('desktop section navigation은 hash route outcome을 만든다', async ({ page }, testInfo) => {
@@ -44,22 +48,6 @@ test.describe('Landing public experience', () => {
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole('heading', { name: '로그인' })).toBeVisible();
   });
-
-  test('FAQ disclosure opens an answer region', async ({ page }) => {
-    await page.goto('/');
-
-    const faqButton = page.getByRole('button', { name: /KNU 룸메는 학교 공식 서비스인가요/ });
-    await expect(faqButton).toBeVisible();
-    await faqButton.click();
-
-    const answerRegion = page.getByRole('region', {
-      name: /KNU 룸메는 학교 공식 서비스인가요/,
-    });
-    await expect(answerRegion).toBeVisible();
-    await expect(
-      answerRegion.getByText(/학교 공식 서비스가 아닌 독립 운영 서비스입니다/),
-    ).toBeVisible();
-  });
 });
 
 test.describe('Landing mobile navigation', () => {
@@ -78,12 +66,14 @@ test.describe('Landing mobile navigation', () => {
 
     await page
       .getByRole('navigation', { name: '랜딩 모바일 내비게이션' })
-      .getByRole('link', { name: 'FAQ' })
+      .getByRole('link', { name: '이용 도움' })
       .click();
 
-    await expect(page).toHaveURL(/#faq$/);
+    await expect(page).toHaveURL(/#support$/);
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByRole('heading', { name: '자주 묻는 질문' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: '서비스 이용 중 도움이 필요하다면' }),
+    ).toBeVisible();
   });
 });
 

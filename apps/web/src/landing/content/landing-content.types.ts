@@ -5,9 +5,9 @@ export type LandingPolicyCopyId =
   | 'lifestyle_survey_disclaimer'
   | 'profile_privacy_warning'
   | 'season_capability_boundary'
-  | 'faq_is_not_personal_support_request';
+  | 'support_channel_boundary';
 
-export type LandingPolicySurface = 'hero' | 'faq' | 'footer' | 'season' | 'trust' | 'support';
+export type LandingPolicySurface = 'hero' | 'footer' | 'season' | 'trust' | 'support';
 
 export type LandingSeasonState =
   | 'OFF_SEASON'
@@ -27,13 +27,4 @@ export interface LandingPolicyCopy {
   source: LandingPolicySourceRef;
   requiredSurface: readonly LandingPolicySurface[];
   testAnchor: string;
-}
-
-export interface LandingFallbackFaqItem {
-  id: string;
-  question: string;
-  answer: string;
-  policyCopyIds: readonly LandingPolicyCopyId[];
-  source: LandingPolicySourceRef;
-  sortOrder: number;
 }

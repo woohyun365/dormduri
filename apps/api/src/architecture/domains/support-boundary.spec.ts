@@ -31,10 +31,21 @@ describe('support public FAQ architecture boundary', () => {
   it('keeps FAQ presenter output on the public shared FAQ contract fields only', () => {
     const presenter = readSupportSource('presenters/support-faq.presenter.ts');
 
-    expect(presenter).not.toMatch(/placementId|articleId|operator|memo|note|createdAt/);
+    expect(presenter).not.toMatch(
+      /placementId|articleId|operator|memo|note|createdAt|published|sortOrder|updatedAt/,
+    );
     expect(presenter).toContain('id: record.id');
     expect(presenter).toContain('question: record.question');
     expect(presenter).toContain('answer: record.answer');
-    expect(presenter).toContain('sortOrder: record.sortOrder');
+  });
+
+  it('keeps the public FAQ read path scoped to Support Center placements', () => {
+    const query = readSupportSource('queries/support-faq.query.ts');
+    const repository = readSupportSource('repositories/support-faq.repository.ts');
+
+    expect(query).toContain('listPublishedForSupportCenter');
+    expect(query).toContain('findPublishedByIdForSupportCenter');
+    expect(repository).toContain("surface: 'SUPPORT_CENTER'");
+    expect(`${query}\n${repository}`).not.toContain('LANDING');
   });
 });

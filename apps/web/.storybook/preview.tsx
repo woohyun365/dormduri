@@ -3,6 +3,26 @@ import '../src/app/globals.css';
 import '../src/styles/knu.css';
 
 const matchingBaselineViewports = {
+  webMobile320: {
+    name: 'Web mobile · 320px',
+    styles: { width: '320px', height: '568px' },
+    type: 'mobile',
+  },
+  webMobile390: {
+    name: 'Web mobile · 390px',
+    styles: { width: '390px', height: '844px' },
+    type: 'mobile',
+  },
+  webDesktop1280: {
+    name: 'Web desktop · 1280px',
+    styles: { width: '1280px', height: '800px' },
+    type: 'desktop',
+  },
+  webDesktop1440: {
+    name: 'Web desktop · 1440px',
+    styles: { width: '1440px', height: '900px' },
+    type: 'desktop',
+  },
   matchingMobile320: {
     name: 'Matching mobile · 320px',
     styles: { width: '320px', height: '568px' },

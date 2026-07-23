@@ -115,11 +115,10 @@ async function fetchAndParse<T>(path: string, schema: Schema<T>, init?: RequestI
   return parsed.data;
 }
 
-function buildFaqPath(query: Partial<ListSupportFaqQuery> = { surface: 'SUPPORT_CENTER' }) {
+function buildFaqPath(query: Partial<ListSupportFaqQuery> = {}) {
   const parsed = listSupportFaqQuerySchema.parse(query);
   return `/api/support/faq${buildQueryString({
     category: parsed.category,
-    surface: parsed.surface,
   })}`;
 }
 
@@ -149,9 +148,7 @@ function buildEnforcementNoticeListPath(query: Partial<ListEnforcementNoticesQue
   })}`;
 }
 
-async function listFaq(
-  query: Partial<ListSupportFaqQuery> = { surface: 'SUPPORT_CENTER' },
-): Promise<SupportFaqListResponse> {
+async function listFaq(query: Partial<ListSupportFaqQuery> = {}): Promise<SupportFaqListResponse> {
   return fetchAndParse(buildFaqPath(query), supportFaqListResponseSchema);
 }
 

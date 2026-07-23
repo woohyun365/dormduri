@@ -120,6 +120,8 @@ describe('social-safety Prisma persistence baseline', () => {
     expect(schema).toContain('enum SupportMessageSenderType');
     expect(schema).toContain('enum SupportAppealCategory');
     expect(schema).toContain('enum SupportFaqSurface');
+    expect(schema).toContain('SUPPORT_CENTER');
+    expect(schema).not.toContain('  LANDING');
     expect(schema).toContain('model SupportTicket');
     expect(schema).toContain('model SupportTicketMessage');
     expect(schema).toContain('model SupportFaqArticle');

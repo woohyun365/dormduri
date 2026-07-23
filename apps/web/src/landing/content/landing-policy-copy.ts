@@ -11,7 +11,7 @@ export const LANDING_REQUIRED_POLICY_COPY_IDS = [
   'lifestyle_survey_disclaimer',
   'profile_privacy_warning',
   'season_capability_boundary',
-  'faq_is_not_personal_support_request',
+  'support_channel_boundary',
 ] as const satisfies readonly LandingPolicyCopyId[];
 
 export const LANDING_SEASON_STATE_LABELS = {
@@ -52,7 +52,7 @@ export const LANDING_POLICY_COPY = [
       section: '면책 범위',
       reason: '호실 선택은 학교 시스템 영역이며 서비스가 성공을 보장하지 않는다.',
     },
-    requiredSurface: ['hero', 'faq', 'trust'],
+    requiredSurface: ['hero', 'trust'],
     testAnchor: '기숙사 배정·호실 선택을 보장하지 않습니다',
   },
   {
@@ -63,7 +63,7 @@ export const LANDING_POLICY_COPY = [
       section: '면책 범위',
       reason: '생활패턴 설문은 학교 규정상 허용행위를 뜻하지 않는다.',
     },
-    requiredSurface: ['faq', 'trust'],
+    requiredSurface: ['trust'],
     testAnchor: '학교 기숙사 규정 판단이 아닙니다',
   },
   {
@@ -75,7 +75,7 @@ export const LANDING_POLICY_COPY = [
       reason:
         '사용자 입력 본문에는 개인정보와 민감정보가 포함될 수 있으므로 공개 입력 surface에서 주의를 제공한다.',
     },
-    requiredSurface: ['faq', 'footer', 'support'],
+    requiredSurface: ['footer', 'support'],
     testAnchor: '개인정보·민감정보 입력을 권장하지 않습니다',
   },
   {
@@ -86,19 +86,19 @@ export const LANDING_POLICY_COPY = [
       section: '시즌 상태 모델',
       reason: 'Landing copy는 4-state 시즌 모델을 기준으로 기능 on/off를 설명해야 한다.',
     },
-    requiredSurface: ['season', 'faq'],
+    requiredSurface: ['season'],
     testAnchor: '시즌 마감 정리 기간',
   },
   {
-    id: 'faq_is_not_personal_support_request',
-    copy: 'FAQ는 공개 도움말이며 개인 문의, 신고, 이의신청 결과를 대체하지 않습니다.',
+    id: 'support_channel_boundary',
+    copy: '신고·차단은 프로필·채팅에서, 문의는 로그인 후 접수해요.',
     source: {
       path: 'docs/04_policy/official/support-communication.md',
-      section: 'FAQ policy',
-      reason: 'FAQ는 개인 문의 접수를 대체하지 않고, 개인 사건 결과를 포함하지 않는다.',
+      section: '지원 채널',
+      reason: '공개 랜딩은 상황별 신고·문의 진입 위치를 안내하고 개인 사건을 직접 처리하지 않는다.',
     },
-    requiredSurface: ['faq', 'support'],
-    testAnchor: '개인 문의, 신고, 이의신청 결과를 대체하지 않습니다',
+    requiredSurface: ['support'],
+    testAnchor: '로그인 후',
   },
 ] as const satisfies readonly LandingPolicyCopy[];
 

@@ -4,9 +4,9 @@ import {
   AlertTriangle,
   CircleDashed,
   ClipboardCheck,
-  HelpCircle,
-  Lock,
+  Flag,
   MessageCircle,
+  MessageSquareText,
   MessagesSquare,
   Shield,
   UserCheck,
@@ -54,6 +54,15 @@ export interface LandingIconCopyItem {
 
 export interface LandingTrustBoundaryItem extends LandingIconCopyItem {
   iconSurfaceClass: string;
+}
+
+export interface LandingSupportItem extends LandingIconCopyItem {
+  iconSurfaceClass: string;
+  scopeLabel: string;
+  scopeItems: readonly string[];
+  entryLabel: string;
+  entryValue: string;
+  policyCopyIds: readonly LandingPolicyCopyId[];
 }
 
 export interface LandingHowItWorksStep {
@@ -268,33 +277,66 @@ export const landingMatchingCapabilitySteps = [
   },
 ] as const satisfies readonly LandingMatchingCapabilityStep[];
 
-export const landingSafetySupportItems = [
+export const landingSupportCopy = {
+  eyebrow: '이용 도움',
+  title: '서비스 이용 중 도움이 필요하다면',
+  description: '상황에 맞는 도움 방법을 확인해요.',
+  policyCopyIds: ['support_channel_boundary'],
+} as const;
+
+export const landingSupportPrivacyNotice = {
+  title: '공개 정보는 꼭 필요한 만큼만',
+  items: [
+    {
+      label: '내 공개 프로필',
+      description: '실명·학번·연락처·SNS 등 개인 정보는 적지 않는 것을 권장해요.',
+    },
+    {
+      label: '타인 정보',
+      description: '개인정보나 사생활 정보를 동의 없이 공개하지 마세요.',
+    },
+  ],
+  policyCopyIds: ['profile_privacy_warning'],
+} as const;
+
+export const landingSupportItems = [
   {
-    id: 'privacy-warning',
-    icon: Lock,
-    iconColor: 'text-rose-600',
-    title: '개인정보 입력 주의',
-    description: getLandingPolicyCopy('profile_privacy_warning').copy,
-    policyCopyIds: ['profile_privacy_warning'],
+    id: 'contextual-report',
+    icon: Flag,
+    iconColor: 'text-rose-500',
+    iconSurfaceClass: 'bg-rose-50',
+    title: '신고·차단',
+    description: '프로필·채팅 문제를 신고하거나 상대를 차단해요.',
+    scopeLabel: '신고할 수 있는 내용',
+    scopeItems: [
+      '욕설·성적 표현이 있는 닉네임·자기소개',
+      '성별 사칭이나 허위 기숙사·생활패턴 정보',
+      '장애·성적 지향 등에 대한 혐오·차별 표현',
+      '협박·개인정보 노출·반복 스팸 채팅',
+    ],
+    entryLabel: '이용 위치',
+    entryValue: '상대 프로필·채팅 화면',
+    policyCopyIds: ['support_channel_boundary'],
   },
   {
-    id: 'faq-boundary',
-    icon: HelpCircle,
+    id: 'signed-in-support',
+    icon: MessageSquareText,
     iconColor: 'text-(--knu-primary)',
-    title: 'FAQ는 공개 도움말',
-    description: getLandingPolicyCopy('faq_is_not_personal_support_request').copy,
-    policyCopyIds: ['faq_is_not_personal_support_request'],
+    iconSurfaceClass: 'bg-blue-50',
+    title: '서비스 이용 문의',
+    description: '직접 해결하기 어려운 서비스 이용 문제를 문의해요.',
+    scopeLabel: '문의 범위',
+    scopeItems: [
+      '철회한 시즌 재참여 문의',
+      '등록을 마친 뒤 기숙사 오입력 수정',
+      '캠퍼스·출생연도·단과대 정보 정정',
+      '신고·제재 결과 재검토',
+    ],
+    entryLabel: '이용 위치',
+    entryValue: '로그인 후 문의하기 페이지',
+    policyCopyIds: ['support_channel_boundary'],
   },
-  {
-    id: 'report-support',
-    icon: Shield,
-    iconColor: 'text-emerald-600',
-    title: '신고·문의는 별도 접수',
-    description:
-      '계정, 시즌 참여, 신고, 이의신청처럼 본인 상황 확인이 필요한 문제는 로그인 후 문의 기능으로 접수합니다.',
-    policyCopyIds: ['faq_is_not_personal_support_request'],
-  },
-] as const satisfies readonly LandingIconCopyItem[];
+] as const satisfies readonly LandingSupportItem[];
 
 export const landingFinalCtaCopy = {
   title: '공개 안내를 확인했다면, 내 시즌 상태에 맞게 시작하세요',
@@ -317,8 +359,7 @@ export const landingSectionIds = [
   'how-it-works',
   'features',
   'season',
-  'safety-support',
-  'faq',
+  'support',
   'final-cta',
 ] as const;
 
@@ -328,8 +369,7 @@ export const landingSectionHeadings = [
   '이렇게 이용해요',
   '주요 기능',
   '시즌에 따라 달라요',
-  '안전과 문의 경계',
-  '자주 묻는 질문',
+  '서비스 이용 중 도움이 필요하다면',
   '공개 안내를 확인했다면',
 ] as const;
 
@@ -339,5 +379,7 @@ export const LANDING_POLICY_LINKED_CONTENT_GROUPS = [
   landingTrustBoundaryItems,
   landingHowItWorksSteps,
   landingMatchingCapabilitySteps,
-  landingSafetySupportItems,
+  [landingSupportCopy],
+  [landingSupportPrivacyNotice],
+  landingSupportItems,
 ] as const;

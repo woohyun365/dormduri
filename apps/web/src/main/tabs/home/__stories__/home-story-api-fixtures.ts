@@ -690,9 +690,6 @@ function createSupportFaq(): SupportFaqItem {
     category: 'MATCHING',
     question: '매칭 요청은 언제 보낼 수 있나요?',
     answer: '시즌 참여 후 매칭 기간에 같은 기숙사 룸메 후보에게 요청할 수 있어요.',
-    published: true,
-    sortOrder: 1,
-    updatedAt: ISO_NOW,
   };
 }
 

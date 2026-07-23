@@ -261,7 +261,7 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
     await listSupportFaq(request);
 
     expect(firstFetchInput(fetchMock)).toBe(
-      'http://localhost:4000/api/support/faq?category=ACCOUNT&surface=LANDING',
+      'http://localhost:4000/api/support/faq?category=ACCOUNT',
     );
     expect(firstFetchInit(fetchMock)).toEqual(
       expect.objectContaining({
@@ -272,7 +272,7 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
 
     vi.unstubAllGlobals();
     const invalidFetchMock = stubJsonFetch({ shouldNotForward: true });
-    const invalidRequest = createRequest('/api/support/faq?surface=UNKNOWN', {
+    const invalidRequest = createRequest('/api/support/faq?category=UNKNOWN', {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 

@@ -46,7 +46,13 @@ export function LandingSeasonJourney({ items }: LandingSeasonJourneyProps) {
                   <h4 className="text-sm/6 font-bold text-(--knu-text-primary)">
                     {item.journeyLabel}
                   </h4>
-                  <p className="mt-1 text-sm/6 font-semibold text-slate-700">
+                  <p className="mt-1 flex items-center gap-1.5 text-sm/6 font-semibold text-slate-700 md:justify-center">
+                    <span
+                      className="flex size-4 shrink-0 items-center justify-center self-center text-slate-500"
+                      aria-hidden="true"
+                    >
+                      <CalendarDays className="size-3.5" />
+                    </span>
                     {item.journeyDateLabel}
                   </p>
                   <p className="mt-0.5 text-xs/5 font-semibold text-(--knu-primary)">

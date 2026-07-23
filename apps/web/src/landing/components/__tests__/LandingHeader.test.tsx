@@ -88,7 +88,7 @@ describe('LandingHeader', () => {
     );
     expect(screen.getByRole('link', { name: '서비스 소개' })).toHaveAttribute('href', '#features');
     expect(screen.getByRole('link', { name: '시즌 정책' })).toHaveAttribute('href', '#season');
-    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '#faq');
+    expect(screen.getByRole('link', { name: '이용 도움' })).toHaveAttribute('href', '#support');
   });
 
   it('메뉴 버튼은 controlled mobile menu를 열고 aria-controls를 연결한다', () => {
@@ -122,7 +122,7 @@ describe('LandingHeader', () => {
     const menuId = menuButton.getAttribute('aria-controls')!;
     const mobileMenu = document.getElementById(menuId)!;
 
-    fireEvent.click(within(mobileMenu).getByRole('link', { name: 'FAQ' }));
+    fireEvent.click(within(mobileMenu).getByRole('link', { name: '이용 도움' }));
 
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     expect(document.getElementById(menuId)).toHaveAttribute('data-state', 'closed');

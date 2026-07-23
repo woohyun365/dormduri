@@ -5,13 +5,10 @@ import {
   LANDING_SEASON_STATE_LABELS,
 } from '../content/landing-policy-copy';
 import {
-  LANDING_FALLBACK_FAQ_SOURCE_KIND,
-  landingFallbackFaqItems,
-} from '../content/landing-fallback-faq';
-import {
   LANDING_POLICY_LINKED_CONTENT_GROUPS,
   landingMatchingCapabilitySteps,
   landingSeasonJourneyItems,
+  landingSupportCopy,
 } from '../content/landing-copy';
 import { landingHeroProfilePreview } from '../content/landing-profile-preview.examples';
 import type { LandingPolicyCopyId } from '../content/landing-content.types';
@@ -28,8 +25,6 @@ const FORBIDDEN_PUBLIC_CONTENT_PATTERNS = [
   /admin note/i,
   /operator note/i,
 ];
-
-const OFFICIAL_POLICY_PREFIX = 'docs/04_policy/official/';
 
 function expectPublicPlainText(value: string) {
   expect(value.trim().length).toBeGreaterThan(0);
@@ -78,44 +73,13 @@ describe('landing content policy contract', () => {
     expect(seasonCopy?.copy).toContain(LANDING_SEASON_STATE_LABELS.SEASON_POST_MATCH);
   });
 
-  it('keeps local FAQ content explicitly scoped as emergency fallback', () => {
-    expect(LANDING_FALLBACK_FAQ_SOURCE_KIND).toBe('emergency_fallback');
-    expect(landingFallbackFaqItems.length).toBeGreaterThanOrEqual(6);
-
-    const ids = new Set<string>();
-    const sortOrders = landingFallbackFaqItems.map((item) => item.sortOrder);
-
-    expect(sortOrders).toEqual([...sortOrders].sort((left, right) => left - right));
-
-    for (const item of landingFallbackFaqItems) {
-      expect(ids.has(item.id)).toBe(false);
-      ids.add(item.id);
-      expectPublicPlainText(item.question);
-      expectPublicPlainText(item.answer);
-      expect(item.policyCopyIds.length).toBeGreaterThan(0);
-      expect(item.source.path.startsWith(OFFICIAL_POLICY_PREFIX)).toBe(true);
-      expect(item.source.path.endsWith('.md')).toBe(true);
-      expect(item.source.section.trim()).not.toBe('');
-      expect(item.source.reason.trim()).not.toBe('');
-    }
-  });
-
-  it('connects each required policy copy to at least one fallback FAQ item', () => {
-    const linkedPolicyIds = new Set(landingFallbackFaqItems.flatMap((item) => item.policyCopyIds));
-
-    for (const requiredId of LANDING_REQUIRED_POLICY_COPY_IDS) {
-      expect(linkedPolicyIds.has(requiredId)).toBe(true);
-    }
-  });
-
-  it('keeps support boundary ids and reasons user-domain oriented instead of ticket jargon', () => {
+  it('keeps support boundary ids and copy user-domain oriented instead of FAQ or ticket jargon', () => {
     const serializedLandingContent = JSON.stringify({
       policy: LANDING_POLICY_COPY,
-      fallbackFaq: landingFallbackFaqItems,
+      support: landingSupportCopy,
     });
 
-    expect(serializedLandingContent).toContain('faq_is_not_personal_support_request');
-    expect(serializedLandingContent).toContain('faq-personal-support-request-boundary');
+    expect(serializedLandingContent).toContain('support_channel_boundary');
     expect(serializedLandingContent).not.toMatch(/support\s+ticket|faq_is_not_support_ticket/i);
   });
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   appendSupportTicketMessageRequestSchema,
   createSupportTicketRequestSchema,
-  SupportFaqSurface,
   listSupportFaqQuerySchema,
   listSupportTicketsQuerySchema,
   replySupportTicketRequestSchema,
@@ -70,16 +69,8 @@ describe('support shared/API contract', () => {
       listSupportTicketsQuerySchema.parse({ status: 'OPEN', category: 'BUG', limit: '10' }),
     ).toEqual({ status: 'OPEN', category: 'BUG', limit: 10 });
     expect(listSupportFaqQuerySchema.parse({ category: 'OTHER' })).toEqual({ category: 'OTHER' });
-    expect(listSupportFaqQuerySchema.parse({ surface: SupportFaqSurface.LANDING })).toEqual({
-      surface: 'LANDING',
-    });
-    expect(
-      listSupportFaqQuerySchema.parse({ category: 'OTHER', surface: 'SUPPORT_CENTER' }),
-    ).toEqual({
-      category: 'OTHER',
-      surface: 'SUPPORT_CENTER',
-    });
-    expect(listSupportFaqQuerySchema.safeParse({ surface: 'HOME' }).success).toBe(false);
+    expect(listSupportFaqQuerySchema.safeParse({ surface: 'LANDING' }).success).toBe(false);
+    expect(listSupportFaqQuerySchema.safeParse({ surface: 'SUPPORT_CENTER' }).success).toBe(false);
   });
 
   it('list/detail/FAQ response는 ticket pointer와 공개 필드만 허용한다', () => {
@@ -120,12 +111,14 @@ describe('support shared/API contract', () => {
       category: 'OTHER',
       question: '질문',
       answer: '답변',
-      published: true,
-      sortOrder: 1,
-      updatedAt: '2026-06-08T00:00:00.000Z',
     };
     expect(supportFaqListResponseSchema.parse({ items: [faq] })).toEqual({ items: [faq] });
     expect(supportFaqDetailResponseSchema.parse({ item: faq })).toEqual({ item: faq });
+    expect(
+      supportFaqListResponseSchema.safeParse({
+        items: [{ ...faq, published: true, sortOrder: 1 }],
+      }).success,
+    ).toBe(false);
   });
 
   it('response schema는 unknown raw support/email payload key를 거절한다', () => {

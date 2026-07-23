@@ -15,7 +15,7 @@ export const landingAnchorNavigationItems = [
   { href: '#how-it-works', label: '이용 흐름' },
   { href: '#features', label: '서비스 소개' },
   { href: '#season', label: '시즌 정책' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '#support', label: '이용 도움' },
 ] as const satisfies readonly LandingAnchorNavigationItem[];
 
 export const landingRouteNavigationItems = [

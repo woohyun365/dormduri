@@ -75,7 +75,6 @@ describe('landing visible policy copy', () => {
       within(hero!).getByRole('figure', { name: '룸메 후보 목록은 이렇게 보여요' }),
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/서비스를 준비하고 있어요|loading app shell/i);
-    expect(container.querySelector('[data-testid="landing-faq-skeleton-row"]')).toBeNull();
   });
 
   it('공개 화면에서 개발자 중심 용어를 노출하지 않는다', () => {
@@ -88,7 +87,9 @@ describe('landing visible policy copy', () => {
   it('섹션 heading과 preview disclaimer를 제품 서사 순서로 노출한다', () => {
     render(<LandingPage />);
 
-    const headings = landingSectionHeadings.map((heading) => screen.getByText(new RegExp(heading)));
+    const headings = landingSectionHeadings.map((heading) =>
+      screen.getByRole('heading', { name: new RegExp(heading) }),
+    );
 
     for (let i = 1; i < headings.length; i++) {
       expect(headings[i]!.compareDocumentPosition(headings[i - 1]!)).toBe(
@@ -105,6 +106,9 @@ describe('landing visible policy copy', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('후보와 대화')).toBeInTheDocument();
     expect(screen.getByText('요청·수락')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '서비스 이용 중 도움이 필요하다면' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
       'href',
       '/signup',

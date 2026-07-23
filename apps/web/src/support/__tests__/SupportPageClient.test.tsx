@@ -67,9 +67,6 @@ describe('SupportPageClient', () => {
           category: 'BUG',
           question: '오류가 나면 어떻게 하나요?',
           answer: '문의하기를 이용해주세요.',
-          published: true,
-          sortOrder: 1,
-          updatedAt: iso,
         },
       ],
     });

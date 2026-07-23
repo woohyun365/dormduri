@@ -37,7 +37,10 @@ test.describe('Web smoke', () => {
       page.getByRole('heading', { name: /생활패턴이 맞는.*룸메 후보를 확인하세요/ }),
     ).toBeVisible();
     await expect(page.getByRole('link', { name: '이메일로 시작하기' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '이용 흐름 보기' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '이용 흐름 보기' })).toHaveAttribute(
+      'href',
+      '#how-it-works',
+    );
   });
 
   test('로그인 화면의 핵심 폼 컨트롤을 렌더링한다', async ({ page }) => {

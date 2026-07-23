@@ -31,12 +31,8 @@ vi.mock('../sections/LandingSeasonPolicySection', () => ({
   LandingSeasonPolicySection: () => <section data-testid="season-policy">SeasonPolicy</section>,
 }));
 
-vi.mock('../sections/LandingSafetySupportSection', () => ({
-  LandingSafetySupportSection: () => <section data-testid="safety-support">SafetySupport</section>,
-}));
-
-vi.mock('../sections/LandingFaqSection', () => ({
-  LandingFaqSection: () => <section data-testid="faq">FAQ</section>,
+vi.mock('../sections/LandingSupportSection', () => ({
+  LandingSupportSection: () => <section data-testid="support">Support</section>,
 }));
 
 vi.mock('../sections/LandingFinalCtaSection', () => ({
@@ -54,8 +50,7 @@ describe('LandingPage', () => {
       'how-it-works',
       'features',
       'season-policy',
-      'safety-support',
-      'faq',
+      'support',
       'final-cta',
       'landing-footer',
     ];
@@ -85,5 +80,14 @@ describe('LandingPage', () => {
     expect(container.firstElementChild).toBe(screen.getByTestId('landing-header'));
     expect(container.lastElementChild).toBe(screen.getByTestId('landing-footer'));
     expect(container.querySelector('main')).toBeInTheDocument();
+  });
+
+  it('공개 Landing composition은 runtime API를 호출하지 않는다', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    render(<LandingPage />);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });
