@@ -1,8 +1,8 @@
 import { Info } from 'lucide-react';
 import { Section } from '../components/Section';
 import { LandingSentenceText } from '../components/LandingSentenceText';
-import { landingFeatureItems } from '../content/landing-copy';
-import { LandingFeatureCard } from './features/LandingFeatureCard';
+import { landingMatchingCapabilitySteps } from '../content/landing-copy';
+import { LandingMatchingCapabilityFlow } from './features/LandingMatchingCapabilityFlow';
 
 export function LandingFeatureSection() {
   return (
@@ -19,13 +19,7 @@ export function LandingFeatureSection() {
           />
         </div>
 
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {landingFeatureItems.map((item) => (
-            <li key={item.id}>
-              <LandingFeatureCard item={item} />
-            </li>
-          ))}
-        </ul>
+        <LandingMatchingCapabilityFlow steps={landingMatchingCapabilitySteps} />
 
         <aside
           aria-label="생활패턴 정보 안내"

@@ -24,40 +24,40 @@ export const LANDING_SEASON_STATE_LABELS = {
 export const LANDING_POLICY_COPY = [
   {
     id: 'service_independent_notice',
-    copy: 'KNU 룸메는 학교 공식 서비스가 아닌 독립 운영 서비스입니다.',
+    copy: 'KNU 룸메는 학교 공식 서비스가 아닙니다.',
     source: {
       path: 'docs/04_policy/official/service-boundary.md',
       section: '면책 고지 시점',
       reason: '서비스 진입 화면에서 비공식 서비스 고지를 유지해야 한다.',
     },
     requiredSurface: ['hero', 'footer', 'trust'],
-    testAnchor: '독립 운영 서비스',
+    testAnchor: '학교 공식 서비스가 아닙니다',
   },
   {
     id: 'school_system_not_connected',
-    copy: '서비스는 학교 시스템과 연동하지 않고, 사용자가 입력한 정보로 룸메이트 탐색을 돕습니다.',
+    copy: '학교 기숙사 시스템과 연동되지 않으며, 사용자에게 룸메이트 탐색을 돕습니다.',
     source: {
       path: 'docs/04_policy/official/service-boundary.md',
       section: '서비스 책임 범위',
       reason: '학교 시스템 일정과 권한을 보장하지 않는다는 boundary를 노출해야 한다.',
     },
     requiredSurface: ['hero', 'trust'],
-    testAnchor: '학교 시스템과 연동하지 않고',
+    testAnchor: '학교 기숙사 시스템과 연동되지 않으며',
   },
   {
     id: 'room_selection_not_guaranteed',
-    copy: '룸메이트 매칭은 호실 선택이나 기숙사 배정 성공을 보장하지 않습니다.',
+    copy: '기숙사 배정·호실 선택을 보장하지 않습니다.',
     source: {
       path: 'docs/04_policy/official/service-boundary.md',
       section: '면책 범위',
       reason: '호실 선택은 학교 시스템 영역이며 서비스가 성공을 보장하지 않는다.',
     },
     requiredSurface: ['hero', 'faq', 'trust'],
-    testAnchor: '호실 선택이나 기숙사 배정 성공을 보장하지 않습니다',
+    testAnchor: '기숙사 배정·호실 선택을 보장하지 않습니다',
   },
   {
     id: 'lifestyle_survey_disclaimer',
-    copy: '생활패턴 설문은 룸메이트 호환성 참고용이며 학교 기숙사 규정 판단이 아닙니다.',
+    copy: '룸메 적합도 계산에 사용되며, 학교 기숙사 규정 판단이 아닙니다.',
     source: {
       path: 'docs/04_policy/official/service-boundary.md',
       section: '면책 범위',

@@ -7,8 +7,7 @@ import {
   HelpCircle,
   Lock,
   MessageCircle,
-  Moon,
-  Search,
+  MessagesSquare,
   Shield,
   UserCheck,
 } from 'lucide-react';
@@ -65,13 +64,22 @@ export interface LandingHowItWorksStep {
   policyCopyIds?: readonly LandingPolicyCopyId[];
 }
 
-export interface LandingSeasonPolicyCard {
+export interface LandingSeasonJourneyItem {
   state: LandingSeasonState;
   label: string;
+  journeyLabel: string;
+  journeyDateLabel: string;
+  journeyDescription: string;
+}
+
+export interface LandingMatchingCapabilityStep {
+  id: string;
+  icon: LucideIcon;
+  title: string;
   description: string;
-  available: readonly string[];
-  unavailable: readonly string[];
-  accent: 'neutral' | 'blue' | 'primary' | 'amber';
+  availabilityLabel: string;
+  availabilityKind: 'schedule' | 'condition';
+  policyCopyIds?: readonly LandingPolicyCopyId[];
 }
 
 export interface LandingFinalCtaCopy {
@@ -190,80 +198,75 @@ export const landingHowItWorksCopy = {
   },
 } as const;
 
-export const landingFeatureItems = [
-  {
-    id: 'candidate-discovery',
-    icon: Search,
-    iconColor: 'text-(--knu-primary)',
-    title: '후보 찾기',
-    description: '이번 학기 후보를 살펴보고, 생활패턴 필터로 범위를 좁혀요.',
-  },
-  {
-    id: 'lifestyle-compare',
-    icon: Moon,
-    iconColor: 'text-(--knu-primary)',
-    title: '생활패턴 비교',
-    description: '수면·흡연·청소 등 생활 습관을 서로 비교해요.',
-    policyCopyIds: ['lifestyle_survey_disclaimer'],
-  },
-  {
-    id: 'in-service-chat',
-    icon: MessageCircle,
-    iconColor: 'text-(--knu-primary)',
-    title: '대화하기',
-    description: '같은 기숙사 후보와 생활 습관을 조율하고 매칭을 진행해요.',
-    policyCopyIds: ['profile_privacy_warning'],
-  },
-  {
-    id: 'confirm-before-match',
-    icon: UserCheck,
-    iconColor: 'text-(--knu-primary)',
-    title: '확인 후 매칭',
-    description: '상대에게 매칭을 요청하거나 받은 요청에 응답하여 매칭을 확정해요.',
-  },
-] as const satisfies readonly LandingIconCopyItem[];
-
-export const landingSeasonPolicyCards = [
+export const landingSeasonJourneyItems = [
   {
     state: 'OFF_SEASON',
     label: '비시즌',
-    description: '시즌 외 기간입니다. 다른 사용자 프로필 탐색과 이번 시즌 프로필 작성은 닫힙니다.',
-    available: ['내 표시 정보와 과거 이력 확인', '서비스 정책·FAQ 확인'],
-    unavailable: ['타인 프로필 탐색', '시즌 프로필 작성', '매칭 요청·수락'],
-    accent: 'neutral',
+    journeyLabel: '지난 이력 확인',
+    journeyDateLabel: '~ 8. 1.',
+    journeyDescription: '이전 시즌 기록을 확인해요.',
   },
   {
     state: 'SEASON_OPEN',
     label: '시즌 오픈',
-    description:
-      '등록 전에는 프로필을 작성·수정하고, 등록 후에는 같은 기숙사 후보 확인과 직접 대화가 가능합니다. 매칭 요청·수락은 시즌 매칭 기간에만 열립니다.',
-    available: [
-      '등록 전 시즌 프로필 작성·수정',
-      '기숙사 선택 정보 임시 저장',
-      '후보 목록 확인',
-      '같은 기숙사 후보와 직접 대화',
-    ],
-    unavailable: ['매칭 요청·수락', '등록 완료 후 프로필·기숙사 선택 정보 수정'],
-    accent: 'blue',
+    journeyLabel: '시즌 준비',
+    journeyDateLabel: '8. 2. ~ 8. 10.',
+    journeyDescription: '프로필을 등록하고 후보와 대화해요.',
   },
   {
     state: 'SEASON_MATCHING',
     label: '시즌 매칭',
-    description:
-      '등록 완료 사용자는 같은 기숙사 후보와 대화하고 매칭을 요청할 수 있습니다. 등록 후 잠금은 유지됩니다.',
-    available: ['같은 기숙사 후보 탐색', '매칭 전 직접 대화', '매칭 요청·수락', '매칭 후 1:1 대화'],
-    unavailable: ['등록 완료 후 프로필·기숙사 선택 정보 수정'],
-    accent: 'primary',
+    journeyLabel: '매칭 진행',
+    journeyDateLabel: '8. 11. ~ 8. 20.',
+    journeyDescription: '요청을 주고받아 매칭을 확정해요.',
   },
   {
     state: 'SEASON_POST_MATCH',
     label: '시즌 마감 정리 기간',
-    description: '새 시즌 참여 등록과 새 매칭은 종료되고, 확정 결과 확인 중심으로 전환됩니다.',
-    available: ['확정 결과 확인', '읽기 전용 프로필·이력 안내'],
-    unavailable: ['신규 시즌 참여 등록', '신규 매칭 요청'],
-    accent: 'amber',
+    journeyLabel: '결과 확인',
+    journeyDateLabel: '8. 21. ~ 8. 31.',
+    journeyDescription: '이번 시즌 결과와 매칭 상대를 확인해요.',
   },
-] as const satisfies readonly LandingSeasonPolicyCard[];
+] as const satisfies readonly LandingSeasonJourneyItem[];
+
+export const landingMatchingCapabilitySteps = [
+  {
+    id: 'season-registration',
+    icon: ClipboardCheck,
+    title: '시즌 등록',
+    description: '프로필과 기숙사 정보를 준비해요.',
+    availabilityLabel: '시즌 오픈·매칭',
+    availabilityKind: 'schedule',
+    policyCopyIds: ['season_capability_boundary'],
+  },
+  {
+    id: 'candidate-chat',
+    icon: MessageCircle,
+    title: '후보와 대화',
+    description: '후보를 찾고 생활패턴을 비교한 뒤 대화해요.',
+    availabilityLabel: '시즌 등록 후',
+    availabilityKind: 'condition',
+    policyCopyIds: ['lifestyle_survey_disclaimer', 'profile_privacy_warning'],
+  },
+  {
+    id: 'match-request',
+    icon: UserCheck,
+    title: '요청·수락',
+    description: '매칭 요청을 보내거나 받은 요청에 응답해요.',
+    availabilityLabel: '시즌 매칭',
+    availabilityKind: 'schedule',
+    policyCopyIds: ['season_capability_boundary'],
+  },
+  {
+    id: 'matched-chat',
+    icon: MessagesSquare,
+    title: '매칭 상대와 대화',
+    description: '매칭 확정 후 입실 전 생활방식을 조율해요.',
+    availabilityLabel: '매칭 확정 후',
+    availabilityKind: 'condition',
+    policyCopyIds: ['profile_privacy_warning'],
+  },
+] as const satisfies readonly LandingMatchingCapabilityStep[];
 
 export const landingSafetySupportItems = [
   {
@@ -324,7 +327,7 @@ export const landingSectionHeadings = [
   'KNU 룸메 서비스',
   '이렇게 이용해요',
   '주요 기능',
-  '시즌별로 열리는 기능이 달라요',
+  '시즌에 따라 달라요',
   '안전과 문의 경계',
   '자주 묻는 질문',
   '공개 안내를 확인했다면',
@@ -335,6 +338,6 @@ export const LANDING_POLICY_LINKED_CONTENT_GROUPS = [
   [landingHowItWorksCopy.notice],
   landingTrustBoundaryItems,
   landingHowItWorksSteps,
-  landingFeatureItems,
+  landingMatchingCapabilitySteps,
   landingSafetySupportItems,
 ] as const;

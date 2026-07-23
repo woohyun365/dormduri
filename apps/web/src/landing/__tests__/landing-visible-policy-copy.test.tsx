@@ -62,7 +62,7 @@ describe('landing visible policy copy', () => {
         name: /학기 시작 전,\s*생활패턴이 맞는\s*룸메이트를 찾아요/,
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/독립 운영 서비스입니다/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/학교 공식 서비스가 아닙니다/).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
       'href',
       '/signup',
@@ -103,8 +103,8 @@ describe('landing visible policy copy', () => {
     expect(
       screen.queryByText(/실제 사용자, 실제 점수, 매칭 또는 호실 선택 성공/),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('같은 기숙사 후보와 직접 대화')).toBeInTheDocument();
-    expect(screen.getByText(/매칭 요청·수락은 시즌 매칭 기간에만 열립니다/)).toBeInTheDocument();
+    expect(screen.getByText('후보와 대화')).toBeInTheDocument();
+    expect(screen.getByText('요청·수락')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
       'href',
       '/signup',

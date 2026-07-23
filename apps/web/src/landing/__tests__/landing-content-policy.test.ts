@@ -10,7 +10,8 @@ import {
 } from '../content/landing-fallback-faq';
 import {
   LANDING_POLICY_LINKED_CONTENT_GROUPS,
-  landingSeasonPolicyCards,
+  landingMatchingCapabilitySteps,
+  landingSeasonJourneyItems,
 } from '../content/landing-copy';
 import { landingHeroProfilePreview } from '../content/landing-profile-preview.examples';
 import type { LandingPolicyCopyId } from '../content/landing-content.types';
@@ -132,19 +133,25 @@ describe('landing content policy contract', () => {
     }
   });
 
-  it('keeps the season cards aligned to the four-state policy model', () => {
-    expect(landingSeasonPolicyCards.map((card) => card.state)).toEqual([
+  it('keeps the season journey and core matching flow aligned to the policy model', () => {
+    expect(landingSeasonJourneyItems.map((item) => item.state)).toEqual([
       'OFF_SEASON',
       'SEASON_OPEN',
       'SEASON_MATCHING',
       'SEASON_POST_MATCH',
     ]);
 
-    const seasonOpenCard = landingSeasonPolicyCards.find((card) => card.state === 'SEASON_OPEN');
+    expect(landingMatchingCapabilitySteps.map((step) => step.id)).toEqual([
+      'season-registration',
+      'candidate-chat',
+      'match-request',
+      'matched-chat',
+    ]);
 
-    expect(seasonOpenCard?.available).toContain('같은 기숙사 후보와 직접 대화');
-    expect(seasonOpenCard?.unavailable).toContain('매칭 요청·수락');
-    expect(seasonOpenCard?.description).toContain('매칭 요청·수락은 시즌 매칭 기간에만 열립니다.');
+    expect(landingMatchingCapabilitySteps[0]?.availabilityLabel).toBe('시즌 오픈·매칭');
+    expect(landingMatchingCapabilitySteps[1]?.availabilityLabel).toBe('시즌 등록 후');
+    expect(landingMatchingCapabilitySteps[2]?.availabilityLabel).toBe('시즌 매칭');
+    expect(landingMatchingCapabilitySteps[3]?.availabilityLabel).toBe('매칭 확정 후');
   });
 
   it('marks profile preview examples as examples instead of real users or guaranteed results', () => {
