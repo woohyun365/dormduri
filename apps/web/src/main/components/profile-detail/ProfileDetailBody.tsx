@@ -7,7 +7,7 @@ import {
 } from '@/main/tabs/profile/model/profileFieldOptions';
 import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import { formatDormitoryDisplayLabel } from '@/main/model/dormitoryDisplay.adapter';
-import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
+import { getMatchScoreColor } from '@/profile-summary/model/matchScorePresentation';
 import { CompatibilityReport } from '../CompatibilityReport';
 import type { ProfileDetailMatchScoreType } from './model/profileDetailMatchAction';
 import type { RoommateProfile } from '@/main/model/profile';

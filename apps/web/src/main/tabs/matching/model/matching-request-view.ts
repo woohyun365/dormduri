@@ -11,7 +11,7 @@ import {
 import {
   buildProfileSummaryFacts,
   type ProfileSummaryFact,
-} from '@/main/model/profileSummaryFacts';
+} from '@/profile-summary/model/profileSummaryFacts';
 
 export const MATCHING_SENT_REQUEST_LIMIT = 3;
 

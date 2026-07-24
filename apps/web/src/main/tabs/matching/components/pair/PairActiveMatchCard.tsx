@@ -1,5 +1,3 @@
-'use client';
-
 import { motion } from 'motion/react';
 import {
   Building2,
@@ -14,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
-import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
+import { getMatchScoreColor } from '@/profile-summary/model/matchScorePresentation';
 import type { MatchingActiveView } from '../../model/matching-active-view';
 import { UnmatchProgress } from '../UnmatchProgress';
 
@@ -88,7 +86,7 @@ export function PairActiveMatchCard({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-slate-500">함께 지낼 룸메이트</p>
-            <h3 className="mt-0.5 wrap-break-word text-xl font-black text-[var(--knu-text-primary)]">
+            <h3 className="mt-0.5 wrap-break-word text-xl font-black text-(--knu-text-primary)">
               {activeMatch.nickname}
             </h3>
           </div>
@@ -121,7 +119,7 @@ export function PairActiveMatchCard({
               type="button"
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[var(--knu-primary)] transition-colors hover:border-blue-200 hover:bg-blue-50"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-(--knu-primary) transition-colors hover:border-blue-200 hover:bg-blue-50"
               onClick={(event) => onOpenProfile(event.currentTarget)}
             >
               <span className="flex items-center justify-center gap-2">
@@ -287,7 +285,7 @@ export function PairActiveMatchCard({
         ) : null}
 
         {pending ? (
-          <p role="status" className="mt-3 text-xs text-[var(--knu-text-tertiary)]">
+          <p role="status" className="mt-3 text-xs text-(--knu-text-tertiary)">
             요청을 처리하고 있어요.
           </p>
         ) : null}

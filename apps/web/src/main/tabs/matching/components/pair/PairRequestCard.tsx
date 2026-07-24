@@ -1,5 +1,3 @@
-'use client';
-
 import type { ReactNode } from 'react';
 import {
   CalendarDays,
@@ -13,7 +11,7 @@ import {
 } from 'lucide-react';
 import { CounterpartActionFooter, CounterpartCardShell } from '@/main/components/counterpart-card';
 import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
-import { getMatchScoreColor } from '@/main/model/matchScorePresentation';
+import { getMatchScoreColor } from '@/profile-summary/model/matchScorePresentation';
 import type { MatchingRequestCardView } from '../../model/matching-request-view';
 import type { MatchRequestDecision } from '../../overlays/MatchRequestDecisionDialog';
 import { RequestExpiryText } from '../RequestExpiryText';

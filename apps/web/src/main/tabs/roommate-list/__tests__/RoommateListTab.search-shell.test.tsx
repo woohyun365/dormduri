@@ -98,6 +98,7 @@ const registeredViewer: UserProfile = {
     id: 'dasan',
     name: '다산관',
     roomType: 2,
+    genderPolicy: 'M',
   },
 };
 

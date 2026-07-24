@@ -11,7 +11,7 @@ import type {
 import {
   buildProfileSummaryFacts,
   type ProfileSummaryFact,
-} from '@/main/model/profileSummaryFacts';
+} from '@/profile-summary/model/profileSummaryFacts';
 
 export type RoommateSummaryCardFactViewModel = ProfileSummaryFact;
 
