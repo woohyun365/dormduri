@@ -6,15 +6,17 @@ test.describe('Landing public experience', () => {
 
     await expect(page).toHaveTitle('강원대 룸메이트 찾기');
     await expect(
-      page.getByRole('heading', { name: /생활패턴이 맞는.*룸메 후보를 확인하세요/ }),
+      page.getByRole('heading', {
+        name: /학기 시작 전,\s*생활패턴이 맞는\s*룸메이트를 찾아요/,
+      }),
     ).toBeVisible();
     await expect(page.getByText(/독립 운영 서비스/).first()).toBeVisible();
-    await expect(page.getByText(/학교 시스템과 연동하지 않고/).first()).toBeVisible();
-    await expect(
-      page.getByText(/호실 선택이나 기숙사 배정 성공을 보장하지 않습니다/).first(),
-    ).toBeVisible();
+    await expect(page.getByText(/학교 기숙사 시스템과 연동되지 않으며/).first()).toBeVisible();
+    await expect(page.getByText(/기숙사 배정·호실 선택을 보장하지 않습니다/).first()).toBeVisible();
 
-    await expect(page.getByRole('link', { name: '이메일로 시작하기' })).toBeVisible();
+    await expect(
+      page.locator('#hero').getByRole('link', { name: '학교 이메일로 시작하기' }),
+    ).toBeVisible();
     await expect(page.getByRole('link', { name: '이용 흐름 보기' })).toHaveAttribute(
       'href',
       '#how-it-works',
@@ -36,15 +38,26 @@ test.describe('Landing public experience', () => {
     await expect(page.getByRole('heading', { name: '주요 기능' })).toBeVisible();
   });
 
-  test('CTA links route to signup and login', async ({ page }) => {
+  test('CTA links route to signup and login', async ({ page }, testInfo) => {
     await page.goto('/');
 
-    await page.getByRole('link', { name: '이메일로 시작하기' }).click();
+    await page.locator('#hero').getByRole('link', { name: '학교 이메일로 시작하기' }).click();
     await expect(page).toHaveURL(/\/signup$/);
     await expect(page.getByRole('heading', { name: '이메일 인증' })).toBeVisible();
 
     await page.goto('/');
-    await page.getByRole('link', { name: '이미 계정이 있어요' }).click();
+    if (testInfo.project.name === 'mobile-chromium') {
+      await page.getByRole('button', { name: '메뉴', exact: true }).click();
+      await page
+        .getByRole('navigation', { name: '랜딩 모바일 내비게이션' })
+        .getByRole('link', { name: '로그인' })
+        .click();
+    } else {
+      await page
+        .getByRole('navigation', { name: '랜딩 주요 섹션' })
+        .getByRole('link', { name: '로그인' })
+        .click();
+    }
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole('heading', { name: '로그인' })).toBeVisible();
   });
@@ -56,7 +69,7 @@ test.describe('Landing mobile navigation', () => {
 
     await page.goto('/');
 
-    const menuButton = page.getByRole('button', { name: '메뉴' });
+    const menuButton = page.getByRole('button', { name: '메뉴', exact: true });
     await expect(menuButton).toBeVisible();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 

@@ -5,10 +5,11 @@ import type { ReactNode } from 'react';
 interface LandingPrimaryCtaLinkProps {
   href: Route;
   children: ReactNode;
-  size?: 'default' | 'hero';
+  size?: 'compact' | 'default' | 'hero';
 }
 
 const sizeClass = {
+  compact: 'h-12 px-5 text-base',
   default: 'h-14 px-8 text-lg',
   hero: 'h-12 px-5 text-base sm:h-14 sm:px-7 sm:text-lg',
 } as const;

@@ -63,7 +63,7 @@ describe('landing visible policy copy', () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/학교 공식 서비스가 아닙니다/).length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
+    expect(within(hero!).getByRole('link', { name: '학교 이메일로 시작하기' })).toHaveAttribute(
       'href',
       '/signup',
     );
@@ -109,13 +109,22 @@ describe('landing visible policy copy', () => {
     expect(
       screen.getByRole('heading', { name: '서비스 이용 중 도움이 필요하다면' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
+    const hero = document.querySelector<HTMLElement>('#hero');
+    const finalCta = document.querySelector<HTMLElement>('#final-cta');
+    expect(within(hero!).getByRole('link', { name: '학교 이메일로 시작하기' })).toHaveAttribute(
       'href',
       '/signup',
     );
-    expect(screen.getByRole('link', { name: /학교 이메일로 가입하기/ })).toHaveAttribute(
+    expect(within(finalCta!).getByRole('link', { name: '학교 이메일로 시작하기' })).toHaveAttribute(
       'href',
       '/signup',
     );
+    expect(within(finalCta!).queryByRole('link', { name: '로그인' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '룸메이트 찾기를 시작해 보세요' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('기숙사 배정과 호실 선택 결과는 학교 시스템에서 결정됩니다.'),
+    ).not.toBeInTheDocument();
   });
 });

@@ -92,10 +92,10 @@ export interface LandingMatchingCapabilityStep {
 }
 
 export interface LandingFinalCtaCopy {
+  eyebrow: string;
   title: string;
   description: string;
   primaryCta: LandingCtaCopy;
-  secondaryCta: LandingCtaCopy;
   policyCopyIds: readonly LandingPolicyCopyId[];
 }
 
@@ -121,7 +121,7 @@ export const landingHeroCopy = {
     caption: '실제 사용자 정보가 아닌 이해를 돕기 위한 예시예요.',
   },
   primaryCta: {
-    label: '이메일로 시작하기',
+    label: '학교 이메일로 시작하기',
     href: '/signup',
   },
   secondaryCta: {
@@ -339,19 +339,19 @@ export const landingSupportItems = [
 ] as const satisfies readonly LandingSupportItem[];
 
 export const landingFinalCtaCopy = {
-  title: '공개 안내를 확인했다면, 내 시즌 상태에 맞게 시작하세요',
-  description:
-    '가입 후에는 시즌·등록 상태에 맞는 기능만 열립니다. 기숙사 배정과 호실 선택 결과는 학교 시스템에서 결정됩니다.',
+  eyebrow: '시작하기',
+  title: '룸메이트 찾기를 시작해 보세요',
+  description: '학교 이메일로 간편하게 시작할 수 있어요.',
   primaryCta: {
-    label: '학교 이메일로 가입하기',
+    label: '학교 이메일로 시작하기',
     href: '/signup',
   },
-  secondaryCta: {
-    label: '이미 계정이 있어요',
-    href: '/login',
-  },
-  policyCopyIds: ['season_capability_boundary', 'room_selection_not_guaranteed'],
+  policyCopyIds: [],
 } as const satisfies LandingFinalCtaCopy;
+
+export const landingFooterCopy = {
+  externalInquiryEmail: 'woohyun365@gmail.com',
+} as const;
 
 export const landingSectionIds = [
   'hero',
@@ -364,13 +364,13 @@ export const landingSectionIds = [
 ] as const;
 
 export const landingSectionHeadings = [
-  '생활패턴이 맞는',
+  '학기 시작 전',
   'KNU 룸메 서비스',
   '이렇게 이용해요',
   '주요 기능',
   '시즌에 따라 달라요',
   '서비스 이용 중 도움이 필요하다면',
-  '공개 안내를 확인했다면',
+  '룸메이트 찾기를 시작해 보세요',
 ] as const;
 
 export const LANDING_POLICY_LINKED_CONTENT_GROUPS = [

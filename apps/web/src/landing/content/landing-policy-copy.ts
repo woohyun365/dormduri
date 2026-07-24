@@ -68,15 +68,15 @@ export const LANDING_POLICY_COPY = [
   },
   {
     id: 'profile_privacy_warning',
-    copy: '프로필·채팅에는 연락처, SNS, 건강, 장애 여부 같은 개인정보·민감정보 입력을 권장하지 않습니다.',
+    copy: '공개 정보는 꼭 필요한 만큼만 작성해요.',
     source: {
       path: 'docs/04_policy/official/data-retention.md',
       section: '채팅 데이터 분리 보관',
       reason:
         '사용자 입력 본문에는 개인정보와 민감정보가 포함될 수 있으므로 공개 입력 surface에서 주의를 제공한다.',
     },
-    requiredSurface: ['footer', 'support'],
-    testAnchor: '개인정보·민감정보 입력을 권장하지 않습니다',
+    requiredSurface: ['support'],
+    testAnchor: '공개 정보는 꼭 필요한 만큼만',
   },
   {
     id: 'season_capability_boundary',

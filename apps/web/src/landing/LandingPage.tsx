@@ -1,5 +1,6 @@
 import { LandingHeader } from './components/LandingHeader';
 import { LandingFooter } from './components/LandingFooter';
+import { landingFooterCopy } from './content/landing-copy';
 import { LandingHeroSection } from './sections/LandingHeroSection';
 import { LandingTrustBoundarySection } from './sections/LandingTrustBoundarySection';
 import { LandingHowItWorksSection } from './sections/LandingHowItWorksSection';
@@ -21,7 +22,7 @@ export default function LandingPage() {
         <LandingSupportSection />
         <LandingFinalCtaSection />
       </main>
-      <LandingFooter />
+      <LandingFooter externalInquiryEmail={landingFooterCopy.externalInquiryEmail} />
     </div>
   );
 }
