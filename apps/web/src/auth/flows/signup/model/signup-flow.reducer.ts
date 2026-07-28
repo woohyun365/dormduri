@@ -1,3 +1,4 @@
+import type { SignupFailure } from './signup-recovery.types';
 import { getNextSignupStep, getPreviousSignupStep, type SignupStepId } from './signup-flow.types';
 
 export type SignupSubmitStatus = 'idle' | 'submitting' | 'succeeded' | 'failed';
@@ -5,42 +6,45 @@ export type SignupSubmitStatus = 'idle' | 'submitting' | 'succeeded' | 'failed';
 export interface SignupFlowState {
   readonly currentStepId: SignupStepId;
   readonly isEmailVerified: boolean;
-  readonly resumeStepAfterVerification: SignupStepId | null;
-  readonly legalNotice: string;
+  readonly emailVerifiedAt: string | null;
+  readonly recoveryReason: 'EMAIL_PROOF_EXPIRED' | null;
+  readonly requiresLegalReconfirmation: boolean;
   readonly legalRefreshNonce: number;
   readonly submitStatus: SignupSubmitStatus;
-  readonly submitError: string;
+  readonly failure: SignupFailure | null;
 }
 
 export type SignupFlowAction =
   | { readonly type: 'GO_NEXT' }
   | { readonly type: 'GO_BACK' }
   | { readonly type: 'GO_TO_STEP'; readonly stepId: SignupStepId }
-  | { readonly type: 'EMAIL_CHANGED' }
-  | { readonly type: 'EMAIL_VERIFIED' }
-  | { readonly type: 'EMAIL_VERIFICATION_EXPIRED'; readonly resumeStepId?: SignupStepId }
-  | { readonly type: 'LEGAL_ACCEPTANCES_STALE'; readonly notice?: string }
-  | { readonly type: 'LEGAL_NOTICE_DISMISSED' }
+  | { readonly type: 'EMAIL_VERIFIED'; readonly verifiedAt: string }
+  | { readonly type: 'EMAIL_PROOF_EXPIRED' }
+  | { readonly type: 'LEGAL_ACCEPTANCES_STALE' }
+  | { readonly type: 'LEGAL_RECONFIRMATION_STARTED' }
   | { readonly type: 'SUBMIT_STARTED' }
   | { readonly type: 'SUBMIT_SUCCEEDED' }
-  | { readonly type: 'SUBMIT_FAILED'; readonly error: string }
+  | { readonly type: 'SUBMIT_FAILED'; readonly failure: SignupFailure }
+  | { readonly type: 'FAILURE_CLEARED' }
   | { readonly type: 'RESET_FLOW' };
-
-export const DEFAULT_LEGAL_ACCEPTANCE_STALE_NOTICE =
-  '약관 또는 개인정보 동의 내용이 변경되었습니다. 최신 내용을 다시 확인하고 필수 항목에 다시 동의해주세요.';
 
 export const initialSignupFlowState: SignupFlowState = {
   currentStepId: 'EMAIL_VERIFICATION',
   isEmailVerified: false,
-  resumeStepAfterVerification: null,
-  legalNotice: '',
+  emailVerifiedAt: null,
+  recoveryReason: null,
+  requiresLegalReconfirmation: false,
   legalRefreshNonce: 0,
   submitStatus: 'idle',
-  submitError: '',
+  failure: null,
 };
 
 function canMoveFromComplete(state: SignupFlowState): boolean {
   return state.currentStepId !== 'COMPLETE';
+}
+
+function targetStepForFailure(failure: SignupFailure, currentStepId: SignupStepId): SignupStepId {
+  return failure.kind === 'field_error' ? failure.targetStepId : currentStepId;
 }
 
 export function signupFlowReducer(
@@ -50,72 +54,91 @@ export function signupFlowReducer(
   switch (action.type) {
     case 'GO_NEXT':
       if (!canMoveFromComplete(state)) return state;
-      return { ...state, currentStepId: getNextSignupStep(state.currentStepId) };
+      return {
+        ...state,
+        currentStepId: getNextSignupStep(state.currentStepId),
+        recoveryReason: null,
+        failure: null,
+      };
 
     case 'GO_BACK':
       if (!canMoveFromComplete(state)) return state;
-      return { ...state, currentStepId: getPreviousSignupStep(state.currentStepId) };
+      return {
+        ...state,
+        currentStepId: getPreviousSignupStep(state.currentStepId),
+        recoveryReason: null,
+        failure: null,
+      };
 
     case 'GO_TO_STEP':
       if (!canMoveFromComplete(state) && action.stepId !== 'COMPLETE') return state;
-      return { ...state, currentStepId: action.stepId };
-
-    case 'EMAIL_CHANGED':
-      return {
-        ...state,
-        currentStepId: 'EMAIL_VERIFICATION',
-        isEmailVerified: false,
-        resumeStepAfterVerification: null,
-        submitError: '',
-      };
+      return { ...state, currentStepId: action.stepId, recoveryReason: null, failure: null };
 
     case 'EMAIL_VERIFIED':
       return {
         ...state,
         isEmailVerified: true,
-        currentStepId: state.resumeStepAfterVerification ?? state.currentStepId,
-        resumeStepAfterVerification: null,
-        submitError: '',
+        emailVerifiedAt: action.verifiedAt,
+        recoveryReason: null,
+        submitStatus: 'idle',
+        failure: null,
       };
 
-    case 'EMAIL_VERIFICATION_EXPIRED':
+    case 'EMAIL_PROOF_EXPIRED':
       return {
-        ...state,
-        currentStepId: 'EMAIL_VERIFICATION',
-        isEmailVerified: false,
-        resumeStepAfterVerification: action.resumeStepId ?? state.currentStepId,
-        submitStatus: 'failed',
-        submitError: '이메일 인증을 먼저 완료해주세요.',
+        ...initialSignupFlowState,
+        recoveryReason: 'EMAIL_PROOF_EXPIRED',
       };
 
     case 'LEGAL_ACCEPTANCES_STALE':
       return {
         ...state,
         currentStepId: 'LEGAL_CONSENT',
-        legalNotice: action.notice ?? DEFAULT_LEGAL_ACCEPTANCE_STALE_NOTICE,
+        requiresLegalReconfirmation: true,
         legalRefreshNonce: state.legalRefreshNonce + 1,
         submitStatus: 'idle',
-        submitError: '',
+        failure: null,
       };
 
-    case 'LEGAL_NOTICE_DISMISSED':
-      return { ...state, legalNotice: '' };
+    case 'LEGAL_RECONFIRMATION_STARTED':
+      return { ...state, requiresLegalReconfirmation: false };
 
     case 'SUBMIT_STARTED':
       if (!canMoveFromComplete(state)) return state;
-      return { ...state, submitStatus: 'submitting', submitError: '' };
+      return { ...state, submitStatus: 'submitting', failure: null };
 
     case 'SUBMIT_SUCCEEDED':
       return {
         ...state,
         currentStepId: 'COMPLETE',
         submitStatus: 'succeeded',
-        submitError: '',
+        failure: null,
       };
 
     case 'SUBMIT_FAILED':
       if (!canMoveFromComplete(state)) return state;
-      return { ...state, submitStatus: 'failed', submitError: action.error };
+      if (
+        action.failure.kind === 'field_error' &&
+        action.failure.targetStepId === 'EMAIL_VERIFICATION'
+      ) {
+        return {
+          ...state,
+          currentStepId: 'EMAIL_VERIFICATION',
+          isEmailVerified: false,
+          emailVerifiedAt: null,
+          submitStatus: 'failed',
+          failure: action.failure,
+        };
+      }
+      return {
+        ...state,
+        currentStepId: targetStepForFailure(action.failure, state.currentStepId),
+        submitStatus: 'failed',
+        failure: action.failure,
+      };
+
+    case 'FAILURE_CLEARED':
+      return { ...state, submitStatus: 'idle', failure: null };
 
     case 'RESET_FLOW':
       return initialSignupFlowState;

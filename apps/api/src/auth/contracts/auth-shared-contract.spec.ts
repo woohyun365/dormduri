@@ -39,14 +39,14 @@ describe('auth shared contract guards', () => {
       nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
       legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
     } as const;
 
     expect(signupRequestSchema.parse(signupAccountIdentityInput)).toMatchObject({
       nickname: '테스터',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
     });
 
@@ -89,7 +89,7 @@ describe('auth shared contract guards', () => {
       nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
       legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
     });
@@ -98,6 +98,40 @@ describe('auth shared contract guards', () => {
       personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
       privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
     });
+  });
+
+  it('signup request는 campus와 college code가 같은 catalog에 속해야 한다', () => {
+    expect(
+      signupRequestSchema.safeParse({
+        email: 'student@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'SAMCHEOK',
+        collegeCode: 'SAMCHEOK_ENGINEERING',
+        birthYear: 2002,
+        legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
+      }).success,
+    ).toBe(true);
+
+    const mismatched = signupRequestSchema.safeParse({
+      email: 'student@kangwon.ac.kr',
+      password: 'pass1234',
+      nickname: '테스터',
+      gender: 'M',
+      campus: 'SAMCHEOK',
+      collegeCode: 'DOGYE_ENGINEERING',
+      birthYear: 2002,
+      legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
+    });
+
+    expect(mismatched.success).toBe(false);
+    if (!mismatched.success) {
+      expect(mismatched.error.issues[0]).toMatchObject({
+        path: ['collegeCode'],
+        message: '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+      });
+    }
   });
 
   it('canonical granular auth subpath는 request/response/session schema surface를 제공한다', () => {

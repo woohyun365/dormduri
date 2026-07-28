@@ -71,6 +71,27 @@ const preview: Preview = {
       defaultViewport: 'responsive',
       viewports: matchingBaselineViewports,
     },
+    options: {
+      storySort: {
+        order: [
+          'Auth',
+          [
+            '*',
+            'Signup',
+            [
+              'Step 1 Email',
+              'Step 2 Legal',
+              'Step 3 Credentials',
+              'Step 4 Academic Identity',
+              'Step 5 Complete',
+              'Recovery',
+              '*',
+            ],
+          ],
+          '*',
+        ],
+      },
+    },
   },
   decorators: [
     (Story) => (

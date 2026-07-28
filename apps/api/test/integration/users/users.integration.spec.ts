@@ -221,7 +221,7 @@ describe('UsersService integration', () => {
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
       academicIdentity: {
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
     } as never);
@@ -239,7 +239,7 @@ describe('UsersService integration', () => {
       },
     });
     expect(response.currentUser.academicIdentity).toMatchObject({
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       birthYear: 2002,
     });
   });
@@ -251,7 +251,7 @@ describe('UsersService integration', () => {
     });
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대학',
         sortOrder: 2,
@@ -263,7 +263,7 @@ describe('UsersService integration', () => {
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
       academicIdentity: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2002,
       },
     } as never);
@@ -274,7 +274,7 @@ describe('UsersService integration', () => {
       noOpReason: null,
     });
     expect(response.currentUser.academicIdentity).toMatchObject({
-      collegeCode: 'NURSING',
+      collegeCode: 'CHUNCHEON_NURSING',
       birthYear: 2002,
     });
 
@@ -297,8 +297,8 @@ describe('UsersService integration', () => {
       reason: 'ACADEMIC_CYCLE_ALLOWANCE',
       actorType: 'USER',
       actorId: 'user-a',
-      previousCollegeCode: 'ARTS_ENGINEERING',
-      nextCollegeCode: 'NURSING',
+      previousCollegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+      nextCollegeCode: 'CHUNCHEON_NURSING',
       previousBirthYear: 2002,
       nextBirthYear: 2002,
     });
@@ -311,7 +311,7 @@ describe('UsersService integration', () => {
     });
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대학',
         sortOrder: 2,
@@ -328,7 +328,7 @@ describe('UsersService integration', () => {
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
       academicIdentity: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2002,
       },
     } as never);
@@ -353,13 +353,13 @@ describe('UsersService integration', () => {
     await prisma.collegeMaster.createMany({
       data: [
         {
-          code: 'NURSING',
+          code: 'CHUNCHEON_NURSING',
           campusCode: 'CHUNCHEON',
           nameKo: '간호대학',
           sortOrder: 2,
         },
         {
-          code: 'BUSINESS',
+          code: 'CHUNCHEON_BUSINESS',
           campusCode: 'CHUNCHEON',
           nameKo: '경영대학',
           sortOrder: 3,
@@ -370,13 +370,13 @@ describe('UsersService integration', () => {
     const results = await Promise.allSettled([
       service.updateCurrentUser(authContext('user-a'), {
         academicIdentity: {
-          collegeCode: 'NURSING',
+          collegeCode: 'CHUNCHEON_NURSING',
           birthYear: 2002,
         },
       } as never),
       service.updateCurrentUser(authContext('user-a'), {
         academicIdentity: {
-          collegeCode: 'BUSINESS',
+          collegeCode: 'CHUNCHEON_BUSINESS',
           birthYear: 2002,
         },
       } as never),
@@ -399,7 +399,7 @@ describe('UsersService integration', () => {
       }),
       prisma.userAcademicIdentityChangeEvent.count({ where: { userId: 'user-a' } }),
     ]);
-    expect(['NURSING', 'BUSINESS']).toContain(academicIdentity.collegeCode);
+    expect(['CHUNCHEON_NURSING', 'CHUNCHEON_BUSINESS']).toContain(academicIdentity.collegeCode);
     expect(allowance.collegeChangeRemaining).toBe(0);
     expect(auditEventCount).toBe(1);
   });

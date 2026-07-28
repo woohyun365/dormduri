@@ -5,6 +5,7 @@ interface ChipProps {
   variant?: 'default' | 'badge';
   role?: string;
   'aria-checked'?: boolean;
+  disabled?: boolean;
 }
 
 export function Chip({
@@ -14,6 +15,7 @@ export function Chip({
   variant = 'default',
   role: roleProp,
   'aria-checked': ariaChecked,
+  disabled = false,
 }: ChipProps) {
   if (variant === 'badge') {
     return (
@@ -30,11 +32,12 @@ export function Chip({
       role={roleProp}
       aria-pressed={roleProp ? undefined : selected}
       aria-checked={ariaChecked}
+      disabled={disabled}
       className={`px-5 h-11 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
         selected
           ? 'bg-(--knu-primary) text-white shadow-sm'
           : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200 active:bg-gray-300'
-      }`}
+      } disabled:cursor-not-allowed disabled:opacity-50`}
     >
       {label}
     </button>

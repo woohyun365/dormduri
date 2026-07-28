@@ -1,4 +1,5 @@
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
+import { isCollegeAvailableForCampus } from '@repo/shared/college';
 import { isKnuEmail, normalizeEmail, normalizeNickname } from '../domain/auth.utils.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
@@ -23,6 +24,8 @@ import {
   SIGNUP_LEGAL_ACCEPTANCE_STALE,
 } from '../../legal/commands/record-legal-acceptance.command.js';
 
+const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
+
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
   verificationService: Pick<AuthVerificationService, 'findLatestVerifiedSignupCode'>;
@@ -34,6 +37,9 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
   const emailNormalized = normalizeEmail(input.email);
   if (!isKnuEmail(emailNormalized)) {
     return authFailures.invalidKnuEmail();
+  }
+  if (!isCollegeAvailableForCampus(input.campus, input.collegeCode)) {
+    return authFailures.signupCollegeUnavailable();
   }
 
   const preflight = await deps.signupValidationService.validateDraft({
@@ -82,6 +88,18 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
 
   try {
     const user = await deps.prisma.runSerializableTransaction(async (tx) => {
+      const college = await tx.collegeMaster.findFirst({
+        where: {
+          code: input.collegeCode,
+          campusCode: input.campus,
+          isActive: true,
+        },
+        select: { code: true },
+      });
+      if (!college) {
+        throw new Error(SIGNUP_COLLEGE_UNAVAILABLE);
+      }
+
       const legalAcceptances = await resolveSignupLegalAcceptances(
         tx,
         input.legalAcceptances,
@@ -169,6 +187,9 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
     }
     if (error instanceof Error && error.message === SIGNUP_LEGAL_ACCEPTANCE_STALE) {
       return authFailures.legalAcceptanceStale();
+    }
+    if (error instanceof Error && error.message === SIGNUP_COLLEGE_UNAVAILABLE) {
+      return authFailures.signupCollegeUnavailable();
     }
     throw error;
   }

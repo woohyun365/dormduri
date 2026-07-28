@@ -1,6 +1,6 @@
 # Web signup
 
-`apps/web/src/auth/flows/signup`은 공개 회원가입 wizard의 화면 상태, 입력 검증, draft 저장, BFF 호출 조합을 소유한다.
+`apps/web/src/auth/flows/signup`은 공개 회원가입 wizard의 화면 상태, 입력 검증, 이탈·만료 복구, BFF 호출 조합을 소유한다.
 회원가입은 계정 생성까지의 흐름이며, 룸메 시즌 프로필 작성이나 기숙사 선택을 직접 소유하지 않는다.
 
 ## 제품 책임
@@ -33,15 +33,17 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 
 ## Current flow
 
-현재 회원가입은 4단계다.
+현재 회원가입은 5단계다.
 
 1. `StepEmailVerification` — 학교 이메일 인증 코드 발송·확인.
 2. `LegalConsentStep` — active legal bundle 조회, fallback 안내, 필수 동의 수집, stale legal reset.
-3. `AccountIdentityStep` — 닉네임, 비밀번호, 성별, 캠퍼스, 단과대, 출생연도 입력 후 signup submit.
-4. `SignupCompleteStep` — 계정 생성 완료와 가입 후 시즌 여정 안내.
+3. `AccountCredentialsStep` — 닉네임과 비밀번호 입력 후 canonical signup draft validation.
+4. `AcademicIdentityStep` — 캠퍼스, 성별, 단과대, 출생연도를 확인한 뒤 signup submit.
+5. `SignupCompleteStep` — 계정 생성 완료와 가입 후 시즌 여정 안내.
 
-`SignupPageClient.tsx`는 route-level client shell로 단계 조합과 submit recovery만 담당한다.
-입력 저장, request mapping, flow 상태 규칙은 `hooks/`와 `model/` 아래의 작은 단위로 유지한다.
+`SignupPageClient.tsx`는 redirect, 이탈 guard, proof 만료 lifecycle, router handoff와 production controller/view 연결만 담당한다.
+`useSignupFlow`가 reducer event를 통해 단계 전환, legal stale, email 재인증 복귀, submit 결과를 하나의 state source로 관리한다.
+`SignupFlowView`는 같은 production step component를 Storybook에서도 재사용할 수 있는 presentational composition이다.
 
 ## API/BFF contract
 
@@ -53,58 +55,47 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 | `app/api/auth/validate-signup-draft` | canonical draft validation BFF. Legacy `validate-signup-profile` surface는 유지하지 않음            |
 | `app/api/auth/signup`                | shared `signupRequestSchema`로 body를 검증하고 allowlisted body만 upstream `/auth/signup`에 전달    |
 | `model/signup-request.mapper.ts`     | UI state를 shared `SignupRequest`로 변환하며 forbidden profile fields를 출력하지 않음               |
-| `model/signup-draft-storage.ts`      | browser draft allowlist를 normalize하고 legacy step을 현재 4-step flow에 맞게 복원                  |
 
 `/api/auth/signup` 응답은 upstream access token을 JSON body에 노출하지 않고 auth cookie로만 설정한다.
 Signup BFF는 request body를 cast-only로 통과시키지 않고 shared schema parse guard를 사용한다.
 `apps/web/src/auth/api/*`는 login, password reset, signup이 함께 쓰는 Web auth client wrapper이므로
 signup feature-local `api/` 아래로 옮기지 않고 auth public facade(`@/auth/api`)로 유지한다.
 
-## Draft storage rule
+## Recovery rule
 
-`signup-draft`는 사용자가 새로고침해도 Step 1~3 입력을 이어갈 수 있게 하는 UX 저장소다.
-다음 값만 저장한다.
+Signup은 입력량이 짧고 비밀번호를 복원할 수 없으므로 browser storage에 작성 중 상태를 저장하거나
+`계속 작성` dialog를 제공하지 않는다. 새로고침하거나 signup을 다시 열면 Step 1부터 시작한다.
 
-- `schemaVersion`
-- `currentStepId` / `legacyCurrentStep`
-- `email`
-- `isEmailVerified`
-- 필수 legal acceptance ids와 fallback/source flag
-- `nickname`
-- `gender`
-- `campus`
-- `collegeCode`
-- `birthYear`
-
-다음 값은 저장하지 않는다.
-
-- password / password confirmation
-- 인증 코드
-- legal document full body
-- raw API response
-- `lifestyle`, `condition`, `intro`, profile object
-
-회원가입 성공으로 Step 4에 도달하면 draft는 삭제된다.
-복구 가능한 legacy step은 Step 3까지만 허용하고, 인증이 풀린 상태에서는 Step 1로 되돌린다.
-이전 브라우저 draft가 저장한 `terms.agreePrivacy`는 `model/signup-draft-storage.ts` parser에서만
-현재 `agreePersonalDataCollectionUse`로 복원한다.
-`LegalConsentStep` public component contract에는 이전 privacy checkbox compatibility field를 노출하지 않는다.
+진행 중 로고 이동은 native `confirm` 대신 signup 전용 이탈 확인 dialog를 사용한다.
+브라우저 뒤로가기·새로고침은 `beforeunload`를 best-effort guard로 보완한다.
+브라우저 API는 새로고침과 탭 닫기를 구분하지 않으므로 native prompt 노출 여부는 user agent가 결정한다.
+API 실패는 사용자 문구 비교가 아니라 error code를 `retryable`, `verification_expired`, `field_error`로 분류한다.
+네트워크 오류는 최종 가입 CTA 앞에서 안내한다. 이메일 인증 proof는 30분 동안 유효하며, client timer·foreground 복귀
+검사 또는 최종 signup API가 만료를 확인하면 이메일만 유지하고 법적 동의·로그인 정보·학교 정보를 초기화한다.
+재인증 후 이전 단계로 복귀하지 않고 정상 Step 1 → Step 2 흐름을 다시 시작한다.
 
 ## Directory responsibility
 
 | Directory / file                    | Responsibility                                                                                            |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `SignupPageClient.tsx`              | 4-step shell, auth redirect gate, submit/recovery glue                                                    |
+| `SignupPageClient.tsx`              | auth redirect, exit guard, router handoff와 controller/view 연결                                          |
+| `SignupFlowView.tsx`                | production과 Storybook이 공유하는 5단계 presentational composition                                        |
 | `components/`                       | 단계별 화면, layout, progress, alert, loading UI                                                          |
-| `components/SignupLayout.tsx`       | 독립 운영 서비스 고지와 auth header shell. Mobile `자세히 보기` 링크는 한 단어 tap target으로 유지        |
+| `components/SignupLayout.tsx`       | auth header, mobile compact progress와 독립 운영 서비스 footer를 배치                                     |
+| `components/SignupSupportPanel.tsx` | 현재 단계 설명, desktop vertical progress, 독립 운영 서비스 고지를 소유하는 context rail                  |
+| `components/account-identity/`      | 계정 credentials와 academic identity 입력 section                                                         |
 | `components/SignupCompleteStep.tsx` | 가입 완료 후 season journey handoff                                                                       |
-| `components/SignupSkeleton.tsx`     | redirect/draft restore 대기 중 접근 가능한 loading UI                                                     |
+| `components/SignupSkeleton.tsx`     | auth redirect 확인 중 접근 가능한 loading UI                                                              |
 | `components/email-verification/`    | signup 이메일 인증 요청/확인 hook과 UI. 요청/확인 UI와 hook이 함께 움직이는 slice라 flat하게 풀지 않는다. |
-| `hooks/useSignupDraftStorage.ts`    | browser draft read/write lifecycle bridge                                                                 |
-| `model/signup-flow.*`               | step id/count와 reducer 규칙                                                                              |
-| `model/signup-draft-storage.ts`     | draft serialization allowlist                                                                             |
+| `components/recovery/`              | 작성 중 이탈 확인 dialog                                                                                  |
+| `hooks/useSignupFlow.ts`            | reducer 기반 production flow controller와 API operation orchestration                                     |
+| `hooks/useSignupExitGuard.ts`       | 앱 내부 이탈 dialog와 browser beforeunload guard                                                          |
+| `model/signup-flow.*`               | step id/count와 production reducer transition 규칙                                                        |
+| `model/signup-academic-copy.ts`     | production과 Storybook이 공유하는 캠퍼스 운영 안내 문구                                                   |
+| `model/signup-failure-recovery.ts`  | API error code를 typed recovery state로 변환                                                              |
 | `model/signup-request.mapper.ts`    | shared `SignupRequest` mapping                                                                            |
-| `__tests__/`, `model/__tests__/`    | flow, storage, mapper, shell regression                                                                   |
+| `stories/fixtures/signup/`          | 단계·복구 flow별 production view adapter. 화면 문구와 레이아웃을 독립 복제하지 않음                       |
+| `__tests__/`, `model/__tests__/`    | flow, recovery, mapper, shell regression                                                                  |
 | `components/__tests__/`             | step component interaction/accessibility regression                                                       |
 
 ## Verification map
@@ -112,21 +103,19 @@ signup feature-local `api/` 아래로 옮기지 않고 auth public facade(`@/aut
 주요 회귀 테스트는 아래 책임을 잠근다.
 
 - `Signup.test.tsx`
-  - 4단계 signup flow
+  - 5단계 signup flow
   - legal stale reset
-  - draft restore/clear
+  - 이탈 확인 dialog
+  - typed field/retry/verification recovery
   - no `lifestyle`/`intro` submit
   - retry-after countdown integration
 - `signup-request.mapper.test.ts`
   - shared `SignupRequest` 생성
   - forbidden profile fields 미출력
-- `signup-draft-storage.test.ts`
-  - draft allowlist
-  - password/code/full legal body/profile fields 미저장
 - `signup-flow.reducer.test.ts`, `signup-flow.types.test.ts`
   - step bounds와 flow id consistency
-- `AccountIdentityStep.test.tsx`
-  - required fields, current-year based birth year select, validation copy
+- `AccountCredentialsStep.test.tsx`, `AcademicIdentityStep.test.tsx`
+  - 계정 정책 검증과 학교·기본 정보 required fields, current-year based birth year select
 - `LegalConsentStep.test.tsx`
   - active/fallback legal bundle, stale legal id handling, dialog interaction
 - `SignupCompleteStep.test.tsx`
@@ -146,6 +135,7 @@ signup feature-local `api/` 아래로 옮기지 않고 auth public facade(`@/aut
 | Legal consent contract       | `packages/shared/src/legal/contract.ts`                                           |
 | Signup request contract      | `packages/shared/src/auth/contract/requests.ts`                                   |
 | College code catalog/schema  | `packages/shared/src/college/catalog.ts`, `packages/shared/src/college/schema.ts` |
+| Campus matching copy         | `model/signup-academic-copy.ts`                                                   |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 signup copy/test를 갱신한다.
 

@@ -14,7 +14,7 @@ export function StepNavigation({
   disabled,
 }: StepNavigationProps) {
   return (
-    <div className="flex gap-3 pt-4">
+    <div className="flex flex-col gap-3 pt-4 min-[360px]:flex-row">
       <Button variant="outline" size="lg" fullWidth onClick={onBack}>
         이전
       </Button>

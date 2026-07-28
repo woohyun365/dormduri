@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isCollegeAvailableForCampus } from '../../college/index.js';
 import { campusSchema, genderSchema } from '../../identity/primitives.js';
 import { signupLegalAcceptancesSchema } from '../../legal/contract.js';
 import { userAcademicIdentitySchema } from '../../user/identity/academic.js';
@@ -35,7 +36,16 @@ export const signupRequestSchema = z
     campus: campusSchema,
     legalAcceptances: signupLegalAcceptancesSchema,
   })
-  .extend(userAcademicIdentitySchema.shape);
+  .extend(userAcademicIdentitySchema.shape)
+  .superRefine((input, context) => {
+    if (!isCollegeAvailableForCampus(input.campus, input.collegeCode)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['collegeCode'],
+        message: '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+      });
+    }
+  });
 
 export const resetPasswordRequestSchema = z.strictObject({
   email: emailSchema,

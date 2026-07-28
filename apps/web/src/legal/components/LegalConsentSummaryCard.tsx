@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
 import type { ActiveLegalDocumentsBundleResponse, LegalDocumentResponse } from '@repo/shared/legal';
 
 export type SignupLegalConsentChecks = {
@@ -13,55 +15,61 @@ type SignupLegalConsentField = keyof SignupLegalConsentChecks;
 interface ConsentItem {
   field: SignupLegalConsentField;
   title: string;
-  label: string;
   document: LegalDocumentResponse;
-  summary: string[];
+  summary?: string;
+  details?: readonly {
+    term: string;
+    description: string;
+  }[];
 }
 
 interface LegalConsentSummaryCardProps {
   checks: SignupLegalConsentChecks;
   bundle: ActiveLegalDocumentsBundleResponse;
-  source: 'api' | 'fallback';
   disabled?: boolean;
   onToggle: (field: SignupLegalConsentField, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
   onOpenDocument: (document: LegalDocumentResponse) => void;
 }
 
-function legalDocumentSummary(document: LegalDocumentResponse, fallback: string[]) {
-  return document.summaryItems.length > 0 ? document.summaryItems : fallback;
-}
-
 function consentItems(bundle: ActiveLegalDocumentsBundleResponse): ConsentItem[] {
   return [
     {
       field: 'agreeAge',
-      title: '만 14세 이상 확인',
-      label: '[필수] 만 14세 이상입니다',
+      title: '만 14세 이상이에요',
       document: bundle.age14OrAboveNotice,
-      summary: legalDocumentSummary(bundle.age14OrAboveNotice, [
-        'KNU 룸메는 만 14세 이상 사용자만 가입할 수 있습니다.',
-      ]),
     },
     {
       field: 'agreeTerms',
       title: '이용약관 동의',
-      label: '[필수] 이용약관에 동의합니다',
       document: bundle.termsOfService,
-      summary: legalDocumentSummary(bundle.termsOfService, [
-        '서비스 운영 주체, 이용 범위, 금지 행위와 운영 조치를 확인합니다.',
-      ]),
+      summary: '서비스를 이용할 때 알아두고 지켜야 할 내용을 확인해요.',
     },
     {
       field: 'agreePersonalDataCollectionUse',
       title: '개인정보 수집·이용 동의',
-      label: '[필수] 개인정보 수집·이용에 동의합니다',
       document: bundle.personalDataCollectionUseConsent,
-      summary: [
-        '목적: 회원가입, 이메일 인증, 룸메이트 탐색·매칭, 신고·문의 처리에 사용합니다.',
-        '항목: 이메일, 비밀번호, 닉네임, 성별, 캠퍼스, 단과대, 출생연도와 서비스 이용 중 필요한 프로필·매칭 기록입니다.',
-        '보유기간: 탈퇴 또는 목적 달성 시 삭제하되 신고·분쟁·법령상 보존이 필요한 정보는 분리 보관 후 파기합니다.',
-        '거부권: 필수 수집·이용에 동의하지 않으면 회원가입과 서비스 이용이 제한됩니다.',
+      details: [
+        {
+          term: '목적',
+          description: '계정 생성, 룸메이트 탐색·매칭, 신고·문의 처리',
+        },
+        {
+          term: '항목',
+          description: '이메일·닉네임·학교 정보·프로필·이용 기록',
+        },
+        {
+          term: '보유기간',
+          description: '탈퇴 또는 목적 달성 시까지',
+        },
+        {
+          term: '별도 보관',
+          description: '신고·분쟁·법령상 필요한 기록은 분리 보관',
+        },
+        {
+          term: '거부 시',
+          description: '동의하지 않으면 가입할 수 없어요.',
+        },
       ],
     },
   ];
@@ -75,7 +83,7 @@ function ConsentCheckbox({
   onChange,
 }: {
   id: string;
-  label: string;
+  label: ReactNode;
   checked: boolean;
   disabled?: boolean;
   onChange: (checked: boolean) => void;
@@ -83,7 +91,7 @@ function ConsentCheckbox({
   return (
     <label
       htmlFor={id}
-      className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-semibold text-(--knu-text-primary)"
+      className="flex min-h-12 cursor-pointer items-center gap-3 text-sm font-semibold text-(--knu-text-primary)"
     >
       <input
         id={id}
@@ -91,7 +99,7 @@ function ConsentCheckbox({
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-1 h-5 w-5 rounded border-(--knu-border) text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+        className="size-5 shrink-0 rounded border-slate-400 text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
       />
       <span className="leading-6">{label}</span>
     </label>
@@ -101,7 +109,6 @@ function ConsentCheckbox({
 export function LegalConsentSummaryCard({
   checks,
   bundle,
-  source,
   disabled,
   onToggle,
   onToggleAll,
@@ -111,85 +118,94 @@ export function LegalConsentSummaryCard({
   const items = consentItems(bundle);
 
   return (
-    <section
-      aria-labelledby="signup-legal-consent-heading"
-      className="space-y-4 rounded-2xl border-2 border-(--knu-border) bg-white p-4"
-    >
-      <div className="rounded-xl bg-(--knu-background-alt) p-4">
+    <section aria-labelledby="signup-legal-consent-heading" className="space-y-4">
+      <h3 id="signup-legal-consent-heading" className="sr-only">
+        회원가입 필수 법적 동의
+      </h3>
+
+      <div className="-mx-5 rounded-none bg-slate-100 px-5 py-2.5 sm:-mx-4 sm:rounded-xl sm:px-4 sm:py-2">
         <ConsentCheckbox
           id="signup-legal-consent-all"
-          label="필수 항목 전체 동의"
+          label="필수 항목 모두 동의"
           checked={allChecked}
           disabled={disabled}
           onChange={onToggleAll}
         />
       </div>
 
-      {source === 'fallback' && (
-        <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-          현재 공개 문서를 불러오지 못해 저장된 안내를 표시하고 있어요. 가입 시점에 서버의 최신
-          문서와 다르면 다시 확인을 요청합니다.
-        </p>
-      )}
-
-      <div className="space-y-3">
-        <h3 id="signup-legal-consent-heading" className="sr-only">
-          회원가입 필수 법적 동의
-        </h3>
+      <div className="divide-y divide-(--knu-border) border-y border-(--knu-border)">
         {items.map((item) => (
-          <article key={item.field} className="rounded-2xl border border-(--knu-border) p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-(--knu-primary)">{item.title}</p>
-                <ConsentCheckbox
-                  id={`signup-legal-${item.field}`}
-                  label={item.label}
-                  checked={checks[item.field]}
-                  disabled={disabled}
-                  onChange={(checked) => onToggle(item.field, checked)}
-                />
-              </div>
+          <article key={item.field} className="py-5">
+            <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-2">
+              <input
+                id={`signup-legal-${item.field}`}
+                type="checkbox"
+                checked={checks[item.field]}
+                disabled={disabled}
+                onChange={(event) => onToggle(item.field, event.target.checked)}
+                className="size-5 rounded border-(--knu-border) text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+              />
+              <label
+                htmlFor={`signup-legal-${item.field}`}
+                className="min-w-0 cursor-pointer text-sm font-semibold leading-6 text-(--knu-text-primary)"
+              >
+                <span className="text-(--knu-primary)">[필수]</span> {item.title}
+              </label>
               <button
                 type="button"
+                aria-label={`${item.title} 내용 보기`}
                 onClick={() => onOpenDocument(item.document)}
-                className="min-h-11 shrink-0 rounded-xl border border-(--knu-border) px-4 text-sm font-semibold text-(--knu-primary) transition-colors hover:bg-(--knu-primary-light)"
+                className="group inline-flex min-h-11 min-w-11 shrink-0 items-center justify-end rounded-lg text-xs font-semibold text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
               >
-                전문 보기
+                <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors group-hover:bg-indigo-50 group-active:bg-indigo-100">
+                  <span className="min-[360px]:hidden">보기</span>
+                  <span className="hidden min-[360px]:inline">내용 보기</span>
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </span>
               </button>
+
+              {item.summary && (
+                <p className="col-span-3 col-start-1 keep-all text-xs leading-5 text-(--knu-text-secondary) sm:col-span-2 sm:col-start-2">
+                  {item.summary}
+                </p>
+              )}
+
+              {item.details && (
+                <dl className="col-span-3 col-start-1 -mx-0.5 mt-2 grid gap-2 text-xs leading-5 sm:col-span-2 sm:col-start-2 sm:mx-0">
+                  {item.details.map((detail) => (
+                    <div
+                      key={detail.term}
+                      className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-1.5 sm:grid-cols-[4.25rem_minmax(0,1fr)] sm:gap-2"
+                    >
+                      <dt className="font-semibold text-(--knu-text-primary)">{detail.term}</dt>
+                      <dd className="keep-all text-(--knu-text-secondary)">{detail.description}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
             </div>
-            <ul className="mt-3 space-y-2 pl-5 text-xs leading-5 text-(--knu-text-secondary)">
-              {item.summary.map((summary) => (
-                <li key={summary} className="list-disc">
-                  {summary}
-                </li>
-              ))}
-            </ul>
           </article>
         ))}
       </div>
 
-      <article className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold text-blue-700">개인정보 처리방침 안내</p>
-            <h4 className="mt-1 text-sm font-bold text-blue-950">
-              처리방침은 공개 안내 문서로 확인합니다
-            </h4>
-            <p className="mt-2 text-xs leading-5 text-blue-900">
-              개인정보 처리방침은 개인정보를 어떻게 처리하고 보호하는지 공개하는 문서입니다. 가입
-              동의 대상은 별도의 개인정보 수집·이용 동의이며, 처리방침은 표시된 버전을 가입 기록에
-              함께 남깁니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenDocument(bundle.privacyPolicy)}
-            className="min-h-11 shrink-0 rounded-xl border border-blue-200 px-4 text-sm font-semibold text-blue-700 transition-colors hover:bg-white/70"
-          >
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3">
+        <h4 className="min-w-0 text-sm font-semibold text-(--knu-text-primary)">
+          개인정보 처리방침
+        </h4>
+        <button
+          type="button"
+          onClick={() => onOpenDocument(bundle.privacyPolicy)}
+          className="group inline-flex min-h-11 min-w-11 shrink-0 items-start justify-end rounded-lg text-xs font-semibold text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+        >
+          <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors group-hover:bg-indigo-50 group-active:bg-indigo-100">
             처리방침 보기
-          </button>
-        </div>
-      </article>
+            <ChevronRight className="size-4" aria-hidden="true" />
+          </span>
+        </button>
+        <p className="col-span-2 -mt-5 keep-all text-xs leading-5 text-(--knu-text-secondary)">
+          내 정보가 어떻게 이용되고 보호되는지 확인해요.
+        </p>
+      </div>
     </section>
   );
 }

@@ -1,7 +1,8 @@
 const DEFAULT_STEP_LABELS = [
-  '학교 이메일 인증',
-  '필수 동의 확인',
-  '계정 정보 입력',
+  '학교 이메일',
+  '필수 동의',
+  '로그인 정보',
+  '학교·기본 정보',
   '가입 완료',
 ] as const;
 
@@ -21,66 +22,45 @@ export function SignupProgress({
   stepLabels = DEFAULT_STEP_LABELS,
 }: SignupProgressProps) {
   const safeCurrentStep = clampStep(currentStep, totalSteps);
-  const percentage = Math.round((safeCurrentStep / totalSteps) * 100);
   const currentLabel = stepLabels[safeCurrentStep - 1] ?? `단계 ${safeCurrentStep}`;
+  const percent = Math.round((safeCurrentStep / totalSteps) * 100);
+  const isComplete = safeCurrentStep === totalSteps;
 
   return (
-    <section aria-label="회원가입 진행 상태" className="space-y-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--knu-primary)">
-            회원가입 진행
-          </p>
-          <p className="mt-1 text-sm font-semibold text-(--knu-text-primary)">
-            단계 {safeCurrentStep}/{totalSteps}
-          </p>
-          <p className="text-sm text-(--knu-text-secondary)">현재 단계: {currentLabel}</p>
-        </div>
-        <span className="text-sm font-semibold text-(--knu-text-secondary)" aria-hidden="true">
-          {percentage}%
+    <section aria-label="회원가입 진행 상태" className="space-y-3 lg:hidden">
+      <div className="flex items-center justify-between gap-4">
+        <p
+          className={`text-sm font-semibold ${
+            isComplete ? 'text-emerald-700' : 'text-(--knu-text-primary)'
+          }`}
+        >
+          {safeCurrentStep}/{totalSteps} · {currentLabel}
+        </p>
+        <span
+          className={`text-xs font-medium ${
+            isComplete ? 'text-emerald-700' : 'text-(--knu-text-tertiary)'
+          }`}
+        >
+          {percent}%
         </span>
       </div>
-
       <div
         role="progressbar"
-        aria-label="회원가입 진행률"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percentage}
-        className="h-2 w-full overflow-hidden rounded-full bg-gray-200"
+        aria-label={`${currentLabel} 단계`}
+        aria-valuemin={1}
+        aria-valuemax={totalSteps}
+        aria-valuenow={safeCurrentStep}
+        className={`h-1.5 overflow-hidden rounded-full ${
+          isComplete ? 'bg-emerald-100' : 'bg-slate-200'
+        }`}
       >
         <div
-          className="h-full rounded-full bg-(--knu-primary) transition-all duration-300 ease-out"
-          style={{ width: `${percentage}%` }}
+          className={`h-full rounded-full transition-[width] duration-300 ${
+            isComplete ? 'bg-emerald-500' : 'bg-(--knu-primary)'
+          }`}
+          style={{ width: `${percent}%` }}
         />
       </div>
-
-      <ol aria-label="회원가입 진행 단계" className="grid grid-cols-4 gap-2 text-center">
-        {stepLabels.slice(0, totalSteps).map((label, index) => {
-          const step = index + 1;
-          const isCurrent = step === safeCurrentStep;
-          const isComplete = step < safeCurrentStep;
-
-          return (
-            <li
-              key={label}
-              aria-current={isCurrent ? 'step' : undefined}
-              className="flex flex-col items-center gap-1 text-[11px] font-medium text-(--knu-text-secondary) sm:text-xs"
-            >
-              <span
-                className={
-                  isCurrent || isComplete
-                    ? 'flex size-7 items-center justify-center rounded-full bg-(--knu-primary) text-xs font-bold text-white'
-                    : 'flex size-7 items-center justify-center rounded-full bg-(--knu-background-alt) text-xs font-bold text-(--knu-text-tertiary)'
-                }
-              >
-                {step}
-              </span>
-              <span className={isCurrent ? 'text-(--knu-text-primary)' : undefined}>{label}</span>
-            </li>
-          );
-        })}
-      </ol>
     </section>
   );
 }

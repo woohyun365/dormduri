@@ -22,7 +22,21 @@ vi.mock('lucide-react', () => ({
 }));
 
 describe('SignupLayout', () => {
-  it('mobile에서 독립 운영 고지의 자세히 보기 링크가 단어 단위로 유지된다', () => {
+  it('PC에서는 우측 단계가 스크롤되어도 좌측 안내 위치를 유지한다', () => {
+    render(
+      <SignupLayout>
+        <div>회원가입 폼</div>
+      </SignupLayout>,
+    );
+
+    expect(screen.getByTestId('signup-help-panel')).toHaveClass(
+      'lg:sticky',
+      'lg:top-32',
+      'lg:self-start',
+    );
+  });
+
+  it('독립 운영 고지를 viewport별 문구로 한 줄에 유지한다', () => {
     render(
       <SignupLayout>
         <div>회원가입 폼</div>
@@ -30,6 +44,13 @@ describe('SignupLayout', () => {
     );
 
     expect(screen.getByText('회원가입 폼')).toBeInTheDocument();
+    expect(screen.getByText('강원대학교 비공식 독립 운영 서비스예요.')).toHaveClass('sm:hidden');
+    expect(
+      screen.getByText('본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.'),
+    ).toHaveClass('hidden', 'sm:inline');
+    expect(screen.getByText('강원대학교 비공식 독립 운영 서비스예요.').closest('p')).toHaveClass(
+      'whitespace-nowrap',
+    );
     expect(screen.getByRole('link', { name: '자세히 보기' })).toHaveClass(
       'inline-block',
       'whitespace-nowrap',

@@ -15,12 +15,18 @@ apps/web/src/auth/
   api/                 # browser-side auth API facade
   bff/                 # App Router auth BFF helper facade
   components/          # auth-only shared UI
+    layout/             # state를 모르는 shared responsive frame/notice
   hooks/               # auth-only session/redirect/countdown hooks
   model/               # auth-wide policy constants/model helpers
   flows/
     login/             # login flow implementation
     signup/            # signup flow implementation
     password-reset/    # password reset flow implementation
+  stories/             # production FlowView 기반 Auth Storybook
+    fixtures/          # API를 호출하지 않는 view input fixture
+    login/
+    signup/
+    password-reset/
 ```
 
 내부 파일명은 리팩터링 과정에서 바뀔 수 있다.
@@ -57,6 +63,8 @@ Private implementation areas should not be deep-imported by non-auth features:
 External browser consumers use public facades instead of deep private paths.
 App Router auth route adapters are the only non-auth files allowed to import the private `@/auth/bff` facade.
 App Router page adapters may import their single route client entrypoint under `@/auth/flows/*/*PageClient`.
+`auth/bff/index.ts`는 route adapter가 실제 사용하는 helper만 명시적으로 export한다.
+wildcard export와 route 미사용 transport type export는 허용하지 않는다.
 
 ## App Router exception
 
@@ -121,9 +129,40 @@ If an external feature still needs auth behavior, expose that behavior through t
   Use CSS variable shorthand such as `text-(--knu-text-primary)`, `bg-(--knu-background-alt)`, and `border-(--knu-border)` instead of `text-[var(--knu-text-primary)]` style arbitrary values.
 - Use scale utilities such as `lg:mt-8` or `lg:mt-32` when the intended value already exists in Tailwind's spacing scale.
   Keep bracket syntax for non-token values such as `min-h-[calc(...)]` and `lg:grid-cols-[...]`.
-- Login, signup, and password reset service-boundary notices keep `자세히 보기` as one mobile tap target with `inline-block whitespace-nowrap`, then relax to normal inline wrapping from `sm` upward.
+- Login, signup, and password reset service-boundary notices keep their link copy as one mobile tap target with `inline-block whitespace-nowrap`, then relax to normal inline wrapping from `sm` upward.
 - Password reset layout keeps the right form card top-anchored while feedback grows downward.
   The desktop help panel aligns to the right-side title area and does not own account-existence truth.
+- Login, signup, password reset은 `AuthResponsiveFrame`의 같은 `max-w-5xl` 반응형 기준을 사용한다.
+  공통 frame은 flow 상태, API 호출, 문구를 소유하지 않고 header/aside/main slot만 배치한다.
+
+## Storybook inventory
+
+Auth Storybook은 PageClient를 복제하지 않고 production `*FlowView`에 제어 가능한 props를 주입한다.
+따라서 story는 실제 레이아웃·step component를 사용하면서 router, session probe, live API 호출에는 의존하지 않는다.
+
+```text
+Auth/
+  Login/
+    Entry/
+    Submission/
+    Result/
+  Signup/
+    Step 1 Email/
+    Step 2 Legal/
+    Step 3 Credentials/
+    Step 4 Academic Identity/
+    Step 5 Complete/
+    Recovery/
+  Password Reset/
+    Step 1 Email/
+    Step 2 Verification/
+    Step 3 Password/
+    Step 4 Complete/
+    Session/
+```
+
+단순 문구 길이 차이는 별도 story를 만들지 않는다.
+정책 상태, flow 단계, pending/error/success처럼 사용자 행동이나 CTA가 달라지는 상태만 scenario로 유지한다.
 
 ## Verification map
 
@@ -148,6 +187,13 @@ pnpm --dir apps/web exec vitest run \
   src/auth/flows/password-reset
 ```
 
+Storybook type/build:
+
+```bash
+pnpm --dir apps/web typecheck:storybook
+pnpm --dir apps/web storybook:build
+```
+
 Web-only auth smoke:
 
 ```bash
@@ -163,6 +209,7 @@ Broader verification when auth boundary or route behavior changes:
 pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/app/login/page.tsx src/app/signup/page.tsx src/app/password-reset/page.tsx src/app/main
 pnpm web:typecheck
 pnpm api:typecheck
+pnpm exec prettier --check --ignore-unknown apps/web/src/auth apps/web/src/app/api/auth
 git diff --check
 ```
 

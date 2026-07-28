@@ -59,6 +59,18 @@ export const authFailures = {
     });
   },
 
+  signupCollegeUnavailable() {
+    return createFailure(
+      'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
+      '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+      {
+        fieldErrors: {
+          collegeCode: '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+        },
+      },
+    );
+  },
+
   signupVerificationRequired() {
     return createFailure(
       'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',

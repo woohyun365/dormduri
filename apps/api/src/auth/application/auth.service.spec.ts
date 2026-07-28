@@ -86,7 +86,7 @@ describe('AuthService facade', () => {
       nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
       legalAcceptances: {
         termsVersionId: 'terms-of-service-2026-06-22',

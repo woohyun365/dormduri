@@ -35,6 +35,9 @@ describe('signup command', () => {
     userDisplayIdentity: {
       findUnique: vi.fn(),
     },
+    collegeMaster: {
+      findFirst: vi.fn(),
+    },
     legalDocumentVersion: {
       findFirst: vi.fn(),
     },
@@ -62,7 +65,7 @@ describe('signup command', () => {
     nickname: '테스터',
     gender: 'M',
     campus: 'CHUNCHEON',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
     legalAcceptances: {
       termsVersionId: activeLegalDocumentIds.TERMS_OF_SERVICE,
@@ -77,6 +80,7 @@ describe('signup command', () => {
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
+    prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
     prisma.legalDocumentVersion.findFirst.mockImplementation((args: unknown) =>
       Promise.resolve({ id: activeLegalDocumentIds[findFirstKind(args)] }),
     );
@@ -86,6 +90,7 @@ describe('signup command', () => {
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRawTyped: prisma.$queryRawTyped,
+        collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
         user: { create: prisma.user.create },
         legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
         legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
@@ -94,6 +99,45 @@ describe('signup command', () => {
     );
     verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
     signupValidationService.validateDraft.mockResolvedValue({ success: true });
+  });
+
+  it('campus와 college code 조합이 catalog와 다르면 가입 검증 전에 거부한다', async () => {
+    await expect(
+      signup(deps as never, {
+        ...input,
+        campus: 'SAMCHEOK',
+      }),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
+      fieldErrors: {
+        collegeCode: '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+      },
+    });
+
+    expect(signupValidationService.validateDraft).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('transaction 시점에 active college가 아니면 계정을 생성하지 않는다', async () => {
+    prisma.collegeMaster.findFirst.mockResolvedValue(null);
+
+    await expect(signup(deps as never, input)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
+    });
+
+    expect(prisma.collegeMaster.findFirst).toHaveBeenCalledWith({
+      where: {
+        code: 'CHUNCHEON_IT',
+        campusCode: 'CHUNCHEON',
+        isActive: true,
+      },
+      select: { code: true },
+    });
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.verificationCode.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
   it('signup validation service로 moderation/입력 검증을 위임하고 실패 시 DB mutation을 시작하지 않는다', async () => {
@@ -133,7 +177,7 @@ describe('signup command', () => {
         nickname: '테스터',
       },
       academicIdentity: {
-        collegeCode: 'IT',
+        collegeCode: 'CHUNCHEON_IT',
         birthYear: 2002,
       },
     });
@@ -170,7 +214,7 @@ describe('signup command', () => {
       nicknameNormalized: '테스터',
     });
     expect(createUserCall?.data.academicIdentity.create).toEqual({
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
     });
     const legalAcceptanceCalls = prisma.legalAcceptanceRecord.createMany.mock

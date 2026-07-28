@@ -93,7 +93,7 @@ describe('AuthService integration', () => {
       nickname: '통합테스트닉네임',
       gender: 'M' as const,
       campus: 'CHUNCHEON' as const,
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
     } as never;
 
@@ -147,9 +147,9 @@ describe('AuthService integration', () => {
   async function seedAcademicIdentityReferenceData() {
     await seedBaseSeasonFixtures(suite.prisma);
     await suite.prisma.collegeMaster.upsert({
-      where: { code: 'IT' },
+      where: { code: 'CHUNCHEON_IT' },
       create: {
-        code: 'IT',
+        code: 'CHUNCHEON_IT',
         campusCode: 'CHUNCHEON',
         nameKo: 'IT대',
         sortOrder: 1,

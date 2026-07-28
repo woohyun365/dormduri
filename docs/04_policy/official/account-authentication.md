@@ -207,13 +207,13 @@
 
 ## 회원가입 기본 단계
 
-| 단계   | 수집 항목                                                                         | 비고                                                                                                                         |
-| ------ | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Step 1 | 이메일 인증                                                                       | 필수                                                                                                                         |
-| Step 2 | 약관 동의                                                                         | 필수                                                                                                                         |
-| Step 3 | 기본 정보: `campus`, `nickname`, `password`, `gender`, `collegeCode`, `birthYear` | 필수. `collegeCode`/`birthYear`는 `UserAcademicIdentity`로 저장                                                              |
-| Step 4 | 프로필/생활패턴 입력                                                              | Auth API payload가 아니라 가입 후/시즌 중 season profile draft journey다. 필드 상세는 [profile-model.md](./profile-model.md) |
-| Step 5 | 완료                                                                              | —                                                                                                                            |
+| 단계   | 수집 항목                                                 | 비고                                                                                                        |
+| ------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Step 1 | 이메일 인증                                               | 필수                                                                                                        |
+| Step 2 | 약관 동의                                                 | 필수                                                                                                        |
+| Step 3 | 계정 정보: `nickname`, `password`                         | 필수                                                                                                        |
+| Step 4 | 학적 정보: `campus`, `gender`, `collegeCode`, `birthYear` | 필수. `collegeCode`/`birthYear`는 `UserAcademicIdentity`로 저장                                             |
+| Step 5 | 완료                                                      | 가입 후/시즌 중 season profile draft journey로 이동한다. 필드 상세는 [profile-model.md](./profile-model.md) |
 
 `POST /auth/signup`과 `POST /auth/validate-signup-draft`는 lifestyle, condition, `intro`, profile object를 받지 않는다. Auth/signup은 계정 row, 표시 identity, account academic identity까지만 원자적으로 만든다. Season profile draft/lifestyle/condition/intro는 season-participants/profile owner가 별도 흐름에서 소유한다.
 
@@ -238,6 +238,26 @@
 | ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다                                                                                                                                                 |
 | `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. 신규 입력/정정 UI guard는 현재 연도 기준 18~30세(`currentYear - 30` ~ `currentYear - 18`) 범위로 제한한다. `ageBand`는 roommate-search filter에서 한국식 나이 code를 season reference year 기준 birthYear bucket으로 변환하는 derived value이며 DB 입력값이 아니다 |
+
+### 단과대 catalog baseline
+
+단과대는 자유 입력 문자열이 아니라 shared catalog와 `CollegeMaster`가 함께 소유하는 reference data다.
+
+- FE는 선택한 캠퍼스의 active catalog만 사용자용 이름으로 노출한다.
+- Contract는 알려진 `collegeCode`와 `campus` 조합을 함께 검증한다.
+- Signup transaction은 `CollegeMaster(code, campusCode, isActive = true)`를 다시 확인한 뒤 `UserAcademicIdentity`를 생성한다.
+- 같은 이름의 단과대가 여러 캠퍼스에 있어도 persistence의 campus ownership이 오염되지 않도록 code는 캠퍼스별로 분리한다.
+- 조직 개편으로 이름이나 소속이 바뀌면 공식 학사/입학 자료를 확인해 shared catalog와 seed를 같은 변경 단위로 갱신한다.
+
+2026학년도 사용자용 catalog는 다음을 기준으로 한다.
+
+| 캠퍼스 | 사용자에게 보이는 단과대                                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 춘천   | 간호대, 경영대, 농업생명대, 동물생명대, 문화예술·공대, 사범대, 사회과학대, 산림환경대, 수의대, 약대, 의대, 의생명과학대, 인문대, 자연과학대, IT대, 글로벌미래융합대 |
+| 삼척   | 공학대, 인문사회대, 디자인스포츠대                                                                                                                                  |
+| 도계   | 공학대, 인문사회대, 보건과학대, 자유전공학부                                                                                                                        |
+
+세 캠퍼스 catalog의 공식 기준은 강원대학교의 [2026학년도 수시모집요강](https://admission.kangwon.ac.kr/DATA/download/admission/2026%ED%95%99%EB%85%84%EB%8F%84%20%EA%B0%95%EC%9B%90%EB%8C%80%ED%95%99%EA%B5%90%20%EC%88%98%EC%8B%9C%EB%AA%A8%EC%A7%91%EC%9A%94%EA%B0%95%28%EC%B1%85%EC%9E%90%29.pdf), [2026학년도 정시모집요강](https://itcall.kangwon.ac.kr/DATA/cmmAtchmnfl/tn_entsch_book/20251205/20251205134615102Hsm.pdf)의 캠퍼스·단과대·모집단위 표와 [강원대학교 춘천캠퍼스 조직도](https://kangwon.ac.kr/www/contents.do?key=1092)다. 춘천의 수의과·약학·의과대학은 각각 독립 단과대로 분리하고, 자유전공학부가 속한 글로벌미래융합대학도 별도 단과대로 반영한다. 도계 자유전공은 공식 단과대 분류가 `독립학부`이지만, 가입 화면에서는 실제 소속을 알아보기 쉬운 `자유전공학부`로 표시한다.
 
 Readiness / correction 규칙:
 

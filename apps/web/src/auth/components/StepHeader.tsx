@@ -20,7 +20,7 @@ export function StepHeader({ icon, title, description, headingRef }: StepHeaderP
       >
         {title}
       </h2>
-      {description ? <p className="text-(--knu-text-secondary)">{description}</p> : null}
+      {description ? <p className="keep-all text-(--knu-text-secondary)">{description}</p> : null}
     </div>
   );
 }

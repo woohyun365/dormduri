@@ -10,7 +10,7 @@ const VALID_SIGNUP_BODY = {
   nickname: '테스터',
   gender: 'M',
   campus: 'CHUNCHEON',
-  collegeCode: 'IT',
+  collegeCode: 'CHUNCHEON_IT',
   birthYear: 2001,
   legalAcceptances: {
     termsVersionId: 'terms-2026-06-22',

@@ -14,6 +14,9 @@ describe('AuthRegistrationUseCases', () => {
     userDisplayIdentity: {
       findUnique: vi.fn(),
     },
+    collegeMaster: {
+      findFirst: vi.fn(),
+    },
     verificationCode: {
       updateMany: vi.fn(),
     },
@@ -46,7 +49,7 @@ describe('AuthRegistrationUseCases', () => {
     nickname: '테스터',
     gender: 'M',
     campus: 'CHUNCHEON',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
     legalAcceptances: {
       termsVersionId: 'terms-of-service-2026-06-22',
@@ -61,6 +64,7 @@ describe('AuthRegistrationUseCases', () => {
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
+    prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
     prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.legalDocumentVersion.findFirst.mockImplementation(
@@ -80,6 +84,7 @@ describe('AuthRegistrationUseCases', () => {
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRawTyped: prisma.$queryRawTyped,
+        collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
         user: { create: prisma.user.create },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
         legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },

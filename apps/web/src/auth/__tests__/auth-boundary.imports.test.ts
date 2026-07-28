@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 const webSrc = join(process.cwd(), 'src');
 const readmePath = join(webSrc, 'auth', 'README.md');
 const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
+const authApiFacadePath = join(webSrc, 'auth', 'api', 'index.ts');
+const authBffFacadePath = join(webSrc, 'auth', 'bff', 'index.ts');
 
 const blockedCompatibilityPaths = [
   'api/auth.ts',
@@ -262,6 +264,15 @@ describe('web auth final boundary guard', () => {
       .filter((sourceFile) => sourceFile.imports.length > 0);
 
     expect(filesWithForbiddenPrivateImports).toEqual([]);
+  });
+
+  it('keeps auth facades explicit and excludes private transport result types', () => {
+    const apiFacade = readFileSync(authApiFacadePath, 'utf8');
+    const bffFacade = readFileSync(authBffFacadePath, 'utf8');
+
+    expect(apiFacade).not.toContain('AuthCodeRequestResult');
+    expect(bffFacade).not.toMatch(/\bexport\s+\*/);
+    expect(bffFacade).not.toContain('createForwardPostHandler');
   });
 
   it('keeps auth session identity separated from profile/main view models', () => {

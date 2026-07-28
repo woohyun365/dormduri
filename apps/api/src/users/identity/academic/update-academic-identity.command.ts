@@ -58,6 +58,18 @@ export function createUpdateAcademicIdentityCommand(deps: UpdateAcademicIdentity
       await assertBirthYearEditableBeforeRegistration(tx, txUser.id);
     }
     if (collegeChanged) {
+      const college = await tx.collegeMaster.findFirst({
+        where: {
+          code: parsedAcademicIdentity.collegeCode,
+          campusCode: txUser.campus,
+          isActive: true,
+        },
+        select: { code: true },
+      });
+      if (!college) {
+        throw usersErrors.academicCollegeUnavailable();
+      }
+
       await consumeAcademicCollegeChangeAllowanceTx(tx, {
         userId: txUser.id,
         campus: txUser.campus,

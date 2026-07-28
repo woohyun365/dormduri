@@ -66,11 +66,13 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
           aria-invalid={!!error}
           aria-required={required || undefined}
           aria-describedby={error ? errorId : undefined}
-          className={`w-full h-12 px-4 rounded-xl border-2 transition-all ${
+          className={`h-12 w-full rounded-xl border-2 px-4 transition-all ${
             error
               ? 'border-red-300 bg-red-50 focus:border-red-500'
               : 'border-(--knu-border) bg-white focus:border-(--knu-primary)'
-          } ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} outline-none`}
+          } ${type === 'password' ? 'pr-12' : ''} ${
+            disabled ? 'cursor-not-allowed bg-gray-100 text-gray-500' : ''
+          } outline-none`}
         />
         {type === 'password' && (
           <button

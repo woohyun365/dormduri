@@ -2,7 +2,6 @@ import { InputField } from '@/auth/components/form/InputField';
 import { Button } from '@/components/ui/Button';
 
 interface EmailVerificationCodePanelProps {
-  email: string;
   verificationCode: string;
   codeError: string;
   isVerifying: boolean;
@@ -18,7 +17,6 @@ interface EmailVerificationCodePanelProps {
 }
 
 export function EmailVerificationCodePanel({
-  email,
   verificationCode,
   codeError,
   isVerifying,
@@ -91,13 +89,9 @@ export function EmailVerificationCodePanel({
         </Button>
       </div>
 
-      <div className="space-y-1 text-xs text-(--knu-text-tertiary)">
-        <p className="font-medium text-(--knu-text-secondary)">메일이 도착하지 않나요?</p>
-        <ul className="space-y-0.5">
-          <li>· 요청한 이메일: {email}</li>
-          <li>· 스팸 메일함을 확인해주세요.</li>
-          <li>· 이메일 주소가 잘못됐다면 위에서 수정 후 재전송해주세요.</li>
-        </ul>
+      <div className="space-y-1 text-xs leading-5 text-(--knu-text-tertiary)">
+        <p className="font-medium text-(--knu-text-secondary)">메일을 받지 못했나요?</p>
+        <p className="keep-all">스팸함을 확인하거나 이메일 주소를 다시 확인해 주세요.</p>
       </div>
     </>
   );

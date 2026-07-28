@@ -8,17 +8,6 @@ import {
 } from './auth-request-guard';
 import { buildJsonResponse } from './auth-response';
 
-export function createForwardPostHandler<TBody extends Record<string, unknown>>(path: string) {
-  return async function POST(request: NextRequest) {
-    const body = (await request.json()) as TBody;
-    const { response, json } = await forwardAuthRequest('POST', path, body, {
-      headers: getForwardHeaders(request),
-    });
-
-    return buildJsonResponse(response, json);
-  };
-}
-
 export function createStrictForwardPostHandler<TBody extends Record<string, unknown>>(input: {
   path: string;
   schema: StrictRequestSchema<TBody>;

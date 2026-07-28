@@ -4,12 +4,12 @@ import { describe, it, expect } from 'vitest';
 import { PasswordRequirementList } from '../PasswordRequirementList';
 
 describe('PasswordRequirementList', () => {
-  it('비밀번호가 비어있으면 렌더링하지 않는다', () => {
-    const { container } = render(
-      <PasswordRequirementList password="" email="test@kangwon.ac.kr" />,
-    );
+  it('비밀번호가 비어있어도 입력 전 조건을 안정적인 영역에 안내한다', () => {
+    render(<PasswordRequirementList password="" email="test@kangwon.ac.kr" />);
 
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByRole('list', { name: '비밀번호 조건' })).toBeInTheDocument();
+    expect(screen.getByText(/○ 8자 이상/)).toBeInTheDocument();
+    expect(screen.getByText(/○ 이메일과 다름/)).toBeInTheDocument();
   });
 
   it('8자 미만이면 길이 미충족을 표시한다', () => {

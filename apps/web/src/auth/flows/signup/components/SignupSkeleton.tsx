@@ -13,7 +13,7 @@ export function SignupSkeleton() {
             회원가입 정보를 준비하고 있어요.
           </p>
           <p className="text-sm leading-6 text-(--knu-text-secondary)">
-            인증 상태와 임시 저장된 입력값을 확인한 뒤 이어서 진행할게요.
+            로그인 상태를 확인한 뒤 가입 화면을 준비할게요.
           </p>
         </div>
         <div className="space-y-3" aria-hidden="true">

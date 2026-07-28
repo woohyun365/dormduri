@@ -151,7 +151,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             nickname: '학업가입',
             gender: 'M',
             campus: 'CHUNCHEON',
-            collegeCode: 'IT',
+            collegeCode: 'CHUNCHEON_IT',
             birthYear: 2002,
           } as never),
         ).resolves.toMatchObject({ success: true });
@@ -182,7 +182,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             where: { userId: createdUser.id },
           }),
         ).resolves.toMatchObject({
-          collegeCode: 'IT',
+          collegeCode: 'CHUNCHEON_IT',
           birthYear: 2002,
         });
         await expectVerificationConsumed(verificationCodeId, true);
@@ -228,7 +228,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             nickname,
             gender: 'M',
             campus: 'CHUNCHEON',
-            collegeCode: 'IT',
+            collegeCode: 'CHUNCHEON_IT',
             birthYear: 2002,
           } as never,
         );
@@ -279,7 +279,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             nickname: '동시가입',
             gender: 'M',
             campus: 'CHUNCHEON',
-            collegeCode: 'IT',
+            collegeCode: 'CHUNCHEON_IT',
             birthYear: 2002,
           } as never),
           authService.signup({
@@ -288,7 +288,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             nickname: '동시가입',
             gender: 'M',
             campus: 'CHUNCHEON',
-            collegeCode: 'IT',
+            collegeCode: 'CHUNCHEON_IT',
             birthYear: 2002,
           } as never),
         ]);
@@ -899,7 +899,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           : {
               academicIdentity: {
                 create: {
-                  collegeCode: 'IT',
+                  collegeCode: 'CHUNCHEON_IT',
                   birthYear: 2002,
                 },
               },
@@ -983,9 +983,9 @@ describe('Auth/users transaction rollback and race integration', () => {
       },
     });
     await prisma.collegeMaster.upsert({
-      where: { code: 'IT' },
+      where: { code: 'CHUNCHEON_IT' },
       create: {
-        code: 'IT',
+        code: 'CHUNCHEON_IT',
         campusCode: 'CHUNCHEON',
         nameKo: 'IT대',
         sortOrder: 1,
@@ -1002,9 +1002,9 @@ describe('Auth/users transaction rollback and race integration', () => {
   async function seedAcademicIdentityReferenceData() {
     await seedBaseSeasonFixtures(prisma);
     await prisma.collegeMaster.upsert({
-      where: { code: 'IT' },
+      where: { code: 'CHUNCHEON_IT' },
       create: {
-        code: 'IT',
+        code: 'CHUNCHEON_IT',
         campusCode: 'CHUNCHEON',
         nameKo: 'IT대',
         sortOrder: 1,
@@ -1126,7 +1126,7 @@ function buildCurrentUserResponse(user: {
       nicknameChangedAt: user.displayIdentity.nicknameChangedAt?.toISOString() ?? null,
     },
     academicIdentity: {
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
     },
     seasonProfile: {

@@ -14,7 +14,7 @@ const validInput = {
   nickname: '테스터',
   gender: 'M' as const,
   campus: 'CHUNCHEON' as const,
-  collegeCode: 'IT' as const,
+  collegeCode: 'CHUNCHEON_IT' as const,
   birthYear: 2002,
   legalAcceptances,
 };
