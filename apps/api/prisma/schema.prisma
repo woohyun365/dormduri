@@ -56,6 +56,12 @@ enum ModerationTermCategory {
 enum ModerationMatchMode {
   EXACT
   INCLUDES
+  PREFIX
+}
+
+enum ModerationTermSource {
+  REFERENCE
+  OPERATIONS
 }
 
 enum ModerationSurface {
@@ -706,15 +712,15 @@ enum AcademicIdentityAllowanceResetReason {
 }
 
 model CampusMaster {
-  code         Campus              @id
-  nameKo       String
-  isOperated   Boolean
-  sortOrder    Int                 @default(0)
-  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime            @default(now()) @updatedAt @db.Timestamptz(3)
-  colleges     CollegeMaster[]
-  dormitories  Dormitory[]
-  seasons      Season[]
+  code        Campus          @id
+  nameKo      String
+  isOperated  Boolean
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @default(now()) @updatedAt @db.Timestamptz(3)
+  colleges    CollegeMaster[]
+  dormitories Dormitory[]
+  seasons     Season[]
 }
 
 model CollegeMaster {
@@ -740,7 +746,7 @@ model Dormitory {
   roomType           Int
   genderPolicy       DormitoryGenderPolicy
   matchingSupported  Boolean                    @default(true)
-  isActive            Boolean                    @default(true)
+  isActive           Boolean                    @default(true)
   sortOrder          Int                        @default(0)
   createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
@@ -1404,26 +1410,26 @@ model SeasonParticipantProfileHistory {
 }
 
 model MatchRequest {
-  id                     String                      @id @default(uuid())
-  seasonId               String
-  pairKey                String
-  pairMinParticipantId   String
-  pairMaxParticipantId   String
-  requesterParticipantId String
-  receiverParticipantId  String
-  note                   String?
-  status                 MatchRequestStatus          @default(PENDING)
-  terminalReason         MatchRequestTerminalReason?
+  id                              String                      @id @default(uuid())
+  seasonId                        String
+  pairKey                         String
+  pairMinParticipantId            String
+  pairMaxParticipantId            String
+  requesterParticipantId          String
+  receiverParticipantId           String
+  note                            String?
+  status                          MatchRequestStatus          @default(PENDING)
+  terminalReason                  MatchRequestTerminalReason?
   systemCancellationActiveMatchId String?
-  createdAt              DateTime                    @default(now()) @db.Timestamptz(3)
-  expiresAt              DateTime                    @db.Timestamptz(3)
-  terminalAt             DateTime?                   @db.Timestamptz(3)
-  acceptedAt             DateTime?                   @db.Timestamptz(3)
-  season                 Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  requesterParticipant   SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
-  receiverParticipant    SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
-  createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
-  systemCancellationActiveMatch ActiveMatch?         @relation("MatchRequestSystemCancellationCause", fields: [systemCancellationActiveMatchId], references: [id], onDelete: SetNull)
+  createdAt                       DateTime                    @default(now()) @db.Timestamptz(3)
+  expiresAt                       DateTime                    @db.Timestamptz(3)
+  terminalAt                      DateTime?                   @db.Timestamptz(3)
+  acceptedAt                      DateTime?                   @db.Timestamptz(3)
+  season                          Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  requesterParticipant            SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
+  receiverParticipant             SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
+  createdActiveMatch              ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
+  systemCancellationActiveMatch   ActiveMatch?                @relation("MatchRequestSystemCancellationCause", fields: [systemCancellationActiveMatchId], references: [id], onDelete: SetNull)
 
   @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
   @@index([seasonId, requesterParticipantId, createdAt, id])
@@ -1436,26 +1442,26 @@ model MatchRequest {
 }
 
 model ActiveMatch {
-  id                   String                      @id @default(uuid())
-  seasonId             String
-  pairKey              String
-  participantAId       String
-  participantBId       String
-  createdFromRequestId String                      @unique
-  status               ActiveMatchStatus           @default(ACTIVE)
-  startedAt            DateTime                    @default(now()) @db.Timestamptz(3)
-  endedAt              DateTime?                   @db.Timestamptz(3)
-  endReason            ActiveMatchEndReason?
-  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
-  season               Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  participantA         SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
-  participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
-  createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
-  unmatchRequests      ActiveMatchUnmatchRequest[]
-  lifecycleEvents      ActiveMatchLifecycleEvent[]
-  systemCancelledRequests MatchRequest[]             @relation("MatchRequestSystemCancellationCause")
-  conversationThread   ConversationThread?
+  id                      String                      @id @default(uuid())
+  seasonId                String
+  pairKey                 String
+  participantAId          String
+  participantBId          String
+  createdFromRequestId    String                      @unique
+  status                  ActiveMatchStatus           @default(ACTIVE)
+  startedAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  endedAt                 DateTime?                   @db.Timestamptz(3)
+  endReason               ActiveMatchEndReason?
+  createdAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
+  season                  Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA            SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB            SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  createdFromRequest      MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
+  unmatchRequests         ActiveMatchUnmatchRequest[]
+  lifecycleEvents         ActiveMatchLifecycleEvent[]
+  systemCancelledRequests MatchRequest[]              @relation("MatchRequestSystemCancellationCause")
+  conversationThread      ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
   @@index([participantAId, endedAt])
@@ -1515,8 +1521,8 @@ model SeasonMatchHistoryEntry {
   sourceActiveMatchId                       String?
   createdFromRequestId                      String?
   matchScore                                Int?
-  compatibilitySnapshot                    Json?
-  compatibilitySchemaVersion               String?                                @db.VarChar(64)
+  compatibilitySnapshot                     Json?
+  compatibilitySchemaVersion                String?                                @db.VarChar(64)
   viewerSmokingToleranceSnapshot            RoommateSmokingTolerance?
   viewerPhoneToleranceSnapshot              RoommatePhoneTolerance?
   viewerEarphoneExpectationSnapshot         RoommateEarphoneExpectation?
@@ -2080,6 +2086,8 @@ model ModerationTerm {
   category       ModerationTermCategory
   matchMode      ModerationMatchMode
   surface        ModerationSurface
+  source         ModerationTermSource   @default(OPERATIONS)
+  referenceKey   String?                @unique
   isActive       Boolean                @default(true)
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime               @default(now()) @updatedAt @db.Timestamptz(3)

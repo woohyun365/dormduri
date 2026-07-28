@@ -33,7 +33,7 @@ describe('AuthSignupValidationService', () => {
       fieldErrors: {
         email: '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.',
         password: '비밀번호는 8자 이상이어야 합니다.',
-        nickname: '닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.',
+        nickname: '닉네임은 한글 또는 영문으로 입력해 주세요. 숫자도 함께 사용할 수 있어요.',
       },
     });
 
@@ -43,7 +43,7 @@ describe('AuthSignupValidationService', () => {
 
   it('금지어 닉네임은 validation 단계에서 차단한다', async () => {
     moderationService.validateNicknamePolicy.mockResolvedValue(
-      '사용할 수 없는 표현이 포함되어 있습니다.',
+      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
     );
 
     await expect(
@@ -57,8 +57,38 @@ describe('AuthSignupValidationService', () => {
       code: 'AUTH_SIGNUP_VALIDATION_FAILED',
       userActionable: true,
       error: '입력값을 다시 확인해주세요.',
-      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
     });
+  });
+
+  it('mixed-script 구조 오류는 moderation과 중복 조회 전에 거절한다', async () => {
+    await expect(
+      service.validateDraft({
+        email: 'test@kangwon.ac.kr',
+        password: 'Test1234',
+        nickname: '안녕hi',
+      }),
+    ).resolves.toMatchObject({
+      success: false,
+      fieldErrors: { nickname: '한글과 영문은 함께 사용할 수 없어요.' },
+    });
+
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+    expect(prisma.userDisplayIdentity.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('moderation 오류는 duplicate query 전에 거절한다', async () => {
+    moderationService.validateNicknamePolicy.mockResolvedValue(
+      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+    );
+
+    await service.validateDraft({
+      email: 'test@kangwon.ac.kr',
+      password: 'Test1234',
+      nickname: 'sex123',
+    });
+
+    expect(prisma.userDisplayIdentity.findUnique).not.toHaveBeenCalled();
   });
 
   it('닉네임 중복은 UserDisplayIdentity nicknameNormalized 기준으로 검사한다', async () => {

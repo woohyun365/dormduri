@@ -153,8 +153,12 @@ describe('validateNickname', () => {
     expect(validateNickname('유저123')).toBe('');
   });
 
-  it('한글+영문+숫자 조합 -> 통과', () => {
-    expect(validateNickname('룸메abc1')).toBe('');
+  it('한글+영문 혼합 -> 에러', () => {
+    expect(validateNickname('룸메abc1')).toBe('한글과 영문은 함께 사용할 수 없어요.');
+  });
+
+  it('숫자로만 구성 -> 에러', () => {
+    expect(validateNickname('1234')).toBeTruthy();
   });
 
   it('자모 단독 -> 에러', () => {

@@ -1,6 +1,6 @@
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { isCollegeAvailableForCampus } from '@repo/shared/college';
-import { isKnuEmail, normalizeEmail, normalizeNickname } from '../domain/auth.utils.js';
+import { isKnuEmail, normalizeEmail, parseNickname } from '../domain/auth.utils.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
@@ -59,14 +59,19 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
     );
   }
 
-  const normalizedNickname = normalizeNickname(input.nickname);
+  const parsedNickname = parseNickname(input.nickname);
+  if (!parsedNickname.ok) {
+    return authFailures.signupValidation(parsedNickname.message, {
+      nickname: parsedNickname.message,
+    });
+  }
   const [existingEmailUser, existingNicknameUser] = await Promise.all([
     deps.prisma.user.findUnique({
       where: { emailNormalized },
       select: { id: true },
     }),
     deps.prisma.userDisplayIdentity.findUnique({
-      where: { nicknameNormalized: normalizedNickname },
+      where: { nicknameNormalized: parsedNickname.normalized },
       select: { userId: true },
     }),
   ]);
@@ -115,8 +120,8 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
           emailVerifiedAt,
           displayIdentity: {
             create: {
-              nickname: input.nickname.trim(),
-              nicknameNormalized: normalizedNickname,
+              nickname: parsedNickname.value,
+              nicknameNormalized: parsedNickname.normalized,
             },
           },
           academicIdentity: {

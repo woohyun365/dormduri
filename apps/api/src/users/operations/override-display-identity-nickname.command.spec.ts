@@ -98,6 +98,23 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
     tx.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
   });
 
+  it('mixed-script operations nickname은 DB time·moderation·transaction 전에 거절한다', async () => {
+    await expect(
+      command.overrideDisplayIdentityNicknameForPolicyEnforcement({
+        userId: 'user-1',
+        nickname: '안녕hi',
+        actorId: 'admin-1',
+        reason: 'ADMIN_MANUAL',
+      }),
+    ).rejects.toMatchObject({
+      response: usersErrors.invalidNickname('한글과 영문은 함께 사용할 수 없어요.').getResponse(),
+    });
+
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
   it('policy enforcement override는 nickname update, registered snapshot, audit append를 같은 tx client로 수행한다', async () => {
     await expect(
       command.overrideDisplayIdentityNicknameForPolicyEnforcement({

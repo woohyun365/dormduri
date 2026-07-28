@@ -51,19 +51,19 @@ describe('RoommateSearchService integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
   });
 
@@ -164,7 +164,7 @@ describe('RoommateSearchService integration', () => {
       detailViewableCount: 0,
       scoreVisibleCount: 0,
     });
-    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B', '유저C']);
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나', '유저다']);
     expect(result.items.every((item) => item.exposure.canViewFull === false)).toBe(true);
     expect(result.items.every((item) => !('matchScore' in item))).toBe(true);
     expect(result.items.every((item) => typeof item.detailEntryToken === 'string')).toBe(true);
@@ -206,8 +206,10 @@ describe('RoommateSearchService integration', () => {
       campusMerged: true,
       sameBuildingOnly: true,
     });
-    const sameBuildingPeer = merged.items.find((item) => item.profileSummary.nickname === '유저B');
-    const otherBuildingPeer = merged.items.find((item) => item.profileSummary.nickname === '유저C');
+    const sameBuildingPeer = merged.items.find((item) => item.profileSummary.nickname === '유저나');
+    const otherBuildingPeer = merged.items.find(
+      (item) => item.profileSummary.nickname === '유저다',
+    );
     expect(sameBuildingPeer?.exposure.canViewFull).toBe(true);
     expect(otherBuildingPeer).toMatchObject({ exposure: { canViewFull: false } });
     expect(otherBuildingPeer).not.toHaveProperty('matchScore');
@@ -226,7 +228,7 @@ describe('RoommateSearchService integration', () => {
     });
 
     expect(sameBuilding.scope).toBe('SAME_BUILDING_ONLY');
-    expect(sameBuilding.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(sameBuilding.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
     expect(sameBuilding.items[0]?.exposure.canViewFull).toBe(true);
   });
 
@@ -279,7 +281,7 @@ describe('RoommateSearchService integration', () => {
       { maxQueries: 30 },
     );
     expect(firstPage.appliedSort).toBe('NICKNAME');
-    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
     expect(firstPage.pageInfo.hasNextPage).toBe(true);
     expect(firstPage.pageInfo.nextCursor).toEqual(expect.any(String));
 
@@ -294,7 +296,7 @@ describe('RoommateSearchService integration', () => {
         }),
       { maxQueries: 30 },
     );
-    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
     expect(secondPage.pageInfo).toEqual({
       hasNextPage: false,
       nextCursor: null,
@@ -327,7 +329,7 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
     const deletedTargetEntry = beforeDeletion.items.find(
-      (item) => item.profileSummary.nickname === '유저B',
+      (item) => item.profileSummary.nickname === '유저나',
     );
     expect(deletedTargetEntry?.detailEntryToken).toEqual(expect.any(String));
 
@@ -346,7 +348,7 @@ describe('RoommateSearchService integration', () => {
       detailViewableCount: 1,
       scoreVisibleCount: 1,
     });
-    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
     expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
 
     await expect(
@@ -381,7 +383,7 @@ describe('RoommateSearchService integration', () => {
         limit: 20,
       });
       const staleTargetEntry = beforeChange.items.find(
-        (item) => item.profileSummary.nickname === '유저B',
+        (item) => item.profileSummary.nickname === '유저나',
       );
       expect(staleTargetEntry?.detailEntryToken).toEqual(expect.any(String));
 
@@ -412,7 +414,7 @@ describe('RoommateSearchService integration', () => {
         scope: 'SAME_BUILDING_ONLY',
         limit: 20,
       });
-      expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+      expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
 
       await expect(
         profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
@@ -439,7 +441,7 @@ describe('RoommateSearchService integration', () => {
         limit: 20,
       });
       const staleTargetEntry = beforeBlock.items.find(
-        (item) => item.profileSummary.nickname === '유저B',
+        (item) => item.profileSummary.nickname === '유저나',
       );
       expect(staleTargetEntry?.detailEntryToken).toEqual(expect.any(String));
 
@@ -455,7 +457,7 @@ describe('RoommateSearchService integration', () => {
         scope: 'SAME_BUILDING_ONLY',
         limit: 20,
       });
-      expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+      expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
 
       await expect(
         profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
@@ -685,7 +687,7 @@ describe('RoommateSearchService integration', () => {
       college: { operator: 'EXCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
       limit: 20,
     });
-    expect(excludeIt.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(excludeIt.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
 
     const entjLike = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
@@ -697,7 +699,7 @@ describe('RoommateSearchService integration', () => {
       },
       limit: 20,
     });
-    expect(entjLike.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(entjLike.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
 
     const age25Plus = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
@@ -705,7 +707,7 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
     expect(new Set(age25Plus.items.map((item) => item.profileSummary.nickname))).toEqual(
-      new Set(['유저B', '유저C']),
+      new Set(['유저나', '유저다']),
     );
   });
 
@@ -747,7 +749,7 @@ describe('RoommateSearchService integration', () => {
     });
 
     expect(new Set(multiValue.items.map((item) => item.profileSummary.nickname))).toEqual(
-      new Set(['유저B', '유저C']),
+      new Set(['유저나', '유저다']),
     );
 
     const partialInf = await service.search(authContext('user-a'), {
@@ -761,7 +763,7 @@ describe('RoommateSearchService integration', () => {
     });
 
     expect(new Set(partialInf.items.map((item) => item.profileSummary.nickname))).toEqual(
-      new Set(['유저B', '유저C']),
+      new Set(['유저나', '유저다']),
     );
   });
 
@@ -801,7 +803,7 @@ describe('RoommateSearchService integration', () => {
     });
 
     expect(result.appliedSort).toBe('MATCH_SCORE');
-    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
     expect(result.items[0]?.matchScore).toEqual(expect.any(Number));
     expect(result.items[0]?.matchScore).toBeGreaterThanOrEqual(90);
   });
@@ -820,9 +822,9 @@ describe('RoommateSearchService integration', () => {
       scope: 'CAMPUS_MERGED',
       limit: 20,
     });
-    const partner = result.items.find((item) => item.profileSummary.nickname === '유저B');
+    const partner = result.items.find((item) => item.profileSummary.nickname === '유저나');
     const otherDormitoryTarget = result.items.find(
-      (item) => item.profileSummary.nickname === '유저C',
+      (item) => item.profileSummary.nickname === '유저다',
     );
 
     expect(result.scope).toBe('CAMPUS_MERGED');
@@ -867,7 +869,7 @@ describe('RoommateSearchService integration', () => {
         };
       }
     ).manifest;
-    const matchedPartner = result.items.find((item) => item.profileSummary.nickname === '유저B');
+    const matchedPartner = result.items.find((item) => item.profileSummary.nickname === '유저나');
 
     expect(manifest?.purpose).toBe('POST_MATCH_COHORT_REVIEW');
     expect(manifest?.filters).toEqual({
@@ -898,7 +900,7 @@ describe('RoommateSearchService integration', () => {
       sort: 'NICKNAME',
       limit: 1,
     });
-    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
     expect(firstPage.pageInfo.hasNextPage).toBe(true);
     expect(typeof firstPage.pageInfo.nextCursor).toBe('string');
 
@@ -908,7 +910,7 @@ describe('RoommateSearchService integration', () => {
       limit: 1,
       cursor: firstPage.pageInfo.nextCursor ?? undefined,
     });
-    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
     expect(secondPage.pageInfo).toEqual({
       hasNextPage: false,
       nextCursor: null,
@@ -955,7 +957,7 @@ describe('RoommateSearchService integration', () => {
       limit: 1,
     });
     expect(firstPage.appliedSort).toBe('MATCH_SCORE');
-    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
     expect(firstPage.items[0]?.matchScore).toEqual(expect.any(Number));
     expect(firstPage.pageInfo.hasNextPage).toBe(true);
     expect(typeof firstPage.pageInfo.nextCursor).toBe('string');
@@ -966,7 +968,7 @@ describe('RoommateSearchService integration', () => {
       limit: 1,
       cursor: firstPage.pageInfo.nextCursor ?? undefined,
     });
-    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
     expect(secondPage.pageInfo.nextCursor).toBeNull();
     expect(firstPage.items[0]?.matchScore).toBeGreaterThan(secondPage.items[0]?.matchScore ?? 0);
 
@@ -976,7 +978,7 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
     expect(thresholdResult.appliedSort).toBe('MATCH_SCORE');
-    expect(thresholdResult.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(thresholdResult.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
 
     await expect(
       service.search(authContext('user-a'), {

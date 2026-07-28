@@ -237,7 +237,7 @@ describe('account deletion + season de-registration integration', () => {
     await seedVerifiedUser({
       userId: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
       withParticipant: true,
     });
     const accessToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
@@ -339,13 +339,13 @@ describe('account deletion + season de-registration integration', () => {
     await seedVerifiedUser({
       userId: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
       withParticipant: true,
     });
     await seedVerifiedUser({
       userId: 'user-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
       withParticipant: true,
     });
 
@@ -415,13 +415,13 @@ describe('account deletion + season de-registration integration', () => {
     await seedVerifiedUser({
       userId: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
       withParticipant: true,
     });
     await seedVerifiedUser({
       userId: 'user-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
       withParticipant: true,
     });
 
@@ -579,13 +579,13 @@ describe('account deletion + season de-registration integration', () => {
     await seedVerifiedUser({
       userId: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
       withParticipant: true,
     });
     await seedVerifiedUser({
       userId: 'user-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
       withParticipant: true,
     });
     await seedActiveMatchFixture(prisma, {
@@ -617,7 +617,7 @@ describe('account deletion + season de-registration integration', () => {
     await seedVerifiedUser({
       userId: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
       withParticipant: true,
     });
     await prisma.season.update({
@@ -651,7 +651,7 @@ describe('account deletion + season de-registration integration', () => {
     await seedVerifiedUser({
       userId: 'user-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
     const accessToken = await issueAccessToken('user-c', 'user-c@kangwon.ac.kr');
 
@@ -710,8 +710,8 @@ describe('account deletion + season de-registration integration', () => {
       reason: 'ACCOUNT_DELETION',
       actorType: 'SYSTEM',
       actorId: 'account-deletion',
-      previousNickname: '유저C',
-      previousNicknameNormalized: '유저C',
+      previousNickname: '유저다',
+      previousNicknameNormalized: '유저다',
       nextNickname: '탈퇴한 사용자',
       nextNicknameNormalized: displayIdentity.nicknameNormalized,
     });

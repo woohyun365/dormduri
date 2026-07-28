@@ -72,13 +72,13 @@ describe('ProfilesService match score integration', () => {
       userId: 'peer-none',
       participantId: 'participant-peer-none',
       email: 'peer-none@kangwon.ac.kr',
-      nickname: 'A동기',
+      nickname: '가동기',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'peer-often',
       participantId: 'participant-peer-often',
       email: 'peer-often@kangwon.ac.kr',
-      nickname: 'B동기',
+      nickname: '나동기',
     });
 
     await prisma.seasonParticipantProfile.update({
@@ -119,8 +119,8 @@ describe('ProfilesService match score integration', () => {
       scope: 'SAME_BUILDING_ONLY',
       limit: 10,
     });
-    const noneProfile = result.items.find((item) => item.profileSummary.nickname === 'A동기');
-    const oftenProfile = result.items.find((item) => item.profileSummary.nickname === 'B동기');
+    const noneProfile = result.items.find((item) => item.profileSummary.nickname === '가동기');
+    const oftenProfile = result.items.find((item) => item.profileSummary.nickname === '나동기');
 
     expect(result.appliedSort).toBe('MATCH_SCORE');
     expect(noneProfile?.exposure.canViewFull).toBe(true);
@@ -207,13 +207,13 @@ describe('ProfilesService match score integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '사용자A',
+      nickname: '사용자가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '사용자B',
+      nickname: '사용자나',
     });
 
     await prisma.seasonParticipantProfile.update({
@@ -246,10 +246,10 @@ describe('ProfilesService match score integration', () => {
       limit: 10,
     });
     const tokenForB = searchForA.items.find(
-      (item) => item.profileSummary.nickname === '사용자B',
+      (item) => item.profileSummary.nickname === '사용자나',
     )?.detailEntryToken;
     const tokenForA = searchForB.items.find(
-      (item) => item.profileSummary.nickname === '사용자A',
+      (item) => item.profileSummary.nickname === '사용자가',
     )?.detailEntryToken;
     const profileForA = await profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
       detailEntryToken: tokenForB,
@@ -334,7 +334,7 @@ describe('ProfilesService match score integration', () => {
       userId: 'matched-counterpart',
       participantId: 'participant-matched-counterpart',
       email: 'matched-counterpart@kangwon.ac.kr',
-      nickname: '매칭완료상대의상대',
+      nickname: '매칭상대친구',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'other',

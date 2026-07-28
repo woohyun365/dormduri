@@ -6,11 +6,7 @@ import type {
 import { validateKnuEmailFormat } from '@repo/shared/auth/policy';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { ModerationService } from '../../moderation/moderation.service.js';
-import {
-  normalizeNickname,
-  validateNicknameFormat,
-  validatePasswordPolicy,
-} from '../domain/auth.utils.js';
+import { parseNickname, validatePasswordPolicy } from '../domain/auth.utils.js';
 import { authFailures } from '../errors/auth-failures.js';
 
 @Injectable()
@@ -37,18 +33,18 @@ export class AuthSignupValidationService {
       fieldErrors.password = passwordError;
     }
 
-    const nicknameFormatError = validateNicknameFormat(input.nickname);
-    if (nicknameFormatError) {
-      fieldErrors.nickname = nicknameFormatError;
+    const parsedNickname = parseNickname(input.nickname);
+    if (!parsedNickname.ok) {
+      fieldErrors.nickname = parsedNickname.message;
     } else {
       const nicknamePolicyError = await this.moderationService.validateNicknamePolicy(
-        input.nickname,
+        parsedNickname.value,
       );
       if (nicknamePolicyError) {
         fieldErrors.nickname = nicknamePolicyError;
       } else {
         const existingNickname = await this.prisma.userDisplayIdentity.findUnique({
-          where: { nicknameNormalized: normalizeNickname(input.nickname) },
+          where: { nicknameNormalized: parsedNickname.normalized },
           select: { userId: true },
         });
         if (existingNickname) {

@@ -45,7 +45,7 @@ describe('UsersService integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
 
     await prisma.seasonParticipant.update({
@@ -65,11 +65,11 @@ describe('UsersService integration', () => {
     expect(currentUser.user).toMatchObject({
       id: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     expect(currentUser.displayIdentity).toMatchObject({
       userId: 'user-a',
-      nickname: '유저A',
+      nickname: '유저가',
       nicknameSource: 'USER_DISPLAY_IDENTITY',
     });
     expect(currentUser.seasonProfile).toMatchObject({
@@ -119,8 +119,8 @@ describe('UsersService integration', () => {
       reason: 'USER_REQUEST',
       actorType: 'USER',
       actorId: 'user-a',
-      previousNickname: '유저A',
-      previousNicknameNormalized: '유저A',
+      previousNickname: '유저가',
+      previousNicknameNormalized: '유저가',
       nextNickname: '유저변경',
       nextNicknameNormalized: '유저변경',
       seasonProfileSnapshotUpdated: false,
@@ -163,14 +163,14 @@ describe('UsersService integration', () => {
     const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
       where: { userId: 'user-a' },
     });
-    expect(displayIdentity.nickname).toBe('유저A');
+    expect(displayIdentity.nickname).toBe('유저가');
   });
 
   it('같은 display identity nickname 저장은 registration snapshot lock 중에도 no-op metadata로 성공한다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.userDisplayIdentity.update({
       where: { userId: 'user-a' },
-      data: { nicknameNormalized: '유저a' },
+      data: { nicknameNormalized: '유저가' },
     });
     await prisma.seasonParticipant.update({
       where: { id: 'participant-a' },
@@ -187,7 +187,7 @@ describe('UsersService integration', () => {
     });
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
-      displayIdentity: { nickname: '유저A' },
+      displayIdentity: { nickname: '유저가' },
     });
 
     expect(response.mutation.displayIdentity).toEqual({
@@ -195,7 +195,7 @@ describe('UsersService integration', () => {
       changed: false,
       noOpReason: 'SAME_NICKNAME',
     });
-    expect(response.currentUser.displayIdentity.nickname).toBe('유저A');
+    expect(response.currentUser.displayIdentity.nickname).toBe('유저가');
 
     const nicknameEventCount = await prisma.userDisplayIdentityNicknameChangeEvent.count({
       where: { userId: 'user-a' },
@@ -461,8 +461,8 @@ describe('UsersService integration', () => {
       reason: 'REPORT_REVIEW',
       actorType: 'ADMIN',
       actorId: 'admin-1',
-      previousNickname: '유저A',
-      previousNicknameNormalized: '유저A',
+      previousNickname: '유저가',
+      previousNicknameNormalized: '유저가',
       nextNickname: '운영변경',
       nextNicknameNormalized: '운영변경',
       seasonId: 'season-integration',

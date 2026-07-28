@@ -1,18 +1,19 @@
-# Campus reference data seeding
+# Product reference data seeding
 
 ## 목적
 
-캠퍼스·생활관·단과대처럼 애플리케이션 시작과 정책 판정에 필요한 reference data를
+캠퍼스·생활관·단과대·moderation term처럼 애플리케이션 시작과 정책 판정에 필요한 reference data를
 fixture와 분리해 반복 실행 가능한 방식으로 배포한다.
 
 ## Source of truth
 
-| 데이터    | 코드 source                                                      | DB projection   |
-| --------- | ---------------------------------------------------------------- | --------------- |
-| 캠퍼스    | `prisma/seeds/reference/common/campus-reference-data.js`         | `CampusMaster`  |
-| 생활관    | `prisma/seeds/reference/dormitories/dormitory-reference-data.js` | `Dormitory`     |
-| 단과대    | `packages/shared/src/college/catalog.ts`                         | `CollegeMaster` |
-| 시즌 운영 | 운영자가 확정한 시즌 일정·생활관별 호실 선택일                   | `Season*`       |
+| 데이터     | 코드 source                                                      | DB projection    |
+| ---------- | ---------------------------------------------------------------- | ---------------- |
+| 캠퍼스     | `prisma/seeds/reference/common/campus-reference-data.js`         | `CampusMaster`   |
+| 생활관     | `prisma/seeds/reference/dormitories/dormitory-reference-data.js` | `Dormitory`      |
+| 단과대     | `packages/shared/src/college/catalog.ts`                         | `CollegeMaster`  |
+| moderation | `prisma/seeds/reference/moderation/moderation-reference-data.js` | `ModerationTerm` |
+| 시즌 운영  | 운영자가 확정한 시즌 일정·생활관별 호실 선택일                   | `Season*`        |
 
 `apps/api/prisma/seed-data/reference/dormitory-seed-data.js`는 과거 기숙사 guide와 연락처를
 재현하기 위한 legacy 자료다. production reference seed는 해당 파일을 import하지 않는다.
@@ -23,9 +24,10 @@ fixture와 분리해 반복 실행 가능한 방식으로 배포한다.
 pnpm db:seed:reference
 pnpm db:seed:reference:dormitories
 pnpm db:seed:reference:colleges
+pnpm db:seed:reference:moderation
 ```
 
-- 전체 seed는 campus prerequisite를 포함해 생활관과 단과대를 한 transaction에서 적용한다.
+- 전체 seed는 campus prerequisite를 포함해 생활관, 단과대, moderation term을 한 transaction에서 적용한다.
 - 개별 seed도 campus prerequisite를 먼저 upsert하므로 독립적으로 실행할 수 있다.
 - production에서는 `DIRECT_URL`을 우선 사용하고, 없으면 `DATABASE_URL`을 사용한다.
 - production에서 두 환경 변수가 모두 없으면 local fallback 없이 즉시 실패한다.
@@ -38,6 +40,7 @@ pnpm db:seed:reference:colleges
 - 기존 unprefixed 단과대 code는 동일 캠퍼스·한글명 기준으로 canonical code로 먼저 전환한다.
   FK는 `ON UPDATE CASCADE`로 연결된 사용자·시즌 프로필 참조를 함께 보존한다.
 - reference에서 제거된 생활관·단과대는 삭제하지 않고 `isActive = false`로 전환한다.
+- moderation seed는 stable `referenceKey`로 upsert하고 제거된 `REFERENCE` row만 비활성화한다. `OPERATIONS` row는 보존한다.
 - 생활관은 `matchingSupported = false`도 함께 적용해 stale season operation이 action을 열지 못하게 한다.
 - 실패 시 전체 transaction을 rollback하고 DB URL, credential, row payload를 로그에 출력하지 않는다.
 - runtime app role이 아니라 migration/reference write 권한을 가진 direct connection으로 실행한다.

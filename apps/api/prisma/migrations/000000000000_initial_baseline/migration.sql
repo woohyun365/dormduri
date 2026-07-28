@@ -23,7 +23,10 @@ CREATE TYPE "AuthSecurityEventSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
 CREATE TYPE "ModerationTermCategory" AS ENUM ('BLOCKED_TEXT', 'RESERVED_NICKNAME');
 
 -- CreateEnum
-CREATE TYPE "ModerationMatchMode" AS ENUM ('EXACT', 'INCLUDES');
+CREATE TYPE "ModerationMatchMode" AS ENUM ('EXACT', 'INCLUDES', 'PREFIX');
+
+-- CreateEnum
+CREATE TYPE "ModerationTermSource" AS ENUM ('REFERENCE', 'OPERATIONS');
 
 -- CreateEnum
 CREATE TYPE "ModerationSurface" AS ENUM ('ALL', 'NICKNAME', 'INTRO');
@@ -1417,6 +1420,8 @@ CREATE TABLE "ModerationTerm" (
     "category" "ModerationTermCategory" NOT NULL,
     "matchMode" "ModerationMatchMode" NOT NULL,
     "surface" "ModerationSurface" NOT NULL,
+    "source" "ModerationTermSource" NOT NULL DEFAULT 'OPERATIONS',
+    "referenceKey" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2102,6 +2107,9 @@ CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"(
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ModerationTerm_normalizedTerm_category_matchMode_surface_key" ON "ModerationTerm"("normalizedTerm", "category", "matchMode", "surface");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ModerationTerm_referenceKey_key" ON "ModerationTerm"("referenceKey");
 
 -- AddForeignKey
 ALTER TABLE "CollegeMaster" ADD CONSTRAINT "CollegeMaster_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;

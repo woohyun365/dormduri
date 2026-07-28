@@ -146,13 +146,13 @@ describe('signup command', () => {
       code: 'AUTH_SIGNUP_VALIDATION_FAILED',
       userActionable: true,
       error: '입력값을 다시 확인해주세요.',
-      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
     });
 
     await expect(signup(deps as never, input)).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_VALIDATION_FAILED',
-      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
     });
 
     expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
@@ -281,6 +281,43 @@ describe('signup command', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
+    });
+  });
+
+  it('회원가입 write에는 shared parser의 NFKC display value와 lowercase key를 사용한다', async () => {
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: {
+        nickname: 'NiceGuy',
+      },
+      academicIdentity: {
+        collegeCode: 'CHUNCHEON_IT',
+        birthYear: 2002,
+      },
+    });
+    sessionService.issueAuthResult.mockResolvedValue({
+      accessToken: 'token',
+      sessionId: 'session-1',
+    });
+
+    await signup(deps as never, {
+      ...input,
+      nickname: '  ＮiceＧuy  ',
+    });
+
+    const createUserCall = prisma.user.create.mock.calls[0]?.[0] as
+      | {
+          data: {
+            displayIdentity: { create: { nickname: string; nicknameNormalized: string } };
+          };
+        }
+      | undefined;
+    expect(createUserCall?.data.displayIdentity.create).toEqual({
+      nickname: 'NiceGuy',
+      nicknameNormalized: 'niceguy',
     });
   });
 

@@ -6,11 +6,12 @@ import {
 } from '../../../platform/database/prisma-error.js';
 import type { UserDisplayIdentityRecord } from '../../current-user/current-user.select.js';
 import { usersErrors } from '../../errors/users.errors.js';
+import type { ParsedDisplayIdentityNickname as SharedParsedDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 
-export interface ParsedDisplayIdentityNickname {
-  nickname: string;
-  nicknameNormalized: string;
-}
+export type ParsedDisplayIdentityNickname = Extract<
+  SharedParsedDisplayIdentityNickname,
+  { ok: true }
+>;
 
 export type UserDisplayIdentityClient =
   | Pick<PrismaService, 'userDisplayIdentity'>
@@ -18,11 +19,11 @@ export type UserDisplayIdentityClient =
 
 export async function assertNicknameAvailableForUser(
   client: UserDisplayIdentityClient,
-  parsedNickname: { nicknameNormalized: string },
+  parsedNickname: Pick<ParsedDisplayIdentityNickname, 'normalized'>,
   userId: string,
 ) {
   const existingNickname = await client.userDisplayIdentity.findUnique({
-    where: { nicknameNormalized: parsedNickname.nicknameNormalized },
+    where: { nicknameNormalized: parsedNickname.normalized },
     select: { userId: true },
   });
 
@@ -47,8 +48,8 @@ export async function updateDisplayIdentityNickname(
         nicknameChangedAt: input.displayIdentity.nicknameChangedAt,
       },
       data: {
-        nickname: input.parsedNickname.nickname,
-        nicknameNormalized: input.parsedNickname.nicknameNormalized,
+        nickname: input.parsedNickname.value,
+        nicknameNormalized: input.parsedNickname.normalized,
         nicknameChangedAt: input.now,
       },
     });
@@ -80,7 +81,7 @@ export function isSameNickname(
   parsedNickname: ParsedDisplayIdentityNickname,
 ) {
   return (
-    displayIdentity.nickname === parsedNickname.nickname &&
-    displayIdentity.nicknameNormalized === parsedNickname.nicknameNormalized
+    displayIdentity.nickname === parsedNickname.value &&
+    displayIdentity.nicknameNormalized === parsedNickname.normalized
   );
 }

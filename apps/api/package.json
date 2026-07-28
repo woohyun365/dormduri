@@ -33,6 +33,7 @@
     "prisma:seed:reference": "pnpm --filter @repo/shared build && node prisma/seeds/reference/run.js",
     "prisma:seed:reference:dormitories": "node prisma/seeds/reference/dormitories/run.js",
     "prisma:seed:reference:colleges": "pnpm --filter @repo/shared build && node prisma/seeds/reference/colleges/run.js",
+    "prisma:seed:reference:moderation": "node prisma/seeds/reference/moderation/run.js",
     "test:vitest:unit": "pnpm run test",
     "test:vitest:integration": "pnpm run test:integration",
     "test:vitest:e2e": "pnpm run test:e2e",

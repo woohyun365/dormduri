@@ -61,7 +61,7 @@ describe('timestamp field integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
 
     const before = await prisma.user.findUniqueOrThrow({ where: { id: 'user-a' } });
@@ -106,13 +106,13 @@ describe('timestamp field integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     await prisma.seasonParticipant.update({
@@ -179,13 +179,13 @@ describe('timestamp field integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-updated-at',
@@ -212,7 +212,7 @@ describe('timestamp field integration', () => {
         entryType: 'MATCH',
         entryResult: 'MATCHED_SUCCESS',
         viewerRequested: true,
-        counterpartNicknameSnapshot: '유저B',
+        counterpartNicknameSnapshot: '유저나',
         matchedAt: new Date(),
         finalizedAt: new Date(),
         requestTerminalReason: 'ACCEPTED',
@@ -256,7 +256,7 @@ describe('timestamp field integration', () => {
 
     await prisma.userDisplayIdentity.update({
       where: { userId: 'user-a' },
-      data: { nickname: 'updated identity nickname' },
+      data: { nickname: '변경닉네임' },
     });
     await prisma.seasonParticipant.updateMany({
       where: { id: 'participant-a' },

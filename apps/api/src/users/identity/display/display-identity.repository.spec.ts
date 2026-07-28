@@ -17,8 +17,10 @@ const DISPLAY_IDENTITY = {
   updatedAt: new Date('2026-05-01T00:00:00.000Z'),
 };
 const PARSED_NICKNAME: ParsedDisplayIdentityNickname = {
-  nickname: '새닉네임',
-  nicknameNormalized: '새닉네임',
+  ok: true,
+  value: '새닉네임',
+  normalized: '새닉네임',
+  script: 'HANGUL',
 };
 
 describe('display identity repository', () => {

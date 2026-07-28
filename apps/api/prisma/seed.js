@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { hash as argonHash } from '@node-rs/argon2';
 import { seedDormitoryReferenceData } from './seeds/reference/dormitories/seed-dormitory-reference-data.js';
 import { seedCollegeReferenceData } from './seeds/reference/colleges/seed-college-reference-data.js';
-import { MODERATION_REFERENCE_ROWS } from './seed-data/reference/moderation-seed-data.js';
+import { seedModerationReferenceData } from './seeds/reference/moderation/seed-moderation-reference-data.js';
 import { SUPPORT_FAQ_REFERENCE_ROWS } from './seed-data/reference/support-faq-seed-data.js';
 import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './seed-data/reference/legal-document-seed-data.js';
 import {
@@ -70,40 +70,6 @@ function getSemesterDefaults(academicYear, semester) {
     preparationStartDate: `${academicYear}-07-01`,
     seasonEndDate: `${academicYear}-08-31`,
   };
-}
-
-async function seedModerationTerms(client) {
-  for (const row of MODERATION_REFERENCE_ROWS) {
-    await client.query(
-      `
-        INSERT INTO "ModerationTerm" (
-          id,
-          term,
-          "normalizedTerm",
-          category,
-          "matchMode",
-          surface,
-          "isActive",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          gen_random_uuid()::text,
-          $1,
-          $2,
-          $3::"ModerationTermCategory",
-          $4::"ModerationMatchMode",
-          $5::"ModerationSurface",
-          $6,
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT ("normalizedTerm", category, "matchMode", surface)
-        DO NOTHING
-      `,
-      [row.term, row.normalizedTerm, row.category, row.matchMode, row.surface, row.isActive],
-    );
-  }
 }
 
 async function seedSeasons(client) {
@@ -519,7 +485,7 @@ async function seed() {
   try {
     await seedDormitoryReferenceData(client);
     await seedCollegeReferenceData(client);
-    await seedModerationTerms(client);
+    await seedModerationReferenceData(client);
     await seedSupportFaq(client);
     await seedLegalDocuments(client);
     await seedSeasons(client);

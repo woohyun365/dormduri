@@ -23,6 +23,7 @@ describe('api contract spec boundary', () => {
       'api-contract-spec-boundary.spec.ts',
       'college-contract.spec.ts',
       'date-reference-contracts.spec.ts',
+      'display-identity-nickname-policy.spec.ts',
       'identity-reference-contracts.spec.ts',
       'legal-contract.spec.ts',
       'lifestyle-reference-contracts.spec.ts',

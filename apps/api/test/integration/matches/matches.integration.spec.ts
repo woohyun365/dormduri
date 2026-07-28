@@ -48,19 +48,19 @@ describe('MatchesService integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
   });
 
@@ -293,7 +293,7 @@ describe('MatchesService integration', () => {
       userId: 'user-d',
       participantId: 'participant-d',
       email: 'user-d@kangwon.ac.kr',
-      nickname: '유저D',
+      nickname: '유저라',
     });
 
     await prisma.conversationThread.createMany({

@@ -6,7 +6,7 @@ import {
 } from '@repo/shared/auth/policy';
 import {
   normalizeDisplayIdentityNickname,
-  validateDisplayIdentityNicknameStructure,
+  parseDisplayIdentityNickname,
 } from '@repo/shared/user/identity/display';
 
 export function normalizeEmail(email: string): string {
@@ -21,12 +21,12 @@ export function normalizeNickname(nickname: string): string {
   return normalizeDisplayIdentityNickname(nickname);
 }
 
-export function validatePasswordPolicy(password: string, email: string): string | null {
-  return validatePasswordStructure(password, email) || null;
+export function parseNickname(nickname: string) {
+  return parseDisplayIdentityNickname(nickname);
 }
 
-export function validateNicknameFormat(nickname: string): string | null {
-  return validateDisplayIdentityNicknameStructure(nickname) || null;
+export function validatePasswordPolicy(password: string, email: string): string | null {
+  return validatePasswordStructure(password, email) || null;
 }
 
 export function generateVerificationCode(): string {

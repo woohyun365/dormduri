@@ -1,10 +1,26 @@
-import { conflictError } from '../../platform/http/api-error.js';
+import { conflictError, unprocessableEntityError } from '../../platform/http/api-error.js';
+
+function fieldErrors(field: string, message: string) {
+  return {
+    fieldErrors: {
+      [field]: [message],
+    },
+  };
+}
 
 export const seasonParticipantsErrors = {
   seasonProfileDraftNotAllowed() {
     return conflictError(
       'SEASON_PROFILE_DRAFT_NOT_ALLOWED',
       '현재 상태에서는 시즌 프로필 draft를 작성하거나 수정할 수 없습니다.',
+    );
+  },
+
+  seasonProfileIntroModerationRejected(message: string) {
+    return unprocessableEntityError(
+      'SEASON_PROFILE_INTRO_MODERATION_REJECTED',
+      message,
+      fieldErrors('intro', message),
     );
   },
 

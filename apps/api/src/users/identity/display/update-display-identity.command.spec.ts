@@ -67,6 +67,27 @@ describe('UpdateDisplayIdentityCommand', () => {
     tx.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
   });
 
+  it('mixed-script nickname은 moderation 호출 전에 shared 구조 오류로 거절한다', () => {
+    expect(() => command.parseDisplayIdentityNickname('안녕hi')).toThrow();
+    try {
+      command.parseDisplayIdentityNickname('안녕hi');
+    } catch (error) {
+      expect(error).toMatchObject({
+        response: usersErrors.invalidNickname('한글과 영문은 함께 사용할 수 없어요.').getResponse(),
+      });
+    }
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+  });
+
+  it('NFKC canonical value와 lowercase key를 같은 parsed result로 반환한다', () => {
+    expect(command.parseDisplayIdentityNickname('  ＮiceＧuy  ')).toEqual({
+      ok: true,
+      value: 'NiceGuy',
+      normalized: 'niceguy',
+      script: 'LATIN',
+    });
+  });
+
   it('same nickname no-op은 lock/cooldown/moderation보다 먼저 idempotent하게 반환한다', async () => {
     const result = await command.applySelfServiceNicknameChange(
       {
@@ -90,7 +111,7 @@ describe('UpdateDisplayIdentityCommand', () => {
 
   it('moderation에서 거부된 nickname은 update/audit 없이 기존 error를 유지한다', async () => {
     moderationService.validateNicknamePolicy.mockResolvedValue(
-      '사용할 수 없는 단어가 포함되어 있습니다.',
+      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
     );
 
     await expect(
@@ -102,7 +123,7 @@ describe('UpdateDisplayIdentityCommand', () => {
       ),
     ).rejects.toMatchObject({
       response: usersErrors
-        .nicknameModerationRejected('사용할 수 없는 단어가 포함되어 있습니다.')
+        .nicknameModerationRejected('사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.')
         .getResponse(),
     });
 

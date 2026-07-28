@@ -12,7 +12,27 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
+  name: 'Allowed / Korean',
   args: { scenario: 'default' },
+};
+
+export const EnglishAllowed: Story = {
+  name: 'Allowed / English',
+  args: { scenario: 'englishAllowed' },
+};
+
+export const MixedScriptRejected: Story = {
+  name: 'Rejected / Mixed Script',
+  args: { scenario: 'mixedScript' },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: '계속하기' }));
+    await expect(canvas.getByText('한글과 영문은 함께 사용할 수 없어요.')).toBeVisible();
+  },
+};
+
+export const ModerationRejected: Story = {
+  name: 'Rejected / Moderation',
+  args: { scenario: 'moderationRejected' },
 };
 
 export const Validation: Story = {

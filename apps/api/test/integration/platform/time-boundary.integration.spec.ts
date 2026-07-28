@@ -146,14 +146,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       seasonId: 'season-boundary',
@@ -185,14 +185,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       seasonId: 'season-boundary',
@@ -225,14 +225,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     const result = await matchesService.createMatchRequest(authContext('user-a'), {
@@ -256,14 +256,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await prisma.conversationThread.create({
       data: {

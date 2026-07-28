@@ -45,7 +45,7 @@ export class ModerationService {
     const normalizedValue = normalizeForModeration(trimmed);
 
     if (terms.reserved.some((term) => matchesModerationTerm(normalizedValue, term))) {
-      return '사용할 수 없는 단어가 포함되어 있습니다.';
+      return getErrorMessage('nickname');
     }
 
     const blockedError = this.getBlockedTextError(normalizedValue, 'nickname', terms);

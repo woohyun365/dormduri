@@ -122,13 +122,13 @@ describe('ChatService integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
   });
 
@@ -142,7 +142,7 @@ describe('ChatService integration', () => {
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
 
     const databaseNow = await prisma.getDatabaseNow();
@@ -240,7 +240,7 @@ describe('ChatService integration', () => {
         entryResult: 'MATCHED_SUCCESS',
         viewerRequested: true,
         matchScore: 80,
-        counterpartNicknameSnapshot: '유저C',
+        counterpartNicknameSnapshot: '유저다',
         finalizedAt: databaseNow,
       },
     });
@@ -437,7 +437,7 @@ describe('ChatService integration', () => {
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-b-c-before-first-message',

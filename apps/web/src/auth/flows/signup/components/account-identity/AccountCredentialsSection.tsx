@@ -42,14 +42,14 @@ export function AccountCredentialsSection({
         ref={nicknameRef}
         label="닉네임"
         type="text"
-        placeholder="닉네임 2~8자"
+        placeholder="한글 또는 영문 2~8자"
         value={basicInfo.nickname}
         onChange={(value) => {
           onBasicInfoChange({ ...basicInfo, nickname: value });
           onNicknameErrorClear();
         }}
         error={nicknameError}
-        helper="다른 사용자에게 보이는 이름이에요."
+        helper="한글 또는 영문으로 2~8자 입력해 주세요. 숫자도 함께 사용할 수 있어요."
         maxLength={DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH}
         disabled={disabled}
         required

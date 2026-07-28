@@ -622,12 +622,12 @@ describe('Auth/users transaction rollback and race integration', () => {
         await seedUserWithDisplayIdentity({
           id: 'nickname-race-user-a',
           email: 'nickname-race-a@kangwon.ac.kr',
-          nickname: '기존A',
+          nickname: '기존가',
         });
         await seedUserWithDisplayIdentity({
           id: 'nickname-race-user-b',
           email: 'nickname-race-b@kangwon.ac.kr',
-          nickname: '기존B',
+          nickname: '기존나',
         });
 
         const first = owner.updateCurrentUser(authContext('nickname-race-user-a'), {
@@ -668,10 +668,10 @@ describe('Auth/users transaction rollback and race integration', () => {
         });
 
         const first = owner.updateCurrentUser(authContext('same-user-nickname-race'), {
-          displayIdentity: { nickname: '새닉A' },
+          displayIdentity: { nickname: '새닉가' },
         });
         const second = owner.updateCurrentUser(authContext('same-user-nickname-race'), {
-          displayIdentity: { nickname: '새닉B' },
+          displayIdentity: { nickname: '새닉나' },
         });
         await barrier.waitUntilAllBlocked();
         barrier.release();
@@ -689,7 +689,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
           where: { userId: 'same-user-nickname-race' },
         });
-        expect(['새닉A', '새닉B']).toContain(displayIdentity.nickname);
+        expect(['새닉가', '새닉나']).toContain(displayIdentity.nickname);
         expect(displayIdentity.nicknameChangedAt).not.toBeNull();
       },
     );

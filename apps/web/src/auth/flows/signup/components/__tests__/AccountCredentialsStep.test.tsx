@@ -86,7 +86,7 @@ describe('AccountCredentialsStep', () => {
     await waitFor(() => {
       expect(mockValidateSignupDraft).toHaveBeenCalledWith({
         email: 'test@kangwon.ac.kr',
-        nickname: '  테스터  ',
+        nickname: '테스터',
         password: 'Test1234',
       });
       expect(onNext).toHaveBeenCalledWith(
@@ -98,18 +98,30 @@ describe('AccountCredentialsStep', () => {
     });
   });
 
+  it('한글과 영문을 섞으면 API를 호출하기 전에 안내한다', async () => {
+    const { onNext } = renderWithState();
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '안녕hi' } });
+    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+
+    expect(await screen.findByText('한글과 영문은 함께 사용할 수 없어요.')).toBeInTheDocument();
+    expect(mockValidateSignupDraft).not.toHaveBeenCalled();
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
   it('백엔드 닉네임 정책 오류를 입력 필드에 표시한다', async () => {
     mockValidateSignupDraft.mockResolvedValue({
       success: false,
       error: '입력값을 다시 확인해주세요.',
-      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
     });
     const { onNext } = renderWithState();
     fillValidCredentials();
 
     fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
 
-    expect(await screen.findByText('사용할 수 없는 표현이 포함되어 있습니다.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.'),
+    ).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
   });
 

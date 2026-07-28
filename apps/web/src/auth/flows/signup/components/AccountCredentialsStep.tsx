@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, KeyRound } from 'lucide-react';
 import { validatePasswordConfirm } from '@/auth/model/authFormValidation';
 import { validatePasswordStructure as validatePassword } from '@repo/shared/auth/policy';
-import { validateDisplayIdentityNicknameStructure as validateNickname } from '@repo/shared/user/identity';
+import { parseDisplayIdentityNickname } from '@repo/shared/user/identity';
 import { StepHeader } from '@/auth/components/StepHeader';
 import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import { authApi } from '@/auth/api';
@@ -52,7 +52,8 @@ export function AccountCredentialsStep({
   }, [serverFieldErrors?.nickname, serverFieldErrors?.password]);
 
   const handleNext = async () => {
-    const nicknameFormatError = validateNickname(accountData.nickname);
+    const parsedNickname = parseDisplayIdentityNickname(accountData.nickname);
+    const nicknameFormatError = parsedNickname.ok ? '' : parsedNickname.message;
     const passwordStructureError = validatePassword(accountData.password, email);
     const confirmError = validatePasswordConfirm(accountData.password, accountData.passwordConfirm);
 
@@ -60,7 +61,7 @@ export function AccountCredentialsStep({
     setPasswordError(passwordStructureError);
     setPasswordConfirmError(confirmError);
 
-    if (nicknameFormatError) {
+    if (!parsedNickname.ok) {
       focusAndScroll(nicknameRef.current);
       return;
     }
@@ -76,7 +77,7 @@ export function AccountCredentialsStep({
     setIsCheckingPolicy(true);
     const validation = await authApi.validateSignupDraft({
       email,
-      nickname: accountData.nickname,
+      nickname: parsedNickname.value,
       password: accountData.password,
     });
     setIsCheckingPolicy(false);
@@ -99,7 +100,7 @@ export function AccountCredentialsStep({
 
     const nextAccountData = {
       ...accountData,
-      nickname: accountData.nickname.trim(),
+      nickname: parsedNickname.value,
     };
     onAccountDataChange(nextAccountData);
     await onNext(nextAccountData);

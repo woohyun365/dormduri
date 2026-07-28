@@ -248,12 +248,18 @@ function createSeasonParticipantsServiceTestKitImpl() {
       .fn()
       .mockResolvedValue({ canceledPendingMatchRequests: 0 }),
   };
+  const seasonProfileIntroModeration = {
+    moderateSeasonProfileIntro: vi
+      .fn()
+      .mockImplementation((intro: string) => Promise.resolve(intro.trim())),
+  };
   const writeOwner = createSeasonParticipantWriteOwner({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
     dormitorySelectionCatalog: dormitoriesService,
     chatThreadWithdrawal,
     matchParticipantWithdrawal,
+    seasonProfileIntroModeration,
   });
   const service = new SeasonParticipantsService(
     writeOwner,
@@ -323,6 +329,7 @@ function createSeasonParticipantsServiceTestKitImpl() {
     dormitoriesService,
     chatThreadWithdrawal,
     matchParticipantWithdrawal,
+    seasonProfileIntroModeration,
     tx,
     txCampusMasterFindUnique,
     txSeasonFindMany,

@@ -1,7 +1,4 @@
-import {
-  normalizeDisplayIdentityNickname,
-  validateDisplayIdentityNicknameStructure,
-} from '@repo/shared/user/identity/display';
+import { parseDisplayIdentityNickname as parseSharedDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { ModerationService } from '../../moderation/moderation.service.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
@@ -62,9 +59,9 @@ export function createOverrideDisplayIdentityNicknameCommand(
   async function overrideDisplayIdentityNicknameForPolicyEnforcement(
     input: DisplayIdentityNicknameOverrideInput,
   ): Promise<DisplayIdentityNicknameOverrideResult> {
-    const now = await deps.prisma.getDatabaseNow();
     const parsedNickname = parseDisplayIdentityNickname(input.nickname);
-    await assertNicknamePolicyAccepted(parsedNickname.nickname);
+    const now = await deps.prisma.getDatabaseNow();
+    await assertNicknamePolicyAccepted(parsedNickname.value);
     let auditEventId: string | null = null;
 
     await deps.prisma.runSerializableTransaction(async (tx) => {
@@ -105,8 +102,8 @@ export function createOverrideDisplayIdentityNicknameCommand(
         actorId: input.actorId,
         previousNickname: displayIdentity.nickname,
         previousNicknameNormalized: displayIdentity.nicknameNormalized,
-        nextNickname: parsedNickname.nickname,
-        nextNicknameNormalized: parsedNickname.nicknameNormalized,
+        nextNickname: parsedNickname.value,
+        nextNicknameNormalized: parsedNickname.normalized,
         seasonId: nicknamePolicy.currentRegisteredParticipant?.seasonId ?? null,
         participantId: nicknamePolicy.currentRegisteredParticipant?.id ?? null,
         seasonProfileSnapshotUpdated,
@@ -122,8 +119,8 @@ export function createOverrideDisplayIdentityNicknameCommand(
 
     return {
       userId: input.userId,
-      nickname: parsedNickname.nickname,
-      nicknameNormalized: parsedNickname.nicknameNormalized,
+      nickname: parsedNickname.value,
+      nicknameNormalized: parsedNickname.normalized,
       nicknameChangedAt: now.toISOString(),
       override: {
         actorId: input.actorId,
@@ -148,16 +145,12 @@ export function createOverrideDisplayIdentityNicknameCommand(
 }
 
 function parseDisplayIdentityNickname(nickname: string): ParsedDisplayIdentityNickname {
-  const trimmedNickname = nickname.trim();
-  const formatError = validateDisplayIdentityNicknameStructure(trimmedNickname);
-  if (formatError) {
-    throw usersErrors.invalidNickname(formatError);
+  const parsedNickname = parseSharedDisplayIdentityNickname(nickname);
+  if (!parsedNickname.ok) {
+    throw usersErrors.invalidNickname(parsedNickname.message);
   }
 
-  return {
-    nickname: trimmedNickname,
-    nicknameNormalized: normalizeDisplayIdentityNickname(trimmedNickname),
-  };
+  return parsedNickname;
 }
 
 async function updateRegisteredSeasonProfileSnapshot(
@@ -172,8 +165,8 @@ async function updateRegisteredSeasonProfileSnapshot(
   const snapshotUpdate = await tx.seasonParticipantProfile.updateMany({
     where: { participantId },
     data: {
-      nicknameSnapshot: parsedNickname.nickname,
-      nicknameNormalizedSnapshot: parsedNickname.nicknameNormalized,
+      nicknameSnapshot: parsedNickname.value,
+      nicknameNormalizedSnapshot: parsedNickname.normalized,
     },
   });
 

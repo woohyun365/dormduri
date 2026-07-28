@@ -52,13 +52,13 @@ describe('MatchesService unmatch integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-match-1',
@@ -320,7 +320,7 @@ describe('MatchesService unmatch integration', () => {
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
     await prisma.conversationThread.create({
       data: {
@@ -382,13 +382,13 @@ describe('MatchesService unmatch integration', () => {
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-d',
       participantId: 'participant-d',
       email: 'user-d@kangwon.ac.kr',
-      nickname: '유저D',
+      nickname: '유저라',
     });
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-match-c-d',

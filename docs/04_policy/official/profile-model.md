@@ -36,11 +36,13 @@
 
 | 항목         | 정책                                                                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 길이         | 2자 이상 8자 이하                                                                                                                                                                                       |
-| 허용 문자    | 한글(완성형), 영문, 숫자                                                                                                                                                                                |
-| 공백         | 제출 시 trim                                                                                                                                                                                            |
-| 중복         | 서비스 전체에서 case-insensitive unique                                                                                                                                                                 |
-| 예약어       | 차단                                                                                                                                                                                                    |
+| 길이         | NFKC canonicalization 이후 2자 이상 8자 이하                                                                                                                                                            |
+| 허용 문자    | 완성형 한글 또는 ASCII 영문 중 한 문자 체계만 사용. 숫자는 함께 사용할 수 있지만 숫자만으로 구성할 수 없음                                                                                              |
+| 혼합 문자    | `안녕hi`, `헬로world`처럼 한글과 영문을 섞은 닉네임은 moderation 전에 구조 오류로 거절                                                                                                                  |
+| 공백         | 앞뒤 공백은 제거하며 내부 공백·구두점·기호·emoji·단독 자모는 허용하지 않음                                                                                                                              |
+| 중복         | NFKC canonical value의 lowercase normalized key를 기준으로 서비스 전체 unique. DB `nicknameNormalized` unique constraint가 경쟁 상태의 최종 방어선                                                      |
+| moderation   | 구조 검증을 통과한 뒤 PostgreSQL active moderation term을 적용. 사용자 오류에는 탐지된 금칙어를 노출하지 않음                                                                                           |
+| 예약어       | 서비스 운영·tombstone 표시와 혼동되는 닉네임은 차단                                                                                                                                                     |
 | 변경 주기    | 30일 1회. 단, current season에서 현재 registration 완료 상태이면 일반 사용자 닉네임 변경 action은 registration snapshot lock으로 거부한다. 현재 API error code는 `NICKNAME_LOCKED_BY_SEASON`을 유지한다 |
 | lock 해제    | registration 전 draft/selection-only, current season 없음/OFF_SEASON, 철회/거절 상태는 registration snapshot lock 대상이 아니며 기존 30일/중복/예약어 정책만 따른다                                     |
 | 제재 시 예외 | 신고/제재/개인정보 노출 대응을 위한 운영자 override path에서 임시 닉네임 대체와 30일 cooldown / registration snapshot lock 우회가 가능하다. 일반 사용자 API에는 노출하지 않는다                         |
@@ -51,6 +53,12 @@
 | ---- | --------- | ------------------------------ |
 | 한글 | 포함 검사 | 관리자, 운영자, 운영팀, 테스트 |
 | 영문 | 정확 일치 | admin, system, test, demo      |
+
+### canonicalization과 이력
+
+- Shared `parseDisplayIdentityNickname`이 canonical display value, normalized key, 문자 체계를 함께 결정한다.
+- 회원가입, 사용자 변경, 운영자 정책 변경은 같은 parser와 moderation owner를 사용한다.
+- 새 정책은 신규 가입과 이후 변경부터 적용한다. 이미 확정된 시즌 프로필·매칭 이력의 닉네임 snapshot은 당시 표시값이므로 일괄 재작성하지 않는다.
 
 ## SeasonParticipantProfile 구조
 
@@ -279,3 +287,4 @@ Signup/auth는 profile orchestration을 하지 않는다. 가입 후 서비스 �
 | 2026-05-30 | draft/registration 준비 UI의 account 표시 source를 명확화했다. 닉네임은 `CurrentUserResponse.displayIdentity`, 단과대/출생연도는 `CurrentUserResponse.academicIdentity`를 사용하며 `SeasonProfileDraftResponse`에는 account identity를 포함하지 않는다고 명시했다                                                                                                                                                                                                              | #195           |
 | 2026-05-30 | `birthYear` correction은 1회 카운터가 아니라 최초 `SEASON_REGISTRATION` snapshot 존재 여부 기준이며, registration finalize 전에는 횟수 제한 없이 account setup mistake correction을 허용한다고 명시했다                                                                                                                                                                                                                                                                        | #195           |
 | 2026-06-04 | Auth 제품 정책 기준을 반영했다. auth/signup은 lifestyle/condition/intro parser를 소유하지 않고, lifestyle validation owner는 shared lifestyle contract와 season-participants/profile domain이라고 명시했다                                                                                                                                                                                                                                                                     | Auth 제품 완성 |
+| 2026-07-28 | 닉네임을 NFKC canonicalization 이후 한글 또는 영문 단일 문자 체계로 제한하고, 숫자-only·mixed-script를 구조 오류로 분리했다. Shared parser → DB moderation → normalized unique constraint 순서와 과거 season snapshot 비재작성 원칙을 명시했다                                                                                                                                                                                                                                 | #299           |

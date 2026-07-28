@@ -1,8 +1,5 @@
 import type { UpdateCurrentUserDisplayIdentityMutationResult } from '@repo/shared/user';
-import {
-  normalizeDisplayIdentityNickname,
-  validateDisplayIdentityNicknameStructure,
-} from '@repo/shared/user/identity/display';
+import { parseDisplayIdentityNickname as parseSharedDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { ModerationService } from '../../../moderation/moderation.service.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
@@ -28,16 +25,12 @@ export interface UpdateDisplayIdentityCommandDeps {
 
 export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCommandDeps) {
   function parseDisplayIdentityNickname(nickname: string): ParsedDisplayIdentityNickname {
-    const trimmedNickname = nickname.trim();
-    const formatError = validateDisplayIdentityNicknameStructure(trimmedNickname);
-    if (formatError) {
-      throw usersErrors.invalidNickname(formatError);
+    const parsedNickname = parseSharedDisplayIdentityNickname(nickname);
+    if (!parsedNickname.ok) {
+      throw usersErrors.invalidNickname(parsedNickname.message);
     }
 
-    return {
-      nickname: trimmedNickname,
-      nicknameNormalized: normalizeDisplayIdentityNickname(trimmedNickname),
-    };
+    return parsedNickname;
   }
 
   async function applySelfServiceNicknameChange(
@@ -73,7 +66,7 @@ export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCo
       throw usersErrors.nicknameCooldownActive();
     }
 
-    await assertNicknamePolicyAccepted(parsedNickname.nickname);
+    await assertNicknamePolicyAccepted(parsedNickname.value);
     await assertNicknameAvailableForUser(tx, parsedNickname, txUser.id);
     await updateDisplayIdentityNickname(tx, {
       userId: txUser.id,
@@ -89,8 +82,8 @@ export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCo
       actorId: txUser.id,
       previousNickname: displayIdentity.nickname,
       previousNicknameNormalized: displayIdentity.nicknameNormalized,
-      nextNickname: parsedNickname.nickname,
-      nextNicknameNormalized: parsedNickname.nicknameNormalized,
+      nextNickname: parsedNickname.value,
+      nextNicknameNormalized: parsedNickname.normalized,
       changedAt: now,
     });
 

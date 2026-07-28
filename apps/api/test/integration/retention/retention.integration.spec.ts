@@ -88,7 +88,7 @@ describe('RetainedIdentity integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
   });
 
@@ -488,8 +488,8 @@ describe('RetainedIdentity integration', () => {
           payloadSchemaVersion: 1,
           plaintext: {
             schemaVersion: 1,
-            previousNickname: '유저A',
-            nextNickname: '유저A-변경',
+            previousNickname: '유저가',
+            nextNickname: '유저가-변경',
           },
           aad: 'knu-roommate:test:nickname-disposal-test',
           retainedAt: deletedAt,
@@ -550,7 +550,7 @@ describe('RetainedIdentity integration', () => {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     const deletedAt = new Date('2026-05-12T00:00:00.000Z');
@@ -577,7 +577,7 @@ describe('RetainedIdentity integration', () => {
         entryType: 'MATCH',
         entryResult: 'MATCHED_SUCCESS',
         viewerRequested: true,
-        counterpartNicknameSnapshot: '유저B',
+        counterpartNicknameSnapshot: '유저나',
         matchedAt: new Date('2026-05-01T00:00:00.000Z'),
         finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
       },
@@ -672,7 +672,7 @@ describe('RetainedIdentity integration', () => {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     const deletedAt = new Date('2026-05-12T00:00:00.000Z');
@@ -700,7 +700,7 @@ describe('RetainedIdentity integration', () => {
         actorId: 'user-a',
         previousNickname: '이전A',
         previousNicknameNormalized: '이전a',
-        nextNickname: '유저A',
+        nextNickname: '유저가',
         nextNicknameNormalized: '유저a',
         changedAt: new Date('2026-05-01T00:00:00.000Z'),
       },
@@ -739,7 +739,7 @@ describe('RetainedIdentity integration', () => {
           viewerRelationshipStyleSnapshot: 'CLOSE',
           counterpartBedtimeSnapshot: 'BETWEEN_22_24',
           counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
-          counterpartNicknameSnapshot: '유저B',
+          counterpartNicknameSnapshot: '유저나',
           matchedAt: new Date('2026-05-01T00:00:00.000Z'),
           finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
         },
@@ -761,7 +761,7 @@ describe('RetainedIdentity integration', () => {
           counterpartWakeTimeSnapshot: 'BETWEEN_07_08',
           counterpartSleepHabitSnapshot: 'NONE',
           counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
-          counterpartNicknameSnapshot: '유저A',
+          counterpartNicknameSnapshot: '유저가',
           matchedAt: new Date('2026-05-01T00:00:00.000Z'),
           finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
         },
@@ -831,7 +831,7 @@ describe('RetainedIdentity integration', () => {
       viewerSmokingToleranceSnapshot: null,
       viewerBedtimeSnapshot: null,
       viewerWakeTimeSnapshot: null,
-      counterpartNicknameSnapshot: '유저B',
+      counterpartNicknameSnapshot: '유저나',
       counterpartRedactedAt: null,
       matchScore: null,
     });
@@ -1085,7 +1085,7 @@ describe('RetainedIdentity integration', () => {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     const deletedAt = new Date('2026-05-12T00:00:00.000Z');
