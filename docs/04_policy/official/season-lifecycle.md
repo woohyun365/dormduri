@@ -102,47 +102,63 @@ seasonEnd < 현재일                                → OFF_SEASON
 - 매칭 종료와 시즌 종료를 분리해 운영/정리 절차를 명확히 할 수 있다.
 - 상세 결정 과정: `docs/03_planning/sprint-6/112-season-model-redesign.md`, `docs/03_planning/sprint-7/194-campus-dormitories-seasons-api.md`
 
-## 지원 건물
+## 2026 생활관 reference와 매칭 지원 범위
 
-### 포함 건물
+생활관 reference는 학교의 **현재 운영 건물**과 서비스의 **매칭 지원 여부**를 분리한다.
 
-| 건물   | 인실  | 비고              |
-| ------ | ----- | ----------------- |
-| 퇴계관 | 3인실 | 남                |
-| 다산관 | 2인실 | 남, 향토학사 포함 |
-| 예지원 | 2인실 | 여, 향토학사 포함 |
-| 난지원 | 3인실 | 여                |
-| 국지원 | 3인실 | 여                |
-| 새롬관 | 2인실 | 남/여             |
-| 이룸관 | 2인실 | 남/여             |
-| 다온관 | 2인실 | 남/여             |
+- `Dormitory.isActive`: 학교가 현재 운영하는 생활관 master인지 나타낸다.
+- `Dormitory.matchingSupported`: 공개 탐색·시즌 등록·매칭에 사용할 수 있는 생활관인지 나타낸다.
+- `SeasonDormitoryOperation.isOperated`: 특정 시즌에 실제로 매칭을 여는지 나타낸다.
+- 캠퍼스와 생활관 reference가 준비되어도 해당 캠퍼스의 현재 `Season`과 운영 생활관 row가 없으면 매칭 action은 열리지 않는다.
 
-### 제외 건물
+### 춘천캠퍼스
 
-| 건물           | 제외 사유                            |
-| -------------- | ------------------------------------ |
-| 율곡관         | 법전원 전용                          |
-| 국제생활관     | 외국인 중심, 생활 조건 상이          |
-| 국제인재양성관 | 외국인/지자체 추천 중심, 수요 불명확 |
+| 생활관         | 제품 기준 인실 | 성별  | 매칭 지원 | 비고                                     |
+| -------------- | -------------- | ----- | --------- | ---------------------------------------- |
+| 다산관         | 2인실          | 남    | 지원      | 2026년 2학기 일부 1인실 시범 운영은 제외 |
+| 예지원         | 2인실          | 여    | 지원      | 2026년 2학기 일부 1인실 시범 운영은 제외 |
+| 국제생활관     | 2인실          | 남/여 | 미지원    | 외국인·가족실 등 제한 코호트             |
+| 국제인재양성관 | 2인실          | 남/여 | 미지원    | 외국인·추천 코호트                       |
+| 새롬관         | 2인실          | 남/여 | 지원      | 1인 장애인실·시범 운영 호실은 제외       |
+| 이룸관         | 2인실          | 남/여 | 지원      | 1인 장애인실·가족실은 제외               |
+| 다온관         | 2인실          | 남/여 | 지원      | 1인 장애인실·법전원 전용 호실은 제외     |
 
-### 방 유형 유추
+### 삼척캠퍼스
 
-유저가 별도로 2인실/3인실을 선택하지 않는다.
-건물 DB가 방 유형을 결정한다.
+| 생활관 | 제품 기준 인실 | 성별  | 매칭 지원 | 비고                        |
+| ------ | -------------- | ----- | --------- | --------------------------- |
+| 해솔관 | 2인실          | 남/여 | 지원      | 원룸형 2인실                |
+| 두타관 | 2인실          | 남/여 | 지원      | 6인 세대 안의 2인 침실 기준 |
+| 언장관 | 2인실          | 남    | 지원      | 복도식 2인실                |
+
+### 도계캠퍼스
+
+| 생활관           | 제품 기준 인실 | 성별  | 매칭 지원 | 비고                          |
+| ---------------- | -------------- | ----- | --------- | ----------------------------- |
+| 가온관           | 2인실          | 남/여 | 지원      | 2인 공용 세대                 |
+| 도원관           | 2인실          | 남/여 | 지원      | 4·6인 세대 안의 2인 침실 기준 |
+| 황조관(2인 세대) | 2인실          | 남/여 | 지원      | 1인 침실 두 개를 쓰는 세대    |
+| 황조관(3인 세대) | 3인실          | 남/여 | 지원      | 1인 침실 세 개를 쓰는 세대    |
+
+황조관은 학교가 2인 세대와 3인 세대를 별도 비용 유형으로 운영하므로 선택 목록에서도 안정적인 ID를 분리한다.
+학생 대상 매칭 관계는 인실과 관계없이 pair-only이며, 3인 세대에서도 서비스가 세 명의 그룹 확정을 보장하지 않는다.
+
+### reference 해석 원칙
+
+- `roomType`은 매칭 제품에서 선택 가능한 표준 호실·세대 유형이다.
+- 장애인실, 가족실, 법전원·외국인·추천 코호트, 일시적인 1인실 시범 운영은 일반 학생 매칭 목록으로 확장하지 않는다.
+- 학교 운영 변경은 기존 row 삭제가 아니라 `isActive = false`로 비활성화해 과거 시즌 FK와 history를 보존한다.
+- 사용자용 선택 목록은 `isActive + matchingSupported + current SeasonDormitoryOperation.isOperated`를 모두 만족해야 한다.
 
 ### 사용자용 건물 master / 선택 목록 / 안내 노출 기준
 
 - 사용자용 건물 master directory는 정책상 지원 건물 기준으로 노출할 수 있다.
 - 사용자용 건물 **선택 목록**은 **current season의 운영 기숙사만** 노출한다.
 - current season row는 있으나 `SeasonDormitoryOperation.isOperated = true` row가 0개면 선택 목록은 빈 배열이어야 하며, 사용자 상태 해석도 최대 `SEASON_OPEN`까지만 허용한다.
-- 건물 상세에는 최소한 건물명, 캠퍼스, 인실, 성별 정책이 포함되어야 한다.
-- 건물 안내에는 최소한 아래 정보가 포함되어야 한다.
-  - 화장실 구조
-  - 편의시설
-  - 시설/식당 연락처
-  - 캠퍼스 공통 생활 규칙
-  - 비상 연락처
-  - 공식 홈페이지
+- 건물 상세에는 매칭 판단에 필요한 건물명, 캠퍼스, 인실, 성별 정책이 포함되어야 한다.
+- 시설 규정, 편의시설, 시설·식당 연락처, 비상 연락처는 매칭 운영의 선행 조건이 아니다.
+- 학교 안내가 필요한 경우에는 검증된 공식 홈페이지 링크를 별도 보조 정보로 제공할 수 있지만,
+  해당 정보의 누락이 캠퍼스·생활관 reference나 시즌 매칭 action을 닫아서는 안 된다.
 
 ## 상태별 기능 허용 범위
 
@@ -362,7 +378,6 @@ D-7/D-3 안내는 별도 상태(`APPROACHING_END`)가 아닌 `SEASON_MATCHING` �
 
 | 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                          | 관련 이슈                |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| 2026-07-14 | 학생 대상 매칭 제품 범위를 pair-only로 확정한 matching-lifecycle 정책에 맞춰 시즌 종료 대상 확정 관계를 `ACTIVE`로 한정했다. 3인실 room capacity는 기숙사 metadata로 유지하되 group matching capability로 해석하지 않는다.                                                                                                                                         | Web MatchingTab refactor |
 | 2026-03-17 | 시즌 전환 테이블에 "재신청 차단/시도 횟수: 초기화" 추가                                                                                                                                                                                                                                                                                                            | #151                     |
 | 2026-03-20 | 시즌별 기능 테이블: 신고·차단 행 추가, "같은 건물 배정 유저만" → "동일 건물 (건물 단위 격리)" 명확화, 비시즌 "읽기 전용" → "매칭 기능 비활성"                                                                                                                                                                                                                      | Sprint 6                 |
 | 2026-03-20 | 시즌 전환 테이블에 "사용자 차단(Block) 목록: 유지" 행 추가. "재신청 차단" → "재신청 제한"으로 용어 명확화                                                                                                                                                                                                                                                          | Sprint 6                 |
@@ -389,9 +404,11 @@ D-7/D-3 안내는 별도 상태(`APPROACHING_END`)가 아닌 `SEASON_MATCHING` �
 | 2026-05-25 | 시즌 종료와 계정 삭제 RRPD transformation을 분리하고, 삭제 수락 시 nickname/profile/match/chat 원문 payload가 retained vault로 이동한다는 기준을 추가                                                                                                                                                                                                              | #195                     |
 | 2026-05-26 | `SEASON_POST_MATCH` summary browse를 viewer 등록 여부와 무관한 `CAMPUS_MERGED` read-only scope로 정리하고, detail/score/action은 capability별로 닫는다고 명시                                                                                                                                                                                                      | #195                     |
 | 2026-05-27 | `SEASON_POST_MATCH`를 단일 read-only phase로 부르지 않고 action-closed browse/result-read context/read-only storage state를 분리해 해석하도록 정리                                                                                                                                                                                                                 | #195                     |
-| 2026-07-09 | `SEASON_OPEN`/`SEASON_MATCHING`의 API 기본 roommate-search scope를 `CAMPUS_MERGED`로 통일하고, 미등록 viewer도 `SAME_BUILDING_ONLY` toggle에서 등록 안내 gate/empty list를 볼 수 있게 정리. Frontend 등록 완료 viewer는 `SAME_BUILDING_ONLY`를 먼저 요청할 수 있으며 live `ActiveMatch` viewer의 same-building list는 summary-only/action-closed로 유지한다고 명시 | #195                     |
 | 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                                                                                                                                                                                                                                | #195                     |
 | 2026-06-01 | Issue #198 Phase 0 기준으로 시즌 상태 변화와 chat realtime 통지의 authority 경계를 추가했다. `roomSelectionDate`, `seasonEndDate`, 계정 삭제/비식별화에 따른 thread update/archive/tombstone 통지는 outbox/replay로 동기화하되, write/read 권한 결정은 시즌·채팅 DB 상태와 REST snapshot이 소유한다고 명시했다                                                     | #198                     |
 | 2026-06-05 | API 구현 cleanup에서 season participant backfill owner를 lifecycle command로 이동했지만, backfill은 여전히 current season eligible verified users에 participant row를 보강하고 lifecycle event는 audit trace로만 남긴다는 정책을 유지한다고 명시했다                                                                                                               | #222 / #224              |
 | 2026-06-05 | season operations override는 current state 계산 override이며 audit/history 원장이 아니고, future row/current row/운영 campus semantics는 유지해야 한다고 명시했다. #209 cache는 request-level 최적화일 뿐 Postgres source of truth를 대체하지 않는다고 정리했다                                                                                                    | #208 / #209              |
 | 2026-06-08 | 시즌 종료 시 bookmark cleanup owner와 시즌 안내의 in-app notification primary/Push 제외 경계를 notification-inbox.md와 정합화했다                                                                                                                                                                                                                                  | #196 / #220              |
+| 2026-07-09 | `SEASON_OPEN`/`SEASON_MATCHING`의 API 기본 roommate-search scope를 `CAMPUS_MERGED`로 통일하고, 미등록 viewer도 `SAME_BUILDING_ONLY` toggle에서 등록 안내 gate/empty list를 볼 수 있게 정리. Frontend 등록 완료 viewer는 `SAME_BUILDING_ONLY`를 먼저 요청할 수 있으며 live `ActiveMatch` viewer의 same-building list는 summary-only/action-closed로 유지한다고 명시 | #195                     |
+| 2026-07-14 | 학생 대상 매칭 제품 범위를 pair-only로 확정한 matching-lifecycle 정책에 맞춰 시즌 종료 대상 확정 관계를 `ACTIVE`로 한정했다. 3인실 room capacity는 기숙사 metadata로 유지하되 group matching capability로 해석하지 않는다.                                                                                                                                         | Web MatchingTab refactor |
+| 2026-07-28 | 2026 공식 자료 기준으로 춘천·삼척·도계 생활관 master를 정리하고, 학교 운영 여부(`isActive`), 제품 매칭 지원 여부(`matchingSupported`), 시즌별 운영 여부(`SeasonDormitoryOperation.isOperated`)를 분리했다. 황조관 2·3인 세대와 제한 코호트 생활관의 해석 원칙을 추가했다.                                                                                          | Campus reference data    |

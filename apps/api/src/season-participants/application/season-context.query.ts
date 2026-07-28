@@ -22,6 +22,12 @@ const seasonContextSelect = {
   overrideStartedAt: true,
   overrideEndsAt: true,
   dormitoryOperations: {
+    where: {
+      dormitory: {
+        isActive: true,
+        matchingSupported: true,
+      },
+    },
     select: {
       dormitoryId: true,
       isOperated: true,

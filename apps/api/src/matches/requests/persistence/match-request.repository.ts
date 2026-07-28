@@ -216,6 +216,11 @@ export class MatchRequestRepository {
             seasonId: input.seasonId,
             dormitoryId: requester.dormitoryId,
           },
+          isOperated: true,
+          dormitory: {
+            isActive: true,
+            matchingSupported: true,
+          },
         },
         select: {
           isOperated: true,
@@ -239,7 +244,7 @@ export class MatchRequestRepository {
         receiverReady,
         requesterDormitoryId: requester.dormitoryId,
         receiverDormitoryId: receiver.dormitoryId,
-        operationOperated: operation?.isOperated === true,
+        operationOperated: operation !== null,
         roomSelectionOpen: formatKstDate(now) <= formatKstDate(operation?.roomSelectionDate ?? now),
         registrationSnapshotCount: snapshotCount,
       })

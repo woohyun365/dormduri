@@ -15,6 +15,10 @@ function createPrismaMock() {
   };
 }
 
+function objectContaining(shape: Record<string, unknown>): unknown {
+  return expect.objectContaining(shape) as unknown;
+}
+
 describe('HomeDashboardNextSeasonQuery', () => {
   const prisma = createPrismaMock();
   const query = new HomeDashboardNextSeasonQuery(prisma as never);
@@ -76,8 +80,19 @@ describe('HomeDashboardNextSeasonQuery', () => {
       ],
     });
     expect(prisma.season.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
+      objectContaining({
         where: { campusCode: 'CHUNCHEON' },
+        select: objectContaining({
+          dormitoryOperations: objectContaining({
+            where: {
+              isOperated: true,
+              dormitory: {
+                isActive: true,
+                matchingSupported: true,
+              },
+            },
+          }),
+        }),
       }),
     );
   });

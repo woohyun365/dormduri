@@ -6,13 +6,7 @@ describe('DormitoriesService', () => {
     getDormitories: vi.fn(),
     getDormitoryById: vi.fn(),
   };
-  const dormitoryGuideQuery = {
-    getDormitoryGuide: vi.fn(),
-  };
-  const service = new DormitoriesService(
-    dormitoryCatalogQuery as never,
-    dormitoryGuideQuery as never,
-  );
+  const service = new DormitoriesService(dormitoryCatalogQuery as never);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,14 +28,5 @@ describe('DormitoriesService', () => {
     await expect(service.getDormitoryById('dasan')).resolves.toBe(response);
 
     expect(dormitoryCatalogQuery.getDormitoryById).toHaveBeenCalledWith('dasan');
-  });
-
-  it('public guide는 DormitoryGuideQuery로 위임한다', async () => {
-    const response = { dormitory: { id: 'dasan' }, guide: {} };
-    dormitoryGuideQuery.getDormitoryGuide.mockResolvedValue(response);
-
-    await expect(service.getDormitoryGuide('dasan')).resolves.toBe(response);
-
-    expect(dormitoryGuideQuery.getDormitoryGuide).toHaveBeenCalledWith('dasan');
   });
 });

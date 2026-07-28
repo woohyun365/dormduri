@@ -292,13 +292,6 @@ const expectedRoutes: ExpectedRoute[] = [
     access: 'public',
   },
   {
-    controller: DormitoriesController,
-    handler: 'getDormitoryGuide',
-    method: RequestMethod.GET,
-    path: 'api/dormitories/:id/guide',
-    access: 'public',
-  },
-  {
     controller: CurrentSeasonProfileController,
     handler: 'getCurrentSeasonProfile',
     method: RequestMethod.GET,

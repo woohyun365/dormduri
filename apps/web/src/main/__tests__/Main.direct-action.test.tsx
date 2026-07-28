@@ -49,10 +49,6 @@ vi.mock('../components/BuildingSelectModal', () => ({
   ),
 }));
 
-vi.mock('../components/DormitoryGuideSheet', () => ({
-  DormitoryGuideSheet: () => null,
-}));
-
 vi.mock('../tabs/home/HomeTab', () => ({
   default: ({
     onOpenBuildingSelect,
@@ -90,15 +86,6 @@ vi.mock('../tabs/matching/MatchingTab', () => ({
 
 vi.mock('../tabs/chat/ChatTab', () => ({
   default: () => null,
-}));
-
-vi.mock('@/main/hooks/useMainLocalOnboardingState', () => ({
-  useMainLocalOnboardingState: () => ({
-    hasSeenGuide: true,
-    markGuideSeen: vi.fn(),
-    hasSeenTooltip: vi.fn(() => true),
-    markTooltipSeen: vi.fn(),
-  }),
 }));
 
 vi.mock('../hooks/useMainSocialState', () => ({

@@ -58,21 +58,16 @@ function makeUser(overrides: Partial<UserProfile> = {}): UserProfile {
 function setup(userOverrides: Partial<UserProfile> = {}) {
   const toasts: string[] = [];
   const showToast = (msg: string) => toasts.push(msg);
-  const seenGuides = new Set<string>();
-  const hasSeenGuide = (id: string) => seenGuides.has(id);
-  const markGuideSeen = (id: string) => seenGuides.add(id);
   const initialUser = makeUser(userOverrides);
 
   const hook = renderHook(() =>
     useMainProfileState(initialUser, {
       showToast,
-      hasSeenGuide,
-      markGuideSeen,
       dormitories,
     }),
   );
 
-  return { hook, toasts, seenGuides };
+  return { hook, toasts };
 }
 
 describe('useMainProfileState — 건물 선택', () => {
@@ -92,32 +87,6 @@ describe('useMainProfileState — 건물 선택', () => {
 
     expect(hook.result.current.user.dormitoryId).toBeNull();
     expect(toasts).toContain('건물 미배정으로 설정했어요');
-  });
-
-  it('실제 건물 선택 시 가이드가 표시되지 않는다', () => {
-    const { hook } = setup();
-
-    act(() => hook.result.current.handleSelectDormitory('saerom'));
-    expect(hook.result.current.showGuide).toBe(false);
-  });
-});
-
-describe('useMainProfileState — 가이드', () => {
-  it('handleShowGuide로 가이드를 열 수 있다', () => {
-    const { hook } = setup();
-
-    act(() => hook.result.current.handleShowGuide());
-    expect(hook.result.current.showGuide).toBe(true);
-  });
-
-  it('handleCloseGuide로 가이드를 닫고 markGuideSeen이 호출된다', () => {
-    const { hook, seenGuides } = setup({ dormitoryId: 'dasan' });
-
-    act(() => hook.result.current.handleShowGuide());
-    act(() => hook.result.current.handleCloseGuide());
-
-    expect(hook.result.current.showGuide).toBe(false);
-    expect(seenGuides.has('dasan')).toBe(true);
   });
 });
 
@@ -143,10 +112,10 @@ describe('useMainProfileState — 프로필 편집', () => {
 
   it('추가정보 변경 시 user에 반영된다', () => {
     const { hook } = setup();
-    const newAdditional = { ...baseAdditional, college: 'IT' as const };
+    const newAdditional = { ...baseAdditional, college: 'CHUNCHEON_IT' as const };
 
     act(() => hook.result.current.handleAdditionalChange(newAdditional));
 
-    expect(hook.result.current.user.additional.college).toBe('IT');
+    expect(hook.result.current.user.additional.college).toBe('CHUNCHEON_IT');
   });
 });

@@ -32,9 +32,4 @@ export class DormitoriesController {
   async getDormitoryById(@Param('id') id: string) {
     return this.dormitoriesService.getDormitoryById(id);
   }
-
-  @Get(':id/guide')
-  async getDormitoryGuide(@Param('id') id: string) {
-    return this.dormitoriesService.getDormitoryGuide(id);
-  }
 }

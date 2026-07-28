@@ -1,9 +1,4 @@
-import {
-  dormitoryGuideResponseSchema,
-  dormitoryListResponseSchema,
-  type DormitoryGuideResponse,
-  type DormitoryListResponse,
-} from '@repo/shared/dormitory';
+import { dormitoryListResponseSchema, type DormitoryListResponse } from '@repo/shared/dormitory';
 import type { Campus, Gender } from '@repo/shared/identity/primitives';
 
 export class DormitoriesApiError extends Error {
@@ -55,27 +50,4 @@ async function getDormitories(
   return parsed.data;
 }
 
-async function getDormitoryGuide(
-  dormitoryId: string,
-  options: DormitoryRequestOptions = {},
-): Promise<DormitoryGuideResponse> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/dormitories/${encodeURIComponent(dormitoryId)}/guide`, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-      signal: options.signal,
-    });
-  } catch {
-    throw new DormitoriesApiError('기숙사 안내를 불러오지 못했어요.');
-  }
-
-  if (!response.ok) {
-    throw new DormitoriesApiError('기숙사 안내를 불러오지 못했어요.', response.status);
-  }
-  const parsed = dormitoryGuideResponseSchema.safeParse(await readJson(response));
-  if (!parsed.success) throw new DormitoriesApiError('기숙사 안내 형식이 올바르지 않아요.');
-  return parsed.data;
-}
-
-export const dormitoriesApi = { getDormitories, getDormitoryGuide };
+export const dormitoriesApi = { getDormitories };

@@ -4,15 +4,12 @@ import type { UserProfile } from '@/main/model/profile';
 
 interface ProfileStateOptions {
   showToast: (msg: string) => void;
-  hasSeenGuide: (dormitoryId: string) => boolean;
-  markGuideSeen: (dormitoryId: string) => void;
   dormitories: readonly DormitoryPublicSummary[];
 }
 
 export function useMainProfileState(initialUser: UserProfile, options: ProfileStateOptions) {
-  const { showToast, markGuideSeen, dormitories } = options;
+  const { showToast, dormitories } = options;
   const [user, setUser] = useState<UserProfile>(initialUser);
-  const [showGuide, setShowGuide] = useState(false);
   const [showBuildingSelect, setShowBuildingSelect] = useState(false);
 
   const handleSelectDormitory = useCallback(
@@ -23,11 +20,6 @@ export function useMainProfileState(initialUser: UserProfile, options: ProfileSt
     },
     [dormitories, showToast],
   );
-
-  const handleCloseGuide = useCallback(() => {
-    setShowGuide(false);
-    if (user.dormitoryId) markGuideSeen(user.dormitoryId);
-  }, [markGuideSeen, user.dormitoryId]);
 
   const handleIntroChange = useCallback(
     (intro: string) => {
@@ -51,12 +43,9 @@ export function useMainProfileState(initialUser: UserProfile, options: ProfileSt
 
   return {
     user,
-    showGuide,
     showBuildingSelect,
     setShowBuildingSelect,
     handleSelectDormitory,
-    handleCloseGuide,
-    handleShowGuide: () => setShowGuide(true),
     handleIntroChange,
     handleLifestyleChange,
     handleAdditionalChange,

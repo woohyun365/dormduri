@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
-import { DormitoryGuideSheet } from './components/dormitory-guide/DormitoryGuideSheet';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
@@ -14,7 +13,6 @@ import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/main/components/feedback/Skeleton';
 import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
 import { MatchingTabSkeleton } from './tabs/matching/layout/MatchingTabSkeleton';
-import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import {
@@ -268,12 +266,8 @@ function MainLegacyDashboardContent({
     [onNavigate],
   );
 
-  const { hasSeenGuide, markGuideSeen } = useMainLocalOnboardingState(initialUser.id);
-
   const profileState = useMainProfileState(initialUser, {
     showToast,
-    hasSeenGuide,
-    markGuideSeen,
     dormitories,
   });
 
@@ -359,7 +353,6 @@ function MainLegacyDashboardContent({
               onIntroChange={profileState.handleIntroChange}
               onLifestyleChange={profileState.handleLifestyleChange}
               onAdditionalChange={profileState.handleAdditionalChange}
-              onShowGuide={profileState.handleShowGuide}
               blockedUsers={socialState.blockedUsers}
               onUnblock={socialState.handleUnblockUser}
             />
@@ -375,13 +368,6 @@ function MainLegacyDashboardContent({
           badges={matchingBadgeCount > 0 ? { matching: matchingBadgeCount } : undefined}
           disabledTabs={featureFlags.disabledTabs}
         />
-
-        {profileState.showGuide && profileState.user.dormitoryId && (
-          <DormitoryGuideSheet
-            dormitoryId={profileState.user.dormitoryId}
-            onClose={profileState.handleCloseGuide}
-          />
-        )}
       </div>
     </SeasonProvider>
   );

@@ -14,7 +14,13 @@ const nextSeasonSelect = {
   matchingStartDate: true,
   seasonEndDate: true,
   dormitoryOperations: {
-    where: { isOperated: true },
+    where: {
+      isOperated: true,
+      dormitory: {
+        isActive: true,
+        matchingSupported: true,
+      },
+    },
     orderBy: [{ roomSelectionDate: 'asc' }, { dormitoryId: 'asc' }],
     select: {
       dormitoryId: true,

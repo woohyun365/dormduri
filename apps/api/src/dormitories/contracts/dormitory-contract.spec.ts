@@ -4,7 +4,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as dormitoryContract from '@repo/shared/dormitory';
 import * as dormitoryCatalogContract from '@repo/shared/dormitory/catalog';
-import * as dormitoryGuideContract from '@repo/shared/dormitory/guide';
 import { dormitorySelectionStateSchema } from '@repo/shared/dormitory/enums';
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -15,20 +14,17 @@ const SHARED_PACKAGE_JSON_PATH = path.resolve(
 );
 
 describe('dormitory shared contract', () => {
-  it('dormitory canonical barrel은 granular catalog/guide/enums schema surface를 제공한다', () => {
+  it('dormitory canonical barrel은 granular catalog/enums schema surface를 제공한다', () => {
     expect(dormitoryContract.dormitorySelectionStateSchema).toBe(dormitorySelectionStateSchema);
     expect(dormitoryContract.dormitoryListResponseSchema).toBe(
       dormitoryCatalogContract.dormitoryListResponseSchema,
-    );
-    expect(dormitoryContract.dormitoryGuideResponseSchema).toBe(
-      dormitoryGuideContract.dormitoryGuideResponseSchema,
     );
     expect(dormitorySelectionStateSchema.parse('SELECTED')).toBe('SELECTED');
     expect(dormitorySelectionStateSchema.parse('ASSIGNED')).toBe('ASSIGNED');
     expect(dormitorySelectionStateSchema.safeParse('UNKNOWN').success).toBe(false);
   });
 
-  it('dormitory catalog/guide response shape를 유지한다', () => {
+  it('dormitory catalog response shape를 유지한다', () => {
     expect(
       dormitoryCatalogContract.dormitoryListResponseSchema.parse({
         campus: {
@@ -47,28 +43,6 @@ describe('dormitory shared contract', () => {
         ],
       }),
     ).toMatchObject({ items: [{ id: 'dasan', roomType: 2 }] });
-
-    expect(
-      dormitoryGuideContract.dormitoryGuideResponseSchema.parse({
-        dormitory: {
-          id: 'dasan',
-          name: '다산관',
-          roomType: 2,
-        },
-        guide: {
-          bathroomType: 'SHARED',
-          facilities: ['laundry'],
-          repairContact: '033-000-0000',
-          diningContact: null,
-        },
-        commonRules: [{ emoji: '🧹', label: '청소', value: '주 1회' }],
-        emergencyContacts: [{ label: '행정실', value: '033-111-1111' }],
-        homepageUrl: 'https://example.com',
-      }),
-    ).toMatchObject({
-      dormitory: { id: 'dasan', roomType: 2 },
-      guide: { bathroomType: 'SHARED' },
-    });
   });
 
   it('dormitory legacy root/compat files를 남기지 않는다', () => {
@@ -83,7 +57,7 @@ describe('dormitory shared contract', () => {
     }
   });
 
-  it('dormitory package exports는 canonical granular subpath만 제공한다', () => {
+  it('dormitory package exports는 사용 중인 canonical granular subpath만 제공한다', () => {
     const packageJson = JSON.parse(readFileSync(SHARED_PACKAGE_JSON_PATH, 'utf8')) as {
       exports: Record<string, { types: string; default: string }>;
     };
@@ -101,9 +75,6 @@ describe('dormitory shared contract', () => {
       types: './dist/dormitory/catalog.d.ts',
       default: './dist/dormitory/catalog.js',
     });
-    expect(packageJson.exports['./dormitory/guide']).toEqual({
-      types: './dist/dormitory/guide.d.ts',
-      default: './dist/dormitory/guide.js',
-    });
+    expect(packageJson.exports['./dormitory/guide']).toBeUndefined();
   });
 });

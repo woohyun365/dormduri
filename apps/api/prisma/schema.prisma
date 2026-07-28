@@ -77,11 +77,6 @@ enum DormitoryGenderPolicy {
   BOTH
 }
 
-enum DormitoryBathroomType {
-  SHARED
-  PRIVATE
-}
-
 enum SeasonOverrideState {
   OFF_SEASON
   SEASON_OPEN
@@ -720,17 +715,6 @@ model CampusMaster {
   colleges     CollegeMaster[]
   dormitories  Dormitory[]
   seasons      Season[]
-  guideContent CampusGuideContent?
-}
-
-model CampusGuideContent {
-  campusCode        Campus       @id
-  homepageUrl       String
-  commonRules       Json
-  emergencyContacts Json
-  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
-  campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
 }
 
 model CollegeMaster {
@@ -755,26 +739,16 @@ model Dormitory {
   nameKo             String
   roomType           Int
   genderPolicy       DormitoryGenderPolicy
+  matchingSupported  Boolean                    @default(true)
+  isActive            Boolean                    @default(true)
   sortOrder          Int                        @default(0)
   createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus             CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
-  guide              DormitoryGuide?
   seasonOperations   SeasonDormitoryOperation[]
   seasonParticipants SeasonParticipant[]
 
-  @@index([campusCode, genderPolicy, sortOrder])
-}
-
-model DormitoryGuide {
-  dormitoryId   String                @id
-  bathroomType  DormitoryBathroomType
-  facilities    Json
-  repairContact String
-  diningContact String?
-  createdAt     DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
-  dormitory     Dormitory             @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+  @@index([campusCode, isActive, matchingSupported, genderPolicy, sortOrder])
 }
 
 model Season {

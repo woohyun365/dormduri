@@ -16,6 +16,12 @@ export const seasonRuntimeSelect = {
   overrideStartedAt: true,
   overrideEndsAt: true,
   dormitoryOperations: {
+    where: {
+      dormitory: {
+        isActive: true,
+        matchingSupported: true,
+      },
+    },
     select: {
       dormitoryId: true,
       dormitory: {

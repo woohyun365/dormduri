@@ -49,6 +49,12 @@ describe('SeasonRuntimeRepository', () => {
 
     await repository.findSeasonRuntimeRows('CHUNCHEON');
 
+    expect(seasonRuntimeSelect.dormitoryOperations.where).toEqual({
+      dormitory: {
+        isActive: true,
+        matchingSupported: true,
+      },
+    });
     expect(prisma.season.findMany).toHaveBeenCalledWith({
       where: { campusCode: 'CHUNCHEON' },
       orderBy: [{ seasonEndDate: 'asc' }, { matchingStartDate: 'asc' }, { createdAt: 'asc' }],

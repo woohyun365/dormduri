@@ -35,9 +35,6 @@ CREATE TYPE "DormitorySelectionState" AS ENUM ('NOT_SELECTED', 'SELECTED', 'UNAS
 CREATE TYPE "DormitoryGenderPolicy" AS ENUM ('M', 'F', 'BOTH');
 
 -- CreateEnum
-CREATE TYPE "DormitoryBathroomType" AS ENUM ('SHARED', 'PRIVATE');
-
--- CreateEnum
 CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');
 
 -- CreateEnum
@@ -317,18 +314,6 @@ CREATE TABLE "CampusMaster" (
 );
 
 -- CreateTable
-CREATE TABLE "CampusGuideContent" (
-    "campusCode" "Campus" NOT NULL,
-    "homepageUrl" TEXT NOT NULL,
-    "commonRules" JSONB NOT NULL,
-    "emergencyContacts" JSONB NOT NULL,
-    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "CampusGuideContent_pkey" PRIMARY KEY ("campusCode")
-);
-
--- CreateTable
 CREATE TABLE "CollegeMaster" (
     "code" TEXT NOT NULL,
     "campusCode" "Campus" NOT NULL,
@@ -348,24 +333,13 @@ CREATE TABLE "Dormitory" (
     "nameKo" TEXT NOT NULL,
     "roomType" INTEGER NOT NULL,
     "genderPolicy" "DormitoryGenderPolicy" NOT NULL,
+    "matchingSupported" BOOLEAN NOT NULL DEFAULT true,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Dormitory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "DormitoryGuide" (
-    "dormitoryId" TEXT NOT NULL,
-    "bathroomType" "DormitoryBathroomType" NOT NULL,
-    "facilities" JSONB NOT NULL,
-    "repairContact" TEXT NOT NULL,
-    "diningContact" TEXT,
-    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "DormitoryGuide_pkey" PRIMARY KEY ("dormitoryId")
 );
 
 -- CreateTable
@@ -1457,7 +1431,7 @@ CREATE INDEX "CollegeMaster_campusCode_sortOrder_idx" ON "CollegeMaster"("campus
 CREATE UNIQUE INDEX "CollegeMaster_campusCode_nameKo_key" ON "CollegeMaster"("campusCode", "nameKo");
 
 -- CreateIndex
-CREATE INDEX "Dormitory_campusCode_genderPolicy_sortOrder_idx" ON "Dormitory"("campusCode", "genderPolicy", "sortOrder");
+CREATE INDEX "Dormitory_campusCode_isActive_matchingSupported_genderPolicy_sortOrder_idx" ON "Dormitory"("campusCode", "isActive", "matchingSupported", "genderPolicy", "sortOrder");
 
 -- CreateIndex
 CREATE INDEX "Season_campusCode_matchingStartDate_idx" ON "Season"("campusCode", "matchingStartDate");
@@ -2130,16 +2104,10 @@ CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"(
 CREATE UNIQUE INDEX "ModerationTerm_normalizedTerm_category_matchMode_surface_key" ON "ModerationTerm"("normalizedTerm", "category", "matchMode", "surface");
 
 -- AddForeignKey
-ALTER TABLE "CampusGuideContent" ADD CONSTRAINT "CampusGuideContent_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "CollegeMaster" ADD CONSTRAINT "CollegeMaster_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Dormitory" ADD CONSTRAINT "Dormitory_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "DormitoryGuide" ADD CONSTRAINT "DormitoryGuide_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Season" ADD CONSTRAINT "Season_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;

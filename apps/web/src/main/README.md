@@ -26,7 +26,7 @@
 - Season fallback/legacy schedule helper는 Home first render 근거가 아니다. 남은 `apps/web/src/main/season/seasonFallback.ts`와 `apps/web/src/main/legacy/seasonLegacyClient.ts`는 non-Home legacy tab 전환 debt에만 한정한다.
 - `SeasonState`는 `@repo/shared/season/runtime`에서 직접 import한다. `apps/web/src/types/season.ts` re-export를 다시 만들지 않는다.
 - 공용 계약 타입은 `@repo/shared/*`에서 직접 가져오고, Web 전용 navigation/profile/presentation 타입은 실제 owner의 `model/`에 둔다. root `apps/web/src/types` compatibility barrel은 다시 만들지 않는다.
-- Main local guide/tooltip localStorage state는 `apps/web/src/main/hooks/useMainLocalOnboardingState.ts`가 소유한다. Home `service-intro` dismissed state와 중복되는 checklist dismissed state를 두지 않는다.
+- Home `service-intro` dismissed state와 중복되는 local onboarding/checklist 상태를 Main에 다시 두지 않는다.
 - Home은 더 이상 `service-intro` dismissed mutation client를 소유하지 않는다. `/api/users/me/onboarding` route는 account/user dismissed notice compatibility로 남기되, Home first render나 HomeTab runtime에서 호출하지 않는다. root `apps/web/src/api/current-user.ts` 같은 넓은 compatibility path를 다시 만들지 않는다.
 
 ## Test-support rule

@@ -171,10 +171,6 @@
       "types": "./dist/dormitory/catalog.d.ts",
       "default": "./dist/dormitory/catalog.js"
     },
-    "./dormitory/guide": {
-      "types": "./dist/dormitory/guide.d.ts",
-      "default": "./dist/dormitory/guide.js"
-    },
     "./season": {
       "types": "./dist/season/index.d.ts",
       "default": "./dist/season/index.js"

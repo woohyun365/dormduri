@@ -39,7 +39,6 @@ interface ProfileTabProps {
   onIntroChange: (intro: string) => void;
   onLifestyleChange: (lifestyle: LifestyleData) => void;
   onAdditionalChange: (additional: ProfileAdditional) => void;
-  onShowGuide?: () => void;
   blockedUsers?: BlockedUser[];
   onUnblock?: (userId: string, nickname: string) => void;
 }
@@ -50,7 +49,6 @@ export default function ProfileTab({
   onIntroChange,
   onLifestyleChange,
   onAdditionalChange,
-  onShowGuide,
   blockedUsers = [],
   onUnblock,
 }: ProfileTabProps) {
@@ -248,20 +246,6 @@ export default function ProfileTab({
             title="안내 및 지원"
           />
           <div className="bg-white rounded-2xl border-2 border-(--knu-border) divide-y-2 divide-(--knu-border)">
-            {onShowGuide && (
-              <button
-                onClick={onShowGuide}
-                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-(--knu-text-tertiary)" />
-                  <span className="text-sm font-semibold text-(--knu-text-primary)">
-                    기숙사 안내 다시 보기
-                  </span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
-              </button>
-            )}
             <Link
               href="/terms"
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"

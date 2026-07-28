@@ -69,6 +69,8 @@ describe('PrismaDormitorySelectionCatalogAdapter', () => {
           dormitory: {
             campusCode: 'CHUNCHEON',
             genderPolicy: { in: ['M', 'BOTH'] },
+            isActive: true,
+            matchingSupported: true,
           },
           roomSelectionDate: { gte: new Date('2026-02-10T00:00:00.000Z') },
         }),
@@ -209,6 +211,52 @@ describe('PrismaDormitorySelectionCatalogAdapter', () => {
         nameKo: '다산관',
         roomType: 2,
         genderPolicy: 'M',
+        sortOrder: 2,
+      },
+    });
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_NOT_OPERATED',
+    });
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce({
+      seasonId: 'season-1',
+      dormitoryId: 'dasan',
+      isOperated: true,
+      roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+      dormitory: {
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        nameKo: '다산관',
+        roomType: 2,
+        genderPolicy: 'M',
+        matchingSupported: false,
+        isActive: true,
+        sortOrder: 2,
+      },
+    });
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_NOT_OPERATED',
+    });
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce({
+      seasonId: 'season-1',
+      dormitoryId: 'dasan',
+      isOperated: true,
+      roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+      dormitory: {
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        nameKo: '다산관',
+        roomType: 2,
+        genderPolicy: 'M',
+        matchingSupported: true,
+        isActive: false,
         sortOrder: 2,
       },
     });
