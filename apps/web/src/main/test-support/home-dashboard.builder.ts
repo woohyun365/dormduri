@@ -67,7 +67,7 @@ export function createHomeDashboardTestResponse(
           nicknameChangedAt: null,
         },
         academicIdentity: {
-          collegeCode: 'IT',
+          collegeCode: 'CHUNCHEON_IT',
           birthYear: 2002,
         },
       },

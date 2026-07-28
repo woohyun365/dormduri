@@ -42,7 +42,7 @@ describe('HomeDashboardPresenter', () => {
     expect(response.viewer.identity).toMatchObject({
       user: { id: 'user-1', email: 'user1@kangwon.ac.kr', nickname: '감자룸메' },
       displayIdentity: { userId: 'user-1', nickname: '감자룸메' },
-      academicIdentity: { collegeCode: 'IT', birthYear: 2002 },
+      academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
     });
     expect(response.seasonHistorySummary.lastSeason).toMatchObject({
       id: 'season-previous',

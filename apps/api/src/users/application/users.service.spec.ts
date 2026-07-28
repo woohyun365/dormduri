@@ -90,7 +90,7 @@ describe('UsersService facade boundary', () => {
       },
       academicIdentity: {
         userId: 'user-1',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
       dismissedNotices: [],

@@ -71,7 +71,7 @@ describe('finalize-season-registration.command', () => {
       },
       academicIdentity: {
         userId: 'user-1',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
     });
@@ -134,7 +134,7 @@ describe('finalize-season-registration.command', () => {
       data: objectContaining({
         nicknameSnapshot: '현재닉네임',
         nicknameNormalizedSnapshot: '현재닉네임',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       }),
     });
@@ -146,7 +146,7 @@ describe('finalize-season-registration.command', () => {
         registeredAtSnapshot: now,
         nicknameSnapshot: '현재닉네임',
         nicknameNormalizedSnapshot: '현재닉네임',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       }),
       select: { id: true, registeredAtSnapshot: true },
@@ -341,7 +341,7 @@ describe('finalize-season-registration.command', () => {
       },
       academicIdentity: {
         userId: 'user-1',
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2001,
       },
     });
@@ -350,7 +350,7 @@ describe('finalize-season-registration.command', () => {
         dormitorySelectionState: 'SELECTED',
         dormitoryId: 'dasan',
         participantStatus: 'DRAFT',
-        profile: profile({ collegeCode: 'ARTS_ENGINEERING', birthYear: 2002 }),
+        profile: profile({ collegeCode: 'CHUNCHEON_ARTS_ENGINEERING', birthYear: 2002 }),
       }),
     );
     txSeasonParticipantFindUnique.mockResolvedValue(
@@ -361,7 +361,7 @@ describe('finalize-season-registration.command', () => {
         dormitorySelectionState: 'ASSIGNED',
         participantStatus: 'ACTIVE',
         activatedAt: now,
-        profile: profile({ collegeCode: 'NURSING', birthYear: 2001 }),
+        profile: profile({ collegeCode: 'CHUNCHEON_NURSING', birthYear: 2001 }),
       }),
     );
 
@@ -370,13 +370,13 @@ describe('finalize-season-registration.command', () => {
     expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
       where: { participantId: 'participant-1' },
       data: objectContaining({
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2001,
       }),
     });
     expect(txSeasonParticipantProfileHistoryCreate).toHaveBeenCalledWith({
       data: objectContaining({
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2001,
       }),
       select: { id: true, registeredAtSnapshot: true },
@@ -483,7 +483,7 @@ describe('finalize-season-registration.command', () => {
       },
       academicIdentity: {
         userId: 'user-1',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
     });

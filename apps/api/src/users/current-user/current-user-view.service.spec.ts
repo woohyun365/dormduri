@@ -38,7 +38,7 @@ function makeUser() {
     },
     academicIdentity: {
       userId: 'user-1',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
       createdAt: new Date('2026-05-01T00:00:00.000Z'),
       updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -137,7 +137,7 @@ describe('CurrentUserViewService identity invariant', () => {
       displayIdentity: null,
       academicIdentity: {
         userId: 'user-missing-display-identity',
-        collegeCode: 'IT',
+        collegeCode: 'CHUNCHEON_IT',
         birthYear: 2002,
         createdAt: new Date('2026-05-01T00:00:00.000Z'),
         updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -245,7 +245,7 @@ describe('CurrentUserViewService season composition boundary', () => {
         nicknameChangedAt: null,
       },
       academicIdentity: {
-        collegeCode: 'IT',
+        collegeCode: 'CHUNCHEON_IT',
         birthYear: 2002,
       },
       seasonProfile: {

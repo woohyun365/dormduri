@@ -287,8 +287,8 @@ describe('retained-vault.service', () => {
         schemaVersion: 1,
         event: {
           id: 'academic-event-a',
-          previousCollegeCode: 'ARTS_ENGINEERING',
-          nextCollegeCode: 'NURSING',
+          previousCollegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+          nextCollegeCode: 'CHUNCHEON_NURSING',
         },
       }),
     ).toMatchObject({ schemaVersion: 1, event: { id: 'academic-event-a' } });
@@ -312,7 +312,7 @@ describe('retained-vault.service', () => {
     expect(() =>
       parseRetainedAcademicIdentityAuditPayload({
         schemaVersion: 1,
-        event: { id: 'academic-event-a', previousCollegeCode: 'ARTS_ENGINEERING' },
+        event: { id: 'academic-event-a', previousCollegeCode: 'CHUNCHEON_ARTS_ENGINEERING' },
       }),
     ).toThrow('academic identity audit payload invalid');
     expect(() =>

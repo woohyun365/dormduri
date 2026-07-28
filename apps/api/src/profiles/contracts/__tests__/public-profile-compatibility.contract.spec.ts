@@ -67,7 +67,7 @@ const fullProfileFixture = {
   resultRead: { resultReadable: false, context: 'NONE' },
   nickname: '상대',
   intro: '소개',
-  additional: { college: 'IT', grade: '3', mbti: 'INTJ', birthYear: 2002 },
+  additional: { college: 'CHUNCHEON_IT', grade: '3', mbti: 'INTJ', birthYear: 2002 },
   gender: 'M',
   campus: 'CHUNCHEON',
   lifestyle: {

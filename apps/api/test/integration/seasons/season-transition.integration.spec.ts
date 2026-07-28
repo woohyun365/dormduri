@@ -82,7 +82,7 @@ describe('Season transition integration', () => {
 
     await prisma.collegeMaster.create({
       data: {
-        code: 'ARTS_ENGINEERING',
+        code: 'CHUNCHEON_ARTS_ENGINEERING',
         campusCode: 'CHUNCHEON',
         nameKo: '문화예술공과대학',
         sortOrder: 1,

@@ -87,7 +87,7 @@ describe('roommateSearch client', () => {
       {
         scope: 'SAME_BUILDING_ONLY',
         sort: 'MATCH_SCORE',
-        'college.values[]': ['ENGINEERING', 'HUMANITIES'],
+        'college.values[]': ['ENGINEERING', 'CHUNCHEON_HUMANITIES'],
         'mbtiTraits.energy': 'E',
       },
       { signal: abortController.signal },
@@ -97,7 +97,10 @@ describe('roommateSearch client', () => {
     expect(url.pathname).toBe('/api/roommate-search');
     expect(url.origin).toBe('http://localhost');
     expect(url.searchParams.get('scope')).toBe('SAME_BUILDING_ONLY');
-    expect(url.searchParams.getAll('college.values[]')).toEqual(['ENGINEERING', 'HUMANITIES']);
+    expect(url.searchParams.getAll('college.values[]')).toEqual([
+      'ENGINEERING',
+      'CHUNCHEON_HUMANITIES',
+    ]);
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ cache: 'no-store', signal: abortController.signal }),
     );

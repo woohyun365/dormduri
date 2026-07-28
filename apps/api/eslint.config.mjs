@@ -49,7 +49,12 @@ export default defineConfig([
     },
   },
   {
-    files: ['prisma/seed.js', 'prisma/seed-data/reference/*.js', 'prisma/seed-data/fixtures/*.js'],
+    files: [
+      'prisma/seed.js',
+      'prisma/seed-data/reference/*.js',
+      'prisma/seed-data/fixtures/*.js',
+      'prisma/seeds/**/*.js',
+    ],
     ...tseslint.configs.disableTypeChecked,
   },
   {
@@ -79,7 +84,10 @@ export default defineConfig([
     },
   },
   {
-    files: ['test/integration/support/integration-db.ts'],
+    files: [
+      'src/architecture/reference-data/reference-seed-scripts.spec.ts',
+      'test/integration/support/integration-db.ts',
+    ],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

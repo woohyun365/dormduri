@@ -108,7 +108,7 @@ function makeParticipant(
       nicknameNormalizedSnapshot: '시즌닉네임',
       lifestyle: COMPLETE_LIFESTYLE,
       intro: '시즌 소개',
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       grade: '3',
       mbti: 'INTJ',
       birthYear: 2002,

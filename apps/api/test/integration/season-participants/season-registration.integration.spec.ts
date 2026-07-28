@@ -56,7 +56,7 @@ describe('Season registration split-flow integration', () => {
     await seedBaseSeasonFixtures(prisma);
     await prisma.collegeMaster.create({
       data: {
-        code: 'IT',
+        code: 'CHUNCHEON_IT',
         campusCode: 'CHUNCHEON',
         nameKo: 'IT대',
         sortOrder: 1,
@@ -756,7 +756,7 @@ describe('Season registration split-flow integration', () => {
         nickname: input.nickname,
         gender: 'M',
         campus: 'CHUNCHEON',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       } as never),
     ).resolves.toMatchObject({ success: true });

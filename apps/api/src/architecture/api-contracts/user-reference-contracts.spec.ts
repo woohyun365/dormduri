@@ -39,10 +39,10 @@ describe('user reference contract', () => {
 
     expect(
       userAcademicIdentitySchema.parse({
-        collegeCode: 'IT',
+        collegeCode: 'CHUNCHEON_IT',
         birthYear: 2002,
       }),
-    ).toEqual({ collegeCode: 'IT', birthYear: 2002 });
+    ).toEqual({ collegeCode: 'CHUNCHEON_IT', birthYear: 2002 });
 
     expect(
       accountIdentitySchema.parse({
@@ -53,13 +53,13 @@ describe('user reference contract', () => {
           nicknameChangedAt: null,
         },
         academicIdentity: {
-          collegeCode: 'IT',
+          collegeCode: 'CHUNCHEON_IT',
           birthYear: 2002,
         },
       }),
     ).toMatchObject({
       displayIdentity: { nickname: '테스터' },
-      academicIdentity: { collegeCode: 'IT' },
+      academicIdentity: { collegeCode: 'CHUNCHEON_IT' },
     });
     expect(
       accountIdentityIncompleteErrorSchema.parse({
@@ -88,7 +88,7 @@ describe('user reference contract', () => {
           nicknameChangedAt: null,
         },
         academicIdentity: {
-          collegeCode: 'IT',
+          collegeCode: 'CHUNCHEON_IT',
           birthYear: 2002,
         },
         seasonProfile: {
@@ -174,13 +174,13 @@ describe('user reference contract', () => {
     expect(
       updateCurrentUserRequestSchema.parse({
         academicIdentity: {
-          collegeCode: 'NURSING',
+          collegeCode: 'CHUNCHEON_NURSING',
           birthYear: 2001,
         },
       }),
     ).toMatchObject({
       academicIdentity: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2001,
       },
     });
@@ -214,7 +214,7 @@ describe('user reference contract', () => {
             nicknameChangedAt: null,
           },
           academicIdentity: {
-            collegeCode: 'NURSING',
+            collegeCode: 'CHUNCHEON_NURSING',
             birthYear: 2001,
           },
           seasonProfile: {

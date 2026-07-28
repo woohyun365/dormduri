@@ -180,7 +180,7 @@ const ROOMMATE_SEARCH_MANIFEST_RESPONSE = {
           enabled: true,
           source: 'VIEWER_CAMPUS_ACTIVE_CATALOG',
           operators: ['INCLUDE', 'EXCLUDE'],
-          options: [{ code: 'ARTS_ENGINEERING', label: '문화예술·공과대학' }],
+          options: [{ code: 'CHUNCHEON_ARTS_ENGINEERING', label: '문화예술·공과대학' }],
         },
         grade: { enabled: true, source: 'SHARED_ENUM' },
         mbtiTraits: { enabled: true, source: 'SHARED_MBTI_TRAITS' },
@@ -287,7 +287,7 @@ describe('profile and matching shared reference contracts', () => {
       scope: 'SAME_BUILDING_ONLY',
       sort: 'MATCH_SCORE',
       'college.operator': 'EXCLUDE',
-      'college.values[]': ['ARTS_ENGINEERING', 'NURSING'],
+      'college.values[]': ['CHUNCHEON_ARTS_ENGINEERING', 'CHUNCHEON_NURSING'],
       'grade.operator': 'INCLUDE',
       'grade.values[]': ['1', '2', '3', '4+'],
       'mbtiTraits.energy': 'I',
@@ -301,7 +301,7 @@ describe('profile and matching shared reference contracts', () => {
     if (!parsed.success) throw parsed.error;
     expect(parsed.data.college).toEqual({
       operator: 'EXCLUDE',
-      values: ['ARTS_ENGINEERING', 'NURSING'],
+      values: ['CHUNCHEON_ARTS_ENGINEERING', 'CHUNCHEON_NURSING'],
     });
     expect(parsed.data.grade).toEqual({
       operator: 'INCLUDE',
@@ -336,7 +336,7 @@ describe('profile and matching shared reference contracts', () => {
       roommateSearchQuerySchema.safeParse({
         scope: 'SAME_BUILDING_ONLY',
         'college.operator': 'EXCLUDE',
-        'college.values[]': ['ARTS_ENGINEERING'],
+        'college.values[]': ['CHUNCHEON_ARTS_ENGINEERING'],
       }).success,
     ).toBe(true);
 
@@ -344,7 +344,7 @@ describe('profile and matching shared reference contracts', () => {
       roommateSearchQuerySchema.safeParse({
         scope: 'SAME_BUILDING_ONLY',
         'college.operators[]': ['INCLUDE', 'EXCLUDE'],
-        'college.values[]': ['ARTS_ENGINEERING'],
+        'college.values[]': ['CHUNCHEON_ARTS_ENGINEERING'],
       }).success,
     ).toBe(false);
 
@@ -352,8 +352,8 @@ describe('profile and matching shared reference contracts', () => {
       roommateSearchQuerySchema.safeParse({
         scope: 'SAME_BUILDING_ONLY',
         college: {
-          include: ['ARTS_ENGINEERING'],
-          exclude: ['NURSING'],
+          include: ['CHUNCHEON_ARTS_ENGINEERING'],
+          exclude: ['CHUNCHEON_NURSING'],
         },
       }).success,
     ).toBe(false);

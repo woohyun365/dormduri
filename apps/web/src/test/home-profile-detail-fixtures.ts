@@ -107,7 +107,7 @@ export function createPublicProfileFull(
     },
     nickname: '감자친구',
     intro: '아침형 생활패턴이고 조용한 방을 선호해요.',
-    additional: { college: 'IT', grade: '3', mbti: 'ENFJ', birthYear: 2004 },
+    additional: { college: 'CHUNCHEON_IT', grade: '3', mbti: 'ENFJ', birthYear: 2004 },
     gender: 'F',
     campus: 'CHUNCHEON',
     lifestyle: {

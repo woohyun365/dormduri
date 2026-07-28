@@ -24,7 +24,7 @@ describe('users shared contract smoke', () => {
           nicknameChangedAt: null,
         },
         academicIdentity: {
-          collegeCode: 'IT',
+          collegeCode: 'CHUNCHEON_IT',
           birthYear: 2002,
         },
         seasonProfile: {
@@ -114,7 +114,7 @@ describe('users shared contract smoke', () => {
             nicknameChangedAt: null,
           },
           academicIdentity: {
-            collegeCode: 'IT',
+            collegeCode: 'CHUNCHEON_IT',
             birthYear: 2002,
           },
           seasonProfile: {

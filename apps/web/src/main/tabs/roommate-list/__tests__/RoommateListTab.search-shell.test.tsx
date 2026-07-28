@@ -85,7 +85,7 @@ const viewer: UserProfile = {
   intro: '',
   messageToRoommate: null,
   additional: {
-    college: 'IT',
+    college: 'CHUNCHEON_IT',
     grade: null,
     mbti: null,
     birthYear: 2002,

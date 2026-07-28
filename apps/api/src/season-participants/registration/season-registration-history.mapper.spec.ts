@@ -15,7 +15,7 @@ describe('season-registration-history.mapper', () => {
         profile: currentProfile({
           nicknameSnapshot: '등록닉네임',
           nicknameNormalizedSnapshot: '등록닉네임',
-          collegeCode: 'NURSING',
+          collegeCode: 'CHUNCHEON_NURSING',
           birthYear: 2001,
         }),
       }) as never,
@@ -27,7 +27,7 @@ describe('season-registration-history.mapper', () => {
       seasonId: 'season-1',
       nicknameSnapshot: '등록닉네임',
       nicknameNormalizedSnapshot: '등록닉네임',
-      collegeCode: 'NURSING',
+      collegeCode: 'CHUNCHEON_NURSING',
       birthYear: 2001,
       registeredAtSnapshot: now,
       source: 'SEASON_REGISTRATION',

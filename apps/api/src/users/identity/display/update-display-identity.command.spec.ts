@@ -20,7 +20,7 @@ const USER = {
   },
   academicIdentity: {
     userId: 'user-1',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
     createdAt: new Date('2026-05-01T00:00:00.000Z'),
     updatedAt: new Date('2026-05-01T00:00:00.000Z'),

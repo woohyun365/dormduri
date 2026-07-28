@@ -84,7 +84,7 @@ export async function seedBaseSeasonFixtures(prisma: PrismaService) {
 
   await prisma.collegeMaster.create({
     data: {
-      code: 'ARTS_ENGINEERING',
+      code: 'CHUNCHEON_ARTS_ENGINEERING',
       campusCode: 'CHUNCHEON',
       nameKo: '문화예술공과대학',
       sortOrder: 1,
@@ -225,7 +225,7 @@ export async function seedRegisteredAssignedParticipant(
   await prisma.userAcademicIdentity.create({
     data: {
       userId: input.userId,
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       birthYear: 2002,
     },
   });
@@ -263,7 +263,7 @@ export async function seedRegisteredAssignedParticipant(
       nicknameNormalizedSnapshot: input.nickname,
       ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 시즌 소개`,
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       grade: '3',
       mbti: 'INTJ',
       birthYear: 2002,
@@ -278,7 +278,7 @@ export async function seedRegisteredAssignedParticipant(
       nicknameNormalizedSnapshot: input.nickname,
       ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 시즌 소개`,
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       grade: '3',
       mbti: 'INTJ',
       birthYear: 2002,

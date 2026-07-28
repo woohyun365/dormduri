@@ -114,7 +114,7 @@ export const storyViewer: UserProfile = {
   intro: '조용한 생활 리듬을 선호해요.',
   messageToRoommate: null,
   additional: {
-    college: 'IT',
+    college: 'CHUNCHEON_IT',
     grade: '3',
     mbti: 'INFJ',
     birthYear: 2002,

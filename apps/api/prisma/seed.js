@@ -1,13 +1,8 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { hash as argonHash } from '@node-rs/argon2';
-import {
-  CAMPUS_GUIDE_CONTENT_DATA,
-  CAMPUS_MASTER_DATA,
-  DORMITORY_GUIDE_DATA,
-  DORMITORY_MASTER_DATA,
-} from './seed-data/reference/dormitory-seed-data.js';
-import { COLLEGE_MASTER_DATA } from './seed-data/reference/college-reference-data.js';
+import { seedDormitoryReferenceData } from './seeds/reference/dormitories/seed-dormitory-reference-data.js';
+import { seedCollegeReferenceData } from './seeds/reference/colleges/seed-college-reference-data.js';
 import { MODERATION_REFERENCE_ROWS } from './seed-data/reference/moderation-seed-data.js';
 import { SUPPORT_FAQ_REFERENCE_ROWS } from './seed-data/reference/support-faq-seed-data.js';
 import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './seed-data/reference/legal-document-seed-data.js';
@@ -23,9 +18,9 @@ import pg from 'pg';
 const { Client } = pg;
 
 const DEFAULT_DATABASE_URL =
-  'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
+  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
 const DATABASE_URL = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
-const DEFAULT_AUTH_FIXTURE_COLLEGE_CODE = 'IT';
+const DEFAULT_AUTH_FIXTURE_COLLEGE_CODE = 'CHUNCHEON_IT';
 const DEFAULT_AUTH_FIXTURE_BIRTH_YEAR = 2002;
 
 function normalizeEmail(email) {
@@ -75,151 +70,6 @@ function getSemesterDefaults(academicYear, semester) {
     preparationStartDate: `${academicYear}-07-01`,
     seasonEndDate: `${academicYear}-08-31`,
   };
-}
-
-async function seedCampusAndDormitories(client) {
-  for (const campus of CAMPUS_MASTER_DATA) {
-    await client.query(
-      `
-        INSERT INTO "CampusMaster" (
-          code,
-          "nameKo",
-          "isOperated",
-          "sortOrder",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1::"Campus", $2, $3, $4, NOW(), NOW())
-        ON CONFLICT (code)
-        DO UPDATE SET
-          "nameKo" = EXCLUDED."nameKo",
-          "isOperated" = EXCLUDED."isOperated",
-          "sortOrder" = EXCLUDED."sortOrder",
-          "updatedAt" = NOW()
-      `,
-      [campus.code, campus.nameKo, campus.isOperated, campus.sortOrder],
-    );
-  }
-
-  for (const guideContent of CAMPUS_GUIDE_CONTENT_DATA) {
-    await client.query(
-      `
-        INSERT INTO "CampusGuideContent" (
-          "campusCode",
-          "homepageUrl",
-          "commonRules",
-          "emergencyContacts",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1::"Campus", $2, $3::jsonb, $4::jsonb, NOW(), NOW())
-        ON CONFLICT ("campusCode")
-        DO UPDATE SET
-          "homepageUrl" = EXCLUDED."homepageUrl",
-          "commonRules" = EXCLUDED."commonRules",
-          "emergencyContacts" = EXCLUDED."emergencyContacts",
-          "updatedAt" = NOW()
-      `,
-      [
-        guideContent.campusCode,
-        guideContent.homepageUrl,
-        JSON.stringify(guideContent.commonRules),
-        JSON.stringify(guideContent.emergencyContacts),
-      ],
-    );
-  }
-
-  for (const dormitory of DORMITORY_MASTER_DATA) {
-    await client.query(
-      `
-        INSERT INTO "Dormitory" (
-          id,
-          "campusCode",
-          "nameKo",
-          "roomType",
-          "genderPolicy",
-          "sortOrder",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1, $2::"Campus", $3, $4, $5::"DormitoryGenderPolicy", $6, NOW(), NOW())
-        ON CONFLICT (id)
-        DO UPDATE SET
-          "campusCode" = EXCLUDED."campusCode",
-          "nameKo" = EXCLUDED."nameKo",
-          "roomType" = EXCLUDED."roomType",
-          "genderPolicy" = EXCLUDED."genderPolicy",
-          "sortOrder" = EXCLUDED."sortOrder",
-          "updatedAt" = NOW()
-      `,
-      [
-        dormitory.id,
-        dormitory.campusCode,
-        dormitory.nameKo,
-        dormitory.roomType,
-        dormitory.genderPolicy,
-        dormitory.sortOrder,
-      ],
-    );
-  }
-
-  for (const [dormitoryId, guide] of Object.entries(DORMITORY_GUIDE_DATA)) {
-    await client.query(
-      `
-        INSERT INTO "DormitoryGuide" (
-          "dormitoryId",
-          "bathroomType",
-          facilities,
-          "repairContact",
-          "diningContact",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1, $2::"DormitoryBathroomType", $3::jsonb, $4, $5, NOW(), NOW())
-        ON CONFLICT ("dormitoryId")
-        DO UPDATE SET
-          "bathroomType" = EXCLUDED."bathroomType",
-          facilities = EXCLUDED.facilities,
-          "repairContact" = EXCLUDED."repairContact",
-          "diningContact" = EXCLUDED."diningContact",
-          "updatedAt" = NOW()
-      `,
-      [
-        dormitoryId,
-        guide.bathroomType,
-        JSON.stringify(guide.facilities),
-        guide.repairContact,
-        guide.diningContact,
-      ],
-    );
-  }
-}
-
-async function seedColleges(client) {
-  for (const college of COLLEGE_MASTER_DATA) {
-    await client.query(
-      `
-        INSERT INTO "CollegeMaster" (
-          code,
-          "campusCode",
-          "nameKo",
-          "sortOrder",
-          "isActive",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1, $2::"Campus", $3, $4, $5, NOW(), NOW())
-        ON CONFLICT (code)
-        DO UPDATE SET
-          "campusCode" = EXCLUDED."campusCode",
-          "nameKo" = EXCLUDED."nameKo",
-          "sortOrder" = EXCLUDED."sortOrder",
-          "isActive" = EXCLUDED."isActive",
-          "updatedAt" = NOW()
-      `,
-      [college.code, college.campusCode, college.nameKo, college.sortOrder, college.isActive],
-    );
-  }
 }
 
 async function seedModerationTerms(client) {
@@ -667,8 +517,8 @@ async function seed() {
   await client.connect();
 
   try {
-    await seedCampusAndDormitories(client);
-    await seedColleges(client);
+    await seedDormitoryReferenceData(client);
+    await seedCollegeReferenceData(client);
     await seedModerationTerms(client);
     await seedSupportFaq(client);
     await seedLegalDocuments(client);

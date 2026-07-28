@@ -110,7 +110,7 @@ describe('roommate-search BFF routes', () => {
   it('search route는 auth cookie, allowed dotted query, repeated array query만 upstream으로 전달하고 success schema를 검증한다', async () => {
     const fetchMock = stubJsonFetch(createRoommateSearchResponse());
     const request = createRequest(
-      '/api/roommate-search?scope=SAME_BUILDING_ONLY&sort=MATCH_SCORE&limit=20&college.operator=EXCLUDE&college.values%5B%5D=ENGINEERING&college.values%5B%5D=HUMANITIES&mbtiTraits.energy=E&unknown=drop-me',
+      '/api/roommate-search?scope=SAME_BUILDING_ONLY&sort=MATCH_SCORE&limit=20&college.operator=EXCLUDE&college.values%5B%5D=ENGINEERING&college.values%5B%5D=CHUNCHEON_HUMANITIES&mbtiTraits.energy=E&unknown=drop-me',
       {
         headers: {
           Cookie: `auth-token=${AUTH_TOKEN}`,
@@ -132,7 +132,7 @@ describe('roommate-search BFF routes', () => {
     expect(upstreamUrl.searchParams.get('college.operator')).toBe('EXCLUDE');
     expect(upstreamUrl.searchParams.getAll('college.values[]')).toEqual([
       'ENGINEERING',
-      'HUMANITIES',
+      'CHUNCHEON_HUMANITIES',
     ]);
     expect(upstreamUrl.searchParams.get('mbtiTraits.energy')).toBe('E');
     expect(upstreamUrl.searchParams.has('unknown')).toBe(false);

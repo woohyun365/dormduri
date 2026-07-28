@@ -29,8 +29,8 @@ const baseViewerContext = {
 } satisfies VisibleProfileViewerContext;
 
 const activeCollegeOptions = [
-  { code: 'IT', label: 'IT대' },
-  { code: 'NURSING', label: '간호대' },
+  { code: 'CHUNCHEON_IT', label: 'IT대' },
+  { code: 'CHUNCHEON_NURSING', label: '간호대' },
 ];
 
 describe('roommate-search-filter-manifest.presenter', () => {
@@ -82,7 +82,7 @@ describe('roommate-search-filter-manifest.presenter', () => {
       operators: ['INCLUDE', 'EXCLUDE'],
     });
     expect(collegeField?.options).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'IT', label: 'IT대' })]),
+      expect.arrayContaining([expect.objectContaining({ code: 'CHUNCHEON_IT', label: 'IT대' })]),
     );
     expect(manifest.filters.fields.ageBand?.options).toEqual(
       expect.arrayContaining([

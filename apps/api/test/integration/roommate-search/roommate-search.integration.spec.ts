@@ -312,7 +312,7 @@ describe('RoommateSearchService integration', () => {
     await expect(
       service.search(authContext('user-a'), {
         scope: 'CAMPUS_MERGED',
-        college: 'ARTS_ENGINEERING',
+        college: 'CHUNCHEON_ARTS_ENGINEERING',
         limit: 20,
       } as never),
     ).rejects.toMatchObject({
@@ -527,7 +527,7 @@ describe('RoommateSearchService integration', () => {
     });
     expect(collegeField?.options).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 'ARTS_ENGINEERING', label: '문화예술공과대학' }),
+        expect.objectContaining({ code: 'CHUNCHEON_ARTS_ENGINEERING', label: '문화예술공과대학' }),
       ]),
     );
     expect(manifest?.sorts.default).toBe('MATCH_SCORE');
@@ -578,18 +578,18 @@ describe('RoommateSearchService integration', () => {
     });
     const preflightCollegeField = preflight.manifest.filters.fields.college;
     expect(preflightCollegeField?.options).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'ARTS_ENGINEERING' })]),
+      expect.arrayContaining([expect.objectContaining({ code: 'CHUNCHEON_ARTS_ENGINEERING' })]),
     );
 
     await prisma.collegeMaster.update({
-      where: { code: 'ARTS_ENGINEERING' },
+      where: { code: 'CHUNCHEON_ARTS_ENGINEERING' },
       data: { isActive: false },
     });
 
     await expect(
       service.search(authContext('user-a'), {
         scope: 'SAME_BUILDING_ONLY',
-        college: { operator: 'INCLUDE', values: ['ARTS_ENGINEERING'] },
+        college: { operator: 'INCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
         limit: 20,
       }),
     ).rejects.toMatchObject({
@@ -600,7 +600,7 @@ describe('RoommateSearchService integration', () => {
       scope: 'SAME_BUILDING_ONLY',
     });
     expect(latest.manifest.filters.fields.college?.options).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'ARTS_ENGINEERING' })]),
+      expect.arrayContaining([expect.objectContaining({ code: 'CHUNCHEON_ARTS_ENGINEERING' })]),
     );
   });
 
@@ -625,8 +625,8 @@ describe('RoommateSearchService integration', () => {
       service.search(authContext('user-a'), {
         scope: 'SAME_BUILDING_ONLY',
         college: {
-          include: ['ARTS_ENGINEERING'],
-          exclude: ['NURSING'],
+          include: ['CHUNCHEON_ARTS_ENGINEERING'],
+          exclude: ['CHUNCHEON_NURSING'],
         },
         limit: 20,
       } as never),
@@ -655,7 +655,7 @@ describe('RoommateSearchService integration', () => {
     await setSeasonState('SEASON_MATCHING');
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대',
         sortOrder: 2,
@@ -664,7 +664,7 @@ describe('RoommateSearchService integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-b' },
       data: {
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         grade: '2',
         mbti: 'ISTJ',
         birthYear: 2002,
@@ -673,7 +673,7 @@ describe('RoommateSearchService integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-c' },
       data: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         grade: '3',
         mbti: 'ENTJ',
         birthYear: 2001,
@@ -682,7 +682,7 @@ describe('RoommateSearchService integration', () => {
 
     const excludeIt = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
-      college: { operator: 'EXCLUDE', values: ['ARTS_ENGINEERING'] },
+      college: { operator: 'EXCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
       limit: 20,
     });
     expect(excludeIt.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
@@ -713,7 +713,7 @@ describe('RoommateSearchService integration', () => {
     await setSeasonState('SEASON_MATCHING');
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대',
         sortOrder: 2,
@@ -722,7 +722,7 @@ describe('RoommateSearchService integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-b' },
       data: {
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         grade: '1',
         mbti: 'INFP',
         birthYear: 2004,
@@ -731,7 +731,7 @@ describe('RoommateSearchService integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-c' },
       data: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         grade: '4+',
         mbti: 'INFJ',
         birthYear: 2001,
@@ -740,7 +740,7 @@ describe('RoommateSearchService integration', () => {
 
     const multiValue = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
-      college: { operator: 'INCLUDE', values: ['ARTS_ENGINEERING', 'NURSING'] },
+      college: { operator: 'INCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING', 'CHUNCHEON_NURSING'] },
       grade: { operator: 'INCLUDE', values: ['1', '2', '3', '4+'] },
       ageBand: { values: ['20', '21', '22', '23', '24', '25_PLUS'] },
       limit: 20,
@@ -769,7 +769,7 @@ describe('RoommateSearchService integration', () => {
     await setSeasonState('SEASON_OPEN');
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대',
         sortOrder: 2,
@@ -778,7 +778,7 @@ describe('RoommateSearchService integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-c' },
       data: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         grade: '3',
         mbti: 'ENTJ',
         birthYear: 2001,
@@ -788,7 +788,7 @@ describe('RoommateSearchService integration', () => {
     const result = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
       sort: 'MATCH_SCORE',
-      college: { operator: 'EXCLUDE', values: ['ARTS_ENGINEERING'] },
+      college: { operator: 'EXCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
       mbtiTraits: {
         energy: 'E',
         perception: null,

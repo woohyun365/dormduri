@@ -73,7 +73,7 @@ describe('season participation shared contract', () => {
 
     expect(
       additionalProfileSchema.safeParse({
-        college: 'ARTS_ENGINEERING',
+        college: 'CHUNCHEON_ARTS_ENGINEERING',
         grade: '3',
         mbti: 'INTJ',
         birthYear: 2002,
@@ -110,7 +110,7 @@ describe('season participation shared contract', () => {
       seasonParticipationContract.createSeasonProfileRequestSchema.safeParse({
         ...validSeasonProfileDraftRequest,
         academicIdentity: {
-          collegeCode: 'ARTS_ENGINEERING',
+          collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
           birthYear: 2002,
         },
       }).success,

@@ -23,7 +23,7 @@ const USER = {
   },
   academicIdentity: {
     userId: 'user-1',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
   },
   dismissedNotices: [],

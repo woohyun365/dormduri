@@ -35,7 +35,7 @@ export function makeCurrentUserResponse(
       nicknameChangedAt: null,
     },
     academicIdentity: {
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
     },
     seasonProfile: {

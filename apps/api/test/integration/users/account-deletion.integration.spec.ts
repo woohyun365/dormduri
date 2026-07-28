@@ -116,7 +116,7 @@ describe('account deletion + season de-registration integration', () => {
     await prisma.userAcademicIdentity.create({
       data: {
         userId: input.userId,
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
     });
@@ -225,7 +225,7 @@ describe('account deletion + season de-registration integration', () => {
         nicknameNormalizedSnapshot: input.nickname,
         ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: `${input.nickname} 등록 준비 소개`,
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         grade: '3',
         mbti: 'INTJ',
         birthYear: 2002,
