@@ -32,12 +32,13 @@ test.describe('Web smoke', () => {
 
   test('비로그인 사용자가 공개 랜딩을 볼 수 있다', async ({ page }) => {
     await page.goto('/');
+    const hero = page.locator('#hero');
 
     await expect(
-      page.getByRole('heading', { name: /생활패턴이 맞는.*룸메 후보를 확인하세요/ }),
+      hero.getByRole('heading', { name: /생활패턴이 맞는.*룸메이트를 찾아요/ }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: '이메일로 시작하기' })).toBeVisible();
-    await expect(page.getByRole('link', { name: '이용 흐름 보기' })).toHaveAttribute(
+    await expect(hero.getByRole('link', { name: '학교 이메일로 시작하기' })).toBeVisible();
+    await expect(hero.getByRole('link', { name: '이용 흐름 보기' })).toHaveAttribute(
       'href',
       '#how-it-works',
     );
