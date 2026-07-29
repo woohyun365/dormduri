@@ -39,7 +39,9 @@ pnpm --dir apps/web exec playwright install chromium
 ## Public metadata and performance smoke
 
 Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다.
-`NEXT_PUBLIC_APP_URL`이 있으면 canonical/robots/sitemap URL의 기준 origin으로 사용하고, 로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade합니다.
+`NEXT_PUBLIC_APP_URL`은 canonical/robots/sitemap URL과 auth mutation origin 검증의 기준입니다.
+로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade하지만, production에는 실제 HTTPS origin을 반드시 주입합니다.
+production auth cookie는 `__Host-` prefix, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain` 규칙을 따릅니다.
 FAQ는 검색 rich result 목적의 `FAQPage` JSON-LD를 추가하지 않습니다. 공개 도움말 품질과 canonical/Open Graph/Twitter metadata를 우선합니다.
 
 Landing 성능 smoke는 production build 기준으로 확인합니다.

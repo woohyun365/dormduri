@@ -16,7 +16,7 @@ describe('AuthService integration', () => {
     return suite.app.get(AuthService);
   }
 
-  it('login은 opaque access token hash를 AuthSession에 저장하고 logout 후 fail-closed 처리한다', async () => {
+  it('rememberMe=false login은 browser-session renewal을 저장하고 logout 후 fail-closed 처리한다', async () => {
     const email = 'opaque-login@kangwon.ac.kr';
     const emailNormalized = email.toLowerCase();
     const passwordHash = await argonHash('Pass1234', {
@@ -50,6 +50,8 @@ describe('AuthService integration', () => {
 
     expect(result.success).toBe(true);
     expect(result.accessToken).toMatch(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/);
+    expect(result.renewalToken).toMatch(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/);
+    expect(result.rememberMe).toBe(false);
     expect(result.accessToken).not.toMatch(/^eyJ/);
 
     const session = await suite.prisma.authSession.findFirstOrThrow({
@@ -57,18 +59,157 @@ describe('AuthService integration', () => {
     });
     expect(session.sessionTokenHash).toBe(hashTokenForTest(result.accessToken ?? ''));
     expect(session.sessionTokenHash).not.toBe(result.accessToken);
+    expect(session.refreshTokenHash).toBe(hashTokenForTest(result.renewalToken ?? ''));
+    expect(session.rememberMe).toBe(false);
+    expect(session.previousRefreshTokenHash).toBeNull();
+    expect(session.previousRefreshTokenValidUntil).toBeNull();
+    await expect(
+      suite.prisma.authSession.update({
+        where: { id: session.id },
+        data: {
+          previousRefreshTokenHash: 'invalid-unpaired-previous-hash',
+        },
+      }),
+    ).rejects.toThrow();
 
     await expect(authService().getSession(result.accessToken ?? null)).resolves.toMatchObject({
       authenticated: true,
       user: { id: 'opaque-login-user', email },
     });
 
-    await expect(authService().logout(result.accessToken ?? null)).resolves.toEqual({
+    const renewalResult = await authService().renewSession(result.renewalToken ?? null);
+    expect(renewalResult).toMatchObject({
+      success: true,
+      rememberMe: false,
+    });
+    if (!renewalResult.success) {
+      throw new Error('Expected rememberMe=false session renewal to succeed');
+    }
+
+    await expect(
+      authService().logout(renewalResult.accessToken ?? null, renewalResult.renewalToken ?? null),
+    ).resolves.toEqual({
       success: true,
     });
-    await expect(authService().getSession(result.accessToken ?? null)).resolves.toEqual({
+    await expect(authService().getSession(renewalResult.accessToken ?? null)).resolves.toEqual({
       authenticated: false,
+      reason: 'SESSION_REVOKED',
     });
+  });
+
+  it.each([2, 5, 10])(
+    '동일 renewal token의 동시 %i개 갱신은 한 요청만 성공하고 나머지는 stale로 수렴한다',
+    async (concurrency) => {
+      const email = `renewal-race-${concurrency}@kangwon.ac.kr`;
+      const emailNormalized = email.toLowerCase();
+      const passwordHash = await argonHash('Pass1234', {
+        algorithm: 2,
+        memoryCost: 8192,
+        timeCost: 2,
+        parallelism: 1,
+        outputLen: 32,
+      });
+      const databaseNow = await suite.prisma.getDatabaseNow();
+
+      await suite.prisma.user.create({
+        data: {
+          id: `renewal-race-user-${concurrency}`,
+          email,
+          emailNormalized,
+          passwordHash,
+          gender: 'F',
+          campus: 'CHUNCHEON',
+          emailVerifiedAt: databaseNow,
+          displayIdentity: {
+            create: {
+              nickname: `갱신경쟁${concurrency}`,
+              nicknameNormalized: `갱신경쟁${concurrency}`,
+            },
+          },
+        },
+      });
+
+      const loginResult = await authService().login(email, 'Pass1234', true);
+      expect(loginResult.success).toBe(true);
+      expect(loginResult.renewalToken).toBeDefined();
+
+      const renewalToken = loginResult.renewalToken ?? null;
+      const results = await Promise.all(
+        Array.from({ length: concurrency }, () => authService().renewSession(renewalToken)),
+      );
+
+      expect(results.filter((result) => result.success)).toHaveLength(1);
+      expect(
+        results.filter((result) => !result.success && result.code === 'AUTH_SESSION_RENEWAL_STALE'),
+      ).toHaveLength(concurrency - 1);
+
+      const session = await suite.prisma.authSession.findFirstOrThrow({
+        where: { userId: `renewal-race-user-${concurrency}` },
+      });
+      expect(session.revokedAt).toBeNull();
+      expect(session.previousRefreshTokenHash).toBe(hashTokenForTest(renewalToken ?? ''));
+      expect(session.previousRefreshTokenValidUntil).not.toBeNull();
+    },
+  );
+
+  it('previous grace가 지난 renewal token 재사용은 family를 revoke하고 security event를 한 번 남긴다', async () => {
+    const email = 'renewal-reuse@kangwon.ac.kr';
+    const passwordHash = await argonHash('Pass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    const databaseNow = await suite.prisma.getDatabaseNow();
+    await suite.prisma.user.create({
+      data: {
+        id: 'renewal-reuse-user',
+        email,
+        emailNormalized: email,
+        passwordHash,
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        emailVerifiedAt: databaseNow,
+        displayIdentity: {
+          create: {
+            nickname: '갱신재사용',
+            nicknameNormalized: '갱신재사용',
+          },
+        },
+      },
+    });
+
+    const loginResult = await authService().login(email, 'Pass1234', true);
+    const previousToken = loginResult.renewalToken ?? null;
+    const firstRenewal = await authService().renewSession(previousToken);
+    expect(firstRenewal.success).toBe(true);
+    const rotatedSession = await suite.prisma.authSession.findFirstOrThrow({
+      where: { userId: 'renewal-reuse-user' },
+    });
+    await suite.prisma.authSession.update({
+      where: { id: rotatedSession.id },
+      data: {
+        previousRefreshTokenValidUntil: databaseNow,
+      },
+    });
+
+    await expect(authService().renewSession(previousToken)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SESSION_RENEWAL_REUSED',
+    });
+    const revokedSession = await suite.prisma.authSession.findUniqueOrThrow({
+      where: { id: rotatedSession.id },
+    });
+    expect(revokedSession.revokedAt).toBeInstanceOf(Date);
+    await expect(
+      suite.prisma.authSecurityEvent.count({
+        where: {
+          sessionId: rotatedSession.id,
+          type: 'SESSION_TOKEN_REUSE_DETECTED',
+        },
+      }),
+    ).resolves.toBe(1);
   });
 
   it('동시에 같은 signup verification proof를 소비해도 User/DisplayIdentity/AcademicIdentity 계정은 하나만 생성된다', async () => {

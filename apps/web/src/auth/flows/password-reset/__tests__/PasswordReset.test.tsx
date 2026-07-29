@@ -43,14 +43,14 @@ vi.mock('@/auth/api', () => ({
     sendResetCode: vi.fn(),
     verifyResetCode: vi.fn(),
     resetPassword: vi.fn(),
-    getSession: vi.fn(),
+    resolveSession: vi.fn(),
   },
 }));
 
 const mockSendCode = vi.mocked(authApi.sendResetCode);
 const mockVerifyCode = vi.mocked(authApi.verifyResetCode);
 const mockResetPassword = vi.mocked(authApi.resetPassword);
-const mockGetSession = vi.mocked(authApi.getSession);
+const mockResolveSession = vi.mocked(authApi.resolveSession);
 
 // --- Helpers ---
 
@@ -78,7 +78,7 @@ describe('PasswordResetPageClient', () => {
     mockSendCode.mockResolvedValue({ success: true });
     mockVerifyCode.mockResolvedValue({ success: true });
     mockResetPassword.mockResolvedValue({ success: true });
-    mockGetSession.mockResolvedValue({ authenticated: false });
+    mockResolveSession.mockResolvedValue({ status: 'unauthenticated' });
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
   });
@@ -388,7 +388,16 @@ describe('PasswordResetPageClient', () => {
     });
 
     it('로그인된 세션이면 재설정 flow를 막지 않는 안내를 표시한다', async () => {
-      mockGetSession.mockResolvedValueOnce({ authenticated: true });
+      mockResolveSession.mockResolvedValueOnce({
+        status: 'authenticated',
+        user: {
+          id: 'user-1',
+          email: 'user@kangwon.ac.kr',
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+      });
 
       render(<PasswordResetPageClient />);
 
@@ -397,6 +406,23 @@ describe('PasswordResetPageClient', () => {
       });
 
       expect(screen.getByText(/현재 로그인된 상태입니다/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '인증 코드 전송' })).toBeEnabled();
+    });
+    it('session unavailable이어도 재설정 flow와 복구 안내를 함께 표시한다', async () => {
+      mockResolveSession.mockResolvedValueOnce({
+        status: 'unavailable',
+        code: 'AUTH_SESSION_UNAVAILABLE',
+      });
+
+      render(<PasswordResetPageClient />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '로그인 상태를 확인하지 못했지만 비밀번호 재설정은 계속할 수 있어요.',
+      );
       expect(screen.getByRole('button', { name: '인증 코드 전송' })).toBeEnabled();
     });
   });

@@ -36,6 +36,23 @@ describe('AuthLoginAttemptService', () => {
     await expect(service.getActiveLock('test@kangwon.ac.kr')).resolves.toBeNull();
   });
 
+  it('password reset transaction의 login failure clear를 같은 transaction client에 위임한다', async () => {
+    const transactionClient = {
+      loginAttempt: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+
+    await expect(
+      service.clearFailuresInTransaction(transactionClient as never, 'test@kangwon.ac.kr'),
+    ).resolves.toBeUndefined();
+
+    expect(transactionClient.loginAttempt.deleteMany).toHaveBeenCalledWith({
+      where: { emailNormalized: 'test@kangwon.ac.kr' },
+    });
+    expect(prisma.loginAttempt.deleteMany).not.toHaveBeenCalled();
+  });
+
   it('활성 잠금이 있으면 잠금 응답을 반환한다', async () => {
     prisma.$queryRawTyped.mockResolvedValue([{ remainingSeconds: 120 }]);
 

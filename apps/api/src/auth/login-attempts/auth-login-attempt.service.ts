@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { LoginResult } from '../domain/auth.types.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { ClearLoginFailuresCommand } from './clear-login-failures.command.js';
@@ -22,6 +23,13 @@ export class AuthLoginAttemptService {
 
   async clearFailures(emailNormalized: string): Promise<void> {
     await this.clearFailuresCommand.execute(emailNormalized);
+  }
+
+  async clearFailuresInTransaction(
+    tx: Pick<Prisma.TransactionClient, 'loginAttempt'>,
+    emailNormalized: string,
+  ): Promise<void> {
+    await this.clearFailuresCommand.executeInTransaction(tx, emailNormalized);
   }
 
   async recordLoginFailure(

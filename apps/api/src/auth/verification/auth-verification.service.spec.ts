@@ -41,6 +41,11 @@ describe('AuthVerificationService', () => {
     codeRequestBackstopWindowSeconds: 600,
     codeRequestBackstopLimit: 20,
     authThrottleLimit: 300,
+    authLoginBurstLimit: 30,
+    authLoginBurstWindowSeconds: 60,
+    authLoginSustainedLimit: 120,
+    authLoginSustainedWindowSeconds: 600,
+    renewalPreviousTokenGraceEnabled: true,
   };
 
   const service = new AuthVerificationService(

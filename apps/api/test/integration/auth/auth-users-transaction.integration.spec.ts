@@ -10,6 +10,7 @@ import {
 } from '../../../src/auth/application/auth-password-hash.js';
 import { normalizeEmail, normalizeNickname } from '../../../src/auth/domain/auth.utils.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
 import { createUserUpdateOwner } from '../../../src/users/application/user-update-owner.js';
 import type { ModerationService } from '../../../src/moderation/moderation.service.js';
@@ -324,7 +325,7 @@ describe('Auth/users transaction rollback and race integration', () => {
 
   describe('reset password transaction', () => {
     itWithQueryTrace(
-      'reset password 성공 시 verification consume/password update/session revoke가 함께 반영된다',
+      'reset password 성공 시 verification consume/password update/session revoke/login lock clear가 함께 반영된다',
       async () => {
         const email = 'reset-success@kangwon.ac.kr';
         const emailNormalized = normalizeEmail(email);
@@ -358,6 +359,15 @@ describe('Auth/users transaction rollback and race integration', () => {
           emailNormalized,
           purpose: 'RESET_PASSWORD',
         });
+        await prisma.loginAttempt.create({
+          data: {
+            id: 'reset-success-login-attempt',
+            emailNormalized,
+            failureCount: 5,
+            lastFailedAt: databaseNow,
+            lockedUntil: new Date(databaseNow.getTime() + 5 * 60 * 1_000),
+          },
+        });
 
         await expect(authService.resetPassword(email, 'NewPass1234')).resolves.toEqual({
           success: true,
@@ -373,6 +383,10 @@ describe('Auth/users transaction rollback and race integration', () => {
             where: { userId, revokedAt: null },
           }),
         ).resolves.toBe(0);
+        await expect(prisma.loginAttempt.count({ where: { emailNormalized } })).resolves.toBe(0);
+        await expect(authService.login(email, 'NewPass1234', false)).resolves.toMatchObject({
+          success: true,
+        });
       },
     );
 
@@ -405,6 +419,15 @@ describe('Auth/users transaction rollback and race integration', () => {
           purpose: 'RESET_PASSWORD',
           consumedAt: databaseNow,
         });
+        await prisma.loginAttempt.create({
+          data: {
+            id: 'reset-consume-failure-login-attempt',
+            emailNormalized,
+            failureCount: 5,
+            lastFailedAt: databaseNow,
+            lockedUntil: new Date(databaseNow.getTime() + 5 * 60 * 1_000),
+          },
+        });
 
         await expect(
           resetPasswordWithOwner(
@@ -413,6 +436,16 @@ describe('Auth/users transaction rollback and race integration', () => {
               verificationService: {
                 findLatestVerifiedResetCode() {
                   return Promise.resolve({ id: verificationCodeId });
+                },
+              },
+              loginAttemptService: {
+                async clearFailuresInTransaction(
+                  tx: Pick<Prisma.TransactionClient, 'loginAttempt'>,
+                  normalizedEmail: string,
+                ) {
+                  await tx.loginAttempt.deleteMany({
+                    where: { emailNormalized: normalizedEmail },
+                  });
                 },
               },
             },
@@ -436,6 +469,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         ).resolves.toMatchObject({
           revokedAt: null,
         });
+        await expect(prisma.loginAttempt.count({ where: { emailNormalized } })).resolves.toBe(1);
       },
     );
 

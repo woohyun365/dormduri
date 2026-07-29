@@ -38,7 +38,11 @@ vi.mock('@/auth/hooks', async (importOriginal) => {
 
   return {
     ...actual,
-    useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
+    useRedirectIfAuthenticated: vi.fn(() => ({
+      isReadyToRender: true,
+      sessionStatus: 'unauthenticated',
+      retrySession: vi.fn(),
+    })),
   };
 });
 
@@ -275,7 +279,11 @@ describe('SignupPageClient', () => {
     sessionStorage.clear();
     mockSignup.mockReset();
     mockSignup.mockResolvedValue({ success: true });
-    mockUseRedirectIfAuthenticated.mockReturnValue({ isReadyToRender: true });
+    mockUseRedirectIfAuthenticated.mockReturnValue({
+      isReadyToRender: true,
+      sessionStatus: 'unauthenticated',
+      retrySession: vi.fn(),
+    });
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   });
 
@@ -292,7 +300,11 @@ describe('SignupPageClient', () => {
   });
 
   it('인증 redirect 대기 중에는 접근 가능한 loading skeleton을 표시한다', async () => {
-    mockUseRedirectIfAuthenticated.mockImplementation(() => ({ isReadyToRender: false }));
+    mockUseRedirectIfAuthenticated.mockImplementation(() => ({
+      isReadyToRender: false,
+      sessionStatus: 'loading',
+      retrySession: vi.fn(),
+    }));
 
     render(<SignupPageClient />);
     await act(async () => Promise.resolve());
@@ -302,6 +314,24 @@ describe('SignupPageClient', () => {
       '로그인 상태를 확인한 뒤 가입 화면을 준비할게요.',
     );
     expect(screen.queryByTestId('step-1-verify')).not.toBeInTheDocument();
+  });
+
+  it('session unavailable이어도 회원가입 flow와 복구 안내를 함께 표시한다', async () => {
+    const retrySession = vi.fn();
+    mockUseRedirectIfAuthenticated.mockReturnValue({
+      isReadyToRender: true,
+      sessionStatus: 'unavailable',
+      retrySession,
+    });
+
+    await renderSignup();
+
+    expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '로그인 상태를 확인하지 못했지만 회원가입은 계속할 수 있어요.',
+    );
+    fireEvent.click(screen.getByRole('button', { name: '다시 확인' }));
+    expect(retrySession).toHaveBeenCalledTimes(1);
   });
 
   it('5단계 progress와 현재 단계 aria-current를 표시한다', async () => {

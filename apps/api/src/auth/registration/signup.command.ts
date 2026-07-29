@@ -177,6 +177,10 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
         gender: user.gender,
         campus: user.campus,
       }),
+      {
+        renewalToken: authResult.renewalToken,
+        rememberMe: false,
+      },
     );
   } catch (error) {
     if (isPrismaKnownRequestError(error, 'P2002')) {

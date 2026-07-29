@@ -41,6 +41,8 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('stress:realtime:smoke');
     expect(source).toContain('stress:fixture:reset');
     expect(source).toContain('AUTH_THROTTLE_LIMIT=5000');
+    expect(source).toContain('AUTH_LOGIN_BURST_LIMIT=5000');
+    expect(source).toContain('AUTH_LOGIN_SUSTAINED_LIMIT=5000');
   });
 
   it('writes a sanitized report and removes raw .tmp artifacts', () => {

@@ -37,8 +37,9 @@ apps/web/src/auth/
 ## Ownership
 
 - `auth`는 Web auth UI와 account identity/session gate를 소유한다.
-- `useAuthSession`은 `/api/auth/session` 결과를 그대로 계정 identity로 다룬다. 반환 타입은 `AuthenticatedSessionUser | null` 범위이며 `UserProfile`이 아니다.
-- session 확인이 지연되거나 실패하면 auth 화면이 skeleton에 무한 대기하지 않도록 bounded timeout 후 unauthenticated state로 수렴한다.
+- `useAuthSession`은 `POST /api/auth/session/resolve`의 browser tri-state를 계정 identity로 다룬다. authenticated user는 `AuthenticatedSessionUser` 범위이며 `UserProfile`이 아니다.
+- session 확인이 지연되거나 실패하면 bounded timeout 후 `unavailable`로 수렴한다. 이 상태는 logout으로 해석하거나 auth cookie를 삭제하지 않는다.
+- Main은 unavailable recovery를 표시하고, Login/Signup/Password Reset은 nonblocking notice와 기존 flow를 함께 제공한다.
 - `auth`는 Display Identity와 Academic Identity를 signup/account setup 입력 및 account/session response 표시 범위로만 다룬다. 생성·검증의 source-of-truth는 API auth/user identity owner다.
 - `UserProfile`, 생활패턴, 자기소개, 기숙사 선택, 시즌 참여 상태는 Main/profile/season read path가 소유한다.
 - `/main`은 auth session gate 이후 Home dashboard/current-user read path를 Main owner가 별도로 수행한다. profile/season 데이터를 auth 성공 조건으로 합성하지 않고, 각 Main/profile/season owner가 자신의 fallback/error state를 표시한다.
@@ -117,6 +118,8 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 - Browser-visible state must not store access tokens, renewal tokens, verification codes, reset passwords, or reset secrets in local/session storage or URL history.
 - BFF responses must redact token-like fields from JSON bodies and use httpOnly cookie transport for session materialization.
+- Access cookie는 로그인 유지 선택과 무관하게 session cookie다. Renewal cookie만 미체크 시 session cookie, 체크 시 7일 persistent cookie로 설정한다.
+- 동시 tab renewal의 stale 응답은 auth cookie를 변경하지 않는다. Browser client는 bounded delay 뒤 최신 cookie로 session resolve를 한 번만 재시도하고, 계속 stale이면 unavailable recovery로 수렴한다.
 - Password reset code request and verification copy must avoid account enumeration.
 - Signup payloads must not include lifestyle/profile fields owned by season profile flows.
 - Redirect helpers must allow internal safe targets only.

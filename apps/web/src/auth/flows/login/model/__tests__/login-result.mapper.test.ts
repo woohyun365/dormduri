@@ -49,12 +49,14 @@ describe('login-result mapper', () => {
   });
 
   it('BFF safe/server code는 generic server error로 매핑한다', () => {
-    expect(
-      mapLoginResponseToErrorState(
-        { success: false, code: 'BFF_RESPONSE_INVALID', error: 'accessToken=must-not-show' },
-        'student@kangwon.ac.kr',
-      ),
-    ).toEqual({ status: 'server-error', message: LOGIN_SERVER_ERROR_MESSAGE });
+    for (const code of ['BFF_RESPONSE_INVALID', 'AUTH_SERVICE_UNAVAILABLE']) {
+      expect(
+        mapLoginResponseToErrorState(
+          { success: false, code, error: 'accessToken=must-not-show' },
+          'student@kangwon.ac.kr',
+        ),
+      ).toEqual({ status: 'server-error', message: LOGIN_SERVER_ERROR_MESSAGE });
+    }
   });
 
   it('기본 실패는 invalid state, throw는 network state로 매핑한다', () => {

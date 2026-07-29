@@ -6,7 +6,7 @@ import type {
   LoginResponse,
   RenewSessionResponse,
 } from '@repo/shared/auth/response';
-import type { SessionResponse } from '@repo/shared/auth/session';
+import type { ApiSessionResponse } from '@repo/shared/auth/session';
 import type { AuthenticatedSessionUser } from '@repo/shared/user';
 
 export interface SignupInput {
@@ -23,7 +23,7 @@ export interface SignupInput {
 export interface AuthSessionIssueResult {
   accessToken: string;
   sessionId: string;
-  renewalToken?: string;
+  renewalToken: string;
 }
 
 export type AuthSessionUserSummary = AuthenticatedSessionUser;
@@ -41,4 +41,4 @@ export interface GenericSuccessResult {
   retryAfterSeconds?: number;
 }
 
-export type SessionStatusResult = SessionResponse;
+export type SessionStatusResult = ApiSessionResponse;

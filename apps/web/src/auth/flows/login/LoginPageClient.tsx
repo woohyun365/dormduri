@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SessionUnavailableNotice } from '@/auth/components/SessionUnavailableNotice';
 import { useRedirectIfAuthenticated } from '@/auth/hooks';
 import { LoginAuthenticatedSkeleton } from './components/LoginAuthenticatedSkeleton';
 import { LoginForm } from './components/LoginForm';
@@ -15,7 +16,7 @@ import { mapLoginRouteStatus } from './model/login-route-status';
 
 export default function LoginPageClient() {
   const router = useRouter();
-  const { isReadyToRender } = useRedirectIfAuthenticated();
+  const { isReadyToRender, sessionStatus, retrySession } = useRedirectIfAuthenticated();
   const searchParams = useSearchParams();
   const redirectTarget = useLoginRedirectTarget();
   const routeStatus = mapLoginRouteStatus(searchParams);
@@ -45,6 +46,12 @@ export default function LoginPageClient() {
         </>
       }
     >
+      {sessionStatus === 'unavailable' && (
+        <SessionUnavailableNotice
+          onRetryAction={retrySession}
+          message="로그인 상태를 확인하지 못했지만 로그인은 계속할 수 있어요."
+        />
+      )}
       <LoginRouteStatusAlert status={loginForm.uiError ? null : routeStatus} />
       <LoginForm
         values={loginForm.values}

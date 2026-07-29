@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { resolveAuthCookieNames } from '@/config/auth-cookie.config';
 import { getWebEnv } from '@/config/env';
 import {
   buildBffUpstreamUrl,
@@ -8,7 +9,6 @@ import {
   readBffJsonResponse,
 } from './security';
 
-const AUTH_COOKIE_NAME = 'auth-token';
 const ALLOWED_BFF_METHODS = new Set(['GET', 'POST', 'DELETE']);
 const ALLOWED_BODY_MODES = new Set(['none', 'json']);
 
@@ -30,7 +30,7 @@ export function encodeBffPathSegment(input: string): string {
 }
 
 export function getBffAuthTokenCookie(request: NextRequest): string | undefined {
-  return request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  return request.cookies.get(resolveAuthCookieNames().access)?.value;
 }
 
 export function getBffForwardHeaders(

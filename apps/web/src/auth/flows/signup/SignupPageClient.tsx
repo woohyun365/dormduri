@@ -14,10 +14,11 @@ import { useSignupExitGuard } from './hooks/useSignupExitGuard';
 import { useSignupFlow } from './hooks/useSignupFlow';
 import { SIGNUP_EMAIL_PROOF_EXPIRED_NOTICE } from './model/signup-recovery-copy';
 import { SignupFlowView } from './SignupFlowView';
+import { SessionUnavailableNotice } from '@/auth/components/SessionUnavailableNotice';
 
 export default function SignupPageClient() {
   const router = useRouter();
-  const { isReadyToRender } = useRedirectIfAuthenticated();
+  const { isReadyToRender, sessionStatus, retrySession } = useRedirectIfAuthenticated();
   const flow = useSignupFlow();
   const hasMeaningfulProgress =
     flow.email.trim().length > 0 ||
@@ -55,6 +56,12 @@ export default function SignupPageClient() {
         currentStep={flow.progress.currentStep}
         onLogoClickAction={exitGuard.requestExit}
       >
+        {sessionStatus === 'unavailable' && (
+          <SessionUnavailableNotice
+            onRetryAction={retrySession}
+            message="로그인 상태를 확인하지 못했지만 회원가입은 계속할 수 있어요."
+          />
+        )}
         {flow.state.currentStepId === 'EMAIL_VERIFICATION' && (
           <StepEmailVerification
             key={flow.state.recoveryReason ?? 'signup-email-verification'}

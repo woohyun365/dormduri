@@ -1387,6 +1387,8 @@ CREATE TABLE "AuthSession" (
     "sessionTokenHash" TEXT,
     "sessionTokenExpiresAt" TIMESTAMPTZ(3),
     "refreshTokenHash" TEXT,
+    "previousRefreshTokenHash" TEXT,
+    "previousRefreshTokenValidUntil" TIMESTAMPTZ(3),
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "revokedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2369,6 +2371,14 @@ ALTER TABLE "UserAcademicIdentity"
 ALTER TABLE "UserAcademicIdentityChangeAllowance"
   ADD CONSTRAINT "UserAcademicIdentityChangeAllowance_collegeChangeRemaining_check"
   CHECK ("collegeChangeRemaining" >= 0);
+
+ALTER TABLE "AuthSession"
+  ADD CONSTRAINT "AuthSession_previousRefreshToken_pair_check"
+  CHECK (
+    ("previousRefreshTokenHash" IS NULL AND "previousRefreshTokenValidUntil" IS NULL)
+    OR
+    ("previousRefreshTokenHash" IS NOT NULL AND "previousRefreshTokenValidUntil" IS NOT NULL)
+  );
 
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_grade_check"

@@ -5,6 +5,7 @@ import httpConfig, {
   readHttpCookieSecure,
   readHttpCorsAllowedOrigins,
   readHttpTrustProxy,
+  parseHttpTrustProxyCidrs,
 } from './http.config.js';
 
 describe('httpConfig', () => {
@@ -12,9 +13,27 @@ describe('httpConfig', () => {
     expect(readHttpTrustProxy({ NODE_ENV: 'test' })).toBe(false);
   });
 
-  it('parses trust proxy boolean values', () => {
-    expect(readHttpTrustProxy({ HTTP_TRUST_PROXY: 'true' })).toBe(true);
-    expect(readHttpTrustProxy({ HTTP_TRUST_PROXY: '0' })).toBe(false);
+  it('parses explicit trusted proxy hop or CIDR topology', () => {
+    expect(readHttpTrustProxy({ HTTP_TRUST_PROXY_HOPS: '2' })).toBe(2);
+    expect(
+      readHttpTrustProxy({
+        HTTP_TRUST_PROXY_CIDRS: '10.0.0.0/8, 192.168.0.0/16, loopback',
+      }),
+    ).toEqual(['10.0.0.0/8', '192.168.0.0/16', 'loopback']);
+    expect(parseHttpTrustProxyCidrs('2001:db8::/32,2001:db8::/32')).toEqual(['2001:db8::/32']);
+  });
+
+  it('rejects ambiguous or invalid trusted proxy topology', () => {
+    expect(() =>
+      readHttpTrustProxy({
+        HTTP_TRUST_PROXY_HOPS: '1',
+        HTTP_TRUST_PROXY_CIDRS: '10.0.0.0/8',
+      }),
+    ).toThrow('Configure only one');
+    expect(() => readHttpTrustProxy({ HTTP_TRUST_PROXY_HOPS: '1.5' })).toThrow('integer');
+    expect(() => readHttpTrustProxy({ HTTP_TRUST_PROXY_CIDRS: 'not-a-cidr' })).toThrow(
+      'valid IP/CIDR',
+    );
   });
 
   it('parses, canonicalizes, and deduplicates comma-separated CORS origins', () => {
@@ -54,13 +73,13 @@ describe('httpConfig', () => {
 
   it('exposes parsed values through the Nest config namespace', () => {
     const previousEnv = { ...process.env };
-    process.env.HTTP_TRUST_PROXY = 'true';
+    process.env.HTTP_TRUST_PROXY_HOPS = '1';
     process.env.HTTP_CORS_ALLOWED_ORIGINS = 'https://app.example.com, https://admin.example.com';
     process.env.HTTP_COOKIE_DOMAIN = '.example.com';
 
     try {
       expect(httpConfig()).toMatchObject({
-        trustProxy: true,
+        trustProxy: 1,
         corsAllowedOrigins: ['https://app.example.com', 'https://admin.example.com'],
         cookieDomain: '.example.com',
       });

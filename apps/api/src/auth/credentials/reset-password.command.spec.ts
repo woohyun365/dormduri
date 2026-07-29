@@ -24,17 +24,23 @@ describe('resetPassword command', () => {
     authSession: {
       updateMany: vi.fn(),
     },
+    loginAttempt: {
+      deleteMany: vi.fn(),
+    },
     $queryRawTyped: vi.fn(),
   };
   const verificationService = {
     findLatestVerifiedResetCode: vi.fn(),
+  };
+  const loginAttemptService = {
+    clearFailuresInTransaction: vi.fn(),
   };
   const securityEvents = {
     recordSafely: vi
       .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
       .mockResolvedValue(undefined),
   };
-  const deps = { prisma, verificationService, securityEvents };
+  const deps = { prisma, verificationService, loginAttemptService, securityEvents };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,6 +53,7 @@ describe('resetPassword command', () => {
         $queryRawTyped: prisma.$queryRawTyped,
         user: { update: prisma.user.update },
         authSession: { updateMany: prisma.authSession.updateMany },
+        loginAttempt: { deleteMany: prisma.loginAttempt.deleteMany },
       }),
     );
   });
@@ -81,6 +88,12 @@ describe('resetPassword command', () => {
       where: { userId: 'user-1', revokedAt: null },
       data: { revokedAt: databaseNow },
     });
+    expect(loginAttemptService.clearFailuresInTransaction).toHaveBeenCalledTimes(1);
+    const clearFailureCalls = loginAttemptService.clearFailuresInTransaction.mock
+      .calls as unknown as Array<[{ loginAttempt: { deleteMany: unknown } }, string]>;
+    const clearFailureCall = clearFailureCalls[0];
+    expect(clearFailureCall?.[0].loginAttempt.deleteMany).toBe(prisma.loginAttempt.deleteMany);
+    expect(clearFailureCall?.[1]).toBe('test@kangwon.ac.kr');
     expect(securityEvents.recordSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'SESSION_REVOKE_ALL',
@@ -96,6 +109,7 @@ describe('resetPassword command', () => {
         type: 'RESET_PASSWORD_CONSUMED',
         targetUserId: 'user-1',
         emailNormalized: 'test@kangwon.ac.kr',
+        metadata: { loginAttemptState: 'cleared' },
       }),
     );
   });
@@ -151,6 +165,7 @@ describe('resetPassword command', () => {
       expect(verificationService.findLatestVerifiedResetCode).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+      expect(loginAttemptService.clearFailuresInTransaction).not.toHaveBeenCalled();
     }
   });
 });

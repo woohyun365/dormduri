@@ -1,6 +1,10 @@
 import Joi, { type CustomHelpers } from 'joi';
-import { DEFAULT_HTTP_COOKIE_SAME_SITE, DEFAULT_HTTP_TRUST_PROXY } from '../http.config.js';
-import { booleanEnv, type EnvSchemaDefinition } from './joi-helpers.js';
+import {
+  DEFAULT_HTTP_COOKIE_SAME_SITE,
+  DEFAULT_HTTP_TRUST_PROXY_HOPS,
+  parseHttpTrustProxyCidrs,
+} from '../http.config.js';
+import { type EnvSchemaDefinition } from './joi-helpers.js';
 
 const httpCookieSecureEnv = Joi.boolean()
   .truthy('1')
@@ -22,7 +26,8 @@ const httpCookieSecureEnv = Joi.boolean()
   });
 
 export const httpEnvSchema = {
-  HTTP_TRUST_PROXY: booleanEnv(DEFAULT_HTTP_TRUST_PROXY),
+  HTTP_TRUST_PROXY_HOPS: Joi.number().integer().min(0).default(DEFAULT_HTTP_TRUST_PROXY_HOPS),
+  HTTP_TRUST_PROXY_CIDRS: trustProxyCidrsEnv(),
   HTTP_CORS_ALLOWED_ORIGINS: explicitCorsOriginListEnv(),
   HTTP_COOKIE_SECURE: httpCookieSecureEnv,
   HTTP_COOKIE_SAME_SITE: Joi.string()
@@ -30,6 +35,21 @@ export const httpEnvSchema = {
     .default(DEFAULT_HTTP_COOKIE_SAME_SITE),
   HTTP_COOKIE_DOMAIN: cookieDomainEnv(),
 } satisfies EnvSchemaDefinition;
+
+function trustProxyCidrsEnv() {
+  return Joi.string()
+    .trim()
+    .allow('')
+    .optional()
+    .custom((value: string, helpers: CustomHelpers) => {
+      try {
+        parseHttpTrustProxyCidrs(value);
+        return value;
+      } catch {
+        return helpers.error('any.invalid');
+      }
+    }, 'trusted proxy CIDR list');
+}
 
 function explicitCorsOriginListEnv() {
   return Joi.string()

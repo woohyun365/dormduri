@@ -7,13 +7,13 @@ import type {
 export function toLoginSuccessResult(
   accessToken: string,
   user: AuthSessionUserSummary,
-  options: { renewalToken?: string; rememberMe?: boolean } = {},
+  options: { renewalToken: string; rememberMe: boolean },
 ): LoginResult {
   return {
     success: true,
     accessToken,
-    ...(options.renewalToken ? { renewalToken: options.renewalToken } : {}),
-    ...(typeof options.rememberMe === 'boolean' ? { rememberMe: options.rememberMe } : {}),
+    renewalToken: options.renewalToken,
+    rememberMe: options.rememberMe,
     user,
   };
 }

@@ -1,7 +1,6 @@
 import type { Provider } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import emailConfig from '../../config/email.config.js';
 import { AuthenticatedUserGuard } from '../access/authenticated-user.guard.js';
 import {
@@ -16,6 +15,9 @@ import { StubEmailSenderService } from '../adapters/email/stub-email-sender.serv
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
 import { AuthService } from '../application/auth.service.js';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
+import { AuthPasswordHashPolicy } from '../credentials/auth-password-hash.adapter.js';
+import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
+import { AuthLoginThrottlerGuard } from '../login-attempts/auth-login-throttler.guard.js';
 import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import { ClearLoginFailuresCommand } from '../login-attempts/clear-login-failures.command.js';
 import { GetActiveLoginLockQuery } from '../login-attempts/get-active-login-lock.query.js';
@@ -58,7 +60,10 @@ export const AUTH_SESSION_PROVIDERS: Provider[] = [
   LogoutSessionCommand,
 ];
 
-export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [AuthCredentialUseCases];
+export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [
+  AuthCredentialUseCases,
+  AuthPasswordHashPolicy,
+];
 
 export const AUTH_REGISTRATION_PROVIDERS: Provider[] = [
   AuthRegistrationUseCases,
@@ -67,6 +72,7 @@ export const AUTH_REGISTRATION_PROVIDERS: Provider[] = [
 
 export const AUTH_LOGIN_ATTEMPT_PROVIDERS: Provider[] = [
   AuthLoginAttemptService,
+  AuthLoginMetricsService,
   LoginAttemptRepository,
   GetActiveLoginLockQuery,
   RecordLoginFailureCommand,
@@ -101,7 +107,7 @@ export const AUTH_ACCESS_PROVIDERS: Provider[] = [
   AuthenticatedUserGuard,
   {
     provide: APP_GUARD,
-    useClass: ThrottlerGuard,
+    useClass: AuthLoginThrottlerGuard,
   },
   {
     provide: APP_GUARD,

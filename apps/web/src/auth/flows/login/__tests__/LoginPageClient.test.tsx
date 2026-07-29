@@ -51,7 +51,11 @@ vi.mock('@/auth/hooks', async (importOriginal) => {
 
   return {
     ...actual,
-    useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
+    useRedirectIfAuthenticated: vi.fn(() => ({
+      isReadyToRender: true,
+      sessionStatus: 'unauthenticated',
+      retrySession: vi.fn(),
+    })),
   };
 });
 
@@ -80,7 +84,11 @@ describe('LoginPageClient', () => {
   });
 
   it('isReadyToRender가 false이면 접근 가능한 session 확인 상태를 렌더링하고 폼은 숨긴다', () => {
-    mockRedirectHook.mockReturnValueOnce({ isReadyToRender: false });
+    mockRedirectHook.mockReturnValueOnce({
+      isReadyToRender: false,
+      sessionStatus: 'loading',
+      retrySession: vi.fn(),
+    });
 
     render(<LoginPageClient />);
 
@@ -94,6 +102,24 @@ describe('LoginPageClient', () => {
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument();
+  });
+
+  it('session unavailable이어도 로그인 폼과 다시 확인 안내를 함께 표시한다', () => {
+    const retrySession = vi.fn();
+    mockRedirectHook.mockReturnValueOnce({
+      isReadyToRender: true,
+      sessionStatus: 'unavailable',
+      retrySession,
+    });
+
+    render(<LoginPageClient />);
+
+    expect(screen.getByLabelText('이메일')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '로그인 상태를 확인하지 못했지만 로그인은 계속할 수 있어요.',
+    );
+    fireEvent.click(screen.getByRole('button', { name: '다시 확인' }));
+    expect(retrySession).toHaveBeenCalledTimes(1);
   });
 
   it('reset=success query가 있으면 비밀번호 변경 후 재로그인 안내를 표시한다', () => {

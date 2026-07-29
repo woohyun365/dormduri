@@ -1,4 +1,3 @@
-export { sessionResponseSchema, type SessionResponse } from '../session/contract.js';
 export { genericErrorResponseSchema } from './base.js';
 export type { GenericErrorResponse } from './base.js';
 export {
@@ -7,6 +6,8 @@ export {
   signupResponseSchema,
   resetPasswordResponseSchema,
   changePasswordResponseSchema,
+  authSessionRenewalFailureCodeSchema,
+  renewSessionStaleResponseSchema,
   renewSessionResponseSchema,
 } from './auth.js';
 export type {
@@ -15,6 +16,8 @@ export type {
   SignupResponse,
   ResetPasswordResponse,
   ChangePasswordResponse,
+  AuthSessionRenewalFailureCode,
+  RenewSessionStaleResponse,
   RenewSessionResponse,
   AuthenticatedSessionUser,
 } from './auth.js';

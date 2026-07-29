@@ -11,11 +11,18 @@ import type {
   DevAuthUsersResponse,
   LoginResponse,
   ResetPasswordResponse,
-  SessionResponse,
   SignupDraftValidationResponse,
   SignupResponse,
   VerifyCodeResponse,
 } from '@repo/shared/auth/response';
+import {
+  browserSessionResolutionSchema,
+  type BrowserSessionResolution,
+} from '@repo/shared/auth/session';
+import {
+  AUTH_SESSION_STALE_RETRY_HEADER,
+  AUTH_SESSION_STALE_RETRY_MAX_MILLISECONDS,
+} from '@/auth/model/session-resolution.constants';
 
 import type { AuthCodeRequestResult, AuthClientErrorBody } from './auth-api.types';
 import {
@@ -129,17 +136,19 @@ export const authApi = {
     return verifyCode('/api/auth/verify-reset-code', email, code);
   },
 
-  getSession: async (): Promise<SessionResponse> => {
-    const { status, data } = await requestJson<SessionResponse>('/api/auth/session', {
-      method: 'GET',
-      cache: 'no-store',
-    });
+  resolveSession: async (signal?: AbortSignal): Promise<BrowserSessionResolution> => {
+    const firstResolution = await requestBrowserSessionResolution(signal);
+    const retryAfterMilliseconds = parseSessionRetryMilliseconds(
+      firstResolution.headers.get(AUTH_SESSION_STALE_RETRY_HEADER),
+    );
 
-    if (status === 200) {
-      return data;
+    if (retryAfterMilliseconds !== null) {
+      await waitForSessionRetry(retryAfterMilliseconds, signal);
+      const retriedResolution = await requestBrowserSessionResolution(signal);
+      return parseBrowserSessionResolution(retriedResolution.data);
     }
 
-    return { authenticated: false };
+    return parseBrowserSessionResolution(firstResolution.data);
   },
 
   getDevUsers: async (): Promise<DevAuthUsersResponse> => {
@@ -180,6 +189,52 @@ export const authApi = {
     return sendCode('/api/auth/send-reset-code', email);
   },
 };
+
+function requestBrowserSessionResolution(signal?: AbortSignal) {
+  return requestJson<BrowserSessionResolution>('/api/auth/session/resolve', {
+    method: 'POST',
+    cache: 'no-store',
+    signal,
+  });
+}
+
+function parseBrowserSessionResolution(data: BrowserSessionResolution) {
+  const parsed = browserSessionResolutionSchema.safeParse(data);
+  return parsed.success
+    ? parsed.data
+    : ({ status: 'unavailable', code: 'AUTH_SESSION_UNAVAILABLE' } as const);
+}
+
+function parseSessionRetryMilliseconds(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return Math.min(parsed, AUTH_SESSION_STALE_RETRY_MAX_MILLISECONDS);
+}
+
+function waitForSessionRetry(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('aborted', 'AbortError'));
+  }
+
+  return new Promise((resolve, reject) => {
+    const handleAbort = () => {
+      clearTimeout(timeoutId);
+      reject(new DOMException('aborted', 'AbortError'));
+    };
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener('abort', handleAbort, { once: true });
+  });
+}
 
 async function sendCode(
   path: '/api/auth/send-signup-code' | '/api/auth/send-reset-code',

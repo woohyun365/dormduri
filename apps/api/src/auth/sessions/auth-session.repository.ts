@@ -30,6 +30,8 @@ const renewalSessionSelect = {
   userId: true,
   rememberMe: true,
   refreshTokenHash: true,
+  previousRefreshTokenHash: true,
+  previousRefreshTokenValidUntil: true,
   expiresAt: true,
   revokedAt: true,
   user: {
@@ -72,7 +74,7 @@ export class AuthSessionRepository {
     rememberMe: boolean;
     sessionTokenHash: string;
     sessionTokenExpiresAt: Date;
-    refreshTokenHash?: string;
+    refreshTokenHash: string;
     expiresAt: Date;
   }) {
     return this.prisma.authSession.create({
@@ -82,7 +84,7 @@ export class AuthSessionRepository {
         rememberMe: input.rememberMe,
         sessionTokenHash: input.sessionTokenHash,
         sessionTokenExpiresAt: input.sessionTokenExpiresAt,
-        ...(input.refreshTokenHash ? { refreshTokenHash: input.refreshTokenHash } : {}),
+        refreshTokenHash: input.refreshTokenHash,
         expiresAt: input.expiresAt,
       },
       select: { id: true },
@@ -128,13 +130,15 @@ export class AuthSessionRepository {
       nextRenewalTokenHash: string;
       nextAccessTokenHash: string;
       nextAccessTokenExpiresAt: Date;
+      previousRefreshTokenValidUntil: Date;
+      rememberMe: boolean;
       databaseNow: Date;
     },
   ) {
     return client.authSession.updateMany({
       where: {
         id: input.sessionId,
-        rememberMe: true,
+        rememberMe: input.rememberMe,
         refreshTokenHash: input.currentRefreshTokenHash,
         revokedAt: null,
         expiresAt: {
@@ -142,6 +146,8 @@ export class AuthSessionRepository {
         },
       },
       data: {
+        previousRefreshTokenHash: input.currentRefreshTokenHash,
+        previousRefreshTokenValidUntil: input.previousRefreshTokenValidUntil,
         refreshTokenHash: input.nextRenewalTokenHash,
         sessionTokenHash: input.nextAccessTokenHash,
         sessionTokenExpiresAt: input.nextAccessTokenExpiresAt,

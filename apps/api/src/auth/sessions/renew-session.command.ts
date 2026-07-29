@@ -1,5 +1,11 @@
-import { Injectable, Optional } from '@nestjs/common';
-import { AUTH_ACCESS_TOKEN_TTL_SECONDS } from '../domain/auth.constants.js';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import authConfig from '../../config/auth.config.js';
+import {
+  AUTH_ACCESS_TOKEN_TTL_SECONDS,
+  AUTH_SESSION_PREVIOUS_TOKEN_GRACE_MILLISECONDS,
+  AUTH_SESSION_RENEWAL_STALE_RETRY_AFTER_MILLISECONDS,
+} from '../domain/auth.constants.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { RenewSessionResult } from '../domain/auth.types.js';
 import { authFailures } from '../errors/auth-failures.js';
@@ -10,12 +16,14 @@ import {
 import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
 import { createOpaqueToken, hashOpaqueToken, parseOpaqueToken } from './opaque-token.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
-import { isRenewalTokenReuse, resolveRenewalRejectionReason } from './session-lifecycle.policy.js';
+import { classifyRenewalToken, resolveRenewalRejectionReason } from './session-lifecycle.policy.js';
 
 @Injectable()
 export class RenewSessionCommand {
   constructor(
     private readonly repository: AuthSessionRepository,
+    @Inject(authConfig.KEY)
+    private readonly authSettings: ConfigType<typeof authConfig>,
     @Optional() private readonly securityEvents?: AuthSecurityEventService,
   ) {}
 
@@ -35,6 +43,9 @@ export class RenewSessionCommand {
     const nextAccessTokenExpiresAt = new Date(
       databaseNow.getTime() + AUTH_ACCESS_TOKEN_TTL_SECONDS * 1000,
     );
+    const previousRefreshTokenValidUntil = new Date(
+      databaseNow.getTime() + AUTH_SESSION_PREVIOUS_TOKEN_GRACE_MILLISECONDS,
+    );
     const nextRenewalToken = createOpaqueToken(parsedRenewalToken.sessionId);
     const nextRenewalTokenHash = hashOpaqueToken(nextRenewalToken);
 
@@ -53,12 +64,18 @@ export class RenewSessionCommand {
         return null;
       }
 
-      if (
-        isRenewalTokenReuse(
-          { refreshTokenHash: currentRefreshTokenHash },
-          parsedRenewalToken.tokenHash,
-        )
-      ) {
+      const tokenClassification = classifyRenewalToken(
+        session,
+        parsedRenewalToken.tokenHash,
+        databaseNow,
+        this.authSettings.renewalPreviousTokenGraceEnabled,
+      );
+
+      if (tokenClassification === 'previous') {
+        return { kind: 'stale' as const };
+      }
+
+      if (tokenClassification === 'unknown') {
         await this.repository.revokeSessionById(tx, session.id, databaseNow);
         return { kind: 'reused' as const };
       }
@@ -69,6 +86,8 @@ export class RenewSessionCommand {
         nextRenewalTokenHash,
         nextAccessTokenHash,
         nextAccessTokenExpiresAt,
+        previousRefreshTokenValidUntil,
+        rememberMe: session.rememberMe,
         databaseNow,
       });
 
@@ -78,6 +97,7 @@ export class RenewSessionCommand {
 
       return {
         kind: 'renewed' as const,
+        rememberMe: session.rememberMe,
       };
     });
 
@@ -100,6 +120,10 @@ export class RenewSessionCommand {
       return authFailures.sessionRenewalReused();
     }
 
+    if (renewalAttempt.kind === 'stale') {
+      return authFailures.sessionRenewalStale(AUTH_SESSION_RENEWAL_STALE_RETRY_AFTER_MILLISECONDS);
+    }
+
     await recordAuthSecurityEventSafely(this.securityEvents, {
       type: 'SESSION_REFRESH_SUCCESS',
       severity: 'INFO',
@@ -107,7 +131,7 @@ export class RenewSessionCommand {
       requestIp: requestContext.requestIp,
       userAgent: requestContext.userAgent,
       metadata: {
-        rememberMe: true,
+        rememberMe: renewalAttempt.rememberMe,
       },
     });
 
@@ -115,7 +139,7 @@ export class RenewSessionCommand {
       success: true,
       accessToken: nextAccessToken,
       renewalToken: nextRenewalToken,
-      rememberMe: true,
+      rememberMe: renewalAttempt.rememberMe,
     };
   }
 

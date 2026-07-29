@@ -63,6 +63,7 @@ describe('changePassword command', () => {
     });
     sessionService.issueAuthResult.mockResolvedValue({
       accessToken: 'rotated-access-token',
+      renewalToken: 'rotated-renewal-token',
       sessionId: 'session-new',
     });
 
@@ -77,6 +78,7 @@ describe('changePassword command', () => {
     ).resolves.toEqual({
       success: true,
       accessToken: 'rotated-access-token',
+      renewalToken: 'rotated-renewal-token',
       rememberMe: true,
     });
 

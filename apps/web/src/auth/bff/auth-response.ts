@@ -6,6 +6,9 @@ export function buildJsonResponse(response: Response, json: Record<string, unkno
 
   return NextResponse.json(redactSensitiveBffJson(json), {
     status: response.status,
-    ...(retryAfter ? { headers: { 'Retry-After': retryAfter } } : {}),
+    headers: {
+      'Cache-Control': 'no-store',
+      ...(retryAfter ? { 'Retry-After': retryAfter } : {}),
+    },
   });
 }

@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  AUTH_BFF_DEFAULT_TIMEOUT_MS,
   buildJsonResponse,
   forwardAuthRequest,
+  getAuthCookieNames,
   getForwardHeaders,
+  resolveTrustedForwardedFor,
   setAuthCookie,
   setAuthTransportCookies,
 } from '@/auth/bff';
@@ -14,6 +17,7 @@ const RENEWAL_TOKEN = `v1.session-renewal.${'d'.repeat(43)}`;
 describe('auth BFF shared helpers', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('upstream status를 보존한다', async () => {
@@ -21,6 +25,7 @@ describe('auth BFF shared helpers', () => {
     const response = buildJsonResponse(upstream, { success: false });
 
     expect(response.status).toBe(429);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
 
   it('upstream Retry-After header를 보존한다', () => {
@@ -85,6 +90,19 @@ describe('auth BFF shared helpers', () => {
     });
   });
 
+  it('spoof 가능한 X-Forwarded-For 선행 값은 버리고 trusted edge가 추가한 마지막 IP만 전달한다', () => {
+    const request = new NextRequest('http://localhost/api/auth/session', {
+      headers: {
+        'x-forwarded-for': '198.51.100.99, 203.0.113.30',
+      },
+    });
+
+    expect(resolveTrustedForwardedFor(request)).toBe('203.0.113.30');
+    expect(getForwardHeaders(request)).toEqual({
+      'x-forwarded-for': '203.0.113.30',
+    });
+  });
+
   it('buildJsonResponse는 token-like fields를 response body에서 제거한다', async () => {
     const response = buildJsonResponse(new Response('{}', { status: 400 }), {
       success: false,
@@ -101,34 +119,29 @@ describe('auth BFF shared helpers', () => {
     });
   });
 
-  it('rememberMe 미체크 시 session cookie를 설정한다', () => {
+  it('access token은 rememberMe와 무관하게 session cookie로 설정한다', () => {
     const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
-    setAuthCookie(response, ACCESS_TOKEN, false);
+    setAuthCookie(response, ACCESS_TOKEN);
 
     const cookie = response.cookies.get('auth-token');
     expect(cookie?.value).toBe(ACCESS_TOKEN);
     expect(cookie?.maxAge).toBeUndefined();
   });
 
-  it('rememberMe 체크 시 persistent cookie를 설정한다', () => {
+  it('rememberMe=true여도 access token은 persistent cookie로 만들지 않는다', () => {
     const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
-    setAuthCookie(response, ACCESS_TOKEN, true);
+    setAuthTransportCookies(response, {
+      accessToken: ACCESS_TOKEN,
+      renewalToken: RENEWAL_TOKEN,
+      rememberMe: true,
+    });
 
     const cookie = response.cookies.get('auth-token');
     expect(cookie?.value).toBe(ACCESS_TOKEN);
-    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
+    expect(cookie?.maxAge).toBeUndefined();
   });
 
-  it('Phase 0 expected-change: rememberMe 체크 시 7일 session/token family TTL에 맞춘 persistent cookie를 설정한다', () => {
-    const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
-    setAuthCookie(response, ACCESS_TOKEN, true);
-
-    const cookie = response.cookies.get('auth-token');
-    expect(cookie?.value).toBe(ACCESS_TOKEN);
-    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
-  });
-
-  it('rememberMe transport는 renewal cookie를 access cookie와 분리해 저장한다', () => {
+  it('rememberMe=true transport는 renewal cookie만 7일 persistent로 저장한다', () => {
     const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
     setAuthTransportCookies(response, {
       accessToken: ACCESS_TOKEN,
@@ -137,8 +150,200 @@ describe('auth BFF shared helpers', () => {
     });
 
     expect(response.cookies.get('auth-token')?.value).toBe(ACCESS_TOKEN);
-    expect(response.cookies.get('auth-token')?.maxAge).toBe(60 * 60 * 24 * 7);
+    expect(response.cookies.get('auth-token')?.maxAge).toBeUndefined();
     expect(response.cookies.get('auth-renewal-token')?.value).toBe(RENEWAL_TOKEN);
     expect(response.cookies.get('auth-renewal-token')?.maxAge).toBe(60 * 60 * 24 * 7);
+  });
+
+  it('rememberMe=false transport는 access와 renewal을 모두 session cookie로 저장한다', () => {
+    const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
+    setAuthTransportCookies(response, {
+      accessToken: ACCESS_TOKEN,
+      renewalToken: RENEWAL_TOKEN,
+      rememberMe: false,
+    });
+
+    expect(response.cookies.get('auth-token')?.maxAge).toBeUndefined();
+    expect(response.cookies.get('auth-renewal-token')?.value).toBe(RENEWAL_TOKEN);
+    expect(response.cookies.get('auth-renewal-token')?.maxAge).toBeUndefined();
+  });
+
+  it('production auth cookie는 __Host- 이름과 Secure/Path/no Domain invariant를 사용한다', () => {
+    const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
+    setAuthCookie(response, ACCESS_TOKEN, 'production');
+
+    expect(getAuthCookieNames('production')).toEqual({
+      access: '__Host-auth-token',
+      renewal: '__Host-auth-renewal-token',
+    });
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('__Host-auth-token=');
+    expect(setCookie).toContain('Secure');
+    expect(setCookie).toContain('Path=/');
+    expect(setCookie).not.toMatch(/Domain=/i);
+  });
+
+  it('development/test auth cookie는 HTTP local runtime용 기존 이름을 유지한다', () => {
+    expect(getAuthCookieNames('development')).toEqual({
+      access: 'auth-token',
+      renewal: 'auth-renewal-token',
+    });
+    expect(getAuthCookieNames('test')).toEqual({
+      access: 'auth-token',
+      renewal: 'auth-renewal-token',
+    });
+  });
+
+  it('network exception을 bounded safe response로 분류한다', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('connection refused')));
+
+    const result = await forwardAuthRequest('POST', '/auth/login', {
+      email: 'student@kangwon.ac.kr',
+    });
+
+    expect(result.failureKind).toBe('network');
+    expect(result.response.status).toBe(503);
+    expect(result.json).toEqual({
+      success: false,
+      code: 'BFF_UPSTREAM_NETWORK_ERROR',
+    });
+  });
+
+  it('operation timeout은 fetch를 abort하고 timeout으로 분류한다', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        });
+      }),
+    );
+
+    const pending = forwardAuthRequest(
+      'POST',
+      '/auth/login',
+      { email: 'student@kangwon.ac.kr' },
+      undefined,
+      { timeoutMs: 10 },
+    );
+    await vi.advanceTimersByTimeAsync(10);
+
+    await expect(pending).resolves.toMatchObject({
+      failureKind: 'timeout',
+      json: { code: 'BFF_UPSTREAM_TIMEOUT' },
+    });
+    expect(AUTH_BFF_DEFAULT_TIMEOUT_MS).toBe(8_000);
+  });
+
+  it('caller abort는 operation timeout과 구분한다', async () => {
+    const controller = new AbortController();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        });
+      }),
+    );
+
+    const pending = forwardAuthRequest('GET', '/auth/session', undefined, {
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(pending).resolves.toMatchObject({
+      failureKind: 'aborted',
+      json: { code: 'BFF_UPSTREAM_ABORTED' },
+    });
+  });
+
+  it('이미 abort된 caller signal도 upstream 호출 전에 aborted로 분류한다', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.signal?.aborted) {
+          throw new DOMException('aborted', 'AbortError');
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    await expect(
+      forwardAuthRequest('GET', '/auth/session', undefined, {
+        signal: controller.signal,
+      }),
+    ).resolves.toMatchObject({
+      failureKind: 'aborted',
+      json: { code: 'BFF_UPSTREAM_ABORTED' },
+    });
+  });
+
+  it('upstream 5xx는 response payload를 전달하지 않고 unavailable로 분류한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({ success: false, error: 'raw internal error', secret: 'leak' }),
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        );
+      }),
+    );
+
+    const result = await forwardAuthRequest('POST', '/auth/login');
+
+    expect(result.failureKind).toBe('upstream');
+    expect(result.response.status).toBe(503);
+    expect(result.json).toEqual({
+      success: false,
+      code: 'BFF_UPSTREAM_UNAVAILABLE',
+    });
+  });
+
+  it('runtime response schema mismatch를 invalid response로 분류한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const result = await forwardAuthRequest('POST', '/auth/login', undefined, undefined, {
+      responseSchema: {
+        safeParse(value: unknown) {
+          if (
+            typeof value === 'object' &&
+            value !== null &&
+            !Array.isArray(value) &&
+            Reflect.get(value, 'success') === true &&
+            typeof Reflect.get(value, 'accessToken') === 'string'
+          ) {
+            return { success: true as const, data: value as Record<string, unknown> };
+          }
+          return { success: false as const, error: new Error('schema mismatch') };
+        },
+      },
+    });
+
+    expect(result.failureKind).toBe('invalid-response');
+    expect(result.json).toEqual({
+      success: false,
+      code: 'BFF_UPSTREAM_SCHEMA_MISMATCH',
+    });
   });
 });

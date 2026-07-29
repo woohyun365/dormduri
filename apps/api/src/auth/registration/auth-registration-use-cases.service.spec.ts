@@ -123,12 +123,15 @@ describe('AuthRegistrationUseCases', () => {
     });
     sessionService.issueAuthResult.mockResolvedValue({
       accessToken: 'access-token',
+      renewalToken: 'renewal-token',
       sessionId: 'session-1',
     });
 
     await expect(useCases.signup(input as never)).resolves.toMatchObject({
       success: true,
       accessToken: 'access-token',
+      renewalToken: 'renewal-token',
+      rememberMe: false,
       user: { id: 'user-1', nickname: '테스터' },
     });
 

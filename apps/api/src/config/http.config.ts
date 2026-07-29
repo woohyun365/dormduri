@@ -1,19 +1,73 @@
 import { registerAs } from '@nestjs/config';
-import { readBooleanEnv, readStringEnv } from './env.helpers.js';
+import { isIP } from 'node:net';
+import { readBooleanEnv, readNumberEnv, readStringEnv } from './env.helpers.js';
 
-export const HTTP_TRUST_PROXY_ENV = 'HTTP_TRUST_PROXY';
+export const HTTP_TRUST_PROXY_HOPS_ENV = 'HTTP_TRUST_PROXY_HOPS';
+export const HTTP_TRUST_PROXY_CIDRS_ENV = 'HTTP_TRUST_PROXY_CIDRS';
 export const HTTP_CORS_ALLOWED_ORIGINS_ENV = 'HTTP_CORS_ALLOWED_ORIGINS';
 export const HTTP_COOKIE_SECURE_ENV = 'HTTP_COOKIE_SECURE';
 export const HTTP_COOKIE_SAME_SITE_ENV = 'HTTP_COOKIE_SAME_SITE';
 export const HTTP_COOKIE_DOMAIN_ENV = 'HTTP_COOKIE_DOMAIN';
 
-export const DEFAULT_HTTP_TRUST_PROXY = false;
+export const DEFAULT_HTTP_TRUST_PROXY_HOPS = 0;
 export const DEFAULT_HTTP_COOKIE_SAME_SITE = 'lax' as const;
 
 export type HttpCookieSameSite = 'strict' | 'lax' | 'none';
+export type HttpTrustProxy = false | number | string[];
 
-export function readHttpTrustProxy(env: NodeJS.ProcessEnv = process.env): boolean {
-  return readBooleanEnv(env, HTTP_TRUST_PROXY_ENV, DEFAULT_HTTP_TRUST_PROXY);
+const EXPRESS_TRUST_PROXY_PRESETS = new Set(['linklocal', 'loopback', 'uniquelocal']);
+
+export function readHttpTrustProxy(env: NodeJS.ProcessEnv = process.env): HttpTrustProxy {
+  const hops = readNumberEnv(env, HTTP_TRUST_PROXY_HOPS_ENV, DEFAULT_HTTP_TRUST_PROXY_HOPS, {
+    min: 0,
+  });
+  if (!Number.isInteger(hops)) {
+    throw new Error(`[config] ${HTTP_TRUST_PROXY_HOPS_ENV} must be an integer.`);
+  }
+
+  const cidrs = parseHttpTrustProxyCidrs(env[HTTP_TRUST_PROXY_CIDRS_ENV]);
+  if (hops > 0 && cidrs.length > 0) {
+    throw new Error(
+      `[config] Configure only one of ${HTTP_TRUST_PROXY_HOPS_ENV} or ${HTTP_TRUST_PROXY_CIDRS_ENV}.`,
+    );
+  }
+
+  if (cidrs.length > 0) {
+    return cidrs;
+  }
+  return hops > 0 ? hops : false;
+}
+
+export function parseHttpTrustProxyCidrs(raw: string | undefined): string[] {
+  const values = (raw ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const uniqueValues = Array.from(new Set(values));
+
+  for (const value of uniqueValues) {
+    if (EXPRESS_TRUST_PROXY_PRESETS.has(value)) {
+      continue;
+    }
+
+    const [address, prefix, extra] = value.split('/');
+    const addressFamily = address ? isIP(address) : 0;
+    const maximumPrefix = addressFamily === 4 ? 32 : addressFamily === 6 ? 128 : 0;
+    const parsedPrefix = prefix === undefined ? maximumPrefix : Number(prefix);
+    if (
+      extra !== undefined ||
+      maximumPrefix === 0 ||
+      !Number.isInteger(parsedPrefix) ||
+      parsedPrefix < 0 ||
+      parsedPrefix > maximumPrefix
+    ) {
+      throw new Error(
+        `[config] ${HTTP_TRUST_PROXY_CIDRS_ENV} must contain valid IP/CIDR or Express subnet presets.`,
+      );
+    }
+  }
+
+  return uniqueValues;
 }
 
 export function readHttpCorsAllowedOrigins(env: NodeJS.ProcessEnv = process.env): string[] {

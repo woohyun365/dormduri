@@ -156,6 +156,12 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "AuthSession"');
     expect(sql).toContain('"sessionTokenHash" TEXT');
     expect(sql).toContain('"sessionTokenExpiresAt" TIMESTAMPTZ(3)');
+    expect(sql).toContain('"previousRefreshTokenHash" TEXT');
+    expect(sql).toContain('"previousRefreshTokenValidUntil" TIMESTAMPTZ(3)');
+    expect(sql).toMatch(
+      /ADD\s+CONSTRAINT\s+"AuthSession_previousRefreshToken_pair_check"\s+CHECK\s+\(\s*\("previousRefreshTokenHash" IS NULL AND "previousRefreshTokenValidUntil" IS NULL\)\s+OR\s+\("previousRefreshTokenHash" IS NOT NULL AND "previousRefreshTokenValidUntil" IS NOT NULL\)\s*\)/,
+    );
+    expect(sql).not.toContain('AuthSession_previousRefreshTokenHash_idx');
     expect(sql).toContain(
       'CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash")',
     );

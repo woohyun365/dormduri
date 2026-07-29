@@ -49,10 +49,55 @@ describe('envValidationSchema', () => {
       NODE_ENV: 'test',
       EMAIL_PROVIDER: 'stub',
       SECRET_SOURCE: 'env',
-      HTTP_TRUST_PROXY: false,
+      HTTP_TRUST_PROXY_HOPS: 0,
       HTTP_COOKIE_SECURE: false,
       HTTP_COOKIE_SAME_SITE: 'lax',
+      AUTH_LOGIN_BURST_LIMIT: 30,
+      AUTH_LOGIN_BURST_WINDOW_SECONDS: 60,
+      AUTH_LOGIN_SUSTAINED_LIMIT: 120,
+      AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS: 600,
+      AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED: true,
     });
+  });
+
+  it('trusted proxy와 login throttle topology는 구조화된 값만 허용한다', () => {
+    expect(
+      envValidationSchema.validate({
+        NODE_ENV: 'test',
+        HTTP_TRUST_PROXY_HOPS: '2',
+        HTTP_TRUST_PROXY_CIDRS: '',
+        AUTH_LOGIN_BURST_LIMIT: '30',
+        AUTH_LOGIN_SUSTAINED_LIMIT: '120',
+      }).value,
+    ).toMatchObject({
+      HTTP_TRUST_PROXY_HOPS: 2,
+      AUTH_LOGIN_BURST_LIMIT: 30,
+      AUTH_LOGIN_SUSTAINED_LIMIT: 120,
+    });
+    expect(
+      errorPaths(productionEnv({ HTTP_TRUST_PROXY_CIDRS: 'client-controlled-header' })),
+    ).toContain('HTTP_TRUST_PROXY_CIDRS');
+    expect(errorPaths(productionEnv({ AUTH_LOGIN_BURST_LIMIT: '0' }))).toContain(
+      'AUTH_LOGIN_BURST_LIMIT',
+    );
+  });
+
+  it('previous renewal grace rollback flag는 boolean 값만 허용한다', () => {
+    expect(
+      envValidationSchema.validate({
+        NODE_ENV: 'test',
+        AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED: 'false',
+      }).value,
+    ).toMatchObject({
+      AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED: false,
+    });
+    expect(
+      errorPaths(
+        productionEnv({
+          AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED: 'sometimes',
+        }),
+      ),
+    ).toContain('AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED');
   });
 
   it('accepts a complete production baseline', () => {

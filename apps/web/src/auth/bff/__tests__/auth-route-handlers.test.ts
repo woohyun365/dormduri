@@ -67,7 +67,7 @@ describe('auth BFF post route helpers', () => {
 
     const cookie = response.cookies.get('auth-token');
     expect(cookie?.value).toBe(ROTATED_ACCESS_TOKEN);
-    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
+    expect(cookie?.maxAge).toBeUndefined();
     const renewalCookie = response.cookies.get('auth-renewal-token');
     expect(renewalCookie?.value).toBe(ROTATED_RENEWAL_TOKEN);
     expect(renewalCookie?.maxAge).toBe(60 * 60 * 24 * 7);

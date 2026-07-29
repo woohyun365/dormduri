@@ -16,6 +16,7 @@ function isPositiveSeconds(value: unknown): value is number {
 function isServerSafeLoginCode(code: unknown): boolean {
   return (
     code === 'INVALID_LOGIN_REQUEST' ||
+    code === 'AUTH_SERVICE_UNAVAILABLE' ||
     code === 'BFF_RESPONSE_INVALID' ||
     (typeof code === 'string' && code.startsWith('BFF_UPSTREAM_'))
   );

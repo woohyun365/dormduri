@@ -75,7 +75,7 @@ const appRouterEntrypoints = [
   'app/api/auth/reset-password/route.ts',
   'app/api/auth/send-reset-code/route.ts',
   'app/api/auth/send-signup-code/route.ts',
-  'app/api/auth/session/route.ts',
+  'app/api/auth/session/resolve/route.ts',
   'app/api/auth/signup/route.ts',
   'app/api/auth/validate-signup-draft/route.ts',
   'app/api/auth/verify-email-code/route.ts',

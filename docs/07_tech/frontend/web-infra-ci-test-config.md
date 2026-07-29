@@ -99,7 +99,7 @@ Future Web production deploy는 별도 계획에서 아래 책임을 결정한�
 | Key                   | Runtime               | Required                       | Default                           | Notes                                                                                               |
 | --------------------- | --------------------- | ------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `API_URL`             | server only           | production: yes / dev,test: no | dev,test: `http://localhost:4000` | BFF upstream base URL. production runtime에서는 누락되거나 local hostname으로 향하면 fail-fast한다. |
-| `NEXT_PUBLIC_APP_URL` | server/browser public | production: yes / dev,test: no | dev,test: `http://localhost:3000` | absolute `http(s)` URL만 허용한다.                                                                  |
+| `NEXT_PUBLIC_APP_URL` | server/browser public | production: yes / dev,test: no | dev,test: `http://localhost:3000` | absolute URL만 허용하며 production은 canonical origin·auth mutation 검증을 위해 HTTPS가 필수다.     |
 | `NEXT_PUBLIC_API_URL` | browser public        | no                             | `/api`                            | browser-facing API base. 기본값은 same-origin BFF path다.                                           |
 
 - Env parsing은 `apps/web/src/config/env.schema.ts`의 pure helper가 담당하고, runtime singleton은 `apps/web/src/config/env.ts`에서만 노출한다.

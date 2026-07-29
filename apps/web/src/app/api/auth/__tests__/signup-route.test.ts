@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as postSignup } from '../signup/route';
 
 const ACCESS_TOKEN = `v1.session-signup-access.${'a'.repeat(43)}`;
+const RENEWAL_TOKEN = `v1.session-signup-renewal.${'b'.repeat(43)}`;
 
 const VALID_SIGNUP_BODY = {
   email: 'student@kangwon.ac.kr',
@@ -37,16 +38,20 @@ describe('auth signup BFF route', () => {
     vi.unstubAllGlobals();
   });
 
-  it('valid SignupRequest는 upstream auth signup으로 allowlist body만 전달하고 accessToken은 cookie로만 설정한다', async () => {
+  it('valid SignupRequest는 browser-session access/renewal cookie를 설정한다', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
         JSON.stringify({
           success: true,
           accessToken: ACCESS_TOKEN,
+          renewalToken: RENEWAL_TOKEN,
+          rememberMe: false,
           user: {
             id: 'user-1',
             email: VALID_SIGNUP_BODY.email,
             nickname: VALID_SIGNUP_BODY.nickname,
+            gender: 'M',
+            campus: 'CHUNCHEON',
           },
         }),
         {
@@ -84,9 +89,14 @@ describe('auth signup BFF route', () => {
         id: 'user-1',
         email: VALID_SIGNUP_BODY.email,
         nickname: VALID_SIGNUP_BODY.nickname,
+        gender: 'M',
+        campus: 'CHUNCHEON',
       },
     });
     expect(response.cookies.get('auth-token')?.value).toBe(ACCESS_TOKEN);
+    expect(response.cookies.get('auth-token')?.maxAge).toBeUndefined();
+    expect(response.cookies.get('auth-renewal-token')?.value).toBe(RENEWAL_TOKEN);
+    expect(response.cookies.get('auth-renewal-token')?.maxAge).toBeUndefined();
   });
 
   it('lifestyle/intro 같은 signup 외부 profile field는 upstream 전송 전에 거부한다', async () => {

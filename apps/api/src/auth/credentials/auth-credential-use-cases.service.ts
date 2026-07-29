@@ -9,9 +9,11 @@ import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-r
 import type { AuthenticatedUserContext } from '../sessions/auth-session.service.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { changePassword } from './change-password.command.js';
+import { AuthPasswordHashPolicy } from './auth-password-hash.adapter.js';
 import { login } from './login.command.js';
 import { resetPassword } from './reset-password.command.js';
 
@@ -20,6 +22,8 @@ export class AuthCredentialUseCases {
   constructor(
     private readonly prisma: PrismaService,
     private readonly loginAttemptService: AuthLoginAttemptService,
+    private readonly loginMetrics: AuthLoginMetricsService,
+    private readonly passwordHashPolicy: AuthPasswordHashPolicy,
     private readonly sessionService: AuthSessionService,
     private readonly verificationService: AuthVerificationService,
     private readonly securityEvents: AuthSecurityEventService,
@@ -35,6 +39,8 @@ export class AuthCredentialUseCases {
       {
         prisma: this.prisma,
         loginAttemptService: this.loginAttemptService,
+        loginMetrics: this.loginMetrics,
+        passwordHashPolicy: this.passwordHashPolicy,
         sessionService: this.sessionService,
         securityEvents: this.securityEvents,
       },
@@ -54,6 +60,7 @@ export class AuthCredentialUseCases {
       {
         prisma: this.prisma,
         verificationService: this.verificationService,
+        loginAttemptService: this.loginAttemptService,
         securityEvents: this.securityEvents,
       },
       email,

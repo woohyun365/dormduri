@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Image from 'next/image';
 import { AuthHeader } from '@/auth/components';
+import { SessionUnavailableNotice } from '@/auth/components/SessionUnavailableNotice';
 import { PasswordResetAuthenticatedNotice } from './PasswordResetAuthenticatedNotice';
 import { PasswordResetProgress } from './PasswordResetProgress';
 import { PasswordResetServiceNotice } from './PasswordResetServiceNotice';
@@ -15,8 +16,10 @@ interface PasswordResetLayoutProps {
   showProgress: boolean;
   status: PasswordResetStatus | null;
   isAuthenticated: boolean;
+  isSessionUnavailable: boolean;
   onBack: () => void;
   onRestart: () => void;
+  onRetrySession: () => void;
 }
 
 export function PasswordResetLayout({
@@ -26,10 +29,12 @@ export function PasswordResetLayout({
   showProgress,
   status,
   isAuthenticated,
+  isSessionUnavailable,
   onBack,
   onRestart,
+  onRetrySession,
 }: PasswordResetLayoutProps) {
-  const hasFeedback = isAuthenticated || Boolean(status);
+  const hasFeedback = isAuthenticated || isSessionUnavailable || Boolean(status);
 
   return (
     <div className="min-h-screen bg-(--knu-background-alt)">
@@ -116,6 +121,12 @@ export function PasswordResetLayout({
               {hasFeedback && (
                 <div data-testid="password-reset-feedback-region" className="space-y-3 pt-1">
                   {isAuthenticated && <PasswordResetAuthenticatedNotice />}
+                  {isSessionUnavailable && (
+                    <SessionUnavailableNotice
+                      onRetryAction={onRetrySession}
+                      message="로그인 상태를 확인하지 못했지만 비밀번호 재설정은 계속할 수 있어요."
+                    />
+                  )}
                   <PasswordResetStatusAlert status={status} onRestart={onRestart} />
                 </div>
               )}

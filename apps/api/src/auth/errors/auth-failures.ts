@@ -7,11 +7,11 @@ interface AuthFailureOptions {
   retryAfterSeconds?: number;
 }
 
-function createFailure(
-  code: string,
+function createFailure<TCode extends string>(
+  code: TCode,
   error: string,
   options: AuthFailureOptions = {},
-): GenericSuccessResult {
+): GenericSuccessResult & { success: false; code: TCode } {
   return {
     success: false,
     error,
@@ -159,6 +159,16 @@ export const authFailures = {
     return createFailure('AUTH_SESSION_RENEWAL_REQUIRED', '다시 로그인한 뒤 시도해주세요.', {
       userActionable: true,
     });
+  },
+
+  sessionRenewalStale(retryAfterMilliseconds: number) {
+    return {
+      ...createFailure(
+        'AUTH_SESSION_RENEWAL_STALE',
+        '다른 요청에서 로그인 상태를 갱신하고 있습니다.',
+      ),
+      retryAfterMilliseconds,
+    };
   },
 
   sessionRenewalReused() {

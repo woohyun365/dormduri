@@ -7,7 +7,7 @@
 
 - 강원대학교 이메일로 가입한 사용자가 이메일/비밀번호로 로그인할 수 있게 한다.
 - invalid credential, lockout, throttle, network/server failure를 사용자에게 안전한 문구로 안내한다.
-- `로그인 유지(최대 7일)` 선택 시 Web BFF cookie transport가 7일 session/token family baseline을 따르도록 request flag를 전달한다.
+- `로그인 유지(최대 7일)`는 renewal cookie를 브라우저 종료 후에도 유지할지 선택한다. 미체크 세션도 열린 브라우저에서는 access 만료 후 renewal로 복구된다.
 - 로그인 성공 직후 `/main` 이동 중 상태를 표시하고, route 전환 전 중복 submit과 입력 변경을 막는다.
 - 이미 로그인된 사용자가 `/login`에 접근하면 접근 가능한 loading/skeleton을 보여준 뒤 홈으로 이동한다.
 
@@ -26,10 +26,11 @@ Login 화면은 fail-closed 결과를 일반 사용자 문구로만 표시한다
 ## Current flow
 
 1. `app/login/page.tsx` — route metadata, Suspense boundary, server route shell.
-2. `LoginPageClient.tsx` — authenticated redirect gate, safe redirect target, router handoff, layout/form composition.
-3. `hooks/useLoginForm.ts` — form state, validation, login submit orchestration, lockout/throttle countdown, redirect pending state.
-4. `model/*` — field validation, API result → UI state mapping, safe redirect target normalization.
-5. `components/*` — presentational layout/form/alert/secondary action/skeleton UI.
+2. `LoginPageClient.tsx` — authenticated redirect gate, safe redirect target, router handoff, controller/view wiring.
+3. `LoginFlowView.tsx` — production과 Storybook이 공유하는 layout/form composition.
+4. `hooks/useLoginForm.ts` — form state, validation, login submit orchestration, lockout/throttle countdown, redirect pending state.
+5. `model/*` — field validation, API result → UI state mapping, safe redirect target normalization.
+6. `components/*` — presentational layout/form/alert/secondary action/skeleton UI.
 
 ## API/BFF contract
 
@@ -37,9 +38,9 @@ Login 화면은 fail-closed 결과를 일반 사용자 문구로만 표시한다
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `apps/web/src/auth/api/*`                  | Web auth client wrapper. 429 `Retry-After`/`retryAfterSeconds`, non-JSON, safe BFF error를 UI가 처리 가능한 shape로 보존 |
 | `app/api/auth/login/route.ts`              | login body schema parse, upstream `/auth/login` forward, token response allowlist, auth cookie set                       |
-| `app/api/auth/session/route.ts`            | access cookie 실패 시 renewal cookie로 `/auth/renew-session` 후 session 재조회                                           |
+| `app/api/auth/session/resolve/route.ts`    | 명시적 POST bootstrap에서 access 검증, 필요 시 renewal, browser tri-state 응답을 조합                                    |
 | `apps/web/src/auth/bff/*`                  | auth cookie serialize/delete, upstream token body redaction boundary                                                     |
-| `auth/hooks/useRedirectIfAuthenticated.ts` | `/api/auth/session` BFF 결과로 `/login` 접근자가 이미 인증된 경우 redirect gate 제공                                     |
+| `auth/hooks/useRedirectIfAuthenticated.ts` | browser session tri-state로 authenticated redirect와 unavailable nonblocking flow를 분리                                 |
 | `hooks/useLoginRedirectTarget.ts`          | `next` query를 `/main` allowlist로 normalize                                                                             |
 
 Web login은 upstream access/renewal token을 React state, URL, log, response body에 노출하지 않는다.
@@ -58,6 +59,7 @@ Desktop aside는 `lg:mt-8` offset으로 오른쪽 form title rhythm에 맞춘다
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `app/login/page.tsx`                                                          | route metadata, Suspense fallback, `LoginPageClient` composition only                         |
 | `LoginPageClient.tsx`                                                         | auth redirect gate, router callback, login layout/form wiring                                 |
+| `LoginFlowView.tsx`                                                           | production과 Storybook이 공유하는 controlled presentational composition                       |
 | `components/LoginLayout.tsx`                                                  | mobile/desktop layout, help panel, right-side independent-service notice, PC header alignment |
 | `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                                    |
 | `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                                       |
@@ -109,6 +111,8 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 - Full-stack Playwright/dev server 실행 후 `apps/web/next-env.d.ts`가 `.next/dev/types` 경로로 drift될 수 있다. 생성 파일 drift는 commit하지 말고 revert한다.
 - Web-only smoke는 public route와 unauthenticated `/main -> /login` redirect를 API/DB 없이 확인한다.
 - Full-stack smoke는 DB/API/Web을 함께 띄워 실제 `/login` UI 입력 → BFF cookie → `/main` handoff를 확인한다.
+- Browser 종료 시 session cookie 제거 자체는 jsdom/unit test로 재현하지 않는다. 자동화 테스트는 `Max-Age` 부재와 access 만료 후 renewal 복구를 검증하고, 실제 종료 동작은 browser smoke에서 확인한다.
+- 여러 tab이 같은 renewal token을 동시에 사용하면 한 요청만 cookie를 회전한다. 나머지는 stale 응답에서 cookie를 유지하고 browser session resolve를 한 번 재시도한다.
 
 ## Source of truth
 

@@ -1,29 +1,10 @@
-import { useEffect, useState } from 'react';
-import { authApi } from '@/auth/api';
+import { useAuthSession } from '@/auth/hooks';
 
 export function usePasswordResetSessionNotice() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadSession() {
-      try {
-        const session = await authApi.getSession();
-        if (!cancelled && session.authenticated) {
-          setIsAuthenticated(true);
-        }
-      } catch {
-        // Password reset remains available when optional session check fails.
-      }
-    }
-
-    void loadSession();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { isAuthenticated };
+  const session = useAuthSession();
+  return {
+    isAuthenticated: session.status === 'authenticated',
+    isSessionUnavailable: session.status === 'unavailable',
+    retrySession: session.retry,
+  };
 }

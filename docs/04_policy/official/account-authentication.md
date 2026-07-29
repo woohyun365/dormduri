@@ -34,9 +34,10 @@
 | -------------------- | ----------------------------------------------------- |
 | 로그인 방식          | 이메일 + 비밀번호                                     |
 | 세션 방식            | DB-backed opaque access/session token + renewal token |
-| 로그인 유지 체크     | 체크 시 renewal token 발급                            |
+| 로그인 유지 체크     | renewal token의 browser 종료 후 유지 여부 선택        |
 | 동시 로그인          | 우선 허용                                             |
 | 로그인 실패 잠금     | 5회 실패 시 5분 잠금                                  |
+| 로그인 IP 제한       | 30회/1분 burst, 120회/10분 sustained                  |
 | 비밀번호 재설정      | 이메일 인증 코드 후 새 비밀번호 설정                  |
 | 이전 비밀번호 재사용 | 현재 비밀번호와 동일한 값으로 변경 불가               |
 
@@ -47,15 +48,22 @@
 | 결정                    | 정책                                                                                                                                                 | 선택하지 않은 대안 / 후속                                                                                               |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Transport               | `AuthSession`/token family + opaque access/session token을 제품 baseline으로 둔다                                                                    | JWT-only/bridge 장기 유지는 forced logout/reuse detection/Remember Me 요구와 맞지 않아 기각                             |
-| Remember Me TTL         | 체크 시 7일 absolute TTL을 baseline으로 한다. 미체크 시 browser-session cookie + short DB session TTL                                                | 14/30일 확장은 운영 data 확보 후 후속 재검토                                                                            |
+| Remember Me TTL         | 체크 시 7일 persistent renewal, 미체크 시 24시간 absolute TTL의 browser-session renewal을 사용한다. access token은 모두 15분이다                     | 미체크 access TTL을 24시간으로 늘리거나 15분 뒤 재로그인을 강제하는 방식은 기각                                         |
 | Redis                   | 이번 milestone에서는 Postgres authoritative를 유지한다. Redis는 distributed throttling/cache 후보일 뿐 source-of-truth가 아니다                      | multi-instance throttle 우회, RDS auth write IOPS 병목, auth p95 latency 악화가 관측되면 후속 이슈에서 검토             |
 | Email/alert             | `EmailSender` adapter, mail success/failure metric, security event schema를 먼저 고정한다                                                            | provider/alert destination은 배포/운영 채널 확정 후 후속 결정                                                           |
 | Secret store            | dev/test는 env secret/config, production은 AWS Secrets Manager를 우선 후보로 둔다                                                                    | JWT signing keyset은 현재 transport에서 사용하지 않는다. Secrets Manager rollout은 AWS prod/IAM/deploy pipeline 확정 후 |
 | DB role                 | runtime/worker/migration/read-only credential matrix + smoke test를 먼저 둔다                                                                        | Prisma client/pool 분리는 RDS connection budget 확인 후 후속 검토                                                       |
 | Reset verification ACID | reset code/proof 발급·검증·consume은 advisory lock + conditional update + serializable retry를 기본 전략으로 한다                                    | serializable-only, row-lock-only, application mutex는 race 방어가 불충분하거나 multi-instance에 부적합                  |
 | Capability seed         | `user:read:self`, `user:update:self`, `auth:session:revoke:self`, `auth:password:change:self`로 시작한다                                             | Admin/BackOffice capability 구현은 별도 BackOffice scope에서만 다룬다                                                   |
-| Cookie/CSRF             | production cookie-backed branch는 `httpOnly=true`, `secure=true`, `sameSite=Lax`, path scope, 명시적 expiry/maxAge, origin/CSRF 방어를 기준으로 한다 | `SameSite=None`/cross-site cookie는 실제 cross-site 배포 요구가 있을 때 후속 재검토                                     |
+| Cookie/CSRF             | production은 `__Host-` cookie, `httpOnly`, `secure`, `sameSite=Lax`, `Path=/`, no Domain과 origin/Fetch Metadata 관찰을 기준으로 한다                | `SameSite=None`/cross-site cookie는 실제 cross-site 배포 요구가 있을 때 후속 재검토                                     |
 | Web scope               | Web 작업은 BFF route/helper/cookie/session transport와 BFF test로 제한한다                                                                           | Rendering, React hook, page/component state, onboarding modal/CTA는 #260에서 후속 처리                                  |
+
+### Login/session 결과 의미
+
+- `unauthenticated`는 token 부재, 만료, revoke, 삭제 계정처럼 인증 authority가 정상적으로 비로그인 상태를 확정한 결과다. 이 경우에만 BFF가 auth cookie를 정리할 수 있다.
+- `unavailable`은 network timeout, upstream 5xx, schema mismatch, 일시적인 DB 장애처럼 로그인 여부를 확정하지 못한 결과다. BFF는 이 상태에서 기존 auth cookie를 지우지 않는다.
+- API session 결과는 `authenticated=true`일 때 user가 필수이고, `authenticated=false`일 때 내부 rejection reason을 포함한다. Browser는 내부 reason 대신 `authenticated`, `unauthenticated`, `unavailable`의 tri-state만 받는다.
+- 존재하지 않거나 삭제되었거나 account identity가 불완전한 계정의 login도 active account와 같은 profile의 canonical dummy Argon hash를 검증한다. 사용자 응답은 잘못된 비밀번호와 동일하게 유지한다.
 
 ### Production 이메일 발송 baseline
 
@@ -76,11 +84,11 @@
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | email verified/unverified                          | verified 전 protected API는 거부한다. signup/reset verification public API는 neutral response와 throttling을 적용한다                |
 | active/deleted/retained/blocked                    | deleted/retained/blocked 계정은 login/session resolve에서 fail-closed한다                                                            |
-| login allowed/lockout/throttled                    | account-level lockout은 Postgres state 기준이다. IP/account/global throttle은 metric gate를 둔다                                     |
+| login allowed/lockout/throttled                    | account lockout은 Postgres 기준이고 IP burst/sustained throttle은 별도 guard다. Hash global guard는 capacity metric gate를 둔다       |
 | password reset requested/verified/consumed/expired | reset code/proof는 single-use, expiry/consume race-safe, neutral response를 유지한다                                                 |
-| rememberMe on/off                                  | on은 7일 token family/renewal baseline, off는 browser-session cookie + short DB session TTL                                          |
+| rememberMe on/off                                  | on은 7일 persistent renewal, off는 24시간 absolute TTL + browser-session renewal cookie를 사용한다. access token은 모두 15분         |
 | session active/revoked/expired                     | revoked/expired는 DB gate에서 fail-closed. logout current, reset/delete/logout-all은 all-session revoke 정책을 따른다                |
-| refresh/renew token valid/rotated/reused           | valid token만 rotate한다. old token 재사용은 suspected reuse event + family revoke 대상이다                                          |
+| refresh/renew token valid/previous/reused          | current token은 rotate한다. 직전 token은 8초 동안 stale로 분류하고, 그 밖의 old token은 suspected reuse + family revoke 대상이다     |
 | access token current/expired/legacy JWT            | current opaque token hash만 통과한다. `sessionTokenExpiresAt` 만료, revoked/deleted/blocked, legacy JWT-like token은 fail-closed한다 |
 | public/optional/protected API                      | route metadata로 분류한다. protected는 actor context 필수, optional은 actor context nullable                                         |
 
@@ -97,8 +105,14 @@
 ### 회귀 테스트 baseline
 
 - Web BFF `apps/web/src/app/api/auth/__tests__/shared.test.ts`는 Remember Me persistent cookie가 7일 session/token family TTL을 따르는지 검증한다.
+- session dependency 장애는 browser `unavailable`로 유지되고 cookie clear 또는 login redirect를 일으키지 않아야 한다.
+- 동일 renewal token의 동시 요청은 하나만 성공하고 나머지는 8초 grace 안에서 stale로 수렴하며 session family를 revoke하지 않아야 한다.
+- `rememberMe=false`도 renewal token을 발급하되 access/renewal cookie에 `Max-Age`를 두지 않아 browser-session cookie로 유지한다.
+- missing/deleted/incomplete account login은 canonical dummy hash verify를 수행해야 한다.
+- Login network throttle은 계정 잠금과 분리한다. Trusted proxy topology로 산출된 IP 기준 30회/1분 burst와 120회/10분 sustained bucket을 적용하며, 정상 shared-IP 20명 burst는 허용 범위다.
+- Direct/local API는 forwarding header를 신뢰하지 않는다. Production은 `HTTP_TRUST_PROXY_HOPS` 또는 `HTTP_TRUST_PROXY_CIDRS` 중 실제 ingress topology 하나만 설정한다.
 - Web rendering/hook/page/component UX는 auth 정책 baseline의 구현 범위가 아니다. Auth 영역의 Web 변경은 BFF route/helper/cookie/session transport에 한정하고, UI 후속은 #260에서 다룬다.
-- Reset/password/session revoke baseline은 기존 API unit/integration test가 보호한다. 특히 reset 성공 시 verification consume/password update/all-session revoke, rollback, 동시 reset proof consume race가 이미 covered 상태다.
+- Reset/password/session revoke baseline은 기존 API unit/integration test가 보호한다. 특히 reset 성공 시 verification consume/password update/all-session revoke/login lock clear, rollback, 동시 reset proof consume race가 covered 상태다.
 - 회귀 테스트는 reset/change password 분리, neutral response, current/other session revoke semantics를 고정해야 한다.
 - 세션 회귀 테스트는 renew rotation race, reuse detection, family revoke, logout-all/reset/delete와 renewal 동시 race를 고정해야 한다.
 
@@ -114,11 +128,15 @@
 ### Session renewal baseline
 
 - Remember Me는 cookie flag가 아니라 `AuthSession.refreshTokenHash` 기반 renewal token family로 동작한다. 별도 migration 없이 기존 nullable `refreshTokenHash`를 family seed/current renewal token hash로 사용한다.
-- `rememberMe=false`는 renewal token을 발급하지 않고 browser-session cookie + short access token/DB session으로 동작한다.
-- `rememberMe=true`는 7일 `AuthSession` absolute TTL과 `auth-renewal-token` httpOnly cookie를 사용한다. Web BFF는 access token을 `auth-token`, renewal token을 `auth-renewal-token`으로 분리해 저장한다.
-- `POST /auth/renew-session`은 renewal token을 rotate하고 새 access token과 다음 renewal token을 반환한다. 이전 renewal token 재사용은 suspected reuse로 보고 해당 session family를 revoke한 뒤 재로그인을 요구한다.
+- `rememberMe=false`도 renewal token을 발급한다. DB session absolute TTL은 24시간이며 access/renewal cookie는 `Max-Age` 없는 browser-session cookie로 둔다.
+- `rememberMe=true`는 7일 `AuthSession` absolute TTL과 renewal httpOnly cookie를 사용한다. Web BFF는 access token과 renewal token을 서로 다른 cookie로 저장한다.
+- `POST /auth/renew-session`은 current renewal token을 rotate하고 새 access token과 다음 renewal token을 반환한다.
+- rotation 직전 renewal token은 8초 grace 동안 `AUTH_SESSION_RENEWAL_STALE`과 retry delay를 반환하며 cookie를 변경하거나 session을 revoke하지 않는다. grace를 벗어난 old/unknown token만 suspected reuse로 보고 session family를 revoke한다.
 - renewal rotation은 serializable transaction 안에서 current `refreshTokenHash`, `revokedAt`, `expiresAt`, `rememberMe` 조건부 update로 처리한다. logout/reset/delete가 먼저 session을 revoke하면 renewal은 fail-closed로 실패한다.
-- Web BFF `/api/auth/session`은 access cookie가 인증 실패하고 renewal cookie가 있으면 `/auth/renew-session` 후 `/auth/session`을 재조회한다. BFF 응답 body에는 access/renewal token을 노출하지 않는다.
+- Browser bootstrap은 side effect를 숨긴 GET 대신 `POST /api/auth/session/resolve`를 사용한다. BFF는 access cookie 검증 실패와 renewal cookie 존재 여부를 구분해 `/auth/renew-session` 후 API `/auth/session`을 재조회한다.
+- API `GET /auth/session`은 cookie를 변경하지 않는 pure query이며 authoritative rejection reason을 BFF에 제공한다. Browser에는 내부 reason이나 access/renewal token을 노출하지 않는다.
+- Web Proxy는 dependency 조회를 수행하지 않고 auth transport cookie 존재 여부만 optimistic gate로 사용한다. 최종 redirect와 recovery는 client session resolve가 담당한다.
+- BFF는 stale 응답에서 한 번만 backoff/retry하고, 계속 stale이거나 dependency 오류이면 browser `unavailable`을 반환한다. timeout/5xx/invalid schema에서도 auth cookie를 유지한다.
 - `logout`은 access token뿐 아니라 renewal cookie의 session id도 revoke 후보로 전달한다. `reset-password` BFF 성공 응답은 기존 auth cookies를 지워 reset/relogin 정책과 맞춘다.
 - Rendering, React hook, page/component UX는 #260 범위이며 auth API/session policy에 포함하지 않는다.
 
@@ -126,10 +144,14 @@
 
 - Access transport는 short JWT bridge가 아니라 opaque access/session token이다. token 값은 `v1.<sessionId>.<random>` 형식의 bearer secret이며, client는 token 내용을 해석하지 않는다.
 - DB에는 raw access token을 저장하지 않고 `AuthSession.sessionTokenHash`만 저장한다. `sessionTokenHash`는 unique/point lookup authority이며, `sessionTokenExpiresAt`은 short access token TTL(15분)을 소유한다.
-- `AuthSession.expiresAt`은 session/renewal family absolute TTL이다. `rememberMe=false`는 기본 24시간 DB session absolute TTL을 갖지만 access token은 15분에 만료된다. `rememberMe=true`는 7일 absolute TTL + renewal token rotation으로 access token을 갱신한다.
+- `AuthSession.expiresAt`은 session/renewal family absolute TTL이다. `rememberMe=false`는 24시간 absolute TTL과 browser-session renewal cookie를 사용하고, `rememberMe=true`는 7일 absolute TTL과 persistent renewal cookie를 사용한다. access token은 두 경우 모두 15분이며 access cookie는 `Max-Age`가 없는 session cookie로 유지하고 renewal rotation으로 복구한다.
+- Renewal rotation은 현재 hash를 `previousRefreshTokenHash`로 이동하고 DB clock 기준 8초 동안만 `previousRefreshTokenValidUntil`과 함께 보존한다. 이 구간의 직전 token은 정상 multi-tab 경쟁으로 보고 stale 응답만 반환하며 session을 폐기하지 않는다. Grace가 끝난 직전 token과 그 밖의 unknown token은 reuse로 분류해 session family를 revoke한다.
+- Browser는 stale 응답에서 cookie를 변경하지 않고 짧은 backoff 후 session resolve를 한 번만 재시도한다. 재시도도 stale이거나 dependency를 확인할 수 없으면 기존 cookie를 보존한 `unavailable`로 수렴한다.
 - 요청 인증은 `JwtService`/`JWT_SECRET`/JWT `sid` payload에 의존하지 않는다. `getSession`, `@CurrentUser()` guard, logout current, chat realtime ticket 발급 등 access-token entrypoint는 opaque token hash lookup을 공유한다.
 - old JWT-like access token은 grace window 없이 reject한다. 기존 active session row는 유지하지만 `sessionTokenHash`가 없는 access-only request는 재로그인이 필요하다. Remember Me renewal cookie가 있으면 renewal endpoint가 새 opaque access token으로 복구한다.
-- Web BFF cookie 이름은 `auth-token`, `auth-renewal-token`을 유지한다. BFF는 upstream access/renewal token을 browser JSON에 노출하지 않고 httpOnly cookie로만 저장/회전한다.
+- Production Web BFF cookie는 `__Host-auth-token`, `__Host-auth-renewal-token`을 사용한다. Development/test HTTP runtime은 `auth-token`, `auth-renewal-token`을 유지한다.
+- Production cookie는 `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`을 강제한다. Canonical public origin은 코드에 hostname을 고정하지 않고 production HTTPS `NEXT_PUBLIC_APP_URL`로 주입한다.
+- BFF는 upstream access/renewal token과 login user summary를 browser JSON에 노출하지 않고 최소 결과 DTO와 httpOnly cookie만 반환한다. Auth response는 `Cache-Control: no-store`를 사용한다.
 - #206 JWT key rotation은 JWT bridge 제거로 대체 충족한다. JWT가 auth transport path에 다시 남는 예외가 발견되면 release blocker로 올리고 `kid`/keyset/dual verification period를 별도 Decision으로 재검토한다.
 
 ### Verification code/proof ACID baseline
@@ -171,6 +193,11 @@
 
 - Auth security event는 `AuthSecurityEvent` table에 저장한다. Event type/severity, actor/target user id, session id, hashed email/IP/User-Agent dimension, safe metadata, createdAt만 저장하고 raw password/token/verification code/secret/hash 값은 저장하지 않는다.
 - Event 저장 대상 baseline은 login success/failure/lockout, signup/reset verification code request, verification success/failure, reset password consume, change password success, session refresh, session revoke/logout, reset/change password의 all-session revoke, renewal token reuse detection, opaque transport rejection, mail send success/failure다.
+- Login security metric은 no-PII bounded label만 사용한다. 결과 counter, burst/sustained throttle counter, real/dummy password verify duration, in-flight gauge를 기록하며 raw email/IP/user/session id를 metric label로 사용하지 않는다.
+- Missing/deleted/incomplete account는 source에 dummy password를 두지 않은 canonical encoded Argon2id hash를 검증한다. Hash profile 변경은 active hash와 dummy hash를 같은 release unit에서 갱신한다.
+- 계정 잠금은 Postgres `LoginAttempt`의 5회 실패/5분 기준을 유지한다. Network throttle은 trusted IP 기준 30회/1분 burst와 120회/10분 sustained bucket으로 분리하며 로그인 성공이 IP bucket을 초기화하지 않는다.
+- Password reset 성공 transaction은 해당 email의 `LoginAttempt`를 함께 삭제한다. Proof consume이 rollback되면 password, session, login attempt 상태도 변경하지 않는다.
+- Argon verify hard concurrency limit은 이 단계에서 추측값을 넣지 않는다. In-flight/duration metric과 production-like stress evidence를 먼저 수집하고 password hash capacity 계획이 상한을 소유한다.
 - Opaque transport rejection은 legacy JWT-like token, malformed access/renewal token, missing/revoked/expired/deleted/incomplete-account session resolve failure를 운영 triage event로 남긴다. 사용자 응답은 기존 fail-closed/neutral contract를 유지한다.
 - Mail monitoring은 특정 provider를 고정하지 않는다. `EmailSender` boundary를 monitoring wrapper로 감싸 `auth.mail.send.success`/`auth.mail.send.failure` metric metadata와 provider error category만 기록한다. Provider, sender domain, bounce/complaint 처리, alert destination은 운영 환경 확정 후 후속 이슈에서 결정한다.
 - Abuse/alert trigger baseline은 동일 email dimension login failure spike, reset request spike, provider-level mail failure spike를 계산해 step-up/CAPTCHA 또는 운영 alert 검토 후보로 남긴다. CAPTCHA/step-up provider integration과 BackOffice console은 이번 milestone에서 구현하지 않는다.
@@ -338,3 +365,9 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 | 2026-06-04 | Official policy standalone wording cleanup을 수행했다. 계획 단계 의존 표현을 제품 정책 언어로 바꾸고, opaque DB-backed session, Postgres authoritative, Web UX 후속 범위, operations health boundary를 독립 정책 문장으로 정리했다                                                                                                                                                                                                                                      | Auth 제품 완성                  |
 | 2026-06-17 | Production 이메일 발송 baseline을 추가했다. Stub/log sender는 local/test/development 전용이고, production은 SES 또는 동등 provider, verified identity, DKIM 권장, sandbox 해제 기준을 따른다고 명시했다                                                                                                                                                                                                                                                                 | production deployment readiness |
 | 2026-06-17 | SESv2 auth email sender adapter 기준을 반영했다. Production은 `EMAIL_PROVIDER=ses`와 monitored `EMAIL_SENDER` wrapper 뒤의 SES delegate를 사용하고, provider failure는 bounded category로만 기록한다.                                                                                                                                                                                                                                                                   | production deployment readiness |
+| 2026-07-28 | Browser session tri-state, unavailable cookie 보존, remember-off session renewal, 8초 previous-token stale grace, invalid-account dummy hash 검증을 Login/Session target baseline으로 확정했다                                                                                                                                                                                                                                                                          | login/session hardening         |
+| 2026-07-28 | Auth BFF의 8초 timeout, network/5xx/schema failure 분류, login runtime response 검증, minimal browser DTO, no-store, same-origin metadata 관찰, trusted XFF 정규화, production `__Host-` cookie와 HTTPS canonical origin 기준을 반영했다                                                                                                                                                                   | auth BFF hardening              |
+| 2026-07-28 | Browser session bootstrap을 명시적 POST resolve와 authenticated/unauthenticated/unavailable tri-state로 전환했다. API rejection reason, unavailable cookie 보존, Main recovery, auth flow nonblocking notice, optimistic Proxy gate를 연결했다                                                                                                                                                                                                                       | session resolve boundary        |
+| 2026-07-29 | 모든 로그인·회원가입·비밀번호 변경 session에 renewal token을 발급하고, access cookie는 항상 session cookie로 유지하며 renewal cookie의 persistence만 로그인 유지 선택에 따라 구분했다                                                                                                                                                                                                                                                                                   | remember-me semantics           |
+| 2026-07-29 | Renewal rotation에 직전 token hash와 DB clock 기반 8초 grace를 추가했다. 정상 multi-tab 경쟁은 stale + browser 1회 재시도로 복구하고, grace 밖 old/unknown token만 reuse event와 session revoke로 처리한다                                                                                                                                                                                                                                                              | renewal concurrency             |
+| 2026-07-29 | Login timing을 canonical dummy Argon2id verify로 정규화하고 account lock과 30/min·120/10min trusted-IP throttle을 분리했다. Password reset transaction은 login lock을 함께 해제하며 login 결과·throttle·real/dummy verify metric을 no-PII label로 기록한다                                                                                                                                                                                                           | login security hardening        |

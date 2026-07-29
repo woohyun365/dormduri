@@ -48,7 +48,14 @@ describe('AuthSessionService', () => {
   const repository = new AuthSessionRepository(prisma as never);
   const currentSessionQuery = new CurrentSessionQuery(repository, securityEvents as never);
   const issueSessionCommand = new IssueSessionCommand(repository);
-  const renewSessionCommand = new RenewSessionCommand(repository, securityEvents as never);
+  const authSettings = {
+    renewalPreviousTokenGraceEnabled: true,
+  };
+  const renewSessionCommand = new RenewSessionCommand(
+    repository,
+    authSettings as never,
+    securityEvents as never,
+  );
   const revokeSessionsCommand = new RevokeSessionsCommand(repository);
   const logoutSessionCommand = new LogoutSessionCommand(
     repository,
@@ -76,7 +83,10 @@ describe('AuthSessionService', () => {
   });
 
   it('토큰이 없으면 인증되지 않은 세션을 반환한다', async () => {
-    await expect(service.getSession(null)).resolves.toEqual({ authenticated: false });
+    await expect(service.getSession(null)).resolves.toEqual({
+      authenticated: false,
+      reason: 'MISSING_TOKEN',
+    });
 
     expect(prisma.authSession.create).not.toHaveBeenCalled();
     expect(prisma.authSession.findUnique).not.toHaveBeenCalled();
@@ -135,7 +145,7 @@ describe('AuthSessionService', () => {
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
   });
 
-  it('rememberMe가 꺼진 세션은 renewal token hash를 저장하지 않는다', async () => {
+  it('rememberMe가 꺼진 세션도 15분 access 만료 뒤 복구할 renewal token을 발급한다', async () => {
     prisma.authSession.create.mockImplementation((input: { data: { id: string } }) => ({
       id: input.data.id,
     }));
@@ -143,14 +153,15 @@ describe('AuthSessionService', () => {
     const authResult = await service.issueAuthResult('user-1', 'test@kangwon.ac.kr', false);
 
     expect(authResult.accessToken).toMatch(new RegExp(`^v1\\.${authResult.sessionId}\\.`));
-    expect(authResult.renewalToken).toBeUndefined();
+    expect(authResult.renewalToken).toMatch(new RegExp(`^v1\\.${authResult.sessionId}\\.`));
     const [createCall] = prisma.authSession.create.mock.calls as Array<
       [
         {
           data: {
             sessionTokenHash: string;
             sessionTokenExpiresAt: Date;
-            refreshTokenHash?: string;
+            refreshTokenHash: string;
+            expiresAt: Date;
           };
         },
       ]
@@ -159,7 +170,10 @@ describe('AuthSessionService', () => {
     expect(createCall?.[0].data.sessionTokenExpiresAt).toEqual(
       new Date('2026-04-23T00:15:00.000Z'),
     );
-    expect(createCall?.[0].data.refreshTokenHash).toBeUndefined();
+    expect(createCall?.[0].data.refreshTokenHash).toBe(
+      hashTokenForTest(authResult.renewalToken ?? ''),
+    );
+    expect(createCall?.[0].data.expiresAt).toEqual(new Date('2026-04-24T00:00:00.000Z'));
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
   });
 
@@ -184,6 +198,9 @@ describe('AuthSessionService', () => {
     const renewalResult = await service.renewSession(renewalToken);
 
     expect(renewalResult.success).toBe(true);
+    if (!renewalResult.success) {
+      throw new Error('Expected renewal to succeed');
+    }
     expect(renewalResult.accessToken).toMatch(/^v1\.session-1\./);
     expect(renewalResult.renewalToken).toMatch(/^v1\.session-1\./);
     expect(renewalResult.rememberMe).toBe(true);
@@ -199,6 +216,8 @@ describe('AuthSessionService', () => {
             expiresAt: { gt: Date };
           };
           data: {
+            previousRefreshTokenHash: string;
+            previousRefreshTokenValidUntil: Date;
             refreshTokenHash: string;
             sessionTokenHash: string;
             sessionTokenExpiresAt: Date;
@@ -220,6 +239,10 @@ describe('AuthSessionService', () => {
       },
     });
     expect(rotationCall[0].data.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(rotationCall[0].data.previousRefreshTokenHash).toBe(renewalTokenHash);
+    expect(rotationCall[0].data.previousRefreshTokenValidUntil).toEqual(
+      new Date('2026-04-23T00:00:08.000Z'),
+    );
     expect(rotationCall[0].data.sessionTokenHash).toBe(
       hashTokenForTest(renewalResult.accessToken ?? ''),
     );
@@ -235,6 +258,55 @@ describe('AuthSessionService', () => {
     );
   });
 
+  it('renewSession은 rememberMe=false를 browser-session persistence로 보존한다', async () => {
+    const renewalToken = makeOpaqueToken('session-browser');
+    const renewalTokenHash = hashTokenForTest(renewalToken);
+    prisma.authSession.findUnique.mockResolvedValue({
+      id: 'session-browser',
+      userId: 'user-1',
+      rememberMe: false,
+      refreshTokenHash: renewalTokenHash,
+      sessionTokenExpiresAt: new Date('2026-04-22T23:59:59.000Z'),
+      expiresAt: new Date('2026-04-24T00:00:00.000Z'),
+      revokedAt: null,
+      user: {
+        deletedAt: null,
+        displayIdentity: { userId: 'user-1' },
+      },
+    });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
+
+    const renewalResult = await service.renewSession(renewalToken);
+
+    expect(renewalResult).toMatchObject({
+      success: true,
+      rememberMe: false,
+    });
+    const [rotationCall] = prisma.authSession.updateMany.mock.calls as unknown as Array<
+      [
+        {
+          where: {
+            id: string;
+            rememberMe: boolean;
+            refreshTokenHash: string;
+          };
+        },
+      ]
+    >;
+    expect(rotationCall?.[0].where).toMatchObject({
+      id: 'session-browser',
+      rememberMe: false,
+      refreshTokenHash: renewalTokenHash,
+    });
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_REFRESH_SUCCESS',
+        sessionId: 'session-browser',
+        metadata: { rememberMe: false },
+      }),
+    );
+  });
+
   it('renewSession old token reuse는 token family를 revoke하고 재로그인을 요구한다', async () => {
     const oldRenewalToken = makeOpaqueToken('session-1', 'b'.repeat(43));
     const rotatedRenewalTokenHash = hashTokenForTest(makeOpaqueToken('session-1', 'c'.repeat(43)));
@@ -243,6 +315,8 @@ describe('AuthSessionService', () => {
       userId: 'user-1',
       rememberMe: true,
       refreshTokenHash: rotatedRenewalTokenHash,
+      previousRefreshTokenHash: null,
+      previousRefreshTokenValidUntil: null,
       sessionTokenExpiresAt: new Date('2099-04-30T00:00:00.000Z'),
       expiresAt: new Date('2099-04-30T00:00:00.000Z'),
       revokedAt: null,
@@ -280,6 +354,91 @@ describe('AuthSessionService', () => {
     );
   });
 
+  it('직전 renewal token은 grace 안에서 stale로 분류하고 session을 revoke하지 않는다', async () => {
+    const previousRenewalToken = makeOpaqueToken('session-1', 'b'.repeat(43));
+    prisma.authSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      rememberMe: true,
+      refreshTokenHash: hashTokenForTest(makeOpaqueToken('session-1', 'c'.repeat(43))),
+      previousRefreshTokenHash: hashTokenForTest(previousRenewalToken),
+      previousRefreshTokenValidUntil: new Date('2026-04-23T00:00:08.000Z'),
+      expiresAt: new Date('2099-04-30T00:00:00.000Z'),
+      revokedAt: null,
+      user: {
+        deletedAt: null,
+        displayIdentity: { userId: 'user-1' },
+      },
+    });
+
+    await expect(service.renewSession(previousRenewalToken)).resolves.toEqual({
+      success: false,
+      code: 'AUTH_SESSION_RENEWAL_STALE',
+      error: '다른 요청에서 로그인 상태를 갱신하고 있습니다.',
+      retryAfterMilliseconds: 50,
+      userActionable: true,
+    });
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(securityEvents.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('직전 renewal token도 grace 경계에서는 unknown reuse로 분류한다', async () => {
+    const previousRenewalToken = makeOpaqueToken('session-1', 'b'.repeat(43));
+    prisma.authSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      rememberMe: true,
+      refreshTokenHash: hashTokenForTest(makeOpaqueToken('session-1', 'c'.repeat(43))),
+      previousRefreshTokenHash: hashTokenForTest(previousRenewalToken),
+      previousRefreshTokenValidUntil: new Date('2026-04-23T00:00:00.000Z'),
+      expiresAt: new Date('2099-04-30T00:00:00.000Z'),
+      revokedAt: null,
+      user: {
+        deletedAt: null,
+        displayIdentity: { userId: 'user-1' },
+      },
+    });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(service.renewSession(previousRenewalToken)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SESSION_RENEWAL_REUSED',
+    });
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 'session-1', revokedAt: null },
+      data: { revokedAt: new Date('2026-04-23T00:00:00.000Z') },
+    });
+  });
+
+  it('previous-token grace flag가 꺼지면 직전 token도 unknown reuse로 처리한다', async () => {
+    const previousRenewalToken = makeOpaqueToken('session-1', 'b'.repeat(43));
+    prisma.authSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      rememberMe: true,
+      refreshTokenHash: hashTokenForTest(makeOpaqueToken('session-1', 'c'.repeat(43))),
+      previousRefreshTokenHash: hashTokenForTest(previousRenewalToken),
+      previousRefreshTokenValidUntil: new Date('2026-04-23T00:00:08.000Z'),
+      expiresAt: new Date('2099-04-30T00:00:00.000Z'),
+      revokedAt: null,
+      user: {
+        deletedAt: null,
+        displayIdentity: { userId: 'user-1' },
+      },
+    });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
+    const command = new RenewSessionCommand(
+      repository,
+      { renewalPreviousTokenGraceEnabled: false } as never,
+      securityEvents as never,
+    );
+
+    await expect(command.execute(previousRenewalToken)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SESSION_RENEWAL_REUSED',
+    });
+  });
+
   it('renewSession rotation race는 logout/reset/delete revoke가 먼저 반영되면 fail-closed 처리한다', async () => {
     const renewalToken = makeOpaqueToken('session-1', 'd'.repeat(43));
     const renewalTokenHash = hashTokenForTest(renewalToken);
@@ -305,20 +464,6 @@ describe('AuthSessionService', () => {
   });
 
   it.each([
-    [
-      'rememberMe=false',
-      {
-        rememberMe: false,
-        refreshTokenHash: hashTokenForTest(makeOpaqueToken('session-1')),
-        sessionTokenExpiresAt: new Date('2099-04-30T00:00:00.000Z'),
-        expiresAt: new Date('2099-04-30T00:00:00.000Z'),
-        revokedAt: null,
-        user: {
-          deletedAt: null,
-          displayIdentity: { userId: 'user-1' },
-        },
-      },
-    ],
     [
       'expired',
       {
@@ -441,6 +586,7 @@ describe('AuthSessionService', () => {
   it('old JWT-like token은 인증 실패 처리하고 session row를 조회하지 않는다', async () => {
     await expect(service.getSession('eyJhbGciOiJIUzI1NiJ9.payload.signature')).resolves.toEqual({
       authenticated: false,
+      reason: 'MALFORMED_TOKEN',
     });
 
     expect(prisma.authSession.findUnique).not.toHaveBeenCalled();
@@ -466,6 +612,7 @@ describe('AuthSessionService', () => {
   it.each([
     [
       'revoked',
+      'SESSION_REVOKED',
       {
         sessionTokenExpiresAt: new Date('2099-04-30T00:00:00.000Z'),
         expiresAt: new Date('2099-04-30T00:00:00.000Z'),
@@ -474,6 +621,7 @@ describe('AuthSessionService', () => {
     ],
     [
       'access-token-expired',
+      'ACCESS_EXPIRED',
       {
         sessionTokenExpiresAt: new Date('2026-04-22T23:59:59.000Z'),
         expiresAt: new Date('2099-04-30T00:00:00.000Z'),
@@ -482,6 +630,7 @@ describe('AuthSessionService', () => {
     ],
     [
       'absolute-session-expired',
+      'SESSION_EXPIRED',
       {
         sessionTokenExpiresAt: new Date('2099-04-30T00:00:00.000Z'),
         expiresAt: new Date('2026-04-22T23:59:59.000Z'),
@@ -490,24 +639,29 @@ describe('AuthSessionService', () => {
     ],
     [
       'legacy-session-without-access-token-hash-expiry',
+      'ACCESS_EXPIRED',
       {
         sessionTokenExpiresAt: null,
         expiresAt: new Date('2099-04-30T00:00:00.000Z'),
         revokedAt: null,
       },
     ],
-  ])('opaque access session resolve는 %s 상태를 fail-closed 처리한다', async (_label, state) => {
-    prisma.authSession.findUnique.mockResolvedValue({
-      id: 'session-1',
-      userId: 'user-1',
-      ...state,
-      user: activeSessionUser,
-    });
+  ])(
+    'opaque access session resolve는 %s 상태를 fail-closed 처리한다',
+    async (_label, reason, state) => {
+      prisma.authSession.findUnique.mockResolvedValue({
+        id: 'session-1',
+        userId: 'user-1',
+        ...state,
+        user: activeSessionUser,
+      });
 
-    await expect(service.getSession(makeOpaqueToken('session-1'))).resolves.toEqual({
-      authenticated: false,
-    });
-  });
+      await expect(service.getSession(makeOpaqueToken('session-1'))).resolves.toEqual({
+        authenticated: false,
+        reason,
+      });
+    },
+  );
 
   it('삭제 처리된 사용자는 유효한 opaque token이 있어도 세션 인증에서 제외한다', async () => {
     prisma.authSession.findUnique.mockResolvedValue({
@@ -526,6 +680,7 @@ describe('AuthSessionService', () => {
 
     await expect(service.getSession(makeOpaqueToken('session-deleted'))).resolves.toEqual({
       authenticated: false,
+      reason: 'ACCOUNT_DELETED',
     });
   });
 
@@ -589,6 +744,7 @@ describe('AuthSessionService', () => {
 
     await expect(service.getSession(makeOpaqueToken('session-missing-identity'))).resolves.toEqual({
       authenticated: false,
+      reason: 'ACCOUNT_IDENTITY_INCOMPLETE',
     });
   });
 

@@ -183,6 +183,7 @@ describe('signup command', () => {
     });
     sessionService.issueAuthResult.mockResolvedValue({
       accessToken: 'token',
+      renewalToken: 'renewal-token',
       sessionId: 'session-1',
     });
 
@@ -274,6 +275,8 @@ describe('signup command', () => {
     expect(result).toMatchObject({
       success: true,
       accessToken: 'token',
+      renewalToken: 'renewal-token',
+      rememberMe: false,
       user: {
         id: 'user-1',
         email: 'test@kangwon.ac.kr',
@@ -300,6 +303,7 @@ describe('signup command', () => {
     });
     sessionService.issueAuthResult.mockResolvedValue({
       accessToken: 'token',
+      renewalToken: 'renewal-token',
       sessionId: 'session-1',
     });
 

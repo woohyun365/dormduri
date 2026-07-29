@@ -39,7 +39,10 @@ describe('AuthService facade', () => {
     verificationUseCases.sendResetCode.mockResolvedValueOnce({ success: true });
     verificationUseCases.verifyEmailCode.mockResolvedValueOnce({ success: true });
     verificationUseCases.verifyResetCode.mockResolvedValueOnce({ success: true });
-    sessionUseCases.getSession.mockResolvedValueOnce({ authenticated: false });
+    sessionUseCases.getSession.mockResolvedValueOnce({
+      authenticated: false,
+      reason: 'SESSION_NOT_FOUND',
+    });
 
     await expect(service.sendSignupCode('test@kangwon.ac.kr', requestContext)).resolves.toEqual({
       success: true,
@@ -55,6 +58,7 @@ describe('AuthService facade', () => {
     ).resolves.toEqual({ success: true });
     await expect(service.getSession('access-token', requestContext)).resolves.toEqual({
       authenticated: false,
+      reason: 'SESSION_NOT_FOUND',
     });
 
     expect(verificationUseCases.sendSignupCode).toHaveBeenCalledWith(

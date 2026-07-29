@@ -2,12 +2,20 @@ import { defineEnvKeys } from './env-key.definition.js';
 
 export const httpEnvKeys = defineEnvKeys([
   {
-    key: 'HTTP_TRUST_PROXY',
+    key: 'HTTP_TRUST_PROXY_HOPS',
     owner: 'http',
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
-    description: 'Express trust proxy toggle for nginx/LB deployments.',
+    description: 'Exact number of trusted reverse-proxy hops. Zero keeps direct API trust off.',
+  },
+  {
+    key: 'HTTP_TRUST_PROXY_CIDRS',
+    owner: 'http',
+    category: 'ingress',
+    source: 'process-env',
+    defaultPolicy: 'optional',
+    description: 'Explicit trusted reverse-proxy IP/CIDR or Express subnet preset allowlist.',
   },
   {
     key: 'HTTP_CORS_ALLOWED_ORIGINS',

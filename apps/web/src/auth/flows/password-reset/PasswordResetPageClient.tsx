@@ -8,7 +8,16 @@ import { PasswordResetCompleteStep } from './components/PasswordResetCompleteSte
 import { usePasswordResetFlow } from './hooks/usePasswordResetFlow';
 
 export default function PasswordResetPageClient() {
-  const { state, stepNumber, cooldown, status, isAuthenticated, actions } = usePasswordResetFlow();
+  const {
+    state,
+    stepNumber,
+    cooldown,
+    status,
+    isAuthenticated,
+    isSessionUnavailable,
+    retrySession,
+    actions,
+  } = usePasswordResetFlow();
 
   return (
     <PasswordResetLayout
@@ -17,8 +26,10 @@ export default function PasswordResetPageClient() {
       showProgress={state.step !== 'complete'}
       status={status}
       isAuthenticated={isAuthenticated}
+      isSessionUnavailable={isSessionUnavailable}
       onBack={actions.goBack}
       onRestart={actions.restartEmailEntry}
+      onRetrySession={retrySession}
     >
       {state.step === 'email' && (
         <PasswordResetEmailStep

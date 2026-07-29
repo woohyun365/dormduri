@@ -1,11 +1,12 @@
 import type { LoginResult } from '../domain/auth.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import type { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
 import { normalizeEmail } from '../domain/auth.utils.js';
-import { verifyPasswordHash } from './password-hash.js';
+import type { AuthPasswordHashPolicy } from './auth-password-hash.adapter.js';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
 import {
   AuthSecurityEventService,
@@ -18,6 +19,11 @@ interface AuthLoginOwnerDeps {
   loginAttemptService: Pick<
     AuthLoginAttemptService,
     'getActiveLock' | 'recordLoginFailure' | 'clearFailures'
+  >;
+  loginMetrics: Pick<AuthLoginMetricsService, 'recordAttempt'>;
+  passwordHashPolicy: Pick<
+    AuthPasswordHashPolicy,
+    'verifyLoginPassword' | 'verifyUnavailableLogin'
   >;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
   securityEvents?: AuthSecurityEventService;
@@ -35,6 +41,7 @@ export async function login(
     ? deps.loginAttemptService.getActiveLock(emailNormalized, requestContext)
     : deps.loginAttemptService.getActiveLock(emailNormalized));
   if (activeLock) {
+    deps.loginMetrics.recordAttempt('locked');
     return activeLock;
   }
 
@@ -55,23 +62,27 @@ export async function login(
     },
   });
 
-  if (!user) {
-    return hasAuthRequestContext(requestContext)
+  if (!user || user.deletedAt || !hasUserDisplayIdentity(user)) {
+    await deps.passwordHashPolicy.verifyUnavailableLogin(password);
+    const failure = hasAuthRequestContext(requestContext)
       ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
       : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+    const result = await failure;
+    deps.loginMetrics.recordAttempt(result.code === 'AUTH_LOGIN_LOCKED' ? 'locked' : 'invalid');
+    return result;
   }
 
-  if (user.deletedAt || !hasUserDisplayIdentity(user)) {
-    return hasAuthRequestContext(requestContext)
-      ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
-      : deps.loginAttemptService.recordLoginFailure(emailNormalized);
-  }
-
-  const passwordMatches = await verifyPasswordHash(user.passwordHash, password);
+  const passwordMatches = await deps.passwordHashPolicy.verifyLoginPassword(
+    user.passwordHash,
+    password,
+  );
   if (!passwordMatches) {
-    return hasAuthRequestContext(requestContext)
+    const failure = hasAuthRequestContext(requestContext)
       ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
       : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+    const result = await failure;
+    deps.loginMetrics.recordAttempt(result.code === 'AUTH_LOGIN_LOCKED' ? 'locked' : 'invalid');
+    return result;
   }
 
   await deps.loginAttemptService.clearFailures(emailNormalized);
@@ -90,6 +101,7 @@ export async function login(
       rememberMe,
     },
   });
+  deps.loginMetrics.recordAttempt('success');
 
   return toLoginSuccessResult(
     authResult.accessToken,

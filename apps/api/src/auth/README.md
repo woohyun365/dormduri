@@ -20,8 +20,8 @@
 - `domain/`: request context, constants/types/utils 같은 pure/domain helper. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
 - `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy를 함께 둔다.
 - `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, proof consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
-- `credentials/`: `auth-credential-use-cases.service.ts`, `password-hash.ts`, login/reset/change password command를 함께 둔다. 외부 users deletion은 `application/auth-password-hash.ts` bridge만 사용한다.
-- `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy를 함께 둔다. 로그인 실패 5회 잠금 기준과 TTL은 behavior contract로 보존한다.
+- `credentials/`: `auth-credential-use-cases.service.ts`, `password-hash.ts`, password hash adapter, login/reset/change password command를 함께 둔다. 외부 users deletion은 `application/auth-password-hash.ts` bridge만 사용한다.
+- `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy, login network throttle와 no-PII metric을 함께 둔다. 계정 잠금과 IP throttle을 하나의 bucket으로 합치지 않는다.
 - `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않고, event 기록 실패는 user flow를 막지 않는 fail-safe boundary다.
 - `registration/`: `auth-registration-use-cases.service.ts`, signup command와 signup draft validation을 함께 둔다. Auth는 lifestyle/intro/profile parser를 소유하지 않는다.
 - `adapters/email/`: `EmailSender` contract, local/test stub sender, SESv2 production sender, provider delegate selection, monitored send wrapper.
@@ -37,6 +37,10 @@
 - `/health`, `/health/ready`는 public liveness/readiness surface다. 운영 metric, dispatcher failure, replay resync reason 같은 상세 운영 정보는 public surface와 분리한다.
 - `AuthOperationsModule`은 `@Global()` module이 아니다.
 - JWT transport/JWT bridge를 재도입하지 않는다.
+- Renewal rotation은 current hash를 previous hash로 옮기고 DB clock 기준 8초 grace를 둔다. Grace 안의 previous token은 stale이며, grace 밖의 old/unknown token만 reuse로 session family를 revoke한다.
+- Missing/deleted/incomplete account login은 active hash와 같은 Argon2id profile의 canonical dummy hash를 검증한다. Active account lock은 cheap guard로 먼저 반환하는 명시적 예외다.
+- Login account lock은 Postgres `LoginAttempt`의 5회/5분 기준이고, network throttle은 trusted `request.ip` 기준 30회/1분 burst와 120회/10분 sustained bucket이다.
+- Password reset 성공은 proof consume, password update, session revoke와 함께 같은 serializable transaction에서 해당 email의 `LoginAttempt`를 제거한다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.
 - 외부 domain production code에서 `auth/commands`, `auth/repositories`, `auth/domain`, `auth/policies`, `auth/adapters`, `auth/sessions`, `auth/verification`, `auth/credentials`, `auth/registration`, `auth/login-attempts`, `auth/security-events`를 직접 import하지 않는다.
 - auth API module은 Web rendering/hook/page/component를 소유하지 않는다.
@@ -48,7 +52,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
 - Root spec file은 `auth.controller.spec.ts`만 허용한다.
 - `AuthService`는 controller-facing facade이며 direct Prisma/session/verification/login-attempt/security-event orchestration을 하지 않는다.
-- `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 ThrottlerGuard → AuthenticatedUserGuard로 유지한다.
+- `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 AuthLoginThrottlerGuard → AuthenticatedUserGuard로 유지한다.
 - Top-level `queries/`, `policies/`, `repositories` transition structure는 두지 않는다. Query/policy/repository는 각 owning slice 내부 파일명으로 둔다.
 - Opaque session token primitive는 `sessions/opaque-token.ts`, password hash helper는 `credentials/password-hash.ts`가 canonical owner다.
 - `application/auth-use-cases.service.ts` bucket은 두지 않는다. Workflow orchestration은 `verification/`, `registration/`, `credentials/`, `sessions/` slice-local use-case provider가 소유한다.

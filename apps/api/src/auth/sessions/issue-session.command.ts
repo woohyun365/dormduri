@@ -25,7 +25,7 @@ export class IssueSessionCommand {
     const sessionTokenExpiresAt = new Date(
       databaseNow.getTime() + AUTH_ACCESS_TOKEN_TTL_SECONDS * 1000,
     );
-    const renewalToken = rememberMe ? createOpaqueToken(sessionId) : undefined;
+    const renewalToken = createOpaqueToken(sessionId);
 
     const session = await this.repository.createSession({
       sessionId,
@@ -33,14 +33,14 @@ export class IssueSessionCommand {
       rememberMe,
       sessionTokenHash: hashOpaqueToken(accessToken),
       sessionTokenExpiresAt,
-      ...(renewalToken ? { refreshTokenHash: hashOpaqueToken(renewalToken) } : {}),
+      refreshTokenHash: hashOpaqueToken(renewalToken),
       expiresAt: new Date(databaseNow.getTime() + ttlSeconds * 1000),
     });
 
     return {
       accessToken,
       sessionId: session.id,
-      ...(renewalToken ? { renewalToken } : {}),
+      renewalToken,
     };
   }
 }

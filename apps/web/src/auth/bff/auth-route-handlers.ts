@@ -4,6 +4,7 @@ import { forwardAuthRequest, getForwardHeaders } from './auth-forward';
 import {
   parseStrictJsonRequest,
   pickAuthMutationResponseBody,
+  recordAuthMutationRequestInspection,
   type StrictRequestSchema,
 } from './auth-request-guard';
 import { buildJsonResponse } from './auth-response';
@@ -32,6 +33,7 @@ export function createAuthenticatedForwardPostHandler<TBody extends Record<strin
   options: { setAuthCookieFromAccessToken?: boolean } = {},
 ) {
   return async function POST(request: NextRequest) {
+    recordAuthMutationRequestInspection(request);
     const body = (await request.json()) as TBody;
     const token = getAuthTokenCookie(request);
     const { response, json } = await forwardAuthRequest('POST', path, body, {

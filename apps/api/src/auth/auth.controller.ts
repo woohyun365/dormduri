@@ -18,6 +18,7 @@ import { AUTH_CAPABILITIES } from './access/auth-capability.js';
 import { CurrentAuthToken, CurrentUser } from './access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from './application/auth-actor-context.types.js';
 import { resolveAuthRequestContext } from './domain/auth-request-context.js';
+import { EnableAuthLoginThrottle } from './login-attempts/auth-login-throttle.decorator.js';
 
 @Controller('auth')
 @Public()
@@ -78,7 +79,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @EnableAuthLoginThrottle()
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(loginRequestSchema, body);

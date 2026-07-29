@@ -2039,17 +2039,19 @@ model VerificationCodeRequestLog {
 }
 
 model AuthSession {
-  id                    String    @id @default(uuid())
-  userId                String
-  rememberMe            Boolean   @default(false)
-  sessionTokenHash      String?   @unique
-  sessionTokenExpiresAt DateTime? @db.Timestamptz(3)
-  refreshTokenHash      String?
-  expiresAt             DateTime  @db.Timestamptz(3)
-  revokedAt             DateTime? @db.Timestamptz(3)
-  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                             String    @id @default(uuid())
+  userId                         String
+  rememberMe                     Boolean   @default(false)
+  sessionTokenHash               String?   @unique
+  sessionTokenExpiresAt          DateTime? @db.Timestamptz(3)
+  refreshTokenHash               String?
+  previousRefreshTokenHash       String?
+  previousRefreshTokenValidUntil DateTime? @db.Timestamptz(3)
+  expiresAt                      DateTime  @db.Timestamptz(3)
+  revokedAt                      DateTime? @db.Timestamptz(3)
+  createdAt                      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user                           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, revokedAt, expiresAt])

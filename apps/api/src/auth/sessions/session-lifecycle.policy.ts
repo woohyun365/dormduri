@@ -16,6 +16,8 @@ export interface AuthenticatedSessionPolicyProjection {
 export interface RenewalSessionPolicyProjection {
   rememberMe: boolean;
   refreshTokenHash: string | null;
+  previousRefreshTokenHash: string | null;
+  previousRefreshTokenValidUntil: Date | null;
   expiresAt: Date;
   revokedAt: Date | null;
   user: SessionUserIdentityProjection;
@@ -57,9 +59,6 @@ export function resolveRenewalRejectionReason(
   if (!session) {
     return 'not_found';
   }
-  if (!session.rememberMe) {
-    return 'remember_me_disabled';
-  }
   if (!session.refreshTokenHash) {
     return 'missing_renewal_token';
   }
@@ -79,9 +78,33 @@ export function resolveRenewalRejectionReason(
   return null;
 }
 
-export function isRenewalTokenReuse(
-  session: { refreshTokenHash: string },
+export type RenewalTokenClassification = 'current' | 'previous' | 'unknown';
+
+export function classifyRenewalToken(
+  session: Pick<
+    RenewalSessionPolicyProjection,
+    'refreshTokenHash' | 'previousRefreshTokenHash' | 'previousRefreshTokenValidUntil'
+  >,
   presentedTokenHash: string,
-) {
-  return !safeCompareTokenHash(session.refreshTokenHash, presentedTokenHash);
+  databaseNow: Date,
+  previousTokenGraceEnabled: boolean,
+): RenewalTokenClassification {
+  if (
+    session.refreshTokenHash &&
+    safeCompareTokenHash(session.refreshTokenHash, presentedTokenHash)
+  ) {
+    return 'current';
+  }
+
+  if (
+    previousTokenGraceEnabled &&
+    session.previousRefreshTokenHash &&
+    session.previousRefreshTokenValidUntil &&
+    session.previousRefreshTokenValidUntil > databaseNow &&
+    safeCompareTokenHash(session.previousRefreshTokenHash, presentedTokenHash)
+  ) {
+    return 'previous';
+  }
+
+  return 'unknown';
 }

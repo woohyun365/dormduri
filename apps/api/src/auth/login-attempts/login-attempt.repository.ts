@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../platform/database/prisma.service.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import {
   getActiveLoginLock,
   recordLoginFailure as recordLoginFailureSql,
@@ -27,6 +28,15 @@ export class LoginAttemptRepository {
 
   async clearFailures(emailNormalized: string): Promise<void> {
     await this.prisma.loginAttempt.deleteMany({
+      where: { emailNormalized },
+    });
+  }
+
+  async clearFailuresInTransaction(
+    tx: Pick<Prisma.TransactionClient, 'loginAttempt'>,
+    emailNormalized: string,
+  ): Promise<void> {
+    await tx.loginAttempt.deleteMany({
       where: { emailNormalized },
     });
   }

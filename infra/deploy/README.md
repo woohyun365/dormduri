@@ -64,7 +64,8 @@ $EDITOR infra/deploy/.env.api
 - `SES_FROM_EMAIL`
 - `SECRET_SOURCE`
 - `SECRET_NAME_PREFIX` (`SECRET_SOURCE=aws-secrets-manager` production 경로에서 필수)
-- `HTTP_TRUST_PROXY`
+- `HTTP_TRUST_PROXY_HOPS`
+- `HTTP_TRUST_PROXY_CIDRS`
 - `HTTP_CORS_ALLOWED_ORIGINS`
 - `HTTP_COOKIE_SECURE`
 - `HTTP_COOKIE_SAME_SITE`
@@ -152,7 +153,7 @@ docker compose -f infra/deploy/docker-compose.api.yml build api
 docker compose -f infra/deploy/docker-compose.api.yml up -d
 ```
 
-기본 nginx bind는 local smoke용 `127.0.0.1:8080`이다. nginx/LB 뒤에서 API를 실행하는 production-like 경로는 `HTTP_TRUST_PROXY=true`로 Express trust proxy를 명시한다. Public ingress가 필요하면 명시적으로 `NGINX_HTTP_BIND=0.0.0.0 NGINX_HTTP_PORT=80`을 shell env 또는 `infra/deploy/.env`에 설정하거나 별도 private override를 작성한다. `infra/deploy/.env.api`는 API container env file이며 Docker Compose interpolation source가 아니므로 compose port/tag 값은 shell env 또는 compose project `.env`에 둔다.
+기본 nginx bind는 local smoke용 `127.0.0.1:8080`이다. nginx/LB 뒤에서 API를 실행하는 production-like 경로는 실제 네트워크에 맞춰 `HTTP_TRUST_PROXY_HOPS` 또는 `HTTP_TRUST_PROXY_CIDRS` 중 하나만 설정한다. Direct/local API는 hop `0`으로 forwarding header를 신뢰하지 않는다. Public ingress가 필요하면 명시적으로 `NGINX_HTTP_BIND=0.0.0.0 NGINX_HTTP_PORT=80`을 shell env 또는 `infra/deploy/.env`에 설정하거나 별도 private override를 작성한다. `infra/deploy/.env.api`는 API container env file이며 Docker Compose interpolation source가 아니므로 compose port/tag 값은 shell env 또는 compose project `.env`에 둔다.
 
 ```bash
 curl -fsS http://127.0.0.1:8080/health
@@ -167,7 +168,7 @@ curl -fsS http://127.0.0.1:8080/health/ready
 지원하는 ingress 경로는 세 가지로 구분한다.
 
 1. **Local smoke HTTP**: 기본 `nginx/conf.d/api.conf`와 `127.0.0.1:8080` bind를 사용한다. 이 경로는 local smoke와 Dockerized rehearsal용이다.
-2. **Load balancer 뒤 HTTP upstream**: ALB/ELB/외부 reverse proxy가 TLS를 종료하고 nginx는 HTTP upstream으로 동작한다. 이때 `HTTP_TRUST_PROXY=true`를 설정하고, public bind/port는 private compose override에서 명시한다.
+2. **Load balancer 뒤 HTTP upstream**: ALB/ELB/외부 reverse proxy가 TLS를 종료하고 nginx는 HTTP upstream으로 동작한다. 이때 실제 hop 수를 `HTTP_TRUST_PROXY_HOPS`로 설정하거나 고정 proxy subnet만 `HTTP_TRUST_PROXY_CIDRS`에 등록하고, public bind/port는 private compose override에서 명시한다.
 3. **Direct nginx TLS termination**: nginx가 직접 80→443 redirect와 TLS를 소유한다. `nginx/examples/api.tls.conf`를 private deployment에서 `nginx/conf.d/api.conf`로 복사/parameterize하고 certbot 또는 동등한 ACME client가 만든 인증서 volume을 mount한다. 예시 파일은 base compose의 active `conf.d` mount에 포함되지 않으므로 placeholder cert path가 local smoke를 깨지 않는다.
 
 REST API CORS는 `HTTP_CORS_ALLOWED_ORIGINS`의 comma-separated explicit allowlist가 있을 때만 활성화된다. `*` wildcard, path/query/hash가 붙은 값은 거부된다. 현재 auth/session transport는 JSON response body token + `Authorization` header 기반이므로 REST CORS는 `credentials=false`로 유지한다. Socket.IO/realtime origin policy는 `CHAT_REALTIME_ALLOWED_ORIGINS`, `CHAT_REALTIME_TRUST_PROXY`가 별도로 소유한다.

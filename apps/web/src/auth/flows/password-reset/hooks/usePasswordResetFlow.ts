@@ -24,7 +24,7 @@ export function usePasswordResetFlow() {
   const router = useRouter();
   const [state, dispatch] = useReducer(passwordResetFlowReducer, initialPasswordResetFlowState);
   const [status, setStatus] = useState<PasswordResetStatus | null>(null);
-  const { isAuthenticated } = usePasswordResetSessionNotice();
+  const { isAuthenticated, isSessionUnavailable, retrySession } = usePasswordResetSessionNotice();
   const cooldown = usePasswordResetCooldown();
   const retryAfter = usePasswordResetCooldown(0);
   const verificationStepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -308,6 +308,8 @@ export function usePasswordResetFlow() {
     cooldown,
     status: visibleStatus,
     isAuthenticated,
+    isSessionUnavailable,
+    retrySession,
     actions: {
       changeEmail,
       sendCode,

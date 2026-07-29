@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { login } from './login.command.js';
+import { verifyPasswordHash } from './password-hash.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 
 const hashPasswordForTest = (password: string) =>
@@ -26,6 +27,13 @@ describe('login command', () => {
   const sessionService = {
     issueAuthResult: vi.fn(),
   };
+  const loginMetrics = {
+    recordAttempt: vi.fn(),
+  };
+  const passwordHashPolicy = {
+    verifyLoginPassword: vi.fn(),
+    verifyUnavailableLogin: vi.fn(),
+  };
   const securityEvents = {
     recordSafely: vi
       .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
@@ -35,6 +43,8 @@ describe('login command', () => {
   const deps = {
     prisma,
     loginAttemptService,
+    loginMetrics,
+    passwordHashPolicy,
     sessionService,
     securityEvents,
   };
@@ -48,6 +58,10 @@ describe('login command', () => {
       code: 'AUTH_INVALID_CREDENTIALS',
       userActionable: true,
     });
+    passwordHashPolicy.verifyUnavailableLogin.mockResolvedValue(undefined);
+    passwordHashPolicy.verifyLoginPassword.mockImplementation(
+      (passwordHash: string, password: string) => verifyPasswordHash(passwordHash, password),
+    );
   });
 
   it('존재하지 않는 계정 login은 로그인 실패 기록 서비스로 위임한다', async () => {
@@ -61,7 +75,17 @@ describe('login command', () => {
     });
 
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('missing@kangwon.ac.kr');
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('pw');
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('invalid');
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+  });
+
+  it('존재하지 않는 계정도 canonical dummy password hash를 검증한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await login(deps as never, 'missing@kangwon.ac.kr', 'WrongPass1234', false);
+
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('WrongPass1234');
   });
 
   it('삭제 처리된 계정 login은 실패 기록으로 위임하고 세션을 발급하지 않는다', async () => {
@@ -87,6 +111,7 @@ describe('login command', () => {
     );
 
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('deleted@kangwon.ac.kr');
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('Pass1234');
     expect(loginAttemptService.clearFailures).not.toHaveBeenCalled();
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
@@ -111,6 +136,8 @@ describe('login command', () => {
     });
 
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyUnavailableLogin).not.toHaveBeenCalled();
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('locked');
   });
 
   it('display identity가 없는 계정 login은 인증 성공으로 보지 않고 실패 횟수를 기록한다', async () => {
@@ -133,6 +160,7 @@ describe('login command', () => {
     });
 
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('Pass1234');
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith(
       'missing-identity@kangwon.ac.kr',
     );
@@ -192,5 +220,33 @@ describe('login command', () => {
         metadata: { rememberMe: true },
       }),
     );
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('success');
+  });
+
+  it('기존 계정의 잘못된 비밀번호는 real hash를 검증하고 invalid metric을 남긴다', async () => {
+    const passwordHash = await hashPasswordForTest('Pass1234');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash,
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+    });
+
+    await expect(
+      login(deps as never, 'test@kangwon.ac.kr', 'WrongPass1234', false),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_INVALID_CREDENTIALS',
+    });
+
+    expect(passwordHashPolicy.verifyLoginPassword).toHaveBeenCalledWith(
+      passwordHash,
+      'WrongPass1234',
+    );
+    expect(passwordHashPolicy.verifyUnavailableLogin).not.toHaveBeenCalled();
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('invalid');
   });
 });

@@ -90,6 +90,28 @@ function assertProductionNonLocalUrl(input: {
   }
 }
 
+function assertProductionPublicHttpsUrl(input: {
+  rawValue: string | undefined;
+  normalized: { url: URL };
+  runtimeMode: WebRuntimeMode;
+}): void {
+  if (input.runtimeMode !== 'production') {
+    return;
+  }
+  if (!input.rawValue) {
+    throw new WebEnvValidationError(
+      'NEXT_PUBLIC_APP_URL is required in production runtime.',
+      'NEXT_PUBLIC_APP_URL_REQUIRED_IN_PRODUCTION',
+    );
+  }
+  if (input.normalized.url.protocol !== 'https:') {
+    throw new WebEnvValidationError(
+      'NEXT_PUBLIC_APP_URL must use https in production runtime.',
+      'NEXT_PUBLIC_APP_URL_HTTPS_REQUIRED_IN_PRODUCTION',
+    );
+  }
+}
+
 function normalizePublicApiBase(input: string): string {
   if (input.startsWith('/') && !input.startsWith('//')) {
     const parsed = new URL(input, 'https://web.local');
@@ -111,6 +133,11 @@ export function parseWebServerEnv(
   const appUrl = normalizeHttpUrl(appUrlInput ?? DEFAULT_APP_URL, 'NEXT_PUBLIC_APP_URL');
   assertProductionNonLocalUrl({
     key: 'NEXT_PUBLIC_APP_URL',
+    rawValue: appUrlInput,
+    normalized: appUrl,
+    runtimeMode,
+  });
+  assertProductionPublicHttpsUrl({
     rawValue: appUrlInput,
     normalized: appUrl,
     runtimeMode,

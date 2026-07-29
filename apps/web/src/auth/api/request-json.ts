@@ -26,6 +26,7 @@ export async function requestJson<T>(
   return {
     status: response.status,
     data,
+    headers: response.headers,
     ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
   };
 }

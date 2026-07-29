@@ -11,6 +11,14 @@ describe('AuthCredentialUseCases', () => {
     getActiveLock: vi.fn(),
     recordLoginFailure: vi.fn(),
     clearFailures: vi.fn(),
+    clearFailuresInTransaction: vi.fn(),
+  };
+  const loginMetrics = {
+    recordAttempt: vi.fn(),
+  };
+  const passwordHashPolicy = {
+    verifyLoginPassword: vi.fn(),
+    verifyUnavailableLogin: vi.fn(),
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
@@ -24,6 +32,8 @@ describe('AuthCredentialUseCases', () => {
   const useCases = new AuthCredentialUseCases(
     prisma as never,
     loginAttemptService as never,
+    loginMetrics as never,
+    passwordHashPolicy as never,
     sessionService as never,
     verificationService as never,
     securityEvents as never,

@@ -14,10 +14,12 @@ import {
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 
 interface AuthResetPasswordOwnerDeps {
   prisma: PrismaService;
   verificationService: Pick<AuthVerificationService, 'findLatestVerifiedResetCode'>;
+  loginAttemptService: Pick<AuthLoginAttemptService, 'clearFailuresInTransaction'>;
   securityEvents?: AuthSecurityEventService;
 }
 
@@ -74,6 +76,7 @@ export async function resetPassword(
         data: { revokedAt: databaseNow },
       });
       revokedSessionCount = revokeResult.count;
+      await deps.loginAttemptService.clearFailuresInTransaction(tx, emailNormalized);
     });
   } catch (error) {
     if (error instanceof Error && error.message === RESET_VERIFICATION_PROOF_UNAVAILABLE) {
@@ -104,6 +107,9 @@ export async function resetPassword(
     emailNormalized,
     requestIp: requestContext.requestIp,
     userAgent: requestContext.userAgent,
+    metadata: {
+      loginAttemptState: 'cleared',
+    },
   });
 
   return { success: true };

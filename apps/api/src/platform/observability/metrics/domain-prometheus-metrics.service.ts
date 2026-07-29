@@ -79,6 +79,31 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Auth Redis gate current bounded decision state.',
     labelNames: ['state'],
   },
+  api_auth_login_attempts_total: {
+    name: 'api_auth_login_attempts_total',
+    kind: 'counter',
+    help: 'Total login command outcomes by bounded result.',
+    labelNames: ['outcome'],
+  },
+  api_auth_login_throttle_total: {
+    name: 'api_auth_login_throttle_total',
+    kind: 'counter',
+    help: 'Total login network throttle rejections by bounded scope.',
+    labelNames: ['scope'],
+  },
+  api_auth_login_password_verify_duration_seconds: {
+    name: 'api_auth_login_password_verify_duration_seconds',
+    kind: 'histogram',
+    help: 'Login password verification duration seconds by safe real or dummy target.',
+    labelNames: ['target'],
+    buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+  },
+  api_auth_login_password_verify_in_flight: {
+    name: 'api_auth_login_password_verify_in_flight',
+    kind: 'gauge',
+    help: 'Current login password verification operations by safe real or dummy target.',
+    labelNames: ['target'],
+  },
   api_seasons_current_query_total: {
     name: 'api_seasons_current_query_total',
     kind: 'counter',

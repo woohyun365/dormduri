@@ -366,6 +366,8 @@ function ensureLocalApiEnvFile() {
       'METRICS_ENABLED=true',
       `METRICS_BEARER_TOKEN=${token}`,
       'AUTH_THROTTLE_LIMIT=5000',
+      'AUTH_LOGIN_BURST_LIMIT=5000',
+      'AUTH_LOGIN_SUSTAINED_LIMIT=5000',
       `VERIFICATION_CODE_HMAC_SECRET=${randomSecret()}`,
       `ROOMMATE_SEARCH_CURSOR_HMAC_SECRET=${randomSecret()}`,
       `PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET=${randomSecret()}`,
@@ -397,6 +399,12 @@ function ensureExistingApiEnvKeys() {
   }
   if (!/^AUTH_THROTTLE_LIMIT=/mu.test(text)) {
     missingLines.push('AUTH_THROTTLE_LIMIT=5000');
+  }
+  if (!/^AUTH_LOGIN_BURST_LIMIT=/mu.test(text)) {
+    missingLines.push('AUTH_LOGIN_BURST_LIMIT=5000');
+  }
+  if (!/^AUTH_LOGIN_SUSTAINED_LIMIT=/mu.test(text)) {
+    missingLines.push('AUTH_LOGIN_SUSTAINED_LIMIT=5000');
   }
   if (!/^TZ=/mu.test(text)) {
     missingLines.push('TZ=Asia/Seoul');

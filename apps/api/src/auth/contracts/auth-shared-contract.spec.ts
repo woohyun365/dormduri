@@ -11,12 +11,18 @@ import {
 } from '@repo/shared/auth/contract';
 import { validateKnuEmailFormat as granularValidateKnuEmailFormat } from '@repo/shared/auth/policy';
 import {
+  authSessionRenewalFailureCodeSchema,
   changePasswordResponseSchema,
   loginResponseSchema,
+  renewSessionStaleResponseSchema,
   renewSessionResponseSchema,
+  signupResponseSchema,
 } from '@repo/shared/auth/response';
 import { loginResponseSchema as granularLoginResponseSchema } from '@repo/shared/auth/response';
-import { sessionResponseSchema as granularSessionResponseSchema } from '@repo/shared/auth/session';
+import {
+  apiSessionResponseSchema,
+  browserSessionResolutionSchema,
+} from '@repo/shared/auth/session';
 
 const UNSUPPORTED_SIGNUP_PROFILE_PAYLOAD = {
   lifestyle: { bedtime: '22_24' },
@@ -140,7 +146,7 @@ describe('auth shared contract guards', () => {
       password: 'pass1234',
       rememberMe: true,
     } as const;
-    const sessionResponse = { authenticated: false } as const;
+    const sessionResponse = { authenticated: false, reason: 'MISSING_TOKEN' } as const;
     const opaqueAccessToken = `v1.session-1.${'a'.repeat(43)}`;
 
     expect(granularLoginRequestSchema.parse(loginInput)).toEqual(loginInput);
@@ -158,7 +164,7 @@ describe('auth shared contract guards', () => {
         accessToken: opaqueAccessToken,
       }).success,
     ).toBe(true);
-    expect(granularSessionResponseSchema.parse(sessionResponse)).toEqual(sessionResponse);
+    expect(apiSessionResponseSchema.parse(sessionResponse)).toEqual(sessionResponse);
   });
 
   it('signup draft validation request는 legacy profile payload 없이 email/password/nickname만 받는다', () => {
@@ -228,11 +234,11 @@ describe('auth shared contract guards', () => {
         success: true,
         accessToken: opaqueAccessToken,
         renewalToken: opaqueRenewalToken,
-        rememberMe: true,
+        rememberMe: false,
       }),
     ).toMatchObject({
       success: true,
-      rememberMe: true,
+      rememberMe: false,
     });
 
     expect(
@@ -251,9 +257,25 @@ describe('auth shared contract guards', () => {
         rememberMe: true,
       }).success,
     ).toBe(true);
+    expect(
+      signupResponseSchema.safeParse({
+        success: true,
+        accessToken: opaqueAccessToken,
+        renewalToken: opaqueRenewalToken,
+        rememberMe: false,
+        user: {
+          id: 'user-1',
+          email: 'student@kangwon.ac.kr',
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+      }).success,
+    ).toBe(true);
 
     for (const schema of [
       loginResponseSchema,
+      signupResponseSchema,
       changePasswordResponseSchema,
       renewSessionResponseSchema,
     ]) {
@@ -264,5 +286,79 @@ describe('auth shared contract guards', () => {
         }).success,
       ).toBe(false);
     }
+  });
+
+  it('session contract는 API 인증 실패와 browser 가용성 실패를 서로 다른 축으로 표현한다', () => {
+    expect(
+      apiSessionResponseSchema.parse({
+        authenticated: true,
+        user: {
+          id: 'user-1',
+          email: 'student@kangwon.ac.kr',
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+      }),
+    ).toMatchObject({ authenticated: true });
+    expect(
+      apiSessionResponseSchema.parse({
+        authenticated: false,
+        reason: 'ACCESS_EXPIRED',
+      }),
+    ).toEqual({
+      authenticated: false,
+      reason: 'ACCESS_EXPIRED',
+    });
+
+    expect(
+      browserSessionResolutionSchema.parse({
+        status: 'unavailable',
+        code: 'AUTH_SESSION_UNAVAILABLE',
+      }),
+    ).toEqual({
+      status: 'unavailable',
+      code: 'AUTH_SESSION_UNAVAILABLE',
+    });
+    expect(
+      browserSessionResolutionSchema.safeParse({
+        status: 'authenticated',
+      }).success,
+    ).toBe(false);
+    expect(
+      browserSessionResolutionSchema.safeParse({
+        status: 'unauthenticated',
+        user: {
+          id: 'must-not-leak',
+          email: 'student@kangwon.ac.kr',
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('renewal stale contract는 retry budget을 millisecond 단위로 요구한다', () => {
+    expect(authSessionRenewalFailureCodeSchema.parse('AUTH_SESSION_RENEWAL_STALE')).toBe(
+      'AUTH_SESSION_RENEWAL_STALE',
+    );
+    expect(
+      renewSessionStaleResponseSchema.parse({
+        success: false,
+        code: 'AUTH_SESSION_RENEWAL_STALE',
+        retryAfterMilliseconds: 50,
+      }),
+    ).toEqual({
+      success: false,
+      code: 'AUTH_SESSION_RENEWAL_STALE',
+      retryAfterMilliseconds: 50,
+    });
+    expect(
+      renewSessionStaleResponseSchema.safeParse({
+        success: false,
+        code: 'AUTH_SESSION_RENEWAL_STALE',
+      }).success,
+    ).toBe(false);
   });
 });

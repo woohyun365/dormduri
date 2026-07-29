@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, RequestMethod } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
+import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './login-attempts/auth-login-throttle.decorator.js';
 
 const NEST_ROUTE_PATH_METADATA = 'path';
 const NEST_ROUTE_METHOD_METADATA = 'method';
@@ -155,6 +156,16 @@ describe('AuthController', () => {
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
   });
 
+  it('named login IP throttles는 다른 auth route를 건드리지 않고 login에서만 활성화된다', () => {
+    const loginHandler = getAuthControllerHandler('login');
+    const signupHandler = getAuthControllerHandler('signup');
+
+    expect(Reflect.getMetadata(AUTH_LOGIN_THROTTLE_ENABLED_METADATA, loginHandler)).toBe(true);
+    expect(
+      Reflect.getMetadata(AUTH_LOGIN_THROTTLE_ENABLED_METADATA, signupHandler),
+    ).toBeUndefined();
+  });
+
   it('validateSignupDraft는 email/password/nickname draft body를 parse해 service로 위임한다', async () => {
     authService.validateSignupDraft.mockResolvedValue({ success: true });
 
@@ -287,10 +298,14 @@ describe('AuthController', () => {
   });
 
   it('session route는 optional token이 null이면 unauthenticated session 조회를 위임한다', async () => {
-    authService.getSession.mockResolvedValue({ authenticated: false });
+    authService.getSession.mockResolvedValue({
+      authenticated: false,
+      reason: 'MISSING_TOKEN',
+    });
 
     await expect(controller.session(null, request as never)).resolves.toEqual({
       authenticated: false,
+      reason: 'MISSING_TOKEN',
     });
 
     expect(authService.getSession).toHaveBeenCalledWith(null, {
