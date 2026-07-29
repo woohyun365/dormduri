@@ -11,7 +11,7 @@
     "shared:typecheck": "pnpm --dir packages/shared exec tsc --noEmit",
     "api:prisma:generate": "pnpm --dir apps/api prisma:generate",
     "api:lint": "pnpm --dir apps/api exec eslint",
-    "api:typecheck": "pnpm --dir apps/api exec tsc --noEmit",
+    "api:typecheck": "pnpm --dir apps/api typecheck",
     "api:build": "pnpm --dir apps/api exec nest build",
     "api:test": "pnpm --dir apps/api test",
     "api:test:integration": "pnpm --dir apps/api test:integration",

@@ -572,6 +572,16 @@ describe('Auth/users transaction rollback and race integration', () => {
                   return Promise.resolve({ id: verificationCodeId });
                 },
               },
+              loginAttemptService: {
+                async clearFailuresInTransaction(
+                  tx: Pick<Prisma.TransactionClient, 'loginAttempt'>,
+                  normalizedEmail: string,
+                ) {
+                  await tx.loginAttempt.deleteMany({
+                    where: { emailNormalized: normalizedEmail },
+                  });
+                },
+              },
             },
             email,
             'NewPass1234',
