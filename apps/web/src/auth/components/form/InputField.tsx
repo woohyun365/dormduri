@@ -3,7 +3,7 @@
 import type { InputHTMLAttributes } from 'react';
 import { forwardRef, useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { FieldError } from './FieldError';
+import { Field, FieldControl, FieldLabel, FieldMessage } from './Field';
 
 interface InputFieldProps {
   label: string;
@@ -19,6 +19,7 @@ interface InputFieldProps {
   disabled?: boolean;
   maxLength?: number;
   required?: boolean;
+  reserveMessageSpace?: boolean;
 }
 
 export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function InputField(
@@ -36,21 +37,28 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
     disabled = false,
     maxLength,
     required = false,
+    reserveMessageSpace = false,
   },
   ref,
 ) {
   const id = useId();
   const errorId = `${id}-error`;
+  const helperId = `${id}-helper`;
   const [showPassword, setShowPassword] = useState(false);
   const inputType = type === 'password' && showPassword ? 'text' : type;
+  const describedById = error ? errorId : helper ? helperId : undefined;
+  const shouldRenderMessageArea = reserveMessageSpace || Boolean(error) || Boolean(helper);
 
   return (
-    <div className="w-full">
-      <label htmlFor={id} className="block text-sm font-semibold text-(--knu-text-primary) mb-2">
+    <Field invalid={Boolean(error)} className="w-full">
+      <FieldLabel
+        htmlFor={id}
+        className="mb-2 block text-sm font-semibold text-(--knu-text-primary)"
+      >
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className="relative">
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </FieldLabel>
+      <FieldControl className="relative">
         <input
           ref={ref}
           id={id}
@@ -65,32 +73,42 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
           maxLength={maxLength}
           aria-invalid={!!error}
           aria-required={required || undefined}
-          aria-describedby={error ? errorId : undefined}
-          className={`h-12 w-full rounded-xl border-2 px-4 transition-all ${
+          aria-describedby={describedById}
+          data-slot="input"
+          className={`h-12 w-full rounded-xl border-2 px-4 outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-3 focus-visible:ring-indigo-100 ${
             error
-              ? 'border-red-300 bg-red-50 focus:border-red-500'
-              : 'border-(--knu-border) bg-white focus:border-(--knu-primary)'
+              ? 'border-red-300 bg-red-50 focus-visible:border-red-500 focus-visible:ring-red-100'
+              : 'border-(--knu-border) bg-white focus-visible:border-(--knu-primary)'
           } ${type === 'password' ? 'pr-12' : ''} ${
             disabled ? 'cursor-not-allowed bg-gray-100 text-gray-500' : ''
-          } outline-none`}
+          }`}
         />
         {type === 'password' && (
           <button
             type="button"
             aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+            disabled={disabled}
+            className="absolute right-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
           >
             {showPassword ? (
-              <EyeOff className="w-5 h-5 text-(--knu-text-tertiary)" />
+              <EyeOff className="size-5 text-(--knu-text-tertiary)" />
             ) : (
-              <Eye className="w-5 h-5 text-(--knu-text-tertiary)" />
+              <Eye className="size-5 text-(--knu-text-tertiary)" />
             )}
           </button>
         )}
-      </div>
-      <FieldError message={error} id={errorId} />
-      {helper && !error && <p className="text-sm text-(--knu-text-tertiary) mt-2">{helper}</p>}
-    </div>
+      </FieldControl>
+      {shouldRenderMessageArea && (
+        <FieldMessage
+          error={error}
+          errorId={errorId}
+          descriptionId={helperId}
+          reserveSpace={reserveMessageSpace}
+        >
+          {helper}
+        </FieldMessage>
+      )}
+    </Field>
   );
 });

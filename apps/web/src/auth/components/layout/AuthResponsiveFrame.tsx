@@ -13,6 +13,7 @@ interface AuthResponsiveFrameProps {
   align?: 'center' | 'start';
   stickySupportPanel?: boolean;
   supportPanelVariant?: 'card' | 'rail';
+  supportPanelPlacement?: 'start' | 'end';
   contentWidth?: 'md' | 'lg';
 }
 
@@ -28,16 +29,23 @@ export function AuthResponsiveFrame({
   align = 'center',
   stickySupportPanel = false,
   supportPanelVariant = 'card',
+  supportPanelPlacement = 'start',
   contentWidth = 'md',
 }: AuthResponsiveFrameProps) {
   const alignmentClassName = align === 'center' ? 'items-center' : 'items-start';
   const supportPanelPositionClassName = stickySupportPanel
-    ? 'lg:sticky lg:top-32 lg:self-start'
+    ? 'lg:[@media(min-height:700px)]:sticky lg:[@media(min-height:700px)]:top-32 lg:[@media(min-height:700px)]:self-start'
     : '';
   const gridClassName =
     supportPanelVariant === 'rail'
-      ? 'lg:grid-cols-[24rem_minmax(0,30rem)] lg:justify-center lg:gap-8'
+      ? supportPanelPlacement === 'end'
+        ? 'lg:grid-cols-[minmax(0,30rem)_24rem] lg:justify-center lg:gap-8'
+        : 'lg:grid-cols-[24rem_minmax(0,30rem)] lg:justify-center lg:gap-8'
       : 'lg:grid-cols-[minmax(0,1fr)_28rem]';
+  const supportPanelPlacementClassName =
+    supportPanelPlacement === 'end' ? 'lg:col-start-2 lg:row-start-1' : '';
+  const contentPlacementClassName =
+    supportPanelPlacement === 'end' ? 'lg:col-start-1 lg:row-start-1' : '';
   const supportPanelClassName =
     supportPanelVariant === 'rail'
       ? 'hidden lg:block'
@@ -60,14 +68,14 @@ export function AuthResponsiveFrame({
         <aside
           data-testid={supportPanelTestId}
           aria-labelledby={supportPanelLabelledBy}
-          className={`${supportPanelClassName} ${supportPanelPositionClassName}`}
+          className={`${supportPanelClassName} ${supportPanelPositionClassName} ${supportPanelPlacementClassName}`}
         >
           {supportPanel}
         </aside>
 
         <section
           aria-labelledby={contentLabelledBy}
-          className={`mx-auto w-full min-w-0 ${contentWidthClassName} lg:mx-0`}
+          className={`mx-auto w-full min-w-0 ${contentWidthClassName} lg:mx-0 ${contentPlacementClassName}`}
         >
           {children}
         </section>

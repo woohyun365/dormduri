@@ -30,9 +30,9 @@ describe('SignupLayout', () => {
     );
 
     expect(screen.getByTestId('signup-help-panel')).toHaveClass(
-      'lg:sticky',
-      'lg:top-32',
-      'lg:self-start',
+      'lg:[@media(min-height:700px)]:sticky',
+      'lg:[@media(min-height:700px)]:top-32',
+      'lg:[@media(min-height:700px)]:self-start',
     );
   });
 

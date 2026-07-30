@@ -48,36 +48,37 @@ BFF route가 httpOnly cookie로만 browser session transport를 materialize한�
 
 ## Directory responsibility
 
-현재 구조는 Phase 4 점검 기준으로 권장 구조와 일치한다.
+현재 구조는 Login/session 개선 Phase 6 기준으로 controller와 controlled view를 분리한다.
 `app/login/page.tsx`는 route shell만 소유하고, `apps/web/src/auth/flows/login` 아래의 root client/hook/model/component 경계도 signup benchmark와 같은 책임 단위를 유지한다.
-따라서 Phase 4에서는 추가 nested move나 대규모 rename을 하지 않는다.
-`LoginLayout`은 desktop에서 `AuthHeader` container 폭을 main grid와 같은 `max-w-5xl px-5 lg:px-8`로 맞춰 header 로고 좌측과 aside 좌측이 같은 기준선을 사용하게 한다.
-독립 운영 서비스 고지는 오른쪽 title/header 영역이 소유하고, 왼쪽 aside는 로그인 도움말만 소유한다.
-Desktop aside는 `lg:mt-8` offset으로 오른쪽 form title rhythm에 맞춘다.
+`LoginPageClient`는 session/router/form orchestration만, `LoginFlowView`는 production과 Storybook이 공유하는 상태별 composition만 담당한다.
+`LoginLayout`은 desktop에서 `AuthResponsiveFrame` rail variant를 사용하며, header와 본문을 `max-w-5xl` 기준선에 맞춘다.
+왼쪽 안내 rail은 짧은 세로 viewport에서도 우측 form과 함께 밀리지 않도록 sticky로 두고, 오른쪽 title과 같은 상단 기준선에서 시작한다.
+Header의 KNU 로고를 form에 반복하지 않으며 독립 운영 고지는 desktop rail과 mobile title 아래에서 각각 한 번만 보이게 한다.
 
-| Directory / file                                                              | Responsibility                                                                                |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `app/login/page.tsx`                                                          | route metadata, Suspense fallback, `LoginPageClient` composition only                         |
-| `LoginPageClient.tsx`                                                         | auth redirect gate, router callback, login layout/form wiring                                 |
-| `LoginFlowView.tsx`                                                           | production과 Storybook이 공유하는 controlled presentational composition                       |
-| `components/LoginLayout.tsx`                                                  | mobile/desktop layout, help panel, right-side independent-service notice, PC header alignment |
-| `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                                    |
-| `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                                       |
-| `components/LoginRememberMeHint.tsx`                                          | rememberMe helper copy                                                                        |
-| `components/LoginAuthenticatedSkeleton.tsx`                                   | session check/redirect pending accessible skeleton                                            |
-| `components/LoginSecondaryActions.tsx`                                        | password reset, signup, terms/privacy navigation actions                                      |
-| `hooks/useLoginForm.ts`                                                       | submit orchestration, validation, countdown, redirect state                                   |
-| `hooks/useLoginRedirectTarget.ts`                                             | safe `/main` redirect target helper                                                           |
-| `model/login-form.*`                                                          | form values, field errors, validation types                                                   |
-| `model/login-result.mapper.ts`                                                | BFF/API result to UI status/copy/countdown state                                              |
-| `model/login-redirect-target.ts`                                              | pure redirect allowlist helper                                                                |
-| `__tests__/`, `components/__tests__/`, `hooks/__tests__/`, `model/__tests__/` | shell/component/hook/model regression                                                         |
+| Directory / file                                                              | Responsibility                                                                    |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `app/login/page.tsx`                                                          | route metadata, Suspense fallback, `LoginPageClient` composition only             |
+| `LoginPageClient.tsx`                                                         | auth redirect gate, router callback, login layout/form wiring                     |
+| `LoginFlowView.tsx`                                                           | production과 Storybook이 공유하는 controlled presentational composition           |
+| `components/LoginLayout.tsx`                                                  | mobile/desktop layout, sticky assurance rail, service notice, PC header alignment |
+| `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                        |
+| `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                           |
+| `components/LoginRememberMeHint.tsx`                                          | rememberMe helper copy                                                            |
+| `components/LoginSessionTransition.tsx`                                       | session check와 authenticated redirect를 구분하는 cardless status surface         |
+| `components/LoginSecondaryActions.tsx`                                        | password reset, signup, terms/privacy navigation actions                          |
+| `hooks/useLoginForm.ts`                                                       | submit orchestration, validation, countdown, redirect state                       |
+| `hooks/useLoginRedirectTarget.ts`                                             | safe `/main` redirect target helper                                               |
+| `model/login-form.*`                                                          | form values, field errors, validation types                                       |
+| `model/login-result.mapper.ts`                                                | BFF/API result to UI status/copy/countdown state                                  |
+| `model/login-redirect-target.ts`                                              | pure redirect allowlist helper                                                    |
+| `__tests__/`, `components/__tests__/`, `hooks/__tests__/`, `model/__tests__/` | shell/component/hook/model regression                                             |
 
 ## Tailwind v4 class rule
 
 Login 범위는 auth root README의 Tailwind v4 canonical class rule을 따른다.
 CSS variable shorthand가 가능한 값은 `text-(--knu-text-primary)`처럼 작성하고, `min-h-[calc(...)]`, `lg:grid-cols-[...]`처럼 실제 arbitrary value가 필요한 값만 bracket syntax를 유지한다.
 Mobile에서 `자세히 보기`가 두 줄로 쪼개지지 않도록 서비스 고지 링크는 `inline-block whitespace-nowrap`을 유지한다.
+Login form은 320px에서 `-mx-5 border-y p-5` full-bleed sheet를 사용하고 `sm:`부터 rounded card와 shadow를 복원한다.
 
 ## Test interaction rule
 
@@ -91,14 +92,46 @@ Mobile에서 `자세히 보기`가 두 줄로 쪼개지지 않도록 서비스 �
 ```bash
 pnpm --dir apps/web exec vitest run src/auth/flows/login src/auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts
 pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/auth/api/__tests__/auth-api.client.test.ts
+pnpm --dir apps/web typecheck:product
+pnpm --dir apps/web typecheck:test
+pnpm --dir apps/web typecheck:storybook
+pnpm --dir apps/web storybook:build
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture
-pnpm web:typecheck
 pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useAuthSession.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/auth/flows/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
 pnpm api:typecheck
 pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useAuthSession.ts apps/web/src/auth/flows/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
 pnpm --dir apps/web exec playwright test e2e/smoke.spec.ts --project=desktop-chromium
 git diff --check
 ```
+
+## Storybook
+
+Storybook은 별도 controller를 만들지 않고 production `LoginFlowView`에 controlled state만 주입한다.
+
+```text
+Auth/Login/
+  Entry/
+    Ready
+    Remember Me
+    Authenticated Redirect
+    Session Unavailable
+  Validation/
+    Empty Email
+    Empty Password
+    Invalid Email
+  Submission/
+    Pending
+    Redirecting
+  Result/
+    Invalid Credentials
+    Locked
+    Throttled
+    Network Error
+    Server Unavailable
+    Reset Complete
+```
+
+Result story의 문구는 `login-result.mapper.ts`, validation story는 `login-form.validation.ts` 결과를 사용해 production copy와 독립적으로 drift하지 않게 한다.
 
 Full-stack login UI locator를 바꾸면 아래 smoke를 추가 실행한다.
 
@@ -116,12 +149,12 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 
 ## Source of truth
 
-| 주제                                            | Source                                                       |
-| ----------------------------------------------- | ------------------------------------------------------------ |
-| Auth/session policy                             | `docs/04_policy/official/account-authentication.md`          |
-| Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md` |
-| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/auth/bff/*`         |
-| Login refactor plan                             | `.omx/plans/web-login-page-refactor-plan.md`                 |
-| Signup structure benchmark                      | `apps/web/src/auth/flows/signup/README.md`                   |
+| 주제                                            | Source                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| Auth/session policy                             | `docs/04_policy/official/account-authentication.md`           |
+| Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md`  |
+| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/auth/bff/*`          |
+| Login/session architecture plan                 | `.omx/plans/login-session-policy-design-architecture-plan.md` |
+| Signup structure benchmark                      | `apps/web/src/auth/flows/signup/README.md`                    |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 login copy/test를 갱신한다.

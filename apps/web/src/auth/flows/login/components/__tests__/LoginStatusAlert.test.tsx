@@ -4,7 +4,9 @@ import { LoginStatusAlert } from '../LoginStatusAlert';
 
 vi.mock('lucide-react', () => ({
   AlertCircle: () => <span data-testid="icon-alert" />,
+  CheckCircle: () => <span data-testid="icon-check-circle" />,
   Timer: () => <span data-testid="icon-timer" />,
+  WifiOff: () => <span data-testid="icon-wifi-off" />,
 }));
 
 describe('LoginStatusAlert', () => {
@@ -24,6 +26,7 @@ describe('LoginStatusAlert', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       '이메일 또는 비밀번호가 올바르지 않습니다.',
     );
+    expect(screen.getByRole('alert')).toHaveAttribute('data-variant', 'error');
     expect(screen.getByTestId('icon-alert')).toBeInTheDocument();
   });
 
@@ -39,7 +42,24 @@ describe('LoginStatusAlert', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('남은 시간: 5:00');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+    );
+    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간: 5:00');
+    expect(screen.getByRole('timer')).toHaveAttribute('aria-live', 'off');
+    expect(screen.getByRole('timer')).toHaveAccessibleName('로그인 제한 남은 시간 5:00');
+    expect(screen.getByRole('alert')).toHaveAttribute('data-variant', 'warning');
     expect(screen.getByTestId('icon-timer')).toBeInTheDocument();
+  });
+
+  it('network/server 오류는 connectivity strip으로 표시한다', () => {
+    render(
+      <LoginStatusAlert
+        error={{ status: 'network-error', message: '잠시 연결이 원활하지 않아요.' }}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveAttribute('data-variant', 'connectivity');
+    expect(screen.getByTestId('icon-wifi-off')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { LoginForm } from '../LoginForm';
 import type { LoginFormValues } from '../../model/login-form.types';
@@ -6,7 +7,9 @@ import type { LoginFormValues } from '../../model/login-form.types';
 vi.mock('lucide-react', () => ({
   Lock: () => <span data-testid="icon-lock" />,
   AlertCircle: () => <span data-testid="icon-alert" />,
+  CheckCircle: () => <span data-testid="icon-check-circle" />,
   Timer: () => <span data-testid="icon-timer" />,
+  WifiOff: () => <span data-testid="icon-wifi-off" />,
   Eye: () => <span data-testid="icon-eye" />,
   EyeOff: () => <span data-testid="icon-eye-off" />,
   Check: () => <span data-testid="icon-check-mark" />,
@@ -46,9 +49,24 @@ describe('LoginForm', () => {
   it('form control과 submit을 presentational props로 연결한다', () => {
     const { props } = renderLoginForm();
 
+    expect(screen.getByRole('heading', { name: '로그인' })).toBeInTheDocument();
+    expect(screen.getByText('가입한 학교 이메일로 접속해요.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '로그인' }).closest('form')).toBe(
+      screen.getByRole('button', { name: '로그인' }).closest('form'),
+    );
+    expect(screen.getByTestId('login-card-header')).toHaveAttribute('data-slot', 'card-header');
+    expect(screen.getByTestId('login-card-header')).toHaveClass('text-center');
+    expect(screen.getByTestId('login-field-group')).toHaveAttribute('data-slot', 'field-group');
+    const rememberMeHint = screen.getByText('개인 기기에서만 권장해요 (7일간 유지)');
+    expect(rememberMeHint).toBeInTheDocument();
+    expect(rememberMeHint).toHaveClass('block');
+    expect(rememberMeHint).not.toHaveClass('mt-0.5');
+    expect(screen.getByRole('checkbox', { name: '로그인 유지' })).toHaveAccessibleDescription(
+      '개인 기기에서만 권장해요 (7일간 유지)',
+    );
     fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'test@kangwon.ac.kr' } });
     fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'password123' } });
-    fireEvent.click(screen.getByRole('checkbox', { name: '로그인 유지(최대 7일)' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '로그인 유지' }));
     fireEvent.click(screen.getByRole('button', { name: '비밀번호 찾기' }));
     fireEvent.submit(screen.getByRole('button', { name: '로그인' }).closest('form')!);
 
@@ -67,6 +85,16 @@ describe('LoginForm', () => {
     expect(screen.getByLabelText('이메일')).toHaveAttribute('inputmode', 'email');
     expect(screen.getByLabelText('비밀번호')).toHaveAttribute('name', 'password');
     expect(screen.getByLabelText('비밀번호')).toHaveAttribute('autocomplete', 'current-password');
+  });
+
+  it('password manager에서 붙여 넣은 비밀번호를 차단하지 않는다', async () => {
+    const { props } = renderLoginForm();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByLabelText('비밀번호'));
+    await user.paste('PastedPassword123!');
+
+    expect(props.onPasswordChange).toHaveBeenCalledWith('PastedPassword123!');
   });
 
   it('invalid submit 직후 첫 invalid field로 focus를 이동한다', () => {
@@ -110,9 +138,9 @@ describe('LoginForm', () => {
     });
 
     expect(screen.getByText('비밀번호를 입력해주세요.')).toBeInTheDocument();
-    expect(screen.getByText(/최대 7일 동안 다시 로그인하지 않아도 됩니다/)).toBeInTheDocument();
+    expect(screen.getByText('개인 기기에서만 권장해요 (7일간 유지)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '계정 잠금 중' })).toBeDisabled();
-    expect(screen.getAllByRole('alert')[0]).toHaveTextContent('남은 시간: 5:00');
+    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간: 5:00');
   });
 
   it('로그인 성공 후 홈 이동 중 상태를 명시하고 입력을 잠근다', () => {
@@ -126,7 +154,46 @@ describe('LoginForm', () => {
       'aria-busy',
       'true',
     );
+    expect(
+      screen.getByRole('button', { name: '홈으로 이동 중...' }).closest('form'),
+    ).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent('홈으로 이동 중');
     expect(screen.getByLabelText('이메일')).toBeDisabled();
     expect(screen.getByLabelText('비밀번호')).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: '로그인 유지' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '비밀번호 찾기' })).toBeDisabled();
+  });
+
+  it('mobile form은 full-bleed이고 sm부터 card surface로 전환한다', () => {
+    renderLoginForm();
+
+    const form = screen.getByRole('button', { name: '로그인' }).closest('form');
+    expect(form).toHaveClass('-mx-5', 'border-y', 'sm:mx-0', 'sm:rounded-2xl', 'sm:border');
+  });
+
+  it('session notice를 제목 아래 form 내부에 배치한다', () => {
+    renderLoginForm({
+      sessionNotice: <div data-testid="session-notice">세션 안내</div>,
+    });
+
+    const notice = screen.getByTestId('session-notice');
+    expect(notice.closest('form')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('login-card-header').compareDocumentPosition(notice) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('route result notice도 제목 아래 form 내부에 배치한다', () => {
+    renderLoginForm({
+      routeNotice: <div data-testid="route-notice">결과 안내</div>,
+    });
+
+    const notice = screen.getByTestId('route-notice');
+    expect(notice.closest('form')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('login-card-header').compareDocumentPosition(notice) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

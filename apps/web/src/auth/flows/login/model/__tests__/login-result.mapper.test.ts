@@ -62,10 +62,10 @@ describe('login-result mapper', () => {
   it('기본 실패는 invalid state, throw는 network state로 매핑한다', () => {
     expect(
       mapLoginResponseToErrorState(
-        { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' },
+        { success: false, error: '계정 존재 여부를 노출하면 안 되는 upstream 문구' },
         'student@kangwon.ac.kr',
       ),
-    ).toEqual({ status: 'invalid', message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+    ).toEqual({ status: 'invalid', message: '이메일 또는 비밀번호를 확인해 주세요.' });
     expect(mapLoginThrownErrorToErrorState()).toEqual({
       status: 'network-error',
       message: LOGIN_NETWORK_ERROR_MESSAGE,

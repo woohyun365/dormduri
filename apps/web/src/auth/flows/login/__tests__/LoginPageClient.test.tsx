@@ -35,16 +35,22 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('lucide-react', () => ({
-  Mail: () => <span data-testid="icon-mail" />,
-  Lock: () => <span data-testid="icon-lock" />,
-  AlertCircle: () => <span data-testid="icon-alert" />,
-  Timer: () => <span data-testid="icon-timer" />,
-  Eye: () => <span data-testid="icon-eye" />,
-  EyeOff: () => <span data-testid="icon-eye-off" />,
-  Check: () => <span data-testid="icon-check-mark" />,
-  CheckCircle: () => <span data-testid="icon-check-circle" />,
-}));
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>();
+
+  return {
+    ...actual,
+    Mail: () => <span data-testid="icon-mail" />,
+    Lock: () => <span data-testid="icon-lock" />,
+    AlertCircle: () => <span data-testid="icon-alert" />,
+    Timer: () => <span data-testid="icon-timer" />,
+    Eye: () => <span data-testid="icon-eye" />,
+    EyeOff: () => <span data-testid="icon-eye-off" />,
+    Check: () => <span data-testid="icon-check-mark" />,
+    CheckCircle: () => <span data-testid="icon-check-circle" />,
+    WifiOff: () => <span data-testid="icon-wifi-off" />,
+  };
+});
 
 vi.mock('@/auth/hooks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/auth/hooks')>();
@@ -83,7 +89,7 @@ describe('LoginPageClient', () => {
     mockPush.mockClear();
   });
 
-  it('isReadyToRender가 false이면 접근 가능한 session 확인 상태를 렌더링하고 폼은 숨긴다', () => {
+  it('session loading이면 card와 preview 없이 확인 상태를 렌더링한다', () => {
     mockRedirectHook.mockReturnValueOnce({
       isReadyToRender: false,
       sessionStatus: 'loading',
@@ -93,7 +99,25 @@ describe('LoginPageClient', () => {
     render(<LoginPageClient />);
 
     expect(screen.getByRole('status')).toHaveTextContent('로그인 상태를 확인하고 있어요');
+    expect(screen.getByRole('status')).toHaveTextContent('잠시만 기다려 주세요.');
     expect(screen.queryByLabelText('이메일')).not.toBeInTheDocument();
+    expect(screen.queryByText('서비스 이용 흐름')).not.toBeInTheDocument();
+  });
+
+  it('authenticated session이면 card와 preview 없이 main 이동 상태를 렌더링한다', () => {
+    mockRedirectHook.mockReturnValueOnce({
+      isReadyToRender: false,
+      sessionStatus: 'authenticated',
+      retrySession: vi.fn(),
+    });
+
+    render(<LoginPageClient />);
+
+    expect(screen.getByRole('status')).toHaveAttribute('data-state', 'redirecting');
+    expect(screen.getByRole('status')).toHaveTextContent('로그인되어 있어요');
+    expect(screen.getByRole('status')).toHaveTextContent('메인으로 이동하고 있어요.');
+    expect(screen.queryByLabelText('이메일')).not.toBeInTheDocument();
+    expect(screen.queryByText('서비스 이용 흐름')).not.toBeInTheDocument();
   });
 
   it('로그인 폼을 렌더링한다', () => {
@@ -115,9 +139,10 @@ describe('LoginPageClient', () => {
     render(<LoginPageClient />);
 
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '로그인 상태를 확인하지 못했지만 로그인은 계속할 수 있어요.',
-    );
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('로그인 상태 확인이 잠시 늦어져요');
+    expect(status).toHaveTextContent('로그인은 계속할 수 있어요.');
+    expect(status.closest('form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '다시 확인' }));
     expect(retrySession).toHaveBeenCalledTimes(1);
   });
@@ -127,8 +152,10 @@ describe('LoginPageClient', () => {
 
     render(<LoginPageClient />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('비밀번호가 변경되었어요');
-    expect(screen.getByRole('status')).toHaveTextContent('새 비밀번호로 다시 로그인해주세요.');
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('비밀번호가 변경되었어요');
+    expect(status).toHaveTextContent('새 비밀번호로 다시 로그인해주세요.');
+    expect(status.closest('form')).toBeInTheDocument();
   });
 
   it('허용되지 않은 reset query는 로그인 route status로 표시하지 않는다', () => {
@@ -189,7 +216,7 @@ describe('LoginPageClient', () => {
       fireEvent.click(screen.getByRole('button', { name: '로그인' }));
     });
 
-    expect(screen.getByText('이메일 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
+    expect(screen.getByText('이메일 또는 비밀번호를 확인해 주세요.')).toBeInTheDocument();
   });
 
   it('계정 잠금 시 잠금 안내와 타이머를 표시한다', async () => {
@@ -223,11 +250,9 @@ describe('LoginPageClient', () => {
   it('rememberMe 체크 시 안내 문구를 표시한다', () => {
     render(<LoginPageClient />);
 
-    fireEvent.click(screen.getByLabelText('로그인 유지(최대 7일)'));
+    fireEvent.click(screen.getByLabelText('로그인 유지'));
 
-    expect(
-      screen.getAllByText(/최대 7일 동안 다시 로그인하지 않아도 됩니다/).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('개인 기기에서만 권장해요 (7일간 유지)').length).toBeGreaterThan(0);
   });
 
   it('비밀번호 찾기와 회원가입 CTA를 route callback으로 분리한다', () => {
