@@ -2,6 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
+import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import type { AuthenticatedUserContext } from '../../../src/auth/sessions/auth-session.service.js';
 import { normalizeEmail } from '../../../src/auth/domain/auth.utils.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
@@ -939,11 +941,11 @@ describe('Season registration split-flow integration', () => {
     await prisma.verificationCode.create({
       data: {
         id: verificationCodeId,
-        emailNormalized,
+        subjectKey: toSubjectKey(emailNormalized),
         purpose: 'SIGNUP',
         codeHash: `hmac-sha256:${emailNormalized}`,
         issuedAt: now,
-        expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+        codeExpiresAt: new Date(now.getTime() + 10 * 60 * 1000),
         verifiedAt: now,
         grantTokenHash: hashVerificationGrant(verificationGrant),
         grantExpiresAt: new Date(now.getTime() + 15 * 60 * 1000),
@@ -951,6 +953,14 @@ describe('Season registration split-flow integration', () => {
     });
 
     return verificationGrant;
+  }
+
+  function toSubjectKey(emailNormalized: string): string {
+    return hashAuthPersistenceDimension(
+      'subject',
+      emailNormalized,
+      DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+    );
   }
 
   async function loadAuthContext(userId: string): Promise<AuthenticatedUserContext> {

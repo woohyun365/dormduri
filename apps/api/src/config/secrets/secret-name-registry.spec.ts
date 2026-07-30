@@ -13,6 +13,8 @@ describe('secret name registry', () => {
     expect(secretEnvKeyNames).toEqual(secretEnvKeys.map((definition) => definition.key));
     expect(secretEnvKeyNames).toContain('DATABASE_URL');
     expect(secretEnvKeyNames).toContain('VERIFICATION_CODE_HMAC_SECRET');
+    expect(secretEnvKeyNames).toContain('AUTH_PERSISTENCE_HMAC_SECRET');
+    expect(secretEnvKeyNames).toContain('AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64');
   });
 
   it('builds the default production convention from NODE_ENV and env key', () => {

@@ -5,6 +5,7 @@ const nodeEnv = process.env.NODE_ENV?.trim() || 'development';
 const isProduction = nodeEnv === 'production';
 
 export const DEFAULT_VERIFICATION_CODE_HMAC_SECRET = 'local-verification-code-hmac-secret';
+export const DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET = 'local-auth-persistence-hmac-secret';
 export const DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS = isProduction ? 30 : 5;
 export const DEFAULT_CODE_REQUEST_BACKSTOP_WINDOW_SECONDS = 60 * 10;
 export const DEFAULT_CODE_REQUEST_BACKSTOP_LIMIT = isProduction ? 5 : 20;
@@ -20,6 +21,11 @@ export default registerAs('auth', () => ({
     process.env,
     'VERIFICATION_CODE_HMAC_SECRET',
     DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+  ),
+  persistenceHmacSecret: readStringEnv(
+    process.env,
+    'AUTH_PERSISTENCE_HMAC_SECRET',
+    DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
   ),
   codeRequestCooldownSeconds: readNumberEnv(
     process.env,

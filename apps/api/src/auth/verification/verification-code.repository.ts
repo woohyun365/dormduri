@@ -25,7 +25,7 @@ export interface VerificationRecord {
 
 export interface ResolvedVerificationGrant {
   id: string;
-  emailNormalized: string;
+  subjectKey: string;
   purpose: VerificationCodePurpose;
   eligibleUserId: string | null;
   tokenHash: string;
@@ -34,15 +34,15 @@ export interface ResolvedVerificationGrant {
 
 interface VerificationCodeInput {
   id: string;
-  emailNormalized: string;
+  subjectKey: string;
   codeHash: string;
   ttlSeconds: number;
-  requestIp: string | null;
+  requestIpKey: string | null;
 }
 
 interface VerificationCodeTransitionInput {
   id: string;
-  emailNormalized: string;
+  subjectKey: string;
   purpose: VerificationCodePurpose;
   maxAttempts: number;
 }
@@ -57,26 +57,26 @@ export class AuthVerificationStore {
   constructor(private readonly prisma: PrismaService) {}
 
   async findRetryAfterSeconds(
-    emailNormalized: string,
+    subjectKey: string,
     purpose: VerificationCodePurpose,
-    requestIp: string,
+    requestIpKey: string,
     cooldownSeconds: number,
   ): Promise<number | null> {
     const [latestRequest] = await this.prisma.$queryRawTyped(
-      getVerificationRetryAfterSeconds(emailNormalized, purpose, requestIp, cooldownSeconds),
+      getVerificationRetryAfterSeconds(subjectKey, purpose, requestIpKey, cooldownSeconds),
     );
 
     return latestRequest?.retryAfterSeconds ?? null;
   }
 
   async findBackstopRetryAfterSeconds(
-    emailNormalized: string,
+    subjectKey: string,
     purpose: VerificationCodePurpose,
     cooldownWindowSeconds: number,
     limit: number,
   ): Promise<number | null> {
     const [recentRequests] = await this.prisma.$queryRawTyped(
-      getVerificationBackstopRetryAfterSeconds(emailNormalized, purpose, cooldownWindowSeconds),
+      getVerificationBackstopRetryAfterSeconds(subjectKey, purpose, cooldownWindowSeconds),
     );
 
     if (
@@ -96,29 +96,16 @@ export class AuthVerificationStore {
   }
 
   async createRequestLog(
-    emailNormalized: string,
+    subjectKey: string,
     purpose: VerificationCodePurpose,
-    requestIp: string,
+    requestIpKey: string,
   ): Promise<void> {
     await this.prisma.verificationCodeRequestLog.create({
       data: {
-        emailNormalized,
+        subjectKey,
         purpose,
-        requestIp,
+        requestIpKey,
       },
-    });
-  }
-
-  async invalidateActiveSignupCodes(emailNormalized: string): Promise<void> {
-    const consumedAt = await this.prisma.getDatabaseNow();
-
-    await this.prisma.verificationCode.updateMany({
-      where: {
-        emailNormalized,
-        purpose: 'SIGNUP',
-        consumedAt: null,
-      },
-      data: { consumedAt },
     });
   }
 
@@ -139,13 +126,13 @@ export class AuthVerificationStore {
       await tx.$queryRawTyped(
         acquireTransactionAdvisoryLock(
           VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-          getVerificationCodePurposeLockKey(input.emailNormalized, input.purpose),
+          getVerificationCodePurposeLockKey(input.subjectKey, input.purpose),
         ),
       );
 
       await tx.verificationCode.updateMany({
         where: {
-          emailNormalized: input.emailNormalized,
+          subjectKey: input.subjectKey,
           purpose: input.purpose,
           consumedAt: null,
         },
@@ -155,46 +142,24 @@ export class AuthVerificationStore {
       await tx.verificationCode.create({
         data: {
           id: input.id,
-          emailNormalized: input.emailNormalized,
+          subjectKey: input.subjectKey,
           purpose: input.purpose,
           codeHash: input.codeHash,
           issuedAt,
-          expiresAt: new Date(issuedAt.getTime() + input.ttlSeconds * 1000),
-          requestIp: input.requestIp,
+          codeExpiresAt: new Date(issuedAt.getTime() + input.ttlSeconds * 1000),
+          requestIpKey: input.requestIpKey,
         },
       });
     });
   }
 
-  async insertVerificationCode(input: {
-    id: string;
-    emailNormalized: string;
-    purpose: VerificationCodePurpose;
-    codeHash: string;
-    ttlSeconds: number;
-    requestIp: string | null;
-  }): Promise<void> {
-    const issuedAt = await this.prisma.getDatabaseNow();
-
-    await this.prisma.verificationCode.create({
-      data: {
-        id: input.id,
-        emailNormalized: input.emailNormalized,
-        purpose: input.purpose,
-        codeHash: input.codeHash,
-        expiresAt: new Date(issuedAt.getTime() + input.ttlSeconds * 1000),
-        requestIp: input.requestIp,
-      },
-    });
-  }
-
   async findActiveVerificationRecord(
-    emailNormalized: string,
+    subjectKey: string,
     purpose: VerificationCodePurpose,
     maxAttempts: number,
   ): Promise<VerificationRecord | null> {
     const [record] = await this.prisma.$queryRawTyped(
-      getActiveVerificationRecord(emailNormalized, purpose, maxAttempts),
+      getActiveVerificationRecord(subjectKey, purpose, maxAttempts),
     );
 
     return record ?? null;
@@ -212,7 +177,7 @@ export class AuthVerificationStore {
       await tx.$queryRawTyped(
         acquireTransactionAdvisoryLock(
           VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-          getVerificationCodePurposeLockKey(input.emailNormalized, input.purpose),
+          getVerificationCodePurposeLockKey(input.subjectKey, input.purpose),
         ),
       );
 
@@ -220,10 +185,12 @@ export class AuthVerificationStore {
         where: {
           id: input.id,
           purpose: input.purpose,
-          emailNormalized: input.emailNormalized,
+          subjectKey: input.subjectKey,
           verifiedAt: null,
           consumedAt: null,
-          expiresAt: { gt: verifiedAt },
+          deliveryStatus: 'ACCEPTED',
+          activatedAt: { not: null },
+          codeExpiresAt: { gt: verifiedAt },
           failedAttempts: { lt: input.maxAttempts },
         },
         data: {
@@ -252,7 +219,7 @@ export class AuthVerificationStore {
         where: { id: parsed.verificationCodeId },
         select: {
           id: true,
-          emailNormalized: true,
+          subjectKey: true,
           purpose: true,
           eligibleUserId: true,
           grantTokenHash: true,
@@ -279,7 +246,7 @@ export class AuthVerificationStore {
 
     return {
       id: record.id,
-      emailNormalized: record.emailNormalized,
+      subjectKey: record.subjectKey,
       purpose: record.purpose,
       eligibleUserId: record.eligibleUserId,
       tokenHash: parsed.tokenHash,
@@ -294,7 +261,7 @@ export class AuthVerificationStore {
       await tx.$queryRawTyped(
         acquireTransactionAdvisoryLock(
           VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-          getVerificationCodePurposeLockKey(input.emailNormalized, input.purpose),
+          getVerificationCodePurposeLockKey(input.subjectKey, input.purpose),
         ),
       );
 

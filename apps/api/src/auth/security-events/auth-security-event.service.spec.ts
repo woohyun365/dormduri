@@ -20,7 +20,12 @@ describe('AuthSecurityEventService', () => {
       .fn<(arg0: AuthSecurityEventCreateData) => Promise<void>>()
       .mockResolvedValue(undefined),
   };
-  const service = new AuthSecurityEventService(repository as never);
+  const service = new AuthSecurityEventService(
+    repository as never,
+    {
+      persistenceHmacSecret: 'test-auth-persistence-hmac-secret',
+    } as never,
+  );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,9 +57,9 @@ describe('AuthSecurityEventService', () => {
         reason: 'invalid_credentials',
       },
     });
-    expect(createCall.emailHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(createCall.requestIpHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(createCall.userAgentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createCall.emailHash).toMatch(/^v1:[a-f0-9]{64}$/);
+    expect(createCall.requestIpHash).toMatch(/^v1:[a-f0-9]{64}$/);
+    expect(createCall.userAgentHash).toMatch(/^v1:[a-f0-9]{64}$/);
 
     const serialized = JSON.stringify(createCall);
     expect(serialized).not.toContain('Student@Kangwon.ac.kr');
@@ -90,7 +95,7 @@ describe('AuthSecurityEventService', () => {
     expect(createCall.actorUserId).toBe('user-1');
     expect(createCall.targetUserId).toBe('user-2');
     expect(createCall.sessionId).toBe('session-1');
-    expect(createCall.emailHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createCall.emailHash).toMatch(/^v1:[a-f0-9]{64}$/);
     expect(createCall.metadata).toEqual({
       purpose: 'RESET_PASSWORD',
       metricName: 'auth.mail.send.failure',

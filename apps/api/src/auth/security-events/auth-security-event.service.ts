@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import authConfig from '../../config/auth.config.js';
 import { AuthSecurityEventRepository } from './auth-security-event.repository.js';
 import type { AuthSecurityEventInput } from './auth-security-event.types.js';
 import {
@@ -11,7 +13,11 @@ import {
 export class AuthSecurityEventService {
   private readonly logger = new Logger(AuthSecurityEventService.name);
 
-  constructor(private readonly repository: AuthSecurityEventRepository) {}
+  constructor(
+    private readonly repository: AuthSecurityEventRepository,
+    @Inject(authConfig.KEY)
+    private readonly authSettings: ConfigType<typeof authConfig>,
+  ) {}
 
   async record(input: AuthSecurityEventInput): Promise<void> {
     await this.repository.create({
@@ -20,9 +26,21 @@ export class AuthSecurityEventService {
       actorUserId: input.actorUserId ?? undefined,
       targetUserId: input.targetUserId ?? undefined,
       sessionId: input.sessionId ?? undefined,
-      emailHash: hashAuthSecurityEventDimension(input.emailNormalized),
-      requestIpHash: hashAuthSecurityEventDimension(input.requestIp),
-      userAgentHash: hashAuthSecurityEventDimension(input.userAgent),
+      emailHash: hashAuthSecurityEventDimension(
+        'subject',
+        input.emailNormalized,
+        this.authSettings.persistenceHmacSecret,
+      ),
+      requestIpHash: hashAuthSecurityEventDimension(
+        'request-ip',
+        input.requestIp,
+        this.authSettings.persistenceHmacSecret,
+      ),
+      userAgentHash: hashAuthSecurityEventDimension(
+        'user-agent',
+        input.userAgent,
+        this.authSettings.persistenceHmacSecret,
+      ),
       metadata: sanitizeAuthSecurityEventMetadata(input.metadata),
     });
   }

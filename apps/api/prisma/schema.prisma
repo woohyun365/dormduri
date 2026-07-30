@@ -24,6 +24,29 @@ enum VerificationCodePurpose {
   RESET_PASSWORD
 }
 
+enum VerificationCodeDeliveryStatus {
+  PENDING
+  ACCEPTED
+  FAILED
+  UNKNOWN
+  SUPERSEDED
+}
+
+enum AuthMailKind {
+  SIGNUP_VERIFICATION
+  PASSWORD_RESET_VERIFICATION
+  PASSWORD_CHANGED
+}
+
+enum AuthMailOutboxStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  FAILED
+  UNKNOWN
+  SUPERSEDED
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -2010,36 +2033,73 @@ model LoginAttempt {
 }
 
 model VerificationCode {
-  id              String                  @id @default(uuid())
-  emailNormalized String
-  purpose         VerificationCodePurpose
-  codeHash        String
-  failedAttempts  Int                     @default(0)
-  issuedAt        DateTime                @default(now()) @db.Timestamptz(3)
-  expiresAt       DateTime                @db.Timestamptz(3)
-  verifiedAt      DateTime?               @db.Timestamptz(3)
-  grantTokenHash  String?                 @unique
-  grantExpiresAt  DateTime?               @db.Timestamptz(3)
-  eligibleUserId  String?
-  consumedAt      DateTime?               @db.Timestamptz(3)
-  requestIp       String?
+  id                    String                         @id @default(uuid())
+  subjectKey            String
+  purpose               VerificationCodePurpose
+  codeHash              String
+  failedAttempts        Int                            @default(0)
+  deliveryStatus        VerificationCodeDeliveryStatus @default(ACCEPTED)
+  issuedAt              DateTime                       @default(now()) @db.Timestamptz(3)
+  codeExpiresAt         DateTime                       @db.Timestamptz(3)
+  activatedAt           DateTime?                      @default(now()) @db.Timestamptz(3)
+  verifiedAt            DateTime?                      @db.Timestamptz(3)
+  grantTokenHash        String?                        @unique
+  grantExpiresAt        DateTime?                      @db.Timestamptz(3)
+  eligibleUserId        String?
+  consumedAt            DateTime?                      @db.Timestamptz(3)
+  requestIpKey          String?
+  providerCorrelationId String?
+  mailEvents            AuthMailOutboxEvent[]
 
-  @@index([emailNormalized, purpose])
-  @@index([expiresAt])
+  @@index([subjectKey, purpose, activatedAt, codeExpiresAt])
+  @@index([subjectKey, purpose, deliveryStatus, issuedAt], map: "VerificationCode_active_lookup_idx")
+  @@index([deliveryStatus, issuedAt])
+  @@index([codeExpiresAt])
   @@index([grantExpiresAt])
   @@index([consumedAt])
 }
 
 model VerificationCodeRequestLog {
-  id              String                  @id @default(uuid())
-  emailNormalized String
-  purpose         VerificationCodePurpose
-  requestIp       String
-  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  id           String                  @id @default(uuid())
+  subjectKey   String
+  purpose      VerificationCodePurpose
+  requestIpKey String
+  createdAt    DateTime                @default(now()) @db.Timestamptz(3)
 
-  @@index([emailNormalized, purpose, requestIp, createdAt])
-  @@index([requestIp, createdAt])
+  @@index([subjectKey, purpose, requestIpKey, createdAt])
+  @@index([subjectKey, purpose, createdAt], map: "VerificationRequestLog_subject_purpose_created_idx")
+  @@index([requestIpKey, purpose, createdAt])
   @@index([createdAt])
+}
+
+model AuthMailOutboxEvent {
+  id                    String                   @id @default(uuid())
+  mailKind              AuthMailKind
+  verificationCodeId    String?
+  targetUserId          String?
+  purpose               VerificationCodePurpose?
+  payloadCiphertext     Bytes?
+  payloadIv             Bytes?
+  payloadAuthTag        Bytes?
+  keyVersion            String
+  status                AuthMailOutboxStatus     @default(PENDING)
+  availableAt           DateTime                 @default(now()) @db.Timestamptz(3)
+  lockedAt              DateTime?                @db.Timestamptz(3)
+  lockedBy              String?
+  attemptCount          Int                      @default(0)
+  providerMessageId     String?
+  providerErrorCategory String?
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  completedAt           DateTime?                @db.Timestamptz(3)
+  expiresAt             DateTime                 @db.Timestamptz(3)
+  verificationCode      VerificationCode?        @relation(fields: [verificationCodeId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt, createdAt, id])
+  @@index([status, lockedAt, id])
+  @@index([verificationCodeId, createdAt, id])
+  @@index([targetUserId, createdAt, id])
+  @@index([expiresAt])
 }
 
 model AuthSession {

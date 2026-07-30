@@ -44,7 +44,7 @@ describe('AuthVerificationStore', () => {
     prisma.$queryRawTyped.mockResolvedValue([{ retryAfterSeconds: 42 }]);
 
     await expect(
-      store.findRetryAfterSeconds('test@kangwon.ac.kr', 'SIGNUP', '127.0.0.1', 600),
+      store.findRetryAfterSeconds('v1:subject', 'SIGNUP', 'v1:request-ip', 600),
     ).resolves.toBe(42);
 
     expect(prisma.$queryRawTyped).toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe('AuthVerificationStore', () => {
     prisma.$queryRawTyped.mockResolvedValue([{ requestCount: 1, oldestRequestAt: new Date() }]);
 
     await expect(
-      store.findBackstopRetryAfterSeconds('test@kangwon.ac.kr', 'SIGNUP', 600, 5),
+      store.findBackstopRetryAfterSeconds('v1:subject', 'SIGNUP', 600, 5),
     ).resolves.toBeNull();
   });
 
@@ -67,19 +67,19 @@ describe('AuthVerificationStore', () => {
       },
     ]);
 
-    await expect(
-      store.findBackstopRetryAfterSeconds('test@kangwon.ac.kr', 'SIGNUP', 600, 5),
-    ).resolves.toBe(330);
+    await expect(store.findBackstopRetryAfterSeconds('v1:subject', 'SIGNUP', 600, 5)).resolves.toBe(
+      330,
+    );
   });
 
   it('request log 생성은 Prisma model create로 위임한다', async () => {
-    await store.createRequestLog('test@kangwon.ac.kr', 'SIGNUP', '127.0.0.1');
+    await store.createRequestLog('v1:subject', 'SIGNUP', 'v1:request-ip');
 
     expect(prisma.verificationCodeRequestLog.create).toHaveBeenCalledWith({
       data: {
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'SIGNUP',
-        requestIp: '127.0.0.1',
+        requestIpKey: 'v1:request-ip',
       },
     });
   });
@@ -94,7 +94,7 @@ describe('AuthVerificationStore', () => {
     ]);
 
     await expect(
-      store.findActiveVerificationRecord('test@kangwon.ac.kr', 'RESET_PASSWORD', 5),
+      store.findActiveVerificationRecord('v1:subject', 'RESET_PASSWORD', 5),
     ).resolves.toEqual({
       id: 'code-1',
       codeHash: 'hash',
@@ -108,17 +108,17 @@ describe('AuthVerificationStore', () => {
 
     await store.replaceActiveSignupCode({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:subject',
       codeHash: 'hash',
       ttlSeconds: 600,
-      requestIp: '127.0.0.1',
+      requestIpKey: 'v1:request-ip',
     });
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
     expect(txQueryRawTyped).toHaveBeenCalled();
     expect(txVerificationCodeUpdateMany).toHaveBeenCalledWith({
       where: {
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'SIGNUP',
         consumedAt: null,
       },
@@ -132,7 +132,7 @@ describe('AuthVerificationStore', () => {
     expect(createCall[0]).toMatchObject({
       data: {
         id: 'code-1',
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'SIGNUP',
       },
     });
@@ -144,16 +144,16 @@ describe('AuthVerificationStore', () => {
 
     await store.replaceActiveResetCode({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:subject',
       codeHash: 'hash',
       ttlSeconds: 600,
-      requestIp: '127.0.0.1',
+      requestIpKey: 'v1:request-ip',
     });
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
     expect(txVerificationCodeUpdateMany).toHaveBeenCalledWith({
       where: {
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'RESET_PASSWORD',
         consumedAt: null,
       },
@@ -163,35 +163,17 @@ describe('AuthVerificationStore', () => {
     expect(createCall?.[0]).toMatchObject({
       data: {
         id: 'code-1',
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'RESET_PASSWORD',
       },
     });
-  });
-
-  it('invalidate / insert는 Prisma CRUD로 실행한다', async () => {
-    prisma.verificationCode.create.mockResolvedValue({ id: 'code-1' });
-    prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
-
-    await store.invalidateActiveSignupCodes('test@kangwon.ac.kr');
-    await store.insertVerificationCode({
-      id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
-      purpose: 'SIGNUP',
-      codeHash: 'hash',
-      ttlSeconds: 600,
-      requestIp: '127.0.0.1',
-    });
-
-    expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
-    expect(prisma.verificationCode.create).toHaveBeenCalledTimes(1);
   });
 
   it('verify 성공은 advisory lock 아래 15분 grant hash와 reset 대상 user를 저장한다', async () => {
     await expect(
       store.markVerifiedAndIssueGrant({
         id: 'code-1',
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'RESET_PASSWORD',
         maxAttempts: 5,
         grantTokenHash: 'a'.repeat(64),
@@ -206,10 +188,12 @@ describe('AuthVerificationStore', () => {
       where: {
         id: 'code-1',
         purpose: 'RESET_PASSWORD',
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         verifiedAt: null,
         consumedAt: null,
-        expiresAt: { gt: new Date('2026-04-23T00:00:00.000Z') },
+        deliveryStatus: 'ACCEPTED',
+        activatedAt: { not: null },
+        codeExpiresAt: { gt: new Date('2026-04-23T00:00:00.000Z') },
         failedAttempts: { lt: 5 },
       },
       data: {
@@ -225,7 +209,7 @@ describe('AuthVerificationStore', () => {
     const grant = createVerificationGrant('code-1');
     prisma.verificationCode.findUnique.mockResolvedValue({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:subject',
       purpose: 'SIGNUP',
       eligibleUserId: null,
       grantTokenHash: hashVerificationGrant(grant),
@@ -236,7 +220,7 @@ describe('AuthVerificationStore', () => {
 
     await expect(store.resolveVerificationGrant(grant, 'SIGNUP')).resolves.toMatchObject({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:subject',
       purpose: 'SIGNUP',
       tokenHash: hashVerificationGrant(grant),
     });
@@ -256,7 +240,7 @@ describe('AuthVerificationStore', () => {
     await expect(
       store.recordVerificationFailure({
         id: 'code-1',
-        emailNormalized: 'test@kangwon.ac.kr',
+        subjectKey: 'v1:subject',
         purpose: 'RESET_PASSWORD',
         maxAttempts: 5,
       }),

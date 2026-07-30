@@ -30,6 +30,7 @@ describe('AuthRegistrationUseCases', () => {
   };
   const verificationService = {
     resolveVerificationGrant: vi.fn(),
+    matchesVerificationGrantSubject: vi.fn(),
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
@@ -93,12 +94,13 @@ describe('AuthRegistrationUseCases', () => {
     );
     verificationService.resolveVerificationGrant.mockResolvedValue({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:signup-subject',
       purpose: 'SIGNUP',
       eligibleUserId: null,
       tokenHash: 'a'.repeat(64),
       expiresAt: new Date('2026-04-23T00:15:00.000Z'),
     });
+    verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
   });
 
   it('validateSignupDraft는 signup validation service로 그대로 위임한다', async () => {

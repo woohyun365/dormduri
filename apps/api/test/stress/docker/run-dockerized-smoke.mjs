@@ -389,6 +389,9 @@ function ensureLocalApiEnvFile() {
       'AUTH_LOGIN_BURST_LIMIT=5000',
       'AUTH_LOGIN_SUSTAINED_LIMIT=5000',
       `VERIFICATION_CODE_HMAC_SECRET=${randomSecret()}`,
+      `AUTH_PERSISTENCE_HMAC_SECRET=${randomSecret()}`,
+      `AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64=${randomBase64Secret()}`,
+      'AUTH_MAIL_ENVELOPE_KEY_VERSION=stress-v1',
       'EMAIL_PROVIDER=ses',
       'SES_REGION=ap-northeast-2',
       'SES_FROM_EMAIL=no-reply@stress.invalid',
@@ -419,6 +422,15 @@ function ensureExistingApiEnvKeys() {
   }
   if (!/^RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64=/mu.test(text)) {
     missingLines.push(`RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64=${randomBase64Secret()}`);
+  }
+  if (!/^AUTH_PERSISTENCE_HMAC_SECRET=/mu.test(text)) {
+    missingLines.push(`AUTH_PERSISTENCE_HMAC_SECRET=${randomSecret()}`);
+  }
+  if (!/^AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64=/mu.test(text)) {
+    missingLines.push(`AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64=${randomBase64Secret()}`);
+  }
+  if (!/^AUTH_MAIL_ENVELOPE_KEY_VERSION=/mu.test(text)) {
+    missingLines.push('AUTH_MAIL_ENVELOPE_KEY_VERSION=stress-v1');
   }
   if (!/^AUTH_THROTTLE_LIMIT=/mu.test(text)) {
     missingLines.push('AUTH_THROTTLE_LIMIT=5000');

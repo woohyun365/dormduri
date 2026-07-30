@@ -14,6 +14,15 @@ CREATE TYPE "Campus" AS ENUM ('CHUNCHEON', 'SAMCHEOK', 'DOGYE');
 CREATE TYPE "VerificationCodePurpose" AS ENUM ('SIGNUP', 'RESET_PASSWORD');
 
 -- CreateEnum
+CREATE TYPE "VerificationCodeDeliveryStatus" AS ENUM ('PENDING', 'ACCEPTED', 'FAILED', 'UNKNOWN', 'SUPERSEDED');
+
+-- CreateEnum
+CREATE TYPE "AuthMailKind" AS ENUM ('SIGNUP_VERIFICATION', 'PASSWORD_RESET_VERIFICATION', 'PASSWORD_CHANGED');
+
+-- CreateEnum
+CREATE TYPE "AuthMailOutboxStatus" AS ENUM ('PENDING', 'PROCESSING', 'ACCEPTED', 'FAILED', 'UNKNOWN', 'SUPERSEDED');
+
+-- CreateEnum
 CREATE TYPE "AuthSecurityEventType" AS ENUM ('LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGIN_LOCKOUT', 'VERIFICATION_CODE_REQUESTED', 'VERIFICATION_CODE_VERIFY_SUCCESS', 'VERIFICATION_CODE_VERIFY_FAILURE', 'RESET_PASSWORD_CONSUMED', 'CHANGE_PASSWORD_SUCCESS', 'SESSION_REFRESH_SUCCESS', 'SESSION_REVOKED', 'SESSION_REVOKE_ALL', 'SESSION_TOKEN_REUSE_DETECTED', 'OPAQUE_TRANSPORT_REJECTED', 'MAIL_SEND_SUCCESS', 'MAIL_SEND_FAILURE');
 
 -- CreateEnum
@@ -1355,18 +1364,21 @@ CREATE TABLE "LoginAttempt" (
 -- CreateTable
 CREATE TABLE "VerificationCode" (
     "id" TEXT NOT NULL,
-    "emailNormalized" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL,
     "purpose" "VerificationCodePurpose" NOT NULL,
     "codeHash" TEXT NOT NULL,
     "failedAttempts" INTEGER NOT NULL DEFAULT 0,
+    "deliveryStatus" "VerificationCodeDeliveryStatus" NOT NULL DEFAULT 'ACCEPTED',
     "issuedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "codeExpiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "activatedAt" TIMESTAMPTZ(3) DEFAULT CURRENT_TIMESTAMP,
     "verifiedAt" TIMESTAMPTZ(3),
     "grantTokenHash" TEXT,
     "grantExpiresAt" TIMESTAMPTZ(3),
     "eligibleUserId" TEXT,
     "consumedAt" TIMESTAMPTZ(3),
-    "requestIp" TEXT,
+    "requestIpKey" TEXT,
+    "providerCorrelationId" TEXT,
 
     CONSTRAINT "VerificationCode_pkey" PRIMARY KEY ("id")
 );
@@ -1374,12 +1386,38 @@ CREATE TABLE "VerificationCode" (
 -- CreateTable
 CREATE TABLE "VerificationCodeRequestLog" (
     "id" TEXT NOT NULL,
-    "emailNormalized" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL,
     "purpose" "VerificationCodePurpose" NOT NULL,
-    "requestIp" TEXT NOT NULL,
+    "requestIpKey" TEXT NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "VerificationCodeRequestLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AuthMailOutboxEvent" (
+    "id" TEXT NOT NULL,
+    "mailKind" "AuthMailKind" NOT NULL,
+    "verificationCodeId" TEXT,
+    "targetUserId" TEXT,
+    "purpose" "VerificationCodePurpose",
+    "payloadCiphertext" BYTEA,
+    "payloadIv" BYTEA,
+    "payloadAuthTag" BYTEA,
+    "keyVersion" TEXT NOT NULL,
+    "status" "AuthMailOutboxStatus" NOT NULL DEFAULT 'PENDING',
+    "availableAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lockedAt" TIMESTAMPTZ(3),
+    "lockedBy" TEXT,
+    "attemptCount" INTEGER NOT NULL DEFAULT 0,
+    "providerMessageId" TEXT,
+    "providerErrorCategory" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMPTZ(3),
+    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "AuthMailOutboxEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -2054,10 +2092,16 @@ CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt");
 CREATE INDEX "LoginAttempt_lockedUntil_idx" ON "LoginAttempt"("lockedUntil");
 
 -- CreateIndex
-CREATE INDEX "VerificationCode_emailNormalized_purpose_idx" ON "VerificationCode"("emailNormalized", "purpose");
+CREATE INDEX "VerificationCode_subjectKey_purpose_activatedAt_codeExpiresAt_idx" ON "VerificationCode"("subjectKey", "purpose", "activatedAt", "codeExpiresAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt");
+CREATE INDEX "VerificationCode_active_lookup_idx" ON "VerificationCode"("subjectKey", "purpose", "deliveryStatus", "issuedAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_deliveryStatus_issuedAt_idx" ON "VerificationCode"("deliveryStatus", "issuedAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_codeExpiresAt_idx" ON "VerificationCode"("codeExpiresAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VerificationCode_grantTokenHash_key" ON "VerificationCode"("grantTokenHash");
@@ -2069,13 +2113,31 @@ CREATE INDEX "VerificationCode_grantExpiresAt_idx" ON "VerificationCode"("grantE
 CREATE INDEX "VerificationCode_consumedAt_idx" ON "VerificationCode"("consumedAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" ON "VerificationCodeRequestLog"("emailNormalized", "purpose", "requestIp", "createdAt");
+CREATE INDEX "VerificationCodeRequestLog_subjectKey_purpose_requestIpKey_cre_idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "requestIpKey", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCodeRequestLog_requestIp_createdAt_idx" ON "VerificationCodeRequestLog"("requestIp", "createdAt");
+CREATE INDEX "VerificationRequestLog_subject_purpose_created_idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCodeRequestLog_requestIpKey_purpose_createdAt_idx" ON "VerificationCodeRequestLog"("requestIpKey", "purpose", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_status_availableAt_createdAt_id_idx" ON "AuthMailOutboxEvent"("status", "availableAt", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_status_lockedAt_id_idx" ON "AuthMailOutboxEvent"("status", "lockedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_verificationCodeId_createdAt_id_idx" ON "AuthMailOutboxEvent"("verificationCodeId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_targetUserId_createdAt_id_idx" ON "AuthMailOutboxEvent"("targetUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_expiresAt_idx" ON "AuthMailOutboxEvent"("expiresAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash");
@@ -2371,6 +2433,9 @@ ALTER TABLE "RetentionAccessLog" ADD CONSTRAINT "RetentionAccessLog_retainedVaul
 
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuthMailOutboxEvent" ADD CONSTRAINT "AuthMailOutboxEvent_verificationCodeId_fkey" FOREIGN KEY ("verificationCodeId") REFERENCES "VerificationCode"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Manual check constraints not represented by Prisma schema DSL
 ALTER TABLE "UserAcademicIdentity"

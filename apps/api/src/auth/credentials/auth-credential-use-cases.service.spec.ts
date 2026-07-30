@@ -25,6 +25,7 @@ describe('AuthCredentialUseCases', () => {
   };
   const verificationService = {
     resolveVerificationGrant: vi.fn(),
+    matchesVerificationGrantSubject: vi.fn(),
   };
   const securityEvents = {
     recordSafely: vi.fn(),

@@ -18,13 +18,13 @@ type VerificationCodeConsumer = Pick<
 
 export async function acquireVerificationCodePurposeLock(
   tx: VerificationCodeConsumer,
-  emailNormalized: string,
+  subjectKey: string,
   purpose: VerificationCodePurpose,
 ): Promise<void> {
   await tx.$queryRawTyped(
     acquireTransactionAdvisoryLock(
       VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-      getVerificationCodePurposeLockKey(emailNormalized, purpose),
+      getVerificationCodePurposeLockKey(subjectKey, purpose),
     ),
   );
 }

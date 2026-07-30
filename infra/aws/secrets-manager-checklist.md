@@ -23,6 +23,8 @@ Production 예시:
 SECRET_NAME_PREFIX=/knu-roommate/production/api
 /knu-roommate/production/api/DATABASE_URL
 /knu-roommate/production/api/VERIFICATION_CODE_HMAC_SECRET
+/knu-roommate/production/api/AUTH_PERSISTENCE_HMAC_SECRET
+/knu-roommate/production/api/AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64
 ```
 
 `apps/api/src/config/env-keys`에서 `secret: true`로 등록된 key가 inventory source of truth다. `SECRET_SOURCE=aws-secrets-manager`를 production에서 선택하면 `SECRET_NAME_PREFIX`는 필수다.

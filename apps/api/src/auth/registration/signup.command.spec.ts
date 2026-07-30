@@ -51,6 +51,7 @@ describe('signup command', () => {
   };
   const verificationService = {
     resolveVerificationGrant: vi.fn(),
+    matchesVerificationGrantSubject: vi.fn(),
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
@@ -61,7 +62,7 @@ describe('signup command', () => {
   const deps = { prisma, verificationService, sessionService, signupValidationService };
   const resolvedGrant = {
     id: 'code-1',
-    emailNormalized: 'test@kangwon.ac.kr',
+    subjectKey: 'v1:signup-subject',
     purpose: 'SIGNUP',
     eligibleUserId: null,
     tokenHash: 'a'.repeat(64),
@@ -107,14 +108,12 @@ describe('signup command', () => {
       }),
     );
     verificationService.resolveVerificationGrant.mockResolvedValue(resolvedGrant);
+    verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
     signupValidationService.validateDraft.mockResolvedValue({ success: true });
   });
 
   it('signup grant의 email subject가 입력 email과 다르면 가입 검증 전에 거부한다', async () => {
-    verificationService.resolveVerificationGrant.mockResolvedValue({
-      ...resolvedGrant,
-      emailNormalized: 'other@kangwon.ac.kr',
-    });
+    verificationService.matchesVerificationGrantSubject.mockReturnValue(false);
 
     await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
       success: false,

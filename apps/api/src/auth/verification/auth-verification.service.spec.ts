@@ -3,18 +3,35 @@ import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { VERIFICATION_CODE_MAX_ATTEMPTS } from '../domain/auth.constants.js';
 import { hashVerificationCode } from '../domain/auth.utils.js';
-import authConfig, { DEFAULT_VERIFICATION_CODE_HMAC_SECRET } from '../../config/auth.config.js';
+import authConfig, {
+  DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+} from '../../config/auth.config.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
+import { hashAuthPersistenceDimension } from '../persistence/auth-persistence-dimension.js';
 
 describe('AuthVerificationService', () => {
+  const subjectKey = hashAuthPersistenceDimension(
+    'subject',
+    'test@kangwon.ac.kr',
+    DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  );
+  const missingSubjectKey = hashAuthPersistenceDimension(
+    'subject',
+    'missing@kangwon.ac.kr',
+    DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  );
+  const requestIpKey = hashAuthPersistenceDimension(
+    'request-ip',
+    '127.0.0.1',
+    DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  );
   const verificationStore = {
     findRetryAfterSeconds: vi.fn(),
     findBackstopRetryAfterSeconds: vi.fn(),
     createRequestLog: vi.fn(),
-    invalidateActiveSignupCodes: vi.fn(),
     replaceActiveSignupCode: vi.fn(),
     replaceActiveResetCode: vi.fn(),
-    insertVerificationCode: vi.fn(),
     findActiveVerificationRecord: vi.fn(),
     markVerifiedAndIssueGrant: vi.fn(),
     resolveVerificationGrant: vi.fn(),
@@ -35,6 +52,7 @@ describe('AuthVerificationService', () => {
 
   const authSettings: ConfigType<typeof authConfig> = {
     verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+    persistenceHmacSecret: DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
     codeRequestCooldownSeconds: 5,
     codeRequestBackstopWindowSeconds: 600,
     codeRequestBackstopLimit: 20,
@@ -70,7 +88,10 @@ describe('AuthVerificationService', () => {
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
     expect(verificationStore.replaceActiveSignupCode).toHaveBeenCalledWith(
-      expect.objectContaining({ emailNormalized: 'test@kangwon.ac.kr' }),
+      expect.objectContaining({
+        subjectKey,
+        requestIpKey,
+      }),
     );
     expect(emailSender.sendVerificationCode).toHaveBeenCalledWith(
       expect.objectContaining({ expiresInSeconds: 600 }),
@@ -106,9 +127,11 @@ describe('AuthVerificationService', () => {
     await service.maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1');
 
     expect(verificationStore.replaceActiveResetCode).toHaveBeenCalledWith(
-      expect.objectContaining({ emailNormalized: 'test@kangwon.ac.kr' }),
+      expect.objectContaining({
+        subjectKey,
+        requestIpKey,
+      }),
     );
-    expect(verificationStore.insertVerificationCode).not.toHaveBeenCalled();
     expect(emailSender.sendPasswordResetCode).toHaveBeenCalledWith(
       expect.objectContaining({ expiresInSeconds: 600 }),
     );
@@ -155,12 +178,11 @@ describe('AuthVerificationService', () => {
     });
 
     expect(verificationStore.replaceActiveResetCode).not.toHaveBeenCalled();
-    expect(verificationStore.insertVerificationCode).not.toHaveBeenCalled();
     expect(emailSender.sendPasswordResetCode).not.toHaveBeenCalled();
     expect(verificationStore.createRequestLog).toHaveBeenCalledWith(
-      'missing@kangwon.ac.kr',
+      missingSubjectKey,
       'RESET_PASSWORD',
-      '127.0.0.1',
+      requestIpKey,
     );
   });
 
@@ -187,7 +209,7 @@ describe('AuthVerificationService', () => {
     const issueGrantInput = verificationStore.markVerifiedAndIssueGrant.mock.calls[0]?.[0] as
       | {
           id: string;
-          emailNormalized: string;
+          subjectKey: string;
           purpose: string;
           maxAttempts: number;
           grantTokenHash: string;
@@ -197,7 +219,7 @@ describe('AuthVerificationService', () => {
       | undefined;
     expect(issueGrantInput).toMatchObject({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey,
       purpose: 'SIGNUP',
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
       grantTtlSeconds: 900,
@@ -232,7 +254,7 @@ describe('AuthVerificationService', () => {
 
     expect(verificationStore.recordVerificationFailure).toHaveBeenCalledWith({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey,
       purpose: 'SIGNUP',
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
     });
@@ -269,7 +291,7 @@ describe('AuthVerificationService', () => {
 
     expect(verificationStore.recordVerificationFailure).toHaveBeenCalledWith({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey,
       purpose: 'RESET_PASSWORD',
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
     });

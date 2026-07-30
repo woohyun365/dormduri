@@ -35,6 +35,7 @@ describe('resetPassword command', () => {
   };
   const verificationService = {
     resolveVerificationGrant: vi.fn(),
+    matchesVerificationGrantSubject: vi.fn(),
   };
   const loginAttemptService = {
     clearFailuresInTransaction: vi.fn(),
@@ -49,6 +50,7 @@ describe('resetPassword command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.update.mockResolvedValue(undefined);
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
@@ -91,7 +93,7 @@ describe('resetPassword command', () => {
     });
     verificationService.resolveVerificationGrant.mockResolvedValue({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:reset-subject',
       purpose: 'RESET_PASSWORD',
       eligibleUserId: 'user-1',
       tokenHash: 'a'.repeat(64),
@@ -165,7 +167,7 @@ describe('resetPassword command', () => {
     });
     verificationService.resolveVerificationGrant.mockResolvedValue({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:reset-subject',
       purpose: 'RESET_PASSWORD',
       eligibleUserId: 'user-1',
       tokenHash: 'a'.repeat(64),
@@ -196,7 +198,7 @@ describe('resetPassword command', () => {
     });
     verificationService.resolveVerificationGrant.mockResolvedValue({
       id: 'code-1',
-      emailNormalized: 'test@kangwon.ac.kr',
+      subjectKey: 'v1:reset-subject',
       purpose: 'RESET_PASSWORD',
       eligibleUserId: 'user-1',
       tokenHash: 'a'.repeat(64),
@@ -237,7 +239,7 @@ describe('resetPassword command', () => {
       prisma.user.findUnique.mockResolvedValue(user);
       verificationService.resolveVerificationGrant.mockResolvedValue({
         id: 'code-1',
-        emailNormalized: user.email,
+        subjectKey: 'v1:reset-subject',
         purpose: 'RESET_PASSWORD',
         eligibleUserId: user.id,
         tokenHash: 'a'.repeat(64),
@@ -263,7 +265,7 @@ describe('resetPassword command', () => {
   it('grant에 귀속된 user와 email subject가 다르면 password를 변경하지 않는다', async () => {
     verificationService.resolveVerificationGrant.mockResolvedValue({
       id: 'code-1',
-      emailNormalized: 'owner@kangwon.ac.kr',
+      subjectKey: 'v1:owner-subject',
       purpose: 'RESET_PASSWORD',
       eligibleUserId: 'user-1',
       tokenHash: 'a'.repeat(64),
@@ -276,6 +278,7 @@ describe('resetPassword command', () => {
       deletedAt: null,
       emailVerifiedAt: databaseNow,
     });
+    verificationService.matchesVerificationGrantSubject.mockReturnValue(false);
 
     await expect(
       resetPassword(deps as never, verificationGrant, 'NewPass1234'),

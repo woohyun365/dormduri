@@ -1,9 +1,9 @@
 WITH target AS (
   SELECT id
   FROM "VerificationCode"
-  WHERE "expiresAt" < $1
+  WHERE "codeExpiresAt" < $1
      OR "consumedAt" < $1
-  ORDER BY COALESCE("consumedAt", "expiresAt") ASC, id ASC
+  ORDER BY COALESCE("consumedAt", "codeExpiresAt") ASC, id ASC
   LIMIT $2::int
 ), deleted AS (
   DELETE FROM "VerificationCode" code

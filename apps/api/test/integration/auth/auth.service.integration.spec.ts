@@ -3,6 +3,8 @@ import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
+import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import { seedBaseSeasonFixtures } from '../_support/integration-fixtures.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
@@ -231,11 +233,11 @@ describe('AuthService integration', () => {
     await suite.prisma.verificationCode.create({
       data: {
         id: verificationCodeId,
-        emailNormalized,
+        subjectKey: toSubjectKey(emailNormalized),
         purpose: 'SIGNUP',
         codeHash: 'hmac-sha256:integration-signup-proof',
         issuedAt: databaseNow,
-        expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
+        codeExpiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
         verifiedAt: databaseNow,
         grantTokenHash: hashVerificationGrant(verificationGrant),
         grantExpiresAt: new Date(databaseNow.getTime() + 15 * 60 * 1000),
@@ -292,7 +294,7 @@ describe('AuthService integration', () => {
     expect(
       await suite.prisma.verificationCode.count({
         where: {
-          emailNormalized,
+          subjectKey: toSubjectKey(emailNormalized),
           purpose: 'SIGNUP',
           consumedAt: null,
         },
@@ -424,11 +426,11 @@ describe('AuthService integration', () => {
     await suite.prisma.verificationCode.create({
       data: {
         id: verificationCodeId,
-        emailNormalized,
+        subjectKey: toSubjectKey(emailNormalized),
         purpose: 'RESET_PASSWORD',
         codeHash: 'hmac-sha256:integration-reset-proof',
         issuedAt: databaseNow,
-        expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
+        codeExpiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
         verifiedAt: databaseNow,
         grantTokenHash: hashVerificationGrant(verificationGrant),
         grantExpiresAt: new Date(databaseNow.getTime() + 15 * 60 * 1000),
@@ -462,7 +464,7 @@ describe('AuthService integration', () => {
     expect(
       await suite.prisma.verificationCode.count({
         where: {
-          emailNormalized,
+          subjectKey: toSubjectKey(emailNormalized),
           purpose: 'RESET_PASSWORD',
           consumedAt: null,
         },
@@ -479,6 +481,14 @@ describe('AuthService integration', () => {
     ).toBe(0);
   });
 });
+
+function toSubjectKey(emailNormalized: string): string {
+  return hashAuthPersistenceDimension(
+    'subject',
+    emailNormalized,
+    DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  );
+}
 
 function createVerificationGrant(verificationCodeId: string) {
   return `v1.${verificationCodeId}.${'g'.repeat(43)}`;

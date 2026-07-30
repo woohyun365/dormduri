@@ -22,6 +22,9 @@ function productionEnv(overrides: Record<string, string | undefined> = {}) {
     LOG_HASH_SECRET: 'production-log-hash-secret',
     METRICS_BEARER_TOKEN: 'production-metrics-token',
     VERIFICATION_CODE_HMAC_SECRET: 'production-verification-secret',
+    AUTH_PERSISTENCE_HMAC_SECRET: 'production-auth-persistence-secret',
+    AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64: validBase64Key,
+    AUTH_MAIL_ENVELOPE_KEY_VERSION: 'production-v1',
     RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: validBase64Key,
     RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64: validBase64Key,
     [ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV]: 'production-roommate-search-secret',
@@ -57,6 +60,7 @@ describe('envValidationSchema', () => {
       AUTH_LOGIN_SUSTAINED_LIMIT: 120,
       AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS: 600,
       AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED: true,
+      AUTH_VERIFICATION_REQUEST_LOG_RETENTION_DAYS: 7,
     });
   });
 
@@ -114,6 +118,12 @@ describe('envValidationSchema', () => {
     expect(errorPaths(productionEnv({ VERIFICATION_CODE_HMAC_SECRET: undefined }))).toContain(
       'VERIFICATION_CODE_HMAC_SECRET',
     );
+    expect(errorPaths(productionEnv({ AUTH_PERSISTENCE_HMAC_SECRET: undefined }))).toContain(
+      'AUTH_PERSISTENCE_HMAC_SECRET',
+    );
+    expect(
+      errorPaths(productionEnv({ AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64: undefined })),
+    ).toContain('AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64');
   });
 
   it('rejects production placeholders and local default secret values', () => {

@@ -171,7 +171,7 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain('CREATE INDEX "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt")');
     expect(sql).toContain(
-      'CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt")',
+      'CREATE INDEX "VerificationCode_codeExpiresAt_idx" ON "VerificationCode"("codeExpiresAt")',
     );
     expect(sql).toContain(
       'CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt")',

@@ -10,6 +10,8 @@ import {
 } from '../../../src/auth/application/auth-password-hash.js';
 import { normalizeEmail, normalizeNickname } from '../../../src/auth/domain/auth.utils.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
+import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
@@ -232,6 +234,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                   verificationGrant,
                 });
               },
+              matchesVerificationGrantSubject: verificationGrantSubjectMatches,
             },
             sessionService: authSessionService,
             signupValidationService: {
@@ -474,6 +477,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                     }),
                   );
                 },
+                matchesVerificationGrantSubject: verificationGrantSubjectMatches,
               },
               loginAttemptService: {
                 async clearFailuresInTransaction(
@@ -593,11 +597,11 @@ describe('Auth/users transaction rollback and race integration', () => {
         await prisma.verificationCode.create({
           data: {
             id: verificationCodeId,
-            emailNormalized,
+            subjectKey: toSubjectKey(emailNormalized),
             purpose: 'RESET_PASSWORD',
             codeHash: 'hmac-sha256:expired-proof',
             issuedAt: new Date(databaseNow.getTime() - 20 * 60 * 1000),
-            expiresAt: new Date(databaseNow.getTime() - 1000),
+            codeExpiresAt: new Date(databaseNow.getTime() - 1000),
             verifiedAt: new Date(databaseNow.getTime() - 10 * 60 * 1000),
             grantTokenHash: hashVerificationGrant(verificationGrant),
             grantExpiresAt: new Date(databaseNow.getTime() - 1000),
@@ -621,6 +625,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                     }),
                   );
                 },
+                matchesVerificationGrantSubject: verificationGrantSubjectMatches,
               },
               loginAttemptService: {
                 async clearFailuresInTransaction(
@@ -951,11 +956,11 @@ describe('Auth/users transaction rollback and race integration', () => {
     await prisma.verificationCode.create({
       data: {
         id: input.id,
-        emailNormalized: input.emailNormalized,
+        subjectKey: toSubjectKey(input.emailNormalized),
         purpose: input.purpose,
         codeHash: `hmac-sha256:${input.id}`,
         issuedAt: databaseNow,
-        expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
+        codeExpiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
         verifiedAt: databaseNow,
         grantTokenHash: hashVerificationGrant(verificationGrant),
         grantExpiresAt: new Date(databaseNow.getTime() + 15 * 60 * 1000),
@@ -975,12 +980,27 @@ describe('Auth/users transaction rollback and race integration', () => {
   }) {
     return {
       id: input.id,
-      emailNormalized: input.emailNormalized,
+      subjectKey: toSubjectKey(input.emailNormalized),
       purpose: input.purpose,
       eligibleUserId: input.eligibleUserId ?? null,
       tokenHash: hashVerificationGrant(input.verificationGrant),
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     };
+  }
+
+  function verificationGrantSubjectMatches(
+    grant: { subjectKey: string },
+    emailNormalized: string,
+  ): boolean {
+    return grant.subjectKey === toSubjectKey(emailNormalized);
+  }
+
+  function toSubjectKey(emailNormalized: string): string {
+    return hashAuthPersistenceDimension(
+      'subject',
+      emailNormalized,
+      DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+    );
   }
 
   async function seedUserWithDisplayIdentity(input: {

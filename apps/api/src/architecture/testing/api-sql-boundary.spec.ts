@@ -208,7 +208,7 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     owner: 'auth/verification',
     category: 'db-time',
     requiredPatterns: [
-      /"expiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
+      /"codeExpiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
       /ORDER\s+BY\s+"issuedAt"\s+DESC/i,
       /LIMIT\s+1/i,
     ],
@@ -282,7 +282,7 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     category: 'db-time',
     requiredPatterns: [
       /SET\s+"verifiedAt"\s+=\s+CURRENT_TIMESTAMP/i,
-      /"expiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
+      /"codeExpiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
       /RETURNING\s+id/i,
     ],
     rationale: 'verification success timestamp and expiry are DB-time based.',
@@ -316,7 +316,7 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     category: 'cleanup-delete',
     requiredPatterns: [
       /FROM\s+"VerificationCode"/i,
-      /ORDER\s+BY\s+COALESCE\("consumedAt",\s*"expiresAt"\)\s+ASC,\s*id\s+ASC/i,
+      /ORDER\s+BY\s+COALESCE\("consumedAt",\s*"codeExpiresAt"\)\s+ASC,\s*id\s+ASC/i,
       /LIMIT\s+\$2::int/i,
       /DELETE\s+FROM\s+"VerificationCode"/i,
     ],
@@ -377,7 +377,7 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     requiredPatterns: [
       /UPDATE\s+"VerificationCode"/i,
       /CURRENT_TIMESTAMP/i,
-      /"expiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
+      /"codeExpiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
       /RETURNING\s+"failedAttempts",\s*"consumedAt"/i,
     ],
     rationale: 'verification failure consumes exhausted records with DB time and expiry checks.',

@@ -18,7 +18,10 @@ import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attem
 
 interface AuthResetPasswordOwnerDeps {
   prisma: PrismaService;
-  verificationService: Pick<AuthVerificationService, 'resolveVerificationGrant'>;
+  verificationService: Pick<
+    AuthVerificationService,
+    'resolveVerificationGrant' | 'matchesVerificationGrantSubject'
+  >;
   loginAttemptService: Pick<AuthLoginAttemptService, 'clearFailuresInTransaction'>;
   securityEvents?: AuthSecurityEventService;
 }
@@ -37,7 +40,6 @@ export async function resetPassword(
     return authFailures.resetRestartRequired();
   }
 
-  const emailNormalized = resolvedGrant.emailNormalized;
   const user = await deps.prisma.user.findUnique({
     where: { id: resolvedGrant.eligibleUserId },
   });
@@ -46,10 +48,11 @@ export async function resetPassword(
     !user ||
     user.deletedAt ||
     !user.emailVerifiedAt ||
-    user.emailNormalized !== emailNormalized
+    !deps.verificationService.matchesVerificationGrantSubject(resolvedGrant, user.emailNormalized)
   ) {
     return authFailures.resetRestartRequired();
   }
+  const emailNormalized = user.emailNormalized;
 
   const passwordError = validatePasswordPolicy(newPassword, user.email);
   if (passwordError) {
@@ -67,7 +70,7 @@ export async function resetPassword(
 
   try {
     await deps.prisma.runSerializableTransaction(async (tx) => {
-      await acquireVerificationCodePurposeLock(tx, emailNormalized, 'RESET_PASSWORD');
+      await acquireVerificationCodePurposeLock(tx, resolvedGrant.subjectKey, 'RESET_PASSWORD');
       await consumeVerificationGrantOrThrow(
         tx,
         {

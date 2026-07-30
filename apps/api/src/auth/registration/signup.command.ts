@@ -28,7 +28,10 @@ const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
-  verificationService: Pick<AuthVerificationService, 'resolveVerificationGrant'>;
+  verificationService: Pick<
+    AuthVerificationService,
+    'resolveVerificationGrant' | 'matchesVerificationGrantSubject'
+  >;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
   signupValidationService: Pick<AuthSignupValidationService, 'validateDraft'>;
 }
@@ -50,7 +53,10 @@ export async function signup(
     verificationGrant,
     'SIGNUP',
   );
-  if (!resolvedGrant || resolvedGrant.emailNormalized !== emailNormalized) {
+  if (
+    !resolvedGrant ||
+    !deps.verificationService.matchesVerificationGrantSubject(resolvedGrant, emailNormalized)
+  ) {
     return authFailures.signupVerificationRequired();
   }
 
@@ -162,7 +168,7 @@ export async function signup(
       }
       const displayIdentity = createdUser.displayIdentity;
 
-      await acquireVerificationCodePurposeLock(tx, emailNormalized, 'SIGNUP');
+      await acquireVerificationCodePurposeLock(tx, resolvedGrant.subjectKey, 'SIGNUP');
       await consumeVerificationGrantOrThrow(
         tx,
         {

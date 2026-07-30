@@ -44,6 +44,14 @@ describe('AuthOperationalCleanupRepository', () => {
     expect(sql).toContain('ORDER BY COALESCE("revokedAt", "expiresAt") ASC, id ASC');
   });
 
+  it('verification cleanup SQL은 code TTL과 consume 시점을 분리해 bounded delete한다', () => {
+    const sql = readSql('pruneExpiredVerificationCodes.sql');
+
+    expect(sql).toContain('WHERE "codeExpiresAt" < $1');
+    expect(sql).toContain('OR "consumedAt" < $1');
+    expect(sql).toContain('ORDER BY COALESCE("consumedAt", "codeExpiresAt") ASC, id ASC');
+  });
+
   it('TypedSQL cleanup query를 clamp된 batch size로 순차 실행하고 삭제 count를 집계한다', async () => {
     const queryRawTyped = vi
       .fn<(arg0: TypedSqlLike) => Promise<Array<{ deletedCount: number }>>>()

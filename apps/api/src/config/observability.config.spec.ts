@@ -24,6 +24,8 @@ function productionEnv(overrides: Record<string, string | undefined> = {}) {
     MIGRATION_DATABASE_URL: 'postgresql://api:password@db.internal:5432/api',
     LOG_HASH_SECRET: 'production-log-hash-secret',
     VERIFICATION_CODE_HMAC_SECRET: 'production-verification-secret',
+    AUTH_PERSISTENCE_HMAC_SECRET: 'production-auth-persistence-secret',
+    AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64: validBase64Key,
     RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: validBase64Key,
     RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64: validBase64Key,
     [ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV]: 'production-roommate-search-secret',

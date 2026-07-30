@@ -1,5 +1,8 @@
-import { createHash } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
+import {
+  hashAuthPersistenceDimension,
+  type AuthPersistenceDimension,
+} from '../persistence/auth-persistence-dimension.js';
 import type {
   AuthSecurityEventInput,
   AuthSecurityEventSeverity,
@@ -7,13 +10,16 @@ import type {
 
 const SENSITIVE_METADATA_KEY_PATTERN = /password|token|secret|code|credential|hash/i;
 
-export function hashAuthSecurityEventDimension(value: string | null | undefined) {
-  const normalized = value?.trim().toLowerCase();
-  if (!normalized) {
+export function hashAuthSecurityEventDimension(
+  dimension: AuthPersistenceDimension,
+  value: string | null | undefined,
+  secret: string,
+) {
+  if (!value?.trim()) {
     return undefined;
   }
 
-  return createHash('sha256').update(normalized).digest('hex');
+  return hashAuthPersistenceDimension(dimension, value, secret);
 }
 
 function isJsonPrimitive(value: unknown): value is string | number | boolean | null {
