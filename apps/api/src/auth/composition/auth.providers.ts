@@ -40,6 +40,12 @@ import { AuthVerificationEligibilityQuery } from '../verification/auth-verificat
 import { AuthVerificationUseCases } from '../verification/auth-verification-use-cases.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { AuthVerificationStore } from '../verification/verification-code.repository.js';
+import { AuthVerificationRequestRepository } from '../verification/auth-verification-request.repository.js';
+import { AuthMailDispatcherService } from '../mail/auth-mail-dispatcher.service.js';
+import { AuthMailEnvelopeReader } from '../mail/auth-mail-envelope-reader.service.js';
+import { AuthMailEnvelopeWriter } from '../mail/auth-mail-envelope-writer.service.js';
+import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
+import { AuthMailOutboxRepository } from '../mail/auth-mail-outbox.repository.js';
 
 export const AUTH_APPLICATION_PROVIDERS: Provider[] = [AuthService, AuthActorContextResolver];
 
@@ -48,6 +54,7 @@ export const AUTH_VERIFICATION_PROVIDERS: Provider[] = [
   AuthVerificationService,
   AuthVerificationEligibilityQuery,
   AuthVerificationStore,
+  AuthVerificationRequestRepository,
 ];
 
 export const AUTH_SESSION_PROVIDERS: Provider[] = [
@@ -87,6 +94,11 @@ export const AUTH_SECURITY_EVENT_PROVIDERS: Provider[] = [
 ];
 
 export const AUTH_EMAIL_ADAPTER_PROVIDERS: Provider[] = [
+  AuthMailEnvelopeWriter,
+  AuthMailEnvelopeReader,
+  AuthMailOutboxRepository,
+  AuthMailOutboxWriter,
+  AuthMailDispatcherService,
   StubEmailSenderService,
   SesEmailSenderService,
   {

@@ -34,7 +34,10 @@ describe('changePassword command', () => {
       .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
       .mockResolvedValue(undefined),
   };
-  const deps = { prisma, sessionService, securityEvents };
+  const mailOutboxWriter = {
+    appendPasswordChanged: vi.fn().mockResolvedValue(undefined),
+  };
+  const deps = { prisma, sessionService, securityEvents, mailOutboxWriter };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,6 +98,11 @@ describe('changePassword command', () => {
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-1', revokedAt: null },
       data: { revokedAt: databaseNow },
+    });
+    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledWith(expect.anything(), {
+      targetUserId: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      now: databaseNow,
     });
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',

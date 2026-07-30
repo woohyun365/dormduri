@@ -12,6 +12,7 @@ import {
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 
 const CHANGE_PASSWORD_SESSION_UNAVAILABLE =
   '[AuthChangePasswordOwner] current authenticated session unavailable';
@@ -20,6 +21,7 @@ interface AuthChangePasswordOwnerDeps {
   prisma: PrismaService;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
   securityEvents?: AuthSecurityEventService;
+  mailOutboxWriter: Pick<AuthMailOutboxWriter, 'appendPasswordChanged'>;
 }
 
 export async function changePassword(
@@ -97,6 +99,11 @@ export async function changePassword(
         data: { revokedAt: databaseNow },
       });
       revokedSessionCount = revokeResult.count;
+      await deps.mailOutboxWriter.appendPasswordChanged(tx, {
+        targetUserId: user.id,
+        email: user.email,
+        now: databaseNow,
+      });
     });
   } catch (error) {
     if (error instanceof Error && error.message === CHANGE_PASSWORD_SESSION_UNAVAILABLE) {

@@ -5,6 +5,7 @@ import { VERIFICATION_CODE_MAX_ATTEMPTS } from '../domain/auth.constants.js';
 import { hashVerificationCode } from '../domain/auth.utils.js';
 import authConfig, {
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  DEFAULT_AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64,
   DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
 } from '../../config/auth.config.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
@@ -40,19 +41,38 @@ describe('AuthVerificationService', () => {
     failAndConsume: vi.fn(),
   };
 
-  const emailSender = {
-    sendVerificationCode: vi.fn(),
-    sendPasswordResetCode: vi.fn(),
+  const verificationRequests = {
+    append: vi.fn(),
+  };
+  const mailEnvelopeWriter = {
+    encrypt: vi.fn().mockReturnValue({
+      payloadCiphertext: Buffer.from('ciphertext'),
+      payloadIv: Buffer.from('123456789012'),
+      payloadAuthTag: Buffer.from('1234567890123456'),
+      keyVersion: 'test-v1',
+    }),
   };
   const securityEvents = {
     recordSafely: vi
       .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
       .mockResolvedValue(undefined),
+    toPersistenceData: vi.fn((input: AuthSecurityEventInput) => ({
+      type: input.type,
+      severity: input.severity,
+      metadata: input.metadata,
+    })),
   };
 
   const authSettings: ConfigType<typeof authConfig> = {
     verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
     persistenceHmacSecret: DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+    mailEnvelopeEncryptionKeyBase64: DEFAULT_AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64,
+    mailEnvelopeKeyVersion: 'test-v1',
+    mailDispatcherEnabled: false,
+    mailDispatcherIntervalMs: 1_000,
+    mailDispatcherBatchSize: 20,
+    mailDispatcherClaimLeaseMs: 30_000,
+    mailSendTimeoutMs: 5_000,
     codeRequestCooldownSeconds: 5,
     codeRequestBackstopWindowSeconds: 600,
     codeRequestBackstopLimit: 20,
@@ -66,7 +86,8 @@ describe('AuthVerificationService', () => {
 
   const service = new AuthVerificationService(
     verificationStore as never,
-    emailSender,
+    verificationRequests as never,
+    mailEnvelopeWriter as never,
     authSettings,
     securityEvents as never,
   );
@@ -83,20 +104,34 @@ describe('AuthVerificationService', () => {
   });
 
   it('signup code 재발급 시 serializable helper 경로로 active signup code를 교체한다', async () => {
-    emailSender.sendVerificationCode.mockResolvedValue(undefined);
-
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    expect(verificationStore.replaceActiveSignupCode).toHaveBeenCalledWith(
-      expect.objectContaining({
+    const signupRequest = verificationRequests.append.mock.calls[0]?.[0] as
+      | {
+          subjectKey: string;
+          requestIpKey: string;
+          purpose: string;
+          candidate: { subjectKey: string; requestIpKey: string; ttlSeconds: number };
+        }
+      | undefined;
+    expect(signupRequest).toMatchObject({
+      subjectKey,
+      requestIpKey,
+      purpose: 'SIGNUP',
+      candidate: {
         subjectKey,
         requestIpKey,
+        ttlSeconds: 600,
+      },
+    });
+    expect(mailEnvelopeWriter.encrypt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailKind: 'SIGNUP_VERIFICATION',
+        email: 'test@kangwon.ac.kr',
+        expiresInSeconds: 600,
       }),
     );
-    expect(emailSender.sendVerificationCode).toHaveBeenCalledWith(
-      expect.objectContaining({ expiresInSeconds: 600 }),
-    );
-    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+    expect(securityEvents.toPersistenceData).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'VERIFICATION_CODE_REQUESTED',
         emailNormalized: 'test@kangwon.ac.kr',
@@ -110,46 +145,40 @@ describe('AuthVerificationService', () => {
   });
 
   it('새 verification code는 HMAC prefix가 포함된 hash로 저장한다', async () => {
-    emailSender.sendVerificationCode.mockResolvedValue(undefined);
-
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    const [replaceArg] = (verificationStore.replaceActiveSignupCode.mock.calls[0] ?? []) as [
-      { codeHash: string }?,
+    const [appendArg] = (verificationRequests.append.mock.calls[0] ?? []) as [
+      { candidate?: { codeHash: string } }?,
     ];
 
-    expect(replaceArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
+    expect(appendArg?.candidate?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
   });
 
   it('reset code는 완화된 600초 TTL과 serializable 교체 경로를 사용한다', async () => {
-    emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
-
     await service.maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1');
 
-    expect(verificationStore.replaceActiveResetCode).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subjectKey,
-        requestIpKey,
-      }),
-    );
-    expect(emailSender.sendPasswordResetCode).toHaveBeenCalledWith(
-      expect.objectContaining({ expiresInSeconds: 600 }),
-    );
+    const resetRequest = verificationRequests.append.mock.calls[0]?.[0] as
+      | {
+          subjectKey: string;
+          requestIpKey: string;
+          purpose: string;
+          candidate: { ttlSeconds: number };
+        }
+      | undefined;
+    expect(resetRequest).toMatchObject({
+      subjectKey,
+      requestIpKey,
+      purpose: 'RESET_PASSWORD',
+      candidate: { ttlSeconds: 600 },
+    });
   });
 
-  it.fails(
-    '메일 provider 실패는 기존 활성 reset code를 교체하거나 공개 응답을 바꾸지 않는다',
-    async () => {
-      emailSender.sendPasswordResetCode.mockRejectedValue(new Error('provider unavailable'));
-
-      const result = await service
-        .maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1')
-        .catch((error: unknown) => error);
-
-      expect(result).toEqual({ success: true });
-      expect(verificationStore.replaceActiveResetCode).not.toHaveBeenCalled();
-    },
-  );
+  it('메일 provider lifecycle과 분리된 요청 append 뒤 공개 응답은 중립 성공을 유지한다', async () => {
+    await expect(
+      service.maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1'),
+    ).resolves.toEqual({ success: true });
+    expect(verificationRequests.append).toHaveBeenCalledOnce();
+  });
 
   it('email+purpose backstop 제한이 걸리면 code 요청을 차단한다', async () => {
     verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(120);
@@ -169,21 +198,34 @@ describe('AuthVerificationService', () => {
   });
 
   it('reset code 요청은 user가 없으면 이메일 발송 없이 중립 성공을 유지한다', async () => {
-    emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
-
     await expect(
       service.maybeSendResetCode('missing@kangwon.ac.kr', false, '127.0.0.1'),
     ).resolves.toEqual({
       success: true,
     });
 
-    expect(verificationStore.replaceActiveResetCode).not.toHaveBeenCalled();
-    expect(emailSender.sendPasswordResetCode).not.toHaveBeenCalled();
-    expect(verificationStore.createRequestLog).toHaveBeenCalledWith(
-      missingSubjectKey,
-      'RESET_PASSWORD',
-      requestIpKey,
+    expect(verificationRequests.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subjectKey: missingSubjectKey,
+        purpose: 'RESET_PASSWORD',
+        requestIpKey,
+        candidate: null,
+      }),
     );
+  });
+
+  it('eligible 여부와 관계없이 공개 code 요청은 같은 최소 응답 시간 범주를 유지한다', async () => {
+    const eligibleStartedAt = performance.now();
+    await service.maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1');
+    const eligibleDuration = performance.now() - eligibleStartedAt;
+
+    const ineligibleStartedAt = performance.now();
+    await service.maybeSendResetCode('missing@kangwon.ac.kr', false, '127.0.0.1');
+    const ineligibleDuration = performance.now() - ineligibleStartedAt;
+
+    expect(eligibleDuration).toBeGreaterThanOrEqual(350);
+    expect(ineligibleDuration).toBeGreaterThanOrEqual(350);
+    expect(Math.abs(eligibleDuration - ineligibleDuration)).toBeLessThan(150);
   });
 
   it('올바른 verification code는 verified 처리한다', async () => {

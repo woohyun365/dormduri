@@ -77,7 +77,8 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Signup draft validation and signup orchestration: `registration/`.
 - Login failure lockout and failure counter state: `login-attempts/`.
 - Audit/security event sanitize, persistence, and alert policy: `security-events/`.
-- Mail sending adapter, provider selection, SES payload mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
+- Encrypted auth mail envelope, transactional outbox append, bounded dispatcher, and delivery lifecycle: `mail/`.
+- Provider selection, SES payload/receipt/tag mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
 - Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.

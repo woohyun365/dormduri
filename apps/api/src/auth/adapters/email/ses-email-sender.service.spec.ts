@@ -5,6 +5,7 @@ import emailConfig from '../../../config/email.config.js';
 import { SesEmailSenderError } from './ses-email-error.js';
 import {
   SesEmailSenderService,
+  buildPasswordChangedEmailInput,
   buildPasswordResetEmailInput,
   buildVerificationCodeEmailInput,
   resolveSesEmailConfig,
@@ -92,6 +93,49 @@ describe('SesEmailSenderService', () => {
       Destination: { ToAddresses: ['student@kangwon.ac.kr'] },
       FromEmailAddress: '"KNU Roommate" <no-reply@example.com>',
     });
+  });
+
+  it('returns SES receipt and applies configuration set plus bounded outbox tags', async () => {
+    const send = vi.fn<SesEmailClient['send']>().mockResolvedValue({
+      MessageId: 'ses-message-id',
+      $metadata: {},
+    });
+    const service = new SesEmailSenderService(settings, { send });
+
+    await expect(
+      service.sendPasswordResetCode({
+        email: 'student@kangwon.ac.kr',
+        code: '654321',
+        expiresInSeconds: 600,
+        correlationId: 'outbox-event-1',
+      }),
+    ).resolves.toEqual({ providerMessageId: 'ses-message-id' });
+
+    const [command] = send.mock.calls[0] ?? [];
+    expect(command?.input).toMatchObject({
+      ConfigurationSetName: 'knu-roommate-production',
+      EmailTags: [
+        { Name: 'auth-mail-kind', Value: 'PASSWORD_RESET_VERIFICATION' },
+        { Name: 'auth-outbox-id', Value: 'outbox-event-1' },
+      ],
+    });
+  });
+
+  it('password changed notice는 code 없이 별도 mail kind로 구성한다', () => {
+    const commandInput = buildPasswordChangedEmailInput(
+      {
+        email: 'student@kangwon.ac.kr',
+        correlationId: 'password-changed-1',
+      },
+      resolveSesEmailConfig(settings),
+    );
+
+    expect(commandInput.Content?.Simple?.Subject?.Data).toContain('비밀번호가 변경');
+    expect(commandInput.EmailTags).toContainEqual({
+      Name: 'auth-mail-kind',
+      Value: 'PASSWORD_CHANGED',
+    });
+    expect(commandInput.Content?.Simple?.Body?.Text?.Data).not.toMatch(/인증 코드/u);
   });
 
   it('throws CONFIG_INVALID when SES config is incomplete', async () => {

@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
+  EmailSendReceipt,
   EmailSender,
+  PasswordChangedMailInput,
   PasswordResetMailInput,
   VerificationCodeMailInput,
 } from './email-sender.interface.js';
@@ -31,23 +33,31 @@ export class MonitoredEmailSenderService implements EmailSender {
     private readonly securityEvents: AuthSecurityEventService,
   ) {}
 
-  async sendVerificationCode(input: VerificationCodeMailInput): Promise<void> {
-    await this.sendWithMonitoring('SIGNUP', input, () => this.delegate.sendVerificationCode(input));
+  async sendVerificationCode(input: VerificationCodeMailInput): Promise<EmailSendReceipt> {
+    return this.sendWithMonitoring('SIGNUP', input, () =>
+      this.delegate.sendVerificationCode(input),
+    );
   }
 
-  async sendPasswordResetCode(input: PasswordResetMailInput): Promise<void> {
-    await this.sendWithMonitoring('RESET_PASSWORD', input, () =>
+  async sendPasswordResetCode(input: PasswordResetMailInput): Promise<EmailSendReceipt> {
+    return this.sendWithMonitoring('RESET_PASSWORD', input, () =>
       this.delegate.sendPasswordResetCode(input),
     );
   }
 
+  async sendPasswordChanged(input: PasswordChangedMailInput): Promise<EmailSendReceipt> {
+    return this.sendWithMonitoring('PASSWORD_CHANGED', input, () =>
+      this.delegate.sendPasswordChanged(input),
+    );
+  }
+
   private async sendWithMonitoring(
-    purpose: 'SIGNUP' | 'RESET_PASSWORD',
-    input: VerificationCodeMailInput | PasswordResetMailInput,
-    send: () => Promise<void>,
-  ) {
+    purpose: 'SIGNUP' | 'RESET_PASSWORD' | 'PASSWORD_CHANGED',
+    input: VerificationCodeMailInput | PasswordResetMailInput | PasswordChangedMailInput,
+    send: () => Promise<EmailSendReceipt>,
+  ): Promise<EmailSendReceipt> {
     try {
-      await send();
+      const receipt = await send();
       await recordAuthSecurityEventSafely(this.securityEvents, {
         type: 'MAIL_SEND_SUCCESS',
         severity: 'INFO',
@@ -55,9 +65,10 @@ export class MonitoredEmailSenderService implements EmailSender {
         metadata: {
           purpose,
           metricName: AUTH_SECURITY_EVENT_METRICS.mailSendSuccess,
-          ttlSeconds: input.expiresInSeconds,
+          ...('expiresInSeconds' in input ? { ttlSeconds: input.expiresInSeconds } : {}),
         },
       });
+      return receipt;
     } catch (error) {
       await recordAuthSecurityEventSafely(this.securityEvents, {
         type: 'MAIL_SEND_FAILURE',
@@ -67,7 +78,7 @@ export class MonitoredEmailSenderService implements EmailSender {
           purpose,
           metricName: AUTH_SECURITY_EVENT_METRICS.mailSendFailure,
           providerErrorCategory: providerErrorCategory(error),
-          ttlSeconds: input.expiresInSeconds,
+          ...('expiresInSeconds' in input ? { ttlSeconds: input.expiresInSeconds } : {}),
         },
       });
       throw error;

@@ -8,7 +8,9 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import emailConfig from '../../../config/email.config.js';
 import type {
+  EmailSendReceipt,
   EmailSender,
+  PasswordChangedMailInput,
   PasswordResetMailInput,
   VerificationCodeMailInput,
 } from './email-sender.interface.js';
@@ -42,21 +44,30 @@ export class SesEmailSenderService implements EmailSender {
     private readonly clientOverride?: SesEmailClient,
   ) {}
 
-  async sendVerificationCode(input: VerificationCodeMailInput): Promise<void> {
-    await this.sendEmail(
+  async sendVerificationCode(input: VerificationCodeMailInput): Promise<EmailSendReceipt> {
+    return this.sendEmail(
       buildVerificationCodeEmailInput(input, resolveSesEmailConfig(this.settings)),
     );
   }
 
-  async sendPasswordResetCode(input: PasswordResetMailInput): Promise<void> {
-    await this.sendEmail(buildPasswordResetEmailInput(input, resolveSesEmailConfig(this.settings)));
+  async sendPasswordResetCode(input: PasswordResetMailInput): Promise<EmailSendReceipt> {
+    return this.sendEmail(
+      buildPasswordResetEmailInput(input, resolveSesEmailConfig(this.settings)),
+    );
   }
 
-  private async sendEmail(commandInput: SendEmailCommandInput) {
+  async sendPasswordChanged(input: PasswordChangedMailInput): Promise<EmailSendReceipt> {
+    return this.sendEmail(
+      buildPasswordChangedEmailInput(input, resolveSesEmailConfig(this.settings)),
+    );
+  }
+
+  private async sendEmail(commandInput: SendEmailCommandInput): Promise<EmailSendReceipt> {
     try {
-      await this.getClient(resolveSesEmailConfig(this.settings)).send(
+      const output = await this.getClient(resolveSesEmailConfig(this.settings)).send(
         new SendEmailCommand(commandInput),
       );
+      return { providerMessageId: output.MessageId?.trim() || null };
     } catch (error) {
       throw toSesEmailSenderError(error);
     }
@@ -107,6 +118,8 @@ export function buildVerificationCodeEmailInput(
       '본인이 요청하지 않았다면 이 메일을 무시해 주세요.',
     ].join('\n'),
     config,
+    correlationId: input.correlationId,
+    mailKind: 'SIGNUP_VERIFICATION',
   });
 }
 
@@ -126,6 +139,26 @@ export function buildPasswordResetEmailInput(
       '본인이 요청하지 않았다면 이 메일을 무시해 주세요.',
     ].join('\n'),
     config,
+    correlationId: input.correlationId,
+    mailKind: 'PASSWORD_RESET_VERIFICATION',
+  });
+}
+
+export function buildPasswordChangedEmailInput(
+  input: PasswordChangedMailInput,
+  config: ResolvedSesEmailConfig,
+): SendEmailCommandInput {
+  return buildSimpleEmailInput({
+    toEmail: input.email,
+    subject: '[KNU Roommate] 비밀번호가 변경되었어요',
+    bodyText: [
+      'KNU Roommate 계정의 비밀번호가 변경되었어요.',
+      '',
+      '본인이 변경하지 않았다면 서비스의 문의하기를 통해 알려 주세요.',
+    ].join('\n'),
+    config,
+    correlationId: input.correlationId,
+    mailKind: 'PASSWORD_CHANGED',
   });
 }
 
@@ -134,6 +167,8 @@ function buildSimpleEmailInput(input: {
   subject: string;
   bodyText: string;
   config: ResolvedSesEmailConfig;
+  correlationId?: string;
+  mailKind?: string;
 }): SendEmailCommandInput {
   const commandInput: SendEmailCommandInput = {
     FromEmailAddress: formatFromAddress(input.config),
@@ -162,6 +197,14 @@ function buildSimpleEmailInput(input: {
 
   if (input.config.configurationSet) {
     commandInput.ConfigurationSetName = input.config.configurationSet;
+  }
+  if (input.mailKind) {
+    commandInput.EmailTags = [
+      { Name: 'auth-mail-kind', Value: input.mailKind },
+      ...(input.correlationId
+        ? [{ Name: 'auth-outbox-id', Value: input.correlationId.slice(0, 256) }]
+        : []),
+    ];
   }
 
   return commandInput;

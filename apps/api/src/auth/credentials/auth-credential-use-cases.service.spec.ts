@@ -30,6 +30,9 @@ describe('AuthCredentialUseCases', () => {
   const securityEvents = {
     recordSafely: vi.fn(),
   };
+  const mailOutboxWriter = {
+    appendPasswordChanged: vi.fn(),
+  };
   const useCases = new AuthCredentialUseCases(
     prisma as never,
     loginAttemptService as never,
@@ -38,6 +41,7 @@ describe('AuthCredentialUseCases', () => {
     sessionService as never,
     verificationService as never,
     securityEvents as never,
+    mailOutboxWriter as never,
   );
 
   beforeEach(() => {
