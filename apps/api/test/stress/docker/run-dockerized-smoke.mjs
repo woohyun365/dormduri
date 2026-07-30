@@ -59,6 +59,7 @@ const reportPath = resolve(
 const actorTokenPath = resolve(reportsDir, `.tmp-${runId}-actor-tokens.json`);
 const k6SmokeSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-smoke-summary.json`);
 const k6BaselineSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-baseline-summary.json`);
+const k6AuthLoginSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-auth-login-summary.json`);
 const k6ScoreSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-score-summary.json`);
 const k6WriteSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-write-summary.json`);
 const artillerySummaryPath = resolve(reportsDir, `.tmp-${runId}-artillery-summary.json`);
@@ -80,6 +81,7 @@ const evidence = {
   markerResidue: '',
   k6Smoke: null,
   k6Baseline: null,
+  k6AuthLogin: null,
   k6Score: null,
   k6Write: null,
   artillerySmoke: null,
@@ -197,6 +199,24 @@ try {
     },
   );
   evidence.k6Baseline = parseJsonArtifact(k6BaselineSummaryPath);
+  runStressCommand(
+    'k6 auth login capacity',
+    ['pnpm', '--dir', 'apps/api', 'stress:http:auth-login'],
+    {
+      env: {
+        ...stressEnv,
+        STRESS_AUTH_ACTOR_COUNT:
+          process.env.STRESS_AUTH_ACTOR_COUNT || (productionLikeRun ? '25' : '3'),
+        STRESS_AUTH_LOGIN_VUS:
+          process.env.STRESS_AUTH_LOGIN_VUS || (productionLikeRun ? '10' : '1'),
+        STRESS_AUTH_LOGIN_DURATION:
+          process.env.STRESS_AUTH_LOGIN_DURATION || (productionLikeRun ? '1m' : '10s'),
+        STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
+        STRESS_K6_SUMMARY_PATH: k6AuthLoginSummaryPath,
+      },
+    },
+  );
+  evidence.k6AuthLogin = parseJsonArtifact(k6AuthLoginSummaryPath);
   runStressCommand('k6 score cohort', ['pnpm', '--dir', 'apps/api', 'stress:http:score-cohort'], {
     env: {
       ...stressEnv,
@@ -369,6 +389,9 @@ function ensureLocalApiEnvFile() {
       'AUTH_LOGIN_BURST_LIMIT=5000',
       'AUTH_LOGIN_SUSTAINED_LIMIT=5000',
       `VERIFICATION_CODE_HMAC_SECRET=${randomSecret()}`,
+      'EMAIL_PROVIDER=ses',
+      'SES_REGION=ap-northeast-2',
+      'SES_FROM_EMAIL=no-reply@stress.invalid',
       `ROOMMATE_SEARCH_CURSOR_HMAC_SECRET=${randomSecret()}`,
       `PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET=${randomSecret()}`,
       `CHAT_THREAD_LIST_CURSOR_HMAC_SECRET=${randomSecret()}`,
@@ -405,6 +428,15 @@ function ensureExistingApiEnvKeys() {
   }
   if (!/^AUTH_LOGIN_SUSTAINED_LIMIT=/mu.test(text)) {
     missingLines.push('AUTH_LOGIN_SUSTAINED_LIMIT=5000');
+  }
+  if (!/^EMAIL_PROVIDER=/mu.test(text)) {
+    missingLines.push('EMAIL_PROVIDER=ses');
+  }
+  if (!/^SES_REGION=/mu.test(text)) {
+    missingLines.push('SES_REGION=ap-northeast-2');
+  }
+  if (!/^SES_FROM_EMAIL=/mu.test(text)) {
+    missingLines.push('SES_FROM_EMAIL=no-reply@stress.invalid');
   }
   if (!/^TZ=/mu.test(text)) {
     missingLines.push('TZ=Asia/Seoul');
@@ -820,6 +852,7 @@ function writeReport() {
     '| --- | ---: | ---: | ---: | ---: | ---: |',
     renderK6Row('smoke', evidence.k6Smoke),
     renderK6Row('baseline-250', evidence.k6Baseline),
+    renderK6Row('auth-login-capacity', evidence.k6AuthLogin),
     renderK6Row('score-cohort-946', evidence.k6Score),
     renderK6Row('bounded-write-mix', evidence.k6Write),
     '',
@@ -929,6 +962,7 @@ function cleanupRawArtifacts() {
     actorTokenPath,
     k6SmokeSummaryPath,
     k6BaselineSummaryPath,
+    k6AuthLoginSummaryPath,
     k6ScoreSummaryPath,
     k6WriteSummaryPath,
     artillerySummaryPath,

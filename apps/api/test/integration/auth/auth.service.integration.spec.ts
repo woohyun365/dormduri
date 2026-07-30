@@ -5,6 +5,13 @@ import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { seedBaseSeasonFixtures } from '../_support/integration-fixtures.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
+const signupLegalDocumentIds = {
+  termsVersionId: 'integration-terms',
+  privacyPolicyVersionIdShown: 'integration-privacy',
+  personalDataConsentVersionId: 'integration-personal-data-consent',
+  ageNoticeVersionId: 'integration-age-notice',
+} as const;
+
 function hashTokenForTest(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
@@ -217,6 +224,7 @@ describe('AuthService integration', () => {
     const emailNormalized = email.toLowerCase();
     const databaseNow = await suite.prisma.getDatabaseNow();
     await seedAcademicIdentityReferenceData();
+    await seedSignupLegalDocuments(databaseNow);
     await suite.prisma.verificationCode.create({
       data: {
         emailNormalized,
@@ -236,6 +244,7 @@ describe('AuthService integration', () => {
       campus: 'CHUNCHEON' as const,
       collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
+      legalAcceptances: signupLegalDocumentIds,
     } as never;
 
     const settled = await Promise.allSettled([
@@ -252,7 +261,7 @@ describe('AuthService integration', () => {
     const successResults = responses.filter((value) => Boolean(value.accessToken));
     const failureResults = responses.filter((value) => !value.accessToken);
 
-    expect(successResults).toHaveLength(1);
+    expect(successResults, JSON.stringify(responses)).toHaveLength(1);
     expect(failureResults.length + rejected.length).toBe(1);
     if (failureResults[0]) {
       expect(
@@ -326,6 +335,54 @@ describe('AuthService integration', () => {
     return academicIdentityDelegate.count({ where: { user: { emailNormalized } } });
   }
 
+  async function seedSignupLegalDocuments(databaseNow: Date) {
+    const effectiveAt = new Date(databaseNow.getTime() - 60_000);
+    await suite.prisma.legalDocumentVersion.createMany({
+      data: [
+        {
+          id: signupLegalDocumentIds.termsVersionId,
+          kind: 'TERMS_OF_SERVICE',
+          version: 'integration-terms',
+          title: '통합 테스트 이용약관',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.privacyPolicyVersionIdShown,
+          kind: 'PRIVACY_POLICY',
+          version: 'integration-privacy',
+          title: '통합 테스트 개인정보 처리방침',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.personalDataConsentVersionId,
+          kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
+          version: 'integration-personal-data-consent',
+          title: '통합 테스트 개인정보 수집·이용 동의',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.ageNoticeVersionId,
+          kind: 'AGE_14_OR_ABOVE_NOTICE',
+          version: 'integration-age-notice',
+          title: '통합 테스트 연령 확인',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+      ],
+    });
+  }
+
   it('동시에 같은 reset verification proof를 소비해도 비밀번호 변경은 한 번만 성공한다', async () => {
     const email = 'reset-race@kangwon.ac.kr';
     const emailNormalized = email.toLowerCase();
@@ -381,7 +438,7 @@ describe('AuthService integration', () => {
     const successResults = responses.filter((value) => value.success);
     const failureResults = responses.filter((value) => !value.success);
 
-    expect(successResults).toHaveLength(1);
+    expect(successResults, JSON.stringify(responses)).toHaveLength(1);
     expect(failureResults).toHaveLength(1);
     expect(failureResults[0]?.code).toBe('AUTH_RESET_RESTART_REQUIRED');
 

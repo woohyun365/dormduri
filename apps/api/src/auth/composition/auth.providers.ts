@@ -28,6 +28,7 @@ import { AuthSignupValidationService } from '../registration/auth-signup-validat
 import { AuthSecurityEventRepository } from '../security-events/auth-security-event.repository.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { AuthSessionRepository } from '../sessions/auth-session.repository.js';
+import { AuthSessionMetricsService } from '../sessions/auth-session-metrics.service.js';
 import { AuthSessionUseCases } from '../sessions/auth-session-use-cases.service.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { CurrentSessionQuery } from '../sessions/current-session.query.js';
@@ -52,6 +53,7 @@ export const AUTH_VERIFICATION_PROVIDERS: Provider[] = [
 export const AUTH_SESSION_PROVIDERS: Provider[] = [
   AuthSessionUseCases,
   AuthSessionService,
+  AuthSessionMetricsService,
   AuthSessionRepository,
   CurrentSessionQuery,
   IssueSessionCommand,

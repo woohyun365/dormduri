@@ -44,6 +44,9 @@ describe('AuthSessionService', () => {
       .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
       .mockResolvedValue(undefined),
   };
+  const sessionMetrics = {
+    recordRenewal: vi.fn(),
+  };
 
   const repository = new AuthSessionRepository(prisma as never);
   const currentSessionQuery = new CurrentSessionQuery(repository, securityEvents as never);
@@ -55,6 +58,7 @@ describe('AuthSessionService', () => {
     repository,
     authSettings as never,
     securityEvents as never,
+    sessionMetrics,
   );
   const revokeSessionsCommand = new RevokeSessionsCommand(repository);
   const logoutSessionCommand = new LogoutSessionCommand(
@@ -177,6 +181,16 @@ describe('AuthSessionService', () => {
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
   });
 
+  it('malformed renewal transport는 required metric을 남기고 재로그인을 요구한다', async () => {
+    await expect(service.renewSession('legacy-token')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SESSION_RENEWAL_REQUIRED',
+    });
+
+    expect(sessionMetrics.recordRenewal).toHaveBeenCalledWith('required');
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+  });
+
   it('renewSession은 renewal token과 opaque access token hash를 함께 rotate한다', async () => {
     const renewalToken = makeOpaqueToken('session-1');
     const renewalTokenHash = hashTokenForTest(renewalToken);
@@ -256,6 +270,7 @@ describe('AuthSessionService', () => {
         metadata: { rememberMe: true },
       }),
     );
+    expect(sessionMetrics.recordRenewal).toHaveBeenCalledWith('renewed');
   });
 
   it('renewSession은 rememberMe=false를 browser-session persistence로 보존한다', async () => {
@@ -305,6 +320,7 @@ describe('AuthSessionService', () => {
         metadata: { rememberMe: false },
       }),
     );
+    expect(sessionMetrics.recordRenewal).toHaveBeenCalledWith('renewed');
   });
 
   it('renewSession old token reuse는 token family를 revoke하고 재로그인을 요구한다', async () => {
@@ -352,6 +368,7 @@ describe('AuthSessionService', () => {
         },
       }),
     );
+    expect(sessionMetrics.recordRenewal).toHaveBeenCalledWith('reused');
   });
 
   it('직전 renewal token은 grace 안에서 stale로 분류하고 session을 revoke하지 않는다', async () => {
@@ -380,6 +397,7 @@ describe('AuthSessionService', () => {
     });
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
     expect(securityEvents.recordSafely).not.toHaveBeenCalled();
+    expect(sessionMetrics.recordRenewal).toHaveBeenCalledWith('stale');
   });
 
   it('직전 renewal token도 grace 경계에서는 unknown reuse로 분류한다', async () => {

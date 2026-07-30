@@ -31,7 +31,7 @@ pnpm --dir apps/api stress:docker:smoke
 4. nginx health/readiness 확인
 5. `/internal/metrics` unauthorized/authorized boundary 확인
 6. `docker-smoke` fixture seed/token 생성
-7. k6 smoke, authenticated baseline, score cohort smoke
+7. k6 smoke, authenticated baseline, real/dummy login capacity, score cohort smoke
 8. 낮은 VU/짧은 duration의 bounded write mix smoke
 9. Artillery realtime smoke
 10. fixture reset, API compose down, raw `.tmp-*` artifact 제거
@@ -48,6 +48,7 @@ Production-like runner는 smoke runner와 같은 안전 경계를 유지하면�
 - `infra/deploy/docker-compose.api.override.example.yml`로 API/nginx를 observability network에 붙인다.
 - `infra/observability/docker-compose.observability.yml`을 함께 올리고 Prometheus API target readout을 report에 남긴다.
 - 기본 fixture는 `largestCohortSize=237`, `stressCohortSize=946`, `tokenActorLimit=25`다.
+- login capacity는 실제 fixture 계정과 미존재 계정 dummy verify를 1:1로 섞고 기본 10 VU에서 시작한다.
 - k6 기본 duration/VU는 smoke보다 크지만 local machine 보호를 위해 staging peak보다 낮게 시작한다.
 - Postgres connection/lock/table-size snapshot과 marker residue query를 report에 남긴다.
 

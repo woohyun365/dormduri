@@ -269,6 +269,13 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     rationale: 'history materialization policy converts season end date into a KST boundary Date.',
   }),
   entry({
+    path: 'src/matches/overview/current-match-activity.presenter.ts',
+    owner: 'matches/overview',
+    category: 'parser',
+    rationale:
+      'current activity presenter parses contract ISO timestamps only for deterministic ordering.',
+  }),
+  entry({
     path: 'src/matches/requests/policies/match-request-expiration.policy.ts',
     owner: 'matches/requests',
     category: 'date-arithmetic',
@@ -443,13 +450,6 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     category: 'parser',
     rationale:
       'runtime policy parses persisted override timestamps for comparison against explicit reference time.',
-  }),
-  entry({
-    path: 'src/seasons/runtime/season-runtime.repository.ts',
-    owner: 'seasons/runtime',
-    category: 'business-db-now',
-    rationale:
-      'runtime repository resolves reference time from getCurrentTimestamp.sql and only falls back defensively.',
   }),
   entry({
     path: 'src/season-participants/profile-history/get-previous-season-profile.query.ts',

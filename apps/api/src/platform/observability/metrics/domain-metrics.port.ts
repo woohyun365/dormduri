@@ -12,6 +12,7 @@ export type DomainMetricName =
   | 'api_auth_login_password_verify_duration_seconds'
   | 'api_auth_login_password_verify_in_flight'
   | 'api_auth_login_throttle_total'
+  | 'api_auth_session_renewals_total'
   | 'api_auth_redis_gate_state'
   | 'api_chat_realtime_connected_sockets'
   | 'api_chat_realtime_connections_total'

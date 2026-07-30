@@ -52,6 +52,15 @@ describe('KST boundary + DB now integration', () => {
     return new Date(`${dateStr}T00:00:00.000Z`);
   }
 
+  it('DB now는 application clock과 timezone offset 없이 같은 instant를 가리킨다', async () => {
+    const before = Date.now();
+    const databaseNow = await prisma.getDatabaseNow();
+    const after = Date.now();
+
+    expect(databaseNow.getTime()).toBeGreaterThanOrEqual(before - 1_000);
+    expect(databaseNow.getTime()).toBeLessThanOrEqual(after + 1_000);
+  });
+
   async function seedBoundarySeason(input: { roomSelectionDate: string; seasonEndDate: string }) {
     const databaseNow = await prisma.getDatabaseNow();
     const today = formatKstDate(databaseNow);

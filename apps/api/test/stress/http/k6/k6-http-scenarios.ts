@@ -4,7 +4,8 @@ export type K6HttpScenarioName =
   | 'peak-500'
   | 'spike-500'
   | 'soak-250'
-  | 'score-cohort-946';
+  | 'score-cohort-946'
+  | 'auth-login-capacity';
 
 export interface K6HttpScenarioDefinition {
   readonly name: K6HttpScenarioName;
@@ -77,6 +78,16 @@ export const K6_HTTP_SCENARIOS: readonly K6HttpScenarioDefinition[] = [
     requestMix: ['health', 'current-season', 'optional-roommate-search-score'],
     thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
     summary: '946명 same-dorm/gender score cohort 검색/read path를 검증한다.',
+  },
+  {
+    name: 'auth-login-capacity',
+    scriptFile: 'auth-login-capacity.k6.js',
+    defaultDuration: '2m',
+    maxVus: 25,
+    targetProfile: 'staging',
+    requestMix: ['auth-login-real-hash', 'auth-login-dummy-hash'],
+    thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
+    summary: '실제 계정과 미존재 계정의 Argon2id login verify 경로를 같은 비율로 검증한다.',
   },
 ];
 

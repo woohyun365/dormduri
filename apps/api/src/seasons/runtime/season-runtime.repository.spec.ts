@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import { SeasonRuntimeRepository, seasonRuntimeSelect } from './season-runtime.repository.js';
 
 describe('SeasonRuntimeRepository', () => {
@@ -10,7 +9,7 @@ describe('SeasonRuntimeRepository', () => {
     season: {
       findMany: vi.fn(),
     },
-    $queryRawTyped: vi.fn(),
+    getDatabaseNow: vi.fn(),
   };
 
   const repository = new SeasonRuntimeRepository(prisma as never);
@@ -23,15 +22,15 @@ describe('SeasonRuntimeRepository', () => {
     const now = new Date('2026-02-10T03:00:00.000Z');
 
     await expect(repository.resolveReferenceTime(now)).resolves.toBe(now);
-    expect(prisma.$queryRawTyped).not.toHaveBeenCalled();
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
   });
 
   it('falls back to DB current timestamp when reference time is not provided', async () => {
     const now = new Date('2026-02-10T03:00:00.000Z');
-    prisma.$queryRawTyped.mockResolvedValue([{ now }]);
+    prisma.getDatabaseNow.mockResolvedValue(now);
 
     await expect(repository.resolveReferenceTime()).resolves.toBe(now);
-    expect(prisma.$queryRawTyped).toHaveBeenCalledWith(getCurrentTimestamp());
+    expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(1);
   });
 
   it('reads operated campus metadata through a narrow select', async () => {

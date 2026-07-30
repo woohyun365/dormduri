@@ -63,7 +63,8 @@ Header의 KNU 로고를 form에 반복하지 않으며 독립 운영 고지는 d
 | `components/LoginLayout.tsx`                                                  | mobile/desktop layout, sticky assurance rail, service notice, PC header alignment |
 | `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                        |
 | `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                           |
-| `components/LoginRememberMeHint.tsx`                                          | rememberMe helper copy                                                            |
+| `components/LoginFeedbackStrip.tsx`                                           | route/session/result 상태의 compact feedback primitive                            |
+| `components/LoginSessionUnavailableStatus.tsx`                                | session dependency 지연과 login 가능 상태를 함께 안내                             |
 | `components/LoginSessionTransition.tsx`                                       | session check와 authenticated redirect를 구분하는 cardless status surface         |
 | `components/LoginSecondaryActions.tsx`                                        | password reset, signup, terms/privacy navigation actions                          |
 | `hooks/useLoginForm.ts`                                                       | submit orchestration, validation, countdown, redirect state                       |
@@ -144,8 +145,10 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 - Full-stack Playwright/dev server 실행 후 `apps/web/next-env.d.ts`가 `.next/dev/types` 경로로 drift될 수 있다. 생성 파일 drift는 commit하지 말고 revert한다.
 - Web-only smoke는 public route와 unauthenticated `/main -> /login` redirect를 API/DB 없이 확인한다.
 - Full-stack smoke는 DB/API/Web을 함께 띄워 실제 `/login` UI 입력 → BFF cookie → `/main` handoff를 확인한다.
+- `auth-session.fullstack.spec.ts`는 remember-off access 만료 후 renewal rotation과 logout 후 unauthenticated 수렴을 검증한다.
 - Browser 종료 시 session cookie 제거 자체는 jsdom/unit test로 재현하지 않는다. 자동화 테스트는 `Max-Age` 부재와 access 만료 후 renewal 복구를 검증하고, 실제 종료 동작은 browser smoke에서 확인한다.
 - 여러 tab이 같은 renewal token을 동시에 사용하면 한 요청만 cookie를 회전한다. 나머지는 stale 응답에서 cookie를 유지하고 browser session resolve를 한 번 재시도한다.
+- API 관측은 login outcome, real/dummy password verify p95·in-flight, renewal outcome만 low-cardinality metric으로 남기며 운영 절차는 `infra/runbooks/auth-session-incidents.md`를 따른다.
 
 ## Source of truth
 

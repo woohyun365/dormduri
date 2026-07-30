@@ -12,6 +12,11 @@ Product domains may import database platform services when they need runtime Pri
 - `RetentionDisclosurePrismaService`: restricted disclosure credential boundary.
 - `prisma-error.ts`: Prisma error helper.
 
+모든 Prisma PostgreSQL connection session timezone은 `UTC`로 고정한다. 제품의 KST
+날짜 표현은 `platform/time`에서 명시적으로 변환하며, `timestamptz` transport를 DB
+session timezone에 맡기지 않는다. `getDatabaseNow()`도 adapter의 timestamp 문자열
+해석에 의존하지 않도록 epoch seconds를 UTC `Date`로 변환한다.
+
 ## Directory responsibilities
 
 - `prisma.module.ts`: Prisma provider wiring and exports.

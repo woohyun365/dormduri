@@ -16,6 +16,7 @@ import {
 import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
 import { createOpaqueToken, hashOpaqueToken, parseOpaqueToken } from './opaque-token.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
+import { AuthSessionMetricsService } from './auth-session-metrics.service.js';
 import { classifyRenewalToken, resolveRenewalRejectionReason } from './session-lifecycle.policy.js';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class RenewSessionCommand {
     @Inject(authConfig.KEY)
     private readonly authSettings: ConfigType<typeof authConfig>,
     @Optional() private readonly securityEvents?: AuthSecurityEventService,
+    @Optional() private readonly sessionMetrics?: AuthSessionMetricsService,
   ) {}
 
   async execute(
@@ -33,6 +35,7 @@ export class RenewSessionCommand {
   ): Promise<RenewSessionResult> {
     const parsedRenewalToken = parseOpaqueToken(renewalToken);
     if (!parsedRenewalToken) {
+      this.sessionMetrics?.recordRenewal('required');
       await this.recordOpaqueTransportRejected('renewal', 'malformed_or_legacy', requestContext);
       return authFailures.sessionRenewalRequired();
     }
@@ -102,10 +105,12 @@ export class RenewSessionCommand {
     });
 
     if (!renewalAttempt) {
+      this.sessionMetrics?.recordRenewal('required');
       return authFailures.sessionRenewalRequired();
     }
 
     if (renewalAttempt.kind === 'reused') {
+      this.sessionMetrics?.recordRenewal('reused');
       await recordAuthSecurityEventSafely(this.securityEvents, {
         type: 'SESSION_TOKEN_REUSE_DETECTED',
         severity: 'WARNING',
@@ -121,9 +126,11 @@ export class RenewSessionCommand {
     }
 
     if (renewalAttempt.kind === 'stale') {
+      this.sessionMetrics?.recordRenewal('stale');
       return authFailures.sessionRenewalStale(AUTH_SESSION_RENEWAL_STALE_RETRY_AFTER_MILLISECONDS);
     }
 
+    this.sessionMetrics?.recordRenewal('renewed');
     await recordAuthSecurityEventSafely(this.securityEvents, {
       type: 'SESSION_REFRESH_SUCCESS',
       severity: 'INFO',

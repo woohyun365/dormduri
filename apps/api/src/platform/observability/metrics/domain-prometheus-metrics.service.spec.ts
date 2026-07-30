@@ -41,6 +41,10 @@ describe('DomainPrometheusMetricsService', () => {
       labels: { outcome: 'success', sort: 'MATCH_SCORE' },
       value: 0.12,
     });
+    metrics.incrementCounter({
+      name: 'api_auth_session_renewals_total',
+      labels: { outcome: 'renewed' },
+    });
 
     const scrape = await registry.metrics();
     expect(scrape).toContain('api_realtime_dispatch_batches_total');
@@ -49,6 +53,8 @@ describe('DomainPrometheusMetricsService', () => {
     expect(scrape).toContain('api_realtime_dispatch_oldest_claimed_outbox_lag_seconds');
     expect(scrape).toContain('api_roommate_search_duration_seconds_bucket');
     expect(scrape).toContain('sort="match_score"');
+    expect(scrape).toContain('api_auth_session_renewals_total');
+    expect(scrape).toContain('outcome="renewed"');
   });
 
   it('rejects unknown or forbidden labels before they reach Prometheus', () => {

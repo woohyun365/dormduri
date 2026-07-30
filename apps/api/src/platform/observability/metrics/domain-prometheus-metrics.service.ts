@@ -104,6 +104,12 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Current login password verification operations by safe real or dummy target.',
     labelNames: ['target'],
   },
+  api_auth_session_renewals_total: {
+    name: 'api_auth_session_renewals_total',
+    kind: 'counter',
+    help: 'Total session renewal outcomes by bounded lifecycle result.',
+    labelNames: ['outcome'],
+  },
   api_seasons_current_query_total: {
     name: 'api_seasons_current_query_total',
     kind: 'counter',

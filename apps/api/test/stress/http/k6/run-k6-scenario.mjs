@@ -12,6 +12,7 @@ const validScenarios = new Set([
   'spike-500',
   'soak-250',
   'score-cohort-946',
+  'auth-login-capacity',
 ]);
 
 if (!scenario || !validScenarios.has(scenario)) {

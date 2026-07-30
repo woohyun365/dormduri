@@ -8,9 +8,9 @@ test.describe('Web smoke', () => {
       window.fetch = (input, init) => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-        if (url.includes('/api/auth/session')) {
+        if (url.includes('/api/auth/session/resolve')) {
           return Promise.resolve(
-            new Response(JSON.stringify({ authenticated: false }), {
+            new Response(JSON.stringify({ status: 'unauthenticated' }), {
               status: 200,
               headers: { 'Content-Type': 'application/json' },
             }),
@@ -21,11 +21,11 @@ test.describe('Web smoke', () => {
       };
     });
 
-    await page.route('**/api/auth/session**', async (route) => {
+    await page.route('**/api/auth/session/resolve', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ authenticated: false }),
+        body: JSON.stringify({ status: 'unauthenticated' }),
       });
     });
   });

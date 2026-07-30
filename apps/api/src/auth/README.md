@@ -18,7 +18,7 @@
 - `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
 - `domain/`: request context, constants/types/utils 같은 pure/domain helper. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
-- `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy를 함께 둔다.
+- `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric을 함께 둔다.
 - `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, proof consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
 - `credentials/`: `auth-credential-use-cases.service.ts`, `password-hash.ts`, password hash adapter, login/reset/change password command를 함께 둔다. 외부 users deletion은 `application/auth-password-hash.ts` bridge만 사용한다.
 - `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy, login network throttle와 no-PII metric을 함께 둔다. 계정 잠금과 IP throttle을 하나의 bucket으로 합치지 않는다.
@@ -38,6 +38,7 @@
 - `AuthOperationsModule`은 `@Global()` module이 아니다.
 - JWT transport/JWT bridge를 재도입하지 않는다.
 - Renewal rotation은 current hash를 previous hash로 옮기고 DB clock 기준 8초 grace를 둔다. Grace 안의 previous token은 stale이며, grace 밖의 old/unknown token만 reuse로 session family를 revoke한다.
+- Renewal metric은 `renewed|required|stale|reused` outcome만 기록하고 session/user/token 식별자를 label로 사용하지 않는다.
 - Missing/deleted/incomplete account login은 active hash와 같은 Argon2id profile의 canonical dummy hash를 검증한다. Active account lock은 cheap guard로 먼저 반환하는 명시적 예외다.
 - Login account lock은 Postgres `LoginAttempt`의 5회/5분 기준이고, network throttle은 trusted `request.ip` 기준 30회/1분 burst와 120회/10분 sustained bucket이다.
 - Password reset 성공은 proof consume, password update, session revoke와 함께 같은 serializable transaction에서 해당 email의 `LoginAttempt`를 제거한다.

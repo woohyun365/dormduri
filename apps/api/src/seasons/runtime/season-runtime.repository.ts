@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { Campus } from '../../generated/prisma/enums.js';
-import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 
 export const seasonRuntimeSelect = {
@@ -48,13 +47,7 @@ export class SeasonRuntimeRepository {
       return now;
     }
 
-    const [row] = await this.prisma.$queryRawTyped(getCurrentTimestamp());
-
-    if (!row?.now) {
-      return new Date();
-    }
-
-    return row.now instanceof Date ? row.now : new Date(row.now);
+    return this.prisma.getDatabaseNow();
   }
 
   async isCampusOperated(campusCode: Campus) {

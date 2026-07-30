@@ -226,8 +226,12 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     path: 'prisma/sql/getCurrentTimestamp.sql',
     owner: 'platform/database',
     category: 'db-time',
-    requiredPatterns: [/SELECT\s+CURRENT_TIMESTAMP\s+AS\s+"now"/i],
-    rationale: 'canonical database timestamp helper for product persistence time.',
+    requiredPatterns: [
+      /EXTRACT\s*\(\s*EPOCH\s+FROM\s+CURRENT_TIMESTAMP\s*\)/i,
+      /DOUBLE\s+PRECISION\s+AS\s+"epochSeconds"/i,
+    ],
+    rationale:
+      'canonical database timestamp helper returns an adapter-timezone-independent epoch value.',
   }),
   sqlEntry({
     path: 'prisma/sql/getMigrationBaselineHealth.sql',

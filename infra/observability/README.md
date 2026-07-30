@@ -110,6 +110,7 @@ Stress window 동안 우선 확인할 항목은 다음과 같다.
 - Prometheus `api` target이 `UP`인지 확인한다.
 - Grafana `KNU API Overview`에서 5xx rate, HTTP p95/p99 latency, in-flight request를 확인한다.
 - Grafana `KNU API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup lag, retention backlog를 확인한다.
+- 같은 dashboard에서 login outcome, real/dummy password verify p95·in-flight, renewal outcome을 함께 확인한다.
 - Loki는 API가 Dockerized `api` service로 실행될 때 `{service="api", level="error"}`를 확인한다. Host process API는 Docker log source가 아니므로 Loki API log가 없을 수 있다.
 - 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다. 4GB instance는 API와 stack을 함께 띄우는 rehearsal에 더 안전하다.
 
@@ -134,7 +135,11 @@ Prometheus rule은 Alertmanager로 route된다. Alertmanager는 기본적으로 
 - `PrismaPoolWaitingHigh`
 - `RetentionReviewBacklogHigh`
 - `AuthCleanupLagHigh`
+- `AuthPasswordVerifyInFlightHigh`
+- `AuthSessionRenewalReuseDetected`
 - `SlackAlertSmokeNonFiring` — non-firing guard. 실제 발송은 `infra/observability/slack/send-alertmanager-smoke.sh`로 수행
+
+Login/session alert의 metric query, 개인정보 금지 경계, 복구 순서는 `infra/runbooks/auth-session-incidents.md`를 따른다.
 
 Slack delivery 활성화:
 

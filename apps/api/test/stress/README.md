@@ -55,6 +55,7 @@ Seed/reset runner는 기본적으로 **dry-run**이다. `STRESS_FIXTURE_APPLY=I_
 - stress 확장 cohort: `stressCohortSize=946`
 - deterministic actor id: `stress-local-actor-0001` 형식
 - deterministic user/participant/profile/dormitory id: stress prefix 기반
+- fixture season namespace: 실제 학기 seed의 `(campusCode, academicYear, semester)`와 충돌하지 않는 `2099-1`
 
 actor plan에는 seed에 필요한 email/password/token/session 값이 포함될 수 있지만, report/log에 출력할 때는 반드시 `buildStressFixtureSafeSummary` 또는 `redactStressFixtureSecrets`를 거친다.
 
@@ -143,6 +144,7 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:spike
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:soak
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:auth-login
 STRESS_TARGET_URL=http://127.0.0.1:4000 STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:smoke
 ```
 
