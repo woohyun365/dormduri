@@ -41,4 +41,10 @@ export interface GenericSuccessResult {
   retryAfterSeconds?: number;
 }
 
+export interface VerificationGrantIssueResult extends GenericSuccessResult {
+  grantExpiresInSeconds?: number;
+  signupGrant?: string;
+  resetGrant?: string;
+}
+
 export type SessionStatusResult = ApiSessionResponse;

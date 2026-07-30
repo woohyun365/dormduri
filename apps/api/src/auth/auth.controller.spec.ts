@@ -146,7 +146,7 @@ describe('AuthController', () => {
       accessToken: 'signup-token',
     });
 
-    expect(authService.signup).toHaveBeenCalledWith(body);
+    expect(authService.signup).toHaveBeenCalledWith(body, null);
   });
 
   it('signup draft validation route는 /auth/validate-signup-draft로 노출된다', () => {

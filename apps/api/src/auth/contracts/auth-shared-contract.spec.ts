@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   changePasswordRequestSchema,
   renewSessionRequestSchema,
+  resetPasswordRequestSchema,
   signupDraftValidationRequestSchema,
   signupRequestSchema,
 } from '@repo/shared/auth/contract';
@@ -16,6 +17,9 @@ import {
   loginResponseSchema,
   renewSessionStaleResponseSchema,
   renewSessionResponseSchema,
+  verifyCodeResponseSchema,
+  verifyResetCodeTransportResponseSchema,
+  verifySignupCodeTransportResponseSchema,
   signupResponseSchema,
 } from '@repo/shared/auth/response';
 import { loginResponseSchema as granularLoginResponseSchema } from '@repo/shared/auth/response';
@@ -38,6 +42,41 @@ const SIGNUP_LEGAL_ACCEPTANCES = {
 } as const;
 
 describe('auth shared contract guards', () => {
+  it('browser reset contract는 email/grant를 거부하고 transport verify contract만 raw grant를 허용한다', () => {
+    const opaqueGrant = `v1.verification-code.${'g'.repeat(43)}`;
+
+    expect(resetPasswordRequestSchema.parse({ newPassword: 'pass1234' })).toEqual({
+      newPassword: 'pass1234',
+    });
+    expect(
+      resetPasswordRequestSchema.safeParse({
+        email: 'student@kangwon.ac.kr',
+        newPassword: 'pass1234',
+      }).success,
+    ).toBe(false);
+    expect(
+      verifyResetCodeTransportResponseSchema.safeParse({
+        success: true,
+        resetGrant: opaqueGrant,
+        grantExpiresInSeconds: 900,
+      }).success,
+    ).toBe(true);
+    expect(
+      verifySignupCodeTransportResponseSchema.safeParse({
+        success: true,
+        signupGrant: opaqueGrant,
+        grantExpiresInSeconds: 900,
+      }).success,
+    ).toBe(true);
+    expect(
+      verifyCodeResponseSchema.safeParse({
+        success: true,
+        resetGrant: opaqueGrant,
+        grantExpiresInSeconds: 900,
+      }).success,
+    ).toBe(false);
+  });
+
   it('signup request는 display identity와 academic identity 입력을 받고 profile orchestration 필드를 받지 않는다', () => {
     const signupAccountIdentityInput = {
       email: 'student@kangwon.ac.kr',

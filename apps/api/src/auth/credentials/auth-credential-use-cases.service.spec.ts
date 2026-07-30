@@ -24,7 +24,7 @@ describe('AuthCredentialUseCases', () => {
     issueAuthResult: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedResetCode: vi.fn(),
+    resolveVerificationGrant: vi.fn(),
   };
   const securityEvents = {
     recordSafely: vi.fn(),
@@ -86,11 +86,11 @@ describe('AuthCredentialUseCases', () => {
   });
 
   it('reset/change password는 owning command에 필요한 dependencies를 조립한다', async () => {
+    const verificationGrant = `v1.code-1.${'g'.repeat(43)}`;
+    verificationService.resolveVerificationGrant.mockResolvedValueOnce(null);
     prisma.user.findUnique.mockResolvedValueOnce(null);
 
-    await expect(
-      useCases.resetPassword('missing@kangwon.ac.kr', 'NewPass1234'),
-    ).resolves.toMatchObject({
+    await expect(useCases.resetPassword(verificationGrant, 'NewPass1234')).resolves.toMatchObject({
       success: false,
       code: 'AUTH_RESET_RESTART_REQUIRED',
     });
@@ -105,7 +105,10 @@ describe('AuthCredentialUseCases', () => {
       code: 'AUTH_REAUTHENTICATION_REQUIRED',
     });
 
-    expect(verificationService.findLatestVerifiedResetCode).not.toHaveBeenCalled();
+    expect(verificationService.resolveVerificationGrant).toHaveBeenCalledWith(
+      verificationGrant,
+      'RESET_PASSWORD',
+    );
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 });

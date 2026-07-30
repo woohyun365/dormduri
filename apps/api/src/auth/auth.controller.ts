@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './application/auth.service.js';
@@ -11,6 +11,7 @@ import {
   signupDraftValidationRequestSchema,
   signupRequestSchema,
   verificationCodeRequestSchema,
+  AUTH_VERIFICATION_GRANT_HEADER,
 } from '@repo/shared/auth/contract';
 import { parseRequestBody } from '../platform/http/zod-request.js';
 import { OptionalAuth, Public, RequireCapability } from './access/auth-access.decorator.js';
@@ -73,9 +74,12 @@ export class AuthController {
   }
 
   @Post('signup')
-  async signup(@Body() body: unknown) {
+  async signup(
+    @Body() body: unknown,
+    @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant?: string,
+  ) {
     const parsed = parseRequestBody(signupRequestSchema, body);
-    return this.authService.signup(parsed);
+    return this.authService.signup(parsed, verificationGrant ?? null);
   }
 
   @Post('login')
@@ -92,10 +96,14 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() body: unknown, @Req() req: Request) {
+  async resetPassword(
+    @Body() body: unknown,
+    @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant: string | undefined,
+    @Req() req: Request,
+  ) {
     const parsed = parseRequestBody(resetPasswordRequestSchema, body);
     return this.authService.resetPassword(
-      parsed.email,
+      verificationGrant ?? null,
       parsed.newPassword,
       resolveAuthRequestContext(req),
     );

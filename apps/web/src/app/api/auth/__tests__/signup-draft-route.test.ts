@@ -6,6 +6,7 @@ import { POST as postVerifyEmailCode } from '../verify-email-code/route';
 
 const VALID_EMAIL = 'student@kangwon.ac.kr';
 const VALID_CODE = '123456';
+const VALID_SIGNUP_GRANT = `v1.signup-code.${'s'.repeat(43)}`;
 const DRAFT_BODY = {
   email: VALID_EMAIL,
   password: 'pass1234',
@@ -73,10 +74,17 @@ describe('auth signup draft and email verification BFF routes', () => {
 
   it('verify-email-code는 valid VerificationCodeRequest만 backend verify endpoint로 전달한다', async () => {
     const fetchMock = vi.fn(async () => {
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          signupGrant: VALID_SIGNUP_GRANT,
+          grantExpiresInSeconds: 900,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -93,7 +101,17 @@ describe('auth signup draft and email verification BFF routes', () => {
       email: VALID_EMAIL,
       code: VALID_CODE,
     });
-    await expect(response.json()).resolves.toEqual({ success: true });
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      grantExpiresInSeconds: 900,
+    });
+    expect(response.cookies.get('signup-verification-grant')).toMatchObject({
+      value: VALID_SIGNUP_GRANT,
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 900,
+    });
   });
 
   it('canonical validate-signup-draft route forwards to backend draft endpoint', async () => {

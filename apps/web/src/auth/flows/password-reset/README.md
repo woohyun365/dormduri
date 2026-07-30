@@ -21,24 +21,40 @@ It lets a user request a reset code through the Web BFF, verify the code, set a 
 
 ## Directory map
 
-| Path                                           | Responsibility                                                                                                   |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `PasswordResetPageClient.tsx`                  | Connects flow hook state/actions to step components and layout.                                                  |
-| `components/PasswordResetLayout.tsx`           | Login-like page shell, desktop help panel, right-side service notice, stable form card anchor.                   |
-| `components/PasswordResetEmailHelpMessage.tsx` | Shared mailbox/spam-folder help copy used by mobile email step and desktop aside.                                |
-| `components/PasswordResetEmailStep.tsx`        | Email input step and mobile mailbox/spam-folder help block.                                                      |
-| `components/PasswordResetVerificationStep.tsx` | Verification-code entry and in-step sent-code notice card.                                                       |
-| `components/`                                  | Presentational layout, notices, progress, status alert, and step components.                                     |
-| `hooks/usePasswordResetFlow.ts`                | Owns reset flow side effects, reducer dispatching, route handoff, cooldown coordination, and retry-after status. |
-| `hooks/usePasswordResetSessionNotice.ts`       | Optional session probe used only to show a non-blocking authenticated-user notice.                               |
-| `hooks/usePasswordResetCooldown.ts`            | Countdown timer primitive for verification-code TTL and retry-after display.                                     |
-| `model/password-reset-flow.*`                  | Feature-local reducer state/action/result contracts.                                                             |
-| `model/password-reset-copy.ts`                 | User-facing copy shared by layout and flow status mapping.                                                       |
-| `model/password-reset-error.mapper.ts`         | Retry-after normalization and reset-restart code mapping.                                                        |
-| `model/password-reset-storage.guard.ts`        | Storage/history write patterns used by the guard test.                                                           |
-| `__tests__/PasswordReset.test.tsx`             | Page-level integration regression for the complete flow and layout/copy invariants.                              |
+| Path                                                   | Responsibility                                                                                                   |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `PasswordResetPageClient.tsx`                          | Connects route/session handoff, flow controller, and the production view.                                        |
+| `PasswordResetFlowView.tsx`                            | Production and Storybook composition for steps, status, notices, and layout.                                     |
+| `components/PasswordResetLayout.tsx`                   | Login-like page shell, desktop help panel, right-side service notice, stable form card anchor.                   |
+| `components/PasswordResetEmailHelpMessage.tsx`         | Shared mailbox/spam-folder help copy used by mobile email step and desktop aside.                                |
+| `components/PasswordResetEmailStep.tsx`                | Email input step and mobile mailbox/spam-folder help block.                                                      |
+| `components/PasswordResetVerificationStep.tsx`         | Verification-code entry and in-step sent-code notice card.                                                       |
+| `components/`                                          | Presentational layout, notices, progress, status alert, and step components.                                     |
+| `hooks/usePasswordResetFlow.ts`                        | Owns reset flow side effects, reducer dispatching, route handoff, cooldown coordination, and retry-after status. |
+| `hooks/usePasswordResetSessionNotice.ts`               | Optional session probe used only to show a non-blocking authenticated-user notice.                               |
+| `hooks/usePasswordResetCooldown.ts`                    | Countdown timer primitive for verification-code TTL and retry-after display.                                     |
+| `model/password-reset-flow.*`                          | Feature-local reducer state/action/result contracts.                                                             |
+| `model/password-reset-copy.ts`                         | User-facing copy shared by layout and flow status mapping.                                                       |
+| `model/password-reset-error.mapper.ts`                 | Retry-after normalization and reset-restart code mapping.                                                        |
+| `model/__tests__/password-reset-storage.guard.test.ts` | Self-contained source guard that prevents storage/history writes of reset secrets.                               |
+| `__tests__/PasswordReset.test.tsx`                     | Page-level integration regression for the complete flow and layout/copy invariants.                              |
 
 ## UX copy and security notes
+
+## Test cleanup map
+
+- `__tests__/PasswordReset.test.tsx`: step 전환, focus, role, field error와 영역 순서는
+  회귀 경계로 유지한다. 색상·간격·responsive utility class를 직접 고정한 assertion은
+  layout 개선 단계에서 semantic locator 또는 viewport smoke로 교체한다.
+- `components/__tests__/PasswordResetNewPasswordStep.test.tsx`: password field label,
+  autocomplete, validation과 submit contract만 소유하며 시각 token snapshot은 추가하지 않는다.
+- `hooks/__tests__/usePasswordResetCooldown.test.tsx`: countdown의 시간 의미만 소유하고
+  timer 표현 class는 검증하지 않는다.
+- `model/__tests__/password-reset-flow.reducer.test.ts`: state transition만 소유한다.
+- `model/__tests__/password-reset-storage.guard.test.ts`: code, password, grant의 browser
+  storage·history 기록 금지를 검사하는 source boundary이므로 유지한다.
+- `stories/password-reset/*.stories.tsx`: production `PasswordResetFlowView`를 사용하고
+  interaction은 role·label·사용자 문구를 기준으로 검증한다.
 
 - Password reset request/verify APIs remain neutral and must not reveal whether the account exists.
 - The screen also avoids raw account-existence wording in the main success path.

@@ -11,15 +11,13 @@ describe('AuthVerificationService', () => {
     findRetryAfterSeconds: vi.fn(),
     findBackstopRetryAfterSeconds: vi.fn(),
     createRequestLog: vi.fn(),
-    findLatestVerifiedSignupCode: vi.fn(),
-    findLatestVerifiedResetCode: vi.fn(),
-    consumeVerificationCode: vi.fn(),
     invalidateActiveSignupCodes: vi.fn(),
     replaceActiveSignupCode: vi.fn(),
     replaceActiveResetCode: vi.fn(),
     insertVerificationCode: vi.fn(),
     findActiveVerificationRecord: vi.fn(),
-    markVerified: vi.fn(),
+    markVerifiedAndIssueGrant: vi.fn(),
+    resolveVerificationGrant: vi.fn(),
     recordVerificationFailure: vi.fn(),
     incrementFailedAttempts: vi.fn(),
     failAndConsume: vi.fn(),
@@ -59,22 +57,11 @@ describe('AuthVerificationService', () => {
     vi.clearAllMocks();
     verificationStore.findRetryAfterSeconds.mockResolvedValue(null);
     verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(null);
-    verificationStore.markVerified.mockResolvedValue(true);
+    verificationStore.markVerifiedAndIssueGrant.mockResolvedValue(true);
     verificationStore.recordVerificationFailure.mockResolvedValue({
       recorded: true,
       consumed: false,
     });
-  });
-
-  it('signup 완료용 verified code 조회는 store로 위임한다', async () => {
-    verificationStore.findLatestVerifiedSignupCode.mockResolvedValue(null);
-
-    await service.findLatestVerifiedSignupCode('test@kangwon.ac.kr');
-
-    expect(verificationStore.findLatestVerifiedSignupCode).toHaveBeenCalledWith(
-      'test@kangwon.ac.kr',
-      expect.any(Number),
-    );
   });
 
   it('signup code 재발급 시 serializable helper 경로로 active signup code를 교체한다', async () => {
@@ -127,15 +114,19 @@ describe('AuthVerificationService', () => {
     );
   });
 
-  it('reset verified code 조회는 store로 위임한다', async () => {
-    verificationStore.findLatestVerifiedResetCode.mockResolvedValue(null);
+  it.fails(
+    '메일 provider 실패는 기존 활성 reset code를 교체하거나 공개 응답을 바꾸지 않는다',
+    async () => {
+      emailSender.sendPasswordResetCode.mockRejectedValue(new Error('provider unavailable'));
 
-    await service.findLatestVerifiedResetCode('test@kangwon.ac.kr');
+      const result = await service
+        .maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1')
+        .catch((error: unknown) => error);
 
-    expect(verificationStore.findLatestVerifiedResetCode).toHaveBeenCalledWith(
-      'test@kangwon.ac.kr',
-    );
-  });
+      expect(result).toEqual({ success: true });
+      expect(verificationStore.replaceActiveResetCode).not.toHaveBeenCalled();
+    },
+  );
 
   it('email+purpose backstop 제한이 걸리면 code 요청을 차단한다', async () => {
     verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(120);
@@ -185,16 +176,34 @@ describe('AuthVerificationService', () => {
       failedAttempts: 0,
     });
 
-    await expect(service.verifyEmailCode('test@kangwon.ac.kr', '123456')).resolves.toEqual({
-      success: true,
-    });
+    const result = await service.verifyEmailCode('test@kangwon.ac.kr', '123456');
 
-    expect(verificationStore.markVerified).toHaveBeenCalledWith({
+    expect(result).toMatchObject({
+      success: true,
+      grantExpiresInSeconds: 900,
+    });
+    expect(result.signupGrant).toMatch(/^v1\.code-1\.[A-Za-z0-9_-]{43}$/);
+
+    const issueGrantInput = verificationStore.markVerifiedAndIssueGrant.mock.calls[0]?.[0] as
+      | {
+          id: string;
+          emailNormalized: string;
+          purpose: string;
+          maxAttempts: number;
+          grantTokenHash: string;
+          grantTtlSeconds: number;
+          eligibleUserId: string | null;
+        }
+      | undefined;
+    expect(issueGrantInput).toMatchObject({
       id: 'code-1',
       emailNormalized: 'test@kangwon.ac.kr',
       purpose: 'SIGNUP',
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      grantTtlSeconds: 900,
+      eligibleUserId: null,
     });
+    expect(issueGrantInput?.grantTokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(securityEvents.recordSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'VERIFICATION_CODE_VERIFY_SUCCESS',
@@ -251,7 +260,9 @@ describe('AuthVerificationService', () => {
       failedAttempts: 4,
     });
 
-    await expect(service.verifyResetCode('test@kangwon.ac.kr', '654321')).resolves.toMatchObject({
+    await expect(
+      service.verifyResetCode('test@kangwon.ac.kr', '654321', 'user-1'),
+    ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_VERIFICATION_CODE_INVALID',
     });

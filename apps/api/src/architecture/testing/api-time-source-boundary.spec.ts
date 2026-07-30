@@ -489,11 +489,6 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
 
 const sqlTimeUsageInventory: readonly SqlTimeInventoryEntry[] = [
   sqlEntry({
-    path: 'prisma/sql/consumeVerificationCodeProof.sql',
-    owner: 'auth/verification',
-    rationale: 'verification consume uses DB CURRENT_TIMESTAMP to keep expiry checks inside SQL.',
-  }),
-  sqlEntry({
     path: 'prisma/sql/getActiveLoginLock.sql',
     owner: 'auth/login-attempts',
     rationale: 'login lock remaining time and active lock predicate are DB-time based.',
@@ -507,16 +502,6 @@ const sqlTimeUsageInventory: readonly SqlTimeInventoryEntry[] = [
     path: 'prisma/sql/getCurrentTimestamp.sql',
     owner: 'platform/database',
     rationale: 'canonical DB now helper used by PrismaService.getDatabaseNow().',
-  }),
-  sqlEntry({
-    path: 'prisma/sql/getLatestVerifiedResetCode.sql',
-    owner: 'auth/verification',
-    rationale: 'reset proof lookup uses DB CURRENT_TIMESTAMP to enforce expiry.',
-  }),
-  sqlEntry({
-    path: 'prisma/sql/getLatestVerifiedSignupCode.sql',
-    owner: 'auth/verification',
-    rationale: 'signup proof lookup uses DB CURRENT_TIMESTAMP for proof TTL.',
   }),
   sqlEntry({
     path: 'prisma/sql/getVerificationBackstopRetryAfterSeconds.sql',

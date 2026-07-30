@@ -1362,6 +1362,9 @@ CREATE TABLE "VerificationCode" (
     "issuedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "verifiedAt" TIMESTAMPTZ(3),
+    "grantTokenHash" TEXT,
+    "grantExpiresAt" TIMESTAMPTZ(3),
+    "eligibleUserId" TEXT,
     "consumedAt" TIMESTAMPTZ(3),
     "requestIp" TEXT,
 
@@ -2055,6 +2058,12 @@ CREATE INDEX "VerificationCode_emailNormalized_purpose_idx" ON "VerificationCode
 
 -- CreateIndex
 CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "VerificationCode_grantTokenHash_key" ON "VerificationCode"("grantTokenHash");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_grantExpiresAt_idx" ON "VerificationCode"("grantExpiresAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCode_consumedAt_idx" ON "VerificationCode"("consumedAt");

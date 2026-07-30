@@ -9,6 +9,7 @@ import {
   verifyPasswordHash,
 } from '../../../src/auth/application/auth-password-hash.js';
 import { normalizeEmail, normalizeNickname } from '../../../src/auth/domain/auth.utils.js';
+import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
@@ -34,6 +35,13 @@ type AuthContext = {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
 };
+
+const signupLegalDocumentIds = {
+  termsVersionId: 'auth-users-transaction-terms',
+  privacyPolicyVersionIdShown: 'auth-users-transaction-privacy',
+  personalDataConsentVersionId: 'auth-users-transaction-personal-data-consent',
+  ageNoticeVersionId: 'auth-users-transaction-age-notice',
+} as const;
 
 describe('Auth/users transaction rollback and race integration', () => {
   let prisma: PrismaService;
@@ -139,22 +147,26 @@ describe('Auth/users transaction rollback and race integration', () => {
         const verificationCodeId = 'signup-academic-identity-code';
 
         await seedAcademicIdentityReferenceData();
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'SIGNUP',
         });
 
         await expect(
-          authService.signup({
-            email,
-            password: 'Pass1234',
-            nickname: '학업가입',
-            gender: 'M',
-            campus: 'CHUNCHEON',
-            collegeCode: 'CHUNCHEON_IT',
-            birthYear: 2002,
-          } as never),
+          authService.signup(
+            {
+              email,
+              password: 'Pass1234',
+              nickname: '학업가입',
+              gender: 'M',
+              campus: 'CHUNCHEON',
+              collegeCode: 'CHUNCHEON_IT',
+              birthYear: 2002,
+              legalAcceptances: signupLegalDocumentIds,
+            } as never,
+            verificationGrant,
+          ),
         ).resolves.toMatchObject({ success: true });
 
         const createdUser = await prisma.user.findUniqueOrThrow({
@@ -201,7 +213,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         const gate = createGate();
 
         await seedAcademicIdentityReferenceData();
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'SIGNUP',
@@ -211,9 +223,14 @@ describe('Auth/users transaction rollback and race integration', () => {
           {
             prisma,
             verificationService: {
-              async findLatestVerifiedSignupCode() {
+              async resolveVerificationGrant() {
                 await gate.block();
-                return { id: verificationCodeId };
+                return resolvedGrant({
+                  id: verificationCodeId,
+                  emailNormalized,
+                  purpose: 'SIGNUP',
+                  verificationGrant,
+                });
               },
             },
             sessionService: authSessionService,
@@ -231,7 +248,9 @@ describe('Auth/users transaction rollback and race integration', () => {
             campus: 'CHUNCHEON',
             collegeCode: 'CHUNCHEON_IT',
             birthYear: 2002,
+            legalAcceptances: signupLegalDocumentIds,
           } as never,
+          verificationGrant,
         );
 
         await gate.waitUntilBlocked();
@@ -267,31 +286,39 @@ describe('Auth/users transaction rollback and race integration', () => {
         const emailNormalized = normalizeEmail(email);
         const verificationCodeId = 'signup-code-race-proof';
         await seedAcademicIdentityReferenceData();
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'SIGNUP',
         });
 
         const settled = await Promise.allSettled([
-          authService.signup({
-            email,
-            password: 'Pass1234',
-            nickname: '동시가입',
-            gender: 'M',
-            campus: 'CHUNCHEON',
-            collegeCode: 'CHUNCHEON_IT',
-            birthYear: 2002,
-          } as never),
-          authService.signup({
-            email,
-            password: 'Pass1234',
-            nickname: '동시가입',
-            gender: 'M',
-            campus: 'CHUNCHEON',
-            collegeCode: 'CHUNCHEON_IT',
-            birthYear: 2002,
-          } as never),
+          authService.signup(
+            {
+              email,
+              password: 'Pass1234',
+              nickname: '동시가입',
+              gender: 'M',
+              campus: 'CHUNCHEON',
+              collegeCode: 'CHUNCHEON_IT',
+              birthYear: 2002,
+              legalAcceptances: signupLegalDocumentIds,
+            } as never,
+            verificationGrant,
+          ),
+          authService.signup(
+            {
+              email,
+              password: 'Pass1234',
+              nickname: '동시가입',
+              gender: 'M',
+              campus: 'CHUNCHEON',
+              collegeCode: 'CHUNCHEON_IT',
+              birthYear: 2002,
+              legalAcceptances: signupLegalDocumentIds,
+            } as never,
+            verificationGrant,
+          ),
         ]);
 
         const fulfilled = settled.map((result) => {
@@ -354,10 +381,11 @@ describe('Auth/users transaction rollback and race integration', () => {
             },
           ],
         });
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'RESET_PASSWORD',
+          eligibleUserId: userId,
         });
         await prisma.loginAttempt.create({
           data: {
@@ -369,7 +397,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           },
         });
 
-        await expect(authService.resetPassword(email, 'NewPass1234')).resolves.toEqual({
+        await expect(authService.resetPassword(verificationGrant, 'NewPass1234')).resolves.toEqual({
           success: true,
         });
 
@@ -413,10 +441,11 @@ describe('Auth/users transaction rollback and race integration', () => {
             expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
           },
         });
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'RESET_PASSWORD',
+          eligibleUserId: userId,
           consumedAt: databaseNow,
         });
         await prisma.loginAttempt.create({
@@ -434,8 +463,16 @@ describe('Auth/users transaction rollback and race integration', () => {
             {
               prisma,
               verificationService: {
-                findLatestVerifiedResetCode() {
-                  return Promise.resolve({ id: verificationCodeId });
+                resolveVerificationGrant() {
+                  return Promise.resolve(
+                    resolvedGrant({
+                      id: verificationCodeId,
+                      emailNormalized,
+                      purpose: 'RESET_PASSWORD',
+                      eligibleUserId: userId,
+                      verificationGrant,
+                    }),
+                  );
                 },
               },
               loginAttemptService: {
@@ -449,7 +486,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                 },
               },
             },
-            email,
+            verificationGrant,
             'NewPass1234',
           ),
         ).resolves.toMatchObject({
@@ -501,6 +538,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           id: verificationCodeId,
           emailNormalized,
           purpose: 'RESET_PASSWORD',
+          eligibleUserId: userId,
         });
 
         await expect(
@@ -551,6 +589,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
           },
         });
+        const verificationGrant = `v1.${verificationCodeId}.${'e'.repeat(43)}`;
         await prisma.verificationCode.create({
           data: {
             id: verificationCodeId,
@@ -560,6 +599,9 @@ describe('Auth/users transaction rollback and race integration', () => {
             issuedAt: new Date(databaseNow.getTime() - 20 * 60 * 1000),
             expiresAt: new Date(databaseNow.getTime() - 1000),
             verifiedAt: new Date(databaseNow.getTime() - 10 * 60 * 1000),
+            grantTokenHash: hashVerificationGrant(verificationGrant),
+            grantExpiresAt: new Date(databaseNow.getTime() - 1000),
+            eligibleUserId: userId,
           },
         });
 
@@ -568,8 +610,16 @@ describe('Auth/users transaction rollback and race integration', () => {
             {
               prisma,
               verificationService: {
-                findLatestVerifiedResetCode() {
-                  return Promise.resolve({ id: verificationCodeId });
+                resolveVerificationGrant() {
+                  return Promise.resolve(
+                    resolvedGrant({
+                      id: verificationCodeId,
+                      emailNormalized,
+                      purpose: 'RESET_PASSWORD',
+                      eligibleUserId: userId,
+                      verificationGrant,
+                    }),
+                  );
                 },
               },
               loginAttemptService: {
@@ -583,7 +633,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                 },
               },
             },
-            email,
+            verificationGrant,
             'NewPass1234',
           ),
         ).resolves.toMatchObject({
@@ -626,15 +676,16 @@ describe('Auth/users transaction rollback and race integration', () => {
             expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
           },
         });
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'RESET_PASSWORD',
+          eligibleUserId: userId,
         });
 
         const settled = await Promise.allSettled([
-          authService.resetPassword(email, 'NewPass1234'),
-          authService.resetPassword(email, 'OtherPass1234'),
+          authService.resetPassword(verificationGrant, 'NewPass1234'),
+          authService.resetPassword(verificationGrant, 'OtherPass1234'),
         ]);
         const fulfilled = settled.map((result) => {
           expect(result.status).toBe('fulfilled');
@@ -892,9 +943,11 @@ describe('Auth/users transaction rollback and race integration', () => {
     id: string;
     emailNormalized: string;
     purpose: 'SIGNUP' | 'RESET_PASSWORD';
+    eligibleUserId?: string | null;
     consumedAt?: Date | null;
   }) {
     const databaseNow = await prisma.getDatabaseNow();
+    const verificationGrant = `v1.${input.id}.${'g'.repeat(43)}`;
     await prisma.verificationCode.create({
       data: {
         id: input.id,
@@ -904,9 +957,30 @@ describe('Auth/users transaction rollback and race integration', () => {
         issuedAt: databaseNow,
         expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
         verifiedAt: databaseNow,
+        grantTokenHash: hashVerificationGrant(verificationGrant),
+        grantExpiresAt: new Date(databaseNow.getTime() + 15 * 60 * 1000),
+        eligibleUserId: input.eligibleUserId ?? null,
         consumedAt: input.consumedAt ?? null,
       },
     });
+    return verificationGrant;
+  }
+
+  function resolvedGrant(input: {
+    id: string;
+    emailNormalized: string;
+    purpose: 'SIGNUP' | 'RESET_PASSWORD';
+    verificationGrant: string;
+    eligibleUserId?: string | null;
+  }) {
+    return {
+      id: input.id,
+      emailNormalized: input.emailNormalized,
+      purpose: input.purpose,
+      eligibleUserId: input.eligibleUserId ?? null,
+      tokenHash: hashVerificationGrant(input.verificationGrant),
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    };
   }
 
   async function seedUserWithDisplayIdentity(input: {
@@ -1045,6 +1119,52 @@ describe('Auth/users transaction rollback and race integration', () => {
 
   async function seedAcademicIdentityReferenceData() {
     await seedBaseSeasonFixtures(prisma);
+    const databaseNow = await prisma.getDatabaseNow();
+    const effectiveAt = new Date(databaseNow.getTime() - 60_000);
+    await prisma.legalDocumentVersion.createMany({
+      data: [
+        {
+          id: signupLegalDocumentIds.termsVersionId,
+          kind: 'TERMS_OF_SERVICE',
+          version: 'auth-users-transaction-terms',
+          title: '인증 트랜잭션 테스트 이용약관',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.privacyPolicyVersionIdShown,
+          kind: 'PRIVACY_POLICY',
+          version: 'auth-users-transaction-privacy',
+          title: '인증 트랜잭션 테스트 개인정보 처리방침',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.personalDataConsentVersionId,
+          kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
+          version: 'auth-users-transaction-personal-data-consent',
+          title: '인증 트랜잭션 테스트 개인정보 수집·이용 동의',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.ageNoticeVersionId,
+          kind: 'AGE_14_OR_ABOVE_NOTICE',
+          version: 'auth-users-transaction-age-notice',
+          title: '인증 트랜잭션 테스트 연령 확인',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+      ],
+    });
     await prisma.collegeMaster.upsert({
       where: { code: 'CHUNCHEON_IT' },
       create: {

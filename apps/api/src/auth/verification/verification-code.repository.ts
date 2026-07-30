@@ -3,28 +3,33 @@ import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   acquireTransactionAdvisoryLock,
-  consumeVerificationCodeProof,
   getActiveVerificationRecord,
-  getLatestVerifiedResetCode,
-  getLatestVerifiedSignupCode,
   getVerificationBackstopRetryAfterSeconds,
   getVerificationRetryAfterSeconds,
-  markVerificationCodeVerified,
   recordVerificationCodeFailure,
 } from '../../generated/prisma/sql.js';
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
 } from './auth-verification-lock.js';
-
-export interface VerificationCodeHandle {
-  id: string;
-}
+import {
+  parseVerificationGrant,
+  safeCompareVerificationGrantHash,
+} from './auth-verification-grant.js';
 
 export interface VerificationRecord {
   id: string;
   codeHash: string;
   failedAttempts: number;
+}
+
+export interface ResolvedVerificationGrant {
+  id: string;
+  emailNormalized: string;
+  purpose: VerificationCodePurpose;
+  eligibleUserId: string | null;
+  tokenHash: string;
+  expiresAt: Date;
 }
 
 interface VerificationCodeInput {
@@ -102,32 +107,6 @@ export class AuthVerificationStore {
         requestIp,
       },
     });
-  }
-
-  async findLatestVerifiedSignupCode(
-    emailNormalized: string,
-    proofTtlSeconds: number,
-  ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawTyped(
-      getLatestVerifiedSignupCode(emailNormalized, proofTtlSeconds),
-    );
-
-    return record ?? null;
-  }
-
-  async findLatestVerifiedResetCode(
-    emailNormalized: string,
-  ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawTyped(getLatestVerifiedResetCode(emailNormalized));
-
-    return record ?? null;
-  }
-
-  async consumeVerificationCode(id: string): Promise<boolean> {
-    const consumedAt = await this.prisma.getDatabaseNow();
-    const rows = await this.prisma.$queryRawTyped(consumeVerificationCodeProof(id, consumedAt));
-
-    return rows.length === 1;
   }
 
   async invalidateActiveSignupCodes(emailNormalized: string): Promise<void> {
@@ -221,8 +200,15 @@ export class AuthVerificationStore {
     return record ?? null;
   }
 
-  async markVerified(input: VerificationCodeTransitionInput): Promise<boolean> {
-    const rows = await this.prisma.runSerializableTransaction(async (tx) => {
+  async markVerifiedAndIssueGrant(
+    input: VerificationCodeTransitionInput & {
+      grantTokenHash: string;
+      grantTtlSeconds: number;
+      eligibleUserId: string | null;
+    },
+  ): Promise<boolean> {
+    const verifiedAt = await this.prisma.getDatabaseNow();
+    const updated = await this.prisma.runSerializableTransaction(async (tx) => {
       await tx.$queryRawTyped(
         acquireTransactionAdvisoryLock(
           VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
@@ -230,10 +216,75 @@ export class AuthVerificationStore {
         ),
       );
 
-      return tx.$queryRawTyped(markVerificationCodeVerified(input.id, input.maxAttempts));
+      return tx.verificationCode.updateMany({
+        where: {
+          id: input.id,
+          purpose: input.purpose,
+          emailNormalized: input.emailNormalized,
+          verifiedAt: null,
+          consumedAt: null,
+          expiresAt: { gt: verifiedAt },
+          failedAttempts: { lt: input.maxAttempts },
+        },
+        data: {
+          verifiedAt,
+          grantTokenHash: input.grantTokenHash,
+          grantExpiresAt: new Date(verifiedAt.getTime() + input.grantTtlSeconds * 1000),
+          eligibleUserId: input.eligibleUserId,
+        },
+      });
     });
 
-    return rows.length === 1;
+    return updated.count === 1;
+  }
+
+  async resolveVerificationGrant(
+    rawGrant: string | null,
+    purpose: VerificationCodePurpose,
+  ): Promise<ResolvedVerificationGrant | null> {
+    const parsed = parseVerificationGrant(rawGrant);
+    if (!parsed) {
+      return null;
+    }
+
+    const [record, databaseNow] = await Promise.all([
+      this.prisma.verificationCode.findUnique({
+        where: { id: parsed.verificationCodeId },
+        select: {
+          id: true,
+          emailNormalized: true,
+          purpose: true,
+          eligibleUserId: true,
+          grantTokenHash: true,
+          grantExpiresAt: true,
+          verifiedAt: true,
+          consumedAt: true,
+        },
+      }),
+      this.prisma.getDatabaseNow(),
+    ]);
+
+    if (
+      !record ||
+      record.purpose !== purpose ||
+      !record.verifiedAt ||
+      record.consumedAt ||
+      !record.grantTokenHash ||
+      !record.grantExpiresAt ||
+      record.grantExpiresAt <= databaseNow ||
+      !safeCompareVerificationGrantHash(record.grantTokenHash, parsed.tokenHash)
+    ) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      emailNormalized: record.emailNormalized,
+      purpose: record.purpose,
+      eligibleUserId: record.eligibleUserId,
+      tokenHash: parsed.tokenHash,
+      expiresAt: record.grantExpiresAt,
+    };
   }
 
   async recordVerificationFailure(

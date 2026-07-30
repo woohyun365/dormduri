@@ -3,6 +3,8 @@ export type { GenericErrorResponse } from './base.js';
 export {
   loginResponseSchema,
   verifyCodeResponseSchema,
+  verifySignupCodeTransportResponseSchema,
+  verifyResetCodeTransportResponseSchema,
   signupResponseSchema,
   resetPasswordResponseSchema,
   changePasswordResponseSchema,
@@ -13,6 +15,8 @@ export {
 export type {
   LoginResponse,
   VerifyCodeResponse,
+  VerifySignupCodeTransportResponse,
+  VerifyResetCodeTransportResponse,
   SignupResponse,
   ResetPasswordResponse,
   ChangePasswordResponse,

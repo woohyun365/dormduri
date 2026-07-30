@@ -7,6 +7,7 @@ import { POST as postVerifyResetCode } from '../verify-reset-code/route';
 const VALID_EMAIL = 'student@kangwon.ac.kr';
 const VALID_CODE = '123456';
 const VALID_PASSWORD = 'NewPass1234';
+const VALID_GRANT = `v1.reset-code.${'g'.repeat(43)}`;
 
 function request(path: string, body: unknown) {
   return new NextRequest(`http://localhost${path}`, {
@@ -69,10 +70,17 @@ describe('auth password reset BFF routes', () => {
 
   it('verify-reset-code는 valid VerificationCodeRequest만 upstream으로 전달한다', async () => {
     const fetchMock = vi.fn(async () => {
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          resetGrant: VALID_GRANT,
+          grantExpiresInSeconds: 900,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -89,7 +97,43 @@ describe('auth password reset BFF routes', () => {
       email: VALID_EMAIL,
       code: VALID_CODE,
     });
-    await expect(response.json()).resolves.toEqual({ success: true });
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      grantExpiresInSeconds: 900,
+    });
+  });
+
+  it('인증 성공은 제한 grant를 HttpOnly cookie로 옮기고 browser response에는 만료 시간만 공개한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          resetGrant: VALID_GRANT,
+          grantExpiresInSeconds: 900,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postVerifyResetCode(
+      request('/api/auth/verify-reset-code', { email: VALID_EMAIL, code: VALID_CODE }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      grantExpiresInSeconds: 900,
+    });
+    expect(response.cookies.get('password-reset-grant')).toMatchObject({
+      value: VALID_GRANT,
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 900,
+    });
   });
 
   it('reset-password는 valid ResetPasswordRequest만 upstream으로 전달하고 성공 시 auth cookies를 clear한다', async () => {
@@ -102,7 +146,7 @@ describe('auth password reset BFF routes', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await postResetPassword(
-      request('/api/auth/reset-password', { email: VALID_EMAIL, newPassword: VALID_PASSWORD }),
+      request('/api/auth/reset-password', { newPassword: VALID_PASSWORD }),
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -110,15 +154,40 @@ describe('auth password reset BFF routes', () => {
       expect.objectContaining({ method: 'POST', cache: 'no-store' }),
     );
     const [, forwardedInit] = fetchCalls(fetchMock)[0]!;
-    expect(JSON.parse(String(forwardedInit.body))).toEqual({
-      email: VALID_EMAIL,
-      newPassword: VALID_PASSWORD,
-    });
+    expect(JSON.parse(String(forwardedInit.body))).toEqual({ newPassword: VALID_PASSWORD });
     await expect(response.json()).resolves.toEqual({ success: true });
     expect(response.cookies.get('auth-token')?.value).toBe('');
     expect(response.cookies.get('auth-token')?.maxAge).toBe(0);
     expect(response.cookies.get('auth-renewal-token')?.value).toBe('');
     expect(response.cookies.get('auth-renewal-token')?.maxAge).toBe(0);
+  });
+
+  it('reset browser request는 email 없이 제한 grant cookie로 subject authority를 전달한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postResetPassword(
+      new NextRequest('http://localhost/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          cookie: `password-reset-grant=${VALID_GRANT}`,
+        },
+        body: JSON.stringify({ newPassword: VALID_PASSWORD }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const [, forwardedInit] = fetchCalls(fetchMock)[0]!;
+    expect(JSON.parse(String(forwardedInit.body))).toEqual({
+      newPassword: VALID_PASSWORD,
+    });
+    expect(new Headers(forwardedInit.headers).get('X-Auth-Verification-Grant')).toBe(VALID_GRANT);
   });
 
   it('malformed JSON body는 reset upstream 전송 전에 endpoint별 invalid request로 거부한다', async () => {
@@ -163,7 +232,7 @@ describe('auth password reset BFF routes', () => {
       request('/api/auth/verify-reset-code', { email: VALID_EMAIL, code: 'abc' }),
     );
     const resetResponse = await postResetPassword(
-      request('/api/auth/reset-password', { email: VALID_EMAIL, newPassword: '' }),
+      request('/api/auth/reset-password', { newPassword: '' }),
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -226,7 +295,6 @@ describe('auth password reset BFF routes', () => {
 
     const response = await postResetPassword(
       request('/api/auth/reset-password', {
-        email: VALID_EMAIL,
         newPassword: VALID_PASSWORD,
         profile: { intro: 'reset route에서 받으면 안 되는 profile field입니다.' },
         debugToken: 'must-not-forward',
@@ -247,6 +315,25 @@ describe('auth password reset BFF routes', () => {
         admin: 'FORBIDDEN_FIELD',
         verificationProof: 'FORBIDDEN_FIELD',
       },
+    });
+  });
+
+  it('reset browser contract는 email 재전송을 거부한다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postResetPassword(
+      request('/api/auth/reset-password', {
+        email: VALID_EMAIL,
+        newPassword: VALID_PASSWORD,
+      }),
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      code: 'INVALID_RESET_PASSWORD_REQUEST',
+      fieldErrors: { email: 'FORBIDDEN_FIELD' },
     });
   });
 
@@ -276,7 +363,7 @@ describe('auth password reset BFF routes', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await postResetPassword(
-      request('/api/auth/reset-password', { email: VALID_EMAIL, newPassword: VALID_PASSWORD }),
+      request('/api/auth/reset-password', { newPassword: VALID_PASSWORD }),
     );
 
     expect(response.status).toBe(429);

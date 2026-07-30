@@ -1,8 +1,31 @@
+import type { NextRequest } from 'next/server';
 import { emailRequestSchema } from '@repo/shared/auth/contract';
-import { createStrictForwardPostHandler } from '@/auth/bff';
+import {
+  buildJsonResponse,
+  clearVerificationGrantCookie,
+  forwardAuthRequest,
+  getForwardHeaders,
+  parseStrictJsonRequest,
+  pickAuthMutationResponseBody,
+} from '@/auth/bff';
 
-export const POST = createStrictForwardPostHandler({
-  path: '/auth/send-signup-code',
-  schema: emailRequestSchema,
-  invalidCode: 'INVALID_SIGNUP_CODE_REQUEST',
-});
+export async function POST(request: NextRequest) {
+  const parsed = await parseStrictJsonRequest(
+    request,
+    emailRequestSchema,
+    'INVALID_SIGNUP_CODE_REQUEST',
+  );
+  if (!parsed.success) {
+    return parsed.response;
+  }
+
+  const { response, json } = await forwardAuthRequest(
+    'POST',
+    '/auth/send-signup-code',
+    parsed.data,
+    { headers: getForwardHeaders(request) },
+  );
+  const nextResponse = buildJsonResponse(response, pickAuthMutationResponseBody(json));
+  clearVerificationGrantCookie(nextResponse, 'signup');
+  return nextResponse;
+}

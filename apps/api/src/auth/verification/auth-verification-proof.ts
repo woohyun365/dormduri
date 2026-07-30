@@ -1,9 +1,6 @@
 import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
-import {
-  acquireTransactionAdvisoryLock,
-  consumeVerificationCodeProof,
-} from '../../generated/prisma/sql.js';
+import { acquireTransactionAdvisoryLock } from '../../generated/prisma/sql.js';
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
@@ -14,7 +11,10 @@ export const SIGNUP_VERIFICATION_PROOF_UNAVAILABLE =
 export const RESET_VERIFICATION_PROOF_UNAVAILABLE =
   '[AuthService] reset verification proof unavailable';
 
-type VerificationCodeConsumer = Pick<Prisma.TransactionClient, '$queryRawTyped'>;
+type VerificationCodeConsumer = Pick<
+  Prisma.TransactionClient,
+  '$queryRawTyped' | 'verificationCode'
+>;
 
 export async function acquireVerificationCodePurposeLock(
   tx: VerificationCodeConsumer,
@@ -29,17 +29,29 @@ export async function acquireVerificationCodePurposeLock(
   );
 }
 
-export async function consumeVerifiedCodeOrThrow(
+export async function consumeVerificationGrantOrThrow(
   tx: VerificationCodeConsumer,
-  verificationCodeId: string,
+  input: {
+    id: string;
+    purpose: VerificationCodePurpose;
+    tokenHash: string;
+  },
   consumedAt: Date,
   unavailableMessage: string,
 ): Promise<void> {
-  const rows = await tx.$queryRawTyped(
-    consumeVerificationCodeProof(verificationCodeId, consumedAt),
-  );
+  const result = await tx.verificationCode.updateMany({
+    where: {
+      id: input.id,
+      purpose: input.purpose,
+      grantTokenHash: input.tokenHash,
+      verifiedAt: { not: null },
+      grantExpiresAt: { gt: consumedAt },
+      consumedAt: null,
+    },
+    data: { consumedAt },
+  });
 
-  if (rows.length !== 1) {
+  if (result.count !== 1) {
     throw new Error(unavailableMessage);
   }
 }

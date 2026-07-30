@@ -1,11 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { verificationCodeRequestSchema } from '@repo/shared/auth/contract';
+import { verifyResetCodeTransportResponseSchema } from '@repo/shared/auth/response';
 import {
   buildJsonResponse,
   forwardAuthRequest,
   getForwardHeaders,
   parseStrictJsonRequest,
   pickAuthMutationResponseBody,
+  setVerificationGrantCookie,
 } from '@/auth/bff';
 
 export async function POST(request: NextRequest) {
@@ -18,14 +20,36 @@ export async function POST(request: NextRequest) {
     return parsed.response;
   }
 
-  const { response, json } = await forwardAuthRequest(
+  const { response, json, failureKind } = await forwardAuthRequest(
     'POST',
     '/auth/verify-reset-code',
     parsed.data,
     {
       headers: getForwardHeaders(request),
     },
+    { responseSchema: verifyResetCodeTransportResponseSchema },
   );
 
-  return buildJsonResponse(response, pickAuthMutationResponseBody(json));
+  if (failureKind) {
+    return buildJsonResponse(response, pickAuthMutationResponseBody(json));
+  }
+
+  const nextResponse = buildJsonResponse(response, {
+    ...pickAuthMutationResponseBody(json),
+    grantExpiresInSeconds: json.grantExpiresInSeconds,
+  });
+  if (
+    json.success === true &&
+    typeof json.resetGrant === 'string' &&
+    typeof json.grantExpiresInSeconds === 'number'
+  ) {
+    setVerificationGrantCookie(
+      nextResponse,
+      'password-reset',
+      json.resetGrant,
+      json.grantExpiresInSeconds,
+    );
+  }
+
+  return nextResponse;
 }

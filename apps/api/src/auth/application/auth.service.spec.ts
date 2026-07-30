@@ -161,7 +161,7 @@ describe('AuthService facade', () => {
       password: 'Pass1234',
       nickname: '테스터',
     });
-    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput);
+    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput, null);
     expect(credentialUseCases.login).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       'Pass1234',

@@ -93,7 +93,7 @@ export const authApi = {
   },
 
   resetPassword: async (
-    email: ResetPasswordRequest['email'],
+    email: EmailRequest['email'],
     newPassword: ResetPasswordRequest['newPassword'],
   ): Promise<ResetPasswordResponse> => {
     const passwordErr = validatePasswordStructure(newPassword, email);
@@ -108,7 +108,7 @@ export const authApi = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, newPassword }),
+        body: JSON.stringify({ newPassword }),
       },
     );
 

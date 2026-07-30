@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthVerificationStore } from './verification-code.repository.js';
+import { createVerificationGrant, hashVerificationGrant } from './auth-verification-grant.js';
 
 describe('AuthVerificationStore', () => {
   const txQueryRawTyped = vi.fn<(arg0: unknown) => Promise<unknown[]>>();
@@ -14,6 +15,7 @@ describe('AuthVerificationStore', () => {
     verificationCode: {
       create: vi.fn(),
       updateMany: vi.fn(),
+      findUnique: vi.fn(),
     },
     $queryRawTyped: vi.fn(),
     runSerializableTransaction: vi.fn(),
@@ -79,14 +81,6 @@ describe('AuthVerificationStore', () => {
         purpose: 'SIGNUP',
         requestIp: '127.0.0.1',
       },
-    });
-  });
-
-  it('latest verified signup code 조회 결과를 그대로 반환한다', async () => {
-    prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
-
-    await expect(store.findLatestVerifiedSignupCode('test@kangwon.ac.kr', 1800)).resolves.toEqual({
-      id: 'code-1',
     });
   });
 
@@ -175,12 +169,10 @@ describe('AuthVerificationStore', () => {
     });
   });
 
-  it('consume / invalidate / insert는 proof conditional query와 Prisma CRUD로 실행한다', async () => {
-    prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
+  it('invalidate / insert는 Prisma CRUD로 실행한다', async () => {
     prisma.verificationCode.create.mockResolvedValue({ id: 'code-1' });
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
 
-    await store.consumeVerificationCode('code-1');
     await store.invalidateActiveSignupCodes('test@kangwon.ac.kr');
     await store.insertVerificationCode({
       id: 'code-1',
@@ -191,27 +183,67 @@ describe('AuthVerificationStore', () => {
       requestIp: '127.0.0.1',
     });
 
-    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
     expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.verificationCode.create).toHaveBeenCalledTimes(1);
   });
 
-  it('markVerified는 advisory lock + TypedSQL conditional update 결과를 boolean으로 반환한다', async () => {
-    txQueryRawTyped
-      .mockResolvedValueOnce([{ lockAcquired: null }])
-      .mockResolvedValueOnce([{ id: 'code-1' }]);
-
+  it('verify 성공은 advisory lock 아래 15분 grant hash와 reset 대상 user를 저장한다', async () => {
     await expect(
-      store.markVerified({
+      store.markVerifiedAndIssueGrant({
         id: 'code-1',
         emailNormalized: 'test@kangwon.ac.kr',
-        purpose: 'SIGNUP',
+        purpose: 'RESET_PASSWORD',
         maxAttempts: 5,
+        grantTokenHash: 'a'.repeat(64),
+        grantTtlSeconds: 900,
+        eligibleUserId: 'user-1',
       }),
     ).resolves.toBe(true);
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(txQueryRawTyped).toHaveBeenCalledTimes(2);
+    expect(txQueryRawTyped).toHaveBeenCalledTimes(1);
+    expect(txVerificationCodeUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'code-1',
+        purpose: 'RESET_PASSWORD',
+        emailNormalized: 'test@kangwon.ac.kr',
+        verifiedAt: null,
+        consumedAt: null,
+        expiresAt: { gt: new Date('2026-04-23T00:00:00.000Z') },
+        failedAttempts: { lt: 5 },
+      },
+      data: {
+        verifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+        grantTokenHash: 'a'.repeat(64),
+        grantExpiresAt: new Date('2026-04-23T00:15:00.000Z'),
+        eligibleUserId: 'user-1',
+      },
+    });
+  });
+
+  it('grant lookup은 token hash를 constant-time 비교하고 purpose와 만료를 검증한다', async () => {
+    const grant = createVerificationGrant('code-1');
+    prisma.verificationCode.findUnique.mockResolvedValue({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      purpose: 'SIGNUP',
+      eligibleUserId: null,
+      grantTokenHash: hashVerificationGrant(grant),
+      grantExpiresAt: new Date('2026-04-23T00:15:00.000Z'),
+      verifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+      consumedAt: null,
+    });
+
+    await expect(store.resolveVerificationGrant(grant, 'SIGNUP')).resolves.toMatchObject({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      purpose: 'SIGNUP',
+      tokenHash: hashVerificationGrant(grant),
+    });
+    await expect(store.resolveVerificationGrant(grant, 'RESET_PASSWORD')).resolves.toBeNull();
+    await expect(
+      store.resolveVerificationGrant(createVerificationGrant('code-1'), 'SIGNUP'),
+    ).resolves.toBeNull();
   });
 
   it('recordVerificationFailure는 advisory lock + TypedSQL 결과로 consume 여부를 반환한다', async () => {

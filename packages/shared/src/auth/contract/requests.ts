@@ -48,7 +48,6 @@ export const signupRequestSchema = z
   });
 
 export const resetPasswordRequestSchema = z.strictObject({
-  email: emailSchema,
   newPassword: passwordSchema,
 });
 
@@ -69,3 +68,5 @@ export type SignupRequest = z.infer<typeof signupRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type RenewSessionRequest = z.infer<typeof renewSessionRequestSchema>;
+
+export const AUTH_VERIFICATION_GRANT_HEADER = 'X-Auth-Verification-Grant';

@@ -24,3 +24,9 @@ export {
   createStrictForwardPostHandler,
 } from './auth-route-handlers';
 export { resolveBrowserSession } from './session-resolution';
+export {
+  clearVerificationGrantCookie,
+  getVerificationGrantCookie,
+  getVerificationGrantCookieName,
+  setVerificationGrantCookie,
+} from './auth-verification-grant-cookie';

@@ -29,7 +29,7 @@ describe('AuthRegistrationUseCases', () => {
     $queryRawTyped: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedSignupCode: vi.fn(),
+    resolveVerificationGrant: vi.fn(),
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
@@ -91,7 +91,14 @@ describe('AuthRegistrationUseCases', () => {
         legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
       }),
     );
-    verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      purpose: 'SIGNUP',
+      eligibleUserId: null,
+      tokenHash: 'a'.repeat(64),
+      expiresAt: new Date('2026-04-23T00:15:00.000Z'),
+    });
   });
 
   it('validateSignupDraft는 signup validation service로 그대로 위임한다', async () => {

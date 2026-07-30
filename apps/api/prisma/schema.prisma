@@ -2018,11 +2018,15 @@ model VerificationCode {
   issuedAt        DateTime                @default(now()) @db.Timestamptz(3)
   expiresAt       DateTime                @db.Timestamptz(3)
   verifiedAt      DateTime?               @db.Timestamptz(3)
+  grantTokenHash  String?                 @unique
+  grantExpiresAt  DateTime?               @db.Timestamptz(3)
+  eligibleUserId  String?
   consumedAt      DateTime?               @db.Timestamptz(3)
   requestIp       String?
 
   @@index([emailNormalized, purpose])
   @@index([expiresAt])
+  @@index([grantExpiresAt])
   @@index([consumedAt])
 }
 

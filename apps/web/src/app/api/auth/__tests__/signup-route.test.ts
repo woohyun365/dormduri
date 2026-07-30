@@ -4,6 +4,7 @@ import { POST as postSignup } from '../signup/route';
 
 const ACCESS_TOKEN = `v1.session-signup-access.${'a'.repeat(43)}`;
 const RENEWAL_TOKEN = `v1.session-signup-renewal.${'b'.repeat(43)}`;
+const SIGNUP_GRANT = `v1.signup-code.${'g'.repeat(43)}`;
 
 const VALID_SIGNUP_BODY = {
   email: 'student@kangwon.ac.kr',
@@ -21,13 +22,14 @@ const VALID_SIGNUP_BODY = {
   },
 };
 
-function request(body: unknown) {
+function request(body: unknown, cookie?: string) {
   return new NextRequest('http://localhost/api/auth/signup', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-forwarded-for': '203.0.113.10',
       'user-agent': 'vitest',
+      ...(cookie ? { cookie } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -62,7 +64,9 @@ describe('auth signup BFF route', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await postSignup(request(VALID_SIGNUP_BODY));
+    const response = await postSignup(
+      request(VALID_SIGNUP_BODY, `signup-verification-grant=${SIGNUP_GRANT}`),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:4000/auth/signup',
@@ -73,6 +77,7 @@ describe('auth signup BFF route', () => {
           'Content-Type': 'application/json',
           'x-forwarded-for': '203.0.113.10',
           'user-agent': 'vitest',
+          'X-Auth-Verification-Grant': SIGNUP_GRANT,
         }),
       }),
     );
@@ -97,6 +102,8 @@ describe('auth signup BFF route', () => {
     expect(response.cookies.get('auth-token')?.maxAge).toBeUndefined();
     expect(response.cookies.get('auth-renewal-token')?.value).toBe(RENEWAL_TOKEN);
     expect(response.cookies.get('auth-renewal-token')?.maxAge).toBeUndefined();
+    expect(response.cookies.get('signup-verification-grant')?.value).toBe('');
+    expect(response.cookies.get('signup-verification-grant')?.maxAge).toBe(0);
   });
 
   it('lifestyle/intro 같은 signup 외부 profile field는 upstream 전송 전에 거부한다', async () => {

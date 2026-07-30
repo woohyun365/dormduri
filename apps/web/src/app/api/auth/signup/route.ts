@@ -1,10 +1,12 @@
 import type { NextRequest } from 'next/server';
-import { signupRequestSchema } from '@repo/shared/auth/contract';
+import { AUTH_VERIFICATION_GRANT_HEADER, signupRequestSchema } from '@repo/shared/auth/contract';
 import { signupResponseSchema } from '@repo/shared/auth/response';
 import {
   buildJsonResponse,
+  clearVerificationGrantCookie,
   forwardAuthRequest,
   getForwardHeaders,
+  getVerificationGrantCookie,
   parseStrictJsonRequest,
   setAuthTransportCookies,
 } from '@/auth/bff';
@@ -46,7 +48,10 @@ export async function POST(request: NextRequest) {
     '/auth/signup',
     parsed.data,
     {
-      headers: getForwardHeaders(request),
+      headers: getForwardHeaders(request, {
+        [AUTH_VERIFICATION_GRANT_HEADER]:
+          getVerificationGrantCookie(request, 'signup') ?? undefined,
+      }),
     },
     {
       responseSchema: signupUpstreamResponseSchema,
@@ -81,6 +86,9 @@ export async function POST(request: NextRequest) {
       renewalToken: json.renewalToken,
       rememberMe: false,
     });
+    clearVerificationGrantCookie(nextResponse, 'signup');
+  } else if (json.code === 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED') {
+    clearVerificationGrantCookie(nextResponse, 'signup');
   }
 
   return nextResponse;

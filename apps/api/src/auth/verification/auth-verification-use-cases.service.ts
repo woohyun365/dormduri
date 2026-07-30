@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { GenericSuccessResult } from '../domain/auth.types.js';
+import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { isKnuEmail, normalizeEmail } from '../domain/auth.utils.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
@@ -50,7 +50,7 @@ export class AuthVerificationUseCases {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<VerificationGrantIssueResult> {
     if (!hasAuthRequestContext(requestContext)) {
       return this.verificationService.verifyEmailCode(email, code);
     }
@@ -61,18 +61,18 @@ export class AuthVerificationUseCases {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<VerificationGrantIssueResult> {
     const emailNormalized = normalizeEmail(email);
-    const resetEligible =
-      await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
+    const eligibleUserId =
+      await this.verificationEligibilityQuery.findPasswordResetEligibleUserId(emailNormalized);
 
-    if (!resetEligible) {
+    if (!eligibleUserId) {
       return authFailures.verificationCodeInvalid();
     }
 
     if (!hasAuthRequestContext(requestContext)) {
-      return this.verificationService.verifyResetCode(email, code);
+      return this.verificationService.verifyResetCode(email, code, eligibleUserId);
     }
-    return this.verificationService.verifyResetCode(email, code, requestContext);
+    return this.verificationService.verifyResetCode(email, code, eligibleUserId, requestContext);
   }
 }

@@ -50,7 +50,7 @@ describe('signup command', () => {
     $queryRawTyped: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedSignupCode: vi.fn(),
+    resolveVerificationGrant: vi.fn(),
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
@@ -59,6 +59,15 @@ describe('signup command', () => {
     validateDraft: vi.fn(),
   };
   const deps = { prisma, verificationService, sessionService, signupValidationService };
+  const resolvedGrant = {
+    id: 'code-1',
+    emailNormalized: 'test@kangwon.ac.kr',
+    purpose: 'SIGNUP',
+    eligibleUserId: null,
+    tokenHash: 'a'.repeat(64),
+    expiresAt: new Date('2026-04-23T00:15:00.000Z'),
+  } as const;
+  const verificationGrant = `v1.code-1.${'g'.repeat(43)}`;
   const input = {
     email: 'test@kangwon.ac.kr',
     password: 'pass1234',
@@ -97,16 +106,36 @@ describe('signup command', () => {
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
       }),
     );
-    verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
+    verificationService.resolveVerificationGrant.mockResolvedValue(resolvedGrant);
     signupValidationService.validateDraft.mockResolvedValue({ success: true });
+  });
+
+  it('signup grant의 email subject가 입력 email과 다르면 가입 검증 전에 거부한다', async () => {
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      ...resolvedGrant,
+      emailNormalized: 'other@kangwon.ac.kr',
+    });
+
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
+    });
+
+    expect(signupValidationService.validateDraft).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
   it('campus와 college code 조합이 catalog와 다르면 가입 검증 전에 거부한다', async () => {
     await expect(
-      signup(deps as never, {
-        ...input,
-        campus: 'SAMCHEOK',
-      }),
+      signup(
+        deps as never,
+        {
+          ...input,
+          campus: 'SAMCHEOK',
+        },
+        verificationGrant,
+      ),
     ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
@@ -122,7 +151,7 @@ describe('signup command', () => {
   it('transaction 시점에 active college가 아니면 계정을 생성하지 않는다', async () => {
     prisma.collegeMaster.findFirst.mockResolvedValue(null);
 
-    await expect(signup(deps as never, input)).resolves.toMatchObject({
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
     });
@@ -149,7 +178,7 @@ describe('signup command', () => {
       fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
     });
 
-    await expect(signup(deps as never, input)).resolves.toMatchObject({
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_VALIDATION_FAILED',
       fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
@@ -187,7 +216,7 @@ describe('signup command', () => {
       sessionId: 'session-1',
     });
 
-    const result = await signup(deps as never, input);
+    const result = await signup(deps as never, input, verificationGrant);
 
     expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
       email: 'test@kangwon.ac.kr',
@@ -196,7 +225,7 @@ describe('signup command', () => {
     });
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
     expect(prisma.legalDocumentVersion.findFirst).toHaveBeenCalledTimes(4);
-    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(2);
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
     const createUserCalls = prisma.user.create.mock.calls as unknown as Array<
       [
         {
@@ -307,10 +336,14 @@ describe('signup command', () => {
       sessionId: 'session-1',
     });
 
-    await signup(deps as never, {
-      ...input,
-      nickname: '  ＮiceＧuy  ',
-    });
+    await signup(
+      deps as never,
+      {
+        ...input,
+        nickname: '  ＮiceＧuy  ',
+      },
+      verificationGrant,
+    );
 
     const createUserCall = prisma.user.create.mock.calls[0]?.[0] as
       | {
@@ -327,13 +360,17 @@ describe('signup command', () => {
 
   it('active legal document version이 바뀌면 계정 생성 전에 stale failure를 반환한다', async () => {
     await expect(
-      signup(deps as never, {
-        ...input,
-        legalAcceptances: {
-          ...input.legalAcceptances,
-          termsVersionId: 'old-terms-document-id',
+      signup(
+        deps as never,
+        {
+          ...input,
+          legalAcceptances: {
+            ...input.legalAcceptances,
+            termsVersionId: 'old-terms-document-id',
+          },
         },
-      }),
+        verificationGrant,
+      ),
     ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_LEGAL_ACCEPTANCE_STALE',
@@ -360,9 +397,9 @@ describe('signup command', () => {
         nickname: '테스터',
       },
     });
-    prisma.$queryRawTyped.mockResolvedValueOnce([{ lockAcquired: null }]).mockResolvedValueOnce([]);
+    prisma.verificationCode.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    await expect(signup(deps as never, input)).resolves.toMatchObject({
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
     });
@@ -380,7 +417,7 @@ describe('signup command', () => {
       displayIdentity: null,
     });
 
-    await expect(signup(deps as never, input)).rejects.toThrow(
+    await expect(signup(deps as never, input, verificationGrant)).rejects.toThrow(
       '[AuthSignupOwner] user display identity row is required',
     );
 
@@ -404,7 +441,7 @@ describe('signup command', () => {
       new Error('legal acceptance persistence failed'),
     );
 
-    await expect(signup(deps as never, input)).rejects.toThrow(
+    await expect(signup(deps as never, input, verificationGrant)).rejects.toThrow(
       'legal acceptance persistence failed',
     );
 

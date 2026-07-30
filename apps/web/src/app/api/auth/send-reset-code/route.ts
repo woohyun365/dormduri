@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { emailRequestSchema } from '@repo/shared/auth/contract';
 import {
   buildJsonResponse,
+  clearVerificationGrantCookie,
   forwardAuthRequest,
   getForwardHeaders,
   parseStrictJsonRequest,
@@ -27,5 +28,7 @@ export async function POST(request: NextRequest) {
     },
   );
 
-  return buildJsonResponse(response, pickAuthMutationResponseBody(json));
+  const nextResponse = buildJsonResponse(response, pickAuthMutationResponseBody(json));
+  clearVerificationGrantCookie(nextResponse, 'password-reset');
+  return nextResponse;
 }

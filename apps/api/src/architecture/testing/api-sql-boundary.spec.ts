@@ -101,13 +101,6 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'retention review jobs are claimed in bounded deterministic batches.',
   }),
   sqlEntry({
-    path: 'prisma/sql/consumeVerificationCodeProof.sql',
-    owner: 'auth/verification',
-    category: 'db-time',
-    requiredPatterns: [/UPDATE\s+"VerificationCode"/i, /"expiresAt"\s+>\s+CURRENT_TIMESTAMP/i],
-    rationale: 'verification proof consume keeps expiry checks in DB time.',
-  }),
-  sqlEntry({
     path: 'prisma/sql/disposeDueRetentionAccessLogs.sql',
     owner: 'retention/access-logs',
     category: 'worker-claim',
@@ -244,28 +237,6 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     ],
     rationale:
       'health readiness inspects Prisma migration metadata through generated TypedSQL instead of direct raw SQL.',
-  }),
-  sqlEntry({
-    path: 'prisma/sql/getLatestVerifiedResetCode.sql',
-    owner: 'auth/verification',
-    category: 'db-time',
-    requiredPatterns: [
-      /purpose\s+=\s+'RESET_PASSWORD'::"VerificationCodePurpose"/i,
-      /"expiresAt"\s+>\s+CURRENT_TIMESTAMP/i,
-      /ORDER\s+BY\s+"issuedAt"\s+DESC/i,
-    ],
-    rationale: 'reset proof lookup uses DB-time expiry and latest-code ordering.',
-  }),
-  sqlEntry({
-    path: 'prisma/sql/getLatestVerifiedSignupCode.sql',
-    owner: 'auth/verification',
-    category: 'db-time',
-    requiredPatterns: [
-      /purpose\s+=\s+'SIGNUP'::"VerificationCodePurpose"/i,
-      /"verifiedAt"\s+>\s+CURRENT_TIMESTAMP\s+-/i,
-      /ORDER\s+BY\s+"issuedAt"\s+DESC/i,
-    ],
-    rationale: 'signup proof TTL is evaluated with DB time and latest-code ordering.',
   }),
   sqlEntry({
     path: 'prisma/sql/getVerificationBackstopRetryAfterSeconds.sql',

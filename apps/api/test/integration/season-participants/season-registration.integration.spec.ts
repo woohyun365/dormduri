@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
+import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
 import type { AuthenticatedUserContext } from '../../../src/auth/sessions/auth-session.service.js';
 import { normalizeEmail } from '../../../src/auth/domain/auth.utils.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
@@ -21,6 +22,13 @@ import {
   seedOperatedDormitoryFixture,
 } from '../_support/integration-fixtures.js';
 import { withPrismaQueryTraceOnFailure } from '../_support/integration-query-trace.js';
+
+const signupLegalDocumentIds = {
+  termsVersionId: 'season-registration-terms',
+  privacyPolicyVersionIdShown: 'season-registration-privacy',
+  personalDataConsentVersionId: 'season-registration-personal-data-consent',
+  ageNoticeVersionId: 'season-registration-age-notice',
+} as const;
 
 describe('Season registration split-flow integration', () => {
   let prisma: PrismaService;
@@ -747,10 +755,11 @@ describe('Season registration split-flow integration', () => {
   );
 
   async function signupVerifiedUser(input: { email: string; nickname: string }) {
-    await seedVerifiedSignupCode(input.email);
+    await seedSignupLegalDocuments();
+    const verificationGrant = await seedVerifiedSignupCode(input.email);
 
-    await expect(
-      authService.signup({
+    const signupResult = await authService.signup(
+      {
         email: input.email,
         password: 'Pass1234',
         nickname: input.nickname,
@@ -758,8 +767,12 @@ describe('Season registration split-flow integration', () => {
         campus: 'CHUNCHEON',
         collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
-      } as never),
-    ).resolves.toMatchObject({ success: true });
+        legalAcceptances: signupLegalDocumentIds,
+      } as never,
+      verificationGrant,
+    );
+
+    expect(signupResult, JSON.stringify(signupResult)).toMatchObject({ success: true });
 
     const user = await prisma.user.findUniqueOrThrow({
       where: { emailNormalized: normalizeEmail(input.email) },
@@ -767,6 +780,56 @@ describe('Season registration split-flow integration', () => {
     });
 
     return user.id;
+  }
+
+  async function seedSignupLegalDocuments() {
+    const databaseNow = await prisma.getDatabaseNow();
+    const effectiveAt = new Date(databaseNow.getTime() - 60_000);
+
+    await prisma.legalDocumentVersion.createMany({
+      data: [
+        {
+          id: signupLegalDocumentIds.termsVersionId,
+          kind: 'TERMS_OF_SERVICE',
+          version: 'season-registration-terms',
+          title: '시즌 등록 테스트 이용약관',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.privacyPolicyVersionIdShown,
+          kind: 'PRIVACY_POLICY',
+          version: 'season-registration-privacy',
+          title: '시즌 등록 테스트 개인정보 처리방침',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.personalDataConsentVersionId,
+          kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
+          version: 'season-registration-personal-data-consent',
+          title: '시즌 등록 테스트 개인정보 수집·이용 동의',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+        {
+          id: signupLegalDocumentIds.ageNoticeVersionId,
+          kind: 'AGE_14_OR_ABOVE_NOTICE',
+          version: 'season-registration-age-notice',
+          title: '시즌 등록 테스트 연령 확인',
+          summaryItems: [],
+          sections: [],
+          publishedAt: effectiveAt,
+          effectiveAt,
+        },
+      ],
+    });
   }
 
   async function findUserIdByEmail(email: string) {
@@ -870,17 +933,24 @@ describe('Season registration split-flow integration', () => {
   async function seedVerifiedSignupCode(email: string) {
     const emailNormalized = normalizeEmail(email);
     const now = await prisma.getDatabaseNow();
+    const verificationCodeId = 'season-registration-signup-code';
+    const verificationGrant = `v1.${verificationCodeId}.${'g'.repeat(43)}`;
 
     await prisma.verificationCode.create({
       data: {
+        id: verificationCodeId,
         emailNormalized,
         purpose: 'SIGNUP',
         codeHash: `hmac-sha256:${emailNormalized}`,
         issuedAt: now,
         expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
         verifiedAt: now,
+        grantTokenHash: hashVerificationGrant(verificationGrant),
+        grantExpiresAt: new Date(now.getTime() + 15 * 60 * 1000),
       },
     });
+
+    return verificationGrant;
   }
 
   async function loadAuthContext(userId: string): Promise<AuthenticatedUserContext> {

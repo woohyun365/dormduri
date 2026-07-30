@@ -10,7 +10,7 @@ import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword } from '../credentials/password-hash.js';
 import {
   acquireVerificationCodePurposeLock,
-  consumeVerifiedCodeOrThrow,
+  consumeVerificationGrantOrThrow,
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from '../verification/auth-verification-proof.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
@@ -28,18 +28,30 @@ const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
-  verificationService: Pick<AuthVerificationService, 'findLatestVerifiedSignupCode'>;
+  verificationService: Pick<AuthVerificationService, 'resolveVerificationGrant'>;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
   signupValidationService: Pick<AuthSignupValidationService, 'validateDraft'>;
 }
 
-export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Promise<LoginResult> {
+export async function signup(
+  deps: AuthSignupOwnerDeps,
+  input: SignupInput,
+  verificationGrant: string | null = null,
+): Promise<LoginResult> {
   const emailNormalized = normalizeEmail(input.email);
   if (!isKnuEmail(emailNormalized)) {
     return authFailures.invalidKnuEmail();
   }
   if (!isCollegeAvailableForCampus(input.campus, input.collegeCode)) {
     return authFailures.signupCollegeUnavailable();
+  }
+
+  const resolvedGrant = await deps.verificationService.resolveVerificationGrant(
+    verificationGrant,
+    'SIGNUP',
+  );
+  if (!resolvedGrant || resolvedGrant.emailNormalized !== emailNormalized) {
+    return authFailures.signupVerificationRequired();
   }
 
   const preflight = await deps.signupValidationService.validateDraft({
@@ -81,11 +93,6 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
   }
   if (existingNicknameUser) {
     return authFailures.nicknameAlreadyTaken();
-  }
-
-  const verifiedCode = await deps.verificationService.findLatestVerifiedSignupCode(emailNormalized);
-  if (!verifiedCode) {
-    return authFailures.signupVerificationRequired();
   }
 
   const passwordHash = await hashPassword(input.password);
@@ -156,9 +163,13 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
       const displayIdentity = createdUser.displayIdentity;
 
       await acquireVerificationCodePurposeLock(tx, emailNormalized, 'SIGNUP');
-      await consumeVerifiedCodeOrThrow(
+      await consumeVerificationGrantOrThrow(
         tx,
-        verifiedCode.id,
+        {
+          id: resolvedGrant.id,
+          purpose: resolvedGrant.purpose,
+          tokenHash: resolvedGrant.tokenHash,
+        },
         emailVerifiedAt,
         SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
       );

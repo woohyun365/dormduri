@@ -107,6 +107,7 @@ export const PASSWORD_RESET_STORY_BASE_ARGS = {
   },
   status: null,
   isAuthenticated: false,
+  isSessionUnavailable: false,
   onBackAction: noop,
   onRestartAction: noop,
   onEmailChangeAction: noop,
@@ -118,6 +119,7 @@ export const PASSWORD_RESET_STORY_BASE_ARGS = {
   onConfirmPasswordChangeAction: noop,
   onResetPasswordAction: successfulAction,
   onGoToLoginAfterResetAction: noop,
+  onRetrySessionAction: noop,
 } satisfies ComponentProps<typeof PasswordResetFlowView>;
 
 export const SIGNUP_LEGAL_BUNDLE = getFallbackLegalDocumentsBundle();

@@ -4,14 +4,14 @@ import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
 import {
   CODE_REQUEST_MIN_RESPONSE_MS,
+  AUTH_VERIFICATION_GRANT_TTL_SECONDS,
   RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
-  SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
   VERIFICATION_CODE_MAX_ATTEMPTS,
 } from '../domain/auth.constants.js';
 import { EMAIL_SENDER } from '../adapters/email/email-sender.interface.js';
 import type { EmailSender } from '../adapters/email/email-sender.interface.js';
-import type { GenericSuccessResult } from '../domain/auth.types.js';
+import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
 import {
   ensureMinDuration,
   generateVerificationCode,
@@ -29,6 +29,8 @@ import {
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
+import { createVerificationGrant, hashVerificationGrant } from './auth-verification-grant.js';
+import type { ResolvedVerificationGrant } from './verification-code.repository.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
@@ -143,31 +145,24 @@ export class AuthVerificationService {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'SIGNUP', code, requestContext);
+  ): Promise<VerificationGrantIssueResult> {
+    return this.verifyCode(email, 'SIGNUP', code, requestContext, null);
   }
 
   async verifyResetCode(
     email: string,
     code: string,
+    eligibleUserId: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'RESET_PASSWORD', code, requestContext);
+  ): Promise<VerificationGrantIssueResult> {
+    return this.verifyCode(email, 'RESET_PASSWORD', code, requestContext, eligibleUserId);
   }
 
-  async findLatestVerifiedSignupCode(emailNormalized: string) {
-    return this.verificationStore.findLatestVerifiedSignupCode(
-      emailNormalized,
-      SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
-    );
-  }
-
-  async findLatestVerifiedResetCode(emailNormalized: string) {
-    return this.verificationStore.findLatestVerifiedResetCode(emailNormalized);
-  }
-
-  async consumeVerificationCode(id: string): Promise<void> {
-    await this.verificationStore.consumeVerificationCode(id);
+  resolveVerificationGrant(
+    rawGrant: string | null,
+    purpose: VerificationCodePurpose,
+  ): Promise<ResolvedVerificationGrant | null> {
+    return this.verificationStore.resolveVerificationGrant(rawGrant, purpose);
   }
 
   private async issueVerificationCode(
@@ -285,7 +280,8 @@ export class AuthVerificationService {
     purpose: VerificationCodePurpose,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+    eligibleUserId: string | null,
+  ): Promise<VerificationGrantIssueResult> {
     const emailNormalized = normalizeEmail(email);
     const record = await this.verificationStore.findActiveVerificationRecord(
       emailNormalized,
@@ -316,11 +312,15 @@ export class AuthVerificationService {
       return authFailures.verificationCodeInvalid();
     }
 
-    const verified = await this.verificationStore.markVerified({
+    const rawGrant = createVerificationGrant(record.id);
+    const verified = await this.verificationStore.markVerifiedAndIssueGrant({
       id: record.id,
       emailNormalized,
       purpose,
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      grantTokenHash: hashVerificationGrant(rawGrant),
+      grantTtlSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+      eligibleUserId,
     });
     if (!verified) {
       await this.recordVerificationCodeResult(emailNormalized, purpose, false, requestContext, {
@@ -330,7 +330,17 @@ export class AuthVerificationService {
     }
 
     await this.recordVerificationCodeResult(emailNormalized, purpose, true, requestContext);
-    return { success: true };
+    return purpose === 'SIGNUP'
+      ? {
+          success: true,
+          signupGrant: rawGrant,
+          grantExpiresInSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+        }
+      : {
+          success: true,
+          resetGrant: rawGrant,
+          grantExpiresInSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+        };
   }
 
   private async recordVerificationCodeResult(

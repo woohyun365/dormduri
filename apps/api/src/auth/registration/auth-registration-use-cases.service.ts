@@ -24,7 +24,7 @@ export class AuthRegistrationUseCases {
     return this.signupValidationService.validateDraft(input);
   }
 
-  signup(input: SignupInput): Promise<LoginResult> {
+  signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
     return signup(
       {
         prisma: this.prisma,
@@ -33,6 +33,7 @@ export class AuthRegistrationUseCases {
         signupValidationService: this.signupValidationService,
       },
       input,
+      verificationGrant,
     );
   }
 }

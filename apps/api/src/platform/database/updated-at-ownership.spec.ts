@@ -15,7 +15,6 @@ const SQL_WRITE_FILES = [
   'claimNotificationOutboxEvents.sql',
   'claimRetentionArchiveJobs.sql',
   'claimRetentionReviewJobs.sql',
-  'consumeVerificationCodeProof.sql',
   'disposeDueRetentionAccessLogs.sql',
   'markVerificationCodeVerified.sql',
   'recordLoginFailure.sql',

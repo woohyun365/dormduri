@@ -69,8 +69,8 @@ export class AuthService {
     return this.registrationUseCases.validateSignupDraft(input);
   }
 
-  signup(input: SignupInput): Promise<LoginResult> {
-    return this.registrationUseCases.signup(input);
+  signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
+    return this.registrationUseCases.signup(input, verificationGrant);
   }
 
   login(
@@ -83,11 +83,11 @@ export class AuthService {
   }
 
   resetPassword(
-    email: string,
+    verificationGrant: string | null,
     newPassword: string,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
-    return this.credentialUseCases.resetPassword(email, newPassword, requestContext);
+    return this.credentialUseCases.resetPassword(verificationGrant, newPassword, requestContext);
   }
 
   changePassword(

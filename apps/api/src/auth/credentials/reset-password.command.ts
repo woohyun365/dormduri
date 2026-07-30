@@ -2,11 +2,11 @@ import type { GenericSuccessResult } from '../domain/auth.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { normalizeEmail, validatePasswordPolicy } from '../domain/auth.utils.js';
+import { validatePasswordPolicy } from '../domain/auth.utils.js';
 import { hashPassword, verifyPasswordHash } from './password-hash.js';
 import {
   acquireVerificationCodePurposeLock,
-  consumeVerifiedCodeOrThrow,
+  consumeVerificationGrantOrThrow,
   RESET_VERIFICATION_PROOF_UNAVAILABLE,
 } from '../verification/auth-verification-proof.js';
 import {
@@ -18,23 +18,36 @@ import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attem
 
 interface AuthResetPasswordOwnerDeps {
   prisma: PrismaService;
-  verificationService: Pick<AuthVerificationService, 'findLatestVerifiedResetCode'>;
+  verificationService: Pick<AuthVerificationService, 'resolveVerificationGrant'>;
   loginAttemptService: Pick<AuthLoginAttemptService, 'clearFailuresInTransaction'>;
   securityEvents?: AuthSecurityEventService;
 }
 
 export async function resetPassword(
   deps: AuthResetPasswordOwnerDeps,
-  email: string,
+  verificationGrant: string | null,
   newPassword: string,
   requestContext: AuthRequestContext = {},
 ): Promise<GenericSuccessResult> {
-  const emailNormalized = normalizeEmail(email);
+  const resolvedGrant = await deps.verificationService.resolveVerificationGrant(
+    verificationGrant,
+    'RESET_PASSWORD',
+  );
+  if (!resolvedGrant?.eligibleUserId) {
+    return authFailures.resetRestartRequired();
+  }
+
+  const emailNormalized = resolvedGrant.emailNormalized;
   const user = await deps.prisma.user.findUnique({
-    where: { emailNormalized },
+    where: { id: resolvedGrant.eligibleUserId },
   });
 
-  if (!user || user.deletedAt || !user.emailVerifiedAt) {
+  if (
+    !user ||
+    user.deletedAt ||
+    !user.emailVerifiedAt ||
+    user.emailNormalized !== emailNormalized
+  ) {
     return authFailures.resetRestartRequired();
   }
 
@@ -48,11 +61,6 @@ export async function resetPassword(
     return authFailures.samePasswordNotAllowed();
   }
 
-  const verifiedCode = await deps.verificationService.findLatestVerifiedResetCode(emailNormalized);
-  if (!verifiedCode) {
-    return authFailures.resetRestartRequired();
-  }
-
   const passwordHash = await hashPassword(newPassword);
   const databaseNow = await deps.prisma.getDatabaseNow();
   let revokedSessionCount = 0;
@@ -60,9 +68,13 @@ export async function resetPassword(
   try {
     await deps.prisma.runSerializableTransaction(async (tx) => {
       await acquireVerificationCodePurposeLock(tx, emailNormalized, 'RESET_PASSWORD');
-      await consumeVerifiedCodeOrThrow(
+      await consumeVerificationGrantOrThrow(
         tx,
-        verifiedCode.id,
+        {
+          id: resolvedGrant.id,
+          purpose: resolvedGrant.purpose,
+          tokenHash: resolvedGrant.tokenHash,
+        },
         databaseNow,
         RESET_VERIFICATION_PROOF_UNAVAILABLE,
       );

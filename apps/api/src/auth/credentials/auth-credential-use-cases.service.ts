@@ -52,7 +52,7 @@ export class AuthCredentialUseCases {
   }
 
   resetPassword(
-    email: string,
+    verificationGrant: string | null,
     newPassword: string,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
@@ -63,7 +63,7 @@ export class AuthCredentialUseCases {
         loginAttemptService: this.loginAttemptService,
         securityEvents: this.securityEvents,
       },
-      email,
+      verificationGrant,
       newPassword,
       hasAuthRequestContext(requestContext) ? requestContext : undefined,
     );

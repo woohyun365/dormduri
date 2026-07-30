@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
+import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
 import { seedBaseSeasonFixtures } from '../_support/integration-fixtures.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
@@ -225,14 +226,19 @@ describe('AuthService integration', () => {
     const databaseNow = await suite.prisma.getDatabaseNow();
     await seedAcademicIdentityReferenceData();
     await seedSignupLegalDocuments(databaseNow);
+    const verificationCodeId = 'integration-signup-proof';
+    const verificationGrant = createVerificationGrant(verificationCodeId);
     await suite.prisma.verificationCode.create({
       data: {
+        id: verificationCodeId,
         emailNormalized,
         purpose: 'SIGNUP',
         codeHash: 'hmac-sha256:integration-signup-proof',
         issuedAt: databaseNow,
         expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
         verifiedAt: databaseNow,
+        grantTokenHash: hashVerificationGrant(verificationGrant),
+        grantExpiresAt: new Date(databaseNow.getTime() + 15 * 60 * 1000),
       },
     });
 
@@ -248,8 +254,8 @@ describe('AuthService integration', () => {
     } as never;
 
     const settled = await Promise.allSettled([
-      authService().signup(signupInput),
-      authService().signup(signupInput),
+      authService().signup(signupInput, verificationGrant),
+      authService().signup(signupInput, verificationGrant),
     ]);
 
     const fulfilled = settled.filter((result) => result.status === 'fulfilled');
@@ -413,20 +419,26 @@ describe('AuthService integration', () => {
         expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
       },
     });
+    const verificationCodeId = 'integration-reset-proof';
+    const verificationGrant = createVerificationGrant(verificationCodeId);
     await suite.prisma.verificationCode.create({
       data: {
+        id: verificationCodeId,
         emailNormalized,
         purpose: 'RESET_PASSWORD',
         codeHash: 'hmac-sha256:integration-reset-proof',
         issuedAt: databaseNow,
         expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
         verifiedAt: databaseNow,
+        grantTokenHash: hashVerificationGrant(verificationGrant),
+        grantExpiresAt: new Date(databaseNow.getTime() + 15 * 60 * 1000),
+        eligibleUserId: 'user-reset',
       },
     });
 
     const settled = await Promise.allSettled([
-      authService().resetPassword(email, 'NewPass1234'),
-      authService().resetPassword(email, 'OtherPass1234'),
+      authService().resetPassword(verificationGrant, 'NewPass1234'),
+      authService().resetPassword(verificationGrant, 'OtherPass1234'),
     ]);
 
     const fulfilled = settled.filter((result) => result.status === 'fulfilled');
@@ -467,3 +479,7 @@ describe('AuthService integration', () => {
     ).toBe(0);
   });
 });
+
+function createVerificationGrant(verificationCodeId: string) {
+  return `v1.${verificationCodeId}.${'g'.repeat(43)}`;
+}

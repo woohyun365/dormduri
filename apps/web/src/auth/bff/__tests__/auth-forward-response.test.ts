@@ -6,9 +6,11 @@ import {
   forwardAuthRequest,
   getAuthCookieNames,
   getForwardHeaders,
+  getVerificationGrantCookieName,
   resolveTrustedForwardedFor,
   setAuthCookie,
   setAuthTransportCookies,
+  setVerificationGrantCookie,
 } from '@/auth/bff';
 
 const ACCESS_TOKEN = `v1.session-access.${'c'.repeat(43)}`;
@@ -36,6 +38,20 @@ describe('auth BFF shared helpers', () => {
     const response = buildJsonResponse(upstream, { success: false });
 
     expect(response.headers.get('Retry-After')).toBe('42');
+  });
+
+  it('browser JSON 방어선은 raw verification grant만 제거하고 만료 정보는 유지한다', async () => {
+    const response = buildJsonResponse(new Response('{}', { status: 200 }), {
+      success: true,
+      signupGrant: `v1.signup-code.${'g'.repeat(43)}`,
+      resetGrant: `v1.reset-code.${'r'.repeat(43)}`,
+      grantExpiresInSeconds: 900,
+    });
+
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      grantExpiresInSeconds: 900,
+    });
   });
 
   it('auth upstream path는 /auth prefix 밖으로 나가지 않는다', async () => {
@@ -192,6 +208,30 @@ describe('auth BFF shared helpers', () => {
       access: 'auth-token',
       renewal: 'auth-renewal-token',
     });
+  });
+
+  it('production verification grant는 purpose별 __Host HttpOnly cookie로만 저장한다', () => {
+    const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
+    const grant = `v1.verification-code.${'g'.repeat(43)}`;
+
+    setVerificationGrantCookie(response, 'password-reset', grant, 900, 'production');
+
+    expect(getVerificationGrantCookieName('signup', 'production')).toBe(
+      '__Host-signup-verification-grant',
+    );
+    expect(getVerificationGrantCookieName('password-reset', 'production')).toBe(
+      '__Host-password-reset-grant',
+    );
+    expect(response.cookies.get('__Host-password-reset-grant')).toMatchObject({
+      value: grant,
+      maxAge: 900,
+    });
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain('Secure');
+    expect(setCookie).toContain('SameSite=strict');
+    expect(setCookie).toContain('Path=/');
+    expect(setCookie).not.toMatch(/Domain=/i);
   });
 
   it('network exception을 bounded safe response로 분류한다', async () => {
