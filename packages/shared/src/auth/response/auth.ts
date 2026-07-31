@@ -9,6 +9,7 @@ const opaqueAuthTokenSchema = z
   .string()
   .regex(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/, 'opaque auth token 형식이어야 합니다.');
 const verificationGrantExpirySchema = z.number().int().positive();
+export const AUTH_RESET_RESTART_REQUIRED_CODE = 'AUTH_RESET_RESTART_REQUIRED' as const;
 
 const authSessionIssueResponseFields = {
   accessToken: opaqueAuthTokenSchema.optional(),

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AUTH_RESET_RESTART_REQUIRED_CODE } from '@repo/shared/auth/response';
 import { POST as postResetPassword } from '../reset-password/route';
 import { POST as postSendResetCode } from '../send-reset-code/route';
 import { POST as postVerifyResetCode } from '../verify-reset-code/route';
@@ -188,6 +189,45 @@ describe('auth password reset BFF routes', () => {
       newPassword: VALID_PASSWORD,
     });
     expect(new Headers(forwardedInit.headers).get('X-Auth-Verification-Grant')).toBe(VALID_GRANT);
+  });
+
+  it('reset grant가 stale/replay 상태이면 공통 restart code를 보존하고 grant cookie를 제거한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: AUTH_RESET_RESTART_REQUIRED_CODE,
+          error: '비밀번호 재설정 요청을 다시 진행해주세요.',
+          userActionable: true,
+        }),
+        {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postResetPassword(
+      new NextRequest('http://localhost/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          cookie: `password-reset-grant=${VALID_GRANT}`,
+        },
+        body: JSON.stringify({ newPassword: VALID_PASSWORD }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: AUTH_RESET_RESTART_REQUIRED_CODE,
+      error: '비밀번호 재설정 요청을 다시 진행해주세요.',
+      userActionable: true,
+    });
+    expect(response.cookies.get('password-reset-grant')?.value).toBe('');
+    expect(response.cookies.get('password-reset-grant')?.maxAge).toBe(0);
   });
 
   it('malformed JSON body는 reset upstream 전송 전에 endpoint별 invalid request로 거부한다', async () => {

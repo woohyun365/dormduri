@@ -3,6 +3,7 @@ import {
   AUTH_VERIFICATION_GRANT_HEADER,
   resetPasswordRequestSchema,
 } from '@repo/shared/auth/contract';
+import { AUTH_RESET_RESTART_REQUIRED_CODE } from '@repo/shared/auth/response';
 import {
   buildJsonResponse,
   clearAuthCookie,
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
   if (json.success === true) {
     clearAuthCookie(nextResponse);
   }
-  if (json.success === true || json.code === 'AUTH_RESET_RESTART_REQUIRED') {
+  if (json.success === true || json.code === AUTH_RESET_RESTART_REQUIRED_CODE) {
     clearVerificationGrantCookie(nextResponse, 'password-reset');
   }
 

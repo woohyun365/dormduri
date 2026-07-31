@@ -1,6 +1,7 @@
 export { genericErrorResponseSchema } from './base.js';
 export type { GenericErrorResponse } from './base.js';
 export {
+  AUTH_RESET_RESTART_REQUIRED_CODE,
   loginResponseSchema,
   verifyCodeResponseSchema,
   verifySignupCodeTransportResponseSchema,

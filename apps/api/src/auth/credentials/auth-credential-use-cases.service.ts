@@ -64,6 +64,7 @@ export class AuthCredentialUseCases {
         verificationService: this.verificationService,
         loginAttemptService: this.loginAttemptService,
         securityEvents: this.securityEvents,
+        mailOutboxWriter: this.mailOutboxWriter,
       },
       verificationGrant,
       newPassword,

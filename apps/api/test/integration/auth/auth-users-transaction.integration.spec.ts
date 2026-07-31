@@ -2,6 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { HttpException } from '@nestjs/common';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { AuthSecurityEventService } from '../../../src/auth/security-events/auth-security-event.service.js';
+import { AuthMailOutboxWriter } from '../../../src/auth/mail/auth-mail-outbox-writer.service.js';
 import { signup as signupWithOwner } from '../../../src/auth/registration/signup.command.js';
 import { resetPassword as resetPasswordWithOwner } from '../../../src/auth/credentials/reset-password.command.js';
 import {
@@ -49,6 +51,8 @@ describe('Auth/users transaction rollback and race integration', () => {
   let prisma: PrismaService;
   let authService: AuthService;
   let authSessionService: AuthSessionService;
+  let authSecurityEventService: AuthSecurityEventService;
+  let authMailOutboxWriter: AuthMailOutboxWriter;
   let usersService: UsersService;
   let seasonsService: SeasonsService;
   let closeApp: (() => Promise<void>) | null = null;
@@ -63,6 +67,8 @@ describe('Auth/users transaction rollback and race integration', () => {
     prisma = prismaService;
     authService = app.get(AuthService);
     authSessionService = app.get(AuthSessionService);
+    authSecurityEventService = app.get(AuthSecurityEventService);
+    authMailOutboxWriter = app.get(AuthMailOutboxWriter);
     usersService = app.get(UsersService);
     seasonsService = app.get(SeasonsService);
   });
@@ -415,6 +421,19 @@ describe('Auth/users transaction rollback and race integration', () => {
           }),
         ).resolves.toBe(0);
         await expect(prisma.loginAttempt.count({ where: { emailNormalized } })).resolves.toBe(0);
+        await expect(
+          prisma.authSecurityEvent.count({
+            where: {
+              targetUserId: userId,
+              type: { in: ['PASSWORD_RESET_SUCCEEDED', 'SESSION_REVOKE_ALL'] },
+            },
+          }),
+        ).resolves.toBe(2);
+        await expect(
+          prisma.authMailOutboxEvent.count({
+            where: { targetUserId: userId, mailKind: 'PASSWORD_CHANGED' },
+          }),
+        ).resolves.toBe(1);
         await expect(authService.login(email, 'NewPass1234', false)).resolves.toMatchObject({
           success: true,
         });
@@ -489,6 +508,8 @@ describe('Auth/users transaction rollback and race integration', () => {
                   });
                 },
               },
+              securityEvents: authSecurityEventService,
+              mailOutboxWriter: authMailOutboxWriter,
             },
             verificationGrant,
             'NewPass1234',
@@ -515,13 +536,12 @@ describe('Auth/users transaction rollback and race integration', () => {
     );
 
     itWithQueryTrace(
-      'reset transaction이 password update 이후 실패해도 consume/password/session 변경은 모두 rollback된다',
+      '보안 알림 outbox append가 실패하면 consume/password/session/audit가 함께 rollback된다',
       async () => {
         const email = 'reset-post-update-rollback@kangwon.ac.kr';
         const emailNormalized = normalizeEmail(email);
         const userId = 'reset-post-update-rollback-user';
         const oldPasswordHash = await hashPassword('OldPass1234');
-        const newPasswordHash = await hashPassword('NewPass1234');
         const verificationCodeId = 'reset-post-update-rollback-proof';
         const databaseNow = await prisma.getDatabaseNow();
 
@@ -538,7 +558,7 @@ describe('Auth/users transaction rollback and race integration', () => {
             expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
           },
         });
-        await seedVerifiedCode({
+        const verificationGrant = await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
           purpose: 'RESET_PASSWORD',
@@ -546,18 +566,44 @@ describe('Auth/users transaction rollback and race integration', () => {
         });
 
         await expect(
-          prisma.runSerializableTransaction(async (tx) => {
-            await tx.verificationCode.updateMany({
-              where: { id: verificationCodeId, consumedAt: null },
-              data: { consumedAt: databaseNow },
-            });
-            await tx.user.update({
-              where: { id: userId },
-              data: { passwordHash: newPasswordHash },
-            });
-            throw new Error('[integration-test] force rollback before session revoke');
-          }),
-        ).rejects.toThrow('[integration-test] force rollback before session revoke');
+          resetPasswordWithOwner(
+            {
+              prisma,
+              verificationService: {
+                resolveVerificationGrant() {
+                  return Promise.resolve(
+                    resolvedGrant({
+                      id: verificationCodeId,
+                      emailNormalized,
+                      purpose: 'RESET_PASSWORD',
+                      eligibleUserId: userId,
+                      verificationGrant,
+                    }),
+                  );
+                },
+                matchesVerificationGrantSubject: verificationGrantSubjectMatches,
+              },
+              loginAttemptService: {
+                async clearFailuresInTransaction(
+                  tx: Pick<Prisma.TransactionClient, 'loginAttempt'>,
+                  normalizedEmail: string,
+                ) {
+                  await tx.loginAttempt.deleteMany({
+                    where: { emailNormalized: normalizedEmail },
+                  });
+                },
+              },
+              securityEvents: authSecurityEventService,
+              mailOutboxWriter: {
+                appendPasswordChanged() {
+                  throw new Error('[integration-test] force outbox append failure');
+                },
+              },
+            },
+            verificationGrant,
+            'NewPass1234',
+          ),
+        ).rejects.toThrow('[integration-test] force outbox append failure');
 
         const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
         expect(user.passwordHash).toBe(oldPasswordHash);
@@ -567,6 +613,19 @@ describe('Auth/users transaction rollback and race integration', () => {
             where: { id: 'reset-post-update-rollback-session' },
           }),
         ).resolves.toMatchObject({ revokedAt: null });
+        await expect(
+          prisma.authSecurityEvent.count({
+            where: {
+              targetUserId: userId,
+              type: { in: ['PASSWORD_RESET_SUCCEEDED', 'SESSION_REVOKE_ALL'] },
+            },
+          }),
+        ).resolves.toBe(0);
+        await expect(
+          prisma.authMailOutboxEvent.count({
+            where: { targetUserId: userId, mailKind: 'PASSWORD_CHANGED' },
+          }),
+        ).resolves.toBe(0);
       },
     );
 
@@ -637,6 +696,8 @@ describe('Auth/users transaction rollback and race integration', () => {
                   });
                 },
               },
+              securityEvents: authSecurityEventService,
+              mailOutboxWriter: authMailOutboxWriter,
             },
             verificationGrant,
             'NewPass1234',

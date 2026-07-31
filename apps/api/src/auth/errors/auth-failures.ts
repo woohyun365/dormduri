@@ -1,5 +1,6 @@
 import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
 import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth/response';
+import { AUTH_RESET_RESTART_REQUIRED_CODE } from '@repo/shared/auth/response';
 
 interface AuthFailureOptions {
   userActionable?: boolean;
@@ -115,7 +116,7 @@ export const authFailures = {
 
   resetRestartRequired() {
     return createFailure(
-      'AUTH_RESET_RESTART_REQUIRED',
+      AUTH_RESET_RESTART_REQUIRED_CODE,
       '비밀번호 재설정 요청을 다시 진행해주세요.',
       {
         userActionable: true,

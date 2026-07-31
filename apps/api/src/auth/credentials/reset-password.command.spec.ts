@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { resetPassword } from './reset-password.command.js';
-import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 
 const hashPasswordForTest = (password: string) =>
   argonHash(password, {
@@ -20,7 +19,7 @@ describe('resetPassword command', () => {
     runSerializableTransaction: vi.fn(),
     user: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
     authSession: {
       updateMany: vi.fn(),
@@ -41,29 +40,34 @@ describe('resetPassword command', () => {
     clearFailuresInTransaction: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: vi
-      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
-      .mockResolvedValue(undefined),
+    recordInTransaction: vi.fn().mockResolvedValue(undefined),
   };
-  const transactionSecurityEventCreate = vi.fn();
-  const deps = { prisma, verificationService, loginAttemptService, securityEvents };
+  const mailOutboxWriter = {
+    appendPasswordChanged: vi.fn().mockResolvedValue(undefined),
+  };
+  const deps = {
+    prisma,
+    verificationService,
+    loginAttemptService,
+    securityEvents,
+    mailOutboxWriter,
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
-    prisma.user.update.mockResolvedValue(undefined);
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
     prisma.$queryRawTyped.mockResolvedValue([{ lockAcquired: null }]);
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRawTyped: prisma.$queryRawTyped,
-        user: { update: prisma.user.update },
+        user: { updateMany: prisma.user.updateMany },
         authSession: { updateMany: prisma.authSession.updateMany },
         loginAttempt: { deleteMany: prisma.loginAttempt.deleteMany },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
-        authSecurityEvent: { create: transactionSecurityEventCreate },
       }),
     );
   });
@@ -119,11 +123,28 @@ describe('resetPassword command', () => {
       },
       data: { consumedAt: databaseNow },
     });
-    const updateUserCalls = prisma.user.update.mock.calls as unknown as Array<
-      [{ where: { id: string }; data: { passwordHash: unknown } }]
+    const updateUserCalls = prisma.user.updateMany.mock.calls as unknown as Array<
+      [
+        {
+          where: {
+            id: string;
+            emailNormalized: string;
+            passwordHash: string;
+            deletedAt: null;
+            emailVerifiedAt: { not: null };
+          };
+          data: { passwordHash: unknown };
+        },
+      ]
     >;
     const updateUserCall = updateUserCalls[0]?.[0];
-    expect(updateUserCall?.where).toEqual({ id: 'user-1' });
+    expect(updateUserCall?.where).toEqual({
+      id: 'user-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+      emailVerifiedAt: { not: null },
+    });
     expect(typeof updateUserCall?.data.passwordHash).toBe('string');
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-1', revokedAt: null },
@@ -135,7 +156,8 @@ describe('resetPassword command', () => {
     const clearFailureCall = clearFailureCalls[0];
     expect(clearFailureCall?.[0].loginAttempt.deleteMany).toBe(prisma.loginAttempt.deleteMany);
     expect(clearFailureCall?.[1]).toBe('test@kangwon.ac.kr');
-    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         type: 'SESSION_REVOKE_ALL',
         targetUserId: 'user-1',
@@ -145,17 +167,23 @@ describe('resetPassword command', () => {
         metadata: { reason: 'reset_password', revokedCount: 1 },
       }),
     );
-    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
-        type: 'RESET_PASSWORD_CONSUMED',
+        type: 'PASSWORD_RESET_SUCCEEDED',
         targetUserId: 'user-1',
         emailNormalized: 'test@kangwon.ac.kr',
         metadata: { loginAttemptState: 'cleared' },
       }),
     );
+    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledWith(expect.anything(), {
+      targetUserId: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      now: databaseNow,
+    });
   });
 
-  it.fails('credential 변경 감사 이력은 password transaction과 함께 commit된다', async () => {
+  it('credential 변경 감사 이력과 보안 알림 outbox를 password transaction에 append한다', async () => {
     const currentPasswordHash = await hashPasswordForTest('OldPass1234');
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -175,15 +203,14 @@ describe('resetPassword command', () => {
 
     await resetPassword(deps as never, verificationGrant, 'NewPass1234');
 
-    const auditCalls = transactionSecurityEventCreate.mock.calls as unknown as Array<
-      [{ data: { type: string; targetUserId: string } }]
-    >;
-    expect(auditCalls.map(([input]) => input.data)).toContainEqual(
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
-        type: 'RESET_PASSWORD_CONSUMED',
+        type: 'PASSWORD_RESET_SUCCEEDED',
         targetUserId: 'user-1',
       }),
     );
+    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledTimes(1);
   });
 
   it('reset verification proof가 먼저 소비되면 reset restart required를 반환한다', async () => {
@@ -212,8 +239,67 @@ describe('resetPassword command', () => {
       code: 'AUTH_RESET_RESTART_REQUIRED',
     });
 
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('transaction 진입 뒤 user password hash가 바뀌면 stale reset으로 수렴한다', async () => {
+    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailNormalized: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+      emailVerifiedAt: databaseNow,
+    });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      subjectKey: 'v1:reset-subject',
+      purpose: 'RESET_PASSWORD',
+      eligibleUserId: 'user-1',
+      tokenHash: 'a'.repeat(64),
+    });
+    prisma.user.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      resetPassword(deps as never, verificationGrant, 'NewPass1234'),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_RESET_RESTART_REQUIRED',
+    });
+
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(loginAttemptService.clearFailuresInTransaction).not.toHaveBeenCalled();
+    expect(securityEvents.recordInTransaction).not.toHaveBeenCalled();
+    expect(mailOutboxWriter.appendPasswordChanged).not.toHaveBeenCalled();
+  });
+
+  it('audit 또는 outbox append 실패는 reset transaction 실패로 전파한다', async () => {
+    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailNormalized: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+      emailVerifiedAt: databaseNow,
+    });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      subjectKey: 'v1:reset-subject',
+      purpose: 'RESET_PASSWORD',
+      eligibleUserId: 'user-1',
+      tokenHash: 'a'.repeat(64),
+    });
+    mailOutboxWriter.appendPasswordChanged.mockRejectedValueOnce(new Error('outbox unavailable'));
+
+    await expect(resetPassword(deps as never, verificationGrant, 'NewPass1234')).rejects.toThrow(
+      'outbox unavailable',
+    );
+
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledTimes(2);
+    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledTimes(1);
   });
 
   it('삭제/미인증 계정도 reset restart required로 중립 처리하고 세션을 건드리지 않는다', async () => {
@@ -256,7 +342,7 @@ describe('resetPassword command', () => {
         verificationGrant,
         'RESET_PASSWORD',
       );
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
       expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
       expect(loginAttemptService.clearFailuresInTransaction).not.toHaveBeenCalled();
     }
@@ -288,6 +374,6 @@ describe('resetPassword command', () => {
     });
 
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 });
