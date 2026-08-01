@@ -27,6 +27,7 @@ describe('AuthOperationalMetricsService', () => {
       redisMustNotOwn: ['session_authority', 'verification_authority', 'account_lockout_authority'],
       degradeMode: 'postgres-local-fallback-alert',
     });
+    metrics.recordSecurityAlerts([], 0);
 
     expect(metrics.snapshot()).toEqual({
       cleanup: {
@@ -61,6 +62,7 @@ describe('AuthOperationalMetricsService', () => {
         ],
         degradeMode: 'postgres-local-fallback-alert',
       },
+      securityAlerts: [],
     });
     expect(domainMetrics.incrementCounter).toHaveBeenCalledWith({
       name: 'api_auth_cleanup_deleted_total',

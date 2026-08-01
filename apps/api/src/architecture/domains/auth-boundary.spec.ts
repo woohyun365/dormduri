@@ -182,6 +182,22 @@ describe('Auth product architecture boundary', () => {
     expect(source).toContain('AuthOperationsHealthService');
   });
 
+  it('keeps auth security alert policy connected to a production lifecycle owner', () => {
+    const cleanupSource = readSource(
+      join(authRoot, 'operations/auth-operational-cleanup.service.ts'),
+    );
+    const moduleSource = readSource(join(authRoot, 'operations/auth-operations.module.ts'));
+
+    expect(cleanupSource).toContain('evaluateAuthSecurityEventAlerts');
+    expect(cleanupSource).toContain('AuthSecurityAlertRepository');
+    expect(moduleSource).toContain('AuthSecurityAlertRepository');
+  });
+
+  it('keeps grant consumption on its explicit owner and removes the ambiguous proof helper', () => {
+    expect(existsSync(join(authRoot, 'verification/auth-verification-proof.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'verification/verification-grant-consumption.ts'))).toBe(true);
+  });
+
   it('keeps /health/auth as an ops-only protected capability route', () => {
     const healthController = readSource(join(apiSourceRoot, 'health/health.controller.ts'));
     const routeBlock =

@@ -64,6 +64,7 @@ export class AuthOperationsHealthService {
     if (redisGate.decision === 'redis_candidate') {
       alerts.push('auth_redis_gate_triggered');
     }
+    alerts.push(...metrics.securityAlerts.map((alert) => alert.kind));
 
     return {
       metrics,

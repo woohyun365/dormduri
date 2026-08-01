@@ -6,10 +6,10 @@ import {
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
 } from './auth-verification-lock.js';
 
-export const SIGNUP_VERIFICATION_PROOF_UNAVAILABLE =
-  '[AuthService] signup verification proof unavailable';
-export const RESET_VERIFICATION_PROOF_UNAVAILABLE =
-  '[AuthService] reset verification proof unavailable';
+export const SIGNUP_VERIFICATION_GRANT_UNAVAILABLE =
+  '[AuthService] signup verification grant unavailable';
+export const RESET_VERIFICATION_GRANT_UNAVAILABLE =
+  '[AuthService] reset verification grant unavailable';
 
 type VerificationCodeConsumer = Pick<
   Prisma.TransactionClient,

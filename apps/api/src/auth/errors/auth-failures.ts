@@ -1,6 +1,10 @@
 import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
 import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth/response';
-import { AUTH_RESET_RESTART_REQUIRED_CODE } from '@repo/shared/auth/response';
+import {
+  AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE,
+  AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE,
+  AUTH_RESET_RESTART_REQUIRED_CODE,
+} from '@repo/shared/auth/response';
 
 interface AuthFailureOptions {
   userActionable?: boolean;
@@ -121,6 +125,22 @@ export const authFailures = {
       {
         userActionable: true,
       },
+    );
+  },
+
+  accountCreatedLoginRequired() {
+    return createFailure(
+      AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE,
+      '계정이 생성됐어요. 로그인해 주세요.',
+      { userActionable: true },
+    );
+  },
+
+  passwordChangedLoginRequired() {
+    return createFailure(
+      AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE,
+      '비밀번호가 변경됐어요. 다시 로그인해 주세요.',
+      { userActionable: true },
     );
   },
 

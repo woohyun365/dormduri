@@ -12,6 +12,8 @@ import {
 } from '@repo/shared/auth/contract';
 import { validateKnuEmailFormat as granularValidateKnuEmailFormat } from '@repo/shared/auth/policy';
 import {
+  AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE,
+  AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE,
   authSessionRenewalFailureCodeSchema,
   changePasswordResponseSchema,
   loginResponseSchema,
@@ -309,6 +311,20 @@ describe('auth shared contract guards', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
+      }).success,
+    ).toBe(true);
+    expect(
+      signupResponseSchema.safeParse({
+        success: false,
+        code: AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE,
+        error: '계정이 생성됐어요. 로그인해 주세요.',
+      }).success,
+    ).toBe(true);
+    expect(
+      changePasswordResponseSchema.safeParse({
+        success: false,
+        code: AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE,
+        error: '비밀번호가 변경됐어요. 다시 로그인해 주세요.',
       }).success,
     ).toBe(true);
 

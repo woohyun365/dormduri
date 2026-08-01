@@ -9,6 +9,7 @@ describe('Auth DB role grants SQL artifact', () => {
   it('runtime/cleanup/read-only/migration credential boundary를 분리한다', () => {
     expect(sql).toContain('app_runtime_role');
     expect(sql).toContain('auth_cleanup_worker_role');
+    expect(sql).toContain('retention_worker_role');
     expect(sql).toContain('app_readonly_role');
     expect(sql).toContain('migration_role');
     expect(sql).toContain('MIGRATION_DATABASE_URL/DIRECT_URL');
@@ -27,12 +28,19 @@ describe('Auth DB role grants SQL artifact', () => {
     ]) {
       expect(sql).toContain(`'${table}'`);
     }
+    expect(sql).toContain("auth_signal_tables text[] := ARRAY['AuthMailOutboxEvent']");
 
     expect(sql).toContain(
       "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I.%I TO %I', target_schema, table_name, app_runtime_role",
     );
     expect(sql).toContain(
       "GRANT SELECT, DELETE ON TABLE %I.%I TO %I', target_schema, table_name, auth_cleanup_worker_role",
+    );
+    expect(sql).toContain(
+      "GRANT SELECT, DELETE ON TABLE %I.%I TO %I', target_schema, table_name, retention_worker_role",
+    );
+    expect(sql).toContain(
+      "GRANT SELECT ON TABLE %I.%I TO %I', target_schema, table_name, retention_worker_role",
     );
     expect(sql).toContain(
       "GRANT SELECT ON TABLE %I.%I TO %I', target_schema, table_name, app_readonly_role",

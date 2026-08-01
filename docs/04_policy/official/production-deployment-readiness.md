@@ -76,6 +76,8 @@ Production release는 아래 조건을 만족해야 한다.
 - Verification/reset code, reset proof, auth token은 mail sender log나 security event metadata에 원문으로 저장하지 않는다.
 - Provider success/failure는 bounded security event와 metric으로 남기되, transient provider 장애와 provider config invalid 상태를 분리한다.
 - AWS/SES raw error message는 log/security event metadata에 저장하지 않고 `CONFIG_INVALID`, `ACCESS_DENIED`, `MESSAGE_REJECTED`, `THROTTLED`, `TRANSIENT`, `UNKNOWN` category만 남긴다.
+- SES Configuration Set event publishing을 활성화해 delivery, bounce, complaint를 승인된 CloudWatch/SNS/EventBridge 경계로 전달한다. API outbox의 `ACCEPTED`는 provider 접수 상태이므로 최종 delivery evidence로 사용하지 않는다.
+- Release smoke에서 `api_auth_mail_dispatch_total`, `api_auth_mail_outbox_lag_seconds`, `api_auth_security_alert_active` scrape와 `AuthResetRequestSpike`, `AuthMailFailureSpike`, `AuthMailOutboxLagHigh` rule load를 확인한다.
 - 운영 identity/DKIM/sandbox/production access 준비는 `infra/aws/ses-setup-checklist.md`를 release gate로 사용한다.
 
 ## RDS / Migration / Role grant / Backup 정책

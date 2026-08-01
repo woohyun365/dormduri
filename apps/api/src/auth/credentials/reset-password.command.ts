@@ -7,8 +7,8 @@ import { hashPassword, verifyPasswordHash } from './password-hash.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
-  RESET_VERIFICATION_PROOF_UNAVAILABLE,
-} from '../verification/auth-verification-proof.js';
+  RESET_VERIFICATION_GRANT_UNAVAILABLE,
+} from '../verification/verification-grant-consumption.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
@@ -79,7 +79,7 @@ export async function resetPassword(
           tokenHash: resolvedGrant.tokenHash,
         },
         databaseNow,
-        RESET_VERIFICATION_PROOF_UNAVAILABLE,
+        RESET_VERIFICATION_GRANT_UNAVAILABLE,
       );
 
       const passwordUpdate = await tx.user.updateMany({
@@ -136,7 +136,7 @@ export async function resetPassword(
   } catch (error) {
     if (
       error instanceof Error &&
-      [RESET_VERIFICATION_PROOF_UNAVAILABLE, RESET_PASSWORD_OWNER_STALE].includes(error.message)
+      [RESET_VERIFICATION_GRANT_UNAVAILABLE, RESET_PASSWORD_OWNER_STALE].includes(error.message)
     ) {
       return authFailures.resetRestartRequired();
     }

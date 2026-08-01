@@ -35,6 +35,7 @@ DIRECT_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?sc
 PORT=4000
 VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
 AUTH_PERSISTENCE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
+AUTH_PERSISTENCE_HMAC_KEY_VERSION="v1"
 AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64="<generate-with-openssl-rand-base64-32>"
 AUTH_MAIL_ENVELOPE_KEY_VERSION="v1"
 ```
@@ -49,7 +50,7 @@ cp apps/api/.env.example apps/api/.env
 
 - `development`: Prisma CLI(`prisma:generate`, migrate 등)는 stale shell/tmux env로 인한 P1000을 막기 위해 `apps/api/.env`를 로컬 source of truth로 보고 inherited `DATABASE_URL`/`DIRECT_URL`을 덮어쓴다.
 - `test`: integration sandbox가 주입하는 disposable schema URL을 보존하기 위해 `.env`가 이미 주입된 `DATABASE_URL`/`DIRECT_URL`을 덮어쓰지 않는다.
-- `production`: `DATABASE_URL`, `DIRECT_URL`, `VERIFICATION_CODE_HMAC_SECRET`, `AUTH_PERSISTENCE_HMAC_SECRET`, `AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64` 누락 시 앱 시작 실패. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
+- `production`: `DATABASE_URL`, `DIRECT_URL`, `VERIFICATION_CODE_HMAC_SECRET`, `AUTH_PERSISTENCE_HMAC_SECRET`, `AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64` 누락 시 앱 시작 실패. `AUTH_PERSISTENCE_HMAC_KEY_VERSION`은 digest prefix/rotation marker이며 secret과 함께 변경 이력을 관리한다. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
 
 운영 권장 연결 경로:
 

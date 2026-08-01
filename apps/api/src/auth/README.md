@@ -19,7 +19,7 @@
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
 - `domain/`: request context, constants/types/utils 같은 pure/domain helper. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
 - `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric을 함께 둔다.
-- `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, proof consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
+- `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, purpose-bound grant consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
 - `credentials/`: `auth-credential-use-cases.service.ts`, `password-hash.ts`, password hash adapter, login/reset/change password command를 함께 둔다. 외부 users deletion은 `application/auth-password-hash.ts` bridge만 사용한다.
 - `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy, login network throttle와 no-PII metric을 함께 둔다. 계정 잠금과 IP throttle을 하나의 bucket으로 합치지 않는다.
 - `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않고, event 기록 실패는 user flow를 막지 않는 fail-safe boundary다.
@@ -27,7 +27,7 @@
 - `adapters/email/`: `EmailSender` contract, local/test stub sender, SESv2 production sender, provider delegate selection, monitored send wrapper.
 - `mappers/`: shared response mapper and user/session presenter.
 - `errors/`: user-facing neutral/fail-closed error contract.
-- `operations/`: Redis gate, auth cleanup, metrics, health snapshot. Postgres authoritative 기준을 유지한다.
+- `operations/`: Redis gate, auth cleanup, verification/credential/mail metrics, recent security alert query, health snapshot. Postgres authoritative 기준을 유지한다.
 
 ## Hard rules
 
@@ -41,7 +41,10 @@
 - Renewal metric은 `renewed|required|stale|reused` outcome만 기록하고 session/user/token 식별자를 label로 사용하지 않는다.
 - Missing/deleted/incomplete account login은 active hash와 같은 Argon2id profile의 canonical dummy hash를 검증한다. Active account lock은 cheap guard로 먼저 반환하는 명시적 예외다.
 - Login account lock은 Postgres `LoginAttempt`의 5회/5분 기준이고, network throttle은 trusted `request.ip` 기준 30회/1분 burst와 120회/10분 sustained bucket이다.
-- Password reset 성공은 proof consume, password update, session revoke와 함께 같은 serializable transaction에서 해당 email의 `LoginAttempt`를 제거한다.
+- Password reset 성공은 grant consume, password update, session revoke와 함께 같은 serializable transaction에서 해당 subject의 `LoginAttempt`를 제거한다.
+- HMAC lookup dimension은 `AUTH_PERSISTENCE_HMAC_KEY_VERSION:digest` 형식이며 key version과 secret을 함께 rotation한다. raw email/IP/UA를 metric label이나 security event dimension에 저장하지 않는다.
+- Signup/Change Password는 credential transaction commit 뒤 session 발급만 실패해도 일반 500으로 위장하지 않고 `AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED` 또는 `AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED` stable outcome을 반환한다.
+- Auth mail `ACCEPTED`는 provider 접수 상태다. 최종 delivery/bounce/complaint는 SES Configuration Set event publishing owner가 담당한다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.
 - 외부 domain production code에서 `auth/commands`, `auth/repositories`, `auth/domain`, `auth/policies`, `auth/adapters`, `auth/sessions`, `auth/verification`, `auth/credentials`, `auth/registration`, `auth/login-attempts`, `auth/security-events`를 직접 import하지 않는다.
 - auth API module은 Web rendering/hook/page/component를 소유하지 않는다.
@@ -72,7 +75,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - External-domain actor lookup/type surface: `application/auth-actor-context.*`.
 - External users-domain password check bridge: `application/auth-password-hash.ts`.
 - Opaque session issue/renew/logout/revoke/current actor projection: `sessions/`.
-- Verification code/proof issue, verify, consume, and ACID repository behavior: `verification/`.
+- Verification code/grant issue, verify, consume, and ACID repository behavior: `verification/`.
 - Login, reset password, change password, and password hashing: `credentials/`.
 - Signup draft validation and signup orchestration: `registration/`.
 - Login failure lockout and failure counter state: `login-attempts/`.
@@ -80,7 +83,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Encrypted auth mail envelope, transactional outbox append, bounded dispatcher, and delivery lifecycle: `mail/`.
 - Provider selection, SES payload/receipt/tag mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
 - Shared response/user/session projection helpers: `mappers/`.
-- Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
+- Operational cleanup, verification/credential/mail metrics, security alert evaluation, Redis gate, and `/health/auth` snapshot: `operations/`.
 - Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.
 - Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; public imports use `@repo/shared/auth` and granular `@repo/shared/auth/*` only.
 

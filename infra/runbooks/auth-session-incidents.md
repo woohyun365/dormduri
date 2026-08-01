@@ -25,6 +25,14 @@ sum by (target) (api_auth_login_password_verify_in_flight)
 sum by (outcome) (rate(api_auth_session_renewals_total[5m]))
 ```
 
+```promql
+max by (reason) (api_auth_security_alert_active)
+```
+
+```promql
+api_auth_mail_outbox_lag_seconds
+```
+
 `target`은 `real` 또는 `dummy`, renewal `outcome`은 `renewed`, `required`, `stale`, `reused`만 허용한다. 사용자 식별자나 raw route를 label로 추가하지 않는다.
 
 ## Password verify saturation
@@ -47,6 +55,25 @@ sum by (outcome) (rate(api_auth_session_renewals_total[5m]))
 3. `SESSION_TOKEN_REUSE_DETECTED` security event의 bounded metadata만 확인한다. token/cookie 원문은 조회·복사하지 않는다.
 4. 반복 재사용이 확인되면 영향을 받은 session family는 이미 fail-closed revoke되므로 전체 사용자 세션을 일괄 revoke하지 않는다.
 5. 광범위한 재사용, cookie transport 이상, 배포 직후 급증이면 auth 배포를 중단하고 `infra/runbooks/incident-rollback.md` 절차로 전환한다.
+
+## Verification and reset abuse
+
+`AuthResetRequestSpike`는 raw email이 아닌 versioned HMAC subject key 기준으로 동일 대상의 reset 요청이 10분 동안 6회 이상 관측됐음을 의미한다.
+
+1. `api_auth_verification_operations_total{scope="reset_password"}`에서 request/verify/grant 흐름을 함께 확인한다.
+2. 로그인 실패·lockout 증가와 같은 시간대인지 확인하되 사용자 식별자를 metric label이나 incident 문서에 옮기지 않는다.
+3. 정상 사용 급증이 아니라면 code request backstop과 network throttle 상태를 확인한다.
+4. CAPTCHA/step-up 도입은 경보 한 번으로 즉시 결정하지 않고 반복 빈도와 false-positive evidence를 남긴 뒤 별도 정책 변경으로 진행한다.
+
+## Auth mail delivery
+
+`AuthMailFailureSpike`는 10분 동안 provider send failure가 3회 이상, `AuthMailOutboxLagHigh`는 가장 오래된 처리 가능 outbox가 60초를 넘긴 상태다.
+
+1. `api_auth_mail_dispatch_total`의 `failed`, `unknown`, `superseded`, `accepted`를 비교한다.
+2. `api_auth_mail_outbox_lag_seconds`, dispatcher container health, DB connection waiting을 같은 시간 범위로 확인한다.
+3. SES Configuration Set event publishing에서 delivery, bounce, complaint를 확인한다. API의 `ACCEPTED`는 provider 접수이며 최종 전달 성공과 동일하지 않다.
+4. provider 원문 오류·수신 이메일·message id를 Slack/Grafana label에 노출하지 않고 bounded error category와 outbox event id만 제한된 운영 로그에서 사용한다.
+5. `UNKNOWN` payload는 중복 메일 위험 때문에 자동 재전송하지 않는다. 사용자가 새 코드를 요청하도록 유지하고 provider 상태를 먼저 확인한다.
 
 ## Release evidence
 

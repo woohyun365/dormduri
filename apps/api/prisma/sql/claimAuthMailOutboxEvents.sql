@@ -30,5 +30,6 @@ RETURNING
   event."payloadIv",
   event."payloadAuthTag",
   event."keyVersion",
+  event."createdAt",
   event."expiresAt",
   event."attemptCount";

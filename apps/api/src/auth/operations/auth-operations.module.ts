@@ -5,6 +5,7 @@ import { AuthOperationalCleanupRepository } from './auth-operational-cleanup.rep
 import { AuthOperationalCleanupService } from './auth-operational-cleanup.service.js';
 import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';
 import { AuthOperationsHealthService } from './auth-operations-health.service.js';
+import { AuthSecurityAlertRepository } from './auth-security-alert.repository.js';
 
 @Module({
   imports: [PrismaModule, MetricsModule],
@@ -13,6 +14,7 @@ import { AuthOperationsHealthService } from './auth-operations-health.service.js
     AuthOperationalCleanupService,
     AuthOperationalMetricsService,
     AuthOperationsHealthService,
+    AuthSecurityAlertRepository,
   ],
   exports: [
     AuthOperationalCleanupService,

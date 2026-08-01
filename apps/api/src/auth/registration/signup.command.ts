@@ -11,8 +11,8 @@ import { hashPassword } from '../credentials/password-hash.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
-  SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
-} from '../verification/auth-verification-proof.js';
+  SIGNUP_VERIFICATION_GRANT_UNAVAILABLE,
+} from '../verification/verification-grant-consumption.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   isPrismaKnownRequestError,
@@ -177,14 +177,19 @@ export async function signup(
           tokenHash: resolvedGrant.tokenHash,
         },
         emailVerifiedAt,
-        SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
+        SIGNUP_VERIFICATION_GRANT_UNAVAILABLE,
       );
       await createSignupLegalAcceptanceRecords(tx, createdUser.id, legalAcceptances);
 
       return { ...createdUser, displayIdentity };
     });
 
-    const authResult = await deps.sessionService.issueAuthResult(user.id, user.email, false);
+    const authResult = await deps.sessionService
+      .issueAuthResult(user.id, user.email, false)
+      .catch(() => null);
+    if (!authResult) {
+      return authFailures.accountCreatedLoginRequired();
+    }
     return toLoginSuccessResult(
       authResult.accessToken,
       toAuthSessionUserSummary({
@@ -208,7 +213,7 @@ export async function signup(
         return authFailures.nicknameAlreadyTaken();
       }
     }
-    if (error instanceof Error && error.message === SIGNUP_VERIFICATION_PROOF_UNAVAILABLE) {
+    if (error instanceof Error && error.message === SIGNUP_VERIFICATION_GRANT_UNAVAILABLE) {
       return authFailures.signupVerificationRequired();
     }
     if (error instanceof Error && error.message === SIGNUP_LEGAL_ACCEPTANCE_STALE) {

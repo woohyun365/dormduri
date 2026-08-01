@@ -11,6 +11,7 @@ describe('AuthOperationalCleanupService', () => {
     loginAttemptRetentionDays: 30,
     securityEventRetentionDays: 90,
     cleanupLagAlertSeconds: 86_400,
+    mailOutboxLagAlertSeconds: 60,
   };
 
   it('retention worker credential로 cutoff별 batch cleanup을 실행하고 cleanup lag metric을 기록한다', async () => {
@@ -27,11 +28,16 @@ describe('AuthOperationalCleanupService', () => {
     const metrics = {
       recordCleanup: vi.fn(),
       recordCleanupFailure: vi.fn(),
+      recordSecurityAlerts: vi.fn(),
+    };
+    const securityAlerts = {
+      readSignals: vi.fn().mockResolvedValue({ events: [], mailOutboxLagSeconds: 0 }),
     };
     const service = new AuthOperationalCleanupService(
       prisma as never,
       repository,
       metrics as never,
+      securityAlerts,
       settings as never,
     );
 
@@ -62,6 +68,7 @@ describe('AuthOperationalCleanupService', () => {
       cleanupLagSeconds: 86_400,
       ranAt: now,
     });
+    expect(metrics.recordSecurityAlerts).toHaveBeenCalledWith([], 0);
   });
 
   it('cleanup 실패는 failure metric을 남기고 원본 오류를 전파한다', async () => {
@@ -72,11 +79,13 @@ describe('AuthOperationalCleanupService', () => {
     const metrics = {
       recordCleanup: vi.fn(),
       recordCleanupFailure: vi.fn(),
+      recordSecurityAlerts: vi.fn(),
     };
     const service = new AuthOperationalCleanupService(
       { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
       repository,
       metrics as never,
+      { readSignals: vi.fn() },
       settings as never,
     );
 

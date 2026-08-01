@@ -12,6 +12,7 @@ export const DEFAULT_AUTH_REDIS_TRIGGER_AUTH_P95_MS = 250;
 export const DEFAULT_AUTH_REDIS_TRIGGER_AUTH_WRITE_IOPS = 100;
 export const DEFAULT_AUTH_REDIS_TRIGGER_THROTTLE_BYPASS_PER_HOUR = 1;
 export const DEFAULT_AUTH_CLEANUP_LAG_ALERT_SECONDS = 24 * 60 * 60;
+export const DEFAULT_AUTH_MAIL_OUTBOX_LAG_ALERT_SECONDS = 60;
 export const DEFAULT_AUTH_RDS_POOL_UTILIZATION_ALERT_RATIO = 0.8;
 
 export default registerAs('authOperations', () => ({
@@ -74,6 +75,12 @@ export default registerAs('authOperations', () => ({
     process.env,
     'AUTH_CLEANUP_LAG_ALERT_SECONDS',
     DEFAULT_AUTH_CLEANUP_LAG_ALERT_SECONDS,
+    { min: 1 },
+  ),
+  mailOutboxLagAlertSeconds: readNumberEnv(
+    process.env,
+    'AUTH_MAIL_OUTBOX_LAG_ALERT_SECONDS',
+    DEFAULT_AUTH_MAIL_OUTBOX_LAG_ALERT_SECONDS,
     { min: 1 },
   ),
   rdsPoolUtilizationAlertRatio: readNumberEnv(

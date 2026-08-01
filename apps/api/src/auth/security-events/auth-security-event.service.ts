@@ -42,16 +42,19 @@ export class AuthSecurityEventService {
         'subject',
         input.emailNormalized,
         this.authSettings.persistenceHmacSecret,
+        this.authSettings.persistenceHmacKeyVersion,
       ),
       requestIpHash: hashAuthSecurityEventDimension(
         'request-ip',
         input.requestIp,
         this.authSettings.persistenceHmacSecret,
+        this.authSettings.persistenceHmacKeyVersion,
       ),
       userAgentHash: hashAuthSecurityEventDimension(
         'user-agent',
         input.userAgent,
         this.authSettings.persistenceHmacSecret,
+        this.authSettings.persistenceHmacKeyVersion,
       ),
       metadata: sanitizeAuthSecurityEventMetadata(input.metadata),
     };

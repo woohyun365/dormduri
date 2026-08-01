@@ -73,6 +73,36 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Last auth operational cleanup lag in seconds.',
     labelNames: [],
   },
+  api_auth_credential_transitions_total: {
+    name: 'api_auth_credential_transitions_total',
+    kind: 'counter',
+    help: 'Total auth credential transition outcomes after their owning transaction boundary.',
+    labelNames: ['operation', 'outcome'],
+  },
+  api_auth_verification_operations_total: {
+    name: 'api_auth_verification_operations_total',
+    kind: 'counter',
+    help: 'Total auth verification request, verify, and grant outcomes by bounded purpose.',
+    labelNames: ['operation', 'outcome', 'scope'],
+  },
+  api_auth_mail_dispatch_total: {
+    name: 'api_auth_mail_dispatch_total',
+    kind: 'counter',
+    help: 'Total terminal auth mail outbox dispatch outcomes.',
+    labelNames: ['outcome'],
+  },
+  api_auth_mail_outbox_lag_seconds: {
+    name: 'api_auth_mail_outbox_lag_seconds',
+    kind: 'gauge',
+    help: 'Oldest claimed auth mail outbox event lag in seconds.',
+    labelNames: [],
+  },
+  api_auth_security_alert_active: {
+    name: 'api_auth_security_alert_active',
+    kind: 'gauge',
+    help: 'Current bounded auth security alert evaluation state.',
+    labelNames: ['reason'],
+  },
   api_auth_redis_gate_state: {
     name: 'api_auth_redis_gate_state',
     kind: 'gauge',

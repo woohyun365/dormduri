@@ -111,6 +111,10 @@ assert_privilege "$DATABASE_URL" 'runtime credential cannot write RetainedVaultO
 
 assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can read retained identity' "$schema.\"RetainedIdentity\"" SELECT true
 assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can update retention review jobs' "$schema.\"RetentionReviewJob\"" UPDATE true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can read auth security events' "$schema.\"AuthSecurityEvent\"" SELECT true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can delete expired auth sessions' "$schema.\"AuthSession\"" DELETE true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can read auth mail outbox lag' "$schema.\"AuthMailOutboxEvent\"" SELECT true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker cannot delete auth mail outbox' "$schema.\"AuthMailOutboxEvent\"" DELETE false
 
 assert_privilege "$RETENTION_DISCLOSURE_DATABASE_URL" 'retention disclosure can read retained identity' "$schema.\"RetainedIdentity\"" SELECT true
 assert_privilege "$RETENTION_DISCLOSURE_DATABASE_URL" 'retention disclosure can insert access log' "$schema.\"RetentionAccessLog\"" INSERT true

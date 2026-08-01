@@ -5,6 +5,7 @@ import { AUTH_VERIFICATION_CODE_MAX_ATTEMPTS } from '@repo/shared/auth/policy';
 import { hashVerificationCode } from '../domain/auth.utils.js';
 import authConfig, {
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
   DEFAULT_AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64,
   DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
 } from '../../config/auth.config.js';
@@ -62,10 +63,14 @@ describe('AuthVerificationService', () => {
       metadata: input.metadata,
     })),
   };
+  const flowMetrics = {
+    recordVerification: vi.fn(),
+  };
 
   const authSettings: ConfigType<typeof authConfig> = {
     verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
     persistenceHmacSecret: DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+    persistenceHmacKeyVersion: DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
     mailEnvelopeEncryptionKeyBase64: DEFAULT_AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64,
     mailEnvelopeKeyVersion: 'test-v1',
     mailDispatcherEnabled: false,
@@ -90,6 +95,7 @@ describe('AuthVerificationService', () => {
     mailEnvelopeWriter as never,
     authSettings,
     securityEvents as never,
+    flowMetrics as never,
   );
 
   beforeEach(() => {
@@ -142,6 +148,7 @@ describe('AuthVerificationService', () => {
         },
       }),
     );
+    expect(flowMetrics.recordVerification).toHaveBeenCalledWith('SIGNUP', 'request', 'accepted');
   });
 
   it('새 verification code는 HMAC prefix가 포함된 hash로 저장한다', async () => {

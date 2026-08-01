@@ -24,6 +24,14 @@ export const authEnvKeys = defineEnvKeys([
     description: 'Versioned HMAC secret for auth subject, IP, and audit lookup dimensions.',
   },
   {
+    key: 'AUTH_PERSISTENCE_HMAC_KEY_VERSION',
+    owner: 'auth',
+    category: 'runtime',
+    source: 'process-env',
+    defaultPolicy: 'safe-local-default',
+    description: 'Key version prefix for auth subject, IP, and audit HMAC dimensions.',
+  },
+  {
     key: 'AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64',
     owner: 'auth',
     category: 'secret',
@@ -242,6 +250,14 @@ export const authEnvKeys = defineEnvKeys([
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
     description: 'Auth cleanup lag alert threshold.',
+  },
+  {
+    key: 'AUTH_MAIL_OUTBOX_LAG_ALERT_SECONDS',
+    owner: 'auth',
+    category: 'observability',
+    source: 'process-env',
+    defaultPolicy: 'safe-local-default',
+    description: 'Oldest pending auth mail outbox lag alert threshold.',
   },
   {
     key: 'AUTH_RDS_POOL_UTILIZATION_ALERT_RATIO',

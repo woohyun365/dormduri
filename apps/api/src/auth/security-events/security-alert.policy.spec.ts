@@ -5,10 +5,10 @@ import {
 } from './security-alert.policy.js';
 
 describe('auth security alert policy', () => {
-  it('동일 email dimension의 login failure spike를 step-up/CAPTCHA 후보 trigger로 계산한다', () => {
+  it('동일 subject dimension의 login failure spike를 step-up/CAPTCHA 후보 trigger로 계산한다', () => {
     const events = Array.from({ length: 5 }, (_, index) => ({
       type: 'LOGIN_FAILURE' as const,
-      emailHash: 'email-hash-1',
+      subjectKey: 'v1:subject-key-1',
       createdAt: new Date(`2026-06-03T00:0${index}:00.000Z`),
     }));
 
@@ -17,7 +17,7 @@ describe('auth security alert policy', () => {
     ).toContainEqual(
       expect.objectContaining({
         kind: AUTH_SECURITY_ALERT_KINDS.LOGIN_FAILURE_SPIKE,
-        dimension: 'email',
+        dimension: 'subject',
         recommendedAction: 'consider-step-up-or-captcha',
       }),
     );
@@ -28,7 +28,7 @@ describe('auth security alert policy', () => {
     const events = [
       ...Array.from({ length: 6 }, (_, index) => ({
         type: 'VERIFICATION_CODE_REQUESTED' as const,
-        emailHash: 'email-hash-2',
+        subjectKey: 'v1:subject-key-2',
         createdAt: new Date(now.getTime() - index * 60_000),
         metadata: { purpose: 'RESET_PASSWORD' },
       })),
@@ -51,5 +51,19 @@ describe('auth security alert policy', () => {
         }),
       ]),
     );
+  });
+
+  it('pending mail outbox lag가 운영 threshold를 넘으면 별도 alert를 계산한다', () => {
+    expect(
+      evaluateAuthSecurityEventAlerts([], new Date('2026-06-03T00:10:00.000Z'), {
+        mailOutboxLagSeconds: 61,
+        mailOutboxLagAlertSeconds: 60,
+      }),
+    ).toContainEqual({
+      kind: AUTH_SECURITY_ALERT_KINDS.MAIL_OUTBOX_LAG_HIGH,
+      dimension: 'outbox',
+      count: 61,
+      recommendedAction: 'inspect-mail-outbox-dispatcher',
+    });
   });
 });

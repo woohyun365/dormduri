@@ -228,4 +228,31 @@ describe('changePassword command', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
   });
+
+  it('password/session transaction commit 뒤 session 재발급만 실패하면 재로그인 가능한 stable outcome을 반환한다', async () => {
+    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+    });
+    sessionService.issueAuthResult.mockRejectedValue(new Error('session store unavailable'));
+
+    await expect(
+      changePassword(
+        deps as never,
+        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+        'OldPass1234',
+        'NewPass1234',
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED',
+      error: '비밀번호가 변경됐어요. 다시 로그인해 주세요.',
+    });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
+    expect(sessionService.issueAuthResult).toHaveBeenCalledTimes(1);
+  });
 });

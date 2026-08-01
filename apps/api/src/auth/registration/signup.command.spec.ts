@@ -447,4 +447,25 @@ describe('signup command', () => {
     expect(prisma.legalAcceptanceRecord.createMany).toHaveBeenCalledTimes(1);
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
+
+  it('계정 transaction commit 뒤 session 발급만 실패하면 재로그인 가능한 stable outcome을 반환한다', async () => {
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+      academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
+    });
+    sessionService.issueAuthResult.mockRejectedValue(new Error('session store unavailable'));
+
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED',
+      error: '계정이 생성됐어요. 로그인해 주세요.',
+    });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
+    expect(sessionService.issueAuthResult).toHaveBeenCalledTimes(1);
+  });
 });

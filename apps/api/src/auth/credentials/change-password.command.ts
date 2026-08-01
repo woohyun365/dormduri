@@ -113,7 +113,12 @@ export async function changePassword(
     throw error;
   }
 
-  const authResult = await deps.sessionService.issueAuthResult(user.id, user.email, rememberMe);
+  const authResult = await deps.sessionService
+    .issueAuthResult(user.id, user.email, rememberMe)
+    .catch(() => null);
+  if (!authResult) {
+    return authFailures.passwordChangedLoginRequired();
+  }
   await recordAuthSecurityEventSafely(deps.securityEvents, {
     type: 'SESSION_REVOKE_ALL',
     severity: 'INFO',

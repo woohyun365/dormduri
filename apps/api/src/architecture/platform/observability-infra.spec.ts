@@ -271,6 +271,17 @@ describe('observability infra', () => {
     }
   });
 
+  it('wires auth reset abuse, mail failure, and outbox lag metrics to alert fixtures', () => {
+    const rules = readInfraFile('prometheus/rules/api-alerts.yml');
+
+    expect(rules).toContain('alert: AuthResetRequestSpike');
+    expect(rules).toContain('reason="reset-request-spike"');
+    expect(rules).toContain('alert: AuthMailFailureSpike');
+    expect(rules).toContain('reason="mail-failure-spike"');
+    expect(rules).toContain('alert: AuthMailOutboxLagHigh');
+    expect(rules).toContain('api_auth_mail_outbox_lag_seconds > 60');
+  });
+
   it('documents the stress release gate and safe report template', () => {
     expect(existsSync(stressReleaseRunbookPath)).toBe(true);
     expect(existsSync(stressReportTemplatePath)).toBe(true);

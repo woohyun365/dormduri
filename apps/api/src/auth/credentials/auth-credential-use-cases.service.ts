@@ -17,6 +17,7 @@ import { AuthPasswordHashPolicy } from './auth-password-hash.adapter.js';
 import { login } from './login.command.js';
 import { resetPassword } from './reset-password.command.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
+import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 @Injectable()
 export class AuthCredentialUseCases {
@@ -29,6 +30,7 @@ export class AuthCredentialUseCases {
     private readonly verificationService: AuthVerificationService,
     private readonly securityEvents: AuthSecurityEventService,
     private readonly mailOutboxWriter: AuthMailOutboxWriter,
+    private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
   login(
@@ -53,42 +55,66 @@ export class AuthCredentialUseCases {
     );
   }
 
-  resetPassword(
+  async resetPassword(
     verificationGrant: string | null,
     newPassword: string,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
-    return resetPassword(
-      {
-        prisma: this.prisma,
-        verificationService: this.verificationService,
-        loginAttemptService: this.loginAttemptService,
-        securityEvents: this.securityEvents,
-        mailOutboxWriter: this.mailOutboxWriter,
-      },
-      verificationGrant,
-      newPassword,
-      hasAuthRequestContext(requestContext) ? requestContext : undefined,
-    );
+    try {
+      const result = await resetPassword(
+        {
+          prisma: this.prisma,
+          verificationService: this.verificationService,
+          loginAttemptService: this.loginAttemptService,
+          securityEvents: this.securityEvents,
+          mailOutboxWriter: this.mailOutboxWriter,
+        },
+        verificationGrant,
+        newPassword,
+        hasAuthRequestContext(requestContext) ? requestContext : undefined,
+      );
+      this.flowMetrics?.recordCredentialTransition(
+        'reset_password',
+        result.success ? 'committed' : 'rejected',
+      );
+      return result;
+    } catch (error) {
+      this.flowMetrics?.recordCredentialTransition('reset_password', 'failed');
+      throw error;
+    }
   }
 
-  changePassword(
+  async changePassword(
     authUser: AuthenticatedUserContext,
     currentPassword: string,
     newPassword: string,
     requestContext: AuthRequestContext = {},
   ): Promise<ChangePasswordResult> {
-    return changePassword(
-      {
-        prisma: this.prisma,
-        sessionService: this.sessionService,
-        securityEvents: this.securityEvents,
-        mailOutboxWriter: this.mailOutboxWriter,
-      },
-      authUser,
-      currentPassword,
-      newPassword,
-      hasAuthRequestContext(requestContext) ? requestContext : undefined,
-    );
+    try {
+      const result = await changePassword(
+        {
+          prisma: this.prisma,
+          sessionService: this.sessionService,
+          securityEvents: this.securityEvents,
+          mailOutboxWriter: this.mailOutboxWriter,
+        },
+        authUser,
+        currentPassword,
+        newPassword,
+        hasAuthRequestContext(requestContext) ? requestContext : undefined,
+      );
+      this.flowMetrics?.recordCredentialTransition(
+        'change_password',
+        result.success
+          ? 'committed'
+          : result.code === 'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED'
+            ? 'committed_login_required'
+            : 'rejected',
+      );
+      return result;
+    } catch (error) {
+      this.flowMetrics?.recordCredentialTransition('change_password', 'failed');
+      throw error;
+    }
   }
 }

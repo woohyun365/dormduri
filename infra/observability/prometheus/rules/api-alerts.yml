@@ -69,6 +69,36 @@ groups:
           summary: Auth operational cleanup lag가 5분을 초과했습니다.
           runbook: infra/observability/README.md#alert-rule
 
+      - alert: AuthResetRequestSpike
+        expr: api_auth_security_alert_active{reason="reset-request-spike"} > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 동일 인증 대상의 비밀번호 재설정 요청이 10분 기준치를 초과했습니다.
+          runbook: infra/runbooks/auth-session-incidents.md#verification-and-reset-abuse
+
+      - alert: AuthMailFailureSpike
+        expr: api_auth_security_alert_active{reason="mail-failure-spike"} > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 인증 메일 전달 실패가 10분 기준치를 초과했습니다.
+          runbook: infra/runbooks/auth-session-incidents.md#auth-mail-delivery
+
+      - alert: AuthMailOutboxLagHigh
+        expr: api_auth_mail_outbox_lag_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 인증 메일 outbox 처리 지연이 60초를 초과했습니다.
+          runbook: infra/runbooks/auth-session-incidents.md#auth-mail-delivery
+
       - alert: AuthPasswordVerifyInFlightHigh
         expr: sum(api_auth_login_password_verify_in_flight) >= 8
         for: 5m

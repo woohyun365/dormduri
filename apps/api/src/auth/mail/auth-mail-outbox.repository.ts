@@ -25,6 +25,7 @@ export type ClaimedAuthMailOutboxEvent = {
   payloadIv: Uint8Array | null;
   payloadAuthTag: Uint8Array | null;
   keyVersion: string;
+  createdAt: Date;
   expiresAt: Date;
   attemptCount: number;
 };

@@ -14,12 +14,13 @@ export function hashAuthSecurityEventDimension(
   dimension: AuthPersistenceDimension,
   value: string | null | undefined,
   secret: string,
+  keyVersion?: string,
 ) {
   if (!value?.trim()) {
     return undefined;
   }
 
-  return hashAuthPersistenceDimension(dimension, value, secret);
+  return hashAuthPersistenceDimension(dimension, value, secret, keyVersion);
 }
 
 function isJsonPrimitive(value: unknown): value is string | number | boolean | null {

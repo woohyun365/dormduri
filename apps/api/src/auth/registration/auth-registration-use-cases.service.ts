@@ -6,6 +6,7 @@ import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { signup } from './signup.command.js';
+import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 @Injectable()
 export class AuthRegistrationUseCases {
@@ -14,6 +15,7 @@ export class AuthRegistrationUseCases {
     private readonly verificationService: AuthVerificationService,
     private readonly sessionService: AuthSessionService,
     private readonly signupValidationService: AuthSignupValidationService,
+    private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
   validateSignupDraft(input: {
@@ -24,16 +26,30 @@ export class AuthRegistrationUseCases {
     return this.signupValidationService.validateDraft(input);
   }
 
-  signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
-    return signup(
-      {
-        prisma: this.prisma,
-        verificationService: this.verificationService,
-        sessionService: this.sessionService,
-        signupValidationService: this.signupValidationService,
-      },
-      input,
-      verificationGrant,
-    );
+  async signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
+    try {
+      const result = await signup(
+        {
+          prisma: this.prisma,
+          verificationService: this.verificationService,
+          sessionService: this.sessionService,
+          signupValidationService: this.signupValidationService,
+        },
+        input,
+        verificationGrant,
+      );
+      this.flowMetrics?.recordCredentialTransition(
+        'signup',
+        result.success
+          ? 'committed'
+          : result.code === 'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED'
+            ? 'committed_login_required'
+            : 'rejected',
+      );
+      return result;
+    } catch (error) {
+      this.flowMetrics?.recordCredentialTransition('signup', 'failed');
+      throw error;
+    }
   }
 }

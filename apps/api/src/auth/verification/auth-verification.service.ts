@@ -35,6 +35,7 @@ import {
   AuthVerificationRequestRepository,
   VerificationRequestThrottledError,
 } from './auth-verification-request.repository.js';
+import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
@@ -50,6 +51,7 @@ export class AuthVerificationService {
     @Inject(authConfig.KEY)
     private readonly authSettings: ConfigType<typeof authConfig>,
     @Optional() private readonly securityEvents?: AuthSecurityEventService,
+    @Optional() private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
   async assertCodeRequestAllowed(
@@ -110,7 +112,12 @@ export class AuthVerificationService {
   ): Promise<GenericSuccessResult> {
     const startedAt = Date.now();
     const requestContext = this.normalizeRequestContext(requestIpOrContext);
-    await this.assertCodeRequestAllowed(emailNormalized, purpose, requestContext);
+    try {
+      await this.assertCodeRequestAllowed(emailNormalized, purpose, requestContext);
+    } catch (error) {
+      this.flowMetrics?.recordVerification(purpose, 'request', 'throttled');
+      throw error;
+    }
 
     const securityEventInput = {
       type: 'VERIFICATION_CODE_REQUESTED',
@@ -148,10 +155,13 @@ export class AuthVerificationService {
       });
     } catch (error) {
       if (error instanceof VerificationRequestThrottledError) {
+        this.flowMetrics?.recordVerification(purpose, 'request', 'throttled');
         throw authErrors.codeRequestThrottled(error.retryAfterSeconds);
       }
+      this.flowMetrics?.recordVerification(purpose, 'request', 'failed');
       throw error;
     }
+    this.flowMetrics?.recordVerification(purpose, 'request', 'accepted');
     await ensureMinDuration(startedAt, AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS);
     return { success: true };
   }
@@ -337,6 +347,10 @@ export class AuthVerificationService {
         ...metadata,
       },
     });
+    this.flowMetrics?.recordVerification(purpose, 'verify', success ? 'accepted' : 'rejected');
+    if (success) {
+      this.flowMetrics?.recordVerification(purpose, 'grant', 'issued');
+    }
   }
 
   private async handleFailedVerification(
@@ -357,6 +371,7 @@ export class AuthVerificationService {
       'subject',
       emailNormalized,
       this.authSettings.persistenceHmacSecret,
+      this.authSettings.persistenceHmacKeyVersion,
     );
   }
 
@@ -365,6 +380,7 @@ export class AuthVerificationService {
       'request-ip',
       requestIp,
       this.authSettings.persistenceHmacSecret,
+      this.authSettings.persistenceHmacKeyVersion,
     );
   }
 }

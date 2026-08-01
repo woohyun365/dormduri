@@ -11,6 +11,7 @@ const LOGIN_ATTEMPT_SQL_PATH = path.resolve(
   '../../../prisma/sql/recordLoginFailure.sql',
 );
 const SQL_WRITE_FILES = [
+  'claimAuthMailOutboxEvents.sql',
   'claimChatRealtimeOutboxEvents.sql',
   'claimNotificationOutboxEvents.sql',
   'claimRetentionArchiveJobs.sql',
@@ -21,6 +22,7 @@ const SQL_WRITE_FILES = [
   'recordVerificationCodeFailure.sql',
 ] as const;
 const UPDATED_AT_OWNED_WRITE_SQL_FILES = [
+  'claimAuthMailOutboxEvents.sql',
   'claimChatRealtimeOutboxEvents.sql',
   'claimNotificationOutboxEvents.sql',
   'claimRetentionArchiveJobs.sql',

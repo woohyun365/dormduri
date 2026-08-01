@@ -20,6 +20,7 @@ import {
   AuthMailOutboxRepository,
   type ClaimedAuthMailOutboxEvent,
 } from './auth-mail-outbox.repository.js';
+import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 export type AuthMailDispatchResult = {
   claimedCount: number;
@@ -42,6 +43,7 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
     @Inject(EMAIL_SENDER) private readonly emailSender: EmailSender,
     @Inject(authConfig.KEY)
     private readonly settings: ConfigType<typeof authConfig>,
+    private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -103,6 +105,7 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
     ) {
       await this.repository.markSuperseded(this.prisma, { eventId: event.id, now });
       result.supersededCount += 1;
+      this.recordDispatchMetric('superseded', event, now);
       return;
     }
 
@@ -125,6 +128,7 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
         providerErrorCategory: 'PAYLOAD_INVALID',
       });
       result.failedCount += 1;
+      this.recordDispatchMetric('failed', event, now);
       this.logger.warn(
         `[AuthMailDispatcher] invalid envelope eventId=${event.id} errorType=${toErrorType(error)}`,
       );
@@ -143,8 +147,10 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
       });
       if (accepted) {
         result.acceptedCount += 1;
+        this.recordDispatchMetric('accepted', event, now);
       } else {
         result.supersededCount += 1;
+        this.recordDispatchMetric('superseded', event, now);
       }
     } catch (error) {
       const status = isAmbiguousDelivery(error) ? 'UNKNOWN' : 'FAILED';
@@ -156,8 +162,10 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
       });
       if (status === 'UNKNOWN') {
         result.unknownCount += 1;
+        this.recordDispatchMetric('unknown', event, now);
       } else {
         result.failedCount += 1;
+        this.recordDispatchMetric('failed', event, now);
       }
       this.logger.warn(
         `[AuthMailDispatcher] provider send failed eventId=${event.id} outcome=${status} errorType=${toErrorType(error)}`,
@@ -187,6 +195,17 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
           correlationId: eventId,
         });
     }
+  }
+
+  private recordDispatchMetric(
+    outcome: 'accepted' | 'failed' | 'unknown' | 'superseded',
+    event: ClaimedAuthMailOutboxEvent,
+    now: Date,
+  ) {
+    this.flowMetrics?.recordMailDispatch(
+      outcome,
+      Math.max(0, (now.getTime() - event.createdAt.getTime()) / 1_000),
+    );
   }
 }
 

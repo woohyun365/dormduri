@@ -5,6 +5,10 @@ import {
   type DomainMetricsPort,
 } from '../../platform/observability/metrics/domain-metrics.port.js';
 import type { AuthRedisGateEvaluation } from './auth-redis-gate.policy.js';
+import {
+  AUTH_SECURITY_ALERT_KINDS,
+  type AuthSecurityAlert,
+} from '../security-events/security-alert.policy.js';
 
 export interface AuthCleanupMetricsInput {
   deletedCounts: AuthCleanupDeletedCounts;
@@ -30,6 +34,7 @@ export interface AuthOperationsMetricsSnapshot {
     totalFailures: number;
   };
   redisGate: AuthRedisGateEvaluation | null;
+  securityAlerts: AuthSecurityAlert[];
 }
 
 function emptyDeletedCounts(): AuthCleanupDeletedCounts {
@@ -70,6 +75,7 @@ export class AuthOperationalMetricsService {
   private lastFailureAt: string | null = null;
   private totalFailures = 0;
   private redisGate: AuthRedisGateEvaluation | null = null;
+  private securityAlerts: AuthSecurityAlert[] = [];
 
   recordCleanup(input: AuthCleanupMetricsInput) {
     this.totalDeleted = addDeletedCounts(this.totalDeleted, input.deletedCounts);
@@ -115,6 +121,24 @@ export class AuthOperationalMetricsService {
     });
   }
 
+  recordSecurityAlerts(alerts: readonly AuthSecurityAlert[], mailOutboxLagSeconds: number) {
+    this.securityAlerts = alerts.map((alert) => ({ ...alert }));
+    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
+      const activeKinds = new Set(alerts.map((alert) => alert.kind));
+      for (const kind of Object.values(AUTH_SECURITY_ALERT_KINDS)) {
+        metrics.setGauge({
+          name: 'api_auth_security_alert_active',
+          labels: { reason: kind },
+          value: activeKinds.has(kind) ? 1 : 0,
+        });
+      }
+      metrics.setGauge({
+        name: 'api_auth_mail_outbox_lag_seconds',
+        value: Math.max(0, mailOutboxLagSeconds),
+      });
+    });
+  }
+
   snapshot(): AuthOperationsMetricsSnapshot {
     return {
       cleanup: {
@@ -126,6 +150,7 @@ export class AuthOperationalMetricsService {
         totalFailures: this.totalFailures,
       },
       redisGate: this.redisGate ? { ...this.redisGate } : null,
+      securityAlerts: this.securityAlerts.map((alert) => ({ ...alert })),
     };
   }
 }

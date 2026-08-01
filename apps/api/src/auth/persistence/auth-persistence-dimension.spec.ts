@@ -25,4 +25,13 @@ describe('hashAuthPersistenceDimension', () => {
       hashAuthPersistenceDimension('subject', 'user@kangwon.ac.kr', secret),
     );
   });
+
+  it('configured key version을 digest input과 저장 prefix에 함께 반영한다', () => {
+    const rotated = hashAuthPersistenceDimension('subject', 'user@kangwon.ac.kr', secret, 'v2');
+
+    expect(rotated).toMatch(/^v2:[0-9a-f]{64}$/);
+    expect(rotated).not.toBe(
+      hashAuthPersistenceDimension('subject', 'user@kangwon.ac.kr', secret, 'v1'),
+    );
+  });
 });

@@ -6,6 +6,7 @@ const isProduction = nodeEnv === 'production';
 
 export const DEFAULT_VERIFICATION_CODE_HMAC_SECRET = 'local-verification-code-hmac-secret';
 export const DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET = 'local-auth-persistence-hmac-secret';
+export const DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION = 'v1';
 export const DEFAULT_AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64 =
   'bG9jYWwtYXV0aC1tYWlsLWVudmVsb3BlLWtleS0zMmI=';
 export const DEFAULT_AUTH_MAIL_ENVELOPE_KEY_VERSION = 'local-v1';
@@ -34,6 +35,11 @@ export default registerAs('auth', () => ({
     process.env,
     'AUTH_PERSISTENCE_HMAC_SECRET',
     DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+  ),
+  persistenceHmacKeyVersion: readStringEnv(
+    process.env,
+    'AUTH_PERSISTENCE_HMAC_KEY_VERSION',
+    DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
   ),
   mailEnvelopeEncryptionKeyBase64: readStringEnv(
     process.env,

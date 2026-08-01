@@ -46,8 +46,11 @@ import { AuthMailEnvelopeReader } from '../mail/auth-mail-envelope-reader.servic
 import { AuthMailEnvelopeWriter } from '../mail/auth-mail-envelope-writer.service.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import { AuthMailOutboxRepository } from '../mail/auth-mail-outbox.repository.js';
+import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 export const AUTH_APPLICATION_PROVIDERS: Provider[] = [AuthService, AuthActorContextResolver];
+
+export const AUTH_OPERATIONAL_SIGNAL_PROVIDERS: Provider[] = [AuthFlowMetricsService];
 
 export const AUTH_VERIFICATION_PROVIDERS: Provider[] = [
   AuthVerificationUseCases,
@@ -131,6 +134,7 @@ export const AUTH_ACCESS_PROVIDERS: Provider[] = [
 
 export const AUTH_PROVIDERS: Provider[] = [
   ...AUTH_APPLICATION_PROVIDERS,
+  ...AUTH_OPERATIONAL_SIGNAL_PROVIDERS,
   ...AUTH_VERIFICATION_PROVIDERS,
   ...AUTH_SESSION_PROVIDERS,
   ...AUTH_CREDENTIAL_PROVIDERS,

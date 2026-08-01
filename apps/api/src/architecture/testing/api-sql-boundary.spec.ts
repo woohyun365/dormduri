@@ -44,6 +44,21 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'shared advisory lock helper is transaction-scoped and never session-scoped.',
   }),
   sqlEntry({
+    path: 'prisma/sql/claimAuthMailOutboxEvents.sql',
+    owner: 'auth/mail',
+    category: 'worker-claim',
+    requiredPatterns: [
+      /FROM\s+"AuthMailOutboxEvent"/i,
+      /ORDER\s+BY\s+"availableAt"\s+ASC,\s*"createdAt"\s+ASC,\s*"id"\s+ASC/i,
+      /LIMIT\s+\$4/i,
+      skipLockedPattern,
+      /"lockedAt"\s+=\s+\$1/i,
+      /"lockedBy"\s+=\s+\$3/i,
+      /"updatedAt"\s+=\s+\$1/i,
+    ],
+    rationale: 'auth mail dispatcher uses a bounded SKIP LOCKED lease claim.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/claimChatRealtimeOutboxEvents.sql',
     owner: 'chat/outbox',
     category: 'worker-claim',

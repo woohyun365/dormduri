@@ -7,6 +7,11 @@ import {
   type AuthCleanupBatchResult,
 } from './auth-operational-cleanup.repository.js';
 import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';
+import { AuthSecurityAlertRepository } from './auth-security-alert.repository.js';
+import {
+  AUTH_SECURITY_ALERT_WINDOW_MS,
+  evaluateAuthSecurityEventAlerts,
+} from '../security-events/security-alert.policy.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1_000;
 
@@ -17,7 +22,7 @@ export interface AuthOperationalCleanupResult extends AuthCleanupBatchResult {
 
 /**
  * Auth cleanup intentionally runs through the existing retention worker Prisma
- * boundary in Phase 7. The `auth_cleanup_worker` DB role grant artifact is a
+ * boundary. The `auth_cleanup_worker` DB role grant artifact is a
  * future infra split candidate; creating a separate Prisma client/pool now would
  * increase RDS connection budget before production metrics justify it.
  */
@@ -27,6 +32,7 @@ export class AuthOperationalCleanupService {
     private readonly prisma: RetentionWorkerPrismaService,
     private readonly repository: AuthOperationalCleanupRepository,
     private readonly metrics: AuthOperationalMetricsService,
+    private readonly securityAlertRepository: AuthSecurityAlertRepository,
     @Inject(authOperationsConfig.KEY)
     private readonly settings: ConfigType<typeof authOperationsConfig>,
   ) {}
@@ -50,12 +56,21 @@ export class AuthOperationalCleanupService {
         batchSize: this.settings.cleanupBatchSize,
       });
       const cleanupLagSeconds = this.resolveCleanupLagSeconds(result);
+      const alertSignals = await this.securityAlertRepository.readSignals(this.prisma, {
+        since: new Date(referenceNow.getTime() - AUTH_SECURITY_ALERT_WINDOW_MS),
+        now: referenceNow,
+      });
+      const securityAlerts = evaluateAuthSecurityEventAlerts(alertSignals.events, referenceNow, {
+        mailOutboxLagSeconds: alertSignals.mailOutboxLagSeconds,
+        mailOutboxLagAlertSeconds: this.settings.mailOutboxLagAlertSeconds,
+      });
 
       this.metrics.recordCleanup({
         deletedCounts: result,
         cleanupLagSeconds,
         ranAt: referenceNow,
       });
+      this.metrics.recordSecurityAlerts(securityAlerts, alertSignals.mailOutboxLagSeconds);
 
       return {
         ...result,

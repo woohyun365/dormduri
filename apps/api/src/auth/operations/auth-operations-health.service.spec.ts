@@ -16,6 +16,17 @@ describe('AuthOperationsHealthService', () => {
       cleanupLagSeconds: 86_400,
       ranAt: new Date('2026-06-03T00:00:00.000Z'),
     });
+    metrics.recordSecurityAlerts(
+      [
+        {
+          kind: 'mail-outbox-lag-high',
+          dimension: 'outbox',
+          count: 61,
+          recommendedAction: 'inspect-mail-outbox-dispatcher',
+        },
+      ],
+      61,
+    );
     const service = new AuthOperationsHealthService(
       metrics,
       {
@@ -51,7 +62,12 @@ describe('AuthOperationsHealthService', () => {
         migrationConnectionIncludedInAppPool: false,
         alertAtEstimatedConnections: 24,
       },
-      alerts: ['auth_cleanup_lag', 'rds_connection_pool_budget', 'auth_redis_gate_triggered'],
+      alerts: [
+        'auth_cleanup_lag',
+        'rds_connection_pool_budget',
+        'auth_redis_gate_triggered',
+        'mail-outbox-lag-high',
+      ],
     });
   });
 });
