@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SIGNUP_VERIFIED_PROOF_TTL } from '@/auth/model';
+import { AUTH_VERIFICATION_GRANT_TTL_SECONDS } from '@repo/shared/auth/policy';
 import { useSignupFlow } from '../useSignupFlow';
 
 describe('useSignupFlow', () => {
@@ -45,7 +45,7 @@ describe('useSignupFlow', () => {
     });
 
     act(() => {
-      vi.advanceTimersByTime(SIGNUP_VERIFIED_PROOF_TTL * 1000);
+      vi.advanceTimersByTime(AUTH_VERIFICATION_GRANT_TTL_SECONDS * 1000);
     });
 
     expect(result.current.email).toBe('student@kangwon.ac.kr');
@@ -99,7 +99,7 @@ describe('useSignupFlow', () => {
     });
 
     vi.setSystemTime(
-      new Date('2026-07-27T00:00:00.000Z').getTime() + SIGNUP_VERIFIED_PROOF_TTL * 1000,
+      new Date('2026-07-27T00:00:00.000Z').getTime() + AUTH_VERIFICATION_GRANT_TTL_SECONDS * 1000,
     );
     act(() => {
       document.dispatchEvent(new Event('visibilitychange'));

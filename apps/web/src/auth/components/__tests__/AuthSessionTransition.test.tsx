@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { LoginSessionTransition } from '../LoginSessionTransition';
+import { AuthSessionTransition } from '../AuthSessionTransition';
 
 vi.mock('next/image', () => ({
   // eslint-disable-next-line jsx-a11y/alt-text, @next/next/no-img-element
@@ -17,9 +17,9 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-describe('LoginSessionTransition', () => {
+describe('AuthSessionTransition', () => {
   it('session 확인 중에는 checking 상태만 안내한다', () => {
-    render(<LoginSessionTransition state="checking" />);
+    render(<AuthSessionTransition state="checking" />);
 
     expect(screen.getByRole('status')).toHaveAttribute('data-state', 'checking');
     expect(screen.getByRole('status')).toHaveTextContent('로그인 상태를 확인하고 있어요');
@@ -29,7 +29,7 @@ describe('LoginSessionTransition', () => {
   });
 
   it('인증된 session은 main redirect 상태를 안내한다', () => {
-    render(<LoginSessionTransition state="redirecting" />);
+    render(<AuthSessionTransition state="redirecting" />);
 
     expect(screen.getByRole('status')).toHaveAttribute('data-state', 'redirecting');
     expect(screen.getByRole('status')).toHaveTextContent('로그인되어 있어요');

@@ -335,6 +335,32 @@ describe('authApi', () => {
     });
   });
 
+  it('password reset 요청들은 전달받은 AbortSignal을 fetch에 연결한다', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          grantExpiresInSeconds: 900,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await authApi.sendResetCode('test@kangwon.ac.kr', controller.signal);
+    await authApi.verifyResetCode('test@kangwon.ac.kr', '000000', controller.signal);
+    await authApi.resetPassword('test@kangwon.ac.kr', 'NewPass1234', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toEqual(expect.objectContaining({ signal: controller.signal }));
+    }
+  });
+
   it('verifyResetCode 429 Retry-After header를 fallback 재시도 시간으로 사용한다', async () => {
     vi.stubGlobal(
       'fetch',

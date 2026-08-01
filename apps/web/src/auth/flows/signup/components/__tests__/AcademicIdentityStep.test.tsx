@@ -7,9 +7,12 @@ import { AcademicIdentityStep } from '../AcademicIdentityStep';
 
 vi.mock('lucide-react', () => ({
   AlertCircle: () => null,
+  CheckCircle: () => null,
   ChevronDown: () => null,
   GraduationCap: () => null,
   Info: () => null,
+  Timer: () => null,
+  WifiOff: () => null,
 }));
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -66,6 +69,24 @@ describe('AcademicIdentityStep', () => {
     expect(screen.getByText('단과대를 선택해주세요.')).toBeInTheDocument();
     expect(screen.getByText('출생연도를 선택해주세요.')).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('캠퍼스 입력 후 성별이 비어 있으면 focus가 smooth scroll을 취소하지 않는다', () => {
+    renderWithState();
+    fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
+
+    const genderField = screen.getByText('성별').closest<HTMLElement>('[data-slot="field"]');
+    expect(genderField).not.toBeNull();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(genderField!, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '가입하기' }));
+
+    expect(genderField).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
   });
 
   it('가입 연령 범위에 맞는 출생연도 옵션을 제공한다', () => {
@@ -155,14 +176,14 @@ describe('AcademicIdentityStep', () => {
         onAccountDataChange={vi.fn()}
         onNext={vi.fn()}
         onBack={vi.fn()}
-        submissionError="네트워크 연결을 확인하고 다시 시도해주세요."
+        submissionError="네트워크를 확인한 뒤 다시 시도해 주세요."
       />,
     );
 
     const alert = screen.getByRole('alert');
     const submitButton = screen.getByRole('button', { name: '가입하기' });
 
-    expect(alert).toHaveTextContent('네트워크 연결을 확인하고 다시 시도해주세요.');
+    expect(alert).toHaveTextContent('네트워크를 확인한 뒤 다시 시도해 주세요.');
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
     expect(alert.compareDocumentPosition(submitButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });

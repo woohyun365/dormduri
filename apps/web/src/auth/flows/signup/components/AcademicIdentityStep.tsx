@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, GraduationCap, Info } from 'lucide-react';
+import { GraduationCap, Info } from 'lucide-react';
 import { getCollegeCatalog } from '@repo/shared/college';
 import { profileBirthYearSchema } from '@repo/shared/profile/contract';
 import { StepHeader } from '@/auth/components/StepHeader';
+import { AuthActionFeedback } from '@/auth/components/feedback/AuthActionFeedback';
 import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import type { SignupAccountData } from '../model/signup-account.types';
 import { SIGNUP_ACADEMIC_COPY } from '../model/signup-academic-copy';
 import { AccountAcademicIdentitySection } from './account-identity/AccountAcademicIdentitySection';
 import { StepNavigation } from './StepNavigation';
+import { SIGNUP_FEEDBACK_COPY } from '../model/signup-feedback.copy';
 
 const MIN_SIGNUP_AGE_YEARS = 18;
 const MAX_SIGNUP_AGE_YEARS = 30;
@@ -132,9 +134,17 @@ export function AcademicIdentityStep({
     <div className="space-y-6">
       <StepHeader
         icon={<GraduationCap className="size-8 text-(--knu-primary)" />}
-        title="기본 정보를 확인해요"
-        description="학교와 기본 정보를 선택해요."
+        title="학적 정보를 확인해요"
+        description="캠퍼스와 기본 정보를 입력해요."
       />
+
+      {submissionError && (
+        <AuthActionFeedback
+          variant="connectivity"
+          title={SIGNUP_FEEDBACK_COPY.academic.submissionFailedTitle}
+          description={submissionError}
+        />
+      )}
 
       <div className="flex gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -173,16 +183,6 @@ export function AcademicIdentityStep({
           onServerErrorClear?.();
         }}
       />
-
-      {submissionError && (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-xl bg-red-50 px-3.5 py-3 text-red-700"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p className="text-sm font-medium leading-5">{submissionError}</p>
-        </div>
-      )}
 
       <StepNavigation
         onBack={onBack}

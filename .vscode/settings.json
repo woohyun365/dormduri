@@ -4,5 +4,7 @@
   "prettier.requireConfig": true,
   "prettier.prettierPath": "./node_modules/prettier",
   "js/ts.tsdk.path": "./apps/web/node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "tailwindCSS.experimental.configFile": "apps/web/src/app/globals.css",
+  "tailwindCSS.lint.suggestCanonicalClasses": "warning"
 }

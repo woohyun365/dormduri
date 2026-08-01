@@ -46,4 +46,19 @@ describe('InputField', () => {
 
     expect(input).toHaveAttribute('type', 'password');
   });
+
+  it('읽기 상태의 긴 값은 consumer가 전달한 ellipsis layout을 적용한다', () => {
+    render(
+      <InputField
+        label="학교 이메일"
+        type="email"
+        value="knuStudent@kangwon.ac.kr"
+        onChange={vi.fn()}
+        disabled
+        inputClassName="truncate pr-28"
+      />,
+    );
+
+    expect(screen.getByLabelText('학교 이메일')).toHaveClass('truncate', 'pr-28');
+  });
 });

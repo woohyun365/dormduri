@@ -140,8 +140,8 @@ describe('LoginPageClient', () => {
 
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
     const status = screen.getByRole('status');
-    expect(status).toHaveTextContent('로그인 상태 확인이 잠시 늦어져요');
-    expect(status).toHaveTextContent('로그인은 계속할 수 있어요.');
+    expect(status).toHaveTextContent('로그인 상태를 확인하지 못했어요');
+    expect(status).toHaveTextContent('로그인은 그대로 진행할 수 있어요.');
     expect(status.closest('form')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '다시 확인' }));
     expect(retrySession).toHaveBeenCalledTimes(1);
@@ -153,8 +153,8 @@ describe('LoginPageClient', () => {
     render(<LoginPageClient />);
 
     const status = screen.getByRole('status');
-    expect(status).toHaveTextContent('비밀번호가 변경되었어요');
-    expect(status).toHaveTextContent('새 비밀번호로 다시 로그인해주세요.');
+    expect(status).toHaveTextContent('비밀번호가 변경됐어요');
+    expect(status).toHaveTextContent('새 비밀번호로 다시 로그인해 주세요.');
     expect(status.closest('form')).toBeInTheDocument();
   });
 
@@ -163,7 +163,7 @@ describe('LoginPageClient', () => {
 
     render(<LoginPageClient />);
 
-    expect(screen.queryByText('비밀번호가 변경되었어요')).not.toBeInTheDocument();
+    expect(screen.queryByText('비밀번호가 변경됐어요')).not.toBeInTheDocument();
   });
 
   it('빈 필드 제출 시 유효성 검사 에러를 표시한다', async () => {
@@ -224,7 +224,7 @@ describe('LoginPageClient', () => {
       success: false,
       locked: true,
       remainingSeconds: 300,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      error: '반복된 로그인 실패로 계정이 잠겼어요.',
     });
 
     render(<LoginPageClient />);
@@ -240,9 +240,7 @@ describe('LoginPageClient', () => {
       fireEvent.click(screen.getByRole('button', { name: '로그인' }));
     });
 
-    expect(
-      screen.getByText('로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('반복된 로그인 실패로 계정이 잠겼어요.')).toBeInTheDocument();
     expect(screen.getByText(/남은 시간/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '계정 잠금 중' })).toBeDisabled();
   });
@@ -250,9 +248,9 @@ describe('LoginPageClient', () => {
   it('rememberMe 체크 시 안내 문구를 표시한다', () => {
     render(<LoginPageClient />);
 
-    fireEvent.click(screen.getByLabelText('로그인 유지'));
+    fireEvent.click(screen.getByLabelText('로그인 유지(최대 7일)'));
 
-    expect(screen.getAllByText('개인 기기에서만 권장해요 (7일간 유지)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('개인 기기에서만 권장해요').length).toBeGreaterThan(0);
   });
 
   it('비밀번호 찾기와 회원가입 CTA를 route callback으로 분리한다', () => {

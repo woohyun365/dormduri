@@ -1,8 +1,11 @@
+import { AuthSessionUnavailableStatus } from '@/auth/components';
 import { PasswordResetEmailStep } from './components/PasswordResetEmailStep';
 import { PasswordResetLayout } from './components/PasswordResetLayout';
 import { PasswordResetVerificationStep } from './components/PasswordResetVerificationStep';
 import { PasswordResetNewPasswordStep } from './components/PasswordResetNewPasswordStep';
 import { PasswordResetCompleteStep } from './components/PasswordResetCompleteStep';
+import { PasswordResetStatusAlert } from './components/PasswordResetStatusAlert';
+import { PASSWORD_RESET_COPY } from './model/password-reset-copy';
 import type {
   PasswordResetActionResult,
   PasswordResetFlowState,
@@ -11,14 +14,11 @@ import type {
 
 interface PasswordResetFlowViewProps {
   state: PasswordResetFlowState;
-  stepNumber: number;
   countdown: {
     countdown: number;
     isActive: boolean;
-    formatTime: () => string;
   };
   status: PasswordResetStatus | null;
-  isAuthenticated: boolean;
   isSessionUnavailable: boolean;
   onBackAction: () => void;
   onRestartAction: () => void;
@@ -27,6 +27,7 @@ interface PasswordResetFlowViewProps {
   onGoToLoginAction: () => void;
   onVerificationCodeChangeAction: (verificationCode: string) => void;
   onVerifyCodeAction: () => Promise<PasswordResetActionResult>;
+  onContinueAfterVerificationAction: () => void;
   onNewPasswordChangeAction: (newPassword: string) => void;
   onConfirmPasswordChangeAction: (confirmPassword: string) => void;
   onResetPasswordAction: () => Promise<PasswordResetActionResult>;
@@ -36,10 +37,8 @@ interface PasswordResetFlowViewProps {
 
 export function PasswordResetFlowView({
   state,
-  stepNumber,
   countdown,
   status,
-  isAuthenticated,
   isSessionUnavailable,
   onBackAction,
   onRestartAction,
@@ -48,42 +47,73 @@ export function PasswordResetFlowView({
   onGoToLoginAction,
   onVerificationCodeChangeAction,
   onVerifyCodeAction,
+  onContinueAfterVerificationAction,
   onNewPasswordChangeAction,
   onConfirmPasswordChangeAction,
   onResetPasswordAction,
   onGoToLoginAfterResetAction,
   onRetrySessionAction,
 }: PasswordResetFlowViewProps) {
+  const currentStep = state.step === 'newPassword' || state.step === 'complete' ? 2 : 1;
+  const isRateLimited = status?.isRetryAfter === true;
+  const isAttemptsExhausted = status?.kind === 'attempts-exhausted';
+  const actionFeedback = status ? <PasswordResetStatusAlert status={status} /> : undefined;
+  const sessionStatus = isSessionUnavailable ? (
+    <AuthSessionUnavailableStatus
+      title={PASSWORD_RESET_COPY.session.unavailable.title}
+      description={PASSWORD_RESET_COPY.session.unavailable.description}
+      retryLabel={PASSWORD_RESET_COPY.session.unavailable.retry}
+      onRetryAction={onRetrySessionAction}
+      testId="password-reset-session-status"
+    />
+  ) : undefined;
+
   return (
     <PasswordResetLayout
-      currentStep={stepNumber}
-      showBack={state.step !== 'email' && state.step !== 'complete'}
+      currentStep={currentStep}
+      showBack={state.step === 'verification'}
       showProgress={state.step !== 'complete'}
-      status={status}
-      isAuthenticated={isAuthenticated}
-      isSessionUnavailable={isSessionUnavailable}
       onBack={onBackAction}
-      onRestart={onRestartAction}
-      onRetrySession={onRetrySessionAction}
     >
       {state.step === 'email' && (
         <PasswordResetEmailStep
           email={state.email}
-          isSending={state.isSendingCode}
+          isVerified={false}
+          isSending={state.operation === 'submitting'}
+          isRateLimited={isRateLimited}
+          sessionStatus={sessionStatus}
+          actionFeedback={actionFeedback}
           onEmailChange={onEmailChangeAction}
           onSendCode={onSendCodeAction}
           onGoToLogin={onGoToLoginAction}
+          onContinue={onContinueAfterVerificationAction}
+        />
+      )}
+      {state.step === 'verified' && (
+        <PasswordResetEmailStep
+          email={state.email}
+          isVerified
+          isSending={false}
+          isRateLimited={false}
+          sessionStatus={sessionStatus}
+          onEmailChange={onEmailChangeAction}
+          onSendCode={onSendCodeAction}
+          onGoToLogin={onGoToLoginAction}
+          onContinue={onContinueAfterVerificationAction}
         />
       )}
       {state.step === 'verification' && (
         <PasswordResetVerificationStep
-          email={state.requestedEmail || state.email}
+          email={state.email}
           verificationCode={state.verificationCode}
           countdown={countdown.countdown}
           isActive={countdown.isActive}
-          isSending={state.isSendingCode}
-          isVerifying={state.isVerifyingCode}
-          formatTime={countdown.formatTime}
+          isSending={state.operation === 'resending'}
+          isVerifying={state.operation === 'verifying'}
+          isRateLimited={isRateLimited}
+          isAttemptsExhausted={isAttemptsExhausted}
+          sessionStatus={sessionStatus}
+          actionFeedback={actionFeedback}
           onVerificationCodeChange={onVerificationCodeChangeAction}
           onResendCode={onSendCodeAction}
           onVerifyCode={onVerifyCodeAction}
@@ -92,10 +122,13 @@ export function PasswordResetFlowView({
       )}
       {state.step === 'newPassword' && (
         <PasswordResetNewPasswordStep
-          email={state.requestedEmail || state.email}
+          email={state.email}
           newPassword={state.newPassword}
           confirmPassword={state.confirmPassword}
-          isResetting={state.isResettingPassword}
+          isResetting={state.operation === 'submitting'}
+          isRateLimited={isRateLimited}
+          sessionStatus={sessionStatus}
+          actionFeedback={actionFeedback}
           onNewPasswordChange={onNewPasswordChangeAction}
           onConfirmPasswordChange={onConfirmPasswordChangeAction}
           onResetPassword={onResetPasswordAction}

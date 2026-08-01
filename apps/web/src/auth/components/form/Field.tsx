@@ -45,6 +45,7 @@ interface FieldMessageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'child
   error?: string;
   errorId?: string;
   descriptionId?: string;
+  descriptionClassName?: string;
   reserveSpace?: boolean;
   children?: ReactNode;
 }
@@ -53,6 +54,7 @@ export function FieldMessage({
   error,
   errorId,
   descriptionId,
+  descriptionClassName = '',
   reserveSpace = false,
   children,
   className = '',
@@ -71,7 +73,7 @@ export function FieldMessage({
       ) : children ? (
         <p
           id={descriptionId}
-          className={`text-sm text-(--knu-text-tertiary) ${reserveSpace ? '' : 'mt-2'}`.trim()}
+          className={`text-sm text-(--knu-text-tertiary) ${reserveSpace ? '' : 'mt-2'} ${descriptionClassName}`.trim()}
         >
           {children}
         </p>

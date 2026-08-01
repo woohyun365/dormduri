@@ -15,6 +15,7 @@ type AccountScenario =
   | 'moderationRejected'
   | 'validation'
   | 'nicknameConflict'
+  | 'networkUnavailable'
   | 'submitting';
 
 export function SignupCredentialsScenario({ scenario }: { scenario: AccountScenario }) {
@@ -30,6 +31,10 @@ export function SignupCredentialsScenario({ scenario }: { scenario: AccountScena
             : scenario === 'moderationRejected'
               ? 'sex123'
               : SIGNUP_BASIC_INFO.nickname,
+    password:
+      scenario === 'networkUnavailable' || scenario === 'submitting' ? 'SafePassword123' : '',
+    passwordConfirm:
+      scenario === 'networkUnavailable' || scenario === 'submitting' ? 'SafePassword123' : '',
   };
   const [basicInfo, setBasicInfo] = useState<SignupAccountData>(initialInfo);
 
@@ -42,12 +47,19 @@ export function SignupCredentialsScenario({ scenario }: { scenario: AccountScena
         onNext={noop}
         onBack={noop}
         disabled={scenario === 'submitting'}
+        validateSignupDraftAction={
+          scenario === 'networkUnavailable'
+            ? async () => {
+                throw new Error('Storybook network unavailable');
+              }
+            : async () => ({ success: true })
+        }
         serverFieldErrors={
           scenario === 'nicknameConflict'
             ? { nickname: '이미 사용 중인 닉네임입니다.' }
             : scenario === 'moderationRejected'
               ? {
-                  nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+                  nickname: '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
                 }
               : undefined
         }

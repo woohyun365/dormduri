@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type {
   ActiveLegalDocumentsBundleResponse,
   LegalDocumentResponse,
@@ -6,12 +6,16 @@ import type {
 } from '@repo/shared/legal';
 import { StepHeader } from '@/auth/components/StepHeader';
 import { StepNavigation } from './StepNavigation';
-import { FieldError } from '@/auth/components/form/FieldError';
+import { Field, FieldMessage } from '@/auth/components/form/Field';
 import { getSignupLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
-import { LegalConsentSummaryCard } from '@/legal/components/LegalConsentSummaryCard';
+import {
+  LegalConsentSummaryCard,
+  type LegalConsentSummaryCardHandle,
+} from '@/legal/components/LegalConsentSummaryCard';
 import { LegalDocumentDialog } from '@/legal/components/LegalDocumentDialog';
 import { FileText } from 'lucide-react';
 import { LegalConsentNotice } from './LegalConsentNotice';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 
 export interface LegalConsentData {
   agreeAge: boolean;
@@ -76,6 +80,7 @@ export function LegalConsentStep({
   legalDocumentsResult,
 }: LegalConsentStepProps) {
   const [error, setError] = useState('');
+  const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
   const [bundleState, setBundleState] = useState<
     | { status: 'loading' }
     | {
@@ -86,10 +91,17 @@ export function LegalConsentStep({
   >({ status: 'loading' });
   const [viewingDocument, setViewingDocument] = useState<LegalDocumentResponse | null>(null);
   const legalConsentRef = useRef(legalConsent);
+  const consentSummaryRef = useRef<LegalConsentSummaryCardHandle>(null);
+  const validationErrorId = useId();
 
   useEffect(() => {
     legalConsentRef.current = legalConsent;
   }, [legalConsent]);
+
+  useEffect(() => {
+    if (invalidSubmitCount <= 0 || !error) return;
+    focusAndScroll(consentSummaryRef.current?.getFirstUncheckedControl());
+  }, [error, invalidSubmitCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +157,7 @@ export function LegalConsentStep({
   const handleNext = () => {
     if (!allAgreed) {
       setError('필수 확인·동의 항목을 모두 선택해 주세요.');
+      setInvalidSubmitCount((current) => current + 1);
       return;
     }
     if (!normalizedConsent.legalAcceptances) {
@@ -162,11 +175,11 @@ export function LegalConsentStep({
         description="각 내용을 확인한 뒤 필수 항목에 동의해요."
       />
 
-      <div className="space-y-4">
-        {noticeStatus && (
-          <LegalConsentNotice status={noticeStatus} isUsingFallback={isUsingFallback} />
-        )}
+      {noticeStatus && (
+        <LegalConsentNotice status={noticeStatus} isUsingFallback={isUsingFallback} />
+      )}
 
+      <Field invalid={Boolean(error)} className="space-y-4">
         {bundleState.status === 'loading' ? (
           <div
             role="status"
@@ -177,23 +190,33 @@ export function LegalConsentStep({
           </div>
         ) : (
           <LegalConsentSummaryCard
+            ref={consentSummaryRef}
             checks={{
               agreeAge: normalizedConsent.agreeAge,
               agreeTerms: normalizedConsent.agreeTerms,
               agreePersonalDataCollectionUse: normalizedConsent.agreePersonalDataCollectionUse,
             }}
             bundle={bundleState.bundle}
+            validationErrorId={validationErrorId}
+            showValidationErrors={Boolean(error)}
             onToggleAll={handleAllAgree}
             onToggle={(field, checked) => {
-              onLegalConsentChange({ ...normalizedConsent, [field]: checked });
-              if (checked) setError('');
+              const nextConsent = { ...normalizedConsent, [field]: checked };
+              onLegalConsentChange(nextConsent);
+              if (
+                nextConsent.agreeAge &&
+                nextConsent.agreeTerms &&
+                nextConsent.agreePersonalDataCollectionUse
+              ) {
+                setError('');
+              }
             }}
             onOpenDocument={setViewingDocument}
           />
         )}
 
-        <FieldError message={error} />
-      </div>
+        <FieldMessage error={error} errorId={validationErrorId} />
+      </Field>
 
       <StepNavigation
         onBack={onBack}

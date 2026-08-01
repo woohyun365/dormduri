@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, KeyRound } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import { validatePasswordConfirm } from '@/auth/model/authFormValidation';
 import { validatePasswordStructure as validatePassword } from '@repo/shared/auth/policy';
 import { parseDisplayIdentityNickname } from '@repo/shared/user/identity';
 import { StepHeader } from '@/auth/components/StepHeader';
+import { AuthActionFeedback } from '@/auth/components/feedback/AuthActionFeedback';
+import { VerifiedSchoolEmailCard } from '@/auth/components/VerifiedSchoolEmailCard';
 import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import { authApi } from '@/auth/api';
 import type { SignupAccountData } from '../model/signup-account.types';
 import { AccountCredentialsSection } from './account-identity/AccountCredentialsSection';
 import { StepNavigation } from './StepNavigation';
+import { SIGNUP_FEEDBACK_COPY } from '../model/signup-feedback.copy';
 
 interface AccountCredentialsStepProps {
   email: string;
@@ -19,6 +22,7 @@ interface AccountCredentialsStepProps {
   disabled?: boolean;
   serverFieldErrors?: Partial<Record<'nickname' | 'password', string>>;
   onServerErrorClear?: () => void;
+  validateSignupDraftAction?: typeof authApi.validateSignupDraft;
 }
 
 export function AccountCredentialsStep({
@@ -30,11 +34,13 @@ export function AccountCredentialsStep({
   disabled = false,
   serverFieldErrors,
   onServerErrorClear,
+  validateSignupDraftAction = authApi.validateSignupDraft,
 }: AccountCredentialsStepProps) {
   const [nicknameError, setNicknameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordConfirmError, setPasswordConfirmError] = useState('');
   const [isCheckingPolicy, setIsCheckingPolicy] = useState(false);
+  const [policyCheckError, setPolicyCheckError] = useState('');
   const nicknameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const passwordConfirmRef = useRef<HTMLInputElement>(null);
@@ -74,36 +80,46 @@ export function AccountCredentialsStep({
       return;
     }
 
+    setPolicyCheckError('');
     setIsCheckingPolicy(true);
-    const validation = await authApi.validateSignupDraft({
-      email,
-      nickname: parsedNickname.value,
-      password: accountData.password,
-    });
-    setIsCheckingPolicy(false);
+    try {
+      const validation = await validateSignupDraftAction({
+        email,
+        nickname: parsedNickname.value,
+        password: accountData.password,
+      });
 
-    const nextNicknameError = validation.fieldErrors?.nickname ?? '';
-    const nextPasswordError =
-      validation.fieldErrors?.password ?? validation.fieldErrors?.email ?? '';
+      const nextNicknameError = validation.fieldErrors?.nickname ?? '';
+      const nextPasswordError =
+        validation.fieldErrors?.password ?? validation.fieldErrors?.email ?? '';
 
-    setNicknameError(nextNicknameError);
-    setPasswordError(nextPasswordError);
+      setNicknameError(nextNicknameError);
+      setPasswordError(nextPasswordError);
 
-    if (nextNicknameError) {
-      focusAndScroll(nicknameRef.current);
-      return;
+      if (!validation.success && !nextNicknameError && !nextPasswordError) {
+        setPolicyCheckError(validation.error ?? SIGNUP_FEEDBACK_COPY.common.connectivity);
+        return;
+      }
+      if (nextNicknameError) {
+        focusAndScroll(nicknameRef.current);
+        return;
+      }
+      if (nextPasswordError) {
+        focusAndScroll(passwordRef.current);
+        return;
+      }
+
+      const nextAccountData = {
+        ...accountData,
+        nickname: parsedNickname.value,
+      };
+      onAccountDataChange(nextAccountData);
+      await onNext(nextAccountData);
+    } catch {
+      setPolicyCheckError(SIGNUP_FEEDBACK_COPY.common.connectivity);
+    } finally {
+      setIsCheckingPolicy(false);
     }
-    if (nextPasswordError) {
-      focusAndScroll(passwordRef.current);
-      return;
-    }
-
-    const nextAccountData = {
-      ...accountData,
-      nickname: parsedNickname.value,
-    };
-    onAccountDataChange(nextAccountData);
-    await onNext(nextAccountData);
   };
 
   return (
@@ -114,15 +130,15 @@ export function AccountCredentialsStep({
         description="닉네임과 비밀번호를 설정해요."
       />
 
-      <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 ring-1 ring-indigo-100">
-          <CheckCircle2 className="size-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-indigo-600">인증된 학교 이메일</p>
-          <p className="mt-0.5 truncate text-sm font-semibold text-slate-800">{email}</p>
-        </div>
-      </div>
+      {policyCheckError ? (
+        <AuthActionFeedback
+          variant="connectivity"
+          title={SIGNUP_FEEDBACK_COPY.credentials.unavailableTitle}
+          description={policyCheckError}
+        />
+      ) : null}
+
+      <VerifiedSchoolEmailCard email={email} />
 
       <AccountCredentialsSection
         email={email}
@@ -134,7 +150,10 @@ export function AccountCredentialsStep({
         passwordRef={passwordRef}
         passwordConfirmRef={passwordConfirmRef}
         disabled={disabled}
-        onBasicInfoChange={onAccountDataChange}
+        onBasicInfoChange={(nextAccountData) => {
+          setPolicyCheckError('');
+          onAccountDataChange(nextAccountData);
+        }}
         onNicknameErrorClear={() => {
           setNicknameError('');
           onServerErrorClear?.();

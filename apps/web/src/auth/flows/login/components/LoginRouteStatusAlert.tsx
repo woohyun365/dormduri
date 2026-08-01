@@ -1,4 +1,4 @@
-import { LoginFeedbackStrip } from './LoginFeedbackStrip';
+import { AuthFeedbackStrip } from '@/auth/components/feedback/AuthFeedbackStrip';
 import type { LoginRouteStatus } from '../model/login-route-status';
 
 interface LoginRouteStatusAlertProps {
@@ -9,11 +9,12 @@ export function LoginRouteStatusAlert({ status }: LoginRouteStatusAlertProps) {
   if (!status) return null;
 
   return (
-    <LoginFeedbackStrip
+    <AuthFeedbackStrip
       variant="success"
       role="status"
       title={status.title}
       description={status.message}
+      className="mb-5"
     />
   );
 }

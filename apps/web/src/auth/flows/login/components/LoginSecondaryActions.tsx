@@ -15,7 +15,7 @@ export function LoginPasswordResetAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-md px-1 py-0.5 text-sm font-semibold text-(--knu-primary) transition-colors hover:bg-indigo-50 hover:text-(--knu-primary-hover) disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+      className="relative inline-flex h-5 shrink-0 items-start justify-end rounded-md px-1.5 text-sm font-semibold leading-5 text-(--knu-primary) transition-colors before:absolute before:-inset-x-1 before:-inset-y-2 before:rounded-lg before:content-[''] hover:bg-indigo-50 hover:text-(--knu-primary-hover) disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
     >
       비밀번호 찾기
     </button>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/auth/components/form/Checkbox';
@@ -55,6 +55,7 @@ export function LoginForm({
 }: LoginFormProps) {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const rememberMeDescriptionId = useId();
   const isInteractionPending = isSubmitting || isRedirecting;
 
   useEffect(() => {
@@ -120,20 +121,28 @@ export function LoginForm({
         />
 
         <div className="pt-1">
-          <div className="relative">
+          <div
+            data-testid="login-secondary-actions"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3"
+          >
             <Checkbox
-              label="로그인 유지"
-              description="개인 기기에서만 권장해요 (7일간 유지)"
+              label="로그인 유지(최대 7일)"
+              ariaDescribedBy={rememberMeDescriptionId}
+              size="sm"
               checked={values.rememberMe}
               onChange={onRememberMeChange}
               disabled={isInteractionPending}
             />
-            <div className="absolute top-0 right-0">
-              <LoginPasswordResetAction
-                onClick={onPasswordResetClick}
-                disabled={isInteractionPending}
-              />
-            </div>
+            <LoginPasswordResetAction
+              onClick={onPasswordResetClick}
+              disabled={isInteractionPending}
+            />
+            <p
+              id={rememberMeDescriptionId}
+              className="col-span-2 mt-0.5 pl-8 text-xs leading-4 text-(--knu-text-tertiary)"
+            >
+              개인 기기에서만 권장해요
+            </p>
           </div>
         </div>
 

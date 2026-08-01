@@ -1,10 +1,11 @@
 import { CheckCircle2, LoaderCircle } from 'lucide-react';
-import { AuthHeader, AuthServiceNotice } from '@/auth/components';
+import { AuthHeader } from './AuthHeader';
+import { AuthServiceNotice } from './layout/AuthServiceNotice';
 
-export type LoginSessionTransitionState = 'checking' | 'redirecting';
+export type AuthSessionTransitionState = 'checking' | 'redirecting';
 
-interface LoginSessionTransitionProps {
-  state: LoginSessionTransitionState;
+interface AuthSessionTransitionProps {
+  state: AuthSessionTransitionState;
 }
 
 const TRANSITION_COPY = {
@@ -18,7 +19,7 @@ const TRANSITION_COPY = {
   },
 } as const;
 
-export function LoginSessionTransition({ state }: LoginSessionTransitionProps) {
+export function AuthSessionTransition({ state }: AuthSessionTransitionProps) {
   const copy = TRANSITION_COPY[state];
   const redirecting = state === 'redirecting';
 
@@ -31,7 +32,7 @@ export function LoginSessionTransition({ state }: LoginSessionTransitionProps) {
           role="status"
           aria-live="polite"
           data-state={state}
-          className="w-full max-w-sm text-center motion-reduce:[&_*]:animate-none"
+          className="w-full max-w-sm text-center motion-reduce:**:animate-none"
         >
           <span
             className={`mx-auto flex size-14 items-center justify-center rounded-full ${

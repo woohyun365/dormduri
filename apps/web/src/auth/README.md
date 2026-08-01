@@ -125,6 +125,10 @@ If an external feature still needs auth behavior, expose that behavior through t
 - Redirect helpers must allow internal safe targets only.
 - Auth forms and status messages should be tested through accessible role/name/text queries.
 - Error/status UI should expose user-friendly copy and not raw upstream stack or provider messages.
+- Field validation stays attached to its input and moves focus to that field. Network, throttle,
+  lockout, and submission failures use `AuthActionFeedback`, which owns the shared action-result
+  focus and mobile scroll policy. Passive session/status information uses `AuthFeedbackStrip`
+  directly and must not steal focus.
 
 ## Styling and layout invariants
 

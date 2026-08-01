@@ -6,6 +6,8 @@ interface CheckboxProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   description?: ReactNode;
+  ariaDescribedBy?: string;
+  size?: 'sm' | 'md';
   required?: boolean;
   disabled?: boolean;
 }
@@ -15,10 +17,13 @@ export function Checkbox({
   checked,
   onChange,
   description,
+  ariaDescribedBy,
+  size = 'md',
   required = false,
   disabled = false,
 }: CheckboxProps) {
   const descriptionId = useId();
+  const checkboxSizeClassName = size === 'sm' ? 'size-5 rounded-md' : 'size-6 rounded-lg';
 
   return (
     <label
@@ -33,11 +38,11 @@ export function Checkbox({
           onChange={(e) => onChange(e.target.checked)}
           disabled={disabled}
           aria-label={label}
-          aria-describedby={description ? descriptionId : undefined}
+          aria-describedby={description ? descriptionId : ariaDescribedBy}
           className="sr-only peer"
         />
         <div
-          className={`size-6 rounded-lg border-2 transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-(--knu-primary) peer-focus-visible:ring-offset-1 ${
+          className={`${checkboxSizeClassName} border-2 transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-(--knu-primary) peer-focus-visible:ring-offset-1 ${
             checked
               ? 'border-(--knu-primary) bg-(--knu-primary)'
               : 'border-(--knu-border) bg-white group-hover:border-(--knu-primary)'

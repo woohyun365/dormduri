@@ -31,6 +31,7 @@ vi.mock('lucide-react', () => ({
   KeyRound: () => <span data-testid="icon-key" />,
   Mail: () => <span data-testid="icon-mail" />,
   Scale: () => <span data-testid="icon-scale" />,
+  WifiOff: () => <span data-testid="icon-wifi-off" />,
 }));
 
 vi.mock('@/auth/hooks', async (importOriginal) => {
@@ -206,25 +207,30 @@ vi.mock('../components/SignupCompleteStep', () => ({
   ),
 }));
 
-vi.mock('@/auth/components', () => ({
-  AuthResponsiveFrame: ({
-    children,
-    supportPanel,
-    onLogoClickAction,
-  }: React.PropsWithChildren<{
-    supportPanel: React.ReactNode;
-    onLogoClickAction?: () => boolean;
-  }>) => (
-    <div>
-      <button data-testid="logo" onClick={() => onLogoClickAction?.()}>
-        Logo
-      </button>
-      <aside>{supportPanel}</aside>
-      <main>{children}</main>
-    </div>
-  ),
-  AuthServiceNotice: () => <p>독립 운영 서비스</p>,
-}));
+vi.mock('@/auth/components', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/auth/components')>();
+
+  return {
+    ...actual,
+    AuthResponsiveFrame: ({
+      children,
+      supportPanel,
+      onLogoClickAction,
+    }: React.PropsWithChildren<{
+      supportPanel: React.ReactNode;
+      onLogoClickAction?: () => boolean;
+    }>) => (
+      <div>
+        <button data-testid="logo" onClick={() => onLogoClickAction?.()}>
+          Logo
+        </button>
+        <aside>{supportPanel}</aside>
+        <main>{children}</main>
+      </div>
+    ),
+    AuthServiceNotice: () => <p>독립 운영 서비스</p>,
+  };
+});
 
 const mockSignup = vi.mocked(authApi.signup);
 const mockUseRedirectIfAuthenticated = vi.mocked(useRedirectIfAuthenticated);
@@ -327,9 +333,8 @@ describe('SignupPageClient', () => {
     await renderSignup();
 
     expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '로그인 상태를 확인하지 못했지만 회원가입은 계속할 수 있어요.',
-    );
+    expect(screen.getByRole('status')).toHaveTextContent('로그인 상태를 확인하지 못했어요');
+    expect(screen.getByRole('status')).toHaveTextContent('회원가입은 계속할 수 있어요.');
     fireEvent.click(screen.getByRole('button', { name: '다시 확인' }));
     expect(retrySession).toHaveBeenCalledTimes(1);
   });
@@ -509,7 +514,7 @@ describe('SignupPageClient', () => {
 
     await submitSignup();
 
-    expect(screen.getByText('네트워크 연결을 확인하고 다시 시도해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('네트워크를 확인한 뒤 다시 시도해 주세요.')).toBeInTheDocument();
     expect(screen.getByTestId('step-4-submit')).toBeInTheDocument();
   });
 

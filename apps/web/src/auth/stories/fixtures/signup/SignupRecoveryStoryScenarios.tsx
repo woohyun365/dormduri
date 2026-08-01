@@ -8,6 +8,7 @@ import { SignupExitConfirmationDialog } from '@/auth/flows/signup/components/rec
 import { SIGNUP_EMAIL_PROOF_EXPIRED_NOTICE } from '@/auth/flows/signup/model/signup-recovery-copy';
 import { AUTH_STORY_EMAIL, SIGNUP_BASIC_INFO } from '../auth-story-fixtures';
 import { createEmailVerificationStoryState } from './SignupEmailStoryScenario';
+import { SIGNUP_FEEDBACK_COPY } from '@/auth/flows/signup/model/signup-feedback.copy';
 
 const noop = () => undefined;
 
@@ -82,17 +83,19 @@ export function SignupSubmissionRecoveryScenario({
 }: {
   scenario: 'failed' | 'retrying';
 }) {
+  const [hasFailed, setHasFailed] = useState(false);
+
   return (
     <SignupFlowView currentStep={4}>
       <AcademicIdentityStep
         accountData={SIGNUP_BASIC_INFO}
         onAccountDataChange={noop}
-        onNext={noop}
+        onNext={() => setHasFailed(true)}
         onBack={noop}
         disabled={scenario === 'retrying'}
         nextLabel={scenario === 'retrying' ? '처리 중...' : '가입하기'}
         submissionError={
-          scenario === 'failed' ? '네트워크 연결을 확인하고 다시 시도해주세요.' : undefined
+          scenario === 'failed' && hasFailed ? SIGNUP_FEEDBACK_COPY.common.connectivity : undefined
         }
       />
     </SignupFlowView>

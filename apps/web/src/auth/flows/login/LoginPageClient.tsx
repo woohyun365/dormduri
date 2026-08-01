@@ -3,9 +3,9 @@
 import { useCallback } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { AuthSessionTransition } from '@/auth/components';
 import { useRedirectIfAuthenticated } from '@/auth/hooks';
 import { LoginFlowView } from './LoginFlowView';
-import { LoginSessionTransition } from './components/LoginSessionTransition';
 import { useLoginForm } from './hooks/useLoginForm';
 import { useLoginRedirectTarget } from './hooks/useLoginRedirectTarget';
 import { mapLoginRouteStatus } from './model/login-route-status';
@@ -61,5 +61,5 @@ export default function LoginPageClient() {
 }
 
 export function LoginPageFallback() {
-  return <LoginSessionTransition state="checking" />;
+  return <AuthSessionTransition state="checking" />;
 }

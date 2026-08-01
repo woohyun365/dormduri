@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { authApi } from '@/auth/api';
-import { SIGNUP_VERIFIED_PROOF_TTL } from '@/auth/model';
+import { AUTH_VERIFICATION_GRANT_TTL_SECONDS } from '@repo/shared/auth/policy';
 import type { LegalConsentData } from '../components/LegalConsentStep';
 import { createNetworkSignupFailure, mapSignupFailure } from '../model/signup-failure-recovery';
 import { initialSignupFlowState, signupFlowReducer } from '../model/signup-flow.reducer';
@@ -72,7 +72,8 @@ export function useSignupFlow() {
   useEffect(() => {
     if (!state.emailVerifiedAt || state.currentStepId === 'COMPLETE') return;
 
-    const expiresAt = new Date(state.emailVerifiedAt).getTime() + SIGNUP_VERIFIED_PROOF_TTL * 1000;
+    const expiresAt =
+      new Date(state.emailVerifiedAt).getTime() + AUTH_VERIFICATION_GRANT_TTL_SECONDS * 1000;
     const expireIfNeeded = () => {
       if (Date.now() >= expiresAt) {
         resetAfterEmailProofExpiry();

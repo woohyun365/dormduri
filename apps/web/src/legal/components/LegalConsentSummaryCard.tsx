@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { ActiveLegalDocumentsBundleResponse, LegalDocumentResponse } from '@repo/shared/legal';
 
@@ -27,9 +27,15 @@ interface LegalConsentSummaryCardProps {
   checks: SignupLegalConsentChecks;
   bundle: ActiveLegalDocumentsBundleResponse;
   disabled?: boolean;
+  validationErrorId?: string;
+  showValidationErrors?: boolean;
   onToggle: (field: SignupLegalConsentField, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
   onOpenDocument: (document: LegalDocumentResponse) => void;
+}
+
+export interface LegalConsentSummaryCardHandle {
+  getFirstUncheckedControl: () => HTMLInputElement | null;
 }
 
 function consentItems(bundle: ActiveLegalDocumentsBundleResponse): ConsentItem[] {
@@ -106,16 +112,38 @@ function ConsentCheckbox({
   );
 }
 
-export function LegalConsentSummaryCard({
-  checks,
-  bundle,
-  disabled,
-  onToggle,
-  onToggleAll,
-  onOpenDocument,
-}: LegalConsentSummaryCardProps) {
+export const LegalConsentSummaryCard = forwardRef<
+  LegalConsentSummaryCardHandle,
+  LegalConsentSummaryCardProps
+>(function LegalConsentSummaryCard(
+  {
+    checks,
+    bundle,
+    disabled,
+    validationErrorId,
+    showValidationErrors = false,
+    onToggle,
+    onToggleAll,
+    onOpenDocument,
+  },
+  ref,
+) {
   const allChecked = checks.agreeAge && checks.agreeTerms && checks.agreePersonalDataCollectionUse;
   const items = consentItems(bundle);
+  const checkboxRefs = useRef<Partial<Record<SignupLegalConsentField, HTMLInputElement | null>>>(
+    {},
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getFirstUncheckedControl: () => {
+        const firstUnchecked = items.find((item) => !checks[item.field]);
+        return firstUnchecked ? (checkboxRefs.current[firstUnchecked.field] ?? null) : null;
+      },
+    }),
+    [checks, items],
+  );
 
   return (
     <section aria-labelledby="signup-legal-consent-heading" className="space-y-4">
@@ -138,12 +166,23 @@ export function LegalConsentSummaryCard({
           <article key={item.field} className="py-5">
             <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-2">
               <input
+                ref={(control) => {
+                  checkboxRefs.current[item.field] = control;
+                }}
                 id={`signup-legal-${item.field}`}
                 type="checkbox"
                 checked={checks[item.field]}
                 disabled={disabled}
+                aria-invalid={showValidationErrors && !checks[item.field] ? 'true' : undefined}
+                aria-describedby={
+                  showValidationErrors && !checks[item.field] ? validationErrorId : undefined
+                }
                 onChange={(event) => onToggle(item.field, event.target.checked)}
-                className="size-5 rounded border-(--knu-border) text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+                className={`size-5 rounded text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary) ${
+                  showValidationErrors && !checks[item.field]
+                    ? 'border-rose-400 ring-1 ring-rose-300 ring-offset-1'
+                    : 'border-(--knu-border)'
+                }`}
               />
               <label
                 htmlFor={`signup-legal-${item.field}`}
@@ -208,4 +247,4 @@ export function LegalConsentSummaryCard({
       </div>
     </section>
   );
-}
+});

@@ -51,3 +51,8 @@ export const NicknameConflict: Story = {
 export const Submitting: Story = {
   args: { scenario: 'submitting' },
 };
+
+export const NetworkUnavailable: Story = {
+  name: 'Network Unavailable',
+  args: { scenario: 'networkUnavailable' },
+};

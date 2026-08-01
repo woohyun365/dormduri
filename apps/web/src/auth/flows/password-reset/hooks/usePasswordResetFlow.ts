@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/auth/api';
 import {
+  AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
+  AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+  RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
+} from '@repo/shared/auth/policy';
+import {
   initialPasswordResetFlowState,
   passwordResetFlowReducer,
 } from '../model/password-reset-flow.reducer';
@@ -9,26 +14,29 @@ import type {
   PasswordResetActionResult,
   PasswordResetStatus,
 } from '../model/password-reset-flow.types';
-import {
-  createPasswordResetRetryAfterMessage,
-  PASSWORD_RESET_COPY,
-} from '../model/password-reset-copy';
+import { PASSWORD_RESET_COPY } from '../model/password-reset-copy';
 import {
   isPasswordResetRestartRequired,
   normalizeRetryAfterSeconds,
 } from '../model/password-reset-error.mapper';
 import { usePasswordResetCooldown } from './usePasswordResetCooldown';
-import { usePasswordResetSessionNotice } from './usePasswordResetSessionNotice';
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function expiresAt(seconds: number): number {
+  return Date.now() + seconds * 1_000;
+}
 
 export function usePasswordResetFlow() {
   const router = useRouter();
   const [state, dispatch] = useReducer(passwordResetFlowReducer, initialPasswordResetFlowState);
   const [status, setStatus] = useState<PasswordResetStatus | null>(null);
-  const { isAuthenticated, isSessionUnavailable, retrySession } = usePasswordResetSessionNotice();
-  const cooldown = usePasswordResetCooldown();
+  const codeExpiry = usePasswordResetCooldown(RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS);
   const retryAfter = usePasswordResetCooldown(0);
-  const verificationStepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sendRequestIdRef = useRef(0);
+  const activeRequestRef = useRef<AbortController | null>(null);
+  const verificationFailureCountRef = useRef(0);
 
   const visibleStatus = useMemo<PasswordResetStatus | null>(() => {
     if (!status?.isRetryAfter) return status;
@@ -36,9 +44,29 @@ export function usePasswordResetFlow() {
 
     return {
       ...status,
-      message: createPasswordResetRetryAfterMessage(retryAfter.countdown),
+      countdownSeconds: retryAfter.countdown,
     };
   }, [retryAfter.countdown, retryAfter.isActive, status]);
+
+  const abortActiveRequest = useCallback(() => {
+    activeRequestRef.current?.abort();
+    activeRequestRef.current = null;
+  }, []);
+
+  const beginRequest = useCallback(() => {
+    abortActiveRequest();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+    return controller;
+  }, [abortActiveRequest]);
+
+  const finishRequest = useCallback((controller: AbortController) => {
+    if (activeRequestRef.current === controller) {
+      activeRequestRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => abortActiveRequest, [abortActiveRequest]);
 
   const startRetryAfterStatus = useCallback(
     (seconds: number | undefined, title = PASSWORD_RESET_COPY.status.retryAfterTitle): boolean => {
@@ -49,8 +77,8 @@ export function usePasswordResetFlow() {
       setStatus({
         variant: 'warning',
         title,
-        message: createPasswordResetRetryAfterMessage(normalizedSeconds),
         isRetryAfter: true,
+        countdownSeconds: normalizedSeconds,
       });
       return true;
     },
@@ -62,61 +90,72 @@ export function usePasswordResetFlow() {
     setStatus((current) => (current?.isRetryAfter ? null : current));
   }, [retryAfter]);
 
-  const clearVerificationStepTimeout = useCallback(() => {
-    if (verificationStepTimeoutRef.current) {
-      clearTimeout(verificationStepTimeoutRef.current);
-      verificationStepTimeoutRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearVerificationStepTimeout();
-    };
-  }, [clearVerificationStepTimeout]);
-
   const restartEmailEntry = useCallback(() => {
-    sendRequestIdRef.current += 1;
-    clearVerificationStepTimeout();
-    cooldown.stop();
+    abortActiveRequest();
+    codeExpiry.stop();
     clearRetryAfterStatus();
+    verificationFailureCountRef.current = 0;
     setStatus(null);
     dispatch({ type: 'restartEmailEntry' });
-  }, [clearRetryAfterStatus, clearVerificationStepTimeout, cooldown]);
+  }, [abortActiveRequest, clearRetryAfterStatus, codeExpiry]);
+
+  const restartExpiredReset = useCallback(() => {
+    abortActiveRequest();
+    codeExpiry.stop();
+    clearRetryAfterStatus();
+    verificationFailureCountRef.current = 0;
+    dispatch({ type: 'restartEmailEntry' });
+    setStatus({
+      variant: 'warning',
+      title: PASSWORD_RESET_COPY.status.resetRestartTitle,
+      message: PASSWORD_RESET_COPY.status.resetRestartMessage,
+    });
+  }, [abortActiveRequest, clearRetryAfterStatus, codeExpiry]);
 
   const changeEmail = useCallback(
     (email: string) => {
-      sendRequestIdRef.current += 1;
-      clearVerificationStepTimeout();
-      cooldown.stop();
+      abortActiveRequest();
+      codeExpiry.stop();
       clearRetryAfterStatus();
+      verificationFailureCountRef.current = 0;
       setStatus(null);
       dispatch({ type: 'emailChanged', email });
     },
-    [clearRetryAfterStatus, clearVerificationStepTimeout, cooldown],
+    [abortActiveRequest, clearRetryAfterStatus, codeExpiry],
   );
 
   const sendCode = useCallback(async () => {
-    if (state.isSendingCode || cooldown.isActive || retryAfter.isActive) return;
+    if (
+      (state.step !== 'email' && state.step !== 'verification') ||
+      state.operation !== 'idle' ||
+      retryAfter.isActive
+    ) {
+      return;
+    }
 
     const requestEmail = state.email.trim();
-    const requestId = ++sendRequestIdRef.current;
+    const isResend = state.step === 'verification';
+    const controller = beginRequest();
     setStatus(null);
     dispatch({ type: 'sendCodeStarted' });
 
     try {
-      const result = await authApi.sendResetCode(requestEmail);
-      if (requestId !== sendRequestIdRef.current) return;
+      const result = await authApi.sendResetCode(requestEmail, controller.signal);
+      if (controller.signal.aborted) return;
 
       if (result.success) {
         clearRetryAfterStatus();
-        dispatch({ type: 'sendCodeSucceeded', email: requestEmail });
-        cooldown.start();
-        clearVerificationStepTimeout();
-        verificationStepTimeoutRef.current = setTimeout(() => {
-          if (requestId !== sendRequestIdRef.current) return;
-          dispatch({ type: 'enterVerification' });
-        }, 500);
+        verificationFailureCountRef.current = 0;
+        const codeExpiresAt = expiresAt(RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS);
+        dispatch({ type: 'sendCodeSucceeded', email: requestEmail, codeExpiresAt });
+        codeExpiry.start(RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS);
+        if (isResend) {
+          setStatus({
+            variant: 'success',
+            title: PASSWORD_RESET_COPY.status.resendSucceededTitle,
+            message: PASSWORD_RESET_COPY.status.resendSucceededMessage,
+          });
+        }
         return;
       }
 
@@ -129,44 +168,86 @@ export function usePasswordResetFlow() {
         });
       }
       dispatch({ type: 'sendCodeFailed' });
-    } catch {
-      if (requestId !== sendRequestIdRef.current) return;
+    } catch (error) {
+      if (isAbortError(error)) return;
       setStatus({
         variant: 'error',
-        title: PASSWORD_RESET_COPY.status.networkTitle,
+        kind: 'network',
+        title: PASSWORD_RESET_COPY.status.sendCodeNetworkTitle,
         message: PASSWORD_RESET_COPY.status.defaultNetworkError,
       });
       dispatch({ type: 'sendCodeFailed' });
+    } finally {
+      finishRequest(controller);
     }
   }, [
+    beginRequest,
     clearRetryAfterStatus,
-    clearVerificationStepTimeout,
-    cooldown,
+    codeExpiry,
+    finishRequest,
     retryAfter.isActive,
     startRetryAfterStatus,
-    state.email,
-    state.isSendingCode,
+    state,
   ]);
 
   const verifyCode = useCallback(async (): Promise<PasswordResetActionResult> => {
-    if (state.isVerifyingCode) return { success: false };
+    if (state.step !== 'verification' || state.operation !== 'idle' || retryAfter.isActive) {
+      return { success: false };
+    }
+    if (!codeExpiry.isActive || state.codeExpiresAt <= Date.now()) {
+      return {
+        success: false,
+        fieldErrors: { code: PASSWORD_RESET_COPY.verification.expired },
+      };
+    }
 
-    const targetEmail = state.requestedEmail || state.email;
+    const controller = beginRequest();
     setStatus(null);
     dispatch({ type: 'verifyCodeStarted' });
 
     try {
-      const result = await authApi.verifyResetCode(targetEmail, state.verificationCode);
+      const result = await authApi.verifyResetCode(
+        state.email,
+        state.verificationCode,
+        controller.signal,
+      );
+      if (controller.signal.aborted) return { success: false };
       if (result.success) {
         clearRetryAfterStatus();
-        cooldown.stop();
-        dispatch({ type: 'verifyCodeSucceeded' });
+        codeExpiry.stop();
+        verificationFailureCountRef.current = 0;
+        dispatch({
+          type: 'verifyCodeSucceeded',
+          grantExpiresAt: expiresAt(
+            result.grantExpiresInSeconds ?? AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+          ),
+        });
         return { success: true };
+      }
+
+      if (result.code === 'AUTH_VERIFICATION_CODE_INVALID') {
+        verificationFailureCountRef.current += 1;
+
+        if (verificationFailureCountRef.current >= AUTH_VERIFICATION_CODE_MAX_ATTEMPTS) {
+          codeExpiry.stop();
+          setStatus({
+            variant: 'warning',
+            kind: 'attempts-exhausted',
+            title: PASSWORD_RESET_COPY.status.attemptsExhaustedTitle,
+            message: PASSWORD_RESET_COPY.status.attemptsExhaustedMessage,
+          });
+          dispatch({ type: 'verifyCodeFailed' });
+          return {
+            success: false,
+            error: PASSWORD_RESET_COPY.status.attemptsExhaustedMessage,
+            code: result.code,
+          };
+        }
       }
 
       const hasRetryAfter = startRetryAfterStatus(result.retryAfterSeconds);
       const codeFieldError = result.fieldErrors?.code;
-      if (!hasRetryAfter) {
+      if (!hasRetryAfter && !codeFieldError) {
         setStatus({
           variant: 'error',
           title: PASSWORD_RESET_COPY.status.verifyFailureTitle,
@@ -181,34 +262,49 @@ export function usePasswordResetFlow() {
         ...(codeFieldError ? { fieldErrors: { code: codeFieldError } } : {}),
         retryAfterSeconds: result.retryAfterSeconds,
       };
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) return { success: false };
       setStatus({
         variant: 'error',
-        title: PASSWORD_RESET_COPY.status.networkTitle,
+        kind: 'network',
+        title: PASSWORD_RESET_COPY.status.verifyCodeNetworkTitle,
         message: PASSWORD_RESET_COPY.status.defaultNetworkError,
       });
       dispatch({ type: 'verifyCodeFailed' });
-      return { success: false, error: PASSWORD_RESET_COPY.status.defaultNetworkError };
+      return { success: false };
+    } finally {
+      finishRequest(controller);
     }
   }, [
+    beginRequest,
     clearRetryAfterStatus,
-    cooldown,
+    codeExpiry,
+    finishRequest,
+    retryAfter.isActive,
     startRetryAfterStatus,
-    state.email,
-    state.isVerifyingCode,
-    state.requestedEmail,
-    state.verificationCode,
+    state,
   ]);
 
   const resetPassword = useCallback(async (): Promise<PasswordResetActionResult> => {
-    if (state.isResettingPassword) return { success: false };
+    if (state.step !== 'newPassword' || state.operation !== 'idle' || retryAfter.isActive) {
+      return { success: false };
+    }
+    if (state.grantExpiresAt <= Date.now()) {
+      restartExpiredReset();
+      return {
+        success: false,
+        error: PASSWORD_RESET_COPY.status.resetRestartMessage,
+        restartRequired: true,
+      };
+    }
 
-    const targetEmail = state.requestedEmail || state.email;
+    const controller = beginRequest();
     setStatus(null);
     dispatch({ type: 'resetPasswordStarted' });
 
     try {
-      const result = await authApi.resetPassword(targetEmail, state.newPassword);
+      const result = await authApi.resetPassword(state.email, state.newPassword, controller.signal);
+      if (controller.signal.aborted) return { success: false };
       if (result.success) {
         clearRetryAfterStatus();
         setStatus(null);
@@ -223,12 +319,7 @@ export function usePasswordResetFlow() {
         ? { newPassword: newPasswordFieldError }
         : undefined;
       if (restartRequired) {
-        setStatus({
-          variant: 'warning',
-          title: PASSWORD_RESET_COPY.status.resetRestartTitle,
-          message: result.error ?? PASSWORD_RESET_COPY.status.resetRestartMessage,
-          action: 'restart',
-        });
+        restartExpiredReset();
       } else if (!hasRetryAfter && !newPasswordFieldError) {
         setStatus({
           variant: 'error',
@@ -237,7 +328,9 @@ export function usePasswordResetFlow() {
         });
       }
 
-      dispatch({ type: 'resetPasswordFailed' });
+      if (!restartRequired) {
+        dispatch({ type: 'resetPasswordFailed' });
+      }
       return {
         success: false,
         error: result.error ?? PASSWORD_RESET_COPY.status.resetFailureMessage,
@@ -246,35 +339,37 @@ export function usePasswordResetFlow() {
         retryAfterSeconds: result.retryAfterSeconds,
         restartRequired,
       };
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) return { success: false };
       setStatus({
         variant: 'error',
-        title: PASSWORD_RESET_COPY.status.networkTitle,
+        kind: 'network',
+        title: PASSWORD_RESET_COPY.status.resetPasswordNetworkTitle,
         message: PASSWORD_RESET_COPY.status.defaultNetworkError,
       });
       dispatch({ type: 'resetPasswordFailed' });
-      return { success: false, error: PASSWORD_RESET_COPY.status.defaultNetworkError };
+      return { success: false };
+    } finally {
+      finishRequest(controller);
     }
   }, [
+    beginRequest,
     clearRetryAfterStatus,
+    finishRequest,
+    retryAfter.isActive,
+    restartExpiredReset,
     startRetryAfterStatus,
-    state.email,
-    state.isResettingPassword,
-    state.newPassword,
-    state.requestedEmail,
+    state,
   ]);
 
   const goBack = useCallback(() => {
+    if (state.step !== 'verification') return;
+    abortActiveRequest();
+    codeExpiry.stop();
+    clearRetryAfterStatus();
     setStatus(null);
-    if (state.step === 'verification') {
-      dispatch({ type: 'backToEmail' });
-      return;
-    }
-
-    if (state.step === 'newPassword') {
-      dispatch({ type: 'backToVerification' });
-    }
-  }, [state.step]);
+    dispatch({ type: 'backToEmail' });
+  }, [abortActiveRequest, clearRetryAfterStatus, codeExpiry, state.step]);
 
   const goToLogin = useCallback(() => {
     router.push('/login');
@@ -283,6 +378,16 @@ export function usePasswordResetFlow() {
   const goToLoginAfterReset = useCallback(() => {
     router.replace('/login?reset=success');
   }, [router]);
+
+  const continueAfterVerification = useCallback(() => {
+    if (state.step !== 'verified') return;
+    if (state.grantExpiresAt <= Date.now()) {
+      restartExpiredReset();
+      return;
+    }
+    setStatus(null);
+    dispatch({ type: 'continueAfterVerification' });
+  }, [restartExpiredReset, state]);
 
   const changeVerificationCode = useCallback((verificationCode: string) => {
     setStatus((current) =>
@@ -300,16 +405,10 @@ export function usePasswordResetFlow() {
     dispatch({ type: 'newPasswordChanged', newPassword });
   }, []);
 
-  const stepNumber = state.step === 'email' ? 1 : state.step === 'verification' ? 2 : 3;
-
   return {
     state,
-    stepNumber,
-    cooldown,
+    codeExpiry,
     status: visibleStatus,
-    isAuthenticated,
-    isSessionUnavailable,
-    retrySession,
     actions: {
       changeEmail,
       sendCode,
@@ -319,6 +418,7 @@ export function usePasswordResetFlow() {
       goToLoginAfterReset,
       changeVerificationCode,
       verifyCode,
+      continueAfterVerification,
       changeNewPassword,
       changeConfirmPassword: (confirmPassword: string) =>
         dispatch({ type: 'confirmPasswordChanged', confirmPassword }),

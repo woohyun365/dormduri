@@ -5,7 +5,7 @@ import { PasswordResetNewPasswordStep } from '../PasswordResetNewPasswordStep';
 
 vi.mock('lucide-react', () => ({
   Lock: () => null,
-  AlertCircle: () => null,
+  CheckCircle2: () => null,
   Eye: () => null,
   EyeOff: () => null,
 }));
@@ -27,6 +27,7 @@ describe('PasswordResetNewPasswordStep', () => {
           newPassword={newPassword}
           confirmPassword={confirmPassword}
           isResetting={false}
+          isRateLimited={false}
           onNewPasswordChange={setNewPassword}
           onConfirmPasswordChange={setConfirmPassword}
           onResetPassword={onResetPassword}
@@ -46,7 +47,7 @@ describe('PasswordResetNewPasswordStep', () => {
     renderStep();
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      fireEvent.submit(screen.getByRole('button', { name: '새 비밀번호 저장' }));
     });
 
     expect(onResetPassword).not.toHaveBeenCalled();
@@ -60,7 +61,7 @@ describe('PasswordResetNewPasswordStep', () => {
     fireEvent.change(inputs[1]!, { target: { value: 'Test5678' } });
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      fireEvent.submit(screen.getByRole('button', { name: '새 비밀번호 저장' }));
     });
 
     expect(screen.getByText('비밀번호가 일치하지 않습니다.')).toBeInTheDocument();
@@ -75,13 +76,13 @@ describe('PasswordResetNewPasswordStep', () => {
     fireEvent.change(inputs[1]!, { target: { value: 'Test1234' } });
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      fireEvent.submit(screen.getByRole('button', { name: '새 비밀번호 저장' }));
     });
 
     expect(onResetPassword).toHaveBeenCalledTimes(1);
   });
 
-  it('submit action 오류 시 에러 메시지를 표시한다', async () => {
+  it('submit action의 non-field 오류는 step 내부에서 중복 렌더링하지 않는다', async () => {
     onResetPassword.mockResolvedValue({
       success: false,
       error: '이전과 동일한 비밀번호는 사용할 수 없습니다.',
@@ -94,10 +95,13 @@ describe('PasswordResetNewPasswordStep', () => {
     fireEvent.change(inputs[1]!, { target: { value: 'Test1234' } });
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      fireEvent.submit(screen.getByRole('button', { name: '새 비밀번호 저장' }));
     });
 
-    expect(screen.getByText('이전과 동일한 비밀번호는 사용할 수 없습니다.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('이전과 동일한 비밀번호는 사용할 수 없습니다.'),
+    ).not.toBeInTheDocument();
+    expect(onResetPassword).toHaveBeenCalledTimes(1);
   });
 
   it('비밀번호 입력 시 PasswordRequirementList가 표시된다', () => {

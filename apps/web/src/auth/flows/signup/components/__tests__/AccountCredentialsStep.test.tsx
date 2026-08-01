@@ -11,6 +11,11 @@ vi.mock('lucide-react', () => ({
   Eye: () => null,
   EyeOff: () => null,
   Check: () => null,
+  AlertCircle: () => null,
+  CheckCircle: () => null,
+  Info: () => null,
+  Timer: () => null,
+  WifiOff: () => null,
 }));
 
 vi.mock('@/auth/api', () => ({
@@ -112,7 +117,7 @@ describe('AccountCredentialsStep', () => {
     mockValidateSignupDraft.mockResolvedValue({
       success: false,
       error: '입력값을 다시 확인해주세요.',
-      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
+      fieldErrors: { nickname: '닉네임에 사용할 수 없는 단어가 포함되어 있어요.' },
     });
     const { onNext } = renderWithState();
     fillValidCredentials();
@@ -120,8 +125,21 @@ describe('AccountCredentialsStep', () => {
     fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
 
     expect(
-      await screen.findByText('사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.'),
+      await screen.findByText('닉네임에 사용할 수 없는 단어가 포함되어 있어요.'),
     ).toBeInTheDocument();
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('로그인 정보 확인 요청이 실패하면 입력값을 유지하고 다시 시도할 수 있다', async () => {
+    mockValidateSignupDraft.mockRejectedValueOnce(new Error('network unavailable'));
+    const { onNext } = renderWithState();
+    fillValidCredentials();
+
+    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+
+    expect(await screen.findByText('입력 내용을 확인하지 못했어요')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('테스터')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '계속하기' })).toBeEnabled();
     expect(onNext).not.toHaveBeenCalled();
   });
 

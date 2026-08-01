@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
 import { DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH } from '@repo/shared/user/identity';
+import { PASSWORD_MIN_LENGTH } from '@repo/shared/auth/policy';
 import { InputField } from '@/auth/components/form/InputField';
 import { PasswordRequirementList } from '@/auth/components';
-import { PASSWORD_MIN_LENGTH } from '@/auth/model';
 import type { SignupAccountData } from '../../model/signup-account.types';
 
 interface AccountCredentialsSectionProps {
@@ -49,7 +49,8 @@ export function AccountCredentialsSection({
           onNicknameErrorClear();
         }}
         error={nicknameError}
-        helper="한글 또는 영문으로 2~8자 입력해 주세요. 숫자도 함께 사용할 수 있어요."
+        helper="한글·영문 2~8자, 숫자 조합 가능"
+        helperClassName="text-xs leading-5"
         maxLength={DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH}
         disabled={disabled}
         required

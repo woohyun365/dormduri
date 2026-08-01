@@ -95,6 +95,7 @@ export const authApi = {
   resetPassword: async (
     email: EmailRequest['email'],
     newPassword: ResetPasswordRequest['newPassword'],
+    signal?: AbortSignal,
   ): Promise<ResetPasswordResponse> => {
     const passwordErr = validatePasswordStructure(newPassword, email);
     if (passwordErr) {
@@ -109,6 +110,7 @@ export const authApi = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ newPassword }),
+        signal,
       },
     );
 
@@ -132,8 +134,9 @@ export const authApi = {
   verifyResetCode: (
     email: VerificationCodeRequest['email'],
     code: VerificationCodeRequest['code'],
+    signal?: AbortSignal,
   ): Promise<VerifyCodeResponse> => {
-    return verifyCode('/api/auth/verify-reset-code', email, code);
+    return verifyCode('/api/auth/verify-reset-code', email, code, signal);
   },
 
   resolveSession: async (signal?: AbortSignal): Promise<BrowserSessionResolution> => {
@@ -180,13 +183,16 @@ export const authApi = {
     return sendCode('/api/auth/send-signup-code', email);
   },
 
-  sendResetCode: async (email: EmailRequest['email']): Promise<AuthCodeRequestResult> => {
+  sendResetCode: async (
+    email: EmailRequest['email'],
+    signal?: AbortSignal,
+  ): Promise<AuthCodeRequestResult> => {
     const formatError = validateKnuEmailFormat(email);
     if (formatError) {
       return { success: false, error: formatError };
     }
 
-    return sendCode('/api/auth/send-reset-code', email);
+    return sendCode('/api/auth/send-reset-code', email, signal);
   },
 };
 
@@ -239,6 +245,7 @@ function waitForSessionRetry(milliseconds: number, signal?: AbortSignal): Promis
 async function sendCode(
   path: '/api/auth/send-signup-code' | '/api/auth/send-reset-code',
   email: EmailRequest['email'],
+  signal?: AbortSignal,
 ): Promise<AuthCodeRequestResult> {
   const { status, data, retryAfterSeconds } = await requestJson<AuthClientErrorBody>(path, {
     method: 'POST',
@@ -246,6 +253,7 @@ async function sendCode(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email }),
+    signal,
   });
 
   if (status >= 400 || data.success !== true) {
@@ -264,6 +272,7 @@ async function verifyCode(
   path: '/api/auth/verify-email-code' | '/api/auth/verify-reset-code',
   email: VerificationCodeRequest['email'],
   code: VerificationCodeRequest['code'],
+  signal?: AbortSignal,
 ): Promise<VerifyCodeResponse> {
   const { status, data, retryAfterSeconds } = await requestJson<VerifyCodeResponse>(path, {
     method: 'POST',
@@ -271,6 +280,7 @@ async function verifyCode(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email, code }),
+    signal,
   });
 
   if (status >= 400) {

@@ -5,10 +5,13 @@ import { LegalConsentStep, type LegalConsentData } from '../LegalConsentStep';
 import { getFallbackLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
 
 vi.mock('lucide-react', () => ({
+  AlertCircle: () => null,
+  CheckCircle: () => null,
   FileText: () => null,
   ChevronRight: () => null,
   Info: () => null,
-  RefreshCw: () => null,
+  Timer: () => null,
+  WifiOff: () => null,
   X: () => null,
 }));
 
@@ -109,10 +112,35 @@ describe('LegalConsentStep', () => {
     const { onNext } = renderWithState();
 
     await screen.findByLabelText('[필수] 이용약관 동의');
+    const firstUnchecked = screen.getByLabelText('[필수] 만 14세 이상이에요');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(firstUnchecked, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
-    expect(screen.getByText('필수 확인·동의 항목을 모두 선택해 주세요.')).toBeInTheDocument();
+    const error = screen.getByText('필수 확인·동의 항목을 모두 선택해 주세요.');
+    expect(error).toBeInTheDocument();
+    expect(firstUnchecked).toHaveFocus();
+    expect(firstUnchecked).toHaveAttribute('aria-invalid', 'true');
+    expect(firstUnchecked).toHaveAttribute('aria-describedby', error.id);
+    expect(firstUnchecked).toHaveClass('border-rose-400', 'ring-1', 'ring-rose-300');
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('오류 이후에는 모두 동의할 때까지 남은 미동의 항목을 오류와 연결한다', async () => {
+    stubBundleFetch();
+    renderWithState();
+
+    await screen.findByLabelText('[필수] 이용약관 동의');
+    fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
+    fireEvent.click(screen.getByLabelText('[필수] 만 14세 이상이에요'));
+
+    expect(screen.queryByText('필수 확인·동의 항목을 모두 선택해 주세요.')).toBeInTheDocument();
+    expect(screen.getByLabelText('[필수] 만 14세 이상이에요')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('[필수] 이용약관 동의')).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('전체 동의 체크 후 다음 클릭 시 onNext가 호출되고 legal ids를 상태에 유지한다', async () => {
@@ -385,10 +413,10 @@ describe('LegalConsentStep', () => {
       requiresReconfirmation: true,
     });
 
-    expect(await screen.findByRole('status')).toHaveTextContent('동의 내용이 변경됐어요');
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '최신 내용을 확인하고 다시 동의해 주세요.',
+    expect(await screen.findByTestId('signup-legal-feedback')).toHaveTextContent(
+      '동의 내용이 변경됐어요',
     );
+    expect(screen.getByRole('alert')).toHaveTextContent('최신 내용을 확인하고 다시 동의해 주세요.');
   });
 
   it('stale 재확인 중 fallback을 사용하면 두 상태를 하나의 안내로 합친다', async () => {
@@ -403,10 +431,12 @@ describe('LegalConsentStep', () => {
       />,
     );
 
-    expect(await screen.findByRole('status')).toHaveTextContent('동의 내용을 다시 확인해 주세요');
-    expect(screen.getByRole('status')).toHaveTextContent(
+    expect(await screen.findByTestId('signup-legal-feedback')).toHaveTextContent(
+      '동의 내용을 다시 확인해 주세요',
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
       '저장된 내용을 보여드리며, 가입할 때 최신 여부를 확인해요.',
     );
-    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getAllByTestId('signup-legal-feedback')).toHaveLength(1);
   });
 });

@@ -1,62 +1,40 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { LoginFlowView } from '@/auth/flows/login/LoginFlowView';
-import { LOGIN_STORY_BASE_ARGS, LOGIN_STORY_ERRORS } from '../fixtures/auth-story-fixtures';
+import { LoginResultStoryScenario } from '../fixtures/login/LoginResultStoryScenario';
 
 const meta = {
   title: 'Auth/Login/Result',
-  component: LoginFlowView,
+  component: LoginResultStoryScenario,
   parameters: { layout: 'fullscreen' },
-  args: LOGIN_STORY_BASE_ARGS,
-} satisfies Meta<typeof LoginFlowView>;
+  args: { scenario: 'invalidCredentials' },
+} satisfies Meta<typeof LoginResultStoryScenario>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const InvalidCredentials: Story = {
   name: 'Invalid Credentials',
-  args: {
-    uiError: LOGIN_STORY_ERRORS.invalidCredentials,
-  },
+  args: { scenario: 'invalidCredentials' },
 };
 
 export const Locked: Story = {
-  args: {
-    uiError: LOGIN_STORY_ERRORS.locked,
-    isLocked: true,
-    isSubmitDisabled: true,
-    cooldownLabel: '04:44',
-  },
+  args: { scenario: 'locked' },
 };
 
 export const Throttled: Story = {
-  args: {
-    uiError: LOGIN_STORY_ERRORS.throttled,
-    isSubmitDisabled: true,
-    cooldownLabel: '00:42',
-  },
+  args: { scenario: 'throttled' },
 };
 
 export const NetworkError: Story = {
   name: 'Network Error',
-  args: {
-    uiError: LOGIN_STORY_ERRORS.network,
-  },
+  args: { scenario: 'network' },
 };
 
 export const ServerUnavailable: Story = {
   name: 'Server Unavailable',
-  args: {
-    uiError: LOGIN_STORY_ERRORS.serverUnavailable,
-  },
+  args: { scenario: 'serverUnavailable' },
 };
 
 export const ResetComplete: Story = {
   name: 'Reset Complete',
-  args: {
-    routeStatus: {
-      variant: 'success',
-      title: '비밀번호가 변경되었어요',
-      message: '새 비밀번호로 다시 로그인해주세요.',
-    },
-  },
+  args: { scenario: 'resetComplete' },
 };

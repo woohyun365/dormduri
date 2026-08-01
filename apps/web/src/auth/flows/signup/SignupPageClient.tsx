@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthSessionUnavailableStatus } from '@/auth/components';
 import { useRedirectIfAuthenticated } from '@/auth/hooks';
 import { AcademicIdentityStep } from './components/AcademicIdentityStep';
 import { AccountCredentialsStep } from './components/AccountCredentialsStep';
@@ -12,9 +13,9 @@ import { SignupExitConfirmationDialog } from './components/recovery/SignupExitCo
 import { SignupSkeleton } from './components/SignupSkeleton';
 import { useSignupExitGuard } from './hooks/useSignupExitGuard';
 import { useSignupFlow } from './hooks/useSignupFlow';
+import { SIGNUP_FEEDBACK_COPY } from './model/signup-feedback.copy';
 import { SIGNUP_EMAIL_PROOF_EXPIRED_NOTICE } from './model/signup-recovery-copy';
 import { SignupFlowView } from './SignupFlowView';
-import { SessionUnavailableNotice } from '@/auth/components/SessionUnavailableNotice';
 
 export default function SignupPageClient() {
   const router = useRouter();
@@ -57,9 +58,11 @@ export default function SignupPageClient() {
         onLogoClickAction={exitGuard.requestExit}
       >
         {sessionStatus === 'unavailable' && (
-          <SessionUnavailableNotice
+          <AuthSessionUnavailableStatus
+            title={SIGNUP_FEEDBACK_COPY.sessionUnavailable.title}
+            description={SIGNUP_FEEDBACK_COPY.sessionUnavailable.description}
             onRetryAction={retrySession}
-            message="로그인 상태를 확인하지 못했지만 회원가입은 계속할 수 있어요."
+            className="mb-4"
           />
         )}
         {flow.state.currentStepId === 'EMAIL_VERIFICATION' && (

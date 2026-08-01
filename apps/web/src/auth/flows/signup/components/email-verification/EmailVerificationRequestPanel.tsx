@@ -21,11 +21,7 @@ export function EmailVerificationRequestPanel({
       onClick={onSendCode}
       disabled={isSending || isRetryAfterActive}
     >
-      {isSending
-        ? '전송 중...'
-        : isRetryAfterActive
-          ? `${retryAfterSeconds}초 후 다시 전송`
-          : '인증 코드 전송'}
+      {isSending ? '전송 중...' : '인증 코드 받기'}
     </Button>
   );
 }

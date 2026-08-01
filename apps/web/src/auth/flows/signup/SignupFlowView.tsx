@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
+import { AuthStepFrame, AuthStepProgress } from '@/auth/components';
 import { SignupLayout } from './components/SignupLayout';
-import { SignupProgress } from './components/SignupProgress';
-import { SignupStepFrame } from './components/SignupStepFrame';
 import { SignupSupportPanel } from './components/SignupSupportPanel';
-import { SIGNUP_STEP_COUNT } from './model/signup-flow.types';
+import { SIGNUP_STEPS, SIGNUP_STEP_COUNT } from './model/signup-flow.types';
+
+const SIGNUP_STEP_LABELS = SIGNUP_STEPS.map((step) => step.label);
 
 interface SignupFlowViewProps {
   currentStep: number;
@@ -26,11 +27,18 @@ export function SignupFlowView({
         <SignupSupportPanel currentStep={currentStep} showServiceNotice={showServiceNotice} />
       }
     >
-      <SignupStepFrame
-        progress={<SignupProgress currentStep={currentStep} totalSteps={SIGNUP_STEP_COUNT} />}
+      <AuthStepFrame
+        progress={
+          <AuthStepProgress
+            ariaLabel="회원가입 진행 상태"
+            currentStep={currentStep}
+            totalSteps={SIGNUP_STEP_COUNT}
+            stepLabels={SIGNUP_STEP_LABELS}
+          />
+        }
       >
         {children}
-      </SignupStepFrame>
+      </AuthStepFrame>
     </SignupLayout>
   );
 }

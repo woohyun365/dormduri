@@ -63,13 +63,14 @@ Header의 KNU 로고를 form에 반복하지 않으며 독립 운영 고지는 d
 | `components/LoginLayout.tsx`                                                  | mobile/desktop layout, sticky assurance rail, service notice, PC header alignment |
 | `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                        |
 | `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                           |
-| `components/LoginFeedbackStrip.tsx`                                           | route/session/result 상태의 compact feedback primitive                            |
+| `../../components/feedback/AuthFeedbackStrip.tsx`                             | 인증 flow가 공유하는 compact feedback primitive                                   |
 | `components/LoginSessionUnavailableStatus.tsx`                                | session dependency 지연과 login 가능 상태를 함께 안내                             |
-| `components/LoginSessionTransition.tsx`                                       | session check와 authenticated redirect를 구분하는 cardless status surface         |
+| `auth/components/AuthSessionTransition.tsx`                                   | Login과 Password Reset의 session check·authenticated redirect 공통 status surface |
 | `components/LoginSecondaryActions.tsx`                                        | password reset, signup, terms/privacy navigation actions                          |
 | `hooks/useLoginForm.ts`                                                       | submit orchestration, validation, countdown, redirect state                       |
 | `hooks/useLoginRedirectTarget.ts`                                             | safe `/main` redirect target helper                                               |
 | `model/login-form.*`                                                          | form values, field errors, validation types                                       |
+| `model/login-feedback.copy.ts`                                                | login 전용 결과·경고·session 안내 문구의 단일 presentation owner                  |
 | `model/login-result.mapper.ts`                                                | BFF/API result to UI status/copy/countdown state                                  |
 | `model/login-redirect-target.ts`                                              | pure redirect allowlist helper                                                    |
 | `__tests__/`, `components/__tests__/`, `hooks/__tests__/`, `model/__tests__/` | shell/component/hook/model regression                                             |
@@ -78,6 +79,11 @@ Header의 KNU 로고를 form에 반복하지 않으며 독립 운영 고지는 d
 
 Login 범위는 auth root README의 Tailwind v4 canonical class rule을 따른다.
 CSS variable shorthand가 가능한 값은 `text-(--knu-text-primary)`처럼 작성하고, `min-h-[calc(...)]`, `lg:grid-cols-[...]`처럼 실제 arbitrary value가 필요한 값만 bracket syntax를 유지한다.
+
+Known login 상태의 사용자 문구는 API `error` 문자열을 그대로 렌더링하지 않는다. API는 상태 code와
+`remainingSeconds`/`retryAfterSeconds`를 전달하고, Web은 `login-feedback.copy.ts`에서 일관된 문구를
+결정한다. 이를 통해 API fallback 문구와 Storybook fixture가 화면 문구의 별도 source of truth가 되지
+않게 한다.
 Mobile에서 `자세히 보기`가 두 줄로 쪼개지지 않도록 서비스 고지 링크는 `inline-block whitespace-nowrap`을 유지한다.
 Login form은 320px에서 `-mx-5 border-y p-5` full-bleed sheet를 사용하고 `sm:`부터 rounded card와 shadow를 복원한다.
 

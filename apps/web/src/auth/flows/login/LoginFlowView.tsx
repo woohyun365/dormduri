@@ -3,10 +3,11 @@ import { LoginRouteStatusAlert } from './components/LoginRouteStatusAlert';
 import { LoginLayout } from './components/LoginLayout';
 import { LoginLegalFooter, LoginSignupAction } from './components/LoginSecondaryActions';
 import {
-  LoginSessionTransition,
-  type LoginSessionTransitionState,
-} from './components/LoginSessionTransition';
-import { LoginSessionUnavailableStatus } from './components/LoginSessionUnavailableStatus';
+  AuthSessionTransition,
+  AuthSessionUnavailableStatus,
+  type AuthSessionTransitionState,
+} from '@/auth/components';
+import { LOGIN_FEEDBACK_COPY } from './model/login-feedback.copy';
 import type {
   LoginFieldErrors,
   LoginFormSubmitEvent,
@@ -17,7 +18,7 @@ import type {
 import type { LoginRouteStatus } from './model/login-route-status';
 
 interface LoginFlowViewProps {
-  sessionTransitionState: LoginSessionTransitionState | null;
+  sessionTransitionState: AuthSessionTransitionState | null;
   isSessionUnavailable: boolean;
   values: LoginFormValues;
   fieldErrors: LoginFieldErrors;
@@ -62,7 +63,7 @@ export function LoginFlowView({
   onRetrySessionAction,
 }: LoginFlowViewProps) {
   if (sessionTransitionState) {
-    return <LoginSessionTransition state={sessionTransitionState} />;
+    return <AuthSessionTransition state={sessionTransitionState} />;
   }
 
   return (
@@ -77,7 +78,12 @@ export function LoginFlowView({
       <LoginForm
         sessionNotice={
           isSessionUnavailable ? (
-            <LoginSessionUnavailableStatus onRetryAction={onRetrySessionAction} />
+            <AuthSessionUnavailableStatus
+              title={LOGIN_FEEDBACK_COPY.sessionUnavailable.title}
+              description={LOGIN_FEEDBACK_COPY.sessionUnavailable.description}
+              onRetryAction={onRetrySessionAction}
+              className="mb-5"
+            />
           ) : undefined
         }
         routeNotice={<LoginRouteStatusAlert status={uiError ? null : routeStatus} />}

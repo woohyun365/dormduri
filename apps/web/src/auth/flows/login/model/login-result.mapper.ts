@@ -1,11 +1,9 @@
 import type { LoginResponse } from '@repo/shared/auth/response';
+import { LOGIN_FEEDBACK_COPY } from './login-feedback.copy';
 import type { LoginUiErrorState } from './login-form.types';
 
-const DEFAULT_INVALID_LOGIN_MESSAGE = '이메일 또는 비밀번호를 확인해 주세요.';
-const DEFAULT_LOCKED_LOGIN_MESSAGE = '계정이 일시적으로 잠겼습니다.';
-const DEFAULT_THROTTLED_LOGIN_MESSAGE = '너무 잦은 요청이에요. 잠시 후 다시 시도해 주세요.';
-export const LOGIN_NETWORK_ERROR_MESSAGE = '네트워크 연결을 확인하고 다시 시도해 주세요.';
-export const LOGIN_SERVER_ERROR_MESSAGE = '일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.';
+export const LOGIN_NETWORK_ERROR_MESSAGE = LOGIN_FEEDBACK_COPY.network;
+export const LOGIN_SERVER_ERROR_MESSAGE = LOGIN_FEEDBACK_COPY.server;
 
 function isPositiveSeconds(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
@@ -29,7 +27,7 @@ export function mapLoginResponseToErrorState(
   if (response.locked === true && isPositiveSeconds(response.remainingSeconds)) {
     return {
       status: 'locked',
-      message: response.error ?? DEFAULT_LOCKED_LOGIN_MESSAGE,
+      message: LOGIN_FEEDBACK_COPY.locked,
       lockedEmail: submittedEmail,
       remainingSeconds: Math.ceil(response.remainingSeconds),
     };
@@ -38,7 +36,7 @@ export function mapLoginResponseToErrorState(
   if (isPositiveSeconds(response.retryAfterSeconds)) {
     return {
       status: 'throttled',
-      message: response.error ?? DEFAULT_THROTTLED_LOGIN_MESSAGE,
+      message: LOGIN_FEEDBACK_COPY.throttled,
       retryAfterSeconds: Math.ceil(response.retryAfterSeconds),
     };
   }
@@ -52,7 +50,7 @@ export function mapLoginResponseToErrorState(
 
   return {
     status: 'invalid',
-    message: DEFAULT_INVALID_LOGIN_MESSAGE,
+    message: LOGIN_FEEDBACK_COPY.invalidCredentials,
   };
 }
 

@@ -1,1 +1,3 @@
-export const SIGNUP_EMAIL_PROOF_EXPIRED_NOTICE = '학교 이메일 인증을 다시 진행해주세요.';
+import { SIGNUP_FEEDBACK_COPY } from './signup-feedback.copy';
+
+export const SIGNUP_EMAIL_PROOF_EXPIRED_NOTICE = SIGNUP_FEEDBACK_COPY.email.proofExpiredDescription;

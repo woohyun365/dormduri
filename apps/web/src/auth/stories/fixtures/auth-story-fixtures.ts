@@ -11,7 +11,7 @@ import type { PasswordResetFlowView } from '@/auth/flows/password-reset/Password
 import type { SignupAccountData } from '@/auth/flows/signup/model/signup-account.types';
 import type { LegalConsentData } from '@/auth/flows/signup/components/LegalConsentStep';
 
-export const AUTH_STORY_EMAIL = 'student@kangwon.ac.kr';
+export const AUTH_STORY_EMAIL = 'knuStudent@kangwon.ac.kr';
 export const AUTH_STORY_NICKNAME = '다정한강원대친구';
 
 const noop = () => undefined;
@@ -61,7 +61,6 @@ export const LOGIN_STORY_ERRORS = {
         success: false,
         locked: true,
         remainingSeconds: 284,
-        error: '로그인 시도가 반복되어 잠시 로그인이 제한됐어요.',
       },
       AUTH_STORY_EMAIL,
     ),
@@ -70,7 +69,7 @@ export const LOGIN_STORY_ERRORS = {
     mapLoginResponseToErrorState(
       {
         success: false,
-        retryAfterSeconds: 42,
+        retryAfterSeconds: 582,
       },
       AUTH_STORY_EMAIL,
     ),
@@ -90,23 +89,14 @@ export const LOGIN_STORY_ERRORS = {
 export const PASSWORD_RESET_STORY_BASE_ARGS = {
   state: {
     step: 'email',
+    operation: 'idle',
     email: AUTH_STORY_EMAIL,
-    requestedEmail: '',
-    verificationCode: '',
-    newPassword: '',
-    confirmPassword: '',
-    isSendingCode: false,
-    isVerifyingCode: false,
-    isResettingPassword: false,
   },
-  stepNumber: 1,
   countdown: {
-    countdown: 180,
+    countdown: 593,
     isActive: true,
-    formatTime: () => '03:00',
   },
   status: null,
-  isAuthenticated: false,
   isSessionUnavailable: false,
   onBackAction: noop,
   onRestartAction: noop,
@@ -115,6 +105,7 @@ export const PASSWORD_RESET_STORY_BASE_ARGS = {
   onGoToLoginAction: noop,
   onVerificationCodeChangeAction: noop,
   onVerifyCodeAction: successfulAction,
+  onContinueAfterVerificationAction: noop,
   onNewPasswordChangeAction: noop,
   onConfirmPasswordChangeAction: noop,
   onResetPasswordAction: successfulAction,

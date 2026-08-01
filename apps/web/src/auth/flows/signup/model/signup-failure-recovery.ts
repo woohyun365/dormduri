@@ -1,6 +1,7 @@
 import type { SignupResponse } from '@repo/shared/auth/response';
 import type { SignupFailure, SignupRecoveryField } from './signup-recovery.types';
 import type { SignupStepId } from './signup-flow.types';
+import { SIGNUP_FEEDBACK_COPY } from './signup-feedback.copy';
 
 const RECOVERY_FIELDS = new Set<SignupRecoveryField>([
   'email',
@@ -33,7 +34,7 @@ function resolveValidationTarget(
 }
 
 export function mapSignupFailure(result: SignupResponse): SignupFailure {
-  const message = result.error ?? '회원가입에 실패했습니다. 다시 시도해주세요.';
+  const message = result.error ?? SIGNUP_FEEDBACK_COPY.common.retry;
 
   switch (result.code) {
     case 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED':
@@ -96,6 +97,6 @@ export function createNetworkSignupFailure(): SignupFailure {
   return {
     kind: 'retryable',
     code: 'NETWORK_ERROR',
-    message: '네트워크 연결을 확인하고 다시 시도해주세요.',
+    message: SIGNUP_FEEDBACK_COPY.common.connectivity,
   };
 }

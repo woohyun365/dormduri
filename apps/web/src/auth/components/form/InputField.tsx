@@ -16,6 +16,8 @@ interface InputFieldProps {
   onChange: (value: string) => void;
   error?: string;
   helper?: string;
+  helperClassName?: string;
+  inputClassName?: string;
   disabled?: boolean;
   maxLength?: number;
   required?: boolean;
@@ -34,6 +36,8 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
     onChange,
     error,
     helper,
+    helperClassName,
+    inputClassName,
     disabled = false,
     maxLength,
     required = false,
@@ -81,7 +85,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
               : 'border-(--knu-border) bg-white focus-visible:border-(--knu-primary)'
           } ${type === 'password' ? 'pr-12' : ''} ${
             disabled ? 'cursor-not-allowed bg-gray-100 text-gray-500' : ''
-          }`}
+          } ${inputClassName ?? ''}`}
         />
         {type === 'password' && (
           <button
@@ -104,6 +108,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
           error={error}
           errorId={errorId}
           descriptionId={helperId}
+          descriptionClassName={helperClassName}
           reserveSpace={reserveMessageSpace}
         >
           {helper}
