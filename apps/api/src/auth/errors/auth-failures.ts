@@ -100,7 +100,7 @@ export const authFailures = {
 
   loginLocked(remainingSeconds: number): LoginResult {
     return {
-      ...createFailure('AUTH_LOGIN_LOCKED', '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.', {
+      ...createFailure('AUTH_LOGIN_LOCKED', '반복된 로그인 실패로 계정이 잠겼어요.', {
         userActionable: false,
       }),
       locked: true,

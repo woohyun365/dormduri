@@ -10,7 +10,7 @@ export interface ModerationTermEntry {
 export function getErrorMessage(surface: PublicTextSurface): string {
   switch (surface) {
     case 'nickname':
-      return '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.';
+      return '닉네임에 사용할 수 없는 단어가 포함되어 있어요.';
     case 'intro':
       return '자기소개에 사용할 수 없는 표현이 포함되어 있습니다.';
     case 'matchRequestNote':

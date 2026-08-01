@@ -119,7 +119,7 @@ describe('login command', () => {
   it('활성 잠금이 있으면 login은 즉시 잠금 응답을 반환한다', async () => {
     loginAttemptService.getActiveLock.mockResolvedValue({
       success: false,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      error: '반복된 로그인 실패로 계정이 잠겼어요.',
       code: 'AUTH_LOGIN_LOCKED',
       userActionable: false,
       locked: true,

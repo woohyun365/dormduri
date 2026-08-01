@@ -6,7 +6,7 @@ import {
   getActiveLoginLock,
   recordLoginFailure as recordLoginFailureSql,
 } from '../../generated/prisma/sql.js';
-import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from '../domain/auth.constants.js';
+import { LOGIN_FAILURE_LIMIT, LOGIN_LOCKOUT_SECONDS } from '@repo/shared/auth/policy';
 
 export interface ActiveLoginLockRecord {
   remainingSeconds: number | null;
@@ -46,8 +46,8 @@ export class LoginAttemptRepository {
       recordLoginFailureSql(
         randomUUID(),
         emailNormalized,
-        LOGIN_LOCKOUT_ATTEMPTS,
-        LOGIN_LOCKOUT_TTL_SECONDS,
+        LOGIN_FAILURE_LIMIT,
+        LOGIN_LOCKOUT_SECONDS,
       ),
     );
 

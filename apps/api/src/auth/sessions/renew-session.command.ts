@@ -5,7 +5,7 @@ import {
   AUTH_ACCESS_TOKEN_TTL_SECONDS,
   AUTH_SESSION_PREVIOUS_TOKEN_GRACE_MILLISECONDS,
   AUTH_SESSION_RENEWAL_STALE_RETRY_AFTER_MILLISECONDS,
-} from '../domain/auth.constants.js';
+} from './auth-session.policy.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { RenewSessionResult } from '../domain/auth.types.js';
 import { authFailures } from '../errors/auth-failures.js';

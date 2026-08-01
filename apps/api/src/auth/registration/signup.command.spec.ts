@@ -174,13 +174,13 @@ describe('signup command', () => {
       code: 'AUTH_SIGNUP_VALIDATION_FAILED',
       userActionable: true,
       error: '입력값을 다시 확인해주세요.',
-      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
+      fieldErrors: { nickname: '닉네임에 사용할 수 없는 단어가 포함되어 있어요.' },
     });
 
     await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_VALIDATION_FAILED',
-      fieldErrors: { nickname: '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.' },
+      fieldErrors: { nickname: '닉네임에 사용할 수 없는 단어가 포함되어 있어요.' },
     });
 
     expect(signupValidationService.validateDraft).toHaveBeenCalledWith({

@@ -3,12 +3,12 @@ import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
 import {
-  CODE_REQUEST_MIN_RESPONSE_MS,
+  AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
   AUTH_VERIFICATION_GRANT_TTL_SECONDS,
   RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
-  VERIFICATION_CODE_MAX_ATTEMPTS,
-} from '../domain/auth.constants.js';
+} from '@repo/shared/auth/policy';
+import { AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS } from './auth-verification-timing.policy.js';
 import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
 import {
   ensureMinDuration,
@@ -152,7 +152,7 @@ export class AuthVerificationService {
       }
       throw error;
     }
-    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
+    await ensureMinDuration(startedAt, AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS);
     return { success: true };
   }
 
@@ -262,7 +262,7 @@ export class AuthVerificationService {
     const record = await this.verificationStore.findActiveVerificationRecord(
       subjectKey,
       purpose,
-      VERIFICATION_CODE_MAX_ATTEMPTS,
+      AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     );
 
     if (!record) {
@@ -293,7 +293,7 @@ export class AuthVerificationService {
       id: record.id,
       subjectKey,
       purpose,
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
       grantTokenHash: hashVerificationGrant(rawGrant),
       grantTtlSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
       eligibleUserId,
@@ -348,7 +348,7 @@ export class AuthVerificationService {
       id,
       subjectKey,
       purpose,
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     });
   }
 

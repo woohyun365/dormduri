@@ -26,7 +26,7 @@ describe('ModerationService', () => {
     });
 
     await expect(service.validateNicknamePolicy('섹스장인')).resolves.toBe(
-      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
   });
 
@@ -88,10 +88,10 @@ describe('ModerationService', () => {
     });
 
     await expect(service.validateNicknamePolicy('탈퇴한 사용자')).resolves.toBe(
-      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
     await expect(service.validateNicknamePolicy('프로필-확인_불가')).resolves.toBe(
-      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
   });
 
@@ -108,7 +108,7 @@ describe('ModerationService', () => {
     });
 
     await expect(service.validateNicknamePolicy('sex123')).resolves.toBe(
-      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
     await expect(service.validateNicknamePolicy('sussex')).resolves.toBeNull();
     await expect(service.validateNicknamePolicy('niceguy')).resolves.toBeNull();

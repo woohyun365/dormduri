@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
-import { VERIFICATION_CODE_MAX_ATTEMPTS } from '../domain/auth.constants.js';
+import { AUTH_VERIFICATION_CODE_MAX_ATTEMPTS } from '@repo/shared/auth/policy';
 import { hashVerificationCode } from '../domain/auth.utils.js';
 import authConfig, {
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
@@ -263,7 +263,7 @@ describe('AuthVerificationService', () => {
       id: 'code-1',
       subjectKey,
       purpose: 'SIGNUP',
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
       grantTtlSeconds: 900,
       eligibleUserId: null,
     });
@@ -298,7 +298,7 @@ describe('AuthVerificationService', () => {
       id: 'code-1',
       subjectKey,
       purpose: 'SIGNUP',
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     });
     expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
     expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
@@ -335,7 +335,7 @@ describe('AuthVerificationService', () => {
       id: 'code-1',
       subjectKey,
       purpose: 'RESET_PASSWORD',
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     });
     expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
     expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();

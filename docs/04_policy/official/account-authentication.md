@@ -45,18 +45,18 @@
 
 현재 구현은 access token만으로 세션 authority를 삼지 않는다. API는 `AuthSession` DB row를 생성하고 DB session row의 `revokedAt`/`expiresAt`/token hash 상태를 다시 확인한다. 현재 제품 baseline은 **DB-backed session/token family를 canonical source-of-truth**로 유지하고 client transport는 opaque access/session token을 사용한다. 과거 short access JWT bridge는 이행 중 선택지였으며 현재 제품 transport가 아니다.
 
-| 결정                    | 정책                                                                                                                                                 | 선택하지 않은 대안 / 후속                                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Transport               | `AuthSession`/token family + opaque access/session token을 제품 baseline으로 둔다                                                                    | JWT-only/bridge 장기 유지는 forced logout/reuse detection/Remember Me 요구와 맞지 않아 기각                             |
-| Remember Me TTL         | 체크 시 7일 persistent renewal, 미체크 시 24시간 absolute TTL의 browser-session renewal을 사용한다. access token은 모두 15분이다                     | 미체크 access TTL을 24시간으로 늘리거나 15분 뒤 재로그인을 강제하는 방식은 기각                                         |
-| Redis                   | 이번 milestone에서는 Postgres authoritative를 유지한다. Redis는 distributed throttling/cache 후보일 뿐 source-of-truth가 아니다                      | multi-instance throttle 우회, RDS auth write IOPS 병목, auth p95 latency 악화가 관측되면 후속 이슈에서 검토             |
-| Email/alert             | `EmailSender` adapter, mail success/failure metric, security event schema를 먼저 고정한다                                                            | provider/alert destination은 배포/운영 채널 확정 후 후속 결정                                                           |
-| Secret store            | dev/test는 env secret/config, production은 AWS Secrets Manager를 우선 후보로 둔다                                                                    | JWT signing keyset은 현재 transport에서 사용하지 않는다. Secrets Manager rollout은 AWS prod/IAM/deploy pipeline 확정 후 |
-| DB role                 | runtime/worker/migration/read-only credential matrix + smoke test를 먼저 둔다                                                                        | Prisma client/pool 분리는 RDS connection budget 확인 후 후속 검토                                                       |
-| Reset verification ACID | reset code/proof 발급·검증·consume은 advisory lock + conditional update + serializable retry를 기본 전략으로 한다                                    | serializable-only, row-lock-only, application mutex는 race 방어가 불충분하거나 multi-instance에 부적합                  |
-| Capability seed         | `user:read:self`, `user:update:self`, `auth:session:revoke:self`, `auth:password:change:self`로 시작한다                                             | Admin/BackOffice capability 구현은 별도 BackOffice scope에서만 다룬다                                                   |
-| Cookie/CSRF             | production은 `__Host-` cookie, `httpOnly`, `secure`, `sameSite=Lax`, `Path=/`, no Domain과 origin/Fetch Metadata 관찰을 기준으로 한다                | `SameSite=None`/cross-site cookie는 실제 cross-site 배포 요구가 있을 때 후속 재검토                                     |
-| Web scope               | Web 작업은 BFF route/helper/cookie/session transport와 BFF test로 제한한다                                                                           | Rendering, React hook, page/component state, onboarding modal/CTA는 #260에서 후속 처리                                  |
+| 결정                    | 정책                                                                                                                                  | 선택하지 않은 대안 / 후속                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Transport               | `AuthSession`/token family + opaque access/session token을 제품 baseline으로 둔다                                                     | JWT-only/bridge 장기 유지는 forced logout/reuse detection/Remember Me 요구와 맞지 않아 기각                             |
+| Remember Me TTL         | 체크 시 7일 persistent renewal, 미체크 시 24시간 absolute TTL의 browser-session renewal을 사용한다. access token은 모두 15분이다      | 미체크 access TTL을 24시간으로 늘리거나 15분 뒤 재로그인을 강제하는 방식은 기각                                         |
+| Redis                   | 이번 milestone에서는 Postgres authoritative를 유지한다. Redis는 distributed throttling/cache 후보일 뿐 source-of-truth가 아니다       | multi-instance throttle 우회, RDS auth write IOPS 병목, auth p95 latency 악화가 관측되면 후속 이슈에서 검토             |
+| Email/alert             | `EmailSender` adapter, mail success/failure metric, security event schema를 먼저 고정한다                                             | provider/alert destination은 배포/운영 채널 확정 후 후속 결정                                                           |
+| Secret store            | dev/test는 env secret/config, production은 AWS Secrets Manager를 우선 후보로 둔다                                                     | JWT signing keyset은 현재 transport에서 사용하지 않는다. Secrets Manager rollout은 AWS prod/IAM/deploy pipeline 확정 후 |
+| DB role                 | runtime/worker/migration/read-only credential matrix + smoke test를 먼저 둔다                                                         | Prisma client/pool 분리는 RDS connection budget 확인 후 후속 검토                                                       |
+| Reset verification ACID | reset code/proof 발급·검증·consume은 advisory lock + conditional update + serializable retry를 기본 전략으로 한다                     | serializable-only, row-lock-only, application mutex는 race 방어가 불충분하거나 multi-instance에 부적합                  |
+| Capability seed         | `user:read:self`, `user:update:self`, `auth:session:revoke:self`, `auth:password:change:self`로 시작한다                              | Admin/BackOffice capability 구현은 별도 BackOffice scope에서만 다룬다                                                   |
+| Cookie/CSRF             | production은 `__Host-` cookie, `httpOnly`, `secure`, `sameSite=Lax`, `Path=/`, no Domain과 origin/Fetch Metadata 관찰을 기준으로 한다 | `SameSite=None`/cross-site cookie는 실제 cross-site 배포 요구가 있을 때 후속 재검토                                     |
+| Web scope               | Web 작업은 BFF route/helper/cookie/session transport와 BFF test로 제한한다                                                            | Rendering, React hook, page/component state, onboarding modal/CTA는 #260에서 후속 처리                                  |
 
 ### Login/session 결과 의미
 
@@ -84,7 +84,7 @@
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | email verified/unverified                          | verified 전 protected API는 거부한다. signup/reset verification public API는 neutral response와 throttling을 적용한다                |
 | active/deleted/retained/blocked                    | deleted/retained/blocked 계정은 login/session resolve에서 fail-closed한다                                                            |
-| login allowed/lockout/throttled                    | account lockout은 Postgres 기준이고 IP burst/sustained throttle은 별도 guard다. Hash global guard는 capacity metric gate를 둔다       |
+| login allowed/lockout/throttled                    | account lockout은 Postgres 기준이고 IP burst/sustained throttle은 별도 guard다. Hash global guard는 capacity metric gate를 둔다      |
 | password reset requested/verified/consumed/expired | reset code/proof는 single-use, expiry/consume race-safe, neutral response를 유지한다                                                 |
 | rememberMe on/off                                  | on은 7일 persistent renewal, off는 24시간 absolute TTL + browser-session renewal cookie를 사용한다. access token은 모두 15분         |
 | session active/revoked/expired                     | revoked/expired는 DB gate에서 fail-closed. logout current, reset/delete/logout-all은 all-session revoke 정책을 따른다                |
@@ -232,6 +232,14 @@
 | 이메일 동일 차단    | 대소문자 무시 비교로 차단 |
 | 연속/반복 문자 제한 | 두지 않음                 |
 
+### 비밀번호 hash 실행 경계
+
+- 회원가입은 새 비밀번호를 저장하기 전에 Argon2id hash를 1회 생성한다.
+- 로그인은 저장된 hash 문자열과 입력 비밀번호를 문자열 비교하지 않는다. 사용자 row가 존재하고 cheap lock/account guard를 통과한 각 로그인 시도에서 encoded hash에 포함된 salt/parameter로 Argon2id verify 연산을 수행한다. 따라서 성공 로그인과 잘못된 비밀번호 로그인 모두 hash CPU/memory budget에 포함한다.
+- session 조회와 opaque access/renewal token 검증은 password hash를 다시 계산하지 않는다. 이미 발급된 session을 이용하는 일반 API 요청도 Argon2id를 실행하지 않는다.
+- 비밀번호 재설정/변경은 새 hash를 생성한다. 기존 비밀번호와 동일한지 또는 현재 비밀번호가 맞는지 확인하는 경로에서는 기존 hash verify가 추가될 수 있다.
+- Argon2id 19MiB 전환은 `production-deployment-readiness.md`의 4GB/2vCPU + RDS stress gate를 통과한 뒤 적용한다. 전환 후 기존 8MiB hash의 최초 성공 로그인은 old hash verify와 19MiB rehash를 모두 실행할 수 있으므로 migration burst를 별도 측정한다.
+
 ## 회원가입 기본 단계
 
 | 단계   | 수집 항목                                                 | 비고                                                                                                        |
@@ -333,13 +341,13 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 
 ## 백엔드 강제 항목
 
-| 항목                           | 구현 원칙                                                            |
-| ------------------------------ | -------------------------------------------------------------------- |
-| UUID 생성                      | 회원가입 시 서버 생성                                                |
-| 이메일 발송                    | Production은 SES 또는 동등 provider, local/test는 stub 허용          |
-| Opaque session token 발급/검증 | 서버 DB session/token hash가 최종 권한 보유                          |
-| 비밀번호 해싱                  | argon2id (memory=8MB, iterations=2, parallelism=1). OWASP 1순위 권장 |
-| 로그인 잠금                    | 서버 저장 상태 기준                                                  |
+| 항목                           | 구현 원칙                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| UUID 생성                      | 회원가입 시 서버 생성                                                                    |
+| 이메일 발송                    | Production은 SES 또는 동등 provider, local/test는 stub 허용                              |
+| Opaque session token 발급/검증 | 서버 DB session/token hash가 최종 권한 보유                                              |
+| 비밀번호 해싱                  | 현재 argon2id memory=8MiB/t=2/p=1. 19MiB/t=2/p=1은 production capacity gate 통과 후 전환 |
+| 로그인 잠금                    | 서버 저장 상태 기준                                                                      |
 
 ## 변경 이력
 
@@ -365,9 +373,10 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 | 2026-06-04 | Official policy standalone wording cleanup을 수행했다. 계획 단계 의존 표현을 제품 정책 언어로 바꾸고, opaque DB-backed session, Postgres authoritative, Web UX 후속 범위, operations health boundary를 독립 정책 문장으로 정리했다                                                                                                                                                                                                                                      | Auth 제품 완성                  |
 | 2026-06-17 | Production 이메일 발송 baseline을 추가했다. Stub/log sender는 local/test/development 전용이고, production은 SES 또는 동등 provider, verified identity, DKIM 권장, sandbox 해제 기준을 따른다고 명시했다                                                                                                                                                                                                                                                                 | production deployment readiness |
 | 2026-06-17 | SESv2 auth email sender adapter 기준을 반영했다. Production은 `EMAIL_PROVIDER=ses`와 monitored `EMAIL_SENDER` wrapper 뒤의 SES delegate를 사용하고, provider failure는 bounded category로만 기록한다.                                                                                                                                                                                                                                                                   | production deployment readiness |
+| 2026-07-27 | 비밀번호 hash가 회원가입뿐 아니라 비밀번호 기반 로그인 verify에도 실행되며, session/token 검증은 Argon 부하에 포함되지 않는다는 실행 경계를 명시했다. Argon2id 19MiB 전환은 4GB/2vCPU production-like stress gate 이후로 고정했다                                                                                                                                                                                                                                       | password hash capacity          |
 | 2026-07-28 | Browser session tri-state, unavailable cookie 보존, remember-off session renewal, 8초 previous-token stale grace, invalid-account dummy hash 검증을 Login/Session target baseline으로 확정했다                                                                                                                                                                                                                                                                          | login/session hardening         |
-| 2026-07-28 | Auth BFF의 8초 timeout, network/5xx/schema failure 분류, login runtime response 검증, minimal browser DTO, no-store, same-origin metadata 관찰, trusted XFF 정규화, production `__Host-` cookie와 HTTPS canonical origin 기준을 반영했다                                                                                                                                                                   | auth BFF hardening              |
-| 2026-07-28 | Browser session bootstrap을 명시적 POST resolve와 authenticated/unauthenticated/unavailable tri-state로 전환했다. API rejection reason, unavailable cookie 보존, Main recovery, auth flow nonblocking notice, optimistic Proxy gate를 연결했다                                                                                                                                                                                                                       | session resolve boundary        |
+| 2026-07-28 | Auth BFF의 8초 timeout, network/5xx/schema failure 분류, login runtime response 검증, minimal browser DTO, no-store, same-origin metadata 관찰, trusted XFF 정규화, production `__Host-` cookie와 HTTPS canonical origin 기준을 반영했다                                                                                                                                                                                                                                | auth BFF hardening              |
+| 2026-07-28 | Browser session bootstrap을 명시적 POST resolve와 authenticated/unauthenticated/unavailable tri-state로 전환했다. API rejection reason, unavailable cookie 보존, Main recovery, auth flow nonblocking notice, optimistic Proxy gate를 연결했다                                                                                                                                                                                                                          | session resolve boundary        |
 | 2026-07-29 | 모든 로그인·회원가입·비밀번호 변경 session에 renewal token을 발급하고, access cookie는 항상 session cookie로 유지하며 renewal cookie의 persistence만 로그인 유지 선택에 따라 구분했다                                                                                                                                                                                                                                                                                   | remember-me semantics           |
 | 2026-07-29 | Renewal rotation에 직전 token hash와 DB clock 기반 8초 grace를 추가했다. 정상 multi-tab 경쟁은 stale + browser 1회 재시도로 복구하고, grace 밖 old/unknown token만 reuse event와 session revoke로 처리한다                                                                                                                                                                                                                                                              | renewal concurrency             |
-| 2026-07-29 | Login timing을 canonical dummy Argon2id verify로 정규화하고 account lock과 30/min·120/10min trusted-IP throttle을 분리했다. Password reset transaction은 login lock을 함께 해제하며 login 결과·throttle·real/dummy verify metric을 no-PII label로 기록한다                                                                                                                                                                                                           | login security hardening        |
+| 2026-07-29 | Login timing을 canonical dummy Argon2id verify로 정규화하고 account lock과 30/min·120/10min trusted-IP throttle을 분리했다. Password reset transaction은 login lock을 함께 해제하며 login 결과·throttle·real/dummy verify metric을 no-PII label로 기록한다                                                                                                                                                                                                              | login security hardening        |

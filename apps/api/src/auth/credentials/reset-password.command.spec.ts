@@ -183,6 +183,38 @@ describe('resetPassword command', () => {
     });
   });
 
+  it('새 비밀번호가 현재 비밀번호와 같으면 grant 소비와 password update 전에 거부한다', async () => {
+    const currentPasswordHash = await hashPasswordForTest('SamePass1234');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailNormalized: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+      emailVerifiedAt: databaseNow,
+    });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      subjectKey: 'v1:reset-subject',
+      purpose: 'RESET_PASSWORD',
+      eligibleUserId: 'user-1',
+      tokenHash: 'a'.repeat(64),
+    });
+
+    await expect(
+      resetPassword(deps as never, verificationGrant, 'SamePass1234'),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_UNCHANGED',
+      fieldErrors: {
+        newPassword: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.',
+      },
+    });
+
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
   it('credential 변경 감사 이력과 보안 알림 outbox를 password transaction에 append한다', async () => {
     const currentPasswordHash = await hashPasswordForTest('OldPass1234');
     prisma.user.findUnique.mockResolvedValue({

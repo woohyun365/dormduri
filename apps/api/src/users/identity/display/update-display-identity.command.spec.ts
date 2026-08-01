@@ -111,7 +111,7 @@ describe('UpdateDisplayIdentityCommand', () => {
 
   it('moderation에서 거부된 nickname은 update/audit 없이 기존 error를 유지한다', async () => {
     moderationService.validateNicknamePolicy.mockResolvedValue(
-      '사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
 
     await expect(
@@ -123,7 +123,7 @@ describe('UpdateDisplayIdentityCommand', () => {
       ),
     ).rejects.toMatchObject({
       response: usersErrors
-        .nicknameModerationRejected('사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요.')
+        .nicknameModerationRejected('닉네임에 사용할 수 없는 단어가 포함되어 있어요.')
         .getResponse(),
     });
 
