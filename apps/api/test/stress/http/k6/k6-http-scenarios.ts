@@ -5,7 +5,8 @@ export type K6HttpScenarioName =
   | 'spike-500'
   | 'soak-250'
   | 'score-cohort-946'
-  | 'auth-login-capacity';
+  | 'auth-login-capacity'
+  | 'auth-recovery-abuse';
 
 export interface K6HttpScenarioDefinition {
   readonly name: K6HttpScenarioName;
@@ -88,6 +89,17 @@ export const K6_HTTP_SCENARIOS: readonly K6HttpScenarioDefinition[] = [
     requestMix: ['auth-login-real-hash', 'auth-login-dummy-hash'],
     thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
     summary: '실제 계정과 미존재 계정의 Argon2id login verify 경로를 같은 비율로 검증한다.',
+  },
+  {
+    name: 'auth-recovery-abuse',
+    scriptFile: 'auth-recovery-abuse.k6.js',
+    defaultDuration: '2m',
+    maxVus: 20,
+    targetProfile: 'staging',
+    requestMix: ['reset-request-neutral-response', 'reset-invalid-code', 'bounded-throttle'],
+    thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
+    summary:
+      '동일·분산 subject의 reset request/invalid verify burst가 5xx와 정보 노출 없이 제한되는지 검증한다.',
   },
 ];
 

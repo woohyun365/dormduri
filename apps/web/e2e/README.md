@@ -57,3 +57,4 @@ Playwright auth storage state는 `apps/web/playwright/.auth/`에 생성되며 gi
 - Full-stack smoke는 API/DB/Docker 의존성이 있으므로 local/manual 또는 별도 scheduled/label CI 후보로 둔다.
 - Full-stack/dev server 실행 후 `apps/web/next-env.d.ts`가 `.next/dev/types`로 바뀔 수 있다. 이 generated drift는 commit하지 않고 원복한다.
 - Home UI state를 빠르게 시각 비교하는 용도는 Storybook/visual workshop에서 다루고, 실제 auth/API/DB 정합성은 full-stack smoke가 담당한다.
+- Password Reset의 controller→transaction recovery evidence는 API의 disposable-schema HTTP E2E가 소유하고, Web lane은 BFF grant cookie와 production flow reducer/component를 검증한다. 통합 release command는 `infra/runbooks/auth-password-reset-release-evidence.md`를 따른다.

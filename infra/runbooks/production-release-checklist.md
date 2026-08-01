@@ -51,6 +51,7 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 | DKIM이 enabled/pass 상태다.                                                                                                                     | DKIM evidence                       |          |
 | SES sandbox production access가 해제되어 있다.                                                                                                  | SES account status                  |          |
 | manual send 또는 mailbox simulator smoke가 bounded provider error category로 관측된다.                                                          | smoke result; no raw provider error |          |
+| Configuration Set의 delivery/bounce/complaint event가 승인된 destination에서 확인된다.                                                          | event destination evidence          |          |
 | provider failure는 `CONFIG_INVALID`, `ACCESS_DENIED`, `MESSAGE_REJECTED`, `THROTTLED`, `TRANSIENT`, `UNKNOWN` 같은 bounded category로만 남는다. | log/security event sample           |          |
 
 `NO-GO`: production stub sender, unverified identity, sandbox 미해제, raw SES error 또는 email secret 노출.
@@ -107,6 +108,7 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 | readiness failure body는 secret/DB URL/raw provider error/stack trace를 노출하지 않는다.              | sample response                             |          |
 | `/internal/metrics` anonymous request는 거부된다.                                                     | smoke result                                |          |
 | `/internal/metrics` bearer authorized scrape가 성공한다.                                              | smoke result                                |          |
+| verification/credential/mail dispatch/outbox lag/security alert auth metric이 모두 scrape된다.        | auth metrics smoke                          |          |
 
 `NO-GO`: readiness failure, secret leak, metrics anonymous access, smoke script failure.
 
@@ -125,15 +127,17 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 
 ## Gate 8. Observability and stress evidence
 
-| Check                                                                          | Evidence                                              | Decision |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------- | -------- |
-| observability rehearsal checklist가 release 기준으로 완료되어 있다.            | `infra/observability/rehearsal-checklist.md` evidence |          |
-| Slack Alertmanager delivery smoke가 Slack channel까지 도달했다.                | Slack smoke timestamp/link                            |          |
-| Prometheus target up, Loki log readout, Grafana dashboard readout을 확인했다.  | dashboard links                                       |          |
-| Dockerized API/nginx smoke가 release candidate image에서 통과했다.             | `pnpm --dir apps/api stress:docker:smoke`             |          |
-| production-like smoke가 통과했다.                                              | `pnpm --dir apps/api stress:docker:production-like`   |          |
-| 237 ramp decision evidence가 release blocker/follow-up 판단에 반영되어 있다.   | `pnpm --dir apps/api stress:docker:237-ramp`          |          |
-| threshold fail이 있으면 blocker 또는 explicit risk acceptance로 분류되어 있다. | decision note                                         |          |
+| Check                                                                                         | Evidence                                                 | Decision |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------- |
+| observability rehearsal checklist가 release 기준으로 완료되어 있다.                           | `infra/observability/rehearsal-checklist.md` evidence    |          |
+| Slack Alertmanager delivery smoke가 Slack channel까지 도달했다.                               | Slack smoke timestamp/link                               |          |
+| Prometheus target up, Loki log readout, Grafana dashboard readout을 확인했다.                 | dashboard links                                          |          |
+| Dockerized API/nginx smoke가 release candidate image에서 통과했다.                            | `pnpm --dir apps/api stress:docker:smoke`                |          |
+| production-like smoke가 통과했다.                                                             | `pnpm --dir apps/api stress:docker:production-like`      |          |
+| 237 ramp decision evidence가 release blocker/follow-up 판단에 반영되어 있다.                  | `pnpm --dir apps/api stress:docker:237-ramp`             |          |
+| threshold fail이 있으면 blocker 또는 explicit risk acceptance로 분류되어 있다.                | decision note                                            |          |
+| Password Reset recovery E2E와 auth integration의 grant/session/outbox transaction이 통과한다. | `infra/runbooks/auth-password-reset-release-evidence.md` |          |
+| Reset request/invalid-code abuse stress가 neutral response와 bounded throttle를 유지한다.     | `stress:http:auth-recovery`                              |          |
 
 `NO-GO`: 관측 경로 전체 불능, stress threshold fail 미분류, Slack/metrics/log evidence 없음.
 

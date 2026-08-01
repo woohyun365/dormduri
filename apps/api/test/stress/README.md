@@ -107,6 +107,8 @@ Release 전 검증은 local smoke와 staging baseline/peak를 분리해서 기�
 
 Report에는 k6/Artillery safe parser 결과와 Grafana/Prometheus/Loki readout만 옮긴다. Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password, raw payload는 기록하지 않는다.
 
+Auth recovery abuse는 `stress:http:auth-recovery`로 실행하며 실제 user/mail을 만들지 않는 neutral subject만 사용한다. 동일 subject abuse와 분산 요청뿐 아니라 여러 subject가 하나의 campus NAT IP를 공유하는 정상 흐름도 포함한다. Valid grant와 outbox worker race는 PostgreSQL integration lane이 소유한다.
+
 ## Authenticated fixture flow
 
 ```bash

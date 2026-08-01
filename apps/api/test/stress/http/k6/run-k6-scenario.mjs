@@ -13,6 +13,7 @@ const validScenarios = new Set([
   'soak-250',
   'score-cohort-946',
   'auth-login-capacity',
+  'auth-recovery-abuse',
 ]);
 
 if (!scenario || !validScenarios.has(scenario)) {

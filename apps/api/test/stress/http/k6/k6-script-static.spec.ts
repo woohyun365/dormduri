@@ -13,7 +13,7 @@ function readK6Script(fileName: string) {
 }
 
 describe('k6 HTTP stress scripts static contract', () => {
-  it('Phase 6 matrix의 모든 HTTP scenario script가 존재하고 k6 runtime import만 사용한다', () => {
+  it('release matrix의 모든 HTTP scenario script가 존재하고 k6 runtime import만 사용한다', () => {
     for (const scenario of K6_HTTP_SCENARIOS) {
       const source = readK6Script(scenario.scriptFile);
 
@@ -68,6 +68,17 @@ describe('k6 HTTP stress scripts static contract', () => {
     expect(source).toContain('write-mix-not-seeded');
     expect(source).toContain('bookmark-create');
     expect(source).toContain('match-request-create');
+  });
+
+  it('auth recovery stress는 abuse와 campus NAT 정상 흐름을 분리한다', () => {
+    const source = readK6Script('auth-recovery-abuse.k6.js');
+
+    expect(source).toContain("'same-subject'");
+    expect(source).toContain("'campus-nat'");
+    expect(source).toContain("'distributed-subject'");
+    expect(source).toContain('campus NAT traffic is not throttled at the release rate');
+    expect(source).toContain("scope !== 'campus-nat' || result.status !== 429");
+    expect(source).toContain('{ scenario, endpoint, scope }');
   });
 
   it('k6 scripts와 runner는 secret을 console 출력하지 않는다', () => {

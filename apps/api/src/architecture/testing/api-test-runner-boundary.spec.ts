@@ -194,7 +194,7 @@ describe('API test runner boundary', () => {
     expect(baseConfig).toContain('globals: false');
     expect(baseConfig).toContain("provider: 'v8'");
     expect(unitConfig).toContain("pool: 'forks'");
-    expect(unitConfig).toContain("include: ['src/**/*.spec.ts']");
+    expect(unitConfig).toContain("include: ['src/**/*.spec.ts', 'test/release/**/*.spec.ts']");
     expect(integrationConfig).toContain("pool: 'forks'");
     expect(integrationConfig).toContain('fileParallelism: false');
     expect(integrationConfig).toContain("include: ['test/integration/**/*.integration.spec.ts']");

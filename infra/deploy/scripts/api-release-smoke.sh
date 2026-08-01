@@ -56,6 +56,7 @@ done
 if [ "$dry_run" = true ]; then
   echo 'dry-run: would check /health, /health/live, /health/ready'
   echo 'dry-run: would verify /internal/metrics rejects anonymous scrape and accepts bearer token'
+  echo 'dry-run: would verify auth verification, credential, mail dispatch, outbox lag and security alert metrics'
   exit 0
 fi
 
@@ -94,5 +95,17 @@ esac
 if ! grep -q '^# HELP\|^api_' "$tmp_dir/metrics-authorized.txt"; then
   fail 'failed smoke: authorized metrics scrape did not look like Prometheus text format' 1
 fi
+
+for metric in \
+  api_auth_verification_operations_total \
+  api_auth_credential_transitions_total \
+  api_auth_mail_dispatch_total \
+  api_auth_mail_outbox_lag_seconds \
+  api_auth_security_alert_active
+do
+  if ! grep -q "^# HELP ${metric}\\|^${metric}" "$tmp_dir/metrics-authorized.txt"; then
+    fail "failed smoke: required auth metric is missing: ${metric}" 1
+  fi
+done
 
 echo 'API release smoke complete'

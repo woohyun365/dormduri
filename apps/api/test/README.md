@@ -47,3 +47,7 @@
 - E2E include/setup: `apps/api/vitest.config.e2e.ts`.
 - Official scripts: root `package.json`의 `api:test`, `test:api`, `api:test:integration`; API `package.json`의 `test*` scripts.
 - Runner regression guard: `apps/api/src/architecture/api-test-runner-boundary.spec.ts`.
+
+## Auth recovery release evidence
+
+`test/e2e/auth/password-reset-recovery.e2e-spec.ts`는 실제 HTTP controller부터 PostgreSQL transaction까지 reset request, encrypted outbox, single-use grant, session revoke와 새 비밀번호 login을 검증한다. 실행 명령과 SES/stress/rollback 경계는 `infra/runbooks/auth-password-reset-release-evidence.md`를 따른다.
