@@ -5,6 +5,7 @@ import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './login-attempts/auth-logi
 
 const NEST_ROUTE_PATH_METADATA = 'path';
 const NEST_ROUTE_METHOD_METADATA = 'method';
+const RENEWAL_TOKEN = `v1.session-1.${'r'.repeat(43)}`;
 const request = {
   ip: '127.0.0.1',
   headers: { 'user-agent': 'jest-agent' },
@@ -99,24 +100,28 @@ describe('AuthController', () => {
 
   it('signup body는 season profile orchestration 필드를 거부한다', async () => {
     await expect(
-      controller.signup({
-        email: 'test@kangwon.ac.kr',
-        password: 'Test1234',
-        nickname: '테스터',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-        collegeCode: 'CHUNCHEON_IT',
-        birthYear: 2002,
-        legalAcceptances: {
-          termsVersionId: 'terms-of-service-2026-06-22',
-          personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
-          ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
-          privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+      controller.signup(
+        {
+          email: 'test@kangwon.ac.kr',
+          password: 'Test1234',
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          collegeCode: 'CHUNCHEON_IT',
+          birthYear: 2002,
+          legalAcceptances: {
+            termsVersionId: 'terms-of-service-2026-06-22',
+            personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+            ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+            privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+          },
+          lifestyle: {},
+          intro: '가입 단계 소개',
+          additional: { grade: 2 },
         },
-        lifestyle: {},
-        intro: '가입 단계 소개',
-        additional: { grade: 2 },
-      }),
+        undefined,
+        request as never,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(authService.signup).not.toHaveBeenCalled();
@@ -141,12 +146,47 @@ describe('AuthController', () => {
       },
     } as const;
 
-    await expect(controller.signup(body)).resolves.toEqual({
+    await expect(controller.signup(body, undefined, request as never)).resolves.toEqual({
       success: true,
       accessToken: 'signup-token',
     });
 
-    expect(authService.signup).toHaveBeenCalledWith(body, null);
+    expect(authService.signup).toHaveBeenCalledWith(body, null, {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
+  });
+
+  it('signup은 보안 감사에 사용할 request context를 registration owner로 전달한다', async () => {
+    authService.signup.mockResolvedValue({ success: true, accessToken: 'signup-token' });
+
+    const body = {
+      email: 'test@kangwon.ac.kr',
+      password: 'Test1234',
+      nickname: '테스터',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      collegeCode: 'CHUNCHEON_IT',
+      birthYear: 2002,
+      legalAcceptances: {
+        termsVersionId: 'terms-of-service-2026-06-22',
+        personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+        ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+        privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+      },
+    } as const;
+    const signupHandler = controller.signup.bind(controller) as unknown as (
+      input: typeof body,
+      verificationGrant: string,
+      req: typeof request,
+    ) => Promise<unknown>;
+
+    await signupHandler(body, 'signup-grant', request);
+
+    expect(authService.signup).toHaveBeenCalledWith(body, 'signup-grant', {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
   });
 
   it('signup nickname validation route는 /auth/signup/validate-nickname으로 노출된다', () => {
@@ -316,16 +356,43 @@ describe('AuthController', () => {
       controller.logout(
         'current-access-token',
         {
-          renewalToken: 'v1.session-1.renewal-token',
+          renewalToken: RENEWAL_TOKEN,
         },
         request as never,
       ),
     ).resolves.toEqual({ success: true });
 
-    expect(authService.logout).toHaveBeenCalledWith(
-      'current-access-token',
-      'v1.session-1.renewal-token',
-      { requestIp: '127.0.0.1', userAgent: 'jest-agent' },
-    );
+    expect(authService.logout).toHaveBeenCalledWith('current-access-token', RENEWAL_TOKEN, {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
+  });
+
+  it('logout request는 알 수 없는 필드를 거부하는 strict contract를 사용한다', async () => {
+    await expect(
+      controller.logout(
+        'current-access-token',
+        {
+          renewalToken: RENEWAL_TOKEN,
+          userId: 'forged-user-id',
+        },
+        request as never,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(authService.logout).not.toHaveBeenCalled();
+  });
+
+  it('logout request는 token이 없는 빈 body도 idempotent success로 위임한다', async () => {
+    authService.logout.mockResolvedValue({ success: true });
+
+    await expect(controller.logout(null, undefined, request as never)).resolves.toEqual({
+      success: true,
+    });
+
+    expect(authService.logout).toHaveBeenCalledWith(null, null, {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
   });
 });

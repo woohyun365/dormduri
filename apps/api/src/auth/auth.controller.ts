@@ -6,6 +6,7 @@ import {
   changePasswordRequestSchema,
   emailRequestSchema,
   loginRequestSchema,
+  logoutRequestSchema,
   renewSessionRequestSchema,
   resetPasswordRequestSchema,
   signupNicknameValidationRequestSchema,
@@ -85,10 +86,15 @@ export class AuthController {
   @Public()
   async signup(
     @Body() body: unknown,
-    @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant?: string,
+    @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant: string | undefined,
+    @Req() req: Request,
   ) {
     const parsed = parseRequestBody(signupRequestSchema, body);
-    return this.authService.signup(parsed, verificationGrant ?? null);
+    return this.authService.signup(
+      parsed,
+      verificationGrant ?? null,
+      resolveAuthRequestContext(req),
+    );
   }
 
   @Post('login')
@@ -153,14 +159,12 @@ export class AuthController {
     @Body() body: unknown,
     @Req() req: Request,
   ) {
-    const renewalToken =
-      typeof body === 'object' &&
-      body !== null &&
-      'renewalToken' in body &&
-      typeof body.renewalToken === 'string'
-        ? body.renewalToken
-        : null;
+    const parsed = parseRequestBody(logoutRequestSchema, body ?? {});
 
-    return this.authService.logout(token, renewalToken, resolveAuthRequestContext(req));
+    return this.authService.logout(
+      token,
+      parsed.renewalToken ?? null,
+      resolveAuthRequestContext(req),
+    );
   }
 }

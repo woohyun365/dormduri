@@ -1,6 +1,10 @@
 import type { NextRequest, NextResponse } from 'next/server';
 import { getAuthTokenCookie, setAuthTransportCookies } from './auth-cookies';
-import { forwardAuthRequest, getForwardHeaders } from './auth-forward';
+import {
+  forwardAuthRequest,
+  getForwardHeaders,
+  type AuthUpstreamResponseSchema,
+} from './auth-forward';
 import {
   parseStrictJsonRequest,
   pickAuthMutationResponseBody,
@@ -40,15 +44,27 @@ export function createStrictForwardPostHandler<TBody extends Record<string, unkn
 
 export function createAuthenticatedForwardPostHandler<TBody extends Record<string, unknown>>(
   path: string,
-  options: { setAuthCookieFromAccessToken?: boolean } = {},
+  options: {
+    setAuthCookieFromAccessToken?: boolean;
+    responseSchema?: AuthUpstreamResponseSchema;
+  } = {},
 ) {
   return async function POST(request: NextRequest) {
     recordAuthMutationRequestInspection(request);
     const body = (await request.json()) as TBody;
     const token = getAuthTokenCookie(request);
-    const { response, json } = await forwardAuthRequest('POST', path, body, {
-      headers: getForwardHeaders(request, token ? { Authorization: `Bearer ${token}` } : undefined),
-    });
+    const { response, json } = await forwardAuthRequest(
+      'POST',
+      path,
+      body,
+      {
+        headers: getForwardHeaders(
+          request,
+          token ? { Authorization: `Bearer ${token}` } : undefined,
+        ),
+      },
+      { responseSchema: options.responseSchema },
+    );
 
     const nextResponse = buildJsonResponse(response, {
       ...json,

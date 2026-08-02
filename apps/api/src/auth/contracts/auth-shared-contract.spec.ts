@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   changePasswordRequestSchema,
+  logoutRequestSchema,
   renewSessionRequestSchema,
   resetPasswordRequestSchema,
   signupNicknameValidationRequestSchema,
@@ -15,6 +16,7 @@ import {
   AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE,
   AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE,
   authSessionRenewalFailureCodeSchema,
+  changePasswordFailureResponseSchema,
   changePasswordResponseSchema,
   loginResponseSchema,
   renewSessionStaleResponseSchema,
@@ -23,6 +25,7 @@ import {
   verifyResetCodeTransportResponseSchema,
   verifySignupCodeTransportResponseSchema,
   signupResponseSchema,
+  signupFailureResponseSchema,
 } from '@repo/shared/auth/response';
 import { loginResponseSchema as granularLoginResponseSchema } from '@repo/shared/auth/response';
 import {
@@ -350,6 +353,60 @@ describe('auth shared contract guards', () => {
         }).success,
       ).toBe(false);
     }
+  });
+
+  it('logout contract는 opaque renewal token 또는 빈 body만 허용한다', () => {
+    const opaqueRenewalToken = `v1.session-1.${'b'.repeat(43)}`;
+
+    expect(logoutRequestSchema.parse({})).toEqual({});
+    expect(logoutRequestSchema.parse({ renewalToken: opaqueRenewalToken })).toEqual({
+      renewalToken: opaqueRenewalToken,
+    });
+    expect(
+      logoutRequestSchema.safeParse({
+        renewalToken: opaqueRenewalToken,
+        userId: 'forged-user-id',
+      }).success,
+    ).toBe(false);
+    expect(logoutRequestSchema.safeParse({ renewalToken: 'legacy-token' }).success).toBe(false);
+  });
+
+  it('signup/change-password failure contract는 stable code만 받고 token field를 거부한다', () => {
+    expect(
+      signupFailureResponseSchema.safeParse({
+        success: false,
+        code: 'AUTH_NICKNAME_ALREADY_TAKEN',
+        error: '이미 사용 중인 닉네임입니다.',
+      }).success,
+    ).toBe(true);
+    expect(
+      signupFailureResponseSchema.safeParse({
+        success: false,
+        code: 'AUTH_UNKNOWN_SIGNUP_FAILURE',
+      }).success,
+    ).toBe(false);
+    expect(
+      signupFailureResponseSchema.safeParse({
+        success: false,
+        code: 'AUTH_NICKNAME_ALREADY_TAKEN',
+        accessToken: `v1.session-1.${'a'.repeat(43)}`,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      changePasswordFailureResponseSchema.safeParse({
+        success: false,
+        code: 'AUTH_CURRENT_PASSWORD_INVALID',
+        fieldErrors: { currentPassword: '현재 비밀번호가 올바르지 않습니다.' },
+      }).success,
+    ).toBe(true);
+    expect(
+      changePasswordFailureResponseSchema.safeParse({
+        success: false,
+        code: 'AUTH_CURRENT_PASSWORD_INVALID',
+        renewalToken: `v1.session-1.${'b'.repeat(43)}`,
+      }).success,
+    ).toBe(false);
   });
 
   it('session contract는 API 인증 실패와 browser 가용성 실패를 서로 다른 축으로 표현한다', () => {

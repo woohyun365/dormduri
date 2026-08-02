@@ -10,7 +10,7 @@ import {
 const ALLOWED_AUTH_METHODS = new Set(['GET', 'POST']);
 export const AUTH_BFF_DEFAULT_TIMEOUT_MS = 8_000;
 
-type AuthUpstreamResponseSchema = {
+export type AuthUpstreamResponseSchema = {
   safeParse(
     value: unknown,
   ): { success: true; data: Record<string, unknown> } | { success: false; error: unknown };

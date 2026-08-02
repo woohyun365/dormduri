@@ -68,8 +68,12 @@ export class AuthService {
     return this.registrationUseCases.validateSignupNickname(nickname, verificationGrant);
   }
 
-  signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
-    return this.registrationUseCases.signup(input, verificationGrant);
+  signup(
+    input: SignupInput,
+    verificationGrant: string | null = null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<LoginResult> {
+    return this.registrationUseCases.signup(input, verificationGrant, requestContext);
   }
 
   login(

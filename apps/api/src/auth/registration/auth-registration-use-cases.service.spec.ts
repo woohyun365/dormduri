@@ -124,6 +124,7 @@ describe('AuthRegistrationUseCases', () => {
   });
 
   it('signup은 slice-local command dependencies를 조립해 session issue 결과를 반환한다', async () => {
+    const requestContext = { requestIp: '127.0.0.1', userAgent: 'vitest' };
     prisma.user.create.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
@@ -137,7 +138,7 @@ describe('AuthRegistrationUseCases', () => {
       sessionId: 'session-1',
     });
 
-    await expect(useCases.signup(input as never)).resolves.toMatchObject({
+    await expect(useCases.signup(input as never, null, requestContext)).resolves.toMatchObject({
       success: true,
       accessToken: 'access-token',
       renewalToken: 'renewal-token',

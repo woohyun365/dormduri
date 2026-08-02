@@ -8,6 +8,19 @@ import { useRedirectIfAuthenticated } from '@/auth/hooks';
 
 const mockReplace = vi.fn();
 const mockPush = vi.fn();
+const SIGNUP_SUCCESS_RESPONSE = {
+  success: true,
+  accessToken: `v1.session-signup.${'a'.repeat(43)}`,
+  renewalToken: `v1.session-signup.${'b'.repeat(43)}`,
+  rememberMe: false,
+  user: {
+    id: 'user-1',
+    email: 'test@kangwon.ac.kr',
+    nickname: '테스터',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+  },
+} as const;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace, push: mockPush }),
@@ -292,7 +305,7 @@ describe('SignupPageClient', () => {
   beforeEach(() => {
     sessionStorage.clear();
     mockSignup.mockReset();
-    mockSignup.mockResolvedValue({ success: true });
+    mockSignup.mockResolvedValue(SIGNUP_SUCCESS_RESPONSE);
     mockUseRedirectIfAuthenticated.mockReturnValue({
       isReadyToRender: true,
       sessionStatus: 'unauthenticated',
@@ -446,7 +459,7 @@ describe('SignupPageClient', () => {
         code: 'AUTH_LEGAL_ACCEPTANCE_STALE',
         error: '약관 또는 개인정보 동의 내용이 변경되었습니다.',
       })
-      .mockResolvedValueOnce({ success: true });
+      .mockResolvedValueOnce(SIGNUP_SUCCESS_RESPONSE);
 
     await renderSignup();
     advanceToStep(3);

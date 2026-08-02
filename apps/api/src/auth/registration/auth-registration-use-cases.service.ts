@@ -8,6 +8,7 @@ import { AuthVerificationService } from '../verification/auth-verification.servi
 import { signup } from './signup.command.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 import { SignupNicknameValidationQuery } from './signup-nickname-validation.query.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 
 @Injectable()
 export class AuthRegistrationUseCases {
@@ -27,7 +28,11 @@ export class AuthRegistrationUseCases {
     return this.signupNicknameValidationQuery.execute(nickname, verificationGrant);
   }
 
-  async signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
+  async signup(
+    input: SignupInput,
+    verificationGrant: string | null = null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<LoginResult> {
     try {
       const result = await signup(
         {
@@ -38,6 +43,7 @@ export class AuthRegistrationUseCases {
         },
         input,
         verificationGrant,
+        requestContext,
       );
       this.flowMetrics?.recordCredentialTransition(
         'signup',

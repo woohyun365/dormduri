@@ -33,7 +33,9 @@ function resolveValidationTarget(
   return 'ACADEMIC_IDENTITY';
 }
 
-export function mapSignupFailure(result: SignupResponse): SignupFailure {
+export function mapSignupFailure(
+  result: Extract<SignupResponse, { success: false }>,
+): SignupFailure {
   const message = result.error ?? SIGNUP_FEEDBACK_COPY.common.retry;
 
   switch (result.code) {

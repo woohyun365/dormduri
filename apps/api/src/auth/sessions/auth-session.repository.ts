@@ -56,6 +56,18 @@ type AuthSessionClient =
   | Pick<PrismaService, 'authSession'>
   | Pick<Prisma.TransactionClient, 'authSession'>;
 
+export type AuthSessionCreateClient = Pick<Prisma.TransactionClient, 'authSession'>;
+
+export interface AuthSessionCreateInput {
+  sessionId: string;
+  userId: string;
+  rememberMe: boolean;
+  sessionTokenHash: string;
+  sessionTokenExpiresAt: Date;
+  refreshTokenHash: string;
+  expiresAt: Date;
+}
+
 @Injectable()
 export class AuthSessionRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -68,16 +80,12 @@ export class AuthSessionRepository {
     return this.prisma.runSerializableTransaction(operation);
   }
 
-  createSession(input: {
-    sessionId: string;
-    userId: string;
-    rememberMe: boolean;
-    sessionTokenHash: string;
-    sessionTokenExpiresAt: Date;
-    refreshTokenHash: string;
-    expiresAt: Date;
-  }) {
-    return this.prisma.authSession.create({
+  createSession(input: AuthSessionCreateInput) {
+    return this.createSessionWithClient(this.prisma, input);
+  }
+
+  createSessionWithClient(client: AuthSessionCreateClient, input: AuthSessionCreateInput) {
+    return client.authSession.create({
       data: {
         id: input.sessionId,
         userId: input.userId,

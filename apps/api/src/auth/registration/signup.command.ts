@@ -27,6 +27,7 @@ import {
   type DisplayIdentityNicknamePolicyService,
   type ParsedDisplayIdentityNickname,
 } from '../../users/identity/display/display-identity-nickname-policy.service.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -44,6 +45,7 @@ export async function signup(
   deps: AuthSignupOwnerDeps,
   input: SignupInput,
   verificationGrant: string | null = null,
+  _requestContext: AuthRequestContext = {},
 ): Promise<LoginResult> {
   const emailNormalized = normalizeEmail(input.email);
   if (!isKnuEmail(emailNormalized)) {

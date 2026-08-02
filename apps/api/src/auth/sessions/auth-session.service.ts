@@ -8,6 +8,8 @@ import type {
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { CurrentSessionQuery } from './current-session.query.js';
 import { IssueSessionCommand } from './issue-session.command.js';
+import type { PreparedSessionIssue } from './issue-session.command.js';
+import type { AuthSessionCreateClient } from './auth-session.repository.js';
 import { RenewSessionCommand } from './renew-session.command.js';
 import { LogoutSessionCommand } from './logout-session.command.js';
 import type { ResolvedAuthActorContext } from '../application/auth-actor-context.types.js';
@@ -45,6 +47,21 @@ export class AuthSessionService {
     rememberMe: boolean,
   ): Promise<AuthSessionIssueResult> {
     return this.issueSessionCommand.execute(userId, email, rememberMe);
+  }
+
+  prepareSessionIssue(
+    userId: string,
+    _email: string,
+    rememberMe: boolean,
+  ): Promise<PreparedSessionIssue> {
+    return this.issueSessionCommand.prepareSessionIssue(userId, rememberMe);
+  }
+
+  appendPreparedSession(
+    client: AuthSessionCreateClient,
+    prepared: PreparedSessionIssue,
+  ): Promise<void> {
+    return this.issueSessionCommand.appendPreparedSession(client, prepared);
   }
 
   renewSession(

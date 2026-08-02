@@ -133,7 +133,7 @@ describe('AuthService facade', () => {
       success: true,
       nickname: '테스터',
     });
-    await expect(service.signup(signupInput as never)).resolves.toEqual({
+    await expect(service.signup(signupInput as never, null, requestContext)).resolves.toEqual({
       success: true,
       accessToken: 'signup-token',
     });
@@ -160,7 +160,7 @@ describe('AuthService facade', () => {
       '테스터',
       'signup-grant',
     );
-    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput, null);
+    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput, null, requestContext);
     expect(credentialUseCases.login).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       'Pass1234',

@@ -149,6 +149,47 @@ describe('AuthSessionService', () => {
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
   });
 
+  it('prepared session은 token material만 만들고 전달받은 transaction client로 row를 append한다', async () => {
+    const transactionCreate = vi.fn().mockImplementation((input: { data: { id: string } }) => ({
+      id: input.data.id,
+    }));
+
+    const prepared = await service.prepareSessionIssue('user-1', 'test@kangwon.ac.kr', false);
+
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
+    expect(prepared.result.accessToken).toMatch(
+      new RegExp(`^v1\\.${prepared.result.sessionId}\\.`),
+    );
+    expect(prepared.persistence).toMatchObject({
+      sessionId: prepared.result.sessionId,
+      userId: 'user-1',
+      rememberMe: false,
+      sessionTokenHash: hashTokenForTest(prepared.result.accessToken),
+      refreshTokenHash: hashTokenForTest(prepared.result.renewalToken ?? ''),
+    });
+    expect(prepared.persistence).not.toHaveProperty('accessToken');
+    expect(prepared.persistence).not.toHaveProperty('renewalToken');
+
+    await service.appendPreparedSession(
+      { authSession: { create: transactionCreate } } as never,
+      prepared,
+    );
+
+    expect(transactionCreate).toHaveBeenCalledWith({
+      data: {
+        id: prepared.persistence.sessionId,
+        userId: 'user-1',
+        rememberMe: false,
+        sessionTokenHash: prepared.persistence.sessionTokenHash,
+        sessionTokenExpiresAt: prepared.persistence.sessionTokenExpiresAt,
+        refreshTokenHash: prepared.persistence.refreshTokenHash,
+        expiresAt: prepared.persistence.expiresAt,
+      },
+      select: { id: true },
+    });
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
+  });
+
   it('rememberMe가 꺼진 세션도 15분 access 만료 뒤 복구할 renewal token을 발급한다', async () => {
     prisma.authSession.create.mockImplementation((input: { data: { id: string } }) => ({
       id: input.data.id,

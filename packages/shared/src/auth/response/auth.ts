@@ -3,11 +3,9 @@ import {
   authenticatedSessionUserSchema,
   type AuthenticatedSessionUser,
 } from '../../user/primitives.js';
+import { opaqueAuthTokenSchema } from '../contract/primitives.js';
 import { genericErrorResponseSchema } from './base.js';
 
-const opaqueAuthTokenSchema = z
-  .string()
-  .regex(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/, 'opaque auth token 형식이어야 합니다.');
 const verificationGrantExpirySchema = z.number().int().positive();
 export const AUTH_RESET_RESTART_REQUIRED_CODE = 'AUTH_RESET_RESTART_REQUIRED' as const;
 export const AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE =
@@ -57,14 +55,56 @@ export const verifyResetCodeTransportResponseSchema = genericErrorResponseSchema
       });
     }
   });
-export const signupResponseSchema = genericErrorResponseSchema.extend({
-  ...authSessionIssueResponseFields,
-  user: authenticatedSessionUserSchema.optional(),
+export const signupFailureCodeSchema = z.enum([
+  'AUTH_INVALID_EMAIL_FORMAT',
+  'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
+  'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
+  'AUTH_PASSWORD_POLICY_VIOLATION',
+  'AUTH_NICKNAME_ALREADY_TAKEN',
+  'AUTH_SIGNUP_VALIDATION_FAILED',
+  'AUTH_EMAIL_ALREADY_REGISTERED',
+  'AUTH_LEGAL_ACCEPTANCE_STALE',
+  'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED',
+  'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+]);
+export const signupFailureResponseSchema = genericErrorResponseSchema.extend({
+  success: z.literal(false),
+  code: signupFailureCodeSchema,
 });
+export const signupSuccessResponseSchema = z.strictObject({
+  success: z.literal(true),
+  accessToken: opaqueAuthTokenSchema,
+  renewalToken: opaqueAuthTokenSchema,
+  rememberMe: z.boolean(),
+  user: authenticatedSessionUserSchema,
+});
+export const signupResponseSchema = z.discriminatedUnion('success', [
+  signupSuccessResponseSchema,
+  signupFailureResponseSchema,
+]);
 export const resetPasswordResponseSchema = genericErrorResponseSchema;
-export const changePasswordResponseSchema = genericErrorResponseSchema.extend({
-  ...authSessionIssueResponseFields,
+export const changePasswordFailureCodeSchema = z.enum([
+  'AUTH_REAUTHENTICATION_REQUIRED',
+  'AUTH_CURRENT_PASSWORD_INVALID',
+  'AUTH_PASSWORD_POLICY_VIOLATION',
+  'AUTH_PASSWORD_UNCHANGED',
+  'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED',
+  'AUTH_CHANGE_PASSWORD_THROTTLED',
+]);
+export const changePasswordFailureResponseSchema = genericErrorResponseSchema.extend({
+  success: z.literal(false),
+  code: changePasswordFailureCodeSchema,
 });
+export const changePasswordSuccessResponseSchema = z.strictObject({
+  success: z.literal(true),
+  accessToken: opaqueAuthTokenSchema,
+  renewalToken: opaqueAuthTokenSchema,
+  rememberMe: z.boolean(),
+});
+export const changePasswordResponseSchema = z.discriminatedUnion('success', [
+  changePasswordSuccessResponseSchema,
+  changePasswordFailureResponseSchema,
+]);
 export const authSessionRenewalFailureCodeSchema = z.enum([
   'AUTH_SESSION_RENEWAL_STALE',
   'AUTH_SESSION_RENEWAL_REQUIRED',
@@ -102,8 +142,12 @@ export type VerifyResetCodeTransportResponse = z.infer<
   typeof verifyResetCodeTransportResponseSchema
 >;
 export type SignupResponse = z.infer<typeof signupResponseSchema>;
+export type SignupFailureCode = z.infer<typeof signupFailureCodeSchema>;
+export type SignupFailureResponse = z.infer<typeof signupFailureResponseSchema>;
 export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 export type ChangePasswordResponse = z.infer<typeof changePasswordResponseSchema>;
+export type ChangePasswordFailureCode = z.infer<typeof changePasswordFailureCodeSchema>;
+export type ChangePasswordFailureResponse = z.infer<typeof changePasswordFailureResponseSchema>;
 export type AuthSessionRenewalFailureCode = z.infer<typeof authSessionRenewalFailureCodeSchema>;
 export type RenewSessionStaleResponse = z.infer<typeof renewSessionStaleResponseSchema>;
 export type RenewSessionResponse = z.infer<typeof renewSessionResponseSchema>;

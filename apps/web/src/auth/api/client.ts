@@ -92,7 +92,13 @@ export const authApi = {
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
     const passwordErr = validatePasswordStructure(data.password, data.email);
     if (passwordErr) {
-      return { success: false, error: passwordErr };
+      return {
+        success: false,
+        code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+        error: passwordErr,
+        userActionable: true,
+        fieldErrors: { password: passwordErr },
+      };
     }
 
     return postJson<SignupResponse>('/api/auth/signup', data);

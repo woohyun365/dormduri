@@ -4,7 +4,12 @@ import { campusSchema, genderSchema } from '../../identity/primitives.js';
 import { signupLegalAcceptancesSchema } from '../../legal/contract.js';
 import { userAcademicIdentitySchema } from '../../user/identity/academic.js';
 import { displayIdentityNicknameSchema } from '../../user/identity/display.js';
-import { emailSchema, passwordSchema, verificationCodeSchema } from './primitives.js';
+import {
+  emailSchema,
+  opaqueAuthTokenSchema,
+  passwordSchema,
+  verificationCodeSchema,
+} from './primitives.js';
 
 export const emailRequestSchema = z.strictObject({
   email: emailSchema,
@@ -58,6 +63,10 @@ export const renewSessionRequestSchema = z.strictObject({
   renewalToken: z.string().min(1),
 });
 
+export const logoutRequestSchema = z.strictObject({
+  renewalToken: opaqueAuthTokenSchema.optional(),
+});
+
 export type EmailRequest = z.infer<typeof emailRequestSchema>;
 export type VerificationCodeRequest = z.infer<typeof verificationCodeRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
@@ -66,5 +75,6 @@ export type SignupRequest = z.infer<typeof signupRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type RenewSessionRequest = z.infer<typeof renewSessionRequestSchema>;
+export type LogoutRequest = z.infer<typeof logoutRequestSchema>;
 
 export const AUTH_VERIFICATION_GRANT_HEADER = 'X-Auth-Verification-Grant';

@@ -173,4 +173,70 @@ describe('auth signup BFF route', () => {
       userActionable: true,
     });
   });
+
+  it('stable signup failure는 token 없이 browser response로 전달한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              code: 'AUTH_NICKNAME_ALREADY_TAKEN',
+              error: '이미 사용 중인 닉네임입니다.',
+              userActionable: true,
+              fieldErrors: { nickname: '이미 사용 중인 닉네임입니다.' },
+            }),
+            {
+              status: 409,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          ),
+      ),
+    );
+
+    const response = await postSignup(request(VALID_SIGNUP_BODY));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'AUTH_NICKNAME_ALREADY_TAKEN',
+      error: '이미 사용 중인 닉네임입니다.',
+      userActionable: true,
+      fieldErrors: { nickname: '이미 사용 중인 닉네임입니다.' },
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
+
+  it('signup failure의 token-like field는 contract drift로 거부하고 browser에 노출하지 않는다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              code: 'AUTH_NICKNAME_ALREADY_TAKEN',
+              error: '이미 사용 중인 닉네임입니다.',
+              accessToken: 'must-not-leak',
+              renewalToken: 'must-not-leak',
+            }),
+            {
+              status: 409,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          ),
+      ),
+    );
+
+    const response = await postSignup(request(VALID_SIGNUP_BODY));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'AUTH_SERVICE_UNAVAILABLE',
+      userActionable: true,
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
 });
