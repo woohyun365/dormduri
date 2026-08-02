@@ -42,6 +42,8 @@
 - Campus service-state resolution is seasons/runtime domain context vocabulary. Users consumes `seasons/runtime/campus-service-state.query.ts` for current-user projection, but must not own campus/season runtime state.
 - Account identity invariant failure uses identity pure vocabulary plus platform HTTP adapter. Users route errors remain users account self-service errors.
 - `ModerationModule` remains an explicit non-global dependency for public text validation such as nickname checks.
+- `DisplayIdentityModule`은 nickname parse/moderation/current availability의 canonical provider를 export한다. Auth signup과 Users self-service nickname 변경은 같은 provider를 사용하되 각자의 workflow orchestration은 공유하지 않는다.
+- Signup nickname 사전 확인은 예약이 아니다. `DisplayIdentityRepository`의 현재 availability와 final signup의 `nicknameNormalized` unique constraint가 각각 query와 최종 소유권 경계를 담당한다.
 - Do not hide dependency cycles with new `forwardRef()` or business `@Global()` modules.
 - New external-domain integrations must use narrow purpose-specific ports rather than importing `UsersService` as a broad user data facade.
 
@@ -63,6 +65,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Current-user read model projection: `current-user/` owner files. Canonical placement is `current-user/current-user-view.service.ts`, `current-user/current-user.select.ts`, and `current-user/current-user.presenter.ts`. Campus service-state projection comes from `seasons/runtime/campus-service-state.query.ts`.
 - Account identity invariant HTTP mapping: `platform/http/account-identity-invariant.error.ts`; pure invariant vocabulary: `identity/account-identity-invariant.ts`.
 - Display nickname self-service update: `identity/display/` owner files. Canonical placement is `identity/display/update-display-identity.command.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity-edit.policy.ts`, and `identity/display/nickname-cooldown.policy.ts`.
+- Display nickname common invariant and signup-facing availability provider: `identity/display/display-identity-nickname-policy.service.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity.module.ts`. Auth는 이 public provider만 소비하며 users update command를 호출하지 않는다.
 - Academic identity correction: `identity/academic/update-academic-identity.command.ts`, `academic-identity.repository.ts`, `academic-college-change-allowance.repository.ts`, `academic-identity-audit.repository.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.
 - Identity audit retained payload archive handlers: `identity/retention/nickname-audit-archive.handler.ts`, `identity/retention/academic-identity-audit-archive.handler.ts`.

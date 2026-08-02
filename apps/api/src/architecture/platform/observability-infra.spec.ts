@@ -16,6 +16,11 @@ const slackTroubleshootingRunbookPath = join(
   repoRoot,
   'docs/06_trouble-shooting/observability/slack-alert-runbook.md',
 );
+const apiReleaseSmokePath = join(repoRoot, 'infra/deploy/scripts/api-release-smoke.sh');
+const authRegistrationCredentialRunbookPath = join(
+  repoRoot,
+  'infra/runbooks/auth-registration-credential-release-evidence.md',
+);
 
 const requiredFiles = [
   'docker-compose.observability.yml',
@@ -280,6 +285,31 @@ describe('observability infra', () => {
     expect(rules).toContain('reason="mail-failure-spike"');
     expect(rules).toContain('alert: AuthMailOutboxLagHigh');
     expect(rules).toContain('api_auth_mail_outbox_lag_seconds > 60');
+  });
+
+  it('keeps credential lifecycle metrics in the API release smoke gate', () => {
+    const releaseSmoke = readFileSync(apiReleaseSmokePath, 'utf8');
+
+    for (const metric of [
+      'api_auth_signup_nickname_validation_total',
+      'api_auth_signup_final_admission_total',
+      'api_auth_signup_password_hash_total',
+      'api_auth_signup_password_hash_duration_seconds',
+      'api_auth_sensitive_mutations_total',
+    ]) {
+      expect(releaseSmoke).toContain(metric);
+    }
+  });
+
+  it('documents the registration and credential lifecycle release evidence gate', () => {
+    expect(existsSync(authRegistrationCredentialRunbookPath)).toBe(true);
+
+    const runbook = readFileSync(authRegistrationCredentialRunbookPath, 'utf8');
+    expect(runbook).toContain('auth-users-transaction.integration.spec.ts');
+    expect(runbook).toContain('migration-status.integration.spec.ts');
+    expect(runbook).toContain('api_auth_signup_final_admission_total');
+    expect(runbook).toContain('argon_19mib_mixed_workload: pass | fail | blocked');
+    expect(runbook).toContain('redaction_confirmed: true');
   });
 
   it('documents the stress release gate and safe report template', () => {

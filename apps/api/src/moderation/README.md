@@ -59,12 +59,13 @@ Moderation boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `a
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/moderation \
-  src/auth/registration/auth-signup-validation.service.spec.ts \
-  src/users/users.service.spec.ts \
-  src/users/user-deletion-owner.spec.ts \
+  src/auth/registration/signup-nickname-validation.query.spec.ts \
+  src/users/identity/display/display-identity-nickname-policy.service.spec.ts \
+  src/users/application/users.service.spec.ts \
+  src/users/account-deletion/request-account-deletion.command.spec.ts \
   src/matches/application/matches.service.spec.ts \
-  src/architecture/common-boundary.spec.ts \
-  src/architecture/module-boundary.spec.ts
+  src/architecture/api-contracts/display-identity-nickname-policy.spec.ts \
+  src/architecture/platform/module-boundary.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
 git diff --check

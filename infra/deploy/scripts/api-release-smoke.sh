@@ -99,6 +99,11 @@ fi
 for metric in \
   api_auth_verification_operations_total \
   api_auth_credential_transitions_total \
+  api_auth_signup_nickname_validation_total \
+  api_auth_signup_final_admission_total \
+  api_auth_signup_password_hash_total \
+  api_auth_signup_password_hash_duration_seconds \
+  api_auth_sensitive_mutations_total \
   api_auth_mail_dispatch_total \
   api_auth_mail_outbox_lag_seconds \
   api_auth_security_alert_active

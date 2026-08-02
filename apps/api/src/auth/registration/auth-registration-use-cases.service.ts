@@ -54,11 +54,7 @@ export class AuthRegistrationUseCases {
       );
       this.flowMetrics?.recordCredentialTransition(
         'signup',
-        result.success
-          ? 'committed'
-          : result.code === 'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED'
-            ? 'committed_login_required'
-            : 'rejected',
+        result.success ? 'committed' : 'rejected',
       );
       return result;
     } catch (error) {

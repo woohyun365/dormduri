@@ -164,6 +164,15 @@
 - PostgreSQL serializable transaction의 raw query `40001 could not serialize` 경합은 retry 대상이다. Retry 후 stale proof는 기존 restart/verification-required contract로 매핑한다.
 - Verification code/proof 정책은 API/store/service/transaction ACID 경계와 integration test baseline만 소유하며 React rendering/hook/page/component는 #260 범위다.
 
+### Registration·credential mutation atomic baseline
+
+- Signup은 verification grant purpose lock/consume을 첫 authoritative write로 수행하고 account, display identity, academic identity, legal acceptance, initial session, 필수 `SIGNUP_SUCCEEDED` security event를 같은 serializable transaction에서 commit한다.
+- Signup transaction의 display/academic identity, legal acceptance, session, 필수 event append 중 하나라도 실패하면 verification grant consume과 account 생성까지 모두 rollback한다. 계정만 생성되고 로그인이 필요한 부분 성공 응답은 public contract에 두지 않는다.
+- 닉네임 사전 확인은 active `SIGNUP` grant가 있는 브라우저에 현재 format/moderation/availability만 알려 주며 reservation을 만들지 않는다. Final signup은 `nicknameNormalized` unique constraint 충돌을 `AUTH_NICKNAME_ALREADY_TAKEN`으로 반환해 사용자를 닉네임 입력 단계로 복구한다.
+- Change Password는 current password verify 뒤 transaction에서 current session과 observed password hash를 다시 확인한다. Password CAS update, 기존 active session 전체 revoke, replacement session 1개, password-changed mail outbox, 필수 `SESSION_REVOKE_ALL`·`CHANGE_PASSWORD_SUCCEEDED` event를 같은 transaction에서 commit한다.
+- Change Password transaction의 replacement session, outbox, 필수 event append가 실패하면 password와 기존 session revoke를 함께 rollback한다. 비밀번호만 변경되고 재로그인을 요구하는 부분 성공 응답은 public contract에 두지 않는다.
+- Signup/Change Password 성공 응답의 access/renewal token은 Web BFF가 HttpOnly cookie로 materialize하고 browser JSON에서는 제거한다.
+
 ### Protected API/capability/actor context baseline
 
 - API route access mode는 metadata로 고정한다.
@@ -196,6 +205,9 @@
 - Login security metric은 no-PII bounded label만 사용한다. 결과 counter, burst/sustained throttle counter, real/dummy password verify duration, in-flight gauge를 기록하며 raw email/IP/user/session id를 metric label로 사용하지 않는다.
 - Missing/deleted/incomplete account는 source에 dummy password를 두지 않은 canonical encoded Argon2id hash를 검증한다. Hash profile 변경은 active hash와 dummy hash를 같은 release unit에서 갱신한다.
 - 계정 잠금은 Postgres `LoginAttempt`의 5회 실패/5분 기준을 유지한다. Network throttle은 trusted IP 기준 30회/1분 burst와 120회/10분 sustained bucket으로 분리하며 로그인 성공이 IP bucket을 초기화하지 않는다.
+- Nickname validation은 active signup grant fingerprint 기준 20회/1분, final signup은 grant fingerprint 기준 5회/10분, Change Password는 actor/session fingerprint 기준 10회/10분 admission을 적용한다. 모두 expensive password hash/verify와 transaction write보다 먼저 실행하고 trusted-IP 제한은 secondary boundary로 둔다.
+- Signup nickname/final admission/password hash lifecycle과 Signup·Change Password mutation stage는 bounded operation/outcome metric만 사용한다. Raw email/nickname/user/session/IP/token/grant를 label이나 structured log에 기록하지 않는다.
+- Login 같은 운영 관측 event는 기록 실패가 사용자 흐름을 막지 않는 fail-open telemetry가 될 수 있다. 반면 Signup·Reset·Change Password의 credential 상태를 설명하는 필수 lifecycle event는 owning transaction에 포함하며 기록 실패 시 mutation 전체를 rollback한다.
 - Password reset 성공 transaction은 해당 email의 `LoginAttempt`를 함께 삭제한다. Proof consume이 rollback되면 password, session, login attempt 상태도 변경하지 않는다.
 - Argon verify hard concurrency limit은 이 단계에서 추측값을 넣지 않는다. In-flight/duration metric과 production-like stress evidence를 먼저 수집하고 password hash capacity 계획이 상한을 소유한다.
 - Opaque transport rejection은 legacy JWT-like token, malformed access/renewal token, missing/revoked/expired/deleted/incomplete-account session resolve failure를 운영 triage event로 남긴다. 사용자 응답은 기존 fail-closed/neutral contract를 유지한다.
@@ -386,3 +398,4 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 | 2026-07-29 | Renewal rotation에 직전 token hash와 DB clock 기반 8초 grace를 추가했다. 정상 multi-tab 경쟁은 stale + browser 1회 재시도로 복구하고, grace 밖 old/unknown token만 reuse event와 session revoke로 처리한다                                                                                                                                                                                                                                                              | renewal concurrency             |
 | 2026-07-29 | Login timing을 canonical dummy Argon2id verify로 정규화하고 account lock과 30/min·120/10min trusted-IP throttle을 분리했다. Password reset transaction은 login lock을 함께 해제하며 login 결과·throttle·real/dummy verify metric을 no-PII label로 기록한다                                                                                                                                                                                                              | login security hardening        |
 | 2026-08-01 | Auth verification/credential/mail outbox metric, versioned HMAC dimension, reset abuse·mail failure·outbox lag alert 연결을 운영 기준으로 추가했다. Signup/Change Password의 transaction 이후 session 발급 실패는 재로그인 가능한 stable outcome으로 구분한다                                                                                                                                                                                                           | auth security operations        |
+| 2026-08-02 | Signup의 account·identity·legal·grant·initial session·필수 audit과 Change Password의 password CAS·session replacement·mail outbox·필수 audit을 각각 단일 transaction으로 통합했다. 부분 성공 응답을 제거하고 nickname/final-signup/change-password admission 및 no-PII metric 기준을 추가했다.                                                                                                                                                                          | auth credential lifecycle       |

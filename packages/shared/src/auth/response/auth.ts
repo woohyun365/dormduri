@@ -8,10 +8,6 @@ import { genericErrorResponseSchema } from './base.js';
 
 const verificationGrantExpirySchema = z.number().int().positive();
 export const AUTH_RESET_RESTART_REQUIRED_CODE = 'AUTH_RESET_RESTART_REQUIRED' as const;
-export const AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE =
-  'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED' as const;
-export const AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE =
-  'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED' as const;
 
 const authSessionIssueResponseFields = {
   accessToken: opaqueAuthTokenSchema.optional(),
@@ -64,7 +60,6 @@ export const signupFailureCodeSchema = z.enum([
   'AUTH_SIGNUP_VALIDATION_FAILED',
   'AUTH_EMAIL_ALREADY_REGISTERED',
   'AUTH_LEGAL_ACCEPTANCE_STALE',
-  'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED',
   'AUTH_SIGNUP_SUBMISSION_THROTTLED',
 ]);
 export const signupFailureResponseSchema = genericErrorResponseSchema.extend({
@@ -88,7 +83,6 @@ export const changePasswordFailureCodeSchema = z.enum([
   'AUTH_CURRENT_PASSWORD_INVALID',
   'AUTH_PASSWORD_POLICY_VIOLATION',
   'AUTH_PASSWORD_UNCHANGED',
-  'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED',
   'AUTH_CHANGE_PASSWORD_THROTTLED',
 ]);
 export const changePasswordFailureResponseSchema = genericErrorResponseSchema.extend({

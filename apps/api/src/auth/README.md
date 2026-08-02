@@ -22,8 +22,8 @@
 - `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, purpose-bound grant consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
 - `credentials/`: `auth-credential-use-cases.service.ts`, `password-hash.ts`, password hash adapter, login/reset/change password command를 함께 둔다. 외부 users deletion은 `application/auth-password-hash.ts` bridge만 사용한다.
 - `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy, login network throttle와 no-PII metric을 함께 둔다. 계정 잠금과 IP throttle을 하나의 bucket으로 합치지 않는다.
-- `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않고, event 기록 실패는 user flow를 막지 않는 fail-safe boundary다.
-- `registration/`: `auth-registration-use-cases.service.ts`, signup command와 signup draft validation을 함께 둔다. Auth는 lifestyle/intro/profile parser를 소유하지 않는다.
+- `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않는다. Login 같은 운영 관측 event는 `recordSafely`로 fail-open할 수 있지만 Signup·Reset·Change Password의 필수 credential lifecycle event는 owning transaction 안에서 `recordInTransaction`으로 기록한다.
+- `registration/`: `auth-registration-use-cases.service.ts`, nickname-only signup admission query와 signup command를 함께 둔다. Auth는 lifestyle/intro/profile parser나 display nickname 불변식 자체를 소유하지 않는다.
 - `adapters/email/`: `EmailSender` contract, local/test stub sender, SESv2 production sender, provider delegate selection, monitored send wrapper.
 - `mappers/`: shared response mapper and user/session presenter.
 - `errors/`: user-facing neutral/fail-closed error contract.
@@ -43,7 +43,10 @@
 - Login account lock은 Postgres `LoginAttempt`의 5회/5분 기준이고, network throttle은 trusted `request.ip` 기준 30회/1분 burst와 120회/10분 sustained bucket이다.
 - Password reset 성공은 grant consume, password update, session revoke와 함께 같은 serializable transaction에서 해당 subject의 `LoginAttempt`를 제거한다.
 - HMAC lookup dimension은 `AUTH_PERSISTENCE_HMAC_KEY_VERSION:digest` 형식이며 key version과 secret을 함께 rotation한다. raw email/IP/UA를 metric label이나 security event dimension에 저장하지 않는다.
-- Signup/Change Password는 credential transaction commit 뒤 session 발급만 실패해도 일반 500으로 위장하지 않고 `AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED` 또는 `AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED` stable outcome을 반환한다.
+- Signup은 account/display identity/academic identity/legal acceptance/grant consume/initial session/필수 audit을 하나의 serializable transaction으로 commit한다.
+- Change Password는 password CAS, 기존 session 전체 revoke, replacement session, mail outbox, 필수 audit을 하나의 serializable transaction으로 commit한다. 두 흐름 모두 credential만 반영되는 부분 성공 contract를 만들지 않는다.
+- Signup nickname 확인은 active `SIGNUP` grant를 요구하는 현재 사용 가능 여부 조회이며 예약이 아니다. 최종 소유권은 signup transaction의 `nicknameNormalized` unique constraint가 결정한다.
+- Final Signup은 grant 기준 5회/10분, Change Password는 actor/session 기준 10회/10분 admission을 expensive password hash/verify 전에 적용한다. Global trusted-IP throttle은 보조 경계이며 login account lock과 상태를 공유하지 않는다.
 - Auth mail `ACCEPTED`는 provider 접수 상태다. 최종 delivery/bounce/complaint는 SES Configuration Set event publishing owner가 담당한다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.
 - 외부 domain production code에서 `auth/commands`, `auth/repositories`, `auth/domain`, `auth/policies`, `auth/adapters`, `auth/sessions`, `auth/verification`, `auth/credentials`, `auth/registration`, `auth/login-attempts`, `auth/security-events`를 직접 import하지 않는다.
@@ -77,7 +80,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Opaque session issue/renew/logout/revoke/current actor projection: `sessions/`.
 - Verification code/grant issue, verify, consume, and ACID repository behavior: `verification/`.
 - Login, reset password, change password, and password hashing: `credentials/`.
-- Signup draft validation and signup orchestration: `registration/`.
+- Signup nickname validation query, finalization admission, and signup orchestration: `registration/`. Nickname parse/moderation/availability invariant는 `users/identity/display/`의 `DisplayIdentityModule` public provider를 사용한다.
 - Login failure lockout and failure counter state: `login-attempts/`.
 - Audit/security event sanitize, persistence, and alert policy: `security-events/`.
 - Encrypted auth mail envelope, transactional outbox append, bounded dispatcher, and delivery lifecycle: `mail/`.
@@ -107,7 +110,8 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/auth/sessions/opaque-token.spec.ts \
   src/auth/verification/auth-verification.service.spec.ts \
   src/auth/verification/verification-code.repository.spec.ts \
-  src/auth/registration/auth-signup-validation.service.spec.ts \
+  src/auth/registration/signup-nickname-validation.query.spec.ts \
+  src/auth/registration/signup-submission-admission.service.spec.ts \
   src/auth/login-attempts/auth-login-attempt.service.spec.ts \
   src/auth/access/authenticated-user.guard.spec.ts
 pnpm api:typecheck
