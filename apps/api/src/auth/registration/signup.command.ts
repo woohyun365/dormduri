@@ -1,5 +1,6 @@
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { isCollegeAvailableForCampus } from '@repo/shared/college';
+import { randomUUID } from 'node:crypto';
 import { isKnuEmail, normalizeEmail, validatePasswordPolicy } from '../domain/auth.utils.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
@@ -28,6 +29,8 @@ import {
   type ParsedDisplayIdentityNickname,
 } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import type { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
+import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -37,15 +40,17 @@ interface AuthSignupOwnerDeps {
     AuthVerificationService,
     'resolveVerificationGrant' | 'matchesVerificationGrantSubject'
   >;
-  sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
+  sessionService: Pick<AuthSessionService, 'prepareSessionIssue' | 'appendPreparedSession'>;
   nicknamePolicy: Pick<DisplayIdentityNicknamePolicyService, 'validate'>;
+  submissionAdmission: Pick<SignupSubmissionAdmissionService, 'consume'>;
+  securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
 }
 
 export async function signup(
   deps: AuthSignupOwnerDeps,
   input: SignupInput,
   verificationGrant: string | null = null,
-  _requestContext: AuthRequestContext = {},
+  requestContext: AuthRequestContext = {},
 ): Promise<LoginResult> {
   const emailNormalized = normalizeEmail(input.email);
   if (!isKnuEmail(emailNormalized)) {
@@ -66,6 +71,11 @@ export async function signup(
     return authFailures.signupVerificationRequired();
   }
 
+  const retryAfterSeconds = await deps.submissionAdmission.consume(resolvedGrant.tokenHash);
+  if (retryAfterSeconds) {
+    return authFailures.signupSubmissionThrottled(retryAfterSeconds);
+  }
+
   const passwordError = validatePasswordPolicy(input.password, emailNormalized);
   if (passwordError) {
     return authFailures.passwordPolicyViolation(passwordError);
@@ -84,20 +94,29 @@ export async function signup(
     return authFailures.signupValidation(error.message, { nickname: error.message });
   }
 
-  const existingEmailUser = await deps.prisma.user.findUnique({
-    where: { emailNormalized },
-    select: { id: true },
-  });
-
-  if (existingEmailUser) {
-    return authFailures.emailAlreadyRegistered();
-  }
-
   const passwordHash = await hashPassword(input.password);
   const emailVerifiedAt = await deps.prisma.getDatabaseNow();
+  const userId = randomUUID();
+  const preparedSession = await deps.sessionService.prepareSessionIssue(
+    userId,
+    input.email.trim(),
+    false,
+  );
 
   try {
     const user = await deps.prisma.runSerializableTransaction(async (tx) => {
+      await acquireVerificationCodePurposeLock(tx, resolvedGrant.subjectKey, 'SIGNUP');
+      await consumeVerificationGrantOrThrow(
+        tx,
+        {
+          id: resolvedGrant.id,
+          purpose: resolvedGrant.purpose,
+          tokenHash: resolvedGrant.tokenHash,
+        },
+        emailVerifiedAt,
+        SIGNUP_VERIFICATION_GRANT_UNAVAILABLE,
+      );
+
       const college = await tx.collegeMaster.findFirst({
         where: {
           code: input.collegeCode,
@@ -117,6 +136,7 @@ export async function signup(
       );
       const createdUser = await tx.user.create({
         data: {
+          id: userId,
           email: input.email.trim(),
           emailNormalized,
           passwordHash,
@@ -160,30 +180,25 @@ export async function signup(
       }
       const displayIdentity = createdUser.displayIdentity;
 
-      await acquireVerificationCodePurposeLock(tx, resolvedGrant.subjectKey, 'SIGNUP');
-      await consumeVerificationGrantOrThrow(
-        tx,
-        {
-          id: resolvedGrant.id,
-          purpose: resolvedGrant.purpose,
-          tokenHash: resolvedGrant.tokenHash,
-        },
-        emailVerifiedAt,
-        SIGNUP_VERIFICATION_GRANT_UNAVAILABLE,
-      );
       await createSignupLegalAcceptanceRecords(tx, createdUser.id, legalAcceptances);
+      await deps.sessionService.appendPreparedSession(tx, preparedSession);
+      await deps.securityEvents.recordInTransaction(tx, {
+        type: 'ACCOUNT_SIGNUP_SUCCEEDED',
+        severity: 'INFO',
+        actorUserId: createdUser.id,
+        targetUserId: createdUser.id,
+        sessionId: preparedSession.result.sessionId,
+        emailNormalized,
+        requestIp: requestContext.requestIp,
+        userAgent: requestContext.userAgent,
+        metadata: { campus: createdUser.campus },
+      });
 
       return { ...createdUser, displayIdentity };
     });
 
-    const authResult = await deps.sessionService
-      .issueAuthResult(user.id, user.email, false)
-      .catch(() => null);
-    if (!authResult) {
-      return authFailures.accountCreatedLoginRequired();
-    }
     return toLoginSuccessResult(
-      authResult.accessToken,
+      preparedSession.result.accessToken,
       toAuthSessionUserSummary({
         id: user.id,
         email: user.email,
@@ -192,7 +207,7 @@ export async function signup(
         campus: user.campus,
       }),
       {
-        renewalToken: authResult.renewalToken,
+        renewalToken: preparedSession.result.renewalToken,
         rememberMe: false,
       },
     );

@@ -91,6 +91,13 @@ export const authFailures = {
     );
   },
 
+  signupSubmissionThrottled(retryAfterSeconds: number) {
+    return createFailure('AUTH_SIGNUP_SUBMISSION_THROTTLED', '가입 요청이 잠시 제한됐어요.', {
+      userActionable: false,
+      retryAfterSeconds,
+    });
+  },
+
   signupCollegeUnavailable() {
     return createFailure(
       'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',

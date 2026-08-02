@@ -271,12 +271,9 @@ describe('AuthService integration', () => {
 
     expect(successResults, JSON.stringify(responses)).toHaveLength(1);
     expect(failureResults.length + rejected.length).toBe(1);
+    expect(rejected).toHaveLength(0);
     if (failureResults[0]) {
-      expect(
-        ['AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED', 'AUTH_EMAIL_ALREADY_REGISTERED'].includes(
-          failureResults[0].code ?? '',
-        ),
-      ).toBe(true);
+      expect(failureResults[0].code).toBe('AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED');
     }
 
     expect(

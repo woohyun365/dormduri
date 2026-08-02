@@ -4,6 +4,12 @@ import { parseDisplayIdentityNickname } from '@repo/shared/user/identity/display
 import { DisplayIdentityNicknamePolicyError } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import { signup } from './signup.command.js';
 
+const passwordHashMocks = vi.hoisted(() => ({
+  hashPassword: vi.fn(),
+}));
+
+vi.mock('../credentials/password-hash.js', () => passwordHashMocks);
+
 const activeLegalDocumentIds: Record<LegalDocumentKind, string> = {
   [LegalDocumentKind.TERMS_OF_SERVICE]: 'terms-of-service-2026-06-22',
   [LegalDocumentKind.PRIVACY_POLICY]: 'privacy-policy-2026-06-22',
@@ -31,7 +37,6 @@ describe('signup command', () => {
     getDatabaseNow: vi.fn(),
     runSerializableTransaction: vi.fn(),
     user: {
-      findUnique: vi.fn(),
       create: vi.fn(),
     },
     collegeMaster: {
@@ -53,12 +58,22 @@ describe('signup command', () => {
     matchesVerificationGrantSubject: vi.fn(),
   };
   const sessionService = {
-    issueAuthResult: vi.fn(),
+    prepareSessionIssue: vi.fn(),
+    appendPreparedSession: vi.fn(),
   };
+  const submissionAdmission = { consume: vi.fn() };
+  const securityEvents = { recordInTransaction: vi.fn() };
   const nicknamePolicy = {
     validate: vi.fn(),
   };
-  const deps = { prisma, verificationService, sessionService, nicknamePolicy };
+  const deps = {
+    prisma,
+    verificationService,
+    sessionService,
+    nicknamePolicy,
+    submissionAdmission,
+    securityEvents,
+  };
   const resolvedGrant = {
     id: 'code-1',
     subjectKey: 'v1:signup-subject',
@@ -87,7 +102,6 @@ describe('signup command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
-    prisma.user.findUnique.mockResolvedValue(null);
     prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
     prisma.legalDocumentVersion.findFirst.mockImplementation((args: unknown) =>
       Promise.resolve({ id: activeLegalDocumentIds[findFirstKind(args)] }),
@@ -114,6 +128,24 @@ describe('signup command', () => {
       }
       return Promise.resolve(parsed);
     });
+    passwordHashMocks.hashPassword.mockResolvedValue('hashed-password');
+    submissionAdmission.consume.mockResolvedValue(null);
+    sessionService.prepareSessionIssue.mockImplementation((userId: string) =>
+      Promise.resolve({
+        result: {
+          accessToken: 'token',
+          renewalToken: 'renewal-token',
+          sessionId: 'session-1',
+        },
+        persistence: {
+          sessionId: 'session-1',
+          userId,
+          rememberMe: false,
+        },
+      }),
+    );
+    sessionService.appendPreparedSession.mockResolvedValue(undefined);
+    securityEvents.recordInTransaction.mockResolvedValue(undefined);
   });
 
   it('signup grant의 email subject가 입력 email과 다르면 가입 검증 전에 거부한다', async () => {
@@ -125,7 +157,6 @@ describe('signup command', () => {
     });
 
     expect(nicknamePolicy.validate).not.toHaveBeenCalled();
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
@@ -168,8 +199,8 @@ describe('signup command', () => {
       select: { code: true },
     });
     expect(prisma.user.create).not.toHaveBeenCalled();
-    expect(prisma.verificationCode.updateMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
   });
 
   it('display identity policy로 nickname을 검증하고 실패 시 DB mutation을 시작하지 않는다', async () => {
@@ -187,11 +218,10 @@ describe('signup command', () => {
     });
 
     expect(nicknamePolicy.validate).toHaveBeenCalledWith(input.nickname);
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
     expect(prisma.legalDocumentVersion.findFirst).not.toHaveBeenCalled();
     expect(prisma.legalAcceptanceRecord.createMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
   });
 
   it('검증 완료된 최신 signup code를 소비하고 legal acceptance 4건과 세션 발급 결과를 반환한다', async () => {
@@ -208,12 +238,6 @@ describe('signup command', () => {
         birthYear: 2002,
       },
     });
-    sessionService.issueAuthResult.mockResolvedValue({
-      accessToken: 'token',
-      renewalToken: 'renewal-token',
-      sessionId: 'session-1',
-    });
-
     const result = await signup(deps as never, input, verificationGrant);
 
     expect(nicknamePolicy.validate).toHaveBeenCalledWith('테스터');
@@ -290,10 +314,21 @@ describe('signup command', () => {
         source: 'SIGNUP',
       },
     ]);
-    expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
-      'user-1',
+    expect(sessionService.prepareSessionIssue).toHaveBeenCalledWith(
+      expect.any(String),
       'test@kangwon.ac.kr',
       false,
+    );
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: 'ACCOUNT_SIGNUP_SUCCEEDED',
+        actorUserId: 'user-1',
+        targetUserId: 'user-1',
+        sessionId: 'session-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+      }),
     );
     expect(result).toMatchObject({
       success: true,
@@ -307,6 +342,95 @@ describe('signup command', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
+    });
+  });
+
+  it('signup 최초 session은 account와 같은 serializable transaction에서 생성한다', async () => {
+    let transactionOpen = false;
+    prisma.runSerializableTransaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) => {
+        transactionOpen = true;
+        try {
+          return await callback({
+            $queryRawTyped: prisma.$queryRawTyped,
+            collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
+            user: { create: prisma.user.create },
+            legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
+            legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
+            verificationCode: { updateMany: prisma.verificationCode.updateMany },
+          });
+        } finally {
+          transactionOpen = false;
+        }
+      },
+    );
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+      academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
+    });
+    sessionService.appendPreparedSession.mockImplementation(() => {
+      expect(transactionOpen).toBe(true);
+      return Promise.resolve();
+    });
+
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
+      success: true,
+      accessToken: 'token',
+    });
+  });
+
+  it('signup transaction은 account insert보다 grant purpose lock과 consume을 먼저 수행한다', async () => {
+    const mutationOrder: string[] = [];
+    prisma.$queryRawTyped.mockImplementation(() => {
+      mutationOrder.push('grant-lock');
+      return Promise.resolve([{ id: 'code-1' }]);
+    });
+    prisma.verificationCode.updateMany.mockImplementation(() => {
+      mutationOrder.push('grant-consume');
+      return Promise.resolve({ count: 1 });
+    });
+    prisma.user.create.mockImplementation(() => {
+      mutationOrder.push('account-insert');
+      return Promise.resolve({
+        id: 'user-1',
+        email: 'test@kangwon.ac.kr',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        displayIdentity: { nickname: '테스터' },
+        academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
+      });
+    });
+    await signup(deps as never, input, verificationGrant);
+
+    expect(mutationOrder).toEqual(['grant-lock', 'grant-consume', 'account-insert']);
+  });
+
+  it('같은 active signup grant의 반복 제출은 Argon hash 전에 제한한다', async () => {
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+      academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
+    });
+    submissionAdmission.consume.mockImplementation(() =>
+      Promise.resolve(submissionAdmission.consume.mock.calls.length > 5 ? 600 : null),
+    );
+
+    const results = [];
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      results.push(await signup(deps as never, input, verificationGrant));
+    }
+
+    expect(passwordHashMocks.hashPassword).toHaveBeenCalledTimes(5);
+    expect(results.at(-1)).toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
     });
   });
 
@@ -324,12 +448,6 @@ describe('signup command', () => {
         birthYear: 2002,
       },
     });
-    sessionService.issueAuthResult.mockResolvedValue({
-      accessToken: 'token',
-      renewalToken: 'renewal-token',
-      sessionId: 'session-1',
-    });
-
     await signup(
       deps as never,
       {
@@ -376,9 +494,9 @@ describe('signup command', () => {
 
     expect(prisma.legalDocumentVersion.findFirst).toHaveBeenCalledTimes(1);
     expect(prisma.user.create).not.toHaveBeenCalled();
-    expect(prisma.verificationCode.updateMany).not.toHaveBeenCalled();
+    expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.legalAcceptanceRecord.createMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
   });
 
   it('signup verification proof가 동시 소모되면 계정 생성 대신 verification required를 반환한다', async () => {
@@ -399,7 +517,7 @@ describe('signup command', () => {
     });
 
     expect(prisma.legalAcceptanceRecord.createMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
   });
 
   it('signup transaction에서 display identity가 생성되지 않으면 verification consume과 acceptance 저장, 세션 발급을 중단한다', async () => {
@@ -416,9 +534,9 @@ describe('signup command', () => {
     );
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(prisma.verificationCode.updateMany).not.toHaveBeenCalled();
+    expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.legalAcceptanceRecord.createMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
   });
 
   it('legal acceptance 저장 실패 시 세션을 발급하지 않는다', async () => {
@@ -440,10 +558,10 @@ describe('signup command', () => {
     );
 
     expect(prisma.legalAcceptanceRecord.createMany).toHaveBeenCalledTimes(1);
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
   });
 
-  it('계정 transaction commit 뒤 session 발급만 실패하면 재로그인 가능한 stable outcome을 반환한다', async () => {
+  it('transaction 내부 session append 실패는 가입 전체를 실패시킨다', async () => {
     prisma.user.create.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
@@ -452,15 +570,45 @@ describe('signup command', () => {
       displayIdentity: { nickname: '테스터' },
       academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
     });
-    sessionService.issueAuthResult.mockRejectedValue(new Error('session store unavailable'));
+    sessionService.appendPreparedSession.mockRejectedValue(new Error('session store unavailable'));
 
-    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
-      success: false,
-      code: 'AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED',
-      error: '계정이 생성됐어요. 로그인해 주세요.',
-    });
+    await expect(signup(deps as never, input, verificationGrant)).rejects.toThrow(
+      'session store unavailable',
+    );
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
-    expect(sessionService.issueAuthResult).toHaveBeenCalledTimes(1);
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
+    expect(securityEvents.recordInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('필수 signup audit append 실패는 가입 transaction을 실패시킨다', async () => {
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+      academicIdentity: { collegeCode: 'CHUNCHEON_IT', birthYear: 2002 },
+    });
+    securityEvents.recordInTransaction.mockRejectedValue(
+      new Error('signup audit persistence failed'),
+    );
+
+    await expect(
+      signup(deps as never, input, verificationGrant, {
+        requestIp: '203.0.113.10',
+        userAgent: 'vitest',
+      }),
+    ).rejects.toThrow('signup audit persistence failed');
+
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: 'ACCOUNT_SIGNUP_SUCCEEDED',
+        requestIp: '203.0.113.10',
+        userAgent: 'vitest',
+      }),
+    );
   });
 });

@@ -33,16 +33,21 @@ describe('AuthRegistrationUseCases', () => {
     matchesVerificationGrantSubject: vi.fn(),
   };
   const sessionService = {
-    issueAuthResult: vi.fn(),
+    prepareSessionIssue: vi.fn(),
+    appendPreparedSession: vi.fn(),
   };
   const nicknamePolicy = { validate: vi.fn() };
   const signupNicknameValidationQuery = { execute: vi.fn() };
+  const signupSubmissionAdmission = { consume: vi.fn() };
+  const securityEvents = { recordInTransaction: vi.fn() };
   const useCases = new AuthRegistrationUseCases(
     prisma as never,
     verificationService as never,
     sessionService as never,
     nicknamePolicy as never,
     signupNicknameValidationQuery as never,
+    signupSubmissionAdmission as never,
+    securityEvents as never,
   );
   const input = {
     email: 'test@kangwon.ac.kr',
@@ -107,6 +112,17 @@ describe('AuthRegistrationUseCases', () => {
       normalized: '테스터',
       script: 'HANGUL',
     });
+    signupSubmissionAdmission.consume.mockResolvedValue(null);
+    sessionService.prepareSessionIssue.mockResolvedValue({
+      result: {
+        accessToken: 'access-token',
+        renewalToken: 'renewal-token',
+        sessionId: 'session-1',
+      },
+      persistence: { sessionId: 'session-1' },
+    });
+    sessionService.appendPreparedSession.mockResolvedValue(undefined);
+    securityEvents.recordInTransaction.mockResolvedValue(undefined);
   });
 
   it('validateSignupNickname은 전용 query로 nickname과 grant를 위임한다', async () => {
@@ -132,12 +148,6 @@ describe('AuthRegistrationUseCases', () => {
       campus: 'CHUNCHEON',
       displayIdentity: { nickname: '테스터' },
     });
-    sessionService.issueAuthResult.mockResolvedValue({
-      accessToken: 'access-token',
-      renewalToken: 'renewal-token',
-      sessionId: 'session-1',
-    });
-
     await expect(useCases.signup(input as never, null, requestContext)).resolves.toMatchObject({
       success: true,
       accessToken: 'access-token',
@@ -147,10 +157,19 @@ describe('AuthRegistrationUseCases', () => {
     });
 
     expect(nicknamePolicy.validate).toHaveBeenCalledWith(input.nickname);
-    expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
-      'user-1',
+    expect(sessionService.prepareSessionIssue).toHaveBeenCalledWith(
+      expect.any(String),
       'test@kangwon.ac.kr',
       false,
+    );
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: 'ACCOUNT_SIGNUP_SUCCEEDED',
+        requestIp: '127.0.0.1',
+        userAgent: 'vitest',
+      }),
     );
   });
 });

@@ -21,6 +21,7 @@ import { CurrentAuthToken, CurrentUser } from './access/authenticated-user.decor
 import type { AuthenticatedUserContext } from './application/auth-actor-context.types.js';
 import { resolveAuthRequestContext } from './domain/auth-request-context.js';
 import { EnableAuthLoginThrottle } from './login-attempts/auth-login-throttle.decorator.js';
+import { authErrors } from './errors/auth.errors.js';
 
 @Controller('auth')
 export class AuthController {
@@ -90,11 +91,15 @@ export class AuthController {
     @Req() req: Request,
   ) {
     const parsed = parseRequestBody(signupRequestSchema, body);
-    return this.authService.signup(
+    const result = await this.authService.signup(
       parsed,
       verificationGrant ?? null,
       resolveAuthRequestContext(req),
     );
+    if (!result.success && result.code === 'AUTH_SIGNUP_SUBMISSION_THROTTLED') {
+      throw authErrors.signupSubmissionThrottled(result.retryAfterSeconds ?? 1);
+    }
+    return result;
   }
 
   @Post('login')

@@ -207,6 +207,43 @@ describe('auth signup BFF route', () => {
     });
     expect(response.cookies.get('auth-token')).toBeUndefined();
   });
+  it('final signup admission 제한은 retry metadata와 header를 browser에 전달한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+              error: '가입 요청이 반복되어 잠시 제한됐어요.',
+              userActionable: true,
+              retryAfterSeconds: 420,
+            }),
+            {
+              status: 429,
+              headers: {
+                'Content-Type': 'application/json',
+                'Retry-After': '420',
+              },
+            },
+          ),
+      ),
+    );
+
+    const response = await postSignup(request(VALID_SIGNUP_BODY));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('420');
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+      error: '가입 요청이 반복되어 잠시 제한됐어요.',
+      userActionable: true,
+      retryAfterSeconds: 420,
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
 
   it('signup failure의 token-like field는 contract drift로 거부하고 browser에 노출하지 않는다', async () => {
     vi.stubGlobal(

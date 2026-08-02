@@ -13,7 +13,10 @@ import {
 import { normalizeEmail, normalizeNickname } from '../../../src/auth/domain/auth.utils.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
-import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
+import {
+  DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+  DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+} from '../../../src/config/auth.config.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
@@ -175,6 +178,10 @@ describe('Auth/users transaction rollback and race integration', () => {
               legalAcceptances: signupLegalDocumentIds,
             } as never,
             verificationGrant,
+            {
+              requestIp: '203.0.113.10',
+              userAgent: 'auth-signup-integration',
+            },
           ),
         ).resolves.toMatchObject({ success: true });
 
@@ -208,8 +215,127 @@ describe('Auth/users transaction rollback and race integration', () => {
           birthYear: 2002,
         });
         await expectVerificationConsumed(verificationCodeId, true);
+        const signupSecurityEvent = await prisma.authSecurityEvent.findFirstOrThrow({
+          where: {
+            type: 'ACCOUNT_SIGNUP_SUCCEEDED',
+            targetUserId: createdUser.id,
+          },
+        });
+        expect(typeof signupSecurityEvent.sessionId).toBe('string');
+        expect(signupSecurityEvent).toMatchObject({
+          actorUserId: createdUser.id,
+          targetUserId: createdUser.id,
+          emailHash: hashAuthPersistenceDimension(
+            'subject',
+            emailNormalized,
+            DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+            DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+          ),
+          requestIpHash: hashAuthPersistenceDimension(
+            'request-ip',
+            '203.0.113.10',
+            DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+            DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+          ),
+          userAgentHash: hashAuthPersistenceDimension(
+            'user-agent',
+            'auth-signup-integration',
+            DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+            DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+          ),
+        });
       },
     );
+
+    for (const failurePoint of ['session', 'audit'] as const) {
+      itWithQueryTrace(
+        `signup ${failurePoint} append 실패는 계정·세션·감사 이벤트·verification consume을 모두 rollback한다`,
+        async () => {
+          const email = `signup-${failurePoint}-rollback@kangwon.ac.kr`;
+          const emailNormalized = normalizeEmail(email);
+          const verificationCodeId = `signup-${failurePoint}-rollback-code`;
+
+          await seedAcademicIdentityReferenceData();
+          const verificationGrant = await seedVerifiedCode({
+            id: verificationCodeId,
+            emailNormalized,
+            purpose: 'SIGNUP',
+          });
+
+          const sessionService = {
+            prepareSessionIssue: authSessionService.prepareSessionIssue.bind(authSessionService),
+            appendPreparedSession:
+              failurePoint === 'session'
+                ? () => Promise.reject(new Error('injected session append failure'))
+                : authSessionService.appendPreparedSession.bind(authSessionService),
+          };
+          const securityEvents =
+            failurePoint === 'audit'
+              ? {
+                  recordInTransaction: () =>
+                    Promise.reject(new Error('injected audit append failure')),
+                }
+              : authSecurityEventService;
+
+          await expect(
+            signupWithOwner(
+              {
+                prisma,
+                verificationService: {
+                  resolveVerificationGrant: () =>
+                    Promise.resolve(
+                      resolvedGrant({
+                        id: verificationCodeId,
+                        emailNormalized,
+                        purpose: 'SIGNUP',
+                        verificationGrant,
+                      }),
+                    ),
+                  matchesVerificationGrantSubject: verificationGrantSubjectMatches,
+                },
+                sessionService,
+                submissionAdmission: { consume: () => Promise.resolve(null) },
+                securityEvents,
+                nicknamePolicy: {
+                  validate(inputNickname: string) {
+                    return Promise.resolve({
+                      ok: true,
+                      value: inputNickname,
+                      normalized: normalizeNickname(inputNickname),
+                      script: 'HANGUL',
+                    });
+                  },
+                },
+              },
+              {
+                email,
+                password: 'Pass1234',
+                nickname: failurePoint === 'session' ? '세션실패' : '감사실패',
+                gender: 'M',
+                campus: 'CHUNCHEON',
+                collegeCode: 'CHUNCHEON_IT',
+                birthYear: 2002,
+                legalAcceptances: signupLegalDocumentIds,
+              } as never,
+              verificationGrant,
+            ),
+          ).rejects.toThrow(`injected ${failurePoint} append failure`);
+
+          await expect(expectUserAuthFootprint(emailNormalized)).resolves.toEqual({
+            users: 0,
+            displayIdentities: 0,
+            academicIdentities: 0,
+            authSessions: 0,
+          });
+          await expectVerificationConsumed(verificationCodeId, false);
+          await expect(
+            prisma.authSecurityEvent.count({
+              where: { type: 'ACCOUNT_SIGNUP_SUCCEEDED' },
+            }),
+          ).resolves.toBe(0);
+        },
+      );
+    }
 
     itWithQueryTrace(
       'preflight가 아니라 UserDisplayIdentity DB unique 충돌로 signup이 실패하면 신규 User/AcademicIdentity/AuthSession/proof consume이 남지 않는다',
@@ -244,6 +370,8 @@ describe('Auth/users transaction rollback and race integration', () => {
               matchesVerificationGrantSubject: verificationGrantSubjectMatches,
             },
             sessionService: authSessionService,
+            submissionAdmission: { consume: () => Promise.resolve(null) },
+            securityEvents: authSecurityEventService,
             nicknamePolicy: {
               validate(inputNickname: string) {
                 return Promise.resolve({
@@ -346,13 +474,7 @@ describe('Auth/users transaction rollback and race integration', () => {
 
         expect(successes).toHaveLength(1);
         expect(failures).toHaveLength(1);
-        expect(
-          [
-            'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
-            'AUTH_EMAIL_ALREADY_REGISTERED',
-            'AUTH_NICKNAME_ALREADY_TAKEN',
-          ].includes(failures[0]?.code ?? ''),
-        ).toBe(true);
+        expect(failures[0]?.code).toBe('AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED');
 
         await expect(expectUserAuthFootprint(emailNormalized)).resolves.toEqual({
           users: 1,

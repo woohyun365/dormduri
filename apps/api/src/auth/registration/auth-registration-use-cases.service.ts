@@ -9,6 +9,8 @@ import { signup } from './signup.command.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 import { SignupNicknameValidationQuery } from './signup-nickname-validation.query.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
+import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 
 @Injectable()
 export class AuthRegistrationUseCases {
@@ -18,6 +20,8 @@ export class AuthRegistrationUseCases {
     private readonly sessionService: AuthSessionService,
     private readonly nicknamePolicy: DisplayIdentityNicknamePolicyService,
     private readonly signupNicknameValidationQuery: SignupNicknameValidationQuery,
+    private readonly signupSubmissionAdmission: SignupSubmissionAdmissionService,
+    private readonly securityEvents: AuthSecurityEventService,
     private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
@@ -40,6 +44,8 @@ export class AuthRegistrationUseCases {
           verificationService: this.verificationService,
           sessionService: this.sessionService,
           nicknamePolicy: this.nicknamePolicy,
+          submissionAdmission: this.signupSubmissionAdmission,
+          securityEvents: this.securityEvents,
         },
         input,
         verificationGrant,

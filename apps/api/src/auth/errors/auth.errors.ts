@@ -8,4 +8,12 @@ export const authErrors = {
       { retryAfterSeconds },
     );
   },
+
+  signupSubmissionThrottled(retryAfterSeconds: number) {
+    return tooManyRequestsError(
+      'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+      '가입 요청이 잠시 제한됐어요.',
+      { retryAfterSeconds },
+    );
+  },
 };

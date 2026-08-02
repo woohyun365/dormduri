@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     error: json.error,
     code: json.code,
     userActionable: json.userActionable,
+    retryAfterSeconds: json.retryAfterSeconds,
     fieldErrors: json.fieldErrors,
     user: json.user,
   });

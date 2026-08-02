@@ -48,6 +48,7 @@ enum AuthMailOutboxStatus {
 }
 
 enum AuthSecurityEventType {
+  ACCOUNT_SIGNUP_SUCCEEDED
   LOGIN_SUCCESS
   LOGIN_FAILURE
   LOGIN_LOCKOUT
