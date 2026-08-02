@@ -122,7 +122,7 @@ export function PasswordResetVerificationStep({
           required
         />
         {isExpired && (
-          <p className="mt-2 text-sm font-semibold text-red-500" aria-live="assertive">
+          <p className="mt-2 text-sm font-semibold leading-5 text-red-500" aria-live="assertive">
             {PASSWORD_RESET_COPY.verification.expired}
           </p>
         )}

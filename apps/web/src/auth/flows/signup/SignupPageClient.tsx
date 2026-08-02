@@ -100,6 +100,7 @@ export default function SignupPageClient() {
               ...(flow.fieldErrors.password ? { password: flow.fieldErrors.password } : {}),
             }}
             onServerErrorClear={flow.actions.clearFailure}
+            onEmailProofExpired={flow.actions.expireEmailProof}
           />
         )}
         {flow.state.currentStepId === 'ACADEMIC_IDENTITY' && (

@@ -14,6 +14,8 @@ vi.mock('lucide-react', () => ({
   AlertCircle: () => null,
   CheckCircle: () => null,
   Info: () => null,
+  LoaderCircle: () => null,
+  RotateCcw: () => null,
   Timer: () => null,
   WifiOff: () => null,
 }));
@@ -36,12 +38,21 @@ const emptyAccountData: SignupAccountData = {
   birthYear: null,
 };
 
-function renderWithState(overrides: { onNext?: (data: SignupAccountData) => void } = {}) {
+function renderWithState(
+  overrides: {
+    onNext?: (data: SignupAccountData) => void;
+    initialAccountData?: SignupAccountData;
+    serverFieldErrors?: { nickname?: string; password?: string };
+    onEmailProofExpired?: () => void;
+  } = {},
+) {
   const onNext = overrides.onNext ?? vi.fn<(data: SignupAccountData) => void>();
   const onBack = vi.fn<() => void>();
 
   function Wrapper() {
-    const [accountData, setAccountData] = useState<SignupAccountData>(emptyAccountData);
+    const [accountData, setAccountData] = useState<SignupAccountData>(
+      overrides.initialAccountData ?? emptyAccountData,
+    );
     return (
       <AccountCredentialsStep
         email="test@kangwon.ac.kr"
@@ -49,6 +60,8 @@ function renderWithState(overrides: { onNext?: (data: SignupAccountData) => void
         onAccountDataChange={setAccountData}
         onNext={onNext}
         onBack={onBack}
+        serverFieldErrors={overrides.serverFieldErrors}
+        onEmailProofExpired={overrides.onEmailProofExpired}
       />
     );
   }
@@ -75,7 +88,7 @@ describe('AccountCredentialsStep', () => {
   it('닉네임과 비밀번호를 입력하지 않으면 다음 단계로 이동하지 않는다', async () => {
     const { onNext } = renderWithState();
 
-    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
 
     expect(await screen.findByText('닉네임을 입력해주세요.')).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
@@ -86,10 +99,20 @@ describe('AccountCredentialsStep', () => {
     const { onNext } = renderWithState();
     fillValidCredentials();
 
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
+
+    await waitFor(() => {
+      expect(mockValidateSignupNickname).toHaveBeenCalledWith(
+        { nickname: '테스터' },
+        expect.any(AbortSignal),
+      );
+      expect(screen.getByRole('button', { name: '계속하기' })).toBeEnabled();
+    });
+    expect(screen.getByText('사용할 수 있는 닉네임이에요.')).toHaveClass('text-sm', 'leading-5');
+
     fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
 
     await waitFor(() => {
-      expect(mockValidateSignupNickname).toHaveBeenCalledWith({ nickname: '테스터' });
       expect(onNext).toHaveBeenCalledWith(
         expect.objectContaining({
           nickname: '테스터',
@@ -97,12 +120,66 @@ describe('AccountCredentialsStep', () => {
         }),
       );
     });
+    expect(mockValidateSignupNickname).toHaveBeenCalledTimes(1);
+  });
+
+  it('닉네임 중복 확인이 완료되기 전에는 다음 단계로 이동할 수 없다', async () => {
+    const { onNext } = renderWithState();
+    fillValidCredentials();
+
+    expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '중복 확인' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
+
+    await waitFor(() => {
+      expect(mockValidateSignupNickname).toHaveBeenCalledWith(
+        { nickname: '테스터' },
+        expect.any(AbortSignal),
+      );
+      expect(screen.getByRole('button', { name: '계속하기' })).toBeEnabled();
+    });
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('확인된 닉네임을 수정하면 이전 확인 결과를 즉시 무효화한다', async () => {
+    renderWithState();
+    fillValidCredentials();
+
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '계속하기' })).toBeEnabled();
+    });
+
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '새닉네임' } });
+
+    expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '중복 확인' })).toBeEnabled();
+    expect(screen.getByText('닉네임을 수정했어요. 다시 확인해 주세요.')).toBeInTheDocument();
+  });
+
+  it('최종 가입 중 선점된 닉네임은 입력을 보존하고 해당 필드로 복구한다', async () => {
+    renderWithState({
+      initialAccountData: {
+        ...emptyAccountData,
+        nickname: '감자친구',
+        password: 'Test1234',
+        passwordConfirm: 'Test1234',
+      },
+      serverFieldErrors: { nickname: '이미 사용 중인 닉네임이에요.' },
+    });
+
+    const nicknameInput = screen.getByRole('textbox', { name: /닉네임/ });
+    expect(nicknameInput).toHaveValue('감자친구');
+    expect(await screen.findByText('이미 사용 중인 닉네임이에요.')).toBeInTheDocument();
+    await waitFor(() => expect(nicknameInput).toHaveFocus());
+    expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
   });
 
   it('한글과 영문을 섞으면 API를 호출하기 전에 안내한다', async () => {
     const { onNext } = renderWithState();
     fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '안녕hi' } });
-    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
 
     expect(await screen.findByText('한글과 영문은 함께 사용할 수 없어요.')).toBeInTheDocument();
     expect(mockValidateSignupNickname).not.toHaveBeenCalled();
@@ -120,7 +197,7 @@ describe('AccountCredentialsStep', () => {
     const { onNext } = renderWithState();
     fillValidCredentials();
 
-    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
 
     expect(
       await screen.findByText('닉네임에 사용할 수 없는 단어가 포함되어 있어요.'),
@@ -133,12 +210,41 @@ describe('AccountCredentialsStep', () => {
     const { onNext } = renderWithState();
     fillValidCredentials();
 
-    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
 
-    expect(await screen.findByText('입력 내용을 확인하지 못했어요')).toBeInTheDocument();
+    expect(await screen.findByText('닉네임을 확인하지 못했어요')).toBeInTheDocument();
+    expect(await screen.findByText('네트워크를 확인한 뒤 다시 시도해 주세요.')).toBeInTheDocument();
+    expect(screen.getByTestId('signup-nickname-action-feedback')).toHaveAttribute(
+      'data-variant',
+      'connectivity',
+    );
     expect(screen.getByDisplayValue('테스터')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '계속하기' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '중복 확인' })).toBeEnabled();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('닉네임 확인 중 signup 인증이 만료되면 다시 인증하도록 안내한다', async () => {
+    mockValidateSignupNickname.mockResolvedValueOnce({
+      success: false,
+      code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
+      error: '학교 이메일 인증이 필요합니다.',
+      userActionable: true,
+    });
+    const onEmailProofExpired = vi.fn();
+    renderWithState({ onEmailProofExpired });
+    fillValidCredentials();
+
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
+
+    expect(await screen.findByText('학교 이메일 인증이 만료됐어요')).toBeInTheDocument();
+    expect(screen.getByText('학교 이메일을 다시 인증해 주세요.')).toBeInTheDocument();
+    expect(screen.getByTestId('signup-nickname-action-feedback')).toHaveAttribute(
+      'data-variant',
+      'warning',
+    );
+    expect(onEmailProofExpired).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
   });
 
   it('확인 중이거나 비활성 상태에서는 CTA를 비활성화한다', () => {
@@ -154,6 +260,42 @@ describe('AccountCredentialsStep', () => {
     );
 
     expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '중복 확인' })).toBeDisabled();
+  });
+
+  it('입력 변경 뒤 늦게 도착한 이전 응답은 현재 닉네임을 승인하지 않는다', async () => {
+    let resolveRequest: ((value: { success: true; nickname: string }) => void) | undefined;
+    mockValidateSignupNickname.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    renderWithState();
+    fillValidCredentials();
+
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
+    expect(screen.getByRole('button', { name: '확인 중...' })).toBeDisabled();
+    expect(screen.getByText('닉네임을 확인하고 있어요.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '새닉네임' } });
+    resolveRequest?.({ success: true, nickname: '테스터' });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
+    });
+    expect(screen.queryByText('사용할 수 있는 닉네임이에요.')).not.toBeInTheDocument();
+  });
+
+  it('닉네임 입력에서 Enter를 누르면 확인 action을 실행한다', async () => {
+    renderWithState();
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '테스터' } });
+
+    fireEvent.keyDown(screen.getByLabelText(/닉네임/), { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(mockValidateSignupNickname).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByLabelText(/닉네임/)).toHaveAttribute('aria-describedby');
   });
 
   it('비밀번호 입력 중 요구사항을 함께 표시한다', () => {

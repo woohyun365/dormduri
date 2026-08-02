@@ -139,17 +139,22 @@ vi.mock('../components/LegalConsentStep', () => ({
 
 vi.mock('../components/AccountCredentialsStep', () => ({
   AccountCredentialsStep: ({
+    accountData,
     onNext,
     onAccountDataChange,
     serverFieldErrors,
     onServerErrorClear,
+    onEmailProofExpired,
   }: {
+    accountData: Record<string, unknown>;
     onNext: (data: Record<string, unknown>) => void | Promise<void>;
     onAccountDataChange: (data: Record<string, unknown>) => void;
     serverFieldErrors?: { nickname?: string; password?: string };
     onServerErrorClear?: () => void;
+    onEmailProofExpired?: () => void;
   }) => (
     <div>
+      <p data-testid="step-3-nickname">{String(accountData.nickname ?? '')}</p>
       {serverFieldErrors?.nickname && <p>{serverFieldErrors.nickname}</p>}
       {serverFieldErrors?.password && <p>{serverFieldErrors.password}</p>}
       <button
@@ -170,6 +175,9 @@ vi.mock('../components/AccountCredentialsStep', () => ({
         }}
       >
         계속하기
+      </button>
+      <button data-testid="step-3-expire-proof" onClick={onEmailProofExpired}>
+        expire proof
       </button>
     </div>
   ),
@@ -485,6 +493,24 @@ describe('SignupPageClient', () => {
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 
+  it('최종 가입에서 닉네임이 선점되면 다른 입력을 보존한 채 로그인 정보 단계로 복구한다', async () => {
+    mockSignup.mockResolvedValue({
+      success: false,
+      code: 'AUTH_NICKNAME_ALREADY_TAKEN',
+      error: '이미 사용 중인 닉네임이에요.',
+      fieldErrors: { nickname: '이미 사용 중인 닉네임이에요.' },
+    });
+
+    await renderSignup();
+    advanceToStep(3);
+    await submitSignup();
+
+    expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
+    expect(screen.getByTestId('step-3-nickname')).toHaveTextContent('tester');
+    expect(screen.getByText('이미 사용 중인 닉네임이에요.')).toBeInTheDocument();
+    expect(screen.queryByTestId('step-4-submit')).not.toBeInTheDocument();
+  });
+
   it('최종 전송에서 이메일 proof 만료가 확인되면 Step 1로 초기화하고 재인증 후 정상 흐름을 시작한다', async () => {
     mockSignup.mockResolvedValueOnce({
       success: false,
@@ -504,6 +530,17 @@ describe('SignupPageClient', () => {
     fireEvent.click(screen.getByTestId('step-1-verify'));
     expect(screen.getByTestId('step-1-next')).toBeInTheDocument();
     expect(screen.queryByTestId('step-4-submit')).not.toBeInTheDocument();
+  });
+
+  it('닉네임 확인 중 이메일 proof가 만료되면 즉시 Step 1 재인증 흐름으로 복구한다', async () => {
+    await renderSignup();
+    advanceToStep(3);
+
+    fireEvent.click(screen.getByTestId('step-3-expire-proof'));
+
+    expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(SIGNUP_EMAIL_PROOF_EXPIRED_NOTICE);
+    expect(screen.queryByTestId('step-3-next')).not.toBeInTheDocument();
   });
 
   it('네트워크 오류 시 계정 정보 단계에 에러 메시지를 표시한다', async () => {

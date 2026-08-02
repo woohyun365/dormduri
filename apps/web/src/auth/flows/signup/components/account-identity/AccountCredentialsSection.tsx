@@ -1,14 +1,16 @@
 import type { RefObject } from 'react';
-import { DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH } from '@repo/shared/user/identity';
 import { PASSWORD_MIN_LENGTH } from '@repo/shared/auth/policy';
 import { InputField } from '@/auth/components/form/InputField';
 import { PasswordRequirementList } from '@/auth/components';
 import type { SignupAccountData } from '../../model/signup-account.types';
+import type { SignupNicknameValidationState } from '../../model/signup-nickname-validation.types';
+import { NicknameValidationField } from './NicknameValidationField';
 
 interface AccountCredentialsSectionProps {
   email: string;
   basicInfo: SignupAccountData;
   nicknameError: string;
+  nicknameValidationState: SignupNicknameValidationState;
   passwordError: string;
   passwordConfirmError: string;
   nicknameRef: RefObject<HTMLInputElement | null>;
@@ -17,6 +19,7 @@ interface AccountCredentialsSectionProps {
   disabled: boolean;
   onBasicInfoChange: (data: SignupAccountData) => void;
   onNicknameErrorClear: () => void;
+  onNicknameCheck: () => void;
   onPasswordErrorClear: () => void;
   onPasswordConfirmErrorClear: () => void;
 }
@@ -25,6 +28,7 @@ export function AccountCredentialsSection({
   email,
   basicInfo,
   nicknameError,
+  nicknameValidationState,
   passwordError,
   passwordConfirmError,
   nicknameRef,
@@ -33,27 +37,23 @@ export function AccountCredentialsSection({
   disabled,
   onBasicInfoChange,
   onNicknameErrorClear,
+  onNicknameCheck,
   onPasswordErrorClear,
   onPasswordConfirmErrorClear,
 }: AccountCredentialsSectionProps) {
   return (
     <section aria-label="로그인 정보 입력" className="space-y-4">
-      <InputField
-        ref={nicknameRef}
-        label="닉네임"
-        type="text"
-        placeholder="한글 또는 영문 2~8자"
+      <NicknameValidationField
+        inputRef={nicknameRef}
         value={basicInfo.nickname}
         onChange={(value) => {
           onBasicInfoChange({ ...basicInfo, nickname: value });
           onNicknameErrorClear();
         }}
         error={nicknameError}
-        helper="한글·영문 2~8자, 숫자 조합 가능"
-        helperClassName="text-xs leading-5"
-        maxLength={DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH}
+        state={nicknameValidationState}
         disabled={disabled}
-        required
+        onCheck={onNicknameCheck}
       />
 
       <div>

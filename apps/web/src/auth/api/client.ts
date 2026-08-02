@@ -79,8 +79,14 @@ export const authApi = {
 
   validateSignupNickname: (
     data: SignupNicknameValidationRequest,
+    signal?: AbortSignal,
   ): Promise<SignupNicknameValidationResponse> => {
-    return postJson<SignupNicknameValidationResponse>('/api/auth/signup/validate-nickname', data);
+    return requestJson<SignupNicknameValidationResponse>('/api/auth/signup/validate-nickname', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      signal,
+    }).then(({ data: response }) => response);
   },
 
   signup: async (data: SignupRequest): Promise<SignupResponse> => {

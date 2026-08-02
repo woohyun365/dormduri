@@ -91,6 +91,28 @@ describe('authApi', () => {
     });
   });
 
+  it('validateSignupNickname은 현재 입력 확인을 취소할 수 있도록 AbortSignal을 연결한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ success: true, nickname: '감자친구' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await expect(
+      authApi.validateSignupNickname({ nickname: '감자친구' }, controller.signal),
+    ).resolves.toEqual({ success: true, nickname: '감자친구' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/signup/validate-nickname',
+      expect.objectContaining({
+        method: 'POST',
+        signal: controller.signal,
+      }),
+    );
+  });
+
   it('login 429 body retryAfterSeconds를 사용자 문구와 반환값에 보존한다', async () => {
     vi.stubGlobal(
       'fetch',

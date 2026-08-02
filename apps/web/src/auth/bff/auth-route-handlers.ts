@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 import { getAuthTokenCookie, setAuthTransportCookies } from './auth-cookies';
 import { forwardAuthRequest, getForwardHeaders } from './auth-forward';
 import {
@@ -15,6 +15,7 @@ export function createStrictForwardPostHandler<TBody extends Record<string, unkn
   invalidCode: string;
   getAdditionalHeaders?: (request: NextRequest) => Record<string, string | undefined>;
   allowedResponseFields?: readonly string[];
+  onResponse?: (response: NextResponse, upstreamBody: Record<string, unknown>) => void;
 }) {
   return async function POST(request: NextRequest) {
     const parsed = await parseStrictJsonRequest(request, input.schema, input.invalidCode);
@@ -31,7 +32,9 @@ export function createStrictForwardPostHandler<TBody extends Record<string, unkn
       responseBody[field] = json[field];
     }
 
-    return buildJsonResponse(response, responseBody);
+    const nextResponse = buildJsonResponse(response, responseBody);
+    input.onResponse?.(nextResponse, json);
+    return nextResponse;
   };
 }
 

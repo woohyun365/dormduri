@@ -111,7 +111,7 @@ export function parseDisplayIdentityNickname(value: string): ParsedDisplayIdenti
     return {
       ok: false,
       code: 'INVALID_CHARACTERS',
-      message: '닉네임은 한글 또는 영문으로 입력해 주세요. 숫자도 함께 사용할 수 있어요.',
+      message: '닉네임은 한글 또는 영문으로 입력해 주세요.',
     };
   }
 

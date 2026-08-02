@@ -37,8 +37,9 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 
 1. `StepEmailVerification` — 학교 이메일 인증 코드 발송·확인.
 2. `LegalConsentStep` — active legal bundle 조회, fallback 안내, 필수 동의 수집, stale legal reset.
-3. `AccountCredentialsStep` — 닉네임·비밀번호와 닉네임 사용 가능 여부를 canonical signup
-   draft validation으로 확인하며, 연결 실패 시 입력값을 유지하고 재시도한다.
+3. `AccountCredentialsStep` — 비밀번호는 로컬 정책으로 확인하고, 닉네임은 명시적 `중복 확인`을
+   통과한 현재 입력값에만 다음 단계 이동을 허용한다. 닉네임 수정·연결 실패·늦은 응답은 이전
+   성공 결과를 재사용하지 않는다.
 4. `AcademicIdentityStep` — 캠퍼스, 성별, 단과대, 출생연도를 확인한 뒤 signup submit.
 5. `SignupCompleteStep` — 계정 생성 완료와 가입 후 시즌 여정 안내.
 

@@ -51,7 +51,7 @@ export function EmailVerificationCodePanel({
           disabled={isVerifying || isAttemptsExhausted}
         />
         {!isCountdownActive && !isAttemptsExhausted && !isSending && (
-          <p className="text-sm text-red-500 font-semibold mt-1" aria-live="assertive">
+          <p className="mt-1 text-sm font-semibold leading-5 text-red-500" aria-live="assertive">
             인증 시간이 만료되었어요. 재전송 버튼을 눌러주세요.
           </p>
         )}

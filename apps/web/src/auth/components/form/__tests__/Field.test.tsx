@@ -22,6 +22,15 @@ describe('Field primitives', () => {
       'field-description',
     );
     expect(screen.getByRole('alert')).toHaveAttribute('id', 'email-error');
+    expect(screen.getByRole('alert')).toHaveClass('text-sm', 'leading-5');
+  });
+
+  it('입력 helper와 error는 동일한 field-level typography를 사용한다', () => {
+    render(
+      <FieldMessage descriptionId="nickname-helper">한글 또는 영문으로 입력해요.</FieldMessage>,
+    );
+
+    expect(screen.getByText('한글 또는 영문으로 입력해요.')).toHaveClass('text-sm', 'leading-5');
   });
 
   it('message가 없어도 요청한 field는 안내 공간을 유지한다', () => {

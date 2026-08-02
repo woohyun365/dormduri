@@ -15,7 +15,15 @@ export const SIGNUP_FEEDBACK_COPY = {
     proofExpiredDescription: '학교 이메일을 다시 인증해 주세요.',
   },
   credentials: {
-    unavailableTitle: '입력 내용을 확인하지 못했어요',
+    nickname: {
+      available: '사용할 수 있는 닉네임이에요.',
+      edited: '닉네임을 수정했어요. 다시 확인해 주세요.',
+      required: '닉네임 중복 확인을 완료해 주세요.',
+      unavailableTitle: '닉네임을 확인하지 못했어요',
+      unavailable: '잠시 후 다시 시도해 주세요.',
+      expiredTitle: '학교 이메일 인증이 만료됐어요',
+      expired: '학교 이메일을 다시 인증해 주세요.',
+    },
   },
   academic: {
     submissionFailedTitle: '가입을 완료하지 못했어요',

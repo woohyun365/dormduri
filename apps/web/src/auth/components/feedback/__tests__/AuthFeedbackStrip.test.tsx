@@ -27,6 +27,8 @@ describe('AuthFeedbackStrip', () => {
     expect(strip).toHaveTextContent('새 비밀번호로 로그인해 주세요.');
     expect(strip).toHaveClass('border-l-2', 'rounded-r-xl');
     expect(screen.getByTestId('icon-check-circle')).toBeInTheDocument();
+    expect(screen.getByText('비밀번호가 변경되었어요')).toHaveClass('text-sm', 'leading-5');
+    expect(screen.getByText('새 비밀번호로 로그인해 주세요.')).toHaveClass('text-xs', 'leading-5');
   });
 
   it('action별 보조 정보는 설명 우측에 배치한다', () => {

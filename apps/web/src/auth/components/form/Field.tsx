@@ -73,7 +73,7 @@ export function FieldMessage({
       ) : children ? (
         <p
           id={descriptionId}
-          className={`text-sm text-(--knu-text-tertiary) ${reserveSpace ? '' : 'mt-2'} ${descriptionClassName}`.trim()}
+          className={`text-sm leading-5 text-(--knu-text-tertiary) ${reserveSpace ? '' : 'mt-2'} ${descriptionClassName}`.trim()}
         >
           {children}
         </p>

@@ -127,6 +127,44 @@ describe('auth signup nickname and email verification BFF routes', () => {
     await expect(response.json()).resolves.toEqual({ success: true, nickname: '테스터' });
   });
 
+  it('signup grant가 만료되면 닉네임 검증 응답에서 stale cookie를 정리한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
+              error: '학교 이메일 인증이 필요합니다.',
+              userActionable: true,
+            }),
+            {
+              status: 401,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          ),
+      ),
+    );
+
+    const response = await postValidateSignupNickname(
+      request(
+        '/api/auth/signup/validate-nickname',
+        NICKNAME_BODY,
+        `signup-verification-grant=${VALID_SIGNUP_GRANT}`,
+      ),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
+    });
+    expect(response.cookies.get('signup-verification-grant')).toMatchObject({
+      value: '',
+      maxAge: 0,
+    });
+  });
+
   it('nickname malformed JSON은 upstream 전에 endpoint error로 거부한다', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

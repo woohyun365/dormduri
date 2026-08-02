@@ -1,6 +1,10 @@
 import { AUTH_VERIFICATION_GRANT_HEADER } from '@repo/shared/auth/contract';
 import { signupNicknameValidationRequestSchema } from '@repo/shared/auth/contract';
-import { createStrictForwardPostHandler, getVerificationGrantCookie } from '@/auth/bff';
+import {
+  clearVerificationGrantCookie,
+  createStrictForwardPostHandler,
+  getVerificationGrantCookie,
+} from '@/auth/bff';
 
 export const POST = createStrictForwardPostHandler({
   path: '/auth/signup/validate-nickname',
@@ -10,4 +14,9 @@ export const POST = createStrictForwardPostHandler({
   getAdditionalHeaders: (request) => ({
     [AUTH_VERIFICATION_GRANT_HEADER]: getVerificationGrantCookie(request, 'signup') ?? undefined,
   }),
+  onResponse: (response, upstreamBody) => {
+    if (upstreamBody.code === 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED') {
+      clearVerificationGrantCookie(response, 'signup');
+    }
+  },
 });
