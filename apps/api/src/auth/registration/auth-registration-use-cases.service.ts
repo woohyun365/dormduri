@@ -46,6 +46,7 @@ export class AuthRegistrationUseCases {
           nicknamePolicy: this.nicknamePolicy,
           submissionAdmission: this.signupSubmissionAdmission,
           securityEvents: this.securityEvents,
+          flowMetrics: this.flowMetrics,
         },
         input,
         verificationGrant,

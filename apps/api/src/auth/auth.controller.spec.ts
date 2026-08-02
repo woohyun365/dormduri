@@ -192,47 +192,47 @@ describe('AuthController', () => {
   it('signup nickname validation route는 /auth/signup/validate-nickname으로 노출된다', () => {
     const handler = getAuthControllerHandler('validateSignupNickname');
 
-    it('signup submission budget 초과는 Retry-After가 있는 429로 변환한다', async () => {
-      authService.signup.mockResolvedValue({
-        success: false,
-        code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
-        error: '가입 요청이 잠시 제한됐어요.',
-        retryAfterSeconds: 420,
-      });
-      const body = {
-        email: 'test@kangwon.ac.kr',
-        password: 'Test1234',
-        nickname: '테스터',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-        collegeCode: 'CHUNCHEON_IT',
-        birthYear: 2002,
-        legalAcceptances: {
-          termsVersionId: 'terms-of-service-2026-06-22',
-          personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
-          ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
-          privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
-        },
-      } as const;
-
-      let failure: unknown;
-      try {
-        await controller.signup(body, 'signup-grant', request as never);
-      } catch (error) {
-        failure = error;
-      }
-
-      expect(failure).toBeInstanceOf(HttpException);
-      expect((failure as HttpException).getStatus()).toBe(429);
-      expect((failure as HttpException).getResponse()).toMatchObject({
-        success: false,
-        code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
-        retryAfterSeconds: 420,
-      });
-    });
-
     expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('signup/validate-nickname');
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
+  });
+
+  it('signup submission budget 초과는 Retry-After가 있는 429로 변환한다', async () => {
+    authService.signup.mockResolvedValue({
+      success: false,
+      code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+      error: '가입 요청이 잠시 제한됐어요.',
+      retryAfterSeconds: 420,
+    });
+    const body = {
+      email: 'test@kangwon.ac.kr',
+      password: 'Test1234',
+      nickname: '테스터',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      collegeCode: 'CHUNCHEON_IT',
+      birthYear: 2002,
+      legalAcceptances: {
+        termsVersionId: 'terms-of-service-2026-06-22',
+        personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+        ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+        privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+      },
+    } as const;
+
+    let failure: unknown;
+    try {
+      await controller.signup(body, 'signup-grant', request as never);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(HttpException);
+    expect((failure as HttpException).getStatus()).toBe(429);
+    expect((failure as HttpException).getResponse()).toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+      retryAfterSeconds: 420,
+    });
   });
 
   it('named login IP throttles는 다른 auth route를 건드리지 않고 login에서만 활성화된다', () => {
@@ -307,6 +307,35 @@ describe('AuthController', () => {
       'NewPass1234',
       { requestIp: '127.0.0.1', userAgent: 'jest-agent' },
     );
+  });
+
+  it('changePassword session budget 초과는 Retry-After가 있는 429로 변환한다', async () => {
+    authService.changePassword.mockResolvedValue({
+      success: false,
+      code: 'AUTH_CHANGE_PASSWORD_THROTTLED',
+      error: '비밀번호 변경이 잠시 제한됐어요.',
+      userActionable: false,
+      retryAfterSeconds: 587,
+    });
+
+    let failure: unknown;
+    try {
+      await controller.changePassword(
+        { currentPassword: 'OldPass1234', newPassword: 'NewPass1234' },
+        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+        request as never,
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(HttpException);
+    expect((failure as HttpException).getStatus()).toBe(429);
+    expect((failure as HttpException).getResponse()).toMatchObject({
+      success: false,
+      code: 'AUTH_CHANGE_PASSWORD_THROTTLED',
+      retryAfterSeconds: 587,
+    });
   });
 
   it('renewSession route는 /auth/renew-session으로 노출되고 renewalToken만 service로 전달한다', async () => {

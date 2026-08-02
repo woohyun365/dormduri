@@ -22,6 +22,8 @@ describe('AuthCredentialUseCases', () => {
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
+    prepareSessionIssue: vi.fn(),
+    appendPreparedSession: vi.fn(),
   };
   const verificationService = {
     resolveVerificationGrant: vi.fn(),
@@ -29,9 +31,13 @@ describe('AuthCredentialUseCases', () => {
   };
   const securityEvents = {
     recordSafely: vi.fn(),
+    recordInTransaction: vi.fn(),
   };
   const mailOutboxWriter = {
     appendPasswordChanged: vi.fn(),
+  };
+  const changePasswordAdmission = {
+    consume: vi.fn(),
   };
   const useCases = new AuthCredentialUseCases(
     prisma as never,
@@ -42,6 +48,7 @@ describe('AuthCredentialUseCases', () => {
     verificationService as never,
     securityEvents as never,
     mailOutboxWriter as never,
+    changePasswordAdmission as never,
   );
 
   beforeEach(() => {
@@ -51,6 +58,7 @@ describe('AuthCredentialUseCases', () => {
       success: false,
       code: 'AUTH_INVALID_CREDENTIALS',
     });
+    changePasswordAdmission.consume.mockResolvedValue(null);
   });
 
   it('login은 request context가 없으면 login command에 legacy 호출 shape를 유지한다', async () => {

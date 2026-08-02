@@ -210,6 +210,13 @@ export const authFailures = {
     });
   },
 
+  changePasswordThrottled(retryAfterSeconds: number) {
+    return createFailure('AUTH_CHANGE_PASSWORD_THROTTLED', '비밀번호 변경이 잠시 제한됐어요.', {
+      userActionable: false,
+      retryAfterSeconds,
+    });
+  },
+
   sessionRenewalRequired() {
     return createFailure('AUTH_SESSION_RENEWAL_REQUIRED', '다시 로그인한 뒤 시도해주세요.', {
       userActionable: true,

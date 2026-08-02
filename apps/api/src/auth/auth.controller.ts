@@ -140,12 +140,16 @@ export class AuthController {
     @Req() req: Request,
   ) {
     const parsed = parseRequestBody(changePasswordRequestSchema, body);
-    return this.authService.changePassword(
+    const result = await this.authService.changePassword(
       authUser,
       parsed.currentPassword,
       parsed.newPassword,
       resolveAuthRequestContext(req),
     );
+    if (!result.success && result.code === 'AUTH_CHANGE_PASSWORD_THROTTLED') {
+      throw authErrors.changePasswordThrottled(result.retryAfterSeconds ?? 1);
+    }
+    return result;
   }
 
   @Post('renew-session')

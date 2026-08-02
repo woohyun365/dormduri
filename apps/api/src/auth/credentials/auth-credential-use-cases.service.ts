@@ -18,6 +18,7 @@ import { login } from './login.command.js';
 import { resetPassword } from './reset-password.command.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { ChangePasswordAdmissionService } from './change-password-admission.service.js';
 
 @Injectable()
 export class AuthCredentialUseCases {
@@ -30,6 +31,7 @@ export class AuthCredentialUseCases {
     private readonly verificationService: AuthVerificationService,
     private readonly securityEvents: AuthSecurityEventService,
     private readonly mailOutboxWriter: AuthMailOutboxWriter,
+    private readonly changePasswordAdmission: ChangePasswordAdmissionService,
     private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
@@ -97,6 +99,8 @@ export class AuthCredentialUseCases {
           sessionService: this.sessionService,
           securityEvents: this.securityEvents,
           mailOutboxWriter: this.mailOutboxWriter,
+          admission: this.changePasswordAdmission,
+          flowMetrics: this.flowMetrics,
         },
         authUser,
         currentPassword,
@@ -105,11 +109,7 @@ export class AuthCredentialUseCases {
       );
       this.flowMetrics?.recordCredentialTransition(
         'change_password',
-        result.success
-          ? 'committed'
-          : result.code === 'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED'
-            ? 'committed_login_required'
-            : 'rejected',
+        result.success ? 'committed' : 'rejected',
       );
       return result;
     } catch (error) {

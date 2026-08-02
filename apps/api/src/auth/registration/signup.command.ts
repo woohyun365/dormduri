@@ -31,6 +31,7 @@ import {
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
+import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -44,6 +45,10 @@ interface AuthSignupOwnerDeps {
   nicknamePolicy: Pick<DisplayIdentityNicknamePolicyService, 'validate'>;
   submissionAdmission: Pick<SignupSubmissionAdmissionService, 'consume'>;
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
+  flowMetrics?: Pick<
+    AuthFlowMetricsService,
+    'recordSignupFinalAdmission' | 'recordSignupPasswordHash' | 'recordSensitiveMutation'
+  >;
 }
 
 export async function signup(
@@ -68,6 +73,7 @@ export async function signup(
     !resolvedGrant ||
     !deps.verificationService.matchesVerificationGrantSubject(resolvedGrant, emailNormalized)
   ) {
+    deps.flowMetrics?.recordSignupFinalAdmission('grant_required');
     return authFailures.signupVerificationRequired();
   }
 
@@ -94,7 +100,23 @@ export async function signup(
     return authFailures.signupValidation(error.message, { nickname: error.message });
   }
 
-  const passwordHash = await hashPassword(input.password);
+  const hashStartedAt = performance.now();
+  deps.flowMetrics?.recordSignupPasswordHash('started');
+  let passwordHash: string;
+  try {
+    passwordHash = await hashPassword(input.password);
+    deps.flowMetrics?.recordSignupPasswordHash(
+      'completed',
+      (performance.now() - hashStartedAt) / 1_000,
+    );
+  } catch (error) {
+    deps.flowMetrics?.recordSignupPasswordHash(
+      'failed',
+      (performance.now() - hashStartedAt) / 1_000,
+    );
+    deps.flowMetrics?.recordSensitiveMutation('signup', 'failed');
+    throw error;
+  }
   const emailVerifiedAt = await deps.prisma.getDatabaseNow();
   const userId = randomUUID();
   const preparedSession = await deps.sessionService.prepareSessionIssue(
@@ -197,6 +219,7 @@ export async function signup(
       return { ...createdUser, displayIdentity };
     });
 
+    deps.flowMetrics?.recordSensitiveMutation('signup', 'committed');
     return toLoginSuccessResult(
       preparedSession.result.accessToken,
       toAuthSessionUserSummary({
@@ -217,18 +240,23 @@ export async function signup(
         return authFailures.emailAlreadyRegistered();
       }
       if (prismaErrorTargetIncludes(error, 'nicknameNormalized')) {
+        deps.flowMetrics?.recordSensitiveMutation('signup', 'stale');
         return authFailures.nicknameAlreadyTaken();
       }
     }
     if (error instanceof Error && error.message === SIGNUP_VERIFICATION_GRANT_UNAVAILABLE) {
+      deps.flowMetrics?.recordSensitiveMutation('signup', 'stale');
       return authFailures.signupVerificationRequired();
     }
     if (error instanceof Error && error.message === SIGNUP_LEGAL_ACCEPTANCE_STALE) {
+      deps.flowMetrics?.recordSensitiveMutation('signup', 'rejected');
       return authFailures.legalAcceptanceStale();
     }
     if (error instanceof Error && error.message === SIGNUP_COLLEGE_UNAVAILABLE) {
+      deps.flowMetrics?.recordSensitiveMutation('signup', 'rejected');
       return authFailures.signupCollegeUnavailable();
     }
+    deps.flowMetrics?.recordSensitiveMutation('signup', 'failed');
     throw error;
   }
 }

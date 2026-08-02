@@ -6,6 +6,7 @@ import { AuthSecurityEventService } from '../../../src/auth/security-events/auth
 import { AuthMailOutboxWriter } from '../../../src/auth/mail/auth-mail-outbox-writer.service.js';
 import { signup as signupWithOwner } from '../../../src/auth/registration/signup.command.js';
 import { resetPassword as resetPasswordWithOwner } from '../../../src/auth/credentials/reset-password.command.js';
+import { changePassword as changePasswordWithOwner } from '../../../src/auth/credentials/change-password.command.js';
 import {
   hashPassword,
   verifyPasswordHash,
@@ -900,6 +901,396 @@ describe('Auth/users transaction rollback and race integration', () => {
         ).resolves.toBe(0);
       },
     );
+  });
+
+  describe('change password transaction', () => {
+    itWithQueryTrace(
+      'change password 성공은 password·기존 세션 revoke·대체 세션·outbox·감사 이벤트를 함께 commit한다',
+      async () => {
+        const email = 'change-password-success@kangwon.ac.kr';
+        const userId = 'change-password-success-user';
+        const currentSessionId = 'change-password-success-current';
+        const otherSessionId = 'change-password-success-other';
+        const oldPasswordHash = await hashPassword('OldPass1234');
+        const databaseNow = await prisma.getDatabaseNow();
+
+        await seedUserWithDisplayIdentity({
+          id: userId,
+          email,
+          nickname: '변경성공',
+          passwordHash: oldPasswordHash,
+        });
+        await prisma.authSession.createMany({
+          data: [
+            {
+              id: currentSessionId,
+              userId,
+              rememberMe: true,
+              expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+            },
+            {
+              id: otherSessionId,
+              userId,
+              expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+            },
+          ],
+        });
+
+        const result = await authService.changePassword(
+          {
+            id: userId,
+            sessionId: currentSessionId,
+            gender: 'M',
+            campus: 'CHUNCHEON',
+          },
+          'OldPass1234',
+          'NewPass1234',
+          { requestIp: '203.0.113.20', userAgent: 'change-password-integration' },
+        );
+        expect(result.success).toBe(true);
+        if (!result.success) {
+          throw new Error(`change password failed: ${result.code}`);
+        }
+        expect(typeof result.accessToken).toBe('string');
+        expect(typeof result.renewalToken).toBe('string');
+        expect(result.rememberMe).toBe(true);
+
+        const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+        await expect(verifyPasswordHash(updatedUser.passwordHash, 'NewPass1234')).resolves.toBe(
+          true,
+        );
+        await expect(
+          prisma.authSession.count({ where: { userId, revokedAt: null } }),
+        ).resolves.toBe(1);
+        const revokedSessions = await prisma.authSession.findMany({
+          where: { id: { in: [currentSessionId, otherSessionId] } },
+          select: { revokedAt: true },
+        });
+        expect(revokedSessions).toHaveLength(2);
+        expect(revokedSessions.every((session) => session.revokedAt instanceof Date)).toBe(true);
+        await expect(
+          prisma.authMailOutboxEvent.count({
+            where: { targetUserId: userId, mailKind: 'PASSWORD_CHANGED' },
+          }),
+        ).resolves.toBe(1);
+        await expect(
+          prisma.authSecurityEvent.count({
+            where: {
+              targetUserId: userId,
+              type: { in: ['CHANGE_PASSWORD_SUCCEEDED', 'SESSION_REVOKE_ALL'] },
+            },
+          }),
+        ).resolves.toBe(2);
+        const changedEvent = await prisma.authSecurityEvent.findFirstOrThrow({
+          where: { targetUserId: userId, type: 'CHANGE_PASSWORD_SUCCEEDED' },
+        });
+        expect(changedEvent.requestIpHash).toBe(
+          hashAuthPersistenceDimension(
+            'request-ip',
+            '203.0.113.20',
+            DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+            DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+          ),
+        );
+        expect(changedEvent.userAgentHash).toBe(
+          hashAuthPersistenceDimension(
+            'user-agent',
+            'change-password-integration',
+            DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
+            DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+          ),
+        );
+        expect(changedEvent.requestIpHash).not.toBe('203.0.113.20');
+        expect(changedEvent.userAgentHash).not.toBe('change-password-integration');
+      },
+    );
+
+    itWithQueryTrace(
+      '같은 current session과 observed password의 동시 변경은 성공 1건과 재인증 요구 1건으로 수렴한다',
+      async () => {
+        const email = 'change-password-race@kangwon.ac.kr';
+        const userId = 'change-password-race-user';
+        const currentSessionId = 'change-password-race-current';
+        const oldPasswordHash = await hashPassword('OldPass1234');
+        const databaseNow = await prisma.getDatabaseNow();
+
+        await seedUserWithDisplayIdentity({
+          id: userId,
+          email,
+          nickname: '변경경쟁',
+          passwordHash: oldPasswordHash,
+        });
+        await prisma.authSession.create({
+          data: {
+            id: currentSessionId,
+            userId,
+            rememberMe: true,
+            expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+          },
+        });
+        const authContext = {
+          id: userId,
+          sessionId: currentSessionId,
+          gender: 'M' as const,
+          campus: 'CHUNCHEON' as const,
+        };
+
+        const settled = await Promise.allSettled([
+          authService.changePassword(authContext, 'OldPass1234', 'NewPass1234'),
+          authService.changePassword(authContext, 'OldPass1234', 'OtherPass1234'),
+        ]);
+        const fulfilled = settled.map((result) => {
+          expect(result.status).toBe('fulfilled');
+          return (
+            result as PromiseFulfilledResult<Awaited<ReturnType<AuthService['changePassword']>>>
+          ).value;
+        });
+
+        expect(fulfilled.filter((result) => result.success)).toHaveLength(1);
+        expect(
+          fulfilled.filter(
+            (result) => !result.success && result.code === 'AUTH_REAUTHENTICATION_REQUIRED',
+          ),
+        ).toHaveLength(1);
+        await expect(
+          prisma.authSession.count({ where: { userId, revokedAt: null } }),
+        ).resolves.toBe(1);
+        await expect(
+          prisma.authSecurityEvent.count({
+            where: { targetUserId: userId, type: 'CHANGE_PASSWORD_SUCCEEDED' },
+          }),
+        ).resolves.toBe(1);
+      },
+    );
+
+    itWithQueryTrace(
+      'reset과 authenticated change가 같은 observed password에서 경쟁하면 credential mutation은 한 건만 commit한다',
+      async () => {
+        const email = 'reset-change-race@kangwon.ac.kr';
+        const emailNormalized = normalizeEmail(email);
+        const userId = 'reset-change-race-user';
+        const currentSessionId = 'reset-change-race-current';
+        const verificationCodeId = 'reset-change-race-proof';
+        const oldPasswordHash = await hashPassword('OldPass1234');
+        const databaseNow = await prisma.getDatabaseNow();
+
+        await seedUserWithDisplayIdentity({
+          id: userId,
+          email,
+          nickname: '변경리셋',
+          passwordHash: oldPasswordHash,
+        });
+        await prisma.authSession.create({
+          data: {
+            id: currentSessionId,
+            userId,
+            rememberMe: true,
+            expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+          },
+        });
+        const verificationGrant = await seedVerifiedCode({
+          id: verificationCodeId,
+          emailNormalized,
+          purpose: 'RESET_PASSWORD',
+          eligibleUserId: userId,
+        });
+
+        const [resetResult, changeResult] = await Promise.all([
+          authService.resetPassword(verificationGrant, 'ResetPass1234'),
+          authService.changePassword(
+            {
+              id: userId,
+              sessionId: currentSessionId,
+              gender: 'M',
+              campus: 'CHUNCHEON',
+            },
+            'OldPass1234',
+            'ChangePass1234',
+          ),
+        ]);
+
+        expect([resetResult.success, changeResult.success].filter(Boolean)).toHaveLength(1);
+        const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+        const [matchesReset, matchesChange] = await Promise.all([
+          verifyPasswordHash(updatedUser.passwordHash, 'ResetPass1234'),
+          verifyPasswordHash(updatedUser.passwordHash, 'ChangePass1234'),
+        ]);
+        expect([matchesReset, matchesChange].filter(Boolean)).toHaveLength(1);
+        await expect(
+          prisma.authSecurityEvent.count({
+            where: {
+              targetUserId: userId,
+              type: { in: ['PASSWORD_RESET_SUCCEEDED', 'CHANGE_PASSWORD_SUCCEEDED'] },
+            },
+          }),
+        ).resolves.toBe(1);
+      },
+    );
+
+    itWithQueryTrace(
+      'transaction 전 외부 password writer가 observed hash를 바꾸면 최신 credential을 덮어쓰지 않는다',
+      async () => {
+        const email = 'change-password-stale-writer@kangwon.ac.kr';
+        const userId = 'change-password-stale-writer-user';
+        const currentSessionId = 'change-password-stale-writer-session';
+        const oldPasswordHash = await hashPassword('OldPass1234');
+        const concurrentPasswordHash = await hashPassword('ConcurrentPass1234');
+        const databaseNow = await prisma.getDatabaseNow();
+
+        await seedUserWithDisplayIdentity({
+          id: userId,
+          email,
+          nickname: '외부변경',
+          passwordHash: oldPasswordHash,
+        });
+        await prisma.authSession.create({
+          data: {
+            id: currentSessionId,
+            userId,
+            rememberMe: true,
+            expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+          },
+        });
+
+        const staleWriterPrisma = {
+          user: prisma.user,
+          authSession: prisma.authSession,
+          getDatabaseNow: prisma.getDatabaseNow.bind(prisma),
+          async runSerializableTransaction(
+            operation: (tx: Prisma.TransactionClient) => Promise<unknown>,
+          ) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { passwordHash: concurrentPasswordHash },
+            });
+            return prisma.runSerializableTransaction(operation);
+          },
+        };
+
+        await expect(
+          changePasswordWithOwner(
+            {
+              prisma: staleWriterPrisma as never,
+              sessionService: authSessionService,
+              securityEvents: authSecurityEventService,
+              mailOutboxWriter: authMailOutboxWriter,
+              admission: { consume: () => Promise.resolve(null) },
+            },
+            {
+              id: userId,
+              sessionId: currentSessionId,
+              gender: 'M',
+              campus: 'CHUNCHEON',
+            },
+            'OldPass1234',
+            'NewPass1234',
+          ),
+        ).resolves.toMatchObject({
+          success: false,
+          code: 'AUTH_REAUTHENTICATION_REQUIRED',
+        });
+
+        const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+        expect(updatedUser.passwordHash).toBe(concurrentPasswordHash);
+        await expect(
+          prisma.authSession.findUniqueOrThrow({ where: { id: currentSessionId } }),
+        ).resolves.toMatchObject({ revokedAt: null });
+        await expect(
+          prisma.authMailOutboxEvent.count({ where: { targetUserId: userId } }),
+        ).resolves.toBe(0);
+        await expect(
+          prisma.authSecurityEvent.count({ where: { targetUserId: userId } }),
+        ).resolves.toBe(0);
+      },
+    );
+
+    for (const failurePoint of ['session', 'outbox', 'audit'] as const) {
+      itWithQueryTrace(
+        `change password ${failurePoint} append 실패는 password·기존 세션·대체 세션·outbox·audit를 rollback한다`,
+        async () => {
+          const email = `change-password-${failurePoint}-rollback@kangwon.ac.kr`;
+          const userId = `change-password-${failurePoint}-rollback-user`;
+          const currentSessionId = `change-password-${failurePoint}-rollback-session`;
+          const oldPasswordHash = await hashPassword('OldPass1234');
+          const databaseNow = await prisma.getDatabaseNow();
+
+          await seedUserWithDisplayIdentity({
+            id: userId,
+            email,
+            nickname:
+              failurePoint === 'session'
+                ? '변경세션'
+                : failurePoint === 'outbox'
+                  ? '변경메일'
+                  : '변경감사',
+            passwordHash: oldPasswordHash,
+          });
+          await prisma.authSession.create({
+            data: {
+              id: currentSessionId,
+              userId,
+              rememberMe: true,
+              expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+            },
+          });
+
+          await expect(
+            changePasswordWithOwner(
+              {
+                prisma,
+                sessionService: {
+                  prepareSessionIssue:
+                    authSessionService.prepareSessionIssue.bind(authSessionService),
+                  appendPreparedSession:
+                    failurePoint === 'session'
+                      ? () => Promise.reject(new Error('injected session append failure'))
+                      : authSessionService.appendPreparedSession.bind(authSessionService),
+                },
+                securityEvents:
+                  failurePoint === 'audit'
+                    ? {
+                        recordInTransaction: () =>
+                          Promise.reject(new Error('injected audit append failure')),
+                      }
+                    : authSecurityEventService,
+                mailOutboxWriter:
+                  failurePoint === 'outbox'
+                    ? {
+                        appendPasswordChanged: () =>
+                          Promise.reject(new Error('injected outbox append failure')),
+                      }
+                    : authMailOutboxWriter,
+                admission: { consume: () => Promise.resolve(null) },
+              },
+              {
+                id: userId,
+                sessionId: currentSessionId,
+                gender: 'M',
+                campus: 'CHUNCHEON',
+              },
+              'OldPass1234',
+              'NewPass1234',
+            ),
+          ).rejects.toThrow(`injected ${failurePoint} append failure`);
+
+          await expect(
+            prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+          ).resolves.toMatchObject({ passwordHash: oldPasswordHash });
+          await expect(
+            prisma.authSession.findUniqueOrThrow({ where: { id: currentSessionId } }),
+          ).resolves.toMatchObject({ revokedAt: null });
+          await expect(
+            prisma.authSession.count({ where: { userId, revokedAt: null } }),
+          ).resolves.toBe(1);
+          await expect(
+            prisma.authMailOutboxEvent.count({ where: { targetUserId: userId } }),
+          ).resolves.toBe(0);
+          await expect(
+            prisma.authSecurityEvent.count({ where: { targetUserId: userId } }),
+          ).resolves.toBe(0);
+        },
+      );
+    }
   });
 
   describe('nickname update race', () => {

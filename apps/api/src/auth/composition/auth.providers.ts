@@ -16,6 +16,7 @@ import { AuthActorContextResolver } from '../application/auth-actor-context.reso
 import { AuthService } from '../application/auth.service.js';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
 import { AuthPasswordHashPolicy } from '../credentials/auth-password-hash.adapter.js';
+import { ChangePasswordAdmissionService } from '../credentials/change-password-admission.service.js';
 import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import { AuthLoginThrottlerGuard } from '../login-attempts/auth-login-throttler.guard.js';
 import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
@@ -77,6 +78,7 @@ export const AUTH_SESSION_PROVIDERS: Provider[] = [
 export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [
   AuthCredentialUseCases,
   AuthPasswordHashPolicy,
+  ChangePasswordAdmissionService,
 ];
 
 export const AUTH_REGISTRATION_PROVIDERS: Provider[] = [

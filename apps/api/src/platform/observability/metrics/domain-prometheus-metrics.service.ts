@@ -146,6 +146,31 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Total signup nickname validation outcomes by bounded result.',
     labelNames: ['outcome'],
   },
+  api_auth_signup_final_admission_total: {
+    name: 'api_auth_signup_final_admission_total',
+    kind: 'counter',
+    help: 'Total final signup admission outcomes before password hashing.',
+    labelNames: ['outcome'],
+  },
+  api_auth_signup_password_hash_total: {
+    name: 'api_auth_signup_password_hash_total',
+    kind: 'counter',
+    help: 'Total signup password hash lifecycle outcomes.',
+    labelNames: ['outcome'],
+  },
+  api_auth_signup_password_hash_duration_seconds: {
+    name: 'api_auth_signup_password_hash_duration_seconds',
+    kind: 'histogram',
+    help: 'Signup password hash duration seconds by bounded outcome.',
+    labelNames: ['outcome'],
+    buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+  },
+  api_auth_sensitive_mutations_total: {
+    name: 'api_auth_sensitive_mutations_total',
+    kind: 'counter',
+    help: 'Total protected auth mutation outcomes by bounded operation.',
+    labelNames: ['operation', 'outcome'],
+  },
   api_seasons_current_query_total: {
     name: 'api_seasons_current_query_total',
     kind: 'counter',

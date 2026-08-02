@@ -75,6 +75,26 @@ api_auth_mail_outbox_lag_seconds
 4. provider 원문 오류·수신 이메일·message id를 Slack/Grafana label에 노출하지 않고 bounded error category와 outbox event id만 제한된 운영 로그에서 사용한다.
 5. `UNKNOWN` payload는 중복 메일 위험 때문에 자동 재전송하지 않는다. 사용자가 새 코드를 요청하도록 유지하고 provider 상태를 먼저 확인한다.
 
+## Sensitive mutation admission
+
+닉네임 확인과 최종 가입은 active signup grant fingerprint를, 비밀번호 변경은 authenticated actor/session fingerprint를 primary budget으로 사용한다. 기본 IP 제한은 secondary boundary이며 login account lock과 별개다.
+
+1. `api_auth_signup_nickname_validation_total`, `api_auth_signup_final_admission_total`, `api_auth_sensitive_mutations_total`의 bounded outcome만 확인한다.
+2. final admission `throttled`가 증가할 때 password hash `started`가 같은 비율로 증가하지 않는지 확인한다. 제한은 hash보다 먼저 실행되어야 한다.
+3. change-password throttle이 증가하면 로그인 lock row를 조정하지 말고 session 단위 제한과 전역 IP 제한을 구분한다.
+4. shared NAT 의심 시 raw IP를 dashboard label에 추가하지 않는다. 접근 통제된 HMAC security dimension과 aggregate HTTP 지표를 함께 조사한다.
+5. multi-instance limiter 우회가 시간당 1건 이상 관측되면 health의 Redis gate를 `redis_candidate`로 평가한다. Redis는 distributed throttle/hot session cache 후보일 뿐 session·verification authority가 아니다.
+
+## Credential mutation durability
+
+`AuthCredentialDurabilityFailure`는 비밀번호 변경 transaction 안의 replacement session, mail outbox, 필수 audit append 중 하나가 실패했음을 의미한다. 이 경로는 전체 transaction을 rollback하므로 부분 성공으로 취급하지 않는다.
+
+1. `api_auth_sensitive_mutations_total{operation="change_password"}`에서 실패 stage를 확인한다.
+2. 같은 시간대의 Prisma transaction retry/exhausted, pool waiting, DB 5xx를 확인한다.
+3. replacement session 실패면 session insert constraint/DB availability, outbox 실패면 encrypted envelope insert, audit 실패면 `AuthSecurityEvent` write를 각각 점검한다.
+4. 사용자 password·email·session id·IP를 metric label이나 incident 문서에 기록하지 않는다.
+5. 실패 요청은 성공으로 복구하지 말고 사용자가 기존 session에서 재시도하도록 한다. transaction commit 여부가 불명확하면 DB의 credential/session/audit invariant를 먼저 확인한다.
+
 ## Release evidence
 
 Release 전 다음 결과를 함께 보관한다.

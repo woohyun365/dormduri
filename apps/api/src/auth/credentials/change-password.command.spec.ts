@@ -1,7 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { changePassword } from './change-password.command.js';
-import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 
 const hashPasswordForTest = (password: string) =>
   argonHash(password, {
@@ -14,12 +13,25 @@ const hashPasswordForTest = (password: string) =>
 
 describe('changePassword command', () => {
   const databaseNow = new Date('2026-04-23T00:00:00.000Z');
+  const preparedSession = {
+    result: {
+      accessToken: 'rotated-access-token',
+      renewalToken: 'rotated-renewal-token',
+      sessionId: 'session-new',
+    },
+    persistence: {
+      sessionId: 'session-new',
+      userId: 'user-1',
+      rememberMe: true,
+    },
+  };
+  let currentPasswordHash: string;
   const prisma = {
     getDatabaseNow: vi.fn(),
     runSerializableTransaction: vi.fn(),
     user: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
     authSession: {
       findFirst: vi.fn(),
@@ -27,57 +39,67 @@ describe('changePassword command', () => {
     },
   };
   const sessionService = {
-    issueAuthResult: vi.fn(),
+    prepareSessionIssue: vi.fn(),
+    appendPreparedSession: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: vi
-      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
-      .mockResolvedValue(undefined),
+    recordInTransaction: vi.fn(),
   };
   const mailOutboxWriter = {
-    appendPasswordChanged: vi.fn().mockResolvedValue(undefined),
+    appendPasswordChanged: vi.fn(),
   };
-  const deps = { prisma, sessionService, securityEvents, mailOutboxWriter };
+  const admission = { consume: vi.fn() };
+  const flowMetrics = { recordSensitiveMutation: vi.fn() };
+  const deps = {
+    prisma,
+    sessionService,
+    securityEvents,
+    mailOutboxWriter,
+    admission,
+    flowMetrics,
+  };
+  const authUser = {
+    id: 'user-1',
+    sessionId: 'session-1',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+  } as const;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    currentPasswordHash = await hashPasswordForTest('OldPass1234');
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
-    prisma.user.update.mockResolvedValue(undefined);
-    prisma.authSession.findFirst.mockResolvedValue({ id: 'session-1', rememberMe: true });
-    prisma.authSession.updateMany.mockResolvedValue({ count: 2 });
-    prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
-      callback({
-        user: { update: prisma.user.update },
-        authSession: {
-          findFirst: prisma.authSession.findFirst,
-          updateMany: prisma.authSession.updateMany,
-        },
-      }),
-    );
-  });
-
-  it('현재 비밀번호 확인 후 모든 세션을 revoke하고 새 현재 세션 access token을 반환한다', async () => {
-    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
       passwordHash: currentPasswordHash,
       deletedAt: null,
     });
-    sessionService.issueAuthResult.mockResolvedValue({
-      accessToken: 'rotated-access-token',
-      renewalToken: 'rotated-renewal-token',
-      sessionId: 'session-new',
-    });
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+    prisma.authSession.findFirst.mockResolvedValue({ id: 'session-1', rememberMe: true });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 2 });
+    prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
+      callback({
+        user: { updateMany: prisma.user.updateMany },
+        authSession: {
+          findFirst: prisma.authSession.findFirst,
+          updateMany: prisma.authSession.updateMany,
+        },
+      }),
+    );
+    sessionService.prepareSessionIssue.mockResolvedValue(preparedSession);
+    sessionService.appendPreparedSession.mockResolvedValue(undefined);
+    securityEvents.recordInTransaction.mockResolvedValue(undefined);
+    mailOutboxWriter.appendPasswordChanged.mockResolvedValue(undefined);
+    admission.consume.mockResolvedValue(null);
+  });
 
+  it('현재 비밀번호 확인 후 기존 세션을 revoke하고 같은 transaction의 대체 세션을 반환한다', async () => {
     await expect(
-      changePassword(
-        deps as never,
-        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
-        'OldPass1234',
-        'NewPass1234',
-        { requestIp: '127.0.0.1', userAgent: 'jest' },
-      ),
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234', {
+        requestIp: '127.0.0.1',
+        userAgent: 'vitest',
+      }),
     ).resolves.toEqual({
       success: true,
       accessToken: 'rotated-access-token',
@@ -85,8 +107,61 @@ describe('changePassword command', () => {
       rememberMe: true,
     });
 
-    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(prisma.authSession.findFirst).toHaveBeenCalledWith({
+    const passwordUpdate = prisma.user.updateMany.mock.calls[0]?.[0] as unknown as
+      | {
+          where: { id: string; passwordHash: string; deletedAt: null };
+          data: { passwordHash: string };
+        }
+      | undefined;
+    expect(passwordUpdate?.where).toEqual({
+      id: 'user-1',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+    });
+    expect(typeof passwordUpdate?.data.passwordHash).toBe('string');
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: databaseNow },
+    });
+    expect(sessionService.prepareSessionIssue).toHaveBeenCalledWith(
+      'user-1',
+      'test@kangwon.ac.kr',
+      true,
+    );
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledWith(
+      expect.anything(),
+      preparedSession,
+    );
+    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledWith(expect.anything(), {
+      targetUserId: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      now: databaseNow,
+    });
+    expect(securityEvents.recordInTransaction).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({
+        type: 'SESSION_REVOKE_ALL',
+        sessionId: 'session-1',
+        requestIp: '127.0.0.1',
+        userAgent: 'vitest',
+        metadata: { reason: 'change_password', revokedCount: 2 },
+      }),
+    );
+    expect(securityEvents.recordInTransaction).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({
+        type: 'CHANGE_PASSWORD_SUCCEEDED',
+        sessionId: 'session-new',
+      }),
+    );
+  });
+
+  it('transaction에서 current session의 active 상태와 rememberMe를 다시 확인한다', async () => {
+    await changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234');
+
+    expect(prisma.authSession.findFirst).toHaveBeenNthCalledWith(1, {
       where: {
         id: 'session-1',
         userId: 'user-1',
@@ -95,42 +170,51 @@ describe('changePassword command', () => {
       },
       select: { rememberMe: true },
     });
-    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1', revokedAt: null },
-      data: { revokedAt: databaseNow },
+    expect(prisma.authSession.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 'session-1',
+        userId: 'user-1',
+        rememberMe: true,
+        revokedAt: null,
+        expiresAt: { gt: databaseNow },
+      },
+      select: { id: true },
     });
-    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledWith(expect.anything(), {
-      targetUserId: 'user-1',
-      email: 'test@kangwon.ac.kr',
-      now: databaseNow,
-    });
-    expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
-      'user-1',
-      'test@kangwon.ac.kr',
-      true,
-    );
-    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'CHANGE_PASSWORD_SUCCESS',
-        actorUserId: 'user-1',
-        targetUserId: 'user-1',
-        sessionId: 'session-new',
-        requestIp: '127.0.0.1',
-        userAgent: 'jest',
-      }),
-    );
-    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'SESSION_REVOKE_ALL',
-        actorUserId: 'user-1',
-        targetUserId: 'user-1',
-        sessionId: 'session-1',
-        metadata: { reason: 'change_password', revokedCount: 2 },
-      }),
-    );
   });
 
-  it('auth context에 session id가 없으면 재인증을 요구하고 user/session을 조회하지 않는다', async () => {
+  it('대체 session과 필수 audit은 credential transaction이 열린 동안 append한다', async () => {
+    let transactionOpen = false;
+    prisma.runSerializableTransaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) => {
+        transactionOpen = true;
+        try {
+          return await callback({
+            user: { updateMany: prisma.user.updateMany },
+            authSession: {
+              findFirst: prisma.authSession.findFirst,
+              updateMany: prisma.authSession.updateMany,
+            },
+          });
+        } finally {
+          transactionOpen = false;
+        }
+      },
+    );
+    sessionService.appendPreparedSession.mockImplementation(() => {
+      expect(transactionOpen).toBe(true);
+      return Promise.resolve();
+    });
+    securityEvents.recordInTransaction.mockImplementation(() => {
+      expect(transactionOpen).toBe(true);
+      return Promise.resolve();
+    });
+
+    await expect(
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234'),
+    ).resolves.toMatchObject({ success: true });
+  });
+
+  it('auth context에 session id가 없으면 user/session을 조회하지 않고 재인증을 요구한다', async () => {
     await expect(
       changePassword(
         deps as never,
@@ -145,114 +229,113 @@ describe('changePassword command', () => {
 
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.authSession.findFirst).not.toHaveBeenCalled();
-    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+    expect(admission.consume).not.toHaveBeenCalled();
   });
 
-  it('현재 authenticated session이 이미 없으면 재인증을 요구하고 password update를 rollback한다', async () => {
-    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      email: 'test@kangwon.ac.kr',
-      passwordHash: currentPasswordHash,
-      deletedAt: null,
-    });
-    prisma.authSession.findFirst.mockResolvedValue(null);
+  it('session admission budget이 차단되면 password hash와 login lock 변경 없이 거부한다', async () => {
+    admission.consume.mockResolvedValue(587);
 
     await expect(
-      changePassword(
-        deps as never,
-        { id: 'user-1', sessionId: 'session-revoked', gender: 'M', campus: 'CHUNCHEON' },
-        'OldPass1234',
-        'NewPass1234',
-      ),
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234'),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_CHANGE_PASSWORD_THROTTLED',
+      retryAfterSeconds: 587,
+    });
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+  });
+
+  it('transaction 재검증에서 current session이 사라지면 다른 변경 없이 재인증을 요구한다', async () => {
+    prisma.authSession.findFirst
+      .mockResolvedValueOnce({ id: 'session-1', rememberMe: true })
+      .mockResolvedValueOnce(null);
+
+    await expect(
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234'),
     ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_REAUTHENTICATION_REQUIRED',
     });
 
-    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
   });
 
-  it('현재 비밀번호가 틀리면 password update/session revoke/token 재발급을 하지 않는다', async () => {
-    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      email: 'test@kangwon.ac.kr',
-      passwordHash: currentPasswordHash,
-      deletedAt: null,
-    });
-
+  it('현재 비밀번호가 틀리면 credential/session mutation을 시작하지 않는다', async () => {
     await expect(
-      changePassword(
-        deps as never,
-        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
-        'WrongPass1234',
-        'NewPass1234',
-      ),
+      changePassword(deps as never, authUser, 'WrongPass1234', 'NewPass1234'),
     ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_CURRENT_PASSWORD_INVALID',
-      fieldErrors: { currentPassword: '현재 비밀번호가 올바르지 않습니다.' },
     });
 
-    expect(prisma.user.update).not.toHaveBeenCalled();
-    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
-    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
   });
 
   it('새 비밀번호가 현재 비밀번호와 같으면 거부한다', async () => {
-    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      email: 'test@kangwon.ac.kr',
-      passwordHash: currentPasswordHash,
-      deletedAt: null,
-    });
-
     await expect(
-      changePassword(
-        deps as never,
-        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
-        'OldPass1234',
-        'OldPass1234',
-      ),
+      changePassword(deps as never, authUser, 'OldPass1234', 'OldPass1234'),
     ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_PASSWORD_UNCHANGED',
     });
 
-    expect(prisma.user.update).not.toHaveBeenCalled();
-    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
   });
 
-  it('password/session transaction commit 뒤 session 재발급만 실패하면 재로그인 가능한 stable outcome을 반환한다', async () => {
-    const currentPasswordHash = await hashPasswordForTest('OldPass1234');
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      email: 'test@kangwon.ac.kr',
-      passwordHash: currentPasswordHash,
-      deletedAt: null,
-    });
-    sessionService.issueAuthResult.mockRejectedValue(new Error('session store unavailable'));
+  it('observed password hash CAS가 실패하면 revoke/session/outbox/audit 없이 재인증을 요구한다', async () => {
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      changePassword(
-        deps as never,
-        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
-        'OldPass1234',
-        'NewPass1234',
-      ),
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234'),
     ).resolves.toMatchObject({
       success: false,
-      code: 'AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED',
-      error: '비밀번호가 변경됐어요. 다시 로그인해 주세요.',
+      code: 'AUTH_REAUTHENTICATION_REQUIRED',
     });
 
-    expect(prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
-    expect(sessionService.issueAuthResult).toHaveBeenCalledTimes(1);
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.appendPreparedSession).not.toHaveBeenCalled();
+    expect(mailOutboxWriter.appendPasswordChanged).not.toHaveBeenCalled();
+    expect(securityEvents.recordInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('replacement session append 실패는 command 실패로 전파한다', async () => {
+    sessionService.appendPreparedSession.mockRejectedValue(
+      new Error('replacement session unavailable'),
+    );
+
+    await expect(
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234'),
+    ).rejects.toThrow('replacement session unavailable');
+
+    expect(mailOutboxWriter.appendPasswordChanged).not.toHaveBeenCalled();
+    expect(securityEvents.recordInTransaction).not.toHaveBeenCalled();
+    expect(flowMetrics.recordSensitiveMutation).toHaveBeenCalledWith(
+      'change_password',
+      'replacement_session_failed',
+    );
+  });
+
+  it('필수 audit append 실패는 command 실패로 전파한다', async () => {
+    securityEvents.recordInTransaction.mockRejectedValue(new Error('audit unavailable'));
+
+    await expect(
+      changePassword(deps as never, authUser, 'OldPass1234', 'NewPass1234'),
+    ).rejects.toThrow('audit unavailable');
+
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
+    expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledTimes(1);
+    expect(flowMetrics.recordSensitiveMutation).toHaveBeenCalledWith(
+      'change_password',
+      'audit_append_failed',
+    );
   });
 });

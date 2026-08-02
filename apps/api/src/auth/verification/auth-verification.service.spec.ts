@@ -86,6 +86,8 @@ describe('AuthVerificationService', () => {
     authLoginBurstWindowSeconds: 60,
     authLoginSustainedLimit: 120,
     authLoginSustainedWindowSeconds: 600,
+    authChangePasswordLimit: 10,
+    authChangePasswordWindowSeconds: 600,
     renewalPreviousTokenGraceEnabled: true,
   };
 

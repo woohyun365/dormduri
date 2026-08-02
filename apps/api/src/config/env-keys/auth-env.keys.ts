@@ -155,6 +155,22 @@ export const authEnvKeys = defineEnvKeys([
     description: 'Login IP sustained window in seconds.',
   },
   {
+    key: 'AUTH_CHANGE_PASSWORD_LIMIT',
+    owner: 'auth',
+    category: 'runtime',
+    source: 'process-env',
+    defaultPolicy: 'safe-local-default',
+    description: 'Per authenticated session change-password attempt limit.',
+  },
+  {
+    key: 'AUTH_CHANGE_PASSWORD_WINDOW_SECONDS',
+    owner: 'auth',
+    category: 'runtime',
+    source: 'process-env',
+    defaultPolicy: 'safe-local-default',
+    description: 'Per authenticated session change-password attempt window in seconds.',
+  },
+  {
     key: 'AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED',
     owner: 'auth',
     category: 'runtime',

@@ -9,6 +9,9 @@ describe('AuthFlowMetricsService', () => {
 
     service.recordVerification('RESET_PASSWORD', 'request', 'accepted');
     service.recordCredentialTransition('reset_password', 'committed');
+    service.recordSignupFinalAdmission('allowed');
+    service.recordSignupPasswordHash('completed', 0.2);
+    service.recordSensitiveMutation('change_password', 'audit_append_failed');
     service.recordMailDispatch('accepted', 12);
 
     expect(metrics.incrementCounter).toHaveBeenCalledWith({
@@ -30,6 +33,19 @@ describe('AuthFlowMetricsService', () => {
     expect(metrics.setGauge).toHaveBeenCalledWith({
       name: 'api_auth_mail_outbox_lag_seconds',
       value: 12,
+    });
+    expect(metrics.incrementCounter).toHaveBeenCalledWith({
+      name: 'api_auth_signup_final_admission_total',
+      labels: { outcome: 'allowed' },
+    });
+    expect(metrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_auth_signup_password_hash_duration_seconds',
+      labels: { outcome: 'completed' },
+      value: 0.2,
+    });
+    expect(metrics.incrementCounter).toHaveBeenCalledWith({
+      name: 'api_auth_sensitive_mutations_total',
+      labels: { operation: 'change_password', outcome: 'audit_append_failed' },
     });
   });
 });

@@ -16,4 +16,12 @@ export const authErrors = {
       { retryAfterSeconds },
     );
   },
+
+  changePasswordThrottled(retryAfterSeconds: number) {
+    return tooManyRequestsError(
+      'AUTH_CHANGE_PASSWORD_THROTTLED',
+      '비밀번호 변경이 잠시 제한됐어요.',
+      { retryAfterSeconds },
+    );
+  },
 };

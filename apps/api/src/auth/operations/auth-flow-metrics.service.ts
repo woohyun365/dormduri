@@ -8,6 +8,20 @@ import {
 
 export type AuthVerificationMetricOperation = 'request' | 'verify' | 'grant';
 export type AuthCredentialTransitionOperation = 'signup' | 'reset_password' | 'change_password';
+export type AuthSensitiveMutationOperation = 'signup' | 'change_password';
+export type AuthSensitiveMutationOutcome =
+  | 'allowed'
+  | 'throttled'
+  | 'committed'
+  | 'rejected'
+  | 'session_required'
+  | 'stale'
+  | 'replacement_session_failed'
+  | 'outbox_append_failed'
+  | 'audit_append_failed'
+  | 'failed';
+export type SignupFinalAdmissionMetricOutcome = 'allowed' | 'grant_required' | 'throttled';
+export type SignupPasswordHashMetricOutcome = 'started' | 'completed' | 'failed';
 export type SignupNicknameValidationMetricOutcome =
   | 'available'
   | 'invalid'
@@ -56,6 +70,43 @@ export class AuthFlowMetricsService {
       metrics.incrementCounter({
         name: 'api_auth_signup_nickname_validation_total',
         labels: { outcome },
+      }),
+    );
+  }
+
+  recordSignupFinalAdmission(outcome: SignupFinalAdmissionMetricOutcome) {
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({
+        name: 'api_auth_signup_final_admission_total',
+        labels: { outcome },
+      }),
+    );
+  }
+
+  recordSignupPasswordHash(outcome: SignupPasswordHashMetricOutcome, durationSeconds?: number) {
+    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
+      metrics.incrementCounter({
+        name: 'api_auth_signup_password_hash_total',
+        labels: { outcome },
+      });
+      if (typeof durationSeconds === 'number') {
+        metrics.observeHistogram({
+          name: 'api_auth_signup_password_hash_duration_seconds',
+          labels: { outcome },
+          value: Math.max(0, durationSeconds),
+        });
+      }
+    });
+  }
+
+  recordSensitiveMutation(
+    operation: AuthSensitiveMutationOperation,
+    outcome: AuthSensitiveMutationOutcome,
+  ) {
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({
+        name: 'api_auth_sensitive_mutations_total',
+        labels: { operation, outcome },
       }),
     );
   }

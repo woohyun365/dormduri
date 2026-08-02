@@ -54,6 +54,14 @@ describe('DomainPrometheusMetricsService', () => {
       labels: { reason: 'mail-outbox-lag-high' },
       value: 1,
     });
+    metrics.incrementCounter({
+      name: 'api_auth_signup_final_admission_total',
+      labels: { outcome: 'throttled' },
+    });
+    metrics.incrementCounter({
+      name: 'api_auth_sensitive_mutations_total',
+      labels: { operation: 'change_password', outcome: 'audit_append_failed' },
+    });
 
     const scrape = await registry.metrics();
     expect(scrape).toContain('api_realtime_dispatch_batches_total');
@@ -68,6 +76,9 @@ describe('DomainPrometheusMetricsService', () => {
     expect(scrape).toContain('scope="reset_password"');
     expect(scrape).toContain('api_auth_security_alert_active');
     expect(scrape).toContain('reason="mail-outbox-lag-high"');
+    expect(scrape).toContain('api_auth_signup_final_admission_total');
+    expect(scrape).toContain('api_auth_sensitive_mutations_total');
+    expect(scrape).not.toContain('user-1');
   });
 
   it('rejects unknown or forbidden labels before they reach Prometheus', () => {

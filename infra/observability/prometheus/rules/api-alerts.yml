@@ -118,3 +118,44 @@ groups:
         annotations:
           summary: grace 범위를 벗어난 세션 갱신 토큰 재사용이 감지됐습니다.
           runbook: infra/runbooks/auth-session-incidents.md#renewal-token-reuse
+
+      - alert: AuthCredentialDurabilityFailure
+        expr: |
+          increase(
+            api_auth_sensitive_mutations_total{
+              operation="change_password",
+              outcome=~"replacement_session_failed|outbox_append_failed|audit_append_failed"
+            }[5m]
+          ) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: 비밀번호 변경 transaction의 필수 session/outbox/audit append 실패가 감지됐습니다.
+          runbook: infra/runbooks/auth-session-incidents.md#credential-mutation-durability
+
+      - alert: AuthSensitiveMutationThrottleSpike
+        expr: |
+          sum(increase(api_auth_sensitive_mutations_total{outcome="throttled"}[10m])) >= 10
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 보호된 인증 변경 요청의 제한 응답이 10분 기준치를 초과했습니다.
+          runbook: infra/runbooks/auth-session-incidents.md#sensitive-mutation-admission
+
+      - alert: AuthSignupFinalizationAbuse
+        expr: |
+          increase(api_auth_signup_final_admission_total{outcome="throttled"}[10m])
+          /
+          clamp_min(increase(api_auth_signup_password_hash_total{outcome="started"}[10m]), 1)
+          >= 1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 가입 최종 제출 제한이 password hash 시작 대비 비정상적으로 증가했습니다.
+          runbook: infra/runbooks/auth-session-incidents.md#sensitive-mutation-admission

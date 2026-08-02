@@ -23,6 +23,8 @@ export const DEFAULT_AUTH_LOGIN_BURST_LIMIT = 30;
 export const DEFAULT_AUTH_LOGIN_BURST_WINDOW_SECONDS = 60;
 export const DEFAULT_AUTH_LOGIN_SUSTAINED_LIMIT = 120;
 export const DEFAULT_AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS = 10 * 60;
+export const DEFAULT_AUTH_CHANGE_PASSWORD_LIMIT = 10;
+export const DEFAULT_AUTH_CHANGE_PASSWORD_WINDOW_SECONDS = 10 * 60;
 export const DEFAULT_AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED = true;
 
 export default registerAs('auth', () => ({
@@ -126,6 +128,18 @@ export default registerAs('auth', () => ({
     process.env,
     'AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS',
     DEFAULT_AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS,
+    { min: 1 },
+  ),
+  authChangePasswordLimit: readNumberEnv(
+    process.env,
+    'AUTH_CHANGE_PASSWORD_LIMIT',
+    DEFAULT_AUTH_CHANGE_PASSWORD_LIMIT,
+    { min: 1 },
+  ),
+  authChangePasswordWindowSeconds: readNumberEnv(
+    process.env,
+    'AUTH_CHANGE_PASSWORD_WINDOW_SECONDS',
+    DEFAULT_AUTH_CHANGE_PASSWORD_WINDOW_SECONDS,
     { min: 1 },
   ),
   renewalPreviousTokenGraceEnabled: readBooleanEnv(
