@@ -6,6 +6,8 @@ const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 const lifecycleRoot = join(apiSourceRoot, 'lifecycle');
 const seasonParticipantsRoot = join(apiSourceRoot, 'season-participants');
+const authRoot = join(apiSourceRoot, 'auth');
+const usersRoot = join(apiSourceRoot, 'users');
 
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
@@ -56,5 +58,33 @@ describe('users product architecture boundary', () => {
     expect(source).toContain('RETENTION_SWEEP_PORT');
     expect(source).not.toContain(removedUsersRetentionSweepPortName);
     expect(source).not.toMatch(/UsersService|users\.service/);
+  });
+
+  it('keeps signup and user nickname mutations on one display identity policy owner', () => {
+    const authModuleSource = readSource(join(authRoot, 'auth.module.ts'));
+    const usersModuleSource = readSource(join(usersRoot, 'users.module.ts'));
+    const policySource = readSource(
+      join(usersRoot, 'identity/display/display-identity-nickname-policy.service.ts'),
+    );
+    const authRegistrationFiles = productionTypeScriptFiles(join(authRoot, 'registration'));
+    const usersMutationFiles = [
+      ...productionTypeScriptFiles(join(usersRoot, 'application')),
+      ...productionTypeScriptFiles(join(usersRoot, 'operations')),
+      ...productionTypeScriptFiles(join(usersRoot, 'identity/display')),
+    ].filter((path) => !path.endsWith('display-identity-nickname-policy.service.ts'));
+    const independentPolicyComposition = /ModerationService|parseDisplayIdentityNickname\s*}/;
+
+    expect(authModuleSource).toContain('DisplayIdentityModule');
+    expect(usersModuleSource).toContain('DisplayIdentityModule');
+    expect(authModuleSource).not.toContain('UsersModule');
+    expect(authModuleSource).not.toContain('forwardRef(');
+    expect(usersModuleSource).not.toContain('forwardRef(');
+    expect(policySource).toContain('ModerationService');
+    expect(
+      [...authRegistrationFiles, ...usersMutationFiles]
+        .filter((path) => independentPolicyComposition.test(readSource(path)))
+        .map(relativeSourcePath)
+        .sort(),
+    ).toEqual([]);
   });
 });

@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { SignupDraftValidationResponse } from '@repo/shared/auth/response';
+import type { SignupNicknameValidationResponse } from '@repo/shared/auth/response';
 import { PrismaService } from '../../platform/database/prisma.service.js';
+import { DisplayIdentityNicknamePolicyService } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
-import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { signup } from './signup.command.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { SignupNicknameValidationQuery } from './signup-nickname-validation.query.js';
 
 @Injectable()
 export class AuthRegistrationUseCases {
@@ -14,16 +15,16 @@ export class AuthRegistrationUseCases {
     private readonly prisma: PrismaService,
     private readonly verificationService: AuthVerificationService,
     private readonly sessionService: AuthSessionService,
-    private readonly signupValidationService: AuthSignupValidationService,
+    private readonly nicknamePolicy: DisplayIdentityNicknamePolicyService,
+    private readonly signupNicknameValidationQuery: SignupNicknameValidationQuery,
     private readonly flowMetrics?: AuthFlowMetricsService,
   ) {}
 
-  validateSignupDraft(input: {
-    email: string;
-    password: string;
-    nickname: string;
-  }): Promise<SignupDraftValidationResponse> {
-    return this.signupValidationService.validateDraft(input);
+  validateSignupNickname(
+    nickname: string,
+    verificationGrant: string | null,
+  ): Promise<SignupNicknameValidationResponse> {
+    return this.signupNicknameValidationQuery.execute(nickname, verificationGrant);
   }
 
   async signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {
@@ -33,7 +34,7 @@ export class AuthRegistrationUseCases {
           prisma: this.prisma,
           verificationService: this.verificationService,
           sessionService: this.sessionService,
-          signupValidationService: this.signupValidationService,
+          nicknamePolicy: this.nicknamePolicy,
         },
         input,
         verificationGrant,

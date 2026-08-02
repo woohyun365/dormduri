@@ -54,7 +54,7 @@ describe('AuthController', () => {
     verifyEmailCode: vi.fn(),
     verifyResetCode: vi.fn(),
     getSession: vi.fn(),
-    validateSignupDraft: vi.fn(),
+    validateSignupNickname: vi.fn(),
     signup: vi.fn(),
     login: vi.fn(),
     resetPassword: vi.fn(),
@@ -149,10 +149,10 @@ describe('AuthController', () => {
     expect(authService.signup).toHaveBeenCalledWith(body, null);
   });
 
-  it('signup draft validation route는 /auth/validate-signup-draft로 노출된다', () => {
-    const handler = getAuthControllerHandler('validateSignupDraft');
+  it('signup nickname validation route는 /auth/signup/validate-nickname으로 노출된다', () => {
+    const handler = getAuthControllerHandler('validateSignupNickname');
 
-    expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('validate-signup-draft');
+    expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('signup/validate-nickname');
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
   });
 
@@ -166,27 +166,22 @@ describe('AuthController', () => {
     ).toBeUndefined();
   });
 
-  it('validateSignupDraft는 email/password/nickname draft body를 parse해 service로 위임한다', async () => {
-    authService.validateSignupDraft.mockResolvedValue({ success: true });
-
-    await expect(
-      controller.validateSignupDraft({
-        email: 'test@kangwon.ac.kr',
-        password: 'Test1234',
-        nickname: '테스터',
-      }),
-    ).resolves.toEqual({ success: true });
-
-    expect(authService.validateSignupDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'Test1234',
+  it('validateSignupNickname은 nickname과 SIGNUP grant를 service로 위임한다', async () => {
+    authService.validateSignupNickname.mockResolvedValue({
+      success: true,
       nickname: '테스터',
     });
+
+    await expect(
+      controller.validateSignupNickname({ nickname: '테스터' }, 'signup-grant'),
+    ).resolves.toEqual({ success: true, nickname: '테스터' });
+
+    expect(authService.validateSignupNickname).toHaveBeenCalledWith('테스터', 'signup-grant');
   });
 
-  it('validateSignupDraft는 lifestyle/intro/profile field를 signup draft request에서 거부한다', async () => {
+  it('validateSignupNickname은 nickname 외 draft/profile field를 거부한다', async () => {
     await expect(
-      controller.validateSignupDraft({
+      controller.validateSignupNickname({
         email: 'test@kangwon.ac.kr',
         password: 'Test1234',
         nickname: '테스터',
@@ -197,7 +192,7 @@ describe('AuthController', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(authService.validateSignupDraft).not.toHaveBeenCalled();
+    expect(authService.validateSignupNickname).not.toHaveBeenCalled();
   });
 
   it('changePassword route는 /auth/change-password로 노출되고 authenticated user context를 service로 전달한다', async () => {

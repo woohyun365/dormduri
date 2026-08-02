@@ -1,10 +1,7 @@
-import { parseDisplayIdentityNickname as parseSharedDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { ModerationService } from '../../moderation/moderation.service.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 import { getUserWithDisplayIdentity } from '../application/user-display-identity.reader.js';
-import { usersErrors } from '../errors/users.errors.js';
 import {
   recordDisplayIdentityNicknameChangeAuditTx,
   type DisplayIdentityNicknameAuditReference,
@@ -12,11 +9,17 @@ import {
 import { resolveNicknameChangePolicy } from '../identity/display/display-identity-edit.policy.js';
 import {
   assertDisplayIdentity,
-  assertNicknameAvailableForUser,
   isSameNickname,
-  type ParsedDisplayIdentityNickname,
   updateDisplayIdentityNickname,
 } from '../identity/display/display-identity.repository.js';
+import type {
+  DisplayIdentityNicknamePolicyService,
+  ParsedDisplayIdentityNickname,
+} from '../identity/display/display-identity-nickname-policy.service.js';
+import {
+  applyDisplayIdentityNicknamePolicyForUser,
+  parseDisplayIdentityNicknameForUser,
+} from '../identity/display/display-identity-nickname-user-error.js';
 
 export type DisplayIdentityNicknameOverrideReason =
   | 'REPORT_REVIEW'
@@ -50,7 +53,7 @@ export interface DisplayIdentityNicknameOverrideResult {
 export interface OverrideDisplayIdentityNicknameCommandDeps {
   prisma: PrismaService;
   seasonsService: SeasonContextPort;
-  moderationService: ModerationService;
+  nicknamePolicy: DisplayIdentityNicknamePolicyService;
 }
 
 export function createOverrideDisplayIdentityNicknameCommand(
@@ -59,15 +62,22 @@ export function createOverrideDisplayIdentityNicknameCommand(
   async function overrideDisplayIdentityNicknameForPolicyEnforcement(
     input: DisplayIdentityNicknameOverrideInput,
   ): Promise<DisplayIdentityNicknameOverrideResult> {
-    const parsedNickname = parseDisplayIdentityNickname(input.nickname);
+    const parsedNickname = parseDisplayIdentityNicknameForUser(deps.nicknamePolicy, input.nickname);
     const now = await deps.prisma.getDatabaseNow();
-    await assertNicknamePolicyAccepted(parsedNickname.value);
+    await applyDisplayIdentityNicknamePolicyForUser(() =>
+      deps.nicknamePolicy.assertModerationAccepted(parsedNickname),
+    );
     let auditEventId: string | null = null;
 
     await deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getUserWithDisplayIdentity(tx, input.userId);
       const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
-      await assertNicknameAvailableForUser(tx, parsedNickname, input.userId);
+      await applyDisplayIdentityNicknamePolicyForUser(() =>
+        deps.nicknamePolicy.assertAvailable(parsedNickname, {
+          client: tx,
+          excludeUserId: input.userId,
+        }),
+      );
 
       const nicknamePolicy = await resolveNicknameChangePolicy(
         {
@@ -132,25 +142,9 @@ export function createOverrideDisplayIdentityNicknameCommand(
     };
   }
 
-  async function assertNicknamePolicyAccepted(nickname: string) {
-    const nicknamePolicyError = await deps.moderationService.validateNicknamePolicy(nickname);
-    if (nicknamePolicyError) {
-      throw usersErrors.nicknameModerationRejected(nicknamePolicyError);
-    }
-  }
-
   return {
     overrideDisplayIdentityNicknameForPolicyEnforcement,
   };
-}
-
-function parseDisplayIdentityNickname(nickname: string): ParsedDisplayIdentityNickname {
-  const parsedNickname = parseSharedDisplayIdentityNickname(nickname);
-  if (!parsedNickname.ok) {
-    throw usersErrors.invalidNickname(parsedNickname.message);
-  }
-
-  return parsedNickname;
 }
 
 async function updateRegisteredSeasonProfileSnapshot(

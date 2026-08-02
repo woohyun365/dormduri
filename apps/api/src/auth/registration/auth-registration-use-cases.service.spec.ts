@@ -35,14 +35,14 @@ describe('AuthRegistrationUseCases', () => {
   const sessionService = {
     issueAuthResult: vi.fn(),
   };
-  const signupValidationService = {
-    validateDraft: vi.fn(),
-  };
+  const nicknamePolicy = { validate: vi.fn() };
+  const signupNicknameValidationQuery = { execute: vi.fn() };
   const useCases = new AuthRegistrationUseCases(
     prisma as never,
     verificationService as never,
     sessionService as never,
-    signupValidationService as never,
+    nicknamePolicy as never,
+    signupNicknameValidationQuery as never,
   );
   const input = {
     email: 'test@kangwon.ac.kr',
@@ -101,28 +101,29 @@ describe('AuthRegistrationUseCases', () => {
       expiresAt: new Date('2026-04-23T00:15:00.000Z'),
     });
     verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
-  });
-
-  it('validateSignupDraft는 signup validation service로 그대로 위임한다', async () => {
-    signupValidationService.validateDraft.mockResolvedValue({ success: true });
-
-    await expect(
-      useCases.validateSignupDraft({
-        email: 'test@kangwon.ac.kr',
-        password: 'Pass1234',
-        nickname: '테스터',
-      }),
-    ).resolves.toEqual({ success: true });
-
-    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'Pass1234',
-      nickname: '테스터',
+    nicknamePolicy.validate.mockResolvedValue({
+      ok: true,
+      value: '테스터',
+      normalized: '테스터',
+      script: 'HANGUL',
     });
   });
 
+  it('validateSignupNickname은 전용 query로 nickname과 grant를 위임한다', async () => {
+    signupNicknameValidationQuery.execute.mockResolvedValue({
+      success: true,
+      nickname: '테스터',
+    });
+
+    await expect(useCases.validateSignupNickname('테스터', 'signup-grant')).resolves.toEqual({
+      success: true,
+      nickname: '테스터',
+    });
+
+    expect(signupNicknameValidationQuery.execute).toHaveBeenCalledWith('테스터', 'signup-grant');
+  });
+
   it('signup은 slice-local command dependencies를 조립해 session issue 결과를 반환한다', async () => {
-    signupValidationService.validateDraft.mockResolvedValue({ success: true });
     prisma.user.create.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
@@ -144,11 +145,7 @@ describe('AuthRegistrationUseCases', () => {
       user: { id: 'user-1', nickname: '테스터' },
     });
 
-    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
-      email: input.email,
-      password: input.password,
-      nickname: input.nickname,
-    });
+    expect(nicknamePolicy.validate).toHaveBeenCalledWith(input.nickname);
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
       'test@kangwon.ac.kr',

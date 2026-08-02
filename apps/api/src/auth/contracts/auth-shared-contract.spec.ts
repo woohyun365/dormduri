@@ -3,12 +3,12 @@ import {
   changePasswordRequestSchema,
   renewSessionRequestSchema,
   resetPasswordRequestSchema,
-  signupDraftValidationRequestSchema,
+  signupNicknameValidationRequestSchema,
   signupRequestSchema,
 } from '@repo/shared/auth/contract';
 import {
   loginRequestSchema as granularLoginRequestSchema,
-  signupDraftValidationRequestSchema as granularSignupDraftValidationRequestSchema,
+  signupNicknameValidationRequestSchema as granularSignupNicknameValidationRequestSchema,
 } from '@repo/shared/auth/contract';
 import { validateKnuEmailFormat as granularValidateKnuEmailFormat } from '@repo/shared/auth/policy';
 import {
@@ -44,6 +44,21 @@ const SIGNUP_LEGAL_ACCEPTANCES = {
 } as const;
 
 describe('auth shared contract guards', () => {
+  it('signup nickname 사전 검증은 email/password가 아닌 nickname만 받는다', () => {
+    expect(
+      signupNicknameValidationRequestSchema.safeParse({
+        nickname: '테스터',
+      }).success,
+    ).toBe(true);
+    expect(
+      signupNicknameValidationRequestSchema.safeParse({
+        email: 'student@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+      }).success,
+    ).toBe(false);
+  });
+
   it('browser reset contract는 email/grant를 거부하고 transport verify contract만 raw grant를 허용한다', () => {
     const opaqueGrant = `v1.verification-code.${'g'.repeat(43)}`;
 
@@ -192,9 +207,7 @@ describe('auth shared contract guards', () => {
 
     expect(granularLoginRequestSchema.parse(loginInput)).toEqual(loginInput);
     expect(
-      granularSignupDraftValidationRequestSchema.parse({
-        email: 'student@kangwon.ac.kr',
-        password: 'pass1234',
+      granularSignupNicknameValidationRequestSchema.parse({
         nickname: '테스터',
       }),
     ).toMatchObject({ nickname: '테스터' });
@@ -208,21 +221,17 @@ describe('auth shared contract guards', () => {
     expect(apiSessionResponseSchema.parse(sessionResponse)).toEqual(sessionResponse);
   });
 
-  it('signup draft validation request는 legacy profile payload 없이 email/password/nickname만 받는다', () => {
+  it('signup nickname validation request는 nickname만 받는다', () => {
     expect(
-      signupDraftValidationRequestSchema.parse({
-        email: 'student@kangwon.ac.kr',
-        password: 'pass1234',
+      signupNicknameValidationRequestSchema.parse({
         nickname: '테스터',
       }),
     ).toEqual({
-      email: 'student@kangwon.ac.kr',
-      password: 'pass1234',
       nickname: '테스터',
     });
 
     expect(
-      signupDraftValidationRequestSchema.safeParse({
+      signupNicknameValidationRequestSchema.safeParse({
         email: 'student@kangwon.ac.kr',
         password: 'pass1234',
         nickname: '테스터',

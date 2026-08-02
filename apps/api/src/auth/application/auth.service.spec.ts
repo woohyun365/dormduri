@@ -9,7 +9,7 @@ describe('AuthService facade', () => {
     verifyResetCode: vi.fn(),
   };
   const registrationUseCases = {
-    validateSignupDraft: vi.fn(),
+    validateSignupNickname: vi.fn(),
     signup: vi.fn(),
   };
   const credentialUseCases = {
@@ -106,7 +106,10 @@ describe('AuthService facade', () => {
       campus: 'CHUNCHEON',
     } as const;
 
-    registrationUseCases.validateSignupDraft.mockResolvedValueOnce({ success: true });
+    registrationUseCases.validateSignupNickname.mockResolvedValueOnce({
+      success: true,
+      nickname: '테스터',
+    });
     registrationUseCases.signup.mockResolvedValueOnce({
       success: true,
       accessToken: 'signup-token',
@@ -126,13 +129,10 @@ describe('AuthService facade', () => {
     });
     sessionUseCases.logout.mockResolvedValueOnce({ success: true });
 
-    await expect(
-      service.validateSignupDraft({
-        email: 'test@kangwon.ac.kr',
-        password: 'Pass1234',
-        nickname: '테스터',
-      }),
-    ).resolves.toEqual({ success: true });
+    await expect(service.validateSignupNickname('테스터', 'signup-grant')).resolves.toEqual({
+      success: true,
+      nickname: '테스터',
+    });
     await expect(service.signup(signupInput as never)).resolves.toEqual({
       success: true,
       accessToken: 'signup-token',
@@ -156,11 +156,10 @@ describe('AuthService facade', () => {
       success: true,
     });
 
-    expect(registrationUseCases.validateSignupDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'Pass1234',
-      nickname: '테스터',
-    });
+    expect(registrationUseCases.validateSignupNickname).toHaveBeenCalledWith(
+      '테스터',
+      'signup-grant',
+    );
     expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput, null);
     expect(credentialUseCases.login).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',

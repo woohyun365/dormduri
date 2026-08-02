@@ -4,10 +4,7 @@ import {
   normalizeEmail as normalizeEmailShared,
   validatePasswordStructure,
 } from '@repo/shared/auth/policy';
-import {
-  normalizeDisplayIdentityNickname,
-  parseDisplayIdentityNickname,
-} from '@repo/shared/user/identity/display';
+import { normalizeDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 
 export function normalizeEmail(email: string): string {
   return normalizeEmailShared(email);
@@ -19,10 +16,6 @@ export function isKnuEmail(email: string): boolean {
 
 export function normalizeNickname(nickname: string): string {
   return normalizeDisplayIdentityNickname(nickname);
-}
-
-export function parseNickname(nickname: string) {
-  return parseDisplayIdentityNickname(nickname);
 }
 
 export function validatePasswordPolicy(password: string, email: string): string | null {

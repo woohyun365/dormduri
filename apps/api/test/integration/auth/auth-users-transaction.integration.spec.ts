@@ -18,7 +18,8 @@ import { PrismaService } from '../../../src/platform/database/prisma.service.js'
 import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
 import { createUserUpdateOwner } from '../../../src/users/application/user-update-owner.js';
-import type { ModerationService } from '../../../src/moderation/moderation.service.js';
+import { DisplayIdentityNicknamePolicyService } from '../../../src/users/identity/display/display-identity-nickname-policy.service.js';
+import { DisplayIdentityRepository } from '../../../src/users/identity/display/display-identity.repository.js';
 import { UsersService } from '../../../src/users/application/users.service.js';
 import { SeasonsService } from '../../../src/seasons/application/seasons.service.js';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
@@ -243,9 +244,14 @@ describe('Auth/users transaction rollback and race integration', () => {
               matchesVerificationGrantSubject: verificationGrantSubjectMatches,
             },
             sessionService: authSessionService,
-            signupValidationService: {
-              validateDraft() {
-                return Promise.resolve({ success: true });
+            nicknamePolicy: {
+              validate(inputNickname: string) {
+                return Promise.resolve({
+                  ok: true,
+                  value: inputNickname,
+                  normalized: normalizeNickname(inputNickname),
+                  script: 'HANGUL',
+                });
               },
             },
           },
@@ -988,15 +994,20 @@ describe('Auth/users transaction rollback and race integration', () => {
   });
 
   function createNicknameUpdateOwner(barrier: ReturnType<typeof createBarrier>) {
-    return createUserUpdateOwner({
-      prisma,
-      seasonsService,
-      moderationService: {
+    const nicknamePolicy = new DisplayIdentityNicknamePolicyService(
+      {
         async validateNicknamePolicy() {
           await barrier.block();
           return null;
         },
-      } as unknown as ModerationService,
+      } as never,
+      new DisplayIdentityRepository(prisma),
+    );
+
+    return createUserUpdateOwner({
+      prisma,
+      seasonsService,
+      nicknamePolicy,
       currentUserViewService: {
         buildCurrentUserResponse(user: Parameters<typeof buildCurrentUserResponse>[0]) {
           return buildCurrentUserResponse(user);

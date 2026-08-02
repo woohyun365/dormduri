@@ -140,6 +140,12 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Total session renewal outcomes by bounded lifecycle result.',
     labelNames: ['outcome'],
   },
+  api_auth_signup_nickname_validation_total: {
+    name: 'api_auth_signup_nickname_validation_total',
+    kind: 'counter',
+    help: 'Total signup nickname validation outcomes by bounded result.',
+    labelNames: ['outcome'],
+  },
   api_seasons_current_query_total: {
     name: 'api_seasons_current_query_total',
     kind: 'counter',

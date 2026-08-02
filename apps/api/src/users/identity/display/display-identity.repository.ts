@@ -1,5 +1,5 @@
 import type { Prisma } from '../../../generated/prisma/client.js';
-import type { PrismaService } from '../../../platform/database/prisma.service.js';
+import { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
@@ -7,6 +7,7 @@ import {
 import type { UserDisplayIdentityRecord } from '../../current-user/current-user.select.js';
 import { usersErrors } from '../../errors/users.errors.js';
 import type { ParsedDisplayIdentityNickname as SharedParsedDisplayIdentityNickname } from '@repo/shared/user/identity/display';
+import { Injectable } from '@nestjs/common';
 
 export type ParsedDisplayIdentityNickname = Extract<
   SharedParsedDisplayIdentityNickname,
@@ -17,18 +18,20 @@ export type UserDisplayIdentityClient =
   | Pick<PrismaService, 'userDisplayIdentity'>
   | Pick<Prisma.TransactionClient, 'userDisplayIdentity'>;
 
-export async function assertNicknameAvailableForUser(
-  client: UserDisplayIdentityClient,
-  parsedNickname: Pick<ParsedDisplayIdentityNickname, 'normalized'>,
-  userId: string,
-) {
-  const existingNickname = await client.userDisplayIdentity.findUnique({
-    where: { nicknameNormalized: parsedNickname.normalized },
-    select: { userId: true },
-  });
+@Injectable()
+export class DisplayIdentityRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-  if (existingNickname && existingNickname.userId !== userId) {
-    throw usersErrors.nicknameAlreadyTaken();
+  async findNicknameOwner(
+    nicknameNormalized: string,
+    client: UserDisplayIdentityClient = this.prisma,
+  ): Promise<string | null> {
+    const identity = await client.userDisplayIdentity.findUnique({
+      where: { nicknameNormalized },
+      select: { userId: true },
+    });
+
+    return identity?.userId ?? null;
   }
 }
 

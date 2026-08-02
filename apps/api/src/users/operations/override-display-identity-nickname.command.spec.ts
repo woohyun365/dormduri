@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createOverrideDisplayIdentityNicknameCommand } from './override-display-identity-nickname.command.js';
 import { usersErrors } from '../errors/users.errors.js';
+import { DisplayIdentityNicknamePolicyService } from '../identity/display/display-identity-nickname-policy.service.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
 const USER = {
@@ -63,6 +64,13 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
   const moderationService = {
     validateNicknamePolicy: vi.fn(),
   };
+  const displayIdentityRepository = {
+    findNicknameOwner: vi.fn(),
+  };
+  const nicknamePolicy = new DisplayIdentityNicknamePolicyService(
+    moderationService as never,
+    displayIdentityRepository as never,
+  );
   const tx = {
     user: { findUnique: vi.fn() },
     seasonParticipant: { findUnique: vi.fn() },
@@ -76,7 +84,7 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
   const command = createOverrideDisplayIdentityNicknameCommand({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
-    moderationService: moderationService as never,
+    nicknamePolicy,
   });
 
   beforeEach(() => {
@@ -90,6 +98,7 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
       season: { id: 'season-1' },
     });
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    displayIdentityRepository.findNicknameOwner.mockResolvedValue(null);
     tx.user.findUnique.mockResolvedValue(USER);
     tx.userDisplayIdentity.findUnique.mockResolvedValue(null);
     tx.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });

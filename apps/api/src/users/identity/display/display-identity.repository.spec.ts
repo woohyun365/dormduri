@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../../../generated/prisma/client.js';
 import {
-  assertNicknameAvailableForUser,
+  DisplayIdentityRepository,
   updateDisplayIdentityNickname,
   type ParsedDisplayIdentityNickname,
 } from './display-identity.repository.js';
@@ -35,12 +35,15 @@ describe('display identity repository', () => {
     vi.clearAllMocks();
   });
 
-  it('다른 user가 같은 normalized nickname을 쓰면 DISPLAY_NICKNAME_TAKEN으로 fail-closed 한다', async () => {
-    client.userDisplayIdentity.findUnique.mockResolvedValue({ userId: 'other-user' });
+  it('typed repository는 normalized nickname owner만 반환한다', async () => {
+    client.userDisplayIdentity.findUnique.mockResolvedValue({ userId: 'owner-1' });
+    const repository = new DisplayIdentityRepository(client as never);
 
-    await expect(
-      assertNicknameAvailableForUser(client as never, PARSED_NICKNAME, 'user-1'),
-    ).rejects.toMatchObject({ response: usersErrors.nicknameAlreadyTaken().getResponse() });
+    await expect(repository.findNicknameOwner('niceguy')).resolves.toBe('owner-1');
+    expect(client.userDisplayIdentity.findUnique).toHaveBeenCalledWith({
+      where: { nicknameNormalized: 'niceguy' },
+      select: { userId: true },
+    });
   });
 
   it('stale nicknameChangedAt update race는 cooldown active error로 유지한다', async () => {

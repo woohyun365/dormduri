@@ -47,12 +47,12 @@ export function SignupCredentialsScenario({ scenario }: { scenario: AccountScena
         onNext={noop}
         onBack={noop}
         disabled={scenario === 'submitting'}
-        validateSignupDraftAction={
+        validateSignupNicknameAction={
           scenario === 'networkUnavailable'
             ? async () => {
                 throw new Error('Storybook network unavailable');
               }
-            : async () => ({ success: true })
+            : async ({ nickname }) => ({ success: true, nickname })
         }
         serverFieldErrors={
           scenario === 'nicknameConflict'

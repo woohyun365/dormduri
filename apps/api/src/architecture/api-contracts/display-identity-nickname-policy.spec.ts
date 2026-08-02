@@ -3,7 +3,7 @@ import {
   canonicalizeDisplayIdentityNickname,
   parseDisplayIdentityNickname,
 } from '@repo/shared/user/identity/display';
-import { signupDraftValidationRequestSchema } from '@repo/shared/auth/contract';
+import { signupNicknameValidationRequestSchema } from '@repo/shared/auth/contract';
 
 describe('shared display identity nickname policy', () => {
   it.each([
@@ -50,9 +50,7 @@ describe('shared display identity nickname policy', () => {
 
   it('auth request contract도 shared canonical display value를 전달한다', () => {
     expect(
-      signupDraftValidationRequestSchema.parse({
-        email: 'student@kangwon.ac.kr',
-        password: 'Test1234',
+      signupNicknameValidationRequestSchema.parse({
         nickname: '  ＮiceＧuy  ',
       }).nickname,
     ).toBe('NiceGuy');

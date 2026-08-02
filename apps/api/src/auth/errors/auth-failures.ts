@@ -1,5 +1,4 @@
 import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
-import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth/response';
 import {
   AUTH_ACCOUNT_CREATED_LOGIN_REQUIRED_CODE,
   AUTH_PASSWORD_CHANGED_LOGIN_REQUIRED_CODE,
@@ -16,7 +15,12 @@ function createFailure<TCode extends string>(
   code: TCode,
   error: string,
   options: AuthFailureOptions = {},
-): GenericSuccessResult & { success: false; code: TCode } {
+): GenericSuccessResult & {
+  success: false;
+  code: TCode;
+  error: string;
+  userActionable: boolean;
+} {
   return {
     success: false,
     error,
@@ -40,7 +44,7 @@ export const authFailures = {
     );
   },
 
-  signupValidation(error: string, fieldErrors: SignupDraftValidationFieldErrors = {}) {
+  signupValidation(error: string, fieldErrors: Record<string, string> = {}) {
     const normalizedFieldErrors = Object.fromEntries(
       Object.entries(fieldErrors).filter(
         (entry): entry is [string, string] => typeof entry[1] === 'string',
@@ -62,6 +66,29 @@ export const authFailures = {
     return createFailure('AUTH_NICKNAME_ALREADY_TAKEN', '이미 사용 중인 닉네임입니다.', {
       fieldErrors: { nickname: '이미 사용 중인 닉네임입니다.' },
     });
+  },
+
+  signupNicknameInvalid(error: string) {
+    return createFailure('AUTH_SIGNUP_NICKNAME_INVALID', error, {
+      fieldErrors: { nickname: error },
+    });
+  },
+
+  signupNicknameNotAllowed(error: string) {
+    return createFailure('AUTH_SIGNUP_NICKNAME_NOT_ALLOWED', error, {
+      fieldErrors: { nickname: error },
+    });
+  },
+
+  signupNicknameValidationThrottled(retryAfterSeconds: number) {
+    return createFailure(
+      'AUTH_SIGNUP_NICKNAME_VALIDATION_THROTTLED',
+      '닉네임 확인 요청이 잠시 제한됐어요.',
+      {
+        userActionable: false,
+        retryAfterSeconds,
+      },
+    );
   },
 
   signupCollegeUnavailable() {

@@ -22,7 +22,7 @@ interface AccountCredentialsStepProps {
   disabled?: boolean;
   serverFieldErrors?: Partial<Record<'nickname' | 'password', string>>;
   onServerErrorClear?: () => void;
-  validateSignupDraftAction?: typeof authApi.validateSignupDraft;
+  validateSignupNicknameAction?: typeof authApi.validateSignupNickname;
 }
 
 export function AccountCredentialsStep({
@@ -34,7 +34,7 @@ export function AccountCredentialsStep({
   disabled = false,
   serverFieldErrors,
   onServerErrorClear,
-  validateSignupDraftAction = authApi.validateSignupDraft,
+  validateSignupNicknameAction = authApi.validateSignupNickname,
 }: AccountCredentialsStepProps) {
   const [nicknameError, setNicknameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -83,20 +83,15 @@ export function AccountCredentialsStep({
     setPolicyCheckError('');
     setIsCheckingPolicy(true);
     try {
-      const validation = await validateSignupDraftAction({
-        email,
+      const validation = await validateSignupNicknameAction({
         nickname: parsedNickname.value,
-        password: accountData.password,
       });
 
-      const nextNicknameError = validation.fieldErrors?.nickname ?? '';
-      const nextPasswordError =
-        validation.fieldErrors?.password ?? validation.fieldErrors?.email ?? '';
+      const nextNicknameError = validation.success ? '' : (validation.fieldErrors?.nickname ?? '');
 
       setNicknameError(nextNicknameError);
-      setPasswordError(nextPasswordError);
 
-      if (!validation.success && !nextNicknameError && !nextPasswordError) {
+      if (!validation.success && !nextNicknameError) {
         setPolicyCheckError(validation.error ?? SIGNUP_FEEDBACK_COPY.common.connectivity);
         return;
       }
@@ -104,11 +99,6 @@ export function AccountCredentialsStep({
         focusAndScroll(nicknameRef.current);
         return;
       }
-      if (nextPasswordError) {
-        focusAndScroll(passwordRef.current);
-        return;
-      }
-
       const nextAccountData = {
         ...accountData,
         nickname: parsedNickname.value,

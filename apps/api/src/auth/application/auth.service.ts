@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SignupDraftValidationResponse } from '@repo/shared/auth/response';
+import type { SignupNicknameValidationResponse } from '@repo/shared/auth/response';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
 import type {
   ChangePasswordResult,
@@ -61,12 +61,11 @@ export class AuthService {
     return this.sessionUseCases.getSession(token, requestContext);
   }
 
-  validateSignupDraft(input: {
-    email: string;
-    password: string;
-    nickname: string;
-  }): Promise<SignupDraftValidationResponse> {
-    return this.registrationUseCases.validateSignupDraft(input);
+  validateSignupNickname(
+    nickname: string,
+    verificationGrant: string | null,
+  ): Promise<SignupNicknameValidationResponse> {
+    return this.registrationUseCases.validateSignupNickname(nickname, verificationGrant);
   }
 
   signup(input: SignupInput, verificationGrant: string | null = null): Promise<LoginResult> {

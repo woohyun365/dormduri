@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createUpdateDisplayIdentityCommand } from './update-display-identity.command.js';
 import { usersErrors } from '../../errors/users.errors.js';
+import { DisplayIdentityNicknamePolicyService } from './display-identity-nickname-policy.service.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
 const USER = {
@@ -44,10 +45,17 @@ describe('UpdateDisplayIdentityCommand', () => {
   const moderationService = {
     validateNicknamePolicy: vi.fn(),
   };
+  const displayIdentityRepository = {
+    findNicknameOwner: vi.fn(),
+  };
+  const nicknamePolicy = new DisplayIdentityNicknamePolicyService(
+    moderationService as never,
+    displayIdentityRepository as never,
+  );
   const command = createUpdateDisplayIdentityCommand({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
-    moderationService: moderationService as never,
+    nicknamePolicy,
   });
   const tx = {
     seasonParticipant: { findUnique: vi.fn() },
@@ -62,6 +70,7 @@ describe('UpdateDisplayIdentityCommand', () => {
     vi.clearAllMocks();
     seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    displayIdentityRepository.findNicknameOwner.mockResolvedValue(null);
     tx.userDisplayIdentity.findUnique.mockResolvedValue(null);
     tx.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
     tx.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });

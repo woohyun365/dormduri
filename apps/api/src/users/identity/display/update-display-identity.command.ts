@@ -1,7 +1,5 @@
 import type { UpdateCurrentUserDisplayIdentityMutationResult } from '@repo/shared/user';
-import { parseDisplayIdentityNickname as parseSharedDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import type { Prisma } from '../../../generated/prisma/client.js';
-import type { ModerationService } from '../../../moderation/moderation.service.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../../seasons/ports/season-context.port.js';
 import type { UserWithDisplayIdentityRecord } from '../../current-user/current-user.select.js';
@@ -10,27 +8,28 @@ import { hasNicknameCooldown } from './nickname-cooldown.policy.js';
 import { resolveNicknameChangePolicy } from './display-identity-edit.policy.js';
 import {
   assertDisplayIdentity,
-  assertNicknameAvailableForUser,
   isSameNickname,
-  type ParsedDisplayIdentityNickname,
   updateDisplayIdentityNickname,
 } from './display-identity.repository.js';
 import { recordDisplayIdentityNicknameChangeAuditTx } from '../audit/display-identity-nickname-audit.repository.js';
+import type {
+  DisplayIdentityNicknamePolicyService,
+  ParsedDisplayIdentityNickname,
+} from './display-identity-nickname-policy.service.js';
+import {
+  applyDisplayIdentityNicknamePolicyForUser,
+  parseDisplayIdentityNicknameForUser,
+} from './display-identity-nickname-user-error.js';
 
 export interface UpdateDisplayIdentityCommandDeps {
   prisma: PrismaService;
   seasonsService: SeasonContextPort;
-  moderationService: ModerationService;
+  nicknamePolicy: DisplayIdentityNicknamePolicyService;
 }
 
 export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCommandDeps) {
   function parseDisplayIdentityNickname(nickname: string): ParsedDisplayIdentityNickname {
-    const parsedNickname = parseSharedDisplayIdentityNickname(nickname);
-    if (!parsedNickname.ok) {
-      throw usersErrors.invalidNickname(parsedNickname.message);
-    }
-
-    return parsedNickname;
+    return parseDisplayIdentityNicknameForUser(deps.nicknamePolicy, nickname);
   }
 
   async function applySelfServiceNicknameChange(
@@ -66,8 +65,13 @@ export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCo
       throw usersErrors.nicknameCooldownActive();
     }
 
-    await assertNicknamePolicyAccepted(parsedNickname.value);
-    await assertNicknameAvailableForUser(tx, parsedNickname, txUser.id);
+    await applyDisplayIdentityNicknamePolicyForUser(async () => {
+      await deps.nicknamePolicy.assertModerationAccepted(parsedNickname);
+      await deps.nicknamePolicy.assertAvailable(parsedNickname, {
+        client: tx,
+        excludeUserId: txUser.id,
+      });
+    });
     await updateDisplayIdentityNickname(tx, {
       userId: txUser.id,
       displayIdentity,
@@ -92,13 +96,6 @@ export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCo
       changed: true,
       noOpReason: null,
     };
-  }
-
-  async function assertNicknamePolicyAccepted(nickname: string) {
-    const nicknamePolicyError = await deps.moderationService.validateNicknamePolicy(nickname);
-    if (nicknamePolicyError) {
-      throw usersErrors.nicknameModerationRejected(nicknamePolicyError);
-    }
   }
 
   return {

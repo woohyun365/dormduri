@@ -8,7 +8,7 @@ import {
   loginRequestSchema,
   renewSessionRequestSchema,
   resetPasswordRequestSchema,
-  signupDraftValidationRequestSchema,
+  signupNicknameValidationRequestSchema,
   signupRequestSchema,
   verificationCodeRequestSchema,
   AUTH_VERIFICATION_GRANT_HEADER,
@@ -22,23 +22,25 @@ import { resolveAuthRequestContext } from './domain/auth-request-context.js';
 import { EnableAuthLoginThrottle } from './login-attempts/auth-login-throttle.decorator.js';
 
 @Controller('auth')
-@Public()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('send-signup-code')
+  @Public()
   async sendSignupCode(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(emailRequestSchema, body);
     return this.authService.sendSignupCode(parsed.email, resolveAuthRequestContext(req));
   }
 
   @Post('send-reset-code')
+  @Public()
   async sendResetCode(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(emailRequestSchema, body);
     return this.authService.sendResetCode(parsed.email, resolveAuthRequestContext(req));
   }
 
   @Post('verify-email-code')
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async verifyEmailCode(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(verificationCodeRequestSchema, body);
@@ -50,6 +52,7 @@ export class AuthController {
   }
 
   @Post('verify-reset-code')
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async verifyResetCode(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(verificationCodeRequestSchema, body);
@@ -67,13 +70,19 @@ export class AuthController {
     return this.authService.getSession(token, resolveAuthRequestContext(req));
   }
 
-  @Post('validate-signup-draft')
-  async validateSignupDraft(@Body() body: unknown) {
-    const parsed = parseRequestBody(signupDraftValidationRequestSchema, body);
-    return this.authService.validateSignupDraft(parsed);
+  @Post('signup/validate-nickname')
+  @Public()
+  @HttpCode(200)
+  async validateSignupNickname(
+    @Body() body: unknown,
+    @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant?: string,
+  ) {
+    const parsed = parseRequestBody(signupNicknameValidationRequestSchema, body);
+    return this.authService.validateSignupNickname(parsed.nickname, verificationGrant ?? null);
   }
 
   @Post('signup')
+  @Public()
   async signup(
     @Body() body: unknown,
     @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant?: string,
@@ -83,6 +92,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Public()
   @EnableAuthLoginThrottle()
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() req: Request) {
@@ -96,6 +106,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @Public()
   async resetPassword(
     @Body() body: unknown,
     @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant: string | undefined,
@@ -127,6 +138,7 @@ export class AuthController {
   }
 
   @Post('renew-session')
+  @Public()
   @HttpCode(200)
   async renewSession(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(renewSessionRequestSchema, body);

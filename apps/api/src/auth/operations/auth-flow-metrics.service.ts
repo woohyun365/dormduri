@@ -8,6 +8,14 @@ import {
 
 export type AuthVerificationMetricOperation = 'request' | 'verify' | 'grant';
 export type AuthCredentialTransitionOperation = 'signup' | 'reset_password' | 'change_password';
+export type SignupNicknameValidationMetricOutcome =
+  | 'available'
+  | 'invalid'
+  | 'moderation_rejected'
+  | 'taken'
+  | 'verification_required'
+  | 'throttled'
+  | 'failed';
 
 @Injectable()
 export class AuthFlowMetricsService {
@@ -39,6 +47,15 @@ export class AuthFlowMetricsService {
       metrics.incrementCounter({
         name: 'api_auth_credential_transitions_total',
         labels: { operation, outcome },
+      }),
+    );
+  }
+
+  recordSignupNicknameValidation(outcome: SignupNicknameValidationMetricOutcome) {
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({
+        name: 'api_auth_signup_nickname_validation_total',
+        labels: { outcome },
       }),
     );
   }

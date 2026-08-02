@@ -48,14 +48,14 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 
 ## API/BFF contract
 
-| Surface                              | Responsibility                                                                                      |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `apps/web/src/auth/api/*`            | Web client wrapper. 429 `Retry-After`/`retryAfterSeconds`를 사용자 문구와 countdown metadata로 보존 |
-| `app/api/auth/send-signup-code`      | signup 이메일 인증 코드 요청 forward                                                                |
-| `app/api/auth/verify-email-code`     | signup 이메일 인증 코드 확인 forward                                                                |
-| `app/api/auth/validate-signup-draft` | canonical draft validation BFF. Legacy `validate-signup-profile` surface는 유지하지 않음            |
-| `app/api/auth/signup`                | shared `signupRequestSchema`로 body를 검증하고 allowlisted body만 upstream `/auth/signup`에 전달    |
-| `model/signup-request.mapper.ts`     | UI state를 shared `SignupRequest`로 변환하며 forbidden profile fields를 출력하지 않음               |
+| Surface                                 | Responsibility                                                                                      |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `apps/web/src/auth/api/*`               | Web client wrapper. 429 `Retry-After`/`retryAfterSeconds`를 사용자 문구와 countdown metadata로 보존 |
+| `app/api/auth/send-signup-code`         | signup 이메일 인증 코드 요청 forward                                                                |
+| `app/api/auth/verify-email-code`        | signup 이메일 인증 코드 확인 forward                                                                |
+| `app/api/auth/signup/validate-nickname` | 이메일 인증 grant가 있는 브라우저의 닉네임 형식·금칙어·현재 사용 가능 여부만 확인하는 BFF           |
+| `app/api/auth/signup`                   | shared `signupRequestSchema`로 body를 검증하고 allowlisted body만 upstream `/auth/signup`에 전달    |
+| `model/signup-request.mapper.ts`        | UI state를 shared `SignupRequest`로 변환하며 forbidden profile fields를 출력하지 않음               |
 
 `/api/auth/signup` 응답은 upstream access token을 JSON body에 노출하지 않고 auth cookie로만 설정한다.
 Signup BFF는 request body를 cast-only로 통과시키지 않고 shared schema parse guard를 사용한다.

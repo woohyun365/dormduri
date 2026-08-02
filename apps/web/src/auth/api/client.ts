@@ -2,7 +2,7 @@ import type {
   EmailRequest,
   LoginRequest,
   ResetPasswordRequest,
-  SignupDraftValidationRequest,
+  SignupNicknameValidationRequest,
   SignupRequest,
   VerificationCodeRequest,
 } from '@repo/shared/auth/contract';
@@ -11,7 +11,7 @@ import type {
   DevAuthUsersResponse,
   LoginResponse,
   ResetPasswordResponse,
-  SignupDraftValidationResponse,
+  SignupNicknameValidationResponse,
   SignupResponse,
   VerifyCodeResponse,
 } from '@repo/shared/auth/response';
@@ -77,10 +77,10 @@ export const authApi = {
     return verifyCode('/api/auth/verify-email-code', email, code);
   },
 
-  validateSignupDraft: (
-    data: SignupDraftValidationRequest,
-  ): Promise<SignupDraftValidationResponse> => {
-    return postJson<SignupDraftValidationResponse>('/api/auth/validate-signup-draft', data);
+  validateSignupNickname: (
+    data: SignupNicknameValidationRequest,
+  ): Promise<SignupNicknameValidationResponse> => {
+    return postJson<SignupNicknameValidationResponse>('/api/auth/signup/validate-nickname', data);
   },
 
   signup: async (data: SignupRequest): Promise<SignupResponse> => {

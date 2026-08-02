@@ -118,9 +118,9 @@ const expectedRoutes: ExpectedRoute[] = [
   },
   {
     controller: AuthController,
-    handler: 'validateSignupDraft',
+    handler: 'validateSignupNickname',
     method: RequestMethod.POST,
-    path: 'auth/validate-signup-draft',
+    path: 'auth/signup/validate-nickname',
     access: 'public',
   },
   {
@@ -784,6 +784,16 @@ describe('Auth access route matrix', () => {
       expect(resolveCapabilities(route.controller, route.handler)).toEqual(
         route.capabilities ?? [],
       );
+    }
+  });
+
+  it('AuthController는 class-level public 없이 모든 route에 access mode를 직접 선언한다', () => {
+    expect(Reflect.getOwnMetadata(AUTH_ACCESS_METADATA_KEY, AuthController)).toBeUndefined();
+
+    const authRoutes = getActualRoutes([AuthController]);
+    for (const route of authRoutes) {
+      const handler = getRouteHandler(AuthController, route.handler);
+      expect(Reflect.getOwnMetadata(AUTH_ACCESS_METADATA_KEY, handler)).toBeDefined();
     }
   });
 });

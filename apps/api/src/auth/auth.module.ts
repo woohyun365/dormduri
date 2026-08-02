@@ -3,7 +3,7 @@ import { ConfigType } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { MetricsModule } from '../platform/observability/metrics/metrics.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
-import { ModerationModule } from '../moderation/moderation.module.js';
+import { DisplayIdentityModule } from '../users/identity/display/display-identity.module.js';
 import authConfig from '../config/auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AUTH_EXPORTS } from './composition/auth.exports.js';
@@ -13,7 +13,7 @@ import { buildAuthThrottlerOptions } from './login-attempts/auth-throttle.option
 @Module({
   imports: [
     PrismaModule,
-    ModerationModule,
+    DisplayIdentityModule,
     MetricsModule,
     ThrottlerModule.forRootAsync({
       inject: [authConfig.KEY],

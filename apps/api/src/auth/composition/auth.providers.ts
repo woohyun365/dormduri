@@ -24,7 +24,8 @@ import { GetActiveLoginLockQuery } from '../login-attempts/get-active-login-lock
 import { LoginAttemptRepository } from '../login-attempts/login-attempt.repository.js';
 import { RecordLoginFailureCommand } from '../login-attempts/record-login-failure.command.js';
 import { AuthRegistrationUseCases } from '../registration/auth-registration-use-cases.service.js';
-import { AuthSignupValidationService } from '../registration/auth-signup-validation.service.js';
+import { SignupNicknameValidationAdmissionService } from '../registration/signup-nickname-validation-admission.service.js';
+import { SignupNicknameValidationQuery } from '../registration/signup-nickname-validation.query.js';
 import { AuthSecurityEventRepository } from '../security-events/auth-security-event.repository.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { AuthSessionRepository } from '../sessions/auth-session.repository.js';
@@ -79,7 +80,8 @@ export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [
 
 export const AUTH_REGISTRATION_PROVIDERS: Provider[] = [
   AuthRegistrationUseCases,
-  AuthSignupValidationService,
+  SignupNicknameValidationAdmissionService,
+  SignupNicknameValidationQuery,
 ];
 
 export const AUTH_LOGIN_ATTEMPT_PROVIDERS: Provider[] = [

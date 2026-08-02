@@ -42,9 +42,7 @@ describe('UsersService facade boundary', () => {
   const seasonsService = {
     getCurrentSeasonContext: vi.fn(),
   };
-  const moderationService = {
-    validateNicknamePolicy: vi.fn(),
-  };
+  const nicknamePolicy = {};
   const currentUserViewService = {
     getCurrentUser: vi.fn(),
     buildCurrentUserResponse: vi.fn(),
@@ -54,7 +52,7 @@ describe('UsersService facade boundary', () => {
     prisma as never,
     prisma as never,
     seasonsService as never,
-    moderationService as never,
+    nicknamePolicy as never,
     currentUserViewService as never,
   );
 

@@ -13,6 +13,8 @@ export function createStrictForwardPostHandler<TBody extends Record<string, unkn
   path: string;
   schema: StrictRequestSchema<TBody>;
   invalidCode: string;
+  getAdditionalHeaders?: (request: NextRequest) => Record<string, string | undefined>;
+  allowedResponseFields?: readonly string[];
 }) {
   return async function POST(request: NextRequest) {
     const parsed = await parseStrictJsonRequest(request, input.schema, input.invalidCode);
@@ -21,10 +23,15 @@ export function createStrictForwardPostHandler<TBody extends Record<string, unkn
     }
 
     const { response, json } = await forwardAuthRequest('POST', input.path, parsed.data, {
-      headers: getForwardHeaders(request),
+      headers: getForwardHeaders(request, input.getAdditionalHeaders?.(request)),
     });
 
-    return buildJsonResponse(response, pickAuthMutationResponseBody(json));
+    const responseBody: Record<string, unknown> = pickAuthMutationResponseBody(json);
+    for (const field of input.allowedResponseFields ?? []) {
+      responseBody[field] = json[field];
+    }
+
+    return buildJsonResponse(response, responseBody);
   };
 }
 

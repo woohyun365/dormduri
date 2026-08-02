@@ -17,6 +17,7 @@ export type DomainMetricName =
   | 'api_auth_mail_outbox_lag_seconds'
   | 'api_auth_security_alert_active'
   | 'api_auth_session_renewals_total'
+  | 'api_auth_signup_nickname_validation_total'
   | 'api_auth_verification_operations_total'
   | 'api_auth_redis_gate_state'
   | 'api_chat_realtime_connected_sockets'

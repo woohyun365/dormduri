@@ -1,11 +1,10 @@
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { isCollegeAvailableForCampus } from '@repo/shared/college';
-import { isKnuEmail, normalizeEmail, parseNickname } from '../domain/auth.utils.js';
+import { isKnuEmail, normalizeEmail, validatePasswordPolicy } from '../domain/auth.utils.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
-import type { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword } from '../credentials/password-hash.js';
 import {
@@ -23,6 +22,11 @@ import {
   resolveSignupLegalAcceptances,
   SIGNUP_LEGAL_ACCEPTANCE_STALE,
 } from '../../legal/commands/record-legal-acceptance.command.js';
+import {
+  DisplayIdentityNicknamePolicyError,
+  type DisplayIdentityNicknamePolicyService,
+  type ParsedDisplayIdentityNickname,
+} from '../../users/identity/display/display-identity-nickname-policy.service.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -33,7 +37,7 @@ interface AuthSignupOwnerDeps {
     'resolveVerificationGrant' | 'matchesVerificationGrantSubject'
   >;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
-  signupValidationService: Pick<AuthSignupValidationService, 'validateDraft'>;
+  nicknamePolicy: Pick<DisplayIdentityNicknamePolicyService, 'validate'>;
 }
 
 export async function signup(
@@ -60,45 +64,31 @@ export async function signup(
     return authFailures.signupVerificationRequired();
   }
 
-  const preflight = await deps.signupValidationService.validateDraft({
-    email: input.email,
-    password: input.password,
-    nickname: input.nickname,
+  const passwordError = validatePasswordPolicy(input.password, emailNormalized);
+  if (passwordError) {
+    return authFailures.passwordPolicyViolation(passwordError);
+  }
+
+  let parsedNickname: ParsedDisplayIdentityNickname;
+  try {
+    parsedNickname = await deps.nicknamePolicy.validate(input.nickname);
+  } catch (error) {
+    if (!(error instanceof DisplayIdentityNicknamePolicyError)) {
+      throw error;
+    }
+    if (error.reason === 'ALREADY_TAKEN') {
+      return authFailures.nicknameAlreadyTaken();
+    }
+    return authFailures.signupValidation(error.message, { nickname: error.message });
+  }
+
+  const existingEmailUser = await deps.prisma.user.findUnique({
+    where: { emailNormalized },
+    select: { id: true },
   });
-
-  if (!preflight.success) {
-    return authFailures.signupValidation(
-      preflight.fieldErrors?.nickname ??
-        preflight.fieldErrors?.password ??
-        preflight.fieldErrors?.email ??
-        preflight.error ??
-        '입력값을 다시 확인해주세요.',
-      preflight.fieldErrors,
-    );
-  }
-
-  const parsedNickname = parseNickname(input.nickname);
-  if (!parsedNickname.ok) {
-    return authFailures.signupValidation(parsedNickname.message, {
-      nickname: parsedNickname.message,
-    });
-  }
-  const [existingEmailUser, existingNicknameUser] = await Promise.all([
-    deps.prisma.user.findUnique({
-      where: { emailNormalized },
-      select: { id: true },
-    }),
-    deps.prisma.userDisplayIdentity.findUnique({
-      where: { nicknameNormalized: parsedNickname.normalized },
-      select: { userId: true },
-    }),
-  ]);
 
   if (existingEmailUser) {
     return authFailures.emailAlreadyRegistered();
-  }
-  if (existingNicknameUser) {
-    return authFailures.nicknameAlreadyTaken();
   }
 
   const passwordHash = await hashPassword(input.password);

@@ -42,10 +42,10 @@ export type {
   DevAuthUsersResponse,
 } from './dev-auth.js';
 export {
-  signupDraftValidationFieldErrorsSchema,
-  signupDraftValidationResponseSchema,
-} from './signup-validation.js';
+  signupNicknameValidationFailureCodeSchema,
+  signupNicknameValidationResponseSchema,
+} from './signup-nickname-validation.js';
 export type {
-  SignupDraftValidationFieldErrors,
-  SignupDraftValidationResponse,
-} from './signup-validation.js';
+  SignupNicknameValidationFailureCode,
+  SignupNicknameValidationResponse,
+} from './signup-nickname-validation.js';

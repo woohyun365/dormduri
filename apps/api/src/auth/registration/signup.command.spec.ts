@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LegalDocumentKind } from '@repo/shared/legal';
+import { parseDisplayIdentityNickname } from '@repo/shared/user/identity/display';
+import { DisplayIdentityNicknamePolicyError } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import { signup } from './signup.command.js';
 
 const activeLegalDocumentIds: Record<LegalDocumentKind, string> = {
@@ -32,9 +34,6 @@ describe('signup command', () => {
       findUnique: vi.fn(),
       create: vi.fn(),
     },
-    userDisplayIdentity: {
-      findUnique: vi.fn(),
-    },
     collegeMaster: {
       findFirst: vi.fn(),
     },
@@ -56,10 +55,10 @@ describe('signup command', () => {
   const sessionService = {
     issueAuthResult: vi.fn(),
   };
-  const signupValidationService = {
-    validateDraft: vi.fn(),
+  const nicknamePolicy = {
+    validate: vi.fn(),
   };
-  const deps = { prisma, verificationService, sessionService, signupValidationService };
+  const deps = { prisma, verificationService, sessionService, nicknamePolicy };
   const resolvedGrant = {
     id: 'code-1',
     subjectKey: 'v1:signup-subject',
@@ -89,7 +88,6 @@ describe('signup command', () => {
     vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.findUnique.mockResolvedValue(null);
-    prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
     prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
     prisma.legalDocumentVersion.findFirst.mockImplementation((args: unknown) =>
       Promise.resolve({ id: activeLegalDocumentIds[findFirstKind(args)] }),
@@ -109,7 +107,13 @@ describe('signup command', () => {
     );
     verificationService.resolveVerificationGrant.mockResolvedValue(resolvedGrant);
     verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
-    signupValidationService.validateDraft.mockResolvedValue({ success: true });
+    nicknamePolicy.validate.mockImplementation((nickname: string) => {
+      const parsed = parseDisplayIdentityNickname(nickname);
+      if (!parsed.ok) {
+        throw new DisplayIdentityNicknamePolicyError('INVALID_FORMAT', parsed.message);
+      }
+      return Promise.resolve(parsed);
+    });
   });
 
   it('signup grant의 email subject가 입력 email과 다르면 가입 검증 전에 거부한다', async () => {
@@ -120,7 +124,7 @@ describe('signup command', () => {
       code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
     });
 
-    expect(signupValidationService.validateDraft).not.toHaveBeenCalled();
+    expect(nicknamePolicy.validate).not.toHaveBeenCalled();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
@@ -143,7 +147,7 @@ describe('signup command', () => {
       },
     });
 
-    expect(signupValidationService.validateDraft).not.toHaveBeenCalled();
+    expect(nicknamePolicy.validate).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
@@ -168,14 +172,13 @@ describe('signup command', () => {
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
-  it('signup validation service로 moderation/입력 검증을 위임하고 실패 시 DB mutation을 시작하지 않는다', async () => {
-    signupValidationService.validateDraft.mockResolvedValue({
-      success: false,
-      code: 'AUTH_SIGNUP_VALIDATION_FAILED',
-      userActionable: true,
-      error: '입력값을 다시 확인해주세요.',
-      fieldErrors: { nickname: '닉네임에 사용할 수 없는 단어가 포함되어 있어요.' },
-    });
+  it('display identity policy로 nickname을 검증하고 실패 시 DB mutation을 시작하지 않는다', async () => {
+    nicknamePolicy.validate.mockRejectedValue(
+      new DisplayIdentityNicknamePolicyError(
+        'MODERATION_REJECTED',
+        '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
+      ),
+    );
 
     await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
       success: false,
@@ -183,11 +186,7 @@ describe('signup command', () => {
       fieldErrors: { nickname: '닉네임에 사용할 수 없는 단어가 포함되어 있어요.' },
     });
 
-    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
-      email: input.email,
-      password: input.password,
-      nickname: input.nickname,
-    });
+    expect(nicknamePolicy.validate).toHaveBeenCalledWith(input.nickname);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
     expect(prisma.legalDocumentVersion.findFirst).not.toHaveBeenCalled();
@@ -217,11 +216,7 @@ describe('signup command', () => {
 
     const result = await signup(deps as never, input, verificationGrant);
 
-    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'pass1234',
-      nickname: '테스터',
-    });
+    expect(nicknamePolicy.validate).toHaveBeenCalledWith('테스터');
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
     expect(prisma.legalDocumentVersion.findFirst).toHaveBeenCalledTimes(4);
     expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
