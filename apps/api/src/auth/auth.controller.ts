@@ -22,6 +22,17 @@ import type { AuthenticatedUserContext } from './application/auth-actor-context.
 import { resolveAuthRequestContext } from './domain/auth-request-context.js';
 import { EnableAuthLoginThrottle } from './login-attempts/auth-login-throttle.decorator.js';
 import { authErrors } from './errors/auth.errors.js';
+import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
+
+function throwIfPasswordHashCapacityUnavailable(result: {
+  success: boolean;
+  code?: string;
+  retryAfterSeconds?: number;
+}): void {
+  if (!result.success && result.code === AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE) {
+    throw authErrors.passwordHashCapacityUnavailable(result.retryAfterSeconds ?? 1);
+  }
+}
 
 @Controller('auth')
 export class AuthController {
@@ -99,6 +110,7 @@ export class AuthController {
     if (!result.success && result.code === 'AUTH_SIGNUP_SUBMISSION_THROTTLED') {
       throw authErrors.signupSubmissionThrottled(result.retryAfterSeconds ?? 1);
     }
+    throwIfPasswordHashCapacityUnavailable(result);
     return result;
   }
 
@@ -108,12 +120,14 @@ export class AuthController {
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(loginRequestSchema, body);
-    return this.authService.login(
+    const result = await this.authService.login(
       parsed.email,
       parsed.password,
       parsed.rememberMe ?? false,
       resolveAuthRequestContext(req),
     );
+    throwIfPasswordHashCapacityUnavailable(result);
+    return result;
   }
 
   @Post('reset-password')
@@ -124,11 +138,13 @@ export class AuthController {
     @Req() req: Request,
   ) {
     const parsed = parseRequestBody(resetPasswordRequestSchema, body);
-    return this.authService.resetPassword(
+    const result = await this.authService.resetPassword(
       verificationGrant ?? null,
       parsed.newPassword,
       resolveAuthRequestContext(req),
     );
+    throwIfPasswordHashCapacityUnavailable(result);
+    return result;
   }
 
   @Post('change-password')
@@ -149,6 +165,7 @@ export class AuthController {
     if (!result.success && result.code === 'AUTH_CHANGE_PASSWORD_THROTTLED') {
       throw authErrors.changePasswordThrottled(result.retryAfterSeconds ?? 1);
     }
+    throwIfPasswordHashCapacityUnavailable(result);
     return result;
   }
 

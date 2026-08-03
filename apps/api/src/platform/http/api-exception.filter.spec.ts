@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { ApiExceptionFilter } from './api-exception.filter.js';
-import { tooManyRequestsError } from './api-error.js';
+import { serviceUnavailableError, tooManyRequestsError } from './api-error.js';
 import type { AppLoggerService } from '../observability/logging/app-logger.service.js';
 
 function createHost(response: { status: Mock; json: Mock }): ArgumentsHost {
@@ -133,6 +133,32 @@ describe('ApiExceptionFilter', () => {
         statusCode: 429,
         path: '/api/test',
         retryAfterSeconds: 42,
+      }),
+    );
+  });
+
+  it('bounded capacity 503은 retry-after를 body/header로 보존한다', () => {
+    const response = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      setHeader: vi.fn(),
+    };
+
+    filter.catch(
+      serviceUnavailableError(
+        'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+        '비밀번호 처리가 잠시 지연되고 있어요.',
+        { retryAfterSeconds: 2 },
+      ),
+      createHost(response),
+    );
+
+    expect(response.status).toHaveBeenCalledWith(503);
+    expect(response.setHeader).toHaveBeenCalledWith('Retry-After', 2);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+        retryAfterSeconds: 2,
       }),
     );
   });

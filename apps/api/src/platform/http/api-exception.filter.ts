@@ -65,7 +65,7 @@ function resolveRetryAfterSeconds(
   response: Response,
   normalized: ReturnType<typeof normalizeApiError>,
 ): number | undefined {
-  if (normalized.statusCode !== 429) return undefined;
+  if (![429, 503].includes(normalized.statusCode)) return undefined;
 
   const extrasRetryAfter = coercePositiveInteger(normalized.extras.retryAfterSeconds);
   if (extrasRetryAfter !== undefined) return extrasRetryAfter;

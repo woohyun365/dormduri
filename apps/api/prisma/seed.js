@@ -383,7 +383,7 @@ async function seedUserAccountIdentities(
 async function seedUsersData(client) {
   const passwordHash = await argonHash(AUTH_FIXTURE_SEED_PASSWORD, {
     algorithm: 2,
-    memoryCost: 8192,
+    memoryCost: 19456,
     timeCost: 2,
     parallelism: 1,
     outputLen: 32,

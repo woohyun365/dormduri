@@ -3,11 +3,12 @@ import { hash as argonHash } from '@node-rs/argon2';
 import { login } from './login.command.js';
 import { verifyPasswordHash } from './password-hash.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
+import { PasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
 
 const hashPasswordForTest = (password: string) =>
   argonHash(password, {
     algorithm: 2,
-    memoryCost: 8192,
+    memoryCost: 19456,
     timeCost: 2,
     parallelism: 1,
     outputLen: 32,
@@ -80,12 +81,29 @@ describe('login command', () => {
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
-  it('존재하지 않는 계정도 canonical dummy password hash를 검증한다', async () => {
+  it('존재하지 않는 계정도 고정 dummy password hash를 검증한다', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
 
     await login(deps as never, 'missing@kangwon.ac.kr', 'WrongPass1234', false);
 
     expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('WrongPass1234');
+  });
+
+  it('password verify capacity 초과는 login failure count를 늘리지 않는다', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    passwordHashPolicy.verifyUnavailableLogin.mockRejectedValueOnce(
+      new PasswordHashCapacityUnavailableError(2),
+    );
+
+    await expect(
+      login(deps as never, 'missing@kangwon.ac.kr', 'Password1234', false),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      retryAfterSeconds: 2,
+    });
+    expect(loginAttemptService.recordLoginFailure).not.toHaveBeenCalled();
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
   it('삭제 처리된 계정 login은 실패 기록으로 위임하고 세션을 발급하지 않는다', async () => {

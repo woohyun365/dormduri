@@ -26,6 +26,9 @@ export const DEFAULT_AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS = 10 * 60;
 export const DEFAULT_AUTH_CHANGE_PASSWORD_LIMIT = 10;
 export const DEFAULT_AUTH_CHANGE_PASSWORD_WINDOW_SECONDS = 10 * 60;
 export const DEFAULT_AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED = true;
+export const DEFAULT_AUTH_PASSWORD_HASH_CONCURRENCY = 4;
+export const DEFAULT_AUTH_PASSWORD_HASH_QUEUE_LIMIT = 32;
+export const DEFAULT_AUTH_PASSWORD_HASH_WAIT_TIMEOUT_MS = 2_000;
 
 export default registerAs('auth', () => ({
   verificationCodeHmacSecret: readStringEnv(
@@ -146,5 +149,23 @@ export default registerAs('auth', () => ({
     process.env,
     'AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED',
     DEFAULT_AUTH_RENEWAL_PREVIOUS_TOKEN_GRACE_ENABLED,
+  ),
+  authPasswordHashConcurrency: readNumberEnv(
+    process.env,
+    'AUTH_PASSWORD_HASH_CONCURRENCY',
+    DEFAULT_AUTH_PASSWORD_HASH_CONCURRENCY,
+    { min: 1 },
+  ),
+  authPasswordHashQueueLimit: readNumberEnv(
+    process.env,
+    'AUTH_PASSWORD_HASH_QUEUE_LIMIT',
+    DEFAULT_AUTH_PASSWORD_HASH_QUEUE_LIMIT,
+    { min: 0 },
+  ),
+  authPasswordHashWaitTimeoutMs: readNumberEnv(
+    process.env,
+    'AUTH_PASSWORD_HASH_WAIT_TIMEOUT_MS',
+    DEFAULT_AUTH_PASSWORD_HASH_WAIT_TIMEOUT_MS,
+    { min: 1 },
   ),
 }));

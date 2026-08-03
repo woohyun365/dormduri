@@ -9,7 +9,16 @@ import {
 } from './password-hash.js';
 
 describe('AuthPasswordHashPolicy', () => {
-  it('canonical dummy hash는 active password hash와 같은 Argon2id profile을 사용한다', async () => {
+  it('신규 hash target은 Argon2id 19MiB/t2/p1이다', () => {
+    expect(AUTH_PASSWORD_HASH_OPTIONS).toMatchObject({
+      algorithm: 2,
+      memoryCost: 19456,
+      timeCost: 2,
+      parallelism: 1,
+    });
+  });
+
+  it('고정 dummy hash는 active password hash와 같은 Argon2id profile을 사용한다', async () => {
     const activeHash = await hashPassword('Pass1234');
     const expectedProfile = `m=${AUTH_PASSWORD_HASH_OPTIONS.memoryCost},t=${AUTH_PASSWORD_HASH_OPTIONS.timeCost},p=${AUTH_PASSWORD_HASH_OPTIONS.parallelism}`;
 

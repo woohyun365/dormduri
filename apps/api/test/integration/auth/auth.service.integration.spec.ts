@@ -31,7 +31,7 @@ describe('AuthService integration', () => {
     const emailNormalized = email.toLowerCase();
     const passwordHash = await argonHash('Pass1234', {
       algorithm: 2,
-      memoryCost: 8192,
+      memoryCost: 19456,
       timeCost: 2,
       parallelism: 1,
       outputLen: 32,
@@ -114,7 +114,7 @@ describe('AuthService integration', () => {
       const emailNormalized = email.toLowerCase();
       const passwordHash = await argonHash('Pass1234', {
         algorithm: 2,
-        memoryCost: 8192,
+        memoryCost: 19456,
         timeCost: 2,
         parallelism: 1,
         outputLen: 32,
@@ -166,7 +166,7 @@ describe('AuthService integration', () => {
     const email = 'renewal-reuse@kangwon.ac.kr';
     const passwordHash = await argonHash('Pass1234', {
       algorithm: 2,
-      memoryCost: 8192,
+      memoryCost: 19456,
       timeCost: 2,
       parallelism: 1,
       outputLen: 32,
@@ -246,7 +246,7 @@ describe('AuthService integration', () => {
 
     const signupInput = {
       email,
-      password: 'Pass1234',
+      password: 'Pass1234!!',
       nickname: '통합테스트닉네임',
       gender: 'M' as const,
       campus: 'CHUNCHEON' as const,
@@ -393,7 +393,7 @@ describe('AuthService integration', () => {
     const emailNormalized = email.toLowerCase();
     const currentPasswordHash = await argonHash('OldPass1234', {
       algorithm: 2,
-      memoryCost: 8192,
+      memoryCost: 19456,
       timeCost: 2,
       parallelism: 1,
       outputLen: 32,

@@ -134,6 +134,25 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Current login password verification operations by safe real or dummy target.',
     labelNames: ['target'],
   },
+  api_auth_password_hash_admission_total: {
+    name: 'api_auth_password_hash_admission_total',
+    kind: 'counter',
+    help: 'Total process-local password hash admission outcomes by bounded operation.',
+    labelNames: ['operation', 'outcome'],
+  },
+  api_auth_password_hash_duration_seconds: {
+    name: 'api_auth_password_hash_duration_seconds',
+    kind: 'histogram',
+    help: 'Password hash or verify duration seconds by bounded operation and target.',
+    labelNames: ['operation', 'target'],
+    buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+  },
+  api_auth_password_hash_in_flight: {
+    name: 'api_auth_password_hash_in_flight',
+    kind: 'gauge',
+    help: 'Current process-local Argon password operations by bounded operation.',
+    labelNames: ['operation'],
+  },
   api_auth_session_renewals_total: {
     name: 'api_auth_session_renewals_total',
     kind: 'counter',

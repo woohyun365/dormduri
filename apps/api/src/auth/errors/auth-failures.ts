@@ -1,5 +1,8 @@
 import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
-import { AUTH_RESET_RESTART_REQUIRED_CODE } from '@repo/shared/auth/response';
+import {
+  AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
+  AUTH_RESET_RESTART_REQUIRED_CODE,
+} from '@repo/shared/auth/response';
 
 interface AuthFailureOptions {
   userActionable?: boolean;
@@ -30,6 +33,17 @@ function createFailure<TCode extends string>(
 }
 
 export const authFailures = {
+  passwordHashCapacityUnavailable(retryAfterSeconds: number) {
+    return createFailure(
+      AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
+      '비밀번호 처리가 잠시 지연되고 있어요.',
+      {
+        userActionable: false,
+        retryAfterSeconds,
+      },
+    );
+  },
+
   invalidKnuEmail() {
     return createFailure(
       'AUTH_INVALID_EMAIL_FORMAT',

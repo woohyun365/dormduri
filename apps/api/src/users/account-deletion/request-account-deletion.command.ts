@@ -48,7 +48,11 @@ export function createRequestAccountDeletionCommand(deps: RequestAccountDeletion
       assertAccountDeletionUserExists(user);
       assertAccountIsNotDeleted(user);
 
-      const passwordMatches = await verifyPasswordHash(user.passwordHash, input.password);
+      const passwordMatches = await verifyPasswordHash(
+        user.passwordHash,
+        input.password,
+        'account_deletion_verify',
+      );
       assertAccountDeletionPasswordMatches(passwordMatches);
 
       const seasonContext = await deps.seasonsService.getCurrentSeasonContext(user.campus, now);

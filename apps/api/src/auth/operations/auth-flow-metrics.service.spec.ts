@@ -11,6 +11,9 @@ describe('AuthFlowMetricsService', () => {
     service.recordCredentialTransition('reset_password', 'committed');
     service.recordSignupFinalAdmission('allowed');
     service.recordSignupPasswordHash('completed', 0.2);
+    service.recordPasswordHashAdmission('login_verify', 'admitted');
+    service.recordPasswordHashInFlight('login_verify', 2);
+    service.recordPasswordHashOperation('login_verify', 'verify', 0.12);
     service.recordSensitiveMutation('change_password', 'audit_append_failed');
     service.recordMailDispatch('accepted', 12);
 
@@ -46,6 +49,20 @@ describe('AuthFlowMetricsService', () => {
     expect(metrics.incrementCounter).toHaveBeenCalledWith({
       name: 'api_auth_sensitive_mutations_total',
       labels: { operation: 'change_password', outcome: 'audit_append_failed' },
+    });
+    expect(metrics.incrementCounter).toHaveBeenCalledWith({
+      name: 'api_auth_password_hash_admission_total',
+      labels: { operation: 'login_verify', outcome: 'admitted' },
+    });
+    expect(metrics.setGauge).toHaveBeenCalledWith({
+      name: 'api_auth_password_hash_in_flight',
+      labels: { operation: 'login_verify' },
+      value: 2,
+    });
+    expect(metrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_auth_password_hash_duration_seconds',
+      labels: { operation: 'login_verify', target: 'verify' },
+      value: 0.12,
     });
   });
 });

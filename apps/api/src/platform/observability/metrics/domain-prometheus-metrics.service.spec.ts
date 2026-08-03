@@ -62,6 +62,20 @@ describe('DomainPrometheusMetricsService', () => {
       name: 'api_auth_sensitive_mutations_total',
       labels: { operation: 'change_password', outcome: 'audit_append_failed' },
     });
+    metrics.incrementCounter({
+      name: 'api_auth_password_hash_admission_total',
+      labels: { operation: 'login_verify', outcome: 'admitted' },
+    });
+    metrics.setGauge({
+      name: 'api_auth_password_hash_in_flight',
+      labels: { operation: 'login_verify' },
+      value: 2,
+    });
+    metrics.observeHistogram({
+      name: 'api_auth_password_hash_duration_seconds',
+      labels: { operation: 'login_verify', target: 'verify' },
+      value: 0.12,
+    });
 
     const scrape = await registry.metrics();
     expect(scrape).toContain('api_realtime_dispatch_batches_total');
@@ -78,6 +92,9 @@ describe('DomainPrometheusMetricsService', () => {
     expect(scrape).toContain('reason="mail-outbox-lag-high"');
     expect(scrape).toContain('api_auth_signup_final_admission_total');
     expect(scrape).toContain('api_auth_sensitive_mutations_total');
+    expect(scrape).toContain('api_auth_password_hash_admission_total');
+    expect(scrape).toContain('api_auth_password_hash_in_flight');
+    expect(scrape).toContain('api_auth_password_hash_duration_seconds_bucket');
     expect(scrape).not.toContain('user-1');
   });
 

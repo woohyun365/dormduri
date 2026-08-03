@@ -352,6 +352,42 @@ describe('auth BFF shared helpers', () => {
     });
   });
 
+  it('password hash capacity 503만 bounded retry metadata로 통과시킨다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+            error: 'raw upstream copy',
+            retryAfterSeconds: 2,
+            password: 'must-not-leak',
+          }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': '2',
+            },
+          },
+        );
+      }),
+    );
+
+    const result = await forwardAuthRequest('POST', '/auth/login');
+
+    expect(result.failureKind).toBeUndefined();
+    expect(result.response.status).toBe(503);
+    expect(result.response.headers.get('Retry-After')).toBe('2');
+    expect(result.json).toEqual({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      userActionable: false,
+      retryAfterSeconds: 2,
+    });
+  });
+
   it('runtime response schema mismatch를 invalid response로 분류한다', async () => {
     vi.stubGlobal(
       'fetch',

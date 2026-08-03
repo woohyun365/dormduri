@@ -3,6 +3,7 @@ import { LegalDocumentKind } from '@repo/shared/legal';
 import { parseDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import { DisplayIdentityNicknamePolicyError } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import { signup } from './signup.command.js';
+import { PasswordHashCapacityUnavailableError } from '../credentials/password-hash-admission.service.js';
 
 const passwordHashMocks = vi.hoisted(() => ({
   hashPassword: vi.fn(),
@@ -203,6 +204,19 @@ describe('signup command', () => {
     expect(passwordHashMocks.hashPassword).not.toHaveBeenCalled();
     expect(nicknamePolicy.validate).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('password hash capacity 초과는 transaction을 열지 않고 bounded retry로 반환한다', async () => {
+    passwordHashMocks.hashPassword.mockRejectedValueOnce(
+      new PasswordHashCapacityUnavailableError(2),
+    );
+
+    await expect(signup(deps as never, input, verificationGrant)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      retryAfterSeconds: 2,
+    });
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 

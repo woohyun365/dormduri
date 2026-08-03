@@ -277,6 +277,41 @@ describe('auth login BFF route', () => {
     expect(response.cookies.get('auth-renewal-token')).toBeUndefined();
   });
 
+  it('password hash capacity 503은 bounded retry metadata를 보존한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+              retryAfterSeconds: 2,
+            }),
+            {
+              status: 503,
+              headers: {
+                'Content-Type': 'application/json',
+                'Retry-After': '2',
+              },
+            },
+          ),
+      ),
+    );
+
+    const response = await postLogin(request(VALID_LOGIN_BODY));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('Retry-After')).toBe('2');
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      userActionable: false,
+      retryAfterSeconds: 2,
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
+
   it('network failure는 stable unavailable 응답으로 변환한다', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('connection refused')));
 

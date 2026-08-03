@@ -194,6 +194,36 @@ describe('authApi', () => {
     });
   });
 
+  it('password hash capacity 503은 generic feedback과 bounded retry metadata로 매핑한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+            error: '비밀번호 처리가 잠시 지연되고 있어요.',
+            retryAfterSeconds: 2,
+          }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': '2',
+            },
+          },
+        );
+      }),
+    );
+
+    await expect(authApi.login('test@kangwon.ac.kr', 'password123')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      error: '일시적 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
+      retryAfterSeconds: 2,
+    });
+  });
+
   it('login non-JSON response는 raw body를 노출하지 않는 generic server error로 수렴한다', async () => {
     vi.stubGlobal(
       'fetch',

@@ -8,6 +8,7 @@ import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword } from '../credentials/password-hash.js';
+import { isPasswordHashCapacityUnavailableError } from '../credentials/password-hash-admission.service.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
@@ -117,7 +118,7 @@ export async function signup(
   deps.flowMetrics?.recordSignupPasswordHash('started');
   let passwordHash: string;
   try {
-    passwordHash = await hashPassword(input.password);
+    passwordHash = await hashPassword(input.password, 'signup_hash');
     deps.flowMetrics?.recordSignupPasswordHash(
       'completed',
       (performance.now() - hashStartedAt) / 1_000,
@@ -128,6 +129,9 @@ export async function signup(
       (performance.now() - hashStartedAt) / 1_000,
     );
     deps.flowMetrics?.recordSensitiveMutation('signup', 'failed');
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
     throw error;
   }
   const emailVerifiedAt = await deps.prisma.getDatabaseNow();

@@ -1,6 +1,15 @@
-import { tooManyRequestsError } from '../../platform/http/api-error.js';
+import { serviceUnavailableError, tooManyRequestsError } from '../../platform/http/api-error.js';
+import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
 
 export const authErrors = {
+  passwordHashCapacityUnavailable(retryAfterSeconds: number) {
+    return serviceUnavailableError(
+      AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
+      '비밀번호 처리가 잠시 지연되고 있어요.',
+      { retryAfterSeconds },
+    );
+  },
+
   codeRequestThrottled(retryAfterSeconds: number) {
     return tooManyRequestsError(
       'AUTH_CODE_REQUEST_THROTTLED',

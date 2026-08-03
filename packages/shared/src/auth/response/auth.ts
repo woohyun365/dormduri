@@ -8,6 +8,8 @@ import { genericErrorResponseSchema } from './base.js';
 
 const verificationGrantExpirySchema = z.number().int().positive();
 export const AUTH_RESET_RESTART_REQUIRED_CODE = 'AUTH_RESET_RESTART_REQUIRED' as const;
+export const AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE =
+  'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE' as const;
 
 const authSessionIssueResponseFields = {
   accessToken: opaqueAuthTokenSchema.optional(),
@@ -61,6 +63,7 @@ export const signupFailureCodeSchema = z.enum([
   'AUTH_EMAIL_ALREADY_REGISTERED',
   'AUTH_LEGAL_ACCEPTANCE_STALE',
   'AUTH_SIGNUP_SUBMISSION_THROTTLED',
+  AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
 ]);
 export const signupFailureResponseSchema = genericErrorResponseSchema.extend({
   success: z.literal(false),
@@ -84,6 +87,7 @@ export const changePasswordFailureCodeSchema = z.enum([
   'AUTH_PASSWORD_POLICY_VIOLATION',
   'AUTH_PASSWORD_UNCHANGED',
   'AUTH_CHANGE_PASSWORD_THROTTLED',
+  AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
 ]);
 export const changePasswordFailureResponseSchema = genericErrorResponseSchema.extend({
   success: z.literal(false),

@@ -6,6 +6,7 @@ import type {
 } from '../sessions/auth-session.service.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword, verifyPasswordHash } from './password-hash.js';
+import { isPasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
 import { validatePasswordPolicy } from '../domain/auth.utils.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
@@ -66,7 +67,19 @@ export async function changePassword(
     return authFailures.currentPasswordInvalid();
   }
 
-  const currentPasswordMatches = await verifyPasswordHash(user.passwordHash, currentPassword);
+  let currentPasswordMatches: boolean;
+  try {
+    currentPasswordMatches = await verifyPasswordHash(
+      user.passwordHash,
+      currentPassword,
+      'change_verify',
+    );
+  } catch (error) {
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
+    throw error;
+  }
   if (!currentPasswordMatches) {
     deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.currentPasswordInvalid();
@@ -90,7 +103,15 @@ export async function changePassword(
     );
   }
 
-  const samePassword = await verifyPasswordHash(user.passwordHash, newPassword);
+  let samePassword: boolean;
+  try {
+    samePassword = await verifyPasswordHash(user.passwordHash, newPassword, 'change_verify');
+  } catch (error) {
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
+    throw error;
+  }
   if (samePassword) {
     deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.samePasswordNotAllowed();
@@ -111,7 +132,15 @@ export async function changePassword(
     return authFailures.reauthenticationRequired();
   }
 
-  const passwordHash = await hashPassword(newPassword);
+  let passwordHash: string;
+  try {
+    passwordHash = await hashPassword(newPassword, 'change_hash');
+  } catch (error) {
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
+    throw error;
+  }
   const preparedSession = await deps.sessionService.prepareSessionIssue(
     user.id,
     user.email,

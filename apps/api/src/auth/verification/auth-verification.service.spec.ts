@@ -88,6 +88,9 @@ describe('AuthVerificationService', () => {
     authLoginSustainedWindowSeconds: 600,
     authChangePasswordLimit: 10,
     authChangePasswordWindowSeconds: 600,
+    authPasswordHashConcurrency: 4,
+    authPasswordHashQueueLimit: 32,
+    authPasswordHashWaitTimeoutMs: 2_000,
     renewalPreviousTokenGraceEnabled: true,
   };
 

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     fieldErrors: json.fieldErrors,
     locked: json.locked,
     remainingSeconds: json.remainingSeconds,
+    retryAfterSeconds: json.retryAfterSeconds,
   });
 
   if (

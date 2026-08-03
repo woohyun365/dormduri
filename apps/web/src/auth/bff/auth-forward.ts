@@ -6,6 +6,7 @@ import {
   filterForwardHeaderRecord,
   readBffJsonResponse,
 } from '@/app/api/_bff/security';
+import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
 
 const ALLOWED_AUTH_METHODS = new Set(['GET', 'POST']);
 export const AUTH_BFF_DEFAULT_TIMEOUT_MS = 8_000;
@@ -96,6 +97,35 @@ function classifySafeJsonFailure(
   return undefined;
 }
 
+async function readPasswordHashCapacityResponse(
+  response: Response,
+): Promise<AuthForwardResult | null> {
+  if (response.status !== 503) {
+    return null;
+  }
+
+  const safeResult = await readBffJsonResponse(response, { redactSensitiveFields: true });
+  const retryAfterSeconds = Number(safeResult.json.retryAfterSeconds);
+  if (
+    safeResult.json.success !== false ||
+    safeResult.json.code !== AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE ||
+    !Number.isFinite(retryAfterSeconds) ||
+    retryAfterSeconds <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    response: safeResult.response,
+    json: {
+      success: false,
+      code: AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
+      userActionable: false,
+      retryAfterSeconds: Math.ceil(retryAfterSeconds),
+    },
+  };
+}
+
 export async function forwardAuthRequest(
   method: 'GET' | 'POST',
   path: string,
@@ -165,6 +195,16 @@ export async function forwardAuthRequest(
   }
 
   if (response.status >= 500) {
+    const capacityResponse = await readPasswordHashCapacityResponse(response);
+    if (capacityResponse) {
+      if (!options.responseSchema) {
+        return capacityResponse;
+      }
+      const parsed = options.responseSchema.safeParse(capacityResponse.json);
+      if (parsed.success) {
+        return { response: capacityResponse.response, json: parsed.data };
+      }
+    }
     return buildSafeAuthForwardResult('BFF_UPSTREAM_UNAVAILABLE', 503, 'upstream');
   }
 

@@ -14,6 +14,8 @@ import {
 } from '../security-events/auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
 import { parseLoginPasswordInput } from '@repo/shared/auth/policy';
+import { isPasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
+import { authFailures } from '../errors/auth-failures.js';
 
 interface AuthLoginOwnerDeps {
   prisma: PrismaService;
@@ -73,7 +75,14 @@ export async function login(
   });
 
   if (!user || user.deletedAt || !hasUserDisplayIdentity(user)) {
-    await deps.passwordHashPolicy.verifyUnavailableLogin(password);
+    try {
+      await deps.passwordHashPolicy.verifyUnavailableLogin(password);
+    } catch (error) {
+      if (isPasswordHashCapacityUnavailableError(error)) {
+        return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+      }
+      throw error;
+    }
     const failure = hasAuthRequestContext(requestContext)
       ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
       : deps.loginAttemptService.recordLoginFailure(emailNormalized);
@@ -82,10 +91,18 @@ export async function login(
     return result;
   }
 
-  const passwordMatches = await deps.passwordHashPolicy.verifyLoginPassword(
-    user.passwordHash,
-    password,
-  );
+  let passwordMatches: boolean;
+  try {
+    passwordMatches = await deps.passwordHashPolicy.verifyLoginPassword(
+      user.passwordHash,
+      password,
+    );
+  } catch (error) {
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
+    throw error;
+  }
   if (!passwordMatches) {
     const failure = hasAuthRequestContext(requestContext)
       ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)

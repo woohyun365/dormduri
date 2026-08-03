@@ -245,6 +245,33 @@ describe('AuthController', () => {
     ).toBeUndefined();
   });
 
+  it('password hash capacity 초과는 Retry-After가 있는 503으로 변환한다', async () => {
+    authService.login.mockResolvedValue({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      error: '비밀번호 처리가 잠시 지연되고 있어요.',
+      userActionable: false,
+      retryAfterSeconds: 2,
+    });
+
+    let failure: unknown;
+    try {
+      await controller.login(
+        { email: 'test@kangwon.ac.kr', password: 'Password1234' },
+        request as never,
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(HttpException);
+    expect((failure as HttpException).getStatus()).toBe(503);
+    expect((failure as HttpException).getResponse()).toMatchObject({
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      retryAfterSeconds: 2,
+    });
+  });
+
   it('validateSignupNickname은 nickname과 SIGNUP grant를 service로 위임한다', async () => {
     authService.validateSignupNickname.mockResolvedValue({
       success: true,

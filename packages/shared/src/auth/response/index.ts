@@ -2,6 +2,7 @@ export { genericErrorResponseSchema } from './base.js';
 export type { GenericErrorResponse } from './base.js';
 export {
   AUTH_RESET_RESTART_REQUIRED_CODE,
+  AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
   loginResponseSchema,
   verifyCodeResponseSchema,
   verifySignupCodeTransportResponseSchema,

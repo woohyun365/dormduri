@@ -4,6 +4,7 @@ import type { AuthVerificationService } from '../verification/auth-verification.
 import { authFailures } from '../errors/auth-failures.js';
 import { validatePasswordPolicy } from '../domain/auth.utils.js';
 import { hashPassword, verifyPasswordHash } from './password-hash.js';
+import { isPasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
@@ -81,12 +82,19 @@ export async function resetPassword(
     );
   }
 
-  const samePassword = await verifyPasswordHash(user.passwordHash, newPassword);
-  if (samePassword) {
-    return authFailures.samePasswordNotAllowed();
+  let passwordHash: string;
+  try {
+    const samePassword = await verifyPasswordHash(user.passwordHash, newPassword, 'reset_verify');
+    if (samePassword) {
+      return authFailures.samePasswordNotAllowed();
+    }
+    passwordHash = await hashPassword(newPassword, 'reset_hash');
+  } catch (error) {
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
+    throw error;
   }
-
-  const passwordHash = await hashPassword(newPassword);
   const databaseNow = await deps.prisma.getDatabaseNow();
 
   try {

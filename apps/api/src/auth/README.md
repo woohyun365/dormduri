@@ -40,6 +40,8 @@
 - Renewal rotation은 current hash를 previous hash로 옮기고 DB clock 기준 8초 grace를 둔다. Grace 안의 previous token은 stale이며, grace 밖의 old/unknown token만 reuse로 session family를 revoke한다.
 - Renewal metric은 `renewed|required|stale|reused` outcome만 기록하고 session/user/token 식별자를 label로 사용하지 않는다.
 - Missing/deleted/incomplete account login은 active hash와 같은 Argon2id profile의 canonical dummy hash를 검증한다. Active account lock은 cheap guard로 먼저 반환하는 명시적 예외다.
+- 신규·dummy password hash와 seed/fixture는 Argon2id 19MiB/t=2/p=1 단일 profile을 공유한다. 아직 배포된 사용자 데이터가 없으므로 old-hash migration 분기는 두지 않고 production-like capacity gate 결과에 따라 release 전 baseline 전체를 조정한다.
+- Signup/Reset/Change/Login/Account deletion의 Argon 연산은 process-local admission을 공유한다. 기본 상한은 동시 4·대기 32·2초 timeout이고 overload는 native queue를 늘리지 않고 bounded 503으로 종료한다.
 - Login account lock은 Postgres `LoginAttempt`의 5회/5분 기준이고, network throttle은 trusted `request.ip` 기준 30회/1분 burst와 120회/10분 sustained bucket이다.
 - Password reset 성공은 grant consume, password update, session revoke와 함께 같은 serializable transaction에서 해당 subject의 `LoginAttempt`를 제거한다.
 - HMAC lookup dimension은 `AUTH_PERSISTENCE_HMAC_KEY_VERSION:digest` 형식이며 key version과 secret을 함께 rotation한다. raw email/IP/UA를 metric label이나 security event dimension에 저장하지 않는다.

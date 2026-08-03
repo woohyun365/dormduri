@@ -209,7 +209,7 @@
 - Signup nickname/final admission/password hash lifecycle과 Signup·Change Password mutation stage는 bounded operation/outcome metric만 사용한다. Raw email/nickname/user/session/IP/token/grant를 label이나 structured log에 기록하지 않는다.
 - Login 같은 운영 관측 event는 기록 실패가 사용자 흐름을 막지 않는 fail-open telemetry가 될 수 있다. 반면 Signup·Reset·Change Password의 credential 상태를 설명하는 필수 lifecycle event는 owning transaction에 포함하며 기록 실패 시 mutation 전체를 rollback한다.
 - Password reset 성공 transaction은 해당 email의 `LoginAttempt`를 함께 삭제한다. Proof consume이 rollback되면 password, session, login attempt 상태도 변경하지 않는다.
-- Argon verify hard concurrency limit은 이 단계에서 추측값을 넣지 않는다. In-flight/duration metric과 production-like stress evidence를 먼저 수집하고 password hash capacity 계획이 상한을 소유한다.
+- 모든 Argon hash/verify는 process-local admission을 공유한다. Release candidate 기본값은 동시 실행 4, 대기열 32, 최대 대기 2초이며 queue 초과나 timeout은 `AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE` 503과 bounded `Retry-After`로 종료한다. Phase 5 production-like stress evidence가 production 최종값을 소유한다.
 - Opaque transport rejection은 legacy JWT-like token, malformed access/renewal token, missing/revoked/expired/deleted/incomplete-account session resolve failure를 운영 triage event로 남긴다. 사용자 응답은 기존 fail-closed/neutral contract를 유지한다.
 - Mail monitoring은 특정 provider를 고정하지 않는다. `EmailSender` boundary를 monitoring wrapper로 감싸 bounded send outcome과 provider error category만 기록한다. outbox dispatcher는 `accepted`/`failed`/`unknown`/`superseded` counter와 oldest pending lag를 Prometheus에 노출한다.
 - SES `ACCEPTED`는 provider 접수 상태이며 최종 delivery와 동일하지 않다. Production은 Configuration Set event publishing으로 delivery, bounce, complaint를 CloudWatch/SNS/EventBridge 중 승인된 운영 경계에 전달하고, raw 수신자·provider message body 없이 correlation id와 bounded outcome만 incident evidence에 사용한다.
@@ -252,7 +252,7 @@
 - 로그인은 저장된 hash 문자열과 입력 비밀번호를 문자열 비교하지 않는다. 사용자 row가 존재하고 cheap lock/account guard를 통과한 각 로그인 시도에서 encoded hash에 포함된 salt/parameter로 Argon2id verify 연산을 수행한다. 따라서 성공 로그인과 잘못된 비밀번호 로그인 모두 hash CPU/memory budget에 포함한다.
 - session 조회와 opaque access/renewal token 검증은 password hash를 다시 계산하지 않는다. 이미 발급된 session을 이용하는 일반 API 요청도 Argon2id를 실행하지 않는다.
 - 비밀번호 재설정/변경은 새 hash를 생성한다. 기존 비밀번호와 동일한지 또는 현재 비밀번호가 맞는지 확인하는 경로에서는 기존 hash verify가 추가될 수 있다.
-- Argon2id 19MiB 전환은 `production-deployment-readiness.md`의 4GB/2vCPU + RDS stress gate를 통과한 뒤 적용한다. 전환 후 기존 8MiB hash의 최초 성공 로그인은 old hash verify와 19MiB rehash를 모두 실행할 수 있으므로 migration burst를 별도 측정한다.
+- Release candidate의 신규 hash, canonical dummy hash, seed/fixture는 Argon2id 19MiB/t=2/p=1 단일 baseline을 사용한다. 아직 배포된 사용자 데이터가 없으므로 old-hash compatibility나 점진적 rehash는 두지 않는다. Production rollout은 `production-deployment-readiness.md`의 4GB/2vCPU + RDS stress gate 통과 뒤 확정하며, 부적합하면 release 전에 baseline 전체를 함께 조정한다.
 
 ## 회원가입 기본 단계
 
@@ -357,13 +357,13 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 
 ## 백엔드 강제 항목
 
-| 항목                           | 구현 원칙                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------- |
-| UUID 생성                      | 회원가입 시 서버 생성                                                                    |
-| 이메일 발송                    | Production은 SES 또는 동등 provider, local/test는 stub 허용                              |
-| Opaque session token 발급/검증 | 서버 DB session/token hash가 최종 권한 보유                                              |
-| 비밀번호 해싱                  | 현재 argon2id memory=8MiB/t=2/p=1. 19MiB/t=2/p=1은 production capacity gate 통과 후 전환 |
-| 로그인 잠금                    | 서버 저장 상태 기준                                                                      |
+| 항목                           | 구현 원칙                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| UUID 생성                      | 회원가입 시 서버 생성                                                                                            |
+| 이메일 발송                    | Production은 SES 또는 동등 provider, local/test는 stub 허용                                                      |
+| Opaque session token 발급/검증 | 서버 DB session/token hash가 최종 권한 보유                                                                      |
+| 비밀번호 해싱                  | Release candidate argon2id memory=19MiB/t=2/p=1 단일 baseline. Capacity gate 실패 시 release 전에 전체 설정 조정 |
+| 로그인 잠금                    | 서버 저장 상태 기준                                                                                              |
 
 ## 변경 이력
 
@@ -399,3 +399,4 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 | 2026-07-29 | Login timing을 canonical dummy Argon2id verify로 정규화하고 account lock과 30/min·120/10min trusted-IP throttle을 분리했다. Password reset transaction은 login lock을 함께 해제하며 login 결과·throttle·real/dummy verify metric을 no-PII label로 기록한다                                                                                                                                                                                                              | login security hardening        |
 | 2026-08-01 | Auth verification/credential/mail outbox metric, versioned HMAC dimension, reset abuse·mail failure·outbox lag alert 연결을 운영 기준으로 추가했다. Signup/Change Password의 transaction 이후 session 발급 실패는 재로그인 가능한 stable outcome으로 구분한다                                                                                                                                                                                                           | auth security operations        |
 | 2026-08-02 | Signup의 account·identity·legal·grant·initial session·필수 audit과 Change Password의 password CAS·session replacement·mail outbox·필수 audit을 각각 단일 transaction으로 통합했다. 부분 성공 응답을 제거하고 nickname/final-signup/change-password admission 및 no-PII metric 기준을 추가했다.                                                                                                                                                                          | auth credential lifecycle       |
+| 2026-08-03 | 신규·dummy hash와 seed/fixture를 Argon2id 19MiB/t=2/p=1 단일 baseline으로 맞췄다. 배포 사용자 데이터가 없어 old-hash migration 분기는 두지 않으며, 모든 password hash/verify는 동시 4·대기 32·2초 timeout의 process-local admission을 공유하고 overload는 bounded 503으로 종료한다. Production 최종 profile과 상한은 production-like capacity gate가 소유한다.                                                                                                          | password hash capacity          |

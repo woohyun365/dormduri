@@ -5,7 +5,7 @@ import { changePassword } from './change-password.command.js';
 const hashPasswordForTest = (password: string) =>
   argonHash(password, {
     algorithm: 2,
-    memoryCost: 8192,
+    memoryCost: 19456,
     timeCost: 2,
     parallelism: 1,
     outputLen: 32,
