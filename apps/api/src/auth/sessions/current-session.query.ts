@@ -1,10 +1,10 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
-import type { ApiSessionRejectionReason } from '@repo/shared/auth/session';
+import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
+import type { ApiSessionRejectionReason, ApiSessionResponse } from '@repo/shared/auth/session';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
-import type { AuthSessionUserSummary, SessionStatusResult } from '../domain/auth.types.js';
 import { toAuthenticatedSessionResult } from '../mappers/auth-response.builder.js';
-import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
+import { toAuthenticatedSessionUser } from '../mappers/auth-user-view.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { SELF_SERVICE_AUTH_CAPABILITIES } from '../access/auth-capability.js';
 import type { ResolvedAuthActorContext } from '../application/auth-actor-context.types.js';
@@ -56,7 +56,7 @@ export class CurrentSessionQuery {
   async getSession(
     token: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<SessionStatusResult> {
+  ): Promise<ApiSessionResponse> {
     const resolution = await this.resolveAuthenticatedSession(token, requestContext);
     if (!resolution.authenticated) {
       return resolution;
@@ -86,8 +86,8 @@ export class CurrentSessionQuery {
     };
   }
 
-  private toSessionUserSummary(session: AuthenticatedSessionRef): AuthSessionUserSummary {
-    return toAuthSessionUserSummary({
+  private toSessionUserSummary(session: AuthenticatedSessionRef): AuthenticatedSessionUser {
+    return toAuthenticatedSessionUser({
       id: session.user.id,
       email: session.user.email,
       nickname: session.user.displayIdentity.nickname,

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import type { LoginResponse } from '@repo/shared/auth/response';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { LoginResult } from '../domain/auth.types.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { ClearLoginFailuresCommand } from './clear-login-failures.command.js';
 import { GetActiveLoginLockQuery } from './get-active-login-lock.query.js';
@@ -17,7 +17,7 @@ export class AuthLoginAttemptService {
   async getActiveLock(
     emailNormalized: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult | null> {
+  ): Promise<LoginResponse | null> {
     return this.activeLockQuery.execute(emailNormalized, requestContext);
   }
 
@@ -35,7 +35,7 @@ export class AuthLoginAttemptService {
   async recordLoginFailure(
     emailNormalized: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     return this.recordFailureCommand.execute(emailNormalized, requestContext);
   }
 }

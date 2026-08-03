@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import type { SignupNicknameValidationResponse } from '@repo/shared/auth/response';
-import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
+import type { SignupRequest } from '@repo/shared/auth/contract';
 import type {
-  ChangePasswordResult,
-  GenericSuccessResult,
-  LoginResult,
-  RenewSessionResult,
-  SessionStatusResult,
-  SignupInput,
-} from '../domain/auth.types.js';
+  ChangePasswordResponse,
+  GenericErrorResponse,
+  LoginResponse,
+  RenewSessionResponse,
+  SignupNicknameValidationResponse,
+  VerifyResetCodeTransportResponse,
+  VerifySignupCodeTransportResponse,
+} from '@repo/shared/auth/response';
+import type { ApiSessionResponse } from '@repo/shared/auth/session';
+import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { AuthRegistrationUseCases } from '../registration/auth-registration-use-cases.service.js';
 import { AuthSessionUseCases } from '../sessions/auth-session-use-cases.service.js';
@@ -27,14 +29,14 @@ export class AuthService {
   sendSignupCode(
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.verificationUseCases.sendSignupCode(email, requestIpOrContext);
   }
 
   sendResetCode(
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.verificationUseCases.sendResetCode(email, requestIpOrContext);
   }
 
@@ -42,7 +44,7 @@ export class AuthService {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<VerifySignupCodeTransportResponse> {
     return this.verificationUseCases.verifyEmailCode(email, code, requestContext);
   }
 
@@ -50,14 +52,14 @@ export class AuthService {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<VerifyResetCodeTransportResponse> {
     return this.verificationUseCases.verifyResetCode(email, code, requestContext);
   }
 
   getSession(
     token: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<SessionStatusResult> {
+  ): Promise<ApiSessionResponse> {
     return this.sessionUseCases.getSession(token, requestContext);
   }
 
@@ -69,10 +71,10 @@ export class AuthService {
   }
 
   signup(
-    input: SignupInput,
+    input: SignupRequest,
     verificationGrant: string | null = null,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     return this.registrationUseCases.signup(input, verificationGrant, requestContext);
   }
 
@@ -81,7 +83,7 @@ export class AuthService {
     password: string,
     rememberMe: boolean,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     return this.credentialUseCases.login(email, password, rememberMe, requestContext);
   }
 
@@ -89,7 +91,7 @@ export class AuthService {
     verificationGrant: string | null,
     newPassword: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.credentialUseCases.resetPassword(verificationGrant, newPassword, requestContext);
   }
 
@@ -98,7 +100,7 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<ChangePasswordResult> {
+  ): Promise<ChangePasswordResponse> {
     return this.credentialUseCases.changePassword(
       authUser,
       currentPassword,
@@ -110,7 +112,7 @@ export class AuthService {
   renewSession(
     renewalToken: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<RenewSessionResult> {
+  ): Promise<RenewSessionResponse> {
     return this.sessionUseCases.renewSession(renewalToken, requestContext);
   }
 
@@ -118,7 +120,7 @@ export class AuthService {
     token: string | null,
     renewalToken: string | null = null,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.sessionUseCases.logout(token, renewalToken, requestContext);
   }
 }

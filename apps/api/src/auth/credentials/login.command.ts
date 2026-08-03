@@ -1,10 +1,10 @@
-import type { LoginResult } from '../domain/auth.types.js';
+import type { LoginResponse } from '@repo/shared/auth/response';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import type { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
-import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
+import { toAuthenticatedSessionUser } from '../mappers/auth-user-view.js';
 import { normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
 import type { AuthPasswordHashPolicy } from './password-hashing/auth-password-hash.adapter.js';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
@@ -38,7 +38,7 @@ export async function login(
   password: string,
   rememberMe: boolean,
   requestContext: AuthRequestContext = {},
-): Promise<LoginResult> {
+): Promise<LoginResponse> {
   const emailNormalized = normalizeAuthEmail(email);
   const activeLock = await (hasAuthRequestContext(requestContext)
     ? deps.loginAttemptService.getActiveLock(emailNormalized, requestContext)
@@ -132,7 +132,7 @@ export async function login(
 
   return toLoginSuccessResult(
     authResult.accessToken,
-    toAuthSessionUserSummary({
+    toAuthenticatedSessionUser({
       id: user.id,
       email: user.email,
       nickname: user.displayIdentity.nickname,

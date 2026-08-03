@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../platform/database/prisma.service.js';
 import type {
-  ChangePasswordResult,
-  GenericSuccessResult,
-  LoginResult,
-} from '../domain/auth.types.js';
+  ChangePasswordResponse,
+  GenericErrorResponse,
+  LoginResponse,
+} from '@repo/shared/auth/response';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthenticatedUserContext } from '../sessions/auth-session.service.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
@@ -42,7 +42,7 @@ export class AuthCredentialUseCases {
     password: string,
     rememberMe: boolean,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     return login(
       {
         prisma: this.prisma,
@@ -63,7 +63,7 @@ export class AuthCredentialUseCases {
     verificationGrant: string | null,
     newPassword: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     try {
       const result = await resetPassword(
         {
@@ -95,7 +95,7 @@ export class AuthCredentialUseCases {
     currentPassword: string,
     newPassword: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<ChangePasswordResult> {
+  ): Promise<ChangePasswordResponse> {
     try {
       const result = await changePassword(
         {

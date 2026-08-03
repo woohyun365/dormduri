@@ -1,5 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
+import type { RenewSessionResponse } from '@repo/shared/auth/response';
 import authConfig from '../../config/auth.config.js';
 import {
   AUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -7,7 +8,6 @@ import {
   AUTH_SESSION_RENEWAL_STALE_RETRY_AFTER_MILLISECONDS,
 } from './auth-session.policy.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
-import type { RenewSessionResult } from '../domain/auth.types.js';
 import { authFailures } from '../errors/auth-failures.js';
 import {
   AuthSecurityEventService,
@@ -32,7 +32,7 @@ export class RenewSessionCommand {
   async execute(
     renewalToken: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<RenewSessionResult> {
+  ): Promise<RenewSessionResponse> {
     const parsedRenewalToken = parseOpaqueToken(renewalToken);
     if (!parsedRenewalToken) {
       this.sessionMetrics?.recordRenewal('required');

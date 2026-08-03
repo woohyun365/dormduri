@@ -1,11 +1,12 @@
-import type { LoginResult, SignupInput } from '../domain/auth.types.js';
+import type { SignupRequest } from '@repo/shared/auth/contract';
+import type { LoginResponse } from '@repo/shared/auth/response';
 import { isCollegeAvailableForCampus } from '@repo/shared/college';
 import { randomUUID } from 'node:crypto';
 import { isKnuAuthEmail, normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
-import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
+import { toAuthenticatedSessionUser } from '../mappers/auth-user-view.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword } from '../credentials/password-hashing/password-hash.js';
 import { isPasswordHashCapacityUnavailableError } from '../credentials/password-hashing/password-hash-admission.service.js';
@@ -59,10 +60,10 @@ interface AuthSignupOwnerDeps {
 
 export async function signup(
   deps: AuthSignupOwnerDeps,
-  input: SignupInput,
+  input: SignupRequest,
   verificationGrant: string | null = null,
   requestContext: AuthRequestContext = {},
-): Promise<LoginResult> {
+): Promise<LoginResponse> {
   const emailNormalized = normalizeAuthEmail(input.email);
   if (!isKnuAuthEmail(emailNormalized)) {
     return authFailures.invalidKnuEmail();
@@ -235,7 +236,7 @@ export async function signup(
     deps.flowMetrics?.recordSensitiveMutation('signup', 'committed');
     return toLoginSuccessResult(
       preparedSession.result.accessToken,
-      toAuthSessionUserSummary({
+      toAuthenticatedSessionUser({
         id: user.id,
         email: user.email,
         nickname: user.displayIdentity.nickname,

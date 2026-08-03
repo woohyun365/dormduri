@@ -1,7 +1,8 @@
-import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
 import {
   AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
   AUTH_RESET_RESTART_REQUIRED_CODE,
+  type GenericErrorResponse,
+  type LoginResponse,
 } from '@repo/shared/auth/response';
 
 interface AuthFailureOptions {
@@ -14,7 +15,7 @@ function createFailure<TCode extends string>(
   code: TCode,
   error: string,
   options: AuthFailureOptions = {},
-): GenericSuccessResult & {
+): GenericErrorResponse & {
   success: false;
   code: TCode;
   error: string;
@@ -140,13 +141,13 @@ export const authFailures = {
     );
   },
 
-  invalidCredentials(): LoginResult {
+  invalidCredentials(): LoginResponse {
     return {
       ...createFailure('AUTH_INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다.'),
     };
   },
 
-  loginLocked(remainingSeconds: number): LoginResult {
+  loginLocked(remainingSeconds: number): LoginResponse {
     return {
       ...createFailure('AUTH_LOGIN_LOCKED', '반복된 로그인 실패로 계정이 잠겼어요.', {
         userActionable: false,

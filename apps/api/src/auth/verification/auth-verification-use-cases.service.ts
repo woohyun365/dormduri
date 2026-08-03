@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
+import type {
+  GenericErrorResponse,
+  VerifyResetCodeTransportResponse,
+  VerifySignupCodeTransportResponse,
+} from '@repo/shared/auth/response';
 import { authFailures } from '../errors/auth-failures.js';
 import { isKnuAuthEmail, normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
@@ -16,7 +20,7 @@ export class AuthVerificationUseCases {
   async sendSignupCode(
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     const emailNormalized = normalizeAuthEmail(email);
     if (!isKnuAuthEmail(emailNormalized)) {
       return authFailures.invalidKnuEmail();
@@ -34,7 +38,7 @@ export class AuthVerificationUseCases {
   async sendResetCode(
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     const emailNormalized = normalizeAuthEmail(email);
     const resetEligible =
       await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
@@ -50,7 +54,7 @@ export class AuthVerificationUseCases {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<VerificationGrantIssueResult> {
+  ): Promise<VerifySignupCodeTransportResponse> {
     if (!hasAuthRequestContext(requestContext)) {
       return this.verificationService.verifyEmailCode(email, code);
     }
@@ -61,7 +65,7 @@ export class AuthVerificationUseCases {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<VerificationGrantIssueResult> {
+  ): Promise<VerifyResetCodeTransportResponse> {
     const emailNormalized = normalizeAuthEmail(email);
     const eligibleUserId =
       await this.verificationEligibilityQuery.findPasswordResetEligibleUserId(emailNormalized);

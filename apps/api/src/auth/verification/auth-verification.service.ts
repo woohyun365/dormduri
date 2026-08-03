@@ -12,7 +12,11 @@ import {
   AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
   ensureMinVerificationResponseDuration,
 } from './auth-verification-timing.policy.js';
-import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
+import type {
+  GenericErrorResponse,
+  VerifyResetCodeTransportResponse,
+  VerifySignupCodeTransportResponse,
+} from '@repo/shared/auth/response';
 import { normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
 import {
   generateVerificationCode,
@@ -43,6 +47,10 @@ const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
   RESET_PASSWORD: RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
 } as const satisfies Record<VerificationCodePurpose, number>;
+
+type VerificationTransportResponse =
+  | VerifySignupCodeTransportResponse
+  | VerifyResetCodeTransportResponse;
 
 @Injectable()
 export class AuthVerificationService {
@@ -94,7 +102,7 @@ export class AuthVerificationService {
     emailNormalized: string,
     userExists: boolean,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.maybeSendCode('SIGNUP', emailNormalized, userExists, requestIpOrContext);
   }
 
@@ -102,7 +110,7 @@ export class AuthVerificationService {
     emailNormalized: string,
     userExists: boolean,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.maybeSendCode('RESET_PASSWORD', emailNormalized, userExists, requestIpOrContext);
   }
 
@@ -111,7 +119,7 @@ export class AuthVerificationService {
     emailNormalized: string,
     userExists: boolean,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     const startedAt = Date.now();
     const requestContext = this.normalizeRequestContext(requestIpOrContext);
     try {
@@ -175,7 +183,7 @@ export class AuthVerificationService {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<VerificationGrantIssueResult> {
+  ): Promise<VerifySignupCodeTransportResponse> {
     return this.verifyCode(email, 'SIGNUP', code, requestContext, null);
   }
 
@@ -184,7 +192,7 @@ export class AuthVerificationService {
     code: string,
     eligibleUserId: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<VerificationGrantIssueResult> {
+  ): Promise<VerifyResetCodeTransportResponse> {
     return this.verifyCode(email, 'RESET_PASSWORD', code, requestContext, eligibleUserId);
   }
 
@@ -265,13 +273,27 @@ export class AuthVerificationService {
     };
   }
 
+  private verifyCode(
+    email: string,
+    purpose: 'SIGNUP',
+    code: string,
+    requestContext: AuthRequestContext,
+    eligibleUserId: null,
+  ): Promise<VerifySignupCodeTransportResponse>;
+  private verifyCode(
+    email: string,
+    purpose: 'RESET_PASSWORD',
+    code: string,
+    requestContext: AuthRequestContext,
+    eligibleUserId: string,
+  ): Promise<VerifyResetCodeTransportResponse>;
   private async verifyCode(
     email: string,
     purpose: VerificationCodePurpose,
     code: string,
     requestContext: AuthRequestContext = {},
     eligibleUserId: string | null,
-  ): Promise<VerificationGrantIssueResult> {
+  ): Promise<VerificationTransportResponse> {
     const emailNormalized = normalizeAuthEmail(email);
     const subjectKey = this.toSubjectKey(emailNormalized);
     const record = await this.verificationStore.findActiveVerificationRecord(

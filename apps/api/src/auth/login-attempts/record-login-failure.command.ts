@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import type { LoginResult } from '../domain/auth.types.js';
+import type { LoginResponse } from '@repo/shared/auth/response';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import {
   AuthSecurityEventService,
@@ -23,7 +23,7 @@ export class RecordLoginFailureCommand {
   async execute(
     emailNormalized: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     const attempt = await this.repository.recordFailure(emailNormalized);
     const failureCount = attempt?.failureCount ?? 1;
 

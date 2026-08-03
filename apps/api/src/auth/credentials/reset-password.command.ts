@@ -1,4 +1,4 @@
-import type { GenericSuccessResult } from '../domain/auth.types.js';
+import type { ResetPasswordResponse } from '@repo/shared/auth/response';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { authFailures } from '../errors/auth-failures.js';
@@ -36,7 +36,7 @@ export async function resetPassword(
   verificationGrant: string | null,
   newPassword: string,
   requestContext: AuthRequestContext = {},
-): Promise<GenericSuccessResult> {
+): Promise<ResetPasswordResponse> {
   const resolvedGrant = await deps.verificationService.resolveVerificationGrant(
     verificationGrant,
     'RESET_PASSWORD',

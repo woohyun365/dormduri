@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { SignupNicknameValidationResponse } from '@repo/shared/auth/response';
+import type { SignupRequest } from '@repo/shared/auth/contract';
+import type { LoginResponse, SignupNicknameValidationResponse } from '@repo/shared/auth/response';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { DisplayIdentityNicknamePolicyService } from '../../users/identity/display/display-identity-nickname-policy.service.js';
-import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { signup } from './signup.command.js';
@@ -35,10 +35,10 @@ export class AuthRegistrationUseCases {
   }
 
   async signup(
-    input: SignupInput,
+    input: SignupRequest,
     verificationGrant: string | null = null,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     try {
       const result = await signup(
         {

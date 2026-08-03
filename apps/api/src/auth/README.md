@@ -18,7 +18,7 @@
 - `application/`: controller-facing facade와 public actor context resolver/type boundary. Workflow orchestration bucket을 두지 않는다.
 - `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
-- `domain/`: request context, auth email identity policy, constants/types 같은 pure domain owner. Generic `utils.ts`는 두지 않고 verification/password helper는 owning slice에 둔다. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
+- `domain/`: request context와 auth email identity policy처럼 여러 auth flow가 공유하는 pure domain owner. Generic `utils.ts`·`types.ts` bucket은 두지 않고 request/response type은 shared contract, internal result는 owning slice에 둔다. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
 - `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric을 함께 둔다.
 - `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, purpose-bound grant consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
 - `credentials/`: `auth-credential-use-cases.service.ts`, login/reset/change password command와 credential admission을 둔다.

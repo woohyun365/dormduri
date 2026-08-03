@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import type { LoginResult } from '../domain/auth.types.js';
+import type { LoginResponse } from '@repo/shared/auth/response';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import {
   AuthSecurityEventService,
@@ -19,7 +19,7 @@ export class GetActiveLoginLockQuery {
   async execute(
     emailNormalized: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<LoginResult | null> {
+  ): Promise<LoginResponse | null> {
     const attempt = await this.repository.findActiveLock(emailNormalized);
 
     if (!attempt || attempt.remainingSeconds == null) {

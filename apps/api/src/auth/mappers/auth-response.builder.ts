@@ -1,14 +1,11 @@
-import type {
-  LoginResult,
-  SessionStatusResult,
-  AuthSessionUserSummary,
-} from '../domain/auth.types.js';
+import type { AuthenticatedSessionUser, LoginResponse } from '@repo/shared/auth/response';
+import type { ApiSessionResponse } from '@repo/shared/auth/session';
 
 export function toLoginSuccessResult(
   accessToken: string,
-  user: AuthSessionUserSummary,
+  user: AuthenticatedSessionUser,
   options: { renewalToken: string; rememberMe: boolean },
-): LoginResult {
+): LoginResponse {
   return {
     success: true,
     accessToken,
@@ -18,7 +15,7 @@ export function toLoginSuccessResult(
   };
 }
 
-export function toAuthenticatedSessionResult(user: AuthSessionUserSummary): SessionStatusResult {
+export function toAuthenticatedSessionResult(user: AuthenticatedSessionUser): ApiSessionResponse {
   return {
     authenticated: true,
     user,

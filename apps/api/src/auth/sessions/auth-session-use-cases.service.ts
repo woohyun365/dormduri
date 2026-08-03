@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  GenericSuccessResult,
-  RenewSessionResult,
-  SessionStatusResult,
-} from '../domain/auth.types.js';
+import type { GenericErrorResponse, RenewSessionResponse } from '@repo/shared/auth/response';
+import type { ApiSessionResponse } from '@repo/shared/auth/session';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
 import { AuthSessionService } from './auth-session.service.js';
 
@@ -14,7 +11,7 @@ export class AuthSessionUseCases {
   getSession(
     token: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<SessionStatusResult> {
+  ): Promise<ApiSessionResponse> {
     if (!hasAuthRequestContext(requestContext)) {
       return this.sessionService.getSession(token);
     }
@@ -24,7 +21,7 @@ export class AuthSessionUseCases {
   renewSession(
     renewalToken: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<RenewSessionResult> {
+  ): Promise<RenewSessionResponse> {
     if (!hasAuthRequestContext(requestContext)) {
       return this.sessionService.renewSession(renewalToken);
     }
@@ -35,7 +32,7 @@ export class AuthSessionUseCases {
     token: string | null,
     renewalToken: string | null = null,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     if (!hasAuthRequestContext(requestContext)) {
       return this.sessionService.logout(token, renewalToken);
     }

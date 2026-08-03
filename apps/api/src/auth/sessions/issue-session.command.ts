@@ -5,13 +5,18 @@ import {
   AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
   AUTH_SESSION_TTL_SECONDS,
 } from './auth-session.policy.js';
-import type { AuthSessionIssueResult } from '../domain/auth.types.js';
 import { createOpaqueToken, hashOpaqueToken } from './opaque-token.js';
 import {
   AuthSessionRepository,
   type AuthSessionCreateClient,
   type AuthSessionCreateInput,
 } from './auth-session.repository.js';
+
+export interface AuthSessionIssueResult {
+  accessToken: string;
+  sessionId: string;
+  renewalToken: string;
+}
 
 export interface PreparedSessionIssue {
   persistence: AuthSessionCreateInput;
