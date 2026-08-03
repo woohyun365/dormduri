@@ -89,7 +89,7 @@ describe('Auth product architecture boundary', () => {
       /(?:^|\/)auth\/auth\.module(?:\.js)?$/,
       /(?:^|\/)auth\/access\/[^'"]+(?:\.js)?$/,
       /(?:^|\/)auth\/application\/auth-actor-context[^'"]*(?:\.js)?$/,
-      /(?:^|\/)auth\/application\/auth-password-hash(?:\.js)?$/,
+      /(?:^|\/)auth\/application\/auth-password-verifier\.service(?:\.js)?$/,
     ];
     const operationsAllowedExternalAuthImports = [
       /(?:^|\/)auth\/operations\/auth-operational-cleanup\.service(?:\.js)?$/,
@@ -117,6 +117,33 @@ describe('Auth product architecture boundary', () => {
     );
 
     expect(unapprovedImports.sort()).toEqual([]);
+  });
+
+  it('exposes password verification as a public capability instead of raw hash functions', () => {
+    expect(existsSync(join(authRoot, 'application/auth-password-hash.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'application/auth-password-verifier.service.ts'))).toBe(true);
+
+    const verifierSource = readSource(
+      join(authRoot, 'application/auth-password-verifier.service.ts'),
+    );
+    expect(verifierSource).toContain('verifyAccountPassword');
+    expect(verifierSource).not.toContain('export { hashPassword');
+  });
+
+  it('keeps generic auth utilities dissolved into explicit owners', () => {
+    expect(existsSync(join(authRoot, 'domain/auth.utils.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'domain/auth-email-identity.policy.ts'))).toBe(true);
+    expect(existsSync(join(authRoot, 'verification/verification-code.crypto.ts'))).toBe(true);
+    expect(existsSync(join(authRoot, 'verification/auth-verification-timing.policy.ts'))).toBe(
+      true,
+    );
+  });
+
+  it('keeps password policy fitness under the architecture owner', () => {
+    expect(
+      existsSync(join(apiSourceRoot, 'architecture/domains/auth-password-policy-boundary.spec.ts')),
+    ).toBe(true);
+    expect(existsSync(join(authRoot, 'credentials/password-policy.boundary.spec.ts'))).toBe(false);
   });
 
   it('keeps external production code off shared auth policy ownership', () => {

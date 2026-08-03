@@ -11,7 +11,7 @@ import { SignupNicknameValidationQuery } from './signup-nickname-validation.quer
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
-import { AuthPasswordPolicyService } from '../credentials/password-policy.service.js';
+import { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
 
 @Injectable()
 export class AuthRegistrationUseCases {

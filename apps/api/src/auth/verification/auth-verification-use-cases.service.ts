@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { isKnuEmail, normalizeEmail } from '../domain/auth.utils.js';
+import { isKnuAuthEmail, normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
 import { AuthVerificationEligibilityQuery } from './auth-verification-eligibility.query.js';
 import { AuthVerificationService } from './auth-verification.service.js';
@@ -17,8 +17,8 @@ export class AuthVerificationUseCases {
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
-    const emailNormalized = normalizeEmail(email);
-    if (!isKnuEmail(emailNormalized)) {
+    const emailNormalized = normalizeAuthEmail(email);
+    if (!isKnuAuthEmail(emailNormalized)) {
       return authFailures.invalidKnuEmail();
     }
 
@@ -35,7 +35,7 @@ export class AuthVerificationUseCases {
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
-    const emailNormalized = normalizeEmail(email);
+    const emailNormalized = normalizeAuthEmail(email);
     const resetEligible =
       await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
 
@@ -62,7 +62,7 @@ export class AuthVerificationUseCases {
     code: string,
     requestContext: AuthRequestContext = {},
   ): Promise<VerificationGrantIssueResult> {
-    const emailNormalized = normalizeEmail(email);
+    const emailNormalized = normalizeAuthEmail(email);
     const eligibleUserId =
       await this.verificationEligibilityQuery.findPasswordResetEligibleUserId(emailNormalized);
 

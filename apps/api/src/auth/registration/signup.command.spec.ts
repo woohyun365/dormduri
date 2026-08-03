@@ -3,13 +3,13 @@ import { LegalDocumentKind } from '@repo/shared/legal';
 import { parseDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import { DisplayIdentityNicknamePolicyError } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import { signup } from './signup.command.js';
-import { PasswordHashCapacityUnavailableError } from '../credentials/password-hash-admission.service.js';
+import { PasswordHashCapacityUnavailableError } from '../credentials/password-hashing/password-hash-admission.service.js';
 
 const passwordHashMocks = vi.hoisted(() => ({
   hashPassword: vi.fn(),
 }));
 
-vi.mock('../credentials/password-hash.js', () => passwordHashMocks);
+vi.mock('../credentials/password-hashing/password-hash.js', () => passwordHashMocks);
 
 const activeLegalDocumentIds: Record<LegalDocumentKind, string> = {
   [LegalDocumentKind.TERMS_OF_SERVICE]: 'terms-of-service-2026-06-22',
@@ -65,6 +65,12 @@ describe('signup command', () => {
   const submissionAdmission = { consume: vi.fn() };
   const passwordPolicy = { evaluateNewPassword: vi.fn() };
   const securityEvents = { recordInTransaction: vi.fn() };
+  const flowMetrics = {
+    recordPasswordPolicyRejected: vi.fn(),
+    recordSensitiveMutation: vi.fn(),
+    recordSignupFinalAdmission: vi.fn(),
+    recordSignupPasswordHash: vi.fn(),
+  };
   const nicknamePolicy = {
     validate: vi.fn(),
   };
@@ -76,6 +82,7 @@ describe('signup command', () => {
     nicknamePolicy,
     submissionAdmission,
     securityEvents,
+    flowMetrics,
   };
   const resolvedGrant = {
     id: 'code-1',
@@ -187,6 +194,13 @@ describe('signup command', () => {
   });
 
   it('비밀번호 정책 위반은 hash와 signup transaction 전에 거부한다', async () => {
+    passwordPolicy.evaluateNewPassword.mockReturnValue({
+      ok: false,
+      code: 'TOO_SHORT',
+      message: '비밀번호는 10자 이상이어야 합니다.',
+      reason: 'too_short',
+    });
+
     await expect(
       signup(
         deps as never,
@@ -205,6 +219,7 @@ describe('signup command', () => {
     expect(nicknamePolicy.validate).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith('signup', 'too_short');
   });
 
   it('password hash capacity 초과는 transaction을 열지 않고 bounded retry로 반환한다', async () => {
@@ -218,6 +233,7 @@ describe('signup command', () => {
       retryAfterSeconds: 2,
     });
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
   });
 
   it('취약 비밀번호는 nickname policy와 hash 전에 generic하게 거부한다', async () => {
@@ -225,6 +241,8 @@ describe('signup command', () => {
     passwordPolicy.evaluateNewPassword.mockReturnValue({
       ok: false,
       code: 'COMMON_VALUE',
+      message: '다른 비밀번호를 입력해 주세요.',
+      reason: 'common',
     });
 
     const result = await signup(
@@ -251,6 +269,7 @@ describe('signup command', () => {
     expect(nicknamePolicy.validate).not.toHaveBeenCalled();
     expect(passwordHashMocks.hashPassword).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith('signup', 'common');
   });
 
   it('transaction 시점에 active college가 아니면 계정을 생성하지 않는다', async () => {

@@ -2,9 +2,8 @@ import type { GenericSuccessResult } from '../domain/auth.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { validatePasswordPolicy } from '../domain/auth.utils.js';
-import { hashPassword, verifyPasswordHash } from './password-hash.js';
-import { isPasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
+import { hashPassword, verifyPasswordHash } from './password-hashing/password-hash.js';
+import { isPasswordHashCapacityUnavailableError } from './password-hashing/password-hash-admission.service.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
@@ -14,10 +13,8 @@ import type { AuthSecurityEventService } from '../security-events/auth-security-
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
-import {
-  AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
-  type AuthPasswordPolicyService,
-} from './password-policy.service.js';
+import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import type { AuthPasswordPolicyService } from './password-policy/auth-password-policy.service.js';
 
 const RESET_PASSWORD_OWNER_STALE = 'RESET_PASSWORD_OWNER_STALE';
 
@@ -31,6 +28,7 @@ interface AuthResetPasswordOwnerDeps {
   loginAttemptService: Pick<AuthLoginAttemptService, 'clearFailuresInTransaction'>;
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
   mailOutboxWriter: Pick<AuthMailOutboxWriter, 'appendPasswordChanged'>;
+  flowMetrics?: Pick<AuthFlowMetricsService, 'recordPasswordPolicyRejected'>;
 }
 
 export async function resetPassword(
@@ -66,20 +64,13 @@ export async function resetPassword(
   }
   const emailNormalized = user.emailNormalized;
 
-  const passwordError = validatePasswordPolicy(newPassword, user.email);
-  if (passwordError) {
-    return authFailures.passwordPolicyViolation(passwordError, 'newPassword');
-  }
-
-  const passwordRisk = deps.passwordPolicy.evaluateNewPassword(newPassword, {
+  const passwordDecision = deps.passwordPolicy.evaluateNewPassword(newPassword, {
     email: user.email,
     nickname: user.displayIdentity?.nickname,
   });
-  if (!passwordRisk.ok) {
-    return authFailures.passwordPolicyViolation(
-      AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
-      'newPassword',
-    );
+  if (!passwordDecision.ok) {
+    deps.flowMetrics?.recordPasswordPolicyRejected('reset_password', passwordDecision.reason);
+    return authFailures.passwordPolicyViolation(passwordDecision.message, 'newPassword');
   }
 
   let passwordHash: string;

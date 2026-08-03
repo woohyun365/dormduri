@@ -13,13 +13,13 @@ import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.se
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { changePassword } from './change-password.command.js';
-import { AuthPasswordHashPolicy } from './auth-password-hash.adapter.js';
+import { AuthPasswordHashPolicy } from './password-hashing/auth-password-hash.adapter.js';
 import { login } from './login.command.js';
 import { resetPassword } from './reset-password.command.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 import { ChangePasswordAdmissionService } from './change-password-admission.service.js';
-import { AuthPasswordPolicyService } from './password-policy.service.js';
+import { AuthPasswordPolicyService } from './password-policy/auth-password-policy.service.js';
 
 @Injectable()
 export class AuthCredentialUseCases {
@@ -73,6 +73,7 @@ export class AuthCredentialUseCases {
           loginAttemptService: this.loginAttemptService,
           securityEvents: this.securityEvents,
           mailOutboxWriter: this.mailOutboxWriter,
+          flowMetrics: this.flowMetrics,
         },
         verificationGrant,
         newPassword,

@@ -42,6 +42,10 @@ describe('DomainPrometheusMetricsService', () => {
       value: 0.12,
     });
     metrics.incrementCounter({
+      name: 'api_auth_password_policy_rejected_total',
+      labels: { operation: 'reset_password', reason: 'common' },
+    });
+    metrics.incrementCounter({
       name: 'api_auth_session_renewals_total',
       labels: { outcome: 'renewed' },
     });
@@ -95,6 +99,9 @@ describe('DomainPrometheusMetricsService', () => {
     expect(scrape).toContain('api_auth_password_hash_admission_total');
     expect(scrape).toContain('api_auth_password_hash_in_flight');
     expect(scrape).toContain('api_auth_password_hash_duration_seconds_bucket');
+    expect(scrape).toContain('api_auth_password_policy_rejected_total');
+    expect(scrape).toContain('operation="reset_password"');
+    expect(scrape).toContain('reason="common"');
     expect(scrape).not.toContain('user-1');
   });
 
@@ -105,6 +112,17 @@ describe('DomainPrometheusMetricsService', () => {
       metrics.incrementCounter({
         name: 'api_realtime_dispatch_batches_total',
         labels: { dispatcher: 'chat', outcome: 'success', userId: 'user-1' } as never,
+      }),
+    ).toThrow('Unexpected labels');
+
+    expect(() =>
+      metrics.incrementCounter({
+        name: 'api_auth_password_policy_rejected_total',
+        labels: {
+          operation: 'signup',
+          reason: 'contextual',
+          email: 'student@kangwon.ac.kr',
+        } as never,
       }),
     ).toThrow('Unexpected labels');
   });

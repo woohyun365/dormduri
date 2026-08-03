@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
+import { AuthLoginMetricsService } from '../../login-attempts/auth-login-metrics.service.js';
 import { AUTH_LOGIN_CANONICAL_DUMMY_HASH, verifyPasswordHash } from './password-hash.js';
 
 @Injectable()

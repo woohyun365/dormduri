@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { AUTH_VERIFICATION_CODE_MAX_ATTEMPTS } from '@repo/shared/auth/policy';
-import { hashVerificationCode } from '../domain/auth.utils.js';
+import { hashVerificationCode } from './verification-code.crypto.js';
 import authConfig, {
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
   DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,

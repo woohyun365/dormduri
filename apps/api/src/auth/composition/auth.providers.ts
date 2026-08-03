@@ -13,11 +13,12 @@ import { MonitoredEmailSenderService } from '../adapters/email/monitored-email-s
 import { SesEmailSenderService } from '../adapters/email/ses-email-sender.service.js';
 import { StubEmailSenderService } from '../adapters/email/stub-email-sender.service.js';
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
+import { AuthPasswordVerifier } from '../application/auth-password-verifier.service.js';
 import { AuthService } from '../application/auth.service.js';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
-import { AuthPasswordHashPolicy } from '../credentials/auth-password-hash.adapter.js';
-import { AuthPasswordPolicyService } from '../credentials/password-policy.service.js';
-import { PasswordHashAdmissionService } from '../credentials/password-hash-admission.service.js';
+import { AuthPasswordHashPolicy } from '../credentials/password-hashing/auth-password-hash.adapter.js';
+import { PasswordHashAdmissionService } from '../credentials/password-hashing/password-hash-admission.service.js';
+import { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
 import { ChangePasswordAdmissionService } from '../credentials/change-password-admission.service.js';
 import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import { AuthLoginThrottlerGuard } from '../login-attempts/auth-login-throttler.guard.js';
@@ -53,7 +54,11 @@ import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js
 import { AuthMailOutboxRepository } from '../mail/auth-mail-outbox.repository.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
-export const AUTH_APPLICATION_PROVIDERS: Provider[] = [AuthService, AuthActorContextResolver];
+export const AUTH_APPLICATION_PROVIDERS: Provider[] = [
+  AuthService,
+  AuthActorContextResolver,
+  AuthPasswordVerifier,
+];
 
 export const AUTH_OPERATIONAL_SIGNAL_PROVIDERS: Provider[] = [AuthFlowMetricsService];
 

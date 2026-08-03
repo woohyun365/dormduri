@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { hashVerificationCode, safeTimeEquals } from './auth.utils.js';
+import { hashVerificationCode, safeTimeEquals } from './verification-code.crypto.js';
 
-describe('auth.utils verification code hashing', () => {
+describe('verification code crypto', () => {
   const emailNormalized = 'test@kangwon.ac.kr';
   const purpose = 'SIGNUP';
   const code = '123456';

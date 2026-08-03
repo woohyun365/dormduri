@@ -7,6 +7,7 @@ import type {
   UpdateCurrentUserResponse,
 } from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { AuthPasswordVerifier } from '../../auth/application/auth-password-verifier.service.js';
 import {
   PrismaService,
   RetentionWorkerPrismaService,
@@ -44,6 +45,7 @@ export class UsersService {
     private readonly seasonsService: SeasonContextPort,
     private readonly nicknamePolicy: DisplayIdentityNicknamePolicyService,
     private readonly currentUserViewService: CurrentUserViewService,
+    private readonly passwordVerifier: AuthPasswordVerifier,
   ) {
     this.updateOwner = createUserUpdateOwner({
       prisma: this.prisma,
@@ -60,6 +62,7 @@ export class UsersService {
       prisma: this.prisma,
       retentionWorkerPrisma: this.retentionWorkerPrisma,
       seasonsService: this.seasonsService,
+      passwordVerifier: this.passwordVerifier,
     });
     this.onboardingOwner = createDismissOnboardingNoticeCommand({
       prisma: this.prisma,

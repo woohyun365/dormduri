@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { performance } from 'node:perf_hooks';
-import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
+import { AuthLoginMetricsService } from '../../login-attempts/auth-login-metrics.service.js';
 import { AuthPasswordHashPolicy } from './auth-password-hash.adapter.js';
 import {
   AUTH_LOGIN_CANONICAL_DUMMY_HASH,

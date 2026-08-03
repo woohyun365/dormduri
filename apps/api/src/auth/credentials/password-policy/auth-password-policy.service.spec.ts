@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AuthPasswordPolicyService } from './password-policy.service.js';
+import { AuthPasswordPolicyService } from './auth-password-policy.service.js';
 
 describe('AuthPasswordPolicyService', () => {
   const policy = new AuthPasswordPolicyService();
@@ -12,7 +12,7 @@ describe('AuthPasswordPolicyService', () => {
           email: 'student@kangwon.ac.kr',
           nickname: '감자친구',
         }),
-      ).toEqual({ ok: false, code: 'COMMON_VALUE' });
+      ).toMatchObject({ ok: false, code: 'COMMON_VALUE', reason: 'common' });
     },
   );
 
@@ -24,9 +24,9 @@ describe('AuthPasswordPolicyService', () => {
   ])(
     'email/local-part/nickname와 같은 값 %s를 contextual value로 거절한다',
     (password, email, nickname) => {
-      expect(policy.evaluateNewPassword(password, { email, nickname })).toEqual({
+      expect(policy.evaluateNewPassword(password, { email, nickname })).toMatchObject({
         ok: false,
-        code: 'CONTEXTUAL_VALUE',
+        reason: 'contextual',
       });
     },
   );
@@ -56,5 +56,20 @@ describe('AuthPasswordPolicyService', () => {
 
     expect(serialized).not.toContain(password);
     expect(serialized).not.toContain(password.toLowerCase());
+  });
+
+  it.each([
+    ['', 'REQUIRED', 'required'],
+    ['short', 'TOO_SHORT', 'too_short'],
+    ['a'.repeat(129), 'TOO_LONG', 'too_long'],
+    ['valid pass1', 'WHITESPACE_NOT_ALLOWED', 'whitespace'],
+    ['유효하지않은비밀번호', 'INVALID_CHARACTERS', 'invalid_characters'],
+  ] as const)('구조 정책 %s를 bounded reason으로 변환한다', (password, code, reason) => {
+    expect(
+      policy.evaluateNewPassword(password, {
+        email: 'student@kangwon.ac.kr',
+        nickname: '감자친구',
+      }),
+    ).toMatchObject({ ok: false, code, reason });
   });
 });

@@ -25,7 +25,7 @@
 - `identity/audit/`: display/academic identity change audit append/query helper.
 - `identity/retention/`: nickname/academic identity audit archive handlers that transform users-owned source rows for retention archive jobs. Sweep scheduling and execution stay in `retention/application/ports/retention-sweep.port.ts`.
 - `onboarding/`: dismissed notice command/query behavior.
-- `account-deletion/`: account deletion request, password-check bridge use, immediate de-identification, retained identity/archive job delegation.
+- `account-deletion/`: account deletion request, auth public password verifier use, immediate de-identification, retained identity/archive job delegation.
 - `operations/`: admin/support/enforcement-facing nickname override command와 display nickname audit list query seam. Public controller는 노출하지 않는다.
 - `errors/`: users route and account self-service user-facing error contract.
 - `contracts/`: shared user contract behavior regression specs.
@@ -34,7 +34,7 @@
 ## Hard rules
 
 - Refactors must not change user-facing route paths, response shapes, error codes, token/session policy, DB schema semantics, or account deletion side effects.
-- `users` does not own auth credential/session/password policy. Account deletion may use the auth password-hash bridge, but credential/session lifecycle stays in auth.
+- `users` does not own auth credential/session/password policy. Account deletion may use the auth public `AuthPasswordVerifier`, but hash implementation and credential/session lifecycle stay in auth.
 - `users` does not own season profile lifestyle/condition/registration writes, public profile/search policy, match/chat action policy, notification inbox behavior, social-safety report review outcome, or account-level enforcement engine.
 - Account deletion fails closed for a current registered participant. Accepted deletion immediately de-identifies active account identity and must not restore retained payload through user-facing product paths.
 - Do not create root `users/retention/` as a placeholder or sweep owner. Users-owned retained source row transformations live under `identity/retention/`. Retention sweep execution is owned by `retention/application/ports/retention-sweep.port.ts`.

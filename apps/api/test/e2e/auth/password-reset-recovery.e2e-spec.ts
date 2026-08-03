@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AUTH_VERIFICATION_GRANT_HEADER } from '@repo/shared/auth/contract';
-import { hashPassword } from '../../../src/auth/application/auth-password-hash.js';
+import { hashPassword } from '../../../src/auth/credentials/password-hashing/password-hash.js';
 import { AuthMailEnvelopeReader } from '../../../src/auth/mail/auth-mail-envelope-reader.service.js';
 import { AuthMailDispatcherService } from '../../../src/auth/mail/auth-mail-dispatcher.service.js';
 import type { PrismaService } from '../../../src/platform/database/prisma.service.js';

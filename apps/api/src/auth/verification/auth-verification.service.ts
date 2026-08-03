@@ -8,15 +8,17 @@ import {
   RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
 } from '@repo/shared/auth/policy';
-import { AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS } from './auth-verification-timing.policy.js';
-import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
 import {
-  ensureMinDuration,
+  AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
+  ensureMinVerificationResponseDuration,
+} from './auth-verification-timing.policy.js';
+import type { GenericSuccessResult, VerificationGrantIssueResult } from '../domain/auth.types.js';
+import { normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
+import {
   generateVerificationCode,
   hashVerificationCode,
-  normalizeEmail,
   safeTimeEquals,
-} from '../domain/auth.utils.js';
+} from './verification-code.crypto.js';
 import authConfig from '../../config/auth.config.js';
 import { AuthVerificationStore } from './verification-code.repository.js';
 import { authErrors } from '../errors/auth.errors.js';
@@ -162,7 +164,10 @@ export class AuthVerificationService {
       throw error;
     }
     this.flowMetrics?.recordVerification(purpose, 'request', 'accepted');
-    await ensureMinDuration(startedAt, AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS);
+    await ensureMinVerificationResponseDuration(
+      startedAt,
+      AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
+    );
     return { success: true };
   }
 
@@ -267,7 +272,7 @@ export class AuthVerificationService {
     requestContext: AuthRequestContext = {},
     eligibleUserId: string | null,
   ): Promise<VerificationGrantIssueResult> {
-    const emailNormalized = normalizeEmail(email);
+    const emailNormalized = normalizeAuthEmail(email);
     const subjectKey = this.toSubjectKey(emailNormalized);
     const record = await this.verificationStore.findActiveVerificationRecord(
       subjectKey,

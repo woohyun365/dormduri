@@ -5,8 +5,8 @@ import type { AuthLoginMetricsService } from '../login-attempts/auth-login-metri
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
-import { normalizeEmail } from '../domain/auth.utils.js';
-import type { AuthPasswordHashPolicy } from './auth-password-hash.adapter.js';
+import { normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
+import type { AuthPasswordHashPolicy } from './password-hashing/auth-password-hash.adapter.js';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
 import {
   AuthSecurityEventService,
@@ -14,7 +14,7 @@ import {
 } from '../security-events/auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
 import { parseLoginPasswordInput } from '@repo/shared/auth/policy';
-import { isPasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
+import { isPasswordHashCapacityUnavailableError } from './password-hashing/password-hash-admission.service.js';
 import { authFailures } from '../errors/auth-failures.js';
 
 interface AuthLoginOwnerDeps {
@@ -39,7 +39,7 @@ export async function login(
   rememberMe: boolean,
   requestContext: AuthRequestContext = {},
 ): Promise<LoginResult> {
-  const emailNormalized = normalizeEmail(email);
+  const emailNormalized = normalizeAuthEmail(email);
   const activeLock = await (hasAuthRequestContext(requestContext)
     ? deps.loginAttemptService.getActiveLock(emailNormalized, requestContext)
     : deps.loginAttemptService.getActiveLock(emailNormalized));

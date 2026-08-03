@@ -36,8 +36,8 @@ interface SqlTimeInventoryEntry {
 
 const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
   entry({
-    path: 'src/auth/domain/auth.utils.ts',
-    owner: 'auth/domain',
+    path: 'src/auth/verification/auth-verification-timing.policy.ts',
+    owner: 'auth/verification',
     category: 'duration-metric',
     rationale:
       'auth instrumentation measures elapsed duration; it is not a persisted business time.',
@@ -48,6 +48,20 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     category: 'date-arithmetic',
     rationale:
       'cleanup cutoffs are derived from the explicit database-now input passed into the operation.',
+  }),
+  entry({
+    path: 'src/auth/mail/auth-mail-outbox-writer.service.ts',
+    owner: 'auth/mail',
+    category: 'date-arithmetic',
+    rationale:
+      'password-change mail expiry is derived from the explicit transaction-scoped now supplied by the owning credential command.',
+  }),
+  entry({
+    path: 'src/auth/mail/auth-mail-outbox.repository.ts',
+    owner: 'auth/mail',
+    category: 'date-arithmetic',
+    rationale:
+      'outbox stale-claim cutoff is derived from the explicit dispatcher-owned now supplied to the repository.',
   }),
   entry({
     path: 'src/auth/security-events/security-alert.policy.ts',
@@ -82,6 +96,13 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     category: 'duration-metric',
     rationale:
       'verification instrumentation measures elapsed duration; it is not persisted business time.',
+  }),
+  entry({
+    path: 'src/auth/verification/auth-verification-request.repository.ts',
+    owner: 'auth/verification',
+    category: 'date-arithmetic',
+    rationale:
+      'verification code expiry is derived from the database-issued timestamp supplied to the transaction.',
   }),
   entry({
     path: 'src/auth/verification/verification-code.repository.ts',

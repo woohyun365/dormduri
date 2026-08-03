@@ -153,6 +153,12 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Current process-local Argon password operations by bounded operation.',
     labelNames: ['operation'],
   },
+  api_auth_password_policy_rejected_total: {
+    name: 'api_auth_password_policy_rejected_total',
+    kind: 'counter',
+    help: 'Total new-password policy rejections by bounded operation and reason.',
+    labelNames: ['operation', 'reason'],
+  },
   api_auth_session_renewals_total: {
     name: 'api_auth_session_renewals_total',
     kind: 'counter',

@@ -1,14 +1,14 @@
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { isCollegeAvailableForCampus } from '@repo/shared/college';
 import { randomUUID } from 'node:crypto';
-import { isKnuEmail, normalizeEmail, validatePasswordPolicy } from '../domain/auth.utils.js';
+import { isKnuAuthEmail, normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { hashPassword } from '../credentials/password-hash.js';
-import { isPasswordHashCapacityUnavailableError } from '../credentials/password-hash-admission.service.js';
+import { hashPassword } from '../credentials/password-hashing/password-hash.js';
+import { isPasswordHashCapacityUnavailableError } from '../credentials/password-hashing/password-hash-admission.service.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
@@ -33,10 +33,7 @@ import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
-import {
-  AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
-  type AuthPasswordPolicyService,
-} from '../credentials/password-policy.service.js';
+import type { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -53,7 +50,10 @@ interface AuthSignupOwnerDeps {
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
   flowMetrics?: Pick<
     AuthFlowMetricsService,
-    'recordSignupFinalAdmission' | 'recordSignupPasswordHash' | 'recordSensitiveMutation'
+    | 'recordPasswordPolicyRejected'
+    | 'recordSignupFinalAdmission'
+    | 'recordSignupPasswordHash'
+    | 'recordSensitiveMutation'
   >;
 }
 
@@ -63,8 +63,8 @@ export async function signup(
   verificationGrant: string | null = null,
   requestContext: AuthRequestContext = {},
 ): Promise<LoginResult> {
-  const emailNormalized = normalizeEmail(input.email);
-  if (!isKnuEmail(emailNormalized)) {
+  const emailNormalized = normalizeAuthEmail(input.email);
+  if (!isKnuAuthEmail(emailNormalized)) {
     return authFailures.invalidKnuEmail();
   }
   if (!isCollegeAvailableForCampus(input.campus, input.collegeCode)) {
@@ -88,17 +88,13 @@ export async function signup(
     return authFailures.signupSubmissionThrottled(retryAfterSeconds);
   }
 
-  const passwordError = validatePasswordPolicy(input.password, emailNormalized);
-  if (passwordError) {
-    return authFailures.passwordPolicyViolation(passwordError);
-  }
-
-  const passwordRisk = deps.passwordPolicy.evaluateNewPassword(input.password, {
+  const passwordDecision = deps.passwordPolicy.evaluateNewPassword(input.password, {
     email: emailNormalized,
     nickname: input.nickname,
   });
-  if (!passwordRisk.ok) {
-    return authFailures.passwordPolicyViolation(AUTH_PASSWORD_RISK_REJECTION_MESSAGE);
+  if (!passwordDecision.ok) {
+    deps.flowMetrics?.recordPasswordPolicyRejected('signup', passwordDecision.reason);
+    return authFailures.passwordPolicyViolation(passwordDecision.message);
   }
 
   let parsedNickname: ParsedDisplayIdentityNickname;

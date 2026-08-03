@@ -9,6 +9,7 @@
 - `AuthModule`: auth guard/session/access provider wiring을 제공한다.
 - `access/` public surface: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
 - actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 session facade다.
+- `AuthPasswordVerifier`: 외부 domain이 credential/hash 구현을 알지 않고 account password 확인 capability만 사용하는 public application boundary다.
 - `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다.
 
 ## Directory responsibilities
@@ -17,10 +18,12 @@
 - `application/`: controller-facing facade와 public actor context resolver/type boundary. Workflow orchestration bucket을 두지 않는다.
 - `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
-- `domain/`: request context, constants/types/utils 같은 pure/domain helper. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
+- `domain/`: request context, auth email identity policy, constants/types 같은 pure domain owner. Generic `utils.ts`는 두지 않고 verification/password helper는 owning slice에 둔다. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
 - `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric을 함께 둔다.
 - `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, purpose-bound grant consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
-- `credentials/`: `auth-credential-use-cases.service.ts`, `password-hash.ts`, password hash adapter, login/reset/change password command를 함께 둔다. 외부 users deletion은 `application/auth-password-hash.ts` bridge만 사용한다.
+- `credentials/`: `auth-credential-use-cases.service.ts`, login/reset/change password command와 credential admission을 둔다.
+  - `credentials/password-hashing/`: Argon2id hash/verify, hash profile adapter, process-local capacity admission을 함께 소유한다.
+  - `credentials/password-policy/`: Shared structure policy mapping, API-private common/contextual policy와 blocklist lookup을 함께 소유한다.
 - `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy, login network throttle와 no-PII metric을 함께 둔다. 계정 잠금과 IP throttle을 하나의 bucket으로 합치지 않는다.
 - `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않는다. Login 같은 운영 관측 event는 `recordSafely`로 fail-open할 수 있지만 Signup·Reset·Change Password의 필수 credential lifecycle event는 owning transaction 안에서 `recordInTransaction`으로 기록한다.
 - `registration/`: `auth-registration-use-cases.service.ts`, nickname-only signup admission query와 signup command를 함께 둔다. Auth는 lifestyle/intro/profile parser나 display nickname 불변식 자체를 소유하지 않는다.
@@ -63,7 +66,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - `AuthService`는 controller-facing facade이며 direct Prisma/session/verification/login-attempt/security-event orchestration을 하지 않는다.
 - `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 AuthLoginThrottlerGuard → AuthenticatedUserGuard로 유지한다.
 - Top-level `queries/`, `policies/`, `repositories` transition structure는 두지 않는다. Query/policy/repository는 각 owning slice 내부 파일명으로 둔다.
-- Opaque session token primitive는 `sessions/opaque-token.ts`, password hash helper는 `credentials/password-hash.ts`가 canonical owner다.
+- Opaque session token primitive는 `sessions/opaque-token.ts`, password hash helper는 `credentials/password-hashing/password-hash.ts`가 canonical owner다.
 - `application/auth-use-cases.service.ts` bucket은 두지 않는다. Workflow orchestration은 `verification/`, `registration/`, `credentials/`, `sessions/` slice-local use-case provider가 소유한다.
 - Session lifecycle은 `sessions/` slice가 소유한다.
 - Verification/credentials/registration use case는 각 slice가 소유한다.
@@ -78,7 +81,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Public route access mode, capability metadata, and current-user decorator behavior: `access/`.
 - Controller-facing use-case delegation only: `application/auth.service.ts`.
 - External-domain actor lookup/type surface: `application/auth-actor-context.*`.
-- External users-domain password check bridge: `application/auth-password-hash.ts`.
+- External users-domain account password verification: `application/auth-password-verifier.service.ts`.
 - Opaque session issue/renew/logout/revoke/current actor projection: `sessions/`.
 - Verification code/grant issue, verify, consume, and ACID repository behavior: `verification/`.
 - Login, reset password, change password, and password hashing: `credentials/`.
@@ -89,14 +92,16 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Provider selection, SES payload/receipt/tag mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational cleanup, verification/credential/mail metrics, security alert evaluation, Redis gate, and `/health/auth` snapshot: `operations/`.
-- Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.
+- Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/domains/auth-boundary.spec.ts`.
+- Password policy source/import boundary: `architecture/domains/auth-password-policy-boundary.spec.ts`.
 - Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; public imports use `@repo/shared/auth` and granular `@repo/shared/auth/*` only.
 
 ## Useful verification
 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
-  src/architecture/auth-boundary.spec.ts \
+  src/architecture/domains/auth-boundary.spec.ts \
+  src/architecture/domains/auth-password-policy-boundary.spec.ts \
   src/architecture/security/auth-access-route-matrix.spec.ts \
   src/architecture/domain-context/domain-context-route-matrix.spec.ts \
   src/auth/application/auth.service.spec.ts \

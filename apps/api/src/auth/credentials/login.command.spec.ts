@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { login } from './login.command.js';
-import { verifyPasswordHash } from './password-hash.js';
+import { verifyPasswordHash } from './password-hashing/password-hash.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
-import { PasswordHashCapacityUnavailableError } from './password-hash-admission.service.js';
+import { PasswordHashCapacityUnavailableError } from './password-hashing/password-hash-admission.service.js';
 
 const hashPasswordForTest = (password: string) =>
   argonHash(password, {

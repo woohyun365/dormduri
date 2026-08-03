@@ -5,7 +5,7 @@ import { hashVerificationGrant } from '../../../src/auth/verification/auth-verif
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
 import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import type { AuthenticatedUserContext } from '../../../src/auth/sessions/auth-session.service.js';
-import { normalizeEmail } from '../../../src/auth/domain/auth.utils.js';
+import { normalizeEmail } from '@repo/shared/auth/policy';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../../src/season-participants/application/season-participants.service.js';
 import { seasonParticipantsErrors } from '../../../src/season-participants/errors/season-participants.errors.js';

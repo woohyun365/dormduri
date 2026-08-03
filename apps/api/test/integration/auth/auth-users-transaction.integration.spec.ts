@@ -10,8 +10,9 @@ import { changePassword as changePasswordWithOwner } from '../../../src/auth/cre
 import {
   hashPassword,
   verifyPasswordHash,
-} from '../../../src/auth/application/auth-password-hash.js';
-import { normalizeEmail, normalizeNickname } from '../../../src/auth/domain/auth.utils.js';
+} from '../../../src/auth/credentials/password-hashing/password-hash.js';
+import { normalizeEmail } from '@repo/shared/auth/policy';
+import { normalizeDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
 import {
@@ -309,7 +310,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                     return Promise.resolve({
                       ok: true,
                       value: inputNickname,
-                      normalized: normalizeNickname(inputNickname),
+                      normalized: normalizeDisplayIdentityNickname(inputNickname),
                       script: 'HANGUL',
                     });
                   },
@@ -351,7 +352,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         const email = 'signup-rollback@kangwon.ac.kr';
         const emailNormalized = normalizeEmail(email);
         const nickname = '원자닉';
-        const nicknameNormalized = normalizeNickname(nickname);
+        const nicknameNormalized = normalizeDisplayIdentityNickname(nickname);
         const verificationCodeId = 'signup-rollback-code';
         const gate = createGate();
 
@@ -386,7 +387,7 @@ describe('Auth/users transaction rollback and race integration', () => {
                 return Promise.resolve({
                   ok: true,
                   value: inputNickname,
-                  normalized: normalizeNickname(inputNickname),
+                  normalized: normalizeDisplayIdentityNickname(inputNickname),
                   script: 'HANGUL',
                 });
               },
@@ -1343,7 +1344,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         );
         await expect(
           prisma.userDisplayIdentity.count({
-            where: { nicknameNormalized: normalizeNickname('공통닉') },
+            where: { nicknameNormalized: normalizeDisplayIdentityNickname('공통닉') },
           }),
         ).resolves.toBe(1);
       },
@@ -1626,7 +1627,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         displayIdentity: {
           create: {
             nickname: input.nickname,
-            nicknameNormalized: normalizeNickname(input.nickname),
+            nicknameNormalized: normalizeDisplayIdentityNickname(input.nickname),
             nicknameChangedAt: input.nicknameChangedAt ?? null,
           },
         },
@@ -1670,7 +1671,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         profile: {
           create: {
             nicknameSnapshot: nickname,
-            nicknameNormalizedSnapshot: normalizeNickname(nickname),
+            nicknameNormalizedSnapshot: normalizeDisplayIdentityNickname(nickname),
             ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
             intro: `${nickname} 소개`,
           },

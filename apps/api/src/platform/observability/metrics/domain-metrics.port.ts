@@ -16,6 +16,7 @@ export type DomainMetricName =
   | 'api_auth_password_hash_admission_total'
   | 'api_auth_password_hash_duration_seconds'
   | 'api_auth_password_hash_in_flight'
+  | 'api_auth_password_policy_rejected_total'
   | 'api_auth_mail_dispatch_total'
   | 'api_auth_mail_outbox_lag_seconds'
   | 'api_auth_security_alert_active'

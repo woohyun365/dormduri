@@ -8,10 +8,12 @@ import {
 import type {
   AuthPasswordHashOperation,
   AuthPasswordHashTarget,
-} from '../credentials/password-hash-admission.service.js';
+} from '../credentials/password-hashing/password-hash-admission.service.js';
+import type { AuthPasswordPolicyRejectionReason } from '../credentials/password-policy/auth-password-structure.policy.js';
 
 export type AuthVerificationMetricOperation = 'request' | 'verify' | 'grant';
 export type AuthCredentialTransitionOperation = 'signup' | 'reset_password' | 'change_password';
+export type AuthPasswordPolicyOperation = 'signup' | 'reset_password' | 'change_password';
 export type AuthSensitiveMutationOperation = 'signup' | 'change_password';
 export type AuthSensitiveMutationOutcome =
   | 'allowed'
@@ -116,6 +118,18 @@ export class AuthFlowMetricsService {
       metrics.incrementCounter({
         name: 'api_auth_password_hash_admission_total',
         labels: { operation, outcome },
+      }),
+    );
+  }
+
+  recordPasswordPolicyRejected(
+    operation: AuthPasswordPolicyOperation,
+    reason: AuthPasswordPolicyRejectionReason,
+  ) {
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({
+        name: 'api_auth_password_policy_rejected_total',
+        labels: { operation, reason },
       }),
     );
   }

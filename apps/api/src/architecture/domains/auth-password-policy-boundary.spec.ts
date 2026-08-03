@@ -1,14 +1,13 @@
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   AUTH_PASSWORD_BLOCKLIST_REFERENCE,
   validateAuthPasswordBlocklistReference,
-} from './password-policy/password-blocklist.reference.js';
-import { authPasswordBlocklistSize } from './password-policy/password-blocklist.lookup.js';
+} from '../../auth/credentials/password-policy/password-blocklist.reference.js';
+import { authPasswordBlocklistSize } from '../../auth/credentials/password-policy/password-blocklist.lookup.js';
 
-const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const passwordPolicyRoot = join(process.cwd(), 'src/auth/credentials/password-policy');
 
 describe('auth password policy boundary', () => {
   it('reference와 in-memory exact lookup의 개수·형식이 일치한다', () => {
@@ -21,14 +20,18 @@ describe('auth password policy boundary', () => {
 
   it('private password policy는 public-text moderation과 logging dependency를 사용하지 않는다', () => {
     const serviceSource = readFileSync(
-      path.join(CURRENT_DIR, 'password-policy.service.ts'),
+      join(passwordPolicyRoot, 'auth-password-policy.service.ts'),
       'utf8',
     );
     const lookupSource = readFileSync(
-      path.join(CURRENT_DIR, 'password-policy/password-blocklist.lookup.ts'),
+      join(passwordPolicyRoot, 'password-blocklist.lookup.ts'),
       'utf8',
     );
-    const combinedSource = `${serviceSource}\n${lookupSource}`;
+    const structureSource = readFileSync(
+      join(passwordPolicyRoot, 'auth-password-structure.policy.ts'),
+      'utf8',
+    );
+    const combinedSource = `${serviceSource}\n${lookupSource}\n${structureSource}`;
 
     expect(combinedSource).not.toContain('/moderation/');
     expect(combinedSource).not.toContain('ModerationService');

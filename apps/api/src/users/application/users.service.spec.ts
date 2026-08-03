@@ -47,6 +47,9 @@ describe('UsersService facade boundary', () => {
     getCurrentUser: vi.fn(),
     buildCurrentUserResponse: vi.fn(),
   };
+  const passwordVerifier = {
+    verifyAccountPassword: vi.fn(),
+  };
 
   const service = new UsersService(
     prisma as never,
@@ -54,6 +57,7 @@ describe('UsersService facade boundary', () => {
     seasonsService as never,
     nicknamePolicy as never,
     currentUserViewService as never,
+    passwordVerifier,
   );
 
   beforeEach(() => {

@@ -50,7 +50,10 @@ describe('changePassword command', () => {
   };
   const admission = { consume: vi.fn() };
   const passwordPolicy = { evaluateNewPassword: vi.fn() };
-  const flowMetrics = { recordSensitiveMutation: vi.fn() };
+  const flowMetrics = {
+    recordPasswordPolicyRejected: vi.fn(),
+    recordSensitiveMutation: vi.fn(),
+  };
   const deps = {
     prisma,
     sessionService,
@@ -110,6 +113,7 @@ describe('changePassword command', () => {
       renewalToken: 'rotated-renewal-token',
       rememberMe: true,
     });
+    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
 
     const passwordUpdate = prisma.user.updateMany.mock.calls[0]?.[0] as unknown as
       | {
@@ -284,6 +288,12 @@ describe('changePassword command', () => {
   });
 
   it('새 비밀번호 정책 위반은 신규 hash와 credential transaction 전에 거부한다', async () => {
+    passwordPolicy.evaluateNewPassword.mockReturnValue({
+      ok: false,
+      code: 'TOO_SHORT',
+      message: '비밀번호는 10자 이상이어야 합니다.',
+      reason: 'too_short',
+    });
     await expect(
       changePassword(deps as never, authUser, 'OldPass1234', 'short'),
     ).resolves.toMatchObject({
@@ -295,6 +305,10 @@ describe('changePassword command', () => {
     expect(prisma.authSession.findFirst).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
+      'change_password',
+      'too_short',
+    );
   });
 
   it('취약 비밀번호는 same-password verify와 credential transaction 전에 generic하게 거부한다', async () => {
@@ -302,6 +316,8 @@ describe('changePassword command', () => {
     passwordPolicy.evaluateNewPassword.mockReturnValue({
       ok: false,
       code: 'COMMON_VALUE',
+      message: '다른 비밀번호를 입력해 주세요.',
+      reason: 'common',
     });
 
     const result = await changePassword(deps as never, authUser, 'OldPass1234', password);
@@ -320,6 +336,10 @@ describe('changePassword command', () => {
     });
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
+      'change_password',
+      'common',
+    );
   });
 
   it('새 비밀번호가 현재 비밀번호와 같으면 거부한다', async () => {
@@ -332,6 +352,7 @@ describe('changePassword command', () => {
 
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
   });
 
   it('observed password hash CAS가 실패하면 revoke/session/outbox/audit 없이 재인증을 요구한다', async () => {
