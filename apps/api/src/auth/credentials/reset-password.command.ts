@@ -13,6 +13,10 @@ import type { AuthSecurityEventService } from '../security-events/auth-security-
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
+import {
+  AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
+  type AuthPasswordPolicyService,
+} from './password-policy.service.js';
 
 const RESET_PASSWORD_OWNER_STALE = 'RESET_PASSWORD_OWNER_STALE';
 
@@ -22,6 +26,7 @@ interface AuthResetPasswordOwnerDeps {
     AuthVerificationService,
     'resolveVerificationGrant' | 'matchesVerificationGrantSubject'
   >;
+  passwordPolicy: Pick<AuthPasswordPolicyService, 'evaluateNewPassword'>;
   loginAttemptService: Pick<AuthLoginAttemptService, 'clearFailuresInTransaction'>;
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
   mailOutboxWriter: Pick<AuthMailOutboxWriter, 'appendPasswordChanged'>;
@@ -43,6 +48,11 @@ export async function resetPassword(
 
   const user = await deps.prisma.user.findUnique({
     where: { id: resolvedGrant.eligibleUserId },
+    include: {
+      displayIdentity: {
+        select: { nickname: true },
+      },
+    },
   });
 
   if (
@@ -58,6 +68,17 @@ export async function resetPassword(
   const passwordError = validatePasswordPolicy(newPassword, user.email);
   if (passwordError) {
     return authFailures.passwordPolicyViolation(passwordError, 'newPassword');
+  }
+
+  const passwordRisk = deps.passwordPolicy.evaluateNewPassword(newPassword, {
+    email: user.email,
+    nickname: user.displayIdentity?.nickname,
+  });
+  if (!passwordRisk.ok) {
+    return authFailures.passwordPolicyViolation(
+      AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
+      'newPassword',
+    );
   }
 
   const samePassword = await verifyPasswordHash(user.passwordHash, newPassword);

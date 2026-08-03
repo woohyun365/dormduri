@@ -30,6 +30,27 @@ describe('signup failure recovery', () => {
     });
   });
 
+  it('API-private 비밀번호 거절은 generic 문구만 로그인 정보 필드에 복구한다', () => {
+    expect(
+      mapSignupFailure({
+        success: false,
+        code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+        error: '다른 비밀번호를 입력해 주세요.',
+        fieldErrors: {
+          password: '다른 비밀번호를 입력해 주세요.',
+        },
+      }),
+    ).toEqual({
+      kind: 'field_error',
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      message: '다른 비밀번호를 입력해 주세요.',
+      targetStepId: 'ACCOUNT_CREDENTIALS',
+      fieldErrors: {
+        password: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+  });
+
   it('학교 정보 validation은 해당 입력 단계와 공개 가능한 필드 오류만 유지한다', () => {
     expect(
       mapSignupFailure({

@@ -8,6 +8,9 @@ import { AccountCredentialsStep } from '../AccountCredentialsStep';
 vi.mock('lucide-react', () => ({
   KeyRound: () => null,
   CheckCircle2: () => null,
+  Circle: () => null,
+  CircleCheck: () => null,
+  CircleX: () => null,
   Eye: () => null,
   EyeOff: () => null,
   Check: () => null,
@@ -44,6 +47,7 @@ function renderWithState(
     initialAccountData?: SignupAccountData;
     serverFieldErrors?: { nickname?: string; password?: string };
     onEmailProofExpired?: () => void;
+    email?: string;
   } = {},
 ) {
   const onNext = overrides.onNext ?? vi.fn<(data: SignupAccountData) => void>();
@@ -55,7 +59,7 @@ function renderWithState(
     );
     return (
       <AccountCredentialsStep
-        email="test@kangwon.ac.kr"
+        email={overrides.email ?? 'test@kangwon.ac.kr'}
         accountData={accountData}
         onAccountDataChange={setAccountData}
         onNext={onNext}
@@ -72,10 +76,10 @@ function renderWithState(
 function fillValidCredentials() {
   fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '  테스터  ' } });
   fireEvent.change(screen.getAllByLabelText(/^비밀번호(?!.*확인)/)[0]!, {
-    target: { value: 'Test1234' },
+    target: { value: 'Test123456' },
   });
   fireEvent.change(screen.getByLabelText(/비밀번호 확인/), {
-    target: { value: 'Test1234' },
+    target: { value: 'Test123456' },
   });
 }
 
@@ -116,7 +120,7 @@ describe('AccountCredentialsStep', () => {
       expect(onNext).toHaveBeenCalledWith(
         expect.objectContaining({
           nickname: '테스터',
-          password: 'Test1234',
+          password: 'Test123456',
         }),
       );
     });
@@ -163,8 +167,8 @@ describe('AccountCredentialsStep', () => {
       initialAccountData: {
         ...emptyAccountData,
         nickname: '감자친구',
-        password: 'Test1234',
-        passwordConfirm: 'Test1234',
+        password: 'Test123456',
+        passwordConfirm: 'Test123456',
       },
       serverFieldErrors: { nickname: '이미 사용 중인 닉네임이에요.' },
     });
@@ -174,6 +178,46 @@ describe('AccountCredentialsStep', () => {
     expect(await screen.findByText('이미 사용 중인 닉네임이에요.')).toBeInTheDocument();
     await waitFor(() => expect(nicknameInput).toHaveFocus());
     expect(screen.getByRole('button', { name: '계속하기' })).toBeDisabled();
+  });
+
+  it('API-private 비밀번호 정책 거절은 generic field feedback으로 표시한다', async () => {
+    renderWithState({
+      initialAccountData: {
+        ...emptyAccountData,
+        nickname: '감자친구',
+        password: 'Password1!',
+        passwordConfirm: 'Password1!',
+      },
+      serverFieldErrors: {
+        password: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+
+    const passwordInput = screen.getAllByLabelText(/비밀번호/, { selector: 'input' })[0]!;
+    expect(passwordInput).toHaveValue('Password1!');
+    expect(await screen.findByText('다른 비밀번호를 입력해 주세요.')).toBeInTheDocument();
+    await waitFor(() => expect(passwordInput).toHaveFocus());
+  });
+
+  it('학교 이메일 로컬파트를 비밀번호로 사용하면 다음 단계로 이동하지 않는다', async () => {
+    const { onNext } = renderWithState({
+      email: 'knuStudent@kangwon.ac.kr',
+      initialAccountData: {
+        ...emptyAccountData,
+        nickname: '감자친구',
+        password: 'knuStudent',
+        passwordConfirm: 'knuStudent',
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '중복 확인' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '계속하기' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: '계속하기' }));
+
+    expect(
+      await screen.findByText('이메일 정보와 다른 비밀번호를 입력해 주세요.'),
+    ).toBeInTheDocument();
+    expect(onNext).not.toHaveBeenCalled();
   });
 
   it('한글과 영문을 섞으면 API를 호출하기 전에 안내한다', async () => {
@@ -305,6 +349,7 @@ describe('AccountCredentialsStep', () => {
       target: { value: 'ab' },
     });
 
-    expect(screen.getByText(/8자 이상/)).toBeInTheDocument();
+    expect(screen.getByText(/10~128자/)).toBeInTheDocument();
+    expect(screen.queryByText(/영문 포함|숫자 포함/)).not.toBeInTheDocument();
   });
 });

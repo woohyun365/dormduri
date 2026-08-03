@@ -70,6 +70,9 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
           type={inputType}
           inputMode={inputMode}
           autoComplete={autoComplete}
+          autoCapitalize={type === 'password' ? 'none' : undefined}
+          autoCorrect={type === 'password' ? 'off' : undefined}
+          spellCheck={type === 'password' ? false : undefined}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}

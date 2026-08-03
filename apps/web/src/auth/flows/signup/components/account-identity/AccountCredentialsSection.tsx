@@ -56,24 +56,21 @@ export function AccountCredentialsSection({
         onCheck={onNicknameCheck}
       />
 
-      <div>
-        <InputField
-          ref={passwordRef}
-          label="비밀번호"
-          type="password"
-          autoComplete="new-password"
-          placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력`}
-          value={basicInfo.password}
-          onChange={(value) => {
-            onBasicInfoChange({ ...basicInfo, password: value });
-            onPasswordErrorClear();
-          }}
-          error={passwordError}
-          disabled={disabled}
-          required
-        />
-        <PasswordRequirementList password={basicInfo.password} email={email} />
-      </div>
+      <InputField
+        ref={passwordRef}
+        label="비밀번호"
+        type="password"
+        autoComplete="new-password"
+        placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력`}
+        value={basicInfo.password}
+        onChange={(value) => {
+          onBasicInfoChange({ ...basicInfo, password: value });
+          onPasswordErrorClear();
+        }}
+        error={passwordError}
+        disabled={disabled}
+        required
+      />
 
       <InputField
         ref={passwordConfirmRef}
@@ -89,6 +86,12 @@ export function AccountCredentialsSection({
           onPasswordConfirmErrorClear();
         }}
         error={passwordConfirmError}
+      />
+
+      <PasswordRequirementList
+        password={basicInfo.password}
+        email={email}
+        confirmPassword={basicInfo.passwordConfirm}
       />
     </section>
   );

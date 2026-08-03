@@ -32,6 +32,10 @@ import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import {
+  AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
+  type AuthPasswordPolicyService,
+} from '../credentials/password-policy.service.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -42,6 +46,7 @@ interface AuthSignupOwnerDeps {
     'resolveVerificationGrant' | 'matchesVerificationGrantSubject'
   >;
   sessionService: Pick<AuthSessionService, 'prepareSessionIssue' | 'appendPreparedSession'>;
+  passwordPolicy: Pick<AuthPasswordPolicyService, 'evaluateNewPassword'>;
   nicknamePolicy: Pick<DisplayIdentityNicknamePolicyService, 'validate'>;
   submissionAdmission: Pick<SignupSubmissionAdmissionService, 'consume'>;
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
@@ -85,6 +90,14 @@ export async function signup(
   const passwordError = validatePasswordPolicy(input.password, emailNormalized);
   if (passwordError) {
     return authFailures.passwordPolicyViolation(passwordError);
+  }
+
+  const passwordRisk = deps.passwordPolicy.evaluateNewPassword(input.password, {
+    email: emailNormalized,
+    nickname: input.nickname,
+  });
+  if (!passwordRisk.ok) {
+    return authFailures.passwordPolicyViolation(AUTH_PASSWORD_RISK_REJECTION_MESSAGE);
   }
 
   let parsedNickname: ParsedDisplayIdentityNickname;

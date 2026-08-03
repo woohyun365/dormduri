@@ -2,7 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import {
   KNU_EMAIL_DOMAIN,
   normalizeEmail as normalizeEmailShared,
-  validatePasswordStructure,
+  parseNewPasswordStructure,
 } from '@repo/shared/auth/policy';
 import { normalizeDisplayIdentityNickname } from '@repo/shared/user/identity/display';
 
@@ -19,7 +19,8 @@ export function normalizeNickname(nickname: string): string {
 }
 
 export function validatePasswordPolicy(password: string, email: string): string | null {
-  return validatePasswordStructure(password, email) || null;
+  const result = parseNewPasswordStructure(password, email);
+  return result.ok ? null : result.message;
 }
 
 export function generateVerificationCode(): string {

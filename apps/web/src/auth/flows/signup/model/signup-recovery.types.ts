@@ -25,6 +25,7 @@ export type SignupFailure =
       readonly code:
         | 'AUTH_EMAIL_ALREADY_REGISTERED'
         | 'AUTH_NICKNAME_ALREADY_TAKEN'
+        | 'AUTH_PASSWORD_POLICY_VIOLATION'
         | 'AUTH_SIGNUP_VALIDATION_FAILED';
       readonly message: string;
       readonly targetStepId: SignupStepId;

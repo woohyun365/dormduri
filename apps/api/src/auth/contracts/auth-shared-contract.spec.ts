@@ -262,6 +262,19 @@ describe('auth shared contract guards', () => {
     ).toBe(false);
   });
 
+  it('password transport contract는 Argon 이전에 128자 초과 입력을 거절한다', () => {
+    expect(
+      resetPasswordRequestSchema.safeParse({
+        newPassword: 'a'.repeat(128),
+      }).success,
+    ).toBe(true);
+    expect(
+      resetPasswordRequestSchema.safeParse({
+        newPassword: 'a'.repeat(129),
+      }).success,
+    ).toBe(false);
+  });
+
   it('renew session contract는 renewalToken rotation transport만 받고 JWT-like access token을 거부한다', () => {
     const opaqueAccessToken = `v1.session-1.${'a'.repeat(43)}`;
     const opaqueRenewalToken = `v1.session-1.${'b'.repeat(43)}`;

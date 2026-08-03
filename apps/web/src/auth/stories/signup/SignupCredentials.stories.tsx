@@ -122,6 +122,46 @@ export const StaleEditedAfterSuccess: Story = {
   },
 };
 
+export const PasswordInvalidCharacters: Story = {
+  name: 'Password / Invalid Characters',
+  args: { scenario: 'passwordInvalidCharacters' },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/영문·숫자·기호만 사용할 수 있어요/)).toBeVisible();
+  },
+};
+
+export const PasswordWhitespace: Story = {
+  name: 'Password / Whitespace',
+  args: { scenario: 'passwordWhitespace' },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/공백 없이 입력해 주세요/)).toBeVisible();
+  },
+};
+
+export const PasswordConfirmationMismatch: Story = {
+  name: 'Password / Confirmation Mismatch',
+  args: { scenario: 'passwordMismatch' },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/비밀번호 확인 일치/)).toHaveTextContent('확인 필요');
+  },
+};
+
+export const PasswordMatchesEmailIdentity: Story = {
+  name: 'Password / Email Identity',
+  args: { scenario: 'passwordEmailIdentity' },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/이메일 정보와 다름/)).toHaveTextContent('확인 필요');
+  },
+};
+
+export const PasswordPolicyRejected: Story = {
+  name: 'Password / Blocked Value',
+  args: { scenario: 'passwordRejected' },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('다른 비밀번호를 입력해 주세요.')).toBeVisible();
+  },
+};
+
 export const RaceTakenAtFinalSignup: Story = {
   name: 'Race / Taken At Final Signup',
   args: { scenario: 'raceFinalSignup' },

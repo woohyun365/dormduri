@@ -37,6 +37,7 @@ describe('AuthRegistrationUseCases', () => {
     appendPreparedSession: vi.fn(),
   };
   const nicknamePolicy = { validate: vi.fn() };
+  const passwordPolicy = { evaluateNewPassword: vi.fn() };
   const signupNicknameValidationQuery = { execute: vi.fn() };
   const signupSubmissionAdmission = { consume: vi.fn() };
   const securityEvents = { recordInTransaction: vi.fn() };
@@ -44,6 +45,7 @@ describe('AuthRegistrationUseCases', () => {
     prisma as never,
     verificationService as never,
     sessionService as never,
+    passwordPolicy,
     nicknamePolicy as never,
     signupNicknameValidationQuery as never,
     signupSubmissionAdmission as never,
@@ -51,7 +53,7 @@ describe('AuthRegistrationUseCases', () => {
   );
   const input = {
     email: 'test@kangwon.ac.kr',
-    password: 'pass1234',
+    password: 'pass123456',
     nickname: '테스터',
     gender: 'M',
     campus: 'CHUNCHEON',
@@ -112,6 +114,7 @@ describe('AuthRegistrationUseCases', () => {
       normalized: '테스터',
       script: 'HANGUL',
     });
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
     signupSubmissionAdmission.consume.mockResolvedValue(null);
     sessionService.prepareSessionIssue.mockResolvedValue({
       result: {

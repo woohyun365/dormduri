@@ -45,6 +45,12 @@ type AuthContext = {
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
 };
 
+const allowPasswordPolicy = {
+  evaluateNewPassword() {
+    return { ok: true } as const;
+  },
+};
+
 const signupLegalDocumentIds = {
   termsVersionId: 'auth-users-transaction-terms',
   privacyPolicyVersionIdShown: 'auth-users-transaction-privacy',
@@ -170,7 +176,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           authService.signup(
             {
               email,
-              password: 'Pass1234',
+              password: 'Pass123456',
               nickname: '학업가입',
               gender: 'M',
               campus: 'CHUNCHEON',
@@ -281,6 +287,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           await expect(
             signupWithOwner(
               {
+                passwordPolicy: allowPasswordPolicy,
                 prisma,
                 verificationService: {
                   resolveVerificationGrant: () =>
@@ -310,7 +317,7 @@ describe('Auth/users transaction rollback and race integration', () => {
               },
               {
                 email,
-                password: 'Pass1234',
+                password: 'Pass123456',
                 nickname: failurePoint === 'session' ? '세션실패' : '감사실패',
                 gender: 'M',
                 campus: 'CHUNCHEON',
@@ -357,6 +364,7 @@ describe('Auth/users transaction rollback and race integration', () => {
 
         const signupPromise = signupWithOwner(
           {
+            passwordPolicy: allowPasswordPolicy,
             prisma,
             verificationService: {
               async resolveVerificationGrant() {
@@ -386,7 +394,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           },
           {
             email,
-            password: 'Pass1234',
+            password: 'Pass123456',
             nickname,
             gender: 'M',
             campus: 'CHUNCHEON',
@@ -440,7 +448,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           authService.signup(
             {
               email,
-              password: 'Pass1234',
+              password: 'Pass123456',
               nickname: '동시가입',
               gender: 'M',
               campus: 'CHUNCHEON',
@@ -453,7 +461,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           authService.signup(
             {
               email,
-              password: 'Pass1234',
+              password: 'Pass123456',
               nickname: '동시가입',
               gender: 'M',
               campus: 'CHUNCHEON',
@@ -612,6 +620,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         await expect(
           resetPasswordWithOwner(
             {
+              passwordPolicy: allowPasswordPolicy,
               prisma,
               verificationService: {
                 resolveVerificationGrant() {
@@ -697,6 +706,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         await expect(
           resetPasswordWithOwner(
             {
+              passwordPolicy: allowPasswordPolicy,
               prisma,
               verificationService: {
                 resolveVerificationGrant() {
@@ -800,6 +810,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         await expect(
           resetPasswordWithOwner(
             {
+              passwordPolicy: allowPasswordPolicy,
               prisma,
               verificationService: {
                 resolveVerificationGrant() {
@@ -1170,6 +1181,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         await expect(
           changePasswordWithOwner(
             {
+              passwordPolicy: allowPasswordPolicy,
               prisma: staleWriterPrisma as never,
               sessionService: authSessionService,
               securityEvents: authSecurityEventService,
@@ -1237,6 +1249,7 @@ describe('Auth/users transaction rollback and race integration', () => {
           await expect(
             changePasswordWithOwner(
               {
+                passwordPolicy: allowPasswordPolicy,
                 prisma,
                 sessionService: {
                   prepareSessionIssue:

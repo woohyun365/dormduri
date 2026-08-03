@@ -13,6 +13,7 @@ import {
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
+import { parseLoginPasswordInput } from '@repo/shared/auth/policy';
 
 interface AuthLoginOwnerDeps {
   prisma: PrismaService;
@@ -43,6 +44,15 @@ export async function login(
   if (activeLock) {
     deps.loginMetrics.recordAttempt('locked');
     return activeLock;
+  }
+
+  if (!parseLoginPasswordInput(password).ok) {
+    const failure = hasAuthRequestContext(requestContext)
+      ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
+      : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+    const result = await failure;
+    deps.loginMetrics.recordAttempt(result.code === 'AUTH_LOGIN_LOCKED' ? 'locked' : 'invalid');
+    return result;
   }
 
   const user = await deps.prisma.user.findUnique({

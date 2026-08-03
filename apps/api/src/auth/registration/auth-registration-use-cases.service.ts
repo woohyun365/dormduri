@@ -11,6 +11,7 @@ import { SignupNicknameValidationQuery } from './signup-nickname-validation.quer
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
+import { AuthPasswordPolicyService } from '../credentials/password-policy.service.js';
 
 @Injectable()
 export class AuthRegistrationUseCases {
@@ -18,6 +19,7 @@ export class AuthRegistrationUseCases {
     private readonly prisma: PrismaService,
     private readonly verificationService: AuthVerificationService,
     private readonly sessionService: AuthSessionService,
+    private readonly passwordPolicy: AuthPasswordPolicyService,
     private readonly nicknamePolicy: DisplayIdentityNicknamePolicyService,
     private readonly signupNicknameValidationQuery: SignupNicknameValidationQuery,
     private readonly signupSubmissionAdmission: SignupSubmissionAdmissionService,
@@ -43,6 +45,7 @@ export class AuthRegistrationUseCases {
           prisma: this.prisma,
           verificationService: this.verificationService,
           sessionService: this.sessionService,
+          passwordPolicy: this.passwordPolicy,
           nicknamePolicy: this.nicknamePolicy,
           submissionAdmission: this.signupSubmissionAdmission,
           securityEvents: this.securityEvents,

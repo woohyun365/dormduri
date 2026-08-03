@@ -18,6 +18,9 @@ vi.mock('next/link', () => ({
 
 vi.mock('lucide-react', () => ({
   Mail: () => <span data-testid="icon-mail" />,
+  Circle: () => <span data-testid="icon-circle" />,
+  CircleCheck: () => <span data-testid="icon-circle-check" />,
+  CircleX: () => <span data-testid="icon-circle-x" />,
 }));
 
 describe('LoginSecondaryActions', () => {

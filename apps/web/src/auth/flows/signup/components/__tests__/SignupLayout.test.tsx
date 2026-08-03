@@ -19,6 +19,9 @@ vi.mock('next/link', () => ({
 
 vi.mock('lucide-react', () => ({
   ChevronLeft: () => <span data-testid="icon-chevron-left" />,
+  Circle: () => <span data-testid="icon-circle" />,
+  CircleCheck: () => <span data-testid="icon-circle-check" />,
+  CircleX: () => <span data-testid="icon-circle-x" />,
 }));
 
 describe('SignupLayout', () => {

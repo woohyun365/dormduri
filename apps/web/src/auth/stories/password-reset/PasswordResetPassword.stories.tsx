@@ -53,6 +53,55 @@ export const PasswordConfirmationMismatch: Story = {
   },
 };
 
+export const InvalidCharacters: Story = {
+  name: 'Invalid Characters',
+  args: {
+    state: {
+      ...passwordState,
+      newPassword: 'Password한글2026',
+      confirmPassword: 'Password한글2026',
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/영문·숫자·기호만 사용할 수 있어요/)).toBeVisible();
+  },
+};
+
+export const Whitespace: Story = {
+  args: {
+    state: {
+      ...passwordState,
+      newPassword: 'Password 2026',
+      confirmPassword: 'Password 2026',
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/공백 없이 입력해 주세요/)).toBeVisible();
+  },
+};
+
+export const BlockedValue: Story = {
+  name: 'Blocked Value',
+  args: {
+    state: {
+      ...passwordState,
+      newPassword: 'Password1!',
+      confirmPassword: 'Password1!',
+    },
+    onResetPasswordAction: async () => ({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      fieldErrors: {
+        newPassword: '다른 비밀번호를 입력해 주세요.',
+      },
+    }),
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: '새 비밀번호 저장' }));
+    await expect(canvas.getByText('다른 비밀번호를 입력해 주세요.')).toBeVisible();
+  },
+};
+
 export const SamePassword: Story = {
   name: 'Same Password',
   args: {

@@ -27,6 +27,9 @@ vi.mock('lucide-react', () => ({
   Check: () => <span data-testid="icon-check" />,
   CheckCircle: () => <span data-testid="icon-check-circle" />,
   CheckCircle2: () => <span data-testid="icon-check-circle-2" />,
+  Circle: () => <span data-testid="icon-circle" />,
+  CircleCheck: () => <span data-testid="icon-circle-check" />,
+  CircleX: () => <span data-testid="icon-circle-x" />,
   LoaderCircle: () => <span data-testid="icon-loader-circle" />,
   CircleUserRound: () => <span data-testid="icon-circle-user" />,
   AlertCircle: () => <span data-testid="icon-alert-circle" />,
@@ -94,10 +97,10 @@ async function verifyEmailCode() {
 
 async function submitNewPassword() {
   fireEvent.change(screen.getByLabelText(/^새 비밀번호/, { selector: 'input' }), {
-    target: { value: 'Test1234' },
+    target: { value: 'Test123456' },
   });
   fireEvent.change(screen.getByLabelText(/^비밀번호 확인/, { selector: 'input' }), {
-    target: { value: 'Test1234' },
+    target: { value: 'Test123456' },
   });
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: '새 비밀번호 저장' }));
@@ -368,7 +371,7 @@ describe('PasswordResetPageClient', () => {
 
     expect(mockResetPassword).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
-      'Test1234',
+      'Test123456',
       expect.any(AbortSignal),
     );
     expect(screen.getByRole('heading', { name: '비밀번호가 변경됐어요' })).toBeInTheDocument();
@@ -402,7 +405,7 @@ describe('PasswordResetPageClient', () => {
     expect(screen.getByTestId('password-reset-feedback-region')).toHaveTextContent(
       '새 비밀번호를 저장하지 못했어요',
     );
-    expect(screen.getByLabelText(/^새 비밀번호/, { selector: 'input' })).toHaveValue('Test1234');
+    expect(screen.getByLabelText(/^새 비밀번호/, { selector: 'input' })).toHaveValue('Test123456');
     expect(screen.getByRole('button', { name: '새 비밀번호 저장' })).toBeEnabled();
   });
 

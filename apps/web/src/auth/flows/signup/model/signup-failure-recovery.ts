@@ -68,6 +68,17 @@ export function mapSignupFailure(
         },
       };
 
+    case 'AUTH_PASSWORD_POLICY_VIOLATION':
+      return {
+        kind: 'field_error',
+        code: result.code,
+        message,
+        targetStepId: 'ACCOUNT_CREDENTIALS',
+        fieldErrors: {
+          password: result.fieldErrors?.password ?? message,
+        },
+      };
+
     case 'AUTH_SIGNUP_VALIDATION_FAILED': {
       const fieldErrors = normalizeFieldErrors(result.fieldErrors);
       if (Object.keys(fieldErrors).length === 0) {

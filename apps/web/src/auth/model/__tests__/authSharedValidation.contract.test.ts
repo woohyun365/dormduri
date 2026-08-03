@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseLoginPasswordInput,
+  parseNewPasswordStructure,
   validateKnuEmailFormat as validateKnuEmail,
   validatePasswordStructure as validatePassword,
 } from '@repo/shared/auth/policy';
@@ -41,20 +43,20 @@ describe('validateKnuEmail', () => {
 });
 
 describe('validatePassword', () => {
-  it('영문+숫자 8자 이상 -> 빈 문자열', () => {
-    expect(validatePassword('abcd1234')).toBe('');
+  it('10자 이상 허용 ASCII -> 빈 문자열', () => {
+    expect(validatePassword('abcd123456')).toBe('');
   });
 
   it('빈 값 -> 에러', () => {
     expect(validatePassword('')).toBeTruthy();
   });
 
-  it('7자 (길이 미달) -> 에러', () => {
-    expect(validatePassword('abc1234')).toBeTruthy();
+  it('9자 (길이 미달) -> 에러', () => {
+    expect(validatePassword('abc123456')).toBeTruthy();
   });
 
-  it('8자 경계값 -> 통과', () => {
-    expect(validatePassword('abcd1234')).toBe('');
+  it('10자 경계값 -> 통과', () => {
+    expect(validatePassword('abcd123456')).toBe('');
   });
 
   it('128자 경계값 -> 통과', () => {
@@ -65,28 +67,28 @@ describe('validatePassword', () => {
     expect(validatePassword('a1' + 'x'.repeat(127))).toBeTruthy();
   });
 
-  it('영문만 -> 에러', () => {
-    expect(validatePassword('abcdefgh')).toBeTruthy();
+  it('영문만으로 10자 이상이면 구조 검증 통과', () => {
+    expect(validatePassword('abcdefghij')).toBe('');
   });
 
-  it('숫자만 -> 에러', () => {
-    expect(validatePassword('12345678')).toBeTruthy();
+  it('숫자만으로 10자 이상이면 구조 검증 통과', () => {
+    expect(validatePassword('1234567890')).toBe('');
   });
 
   it('특수문자+영문+숫자 -> 통과', () => {
-    expect(validatePassword('abc123!@#')).toBe('');
+    expect(validatePassword('abc123!@#$')).toBe('');
   });
 
   it('대문자 포함 -> 통과', () => {
-    expect(validatePassword('Abcd1234')).toBe('');
+    expect(validatePassword('Abcd123456')).toBe('');
   });
 
-  it('공백 포함 -> 통과 (패스프레이즈 허용)', () => {
-    expect(validatePassword('my pass 1')).toBe('');
+  it('공백 포함 -> 에러', () => {
+    expect(validatePassword('my pass 1')).toBeTruthy();
   });
 
-  it('한글 포함 -> 통과 (영문+숫자 조건 충족 시)', () => {
-    expect(validatePassword('비밀번호abc1')).toBe('');
+  it('ASCII 외 Unicode 포함 -> 에러', () => {
+    expect(validatePassword('비밀번호abc1')).toBeTruthy();
   });
 
   it('이메일과 동일 -> 에러', () => {
@@ -97,12 +99,71 @@ describe('validatePassword', () => {
     expect(validatePassword('TEST1234@kangwon.ac.kr', 'test1234@kangwon.ac.kr')).toBeTruthy();
   });
 
+  it('이메일 로컬파트와 동일 -> 에러', () => {
+    expect(validatePassword('knuStudent', 'knuStudent@kangwon.ac.kr')).toBeTruthy();
+  });
+
   it('이메일과 다름 -> 통과', () => {
-    expect(validatePassword('abcd1234', 'test@kangwon.ac.kr')).toBe('');
+    expect(validatePassword('abcd123456', 'test@kangwon.ac.kr')).toBe('');
   });
 
   it('email 미전달 시 이메일 비교 스킵', () => {
-    expect(validatePassword('abcd1234')).toBe('');
+    expect(validatePassword('abcd123456')).toBe('');
+  });
+
+  it('순수 한글 password를 거절한다', () => {
+    expect(validatePassword('강원대학교기숙사생활')).toBeTruthy();
+  });
+
+  it('문자 조합 규칙 없이 10자 ASCII password를 허용한다', () => {
+    expect(validatePassword('correcthorse')).toBe('');
+  });
+
+  it('9자는 새 비밀번호 최소 길이 미달로 거절한다', () => {
+    expect(validatePassword('abcde1234')).toBeTruthy();
+  });
+
+  it('ASCII 외 문자는 문자 종류와 관계없이 거절한다', () => {
+    expect(validatePassword('Passwordé2026')).toBeTruthy();
+    expect(validatePassword('Password🏠2026')).toBeTruthy();
+    expect(validatePassword('Ｐassword2026')).toBeTruthy();
+  });
+
+  it('ASCII와 Unicode whitespace를 모두 거절한다', () => {
+    expect(validatePassword('Password 2026')).toBeTruthy();
+    expect(validatePassword('Password\t2026')).toBeTruthy();
+    expect(validatePassword('Password\n2026')).toBeTruthy();
+    expect(validatePassword('Password\u00a02026')).toBeTruthy();
+    expect(validatePassword('Password\u30002026')).toBeTruthy();
+  });
+});
+
+describe('password structure result', () => {
+  it('신규 비밀번호 거절 이유를 stable code로 구분한다', () => {
+    expect(parseNewPasswordStructure('Password 2026')).toMatchObject({
+      ok: false,
+      code: 'WHITESPACE_NOT_ALLOWED',
+    });
+    expect(parseNewPasswordStructure('Passwordé2026')).toMatchObject({
+      ok: false,
+      code: 'INVALID_CHARACTERS',
+    });
+    expect(parseNewPasswordStructure('abcde1234')).toMatchObject({
+      ok: false,
+      code: 'TOO_SHORT',
+    });
+    expect(parseNewPasswordStructure('knuStudent', 'knuStudent@kangwon.ac.kr')).toMatchObject({
+      ok: false,
+      code: 'MATCHES_EMAIL',
+    });
+  });
+
+  it('login 입력 guard는 신규 비밀번호 최소 길이나 조합을 재강제하지 않는다', () => {
+    expect(parseLoginPasswordInput('pw')).toEqual({ ok: true });
+    expect(parseLoginPasswordInput('Password 2026')).toMatchObject({
+      ok: false,
+      code: 'WHITESPACE_NOT_ALLOWED',
+    });
   });
 });
 
@@ -117,6 +178,10 @@ describe('validatePasswordConfirm', () => {
 
   it('빈 문자열끼리 일치 -> 빈 문자열', () => {
     expect(validatePasswordConfirm('', '')).toBe('');
+  });
+
+  it('시각적으로 비슷해도 다른 code point는 일치로 처리하지 않는다', () => {
+    expect(validatePasswordConfirm('Password2026', 'Ｐassword2026')).toBeTruthy();
   });
 });
 

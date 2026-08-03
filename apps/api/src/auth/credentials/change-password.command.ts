@@ -12,6 +12,10 @@ import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import type { ChangePasswordAdmissionService } from './change-password-admission.service.js';
 import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import {
+  AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
+  type AuthPasswordPolicyService,
+} from './password-policy.service.js';
 
 const CHANGE_PASSWORD_SESSION_UNAVAILABLE =
   '[AuthChangePasswordOwner] current authenticated session unavailable';
@@ -23,6 +27,7 @@ interface AuthChangePasswordOwnerDeps {
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
   mailOutboxWriter: Pick<AuthMailOutboxWriter, 'appendPasswordChanged'>;
   admission: Pick<ChangePasswordAdmissionService, 'consume'>;
+  passwordPolicy: Pick<AuthPasswordPolicyService, 'evaluateNewPassword'>;
   flowMetrics?: Pick<AuthFlowMetricsService, 'recordSensitiveMutation'>;
 }
 
@@ -50,6 +55,9 @@ export async function changePassword(
       email: true,
       passwordHash: true,
       deletedAt: true,
+      displayIdentity: {
+        select: { nickname: true },
+      },
     },
   });
 
@@ -68,6 +76,18 @@ export async function changePassword(
   if (passwordError) {
     deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.passwordPolicyViolation(passwordError, 'newPassword');
+  }
+
+  const passwordRisk = deps.passwordPolicy.evaluateNewPassword(newPassword, {
+    email: user.email,
+    nickname: user.displayIdentity?.nickname,
+  });
+  if (!passwordRisk.ok) {
+    deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
+    return authFailures.passwordPolicyViolation(
+      AUTH_PASSWORD_RISK_REJECTION_MESSAGE,
+      'newPassword',
+    );
   }
 
   const samePassword = await verifyPasswordHash(user.passwordHash, newPassword);

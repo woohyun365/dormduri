@@ -47,6 +47,52 @@ describe('InputField', () => {
     expect(input).toHaveAttribute('type', 'password');
   });
 
+  it('신규 비밀번호 입력은 password manager와 입력 보조에 맞는 속성을 제공한다', () => {
+    render(
+      <InputField
+        label="새 비밀번호"
+        type="password"
+        autoComplete="new-password"
+        value=""
+        onChange={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByLabelText('새 비밀번호');
+    expect(input).toHaveAttribute('autocomplete', 'new-password');
+    expect(input).toHaveAttribute('autocapitalize', 'none');
+    expect(input).toHaveAttribute('autocorrect', 'off');
+    expect(input).toHaveAttribute('spellcheck', 'false');
+  });
+
+  it('password field가 step 전환으로 다시 mount되면 표시 상태를 숨김으로 초기화한다', () => {
+    const { rerender } = render(
+      <InputField
+        key="credentials"
+        label="비밀번호"
+        type="password"
+        value="secret"
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '비밀번호 보기' }));
+    expect(screen.getByLabelText('비밀번호')).toHaveAttribute('type', 'text');
+
+    rerender(
+      <InputField
+        key="next-step"
+        label="비밀번호"
+        type="password"
+        value="secret"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('비밀번호')).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: '비밀번호 보기' })).toBeInTheDocument();
+  });
+
   it('읽기 상태의 긴 값은 consumer가 전달한 ellipsis layout을 적용한다', () => {
     render(
       <InputField

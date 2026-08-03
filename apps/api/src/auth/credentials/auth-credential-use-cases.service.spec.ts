@@ -20,6 +20,9 @@ describe('AuthCredentialUseCases', () => {
     verifyLoginPassword: vi.fn(),
     verifyUnavailableLogin: vi.fn(),
   };
+  const passwordPolicy = {
+    evaluateNewPassword: vi.fn(),
+  };
   const sessionService = {
     issueAuthResult: vi.fn(),
     prepareSessionIssue: vi.fn(),
@@ -44,6 +47,7 @@ describe('AuthCredentialUseCases', () => {
     loginAttemptService as never,
     loginMetrics as never,
     passwordHashPolicy as never,
+    passwordPolicy,
     sessionService as never,
     verificationService as never,
     securityEvents as never,
@@ -59,6 +63,7 @@ describe('AuthCredentialUseCases', () => {
       code: 'AUTH_INVALID_CREDENTIALS',
     });
     changePasswordAdmission.consume.mockResolvedValue(null);
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
   });
 
   it('login은 request context가 없으면 login command에 legacy 호출 shape를 유지한다', async () => {

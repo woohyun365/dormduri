@@ -116,6 +116,51 @@ describe('auth BFF post route helpers', () => {
     expect(response.cookies.get('auth-token')).toBeUndefined();
   });
 
+  it('change-password private policy 거절은 generic field feedback만 보존한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+          error: '다른 비밀번호를 입력해 주세요.',
+          fieldErrors: {
+            newPassword: '다른 비밀번호를 입력해 주세요.',
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const post = createAuthenticatedForwardPostHandler('/auth/change-password', {
+      setAuthCookieFromAccessToken: true,
+      responseSchema: changePasswordResponseSchema,
+    });
+    const response = await post(
+      new NextRequest('http://localhost/api/auth/change-password', {
+        method: 'POST',
+        headers: { Cookie: `auth-token=${CURRENT_ACCESS_TOKEN}` },
+        body: JSON.stringify({
+          currentPassword: 'OldPass1234',
+          newPassword: 'Password1!',
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      error: '다른 비밀번호를 입력해 주세요.',
+      fieldErrors: {
+        newPassword: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
+
   it('authenticated post는 failure 응답의 token-like field를 contract drift로 거부한다', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(

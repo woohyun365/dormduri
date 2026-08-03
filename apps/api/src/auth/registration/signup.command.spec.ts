@@ -62,6 +62,7 @@ describe('signup command', () => {
     appendPreparedSession: vi.fn(),
   };
   const submissionAdmission = { consume: vi.fn() };
+  const passwordPolicy = { evaluateNewPassword: vi.fn() };
   const securityEvents = { recordInTransaction: vi.fn() };
   const nicknamePolicy = {
     validate: vi.fn(),
@@ -70,6 +71,7 @@ describe('signup command', () => {
     prisma,
     verificationService,
     sessionService,
+    passwordPolicy,
     nicknamePolicy,
     submissionAdmission,
     securityEvents,
@@ -85,7 +87,7 @@ describe('signup command', () => {
   const verificationGrant = `v1.code-1.${'g'.repeat(43)}`;
   const input = {
     email: 'test@kangwon.ac.kr',
-    password: 'pass1234',
+    password: 'pass123456',
     nickname: '테스터',
     gender: 'M',
     campus: 'CHUNCHEON',
@@ -129,6 +131,7 @@ describe('signup command', () => {
       return Promise.resolve(parsed);
     });
     passwordHashMocks.hashPassword.mockResolvedValue('hashed-password');
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
     submissionAdmission.consume.mockResolvedValue(null);
     sessionService.prepareSessionIssue.mockImplementation((userId: string) =>
       Promise.resolve({
@@ -179,6 +182,60 @@ describe('signup command', () => {
     });
 
     expect(nicknamePolicy.validate).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('비밀번호 정책 위반은 hash와 signup transaction 전에 거부한다', async () => {
+    await expect(
+      signup(
+        deps as never,
+        {
+          ...input,
+          password: 'short',
+        },
+        verificationGrant,
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+    });
+
+    expect(passwordHashMocks.hashPassword).not.toHaveBeenCalled();
+    expect(nicknamePolicy.validate).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('취약 비밀번호는 nickname policy와 hash 전에 generic하게 거부한다', async () => {
+    const password = 'Password1!';
+    passwordPolicy.evaluateNewPassword.mockReturnValue({
+      ok: false,
+      code: 'COMMON_VALUE',
+    });
+
+    const result = await signup(
+      deps as never,
+      {
+        ...input,
+        password,
+      },
+      verificationGrant,
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      fieldErrors: {
+        password: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain(password);
+    expect(passwordPolicy.evaluateNewPassword).toHaveBeenCalledWith(password, {
+      email: 'test@kangwon.ac.kr',
+      nickname: '테스터',
+    });
+    expect(nicknamePolicy.validate).not.toHaveBeenCalled();
+    expect(passwordHashMocks.hashPassword).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 

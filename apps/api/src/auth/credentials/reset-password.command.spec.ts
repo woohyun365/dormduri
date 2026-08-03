@@ -36,6 +36,9 @@ describe('resetPassword command', () => {
     resolveVerificationGrant: vi.fn(),
     matchesVerificationGrantSubject: vi.fn(),
   };
+  const passwordPolicy = {
+    evaluateNewPassword: vi.fn(),
+  };
   const loginAttemptService = {
     clearFailuresInTransaction: vi.fn(),
   };
@@ -48,6 +51,7 @@ describe('resetPassword command', () => {
   const deps = {
     prisma,
     verificationService,
+    passwordPolicy,
     loginAttemptService,
     securityEvents,
     mailOutboxWriter,
@@ -55,6 +59,7 @@ describe('resetPassword command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
     verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.updateMany.mockResolvedValue({ count: 1 });
@@ -81,6 +86,74 @@ describe('resetPassword command', () => {
     });
 
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('비밀번호 정책 위반은 verify/hash와 reset transaction 전에 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailNormalized: 'test@kangwon.ac.kr',
+      passwordHash: 'invalid-hash-must-not-be-verified',
+      deletedAt: null,
+      emailVerifiedAt: databaseNow,
+    });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      subjectKey: 'v1:reset-subject',
+      purpose: 'RESET_PASSWORD',
+      eligibleUserId: 'user-1',
+      tokenHash: 'a'.repeat(64),
+    });
+
+    await expect(resetPassword(deps as never, verificationGrant, 'short')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+    });
+
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('취약 비밀번호는 same-password verify와 reset transaction 전에 generic하게 거부한다', async () => {
+    const password = 'Password1!';
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailNormalized: 'test@kangwon.ac.kr',
+      passwordHash: 'invalid-hash-must-not-be-verified',
+      deletedAt: null,
+      emailVerifiedAt: databaseNow,
+      displayIdentity: { nickname: '테스터' },
+    });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      subjectKey: 'v1:reset-subject',
+      purpose: 'RESET_PASSWORD',
+      eligibleUserId: 'user-1',
+      tokenHash: 'a'.repeat(64),
+    });
+    passwordPolicy.evaluateNewPassword.mockReturnValue({
+      ok: false,
+      code: 'COMMON_VALUE',
+    });
+
+    const result = await resetPassword(deps as never, verificationGrant, password);
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      fieldErrors: {
+        newPassword: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain(password);
+    expect(passwordPolicy.evaluateNewPassword).toHaveBeenCalledWith(password, {
+      email: 'test@kangwon.ac.kr',
+      nickname: '테스터',
+    });
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });

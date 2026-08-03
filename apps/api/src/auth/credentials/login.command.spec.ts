@@ -223,6 +223,43 @@ describe('login command', () => {
     expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('success');
   });
 
+  it('기존 계정 login은 신규 비밀번호 blocklist를 재강제하지 않는다', async () => {
+    const passwordHash = await hashPasswordForTest('Password1!');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash,
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+    });
+    sessionService.issueAuthResult.mockResolvedValue({
+      accessToken: 'token',
+      renewalToken: 'renewal-token',
+      sessionId: 'session-1',
+    });
+
+    await expect(
+      login(deps as never, 'test@kangwon.ac.kr', 'Password1!', false),
+    ).resolves.toMatchObject({ success: true });
+
+    expect(passwordHashPolicy.verifyLoginPassword).toHaveBeenCalledWith(passwordHash, 'Password1!');
+  });
+
+  it('ASCII 외 문자나 공백이 있는 login 입력은 account lookup과 Argon 전에 거절한다', async () => {
+    await expect(
+      login(deps as never, 'test@kangwon.ac.kr', 'Password 한글2026', false),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_INVALID_CREDENTIALS',
+    });
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyLoginPassword).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyUnavailableLogin).not.toHaveBeenCalled();
+  });
+
   it('기존 계정의 잘못된 비밀번호는 real hash를 검증하고 invalid metric을 남긴다', async () => {
     const passwordHash = await hashPasswordForTest('Pass1234');
     prisma.user.findUnique.mockResolvedValue({

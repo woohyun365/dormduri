@@ -49,6 +49,7 @@ describe('changePassword command', () => {
     appendPasswordChanged: vi.fn(),
   };
   const admission = { consume: vi.fn() };
+  const passwordPolicy = { evaluateNewPassword: vi.fn() };
   const flowMetrics = { recordSensitiveMutation: vi.fn() };
   const deps = {
     prisma,
@@ -56,6 +57,7 @@ describe('changePassword command', () => {
     securityEvents,
     mailOutboxWriter,
     admission,
+    passwordPolicy,
     flowMetrics,
   };
   const authUser = {
@@ -74,6 +76,7 @@ describe('changePassword command', () => {
       email: 'test@kangwon.ac.kr',
       passwordHash: currentPasswordHash,
       deletedAt: null,
+      displayIdentity: { nickname: '테스터' },
     });
     prisma.user.updateMany.mockResolvedValue({ count: 1 });
     prisma.authSession.findFirst.mockResolvedValue({ id: 'session-1', rememberMe: true });
@@ -92,6 +95,7 @@ describe('changePassword command', () => {
     securityEvents.recordInTransaction.mockResolvedValue(undefined);
     mailOutboxWriter.appendPasswordChanged.mockResolvedValue(undefined);
     admission.consume.mockResolvedValue(null);
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
   });
 
   it('현재 비밀번호 확인 후 기존 세션을 revoke하고 같은 transaction의 대체 세션을 반환한다', async () => {
@@ -277,6 +281,45 @@ describe('changePassword command', () => {
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+  });
+
+  it('새 비밀번호 정책 위반은 신규 hash와 credential transaction 전에 거부한다', async () => {
+    await expect(
+      changePassword(deps as never, authUser, 'OldPass1234', 'short'),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+    });
+
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(prisma.authSession.findFirst).not.toHaveBeenCalled();
+    expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('취약 비밀번호는 same-password verify와 credential transaction 전에 generic하게 거부한다', async () => {
+    const password = 'Password1!';
+    passwordPolicy.evaluateNewPassword.mockReturnValue({
+      ok: false,
+      code: 'COMMON_VALUE',
+    });
+
+    const result = await changePassword(deps as never, authUser, 'OldPass1234', password);
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      fieldErrors: {
+        newPassword: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain(password);
+    expect(passwordPolicy.evaluateNewPassword).toHaveBeenCalledWith(password, {
+      email: 'test@kangwon.ac.kr',
+      nickname: '테스터',
+    });
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
   it('새 비밀번호가 현재 비밀번호와 같으면 거부한다', async () => {

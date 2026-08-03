@@ -100,24 +100,21 @@ export function PasswordResetNewPasswordStep({
 
       <VerifiedSchoolEmailCard email={email} />
 
-      <div>
-        <InputField
-          ref={passwordRef}
-          label={PASSWORD_RESET_COPY.newPassword.label}
-          type="password"
-          autoComplete="new-password"
-          placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
-          value={newPassword}
-          onChange={(value) => {
-            onNewPasswordChange(value);
-            setPasswordError('');
-          }}
-          error={passwordError}
-          disabled={isResetting}
-          required
-        />
-        <PasswordRequirementList password={newPassword} email={email} />
-      </div>
+      <InputField
+        ref={passwordRef}
+        label={PASSWORD_RESET_COPY.newPassword.label}
+        type="password"
+        autoComplete="new-password"
+        placeholder={`${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자 입력`}
+        value={newPassword}
+        onChange={(value) => {
+          onNewPasswordChange(value);
+          setPasswordError('');
+        }}
+        error={passwordError}
+        disabled={isResetting}
+        required
+      />
 
       <InputField
         ref={confirmRef}
@@ -133,6 +130,12 @@ export function PasswordResetNewPasswordStep({
         error={confirmError}
         disabled={isResetting}
         required
+      />
+
+      <PasswordRequirementList
+        password={newPassword}
+        email={email}
+        confirmPassword={confirmPassword}
       />
 
       <Button

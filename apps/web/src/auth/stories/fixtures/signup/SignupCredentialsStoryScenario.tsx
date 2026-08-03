@@ -23,6 +23,11 @@ type AccountScenario =
   | 'networkUnavailable'
   | 'expiredGrant'
   | 'staleEdited'
+  | 'passwordInvalidCharacters'
+  | 'passwordWhitespace'
+  | 'passwordMismatch'
+  | 'passwordEmailIdentity'
+  | 'passwordRejected'
   | 'raceFinalSignup';
 
 const NICKNAME_BY_SCENARIO: Record<AccountScenario, string> = {
@@ -37,7 +42,20 @@ const NICKNAME_BY_SCENARIO: Record<AccountScenario, string> = {
   networkUnavailable: '감자친구',
   expiredGrant: '감자친구',
   staleEdited: '감자친구',
+  passwordInvalidCharacters: '감자친구',
+  passwordWhitespace: '감자친구',
+  passwordMismatch: '감자친구',
+  passwordEmailIdentity: '감자친구',
+  passwordRejected: '감자친구',
   raceFinalSignup: '감자친구',
+};
+
+const PASSWORD_BY_SCENARIO: Partial<Record<AccountScenario, string>> = {
+  passwordInvalidCharacters: 'Password한글2026',
+  passwordWhitespace: 'Password 2026',
+  passwordMismatch: 'SafePassword123',
+  passwordEmailIdentity: 'knuStudent',
+  passwordRejected: 'Password1!',
 };
 
 const FAILURE_RESPONSES = {
@@ -82,8 +100,11 @@ export function SignupCredentialsScenario({ scenario }: { scenario: AccountScena
   const [accountData, setAccountData] = useState<SignupAccountData>({
     ...SIGNUP_BASIC_INFO,
     nickname: NICKNAME_BY_SCENARIO[scenario],
-    password: 'SafePassword123',
-    passwordConfirm: 'SafePassword123',
+    password: PASSWORD_BY_SCENARIO[scenario] ?? 'SafePassword123',
+    passwordConfirm:
+      scenario === 'passwordMismatch'
+        ? 'DifferentPassword123'
+        : (PASSWORD_BY_SCENARIO[scenario] ?? 'SafePassword123'),
   });
 
   if (scenario === 'raceFinalSignup') {
@@ -99,6 +120,13 @@ export function SignupCredentialsScenario({ scenario }: { scenario: AccountScena
         onNext={noop}
         onBack={noop}
         validateSignupNicknameAction={createValidationAction(scenario)}
+        serverFieldErrors={
+          scenario === 'passwordRejected'
+            ? {
+                password: '다른 비밀번호를 입력해 주세요.',
+              }
+            : undefined
+        }
       />
     </SignupFlowView>
   );

@@ -19,6 +19,7 @@ import { resetPassword } from './reset-password.command.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 import { ChangePasswordAdmissionService } from './change-password-admission.service.js';
+import { AuthPasswordPolicyService } from './password-policy.service.js';
 
 @Injectable()
 export class AuthCredentialUseCases {
@@ -27,6 +28,7 @@ export class AuthCredentialUseCases {
     private readonly loginAttemptService: AuthLoginAttemptService,
     private readonly loginMetrics: AuthLoginMetricsService,
     private readonly passwordHashPolicy: AuthPasswordHashPolicy,
+    private readonly passwordPolicy: AuthPasswordPolicyService,
     private readonly sessionService: AuthSessionService,
     private readonly verificationService: AuthVerificationService,
     private readonly securityEvents: AuthSecurityEventService,
@@ -67,6 +69,7 @@ export class AuthCredentialUseCases {
         {
           prisma: this.prisma,
           verificationService: this.verificationService,
+          passwordPolicy: this.passwordPolicy,
           loginAttemptService: this.loginAttemptService,
           securityEvents: this.securityEvents,
           mailOutboxWriter: this.mailOutboxWriter,
@@ -100,6 +103,7 @@ export class AuthCredentialUseCases {
           securityEvents: this.securityEvents,
           mailOutboxWriter: this.mailOutboxWriter,
           admission: this.changePasswordAdmission,
+          passwordPolicy: this.passwordPolicy,
           flowMetrics: this.flowMetrics,
         },
         authUser,
