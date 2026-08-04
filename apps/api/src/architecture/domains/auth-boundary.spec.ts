@@ -20,6 +20,20 @@ function walkTypeScriptFiles(root: string): string[] {
   });
 }
 
+function walkDirectories(root: string): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    if (!entry.isDirectory()) {
+      return [];
+    }
+    const path = join(root, entry.name);
+    return [path, ...walkDirectories(path)];
+  });
+}
+
 function productionTypeScriptFiles(root: string): string[] {
   return walkTypeScriptFiles(root).filter((path) => !path.endsWith('.spec.ts'));
 }
@@ -133,15 +147,19 @@ describe('Auth product architecture boundary', () => {
   it('keeps generic auth utilities dissolved into explicit owners', () => {
     expect(existsSync(join(authRoot, 'domain/auth.utils.ts'))).toBe(false);
     expect(existsSync(join(authRoot, 'domain/auth-email-identity.policy.ts'))).toBe(true);
-    expect(existsSync(join(authRoot, 'verification/verification-code.crypto.ts'))).toBe(true);
-    expect(existsSync(join(authRoot, 'verification/auth-verification-timing.policy.ts'))).toBe(
+    expect(existsSync(join(authRoot, 'verification/challenge/verification-code.crypto.ts'))).toBe(
       true,
     );
+    expect(
+      existsSync(join(authRoot, 'verification/request/auth-verification-timing.policy.ts')),
+    ).toBe(true);
   });
 
   it('keeps cross-slice auth type and flow metric buckets removed', () => {
     expect(existsSync(join(authRoot, 'domain/auth.types.ts'))).toBe(false);
     expect(existsSync(join(authRoot, 'operations/auth-flow-metrics.service.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'verification/verification-code.repository.ts'))).toBe(false);
+    expect(offendingFiles(authRoot, /\bAuthVerificationStore\b/)).toEqual([]);
   });
 
   it('keeps auth Nest modules limited to the HTTP and operations composition boundaries', () => {
@@ -250,7 +268,73 @@ describe('Auth product architecture boundary', () => {
 
   it('keeps grant consumption on its explicit owner and removes the ambiguous proof helper', () => {
     expect(existsSync(join(authRoot, 'verification/auth-verification-proof.ts'))).toBe(false);
-    expect(existsSync(join(authRoot, 'verification/verification-grant-consumption.ts'))).toBe(true);
+    expect(existsSync(join(authRoot, 'verification/grant/verification-grant-consumption.ts'))).toBe(
+      true,
+    );
+  });
+
+  it('keeps verification and login admission files on lifecycle-owned paths', () => {
+    const expectedLifecycleOwners = [
+      'verification/request/auth-verification-request.repository.ts',
+      'verification/challenge/auth-verification-challenge.repository.ts',
+      'verification/grant/auth-verification-grant.repository.ts',
+      'login-attempts/account-lock/auth-login-attempt.service.ts',
+      'login-attempts/account-lock/login-attempt.repository.ts',
+      'login-attempts/network-throttle/auth-login-throttler.guard.ts',
+      'login-attempts/network-throttle/auth-throttle.options.ts',
+    ];
+    const removedAmbiguousOwners = [
+      'verification/verification-code.repository.ts',
+      'verification/auth-verification-request.repository.ts',
+      'login-attempts/auth-login-attempt.service.ts',
+      'login-attempts/auth-login-throttler.guard.ts',
+    ];
+
+    expect(expectedLifecycleOwners.filter((path) => !existsSync(join(authRoot, path)))).toEqual([]);
+    expect(removedAmbiguousOwners.filter((path) => existsSync(join(authRoot, path)))).toEqual([]);
+
+    const forbiddenTechnicalLayerDirectories = ['commands', 'queries', 'repositories'];
+    const lifecycleRoots = [join(authRoot, 'verification'), join(authRoot, 'login-attempts')];
+    const offenders = lifecycleRoots.flatMap((root) =>
+      forbiddenTechnicalLayerDirectories
+        .map((directory) => join(root, directory))
+        .filter(existsSync)
+        .map(relativeSourcePath),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps account lock and network throttle state owners independent', () => {
+    const accountLockRoot = join(authRoot, 'login-attempts/account-lock');
+    const networkThrottleRoot = join(authRoot, 'login-attempts/network-throttle');
+    const accountLockImports = productionTypeScriptFiles(accountLockRoot).flatMap((path) =>
+      importSpecifiers(readSource(path)),
+    );
+    const networkThrottleImports = productionTypeScriptFiles(networkThrottleRoot).flatMap((path) =>
+      importSpecifiers(readSource(path)),
+    );
+
+    expect(
+      accountLockImports.filter((specifier) => specifier.includes('network-throttle')),
+    ).toEqual([]);
+    expect(
+      networkThrottleImports.filter((specifier) => specifier.includes('account-lock')),
+    ).toEqual([]);
+  });
+
+  it('keeps cohesive session, mail, and security-event lifecycles free from technical layers', () => {
+    const cohesiveLifecycleRoots = ['sessions', 'mail', 'security-events'].map((directory) =>
+      join(authRoot, directory),
+    );
+    const forbiddenTechnicalLayers = new Set(['commands', 'queries', 'repositories', 'services']);
+    const offenders = cohesiveLifecycleRoots
+      .flatMap(walkDirectories)
+      .filter((path) => forbiddenTechnicalLayers.has(basename(path)))
+      .map(relativeSourcePath)
+      .sort();
+
+    expect(offenders).toEqual([]);
   });
 
   it('keeps /health/auth as an ops-only protected capability route', () => {

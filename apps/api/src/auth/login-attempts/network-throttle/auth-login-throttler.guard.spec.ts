@@ -2,7 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ThrottlerException, type ThrottlerModuleOptions } from '@nestjs/throttler';
 import { describe, expect, it, vi } from 'vitest';
-import { AuthLoginMetricsService } from './auth-login-metrics.service.js';
+import { AuthLoginMetricsService } from '../auth-login-metrics.service.js';
 import { AuthLoginThrottlerGuard } from './auth-login-throttler.guard.js';
 import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './auth-login-throttle.decorator.js';
 import { AUTH_LOGIN_BURST_THROTTLER } from './login-throttle.policy.js';

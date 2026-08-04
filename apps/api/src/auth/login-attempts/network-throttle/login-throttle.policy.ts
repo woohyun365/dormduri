@@ -1,4 +1,4 @@
-import type { AuthLoginThrottleScope } from './auth-login-metrics.service.js';
+import type { AuthLoginThrottleScope } from '../auth-login-metrics.service.js';
 
 export const AUTH_LOGIN_BURST_THROTTLER = 'login-burst';
 export const AUTH_LOGIN_SUSTAINED_THROTTLER = 'login-sustained';

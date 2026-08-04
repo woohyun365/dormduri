@@ -8,7 +8,7 @@ import authConfig from '../config/auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AUTH_EXPORTS } from './composition/auth.exports.js';
 import { AUTH_PROVIDERS } from './composition/auth.providers.js';
-import { buildAuthThrottlerOptions } from './login-attempts/auth-throttle.options.js';
+import { buildAuthThrottlerOptions } from './login-attempts/network-throttle/auth-throttle.options.js';
 
 @Module({
   imports: [

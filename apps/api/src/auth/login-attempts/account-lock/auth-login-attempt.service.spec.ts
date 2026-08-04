@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
-import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
+import type { AuthSecurityEventInput } from '../../security-events/auth-security-event.types.js';
 import { ClearLoginFailuresCommand } from './clear-login-failures.command.js';
 import { GetActiveLoginLockQuery } from './get-active-login-lock.query.js';
 import { LoginAttemptRepository } from './login-attempt.repository.js';

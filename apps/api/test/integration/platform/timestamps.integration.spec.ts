@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AuthLoginAttemptService } from '../../../src/auth/login-attempts/auth-login-attempt.service.js';
+import { AuthLoginAttemptService } from '../../../src/auth/login-attempts/account-lock/auth-login-attempt.service.js';
 import { ChatService } from '../../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { MatchesService } from '../../../src/matches/application/matches.service.js';

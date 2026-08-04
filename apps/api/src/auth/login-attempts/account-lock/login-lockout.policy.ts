@@ -1,6 +1,6 @@
 import { LOGIN_FAILURE_LIMIT, LOGIN_LOCKOUT_SECONDS } from '@repo/shared/auth/policy';
 import type { LoginResponse } from '@repo/shared/auth/response';
-import { authFailures } from '../errors/auth-failures.js';
+import { authFailures } from '../../errors/auth-failures.js';
 
 export function isLoginLockoutThresholdReached(failureCount: number) {
   return failureCount >= LOGIN_FAILURE_LIMIT;

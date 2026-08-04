@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
-import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
+import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
 import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import type { AuthenticatedUserContext } from '../../../src/auth/sessions/auth-session.service.js';
@@ -763,7 +764,7 @@ describe('Season registration split-flow integration', () => {
     const signupResult = await authService.signup(
       {
         email: input.email,
-        password: 'Pass1234',
+        password: 'Dormitory7!Pass',
         nickname: input.nickname,
         gender: 'M',
         campus: 'CHUNCHEON',
@@ -936,7 +937,8 @@ describe('Season registration split-flow integration', () => {
     const emailNormalized = normalizeEmail(email);
     const now = await prisma.getDatabaseNow();
     const verificationCodeId = 'season-registration-signup-code';
-    const verificationGrant = `v1.${verificationCodeId}.${'g'.repeat(43)}`;
+    const grantToken = createHash('sha256').update(emailNormalized).digest('base64url');
+    const verificationGrant = `v1.${verificationCodeId}.${grantToken}`;
 
     await prisma.verificationCode.create({
       data: {

@@ -36,7 +36,7 @@ interface SqlTimeInventoryEntry {
 
 const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
   entry({
-    path: 'src/auth/verification/auth-verification-timing.policy.ts',
+    path: 'src/auth/verification/request/auth-verification-timing.policy.ts',
     owner: 'auth/verification',
     category: 'duration-metric',
     rationale:
@@ -91,18 +91,18 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
       'verification instrumentation measures elapsed duration; it is not persisted business time.',
   }),
   entry({
-    path: 'src/auth/verification/auth-verification-request.repository.ts',
+    path: 'src/auth/verification/request/auth-verification-request.repository.ts',
     owner: 'auth/verification',
     category: 'date-arithmetic',
     rationale:
       'verification code expiry is derived from the database-issued timestamp supplied to the transaction.',
   }),
   entry({
-    path: 'src/auth/verification/verification-code.repository.ts',
-    owner: 'auth/verification',
+    path: 'src/auth/verification/challenge/auth-verification-challenge.repository.ts',
+    owner: 'auth/verification/challenge',
     category: 'date-arithmetic',
     rationale:
-      'verification expiry uses DB issuedAt, while retry-after fallback is response guidance backed by SQL CURRENT_TIMESTAMP filtering.',
+      'verification grant expiry is derived from the database verification timestamp inside the challenge transaction.',
   }),
   entry({
     path: 'src/chat/application/chat.service.ts',

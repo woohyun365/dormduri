@@ -9,7 +9,7 @@ import {
   type ThrottlerRequest,
   type ThrottlerStorage,
 } from '@nestjs/throttler';
-import { AuthLoginMetricsService } from './auth-login-metrics.service.js';
+import { AuthLoginMetricsService } from '../auth-login-metrics.service.js';
 import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './auth-login-throttle.decorator.js';
 import { resolveAuthLoginThrottleScope } from './login-throttle.policy.js';
 

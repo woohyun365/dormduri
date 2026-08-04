@@ -79,21 +79,21 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
       'session renewal rotation/reuse detection은 동시 renewal이 deterministic하게 닫혀야 한다.',
   }),
   entry({
-    path: 'src/auth/verification/verification-code.repository.ts',
-    owner: 'auth/verification',
+    path: 'src/auth/verification/challenge/auth-verification-challenge.repository.ts',
+    owner: 'auth/verification/challenge',
     coverageClass: 'concurrency-race',
     coverageRefs: [
-      'src/auth/verification/verification-code.repository.spec.ts',
-      'test/integration/auth/auth-verification.store.integration.spec.ts',
+      'src/auth/verification/challenge/auth-verification-challenge.repository.spec.ts',
+      'test/integration/auth/auth-verification-lifecycle.integration.spec.ts',
     ],
     rationale:
-      'verification consume/attempt/expiry는 동시 consume과 attempt race를 repository transaction에서 닫는다.',
+      'verification challenge의 verified+grant issue와 attempt consume은 repository transaction에서 동시 race를 닫는다.',
   }),
   entry({
-    path: 'src/auth/verification/auth-verification-request.repository.ts',
-    owner: 'auth/verification',
+    path: 'src/auth/verification/request/auth-verification-request.repository.ts',
+    owner: 'auth/verification/request',
     coverageClass: 'concurrency-race',
-    coverageRefs: ['test/integration/auth/auth-verification.store.integration.spec.ts'],
+    coverageRefs: ['test/integration/auth/auth-verification-lifecycle.integration.spec.ts'],
     rationale:
       'verification request는 purpose별 advisory lock 안에서 rate limit 확인, request log, security event, code와 mail outbox append를 원자적으로 완료한다.',
   }),
@@ -103,7 +103,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'concurrency-race',
     coverageRefs: [
       'src/auth/mail/auth-mail-outbox.repository.spec.ts',
-      'test/integration/auth/auth-verification.store.integration.spec.ts',
+      'test/integration/auth/auth-verification-lifecycle.integration.spec.ts',
     ],
     rationale:
       'mail outbox claim과 delivery terminal transition은 worker race에서도 outbox와 verification code 상태를 함께 일관되게 닫아야 한다.',

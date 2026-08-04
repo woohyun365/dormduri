@@ -1,6 +1,6 @@
 import type { LoginResponse } from '@repo/shared/auth/response';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import type { AuthLoginAttemptService } from '../login-attempts/account-lock/auth-login-attempt.service.js';
 import type { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';

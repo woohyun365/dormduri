@@ -20,7 +20,7 @@ import { AUTH_CAPABILITIES } from './access/auth-capability.js';
 import { CurrentAuthToken, CurrentUser } from './access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from './application/auth-actor-context.types.js';
 import { resolveAuthRequestContext } from './domain/auth-request-context.js';
-import { EnableAuthLoginThrottle } from './login-attempts/auth-login-throttle.decorator.js';
+import { EnableAuthLoginThrottle } from './login-attempts/network-throttle/auth-login-throttle.decorator.js';
 import { authErrors } from './errors/auth.errors.js';
 import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
 

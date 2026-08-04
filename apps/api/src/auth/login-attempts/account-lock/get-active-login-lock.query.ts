@@ -1,11 +1,11 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { LoginResponse } from '@repo/shared/auth/response';
-import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import type { AuthRequestContext } from '../../domain/auth-request-context.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../security-events/auth-security-event.service.js';
-import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
+} from '../../security-events/auth-security-event.service.js';
+import { AUTH_SECURITY_EVENT_METRICS } from '../../security-events/auth-security-event.types.js';
 import { buildActiveLoginLockResult } from './login-lockout.policy.js';
 import { LoginAttemptRepository } from './login-attempt.repository.js';
 

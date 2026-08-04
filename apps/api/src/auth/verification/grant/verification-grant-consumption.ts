@@ -1,6 +1,6 @@
-import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
-import type { Prisma } from '../../generated/prisma/client.js';
-import { acquireTransactionAdvisoryLock } from '../../generated/prisma/sql.js';
+import type { VerificationCodePurpose } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import { acquireTransactionAdvisoryLock } from '../../../generated/prisma/sql.js';
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,

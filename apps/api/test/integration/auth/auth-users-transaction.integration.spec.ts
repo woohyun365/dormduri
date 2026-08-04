@@ -13,7 +13,7 @@ import {
 } from '../../../src/auth/credentials/password-hashing/password-hash.js';
 import { normalizeEmail } from '@repo/shared/auth/policy';
 import { normalizeDisplayIdentityNickname } from '@repo/shared/user/identity/display';
-import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
+import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
 import {
   DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,

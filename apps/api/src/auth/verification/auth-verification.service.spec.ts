@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { AUTH_VERIFICATION_CODE_MAX_ATTEMPTS } from '@repo/shared/auth/policy';
-import { hashVerificationCode } from './verification-code.crypto.js';
+import { hashVerificationCode } from './challenge/verification-code.crypto.js';
 import authConfig, {
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
   DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
@@ -28,22 +28,20 @@ describe('AuthVerificationService', () => {
     '127.0.0.1',
     DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
   );
-  const verificationStore = {
+  const verificationRequests = {
     findRetryAfterSeconds: vi.fn(),
     findBackstopRetryAfterSeconds: vi.fn(),
-    createRequestLog: vi.fn(),
-    replaceActiveSignupCode: vi.fn(),
-    replaceActiveResetCode: vi.fn(),
-    findActiveVerificationRecord: vi.fn(),
+    append: vi.fn(),
+  };
+  const verificationChallenges = {
+    findActive: vi.fn(),
     markVerifiedAndIssueGrant: vi.fn(),
-    resolveVerificationGrant: vi.fn(),
-    recordVerificationFailure: vi.fn(),
+    recordFailure: vi.fn(),
     incrementFailedAttempts: vi.fn(),
     failAndConsume: vi.fn(),
   };
-
-  const verificationRequests = {
-    append: vi.fn(),
+  const verificationGrants = {
+    resolve: vi.fn(),
   };
   const mailEnvelopeWriter = {
     encrypt: vi.fn().mockReturnValue({
@@ -95,8 +93,9 @@ describe('AuthVerificationService', () => {
   };
 
   const service = new AuthVerificationService(
-    verificationStore as never,
     verificationRequests as never,
+    verificationChallenges as never,
+    verificationGrants as never,
     mailEnvelopeWriter as never,
     authSettings,
     securityEvents as never,
@@ -105,10 +104,10 @@ describe('AuthVerificationService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    verificationStore.findRetryAfterSeconds.mockResolvedValue(null);
-    verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(null);
-    verificationStore.markVerifiedAndIssueGrant.mockResolvedValue(true);
-    verificationStore.recordVerificationFailure.mockResolvedValue({
+    verificationRequests.findRetryAfterSeconds.mockResolvedValue(null);
+    verificationRequests.findBackstopRetryAfterSeconds.mockResolvedValue(null);
+    verificationChallenges.markVerifiedAndIssueGrant.mockResolvedValue(true);
+    verificationChallenges.recordFailure.mockResolvedValue({
       recorded: true,
       consumed: false,
     });
@@ -193,7 +192,7 @@ describe('AuthVerificationService', () => {
   });
 
   it('email+purpose backstop 제한이 걸리면 code 요청을 차단한다', async () => {
-    verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(120);
+    verificationRequests.findBackstopRetryAfterSeconds.mockResolvedValue(120);
 
     expect.assertions(1);
 
@@ -241,7 +240,7 @@ describe('AuthVerificationService', () => {
   });
 
   it('올바른 verification code는 verified 처리한다', async () => {
-    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+    verificationChallenges.findActive.mockResolvedValue({
       id: 'code-1',
       codeHash: hashVerificationCode(
         'test@kangwon.ac.kr',
@@ -260,7 +259,7 @@ describe('AuthVerificationService', () => {
     });
     expect(result.signupGrant).toMatch(/^v1\.code-1\.[A-Za-z0-9_-]{43}$/);
 
-    const issueGrantInput = verificationStore.markVerifiedAndIssueGrant.mock.calls[0]?.[0] as
+    const issueGrantInput = verificationChallenges.markVerifiedAndIssueGrant.mock.calls[0]?.[0] as
       | {
           id: string;
           subjectKey: string;
@@ -290,7 +289,7 @@ describe('AuthVerificationService', () => {
   });
 
   it('잘못된 verification code는 failedAttempts를 증가시킨다', async () => {
-    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+    verificationChallenges.findActive.mockResolvedValue({
       id: 'code-1',
       codeHash: hashVerificationCode(
         'test@kangwon.ac.kr',
@@ -306,14 +305,14 @@ describe('AuthVerificationService', () => {
       code: 'AUTH_VERIFICATION_CODE_INVALID',
     });
 
-    expect(verificationStore.recordVerificationFailure).toHaveBeenCalledWith({
+    expect(verificationChallenges.recordFailure).toHaveBeenCalledWith({
       id: 'code-1',
       subjectKey,
       purpose: 'SIGNUP',
       maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     });
-    expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
-    expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
+    expect(verificationChallenges.incrementFailedAttempts).not.toHaveBeenCalled();
+    expect(verificationChallenges.failAndConsume).not.toHaveBeenCalled();
     expect(securityEvents.recordSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'VERIFICATION_CODE_VERIFY_FAILURE',
@@ -325,7 +324,7 @@ describe('AuthVerificationService', () => {
   });
 
   it('잘못된 verification code가 최대 시도에 도달하면 즉시 consume한다', async () => {
-    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+    verificationChallenges.findActive.mockResolvedValue({
       id: 'code-1',
       codeHash: hashVerificationCode(
         'test@kangwon.ac.kr',
@@ -343,13 +342,13 @@ describe('AuthVerificationService', () => {
       code: 'AUTH_VERIFICATION_CODE_INVALID',
     });
 
-    expect(verificationStore.recordVerificationFailure).toHaveBeenCalledWith({
+    expect(verificationChallenges.recordFailure).toHaveBeenCalledWith({
       id: 'code-1',
       subjectKey,
       purpose: 'RESET_PASSWORD',
       maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     });
-    expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
-    expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
+    expect(verificationChallenges.failAndConsume).not.toHaveBeenCalled();
+    expect(verificationChallenges.incrementFailedAttempts).not.toHaveBeenCalled();
   });
 });

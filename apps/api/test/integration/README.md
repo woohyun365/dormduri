@@ -31,7 +31,7 @@ apps/api/test/integration/
   auth/
     auth.service.integration.spec.ts
     auth-users-transaction.integration.spec.ts
-    auth-verification.store.integration.spec.ts
+    auth-verification-lifecycle.integration.spec.ts
   users/
     account-deletion.integration.spec.ts
     users.integration.spec.ts
@@ -66,7 +66,7 @@ apps/api/test/integration/
 
 | Domain directory       | Integration specs                                                                                                                                                                             |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth/`                | `auth/auth.service.integration.spec.ts`, `auth/auth-users-transaction.integration.spec.ts`, `auth/auth-verification.store.integration.spec.ts`                                                |
+| `auth/`                | `auth/auth.service.integration.spec.ts`, `auth/auth-users-transaction.integration.spec.ts`, `auth/auth-verification-lifecycle.integration.spec.ts`                                            |
 | `chat/`                | `chat/chat.integration.spec.ts`                                                                                                                                                               |
 | `matches/`             | `matches/match-history.integration.spec.ts`, `matches/matches.integration.spec.ts`, `matches/unmatch.integration.spec.ts`                                                                     |
 | `notifications/`       | `notifications/notifications.integration.spec.ts`                                                                                                                                             |

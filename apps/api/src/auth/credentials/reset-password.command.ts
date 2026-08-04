@@ -8,10 +8,10 @@ import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
   RESET_VERIFICATION_GRANT_UNAVAILABLE,
-} from '../verification/verification-grant-consumption.js';
+} from '../verification/grant/verification-grant-consumption.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
-import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import type { AuthLoginAttemptService } from '../login-attempts/account-lock/auth-login-attempt.service.js';
 import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import type { AuthCredentialMetricsService } from './auth-credential-metrics.service.js';
 import type { AuthPasswordPolicyService } from './password-policy/auth-password-policy.service.js';

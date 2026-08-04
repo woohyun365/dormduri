@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, HttpException, RequestMethod } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
-import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './login-attempts/auth-login-throttle.decorator.js';
+import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './login-attempts/network-throttle/auth-login-throttle.decorator.js';
 
 const NEST_ROUTE_PATH_METADATA = 'path';
 const NEST_ROUTE_METHOD_METADATA = 'method';

@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { AuthMailKind, VerificationCodePurpose } from '../../generated/prisma/enums.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import type { AuthMailKind, VerificationCodePurpose } from '../../../generated/prisma/enums.js';
 import {
   acquireTransactionAdvisoryLock,
   getVerificationBackstopRetryAfterSeconds,
   getVerificationRetryAfterSeconds,
-} from '../../generated/prisma/sql.js';
-import { PrismaService } from '../../platform/database/prisma.service.js';
+} from '../../../generated/prisma/sql.js';
+import { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-} from './auth-verification-lock.js';
+} from '../grant/auth-verification-lock.js';
 
 export interface PendingVerificationRequestInput {
   id: string;
@@ -36,6 +36,45 @@ export class VerificationRequestThrottledError extends Error {
 @Injectable()
 export class AuthVerificationRequestRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findRetryAfterSeconds(
+    subjectKey: string,
+    purpose: VerificationCodePurpose,
+    requestIpKey: string,
+    cooldownSeconds: number,
+  ): Promise<number | null> {
+    const [latestRequest] = await this.prisma.$queryRawTyped(
+      getVerificationRetryAfterSeconds(subjectKey, purpose, requestIpKey, cooldownSeconds),
+    );
+
+    return latestRequest?.retryAfterSeconds ?? null;
+  }
+
+  async findBackstopRetryAfterSeconds(
+    subjectKey: string,
+    purpose: VerificationCodePurpose,
+    cooldownWindowSeconds: number,
+    limit: number,
+  ): Promise<number | null> {
+    const [recentRequests] = await this.prisma.$queryRawTyped(
+      getVerificationBackstopRetryAfterSeconds(subjectKey, purpose, cooldownWindowSeconds),
+    );
+
+    if (
+      !recentRequests ||
+      recentRequests.requestCount == null ||
+      recentRequests.requestCount < limit ||
+      !recentRequests.oldestRequestAt
+    ) {
+      return null;
+    }
+
+    const retryAfterSeconds = Math.ceil(
+      (recentRequests.oldestRequestAt.getTime() + cooldownWindowSeconds * 1000 - Date.now()) / 1000,
+    );
+
+    return retryAfterSeconds > 0 ? retryAfterSeconds : null;
+  }
 
   async append(input: {
     subjectKey: string;

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { LoginResponse } from '@repo/shared/auth/response';
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import type { AuthRequestContext } from '../../domain/auth-request-context.js';
 import { ClearLoginFailuresCommand } from './clear-login-failures.command.js';
 import { GetActiveLoginLockQuery } from './get-active-login-lock.query.js';
 import { RecordLoginFailureCommand } from './record-login-failure.command.js';

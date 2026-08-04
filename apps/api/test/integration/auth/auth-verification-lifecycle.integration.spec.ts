@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { randomUUID } from 'node:crypto';
-import { AuthVerificationStore } from '../../../src/auth/verification/verification-code.repository.js';
-import { AuthVerificationRequestRepository } from '../../../src/auth/verification/auth-verification-request.repository.js';
+import { AuthVerificationRequestRepository } from '../../../src/auth/verification/request/auth-verification-request.repository.js';
+import { AuthVerificationChallengeRepository } from '../../../src/auth/verification/challenge/auth-verification-challenge.repository.js';
+import { AuthVerificationGrantRepository } from '../../../src/auth/verification/grant/auth-verification-grant.repository.js';
 import {
   createVerificationGrant,
   hashVerificationGrant,
-} from '../../../src/auth/verification/auth-verification-grant.js';
+} from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
 import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import { AuthMailOutboxRepository } from '../../../src/auth/mail/auth-mail-outbox.repository.js';
@@ -16,10 +16,11 @@ import {
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
 
-describe('AuthVerificationStore integration', () => {
+describe('Auth verification lifecycle repositories integration', () => {
   let prisma: PrismaService;
-  let store: AuthVerificationStore;
   let verificationRequests: AuthVerificationRequestRepository;
+  let verificationChallenges: AuthVerificationChallengeRepository;
+  let verificationGrants: AuthVerificationGrantRepository;
   let mailOutbox: AuthMailOutboxRepository;
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
@@ -31,8 +32,9 @@ describe('AuthVerificationStore integration', () => {
     const { app, prisma: prismaService } = await createIntegrationApp();
     closeApp = () => app.close();
     prisma = prismaService;
-    store = app.get(AuthVerificationStore);
     verificationRequests = app.get(AuthVerificationRequestRepository);
+    verificationChallenges = app.get(AuthVerificationChallengeRepository);
+    verificationGrants = app.get(AuthVerificationGrantRepository);
     mailOutbox = app.get(AuthMailOutboxRepository);
   });
 
@@ -47,72 +49,6 @@ describe('AuthVerificationStore integration', () => {
 
   beforeEach(async () => {
     await truncateIntegrationSchema(prisma);
-  });
-
-  it('동시에 signup code를 교체해도 active signup code는 하나만 남는다', async () => {
-    const subjectKey = toSubjectKey('race-signup@kangwon.ac.kr');
-
-    const first = store.replaceActiveSignupCode({
-      id: randomUUID(),
-      subjectKey,
-      codeHash: 'hmac-sha256:first',
-      ttlSeconds: 600,
-      requestIpKey: toRequestIpKey('127.0.0.1'),
-    });
-    const second = store.replaceActiveSignupCode({
-      id: randomUUID(),
-      subjectKey,
-      codeHash: 'hmac-sha256:second',
-      ttlSeconds: 600,
-      requestIpKey: toRequestIpKey('127.0.0.1'),
-    });
-
-    await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
-
-    const rows = await prisma.verificationCode.findMany({
-      where: {
-        subjectKey,
-        purpose: 'SIGNUP',
-      },
-      orderBy: [{ issuedAt: 'asc' }, { id: 'asc' }],
-    });
-
-    expect(rows).toHaveLength(2);
-    expect(rows.filter((row) => row.consumedAt === null)).toHaveLength(1);
-    expect(rows.filter((row) => row.consumedAt !== null)).toHaveLength(1);
-  });
-
-  it('동시에 reset code를 교체해도 active reset code는 하나만 남는다', async () => {
-    const subjectKey = toSubjectKey('race-reset@kangwon.ac.kr');
-
-    const first = store.replaceActiveResetCode({
-      id: randomUUID(),
-      subjectKey,
-      codeHash: 'hmac-sha256:first-reset',
-      ttlSeconds: 600,
-      requestIpKey: toRequestIpKey('127.0.0.1'),
-    });
-    const second = store.replaceActiveResetCode({
-      id: randomUUID(),
-      subjectKey,
-      codeHash: 'hmac-sha256:second-reset',
-      ttlSeconds: 600,
-      requestIpKey: toRequestIpKey('127.0.0.1'),
-    });
-
-    await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
-
-    const rows = await prisma.verificationCode.findMany({
-      where: {
-        subjectKey,
-        purpose: 'RESET_PASSWORD',
-      },
-      orderBy: [{ issuedAt: 'asc' }, { id: 'asc' }],
-    });
-
-    expect(rows).toHaveLength(2);
-    expect(rows.filter((row) => row.consumedAt === null)).toHaveLength(1);
-    expect(rows.filter((row) => row.consumedAt !== null)).toHaveLength(1);
   });
 
   it('동시에 같은 code를 verified 처리해도 성공 transition은 하나뿐이다', async () => {
@@ -131,8 +67,8 @@ describe('AuthVerificationStore integration', () => {
     });
 
     const [firstRecord, secondRecord] = await Promise.all([
-      store.findActiveVerificationRecord(subjectKey, 'SIGNUP', 5),
-      store.findActiveVerificationRecord(subjectKey, 'SIGNUP', 5),
+      verificationChallenges.findActive(subjectKey, 'SIGNUP', 5),
+      verificationChallenges.findActive(subjectKey, 'SIGNUP', 5),
     ]);
 
     expect(firstRecord?.id).toBe('verify-race-code');
@@ -141,7 +77,7 @@ describe('AuthVerificationStore integration', () => {
     const firstGrant = createVerificationGrant('verify-race-code');
     const secondGrant = createVerificationGrant('verify-race-code');
     const results = await Promise.all([
-      store.markVerifiedAndIssueGrant({
+      verificationChallenges.markVerifiedAndIssueGrant({
         id: 'verify-race-code',
         subjectKey,
         purpose: 'SIGNUP',
@@ -150,7 +86,7 @@ describe('AuthVerificationStore integration', () => {
         grantTtlSeconds: 900,
         eligibleUserId: null,
       }),
-      store.markVerifiedAndIssueGrant({
+      verificationChallenges.markVerifiedAndIssueGrant({
         id: 'verify-race-code',
         subjectKey,
         purpose: 'SIGNUP',
@@ -192,7 +128,7 @@ describe('AuthVerificationStore integration', () => {
       },
     });
 
-    await expect(store.resolveVerificationGrant(grant, 'RESET_PASSWORD')).resolves.toMatchObject({
+    await expect(verificationGrants.resolve(grant, 'RESET_PASSWORD')).resolves.toMatchObject({
       id: 'reset-proof-ttl-code',
       subjectKey,
       eligibleUserId: 'user-1',
@@ -215,13 +151,13 @@ describe('AuthVerificationStore integration', () => {
     });
 
     const results = await Promise.all([
-      store.recordVerificationFailure({
+      verificationChallenges.recordFailure({
         id: 'failure-race-code',
         subjectKey: toSubjectKey('failure-race@kangwon.ac.kr'),
         purpose: 'RESET_PASSWORD',
         maxAttempts: 5,
       }),
-      store.recordVerificationFailure({
+      verificationChallenges.recordFailure({
         id: 'failure-race-code',
         subjectKey: toSubjectKey('failure-race@kangwon.ac.kr'),
         purpose: 'RESET_PASSWORD',

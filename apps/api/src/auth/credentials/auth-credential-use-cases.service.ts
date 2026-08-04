@@ -8,7 +8,7 @@ import { PrismaService } from '../../platform/database/prisma.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthenticatedUserContext } from '../sessions/auth-session.service.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
-import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import { AuthLoginAttemptService } from '../login-attempts/account-lock/auth-login-attempt.service.js';
 import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';

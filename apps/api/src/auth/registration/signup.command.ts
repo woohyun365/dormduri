@@ -14,7 +14,7 @@ import {
   acquireVerificationCodePurposeLock,
   consumeVerificationGrantOrThrow,
   SIGNUP_VERIFICATION_GRANT_UNAVAILABLE,
-} from '../verification/verification-grant-consumption.js';
+} from '../verification/grant/verification-grant-consumption.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   isPrismaKnownRequestError,

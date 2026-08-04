@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
-import { hashVerificationGrant } from '../../../src/auth/verification/auth-verification-grant.js';
+import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
 import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
 import { seedBaseSeasonFixtures } from '../_support/integration-fixtures.js';

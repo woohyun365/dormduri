@@ -23,12 +23,12 @@ import { PasswordHashAdmissionService } from '../credentials/password-hashing/pa
 import { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
 import { ChangePasswordAdmissionService } from '../credentials/change-password-admission.service.js';
 import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
-import { AuthLoginThrottlerGuard } from '../login-attempts/auth-login-throttler.guard.js';
-import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
-import { ClearLoginFailuresCommand } from '../login-attempts/clear-login-failures.command.js';
-import { GetActiveLoginLockQuery } from '../login-attempts/get-active-login-lock.query.js';
-import { LoginAttemptRepository } from '../login-attempts/login-attempt.repository.js';
-import { RecordLoginFailureCommand } from '../login-attempts/record-login-failure.command.js';
+import { AuthLoginThrottlerGuard } from '../login-attempts/network-throttle/auth-login-throttler.guard.js';
+import { AuthLoginAttemptService } from '../login-attempts/account-lock/auth-login-attempt.service.js';
+import { ClearLoginFailuresCommand } from '../login-attempts/account-lock/clear-login-failures.command.js';
+import { GetActiveLoginLockQuery } from '../login-attempts/account-lock/get-active-login-lock.query.js';
+import { LoginAttemptRepository } from '../login-attempts/account-lock/login-attempt.repository.js';
+import { RecordLoginFailureCommand } from '../login-attempts/account-lock/record-login-failure.command.js';
 import { AuthRegistrationUseCases } from '../registration/auth-registration-use-cases.service.js';
 import { AuthRegistrationMetricsService } from '../registration/auth-registration-metrics.service.js';
 import { SignupNicknameValidationAdmissionService } from '../registration/signup-nickname-validation-admission.service.js';
@@ -49,8 +49,9 @@ import { AuthVerificationEligibilityQuery } from '../verification/auth-verificat
 import { AuthVerificationUseCases } from '../verification/auth-verification-use-cases.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { AuthVerificationMetricsService } from '../verification/auth-verification-metrics.service.js';
-import { AuthVerificationStore } from '../verification/verification-code.repository.js';
-import { AuthVerificationRequestRepository } from '../verification/auth-verification-request.repository.js';
+import { AuthVerificationRequestRepository } from '../verification/request/auth-verification-request.repository.js';
+import { AuthVerificationChallengeRepository } from '../verification/challenge/auth-verification-challenge.repository.js';
+import { AuthVerificationGrantRepository } from '../verification/grant/auth-verification-grant.repository.js';
 import { AuthMailDispatcherService } from '../mail/auth-mail-dispatcher.service.js';
 import { AuthMailMetricsService } from '../mail/auth-mail-metrics.service.js';
 import { AuthMailEnvelopeReader } from '../mail/auth-mail-envelope-reader.service.js';
@@ -69,8 +70,9 @@ export const AUTH_VERIFICATION_PROVIDERS: Provider[] = [
   AuthVerificationService,
   AuthVerificationMetricsService,
   AuthVerificationEligibilityQuery,
-  AuthVerificationStore,
   AuthVerificationRequestRepository,
+  AuthVerificationChallengeRepository,
+  AuthVerificationGrantRepository,
 ];
 
 export const AUTH_SESSION_PROVIDERS: Provider[] = [

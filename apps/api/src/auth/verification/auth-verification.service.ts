@@ -11,7 +11,7 @@ import {
 import {
   AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
   ensureMinVerificationResponseDuration,
-} from './auth-verification-timing.policy.js';
+} from './request/auth-verification-timing.policy.js';
 import type {
   GenericErrorResponse,
   VerifyResetCodeTransportResponse,
@@ -22,9 +22,8 @@ import {
   generateVerificationCode,
   hashVerificationCode,
   safeTimeEquals,
-} from './verification-code.crypto.js';
+} from './challenge/verification-code.crypto.js';
 import authConfig from '../../config/auth.config.js';
-import { AuthVerificationStore } from './verification-code.repository.js';
 import { authErrors } from '../errors/auth.errors.js';
 import { authFailures } from '../errors/auth-failures.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
@@ -33,14 +32,18 @@ import {
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
-import { createVerificationGrant, hashVerificationGrant } from './auth-verification-grant.js';
-import type { ResolvedVerificationGrant } from './verification-code.repository.js';
+import { createVerificationGrant, hashVerificationGrant } from './grant/auth-verification-grant.js';
+import { AuthVerificationChallengeRepository } from './challenge/auth-verification-challenge.repository.js';
+import {
+  AuthVerificationGrantRepository,
+  type ResolvedVerificationGrant,
+} from './grant/auth-verification-grant.repository.js';
 import { hashAuthPersistenceDimension } from '../persistence/auth-persistence-dimension.js';
 import { AuthMailEnvelopeWriter } from '../mail/auth-mail-envelope-writer.service.js';
 import {
   AuthVerificationRequestRepository,
   VerificationRequestThrottledError,
-} from './auth-verification-request.repository.js';
+} from './request/auth-verification-request.repository.js';
 import { AuthVerificationMetricsService } from './auth-verification-metrics.service.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
@@ -55,8 +58,9 @@ type VerificationTransportResponse =
 @Injectable()
 export class AuthVerificationService {
   constructor(
-    private readonly verificationStore: AuthVerificationStore,
     private readonly verificationRequests: AuthVerificationRequestRepository,
+    private readonly verificationChallenges: AuthVerificationChallengeRepository,
+    private readonly verificationGrants: AuthVerificationGrantRepository,
     private readonly mailEnvelopeWriter: AuthMailEnvelopeWriter,
     @Inject(authConfig.KEY)
     private readonly authSettings: ConfigType<typeof authConfig>,
@@ -73,14 +77,14 @@ export class AuthVerificationService {
     const normalizedIp = this.normalizeRequestIp(requestContext.requestIp ?? null);
     const subjectKey = this.toSubjectKey(emailNormalized);
     const requestIpKey = this.toRequestIpKey(normalizedIp);
-    const ipRetryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
+    const ipRetryAfterSeconds = await this.verificationRequests.findRetryAfterSeconds(
       subjectKey,
       purpose,
       requestIpKey,
       this.authSettings.codeRequestCooldownSeconds,
     );
 
-    const backstopRetryAfterSeconds = await this.verificationStore.findBackstopRetryAfterSeconds(
+    const backstopRetryAfterSeconds = await this.verificationRequests.findBackstopRetryAfterSeconds(
       subjectKey,
       purpose,
       this.authSettings.codeRequestBackstopWindowSeconds,
@@ -200,7 +204,7 @@ export class AuthVerificationService {
     rawGrant: string | null,
     purpose: VerificationCodePurpose,
   ): Promise<ResolvedVerificationGrant | null> {
-    return this.verificationStore.resolveVerificationGrant(rawGrant, purpose);
+    return this.verificationGrants.resolve(rawGrant, purpose);
   }
 
   matchesVerificationGrantSubject(
@@ -296,7 +300,7 @@ export class AuthVerificationService {
   ): Promise<VerificationTransportResponse> {
     const emailNormalized = normalizeAuthEmail(email);
     const subjectKey = this.toSubjectKey(emailNormalized);
-    const record = await this.verificationStore.findActiveVerificationRecord(
+    const record = await this.verificationChallenges.findActive(
       subjectKey,
       purpose,
       AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
@@ -326,7 +330,7 @@ export class AuthVerificationService {
     }
 
     const rawGrant = createVerificationGrant(record.id);
-    const verified = await this.verificationStore.markVerifiedAndIssueGrant({
+    const verified = await this.verificationChallenges.markVerifiedAndIssueGrant({
       id: record.id,
       subjectKey,
       purpose,
@@ -385,7 +389,7 @@ export class AuthVerificationService {
     subjectKey: string,
     purpose: VerificationCodePurpose,
   ): Promise<void> {
-    await this.verificationStore.recordVerificationFailure({
+    await this.verificationChallenges.recordFailure({
       id,
       subjectKey,
       purpose,

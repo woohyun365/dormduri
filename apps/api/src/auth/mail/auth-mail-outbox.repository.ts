@@ -12,7 +12,7 @@ import { acquireTransactionAdvisoryLock } from '../../generated/prisma/sql.js';
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-} from '../verification/auth-verification-lock.js';
+} from '../verification/grant/auth-verification-lock.js';
 import type { EncryptedAuthMailEnvelope } from './auth-mail-envelope.types.js';
 
 export type ClaimedAuthMailOutboxEvent = {

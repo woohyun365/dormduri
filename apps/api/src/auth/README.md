@@ -10,7 +10,7 @@
 - `access/` public surface: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
 - actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 session facade다.
 - `AuthPasswordVerifier`: 외부 domain이 credential/hash 구현을 알지 않고 account password 확인 capability만 사용하는 public application boundary다.
-- `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다.
+- `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다. 외부 export는 cleanup 실행과 health snapshot capability로 제한한다.
 
 ## Directory responsibilities
 
@@ -20,11 +20,16 @@
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
 - `domain/`: request context와 auth email identity policy처럼 여러 auth flow가 공유하는 pure domain owner. Generic `utils.ts`·`types.ts` bucket은 두지 않고 request/response type은 shared contract, internal result는 owning slice에 둔다. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
 - `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric을 함께 둔다.
-- `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, purpose-bound grant consume, purpose lock, TypedSQL/Prisma repository와 verification metric을 함께 둔다.
+- `verification/`: controller-facing use case/facade, eligibility와 verification metric은 root에 둔다.
+  - `verification/request/`: 요청 cooldown/backstop, request log, pending code와 encrypted mail outbox의 원자적 append를 소유한다.
+  - `verification/challenge/`: active code 조회, 실패 횟수와 consume, code verified와 grant issue transition을 소유한다.
+  - `verification/grant/`: opaque purpose/subject-bound grant 조회·검증과 signup/reset owning transaction에서 사용하는 consume helper를 소유한다.
 - `credentials/`: `auth-credential-use-cases.service.ts`, login/reset/change password command, credential admission과 credential transition/policy metric을 둔다.
   - `credentials/password-hashing/`: Argon2id hash/verify, hash profile adapter, process-local capacity admission과 hash capacity/duration metric을 함께 소유한다.
   - `credentials/password-policy/`: Shared structure policy mapping, API-private common/contextual policy와 blocklist lookup을 함께 소유한다.
-- `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy, login network throttle와 no-PII metric을 함께 둔다. 계정 잠금과 IP throttle을 하나의 bucket으로 합치지 않는다.
+- `login-attempts/`: account lock과 network throttle이 함께 사용하는 no-PII login metric만 root에 둔다.
+  - `login-attempts/account-lock/`: normalized email 기준 PostgreSQL 실패 횟수, 5회/5분 잠금, 조회·기록·해제를 소유한다.
+  - `login-attempts/network-throttle/`: trusted request IP 기준 30회/1분 burst와 120회/10분 sustained guard/options/decorator를 소유한다.
 - `security-events/`: audit/security event service, repository, sanitizer, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않는다. Login 같은 운영 관측 event는 `recordSafely`로 fail-open할 수 있지만 Signup·Reset·Change Password의 필수 credential lifecycle event는 owning transaction 안에서 `recordInTransaction`으로 기록한다. 감사 이벤트를 주기적으로 다시 읽어 운영 metric을 만들지 않는다.
 - `registration/`: `auth-registration-use-cases.service.ts`, nickname-only signup admission query, signup command와 signup-specific metric을 함께 둔다. Auth는 lifestyle/intro/profile parser나 display nickname 불변식 자체를 소유하지 않는다.
 - `adapters/email/`: `EmailSender` contract, local/test stub sender, SESv2 production sender, provider delegate selection, monitored send wrapper.
@@ -83,10 +88,13 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - External-domain actor lookup/type surface: `application/auth-actor-context.*`.
 - External users-domain account password verification: `application/auth-password-verifier.service.ts`.
 - Opaque session issue/renew/logout/revoke/current actor projection: `sessions/`.
-- Verification code/grant issue, verify, consume, and ACID repository behavior: `verification/`.
+- Verification request cooldown/backstop, atomic code/outbox append: `verification/request/`.
+- Verification code lookup, failed attempt/consume, verified+grant issue transition: `verification/challenge/`.
+- Verification grant parse/resolve/consume helper: `verification/grant/`.
 - Login, reset password, change password, and password hashing: `credentials/`.
 - Signup nickname validation query, finalization admission, and signup orchestration: `registration/`. Nickname parse/moderation/availability invariant는 `users/identity/display/`의 `DisplayIdentityModule` public provider를 사용한다.
-- Login failure lockout and failure counter state: `login-attempts/`.
+- Login failure lockout and PostgreSQL failure counter state: `login-attempts/account-lock/`.
+- Login trusted-IP burst/sustained admission: `login-attempts/network-throttle/`.
 - Audit/security event sanitize and persistence: `security-events/`.
 - Encrypted auth mail envelope, transactional outbox append, bounded dispatcher, and delivery lifecycle: `mail/`.
 - Provider selection, SES payload/receipt/tag mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
@@ -119,10 +127,14 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/auth/registration/signup.command.spec.ts \
   src/auth/sessions/opaque-token.spec.ts \
   src/auth/verification/auth-verification.service.spec.ts \
-  src/auth/verification/verification-code.repository.spec.ts \
+  src/auth/verification/request/auth-verification-request.repository.spec.ts \
+  src/auth/verification/challenge/auth-verification-challenge.repository.spec.ts \
+  src/auth/verification/grant/auth-verification-grant.repository.spec.ts \
   src/auth/registration/signup-nickname-validation.query.spec.ts \
   src/auth/registration/signup-submission-admission.service.spec.ts \
-  src/auth/login-attempts/auth-login-attempt.service.spec.ts \
+  src/auth/login-attempts/account-lock/auth-login-attempt.service.spec.ts \
+  src/auth/login-attempts/network-throttle/auth-login-throttler.guard.spec.ts \
+  src/auth/login-attempts/network-throttle/auth-throttle.options.spec.ts \
   src/auth/access/authenticated-user.guard.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
