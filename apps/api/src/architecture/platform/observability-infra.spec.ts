@@ -58,8 +58,9 @@ const requiredMetricNames = [
   'api_realtime_dispatch_batches_total',
   'api_realtime_dispatch_oldest_claimed_outbox_lag_seconds',
   'api_chat_realtime_rejections_total',
+  'api_auth_cleanup_batch_saturated',
   'api_auth_cleanup_deleted_total',
-  'api_auth_cleanup_lag_seconds',
+  'api_auth_cleanup_failures_total',
   'api_retention_backlog_total',
   'api_retention_sweep_duration_seconds',
   'api_prisma_pool_connections',
@@ -174,7 +175,8 @@ describe('observability infra', () => {
     expect(rules).toContain('RealtimeOutboxLagHigh');
     expect(rules).toContain('PrismaPoolWaitingHigh');
     expect(rules).toContain('RetentionReviewBacklogHigh');
-    expect(rules).toContain('AuthCleanupLagHigh');
+    expect(rules).toContain('AuthCleanupFailed');
+    expect(rules).toContain('AuthCleanupBatchSaturated');
     expect(slackSmokeRules).toContain('SlackAlertSmokeNonFiring');
     expect(slackSmokeRules).toContain('expr: vector(0) == 1');
   });
@@ -279,10 +281,8 @@ describe('observability infra', () => {
   it('wires auth reset abuse, mail failure, and outbox lag metrics to alert fixtures', () => {
     const rules = readInfraFile('prometheus/rules/api-alerts.yml');
 
-    expect(rules).toContain('alert: AuthResetRequestSpike');
-    expect(rules).toContain('reason="reset-request-spike"');
     expect(rules).toContain('alert: AuthMailFailureSpike');
-    expect(rules).toContain('reason="mail-failure-spike"');
+    expect(rules).toContain('api_auth_mail_dispatch_total{outcome=~"failed|unknown"}');
     expect(rules).toContain('alert: AuthMailOutboxLagHigh');
     expect(rules).toContain('api_auth_mail_outbox_lag_seconds > 60');
   });

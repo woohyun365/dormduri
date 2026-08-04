@@ -2,7 +2,6 @@ import { describe, expect, it, vi, type Mock } from 'vitest';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
   buildPrismaSessionOptions,
-  calculatePrismaConnectionPoolBudget,
   PRISMA_SESSION_TIME_ZONE,
   PrismaService,
   recordPrismaConnectionAdapterError,
@@ -147,28 +146,6 @@ describe('PrismaPoolMetricsService', () => {
     });
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('DATABASE_URL');
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('postgresql://');
-  });
-});
-
-describe('calculatePrismaConnectionPoolBudget', () => {
-  it('runtime/worker/read-only disclosure pool 비용과 future role 증가 비용을 명시한다', () => {
-    expect(calculatePrismaConnectionPoolBudget({ poolMax: 10 }, { alertRatio: 0.8 })).toEqual({
-      activeRoles: ['runtime', 'retention_worker', 'retention_disclosure'],
-      poolMaxPerRole: 10,
-      activePoolMaxConnections: 30,
-      migrationConnectionIncludedInAppPool: false,
-      futureRolePoolCost: [
-        {
-          role: 'auth_cleanup_worker',
-          additionalMaxConnections: 10,
-        },
-        {
-          role: 'read_only_operations',
-          additionalMaxConnections: 10,
-        },
-      ],
-      alertAtEstimatedConnections: 24,
-    });
   });
 });
 

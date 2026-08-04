@@ -16,5 +16,7 @@ describe('AuthOperationsModule boundary', () => {
     expect(source).toContain('exports: [');
     expect(source).toContain('AuthOperationalCleanupService');
     expect(source).toContain('AuthOperationsHealthService');
+    const exportsBlock = source.match(/exports:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
+    expect(exportsBlock).not.toContain('AuthCleanupMetricsService');
   });
 });

@@ -48,7 +48,7 @@ describe('resetPassword command', () => {
   const mailOutboxWriter = {
     appendPasswordChanged: vi.fn().mockResolvedValue(undefined),
   };
-  const flowMetrics = {
+  const metrics = {
     recordPasswordPolicyRejected: vi.fn(),
   };
   const deps = {
@@ -58,7 +58,7 @@ describe('resetPassword command', () => {
     loginAttemptService,
     securityEvents,
     mailOutboxWriter,
-    flowMetrics,
+    metrics,
   };
 
   beforeEach(() => {
@@ -125,7 +125,7 @@ describe('resetPassword command', () => {
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
+    expect(metrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
       'reset_password',
       'too_short',
     );
@@ -172,10 +172,7 @@ describe('resetPassword command', () => {
     });
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
-      'reset_password',
-      'common',
-    );
+    expect(metrics.recordPasswordPolicyRejected).toHaveBeenCalledWith('reset_password', 'common');
   });
 
   it('verified proof consume, password update, session revoke를 serializable transaction으로 처리한다', async () => {
@@ -204,7 +201,7 @@ describe('resetPassword command', () => {
     ).resolves.toEqual({ success: true });
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
+    expect(metrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
     expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
     expect(prisma.verificationCode.updateMany).toHaveBeenCalledWith({
       where: {
@@ -307,7 +304,7 @@ describe('resetPassword command', () => {
 
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
+    expect(metrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
   });
 
   it('credential 변경 감사 이력과 보안 알림 outbox를 password transaction에 append한다', async () => {

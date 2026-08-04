@@ -50,7 +50,7 @@ describe('changePassword command', () => {
   };
   const admission = { consume: vi.fn() };
   const passwordPolicy = { evaluateNewPassword: vi.fn() };
-  const flowMetrics = {
+  const metrics = {
     recordPasswordPolicyRejected: vi.fn(),
     recordSensitiveMutation: vi.fn(),
   };
@@ -61,7 +61,7 @@ describe('changePassword command', () => {
     mailOutboxWriter,
     admission,
     passwordPolicy,
-    flowMetrics,
+    metrics,
   };
   const authUser = {
     id: 'user-1',
@@ -113,7 +113,7 @@ describe('changePassword command', () => {
       renewalToken: 'rotated-renewal-token',
       rememberMe: true,
     });
-    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
+    expect(metrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
 
     const passwordUpdate = prisma.user.updateMany.mock.calls[0]?.[0] as unknown as
       | {
@@ -305,7 +305,7 @@ describe('changePassword command', () => {
     expect(prisma.authSession.findFirst).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
+    expect(metrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
       'change_password',
       'too_short',
     );
@@ -336,10 +336,7 @@ describe('changePassword command', () => {
     });
     expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).toHaveBeenCalledWith(
-      'change_password',
-      'common',
-    );
+    expect(metrics.recordPasswordPolicyRejected).toHaveBeenCalledWith('change_password', 'common');
   });
 
   it('새 비밀번호가 현재 비밀번호와 같으면 거부한다', async () => {
@@ -352,7 +349,7 @@ describe('changePassword command', () => {
 
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
-    expect(flowMetrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
+    expect(metrics.recordPasswordPolicyRejected).not.toHaveBeenCalled();
   });
 
   it('observed password hash CAS가 실패하면 revoke/session/outbox/audit 없이 재인증을 요구한다', async () => {
@@ -382,7 +379,7 @@ describe('changePassword command', () => {
 
     expect(mailOutboxWriter.appendPasswordChanged).not.toHaveBeenCalled();
     expect(securityEvents.recordInTransaction).not.toHaveBeenCalled();
-    expect(flowMetrics.recordSensitiveMutation).toHaveBeenCalledWith(
+    expect(metrics.recordSensitiveMutation).toHaveBeenCalledWith(
       'change_password',
       'replacement_session_failed',
     );
@@ -397,7 +394,7 @@ describe('changePassword command', () => {
 
     expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
     expect(mailOutboxWriter.appendPasswordChanged).toHaveBeenCalledTimes(1);
-    expect(flowMetrics.recordSensitiveMutation).toHaveBeenCalledWith(
+    expect(metrics.recordSensitiveMutation).toHaveBeenCalledWith(
       'change_password',
       'audit_append_failed',
     );

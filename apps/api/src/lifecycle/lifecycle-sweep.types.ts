@@ -1,4 +1,4 @@
-import type { AuthOperationalCleanupResult } from '../auth/operations/auth-operational-cleanup.service.js';
+import type { AuthOperationalCleanupResult } from '../auth/operations/cleanup/auth-operational-cleanup.service.js';
 import type { ChatLifecycleSweepResult } from '../chat/application/ports/chat-lifecycle-sweep.port.js';
 import type { MatchHistoryMaterializationResult } from '../matches/application/ports/match-history-materialization.port.js';
 import type { BookmarkExpirationSweepResult } from '../social-safety/bookmarks/application/bookmark-lifecycle.service.js';

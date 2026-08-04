@@ -13,7 +13,7 @@ import type { AuthSecurityEventService } from '../security-events/auth-security-
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
-import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import type { AuthCredentialMetricsService } from './auth-credential-metrics.service.js';
 import type { AuthPasswordPolicyService } from './password-policy/auth-password-policy.service.js';
 
 const RESET_PASSWORD_OWNER_STALE = 'RESET_PASSWORD_OWNER_STALE';
@@ -28,7 +28,7 @@ interface AuthResetPasswordOwnerDeps {
   loginAttemptService: Pick<AuthLoginAttemptService, 'clearFailuresInTransaction'>;
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
   mailOutboxWriter: Pick<AuthMailOutboxWriter, 'appendPasswordChanged'>;
-  flowMetrics?: Pick<AuthFlowMetricsService, 'recordPasswordPolicyRejected'>;
+  metrics?: Pick<AuthCredentialMetricsService, 'recordPasswordPolicyRejected'>;
 }
 
 export async function resetPassword(
@@ -69,7 +69,7 @@ export async function resetPassword(
     nickname: user.displayIdentity?.nickname,
   });
   if (!passwordDecision.ok) {
-    deps.flowMetrics?.recordPasswordPolicyRejected('reset_password', passwordDecision.reason);
+    deps.metrics?.recordPasswordPolicyRejected('reset_password', passwordDecision.reason);
     return authFailures.passwordPolicyViolation(passwordDecision.message, 'newPassword');
   }
 

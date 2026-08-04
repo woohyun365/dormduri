@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DomainMetricsPort } from '../../platform/observability/metrics/domain-metrics.port.js';
-import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';
+import type { DomainMetricsPort } from '../../../platform/observability/metrics/domain-metrics.port.js';
+import { AuthCleanupMetricsService } from './auth-cleanup-metrics.service.js';
 
-describe('AuthOperationalMetricsService', () => {
-  it('cleanup lag와 Redis gate snapshot을 no-PII 운영 metric으로 보존한다', () => {
+describe('AuthCleanupMetricsService', () => {
+  it('cleanup 삭제량과 target별 batch 포화를 no-PII 운영 metric으로 보존한다', () => {
     const domainMetrics = makeDomainMetrics();
-    const metrics = new AuthOperationalMetricsService(domainMetrics);
+    const metrics = new AuthCleanupMetricsService(domainMetrics);
     const now = new Date('2026-06-03T00:00:00.000Z');
 
     metrics.recordCleanup({
@@ -16,19 +16,9 @@ describe('AuthOperationalMetricsService', () => {
         loginAttempts: 4,
         securityEvents: 5,
       },
-      cleanupLagSeconds: 3600,
+      batchSaturatedTargets: ['verificationCodes', 'securityEvents'],
       ranAt: now,
     });
-    metrics.recordRedisGate({
-      decision: 'redis_candidate',
-      triggers: ['auth_p95_latency'],
-      sourceOfTruth: 'postgres',
-      redisOwns: ['distributed_throttle', 'hot_session_cache'],
-      redisMustNotOwn: ['session_authority', 'verification_authority', 'account_lockout_authority'],
-      degradeMode: 'postgres-local-fallback-alert',
-    });
-    metrics.recordSecurityAlerts([], 0);
-
     expect(metrics.snapshot()).toEqual({
       cleanup: {
         totalDeleted: {
@@ -45,38 +35,26 @@ describe('AuthOperationalMetricsService', () => {
           loginAttempts: 4,
           securityEvents: 5,
         },
-        lastCleanupLagSeconds: 3600,
+        lastBatchSaturatedTargets: ['verificationCodes', 'securityEvents'],
         lastRanAt: now.toISOString(),
         lastFailureAt: null,
         totalFailures: 0,
       },
-      redisGate: {
-        decision: 'redis_candidate',
-        triggers: ['auth_p95_latency'],
-        sourceOfTruth: 'postgres',
-        redisOwns: ['distributed_throttle', 'hot_session_cache'],
-        redisMustNotOwn: [
-          'session_authority',
-          'verification_authority',
-          'account_lockout_authority',
-        ],
-        degradeMode: 'postgres-local-fallback-alert',
-      },
-      securityAlerts: [],
     });
     expect(domainMetrics.incrementCounter).toHaveBeenCalledWith({
       name: 'api_auth_cleanup_deleted_total',
-      labels: { target: 'expiredSessions' },
+      labels: { target: 'expired_sessions' },
       value: 1,
     });
     expect(domainMetrics.setGauge).toHaveBeenCalledWith({
-      name: 'api_auth_cleanup_lag_seconds',
-      value: 3600,
+      name: 'api_auth_cleanup_batch_saturated',
+      labels: { target: 'verification_codes' },
+      value: 1,
     });
     expect(domainMetrics.setGauge).toHaveBeenCalledWith({
-      name: 'api_auth_redis_gate_state',
-      labels: { state: 'redis_candidate' },
-      value: 1,
+      name: 'api_auth_cleanup_batch_saturated',
+      labels: { target: 'expired_sessions' },
+      value: 0,
     });
     expect(JSON.stringify(domainMetrics.incrementCounter.mock.calls)).not.toContain('userId');
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('email');
@@ -87,7 +65,7 @@ describe('AuthOperationalMetricsService', () => {
     domainMetrics.incrementCounter.mockImplementation(() => {
       throw new Error('metric rejected');
     });
-    const metrics = new AuthOperationalMetricsService(domainMetrics);
+    const metrics = new AuthCleanupMetricsService(domainMetrics);
 
     expect(() => metrics.recordCleanupFailure({ now })).not.toThrow();
     expect(metrics.snapshot().cleanup.totalFailures).toBe(1);

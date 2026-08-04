@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { InjectThrottlerStorage, type ThrottlerStorage } from '@nestjs/throttler';
 import authConfig from '../../config/auth.config.js';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { AuthCredentialMetricsService } from './auth-credential-metrics.service.js';
 
 const CHANGE_PASSWORD_THROTTLER = 'change-password-session';
 
@@ -12,7 +12,7 @@ export class ChangePasswordAdmissionService {
   constructor(
     @InjectThrottlerStorage() private readonly storage: ThrottlerStorage,
     @Inject(authConfig.KEY) private readonly settings: ConfigType<typeof authConfig>,
-    private readonly flowMetrics: AuthFlowMetricsService,
+    private readonly metrics: AuthCredentialMetricsService,
   ) {}
 
   async consume(userId: string, sessionId: string): Promise<number | null> {
@@ -28,7 +28,7 @@ export class ChangePasswordAdmissionService {
       CHANGE_PASSWORD_THROTTLER,
     );
     const outcome = result.isBlocked ? 'throttled' : 'allowed';
-    this.flowMetrics.recordSensitiveMutation('change_password', outcome);
+    this.metrics.recordSensitiveMutation('change_password', outcome);
 
     return result.isBlocked ? Math.max(1, result.timeToBlockExpire) : null;
   }

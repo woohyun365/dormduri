@@ -54,8 +54,8 @@ describe('DomainPrometheusMetricsService', () => {
       labels: { operation: 'request', outcome: 'accepted', scope: 'reset_password' },
     });
     metrics.setGauge({
-      name: 'api_auth_security_alert_active',
-      labels: { reason: 'mail-outbox-lag-high' },
+      name: 'api_auth_cleanup_batch_saturated',
+      labels: { target: 'expired_sessions' },
       value: 1,
     });
     metrics.incrementCounter({
@@ -92,8 +92,8 @@ describe('DomainPrometheusMetricsService', () => {
     expect(scrape).toContain('outcome="renewed"');
     expect(scrape).toContain('api_auth_verification_operations_total');
     expect(scrape).toContain('scope="reset_password"');
-    expect(scrape).toContain('api_auth_security_alert_active');
-    expect(scrape).toContain('reason="mail-outbox-lag-high"');
+    expect(scrape).toContain('api_auth_cleanup_batch_saturated');
+    expect(scrape).toContain('target="expired_sessions"');
     expect(scrape).toContain('api_auth_signup_final_admission_total');
     expect(scrape).toContain('api_auth_sensitive_mutations_total');
     expect(scrape).toContain('api_auth_password_hash_admission_total');

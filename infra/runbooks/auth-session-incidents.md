@@ -26,10 +26,6 @@ sum by (outcome) (rate(api_auth_session_renewals_total[5m]))
 ```
 
 ```promql
-max by (reason) (api_auth_security_alert_active)
-```
-
-```promql
 api_auth_mail_outbox_lag_seconds
 ```
 
@@ -58,7 +54,7 @@ api_auth_mail_outbox_lag_seconds
 
 ## Verification and reset abuse
 
-`AuthResetRequestSpike`는 raw email이 아닌 versioned HMAC subject key 기준으로 동일 대상의 reset 요청이 10분 동안 6회 이상 관측됐음을 의미한다.
+Reset abuse는 `api_auth_verification_operations_total`의 reset request `accepted`/`throttled` 변화와 code request backstop으로 확인한다. 감사 이벤트를 재조회해 별도 임계치를 만들지 않는다.
 
 1. `api_auth_verification_operations_total{scope="reset_password"}`에서 request/verify/grant 흐름을 함께 확인한다.
 2. 로그인 실패·lockout 증가와 같은 시간대인지 확인하되 사용자 식별자를 metric label이나 incident 문서에 옮기지 않는다.
@@ -67,7 +63,7 @@ api_auth_mail_outbox_lag_seconds
 
 ## Auth mail delivery
 
-`AuthMailFailureSpike`는 10분 동안 provider send failure가 3회 이상, `AuthMailOutboxLagHigh`는 가장 오래된 처리 가능 outbox가 60초를 넘긴 상태다.
+`AuthMailFailureSpike`는 owner-local dispatch counter에서 10분 동안 `failed`/`unknown` outcome이 3회 이상, `AuthMailOutboxLagHigh`는 dispatcher가 관측한 가장 오래된 처리 가능 outbox가 60초를 넘긴 상태다.
 
 1. `api_auth_mail_dispatch_total`의 `failed`, `unknown`, `superseded`, `accepted`를 비교한다.
 2. `api_auth_mail_outbox_lag_seconds`, dispatcher container health, DB connection waiting을 같은 시간 범위로 확인한다.
@@ -83,7 +79,7 @@ api_auth_mail_outbox_lag_seconds
 2. final admission `throttled`가 증가할 때 password hash `started`가 같은 비율로 증가하지 않는지 확인한다. 제한은 hash보다 먼저 실행되어야 한다.
 3. change-password throttle이 증가하면 로그인 lock row를 조정하지 말고 session 단위 제한과 전역 IP 제한을 구분한다.
 4. shared NAT 의심 시 raw IP를 dashboard label에 추가하지 않는다. 접근 통제된 HMAC security dimension과 aggregate HTTP 지표를 함께 조사한다.
-5. multi-instance limiter 우회가 시간당 1건 이상 관측되면 health의 Redis gate를 `redis_candidate`로 평가한다. Redis는 distributed throttle/hot session cache 후보일 뿐 session·verification authority가 아니다.
+5. multi-instance limiter 우회가 의심되면 request log와 throttle metric, production-like 부하 evidence를 함께 분석한다. 특정 인프라 도입 여부를 runtime auth state로 계산하지 않는다.
 
 ## Credential mutation durability
 

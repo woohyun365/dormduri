@@ -33,8 +33,9 @@ import {
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
 import type { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
-import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import type { AuthCredentialMetricsService } from '../credentials/auth-credential-metrics.service.js';
 import type { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
+import type { AuthRegistrationMetricsService } from './auth-registration-metrics.service.js';
 
 const SIGNUP_COLLEGE_UNAVAILABLE = 'AUTH_SIGNUP_COLLEGE_UNAVAILABLE';
 
@@ -49,12 +50,13 @@ interface AuthSignupOwnerDeps {
   nicknamePolicy: Pick<DisplayIdentityNicknamePolicyService, 'validate'>;
   submissionAdmission: Pick<SignupSubmissionAdmissionService, 'consume'>;
   securityEvents: Pick<AuthSecurityEventService, 'recordInTransaction'>;
-  flowMetrics?: Pick<
-    AuthFlowMetricsService,
-    | 'recordPasswordPolicyRejected'
-    | 'recordSignupFinalAdmission'
-    | 'recordSignupPasswordHash'
-    | 'recordSensitiveMutation'
+  credentialMetrics?: Pick<
+    AuthCredentialMetricsService,
+    'recordPasswordPolicyRejected' | 'recordSensitiveMutation'
+  >;
+  registrationMetrics?: Pick<
+    AuthRegistrationMetricsService,
+    'recordFinalAdmission' | 'recordPasswordHash'
   >;
 }
 
@@ -80,7 +82,7 @@ export async function signup(
     !resolvedGrant ||
     !deps.verificationService.matchesVerificationGrantSubject(resolvedGrant, emailNormalized)
   ) {
-    deps.flowMetrics?.recordSignupFinalAdmission('grant_required');
+    deps.registrationMetrics?.recordFinalAdmission('grant_required');
     return authFailures.signupVerificationRequired();
   }
 
@@ -94,7 +96,7 @@ export async function signup(
     nickname: input.nickname,
   });
   if (!passwordDecision.ok) {
-    deps.flowMetrics?.recordPasswordPolicyRejected('signup', passwordDecision.reason);
+    deps.credentialMetrics?.recordPasswordPolicyRejected('signup', passwordDecision.reason);
     return authFailures.passwordPolicyViolation(passwordDecision.message);
   }
 
@@ -112,20 +114,20 @@ export async function signup(
   }
 
   const hashStartedAt = performance.now();
-  deps.flowMetrics?.recordSignupPasswordHash('started');
+  deps.registrationMetrics?.recordPasswordHash('started');
   let passwordHash: string;
   try {
     passwordHash = await hashPassword(input.password, 'signup_hash');
-    deps.flowMetrics?.recordSignupPasswordHash(
+    deps.registrationMetrics?.recordPasswordHash(
       'completed',
       (performance.now() - hashStartedAt) / 1_000,
     );
   } catch (error) {
-    deps.flowMetrics?.recordSignupPasswordHash(
+    deps.registrationMetrics?.recordPasswordHash(
       'failed',
       (performance.now() - hashStartedAt) / 1_000,
     );
-    deps.flowMetrics?.recordSensitiveMutation('signup', 'failed');
+    deps.credentialMetrics?.recordSensitiveMutation('signup', 'failed');
     if (isPasswordHashCapacityUnavailableError(error)) {
       return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
     }
@@ -233,7 +235,7 @@ export async function signup(
       return { ...createdUser, displayIdentity };
     });
 
-    deps.flowMetrics?.recordSensitiveMutation('signup', 'committed');
+    deps.credentialMetrics?.recordSensitiveMutation('signup', 'committed');
     return toLoginSuccessResult(
       preparedSession.result.accessToken,
       toAuthenticatedSessionUser({
@@ -254,23 +256,23 @@ export async function signup(
         return authFailures.emailAlreadyRegistered();
       }
       if (prismaErrorTargetIncludes(error, 'nicknameNormalized')) {
-        deps.flowMetrics?.recordSensitiveMutation('signup', 'stale');
+        deps.credentialMetrics?.recordSensitiveMutation('signup', 'stale');
         return authFailures.nicknameAlreadyTaken();
       }
     }
     if (error instanceof Error && error.message === SIGNUP_VERIFICATION_GRANT_UNAVAILABLE) {
-      deps.flowMetrics?.recordSensitiveMutation('signup', 'stale');
+      deps.credentialMetrics?.recordSensitiveMutation('signup', 'stale');
       return authFailures.signupVerificationRequired();
     }
     if (error instanceof Error && error.message === SIGNUP_LEGAL_ACCEPTANCE_STALE) {
-      deps.flowMetrics?.recordSensitiveMutation('signup', 'rejected');
+      deps.credentialMetrics?.recordSensitiveMutation('signup', 'rejected');
       return authFailures.legalAcceptanceStale();
     }
     if (error instanceof Error && error.message === SIGNUP_COLLEGE_UNAVAILABLE) {
-      deps.flowMetrics?.recordSensitiveMutation('signup', 'rejected');
+      deps.credentialMetrics?.recordSensitiveMutation('signup', 'rejected');
       return authFailures.signupCollegeUnavailable();
     }
-    deps.flowMetrics?.recordSensitiveMutation('signup', 'failed');
+    deps.credentialMetrics?.recordSensitiveMutation('signup', 'failed');
     throw error;
   }
 }

@@ -63,8 +63,8 @@ describe('AuthVerificationService', () => {
       metadata: input.metadata,
     })),
   };
-  const flowMetrics = {
-    recordVerification: vi.fn(),
+  const metrics = {
+    record: vi.fn(),
   };
 
   const authSettings: ConfigType<typeof authConfig> = {
@@ -100,7 +100,7 @@ describe('AuthVerificationService', () => {
     mailEnvelopeWriter as never,
     authSettings,
     securityEvents as never,
-    flowMetrics as never,
+    metrics,
   );
 
   beforeEach(() => {
@@ -153,7 +153,7 @@ describe('AuthVerificationService', () => {
         },
       }),
     );
-    expect(flowMetrics.recordVerification).toHaveBeenCalledWith('SIGNUP', 'request', 'accepted');
+    expect(metrics.record).toHaveBeenCalledWith('SIGNUP', 'request', 'accepted');
   });
 
   it('새 verification code는 HMAC prefix가 포함된 hash로 저장한다', async () => {

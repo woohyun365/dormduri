@@ -43,7 +43,7 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
       'auth instrumentation measures elapsed duration; it is not a persisted business time.',
   }),
   entry({
-    path: 'src/auth/operations/auth-operational-cleanup.service.ts',
+    path: 'src/auth/operations/cleanup/auth-operational-cleanup.service.ts',
     owner: 'auth/operations',
     category: 'date-arithmetic',
     rationale:
@@ -62,13 +62,6 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     category: 'date-arithmetic',
     rationale:
       'outbox stale-claim cutoff is derived from the explicit dispatcher-owned now supplied to the repository.',
-  }),
-  entry({
-    path: 'src/auth/security-events/security-alert.policy.ts',
-    owner: 'auth/security-events',
-    category: 'date-arithmetic',
-    rationale:
-      'pure alert policy accepts an injectable now and only compares event timestamps inside a window.',
   }),
   entry({
     path: 'src/auth/sessions/issue-session.command.ts',

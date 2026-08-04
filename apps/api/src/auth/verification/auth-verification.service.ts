@@ -41,7 +41,7 @@ import {
   AuthVerificationRequestRepository,
   VerificationRequestThrottledError,
 } from './auth-verification-request.repository.js';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { AuthVerificationMetricsService } from './auth-verification-metrics.service.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
@@ -61,7 +61,7 @@ export class AuthVerificationService {
     @Inject(authConfig.KEY)
     private readonly authSettings: ConfigType<typeof authConfig>,
     @Optional() private readonly securityEvents?: AuthSecurityEventService,
-    @Optional() private readonly flowMetrics?: AuthFlowMetricsService,
+    @Optional() private readonly metrics?: AuthVerificationMetricsService,
   ) {}
 
   async assertCodeRequestAllowed(
@@ -125,7 +125,7 @@ export class AuthVerificationService {
     try {
       await this.assertCodeRequestAllowed(emailNormalized, purpose, requestContext);
     } catch (error) {
-      this.flowMetrics?.recordVerification(purpose, 'request', 'throttled');
+      this.metrics?.record(purpose, 'request', 'throttled');
       throw error;
     }
 
@@ -165,13 +165,13 @@ export class AuthVerificationService {
       });
     } catch (error) {
       if (error instanceof VerificationRequestThrottledError) {
-        this.flowMetrics?.recordVerification(purpose, 'request', 'throttled');
+        this.metrics?.record(purpose, 'request', 'throttled');
         throw authErrors.codeRequestThrottled(error.retryAfterSeconds);
       }
-      this.flowMetrics?.recordVerification(purpose, 'request', 'failed');
+      this.metrics?.record(purpose, 'request', 'failed');
       throw error;
     }
-    this.flowMetrics?.recordVerification(purpose, 'request', 'accepted');
+    this.metrics?.record(purpose, 'request', 'accepted');
     await ensureMinVerificationResponseDuration(
       startedAt,
       AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
@@ -374,9 +374,9 @@ export class AuthVerificationService {
         ...metadata,
       },
     });
-    this.flowMetrics?.recordVerification(purpose, 'verify', success ? 'accepted' : 'rejected');
+    this.metrics?.record(purpose, 'verify', success ? 'accepted' : 'rejected');
     if (success) {
-      this.flowMetrics?.recordVerification(purpose, 'grant', 'issued');
+      this.metrics?.record(purpose, 'grant', 'issued');
     }
   }
 

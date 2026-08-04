@@ -11,7 +11,7 @@ import type { AuthSecurityEventService } from '../security-events/auth-security-
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import type { ChangePasswordAdmissionService } from './change-password-admission.service.js';
-import type { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import type { AuthCredentialMetricsService } from './auth-credential-metrics.service.js';
 import type { AuthPasswordPolicyService } from './password-policy/auth-password-policy.service.js';
 
 const CHANGE_PASSWORD_SESSION_UNAVAILABLE =
@@ -25,8 +25,8 @@ interface AuthChangePasswordOwnerDeps {
   mailOutboxWriter: Pick<AuthMailOutboxWriter, 'appendPasswordChanged'>;
   admission: Pick<ChangePasswordAdmissionService, 'consume'>;
   passwordPolicy: Pick<AuthPasswordPolicyService, 'evaluateNewPassword'>;
-  flowMetrics?: Pick<
-    AuthFlowMetricsService,
+  metrics?: Pick<
+    AuthCredentialMetricsService,
     'recordPasswordPolicyRejected' | 'recordSensitiveMutation'
   >;
 }
@@ -39,7 +39,7 @@ export async function changePassword(
   requestContext: AuthRequestContext = {},
 ): Promise<ChangePasswordResponse> {
   if (!authUser.sessionId) {
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'session_required');
+    deps.metrics?.recordSensitiveMutation('change_password', 'session_required');
     return authFailures.reauthenticationRequired();
   }
 
@@ -62,7 +62,7 @@ export async function changePassword(
   });
 
   if (!user || user.deletedAt) {
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
+    deps.metrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.currentPasswordInvalid();
   }
 
@@ -80,7 +80,7 @@ export async function changePassword(
     throw error;
   }
   if (!currentPasswordMatches) {
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
+    deps.metrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.currentPasswordInvalid();
   }
 
@@ -89,8 +89,8 @@ export async function changePassword(
     nickname: user.displayIdentity?.nickname,
   });
   if (!passwordDecision.ok) {
-    deps.flowMetrics?.recordPasswordPolicyRejected('change_password', passwordDecision.reason);
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
+    deps.metrics?.recordPasswordPolicyRejected('change_password', passwordDecision.reason);
+    deps.metrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.passwordPolicyViolation(passwordDecision.message, 'newPassword');
   }
 
@@ -104,7 +104,7 @@ export async function changePassword(
     throw error;
   }
   if (samePassword) {
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'rejected');
+    deps.metrics?.recordSensitiveMutation('change_password', 'rejected');
     return authFailures.samePasswordNotAllowed();
   }
 
@@ -119,7 +119,7 @@ export async function changePassword(
     select: { rememberMe: true },
   });
   if (!observedSession) {
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'session_required');
+    deps.metrics?.recordSensitiveMutation('change_password', 'session_required');
     return authFailures.reauthenticationRequired();
   }
 
@@ -176,7 +176,7 @@ export async function changePassword(
       try {
         await deps.sessionService.appendPreparedSession(tx, preparedSession);
       } catch (error) {
-        deps.flowMetrics?.recordSensitiveMutation('change_password', 'replacement_session_failed');
+        deps.metrics?.recordSensitiveMutation('change_password', 'replacement_session_failed');
         throw error;
       }
       try {
@@ -186,7 +186,7 @@ export async function changePassword(
           now: databaseNow,
         });
       } catch (error) {
-        deps.flowMetrics?.recordSensitiveMutation('change_password', 'outbox_append_failed');
+        deps.metrics?.recordSensitiveMutation('change_password', 'outbox_append_failed');
         throw error;
       }
       try {
@@ -215,7 +215,7 @@ export async function changePassword(
           userAgent: requestContext.userAgent,
         });
       } catch (error) {
-        deps.flowMetrics?.recordSensitiveMutation('change_password', 'audit_append_failed');
+        deps.metrics?.recordSensitiveMutation('change_password', 'audit_append_failed');
         throw error;
       }
 
@@ -226,7 +226,7 @@ export async function changePassword(
       } as const;
     });
 
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'committed');
+    deps.metrics?.recordSensitiveMutation('change_password', 'committed');
     return {
       success: true,
       accessToken: preparedSession.result.accessToken,
@@ -238,11 +238,11 @@ export async function changePassword(
       error instanceof Error &&
       [CHANGE_PASSWORD_SESSION_UNAVAILABLE, CHANGE_PASSWORD_OWNER_STALE].includes(error.message)
     ) {
-      deps.flowMetrics?.recordSensitiveMutation('change_password', 'stale');
+      deps.metrics?.recordSensitiveMutation('change_password', 'stale');
       return authFailures.reauthenticationRequired();
     }
 
-    deps.flowMetrics?.recordSensitiveMutation('change_password', 'failed');
+    deps.metrics?.recordSensitiveMutation('change_password', 'failed');
     throw error;
   }
 }

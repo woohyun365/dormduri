@@ -93,9 +93,8 @@ Smoke는 metrics endpoint의 anonymous 접근 거부와 함께 다음 metric def
 - `api_auth_credential_transitions_total`
 - `api_auth_mail_dispatch_total`
 - `api_auth_mail_outbox_lag_seconds`
-- `api_auth_security_alert_active`
 
-Prometheus rule load와 alert fixture test에서 reset request spike, mail failure spike, outbox lag alert를 확인한다.
+Prometheus rule load와 alert fixture test에서 owner-local mail failure counter와 outbox lag alert를 확인한다. Reset abuse는 `api_auth_verification_operations_total`의 accepted/throttled 비율과 code request backstop 동작으로 검증한다.
 
 ## 6. Development-stage rollback
 

@@ -52,7 +52,7 @@
 - bounded domain/operation/outcome
 - hashed actor/session identifier
 - error code, error name, retry reason
-- queue/outbox/cleanup lag 같은 운영 수치
+- queue/outbox lag와 cleanup target saturation 같은 운영 수치
 
 ### 금지 로그
 
@@ -74,7 +74,7 @@
 ## Dashboard 최소 요구사항
 
 - API Overview: RPS, 4xx/5xx, p95/p99 latency, in-flight, process memory/event loop lag
-- Auth Operations: login failure, verification cooldown/lockout, cleanup lag/failure
+- Auth Operations: login failure, verification cooldown/lockout, cleanup target saturation/failure
 - Realtime/Outbox: connected sockets, ticket failure, subscribe rejection, dispatcher lag/failure
 - Retention/Lifecycle: due job, manual review, retry exhaustion, sweep latency
 - RDS/Infrastructure checklist: CPUUtilization, DatabaseConnections, FreeableMemory, ReadIOPS, WriteIOPS, DiskQueueDepth, FreeStorageSpace

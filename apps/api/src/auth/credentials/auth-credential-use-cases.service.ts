@@ -17,7 +17,7 @@ import { AuthPasswordHashPolicy } from './password-hashing/auth-password-hash.ad
 import { login } from './login.command.js';
 import { resetPassword } from './reset-password.command.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { AuthCredentialMetricsService } from './auth-credential-metrics.service.js';
 import { ChangePasswordAdmissionService } from './change-password-admission.service.js';
 import { AuthPasswordPolicyService } from './password-policy/auth-password-policy.service.js';
 
@@ -34,7 +34,7 @@ export class AuthCredentialUseCases {
     private readonly securityEvents: AuthSecurityEventService,
     private readonly mailOutboxWriter: AuthMailOutboxWriter,
     private readonly changePasswordAdmission: ChangePasswordAdmissionService,
-    private readonly flowMetrics?: AuthFlowMetricsService,
+    private readonly credentialMetrics?: AuthCredentialMetricsService,
   ) {}
 
   login(
@@ -73,19 +73,19 @@ export class AuthCredentialUseCases {
           loginAttemptService: this.loginAttemptService,
           securityEvents: this.securityEvents,
           mailOutboxWriter: this.mailOutboxWriter,
-          flowMetrics: this.flowMetrics,
+          metrics: this.credentialMetrics,
         },
         verificationGrant,
         newPassword,
         hasAuthRequestContext(requestContext) ? requestContext : undefined,
       );
-      this.flowMetrics?.recordCredentialTransition(
+      this.credentialMetrics?.recordTransition(
         'reset_password',
         result.success ? 'committed' : 'rejected',
       );
       return result;
     } catch (error) {
-      this.flowMetrics?.recordCredentialTransition('reset_password', 'failed');
+      this.credentialMetrics?.recordTransition('reset_password', 'failed');
       throw error;
     }
   }
@@ -105,20 +105,20 @@ export class AuthCredentialUseCases {
           mailOutboxWriter: this.mailOutboxWriter,
           admission: this.changePasswordAdmission,
           passwordPolicy: this.passwordPolicy,
-          flowMetrics: this.flowMetrics,
+          metrics: this.credentialMetrics,
         },
         authUser,
         currentPassword,
         newPassword,
         hasAuthRequestContext(requestContext) ? requestContext : undefined,
       );
-      this.flowMetrics?.recordCredentialTransition(
+      this.credentialMetrics?.recordTransition(
         'change_password',
         result.success ? 'committed' : 'rejected',
       );
       return result;
     } catch (error) {
-      this.flowMetrics?.recordCredentialTransition('change_password', 'failed');
+      this.credentialMetrics?.recordTransition('change_password', 'failed');
       throw error;
     }
   }

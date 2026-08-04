@@ -92,8 +92,8 @@ describe('Auth product architecture boundary', () => {
       /(?:^|\/)auth\/application\/auth-password-verifier\.service(?:\.js)?$/,
     ];
     const operationsAllowedExternalAuthImports = [
-      /(?:^|\/)auth\/operations\/auth-operational-cleanup\.service(?:\.js)?$/,
-      /(?:^|\/)auth\/operations\/auth-operations-health\.service(?:\.js)?$/,
+      /(?:^|\/)auth\/operations\/cleanup\/auth-operational-cleanup\.service(?:\.js)?$/,
+      /(?:^|\/)auth\/operations\/health\/auth-operations-health\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations\.module(?:\.js)?$/,
     ];
     const allowedExternalAuthImports = [
@@ -137,6 +137,32 @@ describe('Auth product architecture boundary', () => {
     expect(existsSync(join(authRoot, 'verification/auth-verification-timing.policy.ts'))).toBe(
       true,
     );
+  });
+
+  it('keeps cross-slice auth type and flow metric buckets removed', () => {
+    expect(existsSync(join(authRoot, 'domain/auth.types.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'operations/auth-flow-metrics.service.ts'))).toBe(false);
+  });
+
+  it('keeps auth Nest modules limited to the HTTP and operations composition boundaries', () => {
+    const moduleFiles = productionTypeScriptFiles(authRoot)
+      .filter((path) => /@Module\s*\(/.test(readSource(path)))
+      .map(relativeSourcePath)
+      .sort();
+
+    expect(moduleFiles).toEqual([
+      'src/auth/auth.module.ts',
+      'src/auth/operations/auth-operations.module.ts',
+    ]);
+  });
+
+  it('keeps global auth guard registration ordered from login throttle to authentication', () => {
+    const source = readSource(join(authRoot, 'composition/auth.providers.ts'));
+    const throttleGuardIndex = source.indexOf('useClass: AuthLoginThrottlerGuard');
+    const authenticatedGuardIndex = source.indexOf('useClass: AuthenticatedUserGuard');
+
+    expect(throttleGuardIndex).toBeGreaterThan(-1);
+    expect(authenticatedGuardIndex).toBeGreaterThan(throttleGuardIndex);
   });
 
   it('keeps password policy fitness under the architecture owner', () => {
@@ -207,17 +233,19 @@ describe('Auth product architecture boundary', () => {
     expect(source).toContain('exports: [');
     expect(source).toContain('AuthOperationalCleanupService');
     expect(source).toContain('AuthOperationsHealthService');
+    const exportsBlock = source.match(/exports:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
+    expect(exportsBlock).not.toContain('AuthCleanupMetricsService');
   });
 
-  it('keeps auth security alert policy connected to a production lifecycle owner', () => {
+  it('keeps auth retention cleanup free from audit-log alert aggregation', () => {
     const cleanupSource = readSource(
-      join(authRoot, 'operations/auth-operational-cleanup.service.ts'),
+      join(authRoot, 'operations/cleanup/auth-operational-cleanup.service.ts'),
     );
     const moduleSource = readSource(join(authRoot, 'operations/auth-operations.module.ts'));
 
-    expect(cleanupSource).toContain('evaluateAuthSecurityEventAlerts');
-    expect(cleanupSource).toContain('AuthSecurityAlertRepository');
-    expect(moduleSource).toContain('AuthSecurityAlertRepository');
+    expect(cleanupSource).not.toContain('evaluateAuthSecurityEventAlerts');
+    expect(cleanupSource).not.toContain('AuthSecurityAlertRepository');
+    expect(moduleSource).not.toContain('AuthSecurityAlertRepository');
   });
 
   it('keeps grant consumption on its explicit owner and removes the ambiguous proof helper', () => {

@@ -67,11 +67,11 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     help: 'Total auth operational cleanup failures.',
     labelNames: [],
   },
-  api_auth_cleanup_lag_seconds: {
-    name: 'api_auth_cleanup_lag_seconds',
+  api_auth_cleanup_batch_saturated: {
+    name: 'api_auth_cleanup_batch_saturated',
     kind: 'gauge',
-    help: 'Last auth operational cleanup lag in seconds.',
-    labelNames: [],
+    help: 'Whether the latest auth cleanup batch reached its per-target limit.',
+    labelNames: ['target'],
   },
   api_auth_credential_transitions_total: {
     name: 'api_auth_credential_transitions_total',
@@ -96,18 +96,6 @@ export const DOMAIN_METRIC_DEFINITIONS = {
     kind: 'gauge',
     help: 'Oldest claimed auth mail outbox event lag in seconds.',
     labelNames: [],
-  },
-  api_auth_security_alert_active: {
-    name: 'api_auth_security_alert_active',
-    kind: 'gauge',
-    help: 'Current bounded auth security alert evaluation state.',
-    labelNames: ['reason'],
-  },
-  api_auth_redis_gate_state: {
-    name: 'api_auth_redis_gate_state',
-    kind: 'gauge',
-    help: 'Auth Redis gate current bounded decision state.',
-    labelNames: ['state'],
   },
   api_auth_login_attempts_total: {
     name: 'api_auth_login_attempts_total',

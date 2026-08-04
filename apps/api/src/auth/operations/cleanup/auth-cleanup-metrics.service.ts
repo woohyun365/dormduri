@@ -3,16 +3,10 @@ import {
   DOMAIN_METRICS_PORT,
   recordDomainMetricSafely,
   type DomainMetricsPort,
-} from '../../platform/observability/metrics/domain-metrics.port.js';
-import type { AuthRedisGateEvaluation } from './auth-redis-gate.policy.js';
-import {
-  AUTH_SECURITY_ALERT_KINDS,
-  type AuthSecurityAlert,
-} from '../security-events/security-alert.policy.js';
-
+} from '../../../platform/observability/metrics/domain-metrics.port.js';
 export interface AuthCleanupMetricsInput {
   deletedCounts: AuthCleanupDeletedCounts;
-  cleanupLagSeconds: number;
+  batchSaturatedTargets: AuthCleanupTarget[];
   ranAt: Date;
 }
 
@@ -24,17 +18,33 @@ export interface AuthCleanupDeletedCounts {
   securityEvents: number;
 }
 
-export interface AuthOperationsMetricsSnapshot {
+export const AUTH_CLEANUP_TARGETS = [
+  'expiredSessions',
+  'verificationCodes',
+  'verificationRequestLogs',
+  'loginAttempts',
+  'securityEvents',
+] as const satisfies readonly (keyof AuthCleanupDeletedCounts)[];
+
+export type AuthCleanupTarget = (typeof AUTH_CLEANUP_TARGETS)[number];
+
+const AUTH_CLEANUP_TARGET_LABELS: Record<AuthCleanupTarget, string> = {
+  expiredSessions: 'expired_sessions',
+  verificationCodes: 'verification_codes',
+  verificationRequestLogs: 'verification_request_logs',
+  loginAttempts: 'login_attempts',
+  securityEvents: 'security_events',
+};
+
+export interface AuthCleanupMetricsSnapshot {
   cleanup: {
     totalDeleted: AuthCleanupDeletedCounts;
     lastDeletedCounts: AuthCleanupDeletedCounts;
-    lastCleanupLagSeconds: number;
+    lastBatchSaturatedTargets: AuthCleanupTarget[];
     lastRanAt: string | null;
     lastFailureAt: string | null;
     totalFailures: number;
   };
-  redisGate: AuthRedisGateEvaluation | null;
-  securityAlerts: AuthSecurityAlert[];
 }
 
 function emptyDeletedCounts(): AuthCleanupDeletedCounts {
@@ -61,7 +71,7 @@ function addDeletedCounts(
 }
 
 @Injectable()
-export class AuthOperationalMetricsService {
+export class AuthCleanupMetricsService {
   constructor(
     @Optional()
     @Inject(DOMAIN_METRICS_PORT)
@@ -70,17 +80,14 @@ export class AuthOperationalMetricsService {
 
   private totalDeleted = emptyDeletedCounts();
   private lastDeletedCounts = emptyDeletedCounts();
-  private lastCleanupLagSeconds = 0;
+  private lastBatchSaturatedTargets: AuthCleanupTarget[] = [];
   private lastRanAt: string | null = null;
   private lastFailureAt: string | null = null;
   private totalFailures = 0;
-  private redisGate: AuthRedisGateEvaluation | null = null;
-  private securityAlerts: AuthSecurityAlert[] = [];
-
   recordCleanup(input: AuthCleanupMetricsInput) {
     this.totalDeleted = addDeletedCounts(this.totalDeleted, input.deletedCounts);
     this.lastDeletedCounts = { ...input.deletedCounts };
-    this.lastCleanupLagSeconds = input.cleanupLagSeconds;
+    this.lastBatchSaturatedTargets = [...input.batchSaturatedTargets];
     this.lastRanAt = input.ranAt.toISOString();
     recordDomainMetricSafely(this.domainMetrics, (metrics) => {
       const deletedCountEntries = Object.entries(input.deletedCounts) as Array<
@@ -89,14 +96,18 @@ export class AuthOperationalMetricsService {
       for (const [target, value] of deletedCountEntries) {
         metrics.incrementCounter({
           name: 'api_auth_cleanup_deleted_total',
-          labels: { target },
+          labels: { target: AUTH_CLEANUP_TARGET_LABELS[target] },
           value,
         });
       }
-      metrics.setGauge({
-        name: 'api_auth_cleanup_lag_seconds',
-        value: input.cleanupLagSeconds,
-      });
+      const saturatedTargets = new Set(input.batchSaturatedTargets);
+      for (const target of AUTH_CLEANUP_TARGETS) {
+        metrics.setGauge({
+          name: 'api_auth_cleanup_batch_saturated',
+          labels: { target: AUTH_CLEANUP_TARGET_LABELS[target] },
+          value: saturatedTargets.has(target) ? 1 : 0,
+        });
+      }
     });
   }
 
@@ -108,49 +119,16 @@ export class AuthOperationalMetricsService {
     );
   }
 
-  recordRedisGate(evaluation: AuthRedisGateEvaluation) {
-    this.redisGate = evaluation;
-    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
-      for (const state of ['postgres_authoritative', 'redis_candidate'] as const) {
-        metrics.setGauge({
-          name: 'api_auth_redis_gate_state',
-          labels: { state },
-          value: state === evaluation.decision ? 1 : 0,
-        });
-      }
-    });
-  }
-
-  recordSecurityAlerts(alerts: readonly AuthSecurityAlert[], mailOutboxLagSeconds: number) {
-    this.securityAlerts = alerts.map((alert) => ({ ...alert }));
-    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
-      const activeKinds = new Set(alerts.map((alert) => alert.kind));
-      for (const kind of Object.values(AUTH_SECURITY_ALERT_KINDS)) {
-        metrics.setGauge({
-          name: 'api_auth_security_alert_active',
-          labels: { reason: kind },
-          value: activeKinds.has(kind) ? 1 : 0,
-        });
-      }
-      metrics.setGauge({
-        name: 'api_auth_mail_outbox_lag_seconds',
-        value: Math.max(0, mailOutboxLagSeconds),
-      });
-    });
-  }
-
-  snapshot(): AuthOperationsMetricsSnapshot {
+  snapshot(): AuthCleanupMetricsSnapshot {
     return {
       cleanup: {
         totalDeleted: { ...this.totalDeleted },
         lastDeletedCounts: { ...this.lastDeletedCounts },
-        lastCleanupLagSeconds: this.lastCleanupLagSeconds,
+        lastBatchSaturatedTargets: [...this.lastBatchSaturatedTargets],
         lastRanAt: this.lastRanAt,
         lastFailureAt: this.lastFailureAt,
         totalFailures: this.totalFailures,
       },
-      redisGate: this.redisGate ? { ...this.redisGate } : null,
-      securityAlerts: this.securityAlerts.map((alert) => ({ ...alert })),
     };
   }
 }

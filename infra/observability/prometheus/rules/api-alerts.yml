@@ -59,28 +59,28 @@ groups:
           summary: Retention review backlog가 남아 있습니다.
           runbook: infra/observability/README.md#alert-rule
 
-      - alert: AuthCleanupLagHigh
-        expr: api_auth_cleanup_lag_seconds > 300
-        for: 10m
-        labels:
-          severity: warning
-          service: api
-        annotations:
-          summary: Auth operational cleanup lag가 5분을 초과했습니다.
-          runbook: infra/observability/README.md#alert-rule
-
-      - alert: AuthResetRequestSpike
-        expr: api_auth_security_alert_active{reason="reset-request-spike"} > 0
+      - alert: AuthCleanupFailed
+        expr: increase(api_auth_cleanup_failures_total[10m]) > 0
         for: 0m
         labels:
           severity: warning
           service: api
         annotations:
-          summary: 동일 인증 대상의 비밀번호 재설정 요청이 10분 기준치를 초과했습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#verification-and-reset-abuse
+          summary: Auth operational cleanup 실행이 실패했습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: AuthCleanupBatchSaturated
+        expr: max by (target) (api_auth_cleanup_batch_saturated) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: Auth operational cleanup batch가 target 한도에 계속 도달했습니다.
+          runbook: infra/observability/README.md#alert-rule
 
       - alert: AuthMailFailureSpike
-        expr: api_auth_security_alert_active{reason="mail-failure-spike"} > 0
+        expr: sum(increase(api_auth_mail_dispatch_total{outcome=~"failed|unknown"}[10m])) >= 3
         for: 0m
         labels:
           severity: warning

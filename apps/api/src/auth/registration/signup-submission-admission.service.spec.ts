@@ -15,8 +15,8 @@ describe('SignupSubmissionAdmissionService', () => {
         timeToBlockExpire: 0,
       }),
     };
-    const flowMetrics = { recordSignupFinalAdmission: vi.fn() };
-    const service = new SignupSubmissionAdmissionService(storage, flowMetrics as never);
+    const metrics = { recordFinalAdmission: vi.fn() };
+    const service = new SignupSubmissionAdmissionService(storage, metrics as never);
     const grantTokenHash = 'a'.repeat(64);
 
     await expect(service.consume(grantTokenHash)).resolves.toBeNull();
@@ -28,7 +28,7 @@ describe('SignupSubmissionAdmissionService', () => {
       SIGNUP_SUBMISSION_WINDOW_MS,
       'signup-submission',
     );
-    expect(flowMetrics.recordSignupFinalAdmission).toHaveBeenCalledWith('allowed');
+    expect(metrics.recordFinalAdmission).toHaveBeenCalledWith('allowed');
   });
 
   it('차단된 제출 budget은 Retry-After seconds를 반환한다', async () => {
@@ -40,10 +40,10 @@ describe('SignupSubmissionAdmissionService', () => {
         timeToBlockExpire: 587,
       }),
     };
-    const flowMetrics = { recordSignupFinalAdmission: vi.fn() };
-    const service = new SignupSubmissionAdmissionService(storage, flowMetrics as never);
+    const metrics = { recordFinalAdmission: vi.fn() };
+    const service = new SignupSubmissionAdmissionService(storage, metrics as never);
 
     await expect(service.consume('b'.repeat(64))).resolves.toBe(587);
-    expect(flowMetrics.recordSignupFinalAdmission).toHaveBeenCalledWith('throttled');
+    expect(metrics.recordFinalAdmission).toHaveBeenCalledWith('throttled');
   });
 });

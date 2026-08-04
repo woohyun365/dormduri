@@ -10,7 +10,7 @@ type TypedSqlLike = {
 };
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const SQL_DIR = path.resolve(CURRENT_DIR, '../../../prisma/sql');
+const SQL_DIR = path.resolve(CURRENT_DIR, '../../../../prisma/sql');
 
 function readSql(name: string) {
   return readFileSync(path.join(SQL_DIR, name), 'utf8');

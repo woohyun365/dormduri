@@ -6,12 +6,12 @@ describe('SignupNicknameValidationQuery', () => {
   const verificationService = { resolveVerificationGrant: vi.fn() };
   const nicknamePolicy = { validate: vi.fn() };
   const admission = { consume: vi.fn() };
-  const flowMetrics = { recordSignupNicknameValidation: vi.fn() };
+  const metrics = { recordNicknameValidation: vi.fn() };
   const query = new SignupNicknameValidationQuery(
     verificationService as never,
     nicknamePolicy as never,
     admission as never,
-    flowMetrics as never,
+    metrics as never,
   );
 
   beforeEach(() => {
@@ -36,7 +36,7 @@ describe('SignupNicknameValidationQuery', () => {
       'SIGNUP',
     );
     expect(admission.consume).toHaveBeenCalledWith('a'.repeat(64));
-    expect(flowMetrics.recordSignupNicknameValidation).toHaveBeenCalledWith('available');
+    expect(metrics.recordNicknameValidation).toHaveBeenCalledWith('available');
   });
 
   it('missing, expired, wrong-purpose grant는 nickname policy 전에 verification required로 닫는다', async () => {
@@ -84,7 +84,7 @@ describe('SignupNicknameValidationQuery', () => {
         code,
         fieldErrors: { nickname: fieldError },
       });
-      expect(flowMetrics.recordSignupNicknameValidation).toHaveBeenCalledWith(metric);
+      expect(metrics.recordNicknameValidation).toHaveBeenCalledWith(metric);
     },
   );
 });

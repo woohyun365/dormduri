@@ -50,8 +50,9 @@ function createFixture(mailSendTimeoutMs = 20) {
     mailDispatcherClaimLeaseMs: 30_000,
     mailSendTimeoutMs,
   };
-  const flowMetrics = {
-    recordMailDispatch: vi.fn(),
+  const metrics = {
+    recordDispatch: vi.fn(),
+    recordOutboxLag: vi.fn(),
   };
   const service = new AuthMailDispatcherService(
     prisma as never,
@@ -59,14 +60,14 @@ function createFixture(mailSendTimeoutMs = 20) {
     repository as never,
     emailSender,
     settings as never,
-    flowMetrics as never,
+    metrics,
   );
-  return { service, repository, emailSender, flowMetrics };
+  return { service, repository, emailSender, metrics };
 }
 
 describe('AuthMailDispatcherService', () => {
   it('provider acceptance receipt 뒤에만 candidate를 활성화한다', async () => {
-    const { service, repository, emailSender, flowMetrics } = createFixture(1_000);
+    const { service, repository, emailSender, metrics } = createFixture(1_000);
 
     await expect(service.dispatchOnce(now)).resolves.toEqual({
       claimedCount: 1,
@@ -82,7 +83,25 @@ describe('AuthMailDispatcherService', () => {
       expect.anything(),
       expect.objectContaining({ providerMessageId: 'ses-1' }),
     );
-    expect(flowMetrics.recordMailDispatch).toHaveBeenCalledWith('accepted', 12);
+    expect(metrics.recordOutboxLag).toHaveBeenCalledWith(12);
+    expect(metrics.recordDispatch).toHaveBeenCalledWith('accepted');
+  });
+
+  it('claimed batch에서 가장 오래된 mail의 lag을 owner-local gauge로 한 번 기록한다', async () => {
+    const { service, repository, metrics } = createFixture(1_000);
+    repository.claimBatch.mockResolvedValue([
+      event,
+      {
+        ...event,
+        id: 'mail-older',
+        createdAt: new Date('2026-07-29T23:59:30.000Z'),
+      },
+    ]);
+
+    await service.dispatchOnce(now);
+
+    expect(metrics.recordOutboxLag).toHaveBeenCalledOnce();
+    expect(metrics.recordOutboxLag).toHaveBeenCalledWith(30);
   });
 
   it('provider timeout은 UNKNOWN으로 종료하고 동일 payload를 재시도 상태로 돌리지 않는다', async () => {

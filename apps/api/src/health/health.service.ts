@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   AuthOperationsHealthService,
   type AuthOperationsHealthSnapshot,
-} from '../auth/operations/auth-operations-health.service.js';
+} from '../auth/operations/health/auth-operations-health.service.js';
 import {
   REALTIME_METRICS_READER_PORT,
   type RealtimeMetricsReaderPort,

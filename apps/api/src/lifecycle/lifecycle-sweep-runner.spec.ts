@@ -16,7 +16,7 @@ describe('createLifecycleSweepRunner', () => {
         verificationRequestLogs: 3,
         loginAttempts: 4,
         securityEvents: 5,
-        cleanupLagSeconds: 0,
+        batchSaturatedTargets: [],
         ranAt: now.toISOString(),
       }),
       makeTask('matchTransitions', 10, calls, {
@@ -136,7 +136,7 @@ describe('createLifecycleSweepRunner', () => {
         verificationRequestLogs: 0,
         loginAttempts: 0,
         securityEvents: 0,
-        cleanupLagSeconds: 0,
+        batchSaturatedTargets: [],
         ranAt: now.toISOString(),
       }),
     ];

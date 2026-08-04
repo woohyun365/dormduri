@@ -5,8 +5,8 @@ import {
   DisplayIdentityNicknamePolicyService,
 } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
+import { AuthRegistrationMetricsService } from './auth-registration-metrics.service.js';
 import { SignupNicknameValidationAdmissionService } from './signup-nickname-validation-admission.service.js';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class SignupNicknameValidationQuery {
     private readonly verificationService: AuthVerificationService,
     private readonly nicknamePolicy: DisplayIdentityNicknamePolicyService,
     private readonly admission: SignupNicknameValidationAdmissionService,
-    private readonly flowMetrics: AuthFlowMetricsService,
+    private readonly metrics: AuthRegistrationMetricsService,
   ) {}
 
   async execute(
@@ -27,35 +27,35 @@ export class SignupNicknameValidationQuery {
       'SIGNUP',
     );
     if (!grant) {
-      this.flowMetrics.recordSignupNicknameValidation('verification_required');
+      this.metrics.recordNicknameValidation('verification_required');
       return authFailures.signupVerificationRequired();
     }
 
     const retryAfterSeconds = await this.admission.consume(grant.tokenHash);
     if (retryAfterSeconds) {
-      this.flowMetrics.recordSignupNicknameValidation('throttled');
+      this.metrics.recordNicknameValidation('throttled');
       return authFailures.signupNicknameValidationThrottled(retryAfterSeconds);
     }
 
     try {
       const parsed = await this.nicknamePolicy.validate(nickname);
-      this.flowMetrics.recordSignupNicknameValidation('available');
+      this.metrics.recordNicknameValidation('available');
       return { success: true, nickname: parsed.value };
     } catch (error) {
       if (!(error instanceof DisplayIdentityNicknamePolicyError)) {
-        this.flowMetrics.recordSignupNicknameValidation('failed');
+        this.metrics.recordNicknameValidation('failed');
         throw error;
       }
 
       switch (error.reason) {
         case 'INVALID_FORMAT':
-          this.flowMetrics.recordSignupNicknameValidation('invalid');
+          this.metrics.recordNicknameValidation('invalid');
           return authFailures.signupNicknameInvalid(error.message);
         case 'MODERATION_REJECTED':
-          this.flowMetrics.recordSignupNicknameValidation('moderation_rejected');
+          this.metrics.recordNicknameValidation('moderation_rejected');
           return authFailures.signupNicknameNotAllowed(error.message);
         case 'ALREADY_TAKEN':
-          this.flowMetrics.recordSignupNicknameValidation('taken');
+          this.metrics.recordNicknameValidation('taken');
           return authFailures.nicknameAlreadyTaken();
       }
     }

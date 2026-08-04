@@ -6,7 +6,8 @@ import { DisplayIdentityNicknamePolicyService } from '../../users/identity/displ
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { signup } from './signup.command.js';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { AuthCredentialMetricsService } from '../credentials/auth-credential-metrics.service.js';
+import { AuthRegistrationMetricsService } from './auth-registration-metrics.service.js';
 import { SignupNicknameValidationQuery } from './signup-nickname-validation.query.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { SignupSubmissionAdmissionService } from './signup-submission-admission.service.js';
@@ -24,7 +25,8 @@ export class AuthRegistrationUseCases {
     private readonly signupNicknameValidationQuery: SignupNicknameValidationQuery,
     private readonly signupSubmissionAdmission: SignupSubmissionAdmissionService,
     private readonly securityEvents: AuthSecurityEventService,
-    private readonly flowMetrics?: AuthFlowMetricsService,
+    private readonly registrationMetrics?: AuthRegistrationMetricsService,
+    private readonly credentialMetrics?: AuthCredentialMetricsService,
   ) {}
 
   validateSignupNickname(
@@ -49,19 +51,17 @@ export class AuthRegistrationUseCases {
           nicknamePolicy: this.nicknamePolicy,
           submissionAdmission: this.signupSubmissionAdmission,
           securityEvents: this.securityEvents,
-          flowMetrics: this.flowMetrics,
+          registrationMetrics: this.registrationMetrics,
+          credentialMetrics: this.credentialMetrics,
         },
         input,
         verificationGrant,
         requestContext,
       );
-      this.flowMetrics?.recordCredentialTransition(
-        'signup',
-        result.success ? 'committed' : 'rejected',
-      );
+      this.credentialMetrics?.recordTransition('signup', result.success ? 'committed' : 'rejected');
       return result;
     } catch (error) {
-      this.flowMetrics?.recordCredentialTransition('signup', 'failed');
+      this.credentialMetrics?.recordTransition('signup', 'failed');
       throw error;
     }
   }

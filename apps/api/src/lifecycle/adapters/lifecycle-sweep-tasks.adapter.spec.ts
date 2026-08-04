@@ -95,7 +95,7 @@ describe('lifecycle sweep task adapters', () => {
         verificationRequestLogs: 28,
         loginAttempts: 29,
         securityEvents: 30,
-        cleanupLagSeconds: 31,
+        batchSaturatedTargets: ['securityEvents'],
         ranAt: now.toISOString(),
       }),
     };
@@ -152,7 +152,7 @@ describe('lifecycle sweep task adapters', () => {
         verificationRequestLogs: 28,
         loginAttempts: 29,
         securityEvents: 30,
-        cleanupLagSeconds: 31,
+        batchSaturatedTargets: ['securityEvents'],
         ranAt: now.toISOString(),
       },
     ]);

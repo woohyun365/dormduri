@@ -60,15 +60,15 @@ metric만 기록한다.
 현재 bridge 범위:
 
 - chat realtime: socket 연결 수, dispatch batch, outbox lag, rejection, prune outcome
-- auth operations: cleanup deleted/failure/lag, Redis gate state
+- auth operations: cleanup deleted/failure/lag
 - seasons operations: current season query/cache, 운영 schedule/override action outcome
 - retention: backlog gauge, sweep duration, review job count
 - Prisma platform: managed pg pool snapshot, Serializable transaction retry/exhausted
 - roommate-search: request duration/outcome, sort, candidate pipeline count
 
 각 도메인의 기존 in-memory snapshot(`/health/realtime`, `/health/auth` 등)은 health/readiness
-source-of-truth로 유지한다. Prometheus bridge는 운영 scrape surface일 뿐 snapshot을 대체하지
-않는다.
+source-of-truth로 유지한다. Request·mail·credential lifecycle 경보는 owner-local counter/gauge와
+Prometheus rule이 담당하며 감사 로그를 다시 읽어 metric을 만들지 않는다.
 
 ## Phase 경계
 

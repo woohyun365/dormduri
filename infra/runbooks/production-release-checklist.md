@@ -108,7 +108,7 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 | readiness failure body는 secret/DB URL/raw provider error/stack trace를 노출하지 않는다.              | sample response                             |          |
 | `/internal/metrics` anonymous request는 거부된다.                                                     | smoke result                                |          |
 | `/internal/metrics` bearer authorized scrape가 성공한다.                                              | smoke result                                |          |
-| verification/credential/mail dispatch/outbox lag/security alert auth metric이 모두 scrape된다.        | auth metrics smoke                          |          |
+| verification/credential/mail dispatch/outbox lag auth metric이 모두 scrape된다.                       | auth metrics smoke                          |          |
 
 `NO-GO`: readiness failure, secret leak, metrics anonymous access, smoke script failure.
 

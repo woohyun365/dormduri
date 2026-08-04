@@ -220,7 +220,7 @@
     },
     {
       "id": 6,
-      "title": "Auth cleanup lag",
+      "title": "Auth cleanup health",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -238,15 +238,24 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "api_auth_cleanup_lag_seconds",
-          "legendFormat": "{{status_class}}{{domain}}{{code}}{{dispatcher}}{{outcome}}{{target}}{{state}}",
+          "expr": "api_auth_cleanup_batch_saturated",
+          "legendFormat": "{{target}}",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(api_auth_cleanup_failures_total[10m])",
+          "legendFormat": "failures",
+          "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "custom": {},
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },

@@ -72,7 +72,6 @@ Optional override env:
 - `DB_APP_RUNTIME_ROLE` (default: `app_runtime`)
 - `DB_RETENTION_WORKER_ROLE` (default: `retention_worker`)
 - `DB_RETENTION_DISCLOSURE_ROLE` (default: `retention_disclosure`)
-- `DB_AUTH_CLEANUP_WORKER_ROLE` (default: `auth_cleanup_worker`)
 - `DB_READONLY_ROLE` (default: `app_readonly`)
 - `DB_MIGRATION_ROLE` (default: `migration_owner`)
 

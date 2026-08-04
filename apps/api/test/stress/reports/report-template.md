@@ -93,7 +93,7 @@
 | HTTP latency budget                                | pass / fail       |          |
 | Prisma pool waiting                                | pass / fail       |          |
 | Realtime outbox lag                                | pass / fail / n/a |          |
-| Auth cleanup lag                                   | pass / fail / n/a |          |
+| Auth cleanup target saturation / failure           | pass / fail / n/a |          |
 | Retention backlog                                  | pass / fail / n/a |          |
 | Loki error query reviewed                          | pass / fail / n/a |          |
 

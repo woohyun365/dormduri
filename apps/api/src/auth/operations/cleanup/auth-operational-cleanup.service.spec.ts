@@ -10,11 +10,9 @@ describe('AuthOperationalCleanupService', () => {
     verificationRequestLogRetentionDays: 30,
     loginAttemptRetentionDays: 30,
     securityEventRetentionDays: 90,
-    cleanupLagAlertSeconds: 86_400,
-    mailOutboxLagAlertSeconds: 60,
   };
 
-  it('retention worker credential로 cutoff별 batch cleanup을 실행하고 cleanup lag metric을 기록한다', async () => {
+  it('retention worker credential로 cutoff별 batch cleanup을 실행하고 포화된 target을 기록한다', async () => {
     const prisma = { getDatabaseNow: vi.fn().mockResolvedValue(now) };
     const repository = {
       pruneBatch: vi.fn().mockResolvedValue({
@@ -28,22 +26,17 @@ describe('AuthOperationalCleanupService', () => {
     const metrics = {
       recordCleanup: vi.fn(),
       recordCleanupFailure: vi.fn(),
-      recordSecurityAlerts: vi.fn(),
-    };
-    const securityAlerts = {
-      readSignals: vi.fn().mockResolvedValue({ events: [], mailOutboxLagSeconds: 0 }),
     };
     const service = new AuthOperationalCleanupService(
       prisma as never,
       repository,
       metrics as never,
-      securityAlerts,
-      settings as never,
+      settings,
     );
 
     await expect(service.runCleanupBatch()).resolves.toMatchObject({
       expiredSessions: 10,
-      cleanupLagSeconds: 86_400,
+      batchSaturatedTargets: ['expiredSessions'],
       ranAt: now.toISOString(),
     });
     expect(repository.pruneBatch).toHaveBeenCalledWith(
@@ -65,10 +58,39 @@ describe('AuthOperationalCleanupService', () => {
         loginAttempts: 0,
         securityEvents: 0,
       },
-      cleanupLagSeconds: 86_400,
+      batchSaturatedTargets: ['expiredSessions'],
       ranAt: now,
     });
-    expect(metrics.recordSecurityAlerts).toHaveBeenCalledWith([], 0);
+  });
+
+  it('여러 target의 합계가 batch size와 같아도 개별 target이 가득 차지 않으면 포화로 보지 않는다', async () => {
+    const prisma = { getDatabaseNow: vi.fn().mockResolvedValue(now) };
+    const repository = {
+      pruneBatch: vi.fn().mockResolvedValue({
+        expiredSessions: 2,
+        verificationCodes: 2,
+        verificationRequestLogs: 2,
+        loginAttempts: 2,
+        securityEvents: 2,
+      }),
+    };
+    const metrics = {
+      recordCleanup: vi.fn(),
+      recordCleanupFailure: vi.fn(),
+    };
+    const service = new AuthOperationalCleanupService(
+      prisma as never,
+      repository,
+      metrics as never,
+      settings,
+    );
+
+    await expect(service.runCleanupBatch()).resolves.toMatchObject({
+      batchSaturatedTargets: [],
+    });
+    expect(metrics.recordCleanup).toHaveBeenCalledWith(
+      expect.objectContaining({ batchSaturatedTargets: [] }),
+    );
   });
 
   it('cleanup 실패는 failure metric을 남기고 원본 오류를 전파한다', async () => {
@@ -79,14 +101,12 @@ describe('AuthOperationalCleanupService', () => {
     const metrics = {
       recordCleanup: vi.fn(),
       recordCleanupFailure: vi.fn(),
-      recordSecurityAlerts: vi.fn(),
     };
     const service = new AuthOperationalCleanupService(
       { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
       repository,
       metrics as never,
-      { readSignals: vi.fn() },
-      settings as never,
+      settings,
     );
 
     await expect(service.runCleanupBatch()).rejects.toBe(error);

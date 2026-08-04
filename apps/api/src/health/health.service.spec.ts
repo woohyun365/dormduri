@@ -53,15 +53,8 @@ function createHealthService(overrides: { databaseStatus?: 'up' | 'down' } = {})
   };
   const authOperationsHealth = {
     getSnapshot: vi.fn(() => ({
-      redisGate: {
-        decision: 'postgres_authoritative',
-        sourceOfTruth: 'postgres',
-      },
       cleanup: {
-        lastCleanupLagSeconds: 0,
-      },
-      rdsPoolBudget: {
-        activePoolMaxConnections: 30,
+        lastBatchSaturatedTargets: [],
       },
     })),
   };
@@ -190,7 +183,7 @@ describe('HealthService', () => {
     expect(authOperationsHealth.getSnapshot).not.toHaveBeenCalled();
   });
 
-  it('auth operations는 realtime/dependency probe 없이 Redis gate와 cleanup/RDS snapshot을 반환한다', () => {
+  it('auth operations는 realtime/dependency probe 없이 cleanup snapshot을 반환한다', () => {
     const { service, databaseHealthCheck, metrics, authOperationsHealth } = createHealthService();
 
     expect(service.getAuthOperations()).toMatchObject({
@@ -198,12 +191,8 @@ describe('HealthService', () => {
       timestamp: '2026-06-02T03:00:00.000Z',
       uptimeSeconds: 42,
       auth: {
-        redisGate: {
-          decision: 'postgres_authoritative',
-          sourceOfTruth: 'postgres',
-        },
-        rdsPoolBudget: {
-          activePoolMaxConnections: 30,
+        cleanup: {
+          lastBatchSaturatedTargets: [],
         },
       },
     });

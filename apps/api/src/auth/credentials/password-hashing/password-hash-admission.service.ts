@@ -6,7 +6,7 @@ import authConfig, {
   DEFAULT_AUTH_PASSWORD_HASH_QUEUE_LIMIT,
   DEFAULT_AUTH_PASSWORD_HASH_WAIT_TIMEOUT_MS,
 } from '../../../config/auth.config.js';
-import { AuthFlowMetricsService } from '../../operations/auth-flow-metrics.service.js';
+import { AuthPasswordHashMetricsService } from './auth-password-hash-metrics.service.js';
 
 export type AuthPasswordHashOperation =
   | 'account_deletion_verify'
@@ -64,15 +64,15 @@ class ProcessPasswordHashAdmission {
   private readonly inFlightByOperation = new Map<AuthPasswordHashOperation, number>();
   private readonly queue: WaitingOperation[] = [];
   private metrics?: Pick<
-    AuthFlowMetricsService,
-    'recordPasswordHashAdmission' | 'recordPasswordHashInFlight' | 'recordPasswordHashOperation'
+    AuthPasswordHashMetricsService,
+    'recordAdmission' | 'recordInFlight' | 'recordOperation'
   >;
 
   configure(
     settings: PasswordHashAdmissionSettings,
     metrics?: Pick<
-      AuthFlowMetricsService,
-      'recordPasswordHashAdmission' | 'recordPasswordHashInFlight' | 'recordPasswordHashOperation'
+      AuthPasswordHashMetricsService,
+      'recordAdmission' | 'recordInFlight' | 'recordOperation'
     >,
   ): void {
     this.settings = {
@@ -92,18 +92,10 @@ class ProcessPasswordHashAdmission {
     const startedAt = performance.now();
     try {
       const result = await task();
-      this.metrics?.recordPasswordHashOperation(
-        operation,
-        target,
-        (performance.now() - startedAt) / 1_000,
-      );
+      this.metrics?.recordOperation(operation, target, (performance.now() - startedAt) / 1_000);
       return result;
     } catch (error) {
-      this.metrics?.recordPasswordHashOperation(
-        operation,
-        target,
-        (performance.now() - startedAt) / 1_000,
-      );
+      this.metrics?.recordOperation(operation, target, (performance.now() - startedAt) / 1_000);
       throw error;
     } finally {
       this.release(operation);
@@ -113,16 +105,16 @@ class ProcessPasswordHashAdmission {
   private async acquire(operation: AuthPasswordHashOperation): Promise<void> {
     if (this.inFlight < this.settings.concurrency) {
       this.begin(operation);
-      this.metrics?.recordPasswordHashAdmission(operation, 'admitted');
+      this.metrics?.recordAdmission(operation, 'admitted');
       return;
     }
 
     if (this.queue.length >= this.settings.queueLimit) {
-      this.metrics?.recordPasswordHashAdmission(operation, 'queue_full');
+      this.metrics?.recordAdmission(operation, 'queue_full');
       throw this.capacityError();
     }
 
-    this.metrics?.recordPasswordHashAdmission(operation, 'queued');
+    this.metrics?.recordAdmission(operation, 'queued');
     await new Promise<void>((resolve, reject) => {
       const waiting: WaitingOperation = {
         operation,
@@ -133,7 +125,7 @@ class ProcessPasswordHashAdmission {
           if (index >= 0) {
             this.queue.splice(index, 1);
           }
-          this.metrics?.recordPasswordHashAdmission(operation, 'timed_out');
+          this.metrics?.recordAdmission(operation, 'timed_out');
           reject(this.capacityError());
         }, this.settings.waitTimeoutMs),
       };
@@ -145,14 +137,14 @@ class ProcessPasswordHashAdmission {
     this.inFlight += 1;
     const operationInFlight = (this.inFlightByOperation.get(operation) ?? 0) + 1;
     this.inFlightByOperation.set(operation, operationInFlight);
-    this.metrics?.recordPasswordHashInFlight(operation, operationInFlight);
+    this.metrics?.recordInFlight(operation, operationInFlight);
   }
 
   private release(operation: AuthPasswordHashOperation): void {
     this.inFlight = Math.max(0, this.inFlight - 1);
     const operationInFlight = Math.max(0, (this.inFlightByOperation.get(operation) ?? 0) - 1);
     this.inFlightByOperation.set(operation, operationInFlight);
-    this.metrics?.recordPasswordHashInFlight(operation, operationInFlight);
+    this.metrics?.recordInFlight(operation, operationInFlight);
 
     const next = this.queue.shift();
     if (!next) {
@@ -161,7 +153,7 @@ class ProcessPasswordHashAdmission {
 
     clearTimeout(next.timeout);
     this.begin(next.operation);
-    this.metrics?.recordPasswordHashAdmission(next.operation, 'admitted');
+    this.metrics?.recordAdmission(next.operation, 'admitted');
     next.resolve();
   }
 
@@ -186,7 +178,7 @@ export async function runPasswordHashOperation<T>(
 export class PasswordHashAdmissionService {
   constructor(
     @Inject(authConfig.KEY) settings: ConfigType<typeof authConfig>,
-    @Optional() @Inject(AuthFlowMetricsService) flowMetrics?: AuthFlowMetricsService,
+    @Optional() @Inject(AuthPasswordHashMetricsService) metrics?: AuthPasswordHashMetricsService,
   ) {
     processPasswordHashAdmission.configure(
       {
@@ -194,7 +186,7 @@ export class PasswordHashAdmissionService {
         queueLimit: settings.authPasswordHashQueueLimit,
         waitTimeoutMs: settings.authPasswordHashWaitTimeoutMs,
       },
-      flowMetrics,
+      metrics,
     );
   }
 }

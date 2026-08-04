@@ -5,9 +5,9 @@ export const DOMAIN_METRICS_PORT = Symbol('DOMAIN_METRICS_PORT');
 export type DomainMetricKind = 'counter' | 'gauge' | 'histogram';
 
 export type DomainMetricName =
+  | 'api_auth_cleanup_batch_saturated'
   | 'api_auth_cleanup_deleted_total'
   | 'api_auth_cleanup_failures_total'
-  | 'api_auth_cleanup_lag_seconds'
   | 'api_auth_credential_transitions_total'
   | 'api_auth_login_attempts_total'
   | 'api_auth_login_password_verify_duration_seconds'
@@ -19,7 +19,6 @@ export type DomainMetricName =
   | 'api_auth_password_policy_rejected_total'
   | 'api_auth_mail_dispatch_total'
   | 'api_auth_mail_outbox_lag_seconds'
-  | 'api_auth_security_alert_active'
   | 'api_auth_session_renewals_total'
   | 'api_auth_sensitive_mutations_total'
   | 'api_auth_signup_final_admission_total'
@@ -27,7 +26,6 @@ export type DomainMetricName =
   | 'api_auth_signup_password_hash_duration_seconds'
   | 'api_auth_signup_password_hash_total'
   | 'api_auth_verification_operations_total'
-  | 'api_auth_redis_gate_state'
   | 'api_chat_realtime_connected_sockets'
   | 'api_chat_realtime_connections_total'
   | 'api_chat_realtime_outbox_prune_total'

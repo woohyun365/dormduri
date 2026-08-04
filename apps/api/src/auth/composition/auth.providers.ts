@@ -16,7 +16,9 @@ import { AuthActorContextResolver } from '../application/auth-actor-context.reso
 import { AuthPasswordVerifier } from '../application/auth-password-verifier.service.js';
 import { AuthService } from '../application/auth.service.js';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
+import { AuthCredentialMetricsService } from '../credentials/auth-credential-metrics.service.js';
 import { AuthPasswordHashPolicy } from '../credentials/password-hashing/auth-password-hash.adapter.js';
+import { AuthPasswordHashMetricsService } from '../credentials/password-hashing/auth-password-hash-metrics.service.js';
 import { PasswordHashAdmissionService } from '../credentials/password-hashing/password-hash-admission.service.js';
 import { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
 import { ChangePasswordAdmissionService } from '../credentials/change-password-admission.service.js';
@@ -28,6 +30,7 @@ import { GetActiveLoginLockQuery } from '../login-attempts/get-active-login-lock
 import { LoginAttemptRepository } from '../login-attempts/login-attempt.repository.js';
 import { RecordLoginFailureCommand } from '../login-attempts/record-login-failure.command.js';
 import { AuthRegistrationUseCases } from '../registration/auth-registration-use-cases.service.js';
+import { AuthRegistrationMetricsService } from '../registration/auth-registration-metrics.service.js';
 import { SignupNicknameValidationAdmissionService } from '../registration/signup-nickname-validation-admission.service.js';
 import { SignupNicknameValidationQuery } from '../registration/signup-nickname-validation.query.js';
 import { SignupSubmissionAdmissionService } from '../registration/signup-submission-admission.service.js';
@@ -45,14 +48,15 @@ import { RevokeSessionsCommand } from '../sessions/revoke-sessions.command.js';
 import { AuthVerificationEligibilityQuery } from '../verification/auth-verification-eligibility.query.js';
 import { AuthVerificationUseCases } from '../verification/auth-verification-use-cases.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
+import { AuthVerificationMetricsService } from '../verification/auth-verification-metrics.service.js';
 import { AuthVerificationStore } from '../verification/verification-code.repository.js';
 import { AuthVerificationRequestRepository } from '../verification/auth-verification-request.repository.js';
 import { AuthMailDispatcherService } from '../mail/auth-mail-dispatcher.service.js';
+import { AuthMailMetricsService } from '../mail/auth-mail-metrics.service.js';
 import { AuthMailEnvelopeReader } from '../mail/auth-mail-envelope-reader.service.js';
 import { AuthMailEnvelopeWriter } from '../mail/auth-mail-envelope-writer.service.js';
 import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
 import { AuthMailOutboxRepository } from '../mail/auth-mail-outbox.repository.js';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
 
 export const AUTH_APPLICATION_PROVIDERS: Provider[] = [
   AuthService,
@@ -60,11 +64,10 @@ export const AUTH_APPLICATION_PROVIDERS: Provider[] = [
   AuthPasswordVerifier,
 ];
 
-export const AUTH_OPERATIONAL_SIGNAL_PROVIDERS: Provider[] = [AuthFlowMetricsService];
-
 export const AUTH_VERIFICATION_PROVIDERS: Provider[] = [
   AuthVerificationUseCases,
   AuthVerificationService,
+  AuthVerificationMetricsService,
   AuthVerificationEligibilityQuery,
   AuthVerificationStore,
   AuthVerificationRequestRepository,
@@ -84,7 +87,9 @@ export const AUTH_SESSION_PROVIDERS: Provider[] = [
 
 export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [
   AuthCredentialUseCases,
+  AuthCredentialMetricsService,
   AuthPasswordHashPolicy,
+  AuthPasswordHashMetricsService,
   AuthPasswordPolicyService,
   PasswordHashAdmissionService,
   ChangePasswordAdmissionService,
@@ -92,6 +97,7 @@ export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [
 
 export const AUTH_REGISTRATION_PROVIDERS: Provider[] = [
   AuthRegistrationUseCases,
+  AuthRegistrationMetricsService,
   SignupNicknameValidationAdmissionService,
   SignupNicknameValidationQuery,
   SignupSubmissionAdmissionService,
@@ -112,6 +118,7 @@ export const AUTH_SECURITY_EVENT_PROVIDERS: Provider[] = [
 ];
 
 export const AUTH_EMAIL_ADAPTER_PROVIDERS: Provider[] = [
+  AuthMailMetricsService,
   AuthMailEnvelopeWriter,
   AuthMailEnvelopeReader,
   AuthMailOutboxRepository,
@@ -149,7 +156,6 @@ export const AUTH_ACCESS_PROVIDERS: Provider[] = [
 
 export const AUTH_PROVIDERS: Provider[] = [
   ...AUTH_APPLICATION_PROVIDERS,
-  ...AUTH_OPERATIONAL_SIGNAL_PROVIDERS,
   ...AUTH_VERIFICATION_PROVIDERS,
   ...AUTH_SESSION_PROVIDERS,
   ...AUTH_CREDENTIAL_PROVIDERS,

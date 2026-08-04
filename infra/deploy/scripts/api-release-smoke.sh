@@ -56,7 +56,7 @@ done
 if [ "$dry_run" = true ]; then
   echo 'dry-run: would check /health, /health/live, /health/ready'
   echo 'dry-run: would verify /internal/metrics rejects anonymous scrape and accepts bearer token'
-  echo 'dry-run: would verify auth verification, credential, mail dispatch, outbox lag and security alert metrics'
+  echo 'dry-run: would verify auth verification, credential, mail dispatch and outbox lag metrics'
   exit 0
 fi
 
@@ -105,8 +105,7 @@ for metric in \
   api_auth_signup_password_hash_duration_seconds \
   api_auth_sensitive_mutations_total \
   api_auth_mail_dispatch_total \
-  api_auth_mail_outbox_lag_seconds \
-  api_auth_security_alert_active
+  api_auth_mail_outbox_lag_seconds
 do
   if ! grep -q "^# HELP ${metric}\\|^${metric}" "$tmp_dir/metrics-authorized.txt"; then
     fail "failed smoke: required auth metric is missing: ${metric}" 1

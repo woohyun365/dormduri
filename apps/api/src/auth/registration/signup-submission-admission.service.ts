@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectThrottlerStorage, type ThrottlerStorage } from '@nestjs/throttler';
-import { AuthFlowMetricsService } from '../operations/auth-flow-metrics.service.js';
+import { AuthRegistrationMetricsService } from './auth-registration-metrics.service.js';
 
 export const SIGNUP_SUBMISSION_LIMIT = 5;
 export const SIGNUP_SUBMISSION_WINDOW_MS = 10 * 60 * 1000;
@@ -11,7 +11,7 @@ const SIGNUP_SUBMISSION_THROTTLER = 'signup-submission';
 export class SignupSubmissionAdmissionService {
   constructor(
     @InjectThrottlerStorage() private readonly storage: ThrottlerStorage,
-    private readonly flowMetrics: AuthFlowMetricsService,
+    private readonly metrics: AuthRegistrationMetricsService,
   ) {}
 
   async consume(grantTokenHash: string): Promise<number | null> {
@@ -24,7 +24,7 @@ export class SignupSubmissionAdmissionService {
       SIGNUP_SUBMISSION_THROTTLER,
     );
 
-    this.flowMetrics.recordSignupFinalAdmission(result.isBlocked ? 'throttled' : 'allowed');
+    this.metrics.recordFinalAdmission(result.isBlocked ? 'throttled' : 'allowed');
     return result.isBlocked ? Math.max(1, result.timeToBlockExpire) : null;
   }
 }

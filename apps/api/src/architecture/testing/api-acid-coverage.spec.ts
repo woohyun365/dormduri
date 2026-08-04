@@ -90,6 +90,25 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
       'verification consume/attempt/expiry는 동시 consume과 attempt race를 repository transaction에서 닫는다.',
   }),
   entry({
+    path: 'src/auth/verification/auth-verification-request.repository.ts',
+    owner: 'auth/verification',
+    coverageClass: 'concurrency-race',
+    coverageRefs: ['test/integration/auth/auth-verification.store.integration.spec.ts'],
+    rationale:
+      'verification request는 purpose별 advisory lock 안에서 rate limit 확인, request log, security event, code와 mail outbox append를 원자적으로 완료한다.',
+  }),
+  entry({
+    path: 'src/auth/mail/auth-mail-outbox.repository.ts',
+    owner: 'auth/mail',
+    coverageClass: 'concurrency-race',
+    coverageRefs: [
+      'src/auth/mail/auth-mail-outbox.repository.spec.ts',
+      'test/integration/auth/auth-verification.store.integration.spec.ts',
+    ],
+    rationale:
+      'mail outbox claim과 delivery terminal transition은 worker race에서도 outbox와 verification code 상태를 함께 일관되게 닫아야 한다.',
+  }),
+  entry({
     path: 'src/chat/application/chat.service.ts',
     owner: 'chat/application',
     coverageClass: 'wrapper-contract',
