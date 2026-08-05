@@ -1,6 +1,6 @@
 # Web App
 
-Next.js 기반 사용자 화면입니다. Web 변경은 API 데이터베이스나 Prisma 생성물 없이도 자체 CI 게이트를 통과해야 합니다. 상세 기준은 `docs/07_tech/frontend/web-infra-ci-test-config.md`를 source of truth로 봅니다.
+Next.js 기반 사용자 화면입니다. Web 변경은 API 데이터베이스나 Prisma 생성물 없이도 자체 CI 게이트를 통과해야 합니다. 상세 기준은 `docs/architecture/frontend/web-infra-ci-test-config.md`를 source of truth로 봅니다.
 
 ## Local gate
 

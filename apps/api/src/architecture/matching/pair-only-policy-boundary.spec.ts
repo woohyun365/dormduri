@@ -4,11 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const apiRoot = process.cwd();
 const workspaceRoot = join(apiRoot, '../..');
-const officialPolicyRoot = join(workspaceRoot, 'docs/04_policy/official');
-const archivedPolicyPath = join(
-  workspaceRoot,
-  'docs/00_archive/07_stale_policy/official/group-matching-lifecycle.md',
-);
+const officialPolicyRoot = join(workspaceRoot, 'docs/policies');
 const sharedMatchContractRoot = join(workspaceRoot, 'packages/shared/src/match/contract');
 const prismaMigrationsRoot = join(apiRoot, 'prisma/migrations');
 
@@ -31,11 +27,10 @@ function sourceFiles(root: string, extension: string): string[] {
 }
 
 describe('pair-only matching policy boundary', () => {
-  it('current official policy owns pair-only scope while the group design remains archived', () => {
+  it('current official policy owns pair-only scope without relying on a historical group design', () => {
     const matchingPolicy = read(join(officialPolicyRoot, 'matching-lifecycle.md'));
     const officialIndex = read(join(officialPolicyRoot, 'README.md'));
     const seasonPolicy = read(join(officialPolicyRoot, 'season-lifecycle.md'));
-    const archivedGroupPolicy = read(archivedPolicyPath);
 
     expect(matchingPolicy).toContain(
       '현재 FE/BFF/API/BE/Prisma/shared contract는 2인 매칭만 제공한다.',
@@ -47,20 +42,13 @@ describe('pair-only matching policy boundary', () => {
       '3인 group matching용 상태, action, API/BFF route, persistence aggregate',
     );
     expect(matchingPolicy).toContain(
-      '기존 group 정책 문서는 archive로 이동해 current policy 및 구현 근거에서 제외했다.',
+      '과거에 검토한 group matching 설계는 repository source of truth와 현재 구현 근거에서 제외한다.',
     );
 
     expect(officialIndex).toContain('[matching-lifecycle.md](./matching-lifecycle.md)');
     expect(officialIndex).not.toContain('group-matching-lifecycle.md');
     expect(seasonPolicy).toContain('3인실 room capacity는 기숙사 metadata로 유지하되');
     expect(seasonPolicy).toContain('group matching capability로 해석하지 않는다.');
-
-    expect(archivedGroupPolicy).toContain(
-      '이 문서는 출시되지 않은 3인 group matching 설계의 역사적 기록이며 current policy가 아니다.',
-    );
-    expect(archivedGroupPolicy).toContain(
-      '[현재 매칭 라이프사이클 정책](../../../04_policy/official/matching-lifecycle.md)',
-    );
   });
 
   it('matches API exposes only the pair request, active relation, overview, and history routes', () => {

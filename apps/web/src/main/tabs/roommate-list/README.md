@@ -30,16 +30,16 @@ RoommateTab의 CTA는 각 owner mutation을 호출하거나, 필요한 경우 �
 
 ## Source of truth
 
-| 주제                                   | Source of truth                                                                                                                                                                                             |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Search summary / manifest              | `GET /api/roommate-search`, `GET /api/roommate-search/manifest`, `packages/shared/src/roommate-search/contract/index.ts`                                                                                    |
-| Search policy / scope / capability     | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/season-participation.md`                                                                                                          |
-| Profile detail                         | `GET /api/profiles/:userId?detailEntryToken=...`, `packages/shared/src/profile/contract/public.ts`, `apps/web/src/app/api/profiles/[userId]/route.ts`                                                       |
-| Compatibility payload / score exposure | `packages/shared/src/profile/contract/compatibility.ts`, `docs/04_policy/official/profile-model.md`, `docs/04_policy/official/matching-algorithm.md`                                                        |
-| Match request                          | `packages/shared/src/match/contract`, `apps/web/src/app/api/matches/requests/route.ts`, `docs/04_policy/official/matching-lifecycle.md`                                                                     |
-| Bookmark / block / report              | `packages/shared/src/social-safety/*.ts`, `apps/web/src/app/api/bookmarks/**`, `apps/web/src/app/api/blocks/**`, `apps/web/src/app/api/reports/route.ts`, `docs/04_policy/official/incident-enforcement.md` |
-| Public profile field exposure          | `docs/04_policy/official/profile-model.md`, `packages/shared/src/profile/contract/public.ts`                                                                                                                |
-| Season state / registration capability | `docs/04_policy/official/season-lifecycle.md`, `docs/04_policy/official/season-participation.md`                                                                                                            |
+| 주제                                   | Source of truth                                                                                                                                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Search summary / manifest              | `GET /api/roommate-search`, `GET /api/roommate-search/manifest`, `packages/shared/src/roommate-search/contract/index.ts`                                                                          |
+| Search policy / scope / capability     | `docs/policies/roommate-searching.md`, `docs/policies/season-participation.md`                                                                                                                    |
+| Profile detail                         | `GET /api/profiles/:userId?detailEntryToken=...`, `packages/shared/src/profile/contract/public.ts`, `apps/web/src/app/api/profiles/[userId]/route.ts`                                             |
+| Compatibility payload / score exposure | `packages/shared/src/profile/contract/compatibility.ts`, `docs/policies/profile-model.md`, `docs/policies/matching-algorithm.md`                                                                  |
+| Match request                          | `packages/shared/src/match/contract`, `apps/web/src/app/api/matches/requests/route.ts`, `docs/policies/matching-lifecycle.md`                                                                     |
+| Bookmark / block / report              | `packages/shared/src/social-safety/*.ts`, `apps/web/src/app/api/bookmarks/**`, `apps/web/src/app/api/blocks/**`, `apps/web/src/app/api/reports/route.ts`, `docs/policies/incident-enforcement.md` |
+| Public profile field exposure          | `docs/policies/profile-model.md`, `packages/shared/src/profile/contract/public.ts`                                                                                                                |
+| Season state / registration capability | `docs/policies/season-lifecycle.md`, `docs/policies/season-participation.md`                                                                                                                      |
 
 정책 문서와 RoommateTab copy/test가 충돌하면 정책 문서를 우선하고 RoommateTab README·copy·test를 함께 갱신한다.
 

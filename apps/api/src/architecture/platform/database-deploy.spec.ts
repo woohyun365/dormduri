@@ -129,7 +129,7 @@ describe('production database deploy boundary', () => {
   it('documents that credential creation and role membership stay outside grant scripts', () => {
     const grantScript = readDbFile('apply-role-grants.sh');
     const dbReadme = readDbFile('README.md');
-    const policy = readRepoFile('docs/04_policy/official/production-deployment-readiness.md');
+    const policy = readRepoFile('docs/policies/production-deployment-readiness.md');
 
     expect(grantScript).not.toMatch(/\bCREATE\s+USER\b/);
     expect(grantScript).not.toMatch(/\bCREATE\s+ROLE\b.*\bLOGIN\b/);

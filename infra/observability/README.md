@@ -103,7 +103,7 @@ BE API/nginx compose와 observability compose를 함께 올려 연결성을 확�
 
 ## Stress release gate에서 보는 법
 
-API stress release gate는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
+API stress release gate는 `docs/runbooks/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
 
 Stress window 동안 우선 확인할 항목은 다음과 같다.
 
@@ -151,7 +151,7 @@ SLACK_ALERT_WEBHOOK_URL=<SLACK_INCOMING_WEBHOOK_URL>
 SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
 ```
 
-실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/observability/slack/slack-setup-runbook.md`와 `docs/06_trouble-shooting/observability/slack-alert-runbook.md`를 따른다.
+실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/observability/slack/slack-setup-runbook.md`와 `docs/runbooks/observability/slack-alert-runbook.md`를 따른다.
 
 Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, runbook만 포함한다. userId/email/threadId/raw body/RRPD payload는 금지한다.
 
@@ -159,7 +159,7 @@ Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, run
 
 - 2GB 최소형: API 운영은 가능하지만 Grafana/Loki/Prometheus/Alloy 상시 동시 실행은 여유가 적다. 필요 시 stack을 local/별도 ops host에서만 실행한다.
 - 4GB 관측 포함형: Docker engine을 2CPU/4096MiB로 제한하고 `docker-compose.observability.rehearsal.yml`의 container limit을 적용한다.
-- Auth password capacity 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
+- Auth password capacity 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 ## 정리
 

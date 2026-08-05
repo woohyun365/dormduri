@@ -17,7 +17,7 @@
 
 ## Source of truth
 
-- 정책 source of truth: `docs/04_policy/official/season-lifecycle.md`.
+- 정책 source of truth: `docs/policies/season-lifecycle.md`.
 - 사용자용 current season은 운영 캠퍼스의 `Season` row 중 기준 시간이 `preparationStartDate` ~ `seasonEndDate`에 들어온 row에서 계산한다.
 - upcoming season row는 preview/operations 준비 데이터이며 사용자용 current season으로 승격하지 않는다.
 - 활성 override는 선택된 current season row의 effective state 계산에만 적용한다. override는 schedule/history/audit 원장이 아니다.
@@ -78,7 +78,7 @@ Seasons architecture guard는 `apps/api/src/architecture/seasons-boundary.spec.t
 - Season runtime/operations metric recording: `operations/season-operational-metrics.service.ts`, `runtime/current-season-context.query.ts`, operation command specs.
 - Request/method-level memoization: `cache/`, `runtime/current-season-context.query.ts`, `runtime/dormitory-match-window.query.ts`, `ports/season-context.port.ts`.
 - Shared season runtime/operations/participation contracts: `packages/shared/src/season/{runtime,operations,participation}/**` and `contracts/` behavior specs.
-- Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
+- Policy/source-of-truth semantics: `docs/policies/season-lifecycle.md`.
 
 ## Useful verification
 

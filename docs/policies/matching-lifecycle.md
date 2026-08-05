@@ -17,8 +17,7 @@
   여부는 별개다. 이 metadata를 group matching capability나 UI 활성화 근거로 사용하지 않는다.
 - 3인 group matching용 상태, action, API/BFF route, persistence aggregate, shared contract, 제품 UI는
   현재 제품 계약에 존재하지 않는다.
-- 과거에 작성된 group matching 문서는 운영 이력 보존을 위한 archive이며 현재 구현 요구사항이나
-  지원 기능의 근거가 아니다.
+- 과거에 검토한 group matching 설계는 repository source of truth와 현재 구현 근거에서 제외한다.
 
 ## 호환도 계산
 
@@ -495,9 +494,8 @@ withdrawn, deleted, deidentified target과 raw audit/moderation payload는 curre
   노출하지 않는다.
 - BFF/API/BE는 group route와 group lifecycle command를 제공하지 않는다.
 - shared contract와 Prisma schema는 group matching 상태/aggregate를 export하거나 저장하지 않는다.
-- 과거 `group-matching-lifecycle.md`는
-  `docs/00_archive/07_stale_policy/official/group-matching-lifecycle.md`로 이동했으며, historical record일
-  뿐 current policy가 아니다.
+- 과거 group matching 검토안은 repository source of truth에서 제거했으며 현재 policy나 구현 요구사항이
+  아니다.
 
 ## 건물 변경과 매칭 상태
 

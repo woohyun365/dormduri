@@ -113,12 +113,9 @@ Production release는 아래 조건을 만족해야 한다.
 근거 우선순위:
 
 1. 이 official policy가 현재 production readiness의 source of truth다.
-2. `.omx/plans/finished/api-production-deployment-readiness-plan.md`는 4GB/2vCPU 관측 포함 운영형과 2GB/2vCPU 관측 외부화 대안을 비교한 설계 근거다.
-3. `docs/03_planning/sprint-6/176-fe-be-architecture.md`의 1~2GB/1~2vCPU 기준은 2026-05-30 시점의 초기 비용 가정이며, observability stack이 완료된 현재 기준에서는 축소안의 역사적 근거로만 사용한다.
-4. `infra/deploy/docker-compose.api.override.example.yml`과 `infra/observability/docker-compose.observability.rehearsal.yml`은 container resource 시작값의 실행 가능한 source이며 production instance 사양 자체가 아니다.
-5. `.omx/plans/finished/api-dockerized-stress-evidence-plan.md`의 local Docker 결과는 script와 경로 생존성의 근거이며 production capacity 증명이 아니다.
-
-`docs/00_archive/04_reference/knu-dormitory-info.md`는 기숙사 정보 reference이며 서버 용량 결정 근거로 사용하지 않는다.
+2. `infra/deploy/docker-compose.api.override.example.yml`과 `infra/observability/docker-compose.observability.rehearsal.yml`은 container resource 시작값의 실행 가능한 source이며 production instance 사양 자체가 아니다.
+3. `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`와 `infra/observability/rehearsal-checklist.md`는 local constrained 실행·판정 절차를 소유한다.
+4. 실제 production resource가 생기면 instance, RDS, CloudWatch와 app metric evidence가 planning baseline을 대체한다.
 
 ### Argon2id memory cost capacity 판단
 
@@ -134,9 +131,9 @@ Production release는 아래 조건을 만족해야 한다.
 | 19MiB      |        20 |   88.36ms |             153.19MiB |
 | 19MiB      |       100 |  437.76ms |             153.77MiB |
 
-100개 동시 실행의 completion p50/p95/p99는 각각 228.30ms/417.43ms/433.28ms였다. 이 값은 제품 사용량 모델이 아니라 native worker queue와 RSS 상한을 확인한 local microbenchmark다. Production CPU 성능이나 endpoint latency를 보장하지 않으며, 실제 release gate는 아래 cohort 기반 arrival-rate workload를 사용한다.
+100개 동시 실행의 completion p50/p95/p99는 각각 228.30ms/417.43ms/433.28ms였다. 이 값은 제품 사용량 모델이 아니라 native worker queue와 RSS 상한을 확인한 local microbenchmark다. Production CPU 성능이나 endpoint latency를 보장하지 않으며, 최초 배포 판단은 아래 cohort 기반 local constrained arrival-rate workload를 함께 사용한다.
 
-기존 local Docker stress에서 API는 약 283.8MiB를 사용했다. 서로 다른 실행 환경의 두 수치를 단순 합산한 약 437MiB는 정확한 production peak가 아니라 보수적 preflight 입력이다. 이 입력은 API 1536MiB container limit과 4GB host 기본안에서 Argon2id 19MiB를 검증 가능한 후보로 판단하기에는 충분하지만, 다음 release gate를 대체하지 않는다.
+기존 local Docker stress에서 API는 약 283.8MiB를 사용했다. 서로 다른 실행 환경의 두 수치를 단순 합산한 약 437MiB는 정확한 production peak가 아니라 보수적 preflight 입력이다. 이후 2CPU/3988MiB Docker engine, API 1.5CPU/1536MiB와 관측 stack resource limit에서 H1~H7/H9를 실행해 endpoint latency, spike recovery, onboarding, login headroom, throttle/lockout과 residue를 확인했다.
 
 - 신규 hash baseline인 19MiB에서 signup/login/reset/change-password latency를 검증한다. 릴리즈된 8MiB 사용자 데이터가 없으므로 과거 hash 호환·migration workload는 만들지 않는다.
 - 정상 로그인과 실패 로그인 모두 저장된 encoded hash의 salt/parameter로 Argon 검증 연산을 수행한다. Signup에만 발생하는 부하로 계산하지 않는다.
@@ -152,9 +149,13 @@ Production release는 아래 조건을 만족해야 한다.
 - Docker engine 전체가 2 CPU / 4096MiB인지 preflight로 확인하고, 더 큰 host는 4GB/2CPU evidence로 기록하지 않는다.
 - API/nginx와 관측 stack은 위 resource 시작값을 compose override로 적용한다.
 - 현재 local compose에는 Web/BackOffice가 없고 local PostgreSQL이 같은 engine을 사용한다. 따라서 이 결과는 Auth/API와 관측 stack의 제한 환경 동작을 확인하지만 전체 app host 또는 managed PostgreSQL 성능을 증명하지 않는다.
-- Host에서 실행하는 H0 raw hash micro는 Docker engine 제한을 받지 않으므로 진단값으로만 분류하고, local constrained 판정은 container endpoint H1~H9를 사용한다.
-- 실행 및 report 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.
-- 외부 app host와 managed PostgreSQL evidence는 별도 계획에서 환경, 권한, load generator, 관측 source, GO/NO-GO 기준을 새로 승인한 뒤 수집한다.
+- Host에서 실행하는 H0 raw hash micro는 Docker engine 제한을 받지 않으므로 진단값으로만 분류하고, local constrained 판정은 container endpoint H1~H7/H9를 사용한다.
+- 실행 및 report 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.
+- H1~H7/H9의 threshold, secret detection, fixture reset과 residue 검사가 통과했고 API snapshot은 profile별 약 262~412MiB/1.5GiB 범위, PostgreSQL waiting lock은 0이었다.
+- H8 60분 sustained soak는 수행하지 않아 장시간 CPU/memory/log retention 추세는 증명하지 않았다.
+- 별도 AWS app host/managed PostgreSQL reference stress 환경은 준비하지 않는다. 따라서 local 결과를 managed PostgreSQL capacity 증명으로 표현하지 않는다.
+- 위 미수행 범위를 accepted risk로 기록하고 Argon2id 19MiB/t=2/p=1, process-local admission 동시 4·대기 32·2초를 최초 배포 baseline으로 승인한다.
+- 배포 후 auth p95/p99, API RSS, hash in-flight/admission, 429/503, DB connection/lock이 초기 기준을 벗어나면 Argon parameter를 자동 하향하지 않고 instance/admission/rate-limit을 먼저 비교한 새 capacity decision을 작성한다.
 
 ## Config / Secret / KMS 정책
 
@@ -296,3 +297,4 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 | 2026-07-27 | 4GB/2vCPU App host + RDS를 초기 planning baseline으로 확정하고, Web/BackOffice/API/observability container별 resource 시작값과 AWS 공개 가격 기반 월 예산을 정리했다. Argon2id 19MiB queue microbenchmark와 237/946 cohort arrival-rate migration stress gate를 추가했다 | production capacity baseline    |
 | 2026-08-01 | SES provider acceptance와 최종 delivery를 분리하고 Configuration Set event publishing, auth mail outbox metric scrape, reset abuse·mail failure·outbox lag alert rule을 release smoke에 추가했다                                                                         | auth security operations        |
 | 2026-08-05 | 4GB/2CPU local constrained rehearsal의 engine preflight, API/nginx·관측 compose resource override, Auth capacity 실행·해석 경계를 문서화했다                                                                                                                             | auth capacity rehearsal         |
+| 2026-08-05 | H1~H7/H9 local constrained evidence를 근거로 Argon2id 19MiB와 admission 기본값을 최초 배포 baseline으로 승인했다. H8 60분 soak와 별도 AWS/managed PostgreSQL reference stress는 수행하지 않은 accepted risk로 남기고 배포 후 운영 지표 재평가 조건을 명시했다.           | auth capacity decision          |

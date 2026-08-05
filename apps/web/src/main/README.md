@@ -23,6 +23,9 @@
 ## Main-owned shared surfaces
 
 - Season context는 non-Home legacy tab bridge가 소유한다. HomeTab production path는 `SeasonContext`를 소비하지 않고 `HomeDashboardResponse`의 `season` read model만 사용한다.
+- `SeasonContext`는 Main UI composition을 위한 runtime projection일 뿐 mutation/action capability의 source of truth가 아니다.
+- 화면 action은 API/BFF가 반환한 authoritative capability와 unavailable reason을 사용한다. Context의 `SeasonState`, `isOpen`, `isMatching`으로 권한을 다시 계산하지 않는다.
+- 서로 다른 갱신 주기나 owner를 가진 데이터를 prop drilling을 줄인다는 이유만으로 `SeasonContext`에 합치지 않는다.
 - Season fallback/legacy schedule helper는 Home first render 근거가 아니다. 남은 `apps/web/src/main/season/seasonFallback.ts`와 `apps/web/src/main/legacy/seasonLegacyClient.ts`는 non-Home legacy tab 전환 debt에만 한정한다.
 - `SeasonState`는 `@repo/shared/season/runtime`에서 직접 import한다. `apps/web/src/types/season.ts` re-export를 다시 만들지 않는다.
 - 공용 계약 타입은 `@repo/shared/*`에서 직접 가져오고, Web 전용 navigation/profile/presentation 타입은 실제 owner의 `model/`에 둔다. root `apps/web/src/types` compatibility barrel은 다시 만들지 않는다.

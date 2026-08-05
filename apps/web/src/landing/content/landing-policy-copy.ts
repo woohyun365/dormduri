@@ -26,7 +26,7 @@ export const LANDING_POLICY_COPY = [
     id: 'service_independent_notice',
     copy: 'KNU 룸메는 학교 공식 서비스가 아닙니다.',
     source: {
-      path: 'docs/04_policy/official/service-boundary.md',
+      path: 'docs/policies/service-boundary.md',
       section: '면책 고지 시점',
       reason: '서비스 진입 화면에서 비공식 서비스 고지를 유지해야 한다.',
     },
@@ -37,7 +37,7 @@ export const LANDING_POLICY_COPY = [
     id: 'school_system_not_connected',
     copy: '학교 기숙사 시스템과 연동되지 않으며, 사용자에게 룸메이트 탐색을 돕습니다.',
     source: {
-      path: 'docs/04_policy/official/service-boundary.md',
+      path: 'docs/policies/service-boundary.md',
       section: '서비스 책임 범위',
       reason: '학교 시스템 일정과 권한을 보장하지 않는다는 boundary를 노출해야 한다.',
     },
@@ -48,7 +48,7 @@ export const LANDING_POLICY_COPY = [
     id: 'room_selection_not_guaranteed',
     copy: '기숙사 배정·호실 선택을 보장하지 않습니다.',
     source: {
-      path: 'docs/04_policy/official/service-boundary.md',
+      path: 'docs/policies/service-boundary.md',
       section: '면책 범위',
       reason: '호실 선택은 학교 시스템 영역이며 서비스가 성공을 보장하지 않는다.',
     },
@@ -59,7 +59,7 @@ export const LANDING_POLICY_COPY = [
     id: 'lifestyle_survey_disclaimer',
     copy: '룸메 적합도 계산에 사용되며, 학교 기숙사 규정 판단이 아닙니다.',
     source: {
-      path: 'docs/04_policy/official/service-boundary.md',
+      path: 'docs/policies/service-boundary.md',
       section: '면책 범위',
       reason: '생활패턴 설문은 학교 규정상 허용행위를 뜻하지 않는다.',
     },
@@ -70,7 +70,7 @@ export const LANDING_POLICY_COPY = [
     id: 'profile_privacy_warning',
     copy: '공개 정보는 꼭 필요한 만큼만 작성해요.',
     source: {
-      path: 'docs/04_policy/official/data-retention.md',
+      path: 'docs/policies/data-retention.md',
       section: '채팅 데이터 분리 보관',
       reason:
         '사용자 입력 본문에는 개인정보와 민감정보가 포함될 수 있으므로 공개 입력 surface에서 주의를 제공한다.',
@@ -82,7 +82,7 @@ export const LANDING_POLICY_COPY = [
     id: 'season_capability_boundary',
     copy: '시즌 기능은 비시즌, 시즌 오픈, 시즌 매칭, 시즌 마감 정리 기간에 따라 열리고 닫힙니다.',
     source: {
-      path: 'docs/04_policy/official/season-lifecycle.md',
+      path: 'docs/policies/season-lifecycle.md',
       section: '시즌 상태 모델',
       reason: 'Landing copy는 4-state 시즌 모델을 기준으로 기능 on/off를 설명해야 한다.',
     },
@@ -93,7 +93,7 @@ export const LANDING_POLICY_COPY = [
     id: 'support_channel_boundary',
     copy: '신고·차단은 프로필·채팅에서, 문의는 로그인 후 접수해요.',
     source: {
-      path: 'docs/04_policy/official/support-communication.md',
+      path: 'docs/policies/support-communication.md',
       section: '지원 채널',
       reason: '공개 랜딩은 상황별 신고·문의 진입 위치를 안내하고 개인 사건을 직접 처리하지 않는다.',
     },

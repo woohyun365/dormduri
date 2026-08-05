@@ -164,11 +164,11 @@ KNU Roommate는 학교 기숙사 시스템을 대체하는 서비스가 아니�
 
 세부 운영 규칙은 로컬 정책 문서 세트를 source of truth로 둡니다.
 
-- `docs/04_policy/official/account-authentication.md` — 계정/인증
-- `docs/04_policy/official/profile-model.md` — account identity, season profile, field exposure
-- `docs/04_policy/official/season-participation.md` — 시즌 참여 registration
-- `docs/04_policy/official/roommate-searching.md` — search scope, manifest, summary/detail/action capability
-- `docs/04_policy/official/matching-lifecycle.md` — match request, active match, score policy
-- `docs/04_policy/official/chat-lifecycle.md` — chat thread lifecycle
-- `docs/04_policy/official/data-retention.md` — 탈퇴, RRPD retained vault, disposal
-- `docs/04_policy/official/legal-basis.md` — 법적 근거와 처리방침 기준
+- `docs/policies/account-authentication.md` — 계정/인증
+- `docs/policies/profile-model.md` — account identity, season profile, field exposure
+- `docs/policies/season-participation.md` — 시즌 참여 registration
+- `docs/policies/roommate-searching.md` — search scope, manifest, summary/detail/action capability
+- `docs/policies/matching-lifecycle.md` — match request, active match, score policy
+- `docs/policies/chat-lifecycle.md` — chat thread lifecycle
+- `docs/policies/data-retention.md` — 탈퇴, RRPD retained vault, disposal
+- `docs/policies/legal-basis.md` — 법적 근거와 처리방침 기준

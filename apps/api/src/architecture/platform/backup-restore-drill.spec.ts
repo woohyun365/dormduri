@@ -141,7 +141,7 @@ describe('backup and restore drill readiness boundary', () => {
     const dbReadme = readRepoFile('infra/db/README.md');
     const deployReadme = readRepoFile('infra/deploy/README.md');
     const deployRunbook = readRepoFile('infra/runbooks/api-production-deploy-runbook.md');
-    const policy = readRepoFile('docs/04_policy/official/production-deployment-readiness.md');
+    const policy = readRepoFile('docs/policies/production-deployment-readiness.md');
 
     for (const doc of [dbReadme, deployReadme, deployRunbook, policy]) {
       expect(doc).toMatch(/[Bb]ackup\/restore/);

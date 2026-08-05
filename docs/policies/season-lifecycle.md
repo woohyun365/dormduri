@@ -100,7 +100,8 @@ seasonEnd < 현재일                                → OFF_SEASON
 - 학기 시작 시점(1/1, 7/1)부터 준비 기간을 열고 운영자가 직접 조정할 수 있다.
 - 같은 캠퍼스 안에서도 기숙사별 실제 호실선택일 차이를 수용할 수 있다.
 - 매칭 종료와 시즌 종료를 분리해 운영/정리 절차를 명확히 할 수 있다.
-- 상세 결정 과정: `docs/03_planning/sprint-6/112-season-model-redesign.md`, `docs/03_planning/sprint-7/194-campus-dormitories-seasons-api.md`
+- 스키마 책임은 `docs/architecture/data/campus-season-and-dormitory-operation-schema.md`가 설명한다.
+- date-only 처리 규칙은 `docs/architecture/data/date-only-normalization-rule.md`가 설명한다.
 
 ## 2026 생활관 reference와 매칭 지원 범위
 

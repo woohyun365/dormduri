@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const reportTemplatePath = join(process.cwd(), 'test/stress/reports/report-template.md');
 const runbookPath = join(
   process.cwd(),
-  '../../docs/06_trouble-shooting/observability/api-stress-release-runbook.md',
+  '../../docs/runbooks/observability/api-stress-release-runbook.md',
 );
 
 const rawSecretValuePatterns = [

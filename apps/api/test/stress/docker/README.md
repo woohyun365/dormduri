@@ -133,7 +133,7 @@ STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
 - 관측 stack은 `infra/observability/docker-compose.observability.rehearsal.yml`을 추가 적용한다.
 - H8은 60분 soak이므로 `STRESS_LOCAL_REHEARSAL_INCLUDE_SOAK=I_UNDERSTAND_60_MINUTES` 없이는 실행하지 않는다.
 - Web/BackOffice는 현재 compose에 포함하지 않으며, local PostgreSQL은 managed PostgreSQL 성능을 대표하지 않는다.
-- 자세한 준비·판정·cleanup 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.
+- 자세한 준비·판정·cleanup 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.
 
 ## 안전 경계
 

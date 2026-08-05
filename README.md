@@ -78,7 +78,7 @@
 - `MATCH_SCORE` 정렬은 projection table precompute가 아니라 query-time score calculation으로 구현했다.
 - bounded cache는 실제 병목이 측정된 뒤 후속 issue에서 도입한다.
 
-`docs/07_tech/roommate-search-score-scaling-design.md`에서는 BTL 1~3차 기숙사 규모, managed PostgreSQL 비용, App CPU/DB write amplification 트레이드오프를 기준으로 이 결정을 정리했습니다.
+관련 제품 경계와 계산 기준은 `docs/policies/roommate-searching.md`, `docs/policies/matching-algorithm.md`, `docs/policies/production-deployment-readiness.md`에서 관리합니다.
 
 ### 4. Account deletion / retention foundation
 
@@ -140,15 +140,15 @@ KNU Roommate는 학교 이메일 인증을 통과한 사용자가 시즌별로 �
 
 ## 문서 구조
 
-> 현재 `docs/`와 `.omx/plans/`는 로컬 설계 근거 문서 성격이 강합니다. 공개 포트폴리오에서는 README에 핵심 결정을 요약하고, 필요 시 원문 문서를 별도로 공유하는 방식을 전제로 합니다.
+`docs/`는 Git으로 추적되는 repository source of truth입니다. 개인 분석, 과거 계획·리뷰와 포트폴리오 자료는 Git에서 제외되는 `local-docs/`에 둡니다.
 
-| 문서군                       | 역할                                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `docs/04_policy/official/`   | auth, season, profile, roommate-search, matching, chat, retention 등 공식 정책 source of truth |
-| `docs/03_planning/sprint-7/` | BE issue별 구현 전 결정, 대안 비교, handoff                                                    |
-| `.omx/plans/`                | 세션 단위 대규모 리팩토링/정합성 작업 plan과 완료 근거                                         |
-| `docs/07_tech/`              | 성능/운영/아키텍처 설계 근거                                                                   |
-| `docs/99_portfolio/`         | README와 포트폴리오 표현 전략                                                                  |
+| 문서군               | 역할                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `docs/policies/`     | auth, season, profile, roommate-search, matching, chat, retention 등 공식 정책 source of truth |
+| `docs/architecture/` | 장기 유지하는 기술 결정, 설계 근거와 ADR                                                       |
+| `docs/runbooks/`     | 반복 가능한 운영·관측·복구 절차                                                                |
+| `docs/development/`  | 재사용 가능한 개발·테스트 troubleshooting                                                      |
+| `.omx/plans/`        | 실행 중인 세션 단위 리팩토링·정합성 계획                                                       |
 
 ## 프로젝트 구조
 

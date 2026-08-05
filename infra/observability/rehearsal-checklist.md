@@ -161,7 +161,7 @@ curl -fsS 'http://127.0.0.1:3100/loki/api/v1/labels' | head
 
 ## 7. Stress 실행 연결
 
-Local smoke는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`를 따른다.
+Local smoke는 `docs/runbooks/observability/api-stress-release-runbook.md`를 따른다.
 
 권장 최소 연결 확인:
 
@@ -176,7 +176,7 @@ STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
   pnpm --dir apps/api stress:local:auth-password
 ```
 
-전체 절차와 H8 soak opt-in은 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
+전체 절차와 H8 soak opt-in은 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 237명 ramp evidence는 다음 report/handoff를 기준으로 남아 있다.
 

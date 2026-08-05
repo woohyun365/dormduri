@@ -16,7 +16,7 @@ export type LandingSeasonState =
   | 'SEASON_POST_MATCH';
 
 export interface LandingPolicySourceRef {
-  path: `docs/04_policy/official/${string}.md`;
+  path: `docs/policies/${string}.md`;
   section: string;
   reason: string;
 }

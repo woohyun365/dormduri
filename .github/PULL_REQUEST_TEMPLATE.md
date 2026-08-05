@@ -5,8 +5,8 @@
 ## Related
 
 - Issue: Closes #
-- Planning: <!-- docs/03_planning/sprint-N/XX-제목.md -->
-- Policy: <!-- docs/04_policy/official/XX.md (해당 시) -->
+- Planning: <!-- GitHub issue 또는 docs/architecture/decisions/XX-제목.md -->
+- Policy: <!-- docs/policies/XX.md (해당 시) -->
 - 인수 조건: <!-- planning 문서 내 인수 조건 섹션 (ATDD 이슈인 경우) -->
 
 ## Changes

@@ -62,7 +62,7 @@ Architecture specs own cross-cutting fitness rules:
 - Account display/academic identity: `apps/api/src/users`.
 - Match score authority is split deliberately: `packages/shared/src/profile/compatibility-scoring.ts` owns the pure scoring matrices/normalization used by API and Storybook fixtures, while `apps/api/src/matches/scoring` owns visibility, projection, and ports. Web runtime must render API payloads and must not reimplement scoring matrices.
 - Bookmark/block relation authority: `apps/api/src/social-safety`.
-- Policy source of truth: `docs/04_policy/official/profile-model.md`, `docs/04_policy/official/roommate-searching.md`, and `docs/04_policy/official/season-participation.md`.
+- Policy source of truth: `docs/policies/profile-model.md`, `docs/policies/roommate-searching.md`, and `docs/policies/season-participation.md`.
 - Shared API contract source of truth: `packages/shared` profile and roommate-search contract surfaces.
 
 ## Useful verification

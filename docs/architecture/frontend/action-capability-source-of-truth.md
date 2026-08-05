@@ -1,5 +1,7 @@
 # 사용자 action capability source of truth
 
+**상태**: Accepted / current
+
 이 문서는 MatchingTab, HomeTab, RoommateTab에서 `draft`, `registered`, `actionable`을 혼동하지 않고 API가 계산한 action capability를 Web/BFF까지 일관되게 전달하는 기준이다. 화면 노출 가능 여부와 mutation 가능 여부를 분리하고, 최종 권한은 transaction 내부 재검증이 소유한다.
 
 ## 문제 정의

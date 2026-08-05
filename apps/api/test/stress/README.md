@@ -104,7 +104,7 @@ artillery version
 
 Release 전 검증은 local smoke와 staging baseline/peak를 분리해서 기록한다. 운영자는 아래 문서를 기준으로 preflight, 실행 순서, dashboard readout, cleanup을 확인한다.
 
-- Runbook: `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`
+- Runbook: `docs/runbooks/observability/api-stress-release-runbook.md`
 - Report template: `apps/api/test/stress/reports/report-template.md`
 
 Report에는 k6/Artillery safe parser 결과와 Grafana/Prometheus/Loki readout만 옮긴다. Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password, raw payload는 기록하지 않는다.
@@ -143,7 +143,7 @@ pnpm --dir apps/api stress:local:preflight
 pnpm --dir apps/api stress:local:auth-password
 ```
 
-이 경로는 engine resource가 정확히 제한되지 않으면 시작 전에 실패한다. 전체 profile 순서, 장시간 H8 opt-in, 결과 해석과 cleanup은 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다. Local constrained 결과는 외부 app host나 managed PostgreSQL capacity 증명이 아니다.
+이 경로는 engine resource가 정확히 제한되지 않으면 시작 전에 실패한다. 전체 profile 순서, 장시간 H8 opt-in, 결과 해석과 cleanup은 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다. Local constrained 결과는 외부 app host나 managed PostgreSQL capacity 증명이 아니다.
 
 ## Authenticated fixture flow
 

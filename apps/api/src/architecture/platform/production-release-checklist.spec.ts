@@ -129,12 +129,8 @@ describe('production release checklist closeout boundary', () => {
   it('connects release checklist and rollback runbook from deploy and official policy docs without plan-only wording', () => {
     const deployReadme = readRepoFile('infra/deploy/README.md');
     const deployRunbook = readRepoFile('infra/runbooks/api-production-deploy-runbook.md');
-    const productionPolicy = readRepoFile(
-      'docs/04_policy/official/production-deployment-readiness.md',
-    );
-    const observabilityPolicy = readRepoFile(
-      'docs/04_policy/official/runtime-observability-and-release.md',
-    );
+    const productionPolicy = readRepoFile('docs/policies/production-deployment-readiness.md');
+    const observabilityPolicy = readRepoFile('docs/policies/runtime-observability-and-release.md');
 
     for (const doc of [deployReadme, deployRunbook, productionPolicy, observabilityPolicy]) {
       expect(doc).toContain('production-release-checklist.md');

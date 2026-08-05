@@ -151,7 +151,7 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
 pnpm api:typecheck
 pnpm exec prettier --check \
   apps/api/src/retention/README.md \
-  docs/04_policy/official/data-retention.md \
-  docs/04_policy/official/service-boundary.md
+  docs/policies/data-retention.md \
+  docs/policies/service-boundary.md
 git diff --check
 ```

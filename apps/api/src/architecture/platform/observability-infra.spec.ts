@@ -9,12 +9,12 @@ const dashboardsRoot = join(observabilityRoot, 'grafana/dashboards');
 const stressRoot = join(apiRoot, 'test/stress');
 const stressReleaseRunbookPath = join(
   repoRoot,
-  'docs/06_trouble-shooting/observability/api-stress-release-runbook.md',
+  'docs/runbooks/observability/api-stress-release-runbook.md',
 );
 const stressReportTemplatePath = join(stressRoot, 'reports/report-template.md');
 const slackTroubleshootingRunbookPath = join(
   repoRoot,
-  'docs/06_trouble-shooting/observability/slack-alert-runbook.md',
+  'docs/runbooks/observability/slack-alert-runbook.md',
 );
 const apiReleaseSmokePath = join(repoRoot, 'infra/deploy/scripts/api-release-smoke.sh');
 const authRegistrationCredentialRunbookPath = join(

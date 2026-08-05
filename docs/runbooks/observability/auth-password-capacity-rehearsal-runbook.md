@@ -121,9 +121,9 @@ docker compose -p knu-roommate-observability \
   down
 ```
 
-## 외부 reference 검증으로 넘길 정보
+## 선택적 외부 재검증으로 넘길 정보
 
-외부 환경을 마련하는 후속 계획은 이 runbook과 `docs/04_policy/official/production-deployment-readiness.md`를 입력으로 사용한다. 후속 계획은 특정 cloud vendor를 전제하지 않고 다음을 새로 결정해야 한다.
+별도 AWS/managed PostgreSQL reference 환경은 현재 최초 배포 gate에 포함하지 않는다. 운영 지표 악화나 인프라 변경으로 외부 재검증이 필요해질 때만 이 runbook과 `docs/policies/production-deployment-readiness.md`를 입력으로 새 계획을 작성한다. 후속 계획은 특정 cloud vendor를 전제하지 않고 다음을 새로 결정해야 한다.
 
 - 실제 app host의 CPU/memory 및 CPU credit 또는 throttling 특성
 - managed PostgreSQL 연결 방식과 fixture 격리·정리 전략
@@ -132,4 +132,4 @@ docker compose -p knu-roommate-observability \
 - host CPU/memory, API RSS/event-loop lag, DB CPU/connection/lock/IOPS 수집 방법
 - local constrained 결과와 외부 결과를 비교하는 GO/NO-GO 기준
 
-현재 저장소는 외부 DB adapter나 cloud resource 생성을 구현하지 않는다. 외부 검증은 별도 계획과 승인된 infrastructure가 있을 때 추가한다.
+현재 저장소는 외부 DB adapter나 cloud resource 생성을 구현하지 않는다. 이 미구현 상태는 승인된 H1~H7/H9 local baseline의 blocker가 아니다.

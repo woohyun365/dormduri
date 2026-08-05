@@ -26,14 +26,14 @@
 
 ## Source of truth
 
-| 주제                                              | Source                                                                                                                                        |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 서비스 책임, 비공식 서비스 고지, 호실 선택 미보장 | `docs/04_policy/official/service-boundary.md`                                                                                                 |
-| 공개 안내와 개인 문의 경계                        | `docs/04_policy/official/support-communication.md`                                                                                            |
-| 시즌 상태와 기능 허용/제한                        | `docs/04_policy/official/season-lifecycle.md`                                                                                                 |
-| 접근 자격과 학교 이메일 인증                      | `docs/04_policy/official/access-eligibility.md`                                                                                               |
-| 프로필 탐색/매칭/대화 정책                        | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/matching-lifecycle.md`, `docs/04_policy/official/chat-lifecycle.md` |
-| 개인정보/탈퇴/보관 안내                           | `docs/04_policy/official/data-retention.md`                                                                                                   |
+| 주제                                              | Source                                                                                                          |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 서비스 책임, 비공식 서비스 고지, 호실 선택 미보장 | `docs/policies/service-boundary.md`                                                                             |
+| 공개 안내와 개인 문의 경계                        | `docs/policies/support-communication.md`                                                                        |
+| 시즌 상태와 기능 허용/제한                        | `docs/policies/season-lifecycle.md`                                                                             |
+| 접근 자격과 학교 이메일 인증                      | `docs/policies/access-eligibility.md`                                                                           |
+| 프로필 탐색/매칭/대화 정책                        | `docs/policies/roommate-searching.md`, `docs/policies/matching-lifecycle.md`, `docs/policies/chat-lifecycle.md` |
+| 개인정보/탈퇴/보관 안내                           | `docs/policies/data-retention.md`                                                                               |
 
 ## Directory responsibility
 

@@ -247,8 +247,8 @@ Remaining follow-up candidates are explicitly outside this boundary cleanup:
 - `apps/web/src/auth/flows/login/README.md`
 - `apps/web/src/auth/flows/signup/README.md`
 - `apps/web/src/auth/flows/password-reset/README.md`
-- `docs/04_policy/official/account-authentication.md`
-- `docs/04_policy/official/access-eligibility.md`
-- `docs/04_policy/official/legal-basis.md`
+- `docs/policies/account-authentication.md`
+- `docs/policies/access-eligibility.md`
+- `docs/policies/legal-basis.md`
 
 If README guidance and official policy conflict, official policy wins and auth README/tests should be updated in the same change.

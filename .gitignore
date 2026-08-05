@@ -52,36 +52,15 @@ apps/web/storybook-static/
 .codex/
 .omc/
 .omx/
+local-docs/
 
 ## Figma 참조 (코드 이식 후 불필요)
 figma_references/
 references/figma/web/src/
 
-## 문서 (위키로 관리)
-docs/*
-!docs/07_tech/
-docs/07_tech/*
-!docs/07_tech/frontend/
-docs/07_tech/frontend/*
-!docs/07_tech/frontend/web-infra-ci-test-config.md
-!docs/07_tech/frontend/action-capability-source-of-truth.md
-!docs/04_policy/
-docs/04_policy/*
-!docs/04_policy/official/
-!docs/04_policy/official/**
-!docs/00_archive/
-docs/00_archive/*
-!docs/00_archive/07_stale_policy/
-docs/00_archive/07_stale_policy/*
-!docs/00_archive/07_stale_policy/official/
-docs/00_archive/07_stale_policy/official/*
-!docs/00_archive/07_stale_policy/official/group-matching-lifecycle.md
-!docs/06_trouble-shooting/
-docs/06_trouble-shooting/*
-!docs/06_trouble-shooting/observability/
-docs/06_trouble-shooting/observability/*
-!docs/06_trouble-shooting/observability/slack-alert-runbook.md
-!docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md
+## 문서
+# docs/는 repository source of truth로 모두 추적한다.
+# legacy·개인 분석·과거 작업 기록은 local-docs/에 둔다.
 
 ## 프로젝트 관리 문서 (README.md 제외)
 CLAUDE.md

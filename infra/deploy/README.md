@@ -203,7 +203,7 @@ docker compose \
   up -d
 ```
 
-Prometheus target은 `api:4000`, metrics path는 `/internal/metrics`를 사용한다. API metrics endpoint는 nginx allowlist와 API bearer token guard를 함께 둔다. Auth password capacity를 즉시 실행하는 단일 entrypoint는 `pnpm --dir apps/api stress:local:auth-password`이며 상세 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
+Prometheus target은 `api:4000`, metrics path는 `/internal/metrics`를 사용한다. API metrics endpoint는 nginx allowlist와 API bearer token guard를 함께 둔다. Auth password capacity를 즉시 실행하는 단일 entrypoint는 `pnpm --dir apps/api stress:local:auth-password`이며 상세 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 ## nginx route boundary
 
@@ -223,7 +223,7 @@ TLS example에서도 위 route boundary, WebSocket `Upgrade`/`Connection` forwar
 
 ## Web / Next.js deploy boundary
 
-Web CI/test/config 기준은 `docs/07_tech/frontend/web-infra-ci-test-config.md`가 소유한다. `apps/web/next.config.ts`의 `output: 'standalone'`과 Playwright standalone smoke는 future Web runtime image 설계를 위한 근거일 뿐, 이 compose가 Web production deploy를 제공한다는 뜻은 아니다.
+Web CI/test/config 기준은 `docs/architecture/frontend/web-infra-ci-test-config.md`가 소유한다. `apps/web/next.config.ts`의 `output: 'standalone'`과 Playwright standalone smoke는 future Web runtime image 설계를 위한 근거일 뿐, 이 compose가 Web production deploy를 제공한다는 뜻은 아니다.
 
 Web production deploy를 추가할 때는 이 API compose에 암묵적으로 끼워 넣지 않고, 아래 책임을 별도 설계/검증 단위로 다룬다.
 

@@ -1,5 +1,7 @@
 # Web infra CI/test/config 기준
 
+**상태**: Accepted / current
+
 이 문서는 `apps/web` 변경을 안전하게 진행하기 위한 Next.js, TypeScript, ESLint, Vitest, Playwright, BFF/env 기준의 source of truth다. 제품 기능의 UX/정책 판단이 아니라, Web 변경이 어떤 로컬/CI 게이트와 런타임 경계를 통과해야 하는지를 고정한다.
 
 ## 현재 기준 스냅샷
@@ -64,7 +66,7 @@ pnpm --dir apps/web exec playwright install chromium
 - 공통 render는 `apps/web/src/test/render.tsx`의 `renderWithProviders`를 우선 사용한다.
 - BFF route 테스트는 `apps/web/src/test/bff-route.ts`의 `createBffRequest`, `stubJsonFetch`, `firstFetchInput`, `firstFetchInit`를 사용해 request/fetch stub 모양을 맞춘다.
 - `apps/web/src/test-setup.ts`는 Testing Library matcher와 jsdom 공통 gap(`matchMedia`, `scrollTo`, `scrollIntoView`)을 제공한다. 개별 테스트에서 같은 mock을 반복하지 않는다.
-- `apps/web/src/__fixtures__/`는 dev/test fixture와 mock service 위치다. shared contract나 fixture shape 변경은 focused regression test로 드러나게 한다.
+- Story/test fixture는 owning domain의 `stories/fixtures/`, `__stories__/`, test-support 경계에 둔다. shared contract나 fixture shape 변경은 focused regression test로 드러나게 한다.
 - Playwright spec은 `apps/web/e2e/`에 둔다. Locator는 role/name 기반을 우선하고, 실패 산출물은 `apps/web/playwright-report/`, `apps/web/test-results/`에 생성된다.
 - 기본 browser smoke는 Chromium desktop/mobile project를 사용한다. Cross-browser matrix나 strict visual diff는 별도 CI/infra 후속 범위다.
 - 인증 상태 파일은 secret성 runtime artifact로 취급해 `apps/web/playwright/.auth/`에 저장하고 git에는 올리지 않는다.
@@ -120,16 +122,12 @@ Future Web production deploy는 별도 계획에서 아래 책임을 결정한�
 - 로컬 디버그 로그가 필요할 때만 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`을 설정한다. 기본값은 no-op이다.
 - React Compiler는 기본 활성화하지 않는다. 현재 기준은 typed route/build/E2E/Web Vitals gate로 나중에 측정 기반으로 켤 수 있는 준비 상태다.
 
-## 알려진 경고/메시지 기준
+## Gate 결과 해석
 
-현재 Web gate는 아래 known baseline을 허용한다. 새 작업이 같은 메시지를 확대하거나 새 error를 만들면 안 된다.
-
-- `pnpm web:lint`: 기존 warning 5건이 남아 있다.
-  - `apps/web/src/landing/components/__tests__/LandingHeader.test.tsx`: `@next/next/no-img-element`, `jsx-a11y/alt-text`
-  - `apps/web/src/main/components/matching/SentRequestCard.tsx`: unused `timeLeft`
-  - `apps/web/src/main/components/matching/policyCopy.ts`: unused `daysUntilEnd`
-  - `apps/web/src/main/tabs/matching/MatchingTab.tsx`: unused `onFinalizePairGroup`
-- `pnpm web:test`: jsdom이 `Not implemented: navigation to another Document` 메시지를 출력할 수 있다. 현재 테스트는 통과하며, 실제 navigation behavior 변경은 feature production code 작업에서 다룬다.
+- 과거 warning 수나 특정 파일의 diagnostic을 허용 baseline으로 문서에 고정하지 않는다.
+- Lint/typecheck/test가 새 warning 또는 error를 출력하면 현재 실행 결과를 기준으로 원인을 확인한다.
+- Runtime 또는 jsdom 자체의 알려진 메시지를 예외로 인정해야 한다면 관련 test/config와 같은 변경에서 회귀 근거를 남긴다.
+- 삭제되거나 이동된 파일 경로를 장기 architecture 기준으로 보존하지 않는다.
 
 ## FE feature/refactor preflight
 

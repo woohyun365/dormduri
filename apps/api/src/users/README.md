@@ -79,10 +79,10 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 
 정책 문서 점검 결과, 아래 공식 정책 문서는 account self-service boundary를 독립적으로 설명하므로 README 추가만으로 충분하다.
 
-- `docs/04_policy/official/profile-model.md`: account display identity, account academic identity, registration snapshot lock, onboarding dismissed notice, deletion/de-identification profile read priority.
-- `docs/04_policy/official/account-authentication.md`: signup account identity invariant, academic correction policy, account invariant fail-closed behavior, credential/session ownership.
-- `docs/04_policy/official/data-retention.md`: account deletion, immediate de-identification, retained identity restricted vault, identifier anchor disposal, retained payload access boundary.
-- `docs/04_policy/official/service-boundary.md`: user-facing product path는 retained payload를 복원하지 않는다.
+- `docs/policies/profile-model.md`: account display identity, account academic identity, registration snapshot lock, onboarding dismissed notice, deletion/de-identification profile read priority.
+- `docs/policies/account-authentication.md`: signup account identity invariant, academic correction policy, account invariant fail-closed behavior, credential/session ownership.
+- `docs/policies/data-retention.md`: account deletion, immediate de-identification, retained identity restricted vault, identifier anchor disposal, retained payload access boundary.
+- `docs/policies/service-boundary.md`: user-facing product path는 retained payload를 복원하지 않는다.
 
 ## Useful verification
 

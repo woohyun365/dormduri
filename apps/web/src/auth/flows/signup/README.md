@@ -131,9 +131,9 @@ API 실패는 사용자 문구 비교가 아니라 error code를 `retryable`, `v
 
 | 주제                         | Source                                                                            |
 | ---------------------------- | --------------------------------------------------------------------------------- |
-| Signup/auth responsibility   | `docs/04_policy/official/account-authentication.md`                               |
-| Season profile/registration  | `docs/04_policy/official/season-participation.md`                                 |
-| Profile model and intro rule | `docs/04_policy/official/profile-model.md`                                        |
+| Signup/auth responsibility   | `docs/policies/account-authentication.md`                                         |
+| Season profile/registration  | `docs/policies/season-participation.md`                                           |
+| Profile model and intro rule | `docs/policies/profile-model.md`                                                  |
 | Legal consent contract       | `packages/shared/src/legal/contract.ts`                                           |
 | Signup request contract      | `packages/shared/src/auth/contract/requests.ts`                                   |
 | College code catalog/schema  | `packages/shared/src/college/catalog.ts`, `packages/shared/src/college/schema.ts` |

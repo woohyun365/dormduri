@@ -234,17 +234,18 @@
 
 ## 비밀번호 정책
 
-| 항목                | 정책                      |
-| ------------------- | ------------------------- |
-| 최소 길이           | 8자                       |
-| 최대 길이           | 128자 (FE/BE 동일)        |
-| 필수 조합           | 영문 + 숫자               |
-| 특수문자 강제       | 하지 않음                 |
-| 대소문자 강제       | 하지 않음                 |
-| 공백                | 허용                      |
-| 한글                | 허용                      |
-| 이메일 동일 차단    | 대소문자 무시 비교로 차단 |
-| 연속/반복 문자 제한 | 두지 않음                 |
+| 항목                | 정책                                                  |
+| ------------------- | ----------------------------------------------------- |
+| 최소 길이           | 10자                                                  |
+| 최대 길이           | 128자 (FE/BE 동일)                                    |
+| 허용 문자           | 영문·숫자·ASCII 기호                                  |
+| 필수 조합           | 두지 않음                                             |
+| 특수문자 강제       | 하지 않음                                             |
+| 대소문자 강제       | 하지 않음                                             |
+| 공백                | 허용하지 않음                                         |
+| 한글·기타 Unicode   | 허용하지 않음                                         |
+| 이메일 정보 차단    | 전체 주소·로컬 파트와 대소문자 무시 exact 비교로 차단 |
+| 연속/반복 문자 제한 | 두지 않음                                             |
 
 ### 비밀번호 hash 실행 경계
 
@@ -252,7 +253,7 @@
 - 로그인은 저장된 hash 문자열과 입력 비밀번호를 문자열 비교하지 않는다. 사용자 row가 존재하고 cheap lock/account guard를 통과한 각 로그인 시도에서 encoded hash에 포함된 salt/parameter로 Argon2id verify 연산을 수행한다. 따라서 성공 로그인과 잘못된 비밀번호 로그인 모두 hash CPU/memory budget에 포함한다.
 - session 조회와 opaque access/renewal token 검증은 password hash를 다시 계산하지 않는다. 이미 발급된 session을 이용하는 일반 API 요청도 Argon2id를 실행하지 않는다.
 - 비밀번호 재설정/변경은 새 hash를 생성한다. 기존 비밀번호와 동일한지 또는 현재 비밀번호가 맞는지 확인하는 경로에서는 기존 hash verify가 추가될 수 있다.
-- Release candidate의 신규 hash, canonical dummy hash, seed/fixture는 Argon2id 19MiB/t=2/p=1 단일 baseline을 사용한다. 아직 배포된 사용자 데이터가 없으므로 old-hash compatibility나 점진적 rehash는 두지 않는다. Production rollout은 `production-deployment-readiness.md`의 4GB/2vCPU + RDS stress gate 통과 뒤 확정하며, 부적합하면 release 전에 baseline 전체를 함께 조정한다.
+- 신규 hash, canonical dummy hash, seed/fixture는 Argon2id 19MiB/t=2/p=1 단일 baseline을 사용한다. 아직 배포된 사용자 데이터가 없으므로 old-hash compatibility나 점진적 rehash는 두지 않는다. 4GB/2CPU local constrained H1~H7/H9 evidence와 H8/AWS reference 미수행 risk acceptance를 근거로 최초 배포 baseline을 확정하며, 실제 운영 지표가 기준을 벗어나면 별도 capacity/credential migration decision으로 재평가한다.
 
 ## 회원가입 기본 단계
 
@@ -403,3 +404,4 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 | 2026-08-03 | 실제 signal source가 없던 Redis 도입 판단 runtime gate와 전용 환경변수·metric을 제거했다. Auth health는 cleanup/RDS pool의 현재 운영 상태만 노출하고, 후속 인프라 도입은 production-like 부하 증거와 운영 runbook에서 결정한다.                                                                                                                                                                                                                                         | auth operations                 |
 | 2026-08-03 | 감사 이벤트를 주기적으로 재조회하던 security alert 집계를 제거했다. Reset/mail/outbox 운영 경보는 owner-local metric과 Prometheus rule을 사용하고 `/health/auth`는 cleanup/RDS pool 상태만 제공한다.                                                                                                                                                                                                                                                                    | auth operations                 |
 | 2026-08-04 | 실제 시간을 나타내지 않던 cleanup lag sentinel을 target별 latest batch saturation으로 교체했다. `/health/auth`의 alert/RDS planning 판정과 미사용 cleanup 전용 DB role을 제거하고 cleanup failure·지속 포화 경고는 Prometheus가 소유하도록 정리했다.                                                                                                                                                                                                                    | auth operations                 |
+| 2026-08-05 | 비밀번호 정책을 10~128자 printable ASCII·공백 미허용으로 current contract와 맞추고 이메일 전체 주소·로컬 파트 exact 차단을 명시했다. 4GB/2CPU H1~H7/H9 local constrained evidence와 H8/AWS reference 미수행 risk acceptance를 근거로 Argon2id 19MiB/t=2/p=1 및 admission 동시 4·대기 32·2초를 최초 배포 baseline으로 확정했다.                                                                                                                                          | password policy/capacity        |
