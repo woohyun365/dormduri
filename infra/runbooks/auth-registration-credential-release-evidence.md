@@ -118,17 +118,17 @@ Prometheus rule load에서 signup finalization abuse, sensitive mutation throttl
 
 ## 7. Password Policy handoff
 
-현재 8MiB Argon2id lifecycle correctness는 이 runbook이 검증한다. 19MiB rollout 승인은 `.omx/plans/password-policy-unicode-argon2id-migration-plan.md`의 production-like mixed workload gate가 소유한다.
+현재 Argon2id 19MiB/t=2/p=1의 registration/credential lifecycle correctness는 이 runbook이 검증한다. Capacity 결정은 별도의 4GB/2CPU H1~H7/H9 local constrained evidence와 명시적인 H8/AWS reference 미수행 risk acceptance가 소유한다.
 
 필수 후속 evidence는 다음과 같다.
 
-- 같은 image/container에서 8MiB와 19MiB 비교
+- 같은 release image/container에서 19MiB endpoint latency와 admission 동작 확인
 - login success/failure, signup, reset, change-password endpoint mix
 - API RSS/CPU/event-loop lag/DB connection과 endpoint p95/p99
-- old-hash first-login verify + compare-and-set rehash
-- global Argon in-flight cap과 overload behavior
+- target·dummy·seed/fixture가 동일한 19MiB/t=2/p=1 profile을 사용하는지 확인
+- process-local Argon in-flight·queue·timeout과 bounded overload 동작 확인
 
-이 runbook의 unit/integration 통과만으로 19MiB rollout을 승인하지 않는다.
+이 runbook의 unit/integration 통과만으로 19MiB capacity를 다시 승인하지 않는다.
 
 ## 8. Dead caller·secret-free evidence
 

@@ -40,7 +40,7 @@ api_auth_mail_outbox_lag_seconds
 3. `api_auth_login_throttle_total` 증가 여부로 network abuse와 정상 피크를 구분한다.
 4. 단일 actor/email/IP을 metric label이나 공유 문서에서 찾지 않는다. 필요한 원인 조사는 접근 통제된 structured security event에서 수행한다.
 5. 서비스가 회복되지 않으면 login burst/sustained guard를 보수적으로 조정하거나 API replica/capacity를 확장한다.
-6. Argon2id memory profile 변경은 `.omx/plans/password-policy-unicode-argon2id-migration-plan.md`의 stress gate 없이 진행하지 않는다.
+6. Argon2id memory profile 변경은 현재 19MiB local constrained baseline과 운영 지표를 비교하는 별도 capacity/credential migration decision 없이 진행하지 않는다.
 
 ## Renewal token reuse
 

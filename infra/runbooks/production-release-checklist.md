@@ -136,6 +136,7 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 | production-like smoke가 통과했다.                                                                | `pnpm --dir apps/api stress:docker:production-like`               |          |
 | 237 ramp decision evidence가 release blocker/follow-up 판단에 반영되어 있다.                     | `pnpm --dir apps/api stress:docker:237-ramp`                      |          |
 | threshold fail이 있으면 blocker 또는 explicit risk acceptance로 분류되어 있다.                   | decision note                                                     |          |
+| Auth 19MiB local constrained baseline과 H8/AWS reference 미수행 risk acceptance가 확인된다.      | auth password capacity rehearsal runbook + decision commit        |          |
 | Password Reset recovery E2E와 auth integration의 grant/session/outbox transaction이 통과한다.    | `infra/runbooks/auth-password-reset-release-evidence.md`          |          |
 | Signup·Change Password·Logout의 identity/session/audit transaction과 BFF cookie 경계가 통과한다. | `infra/runbooks/auth-registration-credential-release-evidence.md` |          |
 | Reset request/invalid-code abuse stress가 neutral response와 bounded throttle를 유지한다.        | `stress:http:auth-recovery`                                       |          |
@@ -183,6 +184,8 @@ slack_smoke_status:
 stress_docker_smoke_status:
 stress_production_like_status:
 stress_237_ramp_status:
+auth_password_capacity_baseline_commit:
+auth_password_capacity_gap_acceptance: H8/AWS reference not executed
 decision: GO | GO with follow-up | NO-GO
 blockers:
 follow_up_issues:

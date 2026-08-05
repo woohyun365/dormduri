@@ -77,7 +77,7 @@ pnpm --dir apps/api stress:http:auth-recovery
 - 기본 release rate에서 여러 subject가 공유하는 campus NAT IP에 429가 발생하지 않음
 - valid grant single-use, outbox claim과 worker restart는 PostgreSQL integration lane에서 통과
 
-Argon2id 19MiB의 login/reset/change-password capacity는 이 smoke 결과로 승인하지 않는다. 해당 수치와 1/2/5/10/20 RPS gate는 `.omx/plans/password-policy-unicode-argon2id-migration-plan.md`가 소유한다.
+이 smoke 하나만으로 Argon2id capacity를 승인하지 않는다. 19MiB/t=2/p=1과 admission 기본값은 별도의 4GB/2CPU H1~H7/H9 local constrained evidence와 명시적인 H8/AWS reference 미수행 risk acceptance로 결정되었으며, 이 runbook은 reset lifecycle correctness만 검증한다.
 
 ## 5. Metrics and alerts
 
