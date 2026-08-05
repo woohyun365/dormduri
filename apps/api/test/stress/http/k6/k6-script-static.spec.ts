@@ -89,6 +89,28 @@ describe('k6 HTTP stress scripts static contract', () => {
     expect(source).not.toMatch(/console\.(?:log|error)/u);
   });
 
+  it('H5는 spike 종료 60초 뒤의 회복 latency를 별도 threshold로 판정한다', () => {
+    const source = readK6Script('auth-password-burst.k6.js');
+
+    expect(source).toContain("return 'recovered'");
+    expect(source).toContain('http_req_duration{phase:recovered}');
+    expect(source).toContain('http_req_failed{phase:recovered}');
+    expect(source).toContain('checks{phase:recovered}');
+  });
+
+  it('H9는 동일 actor/IP 제한·계정 잠금과 분산 실패를 별도 rate로 판정한다', () => {
+    const source = readK6Script('auth-password-burst.k6.js');
+
+    expect(source).toContain("new Rate('auth_throttle_outcome')");
+    expect(source).toContain("new Rate('auth_account_lock_outcome')");
+    expect(source).toContain('auth_throttle_outcome{scope:same_actor_ip}');
+    expect(source).toContain('auth_throttle_outcome{scope:distributed}');
+    expect(source).toContain('auth_account_lock_outcome{scope:same_actor_ip}');
+    expect(source).toContain('auth_account_lock_outcome{scope:distributed}');
+    expect(source).toContain("return iteration % 2 === 0 ? 'same_actor_ip' : 'distributed'");
+    expect(source).toContain('1 + (Math.floor(iteration / 2) % (entries.length - 1))');
+  });
+
   it('auth recovery stress는 abuse와 campus NAT 정상 흐름을 분리한다', () => {
     const source = readK6Script('auth-recovery-abuse.k6.js');
 

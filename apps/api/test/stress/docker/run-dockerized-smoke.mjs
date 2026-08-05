@@ -5,6 +5,11 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  assessCurrentDockerEngine,
+  formatLocalRehearsalGuidance,
+} from './local-rehearsal-capacity.mjs';
+
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const apiRoot = resolve(scriptDir, '../../..');
 const repoRoot = resolve(apiRoot, '../..');
@@ -16,6 +21,10 @@ const composeObservabilityOverrideFile = resolve(
   'docker-compose.api.override.example.yml',
 );
 const observabilityComposeFile = resolve(observabilityDir, 'docker-compose.observability.yml');
+const observabilityRehearsalOverrideFile = resolve(
+  observabilityDir,
+  'docker-compose.observability.rehearsal.yml',
+);
 const observabilityEnvFile = resolve(observabilityDir, '.env.observability');
 const observabilityMetricsTokenFile = resolve(
   observabilityDir,
@@ -32,6 +41,8 @@ const skipWriteMix = process.env.STRESS_DOCKER_SKIP_WRITE_MIX === 'true';
 const skipRealtimeSmoke = process.env.STRESS_DOCKER_SKIP_REALTIME_SMOKE === 'true';
 const continueOnStressFailure = process.env.STRESS_DOCKER_CONTINUE_ON_STRESS_FAILURE === 'true';
 const authPasswordCapacityRun = process.env.STRESS_DOCKER_AUTH_PASSWORD_CAPACITY === 'true';
+const authPasswordCapacityProfile = process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1';
+const localRehearsalRun = process.env.STRESS_DOCKER_LOCAL_REHEARSAL === 'true';
 const targetUrl = process.env.STRESS_TARGET_URL || 'http://127.0.0.1:8080';
 const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'knu-roommate-api';
 const observabilityProjectName =
@@ -86,16 +97,19 @@ const artilleryActorCsvPath = resolve(reportsDir, `.tmp-${runId}-artillery-actor
 const commandResults = [];
 let runError = null;
 const evidence = {
+  localRehearsalCapacity: null,
   health: null,
   readiness: null,
   metricsUnauthorized: null,
   metricsAuthorized: null,
   dockerPs: '',
   dockerStats: '',
+  dockerResourceLimits: '',
   observabilityPs: '',
   observabilityReadiness: null,
   prometheusApiUp: null,
   postgresBefore: '',
+  h9AuthSecurityEvents: '',
   postgresAfter: '',
   markerResidue: '',
   k6Smoke: null,
@@ -112,6 +126,22 @@ const evidence = {
 mkdirSync(reportsDir, { recursive: true });
 
 try {
+  if (localRehearsalRun) {
+    assertLocalRehearsalInputs();
+    evidence.localRehearsalCapacity = assessCurrentDockerEngine();
+    const passed = evidence.localRehearsalCapacity.status === 'passed';
+    commandResults.push({
+      name: 'local rehearsal Docker capacity',
+      status: passed ? 'pass' : 'fail',
+      note: passed
+        ? `${evidence.localRehearsalCapacity.actualCpus} CPU / ${evidence.localRehearsalCapacity.actualMemoryMiB}MiB`
+        : evidence.localRehearsalCapacity.failures.join(' '),
+    });
+    if (!passed) {
+      throw new Error(formatLocalRehearsalGuidance(evidence.localRehearsalCapacity));
+    }
+  }
+
   const envFileStatus = ensureLocalApiEnvFile();
   commandResults.push({
     name: 'prepare .env.api',
@@ -218,7 +248,7 @@ try {
         env: {
           ...stressEnv,
           STRESS_ACTOR_TOKENS_PATH: '',
-          STRESS_AUTH_CAPACITY_PROFILE: process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1',
+          STRESS_AUTH_CAPACITY_PROFILE: authPasswordCapacityProfile,
           STRESS_AUTH_CAPACITY_DURATION: process.env.STRESS_AUTH_CAPACITY_DURATION,
           STRESS_AUTH_CAPACITY_RATE: process.env.STRESS_AUTH_CAPACITY_RATE,
           STRESS_AUTH_CAPACITY_SMOKE_MIX:
@@ -240,7 +270,7 @@ try {
         'stress:report:auth-password-capacity',
         k6AuthPasswordCapacitySummaryPath,
         authPasswordCapacityDecisionPath,
-        process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1',
+        authPasswordCapacityProfile,
       ],
       { env: stressEnv },
     );
@@ -384,9 +414,25 @@ try {
           `${observabilityProjectName}-grafana-1`,
           `${observabilityProjectName}-loki-1`,
           `${observabilityProjectName}-alloy-1`,
+          `${observabilityProjectName}-alertmanager-1`,
         ]
       : []),
   ]);
+  evidence.dockerResourceLimits = localRehearsalRun
+    ? capture('docker resource limits', [
+        'docker',
+        'inspect',
+        '--format',
+        '{{.Name}} cpu={{.HostConfig.NanoCpus}} memory={{.HostConfig.Memory}}',
+        `${dockerProjectName}-api-1`,
+        `${dockerProjectName}-nginx-1`,
+        `${observabilityProjectName}-prometheus-1`,
+        `${observabilityProjectName}-grafana-1`,
+        `${observabilityProjectName}-loki-1`,
+        `${observabilityProjectName}-alloy-1`,
+        `${observabilityProjectName}-alertmanager-1`,
+      ])
+    : '';
   evidence.observabilityPs = useObservability
     ? capture('observability compose ps', buildObservabilityComposeArgs('ps'), {
         env: buildObservabilityEnv(),
@@ -396,6 +442,10 @@ try {
     'docker compose logs',
     buildApiComposeArgs('logs', '--no-color', '--tail=160', 'api', 'nginx'),
   );
+
+  if (authPasswordCapacityRun && authPasswordCapacityProfile.toLowerCase() === 'h9') {
+    evidence.h9AuthSecurityEvents = captureH9AuthSecurityEventSnapshot(buildStressEnv());
+  }
 
   if (authPasswordCapacityRun) {
     runOptional(
@@ -689,6 +739,10 @@ function buildApiComposeArgs(...extraArgs) {
 }
 
 function buildObservabilityComposeArgs(...extraArgs) {
+  const composeFiles = [observabilityComposeFile];
+  if (localRehearsalRun) {
+    composeFiles.push(observabilityRehearsalOverrideFile);
+  }
   return [
     'docker',
     'compose',
@@ -696,10 +750,26 @@ function buildObservabilityComposeArgs(...extraArgs) {
     observabilityProjectName,
     '--env-file',
     relative(repoRoot, observabilityEnvFile),
-    '-f',
-    relative(repoRoot, observabilityComposeFile),
+    ...composeFiles.flatMap((file) => ['-f', relative(repoRoot, file)]),
     ...extraArgs,
   ];
+}
+
+function assertLocalRehearsalInputs() {
+  if (!productionLikeRun || !authPasswordCapacityRun) {
+    throw new Error('Local rehearsal은 auth password capacity production-like runner만 지원해요.');
+  }
+  if (!useObservability) {
+    throw new Error('Local rehearsal은 resource-limited observability stack을 포함해야 해요.');
+  }
+  if (continueOnStressFailure) {
+    throw new Error('Local rehearsal은 stress failure를 warning으로 낮출 수 없어요.');
+  }
+  if (process.env.STRESS_AUTH_CAPACITY_RATE || process.env.STRESS_AUTH_CAPACITY_DURATION) {
+    throw new Error(
+      'Local rehearsal은 H1~H9 기본 rate와 duration을 사용해야 해요. override를 제거해 주세요.',
+    );
+  }
 }
 
 function buildObservabilityEnv() {
@@ -806,6 +876,36 @@ function capturePostgresSnapshot(name, env) {
     ],
     { env },
   );
+}
+
+function captureH9AuthSecurityEventSnapshot(env) {
+  const output = capture(
+    'H9 auth security event snapshot',
+    [
+      'docker',
+      'exec',
+      postgresContainerName,
+      'psql',
+      '-U',
+      'knu_dev',
+      '-d',
+      'knu_roommate',
+      '-Atc',
+      `select "type"::text, count(*)::text from "AuthSecurityEvent" where "type" in ('LOGIN_FAILURE', 'LOGIN_LOCKOUT') group by "type" order by "type"`,
+    ],
+    { env },
+  );
+  const hasFailureEvent = /^LOGIN_FAILURE\|[1-9][0-9]*$/mu.test(output);
+  const hasLockoutEvent = /^LOGIN_LOCKOUT\|[1-9][0-9]*$/mu.test(output);
+  commandResults.push({
+    name: 'H9 auth security event assertion',
+    status: hasFailureEvent && hasLockoutEvent ? 'pass' : 'fail',
+    note:
+      hasFailureEvent && hasLockoutEvent
+        ? 'LOGIN_FAILURE and LOGIN_LOCKOUT persisted'
+        : 'required bounded event types missing',
+  });
+  return output;
 }
 
 function captureMarkerResidue(name, env) {
@@ -916,25 +1016,40 @@ function writeReport() {
     `- generatedAt: ${new Date().toISOString()}`,
     `- gitCommit: ${captureGit('rev-parse', ['HEAD'])}`,
     `- gitBranch: ${captureGit('branch', ['--show-current'])}`,
+    `- gitDirty: ${captureGit('status', ['--porcelain']).length > 0 ? 'true' : 'false'}`,
     `- runProfile: ${runProfile}`,
     `- authPasswordCapacityProfile: ${
       authPasswordCapacityRun ? process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1' : 'disabled'
     }`,
     `- targetClass: ${
-      productionLikeRun
-        ? 'local production-like docker nginx/API/PostgreSQL'
-        : 'local docker API/nginx'
+      localRehearsalRun
+        ? 'local constrained 4GB/2CPU docker API/nginx/observability/PostgreSQL'
+        : productionLikeRun
+          ? 'local production-like docker nginx/API/PostgreSQL'
+          : 'local docker API/nginx'
     }`,
     `- targetUrl: ${targetUrl}`,
     `- fixtureCohortSize: ${buildStressEnv().STRESS_COHORT_SIZE}`,
     `- fixtureLargestCohortSize: ${buildStressEnv().STRESS_LARGEST_COHORT_SIZE}`,
     `- tokenActorLimit: ${buildStressEnv().STRESS_TOKEN_ACTOR_LIMIT}`,
     `- observabilityEnabled: ${useObservability ? 'true' : 'false'}`,
+    `- localRehearsal: ${localRehearsalRun ? 'true' : 'false'}`,
     `- skippedBuild: ${skipBuild ? 'true' : 'false'}`,
     `- skippedWriteMix: ${skipWriteMix ? 'true' : 'false'}`,
     `- skippedRealtimeSmoke: ${skipRealtimeSmoke ? 'true' : 'false'}`,
     `- continueOnStressFailure: ${continueOnStressFailure ? 'true' : 'false'}`,
     '- rawArtifacts: removed from ignored .tmp-* paths after report generation',
+    '',
+    '## Local resource boundary',
+    '',
+    localRehearsalRun
+      ? [
+          `- Docker engine: ${evidence.localRehearsalCapacity?.actualCpus ?? 'unknown'} CPU / ${evidence.localRehearsalCapacity?.actualMemoryMiB ?? 'unknown'}MiB`,
+          '- API/nginx와 observability는 repository rehearsal override의 container limit을 사용했다.',
+          '- Web/BackOffice runtime은 현재 compose에 포함되지 않는다. 정책 budget의 576MiB limit은 결과 해석 시 미사용 headroom으로 남긴다.',
+          '- 이 결과는 local constrained evidence이며 managed PostgreSQL 또는 external host capacity를 증명하지 않는다.',
+        ].join('\n')
+      : '- status: not a constrained local rehearsal',
     '',
     '## Command results',
     '',
@@ -993,10 +1108,20 @@ function writeReport() {
     evidence.dockerStats || '(not captured)',
     '```',
     '',
+    '## Docker resource limits',
+    '',
+    '```txt',
+    evidence.dockerResourceLimits || '(not collected)',
+    '```',
+    '',
     '## PostgreSQL readout',
     '',
     '```txt',
     evidence.postgresBefore || '(before snapshot not captured)',
+    '',
+    evidence.h9AuthSecurityEvents
+      ? `h9_auth_security_events\n${evidence.h9AuthSecurityEvents}`
+      : '(H9 auth security event snapshot not applicable)',
     '',
     evidence.postgresAfter || '(after snapshot not captured)',
     '',

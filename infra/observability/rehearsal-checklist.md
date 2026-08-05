@@ -1,4 +1,4 @@
-# BE observability release rehearsal checklist
+# BE observability local rehearsal checklist
 
 이 문서는 BE API/nginx compose와 observability compose를 함께 올려 logging, metrics, dashboard, Alertmanager/Slack, stress smoke가 연결되는지 확인하는 운영 점검 절차다. Production release나 production target stress가 아니라 local/staging에서 반복 가능한 rehearsal 절차다.
 
@@ -8,7 +8,8 @@
 - Production DB fixture seed/reset은 금지한다.
 - Slack webhook URL, metrics bearer token, DB URL, auth token, cookie는 command output/report/issue에 붙이지 않는다.
 - API structured log `ts`는 UTC ISO(`Z`)를 유지한다. Grafana/Loki/nginx display는 KST로 확인한다.
-- 2GB host에서는 API/nginx만 상시 운영하고 observability stack은 local 또는 별도 ops host에서 rehearsal하는 것을 우선한다. 4GB host는 동시 rehearsal에 더 안전하다.
+- 이 문서의 관측 포함 실행은 Docker engine을 2 CPU / 4096MiB로 제한한 local constrained rehearsal이다.
+- Web/BackOffice는 현재 compose에 포함되지 않으며 local PostgreSQL은 managed PostgreSQL 성능을 대표하지 않는다.
 
 ## 1. Preflight
 
@@ -16,14 +17,24 @@
 git rev-parse --abbrev-ref HEAD
 git rev-parse --short HEAD
 
-docker compose -f infra/deploy/docker-compose.api.yml config >/tmp/knu-api-compose.yml
-cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml config >/tmp/knu-observability-compose.yml
+pnpm --dir apps/api stress:local:preflight
+
+docker compose \
+  -f infra/deploy/docker-compose.api.yml \
+  -f infra/deploy/docker-compose.api.override.example.yml \
+  config >/tmp/knu-api-compose.yml
+
+docker compose \
+  --env-file infra/observability/.env.observability \
+  -f infra/observability/docker-compose.observability.yml \
+  -f infra/observability/docker-compose.observability.rehearsal.yml \
+  config >/tmp/knu-observability-compose.yml
 ```
 
 Pass 기준:
 
 - compose config command가 성공한다.
+- Docker engine이 2 CPU / 4096MiB(기본 허용 오차 ±256MiB)다.
 - `/tmp/*compose.yml`에는 실제 secret을 공유하지 않는다.
 - `infra/deploy/.env.api`와 `infra/observability/.env.observability`는 git ignored 상태다.
 
@@ -78,7 +89,11 @@ API compose와 같은 Docker network에서 scrape하려면 `API_METRICS_TARGET=a
 ```bash
 cd infra/observability
 API_METRICS_TARGET=api:4000 \
-  docker compose --env-file .env.observability -f docker-compose.observability.yml up -d
+  docker compose \
+    --env-file .env.observability \
+    -f docker-compose.observability.yml \
+    -f docker-compose.observability.rehearsal.yml \
+    up -d
 ```
 
 Pass 기준:
@@ -144,7 +159,7 @@ CLI readout 예시:
 curl -fsS 'http://127.0.0.1:3100/loki/api/v1/labels' | head
 ```
 
-## 7. Stress smoke 연결
+## 7. Stress 실행 연결
 
 Local smoke는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`를 따른다.
 
@@ -154,13 +169,22 @@ Local smoke는 `docs/06_trouble-shooting/observability/api-stress-release-runboo
 pnpm --dir apps/api stress:docker:smoke
 ```
 
+Auth password capacity를 4GB/2CPU 관측 포함 조건에서 검증할 때는 전용 runner를 사용한다.
+
+```bash
+STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
+  pnpm --dir apps/api stress:local:auth-password
+```
+
+전체 절차와 H8 soak opt-in은 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
+
 237명 ramp evidence는 다음 report/handoff를 기준으로 남아 있다.
 
 - `.omx/reports/api-237-ramp-decision-result-2026-06-16T02-14-39-152Z.md`
 - `.omx/reports/api-237-ramp-cache-multinode-handoff-2026-06-16T11-55-01+0900.md`
 - follow-up: #281 `MATCH_SCORE` read path 최적화
 
-이 rehearsal은 stress infra 연결성 확인까지다. 946 cohort long run, production target stress, Redis/ElastiCache 도입 결정은 별도 evidence issue에서 다룬다.
+이 rehearsal은 local constrained resource와 stress infra 연결성을 확인한다. 외부 app host, managed PostgreSQL, production target stress, Redis/ElastiCache 도입 결정은 별도 계획과 승인된 환경에서 다룬다.
 
 ## 8. Rollback / silence / cleanup
 
@@ -171,16 +195,27 @@ cd infra/observability
 # local env에서 delivery disabled로 변경
 # SLACK_ALERTMANAGER_ENABLED=false
 
-docker compose --env-file .env.observability -f docker-compose.observability.yml up -d --force-recreate alertmanager
+docker compose \
+  --env-file .env.observability \
+  -f docker-compose.observability.yml \
+  -f docker-compose.observability.rehearsal.yml \
+  up -d --force-recreate alertmanager
 ```
 
 Stack stop:
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml down
+docker compose \
+  --env-file .env.observability \
+  -f docker-compose.observability.yml \
+  -f docker-compose.observability.rehearsal.yml \
+  down
 
-docker compose -f infra/deploy/docker-compose.api.yml down
+docker compose \
+  -f infra/deploy/docker-compose.api.yml \
+  -f infra/deploy/docker-compose.api.override.example.yml \
+  down
 ```
 
 Webhook rotation:

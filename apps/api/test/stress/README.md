@@ -136,6 +136,15 @@ pnpm --dir apps/api stress:docker:auth-password-capacity
 - report에는 operation별 p95/p99/error와 threshold 결과만 남기며 email, password, grant, token, encoded hash는 남기지 않는다.
 - 로컬 smoke 성공은 fixture/API/k6/report/cleanup 배선만 증명한다. 최종 GO/NO-GO에는 계획 문서의 4GB/2vCPU host, API 1.5 CPU/1536MiB, RDS 조건에서 H1~H9와 CPU/RSS/DB evidence가 필요하다.
 
+4GB/2CPU로 제한한 Docker engine에서 관측 stack까지 포함한 local constrained rehearsal은 다음 명령으로 실행한다.
+
+```bash
+pnpm --dir apps/api stress:local:preflight
+pnpm --dir apps/api stress:local:auth-password
+```
+
+이 경로는 engine resource가 정확히 제한되지 않으면 시작 전에 실패한다. 전체 profile 순서, 장시간 H8 opt-in, 결과 해석과 cleanup은 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다. Local constrained 결과는 외부 app host나 managed PostgreSQL capacity 증명이 아니다.
+
 ## Authenticated fixture flow
 
 ```bash

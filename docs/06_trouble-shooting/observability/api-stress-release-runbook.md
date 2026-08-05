@@ -135,7 +135,9 @@ Stress window 동안 다음 dashboard/query를 확인한다.
 Resource 기준:
 
 - 2GB 최소형: API 단독 smoke는 가능하지만 observability stack 동시 실행 여유가 작다.
-- 4GB 관측 포함형: API와 Prometheus/Grafana/Loki/Alloy를 같은 host에서 rehearsal하기에 더 안전하다.
+- 4GB 관측 포함형: Docker engine을 2 CPU / 4096MiB로 제한하고 API/nginx/관측 stack resource override를 함께 적용한다.
+- 4GB/2CPU Auth capacity 절차와 결과 분류는 `auth-password-capacity-rehearsal-runbook.md`를 따른다.
+- Local constrained 결과는 외부 app host나 managed PostgreSQL의 release capacity 증명이 아니다.
 
 ## 6. Report 작성
 

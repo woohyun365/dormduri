@@ -65,6 +65,8 @@
     "stress:docker:production-like": "node test/stress/docker/run-production-like-evidence.mjs",
     "stress:docker:237-ramp": "node test/stress/docker/run-237-ramp-decision.mjs",
     "stress:docker:auth-password-capacity": "node test/stress/docker/run-auth-password-capacity.mjs",
+    "stress:local:preflight": "node test/stress/docker/local-rehearsal-capacity.mjs",
+    "stress:local:auth-password": "node test/stress/docker/run-local-auth-password-rehearsal.mjs",
     "secrets:inventory": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/secrets/secret-inventory.cli.ts",
     "auth:ses:smoke": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/release/auth-ses-sandbox-smoke.ts",
     "db:deploy:migrate": "../../infra/db/migrate-deploy.sh",

@@ -15,8 +15,24 @@ const authPasswordCapacitySource = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/run-auth-password-capacity.mjs'),
   'utf8',
 );
+const localAuthPasswordRehearsalSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/run-local-auth-password-rehearsal.mjs'),
+  'utf8',
+);
+const localRehearsalCapacitySource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/local-rehearsal-capacity.mjs'),
+  'utf8',
+);
 const rampDecisionSource = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/run-237-ramp-decision.mjs'),
+  'utf8',
+);
+const apiResourceOverrideSource = readFileSync(
+  resolve(process.cwd(), '../../infra/deploy/docker-compose.api.override.example.yml'),
+  'utf8',
+);
+const observabilityResourceOverrideSource = readFileSync(
+  resolve(process.cwd(), '../../infra/observability/docker-compose.observability.rehearsal.yml'),
   'utf8',
 );
 const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
@@ -52,6 +68,7 @@ describe('dockerized stress smoke runner', () => {
 
   it('writes a sanitized report and removes raw .tmp artifacts', () => {
     expect(source).toContain('.omx/reports/api-dockerized-stress-result-');
+    expect(source).toContain("captureGit('status', ['--porcelain'])");
     expect(source).toContain('bounded-write-mix');
     expect(source).toContain('cleanupRawArtifacts');
     expect(source).toContain('[REDACTED_STRESS_SECRET]');
@@ -81,6 +98,47 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain("STRESS_ACTOR_TOKENS_PATH: ''");
     expect(source).toContain('STRESS_AUTH_CAPACITY_SMOKE_MIX');
     expect(source).toContain('auth password capacity fixture reset');
+  });
+
+  it('rejects unconstrained Docker engines before recording local capacity evidence', () => {
+    expect(localRehearsalCapacitySource).toContain('DEFAULT_TARGET_CPUS = 2');
+    expect(localRehearsalCapacitySource).toContain('DEFAULT_TARGET_MEMORY_MIB = 4096');
+    expect(localRehearsalCapacitySource).not.toContain('STRESS_LOCAL_REHEARSAL_TARGET');
+    expect(source).toContain('assessCurrentDockerEngine');
+    expect(source).toContain('resource-limited observability stack을 포함해야 해요');
+    expect(source).toContain('stress failure를 warning으로 낮출 수 없어요');
+    expect(source).toContain('local constrained 4GB/2CPU');
+    expect(source).toContain('not a constrained local rehearsal');
+  });
+
+  it('runs named auth capacity profiles sequentially without custom rate overrides', () => {
+    expect(localAuthPasswordRehearsalSource).toContain(
+      "['h1', 'h2', 'h3', 'h7', 'h4', 'h5', 'h6', 'h9', 'h8']",
+    );
+    expect(localAuthPasswordRehearsalSource).toContain("'stress:local:preflight'");
+    expect(localAuthPasswordRehearsalSource).toContain('STRESS_DOCKER_LOCAL_REHEARSAL');
+    expect(localAuthPasswordRehearsalSource).toContain('STRESS_AUTH_CAPACITY_RATE');
+    expect(localAuthPasswordRehearsalSource).toContain('I_UNDERSTAND_60_MINUTES');
+    expect(localAuthPasswordRehearsalSource).toContain('authProfileEnvironment(profile)');
+    expect(localAuthPasswordRehearsalSource).toContain("STRESS_API_AUTH_LOGIN_BURST_LIMIT: '30'");
+    expect(localAuthPasswordRehearsalSource).toContain("STRESS_API_HTTP_TRUST_PROXY_HOPS: '2'");
+    expect(apiResourceOverrideSource).toContain('STRESS_API_AUTH_LOGIN_BURST_LIMIT:-5000');
+    expect(apiResourceOverrideSource).toContain('STRESS_API_HTTP_TRUST_PROXY_HOPS:-0');
+    expect(source).toContain('captureH9AuthSecurityEventSnapshot');
+    expect(source).toContain("'LOGIN_FAILURE'");
+    expect(source).toContain("'LOGIN_LOCKOUT'");
+  });
+
+  it('keeps API, nginx, and observability resource budgets executable in compose', () => {
+    expect(apiResourceOverrideSource).toContain("cpus: '1.50'");
+    expect(apiResourceOverrideSource).toContain('memory: 1536M');
+    expect(apiResourceOverrideSource).toContain("cpus: '0.20'");
+    expect(apiResourceOverrideSource).toContain('memory: 96M');
+    expect(observabilityResourceOverrideSource).toContain("cpus: '0.35'");
+    expect(observabilityResourceOverrideSource).toContain('memory: 320M');
+    expect(observabilityResourceOverrideSource).toContain("cpus: '0.10'");
+    expect(observabilityResourceOverrideSource).toContain('memory: 160M');
+    expect(source).toContain('docker-compose.observability.rehearsal.yml');
   });
 
   it('exposes a Phase 9-3 237 cohort ramp decision runner', () => {
@@ -118,6 +176,12 @@ describe('dockerized stress smoke runner', () => {
     );
     expect(packageJson.scripts?.['stress:auth:hash-micro']).toContain(
       'run-auth-password-hash-micro.ts',
+    );
+    expect(packageJson.scripts?.['stress:local:preflight']).toBe(
+      'node test/stress/docker/local-rehearsal-capacity.mjs',
+    );
+    expect(packageJson.scripts?.['stress:local:auth-password']).toBe(
+      'node test/stress/docker/run-local-auth-password-rehearsal.mjs',
     );
   });
 });

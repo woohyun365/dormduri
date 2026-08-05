@@ -1,5 +1,10 @@
 services:
   api:
+    environment:
+      AUTH_THROTTLE_LIMIT: ${STRESS_API_AUTH_THROTTLE_LIMIT:-5000}
+      AUTH_LOGIN_BURST_LIMIT: ${STRESS_API_AUTH_LOGIN_BURST_LIMIT:-5000}
+      AUTH_LOGIN_SUSTAINED_LIMIT: ${STRESS_API_AUTH_LOGIN_SUSTAINED_LIMIT:-5000}
+      HTTP_TRUST_PROXY_HOPS: ${STRESS_API_HTTP_TRUST_PROXY_HOPS:-0}
     networks:
       - api-internal
       - observability
@@ -18,7 +23,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          cpus: '0.20'
+          memory: 96M
+        reservations:
+          memory: 32M
 
 networks:
   api-internal:

@@ -10,6 +10,7 @@
 | `pnpm --dir apps/api stress:docker:production-like`        | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `.omx/reports/api-production-like-stress-result-*.md` |
 | `pnpm --dir apps/api stress:docker:237-ramp`               | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `.omx/reports/api-237-ramp-decision-result-*.md`      |
 | `pnpm --dir apps/api stress:docker:auth-password-capacity` | 19MiB Argon2id login/signup/reset/change endpoint mix를 H1~H9 중 하나로 실행                                                                        | `.omx/reports/api-auth-password-capacity-result-*.md` |
+| `pnpm --dir apps/api stress:local:auth-password`           | 2CPU/4096MiB Docker engine을 강제하고 resource-limited 관측 stack과 H1~H9 profile을 순차 실행                                                       | `.omx/reports/api-auth-password-capacity-result-*.md` |
 
 ## 공통 실행 대상
 
@@ -117,6 +118,23 @@ Runner는 production-like compose resource limit을 사용하고 다음 순서�
 
 H1~H9는 single-use proof TTL과 evidence 해석을 명확히 하기 위해 **한 invocation에서 한 profile만** 실행한다. 짧은 배선 검증은 `STRESS_AUTH_CAPACITY_RATE`와 `STRESS_AUTH_CAPACITY_DURATION`을 함께 지정한다. 이 override 결과는 production-like capacity 승인 근거가 아니다.
 
+## 4GB/2CPU local constrained rehearsal
+
+Docker engine 자체를 2 CPU / 4096MiB로 제한한 뒤 실행한다.
+
+```bash
+pnpm --dir apps/api stress:local:preflight
+
+STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
+  pnpm --dir apps/api stress:local:auth-password
+```
+
+- API/nginx는 `infra/deploy/docker-compose.api.override.example.yml`을 사용한다.
+- 관측 stack은 `infra/observability/docker-compose.observability.rehearsal.yml`을 추가 적용한다.
+- H8은 60분 soak이므로 `STRESS_LOCAL_REHEARSAL_INCLUDE_SOAK=I_UNDERSTAND_60_MINUTES` 없이는 실행하지 않는다.
+- Web/BackOffice는 현재 compose에 포함하지 않으며, local PostgreSQL은 managed PostgreSQL 성능을 대표하지 않는다.
+- 자세한 준비·판정·cleanup 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.
+
 ## 안전 경계
 
 - production target은 사용하지 않는다. staging/production-like public target은 k6/Artillery target guard와 별도 승인 절차를 사용한다.
@@ -124,4 +142,4 @@ H1~H9는 single-use proof TTL과 evidence 해석을 명확히 하기 위해 **�
 - local `.env.api`, `.env.observability`, `prometheus/secrets/*.local`, `.tmp-*` raw artifact는 gitignore 대상이다.
 - write mix는 stress fixture actor/target만 사용하고 reset 단계에서 actor/participant 기반 cleanup을 수행한다.
 - #247/#250/#256/#272 같은 도입 여부는 local pg container evidence만으로 확정하지 않고, staging/RDS 계측 결과가 있을 때 승격한다.
-- Argon2id admission concurrency/queue/timeout 기본값도 local smoke만으로 확정하지 않는다. 4GB/2vCPU reference host와 RDS에서 H1~H9 CPU/RSS/latency evidence를 함께 판독한다.
+- Argon2id admission concurrency/queue/timeout 기본값은 local smoke나 local constrained evidence만으로 확정하지 않는다. 외부 app host와 managed PostgreSQL 환경에서 H1~H9 CPU/RSS/latency evidence를 별도로 판독한다.

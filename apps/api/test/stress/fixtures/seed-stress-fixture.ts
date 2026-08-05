@@ -63,7 +63,7 @@ export async function runStressFixtureSeed(
   const prisma = createStressFixturePrismaClient(env);
 
   try {
-    return await materializeStressFixture(prisma.client, plan);
+    return await materializeStressFixture(prisma.client, plan, { now: new Date() });
   } finally {
     await prisma.disconnect();
   }

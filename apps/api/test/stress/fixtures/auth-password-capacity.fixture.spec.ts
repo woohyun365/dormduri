@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { createStressFixtureConfigFromEnv } from './stress-fixture.config.js';
 import { buildStressFixturePlan } from './stress-fixture.plan.js';
-import { buildAuthPasswordCapacityArtifact } from './auth-password-capacity.fixture.js';
+import {
+  buildAuthPasswordCapacityArtifact,
+  buildAuthPasswordCapacitySecurityEventHashes,
+} from './auth-password-capacity.fixture.js';
 import { redactStressFixtureSecrets } from '../safety/stress-secret-redaction.js';
 import { buildPrismaSessionOptions } from '../../../src/platform/database/prisma.service.js';
 
@@ -59,5 +62,20 @@ describe('auth password capacity fixture', () => {
     expect(serialized).not.toContain(artifact.change[0]?.accessToken ?? 'missing');
     expect(serialized).not.toContain(artifact.readTraffic[0]?.accessToken ?? 'missing');
     expect(serialized).not.toContain(artifact.signup[0]?.password ?? 'missing');
+  });
+
+  it('builds bounded security-event cleanup hashes for seeded and signup identities', () => {
+    const plan = buildStressFixturePlan(createStressFixtureConfigFromEnv(env));
+    const hashes = buildAuthPasswordCapacitySecurityEventHashes(
+      plan.actors,
+      plan.marker,
+      'capacity-test-persistence-secret',
+      'v1',
+      16,
+    );
+
+    expect(hashes).toHaveLength(plan.actors.length + 16);
+    expect(new Set(hashes)).toHaveLength(hashes.length);
+    expect(hashes.every((hash) => /^v1:[a-f0-9]{64}$/u.test(hash))).toBe(true);
   });
 });

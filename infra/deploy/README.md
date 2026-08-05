@@ -180,9 +180,11 @@ REST API CORS는 `HTTP_CORS_ALLOWED_ORIGINS`의 comma-separated explicit allowli
 
 ## 4GB 관측 포함형 실행
 
-관측 stack과 같은 host에서 rehearsal할 때는 app compose와 observability compose가 같은 external network를 공유한다. 전체 점검 순서는 `infra/observability/rehearsal-checklist.md`를 기준으로 실행한다.
+관측 stack과 같은 host에서 rehearsal할 때는 Docker engine 전체를 2 CPU / 4096MiB로 제한하고 app compose와 observability compose가 같은 external network를 공유한다. 전체 점검 순서는 `infra/observability/rehearsal-checklist.md`를 기준으로 실행한다.
 
 ```bash
+pnpm --dir apps/api stress:local:preflight
+
 docker network create knu-roommate-observability || true
 
 # API/nginx
@@ -194,10 +196,14 @@ docker compose \
 # Observability stack
 cd infra/observability
 API_METRICS_TARGET=api:4000 \
-docker compose --env-file .env.observability -f docker-compose.observability.yml up -d
+docker compose \
+  --env-file .env.observability \
+  -f docker-compose.observability.yml \
+  -f docker-compose.observability.rehearsal.yml \
+  up -d
 ```
 
-Prometheus target은 `api:4000`, metrics path는 `/internal/metrics`를 사용한다. API metrics endpoint는 nginx allowlist와 API bearer token guard를 함께 둔다.
+Prometheus target은 `api:4000`, metrics path는 `/internal/metrics`를 사용한다. API metrics endpoint는 nginx allowlist와 API bearer token guard를 함께 둔다. Auth password capacity를 즉시 실행하는 단일 entrypoint는 `pnpm --dir apps/api stress:local:auth-password`이며 상세 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 ## nginx route boundary
 

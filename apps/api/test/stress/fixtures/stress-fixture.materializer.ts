@@ -109,6 +109,7 @@ export interface StressFixtureResetSummary {
 
 const DEFAULT_COLLEGE_CODE = 'stress-college';
 const DEFAULT_NOW = new Date('2026-06-15T00:00:00.000Z');
+const STRESS_SEASON_OVERRIDE_TTL_MS = 24 * 60 * 60 * 1000;
 const STRESS_FIXTURE_APPLICATION_NAME = 'knu-roommate-api-stress-fixture';
 const STRESS_FIXTURE_POOL_MAX = 2;
 const DEFAULT_LIFESTYLE = {
@@ -174,6 +175,7 @@ export async function materializeStressFixture(
   assertStressMarker(plan.marker);
   const hashPassword = deps.hashPassword ?? defaultHashPassword;
   const now = deps.now ?? DEFAULT_NOW;
+  const overrideEndsAt = new Date(now.getTime() + STRESS_SEASON_OVERRIDE_TTL_MS);
   const passwordHashes = new Map<string, string>();
 
   for (const actor of plan.actors) {
@@ -233,12 +235,20 @@ export async function materializeStressFixture(
         preparationStartDate: dateOnly('2026-01-01'),
         matchingStartDate: dateOnly('2026-01-08'),
         seasonEndDate: dateOnly('2026-12-31'),
+        overrideState: 'SEASON_MATCHING',
+        overrideReason: 'STRESS_REHEARSAL',
+        overrideStartedAt: now,
+        overrideEndsAt,
       },
       update: {
         name: plan.season.name,
         preparationStartDate: dateOnly('2026-01-01'),
         matchingStartDate: dateOnly('2026-01-08'),
         seasonEndDate: dateOnly('2026-12-31'),
+        overrideState: 'SEASON_MATCHING',
+        overrideReason: 'STRESS_REHEARSAL',
+        overrideStartedAt: now,
+        overrideEndsAt,
       },
     });
 

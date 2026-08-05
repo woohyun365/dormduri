@@ -18,6 +18,17 @@ export interface AuthPasswordCapacityOperationSnapshot {
   readonly failedRate?: number;
 }
 
+export interface AuthPasswordCapacityRecoverySnapshot extends AuthPasswordCapacityOperationSnapshot {
+  readonly checksRate?: number;
+}
+
+export interface AuthPasswordCapacityAbuseProtectionSnapshot {
+  readonly sameActorIpThrottleRate?: number;
+  readonly distributedThrottleRate?: number;
+  readonly sameActorIpLockRate?: number;
+  readonly distributedLockRate?: number;
+}
+
 export interface AuthPasswordCapacitySummary {
   readonly schemaVersion: 1;
   readonly profile: string;
@@ -25,6 +36,8 @@ export interface AuthPasswordCapacitySummary {
   readonly operationMetrics: Partial<
     Record<CapacityOperation, AuthPasswordCapacityOperationSnapshot>
   >;
+  readonly recoveryMetrics?: AuthPasswordCapacityRecoverySnapshot;
+  readonly abuseProtectionMetrics?: AuthPasswordCapacityAbuseProtectionSnapshot;
   readonly failedThresholds: readonly string[];
   readonly secretMaterialDetected: false;
 }
@@ -60,15 +73,64 @@ export function parseAuthPasswordCapacitySummary(
       ];
     }),
   ) as Partial<Record<CapacityOperation, AuthPasswordCapacityOperationSnapshot>>;
+  const recoveryMetrics = readRecoveryMetrics(metrics, profile);
+  const abuseProtectionMetrics = readAbuseProtectionMetrics(metrics, profile);
 
   return {
     schemaVersion: 1,
     profile,
     status: failedThresholds.length === 0 ? 'passed' : 'failed',
     operationMetrics,
+    ...(recoveryMetrics ? { recoveryMetrics } : {}),
+    ...(abuseProtectionMetrics ? { abuseProtectionMetrics } : {}),
     failedThresholds,
     secretMaterialDetected: false,
   };
+}
+
+function readAbuseProtectionMetrics(
+  metrics: Record<string, unknown>,
+  profile: string,
+): AuthPasswordCapacityAbuseProtectionSnapshot | undefined {
+  if (profile.toLowerCase() !== 'h9') {
+    return undefined;
+  }
+  const sameActorIp = metricValues(metrics['auth_throttle_outcome{scope:same_actor_ip}']);
+  const distributed = metricValues(metrics['auth_throttle_outcome{scope:distributed}']);
+  const sameActorIpLock = metricValues(metrics['auth_account_lock_outcome{scope:same_actor_ip}']);
+  const distributedLock = metricValues(metrics['auth_account_lock_outcome{scope:distributed}']);
+  if (!sameActorIp && !distributed && !sameActorIpLock && !distributedLock) {
+    return undefined;
+  }
+  return compact({
+    sameActorIpThrottleRate: readNumber(sameActorIp, 'rate') ?? readNumber(sameActorIp, 'value'),
+    distributedThrottleRate: readNumber(distributed, 'rate') ?? readNumber(distributed, 'value'),
+    sameActorIpLockRate:
+      readNumber(sameActorIpLock, 'rate') ?? readNumber(sameActorIpLock, 'value'),
+    distributedLockRate:
+      readNumber(distributedLock, 'rate') ?? readNumber(distributedLock, 'value'),
+  });
+}
+
+function readRecoveryMetrics(
+  metrics: Record<string, unknown>,
+  profile: string,
+): AuthPasswordCapacityRecoverySnapshot | undefined {
+  if (profile.toLowerCase() !== 'h5') {
+    return undefined;
+  }
+  const duration = metricValues(metrics['http_req_duration{phase:recovered}']);
+  const failed = metricValues(metrics['http_req_failed{phase:recovered}']);
+  const checks = metricValues(metrics['checks{phase:recovered}']);
+  if (!duration && !failed && !checks) {
+    return undefined;
+  }
+  return compact({
+    p95: readNumber(duration, 'p(95)'),
+    p99: readNumber(duration, 'p(99)'),
+    failedRate: readNumber(failed, 'rate') ?? readNumber(failed, 'value'),
+    checksRate: readNumber(checks, 'rate') ?? readNumber(checks, 'value'),
+  });
 }
 
 function operationsForProfile(profile: string): readonly CapacityOperation[] {

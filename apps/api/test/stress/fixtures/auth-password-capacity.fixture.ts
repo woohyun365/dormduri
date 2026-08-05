@@ -7,6 +7,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION } from '../../../src/config/auth.config.js';
 import { hashOpaqueToken } from '../../../src/auth/sessions/opaque-token.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { DEFAULT_DATABASE_URL } from '../../../src/config/database.config.js';
@@ -120,7 +121,7 @@ export function buildAuthPasswordCapacityArtifact(
     signup: Array.from({ length: signupCount }, (_, zeroBasedIndex) => {
       const index = zeroBasedIndex + 1;
       const padded = String(index).padStart(4, '0');
-      const email = `${marker}+capacity-signup-${padded}@kangwon.ac.kr`;
+      const email = capacitySignupEmail(marker, index);
       return {
         index,
         email,
@@ -258,7 +259,20 @@ export async function resetAuthPasswordCapacityFixture(
   providedPrisma?: PrismaClient,
 ): Promise<unknown> {
   assertStressFixtureApplyAllowed(env);
-  const marker = createStressFixtureConfigFromEnv(env).prefix;
+  const config = createStressFixtureConfigFromEnv(env);
+  const plan = buildStressFixturePlan(config);
+  const marker = plan.marker;
+  const persistenceSecret = requireEnvironmentValue(env, 'AUTH_PERSISTENCE_HMAC_SECRET');
+  const persistenceKeyVersion =
+    env.AUTH_PERSISTENCE_HMAC_KEY_VERSION?.trim() || DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION;
+  const signupCount = positiveInteger(env.STRESS_AUTH_CAPACITY_SIGNUP_COUNT, DEFAULT_SIGNUP_COUNT);
+  const securityEventEmailHashes = buildAuthPasswordCapacitySecurityEventHashes(
+    plan.actors,
+    marker,
+    persistenceSecret,
+    persistenceKeyVersion,
+    signupCount,
+  );
   const prisma = providedPrisma ?? createPrismaClient(env);
   const ids = legalDocumentIds(marker);
 
@@ -272,6 +286,9 @@ export async function resetAuthPasswordCapacityFixture(
     const deletedCodes = await prisma.verificationCode.deleteMany({
       where: { id: { startsWith: `${marker}-capacity-` } },
     });
+    const deletedSecurityEvents = await prisma.authSecurityEvent.deleteMany({
+      where: { emailHash: { in: securityEventEmailHashes } },
+    });
     const deletedLegalDocuments = await prisma.legalDocumentVersion.deleteMany({
       where: { id: { in: Object.values(ids) } },
     });
@@ -281,6 +298,7 @@ export async function resetAuthPasswordCapacityFixture(
       deletedUsers: deletedUsers.count,
       deletedSessions: deletedSessions.count,
       deletedCodes: deletedCodes.count,
+      deletedSecurityEvents: deletedSecurityEvents.count,
       deletedLegalDocuments: deletedLegalDocuments.count,
     };
   } finally {
@@ -288,6 +306,22 @@ export async function resetAuthPasswordCapacityFixture(
       await disconnectPrisma(prisma);
     }
   }
+}
+
+export function buildAuthPasswordCapacitySecurityEventHashes(
+  actors: readonly StressActorPlanRow[],
+  marker: string,
+  persistenceSecret: string,
+  persistenceKeyVersion: string = DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
+  signupCount = DEFAULT_SIGNUP_COUNT,
+): string[] {
+  const emails = [
+    ...actors.map((actor) => actor.email),
+    ...Array.from({ length: signupCount }, (_, index) => capacitySignupEmail(marker, index + 1)),
+  ];
+  return [...new Set(emails)].map((email) =>
+    hashAuthPersistenceDimension('subject', email, persistenceSecret, persistenceKeyVersion),
+  );
 }
 
 function createPrismaClient(env: NodeJS.ProcessEnv): PrismaClient {
@@ -384,6 +418,10 @@ function deterministicSecret(input: string): string {
 
 function capacityVerificationId(marker: string, kind: 'signup' | 'reset', index: number): string {
   return `${marker}-capacity-${kind}-${String(index).padStart(4, '0')}`;
+}
+
+function capacitySignupEmail(marker: string, index: number): string {
+  return `${marker}+capacity-signup-${String(index).padStart(4, '0')}@kangwon.ac.kr`;
 }
 
 function capacitySessionId(marker: string, index: number): string {

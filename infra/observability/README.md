@@ -99,7 +99,7 @@ Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Lo
 
 ## Release rehearsal checklist
 
-BE API/nginx compose와 observability compose를 함께 올려 release 전 연결성을 확인할 때는 `infra/observability/rehearsal-checklist.md`를 따른다. 이 checklist는 `/health/ready`, metrics bearer guard, Prometheus target, Alertmanager target, Slack smoke, Grafana/Loki readout, stress smoke 연결을 한 번에 확인하는 운영 점검 절차다.
+BE API/nginx compose와 observability compose를 함께 올려 연결성을 확인할 때는 `infra/observability/rehearsal-checklist.md`를 따른다. 이 checklist는 2CPU/4096MiB Docker engine preflight, resource override, `/health/ready`, metrics bearer guard, Prometheus target, Alertmanager target, Slack smoke, Grafana/Loki readout, stress 연결을 한 번에 확인하는 운영 점검 절차다.
 
 ## Stress release gate에서 보는 법
 
@@ -112,7 +112,8 @@ Stress window 동안 우선 확인할 항목은 다음과 같다.
 - Grafana `KNU API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup target별 batch 포화, retention backlog를 확인한다.
 - 같은 dashboard에서 login outcome, real/dummy password verify p95·in-flight, renewal outcome을 함께 확인한다.
 - Loki는 API가 Dockerized `api` service로 실행될 때 `{service="api", level="error"}`를 확인한다. Host process API는 Docker log source가 아니므로 Loki API log가 없을 수 있다.
-- 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다. 4GB instance는 API와 stack을 함께 띄우는 rehearsal에 더 안전하다.
+- 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다.
+- 4GB/2CPU local constrained rehearsal은 `docker-compose.observability.rehearsal.yml`을 추가 적용한다.
 
 ## Label / privacy policy
 
@@ -157,7 +158,8 @@ Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, run
 ## Resource guidance
 
 - 2GB 최소형: API 운영은 가능하지만 Grafana/Loki/Prometheus/Alloy 상시 동시 실행은 여유가 적다. 필요 시 stack을 local/별도 ops host에서만 실행한다.
-- 4GB 관측 포함형: API와 observability stack을 같은 host에서 rehearsal하기에 더 안전하다.
+- 4GB 관측 포함형: Docker engine을 2CPU/4096MiB로 제한하고 `docker-compose.observability.rehearsal.yml`의 container limit을 적용한다.
+- Auth password capacity 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 ## 정리
 

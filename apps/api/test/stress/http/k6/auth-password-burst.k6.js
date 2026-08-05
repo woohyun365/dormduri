@@ -1,12 +1,15 @@
 import http from 'k6/http';
 import { check, fail } from 'k6';
 import exec from 'k6/execution';
+import { Rate } from 'k6/metrics';
 import { assertStressTargetAllowed, buildParams } from './common.js';
 
 const scenario = 'auth-password-burst';
 const target = assertStressTargetAllowed();
 const profile = String(__ENV.STRESS_AUTH_CAPACITY_PROFILE || 'h1').toLowerCase();
 const artifact = loadCapacityArtifact();
+const authThrottleOutcome = new Rate('auth_throttle_outcome');
+const authAccountLockOutcome = new Rate('auth_account_lock_outcome');
 
 export const options = {
   scenarios: buildScenarios(profile),
@@ -19,6 +22,8 @@ export const options = {
     ],
     [`checks{scenario:${scenario}}`]: ['rate>0.99'],
     ...operationThresholds(profile),
+    ...h5RecoveryThresholds(profile),
+    ...h9AbuseProtectionThresholds(profile),
   },
 };
 
@@ -68,7 +73,8 @@ export function roommateReadTraffic() {
   const iteration = exec.scenario.iterationInTest;
   const entry = pickReusable(artifact.readTraffic, iteration, 'roommate_read');
   const operation = 'roommate_read';
-  const params = buildParams(tags(operation), [200]);
+  const requestTags = tags(operation);
+  const params = buildParams(requestTags, [200]);
   params.headers = {
     ...params.headers,
     Authorization: `Bearer ${entry.accessToken}`,
@@ -85,19 +91,27 @@ export function roommateReadTraffic() {
       'roommate read response is token-free': (result) =>
         responseOmitsSecrets(result, [entry.accessToken]),
     },
-    tags(operation),
+    requestTags,
   );
 }
 
 function runLogin(entry, expectedSuccess, requestIp, operation) {
+  const requestTags = tags(operation);
   const expectedStatuses = profile === 'h9' ? [200, 429] : [200];
   const response = postJson(
     '/auth/login',
     { email: entry.email, password: entry.password, rememberMe: false },
-    requestHeaders(requestIp, operation),
+    requestHeaders(requestIp, requestTags),
     expectedStatuses,
   );
   const body = safeJson(response);
+  const abuseScope = h9AbuseScope(exec.scenario.iterationInTest);
+  if (abuseScope) {
+    authThrottleOutcome.add(response.status === 429, { scenario, profile, scope: abuseScope });
+    if (response.status === 200) {
+      authAccountLockOutcome.add(body?.locked === true, { scenario, profile, scope: abuseScope });
+    }
+  }
   const expectedOutcome =
     profile === 'h9'
       ? response.status === 429 || (response.status === 200 && body?.success === false)
@@ -111,11 +125,12 @@ function runLogin(entry, expectedSuccess, requestIp, operation) {
       [`${operation} response is secret-free`]: (result) =>
         responseOmitsSecrets(result, [entry.password]),
     },
-    tags(operation),
+    requestTags,
   );
 }
 
 function runSignup(entry, requestIp) {
+  const requestTags = tags('signup');
   const response = postJson(
     '/auth/signup',
     {
@@ -128,7 +143,7 @@ function runSignup(entry, requestIp) {
       birthYear: 2002,
       legalAcceptances: artifact.legalAcceptances,
     },
-    requestHeaders(requestIp, 'signup', entry.verificationGrant),
+    requestHeaders(requestIp, requestTags, entry.verificationGrant),
     [201],
   );
   const body = safeJson(response);
@@ -142,15 +157,16 @@ function runSignup(entry, requestIp) {
       'signup response is secret-free': (result) =>
         responseOmitsSecrets(result, [entry.password, entry.verificationGrant]),
     },
-    tags('signup'),
+    requestTags,
   );
 }
 
 function runReset(entry, requestIp) {
+  const requestTags = tags('reset_password');
   const response = postJson(
     '/auth/reset-password',
     { newPassword: entry.newPassword },
-    requestHeaders(requestIp, 'reset_password', entry.verificationGrant),
+    requestHeaders(requestIp, requestTags, entry.verificationGrant),
     [201],
   );
   const body = safeJson(response);
@@ -163,15 +179,16 @@ function runReset(entry, requestIp) {
       'reset response is secret-free': (result) =>
         responseOmitsSecrets(result, [entry.newPassword, entry.verificationGrant]),
     },
-    tags('reset_password'),
+    requestTags,
   );
 }
 
 function runChange(entry, requestIp) {
+  const requestTags = tags('change_password');
   const response = postJson(
     '/auth/change-password',
     { currentPassword: entry.currentPassword, newPassword: entry.newPassword },
-    requestHeaders(requestIp, 'change_password', null, entry.accessToken),
+    requestHeaders(requestIp, requestTags, null, entry.accessToken),
     [200],
   );
   const body = safeJson(response);
@@ -185,7 +202,7 @@ function runChange(entry, requestIp) {
       'change response is secret-free': (result) =>
         responseOmitsSecrets(result, [entry.currentPassword, entry.newPassword, entry.accessToken]),
     },
-    tags('change_password'),
+    requestTags,
   );
 }
 
@@ -195,7 +212,7 @@ function postJson(path, body, headers, expectedStatuses) {
   return http.post(`${target.baseUrl}${path}`, JSON.stringify(body), params);
 }
 
-function requestHeaders(requestIp, operation, verificationGrant = null, accessToken = null) {
+function requestHeaders(requestIp, requestTags, verificationGrant = null, accessToken = null) {
   const values = { 'X-Forwarded-For': requestIp };
   if (verificationGrant) {
     values['X-Auth-Verification-Grant'] = verificationGrant;
@@ -203,11 +220,26 @@ function requestHeaders(requestIp, operation, verificationGrant = null, accessTo
   if (accessToken) {
     values.Authorization = `Bearer ${accessToken}`;
   }
-  return { values, tags: tags(operation) };
+  return { values, tags: requestTags };
 }
 
 function tags(operation) {
-  return { scenario, profile, operation };
+  const phase = h5WorkloadPhase();
+  return phase ? { scenario, profile, operation, phase } : { scenario, profile, operation };
+}
+
+function h5WorkloadPhase() {
+  if (profile !== 'h5') {
+    return null;
+  }
+  const elapsedMs = Date.now() - Number(exec.scenario.startTime);
+  if (elapsedMs < 30_000) {
+    return 'spike';
+  }
+  if (elapsedMs < 90_000) {
+    return 'recovery';
+  }
+  return 'recovered';
 }
 
 function selectOperation(selectedProfile, iteration) {
@@ -333,6 +365,36 @@ function operationThresholds(selectedProfile) {
   );
 }
 
+function h5RecoveryThresholds(selectedProfile) {
+  if (selectedProfile !== 'h5') {
+    return {};
+  }
+  return {
+    'http_req_duration{phase:recovered}': ['p(95)<1250', 'p(99)<2500'],
+    'http_req_failed{phase:recovered}': ['rate<0.01'],
+    'checks{phase:recovered}': ['rate>0.99'],
+  };
+}
+
+function h9AbuseProtectionThresholds(selectedProfile) {
+  if (selectedProfile !== 'h9') {
+    return {};
+  }
+  return {
+    'auth_throttle_outcome{scope:same_actor_ip}': ['rate>0.25'],
+    'auth_throttle_outcome{scope:distributed}': ['rate<0.01'],
+    'auth_account_lock_outcome{scope:same_actor_ip}': ['rate>0.5'],
+    'auth_account_lock_outcome{scope:distributed}': ['rate<0.01'],
+  };
+}
+
+function h9AbuseScope(iteration) {
+  if (profile !== 'h9') {
+    return null;
+  }
+  return iteration % 2 === 0 ? 'same_actor_ip' : 'distributed';
+}
+
 function constantArrivalRate(rate, duration, startTime, execName = 'authTraffic') {
   return {
     executor: 'constant-arrival-rate',
@@ -366,6 +428,12 @@ function pickReusable(entries, iteration, operation) {
 function pickLoginFailure(entries, iteration) {
   if (profile === 'h9' && iteration % 2 === 0) {
     return pickReusable(entries, 0, 'login_failure');
+  }
+  if (profile === 'h9') {
+    if (!Array.isArray(entries) || entries.length < 2) {
+      fail('H9 requires separate same-actor and distributed login failure fixtures.');
+    }
+    return entries[1 + (Math.floor(iteration / 2) % (entries.length - 1))];
   }
   return pickReusable(entries, iteration, 'login_failure');
 }

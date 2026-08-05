@@ -81,6 +81,7 @@ docs/06_trouble-shooting/*
 !docs/06_trouble-shooting/observability/
 docs/06_trouble-shooting/observability/*
 !docs/06_trouble-shooting/observability/slack-alert-runbook.md
+!docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md
 
 ## 프로젝트 관리 문서 (README.md 제외)
 CLAUDE.md

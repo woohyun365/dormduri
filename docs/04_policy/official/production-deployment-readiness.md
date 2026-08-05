@@ -54,6 +54,108 @@ Production release는 아래 조건을 만족해야 한다.
 - API/nginx Docker compose는 production-like local/staging smoke의 기준 실행 단위다.
 - 237 VU ramp evidence는 release 전 병목 판단 입력으로 사용하되, Redis/multi-node 도입 자체를 release blocker로 만들지 않는다.
 
+## 초기 production capacity baseline
+
+이 절의 수치는 실제 production resource가 생성되기 전 사용하는 **승인된 planning baseline**이다. 초기 배포는 4GB/2vCPU App host + RDS를 기준으로 준비하고, 릴리즈 후에는 같은 항목을 실제 instance type, container limit, CloudWatch 및 app metric 실측값으로 교체한다.
+
+### Compute / database 권장 기준
+
+| 구분          | 초기 권장값                                                         | 적용 조건                                                                                              |
+| ------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| App host      | 4GB RAM / 2vCPU 또는 동등 instance                                  | nginx, Web, BackOffice, API와 self-hosted observability를 같은 host의 분리 container로 운영하는 기본안 |
+| API container | CPU 1.5, memory 1536MiB limit, 512MiB reservation을 시작점으로 사용 | Argon2id와 주 API traffic이 집중되는 container. 실제 host에서 production-like gate로 재검증            |
+| Database      | RDS PostgreSQL Single-AZ `db.t4g.micro` 또는 동등 starter           | gp3 20~30GB, automated backup 7일 이상, private access                                                 |
+
+2GB App host 축소안은 초기 production 구성에서 제외한다. observability를 외부화하거나 축소하고 별도 production-like evidence가 생긴 경우에만 새로운 capacity decision으로 재검토한다.
+
+### Container resource 시작값
+
+다음 값은 4GB host에서 사용하는 첫 배포용 budget이다. Memory limit 합계는 3136MiB로 두어 OS, Docker daemon, filesystem cache와 일시적 process 증가를 위해 약 960MiB를 남긴다.
+
+| Container    | CPU upper bound | Memory reservation | Memory limit | 책임 / 운영 조건                                                                            |
+| ------------ | --------------: | -----------------: | -----------: | ------------------------------------------------------------------------------------------- |
+| nginx        |             0.2 |              32MiB |        96MiB | public ingress, TLS, allowlist, upstream routing                                            |
+| Web          |             0.5 |             160MiB |       320MiB | 사용자 Next.js runtime                                                                      |
+| BackOffice   |            0.35 |             128MiB |       256MiB | 운영자 Next.js runtime. public product auth와 분리된 admin guard + ingress restriction 필수 |
+| API          |             1.5 |             512MiB |      1536MiB | NestJS API, auth hash, domain transaction                                                   |
+| Prometheus   |            0.35 |             128MiB |       256MiB | bounded retention과 scrape interval 적용                                                    |
+| Loki         |            0.35 |             160MiB |       320MiB | bounded local retention, payload/PII 미수집                                                 |
+| Alloy        |            0.15 |              48MiB |        96MiB | log/metric collection                                                                       |
+| Alertmanager |             0.1 |              48MiB |        96MiB | bounded alert routing                                                                       |
+| Grafana      |             0.2 |              96MiB |       160MiB | internal ingress와 operator auth 적용                                                       |
+
+- CPU 값은 동시에 보장되는 reservation이 아니라 container별 burst upper bound다. 합계가 host 2vCPU를 초과하므로 host CPU와 latency gate가 최종 authority다.
+- Lightsail 4GB/2vCPU 일반 Linux bundle을 reference instance로 사용할 경우 AWS가 공개한 sustainable CPU baseline은 vCPU당 20%다. 짧은 시즌 피크는 burst credit을 사용할 수 있지만, hash나 observability 부하가 지속되어 credit을 소진하는 구성은 허용하지 않는다.
+- BackOffice, Grafana, Prometheus, Loki, Alertmanager는 public ingress에 직접 노출하지 않는다. BackOffice는 별도 container라는 사실만으로 보호되지 않으며 admin capability/guard와 ingress restriction을 함께 적용한다.
+- migration, seed, restore drill 같은 one-shot process는 상시 container budget에 포함하지 않는다. 실행 중에는 API rollout을 직렬화하고 host headroom을 별도로 확인한다.
+
+### 월 비용 planning baseline
+
+2026-07-27 공개 AWS 가격을 기준으로 한 서울 리전 초기 추정치다. 실제 결제액은 세금, 환율, CloudWatch 사용량, 초과 backup/snapshot, data transfer, 도메인과 CPU credit에 따라 달라지므로 AWS Pricing Calculator 결과를 release evidence로 다시 남긴다.
+
+| 항목                                    | 계산                                         |  예상 월 비용 |
+| --------------------------------------- | -------------------------------------------- | ------------: |
+| Lightsail Linux 4GB/2vCPU/public IPv4   | fixed bundle                                 |        $24.00 |
+| RDS PostgreSQL `db.t4g.micro` Single-AZ | $0.025/hour × 730 hours                      |        $18.25 |
+| RDS gp3 20~30GB                         | $0.131/GB-month                              |   $2.62~$3.93 |
+| 기본 compute + database 합계            | backup/data/monitoring 초과 비용 제외        | $44.87~$46.18 |
+| 운영 예비비 포함 planning budget        | CloudWatch·초과 backup·transfer·세금 전 여유 |       $50~$65 |
+
+- 내부 예산 환산은 환율을 고정 사실로 보지 않고 `1 USD = 1,400 KRW` planning rate를 사용한다. 이에 따른 월 예산은 약 7만~9.1만원, 연 예산은 약 84만~109.2만원이다.
+- 실행 중인 RDS의 provisioned storage와 같은 크기까지의 regional backup storage는 AWS 정책상 추가 비용이 없지만, manual snapshot/automated backup 합계가 이 범위를 넘으면 과금된다.
+- `db.t4g.micro`는 burstable DB이며 24시간 rolling baseline을 넘는 CPU credit이 추가 과금될 수 있다. DB CPU/credit, connection, free memory를 release 후 추적한다.
+- 가격 근거:
+  - Lightsail bundle: https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-bundles.html
+  - Lightsail CPU baseline: https://docs.aws.amazon.com/lightsail/latest/userguide/baseline-cpu-performance.html
+  - RDS PostgreSQL pricing: https://aws.amazon.com/rds/postgresql/pricing/
+  - AWS regional price list: https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/ap-northeast-2/index.json
+
+근거 우선순위:
+
+1. 이 official policy가 현재 production readiness의 source of truth다.
+2. `.omx/plans/finished/api-production-deployment-readiness-plan.md`는 4GB/2vCPU 관측 포함 운영형과 2GB/2vCPU 관측 외부화 대안을 비교한 설계 근거다.
+3. `docs/03_planning/sprint-6/176-fe-be-architecture.md`의 1~2GB/1~2vCPU 기준은 2026-05-30 시점의 초기 비용 가정이며, observability stack이 완료된 현재 기준에서는 축소안의 역사적 근거로만 사용한다.
+4. `infra/deploy/docker-compose.api.override.example.yml`과 `infra/observability/docker-compose.observability.rehearsal.yml`은 container resource 시작값의 실행 가능한 source이며 production instance 사양 자체가 아니다.
+5. `.omx/plans/finished/api-dockerized-stress-evidence-plan.md`의 local Docker 결과는 script와 경로 생존성의 근거이며 production capacity 증명이 아니다.
+
+`docs/00_archive/04_reference/knu-dormitory-info.md`는 기숙사 정보 reference이며 서버 용량 결정 근거로 사용하지 않는다.
+
+### Argon2id memory cost capacity 판단
+
+2026-07-27 local development machine에서 `@node-rs/argon2 ^2.0.2`, Argon2id `timeCost=2`, `parallelism=1`, `outputLen=32`로 수행한 상대 benchmark는 다음과 같다.
+
+| memoryCost | 동시 요청 | 경과 시간 | process RSS 증가 관측 |
+| ---------- | --------: | --------: | --------------------: |
+| 8MiB       |         1 |    4.99ms |               8.61MiB |
+| 8MiB       |         5 |   11.69ms |              40.92MiB |
+| 19MiB      |         1 |   12.61ms |              19.64MiB |
+| 19MiB      |         5 |   31.81ms |              95.91MiB |
+| 19MiB      |        10 |   51.30ms |             153.14MiB |
+| 19MiB      |        20 |   88.36ms |             153.19MiB |
+| 19MiB      |       100 |  437.76ms |             153.77MiB |
+
+100개 동시 실행의 completion p50/p95/p99는 각각 228.30ms/417.43ms/433.28ms였다. 이 값은 제품 사용량 모델이 아니라 native worker queue와 RSS 상한을 확인한 local microbenchmark다. Production CPU 성능이나 endpoint latency를 보장하지 않으며, 실제 release gate는 아래 cohort 기반 arrival-rate workload를 사용한다.
+
+기존 local Docker stress에서 API는 약 283.8MiB를 사용했다. 서로 다른 실행 환경의 두 수치를 단순 합산한 약 437MiB는 정확한 production peak가 아니라 보수적 preflight 입력이다. 이 입력은 API 1536MiB container limit과 4GB host 기본안에서 Argon2id 19MiB를 검증 가능한 후보로 판단하기에는 충분하지만, 다음 release gate를 대체하지 않는다.
+
+- 신규 hash baseline인 19MiB에서 signup/login/reset/change-password latency를 검증한다. 릴리즈된 8MiB 사용자 데이터가 없으므로 과거 hash 호환·migration workload는 만들지 않는다.
+- 정상 로그인과 실패 로그인 모두 저장된 encoded hash의 salt/parameter로 Argon 검증 연산을 수행한다. Signup에만 발생하는 부하로 계산하지 않는다.
+- 릴리즈 전 production 사용자가 없으므로 실제 auth traffic 통계 대신 237명 최대 관측 cohort와 946명 4배 확장 cohort를 capacity envelope로 사용한다.
+- 946명 중 50%가 5분 안에 cold login하면 평균 약 1.6 RPS다. 짧은 집중을 위한 4배 burst factor를 적용해 1/2/5/10 RPS 단계와 20 RPS 30초 safety spike를 검증한다.
+- 제품 mix는 login success 80%, login failure 15%, signup 3%, password reset 1.5%, password change 0.5% planning assumption으로 시작하고, 릴리즈 후 실측 비율로 교체한다.
+- auth hash burst 중 container RSS, host CPU/burst credit, event loop lag, request p95/p99와 429/5xx를 확인한다.
+- API RSS 70%, host memory 80%, sustained CPU 70% 또는 auth p95 목표 초과가 확인되면 rollout을 중단하고 concurrency/rate limit 또는 instance scale-up을 먼저 적용한다.
+- 2GB host에서 observability를 함께 운영하면서 19MiB를 적용하는 조합은 기본안으로 허용하지 않는다.
+
+### Local constrained rehearsal 해석
+
+- Docker engine 전체가 2 CPU / 4096MiB인지 preflight로 확인하고, 더 큰 host는 4GB/2CPU evidence로 기록하지 않는다.
+- API/nginx와 관측 stack은 위 resource 시작값을 compose override로 적용한다.
+- 현재 local compose에는 Web/BackOffice가 없고 local PostgreSQL이 같은 engine을 사용한다. 따라서 이 결과는 Auth/API와 관측 stack의 제한 환경 동작을 확인하지만 전체 app host 또는 managed PostgreSQL 성능을 증명하지 않는다.
+- Host에서 실행하는 H0 raw hash micro는 Docker engine 제한을 받지 않으므로 진단값으로만 분류하고, local constrained 판정은 container endpoint H1~H9를 사용한다.
+- 실행 및 report 절차는 `docs/06_trouble-shooting/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.
+- 외부 app host와 managed PostgreSQL evidence는 별도 계획에서 환경, 권한, load generator, 관측 source, GO/NO-GO 기준을 새로 승인한 뒤 수집한다.
+
 ## Config / Secret / KMS 정책
 
 - Production env key는 `apps/api/src/config/env-keys` registry에서 owner/category/required/secret/default-forbidden 여부를 추적한다.
@@ -179,15 +281,18 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                   | 관련 이슈                       |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다         | production deployment readiness |
-| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                              | production deployment readiness |
-| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다     | production deployment readiness |
-| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다     | production deployment readiness |
-| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다    | production deployment readiness |
-| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                            | production deployment readiness |
-| 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                           | production deployment readiness |
-| 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다 | production deployment readiness |
-| 2026-06-17 | RDS setup checklist, backup/restore drill runbook, restore drill smoke helper, manual restore drill workflow를 release gate에 반영했다                      | production deployment readiness |
-| 2026-06-17 | Production release checklist와 incident rollback runbook을 최종 release GO/NO-GO gate로 연결했다                                                            | production deployment readiness |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                | 관련 이슈                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다                                                                                                                      | production deployment readiness |
+| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                                                                                                                                           | production deployment readiness |
+| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다                                                                                                                  | production deployment readiness |
+| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다                                                                                                                  | production deployment readiness |
+| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다                                                                                                                 | production deployment readiness |
+| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                                                                                                                                         | production deployment readiness |
+| 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                                                                                                                                        | production deployment readiness |
+| 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다                                                                                                              | production deployment readiness |
+| 2026-06-17 | RDS setup checklist, backup/restore drill runbook, restore drill smoke helper, manual restore drill workflow를 release gate에 반영했다                                                                                                                                   | production deployment readiness |
+| 2026-06-17 | Production release checklist와 incident rollback runbook을 최종 release GO/NO-GO gate로 연결했다                                                                                                                                                                         | production deployment readiness |
+| 2026-07-27 | 4GB/2vCPU App host + RDS를 초기 planning baseline으로 확정하고, Web/BackOffice/API/observability container별 resource 시작값과 AWS 공개 가격 기반 월 예산을 정리했다. Argon2id 19MiB queue microbenchmark와 237/946 cohort arrival-rate migration stress gate를 추가했다 | production capacity baseline    |
+| 2026-08-01 | SES provider acceptance와 최종 delivery를 분리하고 Configuration Set event publishing, auth mail outbox metric scrape, reset abuse·mail failure·outbox lag alert rule을 release smoke에 추가했다                                                                         | auth security operations        |
+| 2026-08-05 | 4GB/2CPU local constrained rehearsal의 engine preflight, API/nginx·관측 compose resource override, Auth capacity 실행·해석 경계를 문서화했다                                                                                                                             | auth capacity rehearsal         |
