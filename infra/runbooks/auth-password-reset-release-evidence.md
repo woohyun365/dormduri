@@ -12,9 +12,9 @@ pnpm --dir apps/api exec vitest run \
 pnpm --dir apps/api exec vitest run \
   --config ./vitest.config.integration.ts \
   --maxWorkers=1 \
-  test/integration/auth/auth-verification.store.integration.spec.ts \
-  test/integration/auth/auth-users-transaction.integration.spec.ts \
-  test/integration/auth/auth.service.integration.spec.ts
+  test/integration/auth/verification/verification-lifecycle.integration.spec.ts \
+  test/integration/auth/credentials/password-transaction.integration.spec.ts \
+  test/integration/auth/sessions/auth-session.integration.spec.ts
 ```
 
 첫 E2E는 disposable PostgreSQL schema에 baseline migration을 적용한 뒤 다음 HTTP 흐름을 검증한다.

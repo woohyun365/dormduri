@@ -39,6 +39,26 @@ function relativeApiPath(path: string) {
   return relative(apiRoot, path).split(sep).join('/');
 }
 
+function runnerLanes(path: string): string[] {
+  const apiPath = relativeApiPath(path);
+  const lanes: string[] = [];
+
+  if (/^src\/.*\.spec\.ts$/.test(apiPath) || /^test\/operations\/.*\.spec\.ts$/.test(apiPath)) {
+    lanes.push('unit');
+  }
+  if (/^test\/integration\/.*\.integration\.spec\.ts$/.test(apiPath)) {
+    lanes.push('integration');
+  }
+  if (/^test\/e2e\/.*\.e2e-spec\.ts$/.test(apiPath)) {
+    lanes.push('e2e');
+  }
+  if (/^test\/stress\/.*\.spec\.ts$/.test(apiPath)) {
+    lanes.push('stress');
+  }
+
+  return lanes;
+}
+
 function scriptValue(scripts: Record<string, unknown>, key: string) {
   const value = scripts[key];
   expect(typeof value).toBe('string');
@@ -175,12 +195,14 @@ describe('API test runner boundary', () => {
     const unitConfigPath = join(apiRoot, 'vitest.config.unit.ts');
     const integrationConfigPath = join(apiRoot, 'vitest.config.integration.ts');
     const e2eConfigPath = join(apiRoot, 'vitest.config.e2e.ts');
+    const stressConfigPath = join(apiRoot, 'vitest.config.stress.ts');
 
     for (const configPath of [
       baseConfigPath,
       unitConfigPath,
       integrationConfigPath,
       e2eConfigPath,
+      stressConfigPath,
     ]) {
       expect(existsSync(configPath)).toBe(true);
     }
@@ -189,18 +211,33 @@ describe('API test runner boundary', () => {
     const unitConfig = readSource(unitConfigPath);
     const integrationConfig = readSource(integrationConfigPath);
     const e2eConfig = readSource(e2eConfigPath);
+    const stressConfig = readSource(stressConfigPath);
 
     expect(baseConfig).toContain("from 'vitest/config'");
     expect(baseConfig).toContain('globals: false');
     expect(baseConfig).toContain("provider: 'v8'");
     expect(unitConfig).toContain("pool: 'forks'");
-    expect(unitConfig).toContain("include: ['src/**/*.spec.ts', 'test/release/**/*.spec.ts']");
+    expect(unitConfig).toContain("include: ['src/**/*.spec.ts', 'test/operations/**/*.spec.ts']");
     expect(integrationConfig).toContain("pool: 'forks'");
     expect(integrationConfig).toContain('fileParallelism: false');
     expect(integrationConfig).toContain("include: ['test/integration/**/*.integration.spec.ts']");
     expect(e2eConfig).toContain("pool: 'forks'");
     expect(e2eConfig).toContain('fileParallelism: false');
-    expect(e2eConfig).toContain('passWithNoTests: true');
+    expect(e2eConfig).toContain("include: ['test/e2e/**/*.e2e-spec.ts']");
+    expect(e2eConfig).not.toContain('passWithNoTests');
+    expect(stressConfig).toContain("include: ['test/stress/**/*.spec.ts']");
+  });
+
+  it('collects every test spec in exactly one semantic runner lane', () => {
+    const testSpecs = walkFiles(apiTestRoot)
+      .filter((path) => path.endsWith('.spec.ts') || path.endsWith('.e2e-spec.ts'))
+      .map((path) => ({ path: relativeApiPath(path), lanes: runnerLanes(path) }));
+
+    expect(testSpecs.filter(({ lanes }) => lanes.length !== 1)).toEqual([]);
+    expect(testSpecs.some(({ lanes }) => lanes[0] === 'integration')).toBe(true);
+    expect(testSpecs.some(({ lanes }) => lanes[0] === 'e2e')).toBe(true);
+    expect(testSpecs.some(({ lanes }) => lanes[0] === 'stress')).toBe(true);
+    expect(testSpecs.some(({ lanes }) => lanes[0] === 'unit')).toBe(true);
   });
 
   it('keeps API ESLint generated artifacts ignored and typed assertion cleanup explicit', () => {

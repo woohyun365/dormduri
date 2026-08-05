@@ -68,7 +68,7 @@ jobs:
         run: pnpm check:api
 
       - name: API tests
-        run: pnpm test:api
+        run: pnpm test:api:ci
 
       - name: API production build
         run: pnpm build:api

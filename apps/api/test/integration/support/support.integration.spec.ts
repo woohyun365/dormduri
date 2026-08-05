@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
 import { SupportService } from '../../../src/support/application/support.service.js';
-import {
-  seedBaseSeasonFixtures,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
 interface SupportTicketResponseBody {

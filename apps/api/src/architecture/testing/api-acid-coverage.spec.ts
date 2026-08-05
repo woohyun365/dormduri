@@ -32,7 +32,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'stale-state-recheck',
     coverageRefs: [
       'src/auth/credentials/change-password.command.spec.ts',
-      'test/integration/auth/auth.service.integration.spec.ts',
+      'test/integration/auth/credentials/password-transaction.integration.spec.ts',
     ],
     rationale: '비밀번호 변경은 현재 credential 상태를 transaction 내부에서 재확인해야 한다.',
   }),
@@ -42,7 +42,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'transaction-atomicity',
     coverageRefs: [
       'src/auth/credentials/reset-password.command.spec.ts',
-      'test/integration/auth/auth.service.integration.spec.ts',
+      'test/integration/auth/credentials/password-transaction.integration.spec.ts',
     ],
     rationale: 'reset token consume과 credential update가 부분 적용 없이 함께 완료되어야 한다.',
   }),
@@ -52,7 +52,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'transaction-atomicity',
     coverageRefs: [
       'src/auth/registration/signup.command.spec.ts',
-      'test/integration/auth/auth.service.integration.spec.ts',
+      'test/integration/auth/registration/signup-transaction.integration.spec.ts',
     ],
     rationale: 'signup user/profile 초기 row는 동일 transaction에서 생성되어야 한다.',
   }),
@@ -62,7 +62,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'wrapper-contract',
     coverageRefs: [
       'src/auth/sessions/auth-session.service.spec.ts',
-      'test/integration/auth/auth.service.integration.spec.ts',
+      'test/integration/auth/sessions/auth-session.integration.spec.ts',
     ],
     rationale:
       'session repository는 Prisma transaction wrapper를 session command에 전달하는 경계다.',
@@ -73,7 +73,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'concurrency-race',
     coverageRefs: [
       'src/auth/sessions/auth-session.service.spec.ts',
-      'test/integration/auth/auth.service.integration.spec.ts',
+      'test/integration/auth/sessions/auth-session.integration.spec.ts',
     ],
     rationale:
       'session renewal rotation/reuse detection은 동시 renewal이 deterministic하게 닫혀야 한다.',
@@ -84,7 +84,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'concurrency-race',
     coverageRefs: [
       'src/auth/verification/challenge/auth-verification-challenge.repository.spec.ts',
-      'test/integration/auth/auth-verification-lifecycle.integration.spec.ts',
+      'test/integration/auth/verification/verification-lifecycle.integration.spec.ts',
     ],
     rationale:
       'verification challenge의 verified+grant issue와 attempt consume은 repository transaction에서 동시 race를 닫는다.',
@@ -93,7 +93,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/auth/verification/request/auth-verification-request.repository.ts',
     owner: 'auth/verification/request',
     coverageClass: 'concurrency-race',
-    coverageRefs: ['test/integration/auth/auth-verification-lifecycle.integration.spec.ts'],
+    coverageRefs: ['test/integration/auth/verification/verification-lifecycle.integration.spec.ts'],
     rationale:
       'verification request는 purpose별 advisory lock 안에서 rate limit 확인, request log, security event, code와 mail outbox append를 원자적으로 완료한다.',
   }),
@@ -103,7 +103,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'concurrency-race',
     coverageRefs: [
       'src/auth/mail/auth-mail-outbox.repository.spec.ts',
-      'test/integration/auth/auth-verification-lifecycle.integration.spec.ts',
+      'test/integration/auth/verification/verification-lifecycle.integration.spec.ts',
     ],
     rationale:
       'mail outbox claim과 delivery terminal transition은 worker race에서도 outbox와 verification code 상태를 함께 일관되게 닫아야 한다.',
@@ -114,7 +114,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'wrapper-contract',
     coverageRefs: [
       'src/chat/application/chat.service.spec.ts',
-      'test/integration/chat/chat.integration.spec.ts',
+      'test/integration/chat/messages.integration.spec.ts',
     ],
     rationale: 'ChatService는 command dependency에 transaction wrapper를 주입하는 facade 경계다.',
   }),
@@ -134,7 +134,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'stale-state-recheck',
     coverageRefs: [
       'src/chat/commands/leave-thread.command.spec.ts',
-      'test/integration/chat/chat.integration.spec.ts',
+      'test/integration/chat/lifecycle.integration.spec.ts',
     ],
     rationale: 'thread leave는 권한과 thread 상태를 mutation 직전에 다시 확인해야 한다.',
   }),
@@ -144,7 +144,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'side-effect-rollback',
     coverageRefs: [
       'src/chat/commands/send-message.command.spec.ts',
-      'test/integration/chat/chat.integration.spec.ts',
+      'test/integration/chat/messages.integration.spec.ts',
     ],
     rationale:
       'message insert와 realtime/outbox side effect가 ghost row 없이 함께 처리되어야 한다.',
@@ -155,7 +155,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'stale-state-recheck',
     coverageRefs: [
       'src/chat/commands/update-read-marker.command.spec.ts',
-      'test/integration/chat/chat.integration.spec.ts',
+      'test/integration/chat/read-markers.integration.spec.ts',
     ],
     rationale:
       'read marker update는 thread membership과 message visibility를 transaction 경계에서 확인한다.',
@@ -174,7 +174,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/chat/retention/thread-retention-archive.handler.ts',
     owner: 'chat/retention',
     coverageClass: 'retention-archive',
-    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
+    coverageRefs: ['test/integration/retention/thread-retention.integration.spec.ts'],
     rationale:
       'thread retention archive는 retained vault write와 source redaction을 같은 archive transaction에 묶는다.',
   }),
@@ -227,7 +227,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'retention-archive',
     coverageRefs: [
       'src/matches/history/application/match-history-materialization.service.spec.ts',
-      'test/integration/retention/retention.integration.spec.ts',
+      'test/integration/retention/archive-jobs.integration.spec.ts',
     ],
     rationale:
       'match history retention archive는 retained vault write와 redaction을 atomic하게 보존한다.',
@@ -322,7 +322,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'retention-archive',
     coverageRefs: [
       'src/retention/review-jobs/retention-review-job-runner.service.spec.ts',
-      'test/integration/retention/retention.integration.spec.ts',
+      'test/integration/retention/review-jobs.integration.spec.ts',
     ],
     rationale:
       'retention review job은 claimed work item별 retained body review를 transaction 단위로 처리한다.',
@@ -333,7 +333,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'side-effect-rollback',
     coverageRefs: [
       'src/season-participants/deregistration/deregister-season-participant.command.spec.ts',
-      'test/integration/season-participants/season-registration.integration.spec.ts',
+      'test/integration/season-participants/registration.integration.spec.ts',
     ],
     rationale:
       'deregistration은 participant close와 match/chat side effects를 ghost row 없이 처리해야 한다.',
@@ -344,7 +344,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'stale-state-recheck',
     coverageRefs: [
       'src/season-participants/dormitory-selection/dormitory-selection.use-case.spec.ts',
-      'test/integration/season-participants/season-registration.integration.spec.ts',
+      'test/integration/season-participants/dormitory-selection.integration.spec.ts',
     ],
     rationale:
       'dormitory selection update는 current participant 상태를 transaction 내부에서 fail-closed로 확인한다.',
@@ -355,7 +355,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'concurrency-race',
     coverageRefs: [
       'src/season-participants/lifecycle/backfill-current-season-participants.command.spec.ts',
-      'test/integration/season-participants/season-registration.integration.spec.ts',
+      'test/integration/season-participants/registration.integration.spec.ts',
     ],
     rationale:
       'current season participant backfill은 중복 container 생성 없이 current participation을 복구한다.',
@@ -366,7 +366,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'stale-state-recheck',
     coverageRefs: [
       'src/season-participants/profile-draft/upsert-season-profile-draft.command.spec.ts',
-      'test/integration/season-participants/season-registration.integration.spec.ts',
+      'test/integration/season-participants/profile-draft.integration.spec.ts',
     ],
     rationale:
       'profile draft upsert는 participant eligibility와 draft completeness를 mutation 직전에 확인한다.',
@@ -377,7 +377,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     coverageClass: 'concurrency-race',
     coverageRefs: [
       'src/season-participants/registration/finalize-season-registration.command.spec.ts',
-      'test/integration/season-participants/season-registration.integration.spec.ts',
+      'test/integration/season-participants/concurrency.integration.spec.ts',
     ],
     rationale:
       'registration finalize는 동일 user/season 중복 등록과 readiness race를 Serializable transaction으로 닫는다.',
@@ -386,7 +386,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/season-participants/retention/season-profile-history-archive.handler.ts',
     owner: 'season-participants/retention',
     coverageClass: 'retention-archive',
-    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
+    coverageRefs: ['test/integration/retention/archive-jobs.integration.spec.ts'],
     rationale:
       'season profile history archive는 source history redaction과 retained vault payload를 atomic하게 묶는다.',
   }),
@@ -513,7 +513,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/users/identity/retention/academic-identity-audit-archive.handler.ts',
     owner: 'users/identity-retention',
     coverageClass: 'retention-archive',
-    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
+    coverageRefs: ['test/integration/retention/archive-jobs.integration.spec.ts'],
     rationale:
       'academic identity audit archive는 audit rows redaction과 retained vault write를 atomic하게 묶는다.',
   }),
@@ -521,7 +521,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/users/identity/retention/nickname-audit-archive.handler.ts',
     owner: 'users/identity-retention',
     coverageClass: 'retention-archive',
-    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
+    coverageRefs: ['test/integration/retention/archive-jobs.integration.spec.ts'],
     rationale:
       'nickname audit archive는 audit rows redaction과 retained vault write를 atomic하게 묶는다.',
   }),

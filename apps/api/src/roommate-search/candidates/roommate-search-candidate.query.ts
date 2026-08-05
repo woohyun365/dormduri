@@ -11,8 +11,10 @@ import {
   toStoredWakeTime,
 } from '../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
-import { isParticipantRegistered } from '../../season-participants/policies/index.js';
-import { buildCompleteSeasonParticipantProfileWhere } from '../../season-participants/policies/registration-complete-participant.prisma-policy.js';
+import {
+  buildCompleteSeasonParticipantProfileWhere,
+  isParticipantRegistered,
+} from '../../season-participants/policies/index.js';
 
 export interface RoommateSearchCandidateQueryDeps {
   prisma: PrismaService;

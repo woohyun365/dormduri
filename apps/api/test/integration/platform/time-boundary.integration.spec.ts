@@ -9,11 +9,9 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
-import {
-  authContext,
-  seedActiveMatchFixture,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 describe('KST boundary + DB now integration', () => {
   let prisma: PrismaService;

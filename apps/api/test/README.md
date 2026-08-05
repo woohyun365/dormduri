@@ -1,53 +1,38 @@
-# apps/api test runner guide
+# API test runner guide
 
-이 문서는 `apps/api` 테스트 러너의 source of truth다. API 테스트는 **Vitest + SuperTest** 조합을 사용한다. SuperTest는 HTTP request harness이고, Vitest는 test runner/assertion/mocking surface다.
-
-## API tests use Vitest + SuperTest
-
-- Vitest: test runner, assertion, mocking API의 source of truth.
-- SuperTest: Nest HTTP integration/e2e에서 request harness 역할만 맡는다.
+`apps/api`의 테스트 runner source of truth다. Unit은 production source와 colocate하고, 별도 환경이 필요한 검증만 `test/`에 둔다.
 
 ## Command matrix
 
-| 목적                        | 명령                                                                                                     | 비고                                                                                                                                   |
-| --------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| API unit 전체               | `pnpm api:test`                                                                                          | repo root alias. 내부적으로 `apps/api` Vitest unit config를 실행한다.                                                                  |
-| API unit 직접 실행          | `pnpm --dir apps/api test`                                                                               | `vitest.config.unit.ts`, `--maxWorkers=50%`.                                                                                           |
-| API integration 전체        | `pnpm --dir apps/api test:integration`                                                                   | `vitest.config.integration.ts`, DB sandbox 안정성을 위해 `--maxWorkers=1`.                                                             |
-| API e2e 전체                | `pnpm --dir apps/api test:e2e`                                                                           | `vitest.config.e2e.ts`, e2e spec이 없어도 green이 되도록 `passWithNoTests`를 유지한다.                                                 |
-| API coverage                | `pnpm --dir apps/api test:cov`                                                                           | Vitest V8 coverage provider 사용.                                                                                                      |
-| Architecture guard targeted | `pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture` | 구조/경계 회귀를 빠르게 확인할 때 사용한다.                                                                                            |
-| TypeScript check            | `pnpm api:typecheck`                                                                                     | source TypeScript typecheck. Vitest config 직접 typecheck가 필요하면 별도 `tsc --ignoreConfig ... vitest.config.*.ts` 명령을 사용한다. |
+| Lane              | 명령                                   | 수집 범위 / 책임                                                             |
+| ----------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
+| Unit + operations | `pnpm --dir apps/api test`             | `src/**/*.spec.ts`, `test/operations/**/*.spec.ts`                           |
+| Integration       | `pnpm --dir apps/api test:integration` | disposable PostgreSQL을 사용하는 `test/integration/**/*.integration.spec.ts` |
+| E2E               | `pnpm --dir apps/api test:e2e`         | 실제 HTTP 경계의 `test/e2e/**/*.e2e-spec.ts`                                 |
+| Stress harness    | `pnpm --dir apps/api test:stress`      | K6/Artillery/Docker 실행기가 아닌 parser·fixture·redaction·static contract   |
+| CI aggregate      | `pnpm test:api:ci`                     | 위 네 lane을 순차 실행                                                       |
+| Coverage          | `pnpm --dir apps/api test:cov`         | unit V8 coverage                                                             |
+| Product typecheck | `pnpm --dir apps/api typecheck`        | production source                                                            |
+| Test typecheck    | `pnpm --dir apps/api typecheck:test`   | test support와 별도 runner source                                            |
+
+K6, Artillery, Docker load는 일반 CI aggregate에 포함하지 않는다. 승인된 로컬 rehearsal 또는 운영 evidence 수집에서 `stress:*` 명령을 별도로 실행한다.
 
 ## Authoring rules
 
-- 새 API spec은 `vitest`에서 필요한 API를 명시 import한다.
+- Vitest API는 `vitest`에서 명시적으로 import한다.
+- Integration/E2E는 `pool: 'forks'`, `fileParallelism: false`, `--maxWorkers=1`을 유지한다.
+- `test/operations`는 외부 provider/release smoke의 bounded contract만 검증한다. 실제 side effect 실행은 명시적 script와 env guard를 사용한다.
+- Stress raw artifact는 `test/stress/reports/.tmp-*`에 mode `0600`으로 만들고 종료 시 제거한다. parser와 renderer source는 `test/stress/evidence`가 소유한다.
+- `jest` runner/dependency를 재도입하지 않는다.
 
-  ```ts
-  import { beforeEach, describe, expect, it, vi } from 'vitest';
-  ```
+## Runner owner
 
-- mock은 `vi.fn()`, `vi.spyOn()`, `vi.mock()`, `vi.useFakeTimers()`를 사용한다.
-- `jest` global, `jest.Mock*` type, `@jest/globals`, Jest config file, Jest runner dependency를 재도입하지 않는다.
-- HTTP integration/e2e에서는 SuperTest default import를 유지한다.
+- 공통 transform: `vitest.config.base.ts`
+- lane config: `vitest.config.{unit,integration,e2e,stress}.ts`
+- semantic collection guard: `src/architecture/testing/api-test-runner-boundary.spec.ts`
+- Integration guide: `test/integration/README.md`
+- Stress guide: `test/stress/README.md`
 
-  ```ts
-  import request from 'supertest';
-  ```
+## Auth release evidence
 
-- Integration/e2e는 DB schema/env mutation이 있으므로 serial-safe config를 유지한다: `pool: 'forks'`, `fileParallelism: false`, CLI `--maxWorkers=1`.
-- Request fixture의 user-agent 문자열처럼 제품/테스트 데이터에 포함된 단순 문자열 `jest`는 runner API가 아니므로 금지 대상이 아니다.
-- `test:cov`가 생성하는 `apps/api/coverage/`는 generated artifact다. ESLint는 이 디렉터리를 lint하지 않고, coverage 품질 정책은 별도 threshold로만 다룬다.
-
-## Where to change runner behavior
-
-- 공통 Vitest/Nest SWC transform: `apps/api/vitest.config.base.ts`.
-- Unit include/setup: `apps/api/vitest.config.unit.ts`, `apps/api/test/setup/vitest.setup.ts`.
-- Integration include/setup: `apps/api/vitest.config.integration.ts`, `apps/api/test/setup/vitest.integration.setup.ts`.
-- E2E include/setup: `apps/api/vitest.config.e2e.ts`.
-- Official scripts: root `package.json`의 `api:test`, `test:api`, `api:test:integration`; API `package.json`의 `test*` scripts.
-- Runner regression guard: `apps/api/src/architecture/api-test-runner-boundary.spec.ts`.
-
-## Auth recovery release evidence
-
-`test/e2e/auth/password-reset-recovery.e2e-spec.ts`는 실제 HTTP controller부터 PostgreSQL transaction까지 reset request, encrypted outbox, single-use grant, session revoke와 새 비밀번호 login을 검증한다. 실행 명령과 SES/stress/rollback 경계는 `infra/runbooks/auth-password-reset-release-evidence.md`를 따른다.
+Password reset HTTP transaction evidence는 `test/e2e/auth/password-reset-recovery.e2e-spec.ts`, SES sandbox operation은 `test/operations/release/auth/`, 실행 경계는 `infra/runbooks/auth-password-reset-release-evidence.md`를 따른다.

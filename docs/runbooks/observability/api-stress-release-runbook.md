@@ -7,7 +7,7 @@
 - Production DB fixture seed/reset은 금지한다.
 - Production-like public target stress는 별도 승인과 allowlist 없이 실행하지 않는다.
 - Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password는 report와 채팅/PR에 남기지 않는다.
-- Stress 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe parser 결과와 관측 수치만 채운다.
+- Stress 결과 공유는 `apps/api/test/stress/evidence/renderers/report-template.md`를 복사해 safe parser 결과와 관측 수치만 채운다.
 - k6/Artillery는 API host가 아니라 local 개발 머신, CI runner, 또는 별도 load runner에서 실행한다.
 
 ## 1. Preflight checklist
@@ -141,7 +141,7 @@ Resource 기준:
 
 ## 6. Report 작성
 
-1. `apps/api/test/stress/reports/report-template.md`를 복사한다.
+1. `apps/api/test/stress/evidence/renderers/report-template.md`를 복사한다.
 2. commit, target class, tool version, fixture marker, actor count, safe parser 결과, dashboard readout만 채운다.
 3. raw token/ticket/cookie/password/email/Authorization 값은 쓰지 않는다.
 4. 실패 시 실패한 command, safe parser의 failed threshold, cleanup 여부를 남긴다.

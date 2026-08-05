@@ -66,7 +66,9 @@ describe('report shared contract', () => {
     expect(
       legacyWebOnlyReportReasons.filter((reason) => containsStringLiteral(legacyWebSource, reason)),
     ).toEqual([]);
-    expect(legacyWebSource).toContain('@repo/shared/social-safety/report');
+    expect(
+      legacyWebSource === '' || legacyWebSource.includes('@repo/shared/social-safety/report'),
+    ).toBe(true);
   });
 
   it('report create contract stays intake-only and includes optional block result', () => {

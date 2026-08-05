@@ -29,7 +29,7 @@ const actorCsvPath = resolve(
   process.env.STRESS_ARTILLERY_ACTOR_CSV_PATH ||
     `test/stress/reports/.tmp-${scenario}-artillery-actors.csv`,
 );
-const parserPath = resolve(apiRoot, 'test/stress/reports/parse-artillery-summary.ts');
+const parserPath = resolve(apiRoot, 'test/stress/evidence/parsers/parse-artillery-summary.ts');
 let stressTarget;
 let realtimeSmokeEnv = {};
 

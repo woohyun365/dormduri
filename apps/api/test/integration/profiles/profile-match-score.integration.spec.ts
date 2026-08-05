@@ -10,12 +10,12 @@ import {
 } from '../_support/integration-db.js';
 import {
   toCompleteLifestyleColumnData,
-  authContext,
   DEFAULT_LIFESTYLE,
-  seedActiveMatchFixture,
-  seedBaseSeasonFixtures,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+} from '../_support/fixtures/lifestyle-profile.fixture.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 const COMPLETE_CONDITION_LIFESTYLE = {
   ...DEFAULT_LIFESTYLE,

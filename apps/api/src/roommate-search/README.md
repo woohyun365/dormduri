@@ -78,7 +78,7 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/architecture/module-boundary.spec.ts \
   src/architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts \
   src/roommate-search \
-  test/integration/roommate-search/roommate-search.integration.spec.ts \
+  test/integration/roommate-search/scope-manifest.integration.spec.ts \
   test/integration/profiles/profile-match-score.integration.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint src/roommate-search

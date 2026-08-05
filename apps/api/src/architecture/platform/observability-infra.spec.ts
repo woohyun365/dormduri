@@ -11,7 +11,7 @@ const stressReleaseRunbookPath = join(
   repoRoot,
   'docs/runbooks/observability/api-stress-release-runbook.md',
 );
-const stressReportTemplatePath = join(stressRoot, 'reports/report-template.md');
+const stressReportTemplatePath = join(stressRoot, 'evidence/renderers/report-template.md');
 const slackTroubleshootingRunbookPath = join(
   repoRoot,
   'docs/runbooks/observability/slack-alert-runbook.md',
@@ -305,7 +305,7 @@ describe('observability infra', () => {
     expect(existsSync(authRegistrationCredentialRunbookPath)).toBe(true);
 
     const runbook = readFileSync(authRegistrationCredentialRunbookPath, 'utf8');
-    expect(runbook).toContain('auth-users-transaction.integration.spec.ts');
+    expect(runbook).toContain('auth/registration/signup-transaction.integration.spec.ts');
     expect(runbook).toContain('migration-status.integration.spec.ts');
     expect(runbook).toContain('api_auth_signup_final_admission_total');
     expect(runbook).toContain('argon_19mib_mixed_workload: pass | fail | blocked');

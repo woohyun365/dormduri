@@ -9,9 +9,9 @@ import {
 } from '../_support/integration-db.js';
 import {
   toCompleteLifestyleColumnData,
-  authContext,
   DEFAULT_LIFESTYLE,
-} from '../_support/integration-fixtures.js';
+} from '../_support/fixtures/lifestyle-profile.fixture.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
 
 describe('Match history integration', () => {
   let prisma: PrismaService;

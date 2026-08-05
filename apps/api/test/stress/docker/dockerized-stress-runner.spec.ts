@@ -23,8 +23,23 @@ const localRehearsalCapacitySource = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/local-rehearsal-capacity.mjs'),
   'utf8',
 );
+const localEnvSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/local-stress-env-files.mjs'),
+  'utf8',
+);
+const redactionSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/evidence/stress-evidence-redaction.mjs'),
+  'utf8',
+);
+const reportRendererSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/evidence/renderers/docker-stress-report.mjs'),
+  'utf8',
+);
 const rampDecisionSource = readFileSync(
-  resolve(process.cwd(), 'test/stress/docker/run-237-ramp-decision.mjs'),
+  resolve(
+    process.cwd(),
+    'test/stress/decisions/roommate-search-capacity/run-237-ramp-decision.mjs',
+  ),
   'utf8',
 );
 const apiResourceOverrideSource = readFileSync(
@@ -61,17 +76,17 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain("STRESS_ENABLE_WRITE_MIX: 'true'");
     expect(source).toContain('stress:realtime:smoke');
     expect(source).toContain('stress:fixture:reset');
-    expect(source).toContain('AUTH_THROTTLE_LIMIT=5000');
-    expect(source).toContain('AUTH_LOGIN_BURST_LIMIT=5000');
-    expect(source).toContain('AUTH_LOGIN_SUSTAINED_LIMIT=5000');
+    expect(localEnvSource).toContain("['AUTH_THROTTLE_LIMIT', () => '5000']");
+    expect(localEnvSource).toContain("['AUTH_LOGIN_BURST_LIMIT', () => '5000']");
+    expect(localEnvSource).toContain("['AUTH_LOGIN_SUSTAINED_LIMIT', () => '5000']");
   });
 
   it('writes a sanitized report and removes raw .tmp artifacts', () => {
     expect(source).toContain('.omx/reports/api-dockerized-stress-result-');
     expect(source).toContain("captureGit('status', ['--porcelain'])");
-    expect(source).toContain('bounded-write-mix');
+    expect(reportRendererSource).toContain('bounded-write-mix');
     expect(source).toContain('cleanupRawArtifacts');
-    expect(source).toContain('[REDACTED_STRESS_SECRET]');
+    expect(redactionSource).toContain('[REDACTED_STRESS_SECRET]');
     expect(source).not.toContain('console.log(metricsToken)');
   });
 
@@ -80,12 +95,12 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('api-production-like-stress-result-');
     expect(source).toContain('docker-compose.api.override.example.yml');
     expect(source).toContain('observability compose up');
-    expect(source).toContain('prometheus api up query');
+    expect(reportRendererSource).toContain('prometheus api up query');
     expect(source).toContain(
       "STRESS_COHORT_SIZE: process.env.STRESS_COHORT_SIZE || (productionLikeRun ? '946'",
     );
     expect(source).toContain('stress marker residue after reset');
-    expect(source).toContain('#247: 237/946 production-like cohort');
+    expect(reportRendererSource).not.toContain('## Issue decision notes');
   });
 
   it('exposes a production-like Argon2id endpoint-mix capacity runner', () => {
@@ -107,8 +122,8 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('assessCurrentDockerEngine');
     expect(source).toContain('resource-limited observability stack을 포함해야 해요');
     expect(source).toContain('stress failure를 warning으로 낮출 수 없어요');
-    expect(source).toContain('local constrained 4GB/2CPU');
-    expect(source).toContain('not a constrained local rehearsal');
+    expect(reportRendererSource).toContain('local constrained 4GB/2CPU');
+    expect(reportRendererSource).toContain('not a constrained local rehearsal');
   });
 
   it('runs named auth capacity profiles sequentially without custom rate overrides', () => {
@@ -169,7 +184,7 @@ describe('dockerized stress smoke runner', () => {
       'node test/stress/docker/run-production-like-evidence.mjs',
     );
     expect(packageJson.scripts?.['stress:docker:237-ramp']).toBe(
-      'node test/stress/docker/run-237-ramp-decision.mjs',
+      'node test/stress/decisions/roommate-search-capacity/run-237-ramp-decision.mjs',
     );
     expect(packageJson.scripts?.['stress:docker:auth-password-capacity']).toBe(
       'node test/stress/docker/run-auth-password-capacity.mjs',

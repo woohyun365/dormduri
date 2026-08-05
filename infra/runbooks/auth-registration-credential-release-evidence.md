@@ -43,8 +43,10 @@ Nickname parse/moderation/current availability는 Users Display Identity owner�
 pnpm --dir apps/api exec vitest run \
   --config ./vitest.config.integration.ts \
   --maxWorkers=1 \
-  test/integration/auth/auth-users-transaction.integration.spec.ts \
-  test/integration/auth/auth.service.integration.spec.ts
+  test/integration/auth/registration/signup-transaction.integration.spec.ts \
+  test/integration/auth/credentials/password-transaction.integration.spec.ts \
+  test/integration/auth/sessions/auth-session.integration.spec.ts \
+  test/integration/users/display-identity/user-identity-transaction.integration.spec.ts
 ```
 
 각 suite는 disposable PostgreSQL schema에 baseline migration을 적용한다. 필수 확인 항목은 다음과 같다.

@@ -12,9 +12,9 @@ import {
 import {
   toCompleteLifestyleColumnData,
   DEFAULT_LIFESTYLE,
-  seedActiveMatchFixture,
-  seedBaseSeasonFixtures,
-} from '../_support/integration-fixtures.js';
+} from '../_support/fixtures/lifestyle-profile.fixture.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
 
 describe('account deletion + season de-registration integration', () => {
   const retainedVaultEnv = {

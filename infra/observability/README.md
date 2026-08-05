@@ -103,7 +103,7 @@ BE API/nginx compose와 observability compose를 함께 올려 연결성을 확�
 
 ## Stress release gate에서 보는 법
 
-API stress release gate는 `docs/runbooks/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
+API stress release gate는 `docs/runbooks/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/evidence/renderers/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
 
 Stress window 동안 우선 확인할 항목은 다음과 같다.
 

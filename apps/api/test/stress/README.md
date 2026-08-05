@@ -105,7 +105,7 @@ artillery version
 Release 전 검증은 local smoke와 staging baseline/peak를 분리해서 기록한다. 운영자는 아래 문서를 기준으로 preflight, 실행 순서, dashboard readout, cleanup을 확인한다.
 
 - Runbook: `docs/runbooks/observability/api-stress-release-runbook.md`
-- Report template: `apps/api/test/stress/reports/report-template.md`
+- Report template: `apps/api/test/stress/evidence/renderers/report-template.md`
 
 Report에는 k6/Artillery safe parser 결과와 Grafana/Prometheus/Loki readout만 옮긴다. Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password, raw payload는 기록하지 않는다.
 

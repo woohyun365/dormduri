@@ -5,7 +5,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { formatKstDate, toKstEndIso, toKstStartIso } from '../../platform/time/kst-date.js';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
-import { buildRegistrationCompleteParticipantWhere } from '../../season-participants/policies/registration-complete-participant.prisma-policy.js';
+import { buildRegistrationCompleteParticipantWhere } from '../../season-participants/policies/index.js';
 
 const RECENT_RECEIVED_REQUEST_LIMIT = 3;
 

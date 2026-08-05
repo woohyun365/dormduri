@@ -1,0 +1,1073 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { ProfilesService } from '../../../src/profiles/application/profiles.service.js';
+import { RoommateSearchService } from '../../../src/roommate-search/application/roommate-search.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
+import { expectPrismaQueryBudget } from '../_support/integration-query-budget.js';
+import {
+  createIntegrationDatabaseSandbox,
+  truncateIntegrationSchema,
+} from '../_support/integration-db.js';
+import {
+  toCompleteLifestyleColumnData,
+  DEFAULT_LIFESTYLE,
+} from '../_support/fixtures/lifestyle-profile.fixture.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
+
+export type RoommateSearchCaseOwner = 'scope-manifest' | 'exposure' | 'filters' | 'pagination';
+
+export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
+  describe(`RoommateSearchService integration — ${owner}`, () => {
+    let prisma: PrismaService;
+    let profilesService: ProfilesService;
+    let service: RoommateSearchService;
+    let closeApp: (() => Promise<void>) | null = null;
+    let cleanupDb: (() => Promise<void>) | null = null;
+
+    beforeAll(async () => {
+      const sandbox = await createIntegrationDatabaseSandbox('roommate_search_integration');
+      cleanupDb = sandbox.cleanup;
+
+      const { app, prisma: prismaService } = await createIntegrationApp();
+      closeApp = () => app.close();
+      prisma = prismaService;
+      profilesService = app.get(ProfilesService);
+      service = app.get(RoommateSearchService);
+    });
+
+    afterAll(async () => {
+      if (closeApp) {
+        await closeApp();
+      }
+      if (cleanupDb) {
+        await cleanupDb();
+      }
+    });
+
+    beforeEach(async () => {
+      await truncateIntegrationSchema(prisma);
+      await seedBaseSeasonFixtures(prisma);
+      await seedRegisteredAssignedParticipant(prisma, {
+        userId: 'user-a',
+        participantId: 'participant-a',
+        email: 'user-a@kangwon.ac.kr',
+        nickname: '유저가',
+      });
+      await seedRegisteredAssignedParticipant(prisma, {
+        userId: 'user-b',
+        participantId: 'participant-b',
+        email: 'user-b@kangwon.ac.kr',
+        nickname: '유저나',
+      });
+      await seedRegisteredAssignedParticipant(prisma, {
+        userId: 'user-c',
+        participantId: 'participant-c',
+        email: 'user-c@kangwon.ac.kr',
+        nickname: '유저다',
+      });
+    });
+
+    async function seedSecondDormitory() {
+      await prisma.dormitory.create({
+        data: {
+          id: 'saerom',
+          campusCode: 'CHUNCHEON',
+          nameKo: '새롬관',
+          roomType: 2,
+          genderPolicy: 'M',
+          sortOrder: 2,
+        },
+      });
+      await prisma.seasonDormitoryOperation.create({
+        data: {
+          seasonId: 'season-integration',
+          dormitoryId: 'saerom',
+          isOperated: true,
+          roomSelectionDate: new Date('2026-12-31T00:00:00.000Z'),
+        },
+      });
+    }
+
+    async function moveUserToDormitory(input: { participantId: string; dormitoryId: string }) {
+      await prisma.seasonParticipant.update({
+        where: { id: input.participantId },
+        data: {
+          dormitoryId: input.dormitoryId,
+          dormitorySelectionState: 'ASSIGNED',
+        },
+      });
+    }
+
+    async function setSeasonState(
+      state: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH',
+    ) {
+      const now = await prisma.getDatabaseNow();
+      await prisma.season.update({
+        where: { id: 'season-integration' },
+        data: {
+          overrideState: state,
+          overrideStartedAt: now,
+          overrideEndsAt: null,
+        },
+      });
+    }
+
+    async function makeViewerNonParticipant() {
+      await prisma.seasonParticipantProfile.delete({
+        where: { participantId: 'participant-a' },
+      });
+      await prisma.seasonParticipant.update({
+        where: { id: 'participant-a' },
+        data: {
+          participationIntent: 'UNDECIDED',
+          registeredAt: null,
+          participantStatus: 'NOT_STARTED',
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+        },
+      });
+    }
+
+    if (owner === 'scope-manifest') {
+      it('OFF_SEASON에서는 roommate browse와 detail을 모두 막는다', async () => {
+        await setSeasonState('OFF_SEASON');
+
+        await expect(
+          service.search(authContext('user-a'), {
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+
+        await expect(
+          profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
+        ).rejects.toMatchObject({
+          response: { code: 'PROFILE_NOT_VISIBLE' },
+        });
+      });
+    }
+
+    if (owner === 'scope-manifest') {
+      it('시즌 중 미참여 viewer의 기본 검색은 registered profile의 merged summary다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+        await makeViewerNonParticipant();
+
+        const result = await service.search(authContext('user-a'), {
+          limit: 20,
+        });
+
+        expect(result.scope).toBe('CAMPUS_MERGED');
+        expect(result.scopeAvailability).toEqual({
+          campusMerged: true,
+          sameBuildingOnly: true,
+        });
+        expect(result.resultSummary).toEqual({
+          summaryOnlyCount: 2,
+          detailViewableCount: 0,
+          scoreVisibleCount: 0,
+        });
+        expect(result.items.map((item) => item.profileSummary.nickname)).toEqual([
+          '유저나',
+          '유저다',
+        ]);
+        expect(result.items.every((item) => item.exposure.canViewFull === false)).toBe(true);
+        expect(result.items.every((item) => !('matchScore' in item))).toBe(true);
+        expect(result.items.every((item) => typeof item.detailEntryToken === 'string')).toBe(true);
+        expect(result.availabilityNotices).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ code: 'SCOPE_RESTRICTED_BY_VIEWER_STATE' }),
+            expect.objectContaining({ code: 'DETAIL_UNAVAILABLE_BY_POLICY' }),
+          ]),
+        );
+
+        const sameBuildingPreview = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+        expect(sameBuildingPreview.manifest.purpose).toBe('BROAD_PREVIEW');
+        expect(sameBuildingPreview.items).toEqual([]);
+      });
+    }
+
+    if (owner === 'scope-manifest') {
+      it('SEASON_OPEN 등록+배정 사용자는 merged와 same-building scope를 모두 사용할 수 있다', async () => {
+        await seedSecondDormitory();
+        await moveUserToDormitory({
+          participantId: 'participant-c',
+          dormitoryId: 'saerom',
+        });
+        await setSeasonState('SEASON_OPEN');
+
+        const merged = await service.search(authContext('user-a'), {
+          scope: 'CAMPUS_MERGED',
+          limit: 20,
+        });
+        const sameBuilding = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+
+        expect(merged.scopeAvailability).toEqual({
+          campusMerged: true,
+          sameBuildingOnly: true,
+        });
+        const sameBuildingPeer = merged.items.find(
+          (item) => item.profileSummary.nickname === '유저나',
+        );
+        const otherBuildingPeer = merged.items.find(
+          (item) => item.profileSummary.nickname === '유저다',
+        );
+        expect(sameBuildingPeer?.exposure.canViewFull).toBe(true);
+        expect(otherBuildingPeer).toMatchObject({ exposure: { canViewFull: false } });
+        expect(otherBuildingPeer).not.toHaveProperty('matchScore');
+        expect(sameBuildingPeer).not.toHaveProperty('lifestyle');
+        expect(otherBuildingPeer?.detailEntryToken).toEqual(expect.any(String));
+
+        await expect(
+          profilesService.getProfileByUserId(authContext('user-a'), 'user-c', {
+            detailEntryToken: otherBuildingPeer?.detailEntryToken,
+          }),
+        ).resolves.toMatchObject({
+          detailState: 'TOMBSTONE',
+          tombstone: {
+            reason: 'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY',
+          },
+        });
+
+        expect(sameBuilding.scope).toBe('SAME_BUILDING_ONLY');
+        expect(sameBuilding.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
+        expect(sameBuilding.items[0]?.exposure.canViewFull).toBe(true);
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SEASON_OPEN CAMPUS_MERGED는 broad preview라 모든 filter를 거부하고 no-filter manifest를 제공한다', async () => {
+        await seedSecondDormitory();
+        await moveUserToDormitory({
+          participantId: 'participant-c',
+          dormitoryId: 'saerom',
+        });
+        await setSeasonState('SEASON_OPEN');
+
+        const merged = await service.search(authContext('user-a'), {
+          scope: 'CAMPUS_MERGED',
+          limit: 20,
+        });
+        const manifest = (
+          merged as unknown as {
+            manifest?: { filters?: { enabled: boolean; fields: Record<string, unknown> } };
+          }
+        ).manifest;
+        expect(manifest).toMatchObject({
+          filters: {
+            enabled: false,
+            fields: {},
+          },
+        });
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'CAMPUS_MERGED',
+            smokingBehavior: 'NO',
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'pagination') {
+      it('SEASON_OPEN CAMPUS_MERGED는 nickname cursor로 broad preview page를 이어준다', async () => {
+        await setSeasonState('SEASON_OPEN');
+
+        const firstPage = await expectPrismaQueryBudget(
+          prisma,
+          'roommate-search campus merged first page',
+          () =>
+            service.search(authContext('user-a'), {
+              scope: 'CAMPUS_MERGED',
+              limit: 1,
+            }),
+          { maxQueries: 40 },
+        );
+        expect(firstPage.appliedSort).toBe('NICKNAME');
+        expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
+        expect(firstPage.pageInfo.hasNextPage).toBe(true);
+        expect(firstPage.pageInfo.nextCursor).toEqual(expect.any(String));
+
+        const secondPage = await expectPrismaQueryBudget(
+          prisma,
+          'roommate-search campus merged cursor page',
+          () =>
+            service.search(authContext('user-a'), {
+              scope: 'CAMPUS_MERGED',
+              limit: 1,
+              cursor: firstPage.pageInfo.nextCursor ?? undefined,
+            }),
+          { maxQueries: 40 },
+        );
+        expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+        expect(secondPage.pageInfo).toEqual({
+          hasNextPage: false,
+          nextCursor: null,
+        });
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SEASON_OPEN CAMPUS_MERGED는 legacy scalar additional/detail-only filter도 400이다', async () => {
+        await seedSecondDormitory();
+        await moveUserToDormitory({
+          participantId: 'participant-c',
+          dormitoryId: 'saerom',
+        });
+        await setSeasonState('SEASON_OPEN');
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'CAMPUS_MERGED',
+            college: 'CHUNCHEON_ARTS_ENGINEERING',
+            limit: 20,
+          } as never),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'exposure') {
+      it('삭제/비식별 처리된 사용자는 search에서 제외하고 기존 summary entry detail 진입은 tombstone으로 degrade한다', async () => {
+        await setSeasonState('SEASON_OPEN');
+        const beforeDeletion = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+        const deletedTargetEntry = beforeDeletion.items.find(
+          (item) => item.profileSummary.nickname === '유저나',
+        );
+        expect(deletedTargetEntry?.detailEntryToken).toEqual(expect.any(String));
+
+        await prisma.user.update({
+          where: { id: 'user-b' },
+          data: { deletedAt: await prisma.getDatabaseNow() },
+        });
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+
+        expect(result.resultSummary).toEqual({
+          summaryOnlyCount: 0,
+          detailViewableCount: 1,
+          scoreVisibleCount: 1,
+        });
+        expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+        expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
+
+        await expect(
+          profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+            detailEntryToken: deletedTargetEntry?.detailEntryToken,
+          }),
+        ).resolves.toMatchObject({
+          detailState: 'TOMBSTONE',
+          exposure: {
+            detailViewable: true,
+            canViewFull: false,
+          },
+          tombstone: {
+            reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+            displayName: '탈퇴한 사용자',
+          },
+        });
+
+        await expect(
+          profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
+        ).rejects.toMatchObject({
+          response: { code: 'PROFILE_NOT_VISIBLE' },
+        });
+      });
+    }
+
+    if (owner === 'exposure') {
+      it.each(['WITHDRAWN', 'HIDDEN', 'DEACTIVATED', 'EXPIRED'] as const)(
+        'target state %s 변경은 최신 public target policy로 search에서 제외하고 stale summary detail은 tombstone으로 닫는다',
+        async (targetState) => {
+          await setSeasonState('SEASON_OPEN');
+          const beforeChange = await service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            limit: 20,
+          });
+          const staleTargetEntry = beforeChange.items.find(
+            (item) => item.profileSummary.nickname === '유저나',
+          );
+          expect(staleTargetEntry?.detailEntryToken).toEqual(expect.any(String));
+
+          const now = await prisma.getDatabaseNow();
+          if (targetState === 'WITHDRAWN') {
+            await prisma.seasonParticipant.update({
+              where: { id: 'participant-b' },
+              data: { participantStatus: 'WITHDRAWN', withdrawnAt: now },
+            });
+          } else if (targetState === 'HIDDEN') {
+            await prisma.seasonParticipant.update({
+              where: { id: 'participant-b' },
+              data: { hiddenByAdminAt: now },
+            });
+          } else if (targetState === 'DEACTIVATED') {
+            await prisma.seasonParticipant.update({
+              where: { id: 'participant-b' },
+              data: { deactivatedAt: now },
+            });
+          } else {
+            await prisma.seasonParticipant.update({
+              where: { id: 'participant-b' },
+              data: { participantStatus: 'EXPIRED', expiredAt: now },
+            });
+          }
+
+          const latest = await service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            limit: 20,
+          });
+          expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+
+          await expect(
+            profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+              detailEntryToken: staleTargetEntry?.detailEntryToken,
+            }),
+          ).resolves.toMatchObject({
+            detailState: 'TOMBSTONE',
+            tombstone: {
+              reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+            },
+          });
+        },
+      );
+    }
+
+    if (owner === 'exposure') {
+      it.each([
+        ['viewer blocks target', 'user-a', 'user-b'],
+        ['target blocks viewer', 'user-b', 'user-a'],
+      ] as const)(
+        'active block exclusion은 %s 방향에서도 search와 stale detail을 fail-closed한다',
+        async (_caseName, blockerUserId, blockedUserId) => {
+          await setSeasonState('SEASON_OPEN');
+          const beforeBlock = await service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            limit: 20,
+          });
+          const staleTargetEntry = beforeBlock.items.find(
+            (item) => item.profileSummary.nickname === '유저나',
+          );
+          expect(staleTargetEntry?.detailEntryToken).toEqual(expect.any(String));
+
+          await prisma.userBlock.create({
+            data: {
+              blockerUserId,
+              blockedUserId,
+              blockedAt: await prisma.getDatabaseNow(),
+            },
+          });
+
+          const latest = await service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            limit: 20,
+          });
+          expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+
+          await expect(
+            profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+              detailEntryToken: staleTargetEntry?.detailEntryToken,
+            }),
+          ).rejects.toMatchObject({
+            response: { code: 'PROFILE_NOT_VISIBLE' },
+          });
+        },
+      );
+    }
+
+    if (owner === 'scope-manifest') {
+      it('SEASON_MATCHING 등록 viewer는 campus preview와 same-building discovery를 모두 선택한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        const campusPreview = await service.search(authContext('user-a'), {
+          scope: 'CAMPUS_MERGED',
+          limit: 20,
+        });
+        expect(campusPreview.scope).toBe('CAMPUS_MERGED');
+        expect(campusPreview.manifest.purpose).toBe('BROAD_PREVIEW');
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+
+        expect(result.scopeAvailability).toEqual({
+          campusMerged: true,
+          sameBuildingOnly: true,
+        });
+        expect(result.resultSummary.summaryOnlyCount).toBe(0);
+        expect(result.resultSummary.detailViewableCount).toBe(result.items.length);
+        expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SAME_BUILDING_ONLY actionable discovery manifest는 detail lifestyle/additional filter 메뉴판을 제공한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+        const manifest = (
+          result as unknown as {
+            manifest?: {
+              purpose: string;
+              filters: { enabled: boolean; fields: Record<string, unknown> };
+              sorts: { default: string; options: string[] };
+            };
+          }
+        ).manifest;
+
+        expect(manifest?.purpose).toBe('ACTIONABLE_DETAIL_DISCOVERY');
+        expect(manifest?.filters.enabled).toBe(true);
+        expect(manifest?.filters.fields).toHaveProperty('smokingBehavior');
+        expect(manifest?.filters.fields).toHaveProperty('college');
+        expect(manifest?.filters.fields).toHaveProperty('grade');
+        expect(manifest?.filters.fields).toHaveProperty('mbtiTraits');
+        expect(manifest?.filters.fields).toHaveProperty('ageBand');
+        expect(manifest?.filters.fields).toHaveProperty('minScore');
+        const collegeField = manifest?.filters.fields.college as
+          | {
+              source?: string;
+              operators?: string[];
+              options?: Array<{ code: string; label: string }>;
+            }
+          | undefined;
+        expect(collegeField).toMatchObject({
+          source: 'VIEWER_CAMPUS_ACTIVE_CATALOG',
+          operators: ['INCLUDE', 'EXCLUDE'],
+        });
+        expect(collegeField?.options).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              code: 'CHUNCHEON_ARTS_ENGINEERING',
+              label: '문화예술공과대학',
+            }),
+          ]),
+        );
+        expect(manifest?.sorts.default).toBe('MATCH_SCORE');
+        expect(manifest?.sorts.options).toEqual(['NICKNAME', 'MATCH_SCORE']);
+      });
+    }
+
+    if (owner === 'filters') {
+      it('preflight manifest endpoint와 search response는 같은 manifest presenter 결과를 사용한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        const preflight = await service.getManifest(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+        });
+        const search = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+
+        expect(preflight.scope).toBe('SAME_BUILDING_ONLY');
+        expect(preflight.scopeAvailability).toEqual(search.scopeAvailability);
+        expect(preflight.manifest).toEqual(search.manifest);
+      });
+    }
+
+    if (owner === 'scope-manifest') {
+      it('preflight 이후 season state가 바뀌면 search는 최신 scope policy로 다시 fail-closed한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        const preflight = await service.getManifest(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+        });
+        expect(preflight.manifest.filters.enabled).toBe(true);
+
+        await setSeasonState('OFF_SEASON');
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'filters') {
+      it('preflight 이후 college catalog가 바뀌면 search는 최신 manifest option으로 filter를 재검증한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        const preflight = await service.getManifest(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+        });
+        const preflightCollegeField = preflight.manifest.filters.fields.college;
+        expect(preflightCollegeField?.options).toEqual(
+          expect.arrayContaining([expect.objectContaining({ code: 'CHUNCHEON_ARTS_ENGINEERING' })]),
+        );
+
+        await prisma.collegeMaster.update({
+          where: { code: 'CHUNCHEON_ARTS_ENGINEERING' },
+          data: { isActive: false },
+        });
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            college: { operator: 'INCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+
+        const latest = await service.getManifest(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+        });
+        expect(latest.manifest.filters.fields.college?.options).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ code: 'CHUNCHEON_ARTS_ENGINEERING' })]),
+        );
+      });
+    }
+
+    if (owner === 'scope-manifest') {
+      it('excludeMyCollege shortcut은 BE contract가 아니라 FE convenience이므로 거부한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            excludeMyCollege: true,
+            limit: 20,
+          } as never),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'filters') {
+      it('college filter는 INCLUDE/EXCLUDE 동시 표현을 single-operator contract 위반으로 거부한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            college: {
+              include: ['CHUNCHEON_ARTS_ENGINEERING'],
+              exclude: ['CHUNCHEON_NURSING'],
+            },
+            limit: 20,
+          } as never),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'filters') {
+      it('valid filter empty result는 200 empty list와 FILTER_RESULT_EMPTY notice 및 stable manifest를 반환한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          smokingBehavior: 'YES',
+          limit: 20,
+        });
+
+        expect(result.items).toEqual([]);
+        expect(result.availabilityNotices).toEqual(
+          expect.arrayContaining([expect.objectContaining({ code: 'FILTER_RESULT_EMPTY' })]),
+        );
+        expect((result as unknown as { manifest?: unknown }).manifest).toEqual(expect.any(Object));
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SAME_BUILDING_ONLY filter는 college negative, MBTI trait, ageBand를 적용한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+        await prisma.collegeMaster.create({
+          data: {
+            code: 'CHUNCHEON_NURSING',
+            campusCode: 'CHUNCHEON',
+            nameKo: '간호대',
+            sortOrder: 2,
+          },
+        });
+        await prisma.seasonParticipantProfile.update({
+          where: { participantId: 'participant-b' },
+          data: {
+            collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+            grade: '2',
+            mbti: 'ISTJ',
+            birthYear: 2002,
+          },
+        });
+        await prisma.seasonParticipantProfile.update({
+          where: { participantId: 'participant-c' },
+          data: {
+            collegeCode: 'CHUNCHEON_NURSING',
+            grade: '3',
+            mbti: 'ENTJ',
+            birthYear: 2001,
+          },
+        });
+
+        const excludeIt = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          college: { operator: 'EXCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
+          limit: 20,
+        });
+        expect(excludeIt.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+
+        const entjLike = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          mbtiTraits: {
+            energy: 'E',
+            perception: null,
+            decision: 'T',
+            lifestyle: 'J',
+          },
+          limit: 20,
+        });
+        expect(entjLike.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+
+        const age25Plus = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          ageBand: { values: ['25_PLUS'] },
+          limit: 20,
+        });
+        expect(new Set(age25Plus.items.map((item) => item.profileSummary.nickname))).toEqual(
+          new Set(['유저나', '유저다']),
+        );
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SAME_BUILDING_ONLY filter는 단과대/학년/나이대 다중 선택과 partial MBTI trait 조합을 적용한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+        await prisma.collegeMaster.create({
+          data: {
+            code: 'CHUNCHEON_NURSING',
+            campusCode: 'CHUNCHEON',
+            nameKo: '간호대',
+            sortOrder: 2,
+          },
+        });
+        await prisma.seasonParticipantProfile.update({
+          where: { participantId: 'participant-b' },
+          data: {
+            collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+            grade: '1',
+            mbti: 'INFP',
+            birthYear: 2004,
+          },
+        });
+        await prisma.seasonParticipantProfile.update({
+          where: { participantId: 'participant-c' },
+          data: {
+            collegeCode: 'CHUNCHEON_NURSING',
+            grade: '4+',
+            mbti: 'INFJ',
+            birthYear: 2001,
+          },
+        });
+
+        const multiValue = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          college: {
+            operator: 'INCLUDE',
+            values: ['CHUNCHEON_ARTS_ENGINEERING', 'CHUNCHEON_NURSING'],
+          },
+          grade: { operator: 'INCLUDE', values: ['1', '2', '3', '4+'] },
+          ageBand: { values: ['20', '21', '22', '23', '24', '25_PLUS'] },
+          limit: 20,
+        });
+
+        expect(new Set(multiValue.items.map((item) => item.profileSummary.nickname))).toEqual(
+          new Set(['유저나', '유저다']),
+        );
+
+        const partialInf = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          mbtiTraits: {
+            energy: 'I',
+            perception: 'N',
+            decision: 'F',
+          },
+          limit: 20,
+        });
+
+        expect(new Set(partialInf.items.map((item) => item.profileSummary.nickname))).toEqual(
+          new Set(['유저나', '유저다']),
+        );
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SEASON_OPEN SAME_BUILDING_ONLY는 additional filter와 MATCH_SCORE/minScore를 함께 적용한다', async () => {
+        await setSeasonState('SEASON_OPEN');
+        await prisma.collegeMaster.create({
+          data: {
+            code: 'CHUNCHEON_NURSING',
+            campusCode: 'CHUNCHEON',
+            nameKo: '간호대',
+            sortOrder: 2,
+          },
+        });
+        await prisma.seasonParticipantProfile.update({
+          where: { participantId: 'participant-c' },
+          data: {
+            collegeCode: 'CHUNCHEON_NURSING',
+            grade: '3',
+            mbti: 'ENTJ',
+            birthYear: 2001,
+          },
+        });
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          sort: 'MATCH_SCORE',
+          college: { operator: 'EXCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
+          mbtiTraits: {
+            energy: 'E',
+            perception: null,
+            decision: 'T',
+            lifestyle: 'J',
+          },
+          ageBand: { values: ['25_PLUS'] },
+          minScore: 90,
+          limit: 20,
+        });
+
+        expect(result.appliedSort).toBe('MATCH_SCORE');
+        expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+        expect(result.items[0]?.matchScore).toEqual(expect.any(Number));
+        expect(result.items[0]?.matchScore).toBeGreaterThanOrEqual(90);
+      });
+    }
+
+    if (owner === 'scope-manifest') {
+      it('SEASON_POST_MATCH roommate-search discovery는 active matched target을 제외하고 notice를 제공한다', async () => {
+        await seedSecondDormitory();
+        await moveUserToDormitory({ participantId: 'participant-c', dormitoryId: 'saerom' });
+        await setSeasonState('SEASON_POST_MATCH');
+        await seedActiveMatchFixture(prisma, {
+          activeMatchId: 'active-a-b',
+          participantAId: 'participant-a',
+          participantBId: 'participant-b',
+        });
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'CAMPUS_MERGED',
+          limit: 20,
+        });
+        const partner = result.items.find((item) => item.profileSummary.nickname === '유저나');
+        const otherDormitoryTarget = result.items.find(
+          (item) => item.profileSummary.nickname === '유저다',
+        );
+
+        expect(result.scope).toBe('CAMPUS_MERGED');
+        expect(result.scopeAvailability).toMatchObject({
+          campusMerged: true,
+        });
+        expect(partner).toBeUndefined();
+        expect(result.availabilityNotices).toEqual(
+          expect.arrayContaining([expect.objectContaining({ code: 'MATCHED_TARGETS_EXCLUDED' })]),
+        );
+        expect(otherDormitoryTarget).toMatchObject({
+          relation: { type: 'GENERAL' },
+          exposure: { canViewFull: false },
+        });
+        expect(otherDormitoryTarget).not.toHaveProperty('matchScore');
+
+        await expect(
+          profilesService.getProfileByUserId(authContext('user-a'), 'user-c'),
+        ).rejects.toMatchObject({
+          response: { code: 'PROFILE_NOT_VISIBLE' },
+        });
+      });
+    }
+
+    if (owner === 'filters') {
+      it('SEASON_POST_MATCH SAME_BUILDING_ONLY는 cohort review list로 active matched target을 포함하고 filter/score를 닫는다', async () => {
+        await setSeasonState('SEASON_POST_MATCH');
+        await seedActiveMatchFixture(prisma, {
+          activeMatchId: 'active-a-b',
+          participantAId: 'participant-a',
+          participantBId: 'participant-b',
+        });
+
+        const result = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          limit: 20,
+        });
+        const manifest = (
+          result as unknown as {
+            manifest?: {
+              purpose: string;
+              filters: { enabled: boolean; fields: Record<string, unknown> };
+              sorts: { default: string; options: string[] };
+            };
+          }
+        ).manifest;
+        const matchedPartner = result.items.find(
+          (item) => item.profileSummary.nickname === '유저나',
+        );
+
+        expect(manifest?.purpose).toBe('POST_MATCH_COHORT_REVIEW');
+        expect(manifest?.filters).toEqual({
+          enabled: false,
+          fields: {},
+        });
+        expect(manifest?.sorts.default).toBe('NICKNAME');
+        expect(manifest?.sorts.options).toEqual(['NICKNAME']);
+        expect(matchedPartner).toBeDefined();
+        expect(matchedPartner).not.toHaveProperty('matchScore');
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            smokingBehavior: 'NO',
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'pagination') {
+      it('cursor-only pagination은 nickname boundary 이후 다음 page를 반환한다', async () => {
+        await setSeasonState('SEASON_OPEN');
+
+        const firstPage = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          sort: 'NICKNAME',
+          limit: 1,
+        });
+        expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
+        expect(firstPage.pageInfo.hasNextPage).toBe(true);
+        expect(typeof firstPage.pageInfo.nextCursor).toBe('string');
+
+        const secondPage = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          sort: 'NICKNAME',
+          limit: 1,
+          cursor: firstPage.pageInfo.nextCursor ?? undefined,
+        });
+        expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+        expect(secondPage.pageInfo).toEqual({
+          hasNextPage: false,
+          nextCursor: null,
+        });
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'CAMPUS_MERGED',
+            limit: 1,
+            cursor: firstPage.pageInfo.nextCursor ?? undefined,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+
+    if (owner === 'pagination') {
+      it('MATCH_SCORE cursor는 score boundary 이후 page를 반환하고 minScore preset은 post-score filter로 동작한다', async () => {
+        await setSeasonState('SEASON_MATCHING');
+        await prisma.seasonParticipantProfile.update({
+          where: { participantId: 'participant-c' },
+          data: {
+            ...toCompleteLifestyleColumnData({
+              ...DEFAULT_LIFESTYLE,
+              bedtime: 'AFTER_02',
+              wakeTime: 'AFTER_10',
+              sleepHabit: 'SNORING',
+              sleepEnvironment: 'LOW_SPEAKER',
+              screenUsage: 'SCREEN',
+              smokingBehavior: 'YES',
+              indoorEating: 'MEAL',
+              phoneBehavior: 'OFTEN',
+              earphoneUsage: 'ALWAYS_SPEAKER',
+              cleanLevel: 'WHEN_DIRTY',
+              drinkingFrequency: 'OFTEN',
+              relationshipStyle: 'CASUAL',
+              temperatureSensitivity: 'HOT',
+            }),
+          },
+        });
+
+        const firstPage = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          sort: 'MATCH_SCORE',
+          limit: 1,
+        });
+        expect(firstPage.appliedSort).toBe('MATCH_SCORE');
+        expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저나']);
+        expect(firstPage.items[0]?.matchScore).toEqual(expect.any(Number));
+        expect(firstPage.pageInfo.hasNextPage).toBe(true);
+        expect(typeof firstPage.pageInfo.nextCursor).toBe('string');
+
+        const secondPage = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          sort: 'MATCH_SCORE',
+          limit: 1,
+          cursor: firstPage.pageInfo.nextCursor ?? undefined,
+        });
+        expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저다']);
+        expect(secondPage.pageInfo.nextCursor).toBeNull();
+        expect(firstPage.items[0]?.matchScore).toBeGreaterThan(
+          secondPage.items[0]?.matchScore ?? 0,
+        );
+
+        const thresholdResult = await service.search(authContext('user-a'), {
+          scope: 'SAME_BUILDING_ONLY',
+          minScore: 90,
+          limit: 20,
+        });
+        expect(thresholdResult.appliedSort).toBe('MATCH_SCORE');
+        expect(thresholdResult.items.map((item) => item.profileSummary.nickname)).toEqual([
+          '유저나',
+        ]);
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'SAME_BUILDING_ONLY',
+            sort: 'NICKNAME',
+            minScore: 70,
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+
+        await expect(
+          service.search(authContext('user-a'), {
+            scope: 'CAMPUS_MERGED',
+            minScore: 70,
+            limit: 20,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+        });
+      });
+    }
+  });
+}
