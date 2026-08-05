@@ -31,6 +31,7 @@ const skipBuild = process.env.STRESS_DOCKER_SKIP_BUILD === 'true';
 const skipWriteMix = process.env.STRESS_DOCKER_SKIP_WRITE_MIX === 'true';
 const skipRealtimeSmoke = process.env.STRESS_DOCKER_SKIP_REALTIME_SMOKE === 'true';
 const continueOnStressFailure = process.env.STRESS_DOCKER_CONTINUE_ON_STRESS_FAILURE === 'true';
+const authPasswordCapacityRun = process.env.STRESS_DOCKER_AUTH_PASSWORD_CAPACITY === 'true';
 const targetUrl = process.env.STRESS_TARGET_URL || 'http://127.0.0.1:8080';
 const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'knu-roommate-api';
 const observabilityProjectName =
@@ -48,18 +49,36 @@ const metricsToken = process.env.STRESS_DOCKER_METRICS_TOKEN || readMetricsToken
 const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
 const runId =
   process.env.STRESS_DOCKER_RUN_ID ||
-  (productionLikeRun ? `production-like-${timestamp}` : `docker-smoke-${timestamp}`);
+  (authPasswordCapacityRun
+    ? `auth-password-capacity-${timestamp}`
+    : productionLikeRun
+      ? `production-like-${timestamp}`
+      : `docker-smoke-${timestamp}`);
 const reportPath = resolve(
   repoRoot,
   process.env.STRESS_DOCKER_REPORT_PATH ||
-    (productionLikeRun
-      ? `.omx/reports/api-production-like-stress-result-${timestamp}.md`
-      : `.omx/reports/api-dockerized-stress-result-${timestamp}.md`),
+    (authPasswordCapacityRun
+      ? `.omx/reports/api-auth-password-capacity-result-${timestamp}.md`
+      : productionLikeRun
+        ? `.omx/reports/api-production-like-stress-result-${timestamp}.md`
+        : `.omx/reports/api-dockerized-stress-result-${timestamp}.md`),
 );
 const actorTokenPath = resolve(reportsDir, `.tmp-${runId}-actor-tokens.json`);
 const k6SmokeSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-smoke-summary.json`);
 const k6BaselineSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-baseline-summary.json`);
 const k6AuthLoginSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-auth-login-summary.json`);
+const authPasswordCapacityArtifactPath = resolve(
+  reportsDir,
+  `.tmp-${runId}-auth-password-capacity.json`,
+);
+const k6AuthPasswordCapacitySummaryPath = resolve(
+  reportsDir,
+  `.tmp-${runId}-k6-auth-password-capacity-summary.json`,
+);
+const authPasswordCapacityDecisionPath = resolve(
+  reportsDir,
+  `.tmp-${runId}-auth-password-capacity-decision.json`,
+);
 const k6ScoreSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-score-summary.json`);
 const k6WriteSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-write-summary.json`);
 const artillerySummaryPath = resolve(reportsDir, `.tmp-${runId}-artillery-summary.json`);
@@ -82,6 +101,8 @@ const evidence = {
   k6Smoke: null,
   k6Baseline: null,
   k6AuthLogin: null,
+  k6AuthPasswordCapacity: null,
+  authPasswordCapacityDecision: null,
   k6Score: null,
   k6Write: null,
   artillerySmoke: null,
@@ -108,9 +129,22 @@ try {
     'postgres',
   ]);
   runRequired('prisma generate', ['pnpm', '--dir', 'apps/api', 'prisma:generate']);
-  runRequired('prisma db push', ['pnpm', '--dir', 'apps/api', 'prisma:push'], {
-    env: buildHostDbEnv(),
-  });
+  runRequired(
+    'prisma db push',
+    [
+      'pnpm',
+      '--dir',
+      'apps/api',
+      'exec',
+      'prisma',
+      'db',
+      'push',
+      '--schema',
+      'prisma/schema.prisma',
+      '--accept-data-loss',
+    ],
+    { env: buildHostDbEnv() },
+  );
   if (useObservability) {
     const observabilityStatus = ensureObservabilityLocalFiles();
     commandResults.push({
@@ -171,111 +205,154 @@ try {
   runRequired('stress fixture seed', ['pnpm', '--dir', 'apps/api', 'stress:fixture:seed'], {
     env: stressEnv,
   });
-  runRequired('stress fixture tokens', ['pnpm', '--dir', 'apps/api', 'stress:fixture:tokens'], {
-    env: stressEnv,
-  });
-  runRequired('k6 smoke', ['pnpm', '--dir', 'apps/api', 'stress:http:smoke'], {
-    env: {
-      ...stressEnv,
-      STRESS_SMOKE_DURATION:
-        process.env.STRESS_SMOKE_DURATION || (productionLikeRun ? '30s' : '10s'),
-      STRESS_SMOKE_VUS: process.env.STRESS_SMOKE_VUS || (productionLikeRun ? '5' : '1'),
-      STRESS_K6_SUMMARY_PATH: k6SmokeSummaryPath,
-    },
-  });
-  evidence.k6Smoke = parseJsonArtifact(k6SmokeSummaryPath);
-  runStressCommand(
-    'k6 authenticated baseline',
-    ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'],
-    {
-      env: {
-        ...stressEnv,
-        STRESS_BASELINE_DURATION:
-          process.env.STRESS_BASELINE_DURATION || (productionLikeRun ? '2m' : '10s'),
-        STRESS_BASELINE_VUS: process.env.STRESS_BASELINE_VUS || (productionLikeRun ? '25' : '1'),
-        STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
-        STRESS_K6_SUMMARY_PATH: k6BaselineSummaryPath,
-      },
-    },
-  );
-  evidence.k6Baseline = parseJsonArtifact(k6BaselineSummaryPath);
-  runStressCommand(
-    'k6 auth login capacity',
-    ['pnpm', '--dir', 'apps/api', 'stress:http:auth-login'],
-    {
-      env: {
-        ...stressEnv,
-        STRESS_AUTH_ACTOR_COUNT:
-          process.env.STRESS_AUTH_ACTOR_COUNT || (productionLikeRun ? '25' : '3'),
-        STRESS_AUTH_LOGIN_VUS:
-          process.env.STRESS_AUTH_LOGIN_VUS || (productionLikeRun ? '10' : '1'),
-        STRESS_AUTH_LOGIN_DURATION:
-          process.env.STRESS_AUTH_LOGIN_DURATION || (productionLikeRun ? '1m' : '10s'),
-        STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
-        STRESS_K6_SUMMARY_PATH: k6AuthLoginSummaryPath,
-      },
-    },
-  );
-  evidence.k6AuthLogin = parseJsonArtifact(k6AuthLoginSummaryPath);
-  runStressCommand('k6 score cohort', ['pnpm', '--dir', 'apps/api', 'stress:http:score-cohort'], {
-    env: {
-      ...stressEnv,
-      STRESS_SCORE_COHORT_DURATION:
-        process.env.STRESS_SCORE_COHORT_DURATION || (productionLikeRun ? '2m' : '10s'),
-      STRESS_SCORE_COHORT_VUS:
-        process.env.STRESS_SCORE_COHORT_VUS || (productionLikeRun ? '50' : '1'),
-      STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
-      STRESS_K6_SUMMARY_PATH: k6ScoreSummaryPath,
-    },
-  });
-  evidence.k6Score = parseJsonArtifact(k6ScoreSummaryPath);
-  if (skipWriteMix) {
-    commandResults.push({
-      name: 'k6 bounded write mix',
-      status: 'pass',
-      note: 'skipped by STRESS_DOCKER_SKIP_WRITE_MIX=true',
-    });
-  } else {
+  if (authPasswordCapacityRun) {
+    runRequired(
+      'auth password capacity fixture',
+      ['pnpm', '--dir', 'apps/api', 'stress:fixture:auth-capacity'],
+      { env: stressEnv },
+    );
     runStressCommand(
-      'k6 bounded write mix',
+      'k6 auth password capacity',
+      ['pnpm', '--dir', 'apps/api', 'stress:http:auth-password-capacity'],
+      {
+        env: {
+          ...stressEnv,
+          STRESS_ACTOR_TOKENS_PATH: '',
+          STRESS_AUTH_CAPACITY_PROFILE: process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1',
+          STRESS_AUTH_CAPACITY_DURATION: process.env.STRESS_AUTH_CAPACITY_DURATION,
+          STRESS_AUTH_CAPACITY_RATE: process.env.STRESS_AUTH_CAPACITY_RATE,
+          STRESS_AUTH_CAPACITY_SMOKE_MIX:
+            process.env.STRESS_AUTH_CAPACITY_SMOKE_MIX ||
+            (process.env.STRESS_AUTH_CAPACITY_DURATION && process.env.STRESS_AUTH_CAPACITY_RATE
+              ? 'true'
+              : 'false'),
+          STRESS_K6_SUMMARY_PATH: k6AuthPasswordCapacitySummaryPath,
+        },
+      },
+    );
+    evidence.k6AuthPasswordCapacity = parseJsonArtifact(k6AuthPasswordCapacitySummaryPath);
+    runRequired(
+      'auth password capacity decision',
+      [
+        'pnpm',
+        '--dir',
+        'apps/api',
+        'stress:report:auth-password-capacity',
+        k6AuthPasswordCapacitySummaryPath,
+        authPasswordCapacityDecisionPath,
+        process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1',
+      ],
+      { env: stressEnv },
+    );
+    evidence.authPasswordCapacityDecision = parseJsonArtifact(authPasswordCapacityDecisionPath);
+  } else {
+    runRequired('stress fixture tokens', ['pnpm', '--dir', 'apps/api', 'stress:fixture:tokens'], {
+      env: stressEnv,
+    });
+    runRequired('k6 smoke', ['pnpm', '--dir', 'apps/api', 'stress:http:smoke'], {
+      env: {
+        ...stressEnv,
+        STRESS_SMOKE_DURATION:
+          process.env.STRESS_SMOKE_DURATION || (productionLikeRun ? '30s' : '10s'),
+        STRESS_SMOKE_VUS: process.env.STRESS_SMOKE_VUS || (productionLikeRun ? '5' : '1'),
+        STRESS_K6_SUMMARY_PATH: k6SmokeSummaryPath,
+      },
+    });
+    evidence.k6Smoke = parseJsonArtifact(k6SmokeSummaryPath);
+    runStressCommand(
+      'k6 authenticated baseline',
       ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'],
       {
         env: {
           ...stressEnv,
           STRESS_BASELINE_DURATION:
-            process.env.STRESS_WRITE_MIX_DURATION || (productionLikeRun ? '1m' : '10s'),
-          STRESS_BASELINE_VUS: process.env.STRESS_WRITE_MIX_VUS || (productionLikeRun ? '10' : '1'),
+            process.env.STRESS_BASELINE_DURATION || (productionLikeRun ? '2m' : '10s'),
+          STRESS_BASELINE_VUS: process.env.STRESS_BASELINE_VUS || (productionLikeRun ? '25' : '1'),
           STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
-          STRESS_ENABLE_WRITE_MIX: 'true',
-          STRESS_K6_SUMMARY_PATH: k6WriteSummaryPath,
+          STRESS_K6_SUMMARY_PATH: k6BaselineSummaryPath,
         },
       },
     );
-    evidence.k6Write = parseJsonArtifact(k6WriteSummaryPath);
-  }
-  if (skipRealtimeSmoke) {
-    commandResults.push({
-      name: 'artillery realtime smoke',
-      status: 'pass',
-      note: 'skipped by STRESS_DOCKER_SKIP_REALTIME_SMOKE=true',
-    });
-  } else {
-    runOptional(
-      'artillery realtime smoke',
-      ['pnpm', '--dir', 'apps/api', 'stress:realtime:smoke'],
+    evidence.k6Baseline = parseJsonArtifact(k6BaselineSummaryPath);
+    runStressCommand(
+      'k6 auth login capacity',
+      ['pnpm', '--dir', 'apps/api', 'stress:http:auth-login'],
       {
         env: {
           ...stressEnv,
-          STRESS_ARTILLERY_SUMMARY_PATH: artillerySummaryPath,
-          STRESS_ARTILLERY_ACTOR_CSV_PATH: artilleryActorCsvPath,
-          STRESS_REALTIME_SOCKET_URL: `${targetUrl.replace(/\/$/u, '')}/chat`,
-          STRESS_REALTIME_ORIGIN: new URL(targetUrl).origin,
+          STRESS_AUTH_ACTOR_COUNT:
+            process.env.STRESS_AUTH_ACTOR_COUNT || (productionLikeRun ? '25' : '3'),
+          STRESS_AUTH_LOGIN_VUS:
+            process.env.STRESS_AUTH_LOGIN_VUS || (productionLikeRun ? '10' : '1'),
+          STRESS_AUTH_LOGIN_DURATION:
+            process.env.STRESS_AUTH_LOGIN_DURATION || (productionLikeRun ? '1m' : '10s'),
+          STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
+          STRESS_K6_SUMMARY_PATH: k6AuthLoginSummaryPath,
         },
       },
     );
-    evidence.artillerySmoke = existsSync(artillerySummaryPath)
-      ? parseJsonArtifact(artillerySummaryPath)
-      : null;
+    evidence.k6AuthLogin = parseJsonArtifact(k6AuthLoginSummaryPath);
+    runStressCommand('k6 score cohort', ['pnpm', '--dir', 'apps/api', 'stress:http:score-cohort'], {
+      env: {
+        ...stressEnv,
+        STRESS_SCORE_COHORT_DURATION:
+          process.env.STRESS_SCORE_COHORT_DURATION || (productionLikeRun ? '2m' : '10s'),
+        STRESS_SCORE_COHORT_VUS:
+          process.env.STRESS_SCORE_COHORT_VUS || (productionLikeRun ? '50' : '1'),
+        STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
+        STRESS_K6_SUMMARY_PATH: k6ScoreSummaryPath,
+      },
+    });
+    evidence.k6Score = parseJsonArtifact(k6ScoreSummaryPath);
+    if (skipWriteMix) {
+      commandResults.push({
+        name: 'k6 bounded write mix',
+        status: 'pass',
+        note: 'skipped by STRESS_DOCKER_SKIP_WRITE_MIX=true',
+      });
+    } else {
+      runStressCommand(
+        'k6 bounded write mix',
+        ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'],
+        {
+          env: {
+            ...stressEnv,
+            STRESS_BASELINE_DURATION:
+              process.env.STRESS_WRITE_MIX_DURATION || (productionLikeRun ? '1m' : '10s'),
+            STRESS_BASELINE_VUS:
+              process.env.STRESS_WRITE_MIX_VUS || (productionLikeRun ? '10' : '1'),
+            STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
+            STRESS_ENABLE_WRITE_MIX: 'true',
+            STRESS_K6_SUMMARY_PATH: k6WriteSummaryPath,
+          },
+        },
+      );
+      evidence.k6Write = parseJsonArtifact(k6WriteSummaryPath);
+    }
+    if (skipRealtimeSmoke) {
+      commandResults.push({
+        name: 'artillery realtime smoke',
+        status: 'pass',
+        note: 'skipped by STRESS_DOCKER_SKIP_REALTIME_SMOKE=true',
+      });
+    } else {
+      runOptional(
+        'artillery realtime smoke',
+        ['pnpm', '--dir', 'apps/api', 'stress:realtime:smoke'],
+        {
+          env: {
+            ...stressEnv,
+            STRESS_ARTILLERY_SUMMARY_PATH: artillerySummaryPath,
+            STRESS_ARTILLERY_ACTOR_CSV_PATH: artilleryActorCsvPath,
+            STRESS_REALTIME_SOCKET_URL: `${targetUrl.replace(/\/$/u, '')}/chat`,
+            STRESS_REALTIME_ORIGIN: new URL(targetUrl).origin,
+          },
+        },
+      );
+      evidence.artillerySmoke = existsSync(artillerySummaryPath)
+        ? parseJsonArtifact(artillerySummaryPath)
+        : null;
+    }
   }
   if (useObservability) {
     evidence.observabilityReadiness = await fetchStatus('http://127.0.0.1:9090/-/ready');
@@ -319,6 +396,14 @@ try {
     'docker compose logs',
     buildApiComposeArgs('logs', '--no-color', '--tail=160', 'api', 'nginx'),
   );
+
+  if (authPasswordCapacityRun) {
+    runOptional(
+      'auth password capacity fixture reset',
+      ['pnpm', '--dir', 'apps/api', 'stress:fixture:auth-capacity:reset'],
+      { env: buildStressEnv() },
+    );
+  }
 
   try {
     runOptional('stress fixture reset', ['pnpm', '--dir', 'apps/api', 'stress:fixture:reset'], {
@@ -516,6 +601,16 @@ function ensureObservabilityLocalFiles() {
   return 'updated';
 }
 
+function readEnvValue(envPath, key) {
+  if (!existsSync(envPath)) {
+    return '';
+  }
+
+  const envText = readFileSync(envPath, 'utf8');
+  const match = envText.match(new RegExp(`^${key}=(.*)$`, 'mu'));
+  return match?.[1]?.trim() || '';
+}
+
 function readMetricsToken(envPath) {
   if (!existsSync(envPath)) {
     return randomSecret();
@@ -570,6 +665,10 @@ function buildStressEnv() {
     STRESS_TOKEN_ACTOR_LIMIT:
       process.env.STRESS_TOKEN_ACTOR_LIMIT || (productionLikeRun ? '25' : '3'),
     STRESS_ACTOR_TOKENS_PATH: actorTokenPath,
+    STRESS_AUTH_CAPACITY_ARTIFACT_PATH: authPasswordCapacityArtifactPath,
+    AUTH_PERSISTENCE_HMAC_SECRET:
+      process.env.AUTH_PERSISTENCE_HMAC_SECRET ||
+      readEnvValue(localEnvFile, 'AUTH_PERSISTENCE_HMAC_SECRET'),
   };
 }
 
@@ -808,14 +907,19 @@ function parseJsonArtifact(path) {
 function writeReport() {
   mkdirSync(dirname(reportPath), { recursive: true });
   const report = [
-    productionLikeRun
-      ? '# API production-like docker stress evidence result'
-      : '# API dockerized stress smoke result',
+    authPasswordCapacityRun
+      ? '# API Argon2id password capacity evidence result'
+      : productionLikeRun
+        ? '# API production-like docker stress evidence result'
+        : '# API dockerized stress smoke result',
     '',
     `- generatedAt: ${new Date().toISOString()}`,
     `- gitCommit: ${captureGit('rev-parse', ['HEAD'])}`,
     `- gitBranch: ${captureGit('branch', ['--show-current'])}`,
     `- runProfile: ${runProfile}`,
+    `- authPasswordCapacityProfile: ${
+      authPasswordCapacityRun ? process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1' : 'disabled'
+    }`,
     `- targetClass: ${
       productionLikeRun
         ? 'local production-like docker nginx/API/PostgreSQL'
@@ -865,8 +969,15 @@ function writeReport() {
     renderK6Row('smoke', evidence.k6Smoke),
     renderK6Row('baseline-250', evidence.k6Baseline),
     renderK6Row('auth-login-capacity', evidence.k6AuthLogin),
+    renderK6Row('auth-password-burst', evidence.k6AuthPasswordCapacity),
     renderK6Row('score-cohort-946', evidence.k6Score),
     renderK6Row('bounded-write-mix', evidence.k6Write),
+    '',
+    '## Auth password capacity decision',
+    '',
+    '```json',
+    JSON.stringify(evidence.authPasswordCapacityDecision ?? { status: 'not-run' }, null, 2),
+    '```',
     '',
     '## Artillery summary',
     '',
@@ -975,6 +1086,9 @@ function cleanupRawArtifacts() {
     k6SmokeSummaryPath,
     k6BaselineSummaryPath,
     k6AuthLoginSummaryPath,
+    authPasswordCapacityArtifactPath,
+    k6AuthPasswordCapacitySummaryPath,
+    authPasswordCapacityDecisionPath,
     k6ScoreSummaryPath,
     k6WriteSummaryPath,
     artillerySummaryPath,

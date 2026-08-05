@@ -57,8 +57,6 @@ function createPrismaMock(): StressFixtureMutationClient {
     authSession: model(),
     authSecurityEvent: model(),
     loginAttempt: model(),
-    verificationCode: model(),
-    verificationCodeRequestLog: model(),
     $transaction: vi.fn((callback: (tx: StressFixtureMutationClient) => Promise<unknown>) =>
       callback(prisma as unknown as StressFixtureMutationClient),
     ),

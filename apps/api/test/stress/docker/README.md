@@ -4,11 +4,12 @@
 
 ## Runner
 
-| Script                                              | 용도                                                                                                                                                | 기본 report                                           |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `pnpm --dir apps/api stress:docker:smoke`           | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `.omx/reports/api-dockerized-stress-result-*.md`      |
-| `pnpm --dir apps/api stress:docker:production-like` | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `.omx/reports/api-production-like-stress-result-*.md` |
-| `pnpm --dir apps/api stress:docker:237-ramp`        | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `.omx/reports/api-237-ramp-decision-result-*.md`      |
+| Script                                                     | 용도                                                                                                                                                | 기본 report                                           |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `pnpm --dir apps/api stress:docker:smoke`                  | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `.omx/reports/api-dockerized-stress-result-*.md`      |
+| `pnpm --dir apps/api stress:docker:production-like`        | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `.omx/reports/api-production-like-stress-result-*.md` |
+| `pnpm --dir apps/api stress:docker:237-ramp`               | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `.omx/reports/api-237-ramp-decision-result-*.md`      |
+| `pnpm --dir apps/api stress:docker:auth-password-capacity` | 19MiB Argon2id login/signup/reset/change endpoint mix를 H1~H9 중 하나로 실행                                                                        | `.omx/reports/api-auth-password-capacity-result-*.md` |
 
 ## 공통 실행 대상
 
@@ -26,7 +27,7 @@ pnpm --dir apps/api stress:docker:smoke
 기본 smoke runner는 다음을 순서대로 실행한다.
 
 1. dev Postgres up
-2. Prisma generate / db push
+2. Prisma generate / local stress DB push (`--accept-data-loss`; production fixture mutation은 guard가 거부)
 3. API/nginx compose config / build / up
 4. nginx health/readiness 확인
 5. `/internal/metrics` unauthorized/authorized boundary 확인
@@ -99,6 +100,23 @@ STRESS_DOCKER_OBSERVABILITY=false \
 pnpm --dir apps/api stress:docker:237-ramp
 ```
 
+## Auth password capacity 실행
+
+```bash
+STRESS_AUTH_CAPACITY_PROFILE=h1 \
+pnpm --dir apps/api stress:docker:auth-password-capacity
+```
+
+Runner는 production-like compose resource limit을 사용하고 다음 순서를 수행한다.
+
+1. 공통 19MiB actor fixture를 seed한다.
+2. login success/failure, signup, reset, change 전용 actor/grant/session pool을 만든다.
+3. 선택한 H1~H9 profile 하나를 actual endpoint에 실행한다.
+4. operation별 p95/p99/error threshold를 bounded JSON과 Markdown report에 기록한다.
+5. auth 전용 single-use row를 먼저 reset한 뒤 공통 marker fixture를 reset하고 raw artifact를 제거한다.
+
+H1~H9는 single-use proof TTL과 evidence 해석을 명확히 하기 위해 **한 invocation에서 한 profile만** 실행한다. 짧은 배선 검증은 `STRESS_AUTH_CAPACITY_RATE`와 `STRESS_AUTH_CAPACITY_DURATION`을 함께 지정한다. 이 override 결과는 production-like capacity 승인 근거가 아니다.
+
 ## 안전 경계
 
 - production target은 사용하지 않는다. staging/production-like public target은 k6/Artillery target guard와 별도 승인 절차를 사용한다.
@@ -106,3 +124,4 @@ pnpm --dir apps/api stress:docker:237-ramp
 - local `.env.api`, `.env.observability`, `prometheus/secrets/*.local`, `.tmp-*` raw artifact는 gitignore 대상이다.
 - write mix는 stress fixture actor/target만 사용하고 reset 단계에서 actor/participant 기반 cleanup을 수행한다.
 - #247/#250/#256/#272 같은 도입 여부는 local pg container evidence만으로 확정하지 않고, staging/RDS 계측 결과가 있을 때 승격한다.
+- Argon2id admission concurrency/queue/timeout 기본값도 local smoke만으로 확정하지 않는다. 4GB/2vCPU reference host와 RDS에서 H1~H9 CPU/RSS/latency evidence를 함께 판독한다.

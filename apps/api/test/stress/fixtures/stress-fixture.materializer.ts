@@ -6,6 +6,10 @@ import { Pool } from 'pg';
 import { hashPassword as defaultHashPassword } from '../../../src/auth/credentials/password-hashing/password-hash.js';
 import { DEFAULT_DATABASE_URL } from '../../../src/config/database.config.js';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
+import {
+  buildPrismaSessionOptions,
+  stripPrismaConnectionOptions,
+} from '../../../src/platform/database/prisma.service.js';
 import { toCompleteLifestyleColumnData } from '../../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { StressActorPlanRow, StressFixturePlan } from './stress-fixture.plan.js';
 
@@ -63,8 +67,6 @@ export interface StressFixtureMutationClient {
   readonly authSession: DeleteManyModel;
   readonly authSecurityEvent: DeleteManyModel;
   readonly loginAttempt: DeleteManyModel;
-  readonly verificationCode: DeleteManyModel;
-  readonly verificationCodeRequestLog: DeleteManyModel;
   readonly $transaction?: <T>(
     callback: (tx: StressFixtureMutationClient) => Promise<T>,
   ) => Promise<T>;
@@ -140,9 +142,10 @@ export function createStressFixturePrismaClient(
   const connectionString = env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
   const schema = new URL(connectionString).searchParams.get('schema') ?? undefined;
   const pool = new Pool({
-    connectionString,
+    connectionString: stripPrismaConnectionOptions(connectionString),
     max: STRESS_FIXTURE_POOL_MAX,
     application_name: STRESS_FIXTURE_APPLICATION_NAME,
+    options: buildPrismaSessionOptions(schema ?? null),
   });
   const prisma = new PrismaClient({
     adapter: new PrismaPg(pool, {
@@ -494,12 +497,6 @@ export async function resetStressFixture(
     );
     await recordDelete(deleted, 'loginAttempt', () =>
       tx.loginAttempt.deleteMany({ where: { emailNormalized: { in: emails } } }),
-    );
-    await recordDelete(deleted, 'verificationCodeRequestLog', () =>
-      tx.verificationCodeRequestLog.deleteMany({ where: { emailNormalized: { in: emails } } }),
-    );
-    await recordDelete(deleted, 'verificationCode', () =>
-      tx.verificationCode.deleteMany({ where: { emailNormalized: { in: emails } } }),
     );
     await recordDelete(deleted, 'userAcademicIdentityChangeAllowance', () =>
       tx.userAcademicIdentityChangeAllowance.deleteMany({ where: { userId: { in: userIds } } }),

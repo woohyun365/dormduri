@@ -6,6 +6,7 @@ export type K6HttpScenarioName =
   | 'soak-250'
   | 'score-cohort-946'
   | 'auth-login-capacity'
+  | 'auth-password-burst'
   | 'auth-recovery-abuse';
 
 export interface K6HttpScenarioDefinition {
@@ -89,6 +90,17 @@ export const K6_HTTP_SCENARIOS: readonly K6HttpScenarioDefinition[] = [
     requestMix: ['auth-login-real-hash', 'auth-login-dummy-hash'],
     thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
     summary: '실제 계정과 미존재 계정의 Argon2id login verify 경로를 같은 비율로 검증한다.',
+  },
+  {
+    name: 'auth-password-burst',
+    scriptFile: 'auth-password-burst.k6.js',
+    defaultDuration: '10m',
+    maxVus: 100,
+    targetProfile: 'staging',
+    requestMix: ['login-success', 'login-failure', 'signup', 'reset-password', 'change-password'],
+    thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
+    summary:
+      '19MiB global admission을 실제 login/signup/reset/change endpoint mix와 단계별 arrival rate로 검증한다.',
   },
   {
     name: 'auth-recovery-abuse',

@@ -21,6 +21,7 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:auth-login
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:auth-recovery
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal STRESS_AUTH_CAPACITY_ARTIFACT_PATH=/absolute/path/to/.tmp-auth-password-capacity.json STRESS_AUTH_CAPACITY_PROFILE=h1 pnpm --dir apps/api stress:http:auth-password-capacity
 ```
 
 인증 기반 mix를 실행할 때는 먼저 marker-only fixture를 만들고 actor token artifact를 생성한다.
@@ -44,19 +45,22 @@ pnpm --dir apps/api stress:http:baseline
 
 ## Scenario matrix
 
-| Command                     | 기본 profile  | 기본 duration/VU | 목적                                                           |
-| --------------------------- | ------------- | ---------------- | -------------------------------------------------------------- |
-| `stress:http:smoke`         | local/staging | 1m / 5 VUs       | `/health`, `/health/ready`, `/api/seasons/current` 최소 생존성 |
-| `stress:http:baseline`      | staging       | 10m / 250 VUs    | 250 concurrent equivalent read baseline                        |
-| `stress:http:peak`          | staging       | 15m / 500 VUs    | 500 peak latency/error budget                                  |
-| `stress:http:spike`         | staging       | 0→500 ramp       | spike/recovery failure budget                                  |
-| `stress:http:soak`          | staging       | 30m / 250 VUs    | 장시간 steady degradation 관찰                                 |
-| `stress:http:score-cohort`  | staging       | 10m / 237 VUs    | 946 score cohort search/read path gate                         |
-| `stress:http:auth-login`    | staging       | 2m / 10 VUs      | 실제/미존재 계정 Argon2id verify와 login 응답 안정성           |
-| `stress:http:auth-recovery` | staging       | 2m / 2 RPS       | reset neutral request·invalid code·throttle abuse 경계         |
+| Command                              | 기본 profile    | 기본 duration/VU   | 목적                                                           |
+| ------------------------------------ | --------------- | ------------------ | -------------------------------------------------------------- |
+| `stress:http:smoke`                  | local/staging   | 1m / 5 VUs         | `/health`, `/health/ready`, `/api/seasons/current` 최소 생존성 |
+| `stress:http:baseline`               | staging         | 10m / 250 VUs      | 250 concurrent equivalent read baseline                        |
+| `stress:http:peak`                   | staging         | 15m / 500 VUs      | 500 peak latency/error budget                                  |
+| `stress:http:spike`                  | staging         | 0→500 ramp         | spike/recovery failure budget                                  |
+| `stress:http:soak`                   | staging         | 30m / 250 VUs      | 장시간 steady degradation 관찰                                 |
+| `stress:http:score-cohort`           | staging         | 10m / 237 VUs      | 946 score cohort search/read path gate                         |
+| `stress:http:auth-login`             | staging         | 2m / 10 VUs        | 실제/미존재 계정 Argon2id verify와 login 응답 안정성           |
+| `stress:http:auth-recovery`          | staging         | 2m / 2 RPS         | reset neutral request·invalid code·throttle abuse 경계         |
+| `stress:http:auth-password-capacity` | production-like | H1~H9 arrival-rate | 실제 login/signup/reset/change 19MiB endpoint capacity gate    |
 
 local smoke를 짧게 돌릴 때는 `STRESS_SMOKE_DURATION=10s STRESS_SMOKE_VUS=1`처럼 override한다.
 
 `stress:http:auth-login`은 seed된 actor의 올바른 비밀번호와 존재하지 않는 계정의 dummy verify를 1:1로 섞는다. 기본 10 VU는 2 vCPU API 후보 스펙에서 먼저 안전한 경향을 확인하기 위한 시작점이며, 25 VU까지 단계적으로 올린 뒤 p95 1.5초·p99 3초·check 99% 기준을 확인한다. 19MiB Argon2id 최종 승격 판단은 password capacity plan의 별도 stress gate가 소유한다.
 
 `stress:http:auth-recovery`는 실제 계정이나 메일 발송을 만들지 않는 학교 이메일 형식의 미존재 subject를 사용한다. 동일 subject/IP, 여러 subject가 하나의 campus NAT IP를 공유하는 정상 흐름, 분산 subject/IP를 섞어 public neutral response, verify throttle, 5xx 부재와 응답 내 email/code 비노출을 확인한다. 기본 release rate에서 campus NAT 흐름에 429가 발생하면 실패한다. 유효 grant single-use와 outbox worker claim 경쟁은 PostgreSQL auth integration lane이 담당한다.
+
+`stress:http:auth-password-capacity`는 fixture runner가 만든 ignored credential artifact를 요구한다. 기본 mix는 login success 80%, 기존 계정 login failure 15%, signup 3%, reset 1.5%, change 0.5%이며 H6/H7/H8/H9는 목적별 mix를 별도로 사용한다. H9는 동일 계정/IP 실패와 분산 계정/IP 실패를 교차 실행한다. 이 script는 artifact를 만들거나 DB를 정리하지 않으므로 직접 실행보다 Docker capacity runner 사용을 우선한다.

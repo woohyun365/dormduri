@@ -70,6 +70,25 @@ describe('k6 HTTP stress scripts static contract', () => {
     expect(source).toContain('match-request-create');
   });
 
+  it('auth password capacity는 실제 credential endpoint와 single-use artifact를 사용한다', () => {
+    const source = readK6Script('auth-password-burst.k6.js');
+
+    expect(source).toContain("'/auth/login'");
+    expect(source).toContain("'/auth/signup'");
+    expect(source).toContain("'/auth/reset-password'");
+    expect(source).toContain("'/auth/change-password'");
+    expect(source).toContain('STRESS_AUTH_CAPACITY_ARTIFACT_PATH');
+    expect(source).toContain('singleUseOrdinal');
+    expect(source).toContain('STRESS_AUTH_CAPACITY_SMOKE_MIX');
+    expect(source).toContain("'p(99)'");
+    expect(source).toContain("profile === 'h9'");
+    expect(source).toContain("profile === 'h9' && iteration % 2 === 0");
+    expect(source).toContain("profile === 'h9' ? [200, 429] : [200]");
+    expect(source).toContain('roommateReadTraffic');
+    expect(source).toContain('/api/roommate-search?scope=SAME_BUILDING_ONLY');
+    expect(source).not.toMatch(/console\.(?:log|error)/u);
+  });
+
   it('auth recovery stress는 abuse와 campus NAT 정상 흐름을 분리한다', () => {
     const source = readK6Script('auth-recovery-abuse.k6.js');
 

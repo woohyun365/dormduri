@@ -12,6 +12,7 @@ describe('stress secret redaction', () => {
       email: 'stress-local+0001@stress.example.invalid',
       password: 'raw-password',
       accessToken: 'raw-access-token',
+      verificationGrant: 'raw-verification-grant',
       headers: {
         authorization: 'Bearer raw-bearer-token',
         cookie: 'stress_session=raw-session-cookie',
@@ -27,6 +28,7 @@ describe('stress secret redaction', () => {
     expect(serialized).not.toContain('stress-local+0001');
     expect(serialized).not.toContain('raw-password');
     expect(serialized).not.toContain('raw-access-token');
+    expect(serialized).not.toContain('raw-verification-grant');
     expect(serialized).not.toContain('raw-bearer-token');
     expect(serialized).not.toContain('raw-session-cookie');
     expect(serialized).not.toContain('stress-local+0002');

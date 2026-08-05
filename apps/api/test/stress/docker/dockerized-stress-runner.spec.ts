@@ -11,6 +11,10 @@ const productionLikeSource = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/run-production-like-evidence.mjs'),
   'utf8',
 );
+const authPasswordCapacitySource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/run-auth-password-capacity.mjs'),
+  'utf8',
+);
 const rampDecisionSource = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/run-237-ramp-decision.mjs'),
   'utf8',
@@ -22,6 +26,7 @@ const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json
 describe('dockerized stress smoke runner', () => {
   it('keeps Phase 9-1 docker API/nginx smoke steps executable from one script', () => {
     expect(source).toContain('docker-compose.api.yml');
+    expect(source).toContain("'--accept-data-loss'");
     expect(source).toContain('api compose build');
     expect(source).toContain('api compose up');
     expect(source).toContain('compose config validated without printing rendered env');
@@ -66,6 +71,18 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('#247: 237/946 production-like cohort');
   });
 
+  it('exposes a production-like Argon2id endpoint-mix capacity runner', () => {
+    expect(authPasswordCapacitySource).toContain("STRESS_DOCKER_PROFILE = 'production-like'");
+    expect(authPasswordCapacitySource).toContain("STRESS_DOCKER_AUTH_PASSWORD_CAPACITY = 'true'");
+    expect(source).toContain('api-auth-password-capacity-result-');
+    expect(source).toContain('stress:fixture:auth-capacity');
+    expect(source).toContain('stress:http:auth-password-capacity');
+    expect(source).toContain('stress:report:auth-password-capacity');
+    expect(source).toContain("STRESS_ACTOR_TOKENS_PATH: ''");
+    expect(source).toContain('STRESS_AUTH_CAPACITY_SMOKE_MIX');
+    expect(source).toContain('auth password capacity fixture reset');
+  });
+
   it('exposes a Phase 9-3 237 cohort ramp decision runner', () => {
     expect(rampDecisionSource).toContain('api-237-ramp-decision-result-');
     expect(rampDecisionSource).toContain("STRESS_COHORT_SIZE: '237'");
@@ -95,6 +112,12 @@ describe('dockerized stress smoke runner', () => {
     );
     expect(packageJson.scripts?.['stress:docker:237-ramp']).toBe(
       'node test/stress/docker/run-237-ramp-decision.mjs',
+    );
+    expect(packageJson.scripts?.['stress:docker:auth-password-capacity']).toBe(
+      'node test/stress/docker/run-auth-password-capacity.mjs',
+    );
+    expect(packageJson.scripts?.['stress:auth:hash-micro']).toContain(
+      'run-auth-password-hash-micro.ts',
     );
   });
 });

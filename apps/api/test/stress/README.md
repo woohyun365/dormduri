@@ -13,6 +13,7 @@ apps/api/test/stress/
     stress-fixture.apply-guard.ts # DB mutation explicit opt-in guard
     stress-fixture.materializer.ts # local/staging fixture Prisma materializer/reset plan
     stress-fixture.auth-tokens.ts # seeded actor login token artifact helper
+    auth-password-capacity.fixture.ts # login/signup/reset/change 전용 single-use credential artifact
     seed-stress-fixture.ts        # default dry-run, explicit guard 통과 시 DB seed
     reset-stress-fixture.ts       # default dry-run, explicit guard 통과 시 marker-only reset
   safety/
@@ -28,6 +29,7 @@ apps/api/test/stress/
     run-artillery-scenario.mjs    # Artillery CLI + summary parser runner
   reports/
     parse-k6-summary.ts           # k6 summary-export safe report parser
+    parse-auth-password-capacity-summary.ts # operation별 Argon2id capacity 판정
     parse-artillery-summary.ts    # Artillery summary safe report parser
 ```
 
@@ -108,6 +110,31 @@ Release 전 검증은 local smoke와 staging baseline/peak를 분리해서 기�
 Report에는 k6/Artillery safe parser 결과와 Grafana/Prometheus/Loki readout만 옮긴다. Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password, raw payload는 기록하지 않는다.
 
 Auth recovery abuse는 `stress:http:auth-recovery`로 실행하며 실제 user/mail을 만들지 않는 neutral subject만 사용한다. 동일 subject abuse와 분산 요청뿐 아니라 여러 subject가 하나의 campus NAT IP를 공유하는 정상 흐름도 포함한다. Valid grant와 outbox worker race는 PostgreSQL integration lane이 소유한다.
+
+## Argon2id endpoint capacity gate
+
+`stress:docker:auth-password-capacity`는 19MiB Argon2id를 실제 credential endpoint 조합으로 검증한다. 일반 token fixture와 달리 login success/failure, signup, password reset, password change actor를 서로 겹치지 않게 분리하고, signup/reset/change에는 single-use grant/session artifact를 사용한다.
+
+H0 raw hash calibration은 `STRESS_AUTH_HASH_MICRO_LEVELS=1,5,10 pnpm --dir apps/api stress:auth:hash-micro`로 실행한다. 기본 matrix는 `1,5,10,20,40,100`이며 report에는 latency/RSS/count만 남는다. 이 결과도 reference container 밖의 로컬 실행이면 release 승인 근거가 아니다.
+
+```bash
+# 짧은 local wiring smoke. release capacity evidence로 사용하지 않는다.
+STRESS_COHORT_SIZE=12 \
+STRESS_LARGEST_COHORT_SIZE=4 \
+STRESS_AUTH_CAPACITY_SIGNUP_COUNT=16 \
+STRESS_AUTH_CAPACITY_PROFILE=h1 \
+STRESS_AUTH_CAPACITY_RATE=1 \
+STRESS_AUTH_CAPACITY_DURATION=10s \
+pnpm --dir apps/api stress:docker:auth-password-capacity
+
+# 승인된 production-like 환경에서는 H1~H9를 한 번에 하나씩 실행한다.
+STRESS_AUTH_CAPACITY_PROFILE=h4 \
+pnpm --dir apps/api stress:docker:auth-password-capacity
+```
+
+- raw artifact는 `test/stress/reports/.tmp-*`에 mode `0600`으로 만들고 실행 뒤 제거한다.
+- report에는 operation별 p95/p99/error와 threshold 결과만 남기며 email, password, grant, token, encoded hash는 남기지 않는다.
+- 로컬 smoke 성공은 fixture/API/k6/report/cleanup 배선만 증명한다. 최종 GO/NO-GO에는 계획 문서의 4GB/2vCPU host, API 1.5 CPU/1536MiB, RDS 조건에서 H1~H9와 CPU/RSS/DB evidence가 필요하다.
 
 ## Authenticated fixture flow
 
