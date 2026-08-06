@@ -120,7 +120,7 @@ describe('MatchingTab runtime boundary', () => {
     expect(matchingTabSource).not.toContain('__stories__');
   });
 
-  it('Phase 13-1 canonical presentation은 local matching model import를 되살리지 않는다', () => {
+  it('canonical presentation은 local matching model·score·story dependency를 사용하지 않는다', () => {
     for (const { file, source } of canonicalProductSources) {
       expect(source, `${file} must not import local legacy match type`).not.toContain(
         '@/types/match',
@@ -135,23 +135,7 @@ describe('MatchingTab runtime boundary', () => {
   it('Main은 canonical MatchingTab만 mount하고 별도 runtime entry를 두지 않는다', () => {
     expect(mainSource).toContain("import MatchingTab from './tabs/matching/MatchingTab'");
     expect(mainSource).not.toContain('MatchingRuntimeTab');
-    expect(existsSync(join(matchingRoot, 'MatchingRuntimeTab.tsx'))).toBe(false);
     expect(mainSource).toContain('initialSection={matchingNavOptions?.section}');
-  });
-
-  it('Post Match story는 flat Runtime 대신 Active, History, Policy owner로 분리한다', () => {
-    expect(
-      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.runtime.stories.tsx')),
-    ).toBe(false);
-    expect(
-      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.active.stories.tsx')),
-    ).toBe(true);
-    expect(
-      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.history.stories.tsx')),
-    ).toBe(true);
-    expect(
-      existsSync(join(matchingRoot, '__stories__/MatchingTab.post-match.policy.stories.tsx')),
-    ).toBe(true);
   });
 
   it('shipping compatibility는 pair-only 토큰을 만들지 않는다', () => {

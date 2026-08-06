@@ -134,7 +134,7 @@ describe('production release checklist closeout boundary', () => {
 
     for (const doc of [deployReadme, deployRunbook, productionPolicy, observabilityPolicy]) {
       expect(doc).toContain('production-release-checklist.md');
-      expect(doc).not.toMatch(/구현 예정|후속 Phase|이 plan|Phase 9에서/);
+      expect(doc).not.toMatch(/구현 예정|후속 단계|이 plan|Phase \d+에서/);
     }
 
     expect(deployReadme).toContain('incident-rollback.md');

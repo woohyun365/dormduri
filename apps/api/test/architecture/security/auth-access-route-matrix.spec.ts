@@ -34,36 +34,36 @@ const typedSqlMocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../generated/prisma/sql.js', () => typedSqlMocks);
+vi.mock('../../../src/generated/prisma/sql.js', () => typedSqlMocks);
 
-import { AuthController } from '../../auth/auth.controller.js';
-import { AUTH_CAPABILITIES } from '../../auth/access/auth-capability.js';
+import { AuthController } from '../../../src/auth/auth.controller.js';
+import { AUTH_CAPABILITIES } from '../../../src/auth/access/auth-capability.js';
 import {
   AUTH_ACCESS_METADATA_KEY,
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
-} from '../../auth/access/auth-access.decorator.js';
-import { ChatController } from '../../chat/chat.controller.js';
-import { BlockController } from '../../social-safety/blocks/block.controller.js';
-import { ReportController } from '../../social-safety/reports/report.controller.js';
-import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
-import { EnforcementNoticeController } from '../../social-safety/enforcements/enforcement-notice.controller.js';
-import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
-import { HealthController } from '../../health/health.controller.js';
-import { HomeDashboardController } from '../../home-dashboard/home-dashboard.controller.js';
-import { LegalController } from '../../legal/legal.controller.js';
-import { MatchesController } from '../../matches/matches.controller.js';
-import { NotificationsController } from '../../notifications/notifications.controller.js';
-import { NoticesController } from '../../notices/notices.controller.js';
-import { SupportController } from '../../support/support.controller.js';
-import { ProfilesController } from '../../profiles/profiles.controller.js';
-import { RoommateSearchController } from '../../roommate-search/roommate-search.controller.js';
-import { SeasonsController } from '../../seasons/seasons.controller.js';
-import { SeasonsOperationsController } from '../../seasons/operations/seasons-operations.controller.js';
+} from '../../../src/auth/access/auth-access.decorator.js';
+import { ChatController } from '../../../src/chat/chat.controller.js';
+import { BlockController } from '../../../src/social-safety/blocks/block.controller.js';
+import { ReportController } from '../../../src/social-safety/reports/report.controller.js';
+import { BookmarkController } from '../../../src/social-safety/bookmarks/bookmark.controller.js';
+import { EnforcementNoticeController } from '../../../src/social-safety/enforcements/enforcement-notice.controller.js';
+import { DormitoriesController } from '../../../src/dormitories/dormitories.controller.js';
+import { HealthController } from '../../../src/health/health.controller.js';
+import { HomeDashboardController } from '../../../src/home-dashboard/home-dashboard.controller.js';
+import { LegalController } from '../../../src/legal/legal.controller.js';
+import { MatchesController } from '../../../src/matches/matches.controller.js';
+import { NotificationsController } from '../../../src/notifications/notifications.controller.js';
+import { NoticesController } from '../../../src/notices/notices.controller.js';
+import { SupportController } from '../../../src/support/support.controller.js';
+import { ProfilesController } from '../../../src/profiles/profiles.controller.js';
+import { RoommateSearchController } from '../../../src/roommate-search/roommate-search.controller.js';
+import { SeasonsController } from '../../../src/seasons/seasons.controller.js';
+import { SeasonsOperationsController } from '../../../src/seasons/operations/seasons-operations.controller.js';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
-} from '../../season-participants/current-season-participation.controller.js';
-import { UsersController } from '../../users/users.controller.js';
+} from '../../../src/season-participants/current-season-participation.controller.js';
+import { UsersController } from '../../../src/users/users.controller.js';
 
 const NEST_CONTROLLER_PATH_METADATA = 'path';
 const NEST_ROUTE_PATH_METADATA = 'path';

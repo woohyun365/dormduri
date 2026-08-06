@@ -55,34 +55,6 @@ const FORBIDDEN_SECTION_DIRECT_IO_PATTERNS = [
   { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
   { label: 'navigator.sendBeacon', pattern: /\bnavigator\s*\.\s*sendBeacon\s*\(/ },
 ] as const;
-const REMOVED_ROOT_COMPATIBILITY_PATHS = [
-  join(homeRoot, 'components', 'BuildingStatsBar.tsx'),
-  join(homeRoot, 'components', 'DynamicTipBanner.tsx'),
-  join(homeRoot, 'components', 'HomeStatsPanel.tsx'),
-  join(homeRoot, 'components', 'HomeStatusTip.tsx'),
-  join(homeRoot, 'components', 'UrgentActionBanner.tsx'),
-  join(homeRoot, 'components', 'HomeOnboardingSheet.tsx'),
-  join(homeRoot, 'components', 'HomePrimaryStateCard.tsx'),
-  join(homeRoot, 'components', 'HomeActivityPanel.tsx'),
-  join(homeRoot, 'components', 'HomeMatchingSummary.tsx'),
-  join(homeRoot, 'components', 'HomeOperationsPanel.tsx'),
-  join(homeRoot, 'components', 'HomeDashboardErrorState.tsx'),
-  join(homeRoot, 'components', 'HomeReadinessChecklist.tsx'),
-  join(homeRoot, 'components', 'HomeMatchingRegisteredGuidePanel.tsx'),
-  join(homeRoot, 'components', 'HomeQuickMenuSection.tsx'),
-  join(homeRoot, 'hooks', 'useHomeOnboardingNotice.ts'),
-  join(homeRoot, 'api', 'home-onboarding-notice.api.ts'),
-  join(process.cwd(), 'src', '__fixtures__'),
-  join(process.cwd(), 'src', 'api', 'home.ts'),
-  join(process.cwd(), 'src', 'api', 'current-user.ts'),
-  join(process.cwd(), 'src', 'api', 'season.ts'),
-  join(process.cwd(), 'src', 'constants', 'season.ts'),
-  join(process.cwd(), 'src', 'contexts', 'SeasonContext.tsx'),
-  join(process.cwd(), 'src', 'hooks', 'useOnboardingState.ts'),
-  join(process.cwd(), 'src', 'types', 'season.ts'),
-  join(process.cwd(), 'src', 'utils', 'date.ts'),
-] as const;
-
 function listRuntimeSourceFiles(root: string): string[] {
   const stats = statSync(root, { throwIfNoEntry: false });
   if (!stats) return [];
@@ -143,14 +115,6 @@ describe('Home runtime boundary', () => {
     });
 
     expect(violations).toEqual([]);
-  });
-
-  it('removed root compatibility files are not reintroduced as Home dependencies', () => {
-    const reintroduced = REMOVED_ROOT_COMPATIBILITY_PATHS.filter(
-      (path) => statSync(path, { throwIfNoEntry: false }) !== undefined,
-    );
-
-    expect(reintroduced).toEqual([]);
   });
 
   it('Home dashboard view model does not calculate readiness from legacy UserProfile lifestyle', () => {

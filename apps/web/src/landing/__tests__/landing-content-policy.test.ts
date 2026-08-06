@@ -43,7 +43,6 @@ describe('landing content policy contract', () => {
       policyCopyById.set(copy.id, copy);
       expectPublicPlainText(copy.copy);
       expect(copy.copy).toContain(copy.testAnchor);
-      expect(copy.source.path).toMatch(/^docs\/04_policy\/official\/.+\.md$/);
       expect(copy.source.section.trim()).not.toBe('');
       expect(copy.source.reason.trim()).not.toBe('');
       expect(copy.requiredSurface.length).toBeGreaterThan(0);

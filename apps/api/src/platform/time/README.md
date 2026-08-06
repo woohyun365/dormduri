@@ -26,7 +26,7 @@ Product domains may import these helpers when they need shared KST local-date be
 - Use `PrismaService.getDatabaseNow()` when application code needs the current persisted timestamp.
 - Use `apps/api/prisma/sql/getCurrentTimestamp.sql` when TypedSQL/raw SQL owns the timestamp comparison.
 - Use `formatKstDate`, `compareKstDate`, and KST parse helpers for date-only conversion after the owning domain has supplied the reference `Date`.
-- Do not add a new production `new Date()` or `Date.now()` usage without updating `src/architecture/testing/api-time-source-boundary.spec.ts` with owner, category, and rationale.
+- Do not add a new production `new Date()` or `Date.now()` usage without updating `test/architecture/testing/api-time-source-boundary.spec.ts` with owner, category, and rationale.
 
 Allowed time-source inventory categories:
 

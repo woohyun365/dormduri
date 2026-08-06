@@ -93,7 +93,7 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/architecture/users/users-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \
   src/architecture/common-boundary.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts
+  test/architecture/security/auth-access-route-matrix.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

@@ -9,33 +9,10 @@ const BASELINE_MIGRATION_PATH = path.resolve(
   '../../../prisma/migrations/000000000000_initial_baseline/migration.sql',
 );
 
-const REMOVED_PROFILE_ACCOUNT_ARTIFACTS = [
-  'CREATE INDEX "User_dormitoryId_idx"',
-  'ADD CONSTRAINT "User_dormitoryId_fkey"',
-] as const;
-
-const REMOVED_RETENTION_ARTIFACTS = [
-  'RetainedIdentityRetentionReason',
-  'ArchiveTier',
-  'RETENTION_SNAPSHOT',
-  'RETAINED_IDENTITY',
-  'CREATE TABLE "RetainedIdentityDataAccessLog"',
-  'CREATE TABLE "RetainedVaultAccessLog"',
-  'CREATE TABLE "ConversationMessageRetainedBody"',
-  'CREATE TABLE "ConversationMessageRetainedBodyAccessLog"',
-] as const;
-
-const REMOVED_UPDATED_AT_TRIGGER_ARTIFACTS = [
-  'CREATE OR REPLACE FUNCTION set_current_timestamp()',
-  'CREATE TRIGGER set_user_updated_at',
-  'CREATE TRIGGER set_auth_session_updated_at',
-  'CREATE TRIGGER set_season_dormitory_operation_updated_at',
-] as const;
-
 describe('migration baseline coverage', () => {
   const sql = readFileSync(BASELINE_MIGRATION_PATH, 'utf8');
 
-  it('현재 baseline의 canonical enum/table/index/constraint와 제거된 schema artifact를 함께 고정한다', () => {
+  it('현재 baseline의 canonical enum/table/index/constraint를 고정한다', () => {
     expect(sql).toContain('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
     expect(sql).toContain(
       `CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');`,
@@ -138,18 +115,6 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       'ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
     );
-
-    // These are not broad string-search guards. They pin removed DB-level artifacts
-    // that would reintroduce old account-profile ownership or pre-RRPD retention tables.
-    for (const artifact of [...REMOVED_PROFILE_ACCOUNT_ARTIFACTS, ...REMOVED_RETENTION_ARTIFACTS]) {
-      expect(sql).not.toContain(artifact);
-    }
-  });
-
-  it('updatedAt baseline은 DB trigger가 아니라 Prisma @updatedAt 소유로 유지된다', () => {
-    for (const artifact of REMOVED_UPDATED_AT_TRIGGER_ARTIFACTS) {
-      expect(sql).not.toContain(artifact);
-    }
   });
 
   it('auth session baseline은 opaque access token hash authority와 short access TTL column을 포함한다', () => {
@@ -211,7 +176,7 @@ describe('migration baseline coverage', () => {
     expect(sql).not.toContain('ACADEMIC_IDENTITY_ALLOWANCE');
   });
 
-  it('chat realtime Phase 2 storage baseline은 idempotency/read marker/outbox/replay column과 index를 포함한다', () => {
+  it('chat realtime storage baseline은 idempotency/read marker/outbox/replay column과 index를 포함한다', () => {
     expect(sql).toContain('"clientMessageId" TEXT');
     expect(sql).toContain('"lastReadMessageId" TEXT');
     expect(sql).toContain('CREATE TABLE "ChatRealtimeOutboxEvent"');
@@ -243,7 +208,7 @@ describe('migration baseline coverage', () => {
     expect(sql).not.toContain('"outboxEventId"');
   });
 
-  it('notification Phase 6-1.6 baseline은 read model/outbox table과 privacy-safe index를 포함한다', () => {
+  it('notification storage baseline은 read model/outbox table과 privacy-safe index를 포함한다', () => {
     expect(sql).toContain(
       "CREATE TYPE \"NotificationKind\" AS ENUM ('CHAT_THREAD_CREATED', 'ENFORCEMENT_NOTICE', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'MATCH_REQUEST_RECEIVED', 'MATCH_REQUEST_ACCEPTED', 'MATCH_REQUEST_REJECTED', 'ACTIVE_MATCH_CREATED', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED')",
     );

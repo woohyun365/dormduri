@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { AuthModule } from '../../auth/auth.module.js';
-import { DormitoriesModule } from '../../dormitories/dormitories.module.js';
+import { AuthModule } from '../../../src/auth/auth.module.js';
+import { DormitoriesModule } from '../../../src/dormitories/dormitories.module.js';
 import { dirname, join, relative, sep } from 'node:path';
-import { CurrentSeasonParticipantContextGuard } from '../../season-participants/context/current-season-participant-context.guard.js';
+import { CurrentSeasonParticipantContextGuard } from '../../../src/season-participants/context/current-season-participant-context.guard.js';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
-} from '../../season-participants/current-season-participation.controller.js';
-import { CurrentSeasonParticipationViewQuery } from '../../season-participants/application/current-season-participation-view.query.js';
-import { SeasonParticipantsModule } from '../../season-participants/season-participants.module.js';
-import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import { UsersModule } from '../../users/users.module.js';
+} from '../../../src/season-participants/current-season-participation.controller.js';
+import { CurrentSeasonParticipationViewQuery } from '../../../src/season-participants/application/current-season-participation-view.query.js';
+import { SeasonParticipantsModule } from '../../../src/season-participants/season-participants.module.js';
+import { SeasonParticipantsService } from '../../../src/season-participants/application/season-participants.service.js';
+import { UsersModule } from '../../../src/users/users.module.js';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');

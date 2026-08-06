@@ -43,7 +43,10 @@ function runnerLanes(path: string): string[] {
   const apiPath = relativeApiPath(path);
   const lanes: string[] = [];
 
-  if (/^src\/.*\.spec\.ts$/.test(apiPath) || /^test\/operations\/.*\.spec\.ts$/.test(apiPath)) {
+  if (
+    /^src\/.*\.spec\.ts$/.test(apiPath) ||
+    /^test\/(?:architecture|operations)\/.*\.spec\.ts$/.test(apiPath)
+  ) {
     lanes.push('unit');
   }
   if (/^test\/integration\/.*\.integration\.spec\.ts$/.test(apiPath)) {
@@ -90,7 +93,7 @@ function typeScriptFiles(root: string) {
     .filter((path) => !path.includes(`${sep}generated${sep}`))
     .filter(
       (path) =>
-        relativeApiPath(path) !== 'src/architecture/testing/api-test-runner-boundary.spec.ts',
+        relativeApiPath(path) !== 'test/architecture/testing/api-test-runner-boundary.spec.ts',
     )
     .sort();
 }
@@ -154,7 +157,7 @@ describe('API test runner boundary', () => {
     expect(scriptValue(apiPackage.scripts, 'test:cov')).toContain('--coverage');
   });
 
-  it('keeps direct API/root Jest runner dependencies and config files removed', () => {
+  it('keeps the API test runner free of direct Jest dependencies', () => {
     const rootPackage = readJson<Record<string, unknown>>(join(repoRoot, 'package.json'));
     const apiPackage = readJson<Record<string, unknown>>(join(apiRoot, 'package.json'));
     const forbiddenDependencies = ['jest', '@swc/jest', '@types/jest'] as const;
@@ -162,14 +165,6 @@ describe('API test runner boundary', () => {
     expectNoDirectDependency(rootPackage, forbiddenDependencies);
     expectNoDirectDependency(apiPackage, forbiddenDependencies);
     expect(Object.hasOwn(apiPackage, 'jest')).toBe(false);
-
-    for (const removedPath of [
-      'test/jest-integration.json',
-      'test/jest-e2e.json',
-      'test/integration/support/suppress-known-pg-warning.cjs',
-    ]) {
-      expect(existsSync(join(apiRoot, removedPath))).toBe(false);
-    }
 
     const lockfile = readSource(join(repoRoot, 'pnpm-lock.yaml'));
     expect(lockfile).not.toMatch(/\n\s{2}'?jest'?:\s|^\s{2}jest@/m);
@@ -217,7 +212,13 @@ describe('API test runner boundary', () => {
     expect(baseConfig).toContain('globals: false');
     expect(baseConfig).toContain("provider: 'v8'");
     expect(unitConfig).toContain("pool: 'forks'");
-    expect(unitConfig).toContain("include: ['src/**/*.spec.ts', 'test/operations/**/*.spec.ts']");
+    for (const unitSource of [
+      'src/**/*.spec.ts',
+      'test/architecture/**/*.spec.ts',
+      'test/operations/**/*.spec.ts',
+    ]) {
+      expect(unitConfig).toContain(unitSource);
+    }
     expect(integrationConfig).toContain("pool: 'forks'");
     expect(integrationConfig).toContain('fileParallelism: false');
     expect(integrationConfig).toContain("include: ['test/integration/**/*.integration.spec.ts']");

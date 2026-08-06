@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
-} from '../../season-participants/current-season-participation.controller.js';
-import { DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY } from '../../platform/domain-context/domain-context.decorator.js';
-import type { ChatThreadMemberContextRequirement } from '../../chat/context/chat-thread-context-requirement.js';
-import type { ActiveMatchParticipantContextRequirement } from '../../matches/context/active-match-context-requirement.js';
-import type { CurrentSeasonParticipantContextRequirement } from '../../season-participants/context/current-season-participant-context-requirement.js';
-import { CurrentSeasonParticipantContextGuard } from '../../season-participants/context/current-season-participant-context.guard.js';
-import { ChatController } from '../../chat/chat.controller.js';
-import { ChatThreadContextGuard } from '../../chat/context/chat-thread-context.guard.js';
-import { MatchesController } from '../../matches/matches.controller.js';
-import { ActiveMatchContextGuard } from '../../matches/active/context/active-match-context.guard.js';
-import { RoommateSearchController } from '../../roommate-search/roommate-search.controller.js';
-import { ProfilesController } from '../../profiles/profiles.controller.js';
+} from '../../../src/season-participants/current-season-participation.controller.js';
+import { DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY } from '../../../src/platform/domain-context/domain-context.decorator.js';
+import type { ChatThreadMemberContextRequirement } from '../../../src/chat/context/chat-thread-context-requirement.js';
+import type { ActiveMatchParticipantContextRequirement } from '../../../src/matches/context/active-match-context-requirement.js';
+import type { CurrentSeasonParticipantContextRequirement } from '../../../src/season-participants/context/current-season-participant-context-requirement.js';
+import { CurrentSeasonParticipantContextGuard } from '../../../src/season-participants/context/current-season-participant-context.guard.js';
+import { ChatController } from '../../../src/chat/chat.controller.js';
+import { ChatThreadContextGuard } from '../../../src/chat/context/chat-thread-context.guard.js';
+import { MatchesController } from '../../../src/matches/matches.controller.js';
+import { ActiveMatchContextGuard } from '../../../src/matches/active/context/active-match-context.guard.js';
+import { RoommateSearchController } from '../../../src/roommate-search/roommate-search.controller.js';
+import { ProfilesController } from '../../../src/profiles/profiles.controller.js';
 
 const NEST_GUARDS_METADATA = '__guards__';
 

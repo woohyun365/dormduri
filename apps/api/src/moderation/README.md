@@ -64,8 +64,8 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/users/application/users.service.spec.ts \
   src/users/account-deletion/request-account-deletion.command.spec.ts \
   src/matches/application/matches.service.spec.ts \
-  src/architecture/api-contracts/display-identity-nickname-policy.spec.ts \
-  src/architecture/platform/module-boundary.spec.ts
+  test/architecture/api-contracts/display-identity-nickname-policy.spec.ts \
+  test/architecture/platform/module-boundary.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
 git diff --check

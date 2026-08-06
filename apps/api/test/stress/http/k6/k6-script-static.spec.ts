@@ -38,7 +38,7 @@ describe('k6 HTTP stress scripts static contract', () => {
     }
   });
 
-  it('duplicated k6 guard가 Phase 5 production override token과 target safety rule을 유지한다', () => {
+  it('duplicated k6 guard가 production override token과 target safety rule을 유지한다', () => {
     const source = readK6Script('common.js');
 
     expect(source).toContain(STRESS_PRODUCTION_OVERRIDE_VALUE);

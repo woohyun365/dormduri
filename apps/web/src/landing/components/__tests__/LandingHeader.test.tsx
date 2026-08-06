@@ -17,14 +17,22 @@ vi.mock('next/link', () => ({
   default: ({
     children,
     href,
+    onClick,
     ...rest
   }: {
     children: React.ReactNode;
     href: string;
-    onClick?: () => void;
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>;
     className?: string;
   }) => (
-    <a href={href} {...rest}>
+    <a
+      href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick?.(event);
+      }}
+      {...rest}
+    >
       {children}
     </a>
   ),

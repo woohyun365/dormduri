@@ -62,12 +62,12 @@
 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
-  src/architecture/domains/notices-boundary.spec.ts \
+  test/architecture/domains/notices-boundary.spec.ts \
   src/notices/contracts/global-notice-contract.spec.ts \
   src/notices/queries/global-notice-list.cursor.spec.ts \
   src/notices/queries/global-notice.query.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts
-pnpm --dir apps/api exec eslint src/notices src/app.module.ts src/architecture/security/auth-access-route-matrix.spec.ts
+  test/architecture/security/auth-access-route-matrix.spec.ts
+pnpm --dir apps/api exec eslint src/notices src/app.module.ts test/architecture/security/auth-access-route-matrix.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

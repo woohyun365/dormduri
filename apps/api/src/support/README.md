@@ -37,9 +37,9 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 
 - Root production TypeScript file은 `support.module.ts`, `support.controller.ts`만 허용한다.
 - Contract spec은 `contracts/support-contract.spec.ts`가 소유한다.
-- Public FAQ placement/read-path guard는 `apps/api/src/architecture/domains/support-boundary.spec.ts`가 고정한다.
+- Public FAQ placement/read-path guard는 `apps/api/test/architecture/domains/support-boundary.spec.ts`가 고정한다.
 - Support root production file boundary, retained vault import guard, notification concrete import guard는 `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`가 고정한다.
-- Route access matrix는 `apps/api/src/architecture/security/auth-access-route-matrix.spec.ts`가 고정한다.
+- Route access matrix는 `apps/api/test/architecture/security/auth-access-route-matrix.spec.ts`가 고정한다.
 - Prisma model/index guard는 architecture social-safety persistence spec이 고정한다.
 
 ## Where to change
@@ -77,9 +77,9 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/support \
-  src/architecture/domains/support-boundary.spec.ts \
-  src/architecture/persistence/social-safety-prisma-baseline.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts \
+  test/architecture/domains/support-boundary.spec.ts \
+  test/operations/database/social-safety-prisma-baseline.spec.ts \
+  test/architecture/security/auth-access-route-matrix.spec.ts \
   src/architecture/module-boundary.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed support files without apps/api prefix>

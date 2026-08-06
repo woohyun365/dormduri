@@ -87,8 +87,8 @@ describe('pair-only matching policy boundary', () => {
     expect(matchesReadme).toContain(
       '3-person/group matching. Current matches module is scoped to 2-person match semantics.',
     );
-    expect(matchesReadme).toContain(
-      '지원하지 않는 group matching projection은 overview에 합치지 않는다.',
+    expect(matchesReadme).toMatch(
+      /지원하지 않는\s+group matching projection은 overview에 합치지 않는다\./,
     );
   });
 
@@ -108,6 +108,7 @@ describe('pair-only matching policy boundary', () => {
       'sentRequests',
       'receivedRequests',
       'activeMatch',
+      'activity',
     ]);
     expect(responseSource).toContain('pair-only 제품 계약에는 group projection이 없다.');
     expect(contractIndexSource).not.toMatch(/export\s+.*group/i);
@@ -136,6 +137,7 @@ describe('pair-only matching policy boundary', () => {
     expect(matchEnums).toEqual([
       'MatchRequestStatus',
       'MatchRequestTerminalReason',
+      'MatchHistorySystemCancellationCause',
       'ActiveMatchStatus',
       'ActiveMatchEndReason',
       'ActiveMatchUnmatchRequestStatus',

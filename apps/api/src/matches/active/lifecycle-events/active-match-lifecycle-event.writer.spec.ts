@@ -144,7 +144,7 @@ describe('ActiveMatchLifecycleEventWriter', () => {
         actorType: ActiveMatchLifecycleActorType.SYSTEM,
       },
     },
-  ])('$name taxonomy를 Phase 9A 결정과 맞춘다', async ({ run, expected }) => {
+  ])('$name taxonomy를 active match lifecycle contract과 맞춘다', async ({ run, expected }) => {
     await run(writer);
 
     expect(create).toHaveBeenCalledTimes(1);

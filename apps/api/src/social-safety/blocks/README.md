@@ -32,7 +32,7 @@
 
 - `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`
 - social-safety Prisma schema/index architecture guard
-- `apps/api/src/architecture/security/auth-access-route-matrix.spec.ts`
+- `apps/api/test/architecture/security/auth-access-route-matrix.spec.ts`
 - `apps/api/src/architecture/module-boundary.spec.ts`
 
 ## Where to change

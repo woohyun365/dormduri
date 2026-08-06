@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { AppModule } from '../../app.module.js';
+import { AppModule } from '../../../src/app.module.js';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');

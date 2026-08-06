@@ -146,7 +146,7 @@ describe('backup and restore drill readiness boundary', () => {
     for (const doc of [dbReadme, deployReadme, deployRunbook, policy]) {
       expect(doc).toMatch(/[Bb]ackup\/restore/);
       expect(doc).toContain('restore drill');
-      expect(doc).not.toMatch(/구현 예정|후속 Phase|이 plan|Phase 8에서/);
+      expect(doc).not.toMatch(/구현 예정|후속 단계|이 plan|Phase \d+에서/);
     }
 
     expect(dbReadme).toContain('pnpm api:db:restore-drill:smoke');

@@ -153,13 +153,13 @@ Backup/restore drill은 `infra/runbooks/backup-restore-drill.md` 기준으로 �
 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
-  src/architecture/platform/database-deploy.spec.ts \
-  src/platform/database/auth-role-grants.spec.ts \
-  src/platform/database/rrpd-role-grants.spec.ts \
-  src/platform/database/migration-baseline.spec.ts
-pnpm --dir apps/api exec eslint src/architecture/platform/database-deploy.spec.ts
+  test/operations/platform/database-deploy.spec.ts \
+  test/operations/database/auth-role-grants.spec.ts \
+  test/operations/database/rrpd-role-grants.spec.ts \
+  test/operations/database/migration-baseline.spec.ts
+pnpm --dir apps/api exec eslint test/operations/platform/database-deploy.spec.ts
 sh -n infra/db/migrate-deploy.sh infra/db/apply-role-grants.sh infra/db/smoke-role-grants.sh infra/db/restore-drill-smoke.sh
-pnpm prettier --check infra/db/README.md apps/api/src/architecture/platform/database-deploy.spec.ts apps/api/src/architecture/platform/backup-restore-drill.spec.ts
+pnpm prettier --check infra/db/README.md apps/api/test/operations/platform/database-deploy.spec.ts apps/api/test/operations/platform/backup-restore-drill.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

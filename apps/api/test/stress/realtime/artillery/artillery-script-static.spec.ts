@@ -12,7 +12,7 @@ function readScript(fileName: string) {
 }
 
 describe('Artillery realtime stress scripts static contract', () => {
-  it('Phase 7 matrix의 모든 realtime scenario script가 존재한다', () => {
+  it('realtime scenario matrix의 모든 script가 존재한다', () => {
     for (const scenario of ARTILLERY_REALTIME_SCENARIOS) {
       const source = readScript(scenario.scriptFile);
 
@@ -68,7 +68,7 @@ describe('Artillery realtime stress scripts static contract', () => {
     expect(source).toContain('STRESS_REALTIME_THREAD_ID');
     expect(source).toContain('STRESS_REALTIME_SOCKET_URL');
     expect(source).toContain('/api/chat/realtime/tickets');
-    expect(source).toContain('Only the smoke realtime scenario is executable in Phase 7-1');
+    expect(source).toContain('Only the smoke realtime scenario is executable by this runner');
     expect(source).toContain('STRESS_ALLOW_PRODUCTION');
     expect(source).toContain('STRESS_ALLOWED_HOSTS');
     expect(source).toContain('parse-artillery-summary.ts');

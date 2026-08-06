@@ -4,6 +4,7 @@ import { basename, join, relative } from 'node:path';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
+const apiArchitectureTestRoot = join(apiRoot, 'test/architecture');
 const authRoot = join(apiSourceRoot, 'auth');
 
 function walkTypeScriptFiles(root: string): string[] {
@@ -185,7 +186,7 @@ describe('Auth product architecture boundary', () => {
 
   it('keeps password policy fitness under the architecture owner', () => {
     expect(
-      existsSync(join(apiSourceRoot, 'architecture/domains/auth-password-policy-boundary.spec.ts')),
+      existsSync(join(apiArchitectureTestRoot, 'domains/auth-password-policy-boundary.spec.ts')),
     ).toBe(true);
     expect(existsSync(join(authRoot, 'credentials/password-policy.boundary.spec.ts'))).toBe(false);
   });

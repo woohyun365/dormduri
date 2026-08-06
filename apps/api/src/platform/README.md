@@ -64,10 +64,10 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/architecture/module-boundary.spec.ts \
   src/platform/http \
   src/platform/database/prisma.service.spec.ts \
-  src/platform/database/auth-role-grants.spec.ts \
-  src/platform/database/rrpd-role-grants.spec.ts \
-  src/platform/database/migration-baseline.spec.ts \
-  src/platform/database/updated-at-ownership.spec.ts \
+  test/operations/database/auth-role-grants.spec.ts \
+  test/operations/database/rrpd-role-grants.spec.ts \
+  test/operations/database/migration-baseline.spec.ts \
+  test/operations/database/updated-at-ownership.spec.ts \
   src/platform/domain-context \
   src/platform/time/kst-date.spec.ts
 pnpm api:typecheck

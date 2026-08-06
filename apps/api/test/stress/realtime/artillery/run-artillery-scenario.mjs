@@ -112,7 +112,7 @@ process.exit(1);
 async function prepareRealtimeSmokeEnvironment({ artifactPath, csvPath, targetUrl, scenarioName }) {
   if (scenarioName !== 'smoke') {
     throw new Error(
-      'Only the smoke realtime scenario is executable in Phase 7-1. baseline-250/peak-500 need a separate approved runner because chat realtime tickets are one-time handshake credentials and Artillery opens sockets before per-row payload values can be applied to auth.',
+      'Only the smoke realtime scenario is executable by this runner. baseline-250/peak-500 need a separate approved runner because chat realtime tickets are one-time handshake credentials and Artillery opens sockets before per-row payload values can be applied to auth.',
     );
   }
 

@@ -50,6 +50,7 @@
     "web:e2e:fullstack": "pnpm --dir apps/web e2e:fullstack",
     "web:storybook": "pnpm --dir apps/web storybook",
     "web:storybook:build": "pnpm --dir apps/web storybook:build",
+    "test:repo-policy": "node --test scripts/ci/policy-source-links.test.mjs",
     "api:test:ci": "pnpm --dir apps/api test:ci",
     "test:api:ci": "pnpm api:test:ci"
   },

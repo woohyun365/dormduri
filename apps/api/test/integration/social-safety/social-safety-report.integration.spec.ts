@@ -284,7 +284,7 @@ describe('Social-safety report intake integration', () => {
     ).resolves.toMatchObject({ status: 'READ_ONLY', closedReason: 'USER_BLOCKED' });
   });
 
-  it('support ticket target은 Phase 7 전까지 probing-safe unsupported로 닫는다', async () => {
+  it('support ticket target은 report API에서 probing-safe unsupported로 닫는다', async () => {
     const response = await request(httpServer)
       .post('/api/reports')
       .set('Authorization', await authHeader())

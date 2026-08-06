@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   AUTH_PASSWORD_BLOCKLIST_REFERENCE,
   validateAuthPasswordBlocklistReference,
-} from '../../auth/credentials/password-policy/password-blocklist.reference.js';
-import { authPasswordBlocklistSize } from '../../auth/credentials/password-policy/password-blocklist.lookup.js';
+} from '../../../src/auth/credentials/password-policy/password-blocklist.reference.js';
+import { authPasswordBlocklistSize } from '../../../src/auth/credentials/password-policy/password-blocklist.lookup.js';
 
 const passwordPolicyRoot = join(process.cwd(), 'src/auth/credentials/password-policy');
 

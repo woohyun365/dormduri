@@ -55,7 +55,7 @@ const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json
 };
 
 describe('dockerized stress smoke runner', () => {
-  it('keeps Phase 9-1 docker API/nginx smoke steps executable from one script', () => {
+  it('keeps docker API/nginx smoke steps executable from one script', () => {
     expect(source).toContain('docker-compose.api.yml');
     expect(source).toContain("'--accept-data-loss'");
     expect(source).toContain('api compose build');
@@ -90,7 +90,7 @@ describe('dockerized stress smoke runner', () => {
     expect(source).not.toContain('console.log(metricsToken)');
   });
 
-  it('exposes a Phase 9-2 production-like evidence profile with observability and DB readout', () => {
+  it('exposes a production-like evidence profile with observability and DB readout', () => {
     expect(productionLikeSource).toContain("STRESS_DOCKER_PROFILE = 'production-like'");
     expect(source).toContain('api-production-like-stress-result-');
     expect(source).toContain('docker-compose.api.override.example.yml');
@@ -156,7 +156,7 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('docker-compose.observability.rehearsal.yml');
   });
 
-  it('exposes a Phase 9-3 237 cohort ramp decision runner', () => {
+  it('exposes the 237 cohort ramp decision runner', () => {
     expect(rampDecisionSource).toContain('api-237-ramp-decision-result-');
     expect(rampDecisionSource).toContain("STRESS_COHORT_SIZE: '237'");
     expect(rampDecisionSource).toContain("STRESS_LARGEST_COHORT_SIZE: '237'");

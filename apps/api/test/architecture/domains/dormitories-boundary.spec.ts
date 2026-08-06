@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { DormitoriesModule } from '../../dormitories/dormitories.module.js';
-import { DormitoriesService } from '../../dormitories/application/dormitories.service.js';
-import { DORMITORY_SELECTION_CATALOG_PORT } from '../../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
+import { DormitoriesModule } from '../../../src/dormitories/dormitories.module.js';
+import { DormitoriesService } from '../../../src/dormitories/application/dormitories.service.js';
+import { DORMITORY_SELECTION_CATALOG_PORT } from '../../../src/dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');

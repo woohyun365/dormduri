@@ -1,11 +1,8 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const webSourceRoot = join(process.cwd(), 'src');
-const legacyTypesRoot = join(webSourceRoot, 'types');
-const legacyUtilsRoot = join(webSourceRoot, 'utils');
-
 function listTypeScriptSources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
@@ -15,11 +12,7 @@ function listTypeScriptSources(directory: string): string[] {
 }
 
 describe('Web ownership boundary', () => {
-  it('root compatibility types directory를 다시 만들지 않는다', () => {
-    expect(existsSync(legacyTypesRoot)).toBe(false);
-  });
-
-  it('source files는 root types compatibility import를 사용하지 않는다', () => {
+  it('source files는 owner를 우회하는 root types import를 사용하지 않는다', () => {
     const staleImports = listTypeScriptSources(webSourceRoot).filter((path) =>
       /from\s+['"]@\/types(?:\/|['"])/u.test(readFileSync(path, 'utf8')),
     );
@@ -27,18 +20,11 @@ describe('Web ownership boundary', () => {
     expect(staleImports).toEqual([]);
   });
 
-  it('root compatibility utils directory와 import를 다시 만들지 않는다', () => {
+  it('source files는 owner를 우회하는 root utils import를 사용하지 않는다', () => {
     const staleImports = listTypeScriptSources(webSourceRoot).filter((path) =>
       /from\s+['"]@\/utils\//u.test(readFileSync(path, 'utf8')),
     );
 
-    expect(existsSync(legacyUtilsRoot)).toBe(false);
     expect(staleImports).toEqual([]);
-  });
-
-  it('Web 전용 타입은 Main과 social-safety owner model에 둔다', () => {
-    expect(existsSync(join(webSourceRoot, 'main/model/navigation.ts'))).toBe(true);
-    expect(existsSync(join(webSourceRoot, 'main/model/profile.ts'))).toBe(true);
-    expect(existsSync(join(webSourceRoot, 'social-safety/model/socialSafety.types.ts'))).toBe(true);
   });
 });

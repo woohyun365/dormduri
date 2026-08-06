@@ -64,7 +64,7 @@
 
 ## Architecture guard
 
-Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-named surface가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 architecture surface에서 고정한다.
+Auth architecture/inventory guard는 `apps/api/test/architecture/`의 product-named surface가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 architecture surface에서 고정한다.
 
 - Root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
 - Root spec file은 `auth.controller.spec.ts`만 허용한다.
@@ -111,10 +111,10 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
-  src/architecture/domains/auth-boundary.spec.ts \
-  src/architecture/domains/auth-password-policy-boundary.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts \
-  src/architecture/domain-context/domain-context-route-matrix.spec.ts \
+  test/architecture/domains/auth-boundary.spec.ts \
+  test/architecture/domains/auth-password-policy-boundary.spec.ts \
+  test/architecture/security/auth-access-route-matrix.spec.ts \
+  test/architecture/domain-context/domain-context-route-matrix.spec.ts \
   src/auth/application/auth.service.spec.ts \
   src/auth/verification/auth-verification-use-cases.service.spec.ts \
   src/auth/registration/auth-registration-use-cases.service.spec.ts \

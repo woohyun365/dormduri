@@ -70,11 +70,11 @@ metric만 기록한다.
 source-of-truth로 유지한다. Request·mail·credential lifecycle 경보는 owner-local counter/gauge와
 Prometheus rule이 담당하며 감사 로그를 다시 읽어 metric을 만들지 않는다.
 
-## Phase 경계
+## 관측 책임
 
-- Phase 1: logging foundation, request correlation, redaction, exception/prisma pool error logging.
-- Phase 2: `/internal/metrics`, Prometheus registry, bounded platform HTTP/exception metrics.
-- Phase 3: domain metrics bridge와 domain operation metric/log touch point.
+- logging foundation은 request correlation, redaction, exception/Prisma pool error logging을 소유한다.
+- `/internal/metrics`와 Prometheus registry는 bounded platform HTTP/exception metric을 제공한다.
+- domain metrics bridge는 각 domain operation의 bounded metric/log touch point를 연결한다.
 
 ## Infra stack
 

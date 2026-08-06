@@ -112,9 +112,9 @@ pnpm db:seed:reference
 
 ```bash
 pnpm --dir apps/api test --run \
-  src/architecture/reference-data/college-reference-data.spec.ts \
-  src/architecture/reference-data/dormitory-reference-data.spec.ts \
-  src/architecture/reference-data/reference-seed-scripts.spec.ts
+  test/operations/reference-data/college-reference-data.spec.ts \
+  test/operations/reference-data/dormitory-reference-data.spec.ts \
+  test/operations/reference-data/reference-seed-scripts.spec.ts
 pnpm --dir apps/api prisma:validate
 pnpm api:typecheck
 ```

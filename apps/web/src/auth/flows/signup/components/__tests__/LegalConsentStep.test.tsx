@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { LegalConsentStep, type LegalConsentData } from '../LegalConsentStep';
@@ -170,13 +170,15 @@ describe('LegalConsentStep', () => {
 
     function Wrapper() {
       const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
+      const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+        latestConsent = nextConsent;
+        setLegalConsent(nextConsent);
+      }, []);
+
       return (
         <LegalConsentStep
           legalConsent={legalConsent}
-          onLegalConsentChange={(nextConsent) => {
-            latestConsent = nextConsent;
-            setLegalConsent(nextConsent);
-          }}
+          onLegalConsentChange={handleLegalConsentChange}
           onNext={onNext}
           onBack={vi.fn()}
         />
@@ -376,13 +378,15 @@ describe('LegalConsentStep', () => {
 
     function Wrapper() {
       const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
+      const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+        latestConsent = nextConsent;
+        setLegalConsent(nextConsent);
+      }, []);
+
       return (
         <LegalConsentStep
           legalConsent={legalConsent}
-          onLegalConsentChange={(nextConsent) => {
-            latestConsent = nextConsent;
-            setLegalConsent(nextConsent);
-          }}
+          onLegalConsentChange={handleLegalConsentChange}
           onNext={onNext}
           onBack={vi.fn()}
         />

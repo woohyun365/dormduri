@@ -160,7 +160,10 @@ describe('useRoommateSearch', () => {
     });
 
     await waitFor(() =>
-      expect(result.current.items.map((item) => item.id)).toEqual(['cursor-recovered']),
+      expect(result.current.items.map((item) => item.id)).toEqual([
+        'participant-1',
+        'cursor-recovered',
+      ]),
     );
     expect(paramsFromCall(client, 1).get('cursor')).toBe('expired-cursor');
     expect(paramsFromCall(client, 2).has('cursor')).toBe(false);

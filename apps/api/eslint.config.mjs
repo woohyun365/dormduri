@@ -87,7 +87,7 @@ export default defineConfig([
   },
   {
     files: [
-      'src/architecture/reference-data/reference-seed-scripts.spec.ts',
+      'test/operations/reference-data/reference-seed-scripts.spec.ts',
       'test/integration/support/integration-db.ts',
     ],
     rules: {

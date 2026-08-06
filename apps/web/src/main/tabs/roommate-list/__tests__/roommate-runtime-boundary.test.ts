@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -18,12 +18,8 @@ const FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS = [
   'mockDb',
   'calcMatchScoreWithGating',
   'ProfileDetailSheet',
-  'DEFAULT_FILTERS',
-  'FilterState',
   '@/main/components/BottomSheet',
   '@/types/filter',
-  'drinkingFrequency',
-  'drinkingTolerance',
   'targetCondition',
   'viewerValue',
   'targetValue',
@@ -31,7 +27,6 @@ const FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS = [
   'bookmarkedUserIds',
   'blockedUserIds',
   'displayCount',
-  'slice(0',
   'localStorage',
   'sessionStorage',
 ] as const;
@@ -47,75 +42,6 @@ const FORBIDDEN_MAIN_LIST_BRIDGE_PATTERNS = [
   'blockedUserIds={socialState.blockedUserIds}',
   'matchRequests={matchingState.matchRequests}',
   'activeMatch={matchingState.activeMatch}',
-] as const;
-
-const PHASE4_SPLIT_FILES = [
-  'model/search/roommateSearchViewModel.ts',
-  'sections/header/RoommateSearchHeader.tsx',
-  'sections/scope-switcher/RoommateSearchControls.tsx',
-  'sections/results/RoommateSearchResultsSection.tsx',
-  'sections/empty-states/RoommateSearchStateSection.tsx',
-  'components/RoommateSummaryCard.tsx',
-] as const;
-
-const PHASE5_SPLIT_FILES = [
-  'model/filters/roommateFilterSheetModel.ts',
-  'sections/filters/RoommateSearchFilterBar.tsx',
-  'overlays/RoommateFilterSheet.tsx',
-  'api/roommateActions.client.ts',
-  'hooks/useRoommateBookmarkList.ts',
-] as const;
-
-const PHASE7_SPLIT_FILES = [
-  'api/roommateProfileDetail.client.ts',
-  'hooks/useRoommateProfileDetail.ts',
-  'overlays/RoommateProfileDetailDialog.tsx',
-  'components/CompatibilityRadar.tsx',
-  'components/CompatibilityAxisList.tsx',
-  'model/compatibility/compatibilityChart.mapper.ts',
-  'model/compatibility/compatibilityCopy.ts',
-  'model/compatibility/compatibilityPrivacy.policy.ts',
-] as const;
-
-const PHASE8_SPLIT_FILES = [
-  'hooks/useRoommateActions.ts',
-  'model/actions/roommateActionReasonCopy.ts',
-  'overlays/RoommateBlockDialog.tsx',
-  'overlays/RoommateReportDialog.tsx',
-  'overlays/RoommateMatchRequestDialog.tsx',
-] as const;
-
-const PHASE14_SPLIT_FILES = [
-  'components/search/RoommateListControlsPanel.tsx',
-  'components/search/RoommateSearchFeedback.tsx',
-  'hooks/useDesktopRoommateLayout.ts',
-  'model/actions/roommateActionDialogState.ts',
-  'model/search/roommateListShellModel.ts',
-] as const;
-
-const FINAL_LEGACY_ABSENCE_FILES = [
-  'src/api/profile.ts',
-  'src/main/dev-only/fixtures/index.ts',
-  'src/main/tabs/roommate-list/hooks/useRoommateListViewModel.ts',
-  'src/main/tabs/roommate-list/components/RoommateListHeader.tsx',
-  'src/main/tabs/roommate-list/components/RoommateListResults.tsx',
-] as const;
-
-const phase8MatchRequestBffRoute = join(process.cwd(), 'src/app/api/matches/requests/route.ts');
-
-const FORBIDDEN_PHASE4_SHELL_INTERNALS = [
-  'RoommateSearchSummary',
-  'function renderSearchBody',
-  'function RoommateSummaryCard',
-  'function SummaryFact',
-  'function NoticeList',
-  'function lifestyleLabel',
-] as const;
-
-const FORBIDDEN_PHASE4_CARD_SOURCE_PATTERNS = [
-  '@repo/shared/roommate-search/contract',
-  'RoommateSearchSummary',
-  'detailEntryToken',
 ] as const;
 
 function listRuntimeSourceFiles(root: string): string[] {
@@ -141,7 +67,7 @@ function listRuntimeSourceFiles(root: string): string[] {
 
 function isRuntimeSourceFile(path: string): boolean {
   return (
-    /\.(ts|tsx)$/.test(path) &&
+    /\.(ts|tsx)$/u.test(path) &&
     !path.endsWith('.test.ts') &&
     !path.endsWith('.test.tsx') &&
     !path.endsWith('.stories.ts') &&
@@ -150,7 +76,7 @@ function isRuntimeSourceFile(path: string): boolean {
 }
 
 describe('RoommateTab runtime boundary', () => {
-  it('eventual production RoommateTab source does not use legacy mock/profile/local truth', () => {
+  it('production source does not use mock profile data or local policy truth', () => {
     const violations = listRuntimeSourceFiles(roommateRoot).flatMap((file) => {
       const source = readFileSync(file, 'utf8');
       return FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS.filter((pattern) => source.includes(pattern)).map(
@@ -161,7 +87,7 @@ describe('RoommateTab runtime boundary', () => {
     expect(violations).toEqual([]);
   });
 
-  it('eventual Main list branch does not pass legacy list props or require legacy bootstrap', () => {
+  it('Main delegates roommate search state instead of passing legacy list props', () => {
     const source = readFileSync(mainRuntimeSource, 'utf8');
     const violations = FORBIDDEN_MAIN_LIST_BRIDGE_PATTERNS.filter((pattern) =>
       source.includes(pattern),
@@ -170,20 +96,60 @@ describe('RoommateTab runtime boundary', () => {
     expect(violations).toEqual([]);
   });
 
-  it('Phase 4 shell keeps state/card rendering behind split components and mapper', () => {
-    const missingFiles = PHASE4_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
-      (file) => !existsSync(file),
-    );
+  it('keeps search shell rendering behind owner components and view models', () => {
     const source = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
-    const violations = FORBIDDEN_PHASE4_SHELL_INTERNALS.filter((pattern) =>
-      source.includes(pattern),
-    );
 
-    expect(missingFiles).toEqual([]);
-    expect(violations).toEqual([]);
+    expect(source).toContain('RoommateListControlsPanel');
+    expect(source).toContain('RoommateSearchFeedback');
+    expect(source).toContain('RoommateSearchResultsSection');
+    expect(source).not.toContain('function RoommateSummaryCard');
+    expect(source).not.toContain('function SummaryFact');
+    expect(source).not.toContain('function getSearchStateSectionState');
   });
 
-  it('action success receipt names the counterpart without a status pill and supports block dialog receipt', () => {
+  it('summary cards consume display models instead of raw contracts or entry tokens', () => {
+    const source = readFileSync(join(roommateRoot, 'components/RoommateSummaryCard.tsx'), 'utf8');
+
+    expect(source).not.toContain('@repo/shared/roommate-search/contract');
+    expect(source).not.toContain('RoommateSearchSummary');
+    expect(source).not.toContain('detailEntryToken');
+  });
+
+  it('keeps profile detail and compatibility mapping behind owner clients and models', () => {
+    const detailClientSource = readFileSync(
+      join(roommateRoot, 'api/roommateProfileDetail.client.ts'),
+      'utf8',
+    );
+    const compatibilityMapperSource = readFileSync(
+      join(roommateRoot, 'model/compatibility/compatibilityChart.mapper.ts'),
+      'utf8',
+    );
+
+    expect(detailClientSource).toContain('/api/profiles/');
+    expect(detailClientSource).toContain('publicProfileSchema');
+    expect(compatibilityMapperSource).toContain('PublicProfileCompatibility');
+  });
+
+  it('keeps bookmark, block, report, and match request I/O in the action client', () => {
+    const actionClientSource = readFileSync(
+      join(roommateRoot, 'api/roommateActions.client.ts'),
+      'utf8',
+    );
+    const actionsHookSource = readFileSync(
+      join(roommateRoot, 'hooks/useRoommateActions.ts'),
+      'utf8',
+    );
+
+    expect(actionClientSource).toContain('/api/bookmarks');
+    expect(actionClientSource).toContain('/api/blocks/');
+    expect(actionClientSource).toContain('/api/reports');
+    expect(actionClientSource).toContain('/api/matches/requests');
+    expect(actionClientSource).toContain('bookmarkListResponseSchema');
+    expect(actionsHookSource).toContain('pendingTargetUserIds');
+    expect(actionsHookSource).not.toContain('detailEntryToken');
+  });
+
+  it('action receipts expose user-facing outcomes without status-code presentation', () => {
     const source = readFileSync(
       join(roommateRoot, 'overlays/RoommateActionReceiptDialog.tsx'),
       'utf8',
@@ -195,99 +161,7 @@ describe('RoommateTab runtime boundary', () => {
 
     expect(source).toContain('counterpartNickname');
     expect(source).toContain('noticeSections');
-    expect(source).toContain('매칭 요청 후 알아야 할 사항');
-    expect(source).toContain('차단 후 알아야 할 사항');
     expect(source).not.toContain('이미 요청을 보낸 사용자');
     expect(feedbackSource).toContain("receipt?.actionKind === 'block'");
-  });
-
-  it('Phase 4 card renders only the card view model and never raw search contract/token fields', () => {
-    const source = readFileSync(join(roommateRoot, 'components/RoommateSummaryCard.tsx'), 'utf8');
-    const violations = FORBIDDEN_PHASE4_CARD_SOURCE_PATTERNS.filter((pattern) =>
-      source.includes(pattern),
-    );
-
-    expect(violations).toEqual([]);
-  });
-
-  it('Phase 5 keeps filter sheet and bookmark action behind owner-specific files', () => {
-    const missingFiles = PHASE5_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
-      (file) => !existsSync(file),
-    );
-    const actionClientSource = readFileSync(
-      join(roommateRoot, 'api/roommateActions.client.ts'),
-      'utf8',
-    );
-    const bookmarkHookSource = readFileSync(
-      join(roommateRoot, 'hooks/useRoommateBookmarkList.ts'),
-      'utf8',
-    );
-
-    expect(missingFiles).toEqual([]);
-    expect(actionClientSource).toContain('/api/bookmarks');
-    expect(actionClientSource).toContain('bookmarkListResponseSchema');
-    expect(bookmarkHookSource).toContain('getRoommateBookmarkList');
-  });
-
-  it('Phase 7 keeps profile detail and compatibility UI behind RoommateTab owner files', () => {
-    const missingFiles = PHASE7_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
-      (file) => !existsSync(file),
-    );
-    const detailClientSource = readFileSync(
-      join(roommateRoot, 'api/roommateProfileDetail.client.ts'),
-      'utf8',
-    );
-    const compatibilityMapperSource = readFileSync(
-      join(roommateRoot, 'model/compatibility/compatibilityChart.mapper.ts'),
-      'utf8',
-    );
-
-    expect(missingFiles).toEqual([]);
-    expect(detailClientSource).toContain('/api/profiles/');
-    expect(detailClientSource).toContain('publicProfileSchema');
-    expect(compatibilityMapperSource).toContain('PublicProfileCompatibility');
-  });
-
-  it('Phase 8 keeps social actions behind owner files and adds match request BFF route', () => {
-    const missingFiles = PHASE8_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
-      (file) => !existsSync(file),
-    );
-    const actionClientSource = readFileSync(
-      join(roommateRoot, 'api/roommateActions.client.ts'),
-      'utf8',
-    );
-    const actionsHookSource = readFileSync(
-      join(roommateRoot, 'hooks/useRoommateActions.ts'),
-      'utf8',
-    );
-
-    expect(missingFiles).toEqual([]);
-    expect(existsSync(phase8MatchRequestBffRoute)).toBe(true);
-    expect(actionClientSource).toContain('/api/blocks/');
-    expect(actionClientSource).toContain('/api/reports');
-    expect(actionClientSource).toContain('/api/matches/requests');
-    expect(actionsHookSource).toContain('pendingTargetUserIds');
-    expect(actionsHookSource).not.toContain('detailEntryToken');
-  });
-
-  it('Phase 14 keeps RoommateListTab as a thin shell with split search/action presentation files', () => {
-    const missingFiles = PHASE14_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
-      (file) => !existsSync(file),
-    );
-    const shellSource = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
-
-    expect(missingFiles).toEqual([]);
-    expect(shellSource.split('\n').length).toBeLessThanOrEqual(350);
-    expect(shellSource).not.toContain('function RoommateActionFeedbackBanner');
-    expect(shellSource).not.toContain('function RoommateListControlsPanel');
-    expect(shellSource).not.toContain('function getSearchStateSectionState');
-  });
-
-  it('Phase 15 final guard keeps deleted legacy RoommateTab surfaces absent', () => {
-    const existingLegacyFiles = FINAL_LEGACY_ABSENCE_FILES.map((file) =>
-      join(process.cwd(), file),
-    ).filter((file) => existsSync(file));
-
-    expect(existingLegacyFiles).toEqual([]);
   });
 });

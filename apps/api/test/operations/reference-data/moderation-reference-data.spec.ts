@@ -7,7 +7,7 @@ import { AUTH_FIXTURE_USERS } from '../../../prisma/seed-data/fixtures/auth-fixt
 import {
   matchesModerationTerm,
   normalizeForModeration,
-} from '../../moderation/text-moderation.policy.js';
+} from '../../../src/moderation/text-moderation.policy.js';
 
 type ModerationReferenceRow = {
   referenceKey: string;

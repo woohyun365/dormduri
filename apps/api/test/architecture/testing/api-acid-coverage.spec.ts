@@ -578,7 +578,7 @@ function isProductionSourceFile(path: string) {
     !path.endsWith('.spec.ts') &&
     !relativePath.includes('/test-support/') &&
     !relativePath.includes('/generated/') &&
-    relativePath !== 'src/architecture/testing/api-acid-coverage.spec.ts'
+    relativePath !== 'test/architecture/testing/api-acid-coverage.spec.ts'
   );
 }
 

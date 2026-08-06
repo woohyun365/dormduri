@@ -28,12 +28,9 @@ describe('LandingSupportSection', () => {
     ).toBeInTheDocument();
     expect(within(section!).getByText('상황에 맞는 도움 방법을 확인해요.')).toBeInTheDocument();
     expect(within(section!).getByText('공개 정보는 꼭 필요한 만큼만')).toBeInTheDocument();
+    expect(within(section!).getByText('내 공개 프로필')).toBeInTheDocument();
     expect(
       within(section!).getByText('실명·학번·연락처·SNS 등 개인 정보는 적지 않는 것을 권장해요.'),
-    ).toBeInTheDocument();
-    expect(within(section!).getByText('1:1 채팅')).toBeInTheDocument();
-    expect(
-      within(section!).getByText('상대와 신뢰를 확인한 뒤 필요한 범위에서 공유해요.'),
     ).toBeInTheDocument();
     expect(within(section!).getByText('타인 정보')).toBeInTheDocument();
     expect(

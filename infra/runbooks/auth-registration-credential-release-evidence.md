@@ -32,7 +32,7 @@ pnpm --dir apps/api exec vitest run \
   src/users/identity/display/display-identity-nickname-policy.service.spec.ts \
   src/users/identity/display/display-identity.repository.spec.ts \
   src/users/identity/display/update-display-identity.command.spec.ts \
-  src/architecture/platform/observability-infra.spec.ts
+  test/operations/platform/observability-infra.spec.ts
 ```
 
 Nickname parse/moderation/current availability는 Users Display Identity owner를 사용하고, Auth는 signup admission과 finalization만 orchestration하는지 확인한다. 사전 확인은 reservation이 아니며 final unique conflict는 안정적인 field recovery로 수렴해야 한다.
@@ -81,7 +81,7 @@ pnpm --dir apps/api exec vitest run \
   test/integration/platform/migration-status.integration.spec.ts
 pnpm --dir apps/api exec vitest run \
   --config ./vitest.config.unit.ts \
-  src/architecture/reference-data/reference-seed-scripts.spec.ts
+  test/operations/reference-data/reference-seed-scripts.spec.ts
 ```
 
 Migration status integration은 기존 development DB가 아니라 disposable fresh schema를 생성하고 `prisma migrate deploy`를 실행한다. 실제 reference seed 실행은 폐기 가능한 development/staging database URL을 명시한 release rehearsal에서만 수행한다.

@@ -54,4 +54,4 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --ma
 pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --maxWorkers=1 test/integration/roommate-search/filters.integration.spec.ts
 ```
 
-경로 이동 시 `src/architecture/testing/api-acid-coverage.spec.ts`의 concrete coverage reference와 관련 runbook을 함께 갱신한다. exact file inventory guard는 만들지 않는다.
+경로 이동 시 `test/architecture/testing/api-acid-coverage.spec.ts`의 concrete coverage reference와 관련 runbook을 함께 갱신한다. exact file inventory guard는 만들지 않는다.
