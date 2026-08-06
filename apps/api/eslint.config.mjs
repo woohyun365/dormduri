@@ -62,6 +62,28 @@ export default defineConfig([
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    files: ['src/**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'node:fs',
+              message:
+                '제품 unit spec은 구현 source를 읽지 않습니다. Architecture 또는 operations lane에서 artifact 경계를 검증하세요.',
+            },
+            {
+              name: 'node:fs/promises',
+              message:
+                '제품 unit spec은 구현 source를 읽지 않습니다. Architecture 또는 operations lane에서 artifact 경계를 검증하세요.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: [
       'test/stress/http/k6/**/*.js',
       'test/stress/http/k6/**/*.mjs',

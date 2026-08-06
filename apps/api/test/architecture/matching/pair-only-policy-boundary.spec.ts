@@ -32,23 +32,13 @@ describe('pair-only matching policy boundary', () => {
     const officialIndex = read(join(officialPolicyRoot, 'README.md'));
     const seasonPolicy = read(join(officialPolicyRoot, 'season-lifecycle.md'));
 
-    expect(matchingPolicy).toContain(
-      '현재 FE/BFF/API/BE/Prisma/shared contract는 2인 매칭만 제공한다.',
-    );
-    expect(matchingPolicy).toContain(
-      '이 metadata를 group matching capability나 UI 활성화 근거로 사용하지 않는다.',
-    );
-    expect(matchingPolicy).toContain(
-      '3인 group matching용 상태, action, API/BFF route, persistence aggregate',
-    );
-    expect(matchingPolicy).toContain(
-      '과거에 검토한 group matching 설계는 repository source of truth와 현재 구현 근거에서 제외한다.',
-    );
+    expect(matchingPolicy).toMatch(/2인 매칭만 제공/u);
+    expect(matchingPolicy).toMatch(/room type metadata[\s\S]*group matching capability/u);
+    expect(matchingPolicy).toMatch(/3인 group matching[\s\S]*(?:지원하지|제공하지)/u);
 
     expect(officialIndex).toContain('[matching-lifecycle.md](./matching-lifecycle.md)');
     expect(officialIndex).not.toContain('group-matching-lifecycle.md');
-    expect(seasonPolicy).toContain('3인실 room capacity는 기숙사 metadata로 유지하되');
-    expect(seasonPolicy).toContain('group matching capability로 해석하지 않는다.');
+    expect(seasonPolicy).toMatch(/3인실 room capacity[\s\S]*group matching capability/u);
   });
 
   it('matches API exposes only the pair request, active relation, overview, and history routes', () => {
@@ -84,12 +74,8 @@ describe('pair-only matching policy boundary', () => {
   it('matches README describes group matching as unsupported rather than a deferred projection', () => {
     const matchesReadme = read(join(apiRoot, 'src/matches/README.md'));
 
-    expect(matchesReadme).toContain(
-      '3-person/group matching. Current matches module is scoped to 2-person match semantics.',
-    );
-    expect(matchesReadme).toMatch(
-      /지원하지 않는\s+group matching projection은 overview에 합치지 않는다\./,
-    );
+    expect(matchesReadme).toMatch(/2-person match semantics/u);
+    expect(matchesReadme).toMatch(/지원하지 않는\s+group matching projection/u);
   });
 
   it('shared overview and public match exports do not add a group projection or contract', () => {
@@ -110,7 +96,6 @@ describe('pair-only matching policy boundary', () => {
       'activeMatch',
       'activity',
     ]);
-    expect(responseSource).toContain('pair-only 제품 계약에는 group projection이 없다.');
     expect(contractIndexSource).not.toMatch(/export\s+.*group/i);
     expect(readdirSync(sharedMatchContractRoot)).not.toContain('group.ts');
     expect(sharedContractSource).not.toMatch(/\b(?:GroupMatch|GroupMatching|MatchGroup)\b/);

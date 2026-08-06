@@ -8,7 +8,10 @@
   "scripts": {
     "shared:build": "pnpm --dir packages/shared build",
     "shared:lint": "pnpm --dir packages/shared lint",
+    "shared:test": "pnpm --dir packages/shared test",
+    "shared:test:prepared": "pnpm --dir packages/shared test:prepared",
     "shared:typecheck": "pnpm --dir packages/shared exec tsc --noEmit",
+    "shared:typecheck:test": "pnpm --dir packages/shared typecheck:test",
     "api:prisma:generate": "pnpm --dir apps/api prisma:generate",
     "api:lint": "pnpm --dir apps/api exec eslint",
     "api:typecheck": "pnpm --dir apps/api typecheck",

@@ -1,25 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import {
   matchHistoryEntrySchema,
   matchHistorySeasonSummarySchema,
 } from '@repo/shared/match/contract';
 import { toMatchHistoryResponse, type MatchHistoryEntryRow } from './match-history.presenter.js';
-
-function findRepoRoot() {
-  let current = process.cwd();
-
-  while (!existsSync(join(current, 'packages/shared/src'))) {
-    const parent = dirname(current);
-    if (parent === current) {
-      throw new Error('repo root with packages/shared/src not found');
-    }
-    current = parent;
-  }
-
-  return current;
-}
 
 function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): MatchHistoryEntryRow {
   return {
@@ -42,16 +26,6 @@ function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): Mat
 }
 
 describe('match history read model', () => {
-  it('match history contract는 chat implementation을 import하지 않는다', () => {
-    const source = readFileSync(
-      join(findRepoRoot(), 'packages/shared/src/match/contract/history.ts'),
-      'utf8',
-    );
-
-    expect(source).not.toMatch(/['"].*chat/);
-    expect(source).not.toContain('conversationThreadClosedReasonSchema');
-  });
-
   it('public history entry는 chat-derived fields를 노출하지 않는다', () => {
     const response = toMatchHistoryResponse({
       seasons: [

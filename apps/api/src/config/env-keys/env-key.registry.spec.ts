@@ -1,30 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { envValidationSchema } from '../env.validation.js';
-import {
-  ALL_ENV_KEYS,
-  productionDefaultForbiddenEnvKeys,
-  requiredProductionEnvKeys,
-  secretEnvKeys,
-} from './index.js';
-
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(currentDir, '../../../../../');
-const envExamplePath = resolve(repoRoot, 'infra/deploy/.env.api.example');
-
-function parseExampleEnvKeys(): Set<string> {
-  const content = readFileSync(envExamplePath, 'utf8');
-  const keys = content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'))
-    .map((line) => line.split('=', 1)[0])
-    .filter((key): key is string => key !== undefined && key.length > 0);
-
-  return new Set(keys);
-}
+import { ALL_ENV_KEYS, productionDefaultForbiddenEnvKeys, secretEnvKeys } from './index.js';
 
 function describeSchemaKeys(): Set<string> {
   const description = envValidationSchema.describe() as { keys?: Record<string, unknown> };
@@ -53,15 +29,6 @@ describe('env key registry', () => {
         (definition) => !['secret-store', 'process-env'].includes(definition.source),
       ),
     ).toEqual([]);
-  });
-
-  it('documents required production keys in the private env template', () => {
-    const exampleKeys = parseExampleEnvKeys();
-    const missingKeys = requiredProductionEnvKeys
-      .map((definition) => definition.key)
-      .filter((key) => !exampleKeys.has(key));
-
-    expect(missingKeys).toEqual([]);
   });
 
   it('tracks production placeholder/default-forbidden keys separately', () => {
