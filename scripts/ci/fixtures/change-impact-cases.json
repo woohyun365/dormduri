@@ -1,0 +1,90 @@
+[
+  {
+    "name": "web-only",
+    "paths": ["apps/web/src/app/page.tsx"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "repoPolicy": false
+    }
+  },
+  {
+    "name": "storybook-only",
+    "paths": ["apps/web/src/main/MainPage.stories.tsx"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": true,
+      "repoPolicy": false
+    }
+  },
+  {
+    "name": "api-only",
+    "paths": ["apps/api/src/auth/auth.controller.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "repoPolicy": false
+    }
+  },
+  {
+    "name": "shared-contract",
+    "paths": ["packages/shared/src/auth/contract.ts"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": true,
+      "storybook": false,
+      "repoPolicy": false
+    }
+  },
+  {
+    "name": "root-toolchain",
+    "paths": ["pnpm-lock.yaml"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": true,
+      "storybook": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-database-infra",
+    "paths": ["infra/db/migrate-deploy.sh"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "docs-only",
+    "paths": ["docs/policies/service-boundary.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "unknown-fail-open",
+    "paths": ["future-surface/unknown.file"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": true,
+      "storybook": true,
+      "repoPolicy": true
+    }
+  }
+]

@@ -1,18 +1,10 @@
 name: API CI
 
 on:
-  pull_request:
-  push:
-    branches:
-      - dev
-      - main
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: api-ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   api:
@@ -41,37 +33,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Start CI timing
+        id: timing
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-
-      - name: Enable pnpm through Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@11.7.0 --activate
-          pnpm --version
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=install -- pnpm install --frozen-lockfile
 
-      - name: Build shared package
-        run: pnpm shared:build
-
-      - name: Prepare CI database schema
-        run: pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
-
-      - name: Generate Prisma artifacts
-        run: pnpm api:prisma:generate
+      - name: Prepare API dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=prepare -- pnpm api:prepare
 
       - name: API static checks
-        run: pnpm check:api
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=static -- pnpm api:check:prepared
 
-      - name: API tests
-        run: pnpm test:api:ci
+      - name: API unit tests
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=unit -- pnpm api:test:prepared
+
+      - name: API integration tests
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=integration-db -- pnpm api:test:integration:prepared
+
+      - name: API E2E tests
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=e2e-db -- pnpm api:test:e2e:prepared
+
+      - name: API stress harness tests
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=stress-harness -- pnpm api:test:stress:prepared
 
       - name: API production build
-        run: pnpm build:api
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=build -- pnpm api:build:prepared
 
       - name: Validate API deploy compose
-        run: docker compose -f infra/deploy/docker-compose.api.yml config >/tmp/knu-api-compose.yml
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=compose -- sh -c 'docker compose -f infra/deploy/docker-compose.api.yml config >/tmp/knu-api-compose.yml'
+
+      - name: Summarize API CI duration
+        if: ${{ always() && !cancelled() }}
+        env:
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+        run: |
+          duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"

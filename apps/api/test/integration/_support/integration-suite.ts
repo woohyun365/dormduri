@@ -22,6 +22,32 @@ export interface IntegrationTestSuiteHandle {
   readonly databaseSandbox: IntegrationDatabaseSandbox;
 }
 
+export async function cleanupIntegrationTestResources(input: {
+  closeApp?: (() => Promise<void>) | null;
+  cleanupDatabase?: (() => Promise<void>) | null;
+}): Promise<void> {
+  const errors: unknown[] = [];
+
+  try {
+    await input.closeApp?.();
+  } catch (error) {
+    errors.push(error);
+  }
+
+  try {
+    await input.cleanupDatabase?.();
+  } catch (error) {
+    errors.push(error);
+  }
+
+  if (errors.length === 1) {
+    throw errors[0];
+  }
+  if (errors.length > 1) {
+    throw new AggregateError(errors, '[integration-suite] app and database cleanup failed');
+  }
+}
+
 export function useIntegrationTestSuite(
   schemaPrefix: string,
   options: IntegrationTestSuiteOptions = {},
@@ -59,21 +85,14 @@ export function useIntegrationTestSuite(
   });
 
   afterAll(async () => {
-    try {
-      if (appContext) {
-        await appContext.app.close();
-      }
-    } finally {
-      appContext = null;
+    const currentAppContext = appContext;
+    const currentDatabaseSandbox = databaseSandbox;
+    const closeApp = currentAppContext ? () => currentAppContext.app.close() : null;
+    const cleanupDatabase = currentDatabaseSandbox ? () => currentDatabaseSandbox.cleanup() : null;
+    appContext = null;
+    databaseSandbox = null;
 
-      try {
-        if (databaseSandbox) {
-          await databaseSandbox.cleanup();
-        }
-      } finally {
-        databaseSandbox = null;
-      }
-    }
+    await cleanupIntegrationTestResources({ closeApp, cleanupDatabase });
   });
 
   return {

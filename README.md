@@ -208,7 +208,7 @@ pnpm shared:build
 pnpm api:prisma:generate
 pnpm api:typecheck
 pnpm api:lint
-pnpm --dir apps/api exec jest --watchman=false --runInBand
-pnpm --dir apps/api test:integration -- --runInBand
-pnpm --dir apps/web test
+pnpm api:test
+pnpm api:test:integration
+pnpm web:test
 ```

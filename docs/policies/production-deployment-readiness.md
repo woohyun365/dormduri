@@ -17,6 +17,7 @@
 - `infra/runbooks/production-release-checklist.md`
 - `infra/runbooks/incident-rollback.md`
 - `infra/observability/rehearsal-checklist.md`
+- `docs/development/future-production-deployment-inputs.md`
 
 ## Production release 목표
 
@@ -39,7 +40,7 @@ Production release는 아래 조건을 만족해야 한다.
 | Config/secret | env key registry, production required matrix, Secrets Manager/KMS boundary, secret redaction               | secret 원문 commit, app-level RRPD/vault payload KMS 재설계                             |
 | Email         | SES 또는 동등 provider, verified identity, DKIM, sandbox 해제, provider failure event                      | production에서 verification code log 출력, 고정 IP 필수화                               |
 | Ingress       | nginx, TLS/domain, WebSocket upgrade, CORS/cookie policy                                                   | WAF/CloudFront/Route53 전체 edge architecture 필수화                                    |
-| CI/CD         | GitHub Actions build/test/migration/deploy/smoke gate, GitHub environment approval, AWS OIDC 권장          | long-lived AWS access key 기본 전략, 완전한 Terraform/CDK 전환                          |
+| CI/CD         | GitHub Actions CI, local container/DB/observability rehearsal, 향후 CD 결정 input                          | 미확정 target을 전제한 deploy workflow·remote rollout·provider IAM                      |
 | Observability | logging/stress baseline, Prometheus/Loki/Grafana/Alertmanager/Slack rehearsal evidence                     | production target 무승인 stress, public metrics exposure                                |
 
 ## 완료된 observability / stress baseline
@@ -219,15 +220,15 @@ Production release는 아래 조건을 만족해야 한다.
 - Metrics endpoint는 internal route, bearer token, ingress allowlist, bounded label 정책을 함께 만족해야 한다.
 - Provider transient failure는 degraded/operation failure로 기록할 수 있지만, provider config invalid는 production readiness failure로 분류한다.
 
-## CI/CD deploy gate 정책
+## CI와 향후 CD 경계
 
-CI/CD는 PR/push 검증과 production deploy를 분리한다.
+CI는 PR/push 검증을 소유한다. Production CD는 hosting target, registry, network, approval, canonical host가 결정된 뒤 별도 구현한다.
 
-- `.github/workflows/api-ci.yml`은 PR과 `dev`/`main` push에서 install, shared build, Prisma artifact generation, `pnpm check:api`, `pnpm test:api`, `pnpm build:api`, deploy compose config를 실행한다. CI workflow는 deploy permission이나 `id-token: write` 권한을 갖지 않는다.
-- `.github/workflows/api-deploy-production.yml`은 `workflow_dispatch`로만 실행하고 GitHub `production` environment approval을 요구한다. 기본 입력값은 `dry_run=true`이며, non-dry-run production deploy는 `main` branch와 `restore_drill_evidence_id` 입력을 요구한다.
+- `.github/workflows/ci.yml`은 PR과 `dev`/`main` push에서 변경 surface를 분류하고, API 변경에는 `.github/workflows/api-ci.yml` reusable workflow를 호출한다. API lane은 install, `pnpm api:prepare` 1회, prepared check/test/build, deploy compose config를 실행하며 deploy permission이나 `id-token: write` 권한을 갖지 않는다.
 - `.github/workflows/api-restore-drill-manual.yml`은 `workflow_dispatch`로만 실행하는 backup/restore smoke workflow다. RDS restore 자체는 자동 생성하지 않고, restored DB credential smoke와 optional API readiness smoke evidence만 남긴다.
+- `infra/deploy`는 API container와 nginx의 local runtime candidate이며 image publish, remote host rollout, traffic switch를 수행하지 않는다.
 
-Production deploy는 아래 순서를 깨지 않는다.
+향후 CD는 아래 순서를 깨지 않도록 target-specific rehearsal에서 검증해야 한다.
 
 1. Install/build/typecheck/lint/test preflight.
 2. Docker image build.
@@ -237,17 +238,15 @@ Production deploy는 아래 순서를 깨지 않는다.
 6. API/nginx rollout.
 7. Health/readiness smoke.
 8. Metrics guard smoke.
-9. Release evidence artifact upload.
+9. Secret-free release evidence 보존.
 10. Slack/Alertmanager delivery smoke 또는 운영자가 명시적으로 승인한 skip 기록.
 11. Backup/restore drill evidence 확인.
 
-GitHub Actions에서 AWS 접근이 필요하면 OIDC + AWS role을 기본 후보로 둔다. Workflow는 `contents: read`, `id-token: write` 최소 권한으로 AWS short-lived token을 요청한다. SSH key 또는 long-lived cloud access key는 과도기 fallback이며 environment approval과 rotation 기준을 함께 둔다.
-
-GitHub production environment, OIDC role, release runbook은 `infra/aws/github-actions-oidc-checklist.md`, `infra/aws/beginner-account-budget-checklist.md`, `infra/runbooks/api-production-deploy-runbook.md`를 따른다.
+구현 전 결정해야 하는 항목은 `docs/development/future-production-deployment-inputs.md`가 소유한다. Provider별 workflow, IAM policy, 원격 command는 실제 resource와 운영 owner가 확정되기 전에는 지원 기능으로 두지 않는다.
 
 ## Final release checklist / rollback 정책
 
-Production release의 최종 판단은 `infra/runbooks/production-release-checklist.md`가 소유한다. 운영자는 release SHA, image tag, CI/CD, config/secret, SES, DB/RDS, backup/restore, ingress/TLS/CORS/cookie, health/readiness/metrics, observability/stress evidence를 하나의 checklist에 모아 `GO`, `NO-GO`, `GO with follow-up`으로 판정한다.
+Production release의 최종 판단은 `infra/runbooks/production-release-checklist.md`가 소유한다. 운영자는 release SHA, artifact, CI, target-specific CD, config/secret, email, DB, backup/restore, ingress/TLS/CORS/cookie, health/readiness/metrics, observability/stress evidence를 하나의 checklist에 모아 `GO`, `NO-GO`, `GO with follow-up`으로 판정한다.
 
 - `GO`: 모든 release blocker가 닫혔고 manual evidence가 secret-free 형태로 남아 있다.
 - `GO with follow-up`: release safety를 깨지 않는 성능/운영 개선 후보만 남고 owner/issue/evidence가 명확하다.
@@ -270,15 +269,13 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 실제 production resource 생성은 운영자가 명시적으로 수행한다.
 
-1. AWS 계정 결제 수단과 Budget alert를 설정한다.
-2. App instance, private network/VPC, RDS PostgreSQL subnet/security group을 준비한다.
-3. RDS automated backup, retention period, backup window를 설정한다.
-4. Secrets Manager secret inventory, `SECRET_NAME_PREFIX`, IAM read policy, KMS key 정책을 준비한다.
-5. SES sender identity, DKIM, sandbox 해제 요청을 완료한다.
-6. Domain DNS와 TLS 인증서 발급 경로를 준비한다.
-7. GitHub environment, approval rule, AWS OIDC role 또는 과도기 deploy credential을 준비한다.
-8. `infra/runbooks/backup-restore-drill.md` 기준으로 release 전 backup/restore drill evidence를 남긴다.
-9. Release 후 CloudWatch, app metrics, Slack alert, API/nginx logs를 확인한다.
+1. `docs/development/future-production-deployment-inputs.md`의 runtime, account, network, DB, host, approval 결정을 확정한다.
+2. 선택한 target에서 private managed PostgreSQL, backup/PITR, secret materialization을 준비한다.
+3. Email sender identity, DKIM, production access를 준비한다.
+4. Canonical domain, ingress, TLS 인증서 발급·갱신 경로를 준비한다.
+5. Artifact publish, migration, role grant, rollout, readiness, traffic switch, rollback을 target-specific rehearsal로 검증한다.
+6. `infra/runbooks/backup-restore-drill.md` 기준으로 release 전 backup/restore drill evidence를 남긴다.
+7. Release 후 provider metric, app metric, alert, API/nginx log를 확인한다.
 
 ## 변경 이력
 
@@ -291,7 +288,8 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 | 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다                                                                                                                 | production deployment readiness |
 | 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                                                                                                                                         | production deployment readiness |
 | 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                                                                                                                                        | production deployment readiness |
-| 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다                                                                                                              | production deployment readiness |
+| 2026-06-17 | 당시 GitHub Actions API CI와 production deploy 후보 경계를 정리했다. 미확정 target을 전제한 workflow와 provider 설정은 2026-08-06에 제거했다                                                                                                                             | production deployment readiness |
+| 2026-08-06 | Production target 미확정 상태를 명시하고 CI와 local rehearsal만 현재 지원 범위로 유지했다. 향후 CD는 별도 input 문서가 소유하도록 정리했다                                                                                                                               | deployment boundary cleanup     |
 | 2026-06-17 | RDS setup checklist, backup/restore drill runbook, restore drill smoke helper, manual restore drill workflow를 release gate에 반영했다                                                                                                                                   | production deployment readiness |
 | 2026-06-17 | Production release checklist와 incident rollback runbook을 최종 release GO/NO-GO gate로 연결했다                                                                                                                                                                         | production deployment readiness |
 | 2026-07-27 | 4GB/2vCPU App host + RDS를 초기 planning baseline으로 확정하고, Web/BackOffice/API/observability container별 resource 시작값과 AWS 공개 가격 기반 월 예산을 정리했다. Argon2id 19MiB queue microbenchmark와 237/946 cohort arrival-rate migration stress gate를 추가했다 | production capacity baseline    |

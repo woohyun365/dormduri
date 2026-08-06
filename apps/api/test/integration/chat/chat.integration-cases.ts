@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
+import { cleanupIntegrationTestResources } from '../_support/integration-suite.js';
 import request from 'supertest';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
 import { ChatService } from '../../../src/chat/application/chat.service.js';
@@ -83,8 +85,9 @@ function getMethod<T extends (...args: unknown[]) => unknown>(
 
 export type ChatCaseOwner = 'messages' | 'rate-limits' | 'read-markers' | 'outbox' | 'lifecycle';
 
-export function registerChatCases(owner: ChatCaseOwner) {
-  describe(`ChatService integration — ${owner}`, () => {
+export function registerChatCases(ownerInput: ChatCaseOwner | readonly ChatCaseOwner[]) {
+  const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
+  describe(`ChatService integration — ${label}`, () => {
     let prisma: PrismaService;
     let service: ChatService;
     let authSessionService: AuthSessionService;
@@ -107,12 +110,10 @@ export function registerChatCases(owner: ChatCaseOwner) {
     });
 
     afterAll(async () => {
-      if (closeApp) {
-        await closeApp();
-      }
-      if (cleanupDb) {
-        await cleanupDb();
-      }
+      await cleanupIntegrationTestResources({
+        closeApp,
+        cleanupDatabase: cleanupDb,
+      });
     });
 
     beforeEach(async () => {
@@ -138,7 +139,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       return issued.accessToken;
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('conversation stats API는 match history가 아니라 chat thread row 기준 unique 대화 사용자 수를 반환한다', async () => {
         await seedRegisteredAssignedParticipant(prisma, {
           userId: 'user-c',
@@ -271,7 +272,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'rate-limits') {
+    if (owners.has('rate-limits')) {
       it('HTTP message limiter 초과 시 429로 거절하고 DB message/outbox를 추가하지 않는다', async () => {
         const accessToken = await issueAccessToken();
 
@@ -303,7 +304,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'rate-limits') {
+    if (owners.has('rate-limits')) {
       it('HTTP realtime ticket limiter 초과 시 429로 거절하고 token/ticket 값을 error payload에 노출하지 않는다', async () => {
         const accessToken = await issueAccessToken();
 
@@ -339,7 +340,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('동시에 같은 pair로 첫 메시지를 보내도 thread는 하나만 생성되고 두 메시지가 남는다', async () => {
         const first = service.sendMessage(
           authContext('user-a'),
@@ -401,7 +402,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('양쪽이 동시에 서로에게 첫 메시지를 보내도 thread는 하나만 생성되고 두 메시지가 남는다', async () => {
         const first = service.sendMessage(
           authContext('user-a'),
@@ -440,7 +441,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('UI entry 이후 첫 메시지 직전에 target이 다른 사용자와 matched 되면 새 thread를 만들지 않고 거절한다', async () => {
         const entry = await service.getThreadEntry(authContext('user-a'), 'user-b');
         expect(entry.canEnterChatUi).toBe(true);
@@ -481,7 +482,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('같은 sender의 같은 clientMessageId와 같은 body는 기존 메시지로 수렴한다', async () => {
         const first = await service.sendMessage(
           authContext('user-a'),
@@ -501,7 +502,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('동시에 같은 sender의 같은 clientMessageId와 같은 body가 들어와도 하나의 메시지로 수렴한다', async () => {
         const first = service.sendMessage(
           authContext('user-a'),
@@ -523,7 +524,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('같은 sender의 같은 clientMessageId와 다른 body는 conflict로 거절한다', async () => {
         await service.sendMessage(
           authContext('user-a'),
@@ -541,7 +542,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'messages') {
+    if (owners.has('messages')) {
       it('동시에 같은 sender의 같은 clientMessageId와 다른 body가 들어오면 하나만 commit되고 나머지는 conflict로 수렴한다', async () => {
         const settled = await Promise.allSettled([
           service.sendMessage(
@@ -567,7 +568,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'read-markers') {
+    if (owners.has('read-markers')) {
       it('read marker는 READ_ONLY thread에서도 갱신 가능하지만 뒤로 이동할 수 없다', async () => {
         const serviceWithReadMarker = service as unknown as {
           updateReadMarker?: (
@@ -629,7 +630,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'read-markers') {
+    if (owners.has('read-markers')) {
       it('동시에 오래된 read marker와 최신 read marker가 들어와도 최종 marker는 뒤로 이동하지 않는다', async () => {
         const serviceWithReadMarker = service as unknown as {
           updateReadMarker?: (
@@ -705,7 +706,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'outbox') {
+    if (owners.has('outbox')) {
       it('outbox append가 포함된 business transaction이 rollback되면 event와 recipient rows도 남지 않는다', async () => {
         const OutboxService = await loadChatRealtimeOutboxService();
         const outboxService = new OutboxService({});
@@ -751,7 +752,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'outbox') {
+    if (owners.has('outbox')) {
       it('outbox repository concurrent claim은 같은 event를 두 worker에게 중복 반환하지 않는다', async () => {
         const Repository = await loadChatRealtimeOutboxRepository();
         const repository = new Repository();
@@ -797,7 +798,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'outbox') {
+    if (owners.has('outbox')) {
       it('outbox prune은 7일 replay window 밖 event와 recipient를 삭제한다', async () => {
         const Repository = await loadChatRealtimeOutboxRepository();
         const repository = new Repository();
@@ -858,7 +859,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'outbox') {
+    if (owners.has('outbox')) {
       it('replay service는 user별 recipient cursor만 순서대로 반환하고 만료 cursor는 resync로 수렴한다', async () => {
         const ReplayService = await loadChatRealtimeReplayService();
         const replayService = new ReplayService({ replayWindowDays: 7 });
@@ -938,7 +939,7 @@ export function registerChatCases(owner: ChatCaseOwner) {
       });
     }
 
-    if (owner === 'lifecycle') {
+    if (owners.has('lifecycle')) {
       it('direct thread에서 양쪽 leave race가 걸려도 최종 상태는 ARCHIVED다', async () => {
         await prisma.conversationThread.create({
           data: {

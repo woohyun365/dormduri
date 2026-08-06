@@ -26,3 +26,7 @@
 ## Monorepo
 
 - [Lifestyle contract 공유 경계](./monorepo/lifestyle-contract-sharing.md)
+
+## Platform
+
+- [Monorepo CI architecture](./platform/monorepo-ci.md)

@@ -22,7 +22,7 @@ describe('observability release evidence', () => {
       expect(smoke).toContain(metric);
     }
     const runbook = readFileSync(runbookPath, 'utf8');
-    expect(runbook).toContain('auth/registration/signup-transaction.integration.spec.ts');
+    expect(runbook).toContain('auth/auth-lifecycle.integration.spec.ts');
     expect(runbook).toContain('argon_19mib_mixed_workload: pass | fail | blocked');
   });
 

@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
+import { cleanupIntegrationTestResources } from '../_support/integration-suite.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { ProfilesService } from '../../../src/profiles/application/profiles.service.js';
 import { RoommateSearchService } from '../../../src/roommate-search/application/roommate-search.service.js';
@@ -19,8 +21,11 @@ import { seedRegisteredAssignedParticipant } from '../_support/fixtures/particip
 
 export type RoommateSearchCaseOwner = 'scope-manifest' | 'exposure' | 'filters' | 'pagination';
 
-export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
-  describe(`RoommateSearchService integration — ${owner}`, () => {
+export function registerRoommateSearchCases(
+  ownerInput: RoommateSearchCaseOwner | readonly RoommateSearchCaseOwner[],
+) {
+  const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
+  describe(`RoommateSearchService integration — ${label}`, () => {
     let prisma: PrismaService;
     let profilesService: ProfilesService;
     let service: RoommateSearchService;
@@ -39,12 +44,10 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
     });
 
     afterAll(async () => {
-      if (closeApp) {
-        await closeApp();
-      }
-      if (cleanupDb) {
-        await cleanupDb();
-      }
+      await cleanupIntegrationTestResources({
+        closeApp,
+        cleanupDatabase: cleanupDb,
+      });
     });
 
     beforeEach(async () => {
@@ -131,7 +134,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('OFF_SEASON에서는 roommate browse와 detail을 모두 막는다', async () => {
         await setSeasonState('OFF_SEASON');
 
@@ -151,7 +154,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('시즌 중 미참여 viewer의 기본 검색은 registered profile의 merged summary다', async () => {
         await setSeasonState('SEASON_MATCHING');
         await makeViewerNonParticipant();
@@ -193,7 +196,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('SEASON_OPEN 등록+배정 사용자는 merged와 same-building scope를 모두 사용할 수 있다', async () => {
         await seedSecondDormitory();
         await moveUserToDormitory({
@@ -244,7 +247,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SEASON_OPEN CAMPUS_MERGED는 broad preview라 모든 filter를 거부하고 no-filter manifest를 제공한다', async () => {
         await seedSecondDormitory();
         await moveUserToDormitory({
@@ -281,7 +284,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'pagination') {
+    if (owners.has('pagination')) {
       it('SEASON_OPEN CAMPUS_MERGED는 nickname cursor로 broad preview page를 이어준다', async () => {
         await setSeasonState('SEASON_OPEN');
 
@@ -319,7 +322,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SEASON_OPEN CAMPUS_MERGED는 legacy scalar additional/detail-only filter도 400이다', async () => {
         await seedSecondDormitory();
         await moveUserToDormitory({
@@ -340,7 +343,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'exposure') {
+    if (owners.has('exposure')) {
       it('삭제/비식별 처리된 사용자는 search에서 제외하고 기존 summary entry detail 진입은 tombstone으로 degrade한다', async () => {
         await setSeasonState('SEASON_OPEN');
         const beforeDeletion = await service.search(authContext('user-a'), {
@@ -394,7 +397,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'exposure') {
+    if (owners.has('exposure')) {
       it.each(['WITHDRAWN', 'HIDDEN', 'DEACTIVATED', 'EXPIRED'] as const)(
         'target state %s 변경은 최신 public target policy로 search에서 제외하고 stale summary detail은 tombstone으로 닫는다',
         async (targetState) => {
@@ -451,7 +454,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       );
     }
 
-    if (owner === 'exposure') {
+    if (owners.has('exposure')) {
       it.each([
         ['viewer blocks target', 'user-a', 'user-b'],
         ['target blocks viewer', 'user-b', 'user-a'],
@@ -493,7 +496,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       );
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('SEASON_MATCHING 등록 viewer는 campus preview와 same-building discovery를 모두 선택한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -519,7 +522,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SAME_BUILDING_ONLY actionable discovery manifest는 detail lifestyle/additional filter 메뉴판을 제공한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -569,7 +572,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('preflight manifest endpoint와 search response는 같은 manifest presenter 결과를 사용한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -587,7 +590,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('preflight 이후 season state가 바뀌면 search는 최신 scope policy로 다시 fail-closed한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -609,7 +612,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('preflight 이후 college catalog가 바뀌면 search는 최신 manifest option으로 filter를 재검증한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -645,7 +648,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('excludeMyCollege shortcut은 BE contract가 아니라 FE convenience이므로 거부한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -661,7 +664,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('college filter는 INCLUDE/EXCLUDE 동시 표현을 single-operator contract 위반으로 거부한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -680,7 +683,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('valid filter empty result는 200 empty list와 FILTER_RESULT_EMPTY notice 및 stable manifest를 반환한다', async () => {
         await setSeasonState('SEASON_MATCHING');
 
@@ -698,7 +701,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SAME_BUILDING_ONLY filter는 college negative, MBTI trait, ageBand를 적용한다', async () => {
         await setSeasonState('SEASON_MATCHING');
         await prisma.collegeMaster.create({
@@ -758,7 +761,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SAME_BUILDING_ONLY filter는 단과대/학년/나이대 다중 선택과 partial MBTI trait 조합을 적용한다', async () => {
         await setSeasonState('SEASON_MATCHING');
         await prisma.collegeMaster.create({
@@ -819,7 +822,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SEASON_OPEN SAME_BUILDING_ONLY는 additional filter와 MATCH_SCORE/minScore를 함께 적용한다', async () => {
         await setSeasonState('SEASON_OPEN');
         await prisma.collegeMaster.create({
@@ -862,7 +865,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'scope-manifest') {
+    if (owners.has('scope-manifest')) {
       it('SEASON_POST_MATCH roommate-search discovery는 active matched target을 제외하고 notice를 제공한다', async () => {
         await seedSecondDormitory();
         await moveUserToDormitory({ participantId: 'participant-c', dormitoryId: 'saerom' });
@@ -904,7 +907,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'filters') {
+    if (owners.has('filters')) {
       it('SEASON_POST_MATCH SAME_BUILDING_ONLY는 cohort review list로 active matched target을 포함하고 filter/score를 닫는다', async () => {
         await setSeasonState('SEASON_POST_MATCH');
         await seedActiveMatchFixture(prisma, {
@@ -952,7 +955,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'pagination') {
+    if (owners.has('pagination')) {
       it('cursor-only pagination은 nickname boundary 이후 다음 page를 반환한다', async () => {
         await setSeasonState('SEASON_OPEN');
 
@@ -989,7 +992,7 @@ export function registerRoommateSearchCases(owner: RoommateSearchCaseOwner) {
       });
     }
 
-    if (owner === 'pagination') {
+    if (owners.has('pagination')) {
       it('MATCH_SCORE cursor는 score boundary 이후 page를 반환하고 minScore preset은 post-score filter로 동작한다', async () => {
         await setSeasonState('SEASON_MATCHING');
         await prisma.seasonParticipantProfile.update({

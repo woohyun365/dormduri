@@ -10,7 +10,8 @@
 | Integration                      | `pnpm --dir apps/api test:integration` | disposable PostgreSQL을 사용하는 `test/integration/**/*.integration.spec.ts`         |
 | E2E                              | `pnpm --dir apps/api test:e2e`         | 실제 HTTP 경계의 `test/e2e/**/*.e2e-spec.ts`                                         |
 | Stress harness                   | `pnpm --dir apps/api test:stress`      | K6/Artillery/Docker 실행기가 아닌 parser·fixture·redaction·static contract           |
-| CI aggregate                     | `pnpm test:api:ci`                     | 위 네 lane을 순차 실행                                                               |
+| Local aggregate                  | `pnpm api:test:ci`                     | 준비 작업 후 위 네 lane을 순차 실행                                                  |
+| CI prepared aggregate            | `pnpm api:test:ci:prepared`            | workflow에서 Shared/Prisma 준비를 마친 뒤 위 네 lane만 실행                          |
 | Coverage                         | `pnpm --dir apps/api test:cov`         | unit V8 coverage                                                                     |
 | Product typecheck                | `pnpm --dir apps/api typecheck`        | production source                                                                    |
 | Test typecheck                   | `pnpm --dir apps/api typecheck:test`   | test support와 별도 runner source                                                    |
@@ -18,7 +19,9 @@
 
 K6, Artillery, Docker load는 일반 CI aggregate에 포함하지 않는다. 승인된 로컬 rehearsal 또는 운영 evidence 수집에서 `stress:*` 명령을 별도로 실행한다.
 
-Shared contract lane의 public 명령 `pnpm shared:test`는 fresh checkout에서 단독 실행할 수 있도록 build를 선행한다. CI prepare-once 경계에서는 Shared build 후 `pnpm shared:test:prepared`를 사용하고, `pnpm shared:typecheck:test`로 test source를 별도 검사한다. 이후 change classifier는 `packages/shared/**` 변경을 Shared lane과 API/Web consumer 검증 모두에 fan-out해야 한다.
+Shared contract lane의 public 명령 `pnpm shared:test`는 fresh checkout에서 단독 실행할 수 있도록 build를 선행한다. CI prepare-once 경계에서는 Shared build 후 `pnpm shared:test:prepared`를 사용하고, `pnpm shared:typecheck:test`로 test source를 별도 검사한다. Monorepo change classifier는 `packages/shared/**` 변경을 Shared lane과 API/Web consumer 검증 모두에 fan-out한다.
+
+API public 명령은 fresh checkout에서 단독 실행할 수 있도록 `ci:prepare`를 포함한다. workflow와 root aggregate는 `pnpm api:prepare`를 한 번 실행한 뒤 `*:prepared` 명령만 호출한다. prepared 명령은 Shared build나 Prisma generate를 암묵적으로 다시 실행하지 않는다.
 
 ## Authoring rules
 

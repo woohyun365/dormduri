@@ -51,7 +51,9 @@
 | `pnpm web:test:coverage` | Vitest coverage 산출                      | `apps/web/coverage/`는 산출물이다.                                                            |
 | `pnpm web:build`         | shared build + Next production build      | `output: 'standalone'` artifact를 생성한다.                                                   |
 | `pnpm web:e2e`           | Playwright Chromium desktop/mobile smoke  | production-like standalone server smoke다.                                                    |
-| `pnpm check:web`         | Web PR 기본 gate                          | lint, typecheck, test, build를 순차 실행한다. Browser smoke는 비용 때문에 별도 명령으로 둔다. |
+| `pnpm web:check`         | Web PR 기본 gate                          | lint, typecheck, test, build를 순차 실행한다. Browser smoke는 비용 때문에 별도 명령으로 둔다. |
+
+Public `web:*` 명령은 fresh checkout에서 단독 실행할 수 있도록 Shared build를 포함한다. CI aggregate는 `pnpm web:prepare`를 한 번 실행한 뒤 `pnpm web:check:prepared`를 사용한다. `*:prepared`는 workflow 전용 capability이며 준비 작업을 다시 수행하지 않는다.
 
 Playwright browser가 로컬에 없으면 아래를 먼저 실행한다.
 
@@ -81,7 +83,7 @@ API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도
 
 ## Web CI/test/config와 production deploy 경계
 
-이 문서는 Web 개발/검증 기준을 고정하지만, production deploy 구현을 제공하지 않는다. `.github/workflows/web-ci.yml`은 lint, typecheck, Vitest, build, Playwright smoke를 실행하는 PR/push gate이며, production environment 승인, OIDC role, image publish, rollout, rollback을 수행하지 않는다.
+이 문서는 Web 개발/검증 기준을 고정하지만 production deploy 구현을 제공하지 않는다. `.github/workflows/ci.yml`이 PR/push 변경을 분류하고 `.github/workflows/web-ci.yml` reusable workflow를 호출한다. Web lane은 lint, typecheck, Vitest, build, prebuilt Playwright smoke를 실행하지만 environment 승인, deployment identity, artifact publish, rollout, rollback을 수행하지 않는다.
 
 현재 repo의 `infra/deploy`는 **BE API + nginx** production-like 배포 단위다. 해당 compose/nginx 설정은 `/api`, `/auth`, `/socket.io`, health, metrics 같은 API-owned path만 upstream으로 넘기며 Web/Next.js server나 CDN/static asset route를 포함하지 않는다.
 
@@ -93,7 +95,7 @@ Future Web production deploy는 별도 계획에서 아래 책임을 결정한�
 - Web compose 또는 API compose 확장 여부: API와 Web을 같은 host/nginx 뒤에 둘지, Web을 별도 host/CDN behind origin으로 둘지 결정.
 - nginx/CDN route: API path는 API upstream, Web route는 SSR/static upstream, immutable static asset은 cache header/CDN 정책으로 분리.
 - TLS/domain/redirect/HSTS/CSP/보안 header 소유 위치.
-- Web release smoke script와 GitHub Actions deploy workflow: environment approval, OIDC, image/artifact publish, smoke evidence upload.
+- Web release smoke와 CD 경계: environment approval, short-lived deployment identity, image/artifact publish, smoke evidence 보존.
 - Web observability: PII-safe Web Vitals/RUM ingestion endpoint 또는 외부 analytics 경로와 API observability stack 연결 여부.
 
 ## Runtime env와 BFF 보안 경계
@@ -136,7 +138,7 @@ FE 기능 계획이나 Web/BFF 리팩토링을 시작하기 전 최소 확인 �
 1. `pnpm-workspace.yaml`, root `package.json`, `apps/web/package.json`의 version/script baseline 확인.
 2. 대상 route/component/BFF/helper와 관련 test/fixture 위치 확인.
 3. BFF 변경이면 focused route tests를 먼저 고정한다.
-4. 일반 Web 변경은 `pnpm check:web`을 완료 조건으로 둔다.
+4. 일반 Web 변경은 `pnpm web:check`을 완료 조건으로 둔다.
 5. Browser runtime 또는 route shell을 건드리면 `pnpm web:e2e`도 완료 조건에 포함한다.
 6. API-backed 실제 사용자 journey가 acceptance라면 Web-only smoke와 별도로 full-stack/API gate를 계획한다.
 7. 문서/README는 현재 기준과 명시적인 후속 범위를 구분해 설명하고, 계획 단계에만 유효한 표현을 제품 문서에 남기지 않는다.

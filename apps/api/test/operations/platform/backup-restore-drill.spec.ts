@@ -137,13 +137,13 @@ describe('backup and restore drill readiness boundary', () => {
     expect(workflow).toContain('secret values are intentionally excluded');
   });
 
-  it('connects restore drill evidence to DB, deploy, and official production readiness docs without plan-only wording', () => {
+  it('connects restore drill evidence to DB, local rehearsal, and official readiness docs', () => {
     const dbReadme = readRepoFile('infra/db/README.md');
     const deployReadme = readRepoFile('infra/deploy/README.md');
-    const deployRunbook = readRepoFile('infra/runbooks/api-production-deploy-runbook.md');
     const policy = readRepoFile('docs/policies/production-deployment-readiness.md');
+    const futureInputs = readRepoFile('docs/development/future-production-deployment-inputs.md');
 
-    for (const doc of [dbReadme, deployReadme, deployRunbook, policy]) {
+    for (const doc of [dbReadme, deployReadme, policy]) {
       expect(doc).toMatch(/[Bb]ackup\/restore/);
       expect(doc).toContain('restore drill');
       expect(doc).not.toMatch(/구현 예정|후속 단계|이 plan|Phase \d+에서/);
@@ -151,13 +151,7 @@ describe('backup and restore drill readiness boundary', () => {
 
     expect(dbReadme).toContain('pnpm api:db:restore-drill:smoke');
     expect(deployReadme).toContain('.github/workflows/api-restore-drill-manual.yml');
-    expect(deployRunbook).toContain('Backup/restore drill gate');
-    const deployWorkflow = readRepoFile('.github/workflows/api-deploy-production.yml');
-
-    expect(deployWorkflow).toContain('restore_drill_evidence_id');
-    expect(deployWorkflow).toContain(
-      'missing required input for non-dry-run deploy: restore_drill_evidence_id',
-    );
+    expect(futureInputs).toContain('backup/PITR 확인과 restore 승인 owner');
     expect(policy).toContain('api-restore-drill-manual.yml');
     expect(policy).toContain('backup restore 미검증');
   });

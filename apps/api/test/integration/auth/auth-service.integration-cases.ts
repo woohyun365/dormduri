@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
@@ -21,15 +22,18 @@ function hashTokenForTest(token: string) {
 
 export type AuthServiceCaseOwner = 'registration' | 'credentials' | 'sessions';
 
-export function registerAuthServiceCases(owner: AuthServiceCaseOwner) {
-  describe(`AuthService integration — ${owner}`, () => {
+export function registerAuthServiceCases(
+  ownerInput: AuthServiceCaseOwner | readonly AuthServiceCaseOwner[],
+) {
+  const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
+  describe(`AuthService integration — ${label}`, () => {
     const suite = useIntegrationTestSuite('auth_service_integration');
 
     function authService() {
       return suite.app.get(AuthService);
     }
 
-    if (owner === 'sessions') {
+    if (owners.has('sessions')) {
       it('rememberMe=false login은 browser-session renewal을 저장하고 logout 후 fail-closed 처리한다', async () => {
         const email = 'opaque-login@kangwon.ac.kr';
         const emailNormalized = email.toLowerCase();
@@ -115,7 +119,7 @@ export function registerAuthServiceCases(owner: AuthServiceCaseOwner) {
       });
     }
 
-    if (owner === 'sessions') {
+    if (owners.has('sessions')) {
       it.each([2, 5, 10])(
         '동일 renewal token의 동시 %i개 갱신은 한 요청만 성공하고 나머지는 stale로 수렴한다',
         async (concurrency) => {
@@ -174,7 +178,7 @@ export function registerAuthServiceCases(owner: AuthServiceCaseOwner) {
       );
     }
 
-    if (owner === 'sessions') {
+    if (owners.has('sessions')) {
       it('previous grace가 지난 renewal token 재사용은 family를 revoke하고 security event를 한 번 남긴다', async () => {
         const email = 'renewal-reuse@kangwon.ac.kr';
         const passwordHash = await argonHash('Pass1234', {
@@ -236,7 +240,7 @@ export function registerAuthServiceCases(owner: AuthServiceCaseOwner) {
       });
     }
 
-    if (owner === 'registration') {
+    if (owners.has('registration')) {
       it('동시에 같은 signup verification proof를 소비해도 User/DisplayIdentity/AcademicIdentity 계정은 하나만 생성된다', async () => {
         const email = 'signup-race@kangwon.ac.kr';
         const emailNormalized = email.toLowerCase();
@@ -405,7 +409,7 @@ export function registerAuthServiceCases(owner: AuthServiceCaseOwner) {
       });
     }
 
-    if (owner === 'credentials') {
+    if (owners.has('credentials')) {
       it('동시에 같은 reset verification proof를 소비해도 비밀번호 변경은 한 번만 성공한다', async () => {
         const email = 'reset-race@kangwon.ac.kr';
         const emailNormalized = email.toLowerCase();

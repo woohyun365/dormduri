@@ -2,6 +2,15 @@
 
 `apps/api/test/stress`는 k6/Artillery 부하 테스트가 사용할 **로컬/스테이징 전용 fixture 기반**을 둔다. 제품 API 런타임 코드와 분리된 테스트 도구이며, production target이나 production DB에 실수로 실행되지 않도록 fail-closed guard를 먼저 통과해야 한다.
 
+## Runner와 실행 shortcut 경계
+
+`apps/api/package.json`의 `stress:*` 명령은 운영자가 안전한 인자와 working directory로 runner를 호출하기 위한 shortcut이다. 시나리오 선택, target allowlist, artifact redaction, fail-closed 조건의 source of truth는 각 `run-*.mjs`/fixture runner에 둔다. package script에 runner behavior를 복제하거나 긴 inline 조건을 추가하지 않는다.
+
+- `stress:http:*`: `test/stress/http/k6/run-k6-scenario.mjs`
+- `stress:realtime:*`: `test/stress/realtime/artillery/run-artillery-scenario.mjs`
+- `stress:docker:*`, `stress:local:*`: `test/stress/docker/`의 bounded runner
+- `test:stress`: 외부 load 실행이 아니라 parser·fixture·redaction·static contract를 검증하는 Vitest lane
+
 ## 구조
 
 ```txt

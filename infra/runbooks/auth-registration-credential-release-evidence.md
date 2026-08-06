@@ -43,9 +43,7 @@ Nickname parse/moderation/current availabilityëŠ” Users Display Identity ownerë¥
 pnpm --dir apps/api exec vitest run \
   --config ./vitest.config.integration.ts \
   --maxWorkers=1 \
-  test/integration/auth/registration/signup-transaction.integration.spec.ts \
-  test/integration/auth/credentials/password-transaction.integration.spec.ts \
-  test/integration/auth/sessions/auth-session.integration.spec.ts \
+  test/integration/auth/auth-lifecycle.integration.spec.ts \
   test/integration/users/display-identity/user-identity-transaction.integration.spec.ts
 ```
 

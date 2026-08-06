@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
+const usePrebuiltStandalone = process.env.PLAYWRIGHT_PREBUILT === '1';
+const smokeRuntimeEnv =
+  'API_URL=http://127.0.0.1:9 NEXT_PUBLIC_APP_URL=https://ci.knu-roommate.invalid';
+const standaloneServerCommand = `pnpm run ci:standalone:prepare && ${smokeRuntimeEnv} HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/apps/web/server.js`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -32,8 +36,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      'API_URL=http://127.0.0.1:9 pnpm build && mkdir -p .next/standalone/apps/web/.next && cp -R .next/static .next/standalone/apps/web/.next/static && cp -R public .next/standalone/apps/web/public && API_URL=http://127.0.0.1:9 HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/apps/web/server.js',
+    command: usePrebuiltStandalone
+      ? standaloneServerCommand
+      : `${smokeRuntimeEnv} pnpm run ci:build && ${standaloneServerCommand}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
+import { cleanupIntegrationTestResources } from '../_support/integration-suite.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
@@ -36,8 +38,11 @@ export type RetentionCaseOwner =
   | 'vault'
   | 'thread-retention';
 
-export function registerRetentionCases(owner: RetentionCaseOwner) {
-  describe(`RetainedIdentity integration — ${owner}`, () => {
+export function registerRetentionCases(
+  ownerInput: RetentionCaseOwner | readonly RetentionCaseOwner[],
+) {
+  const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
+  describe(`RetainedIdentity integration — ${label}`, () => {
     let prisma: PrismaService;
     let closeApp: (() => Promise<void>) | null = null;
     let cleanupDb: (() => Promise<void>) | null = null;
@@ -79,12 +84,10 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
     });
 
     afterAll(async () => {
-      if (closeApp) {
-        await closeApp();
-      }
-      if (cleanupDb) {
-        await cleanupDb();
-      }
+      await cleanupIntegrationTestResources({
+        closeApp,
+        cleanupDatabase: cleanupDb,
+      });
     });
 
     beforeEach(async () => {
@@ -98,7 +101,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     });
 
-    if (owner === 'retained-identities') {
+    if (owners.has('retained-identities')) {
       it('일반 탈퇴 retained identity는 identifier anchor만 만들고 profile history는 자동 생성하지 않는다', async () => {
         const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
@@ -146,7 +149,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'archive-jobs') {
+    if (owners.has('archive-jobs')) {
       it('ArchiveJob due claim은 bounded batch와 lease로 중복 claim을 막는다', async () => {
         const now = new Date('2029-05-12T00:00:00.000Z');
         const leaseUntil = new Date('2029-05-12T00:01:00.000Z');
@@ -205,7 +208,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'review-jobs') {
+    if (owners.has('review-jobs')) {
       it('RetentionReviewJob due claim은 bounded batch와 lease로 중복 claim을 막는다', async () => {
         const now = new Date('2029-05-12T00:00:00.000Z');
         const leaseUntil = new Date('2029-05-12T00:01:00.000Z');
@@ -266,7 +269,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'retained-identities') {
+    if (owners.has('retained-identities')) {
       it('legal hold가 있으면 일반 삭제 대신 LEGAL_HOLD retained identity로 분류한다', async () => {
         const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
 
@@ -297,7 +300,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'review-jobs') {
+    if (owners.has('review-jobs')) {
       it('5일 anchor 폐기 전 신고 신호가 생기면 REPORT_REVIEW 보존으로 승격한다', async () => {
         const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
@@ -344,7 +347,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'vault') {
+    if (owners.has('vault')) {
       it('retained identity 식별 복원은 승인 근거와 접근 로그를 요구한다', async () => {
         const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
@@ -401,7 +404,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'vault') {
+    if (owners.has('vault')) {
       it('보존 기간이 만료된 retained identity는 식별 복원 anchor를 폐기하고 로그를 남긴다', async () => {
         const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
@@ -471,7 +474,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'vault') {
+    if (owners.has('vault')) {
       it('보존 기간이 만료된 RRPD vault payload는 ciphertext와 digest를 함께 폐기하고 로그를 남긴다', async () => {
         const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
@@ -569,7 +572,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'thread-retention') {
+    if (owners.has('thread-retention')) {
       it('계정 삭제 archive job 생성은 target별 ArchiveJob row를 만들고, 미archive thread의 THREAD_RETENTION은 대기 상태로 남긴다.', async () => {
         await seedRegisteredAssignedParticipant(prisma, {
           userId: 'user-b',
@@ -693,7 +696,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'archive-jobs') {
+    if (owners.has('archive-jobs')) {
       it('archive sweep은 nickname/profile/match history 원문을 RRPD vault로 옮기고 hot row를 최소화한다', async () => {
         await seedRegisteredAssignedParticipant(prisma, {
           userId: 'user-b',
@@ -1114,7 +1117,7 @@ export function registerRetentionCases(owner: RetentionCaseOwner) {
       });
     }
 
-    if (owner === 'thread-retention') {
+    if (owners.has('thread-retention')) {
       it('archived THREAD_RETENTION job은 메시지 본문을 retained body vault로 옮기고 tombstone 처리한다', async () => {
         await seedRegisteredAssignedParticipant(prisma, {
           userId: 'user-b',

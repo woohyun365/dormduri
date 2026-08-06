@@ -1,6 +1,6 @@
-# Production release checklist
+# Production release readiness checklist
 
-이 checklist는 KNU Roommate BE API와 managed PostgreSQL DB를 production에 배포하기 직전에 운영자가 `GO`, `NO-GO`, `GO with follow-up`을 판정하기 위한 단일 release gate다. Web/BackOffice 배포 여부와 분리해서 API, RDS, ingress, CI/CD, backup/restore, observability evidence만 확인한다.
+이 checklist는 KNU Roommate BE API와 managed PostgreSQL DB의 production release readiness를 판정하기 위한 입력이다. 현재 hosting target과 CD transport가 결정되지 않았으므로 이 문서만으로 production 배포를 실행하거나 `GO`를 선언할 수 없다. 먼저 `docs/development/future-production-deployment-inputs.md`의 결정을 닫고, 선택한 runtime에 맞는 CD 검증을 추가해야 한다.
 
 ## Release metadata
 
@@ -10,23 +10,24 @@
 | API image tag                      |                                      |
 | Operator                           |                                      |
 | Environment                        | `production`                         |
-| GitHub workflow run id             |                                      |
+| CI workflow run id                 |                                      |
+| Deployment decision record         |                                      |
 | Release evidence directory/link    |                                      |
 | Restore drill evidence id          |                                      |
 | Observability/stress evidence link |                                      |
 | Decision                           | `GO` / `NO-GO` / `GO with follow-up` |
 
-Evidence에는 secret value, DB URL, bearer token, raw provider error, restored DB password, verification code, HMAC secret을 기록하지 않는다. 필요한 경우 secret-free identifier, workflow run id, artifact id, CloudWatch metric screenshot/link만 남긴다.
+Evidence에는 secret value, DB URL, bearer token, raw provider error, restored DB password, verification code, HMAC secret을 기록하지 않는다. 필요한 경우 secret-free identifier, workflow run id, artifact id, metric screenshot/link만 남긴다.
 
 ## Gate 0. Source branch and local-equivalent CI
 
-| Check                                                    | Evidence           | Decision |
-| -------------------------------------------------------- | ------------------ | -------- |
-| Release commit은 `main` branch 기준이다.                 | commit SHA         |          |
-| API CI workflow가 같은 commit에서 통과했다.              | workflow run id    |          |
-| Local-equivalent 검증이 통과했다.                        | `pnpm check:api`   |          |
-| API build가 통과했다.                                    | `pnpm build:api`   |          |
-| Release artifact/image tag가 commit SHA와 연결되어 있다. | image tag / digest |          |
+| Check                                                              | Evidence           | Decision |
+| ------------------------------------------------------------------ | ------------------ | -------- |
+| Release commit은 `main` branch 기준이다.                           | commit SHA         |          |
+| Monorepo CI의 API validation과 summary가 같은 commit에서 통과했다. | workflow run id    |          |
+| Local-equivalent 검증이 통과했다.                                  | `pnpm api:check`   |          |
+| API build가 통과했다.                                              | `pnpm api:build`   |          |
+| Release artifact/image tag가 commit SHA와 연결되어 있다.           | image tag / digest |          |
 
 `NO-GO`: CI 실패, release SHA 불일치, image tag provenance 불명확.
 
@@ -112,18 +113,18 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 
 `NO-GO`: readiness failure, secret leak, metrics anonymous access, smoke script failure.
 
-## Gate 7. CI/CD protected deploy
+## Gate 7. Deployment implementation boundary
 
-| Check                                                                                                | Evidence                 | Decision |
-| ---------------------------------------------------------------------------------------------------- | ------------------------ | -------- |
-| `API Production Deploy` workflow는 `workflow_dispatch` + production environment approval로 실행된다. | workflow run id          |          |
-| `dry_run=true` preflight가 먼저 통과했다.                                                            | dry-run run id           |          |
-| `dry_run=false` 실행은 `main` branch와 `restore_drill_evidence_id`를 요구한다.                       | input summary            |          |
-| AWS 접근은 OIDC + short-lived token 경로다.                                                          | role arn / OIDC evidence |          |
-| deploy artifact에는 secret value가 없다.                                                             | artifact review          |          |
-| manual fallback을 사용하면 동일한 release order를 따른다.                                            | operator note            |          |
+| Check                                                                                               | Evidence                           | Decision |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------- | -------- |
+| Hosting target과 API/Web/BackOffice/observability topology가 결정되어 있다.                         | deployment decision record         |          |
+| Artifact registry, immutable release id, publish owner가 결정되어 있다.                             | artifact lifecycle record          |          |
+| Deployment principal과 runtime principal의 최소 권한 경계가 검증되었다.                             | authorization review               |          |
+| Migration, role grant, app rollout, readiness, traffic switch 순서가 선택한 runtime에서 검증되었다. | target-specific rehearsal evidence |          |
+| Previous safe artifact 복구와 DB restore escalation의 owner·SLO가 결정되어 있다.                    | rollback rehearsal evidence        |          |
+| Canonical HTTPS host, ingress, TLS, CORS, realtime origin이 실제 값으로 검증되었다.                 | endpoint and smoke evidence        |          |
 
-`NO-GO`: production approval 누락, dry-run failure, long-lived key 기본 경로 사용, release artifact secret leak.
+`NO-GO`: `docs/development/future-production-deployment-inputs.md`의 결정이 남아 있거나 target-specific deploy/rollback rehearsal evidence가 없다.
 
 ## Gate 8. Observability and stress evidence
 
@@ -145,11 +146,11 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 
 ## Release decision
 
-| Decision            | Criteria                                                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `GO`                | Gate 0~8이 모두 통과하고 blocker가 없다. Follow-up은 release path 밖에서 추적된다.                                               |
-| `GO with follow-up` | Gate 0~8 중 release safety를 깨지 않는 운영 개선 항목만 남고, owner/issue/evidence가 명확하다.                                   |
-| `NO-GO`             | secret/config/SES/DB/migration/role grant/readiness/metrics/TLS/restore drill/CI-CD gate 중 하나라도 실패했거나 evidence가 없다. |
+| Decision            | Criteria                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `GO`                | Gate 0~8과 target-specific CD rehearsal이 모두 통과하고 blocker가 없다. Follow-up은 release path 밖에서 추적된다.               |
+| `GO with follow-up` | Gate 0~8 중 release safety를 깨지 않는 운영 개선 항목만 남고, owner/issue/evidence가 명확하다.                                  |
+| `NO-GO`             | deployment input, secret/config/SES/DB/migration/role grant/readiness/metrics/TLS/restore drill 중 하나라도 미결정·실패 상태다. |
 
 ## Follow-up classification
 
@@ -171,8 +172,8 @@ api_image_tag:
 operator:
 environment: production
 api_ci_run_id:
-deploy_dry_run_id:
-deploy_run_id:
+deployment_decision_record:
+target_rehearsal_evidence_id:
 restore_drill_evidence_id:
 restore_source_identifier:
 restored_db_identifier:

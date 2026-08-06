@@ -112,17 +112,8 @@ const forbiddenRunnerApiPatterns = [
 
 describe('API test runner boundary', () => {
   it('keeps official API package scripts on Vitest instead of Jest', () => {
-    const rootPackage = readJson<{ scripts: Record<string, unknown> }>(
-      join(repoRoot, 'package.json'),
-    );
     const apiPackage = readJson<{ scripts: Record<string, unknown> }>(
       join(apiRoot, 'package.json'),
-    );
-
-    expect(scriptValue(rootPackage.scripts, 'api:test')).toBe('pnpm --dir apps/api test');
-    expect(scriptValue(rootPackage.scripts, 'test:api')).toBe('pnpm api:test');
-    expect(scriptValue(rootPackage.scripts, 'api:test:integration')).toBe(
-      'pnpm --dir apps/api test:integration',
     );
 
     for (const scriptName of [
@@ -132,29 +123,35 @@ describe('API test runner boundary', () => {
       'test:cov',
       'test:debug',
       'test:watch',
-      'test:vitest:unit',
-      'test:vitest:integration',
-      'test:vitest:e2e',
+      'ci:test:unit',
+      'ci:test:integration',
+      'ci:test:e2e',
+      'ci:test:stress',
     ]) {
       const command = scriptValue(apiPackage.scripts, scriptName);
 
       expect(command).not.toMatch(/(^|\s)jest(\s|$)|@swc\/jest|test\/jest-/);
     }
 
-    expect(scriptValue(apiPackage.scripts, 'test')).toContain('vitest run');
-    expect(scriptValue(apiPackage.scripts, 'test')).toContain('--config ./vitest.config.unit.ts');
-    expect(scriptValue(apiPackage.scripts, 'test')).toContain('--maxWorkers=50%');
-    expect(scriptValue(apiPackage.scripts, 'test:integration')).toContain('vitest run');
-    expect(scriptValue(apiPackage.scripts, 'test:integration')).toContain(
-      '--config ./vitest.config.integration.ts',
-    );
-    expect(scriptValue(apiPackage.scripts, 'test:integration')).toContain('--maxWorkers=1');
-    expect(scriptValue(apiPackage.scripts, 'test:e2e')).toContain('vitest run');
-    expect(scriptValue(apiPackage.scripts, 'test:e2e')).toContain(
-      '--config ./vitest.config.e2e.ts',
-    );
-    expect(scriptValue(apiPackage.scripts, 'test:e2e')).toContain('--maxWorkers=1');
-    expect(scriptValue(apiPackage.scripts, 'test:cov')).toContain('--coverage');
+    expect(scriptValue(apiPackage.scripts, 'test')).toContain('ci:test:unit');
+    expect(scriptValue(apiPackage.scripts, 'test:integration')).toContain('ci:test:integration');
+    expect(scriptValue(apiPackage.scripts, 'test:e2e')).toContain('ci:test:e2e');
+
+    const unitCommand = scriptValue(apiPackage.scripts, 'ci:test:unit');
+    expect(unitCommand).toContain('vitest run');
+    expect(unitCommand).toContain('--config ./vitest.config.unit.ts');
+    expect(unitCommand).toContain('--maxWorkers=50%');
+
+    const integrationCommand = scriptValue(apiPackage.scripts, 'ci:test:integration');
+    expect(integrationCommand).toContain('vitest run');
+    expect(integrationCommand).toContain('--config ./vitest.config.integration.ts');
+    expect(integrationCommand).toContain('--maxWorkers=1');
+
+    const e2eCommand = scriptValue(apiPackage.scripts, 'ci:test:e2e');
+    expect(e2eCommand).toContain('vitest run');
+    expect(e2eCommand).toContain('--config ./vitest.config.e2e.ts');
+    expect(e2eCommand).toContain('--maxWorkers=1');
+    expect(scriptValue(apiPackage.scripts, 'ci:test:coverage')).toContain('--coverage');
   });
 
   it('keeps the API test runner free of direct Jest dependencies', () => {

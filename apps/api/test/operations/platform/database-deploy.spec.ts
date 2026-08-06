@@ -117,7 +117,7 @@ describe('production database deploy boundary', () => {
     expect(entrypoint).not.toContain('migrate-deploy.sh');
     expect(entrypoint).not.toContain('apply-role-grants.sh');
     expect(entrypoint).not.toContain('smoke-role-grants.sh');
-    expect(deployReadme).toContain('Production DB deploy preflight');
+    expect(deployReadme).toContain('Database rehearsal boundary');
     expect(deployReadme).toContain('pnpm api:db:deploy:migrate');
     expect(deployReadme).toContain('pnpm api:db:deploy:role-grants');
     expect(deployReadme).toContain('pnpm api:db:deploy:smoke');

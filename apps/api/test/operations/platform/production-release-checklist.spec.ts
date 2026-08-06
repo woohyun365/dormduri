@@ -2,21 +2,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const apiRoot = process.cwd();
-const repoRoot = join(apiRoot, '../..');
-const runbooksRoot = join(repoRoot, 'infra/runbooks');
+const repoRoot = join(process.cwd(), '../..');
 
 const requiredFiles = [
   'infra/runbooks/production-release-checklist.md',
   'infra/runbooks/incident-rollback.md',
+  'docs/development/future-production-deployment-inputs.md',
 ];
 
 function readRepoFile(relativePath: string): string {
   return readFileSync(join(repoRoot, relativePath), 'utf8');
-}
-
-function readRunbook(fileName: string): string {
-  return readFileSync(join(runbooksRoot, fileName), 'utf8');
 }
 
 function expectContainsAll(content: string, expectedValues: string[]): void {
@@ -25,8 +20,8 @@ function expectContainsAll(content: string, expectedValues: string[]): void {
   }
 }
 
-describe('production release checklist closeout boundary', () => {
-  it('keeps the final release checklist and incident rollback runbook in expected locations', () => {
+describe('production release readiness boundary', () => {
+  it('keeps the readiness, rollback decision, and future deployment input documents', () => {
     const missingFiles = requiredFiles.filter(
       (relativePath) => !existsSync(join(repoRoot, relativePath)),
     );
@@ -34,40 +29,30 @@ describe('production release checklist closeout boundary', () => {
     expect(missingFiles).toEqual([]);
   });
 
-  it('covers every production readiness gate needed for a BE API and managed PostgreSQL release decision', () => {
-    const checklist = readRunbook('production-release-checklist.md');
+  it('preserves runtime, database, security, and observability release gates', () => {
+    const checklist = readRepoFile('infra/runbooks/production-release-checklist.md');
 
     expectContainsAll(checklist, [
       'Release commit SHA',
       'API image tag',
+      'Deployment decision record',
       'config/secret',
       '.env.api.example',
-      'Secrets Manager inventory dry-run',
-      'placeholder/default secret',
       'EMAIL_PROVIDER=ses',
-      'SES sender identity/domain',
       'DKIM',
-      'sandbox production access',
       '/health',
       '/health/live',
       '/health/ready',
-      'RDS endpoint',
       'Prisma migration deploy',
       'role grant',
       'SSL/TLS',
-      'CloudWatch',
       'Backup and restore drill',
-      'restore_drill_evidence_id',
       'api-restore-drill-manual',
       'nginx public ingress',
       'Socket.IO/WebSocket',
       '/internal/metrics',
       'HTTP_CORS_ALLOWED_ORIGINS',
       'CHAT_REALTIME_ALLOWED_ORIGINS',
-      'GitHub workflow run id',
-      'production environment approval',
-      'OIDC',
-      'Slack Alertmanager delivery smoke',
       'Prometheus target up',
       'Loki log readout',
       'Grafana dashboard readout',
@@ -75,25 +60,23 @@ describe('production release checklist closeout boundary', () => {
       'NO-GO',
       'GO with follow-up',
     ]);
+
+    expect(checklist).not.toContain('API Production Deploy');
   });
 
-  it('lists required commands and evidence ids without requiring secret values', () => {
-    const checklist = readRunbook('production-release-checklist.md');
+  it('keeps secret-free local validation commands without claiming a deploy command', () => {
+    const checklist = readRepoFile('infra/runbooks/production-release-checklist.md');
 
     expectContainsAll(checklist, [
-      'pnpm check:api',
-      'pnpm build:api',
+      'pnpm api:check',
+      'pnpm api:build',
       'pnpm api:db:deploy:migrate',
       'pnpm api:db:deploy:role-grants',
       'pnpm api:db:deploy:smoke',
       'pnpm api:db:restore-drill:smoke',
       'infra/deploy/scripts/api-release-smoke.sh',
       'stress:docker:smoke',
-      'stress:docker:production-like',
-      'stress:docker:237-ramp',
       'restore_drill_evidence_id',
-      'restore_source_identifier',
-      'restored_db_identifier',
       'redaction_confirmed',
     ]);
 
@@ -101,45 +84,52 @@ describe('production release checklist closeout boundary', () => {
     expect(checklist).not.toContain('Bearer <token>');
   });
 
-  it('separates app rollback from DB restore escalation and forbids automatic down migration as the default path', () => {
-    const rollback = readRunbook('incident-rollback.md');
+  it('keeps rollback provider-neutral and separates app recovery from DB restore escalation', () => {
+    const rollback = readRepoFile('infra/runbooks/incident-rollback.md');
 
     expectContainsAll(rollback, [
-      'Previous safe image tag',
-      'API_IMAGE_TAG',
-      'api-production-rollout.sh',
+      'Previous safe artifact',
       'api-release-smoke.sh',
       'DB restore escalation',
       'PITR',
-      'temporary restored DB',
+      'Temporary restored DB',
       'pnpm api:db:restore-drill:smoke',
       '자동 down migration을 기본 경로로 사용하지 않는다',
       'prisma db push',
       'Prometheus target',
       'Loki logs',
       'Grafana dashboard',
-      'Slack alert',
-      'RDS metrics',
     ]);
 
     expect(rollback).toContain('금지');
     expect(rollback).not.toContain('postgresql://...@');
   });
 
-  it('connects release checklist and rollback runbook from deploy and official policy docs without plan-only wording', () => {
+  it('defines container assets as local rehearsal and leaves target choices as future inputs', () => {
     const deployReadme = readRepoFile('infra/deploy/README.md');
-    const deployRunbook = readRepoFile('infra/runbooks/api-production-deploy-runbook.md');
-    const productionPolicy = readRepoFile('docs/policies/production-deployment-readiness.md');
-    const observabilityPolicy = readRepoFile('docs/policies/runtime-observability-and-release.md');
+    const futureInputs = readRepoFile('docs/development/future-production-deployment-inputs.md');
+    const policy = readRepoFile('docs/policies/production-deployment-readiness.md');
 
-    for (const doc of [deployReadme, deployRunbook, productionPolicy, observabilityPolicy]) {
-      expect(doc).toContain('production-release-checklist.md');
-      expect(doc).not.toMatch(/구현 예정|후속 단계|이 plan|Phase \d+에서/);
-    }
+    expectContainsAll(deployReadme, [
+      'local container rehearsal',
+      'non-root',
+      'Container startup',
+      'migration',
+      'api-release-smoke.sh --dry-run',
+      'stress:docker:smoke',
+      'observability rehearsal',
+      'future-production-deployment-inputs.md',
+    ]);
+    expectContainsAll(futureInputs, [
+      'Runtime topology',
+      'Account and network boundary',
+      'Database change ownership',
+      'Canonical HTTPS surface',
+      'Release and rollback control',
+    ]);
+    expect(policy).toContain('future-production-deployment-inputs.md');
 
-    expect(deployReadme).toContain('incident-rollback.md');
-    expect(deployRunbook).toContain('incident-rollback.md');
-    expect(productionPolicy).toContain('incident-rollback.md');
-    expect(observabilityPolicy).toContain('GO with follow-up');
+    expect(deployReadme).toContain('production hosting target');
+    expect(policy).toContain('target-specific rehearsal');
   });
 });

@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
+import { cleanupIntegrationTestResources } from '../_support/integration-suite.js';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
@@ -41,8 +43,11 @@ export type SeasonRegistrationCaseOwner =
   | 'registration'
   | 'concurrency';
 
-export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwner) {
-  describe(`Season registration split-flow integration — ${owner}`, () => {
+export function registerSeasonRegistrationCases(
+  ownerInput: SeasonRegistrationCaseOwner | readonly SeasonRegistrationCaseOwner[],
+) {
+  const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
+  describe(`Season registration split-flow integration — ${label}`, () => {
     let prisma: PrismaService;
     let authService: AuthService;
     let seasonParticipantsService: SeasonParticipantsService;
@@ -63,12 +68,10 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
     });
 
     afterAll(async () => {
-      if (closeApp) {
-        await closeApp();
-      }
-      if (cleanupDb) {
-        await cleanupDb();
-      }
+      await cleanupIntegrationTestResources({
+        closeApp,
+        cleanupDatabase: cleanupDb,
+      });
     });
 
     beforeEach(async () => {
@@ -88,7 +91,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       it(testName, () => withPrismaQueryTraceOnFailure(prisma, testName, testFn));
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'signup 후 season profile draft와 dormitory selection은 registration finalize 전까지 분리 저장되고 finalize에서만 registered/assigned/history가 생성된다',
         async () => {
@@ -234,7 +237,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'dormitory selection을 season profile draft보다 먼저 저장해도 이후 profile 작성 후 registration finalize가 가능하다',
         async () => {
@@ -320,7 +323,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'profile-draft') {
+    if (owners.has('profile-draft')) {
       itWithQueryTrace(
         'profile draft persistence가 transaction 내부에서 실패하면 participant row와 history가 남지 않는다',
         async () => {
@@ -345,7 +348,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'invalid dormitory selection submit은 participant ensure까지 rollback하고 registration/history를 만들지 않는다',
         async () => {
@@ -368,7 +371,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'incomplete season profile은 dormitory selection 저장 후에도 registration finalize로 진행하지 않는다',
         async () => {
@@ -421,7 +424,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'saved dormitory selection이 operation disabled로 stale해지면 finalize는 rollback되고 draft 상태만 남는다',
         async () => {
@@ -444,7 +447,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'saved dormitory selection이 cutoff 이후 stale해지면 finalize는 registered/assigned/history를 만들지 않는다',
         async () => {
@@ -470,7 +473,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'registration') {
+    if (owners.has('registration')) {
       itWithQueryTrace(
         'withdrawn/declined participant는 같은 season에서 재등록 finalize가 거부되고 history가 생기지 않는다',
         async () => {
@@ -511,7 +514,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'registration') {
+    if (owners.has('registration')) {
       itWithQueryTrace(
         'deleted/deactivated/hidden 상태가 finalize 전에 감지되면 registration mutation과 history를 만들지 않는다',
         async () => {
@@ -572,7 +575,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'registration') {
+    if (owners.has('registration')) {
       itWithQueryTrace(
         '이미 등록된 participant는 deleted/deactivated/hidden 이후에도 registration history snapshot을 보존한다',
         async () => {
@@ -636,7 +639,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'selection draft를 변경하면 finalize는 최신 selection만 ASSIGNED로 확정한다',
         async () => {
@@ -684,7 +687,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'concurrency') {
+    if (owners.has('concurrency')) {
       itWithQueryTrace(
         'selection 변경과 finalize가 동시에 실행되어도 하나의 serial outcome과 history 1건 이하만 남는다',
         async () => {
@@ -738,7 +741,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'concurrency') {
+    if (owners.has('concurrency')) {
       itWithQueryTrace(
         'duplicate finalize race에서도 SeasonParticipantProfileHistory는 한 번만 생성된다',
         async () => {
@@ -768,7 +771,7 @@ export function registerSeasonRegistrationCases(owner: SeasonRegistrationCaseOwn
       );
     }
 
-    if (owner === 'dormitory-selection') {
+    if (owners.has('dormitory-selection')) {
       itWithQueryTrace(
         'finalize 실패 후 current-user capability는 등록 완료로 보이지 않고 selection draft 변경 가능 상태를 유지한다',
         async () => {

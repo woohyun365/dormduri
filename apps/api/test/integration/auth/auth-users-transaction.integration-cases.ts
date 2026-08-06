@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
+import { cleanupIntegrationTestResources } from '../_support/integration-suite.js';
 import { HttpException } from '@nestjs/common';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
@@ -61,8 +63,11 @@ const signupLegalDocumentIds = {
 
 export type AuthUserTransactionOwner = 'registration' | 'credentials' | 'users';
 
-export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner) {
-  describe(`Auth/users transaction rollback and race integration — ${owner}`, () => {
+export function registerAuthUserTransactionCases(
+  ownerInput: AuthUserTransactionOwner | readonly AuthUserTransactionOwner[],
+) {
+  const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
+  describe(`Auth/users transaction rollback and race integration — ${label}`, () => {
     let prisma: PrismaService;
     let authService: AuthService;
     let authSessionService: AuthSessionService;
@@ -89,12 +94,10 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
     });
 
     afterAll(async () => {
-      if (closeApp) {
-        await closeApp();
-      }
-      if (cleanupDb) {
-        await cleanupDb();
-      }
+      await cleanupIntegrationTestResources({
+        closeApp,
+        cleanupDatabase: cleanupDb,
+      });
     });
 
     beforeEach(async () => {
@@ -105,7 +108,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       it(testName, () => withPrismaQueryTraceOnFailure(prisma, testName, testFn));
     }
 
-    if (owner === 'users') {
+    if (owners.has('users')) {
       itWithQueryTrace(
         'verified user라도 UserAcademicIdentity가 없으면 current-user는 계정 invariant 위반으로 fail-closed한다',
         async () => {
@@ -133,7 +136,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       );
     }
 
-    if (owner === 'users') {
+    if (owners.has('users')) {
       itWithQueryTrace(
         'verified user라도 UserDisplayIdentity가 없으면 current-user는 계정 invariant 위반으로 fail-closed한다',
         async () => {
@@ -165,7 +168,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       );
     }
 
-    if (owner === 'registration') {
+    if (owners.has('registration')) {
       describe('signup rollback / atomicity', () => {
         itWithQueryTrace(
           'signup finalize transaction은 UserAcademicIdentity를 User/DisplayIdentity/AuthSession과 함께 생성한다',
@@ -507,7 +510,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       });
     }
 
-    if (owner === 'credentials') {
+    if (owners.has('credentials')) {
       describe('reset password transaction', () => {
         itWithQueryTrace(
           'reset password 성공 시 verification consume/password update/session revoke/login lock clear가 함께 반영된다',
@@ -935,7 +938,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       });
     }
 
-    if (owner === 'credentials') {
+    if (owners.has('credentials')) {
       describe('change password transaction', () => {
         itWithQueryTrace(
           'change password 성공은 password·기존 세션 revoke·대체 세션·outbox·감사 이벤트를 함께 commit한다',
@@ -1331,7 +1334,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       });
     }
 
-    if (owner === 'users') {
+    if (owners.has('users')) {
       describe('nickname update race', () => {
         itWithQueryTrace(
           '서로 다른 두 사용자가 같은 nickname으로 update하면 DB unique/P2002 mapping으로 성공은 최대 1개다',
@@ -1415,7 +1418,7 @@ export function registerAuthUserTransactionCases(owner: AuthUserTransactionOwner
       });
     }
 
-    if (owner === 'users') {
+    if (owners.has('users')) {
       describe('onboarding dismiss idempotency', () => {
         itWithQueryTrace(
           'first dismiss는 row를 만들고 current-user onboarding dismissed state를 true로 반환한다',

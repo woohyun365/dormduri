@@ -5,5 +5,7 @@
 `docs/architecture/`가 소유합니다.
 
 - [Troubleshooting index](./troubleshooting/README.md)
+- [Monorepo CI baseline](./ci/monorepo-ci-baseline.md)
+- [Production deployment implementation inputs](./future-production-deployment-inputs.md)
 
 과거 Sprint·Phase 실행 기록, 개인 장비·절대 경로, 폐기된 구현의 원문은 `local-docs/`에 둡니다.
