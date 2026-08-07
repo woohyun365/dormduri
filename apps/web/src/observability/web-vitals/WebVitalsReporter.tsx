@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useReportWebVitals } from 'next/web-vitals';
-import { reportWebVital } from './webVitals';
+import { reportWebVital } from './web-vitals';
 
 export function WebVitalsReporter() {
   useReportWebVitals(

@@ -2,7 +2,7 @@
 
 ## 문서 범위
 
-이 문서는 KNU Roommate API의 운영 관측, 로그, 모니터링, stress/load test, release gate, 서버 스펙 선택 기준을 다룬다. Production 배포 준비 전체 기준은 [production-deployment-readiness.md](./production-deployment-readiness.md)가 소유하고, 이 문서는 관측·부하·release evidence 입력을 소유한다.
+이 문서는 KNU Roommate API와 Web의 운영 관측, 로그, 모니터링, stress/load test, release gate, 서버 스펙 선택 기준을 다룬다. Production 배포 준비 전체 기준은 [production-deployment-readiness.md](./production-deployment-readiness.md)가 소유하고, 이 문서는 관측·부하·release evidence 입력을 소유한다.
 
 관련 기준:
 
@@ -10,6 +10,7 @@
 - `infra/runbooks/production-release-checklist.md`
 - `infra/deploy/README.md`
 - [production-deployment-readiness.md](./production-deployment-readiness.md)
+- [Web 운영 관측성 경계](../architecture/frontend/web-observability.md)
 
 ## 운영 목표
 
@@ -62,6 +63,17 @@
 - chat message body, support/report 상세 본문
 - retained original body, vault payload, encrypted payload, internal audit payload
 - raw userId/threadId/messageId/sessionId/IP를 log label로 저장하는 행위
+
+## Web 운영 관측 정책
+
+- Web은 runtime error, BFF reliability, Web Vitals만 운영 관측 범위로 수집한다.
+- Auth Journey와 Main 기능 funnel 같은 제품 분석은 별도 목적·보존·privacy 결정 없이는 수집하지 않는다.
+- browser event는 explicit typed event만 허용하며 session replay, heatmap, DOM autocapture를 사용하지 않는다.
+- runtime error는 raw message/stack/form 값을 보내지 않고 normalized type과 fingerprint만 사용한다.
+- BFF는 bounded operation/outcome/status class/duration을 structured log로 남기며 requestId는 correlation field로만 사용한다.
+- Web Vitals release 판단은 LCP, INP, CLS를 사용하고 TTFB/FCP는 진단용으로만 사용한다.
+- browser provider 실패는 fail-open이며 사용자 화면, navigation, mutation을 차단하지 않는다.
+- production browser telemetry는 provider, privacy, retention, CSP, release/source map smoke가 모두 확인된 뒤 활성화한다.
 
 ## Metric 정책
 
@@ -132,6 +144,7 @@
 ## 보존 기간
 
 - application operational logs: 기본 30일.
+- browser runtime error/RUM: provider 계약과 개인정보 검토에서 확정하며, 확정 전 production 수집을 활성화하지 않는다.
 - security/audit/retention access log: 각 domain 공식 정책의 보존 기간을 따른다.
 - stress result report: release evidence는 최소 해당 release cycle 동안 보존한다.
 - raw stress credential/token은 report에 저장하지 않는다.
@@ -143,3 +156,4 @@
 | 2026-06-13 | 운영 관측·로그·부하 테스트 정책을 신설하고, 2GB 최소형과 4GB 관측 포함형 서버 스펙 선택지, metrics/log privacy, stress release gate 기준을 정의했다 | logging-stress infrastructure   |
 | 2026-06-17 | 운영 관측 baseline을 완료 상태로 정리하고, production deployment readiness 문서와 release evidence 입력, 성능 follow-up 분리 기준을 연결했다        | production deployment readiness |
 | 2026-06-17 | Production release checklist가 observability/stress evidence를 최종 release decision 입력으로 사용한다는 기준을 추가했다                            | production deployment readiness |
+| 2026-08-06 | Web runtime error, BFF reliability, Web Vitals의 운영 관측 목적·privacy·production enable gate를 추가했다                                           | Web operational observability   |

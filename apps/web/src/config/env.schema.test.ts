@@ -80,6 +80,62 @@ describe('web env schema', () => {
       appUrl: 'https://app.example.com',
       apiUpstreamUrl: 'https://api.example.com',
       publicApiBase: '/api',
+      operationalTelemetry: {
+        environment: 'production',
+        release: 'development',
+        browserEnabled: false,
+        runtimeErrorsEnabled: false,
+        webVitalsEnabled: false,
+        privacyApproved: false,
+        bffStructuredLoggingEnabled: true,
+        bffSuccessSampleRate: 0.25,
+        sourceMapsEnabled: false,
+      },
+    });
+  });
+
+  it('production browser telemetry는 privacy, retention, HTTPS endpoint를 모두 요구한다', () => {
+    const base = {
+      NODE_ENV: 'production',
+      NEXT_PUBLIC_APP_URL: 'https://app.example.com',
+      API_URL: 'https://api.example.com',
+      NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED: '1',
+    };
+
+    expect(() => parseWebServerEnv(base, 'production')).toThrow(/privacy/i);
+    expect(() =>
+      parseWebServerEnv({ ...base, NEXT_PUBLIC_WEB_TELEMETRY_PRIVACY_APPROVED: '1' }, 'production'),
+    ).toThrow(/retention/i);
+    expect(() =>
+      parseWebServerEnv(
+        {
+          ...base,
+          NEXT_PUBLIC_WEB_TELEMETRY_PRIVACY_APPROVED: '1',
+          NEXT_PUBLIC_WEB_TELEMETRY_RETENTION_DAYS: '30',
+        },
+        'production',
+      ),
+    ).toThrow(/endpoint/i);
+
+    expect(
+      parseWebServerEnv(
+        {
+          ...base,
+          NEXT_PUBLIC_WEB_TELEMETRY_PRIVACY_APPROVED: '1',
+          NEXT_PUBLIC_WEB_TELEMETRY_RETENTION_DAYS: '30',
+          NEXT_PUBLIC_WEB_TELEMETRY_ENDPOINT: 'https://telemetry.example.com/intake',
+          NEXT_PUBLIC_WEB_RELEASE: 'sha-123',
+        },
+        'production',
+      ).operationalTelemetry,
+    ).toMatchObject({
+      browserEnabled: true,
+      runtimeErrorsEnabled: true,
+      webVitalsEnabled: true,
+      privacyApproved: true,
+      retentionDays: 30,
+      endpoint: 'https://telemetry.example.com/intake',
+      release: 'sha-123',
     });
   });
 });

@@ -71,7 +71,7 @@
 - `/` route의 title, description, canonical, Open Graph, Twitter metadata는 `apps/web/src/app/metadata.ts`에서 관리한다.
 - Metadata 문구는 독립 운영 서비스 경계를 유지하고, 학교 공식 서비스로 오해될 표현을 피한다.
 - `robots.ts`와 `sitemap.ts`는 공개 정적 route와 private/API route boundary를 구분한다. `/main`과 `/api/`는 sitemap에 넣지 않는다.
-- Core Web Vitals debug는 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`일 때만 사용하고, payload는 metric id/name/value/rating/navigationType/attribution key 목록으로 제한한다.
+- Core Web Vitals는 operational adapter를 통해 LCP/INP/CLS를 핵심 지표로 전달한다. Local/preview debug는 `NEXT_PUBLIC_WEB_OPERATIONAL_DEBUG=1`에서만 허용하고 attribution은 key 목록만 사용한다.
 - Landing 성능 목표는 LCP 2.5s 이하, INP 200ms 이하, CLS 0.1 이하이다. Playwright desktop/mobile smoke는 공개 Landing, CTA, Support 안내, mobile menu, robots/sitemap runtime boundary를 확인한다. Lighthouse hard gate와 strict visual diff는 별도 후속 범위다.
 
 ## E2E coverage rule
@@ -91,5 +91,5 @@
 ## Security and observability rule
 
 - profile copy와 user-entered content를 analytics/debug log로 남기지 않는다.
-- Web Vitals debug output은 metric/id/value/rating/attribution 같은 sanitized field로 제한한다.
+- Web Vitals event는 metric/id/value/rating/attribution key 같은 sanitized field로 제한하고 provider 실패가 Landing render/navigation을 막지 않게 한다.
 - 개인 문의 본문, 운영자 메모, 신고/제재 결과, retained payload, 토큰/세션 식별자는 Landing content에 포함하지 않는다.

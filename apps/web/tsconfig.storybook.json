@@ -38,6 +38,10 @@
     "src/legal/**/*.stories.tsx",
     "src/legal/__stories__/**/*.ts",
     "src/legal/__stories__/**/*.tsx",
+    "src/observability/**/*.stories.ts",
+    "src/observability/**/*.stories.tsx",
+    "src/observability/**/__stories__/**/*.ts",
+    "src/observability/**/__stories__/**/*.tsx",
     "src/main/test-support/**/*.ts"
   ],
   "exclude": ["node_modules", ".next", "coverage", "storybook-static"]

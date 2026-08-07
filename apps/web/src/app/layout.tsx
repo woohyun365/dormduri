@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { createRootMetadata } from './metadata';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
-import { WebVitalsReporter } from '@/observability/WebVitalsReporter';
+import { WebVitalsReporter } from '@/observability/web-vitals/WebVitalsReporter';
 import './globals.css';
 import '../styles/knu.css';
 
