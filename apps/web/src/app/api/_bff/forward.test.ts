@@ -33,7 +33,7 @@ describe('generic BFF forward helper hardening', () => {
 
     const methodResponse = await forwardBffRequest({
       request: createBffRequest('/api/bookmarks'),
-      method: 'PATCH' as never,
+      method: 'PUT' as never,
       path: '/api/bookmarks',
     });
     expect(methodResponse.status).toBe(405);

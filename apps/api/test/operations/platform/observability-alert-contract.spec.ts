@@ -44,4 +44,15 @@ describe('observability alert contract', () => {
       expect(config).not.toMatch(new RegExp(`[,{]\\s*${label}\\s*=`));
     }
   });
+
+  it('routes bounded Web BFF failure symptoms through the Loki ruler', () => {
+    const loki = readInfraFile('loki/loki.yml');
+    const rules = readInfraFile('loki/rules/web-bff-alerts.yml');
+    expect(loki).toContain('alertmanager_url: http://alertmanager:9093');
+    expect(rules).toContain('WebBffFailureRateHigh');
+    expect(rules).toContain('web_bff_request_completed');
+    for (const label of forbiddenLabels) {
+      expect(rules).not.toMatch(new RegExp(`[,{]\\s*${label}\\s*=`));
+    }
+  });
 });

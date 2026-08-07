@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
 
   return forwardBffRequest({
     request,
+    operation: 'support.faq.list',
     method: 'GET',
     path,
   });

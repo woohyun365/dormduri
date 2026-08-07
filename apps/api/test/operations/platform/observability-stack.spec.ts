@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -6,12 +6,16 @@ import {
   observabilityRoot,
   readDashboardFiles,
   readInfraFile,
+  repoRoot,
   stripCommentLines,
 } from './observability-test.support.js';
 
 const requiredFiles = [
   'docker-compose.observability.yml',
+  'docker-compose.observability.rehearsal.yml',
+  'docker-compose.web-rehearsal.yml',
   '.env.observability.example',
+  'fixtures/web-upstream.mjs',
   'prometheus/prometheus.yml',
   'prometheus/render-prometheus-config.sh',
   'alertmanager/render-alertmanager-config.sh',
@@ -20,7 +24,9 @@ const requiredFiles = [
   'grafana/provisioning/dashboards/dashboards.yml',
   'grafana/dashboards/api-overview.json',
   'grafana/dashboards/realtime-auth-retention.json',
+  'grafana/dashboards/web-bff-reliability.json',
   'loki/loki.yml',
+  'loki/rules/web-bff-alerts.yml',
   'alloy/config.alloy',
 ];
 
@@ -38,6 +44,7 @@ describe('observability stack', () => {
     expect(readDashboardFiles().map((file) => file.path)).toEqual([
       'grafana/dashboards/api-overview.json',
       'grafana/dashboards/realtime-auth-retention.json',
+      'grafana/dashboards/web-bff-reliability.json',
     ]);
   });
 
@@ -62,5 +69,32 @@ describe('observability stack', () => {
     ]) {
       expect(text).toContain(metric);
     }
+  });
+
+  it('keeps the Web BFF dashboard on bounded outcomes and latency percentiles', () => {
+    const dashboard = readInfraFile('grafana/dashboards/web-bff-reliability.json');
+    expect(dashboard).toContain('web_bff_request_completed');
+    expect(dashboard).toContain('count_over_time');
+    expect(dashboard).toContain('quantile_over_time(0.50');
+    expect(dashboard).toContain('quantile_over_time(0.95');
+    expect(dashboard).toContain('quantile_over_time(0.99');
+  });
+
+  it('keeps the Web local rehearsal on a production standalone image and private ports', () => {
+    const compose = readInfraFile('docker-compose.web-rehearsal.yml');
+    const dockerfile = readFileSync(join(repoRoot, 'infra/deploy/web/Dockerfile'), 'utf8');
+    const runner = readFileSync(
+      join(repoRoot, 'scripts/observability/web-local-rehearsal.mjs'),
+      'utf8',
+    );
+
+    expect(compose).toContain('dockerfile: infra/deploy/web/Dockerfile');
+    expect(compose).toContain('127.0.0.1:${WEB_REHEARSAL_PORT:-3300}:3000');
+    expect(compose).toContain("WEB_BFF_OPERATIONAL_LOGGING_ENABLED: '1'");
+    expect(dockerfile).toContain('.next/standalone');
+    expect(dockerfile).toContain('apps/web/server.js');
+    expect(runner).toContain("context === 'orbstack'");
+    expect(runner).toContain("compose('stop', 'loki')");
+    expect(runner).toContain('knu-web-bff-reliability');
   });
 });

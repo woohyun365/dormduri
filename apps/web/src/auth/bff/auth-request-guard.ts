@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getWebEnv } from '@/config/env';
+import { startBffReliabilityMeasurement } from '@/app/api/_bff/reliability';
 
 type StrictRequestIssue = {
   code: string;
@@ -101,10 +102,12 @@ export function inspectAuthMutationRequest(request: NextRequest): AuthMutationRe
 export function recordAuthMutationRequestInspection(request: NextRequest) {
   const inspection = inspectAuthMutationRequest(request);
   if (!inspection.trusted) {
-    console.warn('[auth-bff] suspicious mutation request observed', {
-      reason: inspection.reason,
-      fetchSite: request.headers.get('sec-fetch-site') ?? 'missing',
-    });
+    startBffReliabilityMeasurement({
+      operation: `auth.request_guard.${inspection.reason.toLowerCase()}`,
+      method: 'POST',
+      authenticated: false,
+      request,
+    }).complete({ outcome: 'client_error', status: 400 });
   }
   return inspection;
 }

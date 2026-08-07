@@ -1,0 +1,79 @@
+services:
+  web-upstream:
+    image: ${WEB_UPSTREAM_IMAGE:-node:24-alpine}
+    command: ['node', '/fixture/web-upstream.mjs']
+    environment:
+      PORT: 4100
+    volumes:
+      - ./fixtures/web-upstream.mjs:/fixture/web-upstream.mjs:ro
+    expose:
+      - '4100'
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4100/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 64M
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/deploy/web/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: https://web.local.invalid
+        NEXT_PUBLIC_API_URL: /api
+        NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED: '0'
+        NEXT_PUBLIC_WEB_RUNTIME_ERRORS_ENABLED: '1'
+        NEXT_PUBLIC_WEB_VITALS_ENABLED: '1'
+        NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT: local
+        NEXT_PUBLIC_WEB_RELEASE: ${WEB_REHEARSAL_RELEASE:-local-rehearsal}
+    image: knu-roommate-web:${WEB_IMAGE_TAG:-local-rehearsal}
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      TZ: Asia/Seoul
+      NEXT_PUBLIC_APP_URL: https://web.local.invalid
+      NEXT_PUBLIC_API_URL: /api
+      API_URL: http://web-upstream:4100
+      NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED: '0'
+      NEXT_PUBLIC_WEB_RUNTIME_ERRORS_ENABLED: '1'
+      NEXT_PUBLIC_WEB_VITALS_ENABLED: '1'
+      NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT: local
+      NEXT_PUBLIC_WEB_RELEASE: ${WEB_REHEARSAL_RELEASE:-local-rehearsal}
+      WEB_BFF_OPERATIONAL_LOGGING_ENABLED: '1'
+      WEB_BFF_SUCCESS_SAMPLE_RATE: '1'
+      WEB_BROWSER_SOURCE_MAPS_ENABLED: '0'
+    ports:
+      - 127.0.0.1:${WEB_REHEARSAL_PORT:-3300}:3000
+    depends_on:
+      web-upstream:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+    networks:
+      - observability
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.55'
+          memory: 512M

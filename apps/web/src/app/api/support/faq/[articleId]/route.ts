@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, context: FaqArticleRouteContext)
   const { articleId } = await resolveBffRouteParams(context);
   return forwardBffRequest({
     request,
+    operation: 'support.faq.detail',
     method: 'GET',
     path: `/api/support/faq/${encodeBffPathSegment(articleId)}`,
   });

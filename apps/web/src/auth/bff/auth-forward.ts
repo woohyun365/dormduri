@@ -7,6 +7,10 @@ import {
   readBffJsonResponse,
 } from '@/app/api/_bff/security';
 import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
+import {
+  startBffReliabilityMeasurement,
+  type BffReliabilityOutcome,
+} from '@/app/api/_bff/reliability';
 
 const ALLOWED_AUTH_METHODS = new Set(['GET', 'POST']);
 export const AUTH_BFF_DEFAULT_TIMEOUT_MS = 8_000;
@@ -27,6 +31,7 @@ export type AuthForwardFailureKind =
 export type AuthForwardOptions = {
   timeoutMs?: number;
   responseSchema?: AuthUpstreamResponseSchema;
+  operation?: string;
 };
 
 export type AuthForwardResult = {
@@ -97,6 +102,26 @@ function classifySafeJsonFailure(
   return undefined;
 }
 
+const AUTH_OPERATION_BY_PATH: Readonly<Record<string, string>> = {
+  '/auth/login': 'auth.login',
+  '/auth/logout': 'auth.session.logout',
+  '/auth/session': 'auth.session.read',
+  '/auth/renew-session': 'auth.session.renew',
+  '/auth/signup': 'auth.signup.create',
+  '/auth/signup/validate-nickname': 'auth.signup.validate_nickname',
+  '/auth/send-signup-code': 'auth.signup.send_code',
+  '/auth/verify-email-code': 'auth.signup.verify_code',
+  '/auth/send-reset-code': 'auth.password_reset.send_code',
+  '/auth/verify-reset-code': 'auth.password_reset.verify_code',
+  '/auth/reset-password': 'auth.password_reset.complete',
+  '/auth/change-password': 'auth.change_password',
+  '/auth/dev/users': 'auth.dev_users',
+};
+
+function resolveAuthOperation(path: string, explicitOperation: string | undefined): string {
+  return explicitOperation ?? AUTH_OPERATION_BY_PATH[path] ?? 'auth.request';
+}
+
 async function readPasswordHashCapacityResponse(
   response: Response,
 ): Promise<AuthForwardResult | null> {
@@ -133,8 +158,36 @@ export async function forwardAuthRequest(
   init?: RequestInit,
   options: AuthForwardOptions = {},
 ): Promise<AuthForwardResult> {
+  const normalizedInitHeaders = normalizeHeaders(init?.headers);
+  const measurement = startBffReliabilityMeasurement({
+    operation: resolveAuthOperation(path, options.operation),
+    method,
+    authenticated: typeof normalizedInitHeaders.Authorization === 'string',
+    userAgent: normalizedInitHeaders['user-agent'],
+  });
+  const complete = (
+    result: AuthForwardResult,
+    explicitOutcome?: BffReliabilityOutcome,
+  ): AuthForwardResult => {
+    const status = result.response.status;
+    const failureOutcome: Partial<Record<AuthForwardFailureKind, BffReliabilityOutcome>> = {
+      timeout: 'timeout',
+      aborted: 'aborted',
+      network: 'network',
+      upstream: 'upstream_error',
+      'invalid-response': 'invalid_response',
+    };
+    measurement.complete({
+      outcome:
+        explicitOutcome ??
+        (result.failureKind ? failureOutcome[result.failureKind] : undefined) ??
+        (status >= 500 ? 'upstream_error' : status >= 400 ? 'client_error' : 'success'),
+      status,
+    });
+    return result;
+  };
   if (!ALLOWED_AUTH_METHODS.has(method)) {
-    return buildSafeAuthForwardResult('BFF_METHOD_NOT_ALLOWED', 405);
+    return complete(buildSafeAuthForwardResult('BFF_METHOD_NOT_ALLOWED', 405), 'client_error');
   }
 
   let upstreamUrl: string;
@@ -145,7 +198,7 @@ export async function forwardAuthRequest(
       allowedPathPrefix: '/auth',
     });
   } catch {
-    return buildSafeAuthForwardResult('BFF_UPSTREAM_URL_INVALID');
+    return complete(buildSafeAuthForwardResult('BFF_UPSTREAM_URL_INVALID'), 'invalid_config');
   }
 
   const { headers: initHeaders, ...restInit } = init ?? {};
@@ -153,6 +206,7 @@ export async function forwardAuthRequest(
     {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...normalizeHeaders(initHeaders),
+      ...measurement.correlationHeaders,
     },
     { allowAuthorization: true },
   );
@@ -183,12 +237,12 @@ export async function forwardAuthRequest(
     });
   } catch (error) {
     if (timedOut) {
-      return buildSafeAuthForwardResult('BFF_UPSTREAM_TIMEOUT', 504, 'timeout');
+      return complete(buildSafeAuthForwardResult('BFF_UPSTREAM_TIMEOUT', 504, 'timeout'));
     }
     if (callerSignal?.aborted || isAbortError(error)) {
-      return buildSafeAuthForwardResult('BFF_UPSTREAM_ABORTED', 503, 'aborted');
+      return complete(buildSafeAuthForwardResult('BFF_UPSTREAM_ABORTED', 503, 'aborted'));
     }
-    return buildSafeAuthForwardResult('BFF_UPSTREAM_NETWORK_ERROR', 503, 'network');
+    return complete(buildSafeAuthForwardResult('BFF_UPSTREAM_NETWORK_ERROR', 503, 'network'));
   } finally {
     clearTimeout(timeoutId);
     callerSignal?.removeEventListener('abort', abortFromCaller);
@@ -198,37 +252,36 @@ export async function forwardAuthRequest(
     const capacityResponse = await readPasswordHashCapacityResponse(response);
     if (capacityResponse) {
       if (!options.responseSchema) {
-        return capacityResponse;
+        return complete(capacityResponse, 'upstream_error');
       }
       const parsed = options.responseSchema.safeParse(capacityResponse.json);
       if (parsed.success) {
-        return { response: capacityResponse.response, json: parsed.data };
+        return complete(
+          { response: capacityResponse.response, json: parsed.data },
+          'upstream_error',
+        );
       }
     }
-    return buildSafeAuthForwardResult('BFF_UPSTREAM_UNAVAILABLE', 503, 'upstream');
+    return complete(buildSafeAuthForwardResult('BFF_UPSTREAM_UNAVAILABLE', 503, 'upstream'));
   }
 
   const safeResult = await readBffJsonResponse(response);
   const safeJsonFailure = classifySafeJsonFailure(safeResult.json);
   if (safeJsonFailure) {
-    return {
-      ...safeResult,
-      failureKind: safeJsonFailure,
-    };
+    return complete({ ...safeResult, failureKind: safeJsonFailure });
   }
 
   if (options.responseSchema) {
     const parsed = options.responseSchema.safeParse(safeResult.json);
     if (!parsed.success) {
-      return buildSafeAuthForwardResult('BFF_UPSTREAM_SCHEMA_MISMATCH', 502, 'invalid-response');
+      return complete(
+        buildSafeAuthForwardResult('BFF_UPSTREAM_SCHEMA_MISMATCH', 502, 'invalid-response'),
+      );
     }
-    return {
-      response: safeResult.response,
-      json: parsed.data,
-    };
+    return complete({ response: safeResult.response, json: parsed.data });
   }
 
-  return safeResult;
+  return complete(safeResult);
 }
 
 export function resolveTrustedForwardedFor(request: NextRequest): string | undefined {

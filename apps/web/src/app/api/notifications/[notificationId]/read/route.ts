@@ -12,6 +12,7 @@ export async function POST(request: NextRequest, context: NotificationReadRouteC
   const { notificationId } = await resolveBffRouteParams(context);
   return forwardBffRequest({
     request,
+    operation: 'notification.read',
     method: 'POST',
     path: `/api/notifications/${encodeBffPathSegment(notificationId)}/read`,
     authenticated: true,

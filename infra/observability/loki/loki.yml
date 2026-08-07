@@ -37,6 +37,10 @@ compactor:
   delete_request_store: filesystem
 
 ruler:
+  alertmanager_url: http://alertmanager:9093
+  enable_alertmanager_v2: true
+  enable_api: false
+  rule_path: /tmp/loki-rules
   storage:
     type: local
     local:

@@ -4,6 +4,7 @@ import { buildBffUpstreamUrl, buildSafeBffErrorResponse } from '@/app/api/_bff/s
 import { resolveBffRouteParams, type BffRouteContext } from '@/app/api/_bff/forward';
 import { getWebEnv } from '@/config/env';
 import { fetchLegalDocumentFromUrl, LegalDocumentFetchError } from '@/legal/api/legal-document.api';
+import { startBffReliabilityMeasurement } from '@/app/api/_bff/reliability';
 
 type LegalDocumentRouteContext = BffRouteContext<{ kind: string }>;
 
@@ -18,11 +19,18 @@ function toSafeUpstreamError(error: unknown): NextResponse {
   return buildSafeBffErrorResponse('LEGAL_DOCUMENT_UPSTREAM_UNAVAILABLE', 503);
 }
 
-export async function GET(_request: NextRequest, context: LegalDocumentRouteContext) {
+export async function GET(request: NextRequest, context: LegalDocumentRouteContext) {
+  const measurement = startBffReliabilityMeasurement({
+    operation: 'legal.document_detail',
+    method: 'GET',
+    authenticated: false,
+    request,
+  });
   const { kind } = await resolveBffRouteParams(context);
   const parsedKind = legalDocumentKindSchema.safeParse(kind);
 
   if (!parsedKind.success) {
+    measurement.complete({ outcome: 'client_error', status: 400 });
     return buildSafeBffErrorResponse('INVALID_LEGAL_DOCUMENT_KIND', 400);
   }
 
@@ -34,11 +42,15 @@ export async function GET(_request: NextRequest, context: LegalDocumentRouteCont
       allowedPathPrefix: '/api',
     });
   } catch {
+    measurement.complete({ outcome: 'invalid_config', status: 502 });
     return buildSafeBffErrorResponse('BFF_UPSTREAM_URL_INVALID');
   }
 
   try {
-    const document = await fetchLegalDocumentFromUrl(upstreamUrl);
+    const document = await fetchLegalDocumentFromUrl(upstreamUrl, {
+      headers: measurement.correlationHeaders,
+    });
+    measurement.complete({ outcome: 'success', status: 200 });
     return NextResponse.json(document, {
       status: 200,
       headers: {
@@ -46,6 +58,13 @@ export async function GET(_request: NextRequest, context: LegalDocumentRouteCont
       },
     });
   } catch (error) {
+    measurement.complete({
+      outcome:
+        error instanceof LegalDocumentFetchError && error.code === 'LEGAL_DOCUMENT_UPSTREAM_INVALID'
+          ? 'invalid_response'
+          : 'upstream_error',
+      status: error instanceof LegalDocumentFetchError ? 502 : 503,
+    });
     return toSafeUpstreamError(error);
   }
 }

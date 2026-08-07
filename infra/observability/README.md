@@ -86,7 +86,7 @@ Grafana Explore에서 datasource `Loki`를 선택하고 다음 query를 실행�
 {service="api", level="error"}
 ```
 
-Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. API가 compose 밖에서 `pnpm start:dev`로 실행되면 Docker log source가 아니므로 Loki에는 API log가 보이지 않을 수 있다. 이 경우 Prometheus/Grafana metrics만 확인하거나, API를 app compose와 같은 Docker daemon에서 `api` service로 실행한다.
+Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다. `pnpm web:observability:rehearsal`은 production standalone Web image와 deterministic upstream fixture를 관측 stack에 연결해 이 경로를 OrbStack에서 검증한다.
 
 관측 stack 자체의 Docker log를 확인할 때는 다음처럼 service label을 구분한다.
 
@@ -123,6 +123,27 @@ Loki label은 low-cardinality 값만 허용한다.
 - 금지: `userId`, `email`, `threadId`, `messageId`, `requestId`, `correlationId`, `ip`, `path`, `token`, `cookie`, raw payload/body
 
 requestId 같은 추적 필드는 JSON field로 남을 수 있지만 Loki label로 승격하지 않는다. Prometheus label도 API code의 metric label policy를 따른다.
+
+Web BFF는 `web_bff_request_completed` structured event를 같은 Docker stdout 경로로 전달한다. Grafana dashboard UID는 `knu-web-bff-reliability`이며 browser runtime error와 Web Vitals는 승인된 managed provider에서 조회한다. 설정·smoke·kill switch 절차는 `infra/runbooks/web-operational-observability.md`를 따른다.
+
+### Web local constrained rehearsal
+
+OrbStack Docker Engine을 2 CPU / 4096MiB로 제한한 뒤 repository root에서 실행한다.
+
+```bash
+pnpm web:observability:rehearsal
+```
+
+runner는 다음을 자동 검증하고 종료 시 전용 container·network·volume을 정리한다.
+
+- production Next standalone image build와 health
+- `bookmark.list` success/invalid-response/timeout structured event
+- `web` stdout → Alloy → Loki ingest
+- Grafana `knu-web-bff-reliability` dashboard provisioning
+- raw rehearsal email/token/query 비노출
+- Loki 중단 중 Web BFF 응답 fail-open
+
+실행 후 container를 유지하려면 `WEB_REHEARSAL_KEEP=1`을 사용한다. 2CPU/4GB가 아닌 Docker Engine에서 compose 기능만 점검할 때는 명시적으로 `WEB_REHEARSAL_ALLOW_UNCONSTRAINED=1`을 사용하되 release evidence로 취급하지 않는다.
 
 ## Alert rule / Slack delivery
 

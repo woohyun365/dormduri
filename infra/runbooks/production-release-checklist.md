@@ -138,6 +138,9 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 | 237 ramp decision evidence가 release blocker/follow-up 판단에 반영되어 있다.                     | `pnpm --dir apps/api stress:docker:237-ramp`                      |          |
 | threshold fail이 있으면 blocker 또는 explicit risk acceptance로 분류되어 있다.                   | decision note                                                     |          |
 | Auth 19MiB local constrained baseline과 H8/AWS reference 미수행 risk acceptance가 확인된다.      | auth password capacity rehearsal runbook + decision commit        |          |
+| Web runtime/BFF/Web Vitals 설정·privacy·retention·kill switch smoke가 확인된다.                  | `infra/runbooks/web-operational-observability.md`                 |          |
+| Web BFF structured log와 `knu-web-bff-reliability` dashboard readout을 확인한다.                 | Loki/Grafana readout                                              |          |
+| OrbStack 2CPU/4GB에서 Web BFF log ingest와 Loki 장애 fail-open rehearsal이 통과한다.             | `pnpm web:observability:rehearsal`                                |          |
 | Password Reset recovery E2E와 auth integration의 grant/session/outbox transaction이 통과한다.    | `infra/runbooks/auth-password-reset-release-evidence.md`          |          |
 | Signup·Change Password·Logout의 identity/session/audit transaction과 BFF cookie 경계가 통과한다. | `infra/runbooks/auth-registration-credential-release-evidence.md` |          |
 | Reset request/invalid-code abuse stress가 neutral response와 bounded throttle를 유지한다.        | `stress:http:auth-recovery`                                       |          |

@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as postLogin } from '../login/route';
+import { setServerOperationalEventWriterForTests } from '@/observability/operational/server-runtime';
+import type { OperationalEvent } from '@/observability/operational/operational-events';
 
 const ACCESS_TOKEN = `v1.session-login-access.${'a'.repeat(43)}`;
 const RENEWAL_TOKEN = `v1.session-login-renewal.${'b'.repeat(43)}`;
@@ -326,7 +328,12 @@ describe('auth login BFF route', () => {
   });
 
   it('cross-site metadata는 rollout 기간에 민감정보 없이 기록하고 요청은 기존 정책대로 처리한다', async () => {
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const events: OperationalEvent[] = [];
+    const originalLogging = process.env.WEB_BFF_OPERATIONAL_LOGGING_ENABLED;
+    process.env.WEB_BFF_OPERATIONAL_LOGGING_ENABLED = '1';
+    const restoreWriter = setServerOperationalEventWriterForTests((event) => {
+      events.push(event);
+    });
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -344,20 +351,31 @@ describe('auth login BFF route', () => {
       }),
     );
 
-    const response = await postLogin(
-      request(VALID_LOGIN_BODY, {
-        Origin: 'https://cross-site.example',
-        'Sec-Fetch-Site': 'cross-site',
-      }),
-    );
+    try {
+      const response = await postLogin(
+        request(VALID_LOGIN_BODY, {
+          Origin: 'https://cross-site.example',
+          'Sec-Fetch-Site': 'cross-site',
+        }),
+      );
 
-    expect(response.status).toBe(200);
-    expect(warning).toHaveBeenCalledWith('[auth-bff] suspicious mutation request observed', {
-      reason: 'CROSS_SITE_FETCH_METADATA',
-      fetchSite: 'cross-site',
-    });
-    expect(JSON.stringify(warning.mock.calls)).not.toContain(VALID_LOGIN_BODY.email);
-    expect(JSON.stringify(warning.mock.calls)).not.toContain(VALID_LOGIN_BODY.password);
+      expect(response.status).toBe(200);
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            eventName: 'web_bff_request_completed',
+            operation: 'auth.request_guard.cross_site_fetch_metadata',
+            outcome: 'client_error',
+          }),
+        ]),
+      );
+      expect(JSON.stringify(events)).not.toContain(VALID_LOGIN_BODY.email);
+      expect(JSON.stringify(events)).not.toContain(VALID_LOGIN_BODY.password);
+    } finally {
+      restoreWriter();
+      if (originalLogging === undefined) delete process.env.WEB_BFF_OPERATIONAL_LOGGING_ENABLED;
+      else process.env.WEB_BFF_OPERATIONAL_LOGGING_ENABLED = originalLogging;
+    }
   });
 
   it('upstream Retry-After header를 BFF response에 보존한다', async () => {

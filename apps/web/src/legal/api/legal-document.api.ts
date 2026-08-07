@@ -31,13 +31,17 @@ async function readJson(response: Response): Promise<unknown> {
 
 export async function fetchLegalDocumentFromUrl(
   url: string,
-  options: { fetcher?: typeof fetch } = {},
+  options: { fetcher?: typeof fetch; headers?: HeadersInit } = {},
 ): Promise<LegalDocumentResponse> {
   let response: Response;
   try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    new Headers(options.headers).forEach((value, key) => {
+      headers[key] = value;
+    });
     response = await (options.fetcher ?? fetch)(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers,
       cache: 'no-store',
     });
   } catch {

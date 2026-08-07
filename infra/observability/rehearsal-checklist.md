@@ -4,7 +4,7 @@
 
 ## 0. Scope / safety
 
-- Web/Next.js는 범위 밖이다.
+- Web/Next.js는 이 API checklist 범위 밖이며 `infra/runbooks/web-operational-observability.md`의 별도 local constrained rehearsal을 사용한다.
 - Production DB fixture seed/reset은 금지한다.
 - Slack webhook URL, metrics bearer token, DB URL, auth token, cookie는 command output/report/issue에 붙이지 않는다.
 - API structured log `ts`는 UTC ISO(`Z`)를 유지한다. Grafana/Loki/nginx display는 KST로 확인한다.

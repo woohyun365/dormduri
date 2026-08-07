@@ -1,16 +1,19 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { getBffForwardHeaders } from '@/app/api/_bff/forward';
-import {
-  buildBffUpstreamUrl,
-  buildSafeBffErrorResponse,
-  readBffJsonResponse,
-} from '@/app/api/_bff/security';
-import { getWebEnv } from '@/config/env';
+import type { NextRequest, NextResponse } from 'next/server';
+import { forwardValidatedBffRequest } from '@/app/api/_bff/forward';
 
 type SafeParseSchema<T> = {
   safeParse(value: unknown): { success: true; data: T } | { success: false };
 };
+
+function resolveChatOperation(path: string, method: 'GET' | 'POST'): string {
+  if (path === '/api/chat/threads') return 'chat.thread.list';
+  if (path === '/api/chat/messages') return 'chat.message.create';
+  if (path === '/api/chat/conversation-stats') return 'chat.conversation_stats';
+  if (path.endsWith('/leave')) return 'chat.thread.leave';
+  if (path.endsWith('/read-marker')) return 'chat.thread.read_marker';
+  if (method === 'GET' && path.includes('/threads/')) return 'chat.thread.detail';
+  return 'chat.request';
+}
 
 export async function forwardChatBffRequest<T>(input: {
   request: NextRequest;
@@ -20,48 +23,15 @@ export async function forwardChatBffRequest<T>(input: {
   includeQuery?: boolean;
   body?: string;
 }): Promise<NextResponse> {
-  let upstreamUrl: string;
-  try {
-    const path =
-      input.includeQuery && input.request.nextUrl.search
-        ? `${input.path}${input.request.nextUrl.search}`
-        : input.path;
-    upstreamUrl = buildBffUpstreamUrl({
-      apiUpstreamUrl: getWebEnv().apiUpstreamUrl,
-      path,
-      allowedPathPrefix: '/api',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_URL_INVALID');
-  }
-
-  let upstreamResponse: Response;
-  try {
-    upstreamResponse = await fetch(upstreamUrl, {
-      method: input.method,
-      headers: getBffForwardHeaders(input.request, {
-        authenticated: true,
-        contentType: input.body
-          ? (input.request.headers.get('content-type') ?? 'application/json')
-          : undefined,
-      }),
-      ...(input.body ? { body: input.body } : {}),
-      cache: 'no-store',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_UNAVAILABLE');
-  }
-
-  const { response: safeResponse, json } = await readBffJsonResponse(upstreamResponse, {
-    redactSensitiveFields: true,
+  return forwardValidatedBffRequest({
+    request: input.request,
+    method: input.method,
+    path: input.path,
+    operation: resolveChatOperation(input.path, input.method),
+    authenticated: true,
+    includeQuery: input.includeQuery,
+    bodyMode: input.body ? 'json' : 'none',
+    body: input.body,
+    responseSchema: input.responseSchema,
   });
-  if (!safeResponse.ok) {
-    return NextResponse.json(json, { status: safeResponse.status });
-  }
-
-  const parsed = input.responseSchema.safeParse(json);
-  if (!parsed.success) {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_SCHEMA_INVALID');
-  }
-  return NextResponse.json(parsed.data, { status: safeResponse.status });
 }

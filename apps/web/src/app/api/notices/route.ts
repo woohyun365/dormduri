@@ -1,13 +1,8 @@
 import { globalNoticeListResponseSchema, listGlobalNoticesQuerySchema } from '@repo/shared/notices';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getBffForwardHeaders } from '@/app/api/_bff/forward';
-import {
-  buildBffUpstreamUrl,
-  buildSafeBffErrorResponse,
-  readBffJsonResponse,
-} from '@/app/api/_bff/security';
-import { getWebEnv } from '@/config/env';
+import { forwardValidatedBffRequest } from '@/app/api/_bff/forward';
+import { buildSafeBffErrorResponse } from '@/app/api/_bff/security';
 
 const GLOBAL_NOTICE_QUERY_KEYS = ['limit', 'cursor', 'severity', 'relatedSeasonId'] as const;
 const GLOBAL_NOTICE_QUERY_KEY_SET = new Set<string>(GLOBAL_NOTICE_QUERY_KEYS);
@@ -57,39 +52,11 @@ export async function GET(request: NextRequest) {
   const path = buildGlobalNoticeListPath(request);
   if (path instanceof NextResponse) return path;
 
-  let upstreamUrl: string;
-  try {
-    upstreamUrl = buildBffUpstreamUrl({
-      apiUpstreamUrl: getWebEnv().apiUpstreamUrl,
-      path,
-      allowedPathPrefix: '/api',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_URL_INVALID');
-  }
-
-  let upstreamResponse: Response;
-  try {
-    upstreamResponse = await fetch(upstreamUrl, {
-      method: 'GET',
-      headers: getBffForwardHeaders(request),
-      cache: 'no-store',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_UNAVAILABLE');
-  }
-
-  const { response: safeResponse, json } = await readBffJsonResponse(upstreamResponse, {
-    redactSensitiveFields: true,
+  return forwardValidatedBffRequest({
+    request,
+    method: 'GET',
+    path,
+    operation: 'notice.list',
+    responseSchema: globalNoticeListResponseSchema,
   });
-  if (!safeResponse.ok) {
-    return NextResponse.json(json, { status: safeResponse.status });
-  }
-
-  const parsed = globalNoticeListResponseSchema.safeParse(json);
-  if (!parsed.success) {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_SCHEMA_INVALID');
-  }
-
-  return NextResponse.json(parsed.data, { status: safeResponse.status });
 }

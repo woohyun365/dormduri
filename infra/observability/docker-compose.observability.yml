@@ -37,11 +37,14 @@ services:
     command: -config.file=/etc/loki/loki.yml
     volumes:
       - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - ./loki/rules:/loki/rules/fake:ro
       - loki-data:/loki
     ports:
       - 127.0.0.1:${LOKI_PORT:-3100}:3100
     networks:
       - observability
+    depends_on:
+      - alertmanager
 
   alloy:
     image: ${ALLOY_IMAGE:-grafana/alloy:latest}
