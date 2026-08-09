@@ -2,12 +2,13 @@ import { normalizeWebRuntimeMode, parseWebServerEnv, type WebServerEnv } from '.
 
 export {
   normalizeWebRuntimeMode,
+  parseWebSentryEnv,
   parseWebServerEnv,
   webEnvDefaults,
   WebEnvValidationError,
 } from './env.schema';
 export type { WebRuntimeMode, WebServerEnv } from './env.schema';
-export type { WebOperationalTelemetryEnv } from './env.schema';
+export type { WebOperationalTelemetryEnv, WebSentryEnv } from './env.schema';
 
 export function getWebEnv(rawEnv: NodeJS.ProcessEnv = process.env): WebServerEnv {
   return parseWebServerEnv(rawEnv, normalizeWebRuntimeMode(rawEnv.NODE_ENV));

@@ -29,6 +29,7 @@ node_modules
 *.log
 logs
 **/*.log
+**/*.map
 .DS_Store
 **/.DS_Store
 apps/api/test/stress/reports/.tmp-*

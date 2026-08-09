@@ -1,11 +1,20 @@
+import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next';
+import { resolveSentryBuildConfig } from './src/observability/sentry/build-config';
 
-function buildOperationalTelemetryCsp(): string | undefined {
-  if (process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED !== '1') return undefined;
-  const endpoint = process.env.NEXT_PUBLIC_WEB_TELEMETRY_ENDPOINT;
-  if (!endpoint) return undefined;
+function buildSentryCsp(): string | undefined {
+  if (
+    process.env.NEXT_PUBLIC_SENTRY_ENABLED !== '1' ||
+    process.env.NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED !== '1' ||
+    !process.env.NEXT_PUBLIC_WEB_RELEASE ||
+    process.env.NEXT_PUBLIC_WEB_RELEASE === 'development'
+  ) {
+    return undefined;
+  }
+  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  if (!dsn) return undefined;
   try {
-    const url = new URL(endpoint);
+    const url = new URL(dsn);
     if (url.protocol !== 'https:') return undefined;
     return `connect-src 'self' ${url.origin}`;
   } catch {
@@ -13,11 +22,13 @@ function buildOperationalTelemetryCsp(): string | undefined {
   }
 }
 
+const sentryBuild = resolveSentryBuildConfig();
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
   typedRoutes: true,
   output: 'standalone',
-  productionBrowserSourceMaps: process.env.WEB_BROWSER_SOURCE_MAPS_ENABLED === '1',
+  productionBrowserSourceMaps: sentryBuild.uploadEnabled,
   typescript: {
     tsconfigPath: 'tsconfig.product.json',
   },
@@ -25,15 +36,15 @@ const nextConfig: NextConfig = {
     webVitalsAttribution: ['CLS', 'INP', 'LCP'],
   },
   async headers() {
-    const telemetryCsp = buildOperationalTelemetryCsp();
-    if (!telemetryCsp) return [];
+    const sentryCsp = buildSentryCsp();
+    if (!sentryCsp) return [];
     return [
       {
         source: '/:path*',
-        headers: [{ key: 'Content-Security-Policy', value: telemetryCsp }],
+        headers: [{ key: 'Content-Security-Policy', value: sentryCsp }],
       },
     ];
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, sentryBuild.options);

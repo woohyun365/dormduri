@@ -11,15 +11,19 @@ export type WebRuntimeMode = 'development' | 'test' | 'production';
 export type WebOperationalTelemetryEnv = {
   environment: 'local' | 'preview' | 'production';
   release: string;
-  browserEnabled: boolean;
-  runtimeErrorsEnabled: boolean;
-  webVitalsEnabled: boolean;
-  privacyApproved: boolean;
-  retentionDays?: number;
-  endpoint?: string;
   bffStructuredLoggingEnabled: boolean;
   bffSuccessSampleRate: number;
-  sourceMapsEnabled: boolean;
+};
+
+export type WebSentryEnv = {
+  enabled: boolean;
+  runtimeErrorsEnabled: boolean;
+  performanceEnabled: boolean;
+  privacyApproved: boolean;
+  releaseEvidenceApproved: boolean;
+  localRecordingEnabled: boolean;
+  tracesSampleRate: number;
+  dsn?: string;
 };
 
 export type WebServerEnv = {
@@ -27,6 +31,7 @@ export type WebServerEnv = {
   apiUpstreamUrl: string;
   publicApiBase: string;
   operationalTelemetry: WebOperationalTelemetryEnv;
+  sentry: WebSentryEnv;
 };
 
 export class WebEnvValidationError extends Error {
@@ -46,13 +51,17 @@ export const webEnvDefaults = {
   operationalTelemetry: {
     environment: 'local',
     release: 'development',
-    browserEnabled: false,
-    runtimeErrorsEnabled: false,
-    webVitalsEnabled: false,
-    privacyApproved: false,
     bffStructuredLoggingEnabled: false,
     bffSuccessSampleRate: 0.25,
-    sourceMapsEnabled: false,
+  },
+  sentry: {
+    enabled: false,
+    runtimeErrorsEnabled: false,
+    performanceEnabled: false,
+    privacyApproved: false,
+    releaseEvidenceApproved: false,
+    localRecordingEnabled: false,
+    tracesSampleRate: 0.1,
   },
 } as const;
 
@@ -97,9 +106,7 @@ function assertProductionNonLocalUrl(input: {
   normalized: { url: URL };
   runtimeMode: WebRuntimeMode;
 }): void {
-  if (input.runtimeMode !== 'production') {
-    return;
-  }
+  if (input.runtimeMode !== 'production') return;
 
   if (!input.rawValue) {
     throw new WebEnvValidationError(
@@ -121,9 +128,7 @@ function assertProductionPublicHttpsUrl(input: {
   normalized: { url: URL };
   runtimeMode: WebRuntimeMode;
 }): void {
-  if (input.runtimeMode !== 'production') {
-    return;
-  }
+  if (input.runtimeMode !== 'production') return;
   if (!input.rawValue) {
     throw new WebEnvValidationError(
       'NEXT_PUBLIC_APP_URL is required in production runtime.',
@@ -162,19 +167,6 @@ function normalizeTelemetryEnvironment(
   return 'local';
 }
 
-function parseRetentionDays(rawEnv: RawWebEnv): number | undefined {
-  const value = readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_TELEMETRY_RETENTION_DAYS');
-  if (!value) return undefined;
-  const days = Number(value);
-  if (!Number.isInteger(days) || days < 1 || days > 365) {
-    throw new WebEnvValidationError(
-      'NEXT_PUBLIC_WEB_TELEMETRY_RETENTION_DAYS must be an integer between 1 and 365.',
-      'NEXT_PUBLIC_WEB_TELEMETRY_RETENTION_DAYS_INVALID',
-    );
-  }
-  return days;
-}
-
 function parseSampleRate(rawEnv: RawWebEnv, key: string, fallback: number): number {
   const value = readEnvValue(rawEnv, key);
   if (!value) return fallback;
@@ -185,64 +177,67 @@ function parseSampleRate(rawEnv: RawWebEnv, key: string, fallback: number): numb
   return rate;
 }
 
+function parseFailOpenSampleRate(rawEnv: RawWebEnv, key: string, fallback: number): number {
+  const value = readEnvValue(rawEnv, key);
+  if (!value) return fallback;
+  const rate = Number(value);
+  return Number.isFinite(rate) && rate >= 0 && rate <= 1 ? rate : fallback;
+}
+
 function parseOperationalTelemetryEnv(
   rawEnv: RawWebEnv,
   runtimeMode: WebRuntimeMode,
 ): WebOperationalTelemetryEnv {
-  const browserEnabled = readBooleanFlag(rawEnv, 'NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED');
-  const privacyApproved = readBooleanFlag(rawEnv, 'NEXT_PUBLIC_WEB_TELEMETRY_PRIVACY_APPROVED');
-  const endpointInput = readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_TELEMETRY_ENDPOINT');
-  const retentionDays = parseRetentionDays(rawEnv);
-  let endpoint: string | undefined;
-
-  if (endpointInput) {
-    const normalized = normalizeHttpUrl(endpointInput, 'NEXT_PUBLIC_WEB_TELEMETRY_ENDPOINT');
-    if (runtimeMode === 'production' && normalized.url.protocol !== 'https:') {
-      throw new WebEnvValidationError(
-        'NEXT_PUBLIC_WEB_TELEMETRY_ENDPOINT must use https in production runtime.',
-        'NEXT_PUBLIC_WEB_TELEMETRY_ENDPOINT_HTTPS_REQUIRED_IN_PRODUCTION',
-      );
-    }
-    endpoint = normalized.value;
-  }
-
-  if (runtimeMode === 'production' && browserEnabled) {
-    if (!privacyApproved) {
-      throw new WebEnvValidationError(
-        'Browser operational telemetry requires an approved privacy gate in production.',
-        'WEB_TELEMETRY_PRIVACY_GATE_REQUIRED',
-      );
-    }
-    if (!retentionDays) {
-      throw new WebEnvValidationError(
-        'Browser operational telemetry retention must be declared in production.',
-        'WEB_TELEMETRY_RETENTION_REQUIRED',
-      );
-    }
-    if (!endpoint) {
-      throw new WebEnvValidationError(
-        'Browser operational telemetry endpoint is required in production.',
-        'WEB_TELEMETRY_ENDPOINT_REQUIRED',
-      );
-    }
-  }
-
   return {
     environment: normalizeTelemetryEnvironment(rawEnv, runtimeMode),
     release: readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_RELEASE') ?? 'development',
-    browserEnabled,
-    runtimeErrorsEnabled:
-      browserEnabled && readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_RUNTIME_ERRORS_ENABLED') !== '0',
-    webVitalsEnabled:
-      browserEnabled && readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_VITALS_ENABLED') !== '0',
-    privacyApproved,
-    ...(retentionDays ? { retentionDays } : {}),
-    ...(endpoint ? { endpoint } : {}),
     bffStructuredLoggingEnabled:
       readBooleanFlag(rawEnv, 'WEB_BFF_OPERATIONAL_LOGGING_ENABLED') ||
       runtimeMode === 'production',
     bffSuccessSampleRate: parseSampleRate(rawEnv, 'WEB_BFF_SUCCESS_SAMPLE_RATE', 0.25),
-    sourceMapsEnabled: readBooleanFlag(rawEnv, 'WEB_BROWSER_SOURCE_MAPS_ENABLED'),
+  };
+}
+
+export function parseWebSentryEnv(rawEnv: RawWebEnv, runtimeMode: WebRuntimeMode): WebSentryEnv {
+  const requested = readBooleanFlag(rawEnv, 'NEXT_PUBLIC_SENTRY_ENABLED');
+  const privacyApproved = readBooleanFlag(rawEnv, 'NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED');
+  const releaseEvidenceApproved = readBooleanFlag(
+    rawEnv,
+    'NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED',
+  );
+  const localRecordingEnabled =
+    runtimeMode !== 'production' && readBooleanFlag(rawEnv, 'NEXT_PUBLIC_SENTRY_LOCAL_RECORDING');
+  const dsnInput = readEnvValue(rawEnv, 'NEXT_PUBLIC_SENTRY_DSN');
+  let dsn: string | undefined;
+
+  if (dsnInput) {
+    try {
+      const normalized = normalizeHttpUrl(dsnInput, 'NEXT_PUBLIC_SENTRY_DSN');
+      if (normalized.url.protocol === 'https:') dsn = dsnInput;
+    } catch {
+      // Observability configuration is fail-open for the product runtime.
+    }
+  }
+
+  const productionGateOpen =
+    runtimeMode !== 'production' ||
+    (privacyApproved &&
+      releaseEvidenceApproved &&
+      Boolean(dsn) &&
+      readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_RELEASE') !== 'development' &&
+      readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_RELEASE') !== undefined);
+  const enabled = localRecordingEnabled || (requested && productionGateOpen);
+  return {
+    enabled,
+    runtimeErrorsEnabled:
+      enabled && readEnvValue(rawEnv, 'NEXT_PUBLIC_SENTRY_RUNTIME_ERRORS_ENABLED') !== '0',
+    performanceEnabled:
+      enabled && readEnvValue(rawEnv, 'NEXT_PUBLIC_SENTRY_PERFORMANCE_ENABLED') !== '0',
+    privacyApproved,
+    releaseEvidenceApproved,
+    localRecordingEnabled,
+    tracesSampleRate: parseFailOpenSampleRate(rawEnv, 'NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', 0.1),
+    ...(dsn ? { dsn } : {}),
   };
 }
 
@@ -261,11 +256,7 @@ export function parseWebServerEnv(
     normalized: appUrl,
     runtimeMode,
   });
-  assertProductionPublicHttpsUrl({
-    rawValue: appUrlInput,
-    normalized: appUrl,
-    runtimeMode,
-  });
+  assertProductionPublicHttpsUrl({ rawValue: appUrlInput, normalized: appUrl, runtimeMode });
 
   const apiUpstreamUrl = normalizeHttpUrl(apiUrlInput ?? DEFAULT_API_UPSTREAM_URL, 'API_URL');
   assertProductionNonLocalUrl({
@@ -280,5 +271,6 @@ export function parseWebServerEnv(
     apiUpstreamUrl: apiUpstreamUrl.value,
     publicApiBase: normalizePublicApiBase(publicApiBaseInput ?? DEFAULT_PUBLIC_API_BASE),
     operationalTelemetry: parseOperationalTelemetryEnv(rawEnv, runtimeMode),
+    sentry: parseWebSentryEnv(rawEnv, runtimeMode),
   };
 }

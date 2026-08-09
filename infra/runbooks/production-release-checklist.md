@@ -128,22 +128,25 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 
 ## Gate 8. Observability and stress evidence
 
-| Check                                                                                            | Evidence                                                          | Decision |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | -------- |
-| observability rehearsal checklist가 release 기준으로 완료되어 있다.                              | `infra/observability/rehearsal-checklist.md` evidence             |          |
-| Slack Alertmanager delivery smoke가 Slack channel까지 도달했다.                                  | Slack smoke timestamp/link                                        |          |
-| Prometheus target up, Loki log readout, Grafana dashboard readout을 확인했다.                    | dashboard links                                                   |          |
-| Dockerized API/nginx smoke가 release candidate image에서 통과했다.                               | `pnpm --dir apps/api stress:docker:smoke`                         |          |
-| production-like smoke가 통과했다.                                                                | `pnpm --dir apps/api stress:docker:production-like`               |          |
-| 237 ramp decision evidence가 release blocker/follow-up 판단에 반영되어 있다.                     | `pnpm --dir apps/api stress:docker:237-ramp`                      |          |
-| threshold fail이 있으면 blocker 또는 explicit risk acceptance로 분류되어 있다.                   | decision note                                                     |          |
-| Auth 19MiB local constrained baseline과 H8/AWS reference 미수행 risk acceptance가 확인된다.      | auth password capacity rehearsal runbook + decision commit        |          |
-| Web runtime/BFF/Web Vitals 설정·privacy·retention·kill switch smoke가 확인된다.                  | `infra/runbooks/web-operational-observability.md`                 |          |
-| Web BFF structured log와 `knu-web-bff-reliability` dashboard readout을 확인한다.                 | Loki/Grafana readout                                              |          |
-| OrbStack 2CPU/4GB에서 Web BFF log ingest와 Loki 장애 fail-open rehearsal이 통과한다.             | `pnpm web:observability:rehearsal`                                |          |
-| Password Reset recovery E2E와 auth integration의 grant/session/outbox transaction이 통과한다.    | `infra/runbooks/auth-password-reset-release-evidence.md`          |          |
-| Signup·Change Password·Logout의 identity/session/audit transaction과 BFF cookie 경계가 통과한다. | `infra/runbooks/auth-registration-credential-release-evidence.md` |          |
-| Reset request/invalid-code abuse stress가 neutral response와 bounded throttle를 유지한다.        | `stress:http:auth-recovery`                                       |          |
+| Check                                                                                             | Evidence                                                          | Decision |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------- |
+| observability rehearsal checklist가 release 기준으로 완료되어 있다.                               | `infra/observability/rehearsal-checklist.md` evidence             |          |
+| Slack Alertmanager delivery smoke가 Slack channel까지 도달했다.                                   | Slack smoke timestamp/link                                        |          |
+| Prometheus target up, Loki log readout, Grafana dashboard readout을 확인했다.                     | dashboard links                                                   |          |
+| Dockerized API/nginx smoke가 release candidate image에서 통과했다.                                | `pnpm --dir apps/api stress:docker:smoke`                         |          |
+| production-like smoke가 통과했다.                                                                 | `pnpm --dir apps/api stress:docker:production-like`               |          |
+| 237 ramp decision evidence가 release blocker/follow-up 판단에 반영되어 있다.                      | `pnpm --dir apps/api stress:docker:237-ramp`                      |          |
+| threshold fail이 있으면 blocker 또는 explicit risk acceptance로 분류되어 있다.                    | decision note                                                     |          |
+| Auth 19MiB local constrained baseline과 H8/AWS reference 미수행 risk acceptance가 확인된다.       | auth password capacity rehearsal runbook + decision commit        |          |
+| Web runtime/BFF/Web Vitals 설정·privacy·retention·kill switch smoke가 확인된다.                   | `infra/runbooks/web-operational-observability.md`                 |          |
+| Web Sentry 사용자 준비물과 검증 순서가 release target 기준으로 확인된다.                          | `infra/runbooks/web-sentry-managed-release-readiness.md`          |          |
+| Web Sentry project의 region·retention·operator·privacy 설정과 managed intake가 확인된다.          | `infra/runbooks/web-sentry-managed-release-evidence.md`           |          |
+| Web source map이 private upload되고 원본 file/line symbolication과 public `.map` 부재가 확인된다. | Web Sentry managed release evidence                               |          |
+| Web BFF structured log와 `knu-web-bff-reliability` dashboard readout을 확인한다.                  | Loki/Grafana readout                                              |          |
+| OrbStack 2CPU/4GB에서 Web BFF log ingest와 Loki 장애 fail-open rehearsal이 통과한다.              | `pnpm web:observability:rehearsal`                                |          |
+| Password Reset recovery E2E와 auth integration의 grant/session/outbox transaction이 통과한다.     | `infra/runbooks/auth-password-reset-release-evidence.md`          |          |
+| Signup·Change Password·Logout의 identity/session/audit transaction과 BFF cookie 경계가 통과한다.  | `infra/runbooks/auth-registration-credential-release-evidence.md` |          |
+| Reset request/invalid-code abuse stress가 neutral response와 bounded throttle를 유지한다.         | `stress:http:auth-recovery`                                       |          |
 
 `NO-GO`: 관측 경로 전체 불능, stress threshold fail 미분류, Slack/metrics/log evidence 없음.
 
@@ -165,7 +168,7 @@ Evidence에는 secret value, DB URL, bearer token, raw provider error, restored 
 | RDS CloudWatch 장기 sizing                               | dashboard 존재와 release smoke 확인은 blocker, 장기 right-sizing은 follow-up         |
 | 946 cohort long run                                      | 237 ramp release evidence는 blocker, 946 long run은 follow-up                        |
 | Redis/ElastiCache/multi-node/read replica/WAF/CloudFront | release smoke 실패로 관측되면 blocker, 그렇지 않으면 evidence-based follow-up        |
-| Managed observability 전환                               | local/staging observability evidence는 blocker, managed vendor 전환은 follow-up      |
+| Web Sentry managed enable                                | browser runtime/RUM을 켜는 release에서는 managed evidence가 blocker                  |
 
 ## Secret-free evidence template
 

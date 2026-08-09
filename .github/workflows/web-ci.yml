@@ -19,6 +19,12 @@ jobs:
     timeout-minutes: 40
     env:
       NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
+      NEXT_PUBLIC_SENTRY_ENABLED: '0'
+      NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED: '0'
+      NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
+      SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '0'
+      SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
+      SENTRY_ARTIFACT_SECRET_SENTINEL: sentry-ci-secret-must-not-ship
 
     steps:
       - name: Checkout
@@ -64,7 +70,12 @@ jobs:
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=unit -- pnpm web:test:prepared
 
       - name: Web production build
+        env:
+          SENTRY_AUTH_TOKEN: sentry-ci-secret-must-not-ship
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=build -- pnpm web:build:prepared
+
+      - name: Verify account-free Sentry artifact boundary
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=sentry-artifact -- pnpm web:sentry:verify-build
 
       - name: Build Storybook surface
         if: ${{ inputs.run_storybook }}

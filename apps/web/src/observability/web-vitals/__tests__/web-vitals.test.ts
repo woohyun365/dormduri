@@ -7,21 +7,16 @@ import {
 import { reportWebVital, sanitizeWebVitalMetric } from '../web-vitals';
 
 describe('Web Vitals operational reporter', () => {
-  const originalEnabled = process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED;
   const recording = createRecordingOperationalTelemetryAdapter();
   let restoreAdapter: () => void = () => undefined;
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED = '1';
     recording.clear();
     restoreAdapter = setOperationalTelemetryAdapter(recording);
   });
 
   afterEach(() => {
     restoreAdapter();
-    if (originalEnabled === undefined)
-      delete process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED;
-    else process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED = originalEnabled;
   });
 
   it.each(['LCP', 'INP', 'CLS'] as const)('records %s without attribution values', async (name) => {

@@ -50,6 +50,8 @@
     "web:e2e:fullstack": "pnpm --dir apps/web e2e:fullstack",
     "web:storybook": "pnpm --dir apps/web storybook",
     "web:storybook:build": "pnpm --dir apps/web storybook:build",
+    "web:sentry:verify-build": "node scripts/observability/check-web-sentry-build.mjs",
+    "web:sentry:rehearsal": "node scripts/observability/web-sentry-local-rehearsal.mjs",
     "web:observability:rehearsal": "node scripts/observability/web-local-rehearsal.mjs",
     "test:repo-policy": "node --test scripts/ci/*.test.mjs",
     "api:test:ci": "pnpm --dir apps/api test:ci",

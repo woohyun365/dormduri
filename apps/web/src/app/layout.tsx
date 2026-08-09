@@ -28,7 +28,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster position="top-center" richColors closeButton duration={3000} />
-        <WebVitalsReporter />
+        {process.env.NODE_ENV !== 'production' ? <WebVitalsReporter /> : null}
       </body>
     </html>
   );

@@ -9,23 +9,16 @@ import {
 } from '@/observability/operational/operational-telemetry';
 
 describe('App Router error recovery UI', () => {
-  const originalEnabled = process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED;
   let restoreAdapter: () => void = () => undefined;
   const recording = createRecordingOperationalTelemetryAdapter();
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED = '1';
     recording.clear();
     restoreAdapter = setOperationalTelemetryAdapter(recording);
   });
 
   afterEach(() => {
     restoreAdapter();
-    if (originalEnabled === undefined) {
-      delete process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED;
-    } else {
-      process.env.NEXT_PUBLIC_WEB_OPERATIONAL_TELEMETRY_ENABLED = originalEnabled;
-    }
   });
 
   it('route error를 기술 정보 없이 안내하고 reset을 호출한다', async () => {

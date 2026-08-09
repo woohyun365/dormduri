@@ -68,12 +68,16 @@
 
 - Web은 runtime error, BFF reliability, Web Vitals만 운영 관측 범위로 수집한다.
 - Auth Journey와 Main 기능 funnel 같은 제품 분석은 별도 목적·보존·privacy 결정 없이는 수집하지 않는다.
-- browser event는 explicit typed event만 허용하며 session replay, heatmap, DOM autocapture를 사용하지 않는다.
-- runtime error는 raw message/stack/form 값을 보내지 않고 normalized type과 fingerprint만 사용한다.
+- browser runtime error와 performance의 production owner는 managed Sentry 하나로 고정한다.
+- BFF reliability의 production owner는 container stdout → Alloy → Loki → Grafana로 고정한다.
+- browser event는 allowlist된 error/performance field만 허용하며 Session Replay, heatmap, DOM autocapture, user identity를 사용하지 않는다.
+- runtime error는 raw message/form/source context/local variable을 제거한다. Symbolication에 필요한 stack file·function·line·column만 허용한다.
 - BFF는 bounded operation/outcome/status class/duration을 structured log로 남기며 requestId는 correlation field로만 사용한다.
-- Web Vitals release 판단은 LCP, INP, CLS를 사용하고 TTFB/FCP는 진단용으로만 사용한다.
+- Web Vitals release 판단은 Sentry performance의 LCP, INP, CLS를 사용한다. 기존 manual reporter는 local/test 진단 전용이며 production external delivery를 하지 않는다.
 - browser provider 실패는 fail-open이며 사용자 화면, navigation, mutation을 차단하지 않는다.
-- production browser telemetry는 provider, privacy, retention, CSP, release/source map smoke가 모두 확인된 뒤 활성화한다.
+- production Sentry는 project region·retention·subprocessor·operator, privacy scrub, CSP, release/source map smoke가 모두 확인된 뒤 활성화한다.
+- managed account evidence가 없으면 production capture와 source-map upload를 비활성화하며, account-free recording transport 결과를 production intake 성공으로 간주하지 않는다.
+- 현재 repository handoff 완료와 실제 managed release 성공을 구분한다. 미래 배포 준비는 `infra/runbooks/web-sentry-managed-release-readiness.md`, 실행 결과는 `infra/runbooks/web-sentry-managed-release-evidence.md`가 소유한다.
 
 ## Metric 정책
 
@@ -136,7 +140,8 @@
 | -------------------- | ------------------------------ | --------------------------------------------------------- |
 | API structured logs  | Pino JSON logger               | redaction, request correlation, low overhead JSON logging |
 | Metrics              | Prometheus + prom-client       | app/domain metric pull model, Grafana 연동                |
-| Logs UI              | Loki + Alloy + Grafana         | JSON log 수집/검색, Grafana 단일 UI                       |
+| Browser error/RUM    | managed Sentry                 | Next.js runtime exception, release, sampled performance   |
+| Logs UI              | Loki + Alloy + Grafana         | API/BFF JSON log 수집·검색, Grafana UI                    |
 | HTTP stress          | Grafana k6                     | threshold 기반 pass/fail, API scenario 작성 용이          |
 | Socket.IO stress     | Artillery                      | Socket.IO 공식 문서에서 load testing 도구로 안내          |
 | RDS resource metrics | CloudWatch / Database Insights | RDS native CPU/connection/IOPS/storage 관측               |
@@ -151,9 +156,10 @@
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                           | 근거                            |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-13 | 운영 관측·로그·부하 테스트 정책을 신설하고, 2GB 최소형과 4GB 관측 포함형 서버 스펙 선택지, metrics/log privacy, stress release gate 기준을 정의했다 | logging-stress infrastructure   |
-| 2026-06-17 | 운영 관측 baseline을 완료 상태로 정리하고, production deployment readiness 문서와 release evidence 입력, 성능 follow-up 분리 기준을 연결했다        | production deployment readiness |
-| 2026-06-17 | Production release checklist가 observability/stress evidence를 최종 release decision 입력으로 사용한다는 기준을 추가했다                            | production deployment readiness |
-| 2026-08-06 | Web runtime error, BFF reliability, Web Vitals의 운영 관측 목적·privacy·production enable gate를 추가했다                                           | Web operational observability   |
+| 날짜       | 변경 내용                                                                                                                                           | 근거                             |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 2026-06-13 | 운영 관측·로그·부하 테스트 정책을 신설하고, 2GB 최소형과 4GB 관측 포함형 서버 스펙 선택지, metrics/log privacy, stress release gate 기준을 정의했다 | logging-stress infrastructure    |
+| 2026-06-17 | 운영 관측 baseline을 완료 상태로 정리하고, production deployment readiness 문서와 release evidence 입력, 성능 follow-up 분리 기준을 연결했다        | production deployment readiness  |
+| 2026-06-17 | Production release checklist가 observability/stress evidence를 최종 release decision 입력으로 사용한다는 기준을 추가했다                            | production deployment readiness  |
+| 2026-08-06 | Web runtime error, BFF reliability, Web Vitals의 운영 관측 목적·privacy·production enable gate를 추가했다                                           | Web operational observability    |
+| 2026-08-08 | Browser runtime/performance=Sentry, BFF reliability=Loki/Grafana owner를 확정하고 account evidence·source-map release gate를 추가했다               | Web Sentry managed observability |

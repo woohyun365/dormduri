@@ -9,6 +9,7 @@ import {
 } from './error-fingerprint';
 import { operationalTelemetry, recordOperationalEvent } from './operational-telemetry';
 import type { WebRuntimeErrorEvent } from './operational-events';
+import { captureRuntimeException } from '../sentry/runtime-exception';
 
 const CLIENT_RUNTIME_KEY = '__KNU_WEB_OPERATIONAL_RUNTIME__';
 const observedFingerprints = new Set<string>();
@@ -48,17 +49,28 @@ export function recordClientRuntimeError(
   input: Parameters<typeof createRuntimeErrorEvent>[0],
 ): void {
   const config = readClientOperationalTelemetryConfig();
-  if (!config.runtimeErrorsEnabled) return;
-
   const event = createRuntimeErrorEvent(input);
   const dedupeKey = `${event.source}:${event.fingerprint}:${event.recoveryAction}`;
-  if (observedFingerprints.has(dedupeKey)) return;
-  if (observedFingerprints.size >= 100) {
-    const oldest = observedFingerprints.values().next().value;
-    if (oldest) observedFingerprints.delete(oldest);
+
+  if (!observedFingerprints.has(dedupeKey) && config.runtimeErrorsEnabled) {
+    if (observedFingerprints.size >= 100) {
+      const oldest = observedFingerprints.values().next().value;
+      if (oldest) observedFingerprints.delete(oldest);
+    }
+    observedFingerprints.add(dedupeKey);
+    recordOperationalEvent(event);
   }
-  observedFingerprints.add(dedupeKey);
-  recordOperationalEvent(event);
+
+  if (
+    input.recoveryAction === undefined &&
+    (input.source === 'route_boundary' || input.source === 'global_boundary')
+  ) {
+    captureRuntimeException(input.error, {
+      source: input.source,
+      handled: input.handled ?? false,
+      digestPresent: input.digestPresent ?? false,
+    });
+  }
 }
 
 export function initializeClientOperationalRuntime(): void {
@@ -67,24 +79,9 @@ export function initializeClientOperationalRuntime(): void {
   if (runtimeWindow[CLIENT_RUNTIME_KEY]) return;
   runtimeWindow[CLIENT_RUNTIME_KEY] = true;
 
-  const config = readClientOperationalTelemetryConfig();
-  operationalTelemetry.setAdapter(selectClientOperationalTelemetryAdapter(config));
-  if (!config.runtimeErrorsEnabled) return;
-
-  window.addEventListener('error', (event) => {
-    recordClientRuntimeError({
-      error: event.error instanceof Error ? event.error : new Error('window_error'),
-      source: 'window_error',
-      handled: false,
-    });
-  });
-  window.addEventListener('unhandledrejection', (event) => {
-    recordClientRuntimeError({
-      error: event.reason,
-      source: 'unhandled_rejection',
-      handled: false,
-    });
-  });
+  operationalTelemetry.setAdapter(
+    selectClientOperationalTelemetryAdapter(readClientOperationalTelemetryConfig()),
+  );
 }
 
 export function resetClientOperationalRuntimeForTests(): void {
