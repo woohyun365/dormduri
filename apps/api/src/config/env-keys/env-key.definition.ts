@@ -32,6 +32,8 @@ export type EnvDefaultPolicy =
   | 'optional'
   | 'safe-local-default';
 
+export type EnvDeploymentScope = 'runtime' | 'migration';
+
 export interface EnvKeyDefinition {
   readonly key: string;
   readonly owner: EnvKeyOwner;
@@ -39,7 +41,10 @@ export interface EnvKeyDefinition {
   readonly source: EnvKeySource;
   readonly defaultPolicy: EnvDefaultPolicy;
   readonly description: string;
+  readonly deploymentScope?: EnvDeploymentScope;
   readonly requiredInProduction?: boolean;
+  readonly requiredForDeployment?: boolean;
+  readonly targetRequired?: boolean;
   readonly secret?: boolean;
   readonly placeholderAllowed?: boolean;
   readonly forbidProductionPlaceholder?: boolean;

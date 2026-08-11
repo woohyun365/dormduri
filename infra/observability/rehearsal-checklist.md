@@ -19,16 +19,8 @@ git rev-parse --short HEAD
 
 pnpm --dir apps/api stress:local:preflight
 
-docker compose \
-  -f infra/deploy/docker-compose.api.yml \
-  -f infra/deploy/docker-compose.api.override.example.yml \
-  config >/tmp/knu-api-compose.yml
-
-docker compose \
-  --env-file infra/observability/.env.observability \
-  -f infra/observability/docker-compose.observability.yml \
-  -f infra/observability/docker-compose.observability.rehearsal.yml \
-  config >/tmp/knu-observability-compose.yml
+pnpm infra:compose -- api-stress config >/tmp/knu-api-compose.yml
+pnpm infra:compose -- observability-rehearsal config >/tmp/knu-observability-compose.yml
 ```
 
 Pass 기준:
@@ -41,18 +33,13 @@ Pass 기준:
 ## 2. API/nginx up
 
 ```bash
-docker network create knu-roommate-observability || true
-
-docker compose \
-  -f infra/deploy/docker-compose.api.yml \
-  -f infra/deploy/docker-compose.api.override.example.yml \
-  up -d api nginx
+pnpm infra:compose -- api-stress up -d api nginx
 ```
 
 Pass 기준:
 
 ```bash
-docker compose -f infra/deploy/docker-compose.api.yml ps api nginx
+pnpm infra:compose -- api-stress ps api nginx
 curl -fsS http://127.0.0.1:8080/health
 curl -fsS http://127.0.0.1:8080/health/ready
 ```
@@ -87,13 +74,8 @@ Pass 기준:
 API compose와 같은 Docker network에서 scrape하려면 `API_METRICS_TARGET=api:4000`을 사용한다.
 
 ```bash
-cd infra/observability
 API_METRICS_TARGET=api:4000 \
-  docker compose \
-    --env-file .env.observability \
-    -f docker-compose.observability.yml \
-    -f docker-compose.observability.rehearsal.yml \
-    up -d
+  pnpm infra:compose -- observability-rehearsal up -d
 ```
 
 Pass 기준:
@@ -178,11 +160,9 @@ STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
 
 전체 절차와 H8 soak opt-in은 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
-237명 ramp evidence는 다음 report/handoff를 기준으로 남아 있다.
-
-- `.omx/reports/api-237-ramp-decision-result-2026-06-16T02-14-39-152Z.md`
-- `.omx/reports/api-237-ramp-cache-multinode-handoff-2026-06-16T11-55-01+0900.md`
-- follow-up: #281 `MATCH_SCORE` read path 최적화
+새 237명 ramp evidence는 `artifacts/local/stress/api-237-ramp-decision-result-*.md`에
+생성한다. 과거 개인 실행 결과는 repository source of truth가 아니며 재검증이 필요하면 같은
+runner로 다시 생성한다. 후속 최적화 추적은 #281 `MATCH_SCORE` read path를 기준으로 한다.
 
 이 rehearsal은 local constrained resource와 stress infra 연결성을 확인한다. 외부 app host, managed PostgreSQL, production target stress, Redis/ElastiCache 도입 결정은 별도 계획과 승인된 환경에서 다룬다.
 
@@ -191,31 +171,17 @@ STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
 Alert delivery를 멈출 때:
 
 ```bash
-cd infra/observability
 # local env에서 delivery disabled로 변경
 # SLACK_ALERTMANAGER_ENABLED=false
 
-docker compose \
-  --env-file .env.observability \
-  -f docker-compose.observability.yml \
-  -f docker-compose.observability.rehearsal.yml \
-  up -d --force-recreate alertmanager
+pnpm infra:compose -- observability-rehearsal up -d --force-recreate alertmanager
 ```
 
 Stack stop:
 
 ```bash
-cd infra/observability
-docker compose \
-  --env-file .env.observability \
-  -f docker-compose.observability.yml \
-  -f docker-compose.observability.rehearsal.yml \
-  down
-
-docker compose \
-  -f infra/deploy/docker-compose.api.yml \
-  -f infra/deploy/docker-compose.api.override.example.yml \
-  down
+pnpm infra:compose -- observability-rehearsal down
+pnpm infra:compose -- api-stress down
 ```
 
 Webhook rotation:

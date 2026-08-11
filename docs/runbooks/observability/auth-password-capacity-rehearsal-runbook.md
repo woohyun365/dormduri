@@ -5,8 +5,8 @@
 ## 실행 경계
 
 - Docker engine 전체를 2 CPU / 4096MiB로 제한한다. 더 큰 개발 머신에서 container limit만 설정한 결과는 이 분류로 기록하지 않는다.
-- API/nginx는 `infra/deploy/docker-compose.api.override.example.yml`의 resource budget을 사용한다.
-- 관측 stack은 `infra/observability/docker-compose.observability.rehearsal.yml`의 resource budget을 사용한다.
+- API/nginx는 `infra/rehearsal/compose.api.runtime.yml`의 resource budget을 사용한다.
+- 관측 stack은 production과 rehearsal이 공유하는 `infra/observability/compose.resources.yml`의 resource budget을 사용한다.
 - 로컬 PostgreSQL은 production의 managed PostgreSQL을 대체하지 않는다. 같은 4GB engine을 사용하므로 app host 관점에서는 더 보수적인 배선 확인이지만 DB 성능 비교 근거는 아니다.
 - Web과 BackOffice runtime은 현재 rehearsal compose에 포함하지 않는다. 두 runtime의 합산 576MiB limit은 미사용 budget으로 남으며, 결과를 전체 서비스 host 검증으로 확대 해석하지 않는다.
 - `stress:auth:hash-micro`는 Docker engine 밖에서 실행되는 host 진단이다. 이 runbook의 4GB/2CPU 판정에는 실제 container endpoint를 사용하는 H1~H9만 포함한다.
@@ -38,18 +38,8 @@ Pass 기준:
 ## 2. Compose 정적 검증
 
 ```bash
-docker network create knu-roommate-observability || true
-
-docker compose \
-  -f infra/deploy/docker-compose.api.yml \
-  -f infra/deploy/docker-compose.api.override.example.yml \
-  config >/tmp/knu-api-rehearsal-compose.yml
-
-docker compose \
-  --env-file infra/observability/.env.observability \
-  -f infra/observability/docker-compose.observability.yml \
-  -f infra/observability/docker-compose.observability.rehearsal.yml \
-  config >/tmp/knu-observability-rehearsal-compose.yml
+pnpm infra:compose -- api-stress config >/tmp/knu-api-rehearsal-compose.yml
+pnpm infra:compose -- observability-rehearsal config >/tmp/knu-observability-rehearsal-compose.yml
 ```
 
 Rendered compose에는 실제 secret을 공유하지 않는다. Private env와 metrics bearer token이 없으면 runner가 ignored local 파일을 생성한다.
@@ -71,7 +61,7 @@ pnpm --dir apps/api stress:local:auth-password
 5. 실제 login/signup/reset/change endpoint mix 실행
 6. health/readiness/metrics, Docker stats, PostgreSQL 상태 수집
 7. fixture와 raw artifact 정리 및 compose 종료
-8. `.omx/reports/api-auth-password-capacity-result-*.md` 작성
+8. `artifacts/local/stress/api-auth-password-capacity-result-*.md` 작성
 
 ## 4. Profile 실행
 
@@ -109,21 +99,13 @@ Local constrained rehearsal에서는 profile의 기본 arrival rate와 duration�
 pnpm --dir apps/api stress:fixture:auth-capacity:reset
 pnpm --dir apps/api stress:fixture:reset
 
-docker compose -p knu-roommate-api \
-  -f infra/deploy/docker-compose.api.yml \
-  -f infra/deploy/docker-compose.api.override.example.yml \
-  down
-
-docker compose -p knu-roommate-observability \
-  --env-file infra/observability/.env.observability \
-  -f infra/observability/docker-compose.observability.yml \
-  -f infra/observability/docker-compose.observability.rehearsal.yml \
-  down
+pnpm infra:compose -- api-stress down
+pnpm infra:compose -- observability-rehearsal down
 ```
 
 ## 선택적 외부 재검증으로 넘길 정보
 
-별도 AWS/managed PostgreSQL reference 환경은 현재 최초 배포 gate에 포함하지 않는다. 운영 지표 악화나 인프라 변경으로 외부 재검증이 필요해질 때만 이 runbook과 `docs/policies/production-deployment-readiness.md`를 입력으로 새 계획을 작성한다. 후속 계획은 특정 cloud vendor를 전제하지 않고 다음을 새로 결정해야 한다.
+별도 AWS/managed PostgreSQL reference 환경은 현재 최초 배포 gate에 포함하지 않는다. 운영 지표 악화나 인프라 변경으로 외부 재검증이 필요해질 때만 이 runbook과 `docs/architecture/platform/production-runtime-topology.md`, `infra/runbooks/release/components/infrastructure-target-release-readiness.md`를 입력으로 새 계획을 작성한다. 후속 계획은 특정 cloud vendor를 전제하지 않고 다음을 새로 결정해야 한다.
 
 - 실제 app host의 CPU/memory 및 CPU credit 또는 throttling 특성
 - managed PostgreSQL 연결 방식과 fixture 격리·정리 전략

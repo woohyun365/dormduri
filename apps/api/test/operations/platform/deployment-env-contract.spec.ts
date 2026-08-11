@@ -1,24 +1,81 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { requiredProductionEnvKeys } from '../../../src/config/env-keys/index.js';
+import {
+  createApiDeploymentEnvManifest,
+  serializeApiDeploymentEnvManifest,
+} from '../../../src/config/env-keys/deployment-env-manifest.js';
 
 const envExamplePath = resolve(process.cwd(), '../../infra/deploy/.env.api.example');
+const migrationEnvExamplePath = resolve(
+  process.cwd(),
+  '../../infra/deploy/.env.api.migration.example',
+);
+const manifestPath = resolve(process.cwd(), '../../infra/deploy/api/env.manifest.json');
+const entrypointPath = resolve(process.cwd(), '../../infra/deploy/api/entrypoint.sh');
+
+function envKeys(path: string): Set<string> {
+  return new Set(
+    readFileSync(path, 'utf8')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'))
+      .map((line) => line.split('=', 1)[0])
+      .filter((key): key is string => key !== undefined && key.length > 0),
+  );
+}
 
 describe('API deployment env artifact', () => {
-  it('required production env key를 private template에 문서화한다', () => {
-    const exampleKeys = new Set(
-      readFileSync(envExamplePath, 'utf8')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith('#'))
-        .map((line) => line.split('=', 1)[0])
-        .filter((key): key is string => key !== undefined && key.length > 0),
-    );
-    const missingKeys = requiredProductionEnvKeys
-      .map((definition) => definition.key)
-      .filter((key) => !exampleKeys.has(key));
+  it('keeps the generated manifest fresh and value-free', () => {
+    const expected = serializeApiDeploymentEnvManifest(createApiDeploymentEnvManifest());
+    const actual = readFileSync(manifestPath, 'utf8');
 
-    expect(missingKeys).toEqual([]);
+    expect(actual).toBe(expected);
+    expect(actual).not.toContain('REPLACE_ME');
+    expect(actual).not.toContain('postgresql://');
+  });
+
+  it('documents runtime and migration requirements in separate templates', () => {
+    const manifest = createApiDeploymentEnvManifest();
+    const runtimeExampleKeys = envKeys(envExamplePath);
+    const migrationExampleKeys = envKeys(migrationEnvExamplePath);
+
+    expect(
+      manifest.projections.containerStartupRequired.filter((key) => !runtimeExampleKeys.has(key)),
+    ).toEqual([]);
+    expect(
+      manifest.projections.migrationRequired.filter((key) => !migrationExampleKeys.has(key)),
+    ).toEqual([]);
+    expect(runtimeExampleKeys.has('MIGRATION_DATABASE_URL')).toBe(false);
+    expect(runtimeExampleKeys.has('DIRECT_URL')).toBe(false);
+  });
+
+  it('boots from runtime projection without migration credentials and reports only missing keys', () => {
+    const manifest = createApiDeploymentEnvManifest();
+    const runtimeEnv = Object.fromEntries(
+      manifest.projections.containerStartupRequired.map((key) => [key, 'private-value']),
+    );
+    const success = spawnSync('sh', [entrypointPath, 'sh', '-c', 'exit 0'], {
+      encoding: 'utf8',
+      env: { ...process.env, ...runtimeEnv, API_ENV_MANIFEST_PATH: manifestPath },
+    });
+
+    expect(success.status).toBe(0);
+
+    const [missingKey, ...remainingKeys] = manifest.projections.containerStartupRequired;
+    expect(missingKey).toBeDefined();
+    const failure = spawnSync('sh', [entrypointPath, 'sh', '-c', 'exit 0'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...Object.fromEntries(remainingKeys.map((key) => [key, 'private-value'])),
+        API_ENV_MANIFEST_PATH: manifestPath,
+      },
+    });
+
+    expect(failure.status).toBe(64);
+    expect(failure.stderr).toContain(`missing required env: ${missingKey}`);
+    expect(failure.stderr).not.toContain('private-value');
   });
 });
+import { spawnSync } from 'node:child_process';

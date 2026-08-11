@@ -88,6 +88,7 @@ BEGIN
     );
 
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I.%I TO %I', target_schema, table_name, app_runtime_role);
+    EXECUTE format('GRANT SELECT ON TABLE %I.%I TO %I', target_schema, table_name, retention_worker_role);
     EXECUTE format('GRANT SELECT ON TABLE %I.%I TO %I', target_schema, table_name, app_readonly_role);
   END LOOP;
 

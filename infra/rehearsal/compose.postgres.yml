@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7
+    environment:
+      POSTGRES_DB: ${REHEARSAL_POSTGRES_DB:-knu_roommate_rehearsal}
+      POSTGRES_USER: ${REHEARSAL_DB_MIGRATION_USER:-rehearsal_migration}
+      POSTGRES_PASSWORD: ${REHEARSAL_DB_MIGRATION_PASSWORD:?REHEARSAL_DB_MIGRATION_PASSWORD is required}
+      REHEARSAL_DB_RUNTIME_USER: ${REHEARSAL_DB_RUNTIME_USER:-rehearsal_runtime}
+      REHEARSAL_DB_RUNTIME_PASSWORD: ${REHEARSAL_DB_RUNTIME_PASSWORD:?REHEARSAL_DB_RUNTIME_PASSWORD is required}
+      REHEARSAL_DB_RETENTION_USER: ${REHEARSAL_DB_RETENTION_USER:-rehearsal_retention}
+      REHEARSAL_DB_RETENTION_PASSWORD: ${REHEARSAL_DB_RETENTION_PASSWORD:?REHEARSAL_DB_RETENTION_PASSWORD is required}
+      REHEARSAL_DB_DISCLOSURE_USER: ${REHEARSAL_DB_DISCLOSURE_USER:-rehearsal_disclosure}
+      REHEARSAL_DB_DISCLOSURE_PASSWORD: ${REHEARSAL_DB_DISCLOSURE_PASSWORD:?REHEARSAL_DB_DISCLOSURE_PASSWORD is required}
+      TZ: Asia/Seoul
+    command: ['postgres', '-c', 'timezone=Asia/Seoul', '-c', 'max_connections=40']
+    ports:
+      - 127.0.0.1:${REHEARSAL_POSTGRES_PORT:?REHEARSAL_POSTGRES_PORT is required}:5432
+    volumes:
+      - ../rehearsal/postgres/init-rehearsal-roles.sh:/docker-entrypoint-initdb.d/10-rehearsal-roles.sh:ro
+      - rehearsal-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" && psql -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -tAc "SELECT 1" >/dev/null',
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: 'no'
+    init: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          cpus: '0.35'
+          memory: 512M
+          pids: 128
+        reservations:
+          memory: 192M
+    networks:
+      - api-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '2'
+
+  api:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  api-internal:
+    name: ${REHEARSAL_API_NETWORK:?REHEARSAL_API_NETWORK is required}
+
+volumes:
+  rehearsal-postgres-data:

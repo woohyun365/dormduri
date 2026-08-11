@@ -33,7 +33,7 @@ Web 운영 관측은 두 개의 독립 owner로 운영한다.
 ### 범위
 
 - Docker context: `orbstack`
-- Docker Engine: 2 CPU / 4096MiB(±256MiB)
+- Docker Engine: 2 CPU / 4096MiB 또는 full-stack 공용 설정 4608MiB(±256MiB)
 - Web: production Next standalone image
 - Upstream: success/invalid-response/timeout만 제공하는 local fixture
 - 관측: Web stdout → Alloy → Loki → Grafana
@@ -51,7 +51,7 @@ pnpm web:observability:rehearsal
 
 BFF runner는 다음 순서로 fail-closed 검증한다.
 
-1. OrbStack context와 2CPU/4GB resource envelope 확인
+1. OrbStack context와 2CPU/4096MiB 또는 4608MiB local rehearsal envelope 확인
 2. compose config 검증과 production Web image build
 3. Web/Loki/Grafana readiness 확인
 4. BFF success, malformed upstream response, 8초 timeout 발생
@@ -62,7 +62,8 @@ BFF runner는 다음 순서로 fail-closed 검증한다.
 9. container resource snapshot 출력
 10. 전용 container/network/volume cleanup
 
-실패 상태를 유지하려면 `WEB_REHEARSAL_KEEP=1`, evidence 파일을 남기려면 `WEB_REHEARSAL_EVIDENCE_PATH=.omx/logs/web-observability-rehearsal.json`을 사용한다.
+실패 상태를 유지하려면 `WEB_REHEARSAL_KEEP=1`, evidence 파일을 남기려면
+`WEB_REHEARSAL_EVIDENCE_PATH=artifacts/local/observability/web-rehearsal.json`을 사용한다.
 
 ## Grafana 조회
 

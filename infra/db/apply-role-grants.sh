@@ -98,7 +98,7 @@ for file in "$auth_sql" "$rrpd_sql"; do
 done
 
 if [ "$dry_run" = true ]; then
-  echo 'dry-run: would apply auth-role-grants.sql and rrpd-role-grants.sql using MIGRATION_DATABASE_URL'
+  echo 'dry-run: would apply rrpd-role-grants.sql then auth-role-grants.sql using MIGRATION_DATABASE_URL'
   echo 'dry-run: role/schema override env names validated without printing secret values'
   exit 0
 fi
@@ -124,5 +124,5 @@ psql "$MIGRATION_DATABASE_URL" \
   -v ON_ERROR_STOP=1 \
   -X \
   -f "$settings_sql" \
-  -f "$auth_sql" \
-  -f "$rrpd_sql"
+  -f "$rrpd_sql" \
+  -f "$auth_sql"

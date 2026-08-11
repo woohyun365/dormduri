@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { secretEnvKeys } from '../../config/env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../../config/env-keys/index.js';
 import { SecretSourceHealthCheck } from './secret-source-health.check.js';
 
 const previousEnv = { ...process.env };
@@ -31,7 +31,7 @@ describe('SecretSourceHealthCheck', () => {
   });
 
   it('production에서는 required secret env가 모두 materialized 되어야 한다', async () => {
-    process.env = Object.fromEntries(secretEnvKeys.map(({ key }) => [key, 'secret-value']));
+    process.env = Object.fromEntries(runtimeSecretEnvKeys.map(({ key }) => [key, 'secret-value']));
     const check = new SecretSourceHealthCheck(
       { isProduction: true, nodeEnv: 'production', port: 4000 },
       { source: 'env', secretNamePrefix: null },
@@ -59,7 +59,7 @@ describe('SecretSourceHealthCheck', () => {
   });
 
   it('production Secrets Manager source는 prefix가 필요하다', async () => {
-    process.env = Object.fromEntries(secretEnvKeys.map(({ key }) => [key, 'secret-value']));
+    process.env = Object.fromEntries(runtimeSecretEnvKeys.map(({ key }) => [key, 'secret-value']));
     const check = new SecretSourceHealthCheck(
       { isProduction: true, nodeEnv: 'production', port: 4000 },
       { source: 'aws-secrets-manager', secretNamePrefix: null },

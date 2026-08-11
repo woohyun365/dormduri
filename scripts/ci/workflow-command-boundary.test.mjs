@@ -132,6 +132,7 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
   const orchestrator = read('.github/workflows/ci.yml');
   const apiWorkflow = read('.github/workflows/api-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
+  const infraWorkflow = read('.github/workflows/infra-ci.yml');
 
   assertIncludesAll(orchestrator, [
     'pull_request:',
@@ -139,14 +140,37 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'node scripts/ci/classify-changes.mjs',
     'uses: ./.github/workflows/api-ci.yml',
     'uses: ./.github/workflows/web-ci.yml',
+    'uses: ./.github/workflows/infra-ci.yml',
     'Shared contract gate',
     'CI summary',
     'if: ${{ always() }}',
   ]);
   assertIncludesAll(apiWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(webWorkflow, ['workflow_call:', 'cache: pnpm']);
+  assertIncludesAll(infraWorkflow, ['workflow_call:', 'permissions:', 'contents: read']);
   assert.ok(!apiWorkflow.includes('pull_request:'));
   assert.ok(!webWorkflow.includes('pull_request:'));
+  assert.ok(!infraWorkflow.includes('pull_request:'));
+});
+
+test('infrastructure CI separates static and container-backed validation', () => {
+  const infraWorkflow = read('.github/workflows/infra-ci.yml');
+
+  assertIncludesAll(infraWorkflow, [
+    'Infrastructure static gate',
+    'Infrastructure container config gate',
+    'pnpm infra:check:static',
+    'pnpm infra:check:runtime',
+    'retention-days: 7',
+    'timeout-minutes: 15',
+  ]);
+  assert.match(scriptValue(rootScripts, 'infra:check'), /run-infra-check\.mjs$/u);
+  assert.match(scriptValue(rootScripts, 'infra:check:static'), /run-infra-check\.mjs --static$/u);
+  assert.match(scriptValue(rootScripts, 'infra:check:runtime'), /run-infra-check\.mjs --runtime$/u);
+  assert.ok(!infraWorkflow.includes('secrets.'));
+  assert.ok(infraWorkflow.includes('runner.temp'));
+  assert.ok(infraWorkflow.includes('KNU_ARTIFACTS_DIR'));
+  assert.ok(!infraWorkflow.includes('.omx/'));
 });
 
 test('API CI leaves schema migration ownership to disposable database suites', () => {

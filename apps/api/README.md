@@ -13,7 +13,7 @@
 
 - API 런타임: NestJS 11
 - ORM: Prisma 7
-- DB: PostgreSQL 16
+- DB: PostgreSQL 18
 - Prisma schema: `apps/api/prisma/schema.prisma`
 - Prisma config: `apps/api/prisma.config.ts`
 - Seed script: `apps/api/prisma/seed.js`

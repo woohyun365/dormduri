@@ -24,12 +24,12 @@ export const databaseEnvSchema = {
     nonProductionDefault: DEFAULT_DATABASE_URL,
     forbidProductionPlaceholder: true,
   }),
-  DIRECT_URL: productionRequiredString({ forbidProductionPlaceholder: true }),
+  DIRECT_URL: Joi.string().trim().optional(),
   RETENTION_WORKER_DATABASE_URL: productionRequiredString({ forbidProductionPlaceholder: true }),
   RETENTION_DISCLOSURE_DATABASE_URL: productionRequiredString({
     forbidProductionPlaceholder: true,
   }),
-  MIGRATION_DATABASE_URL: productionRequiredString({ forbidProductionPlaceholder: true }),
+  MIGRATION_DATABASE_URL: Joi.string().trim().optional(),
   DATABASE_ADAPTER_CONNECT_TIMEOUT_MS: numberEnv(DEFAULT_DATABASE_ADAPTER_CONNECT_TIMEOUT_MS, {
     min: 1,
   }),

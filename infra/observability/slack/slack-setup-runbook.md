@@ -32,7 +32,7 @@ SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml config >/tmp/knu-observability-compose.yml
+docker compose --env-file .env.observability -f compose.base.yml config >/tmp/knu-observability-compose.yml
 ```
 
 secret이 들어간 render 결과나 compose output을 이슈/PR에 붙이지 않는다.
@@ -41,7 +41,7 @@ secret이 들어간 render 결과나 compose output을 이슈/PR에 붙이지 �
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml up -d alertmanager prometheus
+docker compose --env-file .env.observability -f compose.base.yml up -d alertmanager prometheus
 ```
 
 확인 URL:

@@ -1,6 +1,6 @@
 # AWS Secrets Manager checklist
 
-이 문서는 API production secret을 AWS Secrets Manager에 저장하고, 배포 시점에 `.env.api` 또는 process env로 materialize하기 위한 운영 checklist다. 실제 secret 원문은 이 문서, Git commit, issue, CI log, `.omx/reports`에 남기지 않는다.
+이 문서는 API production secret을 AWS Secrets Manager에 저장하고, 배포 시점에 `.env.api` 또는 process env로 materialize하기 위한 운영 checklist다. 실제 secret 원문은 이 문서, Git commit, issue, CI log, `artifacts/local/`에 남기지 않는다.
 
 ## Source boundary
 

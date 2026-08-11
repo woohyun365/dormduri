@@ -8,8 +8,8 @@ ENABLED=${SLACK_ALERTMANAGER_ENABLED:-false}
 WEBHOOK_URL=${SLACK_ALERT_WEBHOOK_URL:-}
 CHANNEL=${SLACK_ALERT_CHANNEL:-#knu-roommate-alerts}
 OBS_ENV=${OBSERVABILITY_ENV:-local}
-
-mkdir -p "$RENDER_DIR"
+STRICT=${OBSERVABILITY_STRICT:-false}
+RETENTION=${ALERTMANAGER_RETENTION:-120h}
 
 is_placeholder_url() {
   case "$1" in
@@ -21,6 +21,19 @@ is_placeholder_url() {
 escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[&|]/\\&/g'
 }
+
+mkdir -p "$RENDER_DIR"
+
+if [ "$STRICT" = 'true' ]; then
+  if [ "$OBS_ENV" != 'production' ]; then
+    echo 'Production Alertmanager requires OBSERVABILITY_ENV=production.' >&2
+    exit 1
+  fi
+  if [ "$ENABLED" = 'true' ] && is_placeholder_url "$WEBHOOK_URL"; then
+    echo 'Slack delivery is enabled but the webhook URL is missing or placeholder.' >&2
+    exit 1
+  fi
+fi
 
 if [ "$ENABLED" = "true" ] && ! is_placeholder_url "$WEBHOOK_URL"; then
   TEMPLATE=$CONFIG_DIR/alertmanager.yml.template
@@ -42,4 +55,5 @@ fi
 exec /bin/alertmanager \
   --config.file="$RENDERED_CONFIG" \
   --storage.path=/alertmanager \
+  --data.retention="$RETENTION" \
   --web.listen-address=0.0.0.0:9093

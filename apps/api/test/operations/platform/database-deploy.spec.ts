@@ -47,6 +47,7 @@ describe('production database deploy boundary', () => {
     const script = readDbFile('migrate-deploy.sh');
 
     expect(script).toContain('MIGRATION_DATABASE_URL');
+    expect(script).toContain('NODE_ENV=production');
     expect(script).toContain('DIRECT_URL="$MIGRATION_DATABASE_URL"');
     expect(script).toContain('DATABASE_URL="$MIGRATION_DATABASE_URL"');
     expect(script).toContain('exec prisma migrate deploy --schema prisma/schema.prisma');
@@ -63,6 +64,7 @@ describe('production database deploy boundary', () => {
     expect(script).toContain('-v ON_ERROR_STOP=1');
     expect(script).toContain('auth-role-grants.sql');
     expect(script).toContain('rrpd-role-grants.sql');
+    expect(script.indexOf('-f "$rrpd_sql"')).toBeLessThan(script.indexOf('-f "$auth_sql"'));
     expect(script).toContain('knu_roommate.auth_schema');
     expect(script).toContain('knu_roommate.rrpd_schema');
     expect(script).toContain('DB_APP_RUNTIME_ROLE');
@@ -129,7 +131,7 @@ describe('production database deploy boundary', () => {
   it('documents that credential creation and role membership stay outside grant scripts', () => {
     const grantScript = readDbFile('apply-role-grants.sh');
     const dbReadme = readDbFile('README.md');
-    const policy = readRepoFile('docs/policies/production-deployment-readiness.md');
+    const policy = readRepoFile('docs/policies/production-runtime-safety.md');
 
     expect(grantScript).not.toMatch(/\bCREATE\s+USER\b/);
     expect(grantScript).not.toMatch(/\bCREATE\s+ROLE\b.*\bLOGIN\b/);

@@ -9,9 +9,11 @@ const deployRoot = join(repoRoot, 'infra/deploy');
 const requiredFiles = [
   'README.md',
   '.env.api.example',
-  'docker-compose.api.yml',
-  'docker-compose.api.override.example.yml',
+  '.env.api.migration.example',
+  '.env.compose.example',
+  'compose.api.yml',
   'api/Dockerfile',
+  'api/env.manifest.json',
   'api/entrypoint.sh',
   'api/healthcheck.sh',
   'nginx/nginx.conf',
@@ -19,22 +21,6 @@ const requiredFiles = [
   'nginx/examples/api.tls.conf',
   'nginx/snippets/internal-metrics-allowlist.conf',
   'nginx/snippets/proxy-common.conf',
-];
-
-const requiredProductionEnvNames = [
-  'DATABASE_URL',
-  'DIRECT_URL',
-  'MIGRATION_DATABASE_URL',
-  'RETENTION_WORKER_DATABASE_URL',
-  'RETENTION_DISCLOSURE_DATABASE_URL',
-  'LOG_HASH_SECRET',
-  'METRICS_BEARER_TOKEN',
-  'VERIFICATION_CODE_HMAC_SECRET',
-  'AUTH_PERSISTENCE_HMAC_SECRET',
-  'AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64',
-  'ROOMMATE_SEARCH_CURSOR_HMAC_SECRET',
-  'PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET',
-  'CHAT_THREAD_LIST_CURSOR_HMAC_SECRET',
 ];
 
 const ingressPolicyEnvNames = [
@@ -71,7 +57,7 @@ describe('deployment infra', () => {
   });
 
   it('defines api and nginx services without owning a production database service', () => {
-    const compose = readDeployFile('docker-compose.api.yml');
+    const compose = readDeployFile('compose.api.yml');
 
     expect(compose).toContain('api:');
     expect(compose).toContain('nginx:');
@@ -84,14 +70,18 @@ describe('deployment infra', () => {
     expect(compose).not.toContain('POSTGRES_PASSWORD');
   });
 
-  it('keeps observability network optional in an override example', () => {
-    const compose = readDeployFile('docker-compose.api.yml');
-    const override = readDeployFile('docker-compose.api.override.example.yml');
+  it('keeps observability network outside the production-neutral base', () => {
+    const compose = readDeployFile('compose.api.yml');
+    const override = readRepoFile('infra/rehearsal/compose.api.runtime.yml');
+    const stress = readRepoFile('apps/api/test/stress/docker/compose.stress.yml');
 
     expect(compose).not.toContain('external: true');
+    expect(compose).not.toContain('AUTH_THROTTLE_LIMIT');
     expect(override).toContain('observability:');
     expect(override).toContain('external: true');
     expect(override).toContain('knu-roommate-observability');
+    expect(override).not.toContain('AUTH_THROTTLE_LIMIT');
+    expect(stress).toContain('AUTH_THROTTLE_LIMIT');
   });
 
   it('keeps production TypeScript build free of test support harness files', () => {
@@ -123,17 +113,16 @@ describe('deployment infra', () => {
     expect(dockerignore).toContain('infra/observability/prometheus/secrets/*.local');
   });
 
-  it('checks required production env names without echoing secret values', () => {
-    const envExample = readDeployFile('.env.api.example');
+  it('checks generated runtime requirements without echoing secret values', () => {
     const entrypoint = readDeployFile('api/entrypoint.sh');
+    const dockerfile = readDeployFile('api/Dockerfile');
 
-    for (const envName of requiredProductionEnvNames) {
-      expect(envExample).toContain(`${envName}=`);
-      expect(entrypoint).toContain(envName);
-    }
-
+    expect(entrypoint).toContain('env.manifest.json');
+    expect(entrypoint).toContain('containerStartupRequired');
     expect(entrypoint).toContain('missing required env: $name');
     expect(entrypoint).not.toContain('echo "$value"');
+    expect(entrypoint).not.toContain('required_env="DATABASE_URL');
+    expect(dockerfile).toContain('infra/deploy/api/env.manifest.json');
   });
 
   it('documents HTTP REST and realtime ingress policy env names in the deploy template', () => {
@@ -145,8 +134,8 @@ describe('deployment infra', () => {
   });
 
   it('documents direct nginx TLS example knobs without loading them in the base compose', () => {
-    const envExample = readDeployFile('.env.api.example');
-    const compose = readDeployFile('docker-compose.api.yml');
+    const envExample = readDeployFile('.env.compose.example');
+    const compose = readDeployFile('compose.api.yml');
 
     for (const envName of nginxTlsExampleKnobNames) {
       expect(envExample).toContain(`${envName}=`);
@@ -180,7 +169,7 @@ describe('deployment infra', () => {
   });
 
   it('keeps the TLS/domain example outside the active nginx conf.d mount', () => {
-    const compose = readDeployFile('docker-compose.api.yml');
+    const compose = readDeployFile('compose.api.yml');
     const tlsExample = readDeployFile('nginx/examples/api.tls.conf');
 
     expect(compose).toContain('./nginx/conf.d:/etc/nginx/conf.d:ro');

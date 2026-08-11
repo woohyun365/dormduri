@@ -8,4 +8,4 @@
 - [`development/`](./development/): 재사용 가능한 개발·테스트 troubleshooting
 - [`references/`](./references/): 정책·architecture decision이 직접 인용하는 공개 자료
 
-과거 계획, 개인 분석, PR review 기록, 포트폴리오와 첨부 자료는 Git에서 제외되는 `local-docs/`에 둡니다. 실행 중인 Codex 계획과 report는 `.omx/`가 소유합니다. Canonical 문서와 production code는 `local-docs/`를 참조하지 않습니다.
+과거 계획, 개인 분석, PR review 기록, 포트폴리오와 첨부 자료는 Git에서 제외되는 `local-docs/`에 둡니다. 실행 중인 Codex 계획과 agent session report는 `.omx/`가 소유하고, 저장소 검증 도구의 재생성 가능한 결과는 `artifacts/local/`에 둡니다. Canonical 문서와 production code는 두 로컬 영역을 참조하지 않습니다.

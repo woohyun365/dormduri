@@ -56,7 +56,7 @@ assert_privilege() {
   privilege="$4"
   expected="$5"
   psql_check "$url" "$description" \
-    "SELECT CASE WHEN has_table_privilege(current_user, '$table_ref', '$privilege') IS $expected THEN 1 ELSE 1/0 END;"
+    "SELECT 1 / CASE WHEN has_table_privilege(current_user, '$table_ref', '$privilege') IS $expected THEN 1 ELSE 0 END;"
 }
 
 dry_run=false
@@ -101,7 +101,7 @@ require_env RETENTION_DISCLOSURE_DATABASE_URL
 
 psql_check "$MIGRATION_DATABASE_URL" 'migration credential can connect' 'SELECT 1;'
 psql_check "$MIGRATION_DATABASE_URL" 'Prisma migrations table exists' \
-  "SELECT CASE WHEN to_regclass('$schema._prisma_migrations') IS NULL THEN 1/0 ELSE 1 END;"
+  "SELECT 1 / CASE WHEN to_regclass('$schema._prisma_migrations') IS NULL THEN 0 ELSE 1 END;"
 psql_check "$MIGRATION_DATABASE_URL" 'Prisma migrations table is readable by migration credential' \
   "SELECT count(*) FROM $schema._prisma_migrations;"
 

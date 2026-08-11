@@ -7,6 +7,7 @@ export const realtimeEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'optional',
+    targetRequired: true,
     description: 'Socket.IO origin allowlist.',
   },
   {
@@ -15,6 +16,7 @@ export const realtimeEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
+    targetRequired: true,
     description: 'Realtime origin policy forwarded-host trust toggle.',
   },
   ...[

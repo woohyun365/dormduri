@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import appConfig from '../../config/app.config.js';
 import secretSourceConfig from '../../config/secret-source.config.js';
-import { secretEnvKeys } from '../../config/env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../../config/env-keys/index.js';
 import type { HealthReadinessCheck, HealthReadinessCheckResult } from './health-check.types.js';
 import { createHealthCheckResult } from './health-check-result.js';
 
@@ -43,7 +43,7 @@ export class SecretSourceHealthCheck implements HealthReadinessCheck {
       return false;
     }
 
-    return secretEnvKeys.every((definition) => {
+    return runtimeSecretEnvKeys.every((definition) => {
       const value = process.env[definition.key];
       return typeof value === 'string' && value.trim().length > 0;
     });

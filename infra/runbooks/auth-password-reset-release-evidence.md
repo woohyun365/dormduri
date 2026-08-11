@@ -2,6 +2,9 @@
 
 이 runbook은 Password Reset/Auth 구조 변경을 release candidate에서 검증하는 최소 evidence 경계다. 아직 production 사용자 데이터가 없으므로 DB backup 자동화나 기존 사용자 data migration은 이 단계의 범위가 아니다.
 
+완료 결과는 `infra/runbooks/release/production-release-evidence.md`의 Password Reset component에
+연결하며, 이 문서에서는 전체 release의 최종 판정을 선언하지 않는다.
+
 ## 1. Automated recovery evidence
 
 ```bash

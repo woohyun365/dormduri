@@ -2,6 +2,10 @@
 
 이 runbook은 RDS automated backup/PITR 또는 manual snapshot이 실제로 복구 가능한지 검증하기 위한 production release gate다. 목표는 production DB를 직접 변경하지 않고 temporary restored DB에서 migration baseline, DB role grants, credential boundary, API readiness를 확인하는 것이다.
 
+실행 결과는 component evidence identifier로 남기고
+`infra/runbooks/release/production-release-evidence.md`에 연결한다. 이 runbook은 전체 release의 최종
+판정을 소유하지 않는다.
+
 ## Required inputs
 
 - Release commit SHA.

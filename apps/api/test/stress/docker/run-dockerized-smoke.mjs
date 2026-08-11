@@ -16,22 +16,18 @@ import {
   readOrCreateMetricsToken,
   readStressEnvValue,
 } from './local-stress-env-files.mjs';
+import {
+  buildComposeArgs,
+  loadComposeInventory,
+} from '../../../../../scripts/infra/compose-profile.mjs';
+import { resolveArtifactPath } from '../../../../../scripts/artifacts/paths.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const apiRoot = resolve(scriptDir, '../../..');
 const repoRoot = resolve(apiRoot, '../..');
 const deployDir = resolve(repoRoot, 'infra/deploy');
 const observabilityDir = resolve(repoRoot, 'infra/observability');
-const composeFile = resolve(deployDir, 'docker-compose.api.yml');
-const composeObservabilityOverrideFile = resolve(
-  deployDir,
-  'docker-compose.api.override.example.yml',
-);
-const observabilityComposeFile = resolve(observabilityDir, 'docker-compose.observability.yml');
-const observabilityRehearsalOverrideFile = resolve(
-  observabilityDir,
-  'docker-compose.observability.rehearsal.yml',
-);
+const composeInventory = loadComposeInventory(repoRoot);
 const observabilityEnvFile = resolve(observabilityDir, '.env.observability');
 const observabilityMetricsTokenFile = resolve(
   observabilityDir,
@@ -66,6 +62,7 @@ const containerDatabaseUrl =
 const metricsToken =
   process.env.STRESS_DOCKER_METRICS_TOKEN || readOrCreateMetricsToken(localEnvFile);
 const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
+const stressArtifactsDir = resolveArtifactPath(repoRoot, ['stress']);
 const runId =
   process.env.STRESS_DOCKER_RUN_ID ||
   (authPasswordCapacityRun
@@ -73,15 +70,14 @@ const runId =
     : productionLikeRun
       ? `production-like-${timestamp}`
       : `docker-smoke-${timestamp}`);
-const reportPath = resolve(
-  repoRoot,
-  process.env.STRESS_DOCKER_REPORT_PATH ||
-    (authPasswordCapacityRun
-      ? `.omx/reports/api-auth-password-capacity-result-${timestamp}.md`
-      : productionLikeRun
-        ? `.omx/reports/api-production-like-stress-result-${timestamp}.md`
-        : `.omx/reports/api-dockerized-stress-result-${timestamp}.md`),
-);
+const defaultReportName = authPasswordCapacityRun
+  ? `api-auth-password-capacity-result-${timestamp}.md`
+  : productionLikeRun
+    ? `api-production-like-stress-result-${timestamp}.md`
+    : `api-dockerized-stress-result-${timestamp}.md`;
+const reportPath = process.env.STRESS_DOCKER_REPORT_PATH
+  ? resolve(repoRoot, process.env.STRESS_DOCKER_REPORT_PATH)
+  : resolve(stressArtifactsDir, defaultReportName);
 const actorTokenPath = resolve(reportsDir, `.tmp-${runId}-actor-tokens.json`);
 const k6SmokeSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-smoke-summary.json`);
 const k6BaselineSummaryPath = resolve(reportsDir, `.tmp-${runId}-k6-baseline-summary.json`);
@@ -104,6 +100,7 @@ const artillerySummaryPath = resolve(reportsDir, `.tmp-${runId}-artillery-summar
 const artilleryActorCsvPath = resolve(reportsDir, `.tmp-${runId}-artillery-actors.csv`);
 const commandResults = [];
 let runError = null;
+let createdObservabilityNetwork = false;
 const evidence = {
   localRehearsalCapacity: null,
   health: null,
@@ -193,6 +190,7 @@ try {
     { env: buildHostDbEnv() },
   );
   if (useObservability) {
+    ensureObservabilityNetwork();
     const observabilityStatus = localStressEnvFiles.ensureObservabilityLocalFiles();
     commandResults.push({
       name: 'prepare observability env',
@@ -497,6 +495,14 @@ try {
       runOptional('observability compose down', buildObservabilityComposeArgs('down'), {
         env: buildObservabilityEnv(),
       });
+      if (createdObservabilityNetwork) {
+        runOptional('observability network cleanup', [
+          'docker',
+          'network',
+          'rm',
+          observabilityNetwork,
+        ]);
+      }
     }
   }
 
@@ -557,35 +563,33 @@ function buildStressEnv() {
 }
 
 function buildApiComposeArgs(...extraArgs) {
-  const composeFiles = [composeFile];
-  if (useObservability) {
-    composeFiles.push(composeObservabilityOverrideFile);
-  }
-
+  const profileName = productionLikeRun
+    ? useObservability
+      ? 'api-stress'
+      : 'api-stress-standalone'
+    : 'api-base';
   return [
     'docker',
-    'compose',
-    '-p',
-    dockerProjectName,
-    ...composeFiles.flatMap((file) => ['-f', relative(repoRoot, file)]),
-    ...extraArgs,
+    ...buildComposeArgs(composeInventory, profileName, extraArgs, {
+      repoRoot,
+      projectName: dockerProjectName,
+    }),
   ];
 }
 
 function buildObservabilityComposeArgs(...extraArgs) {
-  const composeFiles = [observabilityComposeFile];
-  if (localRehearsalRun) {
-    composeFiles.push(observabilityRehearsalOverrideFile);
-  }
   return [
     'docker',
-    'compose',
-    '-p',
-    observabilityProjectName,
-    '--env-file',
-    relative(repoRoot, observabilityEnvFile),
-    ...composeFiles.flatMap((file) => ['-f', relative(repoRoot, file)]),
-    ...extraArgs,
+    ...buildComposeArgs(
+      composeInventory,
+      localRehearsalRun ? 'observability-rehearsal' : 'observability-base',
+      extraArgs,
+      {
+        repoRoot,
+        projectName: observabilityProjectName,
+        envFile: relative(repoRoot, observabilityEnvFile),
+      },
+    ),
   ];
 }
 
@@ -616,6 +620,22 @@ function buildObservabilityEnv() {
     API_METRICS_SCHEME: 'http',
     API_METRICS_BEARER_TOKEN_FILE: './prometheus/secrets/api-metrics-bearer-token.local',
   };
+}
+
+function ensureObservabilityNetwork() {
+  const inspected = spawnSync('docker', ['network', 'inspect', observabilityNetwork], {
+    cwd: repoRoot,
+    env: process.env,
+    stdio: 'ignore',
+  });
+  if (inspected.status === 0) return;
+  runRequired('observability network create', [
+    'docker',
+    'network',
+    'create',
+    observabilityNetwork,
+  ]);
+  createdObservabilityNetwork = true;
 }
 
 function composeConfigNote() {
@@ -817,9 +837,7 @@ async function fetchStatus(url, init = {}) {
     return {
       status: 0,
       bodyLength: 0,
-      bodySample: redactStressEvidence(
-        error instanceof Error ? error.message : String(error),
-      ),
+      bodySample: redactStressEvidence(error instanceof Error ? error.message : String(error)),
     };
   }
 }

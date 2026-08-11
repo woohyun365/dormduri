@@ -7,6 +7,7 @@
       "api": false,
       "shared": false,
       "storybook": false,
+      "infra": false,
       "repoPolicy": false
     }
   },
@@ -18,6 +19,7 @@
       "api": false,
       "shared": false,
       "storybook": true,
+      "infra": false,
       "repoPolicy": false
     }
   },
@@ -29,6 +31,7 @@
       "api": true,
       "shared": false,
       "storybook": false,
+      "infra": false,
       "repoPolicy": false
     }
   },
@@ -40,6 +43,7 @@
       "api": true,
       "shared": true,
       "storybook": false,
+      "infra": false,
       "repoPolicy": false
     }
   },
@@ -51,6 +55,7 @@
       "api": true,
       "shared": true,
       "storybook": true,
+      "infra": true,
       "repoPolicy": true
     }
   },
@@ -62,6 +67,7 @@
       "api": true,
       "shared": false,
       "storybook": false,
+      "infra": true,
       "repoPolicy": true
     }
   },
@@ -73,6 +79,67 @@
       "api": false,
       "shared": false,
       "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "observability-infra-only",
+    "paths": ["infra/observability/loki/loki.yml"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-container",
+    "paths": ["infra/deploy/api/Dockerfile"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "web-container",
+    "paths": ["infra/deploy/web/Dockerfile"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "infra-workflow",
+    "paths": [".github/workflows/infra-ci.yml"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-workflow",
+    "paths": [".github/workflows/api-ci.yml"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
       "repoPolicy": true
     }
   },
@@ -84,6 +151,7 @@
       "api": true,
       "shared": true,
       "storybook": true,
+      "infra": true,
       "repoPolicy": true
     }
   }

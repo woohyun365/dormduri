@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { secretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../env-keys/index.js';
 import {
   applyMaterializedSecretsToEnv,
   materializeRequiredSecrets,
@@ -8,7 +8,7 @@ import type { SecretReaderPort } from './secret-reader.port.js';
 
 function allSecretEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const definition of secretEnvKeys) {
+  for (const definition of runtimeSecretEnvKeys) {
     env[definition.key] = `${definition.key.toLowerCase()}-value`;
   }
   return env;
@@ -18,8 +18,11 @@ describe('secret materializer', () => {
   it('materializes direct env secrets keyed by env name', async () => {
     const materialized = await materializeRequiredSecrets({ source: 'env', env: allSecretEnv() });
 
-    expect(Object.keys(materialized)).toEqual(secretEnvKeys.map((definition) => definition.key));
+    expect(Object.keys(materialized)).toEqual(
+      runtimeSecretEnvKeys.map((definition) => definition.key),
+    );
     expect(materialized.DATABASE_URL).toBe('database_url-value');
+    expect(materialized.MIGRATION_DATABASE_URL).toBeUndefined();
   });
 
   it('materializes AWS secrets by secret-name mapping into env key records', async () => {

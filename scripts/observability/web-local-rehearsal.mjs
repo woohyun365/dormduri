@@ -2,33 +2,45 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import {
+  buildComposeArgs,
+  cleanupUnusedNetworks,
+  ensureProfileNetworks,
+  getComposeProfile,
+  loadComposeInventory,
+} from '../infra/compose-profile.mjs';
+
 const repoRoot = resolve(import.meta.dirname, '../..');
 const project = process.env.WEB_REHEARSAL_PROJECT ?? 'knu-roommate-web-rehearsal';
 const webPort = Number(process.env.WEB_REHEARSAL_PORT ?? 3300);
 const grafanaPort = Number(process.env.GRAFANA_PORT ?? 3001);
 const lokiPort = Number(process.env.LOKI_PORT ?? 3100);
+const prometheusPort = Number(process.env.PROMETHEUS_PORT ?? 9090);
+const alloyPort = Number(process.env.ALLOY_PORT ?? 12345);
 const keepRunning = process.env.WEB_REHEARSAL_KEEP === '1';
 const allowUnconstrained = process.env.WEB_REHEARSAL_ALLOW_UNCONSTRAINED === '1';
 const privateEmail = 'rehearsal-private@example.com';
 const privateToken = 'local-rehearsal-secret';
-const composeFiles = [
-  'infra/observability/docker-compose.observability.yml',
-  'infra/observability/docker-compose.observability.rehearsal.yml',
-  'infra/observability/docker-compose.web-rehearsal.yml',
-];
-const composeArguments = [
-  'compose',
-  '-p',
-  project,
-  ...composeFiles.flatMap((file) => ['-f', file]),
-];
+const composeInventory = loadComposeInventory(repoRoot);
+const composeProfile = getComposeProfile(composeInventory, 'web-rehearsal');
+const composeArguments = buildComposeArgs(composeInventory, 'web-rehearsal', [], {
+  repoRoot,
+  projectName: project,
+  envFile: false,
+});
 const commandEnv = {
   ...process.env,
   OBSERVABILITY_NETWORK: `${project}-network`,
   OBSERVABILITY_ENV: 'local',
+  API_METRICS_TARGET: 'host.docker.internal:4000',
+  API_METRICS_BEARER_TOKEN_FILE: './prometheus/secrets/api-metrics-bearer-token.example',
+  GRAFANA_ADMIN_USER: 'admin',
+  GRAFANA_ADMIN_PASSWORD: 'change-me-local-only',
   WEB_REHEARSAL_PORT: String(webPort),
   GRAFANA_PORT: String(grafanaPort),
   LOKI_PORT: String(lokiPort),
+  PROMETHEUS_PORT: String(prometheusPort),
+  ALLOY_PORT: String(alloyPort),
   SLACK_ALERTMANAGER_ENABLED: 'false',
 };
 
@@ -127,15 +139,19 @@ function validateDockerEnvelope() {
     .split(/\s+/u);
   const cpus = Number(cpuText);
   const memoryBytes = Number(memoryText);
-  const targetBytes = 4 * 1024 * 1024 * 1024;
+  const allowedMemoryTargetsMiB = [4096, 4608];
   const toleranceBytes = 256 * 1024 * 1024;
-  const constrained = cpus === 2 && Math.abs(memoryBytes - targetBytes) <= toleranceBytes;
+  const constrained =
+    cpus === 2 &&
+    allowedMemoryTargetsMiB.some(
+      (targetMiB) => Math.abs(memoryBytes - targetMiB * 1024 * 1024) <= toleranceBytes,
+    );
 
   if (!allowUnconstrained) {
     assert(context === 'orbstack', `OrbStack context required, current context: ${context}`);
     assert(
       constrained,
-      `Docker Engine must be 2 CPU / 4096MiB ±256MiB, got ${cpus} CPU / ${Math.round(memoryBytes / 1024 / 1024)}MiB`,
+      `Docker Engine must be 2 CPU / 4096MiB or 4608MiB ±256MiB, got ${cpus} CPU / ${Math.round(memoryBytes / 1024 / 1024)}MiB`,
     );
   }
 
@@ -155,10 +171,19 @@ async function main() {
       privacySanitization: false,
       requestCorrelation: false,
       dashboardProvisioned: false,
-      lokiFailOpen: false,
+      observabilityFailOpen: {
+        loki: false,
+        prometheus: false,
+        grafana: false,
+      },
     },
+    recoveryMilliseconds: {},
     resources: [],
   };
+  const createdNetworks = ensureProfileNetworks(composeProfile, {
+    repoRoot,
+    env: commandEnv,
+  });
 
   try {
     compose('config', '-q');
@@ -166,7 +191,9 @@ async function main() {
     compose('up', '-d', '--build');
     await waitForHttp(`http://127.0.0.1:${webPort}/`, 'Web');
     await waitForHttp(`http://127.0.0.1:${lokiPort}/ready`, 'Loki');
-    await waitForHttp(`http://127.0.0.1:${grafanaPort}/api/health`, 'Grafana');
+    await waitForHttp(`http://127.0.0.1:${prometheusPort}/-/ready`, 'Prometheus');
+    await waitForHttp(`http://127.0.0.1:${alloyPort}/-/ready`, 'Alloy');
+    await waitForHttp(`http://127.0.0.1:${grafanaPort}/api/health`, 'Grafana', 180_000);
     evidence.checks.servicesReady = true;
 
     const baseUrl = `http://127.0.0.1:${webPort}/api/bookmarks`;
@@ -199,11 +226,32 @@ async function main() {
     assert(dashboardResponse.ok, `Grafana dashboard lookup failed: ${dashboardResponse.status}`);
     evidence.checks.dashboardProvisioned = true;
 
-    compose('stop', 'loki');
-    await requestExpectedStatus(`${baseUrl}?mode=success-after-loki-stop`, 200);
-    compose('start', 'loki');
-    await waitForHttp(`http://127.0.0.1:${lokiPort}/ready`, 'Loki restart');
-    evidence.checks.lokiFailOpen = true;
+    for (const failure of [
+      {
+        service: 'loki',
+        readinessUrl: `http://127.0.0.1:${lokiPort}/ready`,
+        label: 'Loki restart',
+      },
+      {
+        service: 'prometheus',
+        readinessUrl: `http://127.0.0.1:${prometheusPort}/-/ready`,
+        label: 'Prometheus restart',
+      },
+      {
+        service: 'grafana',
+        readinessUrl: `http://127.0.0.1:${grafanaPort}/api/health`,
+        label: 'Grafana restart',
+        timeoutMs: 180_000,
+      },
+    ]) {
+      compose('stop', failure.service);
+      await requestExpectedStatus(`${baseUrl}?mode=success-after-${failure.service}-stop`, 200);
+      const recoveryStartedAt = Date.now();
+      compose('start', failure.service);
+      await waitForHttp(failure.readinessUrl, failure.label, failure.timeoutMs);
+      evidence.checks.observabilityFailOpen[failure.service] = true;
+      evidence.recoveryMilliseconds[failure.service] = Date.now() - recoveryStartedAt;
+    }
 
     const resourceLines = runDocker(
       [
@@ -227,7 +275,10 @@ async function main() {
       writeFileSync(resolve(repoRoot, evidencePath), `${JSON.stringify(evidence, null, 2)}\n`);
     process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
   } finally {
-    if (!keepRunning) compose('down', '--volumes', '--remove-orphans');
+    if (!keepRunning) {
+      compose('down', '--volumes', '--remove-orphans');
+      cleanupUnusedNetworks(createdNetworks, { repoRoot, env: commandEnv });
+    }
   }
 }
 

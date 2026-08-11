@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "profiles": {
+    "api-base": {
+      "classification": "production-candidate",
+      "project": "knu-roommate-api",
+      "files": ["infra/deploy/compose.api.yml"]
+    },
+    "api-rehearsal": {
+      "classification": "rehearsal-only",
+      "project": "knu-roommate-api",
+      "files": ["infra/deploy/compose.api.yml", "infra/rehearsal/compose.api.runtime.yml"],
+      "managedNetworks": [
+        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
+      ]
+    },
+    "api-stress": {
+      "classification": "stress-only",
+      "project": "knu-roommate-api",
+      "files": [
+        "infra/deploy/compose.api.yml",
+        "infra/rehearsal/compose.api.runtime.yml",
+        "apps/api/test/stress/docker/compose.stress.yml"
+      ],
+      "managedNetworks": [
+        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
+      ]
+    },
+    "api-stress-standalone": {
+      "classification": "stress-only",
+      "project": "knu-roommate-api",
+      "files": ["infra/deploy/compose.api.yml", "apps/api/test/stress/docker/compose.stress.yml"]
+    },
+    "full-stack-api-rehearsal": {
+      "classification": "rehearsal-only",
+      "project": "knu-roommate-full-stack-api",
+      "files": [
+        "infra/deploy/compose.api.yml",
+        "infra/rehearsal/compose.api.runtime.yml",
+        "infra/rehearsal/compose.postgres.yml"
+      ],
+      "managedNetworks": [
+        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
+      ]
+    },
+    "observability-base": {
+      "classification": "runtime-base",
+      "project": "knu-roommate-observability",
+      "envFile": "infra/observability/.env.observability",
+      "validationEnvFile": "infra/observability/.env.observability.example",
+      "files": ["infra/observability/compose.base.yml", "infra/observability/compose.resources.yml"]
+    },
+    "observability-production": {
+      "classification": "production-candidate",
+      "project": "knu-roommate-observability",
+      "envFile": "infra/observability/.env.observability",
+      "validationEnvFile": "infra/observability/.env.observability.example",
+      "preflight": "observability-production",
+      "files": [
+        "infra/observability/compose.base.yml",
+        "infra/observability/compose.resources.yml",
+        "infra/observability/compose.production.yml"
+      ]
+    },
+    "observability-rehearsal": {
+      "classification": "rehearsal-only",
+      "project": "knu-roommate-observability",
+      "envFile": "infra/observability/.env.observability",
+      "validationEnvFile": "infra/observability/.env.observability.example",
+      "files": [
+        "infra/observability/compose.base.yml",
+        "infra/observability/compose.resources.yml",
+        "infra/rehearsal/compose.observability.yml"
+      ],
+      "managedNetworks": [
+        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
+      ]
+    },
+    "web-rehearsal": {
+      "classification": "rehearsal-only",
+      "project": "knu-roommate-web-observability",
+      "envFile": "infra/observability/.env.observability",
+      "validationEnvFile": "infra/observability/.env.observability.example",
+      "files": [
+        "infra/observability/compose.base.yml",
+        "infra/observability/compose.resources.yml",
+        "infra/rehearsal/compose.observability.yml",
+        "infra/rehearsal/compose.web.yml",
+        "infra/rehearsal/compose.web.fixture.yml"
+      ],
+      "managedNetworks": [
+        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
+      ]
+    },
+    "full-stack-web-rehearsal": {
+      "classification": "rehearsal-only",
+      "project": "knu-roommate-full-stack-web",
+      "envFile": "infra/observability/.env.observability",
+      "validationEnvFile": "infra/observability/.env.observability.example",
+      "files": [
+        "infra/observability/compose.base.yml",
+        "infra/observability/compose.resources.yml",
+        "infra/rehearsal/compose.observability.yml",
+        "infra/rehearsal/compose.web.yml"
+      ],
+      "managedNetworks": [
+        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
+      ]
+    }
+  }
+}

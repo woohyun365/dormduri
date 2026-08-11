@@ -40,12 +40,6 @@ export default registerAs('database', () => {
     retentionWorkerSchema: resolveSchema(retentionWorkerDatabaseUrl),
     retentionDisclosureDatabaseUrl,
     retentionDisclosureSchema: resolveSchema(retentionDisclosureDatabaseUrl),
-    directDatabaseUrl: readStringEnv(process.env, 'DIRECT_URL', runtimeDatabaseUrl),
-    migrationDatabaseUrl: readStringEnv(
-      process.env,
-      'MIGRATION_DATABASE_URL',
-      readStringEnv(process.env, 'DIRECT_URL', runtimeDatabaseUrl),
-    ),
     adapterConnectionTimeoutMs: readNumberEnv(
       process.env,
       'DATABASE_ADAPTER_CONNECT_TIMEOUT_MS',

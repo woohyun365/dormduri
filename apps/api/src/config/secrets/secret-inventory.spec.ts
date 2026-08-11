@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { secretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../env-keys/index.js';
 import { SECRET_NAME_PREFIX_ENV } from './secret-name-prefix.constants.js';
 import { buildSecretInventory, formatSecretInventoryReport } from './secret-inventory.js';
 
@@ -14,7 +14,7 @@ describe('secret inventory dry-run', () => {
     });
     const formatted = formatSecretInventoryReport(report);
 
-    expect(report.items).toHaveLength(secretEnvKeys.length);
+    expect(report.items).toHaveLength(runtimeSecretEnvKeys.length);
     expect(formatted).toContain('DATABASE_URL owner=database category=database');
     expect(formatted).toContain('values=not printed');
     expect(formatted).not.toContain('raw-password');

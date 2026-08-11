@@ -23,6 +23,7 @@ test('keeps an empty comparison visible through the repo-policy lane', () => {
     api: false,
     shared: false,
     storybook: false,
+    infra: false,
     repoPolicy: true,
   });
 });

@@ -4,20 +4,25 @@
 
 이 문서는 실제 release마다 채우는 secret-free evidence template이다. 배포 준비와 실행 순서는 먼저 [web-sentry-managed-release-readiness.md](./web-sentry-managed-release-readiness.md)를 따른다.
 
-아직 Sentry account나 배포 target이 준비되지 않았다면 빈 필드는 실패가 아니다. 상태를 `PENDING_RELEASE`로 유지하고 임의 값을 채우지 않는다.
+완료된 component 결과는
+[production-release-evidence.md](./release/production-release-evidence.md)에 연결한다. 이 문서는 전체
+release의 최종 `GO`를 선언하지 않는다.
+
+아직 Sentry account나 배포 target이 준비되지 않았다면 빈 필드는 실패가 아니다. 상태를 `PENDING_TARGET`로 유지하고 임의 값을 채우지 않는다.
 
 ## 현재 상태
 
 | Field              | Value                                                               |
 | ------------------ | ------------------------------------------------------------------- |
-| Status             | `PENDING_RELEASE`                                                   |
+| Status             | `PENDING_TARGET`                                                    |
 | Reason             | Managed Sentry account/project와 deploy target이 아직 결정되지 않음 |
 | Release            |                                                                     |
 | Environment        |                                                                     |
 | Operator           |                                                                     |
 | Evidence timestamp |                                                                     |
 
-허용 상태는 `PENDING_RELEASE`, `READY_FOR_VALIDATION`, `GO`, `NO-GO`, `GO_WITH_FOLLOW_UP`이다.
+허용 component 상태는 `PENDING_TARGET`, `READY_FOR_VALIDATION`, `PASS`, `FAIL`,
+`ACCEPTED_RISK`다.
 
 ## 사용자 준비물 확인
 
@@ -86,10 +91,10 @@
 | Expected BFF outcome·latency      | Loki/Grafana에서만 조회 |                     | Pending  |
 | Product funnel                    | Sentry에 수집하지 않음  |                     | Pending  |
 
-## 최종 판정
+## Component 결과
 
 ```txt
-release_decision: PENDING_RELEASE
+component_result: PENDING_TARGET
 blocking_failures:
 accepted_follow_ups:
 operator:
@@ -98,9 +103,10 @@ evidence_timestamp:
 
 ### 판정 규칙
 
-- 외부 준비물이 없는 상태에서는 `PENDING_RELEASE`를 유지한다.
+- 외부 준비물이 없는 상태에서는 `PENDING_TARGET`를 유지한다.
 - 준비물은 있으나 managed smoke 전이면 `READY_FOR_VALIDATION`이다.
-- 필수 managed intake, privacy, symbolication, secret boundary가 모두 통과해야 `GO`다.
-- 실제 검증에서 필수 항목이 실패하면 `NO-GO`다.
-- 필수 항목은 통과했으나 비차단 후속 조치가 있으면 `GO_WITH_FOLLOW_UP`과 조치를 함께 기록한다.
+- 필수 managed intake, privacy, symbolication, secret boundary가 모두 통과해야 `PASS`다.
+- 실제 검증에서 필수 항목이 실패하면 `FAIL`이다.
+- 필수 안전 경계는 통과했으나 비차단 후속 조치가 있으면 `ACCEPTED_RISK`와 owner·기한을 함께 기록한다.
+- 전체 release의 최종 판정은 aggregate evidence에 component 결과를 연결한 뒤 수행한다.
 - DSN 전체 값, auth token, raw event payload, 실제 사용자 데이터는 기록하지 않는다.

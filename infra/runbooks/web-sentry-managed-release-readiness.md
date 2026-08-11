@@ -12,7 +12,7 @@
 - `pnpm web:sentry:rehearsal`은 외부 Sentry account 없이 실행할 수 있다.
 - Production capture와 source-map upload는 managed evidence가 없으면 no-op이다.
 - 실제 managed intake, source-map symbolication, provider-side privacy 설정은 아직 검증하지 않았다.
-- 현재 release 상태는 실패를 뜻하는 `NO-GO`가 아니라 배포 대상이 정해지지 않은 `PENDING_RELEASE`다.
+- 현재 component 상태는 실패가 아니라 배포 대상이 정해지지 않은 `PENDING_TARGET`다.
 
 ## 미래 배포 세션 읽기 순서
 
@@ -20,7 +20,8 @@
 2. [web-sentry-managed-observability.md](./web-sentry-managed-observability.md)에서 runtime owner와 설정 경계를 확인한다.
 3. [web-operational-observability.md](./web-operational-observability.md)에서 Sentry와 BFF Loki/Grafana의 책임을 구분한다.
 4. [web-sentry-managed-release-evidence.md](./web-sentry-managed-release-evidence.md)를 해당 release의 secret-free 기록으로 복사하거나 채운다.
-5. [production-release-checklist.md](./production-release-checklist.md)의 Observability gate와 함께 최종 판정한다.
+5. [Production release aggregate evidence](./release/production-release-evidence.md)에 이 component
+   evidence를 연결한다. 전체 release의 최종 판정은 aggregate evidence에서만 수행한다.
 
 ## 사용자에게 확인할 준비물
 
@@ -156,16 +157,18 @@ Raw event payload, DSN 전체 값, auth token, 실제 사용자 데이터는 남
 ## 상태 전이
 
 ```text
-PENDING_RELEASE
+PENDING_TARGET
   -> READY_FOR_VALIDATION
-  -> GO | NO-GO | GO_WITH_FOLLOW_UP
+  -> PASS | FAIL | ACCEPTED_RISK
 ```
 
-- `PENDING_RELEASE`: 계정 또는 배포 target이 아직 준비되지 않았다. 실패 상태가 아니다.
+- `PENDING_TARGET`: 계정 또는 배포 target이 아직 준비되지 않았다. 실패 상태가 아니다.
 - `READY_FOR_VALIDATION`: 사용자 준비물이 확인되어 managed smoke를 실행할 수 있다.
-- `GO`: 필수 managed evidence가 모두 통과했다.
-- `NO-GO`: 실제 검증을 수행했고 필수 gate가 실패했다.
-- `GO_WITH_FOLLOW_UP`: 필수 gate는 통과했으며 비차단 후속 조치가 명시되어 있다.
+- `PASS`: 필수 managed evidence가 모두 통과했다.
+- `FAIL`: 실제 검증을 수행했고 필수 component gate가 실패했다.
+- `ACCEPTED_RISK`: 필수 안전 경계는 통과했고 owner·기한이 있는 비차단 후속 조치가 남았다.
+
+전체 release의 `GO`, `NO_GO`, `GO_WITH_FOLLOW_UP`은 aggregate evidence에서만 판정한다.
 
 ## 중단 조건
 

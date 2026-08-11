@@ -19,7 +19,7 @@ describe('Auth DB role grants SQL artifact', () => {
     expect(sql).toContain('Application RBAC remains the canonical user/action authorization layer');
   });
 
-  it('retention worker는 Auth TTL 대상 table에 SELECT/DELETE를 받고 read-only는 write를 받지 않는다', () => {
+  it('retention worker는 TTL delete와 outbox lag read 권한을 받고 read-only는 write를 받지 않는다', () => {
     for (const table of [
       'LoginAttempt',
       'VerificationCode',
@@ -40,7 +40,7 @@ describe('Auth DB role grants SQL artifact', () => {
     expect(sql).toContain(
       "GRANT SELECT ON TABLE %I.%I TO %I', target_schema, table_name, app_readonly_role",
     );
-    expect(sql).not.toContain(
+    expect(sql).toContain(
       "GRANT SELECT ON TABLE %I.%I TO %I', target_schema, table_name, retention_worker_role",
     );
     expect(sql).not.toContain(

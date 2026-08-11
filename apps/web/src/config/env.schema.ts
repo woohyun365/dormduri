@@ -6,6 +6,119 @@ const LOCAL_API_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1',
 
 type RawWebEnv = Partial<Record<string, string | undefined>>;
 
+export type WebEnvScope = 'build-public' | 'build-secret' | 'build-server' | 'runtime-server';
+export type WebEnvRequirement =
+  | 'production-required'
+  | 'target-required'
+  | 'optional'
+  | 'safe-default';
+
+export type WebEnvDefinition = Readonly<{
+  key: string;
+  scope: WebEnvScope;
+  requirement: WebEnvRequirement;
+  secret?: boolean;
+}>;
+
+export const WEB_ENV_KEYS = [
+  { key: 'NEXT_PUBLIC_APP_URL', scope: 'build-public', requirement: 'target-required' },
+  { key: 'NEXT_PUBLIC_API_URL', scope: 'build-public', requirement: 'safe-default' },
+  { key: 'NEXT_PUBLIC_SENTRY_ENABLED', scope: 'build-public', requirement: 'safe-default' },
+  { key: 'NEXT_PUBLIC_SENTRY_DSN', scope: 'build-public', requirement: 'optional' },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_RUNTIME_ERRORS_ENABLED',
+    scope: 'build-public',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_PERFORMANCE_ENABLED',
+    scope: 'build-public',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE',
+    scope: 'build-public',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED',
+    scope: 'build-public',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED',
+    scope: 'build-public',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_LOCAL_RECORDING',
+    scope: 'build-public',
+    requirement: 'optional',
+  },
+  {
+    key: 'NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT',
+    scope: 'build-public',
+    requirement: 'target-required',
+  },
+  { key: 'NEXT_PUBLIC_WEB_RELEASE', scope: 'build-public', requirement: 'target-required' },
+  {
+    key: 'NEXT_PUBLIC_WEB_OPERATIONAL_DEBUG',
+    scope: 'build-public',
+    requirement: 'optional',
+  },
+  {
+    key: 'NEXT_PUBLIC_SENTRY_RECORDING_TRANSPORT_REJECT',
+    scope: 'build-public',
+    requirement: 'optional',
+  },
+  { key: 'WEB_APP_URL', scope: 'runtime-server', requirement: 'target-required' },
+  { key: 'API_URL', scope: 'runtime-server', requirement: 'target-required' },
+  {
+    key: 'WEB_OBSERVABILITY_ENVIRONMENT',
+    scope: 'runtime-server',
+    requirement: 'target-required',
+  },
+  { key: 'WEB_RELEASE', scope: 'runtime-server', requirement: 'target-required' },
+  {
+    key: 'WEB_BFF_OPERATIONAL_LOGGING_ENABLED',
+    scope: 'runtime-server',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'WEB_BFF_SUCCESS_SAMPLE_RATE',
+    scope: 'runtime-server',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'SENTRY_SOURCE_MAP_UPLOAD_ENABLED',
+    scope: 'build-server',
+    requirement: 'safe-default',
+  },
+  {
+    key: 'SENTRY_RELEASE_EVIDENCE_APPROVED',
+    scope: 'build-server',
+    requirement: 'safe-default',
+  },
+  { key: 'SENTRY_ORG', scope: 'build-server', requirement: 'target-required' },
+  { key: 'SENTRY_PROJECT', scope: 'build-server', requirement: 'target-required' },
+  { key: 'SENTRY_RELEASE', scope: 'build-server', requirement: 'target-required' },
+  {
+    key: 'SENTRY_AUTH_TOKEN',
+    scope: 'build-secret',
+    requirement: 'target-required',
+    secret: true,
+  },
+] as const satisfies readonly WebEnvDefinition[];
+
+function webEnvKeysForScope(scope: WebEnvScope): readonly string[] {
+  return WEB_ENV_KEYS.filter((definition) => definition.scope === scope).map(({ key }) => key);
+}
+
+export const WEB_BUILD_PUBLIC_ENV_KEYS = webEnvKeysForScope('build-public');
+export const WEB_BUILD_SECRET_ENV_KEYS = webEnvKeysForScope('build-secret');
+export const WEB_BUILD_SERVER_ENV_KEYS = webEnvKeysForScope('build-server');
+export const WEB_RUNTIME_SERVER_ENV_KEYS = webEnvKeysForScope('runtime-server');
+
 export type WebRuntimeMode = 'development' | 'test' | 'production';
 
 export type WebOperationalTelemetryEnv = {
@@ -131,14 +244,14 @@ function assertProductionPublicHttpsUrl(input: {
   if (input.runtimeMode !== 'production') return;
   if (!input.rawValue) {
     throw new WebEnvValidationError(
-      'NEXT_PUBLIC_APP_URL is required in production runtime.',
-      'NEXT_PUBLIC_APP_URL_REQUIRED_IN_PRODUCTION',
+      'WEB_APP_URL is required in production runtime.',
+      'WEB_APP_URL_REQUIRED_IN_PRODUCTION',
     );
   }
   if (input.normalized.url.protocol !== 'https:') {
     throw new WebEnvValidationError(
-      'NEXT_PUBLIC_APP_URL must use https in production runtime.',
-      'NEXT_PUBLIC_APP_URL_HTTPS_REQUIRED_IN_PRODUCTION',
+      'WEB_APP_URL must use https in production runtime.',
+      'WEB_APP_URL_HTTPS_REQUIRED_IN_PRODUCTION',
     );
   }
 }
@@ -161,7 +274,7 @@ function normalizeTelemetryEnvironment(
   rawEnv: RawWebEnv,
   runtimeMode: WebRuntimeMode,
 ): WebOperationalTelemetryEnv['environment'] {
-  const value = readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT');
+  const value = readEnvValue(rawEnv, 'WEB_OBSERVABILITY_ENVIRONMENT');
   if (value === 'preview') return 'preview';
   if (value === 'production' || runtimeMode === 'production') return 'production';
   return 'local';
@@ -190,7 +303,7 @@ function parseOperationalTelemetryEnv(
 ): WebOperationalTelemetryEnv {
   return {
     environment: normalizeTelemetryEnvironment(rawEnv, runtimeMode),
-    release: readEnvValue(rawEnv, 'NEXT_PUBLIC_WEB_RELEASE') ?? 'development',
+    release: readEnvValue(rawEnv, 'WEB_RELEASE') ?? 'development',
     bffStructuredLoggingEnabled:
       readBooleanFlag(rawEnv, 'WEB_BFF_OPERATIONAL_LOGGING_ENABLED') ||
       runtimeMode === 'production',
@@ -245,13 +358,13 @@ export function parseWebServerEnv(
   rawEnv: RawWebEnv,
   runtimeMode: WebRuntimeMode = normalizeWebRuntimeMode(rawEnv.NODE_ENV),
 ): WebServerEnv {
-  const appUrlInput = readEnvValue(rawEnv, 'NEXT_PUBLIC_APP_URL');
+  const appUrlInput = readEnvValue(rawEnv, 'WEB_APP_URL');
   const apiUrlInput = readEnvValue(rawEnv, 'API_URL');
   const publicApiBaseInput = readEnvValue(rawEnv, 'NEXT_PUBLIC_API_URL');
 
-  const appUrl = normalizeHttpUrl(appUrlInput ?? DEFAULT_APP_URL, 'NEXT_PUBLIC_APP_URL');
+  const appUrl = normalizeHttpUrl(appUrlInput ?? DEFAULT_APP_URL, 'WEB_APP_URL');
   assertProductionNonLocalUrl({
-    key: 'NEXT_PUBLIC_APP_URL',
+    key: 'WEB_APP_URL',
     rawValue: appUrlInput,
     normalized: appUrl,
     runtimeMode,

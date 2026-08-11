@@ -133,14 +133,14 @@ describe('backup and restore drill readiness boundary', () => {
     expect(workflow).toContain('pnpm api:db:restore-drill:smoke -- --dry-run');
     expect(workflow).toContain('pnpm api:db:restore-drill:smoke');
     expect(workflow).toContain('infra/deploy/scripts/api-release-smoke.sh --dry-run');
-    expect(workflow).toContain('actions/upload-artifact@v4');
+    expect(workflow).toMatch(/actions\/upload-artifact@[a-f0-9]{40} # v4/u);
     expect(workflow).toContain('secret values are intentionally excluded');
   });
 
   it('connects restore drill evidence to DB, local rehearsal, and official readiness docs', () => {
     const dbReadme = readRepoFile('infra/db/README.md');
     const deployReadme = readRepoFile('infra/deploy/README.md');
-    const policy = readRepoFile('docs/policies/production-deployment-readiness.md');
+    const policy = readRepoFile('docs/policies/production-runtime-safety.md');
     const futureInputs = readRepoFile('docs/development/future-production-deployment-inputs.md');
 
     for (const doc of [dbReadme, deployReadme, policy]) {

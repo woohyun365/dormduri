@@ -24,16 +24,17 @@ jobs:
       api: ${{ steps.changes.outputs.api }}
       shared: ${{ steps.changes.outputs.shared }}
       storybook: ${{ steps.changes.outputs.storybook }}
+      infra: ${{ steps.changes.outputs.infra }}
       repo_policy: ${{ steps.changes.outputs.repoPolicy }}
       classification_failed: ${{ steps.changes.outputs.classification_failed }}
     steps:
       - name: Checkout full history
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
 
@@ -66,16 +67,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
           version: 11.7.0
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
           cache: pnpm
@@ -104,6 +105,12 @@ jobs:
     with:
       run_storybook: ${{ needs.classify.outputs.storybook == 'true' }}
 
+  infra:
+    name: Infrastructure validation
+    needs: classify
+    if: ${{ needs.classify.outputs.infra == 'true' }}
+    uses: ./.github/workflows/infra-ci.yml
+
   repo_policy:
     name: Repository policy gate
     needs: classify
@@ -112,10 +119,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
 
@@ -129,6 +136,7 @@ jobs:
       - shared
       - api
       - web
+      - infra
       - repo_policy
     if: ${{ always() }}
     runs-on: ubuntu-24.04
@@ -143,6 +151,8 @@ jobs:
           API_RESULT: ${{ needs.api.result }}
           WEB_SELECTED: ${{ needs.classify.outputs.web }}
           WEB_RESULT: ${{ needs.web.result }}
+          INFRA_SELECTED: ${{ needs.classify.outputs.infra }}
+          INFRA_RESULT: ${{ needs.infra.result }}
           REPO_POLICY_SELECTED: ${{ needs.classify.outputs.repo_policy }}
           REPO_POLICY_RESULT: ${{ needs.repo_policy.result }}
           CLASSIFICATION_FAILED: ${{ needs.classify.outputs.classification_failed }}
@@ -173,6 +183,7 @@ jobs:
           require_selected_lane "shared" "$SHARED_SELECTED" "$SHARED_RESULT"
           require_selected_lane "api" "$API_SELECTED" "$API_RESULT"
           require_selected_lane "web" "$WEB_SELECTED" "$WEB_RESULT"
+          require_selected_lane "infra" "$INFRA_SELECTED" "$INFRA_RESULT"
           require_selected_lane "repo-policy" "$REPO_POLICY_SELECTED" "$REPO_POLICY_RESULT"
 
           {
@@ -183,6 +194,7 @@ jobs:
             echo "| shared | ${SHARED_SELECTED} | ${SHARED_RESULT} |"
             echo "| api | ${API_SELECTED} | ${API_RESULT} |"
             echo "| web | ${WEB_SELECTED} | ${WEB_RESULT} |"
+            echo "| infra | ${INFRA_SELECTED} | ${INFRA_RESULT} |"
             echo "| repo-policy | ${REPO_POLICY_SELECTED} | ${REPO_POLICY_RESULT} |"
             echo "| classifier fail-open | ${CLASSIFICATION_FAILED} | n/a |"
           } >> "$GITHUB_STEP_SUMMARY"

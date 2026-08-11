@@ -3,6 +3,10 @@
 이 디렉터리는 API의 structured JSON stdout log와 `/internal/metrics`를 local/staging에서 확인하는 관측 stack을 제공한다.
 API product behavior, route, response code, auth/session semantics는 이 stack을 켜도 바뀌지 않는다.
 
+Production private stack의 strict profile, retention, volume, operator access, Docker socket 위험은
+`infra/runbooks/observability-production-operations.md`를 기준으로 한다. Local example을 복사한
+설정은 production profile에서 거부된다.
+
 ## 구성
 
 | Component    | Local URL              | 역할                                             |
@@ -46,13 +50,21 @@ cp \
 ```bash
 # config validation
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml config
+docker compose --env-file .env.observability -f compose.base.yml config
 
 # stack up
-docker compose --env-file .env.observability -f docker-compose.observability.yml up -d
+docker compose --env-file .env.observability -f compose.base.yml up -d
 ```
 
 API가 host에서 실행 중이면 기본 scrape target은 `host.docker.internal:4000`이다. API compose와 같은 Docker network에서 실행할 때는 `.env.observability`의 `API_METRICS_TARGET`을 `api:4000`처럼 바꾼다.
+
+Production 후보는 base를 직접 실행하지 않고 strict profile을 사용한다.
+
+```bash
+pnpm observability:check:production
+pnpm infra:compose -- observability-production config
+pnpm infra:compose -- observability-production up -d
+```
 
 ## 확인
 
@@ -86,16 +98,7 @@ Grafana Explore에서 datasource `Loki`를 선택하고 다음 query를 실행�
 {service="api", level="error"}
 ```
 
-Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다. `pnpm web:observability:rehearsal`은 production standalone Web image와 deterministic upstream fixture를 관측 stack에 연결해 이 경로를 OrbStack에서 검증한다.
-
-관측 stack 자체의 Docker log를 확인할 때는 다음처럼 service label을 구분한다.
-
-```logql
-{service="prometheus"}
-{service="grafana"}
-{service="loki"}
-{service="alloy"}
-```
+Alloy는 Docker stdout log 중 `api`, `nginx`, `web` service만 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. 관측 stack 자체와 그 밖의 container log는 수집 대상이 아니다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다. `pnpm web:observability:rehearsal`은 production standalone Web image와 deterministic upstream fixture를 관측 stack에 연결해 이 경로를 OrbStack에서 검증한다.
 
 ## Release rehearsal checklist
 
@@ -113,7 +116,7 @@ Stress window 동안 우선 확인할 항목은 다음과 같다.
 - 같은 dashboard에서 login outcome, real/dummy password verify p95·in-flight, renewal outcome을 함께 확인한다.
 - Loki는 API가 Dockerized `api` service로 실행될 때 `{service="api", level="error"}`를 확인한다. Host process API는 Docker log source가 아니므로 Loki API log가 없을 수 있다.
 - 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다.
-- 4GB/2CPU local constrained rehearsal은 `docker-compose.observability.rehearsal.yml`을 추가 적용한다.
+- 4GB/2CPU local constrained rehearsal은 `infra/rehearsal/compose.observability.yml`을 추가 적용한다.
 
 ## Label / privacy policy
 
@@ -141,7 +144,7 @@ runner는 다음을 자동 검증하고 종료 시 전용 container·network·vo
 - `web` stdout → Alloy → Loki ingest
 - Grafana `knu-web-bff-reliability` dashboard provisioning
 - raw rehearsal email/token/query 비노출
-- Loki 중단 중 Web BFF 응답 fail-open
+- Loki, Prometheus, Grafana 개별 중단 중 Web BFF 응답 fail-open과 recovery time
 
 실행 후 container를 유지하려면 `WEB_REHEARSAL_KEEP=1`을 사용한다. 2CPU/4GB가 아닌 Docker Engine에서 compose 기능만 점검할 때는 명시적으로 `WEB_REHEARSAL_ALLOW_UNCONSTRAINED=1`을 사용하되 release evidence로 취급하지 않는다.
 
@@ -179,15 +182,15 @@ Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, run
 ## Resource guidance
 
 - 2GB 최소형: API 운영은 가능하지만 Grafana/Loki/Prometheus/Alloy 상시 동시 실행은 여유가 적다. 필요 시 stack을 local/별도 ops host에서만 실행한다.
-- 4GB 관측 포함형: Docker engine을 2CPU/4096MiB로 제한하고 `docker-compose.observability.rehearsal.yml`의 container limit을 적용한다.
+- 4GB 관측 포함형: `infra/observability/compose.resources.yml`의 production/rehearsal 공통 container limit을 적용한다.
 - Auth password capacity 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 ## 정리
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml down
+docker compose --env-file .env.observability -f compose.base.yml down
 
 # volume까지 제거할 때만 사용
-docker compose --env-file .env.observability -f docker-compose.observability.yml down -v
+docker compose --env-file .env.observability -f compose.base.yml down -v
 ```

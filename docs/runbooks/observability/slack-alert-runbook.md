@@ -14,13 +14,13 @@ Prometheus alert가 Alertmanager를 거쳐 Slack channel로 도착하지 않을 
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml ps alertmanager
+docker compose --env-file .env.observability -f compose.base.yml ps alertmanager
 ```
 
 3. Alertmanager log를 확인한다.
 
 ```bash
-docker compose --env-file .env.observability -f docker-compose.observability.yml logs --tail=100 alertmanager
+docker compose --env-file .env.observability -f compose.base.yml logs --tail=100 alertmanager
 ```
 
 4. smoke alert를 1회 재전송한다. Prometheus의 `SlackAlertSmokeNonFiring` non-firing guard가 firing되면 `expr: vector(0) == 1` 유지 여부와 Prometheus reload 상태를 확인한다.

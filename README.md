@@ -78,7 +78,7 @@
 - `MATCH_SCORE` 정렬은 projection table precompute가 아니라 query-time score calculation으로 구현했다.
 - bounded cache는 실제 병목이 측정된 뒤 후속 issue에서 도입한다.
 
-관련 제품 경계와 계산 기준은 `docs/policies/roommate-searching.md`, `docs/policies/matching-algorithm.md`, `docs/policies/production-deployment-readiness.md`에서 관리합니다.
+관련 제품 경계와 계산 기준은 `docs/policies/roommate-searching.md`, `docs/policies/matching-algorithm.md`에서 관리합니다.
 
 ### 4. Account deletion / retention foundation
 
@@ -149,6 +149,7 @@ KNU Roommate는 학교 이메일 인증을 통과한 사용자가 시즌별로 �
 | `docs/runbooks/`     | 반복 가능한 운영·관측·복구 절차                                                                |
 | `docs/development/`  | 재사용 가능한 개발·테스트 troubleshooting                                                      |
 | `.omx/plans/`        | 실행 중인 세션 단위 리팩토링·정합성 계획                                                       |
+| `artifacts/local/`   | 도구와 무관한 로컬 검증·빌드·stress 산출물(Git 제외)                                           |
 
 ## 프로젝트 구조
 

@@ -39,8 +39,8 @@ cp \
   infra/observability/prometheus/secrets/api-metrics-bearer-token.example \
   infra/observability/prometheus/secrets/api-metrics-bearer-token.local
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml config
-docker compose --env-file .env.observability -f docker-compose.observability.yml up -d
+docker compose --env-file .env.observability -f compose.base.yml config
+docker compose --env-file .env.observability -f compose.base.yml up -d
 ```
 
 확인:
@@ -158,7 +158,7 @@ rm -f apps/api/test/stress/reports/.tmp-*
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml down
+docker compose --env-file .env.observability -f compose.base.yml down
 ```
 
 최종 확인:

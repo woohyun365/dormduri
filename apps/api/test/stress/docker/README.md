@@ -4,13 +4,13 @@
 
 ## Runner
 
-| Script                                                     | 용도                                                                                                                                                | 기본 report                                           |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `pnpm --dir apps/api stress:docker:smoke`                  | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `.omx/reports/api-dockerized-stress-result-*.md`      |
-| `pnpm --dir apps/api stress:docker:production-like`        | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `.omx/reports/api-production-like-stress-result-*.md` |
-| `pnpm --dir apps/api stress:docker:237-ramp`               | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `.omx/reports/api-237-ramp-decision-result-*.md`      |
-| `pnpm --dir apps/api stress:docker:auth-password-capacity` | 19MiB Argon2id login/signup/reset/change endpoint mix를 H1~H9 중 하나로 실행                                                                        | `.omx/reports/api-auth-password-capacity-result-*.md` |
-| `pnpm --dir apps/api stress:local:auth-password`           | 2CPU/4096MiB Docker engine을 강제하고 resource-limited 관측 stack과 H1~H9 profile을 순차 실행                                                       | `.omx/reports/api-auth-password-capacity-result-*.md` |
+| Script                                                     | 용도                                                                                                                                                | 기본 report                                                     |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `pnpm --dir apps/api stress:docker:smoke`                  | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `artifacts/local/stress/api-dockerized-stress-result-*.md`      |
+| `pnpm --dir apps/api stress:docker:production-like`        | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `artifacts/local/stress/api-production-like-stress-result-*.md` |
+| `pnpm --dir apps/api stress:docker:237-ramp`               | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `artifacts/local/stress/api-237-ramp-decision-result-*.md`      |
+| `pnpm --dir apps/api stress:docker:auth-password-capacity` | 19MiB Argon2id login/signup/reset/change endpoint mix를 H1~H9 중 하나로 실행                                                                        | `artifacts/local/stress/api-auth-password-capacity-result-*.md` |
+| `pnpm --dir apps/api stress:local:auth-password`           | 2CPU/4096MiB Docker engine을 강제하고 resource-limited 관측 stack과 H1~H9 profile을 순차 실행                                                       | `artifacts/local/stress/api-auth-password-capacity-result-*.md` |
 
 ## 공통 실행 대상
 
@@ -47,8 +47,9 @@ pnpm --dir apps/api stress:docker:production-like
 
 Production-like runner는 smoke runner와 같은 안전 경계를 유지하면서 다음을 추가한다.
 
-- `infra/deploy/docker-compose.api.override.example.yml`로 API/nginx를 observability network에 붙인다.
-- `infra/observability/docker-compose.observability.yml`을 함께 올리고 Prometheus API target readout을 report에 남긴다.
+- `infra/rehearsal/compose.api.runtime.yml`로 API/nginx resource/network를 적용한다.
+- `apps/api/test/stress/docker/compose.stress.yml`로 high throttle과 stress-only proxy 값을 주입한다.
+- `infra/observability/compose.base.yml`을 함께 올리고 Prometheus API target readout을 report에 남긴다.
 - 기본 fixture는 `largestCohortSize=237`, `stressCohortSize=946`, `tokenActorLimit=25`다.
 - login capacity는 실제 fixture 계정과 미존재 계정 dummy verify를 1:1로 섞고 기본 10 VU에서 시작한다.
 - k6 기본 duration/VU는 smoke보다 크지만 local machine 보호를 위해 staging peak보다 낮게 시작한다.
@@ -78,7 +79,7 @@ pnpm --dir apps/api stress:docker:237-ramp
 
 1. 237명 fixture / largest cohort 237 / token actor 50으로 seed와 token artifact를 생성한다.
 2. VU `25 → 50 → 100 → 237` 순서로 `smoke → authenticated baseline → score-cohort`를 실행한다.
-3. 각 단계마다 별도 report `.omx/reports/api-237-ramp-decision-vu*.md`를 남기고, 최종 누적 decision report를 `.omx/reports/api-237-ramp-decision-result-*.md`에 쓴다.
+3. 각 단계마다 별도 report `artifacts/local/stress/api-237-ramp-decision-vu*.md`를 남기고, 최종 누적 decision report를 `artifacts/local/stress/api-237-ramp-decision-result-*.md`에 쓴다.
 4. `score p95 >= 300ms` 또는 `score p99 >= 1500ms`가 반복되면 #247 `MATCH_SCORE` bounded cache 승격 후보로 기록한다.
 5. runner 실패, `http_req_failed > 1%`, `checks < 98%`, `p95 >= 500ms`이면 다음 VU 단계로 올리지 않고 stop gate를 report에 남긴다.
 
@@ -129,8 +130,8 @@ STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
   pnpm --dir apps/api stress:local:auth-password
 ```
 
-- API/nginx는 `infra/deploy/docker-compose.api.override.example.yml`을 사용한다.
-- 관측 stack은 `infra/observability/docker-compose.observability.rehearsal.yml`을 추가 적용한다.
+- API/nginx는 `infra/rehearsal/compose.api.runtime.yml`의 resource/network와 `compose.stress.yml`의 stress-only policy를 사용한다.
+- 관측 stack은 `infra/rehearsal/compose.observability.yml`을 추가 적용한다.
 - H8은 60분 soak이므로 `STRESS_LOCAL_REHEARSAL_INCLUDE_SOAK=I_UNDERSTAND_60_MINUTES` 없이는 실행하지 않는다.
 - Web/BackOffice는 현재 compose에 포함하지 않으며, local PostgreSQL은 managed PostgreSQL 성능을 대표하지 않는다.
 - 자세한 준비·판정·cleanup 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`가 소유한다.

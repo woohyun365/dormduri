@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { secretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../env-keys/index.js';
 import {
   defaultSecretNamePrefixForEnv,
   listSecretNameMappings,
@@ -10,7 +10,7 @@ import {
 
 describe('secret name registry', () => {
   it('tracks every env key registered as secret', () => {
-    expect(secretEnvKeyNames).toEqual(secretEnvKeys.map((definition) => definition.key));
+    expect(secretEnvKeyNames).toEqual(runtimeSecretEnvKeys.map((definition) => definition.key));
     expect(secretEnvKeyNames).toContain('DATABASE_URL');
     expect(secretEnvKeyNames).toContain('VERIFICATION_CODE_HMAC_SECRET');
     expect(secretEnvKeyNames).toContain('AUTH_PERSISTENCE_HMAC_SECRET');
@@ -27,7 +27,7 @@ describe('secret name registry', () => {
     expect(normalizeSecretNamePrefix('/knu-roommate/prod/api/')).toBe('/knu-roommate/prod/api');
 
     const mappings = listSecretNameMappings({ prefix: '/knu-roommate/prod/api/' });
-    expect(mappings).toHaveLength(secretEnvKeys.length);
+    expect(mappings).toHaveLength(runtimeSecretEnvKeys.length);
     expect(mappings.find((mapping) => mapping.envKey === 'DATABASE_URL')).toEqual({
       envKey: 'DATABASE_URL',
       secretName: '/knu-roommate/prod/api/DATABASE_URL',

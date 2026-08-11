@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { envValidationSchema } from '../env.validation.js';
-import { ALL_ENV_KEYS, productionDefaultForbiddenEnvKeys, secretEnvKeys } from './index.js';
+import {
+  ALL_ENV_KEYS,
+  deployTimeRequiredEnvKeys,
+  productionDefaultForbiddenEnvKeys,
+  runtimeRequiredProductionEnvKeys,
+  runtimeSecretEnvKeys,
+  secretEnvKeys,
+} from './index.js';
 
 function describeSchemaKeys(): Set<string> {
   const description = envValidationSchema.describe() as { keys?: Record<string, unknown> };
@@ -36,8 +43,22 @@ describe('env key registry', () => {
     expect(
       productionDefaultForbiddenEnvKeys.filter(
         (definition) =>
-          definition.placeholderAllowed === true || definition.requiredInProduction !== true,
+          definition.placeholderAllowed === true ||
+          (definition.requiredInProduction !== true && definition.requiredForDeployment !== true),
       ),
     ).toEqual([]);
+  });
+
+  it('separates runtime startup requirements from deploy-time migration credentials', () => {
+    expect(runtimeRequiredProductionEnvKeys.map(({ key }) => key)).toContain('DATABASE_URL');
+    expect(runtimeRequiredProductionEnvKeys.map(({ key }) => key)).not.toContain('DIRECT_URL');
+    expect(runtimeRequiredProductionEnvKeys.map(({ key }) => key)).not.toContain(
+      'MIGRATION_DATABASE_URL',
+    );
+    expect(deployTimeRequiredEnvKeys.map(({ key }) => key)).toEqual([
+      'DIRECT_URL',
+      'MIGRATION_DATABASE_URL',
+    ]);
+    expect(runtimeSecretEnvKeys.map(({ key }) => key)).not.toContain('MIGRATION_DATABASE_URL');
   });
 });

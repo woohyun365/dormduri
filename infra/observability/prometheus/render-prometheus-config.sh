@@ -5,6 +5,24 @@ set -eu
 : "${API_METRICS_TARGET:=host.docker.internal:4000}"
 : "${PROMETHEUS_RETENTION:=15d}"
 : "${OBSERVABILITY_ENV:=local}"
+: "${OBSERVABILITY_STRICT:=false}"
+
+if [ "$OBSERVABILITY_STRICT" = 'true' ]; then
+  if [ "$OBSERVABILITY_ENV" != 'production' ]; then
+    echo 'Production Prometheus requires OBSERVABILITY_ENV=production.' >&2
+    exit 1
+  fi
+  case "$API_METRICS_TARGET" in
+    localhost:*|127.0.0.1:*|host.docker.internal:*)
+      echo 'Production Prometheus requires a private container or target-network API address.' >&2
+      exit 1
+      ;;
+  esac
+  if [ ! -s /etc/prometheus/secrets/api-metrics-bearer-token ]; then
+    echo 'Production Prometheus requires a non-empty metrics bearer token file.' >&2
+    exit 1
+  fi
+fi
 
 sed \
   -e "s|__API_METRICS_SCHEME__|${API_METRICS_SCHEME}|g" \

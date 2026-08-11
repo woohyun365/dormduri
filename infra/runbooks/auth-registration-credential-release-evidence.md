@@ -2,6 +2,9 @@
 
 이 runbook은 Signup, Change Password, Logout의 원자적 lifecycle과 nickname 사전 확인 경계를 release candidate에서 검증하는 최소 evidence다. 아직 production 사용자 데이터가 없으므로 기존 사용자 백업이나 dual-write migration은 범위에 포함하지 않는다.
 
+완료 결과는 `infra/runbooks/release/production-release-evidence.md`의 credential lifecycle component에
+연결하며, 이 문서에서는 전체 release의 최종 판정을 선언하지 않는다.
+
 ## 1. Shared·API·Web static gate
 
 ```bash

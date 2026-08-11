@@ -112,6 +112,15 @@ describe('envValidationSchema', () => {
     expect(error).toBeUndefined();
   });
 
+  it('does not require deploy-time migration credentials in the API runtime', () => {
+    const { error } = envValidationSchema.validate(
+      productionEnv({ DIRECT_URL: undefined, MIGRATION_DATABASE_URL: undefined }),
+      { abortEarly: false },
+    );
+
+    expect(error).toBeUndefined();
+  });
+
   it('requires critical production secrets', () => {
     expect(errorPaths(productionEnv({ LOG_HASH_SECRET: undefined }))).toContain('LOG_HASH_SECRET');
     expect(errorPaths(productionEnv({ METRICS_BEARER_TOKEN: undefined }))).toContain(

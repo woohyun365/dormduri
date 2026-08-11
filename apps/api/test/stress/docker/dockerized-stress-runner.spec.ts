@@ -43,11 +43,15 @@ const rampDecisionSource = readFileSync(
   'utf8',
 );
 const apiResourceOverrideSource = readFileSync(
-  resolve(process.cwd(), '../../infra/deploy/docker-compose.api.override.example.yml'),
+  resolve(process.cwd(), '../../infra/rehearsal/compose.api.runtime.yml'),
+  'utf8',
+);
+const stressOverrideSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/compose.stress.yml'),
   'utf8',
 );
 const observabilityResourceOverrideSource = readFileSync(
-  resolve(process.cwd(), '../../infra/observability/docker-compose.observability.rehearsal.yml'),
+  resolve(process.cwd(), '../../infra/observability/compose.resources.yml'),
   'utf8',
 );
 const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
@@ -56,7 +60,7 @@ const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json
 
 describe('dockerized stress smoke runner', () => {
   it('keeps docker API/nginx smoke steps executable from one script', () => {
-    expect(source).toContain('docker-compose.api.yml');
+    expect(source).toContain('loadComposeInventory');
     expect(source).toContain("'--accept-data-loss'");
     expect(source).toContain('api compose build');
     expect(source).toContain('api compose up');
@@ -82,7 +86,9 @@ describe('dockerized stress smoke runner', () => {
   });
 
   it('writes a sanitized report and removes raw .tmp artifacts', () => {
-    expect(source).toContain('.omx/reports/api-dockerized-stress-result-');
+    expect(source).toContain("resolveArtifactPath(repoRoot, ['stress'])");
+    expect(source).toContain('api-dockerized-stress-result-');
+    expect(source).not.toContain('.omx/reports');
     expect(source).toContain("captureGit('status', ['--porcelain'])");
     expect(reportRendererSource).toContain('bounded-write-mix');
     expect(source).toContain('cleanupRawArtifacts');
@@ -93,7 +99,7 @@ describe('dockerized stress smoke runner', () => {
   it('exposes a production-like evidence profile with observability and DB readout', () => {
     expect(productionLikeSource).toContain("STRESS_DOCKER_PROFILE = 'production-like'");
     expect(source).toContain('api-production-like-stress-result-');
-    expect(source).toContain('docker-compose.api.override.example.yml');
+    expect(source).toContain("'api-stress'");
     expect(source).toContain('observability compose up');
     expect(reportRendererSource).toContain('prometheus api up query');
     expect(source).toContain(
@@ -137,8 +143,8 @@ describe('dockerized stress smoke runner', () => {
     expect(localAuthPasswordRehearsalSource).toContain('authProfileEnvironment(profile)');
     expect(localAuthPasswordRehearsalSource).toContain("STRESS_API_AUTH_LOGIN_BURST_LIMIT: '30'");
     expect(localAuthPasswordRehearsalSource).toContain("STRESS_API_HTTP_TRUST_PROXY_HOPS: '2'");
-    expect(apiResourceOverrideSource).toContain('STRESS_API_AUTH_LOGIN_BURST_LIMIT:-5000');
-    expect(apiResourceOverrideSource).toContain('STRESS_API_HTTP_TRUST_PROXY_HOPS:-0');
+    expect(stressOverrideSource).toContain('STRESS_API_AUTH_LOGIN_BURST_LIMIT:-5000');
+    expect(stressOverrideSource).toContain('STRESS_API_HTTP_TRUST_PROXY_HOPS:-0');
     expect(source).toContain('captureH9AuthSecurityEventSnapshot');
     expect(source).toContain("'LOGIN_FAILURE'");
     expect(source).toContain("'LOGIN_LOCKOUT'");
@@ -146,14 +152,15 @@ describe('dockerized stress smoke runner', () => {
 
   it('keeps API, nginx, and observability resource budgets executable in compose', () => {
     expect(apiResourceOverrideSource).toContain("cpus: '1.50'");
-    expect(apiResourceOverrideSource).toContain('memory: 1536M');
+    expect(apiResourceOverrideSource).toContain('memory: 1408M');
     expect(apiResourceOverrideSource).toContain("cpus: '0.20'");
     expect(apiResourceOverrideSource).toContain('memory: 96M');
     expect(observabilityResourceOverrideSource).toContain("cpus: '0.35'");
     expect(observabilityResourceOverrideSource).toContain('memory: 320M');
     expect(observabilityResourceOverrideSource).toContain("cpus: '0.10'");
+    expect(observabilityResourceOverrideSource).toContain('memory: 320M');
     expect(observabilityResourceOverrideSource).toContain('memory: 160M');
-    expect(source).toContain('docker-compose.observability.rehearsal.yml');
+    expect(source).toContain("'observability-rehearsal'");
   });
 
   it('exposes the 237 cohort ramp decision runner', () => {

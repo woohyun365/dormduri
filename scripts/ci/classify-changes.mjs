@@ -8,6 +8,7 @@ const ALL_PRODUCT_LANES = {
   api: true,
   shared: true,
   storybook: true,
+  infra: true,
   repoPolicy: true,
 };
 
@@ -34,6 +35,7 @@ function emptyClassification() {
     api: false,
     shared: false,
     storybook: false,
+    infra: false,
     repoPolicy: false,
   };
 }
@@ -77,7 +79,30 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path.startsWith('infra/')) {
+    if (
+      path.startsWith('infra/') ||
+      path.startsWith('scripts/infra/') ||
+      path.startsWith('scripts/observability/')
+    ) {
+      result.infra = true;
+      result.repoPolicy = true;
+      if (
+        path.startsWith('infra/db/') ||
+        path.startsWith('infra/deploy/api/') ||
+        path.startsWith('infra/deploy/nginx/') ||
+        path === 'infra/deploy/compose.api.yml' ||
+        path.startsWith('infra/deploy/scripts/')
+      ) {
+        result.api = true;
+      }
+      if (path.startsWith('infra/deploy/web/')) {
+        result.web = true;
+      }
+      matched = true;
+    }
+
+    if (path === 'docker-compose.dev.yml' || path === '.dockerignore') {
+      result.infra = true;
       result.api = true;
       result.repoPolicy = true;
       matched = true;
@@ -94,7 +119,32 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path.startsWith('.github/') || ROOT_TOOLCHAIN_PATHS.has(path)) {
+    if (path === '.github/workflows/api-ci.yml') {
+      result.api = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
+    if (path === '.github/workflows/web-ci.yml') {
+      result.web = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
+    if (path === '.github/workflows/infra-ci.yml' || path === '.github/dependabot.yml') {
+      result.infra = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
+    if (path === '.github/workflows/api-restore-drill-manual.yml') {
+      result.api = true;
+      result.infra = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
+    if ((path.startsWith('.github/') && !matched) || ROOT_TOOLCHAIN_PATHS.has(path)) {
       markAll(result);
       matched = true;
     }

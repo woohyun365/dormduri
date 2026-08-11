@@ -2,6 +2,9 @@
 
 이 문서는 API release 직후 장애에서 **app artifact rollback**과 **DB restore escalation**을 구분하는 provider-neutral 의사결정 기준이다. Production hosting과 rollout transport가 아직 결정되지 않았으므로 원격 실행 명령은 제공하지 않는다.
 
+실제 previous digest와 rehearsal 결과는 component evidence로 남기고
+`release/production-release-evidence.md`에 연결한다.
+
 ## Incident metadata
 
 | Field                  | Value                                                         |

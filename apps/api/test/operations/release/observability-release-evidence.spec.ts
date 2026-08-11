@@ -50,7 +50,8 @@ describe('observability release evidence', () => {
       join(repoRoot, 'infra/observability/rehearsal-checklist.md'),
       'utf8',
     );
-    expect(checklist).toContain('docker-compose.api.yml');
+    expect(checklist).toContain('pnpm infra:compose -- api-stress');
+    expect(checklist).toContain('pnpm infra:compose -- observability-rehearsal');
     expect(checklist).toContain('/health/ready');
     expect(checklist).toContain('/internal/metrics');
     expect(checklist).toContain('stress:docker:smoke');

@@ -22,9 +22,9 @@ services:
       resources:
         limits:
           cpus: '0.15'
-          memory: 96M
+          memory: 160M
         reservations:
-          memory: 48M
+          memory: 80M
 
   alertmanager:
     deploy:
@@ -40,6 +40,6 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 160M
+          memory: 320M
         reservations:
-          memory: 96M
+          memory: 112M

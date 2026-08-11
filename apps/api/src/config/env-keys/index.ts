@@ -11,7 +11,7 @@ import { retentionEnvKeys } from './retention-env.keys.js';
 import { secretSourceEnvKeys } from './secret-source-env.keys.js';
 import type { EnvKeyDefinition } from './env-key.definition.js';
 
-export type { EnvKeyDefinition } from './env-key.definition.js';
+export type { EnvDeploymentScope, EnvKeyDefinition } from './env-key.definition.js';
 
 export const ALL_ENV_KEYS: readonly EnvKeyDefinition[] = [
   ...appEnvKeys,
@@ -35,7 +35,31 @@ export const requiredProductionEnvKeys = ALL_ENV_KEYS.filter(
   (definition) => definition.requiredInProduction === true,
 );
 
+export const runtimeEnvKeys = ALL_ENV_KEYS.filter(
+  (definition) => (definition.deploymentScope ?? 'runtime') === 'runtime',
+);
+
+export const deployTimeEnvKeys = ALL_ENV_KEYS.filter(
+  (definition) => definition.deploymentScope === 'migration',
+);
+
+export const runtimeRequiredProductionEnvKeys = runtimeEnvKeys.filter(
+  (definition) => definition.requiredInProduction === true,
+);
+
+export const deployTimeRequiredEnvKeys = deployTimeEnvKeys.filter(
+  (definition) => definition.requiredForDeployment === true,
+);
+
 export const secretEnvKeys = ALL_ENV_KEYS.filter((definition) => definition.secret === true);
+
+export const runtimeSecretEnvKeys = runtimeEnvKeys.filter(
+  (definition) => definition.secret === true,
+);
+
+export const deployTimeSecretEnvKeys = deployTimeEnvKeys.filter(
+  (definition) => definition.secret === true,
+);
 
 export const productionDefaultForbiddenEnvKeys = ALL_ENV_KEYS.filter(
   (definition) => definition.forbidProductionPlaceholder === true,

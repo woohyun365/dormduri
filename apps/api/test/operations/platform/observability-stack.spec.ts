@@ -11,9 +11,10 @@ import {
 } from './observability-test.support.js';
 
 const requiredFiles = [
-  'docker-compose.observability.yml',
-  'docker-compose.observability.rehearsal.yml',
-  'docker-compose.web-rehearsal.yml',
+  'compose.base.yml',
+  'compose.resources.yml',
+  'compose.production.yml',
+  'production-operations.json',
   '.env.observability.example',
   'fixtures/web-upstream.mjs',
   'prometheus/prometheus.yml',
@@ -33,7 +34,14 @@ const requiredFiles = [
 describe('observability stack', () => {
   it('keeps the private repo-native stack and file-provisioned dashboards', () => {
     expect(requiredFiles.filter((path) => !existsSync(join(observabilityRoot, path)))).toEqual([]);
-    const compose = readInfraFile('docker-compose.observability.yml');
+    expect(
+      [
+        'infra/rehearsal/compose.observability.yml',
+        'infra/rehearsal/compose.web.yml',
+        'infra/rehearsal/compose.web.fixture.yml',
+      ].filter((path) => !existsSync(join(repoRoot, path))),
+    ).toEqual([]);
+    const compose = readInfraFile('compose.base.yml');
     expect(compose).toContain('127.0.0.1:${PROMETHEUS_PORT:-9090}:9090');
     expect(compose).toContain('127.0.0.1:${GRAFANA_PORT:-3001}:3000');
     expect(compose).not.toMatch(/-\s+['"]?0\.0\.0\.0:/);
@@ -54,6 +62,9 @@ describe('observability stack', () => {
     expect(alloy).toContain('values = ["service", "env", "container", "level"]');
     const forbidden = ['email', 'ip', 'requestId', 'sessionId', 'threadId', 'token', 'userId'];
     for (const label of forbidden) expect(alloy).not.toMatch(new RegExp(`\\b${label}\\s*=`));
+    expect(alloy).toContain('regex         = "api|nginx|web"');
+    expect(alloy).toContain('action        = "keep"');
+    expect(alloy).toContain('sys.env("OBSERVABILITY_ENV")');
   });
 
   it('keeps dashboards backed by API metrics', () => {
@@ -81,7 +92,11 @@ describe('observability stack', () => {
   });
 
   it('keeps the Web local rehearsal on a production standalone image and private ports', () => {
-    const compose = readInfraFile('docker-compose.web-rehearsal.yml');
+    const compose = readFileSync(join(repoRoot, 'infra/rehearsal/compose.web.yml'), 'utf8');
+    const fixtureCompose = readFileSync(
+      join(repoRoot, 'infra/rehearsal/compose.web.fixture.yml'),
+      'utf8',
+    );
     const dockerfile = readFileSync(join(repoRoot, 'infra/deploy/web/Dockerfile'), 'utf8');
     const runner = readFileSync(
       join(repoRoot, 'scripts/observability/web-local-rehearsal.mjs'),
@@ -91,10 +106,15 @@ describe('observability stack', () => {
     expect(compose).toContain('dockerfile: infra/deploy/web/Dockerfile');
     expect(compose).toContain('127.0.0.1:${WEB_REHEARSAL_PORT:-3300}:3000');
     expect(compose).toContain("WEB_BFF_OPERATIONAL_LOGGING_ENABLED: '1'");
+    expect(compose).not.toContain('web-upstream:');
+    expect(fixtureCompose).toContain('web-upstream:');
+    expect(fixtureCompose).toContain('http://web-upstream:4100');
     expect(dockerfile).toContain('.next/standalone');
     expect(dockerfile).toContain('apps/web/server.js');
     expect(runner).toContain("context === 'orbstack'");
-    expect(runner).toContain("compose('stop', 'loki')");
+    expect(runner).toContain("service: 'loki'");
+    expect(runner).toContain("service: 'prometheus'");
+    expect(runner).toContain("service: 'grafana'");
     expect(runner).toContain('knu-web-bff-reliability');
   });
 });

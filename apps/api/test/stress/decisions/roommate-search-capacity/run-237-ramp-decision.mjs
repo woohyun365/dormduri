@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { resolveArtifactPath } from '../../../../../../scripts/artifacts/paths.mjs';
+
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const apiRoot = resolve(scriptDir, '../../../..');
 const repoRoot = resolve(apiRoot, '../..');
@@ -12,11 +14,10 @@ const productionLikeRunner = resolve(
   'test/stress/docker/run-production-like-evidence.mjs',
 );
 const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
-const reportPath = resolve(
-  repoRoot,
-  process.env.STRESS_237_RAMP_REPORT_PATH ||
-    `.omx/reports/api-237-ramp-decision-result-${timestamp}.md`,
-);
+const stressArtifactsDir = resolveArtifactPath(repoRoot, ['stress']);
+const reportPath = process.env.STRESS_237_RAMP_REPORT_PATH
+  ? resolve(repoRoot, process.env.STRESS_237_RAMP_REPORT_PATH)
+  : resolve(stressArtifactsDir, `api-237-ramp-decision-result-${timestamp}.md`);
 const defaultStages = [
   { id: 'vu25', label: 'Step A warm baseline', vus: 25, duration: '2m' },
   { id: 'vu50', label: 'Step B medium ramp', vus: 50, duration: '3m' },
@@ -38,8 +39,8 @@ if (stages.length === 0) {
 
 for (const [index, stage] of stages.entries()) {
   const stageReportPath = resolve(
-    repoRoot,
-    `.omx/reports/api-237-ramp-decision-${stage.id}-${timestamp}.md`,
+    stressArtifactsDir,
+    `api-237-ramp-decision-${stage.id}-${timestamp}.md`,
   );
   const stageEnv = buildStageEnv({ stage, index, stageReportPath });
 

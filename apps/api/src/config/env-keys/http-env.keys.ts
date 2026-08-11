@@ -7,6 +7,7 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
+    targetRequired: true,
     description: 'Exact number of trusted reverse-proxy hops. Zero keeps direct API trust off.',
   },
   {
@@ -15,6 +16,7 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'optional',
+    targetRequired: true,
     description: 'Explicit trusted reverse-proxy IP/CIDR or Express subnet preset allowlist.',
   },
   {
@@ -23,6 +25,7 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'optional',
+    targetRequired: true,
     description: 'Comma-separated explicit REST CORS origin allowlist. Wildcard is rejected.',
   },
   {
