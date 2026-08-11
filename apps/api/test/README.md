@@ -45,4 +45,4 @@ API public 명령은 fresh checkout에서 단독 실행할 수 있도록 `ci:pre
 
 ## Auth release evidence
 
-Password reset HTTP transaction evidence는 `test/e2e/auth/password-reset-recovery.e2e-spec.ts`, SES sandbox operation은 `test/operations/release/auth/`, 실행 경계는 `infra/runbooks/auth-password-reset-release-evidence.md`를 따른다.
+Password reset HTTP transaction evidence는 `test/e2e/auth/password-reset-recovery.e2e-spec.ts`, SES sandbox operation은 `test/operations/release/auth/`, 실행 경계는 `infra/runbooks/release/components/auth/password-reset-evidence.md`를 따른다.

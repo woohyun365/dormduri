@@ -154,7 +154,7 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 - `auth-session.fullstack.spec.ts`는 remember-off access 만료 후 renewal rotation과 logout 후 unauthenticated 수렴을 검증한다.
 - Browser 종료 시 session cookie 제거 자체는 jsdom/unit test로 재현하지 않는다. 자동화 테스트는 `Max-Age` 부재와 access 만료 후 renewal 복구를 검증하고, 실제 종료 동작은 browser smoke에서 확인한다.
 - 여러 tab이 같은 renewal token을 동시에 사용하면 한 요청만 cookie를 회전한다. 나머지는 stale 응답에서 cookie를 유지하고 browser session resolve를 한 번 재시도한다.
-- API 관측은 login outcome, real/dummy password verify p95·in-flight, renewal outcome만 low-cardinality metric으로 남기며 운영 절차는 `infra/runbooks/auth-session-incidents.md`를 따른다.
+- API 관측은 login outcome, real/dummy password verify p95·in-flight, renewal outcome만 low-cardinality metric으로 남기며 운영 절차는 `infra/runbooks/incidents/auth-session.md`를 따른다.
 
 ## Source of truth
 

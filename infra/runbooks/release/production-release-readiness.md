@@ -16,9 +16,9 @@
 ## 미래 배포 담당자와 Codex의 읽기 순서
 
 1. 이 문서에서 필수 입력과 중단 조건을 확인한다.
-2. [Infrastructure target readiness](./components/infrastructure-target-release-readiness.md)에서
+2. [Infrastructure target readiness](./components/infrastructure-target/readiness.md)에서
    hosting, registry, ingress, observability backup 입력을 닫는다.
-3. [Observability collector readiness](./components/observability-collector-release-readiness.md)에서
+3. [Observability collector readiness](./components/observability-collector/readiness.md)에서
    Alloy Docker socket 유지 여부와 대체 수집 방식을 결정한다.
 4. 아래 component owner의 readiness와 실행 runbook을 따른다.
 5. 각 component evidence를 실제 값으로 채운다. Secret 원문은 기록하지 않는다.
@@ -42,20 +42,21 @@
 
 ## Mandatory component owners
 
-| Component                                     | Readiness / 실행 owner                                                                           | Actual evidence owner                                                                        |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Hosting·registry·ingress·observability backup | [Infrastructure target readiness](./components/infrastructure-target-release-readiness.md)       | [Infrastructure target evidence](./components/infrastructure-target-release-evidence.md)     |
-| Log collector trust boundary                  | [Observability collector readiness](./components/observability-collector-release-readiness.md)   | [Observability collector evidence](./components/observability-collector-release-evidence.md) |
-| Collector incident·migration                  | [Collector troubleshooting](../incidents/observability-collector-troubleshooting.md)             | 해당 incident record와 collector evidence                                                    |
-| Web Sentry                                    | [Sentry readiness](../web-sentry-managed-release-readiness.md)                                   | [Sentry evidence](../web-sentry-managed-release-evidence.md)                                 |
-| Database backup·restore                       | [Backup/restore drill](../backup-restore-drill.md)                                               | drill evidence identifier                                                                    |
-| Prometheus·Loki·Grafana·Alertmanager          | [Observability operations](../observability-production-operations.md)                            | target evidence와 dashboard/alert evidence identifier                                        |
-| Password Reset                                | [Password Reset evidence](../auth-password-reset-release-evidence.md)                            | 같은 문서의 release별 결과                                                                   |
-| Signup·credential lifecycle                   | [Credential lifecycle evidence](../auth-registration-credential-release-evidence.md)             | 같은 문서의 release별 결과                                                                   |
-| Stress·capacity                               | [API stress release runbook](../../../docs/runbooks/observability/api-stress-release-runbook.md) | secret-free stress artifact identifier                                                       |
-| Slack alert route                             | [Slack alert runbook](../../../docs/runbooks/observability/slack-alert-runbook.md)               | delivery smoke identifier                                                                    |
-| Rollback                                      | [Incident rollback guide](../incident-rollback.md)                                               | previous digest와 target rehearsal identifier                                                |
-| Future BackOffice                             | [BackOffice deployment handoff](./components/backoffice-deployment-readiness.md)                 | BackOffice 구현 후 별도 component evidence owner 추가                                        |
+| Component                                     | Readiness / 실행 owner                                                                           | Actual evidence owner                                                                |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Hosting·registry·ingress·observability backup | [Infrastructure target readiness](./components/infrastructure-target/readiness.md)               | [Infrastructure target evidence](./components/infrastructure-target/evidence.md)     |
+| Log collector trust boundary                  | [Observability collector readiness](./components/observability-collector/readiness.md)           | [Observability collector evidence](./components/observability-collector/evidence.md) |
+| Collector incident·migration                  | [Collector troubleshooting](../incidents/observability-collector.md)                             | 해당 incident record와 collector evidence                                            |
+| Web Sentry                                    | [Sentry readiness](./components/web-sentry/readiness.md)                                         | [Sentry evidence](./components/web-sentry/evidence.md)                               |
+| Database backup·restore                       | [Backup/restore drill](../operations/database/backup-restore.md)                                 | drill evidence identifier                                                            |
+| Prometheus·Loki·Grafana·Alertmanager          | [Observability operations](../operations/observability/production-stack.md)                      | target evidence와 dashboard/alert evidence identifier                                |
+| Password Reset                                | [Password Reset evidence](./components/auth/password-reset-evidence.md)                          | 같은 문서의 release별 결과                                                           |
+| Signup·credential lifecycle                   | [Credential lifecycle evidence](./components/auth/registration-credential-evidence.md)           | 같은 문서의 release별 결과                                                           |
+| Stress·capacity                               | [API stress release runbook](../../../docs/runbooks/observability/api-stress-release-runbook.md) | secret-free stress artifact identifier                                               |
+| Slack alert delivery                          | [Slack delivery setup](../operations/observability/slack-delivery.md)                            | delivery smoke identifier                                                            |
+| Slack alert incident                          | [Slack alert troubleshooting](../incidents/observability-alert-delivery.md)                      | incident record identifier                                                           |
+| Rollback                                      | [Incident rollback guide](../incidents/release-rollback.md)                                      | previous digest와 target rehearsal identifier                                        |
+| Future BackOffice                             | [BackOffice deployment handoff](./components/backoffice/readiness.md)                            | BackOffice 구현 후 별도 component evidence owner 추가                                |
 
 ## Repository baseline 재검증
 

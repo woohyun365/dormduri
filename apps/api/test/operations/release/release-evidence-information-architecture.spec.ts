@@ -7,27 +7,30 @@ const repoRoot = join(process.cwd(), '../..');
 const releaseFiles = {
   readiness: 'infra/runbooks/release/production-release-readiness.md',
   evidence: 'infra/runbooks/release/production-release-evidence.md',
-  targetReadiness: 'infra/runbooks/release/components/infrastructure-target-release-readiness.md',
-  targetEvidence: 'infra/runbooks/release/components/infrastructure-target-release-evidence.md',
-  collectorReadiness:
-    'infra/runbooks/release/components/observability-collector-release-readiness.md',
-  collectorEvidence:
-    'infra/runbooks/release/components/observability-collector-release-evidence.md',
-  collectorTroubleshooting: 'infra/runbooks/incidents/observability-collector-troubleshooting.md',
-  backofficeReadiness: 'infra/runbooks/release/components/backoffice-deployment-readiness.md',
+  targetReadiness: 'infra/runbooks/release/components/infrastructure-target/readiness.md',
+  targetEvidence: 'infra/runbooks/release/components/infrastructure-target/evidence.md',
+  collectorReadiness: 'infra/runbooks/release/components/observability-collector/readiness.md',
+  collectorEvidence: 'infra/runbooks/release/components/observability-collector/evidence.md',
+  collectorTroubleshooting: 'infra/runbooks/incidents/observability-collector.md',
+  backofficeReadiness: 'infra/runbooks/release/components/backoffice/readiness.md',
 } as const;
 
 const componentOwners = [
-  'web-sentry-managed-release-readiness.md',
-  'web-sentry-managed-release-evidence.md',
-  'backup-restore-drill.md',
-  'observability-production-operations.md',
-  'auth-password-reset-release-evidence.md',
-  'auth-registration-credential-release-evidence.md',
-  'incident-rollback.md',
-  'api-stress-release-runbook.md',
-  'slack-alert-runbook.md',
-  'backoffice-deployment-readiness.md',
+  './components/infrastructure-target/readiness.md',
+  './components/infrastructure-target/evidence.md',
+  './components/observability-collector/readiness.md',
+  './components/observability-collector/evidence.md',
+  './components/web-sentry/readiness.md',
+  './components/web-sentry/evidence.md',
+  '../operations/database/backup-restore.md',
+  '../operations/observability/production-stack.md',
+  './components/auth/password-reset-evidence.md',
+  './components/auth/registration-credential-evidence.md',
+  '../incidents/release-rollback.md',
+  '../../../docs/runbooks/observability/api-stress-release-runbook.md',
+  '../operations/observability/slack-delivery.md',
+  '../incidents/observability-alert-delivery.md',
+  './components/backoffice/readiness.md',
 ];
 
 function readRepoFile(relativePath: string): string {

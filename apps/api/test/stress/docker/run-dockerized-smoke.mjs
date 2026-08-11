@@ -19,7 +19,7 @@ import {
 import {
   buildComposeArgs,
   loadComposeInventory,
-} from '../../../../../scripts/infra/compose-profile.mjs';
+} from '../../../../../scripts/infra/compose/profile.mjs';
 import { resolveArtifactPath } from '../../../../../scripts/artifacts/paths.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));

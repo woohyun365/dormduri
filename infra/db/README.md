@@ -1,6 +1,18 @@
-# Production DB deploy runbook
+# Database operator scripts
 
-`infra/db`는 API container startup 밖에서 실행하는 production DB release 절차를 소유한다. API image와 `infra/deploy` compose는 migration이나 role grant를 자동 실행하지 않는다.
+`infra/db`는 API container startup 밖에서 실행하는 migration, role grant, credential smoke
+**operator script**와 그 입력 계약을 소유한다. 실제 release 순서, 승인, backup·restore evidence는
+`infra/runbooks/`가 소유하며 API image와 `infra/deploy` Compose는 migration이나 role grant를 자동
+실행하지 않는다.
+
+## 책임 경계
+
+- Script interface와 fail-fast 규칙: 이 문서와 `infra/db/*.sh`
+- 반복 가능한 backup·restore 절차: `infra/runbooks/operations/database/backup-restore.md`
+- 실제 release 준비와 최종 판정: `infra/runbooks/release/`
+- AWS RDS target 입력: `infra/aws/rds-setup-checklist.md`
+
+아래 release order는 script 호출 순서를 빠르게 찾기 위한 요약이며 승인·증거 owner를 대체하지 않는다.
 
 ## Credential boundary
 
@@ -16,7 +28,7 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 
 ## Release order
 
-1. `infra/aws/rds-setup-checklist.md` 기준으로 RDS automated backup/PITR 설정을 확인하고 `infra/runbooks/backup-restore-drill.md` 기준의 최근 restore drill evidence를 확인한다.
+1. `infra/aws/rds-setup-checklist.md` 기준으로 RDS automated backup/PITR 설정을 확인하고 `infra/runbooks/operations/database/backup-restore.md` 기준의 최근 restore drill evidence를 확인한다.
 2. App rollout 전에 migration/admin credential로 Prisma migration을 적용한다.
 
    ```bash
@@ -99,7 +111,7 @@ Smoke는 destructive DML/DDL을 하지 않는다. 다음을 확인한다.
 pnpm api:db:restore-drill:smoke
 ```
 
-Restore drill smoke는 `RESTORE_DRILL_*` credential을 기존 role grant smoke의 `MIGRATION_DATABASE_URL`, `DATABASE_URL`, `RETENTION_WORKER_DATABASE_URL`, `RETENTION_DISCLOSURE_DATABASE_URL`로 매핑해 재사용한다. 이 smoke는 temporary restored DB에서 실행하며 production source DB를 수정하지 않는다. 실제 실행 전에는 `infra/runbooks/backup-restore-drill.md`에 따라 restored DB identifier, restore source, cleanup evidence를 준비한다.
+Restore drill smoke는 `RESTORE_DRILL_*` credential을 기존 role grant smoke의 `MIGRATION_DATABASE_URL`, `DATABASE_URL`, `RETENTION_WORKER_DATABASE_URL`, `RETENTION_DISCLOSURE_DATABASE_URL`로 매핑해 재사용한다. 이 smoke는 temporary restored DB에서 실행하며 production source DB를 수정하지 않는다. 실제 실행 전에는 `infra/runbooks/operations/database/backup-restore.md`에 따라 restored DB identifier, restore source, cleanup evidence를 준비한다.
 
 Required env for real smoke:
 
@@ -147,7 +159,7 @@ Prisma migration은 production에서 자동 down migration으로 되돌리지 �
 3. 필요한 경우 RDS snapshot/PITR restore.
 4. restored DB에서 migration baseline, role grant smoke, `/health/ready` smoke를 재검증.
 
-Backup/restore drill은 `infra/runbooks/backup-restore-drill.md` 기준으로 수행하고, RDS setup baseline은 `infra/aws/rds-setup-checklist.md` 기준으로 확인한다. Restore drill evidence 없이 production ready로 표시하지 않는다.
+Backup/restore drill은 `infra/runbooks/operations/database/backup-restore.md` 기준으로 수행하고, RDS setup baseline은 `infra/aws/rds-setup-checklist.md` 기준으로 확인한다. Restore drill evidence 없이 production ready로 표시하지 않는다.
 
 ## Verification
 

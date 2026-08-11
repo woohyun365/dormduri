@@ -17,4 +17,4 @@ groups:
           service: web
         annotations:
           summary: Web BFF failure rate is elevated
-          runbook: infra/runbooks/web-operational-observability.md
+          runbook: infra/runbooks/operations/observability/web-bff.md

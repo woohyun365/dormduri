@@ -87,7 +87,7 @@ groups:
           service: api
         annotations:
           summary: 인증 메일 전달 실패가 10분 기준치를 초과했습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#auth-mail-delivery
+          runbook: infra/runbooks/incidents/auth-session.md#auth-mail-delivery
 
       - alert: AuthMailOutboxLagHigh
         expr: api_auth_mail_outbox_lag_seconds > 60
@@ -97,7 +97,7 @@ groups:
           service: api
         annotations:
           summary: 인증 메일 outbox 처리 지연이 60초를 초과했습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#auth-mail-delivery
+          runbook: infra/runbooks/incidents/auth-session.md#auth-mail-delivery
 
       - alert: AuthPasswordVerifyInFlightHigh
         expr: sum(api_auth_login_password_verify_in_flight) >= 8
@@ -107,7 +107,7 @@ groups:
           service: api
         annotations:
           summary: 로그인 비밀번호 검증 동시 실행이 5분 동안 8개 이상 유지됐습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#password-verify-saturation
+          runbook: infra/runbooks/incidents/auth-session.md#password-verify-saturation
 
       - alert: AuthSessionRenewalReuseDetected
         expr: increase(api_auth_session_renewals_total{outcome="reused"}[5m]) > 0
@@ -117,7 +117,7 @@ groups:
           service: api
         annotations:
           summary: grace 범위를 벗어난 세션 갱신 토큰 재사용이 감지됐습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#renewal-token-reuse
+          runbook: infra/runbooks/incidents/auth-session.md#renewal-token-reuse
 
       - alert: AuthCredentialDurabilityFailure
         expr: |
@@ -133,7 +133,7 @@ groups:
           service: api
         annotations:
           summary: 비밀번호 변경 transaction의 필수 session/outbox/audit append 실패가 감지됐습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#credential-mutation-durability
+          runbook: infra/runbooks/incidents/auth-session.md#credential-mutation-durability
 
       - alert: AuthSensitiveMutationThrottleSpike
         expr: |
@@ -144,7 +144,7 @@ groups:
           service: api
         annotations:
           summary: 보호된 인증 변경 요청의 제한 응답이 10분 기준치를 초과했습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#sensitive-mutation-admission
+          runbook: infra/runbooks/incidents/auth-session.md#sensitive-mutation-admission
 
       - alert: AuthSignupFinalizationAbuse
         expr: |
@@ -158,4 +158,4 @@ groups:
           service: api
         annotations:
           summary: 가입 최종 제출 제한이 password hash 시작 대비 비정상적으로 증가했습니다.
-          runbook: infra/runbooks/auth-session-incidents.md#sensitive-mutation-admission
+          runbook: infra/runbooks/incidents/auth-session.md#sensitive-mutation-admission

@@ -36,16 +36,17 @@ redaction_confirmed: false
 
 | Component               | Evidence owner                                                                       | Result    | Evidence identifier | Operator | Collected at | Risk / follow-up owner |
 | ----------------------- | ------------------------------------------------------------------------------------ | --------- | ------------------- | -------- | ------------ | ---------------------- |
-| Infrastructure target   | [Target evidence](./components/infrastructure-target-release-evidence.md)            | `PENDING` |                     |          |              |                        |
-| Observability collector | [Collector evidence](./components/observability-collector-release-evidence.md)       | `PENDING` |                     |          |              |                        |
-| Web Sentry              | [Sentry evidence](../web-sentry-managed-release-evidence.md)                         | `PENDING` |                     |          |              |                        |
-| DB backup/restore       | [Restore drill](../backup-restore-drill.md)                                          | `PENDING` |                     |          |              |                        |
-| Observability stack     | [Operations runbook](../observability-production-operations.md)                      | `PENDING` |                     |          |              |                        |
-| Password Reset          | [Reset evidence](../auth-password-reset-release-evidence.md)                         | `PENDING` |                     |          |              |                        |
-| Credential lifecycle    | [Registration evidence](../auth-registration-credential-release-evidence.md)         | `PENDING` |                     |          |              |                        |
+| Infrastructure target   | [Target evidence](./components/infrastructure-target/evidence.md)                    | `PENDING` |                     |          |              |                        |
+| Observability collector | [Collector evidence](./components/observability-collector/evidence.md)               | `PENDING` |                     |          |              |                        |
+| Web Sentry              | [Sentry evidence](./components/web-sentry/evidence.md)                               | `PENDING` |                     |          |              |                        |
+| DB backup/restore       | [Restore drill](../operations/database/backup-restore.md)                            | `PENDING` |                     |          |              |                        |
+| Observability stack     | [Operations runbook](../operations/observability/production-stack.md)                | `PENDING` |                     |          |              |                        |
+| Password Reset          | [Reset evidence](./components/auth/password-reset-evidence.md)                       | `PENDING` |                     |          |              |                        |
+| Credential lifecycle    | [Registration evidence](./components/auth/registration-credential-evidence.md)       | `PENDING` |                     |          |              |                        |
 | Stress/capacity         | [Stress runbook](../../../docs/runbooks/observability/api-stress-release-runbook.md) | `PENDING` |                     |          |              |                        |
-| Slack alert delivery    | [Slack runbook](../../../docs/runbooks/observability/slack-alert-runbook.md)         | `PENDING` |                     |          |              |                        |
-| Rollback rehearsal      | [Rollback guide](../incident-rollback.md)                                            | `PENDING` |                     |          |              |                        |
+| Slack alert delivery    | [Slack delivery setup](../operations/observability/slack-delivery.md)                | `PENDING` |                     |          |              |                        |
+| Slack alert incident    | [Slack alert troubleshooting](../incidents/observability-alert-delivery.md)          | `PENDING` |                     |          |              |                        |
+| Rollback rehearsal      | [Rollback guide](../incidents/release-rollback.md)                                   | `PENDING` |                     |          |              |                        |
 
 ## Blocker and accepted-risk records
 

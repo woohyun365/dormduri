@@ -11,9 +11,9 @@ fail-open 불변 조건을 소유한다. 구체적인 도구 선택과 데이터
 
 - [Production runtime safety](./production-runtime-safety.md)
 - [Web 운영 관측성 경계](../architecture/frontend/web-observability.md)
-- `infra/runbooks/observability-production-operations.md`
-- `infra/runbooks/web-operational-observability.md`
-- `infra/runbooks/web-sentry-managed-release-readiness.md`
+- `infra/runbooks/operations/observability/production-stack.md`
+- `infra/runbooks/operations/observability/web-bff.md`
+- `infra/runbooks/release/components/web-sentry/readiness.md`
 - `infra/runbooks/release/production-release-readiness.md`
 - `infra/runbooks/release/production-release-evidence.md`
 

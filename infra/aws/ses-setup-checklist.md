@@ -82,4 +82,4 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts \
 - `SES_FROM_EMAIL`은 verified identity여야 한다.
 - Production access 해제 전에는 실제 사용자 발송을 release complete로 보지 않는다.
 - Configuration Set delivery/bounce/complaint event destination이 없으면 release complete로 보지 않는다.
-- 상세 command와 secret-free evidence 형식은 `infra/runbooks/auth-password-reset-release-evidence.md`를 따른다.
+- 상세 command와 secret-free evidence 형식은 `infra/runbooks/release/components/auth/password-reset-evidence.md`를 따른다.

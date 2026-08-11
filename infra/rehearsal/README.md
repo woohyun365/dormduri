@@ -61,7 +61,7 @@ Web은 실제 nginx/API를 사용하며, evidence의 제품 container limit 합�
 Secret-free JSON/Markdown 결과는 기본적으로 `artifacts/local/infra/full-stack-rehearsal/`에 생성된다.
 실행 중 생성한 DB password, HMAC key, metrics token은 OS 임시 디렉터리에만 두고 종료 시 삭제한다.
 실행·실패 해석·cleanup 절차는
-[`infra/runbooks/rehearsal/full-stack-local-infrastructure.md`](../runbooks/rehearsal/full-stack-local-infrastructure.md)를 따른다.
+[`infra/runbooks/rehearsal/full-stack.md`](../runbooks/rehearsal/full-stack.md)를 따른다.
 
 ### External disposable DB opt-in
 

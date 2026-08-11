@@ -80,9 +80,9 @@ CI path filter, image inventory, environment manifest와 rollback 경계를 함�
 ## Capacity 근거와 변경 trigger
 
 정확한 container limit, provider 가격과 현재 planning budget은
-[`infrastructure-target-release-readiness.md`](../../../infra/runbooks/release/components/infrastructure-target-release-readiness.md)가
+[`infrastructure-target-release-readiness.md`](../../../infra/runbooks/release/components/infrastructure-target/readiness.md)가
 소유한다. Local 연결·resource 회귀 절차는
-[`full-stack-local-infrastructure.md`](../../../infra/runbooks/rehearsal/full-stack-local-infrastructure.md)가
+[`full-stack-local-infrastructure.md`](../../../infra/runbooks/rehearsal/full-stack.md)가
 소유한다.
 
 다음 조건 중 하나가 확인되면 topology를 새 decision으로 재검토한다.

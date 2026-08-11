@@ -105,7 +105,7 @@ pnpm infra:compose -- observability-rehearsal down
 
 ## 선택적 외부 재검증으로 넘길 정보
 
-별도 AWS/managed PostgreSQL reference 환경은 현재 최초 배포 gate에 포함하지 않는다. 운영 지표 악화나 인프라 변경으로 외부 재검증이 필요해질 때만 이 runbook과 `docs/architecture/platform/production-runtime-topology.md`, `infra/runbooks/release/components/infrastructure-target-release-readiness.md`를 입력으로 새 계획을 작성한다. 후속 계획은 특정 cloud vendor를 전제하지 않고 다음을 새로 결정해야 한다.
+별도 AWS/managed PostgreSQL reference 환경은 현재 최초 배포 gate에 포함하지 않는다. 운영 지표 악화나 인프라 변경으로 외부 재검증이 필요해질 때만 이 runbook과 `docs/architecture/platform/production-runtime-topology.md`, `infra/runbooks/release/components/infrastructure-target/readiness.md`를 입력으로 새 계획을 작성한다. 후속 계획은 특정 cloud vendor를 전제하지 않고 다음을 새로 결정해야 한다.
 
 - 실제 app host의 CPU/memory 및 CPU credit 또는 throttling 특성
 - managed PostgreSQL 연결 방식과 fixture 격리·정리 전략

@@ -164,9 +164,15 @@ test('infrastructure CI separates static and container-backed validation', () =>
     'retention-days: 7',
     'timeout-minutes: 15',
   ]);
-  assert.match(scriptValue(rootScripts, 'infra:check'), /run-infra-check\.mjs$/u);
-  assert.match(scriptValue(rootScripts, 'infra:check:static'), /run-infra-check\.mjs --static$/u);
-  assert.match(scriptValue(rootScripts, 'infra:check:runtime'), /run-infra-check\.mjs --runtime$/u);
+  assert.match(scriptValue(rootScripts, 'infra:check'), /scripts\/infra\/check\/run\.mjs$/u);
+  assert.match(
+    scriptValue(rootScripts, 'infra:check:static'),
+    /scripts\/infra\/check\/run\.mjs --static$/u,
+  );
+  assert.match(
+    scriptValue(rootScripts, 'infra:check:runtime'),
+    /scripts\/infra\/check\/run\.mjs --runtime$/u,
+  );
   assert.ok(!infraWorkflow.includes('secrets.'));
   assert.ok(infraWorkflow.includes('runner.temp'));
   assert.ok(infraWorkflow.includes('KNU_ARTIFACTS_DIR'));

@@ -71,4 +71,4 @@ Browser Sentry는 다음 항목이 모두 준비된 경우에만 활성화한다
 5. synthetic client/server exception과 performance intake
 6. kill switch와 provider 장애 fail-open smoke
 
-계정 evidence가 없으면 production capture와 source-map upload는 비활성화된다. Local/test는 외부 네트워크가 없는 recording transport로 privacy·dedupe·sampling을 검증한다. 미래 배포 세션은 `infra/runbooks/web-sentry-managed-release-readiness.md`를 시작점으로 사용하고, 실제 managed 결과만 release evidence에 기록한다. BFF structured log는 production에서 기본 활성화하고 container stdout → Alloy → Loki 경로를 사용한다.
+계정 evidence가 없으면 production capture와 source-map upload는 비활성화된다. Local/test는 외부 네트워크가 없는 recording transport로 privacy·dedupe·sampling을 검증한다. 미래 배포 세션은 `infra/runbooks/release/components/web-sentry/readiness.md`를 시작점으로 사용하고, 실제 managed 결과만 release evidence에 기록한다. BFF structured log는 production에서 기본 활성화하고 container stdout → Alloy → Loki 경로를 사용한다.

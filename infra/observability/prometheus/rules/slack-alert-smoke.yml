@@ -9,4 +9,4 @@ groups:
           service: api
         annotations:
           summary: Slack alert smoke guard is intentionally non-firing. Use the Alertmanager API smoke script for local delivery tests.
-          runbook: infra/observability/slack/slack-setup-runbook.md
+          runbook: infra/runbooks/operations/observability/slack-delivery.md

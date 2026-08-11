@@ -4,9 +4,9 @@
 
 이 문서는 KNU Roommate production runtime이 provider나 instance 종류와 무관하게 지켜야 하는
 배포 안전 불변 조건을 소유한다. 실제 hosting target, instance, 월 비용과 container resource 값은
-[`infrastructure-target-release-readiness.md`](../../infra/runbooks/release/components/infrastructure-target-release-readiness.md),
+[`infrastructure-target-release-readiness.md`](../../infra/runbooks/release/components/infrastructure-target/readiness.md),
 실제 검증 결과는
-[`infrastructure-target-release-evidence.md`](../../infra/runbooks/release/components/infrastructure-target-release-evidence.md)가
+[`infrastructure-target-release-evidence.md`](../../infra/runbooks/release/components/infrastructure-target/evidence.md)가
 소유한다.
 
 관련 기준:
@@ -20,7 +20,7 @@
 - `infra/db/README.md`
 - `infra/runbooks/release/production-release-readiness.md`
 - `infra/runbooks/release/production-release-evidence.md`
-- `infra/runbooks/incident-rollback.md`
+- `infra/runbooks/incidents/release-rollback.md`
 
 ## Production release 불변 조건
 

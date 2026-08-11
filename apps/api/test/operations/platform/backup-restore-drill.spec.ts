@@ -6,12 +6,12 @@ const apiRoot = process.cwd();
 const repoRoot = join(apiRoot, '../..');
 const dbRoot = join(repoRoot, 'infra/db');
 const awsRoot = join(repoRoot, 'infra/aws');
-const runbooksRoot = join(repoRoot, 'infra/runbooks');
+const runbooksRoot = join(repoRoot, 'infra/runbooks/operations/database');
 const workflowsRoot = join(repoRoot, '.github/workflows');
 
 const requiredFiles = [
   'infra/aws/rds-setup-checklist.md',
-  'infra/runbooks/backup-restore-drill.md',
+  'infra/runbooks/operations/database/backup-restore.md',
   'infra/db/restore-drill-smoke.sh',
   '.github/workflows/api-restore-drill-manual.yml',
 ];
@@ -57,7 +57,7 @@ describe('backup and restore drill readiness boundary', () => {
   });
 
   it('documents a non-destructive restore drill with migration, role grant, readiness, evidence, and cleanup gates', () => {
-    const runbook = readFileSync(join(runbooksRoot, 'backup-restore-drill.md'), 'utf8');
+    const runbook = readFileSync(join(runbooksRoot, 'backup-restore.md'), 'utf8');
 
     for (const expected of [
       'Release commit SHA',
@@ -137,20 +137,22 @@ describe('backup and restore drill readiness boundary', () => {
     expect(workflow).toContain('secret values are intentionally excluded');
   });
 
-  it('connects restore drill evidence to DB, local rehearsal, and official readiness docs', () => {
+  it('connects restore drill evidence to its DB runbook and official readiness owner', () => {
     const dbReadme = readRepoFile('infra/db/README.md');
     const deployReadme = readRepoFile('infra/deploy/README.md');
     const policy = readRepoFile('docs/policies/production-runtime-safety.md');
     const futureInputs = readRepoFile('docs/development/future-production-deployment-inputs.md');
 
-    for (const doc of [dbReadme, deployReadme, policy]) {
+    for (const doc of [dbReadme, policy]) {
       expect(doc).toMatch(/[Bb]ackup\/restore/);
       expect(doc).toContain('restore drill');
       expect(doc).not.toMatch(/구현 예정|후속 단계|이 plan|Phase \d+에서/);
     }
 
     expect(dbReadme).toContain('pnpm api:db:restore-drill:smoke');
-    expect(deployReadme).toContain('.github/workflows/api-restore-drill-manual.yml');
+    expect(dbReadme).toContain('infra/runbooks/operations/database/backup-restore.md');
+    expect(deployReadme).toContain('infra/db/README.md');
+    expect(deployReadme).not.toContain('.github/workflows/api-restore-drill-manual.yml');
     expect(futureInputs).toContain('backup/PITR 확인과 restore 승인 owner');
     expect(policy).toContain('api-restore-drill-manual.yml');
     expect(policy).toContain('backup restore 미검증');

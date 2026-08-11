@@ -1,6 +1,6 @@
 # API stress release gate runbook
 
-이 문서는 API release 전에 logging, metrics, observability stack, HTTP k6 stress, Realtime Artillery smoke를 **안전하게 검증**하는 운영 절차다. API/nginx compose와 관측 stack을 함께 올리는 전체 rehearsal 순서는 `infra/observability/rehearsal-checklist.md`를 먼저 따른다. Local smoke와 staging/release baseline은 실행 권한과 위험도가 다르므로 같은 명령으로 취급하지 않는다.
+이 문서는 API release 전에 logging, metrics, observability stack, HTTP k6 stress, Realtime Artillery smoke를 **안전하게 검증**하는 운영 절차다. API/nginx compose와 관측 stack을 함께 올리는 전체 rehearsal 순서는 `infra/runbooks/rehearsal/api-observability.md`를 먼저 따른다. Local smoke와 staging/release baseline은 실행 권한과 위험도가 다르므로 같은 명령으로 취급하지 않는다.
 
 ## 원칙
 

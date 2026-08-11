@@ -99,7 +99,7 @@ describe('observability stack', () => {
     );
     const dockerfile = readFileSync(join(repoRoot, 'infra/deploy/web/Dockerfile'), 'utf8');
     const runner = readFileSync(
-      join(repoRoot, 'scripts/observability/web-local-rehearsal.mjs'),
+      join(repoRoot, 'scripts/observability/rehearsal/web-bff.mjs'),
       'utf8',
     );
 

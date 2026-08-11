@@ -10,7 +10,7 @@ describe('observability release evidence', () => {
     const smoke = readFileSync(join(repoRoot, 'infra/deploy/scripts/api-release-smoke.sh'), 'utf8');
     const runbookPath = join(
       repoRoot,
-      'infra/runbooks/auth-registration-credential-release-evidence.md',
+      'infra/runbooks/release/components/auth/registration-credential-evidence.md',
     );
     expect(existsSync(runbookPath)).toBe(true);
     for (const metric of [
@@ -36,7 +36,7 @@ describe('observability release evidence', () => {
       'utf8',
     );
     const slackRunbook = readFileSync(
-      join(repoRoot, 'docs/runbooks/observability/slack-alert-runbook.md'),
+      join(repoRoot, 'infra/runbooks/incidents/observability-alert-delivery.md'),
       'utf8',
     );
     expect(stressRunbook).toContain('STRESS_ALLOWED_HOSTS');
@@ -47,7 +47,7 @@ describe('observability release evidence', () => {
 
   it('keeps the local observability rehearsal sequence discoverable', () => {
     const checklist = readFileSync(
-      join(repoRoot, 'infra/observability/rehearsal-checklist.md'),
+      join(repoRoot, 'infra/runbooks/rehearsal/api-observability.md'),
       'utf8',
     );
     expect(checklist).toContain('pnpm infra:compose -- api-stress');

@@ -12,7 +12,6 @@ const landingPolicyCopyPath = resolve(
 
 const requiredDocDirectories = [
   'architecture',
-  'archive',
   'development',
   'policies',
   'references',
