@@ -27,7 +27,10 @@ SECRET_NAME_PREFIX=/knu-roommate/production/api
 /knu-roommate/production/api/AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64
 ```
 
-`apps/api/src/config/env-keys`에서 `secret: true`로 등록된 key가 inventory source of truth다. `SECRET_SOURCE=aws-secrets-manager`를 production에서 선택하면 `SECRET_NAME_PREFIX`는 필수다.
+owner-local env definition을 조합하는
+`apps/api/src/config/composition/api-config.registry.ts`에서 `secret: true`로 등록된 key가 inventory
+source of truth다. `SECRET_SOURCE=aws-secrets-manager`를 production에서 선택하면
+`SECRET_NAME_PREFIX`는 필수다.
 
 ## KMS policy
 
@@ -86,11 +89,17 @@ SECRET_NAME_PREFIX=/knu-roommate/production/api \
 pnpm --dir apps/api secrets:inventory
 ```
 
-1. `.env.api`에는 `SECRET_SOURCE=aws-secrets-manager`, `SECRET_NAME_PREFIX=/knu-roommate/production/api`, AWS credential/role binding만 둔다.
-2. Materializer 또는 deploy script가 각 secret을 읽어 env key 이름으로만 report한다. 값은 출력하지 않는다.
-3. `env.validation.ts`가 production required secret과 placeholder/local default를 fail-fast하는지 확인한다.
-4. API container boot log에 secret value, DB URL password, token 원문이 없는지 확인한다.
-5. `/health/ready`가 통과하면 secret materialization smoke를 완료한다.
+1. `.env.api`에는 `SECRET_SOURCE=aws-secrets-manager`,
+   `SECRET_NAME_PREFIX=/knu-roommate/production/api`, non-secret runtime key와 AWS
+   credential/role binding만 둔다.
+2. API bootstrap이 Nest `AppModule`을 import하기 전에 required runtime secret을 읽어 process env에
+   적용한다. Container entrypoint는 AWS source에서 secret value 자체를 선행 요구하지 않는다.
+3. Bootstrap failure는 bounded code만 stderr에 기록하며 secret name/value나 raw AWS payload를
+   출력하지 않는다.
+4. Config registry validation이 materialization 이후 production required secret과 placeholder/local
+   default를 fail-fast하는지 확인한다.
+5. API container boot log에 secret value, DB URL password, token 원문이 없는지 확인한다.
+6. `/health/ready`가 통과하면 secret materialization smoke를 완료한다.
 
 ## Rotation / rollback
 

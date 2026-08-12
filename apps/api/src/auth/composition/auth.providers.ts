@@ -1,7 +1,7 @@
 import type { Provider } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import emailConfig from '../../config/email.config.js';
+import emailConfig from '../adapters/email/email.config.js';
 import { AuthenticatedUserGuard } from '../access/authenticated-user.guard.js';
 import {
   EMAIL_SENDER,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ConfigType } from '@nestjs/config';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import { AppLoggerService } from './app-logger.service.js';
 import { RequestContextService } from './request-context.service.js';
 

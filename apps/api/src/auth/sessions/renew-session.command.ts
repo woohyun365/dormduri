@@ -1,7 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import type { RenewSessionResponse } from '@repo/shared/auth/response';
-import authConfig from '../../config/auth.config.js';
+import authConfig from '../config/auth.config.js';
 import {
   AUTH_ACCESS_TOKEN_TTL_SECONDS,
   AUTH_SESSION_PREVIOUS_TOKEN_GRACE_MILLISECONDS,

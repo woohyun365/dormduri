@@ -6,7 +6,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import authConfig from '../../config/auth.config.js';
+import authConfig from '../config/auth.config.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   EMAIL_SENDER,

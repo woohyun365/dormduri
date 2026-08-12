@@ -85,8 +85,8 @@
     "ci:test:watch": "vitest --config ./vitest.config.unit.ts --maxWorkers=50%",
     "ci:test:coverage": "vitest run --config ./vitest.config.unit.ts --coverage --maxWorkers=50%",
     "ci:test:debug": "vitest run --inspectBrk --config ./vitest.config.unit.ts --maxWorkers=1",
-    "env:manifest:generate": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/env-keys/deployment-env-manifest.cli.ts",
-    "env:manifest:check": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/env-keys/deployment-env-manifest.cli.ts --check"
+    "env:manifest:generate": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/manifest/deployment-env-manifest.cli.ts",
+    "env:manifest:check": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/manifest/deployment-env-manifest.cli.ts --check"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1070.0",

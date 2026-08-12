@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
-import databaseConfig from '../../config/database.config.js';
+import databaseConfig from './database.config.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import {
   PrismaPoolMetricsService,

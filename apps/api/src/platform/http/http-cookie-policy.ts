@@ -1,5 +1,5 @@
 import type { CookieOptions } from 'express';
-import type { HttpCookieSameSite } from '../../config/http.config.js';
+import type { HttpCookieSameSite } from './http.config.js';
 
 export interface HttpCookiePolicySettings {
   readonly secure: boolean;

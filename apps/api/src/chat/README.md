@@ -47,7 +47,8 @@
 - 외부 domain production code에서 `../chat/application/chat.service` import 금지.
 - `season-participants`와 `social-safety`에서 `conversationThread` / `conversationMessage` 직접 mutation 금지(direct chat table mutation outside chat 금지).
 - `social-safety`는 `ChatService` concrete가 아니라 chat port contract로만 block/report side-effect와 report target context를 요청한다.
-- `notifications`에서 `chat/realtime/*` concrete class나 `config/chat-realtime.config` 직접 import 금지.
+- `notifications`에서 `chat/realtime/*` concrete class나 `chat/realtime/chat-realtime.config` 직접
+  import 금지.
 - `ChatThreadContextGuard`는 Prisma를 직접 조회하지 않고 `ChatThreadContextResolver`에 위임한다.
 - `leaveThread`의 user-facing `CHAT_THREAD_LEAVE_NOT_ALLOWED` behavior는 service/command path가 보존한다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.

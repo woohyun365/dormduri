@@ -1,6 +1,6 @@
 import type { ConfigType } from '@nestjs/config';
 import type { ThrottlerOptions } from '@nestjs/throttler';
-import authConfig from '../../../config/auth.config.js';
+import authConfig from '../../config/auth.config.js';
 import {
   AUTH_LOGIN_BURST_THROTTLER,
   AUTH_LOGIN_SUSTAINED_THROTTLER,

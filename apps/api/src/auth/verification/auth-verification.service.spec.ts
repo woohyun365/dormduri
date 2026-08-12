@@ -8,7 +8,7 @@ import authConfig, {
   DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
   DEFAULT_AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64,
   DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
-} from '../../config/auth.config.js';
+} from '../config/auth.config.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 import { hashAuthPersistenceDimension } from '../persistence/auth-persistence-dimension.js';
 

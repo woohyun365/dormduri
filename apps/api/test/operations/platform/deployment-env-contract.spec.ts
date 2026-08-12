@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createApiDeploymentEnvManifest,
   serializeApiDeploymentEnvManifest,
-} from '../../../src/config/env-keys/deployment-env-manifest.js';
+} from '../../../src/config/manifest/deployment-env-manifest.js';
 
 const envExamplePath = resolve(process.cwd(), '../../infra/deploy/.env.api.example');
 const migrationEnvExamplePath = resolve(
@@ -57,7 +57,12 @@ describe('API deployment env artifact', () => {
     );
     const success = spawnSync('sh', [entrypointPath, 'sh', '-c', 'exit 0'], {
       encoding: 'utf8',
-      env: { ...process.env, ...runtimeEnv, API_ENV_MANIFEST_PATH: manifestPath },
+      env: {
+        ...process.env,
+        ...runtimeEnv,
+        SECRET_SOURCE: 'env',
+        API_ENV_MANIFEST_PATH: manifestPath,
+      },
     });
 
     expect(success.status).toBe(0);
@@ -69,6 +74,7 @@ describe('API deployment env artifact', () => {
       env: {
         ...process.env,
         ...Object.fromEntries(remainingKeys.map((key) => [key, 'private-value'])),
+        SECRET_SOURCE: 'env',
         API_ENV_MANIFEST_PATH: manifestPath,
       },
     });
@@ -76,6 +82,44 @@ describe('API deployment env artifact', () => {
     expect(failure.status).toBe(64);
     expect(failure.stderr).toContain(`missing required env: ${missingKey}`);
     expect(failure.stderr).not.toContain('private-value');
+  });
+
+  it('lets the application materialize AWS-owned secrets while requiring public bootstrap input', () => {
+    const manifest = createApiDeploymentEnvManifest();
+    const secretKeys = new Set(
+      manifest.entries.filter((entry) => entry.secret).map((entry) => entry.key),
+    );
+    const publicRuntimeEnv = Object.fromEntries(
+      manifest.projections.containerStartupRequired
+        .filter((key) => !secretKeys.has(key))
+        .map((key) => [key, 'public-runtime-value']),
+    );
+    const success = spawnSync('sh', [entrypointPath, 'sh', '-c', 'exit 0'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...publicRuntimeEnv,
+        SECRET_SOURCE: 'aws-secrets-manager',
+        SECRET_NAME_PREFIX: '/knu-roommate/production/api',
+        API_ENV_MANIFEST_PATH: manifestPath,
+      },
+    });
+
+    expect(success.status).toBe(0);
+
+    const missingPrefix = spawnSync('sh', [entrypointPath, 'sh', '-c', 'exit 0'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...publicRuntimeEnv,
+        SECRET_SOURCE: 'aws-secrets-manager',
+        SECRET_NAME_PREFIX: '',
+        API_ENV_MANIFEST_PATH: manifestPath,
+      },
+    });
+
+    expect(missingPrefix.status).toBe(64);
+    expect(missingPrefix.stderr).toContain('missing required env: SECRET_NAME_PREFIX');
   });
 });
 import { spawnSync } from 'node:child_process';

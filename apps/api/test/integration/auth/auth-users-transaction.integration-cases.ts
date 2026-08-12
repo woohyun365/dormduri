@@ -20,7 +20,7 @@ import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth
 import {
   DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION,
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
-} from '../../../src/config/auth.config.js';
+} from '../../../src/auth/config/auth.config.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';

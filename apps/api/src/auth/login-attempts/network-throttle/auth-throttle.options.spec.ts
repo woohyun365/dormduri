@@ -5,7 +5,7 @@ import {
   DEFAULT_AUTH_LOGIN_BURST_WINDOW_SECONDS,
   DEFAULT_AUTH_LOGIN_SUSTAINED_LIMIT,
   DEFAULT_AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS,
-} from '../../../config/auth.config.js';
+} from '../../config/auth.config.js';
 import { buildAuthThrottlerOptions } from './auth-throttle.options.js';
 import {
   AUTH_LOGIN_BURST_THROTTLER,

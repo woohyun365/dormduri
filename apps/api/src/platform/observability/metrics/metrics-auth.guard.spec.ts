@@ -1,7 +1,7 @@
 import { NotFoundException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import { MetricsAuthGuard } from './metrics-auth.guard.js';
 
 function makeSettings(

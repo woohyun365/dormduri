@@ -1,5 +1,8 @@
-import { readSecretSource, type SecretSource } from '../secret-source.config.js';
-import { runtimeSecretEnvKeys } from '../env-keys/index.js';
+import {
+  readSecretSource,
+  type SecretSource,
+} from '../../platform/runtime/secret-source.config.js';
+import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 import { SECRET_NAME_PREFIX_ENV } from './secret-name-prefix.constants.js';
 import { listSecretNameMappings } from './secret-name-registry.js';
 

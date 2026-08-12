@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ConfigType } from '@nestjs/config';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 
 export interface RequestContextStore {
   actorHash?: string;

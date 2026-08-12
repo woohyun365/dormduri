@@ -38,16 +38,24 @@ export class SecretReadError extends Error {
 }
 
 export interface SecretReaderPort {
-  readSecret(name: string): Promise<string>;
-  readRequiredSecrets(names: readonly string[]): Promise<Record<string, string>>;
+  readSecret(name: string, options?: SecretReadOptions): Promise<string>;
+  readRequiredSecrets(
+    names: readonly string[],
+    options?: SecretReadOptions,
+  ): Promise<Record<string, string>>;
+}
+
+export interface SecretReadOptions {
+  readonly signal?: AbortSignal;
 }
 
 export async function readRequiredSecretsWith(
   reader: Pick<SecretReaderPort, 'readSecret'>,
   names: readonly string[],
+  options: SecretReadOptions = {},
 ): Promise<Record<string, string>> {
   const entries = await Promise.all(
-    names.map(async (name) => [name, await reader.readSecret(name)]),
+    names.map(async (name) => [name, await reader.readSecret(name, options)]),
   );
   return Object.fromEntries(entries) as Record<string, string>;
 }

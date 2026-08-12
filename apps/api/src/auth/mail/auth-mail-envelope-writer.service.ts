@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { createCipheriv, randomBytes } from 'node:crypto';
-import authConfig from '../../config/auth.config.js';
+import authConfig from '../config/auth.config.js';
 import type { AuthMailEnvelope, EncryptedAuthMailEnvelope } from './auth-mail-envelope.types.js';
 
 const AES_GCM_ALGORITHM = 'aes-256-gcm';

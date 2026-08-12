@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import appConfig from '../../config/app.config.js';
-import emailConfig from '../../config/email.config.js';
+import appConfig from '../../platform/runtime/app.config.js';
+import emailConfig from '../../auth/adapters/email/email.config.js';
 import type { HealthReadinessCheck, HealthReadinessCheckResult } from './health-check.types.js';
 import { createHealthCheckResult } from './health-check-result.js';
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { envValidationSchema } from '../../config/env.validation.js';
+import { envValidationSchema } from '../../config/environment/env.validation.js';
 import type { HealthReadinessCheck, HealthReadinessCheckResult } from './health-check.types.js';
 import { createHealthCheckResult } from './health-check-result.js';
 

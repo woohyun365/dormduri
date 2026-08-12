@@ -51,8 +51,9 @@ BackOffice는 구현 시 사용자 제품과 별도 host·deploy principal·ingr
 ## Runtime environment contract
 
 Container startup은 `prisma migrate`, role grant, `prisma db push`를 실행하지 않는다. API runtime
-key는 `apps/api/src/config/env-keys/` registry가 source of truth이며 다음 명령으로 projection을
-유지한다.
+key는 owner-local env definition을 조합하는
+`apps/api/src/config/composition/api-config.registry.ts`가 source of truth이며 다음 명령으로
+projection을 유지한다.
 
 ```bash
 pnpm infra:env:generate
@@ -63,6 +64,10 @@ pnpm infra:env:check
 - `.env.api.migration.example`: one-off migration/admin credential 이름
 - `.env.compose.example`: image tag, nginx bind와 같은 Compose interpolation
 - `api/env.manifest.json`: 값이 없는 machine-readable required/secret/target projection
+
+`SECRET_SOURCE=env`에서는 entrypoint가 required runtime secret의 존재를 먼저 확인한다.
+`SECRET_SOURCE=aws-secrets-manager`에서는 non-secret runtime key와 `SECRET_NAME_PREFIX`만 entrypoint가
+확인하고, 애플리케이션 bootstrap이 Nest module import 전에 AWS에서 secret을 materialize한다.
 
 실제 `.env.api`, DB URL, token과 provider secret은 커밋하지 않는다. `HTTP_TRUST_PROXY_*`, REST와
 realtime origin처럼 target topology에 의존하는 key는 local 기본값을 production 결정으로 간주하지

@@ -1,5 +1,5 @@
-export * from './aws-secrets-manager-secret-reader.js';
-export * from './env-secret-reader.js';
+export * from './readers/aws-secrets-manager-secret-reader.js';
+export * from './readers/env-secret-reader.js';
 export * from './secret-inventory.js';
 export * from './secret-materializer.js';
 export * from './secret-name-registry.js';

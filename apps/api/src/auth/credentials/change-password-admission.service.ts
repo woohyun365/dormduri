@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { InjectThrottlerStorage, type ThrottlerStorage } from '@nestjs/throttler';
-import authConfig from '../../config/auth.config.js';
+import authConfig from '../config/auth.config.js';
 import { AuthCredentialMetricsService } from './auth-credential-metrics.service.js';
 
 const CHANGE_PASSWORD_THROTTLER = 'change-password-session';

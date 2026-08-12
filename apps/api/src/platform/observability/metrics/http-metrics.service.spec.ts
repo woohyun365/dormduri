@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ConfigType } from '@nestjs/config';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import { HttpMetricsService } from './http-metrics.service.js';
 import { PrometheusRegistryService } from './prometheus-registry.service.js';
 

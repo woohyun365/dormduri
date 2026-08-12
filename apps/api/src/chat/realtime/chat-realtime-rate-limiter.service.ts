@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import type { IncomingHttpHeaders } from 'node:http';
-import chatRealtimeConfig from '../../config/chat-realtime.config.js';
+import chatRealtimeConfig from './chat-realtime.config.js';
 import { tooManyRequestsError } from '../../platform/http/api-error.js';
 
 export type ChatRealtimeRateLimitScope =

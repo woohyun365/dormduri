@@ -214,10 +214,10 @@ pnpm api:check
 
 ```bash
 pnpm --dir apps/api exec eslint \
-  src/config/app.config.ts \
-  src/config/auth.config.ts \
-  src/config/database.config.ts \
-  src/common/prisma/prisma.service.ts \
+  src/platform/runtime/app.config.ts \
+  src/auth/config/auth.config.ts \
+  src/platform/database/database.config.ts \
+  src/platform/database/prisma.service.ts \
   prisma.config.ts \
   --no-warn-ignored
 ```

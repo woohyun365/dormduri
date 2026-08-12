@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import appConfig from '../../config/app.config.js';
-import secretSourceConfig from '../../config/secret-source.config.js';
-import { runtimeSecretEnvKeys } from '../../config/env-keys/index.js';
+import appConfig from '../../platform/runtime/app.config.js';
+import secretSourceConfig from '../../platform/runtime/secret-source.config.js';
+import { runtimeSecretEnvKeys } from '../../config/environment/env-key.registry.js';
 import type { HealthReadinessCheck, HealthReadinessCheckResult } from './health-check.types.js';
 import { createHealthCheckResult } from './health-check-result.js';
 

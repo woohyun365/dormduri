@@ -7,10 +7,10 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
-import { DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION } from '../../../src/config/auth.config.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION } from '../../../src/auth/config/auth.config.js';
 import { hashOpaqueToken } from '../../../src/auth/sessions/opaque-token.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
-import { DEFAULT_DATABASE_URL } from '../../../src/config/database.config.js';
+import { DEFAULT_DATABASE_URL } from '../../../src/platform/database/database.config.js';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
 import {
   buildPrismaSessionOptions,

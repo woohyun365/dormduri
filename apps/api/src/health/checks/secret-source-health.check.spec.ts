@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { runtimeSecretEnvKeys } from '../../config/env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../../config/environment/env-key.registry.js';
 import { SecretSourceHealthCheck } from './secret-source-health.check.js';
 
 const previousEnv = { ...process.env };

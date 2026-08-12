@@ -1,5 +1,5 @@
 import type { Provider } from '@nestjs/common';
-import chatRealtimeConfig from '../../config/chat-realtime.config.js';
+import chatRealtimeConfig from '../realtime/chat-realtime.config.js';
 import { NOTIFICATION_REALTIME_PUBLISHER } from '../../notifications/application/ports/notification-realtime-publisher.port.js';
 import { NOTIFICATION_OUTBOX_DISPATCHER_PROVIDERS } from '../../notifications/composition/notifications.providers.js';
 import {

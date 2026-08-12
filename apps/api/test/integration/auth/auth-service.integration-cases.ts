@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
-import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/auth/config/auth.config.js';
 import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 

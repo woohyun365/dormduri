@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runtimeSecretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 import {
   applyMaterializedSecretsToEnv,
   materializeRequiredSecrets,

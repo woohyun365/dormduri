@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 import { hashPassword as defaultHashPassword } from '../../../src/auth/credentials/password-hashing/password-hash.js';
-import { DEFAULT_DATABASE_URL } from '../../../src/config/database.config.js';
+import { DEFAULT_DATABASE_URL } from '../../../src/platform/database/database.config.js';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
 import {
   buildPrismaSessionOptions,

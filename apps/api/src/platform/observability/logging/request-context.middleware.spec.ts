@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
 import type { ConfigType } from '@nestjs/config';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import {
   CORRELATION_ID_HEADER,
   RequestContextMiddleware,

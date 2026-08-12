@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-sesv2';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import emailConfig from '../../../config/email.config.js';
+import emailConfig from './email.config.js';
 import type {
   EmailSendReceipt,
   EmailSender,

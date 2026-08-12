@@ -4,7 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { MetricsModule } from '../platform/observability/metrics/metrics.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { DisplayIdentityModule } from '../users/identity/display/display-identity.module.js';
-import authConfig from '../config/auth.config.js';
+import authConfig from './config/auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AUTH_EXPORTS } from './composition/auth.exports.js';
 import { AUTH_PROVIDERS } from './composition/auth.providers.js';

@@ -7,7 +7,7 @@ import {
   hashVerificationGrant,
 } from '../../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../../src/auth/persistence/auth-persistence-dimension.js';
-import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../../src/config/auth.config.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../../src/auth/config/auth.config.js';
 import { AuthMailOutboxRepository } from '../../../../src/auth/mail/auth-mail-outbox.repository.js';
 import { PrismaService } from '../../../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from '../../_support/integration-app.js';

@@ -1,7 +1,7 @@
 import type { ConfigType } from '@nestjs/config';
 import { SendEmailCommand } from '@aws-sdk/client-sesv2';
 import { describe, expect, it, vi } from 'vitest';
-import emailConfig from '../../../config/email.config.js';
+import emailConfig from './email.config.js';
 import { SesEmailSenderError } from './ses-email-error.js';
 import {
   SesEmailSenderService,

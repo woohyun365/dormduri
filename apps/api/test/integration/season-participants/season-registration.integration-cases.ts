@@ -6,7 +6,7 @@ import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth-persistence-dimension.js';
-import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/config/auth.config.js';
+import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/auth/config/auth.config.js';
 import type { AuthenticatedUserContext } from '../../../src/auth/sessions/auth-session.service.js';
 import { normalizeEmail } from '@repo/shared/auth/policy';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';

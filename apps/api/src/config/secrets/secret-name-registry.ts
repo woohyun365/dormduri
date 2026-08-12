@@ -1,4 +1,4 @@
-import { runtimeSecretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 
 import { SECRET_NAME_PREFIX_ENV } from './secret-name-prefix.constants.js';
 export const DEFAULT_SECRET_NAME_ROOT = '/knu-roommate';

@@ -23,7 +23,7 @@ import {
   hashVerificationCode,
   safeTimeEquals,
 } from './challenge/verification-code.crypto.js';
-import authConfig from '../../config/auth.config.js';
+import authConfig from '../config/auth.config.js';
 import { authErrors } from '../errors/auth.errors.js';
 import { authFailures } from '../errors/auth-failures.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
