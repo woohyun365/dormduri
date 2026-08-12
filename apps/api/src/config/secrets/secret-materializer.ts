@@ -5,6 +5,7 @@ import {
 import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 import { AwsSecretsManagerSecretReader } from './readers/aws-secrets-manager-secret-reader.js';
 import { EnvSecretReader } from './readers/env-secret-reader.js';
+import { MountedFileSecretReader } from './readers/mounted-file-secret-reader.js';
 import { listSecretNameMappings } from './secret-name-registry.js';
 import type { SecretReaderPort } from './secret-reader.port.js';
 
@@ -13,6 +14,7 @@ export interface SecretMaterializerOptions {
   readonly env?: NodeJS.ProcessEnv;
   readonly nodeEnv?: string;
   readonly secretNamePrefix?: string | null;
+  readonly secretMountDirectory?: string | null;
   readonly reader?: SecretReaderPort;
   readonly signal?: AbortSignal;
 }
@@ -27,6 +29,15 @@ export async function materializeRequiredSecrets(
 
   if (source === 'env') {
     const reader = options.reader ?? new EnvSecretReader(env);
+    return reader.readRequiredSecrets(requiredEnvKeys, { signal: options.signal });
+  }
+
+  if (source === 'mounted-files') {
+    const mountDirectory = options.secretMountDirectory ?? env.SECRET_MOUNT_DIRECTORY?.trim();
+    if (!mountDirectory) {
+      throw new Error('Mounted secret source requires a mount directory.');
+    }
+    const reader = options.reader ?? new MountedFileSecretReader(mountDirectory);
     return reader.readRequiredSecrets(requiredEnvKeys, { signal: options.signal });
   }
 
@@ -50,7 +61,7 @@ function selectRequiredSecretEnvKeys(options: {
   readonly nodeEnv: string;
   readonly source: SecretSource;
 }): string[] {
-  if (options.source === 'aws-secrets-manager' || options.nodeEnv === 'production') {
+  if (options.source !== 'env' || options.nodeEnv === 'production') {
     return runtimeSecretEnvKeys
       .filter((definition) => definition.requiredInProduction === true)
       .map((definition) => definition.key);

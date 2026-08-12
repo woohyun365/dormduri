@@ -37,7 +37,12 @@
 
 - Production env key는 owner, category, required 여부와 secret 여부를 registry에서 추적한다.
 - Production required key가 누락되거나 placeholder/default secret이 남아 있으면 fail-fast한다.
-- Secrets Manager, KMS 또는 동등한 secret store를 사용하고 runtime에는 필요한 값만 materialize한다.
+- AWS production secret origin은 Secrets Manager로 고정하고 runtime에는 필요한 값만 materialize한다.
+- Lightsail production application read source는 release plane이 설치한 read-only `mounted-files`다.
+- Release principal은 GitHub protected environment의 OIDC 임시 role이며, Lightsail host와 application
+  container에는 장기 AWS access key를 저장하지 않는다.
+- `secret origin`(Secrets Manager), `application read source`(mounted files), `release principal`(OIDC
+  role)을 서로 다른 책임으로 유지한다.
 - Secret reader, parser와 domain consumer의 책임을 분리한다.
 - DB URL, token, HMAC material, verification code, raw provider error를 log나 evidence에 기록하지 않는다.
 - Secret rotation owner와 rollback 절차가 없으면 production release를 진행하지 않는다.
@@ -109,8 +114,9 @@ blocker로 승격한다.
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                       | 관련 범위                 |
-| ---------- | --------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| 2026-06-17 | API·managed PostgreSQL 배포 준비, secret, mail, DB, ingress, readiness, backup과 rollback 안전 기준을 신설했다. | production runtime safety |
-| 2026-08-06 | Production target 미확정 상태를 `PENDING_TARGET`로 다루고 CI와 CD의 책임을 분리했다.                            | release responsibility    |
-| 2026-08-11 | 변동 가능한 topology·비용·resource·rehearsal evidence를 architecture와 release handoff로 분리했다.              | documentation ownership   |
+| 날짜       | 변경 내용                                                                                                               | 관련 범위                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 2026-06-17 | API·managed PostgreSQL 배포 준비, secret, mail, DB, ingress, readiness, backup과 rollback 안전 기준을 신설했다.         | production runtime safety |
+| 2026-08-06 | Production target 미확정 상태를 `PENDING_TARGET`로 다루고 CI와 CD의 책임을 분리했다.                                    | release responsibility    |
+| 2026-08-11 | 변동 가능한 topology·비용·resource·rehearsal evidence를 architecture와 release handoff로 분리했다.                      | documentation ownership   |
+| 2026-08-12 | Lightsail production의 Secrets Manager origin, OIDC release principal, mounted-file application read source를 확정했다. | secret delivery           |

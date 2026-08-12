@@ -1,4 +1,4 @@
-export type SecretReaderSource = 'env' | 'aws-secrets-manager';
+export type SecretReaderSource = 'env' | 'mounted-files' | 'aws-secrets-manager';
 
 export type SecretReadErrorCode =
   | 'MISSING'
@@ -7,6 +7,9 @@ export type SecretReadErrorCode =
   | 'THROTTLED'
   | 'TRANSIENT'
   | 'UNSUPPORTED_BINARY'
+  | 'INVALID_PATH'
+  | 'UNSAFE_FILE'
+  | 'TOO_LARGE'
   | 'UNKNOWN';
 
 export interface SecretReadErrorOptions {

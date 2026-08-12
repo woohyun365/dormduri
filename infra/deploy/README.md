@@ -15,16 +15,22 @@
 infra/deploy/
 ├── compose.api.yml                  # API + nginx runtime candidate
 ├── .env.api.example                 # API runtime env projection
+├── .env.api.lightsail.example       # Lightsail non-secret runtime projection
 ├── .env.api.migration.example       # deploy-time DB credential projection
 ├── .env.compose.example             # Compose interpolation projection
 ├── api/
 │   ├── Dockerfile                   # non-root API image
 │   ├── env.manifest.json            # API registry에서 생성한 value-free manifest
+│   ├── secret-mount.contract.json    # required secret-per-file inventory와 permission contract
 │   ├── entrypoint.sh                # runtime requirement fail-fast; migration 미실행
 │   └── healthcheck.sh               # container health probe
 ├── web/Dockerfile                   # Next.js standalone image
 ├── nginx/                           # proxy, route, metrics allowlist, TLS example
-└── scripts/api-release-smoke.sh     # health/readiness/metrics smoke와 dry-run
+└── scripts/
+    ├── api-release-smoke.sh          # health/readiness/metrics smoke와 dry-run
+    ├── materialize-api-secret-bundle.sh
+    ├── verify-api-secret-bundle.sh
+    └── install-api-secret-bundle.sh
 ```
 
 `compose.api.yml`은 API와 nginx의 공통 runtime shape만 정의한다. 다음 항목은 다른 owner가 합성한다.
@@ -61,13 +67,21 @@ pnpm infra:env:check
 ```
 
 - `.env.api.example`: runtime/retention DB, auth/mail/HMAC, metrics, origin/proxy key 이름
+- `.env.api.lightsail.example`: secret value와 AWS credential이 없는 Lightsail runtime 입력
 - `.env.api.migration.example`: one-off migration/admin credential 이름
 - `.env.compose.example`: image tag, nginx bind와 같은 Compose interpolation
 - `api/env.manifest.json`: 값이 없는 machine-readable required/secret/target projection
 
 `SECRET_SOURCE=env`에서는 entrypoint가 required runtime secret의 존재를 먼저 확인한다.
-`SECRET_SOURCE=aws-secrets-manager`에서는 non-secret runtime key와 `SECRET_NAME_PREFIX`만 entrypoint가
-확인하고, 애플리케이션 bootstrap이 Nest module import 전에 AWS에서 secret을 materialize한다.
+`SECRET_SOURCE=mounted-files`에서는 non-secret runtime key와 read-only mount contract만 entrypoint가
+확인하고, 애플리케이션 bootstrap이 Nest module import 전에 file을 materialize한다. 이 경로가
+Lightsail production 기본값이다. `SECRET_SOURCE=aws-secrets-manager`는 EC2/ECS처럼 안전한 AWS
+credential-provider chain을 제공하는 runtime용 호환 adapter다.
+
+Host release root는 `/var/lib/knu-roommate/secrets/api`, container mount는
+`/run/secrets/knu-roommate-api`, API runtime UID/GID는 `10001:10001`이다. Candidate는 검증 후 설치하고
+readiness 성공 뒤에만 `current` pointer를 atomic하게 전환한다. Secret bundle은 image, CI artifact,
+release evidence에 포함하지 않는다.
 
 실제 `.env.api`, DB URL, token과 provider secret은 커밋하지 않는다. `HTTP_TRUST_PROXY_*`, REST와
 realtime origin처럼 target topology에 의존하는 key는 local 기본값을 production 결정으로 간주하지

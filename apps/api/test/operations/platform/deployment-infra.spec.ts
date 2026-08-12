@@ -9,13 +9,18 @@ const deployRoot = join(repoRoot, 'infra/deploy');
 const requiredFiles = [
   'README.md',
   '.env.api.example',
+  '.env.api.lightsail.example',
   '.env.api.migration.example',
   '.env.compose.example',
   'compose.api.yml',
   'api/Dockerfile',
   'api/env.manifest.json',
+  'api/secret-mount.contract.json',
   'api/entrypoint.sh',
   'api/healthcheck.sh',
+  'scripts/materialize-api-secret-bundle.sh',
+  'scripts/verify-api-secret-bundle.sh',
+  'scripts/install-api-secret-bundle.sh',
   'nginx/nginx.conf',
   'nginx/conf.d/api.conf',
   'nginx/examples/api.tls.conf',
@@ -94,7 +99,9 @@ describe('deployment infra', () => {
     const dockerfile = readDeployFile('api/Dockerfile');
     const dockerignore = readRepoFile('.dockerignore');
 
-    expect(dockerfile).toContain('FROM node:${NODE_VERSION} AS base');
+    expect(dockerfile).toContain('ARG NODE_IMAGE=node:');
+    expect(dockerfile).toContain('FROM ${NODE_IMAGE} AS base');
+    expect(dockerfile).toContain('FROM ${NODE_IMAGE} AS runtime');
     expect(dockerfile).toContain('corepack enable');
     expect(dockerfile).toContain('pnpm install --frozen-lockfile');
     expect(dockerfile).toContain(

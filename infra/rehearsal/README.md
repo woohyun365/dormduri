@@ -2,6 +2,10 @@
 
 이 디렉터리는 production 후보에 자동 합성되지 않는 local/constrained rehearsal 설정만 소유한다.
 
+Lightsail secret delivery의 AWS-account-free candidate/activation/rollback fault matrix는
+[`lightsail-secret-delivery.md`](../runbooks/rehearsal/lightsail-secret-delivery.md)와
+`pnpm infra:rehearsal:lightsail-secrets`가 소유한다. Raw bundle은 rehearsal artifact로 보존하지 않는다.
+
 ## Profile composition
 
 | Profile                    | Compose order                                                      | Responsibility                                         |

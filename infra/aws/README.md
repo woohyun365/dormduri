@@ -6,7 +6,13 @@
 
 - `beginner-account-budget-checklist.md`: 계정, 비용 알림, 기본 예산 경계
 - `rds-setup-checklist.md`: PostgreSQL 18, private network, backup/PITR, SSL, connection budget
-- `secrets-manager-checklist.md`: runtime·migration secret 분리와 rotation 입력
+- `secrets-manager-checklist.md`: Secrets Manager origin, GitHub OIDC release principal, mounted-file
+  application read source와 rotation 입력
+
+API secret과 Lightsail host 준비 상태는 각각
+[`api-secrets-manager/readiness.md`](../runbooks/release/components/api-secrets-manager/readiness.md),
+[`lightsail-runtime/readiness.md`](../runbooks/release/components/lightsail-runtime/readiness.md)에서 닫는다.
+
 - `ses-setup-checklist.md`: region, verified identity, sandbox 해제, mail smoke 입력
 
 체크박스는 준비 항목이며 **실제 target evidence가 아니다**. 실제 provider, resource identifier,

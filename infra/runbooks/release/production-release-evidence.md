@@ -37,6 +37,8 @@ redaction_confirmed: false
 | Component               | Evidence owner                                                                       | Result    | Evidence identifier | Operator | Collected at | Risk / follow-up owner |
 | ----------------------- | ------------------------------------------------------------------------------------ | --------- | ------------------- | -------- | ------------ | ---------------------- |
 | Infrastructure target   | [Target evidence](./components/infrastructure-target/evidence.md)                    | `PENDING` |                     |          |              |                        |
+| API Secrets Manager     | [Secrets evidence](./components/api-secrets-manager/evidence.md)                     | `PENDING` |                     |          |              |                        |
+| Lightsail runtime       | [Runtime evidence](./components/lightsail-runtime/evidence.md)                       | `PENDING` |                     |          |              |                        |
 | Observability collector | [Collector evidence](./components/observability-collector/evidence.md)               | `PENDING` |                     |          |              |                        |
 | Web Sentry              | [Sentry evidence](./components/web-sentry/evidence.md)                               | `PENDING` |                     |          |              |                        |
 | DB backup/restore       | [Restore drill](../operations/database/backup-restore.md)                            | `PENDING` |                     |          |              |                        |

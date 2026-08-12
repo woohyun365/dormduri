@@ -33,8 +33,8 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl tzdata \
   && rm -rf /var/lib/apt/lists/* \
-  && groupadd --system knu \
-  && useradd --system --gid knu --home-dir /app --shell /usr/sbin/nologin knu
+  && groupadd --system --gid 10001 knu \
+  && useradd --system --uid 10001 --gid knu --home-dir /app --shell /usr/sbin/nologin knu
 COPY --from=build --chown=knu:knu /workspace/runtime ./
 COPY --from=build --chown=knu:knu /workspace/apps/api/dist ./dist
 COPY --from=build --chown=knu:knu /workspace/apps/api/src/generated/prisma ./src/generated/prisma

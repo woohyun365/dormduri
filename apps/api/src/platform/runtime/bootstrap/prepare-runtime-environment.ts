@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import {
   applyMaterializedSecretsToEnv,
   materializeRequiredSecrets,
@@ -7,6 +8,7 @@ import type { SecretReaderPort } from '../../../config/secrets/secret-reader.por
 import { DEFAULT_NODE_ENV } from '../app.config.js';
 import {
   readSecretNamePrefix,
+  readSecretMountDirectory,
   readSecretSource,
   type SecretSource,
 } from '../secret-source.config.js';
@@ -40,6 +42,7 @@ export interface RuntimeBootstrapEnvironment {
   readonly nodeEnv: 'development' | 'test' | 'production';
   readonly secretSource: SecretSource;
   readonly secretNamePrefix: string | null;
+  readonly secretMountDirectory: string | null;
 }
 
 export interface PrepareRuntimeEnvironmentOptions {
@@ -69,6 +72,7 @@ export async function prepareRuntimeEnvironment(
         nodeEnv: bootstrapEnvironment.nodeEnv,
         source: bootstrapEnvironment.secretSource,
         secretNamePrefix: bootstrapEnvironment.secretNamePrefix,
+        secretMountDirectory: bootstrapEnvironment.secretMountDirectory,
         reader: options.reader,
         signal: abortController.signal,
       }),
@@ -107,6 +111,7 @@ export function parseRuntimeBootstrapEnvironment(
     const nodeEnv = parseNodeEnv(env.NODE_ENV);
     const secretSource = readSecretSource(env);
     const configuredPrefix = readSecretNamePrefix(env);
+    const secretMountDirectory = readSecretMountDirectory(env);
     const secretNamePrefix =
       configuredPrefix === null ? null : normalizeSecretNamePrefix(configuredPrefix);
 
@@ -114,7 +119,14 @@ export function parseRuntimeBootstrapEnvironment(
       throw new Error('Production Secrets Manager source requires a name prefix.');
     }
 
-    return { nodeEnv, secretSource, secretNamePrefix };
+    if (
+      secretSource === 'mounted-files' &&
+      (!secretMountDirectory || !isAbsolute(secretMountDirectory))
+    ) {
+      throw new Error('Mounted-file source requires an absolute mount directory.');
+    }
+
+    return { nodeEnv, secretSource, secretNamePrefix, secretMountDirectory };
   } catch (error) {
     throw new RuntimeEnvironmentPreparationError('BOOTSTRAP_ENV_INVALID', error);
   }

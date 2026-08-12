@@ -36,6 +36,7 @@ const migrationKeys = new Set(
   entries.filter((entry) => entry.scope === 'migration').map((entry) => entry.key),
 );
 const runtimeExampleKeys = parseEnvKeys('infra/deploy/.env.api.example');
+const lightsailExampleKeys = parseEnvKeys('infra/deploy/.env.api.lightsail.example');
 const migrationExampleKeys = parseEnvKeys('infra/deploy/.env.api.migration.example');
 const startupRequired = new Set(manifest.projections?.containerStartupRequired ?? []);
 const migrationRequired = new Set(manifest.projections?.migrationRequired ?? []);
@@ -43,6 +44,31 @@ const migrationRequired = new Set(manifest.projections?.migrationRequired ?? [])
 if (manifest.version !== 1) failures.push('manifest version must be 1');
 if (entryByKey.size !== entries.length) failures.push('manifest contains duplicate env keys');
 reportMissing('runtime example missing startup keys', missing(startupRequired, runtimeExampleKeys));
+const runtimeSecretKeys = new Set(
+  entries
+    .filter((entry) => entry.scope === 'runtime' && entry.secret === true)
+    .map((entry) => entry.key),
+);
+const lightsailRequired = new Set(
+  [...startupRequired]
+    .filter((key) => !runtimeSecretKeys.has(key))
+    .concat('SECRET_MOUNT_DIRECTORY'),
+);
+reportMissing(
+  'Lightsail example missing public startup keys',
+  missing(lightsailRequired, lightsailExampleKeys),
+);
+const lightsailSecretKeys = [...lightsailExampleKeys].filter((key) => runtimeSecretKeys.has(key));
+if (lightsailSecretKeys.length) {
+  failures.push(`Lightsail example contains secret keys: ${lightsailSecretKeys.sort().join(', ')}`);
+}
+const lightsailExample = readRepoFile('infra/deploy/.env.api.lightsail.example');
+if (!/^SECRET_SOURCE=mounted-files$/mu.test(lightsailExample)) {
+  failures.push('Lightsail example must select mounted-files');
+}
+if (/AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)=/u.test(lightsailExample)) {
+  failures.push('Lightsail example must not contain long-lived AWS access keys');
+}
 reportMissing(
   'migration example missing deploy keys',
   missing(migrationRequired, migrationExampleKeys),

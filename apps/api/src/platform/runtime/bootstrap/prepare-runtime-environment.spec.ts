@@ -25,7 +25,55 @@ describe('prepareRuntimeEnvironment', () => {
       nodeEnv: 'test',
       secretSource: 'aws-secrets-manager',
       secretNamePrefix: '/knu-roommate/test/api',
+      secretMountDirectory: null,
     });
+  });
+
+  it('materializes a mounted production bundle before full config validation', async () => {
+    const mountDirectory = '/run/secrets/knu-roommate-api';
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: 'production',
+      SECRET_SOURCE: 'mounted-files',
+      SECRET_MOUNT_DIRECTORY: mountDirectory,
+      EMAIL_PROVIDER: 'ses',
+      SES_REGION: 'ap-northeast-2',
+      SES_FROM_EMAIL: 'no-reply@example.com',
+    };
+    const reader: SecretReaderPort = {
+      readSecret: (name) => Promise.resolve(validSecretValue(name)),
+      readRequiredSecrets: async (names) =>
+        Object.fromEntries(
+          await Promise.all(names.map(async (name) => [name, await reader.readSecret(name)])),
+        ) as Record<string, string>,
+    };
+
+    const receipt = await prepareRuntimeEnvironment(env, { reader });
+    const validation = envValidationSchema.validate(env, { abortEarly: false });
+
+    expect(validation.error).toBeUndefined();
+    expect(receipt).toMatchObject({
+      version: 1,
+      status: 'prepared',
+      secretSource: 'mounted-files',
+      materializedSecretCount: 13,
+    });
+    expect(JSON.stringify(receipt)).not.toContain(mountDirectory);
+  });
+
+  it('rejects mounted-file preparation without a public mount directory', () => {
+    expect(() =>
+      parseRuntimeBootstrapEnvironment({ NODE_ENV: 'production', SECRET_SOURCE: 'mounted-files' }),
+    ).toThrow(expect.objectContaining({ code: 'BOOTSTRAP_ENV_INVALID' }));
+  });
+
+  it('rejects a relative mounted-file directory before materialization', () => {
+    expect(() =>
+      parseRuntimeBootstrapEnvironment({
+        NODE_ENV: 'production',
+        SECRET_SOURCE: 'mounted-files',
+        SECRET_MOUNT_DIRECTORY: './secrets',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'BOOTSTRAP_ENV_INVALID' }));
   });
 
   it('rejects a production AWS source without a configured prefix', () => {
@@ -105,6 +153,24 @@ describe('prepareRuntimeEnvironment', () => {
     await expect(
       prepareRuntimeEnvironment(productionAwsEnvironment(), { reader, timeoutMs: 5 }),
     ).rejects.toMatchObject({ code: 'SECRET_MATERIALIZATION_TIMEOUT' });
+  });
+
+  it('does not partially apply a failed mounted bundle', async () => {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: 'production',
+      SECRET_SOURCE: 'mounted-files',
+      SECRET_MOUNT_DIRECTORY: '/run/secrets/knu-roommate-api',
+    };
+    const reader: SecretReaderPort = {
+      readSecret: () => Promise.resolve('partial-private-value'),
+      readRequiredSecrets: () => Promise.reject(new Error('partial bundle')),
+    };
+
+    await expect(prepareRuntimeEnvironment(env, { reader })).rejects.toMatchObject({
+      code: 'SECRET_MATERIALIZATION_FAILED',
+    });
+    expect(env.DATABASE_URL).toBeUndefined();
+    expect(env.AUTH_PERSISTENCE_HMAC_SECRET).toBeUndefined();
   });
 
   it('does not expose provider payloads through the bootstrap failure description', async () => {

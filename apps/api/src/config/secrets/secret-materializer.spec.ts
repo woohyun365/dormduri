@@ -41,6 +41,33 @@ describe('secret materializer', () => {
     expect(materialized.DATABASE_URL).toBe('value-for:/knu-roommate/prod/api/DATABASE_URL');
   });
 
+  it('materializes mounted secrets by env key without AWS name mapping', async () => {
+    const requestedNames: string[] = [];
+    const reader: SecretReaderPort = {
+      readSecret: (name) => {
+        requestedNames.push(name);
+        return Promise.resolve(`value-for:${name}`);
+      },
+      readRequiredSecrets: async (names) => {
+        const entries = await Promise.all(
+          names.map(async (name) => [name, await reader.readSecret(name)]),
+        );
+        return Object.fromEntries(entries) as Record<string, string>;
+      },
+    };
+
+    const materialized = await materializeRequiredSecrets({
+      source: 'mounted-files',
+      env: { NODE_ENV: 'production' },
+      secretMountDirectory: '/run/secrets/api',
+      reader,
+    });
+
+    expect(materialized.DATABASE_URL).toBe('value-for:DATABASE_URL');
+    expect(requestedNames).toContain('DATABASE_URL');
+    expect(requestedNames.some((name) => name.startsWith('/'))).toBe(false);
+  });
+
   it('applies materialized secrets to a target env object', () => {
     const targetEnv: NodeJS.ProcessEnv = {};
 

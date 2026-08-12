@@ -20,7 +20,7 @@ describe('SecretSourceHealthCheck', () => {
   it('non-production에서는 secret materialization을 readiness blocker로 삼지 않는다', async () => {
     const check = new SecretSourceHealthCheck(
       { isProduction: false, nodeEnv: 'test', port: 4000 },
-      { source: 'env', secretNamePrefix: null },
+      { source: 'env', secretMountDirectory: null, secretNamePrefix: null },
     );
 
     await expect(check.check()).resolves.toMatchObject({
@@ -34,7 +34,7 @@ describe('SecretSourceHealthCheck', () => {
     process.env = Object.fromEntries(runtimeSecretEnvKeys.map(({ key }) => [key, 'secret-value']));
     const check = new SecretSourceHealthCheck(
       { isProduction: true, nodeEnv: 'production', port: 4000 },
-      { source: 'env', secretNamePrefix: null },
+      { source: 'env', secretMountDirectory: null, secretNamePrefix: null },
     );
 
     await expect(check.check()).resolves.toMatchObject({
@@ -48,7 +48,7 @@ describe('SecretSourceHealthCheck', () => {
     process.env = {};
     const check = new SecretSourceHealthCheck(
       { isProduction: true, nodeEnv: 'production', port: 4000 },
-      { source: 'env', secretNamePrefix: null },
+      { source: 'env', secretMountDirectory: null, secretNamePrefix: null },
     );
 
     await expect(check.check()).resolves.toMatchObject({
@@ -62,7 +62,7 @@ describe('SecretSourceHealthCheck', () => {
     process.env = Object.fromEntries(runtimeSecretEnvKeys.map(({ key }) => [key, 'secret-value']));
     const check = new SecretSourceHealthCheck(
       { isProduction: true, nodeEnv: 'production', port: 4000 },
-      { source: 'aws-secrets-manager', secretNamePrefix: null },
+      { source: 'aws-secrets-manager', secretMountDirectory: null, secretNamePrefix: null },
     );
 
     await expect(check.check()).resolves.toMatchObject({

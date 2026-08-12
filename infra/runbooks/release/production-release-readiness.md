@@ -20,9 +20,12 @@
    hosting, registry, ingress, observability backup 입력을 닫는다.
 3. [Observability collector readiness](./components/observability-collector/readiness.md)에서
    Alloy Docker socket 유지 여부와 대체 수집 방식을 결정한다.
-4. 아래 component owner의 readiness와 실행 runbook을 따른다.
-5. 각 component evidence를 실제 값으로 채운다. Secret 원문은 기록하지 않는다.
-6. 모든 component 결과를
+4. [API Secrets Manager readiness](./components/api-secrets-manager/readiness.md)와
+   [Lightsail runtime readiness](./components/lightsail-runtime/readiness.md)에서 secret origin, release
+   principal, mounted-file runtime을 닫는다.
+5. 아래 component owner의 readiness와 실행 runbook을 따른다.
+6. 각 component evidence를 실제 값으로 채운다. Secret 원문은 기록하지 않는다.
+7. 모든 component 결과를
    [production-release-evidence.md](./production-release-evidence.md)에 연결하고 한 번만 최종 판정한다.
 
 ## 사용자에게 받아야 하는 입력
@@ -45,6 +48,8 @@
 | Component                                     | Readiness / 실행 owner                                                                           | Actual evidence owner                                                                |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | Hosting·registry·ingress·observability backup | [Infrastructure target readiness](./components/infrastructure-target/readiness.md)               | [Infrastructure target evidence](./components/infrastructure-target/evidence.md)     |
+| API secret origin·OIDC release principal      | [API Secrets Manager readiness](./components/api-secrets-manager/readiness.md)                   | [API Secrets Manager evidence](./components/api-secrets-manager/evidence.md)         |
+| Lightsail mounted secret runtime              | [Lightsail runtime readiness](./components/lightsail-runtime/readiness.md)                       | [Lightsail runtime evidence](./components/lightsail-runtime/evidence.md)             |
 | Log collector trust boundary                  | [Observability collector readiness](./components/observability-collector/readiness.md)           | [Observability collector evidence](./components/observability-collector/evidence.md) |
 | Collector incident·migration                  | [Collector troubleshooting](../incidents/observability-collector.md)                             | 해당 incident record와 collector evidence                                            |
 | Web Sentry                                    | [Sentry readiness](./components/web-sentry/readiness.md)                                         | [Sentry evidence](./components/web-sentry/evidence.md)                               |

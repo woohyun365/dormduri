@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import secretSourceConfig, {
   readSecretNamePrefix,
+  readSecretMountDirectory,
   readSecretSource,
 } from './secret-source.config.js';
 import { SECRET_NAME_PREFIX_ENV } from '../../config/secrets/secret-name-prefix.constants.js';
@@ -14,6 +15,13 @@ describe('secretSourceConfig', () => {
 
   it('accepts the Secrets Manager materialization selector', () => {
     expect(readSecretSource({ SECRET_SOURCE: 'aws-secrets-manager' })).toBe('aws-secrets-manager');
+  });
+
+  it('accepts a mounted-file selector and reads its public directory', () => {
+    expect(readSecretSource({ SECRET_SOURCE: 'mounted-files' })).toBe('mounted-files');
+    expect(readSecretMountDirectory({ SECRET_MOUNT_DIRECTORY: ' /run/secrets/api ' })).toBe(
+      '/run/secrets/api',
+    );
   });
 
   it('rejects unsupported secret sources', () => {
@@ -34,6 +42,7 @@ describe('secretSourceConfig', () => {
     try {
       expect(secretSourceConfig()).toEqual({
         source: 'aws-secrets-manager',
+        secretMountDirectory: null,
         secretNamePrefix: '/knu-roommate/production/api',
       });
     } finally {

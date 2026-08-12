@@ -15,6 +15,9 @@ services:
       TZ: ${TZ:-Asia/Seoul}
       OBSERVABILITY_SERVICE_NAME: api
       LOG_PRETTY: 'false'
+      SECRET_MOUNT_DIRECTORY: ${SECRET_MOUNT_DIRECTORY:-/run/secrets/knu-roommate-api}
+    volumes:
+      - ${API_SECRET_HOST_CURRENT:-api-secrets}:/run/secrets/knu-roommate-api:ro
     expose:
       - '4000'
     restart: unless-stopped
@@ -92,3 +95,6 @@ services:
 networks:
   api-internal:
     driver: bridge
+
+volumes:
+  api-secrets:
