@@ -10,7 +10,7 @@
 - `access/` public surface: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
 - actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 session facade다.
 - `AuthPasswordVerifier`: 외부 domain이 credential/hash 구현을 알지 않고 account password 확인 capability만 사용하는 public application boundary다.
-- `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다. 외부 export는 cleanup 실행과 health snapshot capability로 제한한다.
+- `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다. 외부 export는 lifecycle sweep이 호출하는 cleanup 실행 capability로 제한한다.
 
 ## Directory responsibilities
 
@@ -19,30 +19,30 @@
 - `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
 - `domain/`: request context와 auth email identity policy처럼 여러 auth flow가 공유하는 pure domain owner. Generic `utils.ts`·`types.ts` bucket은 두지 않고 request/response type은 shared contract, internal result는 owning slice에 둔다. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
-- `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric을 함께 둔다.
-- `verification/`: controller-facing use case/facade, eligibility와 verification metric은 root에 둔다.
+- `observability/`: `AuthModule`이 한 번에 등록하는 Auth 일반 metric definition catalog다. Metric recorder는 각 owning slice에 두며 이 디렉토리에 recorder/service를 모으지 않는다.
+- `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy와 low-cardinality renewal metric recorder를 함께 둔다.
+- `verification/`: controller-facing use case/facade, eligibility와 verification metric recorder는 root에 둔다.
   - `verification/request/`: 요청 cooldown/backstop, request log, pending code와 encrypted mail outbox의 원자적 append를 소유한다.
   - `verification/challenge/`: active code 조회, 실패 횟수와 consume, code verified와 grant issue transition을 소유한다.
   - `verification/grant/`: opaque purpose/subject-bound grant 조회·검증과 signup/reset owning transaction에서 사용하는 consume helper를 소유한다.
-- `credentials/`: `auth-credential-use-cases.service.ts`, login/reset/change password command, credential admission과 credential transition/policy metric을 둔다.
-  - `credentials/password-hashing/`: Argon2id hash/verify, hash profile adapter, process-local capacity admission과 hash capacity/duration metric을 함께 소유한다.
+- `credentials/`: `auth-credential-use-cases.service.ts`, login/reset/change password command, credential admission과 credential transition/policy metric recorder를 둔다.
+  - `credentials/password-hashing/`: Argon2id hash/verify, hash profile adapter, process-local capacity admission과 hash capacity/duration metric recorder를 함께 소유한다.
   - `credentials/password-policy/`: Shared structure policy mapping, API-private common/contextual policy와 blocklist lookup을 함께 소유한다.
-- `login-attempts/`: account lock과 network throttle이 함께 사용하는 no-PII login metric만 root에 둔다.
+- `login-attempts/`: account lock과 network throttle이 함께 사용하는 no-PII login metric recorder만 root에 둔다.
   - `login-attempts/account-lock/`: normalized email 기준 PostgreSQL 실패 횟수, 5회/5분 잠금, 조회·기록·해제를 소유한다.
   - `login-attempts/network-throttle/`: trusted request IP 기준 30회/1분 burst와 120회/10분 sustained guard/options/decorator를 소유한다.
 - `security-events/`: audit/security event service, repository, sanitizer, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않는다. Login 같은 운영 관측 event는 `recordSafely`로 fail-open할 수 있지만 Signup·Reset·Change Password의 필수 credential lifecycle event는 owning transaction 안에서 `recordInTransaction`으로 기록한다. 감사 이벤트를 주기적으로 다시 읽어 운영 metric을 만들지 않는다.
-- `registration/`: `auth-registration-use-cases.service.ts`, nickname-only signup admission query, signup command와 signup-specific metric을 함께 둔다. Auth는 lifestyle/intro/profile parser나 display nickname 불변식 자체를 소유하지 않는다.
+- `registration/`: `auth-registration-use-cases.service.ts`, nickname-only signup admission query, signup command와 signup-specific metric recorder를 함께 둔다. Auth는 lifestyle/intro/profile parser나 display nickname 불변식 자체를 소유하지 않는다.
 - `adapters/email/`: `EmailSender` contract, local/test stub sender, SESv2 production sender, provider delegate selection, monitored send wrapper.
 - `mappers/`: shared response mapper and user/session presenter.
 - `errors/`: user-facing neutral/fail-closed error contract.
-- `operations/`: 독립 `AuthOperationsModule` runtime owner다. `cleanup/`은 retention cleanup과 실행 metric, `health/`는 alert 판정 없는 no-PII cleanup 상태 snapshot을 소유한다. Verification/credential/registration/password-hash/mail flow metric도 각 owning slice에 둔다.
+- `operations/`: 독립 `AuthOperationsModule` runtime owner다. `cleanup/`은 cleanup 실행, recorder, definition을 함께 소유하고 별도로 등록한다. 일반 Auth flow의 recorder는 각 owning slice, 공통 definition catalog는 `observability/`가 소유한다.
 
 ## Hard rules
 
 - Postgres authoritative: auth source-of-truth를 Redis로 옮기지 않는다. 캐시나 distributed throttle 같은 인프라 도입 여부는 auth runtime 상태가 아니라 production-like 부하 증거와 운영 runbook에서 결정한다.
 - Auth cleanup은 `RetentionWorkerPrismaService` credential 경계에서 실행한다. 실제 client가 없는 미래용 DB role을 미리 생성하지 않는다.
-- `/health/auth`, `/health/realtime`은 `admin:operations:health:read` capability가 필요한 ops-only endpoint이며 public internet health가 아니다.
-- `/health`, `/health/ready`는 public liveness/readiness surface다. 운영 metric, dispatcher failure, replay resync reason 같은 상세 운영 정보는 public surface와 분리한다.
+- `/health`, `/health/ready`는 process liveness와 traffic readiness만 제공한다. Auth cleanup 상태는 `/health/auth`로 복제하지 않고 owner-local metric과 Prometheus rule로 관측한다.
 - `AuthOperationsModule`은 `@Global()` module이 아니다.
 - JWT transport/JWT bridge를 재도입하지 않는다.
 - Renewal rotation은 current hash를 previous hash로 옮기고 DB clock 기준 8초 grace를 둔다. Grace 안의 previous token은 stale이며, grace 밖의 old/unknown token만 reuse로 session family를 revoke한다.
@@ -100,9 +100,10 @@ Auth architecture/inventory guard는 `apps/api/test/architecture/`의 product-na
 - Provider selection, SES payload/receipt/tag mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational retention cleanup: `operations/cleanup/`.
-- Cleanup `/health/auth` snapshot: `operations/health/`.
 - Cleanup execution/saturation metric: `operations/cleanup/auth-cleanup-metrics.service.ts`.
 - Verification/credential/registration/password-hash/mail flow metrics: 각 owning slice의 `*-metrics.service.ts`.
+- AuthModule metric definition catalog: `observability/auth-metric.definitions.ts`.
+- AuthOperationsModule cleanup metric definition: `operations/cleanup/auth-cleanup-metric.definitions.ts`.
 - Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/domains/auth-boundary.spec.ts`.
 - Password policy source/import boundary: `architecture/domains/auth-password-policy-boundary.spec.ts`.
 - Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; public imports use `@repo/shared/auth` and granular `@repo/shared/auth/*` only.

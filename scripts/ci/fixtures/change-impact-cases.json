@@ -36,6 +36,42 @@
     }
   },
   {
+    "name": "api-config-only",
+    "paths": ["apps/api/src/config/environment/env.validation.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false
+    }
+  },
+  {
+    "name": "api-health-only",
+    "paths": ["apps/api/src/health/health.controller.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false
+    }
+  },
+  {
+    "name": "api-platform-only",
+    "paths": ["apps/api/src/platform/runtime/bootstrap/prepare-runtime-environment.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false
+    }
+  },
+  {
     "name": "shared-contract",
     "paths": ["packages/shared/src/auth/contract.ts"],
     "expected": {
@@ -98,6 +134,30 @@
   {
     "name": "api-container",
     "paths": ["infra/deploy/api/Dockerfile"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-deploy-script",
+    "paths": ["infra/deploy/scripts/api-release-smoke.sh"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-compose",
+    "paths": ["infra/deploy/compose.api.yml"],
     "expected": {
       "web": false,
       "api": true,

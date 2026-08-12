@@ -28,6 +28,13 @@ interface SqlTimeInventoryEntry {
 
 export const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
   entry({
+    path: 'src/platform/runtime/bootstrap/prepare-runtime-environment.ts',
+    owner: 'platform/runtime/bootstrap',
+    category: 'response-timestamp',
+    rationale:
+      'bootstrap receipt records completion time for readiness evidence and accepts an injectable clock in tests.',
+  }),
+  entry({
     path: 'src/auth/verification/request/auth-verification-timing.policy.ts',
     owner: 'auth/verification',
     category: 'duration-metric',
@@ -195,13 +202,6 @@ export const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] =
     rationale: 'readiness DB check uses process time only to report elapsed probe duration.',
   }),
   entry({
-    path: 'src/health/checks/email-provider-health.check.ts',
-    owner: 'health/checks',
-    category: 'duration-metric',
-    rationale:
-      'readiness email provider check uses process time only to report elapsed probe duration.',
-  }),
-  entry({
     path: 'src/health/checks/health-check-result.ts',
     owner: 'health/checks',
     category: 'response-timestamp',
@@ -209,25 +209,16 @@ export const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] =
       'readiness check result timestamp and elapsedMs are response metadata only, not persisted business time.',
   }),
   entry({
-    path: 'src/health/checks/migration-baseline-health.check.ts',
+    path: 'src/health/checks/runtime-bootstrap-health.check.ts',
     owner: 'health/checks',
     category: 'duration-metric',
-    rationale:
-      'readiness migration baseline check uses process time only to report elapsed probe duration.',
+    rationale: 'readiness receipt check uses process time only for internal probe duration.',
   }),
   entry({
-    path: 'src/health/checks/runtime-config-health.check.ts',
-    owner: 'health/checks',
+    path: 'src/health/health.service.ts',
+    owner: 'health',
     category: 'duration-metric',
-    rationale:
-      'readiness runtime config check uses process time only to report elapsed probe duration.',
-  }),
-  entry({
-    path: 'src/health/checks/secret-source-health.check.ts',
-    owner: 'health/checks',
-    category: 'duration-metric',
-    rationale:
-      'readiness secret source check uses process time only to report elapsed probe duration.',
+    rationale: 'readiness coordinator measures only the process-local probe duration.',
   }),
   entry({
     path: 'src/health/presenters/health-response.presenter.ts',
@@ -503,6 +494,11 @@ export const sqlTimeUsageInventory: readonly SqlTimeInventoryEntry[] = [
     path: 'prisma/sql/getActiveVerificationRecord.sql',
     owner: 'auth/verification',
     rationale: 'active verification lookup uses DB CURRENT_TIMESTAMP for expiry.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/getDatabaseReadiness.sql',
+    owner: 'health/checks',
+    rationale: 'readiness combines DB clock and migration baseline in one TypedSQL probe.',
   }),
   sqlEntry({
     path: 'prisma/sql/getCurrentTimestamp.sql',

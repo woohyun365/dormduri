@@ -23,7 +23,7 @@
 - `access-logs/`: retained identity/vault disclosure 접근 로그 생성과 disposal scheduling owner.
 - `review-jobs/`: identity-link review, due review retry, review handler registry owner.
 - `crypto/`: retention payload encryption helper와 payload envelope format. Production key custody adapter는 이 boundary의 adapter로 붙는다.
-- `observability/`: backlog snapshot, structured metric, alert candidate signal. Retained payload 원문을 로그/metric에 넣지 않는다.
+- `observability/`: Prometheus definition, backlog snapshot, sweep emission mapping, metric recorder와 alert candidate signal을 함께 소유한다. Retained payload 원문을 로그/metric에 넣지 않는다.
 - `composition/`: RetentionModule provider/export/token source of truth. Module decorator에서 긴 provider list를 직접 소유하지 않는다.
 - Retention unit/integration specs는 owning slice 옆에 둔다. Cross-domain layout/import fitness는 `apps/api/test/architecture/`가 소유한다.
 
@@ -44,10 +44,11 @@ Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/
 
 ### Metric/alert ownership
 
-- Metric owner: `observability/retention-metrics.ts`.
+- Prometheus definition owner: `observability/retention-metric.definitions.ts`.
+- Sweep metric emission builder: `observability/retention-metrics.ts`.
 - Backlog snapshot owner: `observability/retention-backlog-snapshot.query.ts`.
 - Alert candidate owner: `observability/retention-alerts.ts`.
-- Nest provider/log emission owner: `observability/retention-observability.service.ts`.
+- Prometheus recorder와 structured log emission owner: `observability/retention-observability.service.ts`.
 - Public injection surface: `RETENTION_OBSERVABILITY_PORT`.
 
 ### Alert triage

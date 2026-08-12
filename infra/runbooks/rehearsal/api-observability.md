@@ -46,6 +46,11 @@ curl -fsS http://127.0.0.1:8080/health/ready
 
 - API container state가 healthy다.
 - `/health`, `/health/ready`가 HTTP 2xx를 반환한다.
+- `/health`, `/health/live` 응답은 `status`, `timestamp`, `uptimeSeconds`만 포함하는 bounded liveness
+  schema다.
+- `/health/ready` 응답은 `status`, `failureCodes`만 포함하며 정상 상태에서는
+  `{"status":"ok","failureCodes":[]}`다.
+- public health 응답에는 check 상세, secret source/origin, mount path, raw provider/DB error가 없어야 한다.
 
 ## 3. Metrics guard
 

@@ -232,16 +232,17 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
       'canonical database timestamp helper returns an adapter-timezone-independent epoch value.',
   }),
   sqlEntry({
-    path: 'prisma/sql/getMigrationBaselineHealth.sql',
+    path: 'prisma/sql/getDatabaseReadiness.sql',
     owner: 'health/checks',
-    category: 'typedsql-query',
+    category: 'db-time',
     requiredPatterns: [
+      /EXTRACT\s*\(\s*EPOCH\s+FROM\s+CURRENT_TIMESTAMP\s*\)/i,
       /FROM\s+"_prisma_migrations"/i,
-      /COUNT\(\*\)\s+FILTER\s+\(WHERE\s+rolled_back_at\s+IS\s+NOT\s+NULL\)::int\s+AS\s+failed_count/i,
-      /COUNT\(\*\)\s+FILTER\s+\(WHERE\s+finished_at\s+IS\s+NULL\s+AND\s+rolled_back_at\s+IS\s+NULL\)::int\s+AS\s+incomplete_count/i,
+      /COUNT\(\*\)\s+FILTER\s+\(WHERE\s+rolled_back_at\s+IS\s+NOT\s+NULL\)::int\s+AS\s+"failedCount"/i,
+      /finished_at\s+IS\s+NULL[\s\S]+rolled_back_at\s+IS\s+NULL/i,
     ],
     rationale:
-      'health readiness inspects Prisma migration metadata through generated TypedSQL instead of direct raw SQL.',
+      'health readiness checks connectivity, DB time, and migration metadata through one generated TypedSQL query.',
   }),
   sqlEntry({
     path: 'prisma/sql/getVerificationBackstopRetryAfterSeconds.sql',

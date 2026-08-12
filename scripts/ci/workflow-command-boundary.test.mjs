@@ -97,6 +97,7 @@ for (const workflow of [
     prepare: 'pnpm api:prepare',
     required: [
       'pnpm api:check:prepared',
+      'pnpm api:test:runtime-config-health-contract:prepared',
       'pnpm api:test:prepared',
       'pnpm api:test:integration:prepared',
       'pnpm api:test:e2e:prepared',
@@ -185,6 +186,7 @@ test('API CI leaves schema migration ownership to disposable database suites', (
   assert.ok(!apiWorkflow.includes('prisma migrate deploy'));
   assertIncludesAll(apiWorkflow, [
     'pnpm api:prepare',
+    '--stage=runtime-config-health-contract',
     '--stage=unit',
     '--stage=integration-db',
     '--stage=e2e-db',

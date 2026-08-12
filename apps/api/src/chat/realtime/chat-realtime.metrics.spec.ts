@@ -23,6 +23,7 @@ describe('ChatRealtimeMetricsService', () => {
     });
     metrics.recordReplayResyncRequired('CURSOR_EXPIRED');
     metrics.recordReplayResyncRequired('SCHEMA_UNSUPPORTED');
+    metrics.recordPublishFailure('chat');
     metrics.recordOutboxPrune({ deletedCount: 7, now });
     metrics.recordRateLimitRejection('chat:ticket:user');
 
@@ -74,6 +75,14 @@ describe('ChatRealtimeMetricsService', () => {
     expect(domainMetrics.incrementCounter).toHaveBeenCalledWith({
       name: 'api_chat_realtime_rejections_total',
       labels: { reason: 'rate_limit', scope: 'chat:ticket:user' },
+    });
+    expect(domainMetrics.incrementCounter).toHaveBeenCalledWith({
+      name: 'api_chat_realtime_rejections_total',
+      labels: { reason: 'CURSOR_EXPIRED', scope: 'replay' },
+    });
+    expect(domainMetrics.incrementCounter).toHaveBeenCalledWith({
+      name: 'api_realtime_publish_failures_total',
+      labels: { dispatcher: 'chat' },
     });
     expect(domainMetrics.setGauge).toHaveBeenCalledWith({
       name: 'api_realtime_dispatch_oldest_claimed_outbox_lag_seconds',

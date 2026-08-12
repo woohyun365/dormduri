@@ -26,6 +26,7 @@ function relativeApiPath(path: string) {
 function productionTypeScriptFiles(root: string): string[] {
   return walkTypeScriptFiles(root)
     .filter((path) => !path.endsWith('.spec.ts'))
+    .filter((path) => !path.endsWith('.cli.ts'))
     .filter((path) => !path.includes(`${sep}generated${sep}`));
 }
 

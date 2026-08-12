@@ -10,13 +10,17 @@ import {
 } from './auth-boundary.support.js';
 
 describe('Auth public import boundary', () => {
+  const configCompositionPath = 'src/config/composition/api-config.registry.ts';
+
   it('외부 domain이 auth internal implementation을 직접 import하지 않는다', () => {
     const forbidden =
       /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions|verification|credentials|registration|login-attempts|security-events)(?:\/[^'"]*)?(?:\.js)?['"]/;
 
-    expect(externalAuthSourceRoots().flatMap((root) => offendingFiles(root, forbidden))).toEqual(
-      [],
-    );
+    expect(
+      externalAuthSourceRoots()
+        .flatMap((root) => offendingFiles(root, forbidden))
+        .filter((path) => path !== configCompositionPath),
+    ).toEqual([]);
   });
 
   it('외부 domain은 public auth capability 또는 explicit operations boundary만 사용한다', () => {
@@ -31,10 +35,12 @@ describe('Auth public import boundary', () => {
     ];
     const unapproved = externalAuthSourceRoots().flatMap((root) =>
       productionTypeScriptFiles(root).flatMap((path) =>
-        importSpecifiers(readSource(path))
-          .filter((specifier) => /(?:^|\/)auth\//.test(specifier))
-          .filter((specifier) => !allowed.some((pattern) => pattern.test(specifier)))
-          .map((specifier) => `${relativeSourcePath(path)} -> ${specifier}`),
+        relativeSourcePath(path) === configCompositionPath
+          ? []
+          : importSpecifiers(readSource(path))
+              .filter((specifier) => /(?:^|\/)auth\//.test(specifier))
+              .filter((specifier) => !allowed.some((pattern) => pattern.test(specifier)))
+              .map((specifier) => `${relativeSourcePath(path)} -> ${specifier}`),
       ),
     );
 

@@ -45,9 +45,6 @@ describe('API module product boundary', () => {
 
     expect(AppModule).toBeDefined();
     expect(appSource).toContain(
-      "import { PrismaModule } from './platform/database/prisma.module.js'",
-    );
-    expect(appSource).toContain(
       "import { LifecycleModule } from './lifecycle/lifecycle.module.js'",
     );
     expect(appSource).not.toMatch(/CommonModule|from ['"].*common\//);
@@ -56,8 +53,6 @@ describe('API module product boundary', () => {
   it('keeps module wiring free of common imports, forwardRef, and hidden business globals', () => {
     expect(filesContaining(apiSourceRoot, /from\s+['"].*common\//)).toEqual([]);
     expect(filesContaining(apiSourceRoot, /\bforwardRef\s*\(/)).toEqual([]);
-    expect(filesContaining(apiSourceRoot, /@Global\s*\(\s*\)/)).toEqual([
-      'src/platform/database/prisma.module.ts',
-    ]);
+    expect(filesContaining(apiSourceRoot, /@Global\s*\(\s*\)/)).toEqual([]);
   });
 });

@@ -4,7 +4,6 @@ import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module.js';
 import { ChatModule } from './chat/chat.module.js';
-import { PrismaModule } from './platform/database/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
 import { HealthModule } from './health/health.module.js';
 import { HomeDashboardModule } from './home-dashboard/home-dashboard.module.js';
@@ -40,7 +39,6 @@ import { NoticesModule } from './notices/notices.module.js';
     }),
     ScheduleModule.forRoot(),
     ObservabilityModule,
-    PrismaModule,
     AuthModule,
     ChatModule,
     DormitoriesModule,

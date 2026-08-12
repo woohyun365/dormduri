@@ -1,22 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { createHealthBaseResponse, presentReadinessResponse } from './health-response.presenter.js';
 import type { HealthReadinessCheckResult } from '../checks/health-check.types.js';
+import { createHealthBaseResponse, presentReadinessResponse } from './health-response.presenter.js';
 
-const upDatabase: HealthReadinessCheckResult = {
-  name: 'database',
-  status: 'up',
-  code: 'DATABASE_UP',
-  checkedAt: '2026-06-02T03:00:00.000Z',
-  elapsedMs: 1,
-};
-
-const downRuntimeConfig: HealthReadinessCheckResult = {
-  name: 'runtimeConfig',
-  status: 'down',
-  code: 'RUNTIME_CONFIG_INVALID',
-  checkedAt: '2026-06-02T03:00:00.000Z',
-  elapsedMs: 1,
-};
+const upDatabase = result('database', 'up', 'DATABASE_UP');
+const downBootstrap = result('runtimeBootstrap', 'down', 'RUNTIME_BOOTSTRAP_UNAVAILABLE');
 
 describe('health response presenter', () => {
   let uptimeSpy: MockInstance<() => number>;
@@ -25,9 +12,7 @@ describe('health response presenter', () => {
     uptimeSpy = vi.spyOn(process, 'uptime').mockReturnValue(42);
   });
 
-  afterEach(() => {
-    uptimeSpy.mockRestore();
-  });
+  afterEach(() => uptimeSpy.mockRestore());
 
   it('liveness base response는 process metadata만 포함한다', () => {
     expect(createHealthBaseResponse(new Date('2026-06-02T03:00:00.000Z'))).toEqual({
@@ -37,25 +22,36 @@ describe('health response presenter', () => {
     });
   });
 
-  it('모든 check가 up이면 readiness status는 ok다', () => {
-    expect(presentReadinessResponse([upDatabase], new Date('2026-06-02T03:00:00.000Z'))).toEqual({
+  it('readiness success는 aggregate status와 빈 failure code만 반환한다', () => {
+    expect(presentReadinessResponse([upDatabase])).toEqual({
       status: 'ok',
-      timestamp: '2026-06-02T03:00:00.000Z',
-      uptimeSeconds: 42,
-      checks: {
-        database: upDatabase,
-      },
+      failureCodes: [],
     });
   });
 
-  it('하나라도 down이면 readiness status는 unavailable이며 raw error를 포함하지 않는다', () => {
-    const response = presentReadinessResponse(
-      [upDatabase, downRuntimeConfig],
-      new Date('2026-06-02T03:00:00.000Z'),
-    );
+  it('readiness failure는 bounded code만 반환한다', () => {
+    const response = presentReadinessResponse([upDatabase, downBootstrap]);
 
-    expect(response.status).toBe('unavailable');
-    expect(JSON.stringify(response)).not.toContain('postgres://');
-    expect(JSON.stringify(response)).not.toContain('stack');
+    expect(response).toEqual({
+      status: 'unavailable',
+      failureCodes: ['RUNTIME_BOOTSTRAP_UNAVAILABLE'],
+    });
+    expect(JSON.stringify(response)).not.toContain('elapsedMs');
+    expect(JSON.stringify(response)).not.toContain('secretSource');
+    expect(JSON.stringify(response)).not.toContain('checkedAt');
   });
 });
+
+function result(
+  name: HealthReadinessCheckResult['name'],
+  status: HealthReadinessCheckResult['status'],
+  code: HealthReadinessCheckResult['code'],
+): HealthReadinessCheckResult {
+  return {
+    name,
+    status,
+    code,
+    checkedAt: '2026-06-02T03:00:00.000Z',
+    elapsedMs: 1,
+  };
+}

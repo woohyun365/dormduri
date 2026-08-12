@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const readRepoFile = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const manifest = JSON.parse(readRepoFile('infra/deploy/api/env.manifest.json'));
+const secretMountContract = JSON.parse(
+  readRepoFile('infra/deploy/api/secret-mount.contract.json'),
+);
 const failures = [];
 
 function parseEnvKeys(path) {
@@ -25,6 +28,11 @@ function missing(left, right) {
 
 function reportMissing(label, keys) {
   if (keys.length) failures.push(`${label}: ${keys.join(', ')}`);
+}
+
+function reportInventoryDrift(label, expected, actual) {
+  reportMissing(`${label} missing`, missing(expected, actual));
+  reportMissing(`${label} contains unknown`, missing(actual, expected));
 }
 
 const entries = Array.isArray(manifest.entries) ? manifest.entries : [];
@@ -48,6 +56,37 @@ const runtimeSecretKeys = new Set(
   entries
     .filter((entry) => entry.scope === 'runtime' && entry.secret === true)
     .map((entry) => entry.key),
+);
+const requiredRuntimeSecretKeys = new Set(
+  entries
+    .filter(
+      (entry) =>
+        entry.scope === 'runtime' &&
+        entry.secret === true &&
+        entry.requiredInProduction === true,
+    )
+    .map((entry) => entry.key),
+);
+const mountedFileEntries = Array.isArray(secretMountContract.requiredFiles)
+  ? secretMountContract.requiredFiles
+  : [];
+const mountedFileKeys = new Set(mountedFileEntries);
+if (secretMountContract.version !== 1) {
+  failures.push('secret mount contract version must be 1');
+}
+if (!Array.isArray(secretMountContract.requiredFiles)) {
+  failures.push('secret mount contract requiredFiles must be an array');
+}
+if (mountedFileKeys.size !== mountedFileEntries.length) {
+  failures.push('secret mount contract contains duplicate required files');
+}
+if (JSON.stringify(mountedFileEntries) !== JSON.stringify([...mountedFileEntries].sort())) {
+  failures.push('secret mount contract requiredFiles must be sorted');
+}
+reportInventoryDrift(
+  'mounted-file inventory',
+  requiredRuntimeSecretKeys,
+  mountedFileKeys,
 );
 const lightsailRequired = new Set(
   [...startupRequired]

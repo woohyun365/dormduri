@@ -179,22 +179,6 @@ export const expectedRoutes: ExpectedRoute[] = [
     access: 'public',
   },
   {
-    controller: HealthController,
-    handler: 'getRealtimeOperations',
-    method: RequestMethod.GET,
-    path: 'health/realtime',
-    access: 'protected',
-    capabilities: ['admin:operations:health:read'],
-  },
-  {
-    controller: HealthController,
-    handler: 'getAuthOperations',
-    method: RequestMethod.GET,
-    path: 'health/auth',
-    access: 'protected',
-    capabilities: ['admin:operations:health:read'],
-  },
-  {
     controller: HomeDashboardController,
     handler: 'getDashboard',
     method: RequestMethod.GET,

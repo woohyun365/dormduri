@@ -78,6 +78,7 @@
     "ci:typecheck:product": "tsc --noEmit",
     "ci:typecheck:test": "tsc -p test/tsconfig.json --noEmit",
     "ci:test": "pnpm run ci:test:unit && pnpm run ci:test:integration && pnpm run ci:test:e2e && pnpm run ci:test:stress",
+    "ci:test:runtime-config-health-contract": "vitest run --config ./vitest.config.runtime-config-health-contract.ts --maxWorkers=50%",
     "ci:test:unit": "vitest run --config ./vitest.config.unit.ts --maxWorkers=50%",
     "ci:test:integration": "vitest run --config ./vitest.config.integration.ts --maxWorkers=1",
     "ci:test:e2e": "vitest run --config ./vitest.config.e2e.ts --maxWorkers=1",

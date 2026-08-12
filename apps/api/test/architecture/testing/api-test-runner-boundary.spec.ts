@@ -123,6 +123,7 @@ describe('API test runner boundary', () => {
       'test:cov',
       'test:debug',
       'test:watch',
+      'ci:test:runtime-config-health-contract',
       'ci:test:unit',
       'ci:test:integration',
       'ci:test:e2e',
@@ -141,6 +142,16 @@ describe('API test runner boundary', () => {
     expect(unitCommand).toContain('vitest run');
     expect(unitCommand).toContain('--config ./vitest.config.unit.ts');
     expect(unitCommand).toContain('--maxWorkers=50%');
+
+    const runtimeBoundaryCommand = scriptValue(
+      apiPackage.scripts,
+      'ci:test:runtime-config-health-contract',
+    );
+    expect(runtimeBoundaryCommand).toContain('vitest run');
+    expect(runtimeBoundaryCommand).toContain(
+      '--config ./vitest.config.runtime-config-health-contract.ts',
+    );
+    expect(runtimeBoundaryCommand).toContain('--maxWorkers=50%');
 
     const integrationCommand = scriptValue(apiPackage.scripts, 'ci:test:integration');
     expect(integrationCommand).toContain('vitest run');
@@ -188,6 +199,10 @@ describe('API test runner boundary', () => {
     const integrationConfigPath = join(apiRoot, 'vitest.config.integration.ts');
     const e2eConfigPath = join(apiRoot, 'vitest.config.e2e.ts');
     const stressConfigPath = join(apiRoot, 'vitest.config.stress.ts');
+    const runtimeBoundaryConfigPath = join(
+      apiRoot,
+      'vitest.config.runtime-config-health-contract.ts',
+    );
 
     for (const configPath of [
       baseConfigPath,
@@ -195,6 +210,7 @@ describe('API test runner boundary', () => {
       integrationConfigPath,
       e2eConfigPath,
       stressConfigPath,
+      runtimeBoundaryConfigPath,
     ]) {
       expect(existsSync(configPath)).toBe(true);
     }
@@ -204,6 +220,7 @@ describe('API test runner boundary', () => {
     const integrationConfig = readSource(integrationConfigPath);
     const e2eConfig = readSource(e2eConfigPath);
     const stressConfig = readSource(stressConfigPath);
+    const runtimeBoundaryConfig = readSource(runtimeBoundaryConfigPath);
 
     expect(baseConfig).toContain("from 'vitest/config'");
     expect(baseConfig).toContain('globals: false');
@@ -224,6 +241,13 @@ describe('API test runner boundary', () => {
     expect(e2eConfig).toContain("include: ['test/e2e/**/*.e2e-spec.ts']");
     expect(e2eConfig).not.toContain('passWithNoTests');
     expect(stressConfig).toContain("include: ['test/stress/**/*.spec.ts']");
+    expect(runtimeBoundaryConfig).toContain("'src/config/**/*.spec.ts'");
+    expect(runtimeBoundaryConfig).toContain("'src/platform/runtime/**/*.spec.ts'");
+    expect(runtimeBoundaryConfig).toContain("'src/health/**/*.spec.ts'");
+    expect(runtimeBoundaryConfig).toContain(
+      "'test/operations/platform/deployment-env-contract.spec.ts'",
+    );
+    expect(runtimeBoundaryConfig).toContain("'test/operations/platform/deployment-infra.spec.ts'");
   });
 
   it('collects every test spec in exactly one semantic runner lane', () => {

@@ -6,7 +6,7 @@ Database infrastructure boundary for API modules.
 
 Product domains may import database platform services when they need runtime Prisma access or a configured worker/disclosure client. Platform database code must remain product-neutral.
 
-- `PrismaModule`: global Prisma provider/export surface.
+- `PrismaModule`: consumer가 명시적으로 import하는 Prisma provider/export surface.
 - `PrismaService`: runtime database client, database clock, retryable transaction helper, pool budget helper.
 - `RetentionWorkerPrismaService`: worker credential boundary for retention/auth cleanup execution.
 - `RetentionDisclosurePrismaService`: restricted disclosure credential boundary.
@@ -21,6 +21,7 @@ session timezone에 맡기지 않는다. `getDatabaseNow()`도 adapter의 timest
 
 - `prisma.module.ts`: Prisma provider wiring and exports.
 - `prisma.service.ts`: runtime/worker/disclosure Prisma services and database utilities.
+- `prisma-metric.definitions.ts`: PrismaModule이 등록하는 pool/retry metric definition catalog.
 - `prisma-error.ts`: Prisma error classification helper.
 - `test/operations/database/*-role-grants.spec.ts`: DB role grant artifact guard.
 - `test/operations/database/migration-baseline.spec.ts`: migration baseline guard.
@@ -46,8 +47,8 @@ Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed throug
 
 ## Architecture guard
 
-- `PrismaModule` is the only allowed global platform module.
-- Product modules use explicit imports for business dependencies; Prisma global status must not become a generic business dependency escape hatch.
+- `PrismaModule`은 global module이 아니다. Runtime/worker/disclosure client consumer는 owning module에서 명시적으로 import한다.
+- AppModule은 Prisma를 직접 소비하지 않으므로 root fallback import를 두지 않는다.
 - DB role, migration, and updated-at ownership specs guard infrastructure drift.
 
 ## Where to change database behavior
@@ -55,6 +56,8 @@ Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed throug
 - Runtime Prisma client and transaction helper: `prisma.service.ts`.
 - Worker/disclosure Prisma clients: `prisma.service.ts`.
 - Prisma provider exports: `prisma.module.ts`.
+- Prisma metric definition: `prisma-metric.definitions.ts`.
+- Prisma pool/retry metric recording adapter: `../observability/metrics/prisma-pool-metrics.service.ts`.
 - DB role grant expectations: `test/operations/database/auth-role-grants.spec.ts`, `test/operations/database/rrpd-role-grants.spec.ts`.
 - Migration baseline or updated-at ownership guards: `test/operations/database/`의 corresponding spec files.
 
@@ -66,7 +69,8 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   test/operations/database/auth-role-grants.spec.ts \
   test/operations/database/rrpd-role-grants.spec.ts \
   test/operations/database/migration-baseline.spec.ts \
-  test/operations/database/updated-at-ownership.spec.ts
+  test/operations/database/updated-at-ownership.spec.ts \
+  test/architecture/platform/prisma-module-import-boundary.spec.ts
 pnpm --dir apps/api exec eslint src/platform/database
 pnpm exec prettier --check apps/api/src/platform/database/README.md
 pnpm api:typecheck

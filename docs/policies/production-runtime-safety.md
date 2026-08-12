@@ -54,7 +54,7 @@
 - Verification/reset code, proof와 auth token은 sender log나 security event metadata에 원문으로 남기지 않는다.
 - Provider 결과는 bounded category로 기록하고 raw provider message를 저장하지 않는다.
 - Provider가 메시지를 접수한 상태와 최종 delivery, bounce, complaint를 구분한다.
-- Provider 설정 오류는 readiness failure이며 일시적 delivery 오류와 분리한다.
+- Provider 설정 오류는 listener 전 bootstrap failure이며 일시적 delivery 오류와 분리한다.
 
 ## Database·migration·backup 경계
 
@@ -81,9 +81,11 @@
 ## Health·readiness·metrics 경계
 
 - `GET /health`와 `GET /health/live`는 process liveness를 나타낸다.
-- `GET /health/ready`는 routing 전 DB, runtime config, secret materialization, schema baseline과 critical provider config를 bounded timeout으로 확인한다.
+- `GET /health/ready`는 routing 전 단일 bounded DB probe와 immutable runtime bootstrap receipt를 확인한다.
+- Runtime config, required secret과 critical provider config는 listener 전 bootstrap에서 fail-fast하며 readiness 요청마다 다시 검사하지 않는다.
 - Readiness failure는 HTTP 503과 bounded code로 반환하며 secret, DB URL, raw provider error와 stack trace를 노출하지 않는다.
-- Ops-only health와 metrics는 capability guard, token과 ingress allowlist를 함께 적용한다.
+- 제품 도메인 운영 상태는 `/health/auth`, `/health/realtime` 같은 snapshot route로 복제하지 않고 owner-local metric과 Prometheus rule로 관측한다.
+- Metrics는 token과 ingress allowlist를 함께 적용한다.
 - Metric label은 bounded cardinality만 허용하고 user/email/token/IP 같은 식별자를 사용하지 않는다.
 
 ## CI·release·rollback 경계

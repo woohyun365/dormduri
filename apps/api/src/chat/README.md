@@ -12,7 +12,7 @@
 - `CHAT_LIFECYCLE_SWEEP_PORT`: top-level lifecycle sweep에서 chat thread cutoff/season lifecycle을 수렴한다.
 - `CHAT_BLOCK_SIDE_EFFECT_PORT`: social-safety block create transaction이 non-matched direct thread close를 요청할 때 사용하는 port contract다. 구현 provider/export는 `lifecycle/chat-block-side-effect.service.ts`와 `composition/`이 소유한다.
 - `CHAT_REPORT_TARGET_CONTEXT_PORT`: social-safety report intake가 chat thread/message target context를 검증할 때 사용하는 port contract다. Chat은 report domain status/reason을 알지 않고, thread/message pointer와 allowlist snapshot만 반환한다.
-- `REALTIME_*_PORT`: notification/health 등 외부 domain은 chat realtime concrete class 대신 generic realtime token을 사용한다.
+- `REALTIME_*_PORT`: notification 등 외부 domain은 chat realtime concrete class 대신 목적별 generic realtime token을 사용한다. 운영 상태는 reader port나 health snapshot이 아니라 owner-local metric으로 관측한다.
 
 ## Directory responsibilities
 
@@ -31,7 +31,7 @@
 - `persistence/`: advisory lock and Prisma select shape helpers.
 - `policies/`: pure policy/helper 우선. Nest provider나 Prisma mutation을 넣지 않는다. DB가 필요한 orchestration은 command/query/lifecycle owner에 둔다.
 - `queries/`: thread list/detail/subscription/read-only query owner. message body over-fetch를 피하고 pagination/cursor boundary를 유지한다.
-- `realtime/`: chat namespace/ticket/auth/subscribe/gateway adapter. domain-neutral publish/metrics/config token은 `apps/api/src/realtime`에 둔다.
+- `realtime/`: chat namespace/ticket/auth/subscribe/gateway adapter, `ChatRealtimeMetricsService`, ChatModule이 등록하는 realtime metric definition catalog를 함께 둔다. Domain-neutral publish/metrics/config token은 `apps/api/src/realtime`에 둔다.
 
 ## Hard rules
 
@@ -83,7 +83,8 @@
 - Route-level thread context metadata/guard/resolver: `context/`.
 - Match/season/participant withdrawal side effects: `lifecycle/`.
 - Report target context lookup for social-safety: `reports/`.
-- Realtime ticket/auth/gateway/dispatcher/metrics/rate-limit behavior: `realtime/`.
+- Realtime ticket/auth/gateway/dispatcher/rate-limit behavior와 metric recorder: `realtime/`.
+- Chat/realtime Prometheus definition catalog: `realtime/chat-realtime-metric.definitions.ts`.
 - Transactional outbox and replay behavior: `outbox/`.
 - Realtime payload mapping: `events/`.
 - Shared chat/realtime response/event contracts: `packages/shared/src/chat/**` and API `contracts/` specs.

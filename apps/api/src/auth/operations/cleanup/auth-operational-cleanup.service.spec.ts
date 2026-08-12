@@ -30,7 +30,7 @@ describe('AuthOperationalCleanupService', () => {
     const service = new AuthOperationalCleanupService(
       prisma as never,
       repository,
-      metrics as never,
+      metrics,
       settings,
     );
 
@@ -59,7 +59,6 @@ describe('AuthOperationalCleanupService', () => {
         securityEvents: 0,
       },
       batchSaturatedTargets: ['expiredSessions'],
-      ranAt: now,
     });
   });
 
@@ -81,7 +80,7 @@ describe('AuthOperationalCleanupService', () => {
     const service = new AuthOperationalCleanupService(
       prisma as never,
       repository,
-      metrics as never,
+      metrics,
       settings,
     );
 
@@ -105,12 +104,12 @@ describe('AuthOperationalCleanupService', () => {
     const service = new AuthOperationalCleanupService(
       { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
       repository,
-      metrics as never,
+      metrics,
       settings,
     );
 
     await expect(service.runCleanupBatch()).rejects.toBe(error);
-    expect(metrics.recordCleanupFailure).toHaveBeenCalledWith({ now });
+    expect(metrics.recordCleanupFailure).toHaveBeenCalledWith();
     expect(metrics.recordCleanup).not.toHaveBeenCalled();
   });
 });

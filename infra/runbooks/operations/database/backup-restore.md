@@ -101,5 +101,5 @@ Dry-run은 command shape와 secret boundary만 확인한다. Release evidence로
 
 - Migration baseline 확인 실패: restore source timestamp/snapshot과 release commit의 migration compatibility를 확인하고 release를 중지한다.
 - Role grant smoke 실패: restored DB grant drift를 확인하고 `infra/db/README.md`의 role grant apply 순서를 반복한다.
-- `/health/ready` 실패: restored DB secret set, migration state, required secret inventory, SES/config readiness를 확인한다.
+- `/health/ready` 실패: restored DB 연결·migration baseline과 process bootstrap receipt를 확인한다. Secret origin/provider 상세는 public health가 아니라 component release evidence에서 확인한다.
 - Cleanup 실패: temporary restored DB가 남아 있는 상태로 release ready를 표시하지 않는다.

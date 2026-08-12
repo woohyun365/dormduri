@@ -122,8 +122,6 @@ const configFactoryBaseline = {
     path: 'src/platform/runtime/app.config.ts',
     consumers: [
       'src/config/composition/api-config.registry.ts',
-      'src/health/checks/email-provider-health.check.ts',
-      'src/health/checks/secret-source-health.check.ts',
       'src/platform/observability/observability.config.ts',
       'src/platform/runtime/app.env.ts',
       'src/platform/runtime/bootstrap/prepare-runtime-environment.ts',
@@ -186,7 +184,6 @@ const configFactoryBaseline = {
       'src/auth/adapters/email/ses-email-sender.service.ts',
       'src/auth/composition/auth.providers.ts',
       'src/config/composition/api-config.registry.ts',
-      'src/health/checks/email-provider-health.check.ts',
     ],
   },
   'http.config': {
@@ -231,8 +228,8 @@ const configFactoryBaseline = {
       'src/config/composition/api-config.registry.ts',
       'src/config/secrets/secret-inventory.ts',
       'src/config/secrets/secret-materializer.ts',
-      'src/health/checks/secret-source-health.check.ts',
       'src/platform/runtime/bootstrap/prepare-runtime-environment.ts',
+      'src/health/checks/runtime-bootstrap-health.check.ts',
       'src/platform/runtime/bootstrap/runtime-bootstrap-receipt.ts',
       'src/platform/runtime/secret-source.env.ts',
     ],

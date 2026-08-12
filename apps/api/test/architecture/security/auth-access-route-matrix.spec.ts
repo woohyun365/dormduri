@@ -16,7 +16,7 @@ vi.mock('../../../src/generated/prisma/sql.js', () => {
     getActiveLoginLock: typedSqlFactory,
     getActiveVerificationRecord: typedSqlFactory,
     getCurrentTimestamp: typedSqlFactory,
-    getMigrationBaselineHealth: typedSqlFactory,
+    getDatabaseReadiness: typedSqlFactory,
     getVerificationBackstopRetryAfterSeconds: typedSqlFactory,
     getVerificationRetryAfterSeconds: typedSqlFactory,
     lockActiveMatchRow: typedSqlFactory,

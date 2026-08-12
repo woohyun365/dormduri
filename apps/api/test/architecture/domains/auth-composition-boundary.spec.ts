@@ -47,13 +47,13 @@ describe('Auth composition boundary', () => {
     expect(authenticatedIndex).toBeGreaterThan(throttleIndex);
   });
 
-  it('AuthOperationsModule은 non-global이며 public operations capability만 export한다', () => {
+  it('AuthOperationsModule은 non-global이며 cleanup capability만 export한다', () => {
     const source = readSource(`${authRoot}/operations/auth-operations.module.ts`);
     const exportsBlock = source.match(/exports:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
 
     expect(source).not.toContain('@Global');
     expect(exportsBlock).toContain('AuthOperationalCleanupService');
-    expect(exportsBlock).toContain('AuthOperationsHealthService');
+    expect(exportsBlock).not.toContain('AuthOperationsHealthService');
     expect(exportsBlock).not.toContain('AuthCleanupMetricsService');
   });
 });

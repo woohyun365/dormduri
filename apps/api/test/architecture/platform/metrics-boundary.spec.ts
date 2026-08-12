@@ -60,9 +60,9 @@ describe('API metrics boundary', () => {
   });
 
   it('keeps metric definitions on bounded labels only', () => {
-    const offenders = walkTypeScriptFiles(metricsRoot)
+    const offenders = walkTypeScriptFiles(srcRoot)
       .filter((path) => !path.endsWith('.spec.ts'))
-      .filter((path) => !path.endsWith('metric-label.policy.ts'))
+      .filter((path) => path.endsWith('metric.definitions.ts'))
       .filter((path) => {
         const source = readFileSync(path, 'utf8');
         return forbiddenLabelNames.some((labelName) => {

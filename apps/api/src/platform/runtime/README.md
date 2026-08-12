@@ -13,3 +13,6 @@ origin을 versioned file bundle로 설치하고 application은 read-only mount�
 
 제품 도메인 설정이나 secret value는 이 디렉토리에 두지 않는다. Config composition과 deployment
 manifest projection은 `src/config/`가 담당한다.
+
+Runtime bootstrap은 global Nest DI에 의존하지 않는다. 준비 완료 후 생성한 receipt만 health가 읽으며,
+제품 metric definition이나 Prisma provider visibility를 이 경계에서 대신 제공하지 않는다.

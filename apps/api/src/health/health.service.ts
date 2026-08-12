@@ -1,17 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  AuthOperationsHealthService,
-  type AuthOperationsHealthSnapshot,
-} from '../auth/operations/health/auth-operations-health.service.js';
-import {
-  REALTIME_METRICS_READER_PORT,
-  type RealtimeMetricsReaderPort,
-} from '../realtime/realtime.tokens.js';
+import { Injectable } from '@nestjs/common';
 import { DatabaseHealthCheck } from './checks/database-health.check.js';
-import { EmailProviderHealthCheck } from './checks/email-provider-health.check.js';
-import { MigrationBaselineHealthCheck } from './checks/migration-baseline-health.check.js';
-import { RuntimeConfigHealthCheck } from './checks/runtime-config-health.check.js';
-import { SecretSourceHealthCheck } from './checks/secret-source-health.check.js';
+import { RuntimeBootstrapHealthCheck } from './checks/runtime-bootstrap-health.check.js';
+import { HealthObservabilityService } from './health-observability.service.js';
 import {
   createHealthBaseResponse,
   presentReadinessResponse,
@@ -22,25 +12,12 @@ import {
 export type HealthStatusResponse = HealthBaseResponse;
 export type { HealthReadinessResponse };
 
-export interface RealtimeOperationsStatusResponse extends HealthBaseResponse {
-  realtime: ReturnType<RealtimeMetricsReaderPort['snapshot']>;
-}
-
-export interface AuthOperationsStatusResponse extends HealthBaseResponse {
-  auth: AuthOperationsHealthSnapshot;
-}
-
 @Injectable()
 export class HealthService {
   constructor(
     private readonly databaseHealthCheck: DatabaseHealthCheck,
-    private readonly runtimeConfigHealthCheck: RuntimeConfigHealthCheck,
-    private readonly secretSourceHealthCheck: SecretSourceHealthCheck,
-    private readonly migrationBaselineHealthCheck: MigrationBaselineHealthCheck,
-    private readonly emailProviderHealthCheck: EmailProviderHealthCheck,
-    @Inject(REALTIME_METRICS_READER_PORT)
-    private readonly realtimeMetrics: RealtimeMetricsReaderPort,
-    private readonly authOperationsHealth: AuthOperationsHealthService,
+    private readonly runtimeBootstrapHealthCheck: RuntimeBootstrapHealthCheck,
+    private readonly observability: HealthObservabilityService,
   ) {}
 
   getLiveness(): HealthStatusResponse {
@@ -48,28 +25,13 @@ export class HealthService {
   }
 
   async getReadiness(): Promise<HealthReadinessResponse> {
+    const startedAtMs = Date.now();
     const checks = await Promise.all([
       this.databaseHealthCheck.check(),
-      this.runtimeConfigHealthCheck.check(),
-      this.secretSourceHealthCheck.check(),
-      this.migrationBaselineHealthCheck.check(),
-      this.emailProviderHealthCheck.check(),
+      this.runtimeBootstrapHealthCheck.check(),
     ]);
+    this.observability.recordReadiness(checks, Math.max(0, Date.now() - startedAtMs));
 
     return presentReadinessResponse(checks);
-  }
-
-  getRealtimeOperations(): RealtimeOperationsStatusResponse {
-    return {
-      ...this.getLiveness(),
-      realtime: this.realtimeMetrics.snapshot(),
-    };
-  }
-
-  getAuthOperations(): AuthOperationsStatusResponse {
-    return {
-      ...this.getLiveness(),
-      auth: this.authOperationsHealth.getSnapshot(),
-    };
   }
 }

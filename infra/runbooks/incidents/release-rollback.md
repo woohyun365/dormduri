@@ -47,7 +47,9 @@ METRICS_BEARER_TOKEN='<redacted>' \
 확인 항목:
 
 - `/health`, `/health/live` 2xx
-- `/health/ready` 2xx 또는 expected bounded failure code
+- `/health/ready` 2xx와 빈 `failureCodes` (failure code가 남으면 traffic 전환 금지)
+- public health body가 liveness의 `status`/`timestamp`/`uptimeSeconds`, readiness의
+  `status`/`failureCodes` 외 내부 설정·provider 상세를 노출하지 않음
 - `/internal/metrics` anonymous rejection
 - `/internal/metrics` bearer-authorized scrape
 - ingress/API log의 secret/token 미노출

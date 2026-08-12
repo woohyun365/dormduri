@@ -6,7 +6,9 @@ export const SECRET_SOURCE_ENV = 'SECRET_SOURCE';
 export const SECRET_MOUNT_DIRECTORY_ENV = 'SECRET_MOUNT_DIRECTORY';
 export const DEFAULT_SECRET_SOURCE = 'env' as const;
 
-export type SecretSource = 'env' | 'mounted-files' | 'aws-secrets-manager';
+export const SUPPORTED_SECRET_SOURCES = ['env', 'mounted-files', 'aws-secrets-manager'] as const;
+
+export type SecretSource = (typeof SUPPORTED_SECRET_SOURCES)[number];
 
 export function readSecretMountDirectory(env: NodeJS.ProcessEnv = process.env): string | null {
   const directory = env[SECRET_MOUNT_DIRECTORY_ENV]?.trim();

@@ -52,6 +52,13 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(join(repoRoot, relativePath), 'utf8');
 }
 
+function exactNginxLocations(source: string): string[] {
+  return [...source.matchAll(/location\s+=\s+([^\s{]+)\s*\{/gu)]
+    .map((match) => match[1])
+    .filter((path): path is string => path !== undefined)
+    .sort();
+}
+
 describe('deployment infra', () => {
   it('keeps BE deploy files in the expected infra/deploy locations', () => {
     const missingFiles = requiredFiles.filter(
@@ -132,6 +139,26 @@ describe('deployment infra', () => {
     expect(dockerfile).toContain('infra/deploy/api/env.manifest.json');
   });
 
+  it('keeps release smoke aligned with the bounded public health schema', () => {
+    const releaseSmoke = readDeployFile('scripts/api-release-smoke.sh');
+
+    expect(releaseSmoke).toContain('assert_health_response');
+    expect(releaseSmoke).toContain('"status"');
+    expect(releaseSmoke).toContain('"timestamp"');
+    expect(releaseSmoke).toContain('"uptimeSeconds"');
+    expect(releaseSmoke).toContain('"failureCodes"');
+    for (const forbiddenField of [
+      'checks',
+      'details',
+      'secretSource',
+      'secretOrigin',
+      'mountPath',
+      'rawError',
+    ]) {
+      expect(releaseSmoke).toContain(forbiddenField);
+    }
+  });
+
   it('documents HTTP REST and realtime ingress policy env names in the deploy template', () => {
     const envExample = readDeployFile('.env.api.example');
 
@@ -158,6 +185,7 @@ describe('deployment infra', () => {
     const apiConf = readDeployFile('nginx/conf.d/api.conf');
     const allowlist = readDeployFile('nginx/snippets/internal-metrics-allowlist.conf');
     const proxyCommon = readDeployFile('nginx/snippets/proxy-common.conf');
+    const healthcheck = readDeployFile('api/healthcheck.sh');
 
     expect(apiConf).toContain('location /api/');
     expect(apiConf).toContain('location /auth/');
@@ -166,6 +194,14 @@ describe('deployment infra', () => {
     expect(apiConf).toContain('location = /health/live');
     expect(apiConf).toContain('location = /health/ready');
     expect(apiConf).toContain('location = /internal/metrics');
+    expect(exactNginxLocations(apiConf)).toEqual([
+      '/health',
+      '/health/live',
+      '/health/ready',
+      '/internal/metrics',
+    ]);
+    expect(apiConf).not.toContain('/health/auth');
+    expect(apiConf).not.toContain('/health/realtime');
     expect(apiConf).toContain('proxy_set_header Upgrade $http_upgrade');
     expect(apiConf).toContain('proxy_set_header Connection $connection_upgrade');
     expect(apiConf).toContain('proxy_set_header Authorization $http_authorization');
@@ -173,6 +209,9 @@ describe('deployment infra', () => {
     expect(allowlist).toContain('deny all');
     expect(proxyCommon).toContain('X-Forwarded-For');
     expect(proxyCommon).toContain('X-Request-Id');
+    expect(healthcheck).toContain('/health/ready');
+    expect(healthcheck).not.toContain('/health/auth');
+    expect(healthcheck).not.toContain('/health/realtime');
   });
 
   it('keeps the TLS/domain example outside the active nginx conf.d mount', () => {

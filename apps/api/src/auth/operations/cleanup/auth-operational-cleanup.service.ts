@@ -56,7 +56,6 @@ export class AuthOperationalCleanupService {
       this.metrics.recordCleanup({
         deletedCounts: result,
         batchSaturatedTargets,
-        ranAt: referenceNow,
       });
       return {
         ...result,
@@ -64,7 +63,7 @@ export class AuthOperationalCleanupService {
         ranAt: referenceNow.toISOString(),
       };
     } catch (error) {
-      this.metrics.recordCleanupFailure({ now: referenceNow });
+      this.metrics.recordCleanupFailure();
       throw error;
     }
   }

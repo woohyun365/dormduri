@@ -230,7 +230,7 @@
 - Cleanup metric은 table별 deleted count, target별 latest batch saturation, last run/failure timestamp를 no-PII로 기록한다. 개별 target이 batch size를 계속 채우는지는 Prometheus가 지속 시간과 함께 경고로 판정한다.
 - DB credential boundary는 application RBAC를 대체하지 않는 defense-in-depth다. Runtime credential은 ordinary auth read/write, retention worker는 TTL cleanup table `SELECT/DELETE`, read-only credential은 `SELECT`, migration credential은 별도 `MIGRATION_DATABASE_URL`/`DIRECT_URL` DDL/admin path로 분리한다.
 - Prisma pool 분리는 비용 tradeoff가 있다. 현재 active app-side roles는 runtime, retention worker, retention disclosure 3개이며 default `DATABASE_POOL_MAX=10` 기준 최대 30 connection budget을 baseline으로 둔다. 별도 operational client를 추가하면 role당 `DATABASE_POOL_MAX`만큼 connection budget이 증가하므로 RDS max connection/IOPS 관측과 실제 owner가 확인된 후 결정한다.
-- `GET /health/auth`는 cleanup의 마지막 실행·실패 시각, 삭제 건수와 target별 latest batch saturation만 노출하는 no-PII 운영 snapshot이며 public internet health endpoint가 아니다. 경고 threshold·지속 시간·routing은 owner-local metric을 읽는 Prometheus rule이 소유한다. Route는 `admin:operations:health:read` future ops capability로 보호하고, 운영 환경에서는 internal ingress/VPN/mTLS 또는 동등한 ops-only 경계 뒤에 둔다. 상세 security event 검색/BackOffice UI는 이번 milestone 범위가 아니다.
+- Auth cleanup의 삭제량·실패·target별 latest batch saturation은 owner-local Prometheus metric만 소유한다. `/health/auth` snapshot route는 제공하지 않으며 경고 threshold·지속 시간·routing은 Prometheus rule이 소유한다. 상세 security event 검색과 미래 BackOffice UI는 별도 operator product contract로 설계한다.
 
 ## 비밀번호 정책
 

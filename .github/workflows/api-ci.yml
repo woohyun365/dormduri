@@ -59,6 +59,9 @@ jobs:
       - name: API static checks
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=static -- pnpm api:check:prepared
 
+      - name: API runtime boundary contracts
+        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=runtime-config-health-contract -- pnpm api:test:runtime-config-health-contract:prepared
+
       - name: API unit tests
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=unit -- pnpm api:test:prepared
 

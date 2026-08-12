@@ -116,7 +116,7 @@ infra/deploy/scripts/api-release-smoke.sh --dry-run
 ```
 
 - `/health`, `/health/live`: process liveness
-- `/health/ready`: DB, runtime config, secret materialization, migration baseline, email provider readiness
+- `/health/ready`: 단일 DB connectivity·migration baseline probe와 runtime bootstrap receipt
 - `/internal/metrics`: anonymous request 거부와 bearer-authorized scrape
 
 Failure body와 log에는 secret, DB URL, raw provider error와 stack trace를 노출하지 않는다.

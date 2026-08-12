@@ -8,6 +8,7 @@ import { PrometheusRegistryService } from './prometheus-registry.service.js';
 import { HttpMetricsInterceptor } from './http-metrics.interceptor.js';
 import { HttpMetricsService } from './http-metrics.service.js';
 import { PrismaPoolMetricsService } from './prisma-pool-metrics.service.js';
+import { DomainMetricDefinitionRegistryService } from './domain-metric-definition-registry.service.js';
 
 @Module({
   controllers: [MetricsController],
@@ -15,6 +16,7 @@ import { PrismaPoolMetricsService } from './prisma-pool-metrics.service.js';
     MetricsAuthGuard,
     PrometheusRegistryService,
     HttpMetricsService,
+    DomainMetricDefinitionRegistryService,
     DomainPrometheusMetricsService,
     PrismaPoolMetricsService,
     {
@@ -29,6 +31,7 @@ import { PrismaPoolMetricsService } from './prisma-pool-metrics.service.js';
   exports: [
     PrometheusRegistryService,
     HttpMetricsService,
+    DomainMetricDefinitionRegistryService,
     DomainPrometheusMetricsService,
     PrismaPoolMetricsService,
     DOMAIN_METRICS_PORT,

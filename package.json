@@ -69,6 +69,7 @@
     "api:lint:prepared": "pnpm --dir apps/api ci:lint",
     "api:typecheck:prepared": "pnpm --dir apps/api ci:typecheck",
     "api:build:prepared": "pnpm --dir apps/api ci:build",
+    "api:test:runtime-config-health-contract:prepared": "pnpm --dir apps/api ci:test:runtime-config-health-contract",
     "api:test:prepared": "pnpm --dir apps/api ci:test:unit",
     "api:test:integration:prepared": "pnpm --dir apps/api ci:test:integration",
     "api:test:e2e": "pnpm --dir apps/api test:e2e",

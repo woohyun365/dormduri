@@ -6,7 +6,7 @@
 
 제품 domain production code는 platform primitive를 직접 import할 수 있지만, platform production code는 제품 domain을 import하지 않는다.
 
-- `database/PrismaModule`: runtime/retention Prisma client wiring을 제공한다. 현재 유일하게 허용된 `@Global()` module 예외다.
+- `database/PrismaModule`: runtime/retention Prisma client wiring을 제공한다. 모든 consumer module이 명시적으로 import하는 non-global module이다.
 - `database/PrismaService`: runtime DB access, database clock, retryable transaction helper, connection pool budget 계산을 제공한다.
 - `database/RetentionWorkerPrismaService`, `database/RetentionDisclosurePrismaService`: retention worker/disclosure 전용 DB credential boundary다.
 - `http/`: controller/filter/error/request parsing 공통 primitive다. 제품별 error code/schema는 owning domain 또는 pure shared vocabulary가 소유한다.
@@ -26,7 +26,7 @@
 
 - Platform production code는 `auth`, `chat`, `matches`, `season-participants`, `users`, `profiles`, `notifications`, `moderation`, `lifecycle`, `retention` 등 제품 domain을 import하지 않는다.
 - Business capability module은 platform에 두지 않는다. Moderation은 `moderation/`, lifecycle sweep orchestration은 `lifecycle/`가 canonical owner다.
-- `PrismaModule`만 `@Global()` 예외로 허용한다. 새 global business module로 DI 경계를 숨기지 않는다.
+- `@Global()` module을 두지 않는다. Prisma를 포함한 모든 dependency는 consumer module metadata에 명시한다.
 - 새 `forwardRef()`로 module graph 문제를 봉합하지 않는다.
 - Platform helper는 product behavior, user-facing response/error code, route policy를 바꾸지 않는다.
 - Domain-specific TypedSQL/raw query는 해당 domain repository/query owner에 둔다. DB infra guard나 role/migration guard만 `platform/database`에 둔다.
@@ -35,18 +35,18 @@
 
 ## Architecture guard
 
-Platform boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `apps/api/src/architecture/module-boundary.spec.ts`가 고정한다.
+Platform boundary는 `apps/api/test/architecture/platform/`의 module, Prisma, metrics spec이 고정한다.
 
 - `platform`은 product-domain import를 하지 않는다.
 - `common/http`, `common/prisma`, `common/security`는 재생성하지 않는다.
 - `common/domain-context`는 재생성하지 않고 `platform/domain-context`가 generic primitive만 소유한다.
-- `@Global()`은 `platform/database/prisma.module.ts`만 허용한다.
+- `@Global()` module은 0건이어야 한다.
 - Affected module graph는 `CommonModule` 같은 business dependency fallback 없이 explicit owner imports를 사용한다.
 
 ## Where to change platform behavior
 
 - Prisma client/connection role/pool budget/database clock/retryable transaction: `database/prisma.service.ts`.
-- Prisma module global export surface: `database/prisma.module.ts`.
+- Prisma provider/export와 explicit import surface: `database/prisma.module.ts` 및 각 consumer module.
 - DB role grant and migration/updated-at architecture guards: `database/*.spec.ts`.
 - API error shape and exception filter mapping: `http/api-error.ts`, `http/api-exception.filter.ts`.
 - Account identity invariant HTTP mapping: `http/account-identity-invariant.error.ts`.

@@ -119,11 +119,11 @@ describe('production database deploy boundary', () => {
     expect(entrypoint).not.toContain('migrate-deploy.sh');
     expect(entrypoint).not.toContain('apply-role-grants.sh');
     expect(entrypoint).not.toContain('smoke-role-grants.sh');
-    expect(deployReadme).toContain('Database rehearsal boundary');
-    expect(deployReadme).toContain('pnpm api:db:deploy:migrate');
-    expect(deployReadme).toContain('pnpm api:db:deploy:role-grants');
-    expect(deployReadme).toContain('pnpm api:db:deploy:smoke');
-    expect(dbReadme).toContain('Production DB deploy runbook');
+    expect(deployReadme).toContain('migration과 role grant: `infra/db/`');
+    expect(dbReadme).toContain('# Database operator scripts');
+    expect(dbReadme).toContain('pnpm api:db:deploy:migrate');
+    expect(dbReadme).toContain('pnpm api:db:deploy:role-grants');
+    expect(dbReadme).toContain('pnpm api:db:deploy:smoke');
     expect(dbReadme).toContain('prisma migrate deploy');
     expect(dbReadme).toContain('prisma db push');
   });

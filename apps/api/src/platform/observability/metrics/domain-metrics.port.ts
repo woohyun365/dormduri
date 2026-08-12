@@ -4,45 +4,7 @@ export const DOMAIN_METRICS_PORT = Symbol('DOMAIN_METRICS_PORT');
 
 export type DomainMetricKind = 'counter' | 'gauge' | 'histogram';
 
-export type DomainMetricName =
-  | 'api_auth_cleanup_batch_saturated'
-  | 'api_auth_cleanup_deleted_total'
-  | 'api_auth_cleanup_failures_total'
-  | 'api_auth_credential_transitions_total'
-  | 'api_auth_login_attempts_total'
-  | 'api_auth_login_password_verify_duration_seconds'
-  | 'api_auth_login_password_verify_in_flight'
-  | 'api_auth_login_throttle_total'
-  | 'api_auth_password_hash_admission_total'
-  | 'api_auth_password_hash_duration_seconds'
-  | 'api_auth_password_hash_in_flight'
-  | 'api_auth_password_policy_rejected_total'
-  | 'api_auth_mail_dispatch_total'
-  | 'api_auth_mail_outbox_lag_seconds'
-  | 'api_auth_session_renewals_total'
-  | 'api_auth_sensitive_mutations_total'
-  | 'api_auth_signup_final_admission_total'
-  | 'api_auth_signup_nickname_validation_total'
-  | 'api_auth_signup_password_hash_duration_seconds'
-  | 'api_auth_signup_password_hash_total'
-  | 'api_auth_verification_operations_total'
-  | 'api_chat_realtime_connected_sockets'
-  | 'api_chat_realtime_connections_total'
-  | 'api_chat_realtime_outbox_prune_total'
-  | 'api_chat_realtime_rejections_total'
-  | 'api_prisma_pool_connections'
-  | 'api_prisma_transaction_retries_total'
-  | 'api_realtime_dispatch_batches_total'
-  | 'api_realtime_dispatch_oldest_claimed_outbox_lag_seconds'
-  | 'api_retention_backlog_total'
-  | 'api_retention_review_jobs_total'
-  | 'api_retention_sweep_duration_seconds'
-  | 'api_roommate_search_candidate_count'
-  | 'api_roommate_search_duration_seconds'
-  | 'api_roommate_search_requests_total'
-  | 'api_seasons_current_query_duration_seconds'
-  | 'api_seasons_current_query_total'
-  | 'api_seasons_operation_total';
+export type DomainMetricName = string;
 
 export type DomainMetricLabelValues = Partial<
   Record<DomainMetricLabelName, string | number | boolean>
