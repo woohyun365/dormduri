@@ -10,6 +10,7 @@
 - [Agent execution contract](./agent-execution-contract.md): coding agent의 classify→inspect→route→act→verify→handoff 계약
 - [Request intake](./request-intake/README.md): intent·authority·ambiguity와 Answer·Analyze·Plan 출력 계약
 - [Plan authoring](./plan-authoring/README.md): 공통 계획 계약과 FE·BE·Infrastructure progressive-disclosure guide
+- [Visual design](./visual-design/README.md): visual direction, VisualBrief와 Official Figma MCP evidence 경계
 - [Session continuity](./session-continuity.md): fresh/resume, checkpoint, active plan과 closeout 규칙
 - [Orchestration](./orchestration.md): single-agent 기본값, bounded fan-out과 reasoning effort routing
 - [QA](./qa.md): 인수 조건 도출, 코드 리뷰, 완료 검증의 근거와 판정 방식

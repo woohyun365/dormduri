@@ -66,18 +66,19 @@ Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정�
 
 Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 않습니다.
 
-## External provider와 skill 도입 경계
+## Figma provider 도입 경계
+
+상세 visual capability 계약은 [Visual design workflow](./visual-design/README.md)를 읽습니다.
 
 1. tracked `DESIGN.md`가 있으면 이를 먼저 사용하고, 없으면 Storybook, 현재 component/token과 repository workflow를
    source of truth로 사용합니다. untracked local `DESIGN.md`는 참고 입력일 뿐 clean clone의 필수 권한이 아닙니다.
 2. 실제 Figma file/frame이 source of truth일 때만 Official Figma MCP를 user-level opt-in으로 검토합니다.
 3. credential은 repository나 example file에 저장하지 않습니다.
-4. 외부 skill은 source, exact commit, license, script/network 동작, 기존 workflow와의 중복을 점검합니다.
-5. repository bundle 전체를 설치하지 않고 대표 task의 read-only A/B pilot에서 순이익이 확인된 skill만 pin합니다.
-6. provider 장애나 제거 뒤에도 기존 Storybook·design·verification 경로는 동작해야 합니다.
+4. Figma MCP는 승인된 frame/component/variable을 읽는 evidence bridge이며 product policy나 mutation 권한을 만들지
+   않습니다.
+5. provider 장애나 연결 해제 뒤에도 기존 Storybook·design·verification 경로는 동작해야 합니다.
 
-Star 수나 benchmark는 조사 신호일 뿐 adoption evidence가 아닙니다. 외부 output은 증거이며 product policy와
-repository design contract를 자동으로 덮지 않습니다.
+Provider output은 증거이며 product policy와 repository design contract를 자동으로 덮지 않습니다.
 
 ## Cross-domain 예시
 

@@ -19,9 +19,11 @@ Repository 상태의 읽기 전용 요약은 `pnpm agent:preflight`를 사용합
 다음 중 하나가 참일 때만 resume 경로를 사용합니다.
 
 - 사용자가 `이어서`, 특정 plan 또는 phase 재개를 명시함
-- active OMX mode, team 또는 goal이 존재함
-- notepad priority가 current branch의 active context를 가리킴
-- interruption 또는 compaction checkpoint가 존재함
+- current request가 같은 task를 계속하는 내용이고, 그 task의 active OMX mode, team 또는 goal이 존재함
+- current request가 interruption 또는 compaction 이후 같은 task의 계속을 요구하고, bounded checkpoint가 존재함
+
+notepad priority, context snapshot 또는 active runtime이 존재한다는 사실만으로 fresh request를 resume으로 바꾸지 않습니다.
+항상 current request가 같은 task의 연속성을 나타내는지 먼저 확인합니다.
 
 Resume 순서:
 

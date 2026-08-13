@@ -50,8 +50,10 @@
 
 - 처음 참여한 개발자는 `docs/development/agent-workflows/getting-started.md`의 요청 예시를 사용한다.
 - Coding agent는 current request → 이 파일 → 최소 관련 workflow guide → code/test evidence 순서로 읽는다.
-- 새 작업은 과거 memory를 기본 입력으로 읽지 않는다. `이어서`, plan/phase 또는 active checkpoint가 명시된 경우만
-  `session-continuity.md`의 resume 경로를 사용한다.
+- 새 작업은 과거 memory를 기본 입력으로 읽지 않는다. `이어서`, plan/phase가 명시되거나 현재 요청이 같은 task의 active
+  runtime/checkpoint를 명확히 이어갈 때만 `session-continuity.md`의 resume 경로를 사용한다.
+- repository 상태의 읽기 전용 기준점이 필요한 multi-step/resume 작업은 `pnpm agent:preflight`를 사용하되, 그 결과도
+  current request와 working tree evidence에 다시 대조한다.
 - 분석·구현·검증 공통 계약은 `agent-execution-contract.md`, orchestration 선택은 `orchestration.md`를 따른다.
 - 한 owner 작업은 single agent가 기본이다. 독립적인 evidence·파일 ownership이 있을 때만 bounded child lane을 사용한다.
 - architecture/feature/refactor plan 요청은 tracked plan-authoring workflow를 사용한다. 세부 routing은 해당 guide가
