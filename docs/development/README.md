@@ -6,6 +6,7 @@
 
 - [Troubleshooting index](./troubleshooting/README.md)
 - [Monorepo CI baseline](./ci/monorepo-ci-baseline.md)
+- [Agent workflow guides](./agent-workflows/README.md): 새 개발자와 coding agent의 실행·검증·session continuity 기준
 - [Production deployment implementation inputs](./future-production-deployment-inputs.md)
 
 과거 Sprint·Phase 실행 기록, 개인 장비·절대 경로, 폐기된 구현의 원문은 `local-docs/`에 둡니다.

@@ -106,7 +106,7 @@ pnpm --dir apps/web storybook:build
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture
 pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useAuthSession.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/auth/flows/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
 pnpm api:typecheck
-pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useAuthSession.ts apps/web/src/auth/flows/login apps/web/e2e docs/policies/production-runtime-safety.md .omx/plans/web-login-page-refactor-plan.md
+pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useAuthSession.ts apps/web/src/auth/flows/login apps/web/e2e docs/policies/production-runtime-safety.md
 pnpm --dir apps/web exec playwright test e2e/smoke.spec.ts --project=desktop-chromium
 git diff --check
 ```
@@ -158,12 +158,13 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 
 ## Source of truth
 
-| 주제                                            | Source                                                        |
-| ----------------------------------------------- | ------------------------------------------------------------- |
-| Auth/session policy                             | `docs/policies/account-authentication.md`                     |
-| Production deployment/session transport wording | `docs/policies/production-runtime-safety.md`                  |
-| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/auth/bff/*`          |
-| Login/session architecture plan                 | `.omx/plans/login-session-policy-design-architecture-plan.md` |
-| Signup structure benchmark                      | `apps/web/src/auth/flows/signup/README.md`                    |
+| 주제                                            | Source                                                                            |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| Auth/session policy                             | `docs/policies/account-authentication.md`                                         |
+| Production deployment/session transport wording | `docs/policies/production-runtime-safety.md`                                      |
+| Session transport architecture                  | `docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md`      |
+| Auth failure response/observability             | `docs/architecture/backend/business/auth-business-failure-monitoring-strategy.md` |
+| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/auth/bff/*`                              |
+| Signup structure benchmark                      | `apps/web/src/auth/flows/signup/README.md`                                        |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 login copy/test를 갱신한다.

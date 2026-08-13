@@ -4,7 +4,7 @@
 로그인, 회원가입, 비밀번호 재설정, auth API client, auth BFF helper, auth 전용 UI/hook/model을 소유한다.
 API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경계의 소유 범위가 아니다.
 
-Migration history는 commit과 `.omx/plans/web-auth-boundary-final-refactor-plan.md`에 남긴다.
+Migration history는 Git commit history에 남긴다.
 이 README는 새 작업자가 따라야 할 **최종 auth Web boundary contract**만 설명한다.
 
 ## Final directory contract
@@ -239,10 +239,6 @@ Remaining follow-up candidates are explicitly outside this boundary cleanup:
 
 ## Source documents
 
-- `.omx/plans/web-auth-boundary-final-refactor-plan.md`
-- `.omx/plans/web-login-page-refactor-plan.md`
-- `.omx/plans/web-signup-page-refactor-plan.md`
-- `.omx/plans/web-password-reset-page-refactor-plan.md`
 - `apps/web/src/auth/api/*`
 - `apps/web/src/auth/flows/login/README.md`
 - `apps/web/src/auth/flows/signup/README.md`
@@ -250,5 +246,8 @@ Remaining follow-up candidates are explicitly outside this boundary cleanup:
 - `docs/policies/account-authentication.md`
 - `docs/policies/access-eligibility.md`
 - `docs/policies/legal-basis.md`
+- `docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md`
+- `docs/architecture/backend/auth/auth-reset-timing-defense.md`
+- `docs/architecture/backend/business/auth-business-failure-monitoring-strategy.md`
 
 If README guidance and official policy conflict, official policy wins and auth README/tests should be updated in the same change.
