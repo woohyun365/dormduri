@@ -1,13 +1,24 @@
 const ROUTES = {
   lookup: { role: 'explore', effort: 'low' },
+  analysis: { role: 'analyst', effort: 'medium' },
   implementation: { role: 'executor', effort: 'medium' },
+  debugging: { role: 'debugger', effort: 'high' },
   test: { role: 'test-engineer', effort: 'medium' },
   research: { role: 'researcher', effort: 'high' },
   verification: { role: 'verifier', effort: 'high' },
   architecture: { role: 'architect', effort: 'high' },
+  review: { role: 'code-reviewer', effort: 'high' },
 };
 
-const HIGH_RISK_KINDS = new Set(['architecture', 'test']);
+const RISKS = new Set(['normal', 'low', 'medium', 'high', 'critical']);
+const HIGH_RISK_KINDS = new Set([
+  'analysis',
+  'architecture',
+  'debugging',
+  'implementation',
+  'review',
+  'test',
+]);
 
 export function selectAgentRoute({
   taskKind,
@@ -16,6 +27,11 @@ export function selectAgentRoute({
   roleRoutingAvailable = true,
 }) {
   if (!(taskKind in ROUTES)) throw new Error(`Unsupported task kind: ${taskKind}`);
+  if (!RISKS.has(risk)) throw new Error(`Unsupported task risk: ${risk}`);
+  if (typeof independent !== 'boolean') throw new TypeError('independent must be a boolean.');
+  if (typeof roleRoutingAvailable !== 'boolean') {
+    throw new TypeError('roleRoutingAvailable must be a boolean.');
+  }
 
   if (!independent) {
     return {
@@ -38,7 +54,9 @@ export function selectAgentRoute({
   }
 
   const route = { ...ROUTES[taskKind] };
-  if (risk === 'high' && HIGH_RISK_KINDS.has(taskKind)) route.effort = 'high';
+  if (['high', 'critical'].includes(risk) && HIGH_RISK_KINDS.has(taskKind)) {
+    route.effort = 'high';
+  }
   if (risk === 'critical' && taskKind === 'architecture') route.effort = 'xhigh';
 
   return {

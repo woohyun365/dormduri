@@ -137,11 +137,11 @@ Matching 알림은 “요청/수락/거절/매칭 확정이 발생했다”는 �
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                      | 관련 이슈     |
-| ---------- | -------------------------------------------------------------------------------------------------------------- | ------------- |
-| 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220   |
-| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196   |
-| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220    |
-| 2026-07-03 | global notice와 개인 notification inbox의 API/preview/body 경계를 분리했다                                     | Home Phase 6  |
-| 2026-07-05 | matching request/status notification kind와 pointer-only payload 기준, Storybook 시나리오를 추가했다           | Home Phase 10 |
-| 2026-07-08 | 신고 접수 receipt와 검토 완료 coarse result 알림의 payload privacy, support appeal pointer 경계를 추가했다     | #263 / #264   |
+| 날짜       | 변경 내용                                                                                                      | 관련 이슈                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220               |
+| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196               |
+| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220                |
+| 2026-07-03 | global notice와 개인 notification inbox의 API/preview/body 경계를 분리했다                                     | Home notification surface |
+| 2026-07-05 | matching request/status notification kind와 pointer-only payload 기준, Storybook 시나리오를 추가했다           | Home matching surface     |
+| 2026-07-08 | 신고 접수 receipt와 검토 완료 coarse result 알림의 payload privacy, support appeal pointer 경계를 추가했다     | #263 / #264               |

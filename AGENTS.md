@@ -66,6 +66,8 @@
 - framework나 SDK의 version-sensitive 동작은 현재 lockfile과 공식 문서를 기준으로 검증한다.
 - generated file과 migration을 수동 편집하기 전 canonical generator/owner를 확인한다.
 - 사용자 소유 untracked file과 현재 요청 밖의 working-tree 변경을 수정·삭제·revert하지 않는다.
+- 장기 추적 문서와 owner README는 현재 책임·불변 조건·동작을 설명하며, active plan 파일명·Phase 번호·임시 checkpoint를
+  근거로 사용하지 않는다. 이러한 lifecycle 표현은 plan, session checkpoint, 명시적인 migration evidence에만 둔다.
 
 ## 6. Cleanup과 refactor
 

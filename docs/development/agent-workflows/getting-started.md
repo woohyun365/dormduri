@@ -3,6 +3,10 @@
 이 문서는 이 저장소를 처음 접하는 개발자가 Codex, Claude Code 또는 다른 coding agent에 작업을 요청하는 방법을
 설명합니다. 특정 skill 이름이나 과거 대화를 알 필요는 없습니다.
 
+짧거나 모호한 요청은 [Request intake](./request-intake/README.md) 계약에 따라 요청한 결과, 수정 권한,
+필요한 근거와 미확정 결정으로 나눉니다. 분석을 요청했다면 code를 수정하지 않고, 계획을 요청했다면
+구현까지 자동으로 확장하지 않습니다.
+
 ## 공통 입력
 
 좋은 요청은 다음 다섯 항목을 포함합니다.
@@ -47,6 +51,13 @@ AGENTS.md를 읽고 <plan 경로 또는 task 이름> 작업을 이어서 진행�
 필요한 workflow를 자동 선택하고 Decision/OQ, dependency 순서, red test, acceptance, verification,
 현재 결정할 수 없는 release 항목의 handoff를 포함해줘.
 ```
+
+Architecture·feature·refactor 계획을 요청하면 agent는 [Plan authoring](./plan-authoring/README.md)의 core와
+primary domain guide 하나를 먼저 선택하고, 보안/개인정보 또는 운영/배포 관점은 evidence가 요구할 때만
+추가합니다. 계획 작성을 요청하지 않았다면 이 workflow를 이유로 plan artifact를 만들지 않습니다.
+
+변경 범위가 여러 방향으로 갈린다면 agent는 임의로 고정하지 않고 질문, plan OQ 또는 future
+release evidence handoff로 남깁니다.
 
 ## 승인된 계획 구현하기
 

@@ -40,6 +40,17 @@ const workflowGuidePaths = [
   'docs/development/agent-workflows/qa.md',
   'docs/development/agent-workflows/refactor-analysis.md',
 ];
+const durableOrchestrationContractPaths = [
+  'docs/development/agent-workflows/orchestration.md',
+  'docs/development/agent-workflows/request-intake/README.md',
+  'docs/development/agent-workflows/request-intake/ambiguity-and-authority.md',
+  'docs/development/agent-workflows/request-intake/context-pack.md',
+  'docs/development/agent-workflows/request-intake/decisions.md',
+  'docs/development/agent-workflows/request-intake/delegation.md',
+  'docs/development/agent-workflows/request-intake/orchestration-recovery.md',
+  'docs/development/agent-workflows/request-intake/output-contracts.md',
+  'docs/development/agent-workflows/request-intake/task-envelope.md',
+];
 
 function trackedPaths() {
   const result = spawnSync('git', ['ls-files', '-z'], {
@@ -230,4 +241,27 @@ test('tracked durable documentation does not use ignored OMX plans as source of 
     });
 
   assert.deepEqual(references, []);
+});
+
+test('durable orchestration contracts describe current responsibility without implementation phase coupling', () => {
+  const agents = readFileSync(rootAgentsPath, 'utf8');
+
+  assert.match(agents, /active plan 파일명·Phase 번호·임시 checkpoint/u);
+
+  for (const path of durableOrchestrationContractPaths) {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+
+    assert.doesNotMatch(source, /\bPhase\s+\d+(?:[.-]\d+)?\b/u, path);
+    assert.doesNotMatch(source, /\.omx\/plans\//u, path);
+  }
+});
+
+test('durable policy architecture and runbook docs do not depend on numbered implementation phases', () => {
+  const violations = trackedPaths()
+    .filter((path) => /^docs\/(?:policies|architecture|runbooks)\/.*\.md$/u.test(path))
+    .filter((path) =>
+      /\bPhase\s+\d+(?:[.-]\d+)?\b/u.test(readFileSync(resolve(repoRoot, path), 'utf8')),
+    );
+
+  assert.deepEqual(violations, []);
 });

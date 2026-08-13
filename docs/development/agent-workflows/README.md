@@ -8,6 +8,8 @@
 - [Agentic architecture decisions](./agentic-architecture-decisions.md): agent pattern, 검증, 권한과 orchestration 결정
 - [Getting started](./getting-started.md): 처음 참여한 개발자의 fresh/resume/analysis/plan/implementation 요청 예시
 - [Agent execution contract](./agent-execution-contract.md): coding agent의 classify→inspect→route→act→verify→handoff 계약
+- [Request intake](./request-intake/README.md): intent·authority·ambiguity와 Answer·Analyze·Plan 출력 계약
+- [Plan authoring](./plan-authoring/README.md): 공통 계획 계약과 FE·BE·Infrastructure progressive-disclosure guide
 - [Session continuity](./session-continuity.md): fresh/resume, checkpoint, active plan과 closeout 규칙
 - [Orchestration](./orchestration.md): single-agent 기본값, bounded fan-out과 reasoning effort routing
 - [QA](./qa.md): 인수 조건 도출, 코드 리뷰, 완료 검증의 근거와 판정 방식

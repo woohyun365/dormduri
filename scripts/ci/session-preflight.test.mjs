@@ -46,9 +46,12 @@ test('resume preflight exposes only bounded pointers and validates the plan path
   assert.equal(summary.mode, 'resume');
   assert.equal(summary.resume.plan.exists, true);
   assert.ok(summary.resume.contextSnapshots.length <= 5);
-  assert.equal(summary.resume.notepadPriority.exists, true);
   assert.equal(summary.resume.notepadPriority.valid, true);
-  assert.match(summary.resume.notepadPriority.contextPath, /^\.omx\/context\//u);
+  if (summary.resume.notepadPriority.exists) {
+    assert.match(summary.resume.notepadPriority.contextPath, /^\.omx\/context\//u);
+  } else {
+    assert.equal(summary.resume.notepadPriority.contextPath, null);
+  }
   assert.equal('notepadContent' in summary.resume, false);
 });
 

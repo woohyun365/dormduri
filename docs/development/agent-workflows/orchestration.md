@@ -18,6 +18,10 @@ Agent 수 자체를 품질 지표로 사용하지 않습니다. sequential task,
 
 ## Child contract
 
+Machine-checkable recommendation contract는
+[Independent lane and child task contract](./request-intake/delegation.md)를 따릅니다. 이 문서의 orchestration 규칙을
+실행 engine으로 복제하지 않으며, `scripts/agents/child-task-contract.mjs`도 child를 직접 생성하지 않습니다.
+
 Child task에는 다음을 포함합니다.
 
 ```text
@@ -97,3 +101,7 @@ Legal 정책과 FE/BE를 함께 바꾸는 작업은 정책 결정을 먼저 고�
 
 Fan-in 이후 leader는 source 누락, conflicting inference, unresolved high-risk decision, changed file ownership과 실제
 verification을 확인합니다. Blocking finding이 남으면 완료로 판정하지 않습니다.
+
+Machine-checkable native dispatch, one-alternate recovery와 synthesis input validation은
+[Bounded orchestration, recovery, and leader synthesis](./request-intake/orchestration-recovery.md)를 따릅니다. 이
+policy는 child lifecycle을 실행하지 않으며 최종 completion authority를 갖지 않습니다.

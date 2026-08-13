@@ -178,4 +178,4 @@ DB 계층에서는 최소 권한 원칙을 별도 credential로 보강한다. `a
 | 2026-05-25 | RRPD retained vault(`RetainedVaultObject`)의 법적 기준을 추가하고, 파기/분리 보관·안전조치·처리방침 공개·접근로그 요구를 nickname/profile/match/chat payload까지 확장              | #195              |
 | 2026-05-26 | BE/DB 최종 구조에 맞춰 retained payload disclosure 로그 명칭을 `RetentionAccessLog`로 정합화하고, active account/profile 식별 정보와 retained identity anchor의 법적 경계를 최신화 | #195              |
 | 2026-05-26 | RRPD 보호 기준에 DB role 기반 최소 권한(`app_runtime`/`retention_worker`/`retention_disclosure`)과 lifecycle observability/alerting의 법적 안전조치 해석을 추가                    | #195              |
-| 2026-06-22 | 구현 파일명 의존 연결을 product legal documents/privacy notice 책임 표현으로 정리하고, Web legal document 재구성 Phase 0 baseline과 정합화                                         | web terms/privacy |
+| 2026-06-22 | 구현 파일명 의존 연결을 product legal documents/privacy notice 책임 표현으로 정리하고, 현재 Web legal document 책임과 정합화                                                       | web terms/privacy |

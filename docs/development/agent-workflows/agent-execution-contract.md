@@ -17,6 +17,9 @@
 분류가 모호해도 reversible local inspection은 진행할 수 있습니다. 결과를 바꾸는 중요한 분기나 외부 side effect만
 사용자에게 확인합니다.
 
+상세 intent, action authority, ambiguity와 Answer·Analyze·Plan 경계는
+[Request intake](./request-intake/README.md)를 따릅니다. Intent confidence는 수정 권한을 부여하지 않습니다.
+
 ## 2. Inspect
 
 정보 우선순위는 다음과 같습니다.
