@@ -3,9 +3,25 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { buildComposeArgs, loadComposeInventory, resolveManagedNetworks } from './profile.mjs';
+import {
+  buildComposeArgs,
+  loadComposeInventory,
+  parseComposeProfileCliArgs,
+  resolveManagedNetworks,
+} from './profile.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
+
+test('pnpm의 명시적 인자 separator를 profile 이름과 분리한다', () => {
+  assert.deepEqual(parseComposeProfileCliArgs(['--', 'api-base', 'config']), {
+    profileName: 'api-base',
+    composeArgs: ['config'],
+  });
+  assert.deepEqual(parseComposeProfileCliArgs(['api-base', 'config']), {
+    profileName: 'api-base',
+    composeArgs: ['config'],
+  });
+});
 
 test('production API profile에는 rehearsal과 stress overlay가 합성되지 않는다', () => {
   const inventory = loadComposeInventory(repoRoot);

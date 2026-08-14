@@ -84,6 +84,12 @@ export function resolveManagedNetworks(profile, env = process.env) {
   return (profile.managedNetworks ?? []).map((network) => env[network.env] || network.default);
 }
 
+export function parseComposeProfileCliArgs(argv) {
+  const normalized = argv[0] === '--' ? argv.slice(1) : argv;
+  const [profileName, ...composeArgs] = normalized;
+  return { profileName, composeArgs };
+}
+
 export function ensureProfileNetworks(
   profile,
   { repoRoot = defaultRepoRoot, env = process.env } = {},
@@ -131,7 +137,7 @@ function isDirectExecution() {
 }
 
 if (isDirectExecution()) {
-  const [profileName, ...composeArgs] = process.argv.slice(2);
+  const { profileName, composeArgs } = parseComposeProfileCliArgs(process.argv.slice(2));
   if (!profileName) {
     console.error('Usage: node scripts/infra/compose/profile.mjs <profile> <compose arguments...>');
     process.exit(64);
