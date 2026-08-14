@@ -89,8 +89,9 @@
     "web:build:prepared": "pnpm --dir apps/web ci:build",
     "web:check": "pnpm web:prepare && pnpm web:check:prepared",
     "web:check:prepared": "pnpm --dir apps/web ci:check",
-    "infra:env:generate": "pnpm --dir apps/api env:manifest:generate",
-    "infra:env:check": "pnpm --dir apps/api env:manifest:check && node scripts/infra/check/validate-env-projections.mjs"
+    "infra:env:prepare": "pnpm shared:build",
+    "infra:env:generate": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:generate",
+    "infra:env:check": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:check && node scripts/infra/check/validate-env-projections.mjs"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

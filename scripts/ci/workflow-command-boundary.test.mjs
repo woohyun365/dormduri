@@ -91,6 +91,19 @@ test('root commands expose prepared aggregate capabilities', () => {
   }
 });
 
+test('infrastructure env commands prepare their Shared type dependency', () => {
+  assert.equal(scriptValue(rootScripts, 'infra:env:prepare'), 'pnpm shared:build');
+  assertIncludesAll(scriptValue(rootScripts, 'infra:env:generate'), [
+    'pnpm infra:env:prepare',
+    'pnpm --dir apps/api env:manifest:generate',
+  ]);
+  assertIncludesAll(scriptValue(rootScripts, 'infra:env:check'), [
+    'pnpm infra:env:prepare',
+    'pnpm --dir apps/api env:manifest:check',
+    'validate-env-projections.mjs',
+  ]);
+});
+
 for (const workflow of [
   {
     path: '.github/workflows/api-ci.yml',
