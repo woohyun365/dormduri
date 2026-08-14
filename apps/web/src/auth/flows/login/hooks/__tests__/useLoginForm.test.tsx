@@ -89,7 +89,7 @@ describe('useLoginForm', () => {
       success: false,
       locked: true,
       remainingSeconds: 300,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      error: '반복된 로그인 실패로 계정이 잠겼어요.',
     }));
     const { result } = renderHook(() => useLoginForm({ onLogin }));
 
@@ -135,7 +135,7 @@ describe('useLoginForm', () => {
       success: false,
       locked: true,
       remainingSeconds: 300,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      error: '반복된 로그인 실패로 계정이 잠겼어요.',
     }));
     const { result } = renderHook(() => useLoginForm({ onLogin }));
 

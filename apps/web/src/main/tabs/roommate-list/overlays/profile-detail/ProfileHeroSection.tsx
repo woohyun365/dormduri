@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Building, GraduationCap, IdCard, MapPin, User } from 'lucide-react';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import {
   formatCampusName,
   formatCollegeName,

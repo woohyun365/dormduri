@@ -23,9 +23,9 @@
 - `access-logs/`: retained identity/vault disclosure 접근 로그 생성과 disposal scheduling owner.
 - `review-jobs/`: identity-link review, due review retry, review handler registry owner.
 - `crypto/`: retention payload encryption helper와 payload envelope format. Production key custody adapter는 이 boundary의 adapter로 붙는다.
-- `observability/`: backlog snapshot, structured metric, alert candidate signal. Retained payload 원문을 로그/metric에 넣지 않는다.
+- `observability/`: Prometheus definition, backlog snapshot, sweep emission mapping, metric recorder와 alert candidate signal을 함께 소유한다. Retained payload 원문을 로그/metric에 넣지 않는다.
 - `composition/`: RetentionModule provider/export/token source of truth. Module decorator에서 긴 provider list를 직접 소유하지 않는다.
-- Retention unit/integration specs는 owning slice 옆에 둔다. Cross-domain layout/import fitness는 `apps/api/src/architecture/`가 소유한다.
+- Retention unit/integration specs는 owning slice 옆에 둔다. Cross-domain layout/import fitness는 `apps/api/test/architecture/`가 소유한다.
 
 ## Domain-owned archive handlers
 
@@ -44,10 +44,11 @@ Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/
 
 ### Metric/alert ownership
 
-- Metric owner: `observability/retention-metrics.ts`.
+- Prometheus definition owner: `observability/retention-metric.definitions.ts`.
+- Sweep metric emission builder: `observability/retention-metrics.ts`.
 - Backlog snapshot owner: `observability/retention-backlog-snapshot.query.ts`.
 - Alert candidate owner: `observability/retention-alerts.ts`.
-- Nest provider/log emission owner: `observability/retention-observability.service.ts`.
+- Prometheus recorder와 structured log emission owner: `observability/retention-observability.service.ts`.
 - Public injection surface: `RETENTION_OBSERVABILITY_PORT`.
 
 ### Alert triage
@@ -106,7 +107,7 @@ Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/
 
 - Root production file은 module surface 중심으로 유지한다. Command/query/policy/repository/adapter/spec은 owning slice 내부에 둔다.
 - RetentionModule provider/export wiring은 `composition/retention.providers.ts`, `composition/retention.exports.ts`, `composition/retention.tokens.ts`가 소유한다.
-- Cross-domain import/layout guard는 `apps/api/src/architecture/**`가 소유한다.
+- Cross-domain import/layout guard는 `apps/api/test/architecture/**`가 소유한다.
 - Product domain은 retained payload parser/disclosure concrete implementation을 import하지 않는다.
 - Lifecycle은 retention observability concrete provider를 직접 소유하지 않고 `RetentionModule`의 exported port를 주입받는다.
 - Lifecycle sweep task execution은 broad users service가 아니라 retention sweep port로 수렴한다.
@@ -151,7 +152,7 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
 pnpm api:typecheck
 pnpm exec prettier --check \
   apps/api/src/retention/README.md \
-  docs/04_policy/official/data-retention.md \
-  docs/04_policy/official/service-boundary.md
+  docs/policies/data-retention.md \
+  docs/policies/service-boundary.md
 git diff --check
 ```

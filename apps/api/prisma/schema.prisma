@@ -24,15 +24,39 @@ enum VerificationCodePurpose {
   RESET_PASSWORD
 }
 
+enum VerificationCodeDeliveryStatus {
+  PENDING
+  ACCEPTED
+  FAILED
+  UNKNOWN
+  SUPERSEDED
+}
+
+enum AuthMailKind {
+  SIGNUP_VERIFICATION
+  PASSWORD_RESET_VERIFICATION
+  PASSWORD_CHANGED
+}
+
+enum AuthMailOutboxStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  FAILED
+  UNKNOWN
+  SUPERSEDED
+}
+
 enum AuthSecurityEventType {
+  ACCOUNT_SIGNUP_SUCCEEDED
   LOGIN_SUCCESS
   LOGIN_FAILURE
   LOGIN_LOCKOUT
   VERIFICATION_CODE_REQUESTED
   VERIFICATION_CODE_VERIFY_SUCCESS
   VERIFICATION_CODE_VERIFY_FAILURE
-  RESET_PASSWORD_CONSUMED
-  CHANGE_PASSWORD_SUCCESS
+  PASSWORD_RESET_SUCCEEDED
+  CHANGE_PASSWORD_SUCCEEDED
   SESSION_REFRESH_SUCCESS
   SESSION_REVOKED
   SESSION_REVOKE_ALL
@@ -56,6 +80,12 @@ enum ModerationTermCategory {
 enum ModerationMatchMode {
   EXACT
   INCLUDES
+  PREFIX
+}
+
+enum ModerationTermSource {
+  REFERENCE
+  OPERATIONS
 }
 
 enum ModerationSurface {
@@ -75,11 +105,6 @@ enum DormitoryGenderPolicy {
   M
   F
   BOTH
-}
-
-enum DormitoryBathroomType {
-  SHARED
-  PRIVATE
 }
 
 enum SeasonOverrideState {
@@ -216,7 +241,6 @@ enum SupportAppealCategory {
 }
 
 enum SupportFaqSurface {
-  LANDING
   SUPPORT_CENTER
 }
 
@@ -250,6 +274,11 @@ enum MatchRequestTerminalReason {
   WITHDRAWN_PARTICIPANT
   MATCH_PRECONDITION_FAILED
   ADMIN_ACTION
+}
+
+enum MatchHistorySystemCancellationCause {
+  VIEWER_MATCHED
+  COUNTERPART_MATCHED
 }
 
 enum ActiveMatchStatus {
@@ -707,26 +736,15 @@ enum AcademicIdentityAllowanceResetReason {
 }
 
 model CampusMaster {
-  code         Campus              @id
-  nameKo       String
-  isOperated   Boolean
-  sortOrder    Int                 @default(0)
-  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime            @default(now()) @updatedAt @db.Timestamptz(3)
-  colleges     CollegeMaster[]
-  dormitories  Dormitory[]
-  seasons      Season[]
-  guideContent CampusGuideContent?
-}
-
-model CampusGuideContent {
-  campusCode        Campus       @id
-  homepageUrl       String
-  commonRules       Json
-  emergencyContacts Json
-  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
-  campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
+  code        Campus          @id
+  nameKo      String
+  isOperated  Boolean
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @default(now()) @updatedAt @db.Timestamptz(3)
+  colleges    CollegeMaster[]
+  dormitories Dormitory[]
+  seasons     Season[]
 }
 
 model CollegeMaster {
@@ -751,26 +769,16 @@ model Dormitory {
   nameKo             String
   roomType           Int
   genderPolicy       DormitoryGenderPolicy
+  matchingSupported  Boolean                    @default(true)
+  isActive           Boolean                    @default(true)
   sortOrder          Int                        @default(0)
   createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus             CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
-  guide              DormitoryGuide?
   seasonOperations   SeasonDormitoryOperation[]
   seasonParticipants SeasonParticipant[]
 
-  @@index([campusCode, genderPolicy, sortOrder])
-}
-
-model DormitoryGuide {
-  dormitoryId   String                @id
-  bathroomType  DormitoryBathroomType
-  facilities    Json
-  repairContact String
-  diningContact String?
-  createdAt     DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
-  dormitory     Dormitory             @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+  @@index([campusCode, isActive, matchingSupported, genderPolicy, sortOrder])
 }
 
 model Season {
@@ -1426,24 +1434,26 @@ model SeasonParticipantProfileHistory {
 }
 
 model MatchRequest {
-  id                     String                      @id @default(uuid())
-  seasonId               String
-  pairKey                String
-  pairMinParticipantId   String
-  pairMaxParticipantId   String
-  requesterParticipantId String
-  receiverParticipantId  String
-  note                   String?
-  status                 MatchRequestStatus          @default(PENDING)
-  terminalReason         MatchRequestTerminalReason?
-  createdAt              DateTime                    @default(now()) @db.Timestamptz(3)
-  expiresAt              DateTime                    @db.Timestamptz(3)
-  terminalAt             DateTime?                   @db.Timestamptz(3)
-  acceptedAt             DateTime?                   @db.Timestamptz(3)
-  season                 Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  requesterParticipant   SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
-  receiverParticipant    SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
-  createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
+  id                              String                      @id @default(uuid())
+  seasonId                        String
+  pairKey                         String
+  pairMinParticipantId            String
+  pairMaxParticipantId            String
+  requesterParticipantId          String
+  receiverParticipantId           String
+  note                            String?
+  status                          MatchRequestStatus          @default(PENDING)
+  terminalReason                  MatchRequestTerminalReason?
+  systemCancellationActiveMatchId String?
+  createdAt                       DateTime                    @default(now()) @db.Timestamptz(3)
+  expiresAt                       DateTime                    @db.Timestamptz(3)
+  terminalAt                      DateTime?                   @db.Timestamptz(3)
+  acceptedAt                      DateTime?                   @db.Timestamptz(3)
+  season                          Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  requesterParticipant            SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
+  receiverParticipant             SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
+  createdActiveMatch              ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
+  systemCancellationActiveMatch   ActiveMatch?                @relation("MatchRequestSystemCancellationCause", fields: [systemCancellationActiveMatchId], references: [id], onDelete: SetNull)
 
   @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
   @@index([seasonId, requesterParticipantId, createdAt, id])
@@ -1452,28 +1462,30 @@ model MatchRequest {
   @@index([expiresAt, status])
   @@index([seasonId, status, expiresAt])
   @@index([seasonId, pairKey, status])
+  @@index([systemCancellationActiveMatchId])
 }
 
 model ActiveMatch {
-  id                   String                      @id @default(uuid())
-  seasonId             String
-  pairKey              String
-  participantAId       String
-  participantBId       String
-  createdFromRequestId String                      @unique
-  status               ActiveMatchStatus           @default(ACTIVE)
-  startedAt            DateTime                    @default(now()) @db.Timestamptz(3)
-  endedAt              DateTime?                   @db.Timestamptz(3)
-  endReason            ActiveMatchEndReason?
-  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
-  season               Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  participantA         SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
-  participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
-  createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
-  unmatchRequests      ActiveMatchUnmatchRequest[]
-  lifecycleEvents      ActiveMatchLifecycleEvent[]
-  conversationThread   ConversationThread?
+  id                      String                      @id @default(uuid())
+  seasonId                String
+  pairKey                 String
+  participantAId          String
+  participantBId          String
+  createdFromRequestId    String                      @unique
+  status                  ActiveMatchStatus           @default(ACTIVE)
+  startedAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  endedAt                 DateTime?                   @db.Timestamptz(3)
+  endReason               ActiveMatchEndReason?
+  createdAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
+  season                  Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA            SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB            SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  createdFromRequest      MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
+  unmatchRequests         ActiveMatchUnmatchRequest[]
+  lifecycleEvents         ActiveMatchLifecycleEvent[]
+  systemCancelledRequests MatchRequest[]              @relation("MatchRequestSystemCancellationCause")
+  conversationThread      ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
   @@index([participantAId, endedAt])
@@ -1533,6 +1545,8 @@ model SeasonMatchHistoryEntry {
   sourceActiveMatchId                       String?
   createdFromRequestId                      String?
   matchScore                                Int?
+  compatibilitySnapshot                     Json?
+  compatibilitySchemaVersion                String?                                @db.VarChar(64)
   viewerSmokingToleranceSnapshot            RoommateSmokingTolerance?
   viewerPhoneToleranceSnapshot              RoommatePhoneTolerance?
   viewerEarphoneExpectationSnapshot         RoommateEarphoneExpectation?
@@ -1567,6 +1581,8 @@ model SeasonMatchHistoryEntry {
   unmatchedAt                               DateTime?                              @db.Timestamptz(3)
   finalizedAt                               DateTime                               @db.Timestamptz(3)
   requestTerminalReason                     MatchRequestTerminalReason?
+  systemCancellationCause                   MatchHistorySystemCancellationCause?
+  systemCancellationGroupId                 String?
   activeMatchEndReason                      ActiveMatchEndReason?
   createdAt                                 DateTime                               @default(now()) @db.Timestamptz(3)
   updatedAt                                 DateTime                               @default(now()) @updatedAt @db.Timestamptz(3)
@@ -2018,46 +2034,89 @@ model LoginAttempt {
 }
 
 model VerificationCode {
-  id              String                  @id @default(uuid())
-  emailNormalized String
-  purpose         VerificationCodePurpose
-  codeHash        String
-  failedAttempts  Int                     @default(0)
-  issuedAt        DateTime                @default(now()) @db.Timestamptz(3)
-  expiresAt       DateTime                @db.Timestamptz(3)
-  verifiedAt      DateTime?               @db.Timestamptz(3)
-  consumedAt      DateTime?               @db.Timestamptz(3)
-  requestIp       String?
+  id                    String                         @id @default(uuid())
+  subjectKey            String
+  purpose               VerificationCodePurpose
+  codeHash              String
+  failedAttempts        Int                            @default(0)
+  deliveryStatus        VerificationCodeDeliveryStatus @default(ACCEPTED)
+  issuedAt              DateTime                       @default(now()) @db.Timestamptz(3)
+  codeExpiresAt         DateTime                       @db.Timestamptz(3)
+  activatedAt           DateTime?                      @default(now()) @db.Timestamptz(3)
+  verifiedAt            DateTime?                      @db.Timestamptz(3)
+  grantTokenHash        String?                        @unique
+  grantExpiresAt        DateTime?                      @db.Timestamptz(3)
+  eligibleUserId        String?
+  consumedAt            DateTime?                      @db.Timestamptz(3)
+  requestIpKey          String?
+  providerCorrelationId String?
+  mailEvents            AuthMailOutboxEvent[]
 
-  @@index([emailNormalized, purpose])
-  @@index([expiresAt])
+  @@index([subjectKey, purpose, activatedAt, codeExpiresAt])
+  @@index([subjectKey, purpose, deliveryStatus, issuedAt], map: "VerificationCode_active_lookup_idx")
+  @@index([deliveryStatus, issuedAt])
+  @@index([codeExpiresAt])
+  @@index([grantExpiresAt])
   @@index([consumedAt])
 }
 
 model VerificationCodeRequestLog {
-  id              String                  @id @default(uuid())
-  emailNormalized String
-  purpose         VerificationCodePurpose
-  requestIp       String
-  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  id           String                  @id @default(uuid())
+  subjectKey   String
+  purpose      VerificationCodePurpose
+  requestIpKey String
+  createdAt    DateTime                @default(now()) @db.Timestamptz(3)
 
-  @@index([emailNormalized, purpose, requestIp, createdAt])
-  @@index([requestIp, createdAt])
+  @@index([subjectKey, purpose, requestIpKey, createdAt])
+  @@index([subjectKey, purpose, createdAt], map: "VerificationRequestLog_subject_purpose_created_idx")
+  @@index([requestIpKey, purpose, createdAt])
   @@index([createdAt])
 }
 
+model AuthMailOutboxEvent {
+  id                    String                   @id @default(uuid())
+  mailKind              AuthMailKind
+  verificationCodeId    String?
+  targetUserId          String?
+  purpose               VerificationCodePurpose?
+  payloadCiphertext     Bytes?
+  payloadIv             Bytes?
+  payloadAuthTag        Bytes?
+  keyVersion            String
+  status                AuthMailOutboxStatus     @default(PENDING)
+  availableAt           DateTime                 @default(now()) @db.Timestamptz(3)
+  lockedAt              DateTime?                @db.Timestamptz(3)
+  lockedBy              String?
+  attemptCount          Int                      @default(0)
+  providerMessageId     String?
+  providerErrorCategory String?
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  completedAt           DateTime?                @db.Timestamptz(3)
+  expiresAt             DateTime                 @db.Timestamptz(3)
+  verificationCode      VerificationCode?        @relation(fields: [verificationCodeId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt, createdAt, id])
+  @@index([status, lockedAt, id])
+  @@index([verificationCodeId, createdAt, id])
+  @@index([targetUserId, createdAt, id])
+  @@index([expiresAt])
+}
+
 model AuthSession {
-  id                    String    @id @default(uuid())
-  userId                String
-  rememberMe            Boolean   @default(false)
-  sessionTokenHash      String?   @unique
-  sessionTokenExpiresAt DateTime? @db.Timestamptz(3)
-  refreshTokenHash      String?
-  expiresAt             DateTime  @db.Timestamptz(3)
-  revokedAt             DateTime? @db.Timestamptz(3)
-  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                             String    @id @default(uuid())
+  userId                         String
+  rememberMe                     Boolean   @default(false)
+  sessionTokenHash               String?   @unique
+  sessionTokenExpiresAt          DateTime? @db.Timestamptz(3)
+  refreshTokenHash               String?
+  previousRefreshTokenHash       String?
+  previousRefreshTokenValidUntil DateTime? @db.Timestamptz(3)
+  expiresAt                      DateTime  @db.Timestamptz(3)
+  revokedAt                      DateTime? @db.Timestamptz(3)
+  createdAt                      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user                           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, revokedAt, expiresAt])
@@ -2094,6 +2153,8 @@ model ModerationTerm {
   category       ModerationTermCategory
   matchMode      ModerationMatchMode
   surface        ModerationSurface
+  source         ModerationTermSource   @default(OPERATIONS)
+  referenceKey   String?                @unique
   isActive       Boolean                @default(true)
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime               @default(now()) @updatedAt @db.Timestamptz(3)

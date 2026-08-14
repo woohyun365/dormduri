@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { MBTI_DIMENSIONS, ADDITIONAL_FIELD_NAMES } from '@/constants/additional-profile';
+import {
+  MBTI_DIMENSIONS,
+  ADDITIONAL_FIELD_LABELS,
+} from '@/main/tabs/profile/model/profileFieldOptions';
 
 interface ProfileMbtiSelectorProps {
   value: string | null;
@@ -40,8 +43,8 @@ export function ProfileMbtiSelector({ value, onChange }: ProfileMbtiSelectorProp
 
   return (
     <div>
-      <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
-        {ADDITIONAL_FIELD_NAMES.mbti}
+      <p className="text-sm font-semibold text-[(--knu-text-primary)] mb-2">
+        {ADDITIONAL_FIELD_LABELS.mbti}
       </p>
       <div className="flex gap-2">
         {MBTI_DIMENSIONS.map((dim) => (
@@ -55,8 +58,8 @@ export function ProfileMbtiSelector({ value, onChange }: ProfileMbtiSelectorProp
                   onClick={() => handleToggle(dim, opt)}
                   className={`flex-1 h-9 sm:h-10 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all ${
                     isSelected
-                      ? 'bg-[var(--knu-primary)] text-white'
-                      : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
+                      ? 'bg-[(--knu-primary)] text-white'
+                      : 'bg-[(--knu-background-alt)] text-[(--knu-text-secondary)] hover:bg-gray-200'
                   }`}
                 >
                   {opt}
@@ -69,7 +72,7 @@ export function ProfileMbtiSelector({ value, onChange }: ProfileMbtiSelectorProp
       {draft.length > 0 && (
         <div className="flex items-center justify-between mt-2">
           <p
-            className={`text-sm font-semibold ${draft.length === 4 ? 'text-[var(--knu-primary)]' : 'text-orange-600'}`}
+            className={`text-sm font-semibold ${draft.length === 4 ? 'text-[(--knu-primary)]' : 'text-orange-600'}`}
           >
             {draft}
             {draft.length < 4 && ` · ${4 - draft.length}개 더 선택해주세요`}
@@ -80,7 +83,7 @@ export function ProfileMbtiSelector({ value, onChange }: ProfileMbtiSelectorProp
               setDraft('');
               onChange(null);
             }}
-            className="text-xs text-[var(--knu-text-tertiary)] hover:text-red-500 transition-colors"
+            className="text-xs text-[(--knu-text-tertiary)] hover:text-red-500 transition-colors"
           >
             초기화
           </button>

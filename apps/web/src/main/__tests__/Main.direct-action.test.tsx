@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Main from '../Main';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
@@ -12,6 +12,12 @@ const roommateListTabMock = vi.hoisted(() =>
   vi.fn((props: Record<string, unknown>) => {
     void props;
     return null;
+  }),
+);
+const matchingTabMock = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => {
+    void props;
+    return <section data-testid="main-matching">matching tab</section>;
   }),
 );
 
@@ -43,20 +49,24 @@ vi.mock('../components/BuildingSelectModal', () => ({
   ),
 }));
 
-vi.mock('../components/DormitoryGuideSheet', () => ({
-  DormitoryGuideSheet: () => null,
-}));
-
-vi.mock('../components/MatchCelebrationModal', () => ({
-  MatchCelebrationModal: () => null,
-}));
-
 vi.mock('../tabs/home/HomeTab', () => ({
-  default: ({ onOpenBuildingSelect }: { onOpenBuildingSelect?: () => void }) => (
+  default: ({
+    onOpenBuildingSelect,
+    onNavigate,
+  }: {
+    onOpenBuildingSelect?: () => void;
+    onNavigate: (
+      tab: 'home' | 'list' | 'matching' | 'chat' | 'profile',
+      options?: { requestTab?: 'sent' | 'received' },
+    ) => void;
+  }) => (
     <section data-testid="main-home">
       home tab
       <button type="button" onClick={onOpenBuildingSelect}>
         기숙사 선택 시작
+      </button>
+      <button type="button" onClick={() => onNavigate('matching', { requestTab: 'received' })}>
+        받은 요청 바로가기
       </button>
     </section>
   ),
@@ -71,20 +81,11 @@ vi.mock('../tabs/profile/ProfileTab', () => ({
 }));
 
 vi.mock('../tabs/matching/MatchingTab', () => ({
-  default: () => null,
+  default: matchingTabMock,
 }));
 
 vi.mock('../tabs/chat/ChatTab', () => ({
   default: () => null,
-}));
-
-vi.mock('@/main/hooks/useMainLocalOnboardingState', () => ({
-  useMainLocalOnboardingState: () => ({
-    hasSeenGuide: true,
-    markGuideSeen: vi.fn(),
-    hasSeenTooltip: vi.fn(() => true),
-    markTooltipSeen: vi.fn(),
-  }),
 }));
 
 vi.mock('../hooks/useMainSocialState', () => ({
@@ -97,29 +98,11 @@ vi.mock('../hooks/useMainSocialState', () => ({
   }),
 }));
 
-vi.mock('../hooks/useMainMatchingState', () => ({
-  useMainMatchingState: () => ({
-    matchRequests: [],
-    activeMatch: null,
-    receivedPendingCount: 0,
-    showCelebration: null,
-    closeCelebration: vi.fn(),
-    handleSendRequest: vi.fn(),
-    handleAcceptRequest: vi.fn(),
-    handleRejectRequest: vi.fn(),
-    handleCancelRequest: vi.fn(),
-    handleConfirmMatch: vi.fn(),
-    handleRevokeConfirmMatch: vi.fn(),
-    handleFinalizePairGroup: vi.fn(),
-    handleEndConversation: vi.fn(),
-    handleEndMatch: vi.fn(),
-  }),
-}));
-
 describe('Main direct-action baseline', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     roommateListTabMock.mockClear();
+    matchingTabMock.mockClear();
     sessionStorage.clear();
     vi.spyOn(seasonApi, 'getCurrentSeason').mockResolvedValue({
       season: { name: '2026년 1학기', roomSelectionDate: '2099-04-30' },
@@ -218,7 +201,7 @@ describe('Main direct-action baseline', () => {
     );
   });
 
-  it('keeps legacy roommate data lazy-loading for matching tab', async () => {
+  it('matching tab에는 canonical viewer/season shell만 전달하고 legacy data를 불러오지 않는다', async () => {
     const user = userEvent.setup();
     render(<Main />);
 
@@ -228,9 +211,52 @@ describe('Main direct-action baseline', () => {
 
     await user.click(screen.getByRole('button', { name: '매칭 현황' }));
 
-    await waitFor(() => expect(seasonApi.getCurrentSeason).toHaveBeenCalledTimes(1));
-    expect(profileApi.getProfiles).toHaveBeenCalledWith('CHUNCHEON', 'F', 'dasan');
+    await screen.findByTestId('main-matching');
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
     expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(matchingTabMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewerId: 'user-1',
+        seasonShell: { id: 'season-2026-2', state: 'SEASON_OPEN' },
+        onBadgeCountChange: expect.any(Function),
+      }),
+      undefined,
+    );
+  });
+
+  it('Home의 requestTab deep-link option을 canonical MatchingTab에 전달한다', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '받은 요청 바로가기' }));
+
+    await screen.findByTestId('main-matching');
+    expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ initialRequestTab: 'received' }),
+    );
+  });
+
+  it('MatchingTab navigation intent는 Main의 기존 tab owner로만 전달한다', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '매칭 현황' }));
+    await screen.findByTestId('main-matching');
+
+    const onNavigationIntent = matchingTabMock.mock.lastCall?.[0]?.onNavigationIntent;
+    expect(onNavigationIntent).toEqual(expect.any(Function));
+
+    await act(async () => {
+      (onNavigationIntent as (intent: 'roommate') => void)('roommate');
+    });
+
+    await waitFor(() => expect(roommateListTabMock).toHaveBeenCalled());
+    expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ onNavigationIntent: expect.any(Function) }),
+    );
   });
 
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {

@@ -1,7 +1,8 @@
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { LifestyleData } from '@/types/lifestyle';
-import type { UserProfile } from '@/types/profile';
+import type { LifestyleData } from '@repo/shared/lifestyle';
+import type { UserProfile } from '@/main/model/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
+import { getDormitoryDisplayFromSeasonOperations } from '@/main/model/dormitoryDisplay.adapter';
 
 const EMPTY_LIFESTYLE: LifestyleData = {
   bedtime: null,
@@ -30,13 +31,18 @@ const EMPTY_LIFESTYLE: LifestyleData = {
 
 export function toMainLegacyUserProfile(dashboard: HomeDashboardResponse): UserProfile {
   const { user, displayIdentity, academicIdentity } = dashboard.viewer.identity;
+  const dormitoryId = dashboard.viewer.selection.dormitoryId;
 
   return {
     id: user.id,
     nickname: displayIdentity.nickname || user.nickname,
     gender: user.gender,
     campus: user.campus,
-    dormitoryId: dashboard.viewer.selection.dormitoryId,
+    dormitoryId,
+    dormitory: getDormitoryDisplayFromSeasonOperations(
+      dormitoryId,
+      dashboard.season.operatedDormitories,
+    ),
     lifestyle: { ...EMPTY_LIFESTYLE },
     intro: '',
     messageToRoommate: null,

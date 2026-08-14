@@ -2,22 +2,27 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppShellSkeleton } from '@/components/AppShellSkeleton';
+import { AppShellSkeleton } from '@/app/main/components/AppShellSkeleton';
+import { SessionUnavailableRecovery } from '@/app/main/components/SessionUnavailableRecovery';
 import { useAuthSession } from '@/auth/hooks';
 import Main from '@/main/Main';
 
 export default function MainRouteShell() {
   const router = useRouter();
-  const { user: sessionUser, isLoading: isSessionLoading } = useAuthSession();
+  const session = useAuthSession();
 
   useEffect(() => {
-    if (!isSessionLoading && !sessionUser) {
+    if (session.status === 'unauthenticated') {
       router.replace('/login');
     }
-  }, [isSessionLoading, router, sessionUser]);
+  }, [router, session.status]);
 
-  if (isSessionLoading || !sessionUser) {
+  if (session.status === 'loading' || session.status === 'unauthenticated') {
     return <AppShellSkeleton />;
+  }
+
+  if (session.status === 'unavailable') {
+    return <SessionUnavailableRecovery onRetryAction={session.retry} />;
   }
 
   return <Main />;

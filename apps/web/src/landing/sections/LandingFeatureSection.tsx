@@ -1,37 +1,33 @@
+import { Info } from 'lucide-react';
 import { Section } from '../components/Section';
-import { FeatureCard } from '../components/FeatureCard';
 import { LandingSentenceText } from '../components/LandingSentenceText';
-import { landingFeatureItems } from '../content/landing-copy';
-import { getLandingPolicyCopy } from '../content/landing-policy-copy';
+import { landingMatchingCapabilitySteps } from '../content/landing-copy';
+import { LandingMatchingCapabilityFlow } from './features/LandingMatchingCapabilityFlow';
 
 export function LandingFeatureSection() {
   return (
     <Section id="features" background="alt" className="py-16 md:py-24">
-      <div className="text-center mb-12">
-        <p className="text-sm font-semibold text-(--knu-primary) mb-3">서비스 기능</p>
-        <h2 className="text-3xl md:text-4xl font-bold text-(--knu-text-primary) mb-4">주요 기능</h2>
-        <LandingSentenceText
-          text="룸메이트 탐색에 필요한 기능만 선별해 제공합니다. 각 기능은 시즌 상태와 서비스 정책에 따라 이용 가능 여부가 달라집니다."
-          className="text-lg text-(--knu-text-secondary) max-w-2xl mx-auto leading-relaxed"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {landingFeatureItems.map((card) => (
-          <FeatureCard
-            key={card.id}
-            icon={<card.icon className={`w-7 h-7 ${card.iconColor}`} aria-hidden="true" />}
-            title={card.title}
-            description={card.description}
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 text-left md:mb-10 md:text-center">
+          <p className="mb-3 text-sm font-semibold text-(--knu-primary)">서비스 기능</p>
+          <h2 className="mb-4 text-3xl/10 font-bold tracking-tight text-(--knu-text-primary) md:text-4xl/12">
+            주요 기능
+          </h2>
+          <LandingSentenceText
+            text="상대의 생활패턴을 확인하고, 대화와 매칭으로 이어가요."
+            className="max-w-2xl text-base/7 text-(--knu-text-secondary) sm:text-lg/8 md:mx-auto"
           />
-        ))}
-      </div>
+        </div>
 
-      <div className="mt-8 bg-white border-2 border-(--knu-border) rounded-2xl p-6 text-center">
-        <LandingSentenceText
-          text={`${getLandingPolicyCopy('lifestyle_survey_disclaimer').copy} 또한 ${getLandingPolicyCopy('room_selection_not_guaranteed').copy}`}
-          className="text-sm text-(--knu-text-secondary) leading-relaxed"
-        />
+        <LandingMatchingCapabilityFlow steps={landingMatchingCapabilitySteps} />
+
+        <aside
+          aria-label="생활패턴 정보 안내"
+          className="mt-5 flex items-start gap-2.5 px-1 text-sm/6 text-(--knu-text-secondary) md:justify-center"
+        >
+          <Info className="mt-0.5 size-4 shrink-0 text-(--knu-primary)" aria-hidden="true" />
+          <p>생활패턴 정보는 서로를 알아가기 위한 참고 자료예요.</p>
+        </aside>
       </div>
     </Section>
   );

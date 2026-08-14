@@ -16,17 +16,14 @@ export class SupportFaqQuery {
   constructor(private readonly repository: SupportFaqRepository) {}
 
   async list(query: ListSupportFaqQuery): Promise<SupportFaqListResponse> {
-    const records = query.surface
-      ? await this.repository.listPublishedForSurface({
-          surface: query.surface,
-          category: query.category,
-        })
-      : await this.repository.listPublished({ category: query.category });
+    const records = await this.repository.listPublishedForSupportCenter({
+      category: query.category,
+    });
     return toSupportFaqListResponse(records);
   }
 
   async get(articleId: string): Promise<SupportFaqDetailResponse> {
-    const record = await this.repository.findPublishedById(articleId);
+    const record = await this.repository.findPublishedByIdForSupportCenter(articleId);
     if (!record) {
       throw supportErrors.faqNotFound();
     }

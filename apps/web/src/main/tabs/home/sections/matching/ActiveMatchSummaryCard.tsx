@@ -10,7 +10,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import type { MatchingNavOptions, TabId } from '@/types/profile';
+import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import { ActiveMatchProfileTrigger } from './ActiveMatchProfileTrigger';
 import { ActiveMatchMetricCard } from './MatchingMetricCard';
 import { UnmatchActionDialog, type UnmatchDialogMode } from './UnmatchActionDialog';

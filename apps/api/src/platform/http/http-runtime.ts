@@ -3,7 +3,7 @@ import type { ConfigType } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import type { Express } from 'express';
 import helmet from 'helmet';
-import type httpConfig from '../../config/http.config.js';
+import type httpConfig from './http.config.js';
 
 export type HttpRuntimeSettings = ConfigType<typeof httpConfig>;
 

@@ -127,4 +127,64 @@ describe('MatchRequestSearchMetadataQuery', () => {
     ).resolves.toEqual(new Map());
     expect(prisma.$queryRawTyped).not.toHaveBeenCalled();
   });
+
+  it('유효한 보낸 pending 요청 3건부터 viewer-level 생성 capability를 닫는다', async () => {
+    const now = new Date('2026-06-08T00:00:00.000Z');
+    const prisma = {
+      matchRequest: { count: vi.fn().mockResolvedValue(3) },
+    };
+    const query = new MatchRequestSearchMetadataQuery(prisma as never);
+
+    await expect(
+      query.isPendingSentLimitReached({
+        seasonId: 'season-1',
+        viewerParticipantId: 'viewer-participant',
+        now,
+      }),
+    ).resolves.toBe(true);
+    expect(prisma.matchRequest.count).toHaveBeenCalledWith({
+      where: {
+        seasonId: 'season-1',
+        requesterParticipantId: 'viewer-participant',
+        status: 'PENDING',
+        expiresAt: { gt: now },
+      },
+    });
+  });
+
+  it('terminal request와 unmatched relation의 최신 시각으로 target별 cooldown을 계산한다', async () => {
+    const now = new Date('2026-06-10T00:00:00.000Z');
+    const prisma = {
+      matchRequest: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            receiverParticipantId: 'target-request',
+            terminalAt: new Date('2026-06-09T00:00:00.000Z'),
+          },
+          {
+            receiverParticipantId: 'target-old',
+            terminalAt: new Date('2026-06-01T00:00:00.000Z'),
+          },
+        ]),
+      },
+      activeMatch: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            endedAt: new Date('2026-06-09T12:00:00.000Z'),
+            createdFromRequest: { receiverParticipantId: 'target-unmatched' },
+          },
+        ]),
+      },
+    };
+    const query = new MatchRequestSearchMetadataQuery(prisma as never);
+
+    await expect(
+      query.getDirectionCooldownActiveTargetIds({
+        seasonId: 'season-1',
+        viewerParticipantId: 'viewer-participant',
+        targetParticipantIds: ['target-request', 'target-unmatched', 'target-old'],
+        now,
+      }),
+    ).resolves.toEqual(new Set(['target-request', 'target-unmatched']));
+  });
 });

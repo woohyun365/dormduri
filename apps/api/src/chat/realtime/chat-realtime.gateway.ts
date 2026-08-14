@@ -13,7 +13,7 @@ import type { AuthenticatedUserContext } from '../../auth/application/auth-actor
 import {
   readChatRealtimeAllowedOrigins,
   readChatRealtimeTrustProxy,
-} from '../../config/chat-realtime.config.js';
+} from './chat-realtime.config.js';
 import {
   CHAT_REALTIME_ERROR_EVENT_NAME,
   CHAT_REALTIME_NAMESPACE,

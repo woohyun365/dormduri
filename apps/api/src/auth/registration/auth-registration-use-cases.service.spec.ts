@@ -14,6 +14,9 @@ describe('AuthRegistrationUseCases', () => {
     userDisplayIdentity: {
       findUnique: vi.fn(),
     },
+    collegeMaster: {
+      findFirst: vi.fn(),
+    },
     verificationCode: {
       updateMany: vi.fn(),
     },
@@ -26,27 +29,35 @@ describe('AuthRegistrationUseCases', () => {
     $queryRawTyped: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedSignupCode: vi.fn(),
+    resolveVerificationGrant: vi.fn(),
+    matchesVerificationGrantSubject: vi.fn(),
   };
   const sessionService = {
-    issueAuthResult: vi.fn(),
+    prepareSessionIssue: vi.fn(),
+    appendPreparedSession: vi.fn(),
   };
-  const signupValidationService = {
-    validateDraft: vi.fn(),
-  };
+  const nicknamePolicy = { validate: vi.fn() };
+  const passwordPolicy = { evaluateNewPassword: vi.fn() };
+  const signupNicknameValidationQuery = { execute: vi.fn() };
+  const signupSubmissionAdmission = { consume: vi.fn() };
+  const securityEvents = { recordInTransaction: vi.fn() };
   const useCases = new AuthRegistrationUseCases(
     prisma as never,
     verificationService as never,
     sessionService as never,
-    signupValidationService as never,
+    passwordPolicy,
+    nicknamePolicy as never,
+    signupNicknameValidationQuery as never,
+    signupSubmissionAdmission as never,
+    securityEvents as never,
   );
   const input = {
     email: 'test@kangwon.ac.kr',
-    password: 'pass1234',
+    password: 'pass123456',
     nickname: '테스터',
     gender: 'M',
     campus: 'CHUNCHEON',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
     legalAcceptances: {
       termsVersionId: 'terms-of-service-2026-06-22',
@@ -61,6 +72,7 @@ describe('AuthRegistrationUseCases', () => {
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
+    prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
     prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.legalDocumentVersion.findFirst.mockImplementation(
@@ -80,35 +92,58 @@ describe('AuthRegistrationUseCases', () => {
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRawTyped: prisma.$queryRawTyped,
+        collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
         user: { create: prisma.user.create },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
         legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
         legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
       }),
     );
-    verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
+    verificationService.resolveVerificationGrant.mockResolvedValue({
+      id: 'code-1',
+      subjectKey: 'v1:signup-subject',
+      purpose: 'SIGNUP',
+      eligibleUserId: null,
+      tokenHash: 'a'.repeat(64),
+      expiresAt: new Date('2026-04-23T00:15:00.000Z'),
+    });
+    verificationService.matchesVerificationGrantSubject.mockReturnValue(true);
+    nicknamePolicy.validate.mockResolvedValue({
+      ok: true,
+      value: '테스터',
+      normalized: '테스터',
+      script: 'HANGUL',
+    });
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
+    signupSubmissionAdmission.consume.mockResolvedValue(null);
+    sessionService.prepareSessionIssue.mockResolvedValue({
+      result: {
+        accessToken: 'access-token',
+        renewalToken: 'renewal-token',
+        sessionId: 'session-1',
+      },
+      persistence: { sessionId: 'session-1' },
+    });
+    sessionService.appendPreparedSession.mockResolvedValue(undefined);
+    securityEvents.recordInTransaction.mockResolvedValue(undefined);
   });
 
-  it('validateSignupDraft는 signup validation service로 그대로 위임한다', async () => {
-    signupValidationService.validateDraft.mockResolvedValue({ success: true });
-
-    await expect(
-      useCases.validateSignupDraft({
-        email: 'test@kangwon.ac.kr',
-        password: 'Pass1234',
-        nickname: '테스터',
-      }),
-    ).resolves.toEqual({ success: true });
-
-    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'Pass1234',
+  it('validateSignupNickname은 전용 query로 nickname과 grant를 위임한다', async () => {
+    signupNicknameValidationQuery.execute.mockResolvedValue({
+      success: true,
       nickname: '테스터',
     });
+
+    await expect(useCases.validateSignupNickname('테스터', 'signup-grant')).resolves.toEqual({
+      success: true,
+      nickname: '테스터',
+    });
+
+    expect(signupNicknameValidationQuery.execute).toHaveBeenCalledWith('테스터', 'signup-grant');
   });
 
   it('signup은 slice-local command dependencies를 조립해 session issue 결과를 반환한다', async () => {
-    signupValidationService.validateDraft.mockResolvedValue({ success: true });
+    const requestContext = { requestIp: '127.0.0.1', userAgent: 'vitest' };
     prisma.user.create.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
@@ -116,26 +151,28 @@ describe('AuthRegistrationUseCases', () => {
       campus: 'CHUNCHEON',
       displayIdentity: { nickname: '테스터' },
     });
-    sessionService.issueAuthResult.mockResolvedValue({
-      accessToken: 'access-token',
-      sessionId: 'session-1',
-    });
-
-    await expect(useCases.signup(input as never)).resolves.toMatchObject({
+    await expect(useCases.signup(input as never, null, requestContext)).resolves.toMatchObject({
       success: true,
       accessToken: 'access-token',
+      renewalToken: 'renewal-token',
+      rememberMe: false,
       user: { id: 'user-1', nickname: '테스터' },
     });
 
-    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
-      email: input.email,
-      password: input.password,
-      nickname: input.nickname,
-    });
-    expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
-      'user-1',
+    expect(nicknamePolicy.validate).toHaveBeenCalledWith(input.nickname);
+    expect(sessionService.prepareSessionIssue).toHaveBeenCalledWith(
+      expect.any(String),
       'test@kangwon.ac.kr',
       false,
+    );
+    expect(sessionService.appendPreparedSession).toHaveBeenCalledTimes(1);
+    expect(securityEvents.recordInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: 'ACCOUNT_SIGNUP_SUCCEEDED',
+        requestIp: '127.0.0.1',
+        userAgent: 'vitest',
+      }),
     );
   });
 });

@@ -1,10 +1,10 @@
 'use client';
 
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
-import { EmptyState } from '@/components/EmptyState';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
+import { EmptyState } from '@/main/components/feedback/EmptyState';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import { Ban } from 'lucide-react';
-import type { BlockedUser } from '@/types/report';
+import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 
 interface BlockManageSheetProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ export function BlockManageSheet({
       <div className="p-5">
         {blockedUsers.length === 0 ? (
           <EmptyState
-            icon={<Ban className="w-8 h-8 text-[var(--knu-text-tertiary)]" />}
+            icon={<Ban className="w-8 h-8 text-(--knu-text-tertiary)" />}
             message="차단한 사용자가 없어요"
           />
         ) : (
@@ -34,7 +34,7 @@ export function BlockManageSheet({
               return (
                 <div
                   key={user.userId}
-                  className="flex items-center gap-3 p-3.5 bg-[var(--knu-background-alt)] rounded-xl"
+                  className="flex items-center gap-3 p-3.5 bg-(--knu-background-alt) rounded-xl"
                 >
                   <div
                     className={`w-10 h-10 ${avatarColor.bg} rounded-full flex items-center justify-center text-base font-bold ${avatarColor.text}`}
@@ -42,10 +42,10 @@ export function BlockManageSheet({
                     {user.nickname.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                    <p className="text-sm font-semibold text-(--knu-text-primary)">
                       {user.nickname}
                     </p>
-                    <p className="text-xs text-[var(--knu-text-tertiary)]">
+                    <p className="text-xs text-(--knu-text-tertiary)">
                       {new Date(user.blockedAt).toLocaleDateString('ko-KR')}
                     </p>
                   </div>

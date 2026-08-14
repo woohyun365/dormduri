@@ -4,18 +4,17 @@
 
 ## Public boundary
 
-외부 domain은 기숙사 public catalog/guide 조회와 시즌 참여용 selection catalog port만 사용한다.
+외부 domain은 기숙사 public catalog 조회와 시즌 참여용 selection catalog port만 사용한다.
 
-- `DormitoriesModule`: dormitory catalog/guide query와 selection catalog adapter provider wiring을 제공한다.
-- `DormitoriesService`: HTTP-facing public list/detail/guide facade다. season participant write 정책을 소유하지 않는다.
+- `DormitoriesModule`: dormitory catalog query와 selection catalog adapter provider wiring을 제공한다.
+- `DormitoriesService`: HTTP-facing public list/detail facade다. season participant write 정책을 소유하지 않는다.
 - `DORMITORY_SELECTION_CATALOG_PORT`: season-participants가 현재 season/dormitory operation snapshot 기준의 selectable dormitory를 조회하는 port다.
 
 ## Directory responsibilities
 
-- `application/`: controller-facing facade. Public catalog/detail/guide query를 조합하되 season participation write rule을 넣지 않는다.
+- `application/`: controller-facing facade. Public catalog/detail query를 조합하되 season participation write rule을 넣지 않는다.
 - `composition/`: `DormitoriesModule` provider/export grouping. Selection catalog port binding과 public module export surface를 module decorator에서 분리해 유지한다.
 - `catalog/`: dormitory list/detail query, repository, response mapper.
-- `guides/`: dormitory guide query와 guide response mapper.
 - `selection-catalog/`: season participation에서 사용하는 selectable dormitory port, Prisma adapter, eligibility policy, mapper.
 - `errors/`: dormitories user-facing error contract.
 - `contracts/`: shared dormitory contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
@@ -41,7 +40,6 @@
 
 - HTTP route delegation: `dormitories.controller.ts`.
 - List/detail read model: `catalog/`.
-- Guide read model: `guides/`.
 - Season participant selectable dormitory lookup: `selection-catalog/`.
 - Module provider/export wiring: `composition/`.
 - Shared response/schema contract: `packages/shared/src/dormitory/**` and public imports from `@repo/shared/dormitory` or granular `@repo/shared/dormitory/*`.

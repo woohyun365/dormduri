@@ -17,7 +17,7 @@
 
 ## Source of truth
 
-- 정책 source of truth: `docs/04_policy/official/season-lifecycle.md`.
+- 정책 source of truth: `docs/policies/season-lifecycle.md`.
 - 사용자용 current season은 운영 캠퍼스의 `Season` row 중 기준 시간이 `preparationStartDate` ~ `seasonEndDate`에 들어온 row에서 계산한다.
 - upcoming season row는 preview/operations 준비 데이터이며 사용자용 current season으로 승격하지 않는다.
 - 활성 override는 선택된 current season row의 effective state 계산에만 적용한다. override는 schedule/history/audit 원장이 아니다.
@@ -31,7 +31,7 @@
 - `errors/`: user-facing seasons error contract. Controller/operations command가 같은 error mapper를 공유한다.
 - `ports/`: 외부 도메인-facing season context port와 current season context type/helper export surface. 외부 도메인은 `runtime/`을 직접 import하지 않는다.
 - `runtime/`: current season context query, campus service-state query, dormitory match window query, Prisma repository, season state policy, current season response mapper, normalized runtime row type. 대부분 Seasons module 내부 구현 상세이며, `campus-service-state.query.ts`만 users current-user projection과 profile/social-safety read-model policy의 stable cross-domain helper로 허용한다.
-- `operations/`: schedule/override admin API controller, command, repository, audit repository, mapper, validation policy, operational metrics. Mutation과 audit append는 같은 transaction 안에서 수행한다.
+- `operations/`: schedule/override admin API controller, command, repository, audit repository, mapper, validation policy와 `SeasonOperationalMetricsService`를 소유한다. `season-metric.definitions.ts`는 같은 SeasonsModule에서 기록하는 runtime current-query와 operations metric의 module-level catalog다. Mutation과 audit append는 같은 transaction 안에서 수행한다.
 - `cache/`: request/method-level current season context memoization helper. Cache instance를 명시적으로 넘긴 logical operation 안에서만 재사용하며 process/Redis cache가 아니다.
 - `contracts/`: shared season contract behavior regression spec. Shared package layout fitness는 `apps/api/src/architecture/contracts/layout/season-shared-contract-layout.spec.ts`가 소유한다.
 - `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` root forwarding file은 두지 않는다.
@@ -76,9 +76,10 @@ Seasons architecture guard는 `apps/api/src/architecture/seasons-boundary.spec.t
 - Dormitory match window read behavior: `runtime/dormitory-match-window.query.ts`.
 - Schedule/override mutation and audit behavior: `operations/` commands/repositories/policy/mapper.
 - Season runtime/operations metric recording: `operations/season-operational-metrics.service.ts`, `runtime/current-season-context.query.ts`, operation command specs.
+- SeasonsModule metric definition catalog: `operations/season-metric.definitions.ts`.
 - Request/method-level memoization: `cache/`, `runtime/current-season-context.query.ts`, `runtime/dormitory-match-window.query.ts`, `ports/season-context.port.ts`.
 - Shared season runtime/operations/participation contracts: `packages/shared/src/season/{runtime,operations,participation}/**` and `contracts/` behavior specs.
-- Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
+- Policy/source-of-truth semantics: `docs/policies/season-lifecycle.md`.
 
 ## Useful verification
 

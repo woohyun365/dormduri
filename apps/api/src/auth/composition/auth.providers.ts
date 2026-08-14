@@ -1,8 +1,7 @@
 import type { Provider } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
-import emailConfig from '../../config/email.config.js';
+import emailConfig from '../adapters/email/email.config.js';
 import { AuthenticatedUserGuard } from '../access/authenticated-user.guard.js';
 import {
   EMAIL_SENDER,
@@ -14,18 +13,31 @@ import { MonitoredEmailSenderService } from '../adapters/email/monitored-email-s
 import { SesEmailSenderService } from '../adapters/email/ses-email-sender.service.js';
 import { StubEmailSenderService } from '../adapters/email/stub-email-sender.service.js';
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
+import { AuthPasswordVerifier } from '../application/auth-password-verifier.service.js';
 import { AuthService } from '../application/auth.service.js';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
-import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
-import { ClearLoginFailuresCommand } from '../login-attempts/clear-login-failures.command.js';
-import { GetActiveLoginLockQuery } from '../login-attempts/get-active-login-lock.query.js';
-import { LoginAttemptRepository } from '../login-attempts/login-attempt.repository.js';
-import { RecordLoginFailureCommand } from '../login-attempts/record-login-failure.command.js';
+import { AuthCredentialMetricsService } from '../credentials/auth-credential-metrics.service.js';
+import { AuthPasswordHashPolicy } from '../credentials/password-hashing/auth-password-hash.adapter.js';
+import { AuthPasswordHashMetricsService } from '../credentials/password-hashing/auth-password-hash-metrics.service.js';
+import { PasswordHashAdmissionService } from '../credentials/password-hashing/password-hash-admission.service.js';
+import { AuthPasswordPolicyService } from '../credentials/password-policy/auth-password-policy.service.js';
+import { ChangePasswordAdmissionService } from '../credentials/change-password-admission.service.js';
+import { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
+import { AuthLoginThrottlerGuard } from '../login-attempts/network-throttle/auth-login-throttler.guard.js';
+import { AuthLoginAttemptService } from '../login-attempts/account-lock/auth-login-attempt.service.js';
+import { ClearLoginFailuresCommand } from '../login-attempts/account-lock/clear-login-failures.command.js';
+import { GetActiveLoginLockQuery } from '../login-attempts/account-lock/get-active-login-lock.query.js';
+import { LoginAttemptRepository } from '../login-attempts/account-lock/login-attempt.repository.js';
+import { RecordLoginFailureCommand } from '../login-attempts/account-lock/record-login-failure.command.js';
 import { AuthRegistrationUseCases } from '../registration/auth-registration-use-cases.service.js';
-import { AuthSignupValidationService } from '../registration/auth-signup-validation.service.js';
+import { AuthRegistrationMetricsService } from '../registration/auth-registration-metrics.service.js';
+import { SignupNicknameValidationAdmissionService } from '../registration/signup-nickname-validation-admission.service.js';
+import { SignupNicknameValidationQuery } from '../registration/signup-nickname-validation.query.js';
+import { SignupSubmissionAdmissionService } from '../registration/signup-submission-admission.service.js';
 import { AuthSecurityEventRepository } from '../security-events/auth-security-event.repository.js';
 import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { AuthSessionRepository } from '../sessions/auth-session.repository.js';
+import { AuthSessionMetricsService } from '../sessions/auth-session-metrics.service.js';
 import { AuthSessionUseCases } from '../sessions/auth-session-use-cases.service.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { CurrentSessionQuery } from '../sessions/current-session.query.js';
@@ -36,20 +48,37 @@ import { RevokeSessionsCommand } from '../sessions/revoke-sessions.command.js';
 import { AuthVerificationEligibilityQuery } from '../verification/auth-verification-eligibility.query.js';
 import { AuthVerificationUseCases } from '../verification/auth-verification-use-cases.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
-import { AuthVerificationStore } from '../verification/verification-code.repository.js';
+import { AuthVerificationMetricsService } from '../verification/auth-verification-metrics.service.js';
+import { AuthVerificationRequestRepository } from '../verification/request/auth-verification-request.repository.js';
+import { AuthVerificationChallengeRepository } from '../verification/challenge/auth-verification-challenge.repository.js';
+import { AuthVerificationGrantRepository } from '../verification/grant/auth-verification-grant.repository.js';
+import { AuthMailDispatcherService } from '../mail/auth-mail-dispatcher.service.js';
+import { AuthMailMetricsService } from '../mail/auth-mail-metrics.service.js';
+import { AuthMailEnvelopeReader } from '../mail/auth-mail-envelope-reader.service.js';
+import { AuthMailEnvelopeWriter } from '../mail/auth-mail-envelope-writer.service.js';
+import { AuthMailOutboxWriter } from '../mail/auth-mail-outbox-writer.service.js';
+import { AuthMailOutboxRepository } from '../mail/auth-mail-outbox.repository.js';
 
-export const AUTH_APPLICATION_PROVIDERS: Provider[] = [AuthService, AuthActorContextResolver];
+export const AUTH_APPLICATION_PROVIDERS: Provider[] = [
+  AuthService,
+  AuthActorContextResolver,
+  AuthPasswordVerifier,
+];
 
 export const AUTH_VERIFICATION_PROVIDERS: Provider[] = [
   AuthVerificationUseCases,
   AuthVerificationService,
+  AuthVerificationMetricsService,
   AuthVerificationEligibilityQuery,
-  AuthVerificationStore,
+  AuthVerificationRequestRepository,
+  AuthVerificationChallengeRepository,
+  AuthVerificationGrantRepository,
 ];
 
 export const AUTH_SESSION_PROVIDERS: Provider[] = [
   AuthSessionUseCases,
   AuthSessionService,
+  AuthSessionMetricsService,
   AuthSessionRepository,
   CurrentSessionQuery,
   IssueSessionCommand,
@@ -58,15 +87,27 @@ export const AUTH_SESSION_PROVIDERS: Provider[] = [
   LogoutSessionCommand,
 ];
 
-export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [AuthCredentialUseCases];
+export const AUTH_CREDENTIAL_PROVIDERS: Provider[] = [
+  AuthCredentialUseCases,
+  AuthCredentialMetricsService,
+  AuthPasswordHashPolicy,
+  AuthPasswordHashMetricsService,
+  AuthPasswordPolicyService,
+  PasswordHashAdmissionService,
+  ChangePasswordAdmissionService,
+];
 
 export const AUTH_REGISTRATION_PROVIDERS: Provider[] = [
   AuthRegistrationUseCases,
-  AuthSignupValidationService,
+  AuthRegistrationMetricsService,
+  SignupNicknameValidationAdmissionService,
+  SignupNicknameValidationQuery,
+  SignupSubmissionAdmissionService,
 ];
 
 export const AUTH_LOGIN_ATTEMPT_PROVIDERS: Provider[] = [
   AuthLoginAttemptService,
+  AuthLoginMetricsService,
   LoginAttemptRepository,
   GetActiveLoginLockQuery,
   RecordLoginFailureCommand,
@@ -79,6 +120,12 @@ export const AUTH_SECURITY_EVENT_PROVIDERS: Provider[] = [
 ];
 
 export const AUTH_EMAIL_ADAPTER_PROVIDERS: Provider[] = [
+  AuthMailMetricsService,
+  AuthMailEnvelopeWriter,
+  AuthMailEnvelopeReader,
+  AuthMailOutboxRepository,
+  AuthMailOutboxWriter,
+  AuthMailDispatcherService,
   StubEmailSenderService,
   SesEmailSenderService,
   {
@@ -101,7 +148,7 @@ export const AUTH_ACCESS_PROVIDERS: Provider[] = [
   AuthenticatedUserGuard,
   {
     provide: APP_GUARD,
-    useClass: ThrottlerGuard,
+    useClass: AuthLoginThrottlerGuard,
   },
   {
     provide: APP_GUARD,

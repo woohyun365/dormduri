@@ -17,6 +17,7 @@ describe('upsert-season-profile-draft.command', () => {
       txSeasonParticipantProfileUpsert,
       txSeasonParticipantUpdate,
       txSeasonParticipantProfileHistoryCreate,
+      seasonProfileIntroModeration,
     } = createSeasonParticipantsServiceTestKit();
 
     const response = await service.createOrUpdateSeasonProfileDraft('user-1', draftInput, now);
@@ -44,7 +45,35 @@ describe('upsert-season-profile-draft.command', () => {
       data: { participantStatus: 'DRAFT' },
     });
     expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+    expect(seasonProfileIntroModeration.moderateSeasonProfileIntro).toHaveBeenCalledWith(
+      '시즌 소개',
+    );
     expect(response.state).toBe('COMPLETE');
+  });
+
+  it('자기소개 moderation이 거부되면 participant transaction을 시작하지 않는다', async () => {
+    const { service, prisma, seasonProfileIntroModeration, txSeasonParticipantProfileUpsert } =
+      createSeasonParticipantsServiceTestKit();
+    seasonProfileIntroModeration.moderateSeasonProfileIntro.mockRejectedValueOnce(
+      seasonParticipantsErrors.seasonProfileIntroModerationRejected(
+        '자기소개에 사용할 수 없는 표현이 포함되어 있습니다.',
+      ),
+    );
+
+    await expect(
+      service.createOrUpdateSeasonProfileDraft(
+        'user-1',
+        { ...draftInput, intro: '한남충새끼들 뒤져라' },
+        now,
+      ),
+    ).rejects.toMatchObject({
+      response: seasonParticipantsErrors
+        .seasonProfileIntroModerationRejected('자기소개에 사용할 수 없는 표현이 포함되어 있습니다.')
+        .getResponse(),
+    });
+
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileUpsert).not.toHaveBeenCalled();
   });
 
   it('getCurrentSeasonProfile()은 participant row를 생성하지 않고 빈 draft state를 반환한다', async () => {

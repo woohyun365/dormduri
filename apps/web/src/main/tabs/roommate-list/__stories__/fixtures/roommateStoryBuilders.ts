@@ -17,7 +17,7 @@ import type {
 } from '@repo/shared/profile/contract';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 import { ROOMMATE_STORY_AGE_BAND_CODES } from './roommateStoryTypes';
 
 export const ISO_NOW = '2026-07-06T03:00:00.000Z';
@@ -114,7 +114,7 @@ export const storyViewer: UserProfile = {
   intro: '조용한 생활 리듬을 선호해요.',
   messageToRoommate: null,
   additional: {
-    college: 'IT',
+    college: 'CHUNCHEON_IT',
     grade: '3',
     mbti: 'INFJ',
     birthYear: 2002,

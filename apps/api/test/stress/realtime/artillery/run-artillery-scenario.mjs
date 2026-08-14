@@ -29,7 +29,7 @@ const actorCsvPath = resolve(
   process.env.STRESS_ARTILLERY_ACTOR_CSV_PATH ||
     `test/stress/reports/.tmp-${scenario}-artillery-actors.csv`,
 );
-const parserPath = resolve(apiRoot, 'test/stress/reports/parse-artillery-summary.ts');
+const parserPath = resolve(apiRoot, 'test/stress/evidence/parsers/parse-artillery-summary.ts');
 let stressTarget;
 let realtimeSmokeEnv = {};
 
@@ -112,7 +112,7 @@ process.exit(1);
 async function prepareRealtimeSmokeEnvironment({ artifactPath, csvPath, targetUrl, scenarioName }) {
   if (scenarioName !== 'smoke') {
     throw new Error(
-      'Only the smoke realtime scenario is executable in Phase 7-1. baseline-250/peak-500 need a separate approved runner because chat realtime tickets are one-time handshake credentials and Artillery opens sockets before per-row payload values can be applied to auth.',
+      'Only the smoke realtime scenario is executable by this runner. baseline-250/peak-500 need a separate approved runner because chat realtime tickets are one-time handshake credentials and Artillery opens sockets before per-row payload values can be applied to auth.',
     );
   }
 

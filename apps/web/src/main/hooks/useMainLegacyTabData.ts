@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import type { Season } from '@/main/season/seasonFallback';
-import type { PastSeasonData } from '@/types/match';
-import type { RoommateProfile, UserProfile } from '@/types/profile';
+import type { RoommateProfile, UserProfile } from '@/main/model/profile';
 import type { SeasonState } from '@repo/shared/season/runtime';
 
 const MAIN_LEGACY_DATA_ERROR_MESSAGE = '탭 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
@@ -13,7 +11,6 @@ type MainLegacyTabDataStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export interface MainLegacyTabData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
-  pastSeasons: PastSeasonData[];
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -78,27 +75,20 @@ export function useMainLegacyTabData({
         if (cancelled) return;
 
         const season = seasonResult ?? toEmptyOffSeasonData();
-        const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
-        const dormitoryIdForFilter =
-          season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
+        const dormitoryIdForFilter = season.isOpen || season.isMatching ? currentDormitoryId : null;
         const profiles =
-          (season.isOpen || season.isMatching) && isUnassignedId
+          (season.isOpen || season.isMatching) && !currentDormitoryId
             ? []
             : await profileApi.getProfiles(
                 currentUser.campus,
                 currentUser.gender,
                 dormitoryIdForFilter,
               );
-        // Past season history is no longer loaded through homeDashboardApi.
-        // Keep the non-Home legacy tab contract stable until Phase 8 moves it to an owner API.
-        const pastSeasons: PastSeasonData[] = [];
-
         if (cancelled) return;
 
         setState({
           data: {
             profiles,
-            pastSeasons,
             season: season.season,
             isOpen: season.isOpen,
             isMatching: season.isMatching,

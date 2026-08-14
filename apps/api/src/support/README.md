@@ -7,7 +7,7 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 - `SupportModule`: support ticket/FAQ HTTP API provider wiring을 제공한다. 외부 도메인에 production provider를 export하지 않는다.
 - `support tickets`: 계정/시즌/매칭/신고 관련 사용자 문의 thread를 소유한다. 사용자는 본인 ticket만 list/detail/reply할 수 있다.
 - `appeals`: 제재·임시조치·신고 처리 결과에 대한 이의 신청 intake를 `APPEAL` category와 `appealCategory` metadata로 접수한다. 판단은 incident-enforcement/review owner가 소유한다.
-- `FAQ`: published FAQ read model을 제공한다. `published=false` article은 public API에서 not found 또는 list 제외로 fail-closed 하며, `surface` query가 있으면 해당 공개 placement가 있는 article만 노출한다.
+- `FAQ`: Support Center placement가 있는 published FAQ read model을 제공한다. `published=false` 또는 Support Center에 배치되지 않은 article은 public API에서 not found 또는 list 제외로 fail-closed 한다.
 - `support notifications`: notification outbox/repository/command concrete를 직접 import하지 않고 `NOTIFICATION_WRITER` port로 pointer-only in-app notification을 요청한다.
 
 ## Directory responsibilities
@@ -37,9 +37,9 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 
 - Root production TypeScript file은 `support.module.ts`, `support.controller.ts`만 허용한다.
 - Contract spec은 `contracts/support-contract.spec.ts`가 소유한다.
-- Public FAQ placement/read-path guard는 `apps/api/src/architecture/domains/support-boundary.spec.ts`가 고정한다.
+- Public FAQ placement/read-path guard는 `apps/api/test/architecture/domains/support-boundary.spec.ts`가 고정한다.
 - Support root production file boundary, retained vault import guard, notification concrete import guard는 `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`가 고정한다.
-- Route access matrix는 `apps/api/src/architecture/security/auth-access-route-matrix.spec.ts`가 고정한다.
+- Route access matrix는 `apps/api/test/architecture/security/auth-access-route-matrix.spec.ts`가 고정한다.
 - Prisma model/index guard는 architecture social-safety persistence spec이 고정한다.
 
 ## Where to change
@@ -53,7 +53,7 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 - User-facing response projection: `presenters/`.
 - In-app support notification handoff: `notifications/support-notification.service.ts`.
 - Shared request/response contracts: `packages/shared/src/support/contract.ts` and `contracts/support-contract.spec.ts`.
-- Default public FAQ seed: `apps/api/prisma/seed-data/reference/support-faq-seed-data.js`.
+- Default Support Center FAQ seed: `apps/api/prisma/seed-data/reference/support-faq-seed-data.js`.
 - Persistence schema/migration SQL: `apps/api/prisma/schema.prisma` and the initial migration SQL.
 
 ## Route matrix
@@ -77,9 +77,9 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/support \
-  src/architecture/domains/support-boundary.spec.ts \
-  src/architecture/persistence/social-safety-prisma-baseline.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts \
+  test/architecture/domains/support-boundary.spec.ts \
+  test/operations/database/social-safety-prisma-baseline.spec.ts \
+  test/architecture/security/auth-access-route-matrix.spec.ts \
   src/architecture/module-boundary.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed support files without apps/api prefix>

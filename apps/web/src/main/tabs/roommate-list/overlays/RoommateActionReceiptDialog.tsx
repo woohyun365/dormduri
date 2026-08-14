@@ -31,11 +31,12 @@ interface RoommateActionReceiptDialogContent {
   readonly borderClassName: string;
 }
 
-interface RoommateActionReceiptDialogShellProps extends RoommateActionReceiptDialogContent {
+export interface RoommateActionReceiptDialogShellProps extends RoommateActionReceiptDialogContent {
   readonly onDismiss: () => void;
+  readonly description?: string;
 }
 
-function RoommateActionReceiptDialogShell({
+export function RoommateActionReceiptDialogShell({
   Icon,
   title,
   counterpartNickname,
@@ -44,6 +45,7 @@ function RoommateActionReceiptDialogShell({
   iconClassName,
   borderClassName,
   onDismiss,
+  description,
 }: RoommateActionReceiptDialogShellProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-5 py-6">
@@ -70,11 +72,16 @@ function RoommateActionReceiptDialogShell({
         >
           {title}
         </h2>
-        <div className="mt-4 space-y-3 text-left">
-          {noticeSections.map((section) => (
-            <NoticeCard key={section.title} section={section} />
-          ))}
-        </div>
+        {description ? (
+          <p className="mt-3 text-sm leading-6 text-(--knu-text-secondary)">{description}</p>
+        ) : null}
+        {noticeSections.length > 0 ? (
+          <div className="mt-4 space-y-3 text-left">
+            {noticeSections.map((section) => (
+              <NoticeCard key={section.title} section={section} />
+            ))}
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={onDismiss}

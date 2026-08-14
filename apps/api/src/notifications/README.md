@@ -85,8 +85,8 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api test -- src/notifications --runInBand
-pnpm --dir apps/api test -- src/architecture/notifications/notifications-boundary.spec.ts src/architecture/cross-domain-chat-boundary.spec.ts src/architecture/module-boundary.spec.ts --runInBand
+pnpm --dir apps/api test -- src/notifications
+pnpm --dir apps/api test -- src/architecture/notifications/notifications-boundary.spec.ts src/architecture/cross-domain-chat-boundary.spec.ts src/architecture/module-boundary.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

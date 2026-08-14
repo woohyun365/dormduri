@@ -1,13 +1,18 @@
-'use client';
-
-import { InputField } from '@/components/form/InputField';
-import { Button } from '@/components/Button';
-import { StepHeader } from '@/components/StepHeader';
+import { InputField } from '@/auth/components/form/InputField';
+import { Button } from '@/components/ui/Button';
+import { StepHeader } from '@/auth/components/StepHeader';
 import { useSignupEmailVerification } from './useSignupEmailVerification';
 import { EmailVerificationRequestPanel } from './EmailVerificationRequestPanel';
 import { EmailVerificationCodePanel } from './EmailVerificationCodePanel';
+import { AuthActionFeedback } from '@/auth/components/feedback/AuthActionFeedback';
+import {
+  AuthRemainingTime,
+  formatAuthRemainingTime,
+} from '@/auth/components/feedback/AuthRemainingTime';
+import type { AuthActionFeedbackState } from '@/auth/components/feedback/auth-action-feedback.types';
 import { Mail, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { SIGNUP_FEEDBACK_COPY } from '../../model/signup-feedback.copy';
 
 interface StepEmailVerificationProps {
   email: string;
@@ -15,16 +20,47 @@ interface StepEmailVerificationProps {
   isVerified: boolean;
   onVerified: () => void;
   onNext: () => void;
+  recoveryNotice?: string;
+  recoveryEmailError?: string;
+  onRecoveryErrorClear?: () => void;
 }
 
-export function StepEmailVerification({
+export interface StepEmailVerificationViewProps extends StepEmailVerificationProps {
+  verification: {
+    verificationCode: string;
+    emailError: string;
+    codeError: string;
+    actionFeedback: AuthActionFeedbackState | null;
+    isAttemptsExhausted: boolean;
+    isCodeSent: boolean;
+    isSending: boolean;
+    isVerifying: boolean;
+    requestedEmail: string;
+    isCountdownActive: boolean;
+    countdown: number;
+    emailRetryAfterSeconds: number;
+    codeRetryAfterSeconds: number;
+    onSendCodeAction: () => void;
+    onVerifyCodeAction: () => void;
+    onCodeChangeAction: (value: string) => void;
+    onEmailChangeAction: () => void;
+  };
+}
+
+export function StepEmailVerificationView({
   email,
   onEmailChange,
   isVerified,
-  onVerified,
   onNext,
-}: StepEmailVerificationProps) {
-  const verification = useSignupEmailVerification({ email, onVerified });
+  recoveryNotice,
+  recoveryEmailError,
+  onRecoveryErrorClear,
+  verification,
+}: StepEmailVerificationViewProps) {
+  const retryAfterSeconds = Math.max(
+    verification.emailRetryAfterSeconds,
+    verification.codeRetryAfterSeconds,
+  );
 
   return (
     <div className="space-y-6">
@@ -33,6 +69,24 @@ export function StepEmailVerification({
         title="이메일 인증"
         description="강원대학교 이메일로 인증해주세요"
       />
+
+      {recoveryNotice ? (
+        <AuthActionFeedback
+          variant="warning"
+          title={SIGNUP_FEEDBACK_COPY.email.proofExpiredTitle}
+          description={recoveryNotice}
+          testId="signup-email-recovery-feedback"
+        />
+      ) : verification.actionFeedback ? (
+        <AuthActionFeedback {...verification.actionFeedback} testId="signup-email-action-feedback">
+          {retryAfterSeconds > 0 ? (
+            <AuthRemainingTime
+              value={formatAuthRemainingTime(retryAfterSeconds)}
+              contextLabel="인증 요청 제한"
+            />
+          ) : null}
+        </AuthActionFeedback>
+      ) : null}
 
       <div className="space-y-4">
         <div className="relative">
@@ -43,10 +97,12 @@ export function StepEmailVerification({
             value={email}
             onChange={(value) => {
               onEmailChange(value);
-              verification.handleEmailChange();
+              verification.onEmailChangeAction();
+              onRecoveryErrorClear?.();
             }}
-            error={verification.emailError}
+            error={verification.emailError || recoveryEmailError}
             disabled={isVerified}
+            inputClassName={isVerified ? 'truncate pr-28' : undefined}
           />
           {isVerified && (
             <div className="absolute right-4 top-11 flex items-center gap-1 text-green-600">
@@ -60,7 +116,7 @@ export function StepEmailVerification({
           <EmailVerificationRequestPanel
             isSending={verification.isSending}
             retryAfterSeconds={verification.emailRetryAfterSeconds}
-            onSendCode={verification.handleSendCode}
+            onSendCode={verification.onSendCodeAction}
           />
         )}
 
@@ -80,25 +136,25 @@ export function StepEmailVerification({
             >
               비밀번호 찾기
             </Link>
-            를 이용해주세요.
+            를 이용해요.
           </p>
         )}
 
         {verification.isCodeSent && !isVerified && (
           <EmailVerificationCodePanel
-            email={verification.requestedEmail || email}
             verificationCode={verification.verificationCode}
             codeError={verification.codeError}
+            isAttemptsExhausted={verification.isAttemptsExhausted}
             isVerifying={verification.isVerifying}
             isSending={verification.isSending}
             isCountdownActive={verification.isCountdownActive}
             emailRetryAfterSeconds={verification.emailRetryAfterSeconds}
             codeRetryAfterSeconds={verification.codeRetryAfterSeconds}
             countdown={verification.countdown}
-            formatTime={verification.formatTime}
-            onCodeChange={verification.handleCodeChange}
-            onVerifyCode={verification.handleVerifyCode}
-            onResendCode={verification.handleSendCode}
+            onCodeChange={verification.onCodeChangeAction}
+            onVerifyCode={verification.onVerifyCodeAction}
+            onResendCode={verification.onSendCodeAction}
+            onChangeEmail={verification.onEmailChangeAction}
           />
         )}
       </div>
@@ -109,5 +165,37 @@ export function StepEmailVerification({
         </Button>
       )}
     </div>
+  );
+}
+
+export function StepEmailVerification(props: StepEmailVerificationProps) {
+  const verification = useSignupEmailVerification({
+    email: props.email,
+    onVerified: props.onVerified,
+  });
+
+  return (
+    <StepEmailVerificationView
+      {...props}
+      verification={{
+        verificationCode: verification.verificationCode,
+        emailError: verification.emailError,
+        codeError: verification.codeError,
+        actionFeedback: verification.actionFeedback,
+        isAttemptsExhausted: verification.isAttemptsExhausted,
+        isCodeSent: verification.isCodeSent,
+        isSending: verification.isSending,
+        isVerifying: verification.isVerifying,
+        requestedEmail: verification.requestedEmail,
+        isCountdownActive: verification.isCountdownActive,
+        countdown: verification.countdown,
+        emailRetryAfterSeconds: verification.emailRetryAfterSeconds,
+        codeRetryAfterSeconds: verification.codeRetryAfterSeconds,
+        onSendCodeAction: verification.handleSendCode,
+        onVerifyCodeAction: verification.handleVerifyCode,
+        onCodeChangeAction: verification.handleCodeChange,
+        onEmailChangeAction: verification.handleEmailChange,
+      }}
+    />
   );
 }

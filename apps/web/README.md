@@ -1,6 +1,6 @@
 # Web App
 
-Next.js 기반 사용자 화면입니다. Web 변경은 API 데이터베이스나 Prisma 생성물 없이도 자체 CI 게이트를 통과해야 합니다. 상세 기준은 `docs/07_tech/frontend/web-infra-ci-test-config.md`를 source of truth로 봅니다.
+Next.js 기반 사용자 화면입니다. Web 변경은 API 데이터베이스나 Prisma 생성물 없이도 자체 CI 게이트를 통과해야 합니다. 상세 기준은 `docs/architecture/frontend/web-infra-ci-test-config.md`를 source of truth로 봅니다.
 
 ## Local gate
 
@@ -16,7 +16,7 @@ pnpm web:e2e
 pnpm web:e2e:fullstack # optional/final-readiness: API/DB-backed /main smoke
 pnpm web:storybook # optional: HomeTab visual workshop
 pnpm web:storybook:build # optional: HomeTab Storybook static build
-pnpm check:web
+pnpm web:check
 ```
 
 - `web:lint`: Web ESLint 규칙과 Next.js lint 구성을 확인합니다.
@@ -28,7 +28,21 @@ pnpm check:web
 - `web:e2e:fullstack`: local Postgres + API + Web dev server를 띄워 로그인 사용자 `/main` smoke를 실행합니다. 기본 PR gate는 아니지만 `/main`/Home/Auth handoff를 마감할 때는 final-readiness evidence로 실행합니다.
 - `web:storybook`: 로그인/DB 없이 HomeTab의 주요 시즌·매칭 UI 상태를 비교하는 visual workshop을 실행합니다.
 - `web:storybook:build`: HomeTab Storybook surface가 정적으로 빌드되는지 확인합니다. API/BFF/auth/DB 통합 정합성 근거는 아닙니다.
-- `check:web`: Web PR 기본 gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
+- `web:check`: Web PR 기본 gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
+
+각 public 명령은 fresh checkout에서 단독 실행할 수 있도록 Shared build를 포함합니다. GitHub Actions는 `pnpm web:prepare`를 한 번 실행한 뒤 prepared command를 단계별로 실행해 준비 작업을 반복하지 않고 구간별 시간을 남깁니다.
+
+| 목적             | 로컬 public command        | CI prepared command                |
+| ---------------- | -------------------------- | ---------------------------------- |
+| 준비             | public command가 자동 수행 | `pnpm web:prepare`                 |
+| lint             | `pnpm web:lint`            | `pnpm web:lint:prepared`           |
+| typecheck        | `pnpm web:typecheck`       | `pnpm web:typecheck:prepared`      |
+| unit             | `pnpm web:test`            | `pnpm web:test:prepared`           |
+| build            | `pnpm web:build`           | `pnpm web:build:prepared`          |
+| browser smoke    | `pnpm web:e2e`             | `pnpm web:e2e:prepared`            |
+| Storybook static | `pnpm web:storybook:build` | 관련 변경에서 `ci:storybook:build` |
+
+Prepared command는 CI 내부 capability다. Web CI는 Next production build를 한 번만 만들고 같은 standalone artifact로 desktop/mobile Chromium smoke를 실행합니다. Storybook static build는 Storybook-owned 변경에서만 추가합니다.
 
 Playwright browser가 로컬에 없으면 먼저 아래 명령을 실행합니다.
 
@@ -39,7 +53,9 @@ pnpm --dir apps/web exec playwright install chromium
 ## Public metadata and performance smoke
 
 Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다.
-`NEXT_PUBLIC_APP_URL`이 있으면 canonical/robots/sitemap URL의 기준 origin으로 사용하고, 로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade합니다.
+`NEXT_PUBLIC_APP_URL`은 canonical/robots/sitemap URL과 auth mutation origin 검증의 기준입니다.
+로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade하지만, production에는 실제 HTTPS origin을 반드시 주입합니다.
+production auth cookie는 `__Host-` prefix, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain` 규칙을 따릅니다.
 FAQ는 검색 rich result 목적의 `FAQPage` JSON-LD를 추가하지 않습니다. 공개 도움말 품질과 canonical/Open Graph/Twitter metadata를 우선합니다.
 
 Landing 성능 smoke는 production build 기준으로 확인합니다.
@@ -57,7 +73,7 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 
 - Figma에서 받은 TS/TSX 참조 소스는 app root가 아닌 `references/figma/web/`에 둡니다.
 - `references/figma/web/src/`는 generated reference source로 취급해 git 추적과 Web lint/type 대상에서 제외합니다.
-- Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
+- Monorepo CI의 Web validation은 DB service 없이 실행되므로 API 통합 검증은 별도 API validation이 담당합니다.
 - Web Playwright smoke도 기본은 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다.
 - 로그인 사용자 `/main` journey는 `playwright.fullstack.config.ts`가 API 서버와 DB seed를 함께 띄워 별도 full-stack lane에서 검증합니다. 이 lane은 Docker/API 의존성이 있어 상시 PR gate보다는 manual/scheduled 또는 final-readiness 후보입니다.
 - HomeTab Storybook은 visual state workshop입니다. Story data는 `src/main/test-support` typed builder를 재사용할 수 있지만, production Home runtime source가 `__stories__`, `test-support`, 삭제된 `src/main/dev-only/fixtures` mock surface를 import하면 안 됩니다.

@@ -1,0 +1,207 @@
+name: Monorepo CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monorepo-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    name: Classify changed surfaces
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.changes.outputs.web }}
+      api: ${{ steps.changes.outputs.api }}
+      shared: ${{ steps.changes.outputs.shared }}
+      storybook: ${{ steps.changes.outputs.storybook }}
+      infra: ${{ steps.changes.outputs.infra }}
+      repo_policy: ${{ steps.changes.outputs.repoPolicy }}
+      classification_failed: ${{ steps.changes.outputs.classification_failed }}
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+
+      - name: Classify changes
+        id: changes
+        run: node scripts/ci/classify-changes.mjs
+
+      - name: Summarize classification
+        env:
+          CHANGED_PATHS: ${{ steps.changes.outputs.changed_paths_json }}
+          CHANGED_PATH_COUNT: ${{ steps.changes.outputs.changed_path_count }}
+          CHANGED_PATHS_TRUNCATED: ${{ steps.changes.outputs.changed_paths_truncated }}
+          COMPARISON_BASE: ${{ steps.changes.outputs.comparison_base }}
+          COMPARISON_HEAD: ${{ steps.changes.outputs.comparison_head }}
+          COMPARISON_STRATEGY: ${{ steps.changes.outputs.comparison_strategy }}
+          CLASSIFICATION_FAILED: ${{ steps.changes.outputs.classification_failed }}
+        run: |
+          echo "### Change classification" >> "$GITHUB_STEP_SUMMARY"
+          echo "- comparison: ${COMPARISON_BASE}..${COMPARISON_HEAD} (${COMPARISON_STRATEGY})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- fallback_to_all_lanes: ${CLASSIFICATION_FAILED}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- changed_path_count: ${CHANGED_PATH_COUNT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- changed_paths_sample_truncated: ${CHANGED_PATHS_TRUNCATED}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- changed_paths_sample: \`${CHANGED_PATHS}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  shared:
+    name: Shared contract gate
+    needs: classify
+    if: ${{ needs.classify.outputs.shared == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Shared package once
+        run: pnpm shared:build
+
+      - name: Verify Shared contract and public surface
+        run: pnpm shared:lint && pnpm shared:typecheck && pnpm shared:typecheck:test && pnpm shared:test:prepared
+
+  api:
+    name: API validation
+    needs: classify
+    if: ${{ needs.classify.outputs.api == 'true' }}
+    uses: ./.github/workflows/api-ci.yml
+
+  web:
+    name: Web validation
+    needs: classify
+    if: ${{ needs.classify.outputs.web == 'true' }}
+    uses: ./.github/workflows/web-ci.yml
+    with:
+      run_storybook: ${{ needs.classify.outputs.storybook == 'true' }}
+
+  infra:
+    name: Infrastructure validation
+    needs: classify
+    if: ${{ needs.classify.outputs.infra == 'true' }}
+    uses: ./.github/workflows/infra-ci.yml
+
+  repo_policy:
+    name: Repository policy gate
+    needs: classify
+    if: ${{ needs.classify.outputs.repo_policy == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+
+      - name: Verify repository policy scripts
+        run: node scripts/ci/run-repo-policy.mjs
+
+  ci-summary:
+    name: CI summary
+    needs:
+      - classify
+      - shared
+      - api
+      - web
+      - infra
+      - repo_policy
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every selected lane to succeed
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          SHARED_SELECTED: ${{ needs.classify.outputs.shared }}
+          SHARED_RESULT: ${{ needs.shared.result }}
+          API_SELECTED: ${{ needs.classify.outputs.api }}
+          API_RESULT: ${{ needs.api.result }}
+          WEB_SELECTED: ${{ needs.classify.outputs.web }}
+          WEB_RESULT: ${{ needs.web.result }}
+          INFRA_SELECTED: ${{ needs.classify.outputs.infra }}
+          INFRA_RESULT: ${{ needs.infra.result }}
+          REPO_POLICY_SELECTED: ${{ needs.classify.outputs.repo_policy }}
+          REPO_POLICY_RESULT: ${{ needs.repo_policy.result }}
+          CLASSIFICATION_FAILED: ${{ needs.classify.outputs.classification_failed }}
+        run: |
+          failed=0
+
+          require_selected_lane() {
+            name="$1"
+            selected="$2"
+            result="$3"
+
+            if [ "$selected" = "true" ] && [ "$result" != "success" ]; then
+              echo "::error::${name} was selected but finished with ${result}."
+              failed=1
+            fi
+
+            if [ "$selected" != "true" ] && [ "$result" != "skipped" ] && [ "$result" != "success" ]; then
+              echo "::error::${name} was not selected but finished with ${result}."
+              failed=1
+            fi
+          }
+
+          if [ "$CLASSIFY_RESULT" != "success" ]; then
+            echo "::error::Change classification failed before safe fallback outputs were produced."
+            failed=1
+          fi
+
+          require_selected_lane "shared" "$SHARED_SELECTED" "$SHARED_RESULT"
+          require_selected_lane "api" "$API_SELECTED" "$API_RESULT"
+          require_selected_lane "web" "$WEB_SELECTED" "$WEB_RESULT"
+          require_selected_lane "infra" "$INFRA_SELECTED" "$INFRA_RESULT"
+          require_selected_lane "repo-policy" "$REPO_POLICY_SELECTED" "$REPO_POLICY_RESULT"
+
+          {
+            echo "### Monorepo CI summary"
+            echo "| lane | selected | result |"
+            echo "| --- | --- | --- |"
+            echo "| classify | true | ${CLASSIFY_RESULT} |"
+            echo "| shared | ${SHARED_SELECTED} | ${SHARED_RESULT} |"
+            echo "| api | ${API_SELECTED} | ${API_RESULT} |"
+            echo "| web | ${WEB_SELECTED} | ${WEB_RESULT} |"
+            echo "| infra | ${INFRA_SELECTED} | ${INFRA_RESULT} |"
+            echo "| repo-policy | ${REPO_POLICY_SELECTED} | ${REPO_POLICY_RESULT} |"
+            echo "| classifier fail-open | ${CLASSIFICATION_FAILED} | n/a |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$failed"

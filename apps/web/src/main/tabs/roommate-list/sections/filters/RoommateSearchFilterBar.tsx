@@ -28,7 +28,7 @@ export function RoommateSearchFilterBar({
   const viewModel = buildRoommateFilterSheetViewModel(manifest, query);
 
   return (
-    <section className="space-y-2 border-t border-slate-100 pt-3" aria-label="룸메이트 조건 필터">
+    <section className="space-y-3 border-t-2 border-slate-200 pt-4" aria-label="룸메이트 조건 필터">
       <div className="flex items-center justify-between gap-2">
         <p className="shrink-0 text-xs font-semibold text-(--knu-text-tertiary)">조건 필터</p>
         <button

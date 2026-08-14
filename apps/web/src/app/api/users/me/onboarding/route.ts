@@ -3,14 +3,8 @@ import {
   dismissCurrentUserOnboardingNoticeRequestSchema,
 } from '@repo/shared/user';
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { getBffForwardHeaders } from '@/app/api/_bff/forward';
-import {
-  buildBffUpstreamUrl,
-  buildSafeBffErrorResponse,
-  readBffJsonResponse,
-} from '@/app/api/_bff/security';
-import { getWebEnv } from '@/config/env';
+import { forwardValidatedBffRequest } from '@/app/api/_bff/forward';
+import { buildSafeBffErrorResponse } from '@/app/api/_bff/security';
 
 const UPSTREAM_CURRENT_USER_ONBOARDING_PATH = '/api/users/me/onboarding';
 
@@ -27,44 +21,14 @@ export async function PATCH(request: NextRequest) {
     return buildSafeBffErrorResponse('BFF_REQUEST_BODY_INVALID', 400);
   }
 
-  let upstreamUrl: string;
-  try {
-    upstreamUrl = buildBffUpstreamUrl({
-      apiUpstreamUrl: getWebEnv().apiUpstreamUrl,
-      path: UPSTREAM_CURRENT_USER_ONBOARDING_PATH,
-      allowedPathPrefix: '/api',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_URL_INVALID');
-  }
-
-  let upstreamResponse: Response;
-  try {
-    upstreamResponse = await fetch(upstreamUrl, {
-      method: 'PATCH',
-      headers: getBffForwardHeaders(request, {
-        authenticated: true,
-        contentType: 'application/json',
-      }),
-      body: JSON.stringify(parsedBody.data),
-      cache: 'no-store',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_UNAVAILABLE');
-  }
-
-  const { response: safeResponse, json } = await readBffJsonResponse(upstreamResponse, {
-    redactSensitiveFields: true,
+  return forwardValidatedBffRequest({
+    request,
+    method: 'PATCH',
+    path: UPSTREAM_CURRENT_USER_ONBOARDING_PATH,
+    operation: 'user.onboarding.dismiss',
+    authenticated: true,
+    bodyMode: 'json',
+    body: JSON.stringify(parsedBody.data),
+    responseSchema: currentUserResponseSchema,
   });
-
-  if (!safeResponse.ok) {
-    return NextResponse.json(json, { status: safeResponse.status });
-  }
-
-  const parsedResponse = currentUserResponseSchema.safeParse(json);
-  if (!parsedResponse.success) {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_SCHEMA_INVALID');
-  }
-
-  return NextResponse.json(parsedResponse.data, { status: safeResponse.status });
 }

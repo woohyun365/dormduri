@@ -18,7 +18,7 @@ curl -fsS -X POST "$ALERTMANAGER_URL/api/v2/alerts" \
     },
     "annotations": {
       "summary": "KNU Roommate Alertmanager Slack delivery smoke test",
-      "runbook": "infra/observability/slack/slack-setup-runbook.md"
+      "runbook": "infra/runbooks/operations/observability/slack-delivery.md"
     },
     "startsAt": "$NOW"
   }

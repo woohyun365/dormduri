@@ -97,6 +97,7 @@ export class AcceptMatchRequestCommand {
         await this.acceptanceRepository.cancelOtherPendingRequestsAfterActiveMatch(
           tx,
           acceptedRequest,
+          activeMatchRecord.id,
           now,
         );
 

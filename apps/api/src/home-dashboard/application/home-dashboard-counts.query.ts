@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { HomeDashboardMatching, HomeDashboardStats } from '@repo/shared/home';
+import type { MatchOverviewResponse } from '@repo/shared/match/contract';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { formatKstDate, toKstEndIso, toKstStartIso } from '../../platform/time/kst-date.js';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
-import { toMatchRequestSummary } from '../../matches/requests/presenters/match-request.presenter.js';
-import { matchRequestSummarySelect } from '../../matches/requests/persistence/match-request.select.js';
+import { buildRegistrationCompleteParticipantWhere } from '../../season-participants/policies/index.js';
 
 const RECENT_RECEIVED_REQUEST_LIMIT = 3;
 
@@ -57,7 +57,12 @@ export class HomeDashboardCountsQuery {
     const today = formatKstDate(input.now);
     const todayStart = toKstStartIso(today);
     const todayEnd = toKstEndIso(today);
-    const registeredParticipantWhere = buildRegisteredParticipantWhere(seasonId);
+    const registrationSnapshotParticipantIds =
+      await this.findRegistrationSnapshotParticipantIds(seasonId);
+    const registeredParticipantWhere = buildRegistrationCompleteParticipantWhere({
+      seasonId,
+      registrationSnapshotParticipantIds,
+    });
     const assignedParticipantWhere: Prisma.SeasonParticipantWhereInput = {
       ...registeredParticipantWhere,
       dormitoryId: { not: null },
@@ -107,13 +112,21 @@ export class HomeDashboardCountsQuery {
           })
         : Promise.resolve(0),
       this.prisma.activeMatch.count({
-        where: { seasonId, status: 'ACTIVE', endedAt: null },
+        where: {
+          seasonId,
+          status: 'ACTIVE',
+          endedAt: null,
+          participantA: registeredParticipantWhere,
+          participantB: registeredParticipantWhere,
+        },
       }),
       this.prisma.activeMatch.count({
         where: {
           seasonId,
           status: 'ACTIVE',
           endedAt: null,
+          participantA: registeredParticipantWhere,
+          participantB: registeredParticipantWhere,
           startedAt: { gte: todayStart, lte: todayEnd },
         },
       }),
@@ -123,8 +136,14 @@ export class HomeDashboardCountsQuery {
               seasonId,
               status: 'ACTIVE',
               endedAt: null,
-              participantA: { dormitoryId: participantDormitoryId },
-              participantB: { dormitoryId: participantDormitoryId },
+              participantA: {
+                ...registeredParticipantWhere,
+                dormitoryId: participantDormitoryId,
+              },
+              participantB: {
+                ...registeredParticipantWhere,
+                dormitoryId: participantDormitoryId,
+              },
             },
             select: {
               startedAt: true,
@@ -155,51 +174,35 @@ export class HomeDashboardCountsQuery {
     };
   }
 
-  async getMatching(input: BuildCountsInput): Promise<HomeDashboardMatching> {
+  async getMatching(
+    input: BuildCountsInput,
+    overview: MatchOverviewResponse | null,
+  ): Promise<HomeDashboardMatching> {
     if (!input.seasonContext || !input.participant) {
       return emptyMatching;
     }
 
     const seasonId = input.seasonContext.season.id;
     const participantId = input.participant.id;
-    const pendingRequestWhere = {
-      seasonId,
-      status: 'PENDING',
-      expiresAt: { gt: input.now },
-    } as const;
+    const sentRequests = overview?.sentRequests ?? [];
+    const receivedRequests = overview?.receivedRequests ?? [];
+    const pendingSentRequests = sentRequests.filter((request) => request.status === 'PENDING');
+    const pendingReceivedRequests = receivedRequests.filter(
+      (request) => request.status === 'PENDING',
+    );
 
-    const [
-      pendingSentCount,
-      pendingReceivedCount,
-      recentReceivedRequests,
-      activeChatThreadCount,
-      unreadMessageCount,
-    ] = await Promise.all([
-      this.prisma.matchRequest.count({
-        where: { ...pendingRequestWhere, requesterParticipantId: participantId },
-      }),
-      this.prisma.matchRequest.count({
-        where: { ...pendingRequestWhere, receiverParticipantId: participantId },
-      }),
-      this.prisma.matchRequest.findMany({
-        where: { ...pendingRequestWhere, receiverParticipantId: participantId },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: RECENT_RECEIVED_REQUEST_LIMIT,
-        select: matchRequestSummarySelect,
-      }),
+    const [activeChatThreadCount, unreadMessageCount] = await Promise.all([
       this.countActiveChatThreads(seasonId, participantId),
       this.countUnreadMessages(participantId),
     ]);
 
     return {
-      pendingSentCount,
-      pendingReceivedCount,
+      pendingSentCount: pendingSentRequests.length,
+      pendingReceivedCount: pendingReceivedRequests.length,
       activeChatThreadCount,
       unreadMessageCount,
       activeMatch: null,
-      recentReceivedRequests: recentReceivedRequests.map((request) =>
-        toMatchRequestSummary(request, participantId),
-      ),
+      recentReceivedRequests: pendingReceivedRequests.slice(0, RECENT_RECEIVED_REQUEST_LIMIT),
     };
   }
 
@@ -223,9 +226,16 @@ export class HomeDashboardCountsQuery {
       return null;
     }
 
+    const registrationSnapshotParticipantIds = await this.findRegistrationSnapshotParticipantIds(
+      seasonContext.season.id,
+    );
+
     return this.prisma.seasonParticipant.findFirst({
       where: {
-        ...buildRegisteredParticipantWhere(seasonContext.season.id),
+        ...buildRegistrationCompleteParticipantWhere({
+          seasonId: seasonContext.season.id,
+          registrationSnapshotParticipantIds,
+        }),
         userId,
       },
       select: {
@@ -275,18 +285,19 @@ export class HomeDashboardCountsQuery {
 
     return counts.reduce((total, count) => total + count, 0);
   }
-}
 
-export function buildRegisteredParticipantWhere(
-  seasonId: string,
-): Prisma.SeasonParticipantWhereInput {
-  return {
-    seasonId,
-    registeredAt: { not: null },
-    participantStatus: { in: ['ACTIVE', 'MATCHED'] },
-    withdrawnAt: null,
-    deactivatedAt: null,
-    hiddenByAdminAt: null,
-    user: { deletedAt: null },
-  };
+  private async findRegistrationSnapshotParticipantIds(seasonId: string): Promise<string[]> {
+    const snapshots = await this.prisma.seasonParticipantProfileHistory.findMany({
+      where: {
+        seasonId,
+        source: 'SEASON_REGISTRATION',
+        registeredAtSnapshot: { not: null },
+        redactedAt: null,
+      },
+      select: { participantId: true },
+      distinct: ['participantId'],
+    });
+
+    return snapshots.map((snapshot) => snapshot.participantId);
+  }
 }

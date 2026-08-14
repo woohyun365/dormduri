@@ -1,18 +1,21 @@
-'use client';
-
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type {
   ActiveLegalDocumentsBundleResponse,
   LegalDocumentResponse,
   SignupLegalAcceptances,
 } from '@repo/shared/legal';
-import { StepHeader } from '@/components/StepHeader';
-import { StepNavigation } from '@/components/form/StepNavigation';
-import { FieldError } from '@/components/form/FieldError';
+import { StepHeader } from '@/auth/components/StepHeader';
+import { StepNavigation } from './StepNavigation';
+import { Field, FieldMessage } from '@/auth/components/form/Field';
 import { getSignupLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
-import { LegalConsentSummaryCard } from '@/legal/components/LegalConsentSummaryCard';
+import {
+  LegalConsentSummaryCard,
+  type LegalConsentSummaryCardHandle,
+} from '@/legal/components/LegalConsentSummaryCard';
 import { LegalDocumentDialog } from '@/legal/components/LegalDocumentDialog';
 import { FileText } from 'lucide-react';
+import { LegalConsentNotice } from './LegalConsentNotice';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 
 export interface LegalConsentData {
   agreeAge: boolean;
@@ -28,7 +31,8 @@ interface LegalConsentStepProps {
   onNext: () => void;
   onBack: () => void;
   refreshNonce?: number;
-  notice?: string;
+  requiresReconfirmation?: boolean;
+  legalDocumentsResult?: Awaited<ReturnType<typeof getSignupLegalDocumentsBundle>>;
 }
 
 function toLegalAcceptances(bundle: ActiveLegalDocumentsBundleResponse): SignupLegalAcceptances {
@@ -72,9 +76,11 @@ export function LegalConsentStep({
   onNext,
   onBack,
   refreshNonce = 0,
-  notice,
+  requiresReconfirmation = false,
+  legalDocumentsResult,
 }: LegalConsentStepProps) {
   const [error, setError] = useState('');
+  const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
   const [bundleState, setBundleState] = useState<
     | { status: 'loading' }
     | {
@@ -85,15 +91,26 @@ export function LegalConsentStep({
   >({ status: 'loading' });
   const [viewingDocument, setViewingDocument] = useState<LegalDocumentResponse | null>(null);
   const legalConsentRef = useRef(legalConsent);
+  const consentSummaryRef = useRef<LegalConsentSummaryCardHandle>(null);
+  const validationErrorId = useId();
 
   useEffect(() => {
     legalConsentRef.current = legalConsent;
   }, [legalConsent]);
 
   useEffect(() => {
+    if (invalidSubmitCount <= 0 || !error) return;
+    focusAndScroll(consentSummaryRef.current?.getFirstUncheckedControl());
+  }, [error, invalidSubmitCount]);
+
+  useEffect(() => {
     let cancelled = false;
 
-    getSignupLegalDocumentsBundle().then((result) => {
+    const bundleRequest = legalDocumentsResult
+      ? Promise.resolve(legalDocumentsResult)
+      : getSignupLegalDocumentsBundle();
+
+    bundleRequest.then((result) => {
       if (cancelled) return;
 
       const nextAcceptances = toLegalAcceptances(result.bundle);
@@ -117,13 +134,15 @@ export function LegalConsentStep({
     return () => {
       cancelled = true;
     };
-  }, [onLegalConsentChange, refreshNonce]);
+  }, [legalDocumentsResult, onLegalConsentChange, refreshNonce]);
 
   const normalizedConsent = normalizeLegalConsent(legalConsent);
   const allAgreed =
     normalizedConsent.agreeAge &&
     normalizedConsent.agreeTerms &&
     normalizedConsent.agreePersonalDataCollectionUse;
+  const isUsingFallback = bundleState.status === 'ready' && bundleState.source === 'fallback';
+  const noticeStatus = requiresReconfirmation ? 'stale' : isUsingFallback ? 'fallback' : null;
 
   const handleAllAgree = (checked: boolean) => {
     onLegalConsentChange({
@@ -137,7 +156,8 @@ export function LegalConsentStep({
 
   const handleNext = () => {
     if (!allAgreed) {
-      setError('필수 확인·동의 항목을 모두 체크해주세요.');
+      setError('필수 확인·동의 항목을 모두 선택해 주세요.');
+      setInvalidSubmitCount((current) => current + 1);
       return;
     }
     if (!normalizedConsent.legalAcceptances) {
@@ -151,55 +171,52 @@ export function LegalConsentStep({
     <div className="space-y-6">
       <StepHeader
         icon={<FileText className="size-8 text-(--knu-primary)" />}
-        title="필수 동의 확인"
-        description="가입에 필요한 법적 안내와 동의 항목을 확인해주세요"
+        title="필수 항목 확인"
+        description="각 내용을 확인한 뒤 필수 항목에 동의해요."
       />
 
-      {notice && (
-        <div
-          role="status"
-          className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"
-        >
-          {notice}
-        </div>
+      {noticeStatus && (
+        <LegalConsentNotice status={noticeStatus} isUsingFallback={isUsingFallback} />
       )}
 
-      <div className="space-y-4">
+      <Field invalid={Boolean(error)} className="space-y-4">
         {bundleState.status === 'loading' ? (
           <div
             role="status"
             className="rounded-2xl bg-(--knu-background-alt) p-5 text-sm leading-6 text-(--knu-text-secondary)"
           >
-            <p className="font-medium text-(--knu-text-primary)">
-              최신 동의 항목을 불러오는 중입니다.
-            </p>
-            <p className="mt-1">약관 정보가 준비되면 다음 단계로 이동할 수 있어요.</p>
+            <p className="font-medium text-(--knu-text-primary)">필수 내용을 불러오고 있어요.</p>
+            <p className="mt-1">잠시만 기다려 주세요.</p>
           </div>
         ) : (
           <LegalConsentSummaryCard
+            ref={consentSummaryRef}
             checks={{
               agreeAge: normalizedConsent.agreeAge,
               agreeTerms: normalizedConsent.agreeTerms,
               agreePersonalDataCollectionUse: normalizedConsent.agreePersonalDataCollectionUse,
             }}
             bundle={bundleState.bundle}
-            source={bundleState.source}
+            validationErrorId={validationErrorId}
+            showValidationErrors={Boolean(error)}
             onToggleAll={handleAllAgree}
             onToggle={(field, checked) => {
-              onLegalConsentChange({ ...normalizedConsent, [field]: checked });
-              if (checked) setError('');
+              const nextConsent = { ...normalizedConsent, [field]: checked };
+              onLegalConsentChange(nextConsent);
+              if (
+                nextConsent.agreeAge &&
+                nextConsent.agreeTerms &&
+                nextConsent.agreePersonalDataCollectionUse
+              ) {
+                setError('');
+              }
             }}
             onOpenDocument={setViewingDocument}
           />
         )}
 
-        <FieldError message={error} />
-
-        <p className="text-xs text-(--knu-text-tertiary) mt-2 keep-all">
-          본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 약관의 운영 주체는
-          강원대학교가 아닌 서비스 운영자 개인입니다.
-        </p>
-      </div>
+        <FieldMessage error={error} errorId={validationErrorId} />
+      </Field>
 
       <StepNavigation
         onBack={onBack}

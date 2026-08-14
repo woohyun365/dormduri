@@ -56,14 +56,14 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
-  src/architecture/api-contracts/legal-contract.spec.ts \
-  src/architecture/reference-data/legal-document-reference-data.spec.ts \
+  test/architecture/api-contracts/legal-contract.spec.ts \
+  test/operations/reference-data/legal-document-reference-data.spec.ts \
   src/legal/contracts/legal-public-api.spec.ts \
   src/legal/contracts/legal-acceptance-signup.spec.ts \
   src/legal/legal.controller.spec.ts \
   src/auth/registration/signup.command.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts \
-  src/platform/database/migration-baseline.spec.ts
+  test/architecture/security/auth-access-route-matrix.spec.ts \
+  test/operations/database/migration-baseline.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed legal files without apps/api prefix>
 git diff --check

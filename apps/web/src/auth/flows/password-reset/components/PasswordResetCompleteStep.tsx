@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { CheckCircle } from 'lucide-react';
-import { Button } from '@/components/Button';
-import { focusAndScroll } from '@/utils/focus';
+import { CheckCircle, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
+import { PASSWORD_RESET_COPY } from '../model/password-reset-copy';
 
 interface PasswordResetCompleteStepProps {
   onGoToLogin: () => void;
@@ -15,33 +16,28 @@ export function PasswordResetCompleteStep({ onGoToLogin }: PasswordResetComplete
   }, []);
 
   return (
-    <div className="space-y-6 py-8 text-center">
-      <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-        <CheckCircle className="h-12 w-12 text-green-600" />
+    <div className="space-y-5 py-4 text-center sm:py-6">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100">
+        <CheckCircle className="size-7 text-emerald-600" aria-hidden="true" />
       </div>
 
       <div>
-        <h2
-          ref={headingRef}
-          tabIndex={-1}
-          className="mb-3 text-2xl font-bold text-(--knu-text-primary) md:text-3xl"
-        >
-          비밀번호 재설정 완료
+        <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold text-(--knu-text-primary)">
+          {PASSWORD_RESET_COPY.complete.title}
         </h2>
-        <p className="keep-all text-lg leading-8 text-(--knu-text-secondary)">
-          보안을 위해 기존 로그인 상태가 모두 종료되었어요. 새 비밀번호로 다시 로그인해주세요.
+        <p className="mt-1.5 keep-all text-sm leading-6 text-(--knu-text-secondary)">
+          {PASSWORD_RESET_COPY.complete.description}
         </p>
       </div>
 
-      <div className="rounded-2xl bg-(--knu-background-alt) p-4 text-sm leading-6 text-(--knu-text-secondary)">
-        다른 기기에서 로그인 중이었다면 해당 세션도 함께 만료됩니다.
+      <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+        <LogOut className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+        <span>{PASSWORD_RESET_COPY.complete.sessionEnded}</span>
       </div>
 
-      <div className="pt-2">
-        <Button variant="primary" size="lg" fullWidth onClick={onGoToLogin}>
-          로그인하러 가기
-        </Button>
-      </div>
+      <Button variant="primary" size="lg" fullWidth onClick={onGoToLogin}>
+        {PASSWORD_RESET_COPY.complete.login}
+      </Button>
     </div>
   );
 }

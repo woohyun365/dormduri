@@ -79,7 +79,7 @@ describe('roommate-search-candidate.query', () => {
       scope: 'SAME_BUILDING_ONLY',
       query: {
         scope: 'SAME_BUILDING_ONLY',
-        college: { operator: 'EXCLUDE', values: ['IT'] },
+        college: { operator: 'EXCLUDE', values: ['CHUNCHEON_IT'] },
         mbtiTraits: { energy: 'E', decision: 'T' },
         ageBand: { values: ['20'] },
         limit: 20,
@@ -140,7 +140,7 @@ describe('roommate-search-candidate.query', () => {
       bedtime: { not: null },
     });
     expect(filterCondition).toMatchObject({
-      collegeCode: { notIn: ['IT'] },
+      collegeCode: { notIn: ['CHUNCHEON_IT'] },
       OR: [{ birthYear: 2007 }],
     });
     expect(filterCondition.mbti.in).toEqual(expect.arrayContaining(['ENTJ', 'ESTJ']));

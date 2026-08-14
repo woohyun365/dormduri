@@ -136,6 +136,69 @@ export function issueHomeE2eSessionToken(email: string) {
   return accessToken;
 }
 
+export function expireHomeE2eAccessToken(accessToken: string) {
+  const sessionId = accessToken.split('.')[1];
+  if (!sessionId) {
+    throw new Error('Home E2E access token does not contain a session id.');
+  }
+
+  const result = spawnSync(
+    'node',
+    [
+      '--input-type=module',
+      '-e',
+      `
+        import pg from 'pg';
+
+        const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+        await client.connect();
+        try {
+          const update = await client.query(
+            \`
+              UPDATE "AuthSession"
+              SET "sessionTokenExpiresAt" = NOW() - INTERVAL '1 second',
+                  "updatedAt" = NOW()
+              WHERE id = $1
+                AND "revokedAt" IS NULL
+            \`,
+            [process.env.HOME_E2E_SESSION_ID],
+          );
+          if (update.rowCount !== 1) {
+            throw new Error(\`Home E2E active session not found: \${process.env.HOME_E2E_SESSION_ID}\`);
+          }
+        } finally {
+          await client.end();
+        }
+      `,
+    ],
+    {
+      cwd: apiDir,
+      env: {
+        ...process.env,
+        DATABASE_URL: localDatabaseUrl,
+        HOME_E2E_SESSION_ID: sessionId,
+      },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(
+      [
+        `Home E2E access expiry failed for session ${sessionId} with exit code ${result.status}`,
+        result.stderr,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  }
+}
+
 function createOpaqueAccessToken(sessionId: string) {
   return `v1.${sessionId}.${randomBytes(32).toString('base64url')}`;
 }

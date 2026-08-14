@@ -3,7 +3,10 @@ import {
   createPublicProfileFull,
   createPublicProfileTombstone,
 } from '@/test/home-profile-detail-fixtures';
-import { getRoommateProfileDetail } from '../roommateProfileDetail.client';
+import {
+  getCurrentMatchedProfileDetail,
+  getRoommateProfileDetail,
+} from '../roommateProfileDetail.client';
 
 function stubFetch(body: unknown, init: ResponseInit = {}) {
   const fetchMock = vi.fn(
@@ -52,6 +55,26 @@ describe('roommateProfileDetail.client', () => {
     await expect(
       getRoommateProfileDetail({ targetUserId: 'removed-user', detailEntryToken: 'entry-token-1' }),
     ).resolves.toMatchObject({ detailState: 'TOMBSTONE' });
+  });
+
+  it('current matched result-read는 token 없이 encoded target path를 사용한다', async () => {
+    const fetchMock = stubFetch(createPublicProfileFull({ id: 'matched 1/2' }));
+
+    await expect(
+      getCurrentMatchedProfileDetail({ targetUserId: 'matched 1/2' }),
+    ).resolves.toMatchObject({ detailState: 'FULL' });
+    const url = firstFetchUrl(fetchMock);
+    expect(url.pathname).toBe('/api/profiles/matched%201%2F2');
+    expect(url.search).toBe('');
+  });
+
+  it('current matched result-read도 빈 target은 fetch 없이 닫는다', async () => {
+    const fetchMock = stubFetch(createPublicProfileFull());
+
+    await expect(getCurrentMatchedProfileDetail({ targetUserId: '   ' })).rejects.toMatchObject({
+      code: 'ROOMMATE_PROFILE_DETAIL_ENTRY_REQUIRED',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('token이 없으면 fetch 없이 safe entry error로 닫는다', async () => {

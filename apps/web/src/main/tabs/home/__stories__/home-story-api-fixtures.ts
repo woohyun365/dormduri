@@ -8,7 +8,6 @@ import type {
 import type { ReportListItem, ReportListResponse } from '@repo/shared/social-safety/report';
 import type { SupportFaqItem, SupportTicketResponse } from '@repo/shared/support';
 import {
-  createMatchHistoryResponse,
   createPreviousSeasonProfileResponse,
   createPublicProfileFull,
   createSeasonProfileDraftResponse,
@@ -157,10 +156,6 @@ function resolveProfileFixtureResponse(
 
   if (request.pathname === '/api/seasons/previous/profile') {
     return createStoryJsonResponse(createPreviousSeasonProfileResponse());
-  }
-
-  if (request.pathname === '/api/matches/history') {
-    return createStoryJsonResponse(createMatchHistoryResponse());
   }
 
   if (/^\/api\/profiles\/[^/]+$/.test(request.pathname)) {
@@ -695,9 +690,6 @@ function createSupportFaq(): SupportFaqItem {
     category: 'MATCHING',
     question: '매칭 요청은 언제 보낼 수 있나요?',
     answer: '시즌 참여 후 매칭 기간에 같은 기숙사 룸메 후보에게 요청할 수 있어요.',
-    published: true,
-    sortOrder: 1,
-    updatedAt: ISO_NOW,
   };
 }
 

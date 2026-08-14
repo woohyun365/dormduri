@@ -12,7 +12,7 @@ import { HomeMatchingRegisteredGuidePanel } from './sections/readiness/HomeMatch
 import { HomeOperationsSurface } from './sections/operations/HomeOperationsSurface';
 import { homeActiveMatchApi } from './api/home-active-match.api';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 interface HomeTabProps {

@@ -5,25 +5,21 @@ import {
   Building2,
   ChevronRight,
   FileText,
-  MessageCircle,
   Shield,
   HelpCircle,
   Mail,
   AlertCircle,
-  ExternalLink,
   LogOut,
   Ban,
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { SectionHeading } from '@/components/SectionHeading';
-import { ComingSoonBadge } from '@/components/ComingSoonBadge';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { InlineTextEditor } from '@/components/form/InlineTextEditor';
-import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
-import { DORM_HOMEPAGE_URL } from '@/constants/dormitory-guide';
-import { INTRO_MAX_LENGTH, MESSAGE_MAX_LENGTH } from '@/constants/ui';
-import { getAvatarColor } from '@/utils/avatarColor';
+import { SectionHeading } from '@/main/tabs/profile/components/SectionHeading';
+import { ComingSoonBadge } from '@/main/tabs/profile/components/ComingSoonBadge';
+import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
+import { InlineTextEditor } from '@/main/tabs/profile/components/InlineTextEditor';
+import { SEASON_PROFILE_INTRO_MAX_LENGTH } from '@repo/shared/season/participation';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 import { BuildingSelectModal } from '../../components/BuildingSelectModal';
 import { BlockManageSheet } from '../../components/BlockManageSheet';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
@@ -31,20 +27,18 @@ import { LifestyleEditSheet } from '../../components/LifestyleEditSheet';
 import { ProfilePreviewSection } from './ProfilePreviewSection';
 import { ProfileLifestyleSection } from './ProfileLifestyleSection';
 import { ProfileAdditionalSection } from './ProfileAdditionalSection';
-import type { AdditionalProfile } from '@/types/additional-profile';
-import type { LifestyleData } from '@/types/lifestyle';
+import type { ProfileAdditional } from '@/main/tabs/profile/model/profileFieldOptions';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
-import type { UserProfile, RoommateProfile } from '@/types/profile';
-import type { BlockedUser } from '@/types/report';
+import type { UserProfile, RoommateProfile } from '@/main/model/profile';
+import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 
 interface ProfileTabProps {
   user: UserProfile;
-  onDormitoryChange: (dormitoryId: string) => void;
+  onDormitoryChange: (dormitoryId: string | null) => void;
   onIntroChange: (intro: string) => void;
-  onMessageChange: (message: string | null) => void;
   onLifestyleChange: (lifestyle: LifestyleData) => void;
-  onAdditionalChange: (additional: AdditionalProfile) => void;
-  onShowGuide?: () => void;
+  onAdditionalChange: (additional: ProfileAdditional) => void;
   blockedUsers?: BlockedUser[];
   onUnblock?: (userId: string, nickname: string) => void;
 }
@@ -53,15 +47,13 @@ export default function ProfileTab({
   user,
   onDormitoryChange,
   onIntroChange,
-  onMessageChange,
   onLifestyleChange,
   onAdditionalChange,
-  onShowGuide,
   blockedUsers = [],
   onUnblock,
 }: ProfileTabProps) {
   const { isOpen, isMatching } = useSeasonContext();
-  const hasRealBuilding = !!user.dormitoryId && user.dormitoryId !== UNASSIGNED_ID;
+  const hasRealBuilding = user.dormitoryId !== null;
   const canChangeDormitory = (isOpen || isMatching) && !hasRealBuilding;
   const isProfileLocked = isMatching && hasRealBuilding;
   const [showBuildingModal, setShowBuildingModal] = useState(false);
@@ -71,8 +63,7 @@ export default function ProfileTab({
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [showBlockManage, setShowBlockManage] = useState(false);
 
-  const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
-  const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
+  const dormitory = user.dormitory ?? null;
   const avatarColor = getAvatarColor(user.nickname);
 
   // Build a RoommateProfile for self-preview
@@ -82,6 +73,7 @@ export default function ProfileTab({
     gender: user.gender,
     campus: user.campus,
     dormitoryId: user.dormitoryId,
+    dormitory,
     lifestyle: user.lifestyle,
     intro: user.intro,
     messageToRoommate: user.messageToRoommate,
@@ -89,7 +81,7 @@ export default function ProfileTab({
     matchScore: 100,
   };
 
-  const handleAdditionalField = (field: keyof AdditionalProfile, value: string | null) => {
+  const handleAdditionalField = (field: keyof ProfileAdditional, value: string | null) => {
     const converted = field === 'birthYear' && value !== null ? Number(value) : value;
     onAdditionalChange({ ...user.additional, [field]: converted });
   };
@@ -110,7 +102,7 @@ export default function ProfileTab({
       )}
 
       {/* Header */}
-      <div className="bg-[var(--knu-primary)] text-white px-5 py-6">
+      <div className="bg-(--knu-primary) text-white px-5 py-6">
         <div className="max-w-md mx-auto">
           <h1 className="text-2xl font-bold mb-4">내 프로필</h1>
           <div className="flex items-center gap-4">
@@ -141,7 +133,7 @@ export default function ProfileTab({
                     </button>
                   )}
                 </div>
-              ) : isUnassigned ? (
+              ) : !hasRealBuilding ? (
                 <button
                   onClick={canChangeDormitory ? () => setShowBuildingModal(true) : undefined}
                   className={`flex items-center gap-1 text-sm transition-opacity ${
@@ -182,48 +174,27 @@ export default function ProfileTab({
         {/* 자기소개 */}
         <section>
           <SectionHeading
-            icon={<FileText className="w-5 h-5 text-[var(--knu-primary)]" />}
+            icon={<FileText className="w-5 h-5 text-(--knu-primary)" />}
             title="자기소개"
           />
-          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+          <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-5">
             <InlineTextEditor
               value={user.intro}
               onSave={onIntroChange}
-              maxLength={INTRO_MAX_LENGTH}
+              maxLength={SEASON_PROFILE_INTRO_MAX_LENGTH}
               placeholder="예) 도서관 자주 가고, 방에선 조용히 지내는 편이에요."
-            />
-          </div>
-        </section>
-
-        {/* 룸메에게 한마디 */}
-        <section>
-          <SectionHeading
-            icon={<MessageCircle className="w-5 h-5 text-[var(--knu-primary)]" />}
-            title="룸메에게 한마디"
-          />
-          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
-            <InlineTextEditor
-              value={user.messageToRoommate ?? ''}
-              onSave={(val) => onMessageChange(val || null)}
-              maxLength={MESSAGE_MAX_LENGTH}
-              placeholder="공용물품, 가져갈 것 등 룸메에게 전할 메시지를 남겨보세요"
-              rows={2}
-              allowEmpty
             />
           </div>
         </section>
 
         {/* 계정 */}
         <section>
-          <SectionHeading
-            icon={<Shield className="w-5 h-5 text-[var(--knu-primary)]" />}
-            title="계정"
-          />
-          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] divide-y-2 divide-[var(--knu-border)]">
+          <SectionHeading icon={<Shield className="w-5 h-5 text-(--knu-primary)" />} title="계정" />
+          <div className="bg-white rounded-2xl border-2 border-(--knu-border) divide-y-2 divide-(--knu-border)">
             <div className="relative p-4 flex items-center justify-between opacity-60">
               <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                <Shield className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">
                   비밀번호 변경
                 </span>
               </div>
@@ -231,8 +202,8 @@ export default function ProfileTab({
             </div>
             <div className="relative p-4 flex items-center justify-between opacity-60">
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                <FileText className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">
                   내 정보 다운로드
                 </span>
               </div>
@@ -243,18 +214,16 @@ export default function ProfileTab({
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Ban className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  차단 관리
-                </span>
+                <Ban className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">차단 관리</span>
               </div>
               <div className="flex items-center gap-2">
                 {blockedUsers.length > 0 && (
-                  <span className="text-xs font-semibold text-[var(--knu-text-tertiary)]">
+                  <span className="text-xs font-semibold text-(--knu-text-tertiary)">
                     {blockedUsers.length}명
                   </span>
                 )}
-                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
               </div>
             </button>
             <button
@@ -262,12 +231,10 @@ export default function ProfileTab({
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <LogOut className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  로그아웃
-                </span>
+                <LogOut className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">로그아웃</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
             </button>
           </div>
         </section>
@@ -275,94 +242,60 @@ export default function ProfileTab({
         {/* 안내 및 지원 */}
         <section>
           <SectionHeading
-            icon={<HelpCircle className="w-5 h-5 text-[var(--knu-primary)]" />}
+            icon={<HelpCircle className="w-5 h-5 text-(--knu-primary)" />}
             title="안내 및 지원"
           />
-          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] divide-y-2 divide-[var(--knu-border)]">
-            {onShowGuide && (
-              <button
-                onClick={onShowGuide}
-                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                  <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                    기숙사 안내 다시 보기
-                  </span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-              </button>
-            )}
-            <a
-              href={DORM_HOMEPAGE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <ExternalLink className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  학생생활관 홈페이지
-                </span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-            </a>
+          <div className="bg-white rounded-2xl border-2 border-(--knu-border) divide-y-2 divide-(--knu-border)">
             <Link
               href="/terms"
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  이용약관
-                </span>
+                <FileText className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">이용약관</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
             </Link>
             <Link
               href="/privacy"
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                <FileText className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">
                   개인정보처리방침
                 </span>
               </div>
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
             </Link>
             <a
               href="mailto:woohyun365@gmail.com"
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  문의하기
-                </span>
+                <Mail className="w-5 h-5 text-(--knu-text-tertiary)" />
+                <span className="text-sm font-semibold text-(--knu-text-primary)">문의하기</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />
             </a>
           </div>
         </section>
 
         {/* 앱 정보 */}
         <section>
-          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">앱 정보</h2>
-          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+          <h2 className="font-bold text-(--knu-text-primary) mb-3">앱 정보</h2>
+          <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-[var(--knu-text-tertiary)]">버전</span>
-              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">1.0.0</span>
+              <span className="text-sm text-(--knu-text-tertiary)">버전</span>
+              <span className="text-sm font-semibold text-(--knu-text-primary)">1.0.0</span>
             </div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-[var(--knu-text-tertiary)]">최근 업데이트</span>
-              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                2026.03.06
-              </span>
+              <span className="text-sm text-(--knu-text-tertiary)">최근 업데이트</span>
+              <span className="text-sm font-semibold text-(--knu-text-primary)">2026.03.06</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--knu-text-tertiary)]">개발자</span>
-              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">이우현</span>
+              <span className="text-sm text-(--knu-text-tertiary)">개발자</span>
+              <span className="text-sm font-semibold text-(--knu-text-primary)">이우현</span>
             </div>
           </div>
         </section>
@@ -376,8 +309,8 @@ export default function ProfileTab({
           />
           <div className="bg-white rounded-2xl border-2 border-red-200 p-5">
             <div className="mb-4">
-              <h3 className="font-bold text-[var(--knu-text-primary)] mb-2">계정 삭제</h3>
-              <p className="text-sm text-[var(--knu-text-secondary)] mb-4">
+              <h3 className="font-bold text-(--knu-text-primary) mb-2">계정 삭제</h3>
+              <p className="text-sm text-(--knu-text-secondary) mb-4">
                 계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
               </p>
             </div>

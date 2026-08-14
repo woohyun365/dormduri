@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/Skeleton';
+import { Skeleton } from '@/main/components/feedback/Skeleton';
 
 export function DetailLoading({ nickname }: { readonly nickname: string }) {
   return (

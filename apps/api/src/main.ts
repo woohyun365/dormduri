@@ -1,12 +1,26 @@
 import type { ConfigType } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module.js';
-import appConfig from './config/app.config.js';
-import httpConfig from './config/http.config.js';
-import { AppLoggerService } from './platform/observability/logging/app-logger.service.js';
-import { configureHttpRuntime } from './platform/http/http-runtime.js';
+import {
+  describeRuntimeEnvironmentPreparationFailure,
+  prepareRuntimeEnvironment,
+} from './platform/runtime/bootstrap/prepare-runtime-environment.js';
 
 async function bootstrap() {
+  await prepareRuntimeEnvironment(process.env);
+  const [
+    { NestFactory },
+    { AppModule },
+    { default: appConfig },
+    { default: httpConfig },
+    { AppLoggerService },
+    { configureHttpRuntime },
+  ] = await Promise.all([
+    import('@nestjs/core'),
+    import('./app.module.js'),
+    import('./platform/runtime/app.config.js'),
+    import('./platform/http/http.config.js'),
+    import('./platform/observability/logging/app-logger.service.js'),
+    import('./platform/http/http-runtime.js'),
+  ]);
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(AppLoggerService));
   const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
@@ -15,4 +29,13 @@ async function bootstrap() {
   app.enableShutdownHooks();
   await app.listen(appSettings.port);
 }
-await bootstrap();
+
+try {
+  await bootstrap();
+} catch (error) {
+  const failure = describeRuntimeEnvironmentPreparationFailure(error);
+  process.stderr.write(
+    `${JSON.stringify({ level: 'error', event: 'api_bootstrap_failed', ...failure })}\n`,
+  );
+  process.exitCode = 1;
+}

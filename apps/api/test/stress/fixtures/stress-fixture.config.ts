@@ -18,7 +18,7 @@ export const DEFAULT_STRESS_FIXTURE_CONFIG: StressFixtureConfig = {
   stressCohortSize: 946,
   dormitoryCount: 4,
   roomType: 2,
-  academicYear: 2026,
+  academicYear: 2099,
   semester: 1,
 };
 

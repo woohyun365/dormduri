@@ -24,6 +24,7 @@ External domain production code should not import roommate-search internals dire
 - `pagination/`: cursor pagination and signed token codec.
 - `presentation/`: search response and availability notice presenters.
 - `integration/`: read-side composition that joins candidate, profile target, bookmark/block metadata, and presentation dependencies.
+- `observability/`: `RoommateSearchModule`이 등록하는 bounded request/duration/candidate-count metric definition catalog. Request lifecycle timing과 candidate pipeline recording은 실제 orchestration owner인 `integration/roommate-search.reader.ts`에 둔다.
 - `errors/`: user-facing roommate-search error contract.
 
 ## Hard rules
@@ -65,6 +66,8 @@ Architecture specs own cross-cutting fitness rules:
 - Cursor and signed token behavior: `pagination/`.
 - Response and notice projection: `presentation/`.
 - Read-side composition across profile/social-safety metadata: `integration/`.
+- Search metric definition catalog: `observability/roommate-search-metric.definitions.ts`.
+- Search request/candidate metric recording: `integration/roommate-search.reader.ts`.
 - Profile target materialization: `apps/api/src/profiles/contracts` public reader surface.
 - Bookmark/block relation authority: `apps/api/src/social-safety`.
 - Match score authority: `apps/api/src/matches/scoring` and match score ports.
@@ -78,7 +81,7 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/architecture/module-boundary.spec.ts \
   src/architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts \
   src/roommate-search \
-  test/integration/roommate-search/roommate-search.integration.spec.ts \
+  test/integration/roommate-search/roommate-search-lifecycle.integration.spec.ts \
   test/integration/profiles/profile-match-score.integration.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint src/roommate-search

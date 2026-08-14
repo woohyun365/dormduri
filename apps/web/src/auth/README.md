@@ -4,7 +4,7 @@
 로그인, 회원가입, 비밀번호 재설정, auth API client, auth BFF helper, auth 전용 UI/hook/model을 소유한다.
 API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경계의 소유 범위가 아니다.
 
-Migration history는 commit과 `.omx/plans/web-auth-boundary-final-refactor-plan.md`에 남긴다.
+Migration history는 Git commit history에 남긴다.
 이 README는 새 작업자가 따라야 할 **최종 auth Web boundary contract**만 설명한다.
 
 ## Final directory contract
@@ -15,25 +15,31 @@ apps/web/src/auth/
   api/                 # browser-side auth API facade
   bff/                 # App Router auth BFF helper facade
   components/          # auth-only shared UI
+    layout/             # state를 모르는 shared responsive frame/notice
   hooks/               # auth-only session/redirect/countdown hooks
   model/               # auth-wide policy constants/model helpers
   flows/
     login/             # login flow implementation
     signup/            # signup flow implementation
     password-reset/    # password reset flow implementation
+  stories/             # production FlowView 기반 Auth Storybook
+    fixtures/          # API를 호출하지 않는 view input fixture
+    login/
+    signup/
+    password-reset/
 ```
 
 내부 파일명은 리팩터링 과정에서 바뀔 수 있다.
 안정적으로 지켜야 하는 것은 `auth/api`, `auth/bff`, `auth/components`, `auth/hooks`, `auth/model`, `auth/flows/*`의 소유권과 import boundary다.
 
-`useExpiryCountdown`은 auth 외부 product usage가 있어 auth-only migration target으로 취급하지 않는다.
 `CAMPUS_OPTIONS`는 signup/account identity UI data이므로 `src/auth/flows/signup/model/campus-options.ts`에 둔다.
 
 ## Ownership
 
 - `auth`는 Web auth UI와 account identity/session gate를 소유한다.
-- `useAuthSession`은 `/api/auth/session` 결과를 그대로 계정 identity로 다룬다. 반환 타입은 `AuthenticatedSessionUser | null` 범위이며 `UserProfile`이 아니다.
-- session 확인이 지연되거나 실패하면 auth 화면이 skeleton에 무한 대기하지 않도록 bounded timeout 후 unauthenticated state로 수렴한다.
+- `useAuthSession`은 `POST /api/auth/session/resolve`의 browser tri-state를 계정 identity로 다룬다. authenticated user는 `AuthenticatedSessionUser` 범위이며 `UserProfile`이 아니다.
+- session 확인이 지연되거나 실패하면 bounded timeout 후 `unavailable`로 수렴한다. 이 상태는 logout으로 해석하거나 auth cookie를 삭제하지 않는다.
+- Main은 unavailable recovery를 표시하고, Login/Signup/Password Reset은 nonblocking notice와 기존 flow를 함께 제공한다.
 - `auth`는 Display Identity와 Academic Identity를 signup/account setup 입력 및 account/session response 표시 범위로만 다룬다. 생성·검증의 source-of-truth는 API auth/user identity owner다.
 - `UserProfile`, 생활패턴, 자기소개, 기숙사 선택, 시즌 참여 상태는 Main/profile/season read path가 소유한다.
 - `/main`은 auth session gate 이후 Home dashboard/current-user read path를 Main owner가 별도로 수행한다. profile/season 데이터를 auth 성공 조건으로 합성하지 않고, 각 Main/profile/season owner가 자신의 fallback/error state를 표시한다.
@@ -58,6 +64,8 @@ Private implementation areas should not be deep-imported by non-auth features:
 External browser consumers use public facades instead of deep private paths.
 App Router auth route adapters are the only non-auth files allowed to import the private `@/auth/bff` facade.
 App Router page adapters may import their single route client entrypoint under `@/auth/flows/*/*PageClient`.
+`auth/bff/index.ts`는 route adapter가 실제 사용하는 helper만 명시적으로 export한다.
+wildcard export와 route 미사용 transport type export는 허용하지 않는다.
 
 ## App Router exception
 
@@ -110,11 +118,17 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 - Browser-visible state must not store access tokens, renewal tokens, verification codes, reset passwords, or reset secrets in local/session storage or URL history.
 - BFF responses must redact token-like fields from JSON bodies and use httpOnly cookie transport for session materialization.
+- Access cookie는 로그인 유지 선택과 무관하게 session cookie다. Renewal cookie만 미체크 시 session cookie, 체크 시 7일 persistent cookie로 설정한다.
+- 동시 tab renewal의 stale 응답은 auth cookie를 변경하지 않는다. Browser client는 bounded delay 뒤 최신 cookie로 session resolve를 한 번만 재시도하고, 계속 stale이면 unavailable recovery로 수렴한다.
 - Password reset code request and verification copy must avoid account enumeration.
 - Signup payloads must not include lifestyle/profile fields owned by season profile flows.
 - Redirect helpers must allow internal safe targets only.
 - Auth forms and status messages should be tested through accessible role/name/text queries.
 - Error/status UI should expose user-friendly copy and not raw upstream stack or provider messages.
+- Field validation stays attached to its input and moves focus to that field. Network, throttle,
+  lockout, and submission failures use `AuthActionFeedback`, which owns the shared action-result
+  focus and mobile scroll policy. Passive session/status information uses `AuthFeedbackStrip`
+  directly and must not steal focus.
 
 ## Styling and layout invariants
 
@@ -122,9 +136,40 @@ If an external feature still needs auth behavior, expose that behavior through t
   Use CSS variable shorthand such as `text-(--knu-text-primary)`, `bg-(--knu-background-alt)`, and `border-(--knu-border)` instead of `text-[var(--knu-text-primary)]` style arbitrary values.
 - Use scale utilities such as `lg:mt-8` or `lg:mt-32` when the intended value already exists in Tailwind's spacing scale.
   Keep bracket syntax for non-token values such as `min-h-[calc(...)]` and `lg:grid-cols-[...]`.
-- Login, signup, and password reset service-boundary notices keep `자세히 보기` as one mobile tap target with `inline-block whitespace-nowrap`, then relax to normal inline wrapping from `sm` upward.
+- Login, signup, and password reset service-boundary notices keep their link copy as one mobile tap target with `inline-block whitespace-nowrap`, then relax to normal inline wrapping from `sm` upward.
 - Password reset layout keeps the right form card top-anchored while feedback grows downward.
   The desktop help panel aligns to the right-side title area and does not own account-existence truth.
+- Login, signup, password reset은 `AuthResponsiveFrame`의 같은 `max-w-5xl` 반응형 기준을 사용한다.
+  공통 frame은 flow 상태, API 호출, 문구를 소유하지 않고 header/aside/main slot만 배치한다.
+
+## Storybook inventory
+
+Auth Storybook은 PageClient를 복제하지 않고 production `*FlowView`에 제어 가능한 props를 주입한다.
+따라서 story는 실제 레이아웃·step component를 사용하면서 router, session probe, live API 호출에는 의존하지 않는다.
+
+```text
+Auth/
+  Login/
+    Entry/
+    Submission/
+    Result/
+  Signup/
+    Step 1 Email/
+    Step 2 Legal/
+    Step 3 Credentials/
+    Step 4 Academic Identity/
+    Step 5 Complete/
+    Recovery/
+  Password Reset/
+    Step 1 Email/
+    Step 2 Verification/
+    Step 3 Password/
+    Step 4 Complete/
+    Session/
+```
+
+단순 문구 길이 차이는 별도 story를 만들지 않는다.
+정책 상태, flow 단계, pending/error/success처럼 사용자 행동이나 CTA가 달라지는 상태만 scenario로 유지한다.
 
 ## Verification map
 
@@ -149,6 +194,13 @@ pnpm --dir apps/web exec vitest run \
   src/auth/flows/password-reset
 ```
 
+Storybook type/build:
+
+```bash
+pnpm --dir apps/web typecheck:storybook
+pnpm --dir apps/web storybook:build
+```
+
 Web-only auth smoke:
 
 ```bash
@@ -164,6 +216,7 @@ Broader verification when auth boundary or route behavior changes:
 pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/app/login/page.tsx src/app/signup/page.tsx src/app/password-reset/page.tsx src/app/main
 pnpm web:typecheck
 pnpm api:typecheck
+pnpm exec prettier --check --ignore-unknown apps/web/src/auth apps/web/src/app/api/auth
 git diff --check
 ```
 
@@ -186,16 +239,15 @@ Remaining follow-up candidates are explicitly outside this boundary cleanup:
 
 ## Source documents
 
-- `.omx/plans/web-auth-boundary-final-refactor-plan.md`
-- `.omx/plans/web-login-page-refactor-plan.md`
-- `.omx/plans/web-signup-page-refactor-plan.md`
-- `.omx/plans/web-password-reset-page-refactor-plan.md`
 - `apps/web/src/auth/api/*`
 - `apps/web/src/auth/flows/login/README.md`
 - `apps/web/src/auth/flows/signup/README.md`
 - `apps/web/src/auth/flows/password-reset/README.md`
-- `docs/04_policy/official/account-authentication.md`
-- `docs/04_policy/official/access-eligibility.md`
-- `docs/04_policy/official/legal-basis.md`
+- `docs/policies/account-authentication.md`
+- `docs/policies/access-eligibility.md`
+- `docs/policies/legal-basis.md`
+- `docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md`
+- `docs/architecture/backend/auth/auth-reset-timing-defense.md`
+- `docs/architecture/backend/business/auth-business-failure-monitoring-strategy.md`
 
 If README guidance and official policy conflict, official policy wins and auth README/tests should be updated in the same change.

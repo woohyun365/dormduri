@@ -864,6 +864,7 @@ describe('HomePrimaryStateCard', () => {
         requiredCount: 2 as const,
         canRequest: false,
         canCancel: false,
+        disabledReason: null,
         availableUntil: null,
       },
     };
@@ -938,6 +939,7 @@ describe('HomePrimaryStateCard', () => {
               requiredCount: 2,
               canRequest: false,
               canCancel: false,
+              disabledReason: null,
               availableUntil: null,
             },
           },

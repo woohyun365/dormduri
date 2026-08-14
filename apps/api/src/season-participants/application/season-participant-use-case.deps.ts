@@ -4,6 +4,7 @@ import type { DormitorySelectionCatalogPort } from '../../dormitories/selection-
 import type { MatchParticipantWithdrawalPort } from '../../matches/application/ports/match-participant-withdrawal.port.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
+import type { SeasonProfileIntroModerationPort } from '../profile-draft/ports/season-profile-intro-moderation.port.js';
 
 export interface SeasonParticipantUseCaseDeps {
   prisma: PrismaService;
@@ -11,6 +12,7 @@ export interface SeasonParticipantUseCaseDeps {
   dormitorySelectionCatalog: DormitorySelectionCatalogPort;
   chatThreadWithdrawal: ChatThreadWithdrawalPort;
   matchParticipantWithdrawal: MatchParticipantWithdrawalPort;
+  seasonProfileIntroModeration: SeasonProfileIntroModerationPort;
 }
 
 export type DbClient = Prisma.TransactionClient | PrismaService;

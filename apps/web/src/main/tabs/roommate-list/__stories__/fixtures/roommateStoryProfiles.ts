@@ -374,7 +374,7 @@ export function createPublicProfileFull(input: {
     nickname: input.nickname,
     intro: input.intro,
     additional: {
-      college: 'IT',
+      college: 'CHUNCHEON_IT',
       grade: '3',
       mbti: 'INFJ',
       birthYear: 2002,
@@ -612,7 +612,7 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       indoorEating: 'RARELY',
       cleanLevel: 'WEEKLY_3_UP',
     }),
-    additional: { college: 'IT', grade: '3', mbti: 'INFJ', birthYear: 2002 },
+    additional: { college: 'CHUNCHEON_IT', grade: '3', mbti: 'INFJ', birthYear: 2002 },
   }),
 
   createFullCompatibilityTargetFixture({
@@ -634,7 +634,7 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CASUAL',
       temperatureSensitivity: 'NORMAL',
     }),
-    additional: { college: 'IT', grade: '2', mbti: 'ENFJ', birthYear: 2004 },
+    additional: { college: 'CHUNCHEON_IT', grade: '2', mbti: 'ENFJ', birthYear: 2004 },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_HAYOON,
@@ -655,7 +655,7 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CLOSE',
       temperatureSensitivity: 'NORMAL',
     }),
-    additional: { college: 'BUSINESS', grade: '2', mbti: 'ISFJ', birthYear: 2003 },
+    additional: { college: 'CHUNCHEON_BUSINESS', grade: '2', mbti: 'ISFJ', birthYear: 2003 },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_FULL_COMPATIBILITY_DASOM,
@@ -676,7 +676,12 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CASUAL',
       temperatureSensitivity: 'COLD',
     }),
-    additional: { college: 'ARTS_ENGINEERING', grade: '4+', mbti: 'ENTP', birthYear: 2001 },
+    additional: {
+      college: 'CHUNCHEON_ARTS_ENGINEERING',
+      grade: '4+',
+      mbti: 'ENTP',
+      birthYear: 2001,
+    },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_FULL_COMPATIBILITY_RAHEE,
@@ -697,7 +702,7 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CLOSE',
       temperatureSensitivity: 'HOT',
     }),
-    additional: { college: 'SOCIAL_SCIENCES', grade: '1', mbti: 'INTJ', birthYear: 2006 },
+    additional: { college: 'CHUNCHEON_SOCIAL_SCIENCES', grade: '1', mbti: 'INTJ', birthYear: 2006 },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_FULL_COMPATIBILITY_YUJIN,
@@ -718,7 +723,12 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CLOSE',
       temperatureSensitivity: 'NORMAL',
     }),
-    additional: { college: 'NATURAL_SCIENCES', grade: '3', mbti: 'INTP', birthYear: 2002 },
+    additional: {
+      college: 'CHUNCHEON_NATURAL_SCIENCES',
+      grade: '3',
+      mbti: 'INTP',
+      birthYear: 2002,
+    },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_FULL_COMPATIBILITY_MINSEO,
@@ -739,7 +749,7 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CLOSE',
       temperatureSensitivity: 'NORMAL',
     }),
-    additional: { college: 'HUMANITIES', grade: '2', mbti: 'ENFP', birthYear: 2004 },
+    additional: { college: 'CHUNCHEON_HUMANITIES', grade: '2', mbti: 'ENFP', birthYear: 2004 },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_FULL_COMPATIBILITY_SEOYUN,
@@ -760,7 +770,12 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       relationshipStyle: 'CLOSE',
       temperatureSensitivity: 'HOT',
     }),
-    additional: { college: 'OPEN_MAJOR', grade: '1', mbti: 'ESFP', birthYear: 2006 },
+    additional: {
+      college: 'CHUNCHEON_GLOBAL_FUTURE_CONVERGENCE',
+      grade: '1',
+      mbti: 'ESFP',
+      birthYear: 2006,
+    },
   }),
   createFullCompatibilityTargetFixture({
     id: TARGET_FULL_COMPATIBILITY_MINJU,
@@ -781,7 +796,7 @@ export const FULL_COMPATIBILITY_TARGET_FIXTURES: readonly FullCompatibilityTarge
       temperatureSensitivity: 'NORMAL',
       relationshipStyle: 'CLOSE',
     }),
-    additional: { college: 'BUSINESS', grade: '3', mbti: 'ESFJ', birthYear: 2003 },
+    additional: { college: 'CHUNCHEON_BUSINESS', grade: '3', mbti: 'ESFJ', birthYear: 2003 },
   }),
 ];
 

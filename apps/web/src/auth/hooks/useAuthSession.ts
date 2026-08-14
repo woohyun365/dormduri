@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { BrowserSessionResolution } from '@repo/shared/auth/session';
 import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
 import { authApi } from '@/auth/api';
 
@@ -9,50 +10,36 @@ export const AUTH_SESSION_CHECK_TIMEOUT_MS = 3_000;
 /**
  * 현재 auth session identity를 반환한다.
  *
- * `/api/auth/session` BFF → opaque cookie/session resolve 경로만 사용한다.
+ * `POST /api/auth/session/resolve` BFF → opaque cookie/session resolve 경로만 사용한다.
  * 반환값은 계정 identity(`AuthenticatedSessionUser`)로 제한하며, season profile/view model을 만들지 않는다.
  */
 export function useAuthSession() {
-  const [user, setUser] = useState<AuthenticatedSessionUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [resolution, setResolution] = useState<BrowserSessionResolution | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  const retry = useCallback(() => {
+    setResolution(null);
+    setAttempt((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    function createSessionCheckTimeout() {
-      return new Promise<Awaited<ReturnType<typeof authApi.getSession>>>((resolve) => {
-        timeoutId = setTimeout(() => {
-          resolve({ authenticated: false });
-        }, AUTH_SESSION_CHECK_TIMEOUT_MS);
-      });
-    }
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, AUTH_SESSION_CHECK_TIMEOUT_MS);
 
     async function loadSession() {
       try {
-        const result = await Promise.race([authApi.getSession(), createSessionCheckTimeout()]);
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
+        const result = await authApi.resolveSession(abortController.signal);
         if (cancelled) return;
-
-        if (result.authenticated && result.user) {
-          setUser(result.user);
-          setIsLoading(false);
-          return;
-        }
+        setResolution(result);
       } catch {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
+        if (!cancelled) {
+          setResolution({ status: 'unavailable', code: 'AUTH_SESSION_UNAVAILABLE' });
         }
-        // ignore and fall through to unauthenticated state
-      }
-
-      if (!cancelled) {
-        setUser(null);
-        setIsLoading(false);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 
@@ -60,11 +47,20 @@ export function useAuthSession() {
 
     return () => {
       cancelled = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
+      abortController.abort();
     };
-  }, []);
+  }, [attempt]);
 
-  return { user, isLoading };
+  const status = resolution?.status ?? 'loading';
+  const user: AuthenticatedSessionUser | null =
+    resolution?.status === 'authenticated' ? resolution.user : null;
+
+  return {
+    user,
+    status,
+    isLoading: status === 'loading',
+    code: resolution?.status === 'unavailable' ? resolution.code : undefined,
+    retry,
+  };
 }

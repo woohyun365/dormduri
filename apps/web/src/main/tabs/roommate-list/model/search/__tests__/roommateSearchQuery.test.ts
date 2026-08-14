@@ -17,7 +17,7 @@ describe('buildRoommateSearchQueryParams', () => {
         filters: {
           smokingBehavior: 'NO',
           bedtime: '24_02',
-          college: { operator: 'EXCLUDE', values: ['ENGINEERING', 'HUMANITIES'] },
+          college: { operator: 'EXCLUDE', values: ['ENGINEERING', 'CHUNCHEON_HUMANITIES'] },
           grade: { operator: 'INCLUDE', values: ['1', '2'] },
           mbtiTraits: { energy: 'E', perception: 'N', decision: null },
           ageBand: { values: ['20', '25_PLUS'] },
@@ -34,7 +34,7 @@ describe('buildRoommateSearchQueryParams', () => {
     expect(params.get('smokingBehavior')).toBe('NO');
     expect(params.get('bedtime')).toBe('24_02');
     expect(params.get('college.operator')).toBe('EXCLUDE');
-    expect(values(params, 'college.values[]')).toEqual(['ENGINEERING', 'HUMANITIES']);
+    expect(values(params, 'college.values[]')).toEqual(['ENGINEERING', 'CHUNCHEON_HUMANITIES']);
     expect(params.get('grade.operator')).toBe('INCLUDE');
     expect(values(params, 'grade.values[]')).toEqual(['1', '2']);
     expect(params.get('mbtiTraits.energy')).toBe('E');

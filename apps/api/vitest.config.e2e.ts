@@ -2,7 +2,7 @@ import { defineApiVitestConfig } from './vitest.config.base.js';
 
 export default defineApiVitestConfig({
   test: {
-    include: ['test/**/*.e2e-spec.ts', 'test/e2e/**/*.e2e-spec.ts'],
+    include: ['test/e2e/**/*.e2e-spec.ts'],
     exclude: ['dist/**'],
     pool: 'forks',
     fileParallelism: false,
@@ -10,6 +10,5 @@ export default defineApiVitestConfig({
     testTimeout: 60_000,
     hookTimeout: 60_000,
     teardownTimeout: 60_000,
-    passWithNoTests: true,
   },
 });

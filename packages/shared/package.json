@@ -171,10 +171,6 @@
       "types": "./dist/dormitory/catalog.d.ts",
       "default": "./dist/dormitory/catalog.js"
     },
-    "./dormitory/guide": {
-      "types": "./dist/dormitory/guide.d.ts",
-      "default": "./dist/dormitory/guide.js"
-    },
     "./season": {
       "types": "./dist/season/index.d.ts",
       "default": "./dist/season/index.js"
@@ -226,9 +222,16 @@
   },
   "scripts": {
     "build": "rm -rf ./dist && tsc -p tsconfig.json",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts test/**/*.ts vitest.config.ts",
+    "test": "pnpm build && pnpm test:prepared",
+    "test:prepared": "vitest run --config ./vitest.config.ts",
+    "typecheck:test": "tsc -p test/tsconfig.json --noEmit"
   },
   "dependencies": {
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   }
 }

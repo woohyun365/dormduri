@@ -5,7 +5,7 @@ import { AlertTriangle, ChevronRight, ClipboardList, Lock, TrendingUp } from 'lu
 import { glassCard, sectionCard, sectionHeader } from '@/main/styles/home';
 import type { ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
-import type { MatchingNavOptions, TabId } from '@/types/profile';
+import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import { ActiveMatchSummaryCard } from './ActiveMatchSummaryCard';
 import { MatchingActionList } from './MatchingActionList';
 import type { MatchingSummaryStats, MatchingSummaryStatus } from './model/matchingSummaryContent';
@@ -20,9 +20,6 @@ export interface MatchingSummaryActiveMatch {
   matchedAt: string;
   unmatchProgress: ActiveMatchUnmatchProgress;
   counterpartSummary?: RoommateSearchSummary;
-  groupStage?: 'PAIR_OPEN' | 'PAIR_FINAL' | 'GROUP_FORMING' | 'GROUP_FINAL' | null;
-  groupMemberCount?: 2 | 3;
-  groupCapacity?: 2 | 3;
 }
 
 export interface ActiveMatchRoomSelectionSummary {

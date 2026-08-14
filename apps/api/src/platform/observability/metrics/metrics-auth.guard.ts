@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import type { ConfigType } from '@nestjs/config';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 
 export const METRICS_BEARER_TOKEN_ENV = 'METRICS_BEARER_TOKEN';
 

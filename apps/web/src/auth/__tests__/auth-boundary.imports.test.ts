@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 const webSrc = join(process.cwd(), 'src');
 const readmePath = join(webSrc, 'auth', 'README.md');
 const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
+const authApiFacadePath = join(webSrc, 'auth', 'api', 'index.ts');
+const authBffFacadePath = join(webSrc, 'auth', 'bff', 'index.ts');
 
 const blockedCompatibilityPaths = [
   'api/auth.ts',
@@ -57,8 +59,8 @@ const blockedRootBarrelRules = [
 ] as const;
 
 const authOwnedProfileForbiddenPatterns = [
-  '@/types/profile',
-  '@/types/lifestyle',
+  '@/main/model/profile',
+  '@repo/shared/lifestyle',
   'UserProfile',
   'toUserProfile',
   'to-user-profile',
@@ -73,9 +75,9 @@ const appRouterEntrypoints = [
   'app/api/auth/reset-password/route.ts',
   'app/api/auth/send-reset-code/route.ts',
   'app/api/auth/send-signup-code/route.ts',
-  'app/api/auth/session/route.ts',
+  'app/api/auth/session/resolve/route.ts',
   'app/api/auth/signup/route.ts',
-  'app/api/auth/validate-signup-draft/route.ts',
+  'app/api/auth/signup/validate-nickname/route.ts',
   'app/api/auth/verify-email-code/route.ts',
   'app/api/auth/verify-reset-code/route.ts',
   'app/login/page.tsx',
@@ -221,7 +223,10 @@ describe('web auth final boundary guard', () => {
     }
 
     for (const barrelRule of blockedRootBarrelRules) {
-      const source = readFileSync(join(webSrc, barrelRule.path), 'utf8');
+      const barrelPath = join(webSrc, barrelRule.path);
+      if (!existsSync(barrelPath)) continue;
+
+      const source = readFileSync(barrelPath, 'utf8');
 
       for (const forbiddenSymbol of barrelRule.forbiddenSymbols) {
         expect(source, `${barrelRule.path} should not re-export ${forbiddenSymbol}`).not.toContain(
@@ -259,6 +264,15 @@ describe('web auth final boundary guard', () => {
       .filter((sourceFile) => sourceFile.imports.length > 0);
 
     expect(filesWithForbiddenPrivateImports).toEqual([]);
+  });
+
+  it('keeps auth facades explicit and excludes private transport result types', () => {
+    const apiFacade = readFileSync(authApiFacadePath, 'utf8');
+    const bffFacade = readFileSync(authBffFacadePath, 'utf8');
+
+    expect(apiFacade).not.toContain('AuthCodeRequestResult');
+    expect(bffFacade).not.toMatch(/\bexport\s+\*/);
+    expect(bffFacade).not.toContain('createForwardPostHandler');
   });
 
   it('keeps auth session identity separated from profile/main view models', () => {

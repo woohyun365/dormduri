@@ -4,6 +4,7 @@ import { forwardBffRequest } from '@/app/api/_bff/forward';
 export async function GET(request: NextRequest) {
   return forwardBffRequest({
     request,
+    operation: 'enforcement.list',
     method: 'GET',
     path: '/api/enforcements',
     authenticated: true,

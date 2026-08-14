@@ -178,10 +178,6 @@ export class CreateReportCommand {
             actorUserId: null,
             actorType: 'SYSTEM',
             eventType: 'PROFILE_MISMATCH_FEEDBACK_CANDIDATE_RECORDED',
-            metadata: {
-              deliveryOwner: 'notifications/phase-6',
-              nextSeasonPromptCandidate: true,
-            },
             now,
           });
         }

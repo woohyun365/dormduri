@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 import { Home, Users, Handshake, MessageCircle, User } from 'lucide-react';
-import type { TabId } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
 
 interface BottomTabBarProps {
   activeTab: TabId;
@@ -28,7 +28,7 @@ export function BottomTabBar({
   return (
     <nav
       aria-label="메인 네비게이션"
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-[var(--knu-border)]"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-[(--knu-border)]"
     >
       <div className="max-w-md mx-auto flex items-center justify-around">
         {tabs.map(({ id, label, icon: Icon }) => {
@@ -45,10 +45,10 @@ export function BottomTabBar({
               whileTap={isDisabled ? undefined : { scale: 0.95 }}
               className={`relative flex-1 flex flex-col items-center gap-1 py-3 px-1 transition-all ${
                 isDisabled
-                  ? 'text-[var(--knu-text-tertiary)] opacity-40 cursor-not-allowed'
+                  ? 'text-[(--knu-text-tertiary)] opacity-40 cursor-not-allowed'
                   : isActive
-                    ? 'text-[var(--knu-primary)]'
-                    : 'text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)]'
+                    ? 'text-[(--knu-primary)]'
+                    : 'text-[(--knu-text-tertiary)] hover:text-[(--knu-text-secondary)]'
               }`}
             >
               <div className="relative">
@@ -62,7 +62,7 @@ export function BottomTabBar({
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1"
+                    className="absolute -top-1 -right-2 min-w-4.5 h-4.5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1"
                   >
                     {badge > 99 ? '99+' : badge}
                   </motion.span>
@@ -72,7 +72,7 @@ export function BottomTabBar({
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-[var(--knu-primary)] rounded-t-full"
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-[(--knu-primary)] rounded-t-full"
                 />
               )}
             </motion.button>

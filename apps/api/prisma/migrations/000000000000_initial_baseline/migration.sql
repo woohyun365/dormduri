@@ -14,7 +14,16 @@ CREATE TYPE "Campus" AS ENUM ('CHUNCHEON', 'SAMCHEOK', 'DOGYE');
 CREATE TYPE "VerificationCodePurpose" AS ENUM ('SIGNUP', 'RESET_PASSWORD');
 
 -- CreateEnum
-CREATE TYPE "AuthSecurityEventType" AS ENUM ('LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGIN_LOCKOUT', 'VERIFICATION_CODE_REQUESTED', 'VERIFICATION_CODE_VERIFY_SUCCESS', 'VERIFICATION_CODE_VERIFY_FAILURE', 'RESET_PASSWORD_CONSUMED', 'CHANGE_PASSWORD_SUCCESS', 'SESSION_REFRESH_SUCCESS', 'SESSION_REVOKED', 'SESSION_REVOKE_ALL', 'SESSION_TOKEN_REUSE_DETECTED', 'OPAQUE_TRANSPORT_REJECTED', 'MAIL_SEND_SUCCESS', 'MAIL_SEND_FAILURE');
+CREATE TYPE "VerificationCodeDeliveryStatus" AS ENUM ('PENDING', 'ACCEPTED', 'FAILED', 'UNKNOWN', 'SUPERSEDED');
+
+-- CreateEnum
+CREATE TYPE "AuthMailKind" AS ENUM ('SIGNUP_VERIFICATION', 'PASSWORD_RESET_VERIFICATION', 'PASSWORD_CHANGED');
+
+-- CreateEnum
+CREATE TYPE "AuthMailOutboxStatus" AS ENUM ('PENDING', 'PROCESSING', 'ACCEPTED', 'FAILED', 'UNKNOWN', 'SUPERSEDED');
+
+-- CreateEnum
+CREATE TYPE "AuthSecurityEventType" AS ENUM ('ACCOUNT_SIGNUP_SUCCEEDED', 'LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGIN_LOCKOUT', 'VERIFICATION_CODE_REQUESTED', 'VERIFICATION_CODE_VERIFY_SUCCESS', 'VERIFICATION_CODE_VERIFY_FAILURE', 'PASSWORD_RESET_SUCCEEDED', 'CHANGE_PASSWORD_SUCCEEDED', 'SESSION_REFRESH_SUCCESS', 'SESSION_REVOKED', 'SESSION_REVOKE_ALL', 'SESSION_TOKEN_REUSE_DETECTED', 'OPAQUE_TRANSPORT_REJECTED', 'MAIL_SEND_SUCCESS', 'MAIL_SEND_FAILURE');
 
 -- CreateEnum
 CREATE TYPE "AuthSecurityEventSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
@@ -23,7 +32,10 @@ CREATE TYPE "AuthSecurityEventSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
 CREATE TYPE "ModerationTermCategory" AS ENUM ('BLOCKED_TEXT', 'RESERVED_NICKNAME');
 
 -- CreateEnum
-CREATE TYPE "ModerationMatchMode" AS ENUM ('EXACT', 'INCLUDES');
+CREATE TYPE "ModerationMatchMode" AS ENUM ('EXACT', 'INCLUDES', 'PREFIX');
+
+-- CreateEnum
+CREATE TYPE "ModerationTermSource" AS ENUM ('REFERENCE', 'OPERATIONS');
 
 -- CreateEnum
 CREATE TYPE "ModerationSurface" AS ENUM ('ALL', 'NICKNAME', 'INTRO');
@@ -33,9 +45,6 @@ CREATE TYPE "DormitorySelectionState" AS ENUM ('NOT_SELECTED', 'SELECTED', 'UNAS
 
 -- CreateEnum
 CREATE TYPE "DormitoryGenderPolicy" AS ENUM ('M', 'F', 'BOTH');
-
--- CreateEnum
-CREATE TYPE "DormitoryBathroomType" AS ENUM ('SHARED', 'PRIVATE');
 
 -- CreateEnum
 CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');
@@ -92,7 +101,7 @@ CREATE TYPE "SupportMessageSenderType" AS ENUM ('USER', 'OPERATOR', 'SYSTEM');
 CREATE TYPE "SupportAppealCategory" AS ENUM ('SANCTION', 'TEMPORARY_RESTRICTION', 'REPORT_RESULT', 'CONTENT_ACTION');
 
 -- CreateEnum
-CREATE TYPE "SupportFaqSurface" AS ENUM ('LANDING', 'SUPPORT_CENTER');
+CREATE TYPE "SupportFaqSurface" AS ENUM ('SUPPORT_CENTER');
 
 -- CreateEnum
 CREATE TYPE "LegalDocumentKind" AS ENUM ('TERMS_OF_SERVICE', 'PRIVACY_POLICY', 'PERSONAL_DATA_COLLECTION_USE_CONSENT', 'AGE_14_OR_ABOVE_NOTICE');
@@ -131,6 +140,9 @@ CREATE TYPE "SeasonMatchHistoryEntryType" AS ENUM ('REQUEST', 'MATCH');
 CREATE TYPE "SeasonMatchHistoryEntryResult" AS ENUM ('REQUEST_REJECTED', 'REQUEST_CANCELLED', 'REQUEST_EXPIRED', 'MATCHED_SUCCESS', 'UNMATCHED_AFTER_SUCCESS');
 
 -- CreateEnum
+CREATE TYPE "MatchHistorySystemCancellationCause" AS ENUM ('VIEWER_MATCHED', 'COUNTERPART_MATCHED');
+
+-- CreateEnum
 CREATE TYPE "ConversationThreadKind" AS ENUM ('DIRECT', 'MATCHED');
 
 -- CreateEnum
@@ -161,7 +173,7 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
+CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'ENFORCEMENT_NOTICE', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'MATCH_REQUEST_RECEIVED', 'MATCH_REQUEST_ACCEPTED', 'MATCH_REQUEST_REJECTED', 'ACTIVE_MATCH_CREATED', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
 
 -- CreateEnum
 CREATE TYPE "NotificationOutboxStatus" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED');
@@ -314,18 +326,6 @@ CREATE TABLE "CampusMaster" (
 );
 
 -- CreateTable
-CREATE TABLE "CampusGuideContent" (
-    "campusCode" "Campus" NOT NULL,
-    "homepageUrl" TEXT NOT NULL,
-    "commonRules" JSONB NOT NULL,
-    "emergencyContacts" JSONB NOT NULL,
-    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "CampusGuideContent_pkey" PRIMARY KEY ("campusCode")
-);
-
--- CreateTable
 CREATE TABLE "CollegeMaster" (
     "code" TEXT NOT NULL,
     "campusCode" "Campus" NOT NULL,
@@ -345,24 +345,13 @@ CREATE TABLE "Dormitory" (
     "nameKo" TEXT NOT NULL,
     "roomType" INTEGER NOT NULL,
     "genderPolicy" "DormitoryGenderPolicy" NOT NULL,
+    "matchingSupported" BOOLEAN NOT NULL DEFAULT true,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Dormitory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "DormitoryGuide" (
-    "dormitoryId" TEXT NOT NULL,
-    "bathroomType" "DormitoryBathroomType" NOT NULL,
-    "facilities" JSONB NOT NULL,
-    "repairContact" TEXT NOT NULL,
-    "diningContact" TEXT,
-    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "DormitoryGuide_pkey" PRIMARY KEY ("dormitoryId")
 );
 
 -- CreateTable
@@ -896,6 +885,7 @@ CREATE TABLE "MatchRequest" (
     "note" TEXT,
     "status" "MatchRequestStatus" NOT NULL DEFAULT 'PENDING',
     "terminalReason" "MatchRequestTerminalReason",
+    "systemCancellationActiveMatchId" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "terminalAt" TIMESTAMPTZ(3),
@@ -967,6 +957,8 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "sourceActiveMatchId" TEXT,
     "createdFromRequestId" TEXT,
     "matchScore" INTEGER,
+    "compatibilitySnapshot" JSONB,
+    "compatibilitySchemaVersion" VARCHAR(64),
     "viewerSmokingToleranceSnapshot" "RoommateSmokingTolerance",
     "viewerPhoneToleranceSnapshot" "RoommatePhoneTolerance",
     "viewerEarphoneExpectationSnapshot" "RoommateEarphoneExpectation",
@@ -1001,12 +993,19 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "unmatchedAt" TIMESTAMPTZ(3),
     "finalizedAt" TIMESTAMPTZ(3) NOT NULL,
     "requestTerminalReason" "MatchRequestTerminalReason",
+    "systemCancellationCause" "MatchHistorySystemCancellationCause",
+    "systemCancellationGroupId" TEXT,
     "activeMatchEndReason" "ActiveMatchEndReason",
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SeasonMatchHistoryEntry_pkey" PRIMARY KEY ("id")
 );
+
+-- AddCheckConstraint
+ALTER TABLE "SeasonMatchHistoryEntry"
+ADD CONSTRAINT "SeasonMatchHistoryEntry_compatibility_snapshot_version_check"
+CHECK (("compatibilitySnapshot" IS NULL) = ("compatibilitySchemaVersion" IS NULL));
 
 -- CreateTable
 CREATE TABLE "ConversationThread" (
@@ -1119,6 +1118,22 @@ CREATE TABLE "ChatRealtimeEventRecipient" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRealtimeEventRecipient_pkey" PRIMARY KEY ("eventId","userId")
+);
+
+-- CreateTable
+CREATE TABLE "GlobalNotice" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "summary" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "severity" TEXT NOT NULL DEFAULT 'INFO',
+    "relatedSeasonId" TEXT,
+    "publishedAt" TIMESTAMPTZ(3),
+    "expiresAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "GlobalNotice_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1349,15 +1364,21 @@ CREATE TABLE "LoginAttempt" (
 -- CreateTable
 CREATE TABLE "VerificationCode" (
     "id" TEXT NOT NULL,
-    "emailNormalized" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL,
     "purpose" "VerificationCodePurpose" NOT NULL,
     "codeHash" TEXT NOT NULL,
     "failedAttempts" INTEGER NOT NULL DEFAULT 0,
+    "deliveryStatus" "VerificationCodeDeliveryStatus" NOT NULL DEFAULT 'ACCEPTED',
     "issuedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "codeExpiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "activatedAt" TIMESTAMPTZ(3) DEFAULT CURRENT_TIMESTAMP,
     "verifiedAt" TIMESTAMPTZ(3),
+    "grantTokenHash" TEXT,
+    "grantExpiresAt" TIMESTAMPTZ(3),
+    "eligibleUserId" TEXT,
     "consumedAt" TIMESTAMPTZ(3),
-    "requestIp" TEXT,
+    "requestIpKey" TEXT,
+    "providerCorrelationId" TEXT,
 
     CONSTRAINT "VerificationCode_pkey" PRIMARY KEY ("id")
 );
@@ -1365,12 +1386,38 @@ CREATE TABLE "VerificationCode" (
 -- CreateTable
 CREATE TABLE "VerificationCodeRequestLog" (
     "id" TEXT NOT NULL,
-    "emailNormalized" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL,
     "purpose" "VerificationCodePurpose" NOT NULL,
-    "requestIp" TEXT NOT NULL,
+    "requestIpKey" TEXT NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "VerificationCodeRequestLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AuthMailOutboxEvent" (
+    "id" TEXT NOT NULL,
+    "mailKind" "AuthMailKind" NOT NULL,
+    "verificationCodeId" TEXT,
+    "targetUserId" TEXT,
+    "purpose" "VerificationCodePurpose",
+    "payloadCiphertext" BYTEA,
+    "payloadIv" BYTEA,
+    "payloadAuthTag" BYTEA,
+    "keyVersion" TEXT NOT NULL,
+    "status" "AuthMailOutboxStatus" NOT NULL DEFAULT 'PENDING',
+    "availableAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lockedAt" TIMESTAMPTZ(3),
+    "lockedBy" TEXT,
+    "attemptCount" INTEGER NOT NULL DEFAULT 0,
+    "providerMessageId" TEXT,
+    "providerErrorCategory" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMPTZ(3),
+    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "AuthMailOutboxEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1381,6 +1428,8 @@ CREATE TABLE "AuthSession" (
     "sessionTokenHash" TEXT,
     "sessionTokenExpiresAt" TIMESTAMPTZ(3),
     "refreshTokenHash" TEXT,
+    "previousRefreshTokenHash" TEXT,
+    "previousRefreshTokenValidUntil" TIMESTAMPTZ(3),
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "revokedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1414,6 +1463,8 @@ CREATE TABLE "ModerationTerm" (
     "category" "ModerationTermCategory" NOT NULL,
     "matchMode" "ModerationMatchMode" NOT NULL,
     "surface" "ModerationSurface" NOT NULL,
+    "source" "ModerationTermSource" NOT NULL DEFAULT 'OPERATIONS',
+    "referenceKey" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1428,7 +1479,7 @@ CREATE INDEX "CollegeMaster_campusCode_sortOrder_idx" ON "CollegeMaster"("campus
 CREATE UNIQUE INDEX "CollegeMaster_campusCode_nameKo_key" ON "CollegeMaster"("campusCode", "nameKo");
 
 -- CreateIndex
-CREATE INDEX "Dormitory_campusCode_genderPolicy_sortOrder_idx" ON "Dormitory"("campusCode", "genderPolicy", "sortOrder");
+CREATE INDEX "Dormitory_campusCode_isActive_matchingSupported_genderPolicy_sortOrder_idx" ON "Dormitory"("campusCode", "isActive", "matchingSupported", "genderPolicy", "sortOrder");
 
 -- CreateIndex
 CREATE INDEX "Season_campusCode_matchingStartDate_idx" ON "Season"("campusCode", "matchingStartDate");
@@ -1749,6 +1800,9 @@ CREATE INDEX "MatchRequest_seasonId_status_expiresAt_idx" ON "MatchRequest"("sea
 CREATE INDEX "MatchRequest_seasonId_pairKey_status_idx" ON "MatchRequest"("seasonId", "pairKey", "status");
 
 -- CreateIndex
+CREATE INDEX "MatchRequest_systemCancellationActiveMatchId_idx" ON "MatchRequest"("systemCancellationActiveMatchId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ActiveMatch_createdFromRequestId_key" ON "ActiveMatch"("createdFromRequestId");
 
 -- CreateIndex
@@ -1897,6 +1951,15 @@ CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEven
 CREATE INDEX "ChatRealtimeEventRecipient_threadId_createdAt_eventId_idx" ON "ChatRealtimeEventRecipient"("threadId", "createdAt", "eventId");
 
 -- CreateIndex
+CREATE INDEX "GlobalNotice_publishedAt_expiresAt_id_idx" ON "GlobalNotice"("publishedAt", "expiresAt", "id");
+
+-- CreateIndex
+CREATE INDEX "GlobalNotice_severity_publishedAt_id_idx" ON "GlobalNotice"("severity", "publishedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "GlobalNotice_relatedSeasonId_publishedAt_id_idx" ON "GlobalNotice"("relatedSeasonId", "publishedAt", "id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "UserNotification_recipientUserId_kind_sourceType_sourceId_key" ON "UserNotification"("recipientUserId", "kind", "sourceType", "sourceId");
 
 -- CreateIndex
@@ -2029,22 +2092,52 @@ CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt");
 CREATE INDEX "LoginAttempt_lockedUntil_idx" ON "LoginAttempt"("lockedUntil");
 
 -- CreateIndex
-CREATE INDEX "VerificationCode_emailNormalized_purpose_idx" ON "VerificationCode"("emailNormalized", "purpose");
+CREATE INDEX "VerificationCode_subjectKey_purpose_activatedAt_codeExpiresAt_idx" ON "VerificationCode"("subjectKey", "purpose", "activatedAt", "codeExpiresAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt");
+CREATE INDEX "VerificationCode_active_lookup_idx" ON "VerificationCode"("subjectKey", "purpose", "deliveryStatus", "issuedAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_deliveryStatus_issuedAt_idx" ON "VerificationCode"("deliveryStatus", "issuedAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_codeExpiresAt_idx" ON "VerificationCode"("codeExpiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "VerificationCode_grantTokenHash_key" ON "VerificationCode"("grantTokenHash");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_grantExpiresAt_idx" ON "VerificationCode"("grantExpiresAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCode_consumedAt_idx" ON "VerificationCode"("consumedAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" ON "VerificationCodeRequestLog"("emailNormalized", "purpose", "requestIp", "createdAt");
+CREATE INDEX "VerificationCodeRequestLog_subjectKey_purpose_requestIpKey_cre_idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "requestIpKey", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCodeRequestLog_requestIp_createdAt_idx" ON "VerificationCodeRequestLog"("requestIp", "createdAt");
+CREATE INDEX "VerificationRequestLog_subject_purpose_created_idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCodeRequestLog_requestIpKey_purpose_createdAt_idx" ON "VerificationCodeRequestLog"("requestIpKey", "purpose", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_status_availableAt_createdAt_id_idx" ON "AuthMailOutboxEvent"("status", "availableAt", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_status_lockedAt_id_idx" ON "AuthMailOutboxEvent"("status", "lockedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_verificationCodeId_createdAt_id_idx" ON "AuthMailOutboxEvent"("verificationCodeId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_targetUserId_createdAt_id_idx" ON "AuthMailOutboxEvent"("targetUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "AuthMailOutboxEvent_expiresAt_idx" ON "AuthMailOutboxEvent"("expiresAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash");
@@ -2088,17 +2181,14 @@ CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"(
 -- CreateIndex
 CREATE UNIQUE INDEX "ModerationTerm_normalizedTerm_category_matchMode_surface_key" ON "ModerationTerm"("normalizedTerm", "category", "matchMode", "surface");
 
--- AddForeignKey
-ALTER TABLE "CampusGuideContent" ADD CONSTRAINT "CampusGuideContent_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE CASCADE ON UPDATE CASCADE;
+-- CreateIndex
+CREATE UNIQUE INDEX "ModerationTerm_referenceKey_key" ON "ModerationTerm"("referenceKey");
 
 -- AddForeignKey
 ALTER TABLE "CollegeMaster" ADD CONSTRAINT "CollegeMaster_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Dormitory" ADD CONSTRAINT "Dormitory_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "DormitoryGuide" ADD CONSTRAINT "DormitoryGuide_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Season" ADD CONSTRAINT "Season_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -2228,6 +2318,9 @@ ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_requesterParticipantId_f
 ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_receiverParticipantId_fkey" FOREIGN KEY ("receiverParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_systemCancellationActiveMatchId_fkey" FOREIGN KEY ("systemCancellationActiveMatchId") REFERENCES "ActiveMatch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ActiveMatch" ADD CONSTRAINT "ActiveMatch_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -2341,6 +2434,9 @@ ALTER TABLE "RetentionAccessLog" ADD CONSTRAINT "RetentionAccessLog_retainedVaul
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "AuthMailOutboxEvent" ADD CONSTRAINT "AuthMailOutboxEvent_verificationCodeId_fkey" FOREIGN KEY ("verificationCodeId") REFERENCES "VerificationCode"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- Manual check constraints not represented by Prisma schema DSL
 ALTER TABLE "UserAcademicIdentity"
   ADD CONSTRAINT "UserAcademicIdentity_birthYear_check"
@@ -2349,6 +2445,14 @@ ALTER TABLE "UserAcademicIdentity"
 ALTER TABLE "UserAcademicIdentityChangeAllowance"
   ADD CONSTRAINT "UserAcademicIdentityChangeAllowance_collegeChangeRemaining_check"
   CHECK ("collegeChangeRemaining" >= 0);
+
+ALTER TABLE "AuthSession"
+  ADD CONSTRAINT "AuthSession_previousRefreshToken_pair_check"
+  CHECK (
+    ("previousRefreshTokenHash" IS NULL AND "previousRefreshTokenValidUntil" IS NULL)
+    OR
+    ("previousRefreshTokenHash" IS NOT NULL AND "previousRefreshTokenValidUntil" IS NOT NULL)
+  );
 
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_grade_check"

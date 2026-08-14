@@ -5,7 +5,9 @@ const SENSITIVE_BODY_KEY_PARTS = [
   'renewaltoken',
   'authorization',
   'cookie',
+  'resetgrant',
   'secret',
+  'signupgrant',
 ];
 const FORBIDDEN_FORWARD_HEADER_NAMES = new Set([
   'cookie',

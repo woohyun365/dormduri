@@ -39,6 +39,8 @@ export interface MatchHistoryEntryRow {
     | 'MATCH_PRECONDITION_FAILED'
     | 'ADMIN_ACTION'
     | null;
+  systemCancellationCause: 'VIEWER_MATCHED' | 'COUNTERPART_MATCHED' | null;
+  systemCancellationGroupId: string | null;
   activeMatchEndReason:
     | 'UNMATCHED_BY_MUTUAL_CONSENT'
     | 'SEASON_ENDED'
@@ -131,6 +133,8 @@ function toMatchHistoryEntry(row: MatchHistoryEntryRow): MatchHistoryEntry {
     unmatchedAt: row.unmatchedAt?.toISOString() ?? null,
     finalizedAt: row.finalizedAt.toISOString(),
     requestTerminalReason: row.requestTerminalReason,
+    systemCancellationCause: row.systemCancellationCause,
+    systemCancellationGroupId: row.systemCancellationGroupId,
     activeMatchEndReason: row.activeMatchEndReason,
   };
 }

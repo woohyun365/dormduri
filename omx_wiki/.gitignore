@@ -1,0 +1,4 @@
+# OMX가 재생성하는 derived metadata는 로컬에서만 유지한다.
+index.md
+log.md
+session-log-*.md

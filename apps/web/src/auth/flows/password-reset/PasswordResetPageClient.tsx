@@ -1,63 +1,41 @@
 'use client';
 
-import { PasswordResetEmailStep } from './components/PasswordResetEmailStep';
-import { PasswordResetLayout } from './components/PasswordResetLayout';
-import { PasswordResetVerificationStep } from './components/PasswordResetVerificationStep';
-import { PasswordResetNewPasswordStep } from './components/PasswordResetNewPasswordStep';
-import { PasswordResetCompleteStep } from './components/PasswordResetCompleteStep';
+import { AuthSessionTransition } from '@/auth/components';
+import { useRedirectIfAuthenticated } from '@/auth/hooks';
+import { PasswordResetFlowView } from './PasswordResetFlowView';
 import { usePasswordResetFlow } from './hooks/usePasswordResetFlow';
 
 export default function PasswordResetPageClient() {
-  const { state, stepNumber, cooldown, status, isAuthenticated, actions } = usePasswordResetFlow();
+  const { isReadyToRender, sessionStatus, retrySession } = useRedirectIfAuthenticated();
+  const { state, codeExpiry, status, actions } = usePasswordResetFlow();
+
+  if (!isReadyToRender) {
+    return (
+      <AuthSessionTransition
+        state={sessionStatus === 'authenticated' ? 'redirecting' : 'checking'}
+      />
+    );
+  }
 
   return (
-    <PasswordResetLayout
-      currentStep={stepNumber}
-      showBack={state.step !== 'email' && state.step !== 'complete'}
-      showProgress={state.step !== 'complete'}
+    <PasswordResetFlowView
+      state={state}
+      countdown={codeExpiry}
       status={status}
-      isAuthenticated={isAuthenticated}
-      onBack={actions.goBack}
-      onRestart={actions.restartEmailEntry}
-    >
-      {state.step === 'email' && (
-        <PasswordResetEmailStep
-          email={state.email}
-          isSending={state.isSendingCode}
-          onEmailChange={actions.changeEmail}
-          onSendCode={actions.sendCode}
-          onGoToLogin={actions.goToLogin}
-        />
-      )}
-      {state.step === 'verification' && (
-        <PasswordResetVerificationStep
-          email={state.requestedEmail || state.email}
-          verificationCode={state.verificationCode}
-          countdown={cooldown.countdown}
-          isActive={cooldown.isActive}
-          isSending={state.isSendingCode}
-          isVerifying={state.isVerifyingCode}
-          formatTime={cooldown.formatTime}
-          onVerificationCodeChange={actions.changeVerificationCode}
-          onResendCode={actions.sendCode}
-          onVerifyCode={actions.verifyCode}
-          onBackToEmail={actions.restartEmailEntry}
-        />
-      )}
-      {state.step === 'newPassword' && (
-        <PasswordResetNewPasswordStep
-          email={state.requestedEmail || state.email}
-          newPassword={state.newPassword}
-          confirmPassword={state.confirmPassword}
-          isResetting={state.isResettingPassword}
-          onNewPasswordChange={actions.changeNewPassword}
-          onConfirmPasswordChange={actions.changeConfirmPassword}
-          onResetPassword={actions.resetPassword}
-        />
-      )}
-      {state.step === 'complete' && (
-        <PasswordResetCompleteStep onGoToLogin={actions.goToLoginAfterReset} />
-      )}
-    </PasswordResetLayout>
+      isSessionUnavailable={sessionStatus === 'unavailable'}
+      onBackAction={actions.goBack}
+      onRestartAction={actions.restartEmailEntry}
+      onEmailChangeAction={actions.changeEmail}
+      onSendCodeAction={actions.sendCode}
+      onGoToLoginAction={actions.goToLogin}
+      onVerificationCodeChangeAction={actions.changeVerificationCode}
+      onVerifyCodeAction={actions.verifyCode}
+      onContinueAfterVerificationAction={actions.continueAfterVerification}
+      onNewPasswordChangeAction={actions.changeNewPassword}
+      onConfirmPasswordChangeAction={actions.changeConfirmPassword}
+      onResetPasswordAction={actions.resetPassword}
+      onGoToLoginAfterResetAction={actions.goToLoginAfterReset}
+      onRetrySessionAction={retrySession}
+    />
   );
 }

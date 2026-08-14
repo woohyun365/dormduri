@@ -6,5 +6,8 @@
 **/*.log
 pnpm-lock.yaml
 
+# Generated from the API config registry; preserve generator-owned serialization.
+infra/deploy/api/env.manifest.json
+
 # Next.js generated typing artifact; Next rewrites quote style during build.
 **/next-env.d.ts

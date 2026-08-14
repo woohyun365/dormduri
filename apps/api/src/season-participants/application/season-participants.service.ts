@@ -73,6 +73,14 @@ export class SeasonParticipantsService {
     return this.writeOwner.getPreviousSeasonProfile(userId, now);
   }
 
+  async getSeasonProfileHistory(
+    userId: string,
+    seasonId: string,
+    now?: Date,
+  ): Promise<PreviousSeasonProfileResponse> {
+    return this.writeOwner.getSeasonProfileHistory(userId, seasonId, now);
+  }
+
   async createOrUpdateSeasonProfileDraft(
     userId: string,
     input: SeasonProfileDraftRequest,

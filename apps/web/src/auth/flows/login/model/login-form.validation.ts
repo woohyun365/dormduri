@@ -1,4 +1,4 @@
-import { validateKnuEmail } from '@/utils/validation';
+import { validateKnuEmailFormat as validateKnuEmail } from '@repo/shared/auth/policy';
 import type { LoginFieldErrors, LoginFormValues } from './login-form.types';
 
 export const INITIAL_LOGIN_FORM_VALUES: LoginFormValues = {

@@ -49,7 +49,12 @@ export default defineConfig([
     },
   },
   {
-    files: ['prisma/seed.js', 'prisma/seed-data/reference/*.js', 'prisma/seed-data/fixtures/*.js'],
+    files: [
+      'prisma/seed.js',
+      'prisma/seed-data/reference/*.js',
+      'prisma/seed-data/fixtures/*.js',
+      'prisma/seeds/**/*.js',
+    ],
     ...tseslint.configs.disableTypeChecked,
   },
   {
@@ -57,11 +62,35 @@ export default defineConfig([
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    files: ['src/**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'node:fs',
+              message:
+                '제품 unit spec은 구현 source를 읽지 않습니다. Architecture 또는 operations lane에서 artifact 경계를 검증하세요.',
+            },
+            {
+              name: 'node:fs/promises',
+              message:
+                '제품 unit spec은 구현 source를 읽지 않습니다. Architecture 또는 operations lane에서 artifact 경계를 검증하세요.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: [
       'test/stress/http/k6/**/*.js',
       'test/stress/http/k6/**/*.mjs',
       'test/stress/realtime/artillery/**/*.mjs',
       'test/stress/docker/**/*.mjs',
+      'test/stress/decisions/**/*.mjs',
+      'test/stress/evidence/**/*.mjs',
     ],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
@@ -79,7 +108,10 @@ export default defineConfig([
     },
   },
   {
-    files: ['test/integration/support/integration-db.ts'],
+    files: [
+      'test/operations/reference-data/reference-seed-scripts.spec.ts',
+      'test/integration/support/integration-db.ts',
+    ],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

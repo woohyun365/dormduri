@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { LegalConsentStep, type LegalConsentData } from '../LegalConsentStep';
 import { getFallbackLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
 
 vi.mock('lucide-react', () => ({
+  AlertCircle: () => null,
+  CheckCircle: () => null,
   FileText: () => null,
+  ChevronRight: () => null,
+  Info: () => null,
+  Timer: () => null,
+  WifiOff: () => null,
   X: () => null,
 }));
 
@@ -29,7 +35,11 @@ function stubBundleFetch(bundle: unknown = legalBundle, status = 200) {
 }
 
 function renderWithState(
-  overrides: { onNext?: () => void; notice?: string; initialLegalConsent?: LegalConsentData } = {},
+  overrides: {
+    onNext?: () => void;
+    requiresReconfirmation?: boolean;
+    initialLegalConsent?: LegalConsentData;
+  } = {},
 ) {
   const onNext = overrides.onNext ?? vi.fn<() => void>();
   const onBack = vi.fn<() => void>();
@@ -44,7 +54,7 @@ function renderWithState(
         onLegalConsentChange={setLegalConsent}
         onNext={onNext}
         onBack={onBack}
-        notice={overrides.notice}
+        requiresReconfirmation={overrides.requiresReconfirmation}
       />
     );
   }
@@ -68,8 +78,8 @@ describe('LegalConsentStep', () => {
 
     renderWithState();
 
-    expect(screen.getByRole('status')).toHaveTextContent('최신 동의 항목을 불러오는 중');
-    expect(screen.getByRole('status')).toHaveTextContent('약관 정보가 준비되면');
+    expect(screen.getByRole('status')).toHaveTextContent('필수 내용을 불러오고 있어요');
+    expect(screen.getByRole('status')).toHaveTextContent('잠시만 기다려 주세요');
     expect(screen.getByRole('button', { name: '다음 단계' })).toBeDisabled();
   });
 
@@ -77,14 +87,22 @@ describe('LegalConsentStep', () => {
     stubBundleFetch();
     renderWithState();
 
-    expect(
-      await screen.findByLabelText('[필수] 개인정보 수집·이용에 동의합니다'),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('[필수] 개인정보 수집·이용 동의')).toBeInTheDocument();
     expect(screen.queryByText('[필수] 개인정보 처리방침에 동의합니다')).not.toBeInTheDocument();
-    expect(screen.getByText(/목적: 회원가입/)).toBeInTheDocument();
-    expect(screen.getByText(/항목: 이메일/)).toBeInTheDocument();
-    expect(screen.getByText(/보유기간: 탈퇴/)).toBeInTheDocument();
-    expect(screen.getByText(/거부권: 필수 수집/)).toBeInTheDocument();
+    expect(screen.getByText('목적')).toBeInTheDocument();
+    expect(screen.getByText(/계정 생성/)).toBeInTheDocument();
+    expect(screen.getByText('항목')).toBeInTheDocument();
+    expect(screen.getByText(/이메일·닉네임·학교 정보/)).toBeInTheDocument();
+    expect(screen.getByText('보유기간')).toBeInTheDocument();
+    expect(screen.getByText(/탈퇴 또는 목적 달성/)).toBeInTheDocument();
+    expect(screen.getByText('별도 보관')).toBeInTheDocument();
+    expect(screen.getByText(/신고·분쟁·법령상 필요한 기록/)).toBeInTheDocument();
+    expect(screen.getByText('거부 시')).toBeInTheDocument();
+    expect(screen.getByText(/동의하지 않으면 가입할 수 없어요/)).toBeInTheDocument();
+    expect(
+      screen.getByText('서비스를 이용할 때 알아두고 지켜야 할 내용을 확인해요.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('내 정보가 어떻게 이용되고 보호되는지 확인해요.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '처리방침 보기' })).toBeInTheDocument();
     expect(screen.getAllByRole('checkbox')).toHaveLength(4);
   });
@@ -93,19 +111,44 @@ describe('LegalConsentStep', () => {
     stubBundleFetch();
     const { onNext } = renderWithState();
 
-    await screen.findByLabelText('[필수] 이용약관에 동의합니다');
+    await screen.findByLabelText('[필수] 이용약관 동의');
+    const firstUnchecked = screen.getByLabelText('[필수] 만 14세 이상이에요');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(firstUnchecked, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
-    expect(screen.getByText('필수 확인·동의 항목을 모두 체크해주세요.')).toBeInTheDocument();
+    const error = screen.getByText('필수 확인·동의 항목을 모두 선택해 주세요.');
+    expect(error).toBeInTheDocument();
+    expect(firstUnchecked).toHaveFocus();
+    expect(firstUnchecked).toHaveAttribute('aria-invalid', 'true');
+    expect(firstUnchecked).toHaveAttribute('aria-describedby', error.id);
+    expect(firstUnchecked).toHaveClass('border-rose-400', 'ring-1', 'ring-rose-300');
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('오류 이후에는 모두 동의할 때까지 남은 미동의 항목을 오류와 연결한다', async () => {
+    stubBundleFetch();
+    renderWithState();
+
+    await screen.findByLabelText('[필수] 이용약관 동의');
+    fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
+    fireEvent.click(screen.getByLabelText('[필수] 만 14세 이상이에요'));
+
+    expect(screen.queryByText('필수 확인·동의 항목을 모두 선택해 주세요.')).toBeInTheDocument();
+    expect(screen.getByLabelText('[필수] 만 14세 이상이에요')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('[필수] 이용약관 동의')).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('전체 동의 체크 후 다음 클릭 시 onNext가 호출되고 legal ids를 상태에 유지한다', async () => {
     stubBundleFetch();
     const { onNext } = renderWithState();
 
-    await screen.findByLabelText('[필수] 이용약관에 동의합니다');
-    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 전체 동의' }));
+    await screen.findByLabelText('[필수] 이용약관 동의');
+    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' }));
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     expect(onNext).toHaveBeenCalled();
@@ -127,13 +170,15 @@ describe('LegalConsentStep', () => {
 
     function Wrapper() {
       const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
+      const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+        latestConsent = nextConsent;
+        setLegalConsent(nextConsent);
+      }, []);
+
       return (
         <LegalConsentStep
           legalConsent={legalConsent}
-          onLegalConsentChange={(nextConsent) => {
-            latestConsent = nextConsent;
-            setLegalConsent(nextConsent);
-          }}
+          onLegalConsentChange={handleLegalConsentChange}
           onNext={onNext}
           onBack={vi.fn()}
         />
@@ -142,8 +187,8 @@ describe('LegalConsentStep', () => {
 
     render(<Wrapper />);
 
-    await screen.findByLabelText('[필수] 이용약관에 동의합니다');
-    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 전체 동의' }));
+    await screen.findByLabelText('[필수] 이용약관 동의');
+    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' }));
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     expect(onNext).toHaveBeenCalled();
@@ -183,12 +228,12 @@ describe('LegalConsentStep', () => {
       },
     });
 
-    await screen.findByLabelText('[필수] 이용약관에 동의합니다');
+    await screen.findByLabelText('[필수] 이용약관 동의');
 
-    expect(screen.getByRole('checkbox', { name: '필수 항목 전체 동의' })).not.toBeChecked();
-    expect(screen.getByLabelText('[필수] 만 14세 이상입니다')).not.toBeChecked();
-    expect(screen.getByLabelText('[필수] 이용약관에 동의합니다')).not.toBeChecked();
-    expect(screen.getByLabelText('[필수] 개인정보 수집·이용에 동의합니다')).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' })).not.toBeChecked();
+    expect(screen.getByLabelText('[필수] 만 14세 이상이에요')).not.toBeChecked();
+    expect(screen.getByLabelText('[필수] 이용약관 동의')).not.toBeChecked();
+    expect(screen.getByLabelText('[필수] 개인정보 수집·이용 동의')).not.toBeChecked();
   });
 
   it('개별 항목을 모두 체크하면 다음으로 진행할 수 있다', async () => {
@@ -207,7 +252,9 @@ describe('LegalConsentStep', () => {
     stubBundleFetch();
     renderWithState();
 
-    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    const termsButton = await screen.findByRole('button', {
+      name: '이용약관 동의 내용 보기',
+    });
     termsButton.focus();
     fireEvent.click(termsButton);
 
@@ -222,7 +269,9 @@ describe('LegalConsentStep', () => {
     stubBundleFetch();
     renderWithState();
 
-    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    const termsButton = await screen.findByRole('button', {
+      name: '이용약관 동의 내용 보기',
+    });
     termsButton.focus();
     fireEvent.click(termsButton);
 
@@ -242,7 +291,7 @@ describe('LegalConsentStep', () => {
     expect(document.activeElement).toBe(termsButton);
   });
 
-  it('전문 보기 dialog는 외부 scroll을 잠그고 overlay close 후 기존 document style을 복원한다', async () => {
+  it('전문 보기 dialog는 sticky 기준을 유지하며 외부 scroll을 잠그고 기존 style을 복원한다', async () => {
     stubBundleFetch();
     document.body.style.overflow = 'auto';
     document.body.style.position = 'relative';
@@ -255,17 +304,19 @@ describe('LegalConsentStep', () => {
     scrollToMock.mockClear();
     renderWithState();
 
-    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    const termsButton = await screen.findByRole('button', {
+      name: '이용약관 동의 내용 보기',
+    });
     fireEvent.click(termsButton);
 
     const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
-    expect(document.body.style.overflow).toBe('hidden');
-    expect(document.body.style.position).toBe('fixed');
-    expect(document.body.style.top).toBe('0px');
-    expect(document.body.style.left).toBe('0px');
-    expect(document.body.style.right).toBe('0px');
-    expect(document.body.style.width).toBe('100%');
-    expect(document.documentElement.style.overflow).toBe('hidden');
+    expect(document.body.style.overflow).toBe('clip');
+    expect(document.body.style.position).toBe('relative');
+    expect(document.body.style.top).toBe('1px');
+    expect(document.body.style.left).toBe('2px');
+    expect(document.body.style.right).toBe('3px');
+    expect(document.body.style.width).toBe('calc(100% - 4px)');
+    expect(document.documentElement.style.overflow).toBe('clip');
 
     fireEvent.click(dialog.parentElement!);
 
@@ -277,14 +328,16 @@ describe('LegalConsentStep', () => {
     expect(document.body.style.right).toBe('3px');
     expect(document.body.style.width).toBe('calc(100% - 4px)');
     expect(document.documentElement.style.overflow).toBe('clip');
-    expect(scrollToMock).toHaveBeenCalledWith(0, 0);
+    expect(scrollToMock).not.toHaveBeenCalled();
   });
 
   it('summary card와 dialog는 모바일 화면에서 스크롤 가능한 최소 touch target class를 유지한다', async () => {
     stubBundleFetch();
     renderWithState();
 
-    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    const termsButton = await screen.findByRole('button', {
+      name: '이용약관 동의 내용 보기',
+    });
     expect(termsButton).toHaveClass('min-h-11');
     fireEvent.click(termsButton);
 
@@ -306,8 +359,11 @@ describe('LegalConsentStep', () => {
     );
     renderWithState();
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('저장된 안내를 표시'));
-    expect(screen.getByLabelText('[필수] 이용약관에 동의합니다')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('저장된 동의 내용을 보여드려요'),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('가입할 때 최신 내용인지 다시 확인해요.');
+    expect(screen.getByLabelText('[필수] 이용약관 동의')).toBeInTheDocument();
   });
 
   it('fallback document를 표시한 경우에도 fallback legal ids를 submit evidence로 유지한다', async () => {
@@ -322,13 +378,15 @@ describe('LegalConsentStep', () => {
 
     function Wrapper() {
       const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
+      const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+        latestConsent = nextConsent;
+        setLegalConsent(nextConsent);
+      }, []);
+
       return (
         <LegalConsentStep
           legalConsent={legalConsent}
-          onLegalConsentChange={(nextConsent) => {
-            latestConsent = nextConsent;
-            setLegalConsent(nextConsent);
-          }}
+          onLegalConsentChange={handleLegalConsentChange}
           onNext={onNext}
           onBack={vi.fn()}
         />
@@ -337,8 +395,10 @@ describe('LegalConsentStep', () => {
 
     render(<Wrapper />);
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('저장된 안내를 표시'));
-    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 전체 동의' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('저장된 동의 내용을 보여드려요'),
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' }));
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     expect(onNext).toHaveBeenCalled();
@@ -354,12 +414,33 @@ describe('LegalConsentStep', () => {
   it('stale 안내가 전달되면 사용자에게 재확인을 요구한다', async () => {
     stubBundleFetch();
     renderWithState({
-      notice:
-        '약관 또는 개인정보 동의 내용이 변경되었습니다. 최신 내용을 다시 확인하고 필수 항목에 다시 동의해주세요.',
+      requiresReconfirmation: true,
     });
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      '약관 또는 개인정보 동의 내용이 변경',
+    expect(await screen.findByTestId('signup-legal-feedback')).toHaveTextContent(
+      '동의 내용이 변경됐어요',
     );
+    expect(screen.getByRole('alert')).toHaveTextContent('최신 내용을 확인하고 다시 동의해 주세요.');
+  });
+
+  it('stale 재확인 중 fallback을 사용하면 두 상태를 하나의 안내로 합친다', async () => {
+    render(
+      <LegalConsentStep
+        legalConsent={emptyLegalConsent}
+        onLegalConsentChange={vi.fn()}
+        onNext={vi.fn()}
+        onBack={vi.fn()}
+        requiresReconfirmation
+        legalDocumentsResult={{ source: 'fallback', bundle: legalBundle }}
+      />,
+    );
+
+    expect(await screen.findByTestId('signup-legal-feedback')).toHaveTextContent(
+      '동의 내용을 다시 확인해 주세요',
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '저장된 내용을 보여드리며, 가입할 때 최신 여부를 확인해요.',
+    );
+    expect(screen.getAllByTestId('signup-legal-feedback')).toHaveLength(1);
   });
 });

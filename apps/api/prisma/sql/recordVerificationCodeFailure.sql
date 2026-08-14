@@ -8,6 +8,8 @@ SET
 WHERE id = $1
   AND "verifiedAt" IS NULL
   AND "consumedAt" IS NULL
-  AND "expiresAt" > CURRENT_TIMESTAMP
+  AND "deliveryStatus" = 'ACCEPTED'
+  AND "activatedAt" IS NOT NULL
+  AND "codeExpiresAt" > CURRENT_TIMESTAMP
   AND "failedAttempts" < $2
 RETURNING "failedAttempts", "consumedAt";

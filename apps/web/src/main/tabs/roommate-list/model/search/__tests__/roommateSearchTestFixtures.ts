@@ -208,7 +208,7 @@ function createActionableFields(): RoommateSearchManifest['filters']['fields'] {
       operators: ['INCLUDE', 'EXCLUDE'],
       options: [
         { code: 'ENGINEERING', label: '공과대학' },
-        { code: 'HUMANITIES', label: '인문대학' },
+        { code: 'CHUNCHEON_HUMANITIES', label: '인문대학' },
       ],
     },
     grade: {

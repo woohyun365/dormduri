@@ -34,7 +34,7 @@ pnpm --dir apps/api stress:realtime:smoke
 
 `stress:realtime:smoke`는 runner가 token artifact의 chat actor 1명을 선택하고 one-time ticket 1개를 발급한 뒤 `STRESS_REALTIME_TICKET`/`STRESS_REALTIME_THREAD_ID`를 child Artillery process 환경변수로만 전달한다. Artillery Socket.IO engine은 handshake를 flow step보다 먼저 열기 때문에, per-row payload의 `realtimeTicket`을 handshake auth에 쓰는 방식은 smoke 기준으로 사용하지 않는다. `baseline-250.yml`/`peak-500.yml`은 target shape template이며, 실제 대규모 실행은 ticket-per-VU 발급/분배 전략이 필요하다. 현재 runner는 `baseline-250`/`peak-500`을 fail-closed로 막아 release gate에서 준비 부족을 명확히 드러낸다.
 
-Release 전 판정과 결과 공유는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`와 `apps/api/test/stress/reports/report-template.md`를 사용한다. Realtime baseline/peak를 실행 가능 상태로 바꾸려면 VU별 one-time ticket 발급/분배 전략, safe artifact 정책, ticket TTL/재시도 정책을 먼저 확정해야 한다.
+Release 전 판정과 결과 공유는 `docs/runbooks/observability/api-stress-release-runbook.md`와 `apps/api/test/stress/evidence/renderers/report-template.md`를 사용한다. Realtime baseline/peak를 실행 가능 상태로 바꾸려면 VU별 one-time ticket 발급/분배 전략, safe artifact 정책, ticket TTL/재시도 정책을 먼저 확정해야 한다.
 
 ## Safety
 

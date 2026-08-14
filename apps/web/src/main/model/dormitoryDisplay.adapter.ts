@@ -1,25 +1,30 @@
-import {
-  getDormitoryById,
-  isCampusOperated as isCampusOperatedByLocalCatalog,
-} from '@/constants/dormitory';
-import type { Campus } from '@/types/profile';
+import type { DormitoryItem, DormitoryPublicSummary } from '@repo/shared/dormitory';
+import type { DormitorySeasonOperation } from '@repo/shared/season/runtime';
 
-export interface DormitoryDisplayItem {
-  readonly id: string;
-  readonly name: string;
-  readonly roomType: 2 | 3;
-  readonly gender: 'M' | 'F' | 'BOTH';
-  readonly campus: Campus;
-  readonly isOperated: boolean;
+export type DormitoryDisplayItem = DormitoryPublicSummary;
+
+export function toDormitoryDisplayItem(item: DormitoryItem): DormitoryDisplayItem {
+  return {
+    id: item.id,
+    name: item.name,
+    roomType: item.roomType,
+    genderPolicy: item.genderPolicy,
+  };
 }
 
-export function getDormitoryDisplayById(
+export function getDormitoryDisplayFromSeasonOperations(
   dormitoryId: string | null | undefined,
+  operations: readonly DormitorySeasonOperation[],
 ): DormitoryDisplayItem | null {
   if (!dormitoryId) return null;
-  return getDormitoryById(dormitoryId) ?? null;
+  const operation = operations.find((item) => item.dormitoryId === dormitoryId);
+  return operation?.dormitory ?? null;
 }
 
-export function isCampusOperatedByDormitoryDisplayCatalog(campus: Campus): boolean {
-  return isCampusOperatedByLocalCatalog(campus);
+export function formatDormitoryDisplayLabel(
+  dormitoryId: string | null | undefined,
+  dormitory: DormitoryPublicSummary | null | undefined,
+): string {
+  if (!dormitoryId || dormitory?.id !== dormitoryId) return '';
+  return `${dormitory.name} ${dormitory.roomType}인실`;
 }

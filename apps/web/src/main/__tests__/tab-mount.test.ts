@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getMainTabDocumentTitle, getMainTabPageTitle } from '../utils/mainTabTitle';
-import type { TabId } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
 
 // PR #52: CSS hidden → 조건부 마운트 전환 회귀 테스트
 // @testing-library/react 미설치로 인해 DOM 렌더링 없이 탭 마운트 로직을 단위 테스트

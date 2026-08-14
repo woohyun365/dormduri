@@ -8,11 +8,9 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
-import {
-  seedActiveMatchFixture,
-  seedBaseSeasonFixtures,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 describe('Social-safety report intake integration', () => {
   let prisma: PrismaService;
@@ -286,7 +284,7 @@ describe('Social-safety report intake integration', () => {
     ).resolves.toMatchObject({ status: 'READ_ONLY', closedReason: 'USER_BLOCKED' });
   });
 
-  it('support ticket target은 Phase 7 전까지 probing-safe unsupported로 닫는다', async () => {
+  it('support ticket target은 report API에서 probing-safe unsupported로 닫는다', async () => {
     const response = await request(httpServer)
       .post('/api/reports')
       .set('Authorization', await authHeader())

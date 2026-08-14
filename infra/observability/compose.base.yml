@@ -1,0 +1,226 @@
+name: knu-roommate-observability
+
+x-observability-logging: &observability-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          pids: 128
+    stop_grace_period: 30s
+    logging: *observability-logging
+    entrypoint:
+      - /bin/sh
+    command:
+      - /etc/prometheus/render-prometheus-config.sh
+    environment:
+      TZ: ${OBSERVABILITY_TZ:-KST-9}
+      API_METRICS_SCHEME: ${API_METRICS_SCHEME:-http}
+      API_METRICS_TARGET: ${API_METRICS_TARGET:?API_METRICS_TARGET is required}
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:-local}
+      PROMETHEUS_RETENTION: ${PROMETHEUS_RETENTION:-15d}
+      OBSERVABILITY_STRICT: ${OBSERVABILITY_STRICT:-false}
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.template:ro
+      - ./prometheus/render-prometheus-config.sh:/etc/prometheus/render-prometheus-config.sh:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ${API_METRICS_BEARER_TOKEN_FILE:?API_METRICS_BEARER_TOKEN_FILE is required}:/etc/prometheus/secrets/api-metrics-bearer-token:ro
+      - prometheus-data:/prometheus
+    ports:
+      - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
+    depends_on:
+      - alertmanager
+    healthcheck:
+      test: ['CMD', '/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - observability
+
+  loki:
+    image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          pids: 128
+    stop_grace_period: 30s
+    logging: *observability-logging
+    environment:
+      TZ: ${OBSERVABILITY_TZ:-KST-9}
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - ./loki/rules:/loki/rules/fake:ro
+      - loki-data:/loki
+    ports:
+      - 127.0.0.1:${LOKI_PORT:-3100}:3100
+    networks:
+      - observability
+    depends_on:
+      - alertmanager
+
+  alloy:
+    image: grafana/alloy:v1.17.0@sha256:41c41849989b7e054ccbadc17938ee1e5592fe26bfbc56ef3ffc109c0b0b2739
+    restart: unless-stopped
+    init: true
+    user: '0:473'
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          pids: 128
+    stop_grace_period: 30s
+    logging: *observability-logging
+    environment:
+      TZ: ${OBSERVABILITY_TZ:-KST-9}
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:-local}
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - 127.0.0.1:${ALLOY_PORT:-12345}:12345
+    depends_on:
+      - loki
+    networks:
+      - observability
+
+  alertmanager:
+    image: prom/alertmanager:v0.33.0@sha256:af26fbe4dd1886ac0efd7bd55cd9027da262e105b137a376522b7c14c3626e4a
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 96
+    deploy:
+      resources:
+        limits:
+          pids: 96
+    stop_grace_period: 30s
+    logging: *observability-logging
+    entrypoint:
+      - /bin/sh
+    command:
+      - /etc/alertmanager/render-alertmanager-config.sh
+    environment:
+      TZ: ${OBSERVABILITY_TZ:-KST-9}
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:-local}
+      OBSERVABILITY_STRICT: ${OBSERVABILITY_STRICT:-false}
+      ALERTMANAGER_RETENTION: ${ALERTMANAGER_RETENTION:-120h}
+      SLACK_ALERTMANAGER_ENABLED: ${SLACK_ALERTMANAGER_ENABLED:-false}
+      SLACK_ALERT_WEBHOOK_URL: '${SLACK_ALERT_WEBHOOK_URL:-}'
+      SLACK_ALERT_CHANNEL: '${SLACK_ALERT_CHANNEL:-#knu-roommate-alerts}'
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - 127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093
+    networks:
+      - observability
+    healthcheck:
+      test: ['CMD', '/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9093/-/ready']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 192
+    deploy:
+      resources:
+        limits:
+          pids: 192
+    stop_grace_period: 30s
+    logging: *observability-logging
+    environment:
+      TZ: ${OBSERVABILITY_TZ:-KST-9}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: ${GF_DATE_FORMATS_DEFAULT_TIMEZONE:-Asia/Seoul}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 127.0.0.1:${GRAFANA_PORT:-3001}:3000
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - observability
+    healthcheck:
+      test: ['CMD', '/usr/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health']
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+networks:
+  observability:
+    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+
+volumes:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:
+  alertmanager-data:

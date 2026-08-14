@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { changePasswordResponseSchema } from '@repo/shared/auth/response';
 import { createAuthenticatedForwardPostHandler } from '@/auth/bff';
 
 const CURRENT_ACCESS_TOKEN = `v1.session-current-access.${'c'.repeat(43)}`;
@@ -30,6 +31,7 @@ describe('auth BFF post route helpers', () => {
 
     const post = createAuthenticatedForwardPostHandler('/auth/change-password', {
       setAuthCookieFromAccessToken: true,
+      responseSchema: changePasswordResponseSchema,
     });
     const request = new NextRequest('http://localhost/api/auth/change-password', {
       method: 'POST',
@@ -67,7 +69,7 @@ describe('auth BFF post route helpers', () => {
 
     const cookie = response.cookies.get('auth-token');
     expect(cookie?.value).toBe(ROTATED_ACCESS_TOKEN);
-    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
+    expect(cookie?.maxAge).toBeUndefined();
     const renewalCookie = response.cookies.get('auth-renewal-token');
     expect(renewalCookie?.value).toBe(ROTATED_RENEWAL_TOKEN);
     expect(renewalCookie?.maxAge).toBe(60 * 60 * 24 * 7);
@@ -80,9 +82,6 @@ describe('auth BFF post route helpers', () => {
           success: false,
           code: 'AUTH_CURRENT_PASSWORD_INVALID',
           error: '현재 비밀번호가 올바르지 않습니다.',
-          accessToken: 'must-not-leak',
-          renewalToken: 'must-not-leak',
-          rememberMe: true,
         }),
         {
           status: 200,
@@ -94,6 +93,7 @@ describe('auth BFF post route helpers', () => {
 
     const post = createAuthenticatedForwardPostHandler('/auth/change-password', {
       setAuthCookieFromAccessToken: true,
+      responseSchema: changePasswordResponseSchema,
     });
     const request = new NextRequest('http://localhost/api/auth/change-password', {
       method: 'POST',
@@ -112,6 +112,92 @@ describe('auth BFF post route helpers', () => {
       success: false,
       code: 'AUTH_CURRENT_PASSWORD_INVALID',
       error: '현재 비밀번호가 올바르지 않습니다.',
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
+
+  it('change-password private policy 거절은 generic field feedback만 보존한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+          error: '다른 비밀번호를 입력해 주세요.',
+          fieldErrors: {
+            newPassword: '다른 비밀번호를 입력해 주세요.',
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const post = createAuthenticatedForwardPostHandler('/auth/change-password', {
+      setAuthCookieFromAccessToken: true,
+      responseSchema: changePasswordResponseSchema,
+    });
+    const response = await post(
+      new NextRequest('http://localhost/api/auth/change-password', {
+        method: 'POST',
+        headers: { Cookie: `auth-token=${CURRENT_ACCESS_TOKEN}` },
+        body: JSON.stringify({
+          currentPassword: 'OldPass1234',
+          newPassword: 'Password1!',
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+      error: '다른 비밀번호를 입력해 주세요.',
+      fieldErrors: {
+        newPassword: '다른 비밀번호를 입력해 주세요.',
+      },
+    });
+    expect(response.cookies.get('auth-token')).toBeUndefined();
+  });
+
+  it('authenticated post는 failure 응답의 token-like field를 contract drift로 거부한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: 'AUTH_CURRENT_PASSWORD_INVALID',
+          error: '현재 비밀번호가 올바르지 않습니다.',
+          accessToken: 'must-not-leak',
+          renewalToken: 'must-not-leak',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const post = createAuthenticatedForwardPostHandler('/auth/change-password', {
+      setAuthCookieFromAccessToken: true,
+      responseSchema: changePasswordResponseSchema,
+    });
+    const response = await post(
+      new NextRequest('http://localhost/api/auth/change-password', {
+        method: 'POST',
+        headers: { Cookie: `auth-token=${CURRENT_ACCESS_TOKEN}` },
+        body: JSON.stringify({
+          currentPassword: 'WrongPass1234',
+          newPassword: 'NewPass1234',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'BFF_UPSTREAM_SCHEMA_MISMATCH',
     });
     expect(response.cookies.get('auth-token')).toBeUndefined();
   });

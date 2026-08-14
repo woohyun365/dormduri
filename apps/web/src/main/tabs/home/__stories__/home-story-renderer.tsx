@@ -1,5 +1,5 @@
 import type { StoryObj } from '@storybook/nextjs-vite';
-import { HomeTabSkeleton } from '@/components/Skeleton';
+import { HomeTabSkeleton } from '@/main/components/feedback/Skeleton';
 import HomeTab from '../HomeTab';
 import { HomeDashboardErrorState } from '../layout/HomeDashboardErrorState';
 import { useHomeStoryApiFixtures } from './home-story-api-fixtures';

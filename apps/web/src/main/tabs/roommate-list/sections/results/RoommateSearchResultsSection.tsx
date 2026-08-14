@@ -5,6 +5,7 @@ interface RoommateSearchResultsSectionProps {
   readonly items: readonly RoommateSummaryCardViewModel[];
   readonly canLoadMore: boolean;
   readonly isLoadingMore?: boolean;
+  readonly updating?: boolean;
   readonly onLoadMore: () => void;
   readonly onOpenDetail?: (item: RoommateSummaryCardViewModel) => void;
   readonly onStartChat?: (item: RoommateSummaryCardViewModel) => void;
@@ -15,14 +16,31 @@ export function RoommateSearchResultsSection({
   items,
   canLoadMore,
   isLoadingMore = false,
+  updating = false,
   onLoadMore,
   onOpenDetail,
   onStartChat,
   onBookmarkToggle,
 }: RoommateSearchResultsSectionProps) {
   return (
-    <section className="space-y-3" aria-label="룸메이트 검색 결과">
-      <ul className="grid gap-3">
+    <section
+      className="relative min-w-0 space-y-3 overflow-x-clip"
+      aria-label="룸메이트 검색 결과"
+      aria-busy={updating || undefined}
+    >
+      {updating ? (
+        <p
+          role="status"
+          className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"
+        >
+          결과 업데이트 중
+        </p>
+      ) : null}
+      <ul
+        className={`grid min-w-0 gap-3 transition-opacity ${
+          updating ? 'pointer-events-none opacity-60' : ''
+        }`}
+      >
         {items.map((item) => (
           <li key={item.id}>
             <RoommateSummaryCard

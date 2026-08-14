@@ -1,20 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { HealthService } from './health.service.js';
+import type { DatabaseHealthCheck } from './checks/database-health.check.js';
+import type { RuntimeBootstrapHealthCheck } from './checks/runtime-bootstrap-health.check.js';
 import type {
+  HealthReadinessCheckCode,
   HealthReadinessCheckName,
   HealthReadinessCheckResult,
 } from './checks/health-check.types.js';
-import type { DatabaseHealthCheck } from './checks/database-health.check.js';
-import type { EmailProviderHealthCheck } from './checks/email-provider-health.check.js';
-import type { MigrationBaselineHealthCheck } from './checks/migration-baseline-health.check.js';
-import type { RuntimeConfigHealthCheck } from './checks/runtime-config-health.check.js';
-import type { SecretSourceHealthCheck } from './checks/secret-source-health.check.js';
+import type { HealthObservabilityService } from './health-observability.service.js';
+import { HealthService } from './health.service.js';
 
-function result(name: HealthReadinessCheckName, status: 'up' | 'down'): HealthReadinessCheckResult {
+function result(
+  name: HealthReadinessCheckName,
+  status: 'up' | 'down',
+  code: HealthReadinessCheckCode,
+): HealthReadinessCheckResult {
   return {
     name,
     status,
-    code: status === 'up' ? 'DATABASE_UP' : 'DATABASE_UNAVAILABLE',
+    code,
     checkedAt: '2026-06-02T03:00:00.000Z',
     elapsedMs: 1,
   };
@@ -22,69 +25,32 @@ function result(name: HealthReadinessCheckName, status: 'up' | 'down'): HealthRe
 
 function createHealthService(overrides: { databaseStatus?: 'up' | 'down' } = {}) {
   const databaseHealthCheck = {
-    check: vi.fn().mockResolvedValue(result('database', overrides.databaseStatus ?? 'up')),
+    check: vi
+      .fn()
+      .mockResolvedValue(
+        result(
+          'database',
+          overrides.databaseStatus ?? 'up',
+          overrides.databaseStatus === 'down' ? 'DATABASE_UNAVAILABLE' : 'DATABASE_UP',
+        ),
+      ),
   };
-  const runtimeConfigHealthCheck = {
-    check: vi.fn().mockResolvedValue(result('runtimeConfig', 'up')),
+  const runtimeBootstrapHealthCheck = {
+    check: vi
+      .fn()
+      .mockResolvedValue(result('runtimeBootstrap', 'up', 'RUNTIME_BOOTSTRAP_PREPARED')),
   };
-  const secretSourceHealthCheck = {
-    check: vi.fn().mockResolvedValue(result('secretSource', 'up')),
-  };
-  const migrationBaselineHealthCheck = {
-    check: vi.fn().mockResolvedValue(result('migration', 'up')),
-  };
-  const emailProviderHealthCheck = {
-    check: vi.fn().mockResolvedValue(result('emailProvider', 'up')),
-  };
-  const metrics = {
-    snapshot: vi.fn(() => ({
-      connectedSockets: 1,
-      totalConnections: 1,
-      dispatchers: {
-        chat: {
-          totalSkippedPublisherUnbound: 1,
-          lastSkippedReason: 'PUBLISHER_UNBOUND',
-        },
-      },
-      replayResyncRequired: {
-        CURSOR_EXPIRED: 1,
-      },
-    })),
-  };
-  const authOperationsHealth = {
-    getSnapshot: vi.fn(() => ({
-      redisGate: {
-        decision: 'postgres_authoritative',
-        sourceOfTruth: 'postgres',
-      },
-      cleanup: {
-        lastCleanupLagSeconds: 0,
-      },
-      rdsPoolBudget: {
-        activePoolMaxConnections: 30,
-      },
-    })),
-  };
-
-  const service = new HealthService(
-    databaseHealthCheck as unknown as DatabaseHealthCheck,
-    runtimeConfigHealthCheck as unknown as RuntimeConfigHealthCheck,
-    secretSourceHealthCheck as unknown as SecretSourceHealthCheck,
-    migrationBaselineHealthCheck as unknown as MigrationBaselineHealthCheck,
-    emailProviderHealthCheck as unknown as EmailProviderHealthCheck,
-    metrics,
-    authOperationsHealth as never,
-  );
+  const observability = { recordReadiness: vi.fn() };
 
   return {
-    service,
+    service: new HealthService(
+      databaseHealthCheck as unknown as DatabaseHealthCheck,
+      runtimeBootstrapHealthCheck as unknown as RuntimeBootstrapHealthCheck,
+      observability as unknown as HealthObservabilityService,
+    ),
     databaseHealthCheck,
-    runtimeConfigHealthCheck,
-    secretSourceHealthCheck,
-    migrationBaselineHealthCheck,
-    emailProviderHealthCheck,
-    metrics,
-    authOperationsHealth,
+    runtimeBootstrapHealthCheck,
+    observability,
   };
 }
 
@@ -102,13 +68,7 @@ describe('HealthService', () => {
   });
 
   it('liveness는 dependency probe 없이 process status만 반환한다', () => {
-    const {
-      service,
-      databaseHealthCheck,
-      runtimeConfigHealthCheck,
-      metrics,
-      authOperationsHealth,
-    } = createHealthService();
+    const { service, databaseHealthCheck, runtimeBootstrapHealthCheck } = createHealthService();
 
     expect(service.getLiveness()).toEqual({
       status: 'ok',
@@ -116,99 +76,31 @@ describe('HealthService', () => {
       uptimeSeconds: 42,
     });
     expect(databaseHealthCheck.check).not.toHaveBeenCalled();
-    expect(runtimeConfigHealthCheck.check).not.toHaveBeenCalled();
-    expect(metrics.snapshot).not.toHaveBeenCalled();
-    expect(authOperationsHealth.getSnapshot).not.toHaveBeenCalled();
+    expect(runtimeBootstrapHealthCheck.check).not.toHaveBeenCalled();
   });
 
-  it('readiness는 critical checks를 모두 호출하고 success body를 만든다', async () => {
-    const {
-      service,
-      databaseHealthCheck,
-      runtimeConfigHealthCheck,
-      secretSourceHealthCheck,
-      migrationBaselineHealthCheck,
-      emailProviderHealthCheck,
-    } = createHealthService();
+  it('readiness는 DB와 bootstrap receipt만 확인하고 minimal body를 만든다', async () => {
+    const { service, observability } = createHealthService();
 
-    await expect(service.getReadiness()).resolves.toMatchObject({
+    await expect(service.getReadiness()).resolves.toEqual({
       status: 'ok',
-      timestamp: '2026-06-02T03:00:00.000Z',
-      uptimeSeconds: 42,
-      checks: {
-        database: { status: 'up' },
-        runtimeConfig: { status: 'up' },
-        secretSource: { status: 'up' },
-        migration: { status: 'up' },
-        emailProvider: { status: 'up' },
-      },
+      failureCodes: [],
     });
-    expect(databaseHealthCheck.check).toHaveBeenCalledWith();
-    expect(runtimeConfigHealthCheck.check).toHaveBeenCalledWith();
-    expect(secretSourceHealthCheck.check).toHaveBeenCalledWith();
-    expect(migrationBaselineHealthCheck.check).toHaveBeenCalledWith();
-    expect(emailProviderHealthCheck.check).toHaveBeenCalledWith();
+    expect(observability.recordReadiness).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'database', status: 'up' }),
+        expect.objectContaining({ name: 'runtimeBootstrap', status: 'up' }),
+      ]),
+      0,
+    );
   });
 
-  it('readiness는 실패 check가 있으면 unavailable로 묶는다', async () => {
+  it('readiness failure는 bounded code만 public body에 포함한다', async () => {
     const { service } = createHealthService({ databaseStatus: 'down' });
 
-    await expect(service.getReadiness()).resolves.toMatchObject({
+    await expect(service.getReadiness()).resolves.toEqual({
       status: 'unavailable',
-      checks: {
-        database: {
-          status: 'down',
-          code: 'DATABASE_UNAVAILABLE',
-        },
-      },
+      failureCodes: ['DATABASE_UNAVAILABLE'],
     });
-  });
-
-  it('realtime operations는 dependency probe 없이 no-PII metric snapshot을 반환한다', () => {
-    const { service, databaseHealthCheck, metrics, authOperationsHealth } = createHealthService();
-
-    expect(service.getRealtimeOperations()).toMatchObject({
-      status: 'ok',
-      timestamp: '2026-06-02T03:00:00.000Z',
-      uptimeSeconds: 42,
-      realtime: {
-        connectedSockets: 1,
-        totalConnections: 1,
-        dispatchers: {
-          chat: {
-            totalSkippedPublisherUnbound: 1,
-            lastSkippedReason: 'PUBLISHER_UNBOUND',
-          },
-        },
-        replayResyncRequired: {
-          CURSOR_EXPIRED: 1,
-        },
-      },
-    });
-    expect(databaseHealthCheck.check).not.toHaveBeenCalled();
-    expect(metrics.snapshot).toHaveBeenCalledWith();
-    expect(authOperationsHealth.getSnapshot).not.toHaveBeenCalled();
-  });
-
-  it('auth operations는 realtime/dependency probe 없이 Redis gate와 cleanup/RDS snapshot을 반환한다', () => {
-    const { service, databaseHealthCheck, metrics, authOperationsHealth } = createHealthService();
-
-    expect(service.getAuthOperations()).toMatchObject({
-      status: 'ok',
-      timestamp: '2026-06-02T03:00:00.000Z',
-      uptimeSeconds: 42,
-      auth: {
-        redisGate: {
-          decision: 'postgres_authoritative',
-          sourceOfTruth: 'postgres',
-        },
-        rdsPoolBudget: {
-          activePoolMaxConnections: 30,
-        },
-      },
-    });
-    expect(databaseHealthCheck.check).not.toHaveBeenCalled();
-    expect(metrics.snapshot).not.toHaveBeenCalled();
-    expect(authOperationsHealth.getSnapshot).toHaveBeenCalledWith();
   });
 });

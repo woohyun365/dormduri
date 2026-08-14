@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
 import { SupportService } from '../../../src/support/application/support.service.js';
-import {
-  seedBaseSeasonFixtures,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
 interface SupportTicketResponseBody {
@@ -30,7 +28,6 @@ interface SupportFaqListResponseBody {
   items: Array<{
     id: string;
     question: string;
-    sortOrder: number;
   }>;
 }
 
@@ -55,13 +52,13 @@ describe('Support integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(suite.prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
   });
 
@@ -188,7 +185,7 @@ describe('Support integration', () => {
       .expect(403);
   });
 
-  it('FAQ API는 published article만 반환한다', async () => {
+  it('FAQ API는 Support Center에 배치된 published article만 반환한다', async () => {
     await suite.prisma.supportFaqArticle.createMany({
       data: [
         {
@@ -207,6 +204,28 @@ describe('Support integration', () => {
           published: false,
           sortOrder: 2,
         },
+        {
+          id: 'faq-unplaced',
+          category: 'OTHER',
+          question: '미배치 질문',
+          answer: '미배치 답변',
+          published: true,
+          sortOrder: 3,
+        },
+      ],
+    });
+    await suite.prisma.supportFaqPlacement.createMany({
+      data: [
+        {
+          articleId: 'faq-public',
+          surface: 'SUPPORT_CENTER',
+          sortOrder: 1,
+        },
+        {
+          articleId: 'faq-hidden',
+          surface: 'SUPPORT_CENTER',
+          sortOrder: 2,
+        },
       ],
     });
 
@@ -217,40 +236,41 @@ describe('Support integration', () => {
     ]);
 
     await request(httpServer()).get('/api/support/faq/faq-hidden').expect(404);
+    await request(httpServer()).get('/api/support/faq/faq-unplaced').expect(404);
   });
 
-  it('FAQ API는 surface query가 있으면 published article의 placement만 반환한다', async () => {
+  it('FAQ API는 Support Center placement 순서와 category filter를 적용한다', async () => {
     await suite.prisma.supportFaqArticle.createMany({
       data: [
         {
-          id: 'faq-landing-second',
+          id: 'faq-support-second',
           category: 'OTHER',
-          question: '랜딩 두 번째 질문',
-          answer: '랜딩 두 번째 답변',
+          question: '지원센터 두 번째 질문',
+          answer: '지원센터 두 번째 답변',
           published: true,
           sortOrder: 200,
         },
         {
-          id: 'faq-landing-first',
+          id: 'faq-support-first',
           category: 'SEASON',
-          question: '랜딩 첫 번째 질문',
-          answer: '랜딩 첫 번째 답변',
+          question: '지원센터 첫 번째 질문',
+          answer: '지원센터 첫 번째 답변',
           published: true,
           sortOrder: 100,
         },
         {
-          id: 'faq-support-only',
+          id: 'faq-unplaced',
           category: 'OTHER',
-          question: '지원센터 전용 질문',
-          answer: '지원센터 전용 답변',
+          question: '미배치 질문',
+          answer: '미배치 답변',
           published: true,
           sortOrder: 1,
         },
         {
-          id: 'faq-landing-hidden',
+          id: 'faq-support-hidden',
           category: 'OTHER',
-          question: '비공개 랜딩 질문',
-          answer: '비공개 랜딩 답변',
+          question: '비공개 지원센터 질문',
+          answer: '비공개 지원센터 답변',
           published: false,
           sortOrder: 1,
         },
@@ -259,43 +279,39 @@ describe('Support integration', () => {
     await suite.prisma.supportFaqPlacement.createMany({
       data: [
         {
-          articleId: 'faq-landing-second',
-          surface: 'LANDING',
+          articleId: 'faq-support-second',
+          surface: 'SUPPORT_CENTER',
           sortOrder: 20,
         },
         {
-          articleId: 'faq-landing-first',
-          surface: 'LANDING',
+          articleId: 'faq-support-first',
+          surface: 'SUPPORT_CENTER',
           sortOrder: 10,
         },
         {
-          articleId: 'faq-support-only',
+          articleId: 'faq-support-hidden',
           surface: 'SUPPORT_CENTER',
-          sortOrder: 1,
-        },
-        {
-          articleId: 'faq-landing-hidden',
-          surface: 'LANDING',
           sortOrder: 1,
         },
       ],
     });
 
-    const listResponse = await request(httpServer())
-      .get('/api/support/faq?surface=LANDING')
-      .expect(200);
+    const listResponse = await request(httpServer()).get('/api/support/faq').expect(200);
     const listBody = listResponse.body as SupportFaqListResponseBody;
     expect(listBody.items).toEqual([
-      expect.objectContaining({ id: 'faq-landing-first', sortOrder: 10 }),
-      expect.objectContaining({ id: 'faq-landing-second', sortOrder: 20 }),
+      expect.objectContaining({ id: 'faq-support-first' }),
+      expect.objectContaining({ id: 'faq-support-second' }),
     ]);
 
     const filteredResponse = await request(httpServer())
-      .get('/api/support/faq?surface=LANDING&category=OTHER')
+      .get('/api/support/faq?category=OTHER')
       .expect(200);
     const filteredBody = filteredResponse.body as SupportFaqListResponseBody;
     expect(filteredBody.items).toEqual([
-      expect.objectContaining({ id: 'faq-landing-second', question: '랜딩 두 번째 질문' }),
+      expect.objectContaining({
+        id: 'faq-support-second',
+        question: '지원센터 두 번째 질문',
+      }),
     ]);
   });
 });

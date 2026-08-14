@@ -9,7 +9,6 @@ import type {
   RealtimeDispatchMetricsPort,
   RealtimeDispatcherName,
   RealtimeDispatcherSkippedReason,
-  RealtimeMetricsReaderPort,
 } from '../../realtime/realtime.tokens.js';
 import type { ChatRealtimeRateLimitScope } from './chat-realtime-rate-limiter.service.js';
 
@@ -55,9 +54,7 @@ function createDispatcherMetrics(): DispatcherMetrics {
 }
 
 @Injectable()
-export class ChatRealtimeMetricsService
-  implements RealtimeDispatchMetricsPort, RealtimeMetricsReaderPort
-{
+export class ChatRealtimeMetricsService implements RealtimeDispatchMetricsPort {
   constructor(
     @Optional()
     @Inject(DOMAIN_METRICS_PORT)
@@ -109,6 +106,12 @@ export class ChatRealtimeMetricsService
   recordPublishFailure(dispatcher: RealtimeDispatcherName = 'chat') {
     this.publishFailures += 1;
     this.dispatcherMetrics[dispatcher].lastFailureAt = new Date().toISOString();
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({
+        name: 'api_realtime_publish_failures_total',
+        labels: { dispatcher },
+      }),
+    );
   }
 
   recordRateLimitRejection(scope: ChatRealtimeRateLimitScope) {
@@ -128,12 +131,7 @@ export class ChatRealtimeMetricsService
 
   recordReplayResyncRequired(reason: ChatRealtimeReplayFailureReason) {
     this.replayResyncRequired.set(reason, (this.replayResyncRequired.get(reason) ?? 0) + 1);
-  }
-
-  recordClaimedOutboxLag(input: { oldestOccurredAt: Date | null; now: Date }) {
-    this.oldestClaimedOutboxLagSeconds = input.oldestOccurredAt
-      ? Math.max(0, Math.floor((input.now.getTime() - input.oldestOccurredAt.getTime()) / 1000))
-      : 0;
+    this.recordRejectionMetric({ reason, scope: 'replay' });
   }
 
   recordDispatcherSkipped(input: {

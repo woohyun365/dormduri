@@ -2,7 +2,7 @@ import type { IncomingMessage } from 'node:http';
 import {
   readChatRealtimeTrustProxy,
   readChatRealtimeWsConnectIpRateLimit,
-} from '../../config/chat-realtime.config.js';
+} from './chat-realtime.config.js';
 import { resolveChatRealtimeRequestIp } from './chat-realtime-rate-limiter.service.js';
 
 type Bucket = {

@@ -1,6 +1,6 @@
 import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 import type { RoommateProfileDetailTarget } from '../../hooks/useRoommateProfileDetail';
 import type { RoommateSearchStateSectionState } from '../../sections/empty-states/RoommateSearchStateSection';
 import type { UseRoommateSearchResult } from '../../hooks/useRoommateSearch';
@@ -20,13 +20,6 @@ const BOOKMARK_ONLY_EMPTY_MESSAGE =
 const REGISTRATION_REQUIRED_EMPTY_TITLE = '시즌 등록 후 같은 건물 후보를 볼 수 있어요.';
 const REGISTRATION_REQUIRED_EMPTY_MESSAGE =
   '등록을 마치면 같은 건물 후보 리스트와 생활패턴 비교가 열려요.';
-const OFF_SEASON_HEADER_TITLE = '룸메이트 찾기 준비 중';
-const OFF_SEASON_HEADER_DESCRIPTION = '다음 시즌이 시작되면 안내할게요.';
-const SEASON_OPEN_HEADER_TITLE = '룸메이트 찾기 오픈';
-const SEASON_OPEN_HEADER_DESCRIPTION =
-  '시즌 후보를 둘러보고, 같은 건물 후보는 생활패턴과 조건까지 비교해 볼 수 있어요.';
-const DEFAULT_HEADER_DESCRIPTION =
-  '원하는 룸메 조건을 바탕으로 생활패턴이 잘 맞는 후보를 탐색할 수 있어요.';
 
 export function getRoommateSearchClosedMessage({
   seasonState,
@@ -40,21 +33,6 @@ export function getRoommateSearchClosedMessage({
   if (seasonState === 'OFF_SEASON') return CLOSED_SEARCH_MESSAGE;
   if (searchEntryAllowed) return null;
   return searchClosedMessage ?? ENTRY_CLOSED_MESSAGE;
-}
-
-export function getRoommateHeaderTitle(
-  seasonState: SeasonContextValue['state'],
-  assignedDormitoryName: string | null,
-): string {
-  if (seasonState === 'OFF_SEASON') return OFF_SEASON_HEADER_TITLE;
-  if (seasonState === 'SEASON_OPEN') return SEASON_OPEN_HEADER_TITLE;
-  return assignedDormitoryName ? `${assignedDormitoryName} 룸메이트` : '룸메이트 찾기';
-}
-
-export function getRoommateHeaderDescription(seasonState: SeasonContextValue['state']): string {
-  if (seasonState === 'OFF_SEASON') return OFF_SEASON_HEADER_DESCRIPTION;
-  if (seasonState === 'SEASON_OPEN') return SEASON_OPEN_HEADER_DESCRIPTION;
-  return DEFAULT_HEADER_DESCRIPTION;
 }
 
 export function getSearchStateSectionState({
@@ -86,9 +64,10 @@ export function getSearchStateSectionState({
   }
 
   if (
-    search.status === 'idle' ||
-    search.status === 'loading-manifest' ||
-    search.status === 'loading-search'
+    search.items.length === 0 &&
+    (search.status === 'idle' ||
+      search.status === 'loading-manifest' ||
+      search.status === 'loading-search')
   ) {
     return { kind: 'loading' };
   }
@@ -165,6 +144,7 @@ export function toDetailTarget(item: RoommateSummaryCardViewModel): RoommateProf
     nickname: item.nickname,
     detailEntryToken: item.detailEntryToken,
     pendingMatchRequest: item.pendingMatchRequest,
+    actions: item.actions,
     dormitoryLabel: parseDormitoryLabel(item.metadataLabel),
   };
 }

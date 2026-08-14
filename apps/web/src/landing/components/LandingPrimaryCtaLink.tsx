@@ -5,13 +5,24 @@ import type { ReactNode } from 'react';
 interface LandingPrimaryCtaLinkProps {
   href: Route;
   children: ReactNode;
+  size?: 'compact' | 'default' | 'hero';
 }
 
-export function LandingPrimaryCtaLink({ href, children }: LandingPrimaryCtaLinkProps) {
+const sizeClass = {
+  compact: 'h-12 px-5 text-base',
+  default: 'h-14 px-8 text-lg',
+  hero: 'h-12 px-5 text-base sm:h-14 sm:px-7 sm:text-lg',
+} as const;
+
+export function LandingPrimaryCtaLink({
+  href,
+  children,
+  size = 'default',
+}: LandingPrimaryCtaLinkProps) {
   return (
     <Link
       href={href}
-      className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-(--knu-primary) hover:bg-(--knu-primary-hover) text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
+      className={`inline-flex items-center justify-center gap-2 rounded-xl bg-(--knu-primary) font-semibold text-white shadow-sm transition-colors hover:bg-(--knu-primary-hover) hover:shadow-md ${sizeClass[size]}`}
     >
       {children}
     </Link>

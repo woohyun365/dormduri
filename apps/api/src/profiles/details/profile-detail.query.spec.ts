@@ -108,7 +108,7 @@ function makeParticipant(
       nicknameNormalizedSnapshot: '시즌닉네임',
       lifestyle: COMPLETE_LIFESTYLE,
       intro: '시즌 소개',
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       grade: '3',
       mbti: 'INTJ',
       birthYear: 2002,
@@ -252,7 +252,7 @@ describe('ProfilesService Step 6 public detail', () => {
     );
     seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(makeParticipant());
     seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
-      new Set(['participant-target']),
+      new Set(['participant-1', 'participant-target']),
     );
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
     matchScoreProjection.shouldExposePublicMatchScore.mockReturnValue(true);

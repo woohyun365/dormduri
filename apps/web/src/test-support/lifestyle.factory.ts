@@ -1,4 +1,4 @@
-import type { LifestyleData } from '@/types/lifestyle';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 const DEFAULT_LIFESTYLE: LifestyleData = {
   bedtime: '22_24',

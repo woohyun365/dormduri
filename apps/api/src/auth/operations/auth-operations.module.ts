@@ -1,23 +1,21 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
-import { MetricsModule } from '../../platform/observability/metrics/metrics.module.js';
-import { AuthOperationalCleanupRepository } from './auth-operational-cleanup.repository.js';
-import { AuthOperationalCleanupService } from './auth-operational-cleanup.service.js';
-import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';
-import { AuthOperationsHealthService } from './auth-operations-health.service.js';
+import { DomainMetricDefinitionsModule } from '../../platform/observability/metrics/domain-metric-definitions.module.js';
+import { AuthOperationalCleanupRepository } from './cleanup/auth-operational-cleanup.repository.js';
+import { AuthOperationalCleanupService } from './cleanup/auth-operational-cleanup.service.js';
+import { AuthCleanupMetricsService } from './cleanup/auth-cleanup-metrics.service.js';
+import { AUTH_CLEANUP_METRIC_DEFINITIONS } from './cleanup/auth-cleanup-metric.definitions.js';
 
 @Module({
-  imports: [PrismaModule, MetricsModule],
+  imports: [
+    PrismaModule,
+    DomainMetricDefinitionsModule.register('auth/operations', AUTH_CLEANUP_METRIC_DEFINITIONS),
+  ],
   providers: [
     AuthOperationalCleanupRepository,
     AuthOperationalCleanupService,
-    AuthOperationalMetricsService,
-    AuthOperationsHealthService,
+    AuthCleanupMetricsService,
   ],
-  exports: [
-    AuthOperationalCleanupService,
-    AuthOperationalMetricsService,
-    AuthOperationsHealthService,
-  ],
+  exports: [AuthOperationalCleanupService],
 })
 export class AuthOperationsModule {}

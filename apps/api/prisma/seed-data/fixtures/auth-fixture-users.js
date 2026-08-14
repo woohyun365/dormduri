@@ -139,7 +139,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'primary-login',
     email: 'test@kangwon.ac.kr',
-    nickname: '테스트춘천남',
+    nickname: '춘천로그인남',
     gender: 'M',
     campus: 'CHUNCHEON',
     dormitoryId: 'dasan',
@@ -151,7 +151,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'operated-female',
     email: 'test-f@kangwon.ac.kr',
-    nickname: '테스트춘천여',
+    nickname: '춘천운영여',
     gender: 'F',
     campus: 'CHUNCHEON',
     dormitoryId: 'yeji',
@@ -250,7 +250,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'samcheok-male',
     email: 'test-samcheok-m@kangwon.ac.kr',
-    nickname: '테스트삼척남',
+    nickname: '삼척로그인남',
     gender: 'M',
     campus: 'SAMCHEOK',
     dormitoryId: null,
@@ -262,7 +262,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'samcheok-female',
     email: 'test-samcheok-f@kangwon.ac.kr',
-    nickname: '테스트삼척여',
+    nickname: '삼척운영여',
     gender: 'F',
     campus: 'SAMCHEOK',
     dormitoryId: null,
@@ -274,7 +274,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'dogye-male',
     email: 'test-dogye-m@kangwon.ac.kr',
-    nickname: '테스트도계남',
+    nickname: '도계로그인남',
     gender: 'M',
     campus: 'DOGYE',
     dormitoryId: null,
@@ -286,7 +286,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'dogye-female',
     email: 'test-dogye-f@kangwon.ac.kr',
-    nickname: '테스트도계여',
+    nickname: '도계운영여',
     gender: 'F',
     campus: 'DOGYE',
     dormitoryId: null,

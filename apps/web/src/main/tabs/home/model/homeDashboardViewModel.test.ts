@@ -381,6 +381,7 @@ describe('homeDashboardViewModel', () => {
               requiredCount: 2,
               canRequest: true,
               canCancel: false,
+              disabledReason: null,
               availableUntil: null,
             },
           },

@@ -55,6 +55,15 @@ export const usersErrors = {
     );
   },
 
+  academicCollegeUnavailable() {
+    const message = '선택한 캠퍼스의 단과대를 다시 선택해주세요.';
+    return unprocessableEntityError(
+      'ACADEMIC_COLLEGE_UNAVAILABLE',
+      message,
+      fieldErrors('collegeCode', message),
+    );
+  },
+
   academicCorrectionCycleUnavailable() {
     return conflictError(
       'ACADEMIC_CORRECTION_CYCLE_UNAVAILABLE',

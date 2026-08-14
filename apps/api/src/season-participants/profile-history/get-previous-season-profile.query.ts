@@ -94,6 +94,47 @@ export function createGetPreviousSeasonProfileQuery(deps: SeasonParticipantUseCa
       };
     }
 
+    return getSeasonProfileHistoryResponse(participant, true);
+  }
+
+  async function getSeasonProfileHistory(
+    userId: string,
+    seasonId: string,
+    now?: Date,
+  ): Promise<PreviousSeasonProfileResponse> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(deps, userId);
+    const today = formatKstDate(referenceNow);
+    const todayDate = new Date(`${today}T00:00:00.000Z`);
+
+    const participant = await deps.prisma.seasonParticipant.findFirst({
+      where: {
+        userId: user.id,
+        seasonId,
+        registeredAt: { not: null },
+        season: {
+          campusCode: user.campus,
+          seasonEndDate: { lt: todayDate },
+        },
+      },
+      select: previousSeasonParticipantSelect,
+    });
+
+    if (!participant) {
+      return {
+        detailState: 'EMPTY',
+        reason: 'SEASON_PROFILE_NOT_FOUND',
+        message: '이 시즌에서 확인할 수 있는 내 프로필이 없어요.',
+      };
+    }
+
+    return getSeasonProfileHistoryResponse(participant, false);
+  }
+
+  async function getSeasonProfileHistoryResponse(
+    participant: PreviousSeasonParticipantRow,
+    allowParticipantProfileFallback: boolean,
+  ): Promise<PreviousSeasonProfileResponse> {
     const history = await deps.prisma.seasonParticipantProfileHistory.findFirst({
       where: {
         participantId: participant.id,
@@ -108,18 +149,18 @@ export function createGetPreviousSeasonProfileQuery(deps: SeasonParticipantUseCa
       return toPreviousSeasonProfileFromHistory(participant, history);
     }
 
-    if (participant.profile) {
+    if (allowParticipantProfileFallback && participant.profile) {
       return toPreviousSeasonProfileFromParticipantProfile(participant);
     }
 
     return {
       detailState: 'EMPTY',
       reason: 'PROFILE_NOT_AVAILABLE',
-      message: '직전 시즌 프로필 상세 정보를 더 이상 확인할 수 없어요.',
+      message: '이 시즌 프로필 상세 정보를 더 이상 확인할 수 없어요.',
     };
   }
 
-  return { getPreviousSeasonProfile };
+  return { getPreviousSeasonProfile, getSeasonProfileHistory };
 }
 
 export type GetPreviousSeasonProfileQuery = ReturnType<typeof createGetPreviousSeasonProfileQuery>;
@@ -133,7 +174,7 @@ function toPreviousSeasonProfileFromHistory(
     return {
       detailState: 'EMPTY',
       reason: 'PROFILE_NOT_AVAILABLE',
-      message: '직전 시즌 프로필 상세 정보를 더 이상 확인할 수 없어요.',
+      message: '이 시즌 프로필 상세 정보를 더 이상 확인할 수 없어요.',
     };
   }
 
@@ -162,7 +203,7 @@ function toPreviousSeasonProfileFromParticipantProfile(
     return {
       detailState: 'EMPTY',
       reason: 'PROFILE_NOT_AVAILABLE',
-      message: '직전 시즌 프로필 상세 정보를 더 이상 확인할 수 없어요.',
+      message: '이 시즌 프로필 상세 정보를 더 이상 확인할 수 없어요.',
     };
   }
 

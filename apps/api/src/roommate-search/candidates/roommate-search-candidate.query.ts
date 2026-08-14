@@ -7,12 +7,14 @@ import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { currentSeasonParticipantSelect } from '../../season-participants/participants/season-participant-records.js';
 import {
-  lifestyleFieldNames,
   toStoredBedtime,
   toStoredWakeTime,
 } from '../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
-import { isParticipantRegistered } from '../../season-participants/policies/index.js';
+import {
+  buildCompleteSeasonParticipantProfileWhere,
+  isParticipantRegistered,
+} from '../../season-participants/policies/index.js';
 
 export interface RoommateSearchCandidateQueryDeps {
   prisma: PrismaService;
@@ -93,19 +95,9 @@ export function buildRoommateSearchCandidateWhere(input: {
     deactivatedAt: null,
     profile: {
       is: {
-        AND: [buildCompleteSeasonProfileWhere(), profileWhere],
+        AND: [buildCompleteSeasonParticipantProfileWhere(), profileWhere],
       },
     },
-  };
-}
-
-function buildCompleteSeasonProfileWhere(): Prisma.SeasonParticipantProfileWhereInput {
-  return {
-    collegeCode: { not: null },
-    birthYear: { not: null },
-    grade: { not: null },
-    mbti: { not: null },
-    ...Object.fromEntries(lifestyleFieldNames.map((field) => [field, { not: null }])),
   };
 }
 

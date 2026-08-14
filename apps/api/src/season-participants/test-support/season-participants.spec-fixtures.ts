@@ -105,7 +105,7 @@ export function user(overrides: Record<string, unknown> = {}) {
     },
     academicIdentity: {
       userId: 'user-1',
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       birthYear: 2002,
     },
     ...overrides,
@@ -119,7 +119,7 @@ export function profile(overrides: Record<string, unknown> = {}) {
     nicknameNormalizedSnapshot: '현재닉네임',
     ...toLifestyleColumnData(completeLifestyle),
     intro: '시즌 소개',
-    collegeCode: 'ARTS_ENGINEERING',
+    collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
     grade: '3',
     mbti: 'INTJ',
     birthYear: 2002,
@@ -165,7 +165,7 @@ export function currentProfile(overrides: Record<string, unknown> = {}) {
     nicknameNormalizedSnapshot: '현재닉네임',
     lifestyle: completeLifestyle,
     intro: '시즌 소개',
-    collegeCode: 'ARTS_ENGINEERING',
+    collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
     grade: '3',
     mbti: 'INTJ',
     birthYear: 2002,
@@ -248,12 +248,18 @@ function createSeasonParticipantsServiceTestKitImpl() {
       .fn()
       .mockResolvedValue({ canceledPendingMatchRequests: 0 }),
   };
+  const seasonProfileIntroModeration = {
+    moderateSeasonProfileIntro: vi
+      .fn()
+      .mockImplementation((intro: string) => Promise.resolve(intro.trim())),
+  };
   const writeOwner = createSeasonParticipantWriteOwner({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
     dormitorySelectionCatalog: dormitoriesService,
     chatThreadWithdrawal,
     matchParticipantWithdrawal,
+    seasonProfileIntroModeration,
   });
   const service = new SeasonParticipantsService(
     writeOwner,
@@ -323,6 +329,7 @@ function createSeasonParticipantsServiceTestKitImpl() {
     dormitoriesService,
     chatThreadWithdrawal,
     matchParticipantWithdrawal,
+    seasonProfileIntroModeration,
     tx,
     txCampusMasterFindUnique,
     txSeasonFindMany,

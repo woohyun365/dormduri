@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createUpdateDisplayIdentityCommand } from './update-display-identity.command.js';
 import { usersErrors } from '../../errors/users.errors.js';
+import { DisplayIdentityNicknamePolicyService } from './display-identity-nickname-policy.service.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
 const USER = {
@@ -20,7 +21,7 @@ const USER = {
   },
   academicIdentity: {
     userId: 'user-1',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
     createdAt: new Date('2026-05-01T00:00:00.000Z'),
     updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -44,10 +45,17 @@ describe('UpdateDisplayIdentityCommand', () => {
   const moderationService = {
     validateNicknamePolicy: vi.fn(),
   };
+  const displayIdentityRepository = {
+    findNicknameOwner: vi.fn(),
+  };
+  const nicknamePolicy = new DisplayIdentityNicknamePolicyService(
+    moderationService as never,
+    displayIdentityRepository as never,
+  );
   const command = createUpdateDisplayIdentityCommand({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
-    moderationService: moderationService as never,
+    nicknamePolicy,
   });
   const tx = {
     seasonParticipant: { findUnique: vi.fn() },
@@ -62,9 +70,31 @@ describe('UpdateDisplayIdentityCommand', () => {
     vi.clearAllMocks();
     seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    displayIdentityRepository.findNicknameOwner.mockResolvedValue(null);
     tx.userDisplayIdentity.findUnique.mockResolvedValue(null);
     tx.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
     tx.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
+  });
+
+  it('mixed-script nickname은 moderation 호출 전에 shared 구조 오류로 거절한다', () => {
+    expect(() => command.parseDisplayIdentityNickname('안녕hi')).toThrow();
+    try {
+      command.parseDisplayIdentityNickname('안녕hi');
+    } catch (error) {
+      expect(error).toMatchObject({
+        response: usersErrors.invalidNickname('한글과 영문은 함께 사용할 수 없어요.').getResponse(),
+      });
+    }
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+  });
+
+  it('NFKC canonical value와 lowercase key를 같은 parsed result로 반환한다', () => {
+    expect(command.parseDisplayIdentityNickname('  ＮiceＧuy  ')).toEqual({
+      ok: true,
+      value: 'NiceGuy',
+      normalized: 'niceguy',
+      script: 'LATIN',
+    });
   });
 
   it('same nickname no-op은 lock/cooldown/moderation보다 먼저 idempotent하게 반환한다', async () => {
@@ -90,7 +120,7 @@ describe('UpdateDisplayIdentityCommand', () => {
 
   it('moderation에서 거부된 nickname은 update/audit 없이 기존 error를 유지한다', async () => {
     moderationService.validateNicknamePolicy.mockResolvedValue(
-      '사용할 수 없는 단어가 포함되어 있습니다.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
 
     await expect(
@@ -102,7 +132,7 @@ describe('UpdateDisplayIdentityCommand', () => {
       ),
     ).rejects.toMatchObject({
       response: usersErrors
-        .nicknameModerationRejected('사용할 수 없는 단어가 포함되어 있습니다.')
+        .nicknameModerationRejected('닉네임에 사용할 수 없는 단어가 포함되어 있어요.')
         .getResponse(),
     });
 

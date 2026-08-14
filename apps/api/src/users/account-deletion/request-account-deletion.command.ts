@@ -1,5 +1,5 @@
 import type { AccountDeletionRequestAccepted, RequestAccountDeletion } from '@repo/shared/user';
-import { verifyPasswordHash } from '../../auth/application/auth-password-hash.js';
+import type { AuthPasswordVerifier } from '../../auth/application/auth-password-verifier.service.js';
 import type {
   PrismaService,
   RetentionWorkerPrismaService,
@@ -34,6 +34,7 @@ interface RequestAccountDeletionCommandDeps {
   prisma: PrismaService;
   retentionWorkerPrisma: RetentionWorkerPrismaService;
   seasonsService: SeasonContextPort;
+  passwordVerifier: Pick<AuthPasswordVerifier, 'verifyAccountPassword'>;
 }
 
 export function createRequestAccountDeletionCommand(deps: RequestAccountDeletionCommandDeps) {
@@ -48,7 +49,10 @@ export function createRequestAccountDeletionCommand(deps: RequestAccountDeletion
       assertAccountDeletionUserExists(user);
       assertAccountIsNotDeleted(user);
 
-      const passwordMatches = await verifyPasswordHash(user.passwordHash, input.password);
+      const passwordMatches = await deps.passwordVerifier.verifyAccountPassword(
+        user.passwordHash,
+        input.password,
+      );
       assertAccountDeletionPasswordMatches(passwordMatches);
 
       const seasonContext = await deps.seasonsService.getCurrentSeasonContext(user.campus, now);

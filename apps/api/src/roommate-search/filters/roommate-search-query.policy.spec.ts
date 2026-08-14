@@ -15,8 +15,8 @@ const actionableManifest: RoommateSearchManifest = {
         source: 'VIEWER_CAMPUS_ACTIVE_CATALOG',
         operators: ['INCLUDE', 'EXCLUDE'],
         options: [
-          { code: 'IT', label: 'IT대' },
-          { code: 'NURSING', label: '간호대' },
+          { code: 'CHUNCHEON_IT', label: 'IT대' },
+          { code: 'CHUNCHEON_NURSING', label: '간호대' },
         ],
       },
       grade: {
@@ -106,7 +106,7 @@ describe('roommate-search-query-policy', () => {
       assertRoommateSearchQueryAllowed({
         query: {
           scope: 'SAME_BUILDING_ONLY',
-          college: { operator: 'EXCLUDE', values: ['IT'] },
+          college: { operator: 'EXCLUDE', values: ['CHUNCHEON_IT'] },
           grade: { operator: 'INCLUDE', values: ['3'] },
           ageBand: { values: ['24'] },
           limit: 20,
@@ -119,7 +119,7 @@ describe('roommate-search-query-policy', () => {
       assertRoommateSearchQueryAllowed({
         query: {
           scope: 'SAME_BUILDING_ONLY',
-          college: { operator: 'INCLUDE', values: ['ARTS_ENGINEERING'] },
+          college: { operator: 'INCLUDE', values: ['CHUNCHEON_ARTS_ENGINEERING'] },
           limit: 20,
         },
         manifest: actionableManifest,
@@ -150,7 +150,7 @@ describe('roommate-search-query-policy', () => {
       assertRoommateSearchQueryAllowed({
         query: {
           scope: 'SAME_BUILDING_ONLY',
-          college: { include: ['IT'], exclude: ['NURSING'] },
+          college: { include: ['CHUNCHEON_IT'], exclude: ['CHUNCHEON_NURSING'] },
           limit: 20,
         } as never,
         manifest: actionableManifest,

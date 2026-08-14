@@ -148,9 +148,9 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
 
       const targetSelection =
         deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
-      const targetRegistrationSnapshotExists =
-        await deps.seasonParticipantsService.hasRegistrationSnapshotForParticipant(
-          targetParticipant.id,
+      const registrationSnapshotParticipantIds =
+        await deps.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet(
+          [viewerParticipant.id, targetParticipant.id],
           client,
         );
       const viewerPairActiveMatch = await client.activeMatch.findFirst({
@@ -194,6 +194,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           campusOperated: true,
           seasonState: seasonContext.state,
           participant: viewerParticipant,
+          registrationSnapshotExists: registrationSnapshotParticipantIds.has(viewerParticipant.id),
           participantMatched: viewerPairActiveMatch !== null,
           seasonProfileComplete: viewerSeasonProfileComplete,
           selection: viewerContext.selection,
@@ -208,6 +209,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           campusOperated: true,
           seasonState: seasonContext.state,
           participant: viewerParticipant,
+          registrationSnapshotExists: registrationSnapshotParticipantIds.has(viewerParticipant.id),
           matched: viewerPairActiveMatch !== null,
           seasonProfileComplete: viewerSeasonProfileComplete,
           matchedPartnerParticipantId,
@@ -220,7 +222,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           participant: targetParticipant,
           matched: targetPairActiveMatch !== null,
           selection: targetSelection,
-          registrationSnapshotExists: targetRegistrationSnapshotExists,
+          registrationSnapshotExists: registrationSnapshotParticipantIds.has(targetParticipant.id),
         }),
       );
       const directThreadActionEligible = canStartChat && publicTargetPolicy.actions.canStartChat;

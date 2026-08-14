@@ -9,6 +9,7 @@ import { HomeDashboardCountsQuery } from './home-dashboard-counts.query.js';
 import { HomeDashboardHistoryQuery } from './home-dashboard-history.query.js';
 import { HomeDashboardNextSeasonQuery } from './home-dashboard-next-season.query.js';
 import { HomeDashboardPresenter } from './home-dashboard.presenter.js';
+import { toMatchRequestSummary } from '../../matches/requests/presenters/match-request.presenter.js';
 import {
   makeCurrentUserResponse,
   makeSeasonContext,
@@ -29,6 +30,10 @@ function createPrismaMock() {
     },
     seasonParticipant: {
       findFirst: vi.fn(),
+      count: vi.fn(),
+    },
+    seasonParticipantProfileHistory: {
+      findMany: vi.fn(),
       count: vi.fn(),
     },
     activeMatch: {
@@ -64,6 +69,9 @@ describe('HomeDashboardQuery', () => {
   const seasonsService = {
     getCurrentSeasonContext: vi.fn(),
   };
+  const matchOverviewQuery = {
+    executeAt: vi.fn(),
+  };
   const countsQuery = new HomeDashboardCountsQuery(prisma as never);
   const historyQuery = new HomeDashboardHistoryQuery(prisma as never);
   const nextSeasonQuery = new HomeDashboardNextSeasonQuery(prisma as never);
@@ -75,6 +83,7 @@ describe('HomeDashboardQuery', () => {
     historyQuery,
     nextSeasonQuery,
     new HomeDashboardPresenter(),
+    matchOverviewQuery as never,
   );
 
   beforeEach(() => {
@@ -82,6 +91,8 @@ describe('HomeDashboardQuery', () => {
     prisma.getDatabaseNow.mockResolvedValue(now);
     prisma.season.findMany.mockResolvedValue([]);
     prisma.seasonParticipant.count.mockResolvedValue(0);
+    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue([]);
+    prisma.seasonParticipantProfileHistory.count.mockResolvedValue(0);
     prisma.activeMatch.count.mockResolvedValue(0);
     prisma.activeMatch.findMany.mockResolvedValue([]);
     prisma.matchRequest.count.mockResolvedValue(0);
@@ -92,6 +103,7 @@ describe('HomeDashboardQuery', () => {
     prisma.seasonMatchHistoryEntry.count.mockResolvedValue(0);
     prisma.seasonMatchHistoryEntry.groupBy.mockResolvedValue([]);
     prisma.seasonDormitoryOperation.count.mockResolvedValue(0);
+    matchOverviewQuery.executeAt.mockResolvedValue({ sentRequests: [], receivedRequests: [] });
   });
 
   it('DB now 하나를 current-user/season/count composition에 주입한다', async () => {
@@ -103,6 +115,9 @@ describe('HomeDashboardQuery', () => {
       registeredAt: now,
       dormitorySelectionState: 'ASSIGNED',
     });
+    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue([
+      { participantId: 'participant-1' },
+    ]);
 
     const response = await query.execute(authUser);
 
@@ -144,6 +159,18 @@ describe('HomeDashboardQuery', () => {
       registeredAt: now,
       dormitorySelectionState: 'ASSIGNED',
     });
+    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue([
+      { participantId: 'participant-1' },
+      { participantId: 'participant-2' },
+      { participantId: 'participant-3' },
+      { participantId: 'participant-4' },
+      { participantId: 'participant-5' },
+      { participantId: 'participant-6' },
+      { participantId: 'participant-7' },
+      { participantId: 'participant-8' },
+      { participantId: 'participant-9' },
+      { participantId: 'participant-10' },
+    ]);
     prisma.seasonParticipant.count.mockImplementation(
       ({
         where,
@@ -170,18 +197,21 @@ describe('HomeDashboardQuery', () => {
         startedAt: now,
       },
     ]);
-    prisma.matchRequest.count.mockImplementation(
-      ({
-        where,
-      }: {
-        where: { requesterParticipantId?: string; receiverParticipantId?: string };
-      }) => {
-        if (where.requesterParticipantId === 'participant-1') return Promise.resolve(1);
-        if (where.receiverParticipantId === 'participant-1') return Promise.resolve(2);
-        return Promise.resolve(0);
+    const receivedRequest = toMatchRequestSummary(makeMatchRequestRecord(), 'participant-1');
+    const secondReceivedRequest = { ...receivedRequest, id: 'request-2' };
+    const sentRequest = toMatchRequestSummary(
+      {
+        ...makeMatchRequestRecord(),
+        id: 'request-sent',
+        requesterParticipantId: 'participant-1',
+        receiverParticipantId: 'participant-2',
       },
+      'participant-1',
     );
-    prisma.matchRequest.findMany.mockResolvedValue([makeMatchRequestRecord()]);
+    matchOverviewQuery.executeAt.mockResolvedValue({
+      sentRequests: [sentRequest],
+      receivedRequests: [receivedRequest, secondReceivedRequest],
+    });
     prisma.conversationThreadMember.count.mockResolvedValue(2);
     prisma.conversationThreadMember.findMany.mockResolvedValue([
       { threadId: 'thread-1', lastReadAt: new Date('2026-02-10T02:00:00.000Z') },
@@ -193,7 +223,7 @@ describe('HomeDashboardQuery', () => {
     const response = await query.execute(authUser);
 
     expect(response.stats).toMatchObject({
-      totalParticipants: 10,
+      totalParticipants: 8,
       assignedParticipants: 8,
       buildingTotal: 4,
       buildingMatchable: 3,
@@ -204,24 +234,29 @@ describe('HomeDashboardQuery', () => {
       todayMatchSuccessTotal: 4,
       todayMatchSuccessBuilding: 2,
     });
-    expect(prisma.activeMatch.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          seasonId: 'season-1',
-          status: 'ACTIVE',
-          endedAt: null,
-          participantA: { dormitoryId: 'dasan' },
-          participantB: { dormitoryId: 'dasan' },
-        },
-      }),
-    );
+    const activeMatchQuery = prisma.activeMatch.findMany.mock.calls[0]?.[0] as unknown as {
+      where: {
+        seasonId: string;
+        status: string;
+        endedAt: Date | null;
+        participantA: { dormitoryId?: string };
+        participantB: { dormitoryId?: string };
+      };
+    };
+    expect(activeMatchQuery.where).toMatchObject({
+      seasonId: 'season-1',
+      status: 'ACTIVE',
+      endedAt: null,
+    });
+    expect(activeMatchQuery.where.participantA).toMatchObject({ dormitoryId: 'dasan' });
+    expect(activeMatchQuery.where.participantB).toMatchObject({ dormitoryId: 'dasan' });
     expect(response.matching).toMatchObject({
       pendingSentCount: 1,
       pendingReceivedCount: 2,
       activeChatThreadCount: 2,
       unreadMessageCount: 7,
     });
-    expect(response.matching.recentReceivedRequests).toHaveLength(1);
+    expect(response.matching.recentReceivedRequests).toHaveLength(2);
     expect(response.viewer.capabilities.canViewMatchHistory).toBe(true);
     expect(response.viewer.identity.user.id).toBe('user-1');
   });
@@ -233,7 +268,7 @@ function makeMatchRequestRecord() {
     seasonId: 'season-1',
     requesterParticipantId: 'participant-2',
     receiverParticipantId: 'participant-1',
-    status: 'PENDING',
+    status: 'PENDING' as const,
     note: null,
     createdAt: new Date('2026-02-10T02:30:00.000Z'),
     expiresAt: new Date('2026-02-12T02:30:00.000Z'),
@@ -269,6 +304,14 @@ function makeMatchRequestRecord() {
         drinkingFrequency: 'NONE',
         relationshipStyle: 'CASUAL',
         temperatureSensitivity: 'NORMAL',
+        smokingTolerance: 'NO_ONLY',
+        indoorEatingTolerance: 'NO_SMELL',
+        phoneTolerance: 'BRIEF_OK',
+        earphoneExpectation: 'MUST',
+        cleanExpectation: 'STRICT',
+        drinkingTolerance: 'LOW_ONLY',
+        sleepEnvPreference: 'NO_SPEAKER',
+        screenTolerance: 'LOW_OK',
       },
     },
     receiverParticipant: {
@@ -285,5 +328,5 @@ function makeMatchRequestRecord() {
       user: { deletedAt: null },
       profile: null,
     },
-  };
+  } satisfies Parameters<typeof toMatchRequestSummary>[0];
 }

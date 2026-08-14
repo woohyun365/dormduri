@@ -1,16 +1,13 @@
 import {
-  getDormitoryDisplayById,
-  isCampusOperatedByDormitoryDisplayCatalog,
+  getDormitoryDisplayFromSeasonOperations,
   type DormitoryDisplayItem,
 } from '@/main/model/dormitoryDisplay.adapter';
 import { formatCampusName, formatGenderLabel } from '@/main/model/profileDisplayCopy';
-import { isDormitoryAssigned } from '@/utils/dormitory';
 import {
   calcDaysUntilTimestamp,
   formatDateDot,
   formatDateMonthDayDot,
 } from '@/main/tabs/home/model/homeDateDisplay';
-import type { ActiveMatch } from '@/types/match';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
 import type {
@@ -106,6 +103,18 @@ export interface HomeDashboardViewerIdentityViewModel {
   campusName: string;
 }
 
+export interface HomeActiveMatchViewModel {
+  matchId: string;
+  partnerUserId: string;
+  partnerNickname: string;
+  partnerDormitoryId: string | null;
+  matchScore: number;
+  scoreType: 'full' | 'gated';
+  matchedAt: string;
+  cancelRequestedAt: string | null;
+  cancelRequestedBy: 'self' | 'counterpart' | null;
+}
+
 export interface HomeDashboardViewModel {
   hasCurrentSeason: boolean;
   seasonState: SeasonState;
@@ -120,7 +129,7 @@ export interface HomeDashboardViewModel {
   isUnassigned: boolean;
   dormitory: DormitoryDisplayItem | null;
   hasActiveMatch: boolean;
-  activeMatch: ActiveMatch | null;
+  activeMatch: HomeActiveMatchViewModel | null;
   statsBar: HomeDashboardStatsBarViewModel;
   matchingSummary: HomeDashboardMatchingSummaryViewModel;
   preparation: HomeDashboardPreparationViewModel;
@@ -144,7 +153,9 @@ interface BuildHomeDashboardViewModelInput {
 
 const MS_48_HOURS = 48 * 60 * 60 * 1000;
 
-export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch | null {
+export function toHomeActiveMatch(
+  dashboard: HomeDashboardResponse,
+): HomeActiveMatchViewModel | null {
   const activeMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   if (!activeMatch) {
     return null;
@@ -167,11 +178,6 @@ export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch
       : requestedByCounterpartAt
         ? 'counterpart'
         : null,
-    kind: 'pair',
-    groupRole: null,
-    groupStage: null,
-    groupCapacity: 2,
-    groupMemberCount: 2,
   };
 }
 
@@ -187,17 +193,18 @@ export function buildHomeDashboardViewModel({
   const daysUntilEnd =
     dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0;
   const viewerIdentity = buildHomeViewerIdentityViewModel(dashboard);
-  const isCampusOperated =
-    dashboard.viewer.campusOperated &&
-    isCampusOperatedByDormitoryDisplayCatalog(viewerIdentity.campus);
+  const isCampusOperated = dashboard.viewer.campusOperated;
   const selectedDormitoryId = dashboard.viewer.selection.dormitoryId;
   const hasDashboardAssignedDormitory =
     (dashboard.viewer.selection.state === 'SELECTED' ||
       dashboard.viewer.selection.state === 'ASSIGNED') &&
-    isDormitoryAssigned(selectedDormitoryId);
+    selectedDormitoryId !== null;
   const isUnassigned = !hasDashboardAssignedDormitory;
   const dormitory = hasDashboardAssignedDormitory
-    ? getDormitoryDisplayById(selectedDormitoryId)
+    ? getDormitoryDisplayFromSeasonOperations(
+        selectedDormitoryId,
+        dashboard.season.operatedDormitories,
+      )
     : null;
   const rawActiveMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   const activeMatch = toHomeActiveMatch(dashboard);
@@ -407,7 +414,7 @@ function buildMatchingSummaryViewModel({
   seasonState: SeasonState;
   isCampusOperated: boolean;
   registrationReady: boolean;
-  activeMatch: ActiveMatch | null;
+  activeMatch: HomeActiveMatchViewModel | null;
   rawActiveMatch: HomeDashboardResponse['matching']['activeMatch'];
   renderedAt: number;
 }): HomeDashboardMatchingSummaryViewModel {
@@ -458,14 +465,12 @@ function buildMatchingSummaryViewModel({
             requiredCount: 2,
             canRequest: false,
             canCancel: false,
+            disabledReason: 'ACTIVE_MATCH_NOT_ACTIONABLE',
             availableUntil: null,
           },
           ...(rawActiveMatch?.counterpartSummary
             ? { counterpartSummary: rawActiveMatch.counterpartSummary }
             : {}),
-          groupStage: activeMatch.groupStage,
-          groupMemberCount: activeMatch.groupMemberCount,
-          groupCapacity: activeMatch.groupCapacity,
         }
       : undefined,
     receivedRequesters,
@@ -509,7 +514,7 @@ function buildOperatedDormitoryViewModel(
   return operations
     .filter((operation) => operation.isOperated)
     .map((operation) => {
-      const dormitory = getDormitoryDisplayById(operation.dormitoryId);
+      const dormitory = operation.dormitory ?? null;
 
       return {
         id: operation.dormitoryId,

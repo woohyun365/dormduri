@@ -1,12 +1,5 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { getBffForwardHeaders } from '@/app/api/_bff/forward';
-import {
-  buildBffUpstreamUrl,
-  buildSafeBffErrorResponse,
-  readBffJsonResponse,
-} from '@/app/api/_bff/security';
-import { getWebEnv } from '@/config/env';
+import type { NextRequest, NextResponse } from 'next/server';
+import { forwardValidatedBffRequest } from '@/app/api/_bff/forward';
 
 export const ROOMMATE_SEARCH_ALLOWED_QUERY_KEYS = [
   'limit',
@@ -74,40 +67,15 @@ export async function forwardRoommateSearchGet<TResponse>(input: {
   allowedQueryKeys: readonly string[];
   responseSchema: SafeParseSchema<TResponse>;
 }): Promise<NextResponse> {
-  let upstreamUrl: string;
-  try {
-    upstreamUrl = buildBffUpstreamUrl({
-      apiUpstreamUrl: getWebEnv().apiUpstreamUrl,
-      path: `${input.upstreamPath}${buildAllowedQueryString(input.request, input.allowedQueryKeys)}`,
-      allowedPathPrefix: '/api',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_URL_INVALID');
-  }
-
-  let upstreamResponse: Response;
-  try {
-    upstreamResponse = await fetch(upstreamUrl, {
-      method: 'GET',
-      headers: getBffForwardHeaders(input.request, { authenticated: true }),
-      cache: 'no-store',
-    });
-  } catch {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_UNAVAILABLE');
-  }
-
-  const { response: safeResponse, json } = await readBffJsonResponse(upstreamResponse, {
-    redactSensitiveFields: true,
+  return forwardValidatedBffRequest({
+    request: input.request,
+    method: 'GET',
+    path: `${input.upstreamPath}${buildAllowedQueryString(input.request, input.allowedQueryKeys)}`,
+    operation:
+      input.upstreamPath === '/api/roommate-search'
+        ? 'roommate.search'
+        : 'roommate.search_manifest',
+    authenticated: true,
+    responseSchema: input.responseSchema,
   });
-
-  if (!safeResponse.ok) {
-    return NextResponse.json(json, { status: safeResponse.status });
-  }
-
-  const parsed = input.responseSchema.safeParse(json);
-  if (!parsed.success) {
-    return buildSafeBffErrorResponse('BFF_UPSTREAM_SCHEMA_INVALID');
-  }
-
-  return NextResponse.json(parsed.data, { status: safeResponse.status });
 }

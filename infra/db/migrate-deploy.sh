@@ -66,6 +66,7 @@ if [ ! -f "$root/apps/api/prisma/schema.prisma" ]; then
 fi
 
 echo 'running Prisma migrate deploy using MIGRATION_DATABASE_URL'
+NODE_ENV=production \
 DIRECT_URL="$MIGRATION_DATABASE_URL" \
 DATABASE_URL="$MIGRATION_DATABASE_URL" \
   pnpm --dir "$root/apps/api" exec prisma migrate deploy --schema prisma/schema.prisma

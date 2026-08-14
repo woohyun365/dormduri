@@ -6,13 +6,17 @@ import { useAuthSession } from './useAuthSession';
 
 export function useRedirectIfAuthenticated() {
   const router = useRouter();
-  const { user, isLoading } = useAuthSession();
+  const session = useAuthSession();
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (session.status === 'authenticated') {
       router.replace('/main');
     }
-  }, [isLoading, user, router]);
+  }, [router, session.status]);
 
-  return { isReadyToRender: !isLoading && !user };
+  return {
+    isReadyToRender: session.status === 'unauthenticated' || session.status === 'unavailable',
+    sessionStatus: session.status,
+    retrySession: session.retry,
+  };
 }

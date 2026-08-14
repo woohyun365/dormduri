@@ -1,4 +1,4 @@
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import type { ReactNode } from 'react';
 
 type RoommateActionConfirmationTone = 'amber' | 'indigo' | 'red';
@@ -52,7 +52,7 @@ export function RoommateActionConfirmationDialog({
   const styles = TONE_STYLES[tone];
 
   return (
-    <BaseBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
+    <BaseBottomSheet isOpen={isOpen} onClose={onClose} title={title} layer="nested">
       <div className="space-y-5 px-5 py-5">
         <section className={`rounded-3xl border p-4 ${styles.card}`}>
           <p className="text-sm font-bold text-(--knu-text-primary)">{headline}</p>

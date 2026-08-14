@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { homeProfileDetailApi } from '../api/home-profile-detail.api';
-import type { MatchHistoryResponse } from '@repo/shared/match/contract';
 import type { PublicProfile } from '@repo/shared/profile/contract';
 import type {
   PreviousSeasonProfileResponse,
@@ -143,79 +142,6 @@ export function usePublicProfileDetail(
       active = false;
     };
   }, [requestKey, userId]);
-
-  return resolveStateForKey(state, requestKey);
-}
-
-export function useMatchHistoryDetail(
-  enabled: boolean,
-): HomeProfileDetailState<MatchHistoryResponse> {
-  const requestKey = enabled ? 'match-history' : null;
-  const [state, setState] = useState<InternalDetailState<MatchHistoryResponse>>(() => ({
-    requestKey: 'idle',
-    result: createIdleState(),
-  }));
-
-  useEffect(() => {
-    if (!requestKey) return;
-
-    let active = true;
-
-    homeProfileDetailApi
-      .getMatchHistory()
-      .then((data) => {
-        if (active) setState({ requestKey, result: { status: 'success', data, error: null } });
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setState({
-            requestKey,
-            result: { status: 'error', data: null, error: normalizeError(error) },
-          });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [requestKey]);
-
-  return resolveStateForKey(state, requestKey);
-}
-
-export function useMatchHistoryCounterpartProfile(
-  entryId: string | null | undefined,
-  enabled: boolean,
-): HomeProfileDetailState<PublicProfile> {
-  const requestKey = enabled && entryId ? `match-history-counterpart:${entryId}` : null;
-  const [state, setState] = useState<InternalDetailState<PublicProfile>>(() => ({
-    requestKey: 'idle',
-    result: createIdleState(),
-  }));
-
-  useEffect(() => {
-    if (!requestKey || !entryId) return;
-
-    let active = true;
-
-    homeProfileDetailApi
-      .getMatchHistoryCounterpartProfile(entryId)
-      .then((data) => {
-        if (active) setState({ requestKey, result: { status: 'success', data, error: null } });
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setState({
-            requestKey,
-            result: { status: 'error', data: null, error: normalizeError(error) },
-          });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [entryId, requestKey]);
 
   return resolveStateForKey(state, requestKey);
 }

@@ -57,7 +57,7 @@ describe('academic identity repository', () => {
     await updateAcademicIdentity(client as never, {
       userId: 'user-1',
       parsedAcademicIdentity: {
-        collegeCode: 'BUSINESS',
+        collegeCode: 'CHUNCHEON_BUSINESS',
         birthYear: 2001,
       },
     });
@@ -66,11 +66,11 @@ describe('academic identity repository', () => {
       where: { userId: 'user-1' },
       create: {
         userId: 'user-1',
-        collegeCode: 'BUSINESS',
+        collegeCode: 'CHUNCHEON_BUSINESS',
         birthYear: 2001,
       },
       update: {
-        collegeCode: 'BUSINESS',
+        collegeCode: 'CHUNCHEON_BUSINESS',
         birthYear: 2001,
       },
     });

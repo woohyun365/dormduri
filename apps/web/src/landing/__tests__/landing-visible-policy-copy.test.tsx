@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LandingPage from '../LandingPage';
 import { landingSectionHeadings } from '../content/landing-copy';
@@ -53,19 +53,28 @@ describe('landing visible policy copy', () => {
 
   it('첫 렌더에서 hero·정책 경계·CTA를 skeleton 없이 노출한다', () => {
     const { container } = render(<LandingPage />);
+    const hero = container.querySelector<HTMLElement>('#hero');
+
+    expect(hero).not.toBeNull();
 
     expect(
       screen.getByRole('heading', {
-        name: /학기 시작 전,\s*생활패턴이 맞는\s*룸메 후보를 확인하세요/,
+        name: /학기 시작 전,\s*생활패턴이 맞는\s*룸메이트를 찾아요/,
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/독립 운영 서비스입니다/).length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
+    expect(screen.getAllByText(/학교 공식 서비스가 아닙니다/).length).toBeGreaterThan(0);
+    expect(within(hero!).getByRole('link', { name: '학교 이메일로 시작하기' })).toHaveAttribute(
       'href',
       '/signup',
     );
+    expect(within(hero!).getByRole('link', { name: '서비스 범위 보기' })).toHaveAttribute(
+      'href',
+      '#trust-boundary',
+    );
+    expect(
+      within(hero!).getByRole('figure', { name: '룸메 후보 목록은 이렇게 보여요' }),
+    ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/서비스를 준비하고 있어요|loading app shell/i);
-    expect(container.querySelector('[data-testid="landing-faq-skeleton-row"]')).toBeNull();
   });
 
   it('공개 화면에서 개발자 중심 용어를 노출하지 않는다', () => {
@@ -78,7 +87,9 @@ describe('landing visible policy copy', () => {
   it('섹션 heading과 preview disclaimer를 제품 서사 순서로 노출한다', () => {
     render(<LandingPage />);
 
-    const headings = landingSectionHeadings.map((heading) => screen.getByText(new RegExp(heading)));
+    const headings = landingSectionHeadings.map((heading) =>
+      screen.getByRole('heading', { name: new RegExp(heading) }),
+    );
 
     for (let i = 1; i < headings.length; i++) {
       expect(headings[i]!.compareDocumentPosition(headings[i - 1]!)).toBe(
@@ -86,24 +97,34 @@ describe('landing visible policy copy', () => {
       );
     }
 
-    expect(screen.getAllByText('예시')).toHaveLength(2);
-    expect(
-      screen.getAllByText(
-        /실제 사용자가 아닌 이해를 돕기 위한 예시이며, 서비스 내부 디자인과 다를 수 있어요\./,
-      ),
-    ).toHaveLength(2);
+    expect(screen.getAllByText('서비스 화면 예시')).toHaveLength(1);
+    expect(screen.getAllByText(/실제 사용자 정보가 아닌 이해를 돕기 위한 예시예요\./)).toHaveLength(
+      1,
+    );
     expect(
       screen.queryByText(/실제 사용자, 실제 점수, 매칭 또는 호실 선택 성공/),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('같은 기숙사 후보와 직접 대화')).toBeInTheDocument();
-    expect(screen.getByText(/매칭 요청·수락은 시즌 매칭 기간에만 열립니다/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
+    expect(screen.getByText('후보와 대화')).toBeInTheDocument();
+    expect(screen.getByText('요청·수락')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '서비스 이용 중 도움이 필요하다면' }),
+    ).toBeInTheDocument();
+    const hero = document.querySelector<HTMLElement>('#hero');
+    const finalCta = document.querySelector<HTMLElement>('#final-cta');
+    expect(within(hero!).getByRole('link', { name: '학교 이메일로 시작하기' })).toHaveAttribute(
       'href',
       '/signup',
     );
-    expect(screen.getByRole('link', { name: /학교 이메일로 가입하기/ })).toHaveAttribute(
+    expect(within(finalCta!).getByRole('link', { name: '학교 이메일로 시작하기' })).toHaveAttribute(
       'href',
       '/signup',
     );
+    expect(within(finalCta!).queryByRole('link', { name: '로그인' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '룸메이트 찾기를 시작해 보세요' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('기숙사 배정과 호실 선택 결과는 학교 시스템에서 결정됩니다.'),
+    ).not.toBeInTheDocument();
   });
 });

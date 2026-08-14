@@ -1,14 +1,7 @@
 {
-  "extends": "@repo/tsconfig/next.json",
+  "extends": "./tsconfig.product.json",
   "compilerOptions": {
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "types": ["vitest/globals", "@testing-library/jest-dom", "node"]
   },
   "include": [
     "next-env.d.ts",
@@ -18,16 +11,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/**/*.spec.ts",
-    "src/**/*.spec.tsx",
-    "src/**/__tests__/**",
-    "src/**/__stories__/**",
-    "src/**/*.stories.ts",
-    "src/**/*.stories.tsx",
-    "src/__fixtures__/**"
-  ]
+  "exclude": ["node_modules", ".next", "coverage", "storybook-static"]
 }

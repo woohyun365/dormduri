@@ -1,0 +1,9 @@
+services:
+  prometheus:
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+networks:
+  observability:
+    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+    external: true

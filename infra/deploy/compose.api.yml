@@ -1,0 +1,100 @@
+name: knu-roommate-api
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/deploy/api/Dockerfile
+    image: knu-roommate-api:${API_IMAGE_TAG:?API_IMAGE_TAG must identify the source commit}
+    env_file:
+      - path: ${API_RUNTIME_ENV_FILE:?API_RUNTIME_ENV_FILE must reference a runtime env file}
+        required: true
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      TZ: ${TZ:-Asia/Seoul}
+      OBSERVABILITY_SERVICE_NAME: api
+      LOG_PRETTY: 'false'
+      SECRET_MOUNT_DIRECTORY: ${SECRET_MOUNT_DIRECTORY:-/run/secrets/knu-roommate-api}
+    volumes:
+      - ${API_SECRET_HOST_CURRENT:-api-secrets}:/run/secrets/knu-roommate-api:ro
+    expose:
+      - '4000'
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    deploy:
+      resources:
+        limits:
+          pids: 256
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD', './healthcheck.sh']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - api-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  nginx:
+    image: nginx:1.29.8-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${NGINX_HTTP_BIND:-127.0.0.1}:${NGINX_HTTP_PORT:-8080}:80'
+    environment:
+      TZ: ${TZ:-Asia/Seoul}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m,mode=0755
+      - /var/run:size=4m,mode=0755
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          pids: 128
+    stop_grace_period: 15s
+    networks:
+      - api-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+networks:
+  api-internal:
+    driver: bridge
+
+volumes:
+  api-secrets:

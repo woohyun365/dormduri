@@ -5,6 +5,7 @@ import type {
   SeasonHistorySource,
 } from './ended-season-history.loader.js';
 import {
+  resolveHistorySystemCancellation,
   toRequestEntryResult,
   toSeasonEndBoundary,
 } from './match-history-materialization.policy.js';
@@ -12,6 +13,10 @@ import {
   buildHistoryScoreSnapshot,
   toHistorySnapshotColumns,
 } from './match-history-score-snapshot.builder.js';
+import {
+  buildMatchHistoryCompatibilitySnapshot,
+  toMatchHistoryCompatibilityJson,
+} from '../compatibility/match-history-compatibility.snapshot.js';
 
 export function buildHistoryRows(
   season: SeasonHistorySource,
@@ -48,6 +53,16 @@ export function buildHistoryRows(
       request.receiverParticipantId,
     );
     const finalizedAt = request.terminalAt ?? request.createdAt;
+    const requesterCancellation = resolveHistorySystemCancellation({
+      request,
+      viewerParticipantId: request.requesterParticipantId,
+      counterpartParticipantId: request.receiverParticipantId,
+    });
+    const receiverCancellation = resolveHistorySystemCancellation({
+      request,
+      viewerParticipantId: request.receiverParticipantId,
+      counterpartParticipantId: request.requesterParticipantId,
+    });
 
     rows.push(
       buildRequestHistoryRow({
@@ -59,6 +74,7 @@ export function buildHistoryRows(
         viewerRequested: true,
         finalizedAt,
         requestTerminalReason: request.terminalReason,
+        ...requesterCancellation,
         entryResult: toRequestEntryResult(request.status, request.terminalReason),
         sourceRequestId: request.id,
       }),
@@ -71,6 +87,7 @@ export function buildHistoryRows(
         viewerRequested: false,
         finalizedAt,
         requestTerminalReason: request.terminalReason,
+        ...receiverCancellation,
         entryResult: toRequestEntryResult(request.status, request.terminalReason),
         sourceRequestId: request.id,
       }),
@@ -158,6 +175,8 @@ export function buildRequestHistoryRow(input: {
     | 'MATCH_PRECONDITION_FAILED'
     | 'ADMIN_ACTION'
     | null;
+  systemCancellationCause: 'VIEWER_MATCHED' | 'COUNTERPART_MATCHED' | null;
+  systemCancellationGroupId: string | null;
   entryResult:
     | 'REQUEST_REJECTED'
     | 'REQUEST_CANCELLED'
@@ -170,7 +189,6 @@ export function buildRequestHistoryRow(input: {
     input.viewerParticipant,
     input.counterpartParticipant,
   );
-
   return {
     id: input.id,
     seasonId: input.seasonId,
@@ -189,6 +207,8 @@ export function buildRequestHistoryRow(input: {
     unmatchedAt: null,
     finalizedAt: input.finalizedAt,
     requestTerminalReason: input.requestTerminalReason,
+    systemCancellationCause: input.systemCancellationCause,
+    systemCancellationGroupId: input.systemCancellationGroupId,
     activeMatchEndReason: null,
   };
 }
@@ -217,6 +237,10 @@ export function buildMatchHistoryRow(input: {
     input.viewerParticipant,
     input.counterpartParticipant,
   );
+  const compatibility = buildMatchHistoryCompatibilitySnapshot(
+    input.viewerParticipant,
+    input.counterpartParticipant,
+  );
 
   return {
     id: input.id,
@@ -231,6 +255,14 @@ export function buildMatchHistoryRow(input: {
     sourceActiveMatchId: input.sourceActiveMatchId,
     createdFromRequestId: input.createdFromRequestId,
     matchScore: scoreSnapshot.matchScore,
+    ...(compatibility
+      ? {
+          compatibilitySnapshot: toMatchHistoryCompatibilityJson(
+            compatibility.compatibilitySnapshot,
+          ),
+          compatibilitySchemaVersion: compatibility.compatibilitySchemaVersion,
+        }
+      : {}),
     ...toHistorySnapshotColumns(scoreSnapshot),
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
@@ -238,6 +270,8 @@ export function buildMatchHistoryRow(input: {
     unmatchedAt: input.unmatchedAt,
     finalizedAt: input.finalizedAt,
     requestTerminalReason: 'ACCEPTED',
+    systemCancellationCause: null,
+    systemCancellationGroupId: null,
     activeMatchEndReason: input.activeMatchEndReason,
   };
 }

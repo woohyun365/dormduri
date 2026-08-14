@@ -8,7 +8,6 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import type { Campus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
-import { buildRegisteredParticipantWhere } from './home-dashboard-counts.query.js';
 
 const seasonHistorySeasonSelect = {
   id: true,
@@ -50,12 +49,20 @@ export class HomeDashboardHistoryQuery {
     }
 
     const viewerHistoryWhere = buildViewerHistoryWhere(lastSeason.id, input.userId);
+    const viewerParticipant = await this.prisma.seasonParticipant.findFirst({
+      where: {
+        seasonId: lastSeason.id,
+        userId: input.userId,
+        user: { deletedAt: null },
+      },
+      select: { id: true },
+    });
     const [
-      totalParticipants,
+      registeredParticipantSnapshots,
       totalMatchSuccess,
       matchedPairRows,
       operatedDormitoryCount,
-      viewerRegistrationCount,
+      viewerRegistrationSnapshotCount,
       viewerSentRequestCount,
       viewerReceivedRequestCount,
       viewerConversationCount,
@@ -63,8 +70,15 @@ export class HomeDashboardHistoryQuery {
       viewerUnmatchedAfterSuccessCount,
       viewerLatestMatchRow,
     ] = await Promise.all([
-      this.prisma.seasonParticipant.count({
-        where: buildRegisteredParticipantWhere(lastSeason.id),
+      this.prisma.seasonParticipantProfileHistory.findMany({
+        where: {
+          seasonId: lastSeason.id,
+          source: 'SEASON_REGISTRATION',
+          registeredAtSnapshot: { not: null },
+          redactedAt: null,
+        },
+        select: { participantId: true },
+        distinct: ['participantId'],
       }),
       this.prisma.seasonMatchHistoryEntry.count({
         where: buildSuccessfulHistoryWhere(lastSeason.id),
@@ -76,13 +90,18 @@ export class HomeDashboardHistoryQuery {
       this.prisma.seasonDormitoryOperation.count({
         where: { seasonId: lastSeason.id, isOperated: true },
       }),
-      this.prisma.seasonParticipant.count({
-        where: {
-          ...buildRegisteredParticipantWhere(lastSeason.id),
-          userId: input.userId,
-        },
-        take: 1,
-      }),
+      viewerParticipant
+        ? this.prisma.seasonParticipantProfileHistory.count({
+            where: {
+              seasonId: lastSeason.id,
+              participantId: viewerParticipant.id,
+              source: 'SEASON_REGISTRATION',
+              registeredAtSnapshot: { not: null },
+              redactedAt: null,
+            },
+            take: 1,
+          })
+        : Promise.resolve(0),
       this.prisma.seasonMatchHistoryEntry.count({
         where: {
           ...viewerHistoryWhere,
@@ -133,7 +152,8 @@ export class HomeDashboardHistoryQuery {
       }),
     ]);
 
-    const viewerHadRegistration = viewerRegistrationCount > 0;
+    const totalParticipants = registeredParticipantSnapshots.length;
+    const viewerHadRegistration = viewerRegistrationSnapshotCount > 0;
     const viewerHadMatchSuccess = viewerMatchedSuccessCount > 0;
 
     return {

@@ -8,7 +8,7 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import lifecycleConfig from '../config/lifecycle.config.js';
+import lifecycleConfig from './config/lifecycle.config.js';
 import {
   BOUNDARY_JOB_PREFIX,
   type LifecycleBoundarySchedulePort,

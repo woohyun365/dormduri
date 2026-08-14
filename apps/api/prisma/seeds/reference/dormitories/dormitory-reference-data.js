@@ -1,0 +1,156 @@
+/**
+ * 2026 official sources:
+ * - Chuncheon facilities: https://knudorm.kangwon.ac.kr/content/K08
+ * - Chuncheon 2026-2 selection: https://knudorm.kangwon.ac.kr/resources/2026_2.pdf
+ * - Samcheok facilities: https://dormitory.kangwon.ac.kr/bbs/content.php?co_id=1_5
+ * - Samcheok 2026 notices: https://dormitory.kangwon.ac.kr/
+ * - Dogye facilities/notices: https://dorm.kangwon.ac.kr/
+ * - Samcheok/Dogye room configurations: 2026 KNU admission guide
+ *   https://wwwk.kangwon.ac.kr/DATA/download/admission/2026%ED%95%99%EB%85%84%EB%8F%84%20%EA%B0%95%EC%9B%90%EB%8C%80%ED%95%99%EA%B5%90%20%EC%A0%95%EC%8B%9C%EB%AA%A8%EC%A7%91%EC%9A%94%EA%B0%95_1%EC%B0%A8%20%EC%88%98%EC%A0%95%2820250915%29%28%EA%B3%B5%EA%B0%9C%EC%9A%A9%29.pdf
+ *
+ * `roomType` is the matching product's supported roommate cohort size, not a
+ * complete facilities inventory. One-person accessibility/family rooms and
+ * special pilot rooms are not separate matching catalog rows.
+ */
+export const DORMITORY_REFERENCE_DATA = Object.freeze([
+  Object.freeze({
+    id: 'dasan',
+    campusCode: 'CHUNCHEON',
+    nameKo: '다산관',
+    roomType: 2,
+    genderPolicy: 'M',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 1,
+  }),
+  Object.freeze({
+    id: 'yeji',
+    campusCode: 'CHUNCHEON',
+    nameKo: '예지원',
+    roomType: 2,
+    genderPolicy: 'F',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 2,
+  }),
+  Object.freeze({
+    id: 'chuncheon-international',
+    campusCode: 'CHUNCHEON',
+    nameKo: '국제생활관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: false,
+    isActive: true,
+    sortOrder: 3,
+  }),
+  Object.freeze({
+    id: 'chuncheon-global-talent',
+    campusCode: 'CHUNCHEON',
+    nameKo: '국제인재양성관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: false,
+    isActive: true,
+    sortOrder: 4,
+  }),
+  Object.freeze({
+    id: 'saerom',
+    campusCode: 'CHUNCHEON',
+    nameKo: '새롬관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 5,
+  }),
+  Object.freeze({
+    id: 'irum',
+    campusCode: 'CHUNCHEON',
+    nameKo: '이룸관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 6,
+  }),
+  Object.freeze({
+    id: 'daon',
+    campusCode: 'CHUNCHEON',
+    nameKo: '다온관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 7,
+  }),
+  Object.freeze({
+    id: 'samcheok-haesol',
+    campusCode: 'SAMCHEOK',
+    nameKo: '해솔관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 1,
+  }),
+  Object.freeze({
+    id: 'samcheok-doota',
+    campusCode: 'SAMCHEOK',
+    nameKo: '두타관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 2,
+  }),
+  Object.freeze({
+    id: 'samcheok-eonjang',
+    campusCode: 'SAMCHEOK',
+    nameKo: '언장관',
+    roomType: 2,
+    genderPolicy: 'M',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 3,
+  }),
+  Object.freeze({
+    id: 'dogye-gaon',
+    campusCode: 'DOGYE',
+    nameKo: '가온관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 1,
+  }),
+  Object.freeze({
+    id: 'dogye-dowon',
+    campusCode: 'DOGYE',
+    nameKo: '도원관',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 2,
+  }),
+  Object.freeze({
+    id: 'dogye-hwangjo-2',
+    campusCode: 'DOGYE',
+    nameKo: '황조관(2인 세대)',
+    roomType: 2,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 3,
+  }),
+  Object.freeze({
+    id: 'dogye-hwangjo-3',
+    campusCode: 'DOGYE',
+    nameKo: '황조관(3인 세대)',
+    roomType: 3,
+    genderPolicy: 'BOTH',
+    matchingSupported: true,
+    isActive: true,
+    sortOrder: 4,
+  }),
+]);

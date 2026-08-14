@@ -1,5 +1,5 @@
 import { SeasonOpenActivitySection } from './SeasonOpenActivitySection';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 
 interface SeasonMatchingPreparationActivitySectionProps {

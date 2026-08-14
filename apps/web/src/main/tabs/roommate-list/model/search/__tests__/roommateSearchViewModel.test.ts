@@ -160,7 +160,6 @@ describe('roommateSearchViewModel', () => {
       id: 'request-1',
       direction: 'SENT',
       label: '이미 요청을 보낸 사용자',
-      description: '상대의 응답을 기다리는 중이에요.',
     });
     expect(vm.actionStateLabel).toBe('이미 요청을 보낸 사용자');
     expect(vm.actionStateBadges).toEqual([
@@ -226,10 +225,13 @@ describe('roommateSearchViewModel', () => {
       },
     });
 
-    expect(vm.actionStateBadges).toEqual([
-      { label: '대화 가능', tone: 'green' },
-      { label: '매칭 요청 횟수 초과', tone: 'amber' },
-    ]);
+    expect(vm.actionStateBadges).toEqual([{ label: '매칭 요청 횟수 초과', tone: 'amber' }]);
+    expect(vm.actions).toEqual({
+      canBookmark: true,
+      canRequestMatch: false,
+      canStartChat: true,
+      unavailableReasons: ['MATCH_REQUEST_DIRECTION_LIMIT_REACHED'],
+    });
     expect(vm.chatAction).toEqual({
       visible: true,
       label: '채팅하기',
@@ -250,10 +252,7 @@ describe('roommateSearchViewModel', () => {
     });
 
     expect(vm.actionStateLabel).toBe('대화 가능');
-    expect(vm.actionStateBadges).toEqual([
-      { label: '대화 가능', tone: 'green' },
-      { label: '매칭 신청 불가', tone: 'amber' },
-    ]);
+    expect(vm.actionStateBadges).toEqual([{ label: '매칭 신청 불가', tone: 'amber' }]);
     expect(vm.chatAction).toEqual({
       visible: true,
       label: '채팅하기',

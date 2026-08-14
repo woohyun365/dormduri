@@ -3,7 +3,7 @@ import { listSupportFaqQuerySchema } from '@repo/shared/support';
 import { forwardBffRequest } from '@/app/api/_bff/forward';
 import { buildSafeBffErrorResponse } from '@/app/api/_bff/security';
 
-const SUPPORT_FAQ_QUERY_KEYS = ['category', 'surface'] as const;
+const SUPPORT_FAQ_QUERY_KEYS = ['category'] as const;
 
 type SupportFaqQueryKey = (typeof SUPPORT_FAQ_QUERY_KEYS)[number];
 
@@ -40,10 +40,6 @@ function buildSupportFaqPath(request: NextRequest): string | NextResponse {
   if (parsed.data.category) {
     query.set('category', parsed.data.category);
   }
-  if (parsed.data.surface) {
-    query.set('surface', parsed.data.surface);
-  }
-
   const search = query.toString();
   return search ? `/api/support/faq?${search}` : '/api/support/faq';
 }
@@ -56,6 +52,7 @@ export async function GET(request: NextRequest) {
 
   return forwardBffRequest({
     request,
+    operation: 'support.faq.list',
     method: 'GET',
     path,
   });

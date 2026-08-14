@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { hashPassword } from '../../auth/application/auth-password-hash.js';
 import type {
   PrismaService,
   RetentionWorkerPrismaService,
@@ -33,7 +32,7 @@ function makeDraftParticipant(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function makeDeps(
+function makeDeps(
   options: {
     password?: string;
     deletedAt?: Date | null;
@@ -42,7 +41,7 @@ async function makeDeps(
     tx?: unknown;
   } = {},
 ) {
-  const passwordHash = await hashPassword(options.password ?? 'Pass1234');
+  const passwordHash = 'stored-password-hash';
   const tx =
     options.tx ??
     ({
@@ -71,23 +70,33 @@ async function makeDeps(
   const seasonsService = {
     getCurrentSeasonContext: vi.fn().mockResolvedValue(options.seasonContext ?? null),
   };
+  const passwordVerifier = {
+    verifyAccountPassword: vi
+      .fn()
+      .mockImplementation(
+        (_passwordHash: string, candidatePassword: string) =>
+          candidatePassword === (options.password ?? 'Pass1234'),
+      ),
+  };
 
   return {
     command: createRequestAccountDeletionCommand({
       prisma: prisma as unknown as PrismaService,
       retentionWorkerPrisma: retentionWorkerPrisma as unknown as RetentionWorkerPrismaService,
       seasonsService: seasonsService as unknown as SeasonContextPort,
+      passwordVerifier,
     }),
     prisma,
     retentionWorkerPrisma,
     seasonsService,
+    passwordVerifier,
     tx,
   };
 }
 
 describe('createRequestAccountDeletionCommand', () => {
   it('password mismatch는 transaction/write 없이 ACCOUNT_DELETION_PASSWORD_MISMATCH로 거부한다', async () => {
-    const { command, retentionWorkerPrisma } = await makeDeps({ password: 'Pass1234' });
+    const { command, retentionWorkerPrisma } = makeDeps({ password: 'Pass1234' });
 
     await expect(
       command.requestAccountDeletion('user-1', { password: 'Wrong1234' }),
@@ -98,7 +107,7 @@ describe('createRequestAccountDeletionCommand', () => {
   });
 
   it('already deleted precheck는 transaction/write 없이 ACCOUNT_ALREADY_DELETED로 거부한다', async () => {
-    const { command, retentionWorkerPrisma } = await makeDeps({ deletedAt: NOW });
+    const { command, retentionWorkerPrisma } = makeDeps({ deletedAt: NOW });
 
     await expect(
       command.requestAccountDeletion('user-1', { password: 'Pass1234' }),
@@ -115,7 +124,7 @@ describe('createRequestAccountDeletionCommand', () => {
       dormitorySelectionState: 'ASSIGNED',
       participantStatus: 'ACTIVE',
     });
-    const { command, retentionWorkerPrisma } = await makeDeps({
+    const { command, retentionWorkerPrisma } = makeDeps({
       seasonContext: makeSeasonContext(),
       precheckParticipant: registeredParticipant,
     });
@@ -159,7 +168,7 @@ describe('createRequestAccountDeletionCommand', () => {
         upsert: retainedIdentityUpsert,
       },
     };
-    const { command, prisma } = await makeDeps({
+    const { command, prisma } = makeDeps({
       seasonContext: makeSeasonContext(),
       precheckParticipant: makeDraftParticipant(),
       tx,
@@ -190,7 +199,7 @@ describe('createRequestAccountDeletionCommand', () => {
         findUnique: vi.fn(),
       },
     };
-    const { command } = await makeDeps({ tx });
+    const { command } = makeDeps({ tx });
 
     await expect(
       command.requestAccountDeletion('user-1', { password: 'Pass1234' }),
@@ -285,7 +294,7 @@ describe('createRequestAccountDeletionCommand', () => {
           retentionHoldUntil: args.create.retentionHoldUntil ?? retentionHoldUntil,
         }),
     );
-    const { command } = await makeDeps({ tx });
+    const { command } = makeDeps({ tx });
 
     await expect(
       command.requestAccountDeletion('user-1', { password: 'Pass1234' }),

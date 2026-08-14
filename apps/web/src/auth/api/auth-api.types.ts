@@ -1,6 +1,7 @@
 export type RequestJsonResult<T> = {
   status: number;
   data: T;
+  headers: Headers;
   retryAfterSeconds?: number;
 };
 

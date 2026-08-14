@@ -13,6 +13,10 @@ function createPrismaMock() {
       findMany: vi.fn(),
     },
     seasonParticipant: {
+      findFirst: vi.fn(),
+    },
+    seasonParticipantProfileHistory: {
+      findMany: vi.fn(),
       count: vi.fn(),
     },
     seasonMatchHistoryEntry: {
@@ -33,7 +37,9 @@ describe('HomeDashboardHistoryQuery', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.season.findMany.mockResolvedValue([]);
-    prisma.seasonParticipant.count.mockResolvedValue(0);
+    prisma.seasonParticipant.findFirst.mockResolvedValue(null);
+    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue([]);
+    prisma.seasonParticipantProfileHistory.count.mockResolvedValue(0);
     prisma.seasonMatchHistoryEntry.count.mockResolvedValue(0);
     prisma.seasonMatchHistoryEntry.groupBy.mockResolvedValue([]);
     prisma.seasonMatchHistoryEntry.findFirst.mockResolvedValue(null);
@@ -59,9 +65,11 @@ describe('HomeDashboardHistoryQuery', () => {
       makeSeasonRow({ id: 'last-season', name: '2026년 1학기', end: '2026-03-01' }),
       makeSeasonRow({ id: 'older-season', end: '2025-12-20' }),
     ]);
-    prisma.seasonParticipant.count.mockImplementation(({ where }: { where: { userId?: string } }) =>
-      Promise.resolve(where.userId === 'user-1' ? 1 : 237),
+    prisma.seasonParticipant.findFirst.mockResolvedValue({ id: 'participant-viewer' });
+    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue(
+      Array.from({ length: 237 }, (_, index) => ({ participantId: `participant-${index}` })),
     );
+    prisma.seasonParticipantProfileHistory.count.mockResolvedValue(1);
     prisma.seasonMatchHistoryEntry.count.mockImplementation(
       ({
         where,
@@ -134,11 +142,11 @@ describe('HomeDashboardHistoryQuery', () => {
         },
       },
     });
-    expect(JSON.stringify(prisma.seasonParticipant.count.mock.calls)).toContain(
-      '"seasonId":"last-season"',
+    expect(JSON.stringify(prisma.seasonParticipantProfileHistory.findMany.mock.calls)).toContain(
+      '"source":"SEASON_REGISTRATION"',
     );
-    expect(JSON.stringify(prisma.seasonParticipant.count.mock.calls)).toContain(
-      '"registeredAt":{"not":null}',
+    expect(JSON.stringify(prisma.seasonParticipantProfileHistory.count.mock.calls)).toContain(
+      '"participantId":"participant-viewer"',
     );
     expect(JSON.stringify(prisma.seasonMatchHistoryEntry.count.mock.calls)).toContain(
       '"entryResult":"MATCHED_SUCCESS"',

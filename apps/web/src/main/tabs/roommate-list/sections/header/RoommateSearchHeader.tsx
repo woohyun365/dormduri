@@ -1,47 +1,62 @@
-import type { ReactNode } from 'react';
+import { Building2, School, Search } from 'lucide-react';
+import type { Ref } from 'react';
+import { MainTabHeaderFrame } from '@/main/components/layout/MainTabHeaderFrame';
+import { getAvatarColor } from '@/main/components/avatar/avatarPresentation';
 
 interface RoommateSearchHeaderProps {
-  readonly title: string;
-  readonly description: string;
-  readonly statusMessage: string | null;
-  readonly showRuntimeMessages: boolean;
-  readonly children?: ReactNode;
+  readonly nickname: string;
+  readonly gender: 'M' | 'F';
+  readonly residenceLabel: string | null;
+  readonly campusLabel: string;
+  readonly onNavigateProfile?: () => void;
+  readonly frameRef?: Ref<HTMLElement>;
 }
 
 export function RoommateSearchHeader({
-  title,
-  description,
-  statusMessage,
-  showRuntimeMessages,
-  children,
+  nickname,
+  gender,
+  residenceLabel,
+  campusLabel,
+  onNavigateProfile,
+  frameRef,
 }: RoommateSearchHeaderProps) {
+  const avatarColor = getAvatarColor(nickname);
   return (
-    <section
-      role="banner"
-      className="sticky top-0 z-40 border-b-2 border-(--knu-border) bg-white/95 px-5 py-4 backdrop-blur"
-    >
-      <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.42fr)] lg:items-end">
-        <div className="space-y-3">
-          <div>
-            <p className="text-xs font-semibold text-(--knu-primary)">Roommate Search</p>
-            <h1 className="text-2xl font-bold text-(--knu-text-primary) md:text-3xl">{title}</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-(--knu-text-secondary)">
-              {description}
-            </p>
+    <MainTabHeaderFrame tone="primary" width="home" contentClassName="min-w-0" frameRef={frameRef}>
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/15 text-white ring-1 ring-white/15">
+            <Search className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-white/70">룸메이트 찾기</p>
+            <h1 className="mt-0.5 truncate text-2xl font-bold text-white md:text-3xl">
+              {nickname}님
+            </h1>
           </div>
-
-          {showRuntimeMessages && statusMessage ? (
-            <p
-              role="status"
-              className="rounded-2xl bg-(--knu-primary-light) px-4 py-3 text-sm font-semibold text-(--knu-primary)"
-            >
-              {statusMessage}
-            </p>
-          ) : null}
         </div>
-
-        {children ? <div className="lg:justify-self-end lg:self-start">{children}</div> : null}
+        <button
+          type="button"
+          aria-label={`${nickname} 프로필 보기`}
+          disabled={!onNavigateProfile}
+          onClick={onNavigateProfile}
+          className={`grid h-14 w-14 shrink-0 place-items-center rounded-full text-2xl font-bold transition hover:scale-105 disabled:cursor-default ${avatarColor.bg} ${avatarColor.text}`}
+        >
+          {nickname.trim().charAt(0) || '나'}
+        </button>
       </div>
-    </section>
+
+      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold">
+        <span className="rounded-full bg-white/20 px-2.5 py-1">{gender === 'M' ? '남' : '여'}</span>
+        <span className="flex min-w-0 items-center gap-1 rounded-full bg-white/20 px-2.5 py-1">
+          {residenceLabel ? (
+            <Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          ) : (
+            <School className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          )}
+          <span className="truncate">{residenceLabel ?? campusLabel}</span>
+        </span>
+      </div>
+    </MainTabHeaderFrame>
   );
 }

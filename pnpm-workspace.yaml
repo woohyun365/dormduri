@@ -4,6 +4,7 @@ packages:
 
 allowBuilds:
   '@prisma/engines': true
+  '@sentry/cli': true
   '@swc/core': true
   esbuild: true
   prisma: true
@@ -11,9 +12,11 @@ allowBuilds:
   unrs-resolver: true
 
 catalog:
+  '@types/node': 24.13.2
   '@eslint/eslintrc': 3.3.5
   '@eslint/js': 9.39.4
   '@playwright/test': 1.61.0
+  '@sentry/nextjs': 10.69.0
   '@tailwindcss/postcss': 4.3.1
   '@storybook/addon-docs': 10.4.6
   '@storybook/nextjs-vite': 10.4.6
@@ -37,6 +40,7 @@ catalog:
   vitest: 4.1.9
 
 onlyBuiltDependencies:
+  - '@sentry/cli'
   - '@swc/core'
   - esbuild
 

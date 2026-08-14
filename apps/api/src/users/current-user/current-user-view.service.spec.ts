@@ -38,7 +38,7 @@ function makeUser() {
     },
     academicIdentity: {
       userId: 'user-1',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
       createdAt: new Date('2026-05-01T00:00:00.000Z'),
       updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -91,6 +91,10 @@ function createServiceTestKit() {
   const currentSeasonParticipationViewOwner = {
     buildCurrentUserSeasonParticipationSegment: vi.fn(),
   };
+  const seasonParticipantsService = {
+    hasRegistrationSnapshotForParticipant: vi.fn().mockResolvedValue(true),
+    validateSeasonProfileCompleteness: vi.fn().mockReturnValue({ complete: true }),
+  };
   const matchesService = { getCurrentActiveMatchSummaryForParticipant: vi.fn() };
   const currentUserQuery = new CurrentUserQuery(prisma as never);
   const service = new CurrentUserViewService(
@@ -98,6 +102,7 @@ function createServiceTestKit() {
     currentUserQuery,
     seasonsService as never,
     currentSeasonParticipationViewOwner as never,
+    seasonParticipantsService as never,
     matchesService as never,
   );
 
@@ -114,6 +119,7 @@ function createServiceTestKit() {
     prisma,
     seasonsService,
     currentSeasonParticipationViewOwner,
+    seasonParticipantsService,
     matchesService,
   };
 }
@@ -131,7 +137,7 @@ describe('CurrentUserViewService identity invariant', () => {
       displayIdentity: null,
       academicIdentity: {
         userId: 'user-missing-display-identity',
-        collegeCode: 'IT',
+        collegeCode: 'CHUNCHEON_IT',
         birthYear: 2002,
         createdAt: new Date('2026-05-01T00:00:00.000Z'),
         updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -239,7 +245,7 @@ describe('CurrentUserViewService season composition boundary', () => {
         nicknameChangedAt: null,
       },
       academicIdentity: {
-        collegeCode: 'IT',
+        collegeCode: 'CHUNCHEON_IT',
         birthYear: 2002,
       },
       seasonProfile: {

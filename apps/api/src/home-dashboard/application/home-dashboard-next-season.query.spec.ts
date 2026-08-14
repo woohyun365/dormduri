@@ -15,6 +15,10 @@ function createPrismaMock() {
   };
 }
 
+function objectContaining(shape: Record<string, unknown>): unknown {
+  return expect.objectContaining(shape) as unknown;
+}
+
 describe('HomeDashboardNextSeasonQuery', () => {
   const prisma = createPrismaMock();
   const query = new HomeDashboardNextSeasonQuery(prisma as never);
@@ -62,12 +66,33 @@ describe('HomeDashboardNextSeasonQuery', () => {
       seasonEndDate: '2026-12-20',
       visibleToUser: true,
       operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-20' },
+        {
+          dormitoryId: 'dasan',
+          dormitory: {
+            id: 'dasan',
+            name: '다산관',
+            roomType: 2,
+            genderPolicy: 'M',
+          },
+          isOperated: true,
+          roomSelectionDate: '2026-08-20',
+        },
       ],
     });
     expect(prisma.season.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
+      objectContaining({
         where: { campusCode: 'CHUNCHEON' },
+        select: objectContaining({
+          dormitoryOperations: objectContaining({
+            where: {
+              isOperated: true,
+              dormitory: {
+                isActive: true,
+                matchingSupported: true,
+              },
+            },
+          }),
+        }),
       }),
     );
   });
@@ -96,6 +121,12 @@ function makeSeasonRow({
     dormitoryOperations: [
       {
         dormitoryId: 'dasan',
+        dormitory: {
+          id: 'dasan',
+          nameKo: '다산관',
+          roomType: 2,
+          genderPolicy: 'M',
+        },
         isOperated: true,
         roomSelectionDate: new Date(`${preparation}T00:00:00.000Z`),
       },

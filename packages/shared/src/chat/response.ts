@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isoDateTimeStringSchema } from '../date/primitives.js';
 import { conversationMessageSchema, conversationThreadSummarySchema } from './thread.js';
 
 export const conversationThreadListPageInfoSchema = z.strictObject({
@@ -28,6 +29,12 @@ export const leaveConversationThreadResponseSchema = z.strictObject({
   archived: z.boolean(),
 });
 
+export const updateConversationReadMarkerResponseSchema = z.strictObject({
+  threadId: z.string(),
+  lastReadMessageId: z.string(),
+  lastReadAt: isoDateTimeStringSchema,
+});
+
 export const sendConversationMessageResponseSchema = z.strictObject({
   thread: conversationThreadSummarySchema,
   message: conversationMessageSchema,
@@ -51,6 +58,9 @@ export type ConversationThreadDetailResponse = z.infer<
   typeof conversationThreadDetailResponseSchema
 >;
 export type LeaveConversationThreadResponse = z.infer<typeof leaveConversationThreadResponseSchema>;
+export type UpdateConversationReadMarkerResponse = z.infer<
+  typeof updateConversationReadMarkerResponseSchema
+>;
 export type SendConversationMessageResponse = z.infer<typeof sendConversationMessageResponseSchema>;
 export type ConversationStatsSeason = z.infer<typeof conversationStatsSeasonSchema>;
 export type ConversationStatsResponse = z.infer<typeof conversationStatsResponseSchema>;

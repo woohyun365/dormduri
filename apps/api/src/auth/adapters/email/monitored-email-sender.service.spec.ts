@@ -8,6 +8,7 @@ describe('MonitoredEmailSenderService', () => {
   const delegate = {
     sendVerificationCode: vi.fn(),
     sendPasswordResetCode: vi.fn(),
+    sendPasswordChanged: vi.fn(),
   };
   const securityEvents = {
     record: vi.fn<(arg0: AuthSecurityEventInput) => Promise<void>>().mockResolvedValue(undefined),
@@ -22,7 +23,7 @@ describe('MonitoredEmailSenderService', () => {
   });
 
   it('signup mail success를 code 없이 security event/metric으로 남긴다', async () => {
-    delegate.sendVerificationCode.mockResolvedValue(undefined);
+    delegate.sendVerificationCode.mockResolvedValue({ providerMessageId: 'message-1' });
 
     await service.sendVerificationCode({
       email: 'student@kangwon.ac.kr',

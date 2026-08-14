@@ -17,6 +17,7 @@ import {
   type MatchHistoryEntryRow,
   type MatchHistorySeasonRow,
 } from '../presenters/match-history.presenter.js';
+import { readMatchHistoryCompatibilitySnapshot } from '../compatibility/match-history-compatibility.snapshot.js';
 
 @Injectable()
 export class MatchHistoryQueryService {
@@ -28,7 +29,6 @@ export class MatchHistoryQueryService {
     const seasons = await this.prisma.seasonParticipant.findMany({
       where: {
         userId,
-        participationIntent: 'REGISTERED',
         registeredAt: { not: null },
         season: {
           seasonEndDate: {
@@ -77,6 +77,8 @@ export class MatchHistoryQueryService {
         unmatchedAt: true,
         finalizedAt: true,
         requestTerminalReason: true,
+        systemCancellationCause: true,
+        systemCancellationGroupId: true,
         activeMatchEndReason: true,
       },
     });
@@ -136,6 +138,8 @@ export class MatchHistoryQueryService {
         seasonId: true,
         counterpartParticipantId: true,
         matchScore: true,
+        compatibilitySnapshot: true,
+        compatibilitySchemaVersion: true,
         entryType: true,
         entryResult: true,
         season: {
@@ -223,6 +227,7 @@ export class MatchHistoryQueryService {
       nickname: finalProfile.nicknameSnapshot,
       nicknameNormalized: finalProfile.nicknameNormalizedSnapshot,
     });
+    const compatibility = readMatchHistoryCompatibilitySnapshot(entry);
 
     return toPublicProfile(entry.counterpartParticipant.user, profile, {
       relation: { type: 'MATCHED_PARTNER' },
@@ -235,6 +240,7 @@ export class MatchHistoryQueryService {
       resultRead,
       scoreVisible: typeof entry.matchScore === 'number',
       ...(typeof entry.matchScore === 'number' ? { matchScore: entry.matchScore } : {}),
+      ...(compatibility ? { compatibility } : {}),
     });
   }
 }

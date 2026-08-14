@@ -2,7 +2,7 @@ import type {
   EmailRequest,
   LoginRequest,
   ResetPasswordRequest,
-  SignupDraftValidationRequest,
+  SignupNicknameValidationRequest,
   SignupRequest,
   VerificationCodeRequest,
 } from '@repo/shared/auth/contract';
@@ -11,11 +11,18 @@ import type {
   DevAuthUsersResponse,
   LoginResponse,
   ResetPasswordResponse,
-  SessionResponse,
-  SignupDraftValidationResponse,
+  SignupNicknameValidationResponse,
   SignupResponse,
   VerifyCodeResponse,
 } from '@repo/shared/auth/response';
+import {
+  browserSessionResolutionSchema,
+  type BrowserSessionResolution,
+} from '@repo/shared/auth/session';
+import {
+  AUTH_SESSION_STALE_RETRY_HEADER,
+  AUTH_SESSION_STALE_RETRY_MAX_MILLISECONDS,
+} from '@/auth/model/session-resolution.constants';
 
 import type { AuthCodeRequestResult, AuthClientErrorBody } from './auth-api.types';
 import {
@@ -70,24 +77,37 @@ export const authApi = {
     return verifyCode('/api/auth/verify-email-code', email, code);
   },
 
-  validateSignupDraft: (
-    data: SignupDraftValidationRequest,
-  ): Promise<SignupDraftValidationResponse> => {
-    return postJson<SignupDraftValidationResponse>('/api/auth/validate-signup-draft', data);
+  validateSignupNickname: (
+    data: SignupNicknameValidationRequest,
+    signal?: AbortSignal,
+  ): Promise<SignupNicknameValidationResponse> => {
+    return requestJson<SignupNicknameValidationResponse>('/api/auth/signup/validate-nickname', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      signal,
+    }).then(({ data: response }) => response);
   },
 
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
     const passwordErr = validatePasswordStructure(data.password, data.email);
     if (passwordErr) {
-      return { success: false, error: passwordErr };
+      return {
+        success: false,
+        code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+        error: passwordErr,
+        userActionable: true,
+        fieldErrors: { password: passwordErr },
+      };
     }
 
     return postJson<SignupResponse>('/api/auth/signup', data);
   },
 
   resetPassword: async (
-    email: ResetPasswordRequest['email'],
+    email: EmailRequest['email'],
     newPassword: ResetPasswordRequest['newPassword'],
+    signal?: AbortSignal,
   ): Promise<ResetPasswordResponse> => {
     const passwordErr = validatePasswordStructure(newPassword, email);
     if (passwordErr) {
@@ -101,7 +121,8 @@ export const authApi = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, newPassword }),
+        body: JSON.stringify({ newPassword }),
+        signal,
       },
     );
 
@@ -125,21 +146,24 @@ export const authApi = {
   verifyResetCode: (
     email: VerificationCodeRequest['email'],
     code: VerificationCodeRequest['code'],
+    signal?: AbortSignal,
   ): Promise<VerifyCodeResponse> => {
-    return verifyCode('/api/auth/verify-reset-code', email, code);
+    return verifyCode('/api/auth/verify-reset-code', email, code, signal);
   },
 
-  getSession: async (): Promise<SessionResponse> => {
-    const { status, data } = await requestJson<SessionResponse>('/api/auth/session', {
-      method: 'GET',
-      cache: 'no-store',
-    });
+  resolveSession: async (signal?: AbortSignal): Promise<BrowserSessionResolution> => {
+    const firstResolution = await requestBrowserSessionResolution(signal);
+    const retryAfterMilliseconds = parseSessionRetryMilliseconds(
+      firstResolution.headers.get(AUTH_SESSION_STALE_RETRY_HEADER),
+    );
 
-    if (status === 200) {
-      return data;
+    if (retryAfterMilliseconds !== null) {
+      await waitForSessionRetry(retryAfterMilliseconds, signal);
+      const retriedResolution = await requestBrowserSessionResolution(signal);
+      return parseBrowserSessionResolution(retriedResolution.data);
     }
 
-    return { authenticated: false };
+    return parseBrowserSessionResolution(firstResolution.data);
   },
 
   getDevUsers: async (): Promise<DevAuthUsersResponse> => {
@@ -171,19 +195,69 @@ export const authApi = {
     return sendCode('/api/auth/send-signup-code', email);
   },
 
-  sendResetCode: async (email: EmailRequest['email']): Promise<AuthCodeRequestResult> => {
+  sendResetCode: async (
+    email: EmailRequest['email'],
+    signal?: AbortSignal,
+  ): Promise<AuthCodeRequestResult> => {
     const formatError = validateKnuEmailFormat(email);
     if (formatError) {
       return { success: false, error: formatError };
     }
 
-    return sendCode('/api/auth/send-reset-code', email);
+    return sendCode('/api/auth/send-reset-code', email, signal);
   },
 };
+
+function requestBrowserSessionResolution(signal?: AbortSignal) {
+  return requestJson<BrowserSessionResolution>('/api/auth/session/resolve', {
+    method: 'POST',
+    cache: 'no-store',
+    signal,
+  });
+}
+
+function parseBrowserSessionResolution(data: BrowserSessionResolution) {
+  const parsed = browserSessionResolutionSchema.safeParse(data);
+  return parsed.success
+    ? parsed.data
+    : ({ status: 'unavailable', code: 'AUTH_SESSION_UNAVAILABLE' } as const);
+}
+
+function parseSessionRetryMilliseconds(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return Math.min(parsed, AUTH_SESSION_STALE_RETRY_MAX_MILLISECONDS);
+}
+
+function waitForSessionRetry(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('aborted', 'AbortError'));
+  }
+
+  return new Promise((resolve, reject) => {
+    const handleAbort = () => {
+      clearTimeout(timeoutId);
+      reject(new DOMException('aborted', 'AbortError'));
+    };
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener('abort', handleAbort, { once: true });
+  });
+}
 
 async function sendCode(
   path: '/api/auth/send-signup-code' | '/api/auth/send-reset-code',
   email: EmailRequest['email'],
+  signal?: AbortSignal,
 ): Promise<AuthCodeRequestResult> {
   const { status, data, retryAfterSeconds } = await requestJson<AuthClientErrorBody>(path, {
     method: 'POST',
@@ -191,6 +265,7 @@ async function sendCode(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email }),
+    signal,
   });
 
   if (status >= 400 || data.success !== true) {
@@ -209,6 +284,7 @@ async function verifyCode(
   path: '/api/auth/verify-email-code' | '/api/auth/verify-reset-code',
   email: VerificationCodeRequest['email'],
   code: VerificationCodeRequest['code'],
+  signal?: AbortSignal,
 ): Promise<VerifyCodeResponse> {
   const { status, data, retryAfterSeconds } = await requestJson<VerifyCodeResponse>(path, {
     method: 'POST',
@@ -216,6 +292,7 @@ async function verifyCode(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email, code }),
+    signal,
   });
 
   if (status >= 400) {

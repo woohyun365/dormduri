@@ -7,15 +7,19 @@ export function DetailError({
   retryable,
   onRetry,
   onRefreshList,
+  title = GENERIC_ERROR_TITLE,
+  message = GENERIC_ERROR_MESSAGE,
 }: {
   readonly retryable: boolean;
   readonly onRetry: () => void;
-  readonly onRefreshList: () => void;
+  readonly onRefreshList?: () => void;
+  readonly title?: string;
+  readonly message?: string;
 }) {
   return (
     <section role="alert" className="rounded-3xl border border-red-100 bg-white p-5 text-center">
-      <p className="text-base font-bold text-red-700">{GENERIC_ERROR_TITLE}</p>
-      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">{GENERIC_ERROR_MESSAGE}</p>
+      <p className="text-base font-bold text-red-700">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">{message}</p>
       <div className="mt-5 grid gap-2">
         {retryable ? (
           <button
@@ -27,14 +31,16 @@ export function DetailError({
             다시 시도
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={onRefreshList}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-primary)"
-        >
-          <RefreshCw className="h-4 w-4" aria-hidden />
-          목록 새로고침
-        </button>
+        {onRefreshList ? (
+          <button
+            type="button"
+            onClick={onRefreshList}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-primary)"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden />
+            목록 새로고침
+          </button>
+        ) : null}
       </div>
     </section>
   );

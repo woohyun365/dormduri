@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { Z_INDEX } from '@/constants/ui';
+import { UI_LAYER } from '@/styles/layers';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { HomeDialogHeader, type HomeDialogTone } from './HomeDialogHeader';
@@ -41,7 +41,7 @@ export function HomeResponsiveDialog({
   return (
     <div
       className="fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/40 px-0 pb-0 pt-4 sm:px-4 sm:pb-4 md:items-center md:py-4"
-      style={{ zIndex: Z_INDEX.bottomSheet }}
+      style={{ zIndex: UI_LAYER.bottomSheet }}
     >
       <button
         type="button"

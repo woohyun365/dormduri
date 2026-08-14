@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { BlockedUser, ReportReason } from '@/types/report';
+import type { ReportReason } from '@repo/shared/social-safety/report';
+import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 
 export function useMainSocialState(showToast: (msg: string) => void) {
   // --- Bookmark ---

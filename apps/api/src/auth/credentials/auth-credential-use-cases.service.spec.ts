@@ -11,22 +11,48 @@ describe('AuthCredentialUseCases', () => {
     getActiveLock: vi.fn(),
     recordLoginFailure: vi.fn(),
     clearFailures: vi.fn(),
+    clearFailuresInTransaction: vi.fn(),
+  };
+  const loginMetrics = {
+    recordAttempt: vi.fn(),
+  };
+  const passwordHashPolicy = {
+    verifyLoginPassword: vi.fn(),
+    verifyUnavailableLogin: vi.fn(),
+  };
+  const passwordPolicy = {
+    evaluateNewPassword: vi.fn(),
   };
   const sessionService = {
     issueAuthResult: vi.fn(),
+    prepareSessionIssue: vi.fn(),
+    appendPreparedSession: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedResetCode: vi.fn(),
+    resolveVerificationGrant: vi.fn(),
+    matchesVerificationGrantSubject: vi.fn(),
   };
   const securityEvents = {
     recordSafely: vi.fn(),
+    recordInTransaction: vi.fn(),
+  };
+  const mailOutboxWriter = {
+    appendPasswordChanged: vi.fn(),
+  };
+  const changePasswordAdmission = {
+    consume: vi.fn(),
   };
   const useCases = new AuthCredentialUseCases(
     prisma as never,
     loginAttemptService as never,
+    loginMetrics as never,
+    passwordHashPolicy as never,
+    passwordPolicy,
     sessionService as never,
     verificationService as never,
     securityEvents as never,
+    mailOutboxWriter as never,
+    changePasswordAdmission as never,
   );
 
   beforeEach(() => {
@@ -36,6 +62,8 @@ describe('AuthCredentialUseCases', () => {
       success: false,
       code: 'AUTH_INVALID_CREDENTIALS',
     });
+    changePasswordAdmission.consume.mockResolvedValue(null);
+    passwordPolicy.evaluateNewPassword.mockReturnValue({ ok: true });
   });
 
   it('login은 request context가 없으면 login command에 legacy 호출 shape를 유지한다', async () => {
@@ -76,11 +104,11 @@ describe('AuthCredentialUseCases', () => {
   });
 
   it('reset/change password는 owning command에 필요한 dependencies를 조립한다', async () => {
+    const verificationGrant = `v1.code-1.${'g'.repeat(43)}`;
+    verificationService.resolveVerificationGrant.mockResolvedValueOnce(null);
     prisma.user.findUnique.mockResolvedValueOnce(null);
 
-    await expect(
-      useCases.resetPassword('missing@kangwon.ac.kr', 'NewPass1234'),
-    ).resolves.toMatchObject({
+    await expect(useCases.resetPassword(verificationGrant, 'NewPass1234')).resolves.toMatchObject({
       success: false,
       code: 'AUTH_RESET_RESTART_REQUIRED',
     });
@@ -95,7 +123,10 @@ describe('AuthCredentialUseCases', () => {
       code: 'AUTH_REAUTHENTICATION_REQUIRED',
     });
 
-    expect(verificationService.findLatestVerifiedResetCode).not.toHaveBeenCalled();
+    expect(verificationService.resolveVerificationGrant).toHaveBeenCalledWith(
+      verificationGrant,
+      'RESET_PASSWORD',
+    );
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 });

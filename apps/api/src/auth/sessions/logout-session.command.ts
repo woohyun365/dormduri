@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
+import type { GenericErrorResponse } from '@repo/shared/auth/response';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
-import type { GenericSuccessResult } from '../domain/auth.types.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
@@ -21,7 +21,7 @@ export class LogoutSessionCommand {
     token: string | null,
     renewalToken: string | null = null,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     const sessionIds = new Set<string>();
 
     const parsedRenewalToken = parseOpaqueToken(renewalToken);

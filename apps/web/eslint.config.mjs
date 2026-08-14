@@ -23,6 +23,32 @@ const eslintConfig = defineConfig([
         rootDir: import.meta.dirname,
       },
     },
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@sentry/nextjs',
+              message:
+                'Sentry SDK는 observability/sentry owner와 Next instrumentation 경계에서만 사용하세요.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    files: [
+      'src/observability/sentry/**/*.{ts,tsx}',
+      'src/instrumentation.ts',
+      'src/instrumentation-client.ts',
+      'next.config.ts',
+    ],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
   },
 
   {

@@ -55,6 +55,12 @@ export type SeasonRuntimeRowInput = {
   overrideEndsAt?: Date | null;
   dormitoryOperations?: Array<{
     dormitoryId: string;
+    dormitory?: {
+      id: string;
+      nameKo: string;
+      roomType: number;
+      genderPolicy: 'M' | 'F' | 'BOTH';
+    };
     isOperated: boolean;
     roomSelectionDate: Date | string;
   }>;

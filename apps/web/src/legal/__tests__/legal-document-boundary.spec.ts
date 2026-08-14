@@ -71,20 +71,28 @@ describe('web legal document boundary', () => {
   });
 
   it('public entry points expose user-facing legal links without internal planning copy', () => {
-    const entrySources = [
+    const directLinkSources = [
       readSource('landing/components/LandingFooter.tsx'),
-      readSource('auth/flows/login/components/LoginLayout.tsx'),
       readSource('auth/flows/login/components/LoginSecondaryActions.tsx'),
+      readSource('auth/components/layout/AuthServiceNotice.tsx'),
+    ];
+    const sharedNoticeConsumers = [
+      readSource('auth/flows/login/components/LoginLayout.tsx'),
       readSource('auth/flows/signup/components/SignupLayout.tsx'),
     ];
 
-    for (const source of entrySources) {
+    for (const source of directLinkSources) {
       expect(source).toContain('href="/terms"');
       expect(source).not.toMatch(/\.omx|web-terms-privacy-refactor-plan/i);
     }
 
-    expect(entrySources.join('\n')).toContain('href="/privacy"');
-    expect(entrySources.join('\n')).toMatch(/이용약관/);
-    expect(entrySources.join('\n')).toMatch(/개인정보처리방침|개인정보 처리방침/);
+    for (const source of sharedNoticeConsumers) {
+      expect(source).toContain('AuthServiceNotice');
+      expect(source).not.toMatch(/\.omx|web-terms-privacy-refactor-plan/i);
+    }
+
+    expect(directLinkSources.join('\n')).toContain('href="/privacy"');
+    expect(directLinkSources.join('\n')).toMatch(/이용약관/);
+    expect(directLinkSources.join('\n')).toMatch(/개인정보처리방침|개인정보 처리방침/);
   });
 });

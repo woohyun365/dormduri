@@ -1,11 +1,10 @@
 import type { Provider } from '@nestjs/common';
-import chatRealtimeConfig from '../../config/chat-realtime.config.js';
+import chatRealtimeConfig from '../realtime/chat-realtime.config.js';
 import { NOTIFICATION_REALTIME_PUBLISHER } from '../../notifications/application/ports/notification-realtime-publisher.port.js';
 import { NOTIFICATION_OUTBOX_DISPATCHER_PROVIDERS } from '../../notifications/composition/notifications.providers.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
   REALTIME_DISPATCH_METRICS_PORT,
-  REALTIME_METRICS_READER_PORT,
   REALTIME_USER_ROOM_PUBLISHER_PORT,
 } from '../../realtime/realtime.tokens.js';
 import { ChatNotificationRealtimePublisherAdapter } from '../adapters/chat-notification-realtime-publisher.adapter.js';
@@ -93,10 +92,6 @@ export const CHAT_REALTIME_PROVIDERS: Provider[] = [
   },
   {
     provide: REALTIME_DISPATCH_METRICS_PORT,
-    useExisting: ChatRealtimeMetricsService,
-  },
-  {
-    provide: REALTIME_METRICS_READER_PORT,
     useExisting: ChatRealtimeMetricsService,
   },
   {

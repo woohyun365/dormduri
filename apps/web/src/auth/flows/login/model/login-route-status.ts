@@ -1,3 +1,5 @@
+import { LOGIN_FEEDBACK_COPY } from './login-feedback.copy';
+
 export type LoginRouteStatusVariant = 'success';
 
 export interface LoginRouteStatus {
@@ -13,7 +15,7 @@ export function mapLoginRouteStatus(searchParams: LoginRouteSearchParams): Login
 
   return {
     variant: 'success',
-    title: '비밀번호가 변경되었어요',
-    message: '새 비밀번호로 다시 로그인해주세요.',
+    title: LOGIN_FEEDBACK_COPY.passwordResetComplete.title,
+    message: LOGIN_FEEDBACK_COPY.passwordResetComplete.description,
   };
 }

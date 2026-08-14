@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, context: SupportTicketRouteConte
   const { ticketId } = await resolveBffRouteParams(context);
   return forwardBffRequest({
     request,
+    operation: 'support.ticket.detail',
     method: 'GET',
     path: `/api/support/tickets/${encodeBffPathSegment(ticketId)}`,
     authenticated: true,

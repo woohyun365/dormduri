@@ -6,9 +6,11 @@ import {
   getAuthRenewalTokenCookie,
   getAuthTokenCookie,
   getForwardHeaders,
+  recordAuthMutationRequestInspection,
 } from '@/auth/bff';
 
 export async function POST(request: NextRequest) {
+  recordAuthMutationRequestInspection(request);
   const token = getAuthTokenCookie(request);
   const renewalToken = getAuthRenewalTokenCookie(request);
   const { response, json } = await forwardAuthRequest(

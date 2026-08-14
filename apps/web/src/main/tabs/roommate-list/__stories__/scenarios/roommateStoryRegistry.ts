@@ -8,7 +8,7 @@ import type { BookmarkListResponse } from '@repo/shared/social-safety/bookmark';
 import type { CreateBlockResponse } from '@repo/shared/social-safety/block';
 import type { CreateReportResponse } from '@repo/shared/social-safety/report';
 import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile } from '@/main/model/profile';
 import type {
   RoommateStoryAutoOpen,
   RoommateStoryCategory,

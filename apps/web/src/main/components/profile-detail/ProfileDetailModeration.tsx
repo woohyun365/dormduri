@@ -1,8 +1,8 @@
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@/main/components/overlays/ConfirmDialog';
 import { ProfileMoreMenu } from '../ProfileMoreMenu';
 import { ReportSheet } from '../ReportSheet';
-import type { RoommateProfile } from '@/types/profile';
-import type { ReportReason } from '@/types/report';
+import type { RoommateProfile } from '@/main/model/profile';
+import type { ReportReason } from '@repo/shared/social-safety/report';
 
 interface ProfileMoreMenuInlineProps {
   isOpen: boolean;

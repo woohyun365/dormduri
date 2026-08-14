@@ -1,4 +1,10 @@
-import type { ActiveMatchSummary, ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
+import type {
+  ActiveMatchSummary,
+  ActiveMatchUnmatchProgress,
+  CurrentActiveMatchSummary,
+  MatchActionDisabledReason,
+} from '@repo/shared/match/contract';
+import { currentActiveMatchSummarySchema } from '@repo/shared/match/contract';
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
 import { buildDirectionalMatchScoreProjection } from '../../scoring/match-score-projection.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
@@ -103,6 +109,9 @@ export function toDetailedActiveMatchSummary(
       : counterpartPendingRequest
         ? 'WAITING_FOR_ME'
         : 'NONE';
+  const canRequest = activeMatch.status === 'ACTIVE' && unmatchWindowOpen && !viewerPendingRequest;
+  const canCancel =
+    activeMatch.status === 'ACTIVE' && unmatchWindowOpen && Boolean(viewerPendingRequest);
 
   return {
     ...base,
@@ -122,15 +131,41 @@ export function toDetailedActiveMatchSummary(
         )?.toISOString() ?? null,
       progressCount: Math.min(progressCount, 2),
       requiredCount: 2,
-      canRequest: activeMatch.status === 'ACTIVE' && unmatchWindowOpen && !viewerPendingRequest,
-      canCancel:
-        activeMatch.status === 'ACTIVE' && unmatchWindowOpen && Boolean(viewerPendingRequest),
+      canRequest,
+      canCancel,
+      disabledReason: resolveUnmatchDisabledReason({
+        activeMatch,
+        seasonContext,
+        now,
+        canRequest,
+        canCancel,
+      }),
       availableUntil:
         activeMatch.status === 'ACTIVE'
           ? toUnmatchAvailableUntilIso(activeMatch, seasonContext)
           : null,
     },
   };
+}
+
+export function toCurrentDetailedActiveMatchSummary(
+  activeMatch: ActiveMatchCommandRecord,
+  viewerParticipantId: string,
+  seasonContext: CurrentSeasonContext,
+  now: Date,
+): CurrentActiveMatchSummary {
+  return currentActiveMatchSummarySchema.parse(
+    toDetailedActiveMatchSummary(activeMatch, viewerParticipantId, seasonContext, now),
+  );
+}
+
+export function toCurrentActiveMatchSummary(
+  activeMatch: ActiveMatchRecord,
+  viewerParticipantId: string,
+): CurrentActiveMatchSummary {
+  return currentActiveMatchSummarySchema.parse(
+    toActiveMatchSummary(activeMatch, viewerParticipantId),
+  );
 }
 
 type ActiveMatchParticipantRecord =
@@ -190,8 +225,32 @@ function toInactiveUnmatchProgress(): ActiveMatchUnmatchProgress {
     requiredCount: 2,
     canRequest: false,
     canCancel: false,
+    disabledReason: 'ACTIVE_MATCH_NOT_ACTIONABLE',
     availableUntil: null,
   };
+}
+
+function resolveUnmatchDisabledReason(input: {
+  activeMatch: ActiveMatchCommandRecord;
+  seasonContext: CurrentSeasonContext;
+  now: Date;
+  canRequest: boolean;
+  canCancel: boolean;
+}): MatchActionDisabledReason | null {
+  if (input.canRequest || input.canCancel) return null;
+  if (input.activeMatch.status !== 'ACTIVE' || input.activeMatch.endedAt !== null) {
+    return 'ACTIVE_MATCH_NOT_ACTIONABLE';
+  }
+  if (input.seasonContext.state !== 'SEASON_MATCHING') return 'SEASON_NOT_ACTIONABLE';
+
+  const roomSelectionDate = findActiveMatchRoomSelectionDate(
+    input.activeMatch,
+    input.seasonContext,
+  );
+  if (!roomSelectionDate) return 'ACTIVE_MATCH_NOT_ACTIONABLE';
+  return isUnmatchWindowOpen(input.activeMatch, input.seasonContext, input.now)
+    ? 'ACTIVE_MATCH_NOT_ACTIONABLE'
+    : 'ROOM_SELECTION_CUTOFF';
 }
 
 function toUnmatchAvailableUntilIso(
@@ -199,5 +258,7 @@ function toUnmatchAvailableUntilIso(
   seasonContext: CurrentSeasonContext,
 ) {
   const roomSelectionDate = findActiveMatchRoomSelectionDate(activeMatch, seasonContext);
-  return roomSelectionDate ? new Date(`${roomSelectionDate}T23:59:59+09:00`).toISOString() : null;
+  return roomSelectionDate
+    ? new Date(`${roomSelectionDate}T23:59:59.999+09:00`).toISOString()
+    : null;
 }

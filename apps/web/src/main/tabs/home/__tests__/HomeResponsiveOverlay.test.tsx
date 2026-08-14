@@ -50,7 +50,7 @@ describe('Home responsive overlay primitives', () => {
     document.documentElement.removeAttribute('style');
   });
 
-  it('HomeResponsiveSheet가 dialog semantics, body scroll lock, backdrop close를 공통 제공한다', async () => {
+  it('HomeResponsiveSheet가 dialog semantics, background scroll lock, backdrop close를 공통 제공한다', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
@@ -59,8 +59,8 @@ describe('Home responsive overlay primitives', () => {
     expect(screen.getByRole('dialog', { name: '운영 기숙사 리스트' })).toBeInTheDocument();
     expect(screen.getByText('시즌 오픈')).toBeInTheDocument();
     expect(screen.getByText(/호실 선택 기준일도 함께 확인해요/)).toBeInTheDocument();
-    expect(document.body.style.position).toBe('fixed');
-    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.body.style.overflow).toBe('clip');
+    expect(document.documentElement.style.overflow).toBe('clip');
 
     await user.click(screen.getByRole('button', { name: '운영 기숙사 리스트 닫기' }));
 
@@ -102,12 +102,12 @@ describe('Home responsive overlay primitives', () => {
     const onClose = vi.fn();
     const { rerender } = render(<DialogFixture onClose={onClose} />);
 
-    expect(document.body.style.position).toBe('fixed');
-    expect(document.documentElement.style.overflow).toBe('hidden');
+    expect(document.body.style.overflow).toBe('clip');
+    expect(document.documentElement.style.overflow).toBe('clip');
 
     rerender(<div />);
 
-    await waitFor(() => expect(document.body.style.position).toBe(''));
+    await waitFor(() => expect(document.body.style.overflow).toBe(''));
     expect(document.body.style.overflow).toBe('');
     expect(document.documentElement.style.overflow).toBe('');
   });

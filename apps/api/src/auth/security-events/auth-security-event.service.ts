@@ -1,6 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import authConfig from '../config/auth.config.js';
 import { AuthSecurityEventRepository } from './auth-security-event.repository.js';
 import type { AuthSecurityEventInput } from './auth-security-event.types.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import {
   defaultAuthSecurityEventSeverity,
   hashAuthSecurityEventDimension,
@@ -11,20 +14,50 @@ import {
 export class AuthSecurityEventService {
   private readonly logger = new Logger(AuthSecurityEventService.name);
 
-  constructor(private readonly repository: AuthSecurityEventRepository) {}
+  constructor(
+    private readonly repository: AuthSecurityEventRepository,
+    @Inject(authConfig.KEY)
+    private readonly authSettings: ConfigType<typeof authConfig>,
+  ) {}
 
   async record(input: AuthSecurityEventInput): Promise<void> {
-    await this.repository.create({
+    await this.repository.create(this.toPersistenceData(input));
+  }
+
+  async recordInTransaction(
+    tx: Prisma.TransactionClient,
+    input: AuthSecurityEventInput,
+  ): Promise<void> {
+    await this.repository.create(this.toPersistenceData(input), tx);
+  }
+
+  toPersistenceData(input: AuthSecurityEventInput): Prisma.AuthSecurityEventCreateInput {
+    return {
       type: input.type,
       severity: input.severity ?? defaultAuthSecurityEventSeverity(input.type),
       actorUserId: input.actorUserId ?? undefined,
       targetUserId: input.targetUserId ?? undefined,
       sessionId: input.sessionId ?? undefined,
-      emailHash: hashAuthSecurityEventDimension(input.emailNormalized),
-      requestIpHash: hashAuthSecurityEventDimension(input.requestIp),
-      userAgentHash: hashAuthSecurityEventDimension(input.userAgent),
+      emailHash: hashAuthSecurityEventDimension(
+        'subject',
+        input.emailNormalized,
+        this.authSettings.persistenceHmacSecret,
+        this.authSettings.persistenceHmacKeyVersion,
+      ),
+      requestIpHash: hashAuthSecurityEventDimension(
+        'request-ip',
+        input.requestIp,
+        this.authSettings.persistenceHmacSecret,
+        this.authSettings.persistenceHmacKeyVersion,
+      ),
+      userAgentHash: hashAuthSecurityEventDimension(
+        'user-agent',
+        input.userAgent,
+        this.authSettings.persistenceHmacSecret,
+        this.authSettings.persistenceHmacKeyVersion,
+      ),
       metadata: sanitizeAuthSecurityEventMetadata(input.metadata),
-    });
+    };
   }
 
   async recordSafely(input: AuthSecurityEventInput): Promise<void> {

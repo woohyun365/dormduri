@@ -9,7 +9,7 @@ describe('AuthService facade', () => {
     verifyResetCode: vi.fn(),
   };
   const registrationUseCases = {
-    validateSignupDraft: vi.fn(),
+    validateSignupNickname: vi.fn(),
     signup: vi.fn(),
   };
   const credentialUseCases = {
@@ -39,7 +39,10 @@ describe('AuthService facade', () => {
     verificationUseCases.sendResetCode.mockResolvedValueOnce({ success: true });
     verificationUseCases.verifyEmailCode.mockResolvedValueOnce({ success: true });
     verificationUseCases.verifyResetCode.mockResolvedValueOnce({ success: true });
-    sessionUseCases.getSession.mockResolvedValueOnce({ authenticated: false });
+    sessionUseCases.getSession.mockResolvedValueOnce({
+      authenticated: false,
+      reason: 'SESSION_NOT_FOUND',
+    });
 
     await expect(service.sendSignupCode('test@kangwon.ac.kr', requestContext)).resolves.toEqual({
       success: true,
@@ -55,6 +58,7 @@ describe('AuthService facade', () => {
     ).resolves.toEqual({ success: true });
     await expect(service.getSession('access-token', requestContext)).resolves.toEqual({
       authenticated: false,
+      reason: 'SESSION_NOT_FOUND',
     });
 
     expect(verificationUseCases.sendSignupCode).toHaveBeenCalledWith(
@@ -86,7 +90,7 @@ describe('AuthService facade', () => {
       nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-      collegeCode: 'IT',
+      collegeCode: 'CHUNCHEON_IT',
       birthYear: 2002,
       legalAcceptances: {
         termsVersionId: 'terms-of-service-2026-06-22',
@@ -102,7 +106,10 @@ describe('AuthService facade', () => {
       campus: 'CHUNCHEON',
     } as const;
 
-    registrationUseCases.validateSignupDraft.mockResolvedValueOnce({ success: true });
+    registrationUseCases.validateSignupNickname.mockResolvedValueOnce({
+      success: true,
+      nickname: '테스터',
+    });
     registrationUseCases.signup.mockResolvedValueOnce({
       success: true,
       accessToken: 'signup-token',
@@ -122,14 +129,11 @@ describe('AuthService facade', () => {
     });
     sessionUseCases.logout.mockResolvedValueOnce({ success: true });
 
-    await expect(
-      service.validateSignupDraft({
-        email: 'test@kangwon.ac.kr',
-        password: 'Pass1234',
-        nickname: '테스터',
-      }),
-    ).resolves.toEqual({ success: true });
-    await expect(service.signup(signupInput as never)).resolves.toEqual({
+    await expect(service.validateSignupNickname('테스터', 'signup-grant')).resolves.toEqual({
+      success: true,
+      nickname: '테스터',
+    });
+    await expect(service.signup(signupInput as never, null, requestContext)).resolves.toEqual({
       success: true,
       accessToken: 'signup-token',
     });
@@ -152,12 +156,11 @@ describe('AuthService facade', () => {
       success: true,
     });
 
-    expect(registrationUseCases.validateSignupDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'Pass1234',
-      nickname: '테스터',
-    });
-    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput);
+    expect(registrationUseCases.validateSignupNickname).toHaveBeenCalledWith(
+      '테스터',
+      'signup-grant',
+    );
+    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput, null, requestContext);
     expect(credentialUseCases.login).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       'Pass1234',

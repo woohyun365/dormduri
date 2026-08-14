@@ -18,13 +18,13 @@ describe('login-result mapper', () => {
           success: false,
           locked: true,
           remainingSeconds: 300,
-          error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+          error: '반복된 로그인 실패로 계정이 잠겼어요.',
         },
         'student@kangwon.ac.kr',
       ),
     ).toEqual({
       status: 'locked',
-      message: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      message: '반복된 로그인 실패로 계정이 잠겼어요.',
       lockedEmail: 'student@kangwon.ac.kr',
       remainingSeconds: 300,
     });
@@ -43,27 +43,29 @@ describe('login-result mapper', () => {
       ),
     ).toMatchObject({
       status: 'throttled',
-      message: '너무 잦은 요청이에요. 42초 후 다시 시도해주세요.',
+      message: '로그인 요청이 반복되어 로그인이 제한됐어요.',
       retryAfterSeconds: 42,
     });
   });
 
   it('BFF safe/server code는 generic server error로 매핑한다', () => {
-    expect(
-      mapLoginResponseToErrorState(
-        { success: false, code: 'BFF_RESPONSE_INVALID', error: 'accessToken=must-not-show' },
-        'student@kangwon.ac.kr',
-      ),
-    ).toEqual({ status: 'server-error', message: LOGIN_SERVER_ERROR_MESSAGE });
+    for (const code of ['BFF_RESPONSE_INVALID', 'AUTH_SERVICE_UNAVAILABLE']) {
+      expect(
+        mapLoginResponseToErrorState(
+          { success: false, code, error: 'accessToken=must-not-show' },
+          'student@kangwon.ac.kr',
+        ),
+      ).toEqual({ status: 'server-error', message: LOGIN_SERVER_ERROR_MESSAGE });
+    }
   });
 
   it('기본 실패는 invalid state, throw는 network state로 매핑한다', () => {
     expect(
       mapLoginResponseToErrorState(
-        { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' },
+        { success: false, error: '계정 존재 여부를 노출하면 안 되는 upstream 문구' },
         'student@kangwon.ac.kr',
       ),
-    ).toEqual({ status: 'invalid', message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+    ).toEqual({ status: 'invalid', message: '이메일 또는 비밀번호를 확인해 주세요.' });
     expect(mapLoginThrownErrorToErrorState()).toEqual({
       status: 'network-error',
       message: LOGIN_NETWORK_ERROR_MESSAGE,

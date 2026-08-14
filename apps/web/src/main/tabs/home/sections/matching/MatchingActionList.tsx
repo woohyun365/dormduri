@@ -1,5 +1,5 @@
 import { Inbox, MessagesSquare, Send, Zap } from 'lucide-react';
-import type { MatchingNavOptions, TabId } from '@/types/profile';
+import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import type { MatchingSummaryStats } from './model/matchingSummaryContent';
 import { resolveMatchingActionContent } from './model/matchingSummaryContent';
 import { MatchingHelperMessage, MatchingMetricActionCard } from './MatchingMetricCard';

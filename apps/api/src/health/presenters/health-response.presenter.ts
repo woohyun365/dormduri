@@ -1,5 +1,5 @@
 import type {
-  HealthReadinessCheckName,
+  HealthReadinessCheckCode,
   HealthReadinessCheckResult,
 } from '../checks/health-check.types.js';
 
@@ -11,9 +11,7 @@ export interface HealthBaseResponse {
 
 export interface HealthReadinessResponse {
   readonly status: 'ok' | 'unavailable';
-  readonly timestamp: string;
-  readonly uptimeSeconds: number;
-  readonly checks: Record<HealthReadinessCheckName, HealthReadinessCheckResult>;
+  readonly failureCodes: readonly HealthReadinessCheckCode[];
 }
 
 export function createHealthBaseResponse(now = new Date()): HealthBaseResponse {
@@ -26,16 +24,14 @@ export function createHealthBaseResponse(now = new Date()): HealthBaseResponse {
 
 export function presentReadinessResponse(
   checks: readonly HealthReadinessCheckResult[],
-  now = new Date(),
 ): HealthReadinessResponse {
-  const checkMap = Object.fromEntries(checks.map((check) => [check.name, check])) as Record<
-    HealthReadinessCheckName,
-    HealthReadinessCheckResult
-  >;
+  const failureCodes = checks
+    .filter((check) => check.status === 'down')
+    .map((check) => check.code)
+    .sort();
 
   return {
-    ...createHealthBaseResponse(now),
-    status: checks.every((check) => check.status === 'up') ? 'ok' : 'unavailable',
-    checks: checkMap,
+    status: failureCodes.length === 0 ? 'ok' : 'unavailable',
+    failureCodes,
   };
 }

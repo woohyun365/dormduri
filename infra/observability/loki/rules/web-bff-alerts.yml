@@ -1,0 +1,20 @@
+groups:
+  - name: knu-roommate-web-bff-reliability
+    interval: 1m
+    rules:
+      - alert: WebBffFailureRateHigh
+        expr: |
+          (
+            sum(rate({service="web"} | json | eventName="web_bff_request_completed" | outcome=~"upstream_error|timeout|network|invalid_response" [5m]))
+            /
+            sum(rate({service="web"} | json | eventName="web_bff_request_completed" [5m]))
+          ) > 0.10
+          and
+          sum(rate({service="web"} | json | eventName="web_bff_request_completed" [5m])) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          service: web
+        annotations:
+          summary: Web BFF failure rate is elevated
+          runbook: infra/runbooks/operations/observability/web-bff.md

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { PublicProfileActionCapabilities } from '@repo/shared/profile/contract';
 import type {
   PublicProfileTargetCandidate,
   TargetParticipantQueryRecord,
@@ -10,7 +11,10 @@ import {
   profile,
 } from '../../season-participants/test-support/season-participants.spec-fixtures.js';
 import type { DomainMetricsPort } from '../../platform/observability/metrics/domain-metrics.port.js';
-import { createRoommateSearchReader } from './roommate-search.reader.js';
+import {
+  applyMatchRequestPreconditionsToActions,
+  createRoommateSearchReader,
+} from './roommate-search.reader.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
 const authUser = { id: 'viewer-user', campus: 'CHUNCHEON', gender: 'M' } as never;
@@ -175,6 +179,8 @@ describe('roommate-search.reader bookmark integration', () => {
         ]),
       ),
       getDirectionLimitReachedMetadata: vi.fn().mockResolvedValue(new Map()),
+      isPendingSentLimitReached: vi.fn().mockResolvedValue(false),
+      getDirectionCooldownActiveTargetIds: vi.fn().mockResolvedValue(new Set()),
     };
     const metrics = makeDomainMetrics();
     const reader = createRoommateSearchReader({
@@ -209,6 +215,9 @@ describe('roommate-search.reader bookmark integration', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       id: 'visible-user',
+      actions: {
+        canRequestMatch: false,
+      },
       bookmark: { bookmarked: true, bookmarkedAt: now.toISOString() },
       pendingMatchRequest: {
         id: 'request-1',
@@ -217,6 +226,7 @@ describe('roommate-search.reader bookmark integration', () => {
         expiresAt: '2026-02-12T03:00:00.000Z',
       },
     });
+    expect(result.items[0]?.actions.unavailableReasons).toContain('MATCH_REQUEST_ALREADY_PENDING');
     expect(result.items.map((item) => item.id)).not.toContain('hidden-user');
     expect(metrics.observeHistogram).toHaveBeenCalledWith({
       name: 'api_roommate_search_candidate_count',
@@ -313,6 +323,8 @@ describe('roommate-search.reader bookmark integration', () => {
           ],
         ]),
       ),
+      isPendingSentLimitReached: vi.fn().mockResolvedValue(false),
+      getDirectionCooldownActiveTargetIds: vi.fn().mockResolvedValue(new Set()),
     };
     const reader = createRoommateSearchReader({
       prisma: prisma as never,
@@ -424,6 +436,8 @@ describe('roommate-search.reader bookmark integration', () => {
       matchRequestSearchMetadataReader: {
         getLivePendingRequestMetadata: vi.fn().mockResolvedValue(new Map()),
         getDirectionLimitReachedMetadata: vi.fn().mockResolvedValue(new Map()),
+        isPendingSentLimitReached: vi.fn().mockResolvedValue(false),
+        getDirectionCooldownActiveTargetIds: vi.fn().mockResolvedValue(new Set()),
       },
       chatThreadSearchMetadataReader: {
         getActiveThreadMetadata: vi.fn().mockResolvedValue(new Map()),
@@ -536,6 +550,8 @@ describe('roommate-search.reader bookmark integration', () => {
       matchRequestSearchMetadataReader: {
         getLivePendingRequestMetadata: vi.fn().mockResolvedValue(new Map()),
         getDirectionLimitReachedMetadata: vi.fn().mockResolvedValue(new Map()),
+        isPendingSentLimitReached: vi.fn().mockResolvedValue(false),
+        getDirectionCooldownActiveTargetIds: vi.fn().mockResolvedValue(new Set()),
       },
       chatThreadSearchMetadataReader,
     });
@@ -629,6 +645,8 @@ describe('roommate-search.reader bookmark integration', () => {
       matchRequestSearchMetadataReader: {
         getLivePendingRequestMetadata: vi.fn().mockResolvedValue(new Map()),
         getDirectionLimitReachedMetadata: vi.fn().mockResolvedValue(new Map()),
+        isPendingSentLimitReached: vi.fn().mockResolvedValue(false),
+        getDirectionCooldownActiveTargetIds: vi.fn().mockResolvedValue(new Set()),
       },
       chatThreadSearchMetadataReader: {
         getActiveThreadMetadata: vi.fn().mockResolvedValue(new Map()),
@@ -681,6 +699,8 @@ describe('roommate-search.reader bookmark integration', () => {
       matchRequestSearchMetadataReader: {
         getLivePendingRequestMetadata: vi.fn().mockResolvedValue(new Map()),
         getDirectionLimitReachedMetadata: vi.fn().mockResolvedValue(new Map()),
+        isPendingSentLimitReached: vi.fn().mockResolvedValue(false),
+        getDirectionCooldownActiveTargetIds: vi.fn().mockResolvedValue(new Set()),
       },
       chatThreadSearchMetadataReader: {
         getActiveThreadMetadata: vi.fn().mockResolvedValue(new Map()),
@@ -692,6 +712,43 @@ describe('roommate-search.reader bookmark integration', () => {
       reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 }),
     ).resolves.toMatchObject({
       items: [],
+    });
+  });
+});
+
+describe('roommate-search request action preflight projection', () => {
+  const baseActions: PublicProfileActionCapabilities = {
+    canBookmark: true,
+    canRequestMatch: true,
+    canStartChat: true,
+    unavailableReasons: [],
+  };
+
+  it('pending limit과 cooldown을 transaction과 같은 public reason으로 닫는다', () => {
+    expect(
+      applyMatchRequestPreconditionsToActions({
+        actions: baseActions,
+        pendingMatchRequest: undefined,
+        directionLimit: undefined,
+        pendingSentLimitReached: true,
+        directionCooldownActive: true,
+      }),
+    ).toMatchObject({
+      canRequestMatch: false,
+      unavailableReasons: ['MATCH_REQUEST_PENDING_LIMIT_REACHED'],
+    });
+
+    expect(
+      applyMatchRequestPreconditionsToActions({
+        actions: baseActions,
+        pendingMatchRequest: undefined,
+        directionLimit: undefined,
+        pendingSentLimitReached: false,
+        directionCooldownActive: true,
+      }),
+    ).toMatchObject({
+      canRequestMatch: false,
+      unavailableReasons: ['MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE'],
     });
   });
 });

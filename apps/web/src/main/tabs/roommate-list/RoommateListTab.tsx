@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { getDormitoryDisplayById } from '@/main/model/dormitoryDisplay.adapter';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { formatCampusName } from '@/main/model/profileDisplayCopy';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
-import { isDormitoryAssigned } from '@/utils/dormitory';
 import {
   RoommateListControlsPanel,
   RoommateListDesktopAsideSkeleton,
@@ -25,8 +24,6 @@ import {
 import {
   getBookmarkOnlyEmptyState,
   getInitialRoommateSearchQuery,
-  getRoommateHeaderDescription,
-  getRoommateHeaderTitle,
   getRoommateSearchClosedMessage,
   getSearchStateSectionState,
   getSearchSummaryContextLabel,
@@ -44,7 +41,8 @@ import { RoommateSearchFilterBar } from './sections/filters/RoommateSearchFilter
 import { RoommateSearchHeader } from './sections/header/RoommateSearchHeader';
 import { RoommateSearchResultsSection } from './sections/results/RoommateSearchResultsSection';
 import { RoommateSearchControls } from './sections/scope-switcher/RoommateSearchControls';
-import type { TabId, UserProfile } from '@/types/profile';
+import type { TabId } from '@/main/model/navigation';
+import type { UserProfile } from '@/main/model/profile';
 
 interface RoommateListTabProps {
   user: UserProfile;
@@ -67,6 +65,8 @@ export default function RoommateListTab({
   sameDormitoryRestrictedEmptyState,
 }: RoommateListTabProps) {
   const season = useSeasonContext();
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(152);
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const closedMessage = getRoommateSearchClosedMessage({
@@ -75,9 +75,7 @@ export default function RoommateListTab({
     searchClosedMessage,
   });
   const searchClosed = closedMessage !== null;
-  const assignedDormitory = isDormitoryAssigned(user.dormitoryId)
-    ? getDormitoryDisplayById(user.dormitoryId)
-    : null;
+  const assignedDormitory = user.dormitory?.id === user.dormitoryId ? user.dormitory : null;
   const registeredWithDormitory =
     (viewerSeasonRegistered ?? assignedDormitory !== null) && assignedDormitory !== null;
   const search = useRoommateSearch({
@@ -100,13 +98,15 @@ export default function RoommateListTab({
     },
     onCloseDetail: detail.close,
   });
-  const headerTitle = getRoommateHeaderTitle(season.state, assignedDormitory?.name ?? null);
-  const headerDescription = getRoommateHeaderDescription(season.state);
   const showRegistrationEmptyPrompt =
     !registeredWithDormitory && activeSearchScope === 'SAME_BUILDING_ONLY';
   const isSearchLoading = search.status === 'idle' || search.status.startsWith('loading');
+  const isReplacingSearchResults =
+    search.status === 'idle' ||
+    search.status === 'loading-manifest' ||
+    search.status === 'loading-search';
+  const showInitialSearchSkeleton = isReplacingSearchResults && search.items.length === 0;
   const showSearchControls = !searchClosed && search.status !== 'error';
-  const showHeaderRuntimeMessages = showSearchControls;
   const state = getSearchStateSectionState({
     search,
     closedMessage,
@@ -133,6 +133,17 @@ export default function RoommateListTab({
   });
   const renderedState = bookmarkOnlyEmptyState ?? state;
   const isDesktopLayout = useDesktopRoommateLayout();
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const updateHeight = () =>
+      setStickyHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+    updateHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const scopeControls = showSearchControls ? (
     <RoommateSearchControls
       scope={search.query.scope}
@@ -162,18 +173,31 @@ export default function RoommateListTab({
     ) : null;
 
   return (
-    <div className="min-h-full bg-(--knu-background-alt)">
+    <div
+      className="min-h-full min-w-0 overflow-x-clip bg-(--knu-background-alt)"
+      style={
+        {
+          '--roommate-sticky-header-height': `${stickyHeaderHeight}px`,
+        } as CSSProperties
+      }
+    >
       <RoommateSearchHeader
-        title={headerTitle}
-        description={headerDescription}
-        statusMessage={search.statusMessage}
-        showRuntimeMessages={showHeaderRuntimeMessages}
+        frameRef={headerRef}
+        nickname={user.nickname}
+        gender={user.gender}
+        residenceLabel={
+          season.state !== 'OFF_SEASON' && assignedDormitory
+            ? `${assignedDormitory.name} · ${assignedDormitory.roomType}인실`
+            : null
+        }
+        campusLabel={formatCampusName(user.campus)}
+        onNavigateProfile={() => onNavigate('profile')}
       />
 
       <div
-        className={`mx-auto grid max-w-6xl gap-5 px-5 pb-8 pt-5 ${
+        className={`mx-auto grid min-w-0 w-full max-w-md gap-5 px-4 pb-8 pt-5 min-[361px]:px-5 md:max-w-5xl ${
           showSearchControls
-            ? 'lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.42fr)] lg:items-start'
+            ? 'lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)] lg:items-start'
             : ''
         }`}
       >
@@ -190,7 +214,7 @@ export default function RoommateListTab({
           </RoommateListControlsPanel>
         ) : null}
 
-        <main className="space-y-5 lg:order-1" aria-label="룸메이트 찾기 주요 목록">
+        <main className="min-w-0 space-y-5 lg:order-1" aria-label="룸메이트 찾기 주요 목록">
           <RoommateActionFeedbackBanner
             receipt={actions.lastReceipt}
             error={actions.lastError}
@@ -214,6 +238,7 @@ export default function RoommateListTab({
               items={displayedSearchCardItems}
               canLoadMore={search.canLoadMore}
               isLoadingMore={search.status === 'loading-more'}
+              updating={isReplacingSearchResults}
               onLoadMore={() => void search.loadMore()}
               onOpenDetail={(item) => detail.open(toDetailTarget(item))}
               onStartChat={() => onNavigate('chat')}
@@ -226,10 +251,10 @@ export default function RoommateListTab({
 
         {showSearchControls && isDesktopLayout ? (
           <aside
-            className="space-y-4 lg:sticky lg:top-32 lg:order-2"
+            className="space-y-4 lg:sticky lg:top-[calc(var(--roommate-sticky-header-height,152px)+1.25rem)] lg:order-2"
             aria-label="룸메이트 찾기 필터와 보조 정보"
           >
-            {isDesktopLayout && isSearchLoading ? (
+            {showInitialSearchSkeleton ? (
               <RoommateListDesktopAsideSkeleton />
             ) : (
               <>
@@ -261,7 +286,7 @@ export default function RoommateListTab({
       />
       <RoommateProfileDetailDialog
         state={detail}
-        viewerLifestyle={user.lifestyle}
+        suspended={actions.activeDialog.kind !== 'closed'}
         onClose={detail.close}
         onRetry={detail.retry}
         onRefreshList={() => void search.refresh()}

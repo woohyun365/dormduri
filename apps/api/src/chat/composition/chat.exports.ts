@@ -7,7 +7,6 @@ import { ChatLifecycleModule } from '../lifecycle/chat-lifecycle.module.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
   REALTIME_DISPATCH_METRICS_PORT,
-  REALTIME_METRICS_READER_PORT,
   REALTIME_USER_ROOM_PUBLISHER_PORT,
 } from '../../realtime/realtime.tokens.js';
 
@@ -20,6 +19,5 @@ export const CHAT_EXPORTS = [
   ChatLifecycleModule,
   REALTIME_DISPATCHER_CONFIG_PORT,
   REALTIME_DISPATCH_METRICS_PORT,
-  REALTIME_METRICS_READER_PORT,
   REALTIME_USER_ROOM_PUBLISHER_PORT,
 ];

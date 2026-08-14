@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import type { DomainMetricsPort } from './domain-metrics.port.js';
 import { DOMAIN_METRICS_PORT, recordDomainMetricSafely } from './domain-metrics.port.js';
 

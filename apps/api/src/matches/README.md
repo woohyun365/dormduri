@@ -28,6 +28,9 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - External domain이 필요한 최소 match view/lifecycle/history/block side-effect port 제공.
 - Season participant withdrawal로 인한 pending match request cancellation state transition.
 - Match-specific user-facing error contract and response projection.
+- Current overview read: sent/received request rows, active relation, 동일 source row를 축소한 current
+  activity projection을 한 serializable read snapshot으로 반환한다. ended-season archive와 지원하지 않는
+  group matching projection은 overview에 합치지 않는다.
 
 ## Non-responsibilities
 
@@ -55,7 +58,7 @@ Final subdirectory targets:
 - `requests/`: match request create/list/accept/reject/cancel command, query, policy, preparation, presenter, repository.
 - `active/`: active match read, unmatch command/policy/persistence, lifecycle transition, active-match presenter/repository, lifecycle event trace.
 - `active/lifecycle-events/`: ActiveMatch lifecycle event metadata allowlist, repository, writer, and no-PII tests.
-- `history/`: ended-season history materialization, source loading, row/score snapshot builders, persistence repository, read query/presenter, deleted/deidentified tombstone, RRPD archive handler.
+- `history/`: ended-season history materialization, source loading, row/score snapshot builders, versioned public compatibility snapshot, persistence repository, read query/presenter, deleted/deidentified tombstone, RRPD archive handler.
 - `scoring/`: API-owned match score algorithm, projection, and exposure decision. Shared package는 score algorithm을 소유하지 않는다.
 - `lifecycle/`: cross-domain side-effect implementations such as block side-effect, participant withdrawal side-effect, and lifecycle sweep adapter.
 - `persistence/`: shared Prisma/TypedSQL infrastructure only when it is not owned by a narrower slice.
@@ -70,6 +73,17 @@ Final subdirectory targets:
 - Create/accept/unmatch commands recheck stale state inside the transaction after locks are acquired.
 - ActiveMatch lifecycle event append must happen inside the same Prisma transaction as the state mutation it explains.
 - Pending request expiration, room-selection cutoff, hidden/deactivated/withdrawn/expired/deleted/deidentified participant state, active match presence, and target visibility are fail-closed.
+- `GET /api/matches/overview`는 같은 DB `now`로 해석한 current season metadata와 함께 due pending
+  request 정리, sent/received row, active relation, current activity를 한 serializable read로 반환한다.
+  request row는 `createdAt DESC, id DESC` 전체 목록이며 activity는 종료 request와 현재 시즌
+  `ActiveMatch`를 과거→최근 순서로 축소한다. 같은 시각에는 매칭 event를 그로 인해 자동 종료된
+  request보다 먼저 둔다. ended-season history와 지원하지 않는 group matching projection은 포함하지 않는다.
+- overview request row의 `accept`/`reject`/`cancel`은 action별 `{ allowed, reason }` decision이다.
+  `GET /api/matches/requests`와 Home dashboard는 이 projection을 재사용하며 별도 capability를 계산하지 않는다.
+  accept는 transaction precondition을 최대한 미러링하지만 최종 권한은 lock 이후 mutation 재검증이 소유한다.
+- 운영 campus의 current season 부재 또는 운영 override `OFF_SEASON`에서는 overview를 history-only shell
+  진입용으로 열고 sent/received/active를 빈 snapshot으로 반환한다. 비운영 campus는 계속
+  `CAMPUS_NOT_OPERATED`로 fail-closed한다. ended-season history는 별도 `GET /api/matches/history`가 소유한다.
 - Redis/cache may be introduced only as an optimization/metric gate; it is not a correctness source for match state transitions.
 
 ## Query/index and RDS cost guardrails
@@ -79,6 +93,12 @@ Final subdirectory targets:
 - Same-pair pending duplicate checks use canonical `pairKey` with `seasonId + pairKey + status`; `pairMinParticipantId` / `pairMaxParticipantId` remain persisted audit/query fields, not the duplicate-check index owner.
 - Active match participant lookups continue to rely on participant-specific active indexes because `SeasonParticipant` ids are season-scoped. The all-active lifecycle sweep has a separate `status + endedAt + startedAt + id` index for deterministic batch ordering.
 - Match history user reads have a viewer-centric `viewerParticipantId + finalizedAt + createdAt + id` index. Whole-season history rebuild remains `deleteMany + createMany` for idempotency and simplicity; bounded rebuild should be introduced only after production-like season size, lock time, or IOPS evidence shows the need.
+- `MATCH` history materialization은 `PublicProfileCompatibility` projection과 `compatibilitySchemaVersion`을 함께 저장한다. Detail read는 알려진 버전·strict contract·저장 `matchScore`가 모두 일치할 때만 이를 노출하며 현재 profile로 재계산하거나 기존 row를 추정 backfill하지 않는다.
+- active match 수락으로 pending request를 자동 종료할 때 같은 transaction에서 causal `ActiveMatch` id를 request에 기록한다. History materialization은 이를 viewer 기준 `VIEWER_MATCHED | COUNTERPART_MATCHED`로 축소하고 causal id는 grouping key로만 전달한다. 기존 row는 timestamp로 원인을 추정하지 않는다.
+- overview current activity도 같은 causal `ActiveMatch` id와 participant pair만 읽어
+  `VIEWER_MATCHED | COUNTERPART_MATCHED`를 분류한다. `SeasonMatchHistoryEntry`를 시즌 중간에 만들거나
+  audit용 `ActiveMatchLifecycleEvent`를 사용자 이력 source로 사용하지 않는다.
+- viewer 또는 counterpart retention redaction 시 `compatibilitySnapshot`과 `compatibilitySchemaVersion`을 함께 제거한다. Restricted vault를 일반 product read에서 복원하지 않는다.
 - Local schema/index changes do not claim production RDS p95 or IOPS improvements by themselves. Production-like `EXPLAIN`, CloudWatch thresholds, and bounded materialization triggers belong in operational follow-up work.
 
 ## External domain boundaries

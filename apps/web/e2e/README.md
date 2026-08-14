@@ -12,7 +12,7 @@ pnpm web:e2e
 - production-like standalone Web server를 띄우고 `API_URL=http://127.0.0.1:9`로 고정한다.
 - 목적은 public route와 unauthenticated protected-route redirect를 API/DB 없이 확인하는 것이다.
 - auth route smoke는 `/login`, `/signup`, `/password-reset`의 shell 렌더링, 접근성 locator, public handoff link, neutral 안내 copy를 확인한다.
-- API/DB가 없는 lane이므로 `/api/auth/session`은 Playwright route/fetch smoke seam으로 `authenticated: false`를 반환하게 고정한다.
+- API/DB가 없는 lane이므로 `POST /api/auth/session/resolve`는 Playwright route/fetch smoke seam으로 `{ status: "unauthenticated" }`를 반환하게 고정한다.
   실제 이메일 인증 코드 발송, signup/reset happy path, cookie가 필요한 로그인 성공 journey는 full-stack lane 또는 별도 auth E2E에서 다룬다.
 
 ## Full-stack `/main` smoke
@@ -26,6 +26,7 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
 - `apps/web/playwright.fullstack.config.ts`를 사용한다.
 - local Postgres를 `docker-compose.dev.yml`로 띄우고, Prisma schema push/seed 후 API dev server와 Web dev server를 함께 실행한다.
 - `main-home.fullstack.spec.ts`는 실제 `/login` UI 입력 → session cookie → `/main` handoff smoke 1개를 유지한다.
+- `auth-session.fullstack.spec.ts`는 remember-off browser-session cookie, access 만료 후 renewal rotation, logout 후 unauthenticated 수렴을 실제 BFF/API/DB로 확인한다.
 - Home 상태 matrix는 테스트 전용 `AuthSession`을 DB에 직접 seed해 로그인 rate-limit과 분리하고, 실제 API/BFF/DB/Web render를 함께 확인한다.
 - seed mode 전환은 `apps/web/e2e/support/home-e2e-seed.ts`가 소유한다. spec 종료 시 `HOME_E2E_SEED_MODE=current-matching`으로 복원한다.
 - `/login` UI locator는 desktop help panel 문구와 label ambiguity가 생기지 않도록 `getByRole('textbox', { name: '이메일' })`처럼 role/name 기준으로 고정한다.
@@ -56,3 +57,4 @@ Playwright auth storage state는 `apps/web/playwright/.auth/`에 생성되며 gi
 - Full-stack smoke는 API/DB/Docker 의존성이 있으므로 local/manual 또는 별도 scheduled/label CI 후보로 둔다.
 - Full-stack/dev server 실행 후 `apps/web/next-env.d.ts`가 `.next/dev/types`로 바뀔 수 있다. 이 generated drift는 commit하지 않고 원복한다.
 - Home UI state를 빠르게 시각 비교하는 용도는 Storybook/visual workshop에서 다루고, 실제 auth/API/DB 정합성은 full-stack smoke가 담당한다.
+- Password Reset의 controller→transaction recovery evidence는 API의 disposable-schema HTTP E2E가 소유하고, Web lane은 BFF grant cookie와 production flow reducer/component를 검증한다. 통합 release command는 `infra/runbooks/release/components/auth/password-reset-evidence.md`를 따른다.

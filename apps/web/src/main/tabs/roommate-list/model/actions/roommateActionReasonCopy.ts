@@ -1,7 +1,11 @@
 import type { RoommateApiError } from '../../api/roommateApiErrors';
 import type { PublicTargetActionUnavailableReason } from '@repo/shared/profile/contract';
 import type { MatchRequestSummary } from '@repo/shared/match/contract';
-import type { ReportOptionalActionResult, ReportReason } from '@repo/shared/social-safety/report';
+import type { ReportOptionalActionResult } from '@repo/shared/social-safety/report';
+import {
+  getReportReasonLabel,
+  getReportReasonOptions as getSharedReportReasonOptions,
+} from '@/social-safety/model/reportPresentation';
 
 export type RoommateActionKind = 'block' | 'report' | 'matchRequest' | 'chat';
 
@@ -26,19 +30,11 @@ const UNAVAILABLE_REASON_LABELS: Record<PublicTargetActionUnavailableReason, str
   THREAD_READ_ONLY: '기존 대화가 읽기 전용 상태예요.',
   TARGET_DELETED_OR_DEIDENTIFIED: '상대 정보가 더 이상 제공되지 않아요.',
   SAFETY_OR_VISIBILITY_RESTRICTED: '서버 오류로 이용할 수 없어요. 목록을 새로고침해 주세요.',
+  MATCH_REQUEST_ALREADY_PENDING: '진행 중인 요청은 매칭 탭에서 확인할 수 있어요.',
+  MATCH_REQUEST_PENDING_LIMIT_REACHED: '진행 중인 요청을 먼저 확인해 주세요.',
   MATCH_REQUEST_DIRECTION_LIMIT_REACHED:
     '이번 시즌에는 해당 유저에게 더 이상 매칭 요청을 보낼 수 없어요',
-};
-
-const REPORT_REASON_LABELS: Record<ReportReason, string> = {
-  SEXUAL_HARASSMENT: '성희롱/성적 불쾌감',
-  THREAT: '협박/위협',
-  PERSONAL_INFO_EXPOSURE: '개인정보 노출',
-  GENDER_IMPERSONATION: '성별 사칭',
-  FALSE_PROFILE: '허위 프로필',
-  SPAM_OR_AD: '스팸/광고',
-  HATE_OR_DISCRIMINATION: '혐오/차별',
-  OTHER: '기타',
+  MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE: '같은 상대에게는 잠시 후 다시 요청할 수 있어요.',
 };
 
 const ACTION_GENERIC_ERROR: Record<RoommateActionKind, RoommateActionSafeCopy> = {
@@ -151,16 +147,8 @@ export function formatTargetActionUnavailableReason(
   return UNAVAILABLE_REASON_LABELS[reason];
 }
 
-export function reportReasonLabel(reason: ReportReason): string {
-  return REPORT_REASON_LABELS[reason];
-}
-
-export function getReportReasonOptions(): readonly { value: ReportReason; label: string }[] {
-  return (Object.keys(REPORT_REASON_LABELS) as ReportReason[]).map((value) => ({
-    value,
-    label: REPORT_REASON_LABELS[value],
-  }));
-}
+export const reportReasonLabel = getReportReasonLabel;
+export const getReportReasonOptions = getSharedReportReasonOptions;
 
 export function reportOptionalActionResultCopy(
   result: ReportOptionalActionResult | null | undefined,

@@ -3,24 +3,27 @@ import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
 import {
-  CODE_REQUEST_MIN_RESPONSE_MS,
+  AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
+  AUTH_VERIFICATION_GRANT_TTL_SECONDS,
   RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
-  SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
-  VERIFICATION_CODE_MAX_ATTEMPTS,
-} from '../domain/auth.constants.js';
-import { EMAIL_SENDER } from '../adapters/email/email-sender.interface.js';
-import type { EmailSender } from '../adapters/email/email-sender.interface.js';
-import type { GenericSuccessResult } from '../domain/auth.types.js';
+} from '@repo/shared/auth/policy';
 import {
-  ensureMinDuration,
+  AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
+  ensureMinVerificationResponseDuration,
+} from './request/auth-verification-timing.policy.js';
+import type {
+  GenericErrorResponse,
+  VerifyResetCodeTransportResponse,
+  VerifySignupCodeTransportResponse,
+} from '@repo/shared/auth/response';
+import { normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
+import {
   generateVerificationCode,
   hashVerificationCode,
-  normalizeEmail,
   safeTimeEquals,
-} from '../domain/auth.utils.js';
-import authConfig from '../../config/auth.config.js';
-import { AuthVerificationStore } from './verification-code.repository.js';
+} from './challenge/verification-code.crypto.js';
+import authConfig from '../config/auth.config.js';
 import { authErrors } from '../errors/auth.errors.js';
 import { authFailures } from '../errors/auth-failures.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
@@ -29,20 +32,40 @@ import {
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
+import { createVerificationGrant, hashVerificationGrant } from './grant/auth-verification-grant.js';
+import { AuthVerificationChallengeRepository } from './challenge/auth-verification-challenge.repository.js';
+import {
+  AuthVerificationGrantRepository,
+  type ResolvedVerificationGrant,
+} from './grant/auth-verification-grant.repository.js';
+import { hashAuthPersistenceDimension } from '../persistence/auth-persistence-dimension.js';
+import { AuthMailEnvelopeWriter } from '../mail/auth-mail-envelope-writer.service.js';
+import {
+  AuthVerificationRequestRepository,
+  VerificationRequestThrottledError,
+} from './request/auth-verification-request.repository.js';
+import { AuthVerificationMetricsService } from './auth-verification-metrics.service.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
   RESET_PASSWORD: RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
 } as const satisfies Record<VerificationCodePurpose, number>;
 
+type VerificationTransportResponse =
+  | VerifySignupCodeTransportResponse
+  | VerifyResetCodeTransportResponse;
+
 @Injectable()
 export class AuthVerificationService {
   constructor(
-    private readonly verificationStore: AuthVerificationStore,
-    @Inject(EMAIL_SENDER) private readonly emailSender: EmailSender,
+    private readonly verificationRequests: AuthVerificationRequestRepository,
+    private readonly verificationChallenges: AuthVerificationChallengeRepository,
+    private readonly verificationGrants: AuthVerificationGrantRepository,
+    private readonly mailEnvelopeWriter: AuthMailEnvelopeWriter,
     @Inject(authConfig.KEY)
     private readonly authSettings: ConfigType<typeof authConfig>,
     @Optional() private readonly securityEvents?: AuthSecurityEventService,
+    @Optional() private readonly metrics?: AuthVerificationMetricsService,
   ) {}
 
   async assertCodeRequestAllowed(
@@ -52,15 +75,17 @@ export class AuthVerificationService {
   ): Promise<void> {
     const requestContext = this.normalizeRequestContext(requestIpOrContext);
     const normalizedIp = this.normalizeRequestIp(requestContext.requestIp ?? null);
-    const ipRetryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
-      emailNormalized,
+    const subjectKey = this.toSubjectKey(emailNormalized);
+    const requestIpKey = this.toRequestIpKey(normalizedIp);
+    const ipRetryAfterSeconds = await this.verificationRequests.findRetryAfterSeconds(
+      subjectKey,
       purpose,
-      normalizedIp,
+      requestIpKey,
       this.authSettings.codeRequestCooldownSeconds,
     );
 
-    const backstopRetryAfterSeconds = await this.verificationStore.findBackstopRetryAfterSeconds(
-      emailNormalized,
+    const backstopRetryAfterSeconds = await this.verificationRequests.findBackstopRetryAfterSeconds(
+      subjectKey,
       purpose,
       this.authSettings.codeRequestBackstopWindowSeconds,
       this.authSettings.codeRequestBackstopLimit,
@@ -77,24 +102,11 @@ export class AuthVerificationService {
     throw authErrors.codeRequestThrottled(retryAfterSeconds);
   }
 
-  async recordCodeRequest(
-    emailNormalized: string,
-    purpose: VerificationCodePurpose,
-    requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<void> {
-    const requestContext = this.normalizeRequestContext(requestIpOrContext);
-    await this.verificationStore.createRequestLog(
-      emailNormalized,
-      purpose,
-      this.normalizeRequestIp(requestContext.requestIp ?? null),
-    );
-  }
-
   async maybeSendSignupCode(
     emailNormalized: string,
     userExists: boolean,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.maybeSendCode('SIGNUP', emailNormalized, userExists, requestIpOrContext);
   }
 
@@ -102,7 +114,7 @@ export class AuthVerificationService {
     emailNormalized: string,
     userExists: boolean,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     return this.maybeSendCode('RESET_PASSWORD', emailNormalized, userExists, requestIpOrContext);
   }
 
@@ -111,17 +123,17 @@ export class AuthVerificationService {
     emailNormalized: string,
     userExists: boolean,
     requestIpOrContext: string | null | AuthRequestContext,
-  ): Promise<GenericSuccessResult> {
+  ): Promise<GenericErrorResponse> {
     const startedAt = Date.now();
     const requestContext = this.normalizeRequestContext(requestIpOrContext);
-    await this.assertCodeRequestAllowed(emailNormalized, purpose, requestContext);
-
-    if (this.shouldIssueVerificationCode(purpose, userExists)) {
-      await this.issueVerificationCode(emailNormalized, purpose, requestContext);
+    try {
+      await this.assertCodeRequestAllowed(emailNormalized, purpose, requestContext);
+    } catch (error) {
+      this.metrics?.record(purpose, 'request', 'throttled');
+      throw error;
     }
 
-    await this.recordCodeRequest(emailNormalized, purpose, requestContext);
-    await recordAuthSecurityEventSafely(this.securityEvents, {
+    const securityEventInput = {
       type: 'VERIFICATION_CODE_REQUESTED',
       severity: 'INFO',
       emailNormalized,
@@ -134,8 +146,40 @@ export class AuthVerificationService {
             ? AUTH_SECURITY_EVENT_METRICS.resetRequest
             : 'auth.signup.code.request',
       },
-    });
-    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
+    } as const;
+    const candidate = this.shouldIssueVerificationCode(purpose, userExists)
+      ? this.createPendingVerificationCandidate(emailNormalized, purpose, requestContext)
+      : null;
+
+    try {
+      await this.verificationRequests.append({
+        subjectKey: this.toSubjectKey(emailNormalized),
+        purpose,
+        requestIpKey: this.toRequestIpKey(
+          this.normalizeRequestIp(requestContext.requestIp ?? null),
+        ),
+        cooldownSeconds: this.authSettings.codeRequestCooldownSeconds,
+        backstopWindowSeconds: this.authSettings.codeRequestBackstopWindowSeconds,
+        backstopLimit: this.authSettings.codeRequestBackstopLimit,
+        candidate,
+        securityEvent:
+          this.securityEvents && typeof this.securityEvents.toPersistenceData === 'function'
+            ? this.securityEvents.toPersistenceData(securityEventInput)
+            : null,
+      });
+    } catch (error) {
+      if (error instanceof VerificationRequestThrottledError) {
+        this.metrics?.record(purpose, 'request', 'throttled');
+        throw authErrors.codeRequestThrottled(error.retryAfterSeconds);
+      }
+      this.metrics?.record(purpose, 'request', 'failed');
+      throw error;
+    }
+    this.metrics?.record(purpose, 'request', 'accepted');
+    await ensureMinVerificationResponseDuration(
+      startedAt,
+      AUTH_CODE_REQUEST_MIN_RESPONSE_MILLISECONDS,
+    );
     return { success: true };
   }
 
@@ -143,38 +187,38 @@ export class AuthVerificationService {
     email: string,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'SIGNUP', code, requestContext);
+  ): Promise<VerifySignupCodeTransportResponse> {
+    return this.verifyCode(email, 'SIGNUP', code, requestContext, null);
   }
 
   async verifyResetCode(
     email: string,
     code: string,
+    eligibleUserId: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'RESET_PASSWORD', code, requestContext);
+  ): Promise<VerifyResetCodeTransportResponse> {
+    return this.verifyCode(email, 'RESET_PASSWORD', code, requestContext, eligibleUserId);
   }
 
-  async findLatestVerifiedSignupCode(emailNormalized: string) {
-    return this.verificationStore.findLatestVerifiedSignupCode(
-      emailNormalized,
-      SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
-    );
+  resolveVerificationGrant(
+    rawGrant: string | null,
+    purpose: VerificationCodePurpose,
+  ): Promise<ResolvedVerificationGrant | null> {
+    return this.verificationGrants.resolve(rawGrant, purpose);
   }
 
-  async findLatestVerifiedResetCode(emailNormalized: string) {
-    return this.verificationStore.findLatestVerifiedResetCode(emailNormalized);
+  matchesVerificationGrantSubject(
+    grant: Pick<ResolvedVerificationGrant, 'subjectKey'>,
+    emailNormalized: string,
+  ): boolean {
+    return grant.subjectKey === this.toSubjectKey(emailNormalized);
   }
 
-  async consumeVerificationCode(id: string): Promise<void> {
-    await this.verificationStore.consumeVerificationCode(id);
-  }
-
-  private async issueVerificationCode(
+  private createPendingVerificationCandidate(
     emailNormalized: string,
     purpose: VerificationCodePurpose,
     requestContext: AuthRequestContext,
-  ): Promise<void> {
+  ) {
     const ttlSeconds = VERIFICATION_CODE_TTL_BY_PURPOSE[purpose];
     const code = generateVerificationCode();
     const codeHash = hashVerificationCode(
@@ -184,20 +228,22 @@ export class AuthVerificationService {
       this.authSettings.verificationCodeHmacSecret,
     );
 
-    await this.persistVerificationCode({
-      purpose,
-      emailNormalized,
-      codeHash,
-      ttlSeconds,
-      requestIp: requestContext.requestIp ?? null,
-    });
-
-    await this.sendVerificationEmail({
-      purpose,
+    const emailEnvelope = this.mailEnvelopeWriter.encrypt({
+      schemaVersion: 1,
+      mailKind: purpose === 'SIGNUP' ? 'SIGNUP_VERIFICATION' : 'PASSWORD_RESET_VERIFICATION',
       email: emailNormalized,
       code,
       expiresInSeconds: ttlSeconds,
     });
+
+    return {
+      id: randomUUID(),
+      subjectKey: this.toSubjectKey(emailNormalized),
+      codeHash,
+      ttlSeconds,
+      requestIpKey: this.toRequestIpKey(this.normalizeRequestIp(requestContext.requestIp ?? null)),
+      emailEnvelope,
+    };
   }
 
   private shouldIssueVerificationCode(
@@ -205,55 +251,6 @@ export class AuthVerificationService {
     userExists: boolean,
   ): boolean {
     return purpose === 'SIGNUP' ? !userExists : userExists;
-  }
-
-  private async persistVerificationCode(input: {
-    purpose: VerificationCodePurpose;
-    emailNormalized: string;
-    codeHash: string;
-    ttlSeconds: number;
-    requestIp: string | null;
-  }) {
-    if (input.purpose === 'SIGNUP') {
-      await this.verificationStore.replaceActiveSignupCode({
-        id: randomUUID(),
-        emailNormalized: input.emailNormalized,
-        codeHash: input.codeHash,
-        ttlSeconds: input.ttlSeconds,
-        requestIp: input.requestIp,
-      });
-      return;
-    }
-
-    await this.verificationStore.replaceActiveResetCode({
-      id: randomUUID(),
-      emailNormalized: input.emailNormalized,
-      codeHash: input.codeHash,
-      ttlSeconds: input.ttlSeconds,
-      requestIp: input.requestIp,
-    });
-  }
-
-  private async sendVerificationEmail(input: {
-    purpose: VerificationCodePurpose;
-    email: string;
-    code: string;
-    expiresInSeconds: number;
-  }) {
-    if (input.purpose === 'SIGNUP') {
-      await this.emailSender.sendVerificationCode({
-        email: input.email,
-        code: input.code,
-        expiresInSeconds: input.expiresInSeconds,
-      });
-      return;
-    }
-
-    await this.emailSender.sendPasswordResetCode({
-      email: input.email,
-      code: input.code,
-      expiresInSeconds: input.expiresInSeconds,
-    });
   }
 
   private normalizeRequestIp(requestIp: string | null): string {
@@ -280,17 +277,33 @@ export class AuthVerificationService {
     };
   }
 
+  private verifyCode(
+    email: string,
+    purpose: 'SIGNUP',
+    code: string,
+    requestContext: AuthRequestContext,
+    eligibleUserId: null,
+  ): Promise<VerifySignupCodeTransportResponse>;
+  private verifyCode(
+    email: string,
+    purpose: 'RESET_PASSWORD',
+    code: string,
+    requestContext: AuthRequestContext,
+    eligibleUserId: string,
+  ): Promise<VerifyResetCodeTransportResponse>;
   private async verifyCode(
     email: string,
     purpose: VerificationCodePurpose,
     code: string,
     requestContext: AuthRequestContext = {},
-  ): Promise<GenericSuccessResult> {
-    const emailNormalized = normalizeEmail(email);
-    const record = await this.verificationStore.findActiveVerificationRecord(
-      emailNormalized,
+    eligibleUserId: string | null,
+  ): Promise<VerificationTransportResponse> {
+    const emailNormalized = normalizeAuthEmail(email);
+    const subjectKey = this.toSubjectKey(emailNormalized);
+    const record = await this.verificationChallenges.findActive(
+      subjectKey,
       purpose,
-      VERIFICATION_CODE_MAX_ATTEMPTS,
+      AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     );
 
     if (!record) {
@@ -309,18 +322,22 @@ export class AuthVerificationService {
     const codeMatches = safeTimeEquals(record.codeHash, incomingHash);
 
     if (!codeMatches) {
-      await this.handleFailedVerification(record.id, emailNormalized, purpose);
+      await this.handleFailedVerification(record.id, subjectKey, purpose);
       await this.recordVerificationCodeResult(emailNormalized, purpose, false, requestContext, {
         reason: 'invalid_code',
       });
       return authFailures.verificationCodeInvalid();
     }
 
-    const verified = await this.verificationStore.markVerified({
+    const rawGrant = createVerificationGrant(record.id);
+    const verified = await this.verificationChallenges.markVerifiedAndIssueGrant({
       id: record.id,
-      emailNormalized,
+      subjectKey,
       purpose,
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
+      grantTokenHash: hashVerificationGrant(rawGrant),
+      grantTtlSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+      eligibleUserId,
     });
     if (!verified) {
       await this.recordVerificationCodeResult(emailNormalized, purpose, false, requestContext, {
@@ -330,7 +347,17 @@ export class AuthVerificationService {
     }
 
     await this.recordVerificationCodeResult(emailNormalized, purpose, true, requestContext);
-    return { success: true };
+    return purpose === 'SIGNUP'
+      ? {
+          success: true,
+          signupGrant: rawGrant,
+          grantExpiresInSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+        }
+      : {
+          success: true,
+          resetGrant: rawGrant,
+          grantExpiresInSeconds: AUTH_VERIFICATION_GRANT_TTL_SECONDS,
+        };
   }
 
   private async recordVerificationCodeResult(
@@ -351,18 +378,40 @@ export class AuthVerificationService {
         ...metadata,
       },
     });
+    this.metrics?.record(purpose, 'verify', success ? 'accepted' : 'rejected');
+    if (success) {
+      this.metrics?.record(purpose, 'grant', 'issued');
+    }
   }
 
   private async handleFailedVerification(
     id: string,
-    emailNormalized: string,
+    subjectKey: string,
     purpose: VerificationCodePurpose,
   ): Promise<void> {
-    await this.verificationStore.recordVerificationFailure({
+    await this.verificationChallenges.recordFailure({
       id,
-      emailNormalized,
+      subjectKey,
       purpose,
-      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+      maxAttempts: AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
     });
+  }
+
+  private toSubjectKey(emailNormalized: string): string {
+    return hashAuthPersistenceDimension(
+      'subject',
+      emailNormalized,
+      this.authSettings.persistenceHmacSecret,
+      this.authSettings.persistenceHmacKeyVersion,
+    );
+  }
+
+  private toRequestIpKey(requestIp: string): string {
+    return hashAuthPersistenceDimension(
+      'request-ip',
+      requestIp,
+      this.authSettings.persistenceHmacSecret,
+      this.authSettings.persistenceHmacKeyVersion,
+    );
   }
 }

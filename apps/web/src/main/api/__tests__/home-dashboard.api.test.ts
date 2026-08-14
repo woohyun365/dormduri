@@ -44,7 +44,7 @@ function createFinalPassDashboardResponse(): unknown {
           nicknameChangedAt: null,
         },
         academicIdentity: {
-          collegeCode: 'ARTS_ENGINEERING',
+          collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
           birthYear: 2001,
         },
       },
@@ -148,7 +148,7 @@ describe('home dashboard BFF contract', () => {
             nickname: '홈유저',
           },
           academicIdentity: {
-            collegeCode: 'ARTS_ENGINEERING',
+            collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
             birthYear: 2001,
           },
         },

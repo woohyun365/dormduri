@@ -13,7 +13,7 @@ import {
   UserRound,
   XCircle,
 } from 'lucide-react';
-import type { TabId, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/main/model/navigation';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 import type {
   PostMatchActivityOutcome,

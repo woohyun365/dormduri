@@ -87,7 +87,7 @@ describe('useSignupEmailVerification', () => {
       expect(result.current.isCountdownActive).toBe(true);
     });
 
-    it('API 실패 시 에러 메시지를 표시한다', async () => {
+    it('API 실패 시 action feedback을 표시한다', async () => {
       mockSendCode.mockResolvedValue({ success: false, error: '서버 오류' });
       const { result } = renderEmailVerification();
 
@@ -95,11 +95,56 @@ describe('useSignupEmailVerification', () => {
         await result.current.handleSendCode();
       });
 
-      expect(result.current.emailError).toBe('서버 오류');
+      expect(result.current.emailError).toBe('');
+      expect(result.current.actionFeedback).toMatchObject({
+        variant: 'error',
+        title: '인증 코드를 보내지 못했어요',
+        description: '서버 오류',
+      });
       expect(result.current.isSending).toBe(false);
     });
 
-    it('429 retryAfterSeconds가 있으면 전송 버튼 에러 문구를 1초씩 줄인다', async () => {
+    it('재전송 성공은 기존 코드 입력을 비우고 success feedback을 표시한다', async () => {
+      const { result } = renderEmailVerification();
+      await sendCodeSuccessfully(result);
+      act(() => {
+        result.current.handleCodeChange('123456');
+      });
+
+      await act(async () => {
+        await result.current.handleSendCode();
+      });
+
+      expect(result.current.verificationCode).toBe('');
+      expect(result.current.actionFeedback).toEqual({
+        variant: 'success',
+        title: '새 인증 코드를 보냈어요',
+        description: '메일에서 새 코드를 확인해 주세요.',
+      });
+      expect(result.current.isCodeSent).toBe(true);
+    });
+
+    it('재전송 실패는 기존 코드 입력을 유지하고 error feedback을 표시한다', async () => {
+      const { result } = renderEmailVerification();
+      await sendCodeSuccessfully(result);
+      act(() => {
+        result.current.handleCodeChange('123456');
+      });
+      mockSendCode.mockResolvedValueOnce({ success: false, error: '메일 전송 실패' });
+
+      await act(async () => {
+        await result.current.handleSendCode();
+      });
+
+      expect(result.current.verificationCode).toBe('123456');
+      expect(result.current.actionFeedback).toEqual({
+        variant: 'error',
+        title: '인증 코드를 보내지 못했어요',
+        description: '메일 전송 실패',
+      });
+    });
+
+    it('429 retryAfterSeconds가 있으면 action feedback과 버튼 countdown을 제공한다', async () => {
       mockSendCode.mockResolvedValue({
         success: false,
         retryAfterSeconds: 3,
@@ -110,14 +155,17 @@ describe('useSignupEmailVerification', () => {
         await result.current.handleSendCode();
       });
 
-      expect(result.current.emailError).toBe('너무 잦은 요청이에요. 3초 후 다시 시도해주세요.');
+      expect(result.current.emailError).toBe('');
+      expect(result.current.actionFeedback).toMatchObject({
+        variant: 'warning',
+        title: '잠시 후 다시 요청할 수 있어요',
+      });
       expect(result.current.emailRetryAfterSeconds).toBe(3);
 
       act(() => {
         vi.advanceTimersByTime(1000);
       });
 
-      expect(result.current.emailError).toBe('너무 잦은 요청이에요. 2초 후 다시 시도해주세요.');
       expect(result.current.emailRetryAfterSeconds).toBe(2);
 
       act(() => {
@@ -126,9 +174,10 @@ describe('useSignupEmailVerification', () => {
 
       expect(result.current.emailError).toBe('');
       expect(result.current.emailRetryAfterSeconds).toBe(0);
+      expect(result.current.actionFeedback).toBeNull();
     });
 
-    it('네트워크 오류 시 에러 메시지를 표시한다', async () => {
+    it('네트워크 오류 시 connectivity feedback을 표시한다', async () => {
       mockSendCode.mockRejectedValue(new Error('Network error'));
       const { result } = renderEmailVerification();
 
@@ -136,14 +185,47 @@ describe('useSignupEmailVerification', () => {
         await result.current.handleSendCode();
       });
 
-      expect(result.current.emailError).toBe(
-        '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
-      );
+      expect(result.current.emailError).toBe('');
+      expect(result.current.actionFeedback).toMatchObject({
+        variant: 'connectivity',
+        title: '인증 코드를 보내지 못했어요',
+      });
       expect(result.current.isSending).toBe(false);
     });
   });
 
   describe('handleVerifyCode', () => {
+    it('코드 재전송 중에는 기존 코드 확인 요청을 보내지 않는다', async () => {
+      const { result } = renderEmailVerification();
+      await sendCodeSuccessfully(result);
+      act(() => {
+        result.current.handleCodeChange('123456');
+      });
+
+      let resolveResend!: (value: { success: true }) => void;
+      mockSendCode.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveResend = resolve;
+          }),
+      );
+
+      await act(async () => {
+        void result.current.handleSendCode();
+        await Promise.resolve();
+      });
+      expect(result.current.isSending).toBe(true);
+
+      await act(async () => {
+        await result.current.handleVerifyCode();
+      });
+      expect(mockVerifyCode).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveResend({ success: true });
+      });
+    });
+
     it('코드 미입력 시 에러를 표시한다', async () => {
       const { result } = renderEmailVerification();
       await sendCodeSuccessfully(result);
@@ -152,7 +234,7 @@ describe('useSignupEmailVerification', () => {
         await result.current.handleVerifyCode();
       });
 
-      expect(result.current.codeError).toBe('인증 코드를 입력해주세요.');
+      expect(result.current.codeError).toBe('인증 코드를 입력해 주세요.');
     });
 
     it('인증 성공 시 onVerified를 호출하고 카운트다운을 중지한다', async () => {
@@ -175,6 +257,7 @@ describe('useSignupEmailVerification', () => {
     it('인증 실패 시 에러 메시지를 표시한다', async () => {
       mockVerifyCode.mockResolvedValue({
         success: false,
+        code: 'AUTH_VERIFICATION_CODE_INVALID',
         error: '인증 코드가 올바르지 않습니다.',
       });
       const { result } = renderEmailVerification();
@@ -192,7 +275,29 @@ describe('useSignupEmailVerification', () => {
       expect(onVerified).not.toHaveBeenCalled();
     });
 
-    it('429 retryAfterSeconds가 있으면 인증 확인 에러 문구를 1초씩 줄인다', async () => {
+    it('네트워크 실패 시 입력한 인증 코드를 유지한다', async () => {
+      mockVerifyCode.mockRejectedValue(new Error('Network error'));
+      const { result } = renderEmailVerification();
+      await sendCodeSuccessfully(result);
+
+      act(() => {
+        result.current.handleCodeChange('123456');
+      });
+
+      await act(async () => {
+        await result.current.handleVerifyCode();
+      });
+
+      expect(result.current.verificationCode).toBe('123456');
+      expect(result.current.codeError).toBe('');
+      expect(result.current.actionFeedback).toMatchObject({
+        variant: 'connectivity',
+        title: '인증 코드를 확인하지 못했어요',
+        description: '네트워크를 확인한 뒤 다시 시도해 주세요.',
+      });
+    });
+
+    it('429 retryAfterSeconds가 있으면 action feedback과 버튼 countdown을 제공한다', async () => {
       mockVerifyCode.mockResolvedValue({
         success: false,
         code: 'TOO_MANY_REQUESTS',
@@ -209,7 +314,11 @@ describe('useSignupEmailVerification', () => {
         await result.current.handleVerifyCode();
       });
 
-      expect(result.current.codeError).toBe('너무 잦은 요청이에요. 3초 후 다시 시도해주세요.');
+      expect(result.current.codeError).toBe('');
+      expect(result.current.actionFeedback).toMatchObject({
+        variant: 'warning',
+        title: '잠시 후 다시 요청할 수 있어요',
+      });
       expect(result.current.codeRetryAfterSeconds).toBe(3);
       expect(onVerified).not.toHaveBeenCalled();
 
@@ -217,7 +326,6 @@ describe('useSignupEmailVerification', () => {
         vi.advanceTimersByTime(1000);
       });
 
-      expect(result.current.codeError).toBe('너무 잦은 요청이에요. 2초 후 다시 시도해주세요.');
       expect(result.current.codeRetryAfterSeconds).toBe(2);
 
       act(() => {
@@ -226,6 +334,35 @@ describe('useSignupEmailVerification', () => {
 
       expect(result.current.codeError).toBe('');
       expect(result.current.codeRetryAfterSeconds).toBe(0);
+      expect(result.current.actionFeedback).toBeNull();
+    });
+
+    it('인증 코드 실패가 최대 횟수에 도달하면 새 코드 요청만 허용한다', async () => {
+      mockVerifyCode.mockResolvedValue({
+        success: false,
+        code: 'AUTH_VERIFICATION_CODE_INVALID',
+        error: '인증 코드가 올바르지 않습니다.',
+      });
+      const { result } = renderEmailVerification();
+      await sendCodeSuccessfully(result);
+
+      act(() => {
+        result.current.handleCodeChange('000000');
+      });
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await act(async () => {
+          await result.current.handleVerifyCode();
+        });
+      }
+
+      expect(result.current.codeError).toBe('');
+      expect(result.current.isAttemptsExhausted).toBe(true);
+      expect(result.current.isCountdownActive).toBe(false);
+      expect(result.current.actionFeedback).toMatchObject({
+        variant: 'warning',
+        title: '인증 코드를 다시 받아 주세요',
+      });
     });
   });
 

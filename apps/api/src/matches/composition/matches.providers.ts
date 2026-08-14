@@ -31,6 +31,7 @@ import { MatchRequestRepository } from '../requests/persistence/match-request.re
 import { MATCH_REQUEST_NOTE_MODERATION_PORT } from '../requests/ports/match-request-note-moderation.port.js';
 import { ListCurrentSeasonRequestsQuery } from '../requests/queries/list-current-season-requests.query.js';
 import { MatchRequestSearchMetadataQuery } from '../requests/queries/match-request-search-metadata.query.js';
+import { MatchOverviewQuery } from '../overview/match-overview.query.js';
 
 export const MATCHES_PROVIDERS = [
   MatchesService,
@@ -44,6 +45,7 @@ export const MATCHES_PROVIDERS = [
   MatchHistoryQueryService,
   MatchHistoryRepository,
   ListCurrentSeasonRequestsQuery,
+  MatchOverviewQuery,
   MatchRequestSearchMetadataQuery,
   CreateMatchRequestCommand,
   AcceptMatchRequestCommand,

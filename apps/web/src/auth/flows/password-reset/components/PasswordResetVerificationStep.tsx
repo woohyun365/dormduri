@@ -1,14 +1,17 @@
 'use client';
 
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Mail } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/Button';
-import { StepHeader } from '@/components/StepHeader';
-import { InputField } from '@/components/form/InputField';
-import { focusAndScroll } from '@/utils/focus';
+import { AuthEmailDeliveryHelp } from '@/auth/components';
+import { Button } from '@/components/ui/Button';
+import { formatCompactAuthRemainingTime } from '@/auth/components/feedback/AuthRemainingTime';
+import { StepHeader } from '@/auth/components/StepHeader';
+import { InputField } from '@/auth/components/form/InputField';
+import { focusAndScroll } from '@/auth/components/form/focusAndScroll';
 import type { PasswordResetActionResult } from '../model/password-reset-flow.types';
+import { PASSWORD_RESET_COPY } from '../model/password-reset-copy';
 
 interface PasswordResetVerificationStepProps {
   email: string;
@@ -17,7 +20,10 @@ interface PasswordResetVerificationStepProps {
   isActive: boolean;
   isSending: boolean;
   isVerifying: boolean;
-  formatTime: () => string;
+  isRateLimited: boolean;
+  isAttemptsExhausted: boolean;
+  sessionStatus?: ReactNode;
+  actionFeedback?: ReactNode;
   onVerificationCodeChange: (verificationCode: string) => void;
   onResendCode: () => void;
   onVerifyCode: () => Promise<PasswordResetActionResult>;
@@ -31,7 +37,10 @@ export function PasswordResetVerificationStep({
   isActive,
   isSending,
   isVerifying,
-  formatTime,
+  isRateLimited,
+  isAttemptsExhausted,
+  sessionStatus,
+  actionFeedback,
   onVerificationCodeChange,
   onResendCode,
   onVerifyCode,
@@ -40,7 +49,8 @@ export function PasswordResetVerificationStep({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [codeError, setCodeError] = useState('');
   const codeRef = useRef<HTMLInputElement>(null);
-  const isExpired = !isActive;
+  const isCodeUnavailable = !isActive;
+  const isExpired = isCodeUnavailable && !isAttemptsExhausted && !isSending;
 
   useEffect(() => {
     focusAndScroll(headingRef.current);
@@ -49,7 +59,7 @@ export function PasswordResetVerificationStep({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!verificationCode) {
-      setCodeError('인증 코드를 입력해주세요.');
+      setCodeError(PASSWORD_RESET_COPY.verification.required);
       focusAndScroll(codeRef.current);
       return;
     }
@@ -61,45 +71,46 @@ export function PasswordResetVerificationStep({
     }
 
     const fieldError = result.fieldErrors?.code;
-    setCodeError(fieldError ?? result.error ?? '인증 코드가 올바르지 않습니다.');
-    focusAndScroll(codeRef.current);
+    if (fieldError) {
+      setCodeError(fieldError);
+      focusAndScroll(codeRef.current);
+    } else {
+      setCodeError('');
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <StepHeader
-        headingRef={headingRef}
-        icon={<Mail className="h-8 w-8 text-(--knu-primary)" />}
-        title="인증 코드 확인"
-      />
+      <div className="space-y-3">
+        <StepHeader
+          headingRef={headingRef}
+          icon={<Mail className="h-8 w-8 text-(--knu-primary)" />}
+          title={PASSWORD_RESET_COPY.verification.title}
+          description={PASSWORD_RESET_COPY.verification.description}
+        />
+        {sessionStatus}
+      </div>
+
+      {actionFeedback}
 
       <section
-        role="status"
-        aria-live="polite"
-        className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
+        aria-label={PASSWORD_RESET_COPY.verification.requestedAddressLabel}
+        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700"
       >
-        <div className="flex items-start gap-3">
-          <span
-            aria-hidden="true"
-            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500"
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <h3 className="text-sm font-bold">인증 코드 안내</h3>
-            <p className="text-sm leading-6">
-              <span className="block break-all">발송 완료: {email}</span>
-            </p>
-          </div>
-        </div>
+        <p className="text-xs font-semibold text-slate-500">
+          {PASSWORD_RESET_COPY.verification.requestedAddressTitle}
+        </p>
+        <p className="mt-1 break-all text-sm font-semibold text-slate-800">{email}</p>
       </section>
 
       <div className="relative">
         <InputField
           ref={codeRef}
-          label="인증 코드"
+          label={PASSWORD_RESET_COPY.verification.label}
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          placeholder="6자리 인증 코드"
+          placeholder={PASSWORD_RESET_COPY.verification.placeholder}
           value={verificationCode}
           onChange={(value) => {
             onVerificationCodeChange(value.replace(/\D/g, '').slice(0, 6));
@@ -107,66 +118,55 @@ export function PasswordResetVerificationStep({
           }}
           error={codeError}
           maxLength={6}
-          disabled={isVerifying}
+          disabled={isVerifying || isCodeUnavailable}
           required
         />
-        {isActive && (
-          <div
-            className="absolute right-4 top-11 text-sm font-semibold text-red-500"
-            role="timer"
-            aria-live={countdown % 30 === 0 ? 'polite' : 'off'}
-          >
-            {formatTime()}
-          </div>
-        )}
         {isExpired && (
-          <p className="mt-2 text-sm font-semibold text-red-500" aria-live="assertive">
-            인증 시간이 만료됐어요. 재전송으로 새 코드를 받아주세요.
+          <p className="mt-2 text-sm font-semibold leading-5 text-red-500" aria-live="assertive">
+            {PASSWORD_RESET_COPY.verification.expired}
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex gap-3">
         <Button
           variant="outline"
           size="lg"
           fullWidth
           type="button"
           onClick={onResendCode}
-          disabled={isSending || isActive || isVerifying}
+          disabled={isSending || isVerifying || isRateLimited || (isActive && !isAttemptsExhausted)}
         >
-          {isSending ? '전송 중...' : `재전송${isActive ? ` (${formatTime()})` : ''}`}
+          {isSending
+            ? PASSWORD_RESET_COPY.verification.resending
+            : isActive && !isAttemptsExhausted
+              ? `${PASSWORD_RESET_COPY.verification.resend} · ${formatCompactAuthRemainingTime(countdown)}`
+              : PASSWORD_RESET_COPY.verification.resend}
         </Button>
-        <Button variant="primary" size="lg" fullWidth type="submit" disabled={isVerifying}>
-          {isVerifying ? '확인 중...' : '확인'}
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          type="submit"
+          disabled={isSending || isVerifying || isCodeUnavailable || isRateLimited}
+        >
+          {isVerifying
+            ? PASSWORD_RESET_COPY.verification.verifying
+            : PASSWORD_RESET_COPY.verification.verify}
         </Button>
       </div>
 
-      <div className="space-y-1.5 pt-2 text-xs text-(--knu-text-tertiary)">
-        <p className="font-medium text-(--knu-text-secondary)">메일이 도착하지 않나요?</p>
-        <ul className="space-y-1">
-          <li>· 스팸 메일함을 확인해주세요.</li>
-          <li>
-            · 이메일 주소가 잘못됐다면{' '}
-            <button
-              type="button"
-              onClick={onBackToEmail}
-              className="font-semibold text-(--knu-primary) transition-colors hover:text-(--knu-primary-hover)"
-            >
-              다시 입력하기
-            </button>
-          </li>
-          <li>
-            · 아직 계정이 없다면{' '}
-            <Link
-              href="/signup"
-              className="font-semibold text-(--knu-primary) transition-colors hover:text-(--knu-primary-hover)"
-            >
-              회원가입
-            </Link>
-          </li>
-        </ul>
-      </div>
+      <AuthEmailDeliveryHelp onChangeEmailAction={onBackToEmail} />
+
+      <p className="border-t border-slate-200 pt-4 text-center text-xs text-(--knu-text-tertiary)">
+        {PASSWORD_RESET_COPY.verification.signupPrefix}{' '}
+        <Link
+          href="/signup"
+          className="font-semibold text-(--knu-primary) underline-offset-4 hover:underline"
+        >
+          {PASSWORD_RESET_COPY.verification.signup}
+        </Link>
+      </p>
     </form>
   );
 }

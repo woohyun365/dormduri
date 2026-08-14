@@ -50,7 +50,7 @@
 ## Architecture guard
 
 - Final structure boundary: `apps/api/src/architecture/season-participants/season-participants-boundary.spec.ts`.
-- Route/domain context inventory: `apps/api/src/architecture/domain-context/domain-context-route-matrix.spec.ts`.
+- Route/domain context inventory: `apps/api/test/architecture/domain-context/domain-context-route-matrix.spec.ts`.
 - Shared contract behavior: `contracts/season-participation-contract.spec.ts`.
 - Shared package layout fitness는 domain 내부가 아니라 `apps/api/src/architecture/contracts/layout/`가 소유한다.
 - Root spec surface는 controller spec만 허용한다. Module/provider/export fitness는 architecture guard와 `composition/` source-of-truth가 소유한다. Slice behavior spec은 owner-adjacent directory에 둔다.

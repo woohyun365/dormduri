@@ -42,20 +42,22 @@ describe('UsersService facade boundary', () => {
   const seasonsService = {
     getCurrentSeasonContext: vi.fn(),
   };
-  const moderationService = {
-    validateNicknamePolicy: vi.fn(),
-  };
+  const nicknamePolicy = {};
   const currentUserViewService = {
     getCurrentUser: vi.fn(),
     buildCurrentUserResponse: vi.fn(),
+  };
+  const passwordVerifier = {
+    verifyAccountPassword: vi.fn(),
   };
 
   const service = new UsersService(
     prisma as never,
     prisma as never,
     seasonsService as never,
-    moderationService as never,
+    nicknamePolicy as never,
     currentUserViewService as never,
+    passwordVerifier,
   );
 
   beforeEach(() => {
@@ -90,7 +92,7 @@ describe('UsersService facade boundary', () => {
       },
       academicIdentity: {
         userId: 'user-1',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
       dismissedNotices: [],

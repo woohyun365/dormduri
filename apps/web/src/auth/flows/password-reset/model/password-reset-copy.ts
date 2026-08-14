@@ -1,31 +1,93 @@
+import { AUTH_ACTION_FEEDBACK_COPY } from '@/auth/components/feedback/auth-action-feedback.copy';
+
 export const PASSWORD_RESET_COPY = {
-  serviceNotice: {
-    text: '본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.',
-    linkLabel: '자세히 보기',
+  pageTitle: '비밀번호 재설정',
+  progressLabel: '비밀번호 재설정 진행 단계',
+  retryAfterContext: '인증 요청 제한',
+  session: {
+    unavailable: {
+      title: '로그인 상태를 확인하지 못했어요',
+      description: '비밀번호 재설정은 계속할 수 있어요.',
+      retry: '다시 확인',
+    },
   },
-  authenticatedNotice:
-    '현재 로그인된 상태입니다. 현재 계정의 비밀번호 변경은 계정 설정에서 진행하고, 다른 계정을 재설정하려면 이 화면에서 계속 진행할 수 있어요.',
-  emailHelp: {
-    prefix: '메일이 오지 않으면 ',
-    highlight: '주소와 스팸함',
-    suffix: '을 확인해주세요.',
+  support: {
+    eyebrow: '계정 복구',
+    steps: ['학교 이메일 인증', '새 비밀번호 변경'],
+    email: {
+      title: '학교 이메일로 본인 확인해요',
+      description: '가입한 이메일과 인증 코드로 계정을 확인해요.',
+    },
+    password: {
+      title: '새 비밀번호로 변경해요',
+      description: '비밀번호를 안전하게 변경하고 계정을 복구해요.',
+    },
+    complete: {
+      title: '새 비밀번호로 다시 시작해요',
+      description: '계정 복구를 마쳤어요.',
+    },
+  },
+  email: {
+    title: '학교 이메일 확인',
+    description: '가입에 사용한 학교 이메일을 입력해요.',
+    label: '학교 이메일',
+    placeholder: 'example@kangwon.ac.kr',
+    submit: '인증 코드 받기',
+    submitting: '전송 중...',
+    verified: '인증완료',
+    next: '다음 단계',
+    login: '로그인으로 돌아가기',
+    signupPrefix: '계정이 없으면',
+    signup: '회원가입',
+  },
+  verification: {
+    title: '인증 코드 확인',
+    description: '메일에서 받은 6자리 코드를 입력해요.',
+    requestedAddressLabel: '인증 코드를 요청한 주소',
+    requestedAddressTitle: '요청한 주소',
+    label: '인증 코드',
+    placeholder: '6자리 인증 코드',
+    required: AUTH_ACTION_FEEDBACK_COPY.emailVerification.requiredCode,
+    verify: '인증 확인',
+    verifying: '확인 중...',
+    resend: '재전송',
+    resending: '전송 중...',
+    expired: '인증 시간이 만료됐어요. 새 인증 코드를 받아주세요.',
+    signupPrefix: '아직 계정이 없다면',
+    signup: '회원가입',
+  },
+  newPassword: {
+    title: '새 비밀번호 만들기',
+    description: '기존과 다른 비밀번호를 입력해요.',
+    label: '새 비밀번호',
+    confirmLabel: '비밀번호 확인',
+    confirmPlaceholder: '비밀번호를 다시 입력해주세요',
+    submit: '새 비밀번호 저장',
+    submitting: '저장 중...',
+  },
+  complete: {
+    title: '비밀번호가 변경됐어요',
+    description: '새 비밀번호로 다시 로그인해 주세요.',
+    sessionEnded: '기존 로그인은 모두 종료됐어요.',
+    login: '로그인하기',
   },
   status: {
     defaultServerError: '일시적 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
-    defaultNetworkError: '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
-    networkTitle: '네트워크를 확인해주세요',
-    retryAfterTitle: '잠시 후 다시 시도해주세요',
+    defaultNetworkError: AUTH_ACTION_FEEDBACK_COPY.connectivity,
+    sendCodeNetworkTitle: AUTH_ACTION_FEEDBACK_COPY.emailVerification.sendFailedTitle,
+    verifyCodeNetworkTitle: AUTH_ACTION_FEEDBACK_COPY.emailVerification.verifyFailedTitle,
+    resetPasswordNetworkTitle: '새 비밀번호를 저장하지 못했어요',
+    retryAfterTitle: AUTH_ACTION_FEEDBACK_COPY.retryAfter.title,
     sendCodeFailureTitle: '인증 코드를 보낼 수 없어요',
-    verifyFailureTitle: '인증 코드를 확인하지 못했어요',
-    verifyFailureMessage: '인증 코드가 올바르지 않습니다.',
-    resetRestartTitle: '재설정을 처음부터 다시 진행해주세요',
-    resetRestartMessage:
-      '인증 시간이 만료되었거나 이미 사용된 요청입니다. 이메일 입력부터 다시 진행해주세요.',
+    resendSucceededTitle: AUTH_ACTION_FEEDBACK_COPY.emailVerification.resendSucceeded.title,
+    resendSucceededMessage: AUTH_ACTION_FEEDBACK_COPY.emailVerification.resendSucceeded.description,
+    verifyFailureTitle: AUTH_ACTION_FEEDBACK_COPY.emailVerification.verifyFailedTitle,
+    verifyFailureMessage: AUTH_ACTION_FEEDBACK_COPY.emailVerification.invalidCode,
+    attemptsExhaustedTitle: AUTH_ACTION_FEEDBACK_COPY.verificationCodeUnavailable.title,
+    attemptsExhaustedMessage: AUTH_ACTION_FEEDBACK_COPY.verificationCodeUnavailable.description,
+    resetRestartTitle: '인증 시간이 만료됐어요',
+    resetRestartMessage: '학교 이메일 인증부터 다시 진행해 주세요.',
     resetFailureTitle: '비밀번호를 변경하지 못했어요',
     resetFailureMessage: '비밀번호 재설정에 실패했습니다. 잠시 후 다시 시도해주세요.',
   },
 } as const;
-
-export function createPasswordResetRetryAfterMessage(seconds: number) {
-  return `너무 잦은 요청이에요. ${seconds}초 후 다시 시도해주세요.`;
-}

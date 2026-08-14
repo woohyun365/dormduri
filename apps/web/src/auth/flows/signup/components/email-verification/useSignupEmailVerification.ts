@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthCountdown } from '@/auth/hooks';
-import { validateKnuEmail } from '@/utils/validation';
-import { SIGNUP_VERIFICATION_CODE_TTL } from '@/auth/model';
+import {
+  AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
+  SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
+  validateKnuEmailFormat as validateKnuEmail,
+} from '@repo/shared/auth/policy';
 import { authApi } from '@/auth/api';
+import type { AuthActionFeedbackState } from '@/auth/components/feedback/auth-action-feedback.types';
+import { SIGNUP_FEEDBACK_COPY } from '../../model/signup-feedback.copy';
 
 interface UseSignupEmailVerificationParams {
   email: string;
@@ -12,6 +17,10 @@ interface UseSignupEmailVerificationParams {
 }
 
 type RetryAfterTarget = 'email' | 'code';
+
+interface SignupEmailActionFeedback extends AuthActionFeedbackState {
+  isRetryAfter?: boolean;
+}
 
 export function useSignupEmailVerification({
   email,
@@ -24,9 +33,12 @@ export function useSignupEmailVerification({
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [requestedEmail, setRequestedEmail] = useState('');
+  const [actionFeedback, setActionFeedback] = useState<SignupEmailActionFeedback | null>(null);
+  const [isAttemptsExhausted, setIsAttemptsExhausted] = useState(false);
   const [retryAfterTarget, setRetryAfterTarget] = useState<RetryAfterTarget | null>(null);
   const sendTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const sendRequestIdRef = useRef(0);
+  const verificationFailureCountRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -39,8 +51,7 @@ export function useSignupEmailVerification({
     isActive: isCountdownActive,
     start: startCountdown,
     stop: stopCountdown,
-    formatTime,
-  } = useAuthCountdown(SIGNUP_VERIFICATION_CODE_TTL);
+  } = useAuthCountdown(SIGNUP_VERIFICATION_CODE_TTL_SECONDS);
   const {
     countdown: retryAfterSeconds,
     isActive: isRetryAfterActive,
@@ -48,15 +59,10 @@ export function useSignupEmailVerification({
     stop: stopRetryAfter,
   } = useAuthCountdown(0);
 
-  const retryAfterMessage = useMemo(() => {
-    if (!isRetryAfterActive) return '';
-    return `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`;
-  }, [isRetryAfterActive, retryAfterSeconds]);
-
-  const visibleEmailError =
-    retryAfterTarget === 'email' && retryAfterMessage ? retryAfterMessage : emailError;
-  const visibleCodeError =
-    retryAfterTarget === 'code' && retryAfterMessage ? retryAfterMessage : codeError;
+  const visibleActionFeedback = useMemo(
+    () => (actionFeedback?.isRetryAfter && !isRetryAfterActive ? null : actionFeedback),
+    [actionFeedback, isRetryAfterActive],
+  );
   const emailRetryAfterSeconds = retryAfterTarget === 'email' ? retryAfterSeconds : 0;
   const codeRetryAfterSeconds = retryAfterTarget === 'code' ? retryAfterSeconds : 0;
 
@@ -67,6 +73,11 @@ export function useSignupEmailVerification({
       }
 
       setRetryAfterTarget(target);
+      setActionFeedback({
+        variant: 'warning',
+        title: SIGNUP_FEEDBACK_COPY.common.retryAfter.title,
+        isRetryAfter: true,
+      });
       startRetryAfter(Math.ceil(seconds));
       return true;
     },
@@ -76,6 +87,7 @@ export function useSignupEmailVerification({
   const clearRetryAfterCountdown = useCallback(() => {
     setRetryAfterTarget(null);
     stopRetryAfter();
+    setActionFeedback((current) => (current?.isRetryAfter ? null : current));
   }, [stopRetryAfter]);
 
   const handleSendCode = useCallback(async () => {
@@ -88,8 +100,10 @@ export function useSignupEmailVerification({
     }
 
     const requestEmail = email.trim();
+    const isResend = isCodeSent;
     const requestId = ++sendRequestIdRef.current;
     setEmailError('');
+    setActionFeedback(null);
     setIsSending(true);
 
     try {
@@ -98,7 +112,21 @@ export function useSignupEmailVerification({
 
       if (result.success) {
         clearRetryAfterCountdown();
+        verificationFailureCountRef.current = 0;
+        setIsAttemptsExhausted(false);
         setRequestedEmail(requestEmail);
+        if (isResend) {
+          setVerificationCode('');
+          setCodeError('');
+          setIsSending(false);
+          setIsCodeSent(true);
+          setActionFeedback({
+            variant: 'success',
+            ...SIGNUP_FEEDBACK_COPY.email.resendSucceeded,
+          });
+          startCountdown();
+          return;
+        }
         sendTimerRef.current = setTimeout(() => {
           if (requestId !== sendRequestIdRef.current) return;
           setIsSending(false);
@@ -107,40 +135,96 @@ export function useSignupEmailVerification({
         }, 1000);
       } else {
         const hasRetryAfter = startRetryAfterCountdown('email', result.retryAfterSeconds);
-        setEmailError(hasRetryAfter ? '' : (result.error ?? '인증 코드 전송에 실패했습니다.'));
+        if (!hasRetryAfter) {
+          setActionFeedback({
+            variant: 'error',
+            title: SIGNUP_FEEDBACK_COPY.email.sendFailedTitle,
+            description: result.error ?? SIGNUP_FEEDBACK_COPY.common.retry,
+          });
+        }
         setIsSending(false);
       }
     } catch {
-      setEmailError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      setActionFeedback({
+        variant: 'connectivity',
+        title: SIGNUP_FEEDBACK_COPY.email.sendFailedTitle,
+        description: SIGNUP_FEEDBACK_COPY.common.connectivity,
+      });
       setIsSending(false);
     }
-  }, [clearRetryAfterCountdown, email, isSending, startCountdown, startRetryAfterCountdown]);
+  }, [
+    clearRetryAfterCountdown,
+    email,
+    isCodeSent,
+    isSending,
+    startCountdown,
+    startRetryAfterCountdown,
+  ]);
 
   const handleVerifyCode = useCallback(async () => {
+    if (isSending || isVerifying) return;
     if (!verificationCode) {
-      setCodeError('인증 코드를 입력해주세요.');
+      setCodeError(SIGNUP_FEEDBACK_COPY.email.requiredCode);
       return;
     }
+    if (isAttemptsExhausted) return;
+
+    setActionFeedback(null);
     setIsVerifying(true);
     try {
       const result = await authApi.verifyEmailCode(requestedEmail || email, verificationCode);
       if (result.success) {
         clearRetryAfterCountdown();
+        verificationFailureCountRef.current = 0;
+        setIsAttemptsExhausted(false);
         setCodeError('');
         onVerified();
         stopCountdown();
       } else {
+        const isInvalidCode = result.code === 'AUTH_VERIFICATION_CODE_INVALID';
+        if (isInvalidCode) {
+          verificationFailureCountRef.current += 1;
+
+          if (verificationFailureCountRef.current >= AUTH_VERIFICATION_CODE_MAX_ATTEMPTS) {
+            stopCountdown();
+            setCodeError('');
+            setIsAttemptsExhausted(true);
+            setActionFeedback({
+              variant: 'warning',
+              ...SIGNUP_FEEDBACK_COPY.common.verificationCodeUnavailable,
+            });
+            return;
+          }
+        }
+
         const hasRetryAfter = startRetryAfterCountdown('code', result.retryAfterSeconds);
-        setCodeError(hasRetryAfter ? '' : (result.error ?? '인증 코드가 올바르지 않습니다.'));
+        if (hasRetryAfter) {
+          setCodeError('');
+        } else if (isInvalidCode) {
+          setCodeError(result.error ?? SIGNUP_FEEDBACK_COPY.email.invalidCode);
+        } else {
+          setActionFeedback({
+            variant: 'error',
+            title: SIGNUP_FEEDBACK_COPY.email.verificationFailedTitle,
+            description: result.error ?? SIGNUP_FEEDBACK_COPY.common.retry,
+          });
+        }
       }
     } catch {
-      setCodeError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      setActionFeedback({
+        variant: 'connectivity',
+        title: SIGNUP_FEEDBACK_COPY.email.verificationFailedTitle,
+        description: SIGNUP_FEEDBACK_COPY.common.connectivity,
+      });
     } finally {
       setIsVerifying(false);
     }
   }, [
     clearRetryAfterCountdown,
     email,
+    isAttemptsExhausted,
+    isSending,
+    isVerifying,
     onVerified,
     requestedEmail,
     startRetryAfterCountdown,
@@ -162,6 +246,9 @@ export function useSignupEmailVerification({
     setIsSending(false);
     setRequestedEmail('');
     setEmailError('');
+    setActionFeedback(null);
+    verificationFailureCountRef.current = 0;
+    setIsAttemptsExhausted(false);
     stopCountdown();
     clearRetryAfterCountdown();
     setIsCodeSent(false);
@@ -171,8 +258,10 @@ export function useSignupEmailVerification({
 
   return {
     verificationCode,
-    emailError: visibleEmailError,
-    codeError: visibleCodeError,
+    emailError,
+    codeError,
+    actionFeedback: visibleActionFeedback,
+    isAttemptsExhausted,
     isCodeSent,
     isSending,
     isVerifying,
@@ -182,7 +271,6 @@ export function useSignupEmailVerification({
     countdown,
     emailRetryAfterSeconds,
     codeRetryAfterSeconds,
-    formatTime,
     handleSendCode,
     handleVerifyCode,
     handleCodeChange,

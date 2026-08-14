@@ -6,8 +6,12 @@ const config: StorybookConfig = {
     options: {},
   },
   stories: [
+    '../src/auth/**/*.stories.@(ts|tsx|mdx)',
     '../src/legal/__stories__/**/*.stories.@(ts|tsx|mdx)',
+    '../src/observability/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/home/**/*.stories.@(ts|tsx|mdx)',
+    '../src/main/tabs/chat/**/*.stories.@(ts|tsx|mdx)',
+    '../src/main/tabs/matching/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/roommate-list/**/*.stories.@(ts|tsx|mdx)',
   ],
   addons: ['@storybook/addon-docs'],

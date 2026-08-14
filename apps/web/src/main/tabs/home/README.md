@@ -45,8 +45,8 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | Home dashboard fetch state           | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                                                                                                            |
 | Dashboard → Home view model          | `apps/web/src/main/tabs/home/model/homeDashboardViewModel.ts`                                                                                                                                                                |
 | Home quick action policy             | `apps/web/src/main/tabs/home/model/homeActionPolicy.ts`                                                                                                                                                                      |
-| Season policy                        | `docs/04_policy/official/season-lifecycle.md`, `docs/04_policy/official/season-participation.md`                                                                                                                             |
-| Search/matching/chat policy          | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/matching-lifecycle.md`, `docs/04_policy/official/chat-lifecycle.md`                                                                                |
+| Season policy                        | `docs/policies/season-lifecycle.md`, `docs/policies/season-participation.md`                                                                                                                                                 |
+| Search/matching/chat policy          | `docs/policies/roommate-searching.md`, `docs/policies/matching-lifecycle.md`, `docs/policies/chat-lifecycle.md`                                                                                                              |
 
 정책 문서와 Home 문구가 충돌하면 정책 문서를 우선하고 Home copy/test를 갱신한다.
 

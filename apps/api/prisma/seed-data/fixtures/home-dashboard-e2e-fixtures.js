@@ -413,7 +413,7 @@ async function upsertParticipant(
     storedLifestyle.cleanExpectation,
     storedLifestyle.drinkingTolerance,
     user.fixture.intro,
-    user.fixture.college ?? 'IT',
+    user.fixture.college ?? 'CHUNCHEON_IT',
     user.fixture.grade ?? null,
     user.fixture.mbti ?? null,
     user.fixture.birthYear ?? 2002,

@@ -8,10 +8,12 @@ import type { EmailSender } from './email-sender.interface.js';
 const stub = {
   sendVerificationCode: vi.fn(),
   sendPasswordResetCode: vi.fn(),
+  sendPasswordChanged: vi.fn(),
 } satisfies EmailSender;
 const ses = {
   sendVerificationCode: vi.fn(),
   sendPasswordResetCode: vi.fn(),
+  sendPasswordChanged: vi.fn(),
 } satisfies EmailSender;
 
 describe('selectEmailSenderDelegate', () => {

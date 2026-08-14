@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { authApi } from '@/auth/api';
-import { LOGIN_LOCKOUT_SECONDS } from '@/auth/model';
+import { LOGIN_LOCKOUT_SECONDS } from '@repo/shared/auth/policy';
 import { useAuthCountdown } from '@/auth/hooks';
 import {
   hasLoginFieldErrors,

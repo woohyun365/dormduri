@@ -54,20 +54,20 @@
 
 ## Policy references
 
-- `docs/04_policy/official/notification-inbox.md`: 개인 알림 payload는 pointer-only를 유지하고 공지/지원 raw body를 섞지 않는다.
-- `docs/04_policy/official/support-communication.md`: FAQ/support ticket self-only detail과 in-app notification primary 정책을 유지한다.
-- `docs/04_policy/official/service-boundary.md`: user-facing product path에서 운영 내부 payload를 노출하지 않는다.
+- `docs/policies/notification-inbox.md`: 개인 알림 payload는 pointer-only를 유지하고 공지/지원 raw body를 섞지 않는다.
+- `docs/policies/support-communication.md`: FAQ/support ticket self-only detail과 in-app notification primary 정책을 유지한다.
+- `docs/policies/service-boundary.md`: user-facing product path에서 운영 내부 payload를 노출하지 않는다.
 
 ## Useful verification
 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
-  src/architecture/domains/notices-boundary.spec.ts \
+  test/architecture/domains/notices-boundary.spec.ts \
   src/notices/contracts/global-notice-contract.spec.ts \
   src/notices/queries/global-notice-list.cursor.spec.ts \
   src/notices/queries/global-notice.query.spec.ts \
-  src/architecture/security/auth-access-route-matrix.spec.ts
-pnpm --dir apps/api exec eslint src/notices src/app.module.ts src/architecture/security/auth-access-route-matrix.spec.ts
+  test/architecture/security/auth-access-route-matrix.spec.ts
+pnpm --dir apps/api exec eslint src/notices src/app.module.ts test/architecture/security/auth-access-route-matrix.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

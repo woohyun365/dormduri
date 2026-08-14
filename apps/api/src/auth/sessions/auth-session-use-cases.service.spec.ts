@@ -14,14 +14,20 @@ describe('AuthSessionUseCases', () => {
   });
 
   it('request context가 없으면 session service에 legacy two-arg 이하 shape로 위임한다', async () => {
-    sessionService.getSession.mockResolvedValueOnce({ authenticated: false });
+    sessionService.getSession.mockResolvedValueOnce({
+      authenticated: false,
+      reason: 'SESSION_NOT_FOUND',
+    });
     sessionService.renewSession.mockResolvedValueOnce({
       success: false,
       code: 'AUTH_SESSION_RENEWAL_REQUIRED',
     });
     sessionService.logout.mockResolvedValueOnce({ success: true });
 
-    await expect(useCases.getSession('access-token')).resolves.toEqual({ authenticated: false });
+    await expect(useCases.getSession('access-token')).resolves.toEqual({
+      authenticated: false,
+      reason: 'SESSION_NOT_FOUND',
+    });
     await expect(useCases.renewSession('renewal-token')).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SESSION_RENEWAL_REQUIRED',

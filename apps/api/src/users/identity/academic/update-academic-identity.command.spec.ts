@@ -20,7 +20,7 @@ const USER = {
   },
   academicIdentity: {
     userId: 'user-1',
-    collegeCode: 'ARTS_ENGINEERING',
+    collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
     birthYear: 2002,
     createdAt: new Date('2026-05-01T00:00:00.000Z'),
     updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -89,6 +89,9 @@ describe('UpdateAcademicIdentityCommand', () => {
     userAcademicIdentityChangeEvent: {
       create: vi.fn(),
     },
+    collegeMaster: {
+      findFirst: vi.fn(),
+    },
     season: {
       findFirst: vi.fn(),
     },
@@ -107,13 +110,14 @@ describe('UpdateAcademicIdentityCommand', () => {
     });
     tx.userAcademicIdentityChangeAllowance.updateMany.mockResolvedValue({ count: 1 });
     tx.userAcademicIdentityChangeEvent.create.mockResolvedValue({ id: 'event-1' });
+    tx.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_BUSINESS' });
     tx.season.findFirst.mockResolvedValue({ academicYear: 2026 });
   });
 
   it('same academic identity no-op은 registration lock/allowance/audit보다 먼저 idempotent하게 반환한다', async () => {
     const result = await command.applyAcademicIdentityChange(
       USER,
-      command.parseAcademicIdentity({ collegeCode: 'ARTS_ENGINEERING', birthYear: 2002 }),
+      command.parseAcademicIdentity({ collegeCode: 'CHUNCHEON_ARTS_ENGINEERING', birthYear: 2002 }),
       NOW,
       tx as never,
     );
@@ -138,7 +142,7 @@ describe('UpdateAcademicIdentityCommand', () => {
     await expect(
       command.applyAcademicIdentityChange(
         USER,
-        command.parseAcademicIdentity({ collegeCode: 'BUSINESS', birthYear: 2002 }),
+        command.parseAcademicIdentity({ collegeCode: 'CHUNCHEON_BUSINESS', birthYear: 2002 }),
         NOW,
         tx as never,
       ),
@@ -150,11 +154,41 @@ describe('UpdateAcademicIdentityCommand', () => {
     expect(tx.userAcademicIdentity.upsert).not.toHaveBeenCalled();
   });
 
+  it('현재 캠퍼스에서 활성화되지 않은 단과대는 allowance 소비 전에 거절한다', async () => {
+    tx.collegeMaster.findFirst.mockResolvedValue(null);
+
+    await expect(
+      command.applyAcademicIdentityChange(
+        USER,
+        command.parseAcademicIdentity({ collegeCode: 'SAMCHEOK_ENGINEERING', birthYear: 2002 }),
+        NOW,
+        tx as never,
+      ),
+    ).rejects.toMatchObject({
+      response: usersErrors.academicCollegeUnavailable().getResponse(),
+    });
+
+    expect(tx.collegeMaster.findFirst).toHaveBeenCalledWith({
+      where: {
+        code: 'SAMCHEOK_ENGINEERING',
+        campusCode: 'CHUNCHEON',
+        isActive: true,
+      },
+      select: { code: true },
+    });
+    expect(tx.userAcademicIdentityChangeAllowance.updateMany).not.toHaveBeenCalled();
+    expect(tx.userAcademicIdentity.upsert).not.toHaveBeenCalled();
+    expect(tx.userAcademicIdentityChangeEvent.create).not.toHaveBeenCalled();
+  });
+
   it('birthYear self correction은 update와 audit append를 같은 tx client에 수행한다', async () => {
     await expect(
       command.applyAcademicIdentityChange(
         USER,
-        command.parseAcademicIdentity({ collegeCode: 'ARTS_ENGINEERING', birthYear: 2001 }),
+        command.parseAcademicIdentity({
+          collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+          birthYear: 2001,
+        }),
         NOW,
         tx as never,
       ),
@@ -164,11 +198,11 @@ describe('UpdateAcademicIdentityCommand', () => {
       where: { userId: 'user-1' },
       create: {
         userId: 'user-1',
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2001,
       },
       update: {
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2001,
       },
     });
@@ -182,8 +216,8 @@ describe('UpdateAcademicIdentityCommand', () => {
       reason: 'USER_CORRECTION',
       actorType: 'USER',
       actorId: 'user-1',
-      previousCollegeCode: 'ARTS_ENGINEERING',
-      nextCollegeCode: 'ARTS_ENGINEERING',
+      previousCollegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+      nextCollegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       previousBirthYear: 2002,
       nextBirthYear: 2001,
       changedAt: NOW,

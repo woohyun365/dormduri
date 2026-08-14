@@ -9,9 +9,9 @@ import {
 } from '../_support/integration-db.js';
 import {
   toCompleteLifestyleColumnData,
-  authContext,
   DEFAULT_LIFESTYLE,
-} from '../_support/integration-fixtures.js';
+} from '../_support/fixtures/lifestyle-profile.fixture.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
 
 describe('Match history integration', () => {
   let prisma: PrismaService;
@@ -530,8 +530,8 @@ describe('Match history integration', () => {
       data: {
         participantId: 'participant-b-2025-01',
         seasonId: 'season-2025-01',
-        nicknameSnapshot: '좋은날씨-final',
-        nicknameNormalizedSnapshot: '좋은날씨-final',
+        nicknameSnapshot: '최종좋은날씨',
+        nicknameNormalizedSnapshot: '최종좋은날씨',
         ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanLevel: 'WHEN_DIRTY',
@@ -643,7 +643,7 @@ describe('Match history integration', () => {
       },
       resultRead: { resultReadable: true, context: 'PAST_MATCH_HISTORY' },
       matchScore: storedRow!.matchScore,
-      nickname: '좋은날씨-final',
+      nickname: '최종좋은날씨',
       intro: '시즌 종료 전 최종 소개',
       lifestyle: {
         cleanLevel: 'WHEN_DIRTY',

@@ -1,214 +1,352 @@
 # KNU Roommate
 
-강원대학교 재학생을 위한 **시즌 기반 기숙사 룸메이트 탐색·매칭 서비스**입니다.
+강원대학교 재학생이 **생활패턴이 맞는 기숙사 룸메이트를 탐색하고, 대화와 매칭 요청으로 한 학기의 룸메이트를 결정하도록 돕는 시즌 기반 웹 서비스**입니다.
 
-이 저장소는 단순 기능 구현보다, 정책을 도메인 모델과 API 계약으로 고정하고 검증하는 과정을 포트폴리오의 핵심 근거로 둡니다.
+> **현재 상태**: Pre-release · 제품 코드와 자동 검증·로컬 인프라 리허설 경로 구현 · 실제 사용자 및 production target 검증 대기
 
-## 이 프로젝트에서 증명하고 싶은 것
+[서비스 자세히 보기](./SERVICE.md) · [제품 정책](./docs/policies/README.md) · [아키텍처](./docs/architecture/README.md) · [기여 안내](./CONTRIBUTING.md) · [운영 Runbook](./infra/runbooks/README.md)
 
-- **정책 → 도메인 모델 → API 계약 → 테스트**로 이어지는 개발 체계를 설계했습니다.
-- `User` 중심 legacy 구조를 `UserDisplayIdentity` / `UserAcademicIdentity` / `SeasonParticipant` 중심으로 재정렬했습니다.
-- 룸메이트 찾기 기능을 summary/detail/action/result-read 축으로 분리하고, manifest 기반 필터·cursor pagination·query-time score sort를 구현했습니다.
-- 탈퇴/비식별화 이후에도 신고·분쟁 대응에 필요한 데이터를 RRPD retained vault로 분리 보존하는 BE foundation을 설계했습니다.
-- AI 도구는 코드 작성·리뷰·인수 검증에 활용하되, 정책 판단과 최종 적용 여부는 사람이 결정하는 워크플로를 운영했습니다.
+## 해결하려는 문제
 
-## 현재 구현 스냅샷
+기숙사 룸메이트는 한 학기의 생활 만족도에 큰 영향을 주지만, 후보를 찾는 과정은 단체 채팅방·커뮤니티·지인 소개처럼 파편화된 채널에 의존하기 쉽습니다.
 
-| 영역                 | 현재 상태                                                                                                                                                      |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth / Users         | 학교 이메일 인증 코드, signup draft 검증, argon2id 비밀번호, JWT session, login lockout, reset password, account identity invariant                            |
-| Account identity     | 표시 identity(`UserDisplayIdentity`)와 학업 identity(`UserAcademicIdentity`) 분리. 닉네임/단과대/출생연도 수정 정책과 감사 이력 기반 마련                      |
-| Season participation | 시즌 프로필 draft, 기숙사 선택 draft, registration finalize, deregistration, registration snapshot/history 생성                                                |
-| Roommate search      | `SeasonParticipant`를 public target root로 사용. scope manifest, filter manifest, cursor-only pagination, `NICKNAME`/`MATCH_SCORE` 정렬, min score preset 지원 |
-| Public profile       | list-summary / detail / score / action capability 분리. 정상 entry context 기반 tombstone detail과 direct probing fail-closed 처리                             |
-| Match / Chat         | match request, accept/reject/cancel, active match, unmatch request, history read, thread lifecycle, `canSendMessage=false` reason payload                      |
-| Retention            | RRPD retained vault, archive job, retained vault access log, disposal, chat body vault 전환, account deletion de-identification foundation                     |
-| Test                 | API unit/integration 중심 Jest 테스트 + web Vitest 테스트. 현재 repo 기준 `*.spec.ts`/`*.test.ts` 100개 이상                                                   |
+- 수면, 흡연, 통화, 청결, 실내 취식 같은 생활 마찰 요소를 구조적으로 비교하기 어렵습니다.
+- 재학생 여부, 같은 기숙사 배정, 현재 매칭 가능 시점을 함께 확인하기 어렵습니다.
+- 대화·요청·수락·매칭 해제·과거 이력이 서로 다른 채널에 흩어집니다.
+- 신고, 차단, 탈퇴 후 비식별화처럼 서비스 운영에 필요한 안전 경계가 약합니다.
 
-> 현재 단계는 제품 릴리즈 전 개발 단계입니다. 운영 배포·실사용자 검증·admin/backoffice UI는 후속 범위입니다.
+KNU Roommate는 이를 **학교 이메일 인증 → 시즌 등록 → 생활패턴 기반 후보 탐색 → 대화와 매칭 → 시즌 이력 확인**이라는 하나의 흐름으로 연결합니다. 학교의 기숙사 배정이나 호실 선택을 대신하지 않고, 그 전에 필요한 룸메이트 탐색과 합의를 돕는 것이 제품 경계입니다.
 
-## 핵심 기술 결정
+## Portfolio Highlights
 
-| 영역                | 기술                                     | 선택 이유                                                                                                                 |
-| ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Language            | TypeScript                               | FE/BE/shared contract를 같은 타입 언어로 연결하고 정책 enum/schema drift를 줄이기 위함                                    |
-| Monorepo            | pnpm workspace                           | `apps/web`, `apps/api`, `packages/shared` 간 계약 공유와 의존성 경계를 명확히 하기 위함                                   |
-| Frontend            | Next.js 16, React 19                     | App Router 기반 화면 구조와 인증 BFF 경계를 함께 다루기 위함                                                              |
-| Backend             | NestJS 11                                | 모듈/DI 구조가 auth, users, seasons, profiles, matches, chat, retention 같은 정책 도메인 분리에 적합                      |
-| Database            | PostgreSQL 16 + Prisma 7                 | 관계형 제약, transaction, migration, generated client 기반 타입 안정성을 함께 확보                                        |
-| Contract            | Zod schemas in `packages/shared`         | API request/response, roommate-search manifest, identity/profile/match/chat contract를 런타임 검증과 타입으로 동시에 사용 |
-| Validation / Config | Joi + Nest Config                        | production 필수 secret과 dev default를 명확히 분리                                                                        |
-| Test                | Jest, Supertest, Vitest, Testing Library | BE owner 단위/통합 테스트와 FE component 테스트를 분리                                                                    |
-| Styling             | Tailwind CSS 4                           | 정책 변화에 따라 UI 상태가 자주 바뀌는 프로토타입 단계에서 빠르게 조정 가능                                               |
+| 관점                  | 이 저장소에서 확인할 수 있는 것                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Policy-first          | 화면보다 먼저 시즌·등록·공개 범위·매칭·채팅·보존 정책을 정의하고 domain model과 API contract로 연결했습니다.                   |
+| Full-stack ownership  | Next.js UI/BFF, shared Zod contract, NestJS policy owner, Prisma/PostgreSQL transaction을 한 저장소에서 일관되게 설계했습니다. |
+| Safe change           | lint·typecheck·unit·integration·E2E·stress harness·repo policy test를 책임별 lane으로 분리하고 변경 경로에 맞춰 실행합니다.    |
+| Operational readiness | 제한된 서버 자원, secret 전달, migration, rollback, log·metric·browser error 관측을 기능 개발과 함께 설계했습니다.             |
+| Agentic development   | AI agent를 구현 가속기로 사용하되 정책 결정, trade-off 선택, diff 검토와 완료 판정은 사람이 소유했습니다.                      |
 
-## 백엔드 설계 포인트
+## 사용자 여정
 
-### 1. SeasonParticipant 중심 도메인 재정렬
+```text
+학교 이메일 인증
+  → 계정과 학적 정보 생성
+  → 현재 시즌 확인
+  → 기숙사·생활패턴 입력과 시즌 등록
+  → 같은 조건의 후보 탐색
+  → 프로필 비교와 대화
+  → 매칭 요청·수락
+  → 현재 매칭 관리와 시즌 이력 확인
+```
 
-룸메이트 탐색·매칭·채팅의 canonical target은 account `User`가 아니라 current season의 `SeasonParticipant`입니다.
+가입과 시즌 참여는 같은 상태가 아닙니다. 계정이 있어도 현재 시즌, 필수 프로필, 기숙사 선택과 등록 transaction이 완료되어야 탐색·상세·매칭 action이 열립니다. UI는 이 조건을 자체 추측하지 않고 서버가 계산한 capability와 reason을 표현합니다.
 
-- signup/auth는 `User`와 account identity만 만든다.
-- 시즌 프로필 draft와 기숙사 선택 draft는 registration 전까지 독립 저장 가능하다.
-- registration finalize만 `REGISTERED + ASSIGNED + registeredAt + complete profile + SEASON_REGISTRATION history`를 확정한다.
-- search/detail/match/chat capability는 registration complete participant를 기준으로 계산한다.
+## Architecture at a Glance
 
-이 구조로 account identity, season participation, public exposure, match/chat action capability를 분리했습니다.
+### Logical application flow
 
-### 2. Public target capability 축 분리
+```mermaid
+flowchart LR
+    Browser[Browser] -->|HTTPS| Web[Next.js 16<br/>UI + BFF]
+    Web -->|Zod contract| API[NestJS 11<br/>Policy owners]
+    API -->|Prisma + pg| DB[(PostgreSQL 18)]
+```
 
-기존의 단일 public exposure 표현 대신 아래 축을 분리했습니다.
+사용자 화면과 BFF는 Web이 소유하고, 정책과 transaction의 최종 판단은 API와 PostgreSQL이 소유합니다. `packages/shared`의 Zod contract는 이 경계를 런타임 검증 가능한 타입으로 연결합니다.
 
-| 축                      | 의미                                                        |
-| ----------------------- | ----------------------------------------------------------- |
-| Relation                | viewer와 target의 관계: general target / matched partner    |
-| Exposure                | list-summary, detail, score를 어디까지 볼 수 있는가         |
-| Action capability       | bookmark, match request, chat start 같은 새 행동이 가능한가 |
-| Result-read context     | 이미 생성된 match/thread/history를 읽는 맥락인가            |
-| Read-only storage state | thread/profile row 자체가 쓰기 잠금 상태인가                |
+### Expected deployment topology
 
-이 분리 덕분에 “목록에는 보이지만 상세/점수/action은 닫힘”, “과거 최종 매칭 상대의 detail은 result-read로 허용”, “정상 entry context는 tombstone으로 degrade” 같은 상태를 명확히 표현할 수 있습니다.
+아래 구성은 **실제 배포 완료도가 아니라 release 전 계획과 local rehearsal의 기준**입니다. Public ingress의 최종 TLS 종료·route, provider identifier와 network는 production target에서 검증해 release evidence로 확정합니다.
 
-### 3. Roommate-search filter / cursor / score 설계
+```mermaid
+flowchart TB
+    Browser[사용자 브라우저]
+    Secrets[AWS Secrets Manager<br/>release origin]
+    RDS[(Private managed<br/>PostgreSQL 18)]
+    Sentry[Managed Sentry]
+    Operator[운영자]
 
-룸메이트 찾기는 `CAMPUS_MERGED`와 `SAME_BUILDING_ONLY` scope를 가진 summary list API입니다.
+    subgraph UserHost[User App host · 2 vCPU / 4 GiB]
+        direction TB
+        Ingress[HTTPS ingress<br/>route · TLS target pending]
+        Web[Next.js standalone<br/>UI + BFF]
+        ApiIngress[API Nginx<br/>private upstream boundary]
+        API[NestJS API<br/>policy + transaction]
+        SecretDelivery[Release-time<br/>secret materializer]
+        SecretMount[Read-only<br/>secret mount]
 
-- `GET /api/roommate-search/manifest`가 scope별 필터/정렬 가능성을 preflight로 제공한다.
-- `GET /api/roommate-search`는 response에도 authoritative manifest를 포함해 stale UI state를 방어한다.
-- pagination은 offset이 아니라 HMAC cursor token과 query digest를 사용한다.
-- `MATCH_SCORE` 정렬은 projection table precompute가 아니라 query-time score calculation으로 구현했다.
-- bounded cache는 실제 병목이 측정된 뒤 후속 issue에서 도입한다.
+        subgraph Observability[Bounded observability · product fail-open]
+            direction LR
+            Alloy[Alloy]
+            Loki[Loki]
+            Prometheus[Prometheus]
+            Grafana[Grafana]
+            Alertmanager[Alertmanager]
+        end
 
-`docs/07_tech/roommate-search-score-scaling-design.md`에서는 BTL 1~3차 기숙사 규모, managed PostgreSQL 비용, App CPU/DB write amplification 트레이드오프를 기준으로 이 결정을 정리했습니다.
+        Ingress --> Web
+        Web -->|server-side BFF request| ApiIngress
+        ApiIngress --> API
+        SecretDelivery --> SecretMount
+        SecretMount --> API
+        Web -. structured log .-> Alloy
+        API -. structured log .-> Alloy
+        Alloy --> Loki
+        API -. metrics .-> Prometheus
+        Loki --> Grafana
+        Prometheus --> Grafana
+        Prometheus --> Alertmanager
+    end
 
-### 4. Account deletion / retention foundation
+    Browser -->|HTTPS| Ingress
+    Browser -. runtime error / sampled performance .-> Sentry
+    Secrets -->|release-time fetch| SecretDelivery
+    API -->|private network + TLS| RDS
+    Grafana -. dashboard .-> Operator
+    Alertmanager -. alert .-> Operator
+    Sentry -. issue / performance .-> Operator
+```
 
-탈퇴는 단순 row 삭제가 아니라 user-facing 비식별화와 restricted retention을 분리합니다.
+- 브라우저의 일반 UI·BFF 요청은 Next.js로 들어가고, BFF가 private API Nginx를 통해 NestJS를 호출합니다.
+- API는 private managed PostgreSQL에 연결하며 DB를 User App host의 4 GiB resource budget에 포함하지 않습니다.
+- production secret은 image나 Git에 넣지 않고 release 시점에 받아 read-only file로 API container에 제공합니다.
+- 로그·metric·browser signal은 각각 Loki·Prometheus·Sentry로 분리하고 관측 장애가 제품 요청을 막지 않게 합니다.
 
-- active `User`/display/profile surface는 즉시 비식별화한다.
-- 정상 탈퇴 identifier anchor는 `RetainedIdentity`로 제한 보존한다.
-- nickname audit, academic identity audit, season profile history, match history, chat body는 `RetainedVaultObject`로 원문 payload를 분리할 수 있다.
-- retained payload 접근은 purpose/approval/access log 없이는 허용하지 않는다.
+### 경계 원칙
 
-이 구조는 “사용자 화면에는 탈퇴한 사용자로 보이지만, 신고·분쟁·법적 보존 사유가 있으면 승인된 운영 경로에서만 근거를 복원할 수 있는” foundation입니다.
+- **Web**은 사용자 interaction과 BFF transport를 소유하지만 정책 authority를 복제하지 않습니다.
+- **Shared contract**는 FE/BE request·response와 enum을 런타임 검증 가능한 타입으로 연결합니다.
+- **API owner**는 action capability, transaction precondition과 terminal reason을 계산합니다.
+- **PostgreSQL**은 unique constraint와 transaction으로 최종 경쟁 상태를 판정합니다.
+- **관측 데이터**는 장애·성능 분석에 사용하며, 매칭 성공률 같은 제품 분석 데이터와 분리합니다.
 
-## 개발 프로세스
+## 대표 의사결정
 
-### 정책을 먼저 고정한 이유
+### 1. 화면 상태가 아니라 시즌 참여 aggregate를 기준으로 삼았습니다
 
-초기에는 FE 프로토타입 중심으로 진행했지만, 시즌·기숙사·프로필·매칭·탈퇴 정책이 서로 강하게 의존해 작은 기능 변경이 다른 도메인을 계속 뒤집었습니다. 그래서 Sprint 4 이후 구현을 멈추고 정책 문서를 정규화한 뒤, BE는 정책 owner에 맞춰 다시 설계했습니다.
+초기 prototype에서는 `User`와 화면별 boolean이 가입, 시즌 준비, 공개 여부와 매칭 가능 여부를 함께 표현했습니다. 작은 정책 변경이 여러 화면과 API를 서로 다르게 해석하는 문제가 생겼습니다.
 
-대표적으로 다음 질문들은 코드보다 정책이 먼저 필요했습니다.
+이를 다음 책임으로 분리했습니다.
 
-- registration 전 draft profile은 public search target인가?
-- 미등록 viewer가 볼 수 있는 summary 범위는 어디까지인가?
-- active matched target은 search discovery에서 제외할 것인가?
-- 계정 삭제 후 과거 matched partner detail은 어떻게 degrade할 것인가?
-- chat body와 profile/history snapshot은 어떤 retention tier에 둘 것인가?
+- `User`: 로그인 가능한 계정
+- `UserDisplayIdentity` / `UserAcademicIdentity`: 표시·학업 identity
+- `SeasonParticipant`: 특정 시즌 참여 anchor
+- 시즌 프로필·기숙사 선택: 등록 전 draft
+- registration finalize: 공개 가능한 참여 상태와 이력 snapshot을 함께 확정하는 transaction
 
-### AI 활용 방식
+탐색·상세·매칭·채팅은 `SeasonParticipant`와 서버 capability를 기준으로 판단합니다. 이 결정은 [시즌 참여 정책](./docs/policies/season-participation.md), [룸메이트 탐색 정책](./docs/policies/roommate-searching.md), [action capability 설계](./docs/architecture/frontend/action-capability-source-of-truth.md)로 이어집니다.
 
-| 영역          | 사람의 역할                                    | AI 활용                                        |
-| ------------- | ---------------------------------------------- | ---------------------------------------------- |
-| 요구사항·정책 | 정책 결정, 트레이드오프 선택, 범위 조정        | 대안 분석, 문서 초안, 누락 질문 도출           |
-| 구현          | 아키텍처 판단, owner 경계 결정, 최종 diff 검토 | 반복 구현, 테스트 보강, regression 탐색        |
-| QA            | 인수 조건 확정, 통과/불통과 판정               | 코드 리뷰, static guard, integration test 보강 |
-| 문서          | 포트폴리오 방향성, 최종 메시지                 | 설계 근거 정리, stale 표현 탐색                |
+### 2. 사전 확인 API와 최종 transaction의 책임을 분리했습니다
 
-핵심은 “AI가 대신 결정”이 아니라, AI가 만든 분석·코드를 정책 문서와 테스트로 검증하고 사람이 채택/반려를 판단하는 구조입니다.
+회원가입 닉네임 확인은 빠른 사용자 feedback을 제공하지만, 확인 직후 다른 사용자가 같은 값을 선점할 수 있습니다. 따라서 사전 확인 성공을 예약으로 간주하지 않습니다.
 
-## 개발 타임라인
+- 닉네임 전용 validation API는 형식·금칙어·현재 중복 상태를 안내합니다.
+- 실제 회원가입 transaction은 같은 정책을 다시 검증합니다.
+- 최종 uniqueness는 DB constraint가 판정합니다.
+- 경쟁 상태가 발생하면 UI는 닉네임 입력 단계로 돌아가 다시 확인하도록 안내합니다.
 
-| 구간               | 목표                                       | 핵심 산출물                                                                                                                              |
-| ------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Sprint 0~3         | FE 프로토타입과 주요 사용자 흐름 확인      | landing/onboarding/main tab, mock 기반 auth/profile/matching flow                                                                        |
-| Sprint 4~5         | 정책 충돌 정리                             | 공식 정책 문서 세트, ATDD/QA workflow, policy-driven issue 재배치                                                                        |
-| Sprint 6           | FE↔BE 아키텍처와 운영 전제 정리            | Next.js auth BFF + NestJS API + PostgreSQL 방향 결정                                                                                     |
-| Sprint 7 #191~#194 | BE 기반 도입                               | Prisma/Postgres, auth API, users/profile API, campus/dormitory/season API                                                                |
-| Sprint 7 #195      | matching/search/detail/chat/retention 정렬 | SeasonParticipant adoption, public target policy, roommate-search manifest/cursor/score, match/chat lifecycle, RRPD retention foundation |
+인증도 같은 원칙을 적용했습니다. 목적과 사용자에게 묶인 single-use grant, Argon2id 비밀번호, DB-backed opaque access/renewal session과 rotation/revoke 경계를 사용합니다. 상세 근거는 [계정 인증 정책](./docs/policies/account-authentication.md)과 [opaque session 결정](./docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md)에 있습니다.
 
-## 서비스 요약
+### 3. 서버 크기보다 먼저 resource owner와 실패 경계를 설계했습니다
 
-KNU Roommate는 학교 이메일 인증을 통과한 사용자가 시즌별로 기숙사 배정과 생활패턴 프로필을 등록하고, 같은 조건의 룸메이트 후보를 탐색·대화·매칭할 수 있게 하는 서비스입니다.
+배포 전 계획·리허설 기준은 **2 vCPU / 4 GiB User App host + private managed PostgreSQL 18**입니다. User host에는 nginx, Web, API와 bounded observability stack을 두고 제품 container limit 합계는 2,976 MiB로 제한해 OS·Docker·filesystem cache와 순간 부하를 위한 약 1.1 GiB를 남깁니다.
 
-- 가입과 시즌 registration은 분리한다.
-- registration 전에는 프로필/기숙사 선택 draft를 준비한다.
-- registration 완료 후 같은 기숙사 후보에 대해 상세/점수/action capability가 열린다.
-- post-match에는 신규 action보다 결과 확인과 과거 이력 read를 우선한다.
-- 탈퇴/비식별화된 사용자는 user-facing detail을 tombstone/minimal result로 degrade한다.
+이 구성을 선택한 이유는 다음과 같습니다.
 
-더 자세한 제품 설명은 [SERVICE.md](./SERVICE.md)를 참고합니다.
+- 초기 사용자 규모에서 비용과 운영 복잡도를 제한합니다.
+- Argon2id와 제품 transaction을 관측 도구보다 우선하는 resource owner로 둡니다.
+- Loki, Prometheus, Grafana 장애가 사용자 요청을 막지 않도록 fail-open으로 구성합니다.
+- 미래 BackOffice는 8 GiB 단일 host에 합치지 않고 별도 2 GiB host로 분리해 operator ingress, 배포와 장애 영역을 격리합니다.
 
-## 문서 구조
+이는 실제 운영 성능을 주장하는 수치가 아닙니다. 현재 저장소는 2 CPU / 4 GiB 제품 envelope와 외부 DB를 흉내 내는 disposable PostgreSQL fixture로 연결·migration·resource·관측 장애 격리를 리허설합니다. 실제 provider, region, 네트워크, RDS latency와 가격은 release 시점의 evidence로 다시 확인해야 합니다. 자세한 근거는 [production runtime topology](./docs/architecture/platform/production-runtime-topology.md)와 [release readiness](./infra/runbooks/release/components/infrastructure-target/readiness.md)에 있습니다.
 
-> 현재 `docs/`와 `.omx/plans/`는 로컬 설계 근거 문서 성격이 강합니다. 공개 포트폴리오에서는 README에 핵심 결정을 요약하고, 필요 시 원문 문서를 별도로 공유하는 방식을 전제로 합니다.
+## Agentic Development Workflow
 
-| 문서군                       | 역할                                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `docs/04_policy/official/`   | auth, season, profile, roommate-search, matching, chat, retention 등 공식 정책 source of truth |
-| `docs/03_planning/sprint-7/` | BE issue별 구현 전 결정, 대안 비교, handoff                                                    |
-| `.omx/plans/`                | 세션 단위 대규모 리팩토링/정합성 작업 plan과 완료 근거                                         |
-| `docs/07_tech/`              | 성능/운영/아키텍처 설계 근거                                                                   |
-| `docs/99_portfolio/`         | README와 포트폴리오 표현 전략                                                                  |
+이 프로젝트는 1인 개발로 진행하며 Codex 기반 AI agent를 분석·구현·검증 보조 도구로 사용했습니다. 목표는 많은 코드를 생성하는 것이 아니라, 혼자 개발할 때 놓치기 쉬운 정책 충돌과 변경 영향을 반복해서 드러내고 **검증 가능한 근거로 결정하는 개발 체계**를 만드는 것이었습니다.
 
-## 프로젝트 구조
+```text
+사용자 문제와 제약 확인
+  → 정책과 Open Question 정리
+  → 대안·위험·test shape 검토
+  → bounded implementation
+  → code review와 regression 탐색
+  → lint / typecheck / test / rehearsal
+  → 결정과 운영 절차를 tracked 문서로 승격
+```
+
+| 책임      | 사람이 소유한 것                                                | AI agent가 보조한 것                                  |
+| --------- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| 문제·정책 | 사용자 문제 정의, 허용 범위, 보안·개인정보 trade-off, 최종 결정 | 관련 코드 탐색, 충돌과 누락 질문 도출, 대안 비교      |
+| 설계      | domain owner, contract와 transaction 경계, 채택·반려 판단       | 구조 초안, 영향 범위 지도, 외부 공식 자료 조사        |
+| 구현      | 변경 범위 승인, 핵심 diff 검토, 완료 여부 판정                  | 반복 구현, fixture·test 보강, callsite relocation     |
+| 품질      | acceptance criteria와 검증 수준 결정                            | static guard, 회귀 테스트, 실패 원인 탐색             |
+| 운영      | 비용·위험 수용, 배포·rollback owner 결정                        | rehearsal harness, evidence template, stale 문서 탐색 |
+
+### AI 출력을 통제한 방법
+
+1. **정책을 먼저 고정**해 화면이나 agent가 action 가능 여부를 임의로 만들지 못하게 했습니다.
+2. **행동 변경과 구조 변경을 분리**하고, cleanup 전에는 기존 행동을 test로 잠갔습니다.
+3. **결정적 오류는 static guard와 CI로 차단**하고, 의미·경계 문제는 review로 판단했습니다.
+4. **실패한 검증을 완료로 포장하지 않고** blocker와 다음 evidence를 남겼습니다.
+5. 임시 분석이 아니라 **제품 코드, test, 정책, architecture, runbook과 Git history**를 장기 handoff로 사용했습니다.
+
+AI가 실제 팀 협업이나 production 운영 경험을 대신한다고 보지는 않습니다. 아직 실사용자 feedback, 실제 장애 대응과 운영 부하 증거는 없으며, README에서는 이를 구현·리허설 결과와 분리합니다.
+
+이 접근은 AI 활용 자체보다 검증 체계를 강조하는 [Toss의 agent 품질 관리 사례](https://toss.tech/article/skill-quality-rubric), 변경 전 계획과 test 안전망을 강조하는 [Kakao의 AI 리팩터링 사례](https://tech.kakao.com/posts/729), AI가 기존 개발 체계의 강점과 약점을 증폭한다고 설명하는 [DORA 2025](https://dora.dev/research/2025/dora-report/)의 문제의식과 같은 방향입니다.
+
+## Quality Evidence
+
+테스트 파일 수보다 **어떤 위험을 어느 검증 계층이 책임지는지**를 기준으로 구성했습니다.
+
+| 검증 계층                | 주요 책임                                                                         |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| Repo policy              | source-of-truth 경계, 금지 경로, workflow·artifact·문서 책임 회귀 차단            |
+| Shared                   | Zod contract와 domain constant의 타입·런타임 정합성                               |
+| API unit                 | policy, command, query, presenter와 failure mapping                               |
+| API integration/E2E      | PostgreSQL constraint·transaction, HTTP contract, auth/session과 domain lifecycle |
+| API stress harness       | Argon2id, DB pool, admission과 Dockerized load scenario의 실행 가능성             |
+| Web component/BFF        | UI state, 접근성, form recovery, BFF allowlist와 error mapping                    |
+| Playwright               | desktop/mobile browser smoke와 주요 사용자 route                                  |
+| Storybook                | 정책 상태별 PC/Mobile UI를 API 없이 비교하는 visual workshop                      |
+| Infrastructure rehearsal | fresh migration, Web→API, metrics/log 수집, observability fail-open과 cleanup     |
+
+Monorepo CI는 변경 경로를 Shared/API/Web/repo-policy로 분류합니다. Web-only 변경에 PostgreSQL lane을 실행하거나 API-only 변경에 browser lane을 실행하지 않으며, 선택된 lane 결과는 하나의 summary gate에서 fail-closed로 판정합니다. 설계와 측정 기준은 [Monorepo CI architecture](./docs/architecture/platform/monorepo-ci.md)에 있습니다.
+
+## Operations & Observability
+
+관측은 포트폴리오용 부가 기능이 아니라, 배포 후 유지보수에서 “사용자가 겪은 실패를 재현하고 변경의 영향을 판단하기 위한 제품 경계”로 설계했습니다.
+
+| 신호                      | 수집·저장                                         | 확인 목적                                  |
+| ------------------------- | ------------------------------------------------- | ------------------------------------------ |
+| API/BFF structured log    | Pino/Web logger → Alloy → Loki → Grafana          | 요청 실패와 server-side 원인 탐색          |
+| Runtime/domain metric     | `prom-client` → Prometheus → Grafana/Alertmanager | latency, saturation, failure trend와 alert |
+| Browser error/performance | Sentry Next.js SDK → Managed Sentry               | 사용자 브라우저 오류와 Web Vital 회귀      |
+| Managed DB resource       | CloudWatch/DB Insights                            | connection, CPU, memory, I/O 상태          |
+
+관측 port는 public internet에 직접 노출하지 않고, 수집기 장애는 제품 요청에 대해 fail-open이어야 합니다. 로그와 metric은 사용자 행동 분석을 대신하지 않으며 개인정보·보존·접근 범위는 [운영 관측 정책](./docs/policies/operational-observability.md), 도구 책임은 [observability topology](./docs/architecture/platform/observability-topology.md)가 소유합니다.
+
+## Evidence Status
+
+| 항목                             | 상태                       | 의미                                                      |
+| -------------------------------- | -------------------------- | --------------------------------------------------------- |
+| 제품 기능·contract·DB baseline   | Implemented                | 저장소 코드와 자동 테스트로 검증 가능                     |
+| Monorepo CI와 local verification | Implemented                | 변경 경로별 검증 command와 workflow 존재                  |
+| Full-stack local rehearsal       | Rehearsal available        | 제한된 Docker 자원에서 재현 가능한 harness와 runbook 존재 |
+| Production provider·DNS·TLS·RDS  | Pending release evidence   | 실제 계정·target에서 아직 검증하지 않음                   |
+| 실사용자 UX·운영 지표            | Not yet available          | release와 사용자 검증 이후 측정 대상                      |
+| BackOffice                       | Architecture decision only | 별도 host·deploy·authorization 경계만 결정, 제품 미구현   |
+
+## Current Tech Stack
+
+| 영역           | 현재 기준                                                           | 선택 목적                                            |
+| -------------- | ------------------------------------------------------------------- | ---------------------------------------------------- |
+| Runtime        | Node.js 24, pnpm 11                                                 | workspace와 CI runtime 일치                          |
+| Language       | TypeScript 6                                                        | FE/BE/shared contract의 정적 경계                    |
+| Web            | Next.js 16, React 19, Tailwind CSS 4                                | App Router, BFF, responsive product UI               |
+| API            | NestJS 11, Joi, Pino                                                | DI 기반 domain owner, runtime config, structured log |
+| Contract       | Zod 4 in `packages/shared`                                          | request/response runtime validation과 type 공유      |
+| Persistence    | PostgreSQL 18, Prisma 7, `pg`                                       | relation·constraint·transaction과 typed query        |
+| Security       | Argon2id, HMAC/envelope encryption, opaque session                  | credential와 session lifecycle 보호                  |
+| Verification   | Vitest 4, Testing Library, Supertest, Playwright 1.61, Storybook 10 | owner/unit부터 browser/visual까지 분리               |
+| Observability  | Prometheus, Loki, Alloy, Grafana, Alertmanager, Sentry              | metric·log·browser signal의 책임 분리                |
+| Delivery       | Docker Compose, GitHub Actions                                      | 재현 가능한 local rehearsal과 selective CI           |
+| Release target | AWS Lightsail, RDS PostgreSQL, Secrets Manager                      | 실제 계정 evidence가 필요한 배포 전 결정             |
+
+Version source of truth는 [`package.json`](./package.json), [`pnpm-workspace.yaml`](./pnpm-workspace.yaml), app package와 pinned container image입니다.
+
+## Repository Structure
 
 ```text
 knu_roommate/
 ├── apps/
-│   ├── web/             # Next.js frontend / auth BFF
-│   └── api/             # NestJS backend
+│   ├── web/                 # Next.js UI, BFF, Storybook, Playwright
+│   └── api/                 # NestJS domains, Prisma, API tests
 ├── packages/
-│   ├── shared/          # FE/BE shared zod contracts and domain constants
-│   ├── eslint-config/   # shared ESLint config
-│   └── tsconfig/        # shared TypeScript config
-├── docs/                # local policy/planning/tech docs
-├── docker-compose.dev.yml
-├── SERVICE.md
+│   ├── shared/              # FE/BE Zod contract와 domain constants
+│   ├── eslint-config/       # shared lint policy
+│   └── tsconfig/            # shared TypeScript config
+├── docs/
+│   ├── policies/            # 제품·운영 불변 조건
+│   ├── architecture/        # 장기 기술 결정과 책임 경계
+│   ├── runbooks/            # 제품 도메인 반복 운영 절차
+│   └── development/         # 재사용 가능한 개발·troubleshooting 지식
+├── infra/                   # deploy, rehearsal, observability와 release handoff
+├── scripts/                 # CI, 검증, rehearsal 실행기
+├── SERVICE.md               # 사용자 관점의 제품 설명
 └── README.md
 ```
 
-## 시작하기
+## Getting Started
 
-### 사전 요구사항
+### Requirements
 
 - Node.js `>=24 <25`
-- pnpm `10.x`
+- pnpm `11.7.0`
 - Docker / Docker Compose
 
-### 개발 환경 실행
+### Run locally
 
 ```bash
 pnpm install
 
-# 로컬 PostgreSQL 실행: 127.0.0.1:5432, knu_dev / knu_dev_password
-pnpm db:up
-
-# Prisma client 생성 및 schema 반영
-pnpm api:prisma:generate
-pnpm db:push
-pnpm db:seed
-
-# web + api 개발 서버
+cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
+
+pnpm db:up
+pnpm --dir apps/api prisma:migrate
+pnpm db:seed
 pnpm dev
 ```
 
-| 앱         | 기본 URL                      |
-| ---------- | ----------------------------- |
-| Web        | http://localhost:3000         |
-| API        | http://localhost:4000         |
-| PostgreSQL | `127.0.0.1:5432/knu_roommate` |
+| App | Default URL             |
+| --- | ----------------------- |
+| Web | `http://localhost:3000` |
+| API | `http://localhost:4000` |
 
-API 개발 기본값은 `apps/api/src/config/*.ts`에 정의되어 있어 개발 단계에서는 root `.env` 없이도 동작합니다. `NODE_ENV=production`에서는 DB URL, JWT secret, retention key, cursor/token HMAC secret을 환경변수로 명시해야 합니다.
+`.env.example`은 개발용 입력 형식만 제공합니다. Production secret은 image나 Git에 포함하지 않고 release runtime에서 주입하며, 자세한 불변 조건은 [production runtime safety](./docs/policies/production-runtime-safety.md)를 따릅니다.
 
-### 자주 쓰는 검증 명령
+### Verify
 
 ```bash
-pnpm shared:build
-pnpm api:prisma:generate
-pnpm api:typecheck
-pnpm api:lint
-pnpm --dir apps/api exec jest --watchman=false --runInBand
-pnpm --dir apps/api test:integration -- --runInBand
-pnpm --dir apps/web test
+# 저장소 경계
+pnpm test:repo-policy
+
+# Shared / API
+pnpm shared:test
+pnpm api:check
+pnpm api:test
+pnpm api:test:integration
+pnpm api:test:e2e
+
+# Web
+pnpm web:check
+pnpm web:e2e
+pnpm web:storybook:build
+
+# Infrastructure
+pnpm infra:check
 ```
+
+전체 load test와 full-stack rehearsal은 일반 PR gate보다 무겁기 때문에 명시적 rehearsal에서 실행합니다. 실행 방법은 [infra rehearsal runbook](./infra/runbooks/rehearsal/full-stack.md)을 참고합니다.
+
+## Documentation
+
+| 문서                                                  | 책임                                                                       |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Service](./SERVICE.md)                               | 사용자 문제, 제품 범위와 핵심 흐름                                         |
+| [Policies](./docs/policies/README.md)                 | auth, season, profile, matching, chat, safety, retention의 source of truth |
+| [Architecture](./docs/architecture/README.md)         | FE/BE/data/platform의 장기 결정과 근거                                     |
+| [Product runbooks](./docs/runbooks/README.md)         | 시즌 운영과 제품 도메인 절차                                               |
+| [Infrastructure runbooks](./infra/runbooks/README.md) | rehearsal, incident, release readiness와 evidence                          |
+| [Development](./docs/development/README.md)           | CI 기준과 재사용 가능한 troubleshooting                                    |
+| [Contributing](./CONTRIBUTING.md)                     | 개발 환경, 변경 경계와 AI-assisted workflow 진입점                         |
+
+## 현재 한계와 다음 증거
+
+- 강원대학교 공식 서비스가 아니며 학교의 기숙사 배정·호실 선택 결과를 보장하지 않습니다.
+- 실제 사용자 데이터와 production incident 경험은 아직 없습니다.
+- release 전에는 실제 provider에서 DNS/TLS, private DB, backup/restore, rollback과 관측 내구성을 검증해야 합니다.
+- 사용자 행동 분석과 매칭 품질 평가는 운영 log가 아니라 별도 목적·동의·schema를 가진 product analytics로 설계해야 합니다.
+
+이 README는 구현량보다 **문제를 정의하고, 정책과 책임 경계를 선택하고, 변경을 검증하며, 운영 가능한 증거로 연결한 과정**을 보여주는 것을 목표로 합니다.

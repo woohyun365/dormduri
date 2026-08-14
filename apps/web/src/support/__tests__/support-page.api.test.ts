@@ -31,6 +31,28 @@ function ticket() {
 describe('supportPageApi', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('FAQ는 Support Center 전용 BFF path로 조회한다', async () => {
+    const fetchMock = stubFetch({
+      items: [
+        {
+          id: 'faq-1',
+          category: 'MATCHING',
+          question: '매칭 요청은 언제 보낼 수 있나요?',
+          answer: '시즌 매칭 기간에 보낼 수 있어요.',
+        },
+      ],
+    });
+
+    await expect(supportPageApi.listFaq()).resolves.toMatchObject({
+      items: [{ id: 'faq-1', category: 'MATCHING' }],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/support/faq',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('support ticket 생성 body를 shared contract로 검증하고 BFF로 보낸다', async () => {
     const fetchMock = stubFetch({ ticket: ticket() });
 

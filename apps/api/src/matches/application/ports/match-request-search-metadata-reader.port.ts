@@ -29,4 +29,17 @@ export interface MatchRequestSearchMetadataReaderPort {
     viewerParticipantId: string;
     targetParticipantIds: readonly string[];
   }): Promise<ReadonlyMap<string, MatchRequestDirectionLimitMetadata>>;
+
+  isPendingSentLimitReached(input: {
+    seasonId: string;
+    viewerParticipantId: string;
+    now: Date;
+  }): Promise<boolean>;
+
+  getDirectionCooldownActiveTargetIds(input: {
+    seasonId: string;
+    viewerParticipantId: string;
+    targetParticipantIds: readonly string[];
+    now: Date;
+  }): Promise<ReadonlySet<string>>;
 }

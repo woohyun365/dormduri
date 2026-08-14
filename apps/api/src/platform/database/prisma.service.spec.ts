@@ -1,9 +1,11 @@
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
-  calculatePrismaConnectionPoolBudget,
+  buildPrismaSessionOptions,
+  PRISMA_SESSION_TIME_ZONE,
   PrismaService,
   recordPrismaConnectionAdapterError,
+  stripPrismaConnectionOptions,
 } from './prisma.service.js';
 import type { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import { PrismaPoolMetricsService } from '../observability/metrics/prisma-pool-metrics.service.js';
@@ -12,8 +14,9 @@ import type { DomainMetricsPort } from '../observability/metrics/domain-metrics.
 type TransactionCallback = (tx: unknown) => Promise<unknown>;
 type TransactionOptions = { isolationLevel?: unknown };
 
-type PrismaServiceHarness = Omit<PrismaService, '$transaction'> & {
+type PrismaServiceHarness = Omit<PrismaService, '$transaction' | '$queryRawTyped'> & {
   $transaction: Mock<(arg0: TransactionCallback, arg1?: TransactionOptions) => Promise<unknown>>;
+  $queryRawTyped: Mock<(...args: unknown[]) => Promise<unknown[]>>;
 };
 
 function makeHarness(
@@ -24,6 +27,7 @@ function makeHarness(
   const harness = Object.create(PrismaService.prototype) as PrismaServiceHarness;
   harness.$transaction =
     vi.fn<(arg0: TransactionCallback, arg1?: TransactionOptions) => Promise<unknown>>();
+  harness.$queryRawTyped = vi.fn<(...args: unknown[]) => Promise<unknown[]>>();
   Object.defineProperty(harness, 'poolMetrics', {
     configurable: true,
     value: input.poolMetrics,
@@ -81,6 +85,43 @@ describe('PrismaService serializable transaction retry', () => {
   });
 });
 
+describe('PrismaService database clock', () => {
+  it('Prisma pg session timezone은 timestamptz adapter 경계를 위해 UTC로 고정한다', () => {
+    expect(PRISMA_SESSION_TIME_ZONE).toBe('UTC');
+    expect(buildPrismaSessionOptions('public')).toBe('-c timezone=UTC -c search_path=public');
+    expect(buildPrismaSessionOptions(null)).toBe('-c timezone=UTC');
+    expect(() => buildPrismaSessionOptions('public -c role=admin')).toThrow(
+      '[PrismaService] invalid database schema identifier',
+    );
+    expect(
+      stripPrismaConnectionOptions(
+        'postgresql://user:secret@localhost:5432/app?schema=test&options=-c+search_path%3Dtest',
+      ),
+    ).toBe('postgresql://user:secret@localhost:5432/app?schema=test');
+  });
+
+  it('timezone 해석에 의존하지 않는 epoch seconds를 UTC Date로 변환한다', async () => {
+    const harness = makeHarness();
+    const expected = new Date('2026-07-30T04:31:36.742Z');
+    harness.$queryRawTyped.mockResolvedValue([{ epochSeconds: expected.getTime() / 1_000 }]);
+
+    await expect(harness.getDatabaseNow()).resolves.toEqual(expected);
+  });
+
+  it.each([
+    { rows: [] },
+    { rows: [{ epochSeconds: Number.NaN }] },
+    { rows: [{ epochSeconds: '1787569896' }] },
+  ])('유효한 epoch seconds가 없으면 fail-closed 처리한다', async ({ rows }) => {
+    const harness = makeHarness();
+    harness.$queryRawTyped.mockResolvedValue(rows);
+
+    await expect(harness.getDatabaseNow()).rejects.toThrow(
+      '[PrismaService] failed to resolve database current timestamp',
+    );
+  });
+});
+
 describe('PrismaPoolMetricsService', () => {
   it('pool snapshot과 transaction retry를 bounded labels로 기록한다', () => {
     const domainMetrics = makeDomainMetrics();
@@ -105,28 +146,6 @@ describe('PrismaPoolMetricsService', () => {
     });
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('DATABASE_URL');
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('postgresql://');
-  });
-});
-
-describe('calculatePrismaConnectionPoolBudget', () => {
-  it('runtime/worker/read-only disclosure pool 비용과 future role 증가 비용을 명시한다', () => {
-    expect(calculatePrismaConnectionPoolBudget({ poolMax: 10 }, { alertRatio: 0.8 })).toEqual({
-      activeRoles: ['runtime', 'retention_worker', 'retention_disclosure'],
-      poolMaxPerRole: 10,
-      activePoolMaxConnections: 30,
-      migrationConnectionIncludedInAppPool: false,
-      futureRolePoolCost: [
-        {
-          role: 'auth_cleanup_worker',
-          additionalMaxConnections: 10,
-        },
-        {
-          role: 'read_only_operations',
-          additionalMaxConnections: 10,
-        },
-      ],
-      alertAtEstimatedConnections: 24,
-    });
   });
 });
 

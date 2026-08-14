@@ -262,6 +262,7 @@ describe('HomeReadinessChecklist', () => {
         requiredCount: 2 as const,
         canRequest: false,
         canCancel: false,
+        disabledReason: null,
         availableUntil: null,
       },
     };

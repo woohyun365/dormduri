@@ -2,31 +2,15 @@ import type { PasswordResetFlowAction, PasswordResetFlowState } from './password
 
 export const initialPasswordResetFlowState: PasswordResetFlowState = {
   step: 'email',
+  operation: 'idle',
   email: '',
-  requestedEmail: '',
-  verificationCode: '',
-  newPassword: '',
-  confirmPassword: '',
-  isSendingCode: false,
-  isVerifyingCode: false,
-  isResettingPassword: false,
 };
 
-function clearSensitiveFields(state: PasswordResetFlowState): PasswordResetFlowState {
+function emailEntryState(email: string): PasswordResetFlowState {
   return {
-    ...state,
-    verificationCode: '',
-    newPassword: '',
-    confirmPassword: '',
-  };
-}
-
-function clearPendingFlags(state: PasswordResetFlowState): PasswordResetFlowState {
-  return {
-    ...state,
-    isSendingCode: false,
-    isVerifyingCode: false,
-    isResettingPassword: false,
+    step: 'email',
+    operation: 'idle',
+    email,
   };
 }
 
@@ -36,120 +20,118 @@ export function passwordResetFlowReducer(
 ): PasswordResetFlowState {
   switch (action.type) {
     case 'emailChanged':
-      return {
-        ...clearPendingFlags(clearSensitiveFields(state)),
-        step: 'email',
-        email: action.email,
-        requestedEmail: '',
-      };
+      return emailEntryState(action.email);
 
     case 'sendCodeStarted':
-      return {
-        ...state,
-        isSendingCode: true,
-      };
+      if (state.step === 'email') {
+        return { ...state, operation: 'submitting' };
+      }
+      if (state.step === 'verification') {
+        return { ...state, operation: 'resending' };
+      }
+      return state;
 
     case 'sendCodeSucceeded':
+      if (state.step !== 'email' && state.step !== 'verification') {
+        return state;
+      }
       return {
-        ...state,
-        requestedEmail: action.email,
-        isSendingCode: false,
+        step: 'verification',
+        operation: 'idle',
+        email: action.email,
+        verificationCode: '',
+        codeExpiresAt: action.codeExpiresAt,
       };
 
     case 'sendCodeFailed':
-      return {
-        ...state,
-        isSendingCode: false,
-      };
-
-    case 'enterVerification':
-      return {
-        ...state,
-        step: 'verification',
-      };
+      if (state.step !== 'email' && state.step !== 'verification') {
+        return state;
+      }
+      return { ...state, operation: 'idle' };
 
     case 'verificationCodeChanged':
-      return {
-        ...state,
-        verificationCode: action.verificationCode,
-      };
+      if (state.step !== 'verification') {
+        return state;
+      }
+      return { ...state, verificationCode: action.verificationCode };
 
     case 'verifyCodeStarted':
-      return {
-        ...state,
-        isVerifyingCode: true,
-      };
+      if (state.step !== 'verification') {
+        return state;
+      }
+      return { ...state, operation: 'verifying' };
 
     case 'verifyCodeSucceeded':
+      if (state.step !== 'verification') {
+        return state;
+      }
       return {
-        ...state,
-        step: 'newPassword',
-        verificationCode: '',
-        isVerifyingCode: false,
+        step: 'verified',
+        operation: 'idle',
+        email: state.email,
+        grantExpiresAt: action.grantExpiresAt,
       };
 
     case 'verifyCodeFailed':
+      if (state.step !== 'verification') {
+        return state;
+      }
+      return { ...state, operation: 'idle' };
+
+    case 'continueAfterVerification':
+      if (state.step !== 'verified') {
+        return state;
+      }
       return {
-        ...state,
-        isVerifyingCode: false,
+        step: 'newPassword',
+        operation: 'idle',
+        email: state.email,
+        newPassword: '',
+        confirmPassword: '',
+        grantExpiresAt: state.grantExpiresAt,
       };
 
     case 'newPasswordChanged':
-      return {
-        ...state,
-        newPassword: action.newPassword,
-      };
+      if (state.step !== 'newPassword') {
+        return state;
+      }
+      return { ...state, newPassword: action.newPassword };
 
     case 'confirmPasswordChanged':
-      return {
-        ...state,
-        confirmPassword: action.confirmPassword,
-      };
+      if (state.step !== 'newPassword') {
+        return state;
+      }
+      return { ...state, confirmPassword: action.confirmPassword };
 
     case 'resetPasswordStarted':
-      return {
-        ...state,
-        isResettingPassword: true,
-      };
+      if (state.step !== 'newPassword') {
+        return state;
+      }
+      return { ...state, operation: 'submitting' };
 
     case 'resetPasswordSucceeded':
-      return {
-        ...state,
-        step: 'complete',
-        verificationCode: '',
-        newPassword: '',
-        confirmPassword: '',
-        isResettingPassword: false,
-      };
+      if (state.step !== 'newPassword') {
+        return state;
+      }
+      return { step: 'complete', operation: 'idle' };
 
     case 'resetPasswordFailed':
-      return {
-        ...state,
-        isResettingPassword: false,
-      };
+      if (state.step !== 'newPassword') {
+        return state;
+      }
+      return { ...state, operation: 'idle' };
 
     case 'backToEmail':
-      return {
-        ...clearSensitiveFields(state),
-        step: 'email',
-        isVerifyingCode: false,
-        isResettingPassword: false,
-      };
-
-    case 'backToVerification':
-      return {
-        ...state,
-        step: 'verification',
-        newPassword: '',
-        confirmPassword: '',
-        isResettingPassword: false,
-      };
+      if (state.step !== 'verification') {
+        return state;
+      }
+      return emailEntryState(state.email);
 
     case 'restartEmailEntry':
-      return {
-        ...initialPasswordResetFlowState,
-        email: state.email,
-      };
+      if (state.step === 'complete') {
+        return initialPasswordResetFlowState;
+      }
+      return emailEntryState(state.email);
 
     default:
       return state;

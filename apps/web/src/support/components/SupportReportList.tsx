@@ -1,16 +1,6 @@
 import { FileWarning, MessageCircleMore } from 'lucide-react';
-import type { ReportListItem, ReportReason } from '@repo/shared/social-safety/report';
-
-const REPORT_REASON_LABELS: Record<ReportReason, string> = {
-  SEXUAL_HARASSMENT: '성희롱/성적 불쾌감',
-  THREAT: '협박/위협',
-  PERSONAL_INFO_EXPOSURE: '개인정보 노출',
-  GENDER_IMPERSONATION: '성별 사칭',
-  FALSE_PROFILE: '허위 프로필',
-  SPAM_OR_AD: '스팸/광고',
-  HATE_OR_DISCRIMINATION: '혐오/차별',
-  OTHER: '기타',
-};
+import type { ReportListItem } from '@repo/shared/social-safety/report';
+import { getReportReasonLabel } from '@/social-safety/model/reportPresentation';
 
 export type SupportReportListItemView = ReportListItem & {
   linkedTicketId: string | null;
@@ -58,7 +48,7 @@ export function SupportReportList({
                       {report.targetLabel}
                     </p>
                     <p className="mt-1 text-xs font-bold text-amber-700">
-                      {REPORT_REASON_LABELS[report.reason]} · 접수 완료
+                      {getReportReasonLabel(report.reason)} · 접수 완료
                     </p>
                   </div>
                   <time

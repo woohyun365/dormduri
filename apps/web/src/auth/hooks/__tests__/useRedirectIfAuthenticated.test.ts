@@ -22,7 +22,13 @@ describe('useRedirectIfAuthenticated', () => {
   });
 
   it('로딩 중이면 isReadyToRender가 false이고 리다이렉트하지 않는다', () => {
-    mockUseAuthSession.mockReturnValue({ user: null, isLoading: true });
+    mockUseAuthSession.mockReturnValue({
+      user: null,
+      isLoading: true,
+      status: 'loading',
+      code: undefined,
+      retry: vi.fn(),
+    });
 
     const { result } = renderHook(() => useRedirectIfAuthenticated());
 
@@ -40,6 +46,9 @@ describe('useRedirectIfAuthenticated', () => {
         campus: 'CHUNCHEON',
       },
       isLoading: false,
+      status: 'authenticated',
+      code: undefined,
+      retry: vi.fn(),
     });
 
     const { result } = renderHook(() => useRedirectIfAuthenticated());
@@ -49,11 +58,37 @@ describe('useRedirectIfAuthenticated', () => {
   });
 
   it('비인증 사용자는 isReadyToRender가 true이고 리다이렉트하지 않는다', () => {
-    mockUseAuthSession.mockReturnValue({ user: null, isLoading: false });
+    mockUseAuthSession.mockReturnValue({
+      user: null,
+      isLoading: false,
+      status: 'unauthenticated',
+      code: undefined,
+      retry: vi.fn(),
+    });
 
     const { result } = renderHook(() => useRedirectIfAuthenticated());
 
     expect(result.current.isReadyToRender).toBe(true);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('session unavailable은 auth flow를 유지하고 리다이렉트하지 않는다', () => {
+    const retry = vi.fn();
+    mockUseAuthSession.mockReturnValue({
+      user: null,
+      isLoading: false,
+      status: 'unavailable',
+      code: 'AUTH_SESSION_UNAVAILABLE',
+      retry,
+    });
+
+    const { result } = renderHook(() => useRedirectIfAuthenticated());
+
+    expect(result.current).toEqual({
+      isReadyToRender: true,
+      sessionStatus: 'unavailable',
+      retrySession: retry,
+    });
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
