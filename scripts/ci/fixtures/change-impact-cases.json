@@ -120,6 +120,30 @@
     }
   },
   {
+    "name": "local-git-gate-only",
+    "paths": [".husky/commit-msg", "scripts/git/validate-commit-message.mjs"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "github-collaboration-input-only",
+    "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/copilot-instructions.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "observability-infra-only",
     "paths": ["infra/observability/loki/loki.yml"],
     "expected": {

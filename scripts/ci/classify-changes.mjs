@@ -111,6 +111,10 @@ export function classifyChanges(paths) {
     if (
       path.startsWith('docs/') ||
       path.startsWith('scripts/ci/') ||
+      path.startsWith('scripts/git/') ||
+      path.startsWith('.husky/') ||
+      path === '.github/PULL_REQUEST_TEMPLATE.md' ||
+      path === '.github/copilot-instructions.md' ||
       path === 'README.md' ||
       path === 'AGENTS.md' ||
       path === 'DESIGN.md'

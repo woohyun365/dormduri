@@ -6,6 +6,7 @@
 
 - [Troubleshooting index](./troubleshooting/README.md)
 - [Monorepo CI baseline](./ci/monorepo-ci-baseline.md)
+- [GitHub collaboration](./github/README.md): PR·commit·local hook과 remote repository setting 책임
 - [Agent workflow guides](./agent-workflows/README.md): 새 개발자와 coding agent의 실행·검증·session continuity 기준
 - [Production deployment implementation inputs](./future-production-deployment-inputs.md)
 

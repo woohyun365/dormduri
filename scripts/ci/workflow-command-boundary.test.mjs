@@ -139,6 +139,7 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'pull_request:',
     'push:',
     'node scripts/ci/classify-changes.mjs',
+    'node scripts/ci/run-repo-policy.mjs',
     'uses: ./.github/workflows/api-ci.yml',
     'uses: ./.github/workflows/web-ci.yml',
     'uses: ./.github/workflows/infra-ci.yml',

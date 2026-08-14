@@ -6,6 +6,7 @@
 
 - `artifacts/`: 로컬·CI 산출물 경로 계약처럼 여러 실행 영역이 공유하는 작은 capability
 - `ci/`: 변경 분류, CI 준비, 시간 측정, repository policy 실행
+- `git/`: commit message처럼 local Git hook과 CI가 공유하는 경량 repository contract
 - `infra/check/`: 정적·container-backed 인프라 검증 진입점과 bounded validator
 - `infra/compose/`: Compose profile inventory 해석과 안전한 명령 조합
 - `infra/artifacts/`: OCI build evidence 생성과 manifest 검증
