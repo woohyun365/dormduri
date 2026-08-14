@@ -58,12 +58,41 @@ export function useChatThreadDetail(
   }, [client, threadId]);
 
   useEffect(() => {
-    void refresh();
+    if (!threadId) {
+      return () => {
+        sequenceRef.current += 1;
+        abortRef.current?.abort();
+      };
+    }
+
+    const sequence = ++sequenceRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    void client
+      .getThreadDetail(threadId, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted && sequence === sequenceRef.current) {
+          setState({ threadId, data, error: null, loading: false });
+        }
+      })
+      .catch((caught) => {
+        if (!controller.signal.aborted && sequence === sequenceRef.current) {
+          setState({
+            threadId,
+            data: null,
+            error: caught instanceof ChatApiError ? caught : new ChatApiError('CHAT_API_NETWORK'),
+            loading: false,
+          });
+        }
+      });
+
     return () => {
       sequenceRef.current += 1;
-      abortRef.current?.abort();
+      controller.abort();
     };
-  }, [refresh]);
+  }, [client, threadId]);
 
   const current = state.threadId === threadId ? state : null;
   return {

@@ -47,14 +47,14 @@ export default function ChatRoomView({
   const [reportOpen, setReportOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const { thread, messages } = detail;
-  const lastMessage = messages.at(-1);
+  const lastMessageId = messages.at(-1)?.id;
 
   useEffect(() => {
-    if (!lastMessage) return;
+    if (!lastMessageId) return;
     void chatApi
-      .updateReadMarker(thread.id, { lastReadMessageId: lastMessage.id })
+      .updateReadMarker(thread.id, { lastReadMessageId: lastMessageId })
       .catch(() => undefined);
-  }, [lastMessage?.id, thread.id]);
+  }, [lastMessageId, thread.id]);
 
   const send = async () => {
     if (!thread.canSendMessage || !body.trim() || sending) return;
