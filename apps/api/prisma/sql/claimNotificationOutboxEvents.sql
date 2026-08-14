@@ -1,3 +1,5 @@
+-- @param {DateTime} $1:param1
+-- @param {DateTime} $2:param2
 WITH picked AS (
   SELECT "id"
   FROM "NotificationOutboxEvent"

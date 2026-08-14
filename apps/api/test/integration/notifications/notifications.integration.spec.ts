@@ -14,11 +14,9 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
-import {
-  authContext,
-  seedBaseSeasonFixtures,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 type SendConversationMessageRequest = {
   targetUserId: string;
@@ -104,13 +102,13 @@ describe('Notifications integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
   });
 
@@ -139,7 +137,7 @@ describe('Notifications integration', () => {
     const serializedPayload = JSON.stringify(notifications[0]?.payload);
     expect(serializedPayload).toContain('threadId');
     expect(serializedPayload).not.toContain('알림에 저장되면 안 되는 원문');
-    expect(serializedPayload).not.toContain('유저A');
+    expect(serializedPayload).not.toContain('유저가');
     expect(serializedPayload).not.toContain('user-a@kangwon.ac.kr');
 
     const outbox = await prisma.notificationOutboxEvent.findMany();

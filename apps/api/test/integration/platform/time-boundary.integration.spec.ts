@@ -9,11 +9,9 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
-import {
-  authContext,
-  seedActiveMatchFixture,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 describe('KST boundary + DB now integration', () => {
   let prisma: PrismaService;
@@ -52,6 +50,15 @@ describe('KST boundary + DB now integration', () => {
     return new Date(`${dateStr}T00:00:00.000Z`);
   }
 
+  it('DB now는 application clock과 timezone offset 없이 같은 instant를 가리킨다', async () => {
+    const before = Date.now();
+    const databaseNow = await prisma.getDatabaseNow();
+    const after = Date.now();
+
+    expect(databaseNow.getTime()).toBeGreaterThanOrEqual(before - 1_000);
+    expect(databaseNow.getTime()).toBeLessThanOrEqual(after + 1_000);
+  });
+
   async function seedBoundarySeason(input: { roomSelectionDate: string; seasonEndDate: string }) {
     const databaseNow = await prisma.getDatabaseNow();
     const today = formatKstDate(databaseNow);
@@ -75,7 +82,7 @@ describe('KST boundary + DB now integration', () => {
     });
     await prisma.collegeMaster.create({
       data: {
-        code: 'ARTS_ENGINEERING',
+        code: 'CHUNCHEON_ARTS_ENGINEERING',
         campusCode: 'CHUNCHEON',
         nameKo: '문화예술공과대학',
         sortOrder: 1,
@@ -146,14 +153,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       seasonId: 'season-boundary',
@@ -185,14 +192,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       seasonId: 'season-boundary',
@@ -225,14 +232,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     const result = await matchesService.createMatchRequest(authContext('user-a'), {
@@ -256,14 +263,14 @@ describe('KST boundary + DB now integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-boundary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await prisma.conversationThread.create({
       data: {

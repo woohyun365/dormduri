@@ -25,7 +25,7 @@
 
 - Product domain은 purpose-specific port/token으로 realtime dispatcher를 소비한다.
 - Realtime common surface는 chat/matches/notifications/auth concrete service를 import하지 않는다.
-- Detailed health/ops telemetry는 protected operations surface와 분리한다.
+- 운영 telemetry는 owner-local Prometheus metric으로 기록하며 health snapshot reader port를 만들지 않는다.
 
 ## Where to change realtime behavior
 

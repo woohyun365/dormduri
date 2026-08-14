@@ -1,47 +1,50 @@
+import { Mail, Sparkles } from 'lucide-react';
 import { Section } from '../components/Section';
 import { LandingPrimaryCtaLink } from '../components/LandingPrimaryCtaLink';
-import { MockupCard } from '../components/MockupCard';
-import { ScrollToButton } from '../components/ScrollToButton';
-import { Mail, Sparkles } from 'lucide-react';
+import { LandingSentenceText } from '../components/LandingSentenceText';
+import { landingHeroCopy } from '../content/landing-copy';
+import { LandingHeroPreviewPanel } from './hero/LandingHeroPreviewPanel';
+import { LandingHeroTrustNotice } from './hero/LandingHeroTrustNotice';
 
 export function LandingHeroSection() {
   return (
-    <Section className="pt-16 md:pt-24 pb-16 md:pb-24">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-        <div>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--knu-primary-light)] rounded-full mb-6">
-            <Sparkles className="w-4 h-4 text-[var(--knu-primary)]" />
-            <span className="text-sm font-semibold text-[var(--knu-primary)]">
-              강원대학교 춘천캠퍼스 룸메이트 매칭 서비스
+    <Section id="hero" className="pb-12 pt-12 md:pb-16 md:pt-16 lg:pb-20 lg:pt-20">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-start lg:gap-12">
+        <div className="min-w-0">
+          <div className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full bg-(--knu-primary-light) px-3 py-1.5 sm:px-4 sm:py-2">
+            <Sparkles className="w-4 h-4 text-(--knu-primary)" aria-hidden="true" />
+            <span className="text-xs font-semibold leading-5 text-(--knu-primary) sm:text-sm">
+              {landingHeroCopy.eyebrow}
             </span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[var(--knu-text-primary)] mb-6 leading-tight">
-            학기 시작 전,
-            <br />
-            생활 패턴 맞는
-            <br />
-            룸메를 미리 찾기
+          <h1 className="mb-5 max-w-[15ch] text-[clamp(2rem,4.5vw,3.25rem)] font-bold leading-[1.18] tracking-tight text-(--knu-text-primary)">
+            {landingHeroCopy.headlineLines.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
           </h1>
-          <p className="text-sm text-[var(--knu-text-secondary)] mb-6">
-            본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <LandingPrimaryCtaLink href="/signup">
-              <Mail className="w-5 h-5" />
-              이메일로 시작하기
+          <LandingSentenceText
+            text={landingHeroCopy.description}
+            className="mb-4 max-w-136 text-base/6 font-medium text-(--knu-text-secondary) sm:text-lg/7"
+          />
+          <LandingHeroTrustNotice />
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <LandingPrimaryCtaLink href={landingHeroCopy.primaryCta.href} size="hero">
+              <Mail className="w-5 h-5" aria-hidden="true" />
+              {landingHeroCopy.primaryCta.label}
             </LandingPrimaryCtaLink>
-            <ScrollToButton
-              targetId="features"
-              className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)] text-[var(--knu-text-primary)] h-14 px-8 text-lg"
+            <a
+              href={`#${landingHeroCopy.secondaryCta.targetId}`}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-(--knu-border) px-5 text-base font-semibold text-(--knu-text-primary) transition-colors hover:border-(--knu-primary) hover:bg-(--knu-primary-light) sm:h-14 sm:px-7 sm:text-lg"
             >
-              서비스 소개 보기
-            </ScrollToButton>
+              {landingHeroCopy.secondaryCta.label}
+            </a>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MockupCard profileIndex={0} />
-          <MockupCard profileIndex={1} />
+        <div className="w-full max-w-md justify-self-center lg:justify-self-start">
+          <LandingHeroPreviewPanel />
         </div>
       </div>
     </Section>

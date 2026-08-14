@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { TabId } from '@/types/profile';
+import { getMainTabDocumentTitle, getMainTabPageTitle } from '../utils/mainTabTitle';
+import type { TabId } from '@/main/model/navigation';
 
 // PR #52: CSS hidden → 조건부 마운트 전환 회귀 테스트
 // @testing-library/react 미설치로 인해 DOM 렌더링 없이 탭 마운트 로직을 단위 테스트
@@ -81,5 +82,19 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
     for (const tab of tabs) {
       expect(shouldScrollToTopOnTabChange(tab, tab)).toBe(false);
     }
+  });
+
+  it('메인 탭별 브라우저 제목을 생성함', () => {
+    expect(getMainTabPageTitle('home')).toBe('홈');
+    expect(getMainTabPageTitle('list')).toBe('룸메 찾기');
+    expect(getMainTabPageTitle('matching')).toBe('매칭 현황');
+    expect(getMainTabPageTitle('chat')).toBe('채팅');
+    expect(getMainTabPageTitle('profile')).toBe('내 프로필');
+
+    expect(getMainTabDocumentTitle('home')).toBe('홈 | KNU 룸메');
+    expect(getMainTabDocumentTitle('list')).toBe('룸메 찾기 | KNU 룸메');
+    expect(getMainTabDocumentTitle('matching')).toBe('매칭 현황 | KNU 룸메');
+    expect(getMainTabDocumentTitle('chat')).toBe('채팅 | KNU 룸메');
+    expect(getMainTabDocumentTitle('profile')).toBe('내 프로필 | KNU 룸메');
   });
 });

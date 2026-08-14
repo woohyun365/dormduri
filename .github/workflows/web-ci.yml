@@ -1,0 +1,121 @@
+name: Web CI
+
+on:
+  workflow_call:
+    inputs:
+      run_storybook:
+        description: Build the Storybook surface for Storybook-owned changes.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web build/test gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
+      NEXT_PUBLIC_SENTRY_ENABLED: '0'
+      NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED: '0'
+      NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
+      SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '0'
+      SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Start CI timing
+        id: timing
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Restore Next build cache
+        id: next-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**', 'apps/web/public/**', 'apps/web/package.json', 'apps/web/next.config.*', 'apps/web/tsconfig*.json', 'packages/shared/src/**', 'packages/shared/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-next-
+
+      - name: Install dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=install -- pnpm install --frozen-lockfile
+
+      - name: Prepare Web dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=prepare -- pnpm web:prepare
+
+      - name: Web static checks
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=static -- sh -c 'pnpm web:lint:prepared && pnpm web:typecheck:prepared'
+
+      - name: Web unit tests
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=unit -- pnpm web:test:prepared
+
+      - name: Web production build
+        env:
+          SENTRY_AUTH_TOKEN: sentry-ci-secret-must-not-ship
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=build -- pnpm web:build:prepared
+
+      - name: Verify account-free Sentry artifact boundary
+        env:
+          SENTRY_ARTIFACT_SECRET_SENTINEL: sentry-ci-secret-must-not-ship
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=sentry-artifact -- pnpm web:sentry:verify-build
+
+      - name: Build Storybook surface
+        if: ${{ inputs.run_storybook }}
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=storybook -- pnpm --dir apps/web ci:storybook:build
+
+      - name: Install Playwright Chromium
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=browser-install -- pnpm --dir apps/web exec playwright install --with-deps chromium
+
+      - name: Web browser smoke with prebuilt standalone artifact
+        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=browser -- pnpm web:e2e:prepared
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: web-playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Playwright failure evidence
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: web-playwright-test-results
+          path: apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Summarize Web CI duration
+        if: ${{ always() && !cancelled() }}
+        env:
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+        run: |
+          duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "### Web CI timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- next_build_cache_hit: ${{ steps.next-cache.outputs.cache-hit == 'true' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
+          echo "- storybook_build: ${{ inputs.run_storybook }}" >> "$GITHUB_STEP_SUMMARY"

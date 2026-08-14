@@ -1,9 +1,10 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
+import type { ApiSessionRejectionReason, ApiSessionResponse } from '@repo/shared/auth/session';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
-import type { AuthSessionUserSummary, SessionStatusResult } from '../domain/auth.types.js';
 import { toAuthenticatedSessionResult } from '../mappers/auth-response.builder.js';
-import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
+import { toAuthenticatedSessionUser } from '../mappers/auth-user-view.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { SELF_SERVICE_AUTH_CAPABILITIES } from '../access/auth-capability.js';
 import type { ResolvedAuthActorContext } from '../application/auth-actor-context.types.js';
@@ -31,6 +32,20 @@ interface AuthenticatedSessionRef {
   };
 }
 
+type CurrentSessionResolution =
+  | { authenticated: true; session: AuthenticatedSessionRef }
+  | { authenticated: false; reason: ApiSessionRejectionReason };
+
+const SESSION_REJECTION_REASON_MAP = {
+  not_found: 'SESSION_NOT_FOUND',
+  revoked: 'SESSION_REVOKED',
+  missing_token_expiry: 'ACCESS_EXPIRED',
+  access_expired: 'ACCESS_EXPIRED',
+  session_expired: 'SESSION_EXPIRED',
+  deleted_user: 'ACCOUNT_DELETED',
+  account_identity_incomplete: 'ACCOUNT_IDENTITY_INCOMPLETE',
+} as const satisfies Record<string, ApiSessionRejectionReason>;
+
 @Injectable()
 export class CurrentSessionQuery {
   constructor(
@@ -41,23 +56,24 @@ export class CurrentSessionQuery {
   async getSession(
     token: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<SessionStatusResult> {
-    const session = await this.resolveAuthenticatedSession(token, requestContext);
-    if (!session) {
-      return { authenticated: false };
+  ): Promise<ApiSessionResponse> {
+    const resolution = await this.resolveAuthenticatedSession(token, requestContext);
+    if (!resolution.authenticated) {
+      return resolution;
     }
 
-    return toAuthenticatedSessionResult(this.toSessionUserSummary(session));
+    return toAuthenticatedSessionResult(this.toSessionUserSummary(resolution.session));
   }
 
   async resolveCurrentUserContext(
     token: string | null,
     requestContext: AuthRequestContext = {},
   ): Promise<ResolvedAuthActorContext | null> {
-    const session = await this.resolveAuthenticatedSession(token, requestContext);
-    if (!session) {
+    const resolution = await this.resolveAuthenticatedSession(token, requestContext);
+    if (!resolution.authenticated) {
       return null;
     }
+    const session = resolution.session;
 
     return {
       id: session.user.id,
@@ -70,8 +86,8 @@ export class CurrentSessionQuery {
     };
   }
 
-  private toSessionUserSummary(session: AuthenticatedSessionRef): AuthSessionUserSummary {
-    return toAuthSessionUserSummary({
+  private toSessionUserSummary(session: AuthenticatedSessionRef): AuthenticatedSessionUser {
+    return toAuthenticatedSessionUser({
       id: session.user.id,
       email: session.user.email,
       nickname: session.user.displayIdentity.nickname,
@@ -83,13 +99,15 @@ export class CurrentSessionQuery {
   private async resolveAuthenticatedSession(
     token: string | null,
     requestContext: AuthRequestContext = {},
-  ): Promise<AuthenticatedSessionRef | null> {
+  ): Promise<CurrentSessionResolution> {
+    if (!token) {
+      return { authenticated: false, reason: 'MISSING_TOKEN' };
+    }
+
     const parsedAccessToken = parseOpaqueToken(token);
     if (!parsedAccessToken) {
-      if (token) {
-        await this.recordOpaqueTransportRejected('access', 'malformed_or_legacy', requestContext);
-      }
-      return null;
+      await this.recordOpaqueTransportRejected('access', 'malformed_or_legacy', requestContext);
+      return { authenticated: false, reason: 'MALFORMED_TOKEN' };
     }
 
     const session = await this.repository.findAuthenticatedSessionByAccessTokenHash(
@@ -102,20 +120,26 @@ export class CurrentSessionQuery {
         sessionId: parsedAccessToken.sessionId,
         targetUserId: session?.userId,
       });
-      return null;
+      return {
+        authenticated: false,
+        reason: SESSION_REJECTION_REASON_MAP[rejectedReason],
+      };
     }
 
     const displayIdentity = session?.user.displayIdentity;
     if (!session || !hasUserDisplayIdentity(session.user) || !displayIdentity) {
-      return null;
+      return { authenticated: false, reason: 'ACCOUNT_IDENTITY_INCOMPLETE' };
     }
 
     return {
-      userId: session.userId,
-      sessionId: session.id,
-      user: {
-        ...session.user,
-        displayIdentity,
+      authenticated: true,
+      session: {
+        userId: session.userId,
+        sessionId: session.id,
+        user: {
+          ...session.user,
+          displayIdentity,
+        },
       },
     };
   }

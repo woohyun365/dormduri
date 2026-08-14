@@ -56,7 +56,7 @@ assert_privilege() {
   privilege="$4"
   expected="$5"
   psql_check "$url" "$description" \
-    "SELECT CASE WHEN has_table_privilege(current_user, '$table_ref', '$privilege') IS $expected THEN 1 ELSE 1/0 END;"
+    "SELECT 1 / CASE WHEN has_table_privilege(current_user, '$table_ref', '$privilege') IS $expected THEN 1 ELSE 0 END;"
 }
 
 dry_run=false
@@ -101,7 +101,7 @@ require_env RETENTION_DISCLOSURE_DATABASE_URL
 
 psql_check "$MIGRATION_DATABASE_URL" 'migration credential can connect' 'SELECT 1;'
 psql_check "$MIGRATION_DATABASE_URL" 'Prisma migrations table exists' \
-  "SELECT CASE WHEN to_regclass('$schema._prisma_migrations') IS NULL THEN 1/0 ELSE 1 END;"
+  "SELECT 1 / CASE WHEN to_regclass('$schema._prisma_migrations') IS NULL THEN 0 ELSE 1 END;"
 psql_check "$MIGRATION_DATABASE_URL" 'Prisma migrations table is readable by migration credential' \
   "SELECT count(*) FROM $schema._prisma_migrations;"
 
@@ -111,6 +111,10 @@ assert_privilege "$DATABASE_URL" 'runtime credential cannot write RetainedVaultO
 
 assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can read retained identity' "$schema.\"RetainedIdentity\"" SELECT true
 assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can update retention review jobs' "$schema.\"RetentionReviewJob\"" UPDATE true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can read auth security events' "$schema.\"AuthSecurityEvent\"" SELECT true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can delete expired auth sessions' "$schema.\"AuthSession\"" DELETE true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker can read auth mail outbox lag' "$schema.\"AuthMailOutboxEvent\"" SELECT true
+assert_privilege "$RETENTION_WORKER_DATABASE_URL" 'retention worker cannot delete auth mail outbox' "$schema.\"AuthMailOutboxEvent\"" DELETE false
 
 assert_privilege "$RETENTION_DISCLOSURE_DATABASE_URL" 'retention disclosure can read retained identity' "$schema.\"RetainedIdentity\"" SELECT true
 assert_privilege "$RETENTION_DISCLOSURE_DATABASE_URL" 'retention disclosure can insert access log' "$schema.\"RetentionAccessLog\"" INSERT true

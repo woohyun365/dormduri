@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from '../../identity/primitives.js';
 import { publicProfileAdditionalSchema, publicLifestyleSchema } from './fields.js';
+import { publicProfileCompatibilitySchema } from './compatibility.js';
 
 export const profileSourceSchema = z.enum(['SEASON_PARTICIPANT_PROFILE']);
 export const profileRelationToViewerSchema = z.enum(['GENERAL', 'MATCHED_PARTNER']);
@@ -23,6 +24,10 @@ export const publicTargetActionUnavailableReasonSchema = z.enum([
   'THREAD_READ_ONLY',
   'TARGET_DELETED_OR_DEIDENTIFIED',
   'SAFETY_OR_VISIBILITY_RESTRICTED',
+  'MATCH_REQUEST_ALREADY_PENDING',
+  'MATCH_REQUEST_PENDING_LIMIT_REACHED',
+  'MATCH_REQUEST_DIRECTION_LIMIT_REACHED',
+  'MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE',
 ]);
 export const publicProfileDetailStateSchema = z.enum(['FULL', 'TOMBSTONE']);
 export const publicProfileTombstoneReasonSchema = z.enum([
@@ -94,6 +99,44 @@ export const publicProfileFullDetailSchema = z
   })
   .extend({
     matchScore: publicProfileMatchScoreSchema.shape.matchScore.optional(),
+    compatibility: publicProfileCompatibilitySchema.optional(),
+  })
+  .superRefine((profile, context) => {
+    if (!profile.exposure.scoreVisible && typeof profile.matchScore === 'number') {
+      context.addIssue({
+        code: 'custom',
+        path: ['matchScore'],
+        message: 'matchScore requires exposure.scoreVisible=true',
+      });
+    }
+
+    if (!profile.exposure.scoreVisible && profile.compatibility) {
+      context.addIssue({
+        code: 'custom',
+        path: ['compatibility'],
+        message: 'compatibility requires exposure.scoreVisible=true',
+      });
+    }
+
+    if (profile.compatibility && typeof profile.matchScore !== 'number') {
+      context.addIssue({
+        code: 'custom',
+        path: ['compatibility'],
+        message: 'compatibility requires matchScore',
+      });
+    }
+
+    if (
+      profile.compatibility &&
+      typeof profile.matchScore === 'number' &&
+      profile.compatibility.overallScore !== profile.matchScore
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['compatibility', 'overallScore'],
+        message: 'compatibility.overallScore must equal matchScore',
+      });
+    }
   });
 
 export const publicProfileTombstoneSchema = z.strictObject({

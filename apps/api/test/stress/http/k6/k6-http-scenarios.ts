@@ -4,7 +4,10 @@ export type K6HttpScenarioName =
   | 'peak-500'
   | 'spike-500'
   | 'soak-250'
-  | 'score-cohort-946';
+  | 'score-cohort-946'
+  | 'auth-login-capacity'
+  | 'auth-password-burst'
+  | 'auth-recovery-abuse';
 
 export interface K6HttpScenarioDefinition {
   readonly name: K6HttpScenarioName;
@@ -77,6 +80,38 @@ export const K6_HTTP_SCENARIOS: readonly K6HttpScenarioDefinition[] = [
     requestMix: ['health', 'current-season', 'optional-roommate-search-score'],
     thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
     summary: '946명 same-dorm/gender score cohort 검색/read path를 검증한다.',
+  },
+  {
+    name: 'auth-login-capacity',
+    scriptFile: 'auth-login-capacity.k6.js',
+    defaultDuration: '2m',
+    maxVus: 25,
+    targetProfile: 'staging',
+    requestMix: ['auth-login-real-hash', 'auth-login-dummy-hash'],
+    thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
+    summary: '실제 계정과 미존재 계정의 Argon2id login verify 경로를 같은 비율로 검증한다.',
+  },
+  {
+    name: 'auth-password-burst',
+    scriptFile: 'auth-password-burst.k6.js',
+    defaultDuration: '10m',
+    maxVus: 100,
+    targetProfile: 'staging',
+    requestMix: ['login-success', 'login-failure', 'signup', 'reset-password', 'change-password'],
+    thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
+    summary:
+      '19MiB global admission을 실제 login/signup/reset/change endpoint mix와 단계별 arrival rate로 검증한다.',
+  },
+  {
+    name: 'auth-recovery-abuse',
+    scriptFile: 'auth-recovery-abuse.k6.js',
+    defaultDuration: '2m',
+    maxVus: 20,
+    targetProfile: 'staging',
+    requestMix: ['reset-request-neutral-response', 'reset-invalid-code', 'bounded-throttle'],
+    thresholdKeys: ['http_req_failed', 'http_req_duration', 'checks'],
+    summary:
+      '동일·분산 subject의 reset request/invalid verify burst가 5xx와 정보 노출 없이 제한되는지 검증한다.',
   },
 ];
 

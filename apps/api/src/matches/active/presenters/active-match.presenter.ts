@@ -1,7 +1,15 @@
-import type { ActiveMatchSummary, ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
+import type {
+  ActiveMatchSummary,
+  ActiveMatchUnmatchProgress,
+  CurrentActiveMatchSummary,
+  MatchActionDisabledReason,
+} from '@repo/shared/match/contract';
+import { currentActiveMatchSummarySchema } from '@repo/shared/match/contract';
+import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
 import { buildDirectionalMatchScoreProjection } from '../../scoring/match-score-projection.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import { parseLifestyleOrNull } from '../../../profiles/contracts/public-profile.presenter.js';
+import { resolvePublicCounterpartNickname } from '../../../privacy/deidentification/deidentified-display.policy.js';
 import {
   findActiveMatchRoomSelectionDate,
   isUnmatchWindowOpen,
@@ -36,22 +44,27 @@ export function toActiveMatchSummary(
       : (activeMatch.participantA.profile ?? null),
   );
   const matchScore = buildDirectionalMatchScoreProjection(viewerLifestyle, counterpartLifestyle);
+  const matchScoreValue = typeof matchScore === 'number' ? matchScore : undefined;
+  const counterpartParticipant = viewerIsParticipantA
+    ? activeMatch.participantB
+    : activeMatch.participantA;
+  const counterpartNickname = resolveActiveMatchCounterpartNickname(counterpartParticipant);
 
   return {
     id: activeMatch.id,
     seasonId: activeMatch.seasonId,
-    counterpartUserId: viewerIsParticipantA
-      ? activeMatch.participantB.userId
-      : activeMatch.participantA.userId,
+    counterpartUserId: counterpartParticipant.userId,
     counterpartParticipantId: viewerIsParticipantA
       ? activeMatch.participantBId
       : activeMatch.participantAId,
+    counterpartNickname,
+    counterpartSummary: toActiveMatchCounterpartSummary(counterpartParticipant, matchScoreValue),
     status: activeMatch.status,
     startedAt: activeMatch.startedAt.toISOString(),
     endedAt: activeMatch.endedAt?.toISOString() ?? null,
     endReason: activeMatch.endReason,
     createdFromRequestId: activeMatch.createdFromRequestId,
-    ...(typeof matchScore === 'number' ? { matchScore } : {}),
+    ...(typeof matchScoreValue === 'number' ? { matchScore: matchScoreValue } : {}),
     unmatchProgress: toInactiveUnmatchProgress(),
   };
 }
@@ -96,6 +109,9 @@ export function toDetailedActiveMatchSummary(
       : counterpartPendingRequest
         ? 'WAITING_FOR_ME'
         : 'NONE';
+  const canRequest = activeMatch.status === 'ACTIVE' && unmatchWindowOpen && !viewerPendingRequest;
+  const canCancel =
+    activeMatch.status === 'ACTIVE' && unmatchWindowOpen && Boolean(viewerPendingRequest);
 
   return {
     ...base,
@@ -115,15 +131,89 @@ export function toDetailedActiveMatchSummary(
         )?.toISOString() ?? null,
       progressCount: Math.min(progressCount, 2),
       requiredCount: 2,
-      canRequest: activeMatch.status === 'ACTIVE' && unmatchWindowOpen && !viewerPendingRequest,
-      canCancel:
-        activeMatch.status === 'ACTIVE' && unmatchWindowOpen && Boolean(viewerPendingRequest),
+      canRequest,
+      canCancel,
+      disabledReason: resolveUnmatchDisabledReason({
+        activeMatch,
+        seasonContext,
+        now,
+        canRequest,
+        canCancel,
+      }),
       availableUntil:
         activeMatch.status === 'ACTIVE'
           ? toUnmatchAvailableUntilIso(activeMatch, seasonContext)
           : null,
     },
   };
+}
+
+export function toCurrentDetailedActiveMatchSummary(
+  activeMatch: ActiveMatchCommandRecord,
+  viewerParticipantId: string,
+  seasonContext: CurrentSeasonContext,
+  now: Date,
+): CurrentActiveMatchSummary {
+  return currentActiveMatchSummarySchema.parse(
+    toDetailedActiveMatchSummary(activeMatch, viewerParticipantId, seasonContext, now),
+  );
+}
+
+export function toCurrentActiveMatchSummary(
+  activeMatch: ActiveMatchRecord,
+  viewerParticipantId: string,
+): CurrentActiveMatchSummary {
+  return currentActiveMatchSummarySchema.parse(
+    toActiveMatchSummary(activeMatch, viewerParticipantId),
+  );
+}
+
+type ActiveMatchParticipantRecord =
+  | ActiveMatchRecord['participantA']
+  | ActiveMatchRecord['participantB']
+  | ActiveMatchCommandRecord['participantA']
+  | ActiveMatchCommandRecord['participantB'];
+
+function toActiveMatchCounterpartSummary(
+  participant: ActiveMatchParticipantRecord,
+  matchScore: number | undefined,
+): RoommateSearchSummary {
+  return {
+    id: participant.userId,
+    sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+    relation: { type: 'MATCHED_PARTNER' },
+    exposure: {
+      listSummaryVisible: true,
+      detailViewable: true,
+      canViewFull: true,
+      scoreVisible: typeof matchScore === 'number',
+    },
+    actions: {
+      canBookmark: false,
+      canRequestMatch: false,
+      canStartChat: true,
+      unavailableReasons: ['VIEWER_ALREADY_MATCHED'],
+    },
+    resultRead: {
+      resultReadable: true,
+      context: 'CURRENT_MATCHED_PARTNER',
+    },
+    profileSummary: {
+      nickname: resolveActiveMatchCounterpartNickname(participant),
+      intro: participant.profile?.intro ?? '',
+      smokingBehavior: participant.profile?.smokingBehavior ?? null,
+      sleepHabit: participant.profile?.sleepHabit ?? null,
+      relationshipStyle: participant.profile?.relationshipStyle ?? null,
+    },
+    ...(typeof matchScore === 'number' ? { matchScore } : {}),
+  };
+}
+
+function resolveActiveMatchCounterpartNickname(participant: ActiveMatchParticipantRecord) {
+  return resolvePublicCounterpartNickname({
+    deletedAt: participant.user?.deletedAt,
+    nicknameSnapshot: participant.profile?.nicknameSnapshot,
+  });
 }
 
 function toInactiveUnmatchProgress(): ActiveMatchUnmatchProgress {
@@ -135,8 +225,32 @@ function toInactiveUnmatchProgress(): ActiveMatchUnmatchProgress {
     requiredCount: 2,
     canRequest: false,
     canCancel: false,
+    disabledReason: 'ACTIVE_MATCH_NOT_ACTIONABLE',
     availableUntil: null,
   };
+}
+
+function resolveUnmatchDisabledReason(input: {
+  activeMatch: ActiveMatchCommandRecord;
+  seasonContext: CurrentSeasonContext;
+  now: Date;
+  canRequest: boolean;
+  canCancel: boolean;
+}): MatchActionDisabledReason | null {
+  if (input.canRequest || input.canCancel) return null;
+  if (input.activeMatch.status !== 'ACTIVE' || input.activeMatch.endedAt !== null) {
+    return 'ACTIVE_MATCH_NOT_ACTIONABLE';
+  }
+  if (input.seasonContext.state !== 'SEASON_MATCHING') return 'SEASON_NOT_ACTIONABLE';
+
+  const roomSelectionDate = findActiveMatchRoomSelectionDate(
+    input.activeMatch,
+    input.seasonContext,
+  );
+  if (!roomSelectionDate) return 'ACTIVE_MATCH_NOT_ACTIONABLE';
+  return isUnmatchWindowOpen(input.activeMatch, input.seasonContext, input.now)
+    ? 'ACTIVE_MATCH_NOT_ACTIONABLE'
+    : 'ROOM_SELECTION_CUTOFF';
 }
 
 function toUnmatchAvailableUntilIso(
@@ -144,5 +258,7 @@ function toUnmatchAvailableUntilIso(
   seasonContext: CurrentSeasonContext,
 ) {
   const roomSelectionDate = findActiveMatchRoomSelectionDate(activeMatch, seasonContext);
-  return roomSelectionDate ? new Date(`${roomSelectionDate}T23:59:59+09:00`).toISOString() : null;
+  return roomSelectionDate
+    ? new Date(`${roomSelectionDate}T23:59:59.999+09:00`).toISOString()
+    : null;
 }

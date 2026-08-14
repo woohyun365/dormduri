@@ -11,6 +11,7 @@ describe('AuthVerificationUseCases', () => {
   const verificationEligibilityQuery = {
     signupUserExists: vi.fn(),
     passwordResetEligible: vi.fn(),
+    findPasswordResetEligibleUserId: vi.fn(),
   };
   const useCases = new AuthVerificationUseCases(
     verificationService as never,
@@ -57,7 +58,7 @@ describe('AuthVerificationUseCases', () => {
   });
 
   it('verifyResetCode는 reset-eligible 계정이 아니면 neutral invalid-code로 fail-closed 한다', async () => {
-    verificationEligibilityQuery.passwordResetEligible.mockResolvedValueOnce(false);
+    verificationEligibilityQuery.findPasswordResetEligibleUserId.mockResolvedValueOnce(null);
 
     await expect(
       useCases.verifyResetCode('missing@kangwon.ac.kr', '123456'),
@@ -70,7 +71,7 @@ describe('AuthVerificationUseCases', () => {
   });
 
   it('verify methods는 request context가 있을 때만 context argument를 전달한다', async () => {
-    verificationEligibilityQuery.passwordResetEligible.mockResolvedValue(true);
+    verificationEligibilityQuery.findPasswordResetEligibleUserId.mockResolvedValue('user-1');
     verificationService.verifyEmailCode.mockResolvedValue({ success: true });
     verificationService.verifyResetCode.mockResolvedValue({ success: true });
 
@@ -91,6 +92,7 @@ describe('AuthVerificationUseCases', () => {
     expect(verificationService.verifyResetCode).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       '123456',
+      'user-1',
       { requestIp: '127.0.0.1', userAgent: 'jest' },
     );
   });

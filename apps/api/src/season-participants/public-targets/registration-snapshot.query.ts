@@ -21,6 +21,7 @@ export function createSeasonParticipantPublicTargetOwner(prisma: PrismaService) 
           participantId: { in: uniqueParticipantIds },
           source: 'SEASON_REGISTRATION',
           registeredAtSnapshot: { not: null },
+          redactedAt: null,
         },
         select: { participantId: true },
       });
@@ -37,6 +38,7 @@ export function createSeasonParticipantPublicTargetOwner(prisma: PrismaService) 
           participantId,
           source: 'SEASON_REGISTRATION',
           registeredAtSnapshot: { not: null },
+          redactedAt: null,
         },
         select: { participantId: true },
       });

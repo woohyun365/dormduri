@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-10",
+  "services": [
+    {
+      "name": "api",
+      "ownerPath": "infra/deploy/compose.api.yml",
+      "nonRootOrDropPrivileges": "Dockerfile runtime user knu and all Linux capabilities dropped",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["tmpfs:/tmp"],
+      "exception": null
+    },
+    {
+      "name": "nginx",
+      "ownerPath": "infra/deploy/compose.api.yml",
+      "nonRootOrDropPrivileges": "entrypoint drops privileges to nginx workers; only startup and port-binding capabilities are added",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["tmpfs:/var/cache/nginx", "tmpfs:/var/run", "tmpfs:/tmp"],
+      "exception": "The upstream image entrypoint requires CHOWN, SETGID and SETUID before nginx workers start. NET_BIND_SERVICE is required for port 80."
+    },
+    {
+      "name": "prometheus",
+      "ownerPath": "infra/observability/compose.base.yml",
+      "nonRootOrDropPrivileges": "upstream image user with all Linux capabilities dropped",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["volume:/prometheus", "tmpfs:/tmp"],
+      "exception": null
+    },
+    {
+      "name": "loki",
+      "ownerPath": "infra/observability/compose.base.yml",
+      "nonRootOrDropPrivileges": "upstream image user with all Linux capabilities dropped",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["volume:/loki", "tmpfs:/tmp"],
+      "exception": null
+    },
+    {
+      "name": "alloy",
+      "ownerPath": "infra/observability/compose.base.yml",
+      "nonRootOrDropPrivileges": "root UID with the upstream 473 storage group and all Linux capabilities dropped",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["volume:/var/lib/alloy/data", "tmpfs:/tmp"],
+      "exception": "Read-only Docker socket access is required by the initial single-host log collector. It remains private and is a release risk to reassess when the collector topology changes."
+    },
+    {
+      "name": "alertmanager",
+      "ownerPath": "infra/observability/compose.base.yml",
+      "nonRootOrDropPrivileges": "upstream image user with all Linux capabilities dropped",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["volume:/alertmanager", "tmpfs:/tmp"],
+      "exception": null
+    },
+    {
+      "name": "grafana",
+      "ownerPath": "infra/observability/compose.base.yml",
+      "nonRootOrDropPrivileges": "upstream image user with all Linux capabilities dropped",
+      "readOnlyRootFilesystem": true,
+      "writablePaths": ["volume:/var/lib/grafana", "tmpfs:/tmp"],
+      "exception": null
+    }
+  ]
+}

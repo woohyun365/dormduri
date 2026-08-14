@@ -1,5 +1,5 @@
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
-import type { AuthSessionUserSummary } from '../domain/auth.types.js';
+import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
 
 export interface AuthSessionUserRecord {
   id: string;
@@ -9,7 +9,7 @@ export interface AuthSessionUserRecord {
   campus: Campus;
 }
 
-export function toAuthSessionUserSummary(user: AuthSessionUserRecord): AuthSessionUserSummary {
+export function toAuthenticatedSessionUser(user: AuthSessionUserRecord): AuthenticatedSessionUser {
   return {
     id: user.id,
     email: user.email,

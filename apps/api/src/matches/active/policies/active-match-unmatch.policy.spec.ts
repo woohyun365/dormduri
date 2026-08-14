@@ -66,12 +66,14 @@ function makeActiveMatch(
     createdFromRequestId: 'request-1',
     participantA: {
       userId: 'user-1',
+      user: { deletedAt: null },
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
       profile: null,
     },
     participantB: {
       userId: 'user-2',
+      user: { deletedAt: null },
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
       profile: null,

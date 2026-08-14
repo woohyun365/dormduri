@@ -111,7 +111,7 @@ export const roommateSearchSleepHabitFilterSchema = z.union([
   z.literal('HAS'),
 ]);
 export const roommateSearchFilterOperatorSchema = z.enum(['INCLUDE', 'EXCLUDE']);
-export const roommateSearchAgeBandSchema = z.enum(['19', '20', '21', '22', '23', '24', '25_PLUS']);
+export const roommateSearchAgeBandSchema = z.enum(['20', '21', '22', '23', '24', '25_PLUS']);
 export const roommateSearchMbtiTraitsSchema = z.strictObject({
   energy: z.enum(['E', 'I']).nullable().optional(),
   perception: z.enum(['N', 'S']).nullable().optional(),
@@ -236,6 +236,20 @@ export const roommateSearchBookmarkStateSchema = z.strictObject({
   bookmarkedAt: z.string().datetime().optional(),
 });
 
+export const roommateSearchPendingMatchRequestDirectionSchema = z.enum(['SENT', 'RECEIVED']);
+export const roommateSearchPendingMatchRequestSchema = z.strictObject({
+  id: z.string(),
+  direction: roommateSearchPendingMatchRequestDirectionSchema,
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+});
+export const roommateSearchActiveChatThreadSchema = z.strictObject({
+  id: z.string(),
+  threadKind: z.enum(['DIRECT', 'MATCHED']),
+  status: z.literal('OPEN'),
+  lastMessageAt: z.string().datetime().optional(),
+});
+
 export const roommateSearchSummarySchema = z
   .strictObject({
     id: z.string(),
@@ -246,6 +260,8 @@ export const roommateSearchSummarySchema = z
     resultRead: publicTargetResultReadSchema,
     profileSummary: roommateSearchProfileSummarySchema,
     bookmark: roommateSearchBookmarkStateSchema.optional(),
+    pendingMatchRequest: roommateSearchPendingMatchRequestSchema.nullable().optional(),
+    activeChatThread: roommateSearchActiveChatThreadSchema.nullable().optional(),
     detailEntryToken: z.string().optional(),
   })
   .extend({
@@ -291,4 +307,8 @@ export type RoommateSearchManifest = z.infer<typeof roommateSearchManifestSchema
 export type RoommateSearchResultSummary = z.infer<typeof roommateSearchResultSummarySchema>;
 export type RoommateSearchPageInfo = z.infer<typeof roommateSearchPageInfoSchema>;
 export type RoommateSearchProfileSummary = z.infer<typeof roommateSearchProfileSummarySchema>;
+export type RoommateSearchPendingMatchRequest = z.infer<
+  typeof roommateSearchPendingMatchRequestSchema
+>;
+export type RoommateSearchActiveChatThread = z.infer<typeof roommateSearchActiveChatThreadSchema>;
 export type RoommateSearchSummary = z.infer<typeof roommateSearchSummarySchema>;

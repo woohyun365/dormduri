@@ -1,5 +1,9 @@
 import 'reflect-metadata';
 
+// Integration suites drive transactional side effects explicitly. Keep the
+// autonomous dispatcher from racing repository assertions after app.init().
+process.env.AUTH_MAIL_DISPATCHER_ENABLED = 'false';
+
 const SUPPRESSED_PG_QUERY_DEPRECATION =
   'Calling client.query() when the client is already executing a query is deprecated';
 const originalEmitWarning = process.emitWarning.bind(process);

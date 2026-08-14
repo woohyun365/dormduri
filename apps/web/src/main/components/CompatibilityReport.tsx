@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
-  LIFESTYLE_FIELD_NAMES,
-  getLifestyleLabel,
+  formatLifestyleFieldName,
+  formatLifestyleOptionLabel,
   BEDTIME_ORDER,
-  WAKE_ORDER,
-  TEMPERATURE_ORDER,
-} from '@/constants/lifestyle';
-import type { LifestyleData } from '@/types/lifestyle';
+  WAKE_TIME_ORDER,
+  TEMPERATURE_SENSITIVITY_ORDER,
+} from '@/main/tabs/profile/model/lifestyleFormFields';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface CompatibilityReportProps {
   userLifestyle: LifestyleData;
@@ -77,8 +77,8 @@ function getFieldMatchLevel(
   // Ordered fields: distance 1 = similar
   const orderedMap: Partial<Record<keyof LifestyleData, readonly string[]>> = {
     bedtime: BEDTIME_ORDER,
-    wakeTime: WAKE_ORDER,
-    temperatureSensitivity: TEMPERATURE_ORDER,
+    wakeTime: WAKE_TIME_ORDER,
+    temperatureSensitivity: TEMPERATURE_SENSITIVITY_ORDER,
   };
 
   const order = orderedMap[field];
@@ -114,7 +114,7 @@ export function CompatibilityReport({ userLifestyle, profileLifestyle }: Compati
         aria-expanded={expanded}
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-[var(--knu-text-primary)]">호환성 상세</span>
+          <span className="text-sm font-bold text-[(--knu-text-primary)]">호환성 상세</span>
           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
             {matchCount}/{FIELDS.length} 일치
           </span>
@@ -137,17 +137,17 @@ export function CompatibilityReport({ userLifestyle, profileLifestyle }: Compati
                 key={field}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${config.bg}`}
               >
-                <span className="text-base flex-shrink-0">{FIELD_EMOJI[field] ?? '•'}</span>
-                <span className="text-xs font-semibold text-[var(--knu-text-secondary)] w-16 flex-shrink-0">
-                  {LIFESTYLE_FIELD_NAMES[field]}
+                <span className="text-base shrink-0">{FIELD_EMOJI[field] ?? '•'}</span>
+                <span className="text-xs font-semibold text-[(--knu-text-secondary)] w-16 shrink-0">
+                  {formatLifestyleFieldName(field)}
                 </span>
                 <div className="flex-1 flex items-center gap-2 text-xs">
                   <span className={config.color}>
-                    나: {getLifestyleLabel(field, userLifestyle[field])}
+                    나: {formatLifestyleOptionLabel(field, userLifestyle[field])}
                   </span>
-                  <span className="text-[var(--knu-text-tertiary)]">|</span>
+                  <span className="text-[(--knu-text-tertiary)]">|</span>
                   <span className={config.color}>
-                    상대: {getLifestyleLabel(field, profileLifestyle[field])}
+                    상대: {formatLifestyleOptionLabel(field, profileLifestyle[field])}
                   </span>
                 </div>
               </div>

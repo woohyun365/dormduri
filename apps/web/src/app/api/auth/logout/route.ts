@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import {
   buildJsonResponse,
   clearAuthCookie,
@@ -6,9 +6,11 @@ import {
   getAuthRenewalTokenCookie,
   getAuthTokenCookie,
   getForwardHeaders,
-} from '../_shared';
+  recordAuthMutationRequestInspection,
+} from '@/auth/bff';
 
 export async function POST(request: NextRequest) {
+  recordAuthMutationRequestInspection(request);
   const token = getAuthTokenCookie(request);
   const renewalToken = getAuthRenewalTokenCookie(request);
   const { response, json } = await forwardAuthRequest(

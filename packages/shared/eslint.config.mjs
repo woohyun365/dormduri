@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { defineConfig } from 'eslint/config';
-import shared from '../eslint-config/flat.mjs';
+import shared from '../eslint-config/base.mjs';
 
 const require = createRequire(new URL('../../apps/api/package.json', import.meta.url));
 const eslint = require('@eslint/js');
@@ -18,7 +18,9 @@ export default defineConfig([
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['vitest.config.ts'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

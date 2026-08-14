@@ -60,7 +60,7 @@ describe('SeasonsService', () => {
     season: {
       findMany: vi.fn(),
     },
-    $queryRawTyped: vi.fn(),
+    getDatabaseNow: vi.fn(),
   };
 
   const repository = new SeasonRuntimeRepository(prisma as never);
@@ -71,7 +71,7 @@ describe('SeasonsService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
-    prisma.$queryRawTyped.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
+    prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
   });
 
   it('캠퍼스별 현재 시즌과 운영 기숙사 메타를 반환한다', async () => {
@@ -303,7 +303,7 @@ describe('SeasonsService', () => {
       dormitoryId: 'dasan',
       canMatch: true,
     });
-    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(1);
   });
 
   it('명시적 request cache를 공유하면 current season context DB read를 logical operation 안에서 재사용한다', async () => {
@@ -322,7 +322,7 @@ describe('SeasonsService', () => {
     expect(currentSeason?.season.id).toBe('season-1');
     expect(state).toBe('SEASON_MATCHING');
     expect(window).toMatchObject({ dormitoryId: 'dasan', canMatch: true });
-    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(1);
     expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(1);
     expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
   });
@@ -348,7 +348,7 @@ describe('SeasonsService', () => {
       lastCampusCode: 'CHUNCHEON',
       lastCache: 'hit',
     });
-    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(1);
     expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
   });
 
@@ -358,7 +358,7 @@ describe('SeasonsService', () => {
     await service.getCurrentSeason('CHUNCHEON');
     await service.getCurrentSeasonState('CHUNCHEON');
 
-    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(2);
+    expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(2);
     expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(2);
     expect(prisma.season.findMany).toHaveBeenCalledTimes(2);
   });

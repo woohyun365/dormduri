@@ -1,182 +1,115 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SeasonProvider } from '@/contexts/SeasonContext';
+import type { ConversationThreadSummary } from '@repo/shared/chat';
 import ChatTab from '../ChatTab';
-import type { ActiveMatch, MatchRequest } from '@/types/match';
-import type { RoommateProfile, UserProfile } from '@/types/profile';
 
-const baseLifestyle: UserProfile['lifestyle'] = {
-  bedtime: '22_24',
-  wakeTime: '07_08',
-  sleepHabit: 'NONE',
-  sleepEnvironment: 'QUIET',
-  screenUsage: 'NONE',
-  noiseSensitivity: 'NORMAL',
-  smokingBehavior: 'NO',
-  indoorEating: 'SNACK',
-  phoneBehavior: 'SOMETIMES',
-  earphoneUsage: 'MOSTLY',
-  cleanLevel: 'WEEKLY_1_2',
-  drinkingFrequency: 'SOMETIMES',
-  relationshipStyle: 'CASUAL',
-  temperatureSensitivity: 'NORMAL',
-  smokingTolerance: 'E_CIG_OK',
-  phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
-  sleepEnvPreference: 'SPEAKER_OK',
-  screenTolerance: 'SCREEN_OK',
-  indoorEatingTolerance: 'CLEAN_OK',
-  cleanExpectation: 'BASIC',
-  drinkingTolerance: 'LOW_ONLY',
+const useChatThreadsMock = vi.hoisted(() => vi.fn());
+const useChatThreadDetailMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../hooks/useChatThreads', () => ({ useChatThreads: useChatThreadsMock }));
+vi.mock('../hooks/useChatThreadDetail', () => ({ useChatThreadDetail: useChatThreadDetailMock }));
+
+const openThread: ConversationThreadSummary = {
+  id: 'thread-open',
+  seasonId: 'season-1',
+  counterpartUserId: 'counterpart-1',
+  counterpartParticipantId: 'participant-1',
+  threadKind: 'MATCHED' as const,
+  status: 'OPEN' as const,
+  closedReason: null,
+  closedAt: null,
+  lastMessageAt: '2026-07-15T10:00:00.000Z',
+  canSendMessage: true,
+  sendMessageUnavailableReason: null,
+  canReport: true,
 };
 
-const user: UserProfile = {
-  id: 'me',
-  nickname: '나',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: 'dasan',
-  lifestyle: baseLifestyle,
-  intro: '',
-  messageToRoommate: null,
-  additional: { college: null, grade: null, mbti: null, birthYear: null },
-};
-
-const profiles: Omit<RoommateProfile, 'matchScore'>[] = [
-  {
-    id: 'partner-1',
-    nickname: '홍길동',
-    gender: 'M',
-    campus: 'CHUNCHEON',
-    dormitoryId: 'dasan',
-    lifestyle: baseLifestyle,
-    intro: '',
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: null, birthYear: null },
-  },
-  {
-    id: 'partner-2',
-    nickname: '임꺽정',
-    gender: 'M',
-    campus: 'CHUNCHEON',
-    dormitoryId: 'dasan',
-    lifestyle: baseLifestyle,
-    intro: '',
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: null, birthYear: null },
-  },
-  {
-    id: 'partner-3',
-    nickname: '장보고',
-    gender: 'M',
-    campus: 'CHUNCHEON',
-    dormitoryId: 'dasan',
-    lifestyle: baseLifestyle,
-    intro: '',
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: null, birthYear: null },
-  },
-];
-
-const activeMatch: ActiveMatch = {
-  matchId: 'match-1',
-  partnerUserId: 'partner-1',
-  partnerNickname: '홍길동',
-  partnerDormitoryId: 'dasan',
-  matchScore: 84,
-  scoreType: 'full',
-  matchedAt: '2026-03-03T00:00:00.000Z',
-  cancelRequestedAt: null,
-  cancelRequestedBy: null,
-};
-
-const requests: MatchRequest[] = [
-  {
-    id: 'req-conv',
-    fromUserId: 'partner-2',
-    toUserId: 'me',
-    status: 'IN_CONVERSATION',
-    message: '생활 패턴이 비슷해 보여요',
-    createdAt: '2026-03-01T00:00:00.000Z',
-    expiresAt: '2026-03-05T00:00:00.000Z',
-    rejectedAt: null,
-    acceptedAt: '2026-03-02T00:00:00.000Z',
-    resolvedAt: null,
-  },
-  {
-    id: 'req-ended',
-    fromUserId: 'partner-3',
-    toUserId: 'me',
-    status: 'CONVERSATION_ENDED',
-    message: '안녕하세요',
-    createdAt: '2026-02-01T00:00:00.000Z',
-    expiresAt: '2026-02-05T00:00:00.000Z',
-    rejectedAt: null,
-    acceptedAt: '2026-02-02T00:00:00.000Z',
-    resolvedAt: '2026-02-06T00:00:00.000Z',
-  },
-];
-
-function renderChatTab() {
-  return render(
-    <SeasonProvider
-      value={{
-        season: { name: '2026-1학기', roomSelectionDate: '2026-04-20' },
-        state: 'SEASON_MATCHING',
-        isOpen: false,
-        isMatching: true,
-        daysUntilEnd: 14,
-      }}
-    >
-      <ChatTab
-        user={user}
-        profiles={profiles}
-        matchRequests={requests}
-        activeMatch={activeMatch}
-        blockedUserIds={new Set()}
-        onBlock={vi.fn()}
-        onReport={vi.fn()}
-        onConfirmMatch={vi.fn()}
-        onRevokeConfirmMatch={vi.fn()}
-        onEndConversation={vi.fn()}
-        onEndMatch={vi.fn()}
-        onNavigate={vi.fn()}
-      />
-    </SeasonProvider>,
-  );
+function setupThreads(items = [openThread]) {
+  useChatThreadsMock.mockReturnValue({
+    data: { items, pageInfo: { hasNextPage: false, nextCursor: null } },
+    error: null,
+    loading: false,
+    refresh: vi.fn(),
+  });
+  useChatThreadDetailMock.mockReturnValue({
+    data: null,
+    error: null,
+    loading: false,
+    refresh: vi.fn(),
+  });
 }
 
 describe('ChatTab', () => {
-  it('정책 기반 섹션 구조를 렌더링한다', () => {
-    renderChatTab();
+  it('chat owner contract의 중립적인 thread 목록을 렌더링한다', () => {
+    setupThreads();
+    render(<ChatTab viewerId="viewer-1" onNavigate={vi.fn()} />);
 
-    expect(screen.getByRole('heading', { name: '매칭 확정' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '대화 중' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '지난 대화' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '대화 상대' })).toBeInTheDocument();
+    expect(screen.getByText('매칭 대화')).toBeInTheDocument();
+    expect(screen.queryByText('매칭도')).not.toBeInTheDocument();
   });
 
-  it('종료된 대화를 열면 읽기 전용 아카이브 안내를 보여준다', async () => {
-    const userEventInstance = userEvent.setup();
-    renderChatTab();
+  it('읽기 전용 thread를 지난 대화 영역에서 연다', async () => {
+    const user = userEvent.setup();
+    setupThreads([
+      {
+        ...openThread,
+        id: 'thread-archived',
+        status: 'ARCHIVED' as const,
+        canSendMessage: false,
+        sendMessageUnavailableReason: 'ARCHIVED_THREAD' as const,
+      },
+    ]);
+    render(<ChatTab viewerId="viewer-1" onNavigate={vi.fn()} />);
 
-    const buttons = screen.getAllByRole('button');
-    const archiveButton = buttons.find((button) => button.textContent?.includes('지난 대화'));
-    if (archiveButton) {
-      await userEventInstance.click(archiveButton);
-    }
+    await user.click(
+      screen.getByRole('button', { name: /지난 대화\s*읽기 전용 대화를 확인할 수 있어요\./ }),
+    );
+    expect(screen.getByText('보관됨')).toBeInTheDocument();
+  });
 
-    const endedRoomButton = screen
-      .getAllByRole('button')
-      .find(
-        (button) =>
-          button.textContent?.includes('읽기 전용') && button.textContent?.includes('장보고'),
-      );
+  it('목록 오류는 upstream 세부 정보를 노출하지 않고 재시도를 제공한다', () => {
+    const refresh = vi.fn();
+    useChatThreadsMock.mockReturnValue({
+      data: null,
+      error: new Error('raw upstream stack'),
+      loading: false,
+      refresh,
+    });
+    useChatThreadDetailMock.mockReturnValue({
+      data: null,
+      error: null,
+      loading: false,
+      refresh: vi.fn(),
+    });
+    render(<ChatTab viewerId="viewer-1" onNavigate={vi.fn()} />);
 
-    expect(endedRoomButton).toBeTruthy();
-    await userEventInstance.click(endedRoomButton as HTMLElement);
+    expect(screen.getByRole('alert')).toHaveTextContent('채팅 목록을 불러오지 못했어요.');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('raw upstream stack');
+  });
 
-    expect(screen.getByText('읽기 전용 아카이브')).toBeInTheDocument();
-    expect(screen.getByText('이 대화는 읽기 전용이에요.')).toBeInTheDocument();
+  it('chat owner가 제공한 nextCursor가 있을 때만 추가 목록을 요청한다', async () => {
+    const user = userEvent.setup();
+    const loadMore = vi.fn();
+    useChatThreadsMock.mockReturnValue({
+      data: { items: [openThread], pageInfo: { hasNextPage: true, nextCursor: 'owner-cursor-2' } },
+      error: null,
+      loading: false,
+      loadingMore: false,
+      loadMoreError: null,
+      loadMore,
+      refresh: vi.fn(),
+    });
+    useChatThreadDetailMock.mockReturnValue({
+      data: null,
+      error: null,
+      loading: false,
+      refresh: vi.fn(),
+    });
+    render(<ChatTab viewerId="viewer-1" onNavigate={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: '대화 더 불러오기' }));
+    expect(loadMore).toHaveBeenCalledOnce();
   });
 });

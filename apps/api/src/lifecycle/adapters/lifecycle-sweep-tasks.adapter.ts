@@ -3,7 +3,7 @@ import {
   CHAT_LIFECYCLE_SWEEP_PORT,
   type ChatLifecycleSweepPort,
 } from '../../chat/application/ports/chat-lifecycle-sweep.port.js';
-import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
+import { AuthOperationalCleanupService } from '../../auth/operations/cleanup/auth-operational-cleanup.service.js';
 import {
   MATCH_HISTORY_MATERIALIZATION_PORT,
   type MatchHistoryMaterializationPort,

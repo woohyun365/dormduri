@@ -28,6 +28,9 @@ export function createUpsertSeasonProfileDraftCommand(
     const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
     const user = await getVerifiedUserForSeasonAction(deps, userId);
     const seasonContext = await assertWritableSeasonContext(deps, user.campus, referenceNow);
+    const moderatedIntro = await deps.seasonProfileIntroModeration.moderateSeasonProfileIntro(
+      input.intro,
+    );
 
     const participantId = await deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getVerifiedUserForSeasonAction(deps, userId, tx);
@@ -47,7 +50,10 @@ export function createUpsertSeasonProfileDraftCommand(
       if (!txUser.displayIdentity) {
         throw new Error('[UpsertSeasonProfileDraftCommand] user display identity row is required');
       }
-      const draftData = toSeasonProfileDraftColumnData(input, txUser.displayIdentity);
+      const draftData = toSeasonProfileDraftColumnData(
+        { ...input, intro: moderatedIntro },
+        txUser.displayIdentity,
+      );
       await tx.seasonParticipantProfile.upsert({
         where: { participantId: participant.id },
         create: {

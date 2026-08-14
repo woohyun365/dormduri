@@ -11,6 +11,7 @@ import { MATCH_ACTIVE_VIEW_PORT } from '../application/ports/match-active-view.p
 import { MATCH_BLOCK_SIDE_EFFECT_PORT } from '../application/ports/match-block-side-effect.port.js';
 import { MATCH_HISTORY_MATERIALIZATION_PORT } from '../application/ports/match-history-materialization.port.js';
 import { MATCH_LIFECYCLE_SWEEP_PORT } from '../application/ports/match-lifecycle-sweep.port.js';
+import { MATCH_REQUEST_SEARCH_METADATA_READER_PORT } from '../application/ports/match-request-search-metadata-reader.port.js';
 import { MATCH_SCORE_PROJECTION_PORT } from '../application/ports/match-score-projection.port.js';
 import { MatchHistoryMaterializationService } from '../history/application/match-history-materialization.service.js';
 import { MatchHistoryQueryService } from '../history/application/match-history-query.service.js';
@@ -29,6 +30,8 @@ import { MatchRequestAcceptanceRepository } from '../requests/persistence/match-
 import { MatchRequestRepository } from '../requests/persistence/match-request.repository.js';
 import { MATCH_REQUEST_NOTE_MODERATION_PORT } from '../requests/ports/match-request-note-moderation.port.js';
 import { ListCurrentSeasonRequestsQuery } from '../requests/queries/list-current-season-requests.query.js';
+import { MatchRequestSearchMetadataQuery } from '../requests/queries/match-request-search-metadata.query.js';
+import { MatchOverviewQuery } from '../overview/match-overview.query.js';
 
 export const MATCHES_PROVIDERS = [
   MatchesService,
@@ -42,6 +45,8 @@ export const MATCHES_PROVIDERS = [
   MatchHistoryQueryService,
   MatchHistoryRepository,
   ListCurrentSeasonRequestsQuery,
+  MatchOverviewQuery,
+  MatchRequestSearchMetadataQuery,
   CreateMatchRequestCommand,
   AcceptMatchRequestCommand,
   RejectMatchRequestCommand,
@@ -78,5 +83,9 @@ export const MATCHES_PROVIDERS = [
   {
     provide: MATCH_REQUEST_NOTE_MODERATION_PORT,
     useExisting: MatchRequestNoteModerationAdapter,
+  },
+  {
+    provide: MATCH_REQUEST_SEARCH_METADATA_READER_PORT,
+    useExisting: MatchRequestSearchMetadataQuery,
   },
 ] satisfies NonNullable<ModuleMetadata['providers']>;

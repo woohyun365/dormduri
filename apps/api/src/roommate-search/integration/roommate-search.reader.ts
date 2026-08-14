@@ -5,6 +5,19 @@ import type {
   RoommateSearchScope,
 } from '@repo/shared/roommate-search/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import type {
+  ChatThreadSearchMetadata,
+  ChatThreadSearchMetadataReaderPort,
+} from '../../chat/application/ports/chat-thread-search-metadata-reader.port.js';
+import type {
+  MatchRequestDirectionLimitMetadata,
+  MatchRequestSearchMetadata,
+  MatchRequestSearchMetadataReaderPort,
+} from '../../matches/application/ports/match-request-search-metadata-reader.port.js';
+import type {
+  PublicProfileActionCapabilities,
+  PublicTargetActionUnavailableReason,
+} from '@repo/shared/profile/contract';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   recordDomainMetricSafely,
@@ -40,6 +53,8 @@ interface RoommateSearchReaderDeps {
   publicProfileTargetReader: ProfilePublicTargetReaderPort;
   bookmarkSearchMetadataReader: BookmarkSearchMetadataReaderPort;
   blockVisibilityReader: BlockVisibilityReaderPort;
+  matchRequestSearchMetadataReader: MatchRequestSearchMetadataReaderPort;
+  chatThreadSearchMetadataReader: ChatThreadSearchMetadataReaderPort;
   metrics?: DomainMetricsPort;
 }
 
@@ -79,10 +94,21 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
       const filteredDiscovery = filterRoommateSearchDiscoveryEntries(filteredEntries, {
         excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
       });
-      const activeBookmarkMap = await loadActiveBookmarkMap(
-        viewerContext,
-        filteredDiscovery.entries,
-      );
+      const [
+        activeBookmarkMap,
+        pendingMatchRequestMap,
+        directionLimitMap,
+        pendingSentLimitReached,
+        cooldownActiveTargetIds,
+        activeChatThreadMap,
+      ] = await Promise.all([
+        loadActiveBookmarkMap(viewerContext, filteredDiscovery.entries),
+        loadPendingMatchRequestMap(viewerContext, filteredDiscovery.entries, now),
+        loadDirectionLimitMap(viewerContext, filteredDiscovery.entries),
+        loadPendingSentLimitReached(viewerContext, filteredDiscovery.entries, now),
+        loadDirectionCooldownActiveTargetIds(viewerContext, filteredDiscovery.entries, now),
+        loadActiveChatThreadMap(viewerContext, filteredDiscovery.entries),
+      ]);
       const filteredItems = filteredDiscovery.entries.map((entry) => {
         const item = responsePresenter.toMaterializedItem({
           entry,
@@ -92,13 +118,41 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
           now,
         });
         const bookmark = activeBookmarkMap.get(entry.targetParticipant.id);
+        const pendingMatchRequest = pendingMatchRequestMap.get(entry.targetParticipant.id);
+        const directionLimit = directionLimitMap.get(entry.targetParticipant.id);
+        const activeChatThread = activeChatThreadMap.get(entry.targetParticipant.id);
+        const actions = applyMatchRequestPreconditionsToActions({
+          actions: item.summary.actions,
+          directionLimit,
+          pendingMatchRequest,
+          pendingSentLimitReached,
+          directionCooldownActive: cooldownActiveTargetIds.has(entry.targetParticipant.id),
+        });
+        const exposedActiveChatThread = actions.canStartChat ? activeChatThread : undefined;
         return {
           ...item,
           summary: {
             ...item.summary,
+            actions,
             bookmark: bookmark
               ? { bookmarked: true, bookmarkedAt: bookmark.bookmarkedAt.toISOString() }
               : { bookmarked: false },
+            pendingMatchRequest: pendingMatchRequest
+              ? {
+                  id: pendingMatchRequest.requestId,
+                  direction: pendingMatchRequest.direction,
+                  createdAt: pendingMatchRequest.createdAt.toISOString(),
+                  expiresAt: pendingMatchRequest.expiresAt.toISOString(),
+                }
+              : null,
+            activeChatThread: exposedActiveChatThread
+              ? {
+                  id: exposedActiveChatThread.threadId,
+                  threadKind: exposedActiveChatThread.threadKind,
+                  status: exposedActiveChatThread.status,
+                  lastMessageAt: exposedActiveChatThread.lastMessageAt?.toISOString(),
+                }
+              : null,
           },
         };
       });
@@ -230,6 +284,104 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     });
   }
 
+  async function loadPendingMatchRequestMap(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+    now: Date,
+  ): Promise<ReadonlyMap<string, MatchRequestSearchMetadata>> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return new Map<string, MatchRequestSearchMetadata>();
+    }
+
+    return deps.matchRequestSearchMetadataReader.getLivePendingRequestMetadata({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      targetParticipantIds: entries.map((entry) => entry.targetParticipant.id),
+      now,
+    });
+  }
+
+  async function loadDirectionLimitMap(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+  ): Promise<ReadonlyMap<string, MatchRequestDirectionLimitMetadata>> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return new Map<string, MatchRequestDirectionLimitMetadata>();
+    }
+
+    return deps.matchRequestSearchMetadataReader.getDirectionLimitReachedMetadata({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      targetParticipantIds: entries.map((entry) => entry.targetParticipant.id),
+    });
+  }
+
+  async function loadPendingSentLimitReached(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+    now: Date,
+  ): Promise<boolean> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return false;
+    }
+    return deps.matchRequestSearchMetadataReader.isPendingSentLimitReached({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      now,
+    });
+  }
+
+  async function loadDirectionCooldownActiveTargetIds(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+    now: Date,
+  ): Promise<ReadonlySet<string>> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return new Set();
+    }
+    return deps.matchRequestSearchMetadataReader.getDirectionCooldownActiveTargetIds({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      targetParticipantIds: entries.map((entry) => entry.targetParticipant.id),
+      now,
+    });
+  }
+
+  async function loadActiveChatThreadMap(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+  ): Promise<ReadonlyMap<string, ChatThreadSearchMetadata>> {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.viewerParticipant ||
+      entries.length === 0
+    ) {
+      return new Map<string, ChatThreadSearchMetadata>();
+    }
+
+    return deps.chatThreadSearchMetadataReader.getActiveThreadMetadata({
+      seasonId: viewerContext.currentSeasonId,
+      viewerParticipantId: viewerContext.viewerParticipant.id,
+      targetParticipantIds: entries.map((entry) => entry.targetParticipant.id),
+    });
+  }
+
   async function loadActiveCollegeOptions(viewerContext: VisibleProfileViewerContext) {
     const colleges = await deps.prisma.collegeMaster.findMany({
       where: {
@@ -278,4 +430,40 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
       }),
     );
   }
+}
+
+export function applyMatchRequestPreconditionsToActions(input: {
+  actions: PublicProfileActionCapabilities;
+  directionLimit: MatchRequestDirectionLimitMetadata | undefined;
+  pendingMatchRequest: MatchRequestSearchMetadata | undefined;
+  pendingSentLimitReached: boolean;
+  directionCooldownActive: boolean;
+}): PublicProfileActionCapabilities {
+  if (!input.actions.canRequestMatch) {
+    return input.actions;
+  }
+
+  const reason = input.pendingMatchRequest
+    ? 'MATCH_REQUEST_ALREADY_PENDING'
+    : input.pendingSentLimitReached
+      ? 'MATCH_REQUEST_PENDING_LIMIT_REACHED'
+      : input.directionLimit
+        ? 'MATCH_REQUEST_DIRECTION_LIMIT_REACHED'
+        : input.directionCooldownActive
+          ? 'MATCH_REQUEST_DIRECTION_COOLDOWN_ACTIVE'
+          : null;
+  if (!reason) return input.actions;
+
+  return {
+    ...input.actions,
+    canRequestMatch: false,
+    unavailableReasons: appendUnavailableReason(input.actions.unavailableReasons, reason),
+  };
+}
+
+function appendUnavailableReason(
+  reasons: readonly PublicTargetActionUnavailableReason[],
+  reason: PublicTargetActionUnavailableReason,
+): PublicTargetActionUnavailableReason[] {
+  return reasons.includes(reason) ? [...reasons] : [...reasons, reason];
 }

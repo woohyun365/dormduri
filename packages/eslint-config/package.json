@@ -5,12 +5,18 @@
   "type": "module",
   "sideEffects": false,
   "files": [
-    "flat.mjs"
+    "base.mjs",
+    "next.mjs",
+    "vitest.mjs",
+    "playwright.mjs"
   ],
   "engines": {
     "node": ">=24 <25"
   },
   "exports": {
-    "./flat": "./flat.mjs"
+    "./base": "./base.mjs",
+    "./next": "./next.mjs",
+    "./vitest": "./vitest.mjs",
+    "./playwright": "./playwright.mjs"
   }
 }

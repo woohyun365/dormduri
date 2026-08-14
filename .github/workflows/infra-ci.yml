@@ -1,0 +1,92 @@
+name: Infrastructure CI
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Infrastructure static gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize runner-owned artifact path
+        run: echo "KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts" >> "$GITHUB_ENV"
+
+      - name: Capture secret-free infrastructure inventory
+        run: |
+          mkdir -p "$KNU_ARTIFACTS_DIR/infra"
+          pnpm infra:inspect > "$KNU_ARTIFACTS_DIR/infra/inspection.json"
+
+      - name: Run canonical static infrastructure gate
+        run: pnpm infra:check:static
+
+      - name: Upload static infrastructure evidence
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: infra-static-evidence
+          path: |
+            ${{ runner.temp }}/knu-roommate-artifacts/infra/inspection.json
+            ${{ runner.temp }}/knu-roommate-artifacts/infra/observability-production.json
+          if-no-files-found: error
+          retention-days: 7
+
+  runtime-config:
+    name: Infrastructure container config gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+
+      - name: Initialize runner-owned artifact path
+        run: echo "KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts" >> "$GITHUB_ENV"
+
+      - name: Validate nginx and observability runtime configs
+        run: pnpm infra:check:runtime
+
+      - name: Upload runtime configuration evidence
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: infra-runtime-config-evidence
+          path: ${{ runner.temp }}/knu-roommate-artifacts/infra/runtime-configs.json
+          if-no-files-found: error
+          retention-days: 7

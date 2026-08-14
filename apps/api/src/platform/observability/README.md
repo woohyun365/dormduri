@@ -53,28 +53,39 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 
 ## Domain metrics bridge
 
-도메인 코드는 `prom-client`를 직접 import하지 않는다. Prometheus metric이 필요한 도메인 module은
-`MetricsModule`을 명시적으로 import하고 `DOMAIN_METRICS_PORT`를 optional dependency로 받아 bounded
-metric만 기록한다.
+도메인 코드는 `prom-client`를 직접 import하지 않는다. Metric name/help/label/bucket은 owning domain의
+`*.metric.definitions.ts`가 소유한다. Domain module은 `DomainMetricDefinitionsModule.register()`로 정의를
+등록하고 `DOMAIN_METRICS_PORT`를 통해 bounded metric만 기록한다.
+
+독립 module lifecycle이 있는 기능은 definition을 해당 slice에 recorder와 함께 둔다. 하나의 module이 여러
+내부 slice recorder를 함께 등록하는 경우에는 module-level definition catalog를 둘 수 있으며, recorder의
+비즈니스 timing과 label 값 결정 책임은 계속 각 owning slice에 남긴다.
+
+Platform은 registry, counter/gauge/histogram primitive, label validation, Prometheus adapter만 소유한다.
+동일 metric name 중복, 금지 label, 잘못된 histogram bucket은 definition 등록 시 fail-fast한다.
 
 현재 bridge 범위:
 
 - chat realtime: socket 연결 수, dispatch batch, outbox lag, rejection, prune outcome
-- auth operations: cleanup deleted/failure/lag, Redis gate state
+- auth request lifecycle: verification, credential, mail, login, hash, session, signup outcome
+- auth operations: cleanup deleted/failure/batch saturation
+- health: readiness result/failure/duration
 - seasons operations: current season query/cache, 운영 schedule/override action outcome
 - retention: backlog gauge, sweep duration, review job count
 - Prisma platform: managed pg pool snapshot, Serializable transaction retry/exhausted
 - roommate-search: request duration/outcome, sort, candidate pipeline count
 
-각 도메인의 기존 in-memory snapshot(`/health/realtime`, `/health/auth` 등)은 health/readiness
-source-of-truth로 유지한다. Prometheus bridge는 운영 scrape surface일 뿐 snapshot을 대체하지
-않는다.
+제품 도메인의 in-memory snapshot을 `/health/realtime`, `/health/auth` 같은 route로 노출하지 않는다.
+Request·mail·credential·cleanup·realtime lifecycle 경보는 owner-local counter/gauge와 Prometheus rule이
+담당하며 감사 로그를 다시 읽어 metric을 만들지 않는다. Public readiness는 runtime routing에 필요한
+bounded aggregate만 반환한다.
 
-## Phase 경계
+## 관측 책임
 
-- Phase 1: logging foundation, request correlation, redaction, exception/prisma pool error logging.
-- Phase 2: `/internal/metrics`, Prometheus registry, bounded platform HTTP/exception metrics.
-- Phase 3: domain metrics bridge와 domain operation metric/log touch point.
+- logging foundation은 request correlation, redaction, exception/Prisma pool error logging을 소유한다.
+- `/internal/metrics`와 Prometheus registry는 bounded platform HTTP/exception metric을 제공한다.
+- domain metrics bridge는 각 domain operation의 bounded metric/log touch point를 연결한다.
+- 제품 metric 추가는 platform adapter 수정 없이 owning module의 definition catalog와 owning slice recorder 변경으로 끝나야 한다.
 
 ## Infra stack
 

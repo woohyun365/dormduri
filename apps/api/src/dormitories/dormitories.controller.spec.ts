@@ -29,7 +29,6 @@ describe('DormitoriesController', () => {
   const dormitoriesService = {
     getDormitories: vi.fn(),
     getDormitoryById: vi.fn(),
-    getDormitoryGuide: vi.fn(),
   };
 
   const controller = new DormitoriesController(dormitoriesService as never);

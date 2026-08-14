@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { buildProfileDetailFooter } from '../ProfileDetailFooter';
 
-vi.mock('@/utils/matchButtonStyle', () => ({
-  getMatchButtonStyle: vi.fn((state: { type: string }) => {
+vi.mock('../model/profileDetailMatchAction', () => ({
+  getProfileDetailMatchActionStyle: vi.fn((state: { type: string }) => {
     if (state.type === 'REQUEST')
       return { label: '매칭 요청', className: 'bg-primary', clickable: true };
     if (state.type === 'PENDING_SENT')

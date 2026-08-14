@@ -6,6 +6,14 @@ import type {
   RoommateSearchResponse,
 } from '@repo/shared/roommate-search/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import {
+  CHAT_THREAD_SEARCH_METADATA_READER_PORT,
+  type ChatThreadSearchMetadataReaderPort,
+} from '../../chat/application/ports/chat-thread-search-metadata-reader.port.js';
+import {
+  MATCH_REQUEST_SEARCH_METADATA_READER_PORT,
+  type MatchRequestSearchMetadataReaderPort,
+} from '../../matches/application/ports/match-request-search-metadata-reader.port.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   BLOCK_VISIBILITY_READER_PORT,
@@ -37,6 +45,10 @@ export class RoommateSearchService {
     private readonly bookmarkSearchMetadataReader: BookmarkSearchMetadataReaderPort,
     @Inject(BLOCK_VISIBILITY_READER_PORT)
     private readonly blockVisibilityReader: BlockVisibilityReaderPort,
+    @Inject(MATCH_REQUEST_SEARCH_METADATA_READER_PORT)
+    private readonly matchRequestSearchMetadataReader: MatchRequestSearchMetadataReaderPort,
+    @Inject(CHAT_THREAD_SEARCH_METADATA_READER_PORT)
+    private readonly chatThreadSearchMetadataReader: ChatThreadSearchMetadataReaderPort,
     @Optional()
     @Inject(DOMAIN_METRICS_PORT)
     private readonly metrics?: DomainMetricsPort,
@@ -46,6 +58,8 @@ export class RoommateSearchService {
       publicProfileTargetReader: this.publicProfileTargetReader,
       bookmarkSearchMetadataReader: this.bookmarkSearchMetadataReader,
       blockVisibilityReader: this.blockVisibilityReader,
+      matchRequestSearchMetadataReader: this.matchRequestSearchMetadataReader,
+      chatThreadSearchMetadataReader: this.chatThreadSearchMetadataReader,
       metrics: this.metrics,
     });
   }

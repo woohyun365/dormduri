@@ -86,6 +86,9 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
         campusOperated: viewerContext.serviceState.campusOperated,
         seasonState: viewerContext.serviceState.seasonState,
         participant: viewerContext.viewerParticipant,
+        registrationSnapshotExists: viewerContext.viewerParticipant
+          ? registrationSnapshotParticipantIds.has(viewerContext.viewerParticipant.id)
+          : false,
         matched: viewerActiveMatch !== null,
         seasonProfileComplete: viewerContext.viewerSeasonProfileComplete,
         matchedPartnerParticipantId: viewerActiveMatch?.counterpartParticipantId ?? null,
@@ -148,9 +151,7 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
       ...candidates.map((candidate) => candidate.participant.id),
     ].filter((participantId): participantId is string => participantId !== null);
     const registrationSnapshotParticipantIds =
-      await deps.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet(
-        candidates.map((candidate) => candidate.participant.id),
-      );
+      await deps.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet(participantIds);
 
     const activeMatchMap = viewerContext.currentSeasonId
       ? await deps.matchActiveView.getLiveActiveMatchMapForParticipantIds(
@@ -322,9 +323,7 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
       candidate.participant.id,
     ].filter((participantId): participantId is string => participantId !== null);
     const [registrationSnapshotParticipantIds, activeMatchMap] = await Promise.all([
-      deps.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet([
-        candidate.participant.id,
-      ]),
+      deps.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet(participantIds),
       viewerContext.currentSeasonId
         ? deps.matchActiveView.getLiveActiveMatchMapForParticipantIds(
             viewerContext.currentSeasonId,
@@ -350,6 +349,9 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
         campusOperated: viewerContext.serviceState.campusOperated,
         seasonState: viewerContext.serviceState.seasonState,
         participant: viewerContext.viewerParticipant,
+        registrationSnapshotExists: viewerContext.viewerParticipant
+          ? registrationSnapshotParticipantIds.has(viewerContext.viewerParticipant.id)
+          : false,
         matched: viewerActiveMatch !== null,
         seasonProfileComplete: viewerContext.viewerSeasonProfileComplete,
         matchedPartnerParticipantId: viewerActiveMatch?.counterpartParticipantId ?? null,
@@ -390,6 +392,14 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
             scoreVisible,
           })
         : null;
+      const compatibility =
+        typeof matchScore === 'number'
+          ? deps.matchScoreProjection.buildPublicProfileCompatibility({
+              viewerLifestyle: viewerContext.viewerLifestyle,
+              targetLifestyle,
+              scoreVisible,
+            })
+          : null;
 
       return toPublicProfile(
         {
@@ -404,6 +414,7 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
           resultRead: publicTargetPolicy.resultRead,
           scoreVisible,
           ...(typeof matchScore === 'number' ? { matchScore } : {}),
+          ...(compatibility ? { compatibility } : {}),
         },
       );
     }

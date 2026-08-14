@@ -46,7 +46,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api test -- src/social-safety/bookmarks/contracts/bookmark-contract.spec.ts src/social-safety/blocks/contracts/block-contract.spec.ts src/social-safety/reports/contracts/report-contract.spec.ts src/architecture/social-safety/social-safety-boundary.spec.ts --runInBand
+pnpm --dir apps/api test -- src/social-safety/bookmarks/contracts/bookmark-contract.spec.ts src/social-safety/blocks/contracts/block-contract.spec.ts src/social-safety/reports/contracts/report-contract.spec.ts src/architecture/social-safety/social-safety-boundary.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

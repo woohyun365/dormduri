@@ -6,13 +6,13 @@ import type {
   UpdateCurrentUserResponse,
 } from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
-import { ModerationService } from '../../moderation/moderation.service.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 import { CurrentUserViewService } from '../current-user/current-user-view.service.js';
 import { usersErrors } from '../errors/users.errors.js';
 import { createUpdateAcademicIdentityCommand } from '../identity/academic/update-academic-identity.command.js';
 import { createUpdateDisplayIdentityCommand } from '../identity/display/update-display-identity.command.js';
+import type { DisplayIdentityNicknamePolicyService } from '../identity/display/display-identity-nickname-policy.service.js';
 import { getUserWithDisplayIdentity } from './user-display-identity.reader.js';
 
 export interface UpdateCurrentUserInput {
@@ -25,7 +25,7 @@ export interface UpdateCurrentUserInput {
 interface UserUpdateOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonContextPort;
-  moderationService: ModerationService;
+  nicknamePolicy: DisplayIdentityNicknamePolicyService;
   currentUserViewService: CurrentUserViewService;
 }
 
@@ -33,7 +33,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   const displayIdentityCommand = createUpdateDisplayIdentityCommand({
     prisma: deps.prisma,
     seasonsService: deps.seasonsService,
-    moderationService: deps.moderationService,
+    nicknamePolicy: deps.nicknamePolicy,
   });
   const academicIdentityCommand = createUpdateAcademicIdentityCommand({
     prisma: deps.prisma,

@@ -13,7 +13,6 @@ Optional bounded role/schema overrides:
   DB_APP_RUNTIME_ROLE
   DB_RETENTION_WORKER_ROLE
   DB_RETENTION_DISCLOSURE_ROLE
-  DB_AUTH_CLEANUP_WORKER_ROLE
   DB_READONLY_ROLE
   DB_MIGRATION_ROLE
 USAGE
@@ -78,7 +77,6 @@ schema="${DB_GRANT_SCHEMA:-public}"
 app_runtime_role="${DB_APP_RUNTIME_ROLE:-app_runtime}"
 retention_worker_role="${DB_RETENTION_WORKER_ROLE:-retention_worker}"
 retention_disclosure_role="${DB_RETENTION_DISCLOSURE_ROLE:-retention_disclosure}"
-auth_cleanup_worker_role="${DB_AUTH_CLEANUP_WORKER_ROLE:-auth_cleanup_worker}"
 app_readonly_role="${DB_READONLY_ROLE:-app_readonly}"
 migration_role="${DB_MIGRATION_ROLE:-migration_owner}"
 
@@ -86,7 +84,6 @@ validate_identifier DB_GRANT_SCHEMA "$schema"
 validate_identifier DB_APP_RUNTIME_ROLE "$app_runtime_role"
 validate_identifier DB_RETENTION_WORKER_ROLE "$retention_worker_role"
 validate_identifier DB_RETENTION_DISCLOSURE_ROLE "$retention_disclosure_role"
-validate_identifier DB_AUTH_CLEANUP_WORKER_ROLE "$auth_cleanup_worker_role"
 validate_identifier DB_READONLY_ROLE "$app_readonly_role"
 validate_identifier DB_MIGRATION_ROLE "$migration_role"
 
@@ -101,7 +98,7 @@ for file in "$auth_sql" "$rrpd_sql"; do
 done
 
 if [ "$dry_run" = true ]; then
-  echo 'dry-run: would apply auth-role-grants.sql and rrpd-role-grants.sql using MIGRATION_DATABASE_URL'
+  echo 'dry-run: would apply rrpd-role-grants.sql then auth-role-grants.sql using MIGRATION_DATABASE_URL'
   echo 'dry-run: role/schema override env names validated without printing secret values'
   exit 0
 fi
@@ -119,7 +116,6 @@ append_setting knu_roommate.rrpd_schema "$schema"
 append_setting knu_roommate.app_runtime_role "$app_runtime_role"
 append_setting knu_roommate.retention_worker_role "$retention_worker_role"
 append_setting knu_roommate.retention_disclosure_role "$retention_disclosure_role"
-append_setting knu_roommate.auth_cleanup_worker_role "$auth_cleanup_worker_role"
 append_setting knu_roommate.app_readonly_role "$app_readonly_role"
 append_setting knu_roommate.migration_role "$migration_role"
 
@@ -128,5 +124,5 @@ psql "$MIGRATION_DATABASE_URL" \
   -v ON_ERROR_STOP=1 \
   -X \
   -f "$settings_sql" \
-  -f "$auth_sql" \
-  -f "$rrpd_sql"
+  -f "$rrpd_sql" \
+  -f "$auth_sql"

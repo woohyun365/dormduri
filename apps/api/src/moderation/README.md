@@ -15,7 +15,7 @@
 - `moderation.module.ts`: `PrismaModule` explicit import, repository/service provider wiring, `ModerationService` export owner. `@Global()`을 사용하지 않는다.
 - `moderation.service.ts`: caller-facing moderation orchestration, active term lookup, short TTL cache, surface별 validation result mapping.
 - `moderation.repository.ts`: Prisma-backed active moderation term query owner. Text normalization/policy 판단을 소유하지 않는다.
-- `text-moderation.policy.ts`: pure moderation policy helper. NFKC/lowercase/punctuation-symbol-whitespace removal normalization, exact/includes match, user-facing error message selection을 소유한다.
+- `text-moderation.policy.ts`: pure moderation policy helper. NFKC/lowercase/punctuation-symbol-whitespace removal normalization, 한글 사이 숫자 삽입 우회 후보, exact/includes/prefix match, user-facing error message selection을 소유한다.
 - `moderation.defaults.ts`: seed/default term source. Runtime DB term query와 혼동하지 않는다.
 - `*.spec.ts`: repository/service/pure policy behavior regression guard.
 
@@ -25,6 +25,9 @@
 - `ModerationModule`은 non-global module이다. Auth/users/matches 등 caller module은 explicit import로 dependency를 드러낸다.
 - User-facing error message를 refactor만으로 변경하지 않는다.
 - Text normalization/matching policy는 pure helper로 유지하고 Nest provider/Prisma client를 import하지 않는다.
+- Reference term은 `prisma/seeds/reference/moderation` manifest와 전용 seed가 소유한다. `referenceKey`로 동기화하고 제거된 `REFERENCE` row만 비활성화한다.
+- 운영자가 추가한 `OPERATIONS` row는 reference seed가 수정·삭제·비활성화하지 않는다.
+- 짧은 영문 term은 정상 단어 내부 false positive를 줄이기 위해 `PREFIX` 또는 `EXACT`를 우선한다.
 - Repository는 DB 조회만 담당하고, surface별 policy 판단이나 error message를 소유하지 않는다.
 - Short TTL cache는 best-effort optimization이다. Moderation term source-of-truth는 Postgres active terms다.
 - Redis/cache 도입은 observed bottleneck 또는 multi-instance cache consistency 요구가 제품 운영 조건으로 확정될 때 moderation ops/cache owner가 다룬다.
@@ -42,10 +45,10 @@ Moderation boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `a
 
 ## Where to change moderation behavior
 
-- Public text surface union, normalization, exact/includes matching, error message: `text-moderation.policy.ts`.
+- Public text surface union, normalization, exact/includes/prefix matching, error message: `text-moderation.policy.ts`.
 - Caller-facing validation flow and cache TTL behavior: `moderation.service.ts`.
 - Active term DB query and selected columns: `moderation.repository.ts`.
-- Default/seed term source: `moderation.defaults.ts` and seed pipeline.
+- Reference term source: `prisma/seeds/reference/moderation/moderation-reference-data.js`.
 - Module import/export boundary: `moderation.module.ts` plus caller module imports.
 - Nickname policy integration: users/auth signup validation caller tests.
 - Intro/match request note integration: profiles/matches caller tests.
@@ -56,12 +59,13 @@ Moderation boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `a
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/moderation \
-  src/auth/registration/auth-signup-validation.service.spec.ts \
-  src/users/users.service.spec.ts \
-  src/users/user-deletion-owner.spec.ts \
+  src/auth/registration/signup-nickname-validation.query.spec.ts \
+  src/users/identity/display/display-identity-nickname-policy.service.spec.ts \
+  src/users/application/users.service.spec.ts \
+  src/users/account-deletion/request-account-deletion.command.spec.ts \
   src/matches/application/matches.service.spec.ts \
-  src/architecture/common-boundary.spec.ts \
-  src/architecture/module-boundary.spec.ts
+  test/architecture/api-contracts/display-identity-nickname-policy.spec.ts \
+  test/architecture/platform/module-boundary.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
 git diff --check

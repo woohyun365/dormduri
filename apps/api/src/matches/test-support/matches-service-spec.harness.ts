@@ -6,6 +6,7 @@ import { ActiveMatchLifecycleEventRepository } from '../active/lifecycle-events/
 import { ActiveMatchLifecycleEventWriter } from '../active/lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../active/persistence/active-match.repository.js';
 import { ActiveMatchViewQuery } from '../active/queries/active-match-view.query.js';
+import { MatchOverviewQuery } from '../overview/match-overview.query.js';
 import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
 import { AcceptMatchRequestCommand } from '../requests/commands/accept-match-request.command.js';
 import { CancelMatchRequestCommand } from '../requests/commands/cancel-match-request.command.js';
@@ -183,6 +184,9 @@ function createMatchesServiceSpecHarnessImpl() {
     findCurrentSeasonParticipant: vi.fn(),
     selectCanonicalSelection: vi.fn(),
     hasRegistrationSnapshotForParticipant: vi.fn(),
+    findRegistrationSnapshotParticipantIdSet: vi
+      .fn()
+      .mockResolvedValue(new Set(['participant-1', 'participant-2'])),
   };
 
   const chatMatchThreadLifecycle = {
@@ -195,6 +199,9 @@ function createMatchesServiceSpecHarnessImpl() {
     new ActiveMatchLifecycleEventRepository(),
   );
   const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never, activeMatchRepository);
+  const chatThreadSearchMetadataReader = {
+    getActiveThreadMetadata: vi.fn().mockResolvedValue(new Map()),
+  };
   const noteModerationAdapter = new MatchRequestNoteModerationAdapter(moderationService as never);
   const matchRequestRepository = new MatchRequestRepository();
   const matchRequestAcceptanceRepository = new MatchRequestAcceptanceRepository();
@@ -205,11 +212,14 @@ function createMatchesServiceSpecHarnessImpl() {
     activeMatchViewQuery,
     noteModerationAdapter,
   );
-  const listCurrentSeasonRequestsQuery = new ListCurrentSeasonRequestsQuery(
+  const matchOverviewQuery = new MatchOverviewQuery(
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
+    activeMatchViewQuery,
+    chatThreadSearchMetadataReader,
   );
+  const listCurrentSeasonRequestsQuery = new ListCurrentSeasonRequestsQuery(matchOverviewQuery);
   const resolveTerminalMatchRequestCommand = new ResolveTerminalMatchRequestCommand(
     prisma as never,
     seasonsService as never,
@@ -231,6 +241,7 @@ function createMatchesServiceSpecHarnessImpl() {
     seasonParticipantsService as never,
     activeMatchViewQuery,
     listCurrentSeasonRequestsQuery,
+    matchOverviewQuery,
     new CreateMatchRequestCommand(
       prisma as never,
       matchRequestCreationEvaluator,
@@ -297,6 +308,9 @@ function createMatchesServiceSpecHarnessImpl() {
       }),
     );
     seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
+      new Set(['participant-1', 'participant-2']),
+    );
     prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
       Promise.resolve(
         where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),

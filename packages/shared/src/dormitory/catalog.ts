@@ -3,11 +3,15 @@ import { campusMetaSchema } from '../campus/index.js';
 import { campusSchema } from '../identity/primitives.js';
 import { dormitoryGenderPolicySchema, dormitoryRoomTypeSchema } from './enums.js';
 
-export const dormitoryItemSchema = z.strictObject({
+export const dormitoryPublicSummarySchema = z.strictObject({
   id: z.string(),
   name: z.string(),
   roomType: dormitoryRoomTypeSchema,
   genderPolicy: dormitoryGenderPolicySchema,
+});
+
+export const dormitoryItemSchema = z.strictObject({
+  ...dormitoryPublicSummarySchema.shape,
   isOperated: z.boolean(),
 });
 
@@ -27,5 +31,6 @@ export const dormitoryDetailResponseSchema = z.strictObject({
 });
 
 export type DormitoryItem = z.infer<typeof dormitoryItemSchema>;
+export type DormitoryPublicSummary = z.infer<typeof dormitoryPublicSummarySchema>;
 export type DormitoryListResponse = z.infer<typeof dormitoryListResponseSchema>;
 export type DormitoryDetailResponse = z.infer<typeof dormitoryDetailResponseSchema>;

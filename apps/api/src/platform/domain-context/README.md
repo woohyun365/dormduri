@@ -26,7 +26,7 @@ Product domains may use this helper to attach route metadata for domain context 
 ## Architecture guard
 
 - Platform/domain-context replaces old common/domain-context placement.
-- Domain context route matrix specs live under `apps/api/src/architecture/domain-context`.
+- Domain context route matrix specs live under `apps/api/test/architecture/domain-context`.
 - Product domains own requirement literals and fail-closed behavior.
 
 ## Where to change
@@ -42,7 +42,7 @@ Product domains may use this helper to attach route metadata for domain context 
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/platform/domain-context \
-  src/architecture/domain-context/domain-context-route-matrix.spec.ts
+  test/architecture/domain-context/domain-context-route-matrix.spec.ts
 pnpm --dir apps/api exec eslint src/platform/domain-context
 pnpm exec prettier --check apps/api/src/platform/domain-context/README.md
 pnpm api:typecheck

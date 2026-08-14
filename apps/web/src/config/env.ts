@@ -1,15 +1,26 @@
-const DEFAULT_APP_URL = 'http://localhost:3000';
-const DEFAULT_API_UPSTREAM_URL = 'http://localhost:4000';
-const DEFAULT_PUBLIC_API_BASE = '/api';
+import { normalizeWebRuntimeMode, parseWebServerEnv, type WebServerEnv } from './env.schema';
 
-export const webEnv = {
-  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? DEFAULT_APP_URL,
-  apiUpstreamUrl: process.env.API_URL ?? DEFAULT_API_UPSTREAM_URL,
-  publicApiBase: process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_PUBLIC_API_BASE,
-} as const;
+export {
+  normalizeWebRuntimeMode,
+  parseWebSentryEnv,
+  parseWebServerEnv,
+  webEnvDefaults,
+  WebEnvValidationError,
+} from './env.schema';
+export type { WebRuntimeMode, WebServerEnv } from './env.schema';
+export type { WebOperationalTelemetryEnv, WebSentryEnv } from './env.schema';
 
-export const webEnvDefaults = {
-  appUrl: DEFAULT_APP_URL,
-  apiUpstreamUrl: DEFAULT_API_UPSTREAM_URL,
-  publicApiBase: DEFAULT_PUBLIC_API_BASE,
-} as const;
+export function getWebEnv(rawEnv: NodeJS.ProcessEnv = process.env): WebServerEnv {
+  return parseWebServerEnv(rawEnv, normalizeWebRuntimeMode(rawEnv.NODE_ENV));
+}
+
+export const webEnv = new Proxy({} as WebServerEnv, {
+  get(_target, property: string | symbol): WebServerEnv[keyof WebServerEnv] | undefined {
+    if (typeof property !== 'string') {
+      return undefined;
+    }
+
+    const parsedEnv = getWebEnv();
+    return parsedEnv[property as keyof WebServerEnv];
+  },
+});

@@ -33,7 +33,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api test -- src/social-safety/bookmarks/contracts/bookmark-contract.spec.ts src/social-safety/bookmarks/commands/create-bookmark.command.spec.ts src/social-safety/bookmarks/commands/delete-bookmark.command.spec.ts src/social-safety/bookmarks/queries/bookmark-list.query.spec.ts src/social-safety/bookmarks/queries/bookmark-list.cursor.spec.ts src/social-safety/bookmarks/policies/bookmark-target-policy.evaluator.spec.ts src/social-safety/bookmarks/repositories/bookmark.repository.spec.ts src/social-safety/bookmarks/application/bookmark-lifecycle.service.spec.ts src/social-safety/bookmarks/presenters/bookmark.presenter.spec.ts --runInBand
+pnpm --dir apps/api test -- src/social-safety/bookmarks/contracts/bookmark-contract.spec.ts src/social-safety/bookmarks/commands/create-bookmark.command.spec.ts src/social-safety/bookmarks/commands/delete-bookmark.command.spec.ts src/social-safety/bookmarks/queries/bookmark-list.query.spec.ts src/social-safety/bookmarks/queries/bookmark-list.cursor.spec.ts src/social-safety/bookmarks/policies/bookmark-target-policy.evaluator.spec.ts src/social-safety/bookmarks/repositories/bookmark.repository.spec.ts src/social-safety/bookmarks/application/bookmark-lifecycle.service.spec.ts src/social-safety/bookmarks/presenters/bookmark.presenter.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

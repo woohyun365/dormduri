@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { ActiveMatchSummary } from '@repo/shared/match/contract';
+import type { ActiveMatchSummary, CurrentActiveMatchSummary } from '@repo/shared/match/contract';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import type { MatchActiveViewPort } from '../../application/ports/match-active-view.port.js';
 import { matchesErrors } from '../../errors/matches.errors.js';
 import {
-  toActiveMatchSummary,
-  toDetailedActiveMatchSummary,
+  toCurrentActiveMatchSummary,
+  toCurrentDetailedActiveMatchSummary,
 } from '../presenters/active-match.presenter.js';
 import {
   activeMatchCommandSelect,
@@ -37,7 +37,7 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
     seasonContext: CurrentSeasonContext,
     participantId: string,
     now: Date,
-  ): Promise<ActiveMatchSummary | null> {
+  ): Promise<CurrentActiveMatchSummary | null> {
     const activeMatch = await this.getCurrentDetailedActiveMatchByParticipantId(
       seasonContext.season.id,
       participantId,
@@ -52,7 +52,12 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
         now,
       );
 
-    return toDetailedActiveMatchSummary(synchronizedActiveMatch, participantId, seasonContext, now);
+    return toCurrentDetailedActiveMatchSummary(
+      synchronizedActiveMatch,
+      participantId,
+      seasonContext,
+      now,
+    );
   }
 
   async getCurrentDetailedActiveMatchByParticipantId(
@@ -62,6 +67,7 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
     return this.prisma.activeMatch.findFirst({
       where: {
         seasonId,
+        status: 'ACTIVE',
         endedAt: null,
         OR: [{ participantAId: participantId }, { participantBId: participantId }],
       },
@@ -75,7 +81,7 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
     viewerParticipantId: string,
     seasonContext: CurrentSeasonContext,
     now: Date,
-  ): Promise<ActiveMatchSummary> {
+  ): Promise<CurrentActiveMatchSummary> {
     const activeMatch = await client.activeMatch.findUnique({
       where: { id: activeMatchId },
       select: activeMatchCommandSelect,
@@ -93,7 +99,7 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
         now,
       );
 
-    return toDetailedActiveMatchSummary(
+    return toCurrentDetailedActiveMatchSummary(
       synchronizedActiveMatch,
       viewerParticipantId,
       seasonContext,
@@ -112,6 +118,7 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
     const activeMatches = await this.prisma.activeMatch.findMany({
       where: {
         seasonId,
+        status: 'ACTIVE',
         endedAt: null,
         OR: [
           { participantAId: { in: participantIds } },
@@ -125,11 +132,11 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
     for (const activeMatch of activeMatches) {
       map.set(
         activeMatch.participantAId,
-        toActiveMatchSummary(activeMatch, activeMatch.participantAId),
+        toCurrentActiveMatchSummary(activeMatch, activeMatch.participantAId),
       );
       map.set(
         activeMatch.participantBId,
-        toActiveMatchSummary(activeMatch, activeMatch.participantBId),
+        toCurrentActiveMatchSummary(activeMatch, activeMatch.participantBId),
       );
     }
 

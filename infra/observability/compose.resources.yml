@@ -1,0 +1,45 @@
+services:
+  prometheus:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.35'
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  loki:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.35'
+          memory: 320M
+        reservations:
+          memory: 160M
+
+  alloy:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 160M
+        reservations:
+          memory: 80M
+
+  alertmanager:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 96M
+        reservations:
+          memory: 48M
+
+  grafana:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 320M
+        reservations:
+          memory: 112M

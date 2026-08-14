@@ -1,23 +1,3 @@
-export interface BuildingStats {
-  totalParticipants: number;
-  assignedParticipants: number;
-  buildingMatchable: number;
-  buildingTotal: number;
-  todayNewTotal: number;
-  todayNewBuilding: number;
-  totalMatchSuccess: number;
-  buildingMatchSuccess: number;
-  popularCondition: string;
-}
-
-export interface PastSeasonResult {
-  matched: boolean;
-  partnerName?: string;
-  totalRequests: number;
-  sentRequests: number;
-  totalChats: number;
-}
-
 export interface BuildingStatsSnapshot {
   totalParticipants: number;
   assignedParticipants: number;
@@ -25,6 +5,8 @@ export interface BuildingStatsSnapshot {
   todayNewBuilding: number;
   totalMatchSuccess: number;
   buildingMatchSuccess: number;
+  todayMatchSuccessTotal: number;
+  todayMatchSuccessBuilding: number;
 }
 
 export type PastSeasonPreset = 'none' | 'failed' | 'matched';

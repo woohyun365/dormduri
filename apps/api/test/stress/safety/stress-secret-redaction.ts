@@ -1,7 +1,7 @@
 const REDACTED_STRESS_SECRET = '[REDACTED_STRESS_SECRET]' as const;
 
 const SENSITIVE_KEY_PATTERN =
-  /(?:email|password|passphrase|token|secret|cookie|authorization|authHeader|session|refresh|accessToken)/iu;
+  /(?:email|password|passphrase|token|grant|secret|cookie|authorization|authHeader|session|refresh|accessToken)/iu;
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu;
 const AUTH_VALUE_PATTERN = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu;
 const COOKIE_VALUE_PATTERN = /\b(?:session|refresh|access|token|jwt|sid)=([^;\s]+)/giu;

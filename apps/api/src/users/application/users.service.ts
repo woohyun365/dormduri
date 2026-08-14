@@ -7,7 +7,7 @@ import type {
   UpdateCurrentUserResponse,
 } from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
-import { ModerationService } from '../../moderation/moderation.service.js';
+import { AuthPasswordVerifier } from '../../auth/application/auth-password-verifier.service.js';
 import {
   PrismaService,
   RetentionWorkerPrismaService,
@@ -29,6 +29,7 @@ import {
 } from '../operations/list-display-identity-nickname-audit.query.js';
 import { createRequestAccountDeletionCommand } from '../account-deletion/request-account-deletion.command.js';
 import { createDismissOnboardingNoticeCommand } from '../onboarding/dismiss-onboarding-notice.command.js';
+import { DisplayIdentityNicknamePolicyService } from '../identity/display/display-identity-nickname-policy.service.js';
 
 @Injectable()
 export class UsersService {
@@ -42,24 +43,26 @@ export class UsersService {
     private readonly retentionWorkerPrisma: RetentionWorkerPrismaService,
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
-    private readonly moderationService: ModerationService,
+    private readonly nicknamePolicy: DisplayIdentityNicknamePolicyService,
     private readonly currentUserViewService: CurrentUserViewService,
+    private readonly passwordVerifier: AuthPasswordVerifier,
   ) {
     this.updateOwner = createUserUpdateOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
-      moderationService: this.moderationService,
+      nicknamePolicy: this.nicknamePolicy,
       currentUserViewService: this.currentUserViewService,
     });
     this.nicknameOverrideOwner = createOverrideDisplayIdentityNicknameCommand({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
-      moderationService: this.moderationService,
+      nicknamePolicy: this.nicknamePolicy,
     });
     this.deletionOwner = createRequestAccountDeletionCommand({
       prisma: this.prisma,
       retentionWorkerPrisma: this.retentionWorkerPrisma,
       seasonsService: this.seasonsService,
+      passwordVerifier: this.passwordVerifier,
     });
     this.onboardingOwner = createDismissOnboardingNoticeCommand({
       prisma: this.prisma,

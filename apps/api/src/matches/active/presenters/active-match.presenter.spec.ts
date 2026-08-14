@@ -89,15 +89,25 @@ function makeActiveMatch(
     createdFromRequestId: 'request-1',
     participantA: {
       userId: 'user-1',
+      user: { deletedAt: null },
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+      profile: {
+        ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+        nicknameSnapshot: '나',
+        intro: '내 소개',
+      },
     },
     participantB: {
       userId: 'user-2',
+      user: { deletedAt: null },
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+      profile: {
+        ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+        nicknameSnapshot: '감자친구',
+        intro: '상대 소개',
+      },
     },
     unmatchRequests: [],
     ...overrides,
@@ -125,6 +135,12 @@ describe('match read model helpers', () => {
       new Date('2026-02-10T12:00:00.000Z'),
     );
     expect(summaryForA.matchScore).toEqual(expect.any(Number));
+    expect(summaryForA.counterpartNickname).toBe('감자친구');
+    expect(summaryForA.counterpartSummary).toMatchObject({
+      relation: { type: 'MATCHED_PARTNER' },
+      resultRead: { resultReadable: true, context: 'CURRENT_MATCHED_PARTNER' },
+      profileSummary: { nickname: '감자친구', intro: '상대 소개' },
+    });
     expect(summaryForA).toMatchObject({
       unmatchProgress: {
         state: 'WAITING_FOR_COUNTERPART',
@@ -132,6 +148,8 @@ describe('match read model helpers', () => {
         requiredCount: 2,
         canRequest: false,
         canCancel: true,
+        disabledReason: null,
+        availableUntil: '2026-02-12T14:59:59.999Z',
       },
     });
 
@@ -149,9 +167,35 @@ describe('match read model helpers', () => {
         requiredCount: 2,
         canRequest: true,
         canCancel: false,
+        disabledReason: null,
       },
     });
   });
+
+  it.each([
+    ['post-match season', { state: 'SEASON_POST_MATCH' as const }, 'SEASON_NOT_ACTIONABLE'],
+    ['room selection cutoff', {}, 'ROOM_SELECTION_CUTOFF'],
+  ])(
+    '%s에서는 server-owned disabled reason으로 unmatch action을 닫는다',
+    (_, overrides, reason) => {
+      const now =
+        reason === 'ROOM_SELECTION_CUTOFF'
+          ? new Date('2026-02-12T15:00:00.000Z')
+          : new Date('2026-02-10T12:00:00.000Z');
+      const summary = toDetailedActiveMatchSummary(
+        makeActiveMatch(),
+        'participant-1',
+        makeSeasonContext(overrides),
+        now,
+      );
+
+      expect(summary.unmatchProgress).toMatchObject({
+        canRequest: false,
+        canCancel: false,
+        disabledReason: reason,
+      });
+    },
+  );
 
   it('same dormitory + season matching + roomSelectionDate 전까지만 unmatch window를 연다', () => {
     const seasonContext = makeSeasonContext();
@@ -169,9 +213,14 @@ describe('match read model helpers', () => {
         makeActiveMatch({
           participantB: {
             userId: 'user-2',
+            user: { deletedAt: null },
             dormitoryId: 'saerom',
             dormitorySelectionState: 'ASSIGNED',
-            profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+            profile: {
+              ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+              nicknameSnapshot: '감자친구',
+              intro: '상대 소개',
+            },
           },
         }),
         seasonContext,

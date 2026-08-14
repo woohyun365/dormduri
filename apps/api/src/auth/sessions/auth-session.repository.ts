@@ -30,6 +30,8 @@ const renewalSessionSelect = {
   userId: true,
   rememberMe: true,
   refreshTokenHash: true,
+  previousRefreshTokenHash: true,
+  previousRefreshTokenValidUntil: true,
   expiresAt: true,
   revokedAt: true,
   user: {
@@ -54,6 +56,18 @@ type AuthSessionClient =
   | Pick<PrismaService, 'authSession'>
   | Pick<Prisma.TransactionClient, 'authSession'>;
 
+export type AuthSessionCreateClient = Pick<Prisma.TransactionClient, 'authSession'>;
+
+export interface AuthSessionCreateInput {
+  sessionId: string;
+  userId: string;
+  rememberMe: boolean;
+  sessionTokenHash: string;
+  sessionTokenExpiresAt: Date;
+  refreshTokenHash: string;
+  expiresAt: Date;
+}
+
 @Injectable()
 export class AuthSessionRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -66,23 +80,19 @@ export class AuthSessionRepository {
     return this.prisma.runSerializableTransaction(operation);
   }
 
-  createSession(input: {
-    sessionId: string;
-    userId: string;
-    rememberMe: boolean;
-    sessionTokenHash: string;
-    sessionTokenExpiresAt: Date;
-    refreshTokenHash?: string;
-    expiresAt: Date;
-  }) {
-    return this.prisma.authSession.create({
+  createSession(input: AuthSessionCreateInput) {
+    return this.createSessionWithClient(this.prisma, input);
+  }
+
+  createSessionWithClient(client: AuthSessionCreateClient, input: AuthSessionCreateInput) {
+    return client.authSession.create({
       data: {
         id: input.sessionId,
         userId: input.userId,
         rememberMe: input.rememberMe,
         sessionTokenHash: input.sessionTokenHash,
         sessionTokenExpiresAt: input.sessionTokenExpiresAt,
-        ...(input.refreshTokenHash ? { refreshTokenHash: input.refreshTokenHash } : {}),
+        refreshTokenHash: input.refreshTokenHash,
         expiresAt: input.expiresAt,
       },
       select: { id: true },
@@ -128,13 +138,15 @@ export class AuthSessionRepository {
       nextRenewalTokenHash: string;
       nextAccessTokenHash: string;
       nextAccessTokenExpiresAt: Date;
+      previousRefreshTokenValidUntil: Date;
+      rememberMe: boolean;
       databaseNow: Date;
     },
   ) {
     return client.authSession.updateMany({
       where: {
         id: input.sessionId,
-        rememberMe: true,
+        rememberMe: input.rememberMe,
         refreshTokenHash: input.currentRefreshTokenHash,
         revokedAt: null,
         expiresAt: {
@@ -142,6 +154,8 @@ export class AuthSessionRepository {
         },
       },
       data: {
+        previousRefreshTokenHash: input.currentRefreshTokenHash,
+        previousRefreshTokenValidUntil: input.previousRefreshTokenValidUntil,
         refreshTokenHash: input.nextRenewalTokenHash,
         sessionTokenHash: input.nextAccessTokenHash,
         sessionTokenExpiresAt: input.nextAccessTokenExpiresAt,

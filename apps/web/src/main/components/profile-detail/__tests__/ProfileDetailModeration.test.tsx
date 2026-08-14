@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileDetailMoreMenu, ProfileDetailDialogs } from '../ProfileDetailModeration';
-import type { RoommateProfile } from '@/types/profile';
+import type { RoommateProfile } from '@/main/model/profile';
 import { createRef } from 'react';
 
 vi.mock('../../ProfileMoreMenu', () => ({
@@ -24,7 +24,7 @@ vi.mock('../../ProfileMoreMenu', () => ({
     ) : null,
 }));
 
-vi.mock('@/components/ConfirmDialog', () => ({
+vi.mock('@/main/components/overlays/ConfirmDialog', () => ({
   ConfirmDialog: ({
     isOpen,
     onConfirm,
@@ -83,7 +83,7 @@ const mockProfile: RoommateProfile = {
     temperatureSensitivity: 'NORMAL',
     smokingTolerance: 'E_CIG_OK',
     phoneTolerance: 'BRIEF_OK',
-    earphoneExpectation: 'STUDY',
+    earphoneExpectation: 'LOW_VOLUME_OK',
     sleepEnvPreference: 'SPEAKER_OK',
     screenTolerance: 'SCREEN_OK',
     indoorEatingTolerance: 'CLEAN_OK',

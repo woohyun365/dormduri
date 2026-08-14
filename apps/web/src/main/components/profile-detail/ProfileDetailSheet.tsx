@@ -2,15 +2,17 @@
 
 import { useState, useRef } from 'react';
 import { Bookmark, BookmarkCheck, MoreHorizontal } from 'lucide-react';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import { ProfileDetailBody } from './ProfileDetailBody';
 import { buildProfileDetailFooter } from './ProfileDetailFooter';
 import { ProfileDetailMoreMenu, ProfileDetailDialogs } from './ProfileDetailModeration';
-import type { RoommateProfile } from '@/types/profile';
-import type { MatchScoreType } from '@/utils/matchScore';
-import type { LifestyleData } from '@/types/lifestyle';
-import type { ReportReason } from '@/types/report';
-import type { MatchButtonState } from '@/types/match';
+import type {
+  ProfileDetailMatchActionState,
+  ProfileDetailMatchScoreType,
+} from './model/profileDetailMatchAction';
+import type { RoommateProfile } from '@/main/model/profile';
+import type { LifestyleData } from '@repo/shared/lifestyle';
+import type { ReportReason } from '@repo/shared/social-safety/report';
 
 interface ProfileDetailSheetProps {
   profile: RoommateProfile | null;
@@ -20,16 +22,14 @@ interface ProfileDetailSheetProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   hideMatchButton?: boolean;
-  matchButtonState?: MatchButtonState;
+  matchButtonState?: ProfileDetailMatchActionState;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   isBookmarked?: boolean;
   onToggleBookmark?: () => void;
-  scoreType?: MatchScoreType;
+  scoreType?: ProfileDetailMatchScoreType;
   userLifestyle?: LifestyleData;
   customFooter?: React.ReactNode;
-  showMatchRequestTip?: boolean;
-  onDismissMatchRequestTip?: () => void;
 }
 
 export function ProfileDetailSheet({
@@ -48,8 +48,6 @@ export function ProfileDetailSheet({
   scoreType,
   userLifestyle,
   customFooter,
-  showMatchRequestTip,
-  onDismissMatchRequestTip,
 }: ProfileDetailSheetProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
@@ -88,13 +86,13 @@ export function ProfileDetailSheet({
               {onToggleBookmark && (
                 <button
                   onClick={onToggleBookmark}
-                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[(--knu-background-alt)] transition-colors"
                   aria-label={isBookmarked ? '관심목록에서 제거' : '관심목록에 추가'}
                 >
                   {isBookmarked ? (
-                    <BookmarkCheck className="w-5 h-5 text-[var(--knu-primary)]" />
+                    <BookmarkCheck className="w-5 h-5 text-[(--knu-primary)]" />
                   ) : (
-                    <Bookmark className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                    <Bookmark className="w-5 h-5 text-[(--knu-text-tertiary)]" />
                   )}
                 </button>
               )}
@@ -102,12 +100,12 @@ export function ProfileDetailSheet({
                 <button
                   ref={moreButtonRef}
                   onClick={() => setShowMoreMenu((prev) => !prev)}
-                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[(--knu-background-alt)] transition-colors"
                   aria-label="더보기"
                   aria-haspopup="true"
                   aria-expanded={showMoreMenu}
                 >
-                  <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
+                  <MoreHorizontal className="w-5 h-5 text-[(--knu-text-secondary)]" />
                 </button>
               )}
             </div>
@@ -115,13 +113,7 @@ export function ProfileDetailSheet({
         }
         footer={footer}
       >
-        <ProfileDetailBody
-          profile={profile}
-          scoreType={scoreType}
-          userLifestyle={userLifestyle}
-          showMatchRequestTip={showMatchRequestTip}
-          onDismissMatchRequestTip={onDismissMatchRequestTip}
-        />
+        <ProfileDetailBody profile={profile} scoreType={scoreType} userLifestyle={userLifestyle} />
 
         {/* More Menu — absolute 위치이므로 BaseBottomSheet 내부 유지 */}
         <ProfileDetailMoreMenu

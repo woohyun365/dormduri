@@ -7,11 +7,9 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
-import {
-  authContext,
-  seedBaseSeasonFixtures,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 describe('UsersService integration', () => {
   let prisma: PrismaService;
@@ -45,7 +43,7 @@ describe('UsersService integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
 
     await prisma.seasonParticipant.update({
@@ -65,11 +63,11 @@ describe('UsersService integration', () => {
     expect(currentUser.user).toMatchObject({
       id: 'user-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     expect(currentUser.displayIdentity).toMatchObject({
       userId: 'user-a',
-      nickname: '유저A',
+      nickname: '유저가',
       nicknameSource: 'USER_DISPLAY_IDENTITY',
     });
     expect(currentUser.seasonProfile).toMatchObject({
@@ -119,8 +117,8 @@ describe('UsersService integration', () => {
       reason: 'USER_REQUEST',
       actorType: 'USER',
       actorId: 'user-a',
-      previousNickname: '유저A',
-      previousNicknameNormalized: '유저A',
+      previousNickname: '유저가',
+      previousNicknameNormalized: '유저가',
       nextNickname: '유저변경',
       nextNicknameNormalized: '유저변경',
       seasonProfileSnapshotUpdated: false,
@@ -163,14 +161,14 @@ describe('UsersService integration', () => {
     const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
       where: { userId: 'user-a' },
     });
-    expect(displayIdentity.nickname).toBe('유저A');
+    expect(displayIdentity.nickname).toBe('유저가');
   });
 
   it('같은 display identity nickname 저장은 registration snapshot lock 중에도 no-op metadata로 성공한다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.userDisplayIdentity.update({
       where: { userId: 'user-a' },
-      data: { nicknameNormalized: '유저a' },
+      data: { nicknameNormalized: '유저가' },
     });
     await prisma.seasonParticipant.update({
       where: { id: 'participant-a' },
@@ -187,7 +185,7 @@ describe('UsersService integration', () => {
     });
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
-      displayIdentity: { nickname: '유저A' },
+      displayIdentity: { nickname: '유저가' },
     });
 
     expect(response.mutation.displayIdentity).toEqual({
@@ -195,7 +193,7 @@ describe('UsersService integration', () => {
       changed: false,
       noOpReason: 'SAME_NICKNAME',
     });
-    expect(response.currentUser.displayIdentity.nickname).toBe('유저A');
+    expect(response.currentUser.displayIdentity.nickname).toBe('유저가');
 
     const nicknameEventCount = await prisma.userDisplayIdentityNicknameChangeEvent.count({
       where: { userId: 'user-a' },
@@ -221,7 +219,7 @@ describe('UsersService integration', () => {
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
       academicIdentity: {
-        collegeCode: 'ARTS_ENGINEERING',
+        collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
         birthYear: 2002,
       },
     } as never);
@@ -239,7 +237,7 @@ describe('UsersService integration', () => {
       },
     });
     expect(response.currentUser.academicIdentity).toMatchObject({
-      collegeCode: 'ARTS_ENGINEERING',
+      collegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
       birthYear: 2002,
     });
   });
@@ -251,7 +249,7 @@ describe('UsersService integration', () => {
     });
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대학',
         sortOrder: 2,
@@ -263,7 +261,7 @@ describe('UsersService integration', () => {
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
       academicIdentity: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2002,
       },
     } as never);
@@ -274,7 +272,7 @@ describe('UsersService integration', () => {
       noOpReason: null,
     });
     expect(response.currentUser.academicIdentity).toMatchObject({
-      collegeCode: 'NURSING',
+      collegeCode: 'CHUNCHEON_NURSING',
       birthYear: 2002,
     });
 
@@ -297,8 +295,8 @@ describe('UsersService integration', () => {
       reason: 'ACADEMIC_CYCLE_ALLOWANCE',
       actorType: 'USER',
       actorId: 'user-a',
-      previousCollegeCode: 'ARTS_ENGINEERING',
-      nextCollegeCode: 'NURSING',
+      previousCollegeCode: 'CHUNCHEON_ARTS_ENGINEERING',
+      nextCollegeCode: 'CHUNCHEON_NURSING',
       previousBirthYear: 2002,
       nextBirthYear: 2002,
     });
@@ -311,7 +309,7 @@ describe('UsersService integration', () => {
     });
     await prisma.collegeMaster.create({
       data: {
-        code: 'NURSING',
+        code: 'CHUNCHEON_NURSING',
         campusCode: 'CHUNCHEON',
         nameKo: '간호대학',
         sortOrder: 2,
@@ -328,7 +326,7 @@ describe('UsersService integration', () => {
 
     const response = await service.updateCurrentUser(authContext('user-a'), {
       academicIdentity: {
-        collegeCode: 'NURSING',
+        collegeCode: 'CHUNCHEON_NURSING',
         birthYear: 2002,
       },
     } as never);
@@ -353,13 +351,13 @@ describe('UsersService integration', () => {
     await prisma.collegeMaster.createMany({
       data: [
         {
-          code: 'NURSING',
+          code: 'CHUNCHEON_NURSING',
           campusCode: 'CHUNCHEON',
           nameKo: '간호대학',
           sortOrder: 2,
         },
         {
-          code: 'BUSINESS',
+          code: 'CHUNCHEON_BUSINESS',
           campusCode: 'CHUNCHEON',
           nameKo: '경영대학',
           sortOrder: 3,
@@ -370,13 +368,13 @@ describe('UsersService integration', () => {
     const results = await Promise.allSettled([
       service.updateCurrentUser(authContext('user-a'), {
         academicIdentity: {
-          collegeCode: 'NURSING',
+          collegeCode: 'CHUNCHEON_NURSING',
           birthYear: 2002,
         },
       } as never),
       service.updateCurrentUser(authContext('user-a'), {
         academicIdentity: {
-          collegeCode: 'BUSINESS',
+          collegeCode: 'CHUNCHEON_BUSINESS',
           birthYear: 2002,
         },
       } as never),
@@ -399,7 +397,7 @@ describe('UsersService integration', () => {
       }),
       prisma.userAcademicIdentityChangeEvent.count({ where: { userId: 'user-a' } }),
     ]);
-    expect(['NURSING', 'BUSINESS']).toContain(academicIdentity.collegeCode);
+    expect(['CHUNCHEON_NURSING', 'CHUNCHEON_BUSINESS']).toContain(academicIdentity.collegeCode);
     expect(allowance.collegeChangeRemaining).toBe(0);
     expect(auditEventCount).toBe(1);
   });
@@ -461,8 +459,8 @@ describe('UsersService integration', () => {
       reason: 'REPORT_REVIEW',
       actorType: 'ADMIN',
       actorId: 'admin-1',
-      previousNickname: '유저A',
-      previousNicknameNormalized: '유저A',
+      previousNickname: '유저가',
+      previousNicknameNormalized: '유저가',
       nextNickname: '운영변경',
       nextNicknameNormalized: '운영변경',
       seasonId: 'season-integration',

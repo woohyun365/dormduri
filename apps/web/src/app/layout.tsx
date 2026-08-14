@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
+import { createRootMetadata } from './metadata';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
-import AuthPanelLoader from '@/components/AuthPanelLoader';
-import DevPanelLoader from '@/components/DevPanelLoader';
-import SeasonDevToolLoader from '@/components/SeasonDevToolLoader';
+import { WebVitalsReporter } from '@/observability/web-vitals/WebVitalsReporter';
 import './globals.css';
 import '../styles/knu.css';
 
@@ -17,11 +16,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'KNU 룸메',
-  description: '강원대학교 기숙사 룸메이트 매칭 서비스',
-  icons: { icon: '/knu_logo.svg' },
-};
+export const metadata: Metadata = createRootMetadata();
 
 export default function RootLayout({
   children,
@@ -33,9 +28,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster position="top-center" richColors closeButton duration={3000} />
-        <AuthPanelLoader />
-        <DevPanelLoader />
-        <SeasonDevToolLoader />
+        {process.env.NODE_ENV !== 'production' ? <WebVitalsReporter /> : null}
       </body>
     </html>
   );

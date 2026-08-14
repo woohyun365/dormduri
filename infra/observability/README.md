@@ -1,7 +1,23 @@
-# KNU Roommate observability stack
+# Observability configuration assets
 
-이 디렉터리는 API의 structured JSON stdout log와 `/internal/metrics`를 local/staging에서 확인하는 관측 stack을 제공한다.
-API product behavior, route, response code, auth/session semantics는 이 stack을 켜도 바뀌지 않는다.
+이 디렉터리는 API/Web의 structured stdout log와 metrics를 수집하는 Prometheus, Loki, Grafana,
+Alloy, Alertmanager **configuration asset**을 소유한다. API product behavior, route, response code,
+auth/session semantics는 이 stack을 켜도 바뀌지 않는다.
+
+Production private stack의 strict profile, retention, volume, operator access, Docker socket 위험은
+`infra/runbooks/operations/observability/production-stack.md`를 기준으로 한다. Local example을 복사한
+설정은 production profile에서 거부된다.
+
+## 책임 경계
+
+- Compose, rule, dashboard, provisioning, renderer: 이 디렉터리
+- Local/constrained rehearsal 합성: `infra/rehearsal/README.md`
+- Production stack 운영: `infra/runbooks/operations/observability/production-stack.md`
+- Alert delivery 설정: `infra/runbooks/operations/observability/slack-delivery.md`
+- 장애 대응: `infra/runbooks/incidents/`
+
+이 README의 명령은 configuration smoke를 위한 빠른 진입점이다. 실제 target 승인, release 판정,
+incident 기록은 여기서 소유하지 않는다.
 
 ## 구성
 
@@ -46,13 +62,21 @@ cp \
 ```bash
 # config validation
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml config
+docker compose --env-file .env.observability -f compose.base.yml config
 
 # stack up
-docker compose --env-file .env.observability -f docker-compose.observability.yml up -d
+docker compose --env-file .env.observability -f compose.base.yml up -d
 ```
 
 API가 host에서 실행 중이면 기본 scrape target은 `host.docker.internal:4000`이다. API compose와 같은 Docker network에서 실행할 때는 `.env.observability`의 `API_METRICS_TARGET`을 `api:4000`처럼 바꾼다.
+
+Production 후보는 base를 직접 실행하지 않고 strict profile을 사용한다.
+
+```bash
+pnpm observability:check:production
+pnpm infra:compose -- observability-production config
+pnpm infra:compose -- observability-production up -d
+```
 
 ## 확인
 
@@ -86,32 +110,27 @@ Grafana Explore에서 datasource `Loki`를 선택하고 다음 query를 실행�
 {service="api", level="error"}
 ```
 
-Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. API가 compose 밖에서 `pnpm start:dev`로 실행되면 Docker log source가 아니므로 Loki에는 API log가 보이지 않을 수 있다. 이 경우 Prometheus/Grafana metrics만 확인하거나, API를 app compose와 같은 Docker daemon에서 `api` service로 실행한다.
+Alloy는 Docker stdout log 중 `api`, `nginx`, `web` service만 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. 관측 stack 자체와 그 밖의 container log는 수집 대상이 아니다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다. `pnpm web:observability:rehearsal`은 production standalone Web image와 deterministic upstream fixture를 관측 stack에 연결해 이 경로를 OrbStack에서 검증한다.
 
-관측 stack 자체의 Docker log를 확인할 때는 다음처럼 service label을 구분한다.
+## Rehearsal 진입점
 
-```logql
-{service="prometheus"}
-{service="grafana"}
-{service="loki"}
-{service="alloy"}
-```
-
-## Release rehearsal checklist
-
-BE API/nginx compose와 observability compose를 함께 올려 release 전 연결성을 확인할 때는 `infra/observability/rehearsal-checklist.md`를 따른다. 이 checklist는 `/health/ready`, metrics bearer guard, Prometheus target, Alertmanager target, Slack smoke, Grafana/Loki readout, stress smoke 연결을 한 번에 확인하는 운영 점검 절차다.
+BE API/nginx와 observability 연결은 `infra/runbooks/rehearsal/api-observability.md`, Web을 포함한
+전체 local 합성은 `infra/rehearsal/README.md`에서 시작한다. 이 디렉터리의 Compose 파일을 직접
+조합해 release evidence로 승격하지 않는다.
 
 ## Stress release gate에서 보는 법
 
-API stress release gate는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
+API stress release gate는 `docs/runbooks/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/evidence/renderers/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
 
 Stress window 동안 우선 확인할 항목은 다음과 같다.
 
 - Prometheus `api` target이 `UP`인지 확인한다.
 - Grafana `KNU API Overview`에서 5xx rate, HTTP p95/p99 latency, in-flight request를 확인한다.
-- Grafana `KNU API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup lag, retention backlog를 확인한다.
+- Grafana `KNU API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup target별 batch 포화, retention backlog를 확인한다.
+- 같은 dashboard에서 login outcome, real/dummy password verify p95·in-flight, renewal outcome을 함께 확인한다.
 - Loki는 API가 Dockerized `api` service로 실행될 때 `{service="api", level="error"}`를 확인한다. Host process API는 Docker log source가 아니므로 Loki API log가 없을 수 있다.
-- 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다. 4GB instance는 API와 stack을 함께 띄우는 rehearsal에 더 안전하다.
+- 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다.
+- 4GB/2CPU local constrained rehearsal은 `infra/rehearsal/compose.observability.yml`을 추가 적용한다.
 
 ## Label / privacy policy
 
@@ -121,6 +140,29 @@ Loki label은 low-cardinality 값만 허용한다.
 - 금지: `userId`, `email`, `threadId`, `messageId`, `requestId`, `correlationId`, `ip`, `path`, `token`, `cookie`, raw payload/body
 
 requestId 같은 추적 필드는 JSON field로 남을 수 있지만 Loki label로 승격하지 않는다. Prometheus label도 API code의 metric label policy를 따른다.
+
+Web BFF는 `web_bff_request_completed` structured event를 같은 Docker stdout 경로로 전달한다. Grafana dashboard UID는 `knu-web-bff-reliability`이며 browser runtime error와 Web Vitals는 승인된 managed provider에서 조회한다. 설정·smoke·kill switch 절차는 `infra/runbooks/operations/observability/web-bff.md`를 따른다.
+
+### Web configuration rehearsal
+
+실행 조건과 evidence 해석은 `infra/rehearsal/README.md`가 소유한다. Repository root에서 다음
+configuration rehearsal을 실행할 수 있다.
+
+```bash
+pnpm web:observability:rehearsal
+```
+
+Runner는 다음 configuration과 연결을 검증하고 종료 시 전용 container·network·volume을 정리한다.
+
+- production Next standalone image build와 health
+- `bookmark.list` success/invalid-response/timeout structured event
+- `web` stdout → Alloy → Loki ingest
+- Grafana `knu-web-bff-reliability` dashboard provisioning
+- raw rehearsal email/token/query 비노출
+- Loki, Prometheus, Grafana 개별 중단 중 Web BFF 응답 fail-open과 recovery time
+
+실행 후 container를 유지하려면 `WEB_REHEARSAL_KEEP=1`을 사용한다. Resource limit, constrained
+실행, release evidence 금지 조건은 `infra/rehearsal/README.md`와 해당 rehearsal runbook을 따른다.
 
 ## Alert rule / Slack delivery
 
@@ -133,8 +175,13 @@ Prometheus rule은 Alertmanager로 route된다. Alertmanager는 기본적으로 
 - `RealtimeOutboxLagHigh`
 - `PrismaPoolWaitingHigh`
 - `RetentionReviewBacklogHigh`
-- `AuthCleanupLagHigh`
+- `AuthCleanupFailed`
+- `AuthCleanupBatchSaturated`
+- `AuthPasswordVerifyInFlightHigh`
+- `AuthSessionRenewalReuseDetected`
 - `SlackAlertSmokeNonFiring` — non-firing guard. 실제 발송은 `infra/observability/slack/send-alertmanager-smoke.sh`로 수행
+
+Login/session alert의 metric query, 개인정보 금지 경계, 복구 순서는 `infra/runbooks/incidents/auth-session.md`를 따른다.
 
 Slack delivery 활성화:
 
@@ -144,21 +191,22 @@ SLACK_ALERT_WEBHOOK_URL=<SLACK_INCOMING_WEBHOOK_URL>
 SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
 ```
 
-실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/observability/slack/slack-setup-runbook.md`와 `docs/06_trouble-shooting/observability/slack-alert-runbook.md`를 따른다.
+실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/runbooks/operations/observability/slack-delivery.md`와 `infra/runbooks/incidents/observability-alert-delivery.md`를 따른다.
 
 Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, runbook만 포함한다. userId/email/threadId/raw body/RRPD payload는 금지한다.
 
 ## Resource guidance
 
 - 2GB 최소형: API 운영은 가능하지만 Grafana/Loki/Prometheus/Alloy 상시 동시 실행은 여유가 적다. 필요 시 stack을 local/별도 ops host에서만 실행한다.
-- 4GB 관측 포함형: API와 observability stack을 같은 host에서 rehearsal하기에 더 안전하다.
+- 4GB 관측 포함형: `infra/observability/compose.resources.yml`의 production/rehearsal 공통 container limit을 적용한다.
+- Auth password capacity 절차는 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
 ## 정리
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f docker-compose.observability.yml down
+docker compose --env-file .env.observability -f compose.base.yml down
 
 # volume까지 제거할 때만 사용
-docker compose --env-file .env.observability -f docker-compose.observability.yml down -v
+docker compose --env-file .env.observability -f compose.base.yml down -v
 ```

@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type {
   SeasonProfileDraftRequest,
   SeasonProfileDraftResponse,
+  PreviousSeasonProfileResponse,
   SelectableDormitoriesResponse,
   SelectedDormitorySubmitRequest,
   DormitorySelectionDraftResponse,
@@ -63,6 +64,21 @@ export class SeasonParticipantsService {
 
   async getCurrentSeasonProfile(userId: string, now?: Date): Promise<SeasonProfileDraftResponse> {
     return this.writeOwner.getCurrentSeasonProfile(userId, now);
+  }
+
+  async getPreviousSeasonProfile(
+    userId: string,
+    now?: Date,
+  ): Promise<PreviousSeasonProfileResponse> {
+    return this.writeOwner.getPreviousSeasonProfile(userId, now);
+  }
+
+  async getSeasonProfileHistory(
+    userId: string,
+    seasonId: string,
+    now?: Date,
+  ): Promise<PreviousSeasonProfileResponse> {
+    return this.writeOwner.getSeasonProfileHistory(userId, seasonId, now);
   }
 
   async createOrUpdateSeasonProfileDraft(

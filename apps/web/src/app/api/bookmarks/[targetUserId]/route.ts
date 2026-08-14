@@ -12,6 +12,7 @@ export async function POST(request: NextRequest, context: TargetUserRouteContext
   const { targetUserId } = await resolveBffRouteParams(context);
   return forwardBffRequest({
     request,
+    operation: 'bookmark.create',
     method: 'POST',
     path: `/api/bookmarks/${encodeBffPathSegment(targetUserId)}`,
     authenticated: true,
@@ -22,6 +23,7 @@ export async function DELETE(request: NextRequest, context: TargetUserRouteConte
   const { targetUserId } = await resolveBffRouteParams(context);
   return forwardBffRequest({
     request,
+    operation: 'bookmark.delete',
     method: 'DELETE',
     path: `/api/bookmarks/${encodeBffPathSegment(targetUserId)}`,
     authenticated: true,

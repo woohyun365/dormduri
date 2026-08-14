@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createUserUpdateOwner } from './user-update-owner.js';
 import { usersErrors } from '../errors/users.errors.js';
+import { DisplayIdentityNicknamePolicyService } from '../identity/display/display-identity-nickname-policy.service.js';
 
 const authUser = {
   id: 'user-1',
@@ -23,7 +24,7 @@ const USER = {
   },
   academicIdentity: {
     userId: 'user-1',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
   },
   dismissedNotices: [],
@@ -40,6 +41,11 @@ describe('UserUpdateOwner', () => {
   };
   const seasonsService = { getCurrentSeasonContext: vi.fn() };
   const moderationService = { validateNicknamePolicy: vi.fn() };
+  const displayIdentityRepository = { findNicknameOwner: vi.fn() };
+  const nicknamePolicy = new DisplayIdentityNicknamePolicyService(
+    moderationService as never,
+    displayIdentityRepository as never,
+  );
   const currentUserViewService = { buildCurrentUserResponse: vi.fn() };
 
   beforeEach(() => {
@@ -52,6 +58,7 @@ describe('UserUpdateOwner', () => {
     currentUserViewService.buildCurrentUserResponse.mockResolvedValue({ current: true });
     seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    displayIdentityRepository.findNicknameOwner.mockResolvedValue(null);
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
     prisma.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
     prisma.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
@@ -61,7 +68,7 @@ describe('UserUpdateOwner', () => {
     const owner = createUserUpdateOwner({
       prisma: prisma as never,
       seasonsService: seasonsService as never,
-      moderationService: moderationService as never,
+      nicknamePolicy,
       currentUserViewService: currentUserViewService as never,
     });
 
@@ -87,7 +94,7 @@ describe('UserUpdateOwner', () => {
     const owner = createUserUpdateOwner({
       prisma: prisma as never,
       seasonsService: seasonsService as never,
-      moderationService: moderationService as never,
+      nicknamePolicy,
       currentUserViewService: currentUserViewService as never,
     });
 

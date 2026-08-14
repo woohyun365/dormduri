@@ -1,18 +1,16 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { hash as argonHash } from '@node-rs/argon2';
-import {
-  CAMPUS_GUIDE_CONTENT_DATA,
-  CAMPUS_MASTER_DATA,
-  DORMITORY_GUIDE_DATA,
-  DORMITORY_MASTER_DATA,
-} from './seed-data/reference/dormitory-seed-data.js';
-import { COLLEGE_MASTER_DATA } from './seed-data/reference/college-reference-data.js';
-import { MODERATION_REFERENCE_ROWS } from './seed-data/reference/moderation-seed-data.js';
+import { seedDormitoryReferenceData } from './seeds/reference/dormitories/seed-dormitory-reference-data.js';
+import { seedCollegeReferenceData } from './seeds/reference/colleges/seed-college-reference-data.js';
+import { seedModerationReferenceData } from './seeds/reference/moderation/seed-moderation-reference-data.js';
+import { SUPPORT_FAQ_REFERENCE_ROWS } from './seed-data/reference/support-faq-seed-data.js';
+import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './seed-data/reference/legal-document-seed-data.js';
 import {
   AUTH_FIXTURE_SEED_PASSWORD,
   AUTH_FIXTURE_USERS,
 } from './seed-data/fixtures/auth-fixture-users.js';
+import { seedHomeDashboardE2eFixtures } from './seed-data/fixtures/home-dashboard-e2e-fixtures.js';
 import { SEASON_FIXTURES } from './seed-data/fixtures/season-fixtures.js';
 import { getCollegeLabel } from '@repo/shared/college';
 import pg from 'pg';
@@ -20,8 +18,10 @@ import pg from 'pg';
 const { Client } = pg;
 
 const DEFAULT_DATABASE_URL =
-  'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
+  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
 const DATABASE_URL = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+const DEFAULT_AUTH_FIXTURE_COLLEGE_CODE = 'CHUNCHEON_IT';
+const DEFAULT_AUTH_FIXTURE_BIRTH_YEAR = 2002;
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -29,57 +29,6 @@ function normalizeEmail(email) {
 
 function normalizeNickname(nickname) {
   return nickname.trim().toLowerCase();
-}
-
-function toStoredBedtime(value) {
-  switch (value) {
-    case '22_24':
-      return 'BETWEEN_22_24';
-    case '24_02':
-      return 'BETWEEN_24_02';
-    default:
-      return value;
-  }
-}
-
-function toStoredWakeTime(value) {
-  switch (value) {
-    case '07_08':
-      return 'BETWEEN_07_08';
-    case '08_09':
-      return 'BETWEEN_08_09';
-    case '09_10':
-      return 'BETWEEN_09_10';
-    default:
-      return value;
-  }
-}
-
-function toStoredLifestyleColumns(lifestyle) {
-  return {
-    bedtime: toStoredBedtime(lifestyle.bedtime),
-    wakeTime: toStoredWakeTime(lifestyle.wakeTime),
-    sleepHabit: lifestyle.sleepHabit,
-    sleepEnvironment: lifestyle.sleepEnvironment,
-    screenUsage: lifestyle.screenUsage,
-    noiseSensitivity: lifestyle.noiseSensitivity,
-    smokingBehavior: lifestyle.smokingBehavior,
-    indoorEating: lifestyle.indoorEating,
-    phoneBehavior: lifestyle.phoneBehavior,
-    earphoneUsage: lifestyle.earphoneUsage,
-    cleanLevel: lifestyle.cleanLevel,
-    drinkingFrequency: lifestyle.drinkingFrequency,
-    relationshipStyle: lifestyle.relationshipStyle,
-    temperatureSensitivity: lifestyle.temperatureSensitivity,
-    smokingTolerance: lifestyle.smokingTolerance,
-    phoneTolerance: lifestyle.phoneTolerance,
-    earphoneExpectation: lifestyle.earphoneExpectation,
-    sleepEnvPreference: lifestyle.sleepEnvPreference,
-    screenTolerance: lifestyle.screenTolerance,
-    indoorEatingTolerance: lifestyle.indoorEatingTolerance,
-    cleanExpectation: lifestyle.cleanExpectation,
-    drinkingTolerance: lifestyle.drinkingTolerance,
-  };
 }
 
 function normalizeCollegeSeedValue(college) {
@@ -121,185 +70,6 @@ function getSemesterDefaults(academicYear, semester) {
     preparationStartDate: `${academicYear}-07-01`,
     seasonEndDate: `${academicYear}-08-31`,
   };
-}
-
-async function seedCampusAndDormitories(client) {
-  for (const campus of CAMPUS_MASTER_DATA) {
-    await client.query(
-      `
-        INSERT INTO "CampusMaster" (
-          code,
-          "nameKo",
-          "isOperated",
-          "sortOrder",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1::"Campus", $2, $3, $4, NOW(), NOW())
-        ON CONFLICT (code)
-        DO UPDATE SET
-          "nameKo" = EXCLUDED."nameKo",
-          "isOperated" = EXCLUDED."isOperated",
-          "sortOrder" = EXCLUDED."sortOrder",
-          "updatedAt" = NOW()
-      `,
-      [campus.code, campus.nameKo, campus.isOperated, campus.sortOrder],
-    );
-  }
-
-  for (const guideContent of CAMPUS_GUIDE_CONTENT_DATA) {
-    await client.query(
-      `
-        INSERT INTO "CampusGuideContent" (
-          "campusCode",
-          "homepageUrl",
-          "commonRules",
-          "emergencyContacts",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1::"Campus", $2, $3::jsonb, $4::jsonb, NOW(), NOW())
-        ON CONFLICT ("campusCode")
-        DO UPDATE SET
-          "homepageUrl" = EXCLUDED."homepageUrl",
-          "commonRules" = EXCLUDED."commonRules",
-          "emergencyContacts" = EXCLUDED."emergencyContacts",
-          "updatedAt" = NOW()
-      `,
-      [
-        guideContent.campusCode,
-        guideContent.homepageUrl,
-        JSON.stringify(guideContent.commonRules),
-        JSON.stringify(guideContent.emergencyContacts),
-      ],
-    );
-  }
-
-  for (const dormitory of DORMITORY_MASTER_DATA) {
-    await client.query(
-      `
-        INSERT INTO "Dormitory" (
-          id,
-          "campusCode",
-          "nameKo",
-          "roomType",
-          "genderPolicy",
-          "sortOrder",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1, $2::"Campus", $3, $4, $5::"DormitoryGenderPolicy", $6, NOW(), NOW())
-        ON CONFLICT (id)
-        DO UPDATE SET
-          "campusCode" = EXCLUDED."campusCode",
-          "nameKo" = EXCLUDED."nameKo",
-          "roomType" = EXCLUDED."roomType",
-          "genderPolicy" = EXCLUDED."genderPolicy",
-          "sortOrder" = EXCLUDED."sortOrder",
-          "updatedAt" = NOW()
-      `,
-      [
-        dormitory.id,
-        dormitory.campusCode,
-        dormitory.nameKo,
-        dormitory.roomType,
-        dormitory.genderPolicy,
-        dormitory.sortOrder,
-      ],
-    );
-  }
-
-  for (const [dormitoryId, guide] of Object.entries(DORMITORY_GUIDE_DATA)) {
-    await client.query(
-      `
-        INSERT INTO "DormitoryGuide" (
-          "dormitoryId",
-          "bathroomType",
-          facilities,
-          "repairContact",
-          "diningContact",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1, $2::"DormitoryBathroomType", $3::jsonb, $4, $5, NOW(), NOW())
-        ON CONFLICT ("dormitoryId")
-        DO UPDATE SET
-          "bathroomType" = EXCLUDED."bathroomType",
-          facilities = EXCLUDED.facilities,
-          "repairContact" = EXCLUDED."repairContact",
-          "diningContact" = EXCLUDED."diningContact",
-          "updatedAt" = NOW()
-      `,
-      [
-        dormitoryId,
-        guide.bathroomType,
-        JSON.stringify(guide.facilities),
-        guide.repairContact,
-        guide.diningContact,
-      ],
-    );
-  }
-}
-
-async function seedColleges(client) {
-  for (const college of COLLEGE_MASTER_DATA) {
-    await client.query(
-      `
-        INSERT INTO "CollegeMaster" (
-          code,
-          "campusCode",
-          "nameKo",
-          "sortOrder",
-          "isActive",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES ($1, $2::"Campus", $3, $4, $5, NOW(), NOW())
-        ON CONFLICT (code)
-        DO UPDATE SET
-          "campusCode" = EXCLUDED."campusCode",
-          "nameKo" = EXCLUDED."nameKo",
-          "sortOrder" = EXCLUDED."sortOrder",
-          "isActive" = EXCLUDED."isActive",
-          "updatedAt" = NOW()
-      `,
-      [college.code, college.campusCode, college.nameKo, college.sortOrder, college.isActive],
-    );
-  }
-}
-
-async function seedModerationTerms(client) {
-  for (const row of MODERATION_REFERENCE_ROWS) {
-    await client.query(
-      `
-        INSERT INTO "ModerationTerm" (
-          id,
-          term,
-          "normalizedTerm",
-          category,
-          "matchMode",
-          surface,
-          "isActive",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          gen_random_uuid()::text,
-          $1,
-          $2,
-          $3::"ModerationTermCategory",
-          $4::"ModerationMatchMode",
-          $5::"ModerationSurface",
-          $6,
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT ("normalizedTerm", category, "matchMode", surface)
-        DO NOTHING
-      `,
-      [row.term, row.normalizedTerm, row.category, row.matchMode, row.surface, row.isActive],
-    );
-  }
 }
 
 async function seedSeasons(client) {
@@ -451,10 +221,169 @@ async function seedSeasons(client) {
   }
 }
 
+async function seedSupportFaq(client) {
+  for (const row of SUPPORT_FAQ_REFERENCE_ROWS) {
+    await client.query(
+      `
+        INSERT INTO "SupportFaqArticle" (
+          id,
+          category,
+          question,
+          answer,
+          published,
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES ($1, $2::"SupportTicketCategory", $3, $4, $5, $6, NOW(), NOW())
+        ON CONFLICT (id)
+        DO UPDATE SET
+          category = EXCLUDED.category,
+          question = EXCLUDED.question,
+          answer = EXCLUDED.answer,
+          published = EXCLUDED.published,
+          "sortOrder" = EXCLUDED."sortOrder",
+          "updatedAt" = NOW()
+      `,
+      [row.id, row.category, row.question, row.answer, row.published, row.sortOrder],
+    );
+
+    for (const placement of row.placements ?? []) {
+      await client.query(
+        `
+          INSERT INTO "SupportFaqPlacement" (
+            id,
+            "articleId",
+            surface,
+            "sortOrder",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES (gen_random_uuid()::text, $1, $2::"SupportFaqSurface", $3, NOW(), NOW())
+          ON CONFLICT ("articleId", surface)
+          DO UPDATE SET
+            "sortOrder" = EXCLUDED."sortOrder",
+            "updatedAt" = NOW()
+        `,
+        [row.id, placement.surface, placement.sortOrder],
+      );
+    }
+  }
+}
+
+async function seedLegalDocuments(client) {
+  for (const row of LEGAL_DOCUMENT_REFERENCE_ROWS) {
+    await client.query(
+      `
+        INSERT INTO "LegalDocumentVersion" (
+          id,
+          kind,
+          version,
+          title,
+          "summaryItems",
+          sections,
+          "changeSummary",
+          "publishedAt",
+          "effectiveAt",
+          "retiredAt",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          $1,
+          $2::"LegalDocumentKind",
+          $3,
+          $4,
+          $5::jsonb,
+          $6::jsonb,
+          $7,
+          $8::timestamptz,
+          $9::timestamptz,
+          $10::timestamptz,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          version = EXCLUDED.version,
+          title = EXCLUDED.title,
+          "summaryItems" = EXCLUDED."summaryItems",
+          sections = EXCLUDED.sections,
+          "changeSummary" = EXCLUDED."changeSummary",
+          "publishedAt" = EXCLUDED."publishedAt",
+          "effectiveAt" = EXCLUDED."effectiveAt",
+          "retiredAt" = EXCLUDED."retiredAt",
+          "updatedAt" = NOW()
+      `,
+      [
+        row.id,
+        row.kind,
+        row.version,
+        row.title,
+        JSON.stringify(row.summaryItems),
+        JSON.stringify(row.sections),
+        row.changeSummary ?? null,
+        row.publishedAt ?? null,
+        row.effectiveAt,
+        row.retiredAt ?? null,
+      ],
+    );
+  }
+}
+
+async function seedUserAccountIdentities(
+  client,
+  { userId, nickname, nicknameNormalized, collegeCode, birthYear },
+) {
+  if (!collegeCode) {
+    throw new Error(`Auth fixture user requires college identity: ${userId}`);
+  }
+
+  await client.query(
+    `
+      INSERT INTO "UserDisplayIdentity" (
+        "userId",
+        nickname,
+        "nicknameNormalized",
+        "nicknameChangedAt",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES ($1, $2, $3, NULL, NOW(), NOW())
+      ON CONFLICT ("userId")
+      DO UPDATE SET
+        nickname = EXCLUDED.nickname,
+        "nicknameNormalized" = EXCLUDED."nicknameNormalized",
+        "updatedAt" = NOW()
+    `,
+    [userId, nickname, nicknameNormalized],
+  );
+
+  await client.query(
+    `
+      INSERT INTO "UserAcademicIdentity" (
+        "userId",
+        "collegeCode",
+        "birthYear",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES ($1, $2, $3, NOW(), NOW())
+      ON CONFLICT ("userId")
+      DO UPDATE SET
+        "collegeCode" = EXCLUDED."collegeCode",
+        "birthYear" = EXCLUDED."birthYear",
+        "updatedAt" = NOW()
+    `,
+    [userId, collegeCode, birthYear],
+  );
+}
+
 async function seedUsersData(client) {
   const passwordHash = await argonHash(AUTH_FIXTURE_SEED_PASSWORD, {
     algorithm: 2,
-    memoryCost: 8192,
+    memoryCost: 19456,
     timeCost: 2,
     parallelism: 1,
     outputLen: 32,
@@ -463,7 +392,10 @@ async function seedUsersData(client) {
   for (const seedUser of AUTH_FIXTURE_USERS) {
     const emailNormalized = normalizeEmail(seedUser.email);
     const nicknameNormalized = normalizeNickname(seedUser.nickname);
-    const collegeCode = normalizeCollegeSeedValue(seedUser.college ?? null);
+    const collegeCode = normalizeCollegeSeedValue(
+      seedUser.college ?? DEFAULT_AUTH_FIXTURE_COLLEGE_CODE,
+    );
+    const birthYear = seedUser.birthYear ?? DEFAULT_AUTH_FIXTURE_BIRTH_YEAR;
 
     const existing = await client.query(
       `
@@ -481,43 +413,8 @@ async function seedUsersData(client) {
       passwordHash,
       seedUser.gender,
       seedUser.campus,
-      seedUser.dormitoryId,
-      seedUser.dormitorySelectionState,
     ];
-
-    const storedLifestyle = toStoredLifestyleColumns(seedUser.lifestyle);
-    const profileValues = [
-      seedUser.nickname,
-      nicknameNormalized,
-      storedLifestyle.bedtime,
-      storedLifestyle.wakeTime,
-      storedLifestyle.sleepHabit,
-      storedLifestyle.sleepEnvironment,
-      storedLifestyle.screenUsage,
-      storedLifestyle.noiseSensitivity,
-      storedLifestyle.smokingBehavior,
-      storedLifestyle.indoorEating,
-      storedLifestyle.phoneBehavior,
-      storedLifestyle.earphoneUsage,
-      storedLifestyle.cleanLevel,
-      storedLifestyle.drinkingFrequency,
-      storedLifestyle.relationshipStyle,
-      storedLifestyle.temperatureSensitivity,
-      storedLifestyle.smokingTolerance,
-      storedLifestyle.phoneTolerance,
-      storedLifestyle.earphoneExpectation,
-      storedLifestyle.sleepEnvPreference,
-      storedLifestyle.screenTolerance,
-      storedLifestyle.indoorEatingTolerance,
-      storedLifestyle.cleanExpectation,
-      storedLifestyle.drinkingTolerance,
-      seedUser.intro,
-      seedUser.messageToRoommate ?? null,
-      collegeCode,
-      seedUser.grade ?? null,
-      seedUser.mbti ?? null,
-      seedUser.birthYear ?? null,
-    ];
+    const userId = existing.rows[0]?.id ?? randomUUID();
 
     if (existing.rowCount && existing.rows[0]?.id) {
       await client.query(
@@ -529,174 +426,40 @@ async function seedUsersData(client) {
             "passwordHash" = $3,
             gender = $4::"Gender",
             campus = $5::"Campus",
-            "dormitoryId" = $6,
-            "dormitorySelectionState" = $7::"DormitorySelectionState",
             "emailVerifiedAt" = NOW(),
+            "deletedAt" = NULL,
             "updatedAt" = NOW()
-          WHERE id = $8
+          WHERE id = $6
         `,
-        [...values, existing.rows[0].id],
+        [...values, userId],
       );
+    } else {
       await client.query(
         `
-          INSERT INTO "UserProfile" (
-            "userId",
-            nickname,
-            "nicknameNormalized",
-            bedtime,
-            "wakeTime",
-            "sleepHabit",
-            "sleepEnvironment",
-            "screenUsage",
-            "noiseSensitivity",
-            "smokingBehavior",
-            "indoorEating",
-            "phoneBehavior",
-            "earphoneUsage",
-            "cleanLevel",
-            "drinkingFrequency",
-            "relationshipStyle",
-            "temperatureSensitivity",
-            "smokingTolerance",
-            "phoneTolerance",
-            "earphoneExpectation",
-            "sleepEnvPreference",
-            "screenTolerance",
-            "indoorEatingTolerance",
-            "cleanExpectation",
-            "drinkingTolerance",
-            intro,
-            "messageToRoommate",
-            "collegeCode",
-            grade,
-            mbti,
-            "birthYear",
+          INSERT INTO "User" (
+            id,
+            email,
+            "emailNormalized",
+            "passwordHash",
+            gender,
+            campus,
+            "emailVerifiedAt",
             "createdAt",
             "updatedAt"
           )
-          VALUES (
-            $1, $2, $3,
-            $4::"LifestyleBedtime", $5::"LifestyleWakeTime", $6::"LifestyleSleepHabit", $7::"LifestyleSleepEnvironment",
-            $8::"LifestyleScreenUsage", $9::"LifestyleNoiseSensitivity", $10::"LifestyleSmokingBehavior", $11::"LifestyleIndoorEating",
-            $12::"LifestylePhoneBehavior", $13::"LifestyleEarphoneUsage", $14::"LifestyleCleanLevel", $15::"LifestyleDrinkingFrequency",
-            $16::"LifestyleRelationshipStyle", $17::"LifestyleTemperatureSensitivity", $18::"RoommateSmokingTolerance", $19::"RoommatePhoneTolerance",
-            $20::"RoommateEarphoneExpectation", $21::"RoommateSleepEnvPreference", $22::"RoommateScreenTolerance", $23::"RoommateIndoorEatingTolerance",
-            $24::"RoommateCleanExpectation", $25::"RoommateDrinkingTolerance",
-            $26, $27, $28, $29, $30, $31, NOW(), NOW()
-          )
-          ON CONFLICT ("userId")
-          DO UPDATE SET
-            nickname = EXCLUDED.nickname,
-            "nicknameNormalized" = EXCLUDED."nicknameNormalized",
-            bedtime = EXCLUDED.bedtime,
-            "wakeTime" = EXCLUDED."wakeTime",
-            "sleepHabit" = EXCLUDED."sleepHabit",
-            "sleepEnvironment" = EXCLUDED."sleepEnvironment",
-            "screenUsage" = EXCLUDED."screenUsage",
-            "noiseSensitivity" = EXCLUDED."noiseSensitivity",
-            "smokingBehavior" = EXCLUDED."smokingBehavior",
-            "indoorEating" = EXCLUDED."indoorEating",
-            "phoneBehavior" = EXCLUDED."phoneBehavior",
-            "earphoneUsage" = EXCLUDED."earphoneUsage",
-            "cleanLevel" = EXCLUDED."cleanLevel",
-            "drinkingFrequency" = EXCLUDED."drinkingFrequency",
-            "relationshipStyle" = EXCLUDED."relationshipStyle",
-            "temperatureSensitivity" = EXCLUDED."temperatureSensitivity",
-            "smokingTolerance" = EXCLUDED."smokingTolerance",
-            "phoneTolerance" = EXCLUDED."phoneTolerance",
-            "earphoneExpectation" = EXCLUDED."earphoneExpectation",
-            "sleepEnvPreference" = EXCLUDED."sleepEnvPreference",
-            "screenTolerance" = EXCLUDED."screenTolerance",
-            "indoorEatingTolerance" = EXCLUDED."indoorEatingTolerance",
-            "cleanExpectation" = EXCLUDED."cleanExpectation",
-            "drinkingTolerance" = EXCLUDED."drinkingTolerance",
-            intro = EXCLUDED.intro,
-            "messageToRoommate" = EXCLUDED."messageToRoommate",
-            "collegeCode" = EXCLUDED."collegeCode",
-            grade = EXCLUDED.grade,
-            mbti = EXCLUDED.mbti,
-            "birthYear" = EXCLUDED."birthYear",
-            "updatedAt" = NOW()
+          VALUES ($1, $2, $3, $4, $5::"Gender", $6::"Campus", NOW(), NOW(), NOW())
         `,
-        [existing.rows[0].id, ...profileValues],
+        [userId, ...values],
       );
-      continue;
     }
 
-    const userId = randomUUID();
-
-    await client.query(
-      `
-        INSERT INTO "User" (
-          id,
-          email,
-          "emailNormalized",
-          "passwordHash",
-          gender,
-          campus,
-          "dormitoryId",
-          "dormitorySelectionState",
-          "emailVerifiedAt",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          $1, $2, $3, $4, $5::"Gender", $6::"Campus", $7, $8::"DormitorySelectionState", NOW(), NOW(), NOW()
-        )
-      `,
-      [userId, ...values],
-    );
-
-    await client.query(
-      `
-        INSERT INTO "UserProfile" (
-          "userId",
-          nickname,
-          "nicknameNormalized",
-          bedtime,
-          "wakeTime",
-          "sleepHabit",
-          "sleepEnvironment",
-          "screenUsage",
-          "noiseSensitivity",
-          "smokingBehavior",
-          "indoorEating",
-          "phoneBehavior",
-          "earphoneUsage",
-          "cleanLevel",
-          "drinkingFrequency",
-          "relationshipStyle",
-          "temperatureSensitivity",
-          "smokingTolerance",
-          "phoneTolerance",
-          "earphoneExpectation",
-          "sleepEnvPreference",
-          "screenTolerance",
-          "indoorEatingTolerance",
-          "cleanExpectation",
-          "drinkingTolerance",
-          intro,
-          "messageToRoommate",
-          "collegeCode",
-          grade,
-          mbti,
-          "birthYear",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          $1, $2, $3,
-          $4::"LifestyleBedtime", $5::"LifestyleWakeTime", $6::"LifestyleSleepHabit", $7::"LifestyleSleepEnvironment",
-          $8::"LifestyleScreenUsage", $9::"LifestyleNoiseSensitivity", $10::"LifestyleSmokingBehavior", $11::"LifestyleIndoorEating",
-          $12::"LifestylePhoneBehavior", $13::"LifestyleEarphoneUsage", $14::"LifestyleCleanLevel", $15::"LifestyleDrinkingFrequency",
-          $16::"LifestyleRelationshipStyle", $17::"LifestyleTemperatureSensitivity", $18::"RoommateSmokingTolerance", $19::"RoommatePhoneTolerance",
-          $20::"RoommateEarphoneExpectation", $21::"RoommateSleepEnvPreference", $22::"RoommateScreenTolerance", $23::"RoommateIndoorEatingTolerance",
-          $24::"RoommateCleanExpectation", $25::"RoommateDrinkingTolerance",
-          $26, $27, $28, $29, $30, $31, NOW(), NOW()
-        )
-      `,
-      [userId, ...profileValues],
-    );
+    await seedUserAccountIdentities(client, {
+      userId,
+      nickname: seedUser.nickname,
+      nicknameNormalized,
+      collegeCode,
+      birthYear,
+    });
   }
 
   console.log('\n[seed] auth seed users ready');
@@ -720,11 +483,14 @@ async function seed() {
   await client.connect();
 
   try {
-    await seedCampusAndDormitories(client);
-    await seedColleges(client);
-    await seedModerationTerms(client);
+    await seedDormitoryReferenceData(client);
+    await seedCollegeReferenceData(client);
+    await seedModerationReferenceData(client);
+    await seedSupportFaq(client);
+    await seedLegalDocuments(client);
     await seedSeasons(client);
     await seedUsersData(client);
+    await seedHomeDashboardE2eFixtures(client);
   } finally {
     await client.end();
   }

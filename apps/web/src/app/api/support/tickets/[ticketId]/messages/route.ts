@@ -12,6 +12,7 @@ export async function POST(request: NextRequest, context: SupportTicketRouteCont
   const { ticketId } = await resolveBffRouteParams(context);
   return forwardBffRequest({
     request,
+    operation: 'support.ticket.message_create',
     method: 'POST',
     path: `/api/support/tickets/${encodeBffPathSegment(ticketId)}/messages`,
     authenticated: true,

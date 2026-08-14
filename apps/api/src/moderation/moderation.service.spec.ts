@@ -26,7 +26,7 @@ describe('ModerationService', () => {
     });
 
     await expect(service.validateNicknamePolicy('섹스장인')).resolves.toBe(
-      '사용할 수 없는 표현이 포함되어 있습니다.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
   });
 
@@ -88,10 +88,29 @@ describe('ModerationService', () => {
     });
 
     await expect(service.validateNicknamePolicy('탈퇴한 사용자')).resolves.toBe(
-      '사용할 수 없는 단어가 포함되어 있습니다.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
     await expect(service.validateNicknamePolicy('프로필-확인_불가')).resolves.toBe(
-      '사용할 수 없는 단어가 포함되어 있습니다.',
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
     );
+  });
+
+  it('영문 PREFIX term은 접두 변형만 차단해 정상 단어 false positive를 줄인다', async () => {
+    repository.findActiveTerms.mockResolvedValue({
+      blocked: [
+        {
+          normalizedTerm: 'sex',
+          matchMode: 'PREFIX',
+          term: 'sex',
+        },
+      ],
+      reserved: [],
+    });
+
+    await expect(service.validateNicknamePolicy('sex123')).resolves.toBe(
+      '닉네임에 사용할 수 없는 단어가 포함되어 있어요.',
+    );
+    await expect(service.validateNicknamePolicy('sussex')).resolves.toBeNull();
+    await expect(service.validateNicknamePolicy('niceguy')).resolves.toBeNull();
   });
 });

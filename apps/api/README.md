@@ -13,7 +13,7 @@
 
 - API 런타임: NestJS 11
 - ORM: Prisma 7
-- DB: PostgreSQL 16
+- DB: PostgreSQL 18
 - Prisma schema: `apps/api/prisma/schema.prisma`
 - Prisma config: `apps/api/prisma.config.ts`
 - Seed script: `apps/api/prisma/seed.js`
@@ -34,6 +34,10 @@ DATABASE_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?
 DIRECT_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
 PORT=4000
 VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
+AUTH_PERSISTENCE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
+AUTH_PERSISTENCE_HMAC_KEY_VERSION="v1"
+AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64="<generate-with-openssl-rand-base64-32>"
+AUTH_MAIL_ENVELOPE_KEY_VERSION="v1"
 ```
 
 권장:
@@ -46,7 +50,7 @@ cp apps/api/.env.example apps/api/.env
 
 - `development`: Prisma CLI(`prisma:generate`, migrate 등)는 stale shell/tmux env로 인한 P1000을 막기 위해 `apps/api/.env`를 로컬 source of truth로 보고 inherited `DATABASE_URL`/`DIRECT_URL`을 덮어쓴다.
 - `test`: integration sandbox가 주입하는 disposable schema URL을 보존하기 위해 `.env`가 이미 주입된 `DATABASE_URL`/`DIRECT_URL`을 덮어쓰지 않는다.
-- `production`: `DATABASE_URL`, `DIRECT_URL`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
+- `production`: `DATABASE_URL`, `DIRECT_URL`, `VERIFICATION_CODE_HMAC_SECRET`, `AUTH_PERSISTENCE_HMAC_SECRET`, `AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64` 누락 시 앱 시작 실패. `AUTH_PERSISTENCE_HMAC_KEY_VERSION`은 digest prefix/rotation marker이며 secret과 함께 변경 이력을 관리한다. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
 
 운영 권장 연결 경로:
 
@@ -64,7 +68,7 @@ cp apps/api/.env.example apps/api/.env
 - `DATABASE_APPLICATION_NAME`
 - `PRISMA_QUERY_LOG_EVENTS`: `1/true/yes/on`이면 Prisma query event를 활성화한다. 통합 테스트 SQL trace처럼 실패 시점 진단이 필요할 때만 켠다.
 
-Phase 3 auth transport는 JWT bridge를 제거하고 DB-backed opaque session token을 사용하므로 `JWT_SECRET`은 더 이상 API 런타임 필수 환경변수가 아니다. 즉, 실제 운영/배포에서는 남은 DB/HMAC/provider secret을 반드시 환경변수 또는 secret store로 주입해야 한다.
+현재 auth transport는 JWT bridge 대신 DB-backed opaque session token을 사용하므로 `JWT_SECRET`은 더 이상 API 런타임 필수 환경변수가 아니다. 실제 운영/배포에서는 남은 DB/HMAC/provider secret을 반드시 환경변수 또는 secret store로 주입해야 한다.
 
 ## 3. 로컬 실행 순서
 
@@ -116,7 +120,7 @@ TypedSQL을 함께 생성하므로 내부적으로 `prisma generate --sql`을 �
 주의:
 
 - TypedSQL generate는 SQL 파일 타입 추론을 위해 DB 연결이 필요하다.
-- `pnpm check:api`, `pnpm build:api`, `pnpm test:api` 실행 전에는 로컬 PostgreSQL이 떠 있고 migration이 적용된 상태여야 한다.
+- `pnpm api:check`, `pnpm api:build`, `pnpm api:test` 실행 전에는 로컬 PostgreSQL이 떠 있고 migration이 적용된 상태여야 한다.
 
 ### 4-3. migration 생성 / 적용
 
@@ -157,7 +161,24 @@ pnpm db:seed
 | 비운영 캠퍼스 남성 검증 | `test-dogye-m@kangwon.ac.kr`    | `테스트도계남` | 도계 / `UNASSIGNED` |
 | 비운영 캠퍼스 여성 검증 | `test-dogye-f@kangwon.ac.kr`    | `테스트도계여` | 도계 / `UNASSIGNED` |
 
-## 6. 빠른 검증 명령
+## 6. 검증 명령
+
+루트 public command는 fresh checkout에서 단독 실행할 수 있도록 Shared build와 Prisma generation을 포함한다.
+GitHub Actions는 `pnpm api:prepare`를 한 번 실행한 뒤 prepared command를 사용해 같은 준비를 반복하지 않는다.
+
+| 목적           | 로컬 public command         | CI prepared command                  |
+| -------------- | --------------------------- | ------------------------------------ |
+| 준비           | public command가 자동 수행  | `pnpm api:prepare`                   |
+| lint/typecheck | `pnpm api:check`            | `pnpm api:check:prepared`            |
+| unit           | `pnpm api:test`             | `pnpm api:test:prepared`             |
+| integration    | `pnpm api:test:integration` | `pnpm api:test:integration:prepared` |
+| E2E            | `pnpm api:test:e2e`         | `pnpm api:test:e2e:prepared`         |
+| stress harness | `pnpm api:test:stress`      | `pnpm api:test:stress:prepared`      |
+| 전체 test      | `pnpm api:test:ci`          | 각 test lane을 개별 실행             |
+| build          | `pnpm api:build`            | `pnpm api:build:prepared`            |
+
+Prepared command는 CI 내부 capability다. 로컬에서는 개별 명령의 독립 실행성을 보존하는 public command를 기본으로 사용한다.
+Integration/E2E는 disposable PostgreSQL schema 충돌을 막기 위해 worker 1로 실행하며, Dockerized real load는 일반 PR gate가 아닌 rehearsal 범위다.
 
 ### 6-1. 최소 실행 확인
 
@@ -177,23 +198,26 @@ pnpm --dir apps/api build
 ### 6-3. 테스트
 
 ```bash
-pnpm --dir apps/api test
+pnpm api:test
+pnpm api:test:integration
+pnpm api:test:e2e
+pnpm api:test:stress
 ```
 
-### 6-4. lint
+### 6-4. lint/typecheck
 
 ```bash
-pnpm --dir apps/api lint
+pnpm api:check
 ```
 
 변경 파일만 먼저 보고 싶으면:
 
 ```bash
 pnpm --dir apps/api exec eslint \
-  src/config/app.config.ts \
-  src/config/auth.config.ts \
-  src/config/database.config.ts \
-  src/common/prisma/prisma.service.ts \
+  src/platform/runtime/app.config.ts \
+  src/auth/config/auth.config.ts \
+  src/platform/database/database.config.ts \
+  src/platform/database/prisma.service.ts \
   prisma.config.ts \
   --no-warn-ignored
 ```
@@ -224,6 +248,6 @@ curl "http://localhost:4000/api/dormitories?campus=CHUNCHEON&gender=M"
 ## 8. 참고 문서
 
 - Prisma / seed 관련 세부 이슈:
-  - `docs/06_trouble-shooting/database/prisma-7-seed-config-and-generated-client.md`
+  - `docs/development/troubleshooting/database/prisma-7-seed-config-and-generated-client.md`
 - season date-only 규칙:
-  - `docs/07_tech/database/date-only-normalization-rule.md`
+  - `docs/architecture/data/date-only-normalization-rule.md`

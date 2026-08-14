@@ -75,6 +75,46 @@ describe('roommate-search-scope.policy', () => {
   it('등록+배정 viewer의 scope purpose를 season state에 맞춰 분리한다', () => {
     expect(
       resolveRoommateSearchScopeContext(
+        viewerContext({ serviceState: { campusOperated: true, seasonState: 'SEASON_MATCHING' } }),
+        undefined,
+      ),
+    ).toMatchObject({
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      scope: 'CAMPUS_MERGED',
+      purpose: 'BROAD_PREVIEW',
+    });
+
+    expect(
+      resolveRoommateSearchScopeContext(
+        viewerContext({ serviceState: { campusOperated: true, seasonState: 'SEASON_MATCHING' } }),
+        'SAME_BUILDING_ONLY',
+      ),
+    ).toMatchObject({
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      scope: 'SAME_BUILDING_ONLY',
+      purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+    });
+
+    expect(
+      resolveRoommateSearchScopeContext(
+        viewerContext({
+          serviceState: { campusOperated: true, seasonState: 'SEASON_MATCHING' },
+          viewerParticipant: {
+            ...viewerContext().viewerParticipant!,
+            matchedAt: new Date('2026-02-10T00:00:00.000Z'),
+            participantStatus: 'MATCHED',
+          },
+        }),
+        'SAME_BUILDING_ONLY',
+      ),
+    ).toMatchObject({
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      scope: 'SAME_BUILDING_ONLY',
+      purpose: 'BROAD_PREVIEW',
+    });
+
+    expect(
+      resolveRoommateSearchScopeContext(
         viewerContext({ serviceState: { campusOperated: true, seasonState: 'SEASON_OPEN' } }),
         'SAME_BUILDING_ONLY',
       ),
@@ -94,7 +134,7 @@ describe('roommate-search-scope.policy', () => {
     ).toBe('POST_MATCH_COHORT_REVIEW');
   });
 
-  it('SEASON_MATCHING 미등록 viewer는 campus broad preview만 사용할 수 있다', () => {
+  it('SEASON_MATCHING 미등록 viewer는 campus와 same-building gate scope를 broad preview로 사용할 수 있다', () => {
     const context = viewerContext({
       viewerParticipant: {
         ...viewerContext().viewerParticipant!,
@@ -113,10 +153,14 @@ describe('roommate-search-scope.policy', () => {
     });
 
     expect(resolveRoommateSearchScopeContext(context, undefined)).toMatchObject({
-      scopeAvailability: { campusMerged: true, sameBuildingOnly: false },
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
       scope: 'CAMPUS_MERGED',
       purpose: 'BROAD_PREVIEW',
     });
-    expect(() => resolveRoommateSearchScopeContext(context, 'SAME_BUILDING_ONLY')).toThrow();
+    expect(resolveRoommateSearchScopeContext(context, 'SAME_BUILDING_ONLY')).toMatchObject({
+      scopeAvailability: { campusMerged: true, sameBuildingOnly: true },
+      scope: 'SAME_BUILDING_ONLY',
+      purpose: 'BROAD_PREVIEW',
+    });
   });
 });

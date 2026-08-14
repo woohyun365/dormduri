@@ -26,6 +26,8 @@ export class DormitoryCatalogRepository {
     return this.prisma.dormitory.findMany({
       where: {
         campusCode: campus,
+        isActive: true,
+        matchingSupported: true,
         ...(gender ? { OR: [{ genderPolicy: gender }, { genderPolicy: 'BOTH' }] } : {}),
       },
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
@@ -39,8 +41,12 @@ export class DormitoryCatalogRepository {
   }
 
   findDormitoryDetail(id: string): Promise<DormitoryCatalogDetailRecord | null> {
-    return this.prisma.dormitory.findUnique({
-      where: { id },
+    return this.prisma.dormitory.findFirst({
+      where: {
+        id,
+        isActive: true,
+        matchingSupported: true,
+      },
       select: {
         id: true,
         nameKo: true,

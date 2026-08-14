@@ -57,8 +57,6 @@ function createPrismaMock(): StressFixtureMutationClient {
     authSession: model(),
     authSecurityEvent: model(),
     loginAttempt: model(),
-    verificationCode: model(),
-    verificationCodeRequestLog: model(),
     $transaction: vi.fn((callback: (tx: StressFixtureMutationClient) => Promise<unknown>) =>
       callback(prisma as unknown as StressFixtureMutationClient),
     ),
@@ -122,10 +120,25 @@ describe('stress fixture DB materializer', () => {
     await expect(
       materializeStressFixture(prisma, plan, {
         hashPassword: (password) => Promise.resolve(`hashed:${password}`),
+        now: new Date('2026-08-05T06:00:00.000Z'),
       }),
     ).resolves.toMatchObject({ mode: 'applied', databaseMutation: true });
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.season.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          overrideState: 'SEASON_MATCHING',
+          overrideStartedAt: new Date('2026-08-05T06:00:00.000Z'),
+          overrideEndsAt: new Date('2026-08-06T06:00:00.000Z'),
+        }),
+        update: expect.objectContaining({
+          overrideState: 'SEASON_MATCHING',
+          overrideStartedAt: new Date('2026-08-05T06:00:00.000Z'),
+          overrideEndsAt: new Date('2026-08-06T06:00:00.000Z'),
+        }),
+      }),
+    );
     expect(prisma.user.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.arrayContaining([

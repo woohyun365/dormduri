@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
+import { recordIntegrationMigrationInvocation } from './integration-migration-evidence.js';
 
 const DEFAULT_DATABASE_URL =
   'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
@@ -87,6 +88,7 @@ export async function createIntegrationDatabaseSandbox(
 
   setRuntimeDatabaseUrl(databaseUrl);
   runPrismaMigrateDeploy(databaseUrl);
+  recordIntegrationMigrationInvocation(schemaName);
 
   return {
     schemaName,

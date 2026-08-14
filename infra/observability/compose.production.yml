@@ -1,0 +1,16 @@
+services:
+  prometheus:
+    environment:
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:?OBSERVABILITY_ENV is required}
+      OBSERVABILITY_STRICT: 'true'
+      PROMETHEUS_RETENTION: ${PROMETHEUS_RETENTION:?PROMETHEUS_RETENTION is required}
+
+  alloy:
+    environment:
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:?OBSERVABILITY_ENV is required}
+
+  alertmanager:
+    environment:
+      ALERTMANAGER_RETENTION: ${ALERTMANAGER_RETENTION:?ALERTMANAGER_RETENTION is required}
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:?OBSERVABILITY_ENV is required}
+      OBSERVABILITY_STRICT: 'true'

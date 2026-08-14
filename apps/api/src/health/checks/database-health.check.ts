@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { getDatabaseReadiness } from '../../generated/prisma/sql.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   DEFAULT_HEALTH_READINESS_TIMEOUT_MS,
@@ -18,18 +19,36 @@ export class DatabaseHealthCheck implements HealthReadinessCheck {
     const startedAtMs = Date.now();
 
     try {
-      const databaseNow = await withReadinessTimeout(
+      const [row] = await withReadinessTimeout(
         this.name,
-        this.prisma.getDatabaseNow(),
+        this.prisma.$queryRawTyped(getDatabaseReadiness()),
         DEFAULT_HEALTH_READINESS_TIMEOUT_MS,
       );
+
+      if (
+        !row ||
+        typeof row.epochSeconds !== 'number' ||
+        !Number.isFinite(row.epochSeconds) ||
+        row.failedCount === null ||
+        row.incompleteCount === null
+      ) {
+        return this.down('MIGRATION_BASELINE_UNAVAILABLE', startedAtMs);
+      }
+
+      if (toNumber(row.failedCount) > 0) {
+        return this.down('MIGRATION_BASELINE_FAILED', startedAtMs);
+      }
+
+      if (toNumber(row.incompleteCount) > 0) {
+        return this.down('MIGRATION_BASELINE_INCOMPLETE', startedAtMs);
+      }
 
       return createHealthCheckResult({
         name: this.name,
         status: 'up',
         code: 'DATABASE_UP',
         startedAtMs,
-        checkedAt: databaseNow,
+        checkedAt: new Date(row.epochSeconds * 1_000),
       });
     } catch (error) {
       return createHealthCheckResult({
@@ -43,4 +62,25 @@ export class DatabaseHealthCheck implements HealthReadinessCheck {
       });
     }
   }
+
+  private down(
+    code:
+      | 'DATABASE_UNAVAILABLE'
+      | 'DATABASE_TIMEOUT'
+      | 'MIGRATION_BASELINE_UNAVAILABLE'
+      | 'MIGRATION_BASELINE_FAILED'
+      | 'MIGRATION_BASELINE_INCOMPLETE',
+    startedAtMs: number,
+  ): HealthReadinessCheckResult {
+    return createHealthCheckResult({
+      name: this.name,
+      status: 'down',
+      code,
+      startedAtMs,
+    });
+  }
+}
+
+function toNumber(value: number | bigint): number {
+  return typeof value === 'bigint' ? Number(value) : value;
 }

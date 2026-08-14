@@ -18,8 +18,8 @@ import {
 import {
   seedBaseSeasonFixtures,
   seedOperatedDormitoryFixture,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+} from '../_support/fixtures/reference-data.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 describe('Social-safety bookmark integration', () => {
   let prisma: PrismaService;

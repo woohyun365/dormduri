@@ -273,7 +273,7 @@ describe('ChatController', () => {
     expect(chatService.getThreadDetail).not.toHaveBeenCalled();
   });
 
-  it('leaveThread는 Phase 5-2 guard 적용 대상이 아니며 기존 service error contract에 위임한다', async () => {
+  it('leaveThread는 controller guard 대상이 아니며 service error contract에 위임한다', async () => {
     chatService.leaveThread.mockResolvedValueOnce({
       threadId: 'thread-1',
       archived: false,

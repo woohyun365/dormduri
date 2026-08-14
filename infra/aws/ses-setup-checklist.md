@@ -12,11 +12,11 @@ SES_REGION=ap-northeast-2
 SES_FROM_EMAIL=no-reply@example.com
 SES_FROM_NAME=KNU Roommate
 SES_REPLY_TO_EMAIL=support@example.com
-SES_CONFIGURATION_SET=knu-roommate-production # optional
+SES_CONFIGURATION_SET=knu-roommate-production
 ```
 
 - `SES_FROM_EMAIL`은 SES verified identity 범위에 포함되어야 한다.
-- `SES_CONFIGURATION_SET`은 optional이다. bounce/complaint/event destination 운영을 시작할 때 명시한다.
+- Application config에서는 `SES_CONFIGURATION_SET`을 비워둘 수 있지만 production release에서는 delivery/bounce/complaint event destination이 연결된 Configuration Set을 필수로 주입한다.
 - secret 값은 Git commit, Docker image layer, application log, metric label에 남기지 않는다.
 
 ## Identity / DKIM / sandbox
@@ -60,15 +60,16 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts \
   --maxWorkers=50%
 ```
 
-## Manual AWS send smoke
+## Auth mail sandbox smoke
 
 운영 credential과 verified sender가 준비된 뒤에만 수행한다.
 
-1. Private `.env.api` 또는 shell에 `EMAIL_PROVIDER=ses`, `SES_REGION`, `SES_FROM_EMAIL`을 설정한다.
-2. Sandbox 계정이면 수신자도 verified identity 또는 SES mailbox simulator 주소를 사용한다.
-3. 인증 코드 발송 API를 호출하고 실제 수신 여부를 확인한다.
-4. App log/security event에서 raw verification code, reset proof, provider credential, raw provider message가 출력되지 않는지 확인한다.
-5. 실패 시 category 기준으로 대응한다.
+1. Private `.env.api` 또는 shell에 `EMAIL_PROVIDER=ses`, `SES_REGION`, `SES_FROM_EMAIL`, `SES_CONFIGURATION_SET`, `AUTH_SES_SMOKE_RECIPIENT`를 설정한다.
+2. `pnpm --dir apps/api auth:ses:smoke -- --dry-run`으로 설정 경계를 먼저 확인한다.
+3. Sandbox 계정이면 수신자도 verified identity 또는 SES mailbox simulator 주소를 사용하고, `--dry-run` 없이 실행한다.
+4. 출력에는 recipient나 raw provider error를 남기지 않고 bounded category만 기록한다.
+5. SES API acceptance 뒤 Configuration Set destination에서 delivery/bounce/complaint event를 별도로 확인한다.
+6. 실패 시 category 기준으로 대응한다.
    - `CONFIG_INVALID`: env/identity/config set 이름 확인.
    - `ACCESS_DENIED`: IAM/credential/role 확인.
    - `MESSAGE_REJECTED`: sender identity, sandbox 수신자, account paused/suspended 상태 확인.
@@ -80,4 +81,5 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts \
 - `EMAIL_PROVIDER=stub`은 production에서 허용하지 않는다.
 - `SES_FROM_EMAIL`은 verified identity여야 한다.
 - Production access 해제 전에는 실제 사용자 발송을 release complete로 보지 않는다.
-- Bounce/complaint SNS/SQS feedback loop는 별도 follow-up이다.
+- Configuration Set delivery/bounce/complaint event destination이 없으면 release complete로 보지 않는다.
+- 상세 command와 secret-free evidence 형식은 `infra/runbooks/release/components/auth/password-reset-evidence.md`를 따른다.

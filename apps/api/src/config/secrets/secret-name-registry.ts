@@ -1,4 +1,4 @@
-import { secretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 
 import { SECRET_NAME_PREFIX_ENV } from './secret-name-prefix.constants.js';
 export const DEFAULT_SECRET_NAME_ROOT = '/knu-roommate';
@@ -13,7 +13,7 @@ export interface SecretNameMapping {
   readonly secretName: string;
 }
 
-export const secretEnvKeyNames = secretEnvKeys.map((definition) => definition.key);
+export const secretEnvKeyNames = runtimeSecretEnvKeys.map((definition) => definition.key);
 
 export function defaultSecretNamePrefixForEnv(nodeEnv = 'development'): string {
   return `${DEFAULT_SECRET_NAME_ROOT}/${normalizeSecretPathSegment(nodeEnv)}/api`;

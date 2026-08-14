@@ -11,11 +11,9 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
-import {
-  authContext,
-  seedActiveMatchFixture,
-  seedRegisteredAssignedParticipant,
-} from '../_support/integration-fixtures.js';
+import { authContext } from '../_support/fixtures/auth-context.fixture.js';
+import { seedActiveMatchFixture } from '../_support/fixtures/matches.fixture.js';
+import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 describe('Season transition integration', () => {
   let appContext: Awaited<ReturnType<typeof createIntegrationApp>> | null = null;
@@ -82,7 +80,7 @@ describe('Season transition integration', () => {
 
     await prisma.collegeMaster.create({
       data: {
-        code: 'ARTS_ENGINEERING',
+        code: 'CHUNCHEON_ARTS_ENGINEERING',
         campusCode: 'CHUNCHEON',
         nameKo: '문화예술공과대학',
         sortOrder: 1,
@@ -218,14 +216,14 @@ describe('Season transition integration', () => {
       userId: 'user-a',
       participantId: 'participant-old-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-old',
       userId: 'user-b',
       participantId: 'participant-old-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedActiveMatchFixture(prisma, {
       seasonId: 'season-old',
@@ -267,7 +265,7 @@ describe('Season transition integration', () => {
       expect.arrayContaining([
         expect.objectContaining({
           counterpartParticipantId: 'participant-old-b',
-          counterpartNickname: '유저B',
+          counterpartNickname: '유저나',
           stage: 'MATCH',
           result: 'MATCHED_SUCCESS',
           activeMatchEndReason: 'SEASON_ENDED',
@@ -335,7 +333,7 @@ describe('Season transition integration', () => {
     });
 
     const frozenHistory = await matchesService.getMatchHistory(authContext('user-a'));
-    expect(frozenHistory.items[0]?.history[0]?.counterpartNickname).toBe('유저B');
+    expect(frozenHistory.items[0]?.history[0]?.counterpartNickname).toBe('유저나');
   });
 
   it('SEASON_POST_MATCH 경계에서는 pending request와 pending unmatch request가 각각 terminal state로 정리된다', async () => {
@@ -356,14 +354,14 @@ describe('Season transition integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-post-match',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
 
     await prisma.matchRequest.create({
@@ -439,21 +437,21 @@ describe('Season transition integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-history-summary',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-history-summary',
       userId: 'user-c',
       participantId: 'participant-c',
       email: 'user-c@kangwon.ac.kr',
-      nickname: '유저C',
+      nickname: '유저다',
     });
 
     await seedActiveMatchFixture(prisma, {
@@ -540,14 +538,14 @@ describe('Season transition integration', () => {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
+      nickname: '유저가',
     });
     await seedRegisteredAssignedParticipant(prisma, {
       seasonId: 'season-direct-read-only',
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
-      nickname: '유저B',
+      nickname: '유저나',
     });
     await prisma.conversationThread.create({
       data: {

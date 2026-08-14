@@ -1,4 +1,9 @@
 import { describe, expect, it, vi, type Mocked } from 'vitest';
+
+vi.mock('../../generated/prisma/sql.js', () => ({
+  getCurrentTimestamp: vi.fn(() => ({})),
+}));
+
 import { CreateSupportTicketCommand } from './create-support-ticket.command.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SupportNotificationService } from '../notifications/support-notification.service.js';
@@ -42,8 +47,12 @@ function setup() {
     runSerializableTransaction,
   } as unknown as PrismaService;
   const createTicketWithMessage = vi.fn().mockResolvedValue({ ticket, message });
+  const findOwnedReportCase = vi.fn().mockResolvedValue({ id: 'report-1' });
+  const findOwnedEnforcementNotice = vi.fn().mockResolvedValue({ id: 'participant-1' });
   const repository = {
     createTicketWithMessage,
+    findOwnedReportCase,
+    findOwnedEnforcementNotice,
   } as unknown as Mocked<SupportTicketRepository>;
   const appendTicketCreated = vi.fn().mockResolvedValue({ notificationId: 'n-1', created: true });
   const notificationService = {
@@ -57,6 +66,8 @@ function setup() {
     appendTicketCreated,
     runSerializableTransaction,
     tx,
+    findOwnedReportCase,
+    findOwnedEnforcementNotice,
   };
 }
 
@@ -95,6 +106,106 @@ describe('CreateSupportTicketCommand', () => {
       occurredAt: now,
     });
     expect(response).toMatchObject({ ticket: { id: 'ticket-1', status: 'OPEN' } });
+  });
+
+  it('REPORT_RESULT 이의 신청은 본인 신고 내역과 연결된 경우에만 ticket을 생성한다', async () => {
+    const { command, createTicketWithMessage, findOwnedReportCase, tx } = setup();
+
+    await command.execute({
+      authUser: { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
+      request: {
+        category: 'APPEAL',
+        appealCategory: 'REPORT_RESULT',
+        relatedEntityId: 'report-1',
+        subject: '신고 처리 이의 신청',
+        body: '재검토를 요청합니다.',
+        emailReplyConsent: false,
+      },
+    });
+
+    expect(findOwnedReportCase).toHaveBeenCalledWith({
+      client: tx,
+      reportCaseId: 'report-1',
+      requesterUserId: 'user-1',
+    });
+    expect(createTicketWithMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'APPEAL',
+        appealCategory: 'REPORT_RESULT',
+        relatedEntityId: 'report-1',
+      }),
+    );
+  });
+
+  it('REPORT_RESULT 이의 신청의 신고 내역이 본인 소유가 아니면 ticket을 만들지 않는다', async () => {
+    const { command, createTicketWithMessage, findOwnedReportCase } = setup();
+    findOwnedReportCase.mockResolvedValueOnce(null);
+
+    await expect(
+      command.execute({
+        authUser: { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
+        request: {
+          category: 'APPEAL',
+          appealCategory: 'REPORT_RESULT',
+          relatedEntityId: 'other-report-1',
+          subject: '신고 처리 이의 신청',
+          body: '재검토를 요청합니다.',
+          emailReplyConsent: false,
+        },
+      }),
+    ).rejects.toHaveProperty('response.code', 'SUPPORT_RELATED_REPORT_NOT_FOUND');
+
+    expect(createTicketWithMessage).not.toHaveBeenCalled();
+  });
+
+  it('SANCTION/TEMPORARY_RESTRICTION 이의 신청이 제재 내역과 연결되면 소유권을 확인한다', async () => {
+    const { command, createTicketWithMessage, findOwnedEnforcementNotice, tx } = setup();
+
+    await command.execute({
+      authUser: { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
+      request: {
+        category: 'APPEAL',
+        appealCategory: 'SANCTION',
+        relatedEntityId: 'season-participant:participant-1',
+        subject: '이용 제한 이의 신청',
+        body: '재검토를 요청합니다.',
+        emailReplyConsent: false,
+      },
+    });
+
+    expect(findOwnedEnforcementNotice).toHaveBeenCalledWith({
+      client: tx,
+      enforcementNoticeId: 'season-participant:participant-1',
+      requesterUserId: 'user-1',
+    });
+    expect(createTicketWithMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'APPEAL',
+        appealCategory: 'SANCTION',
+        relatedEntityId: 'season-participant:participant-1',
+      }),
+    );
+  });
+
+  it('SANCTION 이의 신청의 제재 내역이 본인 소유가 아니면 ticket을 만들지 않는다', async () => {
+    const { command, createTicketWithMessage, findOwnedEnforcementNotice } = setup();
+    findOwnedEnforcementNotice.mockResolvedValueOnce(null);
+
+    await expect(
+      command.execute({
+        authUser: { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
+        request: {
+          category: 'APPEAL',
+          appealCategory: 'SANCTION',
+          relatedEntityId: 'season-participant:other-participant-1',
+          subject: '이용 제한 이의 신청',
+          body: '재검토를 요청합니다.',
+          emailReplyConsent: false,
+        },
+      }),
+    ).rejects.toHaveProperty('response.code', 'SUPPORT_RELATED_ENFORCEMENT_NOTICE_NOT_FOUND');
+
+    expect(createTicketWithMessage).not.toHaveBeenCalled();
   });
 
   it('notification append 실패는 command 실패로 전파되어 transaction rollback 대상이 된다', async () => {

@@ -1,5 +1,5 @@
 import type { ConfigType } from '@nestjs/config';
-import emailConfig from '../../../config/email.config.js';
+import emailConfig from './email.config.js';
 import type { EmailSender } from './email-sender.interface.js';
 
 export class EmailSenderProviderConfigError extends Error {

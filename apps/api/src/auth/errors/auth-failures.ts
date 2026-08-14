@@ -1,5 +1,9 @@
-import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
-import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth/response';
+import {
+  AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
+  AUTH_RESET_RESTART_REQUIRED_CODE,
+  type GenericErrorResponse,
+  type LoginResponse,
+} from '@repo/shared/auth/response';
 
 interface AuthFailureOptions {
   userActionable?: boolean;
@@ -7,11 +11,16 @@ interface AuthFailureOptions {
   retryAfterSeconds?: number;
 }
 
-function createFailure(
-  code: string,
+function createFailure<TCode extends string>(
+  code: TCode,
   error: string,
   options: AuthFailureOptions = {},
-): GenericSuccessResult {
+): GenericErrorResponse & {
+  success: false;
+  code: TCode;
+  error: string;
+  userActionable: boolean;
+} {
   return {
     success: false,
     error,
@@ -25,6 +34,17 @@ function createFailure(
 }
 
 export const authFailures = {
+  passwordHashCapacityUnavailable(retryAfterSeconds: number) {
+    return createFailure(
+      AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE,
+      '비밀번호 처리가 잠시 지연되고 있어요.',
+      {
+        userActionable: false,
+        retryAfterSeconds,
+      },
+    );
+  },
+
   invalidKnuEmail() {
     return createFailure(
       'AUTH_INVALID_EMAIL_FORMAT',
@@ -35,7 +55,7 @@ export const authFailures = {
     );
   },
 
-  signupValidation(error: string, fieldErrors: SignupDraftValidationFieldErrors = {}) {
+  signupValidation(error: string, fieldErrors: Record<string, string> = {}) {
     const normalizedFieldErrors = Object.fromEntries(
       Object.entries(fieldErrors).filter(
         (entry): entry is [string, string] => typeof entry[1] === 'string',
@@ -59,6 +79,48 @@ export const authFailures = {
     });
   },
 
+  signupNicknameInvalid(error: string) {
+    return createFailure('AUTH_SIGNUP_NICKNAME_INVALID', error, {
+      fieldErrors: { nickname: error },
+    });
+  },
+
+  signupNicknameNotAllowed(error: string) {
+    return createFailure('AUTH_SIGNUP_NICKNAME_NOT_ALLOWED', error, {
+      fieldErrors: { nickname: error },
+    });
+  },
+
+  signupNicknameValidationThrottled(retryAfterSeconds: number) {
+    return createFailure(
+      'AUTH_SIGNUP_NICKNAME_VALIDATION_THROTTLED',
+      '닉네임 확인 요청이 잠시 제한됐어요.',
+      {
+        userActionable: false,
+        retryAfterSeconds,
+      },
+    );
+  },
+
+  signupSubmissionThrottled(retryAfterSeconds: number) {
+    return createFailure('AUTH_SIGNUP_SUBMISSION_THROTTLED', '가입 요청이 잠시 제한됐어요.', {
+      userActionable: false,
+      retryAfterSeconds,
+    });
+  },
+
+  signupCollegeUnavailable() {
+    return createFailure(
+      'AUTH_SIGNUP_COLLEGE_UNAVAILABLE',
+      '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+      {
+        fieldErrors: {
+          collegeCode: '선택한 캠퍼스의 단과대를 다시 선택해주세요.',
+        },
+      },
+    );
+  },
+
   signupVerificationRequired() {
     return createFailure(
       'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
@@ -66,15 +128,28 @@ export const authFailures = {
     );
   },
 
-  invalidCredentials(): LoginResult {
+  legalAcceptanceStale() {
+    return createFailure(
+      'AUTH_LEGAL_ACCEPTANCE_STALE',
+      '약관 또는 개인정보 동의 내용이 변경되었습니다. 화면을 새로고침한 뒤 다시 확인해주세요.',
+      {
+        fieldErrors: {
+          legalAcceptances:
+            '약관 또는 개인정보 동의 내용이 변경되었습니다. 화면을 새로고침한 뒤 다시 확인해주세요.',
+        },
+      },
+    );
+  },
+
+  invalidCredentials(): LoginResponse {
     return {
       ...createFailure('AUTH_INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다.'),
     };
   },
 
-  loginLocked(remainingSeconds: number): LoginResult {
+  loginLocked(remainingSeconds: number): LoginResponse {
     return {
-      ...createFailure('AUTH_LOGIN_LOCKED', '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.', {
+      ...createFailure('AUTH_LOGIN_LOCKED', '반복된 로그인 실패로 계정이 잠겼어요.', {
         userActionable: false,
       }),
       locked: true,
@@ -90,7 +165,7 @@ export const authFailures = {
 
   resetRestartRequired() {
     return createFailure(
-      'AUTH_RESET_RESTART_REQUIRED',
+      AUTH_RESET_RESTART_REQUIRED_CODE,
       '비밀번호 재설정 요청을 다시 진행해주세요.',
       {
         userActionable: true,
@@ -130,10 +205,27 @@ export const authFailures = {
     });
   },
 
+  changePasswordThrottled(retryAfterSeconds: number) {
+    return createFailure('AUTH_CHANGE_PASSWORD_THROTTLED', '비밀번호 변경이 잠시 제한됐어요.', {
+      userActionable: false,
+      retryAfterSeconds,
+    });
+  },
+
   sessionRenewalRequired() {
     return createFailure('AUTH_SESSION_RENEWAL_REQUIRED', '다시 로그인한 뒤 시도해주세요.', {
       userActionable: true,
     });
+  },
+
+  sessionRenewalStale(retryAfterMilliseconds: number) {
+    return {
+      ...createFailure(
+        'AUTH_SESSION_RENEWAL_STALE',
+        '다른 요청에서 로그인 상태를 갱신하고 있습니다.',
+      ),
+      retryAfterMilliseconds,
+    };
   },
 
   sessionRenewalReused() {

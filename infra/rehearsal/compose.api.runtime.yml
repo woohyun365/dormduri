@@ -1,0 +1,31 @@
+services:
+  api:
+    networks:
+      - api-internal
+      - observability
+    deploy:
+      resources:
+        limits:
+          cpus: '1.50'
+          memory: 1408M
+        reservations:
+          memory: 512M
+
+  nginx:
+    networks:
+      - api-internal
+      - observability
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 96M
+        reservations:
+          memory: 32M
+
+networks:
+  api-internal:
+    driver: bridge
+  observability:
+    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+    external: true

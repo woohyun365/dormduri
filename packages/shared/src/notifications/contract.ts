@@ -3,10 +3,15 @@ import { isoDateTimeStringSchema } from '../date/primitives.js';
 
 export const notificationKindSchema = z.enum([
   'CHAT_THREAD_CREATED',
+  'ENFORCEMENT_NOTICE',
   'REPORT_RECEIVED',
   'REPORT_STATUS_UPDATED',
   'PROFILE_MISMATCH_FEEDBACK',
   'SEASON_SYSTEM_NOTICE',
+  'MATCH_REQUEST_RECEIVED',
+  'MATCH_REQUEST_ACCEPTED',
+  'MATCH_REQUEST_REJECTED',
+  'ACTIVE_MATCH_CREATED',
   'SUPPORT_TICKET_CREATED',
   'SUPPORT_TICKET_REPLIED',
   'SUPPORT_TICKET_ACTION_REQUIRED',
@@ -14,7 +19,10 @@ export const notificationKindSchema = z.enum([
 ]);
 export const notificationSourceTypeSchema = z.enum([
   'CONVERSATION_THREAD',
+  'ENFORCEMENT_NOTICE',
   'REPORT_CASE',
+  'MATCH_REQUEST',
+  'ACTIVE_MATCH',
   'SUPPORT_TICKET',
   'SEASON',
   'SYSTEM',
@@ -24,6 +32,31 @@ export const chatThreadCreatedNotificationPayloadSchema = z.strictObject({
   threadId: z.string().min(1),
   actorUserId: z.string().min(1),
   recipientUserId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const enforcementNoticeNotificationPayloadSchema = z.strictObject({
+  enforcementNoticeId: z.string().min(1),
+  actionType: z.enum([
+    'WARNING',
+    'MATCHING_RESTRICTION',
+    'CHAT_RESTRICTION',
+    'ACCOUNT_RESTRICTION',
+    'CONTENT_VISIBILITY_RESTRICTION',
+  ]),
+  reasonCategory: z.enum([
+    'SEXUAL_HARASSMENT',
+    'THREAT',
+    'PERSONAL_INFO_EXPOSURE',
+    'GENDER_IMPERSONATION',
+    'FALSE_PROFILE',
+    'SPAM_OR_AD',
+    'HATE_OR_DISCRIMINATION',
+    'POLICY_VIOLATION',
+    'SAFETY_REVIEW',
+    'ADMIN_ACTION',
+    'OTHER',
+  ]),
   occurredAt: isoDateTimeStringSchema,
 });
 
@@ -49,6 +82,31 @@ export const seasonSystemNoticeNotificationPayloadSchema = z.strictObject({
   campaignId: z.string().min(1),
   seasonId: z.string().min(1).nullable().optional(),
   noticeCode: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const matchRequestReceivedNotificationPayloadSchema = z.strictObject({
+  matchRequestId: z.string().min(1),
+  seasonId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const matchRequestAcceptedNotificationPayloadSchema = z.strictObject({
+  matchRequestId: z.string().min(1),
+  activeMatchId: z.string().min(1),
+  seasonId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const matchRequestRejectedNotificationPayloadSchema = z.strictObject({
+  matchRequestId: z.string().min(1),
+  seasonId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const activeMatchCreatedNotificationPayloadSchema = z.strictObject({
+  activeMatchId: z.string().min(1),
+  seasonId: z.string().min(1),
   occurredAt: isoDateTimeStringSchema,
 });
 
@@ -82,6 +140,9 @@ export const notificationPayloadSchema = z.discriminatedUnion('kind', [
   chatThreadCreatedNotificationPayloadSchema.extend({
     kind: z.literal('CHAT_THREAD_CREATED'),
   }),
+  enforcementNoticeNotificationPayloadSchema.extend({
+    kind: z.literal('ENFORCEMENT_NOTICE'),
+  }),
   reportReceivedNotificationPayloadSchema.extend({
     kind: z.literal('REPORT_RECEIVED'),
   }),
@@ -93,6 +154,18 @@ export const notificationPayloadSchema = z.discriminatedUnion('kind', [
   }),
   seasonSystemNoticeNotificationPayloadSchema.extend({
     kind: z.literal('SEASON_SYSTEM_NOTICE'),
+  }),
+  matchRequestReceivedNotificationPayloadSchema.extend({
+    kind: z.literal('MATCH_REQUEST_RECEIVED'),
+  }),
+  matchRequestAcceptedNotificationPayloadSchema.extend({
+    kind: z.literal('MATCH_REQUEST_ACCEPTED'),
+  }),
+  matchRequestRejectedNotificationPayloadSchema.extend({
+    kind: z.literal('MATCH_REQUEST_REJECTED'),
+  }),
+  activeMatchCreatedNotificationPayloadSchema.extend({
+    kind: z.literal('ACTIVE_MATCH_CREATED'),
   }),
   supportTicketCreatedNotificationPayloadSchema.extend({
     kind: z.literal('SUPPORT_TICKET_CREATED'),
@@ -162,6 +235,9 @@ export type NotificationSourceType = z.infer<typeof notificationSourceTypeSchema
 export type ChatThreadCreatedNotificationPayload = z.infer<
   typeof chatThreadCreatedNotificationPayloadSchema
 >;
+export type EnforcementNoticeNotificationPayload = z.infer<
+  typeof enforcementNoticeNotificationPayloadSchema
+>;
 export type ReportReceivedNotificationPayload = z.infer<
   typeof reportReceivedNotificationPayloadSchema
 >;
@@ -173,6 +249,18 @@ export type ProfileMismatchFeedbackNotificationPayload = z.infer<
 >;
 export type SeasonSystemNoticeNotificationPayload = z.infer<
   typeof seasonSystemNoticeNotificationPayloadSchema
+>;
+export type MatchRequestReceivedNotificationPayload = z.infer<
+  typeof matchRequestReceivedNotificationPayloadSchema
+>;
+export type MatchRequestAcceptedNotificationPayload = z.infer<
+  typeof matchRequestAcceptedNotificationPayloadSchema
+>;
+export type MatchRequestRejectedNotificationPayload = z.infer<
+  typeof matchRequestRejectedNotificationPayloadSchema
+>;
+export type ActiveMatchCreatedNotificationPayload = z.infer<
+  typeof activeMatchCreatedNotificationPayloadSchema
 >;
 export type SupportTicketCreatedNotificationPayload = z.infer<
   typeof supportTicketCreatedNotificationPayloadSchema

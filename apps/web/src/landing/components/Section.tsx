@@ -15,7 +15,7 @@ export function Section({
 }: SectionProps) {
   const bgStyles = {
     white: 'bg-white',
-    alt: 'bg-[var(--knu-background-alt)]',
+    alt: 'bg-(--knu-background-alt)',
   } as const;
 
   const containerStyles = {

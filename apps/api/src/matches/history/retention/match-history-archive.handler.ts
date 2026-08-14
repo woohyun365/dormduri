@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '../../../generated/prisma/client.js';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../../privacy/deidentification/deidentified-display.policy.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
@@ -123,6 +123,12 @@ export async function archiveMatchHistoryJob(
       }
 
       const updateData: Prisma.SeasonMatchHistoryEntryUpdateInput = {};
+      if (roles.length > 0) {
+        Object.assign(updateData, {
+          compatibilitySnapshot: Prisma.DbNull,
+          compatibilitySchemaVersion: null,
+        });
+      }
       if (roles.some((role) => role.role === 'VIEWER')) {
         Object.assign(updateData, {
           viewerSmokingToleranceSnapshot: null,

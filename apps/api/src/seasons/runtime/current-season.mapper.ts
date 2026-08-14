@@ -1,4 +1,5 @@
 import type { SeasonRuntimeOverride } from '@repo/shared/season/runtime';
+import { dormitoryPublicSummarySchema } from '@repo/shared/dormitory';
 import { toDateOnlyString } from '@repo/shared/date';
 import { calcDaysUntilDate } from '../../platform/time/kst-date.js';
 import {
@@ -30,6 +31,14 @@ export function normalizeSeasonRuntimeRow(
     overrideEndsAt: season.overrideEndsAt ?? null,
     dormitoryOperations: (season.dormitoryOperations ?? []).map((operation) => ({
       dormitoryId: operation.dormitoryId,
+      dormitory: operation.dormitory
+        ? dormitoryPublicSummarySchema.parse({
+            id: operation.dormitory.id,
+            name: operation.dormitory.nameKo,
+            roomType: operation.dormitory.roomType,
+            genderPolicy: operation.dormitory.genderPolicy,
+          })
+        : undefined,
       isOperated: operation.isOperated,
       roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
     })),

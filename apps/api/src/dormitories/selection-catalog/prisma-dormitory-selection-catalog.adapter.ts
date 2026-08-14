@@ -28,6 +28,8 @@ const seasonDormitoryOperationSelect = {
       nameKo: true,
       roomType: true,
       genderPolicy: true,
+      matchingSupported: true,
+      isActive: true,
       sortOrder: true,
     },
   },
@@ -66,6 +68,9 @@ export class PrismaDormitorySelectionCatalogAdapter implements DormitorySelectio
       return invalidDormitorySelection('DORMITORY_NOT_FOUND');
     }
     if (!operation.isOperated) {
+      return invalidDormitorySelection('DORMITORY_NOT_OPERATED');
+    }
+    if (operation.dormitory.isActive === false || operation.dormitory.matchingSupported === false) {
       return invalidDormitorySelection('DORMITORY_NOT_OPERATED');
     }
     if (operation.dormitory.campusCode !== input.campusCodeSnapshot) {
@@ -110,6 +115,8 @@ function buildSelectableDormitoryWhere(
     isOperated: true,
     dormitory: {
       campusCode: input.campusCodeSnapshot,
+      isActive: true,
+      matchingSupported: true,
       genderPolicy: { in: [input.genderSnapshot, 'BOTH'] },
     },
   };

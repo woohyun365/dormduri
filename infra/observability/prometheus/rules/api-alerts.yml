@@ -59,12 +59,103 @@ groups:
           summary: Retention review backlog가 남아 있습니다.
           runbook: infra/observability/README.md#alert-rule
 
-      - alert: AuthCleanupLagHigh
-        expr: api_auth_cleanup_lag_seconds > 300
+      - alert: AuthCleanupFailed
+        expr: increase(api_auth_cleanup_failures_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: Auth operational cleanup 실행이 실패했습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: AuthCleanupBatchSaturated
+        expr: max by (target) (api_auth_cleanup_batch_saturated) > 0
         for: 10m
         labels:
           severity: warning
           service: api
         annotations:
-          summary: Auth operational cleanup lag가 5분을 초과했습니다.
+          summary: Auth operational cleanup batch가 target 한도에 계속 도달했습니다.
           runbook: infra/observability/README.md#alert-rule
+
+      - alert: AuthMailFailureSpike
+        expr: sum(increase(api_auth_mail_dispatch_total{outcome=~"failed|unknown"}[10m])) >= 3
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 인증 메일 전달 실패가 10분 기준치를 초과했습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#auth-mail-delivery
+
+      - alert: AuthMailOutboxLagHigh
+        expr: api_auth_mail_outbox_lag_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 인증 메일 outbox 처리 지연이 60초를 초과했습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#auth-mail-delivery
+
+      - alert: AuthPasswordVerifyInFlightHigh
+        expr: sum(api_auth_login_password_verify_in_flight) >= 8
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 로그인 비밀번호 검증 동시 실행이 5분 동안 8개 이상 유지됐습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#password-verify-saturation
+
+      - alert: AuthSessionRenewalReuseDetected
+        expr: increase(api_auth_session_renewals_total{outcome="reused"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: grace 범위를 벗어난 세션 갱신 토큰 재사용이 감지됐습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#renewal-token-reuse
+
+      - alert: AuthCredentialDurabilityFailure
+        expr: |
+          increase(
+            api_auth_sensitive_mutations_total{
+              operation="change_password",
+              outcome=~"replacement_session_failed|outbox_append_failed|audit_append_failed"
+            }[5m]
+          ) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: 비밀번호 변경 transaction의 필수 session/outbox/audit append 실패가 감지됐습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#credential-mutation-durability
+
+      - alert: AuthSensitiveMutationThrottleSpike
+        expr: |
+          sum(increase(api_auth_sensitive_mutations_total{outcome="throttled"}[10m])) >= 10
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 보호된 인증 변경 요청의 제한 응답이 10분 기준치를 초과했습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#sensitive-mutation-admission
+
+      - alert: AuthSignupFinalizationAbuse
+        expr: |
+          increase(api_auth_signup_final_admission_total{outcome="throttled"}[10m])
+          /
+          clamp_min(increase(api_auth_signup_password_hash_total{outcome="started"}[10m]), 1)
+          >= 1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 가입 최종 제출 제한이 password hash 시작 대비 비정상적으로 증가했습니다.
+          runbook: infra/runbooks/incidents/auth-session.md#sensitive-mutation-admission

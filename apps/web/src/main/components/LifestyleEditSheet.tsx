@@ -2,17 +2,17 @@
 
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
-import { Chip } from '@/components/Chip';
-import { Button } from '@/components/Button';
-import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
+import { BaseBottomSheet } from '@/main/components/overlays/BaseBottomSheet';
 import {
-  LIFESTYLE_LABELS,
-  LIFESTYLE_FIELD_NAMES,
-  SLEEP_FIELDS,
-  LIVING_FIELDS,
-  CONDITION_FIELDS,
-} from '@/constants/lifestyle';
-import type { LifestyleData } from '@/types/lifestyle';
+  CONDITION_LIFESTYLE_FIELDS,
+  getLifestyleFormOptions,
+  LIVING_LIFESTYLE_FIELDS,
+  SLEEP_LIFESTYLE_FIELDS,
+  formatLifestyleFieldName,
+} from '@/main/tabs/profile/model/lifestyleFormFields';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 
 interface LifestyleEditSheetProps {
   isOpen: boolean;
@@ -49,9 +49,9 @@ const FIELD_ORDER: FieldKey[] = [
   'drinkingTolerance',
 ];
 
-const SLEEP_FIELD_SET = new Set<FieldKey>(SLEEP_FIELDS);
-const LIVING_FIELD_SET = new Set<FieldKey>(LIVING_FIELDS);
-const CONDITION_FIELD_SET = new Set<FieldKey>(CONDITION_FIELDS);
+const SLEEP_FIELD_SET = new Set<FieldKey>(SLEEP_LIFESTYLE_FIELDS);
+const LIVING_FIELD_SET = new Set<FieldKey>(LIVING_LIFESTYLE_FIELDS);
+const CONDITION_FIELD_SET = new Set<FieldKey>(CONDITION_LIFESTYLE_FIELDS);
 
 function getFieldLockState(
   field: FieldKey,
@@ -133,13 +133,13 @@ export function LifestyleEditSheet({
     >
       <div className="p-5 space-y-6 pb-5">
         {FIELD_ORDER.map((field) => {
-          const labels = LIFESTYLE_LABELS[field];
+          const options = getLifestyleFormOptions(field);
           const isDrinking = field === 'drinkingFrequency' || field === 'drinkingTolerance';
           const { locked, reason } = getFieldLockState(field, isSeasonLocked);
           return (
             <div key={field}>
-              <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
-                {LIFESTYLE_FIELD_NAMES[field]}
+              <label className="block text-sm font-semibold text-(--knu-text-primary) mb-3">
+                {formatLifestyleFieldName(field)}
                 {locked && (
                   <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-gray-400">
                     <Lock className="w-3 h-3" />
@@ -148,12 +148,12 @@ export function LifestyleEditSheet({
                 )}
               </label>
               {isDrinking && !locked && (
-                <p className="text-xs text-[var(--knu-text-tertiary)] mb-2">
+                <p className="text-xs text-(--knu-text-tertiary) mb-2">
                   매칭 점수에만 반영되며 상대방에게는 표시되지 않아요
                 </p>
               )}
               <div className={`flex flex-wrap gap-2 ${locked ? 'opacity-50' : ''}`}>
-                {Object.entries(labels).map(([value, label]) => (
+                {options.map(({ value, label }) => (
                   <Chip
                     key={value}
                     label={label}

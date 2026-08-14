@@ -1,7 +1,7 @@
 import { Inject, Injectable, type LoggerService } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import pino, { type Logger as PinoLogger } from 'pino';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import { compactLogEvent, type AppLogEvent, type AppLogLevel } from './log-event.js';
 import { redactLogValue } from './log-redaction.policy.js';
 import { RequestContextService } from './request-context.service.js';

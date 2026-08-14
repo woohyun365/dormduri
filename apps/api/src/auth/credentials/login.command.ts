@@ -1,23 +1,32 @@
-import type { LoginResult } from '../domain/auth.types.js';
+import type { LoginResponse } from '@repo/shared/auth/response';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import type { AuthLoginAttemptService } from '../login-attempts/account-lock/auth-login-attempt.service.js';
+import type { AuthLoginMetricsService } from '../login-attempts/auth-login-metrics.service.js';
 import type { AuthSessionService } from '../sessions/auth-session.service.js';
 import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
-import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
-import { normalizeEmail } from '../domain/auth.utils.js';
-import { verifyPasswordHash } from './password-hash.js';
+import { toAuthenticatedSessionUser } from '../mappers/auth-user-view.js';
+import { normalizeAuthEmail } from '../domain/auth-email-identity.policy.js';
+import type { AuthPasswordHashPolicy } from './password-hashing/auth-password-hash.adapter.js';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
+import { parseLoginPasswordInput } from '@repo/shared/auth/policy';
+import { isPasswordHashCapacityUnavailableError } from './password-hashing/password-hash-admission.service.js';
+import { authFailures } from '../errors/auth-failures.js';
 
 interface AuthLoginOwnerDeps {
   prisma: PrismaService;
   loginAttemptService: Pick<
     AuthLoginAttemptService,
     'getActiveLock' | 'recordLoginFailure' | 'clearFailures'
+  >;
+  loginMetrics: Pick<AuthLoginMetricsService, 'recordAttempt'>;
+  passwordHashPolicy: Pick<
+    AuthPasswordHashPolicy,
+    'verifyLoginPassword' | 'verifyUnavailableLogin'
   >;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
   securityEvents?: AuthSecurityEventService;
@@ -29,13 +38,23 @@ export async function login(
   password: string,
   rememberMe: boolean,
   requestContext: AuthRequestContext = {},
-): Promise<LoginResult> {
-  const emailNormalized = normalizeEmail(email);
+): Promise<LoginResponse> {
+  const emailNormalized = normalizeAuthEmail(email);
   const activeLock = await (hasAuthRequestContext(requestContext)
     ? deps.loginAttemptService.getActiveLock(emailNormalized, requestContext)
     : deps.loginAttemptService.getActiveLock(emailNormalized));
   if (activeLock) {
+    deps.loginMetrics.recordAttempt('locked');
     return activeLock;
+  }
+
+  if (!parseLoginPasswordInput(password).ok) {
+    const failure = hasAuthRequestContext(requestContext)
+      ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
+      : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+    const result = await failure;
+    deps.loginMetrics.recordAttempt(result.code === 'AUTH_LOGIN_LOCKED' ? 'locked' : 'invalid');
+    return result;
   }
 
   const user = await deps.prisma.user.findUnique({
@@ -55,23 +74,42 @@ export async function login(
     },
   });
 
-  if (!user) {
-    return hasAuthRequestContext(requestContext)
+  if (!user || user.deletedAt || !hasUserDisplayIdentity(user)) {
+    try {
+      await deps.passwordHashPolicy.verifyUnavailableLogin(password);
+    } catch (error) {
+      if (isPasswordHashCapacityUnavailableError(error)) {
+        return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+      }
+      throw error;
+    }
+    const failure = hasAuthRequestContext(requestContext)
       ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
       : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+    const result = await failure;
+    deps.loginMetrics.recordAttempt(result.code === 'AUTH_LOGIN_LOCKED' ? 'locked' : 'invalid');
+    return result;
   }
 
-  if (user.deletedAt || !hasUserDisplayIdentity(user)) {
-    return hasAuthRequestContext(requestContext)
-      ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
-      : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+  let passwordMatches: boolean;
+  try {
+    passwordMatches = await deps.passwordHashPolicy.verifyLoginPassword(
+      user.passwordHash,
+      password,
+    );
+  } catch (error) {
+    if (isPasswordHashCapacityUnavailableError(error)) {
+      return authFailures.passwordHashCapacityUnavailable(error.retryAfterSeconds);
+    }
+    throw error;
   }
-
-  const passwordMatches = await verifyPasswordHash(user.passwordHash, password);
   if (!passwordMatches) {
-    return hasAuthRequestContext(requestContext)
+    const failure = hasAuthRequestContext(requestContext)
       ? deps.loginAttemptService.recordLoginFailure(emailNormalized, requestContext)
       : deps.loginAttemptService.recordLoginFailure(emailNormalized);
+    const result = await failure;
+    deps.loginMetrics.recordAttempt(result.code === 'AUTH_LOGIN_LOCKED' ? 'locked' : 'invalid');
+    return result;
   }
 
   await deps.loginAttemptService.clearFailures(emailNormalized);
@@ -90,10 +128,11 @@ export async function login(
       rememberMe,
     },
   });
+  deps.loginMetrics.recordAttempt('success');
 
   return toLoginSuccessResult(
     authResult.accessToken,
-    toAuthSessionUserSummary({
+    toAuthenticatedSessionUser({
       id: user.id,
       email: user.email,
       nickname: user.displayIdentity.nickname,

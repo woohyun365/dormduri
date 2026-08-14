@@ -2,6 +2,51 @@ packages:
   - apps/*
   - packages/*
 
+allowBuilds:
+  '@prisma/engines': true
+  '@sentry/cli': true
+  '@swc/core': true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
+
+catalog:
+  '@types/node': 24.13.2
+  '@eslint/eslintrc': 3.3.5
+  '@eslint/js': 9.39.4
+  '@playwright/test': 1.61.0
+  '@sentry/nextjs': 10.69.0
+  '@tailwindcss/postcss': 4.3.1
+  '@storybook/addon-docs': 10.4.6
+  '@storybook/nextjs-vite': 10.4.6
+  '@typescript-eslint/eslint-plugin': 8.61.1
+  '@typescript-eslint/parser': 8.61.1
+  '@vitejs/plugin-react': 6.0.2
+  '@vitest/coverage-v8': 4.1.9
+  eslint: 9.39.4
+  eslint-config-next: 16.2.9
+  eslint-config-prettier: 10.1.8
+  eslint-plugin-prettier: 5.5.6
+  next: 16.2.9
+  prettier: 3.8.4
+  react: 19.2.7
+  react-dom: 19.2.7
+  storybook: 10.4.6
+  tailwindcss: 4.3.1
+  typescript: 6.0.3
+  typescript-eslint: 8.61.1
+  vite: 8.0.16
+  vitest: 4.1.9
+
 onlyBuiltDependencies:
+  - '@sentry/cli'
   - '@swc/core'
   - esbuild
+
+# Storybook 10.4.6 transitive vite-tsconfig-paths -> tsconfck@3.1.6 has not
+# widened its TypeScript peer metadata for TypeScript 6 yet. Keep this exception
+# scoped to tsconfck only; remove it when upstream peer range supports TS 6.
+peerDependencyRules:
+  allowedVersions:
+    'tsconfck>typescript': '6'

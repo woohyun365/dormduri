@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Flag, Ban } from 'lucide-react';
-import { Z_INDEX } from '@/constants/ui';
+import { UI_LAYER } from '@/styles/layers';
 
 interface ProfileMoreMenuProps {
   isOpen: boolean;
@@ -63,8 +63,8 @@ export function ProfileMoreMenu({
     <div
       ref={menuRef}
       aria-label="프로필 메뉴"
-      className="absolute right-14 top-3 bg-white rounded-xl shadow-lg border border-[var(--knu-border)] overflow-hidden"
-      style={{ zIndex: Z_INDEX.bottomSheet + 1 }}
+      className="absolute right-14 top-3 bg-white rounded-xl shadow-lg border border-(--knu-border) overflow-hidden"
+      style={{ zIndex: UI_LAYER.nestedBottomSheet }}
     >
       <button
         type="button"
@@ -72,9 +72,9 @@ export function ProfileMoreMenu({
           onBlock();
           onClose();
         }}
-        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-[var(--knu-text-primary)] hover:bg-[var(--knu-background-alt)] transition-colors"
+        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-(--knu-text-primary) hover:bg-[(--knu-background-alt)] transition-colors"
       >
-        <Ban className="w-4 h-4 text-[var(--knu-text-tertiary)]" />
+        <Ban className="w-4 h-4 text-[(--knu-text-tertiary)]" />
         차단하기
       </button>
       <button

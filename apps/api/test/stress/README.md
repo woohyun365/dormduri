@@ -2,6 +2,15 @@
 
 `apps/api/test/stress`는 k6/Artillery 부하 테스트가 사용할 **로컬/스테이징 전용 fixture 기반**을 둔다. 제품 API 런타임 코드와 분리된 테스트 도구이며, production target이나 production DB에 실수로 실행되지 않도록 fail-closed guard를 먼저 통과해야 한다.
 
+## Runner와 실행 shortcut 경계
+
+`apps/api/package.json`의 `stress:*` 명령은 운영자가 안전한 인자와 working directory로 runner를 호출하기 위한 shortcut이다. 시나리오 선택, target allowlist, artifact redaction, fail-closed 조건의 source of truth는 각 `run-*.mjs`/fixture runner에 둔다. package script에 runner behavior를 복제하거나 긴 inline 조건을 추가하지 않는다.
+
+- `stress:http:*`: `test/stress/http/k6/run-k6-scenario.mjs`
+- `stress:realtime:*`: `test/stress/realtime/artillery/run-artillery-scenario.mjs`
+- `stress:docker:*`, `stress:local:*`: `test/stress/docker/`의 bounded runner
+- `test:stress`: 외부 load 실행이 아니라 parser·fixture·redaction·static contract를 검증하는 Vitest lane
+
 ## 구조
 
 ```txt
@@ -13,6 +22,7 @@ apps/api/test/stress/
     stress-fixture.apply-guard.ts # DB mutation explicit opt-in guard
     stress-fixture.materializer.ts # local/staging fixture Prisma materializer/reset plan
     stress-fixture.auth-tokens.ts # seeded actor login token artifact helper
+    auth-password-capacity.fixture.ts # login/signup/reset/change 전용 single-use credential artifact
     seed-stress-fixture.ts        # default dry-run, explicit guard 통과 시 DB seed
     reset-stress-fixture.ts       # default dry-run, explicit guard 통과 시 marker-only reset
   safety/
@@ -28,6 +38,7 @@ apps/api/test/stress/
     run-artillery-scenario.mjs    # Artillery CLI + summary parser runner
   reports/
     parse-k6-summary.ts           # k6 summary-export safe report parser
+    parse-auth-password-capacity-summary.ts # operation별 Argon2id capacity 판정
     parse-artillery-summary.ts    # Artillery summary safe report parser
 ```
 
@@ -55,6 +66,7 @@ Seed/reset runner는 기본적으로 **dry-run**이다. `STRESS_FIXTURE_APPLY=I_
 - stress 확장 cohort: `stressCohortSize=946`
 - deterministic actor id: `stress-local-actor-0001` 형식
 - deterministic user/participant/profile/dormitory id: stress prefix 기반
+- fixture season namespace: 실제 학기 seed의 `(campusCode, academicYear, semester)`와 충돌하지 않는 `2099-1`
 
 actor plan에는 seed에 필요한 email/password/token/session 값이 포함될 수 있지만, report/log에 출력할 때는 반드시 `buildStressFixtureSafeSummary` 또는 `redactStressFixtureSecrets`를 거친다.
 
@@ -101,10 +113,46 @@ artillery version
 
 Release 전 검증은 local smoke와 staging baseline/peak를 분리해서 기록한다. 운영자는 아래 문서를 기준으로 preflight, 실행 순서, dashboard readout, cleanup을 확인한다.
 
-- Runbook: `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`
-- Report template: `apps/api/test/stress/reports/report-template.md`
+- Runbook: `docs/runbooks/observability/api-stress-release-runbook.md`
+- Report template: `apps/api/test/stress/evidence/renderers/report-template.md`
 
 Report에는 k6/Artillery safe parser 결과와 Grafana/Prometheus/Loki readout만 옮긴다. Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password, raw payload는 기록하지 않는다.
+
+Auth recovery abuse는 `stress:http:auth-recovery`로 실행하며 실제 user/mail을 만들지 않는 neutral subject만 사용한다. 동일 subject abuse와 분산 요청뿐 아니라 여러 subject가 하나의 campus NAT IP를 공유하는 정상 흐름도 포함한다. Valid grant와 outbox worker race는 PostgreSQL integration lane이 소유한다.
+
+## Argon2id endpoint capacity gate
+
+`stress:docker:auth-password-capacity`는 19MiB Argon2id를 실제 credential endpoint 조합으로 검증한다. 일반 token fixture와 달리 login success/failure, signup, password reset, password change actor를 서로 겹치지 않게 분리하고, signup/reset/change에는 single-use grant/session artifact를 사용한다.
+
+H0 raw hash calibration은 `STRESS_AUTH_HASH_MICRO_LEVELS=1,5,10 pnpm --dir apps/api stress:auth:hash-micro`로 실행한다. 기본 matrix는 `1,5,10,20,40,100`이며 report에는 latency/RSS/count만 남는다. 이 결과도 reference container 밖의 로컬 실행이면 release 승인 근거가 아니다.
+
+```bash
+# 짧은 local wiring smoke. release capacity evidence로 사용하지 않는다.
+STRESS_COHORT_SIZE=12 \
+STRESS_LARGEST_COHORT_SIZE=4 \
+STRESS_AUTH_CAPACITY_SIGNUP_COUNT=16 \
+STRESS_AUTH_CAPACITY_PROFILE=h1 \
+STRESS_AUTH_CAPACITY_RATE=1 \
+STRESS_AUTH_CAPACITY_DURATION=10s \
+pnpm --dir apps/api stress:docker:auth-password-capacity
+
+# 승인된 production-like 환경에서는 H1~H9를 한 번에 하나씩 실행한다.
+STRESS_AUTH_CAPACITY_PROFILE=h4 \
+pnpm --dir apps/api stress:docker:auth-password-capacity
+```
+
+- raw artifact는 `test/stress/reports/.tmp-*`에 mode `0600`으로 만들고 실행 뒤 제거한다.
+- report에는 operation별 p95/p99/error와 threshold 결과만 남기며 email, password, grant, token, encoded hash는 남기지 않는다.
+- 로컬 smoke 성공은 fixture/API/k6/report/cleanup 배선만 증명한다. 최종 GO/NO-GO에는 계획 문서의 4GB/2vCPU host, API 1.5 CPU/1536MiB, RDS 조건에서 H1~H9와 CPU/RSS/DB evidence가 필요하다.
+
+4GB/2CPU로 제한한 Docker engine에서 관측 stack까지 포함한 local constrained rehearsal은 다음 명령으로 실행한다.
+
+```bash
+pnpm --dir apps/api stress:local:preflight
+pnpm --dir apps/api stress:local:auth-password
+```
+
+이 경로는 engine resource가 정확히 제한되지 않으면 시작 전에 실패한다. 전체 profile 순서, 장시간 H8 opt-in, 결과 해석과 cleanup은 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다. Local constrained 결과는 외부 app host나 managed PostgreSQL capacity 증명이 아니다.
 
 ## Authenticated fixture flow
 
@@ -143,6 +191,7 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:spike
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:soak
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:auth-login
 STRESS_TARGET_URL=http://127.0.0.1:4000 STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:smoke
 ```
 

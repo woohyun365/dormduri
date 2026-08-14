@@ -28,12 +28,14 @@ import { CurrentSeasonParticipantContextGuard } from '../context/current-season-
 import { CurrentSeasonParticipantContextResolver } from '../context/current-season-participant-context.resolver.js';
 import { createSeasonParticipantSourceOwner } from '../participants/season-participant-source.policy.js';
 import { createSeasonParticipantPublicTargetOwner } from '../public-targets/registration-snapshot.query.js';
+import { SeasonProfileIntroModerationAdapter } from '../profile-draft/adapters/season-profile-intro-moderation.adapter.js';
 
 export const SEASON_PARTICIPANTS_PROVIDERS: Provider[] = [
   SeasonParticipantsService,
   CurrentSeasonParticipationViewQuery,
   CurrentSeasonParticipantContextResolver,
   CurrentSeasonParticipantContextGuard,
+  SeasonProfileIntroModerationAdapter,
   {
     provide: SEASON_PARTICIPANT_WRITE_OWNER,
     useFactory: (
@@ -42,6 +44,7 @@ export const SEASON_PARTICIPANTS_PROVIDERS: Provider[] = [
       dormitorySelectionCatalog: DormitorySelectionCatalogPort,
       chatThreadWithdrawal: ChatThreadWithdrawalPort,
       matchParticipantWithdrawal: MatchParticipantWithdrawalPort,
+      seasonProfileIntroModeration: SeasonProfileIntroModerationAdapter,
     ) =>
       createSeasonParticipantWriteOwner({
         prisma,
@@ -49,6 +52,7 @@ export const SEASON_PARTICIPANTS_PROVIDERS: Provider[] = [
         dormitorySelectionCatalog,
         chatThreadWithdrawal,
         matchParticipantWithdrawal,
+        seasonProfileIntroModeration,
       }),
     inject: [
       PrismaService,
@@ -56,6 +60,7 @@ export const SEASON_PARTICIPANTS_PROVIDERS: Provider[] = [
       DORMITORY_SELECTION_CATALOG_PORT,
       CHAT_THREAD_WITHDRAWAL_PORT,
       MATCH_PARTICIPANT_WITHDRAWAL_PORT,
+      SeasonProfileIntroModerationAdapter,
     ],
   },
   {

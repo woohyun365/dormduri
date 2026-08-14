@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
-import databaseConfig from '../../config/database.config.js';
+import databaseConfig from './database.config.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import {
   PrismaPoolMetricsService,
@@ -14,16 +14,30 @@ import {
 type DatabaseSettings = ConfigType<typeof databaseConfig>;
 
 export type PrismaConnectionRole = 'runtime' | 'retention_worker' | 'retention_disclosure';
-export const ACTIVE_PRISMA_CONNECTION_ROLES: PrismaConnectionRole[] = [
-  'runtime',
-  'retention_worker',
-  'retention_disclosure',
-];
+export const PRISMA_SESSION_TIME_ZONE = 'UTC';
+const PRISMA_SCHEMA_IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 
 interface ManagedPrismaClientSettings {
   connectionString: string;
   schema: string | null;
   applicationName: string;
+}
+
+export function buildPrismaSessionOptions(schema: string | null): string {
+  const settings = [`-c timezone=${PRISMA_SESSION_TIME_ZONE}`];
+  if (schema) {
+    if (!PRISMA_SCHEMA_IDENTIFIER_PATTERN.test(schema)) {
+      throw new Error('[PrismaService] invalid database schema identifier');
+    }
+    settings.push(`-c search_path=${schema}`);
+  }
+  return settings.join(' ');
+}
+
+export function stripPrismaConnectionOptions(connectionString: string): string {
+  const url = new URL(connectionString);
+  url.searchParams.delete('options');
+  return url.toString();
 }
 
 export function recordPrismaConnectionAdapterError(
@@ -45,18 +59,6 @@ export function recordPrismaConnectionAdapterError(
     },
     'database connection adapter error',
   );
-}
-
-export interface PrismaConnectionPoolBudget {
-  activeRoles: PrismaConnectionRole[];
-  poolMaxPerRole: number;
-  activePoolMaxConnections: number;
-  migrationConnectionIncludedInAppPool: false;
-  futureRolePoolCost: {
-    role: 'auth_cleanup_worker' | 'read_only_operations';
-    additionalMaxConnections: number;
-  }[];
-  alertAtEstimatedConnections: number;
 }
 
 function isRetryableTransactionConflict(error: unknown) {
@@ -122,36 +124,6 @@ function resolveManagedPrismaClientSettings(
   }
 }
 
-export function calculatePrismaConnectionPoolBudget(
-  databaseSettings: Pick<DatabaseSettings, 'poolMax'>,
-  options: { alertRatio: number } = { alertRatio: 0.8 },
-): PrismaConnectionPoolBudget {
-  const activeRoles = [...ACTIVE_PRISMA_CONNECTION_ROLES];
-  const poolMaxPerRole = databaseSettings.poolMax;
-  const activePoolMaxConnections = activeRoles.length * poolMaxPerRole;
-
-  return {
-    activeRoles,
-    poolMaxPerRole,
-    activePoolMaxConnections,
-    migrationConnectionIncludedInAppPool: false,
-    futureRolePoolCost: [
-      {
-        role: 'auth_cleanup_worker',
-        additionalMaxConnections: poolMaxPerRole,
-      },
-      {
-        role: 'read_only_operations',
-        additionalMaxConnections: poolMaxPerRole,
-      },
-    ],
-    alertAtEstimatedConnections: Math.max(
-      1,
-      Math.floor(activePoolMaxConnections * options.alertRatio),
-    ),
-  };
-}
-
 export abstract class ManagedPrismaClient
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy, PrismaPoolMetricProvider
@@ -168,7 +140,7 @@ export abstract class ManagedPrismaClient
   ) {
     const roleSettings = resolveManagedPrismaClientSettings(databaseSettings, role);
     const pool = new Pool({
-      connectionString: roleSettings.connectionString,
+      connectionString: stripPrismaConnectionOptions(roleSettings.connectionString),
       max: databaseSettings.poolMax,
       min: databaseSettings.poolMin,
       connectionTimeoutMillis: databaseSettings.adapterConnectionTimeoutMs,
@@ -176,6 +148,7 @@ export abstract class ManagedPrismaClient
       query_timeout: databaseSettings.queryTimeoutMs,
       statement_timeout: databaseSettings.statementTimeoutMs,
       application_name: roleSettings.applicationName,
+      options: buildPrismaSessionOptions(roleSettings.schema),
     });
 
     const queryLogEvents = databaseSettings.prismaQueryLogEvents
@@ -263,11 +236,11 @@ export abstract class ManagedPrismaClient
   async getDatabaseNow(): Promise<Date> {
     const [row] = await this.$queryRawTyped(getCurrentTimestamp());
 
-    if (!row?.now) {
+    if (typeof row?.epochSeconds !== 'number' || !Number.isFinite(row.epochSeconds)) {
       throw new Error('[PrismaService] failed to resolve database current timestamp');
     }
 
-    return row.now instanceof Date ? row.now : new Date(row.now);
+    return new Date(row.epochSeconds * 1_000);
   }
 
   private recordTransactionRetryMetric(outcome: 'retry' | 'exhausted') {

@@ -31,6 +31,32 @@ http_status() {
   curl -sS -o "$output_file" -w '%{http_code}' "$@"
 }
 
+assert_health_response() {
+  path="$1"
+  output_file="$2"
+
+  if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$output_file"; then
+    fail "failed smoke: ${path} response does not expose status=ok" 1
+  fi
+
+  case "$path" in
+    /health|/health/live)
+      grep -Eq '"timestamp"[[:space:]]*:' "$output_file" ||
+        fail "failed smoke: ${path} response is missing timestamp" 1
+      grep -Eq '"uptimeSeconds"[[:space:]]*:' "$output_file" ||
+        fail "failed smoke: ${path} response is missing uptimeSeconds" 1
+      ;;
+    /health/ready)
+      grep -Eq '"failureCodes"[[:space:]]*:[[:space:]]*\[[[:space:]]*\]' "$output_file" ||
+        fail 'failed smoke: /health/ready response is missing an empty failureCodes array' 1
+      ;;
+  esac
+
+  if grep -Eq '"(checks|details|secretSource|secretOrigin|mountPath|rawError)"[[:space:]]*:' "$output_file"; then
+    fail "failed smoke: ${path} response exposes internal readiness details" 1
+  fi
+}
+
 dry_run=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -55,7 +81,9 @@ done
 
 if [ "$dry_run" = true ]; then
   echo 'dry-run: would check /health, /health/live, /health/ready'
+  echo 'dry-run: would validate bounded public health response schemas'
   echo 'dry-run: would verify /internal/metrics rejects anonymous scrape and accepts bearer token'
+  echo 'dry-run: would verify auth verification, credential, mail dispatch and outbox lag metrics'
   exit 0
 fi
 
@@ -70,9 +98,13 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 for path in /health /health/live /health/ready; do
-  status="$(http_status "$tmp_dir/health.txt" "${API_BASE_URL}${path}")"
+  output_file="$tmp_dir/$(printf '%s' "$path" | tr '/' '-').json"
+  status="$(http_status "$output_file" "${API_BASE_URL}${path}")"
   case "$status" in
-    2*) echo "ok: ${path} returned ${status}" ;;
+    2*)
+      assert_health_response "$path" "$output_file"
+      echo "ok: ${path} returned ${status} with bounded schema"
+      ;;
     *) fail "failed smoke: ${path} returned ${status}" 1 ;;
   esac
 done
@@ -94,5 +126,21 @@ esac
 if ! grep -q '^# HELP\|^api_' "$tmp_dir/metrics-authorized.txt"; then
   fail 'failed smoke: authorized metrics scrape did not look like Prometheus text format' 1
 fi
+
+for metric in \
+  api_auth_verification_operations_total \
+  api_auth_credential_transitions_total \
+  api_auth_signup_nickname_validation_total \
+  api_auth_signup_final_admission_total \
+  api_auth_signup_password_hash_total \
+  api_auth_signup_password_hash_duration_seconds \
+  api_auth_sensitive_mutations_total \
+  api_auth_mail_dispatch_total \
+  api_auth_mail_outbox_lag_seconds
+do
+  if ! grep -q "^# HELP ${metric}\\|^${metric}" "$tmp_dir/metrics-authorized.txt"; then
+    fail "failed smoke: required auth metric is missing: ${metric}" 1
+  fi
+done
 
 echo 'API release smoke complete'

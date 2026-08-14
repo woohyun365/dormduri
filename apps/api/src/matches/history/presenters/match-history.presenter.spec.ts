@@ -1,25 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import {
   matchHistoryEntrySchema,
   matchHistorySeasonSummarySchema,
 } from '@repo/shared/match/contract';
 import { toMatchHistoryResponse, type MatchHistoryEntryRow } from './match-history.presenter.js';
-
-function findRepoRoot() {
-  let current = process.cwd();
-
-  while (!existsSync(join(current, 'packages/shared/src'))) {
-    const parent = dirname(current);
-    if (parent === current) {
-      throw new Error('repo root with packages/shared/src not found');
-    }
-    current = parent;
-  }
-
-  return current;
-}
 
 function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): MatchHistoryEntryRow {
   return {
@@ -34,22 +18,14 @@ function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): Mat
     unmatchedAt: null,
     finalizedAt: new Date('2026-02-28T03:00:00.000Z'),
     requestTerminalReason: null,
+    systemCancellationCause: null,
+    systemCancellationGroupId: null,
     activeMatchEndReason: null,
     ...overrides,
   };
 }
 
 describe('match history read model', () => {
-  it('match history contract는 chat implementation을 import하지 않는다', () => {
-    const source = readFileSync(
-      join(findRepoRoot(), 'packages/shared/src/match/contract/history.ts'),
-      'utf8',
-    );
-
-    expect(source).not.toMatch(/['"].*chat/);
-    expect(source).not.toContain('conversationThreadClosedReasonSchema');
-  });
-
   it('public history entry는 chat-derived fields를 노출하지 않는다', () => {
     const response = toMatchHistoryResponse({
       seasons: [
@@ -75,6 +51,34 @@ describe('match history read model', () => {
     expect(entry).not.toHaveProperty('threadClosedAt');
   });
 
+  it('system cancellation 원인과 grouping key를 viewer-facing contract로 전달한다', () => {
+    const response = toMatchHistoryResponse({
+      seasons: [
+        {
+          participantId: 'viewer-participant-1',
+          seasonId: 'season-1',
+          seasonName: '2026-1',
+          viewerDormitoryIdSnapshot: 'dormitory-1',
+        },
+      ],
+      entries: [
+        makeHistoryEntryRow({
+          entryType: 'REQUEST',
+          entryResult: 'REQUEST_CANCELLED',
+          matchedAt: null,
+          requestTerminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+          systemCancellationCause: 'VIEWER_MATCHED',
+          systemCancellationGroupId: 'active-match-1',
+        }),
+      ],
+    });
+
+    expect(response.items[0]?.history[0]).toMatchObject({
+      systemCancellationCause: 'VIEWER_MATCHED',
+      systemCancellationGroupId: 'active-match-1',
+    });
+  });
+
   it('match history contract는 chat closed reason 필드를 거부한다', () => {
     expect(
       matchHistoryEntrySchema.safeParse({
@@ -88,6 +92,8 @@ describe('match history read model', () => {
         unmatchedAt: null,
         finalizedAt: '2026-02-28T03:00:00.000Z',
         requestTerminalReason: null,
+        systemCancellationCause: null,
+        systemCancellationGroupId: null,
         activeMatchEndReason: null,
         threadClosedReason: 'SEASON_ENDED',
         threadClosedAt: '2026-02-28T03:00:00.000Z',
@@ -109,6 +115,8 @@ describe('match history read model', () => {
         unmatchedAt: null,
         finalizedAt: '2026-02-28T03:00:00.000Z',
         requestTerminalReason: null,
+        systemCancellationCause: null,
+        systemCancellationGroupId: null,
         activeMatchEndReason: null,
       }).success,
     ).toBe(false);

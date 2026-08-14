@@ -29,8 +29,8 @@ const baseViewerContext = {
 } satisfies VisibleProfileViewerContext;
 
 const activeCollegeOptions = [
-  { code: 'IT', label: 'IT대' },
-  { code: 'NURSING', label: '간호대' },
+  { code: 'CHUNCHEON_IT', label: 'IT대' },
+  { code: 'CHUNCHEON_NURSING', label: '간호대' },
 ];
 
 describe('roommate-search-filter-manifest.presenter', () => {
@@ -82,12 +82,44 @@ describe('roommate-search-filter-manifest.presenter', () => {
       operators: ['INCLUDE', 'EXCLUDE'],
     });
     expect(collegeField?.options).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'IT', label: 'IT대' })]),
+      expect.arrayContaining([expect.objectContaining({ code: 'CHUNCHEON_IT', label: 'IT대' })]),
+    );
+    expect(manifest.filters.fields.ageBand?.options).toEqual(
+      expect.arrayContaining([
+        { code: '20', label: '20세 (2007년생)' },
+        { code: '25_PLUS', label: '25세 이상 (2002년생 이하)' },
+      ]),
     );
     expect(manifest.manifestRevision).toContain('CHUNCHEON');
     expect(manifest.sorts).toEqual({
       default: 'MATCH_SCORE',
       options: ['NICKNAME', 'MATCH_SCORE'],
     });
+  });
+
+  it('ageBand label은 현재 시즌 기준 연도가 바뀌면 자동으로 출생연도 표기를 갱신한다', () => {
+    const manifest = buildRoommateSearchManifest({
+      viewerContext: {
+        ...baseViewerContext,
+        seasonReferenceYear: 2027,
+        viewerSelection: {
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+          source: 'SEASON_PARTICIPANT',
+        },
+        viewerHasOperatedAssignedDormitory: true,
+      },
+      scope: 'SAME_BUILDING_ONLY',
+      purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+      appliedSort: 'MATCH_SCORE',
+      activeCollegeOptions,
+    });
+
+    expect(manifest.filters.fields.ageBand?.options).toEqual(
+      expect.arrayContaining([
+        { code: '20', label: '20세 (2008년생)' },
+        { code: '25_PLUS', label: '25세 이상 (2003년생 이하)' },
+      ]),
+    );
   });
 });

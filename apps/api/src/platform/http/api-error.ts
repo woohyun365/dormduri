@@ -59,6 +59,10 @@ export function tooManyRequestsError(code: string, error: string, extras?: ApiEr
   return new HttpException(createApiErrorBody(code, error, extras), HttpStatus.TOO_MANY_REQUESTS);
 }
 
+export function serviceUnavailableError(code: string, error: string, extras?: ApiErrorExtras) {
+  return new HttpException(createApiErrorBody(code, error, extras), HttpStatus.SERVICE_UNAVAILABLE);
+}
+
 export interface NormalizedApiError {
   code: string;
   error: string;
@@ -76,7 +80,7 @@ export function normalizeApiError(exception: unknown): NormalizedApiError {
       return {
         statusCode,
         code: defaultErrorCode(statusCode),
-        error: response,
+        error: statusCode === 429 ? defaultErrorMessage(statusCode) : response,
         extras: {},
         stack: exception.stack,
       };

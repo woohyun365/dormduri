@@ -166,6 +166,7 @@ export class ReportTargetContextResolver {
         seasonId: target.seasonId,
         participantStatus: target.participantStatus,
         dormitoryId: target.dormitoryId,
+        targetDisplayName: target.profile?.nicknameSnapshot ?? null,
         profileSnapshotExists: target.profile !== null,
       },
     };

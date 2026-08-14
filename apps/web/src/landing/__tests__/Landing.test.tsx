@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import Landing from '../Landing';
+import LandingPage from '../LandingPage';
 
 vi.mock('../components/LandingHeader', () => ({
   LandingHeader: () => <header data-testid="landing-header">Header</header>,
@@ -15,40 +15,43 @@ vi.mock('../sections/LandingHeroSection', () => ({
   LandingHeroSection: () => <section data-testid="hero">Hero</section>,
 }));
 
-vi.mock('../sections/LandingProblemSolutionSection', () => ({
-  LandingProblemSolutionSection: () => (
-    <section data-testid="problem-solution">ProblemSolution</section>
-  ),
+vi.mock('../sections/LandingTrustBoundarySection', () => ({
+  LandingTrustBoundarySection: () => <section data-testid="trust-boundary">TrustBoundary</section>,
 }));
 
-vi.mock('../sections/LandingFeaturesSection', () => ({
-  LandingFeaturesSection: () => <section data-testid="features">Features</section>,
+vi.mock('../sections/LandingHowItWorksSection', () => ({
+  LandingHowItWorksSection: () => <section data-testid="how-it-works">HowItWorks</section>,
+}));
+
+vi.mock('../sections/LandingFeatureSection', () => ({
+  LandingFeatureSection: () => <section data-testid="features">Features</section>,
 }));
 
 vi.mock('../sections/LandingSeasonPolicySection', () => ({
   LandingSeasonPolicySection: () => <section data-testid="season-policy">SeasonPolicy</section>,
 }));
 
-vi.mock('../sections/LandingFaqSection', () => ({
-  LandingFaqSection: () => <section data-testid="faq">FAQ</section>,
+vi.mock('../sections/LandingSupportSection', () => ({
+  LandingSupportSection: () => <section data-testid="support">Support</section>,
 }));
 
-vi.mock('../sections/LandingCtaSection', () => ({
-  LandingCtaSection: () => <section data-testid="cta">CTA</section>,
+vi.mock('../sections/LandingFinalCtaSection', () => ({
+  LandingFinalCtaSection: () => <section data-testid="final-cta">FinalCTA</section>,
 }));
 
-describe('Landing', () => {
-  it('모든 핵심 섹션이 올바른 순서로 렌더링된다', () => {
-    render(<Landing />);
+describe('LandingPage', () => {
+  it('제품 서사 섹션이 올바른 순서로 렌더링된다', () => {
+    render(<LandingPage />);
 
     const sections = [
       'landing-header',
       'hero',
-      'problem-solution',
+      'trust-boundary',
+      'how-it-works',
       'features',
       'season-policy',
-      'faq',
-      'cta',
+      'support',
+      'final-cta',
       'landing-footer',
     ];
 
@@ -56,20 +59,35 @@ describe('Landing', () => {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     });
 
-    const container = screen.getByTestId('landing-header').parentElement!;
-    const children = Array.from(container.children);
-    const order = sections.map((id) => children.indexOf(screen.getByTestId(id)));
+    const root = screen.getByTestId('landing-header').parentElement!;
+    const main = root.querySelector('main')!;
+    const orderAnchors = [
+      screen.getByTestId('landing-header'),
+      ...Array.from(main.children),
+      screen.getByTestId('landing-footer'),
+    ];
+    const order = sections.map((id) => orderAnchors.indexOf(screen.getByTestId(id)));
 
     for (let i = 1; i < order.length; i++) {
       expect(order[i]!).toBeGreaterThan(order[i - 1]!);
     }
   });
 
-  it('Header와 Footer가 각각 첫 번째와 마지막에 위치한다', () => {
-    render(<Landing />);
+  it('Header와 Footer가 각각 첫 번째와 마지막에 위치하고 본문은 main landmark 안에 있다', () => {
+    render(<LandingPage />);
 
     const container = screen.getByTestId('landing-header').parentElement!;
     expect(container.firstElementChild).toBe(screen.getByTestId('landing-header'));
     expect(container.lastElementChild).toBe(screen.getByTestId('landing-footer'));
+    expect(container.querySelector('main')).toBeInTheDocument();
+  });
+
+  it('공개 Landing composition은 runtime API를 호출하지 않는다', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    render(<LandingPage />);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });

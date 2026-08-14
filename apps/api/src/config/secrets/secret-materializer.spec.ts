@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { secretEnvKeys } from '../env-keys/index.js';
+import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 import {
   applyMaterializedSecretsToEnv,
   materializeRequiredSecrets,
@@ -8,7 +8,7 @@ import type { SecretReaderPort } from './secret-reader.port.js';
 
 function allSecretEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const definition of secretEnvKeys) {
+  for (const definition of runtimeSecretEnvKeys) {
     env[definition.key] = `${definition.key.toLowerCase()}-value`;
   }
   return env;
@@ -18,8 +18,11 @@ describe('secret materializer', () => {
   it('materializes direct env secrets keyed by env name', async () => {
     const materialized = await materializeRequiredSecrets({ source: 'env', env: allSecretEnv() });
 
-    expect(Object.keys(materialized)).toEqual(secretEnvKeys.map((definition) => definition.key));
+    expect(Object.keys(materialized)).toEqual(
+      runtimeSecretEnvKeys.map((definition) => definition.key),
+    );
     expect(materialized.DATABASE_URL).toBe('database_url-value');
+    expect(materialized.MIGRATION_DATABASE_URL).toBeUndefined();
   });
 
   it('materializes AWS secrets by secret-name mapping into env key records', async () => {
@@ -36,6 +39,33 @@ describe('secret materializer', () => {
     });
 
     expect(materialized.DATABASE_URL).toBe('value-for:/knu-roommate/prod/api/DATABASE_URL');
+  });
+
+  it('materializes mounted secrets by env key without AWS name mapping', async () => {
+    const requestedNames: string[] = [];
+    const reader: SecretReaderPort = {
+      readSecret: (name) => {
+        requestedNames.push(name);
+        return Promise.resolve(`value-for:${name}`);
+      },
+      readRequiredSecrets: async (names) => {
+        const entries = await Promise.all(
+          names.map(async (name) => [name, await reader.readSecret(name)]),
+        );
+        return Object.fromEntries(entries) as Record<string, string>;
+      },
+    };
+
+    const materialized = await materializeRequiredSecrets({
+      source: 'mounted-files',
+      env: { NODE_ENV: 'production' },
+      secretMountDirectory: '/run/secrets/api',
+      reader,
+    });
+
+    expect(materialized.DATABASE_URL).toBe('value-for:DATABASE_URL');
+    expect(requestedNames).toContain('DATABASE_URL');
+    expect(requestedNames.some((name) => name.startsWith('/'))).toBe(false);
   });
 
   it('applies materialized secrets to a target env object', () => {

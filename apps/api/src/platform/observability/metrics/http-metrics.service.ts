@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { Counter, Gauge, Histogram } from 'prom-client';
-import observabilityConfig from '../../../config/observability.config.js';
+import observabilityConfig from '../observability.config.js';
 import { PrometheusRegistryService } from './prometheus-registry.service.js';
 import {
   EXCEPTION_METRIC_LABEL_NAMES,

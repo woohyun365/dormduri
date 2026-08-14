@@ -17,7 +17,7 @@ const quietLifestyle = {
   temperatureSensitivity: 'NORMAL',
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
+  earphoneExpectation: 'LOW_VOLUME_OK',
   sleepEnvPreference: 'NO_SPEAKER',
   screenTolerance: 'NO_SCREEN',
   indoorEatingTolerance: 'NO_SMELL',
@@ -67,7 +67,7 @@ const relaxedLifestyle = {
   temperatureSensitivity: 'NORMAL',
   smokingTolerance: 'E_CIG_OK',
   phoneTolerance: 'BRIEF_OK',
-  earphoneExpectation: 'STUDY',
+  earphoneExpectation: 'LOW_VOLUME_OK',
   sleepEnvPreference: 'SPEAKER_OK',
   screenTolerance: 'NO_SCREEN',
   indoorEatingTolerance: 'CLEAN_OK',
@@ -100,11 +100,46 @@ const flexibleLifestyle = {
   drinkingTolerance: 'LOW_ONLY',
 };
 
+const HOME_E2E_MATRIX_DORMITORY_CONFIGS = [
+  { dormitoryId: 'dasan', nicknamePrefix: '다산홈', genders: ['M'] },
+  { dormitoryId: 'yeji', nicknamePrefix: '예지홈', genders: ['F'] },
+  { dormitoryId: 'saerom', nicknamePrefix: '새롬홈', genders: ['M', 'F'] },
+  { dormitoryId: 'irum', nicknamePrefix: '이룸홈', genders: ['M', 'F'] },
+  { dormitoryId: 'daon', nicknamePrefix: '다온홈', genders: ['M', 'F'] },
+];
+
+const homeMatrixLifestyles = [quietLifestyle, tidyLifestyle, relaxedLifestyle, flexibleLifestyle];
+
+function createHomeE2eMatrixUsers() {
+  return HOME_E2E_MATRIX_DORMITORY_CONFIGS.flatMap((dormitory) =>
+    Array.from({ length: 10 }, (_, index) => {
+      const ordinal = index + 1;
+      const ordinalText = String(ordinal).padStart(2, '0');
+      const gender = dormitory.genders[index % dormitory.genders.length];
+
+      return {
+        key: `home-e2e-${dormitory.dormitoryId}-${ordinalText}`,
+        email: `home-e2e-${dormitory.dormitoryId}-${ordinalText}@kangwon.ac.kr`,
+        nickname: `${dormitory.nicknamePrefix}${ordinalText}`,
+        gender,
+        campus: 'CHUNCHEON',
+        dormitoryId: dormitory.dormitoryId,
+        dormitorySelectionState: 'ASSIGNED',
+        intro: `${dormitory.nicknamePrefix} ${ordinalText} Home full-stack matrix 사용자입니다.`,
+        note: `Home dashboard dormitory matrix ${dormitory.dormitoryId} participant ${ordinalText}`,
+        lifestyle: homeMatrixLifestyles[index % homeMatrixLifestyles.length],
+      };
+    }),
+  );
+}
+
+export const HOME_E2E_MATRIX_USERS = createHomeE2eMatrixUsers();
+
 export const AUTH_FIXTURE_USERS = [
   {
     key: 'primary-login',
     email: 'test@kangwon.ac.kr',
-    nickname: '테스트춘천남',
+    nickname: '춘천로그인남',
     gender: 'M',
     campus: 'CHUNCHEON',
     dormitoryId: 'dasan',
@@ -116,7 +151,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'operated-female',
     email: 'test-f@kangwon.ac.kr',
-    nickname: '테스트춘천여',
+    nickname: '춘천운영여',
     gender: 'F',
     campus: 'CHUNCHEON',
     dormitoryId: 'yeji',
@@ -126,9 +161,96 @@ export const AUTH_FIXTURE_USERS = [
     lifestyle: tidyLifestyle,
   },
   {
+    key: 'home-e2e-viewer',
+    email: 'home-e2e-viewer@kangwon.ac.kr',
+    nickname: '홈스모크남',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    intro: '홈 full-stack smoke에서 active match와 받은 요청을 확인하는 사용자입니다.',
+    note: 'Home dashboard full-stack smoke 기준 사용자',
+    lifestyle: quietLifestyle,
+  },
+  {
+    key: 'home-e2e-requester',
+    email: 'home-e2e-requester@kangwon.ac.kr',
+    nickname: '요청스모크남',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    intro: '홈 full-stack smoke에서 매칭 요청 발신자로 쓰이는 사용자입니다.',
+    note: 'Home dashboard pending received request fixture',
+    lifestyle: relaxedLifestyle,
+  },
+  {
+    key: 'home-e2e-active-counterpart',
+    email: 'home-e2e-active@kangwon.ac.kr',
+    nickname: '확정스모크남',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    intro: '홈 full-stack smoke에서 확정 매칭 상대와 unread chat을 제공하는 사용자입니다.',
+    note: 'Home dashboard active match fixture',
+    lifestyle: flexibleLifestyle,
+  },
+  {
+    key: 'home-e2e-history',
+    email: 'home-e2e-history@kangwon.ac.kr',
+    nickname: '지난시즌홈',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    intro: '홈 full-stack smoke에서 지난 시즌 등록 이력만 확인하는 사용자입니다.',
+    note: 'Home dashboard past season registration-only fixture',
+    lifestyle: quietLifestyle,
+  },
+  {
+    key: 'home-e2e-open',
+    email: 'home-e2e-open@kangwon.ac.kr',
+    nickname: '오픈시즌홈',
+    gender: 'F',
+    campus: 'CHUNCHEON',
+    dormitoryId: 'yeji',
+    dormitorySelectionState: 'ASSIGNED',
+    intro: '홈 full-stack smoke에서 시즌 오픈 상태를 확인하는 사용자입니다.',
+    note: 'Home dashboard season-open mode fixture',
+    lifestyle: tidyLifestyle,
+  },
+  {
+    key: 'home-e2e-postmatch',
+    email: 'home-e2e-postmatch@kangwon.ac.kr',
+    nickname: '마감시즌홈',
+    gender: 'F',
+    campus: 'CHUNCHEON',
+    dormitoryId: 'saerom',
+    dormitorySelectionState: 'ASSIGNED',
+    intro: '홈 full-stack smoke에서 시즌 마감 정리 상태를 확인하는 사용자입니다.',
+    note: 'Home dashboard post-match mode fixture',
+    lifestyle: flexibleLifestyle,
+  },
+  {
+    key: 'home-e2e-incomplete',
+    email: 'home-e2e-incomplete@kangwon.ac.kr',
+    nickname: '준비필요홈',
+    gender: 'M',
+    campus: 'CHUNCHEON',
+    dormitoryId: null,
+    dormitorySelectionState: 'NOT_SELECTED',
+    intro: '홈 full-stack smoke에서 등록 준비 미완료 reason을 확인하는 사용자입니다.',
+    note: 'Home dashboard incomplete readiness fixture',
+    lifestyle: relaxedLifestyle,
+    grade: 2,
+    mbti: 'ISTJ',
+  },
+  ...HOME_E2E_MATRIX_USERS,
+  {
     key: 'samcheok-male',
     email: 'test-samcheok-m@kangwon.ac.kr',
-    nickname: '테스트삼척남',
+    nickname: '삼척로그인남',
     gender: 'M',
     campus: 'SAMCHEOK',
     dormitoryId: null,
@@ -140,7 +262,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'samcheok-female',
     email: 'test-samcheok-f@kangwon.ac.kr',
-    nickname: '테스트삼척여',
+    nickname: '삼척운영여',
     gender: 'F',
     campus: 'SAMCHEOK',
     dormitoryId: null,
@@ -152,7 +274,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'dogye-male',
     email: 'test-dogye-m@kangwon.ac.kr',
-    nickname: '테스트도계남',
+    nickname: '도계로그인남',
     gender: 'M',
     campus: 'DOGYE',
     dormitoryId: null,
@@ -164,7 +286,7 @@ export const AUTH_FIXTURE_USERS = [
   {
     key: 'dogye-female',
     email: 'test-dogye-f@kangwon.ac.kr',
-    nickname: '테스트도계여',
+    nickname: '도계운영여',
     gender: 'F',
     campus: 'DOGYE',
     dormitoryId: null,

@@ -89,7 +89,7 @@ describe('BookmarkTargetPolicyEvaluator', () => {
       }),
     );
     seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
-      new Set(['target-participant']),
+      new Set(['viewer-participant', 'target-participant']),
     );
     matchScoreProjection.calculateQueryTimeRoommateSearchScore.mockReturnValue(92);
   });

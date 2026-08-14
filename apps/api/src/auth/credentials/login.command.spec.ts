@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { login } from './login.command.js';
+import { verifyPasswordHash } from './password-hashing/password-hash.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
+import { PasswordHashCapacityUnavailableError } from './password-hashing/password-hash-admission.service.js';
 
 const hashPasswordForTest = (password: string) =>
   argonHash(password, {
     algorithm: 2,
-    memoryCost: 8192,
+    memoryCost: 19456,
     timeCost: 2,
     parallelism: 1,
     outputLen: 32,
@@ -26,6 +28,13 @@ describe('login command', () => {
   const sessionService = {
     issueAuthResult: vi.fn(),
   };
+  const loginMetrics = {
+    recordAttempt: vi.fn(),
+  };
+  const passwordHashPolicy = {
+    verifyLoginPassword: vi.fn(),
+    verifyUnavailableLogin: vi.fn(),
+  };
   const securityEvents = {
     recordSafely: vi
       .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
@@ -35,6 +44,8 @@ describe('login command', () => {
   const deps = {
     prisma,
     loginAttemptService,
+    loginMetrics,
+    passwordHashPolicy,
     sessionService,
     securityEvents,
   };
@@ -48,6 +59,10 @@ describe('login command', () => {
       code: 'AUTH_INVALID_CREDENTIALS',
       userActionable: true,
     });
+    passwordHashPolicy.verifyUnavailableLogin.mockResolvedValue(undefined);
+    passwordHashPolicy.verifyLoginPassword.mockImplementation(
+      (passwordHash: string, password: string) => verifyPasswordHash(passwordHash, password),
+    );
   });
 
   it('존재하지 않는 계정 login은 로그인 실패 기록 서비스로 위임한다', async () => {
@@ -61,6 +76,33 @@ describe('login command', () => {
     });
 
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('missing@kangwon.ac.kr');
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('pw');
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('invalid');
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+  });
+
+  it('존재하지 않는 계정도 고정 dummy password hash를 검증한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await login(deps as never, 'missing@kangwon.ac.kr', 'WrongPass1234', false);
+
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('WrongPass1234');
+  });
+
+  it('password verify capacity 초과는 login failure count를 늘리지 않는다', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    passwordHashPolicy.verifyUnavailableLogin.mockRejectedValueOnce(
+      new PasswordHashCapacityUnavailableError(2),
+    );
+
+    await expect(
+      login(deps as never, 'missing@kangwon.ac.kr', 'Password1234', false),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE',
+      retryAfterSeconds: 2,
+    });
+    expect(loginAttemptService.recordLoginFailure).not.toHaveBeenCalled();
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
@@ -87,6 +129,7 @@ describe('login command', () => {
     );
 
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('deleted@kangwon.ac.kr');
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('Pass1234');
     expect(loginAttemptService.clearFailures).not.toHaveBeenCalled();
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
@@ -94,7 +137,7 @@ describe('login command', () => {
   it('활성 잠금이 있으면 login은 즉시 잠금 응답을 반환한다', async () => {
     loginAttemptService.getActiveLock.mockResolvedValue({
       success: false,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      error: '반복된 로그인 실패로 계정이 잠겼어요.',
       code: 'AUTH_LOGIN_LOCKED',
       userActionable: false,
       locked: true,
@@ -111,6 +154,8 @@ describe('login command', () => {
     });
 
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyUnavailableLogin).not.toHaveBeenCalled();
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('locked');
   });
 
   it('display identity가 없는 계정 login은 인증 성공으로 보지 않고 실패 횟수를 기록한다', async () => {
@@ -133,6 +178,7 @@ describe('login command', () => {
     });
 
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyUnavailableLogin).toHaveBeenCalledWith('Pass1234');
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith(
       'missing-identity@kangwon.ac.kr',
     );
@@ -192,5 +238,70 @@ describe('login command', () => {
         metadata: { rememberMe: true },
       }),
     );
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('success');
+  });
+
+  it('기존 계정 login은 신규 비밀번호 blocklist를 재강제하지 않는다', async () => {
+    const passwordHash = await hashPasswordForTest('Password1!');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash,
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+    });
+    sessionService.issueAuthResult.mockResolvedValue({
+      accessToken: 'token',
+      renewalToken: 'renewal-token',
+      sessionId: 'session-1',
+    });
+
+    await expect(
+      login(deps as never, 'test@kangwon.ac.kr', 'Password1!', false),
+    ).resolves.toMatchObject({ success: true });
+
+    expect(passwordHashPolicy.verifyLoginPassword).toHaveBeenCalledWith(passwordHash, 'Password1!');
+  });
+
+  it('ASCII 외 문자나 공백이 있는 login 입력은 account lookup과 Argon 전에 거절한다', async () => {
+    await expect(
+      login(deps as never, 'test@kangwon.ac.kr', 'Password 한글2026', false),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_INVALID_CREDENTIALS',
+    });
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyLoginPassword).not.toHaveBeenCalled();
+    expect(passwordHashPolicy.verifyUnavailableLogin).not.toHaveBeenCalled();
+  });
+
+  it('기존 계정의 잘못된 비밀번호는 real hash를 검증하고 invalid metric을 남긴다', async () => {
+    const passwordHash = await hashPasswordForTest('Pass1234');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash,
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: { nickname: '테스터' },
+    });
+
+    await expect(
+      login(deps as never, 'test@kangwon.ac.kr', 'WrongPass1234', false),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_INVALID_CREDENTIALS',
+    });
+
+    expect(passwordHashPolicy.verifyLoginPassword).toHaveBeenCalledWith(
+      passwordHash,
+      'WrongPass1234',
+    );
+    expect(passwordHashPolicy.verifyUnavailableLogin).not.toHaveBeenCalled();
+    expect(loginMetrics.recordAttempt).toHaveBeenCalledWith('invalid');
   });
 });

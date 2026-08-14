@@ -56,10 +56,10 @@ describe('configureHttpRuntime', () => {
 
     configureHttpRuntime(
       app,
-      makeHttpSettings({ trustProxy: true, corsAllowedOrigins: ['https://app.example.com'] }),
+      makeHttpSettings({ trustProxy: 2, corsAllowedOrigins: ['https://app.example.com'] }),
     );
 
-    expect(expressApp.set).toHaveBeenCalledWith('trust proxy', true);
+    expect(expressApp.set).toHaveBeenCalledWith('trust proxy', 2);
     expect(app.use).toHaveBeenCalledTimes(2);
     expect(app.enableCors).toHaveBeenCalledWith(
       expect.objectContaining({ origin: ['https://app.example.com'], credentials: false }),

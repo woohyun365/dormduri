@@ -57,7 +57,8 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 
 ## Where to change lifecycle behavior
 
-- Sweep interval enable/disable/config wiring: `config/lifecycle.config.ts`, `lifecycle-sweep.service.ts`.
+- Sweep interval enable/disable/config wiring: `config/lifecycle.config.ts`,
+  `config/lifecycle.env.ts`, `lifecycle-sweep.service.ts`.
 - Scheduler bootstrap, interval registration, boundary cron registration/removal: `lifecycle-sweep.service.ts`.
 - Ordered task execution and retention observability emission: `lifecycle-sweep-runner.ts`.
 - Task ordering or task list composition: `adapters/lifecycle-sweep-tasks.adapter.ts` and `lifecycle.module.ts`.

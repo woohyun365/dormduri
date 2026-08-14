@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
+  PreviousSeasonProfileController,
 } from './current-season-participation.controller.js';
 import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
@@ -51,6 +52,7 @@ function makeSeasonProfileDraftRequest() {
 describe('CurrentSeasonParticipationController', () => {
   const seasonParticipantsService = {
     getCurrentSeasonProfile: vi.fn(),
+    getPreviousSeasonProfile: vi.fn(),
     createOrUpdateSeasonProfileDraft: vi.fn(),
     listSelectableDormitoriesForCurrentSeason: vi.fn(),
     createOrUpdateDormitorySelection: vi.fn(),
@@ -58,6 +60,9 @@ describe('CurrentSeasonParticipationController', () => {
     deregisterCurrentSeasonParticipation: vi.fn(),
   };
   const profileController = new CurrentSeasonProfileController(seasonParticipantsService as never);
+  const previousProfileController = new PreviousSeasonProfileController(
+    seasonParticipantsService as never,
+  );
   const participationController = new CurrentSeasonParticipationController(
     seasonParticipantsService as never,
   );
@@ -69,6 +74,21 @@ describe('CurrentSeasonParticipationController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('previous profile GET은 직전 시즌 프로필 owner로만 위임한다', async () => {
+    const response = {
+      detailState: 'FULL',
+      seasonName: '2026년 1학기',
+    };
+    seasonParticipantsService.getPreviousSeasonProfile.mockResolvedValue(response);
+
+    await expect(previousProfileController.getPreviousSeasonProfile(authUser)).resolves.toBe(
+      response,
+    );
+
+    expect(seasonParticipantsService.getPreviousSeasonProfile).toHaveBeenCalledWith('user-1');
+    expect(seasonParticipantsService.getCurrentSeasonProfile).not.toHaveBeenCalled();
   });
 
   it('POST dormitory-selection은 SELECTED draft 저장 owner로만 위임한다', async () => {

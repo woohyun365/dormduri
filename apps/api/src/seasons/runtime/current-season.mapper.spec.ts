@@ -11,7 +11,17 @@ describe('current season mapper', () => {
       matchingStartDate: new Date('2026-01-28T00:00:00.000Z'),
       seasonEndDate: new Date('2026-02-28T00:00:00.000Z'),
       dormitoryOperations: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+        {
+          dormitoryId: 'dasan',
+          dormitory: {
+            id: 'dasan',
+            nameKo: '다산관',
+            roomType: 2,
+            genderPolicy: 'M',
+          },
+          isOperated: true,
+          roomSelectionDate: '2026-02-11',
+        },
         { dormitoryId: 'irum', isOperated: false, roomSelectionDate: '2026-02-12' },
       ],
     });
@@ -24,7 +34,17 @@ describe('current season mapper', () => {
         seasonEndDate: '2026-02-28',
       },
       operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+        {
+          dormitoryId: 'dasan',
+          dormitory: {
+            id: 'dasan',
+            name: '다산관',
+            roomType: 2,
+            genderPolicy: 'M',
+          },
+          isOperated: true,
+          roomSelectionDate: '2026-02-11',
+        },
       ],
       state: 'SEASON_MATCHING',
       daysUntilMatchingEnd: 2,

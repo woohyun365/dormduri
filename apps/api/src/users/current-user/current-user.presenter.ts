@@ -65,6 +65,10 @@ export function buildCurrentUserCapabilitySegment(
       'canCreateOrUpdateSeasonProfileDraft' | 'canSelectDormitory' | 'canFinalizeSeasonRegistration'
     >;
   },
+  publicActionCapabilities: Pick<
+    CurrentUserResponse['capabilities'],
+    'canBookmark' | 'canRequestMatch' | 'canStartChat'
+  >,
   displayIdentityEditUnavailableReasons: CurrentUserResponse['capabilities']['displayIdentityEditUnavailableReasons'],
 ): CurrentUserResponse['capabilities'] {
   return {
@@ -83,9 +87,7 @@ export function buildCurrentUserCapabilitySegment(
     academicIdentityEditUnavailableReasons: seasonSegment.seasonProfile.registered
       ? ['CURRENT_SEASON_REGISTRATION_LOCK']
       : [],
-    canBookmark: false,
-    canRequestMatch: false,
-    canStartChat: false,
+    ...publicActionCapabilities,
   };
 }
 

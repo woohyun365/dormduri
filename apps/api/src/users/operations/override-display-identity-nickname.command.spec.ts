@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createOverrideDisplayIdentityNicknameCommand } from './override-display-identity-nickname.command.js';
 import { usersErrors } from '../errors/users.errors.js';
+import { DisplayIdentityNicknamePolicyService } from '../identity/display/display-identity-nickname-policy.service.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
 const USER = {
@@ -20,7 +21,7 @@ const USER = {
   },
   academicIdentity: {
     userId: 'user-1',
-    collegeCode: 'IT',
+    collegeCode: 'CHUNCHEON_IT',
     birthYear: 2002,
     createdAt: new Date('2026-05-01T00:00:00.000Z'),
     updatedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -63,6 +64,13 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
   const moderationService = {
     validateNicknamePolicy: vi.fn(),
   };
+  const displayIdentityRepository = {
+    findNicknameOwner: vi.fn(),
+  };
+  const nicknamePolicy = new DisplayIdentityNicknamePolicyService(
+    moderationService as never,
+    displayIdentityRepository as never,
+  );
   const tx = {
     user: { findUnique: vi.fn() },
     seasonParticipant: { findUnique: vi.fn() },
@@ -76,7 +84,7 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
   const command = createOverrideDisplayIdentityNicknameCommand({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
-    moderationService: moderationService as never,
+    nicknamePolicy,
   });
 
   beforeEach(() => {
@@ -90,12 +98,30 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
       season: { id: 'season-1' },
     });
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    displayIdentityRepository.findNicknameOwner.mockResolvedValue(null);
     tx.user.findUnique.mockResolvedValue(USER);
     tx.userDisplayIdentity.findUnique.mockResolvedValue(null);
     tx.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
     tx.seasonParticipant.findUnique.mockResolvedValue(REGISTERED_PARTICIPANT);
     tx.seasonParticipantProfile.updateMany.mockResolvedValue({ count: 1 });
     tx.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
+  });
+
+  it('mixed-script operations nickname은 DB time·moderation·transaction 전에 거절한다', async () => {
+    await expect(
+      command.overrideDisplayIdentityNicknameForPolicyEnforcement({
+        userId: 'user-1',
+        nickname: '안녕hi',
+        actorId: 'admin-1',
+        reason: 'ADMIN_MANUAL',
+      }),
+    ).rejects.toMatchObject({
+      response: usersErrors.invalidNickname('한글과 영문은 함께 사용할 수 없어요.').getResponse(),
+    });
+
+    expect(prisma.getDatabaseNow).not.toHaveBeenCalled();
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
   it('policy enforcement override는 nickname update, registered snapshot, audit append를 같은 tx client로 수행한다', async () => {

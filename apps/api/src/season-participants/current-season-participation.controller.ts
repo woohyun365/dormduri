@@ -1,14 +1,15 @@
-import { Body, Controller, Get, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import {
   selectedDormitorySubmitRequestSchema,
   seasonRegistrationFinalizeRequestSchema,
+  seasonRegistrationFinalizeResponseSchema,
   updateSeasonProfileRequestSchema,
 } from '@repo/shared/season/participation';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { forbiddenError } from '../platform/http/api-error.js';
-import { parseRequestBody } from '../platform/http/zod-request.js';
+import { parsePathParam, parseRequestBody } from '../platform/http/zod-request.js';
 import { RequireCurrentSeasonParticipant, SeasonParticipant } from './context/index.js';
 import {
   SeasonParticipantsService,
@@ -37,6 +38,40 @@ export class CurrentSeasonProfileController {
       resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
       parsed,
     );
+  }
+}
+
+@Controller('api/seasons/previous/profile')
+@RequireCapability()
+export class PreviousSeasonProfileController {
+  constructor(private readonly seasonParticipantsService: SeasonParticipantsService) {}
+
+  @Get()
+  async getPreviousSeasonProfile(@CurrentUser() authUser: AuthenticatedUserContext) {
+    return this.seasonParticipantsService.getPreviousSeasonProfile(authUser.id);
+  }
+}
+
+@Controller('api/seasons/:seasonId/profile/me')
+@RequireCapability()
+export class SeasonProfileHistoryController {
+  constructor(private readonly seasonParticipantsService: SeasonParticipantsService) {}
+
+  @Get()
+  async getSeasonProfileHistory(
+    @CurrentUser() authUser: AuthenticatedUserContext,
+    @Param('seasonId') seasonId: string,
+  ) {
+    const parsedSeasonId = parsePathParam(
+      seasonRegistrationFinalizeResponseSchema.shape.seasonId,
+      seasonId,
+      {
+        code: 'INVALID_SEASON_ID',
+        errorMessage: '시즌 식별자가 올바르지 않습니다.',
+        fieldName: 'seasonId',
+      },
+    );
+    return this.seasonParticipantsService.getSeasonProfileHistory(authUser.id, parsedSeasonId);
   }
 }
 

@@ -12,6 +12,9 @@ const validScenarios = new Set([
   'spike-500',
   'soak-250',
   'score-cohort-946',
+  'auth-login-capacity',
+  'auth-password-burst',
+  'auth-recovery-abuse',
 ]);
 
 if (!scenario || !validScenarios.has(scenario)) {
@@ -27,7 +30,7 @@ const summaryPath = resolve(
   apiRoot,
   process.env.STRESS_K6_SUMMARY_PATH || `test/stress/reports/.tmp-${scenario}-summary.json`,
 );
-const parserPath = resolve(apiRoot, 'test/stress/reports/parse-k6-summary.ts');
+const parserPath = resolve(apiRoot, 'test/stress/evidence/parsers/parse-k6-summary.ts');
 const k6Env = normalizeK6Environment(process.env);
 
 if (!existsSync(scriptPath)) {
