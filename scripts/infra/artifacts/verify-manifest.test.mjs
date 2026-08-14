@@ -7,7 +7,11 @@ import test from 'node:test';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
-const reportRoot = resolveArtifactPath(repoRoot, ['test']);
+// This unit fixture must remain inside the repository because the manifest
+// intentionally accepts only repository-relative evidence paths. CI injects a
+// runner-owned output root for real evidence, which must not leak into this
+// isolated contract test.
+const reportRoot = resolveArtifactPath(repoRoot, ['test'], {});
 mkdirSync(reportRoot, { recursive: true });
 
 test('accepts a secret-free non-root local artifact manifest', (context) => {

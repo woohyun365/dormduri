@@ -185,11 +185,12 @@ test('infrastructure CI separates static and container-backed validation', () =>
   assert.ok(!infraWorkflow.includes('.omx/'));
 });
 
-test('API CI leaves schema migration ownership to disposable database suites', () => {
+test('API CI migrates its fresh public schema before generating TypedSQL artifacts', () => {
   const apiWorkflow = read('.github/workflows/api-ci.yml');
 
-  assert.ok(!apiWorkflow.includes('prisma migrate deploy'));
   assertIncludesAll(apiWorkflow, [
+    '--stage=schema',
+    'pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma',
     'pnpm api:prepare',
     '--stage=runtime-config-health-contract',
     '--stage=unit',
@@ -197,6 +198,9 @@ test('API CI leaves schema migration ownership to disposable database suites', (
     '--stage=e2e-db',
     '--stage=stress-harness',
   ]);
+  assert.ok(
+    apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'),
+  );
 });
 
 test('app workflows publish comparable stage timing and cache evidence', () => {
