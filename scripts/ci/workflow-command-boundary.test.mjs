@@ -177,7 +177,11 @@ test('infrastructure CI separates static and container-backed validation', () =>
   );
   assert.ok(!infraWorkflow.includes('secrets.'));
   assert.ok(infraWorkflow.includes('runner.temp'));
-  assert.ok(infraWorkflow.includes('KNU_ARTIFACTS_DIR'));
+  assertIncludesAll(infraWorkflow, [
+    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts',
+    '>> "$GITHUB_ENV"',
+  ]);
+  assert.ok(!infraWorkflow.includes('KNU_ARTIFACTS_DIR: ${{ runner.temp }}'));
   assert.ok(!infraWorkflow.includes('.omx/'));
 });
 
