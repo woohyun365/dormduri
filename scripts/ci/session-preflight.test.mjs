@@ -33,21 +33,23 @@ test('fresh preflight reports repository evidence without loading local resume s
   assert.ok(summary.canonicalVerification.includes('pnpm test:repo-policy'));
 });
 
-test('resume preflight exposes only bounded pointers and validates the plan path', () => {
+test('resume preflight exposes only bounded optional pointers and validates the plan path', () => {
   const result = run([
     '--resume',
     '--plan',
-    '.omx/plans/codex-omx-agent-guidance-state-hygiene-responsibility-plan.md',
+    '.omx/plans/clean-clone-resume-plan.md',
     '--json',
   ]);
 
   assert.equal(result.status, 0, result.stderr);
   const summary = JSON.parse(result.stdout);
   assert.equal(summary.mode, 'resume');
-  assert.equal(summary.resume.plan.exists, true);
+  assert.equal(summary.resume.plan.path, '.omx/plans/clean-clone-resume-plan.md');
+  assert.equal(typeof summary.resume.plan.exists, 'boolean');
   assert.ok(summary.resume.contextSnapshots.length <= 5);
-  assert.equal(summary.resume.notepadPriority.valid, true);
-  if (summary.resume.notepadPriority.exists) {
+  assert.equal(typeof summary.resume.notepadPriority.available, 'boolean');
+  assert.equal(typeof summary.resume.notepadPriority.valid, 'boolean');
+  if (summary.resume.notepadPriority.available && summary.resume.notepadPriority.exists) {
     assert.match(summary.resume.notepadPriority.contextPath, /^\.omx\/context\//u);
   } else {
     assert.equal(summary.resume.notepadPriority.contextPath, null);

@@ -14,7 +14,7 @@ if (args.fresh && args.resume) fail('Choose either --fresh or --resume.');
 if (args.plan && !args.resume) fail('--plan requires --resume.');
 
 const mode = args.resume ? 'resume' : 'fresh';
-const branch = git(['branch', '--show-current']);
+const branch = resolveBranch();
 const head = git(['rev-parse', 'HEAD']);
 const statusLines = git(['status', '--short', '--untracked-files=all']).split('\n').filter(Boolean);
 const workingTree = classifyChanges(statusLines);
@@ -199,6 +199,17 @@ function git(commandArgs) {
   });
   if (result.status !== 0) fail(result.stderr.trim() || `git ${commandArgs.join(' ')} failed`);
   return result.stdout.trim();
+}
+
+function resolveBranch() {
+  const symbolicBranch = git(['branch', '--show-current']);
+  if (symbolicBranch) return symbolicBranch;
+
+  return (
+    process.env.GITHUB_HEAD_REF?.trim() ||
+    process.env.GITHUB_REF_NAME?.trim() ||
+    'detached'
+  );
 }
 
 function printText(summary) {
