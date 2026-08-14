@@ -7,6 +7,7 @@
 - 수집: `test/integration/**/*.integration.spec.ts`
 - 실행: `pnpm --dir apps/api test:integration`
 - 격리: suite별 disposable schema, case 사이 truncate, `app close → sandbox cleanup`
+- side effect 격리: 자동 mail dispatcher는 끄고, worker 동작은 owning test가 명시적으로 호출
 - 실행 안전성: `pool: 'forks'`, `fileParallelism: false`, `--maxWorkers=1`
 
 ## 구조
