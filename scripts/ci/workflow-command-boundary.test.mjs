@@ -279,9 +279,12 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
     'path: apps/web/.next/cache',
     'run_storybook:',
     'pnpm --dir apps/web ci:storybook:build',
+    'pnpm web:sentry:verify-build',
     'if: ${{ !cancelled() }}',
     'if: ${{ failure() && !cancelled() }}',
   ]);
+  assert.equal(occurrences(webWorkflow, 'SENTRY_AUTH_TOKEN:'), 1);
+  assert.equal(occurrences(webWorkflow, 'SENTRY_ARTIFACT_SECRET_SENTINEL:'), 1);
   assert.equal(occurrences(webWorkflow, 'pnpm web:build:prepared'), 1);
   assert.match(playwrightConfig, /workers: process\.env\.CI \? 1 : undefined/);
   assertIncludesAll(playwrightConfig, ["name: 'desktop-chromium'", "name: 'mobile-chromium'"]);

@@ -14,7 +14,7 @@ function value(rawEnv: SentryBuildEnv, key: string): string | undefined {
   return candidate && candidate.length > 0 ? candidate : undefined;
 }
 
-export function resolveSentryBuildConfig(rawEnv: SentryBuildEnv = process.env): SentryBuildConfig {
+export function resolveSentryBuildConfig(rawEnv: SentryBuildEnv): SentryBuildConfig {
   const uploadRequested = rawEnv.SENTRY_SOURCE_MAP_UPLOAD_ENABLED === '1';
   const evidenceApproved = rawEnv.SENTRY_RELEASE_EVIDENCE_APPROVED === '1';
   const org = value(rawEnv, 'SENTRY_ORG');

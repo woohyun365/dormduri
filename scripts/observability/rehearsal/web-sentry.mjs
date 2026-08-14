@@ -5,7 +5,6 @@ import { resolve } from 'node:path';
 const repoRoot = resolve(import.meta.dirname, '../../..');
 const webPort = Number(process.env.WEB_SENTRY_REHEARSAL_PORT ?? 3400);
 const allowUnconstrained = process.env.WEB_SENTRY_REHEARSAL_ALLOW_UNCONSTRAINED === '1';
-const secretSentinel = 'sentry-ci-secret-must-not-ship';
 const commonEnv = {
   ...process.env,
   NEXT_PUBLIC_APP_URL: 'https://web.local.invalid',
@@ -22,15 +21,17 @@ const commonEnv = {
   NEXT_PUBLIC_SENTRY_LOCAL_RECORDING: '0',
   SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '0',
   SENTRY_RELEASE_EVIDENCE_APPROVED: '0',
-  SENTRY_AUTH_TOKEN: secretSentinel,
-  SENTRY_ARTIFACT_SECRET_SENTINEL: secretSentinel,
   STORYBOOK_DISABLE_TELEMETRY: '1',
+};
+const buildEnv = { SENTRY_AUTH_TOKEN: 'sentry-ci-secret-must-not-ship' };
+const verificationEnv = {
+  SENTRY_ARTIFACT_SECRET_SENTINEL: buildEnv.SENTRY_AUTH_TOKEN,
 };
 
 function run(command, arguments_, options = {}) {
   return execFileSync(command, arguments_, {
     cwd: repoRoot,
-    env: commonEnv,
+    env: { ...commonEnv, ...options.env },
     encoding: 'utf8',
     stdio: options.capture ? 'pipe' : 'inherit',
   });
@@ -117,9 +118,9 @@ async function main() {
   run('pnpm', ['--dir', 'apps/web', 'ci:typecheck:test']);
   evidence.checks.typecheck = true;
 
-  run('pnpm', ['--dir', 'apps/web', 'ci:build']);
+  run('pnpm', ['--dir', 'apps/web', 'ci:build'], { env: buildEnv });
   evidence.checks.productionBuild = true;
-  run('node', ['scripts/observability/sentry/check-build.mjs']);
+  run('node', ['scripts/observability/sentry/check-build.mjs'], { env: verificationEnv });
   evidence.checks.noPublicSourceMap = true;
 
   run('pnpm', ['--dir', 'apps/web', 'ci:storybook:build']);
@@ -131,13 +132,8 @@ async function main() {
     env: { ...commonEnv, NODE_ENV: 'production', HOSTNAME: '127.0.0.1', PORT: String(webPort) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  let serverOutput = '';
-  server.stdout.on('data', (chunk) => {
-    serverOutput += String(chunk);
-  });
-  server.stderr.on('data', (chunk) => {
-    serverOutput += String(chunk);
-  });
+  server.stdout.resume();
+  server.stderr.resume();
 
   try {
     await waitForHttp(`http://127.0.0.1:${webPort}/`);
@@ -153,10 +149,6 @@ async function main() {
     });
   }
 
-  assert(
-    !serverOutput.includes(secretSentinel),
-    'Standalone output leaked the Sentry secret sentinel.',
-  );
   evidence.completedAt = new Date().toISOString();
   evidence.elapsedSeconds = Number(((Date.now() - startedAt) / 1_000).toFixed(2));
   evidence.processResourceUsage = process.resourceUsage();

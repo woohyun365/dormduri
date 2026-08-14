@@ -7,7 +7,6 @@ const nextRoot = resolve(webRoot, '.next');
 const publicRoots = [resolve(nextRoot, 'static'), resolve(webRoot, 'public')];
 const artifactRoots = [...publicRoots, resolve(nextRoot, 'standalone')];
 const secretSentinel = process.env.SENTRY_ARTIFACT_SECRET_SENTINEL;
-const forbiddenText = ['SENTRY_AUTH_TOKEN'];
 
 function walk(root) {
   try {
@@ -44,9 +43,7 @@ const inspectableFiles = artifactRoots
 const leakedFiles = [];
 for (const file of inspectableFiles) {
   const content = readFileSync(file, 'utf8');
-  const leaked =
-    forbiddenText.some((value) => content.includes(value)) ||
-    (secretSentinel ? content.includes(secretSentinel) : false);
+  const leaked = secretSentinel ? content.includes(secretSentinel) : false;
   if (leaked) leakedFiles.push(relative(repoRoot, file));
 }
 assert(

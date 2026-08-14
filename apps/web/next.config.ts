@@ -22,7 +22,20 @@ function buildSentryCsp(): string | undefined {
   }
 }
 
-const sentryBuild = resolveSentryBuildConfig();
+const sentryUploadRequested = process.env.SENTRY_SOURCE_MAP_UPLOAD_ENABLED === '1';
+const sentryReleaseEvidenceApproved = process.env.SENTRY_RELEASE_EVIDENCE_APPROVED === '1';
+const sentryBuild = resolveSentryBuildConfig({
+  SENTRY_SOURCE_MAP_UPLOAD_ENABLED: process.env.SENTRY_SOURCE_MAP_UPLOAD_ENABLED,
+  SENTRY_RELEASE_EVIDENCE_APPROVED: process.env.SENTRY_RELEASE_EVIDENCE_APPROVED,
+  SENTRY_ORG: process.env.SENTRY_ORG,
+  SENTRY_PROJECT: process.env.SENTRY_PROJECT,
+  SENTRY_RELEASE: process.env.SENTRY_RELEASE,
+  NEXT_PUBLIC_WEB_RELEASE: process.env.NEXT_PUBLIC_WEB_RELEASE,
+  SENTRY_AUTH_TOKEN:
+    sentryUploadRequested && sentryReleaseEvidenceApproved
+      ? process.env.SENTRY_AUTH_TOKEN
+      : undefined,
+});
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
