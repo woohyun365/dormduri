@@ -126,16 +126,24 @@ test('Copilot uses a bounded adapter instead of duplicating the orchestration co
   assert.ok(instructions.split('\n').length <= 12, 'Copilot adapter must stay concise');
 });
 
-test('Dependabot owns the pnpm workspace without cross-ecosystem grouping', () => {
+test('Dependabot routes version updates through dev with bounded owner groups', () => {
   const dependabot = read('.github/dependabot.yml');
+  const collaboration = read('docs/development/github/collaboration.md');
+  const targetBranches = dependabot.match(/target-branch: 'dev'/gu) ?? [];
 
   assert.match(dependabot, /package-ecosystem: 'npm'\n\s+directory: '\/'/u);
+  assert.equal(targetBranches.length, 8);
   assert.match(dependabot, /pnpm-minor-patch:/u);
+  assert.match(dependabot, /actions-minor-patch:/u);
+  assert.match(dependabot, /observability-minor-patch:/u);
   assert.match(dependabot, /update-types:\n\s+- 'minor'\n\s+- 'patch'/u);
   assert.match(dependabot, /package-ecosystem: 'github-actions'/u);
   assert.match(dependabot, /package-ecosystem: 'docker'/u);
   assert.match(dependabot, /package-ecosystem: 'docker-compose'/u);
   assert.match(dependabot, /prefix: 'chore\(deps\): 의존성 업데이트'/u);
   assert.match(dependabot, /prefix: 'ci\(deps\): 자동 업데이트'/u);
+  assert.doesNotMatch(dependabot, /^\s+labels:/mu);
   assert.doesNotMatch(dependabot, /multi-ecosystem-groups:/u);
+  assert.match(collaboration, /version update PR은 `dev`를 대상으로/u);
+  assert.match(collaboration, /security update는 GitHub의 default branch/u);
 });
