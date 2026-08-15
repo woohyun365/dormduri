@@ -39,6 +39,19 @@ PR 본문은 다음 질문에 답해야 합니다.
 해당하지 않는 조건부 항목은 `해당 없음`으로 표시할 수 있습니다. 파일별 변경 목록이나 실행하지 않은 모든 명령을
 체크하는 ritual checklist로 사용하지 않습니다.
 
+## Dependabot update flow
+
+- 일반 version update PR은 `dev`를 대상으로 생성하고, 제품 변경과 같은 integration gate를 거친 뒤 `main`으로
+  승격합니다.
+- security update는 GitHub의 default branch 정책에 따라 `main`을 대상으로 처리합니다. `target-branch` 설정으로 이
+  경계를 우회하지 않습니다.
+- npm과 GitHub Actions의 minor/patch update는 같은 owner 범위에서만 묶습니다. major update와 서로 다른 runtime
+  stack은 원인 격리를 위해 독립 PR로 유지합니다.
+- Dependabot label은 GitHub 기본값을 사용합니다. custom label이 필요하다면 원격 repository에 실제로 존재하는지
+  먼저 확인합니다.
+- 기존 PR은 설정 변경만으로 target branch가 바뀐다고 가정하지 않습니다. 설정이 default branch에 반영된 뒤
+  close/recreate 여부를 확인합니다.
+
 ## Canonical verification
 
 변경에 가장 가까운 targeted test를 먼저 실행하고 필요할 때 다음 gate를 확장합니다.
