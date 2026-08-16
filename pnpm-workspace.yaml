@@ -14,7 +14,7 @@ allowBuilds:
 catalog:
   '@types/node': 24.13.2
   '@eslint/eslintrc': 3.3.5
-  '@eslint/js': 9.39.4
+  '@eslint/js': 10.0.1
   '@playwright/test': 1.61.0
   '@sentry/nextjs': 10.69.0
   '@tailwindcss/postcss': 4.3.1
