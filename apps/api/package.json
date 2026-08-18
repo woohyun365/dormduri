@@ -134,7 +134,7 @@
     "eslint": "catalog:",
     "eslint-config-prettier": "catalog:",
     "eslint-plugin-prettier": "catalog:",
-    "globals": "^16.0.0",
+    "globals": "^17.11.0",
     "prettier": "catalog:",
     "prisma": "^7.8.0",
     "source-map-support": "^0.5.21",
