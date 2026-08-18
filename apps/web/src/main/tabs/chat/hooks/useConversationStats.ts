@@ -12,9 +12,13 @@ export function useConversationStats(
   options: { readonly client?: ConversationStatsClient; readonly identityKey?: string } = {},
 ) {
   const client = options.client ?? chatApi;
-  const [data, setData] = useState<ConversationStatsResponse | null>(null);
-  const [error, setError] = useState<ChatApiError | null>(null);
-  const [loading, setLoading] = useState(false);
+  const identityKey = options.identityKey ?? 'default';
+  const [state, setState] = useState<{
+    readonly identityKey: string;
+    readonly data: ConversationStatsResponse | null;
+    readonly error: ChatApiError | null;
+    readonly loading: boolean;
+  }>({ identityKey, data: null, error: null, loading: false });
   const abortRef = useRef<AbortController | null>(null);
   const sequenceRef = useRef(0);
 
@@ -30,10 +34,7 @@ export function useConversationStats(
     sequenceRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
-    setData(null);
-    setError(null);
-    setLoading(false);
-  }, [options.identityKey]);
+  }, [identityKey]);
 
   const load = useCallback(async () => {
     const sequence = sequenceRef.current + 1;
@@ -41,19 +42,36 @@ export function useConversationStats(
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setLoading(true);
-    setError(null);
+    setState((current) => ({
+      identityKey,
+      data: current.identityKey === identityKey ? current.data : null,
+      error: null,
+      loading: true,
+    }));
     try {
       const nextData = await client.getConversationStats(controller.signal);
-      if (!controller.signal.aborted && sequenceRef.current === sequence) setData(nextData);
+      if (!controller.signal.aborted && sequenceRef.current === sequence) {
+        setState({ identityKey, data: nextData, error: null, loading: false });
+      }
     } catch (caught) {
       if (!controller.signal.aborted && sequenceRef.current === sequence) {
-        setError(caught instanceof ChatApiError ? caught : new ChatApiError('CHAT_API_NETWORK'));
+        setState({
+          identityKey,
+          data: null,
+          error: caught instanceof ChatApiError ? caught : new ChatApiError('CHAT_API_NETWORK'),
+          loading: false,
+        });
       }
     } finally {
-      if (!controller.signal.aborted && sequenceRef.current === sequence) setLoading(false);
+      if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [client]);
+  }, [client, identityKey]);
 
-  return { data, error, loading, load };
+  const currentState = state.identityKey === identityKey ? state : null;
+  return {
+    data: currentState?.data ?? null,
+    error: currentState?.error ?? null,
+    loading: currentState?.loading ?? false,
+    load,
+  };
 }

@@ -45,16 +45,22 @@ function resolveStoryRouteFromHref(href: string): StoryRoute | null {
 }
 
 function OperationsPageFlow({ initialRoute, operationsMode }: OperationsPageFlowProps) {
+  return (
+    <OperationsPageFlowState
+      key={initialRoute.label}
+      initialRoute={initialRoute}
+      operationsMode={operationsMode}
+    />
+  );
+}
+
+function OperationsPageFlowState({ initialRoute, operationsMode }: OperationsPageFlowProps) {
   const [route, setRoute] = useState<StoryRoute>(initialRoute);
 
   useHomeStoryApiFixtures({
     operationsMode,
     profileMode: 'default',
   });
-
-  useEffect(() => {
-    setRoute(initialRoute);
-  }, [initialRoute]);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
