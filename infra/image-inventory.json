@@ -38,31 +38,31 @@
     {
       "name": "prometheus",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+      "reference": "prom/prometheus:v3.13.2@sha256:508729e0e2d18e11fd742a5a5ca70e557b940a93948c3c95fd0123a6fd538b69",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "loki",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+      "reference": "grafana/loki:3.7.6@sha256:efd47c67f9bac88ca29bcf8cb997d9ab29d1848bd0aff579282295542a745952",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "alloy",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/alloy:v1.17.0@sha256:41c41849989b7e054ccbadc17938ee1e5592fe26bfbc56ef3ffc109c0b0b2739",
+      "reference": "grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "alertmanager",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "prom/alertmanager:v0.33.0@sha256:af26fbe4dd1886ac0efd7bd55cd9027da262e105b137a376522b7c14c3626e4a",
+      "reference": "prom/alertmanager:v0.33.1@sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "grafana",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+      "reference": "grafana/grafana:13.1.3@sha256:ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43",
       "updateOwner": "dependabot-compose"
     },
     {
