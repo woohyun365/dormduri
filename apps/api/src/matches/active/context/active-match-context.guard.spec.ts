@@ -13,16 +13,16 @@ import type { ActiveMatchContextRequest } from './active-match-context.types.js'
 
 class ActiveMatchContextGuardFixtureController {
   @RequireActiveMatchParticipant()
-  activeMatchRoute() {
+  activeMatchRoute(this: void) {
     return 'active-match';
   }
 
   @RequireActiveMatchParticipant('unmatch-cancel-not-allowed')
-  activeMatchCancelRoute() {
+  activeMatchCancelRoute(this: void) {
     return 'active-match-cancel';
   }
 
-  noDomainContextRoute() {
+  noDomainContextRoute(this: void) {
     return 'read';
   }
 }

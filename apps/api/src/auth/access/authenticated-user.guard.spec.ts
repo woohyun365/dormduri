@@ -9,42 +9,42 @@ import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
 
 class GuardFixtureController {
   @Public()
-  publicRoute() {
+  publicRoute(this: void) {
     return 'public';
   }
 
   @OptionalAuth()
-  optionalRoute() {
+  optionalRoute(this: void) {
     return 'optional';
   }
 
-  protectedRoute() {
+  protectedRoute(this: void) {
     return 'protected';
   }
 
   @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
-  updateSelfRoute() {
+  updateSelfRoute(this: void) {
     return 'capability';
   }
 
   @RequireCapability('admin:security-event:read')
-  futureAdminRoute() {
+  futureAdminRoute(this: void) {
     return 'future-admin';
   }
 
-  currentUserRoute(@CurrentUser() _authUser: unknown) {
+  currentUserRoute(this: void, @CurrentUser() _authUser: unknown) {
     return 'current-user';
   }
 }
 
 @Public()
 class PublicByDefaultFixtureController {
-  publicRoute() {
+  publicRoute(this: void) {
     return 'class-public';
   }
 
   @RequireCapability('admin:operations:health:read')
-  operationsHealthRoute() {
+  operationsHealthRoute(this: void) {
     return 'ops-health';
   }
 }
