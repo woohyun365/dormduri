@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-10",
+  "updatedAt": "2026-08-18",
   "policy": "Release candidates use a readable exact version and an immutable digest. Internal API/Web artifacts use the source commit as their tag and record their built digest in the artifact manifest.",
   "applicationVersions": {
     "node": "24.19.0",
@@ -8,7 +8,7 @@
     "prisma": "7.8.0",
     "prismaAdapterPg": "7.8.0",
     "pg": "8.20.0",
-    "postgresql": "18.3"
+    "postgresql": "18.4"
   },
   "images": [
     {
@@ -68,13 +68,13 @@
     {
       "name": "postgres-development",
       "ownerPath": "docker-compose.dev.yml",
-      "reference": "postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "reference": "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "postgres-full-stack-rehearsal",
       "ownerPath": "infra/rehearsal/compose.postgres.yml",
-      "reference": "postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "reference": "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
       "updateOwner": "dependabot-compose"
     },
     {
