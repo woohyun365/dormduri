@@ -129,11 +129,31 @@ test('Copilot uses a bounded adapter instead of duplicating the orchestration co
 test('Dependabot routes version updates through dev with bounded owner groups', () => {
   const dependabot = read('.github/dependabot.yml');
   const collaboration = read('docs/development/github/collaboration.md');
+  const workspace = read('pnpm-workspace.yaml');
+  const lockfile = read('pnpm-lock.yaml');
   const targetBranches = dependabot.match(/target-branch: 'dev'/gu) ?? [];
+  const npmConfig = dependabot.match(
+    /package-ecosystem: 'npm'[\s\S]*?(?=\n  - package-ecosystem: 'github-actions')/u,
+  )?.[0];
 
   assert.match(dependabot, /package-ecosystem: 'npm'\n\s+directory: '\/'/u);
   assert.equal(targetBranches.length, 8);
-  assert.match(dependabot, /pnpm-minor-patch:/u);
+  assert.ok(npmConfig, 'missing npm Dependabot configuration');
+  for (const group of [
+    'lint-tooling',
+    'web-framework-tooling',
+    'web-test-storybook-tooling',
+    'api-framework-persistence',
+  ]) {
+    assert.match(npmConfig, new RegExp(`\\s${group}:`, 'u'));
+  }
+  assert.doesNotMatch(npmConfig, /patterns:\s*\n\s+- '\*'/u);
+  assert.doesNotMatch(npmConfig, /pnpm-minor-patch:/u);
+  assert.match(npmConfig, /dependency-name: '@eslint\/js'[\s\S]*version-update:semver-major/u);
+  assert.match(npmConfig, /dependency-name: 'typescript'[\s\S]*version-update:semver-major/u);
+  assert.match(workspace, /^\s{2}typescript: 6\./mu);
+  assert.doesNotMatch(workspace, /^\s{2}typescript: 7\./mu);
+  assert.doesNotMatch(lockfile, /typescript@7(?:\.|:)/u);
   assert.match(dependabot, /actions-minor-patch:/u);
   assert.match(dependabot, /observability-minor-patch:/u);
   assert.match(dependabot, /update-types:\n\s+- 'minor'\n\s+- 'patch'/u);

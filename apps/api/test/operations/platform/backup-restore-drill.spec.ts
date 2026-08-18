@@ -133,7 +133,13 @@ describe('backup and restore drill readiness boundary', () => {
     expect(workflow).toContain('pnpm api:db:restore-drill:smoke -- --dry-run');
     expect(workflow).toContain('pnpm api:db:restore-drill:smoke');
     expect(workflow).toContain('infra/deploy/scripts/api-release-smoke.sh --dry-run');
-    expect(workflow).toMatch(/actions\/upload-artifact@[a-f0-9]{40} # v4/u);
+    expect(workflow).toContain('- name: Upload restore drill evidence');
+    expect(workflow).toContain(
+      'name: api-restore-drill-evidence-${{ github.run_id }}-${{ github.run_attempt }}',
+    );
+    expect(workflow).toContain('path: restore-drill-evidence/');
+    expect(workflow).toContain('if-no-files-found: error');
+    expect(workflow).toContain('retention-days: 14');
     expect(workflow).toContain('secret values are intentionally excluded');
   });
 

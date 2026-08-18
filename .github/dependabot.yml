@@ -9,12 +9,61 @@ updates:
     commit-message:
       prefix: 'chore(deps): 의존성 업데이트'
     groups:
-      pnpm-minor-patch:
+      lint-tooling:
         patterns:
-          - '*'
+          - 'eslint'
+          - '@eslint/*'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - 'eslint-config-*'
+          - 'eslint-plugin-*'
         update-types:
           - 'minor'
           - 'patch'
+      web-framework-tooling:
+        patterns:
+          - 'next'
+          - '@next/*'
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+        update-types:
+          - 'minor'
+          - 'patch'
+      web-test-storybook-tooling:
+        patterns:
+          - 'storybook'
+          - '@storybook/*'
+          - 'vite'
+          - '@vitejs/*'
+          - 'vitest'
+          - '@vitest/*'
+          - 'jsdom'
+          - '@testing-library/*'
+          - '@playwright/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      api-framework-persistence:
+        patterns:
+          - '@nestjs/*'
+          - 'prisma'
+          - '@prisma/*'
+          - 'pg'
+        update-types:
+          - 'minor'
+          - 'patch'
+    # @eslint/js 10 expects ESLint 10, while eslint-plugin-import 2.x supports through ESLint 9.
+    ignore:
+      - dependency-name: '@eslint/js'
+        update-types:
+          - 'version-update:semver-major'
+      # TypeScript 7 is outside typescript-eslint 8.67's supported range and breaks the current ts-node path.
+      # Keep TypeScript 6 updates visible; revisit after both owners support 7 and the full repository gates pass.
+      - dependency-name: 'typescript'
+        update-types:
+          - 'version-update:semver-major'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
