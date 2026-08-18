@@ -59,6 +59,11 @@ updates:
       - dependency-name: '@eslint/js'
         update-types:
           - 'version-update:semver-major'
+      # TypeScript 7 is outside typescript-eslint 8.67's supported range and breaks the current ts-node path.
+      # Keep TypeScript 6 updates visible; revisit after both owners support 7 and the full repository gates pass.
+      - dependency-name: 'typescript'
+        update-types:
+          - 'version-update:semver-major'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
