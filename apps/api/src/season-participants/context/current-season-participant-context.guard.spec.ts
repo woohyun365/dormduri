@@ -8,21 +8,21 @@ import type { CurrentSeasonParticipantRecord } from '../application/season-parti
 
 class DomainContextGuardFixtureController {
   @RequireCurrentSeasonParticipant()
-  mutationRoute() {
+  mutationRoute(this: void) {
     return 'mutation';
   }
 
   @RequireCurrentSeasonParticipant('season-profile-draft-not-allowed')
-  profileDraftRoute() {
+  profileDraftRoute(this: void) {
     return 'profile-draft';
   }
 
   @RequireCurrentSeasonParticipant('registration-not-allowed')
-  registrationRoute() {
+  registrationRoute(this: void) {
     return 'registration';
   }
 
-  noDomainContextRoute() {
+  noDomainContextRoute(this: void) {
     return 'read';
   }
 }

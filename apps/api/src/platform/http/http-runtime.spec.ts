@@ -19,18 +19,21 @@ function makeHttpSettings(overrides: Partial<HttpRuntimeSettings> = {}): HttpRun
 }
 
 function makeAppMock() {
-  const expressApp = { set: vi.fn() } as unknown as Express;
+  const expressSet = vi.fn();
+  const appUse = vi.fn();
+  const enableCors = vi.fn();
+  const expressApp = { set: expressSet } as unknown as Express;
   const app = {
     getHttpAdapter: vi.fn(() => ({ getInstance: vi.fn(() => expressApp) })),
-    use: vi.fn(),
-    enableCors: vi.fn(),
+    use: appUse,
+    enableCors,
   } as unknown as INestApplication & {
     getHttpAdapter: ReturnType<typeof vi.fn>;
     use: ReturnType<typeof vi.fn>;
     enableCors: ReturnType<typeof vi.fn>;
   };
 
-  return { app, expressApp: expressApp as Express & { set: ReturnType<typeof vi.fn> } };
+  return { app, expressSet, appUse, enableCors };
 }
 
 describe('buildHttpCorsOptions', () => {
@@ -52,26 +55,26 @@ describe('buildHttpCorsOptions', () => {
 
 describe('configureHttpRuntime', () => {
   it('registers trust proxy, helmet, cookie parser, and explicit CORS', () => {
-    const { app, expressApp } = makeAppMock();
+    const { app, expressSet, appUse, enableCors } = makeAppMock();
 
     configureHttpRuntime(
       app,
       makeHttpSettings({ trustProxy: 2, corsAllowedOrigins: ['https://app.example.com'] }),
     );
 
-    expect(expressApp.set).toHaveBeenCalledWith('trust proxy', 2);
-    expect(app.use).toHaveBeenCalledTimes(2);
-    expect(app.enableCors).toHaveBeenCalledWith(
+    expect(expressSet).toHaveBeenCalledWith('trust proxy', 2);
+    expect(appUse).toHaveBeenCalledTimes(2);
+    expect(enableCors).toHaveBeenCalledWith(
       expect.objectContaining({ origin: ['https://app.example.com'], credentials: false }),
     );
   });
 
   it('does not enable permissive wildcard CORS when origins are absent', () => {
-    const { app, expressApp } = makeAppMock();
+    const { app, expressSet, enableCors } = makeAppMock();
 
     configureHttpRuntime(app, makeHttpSettings());
 
-    expect(expressApp.set).toHaveBeenCalledWith('trust proxy', false);
-    expect(app.enableCors).not.toHaveBeenCalled();
+    expect(expressSet).toHaveBeenCalledWith('trust proxy', false);
+    expect(enableCors).not.toHaveBeenCalled();
   });
 });

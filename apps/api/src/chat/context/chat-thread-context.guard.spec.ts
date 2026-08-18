@@ -13,11 +13,11 @@ import type { ChatThreadContext, ChatThreadContextRequest } from './chat-thread-
 
 class ChatThreadContextGuardFixtureController {
   @RequireChatThreadMember()
-  threadRoute() {
+  threadRoute(this: void) {
     return 'thread';
   }
 
-  noDomainContextRoute() {
+  noDomainContextRoute(this: void) {
     return 'read';
   }
 }
