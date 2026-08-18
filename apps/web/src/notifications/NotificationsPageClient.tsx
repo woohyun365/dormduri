@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { notificationsPageApi } from './api/notifications-page.api';
 import {
   NotificationFilterBar,
@@ -22,7 +22,7 @@ export default function NotificationsPageClient() {
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
 
-  async function refresh() {
+  const refresh = useCallback(async (isCancelled: () => boolean = () => false) => {
     setStatus('loading');
     setError(null);
     try {
@@ -30,18 +30,26 @@ export default function NotificationsPageClient() {
         notificationsPageApi.listNotifications({ limit: 50 }),
         notificationsPageApi.getUnreadCount(),
       ]);
+      if (isCancelled()) return;
       setNotifications(listResponse.items.map(toNotificationDisplay));
       setUnreadCount(unreadResponse.unreadCount);
       setStatus('success');
     } catch {
+      if (isCancelled()) return;
       setStatus('error');
       setError('알림함을 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
     }
-  }
+  }, []);
 
   useEffect(() => {
-    void refresh();
-  }, []);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refresh(() => cancelled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
 
   const filteredNotifications = useMemo(() => {
     if (filter === 'unread') return notifications.filter((notification) => !notification.read);

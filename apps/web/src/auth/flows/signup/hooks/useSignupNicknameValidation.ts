@@ -39,10 +39,17 @@ export function useSignupNicknameValidation({
   const requestSequenceRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentNicknameKey = useMemo(() => toNicknameKey(nickname), [nickname]);
+  const currentState = serverError
+    ? ({
+        status: 'rejected',
+        nicknameKey: currentNicknameKey,
+        message: serverError,
+      } satisfies SignupNicknameValidationState)
+    : state;
   const isCurrentNicknameAvailable =
-    state.status === 'available' &&
+    currentState.status === 'available' &&
     currentNicknameKey !== null &&
-    state.nicknameKey === currentNicknameKey;
+    currentState.nicknameKey === currentNicknameKey;
 
   const cancelPendingRequest = useCallback(() => {
     requestSequenceRef.current += 1;
@@ -55,8 +62,7 @@ export function useSignupNicknameValidation({
   useEffect(() => {
     if (!serverError) return;
     cancelPendingRequest();
-    setState({ status: 'rejected', nicknameKey: currentNicknameKey, message: serverError });
-  }, [cancelPendingRequest, currentNicknameKey, serverError]);
+  }, [cancelPendingRequest, serverError]);
 
   const invalidate = useCallback(
     (nextNickname: string) => {
@@ -92,7 +98,7 @@ export function useSignupNicknameValidation({
       });
       return false;
     }
-    if (state.status === 'available' && state.nicknameKey === parsed.normalized) {
+    if (currentState.status === 'available' && currentState.nicknameKey === parsed.normalized) {
       return true;
     }
     setState({
@@ -100,7 +106,7 @@ export function useSignupNicknameValidation({
       message: SIGNUP_FEEDBACK_COPY.credentials.nickname.required,
     });
     return false;
-  }, [nickname, state]);
+  }, [currentState, nickname]);
 
   const validate = useCallback(async () => {
     const parsed = parseDisplayIdentityNickname(nickname);
@@ -188,7 +194,7 @@ export function useSignupNicknameValidation({
   }, [cancelPendingRequest, nickname, onCanonicalNickname, validateAction]);
 
   return {
-    state,
+    state: currentState,
     isCurrentNicknameAvailable,
     invalidate,
     requireCurrentValidation,

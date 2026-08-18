@@ -59,7 +59,7 @@ export default function SupportPageClient({
     selectedTicketIdRef.current = selectedTicketId;
   }, [selectedTicketId]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (isCancelled: () => boolean = () => false) => {
     setStatus('loading');
     setError(null);
     try {
@@ -69,6 +69,7 @@ export default function SupportPageClient({
         supportPageApi.listReports({ limit: 20 }),
         supportPageApi.listEnforcements({ limit: 20 }),
       ]);
+      if (isCancelled()) return;
       setFaqs(faqResponse.items);
       setTickets(ticketResponse.items);
       setReports(reportResponse.items);
@@ -80,13 +81,20 @@ export default function SupportPageClient({
         if (!nextTicketId) setTicketDetail(null);
       }
     } catch {
+      if (isCancelled()) return;
       setStatus('error');
       setError('고객센터 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refresh(() => cancelled);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
   const loadTicketDetail = useCallback(async (ticketId: string, isCancelled: () => boolean) => {
@@ -109,7 +117,9 @@ export default function SupportPageClient({
   useEffect(() => {
     if (!selectedTicketId) return;
     let cancelled = false;
-    void loadTicketDetail(selectedTicketId, () => cancelled);
+    queueMicrotask(() => {
+      if (!cancelled) void loadTicketDetail(selectedTicketId, () => cancelled);
+    });
     return () => {
       cancelled = true;
     };
