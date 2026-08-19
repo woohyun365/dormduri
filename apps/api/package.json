@@ -124,7 +124,7 @@
     "@nestjs/testing": "^11.1.26",
     "@repo/eslint-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
-    "@swc/core": "^1.15.41",
+    "@swc/core": "^1.16.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/node": "^24.13.2",
