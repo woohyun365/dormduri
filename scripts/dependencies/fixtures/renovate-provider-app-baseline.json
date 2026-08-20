@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-08-20T07:08:00Z",
+  "source": "gh api /apps/renovate",
+  "app": {
+    "name": "Renovate",
+    "slug": "renovate",
+    "owner": "mend",
+    "htmlUrl": "https://github.com/apps/renovate",
+    "externalUrl": "https://www.mend.io/renovate/",
+    "permissions": {
+      "administration": "read",
+      "checks": "write",
+      "contents": "write",
+      "emails": "read",
+      "issues": "write",
+      "members": "read",
+      "metadata": "read",
+      "packages": "read",
+      "pull_requests": "write",
+      "statuses": "write",
+      "vulnerability_alerts": "read",
+      "workflows": "write"
+    },
+    "events": [
+      "issue_comment",
+      "issues",
+      "pull_request",
+      "pull_request_review_comment",
+      "push",
+      "repository"
+    ]
+  },
+  "requiredOwnerEvidence": [
+    "selected_repository_installation",
+    "terms_and_privacy_acceptance",
+    "source_and_metadata_processing_acceptance",
+    "retention_and_log_access_acceptance",
+    "operator_and_revoke_owner"
+  ]
+}
