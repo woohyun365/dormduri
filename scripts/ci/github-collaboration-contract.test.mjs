@@ -67,6 +67,11 @@ test('developer documentation separates local feedback, CI, and remote settings'
     'active run',
     '[skip ci]',
     'failed job',
+    'Pre-PR CI lane preflight',
+    'classifyChanges',
+    'git diff --name-only',
+    'repoPolicy',
+    'environment gap',
   ]) {
     assert.match(branchStrategy, new RegExp(boundary, 'u'));
   }

@@ -112,6 +112,51 @@ Local iteration은 빠른 feedback 경계이고 remote push는 GitHub Actions �
 이 전략은 PR 수를 무작정 줄이지 않습니다. 서로 독립적인 owner와 rollback 경계는 별도 PR로 유지하고, CI 비용은 safe
 change selection, local-green 검증, 같은 목적의 batch와 failed-job rerun으로 줄입니다.
 
+## Pre-PR CI lane preflight
+
+Feature branch push 자체는 현재 Monorepo CI를 시작하지 않지만 draft를 포함한 PR 생성은 `pull_request` workflow를 즉시
+시작합니다. 따라서 최초 PR 생성 전에 GitHub와 동일한 changed-path classifier로 예상 lane을 확인하고, 선택된 lane의 가장
+가까운 local gate를 실행합니다. 문서나 설정 변경처럼 보여도 root toolchain 또는 미분류 경로가 포함되면 fail-open으로 모든
+lane이 선택될 수 있으므로 파일 종류만 보고 CI 범위를 추측하지 않습니다.
+
+1. `git fetch origin dev` 후 현재 branch의 merge-base가 최신 integration 기준인지 확인합니다.
+2. `origin/dev...HEAD`의 `git diff --name-only` 결과에 unrelated 또는 누락 파일이 없는지 확인합니다.
+3. CI가 import하는 동일한 `classifyChanges()`로 예상 lane을 출력합니다.
+
+```bash
+node --input-type=module <<'NODE'
+import { execFileSync } from 'node:child_process';
+import { classifyChanges } from './scripts/ci/classify-changes.mjs';
+
+const paths = execFileSync(
+  'git',
+  ['diff', '--name-only', '--diff-filter=ACDMRTUXB', 'origin/dev...HEAD'],
+  { encoding: 'utf8' },
+)
+  .trim()
+  .split(/\n/u)
+  .filter(Boolean);
+
+console.log(JSON.stringify({ paths, classification: classifyChanges(paths) }, null, 2));
+NODE
+```
+
+4. 항상 task-targeted regression을 먼저 실행하고, classifier 결과에 따라 다음 경계를 확장합니다.
+
+| Selected lane                  | Pre-PR local gate                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `repoPolicy`                   | `pnpm test:repo-policy`                                                                           |
+| `shared`, `api`, `web`         | local PostgreSQL 준비 후 `pnpm check`; API runtime 변경은 관련 API test lane을 추가               |
+| `storybook`                    | `pnpm --dir apps/web ci:storybook:build`                                                          |
+| `infra`                        | `pnpm infra:check:static`; runtime/Compose 변경일 때만 `pnpm infra:check`까지 확장                |
+| 여러 product lane 또는 unknown | 위 gate를 합치되 같은 build·prepare를 불필요하게 반복하지 않고 가장 강한 aggregate command를 우선 |
+
+5. 실제 assertion·type·format·build 실패는 첫 push 전에 해결합니다. Agent sandbox의 port binding 차단, provider credential,
+   Docker authority처럼 source 변경으로 해결할 수 없는 **environment gap**은 같은 명령을 적절한 local authority에서 한 번만
+   재검증하고, 계속 제한되면 PR 검증 공백에 기록합니다. 환경 제한을 추측으로 고치거나 trial push로 디버깅하지 않습니다.
+6. 예상 lane, local-green 결과, 환경 gap, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
+   생성합니다. Remote failure가 발생하면 전체 log를 읽어 하나의 corrective push로 묶습니다.
+
 ## PR과 merge
 
 1. 변경 범위에 가장 가까운 targeted test를 먼저 실행합니다.
