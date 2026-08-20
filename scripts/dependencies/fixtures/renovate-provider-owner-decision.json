@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-20T07:30:00Z",
+  "decision": "go",
+  "madeBy": "repository-owner",
+  "repository": "woohyun365/knu_roommate",
+  "installationScope": "selected-repository-only",
+  "accepted": {
+    "currentPermissionManifest": true,
+    "termsAndPrivacy": "accept-current-revision-at-installation",
+    "sourceAndMetadataProcessing": true,
+    "retentionAndLogAccess": "accept-provider-managed-policy-without-numeric-duration",
+    "operator": "woohyun365",
+    "revokeOwner": "woohyun365",
+    "privateRegistryCredentials": false,
+    "scriptsAndPlugins": false,
+    "manualFallback": true
+  },
+  "revalidationRequired": [
+    "app_identity",
+    "permission_and_event_manifest",
+    "selected_repository_installation",
+    "terms_and_privacy_revision",
+    "dashboard_log_access",
+    "suspend_and_uninstall_access"
+  ]
+}

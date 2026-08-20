@@ -10,12 +10,24 @@ import { resolveArtifactPath } from '../artifacts/paths.mjs';
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDirectory, '../..');
 const baselinePath = resolve(scriptDirectory, 'fixtures/renovate-provider-app-baseline.json');
+const ownerDecisionPath = resolve(
+  scriptDirectory,
+  'fixtures/renovate-provider-owner-decision.json',
+);
 const requiredOwnerEvidence = [
   'selected_repository_installation',
   'terms_and_privacy_acceptance',
   'source_and_metadata_processing_acceptance',
   'retention_and_log_access_acceptance',
   'operator_and_revoke_owner',
+];
+const requiredRevalidationEvidence = [
+  'app_identity',
+  'permission_and_event_manifest',
+  'selected_repository_installation',
+  'terms_and_privacy_revision',
+  'dashboard_log_access',
+  'suspend_and_uninstall_access',
 ];
 
 function assertNonEmptyString(value, fieldName) {
@@ -63,6 +75,58 @@ export function parseRenovateProviderBaseline(input) {
   }
   if (!sameMembers(input.requiredOwnerEvidence, requiredOwnerEvidence)) {
     throw new TypeError('requiredOwnerEvidence must contain every owner decision gate');
+  }
+  return structuredClone(input);
+}
+
+export function parseRenovateProviderOwnerDecision(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError('Renovate provider owner decision must be an object');
+  }
+  if (input.schemaVersion !== 1) throw new TypeError('schemaVersion must equal 1');
+  assertNonEmptyString(input.recordedAt, 'recordedAt');
+  if (input.decision !== 'go') throw new TypeError('decision must equal go');
+  if (input.madeBy !== 'repository-owner') {
+    throw new TypeError('madeBy must equal repository-owner');
+  }
+  if (input.repository !== 'woohyun365/knu_roommate') {
+    throw new TypeError('repository must equal woohyun365/knu_roommate');
+  }
+  if (input.installationScope !== 'selected-repository-only') {
+    throw new TypeError('installationScope must equal selected-repository-only');
+  }
+  const accepted = input.accepted;
+  if (!accepted || typeof accepted !== 'object' || Array.isArray(accepted)) {
+    throw new TypeError('accepted must be an object');
+  }
+  if (accepted.currentPermissionManifest !== true) {
+    throw new TypeError('currentPermissionManifest must be accepted');
+  }
+  if (accepted.termsAndPrivacy !== 'accept-current-revision-at-installation') {
+    throw new TypeError('termsAndPrivacy must require installation-time revision acceptance');
+  }
+  if (accepted.sourceAndMetadataProcessing !== true) {
+    throw new TypeError('sourceAndMetadataProcessing must be accepted');
+  }
+  if (
+    accepted.retentionAndLogAccess !== 'accept-provider-managed-policy-without-numeric-duration'
+  ) {
+    throw new TypeError('retentionAndLogAccess must record the flexible provider policy');
+  }
+  for (const ownerField of ['operator', 'revokeOwner']) {
+    assertNonEmptyString(accepted[ownerField], `accepted.${ownerField}`);
+  }
+  if (accepted.privateRegistryCredentials !== false) {
+    throw new TypeError('privateRegistryCredentials must remain disabled');
+  }
+  if (accepted.scriptsAndPlugins !== false) {
+    throw new TypeError('scriptsAndPlugins must remain disabled');
+  }
+  if (accepted.manualFallback !== true) {
+    throw new TypeError('manualFallback must remain accepted');
+  }
+  if (!sameMembers(input.revalidationRequired, requiredRevalidationEvidence)) {
+    throw new TypeError('revalidationRequired must contain every installation evidence gate');
   }
   return structuredClone(input);
 }
@@ -152,8 +216,34 @@ export function evaluateRenovateProviderManifest(input, baselineInput) {
   };
 }
 
+export function applyRenovateProviderOwnerDecision(evaluationInput, decisionInput) {
+  const decision = parseRenovateProviderOwnerDecision(decisionInput);
+  if (
+    !evaluationInput ||
+    evaluationInput.technicalStatus !== 'ready-for-owner-review' ||
+    hasDrift(evaluationInput.permissionDrift ?? {}) ||
+    hasDrift(evaluationInput.eventDrift ?? {})
+  ) {
+    throw new Error('technical provider preflight must pass before applying owner GO');
+  }
+
+  return {
+    ...structuredClone(evaluationInput),
+    decisionRecordedAt: decision.recordedAt,
+    goEligible: true,
+    ownerDecision: 'go',
+    ownerEvidence: structuredClone(decision.accepted),
+    pendingOwnerEvidence: [],
+    repositoryInstalled: false,
+    revalidationRequired: structuredClone(decision.revalidationRequired),
+  };
+}
+
 export function runRenovateProviderPreflight() {
   const baseline = parseRenovateProviderBaseline(JSON.parse(readFileSync(baselinePath, 'utf8')));
+  const ownerDecision = parseRenovateProviderOwnerDecision(
+    JSON.parse(readFileSync(ownerDecisionPath, 'utf8')),
+  );
   const result = spawnSync('gh', ['api', '/apps/renovate'], {
     cwd: repoRoot,
     encoding: 'utf8',
@@ -163,7 +253,8 @@ export function runRenovateProviderPreflight() {
     throw new Error(`gh api /apps/renovate failed\n${result.stderr}`);
   }
 
-  const evaluation = evaluateRenovateProviderManifest(JSON.parse(result.stdout), baseline);
+  const technicalEvaluation = evaluateRenovateProviderManifest(JSON.parse(result.stdout), baseline);
+  const evaluation = applyRenovateProviderOwnerDecision(technicalEvaluation, ownerDecision);
   const evidence = {
     schemaVersion: 1,
     observedAt: new Date().toISOString(),

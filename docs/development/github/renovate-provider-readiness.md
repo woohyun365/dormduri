@@ -4,13 +4,13 @@
 
 이 문서는 Mend가 운영하는 Renovate GitHub App을 이 저장소에 연결하기 전에 repository owner가 검토할 권한·데이터 처리·운영·철회 경계를 소유한다.
 
-현재 상태는 **PENDING / 설치하지 않음**이다.
+현재 상태는 **CONDITIONAL GO / 설치하지 않음**이다.
 
 - `renovate.json`은 `enabled: false`이다.
 - npm version update owner는 Dependabot이다.
 - GitHub App installation, Mend account authorization, repository access 변경을 수행하지 않았다.
 - 로컬 lookup과 pnpm artifact rehearsal만 통과했다.
-- 이 문서를 읽거나 preflight를 실행하는 것은 설치·이용약관 동의·provider 활성화 권한을 부여하지 않는다.
+- Repository owner는 현재 공식 App manifest와 provider 문서를 기준으로 설치 준비 GO를 결정했다. 실제 설치·약관 click-wrap·provider 활성화는 아직 수행하지 않았다.
 
 ## 설치 후보와 freshness 확인
 
@@ -73,6 +73,29 @@ Renovate 공식 security guidance가 공개한 Hosted App 동작은 다음과 �
 - [Mend Legal Center](https://www.mend.io/legal-center/)
 
 공개 자료만으로 이 GitHub App edition의 **숫자로 고정된 dependency metadata/job log 보존 기간**을 확정하지 않는다. 설치 승인자는 Legal Center의 최신 retention 자료와 실제 Developer Portal의 log 접근 범위를 확인하고, 명시적 기간이 없다는 사실까지 포함해 수용 여부를 결정해야 한다.
+
+## Current owner decision
+
+Repository owner는 공식 Hosted App의 동작을 최대한 유연하게 따르는 방향으로 다음을 승인했다.
+
+- installation scope는 selected repository 하나로 제한한다.
+- 2026-08-20 baseline과 일치하는 현재 permission·event manifest를 수용한다.
+- 설치 시점의 최신 Terms of Service와 Privacy Policy revision을 다시 확인하고 수용한다.
+- temporary source clone, dependency/version·PR metadata 저장, anonymized aggregate Merge Confidence 사용을 수용한다.
+- 숫자로 고정된 보존 기간이 공개되지 않았더라도 현재 provider-managed retention/log 정책을 수용한다.
+- operator와 revoke owner는 `woohyun365`로 둔다.
+- private registry credential, lifecycle script, plugin은 활성화하지 않는다.
+- 실제 Renovate PR 검증 전에는 Dependabot npm owner를 유지한다.
+
+이 결정은 설치를 시작할 수 있는 GO이며 설치 완료 증거가 아니다. 다음 항목은 설치 직전에 반드시 재확인한다.
+
+- App identity와 permission/event manifest에 drift가 없는지
+- `Only select repositories`에 이 저장소 하나만 선택했는지
+- Terms/Privacy revision이 검토한 범위를 벗어나지 않는지
+- dashboard job log에 operator가 접근할 수 있는지
+- Suspend·Uninstall control을 owner가 실제로 사용할 수 있는지
+
+어느 하나라도 예상과 다르면 GO는 자동으로 무효화되고 NO-GO로 전환한다.
 
 ## Owner decision checklist
 
