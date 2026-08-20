@@ -63,9 +63,13 @@ release evidence handoff로 남깁니다.
 
 ```text
 <plan>의 <단계>를 구현해줘.
-선행 증거를 확인하고 작은 diff로 수정한 뒤 targeted test와 필요한 정적 검증을 실행해줘.
+선행 증거와 working tree를 확인하고, fresh dev에서 bounded branch를 생성한 뒤 작은 diff로 수정해줘.
+targeted test와 필요한 정적 검증을 실행해줘.
 변경 파일, 핵심 결정, 검증 결과와 남은 blocker를 보고해줘.
 ```
+
+구현 branch와 PR 단위는 [Branch and PR strategy](../github/branch-and-pr-strategy.md)를 따릅니다. Agent가 이미 local
+`dev`에서 task-owned uncommitted 파일을 발견하면 reset하지 않고 먼저 bounded branch를 생성합니다.
 
 ## 결과 읽기
 

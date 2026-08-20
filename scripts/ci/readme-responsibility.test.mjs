@@ -42,3 +42,30 @@ test('documentation and provider checklist indexes explain their non-overlapping
   assert.match(aws, /release-gated/u);
   assert.match(aws, /실제 target evidence/u);
 });
+
+test('human-facing agentic engineering methodology is discoverable without becoming an instruction owner', () => {
+  const development = read('docs/development/README.md');
+  const methodology = read('docs/development/agentic-engineering-methodology.md');
+  const rootReadme = read('README.md');
+
+  assert.match(development, /agentic-engineering-methodology\.md/u);
+  assert.match(rootReadme, /agentic-engineering-methodology\.md/u);
+  for (const concept of [
+    'Agentic Programming',
+    'Harness Engineering',
+    'Context Engineering',
+    'Policy-first',
+    'Contract-driven',
+    'Evidence-driven',
+    'Human-governed',
+    'Full SDD',
+    'Autonomous Software Factory',
+    'Vibe Coding',
+  ]) {
+    assert.match(methodology, new RegExp(concept, 'u'));
+  }
+  assert.match(methodology, /human-to-human/u);
+  assert.match(methodology, /AGENTS\.md.*instruction owner/u);
+  assert.doesNotMatch(methodology, /\.omx\/plans/u);
+  assert.doesNotMatch(methodology, /\bPhase\s+\d+(?:[.-]\d+)?\b/u);
+});

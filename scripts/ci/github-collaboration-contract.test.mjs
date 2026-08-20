@@ -39,17 +39,33 @@ test('pull request input asks for current risk and verification evidence', () =>
 
 test('developer documentation separates local feedback, CI, and remote settings', () => {
   const index = read('docs/development/github/README.md');
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
   const collaboration = read('docs/development/github/collaboration.md');
   const remoteSettings = read('docs/development/github/remote-repository-settings.md');
   const developmentIndex = read('docs/development/README.md');
 
   assert.match(index, /\.\/collaboration\.md/u);
+  assert.match(index, /\.\/branch-and-pr-strategy\.md/u);
   assert.match(index, /\.\/remote-repository-settings\.md/u);
   assert.match(developmentIndex, /\.\/github\/README\.md/u);
   assert.match(collaboration, /pre-commit.*pnpm check:fast/su);
   assert.match(collaboration, /merge correctness/u);
   assert.match(collaboration, /CI summary/u);
   assert.doesNotMatch(collaboration, /\.omx\/plans/u);
+  assert.match(collaboration, /branch-and-pr-strategy\.md/u);
+  for (const boundary of [
+    'integration branch',
+    'origin/dev',
+    'fast-forward',
+    'git switch -c',
+    'bounded PR',
+    'stacked PR',
+    'DESIGN.md',
+  ]) {
+    assert.match(branchStrategy, new RegExp(boundary, 'u'));
+  }
+  assert.match(branchStrategy, /`dev`와 `main`에 직접 commit·push하지 않/u);
+  assert.doesNotMatch(branchStrategy, /\.omx\/plans/u);
   assert.match(remoteSettings, /PENDING_ACCOUNT_TIER/u);
   assert.match(remoteSettings, /checkedAt:/u);
   assert.match(remoteSettings, /gh api/u);

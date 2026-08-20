@@ -58,6 +58,8 @@
 - 한 owner 작업은 single agent가 기본이다. 독립적인 evidence·파일 ownership이 있을 때만 bounded child lane을 사용한다.
 - architecture/feature/refactor plan 요청은 tracked plan-authoring workflow를 사용한다. 세부 routing은 해당 guide가
   존재할 때 on-demand로 읽으며 ignored local handoff를 durable source로 취급하지 않는다.
+- 구현 요청은 `docs/development/github/branch-and-pr-strategy.md`를 따른다. `dev`·`main`에서 직접 구현하지 않고 fresh
+  integration baseline에서 bounded branch를 만든 뒤 edit·stage·commit한다.
 
 ## 5. Implementation agreements
 
