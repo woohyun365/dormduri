@@ -154,6 +154,13 @@
       "matchUpdateTypes": ["major"],
       "matchPackageNames": ["@eslint/js"],
       "enabled": false
+    },
+    {
+      "description": "revisit: keep pnpm package-manager upgrades manual until the CLI, lockfile, Corepack, and CI action are reviewed together.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["packageManager"],
+      "matchPackageNames": ["pnpm"],
+      "enabled": false
     }
   ]
 }
