@@ -41,6 +41,7 @@ test('core contract preserves evidence, decision, phase, verification, and owner
     'Decision, OQ, and future evidence',
     'Required plan structure',
     'Phase contract',
+    'Branch and PR execution strategy',
     'Verification matrix',
     'AI-readable architecture without AI-specific layers',
     'Checkpoint and final report',
@@ -50,6 +51,8 @@ test('core contract preserves evidence, decision, phase, verification, and owner
 
   assert.match(core, /Analyze 요청은 read-only 결과로 끝내며 plan file을 자동 생성하지 않습니다/u);
   assert.match(core, /Plan은 `produce-plan`만 승인/u);
+  assert.match(core, /fresh integration branch/u);
+  assert.match(core, /github\/branch-and-pr-strategy\.md/u);
 });
 
 test('primary domain guides retain their non-overlapping planning concerns', () => {

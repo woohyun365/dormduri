@@ -193,6 +193,8 @@ flowchart TB
 
 AI가 실제 팀 협업이나 production 운영 경험을 대신한다고 보지는 않습니다. 아직 실사용자 feedback, 실제 장애 대응과 운영 부하 증거는 없으며, README에서는 이를 구현·리허설 결과와 분리합니다.
 
+SDD, Harness Engineering, Context Engineering, Human-governed Agentic Programming의 선택 이유와 현재 적용 수준은 [Agentic Engineering methodology](./docs/development/agentic-engineering-methodology.md)에 정리했습니다.
+
 이 접근은 AI 활용 자체보다 검증 체계를 강조하는 [Toss의 agent 품질 관리 사례](https://toss.tech/article/skill-quality-rubric), 변경 전 계획과 test 안전망을 강조하는 [Kakao의 AI 리팩터링 사례](https://tech.kakao.com/posts/729), AI가 기존 개발 체계의 강점과 약점을 증폭한다고 설명하는 [DORA 2025](https://dora.dev/research/2025/dora-report/)의 문제의식과 같은 방향입니다.
 
 ## Quality Evidence

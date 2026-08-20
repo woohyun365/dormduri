@@ -1,0 +1,166 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Account-free pnpm policy. Keep disabled until the provider cutover evidence is approved.",
+  "enabled": false,
+  "enabledManagers": ["npm"],
+  "baseBranchPatterns": ["dev"],
+  "dependencyDashboard": true,
+  "automerge": false,
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "minimumReleaseAge": "3 days",
+  "commitMessagePrefix": "chore(deps): 의존성",
+  "packageRules": [
+    {
+      "description": "Group compatible lint and local developer tooling minor/patch updates.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "@eslint/eslintrc",
+        "@eslint/js",
+        "@swc/core",
+        "@types/node",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "eslint",
+        "eslint-config-next",
+        "eslint-config-prettier",
+        "eslint-plugin-prettier",
+        "globals",
+        "husky",
+        "lint-staged",
+        "prettier",
+        "ts-loader",
+        "ts-node",
+        "tsconfig-paths",
+        "typescript",
+        "typescript-eslint",
+        "unplugin-swc"
+      ],
+      "groupName": "lint-tooling",
+      "groupSlug": "lint-tooling"
+    },
+    {
+      "description": "Group compatible Web framework and rendering dependency minor/patch updates.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "@sentry/nextjs",
+        "@tabler/icons-react",
+        "@tailwindcss/postcss",
+        "@types/react",
+        "@types/react-dom",
+        "lucide-react",
+        "motion",
+        "next",
+        "react",
+        "react-dom",
+        "sonner",
+        "tailwindcss"
+      ],
+      "groupName": "web-framework",
+      "groupSlug": "web-framework"
+    },
+    {
+      "description": "Group compatible Web test and Storybook minor/patch updates.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "@playwright/test",
+        "@storybook/addon-docs",
+        "@storybook/nextjs-vite",
+        "@testing-library/jest-dom",
+        "@testing-library/react",
+        "@testing-library/user-event",
+        "@vitejs/plugin-react",
+        "@vitest/coverage-v8",
+        "jsdom",
+        "storybook",
+        "vite",
+        "vitest"
+      ],
+      "groupName": "web-test-storybook",
+      "groupSlug": "web-test-storybook"
+    },
+    {
+      "description": "Group compatible API framework and persistence minor/patch updates.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "@nestjs/cli",
+        "@nestjs/common",
+        "@nestjs/config",
+        "@nestjs/core",
+        "@nestjs/platform-express",
+        "@nestjs/platform-socket.io",
+        "@nestjs/schedule",
+        "@nestjs/schematics",
+        "@nestjs/testing",
+        "@nestjs/throttler",
+        "@nestjs/websockets",
+        "@prisma/adapter-pg",
+        "@prisma/client",
+        "@types/pg",
+        "@types/supertest",
+        "pg",
+        "prisma",
+        "supertest"
+      ],
+      "groupName": "api-framework-persistence",
+      "groupSlug": "api-framework-persistence"
+    },
+    {
+      "description": "Group compatible remaining application runtime minor/patch updates.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "@aws-sdk/client-secrets-manager",
+        "@aws-sdk/client-sesv2",
+        "@node-rs/argon2",
+        "@types/cookie-parser",
+        "@types/express",
+        "cookie-parser",
+        "cron",
+        "dotenv",
+        "helmet",
+        "joi",
+        "pino",
+        "prom-client",
+        "reflect-metadata",
+        "rxjs",
+        "socket.io",
+        "source-map-support",
+        "zod"
+      ],
+      "groupName": "application-runtime",
+      "groupSlug": "application-runtime"
+    },
+    {
+      "description": "Require an explicit dependency-dashboard decision for every major update.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "revisit: enable TypeScript 7 only after Next.js, NestJS, ESLint, and the repository compiler toolchain declare compatible support.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "matchPackageNames": ["typescript"],
+      "enabled": false
+    },
+    {
+      "description": "revisit: enable @eslint/js 10 only after eslint-config-next and the repository ESLint plugin stack support ESLint 10.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "matchPackageNames": ["@eslint/js"],
+      "enabled": false
+    },
+    {
+      "description": "revisit: keep pnpm package-manager upgrades manual until the CLI, lockfile, Corepack, and CI action are reviewed together.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["packageManager"],
+      "matchPackageNames": ["pnpm"],
+      "enabled": false
+    }
+  ]
+}

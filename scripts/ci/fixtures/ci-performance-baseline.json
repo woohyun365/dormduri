@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-18T15:38:44Z",
+  "source": {
+    "workflowRunId": 32154640034,
+    "headSha": "0a83bff191c5c2489b6655e99c382558942fe38a",
+    "url": "https://github.com/woohyun365/knu_roommate/actions/runs/32154640034",
+    "comparison": "full dependency compatibility integration"
+  },
+  "workflow": {
+    "wallSeconds": 629
+  },
+  "jobs": [
+    {
+      "lane": "classify",
+      "selected": true,
+      "wallSeconds": 10,
+      "computeSeconds": 10,
+      "stages": [{ "name": "classify", "seconds": 0, "result": "success" }]
+    },
+    {
+      "lane": "repo-policy",
+      "selected": true,
+      "wallSeconds": 10,
+      "computeSeconds": 10,
+      "stages": [{ "name": "policy", "seconds": 4, "result": "success" }]
+    },
+    {
+      "lane": "shared",
+      "selected": true,
+      "wallSeconds": 68,
+      "computeSeconds": 68,
+      "stages": [
+        { "name": "install", "seconds": 30, "result": "success" },
+        { "name": "build", "seconds": 4, "result": "success" },
+        { "name": "verify", "seconds": 17, "result": "success" }
+      ]
+    },
+    {
+      "lane": "web",
+      "selected": true,
+      "wallSeconds": 623,
+      "computeSeconds": 623,
+      "stages": [
+        { "name": "install", "seconds": 29, "result": "success" },
+        { "name": "prepare", "seconds": 4, "result": "success" },
+        { "name": "static", "seconds": 142, "result": "success" },
+        { "name": "unit", "seconds": 296, "result": "success" },
+        { "name": "build", "seconds": 57, "result": "success" },
+        { "name": "sentry-artifact", "seconds": 0, "result": "success" },
+        { "name": "storybook", "seconds": 20, "result": "success" },
+        { "name": "browser-install", "seconds": 26, "result": "success" },
+        { "name": "browser", "seconds": 27, "result": "success" }
+      ]
+    },
+    {
+      "lane": "infra-runtime",
+      "selected": true,
+      "wallSeconds": 92,
+      "computeSeconds": 92,
+      "stages": [{ "name": "runtime-config", "seconds": 80, "result": "success" }]
+    },
+    {
+      "lane": "api",
+      "selected": true,
+      "wallSeconds": 625,
+      "computeSeconds": 625,
+      "stages": [
+        { "name": "container-init", "seconds": 20, "result": "success" },
+        { "name": "install", "seconds": 29, "result": "success" },
+        { "name": "schema", "seconds": 3, "result": "success" },
+        { "name": "prepare", "seconds": 7, "result": "success" },
+        { "name": "static", "seconds": 101, "result": "success" },
+        { "name": "runtime-config-health-contract", "seconds": 16, "result": "success" },
+        { "name": "unit", "seconds": 141, "result": "success" },
+        { "name": "integration-db", "seconds": 247, "result": "success" },
+        { "name": "e2e-db", "seconds": 12, "result": "success" },
+        { "name": "stress-harness", "seconds": 7, "result": "success" },
+        { "name": "build", "seconds": 26, "result": "success" },
+        { "name": "compose", "seconds": 1, "result": "success" }
+      ]
+    },
+    {
+      "lane": "infra-static",
+      "selected": true,
+      "wallSeconds": 57,
+      "computeSeconds": 57,
+      "stages": [
+        { "name": "install", "seconds": 29, "result": "success" },
+        { "name": "static", "seconds": 11, "result": "success" }
+      ]
+    },
+    {
+      "lane": "ci-summary",
+      "selected": true,
+      "wallSeconds": 4,
+      "computeSeconds": 4,
+      "stages": [{ "name": "summary", "seconds": 0, "result": "success" }]
+    }
+  ],
+  "cache": {
+    "pnpm": {
+      "state": "miss",
+      "reason": "the integration PR changed pnpm-lock.yaml"
+    },
+    "next": {
+      "state": "fallback-hit",
+      "restoredBytes": 125720,
+      "savedBytes": 149113076
+    }
+  },
+  "testInventory": {
+    "testFileCount": 690,
+    "testCaseCount": 3401,
+    "suites": [
+      { "name": "shared", "testFiles": 25, "testCases": 114, "seconds": 6.12 },
+      { "name": "web-unit", "testFiles": 221, "testCases": 1232, "seconds": 294.51 },
+      { "name": "web-browser", "testFiles": 0, "testCases": 26, "seconds": 26.1 },
+      { "name": "api-runtime", "testFiles": 24, "testCases": 127, "seconds": 14.97 },
+      { "name": "api-unit", "testFiles": 375, "testCases": 1602, "seconds": 139.21 },
+      { "name": "api-integration", "testFiles": 27, "testCases": 225, "seconds": 245.76 },
+      { "name": "api-e2e", "testFiles": 1, "testCases": 1, "seconds": 9.91 },
+      { "name": "api-stress", "testFiles": 17, "testCases": 74, "seconds": 5.03 }
+    ]
+  }
+}
