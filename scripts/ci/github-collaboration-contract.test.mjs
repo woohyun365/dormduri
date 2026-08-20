@@ -61,12 +61,24 @@ test('developer documentation separates local feedback, CI, and remote settings'
     'bounded PR',
     'stacked PR',
     'DESIGN.md',
+    'Remote push budget',
+    'local-green',
+    'corrective push',
+    'active run',
+    '[skip ci]',
+    'failed job',
   ]) {
     assert.match(branchStrategy, new RegExp(boundary, 'u'));
   }
   assert.match(branchStrategy, /`dev`와 `main`에 직접 commit·push하지 않/u);
   assert.doesNotMatch(branchStrategy, /\.omx\/plans/u);
   assert.match(remoteSettings, /PENDING_ACCOUNT_TIER/u);
+  assert.match(remoteSettings, /GitHub Pro/u);
+  assert.match(remoteSettings, /Require branches to be up to date/u);
+  assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
+  assert.match(remoteSettings, /active_caches_size_in_bytes/u);
+  assert.match(remoteSettings, /2GB/u);
+  assert.match(remoteSettings, /10GB/u);
   assert.match(remoteSettings, /checkedAt:/u);
   assert.match(remoteSettings, /gh api/u);
   assert.doesNotMatch(remoteSettings, /gh api .*--method (?:PATCH|PUT|POST|DELETE)/u);
@@ -84,6 +96,9 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
     'Vulnerability alerts',
     'Dependabot security updates',
     'enabled=false',
+    'squash merge',
+    'Force push',
+    'Branch deletion',
   ]) {
     assert.ok(
       remoteSettings.includes(expectedSetting),

@@ -116,10 +116,11 @@ test('rejects an owner decision that broadens repository scope or enables script
   assert.throws(() => parseRenovateProviderOwnerDecision(scriptsEnabled), /scriptsAndPlugins/u);
 });
 
-test('keeps the provider GO conditional, selected-repository-only, and reversible', () => {
+test('keeps the installed Scan Only provider selected-repository-only and reversible', () => {
   for (const phrase of [
-    'CONDITIONAL GO / 설치하지 않음',
+    'CONDITIONAL GO / Scan Only 설치 완료 / repository activation 대기',
     'Only select repositories',
+    'disabled-by-config',
     'Terms of Service',
     'Privacy Policy',
     'temporary source clone',

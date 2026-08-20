@@ -84,6 +84,34 @@ branch에서 bounded branch를 생성합니다.
 
 따라서 stacked PR은 기본 전략이 아니며, 긴 plan을 하나의 long-lived branch에서 수행하는 것도 기본 전략이 아닙니다.
 
+## Remote push budget
+
+Local iteration은 빠른 feedback 경계이고 remote push는 GitHub Actions 사용량을 발생시키는 검증 이벤트입니다. Bounded PR
+원칙은 유지하되, 같은 결과를 얻기 위한 불필요한 remote synchronization을 줄입니다.
+
+1. 첫 push 전에 작업 범위의 targeted test, repository policy, lint/format과 diff check를 가능한 범위까지 local-green으로
+   만듭니다.
+2. 기본 remote budget은 reviewable branch의 최초 full validation push 1회와, 실제 remote evidence에 근거한 corrective push
+   1회입니다. 세 번째 source push가 필요하면 이전 결과에서 일괄 수정하지 못한 이유를 checkpoint/PR에 남깁니다.
+3. 동일한 active run 중 cosmetic text, PR body, local evidence만 변경하는 source push를 하지 않습니다. 같은 outcome의 변경을
+   모아서 한 번에 push합니다.
+4. PR title/body/label처럼 repository file을 바꿀 필요가 없는 metadata는 GitHub UI/API에서 수정하고 source push를 만들지
+   않습니다.
+5. Remote failure 뒤에는 모든 annotation과 log를 먼저 읽고 같은 root cause의 fix를 하나의 corrective push로 묶습니다.
+   반복적인 trial push를 debugging loop로 사용하지 않습니다.
+6. Provider permission, billing, budget 같은 control-plane 문제는 source를 변경하지 않습니다. GitHub가 prior success를
+   보존하면 failed job만 rerun하고, source/workflow가 바뀐 경우에만 새 full run을 시작합니다.
+7. `cancel-in-progress`는 superseded completion을 막지만 이미 사용한 runner minutes를 복구하지 않습니다. 알려진 security,
+   credential, destructive migration 문제를 중단할 때만 active run을 즉시 supersede합니다.
+8. Draft PR도 현재 `pull_request` workflow를 실행합니다. Remote test runner 용도로만 draft를 일찍 열지 않고, hosted-only
+   evidence나 review가 필요할 때 생성합니다.
+9. `[skip ci]`, direct `dev`/`main` push, red fail-closed summary merge는 정상적인 비용 절감 수단이 아닙니다.
+10. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 squash
+    merge를 integration history 정리 경계로 사용합니다.
+
+이 전략은 PR 수를 무작정 줄이지 않습니다. 서로 독립적인 owner와 rollback 경계는 별도 PR로 유지하고, CI 비용은 safe
+change selection, local-green 검증, 같은 목적의 batch와 failed-job rerun으로 줄입니다.
+
 ## PR과 merge
 
 1. 변경 범위에 가장 가까운 targeted test를 먼저 실행합니다.
