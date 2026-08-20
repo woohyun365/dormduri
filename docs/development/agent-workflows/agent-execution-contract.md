@@ -44,6 +44,9 @@
 
 ## 4. Act
 
+- 구현 요청은 [Branch and PR strategy](../github/branch-and-pr-strategy.md)에 따라 fresh integration branch에서 bounded
+  branch를 만든 뒤 수정합니다. Plan·Analyze처럼 source mutation 권한이 없는 요청은 branch 생성을 완료 조건으로
+  만들지 않습니다.
 - 사용자의 unrelated working-tree 변경을 revert하거나 덮어쓰지 않습니다.
 - 기존 owner와 utility를 먼저 재사용하고 dependency는 명시적 요청 없이는 추가하지 않습니다.
 - cleanup/refactor는 계획과 regression protection을 먼저 마련합니다.

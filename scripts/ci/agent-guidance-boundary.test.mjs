@@ -146,6 +146,8 @@ test('developer and agent workflow entry points stay connected without duplicati
 
   assert.match(agents, /agent-execution-contract\.md/u);
   assert.match(agents, /session-continuity\.md/u);
+  assert.match(agents, /github\/branch-and-pr-strategy\.md/u);
+  assert.match(agents, /`dev`·`main`에서 직접 구현/u);
   assert.match(contributing, /agent-workflows\/getting-started\.md/u);
   assert.match(workflowIndex, /agentic-architecture-decisions\.md/u);
   assert.match(workflowIndex, /orchestration\.md/u);

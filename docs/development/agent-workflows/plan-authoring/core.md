@@ -88,17 +88,33 @@ provider account, region, production hostname, actual budget처럼 미래 releas
 8. target responsibility and architecture
 9. scope and non-scope
 10. dependencies and ordering
-11. implementation phases
-12. verification matrix
-13. final acceptance
-14. risks and mitigations
-15. follow-up candidates
-16. Open Questions and release-evidence handoffs
-17. phase checkpoint and next-session handoff
+11. branch and PR execution strategy
+12. implementation phases
+13. verification matrix
+14. final acceptance
+15. risks and mitigations
+16. follow-up candidates
+17. Open Questions and release-evidence handoffs
+18. phase checkpoint and next-session handoff
 
 빈 heading을 채우기 위해 내용을 발명하지 않습니다. 적용되지 않는 항목은 이유와 함께 생략합니다.
 
-## 7. Phase contract
+## 7. Branch and PR execution strategy
+
+구현 가능한 계획은 [Branch and PR strategy](../../github/branch-and-pr-strategy.md)에 따라 다음을 명시합니다.
+
+- current baseline과 fresh integration branch
+- 구현 시작 전에 생성할 bounded branch 또는 naming rule
+- PR target과 dependent merge order
+- 서로 독립적으로 review·검증·rollback 가능한 PR unit
+- direct `dev`·`main` mutation 금지와 existing working-tree 보호
+- provider·credential·production처럼 branch 밖에서 승인할 external gate
+
+Plan 작성 자체는 implementation 권한이 아니므로 branch 생성을 강제하지 않습니다. 구현이 시작될 때 branch preflight를
+실행합니다. 여러 단계의 계획을 하나의 long-lived branch에 누적하지 않고 dependent unit은 선행 PR merge 후 fresh
+integration branch에서 시작합니다.
+
+## 8. Phase contract
 
 각 Phase는 다른 fresh session이 해당 Phase만 실행해도 범위와 stop condition을 이해할 수 있어야 합니다.
 
@@ -106,6 +122,7 @@ provider account, region, production hostname, actual budget처럼 미래 releas
 Phase N — outcome-oriented title
 objective
 preconditions and dependency
+branch / PR target / dependent merge condition
 owned files / non-owned files
 implementation work
 contract, policy, data or runtime work
@@ -122,7 +139,7 @@ checkpoint fields
 - 웹 조사, metric 축적 대기, account 생성 대기는 implementation Phase로 만들지 않습니다.
 - 완료는 phase label이 아니라 observable outcome과 fresh verification으로 판정합니다.
 
-## 8. Verification matrix
+## 9. Verification matrix
 
 각 claim을 가장 작은 증거와 연결합니다.
 
@@ -137,7 +154,7 @@ checkpoint fields
 
 Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, build, static analysis, E2E를 확장합니다.
 
-## 9. AI-readable architecture without AI-specific layers
+## 10. AI-readable architecture without AI-specific layers
 
 계획은 다음을 선호합니다.
 
@@ -156,7 +173,7 @@ Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, bu
 - 여러 child가 같은 파일이나 global plan을 소유
 - 긴 transcript와 raw prompt를 durable context로 저장
 
-## 10. Checkpoint and final report
+## 11. Checkpoint and final report
 
 Checkpoint는 objective, branch/HEAD, changed/staged files, verification, next action, blocker만 유지합니다. 최종 보고는
 Added/Updated/Deleted, 책임 변화, 실제 검증 결과, 남은 risk·gap 순서로 작성합니다.

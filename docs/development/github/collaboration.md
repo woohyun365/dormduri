@@ -2,6 +2,9 @@
 
 ## 변경 시작
 
+구현 변경은 [Branch and PR strategy](./branch-and-pr-strategy.md)에 따라 fresh `dev`에서 bounded branch를 생성한 뒤
+진행합니다. 분석·계획처럼 source mutation이 없는 요청은 branch를 강제하지 않습니다.
+
 1. 현재 사용자 요청, branch, `HEAD`, `git status --short`를 확인합니다.
 2. unrelated working-tree 변경은 수정·삭제·stage하지 않습니다.
 3. 변경 범위에 가장 가까운 production owner, contract, test를 먼저 찾습니다.
