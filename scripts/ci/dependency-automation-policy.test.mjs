@@ -175,6 +175,19 @@ test('blocks unsupported TypeScript and ESLint majors with revisit reasons', () 
   }
 });
 
+test('keeps pnpm package-manager upgrades manual until the toolchain moves together', () => {
+  const packageManagerRule = renovateConfig.packageRules.find(
+    (rule) =>
+      rule.enabled === false &&
+      rule.matchDepTypes?.includes('packageManager') &&
+      rule.matchPackageNames?.includes('pnpm'),
+  );
+
+  assert.ok(packageManagerRule);
+  assert.match(packageManagerRule.description, /Corepack/u);
+  assert.match(packageManagerRule.description, /CI action/u);
+});
+
 test('keeps both provider cancellations and the manual terminal counts reproducible', () => {
   const evidence = parseDependencyAutomationEvidence(baseline);
   const manual = evidence.runs.find((run) => run.trigger === 'administrator Check for updates');

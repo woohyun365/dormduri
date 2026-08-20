@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "renovateVersion": "44.7.2",
+  "timeoutSeconds": 900,
+  "packageManager": "pnpm@11.7.0",
+  "expectedExtraction": {
+    "fileCount": 4,
+    "depCount": 8
+  },
+  "updates": [
+    {
+      "kind": "catalog",
+      "packageName": "vitest",
+      "from": "4.0.0",
+      "to": "4.1.9",
+      "updateType": "minor",
+      "ownerGroup": "web-test-storybook",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "kind": "inline-api",
+      "packageName": "@nestjs/common",
+      "from": "11.1.20",
+      "to": "11.1.26",
+      "updateType": "patch",
+      "ownerGroup": "api-framework-persistence",
+      "file": "apps/api/package.json"
+    },
+    {
+      "kind": "inline-web",
+      "packageName": "motion",
+      "from": "12.37.0",
+      "to": "12.38.0",
+      "updateType": "minor",
+      "ownerGroup": "web-framework",
+      "file": "apps/web/package.json"
+    }
+  ],
+  "blockedUpdates": [
+    {
+      "kind": "catalog",
+      "packageName": "typescript",
+      "from": "6.0.3",
+      "candidate": "7.0.2",
+      "updateType": "major",
+      "file": "pnpm-workspace.yaml"
+    }
+  ],
+  "suppressedPackageManagers": ["pnpm"],
+  "allowedChangedFiles": [
+    "apps/api/package.json",
+    "apps/web/package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ]
+}
