@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 export const REPO_POLICY_SCRIPT_DIRECTORIES = [
   'scripts/artifacts',
   'scripts/ci',
+  'scripts/dependencies',
   'scripts/git',
   'scripts/infra',
   'scripts/observability',

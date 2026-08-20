@@ -63,6 +63,8 @@ Renovate local platform은 branch 생성과 `dryRun=full`을 지원하지 않고
 
 원본 log와 실행별 summary는 Git으로 추적하지 않는 `artifacts/local/dependency-automation/`에 생성한다. 재현 계약과 고정 입력은 `scripts/dependencies/`가 소유한다.
 
+Hosted provider의 permission·data·operator·revoke 판단은 [Hosted Renovate provider readiness](../../development/github/renovate-provider-readiness.md)가 소유한다.
+
 ## 채택 전 남은 증거
 
 - Hosted provider의 selected-repository 권한, source 처리, log 보존, 운영자 접근, revoke 경로

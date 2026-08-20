@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { discoverScriptTests } from './repo-policy-test-files.mjs';
+import { discoverScriptTests, REPO_POLICY_SCRIPT_DIRECTORIES } from './repo-policy-test-files.mjs';
+
+test('includes dependency automation contracts in the canonical policy lane', () => {
+  assert.ok(REPO_POLICY_SCRIPT_DIRECTORIES.includes('scripts/dependencies'));
+});
 
 test('discovers colocated tests recursively without depending on a flat directory', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'knu-repo-policy-'));
