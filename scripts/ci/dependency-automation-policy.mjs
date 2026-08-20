@@ -49,12 +49,12 @@ function renovateOwnerRules(config) {
   return config.packageRules.filter((rule) => RENOVATE_OWNER_GROUPS.includes(rule.groupName));
 }
 
-export function validateAccountFreeRenovateConfig(config) {
+export function validateHostedRenovateNpmConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new TypeError('Renovate config must be an object');
   }
-  if (config.enabled !== false) {
-    throw new TypeError('account-free Renovate config must remain disabled');
+  if (config.enabled !== true) {
+    throw new TypeError('hosted Renovate npm owner must remain enabled');
   }
   if (!sameMembers(config.enabledManagers, ['npm'])) {
     throw new TypeError('enabledManagers must contain only npm');
@@ -103,7 +103,7 @@ export function validateAccountFreeRenovateConfig(config) {
 }
 
 export function mapRenovateOwnerGroups(config, packageNames) {
-  validateAccountFreeRenovateConfig(config);
+  validateHostedRenovateNpmConfig(config);
   assertStringArray(packageNames, 'packageNames');
 
   const rules = renovateOwnerRules(config);

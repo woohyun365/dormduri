@@ -142,31 +142,20 @@ test('Copilot uses a bounded adapter instead of duplicating the orchestration co
   assert.ok(instructions.split('\n').length <= 12, 'Copilot adapter must stay concise');
 });
 
-test('Dependabot routes version updates through dev with bounded owner groups', () => {
+test('Renovate owns npm updates while Dependabot retains non-npm ecosystems', () => {
   const dependabot = read('.github/dependabot.yml');
+  const renovate = JSON.parse(read('renovate.json'));
   const collaboration = read('docs/development/github/collaboration.md');
   const workspace = read('pnpm-workspace.yaml');
   const lockfile = read('pnpm-lock.yaml');
   const targetBranches = dependabot.match(/target-branch: 'dev'/gu) ?? [];
-  const npmConfig = dependabot.match(
-    /package-ecosystem: 'npm'[\s\S]*?(?=\n  - package-ecosystem: 'github-actions')/u,
-  )?.[0];
 
-  assert.match(dependabot, /package-ecosystem: 'npm'\n\s+directory: '\/'/u);
-  assert.equal(targetBranches.length, 8);
-  assert.ok(npmConfig, 'missing npm Dependabot configuration');
-  for (const group of [
-    'lint-tooling',
-    'web-framework-tooling',
-    'web-test-storybook-tooling',
-    'api-framework-persistence',
-  ]) {
-    assert.match(npmConfig, new RegExp(`\\s${group}:`, 'u'));
-  }
-  assert.doesNotMatch(npmConfig, /patterns:\s*\n\s+- '\*'/u);
-  assert.doesNotMatch(npmConfig, /pnpm-minor-patch:/u);
-  assert.match(npmConfig, /dependency-name: '@eslint\/js'[\s\S]*version-update:semver-major/u);
-  assert.match(npmConfig, /dependency-name: 'typescript'[\s\S]*version-update:semver-major/u);
+  assert.doesNotMatch(dependabot, /package-ecosystem: 'npm'/u);
+  assert.equal(targetBranches.length, 7);
+  assert.equal(renovate.enabled, true);
+  assert.deepEqual(renovate.enabledManagers, ['npm']);
+  assert.deepEqual(renovate.baseBranchPatterns, ['dev']);
+  assert.equal(renovate.automerge, false);
   assert.match(workspace, /^\s{2}typescript: 6\./mu);
   assert.doesNotMatch(workspace, /^\s{2}typescript: 7\./mu);
   assert.doesNotMatch(lockfile, /typescript@7(?:\.|:)/u);
@@ -176,10 +165,9 @@ test('Dependabot routes version updates through dev with bounded owner groups', 
   assert.match(dependabot, /package-ecosystem: 'github-actions'/u);
   assert.match(dependabot, /package-ecosystem: 'docker'/u);
   assert.match(dependabot, /package-ecosystem: 'docker-compose'/u);
-  assert.match(dependabot, /prefix: 'chore\(deps\): 의존성 업데이트'/u);
   assert.match(dependabot, /prefix: 'ci\(deps\): 자동 업데이트'/u);
   assert.doesNotMatch(dependabot, /^\s+labels:/mu);
   assert.doesNotMatch(dependabot, /multi-ecosystem-groups:/u);
-  assert.match(collaboration, /version update PR은 `dev`를 대상으로/u);
+  assert.match(collaboration, /npm\/pnpm version update PR은 Renovate가 `dev`를 대상으로/u);
   assert.match(collaboration, /security update는 GitHub의 default branch/u);
 });
