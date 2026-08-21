@@ -37,6 +37,7 @@ Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 �
 ## Evidence 상태
 
 - `VERIFIED_REMOTE`: 아래 read-only command로 현재 원격값을 확인했고 기대 상태와 일치합니다.
+- `VERIFIED_OWNER_UI`: 공개된 read endpoint가 없는 설정을 repository owner가 GitHub UI에서 직접 확인했습니다.
 - `PENDING_OWNER_ACTION`: 현재값은 확인했지만 변경에는 repository owner의 명시적 승인이 필요합니다.
 - `PENDING_ACCOUNT_TIER`: 현재 account tier가 설정 또는 검증을 지원하지 않습니다.
 - `PENDING_EVIDENCE`: endpoint 의미나 현재값을 아직 확인하지 못했습니다.
@@ -46,34 +47,40 @@ Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 �
 
 ## 현재 evidence
 
-- checkedAt: 2026-08-20
+- checkedAt: 2026-08-21
 - repository: `woohyun365/knu_roommate`
 - operator: local authenticated `gh` read-only inspection
 
-| Setting                     | Actual                                                               | Status                 |
-| --------------------------- | -------------------------------------------------------------------- | ---------------------- |
-| Plan / visibility           | GitHub Pro / private                                                 | `VERIFIED_REMOTE`      |
-| Default branch              | `main`                                                               | `VERIFIED_REMOTE`      |
-| Merge methods               | merge commit, squash, rebase 모두 enabled                            | `PENDING_OWNER_ACTION` |
-| Delete branch on merge      | `delete_branch_on_merge=false`                                       | `PENDING_OWNER_ACTION` |
-| Actions                     | enabled, `allowed_actions=all`                                       | `PENDING_OWNER_ACTION` |
-| Full-SHA requirement        | `sha_pinning_required=false`                                         | `PENDING_OWNER_ACTION` |
-| Branch protection / ruleset | ruleset 0개, `dev`/`main` protection 없음                            | `PENDING_OWNER_ACTION` |
-| Vulnerability alerts        | endpoint `404`; 현재 repository에서는 disabled 의미                  | `PENDING_OWNER_ACTION` |
-| Dependabot security updates | `enabled=false`, `paused=false`                                      | `PENDING_OWNER_ACTION` |
-| Workflow token              | `default_workflow_permissions=read`, PR approval off                 | `VERIFIED_REMOTE`      |
-| Private fork PR             | workflow·write token·secret 전달 모두 disabled                       | `VERIFIED_REMOTE`      |
-| Actions cache               | `active_caches_size_in_bytes=9,394,372,870`, 53 entries              | `PENDING_OWNER_ACTION` |
-| Actions artifacts           | 264 total, 232 active, active bytes 25,777,703, 7일 expiry           | `VERIFIED_REMOTE`      |
-| Effective shared storage    | owner Billing UI 기준 Pro 2GB, 현재 Actions storage 0GB billed       | `VERIFIED_REMOTE`      |
-| Installed GitHub Apps       | ChatGPT Codex Connector, Vercel, Renovate; Renovate Portal Scan Only | `VERIFIED_REMOTE`      |
+| Setting                     | Actual                                                                                   | Status              |
+| --------------------------- | ---------------------------------------------------------------------------------------- | ------------------- |
+| Plan / visibility           | GitHub Pro / private                                                                     | `VERIFIED_REMOTE`   |
+| Default branch              | `main`                                                                                   | `VERIFIED_REMOTE`   |
+| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                     | `VERIFIED_REMOTE`   |
+| Merge methods               | squash only, PR title + PR body; auto-merge off                                          | `VERIFIED_REMOTE`   |
+| Delete branch on merge      | `delete_branch_on_merge=true`                                                            | `VERIFIED_REMOTE`   |
+| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only         | `VERIFIED_REMOTE`   |
+| Full-SHA requirement        | `sha_pinning_required=true`                                                              | `VERIFIED_REMOTE`   |
+| Branch ruleset              | `dev-main-integration-gate` active on default `main` + exact `dev`; no bypass            | `VERIFIED_REMOTE`   |
+| PR rule                     | zero approvals, conversation resolution, squash only                                     | `VERIFIED_REMOTE`   |
+| Required status             | `CI summary`, GitHub Actions app `15368`, strict up-to-date off                          | `VERIFIED_REMOTE`   |
+| Force push / deletion       | non-fast-forward and deletion blocked                                                    | `VERIFIED_REMOTE`   |
+| Vulnerability alerts        | endpoint `204`                                                                           | `VERIFIED_REMOTE`   |
+| Dependabot malware alerts   | enabled                                                                                  | `VERIFIED_OWNER_UI` |
+| Dependabot security updates | `enabled=true`, `paused=false`; grouped security updates enabled                         | `VERIFIED_REMOTE`   |
+| Workflow token              | `default_workflow_permissions=read`, PR approval off                                     | `VERIFIED_REMOTE`   |
+| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                          | `VERIFIED_REMOTE`   |
+| Artifact/log retention      | owner UI 7 days                                                                          | `VERIFIED_OWNER_UI` |
+| Actions cache policy        | owner UI 7-day retention / 10GB eviction; API 9,085,367,158 bytes, 51 entries            | `VERIFIED_REMOTE`   |
+| Actions artifacts           | 224 active, 11,347,041 bytes; observed expiry through 2026-08-28                         | `VERIFIED_REMOTE`   |
+| Effective shared storage    | owner Billing UI 기준 Pro 2GB, 현재 Actions storage 0GB billed                           | `VERIFIED_OWNER_UI` |
+| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Vercel, Renovate; Portal Scan Only | `VERIFIED_OWNER_UI` |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 
-현재 cache는 약 8.75GiB로 기본 10GB 경계의 약 87.5%이며 53개 entry가 존재합니다. 즉시 삭제 근거는 아니지만 key
-폭증과 eviction thrash를 측정해야 하는 상태입니다. 반면 active artifact는 약 24.6MiB로 owner가 확인한 2GB effective
-shared allowance에 비해 작고, 대부분 7일 뒤 만료되는 Playwright/infra evidence입니다. Artifact와 cache를 같은 storage로
-합산해 판단하지 않습니다.
+현재 cache는 약 8.46GiB로 10GB eviction 경계의 약 84.6%이며 51개 entry가 존재합니다. 즉시 삭제 근거는 아니지만 key
+폭증과 eviction thrash를 계속 측정해야 합니다. 반면 active artifact는 약 10.82MiB로 owner가 확인한 2GB effective shared
+allowance에 비해 작고, owner UI의 artifact/log retention은 7일입니다. Artifact와 cache를 같은 storage로 합산해 판단하지
+않습니다.
 
 ## Secret-free 확인 절차
 

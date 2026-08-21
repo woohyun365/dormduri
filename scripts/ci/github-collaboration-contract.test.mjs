@@ -81,7 +81,7 @@ test('developer documentation separates local feedback, CI, and remote settings'
   assert.match(remoteSettings, /GitHub Pro/u);
   assert.match(remoteSettings, /Require branches to be up to date/u);
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
-  assert.match(remoteSettings, /active_caches_size_in_bytes/u);
+  assert.match(remoteSettings, /Actions cache policy/u);
   assert.match(remoteSettings, /2GB/u);
   assert.match(remoteSettings, /10GB/u);
   assert.match(remoteSettings, /checkedAt:/u);
@@ -100,7 +100,7 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
     'CI summary',
     'Vulnerability alerts',
     'Dependabot security updates',
-    'enabled=false',
+    'enabled=true',
     'squash merge',
     'Force push',
     'Branch deletion',
@@ -113,6 +113,7 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
 
   for (const evidenceState of [
     'VERIFIED_REMOTE',
+    'VERIFIED_OWNER_UI',
     'PENDING_OWNER_ACTION',
     'PENDING_ACCOUNT_TIER',
     'PENDING_EVIDENCE',
@@ -133,7 +134,55 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
 
   assert.match(remoteSettings, /read-only/u);
   assert.match(remoteSettings, /owner 승인/u);
+  assert.match(remoteSettings, /selected; GitHub-owned/u);
+  assert.match(remoteSettings, /sha_pinning_required=true/u);
+  assert.match(remoteSettings, /dev-main-integration-gate/u);
+  assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
+  assert.match(remoteSettings, /enabled=true.*paused=false/su);
   assert.doesNotMatch(remoteSettings, /gh api[^\n]*--method\s+(?:PATCH|PUT|POST|DELETE)/u);
+});
+
+test('GitHub operator authentication stays layered, least-privilege, and secret-free', () => {
+  const index = read('docs/development/github/README.md');
+  const authentication = read('docs/development/github/authentication-and-operator-access.md');
+
+  assert.match(index, /\.\/authentication-and-operator-access\.md/u);
+  for (const boundary of [
+    'Git credential',
+    'gh browser OAuth',
+    'GitHub connector',
+    'GitHub Actions `GITHUB_TOKEN`',
+    'gh auth setup-git',
+    '`repo`',
+    '`read:org`',
+    '`gist`',
+    '`workflow`',
+    'Plan: Read',
+    'Only select repositories',
+    'Always ask',
+    'Allow read actions',
+    'Allow low-risk actions',
+    'Allow all actions',
+    'Permissions',
+    'Skills',
+    'Read actions',
+    'Information',
+    'read-only',
+    'multiple account',
+    'gh-fix-ci',
+    'gh-address-comments',
+    'Recovery matrix',
+  ]) {
+    assert.match(authentication, new RegExp(boundary, 'u'));
+  }
+
+  assert.match(authentication, /Billing.*deferred/su);
+  assert.match(authentication, /checkedAt: 2026-08-21/u);
+  assert.match(authentication, /Connector permission: `Allow read actions`/u);
+  assert.match(authentication, /gh auth status --show-token.*금지/su);
+  assert.doesNotMatch(authentication, /\.omx\/plans/u);
+  assert.doesNotMatch(authentication, /\b(?:ghp|github_pat)_[A-Za-z0-9_]{12,}\b/u);
+  assert.doesNotMatch(authentication, /Authorization:\s*Bearer\s+\S+/iu);
 });
 
 test('Copilot uses a bounded adapter instead of duplicating the orchestration contract', () => {
