@@ -2,24 +2,26 @@
 
 ## 문서 상태와 책임
 
-이 문서는 pnpm workspace dependency update의 현재 owner 경계와 provider 도입 전 검증 결과를 기록하는 비색인 초안이다. 현재 npm version update owner는 GitHub Dependabot이며 `renovate.json`은 명시적으로 비활성화되어 있다. Hosted Renovate의 권한·보존·운영 증거와 실제 pull request가 검증되기 전에는 이 문서를 Architecture index에 현재 운영 구조로 등록하지 않는다.
+이 문서는 pnpm workspace dependency update의 owner cutover 경계와 검증 결과를 기록하는 비색인 초안이다. Local cutover
+branch는 Renovate를 npm version update owner로 활성화하고 Dependabot의 npm block을 함께 제거했다. Hosted Renovate의
+활성 Scan Only 결과와 실제 pull request가 검증되기 전에는 이 문서를 Architecture index에 현재 운영 구조로 등록하지
+않는다.
 
 ## 현재 경계
 
 ```text
-Dependabot
-├── npm/pnpm version updates      # 현재 활성 owner
-├── GitHub Actions
-├── Docker
-└── Docker Compose
-
-inactive renovate.json
-└── npm manager policy candidate
+Renovate
+└── npm/pnpm version updates
     ├── pnpm catalog + manifests + lockfile
     ├── five minor/patch owner groups
     ├── dashboard-gated independent majors
     ├── unsupported TypeScript/@eslint majors disabled
     └── pnpm package-manager upgrade remains manual
+
+Dependabot
+├── GitHub Actions
+├── Docker
+└── Docker Compose
 ```
 
 두 updater를 같은 npm surface에 동시에 활성화하지 않는다. pnpm CLI 자체는 lockfile format, Corepack, CI action과 함께 검토해야 하므로 일반 dependency group에서 자동 갱신하지 않는다.
@@ -65,14 +67,17 @@ Renovate local platform은 branch 생성과 `dryRun=full`을 지원하지 않고
 
 Hosted provider의 permission·data·operator·revoke 판단은 [Hosted Renovate provider readiness](../../development/github/renovate-provider-readiness.md)가 소유한다.
 
-## 채택 전 남은 증거
+## cutover 완료 전 남은 증거
 
 - Hosted provider의 selected-repository 권한, source 처리, log 보존, 운영자 접근, revoke 경로
 - 실제 `dev` 대상 catalog PR과 inline dependency PR 또는 명시적 no-change 결과
 - 실제 branch에서 catalog와 `pnpm-lock.yaml`이 하나의 canonical diff로 변경되는지
 - provider 실패 시 npm update를 manual batch로 되돌리는 절차
 
-위 증거가 통과한 뒤에만 Renovate를 활성화하고 Dependabot의 npm version-update block을 비활성화한다. GitHub Actions·Docker·Compose owner는 계속 Dependabot에 남긴다.
+두 inactive provider job이 repository config를 정상적으로 읽고 `disabled-by-config`로 종료하는 것까지 확인했다. 활성화와
+Dependabot npm block 제거는 zero/dual owner 상태가 생기지 않도록 하나의 변경으로 수행한다. 위의 active Scan Only와
+실제 PR 증거가 통과할 때까지 Portal alert/PR 생성과 Architecture index 승격은 보류한다. GitHub Actions·Docker·Compose
+owner는 계속 Dependabot에 남긴다.
 
 ## Revisit triggers
 

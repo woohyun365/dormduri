@@ -81,7 +81,7 @@ describe('home operations notices BFF routes', () => {
   it('global notice detail path를 encode하고 detail body contract만 전달한다', async () => {
     const fetchMock = stubJsonFetch(createNoticeDetailResponse());
     const response = await getNotice(createBffRequest('/api/notices/notice%201%2F2'), {
-      params: { noticeId: 'notice 1/2' },
+      params: Promise.resolve({ noticeId: 'notice 1/2' }),
     });
 
     expect(response.status).toBe(200);

@@ -19,7 +19,8 @@
     "src/**/*.spec.ts",
     "src/**/*.spec.tsx",
     "src/test-setup.ts",
-    "src/__fixtures__/**/*.ts"
+    "src/__fixtures__/**/*.ts",
+    "type-tests/**/*.ts"
   ],
   "exclude": ["node_modules", ".next", "coverage"]
 }

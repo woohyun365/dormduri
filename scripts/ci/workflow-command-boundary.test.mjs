@@ -66,6 +66,14 @@ test('public package commands prepare themselves while CI capabilities stay prep
   assert.doesNotMatch(scriptValue(sharedScripts, 'test:prepared'), /build/);
 });
 
+test('Web product typecheck refreshes generated Next route types exactly once before tsc', () => {
+  assert.equal(scriptValue(webScripts, 'ci:typegen'), 'next typegen');
+
+  const typecheck = scriptValue(webScripts, 'ci:typecheck');
+  assert.equal(occurrences(typecheck, 'ci:typegen'), 1);
+  assert.ok(typecheck.indexOf('ci:typegen') < typecheck.indexOf('ci:typecheck:product'));
+});
+
 test('root commands expose prepared aggregate capabilities', () => {
   for (const capability of [
     'api:prepare',
@@ -211,9 +219,7 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
     '--stage=e2e-db',
     '--stage=stress-harness',
   ]);
-  assert.ok(
-    apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'),
-  );
+  assert.ok(apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'));
 });
 
 test('app workflows publish comparable stage timing and cache evidence', () => {

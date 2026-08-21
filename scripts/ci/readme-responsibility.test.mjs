@@ -69,3 +69,32 @@ test('human-facing agentic engineering methodology is discoverable without becom
   assert.doesNotMatch(methodology, /\.omx\/plans/u);
   assert.doesNotMatch(methodology, /\bPhase\s+\d+(?:[.-]\d+)?\b/u);
 });
+
+test('owner cost documentation separates cash outflow from project-attributable cost', () => {
+  const development = read('docs/development/README.md');
+  const costIndex = read('docs/development/cost/README.md');
+  const ledger = read('docs/development/cost/owner-monthly-costs.md');
+
+  assert.match(development, /.\/cost\/README\.md/u);
+  assert.match(costIndex, /owner-monthly-costs\.md/u);
+  for (const phrase of [
+    'GitHub Pro',
+    'ChatGPT Pro',
+    'Gross',
+    'Personal baseline',
+    'Project-attributable',
+    '$104',
+    '$84',
+    '$14.08',
+    '$0',
+    'TBD',
+  ]) {
+    assert.match(ledger, new RegExp(phrase.replaceAll('$', '\\$'), 'u'));
+  }
+  assert.match(ledger, /Card number.*commit하지 않습니다/su);
+  assert.doesNotMatch(
+    ledger,
+    /(?:card number|invoice ID|billing address|tax identifier|credential value)\s*[:=]\s*\S+/iu,
+  );
+  assert.doesNotMatch(ledger, /\.omx\/plans/u);
+});

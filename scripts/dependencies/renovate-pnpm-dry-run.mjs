@@ -94,12 +94,11 @@ export function buildFixtureFiles({ fixture, repositoryConfig }) {
   ) {
     throw new TypeError('repositoryConfig must be an object');
   }
-  if (repositoryConfig.enabled !== false) {
-    throw new Error('repository Renovate config must remain inactive before provider cutover');
+  if (repositoryConfig.enabled !== true) {
+    throw new Error('repository Renovate config must remain active after provider cutover');
   }
 
   const localConfig = structuredClone(repositoryConfig);
-  localConfig.enabled = true;
   localConfig.minimumReleaseAge = null;
   localConfig.packageRules.push(...fixture.updates.map(exactVersionRule));
 

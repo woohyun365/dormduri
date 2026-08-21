@@ -4,13 +4,35 @@
 
 이 문서는 Mend가 운영하는 Renovate GitHub App을 이 저장소에 연결하기 전에 repository owner가 검토할 권한·데이터 처리·운영·철회 경계를 소유한다.
 
-현재 상태는 **CONDITIONAL GO / 설치하지 않음**이다.
+현재 상태는 **CONDITIONAL GO / Scan Only 설치 완료 / repository activation 대기**다.
 
-- `renovate.json`은 `enabled: false`이다.
-- npm version update owner는 Dependabot이다.
-- GitHub App installation, Mend account authorization, repository access 변경을 수행하지 않았다.
+- Local cutover branch의 `renovate.json`은 `enabled: true`이며 Dependabot npm block이 함께 제거됐다.
+- Default `main`에 cutover가 병합되기 전 원격 npm version update owner는 Dependabot이다.
+- 2026-08-20 repository owner가 GitHub에서 `Only select repositories`로 `woohyun365/knu_roommate`에 Renovate App을
+  설치했다. GitHub installations UI에 Renovate가 표시된다.
+- Mend Developer Portal onboarding은 Renovate Only + Scan Only로 완료됐다.
+- Default `main`에는 비활성 `renovate.json`이 존재한다. 이 kill switch를 유지한 상태에서 초기 provider job과 config
+  log를 먼저 검증한다.
+
+PR #349는 2026-08-20 `main`에 merge됐고 `origin/main:renovate.json`의 `enabled=false`, npm-only manager, `dev` base,
+no-automerge가 확인됐다. 현재 Portal의 실제 mode 선택지는 `Scan Only` / `Scan and Alert`다. Initial onboarding은
+`Scan Only`로 완료해 provider repository/config/log를 먼저 검증하고, alert/update 활성화는 별도 cutover evidence 뒤에
+재검토한다.
+
+Mend Portal repository row의 initial evidence는 `IAC: Disabled`, `Renovate: Enabled`, `Renovate Status: disabled`다. 이는
+Renovate-only product 연결은 완료됐지만 repository config의 `enabled=false`가 update engine을 차단하는 기대 상태다. IaC
+engine은 이 범위에서 활성화하지 않는다. Mode activation 뒤에는 Portal의 canonical engine terminology인 `Silent` 또는
+`Interactive`와 repository config 상태를 함께 확인한다.
+
 - 로컬 lookup과 pnpm artifact rehearsal만 통과했다.
-- Repository owner는 현재 공식 App manifest와 provider 문서를 기준으로 설치 준비 GO를 결정했다. 실제 설치·약관 click-wrap·provider 활성화는 아직 수행하지 않았다.
+- Repository owner는 현재 공식 App manifest와 provider 문서를 기준으로 설치 GO를 결정하고 selected repository 하나에
+  App을 설치했다. 두 initial Recent jobs가 `DONE`으로 종료됐지만 로그 내용은 아직 검토하지 않았으며, Scan and Alert와
+  repository `enabled=true` 활성화는 수행하지 않았다.
+- 두 initial job log는 Renovate `44.33.2`, exact `main` commit `489e5c9a`, repository config load, config migration 불필요,
+  Warn/Error/Fatal 부재, 기대한 `disabled-by-config` 종료를 독립적으로 확인했다. `enabled=false`이므로 dependency
+  extraction·lookup·PR 생성은 수행되지 않았으며 repository cutover 후 Scan Only 증거가 여전히 필요하다.
+- Local cutover branch에서는 `renovate.json.enabled=true`와 Dependabot npm block 제거가 하나의 변경 단위로 구현됐다.
+  `dev`와 `main` 병합 전에는 원격 owner가 바뀌었다고 간주하지 않으며 Portal은 Scan Only로 유지한다.
 
 ## 설치 후보와 freshness 확인
 
@@ -85,7 +107,8 @@ Repository owner는 공식 Hosted App의 동작을 최대한 유연하게 따르
 - 숫자로 고정된 보존 기간이 공개되지 않았더라도 현재 provider-managed retention/log 정책을 수용한다.
 - operator와 revoke owner는 `woohyun365`로 둔다.
 - private registry credential, lifecycle script, plugin은 활성화하지 않는다.
-- 실제 Renovate PR 검증 전에는 Dependabot npm owner를 유지한다.
+- Renovate 활성화와 Dependabot npm block 제거는 하나의 repository 변경 단위로 유지하고, 활성 Scan Only 검증 전에는
+  Portal을 Scan and Alert로 전환하지 않는다.
 
 이 결정은 설치를 시작할 수 있는 GO이며 설치 완료 증거가 아니다. 다음 항목은 설치 직전에 반드시 재확인한다.
 
@@ -122,7 +145,7 @@ Repository owner는 공식 Hosted App의 동작을 최대한 유연하게 따르
 - [ ] Mend dashboard에 로그인할 operator와 email authorization 여부를 기록했다.
 - [ ] repository access 변경, Suspend, Uninstall을 수행할 owner를 기록했다.
 - [ ] provider outage 동안 npm update를 manual batch로 수행할 owner를 기록했다.
-- [ ] 기존 Dependabot npm owner는 실제 Renovate PR이 통과할 때까지 유지한다.
+- [ ] Renovate 활성화와 Dependabot npm block 제거가 같은 변경 단위이며 zero/dual owner policy가 통과한다.
 
 ## GO / NO-GO
 
@@ -158,15 +181,16 @@ GO가 명시적으로 기록된 뒤의 설치 세션은 다음 순서를 따른�
 2. GitHub App 설치 화면에서 effective permission을 다시 읽는다.
 3. `Only select repositories`로 이 저장소 하나만 선택한다.
 4. 설치 직후 repository access와 operator를 기록한다.
-5. `renovate.json` 활성화는 별도 repository PR로 수행한다.
-6. 실제 `dev` 대상 catalog/inline PR과 lockfile diff가 검증되기 전에는 Dependabot npm block을 제거하지 않는다.
+5. `renovate.json` 활성화와 Dependabot npm block 제거를 하나의 repository PR로 수행한다.
+6. 실제 `dev` 대상 catalog/inline 후보와 lockfile capability가 Scan Only에서 검증되기 전에는 Portal을 Scan and Alert로
+   전환하지 않는다.
 
 긴급 중단 순서:
 
 1. GitHub **Settings → Applications → Installed GitHub Apps → Renovate → Configure**에서 repository access를 제거하거나 **Suspend**한다.
 2. 필요하면 App을 **Uninstall**한다.
 3. dashboard user authorization을 별도로 부여했다면 Authorized GitHub Apps에서도 철회한다.
-4. `renovate.json`을 비활성화하고 Dependabot npm owner가 유지되는지 확인한다.
+4. `renovate.json` 비활성화와 Dependabot npm block 복원을 하나의 rollback 변경으로 수행한다.
 5. 생성된 branch/PR은 provenance를 확인한 뒤 개별 close한다.
 
 GitHub는 installed App의 permission 확인, repository scope 수정, Suspend/Uninstall을 별도 관리 화면에서 제공한다: [Reviewing and modifying installed GitHub Apps](https://docs.github.com/en/apps/using-github-apps/reviewing-and-modifying-installed-github-apps).

@@ -9,7 +9,7 @@ import {
   mapRenovateOwnerGroups,
   parseDependencyAutomationEvidence,
   parsePnpmWorkspaceDependencySurface,
-  validateAccountFreeRenovateConfig,
+  validateHostedRenovateNpmConfig,
 } from './dependency-automation-policy.mjs';
 
 const dependabotConfig = readFileSync(resolve(process.cwd(), '.github/dependabot.yml'), 'utf8');
@@ -59,15 +59,19 @@ function collectDependencyDeclarations() {
 }
 
 test('keeps one active npm version-update owner', () => {
-  const owners = detectNpmVersionUpdateOwners({ dependabotConfig });
+  const owners = detectNpmVersionUpdateOwners({ dependabotConfig, renovateConfig });
 
-  assert.deepEqual(owners, ['dependabot']);
+  assert.deepEqual(owners, ['renovate']);
   assert.doesNotThrow(() => assertSingleNpmVersionUpdateOwner(owners));
 });
 
 test('rejects simultaneous Dependabot and Renovate npm ownership', () => {
   const owners = detectNpmVersionUpdateOwners({
-    dependabotConfig,
+    dependabotConfig: `version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+`,
     renovateConfig: {
       enabledManagers: ['npm'],
     },
@@ -86,21 +90,33 @@ test('does not treat a disabled Renovate config as an active owner', () => {
     },
   });
 
-  assert.deepEqual(owners, ['dependabot']);
+  assert.deepEqual(owners, []);
 });
 
-test('keeps the account-free Renovate policy inactive and bounded to npm', () => {
-  const policy = validateAccountFreeRenovateConfig(renovateConfig);
+test('rejects a configuration without an npm version-update owner', () => {
+  const owners = detectNpmVersionUpdateOwners({
+    renovateConfig: {
+      enabled: false,
+      enabledManagers: ['npm'],
+    },
+  });
+
+  assert.deepEqual(owners, []);
+  assert.throws(() => assertSingleNpmVersionUpdateOwner(owners), /exactly one active npm/u);
+});
+
+test('keeps the hosted Renovate policy active and bounded to npm', () => {
+  const policy = validateHostedRenovateNpmConfig(renovateConfig);
   const owners = detectNpmVersionUpdateOwners({ dependabotConfig, renovateConfig });
 
-  assert.equal(policy.enabled, false);
+  assert.equal(policy.enabled, true);
   assert.deepEqual(policy.enabledManagers, ['npm']);
   assert.deepEqual(policy.baseBranchPatterns, ['dev']);
   assert.equal(policy.automerge, false);
   assert.equal(policy.dependencyDashboard, true);
   assert.ok(policy.prConcurrentLimit <= 5);
   assert.ok(policy.prHourlyLimit <= 2);
-  assert.deepEqual(owners, ['dependabot']);
+  assert.deepEqual(owners, ['renovate']);
 });
 
 test('maps every external direct dependency to exactly one owner group', () => {

@@ -27,7 +27,7 @@ const lookupLog = readFileSync(
   'utf8',
 );
 
-test('materializes a credential-free pnpm workspace from the inactive repository policy', () => {
+test('materializes a credential-free pnpm workspace from the active repository policy', () => {
   const files = buildFixtureFiles({ fixture, repositoryConfig });
   const localConfig = JSON.parse(files['renovate.json']);
 
@@ -38,7 +38,7 @@ test('materializes a credential-free pnpm workspace from the inactive repository
     'pnpm-workspace.yaml',
     'renovate.json',
   ]);
-  assert.equal(repositoryConfig.enabled, false);
+  assert.equal(repositoryConfig.enabled, true);
   assert.equal(localConfig.enabled, true);
   assert.deepEqual(localConfig.enabledManagers, ['npm']);
   assert.equal(localConfig.minimumReleaseAge, null);
