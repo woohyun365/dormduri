@@ -84,6 +84,79 @@ branch에서 bounded branch를 생성합니다.
 
 따라서 stacked PR은 기본 전략이 아니며, 긴 plan을 하나의 long-lived branch에서 수행하는 것도 기본 전략이 아닙니다.
 
+## Remote push budget
+
+Local iteration은 빠른 feedback 경계이고 remote push는 GitHub Actions 사용량을 발생시키는 검증 이벤트입니다. Bounded PR
+원칙은 유지하되, 같은 결과를 얻기 위한 불필요한 remote synchronization을 줄입니다.
+
+1. 첫 push 전에 작업 범위의 targeted test, repository policy, lint/format과 diff check를 가능한 범위까지 local-green으로
+   만듭니다.
+2. 기본 remote budget은 reviewable branch의 최초 full validation push 1회와, 실제 remote evidence에 근거한 corrective push
+   1회입니다. 세 번째 source push가 필요하면 이전 결과에서 일괄 수정하지 못한 이유를 checkpoint/PR에 남깁니다.
+3. 동일한 active run 중 cosmetic text, PR body, local evidence만 변경하는 source push를 하지 않습니다. 같은 outcome의 변경을
+   모아서 한 번에 push합니다.
+4. PR title/body/label처럼 repository file을 바꿀 필요가 없는 metadata는 GitHub UI/API에서 수정하고 source push를 만들지
+   않습니다.
+5. Remote failure 뒤에는 모든 annotation과 log를 먼저 읽고 같은 root cause의 fix를 하나의 corrective push로 묶습니다.
+   반복적인 trial push를 debugging loop로 사용하지 않습니다.
+6. Provider permission, billing, budget 같은 control-plane 문제는 source를 변경하지 않습니다. GitHub가 prior success를
+   보존하면 failed job만 rerun하고, source/workflow가 바뀐 경우에만 새 full run을 시작합니다.
+7. `cancel-in-progress`는 superseded completion을 막지만 이미 사용한 runner minutes를 복구하지 않습니다. 알려진 security,
+   credential, destructive migration 문제를 중단할 때만 active run을 즉시 supersede합니다.
+8. Draft PR도 현재 `pull_request` workflow를 실행합니다. Remote test runner 용도로만 draft를 일찍 열지 않고, hosted-only
+   evidence나 review가 필요할 때 생성합니다.
+9. `[skip ci]`, direct `dev`/`main` push, red fail-closed summary merge는 정상적인 비용 절감 수단이 아닙니다.
+10. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 squash
+    merge를 integration history 정리 경계로 사용합니다.
+
+이 전략은 PR 수를 무작정 줄이지 않습니다. 서로 독립적인 owner와 rollback 경계는 별도 PR로 유지하고, CI 비용은 safe
+change selection, local-green 검증, 같은 목적의 batch와 failed-job rerun으로 줄입니다.
+
+## Pre-PR CI lane preflight
+
+Feature branch push 자체는 현재 Monorepo CI를 시작하지 않지만 draft를 포함한 PR 생성은 `pull_request` workflow를 즉시
+시작합니다. 따라서 최초 PR 생성 전에 GitHub와 동일한 changed-path classifier로 예상 lane을 확인하고, 선택된 lane의 가장
+가까운 local gate를 실행합니다. 문서나 설정 변경처럼 보여도 root toolchain 또는 미분류 경로가 포함되면 fail-open으로 모든
+lane이 선택될 수 있으므로 파일 종류만 보고 CI 범위를 추측하지 않습니다.
+
+1. `git fetch origin dev` 후 현재 branch의 merge-base가 최신 integration 기준인지 확인합니다.
+2. `origin/dev...HEAD`의 `git diff --name-only` 결과에 unrelated 또는 누락 파일이 없는지 확인합니다.
+3. CI가 import하는 동일한 `classifyChanges()`로 예상 lane을 출력합니다.
+
+```bash
+node --input-type=module <<'NODE'
+import { execFileSync } from 'node:child_process';
+import { classifyChanges } from './scripts/ci/classify-changes.mjs';
+
+const paths = execFileSync(
+  'git',
+  ['diff', '--name-only', '--diff-filter=ACDMRTUXB', 'origin/dev...HEAD'],
+  { encoding: 'utf8' },
+)
+  .trim()
+  .split(/\n/u)
+  .filter(Boolean);
+
+console.log(JSON.stringify({ paths, classification: classifyChanges(paths) }, null, 2));
+NODE
+```
+
+4. 항상 task-targeted regression을 먼저 실행하고, classifier 결과에 따라 다음 경계를 확장합니다.
+
+| Selected lane                  | Pre-PR local gate                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `repoPolicy`                   | `pnpm test:repo-policy`                                                                           |
+| `shared`, `api`, `web`         | local PostgreSQL 준비 후 `pnpm check`; API runtime 변경은 관련 API test lane을 추가               |
+| `storybook`                    | `pnpm --dir apps/web ci:storybook:build`                                                          |
+| `infra`                        | `pnpm infra:check:static`; runtime/Compose 변경일 때만 `pnpm infra:check`까지 확장                |
+| 여러 product lane 또는 unknown | 위 gate를 합치되 같은 build·prepare를 불필요하게 반복하지 않고 가장 강한 aggregate command를 우선 |
+
+5. 실제 assertion·type·format·build 실패는 첫 push 전에 해결합니다. Agent sandbox의 port binding 차단, provider credential,
+   Docker authority처럼 source 변경으로 해결할 수 없는 **environment gap**은 같은 명령을 적절한 local authority에서 한 번만
+   재검증하고, 계속 제한되면 PR 검증 공백에 기록합니다. 환경 제한을 추측으로 고치거나 trial push로 디버깅하지 않습니다.
+6. 예상 lane, local-green 결과, 환경 gap, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
+   생성합니다. Remote failure가 발생하면 전체 log를 읽어 하나의 corrective push로 묶습니다.
+
 ## PR과 merge
 
 1. 변경 범위에 가장 가까운 targeted test를 먼저 실행합니다.

@@ -22,7 +22,7 @@ type SafeParseSchema<T> = {
 };
 
 export type BffRouteContext<TParams extends Record<string, string>> = {
-  params: TParams | Promise<TParams>;
+  params: Promise<TParams>;
 };
 
 export async function resolveBffRouteParams<TParams extends Record<string, string>>(

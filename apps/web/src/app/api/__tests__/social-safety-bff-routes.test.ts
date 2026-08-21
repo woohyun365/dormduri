@@ -76,7 +76,7 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
     });
 
     const createResponse = await createBookmark(createRequestInput, {
-      params: { targetUserId: 'user 1/2' },
+      params: Promise.resolve({ targetUserId: 'user 1/2' }),
     });
 
     expect(firstFetchInput(createFetchMock)).toBe(
@@ -99,7 +99,9 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await deleteBookmark(deleteRequestInput, { params: { targetUserId: 'user 1/2' } });
+    await deleteBookmark(deleteRequestInput, {
+      params: Promise.resolve({ targetUserId: 'user 1/2' }),
+    });
 
     expect(firstFetchInput(deleteFetchMock)).toBe(
       'http://localhost:4000/api/bookmarks/user%201%2F2',
@@ -164,7 +166,9 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await deleteBlock(deleteRequestInput, { params: { targetUserId: 'target-1' } });
+    await deleteBlock(deleteRequestInput, {
+      params: Promise.resolve({ targetUserId: 'target-1' }),
+    });
 
     expect(firstFetchInput(deleteFetchMock)).toBe('http://localhost:4000/api/blocks/target-1');
     expect(firstFetchInit(deleteFetchMock)).toEqual(
@@ -291,7 +295,7 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await getSupportFaq(detailRequest, { params: { articleId: 'faq-1' } });
+    await getSupportFaq(detailRequest, { params: Promise.resolve({ articleId: 'faq-1' }) });
 
     expect(firstFetchInput(detailFetchMock)).toBe('http://localhost:4000/api/support/faq/faq-1');
     expect(firstFetchInit(detailFetchMock)).toEqual(
@@ -348,7 +352,7 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await getSupportTicket(detailRequest, { params: { ticketId: 'ticket-1' } });
+    await getSupportTicket(detailRequest, { params: Promise.resolve({ ticketId: 'ticket-1' }) });
 
     expect(firstFetchInput(detailFetchMock)).toBe(
       'http://localhost:4000/api/support/tickets/ticket-1',
@@ -371,7 +375,9 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
       body: JSON.stringify({ body: '추가 문의입니다.' }),
     });
 
-    await appendSupportTicketMessage(request, { params: { ticketId: 'ticket-1' } });
+    await appendSupportTicketMessage(request, {
+      params: Promise.resolve({ ticketId: 'ticket-1' }),
+    });
 
     expect(firstFetchInput(fetchMock)).toBe(
       'http://localhost:4000/api/support/tickets/ticket-1/messages',
@@ -451,7 +457,9 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await markNotificationRead(singleReadRequest, { params: { notificationId: 'notification-1' } });
+    await markNotificationRead(singleReadRequest, {
+      params: Promise.resolve({ notificationId: 'notification-1' }),
+    });
 
     expect(firstFetchInput(singleReadFetchMock)).toBe(
       'http://localhost:4000/api/notifications/notification-1/read',

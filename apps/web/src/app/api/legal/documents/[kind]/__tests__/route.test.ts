@@ -21,7 +21,9 @@ describe('legal document BFF route', () => {
       },
     });
 
-    const response = await GET(request, { params: { kind: 'TERMS_OF_SERVICE' } });
+    const response = await GET(request, {
+      params: Promise.resolve({ kind: 'TERMS_OF_SERVICE' }),
+    });
 
     expect(firstFetchInput(fetchMock)).toBe(
       'http://localhost:4000/api/legal/documents/TERMS_OF_SERVICE/active',
@@ -45,7 +47,7 @@ describe('legal document BFF route', () => {
     const fetchMock = stubJsonFetch({ shouldNotForward: true });
     const request = createBffRequest('/api/legal/documents/DRAFT_POLICY');
 
-    const response = await GET(request, { params: { kind: 'DRAFT_POLICY' } });
+    const response = await GET(request, { params: Promise.resolve({ kind: 'DRAFT_POLICY' }) });
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(response.status).toBe(400);
@@ -80,7 +82,7 @@ describe('legal document BFF route', () => {
     );
     const request = createBffRequest('/api/legal/documents/PRIVACY_POLICY');
 
-    const response = await GET(request, { params: { kind: 'PRIVACY_POLICY' } });
+    const response = await GET(request, { params: Promise.resolve({ kind: 'PRIVACY_POLICY' }) });
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({

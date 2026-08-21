@@ -5,6 +5,8 @@ review·merge에 필요한 변경 설명과 재현 가능한 correctness evidenc
 
 - [Collaboration guide](./collaboration.md): branch, commit, pull request, local hook과 검증 기준
 - [Branch and PR strategy](./branch-and-pr-strategy.md): fresh `dev`, bounded implementation branch와 dependent PR 순서
+- [Authentication and operator access](./authentication-and-operator-access.md): Git·gh·Connector·Actions token의 최소 권한,
+  확인과 recovery 경계
 - [Remote repository settings](./remote-repository-settings.md): repository 파일 밖 GitHub 설정의 기대값과 evidence
 - [Hosted Renovate provider readiness](./renovate-provider-readiness.md): 설치 전 permission·data·operator·revoke GO/NO-GO handoff
 

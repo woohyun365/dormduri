@@ -135,7 +135,7 @@ describe('matches BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await requestUnmatch(requestInput, { params: { id: 'active 1/2' } });
+    await requestUnmatch(requestInput, { params: Promise.resolve({ id: 'active 1/2' }) });
 
     expect(firstFetchInput(requestFetchMock)).toBe(
       'http://localhost:4000/api/matches/active/active%201%2F2/unmatch-request',
@@ -156,7 +156,7 @@ describe('matches BFF forwarding routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    await cancelUnmatchRequest(cancelInput, { params: { id: 'active 1/2' } });
+    await cancelUnmatchRequest(cancelInput, { params: Promise.resolve({ id: 'active 1/2' }) });
 
     expect(firstFetchInput(cancelFetchMock)).toBe(
       'http://localhost:4000/api/matches/active/active%201%2F2/unmatch-request/cancel',
@@ -220,7 +220,7 @@ describe('matches BFF forwarding routes', () => {
         method: 'POST',
         headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
       }),
-      { params: { id: 'request 1' } },
+      { params: Promise.resolve({ id: 'request 1' }) },
     );
     expect(firstFetchInput(acceptFetch)).toBe(
       'http://localhost:4000/api/matches/requests/request%201/accept',
@@ -246,7 +246,7 @@ describe('matches BFF forwarding routes', () => {
       createRequest('/api/matches/history/entries/entry%201/counterpart-profile', {
         headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
       }),
-      { params: { entryId: 'entry 1' } },
+      { params: Promise.resolve({ entryId: 'entry 1' }) },
     );
     expect(firstFetchInput(profileFetch)).toBe(
       'http://localhost:4000/api/matches/history/entries/entry%201/counterpart-profile',
@@ -310,7 +310,7 @@ describe('matches BFF forwarding routes', () => {
         method: 'POST',
         headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
       }),
-      { params: { id: 'active-1' } },
+      { params: Promise.resolve({ id: 'active-1' }) },
     );
 
     expect(response.status).toBe(502);

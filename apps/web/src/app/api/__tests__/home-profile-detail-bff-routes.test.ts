@@ -78,7 +78,7 @@ describe('home profile detail BFF routes', () => {
     });
 
     const response = await getSeasonProfileHistory(request, {
-      params: { seasonId: 'season 2026/1' },
+      params: Promise.resolve({ seasonId: 'season 2026/1' }),
     });
 
     expect(firstFetchInput(fetchMock)).toBe(
@@ -135,7 +135,7 @@ describe('home profile detail BFF routes', () => {
     );
 
     const fullResponse = await getMatchHistoryCounterpartProfile(fullRequest, {
-      params: { entryId: 'history 1/2' },
+      params: Promise.resolve({ entryId: 'history 1/2' }),
     });
 
     expect(firstFetchInput(fullFetchMock)).toBe(
@@ -154,7 +154,7 @@ describe('home profile detail BFF routes', () => {
     );
 
     const tombstoneResponse = await getMatchHistoryCounterpartProfile(tombstoneRequest, {
-      params: { entryId: 'history-removed' },
+      params: Promise.resolve({ entryId: 'history-removed' }),
     });
 
     expect(firstFetchInput(tombstoneFetchMock)).toBe(
@@ -172,7 +172,9 @@ describe('home profile detail BFF routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    const response = await getPublicProfile(request, { params: { userId: 'user 1/2' } });
+    const response = await getPublicProfile(request, {
+      params: Promise.resolve({ userId: 'user 1/2' }),
+    });
 
     expect(firstFetchInput(fetchMock)).toBe(
       'http://localhost:4000/api/profiles/user%201%2F2?detailEntryToken=token-1',
@@ -213,7 +215,9 @@ describe('home profile detail BFF routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    const response = await getPublicProfile(request, { params: { userId: 'user-2' } });
+    const response = await getPublicProfile(request, {
+      params: Promise.resolve({ userId: 'user-2' }),
+    });
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({
@@ -234,7 +238,9 @@ describe('home profile detail BFF routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    const response = await getPublicProfile(request, { params: { userId: 'user-2' } });
+    const response = await getPublicProfile(request, {
+      params: Promise.resolve({ userId: 'user-2' }),
+    });
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({
@@ -256,7 +262,9 @@ describe('home profile detail BFF routes', () => {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
-    const response = await getPublicProfile(request, { params: { userId: 'user-removed' } });
+    const response = await getPublicProfile(request, {
+      params: Promise.resolve({ userId: 'user-removed' }),
+    });
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({

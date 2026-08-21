@@ -7,6 +7,7 @@
 - [Troubleshooting index](./troubleshooting/README.md)
 - [Monorepo CI baseline](./ci/monorepo-ci-baseline.md)
 - [GitHub collaboration](./github/README.md): PR·commit·local hook과 remote repository setting 책임
+- [Owner cost tracking](./cost/README.md): 월별 gross cash, personal baseline, project-attributable delta와 future cost
 - [Agent workflow guides](./agent-workflows/README.md): 새 개발자와 coding agent의 실행·검증·session continuity 기준
 - [Agentic Engineering methodology](./agentic-engineering-methodology.md): AI 시대에 선택한 개발 방식, 적용 수준과 한계
 - [Production deployment implementation inputs](./future-production-deployment-inputs.md)
