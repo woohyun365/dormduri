@@ -29,6 +29,7 @@
 
 ## Platform
 
+- [Dependency automation architecture](./platform/dependency-automation.md)
 - [Monorepo CI architecture](./platform/monorepo-ci.md)
 - [Production runtime topology](./platform/production-runtime-topology.md)
 - [Observability topology](./platform/observability-topology.md)
