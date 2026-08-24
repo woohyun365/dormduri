@@ -67,6 +67,7 @@
     "git:validate-commit-message": "node scripts/git/validate-commit-message.mjs",
     "dependency:renovate:dry-run": "node scripts/dependencies/renovate-pnpm-dry-run.mjs",
     "dependency:renovate:provider-preflight": "node scripts/dependencies/renovate-provider-preflight.mjs",
+    "security:dependabot:inventory": "node scripts/security/dependency-alert-inventory.mjs",
     "test:repo-policy": "node scripts/ci/run-repo-policy.mjs",
     "api:test:ci": "pnpm --dir apps/api test:ci",
     "api:prepare": "pnpm --dir apps/api ci:prepare",

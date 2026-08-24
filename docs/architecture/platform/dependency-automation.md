@@ -1,88 +1,119 @@
 # Dependency automation architecture
 
-## 문서 상태와 책임
+## 책임
 
-이 문서는 pnpm workspace dependency update의 owner cutover 경계와 검증 결과를 기록하는 비색인 초안이다. Local cutover
-branch는 Renovate를 npm version update owner로 활성화하고 Dependabot의 npm block을 함께 제거했다. Hosted Renovate의
-활성 Scan Only 결과와 실제 pull request가 검증되기 전에는 이 문서를 Architecture index에 현재 운영 구조로 등록하지
-않는다.
+이 문서는 pnpm monorepo의 dependency version-update owner, catalog·manifest·lockfile 경계와 provider 선택 근거를
+설명한다. 일상적인 승인·PR·장애 복구 절차는
+[Dependency update operations](../../development/github/dependency-updates.md), Hosted App의 권한·데이터·철회 경계는
+[Hosted Renovate provider boundary](../../development/github/renovate-provider-readiness.md)가 소유한다.
 
-## 현재 경계
+## 현재 구조
 
 ```text
-Renovate
-└── npm/pnpm version updates
-    ├── pnpm catalog + manifests + lockfile
+Mend-hosted Renovate
+└── npm manager
+    ├── pnpm catalog + workspace manifests + one lockfile
     ├── five minor/patch owner groups
-    ├── dashboard-gated independent majors
+    ├── Dependency Dashboard approval
+    ├── independent major approval
     ├── unsupported TypeScript/@eslint majors disabled
     └── pnpm package-manager upgrade remains manual
 
-Dependabot
+GitHub Dependabot
 ├── GitHub Actions
 ├── Docker
-└── Docker Compose
+├── Docker Compose
+└── security alerts / security-update boundary
 ```
 
-두 updater를 같은 npm surface에 동시에 활성화하지 않는다. pnpm CLI 자체는 lockfile format, Corepack, CI action과 함께 검토해야 하므로 일반 dependency group에서 자동 갱신하지 않는다.
+같은 npm version-update surface에 두 updater를 동시에 활성화하지 않는다. `renovate.json`은 npm manager만 활성화하고
+`dev`를 base branch로 사용한다. `.github/dependabot.yml`에는 npm ecosystem을 두지 않는다. Repository policy는 npm
+owner가 0개이거나 2개인 상태를 모두 거부한다.
+
+## pnpm catalog와 lockfile 결정
+
+Catalog는 Next·React·TypeScript·Storybook·Vitest처럼 함께 움직여야 하는 버전의 단일 source of truth다. Provider 편의를
+위해 버전을 각 package manifest에 중복하거나 workspace를 분리하지 않는다.
+
+Renovate가 승인된 group을 처리할 때 다음 변경만 허용한다.
+
+- `pnpm-workspace.yaml`의 catalog·override
+- dependency를 직접 소유한 `package.json`
+- canonical `pnpm-lock.yaml`
+
+기존 semver range가 새 버전을 이미 허용하면 manifest는 바뀌지 않고 lockfile resolution만 갱신될 수 있다. 이는 누락이
+아니라 정상적인 inline dependency no-change 결과다. pnpm CLI 자체는 lockfile format, Corepack, CI action과 함께 검토해야
+하므로 일반 dependency group에서 자동 갱신하지 않는다.
+
+## Update grouping과 승인 경계
+
+Minor/patch update는 현재 owner boundary에 따라 다섯 group으로 나눈다.
+
+- `api-framework-persistence`
+- `lint-tooling`
+- `application-runtime`
+- `web-framework`
+- `web-test-storybook`
+
+Major update는 group에 섞지 않고 독립 후보로 유지한다. TypeScript 7과 현재 ESLint toolchain이 지원하지 않는 major는
+compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
+
+Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Require config file ON, Create onboarding PRs OFF를
+기본 운영값으로 사용한다. 따라서 Renovate가 [Dependency Dashboard](https://github.com/woohyun365/knu_roommate/issues/353)를
+자동 갱신하지만, owner가 체크한 한 group만 branch와 PR로 만든다. 자동 merge와 `create all`은 사용하지 않는다.
+
+## 검증된 provider 경계
+
+2026-08-24 기준 실제 hosted path에서 다음을 확인했다.
+
+| 경계                | 증거                                                                             |
+| ------------------- | -------------------------------------------------------------------------------- |
+| selected repository | `mend/renovate` App이 `woohyun365/knu_roommate` 하나에 설치됨                    |
+| active extraction   | Renovate 44.39.0이 `dev`의 npm package file 7개와 dependency 133개를 추출        |
+| grouping            | 다섯 owner group과 독립 major 후보 생성                                          |
+| blocked updates     | TypeScript 7, `@eslint/js` 10, pnpm package-manager branch가 생성되지 않음       |
+| approval model      | Dashboard #353의 선택되지 않은 후보는 branch·PR을 만들지 않음                    |
+| real branch         | PR #354가 `renovate/web-test-storybook`에서 `dev`로 생성됨                       |
+| canonical diff      | `pnpm-workspace.yaml`과 `pnpm-lock.yaml`만 변경됨                                |
+| correctness         | PR #354의 Shared·API·Web·Infra·repository policy·CI summary 통과                 |
+| reconciliation      | merge 후 사용한 approval과 branch가 제거되고 Dashboard가 남은 후보를 다시 계산함 |
+
+원본 hosted job log는 Git으로 추적하지 않는 `artifacts/local/dependency-automation/`에 둔다. 재현 가능한 account-free
+lookup과 canonical lockfile rehearsal은 `pnpm dependency:renovate:dry-run`과 `scripts/dependencies/`가 소유한다.
 
 ## Provider-independent 검증
 
-`pnpm dependency:renovate:dry-run`은 실제 저장소를 수정하지 않고 다음 두 증거를 결합한다.
+Credential 없이 실행하는 dry-run은 두 경계를 결합한다.
 
-1. Renovate 44.7.2의 experimental local platform `lookup`
-   - 임시 pnpm workspace에서 catalog와 inline dependency를 추출한다.
-   - 공개 npm registry만 사용하며 GitHub token과 repository mutation 권한을 전달하지 않는다.
-   - owner group 후보와 차단된 major를 JSON log로 검증한다.
-2. 동일한 임시 workspace의 canonical pnpm artifact rehearsal
-   - 승인된 target version 세 개만 source에 적용한다.
-   - `pnpm install --lockfile-only --ignore-scripts`로 lockfile을 생성한다.
-   - 두 번째 실행의 lockfile hash가 같아야 통과한다.
+1. Renovate local platform `lookup`
+   - catalog와 API/Web inline dependency 후보를 추출한다.
+   - owner group과 차단된 major를 확인한다.
+2. canonical pnpm artifact rehearsal
+   - lookup에서 승인된 target만 임시 workspace에 적용한다.
+   - `pnpm install --lockfile-only --ignore-scripts`를 두 번 실행한다.
+   - 두 번째 lockfile hash가 같아야 통과한다.
 
-Renovate local platform은 branch 생성과 `dryRun=full`을 지원하지 않고 `lookup`으로 fallback한다. 따라서 두 번째 절차는 **Renovate가 파일을 직접 작성했다는 증거가 아니라**, lookup에서 확인한 update set을 현재 pnpm workspace가 canonical하게 표현할 수 있다는 package-manager 증거다. 실제 Renovate branch/PR과 catalog+lockfile 동시 변경은 provider 도입 이후 별도로 검증해야 한다.
+Local platform은 branch 생성을 지원하지 않으므로 이 검증은 hosted App을 대체하지 않는다. Provider permission 없이
+config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다.
 
-- Renovate local platform: <https://docs.renovatebot.com/modules/platform/local/>
-- Renovate npm/pnpm manager: <https://docs.renovatebot.com/modules/manager/npm/>
+- [Renovate local platform](https://docs.renovatebot.com/modules/platform/local/)
+- [Renovate npm/pnpm manager](https://docs.renovatebot.com/modules/manager/npm/)
 
-## 검증 결과
+## Rollback
 
-2026-08-20 account-free rehearsal 결과:
+Hosted provider를 중단할 때 npm owner가 없는 중간 상태나 두 updater가 겹치는 상태를 만들지 않는다.
 
-| 항목                   | 결과                                                                  |
-| ---------------------- | --------------------------------------------------------------------- |
-| Renovate extraction    | 4 files / 8 dependencies                                              |
-| catalog candidate      | `vitest` 4.0.0 → 4.1.9, `web-test-storybook`                          |
-| API inline candidate   | `@nestjs/common` 11.1.20 → 11.1.26, `api-framework-persistence`       |
-| Web inline candidate   | `motion` 12.37.0 → 12.38.0, `web-framework`                           |
-| blocked major          | TypeScript 6.0.3 → 7.0.2가 lookup에는 존재하지만 최종 branch에서 제외 |
-| package-manager policy | pnpm update는 자동 후보 생성 전에 억제                                |
-| provider mutation      | 없음 (`platform=local`, `dryRun=lookup`)                              |
-| credential environment | 없음; isolated HOME과 public npm registry config 사용                 |
-| source/artifact diff   | API manifest, Web manifest, catalog, lockfile 네 파일만 변경          |
-| lockfile stability     | 두 번째 canonical regeneration에서 동일 SHA-256                       |
-| bounded runtime        | 약 24초 / 15분 제한                                                   |
-| lookup output          | 약 43KB / 5MiB capture 제한                                           |
-
-원본 log와 실행별 summary는 Git으로 추적하지 않는 `artifacts/local/dependency-automation/`에 생성한다. 재현 계약과 고정 입력은 `scripts/dependencies/`가 소유한다.
-
-Hosted provider의 permission·data·operator·revoke 판단은 [Hosted Renovate provider readiness](../../development/github/renovate-provider-readiness.md)가 소유한다.
-
-## cutover 완료 전 남은 증거
-
-- Hosted provider의 selected-repository 권한, source 처리, log 보존, 운영자 접근, revoke 경로
-- 실제 `dev` 대상 catalog PR과 inline dependency PR 또는 명시적 no-change 결과
-- 실제 branch에서 catalog와 `pnpm-lock.yaml`이 하나의 canonical diff로 변경되는지
-- provider 실패 시 npm update를 manual batch로 되돌리는 절차
-
-두 inactive provider job이 repository config를 정상적으로 읽고 `disabled-by-config`로 종료하는 것까지 확인했다. 활성화와
-Dependabot npm block 제거는 zero/dual owner 상태가 생기지 않도록 하나의 변경으로 수행한다. 위의 active Scan Only와
-실제 PR 증거가 통과할 때까지 Portal alert/PR 생성과 Architecture index 승격은 보류한다. GitHub Actions·Docker·Compose
-owner는 계속 Dependabot에 남긴다.
+1. Mend Portal에서 Automated PRs와 Dependency Updates를 중단한다.
+2. 필요하면 GitHub App repository access를 Suspend 또는 제거한다.
+3. 하나의 repository PR에서 `renovate.json.enabled=false`와 Dependabot npm block 복원을 함께 수행한다.
+4. Repository policy와 full CI를 통과시킨다.
+5. Renovate가 만든 열린 branch·PR은 provenance를 확인한 뒤 정리한다.
 
 ## Revisit triggers
 
-- Renovate local platform이 full branch diff를 공식 지원한다.
-- pnpm catalog extraction 또는 lockfile update semantics가 변경된다.
-- pnpm CLI upgrade를 Corepack·CI action과 자동으로 원자화할 수 있는 owner boundary가 생긴다.
-- Hosted provider 권한이나 retention이 승인 범위를 벗어난다.
-- 실제 provider run이 15분 제한 또는 bounded output 정책을 반복적으로 초과한다.
+- Hosted App permission·event·retention 범위가 승인 baseline을 벗어난다.
+- Dashboard 수동 승인 비용이 반복적으로 실제 update 가치보다 커진다.
+- 충분한 grouped PR 성공률과 CI 비용 증거가 쌓여 Automated PRs ON이 순이익이 된다.
+- pnpm catalog 또는 lockfile update semantics가 변경된다.
+- pnpm CLI와 Corepack·CI action을 원자적으로 갱신할 owner boundary가 마련된다.
+- Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
