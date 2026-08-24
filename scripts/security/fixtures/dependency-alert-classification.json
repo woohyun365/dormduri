@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-24",
+  "defaultBranch": "main",
+  "packages": [
+    {
+      "name": "@babel/core",
+      "owner": "web-build",
+      "parent": "Next/Storybook/Babel",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "@hono/node-server",
+      "owner": "prisma-toolchain",
+      "parent": "prisma > @prisma/dev",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation"
+    },
+    {
+      "name": "body-parser",
+      "owner": "api-http",
+      "parent": "@nestjs/platform-express > express",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
+    },
+    {
+      "name": "brace-expansion",
+      "owner": "lint-and-build",
+      "parent": "eslint/Nest CLI/Storybook",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "deepmerge-ts",
+      "owner": "prisma-toolchain",
+      "parent": "prisma > @prisma/config",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation"
+    },
+    {
+      "name": "esbuild",
+      "owner": "web-build",
+      "parent": "Vite/Storybook/Webpack",
+      "classification": "shipped-not-called",
+      "action": "artifact-verification"
+    },
+    {
+      "name": "fast-uri",
+      "owner": "schema-toolchain",
+      "parent": "Ajv via Prisma/Nest CLI/Webpack",
+      "classification": "shipped-not-called",
+      "action": "artifact-verification"
+    },
+    {
+      "name": "flatted",
+      "owner": "lint-tooling",
+      "parent": "eslint > file-entry-cache",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation"
+    },
+    {
+      "name": "form-data",
+      "owner": "api-test",
+      "parent": "supertest > superagent",
+      "classification": "test-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "hono",
+      "owner": "prisma-toolchain",
+      "parent": "prisma > @prisma/dev",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation"
+    },
+    {
+      "name": "image-size",
+      "owner": "storybook-tooling",
+      "parent": "@storybook/nextjs-vite",
+      "classification": "build-only",
+      "action": "no-fix-review"
+    },
+    {
+      "name": "js-yaml",
+      "owner": "lint-and-nest-cli",
+      "parent": "eslint/Nest CLI",
+      "classification": "cli-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "lodash",
+      "owner": "api-config-and-nest-cli",
+      "parent": "@nestjs/config and @nestjs/cli",
+      "classification": "mixed",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "multer",
+      "owner": "api-http",
+      "parent": "@nestjs/platform-express",
+      "classification": "shipped-not-called",
+      "action": "runtime-remediation"
+    },
+    {
+      "name": "nanoid",
+      "owner": "web-build",
+      "parent": "PostCSS via Tailwind/Next/Vite",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "picomatch",
+      "owner": "lint-and-build",
+      "parent": "lint-staged/ts-loader/Vite",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "postcss",
+      "owner": "web-build",
+      "parent": "Tailwind/Next/Vite",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "qs",
+      "owner": "api-http",
+      "parent": "express/body-parser",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
+    },
+    {
+      "name": "socket.io-parser",
+      "owner": "api-realtime",
+      "parent": "socket.io",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
+    },
+    {
+      "name": "valibot",
+      "owner": "prisma-toolchain",
+      "parent": "prisma > @prisma/dev",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation"
+    },
+    {
+      "name": "ws",
+      "owner": "api-realtime-and-storybook",
+      "parent": "socket.io and Storybook",
+      "classification": "mixed",
+      "action": "runtime-remediation"
+    },
+    {
+      "name": "yaml",
+      "owner": "lint-and-vite",
+      "parent": "lint-staged/Vite",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    }
+  ]
+}
