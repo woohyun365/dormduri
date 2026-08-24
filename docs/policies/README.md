@@ -27,6 +27,7 @@
 | [notification-inbox.md](./notification-inbox.md)               | 알림함           | in-app notification, writer/outbox, payload privacy, delivery channel 경계                               |
 | [data-retention.md](./data-retention.md)                       | 데이터 보유기간  | 데이터 분류별 보유기간, 파기 절차, 탈퇴 시 처리, 법적 근거                                               |
 | [legal-basis.md](./legal-basis.md)                             | 법적 근거        | 적용 법령 계층 구조, 서비스 행위별 법령 매핑, 접속기록 규율 대상 구분                                    |
+| [dependency-security.md](./dependency-security.md)             | Dependency 보안  | 취약점 reachability, remediation, exception, dismissal과 release NO-GO                                   |
 
 ## 정리 원칙
 
@@ -46,6 +47,7 @@
 14. **운영 관측 수집 목적, 로그·메트릭 개인정보, 접근, 보존과 fail-open 규칙은 `operational-observability.md`가 단독 소유한다.**
 15. **Production secret, DB, migration, ingress, health, rollback과 release blocker 불변 조건은 `production-runtime-safety.md`가 단독 소유한다.**
 16. **Runtime topology와 관측 도구 선택은 `docs/architecture/platform/`, 실제 target 값과 실행 결과는 `infra/runbooks/`가 소유한다.**
+17. **Dependency vulnerability triage, exception, dismissal과 release blocker는 `dependency-security.md`가 단독 소유한다.**
 
 ## 변경 이력 규칙
 
@@ -85,6 +87,7 @@
 | 2026-06-13 | 운영 관측·로그·부하 테스트 정책 문서를 official policy set에 추가하고 runtime observability/release gate/server spec owner 경계를 정리했다          | logging-stress-test-infrastructure-plan |
 | 2026-06-17 | Production 배포 준비 정책을 official policy set에 추가하고 BE API/RDS release safety owner 경계를 정리했다.                                         | production deployment readiness         |
 | 2026-08-11 | 배포·관측 정책에서 topology, provider 가격, resource 값과 rehearsal 절차를 architecture/release owner로 분리했다.                                   | documentation responsibility            |
+| 2026-08-24 | Dependency vulnerability triage, exception, dismissal과 release blocker 정책을 추가했다.                                                            | GitHub Security baseline                |
 
 ## 사용 순서
 
@@ -106,3 +109,4 @@ Sprint 5 구현 이슈 생성 시에는 아래 순서로 읽는 것이 안전하
 14. `production-runtime-safety.md`
 15. `data-retention.md`
 16. `legal-basis.md`
+17. `dependency-security.md`
