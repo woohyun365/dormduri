@@ -35,6 +35,10 @@ export function parseDependencyAlertClassification(input) {
     for (const fieldName of ['name', 'owner', 'parent', 'classification', 'action']) {
       assertNonEmptyString(item?.[fieldName], `packages[${index}].${fieldName}`);
     }
+    if (['documented-exception', 'documented-mitigation', 'no-fix-review'].includes(item.action)) {
+      assertNonEmptyString(item.mitigation, `packages[${index}].mitigation`);
+      assertNonEmptyString(item.revisit, `packages[${index}].revisit`);
+    }
     if (names.has(item.name)) throw new TypeError(`duplicate package classification: ${item.name}`);
     names.add(item.name);
   }

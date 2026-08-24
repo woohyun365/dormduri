@@ -86,28 +86,62 @@ test('security policy stays private-reporting-first and honest about support', (
   assert.doesNotMatch(`${publicPolicy}\n${internalPolicy}`, /Phase [0-9]/u);
 });
 
-test('runtime security overrides remove the known vulnerable transitive versions', () => {
+test('security overrides remove the known vulnerable transitive versions', () => {
   const workspace = readFileSync(resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf8');
   const lockfile = readFileSync(resolve(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
   for (const contract of [
     "'@nestjs/platform-express>multer': 2.2.0",
+    "'@babel/core': 7.29.6",
+    "'brace-expansion@<2.0.0': 1.1.18",
+    "'brace-expansion@>=5.0.0 <6.0.0': 5.0.9",
     "'engine.io>ws': 8.21.3",
     "'express>body-parser': 2.3.0",
+    'fast-uri: 3.1.6',
+    'flatted: 3.4.2',
+    'form-data: 4.0.6',
+    'js-yaml: 4.3.1',
+    'lodash: 4.18.1',
+    "'nanoid@<4.0.0': 3.3.18",
+    "'picomatch@<3.0.0': 2.3.2",
+    'postcss: 8.5.26',
     "'socket.io-adapter>ws': 8.21.3",
     "'socket.io>socket.io-parser': 4.2.7",
     'qs: 6.15.2',
+    'yaml: 2.8.3',
   ]) {
     assert.match(workspace, new RegExp(contract.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
   }
 
   for (const vulnerable of [
     'body-parser@2.2.2',
+    'brace-expansion@1.1.12',
+    'brace-expansion@5.0.6',
+    'fast-uri@3.1.2',
+    'flatted@3.3.3',
+    'form-data@4.0.5',
+    'hono@4.12.18',
+    'js-yaml@4.1.1',
+    'lodash@4.17.23',
     'multer@2.1.1',
+    'nanoid@3.3.12',
+    'picomatch@2.3.1',
+    'postcss@8.5.15',
     'qs@6.14.1',
     'socket.io-parser@4.2.6',
+    'valibot@1.2.0',
     'ws@8.20.1',
+    'yaml@2.8.2',
   ]) {
     assert.doesNotMatch(lockfile, new RegExp(vulnerable.replace('.', '\\.'), 'u'));
+  }
+});
+
+test('residual no-fix and compatibility exceptions stay evidence-backed', () => {
+  for (const packageName of ['deepmerge-ts', 'esbuild', 'image-size']) {
+    const item = classification.packages.find(({ name }) => name === packageName);
+    assert.ok(item, `missing classification: ${packageName}`);
+    assert.equal(typeof item.mitigation, 'string');
+    assert.equal(typeof item.revisit, 'string');
   }
 });
