@@ -15,20 +15,41 @@ allowBuilds:
 # transitive lock entry unless this owner boundary is explicit.
 overrides:
   'eslint-config-next>eslint-plugin-react-hooks': 7.1.1
+  # Security backports for runtime and build transitives whose current owning
+  # parents have not widened their ranges yet. Remove each selector after the
+  # parent resolves the same or newer safe version and its owner regression passes.
+  '@babel/core': 7.29.6
+  '@nestjs/platform-express>multer': 2.2.0
+  'brace-expansion@<2.0.0': 1.1.18
+  'brace-expansion@>=5.0.0 <6.0.0': 5.0.9
+  'engine.io>ws': 8.21.3
+  'express>body-parser': 2.3.0
+  fast-uri: 3.1.6
+  flatted: 3.4.2
+  form-data: 4.0.6
+  js-yaml: 4.3.1
+  lodash: 4.18.1
+  'nanoid@<4.0.0': 3.3.18
+  'picomatch@<3.0.0': 2.3.2
+  postcss: 8.5.26
+  'socket.io-adapter>ws': 8.21.3
+  'socket.io>socket.io-parser': 4.2.7
+  qs: 6.15.2
+  yaml: 2.8.3
 
 catalog:
   '@types/node': 24.13.2
   '@eslint/eslintrc': 3.3.5
   '@eslint/js': 9.39.4
-  '@playwright/test': 1.61.0
+  '@playwright/test': 1.62.1
   '@sentry/nextjs': 10.69.0
   '@tailwindcss/postcss': 4.3.1
-  '@storybook/addon-docs': 10.4.6
-  '@storybook/nextjs-vite': 10.4.6
+  '@storybook/addon-docs': 10.5.10
+  '@storybook/nextjs-vite': 10.5.10
   '@typescript-eslint/eslint-plugin': 8.67.0
   '@typescript-eslint/parser': 8.67.0
-  '@vitejs/plugin-react': 6.0.2
-  '@vitest/coverage-v8': 4.1.9
+  '@vitejs/plugin-react': 6.1.0
+  '@vitest/coverage-v8': 4.1.11
   eslint: 9.39.4
   eslint-config-next: 16.3.0
   eslint-config-prettier: 10.1.8
@@ -37,12 +58,12 @@ catalog:
   prettier: 3.8.4
   react: 19.2.7
   react-dom: 19.2.7
-  storybook: 10.4.6
+  storybook: 10.5.10
   tailwindcss: 4.3.1
   typescript: 6.0.3
   typescript-eslint: 8.67.0
-  vite: 8.0.16
-  vitest: 4.1.9
+  vite: 8.2.2
+  vitest: 4.1.11
 
 onlyBuiltDependencies:
   - '@sentry/cli'

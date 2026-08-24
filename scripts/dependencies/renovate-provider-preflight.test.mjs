@@ -22,6 +22,17 @@ const readinessDocument = readFileSync(
   resolve(process.cwd(), 'docs/development/github/renovate-provider-readiness.md'),
   'utf8',
 );
+const operationsDocument = readFileSync(
+  resolve(process.cwd(), 'docs/development/github/dependency-updates.md'),
+  'utf8',
+);
+const timeoutDocument = readFileSync(
+  resolve(
+    process.cwd(),
+    'docs/development/troubleshooting/tooling/pnpm-dependency-update-job-timeout.md',
+  ),
+  'utf8',
+);
 const ownerDecision = parseRenovateProviderOwnerDecision(
   JSON.parse(
     readFileSync(
@@ -116,21 +127,40 @@ test('rejects an owner decision that broadens repository scope or enables script
   assert.throws(() => parseRenovateProviderOwnerDecision(scriptsEnabled), /scriptsAndPlugins/u);
 });
 
-test('keeps the installed Scan Only provider selected-repository-only and reversible', () => {
+test('keeps the installed provider selected-repository-only, approval-gated, and reversible', () => {
   for (const phrase of [
-    'CONDITIONAL GO / Scan Only 설치 완료 / repository activation 대기',
-    'Only select repositories',
-    'disabled-by-config',
+    'selected-repository 설치·active extraction·controlled PR 검증 완료',
+    'woohyun365/knu_roommate` 하나',
+    'Automated PRs',
+    'Require config file',
+    'Dependency Dashboard',
+    'PR #354',
     'Terms of Service',
     'Privacy Policy',
-    'temporary source clone',
+    'source를 임시 clone',
     'Suspend',
     'Uninstall',
-    'GO / NO-GO',
+    'NO-GO conditions',
   ]) {
     assert.match(readinessDocument, new RegExp(phrase, 'u'));
   }
   assert.doesNotMatch(readinessDocument, /Phase [0-9]/u);
+});
+
+test('keeps dependency update operations bounded and timeout recovery owner-aware', () => {
+  for (const phrase of [
+    'Dependency Dashboard #353',
+    'Create all pending approval PRs at once',
+    'Automated PRs',
+    'provider queue',
+    'Dependabot npm',
+    'GitHub Actions',
+    'Docker Compose',
+  ]) {
+    assert.match(`${operationsDocument}\n${timeoutDocument}`, new RegExp(phrase, 'u'));
+  }
+  assert.doesNotMatch(operationsDocument, /Phase [0-9]/u);
+  assert.doesNotMatch(timeoutDocument, /Phase [0-9]/u);
 });
 
 test('keeps the preflight read-only and free of installation mutations', () => {

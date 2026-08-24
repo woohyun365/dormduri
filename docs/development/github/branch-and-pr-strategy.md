@@ -61,6 +61,22 @@ Local `dev`가 `origin/dev`와 diverge했다면 force/reset으로 숨기지 않�
 파일 수가 아니라 독립적으로 review·검증·rollback 가능한 책임을 기준으로 PR을 나눕니다. 단지 commit/PR 수를 줄이려고
 dependency automation, product change, infrastructure, test topology를 한 branch에 누적하지 않습니다.
 
+### Dependent acceptance batching
+
+선행 contract/baseline과 바로 뒤의 implementation이 **같은 acceptance 결과**를 증명하고 아직 PR을 열지 않았다면, 두
+단계를 같은 branch와 PR에 review 가능한 별도 commit으로 결합할 수 있습니다. 이는 모든 Phase를 합치는 일반 규칙이 아니라
+다음 조건을 모두 만족하는 비용 최적화 예외입니다.
+
+- 후속 구현이 선행 contract의 결과를 직접 소비한다.
+- 동일한 owner, risk, rollback과 최종 verification 경계를 가진다.
+- 결합 diff가 한 PR에서 이해 가능하고 실패 원인을 분리할 수 있다.
+- Feature branch push만 존재하며 아직 `pull_request` CI가 시작되지 않았다.
+- 별도 commit으로 contract와 implementation evidence를 구분하고 squash merge에서 통합한다.
+
+이 조건이면 선행 PR과 그 `dev` merge-push CI를 제거해 같은 full workflow의 중복 실행을 줄일 수 있습니다. 반대로 서로
+다른 lockfile·migration·runtime owner, 독립 rollback, provider/production gate, 큰 toolchain migration은 비용을 이유로
+결합하지 않습니다. 이미 PR review나 hosted CI가 시작됐다면 새 작업을 뒤늦게 밀어 넣지 않습니다.
+
 ## Plan과 branch
 
 구현 가능한 plan은 최소한 다음을 명시합니다.
