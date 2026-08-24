@@ -86,7 +86,15 @@
       "zod"
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
-    "overrideSelectors": ["eslint-config-next>eslint-plugin-react-hooks"],
+    "overrideSelectors": [
+      "@nestjs/platform-express>multer",
+      "engine.io>ws",
+      "eslint-config-next>eslint-plugin-react-hooks",
+      "express>body-parser",
+      "qs",
+      "socket.io-adapter>ws",
+      "socket.io>socket.io-parser"
+    ],
     "lockfile": "pnpm-lock.yaml"
   },
   "groups": {

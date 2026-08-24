@@ -85,3 +85,29 @@ test('security policy stays private-reporting-first and honest about support', (
   assert.match(internalPolicy, /미분류 high alert/u);
   assert.doesNotMatch(`${publicPolicy}\n${internalPolicy}`, /Phase [0-9]/u);
 });
+
+test('runtime security overrides remove the known vulnerable transitive versions', () => {
+  const workspace = readFileSync(resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf8');
+  const lockfile = readFileSync(resolve(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
+
+  for (const contract of [
+    "'@nestjs/platform-express>multer': 2.2.0",
+    "'engine.io>ws': 8.21.3",
+    "'express>body-parser': 2.3.0",
+    "'socket.io-adapter>ws': 8.21.3",
+    "'socket.io>socket.io-parser': 4.2.7",
+    'qs: 6.15.2',
+  ]) {
+    assert.match(workspace, new RegExp(contract.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+  }
+
+  for (const vulnerable of [
+    'body-parser@2.2.2',
+    'multer@2.1.1',
+    'qs@6.14.1',
+    'socket.io-parser@4.2.6',
+    'ws@8.20.1',
+  ]) {
+    assert.doesNotMatch(lockfile, new RegExp(vulnerable.replace('.', '\\.'), 'u'));
+  }
+});
