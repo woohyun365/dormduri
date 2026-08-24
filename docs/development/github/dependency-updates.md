@@ -1,0 +1,90 @@
+# Dependency update operations
+
+## 책임
+
+이 문서는 GitHub에서 dependency update 후보를 승인하고 PR을 검토·병합·복구하는 일상 절차를 소유한다. Provider 선택
+근거는 [Dependency automation architecture](../../architecture/platform/dependency-automation.md), App permission과 revoke
+경계는 [Hosted Renovate provider boundary](./renovate-provider-readiness.md)를 따른다.
+
+## Owner map
+
+| Ecosystem                     | Owner                  | Target |
+| ----------------------------- | ---------------------- | ------ |
+| npm/pnpm dependency versions  | Mend-hosted Renovate   | `dev`  |
+| GitHub Actions                | Dependabot             | `dev`  |
+| Docker images                 | Dependabot             | `dev`  |
+| Docker Compose images         | Dependabot             | `dev`  |
+| pnpm package-manager/Corepack | Manual reviewed change | `dev`  |
+
+## Routine Renovate flow
+
+1. [Dependency Dashboard #353](https://github.com/woohyun365/knu_roommate/issues/353)을 연다.
+2. Pending/Running provider job과 open Renovate PR이 없는지 확인한다.
+3. 한 owner group만 체크한다.
+4. `Create all pending approval PRs at once`와 독립 major는 체크하지 않는다.
+5. Dashboard edit webhook이 job을 시작하지 않으면 Mend Portal에서 Run Renovate Scan을 한 번 실행한다.
+6. 생성된 PR의 author, base, head, files, version 범위를 읽는다.
+7. Required CI와 stability-days가 모두 green인지 확인한다.
+8. Squash merge하고 Dashboard가 approval과 branch를 제거했는지 확인한다.
+
+Automated PRs는 운영 비용과 compatibility failure rate가 측정될 때까지 OFF를 유지한다. Dashboard issue는 Renovate가
+추가·제거·병합된 후보를 자동으로 갱신하므로 수동으로 close하거나 본문을 재작성하지 않는다.
+
+## PR review checklist
+
+```bash
+gh pr view <number> --json author,baseRefName,headRefName,files,commits,statusCheckRollup
+gh pr diff <number> --patch
+gh pr checks <number>
+```
+
+- Author가 `app/renovate` / commit author `renovate[bot]`인가?
+- Base가 `dev`, head가 `renovate/<bounded-owner>`인가?
+- Catalog, owning manifest, lockfile 밖의 unrelated file이 없는가?
+- Lockfile diff가 approved package group과 transitive resolution으로 설명되는가?
+- Major, pnpm package-manager, blocked compiler update가 섞이지 않았는가?
+- Shared·API·Web·Infra·repository policy와 CI summary가 모두 통과했는가?
+- Production dependency라면 release note, runtime behavior, migration 필요성을 별도로 검토했는가?
+
+기존 semver range가 새 minor/patch를 이미 허용하면 manifest가 바뀌지 않고 lockfile만 달라질 수 있다. 이를 강제로
+manifest diff로 만들지 않는다.
+
+## Dashboard controls
+
+- Group checkbox: 해당 branch를 다음 job에서 승인한다.
+- `Create all ...`: 사용하지 않는다.
+- Manual job checkbox: queue가 비어 있을 때만 한 번 사용한다.
+- Silent mode: incident나 installation 검증용 scan-only 경계다.
+- Automated PRs: 충분한 운영 증거 전에는 OFF다.
+
+Checkbox를 선택해도 job이 실행되기 전까지 branch와 PR은 생성되지 않는다. Portal job이 장시간 pending이면 반복
+클릭하지 않고, Silent mode에서 manual scan 한 번으로 provider path를 분리 검증한다.
+
+## Merge 후 확인
+
+1. PR merge commit이 `origin/dev`에 반영됐는지 확인한다.
+2. Open Renovate PR과 remote branch를 확인한다.
+3. Dashboard에서 사용한 approval이 제거됐는지 확인한다.
+4. 같은 dependency를 갱신하는 Dependabot npm PR이 없는지 확인한다.
+5. `dev → main` promotion은 제품 release/integration cadence에 따라 별도 green PR로 수행한다.
+
+## Existing non-npm Dependabot PRs
+
+Actions·Docker·Compose PR은 Renovate npm cutover와 중복이 아니다. 각각의 owner boundary에서 release note와 runtime
+compatibility를 확인한다. PostgreSQL local/rehearsal처럼 같은 runtime version을 공유하는 PR은 함께 분석하되, 독립된
+ecosystem PR을 npm update와 묶지 않는다.
+
+## Provider outage와 rollback
+
+일시적인 provider queue 지연에서는 npm Dependabot을 다시 활성화하지 않는다. 필요한 update는 fresh `dev` 기반 manual
+branch에서 catalog·manifest·lockfile을 하나의 change로 갱신하고 전체 CI를 통과시킨다.
+
+지속적인 provider 중단 또는 permission 변경으로 Renovate를 철회할 때만 다음 atomic rollback을 사용한다.
+
+1. Portal Dependency Updates를 중단한다.
+2. App을 Suspend 또는 repository access에서 제거한다.
+3. 하나의 PR에서 Renovate kill switch와 Dependabot npm owner 복원을 함께 수행한다.
+4. Zero/dual owner repository policy와 full CI를 확인한다.
+5. Provider branch·PR을 정리한다.
+
+Provider 장애를 이유로 개인 PAT 기반 bot이나 repository-owned lifecycle engine을 즉시 도입하지 않는다.
