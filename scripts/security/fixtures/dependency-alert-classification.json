@@ -36,14 +36,18 @@
       "owner": "prisma-toolchain",
       "parent": "prisma > @prisma/config",
       "classification": "shipped-not-called",
-      "action": "artifact-remediation"
+      "action": "documented-exception",
+      "mitigation": "The optional Prisma config graph is present in the deploy store but has no application runtime caller.",
+      "revisit": "Remove the exception when Prisma supports deepmerge-ts 8 or the production deploy excludes the Prisma CLI peer graph."
     },
     {
       "name": "esbuild",
       "owner": "web-build",
       "parent": "Vite/Storybook/Webpack",
-      "classification": "shipped-not-called",
-      "action": "artifact-verification"
+      "classification": "build-only",
+      "action": "documented-mitigation",
+      "mitigation": "The affected development server is not exposed from the macOS/Linux build and CI environments.",
+      "revisit": "Upgrade when the owning Vite/Storybook range supports esbuild 0.28.1 or newer."
     },
     {
       "name": "fast-uri",
@@ -78,7 +82,9 @@
       "owner": "storybook-tooling",
       "parent": "@storybook/nextjs-vite",
       "classification": "build-only",
-      "action": "no-fix-review"
+      "action": "no-fix-review",
+      "mitigation": "The package is absent from production API artifacts and only processes repository-owned Storybook assets.",
+      "revisit": "Recheck when the advisory publishes a patched version or the Storybook parent releases a replacement."
     },
     {
       "name": "js-yaml",
