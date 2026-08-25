@@ -76,6 +76,10 @@ test('developer documentation separates local feedback, CI, and remote settings'
     'git diff --name-only',
     'repoPolicy',
     'environment gap',
+    'feature/fix/chore branch -> dev: squash merge',
+    'dev -> main integration: merge commit',
+    'dev-integration-gate',
+    'main-release-gate',
   ]) {
     assert.match(branchStrategy, new RegExp(boundary, 'u'));
   }
@@ -106,6 +110,9 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
     'Dependabot security updates',
     'enabled=true',
     'squash merge',
+    'merge commit',
+    'dev-integration-gate',
+    'main-release-gate',
     'Force push',
     'Branch deletion',
   ]) {
@@ -140,7 +147,9 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.match(remoteSettings, /owner 승인/u);
   assert.match(remoteSettings, /selected; GitHub-owned/u);
   assert.match(remoteSettings, /sha_pinning_required=true/u);
-  assert.match(remoteSettings, /dev-main-integration-gate/u);
+  assert.match(remoteSettings, /dev-integration-gate/u);
+  assert.match(remoteSettings, /main-release-gate/u);
+  assert.match(remoteSettings, /delete_branch_on_merge=false/u);
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
   assert.match(remoteSettings, /enabled=true.*paused=false/su);
   assert.doesNotMatch(remoteSettings, /gh api[^\n]*--method\s+(?:PATCH|PUT|POST|DELETE)/u);

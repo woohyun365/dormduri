@@ -71,7 +71,7 @@ dependency automation, product change, infrastructure, test topology를 한 bran
 - 동일한 owner, risk, rollback과 최종 verification 경계를 가진다.
 - 결합 diff가 한 PR에서 이해 가능하고 실패 원인을 분리할 수 있다.
 - Feature branch push만 존재하며 아직 `pull_request` CI가 시작되지 않았다.
-- 별도 commit으로 contract와 implementation evidence를 구분하고 squash merge에서 통합한다.
+- 별도 commit으로 contract와 implementation evidence를 구분하고 `dev` 대상 squash merge에서 통합한다.
 
 이 조건이면 선행 PR과 그 `dev` merge-push CI를 제거해 같은 full workflow의 중복 실행을 줄일 수 있습니다. 반대로 서로
 다른 lockfile·migration·runtime owner, 독립 rollback, provider/production gate, 큰 toolchain migration은 비용을 이유로
@@ -122,8 +122,8 @@ Local iteration은 빠른 feedback 경계이고 remote push는 GitHub Actions �
 8. Draft PR도 현재 `pull_request` workflow를 실행합니다. Remote test runner 용도로만 draft를 일찍 열지 않고, hosted-only
    evidence나 review가 필요할 때 생성합니다.
 9. `[skip ci]`, direct `dev`/`main` push, red fail-closed summary merge는 정상적인 비용 절감 수단이 아닙니다.
-10. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 squash
-    merge를 integration history 정리 경계로 사용합니다.
+10. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 `dev`
+    대상 squash merge를 bounded integration history 정리 경계로 사용합니다.
 
 이 전략은 PR 수를 무작정 줄이지 않습니다. 서로 독립적인 owner와 rollback 경계는 별도 PR로 유지하고, CI 비용은 safe
 change selection, local-green 검증, 같은 목적의 batch와 failed-job rerun으로 줄입니다.
@@ -180,11 +180,26 @@ NODE
 3. staged 범위와 unrelated 파일 제외를 다시 확인합니다.
 4. commit은 하나의 의도와 Lore evidence를 가집니다.
 5. PR은 `dev`를 target으로 하며 실제 검증 결과와 검증 공백을 기록합니다.
-6. Required CI가 green이 된 뒤 merge합니다.
+6. Required CI가 green이 된 뒤 target branch가 허용하는 merge method로 merge합니다.
 7. merge 후 local `dev`를 fast-forward하고, 다음 dependent work는 그 상태에서 새 branch를 만듭니다.
 
 `dev -> main` 승격은 feature PR과 별도의 integration 경계입니다. External provider 설정은 default branch 반영이 필요할 수
 있지만, repository owner 승인과 green CI 없이 직접 main을 수정하지 않습니다.
+
+### Target별 merge method
+
+```text
+feature/fix/chore branch -> dev: squash merge
+dev -> main integration: merge commit
+```
+
+- `dev`는 bounded PR의 여러 review commit을 하나의 의도 단위로 squash해 linear history를 유지합니다.
+- `main`은 장기 integration branch인 `dev`를 merge commit으로 받아 `dev` commit ancestry와 명시적인 release integration
+  point를 보존합니다.
+- `dev -> main`에서 squash를 사용하지 않습니다. 같은 파일 snapshot이 반영돼도 Git이 `dev` ancestry를 잃어 후속 promotion
+  conflict와 byte-identical reconciliation을 만들 수 있습니다.
+- Repository setting은 squash와 merge commit을 모두 허용하되, active `dev-integration-gate`는 squash only,
+  `main-release-gate`는 merge only로 제한합니다. 상세 expected/actual evidence는 `remote-repository-settings.md`가 소유합니다.
 
 ## 예외와 복구
 
