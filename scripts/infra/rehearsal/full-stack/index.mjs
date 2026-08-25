@@ -51,7 +51,7 @@ const evidenceDirectory = resolveArtifactPath(repoRoot, ['infra', 'full-stack-re
 const evidenceJsonPath = resolve(evidenceDirectory, `${runId}.json`);
 const evidenceMarkdownPath = resolve(evidenceDirectory, `${runId}.md`);
 const postgresImage =
-  'postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7';
+  'postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2';
 
 const secrets = createRuntimeSecrets();
 const secretValues = Object.values(secrets);
