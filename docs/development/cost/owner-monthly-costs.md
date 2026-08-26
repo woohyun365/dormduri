@@ -35,6 +35,18 @@ USD/KRW 환산은 결제일 환율·세금 evidence가 없으면 기록하지 �
 `Gross`가 service value인 usage row는 실제 cash와 다를 수 있습니다. 예를 들어 2026-08 Actions `$14.08`은 같은 금액의
 included-use discount가 적용되어 net `$0`이며, 실제 recurring cash `$104`에 더하지 않습니다.
 
+## CI list-price measurement
+
+2026-08-26 기준 CI performance collector는 [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)의
+표준 Linux 2-core rate `$0.006/min`을 job별 rounded minutes에 적용해 **할인 전 gross estimate**를 계산합니다.
+Frozen-input full PR 두 개의 추정 gross는 각각 `$0.150`, `$0.180`입니다.
+이 값은 월별 Billing UI의 discount/net evidence가 아니므로 위 monthly summary에 실제 지출로 합산하지 않습니다.
+
+현재 GitHub Pro artifact allowance는 owner UI의 effective 2GB evidence와 공식 문서의 1GB reference가 다릅니다. 현재 active
+artifact는 약 7.4MiB이고 cache는 별도 10GiB 중 약 69.6%이므로 즉시 과금 근거는 없지만, 다음 Billing UI review에서 effective
+allowance를 다시 확인합니다. 현재 `gh` credential에는 Plan-read와 `read:packages`가 없으므로 credential을 자동 확대하거나
+Packages 사용량을 0으로 추측하지 않습니다.
+
 ## Monthly update procedure
 
 1. GitHub/AI/provider Billing UI에서 current plan, gross, discount, net, usage period를 확인합니다.

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import { classifyChanges } from './classify-changes.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const ansiPattern = /\u001b\[[0-9;]*m/gu;
@@ -19,6 +20,36 @@ function secondsBetween(start, end) {
 
 function unique(values) {
   return [...new Set(values)];
+}
+
+function roundCurrency(value) {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function jobLane(job) {
+  if (job.name === 'Classify changed surfaces') return 'classify';
+  if (job.name === 'Repository policy gate') return 'repoPolicy';
+  if (job.name === 'Shared contract gate') return 'shared';
+  if (job.name.startsWith('API validation')) return 'api';
+  if (job.name.startsWith('Web validation')) return 'web';
+  if (job.name.startsWith('Infrastructure validation')) return 'infra';
+  if (job.name === 'CI summary') return 'summary';
+  return null;
+}
+
+export function classifyPerformanceSurface(classification) {
+  const selectedProducts = ['api', 'web', 'infra'].filter((lane) => classification[lane]);
+  if (classification.shared || selectedProducts.length > 1) return 'full';
+  if (selectedProducts.length === 0) return 'docs-config-tooling-only';
+  return `${selectedProducts[0]}-only`;
+}
+
+function expectedObservedLanes(classification) {
+  return ['repoPolicy', 'shared', 'api', 'web', 'infra'].filter((lane) => classification[lane]);
+}
+
+function sameValues(left, right) {
+  return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 }
 
 export function parseRunLog(log) {
@@ -59,7 +90,17 @@ export function parseRunLog(log) {
   };
 }
 
-export function buildRunEvidence({ run, jobs, artifacts, log }) {
+export function buildRunEvidence({
+  run,
+  jobs,
+  artifacts,
+  changedPaths = [],
+  baselineChangedPaths = changedPaths,
+  log,
+  dependencyFingerprint = null,
+  pricing = null,
+  pullRequest = null,
+}) {
   const completedJobs = jobs.filter(
     (job) => job.started_at && job.completed_at && job.conclusion !== 'skipped',
   );
@@ -70,11 +111,18 @@ export function buildRunEvidence({ run, jobs, artifacts, log }) {
     const runnerSku =
       runnerLabels.find((label) => /^(?:ubuntu|windows|macos)-/u.test(label)) ?? null;
     const billingMultiplier = runnerSku?.startsWith('ubuntu-') ? 1 : null;
+    const runnerRateUsdPerMinute =
+      wallSeconds === 0 ? 0 : (pricing?.runnerRatesUsdPerMinute?.[runnerSku] ?? null);
+    const estimatedGrossUsd =
+      runnerRateUsdPerMinute === null
+        ? null
+        : roundCurrency(roundedJobMinutes * runnerRateUsdPerMinute);
     return {
       billingMultiplier,
       completedAt: job.completed_at ?? null,
       conclusion: job.conclusion ?? null,
       id: job.id,
+      estimatedGrossUsd,
       name: job.name,
       queueSeconds: secondsBetween(run.run_started_at ?? run.created_at, job.started_at),
       roundedBilledMinutes:
@@ -84,6 +132,7 @@ export function buildRunEvidence({ run, jobs, artifacts, log }) {
             ? null
             : roundedJobMinutes * billingMultiplier,
       roundedJobMinutes,
+      runnerRateUsdPerMinute,
       runnerLabels,
       runnerSku,
       startedAt: job.started_at ?? null,
@@ -99,12 +148,64 @@ export function buildRunEvidence({ run, jobs, artifacts, log }) {
     };
   });
   const parsedLog = parseRunLog(log);
+  const classification = classifyChanges(changedPaths);
+  const observedSelectedLanes = unique(
+    jobs
+      .filter((job) => job.conclusion !== 'skipped')
+      .map(jobLane)
+      .filter(Boolean),
+  );
+  const observedComparableLanes = observedSelectedLanes.filter(
+    (lane) => lane !== 'classify' && lane !== 'summary',
+  );
+  const observedClassification = {
+    api: observedComparableLanes.includes('api'),
+    infra: observedComparableLanes.includes('infra'),
+    repoPolicy: observedComparableLanes.includes('repoPolicy'),
+    shared: observedComparableLanes.includes('shared'),
+    storybook: false,
+    web: observedComparableLanes.includes('web'),
+  };
+  const failedJobs = completedJobs.filter((job) => job.conclusion === 'failure');
+  const cancelledJobs = completedJobs.filter((job) => job.conclusion === 'cancelled');
+  const wastedJobs = completedJobs.filter((job) =>
+    ['action_required', 'cancelled', 'failure', 'stale', 'timed_out'].includes(job.conclusion),
+  );
+  const dependencyInputs = Object.keys(dependencyFingerprint?.fileSha256 ?? {});
+  const changedDependencyInputs = baselineChangedPaths.filter((path) =>
+    dependencyInputs.includes(path),
+  );
+  const webSourceChanged = changedPaths.some((path) => path.startsWith('apps/web/'));
+  const cacheEvidence = {
+    ...parsedLog.cache,
+    nextBuildInterpretation:
+      parsedLog.cache.nextBuildHit === null
+        ? 'not-observed'
+        : parsedLog.cache.nextBuildHit
+          ? 'hit-observed'
+          : webSourceChanged
+            ? 'expected-source-key-change'
+            : 'investigate-eviction-or-configuration',
+    pnpmInterpretation:
+      parsedLog.cache.missCount === 0
+        ? parsedLog.cache.hitKeys.length > 0
+          ? 'hit-observed'
+          : 'not-observed'
+        : changedDependencyInputs.length > 0
+          ? 'expected-dependency-key-change'
+          : 'investigate-eviction-or-configuration',
+  };
+  const estimatedGrossUsd = jobEvidence.every((job) => job.estimatedGrossUsd !== null)
+    ? roundCurrency(jobEvidence.reduce((total, job) => total + job.estimatedGrossUsd, 0))
+    : null;
 
   return {
     artifacts: {
       count: artifacts.length,
       items: artifacts.map((artifact) => ({
+        createdAt: artifact.created_at ?? null,
         expired: artifact.expired === true,
+        expiresAt: artifact.expires_at ?? null,
         id: artifact.id,
         name: artifact.name,
         sizeBytes: artifact.size_in_bytes,
@@ -112,13 +213,57 @@ export function buildRunEvidence({ run, jobs, artifacts, log }) {
       totalSizeBytes: artifacts.reduce((total, artifact) => total + artifact.size_in_bytes, 0),
     },
     attempt: run.run_attempt,
-    cache: parsedLog.cache,
+    cache: cacheEvidence,
+    change: {
+      changedPaths,
+      classification,
+      expectedSurface: classifyPerformanceSurface(classification),
+      observedSurface: classifyPerformanceSurface(observedClassification),
+      observedSelectedLanes,
+      selectionMatchesObservedJobs: sameValues(
+        expectedObservedLanes(classification),
+        observedComparableLanes,
+      ),
+      surface: classifyPerformanceSurface(observedClassification),
+    },
     conclusion: run.conclusion,
     createdAt: run.created_at,
+    dependencyCompatibility: {
+      comparisonBaseSha: dependencyFingerprint?.devHeadSha ?? null,
+      changedInputs: changedDependencyInputs,
+      state:
+        changedDependencyInputs.length === 0 ? 'compatible-unchanged-inputs' : 'changed-inputs',
+    },
+    dependencyFingerprint,
+    estimatedGrossUsd,
     event: run.event,
-    headSha: run.head_sha,
     id: run.id,
+    identity: {
+      baseBranch: run.event === 'pull_request' ? (pullRequest?.base?.ref ?? null) : null,
+      baseSha: run.event === 'pull_request' ? (pullRequest?.base?.sha ?? null) : null,
+      headBranch: run.head_branch ?? null,
+      headSha: run.head_sha,
+      pullRequestNumber: pullRequest?.number ?? null,
+      sourcePullRequestHeadBranch: pullRequest?.head?.ref ?? null,
+      sourcePullRequestHeadSha: pullRequest?.head?.sha ?? null,
+    },
     jobs: jobEvidence,
+    outcome: {
+      cancelledJobCount: cancelledJobs.length,
+      failedJobCount: failedJobs.length,
+      retryCount: Math.max(0, (run.run_attempt ?? 1) - 1),
+      wastedComputeSeconds: wastedJobs.reduce(
+        (total, job) => total + secondsBetween(job.started_at, job.completed_at),
+        0,
+      ),
+    },
+    pricing: pricing
+      ? {
+          currency: 'USD',
+          reviewedAt: pricing.reviewedAt,
+          sourceUrl: pricing.sourceUrl,
+        }
+      : null,
     rawComputeSeconds: completedJobs.reduce(
       (total, job) => total + secondsBetween(job.started_at, job.completed_at),
       0,
@@ -156,7 +301,55 @@ function ghText(args) {
   });
 }
 
-export function collectGithubActionsRun(repository, runId) {
+function ghLines(args) {
+  const output = ghText(args).trim();
+  return output ? output.split('\n').filter(Boolean) : [];
+}
+
+function collectRunContext(repository, run, dependencyFingerprint) {
+  const baselineChangedPaths = dependencyFingerprint?.devHeadSha
+    ? ghLines([
+        'api',
+        '--paginate',
+        `repos/${repository}/compare/${dependencyFingerprint.devHeadSha}...${run.head_sha}?per_page=100`,
+        '--jq',
+        '.files[].filename',
+      ])
+    : [];
+  const pulls = ghJson(['api', `repos/${repository}/commits/${run.head_sha}/pulls`]);
+  const pullRequest = pulls.find((pull) => pull.head?.sha === run.head_sha) ?? pulls[0] ?? null;
+  if (pullRequest) {
+    return {
+      baselineChangedPaths,
+      changedPaths: ghLines([
+        'api',
+        '--paginate',
+        `repos/${repository}/pulls/${pullRequest.number}/files?per_page=100`,
+        '--jq',
+        '.[].filename',
+      ]),
+      pullRequest,
+    };
+  }
+
+  return {
+    baselineChangedPaths,
+    changedPaths: ghLines([
+      'api',
+      '--paginate',
+      `repos/${repository}/commits/${run.head_sha}?per_page=100`,
+      '--jq',
+      '.files[].filename',
+    ]),
+    pullRequest: null,
+  };
+}
+
+export function collectGithubActionsRun(
+  repository,
+  runId,
+  { dependencyFingerprint, pricing } = {},
+) {
   const run = ghJson(['api', `repos/${repository}/actions/runs/${runId}`]);
   if (run.status !== 'completed' || !run.conclusion) {
     throw new Error(`run ${runId} is not completed`);
@@ -170,7 +363,18 @@ export function collectGithubActionsRun(repository, runId) {
     `repos/${repository}/actions/runs/${runId}/artifacts?per_page=100`,
   ]).artifacts;
   const log = ghText(['run', 'view', String(runId), '--repo', repository, '--log']);
-  return buildRunEvidence({ artifacts, jobs, log, run });
+  const context = collectRunContext(repository, run, dependencyFingerprint);
+  return buildRunEvidence({
+    artifacts,
+    baselineChangedPaths: context.baselineChangedPaths,
+    changedPaths: context.changedPaths,
+    dependencyFingerprint,
+    jobs,
+    log,
+    pricing,
+    pullRequest: context.pullRequest,
+    run,
+  });
 }
 
 export function parseArgs(argv) {
@@ -214,11 +418,25 @@ export function resolveCollectorOutputPath(output, now = new Date()) {
 function main(argv) {
   const options = parseArgs(argv);
   const outputPath = resolveCollectorOutputPath(options.output);
+  const baseline = JSON.parse(
+    readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/ci-performance-baseline.json'), 'utf8'),
+  );
+  const policy = JSON.parse(
+    readFileSync(
+      resolve(repoRoot, 'scripts/ci/fixtures/github-actions-performance-policy.json'),
+      'utf8',
+    ),
+  );
   const evidence = {
     collectedAt: new Date().toISOString(),
     repository: options.repository,
-    runs: options.runIds.map((runId) => collectGithubActionsRun(options.repository, runId)),
-    schemaVersion: 1,
+    runs: options.runIds.map((runId) =>
+      collectGithubActionsRun(options.repository, runId, {
+        dependencyFingerprint: baseline.dependencyBaseline,
+        pricing: { ...policy.pricing, reviewedAt: policy.reviewedAt },
+      }),
+    ),
+    schemaVersion: 2,
   };
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);

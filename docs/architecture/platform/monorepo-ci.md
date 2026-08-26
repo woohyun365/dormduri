@@ -6,6 +6,34 @@ KNU Roommate의 pull request와 default `main` push 검증은 `.github/workflows
 
 현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/development/future-production-deployment-inputs.md`가 소유한다.
 
+## Decision과 drivers
+
+이 저장소는 사용자 Web, BFF, API와 공유 contract를 하나의 TypeScript workspace로 유지한다. CI 비용만 줄이기 위해
+repository를 분리하지 않고, 변경 surface 분류·준비 작업 재사용·상태 격리·선택적 병렬화로 실행 graph를 개선한다.
+
+결정의 drivers는 다음과 같다.
+
+- `packages/shared`의 request/response schema와 상수는 Web/API가 같은 변경에서 함께 검증해야 한다.
+- 하나의 lockfile과 catalog는 framework·validation·test toolchain의 버전 drift를 줄인다.
+- FE/BE/contract 변경을 한 PR에서 atomic하게 검토할 수 있어 별도 schema publish와 compatibility coordination이 줄어든다.
+- lint, typecheck, test와 onboarding command를 공통화할 수 있다.
+- 반대로 root/shared/lockfile 변경은 여러 lane과 cache를 무효화하고, 무분별한 job 분리는 cache transfer·install·분 단위
+  billing을 반복한다.
+
+## Alternatives와 consequences
+
+- **Repository 분리:** 독립 release/data/ownership 경계가 생기기 전에는 contract publish와 호환성 관리 비용이 더 크므로
+  채택하지 않는다.
+- **모든 변경에서 전체 CI:** 가장 단순하지만 제품과 무관한 문서/tooling 변경에도 API/Web runner 비용을 발생시키므로
+  사용하지 않는다. 알 수 없는 경로와 분류 실패만 correctness 우선으로 fail-open한다.
+- **먼저 job을 많이 분할:** wall time은 줄어도 raw compute, cache transfer와 job별 올림 비용이 증가할 수 있어 기본값으로
+  사용하지 않는다. 한 job 안의 준비 재사용과 환경 분리를 먼저 측정한다.
+- **Turborepo/remote cache 즉시 도입:** native workflow 개선 이후에도 대표 narrow PR에서 충분한 hit와 추가 절감이 확인될
+  때만 재검토한다.
+
+결과적으로 monorepo의 atomic change 장점은 유지되지만, root/shared 변경의 넓은 fan-out은 의도된 비용으로 남는다. 성능
+최적화는 wall time만이 아니라 raw compute, job-rounded minutes, transfer/storage와 실패·retry waste를 함께 통과해야 한다.
+
 ## Job graph
 
 ```text
@@ -57,6 +85,10 @@ API Integration/E2E는 disposable PostgreSQL schema race를 피하기 위해 wor
 - Web job은 Next production build를 한 번 수행하고 같은 standalone artifact로 desktop/mobile Chromium smoke를 실행한다.
 - `actions/setup-node`가 pnpm store cache를 관리한다. 이 action은 workflow에서 안정적인 hit/miss output을 제공하지 않으므로 install duration을 관측 신호로 사용한다.
 - Web `.next/cache`는 별도 `actions/cache`가 관리하고 `next_build_cache_hit`을 summary에 남긴다. Cache miss에서도 correctness가 유지되어야 한다.
+- Cache는 repository별 10GiB 경계와 7일 retention을 사용한다. pnpm과 Next family를 별도로 측정하며, 80%부터 eviction
+  churn 검토 신호로 사용한다.
+- Routine 성공 artifact는 downstream consumer가 없으면 업로드하지 않는다. 현재 browser/infra evidence는 7일 안에
+  만료되며, cache와 달리 Actions artifact/Packages shared allowance에 포함된다.
 
 ## Stage timing evidence
 
@@ -125,7 +157,32 @@ Rollout budget:
 | Shared/root fan-out |     8m 이하 |
 | Docs-only           | 1m 30s 이하 |
 
+Job-rounded billed-minute advisory budget:
+
+| 분류                | p95 budget |
+| ------------------- | ---------: |
+| Full/shared fan-out | 30 minutes |
+| API-only            | 15 minutes |
+| Web-only            | 15 minutes |
+| Infra-only          | 10 minutes |
+| Docs/config/tooling |  5 minutes |
+
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 최근 10개 표본과 산출 근거는 `docs/development/ci/monorepo-ci-baseline.md`에 유지한다.
+
+비용 budget은 초기에는 advisory다. 표준 private-repository Linux 2-core list rate는 2026-08-26 공식 문서 기준
+`$0.006/min`이며, 포함 minutes 할인 전 gross estimate에만 사용한다. 표본 5개 전에는 p50, 10개 전에는 p95를 게시하지
+않고, 실제 discount/net은 Billing UI/API evidence가 있을 때만 비용 ledger에 반영한다.
+
+## Verification과 revisit trigger
+
+- `pnpm ci:performance:collect`는 run identity, changed paths, expected/observed lane, stage, cache, tests, artifact, retry/waste와
+  list-price gross estimate를 `artifacts/local/ci-performance/`에 저장한다.
+- `pnpm ci:performance:resources`는 cache family와 artifact/Packages visibility를 별도 snapshot으로 수집한다.
+- `pnpm ci:performance:report`는 dependency fingerprint가 같은 자연 발생 PR만 cohort 통계로 집계한다.
+- Concurrent contributor, stale-base failure, p95 budget 초과, cache 80% 이상 churn, test inventory drift 또는 default-branch
+  검증 공백이 관측되면 분류·ruleset·job graph를 재검토한다.
+- Repository 분리는 독립 release/data/ownership boundary가 실제로 생겼을 때, Turborepo/remote cache는 native 개선 후에도
+  대표 narrow PR에서 비용을 포함한 추가 이득이 남을 때만 재검토한다.
 
 ## Branch protection 적용
 
