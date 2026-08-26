@@ -58,18 +58,25 @@ export function parseCiPerformanceEvidence(input) {
     throw new TypeError('dependencyBaseline.devHeadSha must be a full commit SHA');
   }
   assertRecord(input.dependencyBaseline.fileSha256, 'dependencyBaseline.fileSha256');
+  for (const path of ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'infra/image-inventory.json']) {
+    assertSha256(
+      input.dependencyBaseline.fileSha256[path],
+      `dependencyBaseline.fileSha256.${path}`,
+    );
+  }
+  assertRecord(
+    input.dependencyBaseline.workflowBaselineSha256,
+    'dependencyBaseline.workflowBaselineSha256',
+  );
   for (const path of [
-    'pnpm-lock.yaml',
-    'pnpm-workspace.yaml',
-    'infra/image-inventory.json',
     '.github/workflows/ci.yml',
     '.github/workflows/api-ci.yml',
     '.github/workflows/web-ci.yml',
     '.github/workflows/infra-ci.yml',
   ]) {
     assertSha256(
-      input.dependencyBaseline.fileSha256[path],
-      `dependencyBaseline.fileSha256.${path}`,
+      input.dependencyBaseline.workflowBaselineSha256[path],
+      `dependencyBaseline.workflowBaselineSha256.${path}`,
     );
   }
   assertRecord(input.dependencyBaseline.versions, 'dependencyBaseline.versions');

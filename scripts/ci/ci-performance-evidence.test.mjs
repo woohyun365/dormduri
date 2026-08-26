@@ -75,6 +75,13 @@ test('rejects a frozen dependency baseline without reproducible file digests', (
   assert.throws(() => parseCiPerformanceEvidence(input), /lowercase SHA-256 digest/u);
 });
 
+test('preserves the original workflow hashes as comparison evidence while workflows evolve', () => {
+  const input = readBaseline();
+  delete input.dependencyBaseline.workflowBaselineSha256['.github/workflows/ci.yml'];
+
+  assert.throws(() => parseCiPerformanceEvidence(input), /lowercase SHA-256 digest/u);
+});
+
 test('frozen dependency inputs match the current repository baseline', () => {
   const baseline = readBaseline().dependencyBaseline;
 

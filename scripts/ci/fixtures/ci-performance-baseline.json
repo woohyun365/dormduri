@@ -14,7 +14,9 @@
     "fileSha256": {
       "pnpm-lock.yaml": "b2be74bc26e19b38b2bbfbb36f9faa768948d6e9f8f1988e495b156eaed32462",
       "pnpm-workspace.yaml": "638f823ec4a12faaa6219c725ee069e414d898f1e7adad03d3ad44a021acd4ae",
-      "infra/image-inventory.json": "2faf8ded674d60a693e19b08820feacd3506c9e6c9e822fb8efa58038e00c85a",
+      "infra/image-inventory.json": "2faf8ded674d60a693e19b08820feacd3506c9e6c9e822fb8efa58038e00c85a"
+    },
+    "workflowBaselineSha256": {
       ".github/workflows/ci.yml": "e00bd1e95cd5b43276032dac6e2c5f0c27a3f9530715e529dd4fd29d46e58dc0",
       ".github/workflows/api-ci.yml": "eac3a4f08eff754ecbf26309bc7d5a9a3f14585124b5af23106b3452ad6864eb",
       ".github/workflows/web-ci.yml": "1bbbc03e9391aadebda079e4b4b0a71982c701bf591d7acd2403912fae4c0292",
