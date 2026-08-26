@@ -73,7 +73,8 @@ dependency automation, product change, infrastructure, test topology를 한 bran
 - Feature branch push만 존재하며 아직 `pull_request` CI가 시작되지 않았다.
 - 별도 commit으로 contract와 implementation evidence를 구분하고 `dev` 대상 squash merge에서 통합한다.
 
-이 조건이면 선행 PR과 그 `dev` merge-push CI를 제거해 같은 full workflow의 중복 실행을 줄일 수 있습니다. 반대로 서로
+이 조건이면 선행 PR의 별도 full workflow를 제거해 같은 acceptance의 중복 실행을 줄일 수 있습니다. `dev` merge push는
+active PR-only ruleset과 required `CI summary`를 신뢰하므로 별도 Monorepo CI를 다시 실행하지 않습니다. 반대로 서로
 다른 lockfile·migration·runtime owner, 독립 rollback, provider/production gate, 큰 toolchain migration은 비용을 이유로
 결합하지 않습니다. 이미 PR review나 hosted CI가 시작됐다면 새 작업을 뒤늦게 밀어 넣지 않습니다.
 

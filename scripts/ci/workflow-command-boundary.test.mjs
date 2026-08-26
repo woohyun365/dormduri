@@ -168,6 +168,13 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'CI summary',
     'if: ${{ always() }}',
   ]);
+  assert.match(orchestrator, /push:\s*\n\s*branches:\s*\n\s*- main/u);
+  assert.doesNotMatch(orchestrator, /push:\s*\n\s*branches:[\s\S]{0,80}\n\s*- dev/u);
+  assertIncludesAll(orchestrator, [
+    'pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86',
+    'pnpm install --frozen-lockfile',
+    'pnpm exec prettier . -c',
+  ]);
   assertIncludesAll(apiWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(webWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(infraWorkflow, ['workflow_call:', 'permissions:', 'contents: read']);

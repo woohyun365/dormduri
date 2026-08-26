@@ -132,6 +132,30 @@
     }
   },
   {
+    "name": "format-policy-only",
+    "paths": [".prettierignore"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "agent-guidance-only",
+    "paths": ["scripts/agents/session-preflight.mjs"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "github-collaboration-input-only",
     "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/copilot-instructions.md"],
     "expected": {
