@@ -62,7 +62,7 @@ test('developer documentation separates local feedback, CI, and remote settings'
     'Dependent acceptance batching',
     '같은 acceptance 결과',
     'Feature branch push',
-    'merge-push CI',
+    '별도 Monorepo CI',
     'stacked PR',
     'DESIGN.md',
     'Remote push budget',

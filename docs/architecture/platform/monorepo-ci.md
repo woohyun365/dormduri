@@ -2,7 +2,7 @@
 
 ## 책임
 
-KNU Roommate의 pull request와 `dev`/`main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. 이 workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한 뒤, 항상 존재하는 `CI summary` job에서 선택된 lane의 성공 여부를 fail-closed로 판정한다.
+KNU Roommate의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한 뒤, 항상 존재하는 `CI summary` job에서 선택된 lane의 성공 여부를 fail-closed로 판정한다.
 
 현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/development/future-production-deployment-inputs.md`가 소유한다.
 
@@ -13,7 +13,8 @@ classify
   ├─ shared        # packages/shared 또는 root/shared contract 변경
   ├─ api           # apps/api와 API-owned infra 변경
   ├─ web           # apps/web 변경
-  ├─ repo-policy   # CI/workflow/root policy 변경
+  ├─ infra         # infra와 observability 변경
+  ├─ repo-policy   # CI/workflow/root policy와 repository formatting
   └─ CI summary    # 선택된 모든 lane의 결과를 하나의 required check로 판정
 ```
 
@@ -51,7 +52,8 @@ API Integration/E2E는 disposable PostgreSQL schema race를 피하기 위해 wor
 ## Build와 cache 경계
 
 - API job은 Shared build와 Prisma generation을 각각 한 번 수행한다.
-- API public schema migration은 일반 CI에서 실행하지 않는다. Integration/E2E suite가 disposable schema migration을 소유한다.
+- API job은 public CI schema migration을 한 번 적용한 뒤 TypedSQL/Prisma prepare를 실행한다. Integration/E2E suite의
+  owner-local disposable schema migration은 별도 test isolation 경계다.
 - Web job은 Next production build를 한 번 수행하고 같은 standalone artifact로 desktop/mobile Chromium smoke를 실행한다.
 - `actions/setup-node`가 pnpm store cache를 관리한다. 이 action은 workflow에서 안정적인 hit/miss output을 제공하지 않으므로 install duration을 관측 신호로 사용한다.
 - Web `.next/cache`는 별도 `actions/cache`가 관리하고 `next_build_cache_hit`을 summary에 남긴다. Cache miss에서도 correctness가 유지되어야 한다.
@@ -63,8 +65,10 @@ API Integration/E2E는 disposable PostgreSQL schema race를 피하기 위해 wor
 API summary 단계:
 
 - install
+- public schema migration
 - prepare
 - static
+- runtime config/health contract
 - unit
 - integration-db
 - e2e-db
@@ -125,16 +129,18 @@ Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total ru
 
 ## Branch protection 적용
 
-현재 optional app job은 변경 분류에 따라 `skipped`될 수 있으므로 개별 API/Web job을 required check로 고정하지 않는다. Branch protection 또는 repository ruleset을 사용할 수 있게 되면 다음 순서로 적용한다.
+Optional app job은 변경 분류에 따라 `skipped`될 수 있으므로 개별 API/Web/Infra job이 아니라 `CI summary` 하나를 required
+check로 사용한다.
 
-1. 이 workflow가 기본 branch에 반영된 뒤 pull request에서 `CI summary` 성공 check가 생성되는지 확인한다.
-2. 보호할 branch의 required status check에 `CI summary` 하나만 등록한다.
-3. Branch 최신화 요구와 required review 정책은 repository 운영 정책에 맞춰 별도로 설정한다.
-4. Web-only, API-only, Shared/root, docs-only PR을 각각 열어 선택되지 않은 job이 `skipped`여도 summary가 성공하는지 확인한다.
-5. 선택된 lane 하나를 의도적으로 실패시켜 summary가 실패하는지 확인한다.
-6. Check 이름이나 workflow/job 이름을 변경할 때 ruleset과 이 문서를 함께 갱신한다.
+- `dev-integration-gate`: exact `dev`, PR 필수, conversation resolution, linear history, squash only, `CI summary`, force
+  push/deletion 차단.
+- `main-release-gate`: default `main`, PR 필수, conversation resolution, merge commit only, `CI summary`, force push/deletion
+  차단.
+- Strict up-to-date는 한 owner의 순차 integration과 Actions 비용을 고려해 기본 off다. Concurrent contributor 또는 stale-base
+  failure가 관측되면 재검토한다.
 
-Repository 권한이나 branch 운영 방식이 확정되기 전에는 설정을 자동 변경하지 않는다.
+Check 이름이나 workflow/job 이름을 변경할 때 ruleset과 이 문서를 함께 갱신한다. Repository setting mutation은 tracked
+source merge로 완료됐다고 주장하지 않고 `remote-repository-settings.md`의 read-only evidence로 확인한다.
 
 ## 변경 시 검증
 

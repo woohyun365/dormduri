@@ -19,6 +19,9 @@ API/Web CI 구조를 최적화하기 전에 현재 command graph, 반복 준비 
 acceptance run, queue, security, cache snapshot은 `scripts/ci/fixtures/ci-performance-baseline.json`의
 `dependencyBaseline`이 소유합니다.
 
+`fileSha256`는 현재 표본이 계속 일치해야 하는 dependency/image input입니다. `workflowBaselineSha256`는 최적화 전 workflow
+comparison snapshot이며 Phase 5 workflow 변경으로 current tree와 달라지는 것이 정상입니다.
+
 | Boundary               | Frozen value                                                       |
 | ---------------------- | ------------------------------------------------------------------ |
 | Node / pnpm            | Node 24.19.0 / pnpm 11.7.0                                         |
@@ -38,6 +41,33 @@ samples are compared.
 This is a CI measurement input, not production release evidence. Grafana 13.2 local recovery samples increased from a prior 17.3s
 sample to 25.3s and 27.4s while staying within health/resource gates; production persistent-volume rollback and provider billing
 remain separate release/owner evidence.
+
+### First frozen-input event pair
+
+The same accepted change ran once for PR #364 and again automatically after squash merge to `dev`.
+
+| Event        | Run           | Wall | Raw compute | Rounded billed minutes |                   Tests |
+| ------------ | ------------- | ---: | ----------: | ---------------------: | ----------------------: |
+| Pull request | `32939047806` | 589s |      1,196s |                     25 | 690 files / 3,401 cases |
+| `dev` push   | `32939810146` | 622s |      1,405s |                     29 | 690 files / 3,401 cases |
+
+The active `dev` ruleset already requires PR-only integration and a green `CI summary`, so the second equivalent graph did not add
+a distinct acceptance boundary. Monorepo CI therefore runs on pull requests and `main` pushes; routine `dev` merge pushes do not
+start another graph. `main` remains a separate default-branch evidence owner until its release/security responsibilities are
+narrowed with evidence.
+
+Collect additional runs without storing raw logs:
+
+```bash
+pnpm ci:performance:collect -- \
+  --repo=woohyun365/knu_roommate \
+  --run-id=<run-id> \
+  --output=artifacts/local/ci-performance/<dataset>.json
+```
+
+The collector accepts completed runs and records run/job/stage timing, queue, raw compute, per-job rounded minutes, runner labels,
+cache hit/size, test counts, and artifact metadata. Natural PRs populate surface cohorts; no-op PRs are not created only to
+increase sample count.
 
 ## Working tree ownership
 
