@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -24,6 +25,13 @@ test('parses the full integration baseline into comparable wall, compute, cache,
   assert.equal(summary.computeSeconds, 1489);
   assert.equal(summary.testFileCount, 690);
   assert.equal(summary.testCaseCount, 3401);
+  assert.deepEqual(summary.dependencyBaseline, {
+    acceptanceRunCount: 5,
+    devHeadSha: 'db9638295f8191eced847950fb704c19ae780ba8',
+    dismissedResiduals: 4,
+    openAlerts: 0,
+    state: 'frozen',
+  });
   assert.deepEqual(summary.cache, {
     next: 'fallback-hit',
     pnpm: 'miss',
@@ -60,6 +68,24 @@ test('rejects a baseline whose suite counts do not reconcile', () => {
   assert.throws(() => parseCiPerformanceEvidence(input), /suite test case total/u);
 });
 
+test('rejects a frozen dependency baseline without reproducible file digests', () => {
+  const input = readBaseline();
+  delete input.dependencyBaseline.fileSha256['pnpm-lock.yaml'];
+
+  assert.throws(() => parseCiPerformanceEvidence(input), /lowercase SHA-256 digest/u);
+});
+
+test('frozen dependency inputs match the current repository baseline', () => {
+  const baseline = readBaseline().dependencyBaseline;
+
+  for (const [path, expected] of Object.entries(baseline.fileSha256)) {
+    const actual = createHash('sha256')
+      .update(readFileSync(resolve(process.cwd(), path)))
+      .digest('hex');
+    assert.equal(actual, expected, path);
+  }
+});
+
 test('prints a stable read-only summary for later baseline comparisons', () => {
   const result = spawnSync(
     process.execPath,
@@ -71,6 +97,13 @@ test('prints a stable read-only summary for later baseline comparisons', () => {
   assert.deepEqual(JSON.parse(result.stdout), {
     cache: { next: 'fallback-hit', pnpm: 'miss' },
     computeSeconds: 1489,
+    dependencyBaseline: {
+      acceptanceRunCount: 5,
+      devHeadSha: 'db9638295f8191eced847950fb704c19ae780ba8',
+      dismissedResiduals: 4,
+      openAlerts: 0,
+      state: 'frozen',
+    },
     jobs: {
       api: { computeSeconds: 625, selected: true, wallSeconds: 625 },
       classify: { computeSeconds: 10, selected: true, wallSeconds: 10 },

@@ -24,6 +24,12 @@ function assertNonNegativeInteger(value, path) {
   }
 }
 
+function assertSha256(value, path) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value)) {
+    throw new TypeError(`${path} must be a lowercase SHA-256 digest`);
+  }
+}
+
 function assertCache(cache, name) {
   assertRecord(cache, `cache.${name}`);
   if (!CACHE_STATES.has(cache.state)) {
@@ -42,6 +48,89 @@ export function parseCiPerformanceEvidence(input) {
   assertNonNegativeInteger(input.source.workflowRunId, 'source.workflowRunId');
   assertString(input.source.headSha, 'source.headSha');
   assertString(input.source.url, 'source.url');
+
+  assertRecord(input.dependencyBaseline, 'dependencyBaseline');
+  if (input.dependencyBaseline.state !== 'frozen') {
+    throw new TypeError('dependencyBaseline.state must equal frozen');
+  }
+  assertString(input.dependencyBaseline.capturedAt, 'dependencyBaseline.capturedAt');
+  if (!/^[a-f0-9]{40}$/u.test(input.dependencyBaseline.devHeadSha)) {
+    throw new TypeError('dependencyBaseline.devHeadSha must be a full commit SHA');
+  }
+  assertRecord(input.dependencyBaseline.fileSha256, 'dependencyBaseline.fileSha256');
+  for (const path of [
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+    'infra/image-inventory.json',
+    '.github/workflows/ci.yml',
+    '.github/workflows/api-ci.yml',
+    '.github/workflows/web-ci.yml',
+    '.github/workflows/infra-ci.yml',
+  ]) {
+    assertSha256(
+      input.dependencyBaseline.fileSha256[path],
+      `dependencyBaseline.fileSha256.${path}`,
+    );
+  }
+  assertRecord(input.dependencyBaseline.versions, 'dependencyBaseline.versions');
+  for (const name of ['node', 'pnpm', 'pnpmAction', 'postgresql', 'alertmanager', 'grafana']) {
+    assertString(input.dependencyBaseline.versions[name], `dependencyBaseline.versions.${name}`);
+  }
+  if (
+    !Array.isArray(input.dependencyBaseline.acceptanceRuns) ||
+    input.dependencyBaseline.acceptanceRuns.length === 0
+  ) {
+    throw new TypeError('dependencyBaseline.acceptanceRuns must contain at least one run');
+  }
+  input.dependencyBaseline.acceptanceRuns.forEach((run, index) => {
+    assertRecord(run, `dependencyBaseline.acceptanceRuns[${index}]`);
+    assertString(run.scope, `dependencyBaseline.acceptanceRuns[${index}].scope`);
+    assertNonNegativeInteger(run.prNumber, `dependencyBaseline.acceptanceRuns[${index}].prNumber`);
+    assertNonNegativeInteger(
+      run.workflowRunId,
+      `dependencyBaseline.acceptanceRuns[${index}].workflowRunId`,
+    );
+  });
+  assertRecord(input.dependencyBaseline.security, 'dependencyBaseline.security');
+  assertNonNegativeInteger(
+    input.dependencyBaseline.security.openAlerts,
+    'dependencyBaseline.security.openAlerts',
+  );
+  assertNonNegativeInteger(
+    input.dependencyBaseline.security.dismissedResiduals,
+    'dependencyBaseline.security.dismissedResiduals',
+  );
+  assertRecord(input.dependencyBaseline.queue, 'dependencyBaseline.queue');
+  assertNonNegativeInteger(
+    input.dependencyBaseline.queue.openPullRequests,
+    'dependencyBaseline.queue.openPullRequests',
+  );
+  assertNonNegativeInteger(
+    input.dependencyBaseline.queue.dashboardApprovals,
+    'dependencyBaseline.queue.dashboardApprovals',
+  );
+  assertString(
+    input.dependencyBaseline.queue.automatedPullRequests,
+    'dependencyBaseline.queue.automatedPullRequests',
+  );
+  assertRecord(input.dependencyBaseline.cache, 'dependencyBaseline.cache');
+  assertNonNegativeInteger(
+    input.dependencyBaseline.cache.activeCount,
+    'dependencyBaseline.cache.activeCount',
+  );
+  assertNonNegativeInteger(
+    input.dependencyBaseline.cache.activeSizeBytes,
+    'dependencyBaseline.cache.activeSizeBytes',
+  );
+  if (
+    !Array.isArray(input.dependencyBaseline.knownGaps) ||
+    input.dependencyBaseline.knownGaps.length === 0
+  ) {
+    throw new TypeError('dependencyBaseline.knownGaps must contain at least one gap');
+  }
+  input.dependencyBaseline.knownGaps.forEach((gap, index) =>
+    assertString(gap, `dependencyBaseline.knownGaps[${index}]`),
+  );
 
   assertRecord(input.workflow, 'workflow');
   assertNonNegativeNumber(input.workflow.wallSeconds, 'workflow.wallSeconds');
@@ -129,6 +218,13 @@ export function summarizeCiPerformanceEvidence(evidence) {
       pnpm: parsed.cache.pnpm.state,
     },
     computeSeconds,
+    dependencyBaseline: {
+      acceptanceRunCount: parsed.dependencyBaseline.acceptanceRuns.length,
+      devHeadSha: parsed.dependencyBaseline.devHeadSha,
+      dismissedResiduals: parsed.dependencyBaseline.security.dismissedResiduals,
+      openAlerts: parsed.dependencyBaseline.security.openAlerts,
+      state: parsed.dependencyBaseline.state,
+    },
     jobs,
     testCaseCount: parsed.testInventory.testCaseCount,
     testFileCount: parsed.testInventory.testFileCount,
