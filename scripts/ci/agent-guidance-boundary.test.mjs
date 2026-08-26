@@ -230,6 +230,13 @@ test('OMX wiki stays curated instead of auto-capturing session transcripts', () 
   );
 });
 
+test('generated local evidence stays outside the repository formatting gate', () => {
+  const prettierIgnore = readFileSync(resolve(repoRoot, '.prettierignore'), 'utf8');
+
+  assert.match(prettierIgnore, /^artifacts\/local\/$/mu);
+  assert.match(prettierIgnore, /^omx_wiki\/$/mu);
+});
+
 test('tracked durable documentation does not use ignored OMX plans as source of truth', () => {
   const references = workingPaths()
     .filter((path) => textExtensions.has(extname(path)))
