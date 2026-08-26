@@ -72,17 +72,18 @@ Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 �
 | Workflow token              | `default_workflow_permissions=read`, PR approval off                                     | `VERIFIED_REMOTE`   |
 | Private fork PR             | workflow/write token disabled; fork workflow execution disabled                          | `VERIFIED_REMOTE`   |
 | Artifact/log retention      | owner UI 7 days                                                                          | `VERIFIED_OWNER_UI` |
-| Actions cache policy        | owner UI 7-day retention / 10GB eviction; API 9,085,367,158 bytes, 51 entries            | `VERIFIED_REMOTE`   |
-| Actions artifacts           | 224 active, 11,347,041 bytes; observed expiry through 2026-08-28                         | `VERIFIED_REMOTE`   |
-| Effective shared storage    | owner Billing UI 기준 Pro 2GB, 현재 Actions storage 0GB billed                           | `VERIFIED_OWNER_UI` |
+| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries           | `VERIFIED_REMOTE`   |
+| Actions artifacts           | 98 active, 7,752,603 bytes; observed retention 7 days (2026-08-26)                       | `VERIFIED_REMOTE`   |
+| Effective shared storage    | owner Billing UI 기준 Pro 2GB; official 2026-08-26 Pro artifact reference는 1GB          | `REVERIFY_OWNER_UI` |
 | Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Vercel, Renovate; Portal Scan Only | `VERIFIED_OWNER_UI` |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 
-현재 cache는 약 8.46GiB로 10GB eviction 경계의 약 84.6%이며 51개 entry가 존재합니다. 즉시 삭제 근거는 아니지만 key
-폭증과 eviction thrash를 계속 측정해야 합니다. 반면 active artifact는 약 10.82MiB로 owner가 확인한 2GB effective shared
-allowance에 비해 작고, owner UI의 artifact/log retention은 7일입니다. Artifact와 cache를 같은 storage로 합산해 판단하지
-않습니다.
+현재 cache는 29개 entry / 약 6.96GiB로 10GiB eviction 경계의 약 69.6%입니다. pnpm family는 15개 / 약 4.42GiB, Next
+family는 14개 / 약 2.54GiB이며 80%부터 key 폭증과 eviction thrash를 검토합니다. Active artifact는 98개 / 약 7.4MiB이고
+owner UI의 artifact/log retention은 7일입니다. Owner UI의 effective 2GB와 공식 GitHub Pro artifact reference 1GB가
+다르므로 다음 billing review에서 재확인하며, 어느 경우에도 artifact와 별도 10GiB cache를 합산하지 않습니다. Packages는
+현재 `gh` credential에 `read:packages`가 없어 사용량을 0으로 추측하지 않습니다.
 
 ## Secret-free 확인 절차
 

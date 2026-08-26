@@ -3,6 +3,7 @@
     "id": 1001,
     "event": "pull_request",
     "run_attempt": 1,
+    "head_branch": "feature/web-example",
     "head_sha": "0123456789abcdef0123456789abcdef01234567",
     "status": "completed",
     "conclusion": "success",
@@ -10,6 +11,32 @@
     "run_started_at": "2026-08-26T00:00:02Z",
     "updated_at": "2026-08-26T00:02:02Z",
     "html_url": "https://github.com/example/repository/actions/runs/1001"
+  },
+  "pullRequest": {
+    "number": 42,
+    "base": {
+      "ref": "dev",
+      "sha": "1111111111111111111111111111111111111111"
+    },
+    "head": {
+      "ref": "feature/web-example",
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  },
+  "changedPaths": ["apps/web/src/example.tsx"],
+  "dependencyFingerprint": {
+    "capturedAt": "2026-08-26T06:25:12Z",
+    "devHeadSha": "db9638295f8191eced847950fb704c19ae780ba8",
+    "fileSha256": {
+      "pnpm-lock.yaml": "fixture-lock"
+    }
+  },
+  "pricing": {
+    "reviewedAt": "2026-08-26",
+    "sourceUrl": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+    "runnerRatesUsdPerMinute": {
+      "ubuntu-24.04": 0.006
+    }
   },
   "jobs": [
     {

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-26",
+  "pricing": {
+    "currency": "USD",
+    "sourceUrl": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+    "runnerRatesUsdPerMinute": {
+      "ubuntu-24.04": 0.006
+    },
+    "storageRatesUsdPerGbMonth": {
+      "artifactsAndPackages": 0.25,
+      "actionsCache": 0.07
+    }
+  },
+  "repositoryResources": {
+    "artifactRetentionDays": 7,
+    "cacheRetentionDays": 7,
+    "cacheLimitBytes": 10737418240,
+    "cacheWarningRatio": 0.8,
+    "effectiveSharedStorageBytes": 2147483648,
+    "officialProArtifactStorageReferenceBytes": 1073741824,
+    "sharedStorageOwnerEvidence": "docs/development/github/remote-repository-settings.md",
+    "allowanceDriftRequiresOwnerReview": true
+  },
+  "advisoryBudgets": {
+    "full": { "wallP95Seconds": 480, "roundedBilledMinutesP95": 30 },
+    "api-only": { "wallP95Seconds": 300, "roundedBilledMinutesP95": 15 },
+    "web-only": { "wallP95Seconds": 300, "roundedBilledMinutesP95": 15 },
+    "infra-only": { "wallP95Seconds": 300, "roundedBilledMinutesP95": 10 },
+    "docs-config-tooling-only": {
+      "wallP95Seconds": 90,
+      "roundedBilledMinutesP95": 5
+    }
+  }
+}

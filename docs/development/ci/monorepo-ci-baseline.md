@@ -20,7 +20,7 @@ acceptance run, queue, security, cache snapshot은 `scripts/ci/fixtures/ci-perfo
 `dependencyBaseline`이 소유합니다.
 
 `fileSha256`는 현재 표본이 계속 일치해야 하는 dependency/image input입니다. `workflowBaselineSha256`는 최적화 전 workflow
-comparison snapshot이며 Phase 5 workflow 변경으로 current tree와 달라지는 것이 정상입니다.
+comparison snapshot이며 workflow 최적화 이후 current tree와 달라지는 것이 정상입니다.
 
 | Boundary               | Frozen value                                                       |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -66,22 +66,61 @@ pnpm ci:performance:collect -- \
 ```
 
 The collector accepts completed runs and records run/job/stage timing, queue, raw compute, per-job rounded minutes, runner labels,
-cache hit/size, test counts, and artifact metadata. Natural PRs populate surface cohorts; no-op PRs are not created only to
-increase sample count.
+cache hit/size, test counts, artifact metadata, PR/base identity, expected/observed lane, retry와 failed/cancelled compute를
+기록합니다. Natural PRs populate surface cohorts; no-op PRs are not created only to increase sample count.
 
-## Working tree ownership
+현재 resource snapshot과 cohort report를 함께 생성합니다.
 
-측정 당시 아래 파일은 이 CI/test cleanup과 무관한 선행 작업이므로 수정하거나 완료 근거에 포함하지
+```bash
+pnpm ci:performance:resources -- \
+  --repo=woohyun365/knu_roommate \
+  --output=artifacts/local/ci-performance/resources-<date>.json
+
+pnpm ci:performance:report -- \
+  --input=artifacts/local/ci-performance/<dataset>.json \
+  --resource-inventory=artifacts/local/ci-performance/resources-<date>.json \
+  --output=artifacts/local/ci-performance/cohort-report.json
+```
+
+Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본이나 frozen input을 변경한 run을 거부합니다. 주요
+성능 cohort는 `pull_request` event만 사용하며, 과거 `dev` push처럼 다른 event는 별도 event cohort로 남겨 섞인 통계를
+만들지 않습니다.
+
+## Current frozen-input cohort
+
+2026-08-26 현재 동일 dependency fingerprint로 재수집한 성공 run은 다음과 같습니다.
+
+| Event          | Run           | Observed surface | Wall | Raw compute | Rounded billed | Gross list estimate |
+| -------------- | ------------- | ---------------- | ---: | ----------: | -------------: | ------------------: |
+| Pull request   | `32939047806` | full             | 589s |      1,196s |             25 |              $0.150 |
+| Retired `push` | `32939810146` | full             | 622s |      1,405s |             29 |              $0.174 |
+| Pull request   | `32945877705` | full             | 618s |      1,425s |             30 |              $0.180 |
+
+Gross estimate는 2026-08-26 [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)의
+표준 Linux 2-core list rate `$0.006/min`을 job별 rounded minute에 적용한 값입니다.
+Included minutes discount와 실제 net invoice가 아니며, Billing UI/API evidence 없이 비용 ledger의 실제 지출로 합산하지
 않습니다.
 
-- `apps/api/test/architecture/matching/pair-only-policy-boundary.spec.ts`
-- `apps/web/src/auth/flows/signup/components/__tests__/LegalConsentStep.test.tsx`
-- `apps/web/src/landing/components/__tests__/LandingHeader.test.tsx`
-- `apps/web/src/landing/sections/LandingSupportSection.test.tsx`
-- `DESIGN.md`
+PR cohort는 2개뿐이므로 p50/p95를 게시하지 않습니다. API-only, Web-only, Infra-only, docs/config/tooling-only cohort도 아직
+없습니다. 5개에서 provisional p50, 10개에서 p95를 생성하고 그전에는 min/max와 sample count만 참고합니다.
 
-CI/test cleanup은 `scripts/ci/`, API test runner/integration support, Web Home/Matching/RoommateTab
-architecture·Storybook test와 이 문서를 소유합니다.
+PR `32939047806`의 변경은 현재 classifier 기준 Infra+repository-policy였지만 당시 workflow는 Shared/API/Web까지
+실행했습니다. `observedSurface=full`, `expectedSurface=infra-only`, `selectionMatchesObservedJobs=false`로 기록되어 변경 분류
+false positive와 실제 runner 비용을 구분합니다.
+
+## Current cache, artifact, and Packages inventory
+
+2026-08-26 read-only inventory:
+
+| Resource        | Current evidence                                          | Boundary / interpretation                                   |
+| --------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
+| Actions cache   | 29 entries / 7,475,286,431 bytes / 69.6% of 10GiB         | pnpm 15개·4,744,577,759B, Next 14개·2,730,708,672B          |
+| Artifacts       | active 98개 / 7,752,603 bytes / observed retention 7 days | expired metadata 244개; active size는 allowance보다 작음    |
+| GitHub Packages | unverified                                                | 현재 `gh` credential에 `read:packages`가 없어 추측하지 않음 |
+
+Cache는 80%부터 key churn과 eviction을 검토합니다. Artifact와 Packages는 shared storage이고 cache 10GiB는 별도 경계입니다.
+Owner UI가 확인한 effective shared storage 2GB와 2026-08-26 공식 GitHub Pro artifact reference 1GB가 다르므로, release/cost
+판단 전에 Billing UI에서 다시 확인합니다. 어느 값을 사용하더라도 현재 active artifact 약 7.4MiB는 allowance보다 작습니다.
 
 ## Historical GitHub Actions baseline
 
@@ -174,9 +213,12 @@ Public app 명령은 fresh checkout에서 단독 실행할 수 있도록 준비 
 Playwright는 이미 생성한 standalone artifact에 `static`과 `public`을 복사한 뒤 기동하며, source
 artifact가 없으면 browser test 전에 fail-fast한다.
 
-## Local baseline
+## Historical local baseline (2026-08-06)
 
-구조 cleanup 전 기준:
+아래 값은 prepare-once 구조를 적용하기 전후의 당시 local 비교 자료입니다. 현재 CI 성공 여부나 current blocker를 뜻하지
+않습니다.
+
+구조 변경 전 기준:
 
 | Command/lane       | 결과                          |    시간 |
 | ------------------ | ----------------------------- | ------: |
@@ -189,7 +231,7 @@ artifact가 없으면 browser test 전에 fail-fast한다.
 | Web Vitest         | 1212 passed, 4 stale failures |  32.02s |
 | Web build          | passed                        |  11.62s |
 
-구조 cleanup 후 검증:
+구조 변경 후 검증:
 
 | Command/lane       | 결과                            |                                          시간 |
 | ------------------ | ------------------------------- | --------------------------------------------: |
@@ -221,31 +263,16 @@ boundary를 함께 검증하며 current CD boundary test를 포함해 통과합�
 
 ## Web build-once local evidence
 
-- Web product/test/e2e/Storybook typecheck 통과
-- Web Vitest 204 files / 1179 tests 통과, Vitest 30.08s
-- Next production build 통과, compile 3.1s
+- Web product/test/e2e/Storybook static build 통과
+- Frozen remote inventory 기준 Web Vitest 221 files / 1,232 tests 통과
+- Next production build와 Sentry artifact boundary 통과
 - prebuilt Playwright server 기동 시 Next build 재호출 없음
 - prebuilt desktop/mobile Chromium targeted smoke 2건 통과
-- 조건부 Storybook static build 통과
-- 현재 browser smoke는 21 passed / 2 skipped / 5 stale locator failures
-- Web lint는 기존 Chat error 1개와 warning 1개로 중단
+- Full remote browser smoke 26건 통과
 
 Reusable Web workflow는 job duration을 `$GITHUB_STEP_SUMMARY`에 기록한다. Web-only PR p95는 실제
 orchestrator run이 누적된 뒤 최근 run 기준으로 갱신하며 cache hit를 correctness 전제로 사용하지
 않는다.
-
-## Known blockers and stale assertions
-
-구조 cleanup 전 Web baseline은 다음을 별도 문제로 확인했습니다.
-
-- Chat hook lint: effect 내부 state update
-- Chat room lint: effect dependency warning
-- Landing policy source가 retired numbered docs 경로를 고정
-- Home overlay가 이전 fixed-body scroll lock을 기대
-- Roommate search cursor recovery가 복구된 append 결과를 누락
-
-Landing/Home/Roommate의 stale assertion은 observable production behavior와 tracked docs 경로 기준으로
-정리합니다. Chat lint는 이 작업의 소유 범위가 아니므로 별도 blocker로 유지합니다.
 
 ## Migration evidence
 
