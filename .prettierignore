@@ -5,6 +5,8 @@
 **/coverage/**
 **/*.log
 pnpm-lock.yaml
+artifacts/local/
+omx_wiki/
 
 # Generated from the API config registry; preserve generator-owned serialization.
 infra/deploy/api/env.manifest.json

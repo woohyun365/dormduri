@@ -12,6 +12,33 @@ API/Web CI 구조를 최적화하기 전에 현재 command graph, 반복 준비 
 - 로컬 기준: 개발 장비의 warm dependency/store 상태
 - 시간은 서로 다른 환경 간 절대 성능 비교가 아니라 같은 command graph의 전후 비교에만 사용합니다.
 
+## Frozen dependency input for the next measurement set
+
+2026-08-26 기준 다음 CI 성능 표본은 `dev` commit
+`db9638295f8191eced847950fb704c19ae780ba8`의 dependency/toolchain 상태를 기준으로 수집합니다. 정확한 input SHA-256,
+acceptance run, queue, security, cache snapshot은 `scripts/ci/fixtures/ci-performance-baseline.json`의
+`dependencyBaseline`이 소유합니다.
+
+| Boundary               | Frozen value                                                       |
+| ---------------------- | ------------------------------------------------------------------ |
+| Node / pnpm            | Node 24.19.0 / pnpm 11.7.0                                         |
+| pnpm action            | v6.0.10 / `0977fd99...`                                            |
+| PostgreSQL             | 18.6 / `d3e1620b...a65b2`                                          |
+| Alertmanager           | 0.34.0 / `690c7b52...0340d`                                        |
+| Grafana                | 13.2.0 / `3fd54ae1...2429b`                                        |
+| Security               | open alerts 0, reviewed dismissed residuals 4                      |
+| Dependency queue       | open PR 0, Dashboard approvals 0, Automated PRs owner-verified off |
+| Actions cache snapshot | 29 entries / 7,475,286,431 bytes (about 6.96GiB)                   |
+| Current test inventory | 690 files / 3,401 cases                                            |
+
+Accepted hosted runs are PR #356 `32688187840`, #357 `32691749046`, #358 `32694665874`, #362 `32910632496`, and #363
+`32936730911`. A security-critical dependency change invalidates this freeze or requires explicit reconciliation before later
+samples are compared.
+
+This is a CI measurement input, not production release evidence. Grafana 13.2 local recovery samples increased from a prior 17.3s
+sample to 25.3s and 27.4s while staying within health/resource gates; production persistent-volume rollback and provider billing
+remain separate release/owner evidence.
+
 ## Working tree ownership
 
 측정 당시 아래 파일은 이 CI/test cleanup과 무관한 선행 작업이므로 수정하거나 완료 근거에 포함하지

@@ -51,7 +51,10 @@ test('Figma readiness treats Education conditionally and revalidates effective M
 
   assert.match(figma, /Figma Education account/u);
   assert.match(figma, /개발자·agent session마다 다시 확인/u);
-  assert.match(figma, /과거 session에서 성공한 OAuth와 seat evidence를[\s\S]{0,100}상속하지 않습니다/u);
+  assert.match(
+    figma,
+    /과거 session에서 성공한 OAuth와 seat evidence를[\s\S]{0,100}상속하지 않습니다/u,
+  );
   assert.match(figma, /Education을[\s\S]{0,80}Professional\/Organization tier로 추측하지 않/u);
   assert.match(figma, /`whoami`/u);
   assert.match(figma, /read-only smoke/u);

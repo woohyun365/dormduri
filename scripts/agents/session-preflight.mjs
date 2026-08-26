@@ -205,11 +205,7 @@ function resolveBranch() {
   const symbolicBranch = git(['branch', '--show-current']);
   if (symbolicBranch) return symbolicBranch;
 
-  return (
-    process.env.GITHUB_HEAD_REF?.trim() ||
-    process.env.GITHUB_REF_NAME?.trim() ||
-    'detached'
-  );
+  return process.env.GITHUB_HEAD_REF?.trim() || process.env.GITHUB_REF_NAME?.trim() || 'detached';
 }
 
 function printText(summary) {
