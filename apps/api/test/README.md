@@ -30,8 +30,9 @@ API public 명령은 fresh checkout에서 단독 실행할 수 있도록 `ci:pre
 - import 방향·public surface·purity 같은 정적 invariant는 `test/architecture`, SQL·migration·배포 artifact·runbook evidence는 `test/operations`가 소유한다.
 - `@repo/shared` schema behavior와 package export surface는 `packages/shared/test`가 소유한다. API는 transport/presenter 또는 API-local orchestration만 검증한다.
 - Integration spec 하나는 하나의 user journey 또는 transaction invariant를 소유하고, 공통 DB seed와 app lifecycle은 `test/integration/_support`에서 재사용한다.
-- Integration은 suite별 UUID schema ownership을 전제로 `pool: 'forks'`, `fileParallelism: true`, `--maxWorkers=2`를
-  사용한다. E2E는 `fileParallelism: false`, `--maxWorkers=1`을 유지한다.
+- Integration의 local/full command는 suite별 UUID schema ownership을 전제로 `pool: 'forks'`, `fileParallelism: true`,
+  `--maxWorkers=2`를 사용한다. Hosted CI는 두 runner가 각각 독립 PostgreSQL service와 Vitest `1/2`, `2/2` shard를
+  소유하고 shard 안에서는 `--maxWorkers=1`을 유지한다. E2E는 `fileParallelism: false`, `--maxWorkers=1`을 유지한다.
 - `test/operations`는 DB·reference data·infra artifact와 외부 provider/release smoke의 bounded contract를 검증한다. 실제 side effect 실행은 명시적 script와 env guard를 사용한다.
 - Stress raw artifact는 `test/stress/reports/.tmp-*`에 mode `0600`으로 만들고 종료 시 제거한다. parser와 renderer source는 `test/stress/evidence`가 소유한다.
 - `jest` runner/dependency를 재도입하지 않는다.

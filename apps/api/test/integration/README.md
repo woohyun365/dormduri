@@ -8,7 +8,8 @@
 - 실행: `pnpm --dir apps/api test:integration`
 - 격리: suite별 disposable schema, case 사이 truncate, `app close → sandbox cleanup`
 - side effect 격리: 자동 mail dispatcher는 끄고, worker 동작은 owning test가 명시적으로 호출
-- 실행 안전성: `pool: 'forks'`, `fileParallelism: true`, `--maxWorkers=2`; 각 fork는 suite별 UUID schema를 독립 소유
+- 실행 안전성: local/full command는 `pool: 'forks'`, `fileParallelism: true`, `--maxWorkers=2`; Hosted CI는 독립
+  PostgreSQL runner 두 개가 `1/2`, `2/2` shard를 하나씩 소유하고 shard 안에서는 `--maxWorkers=1`을 사용
 
 ## 구조
 
@@ -70,6 +71,7 @@ wc -l /tmp/knu-integration-migrations.jsonl
 ```
 
 Evidence opt-in이 없으면 파일이나 product log를 만들지 않는다. Current full suite는 27 files / 225 tests / migration
-27회다. Sequential baseline span 95.48s에서 worker 2 반복 span 47.42s, 48.73s, 53.69s로 감소했으며 세 번 모두 같은
-inventory와 migration count를 통과했다. Worker 3 이상이나 별도 CI job shard는 추가 cost evidence가 없으므로 사용하지
-않는다. Targeted one-file debugging command는 noise를 줄이기 위해 `--maxWorkers=1`을 유지한다.
+27회다. Local worker 2 반복은 같은 inventory와 migration count를 통과했다. Hosted job에서 같은 runner의 worker 2는
+frozen p50 목표를 충족하지 못해 CI는 별도 runner의 stable Vitest shard를 사용한다. Local shard inventory는 14 files /
+123 tests / 15 migrations와 13 files / 102 tests / 12 migrations로 합계가 full suite와 일치한다. Targeted one-file
+debugging command는 noise를 줄이기 위해 `--maxWorkers=1`을 유지한다.

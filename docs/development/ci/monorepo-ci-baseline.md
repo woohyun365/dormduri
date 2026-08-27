@@ -341,5 +341,17 @@ Behavior name set은 전후 동일하며 migration 14회(약 34.1%)를 제거했
 command baseline과 비교하면 local warm run은 57.17초(약 22.0%) 단축되었습니다. Access control,
 migration status, connection-time처럼 독립 schema가 의미를 갖는 suite는 합치지 않았습니다.
 
-통합 후 p95를 판정할 원격 run evidence는 아직 누적되지 않았지만 local full run이 5분 이내이므로
-API fast/DB job split은 적용하지 않습니다. Integration/E2E는 DB race를 피하기 위해 worker 1을 유지합니다.
+Current sequential rerun은 27 files / 225 tests / 27 migrations를 99.86s command, 95.48s test span에 완료했습니다. Suite별
+UUID schema를 유지한 same-job worker 2 candidate는 세 번 연속 225/225 tests와 27 migrations를 통과했고 test span은
+47.42s, 48.73s, 53.69s였습니다. Canonical command도 55.93s에 통과했습니다. Sequential span 대비 반복 median은 약 49.0%
+감소했습니다.
+
+첫 hosted worker 2 실행 `33075360973`은 27 files / 225 tests를 통과했지만 integration stage가 206s로, frozen p50 240s
+대비 약 14.2% 감소하는 데 그쳤습니다. Local process에서는 효과가 컸지만 2 vCPU hosted runner에서 migration과 test가 같은
+resource를 경쟁하므로 35% acceptance를 충족하지 못했습니다.
+
+후속 candidate는 API core job에서 integration을 분리하고, 독립 PostgreSQL service를 가진 두 runner가 stable Vitest
+`1/2`, `2/2` shard를 실행합니다. Local shard inventory는 14 files / 123 tests / 15 migrations와 13 files / 102 tests / 12
+migrations로 정확히 27 files / 225 tests / 27 migrations를 구성합니다. E2E는 DB/HTTP lifecycle이 달라 core job에서 worker
+1을 유지합니다. Hosted matrix의 반복 시간과 job-rounded billed-minute는 current candidate PR에서 검증한 뒤 acceptance를
+판정합니다.
