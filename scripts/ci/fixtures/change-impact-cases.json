@@ -168,6 +168,18 @@
     }
   },
   {
+    "name": "github-account-evidence-only",
+    "paths": ["scripts/github/account-evidence.mjs", "scripts/github/account-evidence.test.mjs"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "observability-infra-only",
     "paths": ["infra/observability/loki/loki.yml"],
     "expected": {
