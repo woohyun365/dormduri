@@ -90,6 +90,24 @@ API Integration/E2E는 disposable PostgreSQL schema race를 피하기 위해 wor
 - Routine 성공 artifact는 downstream consumer가 없으면 업로드하지 않는다. 현재 browser/infra evidence는 7일 안에
   만료되며, cache와 달리 Actions artifact/Packages shared allowance에 포함된다.
 
+## Web unit test environment 경계
+
+Web unit tests는 한 Vitest process와 한 CI job 안에서 두 project로 실행한다.
+
+- Node-safe `.ts` tests: Node environment, DOM setup 없음
+- `.tsx` tests와 명시적 `.dom.test.ts`: jsdom environment, `src/test-setup.ts` 적용
+- Current inventory: Node 107 files / 621 cases, jsdom 114 files / 611 cases; total 221 files / 1,232 cases
+- Pool: repeated local correctness/timing을 통과한 `threads`; 고정 `maxWorkers`는 사용하지 않음
+
+DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/web-vitest-project-ownership.test.mjs`가 exact-once
+inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Test project는 별도 GitHub job이나
+artifact로 분리하지 않는다. 현재 evidence에서 shard의 install/cache/billed-minute 중복을 정당화할 필요가 없기 때문이다.
+
+Hosted Web-only evidence는 동일 221 files / 1,232 cases에서 Web unit 181s와 one-time rerun 184s를 기록했다. 이전 full-PR
+stage provisional p50 267s 대비 각각 32.2%, 31.1% 감소했고 default first-attempt Web-only run은 12 rounded billed minutes로
+15-minute advisory boundary 안에 있다. 자연 발생 post-change sample이 추가되기 전에는 이 두 observation을 안정된 p50이나
+p95로 승격하지 않는다.
+
 ## Stage timing evidence
 
 `scripts/ci/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.

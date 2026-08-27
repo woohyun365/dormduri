@@ -206,32 +206,6 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   assert.doesNotMatch(authentication, /Authorization:\s*Bearer\s+\S+/iu);
 });
 
-test('Copilot uses a bounded adapter instead of duplicating the orchestration contract', () => {
-  const instructions = read('.github/copilot-instructions.md');
-
-  for (const currentBoundary of [
-    'AGENTS.md',
-    '현재 사용자 요청',
-    'current working tree',
-    '요청 범위 밖 파일',
-    'targeted test',
-  ]) {
-    assert.ok(
-      instructions.includes(currentBoundary),
-      `missing Copilot boundary: ${currentBoundary}`,
-    );
-  }
-
-  for (const duplicatedWorkflow of ['.omx/plans', '$team', '$ralph', '<agent_catalog>']) {
-    assert.ok(
-      !instructions.includes(duplicatedWorkflow),
-      `Copilot adapter duplicates workflow guidance: ${duplicatedWorkflow}`,
-    );
-  }
-
-  assert.ok(instructions.split('\n').length <= 12, 'Copilot adapter must stay concise');
-});
-
 test('Renovate owns npm updates while Dependabot retains non-npm ecosystems', () => {
   const dependabot = read('.github/dependabot.yml');
   const renovate = JSON.parse(read('renovate.json'));

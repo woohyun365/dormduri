@@ -168,7 +168,7 @@ Storybook 검증:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
-  src/main/tabs/roommate-list/__tests__/roommate-story-scenarios.test.ts
+  src/main/tabs/roommate-list/__tests__/roommate-story-scenarios.dom.test.ts
 pnpm --dir apps/web typecheck:storybook
 pnpm --dir apps/web storybook:build
 ```
