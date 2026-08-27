@@ -116,11 +116,12 @@ for (const workflow of [
   {
     path: '.github/workflows/api-ci.yml',
     prepare: 'pnpm api:prepare',
+    prepareCount: 2,
     required: [
       'pnpm api:check:prepared',
       'pnpm api:test:runtime-config-health-contract:prepared',
       'pnpm api:test:prepared',
-      'pnpm api:test:integration:prepared',
+      'pnpm --dir apps/api ci:test:integration:shard',
       'pnpm api:test:e2e:prepared',
       'pnpm api:test:stress:prepared',
       'pnpm api:build:prepared',
@@ -130,6 +131,7 @@ for (const workflow of [
   {
     path: '.github/workflows/web-ci.yml',
     prepare: 'pnpm web:prepare',
+    prepareCount: 1,
     required: [
       'pnpm web:lint:prepared',
       'pnpm web:typecheck:prepared',
@@ -140,9 +142,9 @@ for (const workflow of [
     forbidden: ['pnpm shared:build'],
   },
 ]) {
-  test(`${workflow.path} prepares once and invokes prepared capabilities`, () => {
+  test(`${workflow.path} prepares each runner and invokes prepared capabilities`, () => {
     const source = read(workflow.path);
-    assert.equal(occurrences(source, workflow.prepare), 1);
+    assert.equal(occurrences(source, workflow.prepare), workflow.prepareCount);
     assertIncludesAll(source, workflow.required);
     for (const command of workflow.forbidden) {
       assert.ok(!source.includes(command), `unexpected ${command}`);
@@ -227,6 +229,21 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
     '--stage=stress-harness',
   ]);
   assert.ok(apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'));
+});
+
+test('API integration shards own isolated runners and PostgreSQL services', () => {
+  const apiWorkflow = read('.github/workflows/api-ci.yml');
+
+  assertIncludesAll(apiWorkflow, [
+    'api-integration:',
+    'fail-fast: false',
+    "shard: '1/2'",
+    "shard: '2/2'",
+    'KNU_API_INTEGRATION_SHARD: ${{ matrix.shard }}',
+    'pnpm --dir apps/api ci:test:integration:shard',
+  ]);
+  assert.equal(occurrences(apiWorkflow, 'services:'), 2);
+  assert.equal(occurrences(apiWorkflow, 'POSTGRES_DB: knu_roommate'), 2);
 });
 
 test('app workflows publish comparable stage timing and cache evidence', () => {

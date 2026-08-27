@@ -75,7 +75,9 @@ Public command는 fresh checkout에서 단독 실행할 수 있도록 Shared bui
 | Web browser smoke  | `pnpm web:e2e`                        | `pnpm web:e2e:prepared`                  |
 | Storybook static   | `pnpm web:storybook:build`            | Storybook 변경일 때 `ci:storybook:build` |
 
-API Integration/E2E는 disposable PostgreSQL schema race를 피하기 위해 worker 1을 유지한다. K6/Artillery/Docker real load는 일반 CI가 아니라 local/staging rehearsal이 소유한다.
+API Integration의 local/full command는 suite별 UUID PostgreSQL schema와 fork process isolation을 전제로 worker 2를
+사용한다. Hosted CI는 두 runner가 각각 독립 PostgreSQL service와 Vitest shard 하나를 소유한다. E2E는 core API job에서
+worker 1을 유지한다. K6/Artillery/Docker real load는 일반 CI가 아니라 local/staging rehearsal이 소유한다.
 
 ## Build와 cache 경계
 
@@ -107,6 +109,23 @@ Hosted Web-only evidence는 동일 221 files / 1,232 cases에서 Web unit 181s�
 stage provisional p50 267s 대비 각각 32.2%, 31.1% 감소했고 default first-attempt Web-only run은 12 rounded billed minutes로
 15-minute advisory boundary 안에 있다. 자연 발생 post-change sample이 추가되기 전에는 이 두 observation을 안정된 p50이나
 p95로 승격하지 않는다.
+
+## API integration database 경계
+
+Integration spec은 UUID가 포함된 disposable schema를 생성하고 migration, runtime `DATABASE_URL`, app, truncate, cleanup을
+해당 suite가 소유한다. `integration-db.ts`는 schema 생성 후 migration을 적용하고 `app close → DROP SCHEMA CASCADE` 순서로
+정리한다. Local/full command는 이 process isolation을 이용해 worker 2를 사용한다.
+
+Hosted runner에서는 같은 job의 worker 2가 CPU와 PostgreSQL resource를 공유해 frozen p50 대비 목표 개선율을 충족하지
+못했다. CI는 stable Vitest `1/2`, `2/2` shard를 별도 runner와 PostgreSQL service에 배치하고 각 shard 내부를 worker 1로
+유지한다. Current inventory 27 files / 225 tests / 27 migrations는 local shard 기준 14 files / 123 tests / 15 migrations와
+13 files / 102 tests / 12 migrations로 정확히 합쳐진다. E2E/stress는 integration shard에 포함하지 않으며 top-level
+fail-closed summary가 reusable API workflow의 모든 job 결과를 집계한다.
+
+두 hosted 반복에서 느린 shard도 frozen integration p50 대비 acceptance를 넘었고 full-run job rounding 환산은 기존
+baseline의 20% 증가 상한 안에 남았다. API-only run은 15-minute advisory를 초과하므로 duplicated install/prepare와 artifact
+reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
+[CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
 
 ## Stage timing evidence
 

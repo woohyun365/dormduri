@@ -227,6 +227,16 @@ problem observed
 - test signal을 줄이지 않고 무엇이 개선됐는가
 - 선택하지 않은 도구와 재검토 조건은 무엇인가
 
+### Engineering evidence map
+
+| Case                           | Current decision                                                    | Measurement                                          | Implementation                                                 | Limitation / revisit                                                     |
+| ------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Web test environment partition | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #370](https://github.com/woohyun365/knu_roommate/pull/370) | Natural post-change cohort와 later DAG evidence는 baseline에서 계속 갱신 |
+| API integration DB sharding    | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #371](https://github.com/woohyun365/knu_roommate/pull/371) | Duplicate setup과 API-only advisory gap은 later DAG work에서 재검토      |
+
+이 map은 current evidence의 위치만 연결합니다. 수치, plan phase, 개인 면접 답변은 복사하지 않으며, underlying decision이
+되돌려지면 entry도 제거합니다.
+
 Agent 활용을 설명할 때도 “AI가 코드를 작성했다”보다 다음을 근거로 사용합니다.
 
 - 사람이 소유한 policy·security·provider decision
@@ -243,4 +253,4 @@ Agent 활용을 설명할 때도 “AI가 코드를 작성했다”보다 다음
 - Full SDD는 feature 규모와 requirement 안정성이 높아지고 tracked spec의 유지 이득이 비용보다 커질 때 재검토합니다.
 - 더 높은 autonomy는 CI, security, observability, rollback과 provider authority가 충분히 검증된 뒤 재검토합니다.
 
-마지막 검토일: 2026-08-20
+마지막 검토일: 2026-08-27

@@ -5,7 +5,7 @@ export default defineApiVitestConfig({
     include: ['test/integration/**/*.integration.spec.ts'],
     exclude: ['dist/**'],
     pool: 'forks',
-    fileParallelism: false,
+    fileParallelism: true,
     setupFiles: ['./test/setup/vitest.integration.setup.ts'],
     testTimeout: 60_000,
     hookTimeout: 60_000,

@@ -341,5 +341,27 @@ Behavior name set은 전후 동일하며 migration 14회(약 34.1%)를 제거했
 command baseline과 비교하면 local warm run은 57.17초(약 22.0%) 단축되었습니다. Access control,
 migration status, connection-time처럼 독립 schema가 의미를 갖는 suite는 합치지 않았습니다.
 
-통합 후 p95를 판정할 원격 run evidence는 아직 누적되지 않았지만 local full run이 5분 이내이므로
-API fast/DB job split은 적용하지 않습니다. Integration/E2E는 DB race를 피하기 위해 worker 1을 유지합니다.
+Current sequential rerun은 27 files / 225 tests / 27 migrations를 99.86s command, 95.48s test span에 완료했습니다. Suite별
+UUID schema를 유지한 same-job worker 2 candidate는 세 번 연속 225/225 tests와 27 migrations를 통과했고 test span은
+47.42s, 48.73s, 53.69s였습니다. Canonical command도 55.93s에 통과했습니다. Sequential span 대비 반복 median은 약 49.0%
+감소했습니다.
+
+첫 hosted worker 2 실행 `33075360973`은 27 files / 225 tests를 통과했지만 integration stage가 206s로, frozen p50 240s
+대비 약 14.2% 감소하는 데 그쳤습니다. Local process에서는 효과가 컸지만 2 vCPU hosted runner에서 migration과 test가 같은
+resource를 경쟁하므로 35% acceptance를 충족하지 못했습니다.
+
+Accepted candidate는 API core job에서 integration을 분리하고, 독립 PostgreSQL service를 가진 두 runner가 stable Vitest
+`1/2`, `2/2` shard를 실행합니다. Local shard inventory는 14 files / 123 tests / 15 migrations와 13 files / 102 tests / 12
+migrations로 정확히 27 files / 225 tests / 27 migrations를 구성합니다. E2E는 DB/HTTP lifecycle이 달라 core job에서 worker
+1을 유지합니다.
+
+PR #371 run `33077630757`의 first attempt에서 shard stage는 113s와 114s, deliberate second attempt에서는 133s와
+98s였습니다. 각 attempt의 느린 shard 114s, 133s median 123.5s는 frozen p50 240s 대비 약 48.5% 감소했고 두 번 모두 27
+files / 225 tests를 정확히 한 번씩 통과했습니다. First attempt는 816 raw compute seconds / 18 rounded billed minutes,
+second attempt 단독분은 823 raw seconds / 17 rounded minutes였습니다. Collector의 attempt 2 aggregate 1,639s / 35분은 두
+실행의 합계이므로 단일 run 비용으로 해석하지 않습니다.
+
+Frozen full baseline 25분에서 기존 API job 10분을 first/second attempt의 core+shard 14분/13분으로 치환하면 29분(+16%)과
+28분(+12%)입니다. 둘 다 global 20% ceiling 안이지만 API-only 17~18분은 15-minute advisory를 초과합니다. 후속
+DAG/artifact work는 중복 install/prepare를 줄여 이 advisory gap을 해결해야 하며, 자연 발생 표본이 쌓이기 전에는 이
+두 deliberate attempt를 안정된 p50/p95로 승격하지 않습니다.
