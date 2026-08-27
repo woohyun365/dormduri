@@ -156,8 +156,8 @@
     }
   },
   {
-    "name": "github-collaboration-input-only",
-    "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/copilot-instructions.md"],
+    "name": "github-documentation-only",
+    "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/SECURITY.md"],
     "expected": {
       "web": false,
       "api": false,
