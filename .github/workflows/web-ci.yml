@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  web:
-    name: Web build/test gate
+  web-core:
+    name: Web static/build/browser gate
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -67,9 +67,6 @@ jobs:
       - name: Web static checks
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=static -- sh -c 'pnpm web:lint:prepared && pnpm web:typecheck:prepared'
 
-      - name: Web unit tests
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=unit -- pnpm web:test:prepared
-
       - name: Web production build
         env:
           SENTRY_AUTH_TOKEN: sentry-ci-secret-must-not-ship
@@ -91,7 +88,7 @@ jobs:
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=browser -- pnpm web:e2e:prepared
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() }}
+        if: ${{ failure() && !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: web-playwright-report
@@ -119,3 +116,57 @@ jobs:
           echo "- next_build_cache_hit: ${{ steps.next-cache.outputs.cache-hit == 'true' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
           echo "- storybook_build: ${{ inputs.run_storybook }}" >> "$GITHUB_STEP_SUMMARY"
+
+  web-unit:
+    name: Web unit gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
+      NEXT_PUBLIC_SENTRY_ENABLED: '0'
+      NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED: '0'
+      NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
+      SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '0'
+      SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start CI timing
+        id: timing
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=Web-unit --stage=install -- pnpm install --frozen-lockfile
+
+      - name: Prepare Web dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=Web-unit --stage=prepare -- pnpm web:prepare
+
+      - name: Web unit tests
+        run: node scripts/ci/run-timed-command.mjs --scope=Web-unit --stage=unit -- pnpm web:test:prepared
+
+      - name: Summarize Web unit duration
+        if: ${{ always() && !cancelled() }}
+        env:
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+        run: |
+          duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "### Web unit timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
