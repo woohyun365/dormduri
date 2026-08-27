@@ -8,6 +8,7 @@
 - `ci/`: 변경 분류, CI 준비, 시간 측정, repository policy 실행
 - `dependencies/`: provider 계정 없이 dependency update 정책과 package-manager artifact 변경을 검증하는 bounded rehearsal
 - `git/`: commit message처럼 local Git hook과 CI가 공유하는 경량 repository contract
+- `github/`: account/repository control-plane을 mutate하지 않고 sanitized owner evidence만 수집하는 capability
 - `infra/check/`: 정적·container-backed 인프라 검증 진입점과 bounded validator
 - `infra/compose/`: Compose profile inventory 해석과 안전한 명령 조합
 - `infra/artifacts/`: OCI build evidence 생성과 manifest 검증

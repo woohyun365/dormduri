@@ -6,6 +6,7 @@ export const REPO_POLICY_SCRIPT_DIRECTORIES = [
   'scripts/ci',
   'scripts/dependencies',
   'scripts/git',
+  'scripts/github',
   'scripts/infra',
   'scripts/observability',
 ];
