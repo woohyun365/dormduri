@@ -23,7 +23,11 @@ const billingItemFields = [
   'unitType',
 ];
 const billingJq = `{usageItems: [.usageItems[] | {${billingItemFields.join(', ')}}]}`;
-const credentialPattern = /(?:github_pat_|gh[opusr]_[A-Za-z0-9_]{12,})/u;
+const credentialPatterns = [
+  /github_pat_[A-Za-z0-9_]{12,}/u,
+  /ghs_[A-Za-z0-9._-]{36,}/u,
+  /gh[opur]_[A-Za-z0-9_]{12,}/u,
+];
 
 class AccountEvidenceError extends Error {
   constructor(code, message, ownerAction, retryable = false) {
@@ -256,6 +260,17 @@ export function requestBillingUsageWithRetry(request) {
   );
 }
 
+export function findCredentialLikeValue(value) {
+  if (typeof value !== 'string') return null;
+
+  for (const pattern of credentialPatterns) {
+    const match = value.match(pattern);
+    if (match) return match[0];
+  }
+
+  return null;
+}
+
 export function buildAccountEvidence({ billing, collectedAt, controls, policy, resources }) {
   const evidence = {
     billing: structuredClone(billing),
@@ -273,7 +288,7 @@ export function buildAccountEvidence({ billing, collectedAt, controls, policy, r
     schemaVersion: 1,
   };
   const serialized = JSON.stringify(evidence);
-  if (credentialPattern.test(serialized)) {
+  if (findCredentialLikeValue(serialized)) {
     throw new Error('credential-like value detected in account evidence');
   }
   return evidence;

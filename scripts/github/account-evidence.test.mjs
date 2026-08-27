@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   buildAccountEvidence,
   classifyBillingApiFailure,
+  findCredentialLikeValue,
   parseAccountEvidenceArgs,
   parseAccountEvidencePolicy,
   requestBillingUsageWithRetry,
@@ -43,6 +44,29 @@ const billingPayload = {
     },
   ],
 };
+
+test('detects complete classic and stateless GitHub App installation tokens', () => {
+  const installationPrefix = ['ghs', ''].join('_');
+  const classic = `${installationPrefix}${'A1'.repeat(18)}`;
+  const stateless = [
+    ['ghs', '123456', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9'].join('_'),
+    `eyJpbnN0YWxsYXRpb25JZCI6MTIzNDU2LCJwYWRkaW5nIjoi${'Ab-_'.repeat(105)}In0`,
+    'signature-with_url-safe-characters',
+  ].join('.');
+
+  assert.ok(stateless.length > 520);
+  assert.equal(findCredentialLikeValue(`before ${classic} after`), classic);
+  assert.equal(findCredentialLikeValue(`before ${stateless} after`), stateless);
+  assert.equal(findCredentialLikeValue('ghs_short.a-b'), null);
+
+  for (const prefix of ['ghp', 'gho', 'ghu', 'ghr']) {
+    const token = `${prefix}_${'Ab_1'.repeat(4)}`;
+    assert.equal(findCredentialLikeValue(`before ${token} after`), token);
+  }
+
+  const fineGrainedPat = `github_pat_${'Ab_1'.repeat(4)}`;
+  assert.equal(findCredentialLikeValue(`before ${fineGrainedPat} after`), fineGrainedPat);
+});
 
 test('accepts only the bounded Plan-Read policy', () => {
   assert.equal(policy.billingCredential.permissionClass, 'Plan: Read-only');

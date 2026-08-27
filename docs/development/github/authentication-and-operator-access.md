@@ -109,6 +109,26 @@ GitHub connector는 local gh token을 사용하지 않습니다. ChatGPT/Codex�
 ChatGPT/Codex app access는 GitHub의 source permission을 넘을 수 없습니다. Connector access 문제는 ChatGPT Apps와 GitHub
 installation을 확인하고, gh 문제는 local CLI auth를 확인합니다.
 
+### GitHub App installation token 형식
+
+GitHub-managed Actions와 installed App이 사용하는 `ghs_` installation token은 opaque credential로 취급합니다. GitHub의
+stateless rollout은 기존 짧은 opaque token과 함께 `ghs_APPID_JWT` 형태의 약 520자 가변 token을 발급할 수 있으며 `.`,
+`_`, `-`가 포함될 수 있습니다. Token 내부 JWT claim을 해석하거나 권한 판단에 사용하지 않습니다.
+
+이 repository는 installation token을 직접 mint·저장하지 않습니다. `scripts/github/account-evidence.mjs`의 credential
+detector는 evidence persistence를 차단하기 위한 reject-only guard이며, classic token과 신규 stateless token 전체 형식을
+모두 탐지합니다. 실제 token, match substring 또는 authorization header는 오류와 artifact에 포함하지 않습니다.
+
+미래 integration이 installation token을 저장하거나 전달해야 한다면 다음을 먼저 검증합니다.
+
+- 고정 36/40자 길이 또는 `[A-Za-z0-9]` 전용 validation을 사용하지 않음
+- 최소 520자를 보존하는 storage/header boundary
+- `ghs_[A-Za-z0-9.\-_]{36,}`와 동등한 secret detection
+- token을 decode하지 않고 provider에 그대로 전달
+
+근거: [GitHub token format notice](https://github.blog/changelog/2026-04-24-notice-about-upcoming-new-format-for-github-app-installation-tokens/),
+[per-request compatibility test guidance](https://github.blog/changelog/2026-05-15-github-app-installation-tokens-per-request-override-header/).
+
 ## Billing과 임시 권한
 
 Billing API는 daily gh와 분리한 account permission `Plan: Read` 전용 fine-grained token으로만 조회합니다. 이 token은
