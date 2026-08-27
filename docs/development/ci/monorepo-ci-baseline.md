@@ -350,8 +350,18 @@ UUID schema를 유지한 same-job worker 2 candidate는 세 번 연속 225/225 t
 대비 약 14.2% 감소하는 데 그쳤습니다. Local process에서는 효과가 컸지만 2 vCPU hosted runner에서 migration과 test가 같은
 resource를 경쟁하므로 35% acceptance를 충족하지 못했습니다.
 
-후속 candidate는 API core job에서 integration을 분리하고, 독립 PostgreSQL service를 가진 두 runner가 stable Vitest
+Accepted candidate는 API core job에서 integration을 분리하고, 독립 PostgreSQL service를 가진 두 runner가 stable Vitest
 `1/2`, `2/2` shard를 실행합니다. Local shard inventory는 14 files / 123 tests / 15 migrations와 13 files / 102 tests / 12
 migrations로 정확히 27 files / 225 tests / 27 migrations를 구성합니다. E2E는 DB/HTTP lifecycle이 달라 core job에서 worker
-1을 유지합니다. Hosted matrix의 반복 시간과 job-rounded billed-minute는 current candidate PR에서 검증한 뒤 acceptance를
-판정합니다.
+1을 유지합니다.
+
+PR #371 run `33077630757`의 first attempt에서 shard stage는 113s와 114s, deliberate second attempt에서는 133s와
+98s였습니다. 각 attempt의 느린 shard 114s, 133s median 123.5s는 frozen p50 240s 대비 약 48.5% 감소했고 두 번 모두 27
+files / 225 tests를 정확히 한 번씩 통과했습니다. First attempt는 816 raw compute seconds / 18 rounded billed minutes,
+second attempt 단독분은 823 raw seconds / 17 rounded minutes였습니다. Collector의 attempt 2 aggregate 1,639s / 35분은 두
+실행의 합계이므로 단일 run 비용으로 해석하지 않습니다.
+
+Frozen full baseline 25분에서 기존 API job 10분을 first/second attempt의 core+shard 14분/13분으로 치환하면 29분(+16%)과
+28분(+12%)입니다. 둘 다 global 20% ceiling 안이지만 API-only 17~18분은 15-minute advisory를 초과합니다. 후속
+DAG/artifact work는 중복 install/prepare를 줄여 이 advisory gap을 해결해야 하며, 자연 발생 표본이 쌓이기 전에는 이
+두 deliberate attempt를 안정된 p50/p95로 승격하지 않습니다.

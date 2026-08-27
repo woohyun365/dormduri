@@ -122,6 +122,11 @@ Hosted runner에서는 같은 job의 worker 2가 CPU와 PostgreSQL resource를 �
 13 files / 102 tests / 12 migrations로 정확히 합쳐진다. E2E/stress는 integration shard에 포함하지 않으며 top-level
 fail-closed summary가 reusable API workflow의 모든 job 결과를 집계한다.
 
+두 hosted 반복에서 느린 shard도 frozen integration p50 대비 acceptance를 넘었고 full-run job rounding 환산은 기존
+baseline의 20% 증가 상한 안에 남았다. API-only run은 15-minute advisory를 초과하므로 duplicated install/prepare와 artifact
+reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
+[CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
+
 ## Stage timing evidence
 
 `scripts/ci/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.

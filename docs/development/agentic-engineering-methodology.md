@@ -232,6 +232,7 @@ problem observed
 | Case                           | Current decision                                                    | Measurement                                          | Implementation                                                 | Limitation / revisit                                                     |
 | ------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Web test environment partition | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #370](https://github.com/woohyun365/knu_roommate/pull/370) | Natural post-change cohort와 later DAG evidence는 baseline에서 계속 갱신 |
+| API integration DB sharding    | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #371](https://github.com/woohyun365/knu_roommate/pull/371) | Duplicate setup과 API-only advisory gap은 later DAG work에서 재검토      |
 
 이 map은 current evidence의 위치만 연결합니다. 수치, plan phase, 개인 면접 답변은 복사하지 않으며, underlying decision이
 되돌려지면 entry도 제거합니다.
