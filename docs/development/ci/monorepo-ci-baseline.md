@@ -365,3 +365,24 @@ Frozen full baseline 25분에서 기존 API job 10분을 first/second attempt의
 28분(+12%)입니다. 둘 다 global 20% ceiling 안이지만 API-only 17~18분은 15-minute advisory를 초과합니다. 후속
 DAG/artifact work는 중복 install/prepare를 줄여 이 advisory gap을 해결해야 하며, 자연 발생 표본이 쌓이기 전에는 이
 두 deliberate attempt를 안정된 p50/p95로 승격하지 않습니다.
+
+## Web workflow DAG evidence
+
+PR #372 first source run `33082156350`은 Web unit cohort를 static/build/browser core와 별도 runner로 실행했습니다. Phase 6
+final source `33050305663`의 Web-only workflow는 460s wall / 521 raw compute seconds / 12 rounded minutes였고 단일 Web job은
+439s / 8분이었습니다. Candidate는 다음과 같습니다.
+
+| Boundary                      | Wall | Rounded billed | Selected work                                           |
+| ----------------------------- | ---: | -------------: | ------------------------------------------------------- |
+| Web static/build/browser core | 265s |            5분 | static 148s, build 11s, prebuilt browser 27s            |
+| Web unit                      | 208s |            4분 | 221 files / 1,232 tests, stage 154s                     |
+| Whole Web-only workflow       | 286s |           13분 | 563 raw compute seconds, 1,258 total browser+unit cases |
+
+Workflow wall은 174s, 약 37.8% 감소했습니다. Raw compute는 42s(+8.1%), rounded billing은 1분(+8.3%) 증가해 global
+20%/35% gate 안에 남습니다. Production build는 한 번만 실행됐고 browser는 같은 core workspace의 standalone output을
+사용했습니다.
+
+첫 candidate는 성공 Playwright report 211,474 bytes를 7일 artifact로 업로드했습니다. Routine success report를 소비하는
+operator workflow가 없으므로 final candidate는 성공 업로드를 제거하고 failure report/test-results만 7일 보존합니다.
+Standalone build 약 54MiB는 consumer가 하나뿐이고 build 자체가 11s여서 upload/download 후보를 채택하지 않았습니다.
+Final source evidence 전에는 이 한 표본을 안정된 p50/p95로 승격하지 않습니다.

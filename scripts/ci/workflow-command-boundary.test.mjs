@@ -310,9 +310,10 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
     'run_storybook:',
     'pnpm --dir apps/web ci:storybook:build',
     'pnpm web:sentry:verify-build',
-    'if: ${{ !cancelled() }}',
     'if: ${{ failure() && !cancelled() }}',
   ]);
+  assert.ok(!webWorkflow.includes('if: ${{ !cancelled() }}'));
+  assert.equal(occurrences(webWorkflow, 'if: ${{ failure() && !cancelled() }}'), 2);
   assert.equal(occurrences(webWorkflow, 'SENTRY_AUTH_TOKEN:'), 1);
   assert.equal(occurrences(webWorkflow, 'SENTRY_ARTIFACT_SECRET_SENTINEL:'), 1);
   assert.equal(occurrences(webWorkflow, 'pnpm web:build:prepared'), 1);

@@ -39,8 +39,13 @@ repository를 분리하지 않고, 변경 surface 분류·준비 작업 재사�
 ```text
 classify
   ├─ shared        # packages/shared 또는 root/shared contract 변경
-  ├─ api           # apps/api와 API-owned infra 변경
-  ├─ web           # apps/web 변경
+  ├─ api
+  │   ├─ core      # static, runtime contract, unit, E2E, stress, build, compose
+  │   ├─ shard 1   # integration 1/2 + 독립 PostgreSQL
+  │   └─ shard 2   # integration 2/2 + 독립 PostgreSQL
+  ├─ web
+  │   ├─ core      # static, build, optional Storybook, browser smoke
+  │   └─ unit      # Node/jsdom Vitest projects
   ├─ infra         # infra와 observability 변경
   ├─ repo-policy   # CI/workflow/root policy와 repository formatting
   └─ CI summary    # 선택된 모든 lane의 결과를 하나의 required check로 판정
@@ -84,17 +89,23 @@ worker 1을 유지한다. K6/Artillery/Docker real load는 일반 CI가 아니�
 - API job은 Shared build와 Prisma generation을 각각 한 번 수행한다.
 - API job은 public CI schema migration을 한 번 적용한 뒤 TypedSQL/Prisma prepare를 실행한다. Integration/E2E suite의
   owner-local disposable schema migration은 별도 test isolation 경계다.
-- Web job은 Next production build를 한 번 수행하고 같은 standalone artifact로 desktop/mobile Chromium smoke를 실행한다.
+- Web core job은 Next production build를 한 번 수행하고 같은 workspace의 standalone artifact로 desktop/mobile Chromium
+  smoke를 실행한다. Web unit job은 독립적으로 실행되어 static/build/browser와 wall time을 공유하지 않는다.
 - `actions/setup-node`가 pnpm store cache를 관리한다. 이 action은 workflow에서 안정적인 hit/miss output을 제공하지 않으므로 install duration을 관측 신호로 사용한다.
 - Web `.next/cache`는 별도 `actions/cache`가 관리하고 `next_build_cache_hit`을 summary에 남긴다. Cache miss에서도 correctness가 유지되어야 한다.
 - Cache는 repository별 10GiB 경계와 7일 retention을 사용한다. pnpm과 Next family를 별도로 측정하며, 80%부터 eviction
   churn 검토 신호로 사용한다.
-- Routine 성공 artifact는 downstream consumer가 없으면 업로드하지 않는다. 현재 browser/infra evidence는 7일 안에
-  만료되며, cache와 달리 Actions artifact/Packages shared allowance에 포함된다.
+- Routine 성공 artifact는 downstream consumer가 없으면 업로드하지 않는다. Playwright report와 failure evidence는
+  browser failure에서만 업로드하고 7일 안에 만료한다. Cache와 달리 Actions artifact/Packages shared allowance에
+  포함된다.
+
+Web standalone output은 약 54MiB uncompressed이고 browser consumer가 하나뿐이다. Build와 browser를 별도 runner로 나누면
+artifact upload/download와 두 번째 install이 생기지만 production build 11초를 제거하지 못한다. 따라서 build artifact를
+Actions storage로 전송하지 않고 core job의 workspace에서 직접 재사용한다.
 
 ## Web unit test environment 경계
 
-Web unit tests는 한 Vitest process와 한 CI job 안에서 두 project로 실행한다.
+Web unit tests는 전용 Web unit CI job의 한 Vitest process 안에서 두 project로 실행한다.
 
 - Node-safe `.ts` tests: Node environment, DOM setup 없음
 - `.tsx` tests와 명시적 `.dom.test.ts`: jsdom environment, `src/test-setup.ts` 적용
@@ -102,13 +113,24 @@ Web unit tests는 한 Vitest process와 한 CI job 안에서 두 project로 실�
 - Pool: repeated local correctness/timing을 통과한 `threads`; 고정 `maxWorkers`는 사용하지 않음
 
 DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/web-vitest-project-ownership.test.mjs`가 exact-once
-inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Test project는 별도 GitHub job이나
-artifact로 분리하지 않는다. 현재 evidence에서 shard의 install/cache/billed-minute 중복을 정당화할 필요가 없기 때문이다.
+inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Node/jsdom project를 각각 별도 GitHub
+job이나 artifact로 나누지 않는다. Unit cohort 전체만 static/build/browser core와 병렬화한다.
 
 Hosted Web-only evidence는 동일 221 files / 1,232 cases에서 Web unit 181s와 one-time rerun 184s를 기록했다. 이전 full-PR
 stage provisional p50 267s 대비 각각 32.2%, 31.1% 감소했고 default first-attempt Web-only run은 12 rounded billed minutes로
 15-minute advisory boundary 안에 있다. 자연 발생 post-change sample이 추가되기 전에는 이 두 observation을 안정된 p50이나
 p95로 승격하지 않는다.
+
+## Web workflow DAG 경계
+
+Web unit은 current Web job에서 가장 긴 독립 cohort였고 production build나 browser artifact를 소비하지 않는다. Hosted
+evidence에서 unit만 별도 runner로 이동했을 때 workflow wall은 460s에서 286s로 줄었고 raw compute와 rounded billing은
+bounded하게 증가했다. 상세 수치는 [CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
+
+Static, build, Storybook, browser는 core job에 남는다. Static/build/browser를 더 나누는 구조, Web Node/jsdom project별
+shard, API core의 추가 split, 별도 nested summary runner는 duplicated install과 job rounding 대비 추가 acceptance 근거가
+없어 채택하지 않는다. Reusable workflow 전체 결과와 top-level `CI summary`가 child failure나 cancellation을 fail-closed하게
+집계한다.
 
 ## API integration database 경계
 
@@ -145,17 +167,22 @@ API summary 단계:
 - build
 - compose
 
-Web summary 단계:
+Web core summary 단계:
 
 - install
 - prepare
 - static
-- unit
 - build
 - optional Storybook
 - browser install
 - browser smoke
 - Next cache hit/miss
+
+Web unit summary 단계:
+
+- install
+- prepare
+- unit
 
 ## Historical baseline과 performance budget
 
