@@ -48,42 +48,45 @@ Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 �
 
 ## 현재 evidence
 
-- checkedAt: 2026-08-26
+- checkedAt: 2026-08-27
 - repository: `woohyun365/knu_roommate`
 - operator: local authenticated `gh` read-only inspection
 
-| Setting                     | Actual                                                                                   | Status              |
-| --------------------------- | ---------------------------------------------------------------------------------------- | ------------------- |
-| Plan / visibility           | GitHub Pro / private                                                                     | `VERIFIED_REMOTE`   |
-| Default branch              | `main`                                                                                   | `VERIFIED_REMOTE`   |
-| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                     | `VERIFIED_REMOTE`   |
-| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off            | `VERIFIED_REMOTE`   |
-| Delete branch on merge      | `delete_branch_on_merge=false`                                                           | `VERIFIED_REMOTE`   |
-| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only         | `VERIFIED_REMOTE`   |
-| Full-SHA requirement        | `sha_pinning_required=true`                                                              | `VERIFIED_REMOTE`   |
-| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass     | `VERIFIED_REMOTE`   |
-| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass      | `VERIFIED_REMOTE`   |
-| PR rule                     | both zero approvals and conversation resolution; target-specific merge method            | `VERIFIED_REMOTE`   |
-| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off             | `VERIFIED_REMOTE`   |
-| Force push / deletion       | non-fast-forward and deletion blocked                                                    | `VERIFIED_REMOTE`   |
-| Vulnerability alerts        | endpoint `204`                                                                           | `VERIFIED_REMOTE`   |
-| Dependabot malware alerts   | enabled                                                                                  | `VERIFIED_OWNER_UI` |
-| Dependabot security updates | `enabled=true`, `paused=false`; grouped security updates enabled                         | `VERIFIED_REMOTE`   |
-| Workflow token              | `default_workflow_permissions=read`, PR approval off                                     | `VERIFIED_REMOTE`   |
-| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                          | `VERIFIED_REMOTE`   |
-| Artifact/log retention      | owner UI 7 days                                                                          | `VERIFIED_OWNER_UI` |
-| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries           | `VERIFIED_REMOTE`   |
-| Actions artifacts           | 98 active, 7,752,603 bytes; observed retention 7 days (2026-08-26)                       | `VERIFIED_REMOTE`   |
-| Effective shared storage    | owner Billing UI 기준 Pro 2GB; official 2026-08-26 Pro artifact reference는 1GB          | `REVERIFY_OWNER_UI` |
-| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Vercel, Renovate; Portal Scan Only | `VERIFIED_OWNER_UI` |
+| Setting                     | Actual                                                                               | Status              |
+| --------------------------- | ------------------------------------------------------------------------------------ | ------------------- |
+| Plan / visibility           | GitHub Pro / private                                                                 | `VERIFIED_REMOTE`   |
+| Default branch              | `main`                                                                               | `VERIFIED_REMOTE`   |
+| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`   |
+| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`   |
+| Delete branch on merge      | `delete_branch_on_merge=false`                                                       | `VERIFIED_REMOTE`   |
+| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`   |
+| Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`   |
+| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`   |
+| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass  | `VERIFIED_REMOTE`   |
+| PR rule                     | both zero approvals and conversation resolution; target-specific merge method        | `VERIFIED_REMOTE`   |
+| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off         | `VERIFIED_REMOTE`   |
+| Force push / deletion       | non-fast-forward and deletion blocked                                                | `VERIFIED_REMOTE`   |
+| Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`   |
+| Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI` |
+| Dependabot security updates | `enabled=true`, `paused=false`; grouped security updates enabled                     | `VERIFIED_REMOTE`   |
+| Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`   |
+| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`   |
+| Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI` |
+| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`   |
+| Actions artifacts           | 101 active, 7,966,888 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`   |
+| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI` |
+| GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI` |
+| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI` |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 
 현재 cache는 29개 entry / 약 6.96GiB로 10GiB eviction 경계의 약 69.6%입니다. pnpm family는 15개 / 약 4.42GiB, Next
-family는 14개 / 약 2.54GiB이며 80%부터 key 폭증과 eviction thrash를 검토합니다. Active artifact는 98개 / 약 7.4MiB이고
-owner UI의 artifact/log retention은 7일입니다. Owner UI의 effective 2GB와 공식 GitHub Pro artifact reference 1GB가
-다르므로 다음 billing review에서 재확인하며, 어느 경우에도 artifact와 별도 10GiB cache를 합산하지 않습니다. Packages는
-현재 `gh` credential에 `read:packages`가 없어 사용량을 0으로 추측하지 않습니다.
+family는 14개 / 약 2.54GiB이며 80%부터 key 폭증과 eviction thrash를 검토합니다. Active artifact는 101개 / 약 7.6MiB이고
+owner UI의 artifact/log retention은 7일입니다. Owner Billing UI와 Packages billing contract가 제시하는 Pro shared storage
+2GB를 effective account boundary로 사용합니다. Actions 문서의 Pro artifact 1GB 표기는 provider 문서 간 차이로 별도
+reference를 보존하되, account allowance를 1GB로 축소하지 않습니다. 어느 경우에도 artifact/Packages shared storage와 별도
+10GiB cache를 합산하지 않습니다. Packages는 owner UI에서 0개를 확인했으므로 이를 dated evidence로 사용하며, 단지 자동
+확인을 위해 `read:packages` credential을 만들지 않습니다.
 
 ## Secret-free 확인 절차
 

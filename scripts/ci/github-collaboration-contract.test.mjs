@@ -189,8 +189,9 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
     assert.match(authentication, new RegExp(boundary, 'u'));
   }
 
-  assert.match(authentication, /Billing.*deferred/su);
-  assert.match(authentication, /checkedAt: 2026-08-21/u);
+  assert.match(authentication, /Billing.*Plan: Read.*repository access 없음/su);
+  assert.match(authentication, /2026-09-25 만료/u);
+  assert.match(authentication, /checkedAt: 2026-08-27/u);
   assert.match(authentication, /Connector permission: `Allow read actions`/u);
   assert.match(authentication, /gh auth status --show-token.*금지/su);
   assert.doesNotMatch(authentication, /\.omx\/plans/u);
