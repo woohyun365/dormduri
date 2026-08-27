@@ -7,6 +7,20 @@ import { buildPerformanceReport } from './github-actions-performance-report.mjs'
 const policyUrl = new URL('./fixtures/github-actions-performance-policy.json', import.meta.url);
 const policy = JSON.parse(await readFile(policyUrl, 'utf8'));
 
+test('keeps the effective Pro shared-storage boundary separate from provider reference drift', () => {
+  assert.equal(policy.repositoryResources.effectiveSharedStorageBytes, 2 * 1024 ** 3);
+  assert.equal(policy.repositoryResources.officialProArtifactStorageReferenceBytes, 1024 ** 3);
+  assert.equal(
+    policy.repositoryResources.officialProPackagesSharedStorageReferenceBytes,
+    2 * 1024 ** 3,
+  );
+  assert.equal(
+    policy.repositoryResources.effectiveSharedStorageInterpretation,
+    '2GB-shared-packages-actions-artifacts',
+  );
+  assert.equal(policy.repositoryResources.allowanceDriftRequiresOwnerReview, false);
+});
+
 function sample(id, surface, value, overrides = {}) {
   return {
     attempt: 1,
