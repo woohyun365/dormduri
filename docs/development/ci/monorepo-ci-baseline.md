@@ -122,6 +122,30 @@ Phase 6/7의 provisional stage denominator:
 Generated local authority is `artifacts/local/ci-performance/phase5-final-provisional-report.json`. Full PR operations report zero
 retry, failed job, cancelled job, and wasted compute across the comparable dataset.
 
+### Current Web-only environment partition evidence
+
+PR #370 run `33048619750` preserves 221 Vitest files / 1,232 cases and 26 browser cases while running only Web and repository-policy
+lanes.
+
+| Observation              | Web unit |                Full workflow wall |               Raw compute |                Rounded billed |  Gross list estimate |
+| ------------------------ | -------: | --------------------------------: | ------------------------: | ----------------------------: | -------------------: |
+| First attempt            |     181s |                              453s |                      518s |                            12 |             `$0.072` |
+| One-time stability rerun |     184s | not a first-attempt cohort sample | aggregated retry evidence | 12 incremental / 24 aggregate | `$0.072` incremental |
+
+The two hosted unit observations improve from the 267s frozen provisional p50 by 32.2% and 31.1%. Both attempts passed without a
+test failure or source correction. The deliberate rerun is retained as operational retry cost and stability evidence, not as a
+second natural PR sample. Local repeated runs and coverage also passed; current project ownership is Node 107 files / 621 cases and
+jsdom 114 files / 611 cases.
+
+This candidate does not publish a post-change p50 or p95 yet. Additional compatible Web-only PRs accumulate naturally. The first
+attempt remains inside the 15-minute Web-only billed advisory boundary, while the 453s workflow wall shows that later workflow/DAG
+work is still needed to reach the broader 300~360s narrow-PR target.
+
+Generated local evidence:
+
+- `artifacts/local/ci-performance/web-environment-partition-pr370.json`
+- `artifacts/local/ci-performance/web-environment-partition-pr370-rerun.json`
+
 PR `32939047806`의 변경은 현재 classifier 기준 Infra+repository-policy였지만 당시 workflow는 Shared/API/Web까지
 실행했습니다. `observedSurface=full`, `expectedSurface=infra-only`, `selectionMatchesObservedJobs=false`로 기록되어 변경 분류
 false positive와 실제 runner 비용을 구분합니다.
