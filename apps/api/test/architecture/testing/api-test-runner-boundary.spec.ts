@@ -156,7 +156,7 @@ describe('API test runner boundary', () => {
     const integrationCommand = scriptValue(apiPackage.scripts, 'ci:test:integration');
     expect(integrationCommand).toContain('vitest run');
     expect(integrationCommand).toContain('--config ./vitest.config.integration.ts');
-    expect(integrationCommand).toContain('--maxWorkers=1');
+    expect(integrationCommand).toContain('--maxWorkers=2');
 
     const e2eCommand = scriptValue(apiPackage.scripts, 'ci:test:e2e');
     expect(e2eCommand).toContain('vitest run');
@@ -234,7 +234,7 @@ describe('API test runner boundary', () => {
       expect(unitConfig).toContain(unitSource);
     }
     expect(integrationConfig).toContain("pool: 'forks'");
-    expect(integrationConfig).toContain('fileParallelism: false');
+    expect(integrationConfig).toContain('fileParallelism: true');
     expect(integrationConfig).toContain("include: ['test/integration/**/*.integration.spec.ts']");
     expect(e2eConfig).toContain("pool: 'forks'");
     expect(e2eConfig).toContain('fileParallelism: false');
@@ -248,6 +248,22 @@ describe('API test runner boundary', () => {
       "'test/operations/platform/deployment-env-contract.spec.ts'",
     );
     expect(runtimeBoundaryConfig).toContain("'test/operations/platform/deployment-infra.spec.ts'");
+  });
+
+  it('keeps parallel integration files on isolated disposable schema owners', () => {
+    const integrationFiles = walkFiles(join(apiTestRoot, 'integration')).filter((path) =>
+      path.endsWith('.integration.spec.ts'),
+    );
+    const integrationDatabase = readSource(
+      join(apiTestRoot, 'integration', '_support', 'integration-db.ts'),
+    );
+
+    expect(integrationFiles.length).toBeGreaterThan(1);
+    expect(integrationDatabase).toContain("import { randomUUID } from 'node:crypto'");
+    expect(integrationDatabase).toContain("randomUUID().replaceAll('-', '')");
+    expect(integrationDatabase).toContain('CREATE SCHEMA');
+    expect(integrationDatabase).toContain('DROP SCHEMA IF EXISTS');
+    expect(integrationDatabase).toContain('setRuntimeDatabaseUrl(databaseUrl)');
   });
 
   it('collects every test spec in exactly one semantic runner lane', () => {
