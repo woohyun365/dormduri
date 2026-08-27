@@ -385,4 +385,8 @@ Workflow wall은 174s, 약 37.8% 감소했습니다. Raw compute는 42s(+8.1%), 
 첫 candidate는 성공 Playwright report 211,474 bytes를 7일 artifact로 업로드했습니다. Routine success report를 소비하는
 operator workflow가 없으므로 final candidate는 성공 업로드를 제거하고 failure report/test-results만 7일 보존합니다.
 Standalone build 약 54MiB는 consumer가 하나뿐이고 build 자체가 11s여서 upload/download 후보를 채택하지 않았습니다.
-Final source evidence 전에는 이 한 표본을 안정된 p50/p95로 승격하지 않습니다.
+
+Final source run `33083313967`은 283s wall / 543 raw seconds / 13 rounded minutes였고 Web core 261s, Web unit 198s,
+221 files / 1,232 unit tests, 26 browser cases를 통과했습니다. 성공 artifact는 0개였습니다. Phase 6 final 대비 wall은
+177s(약 38.5%) 감소했고 raw compute는 22s(+4.2%), rounded billing은 1분(+8.3%) 증가했습니다. 두 source run이 같은
+correctness와 cost boundary를 통과했지만 자연 발생 cohort가 아니므로 안정된 p50/p95로 승격하지 않습니다.
