@@ -131,7 +131,7 @@ for (const workflow of [
   {
     path: '.github/workflows/web-ci.yml',
     prepare: 'pnpm web:prepare',
-    prepareCount: 1,
+    prepareCount: 2,
     required: [
       'pnpm web:lint:prepared',
       'pnpm web:typecheck:prepared',
@@ -318,4 +318,24 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
   assert.equal(occurrences(webWorkflow, 'pnpm web:build:prepared'), 1);
   assert.match(playwrightConfig, /workers: process\.env\.CI \? 1 : undefined/);
   assertIncludesAll(playwrightConfig, ["name: 'desktop-chromium'", "name: 'mobile-chromium'"]);
+});
+
+test('Web CI isolates unit work without duplicating the production build', () => {
+  const webWorkflow = read('.github/workflows/web-ci.yml');
+  const [coreJob, unitJob] = webWorkflow.split('\n  web-unit:\n');
+
+  assert.ok(coreJob);
+  assert.ok(unitJob);
+  assertIncludesAll(coreJob, [
+    'web-core:',
+    'Web static checks',
+    'Web production build',
+    'Web browser smoke with prebuilt standalone artifact',
+  ]);
+  assert.ok(!coreJob.includes('Web unit tests'));
+  assertIncludesAll(unitJob, ['Web unit tests', 'pnpm web:test:prepared']);
+  assert.ok(!unitJob.includes('Web static checks'));
+  assert.ok(!unitJob.includes('Web production build'));
+  assert.ok(!unitJob.includes('Web browser smoke with prebuilt standalone artifact'));
+  assert.equal(occurrences(webWorkflow, 'Web production build'), 1);
 });
