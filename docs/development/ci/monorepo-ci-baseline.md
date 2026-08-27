@@ -88,7 +88,7 @@ Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본�
 
 ## Current frozen-input cohort
 
-2026-08-26 현재 동일 dependency fingerprint로 재수집한 성공 run은 다음과 같습니다.
+2026-08-27 현재 동일 dependency fingerprint로 재수집한 성공 run은 다음과 같습니다.
 
 | Event          | Run           | Observed surface | Wall | Raw compute | Rounded billed | Gross list estimate |
 | -------------- | ------------- | ---------------- | ---: | ----------: | -------------: | ------------------: |
@@ -96,14 +96,31 @@ Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본�
 | Retired `push` | `32939810146` | full             | 622s |      1,405s |             29 |              $0.174 |
 | Pull request   | `32945877705` | full             | 618s |      1,425s |             30 |              $0.180 |
 | Pull request   | `32952015500` | full             | 659s |      1,539s |             30 |              $0.180 |
+| Pull request   | `33031304442` | full             | 590s |      1,299s |             27 |              $0.162 |
+| Pull request   | `33041754596` | full             | 616s |      1,416s |             28 |              $0.168 |
 
 Gross estimate는 2026-08-26 [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)의
 표준 Linux 2-core list rate `$0.006/min`을 job별 rounded minute에 적용한 값입니다.
 Included minutes discount와 실제 net invoice가 아니며, Billing UI/API evidence 없이 비용 ledger의 실제 지출로 합산하지
 않습니다.
 
-PR cohort는 3개뿐이므로 p50/p95를 게시하지 않습니다. API-only, Web-only, Infra-only, docs/config/tooling-only cohort도 아직
-없습니다. 5개에서 provisional p50, 10개에서 p95를 생성하고 그전에는 min/max와 sample count만 참고합니다.
+Full PR cohort는 5개이며 provisional p50은 wall 616s, raw compute 1,416s, rounded billed 28분, list gross `$0.168`입니다.
+p95는 10개 전까지 게시하지 않습니다. API-only, Web-only, Infra-only, docs/config/tooling-only cohort도 아직 없습니다.
+
+Phase 6/7의 provisional stage denominator:
+
+| Stage                 | Sample count |  Min |  Max | Provisional p50 |
+| --------------------- | -----------: | ---: | ---: | --------------: |
+| Web unit tests        |            5 | 182s | 315s |            267s |
+| Web static checks     |            5 | 108s | 156s |            144s |
+| API integration tests |            5 | 227s | 246s |            240s |
+| API unit tests        |            5 | 133s | 142s |            140s |
+| API static checks     |            5 |  71s |  78s |             73s |
+| Web production build  |            5 |   8s |  11s |              9s |
+| API production build  |            5 |  15s |  16s |             15s |
+
+Generated local authority is `artifacts/local/ci-performance/phase5-final-provisional-report.json`. Full PR operations report zero
+retry, failed job, cancelled job, and wasted compute across the comparable dataset.
 
 PR `32939047806`의 변경은 현재 classifier 기준 Infra+repository-policy였지만 당시 workflow는 Shared/API/Web까지
 실행했습니다. `observedSurface=full`, `expectedSurface=infra-only`, `selectionMatchesObservedJobs=false`로 기록되어 변경 분류
@@ -111,17 +128,17 @@ false positive와 실제 runner 비용을 구분합니다.
 
 ## Current cache, artifact, and Packages inventory
 
-2026-08-26 read-only inventory:
+2026-08-27 read-only inventory:
 
 | Resource        | Current evidence                                           | Boundary / interpretation                                   |
 | --------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
 | Actions cache   | 29 entries / 7,475,286,431 bytes / 69.6% of 10GiB          | pnpm 15개·4,744,577,759B, Next 14개·2,730,708,672B          |
-| Artifacts       | active 101개 / 7,966,888 bytes / observed retention 7 days | active size는 effective allowance보다 작음                  |
+| Artifacts       | active 104개 / 8,178,655 bytes / observed retention 7 days | expired metadata 247개; active size는 allowance보다 작음    |
 | GitHub Packages | owner-verified zero                                        | 별도 `read:packages` credential 없이 owner UI evidence 사용 |
 
 Cache는 80%부터 key churn과 eviction을 검토합니다. Artifact와 Packages는 shared storage이고 cache 10GiB는 별도 경계입니다.
 Owner Billing UI와 Packages billing contract의 2GB를 effective shared boundary로 사용하고, Actions 문서의 GitHub Pro
-artifact 1GB 표기는 provider reference 차이로 별도 보존합니다. 현재 active artifact 약 7.6MiB는 어느 경계보다도 작습니다.
+artifact 1GB 표기는 provider reference 차이로 별도 보존합니다. 현재 active artifact 약 7.8MiB는 어느 경계보다도 작습니다.
 
 같은 기간의 account-level sanitized usage는 `pnpm github:account:evidence`로 수집합니다. 2026-08 상세 usage는 Actions Linux
 3,143분과 Actions Storage 6.259958986 GB-hours이며, gross/discount 모두 `$18.860103243`, net `$0`으로 확인했습니다. 이

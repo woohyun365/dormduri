@@ -14,17 +14,20 @@ GitHub repository setting은 tracked file과 별도의 control plane입니다. �
 | Workflow token              | read-only, PR approval disabled                    | Job별 명시적 permission 외 기본 write 권한 차단              |
 | Private fork PR             | workflow·write token·secret 전달 disabled          | 외부 기여 input과 credential 경계 분리                       |
 | Merge method                | squash merge와 merge commit enabled                | Bounded PR은 dev squash, dev→main 승격은 ancestry 보존 merge |
-| `delete_branch_on_merge`    | disabled                                           | 장기 유지되는 `dev`의 자동 삭제 방지                         |
+| `delete_branch_on_merge`    | enabled                                            | 병합된 bounded branch 자동 정리; `main`·`dev`는 ruleset 보호 |
 | `dev` ruleset               | active, PR + `CI summary`, linear, squash only     | Bounded change를 한 integration commit으로 유지              |
 | `main` ruleset              | active, PR + `CI summary`, merge only              | `dev` commit ancestry와 release integration point 보존       |
 | Force push                  | disabled                                           | reviewed history와 remote evidence 보존                      |
 | Branch deletion             | disabled                                           | integration/release branch 삭제 방지                         |
+| Protection owner            | active Rulesets only                               | classic Branches rule과 중복·layering drift 방지             |
 | Up-to-date requirement      | 기본 off                                           | fresh `dev` 순차 PR로 보완하고 중복 full CI 방지             |
 | Required reviewer           | 0                                                  | 1인 저장소에서 자기승인/bypass 의식을 만들지 않음            |
 | Vulnerability alerts        | enabled                                            | dependency 취약점 발견 owner                                 |
 | Dependabot security updates | enabled                                            | 보안 update와 정기 version update 책임 분리                  |
 | Actions artifact retention  | 7일 기본, consumer별 더 짧게 검토                  | 필요한 실패/재사용 evidence만 effective allowance 안에 유지  |
 | Actions cache               | 10GB 이내, thrash 없이 유지                        | build 속도 surface; artifact/Packages와 별도 측정            |
+| Environment / secrets       | caller가 없으면 absent                             | 현재 CI-only 경계에서 speculative credential surface 금지    |
+| Paid code/secret security   | not enabled                                        | personal private repo 비용·owner 결정 전 비도입              |
 
 Allowed-actions payload, merge-method 변경, security 기능 활성화는 외부 side effect입니다. 실제 적용 전에는 current workflow
 uses와 repository owner 승인을 다시 확인합니다.
@@ -34,6 +37,16 @@ base integration failure가 실제로 발생하면 strict mode를 다시 검토�
 
 Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 이름의 외부 status가 merge gate를 대체하지 못하게
 합니다.
+
+## Rulesets와 classic Branches 책임
+
+GitHub의 **Rulesets → Rulesets**는 현재 branch 보호의 canonical owner입니다. **Rulesets → Branches**는 기존 classic branch
+protection rule을 관리하는 별도 surface이며, 비어 있어도 active ruleset이 적용된 branch는 보호됩니다. 두 방식을 함께 쓰면
+적용 가능한 규칙이 layer되고 더 엄격한 조건이 적용되므로, 같은 `main`·`dev` 계약을 classic Branches에 중복하지 않습니다.
+
+현재 effective branch-rules API는 `main`과 `dev`에 active ruleset의 삭제·non-fast-forward·PR·required status를 반환하고,
+classic protection endpoint에는 별도 rule이 없습니다. 이 구조는 의도된 상태입니다. Rulesets를 retire하거나 legacy
+consumer가 확인된 경우에만 classic Branches 전환을 별도 migration으로 다룹니다.
 
 ## Evidence 상태
 
@@ -58,7 +71,7 @@ Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 �
 | Default branch              | `main`                                                                               | `VERIFIED_REMOTE`   |
 | Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`   |
 | Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`   |
-| Delete branch on merge      | `delete_branch_on_merge=false`                                                       | `VERIFIED_REMOTE`   |
+| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                         | `VERIFIED_REMOTE`   |
 | Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`   |
 | Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`   |
 | `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`   |
@@ -73,15 +86,22 @@ Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 �
 | Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`   |
 | Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI` |
 | Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`   |
-| Actions artifacts           | 101 active, 7,966,888 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`   |
+| Actions artifacts           | 104 active, 8,178,655 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`   |
 | Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI` |
 | GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI` |
 | Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI` |
+| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                 | `VERIFIED_REMOTE`   |
+| Remote branch inventory     | protected `main`, `dev`만 존재; 기존 merged head 23개 owner-approved cleanup 완료    | `VERIFIED_REMOTE`   |
+| Environments                | 0; unused legacy `copilot` environment 삭제                                          | `VERIFIED_REMOTE`   |
+| Webhooks / deploy keys      | 각각 0                                                                               | `VERIFIED_REMOTE`   |
+| Repository secrets/vars     | Actions·Dependabot·Codespaces·legacy environment 모두 0                              | `VERIFIED_REMOTE`   |
+| Pages                       | disabled                                                                             | `VERIFIED_REMOTE`   |
+| Code/Secret paid products   | Code Scanning disabled; personal private repo에서 별도 paid owner decision까지 보류  | `VERIFIED_REMOTE`   |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 
 현재 cache는 29개 entry / 약 6.96GiB로 10GiB eviction 경계의 약 69.6%입니다. pnpm family는 15개 / 약 4.42GiB, Next
-family는 14개 / 약 2.54GiB이며 80%부터 key 폭증과 eviction thrash를 검토합니다. Active artifact는 101개 / 약 7.6MiB이고
+family는 14개 / 약 2.54GiB이며 80%부터 key 폭증과 eviction thrash를 검토합니다. Active artifact는 104개 / 약 7.8MiB이고
 owner UI의 artifact/log retention은 7일입니다. Owner Billing UI와 Packages billing contract가 제시하는 Pro shared storage
 2GB를 effective account boundary로 사용합니다. Actions 문서의 Pro artifact 1GB 표기는 provider 문서 간 차이로 별도
 reference를 보존하되, account allowance를 1GB로 축소하지 않습니다. 어느 경우에도 artifact/Packages shared storage와 별도
@@ -98,16 +118,20 @@ gh api "repos/$REPO" \
 gh api "repos/$REPO/actions/permissions"
 gh api "repos/$REPO/actions/permissions/workflow"
 gh api "repos/$REPO/actions/permissions/fork-pr-workflows-private-repos"
-gh api "repos/$REPO/branches/main/protection"
 gh api "repos/$REPO/rulesets"
 for id in $(gh api "repos/$REPO/rulesets" --jq '.[].id'); do
   gh api "repos/$REPO/rulesets/$id" \
     --jq '{name,enforcement,conditions,rules,bypass_actors}'
 done
+gh api "repos/$REPO/rules/branches/main"
+gh api "repos/$REPO/rules/branches/dev"
 gh api --include "repos/$REPO/vulnerability-alerts"
 gh api "repos/$REPO/automated-security-fixes"
 gh api "repos/$REPO/actions/cache/usage"
 gh api --paginate "repos/$REPO/actions/artifacts?per_page=100"
+gh api "repos/$REPO/environments"
+gh api "repos/$REPO/hooks"
+gh api "repos/$REPO/keys"
 ```
 
 - response header의 token, credential, 개인 식별 정보는 evidence에 복사하지 않습니다.
@@ -134,7 +158,8 @@ evidence link:
 
 1. repository workflow의 external action inventory를 다시 확인합니다.
 2. full-SHA requirement와 allowed-actions 정책을 적용하고 PR CI를 실행합니다.
-3. bounded PR→`dev`는 squash, `dev`→`main`은 merge commit인지 확인하고 branch auto-delete를 owner decision과 맞춥니다.
+3. bounded PR→`dev`는 squash, `dev`→`main`은 merge commit인지 확인하고 merged head auto-delete와 protected
+   `main`·`dev` retention이 함께 유지되는지 확인합니다.
 4. vulnerability alerts와 Dependabot security updates를 확인합니다.
 5. GitHub Pro ruleset 또는 branch protection으로 `CI summary`를 required check로 설정하고 strict up-to-date는 기본 off로
    둡니다.

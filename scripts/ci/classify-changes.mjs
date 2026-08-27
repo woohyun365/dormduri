@@ -113,6 +113,7 @@ export function classifyChanges(paths) {
       path.startsWith('scripts/agents/') ||
       path.startsWith('scripts/ci/') ||
       path.startsWith('scripts/git/') ||
+      path.startsWith('scripts/github/') ||
       path.startsWith('.husky/') ||
       path === '.github/PULL_REQUEST_TEMPLATE.md' ||
       path === '.github/copilot-instructions.md' ||
