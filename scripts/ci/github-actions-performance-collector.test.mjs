@@ -180,16 +180,6 @@ test('keeps unavailable log signals explicit instead of inventing cache or test 
   });
 });
 
-test('records an intentionally disabled Next build cache without inventing a miss', () => {
-  const evidence = buildRunEvidence({
-    ...fixture,
-    log: `${fixture.log}\nnext_build_cache: disabled\n`,
-  });
-
-  assert.equal(evidence.cache.nextBuildHit, null);
-  assert.equal(evidence.cache.nextBuildInterpretation, 'disabled-by-cost-evidence');
-});
-
 test('accepts the pnpm argument separator without widening CLI inputs', () => {
   assert.deepEqual(
     parseArgs([

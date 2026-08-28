@@ -48,6 +48,16 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      - name: Restore Next build cache
+        id: next-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-${{ runner.arch }}-next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/package.json', 'apps/web/next.config.*', 'apps/web/tsconfig*.json', 'packages/shared/package.json', 'packages/tsconfig/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-next-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-${{ runner.arch }}-next-
+
       - name: Install dependencies
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=install -- pnpm install --frozen-lockfile
 
@@ -119,7 +129,7 @@ jobs:
           duration_seconds=$(($(date +%s) - STARTED_AT))
           echo "### Web CI timing" >> "$GITHUB_STEP_SUMMARY"
           echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- next_build_cache: disabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "- next_build_cache_hit: ${{ steps.next-cache.outputs.cache-hit == 'true' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
           echo "- storybook_build: ${{ inputs.run_storybook }}" >> "$GITHUB_STEP_SUMMARY"
 

@@ -70,14 +70,13 @@ export function parseRunLog(log) {
     Number(match[1]),
   );
   const nextHit = [...source.matchAll(/next_build_cache_hit:\s*(true|false)/gu)].at(-1)?.[1];
-  const nextDisabled = /next_build_cache:\s*disabled/gu.test(source);
 
   return {
     cache: {
       hitKeys: cacheKeys,
       hitSizesBytes: cacheSizes,
       missCount: (source.match(/Cache not found for input keys:/gu) ?? []).length,
-      nextBuildHit: nextDisabled || nextHit === undefined ? null : nextHit === 'true',
+      nextBuildHit: nextHit === undefined ? null : nextHit === 'true',
     },
     tests: {
       browserCases: browserCases.reduce((total, count) => total + count, 0),
@@ -177,14 +176,11 @@ export function buildRunEvidence({
     dependencyInputs.includes(path),
   );
   const webSourceChanged = changedPaths.some((path) => path.startsWith('apps/web/'));
-  const nextBuildCacheDisabled = /next_build_cache:\s*disabled/gu.test(String(log ?? ''));
   const cacheEvidence = {
     ...parsedLog.cache,
     nextBuildInterpretation:
       parsedLog.cache.nextBuildHit === null
-        ? nextBuildCacheDisabled
-          ? 'disabled-by-cost-evidence'
-          : 'not-observed'
+        ? 'not-observed'
         : parsedLog.cache.nextBuildHit
           ? 'hit-observed'
           : webSourceChanged

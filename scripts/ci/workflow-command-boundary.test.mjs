@@ -259,11 +259,12 @@ test('app workflows publish comparable stage timing and cache evidence', () => {
     'pnpm_store_cache',
   ]);
   assertIncludesAll(webWorkflow, [
+    'id: next-cache',
     'run-timed-command.mjs',
     '--stage=unit',
     '--stage=build',
     '--stage=browser',
-    'next_build_cache: disabled',
+    'next_build_cache_hit',
     'total_duration_seconds',
   ]);
 });
@@ -282,6 +283,7 @@ test('compiler caches stay small, architecture-aware, and owner-local', () => {
     '${{ runner.os }}-${{ runner.arch }}-api-tsc-',
   ]);
   assertIncludesAll(webWorkflow, [
+    'path: apps/web/.next/cache',
     'Restore Web TypeScript build info',
     'Save Web TypeScript build info',
     'apps/web/*.tsbuildinfo',
@@ -331,9 +333,12 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
     'pnpm web:sentry:verify-build',
     'if: ${{ failure() && !cancelled() }}',
   ]);
-  assert.ok(!webWorkflow.includes('apps/web/.next/cache'));
-  assert.ok(!webWorkflow.includes('id: next-cache'));
-  assert.ok(!webWorkflow.includes('runner.os }}-next-'));
+  const nextCache = webWorkflow.slice(
+    webWorkflow.indexOf('- name: Restore Next build cache'),
+    webWorkflow.indexOf('- name: Install dependencies'),
+  );
+  assert.match(nextCache, /runner\.os \}\}-\$\{\{ runner\.arch \}\}-next-/u);
+  assert.ok(!nextCache.includes('apps/web/src'));
   assert.ok(!webWorkflow.includes('if: ${{ !cancelled() }}'));
   assert.equal(occurrences(webWorkflow, 'if: ${{ failure() && !cancelled() }}'), 2);
   assert.equal(occurrences(webWorkflow, 'SENTRY_AUTH_TOKEN:'), 1);

@@ -178,7 +178,12 @@ GitHub Actions는 `pnpm api:prepare`를 한 번 실행한 뒤 prepared command�
 | build          | `pnpm api:build`            | `pnpm api:build:prepared`            |
 
 Prepared command는 CI 내부 capability다. 로컬에서는 개별 명령의 독립 실행성을 보존하는 public command를 기본으로 사용한다.
-Integration/E2E는 disposable PostgreSQL schema 충돌을 막기 위해 worker 1로 실행하며, Dockerized real load는 일반 PR gate가 아닌 rehearsal 범위다.
+Integration local/full command는 suite별 UUID schema와 worker 2를 사용하고, Hosted CI는 독립 PostgreSQL runner 두 개가
+stable shard를 하나씩 소유한다. E2E는 worker 1을 유지하며 Dockerized real load는 일반 PR gate가 아닌 rehearsal 범위다.
+
+Runtime emit은 `nest-cli.json`과 `.swcrc`가 소유하는 ESM SWC builder를 사용한다. SWC는 typecheck를 수행하지 않으므로
+`pnpm api:check`와 CI static gate의 TypeScript `noEmit` 검증을 제거하지 않는다. Production build는 test source와 declaration을
+emit하지 않으며 `dist/main.js`, source map, decorator metadata를 보존한다.
 
 ### 6-1. 최소 실행 확인
 

@@ -234,6 +234,7 @@ problem observed
 | Web test environment partition | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #370](https://github.com/woohyun365/knu_roommate/pull/370) | Natural post-change cohort와 later DAG evidence는 baseline에서 계속 갱신 |
 | API integration DB sharding    | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #371](https://github.com/woohyun365/knu_roommate/pull/371) | Duplicate setup과 API-only advisory gap은 later DAG work에서 재검토      |
 | Web validation DAG             | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #372](https://github.com/woohyun365/knu_roommate/pull/372) | Unit만 분리하며 artifact transfer·추가 shard는 cost evidence 후 재검토   |
+| Compiler and native cache      | [Monorepo CI architecture](../architecture/platform/monorepo-ci.md) | [Monorepo CI baseline](./ci/monorepo-ci-baseline.md) | [PR #374](https://github.com/woohyun365/knu_roommate/pull/374) | Exact-hit cohort와 cache-family expiry는 baseline에서 계속 관측          |
 
 이 map은 current evidence의 위치만 연결합니다. 수치, plan phase, 개인 면접 답변은 복사하지 않으며, underlying decision이
 되돌려지면 entry도 제거합니다.
