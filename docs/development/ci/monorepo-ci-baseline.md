@@ -1,8 +1,7 @@
 # Monorepo CI baseline
 
-API/Web CI 구조를 최적화하기 전에 현재 command graph, 반복 준비 작업, 실행시간과 known blocker를
-재현 가능하게 기록합니다. 이 문서는 성능 개선의 비교 기준이며 제품 정책의 source of truth는
-아닙니다.
+API/Web CI 구조의 개선 전 denominator, accepted A/B evidence, current measurement epoch를 재현 가능하게 기록합니다. 이
+문서는 성능 측정 기준이며 제품 정책의 source of truth는 아닙니다.
 
 ## 측정 기준
 
@@ -12,15 +11,14 @@ API/Web CI 구조를 최적화하기 전에 현재 command graph, 반복 준비 
 - 로컬 기준: 개발 장비의 warm dependency/store 상태
 - 시간은 서로 다른 환경 간 절대 성능 비교가 아니라 같은 command graph의 전후 비교에만 사용합니다.
 
-## Frozen dependency input for the next measurement set
+## Historical pre-optimization dependency denominator
 
-2026-08-26 기준 다음 CI 성능 표본은 `dev` commit
-`db9638295f8191eced847950fb704c19ae780ba8`의 dependency/toolchain 상태를 기준으로 수집합니다. 정확한 input SHA-256,
-acceptance run, queue, security, cache snapshot은 `scripts/ci/fixtures/ci-performance-baseline.json`의
-`dependencyBaseline`이 소유합니다.
+2026-08-26 기준 개선 전 비교 표본은 `dev` commit `db9638295f8191eced847950fb704c19ae780ba8`의 dependency/toolchain
+상태를 사용했습니다. 정확한 input SHA-256, acceptance run, queue, security, cache snapshot은
+`scripts/ci/fixtures/ci-performance-baseline.json`의 immutable `dependencyBaseline`이 소유합니다.
 
-`fileSha256`는 현재 표본이 계속 일치해야 하는 dependency/image input입니다. `workflowBaselineSha256`는 최적화 전 workflow
-comparison snapshot이며 workflow 최적화 이후 current tree와 달라지는 것이 정상입니다.
+Historical `fileSha256`와 `workflowBaselineSha256`는 current tree를 따라 갱신하지 않습니다. 현재 표본의 compatibility는
+별도 `ci-performance-active-epoch.json`과 각 run head에서 읽은 fingerprint가 소유합니다.
 
 | Boundary               | Frozen value                                                       |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -41,6 +39,27 @@ samples are compared.
 This is a CI measurement input, not production release evidence. Grafana 13.2 local recovery samples increased from a prior 17.3s
 sample to 25.3s and 27.4s while staying within health/resource gates; production persistent-volume rollback and provider billing
 remain separate release/owner evidence.
+
+## Active post-native measurement epoch
+
+Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. The collector reads `pnpm-lock.yaml`,
+`pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
+contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
+
+| Boundary                | Current value                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| Epoch                   | `native-ci-2026-08-28` / `collecting`                                               |
+| Base                    | `a15a98cd4b0f4ca23a147d65dce155061cd30193`                                          |
+| Dependency fingerprint  | lock `014b8d2b...`, workspace `638f823e...`, image inventory `5e31ed06...`          |
+| First compatible sample | PR #379 / run `33148148258`, Infra-only, 132s wall / 282 raw / 8 rounded / `$0.040` |
+| Excluded transition     | PR #378 / run `33145689006`; image inventory differs from the active epoch          |
+| Confidence              | Infra-only 1 natural sample; p50 requires 5 and p95 requires 10                     |
+
+Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
+
+- `transition-nginx-pr378.json`
+- `active-epoch-observability-pr379.json`
+- `active-epoch-current-report.json`
 
 ### First frozen-input event pair
 
@@ -67,7 +86,8 @@ pnpm ci:performance:collect -- \
 
 The collector accepts completed runs and records run/job/stage timing, queue, raw compute, per-job rounded minutes, runner labels,
 cache hit/size, test counts, artifact metadata, PR/base identity, expected/observed lane, retry와 failed/cancelled compute를
-기록합니다. Natural PRs populate surface cohorts; no-op PRs are not created only to increase sample count.
+기록합니다. Dataset schema 3 also records the measurement epoch and run-head fingerprint. Natural PRs populate surface cohorts;
+no-op PRs are not created only to increase sample count.
 
 현재 resource snapshot과 cohort report를 함께 생성합니다.
 
@@ -82,11 +102,11 @@ pnpm ci:performance:report -- \
   --output=artifacts/local/ci-performance/cohort-report.json
 ```
 
-Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본이나 frozen input을 변경한 run을 거부합니다. 주요
-성능 cohort는 `pull_request` event만 사용하며, 과거 `dev` push처럼 다른 event는 별도 event cohort로 남겨 섞인 통계를
-만들지 않습니다.
+Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본, active epoch input을 변경한 run, run head SHA와
+fingerprint source SHA가 다른 schema 3 evidence를 거부합니다. 주요 성능 cohort는 `pull_request` event만 사용하며, 과거
+`dev` push처럼 다른 event는 별도 event cohort로 남겨 섞인 통계를 만들지 않습니다.
 
-## Current frozen-input cohort
+## Historical frozen-input cohort
 
 2026-08-27 현재 동일 dependency fingerprint로 재수집한 성공 run은 다음과 같습니다.
 
@@ -107,7 +127,7 @@ Included minutes discount와 실제 net invoice가 아니며, Billing UI/API evi
 Full PR cohort는 5개이며 provisional p50은 wall 616s, raw compute 1,416s, rounded billed 28분, list gross `$0.168`입니다.
 p95는 10개 전까지 게시하지 않습니다. API-only, Web-only, Infra-only, docs/config/tooling-only cohort도 아직 없습니다.
 
-Phase 6/7의 provisional stage denominator:
+Native environment/sharding 개선 전 provisional stage denominator:
 
 | Stage                 | Sample count |  Min |  Max | Provisional p50 |
 | --------------------- | -----------: | ---: | ---: | --------------: |
@@ -119,10 +139,10 @@ Phase 6/7의 provisional stage denominator:
 | Web production build  |            5 |   8s |  11s |              9s |
 | API production build  |            5 |  15s |  16s |             15s |
 
-Generated local authority is `artifacts/local/ci-performance/phase5-final-provisional-report.json`. Full PR operations report zero
-retry, failed job, cancelled job, and wasted compute across the comparable dataset.
+Generated local evidence belongs under `artifacts/local/ci-performance/`. Full PR operations report zero retry, failed job,
+cancelled job, and wasted compute across the comparable dataset.
 
-### Current Web-only environment partition evidence
+### Accepted Web-only environment partition evidence
 
 PR #370 run `33048619750` preserves 221 Vitest files / 1,232 cases and 26 browser cases while running only Web and repository-policy
 lanes.
@@ -152,17 +172,18 @@ false positive와 실제 runner 비용을 구분합니다.
 
 ## Current cache, artifact, and Packages inventory
 
-2026-08-27 read-only inventory:
+2026-08-28 read-only inventory:
 
-| Resource        | Current evidence                                           | Boundary / interpretation                                   |
-| --------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
-| Actions cache   | 29 entries / 7,475,286,431 bytes / 69.6% of 10GiB          | pnpm 15개·4,744,577,759B, Next 14개·2,730,708,672B          |
-| Artifacts       | active 104개 / 8,178,655 bytes / observed retention 7 days | expired metadata 247개; active size는 allowance보다 작음    |
-| GitHub Packages | owner-verified zero                                        | 별도 `read:packages` credential 없이 owner UI evidence 사용 |
+| Resource        | Current evidence                                          | Boundary / interpretation                                                   |
+| --------------- | --------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Actions cache   | 38 entries / 8,946,997,209 bytes / 83.3% of 10GiB         | pnpm 17개·5,453,794,048B, Next 18개·3,492,757,428B, TypeScript 3개·445,733B |
+| Artifacts       | active 94개 / 6,880,568 bytes / observed retention 7 days | expired metadata 276개; active size는 allowance보다 작음                    |
+| GitHub Packages | API unverified; prior owner UI evidence zero              | daily credential에 `read:packages`를 추가하지 않음                          |
 
-Cache는 80%부터 key churn과 eviction을 검토합니다. Artifact와 Packages는 shared storage이고 cache 10GiB는 별도 경계입니다.
+Cache가 80% review boundary를 넘었으므로 seven-day PR-ref expiry 후 재측정합니다. Expiry 뒤에도 80% 이상이면 key churn과
+eviction을 분석합니다. Artifact와 Packages는 shared storage이고 cache 10GiB는 별도 경계입니다.
 Owner Billing UI와 Packages billing contract의 2GB를 effective shared boundary로 사용하고, Actions 문서의 GitHub Pro
-artifact 1GB 표기는 provider reference 차이로 별도 보존합니다. 현재 active artifact 약 7.8MiB는 어느 경계보다도 작습니다.
+artifact 1GB 표기는 provider reference 차이로 별도 보존합니다. 현재 active artifact 약 6.56MiB는 어느 경계보다도 작습니다.
 
 같은 기간의 account-level sanitized usage는 `pnpm github:account:evidence`로 수집합니다. 2026-08 상세 usage는 Actions Linux
 3,143분과 Actions Storage 6.259958986 GB-hours이며, gross/discount 모두 `$18.860103243`, net `$0`으로 확인했습니다. 이
@@ -368,8 +389,8 @@ DAG/artifact work는 중복 install/prepare를 줄여 이 advisory gap을 해결
 
 ## Web workflow DAG evidence
 
-PR #372 first source run `33082156350`은 Web unit cohort를 static/build/browser core와 별도 runner로 실행했습니다. Phase 6
-final source `33050305663`의 Web-only workflow는 460s wall / 521 raw compute seconds / 12 rounded minutes였고 단일 Web job은
+PR #372 first source run `33082156350`은 Web unit cohort를 static/build/browser core와 별도 runner로 실행했습니다. 이전
+Web-only source `33050305663`의 workflow는 460s wall / 521 raw compute seconds / 12 rounded minutes였고 단일 Web job은
 439s / 8분이었습니다. Candidate는 다음과 같습니다.
 
 | Boundary                      | Wall | Rounded billed | Selected work                                           |
@@ -387,7 +408,7 @@ operator workflow가 없으므로 final candidate는 성공 업로드를 제거�
 Standalone build 약 54MiB는 consumer가 하나뿐이고 build 자체가 11s여서 upload/download 후보를 채택하지 않았습니다.
 
 Final source run `33083313967`은 283s wall / 543 raw seconds / 13 rounded minutes였고 Web core 261s, Web unit 198s,
-221 files / 1,232 unit tests, 26 browser cases를 통과했습니다. 성공 artifact는 0개였습니다. Phase 6 final 대비 wall은
+221 files / 1,232 unit tests, 26 browser cases를 통과했습니다. 성공 artifact는 0개였습니다. 이전 Web-only source 대비 wall은
 177s(약 38.5%) 감소했고 raw compute는 22s(+4.2%), rounded billing은 1분(+8.3%) 증가했습니다. 두 source run이 같은
 correctness와 cost boundary를 통과했지만 자연 발생 cohort가 아니므로 안정된 p50/p95로 승격하지 않습니다.
 
@@ -395,7 +416,7 @@ correctness와 cost boundary를 통과했지만 자연 발생 cohort가 아니�
 
 PR #374 first source run `33139355819`은 compiler dependency 때문에 frozen dependency input이 의도적으로 바뀐 full-change
 표본입니다. Workflow는 372s wall / 1,616 raw compute seconds / 34 rounded minutes / `$0.184` list gross로 통과했고 691 files /
-3,403 cases를 실행했습니다. Phase 5 provisional full p50 616s / 1,416s / 28분 / `$0.168`와 비교하면 wall은 약 39.6%
+3,403 cases를 실행했습니다. Historical provisional full p50 616s / 1,416s / 28분 / `$0.168`와 비교하면 wall은 약 39.6%
 감소했지만 first-run dependency/cache miss와 Storybook을 포함해 raw는 14.1%, rounded minutes는 21.4%, list gross는 9.5%
 증가했습니다. Exact cache-hit source가 확인되기 전에는 최종 cost acceptance로 사용하지 않습니다.
 
@@ -415,7 +436,7 @@ pnpm이 14 / 4,435,808,543 bytes를 소유했습니다. Next cache는 regenerati
 cold/warm typecheck는 API 8.19s/4.69s, Web 19.09s/11.19s였습니다.
 
 Second source run `33139988461`은 383s wall / 1,577 raw seconds / 33 rounded minutes / `$0.178` list gross로 691 files /
-3,403 cases를 통과했습니다. Phase 5 provisional full p50 대비 wall은 약 37.8% 감소했고 raw는 11.4%, rounded minutes는
+3,403 cases를 통과했습니다. Historical provisional full p50 대비 wall은 약 37.8% 감소했고 raw는 11.4%, rounded minutes는
 17.9%, list gross는 6.0% 증가해 explicit 20%/35% gate 안에 들어왔습니다. SWC build는 4s였고 slim
 classify/repository-policy/summary는 24s/123s/3s, `$0.002`/`$0.006`/`$0.002`였습니다.
 
@@ -424,7 +445,7 @@ API build-info exact hit은 static stage를 줄이지 못했으므로 final work
 후 최초 entry를 만들었습니다. Final source는 같은 key의 exact hit과 API cache 제거를 검증한 뒤 acceptance를 확정합니다.
 
 Final source run `33141634646`은 330s wall / 1,543 raw seconds / 31 rounded minutes / `$0.170` list gross로 같은 691 files /
-3,403 cases를 통과했습니다. Phase 5 provisional full p50 대비 wall은 약 46.4% 감소했고 raw는 9.0%, rounded minutes는
+3,403 cases를 통과했습니다. Historical provisional full p50 대비 wall은 약 46.4% 감소했고 raw는 9.0%, rounded minutes는
 10.7%, list gross는 약 1.2% 증가했습니다. Stable Next cache는 약 151MB를 3s에 exact restore하고 build를 9s로 되돌렸으며,
 Web build-info는 2s restore와 static 92s를 유지했습니다. API cache 제거 후 static은 62s, SWC build는 2s였습니다.
 

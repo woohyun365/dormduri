@@ -177,6 +177,12 @@ reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
 
 `scripts/ci/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
 
+Historical pre-optimization evidence와 active post-change measurement epoch는 같은 fixture가 소유하지 않는다.
+`ci-performance-baseline.json`은 비교 denominator를 immutable하게 보존하고, `ci-performance-active-epoch.json`은 current
+dependency/image input을 소유한다. Actions collector는 current checkout이 아니라 각 workflow run head commit의 input을
+읽어 fingerprint를 생성한다. Report는 epoch, exact input hash, event, change surface가 다른 표본을 하나의 cohort로 합치지
+않는다.
+
 API summary 단계:
 
 - install

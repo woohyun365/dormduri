@@ -24,11 +24,22 @@
     }
   },
   "changedPaths": ["apps/web/src/example.tsx"],
-  "dependencyFingerprint": {
+  "measurementEpoch": {
+    "id": "native-ci-2026-08-28",
+    "state": "collecting",
     "capturedAt": "2026-08-26T06:25:12Z",
-    "devHeadSha": "db9638295f8191eced847950fb704c19ae780ba8",
+    "baseSha": "db9638295f8191eced847950fb704c19ae780ba8",
     "fileSha256": {
-      "pnpm-lock.yaml": "fixture-lock"
+      "pnpm-lock.yaml": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "knownGaps": [],
+    "versions": {}
+  },
+  "runHeadFingerprint": {
+    "epochId": "native-ci-2026-08-28",
+    "sourceSha": "0123456789abcdef0123456789abcdef01234567",
+    "fileSha256": {
+      "pnpm-lock.yaml": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
   },
   "pricing": {
