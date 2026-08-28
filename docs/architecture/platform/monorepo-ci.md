@@ -121,10 +121,11 @@ Next 16은 Turbopack을 기본 bundler로 사용하고 repository에 Babel fallb
 제거한 hosted A/B에서 production build가 cached 10s에서 cold 43s로 증가했으므로 cache는 retained decision이다. Build cache
 flag를 별도로 강제하지 않고 current Next default/config compatibility를 lockfile upgrade 때 재검증한다.
 
-Classify, repository policy, CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를
-사용한다. Shared/API/Web/Infra는 standard `ubuntu-24.04` x64에 남는다. Product arm64는 Prisma, SWC, Argon2, Playwright,
-Docker와 cache architecture parity를 증명하기 전에는 사용하지 않는다. Larger runner는 personal repository의 current
-owner surface가 아니며 cost-neutral evidence도 없어 사용하지 않는다.
+Classify와 CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를 사용한다.
+Repository policy는 slim에서 docs/config feedback budget을 넘겨 standard `ubuntu-24.04`로 복구했다. Shared/API/Web/Infra도
+standard x64에 남는다. Product arm64는 Prisma, SWC, Argon2, Playwright, Docker와 cache architecture parity를 증명하기
+전에는 사용하지 않는다. Larger runner는 personal repository의 current owner surface가 아니며 cost-neutral evidence도 없어
+사용하지 않는다.
 
 ## Web unit test environment 경계
 

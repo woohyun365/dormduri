@@ -274,8 +274,8 @@ test('compiler cache stays small, architecture-aware, and owner-local', () => {
   const apiWorkflow = read('.github/workflows/api-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
 
-  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 3);
-  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 1);
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 2);
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 2);
   assert.ok(!apiWorkflow.includes('API TypeScript build info'));
   assert.ok(!apiWorkflow.includes('apps/api/dist/.tsbuildinfo'));
   assertIncludesAll(webWorkflow, [

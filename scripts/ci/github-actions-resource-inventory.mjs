@@ -12,7 +12,8 @@ const dayMilliseconds = 24 * 60 * 60 * 1_000;
 
 function cacheFamily(key) {
   if (key.startsWith('node-cache-') && key.includes('-pnpm-')) return 'pnpm';
-  if (key.startsWith('Linux-next-')) return 'next';
+  if (/^Linux(?:-[A-Za-z0-9_]+)?-next-/u.test(key)) return 'next';
+  if (/-(?:api|web)-tsc-/u.test(key)) return 'typescript';
   return 'other';
 }
 

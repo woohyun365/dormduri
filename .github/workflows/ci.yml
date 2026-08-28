@@ -117,7 +117,7 @@ jobs:
     name: Repository policy gate
     needs: classify
     if: ${{ needs.classify.outputs.repo_policy == 'true' }}
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Checkout
