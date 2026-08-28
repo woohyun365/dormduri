@@ -8,7 +8,7 @@ API/Web CI 구조를 최적화하기 전에 현재 command graph, 반복 준비 
 
 - 기준일: 2026-08-06
 - 런타임: Node.js 24, pnpm 11.7.0
-- 원격 기준: GitHub-hosted `ubuntu-24.04`
+- 원격 기준: product jobs는 GitHub-hosted `ubuntu-24.04`, stateless orchestration은 `ubuntu-slim`
 - 로컬 기준: 개발 장비의 warm dependency/store 상태
 - 시간은 서로 다른 환경 간 절대 성능 비교가 아니라 같은 command graph의 전후 비교에만 사용합니다.
 
@@ -390,3 +390,39 @@ Final source run `33083313967`은 283s wall / 543 raw seconds / 13 rounded minut
 221 files / 1,232 unit tests, 26 browser cases를 통과했습니다. 성공 artifact는 0개였습니다. Phase 6 final 대비 wall은
 177s(약 38.5%) 감소했고 raw compute는 22s(+4.2%), rounded billing은 1분(+8.3%) 증가했습니다. 두 source run이 같은
 correctness와 cost boundary를 통과했지만 자연 발생 cohort가 아니므로 안정된 p50/p95로 승격하지 않습니다.
+
+## Compiler and native cache evidence
+
+PR #374 first source run `33139355819`은 compiler dependency 때문에 frozen dependency input이 의도적으로 바뀐 full-change
+표본입니다. Workflow는 372s wall / 1,616 raw compute seconds / 34 rounded minutes / `$0.184` list gross로 통과했고 691 files /
+3,403 cases를 실행했습니다. Phase 5 provisional full p50 616s / 1,416s / 28분 / `$0.168`와 비교하면 wall은 약 39.6%
+감소했지만 first-run dependency/cache miss와 Storybook을 포함해 raw는 14.1%, rounded minutes는 21.4%, list gross는 9.5%
+증가했습니다. Exact cache-hit source가 확인되기 전에는 최종 cost acceptance로 사용하지 않습니다.
+
+| Candidate                       | First hosted evidence                           | Decision state                                   |
+| ------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| Nest ESM SWC                    | API build 13s → 3s; local median 6.42s → 1.59s  | correctness parity 통과, retained candidate      |
+| API TypeScript build-info       | miss static 73s; exact restore 2s + static 75s  | rejected; transfer보다 saved compute가 낮음      |
+| Web TypeScript build-info       | miss static 120s; exact restore 2s + static 92s | retained candidate                               |
+| Next cache removal              | cached build 10s → cold build 43s               | rejected; stable toolchain/config key로 복구     |
+| `ubuntu-slim` classify          | 9s standard → 17s slim, rounded 1분             | `$0.006` → `$0.002`, retained candidate          |
+| `ubuntu-slim` repository policy | 71s/2분 standard → 128s/3분 slim                | `$0.012` → `$0.006`, non-critical path candidate |
+| `ubuntu-slim` summary           | 4s standard → 5s slim, rounded 1분              | `$0.006` → `$0.002`, retained candidate          |
+
+변경 전 cache inventory는 30 entries / 7,626,505,766 bytes였습니다. Next family가 16 entries / 3,190,697,223 bytes,
+pnpm이 14 / 4,435,808,543 bytes를 소유했습니다. Next cache는 regeneration보다 유리하므로 유지하되 source hash를 key에서
+제거해 같은 PR의 corrective push가 새 large entry를 만들지 않게 합니다. TypeScript build-info는 합계 약 1.5MB이며 local
+cold/warm typecheck는 API 8.19s/4.69s, Web 19.09s/11.19s였습니다.
+
+Second source run `33139988461`은 383s wall / 1,577 raw seconds / 33 rounded minutes / `$0.178` list gross로 691 files /
+3,403 cases를 통과했습니다. Phase 5 provisional full p50 대비 wall은 약 37.8% 감소했고 raw는 11.4%, rounded minutes는
+17.9%, list gross는 6.0% 증가해 explicit 20%/35% gate 안에 들어왔습니다. SWC build는 4s였고 slim
+classify/repository-policy/summary는 24s/123s/3s, `$0.002`/`$0.006`/`$0.002`였습니다.
+
+API build-info exact hit은 static stage를 줄이지 못했으므로 final workflow에서 제거합니다. Web build-info는 static을
+120s에서 92s로 줄여 유지합니다. Stable Next key는 second run에서 기존 source-hash cache와 호환되지 않아 37s cold build
+후 최초 entry를 만들었습니다. Final source는 같은 key의 exact hit과 API cache 제거를 검증한 뒤 acceptance를 확정합니다.
+
+Pnpm cache는 dependency install 재생성 비용 때문에 유지합니다. Playwright browser cache는 restore와 download 시간이
+유사하고 Linux system dependency를 cache할 수 없다는 upstream guidance에 따라 채택하지 않습니다. Product arm64/larger
+runner도 native/tooling parity와 current owner availability가 없어 채택하지 않습니다.

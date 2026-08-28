@@ -105,6 +105,26 @@ test('keeps failure, retry, and cancelled compute visible as cost evidence', () 
   assert.equal(evidence.outcome.wastedComputeSeconds, 105);
 });
 
+test('prices the one-core Linux runner independently from standard Linux', () => {
+  const evidence = buildRunEvidence({
+    ...fixture,
+    pricing: {
+      ...fixture.pricing,
+      runnerRatesUsdPerMinute: {
+        ...fixture.pricing.runnerRatesUsdPerMinute,
+        'ubuntu-slim': 0.002,
+      },
+    },
+    jobs: fixture.jobs.map((job, index) =>
+      index === 0 ? { ...job, labels: ['ubuntu-slim'] } : job,
+    ),
+  });
+
+  assert.equal(evidence.jobs[0].runnerSku, 'ubuntu-slim');
+  assert.equal(evidence.jobs[0].runnerRateUsdPerMinute, 0.002);
+  assert.equal(evidence.jobs[0].estimatedGrossUsd, 0.002);
+});
+
 test('marks a run incompatible when frozen dependency inputs changed after the baseline', () => {
   const evidence = buildRunEvidence({
     ...fixture,

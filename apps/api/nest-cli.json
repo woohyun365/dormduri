@@ -3,6 +3,19 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "builder": {
+      "type": "swc",
+      "options": {
+        "stripLeadingPaths": true,
+        "extensions": [".ts"],
+        "ignore": [
+          "**/*.spec.ts",
+          "**/*.e2e-spec.ts",
+          "**/*.spec-fixtures.ts",
+          "**/test-support/**"
+        ]
+      }
+    }
   }
 }

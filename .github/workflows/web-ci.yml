@@ -53,19 +53,35 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/web/.next/cache
-          key: ${{ runner.os }}-next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**', 'apps/web/public/**', 'apps/web/package.json', 'apps/web/next.config.*', 'apps/web/tsconfig*.json', 'packages/shared/src/**', 'packages/shared/package.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/package.json', 'apps/web/next.config.*', 'apps/web/tsconfig*.json', 'packages/shared/package.json', 'packages/tsconfig/**') }}
           restore-keys: |
-            ${{ runner.os }}-next-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-next-
+            ${{ runner.os }}-${{ runner.arch }}-next-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-${{ runner.arch }}-next-
 
       - name: Install dependencies
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=install -- pnpm install --frozen-lockfile
+
+      - name: Restore Web TypeScript build info
+        id: web-tsc-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/*.tsbuildinfo
+          key: ${{ runner.os }}-${{ runner.arch }}-web-tsc-${{ hashFiles('pnpm-lock.yaml', 'packages/tsconfig/**', 'apps/web/tsconfig*.json') }}-${{ hashFiles('apps/web/src/**/*.ts', 'apps/web/src/**/*.tsx', 'apps/web/e2e/**/*.ts', 'apps/web/.storybook/**/*.ts', 'apps/web/.storybook/**/*.tsx', 'apps/web/*.ts', 'packages/shared/src/**/*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-web-tsc-${{ hashFiles('pnpm-lock.yaml', 'packages/tsconfig/**', 'apps/web/tsconfig*.json') }}-
 
       - name: Prepare Web dependencies
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=prepare -- pnpm web:prepare
 
       - name: Web static checks
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=static -- sh -c 'pnpm web:lint:prepared && pnpm web:typecheck:prepared'
+
+      - name: Save Web TypeScript build info
+        if: ${{ steps.web-tsc-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/*.tsbuildinfo
+          key: ${{ steps.web-tsc-cache.outputs.cache-primary-key }}
 
       - name: Web production build
         env:

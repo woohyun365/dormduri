@@ -87,12 +87,19 @@ worker 1을 유지한다. K6/Artillery/Docker real load는 일반 CI가 아니�
 ## Build와 cache 경계
 
 - API job은 Shared build와 Prisma generation을 각각 한 번 수행한다.
+- API runtime emit은 ESM-configured Nest SWC를 사용하고 TypeScript noEmit typecheck는 static gate가 별도로 소유한다. API는
+  private runtime app이므로 declaration emit을 build artifact로 사용하지 않는다.
 - API job은 public CI schema migration을 한 번 적용한 뒤 TypedSQL/Prisma prepare를 실행한다. Integration/E2E suite의
   owner-local disposable schema migration은 별도 test isolation 경계다.
 - Web core job은 Next production build를 한 번 수행하고 같은 workspace의 standalone artifact로 desktop/mobile Chromium
   smoke를 실행한다. Web unit job은 독립적으로 실행되어 static/build/browser와 wall time을 공유하지 않는다.
 - `actions/setup-node`가 pnpm store cache를 관리한다. 이 action은 workflow에서 안정적인 hit/miss output을 제공하지 않으므로 install duration을 관측 신호로 사용한다.
-- Web `.next/cache`는 별도 `actions/cache`가 관리하고 `next_build_cache_hit`을 summary에 남긴다. Cache miss에서도 correctness가 유지되어야 한다.
+- Web TypeScript build-info는 architecture, lockfile, config, source-aware exact key와 config-compatible restore prefix를
+  사용한다. 상대 경로만 포함하는 약 865KB 파일이며 stateful DB나 secret을 포함하지 않는다. API build-info는 hosted
+  static stage를 줄이지 못해 cache하지 않는다.
+- Web `.next/cache`는 별도 `actions/cache`가 관리하고 `next_build_cache_hit`을 summary에 남긴다. Key는 OS/architecture,
+  lockfile, Next/package/tsconfig toolchain으로 고정하고 source hash를 포함하지 않는다. Turbopack이 changed source를
+  invalidation하며, corrective push마다 새 230MB entry를 만드는 대신 PR ref마다 한 entry를 재사용한다.
 - Cache는 repository별 10GiB 경계와 7일 retention을 사용한다. pnpm과 Next family를 별도로 측정하며, 80%부터 eviction
   churn 검토 신호로 사용한다.
 - Routine 성공 artifact는 downstream consumer가 없으면 업로드하지 않는다. Playwright report와 failure evidence는
@@ -102,6 +109,22 @@ worker 1을 유지한다. K6/Artillery/Docker real load는 일반 CI가 아니�
 Web standalone output은 약 54MiB uncompressed이고 browser consumer가 하나뿐이다. Build와 browser를 별도 runner로 나누면
 artifact upload/download와 두 번째 install이 생기지만 production build 11초를 제거하지 못한다. 따라서 build artifact를
 Actions storage로 전송하지 않고 core job의 workspace에서 직접 재사용한다.
+
+## Compiler와 runner 경계
+
+Nest default TypeScript emit은 current local median 6.42s였고 configured ESM SWC는 1.59s였다. SWC output은 production
+788 JS/source-map paths, decorator metadata, `dist/main.js`, health startup과 non-root Docker runtime을 보존한다. Default Nest
+SWC의 CommonJS output, `dist/src` nesting, spec emit은 current ESM deployment와 호환되지 않아 사용하지 않는다. Current
+compiler contract는 `apps/api/test/architecture/platform/api-build-compiler-boundary.spec.ts`가 고정한다.
+
+Next 16은 Turbopack을 기본 bundler로 사용하고 repository에 Babel fallback config가 없다. Cross-run filesystem cache를
+제거한 hosted A/B에서 production build가 cached 10s에서 cold 43s로 증가했으므로 cache는 retained decision이다. Build cache
+flag를 별도로 강제하지 않고 current Next default/config compatibility를 lockfile upgrade 때 재검증한다.
+
+Classify, repository policy, CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를
+사용한다. Shared/API/Web/Infra는 standard `ubuntu-24.04` x64에 남는다. Product arm64는 Prisma, SWC, Argon2, Playwright,
+Docker와 cache architecture parity를 증명하기 전에는 사용하지 않는다. Larger runner는 personal repository의 current
+owner surface가 아니며 cost-neutral evidence도 없어 사용하지 않는다.
 
 ## Web unit test environment 경계
 

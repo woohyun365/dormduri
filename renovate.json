@@ -18,6 +18,7 @@
       "matchPackageNames": [
         "@eslint/eslintrc",
         "@eslint/js",
+        "@swc/cli",
         "@swc/core",
         "@types/node",
         "@typescript-eslint/eslint-plugin",
