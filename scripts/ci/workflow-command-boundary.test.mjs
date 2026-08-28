@@ -259,13 +259,33 @@ test('app workflows publish comparable stage timing and cache evidence', () => {
     'pnpm_store_cache',
   ]);
   assertIncludesAll(webWorkflow, [
-    'id: next-cache',
     'run-timed-command.mjs',
     '--stage=unit',
     '--stage=build',
     '--stage=browser',
-    'next_build_cache_hit',
+    'next_build_cache: disabled',
     'total_duration_seconds',
+  ]);
+});
+
+test('compiler caches stay small, architecture-aware, and owner-local', () => {
+  const orchestrator = read('.github/workflows/ci.yml');
+  const apiWorkflow = read('.github/workflows/api-ci.yml');
+  const webWorkflow = read('.github/workflows/web-ci.yml');
+
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 3);
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 1);
+  assertIncludesAll(apiWorkflow, [
+    'Restore API TypeScript build info',
+    'Save API TypeScript build info',
+    'apps/api/dist/.tsbuildinfo',
+    '${{ runner.os }}-${{ runner.arch }}-api-tsc-',
+  ]);
+  assertIncludesAll(webWorkflow, [
+    'Restore Web TypeScript build info',
+    'Save Web TypeScript build info',
+    'apps/web/*.tsbuildinfo',
+    '${{ runner.os }}-${{ runner.arch }}-web-tsc-',
   ]);
 });
 
@@ -306,12 +326,14 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
     'NEXT_PUBLIC_APP_URL=https://ci.knu-roommate.invalid',
   ]);
   assertIncludesAll(webWorkflow, [
-    'path: apps/web/.next/cache',
     'run_storybook:',
     'pnpm --dir apps/web ci:storybook:build',
     'pnpm web:sentry:verify-build',
     'if: ${{ failure() && !cancelled() }}',
   ]);
+  assert.ok(!webWorkflow.includes('apps/web/.next/cache'));
+  assert.ok(!webWorkflow.includes('id: next-cache'));
+  assert.ok(!webWorkflow.includes('runner.os }}-next-'));
   assert.ok(!webWorkflow.includes('if: ${{ !cancelled() }}'));
   assert.equal(occurrences(webWorkflow, 'if: ${{ failure() && !cancelled() }}'), 2);
   assert.equal(occurrences(webWorkflow, 'SENTRY_AUTH_TOKEN:'), 1);

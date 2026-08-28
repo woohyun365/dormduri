@@ -5,7 +5,8 @@
     "currency": "USD",
     "sourceUrl": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
     "runnerRatesUsdPerMinute": {
-      "ubuntu-24.04": 0.006
+      "ubuntu-24.04": 0.006,
+      "ubuntu-slim": 0.002
     },
     "storageRatesUsdPerGbMonth": {
       "artifactsAndPackages": 0.25,
