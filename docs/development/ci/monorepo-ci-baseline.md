@@ -406,7 +406,7 @@ PR #374 first source run `33139355819`은 compiler dependency 때문에 frozen d
 | Web TypeScript build-info       | miss static 120s; exact restore 2s + static 92s | retained                                        |
 | Next cache removal              | cached build 10s → cold build 43s               | rejected; stable toolchain/config key로 복구    |
 | `ubuntu-slim` classify          | 9s standard → 17s slim, rounded 1분             | `$0.006` → `$0.002`, retained                   |
-| `ubuntu-slim` repository policy | 71s/2분 standard → 128s/3분 slim                | `$0.012` → `$0.006`, retained off critical path |
+| `ubuntu-slim` repository policy | 71s/2분 standard → 128s/3분 slim                | rejected; docs/config critical path가 너무 느림 |
 | `ubuntu-slim` summary           | 4s standard → 5s slim, rounded 1분              | `$0.006` → `$0.002`, retained                   |
 
 변경 전 cache inventory는 30 entries / 7,626,505,766 bytes였습니다. Next family가 16 entries / 3,190,697,223 bytes,
@@ -428,13 +428,14 @@ Final source run `33141634646`은 330s wall / 1,543 raw seconds / 31 rounded min
 10.7%, list gross는 약 1.2% 증가했습니다. Stable Next cache는 약 151MB를 3s에 exact restore하고 build를 9s로 되돌렸으며,
 Web build-info는 2s restore와 static 92s를 유지했습니다. API cache 제거 후 static은 62s, SWC build는 2s였습니다.
 
-Slim classify/repository-policy/summary는 14s/104s/7s에 끝났고 list cost는 `$0.002`/`$0.004`/`$0.002`였습니다. 세 job 모두
-tool/timeout parity를 통과했고 product critical path 밖에 남았습니다. Final cache inventory는 33 entries /
+Slim classify/summary는 14s/7s에 끝났고 list cost는 각각 `$0.002`였습니다. Repository policy는 full run에서 104s였지만
+docs-only run `33142464458`에서 161s까지 늘어나 120s feedback target을 위반했습니다. Run당 약 `$0.006` 절감보다 wall
+regression이 커 standard x64로 복구합니다. Final cache inventory는 33 entries /
 7,796,117,996 bytes로 10GiB limit의 약 72.6%입니다. Next 17 entries / 3,341,668,739 bytes, pnpm 14 /
 4,454,147,908 bytes, TypeScript 2 / 301,349 bytes이며 old source-hash Next와 제거된 API build-info entry는 seven-day
 lifecycle로 자연 만료됩니다.
 
-SWC, stable Next cache, Web build-info, pnpm cache와 slim stateless runners를 accepted decision으로 유지합니다. API
+SWC, stable Next cache, Web build-info, pnpm cache와 slim classify/summary를 accepted decision으로 유지합니다. API
 build-info, Next cache removal, Playwright binary cache, product arm64와 larger runner는 rejected/deferred decision입니다.
 세 source run은 bounded A/B evidence이며 자연 발생 cohort가 아니므로 안정된 p50/p95로 승격하지 않습니다.
 
