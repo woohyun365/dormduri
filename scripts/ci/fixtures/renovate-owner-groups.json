@@ -46,6 +46,7 @@
       "@node-rs/argon2",
       "@prisma/adapter-pg",
       "@prisma/client",
+      "@swc/cli",
       "@swc/core",
       "@tabler/icons-react",
       "@testing-library/jest-dom",
@@ -113,6 +114,7 @@
     "lint-tooling": [
       "@eslint/eslintrc",
       "@eslint/js",
+      "@swc/cli",
       "@swc/core",
       "@types/node",
       "@typescript-eslint/eslint-plugin",
