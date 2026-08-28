@@ -46,20 +46,23 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary                | Current value                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------- |
-| Epoch                   | `native-ci-2026-08-28` / `collecting`                                               |
-| Base                    | `a15a98cd4b0f4ca23a147d65dce155061cd30193`                                          |
-| Dependency fingerprint  | lock `014b8d2b...`, workspace `638f823e...`, image inventory `5e31ed06...`          |
-| First compatible sample | PR #379 / run `33148148258`, Infra-only, 132s wall / 282 raw / 8 rounded / `$0.040` |
-| Excluded transition     | PR #378 / run `33145689006`; image inventory differs from the active epoch          |
-| Confidence              | Infra-only 1 natural sample; p50 requires 5 and p95 requires 10                     |
+| Boundary                              | Current value                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| Epoch                                 | `native-ci-2026-08-28` / `collecting`                                      |
+| Base                                  | `a15a98cd4b0f4ca23a147d65dce155061cd30193`                                 |
+| Dependency fingerprint                | lock `014b8d2b...`, workspace `638f823e...`, image inventory `5e31ed06...` |
+| Compatible Infra sample               | PR #379 / run `33148148258`, 132s wall / 282 raw / 8 rounded / `$0.040`    |
+| Compatible docs/config/tooling sample | PR #380 / run `33151854859`, 112s wall / 101 raw / 4 rounded / `$0.016`    |
+| Excluded transition                   | PR #378 / run `33145689006`; image inventory differs from the active epoch |
+| Confidence                            | Infra-only 1, docs/config/tooling 1; each needs 5 for p50 and 10 for p95   |
 
 Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
 
 - `transition-nginx-pr378.json`
 - `active-epoch-observability-pr379.json`
+- `active-epoch-repository-policy-pr380.json`
 - `active-epoch-current-report.json`
+- `resources-2026-08-28-post-pr380.json`
 
 ### First frozen-input event pair
 
@@ -176,14 +179,14 @@ false positive와 실제 runner 비용을 구분합니다.
 
 | Resource        | Current evidence                                          | Boundary / interpretation                                                   |
 | --------------- | --------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Actions cache   | 38 entries / 8,946,997,209 bytes / 83.3% of 10GiB         | pnpm 17개·5,453,794,048B, Next 18개·3,492,757,428B, TypeScript 3개·445,733B |
-| Artifacts       | active 94개 / 6,880,568 bytes / observed retention 7 days | expired metadata 276개; active size는 allowance보다 작음                    |
+| Actions cache   | 32 entries / 7,748,709,163 bytes / 72.2% of 10GiB         | pnpm 15개·4,854,559,647B, Next 14개·2,893,703,783B, TypeScript 3개·445,733B |
+| Artifacts       | active 83개 / 6,227,936 bytes / observed retention 7 days | expired metadata 287개; active size는 allowance보다 작음                    |
 | GitHub Packages | API unverified; prior owner UI evidence zero              | daily credential에 `read:packages`를 추가하지 않음                          |
 
-Cache가 80% review boundary를 넘었으므로 seven-day PR-ref expiry 후 재측정합니다. Expiry 뒤에도 80% 이상이면 key churn과
-eviction을 분석합니다. Artifact와 Packages는 shared storage이고 cache 10GiB는 별도 경계입니다.
+Seven-day PR-ref expiry가 cache를 83.3%에서 72.2%로 낮춰 80% review boundary 아래로 복구했습니다. 다시 80%를 넘거나
+eviction이 관측되면 key churn을 분석합니다. Artifact와 Packages는 shared storage이고 cache 10GiB는 별도 경계입니다.
 Owner Billing UI와 Packages billing contract의 2GB를 effective shared boundary로 사용하고, Actions 문서의 GitHub Pro
-artifact 1GB 표기는 provider reference 차이로 별도 보존합니다. 현재 active artifact 약 6.56MiB는 어느 경계보다도 작습니다.
+artifact 1GB 표기는 provider reference 차이로 별도 보존합니다. 현재 active artifact 약 5.94MiB는 어느 경계보다도 작습니다.
 
 같은 기간의 account-level sanitized usage는 `pnpm github:account:evidence`로 수집합니다. 2026-08 상세 usage는 Actions Linux
 3,143분과 Actions Storage 6.259958986 GB-hours이며, gross/discount 모두 `$18.860103243`, net `$0`으로 확인했습니다. 이
