@@ -269,19 +269,15 @@ test('app workflows publish comparable stage timing and cache evidence', () => {
   ]);
 });
 
-test('compiler caches stay small, architecture-aware, and owner-local', () => {
+test('compiler cache stays small, architecture-aware, and owner-local', () => {
   const orchestrator = read('.github/workflows/ci.yml');
   const apiWorkflow = read('.github/workflows/api-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
 
   assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 3);
   assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 1);
-  assertIncludesAll(apiWorkflow, [
-    'Restore API TypeScript build info',
-    'Save API TypeScript build info',
-    'apps/api/dist/.tsbuildinfo',
-    '${{ runner.os }}-${{ runner.arch }}-api-tsc-',
-  ]);
+  assert.ok(!apiWorkflow.includes('API TypeScript build info'));
+  assert.ok(!apiWorkflow.includes('apps/api/dist/.tsbuildinfo'));
   assertIncludesAll(webWorkflow, [
     'path: apps/web/.next/cache',
     'Restore Web TypeScript build info',

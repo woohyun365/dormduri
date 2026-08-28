@@ -94,8 +94,9 @@ worker 1을 유지한다. K6/Artillery/Docker real load는 일반 CI가 아니�
 - Web core job은 Next production build를 한 번 수행하고 같은 workspace의 standalone artifact로 desktop/mobile Chromium
   smoke를 실행한다. Web unit job은 독립적으로 실행되어 static/build/browser와 wall time을 공유하지 않는다.
 - `actions/setup-node`가 pnpm store cache를 관리한다. 이 action은 workflow에서 안정적인 hit/miss output을 제공하지 않으므로 install duration을 관측 신호로 사용한다.
-- API/Web TypeScript build-info는 architecture, lockfile, config, source-aware exact key와 config-compatible restore prefix를
-  사용한다. 상대 경로만 포함하는 약 655KB/865KB 파일이며 stateful DB나 secret을 포함하지 않는다.
+- Web TypeScript build-info는 architecture, lockfile, config, source-aware exact key와 config-compatible restore prefix를
+  사용한다. 상대 경로만 포함하는 약 865KB 파일이며 stateful DB나 secret을 포함하지 않는다. API build-info는 hosted
+  static stage를 줄이지 못해 cache하지 않는다.
 - Web `.next/cache`는 별도 `actions/cache`가 관리하고 `next_build_cache_hit`을 summary에 남긴다. Key는 OS/architecture,
   lockfile, Next/package/tsconfig toolchain으로 고정하고 source hash를 포함하지 않는다. Turbopack이 changed source를
   invalidation하며, corrective push마다 새 230MB entry를 만드는 대신 PR ref마다 한 entry를 재사용한다.

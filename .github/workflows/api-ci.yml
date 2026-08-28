@@ -55,15 +55,6 @@ jobs:
       - name: Install dependencies
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=install -- pnpm install --frozen-lockfile
 
-      - name: Restore API TypeScript build info
-        id: api-tsc-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/api/dist/.tsbuildinfo
-          key: ${{ runner.os }}-${{ runner.arch }}-api-tsc-${{ hashFiles('pnpm-lock.yaml', 'packages/tsconfig/**', 'apps/api/tsconfig*.json', 'apps/api/test/tsconfig.json') }}-${{ hashFiles('apps/api/src/**/*.ts', 'apps/api/test/**/*.ts', 'packages/shared/src/**/*.ts') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-api-tsc-${{ hashFiles('pnpm-lock.yaml', 'packages/tsconfig/**', 'apps/api/tsconfig*.json', 'apps/api/test/tsconfig.json') }}-
-
       - name: Prepare CI database schema
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
 
@@ -72,13 +63,6 @@ jobs:
 
       - name: API static checks
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=static -- pnpm api:check:prepared
-
-      - name: Save API TypeScript build info
-        if: ${{ steps.api-tsc-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/api/dist/.tsbuildinfo
-          key: ${{ steps.api-tsc-cache.outputs.cache-primary-key }}
 
       - name: API runtime boundary contracts
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=runtime-config-health-contract -- pnpm api:test:runtime-config-health-contract:prepared
