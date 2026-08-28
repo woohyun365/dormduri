@@ -6,6 +6,11 @@ import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import {
+  buildDependencyFingerprint,
+  compareDependencyFingerprint,
+  parseMeasurementEpoch,
+} from './ci-performance-epoch.mjs';
 import { classifyChanges } from './classify-changes.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
@@ -95,11 +100,11 @@ export function buildRunEvidence({
   jobs,
   artifacts,
   changedPaths = [],
-  baselineChangedPaths = changedPaths,
   log,
-  dependencyFingerprint = null,
+  measurementEpoch = null,
   pricing = null,
   pullRequest = null,
+  runHeadFingerprint = null,
 }) {
   const completedJobs = jobs.filter(
     (job) => job.started_at && job.completed_at && job.conclusion !== 'skipped',
@@ -171,9 +176,17 @@ export function buildRunEvidence({
   const wastedJobs = completedJobs.filter((job) =>
     ['action_required', 'cancelled', 'failure', 'stale', 'timed_out'].includes(job.conclusion),
   );
-  const dependencyInputs = Object.keys(dependencyFingerprint?.fileSha256 ?? {});
-  const changedDependencyInputs = baselineChangedPaths.filter((path) =>
-    dependencyInputs.includes(path),
+  const dependencyComparison =
+    measurementEpoch && runHeadFingerprint
+      ? compareDependencyFingerprint(measurementEpoch, runHeadFingerprint)
+      : {
+          changedInputs: [],
+          comparisonBaseSha: null,
+          comparisonEpochId: null,
+          state: 'unavailable',
+        };
+  const changedDependencyInputs = dependencyComparison.changedInputs.filter(
+    (path) => path !== 'measurement-epoch',
   );
   const webSourceChanged = changedPaths.some((path) => path.startsWith('apps/web/'));
   const cacheEvidence = {
@@ -228,13 +241,8 @@ export function buildRunEvidence({
     },
     conclusion: run.conclusion,
     createdAt: run.created_at,
-    dependencyCompatibility: {
-      comparisonBaseSha: dependencyFingerprint?.devHeadSha ?? null,
-      changedInputs: changedDependencyInputs,
-      state:
-        changedDependencyInputs.length === 0 ? 'compatible-unchanged-inputs' : 'changed-inputs',
-    },
-    dependencyFingerprint,
+    dependencyCompatibility: dependencyComparison,
+    dependencyFingerprint: runHeadFingerprint,
     estimatedGrossUsd,
     event: run.event,
     id: run.id,
@@ -248,6 +256,14 @@ export function buildRunEvidence({
       sourcePullRequestHeadSha: pullRequest?.head?.sha ?? null,
     },
     jobs: jobEvidence,
+    measurementEpoch: measurementEpoch
+      ? {
+          baseSha: measurementEpoch.baseSha,
+          capturedAt: measurementEpoch.capturedAt,
+          id: measurementEpoch.id,
+          state: measurementEpoch.state,
+        }
+      : null,
     outcome: {
       cancelledJobCount: cancelledJobs.length,
       failedJobCount: failedJobs.length,
@@ -306,21 +322,11 @@ function ghLines(args) {
   return output ? output.split('\n').filter(Boolean) : [];
 }
 
-function collectRunContext(repository, run, dependencyFingerprint) {
-  const baselineChangedPaths = dependencyFingerprint?.devHeadSha
-    ? ghLines([
-        'api',
-        '--paginate',
-        `repos/${repository}/compare/${dependencyFingerprint.devHeadSha}...${run.head_sha}?per_page=100`,
-        '--jq',
-        '.files[].filename',
-      ])
-    : [];
+function collectRunContext(repository, run) {
   const pulls = ghJson(['api', `repos/${repository}/commits/${run.head_sha}/pulls`]);
   const pullRequest = pulls.find((pull) => pull.head?.sha === run.head_sha) ?? pulls[0] ?? null;
   if (pullRequest) {
     return {
-      baselineChangedPaths,
       changedPaths: ghLines([
         'api',
         '--paginate',
@@ -333,7 +339,6 @@ function collectRunContext(repository, run, dependencyFingerprint) {
   }
 
   return {
-    baselineChangedPaths,
     changedPaths: ghLines([
       'api',
       '--paginate',
@@ -345,11 +350,7 @@ function collectRunContext(repository, run, dependencyFingerprint) {
   };
 }
 
-export function collectGithubActionsRun(
-  repository,
-  runId,
-  { dependencyFingerprint, pricing } = {},
-) {
+export function collectGithubActionsRun(repository, runId, { measurementEpoch, pricing } = {}) {
   const run = ghJson(['api', `repos/${repository}/actions/runs/${runId}`]);
   if (run.status !== 'completed' || !run.conclusion) {
     throw new Error(`run ${runId} is not completed`);
@@ -363,17 +364,28 @@ export function collectGithubActionsRun(
     `repos/${repository}/actions/runs/${runId}/artifacts?per_page=100`,
   ]).artifacts;
   const log = ghText(['run', 'view', String(runId), '--repo', repository, '--log']);
-  const context = collectRunContext(repository, run, dependencyFingerprint);
+  const context = collectRunContext(repository, run);
+  const runHeadFingerprint = buildDependencyFingerprint({
+    epoch: measurementEpoch,
+    readText: (path) =>
+      ghText([
+        'api',
+        '-H',
+        'Accept: application/vnd.github.raw+json',
+        `repos/${repository}/contents/${path}?ref=${run.head_sha}`,
+      ]),
+    sourceSha: run.head_sha,
+  });
   return buildRunEvidence({
     artifacts,
-    baselineChangedPaths: context.baselineChangedPaths,
     changedPaths: context.changedPaths,
-    dependencyFingerprint,
     jobs,
     log,
+    measurementEpoch,
     pricing,
     pullRequest: context.pullRequest,
     run,
+    runHeadFingerprint,
   });
 }
 
@@ -418,8 +430,13 @@ export function resolveCollectorOutputPath(output, now = new Date()) {
 function main(argv) {
   const options = parseArgs(argv);
   const outputPath = resolveCollectorOutputPath(options.output);
-  const baseline = JSON.parse(
-    readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/ci-performance-baseline.json'), 'utf8'),
+  const measurementEpoch = parseMeasurementEpoch(
+    JSON.parse(
+      readFileSync(
+        resolve(repoRoot, 'scripts/ci/fixtures/ci-performance-active-epoch.json'),
+        'utf8',
+      ),
+    ),
   );
   const policy = JSON.parse(
     readFileSync(
@@ -432,11 +449,11 @@ function main(argv) {
     repository: options.repository,
     runs: options.runIds.map((runId) =>
       collectGithubActionsRun(options.repository, runId, {
-        dependencyFingerprint: baseline.dependencyBaseline,
+        measurementEpoch,
         pricing: { ...policy.pricing, reviewedAt: policy.reviewedAt },
       }),
     ),
-    schemaVersion: 2,
+    schemaVersion: 3,
   };
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);

@@ -52,11 +52,19 @@ test('summarizes GitHub run wall, raw compute, billed rounding, queue, cache, te
     retryCount: 0,
     wastedComputeSeconds: 0,
   });
-  assert.equal(evidence.dependencyFingerprint.devHeadSha, fixture.dependencyFingerprint.devHeadSha);
+  assert.deepEqual(evidence.dependencyFingerprint, fixture.runHeadFingerprint);
   assert.equal(
     evidence.dependencyCompatibility.comparisonBaseSha,
-    fixture.dependencyFingerprint.devHeadSha,
+    fixture.measurementEpoch.baseSha,
   );
+  assert.equal(evidence.dependencyCompatibility.comparisonEpochId, fixture.measurementEpoch.id);
+  assert.equal(evidence.dependencyCompatibility.state, 'compatible-active-epoch');
+  assert.deepEqual(evidence.measurementEpoch, {
+    baseSha: fixture.measurementEpoch.baseSha,
+    capturedAt: fixture.measurementEpoch.capturedAt,
+    id: fixture.measurementEpoch.id,
+    state: fixture.measurementEpoch.state,
+  });
   assert.equal(evidence.jobs[1].queueSeconds, 13);
   assert.equal(evidence.jobs[1].runnerSku, 'ubuntu-24.04');
   assert.equal(evidence.jobs[1].billingMultiplier, 1);
@@ -125,15 +133,25 @@ test('prices the one-core Linux runner independently from standard Linux', () =>
   assert.equal(evidence.jobs[0].estimatedGrossUsd, 0.002);
 });
 
-test('marks a run incompatible when frozen dependency inputs changed after the baseline', () => {
+test('marks a run incompatible when its run-head fingerprint differs from the active epoch', () => {
   const evidence = buildRunEvidence({
     ...fixture,
-    baselineChangedPaths: ['pnpm-lock.yaml'],
     log: 'Cache not found for input keys:\n',
+    runHeadFingerprint: {
+      ...fixture.runHeadFingerprint,
+      fileSha256: {
+        ...fixture.runHeadFingerprint.fileSha256,
+        'pnpm-lock.yaml': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      },
+    },
   });
 
   assert.deepEqual(evidence.dependencyCompatibility.changedInputs, ['pnpm-lock.yaml']);
   assert.equal(evidence.dependencyCompatibility.state, 'changed-inputs');
+  assert.equal(
+    evidence.dependencyFingerprint.fileSha256['pnpm-lock.yaml'],
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  );
   assert.equal(evidence.cache.pnpmInterpretation, 'expected-dependency-key-change');
 });
 

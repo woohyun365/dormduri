@@ -5,6 +5,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import { dependencyInputPaths } from './ci-performance-epoch.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const expectedSurfaces = ['full', 'api-only', 'web-only', 'infra-only', 'docs-config-tooling-only'];
@@ -39,10 +40,41 @@ function summarizeMetric(values, sampleCount) {
 
 function stableFingerprint(fingerprint) {
   if (!fingerprint) throw new Error('dependency fingerprint is required');
+  if (fingerprint.epochId) {
+    return JSON.stringify({
+      epochId: fingerprint.epochId,
+      fileSha256: Object.fromEntries(Object.entries(fingerprint.fileSha256 ?? {}).sort()),
+    });
+  }
   return JSON.stringify({
     devHeadSha: fingerprint.devHeadSha,
     fileSha256: Object.fromEntries(Object.entries(fingerprint.fileSha256 ?? {}).sort()),
   });
+}
+
+function validateActiveEpochRun(run) {
+  const fingerprint = run.dependencyFingerprint;
+  const epoch = run.measurementEpoch;
+  if (!fingerprint?.epochId || !fingerprint?.sourceSha || !epoch?.id) {
+    throw new Error(`run ${run.id} is missing active measurement epoch evidence`);
+  }
+  for (const path of dependencyInputPaths) {
+    if (!/^[a-f0-9]{64}$/u.test(fingerprint.fileSha256?.[path] ?? '')) {
+      throw new Error(`run ${run.id} active fingerprint is missing ${path}`);
+    }
+  }
+  if (fingerprint.sourceSha !== run.identity?.headSha) {
+    throw new Error(`run ${run.id} run-head fingerprint does not match the workflow head SHA`);
+  }
+  if (
+    fingerprint.epochId !== epoch.id ||
+    run.dependencyCompatibility?.comparisonEpochId !== epoch.id
+  ) {
+    throw new Error(`run ${run.id} measurement epoch identity is inconsistent`);
+  }
+  if (!['compatible-active-epoch', 'changed-inputs'].includes(run.dependencyCompatibility?.state)) {
+    throw new Error(`run ${run.id} active measurement compatibility is unavailable`);
+  }
 }
 
 function confidenceFor(sampleCount) {
@@ -155,14 +187,20 @@ function summarizeCohort(surface, cohortRuns, policy) {
 
 export function buildPerformanceReport({ datasets, policy, resourceInventory = null }) {
   const byId = new Map();
+  const schemaVersions = new Set();
   for (const dataset of datasets) {
-    if (dataset.schemaVersion !== 2) {
+    if (![2, 3].includes(dataset.schemaVersion)) {
       throw new Error(`unsupported performance dataset schema: ${dataset.schemaVersion}`);
     }
+    schemaVersions.add(dataset.schemaVersion);
     for (const run of dataset.runs ?? []) byId.set(run.id, run);
+  }
+  if (schemaVersions.size > 1) {
+    throw new Error('historical and active-epoch dataset schemas cannot be mixed');
   }
 
   const runs = [...byId.values()];
+  if (schemaVersions.has(3)) runs.forEach(validateActiveEpochRun);
   const incompatible = runs.filter(
     (run) => run.dependencyCompatibility?.state === 'changed-inputs',
   );
@@ -222,6 +260,7 @@ export function buildPerformanceReport({ datasets, policy, resourceInventory = n
   return {
     cohorts,
     dependencyFingerprint: runs[0]?.dependencyFingerprint ?? null,
+    measurementEpoch: runs[0]?.measurementEpoch ?? null,
     eventCohorts,
     gaps,
     generatedAt: new Date().toISOString(),

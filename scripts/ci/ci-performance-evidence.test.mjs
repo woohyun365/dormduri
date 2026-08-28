@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -82,15 +81,15 @@ test('preserves the original workflow hashes as comparison evidence while workfl
   assert.throws(() => parseCiPerformanceEvidence(input), /lowercase SHA-256 digest/u);
 });
 
-test('frozen dependency inputs match the current repository baseline', () => {
+test('historical dependency inputs remain immutable instead of following the current tree', () => {
   const baseline = readBaseline().dependencyBaseline;
 
-  for (const [path, expected] of Object.entries(baseline.fileSha256)) {
-    const actual = createHash('sha256')
-      .update(readFileSync(resolve(process.cwd(), path)))
-      .digest('hex');
-    assert.equal(actual, expected, path);
-  }
+  assert.deepEqual(baseline.fileSha256, {
+    'pnpm-lock.yaml': 'b2be74bc26e19b38b2bbfbb36f9faa768948d6e9f8f1988e495b156eaed32462',
+    'pnpm-workspace.yaml': '638f823ec4a12faaa6219c725ee069e414d898f1e7adad03d3ad44a021acd4ae',
+    'infra/image-inventory.json':
+      '2faf8ded674d60a693e19b08820feacd3506c9e6c9e822fb8efa58038e00c85a',
+  });
 });
 
 test('prints a stable read-only summary for later baseline comparisons', () => {

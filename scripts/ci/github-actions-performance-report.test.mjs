@@ -22,17 +22,31 @@ test('keeps the effective Pro shared-storage boundary separate from provider ref
 });
 
 function sample(id, surface, value, overrides = {}) {
+  const sourceSha = String(id).padStart(40, '0');
   return {
     attempt: 1,
     change: { surface },
     conclusion: 'success',
     dependencyFingerprint: {
-      devHeadSha: 'db9638295f8191eced847950fb704c19ae780ba8',
-      fileSha256: { 'pnpm-lock.yaml': 'fixture-lock' },
+      epochId: 'native-ci-2026-08-28',
+      fileSha256: {
+        'pnpm-lock.yaml': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'pnpm-workspace.yaml': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        'infra/image-inventory.json':
+          'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      },
+      sourceSha,
+    },
+    dependencyCompatibility: {
+      changedInputs: [],
+      comparisonBaseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
+      comparisonEpochId: 'native-ci-2026-08-28',
+      state: 'compatible-active-epoch',
     },
     estimatedGrossUsd: value * 0.006,
     event: 'pull_request',
     id,
+    identity: { headSha: sourceSha },
     jobs: [
       {
         name: 'Web validation',
@@ -47,6 +61,12 @@ function sample(id, surface, value, overrides = {}) {
     },
     rawComputeSeconds: value * 2,
     roundedBilledMinutes: value,
+    measurementEpoch: {
+      baseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
+      capturedAt: '2026-08-28T06:33:34Z',
+      id: 'native-ci-2026-08-28',
+      state: 'collecting',
+    },
     tests: { testCases: 3401, testFiles: 690 },
     workflowWallSeconds: value,
     ...overrides,
@@ -56,7 +76,7 @@ function sample(id, surface, value, overrides = {}) {
 test('publishes provisional p50 at five natural samples and p95 at ten', () => {
   const runs = Array.from({ length: 10 }, (_, index) => sample(index + 1, 'full', index + 1));
   const report = buildPerformanceReport({
-    datasets: [{ collectedAt: '2026-08-26T00:00:00Z', runs, schemaVersion: 2 }],
+    datasets: [{ collectedAt: '2026-08-26T00:00:00Z', runs, schemaVersion: 3 }],
     policy,
     resourceInventory: {
       artifacts: { activeCount: 98, activeSizeBytes: 7752603 },
@@ -86,7 +106,7 @@ test('does not invent percentiles when a natural cohort is too small', () => {
       {
         collectedAt: '2026-08-26T00:00:00Z',
         runs: [sample(1, 'web-only', 100)],
-        schemaVersion: 2,
+        schemaVersion: 3,
       },
     ],
     policy,
@@ -106,7 +126,7 @@ test('keeps retired push evidence separate from the primary pull-request cohort'
       {
         collectedAt: '2026-08-26T00:00:00Z',
         runs: [sample(1, 'full', 100), sample(2, 'full', 200, { event: 'push' })],
-        schemaVersion: 2,
+        schemaVersion: 3,
       },
     ],
     policy,
@@ -121,8 +141,8 @@ test('deduplicates run ids and rejects mixed dependency fingerprints', () => {
   const duplicate = sample(1, 'full', 100);
   const report = buildPerformanceReport({
     datasets: [
-      { collectedAt: '2026-08-26T00:00:00Z', runs: [duplicate], schemaVersion: 2 },
-      { collectedAt: '2026-08-26T00:01:00Z', runs: [duplicate], schemaVersion: 2 },
+      { collectedAt: '2026-08-26T00:00:00Z', runs: [duplicate], schemaVersion: 3 },
+      { collectedAt: '2026-08-26T00:01:00Z', runs: [duplicate], schemaVersion: 3 },
     ],
     policy,
   });
@@ -137,13 +157,33 @@ test('deduplicates run ids and rejects mixed dependency fingerprints', () => {
             runs: [
               duplicate,
               sample(2, 'full', 100, {
+                dependencyCompatibility: {
+                  changedInputs: [],
+                  comparisonBaseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
+                  comparisonEpochId: 'different-epoch',
+                  state: 'compatible-active-epoch',
+                },
                 dependencyFingerprint: {
-                  devHeadSha: 'different',
-                  fileSha256: { 'pnpm-lock.yaml': 'different' },
+                  epochId: 'different-epoch',
+                  fileSha256: {
+                    'pnpm-lock.yaml':
+                      'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+                    'pnpm-workspace.yaml':
+                      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                    'infra/image-inventory.json':
+                      'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+                  },
+                  sourceSha: '0000000000000000000000000000000000000002',
+                },
+                measurementEpoch: {
+                  baseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
+                  capturedAt: '2026-08-28T06:33:34Z',
+                  id: 'different-epoch',
+                  state: 'collecting',
                 },
               }),
             ],
-            schemaVersion: 2,
+            schemaVersion: 3,
           },
         ],
         policy,
@@ -161,15 +201,64 @@ test('deduplicates run ids and rejects mixed dependency fingerprints', () => {
               sample(3, 'full', 100, {
                 dependencyCompatibility: {
                   changedInputs: ['pnpm-lock.yaml'],
+                  comparisonBaseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
+                  comparisonEpochId: 'native-ci-2026-08-28',
                   state: 'changed-inputs',
                 },
               }),
             ],
-            schemaVersion: 2,
+            schemaVersion: 3,
           },
         ],
         policy,
       }),
     /dependency inputs changed/u,
+  );
+});
+
+test('rejects active-epoch evidence when the fingerprint was not read from the run head', () => {
+  assert.throws(
+    () =>
+      buildPerformanceReport({
+        datasets: [
+          {
+            collectedAt: '2026-08-28T00:00:00Z',
+            runs: [
+              sample(9, 'infra-only', 100, {
+                dependencyFingerprint: {
+                  epochId: 'native-ci-2026-08-28',
+                  fileSha256: {
+                    'pnpm-lock.yaml':
+                      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                    'pnpm-workspace.yaml':
+                      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                    'infra/image-inventory.json':
+                      'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+                  },
+                  sourceSha: 'ffffffffffffffffffffffffffffffffffffffff',
+                },
+              }),
+            ],
+            schemaVersion: 3,
+          },
+        ],
+        policy,
+      }),
+    /run-head fingerprint/u,
+  );
+});
+
+test('keeps historical and active-epoch dataset schemas in separate reports', () => {
+  const run = sample(10, 'infra-only', 100);
+  assert.throws(
+    () =>
+      buildPerformanceReport({
+        datasets: [
+          { collectedAt: '2026-08-26T00:00:00Z', runs: [run], schemaVersion: 2 },
+          { collectedAt: '2026-08-28T00:00:00Z', runs: [run], schemaVersion: 3 },
+        ],
+        policy,
+      }),
+    /historical and active-epoch dataset schemas cannot be mixed/u,
   );
 });

@@ -255,4 +255,4 @@ Agent 활용을 설명할 때도 “AI가 코드를 작성했다”보다 다음
 - Full SDD는 feature 규모와 requirement 안정성이 높아지고 tracked spec의 유지 이득이 비용보다 커질 때 재검토합니다.
 - 더 높은 autonomy는 CI, security, observability, rollback과 provider authority가 충분히 검증된 뒤 재검토합니다.
 
-마지막 검토일: 2026-08-27
+마지막 검토일: 2026-08-28
