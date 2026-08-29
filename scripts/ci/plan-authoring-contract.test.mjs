@@ -67,6 +67,7 @@ test('plan authoring separates comprehensive planning from implementation readin
     'blocked',
     'completed',
     'git check-ignore',
+    'trackingMigration',
     'tracked-only',
     'local-runtime-gap',
     'deterministic-static',

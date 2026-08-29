@@ -95,11 +95,32 @@ export function assessPlanReadiness(input) {
       target.intendedState === 'tracked' &&
       !['tracked', 'allowlisted'].includes(target.trackingState)
     ) {
-      addBlocking(
-        'ignored-target-path',
-        `targetPaths.${target.path}`,
-        `Tracked target ${target.path} is ${target.trackingState}; the plan must own its tracking migration.`,
-      );
+      if (target.trackingMigration == null) {
+        addBlocking(
+          'ignored-target-path',
+          `targetPaths.${target.path}`,
+          `Tracked target ${target.path} is ${target.trackingState}; the plan must own its tracking migration.`,
+        );
+      } else {
+        const ownerPhase = phases.find(({ id }) => id === target.trackingMigration.phaseId);
+        if (
+          !ownerPhase?.mutatesTrackedSource ||
+          !ownerPhase.ownedPaths.includes(target.trackingMigration.policyPath) ||
+          !ownerPhase.tests.includes(target.trackingMigration.verification)
+        ) {
+          addBlocking(
+            'incomplete-tracking-migration',
+            `targetPaths.${target.path}.trackingMigration`,
+            `Tracking migration for ${target.path} must reference a mutating Phase that owns the policy path and exact verification.`,
+          );
+        } else {
+          addWarning(
+            'tracking-migration-required',
+            `targetPaths.${target.path}`,
+            `Tracked target ${target.path} remains ${target.trackingState} until ${ownerPhase.id} completes the declared migration.`,
+          );
+        }
+      }
     }
     if (
       target.intendedState === 'local-only' &&
@@ -246,8 +267,22 @@ function normalizeTargetPaths(values) {
         value.trackingEvidence,
         `targetPaths[${index}].trackingEvidence`,
       ),
+      trackingMigration: normalizeTrackingMigration(
+        value.trackingMigration,
+        `targetPaths[${index}].trackingMigration`,
+      ),
     };
   });
+}
+
+function normalizeTrackingMigration(value, path) {
+  if (value == null) return null;
+  assertRecord(value, path);
+  return {
+    phaseId: requireString(value.phaseId, `${path}.phaseId`),
+    policyPath: requireString(value.policyPath, `${path}.policyPath`),
+    verification: requireString(value.verification, `${path}.verification`),
+  };
 }
 
 function normalizeConfiguration(value) {

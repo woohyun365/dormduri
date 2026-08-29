@@ -113,7 +113,9 @@ provider account, region, production hostname, actual budget처럼 미래 releas
 
 1. current branch, HEAD, working tree와 protected user-owned path를 검사합니다.
 2. tracked target은 `git check-ignore -v <path>`와 `git ls-files --error-unmatch <path>` 등으로 실제 tracking 상태를
-   확인합니다. Ignored target을 tracked artifact로 만들 계획이라면 allowlist·이동·삭제 책임을 해당 Phase가 소유합니다.
+   확인합니다. Ignored target을 tracked artifact로 만들 계획이라면 allowlist·이동·삭제 책임과 정확한 verification을 해당
+   Phase가 소유합니다. Normalized evidence는 이를 `trackingMigration`으로 연결하며 현재 ignored 상태를 이미 allowlisted인
+   것처럼 바꾸지 않습니다.
 3. `tracked-only` evidence와 로컬 도구·계정·설치 상태를 구분합니다. 구현에 필요한 local evidence를 확인할 수 없으면
    `local-runtime-gap`으로 기록하고 승격하지 않습니다. 로컬 evidence는 portable repository fact로 표현하지 않습니다.
 4. tool-specific configuration은 higher-level runtime instruction, 명시적 호출 인자, project config, user config와
@@ -141,7 +143,7 @@ provider account, region, production hostname, actual budget처럼 미래 releas
 | ------------------------------------- | --------------------------- |
 | status와 evidence 범위                | `status`, `evidenceSurface` |
 | branch, HEAD, working tree, local gap | `baseline`                  |
-| tracked/local-only target             | `targetPaths`               |
+| tracked/local-only target와 migration | `targetPaths`               |
 | concurrency와 precedence              | `configuration`             |
 | enforcement strength와 owner          | `enforcementClaims`         |
 | mutating Phase contract               | `phases`                    |

@@ -92,6 +92,35 @@ test('rejects local-only leakage and premature acceptance in a proposed plan', (
   ]);
 });
 
+test('accepts an ignored tracked target when a complete tracking migration owns the boundary', () => {
+  const input = structuredClone(readFixture('implementation-ready'));
+  const verification = 'git check-ignore -v .codex/config.toml';
+  input.targetPaths = [
+    {
+      path: '.codex/config.toml',
+      intendedState: 'tracked',
+      trackingState: 'ignored',
+      trackingEvidence: '.gitignore:47:.codex/',
+      trackingMigration: {
+        phaseId: 'phase-0',
+        policyPath: '.gitignore',
+        verification,
+      },
+    },
+  ];
+  input.phases[0].ownedPaths.push('.gitignore');
+  input.phases[0].tests.push(verification);
+
+  const report = assessPlanReadiness(input);
+
+  assert.equal(report.ready, true);
+  assert.deepEqual(report.blockingFindings, []);
+  assert.deepEqual(
+    report.warnings.map(({ code }) => code),
+    ['tracking-migration-required'],
+  );
+});
+
 test('fails closed on an unsupported readiness schema', () => {
   assert.throws(
     () => assessPlanReadiness({ ...readFixture('implementation-ready'), schemaVersion: 2 }),
