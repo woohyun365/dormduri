@@ -55,6 +55,50 @@ test('core contract preserves evidence, decision, phase, verification, and owner
   assert.match(core, /github\/branch-and-pr-strategy\.md/u);
 });
 
+test('plan authoring separates comprehensive planning from implementation readiness', () => {
+  const index = read(`${authoringRoot}/README.md`);
+  const core = read(`${authoringRoot}/core.md`);
+
+  for (const phrase of [
+    'Implementation readiness promotion',
+    'draft',
+    'proposed',
+    'implementation-ready',
+    'blocked',
+    'completed',
+    'git check-ignore',
+    'tracked-only',
+    'local-runtime-gap',
+    'deterministic-static',
+    'advisory-policy',
+    'model-mediated',
+    'native-runtime',
+    'plan-readiness-policy.mjs',
+  ]) {
+    assert.match(core, new RegExp(phrase, 'u'));
+  }
+
+  assert.match(core, /unchecked.*required/u);
+  assert.match(core, /complete Phase contract.*shared owner table/u);
+  assert.match(core, /invariant.*once.*link/u);
+  assert.match(index, /comprehensive.*implementation-ready/iu);
+  assert.match(index, /Implementation readiness review/u);
+  assert.match(index, /plan-readiness-policy\.mjs/u);
+});
+
+test('root guidance routes to readiness owner without duplicating its detailed matrix', () => {
+  const agents = read('AGENTS.md');
+
+  assert.match(agents, /tracked plan-authoring workflow/u);
+  for (const ownerOnlyTerm of [
+    'deterministic-static',
+    'local-runtime-gap',
+    'plan-readiness-policy.mjs',
+  ]) {
+    assert.doesNotMatch(agents, new RegExp(ownerOnlyTerm, 'u'));
+  }
+});
+
 test('primary domain guides retain their non-overlapping planning concerns', () => {
   const frontend = read(`${authoringRoot}/frontend.md`);
   const backend = read(`${authoringRoot}/backend.md`);

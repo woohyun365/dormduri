@@ -99,7 +99,60 @@ provider account, region, production hostname, actual budget처럼 미래 releas
 
 빈 heading을 채우기 위해 내용을 발명하지 않습니다. 적용되지 않는 항목은 이유와 함께 생략합니다.
 
-## 7. Branch and PR execution strategy
+## 7. Implementation readiness promotion
+
+계획이 상세하다는 사실과 바로 구현할 수 있다는 판정은 분리합니다. Canonical status lifecycle은 다음과 같습니다.
+
+- `draft`: baseline, decision 또는 phase contract를 아직 작성하는 중
+- `proposed`: 검토 가능한 계획이지만 implementation readiness evidence가 아직 불완전함
+- `implementation-ready`: 아래 promotion gate를 current evidence로 통과함
+- `blocked`: 구현 결과를 바꾸는 OQ, 권한 또는 외부 의존성이 해결되지 않음
+- `completed`: 구현과 acceptance evidence가 모두 확인됨
+
+`proposed`에서 `implementation-ready`로 승격하려면 다음을 모두 확인합니다.
+
+1. current branch, HEAD, working tree와 protected user-owned path를 검사합니다.
+2. tracked target은 `git check-ignore -v <path>`와 `git ls-files --error-unmatch <path>` 등으로 실제 tracking 상태를
+   확인합니다. Ignored target을 tracked artifact로 만들 계획이라면 allowlist·이동·삭제 책임을 해당 Phase가 소유합니다.
+3. `tracked-only` evidence와 로컬 도구·계정·설치 상태를 구분합니다. 구현에 필요한 local evidence를 확인할 수 없으면
+   `local-runtime-gap`으로 기록하고 승격하지 않습니다. 로컬 evidence는 portable repository fact로 표현하지 않습니다.
+4. tool-specific configuration은 higher-level runtime instruction, 명시적 호출 인자, project config, user config와
+   default 사이의 실제 precedence를 확인합니다. 문서 설명만으로 live runtime precedence를 단정하지 않습니다.
+5. 모든 enforcement claim에 다음 strength 중 하나와 실제 owner를 기록합니다.
+   - `deterministic-static`: test, schema 또는 script가 같은 입력에 기계적으로 판정
+   - `advisory-policy`: 문서 지침이며 runtime 강제가 아님
+   - `model-mediated`: agent가 evidence를 바탕으로 판단
+   - `native-runtime`: Codex·OMX·provider가 실행 시 강제
+6. proposed 계획의 미실행 acceptance는 unchecked `required`로 유지합니다. Evidence가 없는 항목을 passed 또는 완료
+   checkbox로 표현하지 않습니다.
+7. tracked source를 수정하는 단계는 complete Phase contract를 가지거나 같은 계획의 explicit shared owner table을
+   참조해야 합니다.
+8. 구현 결과를 바꾸는 blocking OQ가 없고, 비차단 gap은 owner·필요 evidence·revisit trigger를 가집니다.
+
+계획이 커질 때 invariant는 durable owner에 once 기록하고 plan에서는 link합니다. 같은 결정·행렬을 여러 Phase에
+복사하지 않으며, current code와 drift가 발견되면 구현 전에 baseline과 영향받는 Phase만 갱신합니다.
+
+### Normalized readiness evidence
+
+[Readiness policy](../../../../scripts/agents/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
+않는 read-only advisory validator입니다. Reviewer는 계획과 repository evidence를 다음 입력으로 명시적으로 매핑합니다.
+
+| Plan evidence                         | Normalized input            |
+| ------------------------------------- | --------------------------- |
+| status와 evidence 범위                | `status`, `evidenceSurface` |
+| branch, HEAD, working tree, local gap | `baseline`                  |
+| tracked/local-only target             | `targetPaths`               |
+| concurrency와 precedence              | `configuration`             |
+| enforcement strength와 owner          | `enforcementClaims`         |
+| mutating Phase contract               | `phases`                    |
+| required/passed acceptance evidence   | `acceptance`                |
+| blocking OQ와 handoff                 | `openQuestions`             |
+
+Validator가 green이어도 입력 자체가 Markdown과 current repository를 정확히 반영했는지는 별도 reviewer가 확인합니다.
+Normalized JSON은 durable duplicate plan이 아니라 bounded test fixture 또는 review input이며, validator 결과만으로 mutation
+authority가 생기지 않습니다.
+
+## 8. Branch and PR execution strategy
 
 구현 가능한 계획은 [Branch and PR strategy](../../github/branch-and-pr-strategy.md)에 따라 다음을 명시합니다.
 
@@ -114,7 +167,7 @@ Plan 작성 자체는 implementation 권한이 아니므로 branch 생성을 강
 실행합니다. 여러 단계의 계획을 하나의 long-lived branch에 누적하지 않고 dependent unit은 선행 PR merge 후 fresh
 integration branch에서 시작합니다.
 
-## 8. Phase contract
+## 9. Phase contract
 
 각 Phase는 다른 fresh session이 해당 Phase만 실행해도 범위와 stop condition을 이해할 수 있어야 합니다.
 
@@ -139,7 +192,7 @@ checkpoint fields
 - 웹 조사, metric 축적 대기, account 생성 대기는 implementation Phase로 만들지 않습니다.
 - 완료는 phase label이 아니라 observable outcome과 fresh verification으로 판정합니다.
 
-## 9. Verification matrix
+## 10. Verification matrix
 
 각 claim을 가장 작은 증거와 연결합니다.
 
@@ -154,7 +207,7 @@ checkpoint fields
 
 Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, build, static analysis, E2E를 확장합니다.
 
-## 10. AI-readable architecture without AI-specific layers
+## 11. AI-readable architecture without AI-specific layers
 
 계획은 다음을 선호합니다.
 
@@ -173,7 +226,7 @@ Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, bu
 - 여러 child가 같은 파일이나 global plan을 소유
 - 긴 transcript와 raw prompt를 durable context로 저장
 
-## 11. Checkpoint and final report
+## 12. Checkpoint and final report
 
 Checkpoint는 objective, branch/HEAD, changed/staged files, verification, next action, blocker만 유지합니다. 최종 보고는
 Added/Updated/Deleted, 책임 변화, 실제 검증 결과, 남은 risk·gap 순서로 작성합니다.
