@@ -163,3 +163,66 @@ test('developer entry points discover tracked plan-authoring guidance', () => {
     assert.match(read(path), /plan-authoring\/README\.md/u, path);
   }
 });
+
+test('owner shorthand is preserved as intent but translated into observable readiness evidence', () => {
+  const core = read(`${authoringRoot}/core.md`);
+
+  for (const boundary of [
+    'owner shorthand',
+    'intent and provenance',
+    'baseline-relative problem',
+    'observable quality attribute',
+    'prior assistant estimate',
+  ]) {
+    assert.match(core, new RegExp(boundary, 'iu'));
+  }
+
+  assert.match(core, /one primary owner.*one primary completion clock/su);
+  assert.match(core, /document length.*file count.*decomposition rule/isu);
+});
+
+test('plan graph terminology separates phases, PRs, siblings, and triggered successors', () => {
+  const core = read(`${authoringRoot}/core.md`);
+
+  assert.match(core, /Plan graph terminology/u);
+  for (const term of [
+    'Phase',
+    'dependent PR',
+    'sibling plan',
+    'required successor',
+    'conditional successor',
+  ]) {
+    assert.match(core, new RegExp(term, 'u'));
+  }
+
+  assert.match(core, /successor plan.*repository-local/su);
+  assert.match(core, /not.*human assignment.*agent handoff.*branch.*commit/su);
+  assert.match(core, /conditional successor.*trigger.*NO-GO/su);
+  assert.doesNotMatch(core, /Nest|Fastify/u);
+});
+
+test('same-session follow-ups are classified before they can expand a plan', () => {
+  const core = read(`${authoringRoot}/core.md`);
+
+  assert.match(core, /refine.*replace.*split.*successor/su);
+  assert.match(core, /classif.*before.*append/iu);
+  assert.match(core, /long conversation.*reasoning effort.*not.*scope/su);
+});
+
+test('future options use compact revisit contracts rather than speculative registries', () => {
+  const core = read(`${authoringRoot}/core.md`);
+
+  assert.match(core, /compact revisit contract/iu);
+  assert.match(core, /current evidence.*trigger.*owner.*required evidence/su);
+  assert.match(core, /bounded multi-phase.*not.*split.*detailed.*many files/su);
+});
+
+test('backend planning separates HTTP adapter, runtime capability, and activation responsibilities', () => {
+  const backend = read(`${authoringRoot}/backend.md`);
+
+  assert.match(backend, /HTTP adapter neutrality/u);
+  assert.match(backend, /adapter-specific.*platform owner/su);
+  assert.match(backend, /process-local state.*purpose-specific semantic operation/su);
+  assert.match(backend, /runtime capability.*rehearsal.*production activation/su);
+  assert.match(backend, /conditional adapter experiment.*successor/su);
+});
