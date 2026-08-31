@@ -1,7 +1,29 @@
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
+const SOL_MODEL = 'gpt-5.6-sol';
+const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
 const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
+const RUNTIME_SURFACES = new Set(['native', 'omx']);
+const RUNTIME_OBSERVATION_SCOPES = new Set(['current-turn', 'current-session']);
+const RUNTIME_PROVENANCE = new Set(['host-tool-schema', 'omx-runtime-overlay']);
+const RUNTIME_DISPATCH_PERMISSIONS = new Set(['allowed', 'denied', 'unknown']);
+const RUNTIME_EVIDENCE_FIELDS = new Set([
+  'schemaVersion',
+  'surfaceMode',
+  'observationScope',
+  'freshness',
+  'provenance',
+  'dispatchPermission',
+  'roles',
+]);
+const RUNTIME_ROLE_FIELDS = new Set([
+  'agentType',
+  'available',
+  'effectiveModel',
+  'effectiveEffort',
+  'explicitEffortSupport',
+]);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 const VERIFICATION_STATUSES = new Set(['passed', 'failed', 'not-run']);
@@ -60,11 +82,11 @@ const CHILD_RESULT_FIELDS = new Set([
 
 export function createDispatchRecommendation({
   delegation,
-  runtimeCapabilities = {},
+  reportedRuntimeEvidence = null,
   concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT,
 } = {}) {
   assertDelegationRecommendation(delegation);
-  const runtime = normalizeRuntimeCapabilities(runtimeCapabilities);
+  const runtime = normalizeReportedRuntimeEvidence(reportedRuntimeEvidence);
   validateConcurrencyLimit(concurrencyLimit);
 
   if (delegation.execution !== 'bounded-lanes' || delegation.recommendedChildren.length < 1) {
@@ -80,30 +102,50 @@ export function createDispatchRecommendation({
     });
   }
 
-  if (!runtime.nativeChildSurface || !runtime.nativeRoleRouting) {
+  if (runtime.evidenceStatus !== 'accepted') {
     return dispatchRecommendation({
       delegation,
       execution: 'leader-sequential',
-      reason:
-        'The current runtime cannot prove both native child and installed role-routing capabilities.',
+      reason: 'The reported runtime evidence is missing, stale, or incompatible with this policy.',
       dispatches: [],
       deferredLaneIds: delegation.recommendedChildren.map(({ laneId }) => laneId),
       runtime,
       concurrencyLimit,
-      gaps: ['runtime-capability-fallback'],
+      gaps: unique(['runtime-capability-fallback', ...runtime.gaps]),
     });
   }
 
   const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
   const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
-  const dispatches = selected.map((contract) => ({
-    laneId: contract.laneId,
-    agentType: contract.routeRecommendation.role,
-    effort: contract.routeRecommendation.effort,
-    contract,
-    dispatchOwner: 'leader',
-    runtimeSurface: 'native-child',
-  }));
+  const compatibility = assessRuntimeCompatibility(runtime, selected);
+  if (!compatibility.compatible) {
+    return dispatchRecommendation({
+      delegation,
+      execution: 'leader-sequential',
+      reason: 'The current reported runtime cannot honor every selected child route safely.',
+      dispatches: [],
+      deferredLaneIds: delegation.recommendedChildren.map(({ laneId }) => laneId),
+      runtime,
+      concurrencyLimit,
+      gaps: unique(['runtime-capability-fallback', ...compatibility.gaps]),
+    });
+  }
+
+  const dispatches = selected.map((contract) => {
+    const reportedRole = compatibility.rolesByAgentType.get(contract.routeRecommendation.role);
+    return {
+      laneId: contract.laneId,
+      agentType: contract.routeRecommendation.role,
+      effort: contract.routeRecommendation.effort,
+      effectiveModel: reportedRole.effectiveModel,
+      effectiveEffort: reportedRole.effectiveEffort,
+      explicitEffortSupport: reportedRole.explicitEffortSupport,
+      contract,
+      dispatchOwner: 'leader',
+      runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
+      requiresLeaderRuntimeConfirmation: true,
+    };
+  });
 
   return dispatchRecommendation({
     delegation,
@@ -305,7 +347,9 @@ function dispatchRecommendation({
     dispatches,
     deferredLaneIds,
     gaps,
-    runtimeCapabilities: runtime,
+    reportedRuntimeEvidence: runtime,
+    runtimeEvidenceAuthority: 'leader-reported-not-host-authenticated',
+    requiresLeaderRuntimeConfirmation: dispatches.length > 0,
     limits: { hardMax: HARD_CHILD_LIMIT, appliedConcurrency: concurrencyLimit },
     leaderOwnership: {
       dispatchDecision: true,
@@ -343,14 +387,194 @@ function recoveryDecision({
   });
 }
 
-function normalizeRuntimeCapabilities(value) {
+function normalizeReportedRuntimeEvidence(value) {
+  const gaps = [];
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('runtimeCapabilities must be an object.');
+    return rejectedRuntimeEvidence(['runtime-evidence-missing']);
+  }
+
+  for (const field of Object.keys(value)) {
+    if (!RUNTIME_EVIDENCE_FIELDS.has(field))
+      gaps.push(`runtime-evidence-field-unsupported:${field}`);
+  }
+
+  if (value.schemaVersion !== 1) gaps.push('runtime-evidence-schema-unsupported');
+  const surfaceMode = optionalEnum(value.surfaceMode, RUNTIME_SURFACES);
+  if (surfaceMode === null) gaps.push('runtime-surface-unrecognized');
+  const observationScope = optionalEnum(value.observationScope, RUNTIME_OBSERVATION_SCOPES);
+  if (observationScope === null) gaps.push('runtime-observation-scope-unrecognized');
+  const freshness = optionalEnum(value.freshness, RUNTIME_OBSERVATION_SCOPES);
+  if (freshness === null) gaps.push('runtime-freshness-unrecognized');
+  const dispatchPermission = optionalEnum(value.dispatchPermission, RUNTIME_DISPATCH_PERMISSIONS);
+  if (dispatchPermission === null) gaps.push('runtime-dispatch-permission-unrecognized');
+
+  const provenance = normalizeRuntimeProvenance(value.provenance, gaps);
+  validateRuntimeEvidenceOrigin({ surfaceMode, observationScope, freshness, provenance, gaps });
+  const roles = normalizeRuntimeRoles(value.roles, gaps);
+
+  if (gaps.length > 0) {
+    return rejectedRuntimeEvidence(gaps, {
+      surfaceMode,
+      observationScope,
+      freshness,
+      provenance,
+      dispatchPermission,
+      roles,
+    });
+  }
+
+  return deepFreeze({
+    schemaVersion: 1,
+    evidenceStatus: 'accepted',
+    authority: 'leader-reported-not-host-authenticated',
+    surfaceMode,
+    observationScope,
+    freshness,
+    provenance,
+    dispatchPermission,
+    roles,
+    gaps: [],
+  });
+}
+
+function normalizeRuntimeProvenance(value, gaps) {
+  if (!Array.isArray(value) || value.length === 0) {
+    gaps.push('runtime-provenance-missing');
+    return [];
+  }
+  const provenance = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !RUNTIME_PROVENANCE.has(entry)) {
+      gaps.push('runtime-provenance-unrecognized');
+      continue;
+    }
+    provenance.push(entry);
+  }
+  if (new Set(provenance).size !== provenance.length) gaps.push('runtime-provenance-duplicate');
+  return [...new Set(provenance)].sort();
+}
+
+function validateRuntimeEvidenceOrigin({
+  surfaceMode,
+  observationScope,
+  freshness,
+  provenance,
+  gaps,
+}) {
+  if (surfaceMode === 'native') {
+    if (observationScope !== 'current-turn' || freshness !== 'current-turn') {
+      gaps.push('runtime-evidence-stale');
+    }
+    if (provenance.length !== 1 || provenance[0] !== 'host-tool-schema') {
+      gaps.push('runtime-native-provenance-incomplete');
+    }
+  }
+  if (surfaceMode === 'omx') {
+    if (observationScope !== 'current-session' || freshness !== 'current-session') {
+      gaps.push('runtime-evidence-stale');
+    }
+    if (
+      provenance.length !== 2 ||
+      !provenance.includes('host-tool-schema') ||
+      !provenance.includes('omx-runtime-overlay')
+    ) {
+      gaps.push('runtime-omx-provenance-incomplete');
+    }
+  }
+}
+
+function normalizeRuntimeRoles(value, gaps) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_REPORTED_ROLES) {
+    gaps.push('runtime-role-roster-invalid');
+    return [];
+  }
+  const roles = [];
+  for (const [index, role] of value.entries()) {
+    if (!role || typeof role !== 'object' || Array.isArray(role)) {
+      gaps.push(`runtime-role-record-invalid:${index}`);
+      continue;
+    }
+    for (const field of Object.keys(role)) {
+      if (!RUNTIME_ROLE_FIELDS.has(field)) gaps.push(`runtime-role-field-unsupported:${field}`);
+    }
+    try {
+      roles.push({
+        agentType: requireRuntimeRole(role.agentType),
+        available: requireBoolean(role.available, 'runtime role available'),
+        effectiveModel: requireString(role.effectiveModel, 'runtime role effectiveModel', 80),
+        effectiveEffort: requireEnum(role.effectiveEffort, EFFORTS, 'runtime role effectiveEffort'),
+        explicitEffortSupport: requireBoolean(
+          role.explicitEffortSupport,
+          'runtime role explicitEffortSupport',
+        ),
+      });
+    } catch {
+      gaps.push(`runtime-role-metadata-invalid:${index}`);
+    }
+  }
+  if (new Set(roles.map(({ agentType }) => agentType)).size !== roles.length) {
+    gaps.push('runtime-role-roster-duplicate');
+  }
+  return roles;
+}
+
+function assessRuntimeCompatibility(runtime, contracts) {
+  const gaps = [];
+  if (runtime.dispatchPermission !== 'allowed') {
+    gaps.push(`runtime-dispatch-permission-${runtime.dispatchPermission}`);
+  }
+  const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
+  for (const contract of contracts) {
+    const requestedRole = contract.routeRecommendation.role;
+    const requestedEffort = contract.routeRecommendation.effort;
+    const reportedRole = rolesByAgentType.get(requestedRole);
+    if (!reportedRole || !reportedRole.available) {
+      gaps.push(`runtime-role-unavailable:${requestedRole}`);
+      continue;
+    }
+    if (reportedRole.effectiveModel !== SOL_MODEL) {
+      gaps.push(`runtime-model-incompatible:${requestedRole}`);
+    }
+    if (reportedRole.effectiveEffort !== requestedEffort) {
+      gaps.push(
+        reportedRole.explicitEffortSupport
+          ? `runtime-effective-effort-mismatch:${requestedRole}`
+          : `runtime-fixed-effort-conflict:${requestedRole}`,
+      );
+    }
   }
   return {
-    nativeChildSurface: requireBoolean(value.nativeChildSurface ?? false, 'nativeChildSurface'),
-    nativeRoleRouting: requireBoolean(value.nativeRoleRouting ?? false, 'nativeRoleRouting'),
+    compatible: gaps.length === 0,
+    gaps,
+    rolesByAgentType,
   };
+}
+
+function rejectedRuntimeEvidence(gaps, partial = {}) {
+  return deepFreeze({
+    schemaVersion: 1,
+    evidenceStatus: 'rejected',
+    authority: 'leader-reported-not-host-authenticated',
+    surfaceMode: partial.surfaceMode ?? null,
+    observationScope: partial.observationScope ?? null,
+    freshness: partial.freshness ?? null,
+    provenance: partial.provenance ?? [],
+    dispatchPermission: partial.dispatchPermission ?? null,
+    roles: partial.roles ?? [],
+    gaps: unique(gaps),
+  });
+}
+
+function optionalEnum(value, allowed) {
+  return typeof value === 'string' && allowed.has(value) ? value : null;
+}
+
+function requireRuntimeRole(value) {
+  const normalized = requireString(value, 'runtime role agentType', 80);
+  if (!/^[a-z][a-z\d_-]*$/u.test(normalized)) {
+    throw new TypeError('runtime role agentType must use lowercase identifier syntax.');
+  }
+  return normalized;
 }
 
 function normalizeAttempt(attempt, index) {
@@ -741,6 +965,10 @@ function requireBoolean(value, field) {
 function assertUnique(values, field) {
   if (new Set(values).size !== values.length)
     throw new TypeError(`${field} values must be unique.`);
+}
+
+function unique(values) {
+  return [...new Set(values)];
 }
 
 function deepFreeze(value) {

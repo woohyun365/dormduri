@@ -50,7 +50,23 @@ export function runFreshSessionSmoke() {
       { path: 'apps/web/src/legal/README.md', kind: 'owner-readme' },
     ],
     laneCandidates: advisoryLegalLanes(),
-    runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: false },
+    reportedRuntimeEvidence: {
+      schemaVersion: 1,
+      surfaceMode: 'native',
+      observationScope: 'current-turn',
+      freshness: 'current-turn',
+      provenance: ['host-tool-schema'],
+      dispatchPermission: 'allowed',
+      roles: [
+        {
+          agentType: 'explore',
+          available: true,
+          effectiveModel: 'gpt-5.6-luna',
+          effectiveEffort: 'medium',
+          explicitEffortSupport: true,
+        },
+      ],
+    },
   });
 
   return deepFreeze({
@@ -105,7 +121,7 @@ function evaluateScenario({
   request,
   repositoryEvidence,
   laneCandidates = [],
-  runtimeCapabilities = { nativeChildSurface: false, nativeRoleRouting: false },
+  reportedRuntimeEvidence = null,
 }) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request });
@@ -121,7 +137,7 @@ function evaluateScenario({
       ),
     })),
   });
-  const dispatch = createDispatchRecommendation({ delegation, runtimeCapabilities });
+  const dispatch = createDispatchRecommendation({ delegation, reportedRuntimeEvidence });
 
   return { envelope, contextPack, delegation, dispatch };
 }

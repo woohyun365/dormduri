@@ -101,10 +101,7 @@ test('unavailable role routing never fabricates a child role', () => {
   assert.equal(scenario.dispatch, 'leader-sequential');
   assert.equal(scenario.childCount, 0);
   assert.deepEqual(scenario.routedRoles, []);
-  assert.match(
-    scenario.dispatchReason,
-    /cannot prove both native child and installed role-routing/u,
-  );
+  assert.match(scenario.dispatchReason, /cannot honor every selected child route safely/u);
 });
 
 test('a clean process produces the same smoke result without OMX or Codex session state', () => {
