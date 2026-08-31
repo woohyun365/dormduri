@@ -10,6 +10,11 @@
 3. 변경 범위에 가장 가까운 production owner, contract, test를 먼저 찾습니다.
 4. 작은 diff와 targeted verification을 우선합니다.
 
+변경 전에 `prospective outcome`, `acceptance`, `non-scope`를 한 문장씩 정합니다. 구현 중 scope drift를 발견하면
+[Branch and PR strategy](./branch-and-pr-strategy.md)의 네 가지 disposition인 `required-current`,
+`prerequisite-predecessor`, `independent-follow-up`, `unrelated-or-speculative`로 분류합니다. 현재 acceptance가 바뀌기 전에
+분류하고, 독립 작업은 branch에 넣지 않고 Issue 또는 successor로 이동합니다.
+
 Coding agent를 사용한다면 root [`AGENTS.md`](../../../AGENTS.md)와 필요한
 [agent workflow guide](../agent-workflows/README.md)를 읽습니다.
 
@@ -41,6 +46,10 @@ PR 본문은 다음 질문에 답해야 합니다.
 
 해당하지 않는 조건부 항목은 `해당 없음`으로 표시할 수 있습니다. 파일별 변경 목록이나 실행하지 않은 모든 명령을
 체크하는 ritual checklist로 사용하지 않습니다.
+
+Durable follow-up, blocker, dependency와 completion evidence는 [Issues and work tracking](./issues-and-work-tracking.md)을
+따릅니다. `dev` 대상 PR은 `Refs #N` 또는 Development sidebar로 연결하고, default branch인 `main` 승격에서 전체
+acceptance가 포함된 Issue만 `Closes #N`으로 종료합니다.
 
 ## Dependency update flow
 

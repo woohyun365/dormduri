@@ -1,0 +1,41 @@
+name: Blocker
+description: 진행 중인 durable work를 막는 원인과 unblock evidence를 기록합니다.
+title: '[Blocked] '
+labels:
+  - status:blocked
+body:
+  - type: textarea
+    id: blocked_work
+    attributes:
+      label: Blocked work
+      description: 어떤 outcome 또는 acceptance가 진행되지 못하는지 작성합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: cause
+    attributes:
+      label: Cause
+      description: missing authority, dependency, external state 또는 defect를 작성합니다.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Owner
+      description: unblock evidence를 확인할 책임자를 작성합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: unblock_evidence
+    attributes:
+      label: Unblock evidence
+      description: 다시 시작할 수 있음을 증명할 구체적 결과를 작성합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: revisit_trigger
+    attributes:
+      label: Revisit trigger
+      description: 재검토를 시작할 외부 상태 또는 repository evidence 변화를 작성합니다.
+    validations:
+      required: true
