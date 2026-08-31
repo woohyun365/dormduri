@@ -44,7 +44,12 @@ apps/web/storybook-static/
 
 ## AI 도구 (Claude Code, Codex, OMC, OMX)
 .claude/
-.codex/
+# Codex는 검토된 프로젝트 child 설정만 추적하고 개인·runtime 상태는 제외한다.
+.codex/*
+!.codex/config.toml
+!.codex/agents/
+.codex/agents/*
+!.codex/agents/*.toml
 .omc/
 .omx/
 local-docs/
