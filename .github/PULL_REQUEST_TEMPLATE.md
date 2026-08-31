@@ -4,6 +4,7 @@
 - Acceptance: <!-- 완료를 증명하는 동작·contract·test·운영 evidence -->
 - Non-scope: <!-- 중요하지만 이 PR에 포함하지 않은 독립 작업 -->
 - Follow-up disposition: <!-- 해당 없음 / required-current / prerequisite-predecessor / independent-follow-up -->
+- Scope audit: <!-- cohesive / signal·facts·disposition·exclusion·gap; audit signal이 없으면 해당 없음 -->
 
 ## Related
 
