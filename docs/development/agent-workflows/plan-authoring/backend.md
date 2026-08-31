@@ -54,6 +54,24 @@
 - Main application, auth, support, BackOffice가 같은 persistence table을 직접 공유하는 대신 canonical domain
   owner를 호출하도록 계획합니다.
 
+## HTTP adapter neutrality and runtime role boundaries
+
+- HTTP adapter neutrality는 Express/Fastify 이름을 production code에서 무조건 제거한다는 뜻이 아닙니다. Request parsing,
+  client IP/proxy, cookie, multipart, exception response처럼 adapter-specific dependencies는 platform owner에 남기고 business
+  command·policy·repository가 해당 타입과 lifecycle을 직접 소유하지 않게 합니다.
+- Adapter 교체 목적이 아니라도 business owner로 누수된 transport detail, 중복 parsing, request context extraction, error
+  response ownership은 current caller와 regression evidence를 기준으로 수리합니다. Platform-local import를 aesthetic defect로
+  간주하지 않습니다.
+- process-local state를 발견하면 `Map`, counter, in-memory queue 같은 container 이름보다 lockout, nonce consumption,
+  cleanup lease처럼 purpose-specific semantic operation과 correctness boundary를 먼저 계획합니다. 실제 multi-instance
+  requirement 없이 generic distributed store나 cache port를 만들지 않습니다.
+- runtime capability, local rehearsal, and production activation은 서로 다른 completion clock입니다. Backend plan은 executable
+  capability와 invariant를 소유할 수 있지만 deployment topology, secret projection, resource limit, release `GO`는
+  infrastructure owner의 dependent plan 또는 evidence handoff가 소유합니다.
+- A conditional adapter experiment is a successor plan, not a mandatory final Phase. Current incompatibility, measured bottleneck,
+  provider constraint 같은 trigger가 있어야 시작하며 parity와 benchmark evidence가 불리하면 `NO-GO`로 끝나도 core backend
+  plan은 완료될 수 있어야 합니다.
+
 ## Internal architecture
 
 - controller → application command/query → domain policy → repository/provider → presenter 흐름의 실제 필요성을 확인합니다.

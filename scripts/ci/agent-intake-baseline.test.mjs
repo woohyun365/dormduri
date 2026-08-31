@@ -57,12 +57,22 @@ test('baseline fixtures report only intake capabilities without a canonical owne
   });
 });
 
-test('existing route selection is downstream-only and cannot classify a raw request', () => {
-  assert.throws(() => selectAgentRoute({}), /Unsupported task kind/u);
+test('route selection stays downstream-only and requires Pass 2 after Pass 1', () => {
+  assert.throws(() => selectAgentRoute({}), /pass1 is required/u);
 
-  const lookupRoute = selectAgentRoute({ taskKind: 'lookup' });
-  assert.equal(lookupRoute.spawn, true);
-  assert.equal(lookupRoute.execution, 'bounded-child');
+  const lookupRoute = selectAgentRoute({
+    pass1: {
+      taskKind: 'lookup',
+      executionShape: 'bounded-child',
+      impactRisk: 'low',
+      candidateRole: null,
+      requiredEvidence: ['repo'],
+      confidence: 'high',
+    },
+  });
+  assert.equal(lookupRoute.spawn, false);
+  assert.equal(lookupRoute.execution, 'single-sequential');
+  assert.match(lookupRoute.gaps.join(' '), /pass2-semantic-evidence-required/u);
   assert.equal(
     'request' in lookupRoute || 'intent' in lookupRoute || 'authorizedAction' in lookupRoute,
     false,

@@ -2,10 +2,10 @@ import { assertValidTaskEnvelope } from './intake-policy.mjs';
 import { selectAgentRoute } from './routing-policy.mjs';
 
 const HARD_CHILD_LIMIT = 6;
-const DEFAULT_CHILD_LIMIT = 3;
-const MIN_BOUNDED_LANES = 2;
+const PROACTIVE_NORMAL_LIMIT = 2;
+const PROACTIVE_EVIDENCE_BACKED_LIMIT = 3;
 const PRIORITIES = new Set(['low', 'medium', 'high']);
-const RISKS = new Set(['low', 'medium', 'high', 'critical']);
+const IMPACT_RISKS = new Set(['low', 'medium', 'high']);
 const TASK_KINDS = new Set([
   'lookup',
   'analysis',
@@ -18,6 +18,7 @@ const TASK_KINDS = new Set([
   'review',
 ]);
 const BENEFIT_KINDS = new Set(['completeness', 'latency', 'specialist-evidence', 'risk-review']);
+const BENEFIT_VALUES = new Set(['low', 'standard', 'high']);
 const ALLOWED_EVIDENCE = new Set(['repo', 'test', 'official-current', 'external-owner']);
 const ALLOWED_TOOLS = new Set([
   'repository-read',
@@ -30,7 +31,7 @@ const LANE_FIELDS = new Set([
   'domain',
   'taskKind',
   'priority',
-  'risk',
+  'impactRisk',
   'objective',
   'question',
   'allowedEvidence',
@@ -45,19 +46,18 @@ const LANE_FIELDS = new Set([
   'stopCondition',
   'handoffCondition',
   'benefit',
+  'pass2Evidence',
 ]);
 
 export function recommendDelegation({
   envelope,
   contextPack,
   laneCandidates = [],
-  roleRoutingAvailable = true,
-  childLimit = DEFAULT_CHILD_LIMIT,
+  ownerDirectedChildLimit = null,
 } = {}) {
   assertValidTaskEnvelope(envelope);
   assertContextPack(contextPack, envelope.requestId);
-  validateBoolean(roleRoutingAvailable, 'roleRoutingAvailable');
-  validateChildLimit(childLimit);
+  validateOwnerDirectedChildLimit(ownerDirectedChildLimit);
 
   if (!Array.isArray(laneCandidates)) throw new TypeError('laneCandidates must be an array.');
   if (laneCandidates.length > HARD_CHILD_LIMIT) {
@@ -74,7 +74,7 @@ export function recommendDelegation({
       envelope,
       execution: baseGate.execution,
       reason: baseGate.reason,
-      childLimit,
+      ownerDirectedChildLimit,
       recommendedChildren: [],
       deferredLanes: assessments.map(deferredAssessment),
       gaps: baseGate.gaps,
@@ -84,32 +84,40 @@ export function recommendDelegation({
   const routed = assessments.map((assessment) => ({
     ...assessment,
     route: selectAgentRoute({
-      taskKind: assessment.lane.taskKind,
-      risk: assessment.lane.risk,
+      pass1: {
+        taskKind: assessment.lane.taskKind,
+        executionShape: 'bounded-child',
+        impactRisk: assessment.lane.impactRisk,
+        candidateRole: null,
+        requiredEvidence: assessment.lane.allowedEvidence,
+        confidence: envelope.confidence,
+      },
+      contextPack,
+      pass2Evidence: assessment.lane.pass2Evidence,
       independent: assessment.independent,
-      roleRoutingAvailable,
+      childBenefit: assessment.lane.benefit.value !== 'low',
     }),
   }));
   const eligible = routed
     .filter(({ independent, route }) => independent && route.spawn)
     .sort(compareLanePriority);
 
-  if (eligible.length < MIN_BOUNDED_LANES) {
+  if (eligible.length === 0) {
     return recommendation({
       envelope,
       execution: 'single-sequential',
-      reason:
-        'Fewer than two independently completable, role-routable lanes remain; keep the leader on a sequential path.',
-      childLimit,
+      reason: 'No independently valuable lane has validated Pass 2 evidence for bounded routing.',
+      ownerDirectedChildLimit,
       recommendedChildren: [],
       deferredLanes: routed.map((assessment) =>
         deferredAssessment(assessment, assessment.route.reason),
       ),
-      gaps: eligible.length === 1 ? ['independent-lane-count-below-bounded-minimum'] : [],
+      gaps: unique(routed.flatMap(({ route }) => route.gaps ?? [])),
     });
   }
 
-  const selected = eligible.slice(0, childLimit);
+  const selection = selectEligibleLanes(eligible, ownerDirectedChildLimit);
+  const selected = selection.selected;
   const selectedIds = new Set(selected.map(({ lane }) => lane.id));
   const recommendedChildren = selected.map(composeChildContract);
   const deferredLanes = routed
@@ -117,25 +125,18 @@ export function recommendDelegation({
     .map((assessment) =>
       deferredAssessment(
         assessment,
-        assessment.independent && assessment.route.spawn
-          ? `Deferred by the applied child limit of ${childLimit}.`
-          : assessment.route.reason,
+        selection.deferredReasons.get(assessment.lane.id) ?? assessment.route.reason,
       ),
     );
 
   return recommendation({
     envelope,
     execution: 'bounded-lanes',
-    reason: `${recommendedChildren.length} independent lanes have distinct ownership, bounded outputs, and explicit integration value.`,
-    childLimit,
+    reason: `${recommendedChildren.length} independent lane(s) have validated semantic evidence, bounded outputs, and explicit integration value.`,
+    ownerDirectedChildLimit,
     recommendedChildren,
     deferredLanes,
-    gaps:
-      eligible.length > childLimit
-        ? [
-            `lane-consolidation-required: ${eligible.length - childLimit} eligible lane(s) deferred.`,
-          ]
-        : [],
+    gaps: selection.gaps,
   });
 }
 
@@ -179,7 +180,11 @@ function normalizeLane(lane, envelope) {
   }
 
   const taskKind = requireEnum(lane.taskKind, TASK_KINDS, 'taskKind');
-  const risk = requireEnum(lane.risk ?? envelope.risk, RISKS, 'risk');
+  const impactRisk = requireEnum(
+    lane.impactRisk ?? normalizeEnvelopeRisk(envelope.risk),
+    IMPACT_RISKS,
+    'impactRisk',
+  );
   const readScope = normalizeScopeArray(lane.readScope, 'readScope');
   const writeOwnership = normalizeScopeArray(lane.writeOwnership ?? [], 'writeOwnership', {
     allowHttps: false,
@@ -204,7 +209,7 @@ function normalizeLane(lane, envelope) {
     domain: requireIdentifier(lane.domain, 'lane domain'),
     taskKind,
     priority: requireEnum(lane.priority ?? 'medium', PRIORITIES, 'priority'),
-    risk,
+    impactRisk,
     objective: requireString(lane.objective, 'objective', 300),
     question: requireString(lane.question, 'question', 300),
     allowedEvidence,
@@ -237,6 +242,7 @@ function normalizeLane(lane, envelope) {
       300,
     ),
     benefit: normalizeBenefit(lane.benefit),
+    pass2Evidence: lane.pass2Evidence,
   };
 }
 
@@ -271,6 +277,13 @@ function composeChildContract({ lane, route }) {
       effort: route.effort,
       execution: route.execution,
       reason: route.reason,
+      pass2Applied: route.pass2Applied,
+      impactRisk: route.impactRisk,
+      evidenceIds: route.evidenceIds,
+      assessment: route.assessment,
+      gaps: route.gaps,
+      confidence: route.confidence,
+      runtimeApplication: route.runtimeApplication,
     },
     leaderOwnership: {
       finalDecision: true,
@@ -317,7 +330,7 @@ function recommendation({
   envelope,
   execution,
   reason,
-  childLimit,
+  ownerDirectedChildLimit,
   recommendedChildren,
   deferredLanes,
   gaps,
@@ -332,9 +345,13 @@ function recommendation({
     gaps: unique(gaps),
     limits: {
       defaultChildren: 0,
-      recommendedChildren: { min: 2, max: 3 },
-      hardMax: HARD_CHILD_LIMIT,
-      applied: childLimit,
+      proactiveChildren: {
+        normalMax: PROACTIVE_NORMAL_LIMIT,
+        evidenceBackedMax: PROACTIVE_EVIDENCE_BACKED_LIMIT,
+      },
+      ownerDirectedMax: HARD_CHILD_LIMIT,
+      mode: ownerDirectedChildLimit === null ? 'proactive' : 'owner-directed',
+      applied: ownerDirectedChildLimit ?? PROACTIVE_EVIDENCE_BACKED_LIMIT,
     },
     leaderOwnership: {
       dispatchDecision: true,
@@ -354,6 +371,81 @@ function deferredAssessment(assessment, routeReason) {
         ? assessment.reasons
         : [routeReason ?? 'Delegation is not authorized on the current path.'],
   };
+}
+
+function selectEligibleLanes(eligible, ownerDirectedChildLimit) {
+  const selected = [];
+  const deferredReasons = new Map();
+  const gaps = [];
+  const appliedLimit = ownerDirectedChildLimit ?? PROACTIVE_EVIDENCE_BACKED_LIMIT;
+
+  for (const assessment of eligible) {
+    const { lane, route } = assessment;
+    if (selected.length >= appliedLimit) {
+      deferSelection(
+        deferredReasons,
+        gaps,
+        lane.id,
+        `Deferred by the applied child limit of ${appliedLimit}.`,
+        'lane-consolidation-required',
+      );
+      continue;
+    }
+
+    if (
+      lane.writeOwnership.length > 0 &&
+      selected.some(({ lane: selectedLane }) => selectedLane.writeOwnership.length > 0)
+    ) {
+      deferSelection(
+        deferredReasons,
+        gaps,
+        lane.id,
+        'Only one write-capable child lane may be selected.',
+        'write-child-limit-exceeded',
+      );
+      continue;
+    }
+
+    if (ownerDirectedChildLimit === null && selected.length >= PROACTIVE_NORMAL_LIMIT) {
+      const boundHighValue =
+        lane.benefit.value === 'high' &&
+        lane.benefit.evidenceIds.every((evidenceId) => route.evidenceIds.includes(evidenceId));
+      if (!boundHighValue) {
+        deferSelection(
+          deferredReasons,
+          gaps,
+          lane.id,
+          lane.benefit.value === 'high'
+            ? 'The claimed high-value benefit is not bound to the lane Pass 2 evidence.'
+            : 'A third proactive child requires explicit high-value semantic evidence.',
+          lane.benefit.value === 'high'
+            ? 'high-value-benefit-evidence-unbound'
+            : 'third-proactive-child-requires-high-value-evidence',
+        );
+        continue;
+      }
+    }
+
+    selected.push(assessment);
+  }
+
+  return {
+    selected,
+    deferredReasons,
+    gaps: unique([
+      ...gaps,
+      ...(eligible.length > selected.length
+        ? [
+            `lane-consolidation-required: ${eligible.length - selected.length} eligible lane(s) deferred.`,
+          ]
+        : []),
+    ]),
+  };
+}
+
+function deferSelection(deferredReasons, gaps, laneId, reason, gap) {
+  deferredReasons.set(laneId, reason);
+  gaps.push(gap);
 }
 
 function compareLanePriority(left, right) {
@@ -399,10 +491,18 @@ function normalizeBenefit(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('lane benefit is required.');
   }
-  return {
+  const normalized = {
     kind: requireEnum(value.kind, BENEFIT_KINDS, 'benefit kind'),
     rationale: requireString(value.rationale, 'benefit rationale', 300),
+    value: requireEnum(value.value ?? 'standard', BENEFIT_VALUES, 'benefit value'),
+    evidenceIds: normalizeStringArray(value.evidenceIds ?? [], 'benefit evidenceIds', {
+      allowEmpty: true,
+    }),
   };
+  if (normalized.value === 'high' && normalized.evidenceIds.length === 0) {
+    throw new TypeError('high-value child benefit requires semantic evidenceIds.');
+  }
+  return normalized;
 }
 
 function defaultTools(taskKind, hasWriteOwnership) {
@@ -452,9 +552,9 @@ function normalizeIdentifierArray(values, field) {
   return unique(values.map((value) => requireIdentifier(value, field)));
 }
 
-function normalizeStringArray(values, field) {
-  if (!Array.isArray(values) || values.length === 0) {
-    throw new TypeError(`${field} must be a non-empty array.`);
+function normalizeStringArray(values, field, { allowEmpty = false } = {}) {
+  if (!Array.isArray(values) || (!allowEmpty && values.length === 0)) {
+    throw new TypeError(`${field} must be ${allowEmpty ? 'an' : 'a non-empty'} array.`);
   }
   return unique(values.map((value) => requireString(value, field, 300)));
 }
@@ -479,14 +579,15 @@ function requireEnum(value, allowed, field) {
   return value;
 }
 
-function validateChildLimit(value) {
-  if (!Number.isInteger(value) || value < MIN_BOUNDED_LANES || value > HARD_CHILD_LIMIT) {
-    throw new TypeError(`childLimit must be between ${MIN_BOUNDED_LANES} and ${HARD_CHILD_LIMIT}.`);
+function validateOwnerDirectedChildLimit(value) {
+  if (value === null) return;
+  if (!Number.isInteger(value) || value < 1 || value > HARD_CHILD_LIMIT) {
+    throw new TypeError(`ownerDirectedChildLimit must be between 1 and ${HARD_CHILD_LIMIT}.`);
   }
 }
 
-function validateBoolean(value, field) {
-  if (typeof value !== 'boolean') throw new TypeError(`${field} must be a boolean.`);
+function normalizeEnvelopeRisk(value) {
+  return value === 'critical' ? 'high' : value;
 }
 
 function unique(values) {

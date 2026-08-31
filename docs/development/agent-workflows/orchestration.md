@@ -35,21 +35,44 @@ stop condition / escalation condition
 Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정하지 않습니다. 결과에는 확인된 사실의 file/URL,
 추론, confidence, blocker를 구분합니다. Leader는 결과 충돌을 해결하고 최종 edit·verification·completion을 소유합니다.
 
+## Git branch/worktree isolation
+
+Agent를 선택하는 책임과 Git write lifecycle은 분리합니다. Canonical branch, scope-drift, checkout/worktree ownership은
+[Branch and PR strategy](../github/branch-and-pr-strategy.md)가 소유합니다.
+
+- 독립 read-only lane은 같은 checkout을 읽을 수 있습니다.
+- 현재 checkout에는 write-capable owner를 하나만 둡니다.
+- 별도 asynchronous writer는 fresh branch와 distinct worktree, owned/non-owned paths가 확인될 때만 선택합니다.
+- dependent result 또는 shared-file write는 fan-out하지 않고 sequential path를 사용합니다.
+- leader가 fan-in, conflict disposition, verification과 integration을 소유합니다.
+
+Agent review는 CI나 owner review를 보조할 수 있지만 미래의 human approval requirement를 대체하지 않습니다. 두 번째
+recurring human production owner가 생길 때 CODEOWNERS와 non-author approval을 GitHub remote-setting decision으로 검토합니다.
+
 ## Reasoning effort routing
 
-| lane                                                       | 기본 effort                    |
-| ---------------------------------------------------------- | ------------------------------ |
-| file/symbol lookup, inventory                              | low                            |
-| bounded implementation                                     | medium                         |
-| test/fixture design                                        | medium; 고위험 contract는 high |
-| official external research                                 | high                           |
-| verifier 또는 adversarial critic                           | high                           |
-| security, concurrency, irreversible migration architecture | high 또는 xhigh                |
+Reasoning routing은 parent와 child를 분리합니다. Parent XHigh/Max는 사용자가 session에서 선택하며 repository는 parent
+effort를 계산하거나 변경했다고 보고하지 않습니다.
 
-- native role metadata가 있으면 가장 구체적인 installed role을 사용하고 effort를 중복 지정하지 않습니다.
-- role routing을 지원하지 않으면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
-- `max/ultra`는 일반 planning·implementation route에 사용하지 않습니다.
-- leader가 high/xhigh여도 모든 child가 이를 무조건 상속하지 않습니다.
+1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
+2. Direct/deterministic work 또는 Medium child보다 직접 수행이 저렴한 work는 child-free로 유지합니다.
+3. Pass 2는 current ContextPack의 source/fact/predicate evidence를 정규화하고 child role과 effort를 판정합니다.
+4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
+   structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
+
+Repository-selected child는 Sol과 `medium | high | xhigh`만 사용합니다. Keyword, path, file count, LOC, broad verification
+하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
+`knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
+아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
+leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 repository child route에 사용하지 않습니다. Role routing을
+증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
+
+Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
+evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
+host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 leader-reported input이며 host-authenticated authority로
+표현하지 않습니다. 선택 role마다 availability, effective Sol model, Medium/High/XHigh effort, explicit-effort support와
+dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
+leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
 
 ## Skill과 workflow routing
 
@@ -59,7 +82,7 @@ Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정�
 - architecture/test 합의가 필요한 계획: `$ralplan`
 - 한 owner 구현: solo 또는 executor
 - 독립 구현 lane과 shared coordination: 실제 OMX runtime의 `$team`
-- long-running single-owner completion: `$ralph`
+- durable multi-goal completion과 resume: `$ultragoal`
 - hostile E2E/회귀: `$ultraqa`
 - cleanup: 계획과 회귀 보호 뒤 `$ai-slop-cleaner`
 - UI source of truth: `$design`; reference 기반 반복은 `$visual-ralph`

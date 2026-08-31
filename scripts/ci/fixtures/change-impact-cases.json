@@ -132,8 +132,44 @@
     }
   },
   {
-    "name": "github-collaboration-input-only",
-    "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/copilot-instructions.md"],
+    "name": "format-policy-only",
+    "paths": [".prettierignore"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "agent-guidance-only",
+    "paths": ["scripts/agents/session-preflight.mjs"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "github-documentation-only",
+    "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/SECURITY.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "github-account-evidence-only",
+    "paths": ["scripts/github/account-evidence.mjs", "scripts/github/account-evidence.test.mjs"],
     "expected": {
       "web": false,
       "api": false,

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-26",
+  "repository": "woohyun365/knu_roommate",
+  "billingCredential": {
+    "environmentVariable": "KNU_GITHUB_PLAN_READ_TOKEN",
+    "permissionClass": "Plan: Read-only",
+    "expiresOn": "2026-09-25",
+    "repositoryAccess": "none"
+  },
+  "billing": {
+    "allowedProducts": ["actions"],
+    "allowedSkus": ["Actions Linux", "Actions storage"]
+  },
+  "packages": {
+    "state": "owner-verified-zero",
+    "count": 0,
+    "checkedAt": "2026-08-26"
+  },
+  "storage": {
+    "actionsCacheLimitBytes": 10737418240,
+    "sharedPackagesAndArtifactsBytes": 2147483648
+  }
+}

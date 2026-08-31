@@ -5,6 +5,11 @@ import { recommendDelegation } from './child-task-contract.mjs';
 import { discoverContextPack } from './domain-guide-registry.mjs';
 import { buildTaskEnvelope } from './intake-policy.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
+import {
+  createSemanticEvidenceId,
+  createSemanticFactId,
+  createSemanticSourceId,
+} from './routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const entryPoints = Object.freeze([
@@ -45,9 +50,25 @@ export function runFreshSessionSmoke() {
       { path: 'apps/web/src/legal/README.md', kind: 'owner-readme' },
     ],
     laneCandidates: advisoryLegalLanes(),
-    roleRoutingAvailable: false,
-    runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: false },
+    reportedRuntimeEvidence: {
+      schemaVersion: 1,
+      surfaceMode: 'native',
+      observationScope: 'current-turn',
+      freshness: 'current-turn',
+      provenance: ['host-tool-schema'],
+      dispatchPermission: 'allowed',
+      roles: [
+        {
+          agentType: 'explore',
+          available: true,
+          effectiveModel: 'gpt-5.6-luna',
+          effectiveEffort: 'medium',
+          explicitEffortSupport: true,
+        },
+      ],
+    },
   });
+  const routingEvidence = evaluateRoutingEvidence();
 
   return deepFreeze({
     schemaVersion: 1,
@@ -58,6 +79,7 @@ export function runFreshSessionSmoke() {
       mixedDomain: summarizeScenario(mixedDomain),
       unavailableRoleRouting: summarizeScenario(unavailableRoleRouting),
     },
+    routingEvidence,
     boundaries: {
       readsLocalResumeState: false,
       readsIgnoredPlan: false,
@@ -101,8 +123,7 @@ function evaluateScenario({
   request,
   repositoryEvidence,
   laneCandidates = [],
-  roleRoutingAvailable = true,
-  runtimeCapabilities = { nativeChildSurface: false, nativeRoleRouting: false },
+  reportedRuntimeEvidence = null,
 }) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request });
@@ -110,12 +131,85 @@ function evaluateScenario({
   const delegation = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates,
-    roleRoutingAvailable,
+    laneCandidates: laneCandidates.map((lane) => {
+      const { smokePredicateIds, ...candidate } = lane;
+      return {
+        ...candidate,
+        pass2Evidence: semanticEvidence(
+          contextPack,
+          smokePredicateIds ??
+            (lane.taskKind === 'research' ? 'SEC-07-official-evidence' : 'SEC-05-disclosure'),
+        ),
+      };
+    }),
   });
-  const dispatch = createDispatchRecommendation({ delegation, runtimeCapabilities });
+  const dispatch = createDispatchRecommendation({ delegation, reportedRuntimeEvidence });
 
   return { envelope, contextPack, delegation, dispatch };
+}
+
+function evaluateRoutingEvidence() {
+  const sameRequest = 'Legal 개선 지점 분석해줘.';
+  const keywordOnly = routedEffort({
+    request: 'critical migration transaction xhigh Legal 개선 지점 분석해줘.',
+    predicateIds: ['FE-05-browser-runtime'],
+  });
+  const medium = routedEffort({ request: sameRequest, predicateIds: mediumPredicateIds() });
+  const high = routedEffort({ request: sameRequest, predicateIds: ['FE-08-performance-causal'] });
+  const xhigh = routedEffort({
+    request: sameRequest,
+    predicateIds: ['BE-01-concurrency-transaction'],
+  });
+
+  return {
+    keywordOnly,
+    sameRequest: {
+      request: sameRequest,
+      efforts: [medium.effort, high.effort, xhigh.effort],
+      roles: [medium.role, high.role, xhigh.role],
+      childCounts: [medium.childCount, high.childCount, xhigh.childCount],
+    },
+    parentEffortClaimed: false,
+  };
+}
+
+function routedEffort({ request, predicateIds }) {
+  const result = evaluateScenario({
+    request,
+    repositoryEvidence: [{ path: 'docs/policies/legal-basis.md', kind: 'policy' }],
+    laneCandidates: [routingEvidenceLane(predicateIds)],
+  });
+  const [contract] = result.delegation.recommendedChildren;
+  if (!contract) throw new Error('Fresh-session routing evidence requires one child contract.');
+  return {
+    effort: contract.routeRecommendation.effort,
+    role: contract.routeRecommendation.role,
+    childCount: result.delegation.recommendedChildren.length,
+  };
+}
+
+function routingEvidenceLane(predicateIds) {
+  return {
+    id: 'legal-routing-evidence',
+    domain: 'legal-policy',
+    taskKind: 'analysis',
+    priority: 'high',
+    impactRisk: 'high',
+    objective: 'Analyze one bounded Legal repository question.',
+    question: 'Which current evidence determines the reasoning complexity?',
+    allowedEvidence: ['repo', 'test'],
+    allowedTools: ['repository-read'],
+    readScope: ['docs/policies/legal-basis.md'],
+    writeOwnership: [],
+    dependencies: [],
+    expectedOutputFields: ['findings'],
+    verification: ['Cite the current repository evidence.'],
+    benefit: {
+      kind: 'completeness',
+      rationale: 'The bounded evidence lane can be completed independently.',
+    },
+    smokePredicateIds: predicateIds,
+  };
 }
 
 function summarizeScenario({ envelope, contextPack, delegation, dispatch }) {
@@ -142,7 +236,7 @@ function advisoryLegalLanes() {
       domain: 'legal-policy',
       taskKind: 'analysis',
       priority: 'high',
-      risk: 'high',
+      impactRisk: 'high',
       objective: 'Analyze current repository Legal responsibilities.',
       question: 'Which current repository boundaries affect Legal?',
       allowedEvidence: ['repo', 'test'],
@@ -162,7 +256,7 @@ function advisoryLegalLanes() {
       domain: 'legal-policy',
       taskKind: 'research',
       priority: 'high',
-      risk: 'high',
+      impactRisk: 'high',
       objective: 'Verify current official Legal evidence.',
       question: 'Which current official sources support the Legal claims?',
       allowedEvidence: ['official-current'],
@@ -178,6 +272,54 @@ function advisoryLegalLanes() {
       },
     },
   ];
+}
+
+function semanticEvidence(contextPack, predicateIds) {
+  const normalizedPredicateIds = Array.isArray(predicateIds) ? predicateIds : [predicateIds];
+  const current =
+    contextPack.sources.find(({ path }) => path === 'docs/policies/legal-basis.md') ??
+    contextPack.sources[0];
+  const source = {
+    path: current.path,
+    locator: `fresh-session:${normalizedPredicateIds.join(',')}`,
+    kind: current.kind,
+    observedAt: current.verifiedAt ?? current.freshness,
+    contentDigest: `sha256:${'d'.repeat(64)}`,
+  };
+  source.sourceId = createSemanticSourceId(source);
+  const facts = normalizedPredicateIds.map((predicateId) => {
+    const fact = {
+      statement: `Fresh-session evidence supports ${predicateId}.`,
+      sourceIds: [source.sourceId],
+      confidence: 'high',
+    };
+    return { ...fact, factId: createSemanticFactId(fact) };
+  });
+  const predicateClaims = normalizedPredicateIds.map((predicateId, index) => {
+    const claim = {
+      predicateId,
+      outcome: 'confirmed',
+      factIds: [facts[index].factId],
+      semanticMatch: {
+        matches: true,
+        rationale: `The fresh ContextPack source supports ${predicateId}.`,
+      },
+      compositeCategory: null,
+    };
+    return { ...claim, evidenceId: createSemanticEvidenceId(claim) };
+  });
+  return {
+    sources: [source],
+    facts,
+    predicateClaims,
+    inferences: [],
+    gaps: [],
+    confidence: 'high',
+  };
+}
+
+function mediumPredicateIds() {
+  return Array.from({ length: 15 }, (_, index) => `M-${String(index + 1).padStart(2, '0')}`);
 }
 
 function assertRepositoryEvidenceExists(repositoryEvidence) {
