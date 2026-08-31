@@ -1,0 +1,23 @@
+{
+  "allowlisted": [
+    ".codex/config.toml",
+    ".codex/agents/knu_explorer.toml",
+    ".codex/agents/knu_researcher.toml",
+    ".codex/agents/knu_reviewer.toml",
+    ".codex/agents/knu_executor.toml"
+  ],
+  "ignored": [
+    ".codex/auth.json",
+    ".codex/config.local.toml",
+    ".codex/credentials.json",
+    ".codex/session.json",
+    ".codex/sessions/session.json",
+    ".codex/cache/model-index.json",
+    ".codex/mcp/credentials.json",
+    ".codex/plugins/example/plugin.json",
+    ".codex/profiles/personal.toml",
+    ".codex/state/session.json",
+    ".codex/agents/private/nested.toml",
+    ".codex/agents/README.md"
+  ]
+}

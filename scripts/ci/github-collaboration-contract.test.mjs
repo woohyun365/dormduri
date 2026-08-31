@@ -62,7 +62,7 @@ test('developer documentation separates local feedback, CI, and remote settings'
     'Dependent acceptance batching',
     '같은 acceptance 결과',
     'Feature branch push',
-    'merge-push CI',
+    '별도 Monorepo CI',
     'stacked PR',
     'DESIGN.md',
     'Remote push budget',
@@ -76,6 +76,10 @@ test('developer documentation separates local feedback, CI, and remote settings'
     'git diff --name-only',
     'repoPolicy',
     'environment gap',
+    'feature/fix/chore branch -> dev: squash merge',
+    'dev -> main integration: merge commit',
+    'dev-integration-gate',
+    'main-release-gate',
   ]) {
     assert.match(branchStrategy, new RegExp(boundary, 'u'));
   }
@@ -106,6 +110,9 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
     'Dependabot security updates',
     'enabled=true',
     'squash merge',
+    'merge commit',
+    'dev-integration-gate',
+    'main-release-gate',
     'Force push',
     'Branch deletion',
   ]) {
@@ -140,7 +147,12 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.match(remoteSettings, /owner 승인/u);
   assert.match(remoteSettings, /selected; GitHub-owned/u);
   assert.match(remoteSettings, /sha_pinning_required=true/u);
-  assert.match(remoteSettings, /dev-main-integration-gate/u);
+  assert.match(remoteSettings, /dev-integration-gate/u);
+  assert.match(remoteSettings, /main-release-gate/u);
+  assert.match(remoteSettings, /delete_branch_on_merge=true/u);
+  assert.match(remoteSettings, /Rulesets.*classic Branches/su);
+  assert.match(remoteSettings, /Remote branch inventory.*`main`, `dev`/su);
+  assert.match(remoteSettings, /Environments.*0/su);
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
   assert.match(remoteSettings, /enabled=true.*paused=false/su);
   assert.doesNotMatch(remoteSettings, /gh api[^\n]*--method\s+(?:PATCH|PUT|POST|DELETE)/u);
@@ -180,39 +192,18 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
     assert.match(authentication, new RegExp(boundary, 'u'));
   }
 
-  assert.match(authentication, /Billing.*deferred/su);
-  assert.match(authentication, /checkedAt: 2026-08-21/u);
+  assert.match(authentication, /Billing.*Plan: Read.*repository access 없음/su);
+  assert.match(authentication, /2026-09-25 만료/u);
+  assert.match(authentication, /checkedAt: 2026-08-27/u);
+  assert.match(authentication, /ghs_APPID_JWT/u);
+  assert.match(authentication, /opaque credential/u);
+  assert.match(authentication, /최소 520자/u);
+  assert.match(authentication, /ghs_\[A-Za-z0-9\.\\-_\]\{36,\}/u);
   assert.match(authentication, /Connector permission: `Allow read actions`/u);
   assert.match(authentication, /gh auth status --show-token.*금지/su);
   assert.doesNotMatch(authentication, /\.omx\/plans/u);
   assert.doesNotMatch(authentication, /\b(?:ghp|github_pat)_[A-Za-z0-9_]{12,}\b/u);
   assert.doesNotMatch(authentication, /Authorization:\s*Bearer\s+\S+/iu);
-});
-
-test('Copilot uses a bounded adapter instead of duplicating the orchestration contract', () => {
-  const instructions = read('.github/copilot-instructions.md');
-
-  for (const currentBoundary of [
-    'AGENTS.md',
-    '현재 사용자 요청',
-    'current working tree',
-    '요청 범위 밖 파일',
-    'targeted test',
-  ]) {
-    assert.ok(
-      instructions.includes(currentBoundary),
-      `missing Copilot boundary: ${currentBoundary}`,
-    );
-  }
-
-  for (const duplicatedWorkflow of ['.omx/plans', '$team', '$ralph', '<agent_catalog>']) {
-    assert.ok(
-      !instructions.includes(duplicatedWorkflow),
-      `Copilot adapter duplicates workflow guidance: ${duplicatedWorkflow}`,
-    );
-  }
-
-  assert.ok(instructions.split('\n').length <= 12, 'Copilot adapter must stay concise');
 });
 
 test('Renovate owns npm updates while Dependabot retains non-npm ecosystems', () => {
@@ -243,4 +234,131 @@ test('Renovate owns npm updates while Dependabot retains non-npm ecosystems', ()
   assert.doesNotMatch(dependabot, /multi-ecosystem-groups:/u);
   assert.match(collaboration, /npm\/pnpm version update PR은 Renovate가 `dev`를 대상으로/u);
   assert.match(collaboration, /security update는 GitHub의 default branch/u);
+});
+
+test('bounded change guidance classifies scope drift before mutation', () => {
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
+  const collaboration = read('docs/development/github/collaboration.md');
+
+  for (const disposition of [
+    'required-current',
+    'prerequisite-predecessor',
+    'independent-follow-up',
+    'unrelated-or-speculative',
+  ]) {
+    assert.match(branchStrategy, new RegExp(disposition, 'u'));
+  }
+
+  for (const requiredInput of ['prospective outcome', 'acceptance', 'non-scope']) {
+    assert.match(branchStrategy, new RegExp(requiredInput, 'iu'));
+  }
+
+  assert.match(branchStrategy, /Storybook.*새로운 design direction.*follow-up/su);
+  assert.match(branchStrategy, /backend.*prerequisite-predecessor.*unrelated cleanup/isu);
+  assert.match(collaboration, /scope drift.*네 가지 disposition/isu);
+  assert.match(collaboration, /현재 acceptance가 바뀌기 전에/u);
+});
+
+test('Issues own durable outcomes, blockers, dependencies, and trigger-gated scheduling', () => {
+  const index = read('docs/development/github/README.md');
+  const collaboration = read('docs/development/github/collaboration.md');
+  const issueGuide = read('docs/development/github/issues-and-work-tracking.md');
+  const workItem = read('.github/ISSUE_TEMPLATE/work-item.yml');
+  const blocker = read('.github/ISSUE_TEMPLATE/blocker.yml');
+  const config = read('.github/ISSUE_TEMPLATE/config.yml');
+
+  assert.match(index, /issues-and-work-tracking\.md/u);
+  assert.match(collaboration, /Issues and work tracking/u);
+  for (const boundary of [
+    'durable work item',
+    'transient local diagnostic',
+    'blocked work',
+    'unblock evidence',
+    'revisit trigger',
+    'sub-issue',
+    'Milestone',
+    'GitHub Projects',
+    'status:blocked',
+  ]) {
+    assert.match(issueGuide, new RegExp(boundary, 'iu'));
+  }
+  assert.match(issueGuide, /세 개 이상의 Issue.*dated release/isu);
+  assert.match(issueGuide, /다섯 개보다 많은.*independently scheduled/isu);
+
+  for (const field of ['Outcome', 'Acceptance', 'Non-scope', 'Evidence']) {
+    assert.match(workItem, new RegExp(field, 'u'));
+  }
+  for (const field of ['Blocked work', 'Cause', 'Owner', 'Unblock evidence', 'Revisit trigger']) {
+    assert.match(blocker, new RegExp(field, 'u'));
+  }
+  assert.match(blocker, /status:blocked/u);
+  assert.match(config, /blank_issues_enabled:\s*false/u);
+});
+
+test('pull request template keeps dev references separate from main closing semantics', () => {
+  const template = read('.github/PULL_REQUEST_TEMPLATE.md');
+
+  assert.match(template, /Refs #번호/u);
+  assert.match(template, /Development sidebar/u);
+  assert.match(template, /`main`.*Closes #번호/su);
+  assert.match(template, /Outcome/u);
+  assert.match(template, /Non-scope/u);
+  assert.match(template, /Follow-up disposition/u);
+  assert.doesNotMatch(template, /Issue:\s*<!--\s*Closes #번호 또는 해당 없음/u);
+});
+
+test('asynchronous agent writes use distinct Git ownership while the leader integrates', () => {
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
+  const orchestration = read('docs/development/agent-workflows/orchestration.md');
+
+  assert.match(orchestration, /\.\.\/github\/branch-and-pr-strategy\.md/u);
+  assert.match(orchestration, /Git branch\/worktree isolation/u);
+  assert.match(orchestration, /agent review.*human approval.*대체하지/iu);
+
+  for (const boundary of [
+    'read-only.*share.*checkout',
+    'one write-capable.*current checkout',
+    'distinct fresh branch',
+    'separate worktree',
+    'sibling.*same branch',
+    'leader.*fan-in',
+  ]) {
+    assert.match(branchStrategy, new RegExp(boundary, 'isu'));
+  }
+});
+
+test('branch readiness stays advisory, semantic, and discoverable before pre-PR CI', () => {
+  const packageJson = JSON.parse(read('package.json'));
+  const index = read('docs/development/github/README.md');
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
+  const readiness = read('docs/development/github/branch-readiness.md');
+  const template = read('.github/PULL_REQUEST_TEMPLATE.md');
+
+  assert.equal(
+    packageJson.scripts['git:branch-readiness'],
+    'node scripts/git/branch-readiness.mjs',
+  );
+  assert.match(index, /\.\/branch-readiness\.md/u);
+  assert.match(branchStrategy, /Pre-PR CI lane preflight/u);
+  assert.match(branchStrategy, /pnpm git:branch-readiness/u);
+  assert.match(template, /Scope audit/u);
+
+  for (const contract of [
+    'Deterministic evidence',
+    'Declared semantic disposition',
+    'cohesive',
+    'scope-audit-required',
+    'stop-and-split',
+    'decisionSource=model-mediated',
+    'lockfile',
+    'codemod',
+    'commit count',
+    'single-writer boundary',
+  ]) {
+    assert.match(readiness, new RegExp(contract, 'iu'));
+  }
+
+  assert.match(readiness, /classifyChanges\(\)/u);
+  assert.match(readiness, /advisory/u);
+  assert.doesNotMatch(readiness, /\.omx\/plans|Phase\s+\d/iu);
 });

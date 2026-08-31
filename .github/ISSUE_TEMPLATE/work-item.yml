@@ -1,0 +1,44 @@
+name: Work item
+description: 독립적으로 실행·검증 가능한 제품 또는 개발 outcome을 기록합니다.
+title: '[Work] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        하나의 Issue에는 하나의 durable outcome과 acceptance를 작성해 주세요.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: 사용자·운영자·개발자가 얻게 될 한 가지 결과를 작성합니다.
+      placeholder: 이 작업이 완료되면 무엇이 달라지나요?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: 완료를 증명할 동작, contract, test 또는 운영 evidence를 작성합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: non_scope
+    attributes:
+      label: Non-scope
+      description: 중요하지만 현재 outcome에 포함하지 않는 인접 작업을 작성합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: 현재 code, policy, test, incident 또는 사용자 요청 근거를 연결합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: dependency
+    attributes:
+      label: Dependencies and follow-ups
+      description: predecessor, successor, sub-issue 또는 related Issue를 연결합니다.
+    validations:
+      required: false

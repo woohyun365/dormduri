@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-18",
+  "updatedAt": "2026-08-28",
   "policy": "Release candidates use a readable exact version and an immutable digest. Internal API/Web artifacts use the source commit as their tag and record their built digest in the artifact manifest.",
   "applicationVersions": {
     "node": "24.19.0",
     "nestjs": "11.1.26",
-    "prisma": "7.8.0",
-    "prismaAdapterPg": "7.8.0",
+    "prisma": "7.9.1",
+    "prismaAdapterPg": "7.9.1",
     "pg": "8.20.0",
-    "postgresql": "18.4"
+    "postgresql": "18.6"
   },
   "images": [
     {
@@ -32,13 +32,13 @@
     {
       "name": "api-ingress",
       "ownerPath": "infra/deploy/compose.api.yml",
-      "reference": "nginx:1.31.3-alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+      "reference": "nginx:1.31.4-alpine@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "prometheus",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "prom/prometheus:v3.13.2@sha256:508729e0e2d18e11fd742a5a5ca70e557b940a93948c3c95fd0123a6fd538b69",
+      "reference": "prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
       "updateOwner": "dependabot-compose"
     },
     {
@@ -50,37 +50,37 @@
     {
       "name": "alloy",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33",
+      "reference": "grafana/alloy:v1.19.0@sha256:c958aef7294bc40c67caadb2bcecc93b95ab7961ff8afae3abee170d77426193",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "alertmanager",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "prom/alertmanager:v0.33.1@sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d",
+      "reference": "prom/alertmanager:v0.34.0@sha256:690c7b525f4367aa91f73e2f91c632206d32e97c6384bdbf2fb7a861b420340d",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "grafana",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/grafana:13.1.3@sha256:ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43",
+      "reference": "grafana/grafana:13.2.0@sha256:3fd54ae1214669f8355f065ec9f6445d5279a3d77095ab048ca045685272429b",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "postgres-development",
       "ownerPath": "docker-compose.dev.yml",
-      "reference": "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "reference": "postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "postgres-full-stack-rehearsal",
       "ownerPath": "infra/rehearsal/compose.postgres.yml",
-      "reference": "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "reference": "postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "postgres-ci",
       "ownerPath": ".github/workflows/api-ci.yml",
-      "reference": "postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "reference": "postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2",
       "updateOwner": "dependabot-github-actions"
     }
   ]

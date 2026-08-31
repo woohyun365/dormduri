@@ -85,7 +85,7 @@ test('owner cost documentation separates cash outflow from project-attributable 
     'Project-attributable',
     '$104',
     '$84',
-    '$14.08',
+    '$18.860103243',
     '$0',
     'TBD',
   ]) {

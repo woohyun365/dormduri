@@ -33,7 +33,7 @@ response를 무효화할 수 없습니다.
 ```bash
 pnpm --filter @repo/shared build
 pnpm --dir apps/web exec vitest run \
-  src/auth/flows/signup/components/email-verification/__tests__/useSignupEmailVerification.test.ts \
+  src/auth/flows/signup/components/email-verification/__tests__/useSignupEmailVerification.dom.test.ts \
   src/auth/flows/password-reset/__tests__/PasswordReset.test.tsx
 ```
 

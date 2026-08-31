@@ -6,18 +6,22 @@ import test from 'node:test';
 import { assessLaneIndependence, recommendDelegation } from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
+import {
+  createSemanticEvidenceId,
+  createSemanticFactId,
+  createSemanticSourceId,
+} from '../agents/routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const legalEvidence = [
-  { path: 'docs/policies/legal-basis.md' },
-  { path: 'apps/web/src/legal/README.md' },
-  { path: 'apps/web/src/app/api/legal/documents/[kind]/route.ts' },
-  { path: 'apps/api/src/legal/legal.controller.ts' },
-  { path: 'packages/shared/src/legal/contract.ts' },
-  { path: 'apps/web/src/legal/__tests__/legal-document-pages.test.tsx' },
+  { path: 'docs/policies/legal-basis.md', kind: 'policy' },
+  { path: 'apps/web/src/legal/README.md', kind: 'owner-readme' },
+  { path: 'apps/api/src/legal/legal.controller.ts', kind: 'controller' },
+  { path: 'packages/shared/src/legal/contract.ts', kind: 'contract' },
+  { path: 'apps/web/src/legal/__tests__/legal-document-pages.test.tsx', kind: 'test' },
 ];
 
-test('keeps direct requests child-free even when lane candidates are supplied', () => {
+test('keeps direct requests child-free even when semantic lane candidates are supplied', () => {
   const envelope = buildTaskEnvelope({ request: 'AGENTS.md의 줄 수를 알려줘.' });
   const contextPack = discoverContextPack({
     envelope,
@@ -26,7 +30,7 @@ test('keeps direct requests child-free even when lane candidates are supplied', 
   const result = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates: [legalRepositoryLane(), legalOfficialLane()],
+    laneCandidates: [repositoryLane(contextPack)],
   });
 
   assert.equal(result.execution, 'direct');
@@ -34,166 +38,239 @@ test('keeps direct requests child-free even when lane candidates are supplied', 
   assert.equal(result.limits.defaultChildren, 0);
 });
 
-test('recommends typed child contracts only for independently completable bounded lanes', () => {
-  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
-  const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });
+test('permits one independently valuable lane and carries the complete Pass 2 route', () => {
+  const { envelope, contextPack } = legalFlow();
   const result = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates: [legalRepositoryLane(), legalOfficialLane()],
+    laneCandidates: [repositoryLane(contextPack)],
   });
 
   assert.equal(result.execution, 'bounded-lanes');
-  assert.equal(result.recommendedChildren.length, 2);
+  assert.equal(result.recommendedChildren.length, 1);
+  const [contract] = result.recommendedChildren;
+  assert.equal(contract.routeRecommendation.role, 'knu_explorer');
+  assert.equal(contract.routeRecommendation.effort, 'high');
+  assert.equal(contract.routeRecommendation.pass2Applied, true);
+  assert.equal(contract.routeRecommendation.evidenceIds.length, 1);
+  assert.equal(contract.routeRecommendation.assessment.reasoningComplexity, 'substantial');
   assert.deepEqual(
-    result.recommendedChildren.map(({ routeRecommendation }) => [
-      routeRecommendation.role,
-      routeRecommendation.effort,
-    ]),
-    [
-      ['researcher', 'high'],
-      ['explore', 'low'],
-    ],
+    contract.routeRecommendation.runtimeApplication,
+    transitionalRuntimeApplication(),
   );
-  for (const contract of result.recommendedChildren) {
-    assert.equal(contract.leaderOwnership.finalUserResponse, true);
-    assert.equal(contract.leaderOwnership.finalVerification, true);
-    assert.deepEqual(contract.expectedOutputSchema.evidenceLabels, ['fact', 'inference', 'gap']);
-    assert.equal(contract.nonGoals.length > 0, true);
-    assert.equal(contract.prohibitedAssumptions.length > 0, true);
-    assert.equal(contract.verification.length > 0, true);
-    assert.doesNotMatch(contract.routeRecommendation.effort, /max|ultra/u);
-  }
-  assert.equal(Object.isFrozen(result), true);
-  assert.equal(Object.isFrozen(result.recommendedChildren), true);
+  assert.match(contract.routeRecommendation.gaps.join(' '), /runtime-role-evidence-deferred/u);
+  assert.equal(contract.leaderOwnership.finalDecision, true);
+  assert.equal(contract.leaderOwnership.finalUserResponse, true);
+  assert.equal(contract.leaderOwnership.integration, true);
+  assert.equal(contract.leaderOwnership.finalVerification, true);
+  assert.equal('parentEffort' in contract.routeRecommendation, false);
 });
 
-test('keeps dependent and shared-write lanes on the single sequential path', () => {
-  const envelope = buildTaskEnvelope({ request: 'Legal 구현을 수정해줘.' });
-  const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });
-  const contractLane = implementationLane({
-    id: 'legal-contract',
-    writeOwnership: ['packages/shared/src/legal'],
-  });
-  const apiLane = implementationLane({
-    id: 'legal-api',
-    writeOwnership: ['packages/shared/src/legal/contract.ts'],
-    dependencies: ['legal-contract'],
-  });
-  const result = recommendDelegation({
+test('selects zero-to-two children normally and requires bound high-value evidence for a third', () => {
+  const { envelope, contextPack } = legalFlow();
+  const standardThird = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates: [contractLane, apiLane],
-  });
-
-  assert.equal(result.execution, 'single-sequential');
-  assert.deepEqual(result.recommendedChildren, []);
-  assert.match(JSON.stringify(result.deferredLanes), /shared-write-ownership/u);
-  assert.match(JSON.stringify(result.deferredLanes), /lane-has-result-dependencies/u);
-});
-
-test('requires at least two lanes and verified role routing before recommending delegation', () => {
-  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
-  const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });
-  const single = recommendDelegation({
-    envelope,
-    contextPack,
-    laneCandidates: [legalRepositoryLane()],
-  });
-  const unsupported = recommendDelegation({
-    envelope,
-    contextPack,
-    laneCandidates: [legalRepositoryLane(), legalOfficialLane()],
-    roleRoutingAvailable: false,
-  });
-
-  assert.equal(single.execution, 'single-sequential');
-  assert.deepEqual(single.recommendedChildren, []);
-  assert.match(single.gaps.join(' '), /below-bounded-minimum/u);
-  assert.equal(unsupported.execution, 'single-sequential');
-  assert.deepEqual(unsupported.recommendedChildren, []);
-  assert.match(JSON.stringify(unsupported.deferredLanes), /cannot prove installed role routing/u);
-});
-
-test('applies explicit priority within the bounded recommendation and records deferred lanes', () => {
-  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
-  const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });
-  const result = recommendDelegation({
-    envelope,
-    contextPack,
-    childLimit: 2,
     laneCandidates: [
-      legalRepositoryLane(),
-      legalOfficialLane(),
-      {
-        ...legalRepositoryLane(),
-        id: 'legal-test-map',
-        priority: 'low',
-        domain: 'test',
-        objective: 'Map Legal regression coverage.',
-        question: 'Which executable tests protect the current Legal behavior?',
-        readScope: ['apps/web/src/legal/__tests__', 'apps/api/src/legal'],
-      },
+      repositoryLane(contextPack, { id: 'lane-one', priority: 'high' }),
+      repositoryLane(contextPack, { id: 'lane-two', priority: 'high' }),
+      repositoryLane(contextPack, { id: 'lane-three', priority: 'medium' }),
     ],
   });
 
   assert.deepEqual(
-    result.recommendedChildren.map(({ laneId }) => laneId),
-    ['legal-official-evidence', 'legal-repository-map'],
+    standardThird.recommendedChildren.map(({ laneId }) => laneId),
+    ['lane-one', 'lane-two'],
   );
-  assert.match(result.gaps.join(' '), /lane-consolidation-required/u);
+  assert.match(standardThird.gaps.join(' '), /third-proactive-child-requires-high-value-evidence/u);
+
+  const thirdEvidence = semanticEvidence(contextPack, {
+    predicateId: 'SEC-07-official-evidence',
+    statement: 'A third specialist lane closes a distinct current-authority evidence gap.',
+  });
+  const evidenceBackedThird = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [
+      repositoryLane(contextPack, { id: 'lane-one', priority: 'high' }),
+      repositoryLane(contextPack, { id: 'lane-two', priority: 'high' }),
+      repositoryLane(contextPack, {
+        id: 'lane-three',
+        priority: 'medium',
+        pass2Evidence: thirdEvidence,
+        benefit: {
+          kind: 'specialist-evidence',
+          rationale: 'The third lane closes a separately evidenced authority gap.',
+          value: 'high',
+          evidenceIds: thirdEvidence.predicateClaims.map(({ evidenceId }) => evidenceId),
+        },
+      }),
+      repositoryLane(contextPack, { id: 'lane-four', priority: 'low' }),
+    ],
+  });
+
   assert.deepEqual(
-    result.deferredLanes.map(({ laneId }) => laneId),
-    ['legal-test-map'],
+    evidenceBackedThird.recommendedChildren.map(({ laneId }) => laneId),
+    ['lane-one', 'lane-two', 'lane-three'],
   );
+  assert.deepEqual(
+    evidenceBackedThird.deferredLanes.map(({ laneId }) => laneId),
+    ['lane-four'],
+  );
+  assert.deepEqual(evidenceBackedThird.limits.proactiveChildren, {
+    normalMax: 2,
+    evidenceBackedMax: 3,
+  });
 });
 
-test('fails closed on malformed lane contracts and hard-limit overflow', () => {
-  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
-  const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });
+test('allows explicit owner-directed fan-out up to the hard limit of six', () => {
+  const { envelope, contextPack } = legalFlow();
+  const result = recommendDelegation({
+    envelope,
+    contextPack,
+    ownerDirectedChildLimit: 6,
+    laneCandidates: Array.from({ length: 6 }, (_, index) =>
+      repositoryLane(contextPack, { id: `manual-lane-${index + 1}` }),
+    ),
+  });
 
+  assert.equal(result.execution, 'bounded-lanes');
+  assert.equal(result.recommendedChildren.length, 6);
+  assert.equal(result.limits.mode, 'owner-directed');
+  assert.equal(result.limits.applied, 6);
+  assert.equal(result.limits.ownerDirectedMax, 6);
+});
+
+test('keeps ambiguous, dependent, low-benefit, and missing-Pass-2 work child-free', () => {
+  const ambiguousEnvelope = buildTaskEnvelope({ request: 'Legal을 개선해줘.' });
+  const ambiguousContext = discoverContextPack({
+    envelope: ambiguousEnvelope,
+    repositoryEvidence: legalEvidence,
+  });
+  const ambiguous = recommendDelegation({
+    envelope: ambiguousEnvelope,
+    contextPack: ambiguousContext,
+    laneCandidates: [repositoryLane(ambiguousContext)],
+  });
+  assert.equal(ambiguous.execution, 'single-sequential');
+  assert.match(ambiguous.gaps.join(' '), /ambiguity-or-authority/u);
+
+  const { envelope, contextPack } = legalFlow('Legal 구현을 수정해줘.');
+  const dependent = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [
+      implementationLane(contextPack, {
+        id: 'dependent-lane',
+        dependencies: ['prior-result'],
+        writeOwnership: ['apps/api/src/legal'],
+      }),
+    ],
+  });
+  assert.equal(dependent.execution, 'single-sequential');
+  assert.match(JSON.stringify(dependent.deferredLanes), /lane-has-result-dependencies/u);
+
+  const lowBenefit = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [
+      repositoryLane(contextPack, {
+        benefit: {
+          kind: 'latency',
+          rationale: 'The lookup is cheaper for the leader to complete directly.',
+          value: 'low',
+        },
+      }),
+    ],
+  });
+  assert.equal(lowBenefit.execution, 'single-sequential');
+  assert.match(lowBenefit.gaps.join(' '), /measurable-child-benefit-required/u);
+
+  const missingPass2 = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [{ ...repositoryLane(contextPack), pass2Evidence: undefined }],
+  });
+  assert.equal(missingPass2.execution, 'single-sequential');
+  assert.match(missingPass2.gaps.join(' '), /pass2-semantic-evidence-required/u);
+});
+
+test('rejects lexical risk substitution and never selects more than one write child', () => {
+  const { envelope, contextPack } = legalFlow('Legal 구현을 수정해줘.');
   assert.throws(
     () =>
       recommendDelegation({
         envelope,
         contextPack,
-        laneCandidates: Array.from({ length: 7 }, (_, index) => ({
-          ...legalRepositoryLane(),
-          id: `lane-${index}`,
-        })),
+        laneCandidates: [{ ...repositoryLane(contextPack), risk: 'high' }],
+      }),
+    /Unsupported lane field: risk/u,
+  );
+
+  const distinctWrites = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [
+      implementationLane(contextPack, {
+        id: 'api-writer',
+        priority: 'high',
+        writeOwnership: ['apps/api/src/legal'],
+      }),
+      implementationLane(contextPack, {
+        id: 'web-writer',
+        priority: 'medium',
+        writeOwnership: ['apps/web/src/legal'],
+      }),
+    ],
+  });
+  assert.deepEqual(
+    distinctWrites.recommendedChildren.map(({ laneId }) => laneId),
+    ['api-writer'],
+  );
+  assert.match(distinctWrites.gaps.join(' '), /write-child-limit-exceeded/u);
+
+  const overlappingWrites = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [
+      implementationLane(contextPack, {
+        id: 'contract-writer',
+        writeOwnership: ['packages/shared/src/legal'],
+      }),
+      implementationLane(contextPack, {
+        id: 'contract-file-writer',
+        writeOwnership: ['packages/shared/src/legal/contract.ts'],
+      }),
+    ],
+  });
+  assert.equal(overlappingWrites.execution, 'single-sequential');
+  assert.match(JSON.stringify(overlappingWrites.deferredLanes), /shared-write-ownership/u);
+});
+
+test('fails closed on malformed contracts and hard-limit overflow', () => {
+  const { envelope, contextPack } = legalFlow();
+  assert.throws(
+    () =>
+      recommendDelegation({
+        envelope,
+        contextPack,
+        laneCandidates: Array.from({ length: 7 }, (_, index) =>
+          repositoryLane(contextPack, { id: `lane-${index}` }),
+        ),
       }),
     /hard limit of 6/u,
   );
   assert.throws(
-    () =>
-      recommendDelegation({
-        envelope,
-        contextPack,
-        laneCandidates: [{ ...legalRepositoryLane(), writeOwnership: ['../outside'] }],
-      }),
-    /stay inside the repository/u,
+    () => recommendDelegation({ envelope, contextPack, ownerDirectedChildLimit: 7 }),
+    /between 1 and 6/u,
   );
   assert.throws(
     () =>
       assessLaneIndependence({
         envelope,
-        lane: { ...legalRepositoryLane(), unexpected: true },
+        lane: { ...repositoryLane(contextPack), unexpected: true },
       }),
     /Unsupported lane field/u,
-  );
-  assert.throws(
-    () =>
-      recommendDelegation({
-        envelope,
-        contextPack,
-        laneCandidates: [
-          {
-            ...legalRepositoryLane(),
-            allowedTools: ['repository-read', 'workspace-edit'],
-          },
-        ],
-      }),
-    /workspace-edit requires explicit writeOwnership/u,
   );
 });
 
@@ -204,74 +281,100 @@ test('child contract policy remains advisory and does not own runtime lifecycle'
   assert.doesNotMatch(source, /retry\s*\(|respawn|tmux/u);
 });
 
-function legalRepositoryLane() {
+function legalFlow(request = 'Legal 개선 지점 분석해줘.') {
+  const envelope = buildTaskEnvelope({ request });
+  const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });
+  return { envelope, contextPack };
+}
+
+function repositoryLane(contextPack, overrides = {}) {
   return {
     id: 'legal-repository-map',
-    domain: 'legal',
-    taskKind: 'lookup',
+    domain: 'legal-policy',
+    taskKind: 'analysis',
     priority: 'medium',
     objective: 'Map the current Legal policy, FE, BFF, BE, contract, and test surfaces.',
     question: 'Which current repository owners and executable boundaries implement Legal?',
     allowedEvidence: ['repo', 'test'],
     allowedTools: ['repository-read'],
-    readScope: [
-      'docs/policies',
-      'apps/web/src/legal',
-      'apps/api/src/legal',
-      'packages/shared/src/legal',
-    ],
+    readScope: ['docs/policies', 'apps/web/src/legal', 'apps/api/src/legal'],
     writeOwnership: [],
     dependencies: [],
     expectedOutputFields: ['owners', 'paths', 'contracts', 'tests'],
     verification: ['Every claimed owner cites a current repository path.'],
     benefit: {
       kind: 'completeness',
-      rationale:
-        'A bounded repository map can be collected independently from official legal research.',
+      rationale: 'A bounded repository map can be collected independently.',
     },
+    pass2Evidence: semanticEvidence(contextPack),
+    ...overrides,
   };
 }
 
-function legalOfficialLane() {
-  return {
-    id: 'legal-official-evidence',
-    domain: 'legal-policy',
-    taskKind: 'research',
-    priority: 'high',
-    risk: 'high',
-    objective: 'Collect only current official legal evidence relevant to the repository surface.',
-    question: 'Which current official sources constrain the Legal surface and where are gaps?',
-    allowedEvidence: ['official-current'],
-    allowedTools: ['official-web-read'],
-    readScope: ['https://www.law.go.kr'],
-    writeOwnership: [],
-    dependencies: [],
-    expectedOutputFields: ['officialSources', 'datedConstraints'],
-    verification: ['Every external claim includes a direct official URL and verification date.'],
-    benefit: {
-      kind: 'specialist-evidence',
-      rationale:
-        'Fresh legal evidence is independent from repository mapping and needs a research role.',
-    },
-  };
-}
-
-function implementationLane({ id, writeOwnership, dependencies = [] }) {
-  return {
-    id,
-    domain: 'legal',
+function implementationLane(contextPack, overrides) {
+  return repositoryLane(contextPack, {
     taskKind: 'implementation',
-    objective: `Implement the bounded ${id} owner change.`,
-    question: `What change is required within ${id} ownership?`,
-    readScope: ['docs/policies/legal-basis.md'],
-    writeOwnership,
-    dependencies,
+    allowedTools: ['repository-read', 'workspace-edit'],
     expectedOutputFields: ['changedFiles', 'behavior'],
     verification: ['Run the closest owner tests.'],
     benefit: {
       kind: 'latency',
-      rationale:
-        'The lane is useful only if it has distinct write ownership and no result dependency.',
+      rationale: 'The write lane has bounded ownership and no result dependency.',
     },
+    ...overrides,
+  });
+}
+
+function semanticEvidence(
+  contextPack,
+  {
+    predicateId = 'SEC-05-disclosure',
+    statement = 'Current repository evidence supports a bounded Legal analysis lane.',
+  } = {},
+) {
+  const current =
+    contextPack.sources.find(({ path }) => path === 'docs/policies/legal-basis.md') ??
+    contextPack.sources[0];
+  const source = {
+    path: current.path,
+    locator: `fixture:${predicateId}`,
+    kind: current.kind,
+    observedAt: current.verifiedAt ?? current.freshness,
+    contentDigest: `sha256:${'a'.repeat(64)}`,
+  };
+  source.sourceId = createSemanticSourceId(source);
+  const fact = {
+    statement,
+    sourceIds: [source.sourceId],
+    confidence: 'high',
+  };
+  fact.factId = createSemanticFactId(fact);
+  const claim = {
+    predicateId,
+    outcome: 'confirmed',
+    factIds: [fact.factId],
+    semanticMatch: {
+      matches: true,
+      rationale: `The inspected source supports ${predicateId}.`,
+    },
+    compositeCategory: null,
+  };
+  claim.evidenceId = createSemanticEvidenceId(claim);
+  return {
+    sources: [source],
+    facts: [fact],
+    predicateClaims: [claim],
+    inferences: [],
+    gaps: [],
+    confidence: 'high',
+  };
+}
+
+function transitionalRuntimeApplication() {
+  return {
+    requested: true,
+    supported: 'unknown',
+    applied: false,
+    evidenceStatus: 'deferred-to-runtime-compatibility',
   };
 }

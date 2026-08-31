@@ -34,12 +34,7 @@ test('fresh preflight reports repository evidence without loading local resume s
 });
 
 test('resume preflight exposes only bounded optional pointers and validates the plan path', () => {
-  const result = run([
-    '--resume',
-    '--plan',
-    '.omx/plans/clean-clone-resume-plan.md',
-    '--json',
-  ]);
+  const result = run(['--resume', '--plan', '.omx/plans/clean-clone-resume-plan.md', '--json']);
 
   assert.equal(result.status, 0, result.stderr);
   const summary = JSON.parse(result.stdout);

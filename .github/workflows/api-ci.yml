@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   api:
-    name: API build/test gate
+    name: API core gate
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -16,7 +16,7 @@ jobs:
       DIRECT_URL: postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public
     services:
       postgres:
-        image: postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7
+        image: postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
         env:
           POSTGRES_USER: knu_dev
           POSTGRES_PASSWORD: knu_dev_password
@@ -70,9 +70,6 @@ jobs:
       - name: API unit tests
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=unit -- pnpm api:test:prepared
 
-      - name: API integration tests
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=integration-db -- pnpm api:test:integration:prepared
-
       - name: API E2E tests
         run: node scripts/ci/run-timed-command.mjs --scope=API --stage=e2e-db -- pnpm api:test:e2e:prepared
 
@@ -94,5 +91,81 @@ jobs:
           STARTED_AT: ${{ steps.timing.outputs.started_at }}
         run: |
           duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
+
+  api-integration:
+    name: API integration shard (${{ matrix.label }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: '1/2'
+            label: 1-of-2
+          - shard: '2/2'
+            label: 2-of-2
+    env:
+      DATABASE_URL: postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public
+      DIRECT_URL: postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public
+      KNU_API_INTEGRATION_SHARD: ${{ matrix.shard }}
+    services:
+      postgres:
+        image: postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+        env:
+          POSTGRES_USER: knu_dev
+          POSTGRES_PASSWORD: knu_dev_password
+          POSTGRES_DB: knu_roommate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U knu_dev -d knu_roommate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start CI timing
+        id: timing
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=install -- pnpm install --frozen-lockfile
+
+      - name: Prepare CI database schema
+        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Prepare API dependencies
+        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=prepare -- pnpm api:prepare
+
+      - name: API integration tests
+        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=integration-db-${{ matrix.label }} -- pnpm --dir apps/api ci:test:integration:shard
+
+      - name: Summarize API integration shard duration
+        if: ${{ always() && !cancelled() }}
+        env:
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+        run: |
+          duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "- integration_shard: ${{ matrix.shard }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
           echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"

@@ -97,7 +97,7 @@ Login form은 320px에서 `-mx-5 border-y p-5` full-bleed sheet를 사용하고 
 ## Verification map
 
 ```bash
-pnpm --dir apps/web exec vitest run src/auth/flows/login src/auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts
+pnpm --dir apps/web exec vitest run src/auth/flows/login src/auth/hooks/__tests__/useRedirectIfAuthenticated.dom.test.ts
 pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/auth/api/__tests__/auth-api.client.test.ts
 pnpm --dir apps/web typecheck:product
 pnpm --dir apps/web typecheck:test

@@ -116,11 +116,12 @@ for (const workflow of [
   {
     path: '.github/workflows/api-ci.yml',
     prepare: 'pnpm api:prepare',
+    prepareCount: 2,
     required: [
       'pnpm api:check:prepared',
       'pnpm api:test:runtime-config-health-contract:prepared',
       'pnpm api:test:prepared',
-      'pnpm api:test:integration:prepared',
+      'pnpm --dir apps/api ci:test:integration:shard',
       'pnpm api:test:e2e:prepared',
       'pnpm api:test:stress:prepared',
       'pnpm api:build:prepared',
@@ -130,6 +131,7 @@ for (const workflow of [
   {
     path: '.github/workflows/web-ci.yml',
     prepare: 'pnpm web:prepare',
+    prepareCount: 2,
     required: [
       'pnpm web:lint:prepared',
       'pnpm web:typecheck:prepared',
@@ -140,9 +142,9 @@ for (const workflow of [
     forbidden: ['pnpm shared:build'],
   },
 ]) {
-  test(`${workflow.path} prepares once and invokes prepared capabilities`, () => {
+  test(`${workflow.path} prepares each runner and invokes prepared capabilities`, () => {
     const source = read(workflow.path);
-    assert.equal(occurrences(source, workflow.prepare), 1);
+    assert.equal(occurrences(source, workflow.prepare), workflow.prepareCount);
     assertIncludesAll(source, workflow.required);
     for (const command of workflow.forbidden) {
       assert.ok(!source.includes(command), `unexpected ${command}`);
@@ -167,6 +169,13 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'Shared contract gate',
     'CI summary',
     'if: ${{ always() }}',
+  ]);
+  assert.match(orchestrator, /push:\s*\n\s*branches:\s*\n\s*- main/u);
+  assert.doesNotMatch(orchestrator, /push:\s*\n\s*branches:[\s\S]{0,80}\n\s*- dev/u);
+  assertIncludesAll(orchestrator, [
+    'pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86',
+    'pnpm install --frozen-lockfile',
+    'pnpm exec prettier . -c',
   ]);
   assertIncludesAll(apiWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(webWorkflow, ['workflow_call:', 'cache: pnpm']);
@@ -222,6 +231,21 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
   assert.ok(apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'));
 });
 
+test('API integration shards own isolated runners and PostgreSQL services', () => {
+  const apiWorkflow = read('.github/workflows/api-ci.yml');
+
+  assertIncludesAll(apiWorkflow, [
+    'api-integration:',
+    'fail-fast: false',
+    "shard: '1/2'",
+    "shard: '2/2'",
+    'KNU_API_INTEGRATION_SHARD: ${{ matrix.shard }}',
+    'pnpm --dir apps/api ci:test:integration:shard',
+  ]);
+  assert.equal(occurrences(apiWorkflow, 'services:'), 2);
+  assert.equal(occurrences(apiWorkflow, 'POSTGRES_DB: knu_roommate'), 2);
+});
+
 test('app workflows publish comparable stage timing and cache evidence', () => {
   const apiWorkflow = read('.github/workflows/api-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
@@ -242,6 +266,24 @@ test('app workflows publish comparable stage timing and cache evidence', () => {
     '--stage=browser',
     'next_build_cache_hit',
     'total_duration_seconds',
+  ]);
+});
+
+test('compiler cache stays small, architecture-aware, and owner-local', () => {
+  const orchestrator = read('.github/workflows/ci.yml');
+  const apiWorkflow = read('.github/workflows/api-ci.yml');
+  const webWorkflow = read('.github/workflows/web-ci.yml');
+
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 2);
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 2);
+  assert.ok(!apiWorkflow.includes('API TypeScript build info'));
+  assert.ok(!apiWorkflow.includes('apps/api/dist/.tsbuildinfo'));
+  assertIncludesAll(webWorkflow, [
+    'path: apps/web/.next/cache',
+    'Restore Web TypeScript build info',
+    'Save Web TypeScript build info',
+    'apps/web/*.tsbuildinfo',
+    '${{ runner.os }}-${{ runner.arch }}-web-tsc-',
   ]);
 });
 
@@ -282,16 +324,42 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
     'NEXT_PUBLIC_APP_URL=https://ci.knu-roommate.invalid',
   ]);
   assertIncludesAll(webWorkflow, [
-    'path: apps/web/.next/cache',
     'run_storybook:',
     'pnpm --dir apps/web ci:storybook:build',
     'pnpm web:sentry:verify-build',
-    'if: ${{ !cancelled() }}',
     'if: ${{ failure() && !cancelled() }}',
   ]);
+  const nextCache = webWorkflow.slice(
+    webWorkflow.indexOf('- name: Restore Next build cache'),
+    webWorkflow.indexOf('- name: Install dependencies'),
+  );
+  assert.match(nextCache, /runner\.os \}\}-\$\{\{ runner\.arch \}\}-next-/u);
+  assert.ok(!nextCache.includes('apps/web/src'));
+  assert.ok(!webWorkflow.includes('if: ${{ !cancelled() }}'));
+  assert.equal(occurrences(webWorkflow, 'if: ${{ failure() && !cancelled() }}'), 2);
   assert.equal(occurrences(webWorkflow, 'SENTRY_AUTH_TOKEN:'), 1);
   assert.equal(occurrences(webWorkflow, 'SENTRY_ARTIFACT_SECRET_SENTINEL:'), 1);
   assert.equal(occurrences(webWorkflow, 'pnpm web:build:prepared'), 1);
   assert.match(playwrightConfig, /workers: process\.env\.CI \? 1 : undefined/);
   assertIncludesAll(playwrightConfig, ["name: 'desktop-chromium'", "name: 'mobile-chromium'"]);
+});
+
+test('Web CI isolates unit work without duplicating the production build', () => {
+  const webWorkflow = read('.github/workflows/web-ci.yml');
+  const [coreJob, unitJob] = webWorkflow.split('\n  web-unit:\n');
+
+  assert.ok(coreJob);
+  assert.ok(unitJob);
+  assertIncludesAll(coreJob, [
+    'web-core:',
+    'Web static checks',
+    'Web production build',
+    'Web browser smoke with prebuilt standalone artifact',
+  ]);
+  assert.ok(!coreJob.includes('Web unit tests'));
+  assertIncludesAll(unitJob, ['Web unit tests', 'pnpm web:test:prepared']);
+  assert.ok(!unitJob.includes('Web static checks'));
+  assert.ok(!unitJob.includes('Web production build'));
+  assert.ok(!unitJob.includes('Web browser smoke with prebuilt standalone artifact'));
+  assert.equal(occurrences(webWorkflow, 'Web production build'), 1);
 });

@@ -167,10 +167,12 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
     assert.match(decisions, new RegExp(`DA-${String(index).padStart(3, '0')}`, 'u'));
   }
   assert.match(orchestration, /single agent/u);
-  assert.match(orchestration, /low/u);
+  assert.match(orchestration, /Pass 1/u);
+  assert.match(orchestration, /Pass 2/u);
   assert.match(orchestration, /medium/u);
   assert.match(orchestration, /high/u);
   assert.match(orchestration, /xhigh/u);
+  assert.doesNotMatch(orchestration, /\blow\b/u);
   assert.match(orchestration, /`max\/ultra`.*사용하지/u);
   assert.match(orchestration, /역할을 prompt label로 가장하지 않고/u);
 });
@@ -228,6 +230,13 @@ test('OMX wiki stays curated instead of auto-capturing session transcripts', () 
     true,
     'generated session logs must not become Git candidates',
   );
+});
+
+test('generated local evidence stays outside the repository formatting gate', () => {
+  const prettierIgnore = readFileSync(resolve(repoRoot, '.prettierignore'), 'utf8');
+
+  assert.match(prettierIgnore, /^artifacts\/local\/$/mu);
+  assert.match(prettierIgnore, /^omx_wiki\/$/mu);
 });
 
 test('tracked durable documentation does not use ignored OMX plans as source of truth', () => {

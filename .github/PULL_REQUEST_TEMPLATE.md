@@ -1,10 +1,15 @@
 ## Summary
 
-<!-- 변경한 이유와 사용자가 얻게 되는 결과를 한글로 짧게 작성합니다. -->
+- Outcome: <!-- 이 PR이 제공하는 한 가지 결과 -->
+- Acceptance: <!-- 완료를 증명하는 동작·contract·test·운영 evidence -->
+- Non-scope: <!-- 중요하지만 이 PR에 포함하지 않은 독립 작업 -->
+- Follow-up disposition: <!-- 해당 없음 / required-current / prerequisite-predecessor / independent-follow-up -->
+- Scope audit: <!-- cohesive / signal·facts·disposition·exclusion·gap; audit signal이 없으면 해당 없음 -->
 
 ## Related
 
-- Issue: <!-- Closes #번호 또는 해당 없음 -->
+- Development PR: <!-- `Refs #번호` 또는 GitHub Development sidebar 연결 -->
+- Main promotion: <!-- `main` 대상이고 전체 acceptance를 포함할 때만 `Closes #번호`; 그 외 해당 없음 -->
 - Policy / Architecture: <!-- 관련 tracked 문서 또는 해당 없음 -->
 
 ## Changes

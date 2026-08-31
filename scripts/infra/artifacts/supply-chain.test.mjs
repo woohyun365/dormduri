@@ -67,12 +67,28 @@ test('GitHub Actions and image update ownership are explicit', () => {
   assert.match(dependabot, /interval:\s*'weekly'/u);
 });
 
-test('active local, CI and restore DB compatibility surfaces require PostgreSQL 18', () => {
-  assert.match(readRepoFile('docker-compose.dev.yml'), /postgres:18\.[0-9]+-alpine@sha256:/u);
-  assert.match(readRepoFile('.github/workflows/api-ci.yml'), /postgres:18\.[0-9]+-alpine@sha256:/u);
-  assert.match(
-    readRepoFile('infra/rehearsal/compose.postgres.yml'),
-    /postgres:18\.[0-9]+-alpine@sha256:/u,
+test('active local, CI and rehearsal surfaces share one PostgreSQL patch and digest', () => {
+  const inventory = JSON.parse(readRepoFile('infra/image-inventory.json'));
+  const postgresImages = inventory.images.filter(({ name }) => name.startsWith('postgres-'));
+  const references = new Set(postgresImages.map(({ reference }) => reference));
+
+  assert.equal(inventory.applicationVersions.postgresql, '18.6');
+  assert.equal(inventory.applicationVersions.prisma, '7.9.1');
+  assert.equal(inventory.applicationVersions.prismaAdapterPg, '7.9.1');
+  assert.equal(postgresImages.length, 3);
+  assert.deepEqual(
+    [...references],
+    [
+      'postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2',
+    ],
+  );
+
+  const [postgresReference] = references;
+  for (const image of postgresImages) {
+    assert.ok(readRepoFile(image.ownerPath).includes(postgresReference), image.name);
+  }
+  assert.ok(
+    readRepoFile('scripts/infra/rehearsal/full-stack/index.mjs').includes(postgresReference),
   );
   assert.match(readRepoFile('infra/db/restore-drill-smoke.sh'), /EXPECTED_POSTGRES_MAJOR:-18/u);
 });

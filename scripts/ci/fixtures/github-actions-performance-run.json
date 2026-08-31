@@ -1,0 +1,106 @@
+{
+  "run": {
+    "id": 1001,
+    "event": "pull_request",
+    "run_attempt": 1,
+    "head_branch": "feature/web-example",
+    "head_sha": "0123456789abcdef0123456789abcdef01234567",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-08-26T00:00:00Z",
+    "run_started_at": "2026-08-26T00:00:02Z",
+    "updated_at": "2026-08-26T00:02:02Z",
+    "html_url": "https://github.com/example/repository/actions/runs/1001"
+  },
+  "pullRequest": {
+    "number": 42,
+    "base": {
+      "ref": "dev",
+      "sha": "1111111111111111111111111111111111111111"
+    },
+    "head": {
+      "ref": "feature/web-example",
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  },
+  "changedPaths": ["apps/web/src/example.tsx"],
+  "measurementEpoch": {
+    "id": "native-ci-2026-08-28",
+    "state": "collecting",
+    "capturedAt": "2026-08-26T06:25:12Z",
+    "baseSha": "db9638295f8191eced847950fb704c19ae780ba8",
+    "fileSha256": {
+      "pnpm-lock.yaml": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "knownGaps": [],
+    "versions": {}
+  },
+  "runHeadFingerprint": {
+    "epochId": "native-ci-2026-08-28",
+    "sourceSha": "0123456789abcdef0123456789abcdef01234567",
+    "fileSha256": {
+      "pnpm-lock.yaml": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "pricing": {
+    "reviewedAt": "2026-08-26",
+    "sourceUrl": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+    "runnerRatesUsdPerMinute": {
+      "ubuntu-24.04": 0.006
+    }
+  },
+  "jobs": [
+    {
+      "id": 2001,
+      "name": "Classify changed surfaces",
+      "conclusion": "success",
+      "started_at": "2026-08-26T00:00:02Z",
+      "completed_at": "2026-08-26T00:00:12Z",
+      "labels": ["ubuntu-24.04"],
+      "steps": [
+        {
+          "number": 1,
+          "name": "Classify changes",
+          "conclusion": "success",
+          "started_at": "2026-08-26T00:00:04Z",
+          "completed_at": "2026-08-26T00:00:09Z"
+        }
+      ]
+    },
+    {
+      "id": 2002,
+      "name": "Web validation / Web build/test gate",
+      "conclusion": "success",
+      "started_at": "2026-08-26T00:00:15Z",
+      "completed_at": "2026-08-26T00:02:00Z",
+      "labels": ["ubuntu-24.04"],
+      "steps": [
+        {
+          "number": 1,
+          "name": "Web unit tests",
+          "conclusion": "success",
+          "started_at": "2026-08-26T00:00:20Z",
+          "completed_at": "2026-08-26T00:01:20Z"
+        }
+      ]
+    },
+    {
+      "id": 2003,
+      "name": "API validation",
+      "conclusion": "skipped",
+      "started_at": null,
+      "completed_at": null,
+      "labels": [],
+      "steps": []
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 3001,
+      "name": "web-browser-evidence",
+      "size_in_bytes": 1024,
+      "expired": false
+    }
+  ],
+  "log": "Cache hit for: node-cache-Linux-x64-pnpm-fixture\nCache Size: ~310 MB (325058560 B)\n- next_build_cache_hit: true\nTest Files 221 passed (221)\nTests 1232 passed (1232)\n26 passed (19.2s)\n"
+}

@@ -6,9 +6,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const readRepoFile = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const manifest = JSON.parse(readRepoFile('infra/deploy/api/env.manifest.json'));
-const secretMountContract = JSON.parse(
-  readRepoFile('infra/deploy/api/secret-mount.contract.json'),
-);
+const secretMountContract = JSON.parse(readRepoFile('infra/deploy/api/secret-mount.contract.json'));
 const failures = [];
 
 function parseEnvKeys(path) {
@@ -61,9 +59,7 @@ const requiredRuntimeSecretKeys = new Set(
   entries
     .filter(
       (entry) =>
-        entry.scope === 'runtime' &&
-        entry.secret === true &&
-        entry.requiredInProduction === true,
+        entry.scope === 'runtime' && entry.secret === true && entry.requiredInProduction === true,
     )
     .map((entry) => entry.key),
 );
@@ -83,11 +79,7 @@ if (mountedFileKeys.size !== mountedFileEntries.length) {
 if (JSON.stringify(mountedFileEntries) !== JSON.stringify([...mountedFileEntries].sort())) {
   failures.push('secret mount contract requiredFiles must be sorted');
 }
-reportInventoryDrift(
-  'mounted-file inventory',
-  requiredRuntimeSecretKeys,
-  mountedFileKeys,
-);
+reportInventoryDrift('mounted-file inventory', requiredRuntimeSecretKeys, mountedFileKeys);
 const lightsailRequired = new Set(
   [...startupRequired]
     .filter((key) => !runtimeSecretKeys.has(key))

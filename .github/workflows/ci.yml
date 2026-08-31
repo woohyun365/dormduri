@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches:
-      - dev
       - main
 
 permissions:
@@ -17,7 +16,7 @@ concurrency:
 jobs:
   classify:
     name: Classify changed surfaces
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     outputs:
       web: ${{ steps.changes.outputs.web }}
@@ -126,13 +125,27 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.7.0
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Verify repository policy scripts
         run: node scripts/ci/run-repo-policy.mjs
+
+      - name: Verify repository formatting
+        run: pnpm exec prettier . -c
 
   ci-summary:
     name: CI summary
@@ -144,7 +157,7 @@ jobs:
       - infra
       - repo_policy
     if: ${{ always() }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - name: Require every selected lane to succeed

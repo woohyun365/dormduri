@@ -24,6 +24,13 @@ test('parses the full integration baseline into comparable wall, compute, cache,
   assert.equal(summary.computeSeconds, 1489);
   assert.equal(summary.testFileCount, 690);
   assert.equal(summary.testCaseCount, 3401);
+  assert.deepEqual(summary.dependencyBaseline, {
+    acceptanceRunCount: 5,
+    devHeadSha: 'db9638295f8191eced847950fb704c19ae780ba8',
+    dismissedResiduals: 4,
+    openAlerts: 0,
+    state: 'frozen',
+  });
   assert.deepEqual(summary.cache, {
     next: 'fallback-hit',
     pnpm: 'miss',
@@ -60,6 +67,31 @@ test('rejects a baseline whose suite counts do not reconcile', () => {
   assert.throws(() => parseCiPerformanceEvidence(input), /suite test case total/u);
 });
 
+test('rejects a frozen dependency baseline without reproducible file digests', () => {
+  const input = readBaseline();
+  delete input.dependencyBaseline.fileSha256['pnpm-lock.yaml'];
+
+  assert.throws(() => parseCiPerformanceEvidence(input), /lowercase SHA-256 digest/u);
+});
+
+test('preserves the original workflow hashes as comparison evidence while workflows evolve', () => {
+  const input = readBaseline();
+  delete input.dependencyBaseline.workflowBaselineSha256['.github/workflows/ci.yml'];
+
+  assert.throws(() => parseCiPerformanceEvidence(input), /lowercase SHA-256 digest/u);
+});
+
+test('historical dependency inputs remain immutable instead of following the current tree', () => {
+  const baseline = readBaseline().dependencyBaseline;
+
+  assert.deepEqual(baseline.fileSha256, {
+    'pnpm-lock.yaml': 'b2be74bc26e19b38b2bbfbb36f9faa768948d6e9f8f1988e495b156eaed32462',
+    'pnpm-workspace.yaml': '638f823ec4a12faaa6219c725ee069e414d898f1e7adad03d3ad44a021acd4ae',
+    'infra/image-inventory.json':
+      '2faf8ded674d60a693e19b08820feacd3506c9e6c9e822fb8efa58038e00c85a',
+  });
+});
+
 test('prints a stable read-only summary for later baseline comparisons', () => {
   const result = spawnSync(
     process.execPath,
@@ -71,6 +103,13 @@ test('prints a stable read-only summary for later baseline comparisons', () => {
   assert.deepEqual(JSON.parse(result.stdout), {
     cache: { next: 'fallback-hit', pnpm: 'miss' },
     computeSeconds: 1489,
+    dependencyBaseline: {
+      acceptanceRunCount: 5,
+      devHeadSha: 'db9638295f8191eced847950fb704c19ae780ba8',
+      dismissedResiduals: 4,
+      openAlerts: 0,
+      state: 'frozen',
+    },
     jobs: {
       api: { computeSeconds: 625, selected: true, wallSeconds: 625 },
       classify: { computeSeconds: 10, selected: true, wallSeconds: 10 },

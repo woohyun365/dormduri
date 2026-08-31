@@ -51,17 +51,20 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 
 ## AIPO-007 — Bounded fan-out, leader-only fan-in
 
-- **결정**: 독립 lane이 있을 때 권장 2~3, hard cap 6으로 제한하며 최종 결정·응답·검증은
-  leader가 소유한다.
+- **결정**: 독립 lane 하나도 허용하되 proactive fan-out은 보통 0~2개, Pass 2 evidence에 연결된 high-value third
+  lane까지 최대 3개로 제한한다. Owner가 명시적으로 요청한 manual fan-out만 hard cap 6까지 허용하며 write-capable
+  child는 하나만 선택한다. 최종 결정·응답·통합·검증은 leader가 소유한다.
 - **기각**: child 수를 품질 지표로 사용하거나 child가 global plan을 각자 작성.
 - **재검토**: repository fixture가 다른 bound에서 지속적인 품질·latency 이득을 증명할 때.
 
 ## AIPO-008 — Role·effort는 recommendation
 
-- **결정**: lookup low, bounded implementation/test medium, research/verifier high, 고위험 architecture
-  high~xhigh를 기본으로 추천하되 runtime capability를 leader가 확인한다.
+- **결정**: current ContextPack에 연결된 Pass 2 source/fact/predicate graph로
+  `knu_explorer | knu_researcher | knu_executor | knu_reviewer`와 `medium | high | xhigh`를 추천한다. Impact risk와
+  reasoning complexity를 분리하고 runtime capability는 dispatch 직전에 leader가 확인한다.
 - **기각**: model family hard-code, leader effort 무조건 상속, `max/ultra` 기본 추천.
-- **구현 영향**: role routing을 증명할 수 없으면 역할을 가장하지 않고 sequential fallback.
+- **구현 영향**: contract는 support unknown/applied false evidence를 보존하고, runtime role routing을 증명할 수 없으면
+  역할을 가장하지 않고 dispatch gate에서 sequential fallback한다.
 
 ## AIPO-009 — Child task는 typed handoff
 
