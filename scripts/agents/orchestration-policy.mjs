@@ -816,14 +816,10 @@ function assertDelegationRecommendation(delegation) {
   ) {
     throw new TypeError('delegation must preserve leader-only ownership.');
   }
-  const writeContracts = delegation.recommendedChildren.filter(
-    ({ boundary }) => Array.isArray(boundary?.writeOwnership) && boundary.writeOwnership.length > 0,
-  );
-  if (writeContracts.length > 1) {
-    throw new TypeError('delegation can select at most one write-capable child lane.');
-  }
+  let writeContractCount = 0;
   for (const contract of delegation.recommendedChildren) {
     requireIdentifier(contract.laneId, 'contract laneId');
+    if (assertChildWriteBoundary(contract)) writeContractCount += 1;
     const role = requireString(contract.routeRecommendation?.role, 'route role', 80);
     if (!INSTALLED_ROLES.has(role)) throw new TypeError(`Unsupported native role route: ${role}`);
     requireEnum(contract.routeRecommendation?.effort, EFFORTS, 'route effort');
@@ -843,10 +839,41 @@ function assertDelegationRecommendation(delegation) {
       throw new TypeError('child contract must preserve leader-only ownership.');
     }
   }
+  if (writeContractCount > 1) {
+    throw new TypeError('delegation can select at most one write-capable child lane.');
+  }
   assertUnique(
     delegation.recommendedChildren.map(({ laneId }) => laneId),
     'contract laneId',
   );
+}
+
+function assertChildWriteBoundary(contract) {
+  const tools = contract.allowed?.tools;
+  const boundary = contract.boundary;
+  if (!Array.isArray(tools)) {
+    throw new TypeError('child contract requires an allowed tools array.');
+  }
+  if (!boundary || typeof boundary !== 'object' || Array.isArray(boundary)) {
+    throw new TypeError('child contract requires a boundary object.');
+  }
+  if (!Array.isArray(boundary.writeOwnership)) {
+    throw new TypeError('child contract requires a write ownership array.');
+  }
+  if (typeof boundary.readOnly !== 'boolean') {
+    throw new TypeError('child contract requires an explicit read-only boundary.');
+  }
+
+  const hasWriteOwnership = boundary.writeOwnership.length > 0;
+  const requestsWorkspaceEdit = tools.includes('workspace-edit');
+  if ((requestsWorkspaceEdit || boundary.readOnly === false) && !hasWriteOwnership) {
+    throw new TypeError('child write capability requires explicit write ownership.');
+  }
+  if (boundary.readOnly === hasWriteOwnership) {
+    throw new TypeError('child read-only boundary is inconsistent with write ownership.');
+  }
+
+  return hasWriteOwnership;
 }
 
 function assertSemanticRouteRecommendation(route) {

@@ -30,6 +30,7 @@ const textExtensions = new Set([
   '.sh',
   '.ts',
   '.tsx',
+  '.toml',
   '.yaml',
   '.yml',
 ]);
@@ -163,7 +164,7 @@ test('tracked guidance and runtime code no longer reference obsolete authoring h
 });
 
 test('tracked guidance no longer routes to retired user workflows', () => {
-  const violations = trackedPaths()
+  const scannedPaths = trackedPaths()
     .filter((path) => path !== 'scripts/ci/agent-intake-fresh-session.test.mjs')
     .filter(
       (path) =>
@@ -172,14 +173,15 @@ test('tracked guidance no longer routes to retired user workflows', () => {
         path.startsWith('docs/') ||
         path.startsWith('scripts/'),
     )
-    .filter((path) => textExtensions.has(extname(path)))
-    .flatMap((path) => {
-      const source = readFileSync(resolve(repoRoot, path), 'utf8');
-      return retiredWorkflowTokens
-        .filter((token) => source.includes(token))
-        .map((token) => `${path}: ${token}`);
-    });
+    .filter((path) => textExtensions.has(extname(path)));
+  const violations = scannedPaths.flatMap((path) => {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    return retiredWorkflowTokens
+      .filter((token) => source.includes(token))
+      .map((token) => `${path}: ${token}`);
+  });
 
+  assert.ok(scannedPaths.includes('.codex/agents/knu_reviewer.toml'));
   assert.deepEqual(violations, []);
 });
 

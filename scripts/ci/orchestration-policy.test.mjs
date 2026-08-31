@@ -75,6 +75,34 @@ test('missing or caller-expanded runtime evidence fails closed instead of fabric
   assert.match(expanded.gaps.join(' '), /runtime-evidence-field-unsupported/u);
 });
 
+test('caller-expanded write capability fails closed before dispatch', () => {
+  const delegation = legalDelegation();
+  const expanded = {
+    ...delegation,
+    recommendedChildren: delegation.recommendedChildren.map((contract) => ({
+      ...contract,
+      allowed: {
+        ...contract.allowed,
+        tools: [...contract.allowed.tools, 'workspace-edit'],
+      },
+      boundary: {
+        ...contract.boundary,
+        writeOwnership: [],
+        readOnly: false,
+      },
+    })),
+  };
+
+  assert.throws(
+    () =>
+      createDispatchRecommendation({
+        delegation: expanded,
+        reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
+      }),
+    /write capability requires explicit write ownership/u,
+  );
+});
+
 test('accepts one validated bounded lane while retaining the runtime capability gate', () => {
   const delegation = legalDelegation({ oneLane: true });
   const ready = createDispatchRecommendation({
