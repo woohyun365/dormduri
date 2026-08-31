@@ -13,13 +13,41 @@
 - 추천 child contract가 1개 이상, repository hard cap 6 이하
 - 각 contract가 validated Pass 2 assessment, evidence ID와 transitional runtime gap을 보존
 - 선택된 write-capable child가 최대 1개
-- 현재 surface가 native child 기능을 제공
-- installed role routing을 증명 가능
+- native surface는 current-turn `host-tool-schema`, OMX surface는 current-session `host-tool-schema`와
+  `omx-runtime-overlay`를 provenance로 보고
+- 선택된 각 project role이 fresh roster에 available 상태이며 effective model은 `gpt-5.6-sol`
+- effective effort가 requested `medium | high | xhigh`와 일치하고 fixed-effort conflict가 없음
+- higher-priority runtime permission이 dispatch를 허용
 - leader-only dispatch, decision, response, integration, verification ownership 유지
 
 조건을 충족하지 않으면 child를 생성하지 않고 leader direct 또는 single-sequential fallback을 반환합니다.
 Descriptor는 `spawn_agent`, tmux, tool command를 실행하지 않습니다. 실제 dispatch 여부는 current leader와 native
 runtime이 결정합니다.
+
+## Reported runtime evidence
+
+Runtime evidence는 다음 bounded field만 사용합니다.
+
+```text
+surfaceMode: native | omx
+observationScope / freshness: current-turn | current-session
+provenance: host-tool-schema | omx-runtime-overlay
+dispatchPermission: allowed | denied | unknown
+roles[]:
+  agentType / available
+  effectiveModel / effectiveEffort
+  explicitEffortSupport
+```
+
+- Native evidence는 current-turn `host-tool-schema`만 허용합니다.
+- OMX evidence는 current-session `host-tool-schema + omx-runtime-overlay`를 모두 요구합니다.
+- local CLI/config inspection과 과거 session 결과는 supporting evidence일 뿐 active dispatch surface의 증명이 아닙니다.
+- missing/stale/unknown/caller-invented provenance, generic `explore`로 project `knu_explorer`를 대신하는 mapping, Luna/Low,
+  Terra, unavailable role, fixed-effort mismatch는 모두 sequential fallback입니다.
+- Policy는 이 descriptor를 검증하지만 host event를 인증할 수 없으므로 결과를
+  `leader-reported-not-host-authenticated`로 표시합니다.
+- Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
+  permission을 다시 읽고 조금이라도 달라지면 descriptor를 폐기합니다.
 
 ## Recovery ceiling
 

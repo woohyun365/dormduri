@@ -245,7 +245,7 @@ test('the integrated intake path remains advisory and cannot write files or invo
 
 function evaluateFixture(
   fixture,
-  { repositoryEvidence = [], laneCandidates = [], runtimeCapabilities } = {},
+  { repositoryEvidence = [], laneCandidates = [], reportedRuntimeEvidence } = {},
 ) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request: fixture.request });
@@ -263,13 +263,37 @@ function evaluateFixture(
   });
   const dispatch = createDispatchRecommendation({
     delegation,
-    runtimeCapabilities: runtimeCapabilities ?? {
-      nativeChildSurface: true,
-      nativeRoleRouting: true,
-    },
+    reportedRuntimeEvidence:
+      reportedRuntimeEvidence ?? nativeRuntimeEvidenceFor(delegation.recommendedChildren),
   });
 
   return { envelope, contextPack, delegation, dispatch };
+}
+
+function nativeRuntimeEvidenceFor(contracts) {
+  const roles = new Map();
+  for (const contract of contracts) {
+    const { role, effort } = contract.routeRecommendation;
+    if (roles.has(role) && roles.get(role).effectiveEffort !== effort) {
+      throw new Error(`Fixture requires conflicting efforts for runtime role ${role}.`);
+    }
+    roles.set(role, {
+      agentType: role,
+      available: true,
+      effectiveModel: 'gpt-5.6-sol',
+      effectiveEffort: effort,
+      explicitEffortSupport: true,
+    });
+  }
+  return {
+    schemaVersion: 1,
+    surfaceMode: 'native',
+    observationScope: 'current-turn',
+    freshness: 'current-turn',
+    provenance: ['host-tool-schema'],
+    dispatchPermission: 'allowed',
+    roles: [...roles.values()],
+  };
 }
 
 function fixtureById(id) {

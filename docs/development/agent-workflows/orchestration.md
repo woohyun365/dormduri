@@ -53,6 +53,13 @@ Repository-selected child는 Sol과 `medium | high | xhigh`만 사용합니다. 
 leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 repository child route에 사용하지 않습니다. Role routing을
 증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
 
+Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
+evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
+host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 leader-reported input이며 host-authenticated authority로
+표현하지 않습니다. 선택 role마다 availability, effective Sol model, Medium/High/XHigh effort, explicit-effort support와
+dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
+leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
+
 ## Skill과 workflow routing
 
 - read-only 원인/책임 분석: `$analyze`
@@ -61,7 +68,7 @@ leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 reposit
 - architecture/test 합의가 필요한 계획: `$ralplan`
 - 한 owner 구현: solo 또는 executor
 - 독립 구현 lane과 shared coordination: 실제 OMX runtime의 `$team`
-- long-running single-owner completion: `$ralph`
+- durable multi-goal completion과 resume: `$ultragoal`
 - hostile E2E/회귀: `$ultraqa`
 - cleanup: 계획과 회귀 보호 뒤 `$ai-slop-cleaner`
 - UI source of truth: `$design`; reference 기반 반복은 `$visual-ralph`

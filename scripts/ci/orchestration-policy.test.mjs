@@ -18,48 +18,110 @@ import {
 } from '../agents/orchestration-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
+const runtimeCapabilityCases = JSON.parse(
+  readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/runtime-capability-cases.json'), 'utf8'),
+);
 
-test('rechecks native runtime capabilities before producing bounded dispatch descriptors', () => {
+for (const fixture of runtimeCapabilityCases) {
+  test(`runtime evidence: ${fixture.id}`, () => {
+    const result = createDispatchRecommendation({
+      delegation: legalDelegation(),
+      reportedRuntimeEvidence: fixture.evidence,
+    });
+
+    assert.equal(result.execution, fixture.expectedExecution);
+    assert.equal(result.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
+    assert.equal(Object.isFrozen(result.reportedRuntimeEvidence), true);
+    if (fixture.expectedExecution === 'native-bounded-dispatch') {
+      assert.equal(result.dispatches.length, 2);
+      assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+      assert.ok(
+        result.dispatches.every(
+          ({ effectiveModel, effort, effectiveEffort, requiresLeaderRuntimeConfirmation }) =>
+            effectiveModel === 'gpt-5.6-sol' &&
+            effort === effectiveEffort &&
+            requiresLeaderRuntimeConfirmation,
+        ),
+      );
+      assert.equal(
+        result.dispatches[0].runtimeSurface,
+        fixture.evidence.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
+      );
+    } else {
+      assert.deepEqual(result.dispatches, []);
+      assert.equal(result.requiresLeaderRuntimeConfirmation, false);
+      assert.ok(
+        result.gaps.some((gap) => gap.includes(fixture.expectedGap)),
+        `${fixture.id}: ${result.gaps.join(', ')}`,
+      );
+    }
+  });
+}
+
+test('missing or caller-expanded runtime evidence fails closed instead of fabricating authority', () => {
   const delegation = legalDelegation();
-  const ready = createDispatchRecommendation({
+  const missing = createDispatchRecommendation({ delegation });
+  const expanded = createDispatchRecommendation({
     delegation,
-    runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: true },
-  });
-  const unsupported = createDispatchRecommendation({
-    delegation,
-    runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: false },
+    reportedRuntimeEvidence: {
+      ...runtimeFixture('native-project-role-success').evidence,
+      hostAuthenticated: true,
+    },
   });
 
-  assert.equal(ready.execution, 'native-bounded-dispatch');
-  assert.equal(ready.dispatches.length, 2);
-  assert.deepEqual(
-    ready.dispatches.map(({ agentType, effort }) => [agentType, effort]),
-    [
-      ['knu_researcher', 'high'],
-      ['knu_explorer', 'high'],
-    ],
+  assert.equal(missing.execution, 'leader-sequential');
+  assert.match(missing.gaps.join(' '), /runtime-evidence-missing/u);
+  assert.equal(expanded.execution, 'leader-sequential');
+  assert.match(expanded.gaps.join(' '), /runtime-evidence-field-unsupported/u);
+});
+
+test('caller-expanded write capability fails closed before dispatch', () => {
+  const delegation = legalDelegation();
+  const expanded = {
+    ...delegation,
+    recommendedChildren: delegation.recommendedChildren.map((contract) => ({
+      ...contract,
+      allowed: {
+        ...contract.allowed,
+        tools: [...contract.allowed.tools, 'workspace-edit'],
+      },
+      boundary: {
+        ...contract.boundary,
+        writeOwnership: [],
+        readOnly: false,
+      },
+    })),
+  };
+
+  assert.throws(
+    () =>
+      createDispatchRecommendation({
+        delegation: expanded,
+        reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
+      }),
+    /write capability requires explicit write ownership/u,
   );
-  assert.equal(ready.leaderOwnership.dispatchDecision, true);
-  assert.equal(unsupported.execution, 'leader-sequential');
-  assert.deepEqual(unsupported.dispatches, []);
-  assert.match(unsupported.gaps.join(' '), /runtime-capability-fallback/u);
 });
 
 test('accepts one validated bounded lane while retaining the runtime capability gate', () => {
   const delegation = legalDelegation({ oneLane: true });
   const ready = createDispatchRecommendation({
     delegation,
-    runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: true },
+    reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
   });
   const unsupported = createDispatchRecommendation({
     delegation,
-    runtimeCapabilities: { nativeChildSurface: false, nativeRoleRouting: true },
+    reportedRuntimeEvidence: {
+      ...runtimeFixture('native-project-role-success').evidence,
+      dispatchPermission: 'unknown',
+    },
   });
 
   assert.equal(delegation.recommendedChildren.length, 1);
   assert.equal(ready.execution, 'native-bounded-dispatch');
   assert.equal(ready.dispatches.length, 1);
   assert.equal(ready.dispatches[0].agentType, 'knu_explorer');
+  assert.equal(ready.dispatches[0].requiresLeaderRuntimeConfirmation, true);
   assert.equal(unsupported.execution, 'leader-sequential');
   assert.deepEqual(unsupported.dispatches, []);
 });
@@ -239,7 +301,36 @@ test('orchestration policy is pure advisory and does not implement a child lifec
 
   assert.doesNotMatch(source, /node:child_process|spawn_agent|exec_command|create_goal|tmux/u);
   assert.doesNotMatch(source, /setInterval|setTimeout|while\s*\(|process\.kill/u);
+  assert.match(source, /leader-reported-not-host-authenticated/u);
+  assert.match(source, /requiresLeaderRuntimeConfirmation/u);
 });
+
+test('tracked guidance preserves the reported-evidence trust boundary and live reconfirmation', () => {
+  const orchestration = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
+    'utf8',
+  );
+  const recovery = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/request-intake/orchestration-recovery.md'),
+    'utf8',
+  );
+
+  for (const required of [
+    'leader-reported-not-host-authenticated',
+    'requiresLeaderRuntimeConfirmation=true',
+    'host-tool-schema',
+    'omx-runtime-overlay',
+    'gpt-5.6-sol',
+  ]) {
+    assert.ok(`${orchestration}\n${recovery}`.includes(required), required);
+  }
+});
+
+function runtimeFixture(id) {
+  const fixture = runtimeCapabilityCases.find((candidate) => candidate.id === id);
+  assert.ok(fixture, `Missing runtime capability fixture: ${id}`);
+  return fixture;
+}
 
 function legalDelegation({ oneLane = false } = {}) {
   const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });

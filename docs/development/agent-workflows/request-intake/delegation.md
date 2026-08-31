@@ -75,7 +75,9 @@ leader-only final decision, response, integration, verification
 Impact risk와 reasoning complexity는 서로 다른 결과입니다. Keyword, path, file count, LOC, task label은 semantic signal을
 대체할 수 없고, 동일 fact를 여러 composite category에 중복 반영하지 않습니다. 이 결과는 dispatch 명령이나 live role
 proof가 아닙니다. Active surface evidence가 없으면 support unknown/applied false 상태로 두고 leader가 dispatch 직전에
-runtime compatibility를 확인합니다. Parent effort는 이 contract 밖에서 사용자가 선택합니다.
+runtime compatibility를 확인합니다. Native는 current-turn host tool schema, OMX는 current-session runtime overlay와
+host-exposed role roster가 함께 있어야 하며 local config나 과거 session 결과는 active authority가 아닙니다. Parent effort는
+이 contract 밖에서 사용자가 선택합니다.
 
 ## Count와 write policy
 
