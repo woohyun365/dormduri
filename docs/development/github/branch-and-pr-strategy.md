@@ -190,9 +190,25 @@ Feature branch push 자체는 현재 Monorepo CI를 시작하지 않지만 draft
 가까운 local gate를 실행합니다. 문서나 설정 변경처럼 보여도 root toolchain 또는 미분류 경로가 포함되면 fail-open으로 모든
 lane이 선택될 수 있으므로 파일 종류만 보고 CI 범위를 추측하지 않습니다.
 
-1. `git fetch origin dev` 후 현재 branch의 merge-base가 최신 integration 기준인지 확인합니다.
-2. `origin/dev...HEAD`의 `git diff --name-only` 결과에 unrelated 또는 누락 파일이 없는지 확인합니다.
-3. CI가 import하는 동일한 `classifyChanges()`로 예상 lane을 출력합니다.
+1. `git fetch origin dev` 후 [Branch readiness evidence](./branch-readiness.md)를 실행합니다. 간단한 변경은 outcome,
+   acceptance, non-scope를 command line에 선언하고, owner/boundary 판단이 필요하면 task-local JSON을 사용합니다.
+
+```bash
+pnpm git:branch-readiness -- \
+  --base origin/dev \
+  --outcome '한 가지 결과' \
+  --acceptance '완료 evidence' \
+  --non-scope '독립 작업' \
+  --json
+```
+
+2. `scope-audit-required`이면 current code·contract·test를 읽고 PR의 `Scope audit`에 signal, facts, disposition,
+   exclusion과 gap을 기록합니다. `stop-and-split`이면 remote push 전에 predecessor/successor로 나눕니다. Path·line·commit
+   count는 context이며 그 자체로 pass/fail gate가 아닙니다.
+3. 현재 branch의 merge-base, `origin/dev...HEAD` changed path, dirty working tree와 `doNotTouch` 제외가 의도와 맞는지
+   확인합니다. Raw evidence를 직접 대조할 때는 `git diff --name-only origin/dev...HEAD`를 사용합니다.
+4. Branch readiness command가 CI가 import하는 동일한 `classifyChanges()`로 출력한 예상 lane을 확인합니다. 필요한 경우
+   다음 raw classifier 확인으로 evidence를 교차 검증할 수 있습니다.
 
 ```bash
 node --input-type=module <<'NODE'
@@ -212,7 +228,7 @@ console.log(JSON.stringify({ paths, classification: classifyChanges(paths) }, nu
 NODE
 ```
 
-4. 항상 task-targeted regression을 먼저 실행하고, classifier 결과에 따라 다음 경계를 확장합니다.
+5. 항상 task-targeted regression을 먼저 실행하고, classifier 결과에 따라 다음 경계를 확장합니다.
 
 | Selected lane                  | Pre-PR local gate                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------- |
@@ -222,10 +238,10 @@ NODE
 | `infra`                        | `pnpm infra:check:static`; runtime/Compose 변경일 때만 `pnpm infra:check`까지 확장                |
 | 여러 product lane 또는 unknown | 위 gate를 합치되 같은 build·prepare를 불필요하게 반복하지 않고 가장 강한 aggregate command를 우선 |
 
-5. 실제 assertion·type·format·build 실패는 첫 push 전에 해결합니다. Agent sandbox의 port binding 차단, provider credential,
+6. 실제 assertion·type·format·build 실패는 첫 push 전에 해결합니다. Agent sandbox의 port binding 차단, provider credential,
    Docker authority처럼 source 변경으로 해결할 수 없는 **environment gap**은 같은 명령을 적절한 local authority에서 한 번만
    재검증하고, 계속 제한되면 PR 검증 공백에 기록합니다. 환경 제한을 추측으로 고치거나 trial push로 디버깅하지 않습니다.
-6. 예상 lane, local-green 결과, 환경 gap, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
+7. 예상 lane, scope audit, local-green 결과, 환경 gap, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
    생성합니다. Remote failure가 발생하면 전체 log를 읽어 하나의 corrective push로 묶습니다.
 
 ## PR과 merge

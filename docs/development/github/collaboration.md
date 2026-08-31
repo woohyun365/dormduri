@@ -15,6 +15,10 @@
 `prerequisite-predecessor`, `independent-follow-up`, `unrelated-or-speculative`로 분류합니다. 현재 acceptance가 바뀌기 전에
 분류하고, 독립 작업은 branch에 넣지 않고 Issue 또는 successor로 이동합니다.
 
+PR 전에는 [Branch readiness evidence](./branch-readiness.md)를 실행합니다. Script가 수집하는 path·line·CI lane은 context이고,
+개발자 또는 repository-aware agent가 outcome·acceptance·owner boundary를 명시적으로 disposition합니다. 숫자만으로 branch를
+거절하지 않으며, `scope-audit-required`는 PR body에 근거와 결론을 남기고 `stop-and-split`은 push 전에 분리합니다.
+
 Coding agent를 사용한다면 root [`AGENTS.md`](../../../AGENTS.md)와 필요한
 [agent workflow guide](../agent-workflows/README.md)를 읽습니다.
 

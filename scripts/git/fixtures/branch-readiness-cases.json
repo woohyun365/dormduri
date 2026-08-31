@@ -1,0 +1,175 @@
+[
+  {
+    "name": "one feature with independently reviewable sub-outcomes",
+    "evidence": { "changedPaths": ["apps/api/src/a.ts"], "selectedLanes": ["api"] },
+    "declaration": {
+      "outcome": "가입 요청을 검증한다",
+      "acceptance": ["가입 계약 테스트 통과"],
+      "nonScope": ["프로필 편집"],
+      "semantic": { "independentOutcomes": 2 }
+    },
+    "expected": "stop-and-split"
+  },
+  {
+    "name": "historical mixed Web API Infra outcomes",
+    "evidence": {
+      "changedPaths": ["apps/web/src/a.ts", "apps/api/src/a.ts", "infra/a.yml"],
+      "selectedLanes": ["web", "api", "infra", "repoPolicy"],
+      "stats": { "commitCountContext": 120 }
+    },
+    "declaration": {
+      "outcome": "세 가지 독립 개선을 병합한다",
+      "acceptance": ["각 영역 테스트 통과"],
+      "nonScope": ["없음"],
+      "semantic": { "independentOutcomes": 3 }
+    },
+    "expected": "stop-and-split"
+  },
+  {
+    "name": "small unrelated cross-owner changes",
+    "evidence": {
+      "changedPaths": ["apps/web/src/a.ts", "apps/api/src/a.ts", "infra/a.yml"],
+      "selectedLanes": ["web", "api", "infra", "repoPolicy"],
+      "stats": { "meaningfulAdditions": 3, "meaningfulDeletions": 0 }
+    },
+    "declaration": {
+      "outcome": "작은 독립 수정 세 개",
+      "acceptance": ["각 수정 확인"],
+      "nonScope": ["없음"],
+      "semantic": { "independentOutcomes": 3 }
+    },
+    "expected": "stop-and-split"
+  },
+  {
+    "name": "large lockfile-only dependency update",
+    "evidence": {
+      "changedPaths": ["pnpm-lock.yaml"],
+      "selectedLanes": ["web", "api", "shared", "storybook", "infra", "repoPolicy"],
+      "noise": { "lockfileOnly": true },
+      "stats": { "meaningfulAdditions": 0, "meaningfulDeletions": 0 }
+    },
+    "declaration": {
+      "outcome": "의존성 해석 결과를 갱신한다",
+      "acceptance": ["frozen install 통과"],
+      "nonScope": ["제품 기능 변경"],
+      "semantic": {
+        "independentOutcomes": 1,
+        "sharedAcceptanceAcrossLanes": true,
+        "mechanicalChange": "lockfile-only"
+      }
+    },
+    "expected": "cohesive"
+  },
+  {
+    "name": "large verified codemod",
+    "evidence": {
+      "changedPaths": ["apps/api/src/a.ts", "apps/api/src/b.ts"],
+      "selectedLanes": ["api"],
+      "stats": { "meaningfulAdditions": 2000, "meaningfulDeletions": 2000 }
+    },
+    "declaration": {
+      "outcome": "동일 동작을 새 import 경로로 이동한다",
+      "acceptance": ["동작 회귀 테스트 통과"],
+      "nonScope": ["기능 변경"],
+      "semantic": {
+        "independentOutcomes": 1,
+        "mechanicalChange": "verified-codemod",
+        "behaviorEvidence": ["api unit tests"]
+      }
+    },
+    "expected": "cohesive"
+  },
+  {
+    "name": "contract API Web one acceptance",
+    "evidence": {
+      "changedPaths": ["packages/shared/src/a.ts", "apps/api/src/a.ts", "apps/web/src/a.ts"],
+      "selectedLanes": ["shared", "api", "web"]
+    },
+    "declaration": {
+      "outcome": "하나의 공개 계약을 생산자와 소비자에 적용한다",
+      "acceptance": ["contract API Web 통합 검증"],
+      "nonScope": ["독립 UI 개선"],
+      "semantic": { "independentOutcomes": 1, "sharedAcceptanceAcrossLanes": true }
+    },
+    "expected": "cohesive"
+  },
+  {
+    "name": "refactor plus unrelated behavior",
+    "evidence": {
+      "changedPaths": ["apps/api/src/a.ts", "apps/api/src/b.ts"],
+      "selectedLanes": ["api"]
+    },
+    "declaration": {
+      "outcome": "서비스를 정리하고 독립 기능을 추가한다",
+      "acceptance": ["리팩터와 기능 테스트"],
+      "nonScope": ["없음"],
+      "semantic": { "refactorPlusUnrelatedBehavior": true }
+    },
+    "expected": "stop-and-split"
+  },
+  {
+    "name": "linked independent follow-up",
+    "evidence": { "changedPaths": ["docs/a.md"], "selectedLanes": ["repoPolicy"] },
+    "declaration": {
+      "outcome": "현재 Git 계약을 문서화한다",
+      "acceptance": ["문서 링크 검증"],
+      "nonScope": ["자동 merge 도입"],
+      "ownerDisposition": {
+        "independentFollowUp": [{ "summary": "자동 merge 검토", "issue": "#456" }]
+      },
+      "semantic": { "independentOutcomes": 1 }
+    },
+    "expected": "cohesive"
+  },
+  {
+    "name": "large generated-only contract projection",
+    "evidence": {
+      "changedPaths": ["packages/shared/src/generated/contracts.ts"],
+      "selectedLanes": ["shared", "api", "web"],
+      "noise": { "generatedOnly": true },
+      "stats": { "meaningfulAdditions": 0, "meaningfulDeletions": 0 }
+    },
+    "declaration": {
+      "outcome": "한 계약에서 생성된 projection을 갱신한다",
+      "acceptance": ["generator freshness와 consumer 검증"],
+      "nonScope": ["수동 contract 변경"],
+      "semantic": {
+        "independentOutcomes": 1,
+        "sharedAcceptanceAcrossLanes": true,
+        "mechanicalChange": "generated-output"
+      }
+    },
+    "expected": "cohesive"
+  },
+  {
+    "name": "large deletion under one rollback boundary",
+    "evidence": {
+      "changedPaths": ["apps/api/src/retired-adapter.ts"],
+      "selectedLanes": ["api"],
+      "stats": {
+        "meaningfulAdditions": 0,
+        "meaningfulDeletions": 1800,
+        "deletionsOutnumberAdditions": true
+      }
+    },
+    "declaration": {
+      "outcome": "호출부가 없는 adapter를 제거한다",
+      "acceptance": ["repo-wide caller search와 API tests"],
+      "nonScope": ["새 adapter 도입"],
+      "semantic": { "independentOutcomes": 1 }
+    },
+    "expected": "cohesive"
+  },
+  {
+    "name": "blocker missing unblock evidence",
+    "evidence": { "changedPaths": ["docs/a.md"], "selectedLanes": ["repoPolicy"] },
+    "declaration": {
+      "outcome": "운영 절차를 문서화한다",
+      "acceptance": ["문서 검증"],
+      "nonScope": ["실제 배포"],
+      "blockers": [{ "summary": "provider 미정", "revisitTrigger": "배포 전" }]
+    },
+    "expected": "stop-and-split",
+    "expectedValid": false
+  }
+]

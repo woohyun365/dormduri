@@ -326,3 +326,39 @@ test('asynchronous agent writes use distinct Git ownership while the leader inte
     assert.match(branchStrategy, new RegExp(boundary, 'isu'));
   }
 });
+
+test('branch readiness stays advisory, semantic, and discoverable before pre-PR CI', () => {
+  const packageJson = JSON.parse(read('package.json'));
+  const index = read('docs/development/github/README.md');
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
+  const readiness = read('docs/development/github/branch-readiness.md');
+  const template = read('.github/PULL_REQUEST_TEMPLATE.md');
+
+  assert.equal(
+    packageJson.scripts['git:branch-readiness'],
+    'node scripts/git/branch-readiness.mjs',
+  );
+  assert.match(index, /\.\/branch-readiness\.md/u);
+  assert.match(branchStrategy, /Pre-PR CI lane preflight/u);
+  assert.match(branchStrategy, /pnpm git:branch-readiness/u);
+  assert.match(template, /Scope audit/u);
+
+  for (const contract of [
+    'Deterministic evidence',
+    'Declared semantic disposition',
+    'cohesive',
+    'scope-audit-required',
+    'stop-and-split',
+    'decisionSource=model-mediated',
+    'lockfile',
+    'codemod',
+    'commit count',
+    'single-writer boundary',
+  ]) {
+    assert.match(readiness, new RegExp(contract, 'iu'));
+  }
+
+  assert.match(readiness, /classifyChanges\(\)/u);
+  assert.match(readiness, /advisory/u);
+  assert.doesNotMatch(readiness, /\.omx\/plans|Phase\s+\d/iu);
+});
