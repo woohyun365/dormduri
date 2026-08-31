@@ -1,17 +1,7 @@
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
-const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
-const INSTALLED_ROLES = new Set([
-  'explore',
-  'analyst',
-  'executor',
-  'debugger',
-  'test-engineer',
-  'researcher',
-  'verifier',
-  'architect',
-  'code-reviewer',
-]);
+const EFFORTS = new Set(['medium', 'high', 'xhigh']);
+const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 const VERIFICATION_STATUSES = new Set(['passed', 'failed', 'not-run']);
@@ -77,7 +67,7 @@ export function createDispatchRecommendation({
   const runtime = normalizeRuntimeCapabilities(runtimeCapabilities);
   validateConcurrencyLimit(concurrencyLimit);
 
-  if (delegation.execution !== 'bounded-lanes' || delegation.recommendedChildren.length < 2) {
+  if (delegation.execution !== 'bounded-lanes' || delegation.recommendedChildren.length < 1) {
     return dispatchRecommendation({
       delegation,
       execution: delegation.execution === 'direct' ? 'leader-direct' : 'leader-sequential',
@@ -585,7 +575,7 @@ function assertDelegationRecommendation(delegation) {
     throw new TypeError(`delegation exceeds the hard child limit of ${HARD_CHILD_LIMIT}.`);
   }
   if (
-    (execution === 'bounded-lanes' && delegation.recommendedChildren.length < 2) ||
+    (execution === 'bounded-lanes' && delegation.recommendedChildren.length < 1) ||
     (execution !== 'bounded-lanes' && delegation.recommendedChildren.length > 0)
   ) {
     throw new TypeError('delegation execution and recommended child count are inconsistent.');
@@ -602,6 +592,12 @@ function assertDelegationRecommendation(delegation) {
   ) {
     throw new TypeError('delegation must preserve leader-only ownership.');
   }
+  const writeContracts = delegation.recommendedChildren.filter(
+    ({ boundary }) => Array.isArray(boundary?.writeOwnership) && boundary.writeOwnership.length > 0,
+  );
+  if (writeContracts.length > 1) {
+    throw new TypeError('delegation can select at most one write-capable child lane.');
+  }
   for (const contract of delegation.recommendedChildren) {
     requireIdentifier(contract.laneId, 'contract laneId');
     const role = requireString(contract.routeRecommendation?.role, 'route role', 80);
@@ -610,6 +606,7 @@ function assertDelegationRecommendation(delegation) {
     if (contract.routeRecommendation?.execution !== 'bounded-child') {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }
+    assertSemanticRouteRecommendation(contract.routeRecommendation);
     if (!Array.isArray(contract.expectedOutputSchema?.required)) {
       throw new TypeError('child contract requires an expected output schema.');
     }
@@ -626,6 +623,38 @@ function assertDelegationRecommendation(delegation) {
     delegation.recommendedChildren.map(({ laneId }) => laneId),
     'contract laneId',
   );
+}
+
+function assertSemanticRouteRecommendation(route) {
+  if (route.pass2Applied !== true) {
+    throw new TypeError('child route recommendation requires validated Pass 2 evidence.');
+  }
+  if (!Array.isArray(route.evidenceIds) || route.evidenceIds.length === 0) {
+    throw new TypeError('child route recommendation requires semantic evidenceIds.');
+  }
+  assertUnique(route.evidenceIds, 'route evidenceId');
+  if (
+    !route.assessment ||
+    typeof route.assessment !== 'object' ||
+    Array.isArray(route.assessment)
+  ) {
+    throw new TypeError('child route recommendation requires a semantic assessment.');
+  }
+  requireEnum(route.impactRisk, new Set(['low', 'medium', 'high']), 'route impact risk');
+  requireEnum(route.confidence, CONFIDENCE, 'route confidence');
+  if (!Array.isArray(route.gaps) || !route.gaps.includes('runtime-role-evidence-deferred')) {
+    throw new TypeError('child route recommendation must preserve the runtime evidence gap.');
+  }
+  const runtime = route.runtimeApplication;
+  if (
+    !runtime ||
+    runtime.requested !== true ||
+    runtime.supported !== 'unknown' ||
+    runtime.applied !== false ||
+    runtime.evidenceStatus !== 'deferred-to-runtime-compatibility'
+  ) {
+    throw new TypeError('child route recommendation has invalid transitional runtime evidence.');
+  }
 }
 
 function normalizeObjectArray(values, field, mapper) {

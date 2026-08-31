@@ -77,13 +77,19 @@
 - **기각**: 모든 작업 확인 요청 또는 모든 작업 자동 실행 — 각각 처리량과 안전성을 해칩니다.
 - **검증**: external-production과 secret action은 실행 전에 authority가 기록되어야 합니다.
 
-## DA-009 — Reasoning effort는 역할과 위험에 따라 배분
+## DA-009 — Child reasoning은 repository evidence로 두 번 판정
 
-- **문제**: 모든 child를 최고 effort로 두면 비용과 latency가 증가하지만 evidence 품질을 자동 보장하지 않습니다.
-- **결정**: lookup은 low, bounded implementation/test는 medium, research/verifier는 high, 보안·concurrency·복잡한
-  architecture는 high/xhigh를 사용합니다. `max/ultra`는 기본값으로 사용하지 않습니다.
-- **기각**: leader effort의 무조건 상속 — 역할별 최소 충분 비용을 무시합니다.
-- **검증**: routing fixture와 role metadata에서 허용 effort를 검사합니다.
+- **문제**: task label·요청 keyword·lexical risk만으로 effort를 고르면 실제 transaction, migration, public contract,
+  trust boundary 복잡도를 놓치거나 단순 lookup을 불필요하게 child로 보낼 수 있습니다.
+- **결정**: Pass 1은 intent·authority·impact risk·candidate shape만 분류하고, Pass 2가 current ContextPack의 정규화된
+  source/fact/predicate evidence로 child role과 `medium | high | xhigh`를 최종 판정합니다. Medium은 모든 boundedness
+  조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
+  선택하며 나머지 substantial work는 High입니다. Child는 Sol만 사용하고 parent XHigh/Max는 사용자가 session에서
+  선택합니다.
+- **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
+  repository가 parent effort를 추천하는 방식.
+- **검증**: stable source/fact/evidence binding, duplicate fact amplification 방지, same-request/different-evidence fixture,
+  child effort allowlist, parent-effort isolation을 검사합니다.
 
 ## DA-010 — Developer request와 agent obligation 분리
 
@@ -112,15 +118,15 @@
 
 각 Decision의 짧은 본문은 읽기 흐름을 유지하고, 구현 영향과 재검토 기준은 아래 표에서 빠짐없이 추적합니다.
 
-| ID     | 근거                                                     | Trigger / non-trigger                                               | 구현 영향                                   | 재검토 조건                                                 |
-| ------ | -------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------- |
-| DA-001 | OpenAI practical guide, Anthropic effective agents       | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행 | direct-first routing과 child 생성 억제      | 반복 측정된 context·처리량 병목                             |
-| DA-002 | Google scaling agent systems, Anthropic effective agents | 독립 evidence lane / dependency chain                               | sequential dependency, bounded fan-out      | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때 |
-| DA-003 | OpenAI practical guide, Anthropic context engineering    | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때        | leader synthesis와 one-write-owner          | 분산 merge가 더 낮은 충돌률로 검증될 때                     |
-| DA-004 | Anthropic demystifying evals, OpenAI best practices      | 검증 가능한 environment outcome / self report만 존재                | command·test·diff 기반 완료 판정            | 더 강한 자동 acceptance surface가 생길 때                   |
-| DA-005 | Anthropic context engineering                            | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지   | bounded checkpoint와 progressive disclosure | startup context가 필수 규칙을 누락하거나 budget을 초과할 때 |
-| DA-006 | Anthropic writing tools, OpenAI agent guide              | 명확한 owner/action/schema / 중복 tool buffet                       | 좁은 tool contract와 bounded output         | tool 선택 오류나 context 비용이 다시 증가할 때              |
-| DA-007 | DeepMind agent security, OpenAI running Codex safely     | deterministic guard 위 reviewer / reviewer-only guard 금지          | static·type·sandbox·test 우선               | model verifier가 독립적 강제력을 제공할 때                  |
-| DA-008 | DeepMind agent security, OpenAI running Codex safely     | destructive·credential·production action / reversible local work    | authority gate와 safe auto-continue         | 권한 또는 rollback model이 바뀔 때                          |
-| DA-009 | Google scaling agent systems, repository role metadata   | 역할·위험별 최소 충분 effort / all-high·max·ultra 기본값 금지       | executable routing policy와 fixture         | 실제 품질·비용 측정이 현재 tier를 반박할 때                 |
-| DA-010 | OpenAI AGENTS.md, repository onboarding evidence         | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지     | getting-started와 execution contract 분리   | generic agent가 동일 authority로 수렴하지 못할 때           |
+| ID     | 근거                                                       | Trigger / non-trigger                                                       | 구현 영향                                        | 재검토 조건                                                         |
+| ------ | ---------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| DA-001 | OpenAI practical guide, Anthropic effective agents         | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행         | direct-first routing과 child 생성 억제           | 반복 측정된 context·처리량 병목                                     |
+| DA-002 | Google scaling agent systems, Anthropic effective agents   | 독립 evidence lane / dependency chain                                       | sequential dependency, bounded fan-out           | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때         |
+| DA-003 | OpenAI practical guide, Anthropic context engineering      | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                | leader synthesis와 one-write-owner               | 분산 merge가 더 낮은 충돌률로 검증될 때                             |
+| DA-004 | Anthropic demystifying evals, OpenAI best practices        | 검증 가능한 environment outcome / self report만 존재                        | command·test·diff 기반 완료 판정                 | 더 강한 자동 acceptance surface가 생길 때                           |
+| DA-005 | Anthropic context engineering                              | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지           | bounded checkpoint와 progressive disclosure      | startup context가 필수 규칙을 누락하거나 budget을 초과할 때         |
+| DA-006 | Anthropic writing tools, OpenAI agent guide                | 명확한 owner/action/schema / 중복 tool buffet                               | 좁은 tool contract와 bounded output              | tool 선택 오류나 context 비용이 다시 증가할 때                      |
+| DA-007 | DeepMind agent security, OpenAI running Codex safely       | deterministic guard 위 reviewer / reviewer-only guard 금지                  | static·type·sandbox·test 우선                    | model verifier가 독립적 강제력을 제공할 때                          |
+| DA-008 | DeepMind agent security, OpenAI running Codex safely       | destructive·credential·production action / reversible local work            | authority gate와 safe auto-continue              | 권한 또는 rollback model이 바뀔 때                                  |
+| DA-009 | Google scaling agent systems, repository semantic evidence | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지 | child-only two-pass routing과 normalized fixture | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
+| DA-010 | OpenAI AGENTS.md, repository onboarding evidence           | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지             | getting-started와 execution contract 분리        | generic agent가 동일 authority로 수렴하지 못할 때                   |
