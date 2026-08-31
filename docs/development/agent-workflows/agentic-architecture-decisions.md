@@ -99,6 +99,34 @@
 - **기각**: 도구별 instruction 사본 — 서로 다른 agent에서 drift가 발생합니다.
 - **검증**: Codex 자동 discovery와 generic bootstrap prompt가 같은 authority와 acceptance로 수렴해야 합니다.
 
+## DA-011 — Child 수는 독립성과 semantic benefit으로 제한
+
+- **문제**: child 수를 최소 2개처럼 고정하거나 가능한 lane을 모두 fan-out하면 단일 evidence lane도 배제하거나 context·충돌
+  비용을 불필요하게 키웁니다.
+- **결정**: 기본 child 수는 0이며 독립적인 bounded lane 하나도 허용합니다. Proactive 경로는 보통 최대 2개이고 current
+  Pass 2 evidence에 직접 연결된 high-value benefit이 있을 때만 세 번째를 허용합니다. Owner가 명시적으로 확장해도 hard
+  cap은 6이며 write-capable child는 하나만 선택합니다.
+- **Trigger**: 결과 dependency와 write scope가 분리되고 completeness·latency·specialist evidence·risk review 순이익이
+  검증된 lane입니다.
+- **기각**: minimum-two, more-agents-is-better, shared-write fan-out, 모든 작업에 execution graph 생성.
+- **검증**: zero/one/two/evidence-backed-three/owner-directed-six와 one-write fixture를 검사합니다.
+- **재검토**: 실제 품질·walltime·conflict 측정이 다른 count boundary를 지속적으로 지지할 때입니다.
+
+## DA-012 — Active runtime은 reported evidence와 live reconfirmation으로 판정
+
+- **문제**: tracked role TOML이나 user config가 존재해도 현재 native/OMX dispatch surface가 그 role·model·effort를 실제로
+  제공한다는 뜻은 아닙니다.
+- **결정**: Native는 current-turn host tool schema, OMX는 current-session runtime overlay와 host-exposed role roster를
+  bounded evidence로 사용합니다. Sol과 `medium | high | xhigh`, role availability, effective effort, explicit-effort support,
+  dispatch permission이 모두 맞아야 descriptor를 추천합니다. Evidence는 leader-reported이며 host-authenticated authority로
+  표현하지 않고 실제 호출 직전에 leader가 다시 확인합니다.
+- **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.
+- **기각**: boolean capability assertion, local config inspection만으로 active authority 주장, generic role prompt label,
+  stale session metadata 재사용.
+- **검증**: Native/OMX success, Luna/Low, Terra, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
+  fallback fixture를 검사합니다.
+- **재검토**: host가 직접 인증된 immutable runtime capability token이나 동등한 dispatch contract를 제공할 때입니다.
+
 ## Evidence inventory
 
 - [OpenAI Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md)
@@ -130,3 +158,5 @@
 | DA-008 | DeepMind agent security, OpenAI running Codex safely       | destructive·credential·production action / reversible local work            | authority gate와 safe auto-continue              | 권한 또는 rollback model이 바뀔 때                                  |
 | DA-009 | Google scaling agent systems, repository semantic evidence | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지 | child-only two-pass routing과 normalized fixture | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
 | DA-010 | OpenAI AGENTS.md, repository onboarding evidence           | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지             | getting-started와 execution contract 분리        | generic agent가 동일 authority로 수렴하지 못할 때                   |
+| DA-011 | Google scaling agent systems, repository lane evidence     | 독립·bounded·positive-benefit lane / dependency·shared write                | adaptive bounded fan-out과 one-write limit       | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
+| DA-012 | OpenAI native surface, OMX runtime, repository smoke       | dispatch 직전 fresh reported evidence / config·과거 session만 존재          | dual-runtime compatibility와 sequential fallback | host-authenticated runtime capability contract가 제공될 때          |

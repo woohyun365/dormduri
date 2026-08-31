@@ -68,7 +68,7 @@ leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일�
 - architecture/test 합의가 필요한 계획: `$ralplan`
 - 한 owner 구현: solo 또는 executor
 - 독립 구현 lane과 shared coordination: 실제 OMX runtime의 `$team`
-- long-running single-owner completion: `$ralph`
+- durable multi-goal completion과 resume: `$ultragoal`
 - hostile E2E/회귀: `$ultraqa`
 - cleanup: 계획과 회귀 보호 뒤 `$ai-slop-cleaner`
 - UI source of truth: `$design`; reference 기반 반복은 `$visual-ralph`

@@ -13,6 +13,13 @@ const staleHandoffNames = [
   'backend-feature-refactor-plan-authoring-handoff.md',
   'infrastructure-feature-refactor-plan-authoring-handoff.md',
 ];
+const retiredWorkflowTokens = [
+  '$' + 'ralph',
+  '$' + 'ultrawork',
+  '$' + 'pipeline',
+  'autoresearch' + '-goal',
+  'prometheus' + '-strict',
+];
 const textExtensions = new Set([
   '.js',
   '.json',
@@ -104,6 +111,24 @@ test('unavailable role routing never fabricates a child role', () => {
   assert.match(scenario.dispatchReason, /cannot honor every selected child route safely/u);
 });
 
+test('fresh routing ignores lexical escalation and changes effort only from current evidence', () => {
+  const { routingEvidence } = runFreshSessionSmoke();
+
+  assert.deepEqual(routingEvidence.keywordOnly, {
+    effort: 'high',
+    role: 'knu_explorer',
+    childCount: 1,
+  });
+  assert.deepEqual(routingEvidence.sameRequest.efforts, ['medium', 'high', 'xhigh']);
+  assert.deepEqual(routingEvidence.sameRequest.roles, [
+    'knu_explorer',
+    'knu_explorer',
+    'knu_explorer',
+  ]);
+  assert.deepEqual(routingEvidence.sameRequest.childCounts, [1, 1, 1]);
+  assert.equal(routingEvidence.parentEffortClaimed, false);
+});
+
 test('a clean process produces the same smoke result without OMX or Codex session state', () => {
   const result = spawnSync(process.execPath, [smokeScript, '--json'], {
     cwd: repoRoot,
@@ -132,6 +157,27 @@ test('tracked guidance and runtime code no longer reference obsolete authoring h
       return staleHandoffNames
         .filter((name) => source.includes(name))
         .map((name) => `${path}: ${name}`);
+    });
+
+  assert.deepEqual(violations, []);
+});
+
+test('tracked guidance no longer routes to retired user workflows', () => {
+  const violations = trackedPaths()
+    .filter((path) => path !== 'scripts/ci/agent-intake-fresh-session.test.mjs')
+    .filter(
+      (path) =>
+        path === 'AGENTS.md' ||
+        path.startsWith('.codex/') ||
+        path.startsWith('docs/') ||
+        path.startsWith('scripts/'),
+    )
+    .filter((path) => textExtensions.has(extname(path)))
+    .flatMap((path) => {
+      const source = readFileSync(resolve(repoRoot, path), 'utf8');
+      return retiredWorkflowTokens
+        .filter((token) => source.includes(token))
+        .map((token) => `${path}: ${token}`);
     });
 
   assert.deepEqual(violations, []);
