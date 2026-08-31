@@ -76,6 +76,69 @@ disposition and required evidence
 provider account, region, production hostname, actual budget처럼 미래 release 시점에만 결정 가능한 값은
 `release-evidence-handoff`로 보내고 release `NO-GO` 조건과 evidence owner를 명시합니다.
 
+### Owner shorthand and observable outcome
+
+`10/10`, `future-ready`, `production-ready`, `완벽하게` 같은 owner shorthand는 사용자의 **intent and provenance**로
+보존하되 그 표현 자체를 acceptance로 사용하지 않습니다. Current repository를 먼저 조사한 뒤 shorthand를 다음으로
+번역합니다.
+
+- current baseline과 **baseline-relative problem**
+- 달성하려는 **observable quality attribute**
+- 이를 증명할 contract, test, metric 또는 operator evidence
+- 포함하지 않는 대안과 완료 이후 다시 판단할 조건
+
+A prior assistant estimate, score, or rating is unverified provenance, not a fact. 새 계획은 그 평가를 반복하지 않고 current
+evidence로 문제와 목표를 다시 세웁니다.
+
+### Plan graph terminology
+
+하나의 implementation plan은 **one primary owner**와 **one primary completion clock**을 가집니다. 요청한 문서 개수와 실제
+implementation unit 개수는 별개입니다. 사용자가 한 문서를 요청했다면 umbrella/index plan 하나가 아래 graph와 생성
+순서를 소유할 수 있지만, 독립 unit의 readiness와 완료 생명주기를 하나로 합치지 않습니다.
+
+- `Phase`: 같은 plan owner와 completion clock 안에서 선행 결과를 다음 단계가 소비하는 실행 단계
+- `dependent PR`: 같은 plan outcome 안에서 review·rollback 경계를 나눴고 선행 merge가 필요한 PR
+- `sibling plan`: 공통 predecessor 또는 objective를 공유하지만 서로의 완료를 요구하지 않는 독립 plan
+- `required successor`: predecessor는 자신의 bounded outcome을 완료할 수 있지만 umbrella objective를 끝내려면 반드시
+  뒤따라야 하는 plan
+- `conditional successor`: core outcome은 독립적으로 완료되며 current trigger가 성립할 때만 열리는 선택적 plan; trigger가
+  없거나 evidence가 불리하면 `NO-GO`로 종료 가능
+
+A `successor plan` is repository-local plan-graph shorthand. It is not a human assignment, agent handoff, branch, or commit, and PR
+개수와도 일대일 대응하지 않습니다. Owner, start condition, owned paths, acceptance, verification, rollback, completion을
+독립적으로 가져야 successor입니다.
+
+다음 중 하나라도 독립적이면 plan 또는 successor 경계를 나눕니다.
+
+- primary owner 또는 write owner
+- completion clock이나 activation/release gate
+- rollback, migration, trust, persistence 또는 runtime boundary
+- independently reviewable acceptance와 verification
+- optional technology/adoption trigger
+
+Document length and file count are not a decomposition rule. A bounded multi-phase plan is not split merely because it is detailed,
+uses deep reasoning, or touches many files. 반대로 짧은 문서라도 독립 owner·rollback·completion을 섞으면 분리합니다.
+
+### Same-session follow-up classification
+
+같은 대화에서 새로운 요청이나 아이디어가 이어져도 기존 plan에 바로 추가하지 않습니다. `refine`, `replace`, `split`,
+`successor` 중 하나로 **classify before it is appended**.
+
+- `refine`: owner, outcome, rollback, completion은 같고 evidence나 표현만 정교해짐
+- `replace`: 최신 요청이 기존 선택을 폐기하고 같은 outcome의 결정을 대체함
+- `split`: 이미 한 plan에 들어온 독립 owner/completion을 분리함
+- `successor`: 현재 plan이 완료된 뒤 required 또는 conditional unit으로 이어짐
+
+A long conversation or higher reasoning effort is not scope authority. 분석 깊이는 evidence coverage를 늘릴 수 있지만 plan의
+owner, acceptance, write boundary를 자동으로 넓히지 않습니다.
+
+### Future option boundary
+
+현재 채택하지 않는 technology, provider, service split 또는 operational capability는 장문의 speculative registry 대신
+**compact revisit contract**로 남깁니다. 최소 항목은 current evidence, trigger, owner, required evidence, recommended default,
+blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전에는 dependency, empty module, adapter, deployment surface를
+미리 만들지 않습니다.
+
 ## 6. Required plan structure
 
 1. Plan ID, status, predecessor/successor
