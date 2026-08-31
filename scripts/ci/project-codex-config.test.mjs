@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -16,12 +16,35 @@ const expectedPortablePaths = [
   '.codex/agents/knu_reviewer.toml',
   '.codex/agents/knu_executor.toml',
 ];
+const expectedProjectConfig = `[agents]
+enabled = true
+default_subagent_model = "gpt-5.6-sol"
+default_subagent_reasoning_effort = "high"
+max_concurrent_threads_per_session = 6
+`;
+const expectedRoles = [
+  { file: 'knu_executor.toml', name: 'knu_executor', sandboxMode: 'workspace-write' },
+  { file: 'knu_explorer.toml', name: 'knu_explorer', sandboxMode: 'read-only' },
+  { file: 'knu_researcher.toml', name: 'knu_researcher', sandboxMode: 'read-only' },
+  { file: 'knu_reviewer.toml', name: 'knu_reviewer', sandboxMode: 'read-only' },
+];
+const allowedRoleKeys = ['description', 'developer_instructions', 'model', 'name', 'sandbox_mode'];
 
 function checkIgnore(path) {
   return spawnSync('git', ['check-ignore', '--no-index', '-q', path], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
+}
+
+function readQuotedField(source, field) {
+  return source.match(new RegExp(`^${field} = "([^"\\n]+)"$`, 'mu'))?.[1];
+}
+
+function topLevelKeys(source) {
+  return [...source.matchAll(/^([A-Za-z0-9_.-]+)\s*=/gmu)]
+    .map(([, key]) => key)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 test('project Codex tracking uses a narrow config and top-level agent allowlist', () => {
@@ -57,4 +80,48 @@ test('portable project Codex configuration is present', () => {
     [],
     'The reviewed project config and four agent files must exist before the project Codex contract can pass',
   );
+});
+
+test('project config owns child defaults without pinning parent or provider settings', () => {
+  const source = readFileSync(resolve(repoRoot, '.codex/config.toml'), 'utf8');
+
+  assert.equal(source, expectedProjectConfig);
+  assert.doesNotMatch(
+    source,
+    /^(?:model|model_reasoning_effort|provider|auth|approval|profile|notify|mcp_servers)\s*=/mu,
+  );
+});
+
+test('project agents expose exactly four Sol roles with dynamic effort and bounded sandboxes', () => {
+  const agentDirectory = resolve(repoRoot, '.codex/agents');
+  const files = readdirSync(agentDirectory)
+    .filter((file) => file.endsWith('.toml'))
+    .sort((left, right) => left.localeCompare(right));
+
+  assert.deepEqual(
+    files,
+    expectedRoles.map(({ file }) => file),
+  );
+
+  for (const role of expectedRoles) {
+    const source = readFileSync(resolve(agentDirectory, role.file), 'utf8');
+    const instructions = source.match(/developer_instructions\s*=\s*"""([\s\S]*?)"""/u)?.[1].trim();
+
+    assert.deepEqual(topLevelKeys(source), allowedRoleKeys, role.file);
+    assert.equal(readQuotedField(source, 'name'), role.name, role.file);
+    assert.ok(readQuotedField(source, 'description')?.length > 20, role.file);
+    assert.equal(readQuotedField(source, 'model'), 'gpt-5.6-sol', role.file);
+    assert.equal(readQuotedField(source, 'sandbox_mode'), role.sandboxMode, role.file);
+    assert.ok(instructions?.length > 300, role.file);
+    assert.match(instructions, /Do not spawn child agents\./u, role.file);
+    assert.match(instructions, /facts/u, role.file);
+    assert.match(instructions, /inferences/u, role.file);
+    assert.match(instructions, /gaps/u, role.file);
+    assert.match(instructions, /confidence/u, role.file);
+    assert.match(instructions, /verification/u, role.file);
+    assert.match(instructions, /blocker/u, role.file);
+    assert.doesNotMatch(source, /^model_reasoning_effort\s*=/mu, role.file);
+    assert.doesNotMatch(source, /^skills\.config\s*=/mu, role.file);
+    assert.doesNotMatch(source, /\/Users\//u, role.file);
+  }
 });
