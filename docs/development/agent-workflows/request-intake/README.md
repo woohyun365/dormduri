@@ -22,7 +22,7 @@
   no-write 경계
 - `scripts/agents/fresh-session-smoke.mjs`: local session memory 없이 tracked bootstrap과 대표 route를 확인하는
   read-only smoke
-- `scripts/ci/agent-intake-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, unsupported role routing,
+- `scripts/ci/agent-intake-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
   stale handoff 참조 방지
 
 ```bash

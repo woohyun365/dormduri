@@ -97,11 +97,14 @@ test('single-domain planning selects one owner while mixed evidence fails closed
 test('unavailable role routing never fabricates a child role', () => {
   const scenario = runFreshSessionSmoke().scenarios.unavailableRoleRouting;
 
-  assert.equal(scenario.delegation, 'single-sequential');
+  assert.equal(scenario.delegation, 'bounded-lanes');
   assert.equal(scenario.dispatch, 'leader-sequential');
   assert.equal(scenario.childCount, 0);
   assert.deepEqual(scenario.routedRoles, []);
-  assert.match(scenario.delegationReason, /role-routable lanes/u);
+  assert.match(
+    scenario.dispatchReason,
+    /cannot prove both native child and installed role-routing/u,
+  );
 });
 
 test('a clean process produces the same smoke result without OMX or Codex session state', () => {

@@ -10,7 +10,9 @@
 추천합니다.
 
 - delegation 결과가 `bounded-lanes`
-- 추천 child contract가 2개 이상, repository hard cap 6 이하
+- 추천 child contract가 1개 이상, repository hard cap 6 이하
+- 각 contract가 validated Pass 2 assessment, evidence ID와 transitional runtime gap을 보존
+- 선택된 write-capable child가 최대 1개
 - 현재 surface가 native child 기능을 제공
 - installed role routing을 증명 가능
 - leader-only dispatch, decision, response, integration, verification ownership 유지

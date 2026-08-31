@@ -7,6 +7,11 @@ import { recommendDelegation } from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
+  createSemanticEvidenceId,
+  createSemanticFactId,
+  createSemanticSourceId,
+} from '../agents/routing-policy.mjs';
+import {
   createDispatchRecommendation,
   evaluateRecovery,
   prepareLeaderSynthesis,
@@ -30,14 +35,33 @@ test('rechecks native runtime capabilities before producing bounded dispatch des
   assert.deepEqual(
     ready.dispatches.map(({ agentType, effort }) => [agentType, effort]),
     [
-      ['researcher', 'high'],
-      ['explore', 'low'],
+      ['knu_researcher', 'high'],
+      ['knu_explorer', 'high'],
     ],
   );
   assert.equal(ready.leaderOwnership.dispatchDecision, true);
   assert.equal(unsupported.execution, 'leader-sequential');
   assert.deepEqual(unsupported.dispatches, []);
   assert.match(unsupported.gaps.join(' '), /runtime-capability-fallback/u);
+});
+
+test('accepts one validated bounded lane while retaining the runtime capability gate', () => {
+  const delegation = legalDelegation({ oneLane: true });
+  const ready = createDispatchRecommendation({
+    delegation,
+    runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: true },
+  });
+  const unsupported = createDispatchRecommendation({
+    delegation,
+    runtimeCapabilities: { nativeChildSurface: false, nativeRoleRouting: true },
+  });
+
+  assert.equal(delegation.recommendedChildren.length, 1);
+  assert.equal(ready.execution, 'native-bounded-dispatch');
+  assert.equal(ready.dispatches.length, 1);
+  assert.equal(ready.dispatches[0].agentType, 'knu_explorer');
+  assert.equal(unsupported.execution, 'leader-sequential');
+  assert.deepEqual(unsupported.dispatches, []);
 });
 
 test('permits one distinct alternate attempt and then requires a terminal handoff', () => {
@@ -217,7 +241,7 @@ test('orchestration policy is pure advisory and does not implement a child lifec
   assert.doesNotMatch(source, /setInterval|setTimeout|while\s*\(|process\.kill/u);
 });
 
-function legalDelegation() {
+function legalDelegation({ oneLane = false } = {}) {
   const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
   const contextPack = discoverContextPack({
     envelope,
@@ -230,11 +254,13 @@ function legalDelegation() {
   return recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates: [repositoryLane(), officialLane()],
+    laneCandidates: oneLane
+      ? [repositoryLane(contextPack)]
+      : [repositoryLane(contextPack), officialLane(contextPack)],
   });
 }
 
-function repositoryLane() {
+function repositoryLane(contextPack) {
   return {
     id: 'legal-repository-map',
     domain: 'legal',
@@ -253,16 +279,17 @@ function repositoryLane() {
       kind: 'completeness',
       rationale: 'Repository ownership can be mapped independently.',
     },
+    pass2Evidence: semanticEvidence(contextPack, 'SEC-05-disclosure'),
   };
 }
 
-function officialLane() {
+function officialLane(contextPack) {
   return {
     id: 'legal-official-evidence',
     domain: 'legal-policy',
     taskKind: 'research',
     priority: 'high',
-    risk: 'high',
+    impactRisk: 'high',
     objective: 'Collect current official legal evidence.',
     question: 'Which official sources constrain the Legal surface?',
     allowedEvidence: ['official-current'],
@@ -276,6 +303,44 @@ function officialLane() {
       kind: 'specialist-evidence',
       rationale: 'Official evidence needs an independent research lane.',
     },
+    pass2Evidence: semanticEvidence(contextPack, 'SEC-07-official-evidence'),
+  };
+}
+
+function semanticEvidence(contextPack, predicateId) {
+  const current = contextPack.sources.find(({ path }) => path === 'docs/policies/legal-basis.md');
+  const source = {
+    path: current.path,
+    locator: `fixture:${predicateId}`,
+    kind: current.kind,
+    observedAt: current.verifiedAt ?? current.freshness,
+    contentDigest: `sha256:${'b'.repeat(64)}`,
+  };
+  source.sourceId = createSemanticSourceId(source);
+  const fact = {
+    statement: `Current Legal evidence supports ${predicateId}.`,
+    sourceIds: [source.sourceId],
+    confidence: 'high',
+  };
+  fact.factId = createSemanticFactId(fact);
+  const claim = {
+    predicateId,
+    outcome: 'confirmed',
+    factIds: [fact.factId],
+    semanticMatch: {
+      matches: true,
+      rationale: `The current source supports ${predicateId}.`,
+    },
+    compositeCategory: null,
+  };
+  claim.evidenceId = createSemanticEvidenceId(claim);
+  return {
+    sources: [source],
+    facts: [fact],
+    predicateClaims: [claim],
+    inferences: [],
+    gaps: [],
+    confidence: 'high',
   };
 }
 

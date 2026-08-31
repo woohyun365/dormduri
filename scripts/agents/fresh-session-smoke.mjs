@@ -5,6 +5,11 @@ import { recommendDelegation } from './child-task-contract.mjs';
 import { discoverContextPack } from './domain-guide-registry.mjs';
 import { buildTaskEnvelope } from './intake-policy.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
+import {
+  createSemanticEvidenceId,
+  createSemanticFactId,
+  createSemanticSourceId,
+} from './routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const entryPoints = Object.freeze([
@@ -45,7 +50,6 @@ export function runFreshSessionSmoke() {
       { path: 'apps/web/src/legal/README.md', kind: 'owner-readme' },
     ],
     laneCandidates: advisoryLegalLanes(),
-    roleRoutingAvailable: false,
     runtimeCapabilities: { nativeChildSurface: true, nativeRoleRouting: false },
   });
 
@@ -101,7 +105,6 @@ function evaluateScenario({
   request,
   repositoryEvidence,
   laneCandidates = [],
-  roleRoutingAvailable = true,
   runtimeCapabilities = { nativeChildSurface: false, nativeRoleRouting: false },
 }) {
   assertRepositoryEvidenceExists(repositoryEvidence);
@@ -110,8 +113,13 @@ function evaluateScenario({
   const delegation = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates,
-    roleRoutingAvailable,
+    laneCandidates: laneCandidates.map((lane) => ({
+      ...lane,
+      pass2Evidence: semanticEvidence(
+        contextPack,
+        lane.taskKind === 'research' ? 'SEC-07-official-evidence' : 'SEC-05-disclosure',
+      ),
+    })),
   });
   const dispatch = createDispatchRecommendation({ delegation, runtimeCapabilities });
 
@@ -142,7 +150,7 @@ function advisoryLegalLanes() {
       domain: 'legal-policy',
       taskKind: 'analysis',
       priority: 'high',
-      risk: 'high',
+      impactRisk: 'high',
       objective: 'Analyze current repository Legal responsibilities.',
       question: 'Which current repository boundaries affect Legal?',
       allowedEvidence: ['repo', 'test'],
@@ -162,7 +170,7 @@ function advisoryLegalLanes() {
       domain: 'legal-policy',
       taskKind: 'research',
       priority: 'high',
-      risk: 'high',
+      impactRisk: 'high',
       objective: 'Verify current official Legal evidence.',
       question: 'Which current official sources support the Legal claims?',
       allowedEvidence: ['official-current'],
@@ -178,6 +186,45 @@ function advisoryLegalLanes() {
       },
     },
   ];
+}
+
+function semanticEvidence(contextPack, predicateId) {
+  const current =
+    contextPack.sources.find(({ path }) => path === 'docs/policies/legal-basis.md') ??
+    contextPack.sources[0];
+  const source = {
+    path: current.path,
+    locator: `fresh-session:${predicateId}`,
+    kind: current.kind,
+    observedAt: current.verifiedAt ?? current.freshness,
+    contentDigest: `sha256:${'d'.repeat(64)}`,
+  };
+  source.sourceId = createSemanticSourceId(source);
+  const fact = {
+    statement: `Fresh-session evidence supports ${predicateId}.`,
+    sourceIds: [source.sourceId],
+    confidence: 'high',
+  };
+  fact.factId = createSemanticFactId(fact);
+  const claim = {
+    predicateId,
+    outcome: 'confirmed',
+    factIds: [fact.factId],
+    semanticMatch: {
+      matches: true,
+      rationale: `The fresh ContextPack source supports ${predicateId}.`,
+    },
+    compositeCategory: null,
+  };
+  claim.evidenceId = createSemanticEvidenceId(claim);
+  return {
+    sources: [source],
+    facts: [fact],
+    predicateClaims: [claim],
+    inferences: [],
+    gaps: [],
+    confidence: 'high',
+  };
 }
 
 function assertRepositoryEvidenceExists(repositoryEvidence) {

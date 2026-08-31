@@ -37,19 +37,21 @@ Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정�
 
 ## Reasoning effort routing
 
-| lane                                                       | 기본 effort                    |
-| ---------------------------------------------------------- | ------------------------------ |
-| file/symbol lookup, inventory                              | low                            |
-| bounded implementation                                     | medium                         |
-| test/fixture design                                        | medium; 고위험 contract는 high |
-| official external research                                 | high                           |
-| verifier 또는 adversarial critic                           | high                           |
-| security, concurrency, irreversible migration architecture | high 또는 xhigh                |
+Reasoning routing은 parent와 child를 분리합니다. Parent XHigh/Max는 사용자가 session에서 선택하며 repository는 parent
+effort를 계산하거나 변경했다고 보고하지 않습니다.
 
-- native role metadata가 있으면 가장 구체적인 installed role을 사용하고 effort를 중복 지정하지 않습니다.
-- role routing을 지원하지 않으면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
-- `max/ultra`는 일반 planning·implementation route에 사용하지 않습니다.
-- leader가 high/xhigh여도 모든 child가 이를 무조건 상속하지 않습니다.
+1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
+2. Direct/deterministic work 또는 Medium child보다 직접 수행이 저렴한 work는 child-free로 유지합니다.
+3. Pass 2는 current ContextPack의 source/fact/predicate evidence를 정규화하고 child role과 effort를 판정합니다.
+4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
+   structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
+
+Repository-selected child는 Sol과 `medium | high | xhigh`만 사용합니다. Keyword, path, file count, LOC, broad verification
+하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
+`knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
+아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
+leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 repository child route에 사용하지 않습니다. Role routing을
+증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
 
 ## Skill과 workflow routing
 

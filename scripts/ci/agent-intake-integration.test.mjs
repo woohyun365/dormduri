@@ -7,6 +7,11 @@ import { recommendDelegation } from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
+  createSemanticEvidenceId,
+  createSemanticFactId,
+  createSemanticSourceId,
+} from '../agents/routing-policy.mjs';
+import {
   createDispatchRecommendation,
   evaluateRecovery,
   prepareLeaderSynthesis,
@@ -58,8 +63,8 @@ test('Legal Analyze stays read-only while discovering repository surfaces and cu
   assert.equal(flow.delegation.execution, 'bounded-lanes');
   assert.equal(flow.dispatch.execution, 'native-bounded-dispatch');
   assert.deepEqual(flow.dispatch.dispatches.map(({ agentType }) => agentType).sort(), [
-    'analyst',
-    'researcher',
+    'knu_explorer',
+    'knu_researcher',
   ]);
   assert.ok(
     flow.delegation.recommendedChildren.every(
@@ -248,8 +253,13 @@ function evaluateFixture(
   const delegation = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates,
-    roleRoutingAvailable: true,
+    laneCandidates: laneCandidates.map((lane) => ({
+      ...lane,
+      pass2Evidence: semanticEvidence(
+        contextPack,
+        lane.taskKind === 'research' ? 'SEC-07-official-evidence' : 'SEC-05-disclosure',
+      ),
+    })),
   });
   const dispatch = createDispatchRecommendation({
     delegation,
@@ -326,7 +336,7 @@ function legalLanes(outputKind) {
       domain: 'legal-policy',
       taskKind: planning ? 'architecture' : 'analysis',
       priority: 'high',
-      risk: 'high',
+      impactRisk: 'high',
       objective: planning
         ? 'Map current Legal FE, BFF, API, contract, policy, and test ownership for planning.'
         : 'Analyze current Legal policy, FE, BFF, API, contract, and test responsibilities.',
@@ -356,7 +366,7 @@ function legalLanes(outputKind) {
       domain: 'legal-policy',
       taskKind: 'research',
       priority: 'high',
-      risk: 'high',
+      impactRisk: 'high',
       objective: 'Verify current official legal authority without treating recall as evidence.',
       question: 'Which current official sources support or limit the repository Legal claims?',
       allowedEvidence: ['official-current'],
@@ -373,6 +383,45 @@ function legalLanes(outputKind) {
       },
     },
   ];
+}
+
+function semanticEvidence(contextPack, predicateId) {
+  const current =
+    contextPack.sources.find(({ path }) => path === 'docs/policies/legal-basis.md') ??
+    contextPack.sources[0];
+  const source = {
+    path: current.path,
+    locator: `fixture:${predicateId}`,
+    kind: current.kind,
+    observedAt: current.verifiedAt ?? current.freshness,
+    contentDigest: `sha256:${'c'.repeat(64)}`,
+  };
+  source.sourceId = createSemanticSourceId(source);
+  const fact = {
+    statement: `Current intake evidence supports ${predicateId}.`,
+    sourceIds: [source.sourceId],
+    confidence: 'high',
+  };
+  fact.factId = createSemanticFactId(fact);
+  const claim = {
+    predicateId,
+    outcome: 'confirmed',
+    factIds: [fact.factId],
+    semanticMatch: {
+      matches: true,
+      rationale: `The current source supports ${predicateId}.`,
+    },
+    compositeCategory: null,
+  };
+  claim.evidenceId = createSemanticEvidenceId(claim);
+  return {
+    sources: [source],
+    facts: [fact],
+    predicateClaims: [claim],
+    inferences: [],
+    gaps: [],
+    confidence: 'high',
+  };
 }
 
 function completedChildResult(contract, { preserveCurrentSourceGap = false } = {}) {
