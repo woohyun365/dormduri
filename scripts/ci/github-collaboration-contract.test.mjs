@@ -235,3 +235,94 @@ test('Renovate owns npm updates while Dependabot retains non-npm ecosystems', ()
   assert.match(collaboration, /npm\/pnpm version update PR은 Renovate가 `dev`를 대상으로/u);
   assert.match(collaboration, /security update는 GitHub의 default branch/u);
 });
+
+test('bounded change guidance classifies scope drift before mutation', () => {
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
+  const collaboration = read('docs/development/github/collaboration.md');
+
+  for (const disposition of [
+    'required-current',
+    'prerequisite-predecessor',
+    'independent-follow-up',
+    'unrelated-or-speculative',
+  ]) {
+    assert.match(branchStrategy, new RegExp(disposition, 'u'));
+  }
+
+  for (const requiredInput of ['prospective outcome', 'acceptance', 'non-scope']) {
+    assert.match(branchStrategy, new RegExp(requiredInput, 'iu'));
+  }
+
+  assert.match(branchStrategy, /Storybook.*새로운 design direction.*follow-up/su);
+  assert.match(branchStrategy, /backend.*prerequisite-predecessor.*unrelated cleanup/isu);
+  assert.match(collaboration, /scope drift.*네 가지 disposition/isu);
+  assert.match(collaboration, /현재 acceptance가 바뀌기 전에/u);
+});
+
+test('Issues own durable outcomes, blockers, dependencies, and trigger-gated scheduling', () => {
+  const index = read('docs/development/github/README.md');
+  const collaboration = read('docs/development/github/collaboration.md');
+  const issueGuide = read('docs/development/github/issues-and-work-tracking.md');
+  const workItem = read('.github/ISSUE_TEMPLATE/work-item.yml');
+  const blocker = read('.github/ISSUE_TEMPLATE/blocker.yml');
+  const config = read('.github/ISSUE_TEMPLATE/config.yml');
+
+  assert.match(index, /issues-and-work-tracking\.md/u);
+  assert.match(collaboration, /Issues and work tracking/u);
+  for (const boundary of [
+    'durable work item',
+    'transient local diagnostic',
+    'blocked work',
+    'unblock evidence',
+    'revisit trigger',
+    'sub-issue',
+    'Milestone',
+    'GitHub Projects',
+    'status:blocked',
+  ]) {
+    assert.match(issueGuide, new RegExp(boundary, 'iu'));
+  }
+  assert.match(issueGuide, /세 개 이상의 Issue.*dated release/isu);
+  assert.match(issueGuide, /다섯 개보다 많은.*independently scheduled/isu);
+
+  for (const field of ['Outcome', 'Acceptance', 'Non-scope', 'Evidence']) {
+    assert.match(workItem, new RegExp(field, 'u'));
+  }
+  for (const field of ['Blocked work', 'Cause', 'Owner', 'Unblock evidence', 'Revisit trigger']) {
+    assert.match(blocker, new RegExp(field, 'u'));
+  }
+  assert.match(blocker, /status:blocked/u);
+  assert.match(config, /blank_issues_enabled:\s*false/u);
+});
+
+test('pull request template keeps dev references separate from main closing semantics', () => {
+  const template = read('.github/PULL_REQUEST_TEMPLATE.md');
+
+  assert.match(template, /Refs #번호/u);
+  assert.match(template, /Development sidebar/u);
+  assert.match(template, /`main`.*Closes #번호/su);
+  assert.match(template, /Outcome/u);
+  assert.match(template, /Non-scope/u);
+  assert.match(template, /Follow-up disposition/u);
+  assert.doesNotMatch(template, /Issue:\s*<!--\s*Closes #번호 또는 해당 없음/u);
+});
+
+test('asynchronous agent writes use distinct Git ownership while the leader integrates', () => {
+  const branchStrategy = read('docs/development/github/branch-and-pr-strategy.md');
+  const orchestration = read('docs/development/agent-workflows/orchestration.md');
+
+  assert.match(orchestration, /\.\.\/github\/branch-and-pr-strategy\.md/u);
+  assert.match(orchestration, /Git branch\/worktree isolation/u);
+  assert.match(orchestration, /agent review.*human approval.*대체하지/iu);
+
+  for (const boundary of [
+    'read-only.*share.*checkout',
+    'one write-capable.*current checkout',
+    'distinct fresh branch',
+    'separate worktree',
+    'sibling.*same branch',
+    'leader.*fan-in',
+  ]) {
+    assert.match(branchStrategy, new RegExp(boundary, 'isu'));
+  }
+});

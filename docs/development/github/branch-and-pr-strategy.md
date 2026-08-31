@@ -61,6 +61,44 @@ Local `dev`가 `origin/dev`와 diverge했다면 force/reset으로 숨기지 않�
 파일 수가 아니라 독립적으로 review·검증·rollback 가능한 책임을 기준으로 PR을 나눕니다. 단지 commit/PR 수를 줄이려고
 dependency automation, product change, infrastructure, test topology를 한 branch에 누적하지 않습니다.
 
+### Prospective change contract
+
+Source mutation 전에 다음 세 문장을 현재 요청과 repository evidence로 작성합니다.
+
+- `prospective outcome`: 이번 branch가 사용자·운영자·개발자에게 제공할 한 가지 결과
+- `acceptance`: 그 결과가 완료됐음을 증명할 동작·contract·test·운영 evidence
+- `non-scope`: 중요하지만 현재 결과와 독립적이거나 아직 evidence가 부족한 작업
+
+이 계약은 고정된 최초 추측이 아닙니다. 현재 acceptance가 잘못됐다는 evidence가 나오면 owner authority 아래 수정할 수
+있지만, branch 이름을 그대로 둔 채 새로운 outcome program을 흡수하는 근거로 사용하지 않습니다.
+
+### Scope drift disposition
+
+구현 중 새 개선점이나 누락을 발견하면 수정하기 전에 다음 네 가지 중 하나로 분류합니다.
+
+| Disposition                | 기준                                            | 행동                                                  |
+| -------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
+| `required-current`         | 현재 acceptance를 참으로 만들 수 없는 필수 작업 | 현재 branch에 유지하고 acceptance·verification을 갱신 |
+| `prerequisite-predecessor` | 독립 review·rollback이 가능한 선행 조건         | 현재 mutation을 멈추고 predecessor Issue/PR로 분리    |
+| `independent-follow-up`    | 가치가 있지만 현재 결과가 없어도 정확함         | Issue 또는 successor로 연결하고 현재 branch에서 제외  |
+| `unrelated-or-speculative` | 현재 evidence·outcome·revisit trigger가 없음    | 구현하지 않고 폐기하거나 근거 있는 backlog로만 보존   |
+
+다음 시점에는 line/commit 수와 무관하게 semantic checkpoint를 수행합니다.
+
+- 계획된 acceptance slice가 검증됐을 때
+- 인접 cleanup·새 기능·새 design direction을 발견했을 때
+- prospective PR title, outcome 또는 non-scope가 달라질 때
+- migration, trust, rollback, release owner가 추가될 때
+
+예를 들어 현재 Storybook fixture로 합의된 visual direction을 구현하는 반복은 같은 outcome에 속할 수 있습니다. 그러나
+Storybook 검토 중 선택한 **새로운 design direction** 또는 인접 페이지 개선은 `independent-follow-up`으로 둡니다.
+backend 구현에서 현재 contract가 성립하려면 선행 mutation이 필요한 경우 `prerequisite-predecessor`로 분리하고, 발견한
+unrelated cleanup은 별도 Issue로 옮기거나 구현하지 않습니다.
+
+Scope audit 결과 서로 독립적으로 review 가능한 outcome, 다른 rollback·migration·security·release boundary, 또는
+미병합 미래 작업에 의존하는 acceptance가 확인되면 현재 branch를 더 키우지 않고 predecessor/successor로 나눕니다.
+Generated file, lockfile, codemod처럼 큰 diff는 context로 표시하되 크기만으로 분리하지 않습니다.
+
 ### Dependent acceptance batching
 
 선행 contract/baseline과 바로 뒤의 implementation이 **같은 acceptance 결과**를 증명하고 아직 PR을 열지 않았다면, 두
@@ -100,6 +138,22 @@ branch에서 bounded branch를 생성합니다.
 - 같은 lockfile, migration, workflow, generated file을 여러 sibling branch가 동시에 소유하지 않습니다.
 
 따라서 stacked PR은 기본 전략이 아니며, 긴 plan을 하나의 long-lived branch에서 수행하는 것도 기본 전략이 아닙니다.
+
+## Agent Git ownership과 비동기 작업
+
+Agent orchestration은 Git mutation authority를 자동으로 만들지 않습니다. Async 작업은 다음 boundary를 따릅니다.
+
+- `read-only` agents may share the current checkout when they do not mutate the index or working tree.
+- `one write-capable agent` owns the current checkout and branch at a time.
+- 별도 asynchronous writer는 `distinct fresh branch`와 명시적인 owned/non-owned paths를 가져야 하며, 가능하면
+  `separate worktree`에서 실행합니다.
+- sibling agents do not push to the same branch and do not resolve each other's conflicts implicitly.
+- the leader owns fan-in: 결과를 검토하고 integration 순서, verification, merge와 다음 fresh baseline을 결정합니다.
+- local runtime state, child completion message, task label은 commit·push·merge 권한의 증거가 아닙니다.
+
+현재 checkout에서 writer가 이미 작업 중이면 다른 child는 read-only evidence만 제공하거나 sequential handoff로 대기합니다.
+미래에 반복적으로 production owner를 맡는 인간 contributor가 추가되면 CODEOWNERS와 non-author approval을 별도 remote-setting
+결정으로 검토하며, agent review를 human approval로 가장하지 않습니다.
 
 ## Remote push budget
 

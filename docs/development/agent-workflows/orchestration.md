@@ -35,6 +35,20 @@ stop condition / escalation condition
 Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정하지 않습니다. 결과에는 확인된 사실의 file/URL,
 추론, confidence, blocker를 구분합니다. Leader는 결과 충돌을 해결하고 최종 edit·verification·completion을 소유합니다.
 
+## Git branch/worktree isolation
+
+Agent를 선택하는 책임과 Git write lifecycle은 분리합니다. Canonical branch, scope-drift, checkout/worktree ownership은
+[Branch and PR strategy](../github/branch-and-pr-strategy.md)가 소유합니다.
+
+- 독립 read-only lane은 같은 checkout을 읽을 수 있습니다.
+- 현재 checkout에는 write-capable owner를 하나만 둡니다.
+- 별도 asynchronous writer는 fresh branch와 distinct worktree, owned/non-owned paths가 확인될 때만 선택합니다.
+- dependent result 또는 shared-file write는 fan-out하지 않고 sequential path를 사용합니다.
+- leader가 fan-in, conflict disposition, verification과 integration을 소유합니다.
+
+Agent review는 CI나 owner review를 보조할 수 있지만 미래의 human approval requirement를 대체하지 않습니다. 두 번째
+recurring human production owner가 생길 때 CODEOWNERS와 non-author approval을 GitHub remote-setting decision으로 검토합니다.
+
 ## Reasoning effort routing
 
 Reasoning routing은 parent와 child를 분리합니다. Parent XHigh/Max는 사용자가 session에서 선택하며 repository는 parent
