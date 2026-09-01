@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "native-ci-2026-08-28",
+    "id": "lint-toolchain-2026-09-01",
     "state": "collecting",
-    "capturedAt": "2026-08-28T06:33:34Z",
-    "baseSha": "a15a98cd4b0f4ca23a147d65dce155061cd30193",
+    "capturedAt": "2026-09-01T07:23:21Z",
+    "baseSha": "1d22ec3539b5685cae2b728a1e26f68768f60d07",
     "fileSha256": {
-      "pnpm-lock.yaml": "014b8d2bb140cf6e885d1f2812d5af467dc8d49ca17dbb5c9e234d6734944a43",
-      "pnpm-workspace.yaml": "638f823ec4a12faaa6219c725ee069e414d898f1e7adad03d3ad44a021acd4ae",
+      "pnpm-lock.yaml": "de4b77b83210ef7736921aae7412b1ac830ed072e895db1512f54d3bdf9c955b",
+      "pnpm-workspace.yaml": "f52362968468aec1d6ac6e9e131e5e904e1db734fcaeef37b644df2ee25be258",
       "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
     },
     "versions": {
@@ -20,7 +20,7 @@
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "Repository cache usage crossed the 80 percent review boundary before seven-day PR-ref expiry."
+      "The lint-toolchain dependency-input cleanup opened a new cohort; pre-2026-09-01 samples remain in the closed native-ci epoch."
     ]
   }
 }

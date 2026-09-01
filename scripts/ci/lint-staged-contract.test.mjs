@@ -1,0 +1,99 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import test from 'node:test';
+
+import lintStaged from 'lint-staged';
+
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+}
+
+test('lint-staged formats the staged snapshot and restores an unstaged hunk', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'knu-lint-staged-'));
+  const fixturePath = join(cwd, 'fixture.js');
+  const prettier = resolve('node_modules/.bin/prettier');
+
+  try {
+    git(cwd, ['init', '--quiet']);
+    git(cwd, ['config', 'user.name', 'KNU lint-staged fixture']);
+    git(cwd, ['config', 'user.email', 'lint-staged-fixture@example.invalid']);
+
+    writeFileSync(
+      fixturePath,
+      [
+        'const fixture = {',
+        '  value: 1,',
+        '  paddingA: true,',
+        '  paddingB: true,',
+        '  paddingC: true,',
+        '  unstaged: "baseline",',
+        '};',
+        '',
+        'console.log(fixture);',
+        '',
+      ].join('\n'),
+    );
+    git(cwd, ['add', 'fixture.js']);
+    git(cwd, ['commit', '--quiet', '-m', 'fixture baseline']);
+
+    writeFileSync(
+      fixturePath,
+      [
+        'const fixture = {',
+        '  value:{nested:{answer:42}},',
+        '  paddingA: true,',
+        '  paddingB: true,',
+        '  paddingC: true,',
+        '  unstaged: "baseline",',
+        '};',
+        '',
+        'console.log(fixture);',
+        '',
+      ].join('\n'),
+    );
+    git(cwd, ['add', 'fixture.js']);
+    writeFileSync(
+      fixturePath,
+      [
+        'const fixture = {',
+        '  value:{nested:{answer:42}},',
+        '  paddingA: true,',
+        '  paddingB: true,',
+        '  paddingC: true,',
+        '  unstaged: "preserve-me",',
+        '};',
+        '',
+        'console.log(fixture);',
+        '',
+      ].join('\n'),
+    );
+
+    const succeeded = await lintStaged({
+      cwd,
+      config: { '*.js': [`${prettier} --write`] },
+      quiet: true,
+    });
+
+    assert.equal(succeeded, true);
+    assert.equal(
+      git(cwd, ['show', ':fixture.js']),
+      [
+        'const fixture = {',
+        '  value: { nested: { answer: 42 } },',
+        '  paddingA: true,',
+        '  paddingB: true,',
+        '  paddingC: true,',
+        '  unstaged: "baseline",',
+        '};',
+        '',
+        'console.log(fixture);',
+      ].join('\n'),
+    );
+    assert.match(readFileSync(fixturePath, 'utf8'), /unstaged: "preserve-me"/u);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});

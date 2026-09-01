@@ -177,8 +177,8 @@ test('keeps major updates independent and dashboard-gated', () => {
   assert.deepEqual(groupedMajorRules, []);
 });
 
-test('blocks unsupported TypeScript and ESLint majors with revisit reasons', () => {
-  for (const packageName of ['typescript', '@eslint/js']) {
+test('blocks unsupported TypeScript and the complete ESLint major pair with revisit reasons', () => {
+  for (const packageName of ['typescript', 'eslint', '@eslint/js']) {
     const blockedRule = renovateConfig.packageRules.find(
       (rule) =>
         rule.enabled === false &&
@@ -189,6 +189,12 @@ test('blocks unsupported TypeScript and ESLint majors with revisit reasons', () 
     assert.ok(blockedRule, `${packageName} major must remain disabled`);
     assert.match(blockedRule.description, /revisit:/u);
   }
+});
+
+test('keeps eslint-config-next with the Web framework owner', () => {
+  const assignments = mapRenovateOwnerGroups(renovateConfig, ['eslint-config-next']);
+
+  assert.equal(assignments['eslint-config-next'], 'web-framework');
 });
 
 test('keeps pnpm package-manager upgrades manual until the toolchain moves together', () => {

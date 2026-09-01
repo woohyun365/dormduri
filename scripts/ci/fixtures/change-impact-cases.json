@@ -96,6 +96,18 @@
     }
   },
   {
+    "name": "lint-staged-config",
+    "paths": [".lintstagedrc.mjs"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": true,
+      "storybook": true,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "api-database-infra",
     "paths": ["infra/db/migrate-deploy.sh"],
     "expected": {

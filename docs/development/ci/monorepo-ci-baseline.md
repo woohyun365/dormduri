@@ -46,15 +46,17 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary                              | Current value                                                              |
-| ------------------------------------- | -------------------------------------------------------------------------- |
-| Epoch                                 | `native-ci-2026-08-28` / `collecting`                                      |
-| Base                                  | `a15a98cd4b0f4ca23a147d65dce155061cd30193`                                 |
-| Dependency fingerprint                | lock `014b8d2b...`, workspace `638f823e...`, image inventory `5e31ed06...` |
-| Compatible Infra sample               | PR #379 / run `33148148258`, 132s wall / 282 raw / 8 rounded / `$0.040`    |
-| Compatible docs/config/tooling sample | PR #380 / run `33151854859`, 112s wall / 101 raw / 4 rounded / `$0.016`    |
-| Excluded transition                   | PR #378 / run `33145689006`; image inventory differs from the active epoch |
-| Confidence                            | Infra-only 1, docs/config/tooling 1; each needs 5 for p50 and 10 for p95   |
+| Boundary               | Current value                                                              |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Epoch                  | `lint-toolchain-2026-09-01` / `collecting`                                 |
+| Base                   | `1d22ec3539b5685cae2b728a1e26f68768f60d07`                                 |
+| Dependency fingerprint | lock `de4b77b8...`, workspace `f5236296...`, image inventory `5e31ed06...` |
+| Compatible samples     | none yet; natural PR samples start after the dependency-input cleanup      |
+| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds              |
+
+The previous `native-ci-2026-08-28` cohort is closed and preserved in
+`scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json`. Its compatible Infra and docs/config/tooling samples remain
+valid only inside that frozen dependency fingerprint; they are not relabeled as samples of the new lint-toolchain epoch.
 
 Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
 
