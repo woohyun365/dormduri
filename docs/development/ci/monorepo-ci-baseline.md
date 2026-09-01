@@ -48,15 +48,17 @@ contents. A later local checkout can no longer relabel an older run with a newer
 
 | Boundary               | Current value                                                              |
 | ---------------------- | -------------------------------------------------------------------------- |
-| Epoch                  | `lint-toolchain-2026-09-01` / `collecting`                                 |
-| Base                   | `1d22ec3539b5685cae2b728a1e26f68768f60d07`                                 |
-| Dependency fingerprint | lock `de4b77b8...`, workspace `f5236296...`, image inventory `5e31ed06...` |
-| Compatible samples     | none yet; natural PR samples start after the dependency-input cleanup      |
+| Epoch                  | `lint-staged17-2026-09-01` / `collecting`                                  |
+| Base                   | `c26c0721a4ed13e1f3243344e1a3ed8151fcf14e`                                 |
+| Dependency fingerprint | lock `6fef3af1...`, workspace `d34ba2bc...`, image inventory `5e31ed06...` |
+| Compatible samples     | none yet; natural PR samples start after the staged-file major update      |
 | Confidence             | below the five-run provisional p50 and ten-run p95 thresholds              |
 
-The previous `native-ci-2026-08-28` cohort is closed and preserved in
-`scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json`. Its compatible Infra and docs/config/tooling samples remain
-valid only inside that frozen dependency fingerprint; they are not relabeled as samples of the new lint-toolchain epoch.
+The previous cohorts are closed and preserved in
+`scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
+`scripts/ci/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json`. Their compatible samples remain valid only
+inside each frozen dependency fingerprint; they are not relabeled as samples of the current lint-staged epoch.
 
 Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
 
