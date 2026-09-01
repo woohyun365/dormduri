@@ -92,3 +92,11 @@ branch에서 catalog·manifest·lockfile을 하나의 change로 갱신하고 전
 5. Provider branch·PR을 정리한다.
 
 Provider 장애를 이유로 개인 PAT 기반 bot이나 repository-owned lifecycle engine을 즉시 도입하지 않는다.
+
+## pnpm package-manager 변경
+
+pnpm CLI는 Renovate owner group checkbox로 승인하지 않는다. Root `packageManager`, Corepack/CI reference, lockfile semantics와
+cold-resolution memory가 하나의 compatibility unit이기 때문이다. 변경 시 현재 pin, upstream memory-fix floor와 최신
+release-age-eligible stable candidate를 동일한 isolated cache/store workload로 비교하고 exit status, wall time, peak RSS를
+기록한다. Local 결과가 좋아도 hosted provider recovery로 간주하지 않으며, default branch 반영 후 한 번의 Mend scan에서
+lockfile command completion을 별도로 확인한다.
