@@ -40,6 +40,10 @@ describe('API build compiler boundary', () => {
     });
     expect(swcConfig).toMatchObject({ module: { type: 'es6' }, jsc: { target: 'es2022' } });
     expect(apiPackage.devDependencies['@swc/cli']).toBeDefined();
+    expect(apiPackage.devDependencies['ts-loader']).toBeUndefined();
+    expect(apiPackage.devDependencies['tsconfig-paths']).toBeUndefined();
+    expect(apiPackage.devDependencies['@eslint/eslintrc']).toBeUndefined();
+    expect(apiPackage.devDependencies['eslint-plugin-prettier']).toBeUndefined();
     expect(apiPackage.scripts['ci:build']).toBe('nest build');
     expect(apiPackage.scripts['ci:typecheck']).toContain('ci:typecheck:product');
     expect(apiPackage.scripts['ci:typecheck']).toContain('ci:typecheck:test');

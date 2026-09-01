@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "managedInputs": {
     "catalogPackages": [
-      "@eslint/eslintrc",
       "@eslint/js",
       "@playwright/test",
       "@sentry/nextjs",
@@ -17,7 +16,6 @@
       "eslint",
       "eslint-config-next",
       "eslint-config-prettier",
-      "eslint-plugin-prettier",
       "next",
       "prettier",
       "react",
@@ -80,9 +78,7 @@
       "sonner",
       "source-map-support",
       "supertest",
-      "ts-loader",
       "ts-node",
-      "tsconfig-paths",
       "unplugin-swc",
       "zod"
     ],
@@ -112,7 +108,6 @@
   },
   "groups": {
     "lint-tooling": [
-      "@eslint/eslintrc",
       "@eslint/js",
       "@swc/cli",
       "@swc/core",
@@ -120,16 +115,12 @@
       "@typescript-eslint/eslint-plugin",
       "@typescript-eslint/parser",
       "eslint",
-      "eslint-config-next",
       "eslint-config-prettier",
-      "eslint-plugin-prettier",
       "globals",
       "husky",
       "lint-staged",
       "prettier",
-      "ts-loader",
       "ts-node",
-      "tsconfig-paths",
       "typescript",
       "typescript-eslint",
       "unplugin-swc"
@@ -140,6 +131,7 @@
       "@tailwindcss/postcss",
       "@types/react",
       "@types/react-dom",
+      "eslint-config-next",
       "lucide-react",
       "motion",
       "next",

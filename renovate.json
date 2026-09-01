@@ -16,7 +16,6 @@
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": [
-        "@eslint/eslintrc",
         "@eslint/js",
         "@swc/cli",
         "@swc/core",
@@ -24,16 +23,12 @@
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",
         "eslint",
-        "eslint-config-next",
         "eslint-config-prettier",
-        "eslint-plugin-prettier",
         "globals",
         "husky",
         "lint-staged",
         "prettier",
-        "ts-loader",
         "ts-node",
-        "tsconfig-paths",
         "typescript",
         "typescript-eslint",
         "unplugin-swc"
@@ -51,6 +46,7 @@
         "@tailwindcss/postcss",
         "@types/react",
         "@types/react-dom",
+        "eslint-config-next",
         "lucide-react",
         "motion",
         "next",
@@ -150,10 +146,10 @@
       "enabled": false
     },
     {
-      "description": "revisit: enable @eslint/js 10 only after eslint-config-next and the repository ESLint plugin stack support ESLint 10.",
+      "description": "revisit: enable ESLint 10 only after eslint-plugin-import, eslint-plugin-jsx-a11y, eslint-plugin-react, and every repository config consumer declare compatible support.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["major"],
-      "matchPackageNames": ["@eslint/js"],
+      "matchPackageNames": ["eslint", "@eslint/js"],
       "enabled": false
     },
     {
