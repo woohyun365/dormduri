@@ -9,6 +9,9 @@
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "minimumReleaseAge": "3 days",
+  "toolSettings": {
+    "nodeMaxMemory": 1536
+  },
   "commitMessagePrefix": "chore(deps): 의존성",
   "packageRules": [
     {

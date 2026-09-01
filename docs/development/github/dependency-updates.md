@@ -60,6 +60,10 @@ manifest diff로 만들지 않는다.
 Checkbox를 선택해도 job이 실행되기 전까지 branch와 PR은 생성되지 않는다. Portal job이 장시간 pending이면 반복
 클릭하지 않고, Silent mode에서 manual scan 한 번으로 provider path를 분리 검증한다.
 
+Approved job이 pnpm lockfile command를 시작한 뒤 completion 없이 `kernel-out-of-memory`로 끝나면 compatibility 실패로
+처리하지 않는다. [Mend-hosted Renovate pnpm 11 OOM](../troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)의 한 번의
+bounded resource retry와 exact-candidate fallback을 따른다.
+
 ## Merge 후 확인
 
 1. PR merge commit이 `origin/dev`에 반영됐는지 확인한다.
