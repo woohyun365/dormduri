@@ -19,7 +19,7 @@ const ROOT_TOOLCHAIN_PATHS = new Set([
   '.npmrc',
   '.node-version',
   '.nvmrc',
-  '.lintstagedrc',
+  '.lintstagedrc.mjs',
 ]);
 
 const STORYBOOK_PATTERN =

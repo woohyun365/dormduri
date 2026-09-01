@@ -40,8 +40,8 @@ export default defineConfig([
 
   {
     rules: {
-      // Keep this explicit even though recommendedTypeChecked already enables it:
-      // Phase 6 final verification depends on no-op assertions staying lint errors.
+      // Keep this explicit even though recommendedTypeChecked already enables it so
+      // no-op type assertions remain lint errors in product and test code.
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
