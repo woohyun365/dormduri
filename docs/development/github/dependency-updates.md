@@ -100,3 +100,7 @@ cold-resolution memory가 하나의 compatibility unit이기 때문이다. 변�
 release-age-eligible stable candidate를 동일한 isolated cache/store workload로 비교하고 exit status, wall time, peak RSS를
 기록한다. Local 결과가 좋아도 hosted provider recovery로 간주하지 않으며, default branch 반영 후 한 번의 Mend scan에서
 lockfile command completion을 별도로 확인한다.
+
+현재 검증 pin은 `pnpm@11.24.0`이다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며, 결과 artifact는
+`artifacts/local/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider credential을
+사용하지 않으며 disposable workspace만 변경한다.

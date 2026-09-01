@@ -34,7 +34,7 @@ Tracked 문서는 stable signature와 결정만 소유한다.
 - Renovate extraction, grouping, approval 또는 GitHub permission 실패가 아니다.
 - package install/build/test가 시작되기 전이므로 승인된 package version의 compatibility `NO-GO`가 아니다.
 - pnpm 11은 일부 큰 dependency graph의 cold resolution에서 pnpm 10보다 높은 peak memory를 사용할 수 있다.
-- repository pin `11.7.0`은 pnpm 11.11.0과 11.15.1에 포함된 resolution-memory 개선보다 이전 버전이다.
+- incident 당시 repository pin `11.7.0`은 pnpm 11.11.0과 11.15.1에 포함된 resolution-memory 개선보다 이전 버전이었다.
 - Mend-hosted runner에서는 Renovate parent process, package manager child process와 OS headroom이 같은 제한을 공유한다.
 - Node heap을 runner limit까지 크게 허용하면 pnpm 외 process headroom이 사라져 kernel OOM이 오히려 발생할 수 있다.
 
@@ -92,6 +92,30 @@ PR #400과 #401은 clean install, lint, typecheck, repository policy, API/Web/In
 - 승인되지 않은 package까지 한 번에 업데이트
 - 이 문제만을 이유로 credentialed self-hosted Renovate를 즉시 도입
 
+## 동일 입력 cold 비교 결과
+
+현재 repository는 추적 파일 2,721개를 disposable workspace로 복사하고, lint-tooling catalog의 동일한 여섯 version target만
+변경한 뒤 다음 명령을 isolated home·metadata cache·store에서 실행한다.
+
+```bash
+pnpm install --lockfile-only --recursive --ignore-scripts --ignore-pnpmfile
+```
+
+2026-09-01 macOS `/usr/bin/time -l` 단일 cold trial 결과는 다음과 같다. 이 수치는 Corepack과 pnpm command 경계의 peak
+RSS이며 Mend의 Renovate parent process와 container 전체 RSS를 측정한 값은 아니다.
+
+| pnpm    | Exit | Wall    | Peak RSS        | 11.7.0 대비 |
+| ------- | ---: | ------- | --------------- | ----------: |
+| 11.7.0  |    0 | 14.970s | 3,419,963,392 B |    baseline |
+| 11.15.1 |    0 | 14.021s | 2,183,102,464 B |      -36.2% |
+| 11.24.0 |    0 | 14.383s | 1,934,606,336 B |      -43.4% |
+
+11.7.0의 local peak가 Mend Community container limit 3 GB보다 컸고, upstream memory-fix line 두 후보는 같은 workload에서
+모두 더 낮았다. 최신 release-age-eligible 11.x인 11.24.0은 fix floor 11.15.1보다도 약 11.4% 낮고 command가 성공했으므로
+repository package-manager/Corepack/CI pin으로 채택했다. 단일 local trial은 provider recovery 증거가 아니며 절대 성능
+benchmark로 일반화하지 않는다. 재현 명령과 raw JSON은 각각 `pnpm dependency:pnpm:cold-benchmark`와
+`artifacts/local/dependency-automation/pnpm-cold-lockfile-benchmark.json`이 소유한다.
+
 ## 재검토 조건
 
 다음 중 하나가 발생하면 resource control과 provider 선택을 fresh evidence로 재검토한다.
@@ -104,7 +128,7 @@ PR #400과 #401은 clean install, lint, typecheck, repository policy, API/Web/In
 - self-hosted scheduler를 정당화할 credential, operation, alerting과 cost owner가 확정
 
 pnpm version 재검토는 warm cache 체감이 아니라 같은 workspace 입력, isolated metadata/cache/store, 동일 lockfile-only 명령으로
-11.7.0과 upstream fix line을 비교한다. Exit status, wall time, peak RSS를 함께 기록하고 repository compatibility가 통과한
+현재 pin과 upstream fix line을 비교한다. Exit status, wall time, peak RSS를 함께 기록하고 repository compatibility가 통과한
 최신 지원 11.x만 승격한다. Default branch 반영 후 Mend scan은 한 번만 허용하며, 다시 OOM이면 provider/runtime NO-GO로
 종료한다. pnpm 12 또는 self-hosted Renovate는 이 결과와 별개의 migration 판단이다.
 
@@ -120,6 +144,7 @@ pnpm version 재검토는 warm cache 체감이 아니라 같은 workspace 입력
 | 왜 provider를 바로 교체하지 않았나   | one-owner 정책과 기존 extraction/grouping 성공을 보존하는 bounded fix가 더 작고 reversible |
 | 실패하면 어떻게 복구하나             | 한 번의 hosted retry 후 exact-candidate local materialization과 PR #400·#401 검증          |
 | 무엇을 포기하지 않았나               | supported pnpm line, supply-chain controls, owner grouping, review·rollback 경계           |
+| pnpm pin은 어떤 근거로 바꿨나        | 동일 cold workload에서 11.7.0 3.42 GB 대비 11.24.0 1.93 GB, frozen compatibility 재검증    |
 
 ## 검증
 

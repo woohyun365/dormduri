@@ -284,7 +284,7 @@ knu_roommate/
 ### Requirements
 
 - Node.js `>=24 <25`
-- pnpm `11.7.0`
+- pnpm `11.24.0`
 - Docker / Docker Compose
 
 ### Run locally
