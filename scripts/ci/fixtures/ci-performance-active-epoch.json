@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "lint-staged17-2026-09-01",
+    "id": "pnpm11-memory-fixed-2026-09-01",
     "state": "collecting",
-    "capturedAt": "2026-09-01T11:37:52Z",
-    "baseSha": "c26c0721a4ed13e1f3243344e1a3ed8151fcf14e",
+    "capturedAt": "2026-09-01T13:11:11Z",
+    "baseSha": "ef2968c951bdc7ec0e8d95b9ecb0e22590d2a725",
     "fileSha256": {
       "pnpm-lock.yaml": "6fef3af100ad7da67e9dc585d88c2c129d231ba31124d4d4014034722437e72f",
       "pnpm-workspace.yaml": "d34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89",
@@ -12,7 +12,7 @@
     },
     "versions": {
       "node": "24.19.0",
-      "pnpm": "11.7.0",
+      "pnpm": "11.24.0",
       "postgresql": "18.6",
       "nginx": "1.31.4-alpine",
       "prometheus": "3.14.0",
@@ -20,7 +20,7 @@
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The lint-staged 17 behavior migration opened a new cohort; earlier supported-line samples remain in the closed lint-tooling epoch."
+      "The pnpm 11.24.0 package-manager migration opened a new cohort; earlier lint-staged 17 samples remain in the closed prior epoch."
     ]
   }
 }
