@@ -18,6 +18,12 @@ const closedEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedLintToolchainEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -28,9 +34,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'lint-toolchain-2026-09-01',
+    epochId: 'lint-tooling-supported-line-2026-09-01',
     fileSha256: epoch.fileSha256,
-    sourceSha: '1d22ec3539b5685cae2b728a1e26f68768f60d07',
+    sourceSha: '6198f4a61efbf7276327382411ad926efbe540e4',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -49,6 +55,20 @@ test('preserves the previous measurement epoch as closed immutable evidence', ()
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': '014b8d2bb140cf6e885d1f2812d5af467dc8d49ca17dbb5c9e234d6734944a43',
     'pnpm-workspace.yaml': '638f823ec4a12faaa6219c725ee069e414d898f1e7adad03d3ad44a021acd4ae',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the lint-toolchain epoch before collecting the supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedLintToolchainEpochFixture);
+
+  assert.equal(closedEpoch.id, 'lint-toolchain-2026-09-01');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '1d22ec3539b5685cae2b728a1e26f68768f60d07');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'de4b77b83210ef7736921aae7412b1ac830ed072e895db1512f54d3bdf9c955b',
+    'pnpm-workspace.yaml': 'f52362968468aec1d6ac6e9e131e5e904e1db734fcaeef37b644df2ee25be258',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
   });
