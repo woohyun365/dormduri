@@ -43,7 +43,8 @@ Renovate가 승인된 group을 처리할 때 다음 변경만 허용한다.
 
 기존 semver range가 새 버전을 이미 허용하면 manifest는 바뀌지 않고 lockfile resolution만 갱신될 수 있다. 이는 누락이
 아니라 정상적인 inline dependency no-change 결과다. pnpm CLI 자체는 lockfile format, Corepack, CI action과 함께 검토해야
-하므로 일반 dependency group에서 자동 갱신하지 않는다.
+하므로 일반 dependency group에서 자동 갱신하지 않는다. 현재 pin은 `pnpm@11.24.0`이며 root manifest, CI setup과
+provider-independent fixture가 같은 exact version을 사용한다.
 
 ## 검증된 lint/tooling 지원선
 
@@ -58,6 +59,7 @@ Renovate가 승인된 group을 처리할 때 다음 변경만 허용한다.
 | staged-file gate  | lint-staged 17.4.1                        | Node/Git engine과 partial-stage·failure rollback 계약 검증                                        |
 | formatter         | Prettier 3.8.4                            | 3.9.6 적용 시 55개 source file churn이 발생해 dependency-only rollback 경계를 훼손하므로 보류     |
 | compiler          | TypeScript 6.0.3                          | TypeScript 7은 ESLint ecosystem 호환 전까지 Issue #335가 소유                                     |
+| package manager   | pnpm 11.24.0                              | 11.7.0 대비 동일 cold lockfile workload peak RSS 43.4% 감소와 frozen install 검증                 |
 
 Web framework가 소유하는 `eslint-config-next`는 lint-tooling group에서 분리한다. Formatter는 Prettier CLI가 소유하며
 ESLint 안에서 동일 formatting 책임을 중복 실행하는 `eslint-plugin-prettier`는 두지 않는다.
@@ -134,5 +136,5 @@ Hosted provider를 중단할 때 npm owner가 없는 중간 상태나 두 update
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
 - pnpm CLI와 Corepack·CI action을 원자적으로 갱신할 owner boundary가 마련된다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
-- pnpm 11.11.0/11.15.1 이후의 memory fix line을 동일 cold workload로 비교할 수 있고 package-manager pin·lockfile·CI
-  reference를 하나의 rollback 단위로 검증할 수 있다.
+- 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가
+  서로 다른 bounded owner group에서 다시 발생한다.

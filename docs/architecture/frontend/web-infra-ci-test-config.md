@@ -9,7 +9,7 @@
 | 항목              | 기준                |
 | ----------------- | ------------------- |
 | Node              | `>=24 <25`          |
-| package manager   | `pnpm@11.7.0`       |
+| package manager   | `pnpm@11.24.0`      |
 | Next.js           | `16.2.9`            |
 | React / React DOM | `19.2.7` / `19.2.7` |
 | TypeScript        | `6.0.3`             |
