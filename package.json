@@ -1,7 +1,7 @@
 {
   "name": "knu-roommate",
   "private": true,
-  "packageManager": "pnpm@11.7.0",
+  "packageManager": "pnpm@11.24.0",
   "engines": {
     "node": ">=24 <25"
   },
@@ -69,6 +69,7 @@
     "github:account:evidence": "node scripts/github/account-evidence.mjs",
     "dependency:renovate:dry-run": "node scripts/dependencies/renovate-pnpm-dry-run.mjs",
     "dependency:renovate:provider-preflight": "node scripts/dependencies/renovate-provider-preflight.mjs",
+    "dependency:pnpm:cold-benchmark": "node scripts/dependencies/pnpm-cold-lockfile-benchmark.mjs",
     "security:dependabot:inventory": "node scripts/security/dependency-alert-inventory.mjs",
     "ci:performance:collect": "node scripts/ci/github-actions-performance-collector.mjs",
     "ci:performance:report": "node scripts/ci/github-actions-performance-report.mjs",
