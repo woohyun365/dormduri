@@ -24,6 +24,12 @@ const closedLintToolchainEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedSupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -34,9 +40,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'lint-tooling-supported-line-2026-09-01',
+    epochId: 'lint-staged17-2026-09-01',
     fileSha256: epoch.fileSha256,
-    sourceSha: '6198f4a61efbf7276327382411ad926efbe540e4',
+    sourceSha: 'c26c0721a4ed13e1f3243344e1a3ed8151fcf14e',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -69,6 +75,20 @@ test('closes the lint-toolchain epoch before collecting the supported-line cohor
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': 'de4b77b83210ef7736921aae7412b1ac830ed072e895db1512f54d3bdf9c955b',
     'pnpm-workspace.yaml': 'f52362968468aec1d6ac6e9e131e5e904e1db734fcaeef37b644df2ee25be258',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the supported-line epoch before collecting the lint-staged 17 cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedSupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'lint-tooling-supported-line-2026-09-01');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '6198f4a61efbf7276327382411ad926efbe540e4');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'd7a17a873d5e30474567fb03d4b6cafc8bdbc41417fc84c8236a2aa3b4952551',
+    'pnpm-workspace.yaml': 'd34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
   });
