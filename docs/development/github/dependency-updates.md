@@ -104,3 +104,8 @@ lockfile command completion을 별도로 확인한다.
 현재 검증 pin은 `pnpm@11.24.0`이다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며, 결과 artifact는
 `artifacts/local/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider credential을
 사용하지 않으며 disposable workspace만 변경한다.
+
+Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 hosted recovery 증거가 아니다. Main 반영 후
+수동 scan이 소비되었더라도 승인된 exact candidate의 paired lockfile completion과 branch/PR이 없으면 provider
+materialization을 `GO`로 기록하지 않는다. 이 경우 동일 scan을 반복하지 않고 terminal `NO-GO`로 닫은 뒤,
+첫 안전한 미래 owner-group candidate가 그 시점의 재평가를 소유하게 한다.

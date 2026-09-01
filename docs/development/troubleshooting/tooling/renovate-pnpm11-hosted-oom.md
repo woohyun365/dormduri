@@ -116,6 +116,21 @@ repository package-manager/Corepack/CI pin으로 채택했다. 단일 local tria
 benchmark로 일반화하지 않는다. 재현 명령과 raw JSON은 각각 `pnpm dependency:pnpm:cold-benchmark`와
 `artifacts/local/dependency-automation/pnpm-cold-lockfile-benchmark.json`이 소유한다.
 
+## Default branch 승격과 hosted disposition
+
+11.24.0 pin과 비교 harness는 PR #404로 `dev`에 병합했고, PR #405를 merge commit으로 `main`에 승격했다.
+PR #404의 full CI와 PR #405의 required CI가 통과했고, main merge SHA `b1d0d19989cea5fec40d381c3ec1ef367361f296`를
+대상으로 자동 실행된 Monorepo CI run `33514768400`도 성공했다. PR #405의 첫 실행에서 API integration
+shard 하나가 concurrent bookmark create의 transient 500으로 실패했지만, 같은 tree의 실패 job 한 번만 재실행해
+123/123 integration test와 CI summary가 통과했다. 이를 package-manager regression으로 분류하지 않는다.
+
+Main 승격 후 Dependency Dashboard #353의 manual job을 한 번 요청했고, GitHub issue webhook은 요청을 소비해
+checkbox를 해제했다. 그러나 이 시점에서 package-manager 검증용으로 안전하게 승인할 exact dependency candidate가 없었고,
+paired lockfile `exec completed`, 새 Renovate branch 또는 PR도 생성되지 않았다. 따라서 hosted disposition은
+**extraction request accepted / branch materialization recovery not proven**이며, 이 작업에서는 terminal provider `NO-GO`로
+닫는다. 안전한 미래 owner-group update가 발생하면 그 작업이 exact candidate를 소유하고 새 evidence로 재평가한다.
+동일 incident를 열어 둔 채 같은 scan을 반복하지 않는다.
+
 ## 재검토 조건
 
 다음 중 하나가 발생하면 resource control과 provider 선택을 fresh evidence로 재검토한다.
@@ -145,6 +160,8 @@ pnpm version 재검토는 warm cache 체감이 아니라 같은 workspace 입력
 | 실패하면 어떻게 복구하나             | 한 번의 hosted retry 후 exact-candidate local materialization과 PR #400·#401 검증          |
 | 무엇을 포기하지 않았나               | supported pnpm line, supply-chain controls, owner grouping, review·rollback 경계           |
 | pnpm pin은 어떤 근거로 바꿨나        | 동일 cold workload에서 11.7.0 3.42 GB 대비 11.24.0 1.93 GB, frozen compatibility 재검증    |
+| 승격 후 무엇을 확인했나              | PR #404·#405, main push run `33514768400`, Dashboard manual request 소비                   |
+| hosted recovery는 성공했나           | 안전한 exact candidate가 없어 materialization 미실행, terminal `NO-GO`                     |
 
 ## 검증
 
