@@ -116,7 +116,35 @@ test('keeps the hosted Renovate policy active and bounded to npm', () => {
   assert.equal(policy.dependencyDashboard, true);
   assert.ok(policy.prConcurrentLimit <= 5);
   assert.ok(policy.prHourlyLimit <= 2);
+  assert.equal(policy.toolSettings.nodeMaxMemory, 1536);
+  assert.equal(policy.env, undefined);
   assert.deepEqual(owners, ['renovate']);
+});
+
+test('fails closed when the hosted pnpm memory guard is missing or enlarged', () => {
+  const missingGuard = structuredClone(renovateConfig);
+  delete missingGuard.toolSettings;
+  assert.throws(
+    () => validateHostedRenovateNpmConfig(missingGuard),
+    /nodeMaxMemory must equal 1536 MiB/u,
+  );
+
+  const enlargedGuard = structuredClone(renovateConfig);
+  enlargedGuard.toolSettings.nodeMaxMemory = 2560;
+  assert.throws(
+    () => validateHostedRenovateNpmConfig(enlargedGuard),
+    /nodeMaxMemory must equal 1536 MiB/u,
+  );
+});
+
+test('does not treat pnpm worker overrides as a proved hosted OOM fix', () => {
+  const config = structuredClone(renovateConfig);
+  config.env = { PNPM_MAX_WORKERS: '1', PNPM_WORKERS: '1' };
+
+  assert.throws(
+    () => validateHostedRenovateNpmConfig(config),
+    /must not assume unproven PNPM_WORKERS overrides/u,
+  );
 });
 
 test('maps every external direct dependency to exactly one owner group', () => {
