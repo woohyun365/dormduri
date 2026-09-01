@@ -46,6 +46,12 @@ Renovate가 승인된 group을 처리할 때 다음 변경만 허용한다.
 하므로 일반 dependency group에서 자동 갱신하지 않는다. 현재 pin은 `pnpm@11.24.0`이며 root manifest, CI setup과
 provider-independent fixture가 같은 exact version을 사용한다.
 
+11.24.0은 업데이트 신규성만으로 선택하지 않았다. 같은 workspace와 lockfile-only command를 isolated
+cache/store에서 실행한 단일 cold comparison에서 11.7.0은 3.42 GB, memory-fix floor 11.15.1은 2.18 GB,
+release-age-eligible 11.24.0은 1.93 GB peak RSS를 기록했다. 이 실험은 package-manager owner가 자동 dependency
+group과 분리되어야 하는 이유를 보여 준다. 전체 과정·제약·hosted disposition은
+[Mend-hosted Renovate pnpm 11 OOM](../../development/troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)이 소유한다.
+
 ## 검증된 lint/tooling 지원선
 
 2026-09-01 기준 repository가 직접 검증한 지원선은 다음과 같다.
