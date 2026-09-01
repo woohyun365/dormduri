@@ -27,6 +27,8 @@ const RENOVATE_OWNER_GROUPS = [
   'application-runtime',
 ];
 
+const HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB = 1536;
+
 function assertStringArray(value, fieldName) {
   if (
     !Array.isArray(value) ||
@@ -74,6 +76,16 @@ export function validateHostedRenovateNpmConfig(config) {
   }
   if (typeof config.minimumReleaseAge !== 'string' || config.minimumReleaseAge.trim() === '') {
     throw new TypeError('minimumReleaseAge must be explicit');
+  }
+  if (config.toolSettings?.nodeMaxMemory !== HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB) {
+    throw new TypeError(
+      `toolSettings.nodeMaxMemory must equal ${HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB} MiB for the hosted pnpm lockfile boundary`,
+    );
+  }
+  if (config.env?.PNPM_WORKERS !== undefined || config.env?.PNPM_MAX_WORKERS !== undefined) {
+    throw new TypeError(
+      'repository Renovate config must not assume unproven PNPM_WORKERS overrides',
+    );
   }
   if (!Array.isArray(config.packageRules)) {
     throw new TypeError('packageRules must be an array');
