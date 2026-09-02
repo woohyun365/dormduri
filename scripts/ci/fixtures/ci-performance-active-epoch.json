@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "api-runtime-supported-lines-2026-09-02",
+    "id": "api-persistence-supported-lines-2026-09-02",
     "state": "collecting",
-    "capturedAt": "2026-09-02T05:10:58Z",
-    "baseSha": "74d01728f7a36d1429176ee10a430e783f3cbc3b",
+    "capturedAt": "2026-09-02T06:41:35Z",
+    "baseSha": "94e6608c6072c5e6b8011083e98e12948d1d5961",
     "fileSha256": {
-      "pnpm-lock.yaml": "27acc00270e5c304119585ab353795a2e2b2fc820cdad86ab5ef7131cd9c6401",
+      "pnpm-lock.yaml": "28e82ae4e99e4666636d05044cca2ff168a217866646945f3ac76aa7b888f02e",
       "pnpm-workspace.yaml": "c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e",
       "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
     },
@@ -21,11 +21,13 @@
       "argon2": "2.2.0",
       "dotenv": "17.4.2",
       "helmet": "8.3.0",
-      "joi": "18.2.5"
+      "joi": "18.2.5",
+      "prisma": "7.10.0",
+      "pg": "8.23.0"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The API runtime supported-line migration opened a new cohort after updating AWS provider, Argon2, config, and HTTP runtime dependencies; earlier pnpm 11.24.0 samples remain in closed prior epochs."
+      "The API persistence supported-line migration opened a new cohort after aligning Prisma 7.10.0 and pg 8.23.0; earlier samples remain in closed dependency epochs."
     ]
   }
 }
