@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "epoch": {
+    "id": "pnpm11-memory-fixed-2026-09-01",
+    "state": "closed",
+    "capturedAt": "2026-09-01T13:11:11Z",
+    "baseSha": "ef2968c951bdc7ec0e8d95b9ecb0e22590d2a725",
+    "fileSha256": {
+      "pnpm-lock.yaml": "6fef3af100ad7da67e9dc585d88c2c129d231ba31124d4d4014034722437e72f",
+      "pnpm-workspace.yaml": "d34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89",
+      "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
+    },
+    "versions": {
+      "node": "24.19.0",
+      "pnpm": "11.24.0",
+      "postgresql": "18.6",
+      "nginx": "1.31.4-alpine",
+      "prometheus": "3.14.0",
+      "alloy": "1.19.0"
+    },
+    "knownGaps": [
+      "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
+      "The pnpm 11.24.0 package-manager migration opened a new cohort; earlier lint-staged 17 samples remain in the closed prior epoch."
+    ]
+  }
+}

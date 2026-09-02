@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "pnpm11-memory-fixed-2026-09-01",
+    "id": "transitive-override-lifecycle-2026-09-02",
     "state": "collecting",
-    "capturedAt": "2026-09-01T13:11:11Z",
-    "baseSha": "ef2968c951bdc7ec0e8d95b9ecb0e22590d2a725",
+    "capturedAt": "2026-09-02T02:57:53Z",
+    "baseSha": "3c634435359011acc9b4ed4fb490f7fd1cd37092",
     "fileSha256": {
-      "pnpm-lock.yaml": "6fef3af100ad7da67e9dc585d88c2c129d231ba31124d4d4014034722437e72f",
-      "pnpm-workspace.yaml": "d34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89",
+      "pnpm-lock.yaml": "d2d54b397b310056722d6b0d92b3511b5cdaa82772de33e9b0d6a49a5dd5aefc",
+      "pnpm-workspace.yaml": "c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e",
       "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
     },
     "versions": {
@@ -20,7 +20,7 @@
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The pnpm 11.24.0 package-manager migration opened a new cohort; earlier lint-staged 17 samples remain in the closed prior epoch."
+      "The transitive override lifecycle migration opened a new cohort after removing obsolete root selectors; earlier pnpm 11.24.0 samples remain in the closed prior epoch."
     ]
   }
 }
