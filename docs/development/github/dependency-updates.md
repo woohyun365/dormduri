@@ -30,6 +30,23 @@
 Automated PRs는 운영 비용과 compatibility failure rate가 측정될 때까지 OFF를 유지한다. Dashboard issue는 Renovate가
 추가·제거·병합된 후보를 자동으로 갱신하므로 수동으로 close하거나 본문을 재작성하지 않는다.
 
+### npm owner groups
+
+| Group                | 책임                                                           |
+| -------------------- | -------------------------------------------------------------- |
+| `lint-tooling`       | repository lint, formatter, compiler와 local developer tooling |
+| `web-framework`      | Web framework, rendering과 browser UI runtime                  |
+| `web-test-storybook` | Web test, Storybook과 Vite test toolchain                      |
+| `api-framework`      | NestJS framework, platform adapter와 Nest test/CLI tooling     |
+| `api-persistence`    | Prisma CLI/client/adapter와 PostgreSQL driver/type             |
+| `api-runtime`        | API provider, config, security, logging과 realtime runtime     |
+| `api-observability`  | API metric client와 observability runtime                      |
+| `shared-contract`    | Shared contract schema dependencies used by Web and API        |
+| `api-test-tooling`   | API HTTP test client와 corresponding type packages             |
+
+Dashboard에서 여러 group이 같은 작업처럼 보여도 framework, persistence, observability, shared contract와 test tooling을
+한 PR로 다시 합치지 않는다. 각 group은 독립된 review·rollback·verification clock을 가진다.
+
 ## PR review checklist
 
 ```bash

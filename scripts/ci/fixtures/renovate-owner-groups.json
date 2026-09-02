@@ -140,7 +140,7 @@
       "vite",
       "vitest"
     ],
-    "api-framework-persistence": [
+    "api-framework": [
       "@nestjs/cli",
       "@nestjs/common",
       "@nestjs/config",
@@ -151,16 +151,10 @@
       "@nestjs/schematics",
       "@nestjs/testing",
       "@nestjs/throttler",
-      "@nestjs/websockets",
-      "@prisma/adapter-pg",
-      "@prisma/client",
-      "@types/pg",
-      "@types/supertest",
-      "pg",
-      "prisma",
-      "supertest"
+      "@nestjs/websockets"
     ],
-    "application-runtime": [
+    "api-persistence": ["@prisma/adapter-pg", "@prisma/client", "@types/pg", "pg", "prisma"],
+    "api-runtime": [
       "@aws-sdk/client-secrets-manager",
       "@aws-sdk/client-sesv2",
       "@node-rs/argon2",
@@ -172,13 +166,14 @@
       "helmet",
       "joi",
       "pino",
-      "prom-client",
       "reflect-metadata",
       "rxjs",
       "socket.io",
-      "source-map-support",
-      "zod"
-    ]
+      "source-map-support"
+    ],
+    "api-observability": ["prom-client"],
+    "shared-contract": ["zod"],
+    "api-test-tooling": ["@types/supertest", "supertest"]
   },
   "ignoredPackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"]
 }

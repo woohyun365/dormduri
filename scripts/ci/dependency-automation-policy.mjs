@@ -23,8 +23,12 @@ const RENOVATE_OWNER_GROUPS = [
   'lint-tooling',
   'web-framework',
   'web-test-storybook',
-  'api-framework-persistence',
-  'application-runtime',
+  'api-framework',
+  'api-persistence',
+  'api-runtime',
+  'api-observability',
+  'shared-contract',
+  'api-test-tooling',
 ];
 
 const HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB = 1536;
@@ -98,7 +102,7 @@ export function validateHostedRenovateNpmConfig(config) {
       RENOVATE_OWNER_GROUPS,
     )
   ) {
-    throw new TypeError('packageRules must define the five bounded owner groups exactly once');
+    throw new TypeError('packageRules must define every bounded owner group exactly once');
   }
 
   for (const rule of ownerRules) {

@@ -23,7 +23,7 @@
       "from": "11.1.20",
       "to": "11.1.26",
       "updateType": "patch",
-      "ownerGroup": "api-framework-persistence",
+      "ownerGroup": "api-framework",
       "file": "apps/api/package.json"
     },
     {
