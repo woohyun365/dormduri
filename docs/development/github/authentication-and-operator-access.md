@@ -78,6 +78,52 @@ git ls-remote origin HEAD
 `gh auth status --show-token`은 금지합니다. `gh auth token`, shell tracing, process argument, clipboard transcript를
 credential evidence로 남기지 않습니다.
 
+## GitHub control-plane 선택
+
+Git credential, `gh` OAuth, Connector OAuth는 합칠 대상이 아니라 서로 다른 인증 계층입니다. 일관성은 credential을
+복사해서 만드는 것이 아니라, session surface에 따라 **primary control plane과 fallback을 한 번 선택**해서 만듭니다.
+
+| Session surface                   | Primary control plane                           | Git transport                          | Fallback                                          |
+| --------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------------- |
+| Shell-capable local Codex/OMX     | `gh` CLI-first for PR·Issue·Actions·API         | Git credential via `gh auth setup-git` | Connector는 read 또는 이미 승인된 단발 mutation   |
+| ChatGPT Web 또는 shell 없는 agent | GitHub Connector-first                          | local Git transport 없음               | 지원하지 않는 작업은 owner/CLI handoff            |
+| CI workflow                       | checked-in workflow와 run-scoped `GITHUB_TOKEN` | checkout 설정이 명시한 경계            | local `gh`나 Connector credential을 주입하지 않음 |
+
+### Local session flow
+
+한 remote lifecycle의 첫 작업에서만 secret-free preflight를 실행합니다.
+
+```text
+gh auth status
+  ├─ valid   → PR·Issue·Actions lifecycle을 gh로 계속 수행
+  └─ invalid → read-only lookup은 Connector fallback 가능
+               ├─ 후속 write가 여러 개 남음 → gh browser OAuth 복구
+               └─ 이미 승인된 단발 write만 남음 → Connector로 1회 수행하고 명시
+
+git fetch/push
+  └─ Git credential 경계이며 gh API 성공 여부와 별도로 검증
+```
+
+다음 규칙을 지킵니다.
+
+1. PR 생성부터 check 조회·merge까지 같은 lifecycle에서는 하나의 primary control plane을 유지합니다.
+2. Mutation 전에 branch, open PR, Issue comment 또는 workflow run의 기존 상태를 조회해 duplicate 요청을 막습니다.
+3. Mutation 뒤에는 같은 surface로 number, target branch, head SHA, state 또는 run ID를 read back하는 same-surface
+   readback을 수행합니다. 다른 surface는 필요할 때만 교차 검증에 사용하며, 교차 검증이 mutation authority를 새로
+   만들지는 않습니다.
+4. Local fallback을 사용했다면 `gh` 실패 원인, Connector 사용 범위와 readback 결과를 진행 보고에 남깁니다. Silent
+   fallback이나 임의적인 tool switching을 하지 않습니다.
+5. 반복 write가 남아 있는데 invalid `gh`를 Connector로 계속 우회하지 않습니다. Browser OAuth를 복구하고
+   `gh auth setup-git`을 재확인합니다.
+6. Local token을 Connector에 전달하거나 Connector credential을 shell로 추출하지 않습니다. 두 계층의 repository scope와
+   revoke lifecycle은 독립적으로 유지합니다.
+7. 사용자가 Connector 기반 skill/workflow를 명시적으로 호출하면 그 workflow의 documented primary surface를 intentional
+   override로 사용합니다. 이는 장애 fallback이 아니며, 시작 전에 기존 remote state를 읽고 lifecycle 전체에서 같은
+   surface를 유지합니다.
+
+이 선택은 도구 선호가 아니라 재현성, idempotency, credential 최소 권한을 위한 운영 계약입니다. Connector가 더 빠른
+read surface를 제공하더라도 local CLI workflow의 primary owner가 자동으로 바뀌지는 않습니다.
+
 ## GitHub connector와 Codex/OMX GitHub workflow
 
 GitHub connector는 local gh token을 사용하지 않습니다. ChatGPT/Codex의 app OAuth와 GitHub App installation이 별도로

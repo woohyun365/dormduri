@@ -95,6 +95,9 @@
 
 ## 8. Commit과 PR
 
+- Shell을 사용할 수 있는 local coding session의 GitHub remote control plane은 `gh` CLI-first이고 Git transport는 Git
+  credential이 소유한다. ChatGPT Web처럼 shell이 없는 session은 GitHub Connector-first이며, local Connector fallback은
+  `docs/development/github/authentication-and-operator-access.md`의 단발성·명시적 경계를 따른다.
 - 커밋 제목 기본 형식: `type(scope): 한글 설명 #이슈번호`
 - PR 제목 기본 형식: `type(scope): 한글 설명 (#이슈번호)`
 - `type`은 소문자 conventional commit 형태를 사용한다.
