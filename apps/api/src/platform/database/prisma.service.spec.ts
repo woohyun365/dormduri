@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, type Mock } from 'vitest';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
   buildPrismaSessionOptions,
@@ -119,6 +121,20 @@ describe('PrismaService database clock', () => {
     await expect(harness.getDatabaseNow()).rejects.toThrow(
       '[PrismaService] failed to resolve database current timestamp',
     );
+  });
+});
+
+describe('PrismaService pg adapter compatibility', () => {
+  it('Prisma adapter와 runtime은 동일한 pg Pool constructor를 사용한다', async () => {
+    const pool = new Pool();
+    const adapter = await new PrismaPg(pool, { disposeExternalPool: false }).connect();
+
+    try {
+      expect(adapter.underlyingDriver()).toBe(pool);
+    } finally {
+      await adapter.dispose();
+      await pool.end();
+    }
   });
 });
 
