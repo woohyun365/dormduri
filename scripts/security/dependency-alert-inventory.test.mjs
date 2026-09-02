@@ -86,31 +86,39 @@ test('security policy stays private-reporting-first and honest about support', (
   assert.doesNotMatch(`${publicPolicy}\n${internalPolicy}`, /Phase [0-9]/u);
 });
 
-test('security overrides remove the known vulnerable transitive versions', () => {
+test('retained security overrides and resolved lock entries keep the known vulnerable versions out', () => {
   const workspace = readFileSync(resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf8');
   const lockfile = readFileSync(resolve(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
   for (const contract of [
     "'@nestjs/platform-express>multer': 2.2.0",
-    "'@babel/core': 7.29.6",
-    "'brace-expansion@<2.0.0': 1.1.18",
-    "'brace-expansion@>=5.0.0 <6.0.0': 5.0.9",
     "'engine.io>ws': 8.21.3",
-    "'express>body-parser': 2.3.0",
-    'fast-uri: 3.1.6',
-    'flatted: 3.4.2',
-    'form-data: 4.0.6',
-    'js-yaml: 4.3.1',
-    'lodash: 4.18.1',
-    "'nanoid@<4.0.0': 3.3.18",
-    "'picomatch@<3.0.0': 2.3.2",
     'postcss: 8.5.26',
     "'socket.io-adapter>ws': 8.21.3",
-    "'socket.io>socket.io-parser': 4.2.7",
-    'qs: 6.15.2',
-    'yaml: 2.8.3',
   ]) {
     assert.match(workspace, new RegExp(contract.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+  }
+
+  for (const removedSelector of [
+    "'@babel/core':",
+    "'brace-expansion@<2.0.0':",
+    "'brace-expansion@>=5.0.0 <6.0.0':",
+    "'express>body-parser':",
+    'fast-uri:',
+    'flatted:',
+    'form-data:',
+    'js-yaml:',
+    'lodash:',
+    "'nanoid@<4.0.0':",
+    "'picomatch@<3.0.0':",
+    "'socket.io>socket.io-parser':",
+    'qs:',
+    'yaml:',
+  ]) {
+    assert.doesNotMatch(
+      workspace,
+      new RegExp(removedSelector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'),
+    );
   }
 
   for (const vulnerable of [
@@ -137,8 +145,8 @@ test('security overrides remove the known vulnerable transitive versions', () =>
   }
 });
 
-test('residual no-fix and compatibility exceptions stay evidence-backed', () => {
-  for (const packageName of ['deepmerge-ts', 'esbuild', 'image-size']) {
+test('residual no-fix and retained-override exceptions stay evidence-backed', () => {
+  for (const packageName of ['deepmerge-ts', 'esbuild', 'image-size', 'multer', 'postcss', 'ws']) {
     const item = classification.packages.find(({ name }) => name === packageName);
     assert.ok(item, `missing classification: ${packageName}`);
     assert.equal(typeof item.mitigation, 'string');

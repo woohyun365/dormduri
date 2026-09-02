@@ -36,6 +36,26 @@ const closedLintStagedEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedPnpmMemoryFixedEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json'),
+    'utf8',
+  ),
+);
+const closedTransitiveOverrideEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json',
+    ),
+    'utf8',
+  ),
+);
+const closedApiRuntimeSupportedLinesEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -46,9 +66,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'pnpm11-memory-fixed-2026-09-01',
+    epochId: 'api-persistence-supported-lines-2026-09-02',
     fileSha256: epoch.fileSha256,
-    sourceSha: 'ef2968c951bdc7ec0e8d95b9ecb0e22590d2a725',
+    sourceSha: '94e6608c6072c5e6b8011083e98e12948d1d5961',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -110,6 +130,49 @@ test('closes the lint-staged 17 epoch before collecting the pnpm memory-fixed co
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': '6fef3af100ad7da67e9dc585d88c2c129d231ba31124d4d4014034722437e72f',
     'pnpm-workspace.yaml': 'd34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the pnpm memory-fixed epoch before collecting the override lifecycle cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedPnpmMemoryFixedEpochFixture);
+
+  assert.equal(closedEpoch.id, 'pnpm11-memory-fixed-2026-09-01');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'ef2968c951bdc7ec0e8d95b9ecb0e22590d2a725');
+  assert.equal(closedEpoch.versions.pnpm, '11.24.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '6fef3af100ad7da67e9dc585d88c2c129d231ba31124d4d4014034722437e72f',
+    'pnpm-workspace.yaml': 'd34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the override lifecycle epoch before collecting the API runtime supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedTransitiveOverrideEpochFixture);
+
+  assert.equal(closedEpoch.id, 'transitive-override-lifecycle-2026-09-02');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '3c634435359011acc9b4ed4fb490f7fd1cd37092');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'd2d54b397b310056722d6b0d92b3511b5cdaa82772de33e9b0d6a49a5dd5aefc',
+    'pnpm-workspace.yaml': 'c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the API runtime epoch before collecting the persistence supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedApiRuntimeSupportedLinesEpochFixture);
+
+  assert.equal(closedEpoch.id, 'api-runtime-supported-lines-2026-09-02');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '74d01728f7a36d1429176ee10a430e783f3cbc3b');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '27acc00270e5c304119585ab353795a2e2b2fc820cdad86ab5ef7131cd9c6401',
+    'pnpm-workspace.yaml': 'c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
   });

@@ -30,6 +30,23 @@
 Automated PRs는 운영 비용과 compatibility failure rate가 측정될 때까지 OFF를 유지한다. Dashboard issue는 Renovate가
 추가·제거·병합된 후보를 자동으로 갱신하므로 수동으로 close하거나 본문을 재작성하지 않는다.
 
+### npm owner groups
+
+| Group                | 책임                                                           |
+| -------------------- | -------------------------------------------------------------- |
+| `lint-tooling`       | repository lint, formatter, compiler와 local developer tooling |
+| `web-framework`      | Web framework, rendering과 browser UI runtime                  |
+| `web-test-storybook` | Web test, Storybook과 Vite test toolchain                      |
+| `api-framework`      | NestJS framework, platform adapter와 Nest test/CLI tooling     |
+| `api-persistence`    | Prisma CLI/client/adapter와 PostgreSQL driver/type             |
+| `api-runtime`        | API provider, config, security, logging과 realtime runtime     |
+| `api-observability`  | API metric client와 observability runtime                      |
+| `shared-contract`    | Shared contract schema dependencies used by Web and API        |
+| `api-test-tooling`   | API HTTP test client와 corresponding type packages             |
+
+Dashboard에서 여러 group이 같은 작업처럼 보여도 framework, persistence, observability, shared contract와 test tooling을
+한 PR로 다시 합치지 않는다. 각 group은 독립된 review·rollback·verification clock을 가진다.
+
 ## PR review checklist
 
 ```bash
@@ -71,6 +88,23 @@ bounded resource retry와 exact-candidate fallback을 따른다.
 3. Dashboard에서 사용한 approval이 제거됐는지 확인한다.
 4. 같은 dependency를 갱신하는 Dependabot npm PR이 없는지 확인한다.
 5. `dev → main` promotion은 제품 release/integration cadence에 따라 별도 green PR로 수행한다.
+
+## Transitive override lifecycle
+
+Root `pnpm-workspace.yaml` override는 일반적인 dependency update 수단이 아니라, 현재 parent package의 declared range만으로
+안전한 버전을 선택할 수 없을 때 쓰는 임시 경계다. Dashboard에 더 높은 버전이 보인다는 이유만으로 transitive major를
+강제하지 않는다.
+
+1. lockfile과 parent manifest에서 실제 owner와 declared range를 확인한다.
+2. selector를 먼저 제거하고 current package-manager로 lockfile을 재생성한다.
+3. 자연 해소된 버전이 security floor 이상이며 parent range 안인지 확인한다.
+4. 가장 가까운 runtime/build/test regression을 실행한다.
+5. 제거가 불가능할 때만 같은 major의 최소 안전 버전을 유지한다.
+6. 유지 selector에는 owner, mitigation, 제거 trigger를 security fixture와 workspace 주석에 남긴다.
+
+현재 retained selector 집합은 Renovate owner fixture가 exact contract로 검증한다. 병합 뒤 한 번의 Mend scan에서 제거된
+selector 후보가 Dashboard에서 사라졌는지 확인하되, provider 결과가 source·lockfile 검증을 대신하지 않는다. Parent가
+지원하지 않는 major 후보는 체크하지 않고 fresh bounded migration으로 넘긴다.
 
 ## Existing non-npm Dependabot PRs
 

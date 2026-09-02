@@ -225,6 +225,26 @@ test('keeps eslint-config-next with the Web framework owner', () => {
   assert.equal(assignments['eslint-config-next'], 'web-framework');
 });
 
+test('separates API framework, persistence, runtime, observability, contract, and test owners', () => {
+  const assignments = mapRenovateOwnerGroups(renovateConfig, [
+    '@nestjs/common',
+    '@prisma/client',
+    '@aws-sdk/client-secrets-manager',
+    'prom-client',
+    'zod',
+    'supertest',
+  ]);
+
+  assert.deepEqual(assignments, {
+    '@nestjs/common': 'api-framework',
+    '@prisma/client': 'api-persistence',
+    '@aws-sdk/client-secrets-manager': 'api-runtime',
+    'prom-client': 'api-observability',
+    zod: 'shared-contract',
+    supertest: 'api-test-tooling',
+  });
+});
+
 test('keeps pnpm package-manager upgrades manual until the toolchain moves together', () => {
   const packageManagerRule = renovateConfig.packageRules.find(
     (rule) =>

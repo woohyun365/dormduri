@@ -72,13 +72,17 @@ ESLint 안에서 동일 formatting 책임을 중복 실행하는 `eslint-plugin-
 
 ## Update grouping과 승인 경계
 
-Minor/patch update는 현재 owner boundary에 따라 다섯 group으로 나눈다.
+Minor/patch update는 현재 owner boundary에 따라 다음 group으로 나눈다.
 
-- `api-framework-persistence`
 - `lint-tooling`
-- `application-runtime`
 - `web-framework`
 - `web-test-storybook`
+- `api-framework`
+- `api-persistence`
+- `api-runtime`
+- `api-observability`
+- `shared-contract`
+- `api-test-tooling`
 
 Major update는 group에 섞지 않고 독립 후보로 유지한다. TypeScript 7과 현재 ESLint toolchain이 지원하지 않는 major는
 compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
@@ -95,7 +99,7 @@ Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Requir
 | ------------------- | -------------------------------------------------------------------------------- |
 | selected repository | `mend/renovate` App이 `woohyun365/knu_roommate` 하나에 설치됨                    |
 | active extraction   | Renovate 44.39.0이 `dev`의 npm package file 7개와 dependency 133개를 추출        |
-| grouping            | 다섯 owner group과 독립 major 후보 생성                                          |
+| grouping            | owner별 bounded group과 독립 major 후보 생성                                     |
 | blocked updates     | TypeScript 7, `@eslint/js` 10, pnpm package-manager branch가 생성되지 않음       |
 | approval model      | Dashboard #353의 선택되지 않은 후보는 branch·PR을 만들지 않음                    |
 | real branch         | PR #354가 `renovate/web-test-storybook`에서 `dev`로 생성됨                       |

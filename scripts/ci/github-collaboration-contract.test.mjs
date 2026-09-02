@@ -159,8 +159,10 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
 });
 
 test('GitHub operator authentication stays layered, least-privilege, and secret-free', () => {
+  const agents = read('AGENTS.md');
   const index = read('docs/development/github/README.md');
   const authentication = read('docs/development/github/authentication-and-operator-access.md');
+  const execution = read('docs/development/agent-workflows/agent-execution-contract.md');
 
   assert.match(index, /\.\/authentication-and-operator-access\.md/u);
   for (const boundary of [
@@ -188,6 +190,10 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
     'gh-fix-ci',
     'gh-address-comments',
     'Recovery matrix',
+    'CLI-first',
+    'Connector-first',
+    'same-surface',
+    'Silent',
   ]) {
     assert.match(authentication, new RegExp(boundary, 'u'));
   }
@@ -201,6 +207,24 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   assert.match(authentication, /ghs_\[A-Za-z0-9\.\\-_\]\{36,\}/u);
   assert.match(authentication, /Connector permission: `Allow read actions`/u);
   assert.match(authentication, /gh auth status --show-token.*금지/su);
+  assert.match(authentication, /Shell-capable local Codex\/OMX.*`gh` CLI-first/su);
+  assert.match(authentication, /ChatGPT Web 또는 shell 없는 agent.*GitHub Connector-first/su);
+  assert.match(authentication, /Mutation 전에.*duplicate.*Mutation 뒤에는 같은 surface/su);
+  assert.match(authentication, /Silent\s+fallback.*tool switching/su);
+  assert.match(authentication, /Connector 기반 skill\/workflow.*intentional\s+override/su);
+  assert.match(
+    authentication,
+    /Local token을 Connector에 전달하거나 Connector credential을 shell로 추출하지 않습니다/u,
+  );
+  assert.match(
+    agents,
+    /local coding session.*`gh` CLI-first.*shell이 없는 session.*GitHub Connector-first/su,
+  );
+  assert.match(
+    execution,
+    /shell-capable local session.*`gh` CLI-first.*ChatGPT Web\/no-shell session.*Connector-first/su,
+  );
+  assert.match(execution, /같은 대상이 이미 존재.*같은 surface로 결과를 read back/su);
   assert.doesNotMatch(authentication, /\.omx\/plans/u);
   assert.doesNotMatch(authentication, /\b(?:ghp|github_pat)_[A-Za-z0-9_]{12,}\b/u);
   assert.doesNotMatch(authentication, /Authorization:\s*Bearer\s+\S+/iu);
