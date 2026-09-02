@@ -72,6 +72,23 @@ bounded resource retry와 exact-candidate fallback을 따른다.
 4. 같은 dependency를 갱신하는 Dependabot npm PR이 없는지 확인한다.
 5. `dev → main` promotion은 제품 release/integration cadence에 따라 별도 green PR로 수행한다.
 
+## Transitive override lifecycle
+
+Root `pnpm-workspace.yaml` override는 일반적인 dependency update 수단이 아니라, 현재 parent package의 declared range만으로
+안전한 버전을 선택할 수 없을 때 쓰는 임시 경계다. Dashboard에 더 높은 버전이 보인다는 이유만으로 transitive major를
+강제하지 않는다.
+
+1. lockfile과 parent manifest에서 실제 owner와 declared range를 확인한다.
+2. selector를 먼저 제거하고 current package-manager로 lockfile을 재생성한다.
+3. 자연 해소된 버전이 security floor 이상이며 parent range 안인지 확인한다.
+4. 가장 가까운 runtime/build/test regression을 실행한다.
+5. 제거가 불가능할 때만 같은 major의 최소 안전 버전을 유지한다.
+6. 유지 selector에는 owner, mitigation, 제거 trigger를 security fixture와 workspace 주석에 남긴다.
+
+현재 retained selector 집합은 Renovate owner fixture가 exact contract로 검증한다. 병합 뒤 한 번의 Mend scan에서 제거된
+selector 후보가 Dashboard에서 사라졌는지 확인하되, provider 결과가 source·lockfile 검증을 대신하지 않는다. Parent가
+지원하지 않는 major 후보는 체크하지 않고 fresh bounded migration으로 넘긴다.
+
 ## Existing non-npm Dependabot PRs
 
 Actions·Docker·Compose PR은 Renovate npm cutover와 중복이 아니다. 각각의 owner boundary에서 release note와 runtime

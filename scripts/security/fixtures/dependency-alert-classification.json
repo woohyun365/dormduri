@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-24",
+  "reviewedAt": "2026-09-02",
   "defaultBranch": "main",
   "packages": [
     {
@@ -105,7 +105,9 @@
       "owner": "api-http",
       "parent": "@nestjs/platform-express",
       "classification": "shipped-not-called",
-      "action": "runtime-remediation"
+      "action": "runtime-remediation",
+      "mitigation": "A parent-scoped override keeps Multer 2.2.0 above the vulnerable Nest 11 exact dependency without changing the unused upload surface.",
+      "revisit": "Remove or update the selector when @nestjs/platform-express declares Multer 2.2.0 or newer, or during the bounded Nest runtime migration."
     },
     {
       "name": "nanoid",
@@ -126,7 +128,9 @@
       "owner": "web-build",
       "parent": "Tailwind/Next/Vite",
       "classification": "build-only",
-      "action": "toolchain-remediation"
+      "action": "toolchain-remediation",
+      "mitigation": "The root override keeps PostCSS 8.5.26 while the current Next and Tailwind parents still declare older exact patches.",
+      "revisit": "Remove the override when both Next and @tailwindcss/postcss resolve PostCSS 8.5.26 or newer without it and Web build regressions pass."
     },
     {
       "name": "qs",
@@ -154,7 +158,9 @@
       "owner": "api-realtime-and-storybook",
       "parent": "socket.io and Storybook",
       "classification": "mixed",
-      "action": "runtime-remediation"
+      "action": "runtime-remediation",
+      "mitigation": "Parent-scoped overrides keep the Engine.IO and Socket.IO adapter paths on ws 8.21.3 while their declared ranges stop at the 8.20 line.",
+      "revisit": "Remove each selector when engine.io and socket.io-adapter widen or update their ws dependency and realtime plus Storybook regressions pass."
     },
     {
       "name": "yaml",

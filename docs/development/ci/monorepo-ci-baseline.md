@@ -48,19 +48,20 @@ contents. A later local checkout can no longer relabel an older run with a newer
 
 | Boundary               | Current value                                                              |
 | ---------------------- | -------------------------------------------------------------------------- |
-| Epoch                  | `pnpm11-memory-fixed-2026-09-01` / `collecting`                            |
-| Base                   | `ef2968c951bdc7ec0e8d95b9ecb0e22590d2a725`                                 |
-| Dependency fingerprint | lock `6fef3af1...`, workspace `d34ba2bc...`, image inventory `5e31ed06...` |
+| Epoch                  | `transitive-override-lifecycle-2026-09-02` / `collecting`                  |
+| Base                   | `3c634435359011acc9b4ed4fb490f7fd1cd37092`                                 |
+| Dependency fingerprint | lock `d2d54b39...`, workspace `c2d3606d...`, image inventory `5e31ed06...` |
 | Package manager        | pnpm 11.24.0                                                               |
-| Compatible samples     | none yet; natural PR samples start after the pnpm memory-fixed migration   |
+| Compatible samples     | none yet; natural PR samples start after the override lifecycle migration  |
 | Confidence             | below the five-run provisional p50 and ten-run p95 thresholds              |
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
 `scripts/ci/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json`. Their compatible samples remain valid only
-inside each frozen dependency fingerprint; they are not relabeled as samples of the current lint-staged epoch.
+`scripts/ci/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json`. Their compatible samples remain valid only
+inside each frozen dependency fingerprint; they are not relabeled as samples of the current override-lifecycle epoch.
 
 Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
 
