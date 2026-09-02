@@ -42,6 +42,14 @@ const closedPnpmMemoryFixedEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedTransitiveOverrideEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -52,9 +60,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'transitive-override-lifecycle-2026-09-02',
+    epochId: 'api-runtime-supported-lines-2026-09-02',
     fileSha256: epoch.fileSha256,
-    sourceSha: '3c634435359011acc9b4ed4fb490f7fd1cd37092',
+    sourceSha: '74d01728f7a36d1429176ee10a430e783f3cbc3b',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -131,6 +139,20 @@ test('closes the pnpm memory-fixed epoch before collecting the override lifecycl
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': '6fef3af100ad7da67e9dc585d88c2c129d231ba31124d4d4014034722437e72f',
     'pnpm-workspace.yaml': 'd34ba2bcf7e67f120e4f10071d1cf44642a11e29f22aec6b0193ca3a8cdf5a89',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the override lifecycle epoch before collecting the API runtime supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedTransitiveOverrideEpochFixture);
+
+  assert.equal(closedEpoch.id, 'transitive-override-lifecycle-2026-09-02');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '3c634435359011acc9b4ed4fb490f7fd1cd37092');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'd2d54b397b310056722d6b0d92b3511b5cdaa82772de33e9b0d6a49a5dd5aefc',
+    'pnpm-workspace.yaml': 'c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
   });

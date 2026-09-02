@@ -88,7 +88,7 @@ test('parses proposed owner branches while keeping blocked updates out of final 
   assert.deepEqual(
     evidence.proposedUpdates.map(({ packageName, ownerGroup }) => [packageName, ownerGroup]),
     [
-      ['@nestjs/common', 'api-framework-persistence'],
+      ['@nestjs/common', 'api-framework'],
       ['motion', 'web-framework'],
       ['vitest', 'web-test-storybook'],
     ],
