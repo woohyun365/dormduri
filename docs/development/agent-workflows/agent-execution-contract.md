@@ -39,6 +39,11 @@
 - 독립적인 evidence 또는 파일 ownership이 있을 때만 bounded child lane을 사용합니다.
 - external official evidence가 설계를 바꿀 때만 research lane을 추가합니다.
 - destructive, irreversible, credential, external-production action은 authority gate를 적용합니다.
+- GitHub remote 작업은 shell-capable local session에서 `gh` CLI-first, ChatGPT Web/no-shell session에서 GitHub
+  Connector-first로 선택합니다. Fallback과 인증 경계는
+  [GitHub authentication and operator access](../github/authentication-and-operator-access.md)를 따릅니다.
+- 사용자가 Connector 기반 skill/workflow를 명시적으로 호출했다면 그 documented primary surface가 일반 default보다
+  우선하며, 같은 lifecycle 동안 선택을 유지합니다.
 
 세부 선택은 [Orchestration](./orchestration.md)을 따릅니다.
 
@@ -51,6 +56,9 @@
 - 기존 owner와 utility를 먼저 재사용하고 dependency는 명시적 요청 없이는 추가하지 않습니다.
 - cleanup/refactor는 계획과 regression protection을 먼저 마련합니다.
 - child를 사용한다면 scope, evidence, output schema, stop condition과 write owner를 고정합니다.
+- PR·Issue·Actions remote mutation 전에 같은 대상이 이미 존재하는지 확인하고, 한 lifecycle에서는 하나의 primary
+  control plane을 유지한 뒤 같은 surface로 결과를 read back합니다. Fallback은 숨기지 않으며 같은 mutation을 재시도해
+  중복 생성하지 않습니다.
 
 ## 5. Verify
 
