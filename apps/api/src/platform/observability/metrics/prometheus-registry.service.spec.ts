@@ -20,8 +20,10 @@ describe('PrometheusRegistryService', () => {
   it('provides an isolated registry with process metrics and default labels', async () => {
     const registry = new PrometheusRegistryService(settings);
     const register = registry.getRegister();
+    const anotherRegistry = new PrometheusRegistryService(settings);
 
-    expect(registry.getContentType()).toContain('text/plain');
+    expect(register).not.toBe(anotherRegistry.getRegister());
+    expect(registry.getContentType()).toBe('text/plain; version=0.0.4; charset=utf-8');
     expect(register.getSingleMetric('process_cpu_user_seconds_total')).toBeDefined();
 
     const metrics = await registry.metrics();

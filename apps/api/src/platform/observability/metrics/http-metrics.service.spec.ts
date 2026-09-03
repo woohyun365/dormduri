@@ -42,6 +42,9 @@ describe('HttpMetricsService', () => {
     expect(scrape).toContain('route="/api/auth/login"');
     expect(scrape).toContain('status_class="2xx"');
     expect(scrape).toContain('api_http_request_duration_seconds_bucket');
+    for (const bucket of ['0.05', '0.1', '0.2', '+Inf']) {
+      expect(scrape).toContain(`le="${bucket}"`);
+    }
     expect(scrape).toContain('api_http_request_in_flight{route="/api/auth/login"');
     expect(scrape).not.toContain('userId');
   });
