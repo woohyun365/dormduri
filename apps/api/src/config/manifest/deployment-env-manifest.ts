@@ -43,21 +43,19 @@ function sortedKeys(definitions: readonly EnvKeyDefinition[]): string[] {
 }
 
 export function createApiDeploymentEnvManifest(): ApiDeploymentEnvManifest {
-  const entries = ALL_ENV_KEYS.map(
-    (definition): DeploymentEnvManifestEntry => ({
-      key: definition.key,
-      owner: definition.owner,
-      category: definition.category,
-      source: definition.source,
-      defaultPolicy: definition.defaultPolicy,
-      scope: scopeOf(definition),
-      requiredInProduction: definition.requiredInProduction === true,
-      requiredForDeployment: definition.requiredForDeployment === true,
-      secret: definition.secret === true,
-      targetRequired: definition.targetRequired === true,
-      forbidProductionPlaceholder: definition.forbidProductionPlaceholder === true,
-    }),
-  ).sort((left, right) => left.key.localeCompare(right.key));
+  const entries = ALL_ENV_KEYS.map((definition): DeploymentEnvManifestEntry => ({
+    key: definition.key,
+    owner: definition.owner,
+    category: definition.category,
+    source: definition.source,
+    defaultPolicy: definition.defaultPolicy,
+    scope: scopeOf(definition),
+    requiredInProduction: definition.requiredInProduction === true,
+    requiredForDeployment: definition.requiredForDeployment === true,
+    secret: definition.secret === true,
+    targetRequired: definition.targetRequired === true,
+    forbidProductionPlaceholder: definition.forbidProductionPlaceholder === true,
+  })).sort((left, right) => left.key.localeCompare(right.key));
 
   return {
     version: API_DEPLOYMENT_ENV_MANIFEST_VERSION,

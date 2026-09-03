@@ -10,10 +10,7 @@ import type {
 } from './password-hash-admission.service.js';
 
 export type AuthPasswordHashAdmissionMetricOutcome =
-  | 'admitted'
-  | 'queue_full'
-  | 'queued'
-  | 'timed_out';
+  'admitted' | 'queue_full' | 'queued' | 'timed_out';
 
 @Injectable()
 export class AuthPasswordHashMetricsService {

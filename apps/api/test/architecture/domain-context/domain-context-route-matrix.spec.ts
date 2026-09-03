@@ -281,8 +281,7 @@ function resolveDomainContexts(
 function readDomainContexts(target: object): DomainContextRequirement[] {
   return (
     (Reflect.getMetadata(DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY, target) as
-      | DomainContextRequirement[]
-      | undefined) ?? []
+      DomainContextRequirement[] | undefined) ?? []
   );
 }
 

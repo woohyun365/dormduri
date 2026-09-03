@@ -8,10 +8,7 @@ type RawWebEnv = Partial<Record<string, string | undefined>>;
 
 export type WebEnvScope = 'build-public' | 'build-secret' | 'build-server' | 'runtime-server';
 export type WebEnvRequirement =
-  | 'production-required'
-  | 'target-required'
-  | 'optional'
-  | 'safe-default';
+  'production-required' | 'target-required' | 'optional' | 'safe-default';
 
 export type WebEnvDefinition = Readonly<{
   key: string;

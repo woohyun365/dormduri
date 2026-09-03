@@ -32,11 +32,7 @@ import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixt
 import { seedRegisteredAssignedParticipant } from '../_support/fixtures/participants.fixture.js';
 
 export type RetentionCaseOwner =
-  | 'retained-identities'
-  | 'archive-jobs'
-  | 'review-jobs'
-  | 'vault'
-  | 'thread-retention';
+  'retained-identities' | 'archive-jobs' | 'review-jobs' | 'vault' | 'thread-retention';
 
 export function registerRetentionCases(
   ownerInput: RetentionCaseOwner | readonly RetentionCaseOwner[],

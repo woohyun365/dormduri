@@ -56,11 +56,9 @@ interface RetainedDeletionIdentity {
 }
 
 type AccountDeletionUserReader =
-  | Pick<PrismaService, 'user'>
-  | Pick<Prisma.TransactionClient, 'user'>;
+  Pick<PrismaService, 'user'> | Pick<Prisma.TransactionClient, 'user'>;
 type AccountDeletionParticipantReader =
-  | Pick<PrismaService, 'seasonParticipant'>
-  | Pick<Prisma.TransactionClient, 'seasonParticipant'>;
+  Pick<PrismaService, 'seasonParticipant'> | Pick<Prisma.TransactionClient, 'seasonParticipant'>;
 
 export function findAccountDeletionUser(
   client: AccountDeletionUserReader,

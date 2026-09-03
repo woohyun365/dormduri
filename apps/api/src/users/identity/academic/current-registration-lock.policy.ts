@@ -13,8 +13,7 @@ export interface CurrentRegistrationLockPolicyDeps {
 }
 
 type CurrentRegistrationLockPolicyReader =
-  | Pick<PrismaService, 'seasonParticipant'>
-  | Pick<Prisma.TransactionClient, 'seasonParticipant'>;
+  Pick<PrismaService, 'seasonParticipant'> | Pick<Prisma.TransactionClient, 'seasonParticipant'>;
 
 export async function resolveCurrentRegistrationLockPolicy(
   deps: CurrentRegistrationLockPolicyDeps,

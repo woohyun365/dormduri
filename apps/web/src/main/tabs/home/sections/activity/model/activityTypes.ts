@@ -31,10 +31,7 @@ export type StaticActivityTone =
   | 'postMatchMatched';
 
 export type SeasonOpenModalKind =
-  | 'profile-composition'
-  | 'registration-confirmation'
-  | 'withdrawal-policy'
-  | 'profile-view';
+  'profile-composition' | 'registration-confirmation' | 'withdrawal-policy' | 'profile-view';
 
 export interface StaticActivityMetric {
   label: string;

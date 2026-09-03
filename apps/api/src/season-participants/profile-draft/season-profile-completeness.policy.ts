@@ -8,9 +8,7 @@ import type {
 import { isParticipantLockedOrInactive } from '../capabilities/season-participation-capability.policy.js';
 
 export type SeasonProfileCompletenessProfile =
-  | CurrentSeasonParticipantProfileRecord
-  | null
-  | undefined;
+  CurrentSeasonParticipantProfileRecord | null | undefined;
 
 export function validateSeasonProfileCompleteness(profile: SeasonProfileCompletenessProfile): {
   complete: boolean;

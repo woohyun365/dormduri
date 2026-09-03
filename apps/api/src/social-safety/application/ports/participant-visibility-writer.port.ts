@@ -1,10 +1,7 @@
 export const PARTICIPANT_VISIBILITY_WRITER_PORT = Symbol('PARTICIPANT_VISIBILITY_WRITER_PORT');
 
 export type ParticipantVisibilityProjectionReason =
-  | 'POLICY_VIOLATION'
-  | 'SAFETY_REVIEW'
-  | 'ADMIN_REQUEST'
-  | 'OTHER';
+  'POLICY_VIOLATION' | 'SAFETY_REVIEW' | 'ADMIN_REQUEST' | 'OTHER';
 
 export interface ApplyParticipantVisibilityProjectionInput {
   participantId: string;

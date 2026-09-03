@@ -22,11 +22,7 @@ export type AuthUpstreamResponseSchema = {
 };
 
 export type AuthForwardFailureKind =
-  | 'timeout'
-  | 'aborted'
-  | 'network'
-  | 'upstream'
-  | 'invalid-response';
+  'timeout' | 'aborted' | 'network' | 'upstream' | 'invalid-response';
 
 export type AuthForwardOptions = {
   timeoutMs?: number;

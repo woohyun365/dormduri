@@ -1,19 +1,10 @@
 import type { SeasonState } from '@repo/shared/season/runtime';
 
 export type HomeQuickActionTarget =
-  | 'list'
-  | 'matching-current'
-  | 'matching-history'
-  | 'chat'
-  | 'profile';
+  'list' | 'matching-current' | 'matching-history' | 'chat' | 'profile';
 
 export type HomeQuickActionIcon =
-  | 'users'
-  | 'eye'
-  | 'bar-chart'
-  | 'history'
-  | 'message-circle'
-  | 'user';
+  'users' | 'eye' | 'bar-chart' | 'history' | 'message-circle' | 'user';
 
 export type HomeQuickActionColor = 'blue' | 'purple' | 'green' | 'orange';
 

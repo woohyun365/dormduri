@@ -22,9 +22,7 @@ import {
 export const DEFAULT_SECRET_MATERIALIZATION_TIMEOUT_MS = 10_000;
 
 export type RuntimeEnvironmentPreparationErrorCode =
-  | 'BOOTSTRAP_ENV_INVALID'
-  | 'SECRET_MATERIALIZATION_TIMEOUT'
-  | 'SECRET_MATERIALIZATION_FAILED';
+  'BOOTSTRAP_ENV_INVALID' | 'SECRET_MATERIALIZATION_TIMEOUT' | 'SECRET_MATERIALIZATION_FAILED';
 
 export class RuntimeEnvironmentPreparationError extends Error {
   readonly code: RuntimeEnvironmentPreparationErrorCode;

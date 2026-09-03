@@ -1,13 +1,7 @@
 import type { SignupStepId } from './signup-flow.types';
 
 export type SignupRecoveryField =
-  | 'email'
-  | 'nickname'
-  | 'password'
-  | 'campus'
-  | 'gender'
-  | 'collegeCode'
-  | 'birthYear';
+  'email' | 'nickname' | 'password' | 'campus' | 'gender' | 'collegeCode' | 'birthYear';
 
 export type SignupFailure =
   | {
