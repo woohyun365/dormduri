@@ -50,15 +50,15 @@ admin audit와 관측량을 포함한 별도 rehearsal로 이 시작값을 교�
 
 | 단계               | 구성                                                                     |     기본 월 비용 | 예비비 포함 planning budget |
 | ------------------ | ------------------------------------------------------------------------ | ---------------: | --------------------------: |
-| BackOffice 출시 전 | Lightsail User App 4GB $24 + RDS compute $18.25 + gp3 20~30GB $2.62~3.93 | **$44.87~46.18** |                  **$50~65** |
-| BackOffice 출시 후 | 위 구성 + Lightsail BackOffice 2GB $12                                   | **$56.87~58.18** |                  **$65~80** |
+| BackOffice 출시 전 | Lightsail User App 4GB $24 + RDS compute $18.25 + gp3 20–30GB $2.62–3.93 | **$44.87–46.18** |                  **$50–65** |
+| BackOffice 출시 후 | 위 구성 + Lightsail BackOffice 2GB $12                                   | **$56.87–58.18** |                  **$65–80** |
 
-원화 기준 기본 비용은 출시 전 약 6.3만~6.5만원, 출시 후 약 8.0만~8.2만원이다. 예비비 포함 범위는
-각각 약 7만~9.1만원, 약 9.1만~11.2만원이다.
+원화 기준 기본 비용은 출시 전 약 6.3만–6.5만원, 출시 후 약 8.0만–8.2만원이다. 예비비 포함 범위는
+각각 약 7만–9.1만원, 약 9.1만–11.2만원이다.
 
 EC2 대안은 서울 On-Demand `t4g.medium` 4GiB $0.0416/hour와 `t4g.small` 2GiB
 $0.0208/hour를 기준으로 compute 약 $45.55/month다. EBS, public IPv4와 RDS를 더한 단순 baseline은
-약 $77~79/month이며 NAT Gateway, ALB, VPC endpoint, transfer, CloudWatch와 세금은 포함하지
+약 $77–79/month이며 NAT Gateway, ALB, VPC endpoint, transfer, CloudWatch와 세금은 포함하지
 않는다. `t4g` 선택 시 ARM64 image와 native dependency evidence가 필요하다.
 
 가격 근거:
