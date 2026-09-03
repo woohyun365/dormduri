@@ -32,7 +32,8 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - `METRICS_ENABLED=false`이면 endpoint는 disabled 상태로 닫힌다.
 - production에서는 `METRICS_BEARER_TOKEN`이 필요하며, 요청은 `Authorization: Bearer <token>` 형식이어야 한다.
 - local/test에서 token이 없으면 scrape를 열어 두지만, production 배포에서는 nginx/private network/allowlist와 token guard를 함께 사용한다.
-- response는 Prometheus text format이고 `prom-client` registry가 process/default metrics와 API platform metrics를 소유한다.
+- response는 Prometheus text format이고 `@prometheus-io/client` registry가 process/default metrics와 API platform metrics를
+  소유한다.
 
 ## Metrics label policy
 
@@ -53,7 +54,7 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 
 ## Domain metrics bridge
 
-도메인 코드는 `prom-client`를 직접 import하지 않는다. Metric name/help/label/bucket은 owning domain의
+도메인 코드는 `@prometheus-io/client`를 직접 import하지 않는다. Metric name/help/label/bucket은 owning domain의
 `*.metric.definitions.ts`가 소유한다. Domain module은 `DomainMetricDefinitionsModule.register()`로 정의를
 등록하고 `DOMAIN_METRICS_PORT`를 통해 bounded metric만 기록한다.
 

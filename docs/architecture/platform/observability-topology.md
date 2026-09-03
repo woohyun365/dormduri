@@ -8,14 +8,14 @@
 
 ## 결정된 구성
 
-| 신호                          | 생성 owner            | 수집·저장 owner        | 운영 UI                   |
-| ----------------------------- | --------------------- | ---------------------- | ------------------------- |
-| API/BFF structured log        | Pino·Web logger       | Alloy → Loki           | Grafana Explore/Dashboard |
-| API/domain/runtime metric     | `prom-client`         | Prometheus             | Grafana Dashboard         |
-| Alert condition               | Prometheus/Loki rules | Alertmanager           | Slack과 Grafana           |
-| Browser runtime error         | Sentry Next.js SDK    | Managed Sentry         | Sentry                    |
-| Browser performance/Web Vital | Sentry performance    | Managed Sentry         | Sentry                    |
-| RDS resource metric           | Managed PostgreSQL    | CloudWatch/DB Insights | AWS 운영 UI               |
+| 신호                          | 생성 owner              | 수집·저장 owner        | 운영 UI                   |
+| ----------------------------- | ----------------------- | ---------------------- | ------------------------- |
+| API/BFF structured log        | Pino·Web logger         | Alloy → Loki           | Grafana Explore/Dashboard |
+| API/domain/runtime metric     | `@prometheus-io/client` | Prometheus             | Grafana Dashboard         |
+| Alert condition               | Prometheus/Loki rules   | Alertmanager           | Slack과 Grafana           |
+| Browser runtime error         | Sentry Next.js SDK      | Managed Sentry         | Sentry                    |
+| Browser performance/Web Vital | Sentry performance      | Managed Sentry         | Sentry                    |
+| RDS resource metric           | Managed PostgreSQL      | CloudWatch/DB Insights | AWS 운영 UI               |
 
 Grafana는 Loki나 Prometheus를 대신하는 저장소가 아니다. Loki는 log, Prometheus는 time-series metric을
 저장·조회하고 Grafana는 두 source를 시각화한다.
@@ -85,3 +85,4 @@ region, retention과 operator는 Sentry release readiness/evidence에서 확정�
 | ---------- | -------------------------------------------------------------------------------------- |
 | 2026-08-08 | Browser=Sentry, server log=Loki, metric=Prometheus, UI=Grafana 책임을 확정했다.        |
 | 2026-08-11 | 정책에서 도구 선택과 데이터 흐름을 분리하고 BackOffice·제품 데이터 경계를 명확히 했다. |
+| 2026-09-03 | API metric client를 공식 successor인 `@prometheus-io/client`로 교체했다.               |
