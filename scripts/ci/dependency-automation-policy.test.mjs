@@ -230,7 +230,7 @@ test('separates API framework, persistence, runtime, observability, contract, an
     '@nestjs/common',
     '@prisma/client',
     '@aws-sdk/client-secrets-manager',
-    'prom-client',
+    '@prometheus-io/client',
     'zod',
     'supertest',
   ]);
@@ -239,7 +239,7 @@ test('separates API framework, persistence, runtime, observability, contract, an
     '@nestjs/common': 'api-framework',
     '@prisma/client': 'api-persistence',
     '@aws-sdk/client-secrets-manager': 'api-runtime',
-    'prom-client': 'api-observability',
+    '@prometheus-io/client': 'api-observability',
     zod: 'shared-contract',
     supertest: 'api-test-tooling',
   });

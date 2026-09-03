@@ -48,15 +48,22 @@ function relativeApiPath(path: string) {
 }
 
 describe('API metrics boundary', () => {
-  it('keeps prom-client implementation details inside platform metrics', () => {
-    const offenders = walkTypeScriptFiles(srcRoot)
-      .filter((path) => !path.endsWith('.spec.ts'))
-      .filter((path) => !relativeApiPath(path).startsWith('src/platform/observability/metrics/'))
+  it('keeps the supported Prometheus client inside platform metrics', () => {
+    const productionFiles = walkTypeScriptFiles(srcRoot).filter(
+      (path) => !path.endsWith('.spec.ts'),
+    );
+    const oldClientOffenders = productionFiles
       .filter((path) => readFileSync(path, 'utf8').includes('prom-client'))
       .map(relativeApiPath)
       .sort();
+    const boundaryOffenders = productionFiles
+      .filter((path) => !relativeApiPath(path).startsWith('src/platform/observability/metrics/'))
+      .filter((path) => readFileSync(path, 'utf8').includes('@prometheus-io/client'))
+      .map(relativeApiPath)
+      .sort();
 
-    expect(offenders).toEqual([]);
+    expect(oldClientOffenders).toEqual([]);
+    expect(boundaryOffenders).toEqual([]);
   });
 
   it('keeps metric definitions on bounded labels only', () => {
