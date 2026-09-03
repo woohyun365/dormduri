@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import { Counter, Gauge, Histogram } from 'prom-client';
+import { Counter, Gauge, Histogram } from '@prometheus-io/client';
 import observabilityConfig from '../observability.config.js';
 import { PrometheusRegistryService } from './prometheus-registry.service.js';
 import {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Counter } from 'prom-client';
+import { Counter } from '@prometheus-io/client';
 import type { ConfigType } from '@nestjs/config';
 import observabilityConfig from '../observability.config.js';
 import { PrometheusRegistryService } from './prometheus-registry.service.js';
