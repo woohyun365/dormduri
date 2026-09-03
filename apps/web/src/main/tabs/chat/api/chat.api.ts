@@ -24,10 +24,7 @@ import {
 } from '@repo/shared/social-safety/report';
 
 export type ChatApiErrorCode =
-  | 'CHAT_API_ABORTED'
-  | 'CHAT_API_NETWORK'
-  | 'CHAT_API_RESPONSE_INVALID'
-  | 'CHAT_API_UNAVAILABLE';
+  'CHAT_API_ABORTED' | 'CHAT_API_NETWORK' | 'CHAT_API_RESPONSE_INVALID' | 'CHAT_API_UNAVAILABLE';
 
 export class ChatApiError extends Error {
   constructor(

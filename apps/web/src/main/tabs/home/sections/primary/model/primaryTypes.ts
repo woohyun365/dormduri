@@ -14,15 +14,7 @@ export interface HomePrimaryStateCardProps {
 }
 
 export type PrimaryTone =
-  | 'blue'
-  | 'green'
-  | 'amber'
-  | 'purple'
-  | 'cyan'
-  | 'red'
-  | 'openRequired'
-  | 'openPrep'
-  | 'slate';
+  'blue' | 'green' | 'amber' | 'purple' | 'cyan' | 'red' | 'openRequired' | 'openPrep' | 'slate';
 
 export interface PrimaryAction {
   label: string;

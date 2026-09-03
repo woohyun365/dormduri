@@ -67,12 +67,9 @@ function getActualRoutes(controllers: Array<ExpectedRoute['controller']>) {
           return null;
         }
         const method = Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, methodRef) as
-          | RequestMethod
-          | undefined;
+          RequestMethod | undefined;
         const path = Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, methodRef) as
-          | string
-          | string[]
-          | undefined;
+          string | string[] | undefined;
 
         if (method === undefined) {
           return null;
@@ -105,11 +102,9 @@ function resolveCapabilities(controller: ExpectedRoute['controller'], handler: s
   const methodRef = getRouteHandler(controller, handler);
   return [
     ...((Reflect.getMetadata(AUTH_REQUIRED_CAPABILITIES_METADATA_KEY, controller) as
-      | string[]
-      | undefined) ?? []),
+      string[] | undefined) ?? []),
     ...((Reflect.getMetadata(AUTH_REQUIRED_CAPABILITIES_METADATA_KEY, methodRef) as
-      | string[]
-      | undefined) ?? []),
+      string[] | undefined) ?? []),
   ];
 }
 

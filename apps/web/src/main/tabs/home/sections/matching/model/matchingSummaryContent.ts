@@ -1,12 +1,7 @@
 import type { ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
 
 export type MatchingSummaryStatus =
-  | 'ACTIVE_MATCH'
-  | 'HAS_ACTIVITY'
-  | 'NO_ACTIVITY'
-  | 'NOT_OPERATED'
-  | 'OFF_SEASON'
-  | 'SEASON_OPEN';
+  'ACTIVE_MATCH' | 'HAS_ACTIVITY' | 'NO_ACTIVITY' | 'NOT_OPERATED' | 'OFF_SEASON' | 'SEASON_OPEN';
 
 export interface MatchingSummaryStats {
   sentRequests: number;

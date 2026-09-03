@@ -22,8 +22,7 @@ export interface NicknameChangePolicyDeps {
 }
 
 type NicknameChangePolicyReader =
-  | Pick<PrismaService, 'seasonParticipant'>
-  | Pick<Prisma.TransactionClient, 'seasonParticipant'>;
+  Pick<PrismaService, 'seasonParticipant'> | Pick<Prisma.TransactionClient, 'seasonParticipant'>;
 
 export interface NicknameChangePolicyResult {
   nicknameLockedBySeason: boolean;

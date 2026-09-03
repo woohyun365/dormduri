@@ -1,11 +1,8 @@
 export type AccountIdentityInvariantSurface =
-  | 'current-user'
-  | 'registration-finalize'
-  | 'public-target-snapshot';
+  'current-user' | 'registration-finalize' | 'public-target-snapshot';
 
 export type AccountIdentityInvariantCode =
-  | 'USER_DISPLAY_IDENTITY_REQUIRED'
-  | 'USER_ACADEMIC_IDENTITY_REQUIRED';
+  'USER_DISPLAY_IDENTITY_REQUIRED' | 'USER_ACADEMIC_IDENTITY_REQUIRED';
 
 export type UserAccountIdentityContainer = {
   displayIdentity?: object | null;

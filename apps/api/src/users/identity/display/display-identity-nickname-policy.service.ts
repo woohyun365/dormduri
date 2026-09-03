@@ -13,9 +13,7 @@ export type ParsedDisplayIdentityNickname = Extract<
 >;
 
 export type DisplayIdentityNicknamePolicyRejection =
-  | 'INVALID_FORMAT'
-  | 'MODERATION_REJECTED'
-  | 'ALREADY_TAKEN';
+  'INVALID_FORMAT' | 'MODERATION_REJECTED' | 'ALREADY_TAKEN';
 
 export class DisplayIdentityNicknamePolicyError extends Error {
   constructor(

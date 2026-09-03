@@ -27,10 +27,7 @@ export type EnvKeyCategory =
 export type EnvKeySource = 'process-env' | 'secret-store' | 'runtime-default';
 
 export type EnvDefaultPolicy =
-  | 'required'
-  | 'production-required'
-  | 'optional'
-  | 'safe-local-default';
+  'required' | 'production-required' | 'optional' | 'safe-local-default';
 
 export type EnvDeploymentScope = 'runtime' | 'migration';
 

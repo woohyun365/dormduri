@@ -10,10 +10,7 @@ export type LandingPolicyCopyId =
 export type LandingPolicySurface = 'hero' | 'footer' | 'season' | 'trust' | 'support';
 
 export type LandingSeasonState =
-  | 'OFF_SEASON'
-  | 'SEASON_OPEN'
-  | 'SEASON_MATCHING'
-  | 'SEASON_POST_MATCH';
+  'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH';
 
 export interface LandingPolicySourceRef {
   path: `docs/policies/${string}.md`;

@@ -11,8 +11,7 @@ export type LegalDocumentHeadingSection = Extract<LegalDocumentSection, { type: 
 };
 
 export type LegalDocumentViewSection =
-  | LegalDocumentHeadingSection
-  | Exclude<LegalDocumentSection, { type: 'heading' }>;
+  LegalDocumentHeadingSection | Exclude<LegalDocumentSection, { type: 'heading' }>;
 
 export type LegalDocumentTocItem = {
   id: string;

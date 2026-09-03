@@ -52,8 +52,7 @@ const VERIFICATION_CODE_TTL_BY_PURPOSE = {
 } as const satisfies Record<VerificationCodePurpose, number>;
 
 type VerificationTransportResponse =
-  | VerifySignupCodeTransportResponse
-  | VerifyResetCodeTransportResponse;
+  VerifySignupCodeTransportResponse | VerifyResetCodeTransportResponse;
 
 @Injectable()
 export class AuthVerificationService {

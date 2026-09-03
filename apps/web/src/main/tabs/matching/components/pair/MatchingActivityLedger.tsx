@@ -8,10 +8,7 @@ export type MatchingActivityResult =
   | 'UNMATCHED_AFTER_SUCCESS';
 
 export type MatchingActivityAutoClosedCause =
-  | 'VIEWER_MATCHED'
-  | 'COUNTERPART_MATCHED'
-  | 'PARTICIPATION_CANCELLED'
-  | 'PRECONDITION_FAILED';
+  'VIEWER_MATCHED' | 'COUNTERPART_MATCHED' | 'PARTICIPATION_CANCELLED' | 'PRECONDITION_FAILED';
 
 export interface MatchingActivityLedgerEntry {
   readonly id: string;

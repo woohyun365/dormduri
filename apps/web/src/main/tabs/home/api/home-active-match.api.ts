@@ -1,8 +1,7 @@
 export class HomeActiveMatchActionError extends Error {
   constructor(
     public readonly code:
-      | 'HOME_ACTIVE_MATCH_ACTION_REQUEST_FAILED'
-      | 'HOME_ACTIVE_MATCH_ACTION_UPSTREAM_UNAVAILABLE',
+      'HOME_ACTIVE_MATCH_ACTION_REQUEST_FAILED' | 'HOME_ACTIVE_MATCH_ACTION_UPSTREAM_UNAVAILABLE',
     message: string,
     public readonly status?: number,
   ) {

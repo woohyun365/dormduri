@@ -20,8 +20,7 @@ export interface RoommateSearchRequestOptions {
   readonly signal?: AbortSignal;
 }
 export type RoommateSearchQueryParams =
-  | URLSearchParams
-  | Record<string, QueryValue | readonly QueryValue[] | null | undefined>;
+  URLSearchParams | Record<string, QueryValue | readonly QueryValue[] | null | undefined>;
 
 function appendQueryValue(params: URLSearchParams, key: string, value: QueryValue): void {
   params.append(key, String(value));

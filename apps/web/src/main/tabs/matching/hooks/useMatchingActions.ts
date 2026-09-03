@@ -4,11 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MatchingApiError, matchingApi } from '../api/matching.api';
 
 type MatchingAction =
-  | 'acceptRequest'
-  | 'rejectRequest'
-  | 'cancelRequest'
-  | 'requestUnmatch'
-  | 'cancelUnmatchRequest';
+  'acceptRequest' | 'rejectRequest' | 'cancelRequest' | 'requestUnmatch' | 'cancelUnmatchRequest';
 type MatchingActionsClient = Pick<typeof matchingApi, MatchingAction>;
 export type MatchingActionRunResult = 'success' | 'state-changed' | 'error' | 'aborted';
 type MatchingActionScope = 'request' | 'active';

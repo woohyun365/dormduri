@@ -7,8 +7,7 @@ import type {
 } from '@repo/shared/roommate-search/contract';
 
 type RoommateSearchScopeAvailability =
-  | RoommateSearchResponse['scopeAvailability']
-  | RoommateSearchManifestResponse['scopeAvailability'];
+  RoommateSearchResponse['scopeAvailability'] | RoommateSearchManifestResponse['scopeAvailability'];
 
 const SEARCH_SCOPES: readonly RoommateSearchScope[] = ['CAMPUS_MERGED', 'SAME_BUILDING_ONLY'];
 

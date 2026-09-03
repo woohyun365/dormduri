@@ -38,10 +38,7 @@ const signupLegalDocumentIds = {
 } as const;
 
 export type SeasonRegistrationCaseOwner =
-  | 'profile-draft'
-  | 'dormitory-selection'
-  | 'registration'
-  | 'concurrency';
+  'profile-draft' | 'dormitory-selection' | 'registration' | 'concurrency';
 
 export function registerSeasonRegistrationCases(
   ownerInput: SeasonRegistrationCaseOwner | readonly SeasonRegistrationCaseOwner[],

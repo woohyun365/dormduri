@@ -9,8 +9,7 @@ import {
 export class HomeProfileDetailFetchError extends Error {
   constructor(
     public readonly code:
-      | 'HOME_PROFILE_DETAIL_UPSTREAM_UNAVAILABLE'
-      | 'HOME_PROFILE_DETAIL_UPSTREAM_INVALID',
+      'HOME_PROFILE_DETAIL_UPSTREAM_UNAVAILABLE' | 'HOME_PROFILE_DETAIL_UPSTREAM_INVALID',
     message: string,
     public readonly status?: number,
   ) {

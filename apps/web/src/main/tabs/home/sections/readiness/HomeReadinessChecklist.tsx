@@ -18,13 +18,7 @@ import { formatDateDot } from '../../model/homeDateDisplay';
 import type { HomeDashboardViewModel } from '../../model/homeDashboardViewModel';
 
 type ChecklistStatus =
-  | 'complete'
-  | 'actionable'
-  | 'locked'
-  | 'blocked'
-  | 'readonly'
-  | 'closed'
-  | 'maintained';
+  'complete' | 'actionable' | 'locked' | 'blocked' | 'readonly' | 'closed' | 'maintained';
 
 type ChecklistActionTarget = 'profile' | 'building' | 'list';
 
