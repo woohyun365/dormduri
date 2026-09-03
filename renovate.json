@@ -138,7 +138,7 @@
       "description": "Group compatible API observability minor/patch updates.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
-      "matchPackageNames": ["prom-client"],
+      "matchPackageNames": ["@prometheus-io/client"],
       "groupName": "api-observability",
       "groupSlug": "api-observability"
     },
