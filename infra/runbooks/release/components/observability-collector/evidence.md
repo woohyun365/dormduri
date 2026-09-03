@@ -26,12 +26,12 @@ evidence_id:
 ## Trust boundary evidence
 
 | Check                                      | Result    | Evidence identifier |
-| ------------------------------------------ | --------- | ------------------- | --------- | --- |
+| ------------------------------------------ | --------- | ------------------- |
 | Dedicated single-tenant host 여부          | `PENDING` |                     |
 | Operator와 Docker control-plane 접근자     | `PENDING` |                     |
 | Immutable Alloy image digest와 attestation | `PENDING` |                     |
 | Socket mount 존재 여부와 실제 mode         | `PENDING` |                     |
-| Discovery allowlist `api                   | nginx     | web`                | `PENDING` |     |
+| Discovery allowlist `api`, `nginx`, `web`  | `PENDING` |                     |
 | Private ports and operator access          | `PENDING` |                     |
 | Resource limit and container log rotation  | `PENDING` |                     |
 | Secret/raw body negative search            | `PENDING` |                     |
