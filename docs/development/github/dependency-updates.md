@@ -143,3 +143,18 @@ Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 host
 수동 scan이 소비되었더라도 승인된 exact candidate의 paired lockfile completion과 branch/PR이 없으면 provider
 materialization을 `GO`로 기록하지 않는다. 이 경우 동일 scan을 반복하지 않고 terminal `NO-GO`로 닫은 뒤,
 첫 안전한 미래 owner-group candidate가 그 시점의 재평가를 소유하게 한다.
+
+## Repository formatter supported-line migration
+
+Prettier처럼 repository 전체의 텍스트를 다시 쓰는 formatter는 일반 minor/patch 묶음과 분리합니다. 버전 입력과 그 버전이
+생성한 deterministic output을 같은 rollback boundary로 검토하되, 의미 변경과 단순 출력 변경을 구별할 수 있는 증거를
+먼저 고정합니다.
+
+1. 구버전과 후보 버전의 `--list-different` 및 disposable copy의 실제 byte diff를 비교해 exact path allowlist를 고정합니다.
+2. Markdown처럼 rendered meaning이 바뀔 수 있는 입력 결함은 formatter migration 전에 별도 PR로 교정합니다.
+3. formatter write는 allowlist 밖 파일, generated code, migration, local artifact를 변경하면 실패시킵니다.
+4. TypeScript/TSX 변경은 AST parse/printer parity, typecheck, owner test와 production build로 semantic no-op을 검증합니다.
+5. dependency fingerprint가 바뀌면 이전 CI cohort를 닫고 새 measurement epoch를 엽니다.
+
+Formatter migration은 ESLint rule 재설계나 unrelated dependency update의 운반 수단이 아닙니다. 호환성 교정, 버전 입력,
+결과 포맷 diff, CI measurement epoch를 각각 독립적으로 설명할 수 있어야 합니다.

@@ -26,12 +26,7 @@ import {
 } from './roommateSearchNotices';
 
 export type RoommateSearchStatus =
-  | 'idle'
-  | 'loading-manifest'
-  | 'loading-search'
-  | 'loading-more'
-  | 'success'
-  | 'error';
+  'idle' | 'loading-manifest' | 'loading-search' | 'loading-more' | 'success' | 'error';
 
 export type RoommateSearchResultMode = 'replace' | 'append';
 

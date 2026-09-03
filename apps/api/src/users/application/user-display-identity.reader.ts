@@ -7,8 +7,7 @@ import {
 } from '../current-user/current-user.select.js';
 
 export type UserDisplayIdentityReaderClient =
-  | Pick<PrismaService, 'user'>
-  | Pick<Prisma.TransactionClient, 'user'>;
+  Pick<PrismaService, 'user'> | Pick<Prisma.TransactionClient, 'user'>;
 
 export async function getUserWithDisplayIdentity(
   client: UserDisplayIdentityReaderClient,

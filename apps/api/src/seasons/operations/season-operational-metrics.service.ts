@@ -8,12 +8,7 @@ import {
 
 export type SeasonContextCacheMetricState = 'hit' | 'miss' | 'none';
 export type SeasonOperationMetricOutcome =
-  | 'success'
-  | 'conflict'
-  | 'not_found'
-  | 'validation_failure'
-  | 'audit_failure'
-  | 'failure';
+  'success' | 'conflict' | 'not_found' | 'validation_failure' | 'audit_failure' | 'failure';
 
 export interface SeasonCurrentQueryMetricInput {
   campusCode: Campus;

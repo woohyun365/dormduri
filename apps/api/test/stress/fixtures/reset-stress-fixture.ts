@@ -18,8 +18,7 @@ import {
 import { buildStressFixturePlan } from './stress-fixture.plan.js';
 
 export type StressFixtureResetSummary =
-  | StressFixtureResetDryRunSummary
-  | AppliedStressFixtureResetSummary;
+  StressFixtureResetDryRunSummary | AppliedStressFixtureResetSummary;
 
 export interface StressFixtureResetDryRunSummary {
   readonly mode: 'dry-run';

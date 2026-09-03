@@ -6,12 +6,7 @@ import { mapLoginRouteStatus } from '@/auth/flows/login/model/login-route-status
 import { LOGIN_STORY_BASE_ARGS, LOGIN_STORY_ERRORS } from '../auth-story-fixtures';
 
 type LoginResultScenario =
-  | 'invalidCredentials'
-  | 'locked'
-  | 'throttled'
-  | 'network'
-  | 'serverUnavailable'
-  | 'resetComplete';
+  'invalidCredentials' | 'locked' | 'throttled' | 'network' | 'serverUnavailable' | 'resetComplete';
 
 const RESULT_CONFIG = {
   invalidCredentials: {

@@ -37,11 +37,7 @@ export type LifestyleColumns = {
 };
 
 export type StoredLifestyleBedtime =
-  | 'BEFORE_22'
-  | 'BETWEEN_22_24'
-  | 'BETWEEN_24_02'
-  | 'AFTER_02'
-  | null;
+  'BEFORE_22' | 'BETWEEN_22_24' | 'BETWEEN_24_02' | 'AFTER_02' | null;
 export type StoredLifestyleWakeTime =
   | 'BEFORE_07'
   | 'BETWEEN_07_08'

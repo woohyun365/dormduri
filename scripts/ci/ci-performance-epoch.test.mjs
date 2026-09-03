@@ -64,6 +64,12 @@ const closedApiPersistenceSupportedLinesEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedApiObservabilityClientEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -74,9 +80,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'api-observability-client-2026-09-03',
+    epochId: 'repository-prettier-3-9-2026-09-03',
     fileSha256: epoch.fileSha256,
-    sourceSha: '6f053e45dddea88bff0238666ffd3636519aa38e',
+    sourceSha: '0c7028293cc89be1bc34bc2ac5998ef27c702063',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -194,6 +200,21 @@ test('closes the API persistence epoch before collecting the observability clien
   assert.equal(closedEpoch.baseSha, '94e6608c6072c5e6b8011083e98e12948d1d5961');
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': '28e82ae4e99e4666636d05044cca2ff168a217866646945f3ac76aa7b888f02e',
+    'pnpm-workspace.yaml': 'c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the API observability client epoch before collecting the Prettier 3.9 cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedApiObservabilityClientEpochFixture);
+
+  assert.equal(closedEpoch.id, 'api-observability-client-2026-09-03');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '6f053e45dddea88bff0238666ffd3636519aa38e');
+  assert.equal(closedEpoch.versions.prometheusClient, '0.16.1');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'df2ec044d3f32d49971cff196c9fb6263bdefd3a1d6d4ba487b706c3d98c05df',
     'pnpm-workspace.yaml': 'c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',

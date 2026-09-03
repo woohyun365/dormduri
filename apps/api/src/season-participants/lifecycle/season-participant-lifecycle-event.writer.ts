@@ -26,9 +26,7 @@ function toLifecycleSnapshot(
 
 function buildTransitionMetadata(input: {
   transitionOwner:
-    | 'backfill.current-season-participants'
-    | 'registration.finalize'
-    | 'deregistration.command';
+    'backfill.current-season-participants' | 'registration.finalize' | 'deregistration.command';
   previous: SeasonParticipantLifecycleSnapshot;
   next: SeasonParticipantLifecycleSnapshot;
   canceledPendingMatchRequests?: number;

@@ -1,10 +1,5 @@
 export type SesEmailErrorCategory =
-  | 'CONFIG_INVALID'
-  | 'ACCESS_DENIED'
-  | 'MESSAGE_REJECTED'
-  | 'THROTTLED'
-  | 'TRANSIENT'
-  | 'UNKNOWN';
+  'CONFIG_INVALID' | 'ACCESS_DENIED' | 'MESSAGE_REJECTED' | 'THROTTLED' | 'TRANSIENT' | 'UNKNOWN';
 
 export class SesEmailSenderError extends Error {
   readonly providerErrorCategory: SesEmailErrorCategory;

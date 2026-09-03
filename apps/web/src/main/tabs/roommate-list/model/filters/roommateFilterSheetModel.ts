@@ -31,11 +31,7 @@ import {
 export type RoommateFilterDraft = RoommateSearchFilterCriteria;
 
 export type RoommateFilterFieldKind =
-  | 'single'
-  | 'operator-values'
-  | 'mbti-traits'
-  | 'multi-values'
-  | 'score-preset';
+  'single' | 'operator-values' | 'mbti-traits' | 'multi-values' | 'score-preset';
 
 export interface RoommateFilterOptionViewModel {
   readonly code: string;

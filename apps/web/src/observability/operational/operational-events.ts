@@ -75,9 +75,7 @@ export type WebVitalMeasuredEvent = OperationalEventEnvelope &
   }>;
 
 export type OperationalEvent =
-  | WebRuntimeErrorEvent
-  | WebBffRequestCompletedEvent
-  | WebVitalMeasuredEvent;
+  WebRuntimeErrorEvent | WebBffRequestCompletedEvent | WebVitalMeasuredEvent;
 
 export const OPERATIONAL_EVENT_NAMES = [
   'web_runtime_error',

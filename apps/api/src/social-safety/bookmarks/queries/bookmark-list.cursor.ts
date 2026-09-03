@@ -15,8 +15,7 @@ export interface MatchScoreBookmarkCursorPayload {
 }
 
 export type BookmarkListCursorPayload =
-  | RecentBookmarkCursorPayload
-  | MatchScoreBookmarkCursorPayload;
+  RecentBookmarkCursorPayload | MatchScoreBookmarkCursorPayload;
 
 export function encodeBookmarkListCursor(payload: BookmarkListCursorPayload): string {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');

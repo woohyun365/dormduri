@@ -101,8 +101,7 @@ describe('ChatParticipantWithdrawalService', () => {
     ).resolves.toEqual({ updatedThreadIds: ['thread-1'] });
 
     const firstFindCall = tx.conversationThread.findMany.mock.calls[0]?.[0] as
-      | { where: Record<string, unknown> }
-      | undefined;
+      { where: Record<string, unknown> } | undefined;
     expect(firstFindCall?.where).toMatchObject({
       seasonId: 'season-1',
       threadKind: 'DIRECT',
@@ -123,8 +122,7 @@ describe('ChatParticipantWithdrawalService', () => {
       },
     });
     const outboxCreateCall = tx.chatRealtimeOutboxEvent.create.mock.calls[0]?.[0] as
-      | { data: Record<string, unknown> }
-      | undefined;
+      { data: Record<string, unknown> } | undefined;
     expect(outboxCreateCall?.data).toMatchObject({
       eventType: 'chat.thread.updated',
       threadId: 'thread-1',
@@ -137,8 +135,7 @@ describe('ChatParticipantWithdrawalService', () => {
     });
 
     const recipientCreateCall = tx.chatRealtimeEventRecipient.createMany.mock.calls[0]?.[0] as
-      | { data: Array<Record<string, unknown>> }
-      | undefined;
+      { data: Array<Record<string, unknown>> } | undefined;
     expect(recipientCreateCall?.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ userId: 'user-a', threadId: 'thread-1' }),

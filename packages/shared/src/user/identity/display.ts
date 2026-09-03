@@ -10,12 +10,7 @@ const DIGITS_ONLY_REGEX = /^[0-9]+$/u;
 
 export type DisplayIdentityNicknameScript = 'HANGUL' | 'LATIN';
 export type DisplayIdentityNicknameParseErrorCode =
-  | 'REQUIRED'
-  | 'TOO_SHORT'
-  | 'TOO_LONG'
-  | 'MIXED_SCRIPT'
-  | 'INVALID_CHARACTERS'
-  | 'DIGITS_ONLY';
+  'REQUIRED' | 'TOO_SHORT' | 'TOO_LONG' | 'MIXED_SCRIPT' | 'INVALID_CHARACTERS' | 'DIGITS_ONLY';
 
 export type ParsedDisplayIdentityNickname =
   | {

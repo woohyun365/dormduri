@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "epoch": {
+    "id": "api-observability-client-2026-09-03",
+    "state": "closed",
+    "capturedAt": "2026-09-03T04:21:16Z",
+    "baseSha": "6f053e45dddea88bff0238666ffd3636519aa38e",
+    "fileSha256": {
+      "pnpm-lock.yaml": "df2ec044d3f32d49971cff196c9fb6263bdefd3a1d6d4ba487b706c3d98c05df",
+      "pnpm-workspace.yaml": "c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e",
+      "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
+    },
+    "versions": {
+      "node": "24.19.0",
+      "pnpm": "11.24.0",
+      "postgresql": "18.6",
+      "nginx": "1.31.4-alpine",
+      "prometheus": "3.14.0",
+      "alloy": "1.19.0",
+      "aws-sdk": "3.1121.0",
+      "argon2": "2.2.0",
+      "dotenv": "17.4.2",
+      "helmet": "8.3.0",
+      "joi": "18.2.5",
+      "prisma": "7.10.0",
+      "pg": "8.23.0",
+      "prometheusClient": "0.16.1"
+    },
+    "knownGaps": [
+      "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
+      "The API observability client migration opened a new cohort after replacing deprecated prom-client 15.1.3 with @prometheus-io/client 0.16.1; earlier samples remain in closed dependency epochs."
+    ]
+  }
+}

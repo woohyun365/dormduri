@@ -46,14 +46,14 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------- |
-| Epoch                  | `api-observability-client-2026-09-03` / `collecting`                            |
-| Base                   | `6f053e45dddea88bff0238666ffd3636519aa38e`                                      |
-| Dependency fingerprint | lock `df2ec044...`, workspace `c2d3606d...`, image inventory `5e31ed06...`      |
-| Package manager        | pnpm 11.24.0                                                                    |
-| Compatible samples     | none yet; natural PR samples start after the API observability client migration |
-| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                   |
+| Boundary               | Current value                                                               |
+| ---------------------- | --------------------------------------------------------------------------- |
+| Epoch                  | `repository-prettier-3-9-2026-09-03` / `collecting`                         |
+| Base                   | `0c7028293cc89be1bc34bc2ac5998ef27c702063`                                  |
+| Dependency fingerprint | lock `fb395870...`, workspace `4af09d31...`, image inventory `5e31ed06...`  |
+| Package manager        | pnpm 11.24.0 / Prettier 3.9.6                                               |
+| Compatible samples     | none yet; natural PR samples start after the repository formatter migration |
+| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds               |
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -63,8 +63,9 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json`. Their compatible samples remain valid
-only inside each frozen dependency fingerprint; they are not relabeled as samples of the current observability-client epoch.
+`scripts/ci/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`. Their compatible samples remain valid only
+inside each frozen dependency fingerprint; they are not relabeled as samples of the current repository-formatter epoch.
 
 Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
 

@@ -6,8 +6,7 @@ import {
 export class HomeOperationsFetchError extends Error {
   constructor(
     public readonly code:
-      | 'HOME_OPERATIONS_UPSTREAM_UNAVAILABLE'
-      | 'HOME_OPERATIONS_UPSTREAM_INVALID',
+      'HOME_OPERATIONS_UPSTREAM_UNAVAILABLE' | 'HOME_OPERATIONS_UPSTREAM_INVALID',
     message: string,
     public readonly status?: number,
   ) {

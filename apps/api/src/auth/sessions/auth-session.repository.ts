@@ -53,8 +53,7 @@ export type RenewalSessionRecord = Prisma.AuthSessionGetPayload<{
 }>;
 
 type AuthSessionClient =
-  | Pick<PrismaService, 'authSession'>
-  | Pick<Prisma.TransactionClient, 'authSession'>;
+  Pick<PrismaService, 'authSession'> | Pick<Prisma.TransactionClient, 'authSession'>;
 
 export type AuthSessionCreateClient = Pick<Prisma.TransactionClient, 'authSession'>;
 

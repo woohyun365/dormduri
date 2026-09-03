@@ -7,8 +7,7 @@ import { LEGAL_FALLBACK_DOCUMENTS } from '../content/legal-fallback-documents';
 export class LegalDocumentsBundleFetchError extends Error {
   constructor(
     public readonly code:
-      | 'LEGAL_DOCUMENT_BUNDLE_UPSTREAM_UNAVAILABLE'
-      | 'LEGAL_DOCUMENT_BUNDLE_UPSTREAM_INVALID',
+      'LEGAL_DOCUMENT_BUNDLE_UPSTREAM_UNAVAILABLE' | 'LEGAL_DOCUMENT_BUNDLE_UPSTREAM_INVALID',
     message: string,
   ) {
     super(message);

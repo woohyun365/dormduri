@@ -1,9 +1,5 @@
 export type SignupStepId =
-  | 'EMAIL_VERIFICATION'
-  | 'LEGAL_CONSENT'
-  | 'ACCOUNT_CREDENTIALS'
-  | 'ACADEMIC_IDENTITY'
-  | 'COMPLETE';
+  'EMAIL_VERIFICATION' | 'LEGAL_CONSENT' | 'ACCOUNT_CREDENTIALS' | 'ACADEMIC_IDENTITY' | 'COMPLETE';
 
 export interface SignupStepDefinition {
   readonly id: SignupStepId;

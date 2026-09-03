@@ -18,8 +18,7 @@ import {
 import { buildStressFixturePlan, buildStressFixtureSafeSummary } from './stress-fixture.plan.js';
 
 export type StressFixtureSeedSummary =
-  | StressFixtureSeedDryRunSummary
-  | StressFixtureMaterializationSummary;
+  StressFixtureSeedDryRunSummary | StressFixtureMaterializationSummary;
 
 export interface StressFixtureSeedDryRunSummary {
   readonly mode: 'dry-run';
