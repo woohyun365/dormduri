@@ -91,8 +91,8 @@
     "env:manifest:check": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/manifest/deployment-env-manifest.cli.ts --check"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.1121.0",
-    "@aws-sdk/client-sesv2": "^3.1121.0",
+    "@aws-sdk/client-secrets-manager": "^3.1123.0",
+    "@aws-sdk/client-sesv2": "^3.1123.0",
     "@nestjs/common": "^11.1.26",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.26",
