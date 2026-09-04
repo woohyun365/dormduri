@@ -70,6 +70,12 @@ const closedApiObservabilityClientEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedRepositoryPrettierEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -80,9 +86,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'repository-prettier-3-9-2026-09-03',
+    epochId: 'api-aws-sdk-supported-lines-2026-09-04',
     fileSha256: epoch.fileSha256,
-    sourceSha: '0c7028293cc89be1bc34bc2ac5998ef27c702063',
+    sourceSha: 'aab051bb561815e875f057f0bf60409ba2f9651a',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -216,6 +222,22 @@ test('closes the API observability client epoch before collecting the Prettier 3
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': 'df2ec044d3f32d49971cff196c9fb6263bdefd3a1d6d4ba487b706c3d98c05df',
     'pnpm-workspace.yaml': 'c2d3606d407f799de510138c05e37faa372e3a815f5ef0dfc43b96aa8610383e',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the Prettier 3.9 epoch before collecting the AWS SDK supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedRepositoryPrettierEpochFixture);
+
+  assert.equal(closedEpoch.id, 'repository-prettier-3-9-2026-09-03');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '0c7028293cc89be1bc34bc2ac5998ef27c702063');
+  assert.equal(closedEpoch.versions.prettier, '3.9.6');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1121.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'fb395870f9a0811eb994b65fd2a32309de088d488d8eeb08d7e17d9faf5a64b7',
+    'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
   });
