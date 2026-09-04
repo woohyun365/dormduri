@@ -68,6 +68,17 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`. Their compatible samples remain valid only
 inside each frozen dependency fingerprint; they are not relabeled as samples of the current AWS SDK supported-line epoch.
 
+### Repository-policy setup reliability incident
+
+Main run `33859791472` is reliability evidence, not a successful performance sample. Shared, API, Web, and Infrastructure content
+lanes passed, but `Repository policy gate` was cancelled three times before policy execution because pnpm setup consumed its former
+five-minute whole-job budget. In the same run, sibling jobs completed the identical setup after as much as about seven minutes.
+
+Cancelled attempts remain visible as retry/wasted compute and are excluded from successful wall-time and percentile cohorts. The
+current dependency epoch does not rotate for the timeout correction because dependency inputs, action pin, package-manager version,
+cache inputs, and the successful command graph remain unchanged. Diagnosis and recovery are owned by
+[Repository policy pnpm setup timeout](../troubleshooting/ci/repository-policy-pnpm-setup-timeout.md).
+
 Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
 
 - `transition-nginx-pr378.json`
