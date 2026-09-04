@@ -5,6 +5,7 @@
 
 | 영역     | 문서                                                                                                               | 책임                                                                 |
 | -------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| CI       | [Repository policy pnpm setup timeout](./ci/repository-policy-pnpm-setup-timeout.md)                               | pnpm bootstrap 지연과 실제 repository-policy 실패의 구분·복구        |
 | Database | [Prisma 7 seed와 generated client 경계](./database/prisma-7-seed-config-and-generated-client.md)                   | Prisma CLI seed 설정과 custom generated client 환경의 독립 실행 기준 |
 | Database | [OrbStack PostgreSQL sleep 이후 clock drift](./database/orbstack-postgresql-clock-drift-after-sleep.md)            | host·VM·DB clock owner 판별과 time-sensitive DB suite 복구           |
 | Frontend | [이메일 인증 요청 identity와 stale response](./frontend/email-verification-request-identity-and-stale-response.md) | 입력 이메일과 실제 요청 subject를 분리하고 늦은 응답을 무시하는 기준 |

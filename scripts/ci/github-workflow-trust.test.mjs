@@ -49,6 +49,10 @@ function usesLiteralRepositoryTemporaryPath(source) {
   return /\/tmp\/knu-[^\s'"`]+/u.test(source);
 }
 
+function jobLevelFieldCount(source, field) {
+  return [...source.matchAll(new RegExp(`^ {4}${field}:`, 'gmu'))].length;
+}
+
 test('external GitHub Actions stay pinned to immutable full commit SHAs', () => {
   for (const fileName of workflowFiles) {
     const references = externalActionReferences(readWorkflow(fileName));
@@ -65,8 +69,8 @@ test('workflows retain explicit read-only permissions and bounded job timeouts',
     assert.match(source, /^permissions:\n\s+contents:\s+read\s*$/mu, fileName);
     assert.doesNotMatch(source, /^\s+[a-z-]+:\s+write\s*$/gmu, fileName);
     assert.equal(
-      [...source.matchAll(/^\s+runs-on:/gmu)].length,
-      [...source.matchAll(/^\s+timeout-minutes:/gmu)].length,
+      jobLevelFieldCount(source, 'runs-on'),
+      jobLevelFieldCount(source, 'timeout-minutes'),
       `${fileName} must bound every runner job`,
     );
   }
