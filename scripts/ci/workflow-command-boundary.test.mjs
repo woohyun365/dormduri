@@ -28,6 +28,18 @@ function occurrences(source, value) {
   return source.split(value).length - 1;
 }
 
+function workflowJob(source, jobId) {
+  const marker = `  ${jobId}:\n`;
+  const start = source.indexOf(marker);
+  assert.notEqual(start, -1, `missing workflow job: ${jobId}`);
+
+  const jobAndFollowing = source.slice(start);
+  const nextJobOffset = jobAndFollowing.slice(marker.length).search(/\n  [a-z][a-z0-9_-]*:\n/u);
+  return nextJobOffset === -1
+    ? jobAndFollowing
+    : jobAndFollowing.slice(0, marker.length + nextJobOffset);
+}
+
 const rootScripts = readPackage('package.json');
 const apiScripts = readPackage('apps/api/package.json');
 const webScripts = readPackage('apps/web/package.json');
@@ -183,6 +195,22 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
   assert.ok(!apiWorkflow.includes('pull_request:'));
   assert.ok(!webWorkflow.includes('pull_request:'));
   assert.ok(!infraWorkflow.includes('pull_request:'));
+});
+
+test('the repository policy gate gives pnpm setup bounded headroom before policy execution', () => {
+  const repositoryPolicyJob = workflowJob(read('.github/workflows/ci.yml'), 'repo_policy');
+
+  assert.match(repositoryPolicyJob, /^    timeout-minutes: 15$/mu);
+  assert.match(
+    repositoryPolicyJob,
+    /- name: Setup pnpm\n\s+timeout-minutes: 10\n\s+uses: pnpm\/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86/u,
+  );
+  assert.equal(occurrences(repositoryPolicyJob, 'timeout-minutes:'), 2);
+  assertIncludesAll(repositoryPolicyJob, [
+    'pnpm install --frozen-lockfile',
+    'node scripts/ci/run-repo-policy.mjs',
+    'pnpm exec prettier . -c',
+  ]);
 });
 
 test('infrastructure CI separates static and container-backed validation', () => {
