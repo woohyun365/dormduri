@@ -46,14 +46,14 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                              |
-| ---------------------- | -------------------------------------------------------------------------- |
-| Epoch                  | `api-aws-sdk-supported-lines-2026-09-04` / `collecting`                    |
-| Base                   | `aab051bb561815e875f057f0bf60409ba2f9651a`                                 |
-| Dependency fingerprint | lock `19bf007e...`, workspace `4af09d31...`, image inventory `5e31ed06...` |
-| Package manager        | pnpm 11.24.0 / AWS SDK clients 3.1123.0                                    |
-| Compatible samples     | none yet; natural PR samples start after the aligned AWS client migration  |
-| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds              |
+| Boundary               | Current value                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| Epoch                  | `api-supertest-types-supported-line-2026-09-05` / `collecting`                   |
+| Base                   | `cc756c3c2f2b59876704315ac32b8fcb2a1ec654`                                       |
+| Dependency fingerprint | lock `ab5a483e...`, workspace `4af09d31...`, image inventory `5e31ed06...`       |
+| Package manager        | pnpm 11.24.0 / `@types/supertest` 7.2.1 / runtime `supertest` 7.2.2 unchanged    |
+| Compatible samples     | none yet; natural PR samples start after the API test declaration-only migration |
+| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                    |
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -64,9 +64,10 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`. Their compatible samples remain valid only
-inside each frozen dependency fingerprint; they are not relabeled as samples of the current AWS SDK supported-line epoch.
+`scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`,
+`scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json`. Their compatible samples remain valid only
+inside each frozen dependency fingerprint; they are not relabeled as samples of the current API test-tooling epoch.
 
 ### Repository-policy setup reliability incident
 
