@@ -76,6 +76,12 @@ const closedRepositoryPrettierEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedApiAwsSdkSupportedLinesEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -86,9 +92,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'api-aws-sdk-supported-lines-2026-09-04',
+    epochId: 'api-supertest-types-supported-line-2026-09-05',
     fileSha256: epoch.fileSha256,
-    sourceSha: 'aab051bb561815e875f057f0bf60409ba2f9651a',
+    sourceSha: 'cc756c3c2f2b59876704315ac32b8fcb2a1ec654',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -237,6 +243,21 @@ test('closes the Prettier 3.9 epoch before collecting the AWS SDK supported-line
   assert.equal(closedEpoch.versions['aws-sdk'], '3.1121.0');
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': 'fb395870f9a0811eb994b65fd2a32309de088d488d8eeb08d7e17d9faf5a64b7',
+    'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the AWS SDK epoch before collecting the API test-tooling cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedApiAwsSdkSupportedLinesEpochFixture);
+
+  assert.equal(closedEpoch.id, 'api-aws-sdk-supported-lines-2026-09-04');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'aab051bb561815e875f057f0bf60409ba2f9651a');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1123.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '19bf007ed6ffaa1275fd8c9f54c128d65c2b72a62d52b2fae0448e8ee5ce4eb5',
     'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
