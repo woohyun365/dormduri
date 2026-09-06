@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "api-supertest-types-supported-line-2026-09-05",
+    "id": "shared-zod-supported-line-2026-09-06",
     "state": "collecting",
-    "capturedAt": "2026-09-05T02:20:41Z",
-    "baseSha": "cc756c3c2f2b59876704315ac32b8fcb2a1ec654",
+    "capturedAt": "2026-09-06T14:15:08Z",
+    "baseSha": "9b7e5379f082f1f51270fd85ba42c146d9947e18",
     "fileSha256": {
-      "pnpm-lock.yaml": "ab5a483e1d261941ce52f465ba419e942dff5d52ee61f28ad07c90503c20d8af",
+      "pnpm-lock.yaml": "e133e8f75b4576bbff5164a256e7c733b1855ad2756b8004880c7425b4309213",
       "pnpm-workspace.yaml": "4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be",
       "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
     },
@@ -26,11 +26,12 @@
       "pg": "8.23.0",
       "prometheusClient": "0.16.1",
       "prettier": "3.9.6",
-      "supertestTypes": "7.2.1"
+      "supertestTypes": "7.2.1",
+      "zod": "4.5.4"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The @types/supertest 7.2.1 declaration-only migration opened a new API test-tooling cohort; the runtime supertest package remains at 7.2.2."
+      "The Shared contract runtime moved from Zod 4.4.3 to 4.5.4 with byte-identical representative parse/error snapshots; the lint-only eslint-plugin-react-hooks resolution remains on its independent transitive 4.4.3 copy."
     ]
   }
 }
