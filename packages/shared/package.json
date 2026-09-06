@@ -228,7 +228,7 @@
     "typecheck:test": "tsc -p test/tsconfig.json --noEmit"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "catalog:",
