@@ -84,7 +84,6 @@
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
     "overrideSelectors": [
-      "@nestjs/platform-express>multer",
       "engine.io>ws",
       "eslint-config-next>eslint-plugin-react-hooks",
       "postcss",

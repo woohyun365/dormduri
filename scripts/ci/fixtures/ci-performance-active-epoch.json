@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "external-runtime-image-patch-2026-09-07",
+    "id": "backend-nestjs11-supported-line-2026-09-07",
     "state": "collecting",
-    "capturedAt": "2026-09-07T10:23:15Z",
-    "baseSha": "3c084701447eeb6f626d71b4f7b32fb9961a4cea",
+    "capturedAt": "2026-09-07T11:49:11.869Z",
+    "baseSha": "fcd835cec1936d5f0b0502944fb9f90053c07b66",
     "fileSha256": {
-      "pnpm-lock.yaml": "06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b",
-      "pnpm-workspace.yaml": "4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889",
+      "pnpm-lock.yaml": "0c026b1fdb4a51556c8037220b2d0102d6f88fe008b0a9cc8f6659d28dd45b0b",
+      "pnpm-workspace.yaml": "f0ae4f69a844a7e340af66e6c4b6a7add73e89124ef31b6e3fe93d64b1416957",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
     "versions": {
@@ -32,11 +32,15 @@
       "supertestTypes": "7.2.1",
       "zod": "4.5.4",
       "loki": "3.7.7",
-      "grafana": "13.2.1"
+      "grafana": "13.2.1",
+      "nestjsRuntime": "11.2.3",
+      "nestjsCli": "11.0.24",
+      "express": "5.2.1",
+      "multer": "2.2.0"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The external runtime image epoch changes immutable Nginx, Loki, Alloy, and Grafana inputs; performance samples from the previous dependency-security epoch remain closed and are not mixed with this cohort."
+      "The NestJS 11 supported-line epoch changes API framework, Express adapter, and parent-owned Multer inputs; samples from the external runtime image epoch remain closed and are not mixed with this cohort."
     ]
   }
 }

@@ -123,6 +123,9 @@ test('retained security overrides and resolved lock entries keep the known vulne
     assert.doesNotMatch(workspace, new RegExp(escapeRegExp(removedSelector), 'u'));
   }
 
+  assert.match(lockfile, /'@nestjs\/platform-express@11\.2\.3/u);
+  assert.match(lockfile, /\n      multer: 2\.2\.0\n/u);
+
   for (const vulnerable of [
     '@humanfs/node@0.16.7',
     'body-parser@2.2.2',

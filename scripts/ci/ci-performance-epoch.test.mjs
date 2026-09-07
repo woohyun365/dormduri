@@ -104,9 +104,21 @@ const closedDependencySecurityEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedExternalRuntimeImageEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
+  assert.equal(epoch.versions.nestjsRuntime, '11.2.3');
+  assert.equal(epoch.versions.nestjsCli, '11.0.24');
+  assert.equal(epoch.versions.express, '5.2.1');
+  assert.equal(epoch.versions.multer, '2.2.0');
   const fingerprint = buildDependencyFingerprint({
     epoch,
     readText: (path) => readFileSync(resolve(path), 'utf8'),
@@ -114,9 +126,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'external-runtime-image-patch-2026-09-07',
+    epochId: 'backend-nestjs11-supported-line-2026-09-07',
     fileSha256: epoch.fileSha256,
-    sourceSha: '3c084701447eeb6f626d71b4f7b32fb9961a4cea',
+    sourceSha: 'fcd835cec1936d5f0b0502944fb9f90053c07b66',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -328,6 +340,22 @@ test('closes the dependency security epoch before collecting the external image 
     'pnpm-workspace.yaml': '4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the external image epoch before collecting the NestJS 11 supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedExternalRuntimeImageEpochFixture);
+
+  assert.equal(closedEpoch.id, 'external-runtime-image-patch-2026-09-07');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '3c084701447eeb6f626d71b4f7b32fb9961a4cea');
+  assert.equal(closedEpoch.versions.nginx, '1.31.5-alpine');
+  assert.equal(closedEpoch.versions.grafana, '13.2.1');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b',
+    'pnpm-workspace.yaml': '4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 
