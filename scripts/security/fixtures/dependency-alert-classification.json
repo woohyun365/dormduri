@@ -115,8 +115,8 @@
       "parent": "@nestjs/platform-express",
       "classification": "shipped-not-called",
       "action": "runtime-remediation",
-      "mitigation": "A parent-scoped override keeps Multer 2.2.0 above the vulnerable Nest 11 exact dependency without changing the unused upload surface.",
-      "revisit": "Remove or update the selector when @nestjs/platform-express declares Multer 2.2.0 or newer, or during the bounded Nest runtime migration."
+      "mitigation": "The supported NestJS 11 parent @nestjs/platform-express declares Multer 2.2.0 directly, so the safe runtime line resolves naturally without a root override and the unused upload surface remains unchanged.",
+      "revisit": "Recheck parent ownership and upload behavior whenever @nestjs/platform-express changes its Multer dependency or the application adopts a direct upload caller."
     },
     {
       "name": "mysql2",
