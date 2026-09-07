@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-28",
+  "updatedAt": "2026-09-07",
   "policy": "Release candidates use a readable exact version and an immutable digest. Internal API/Web artifacts use the source commit as their tag and record their built digest in the artifact manifest.",
   "applicationVersions": {
     "node": "24.19.0",
     "nestjs": "11.1.26",
-    "prisma": "7.9.1",
-    "prismaAdapterPg": "7.9.1",
-    "pg": "8.20.0",
+    "prisma": "7.10.0",
+    "prismaAdapterPg": "7.10.0",
+    "pg": "8.23.0",
     "postgresql": "18.6"
   },
   "images": [
@@ -32,7 +32,7 @@
     {
       "name": "api-ingress",
       "ownerPath": "infra/deploy/compose.api.yml",
-      "reference": "nginx:1.31.4-alpine@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913",
+      "reference": "nginx:1.31.5-alpine@sha256:72ba65eb42c10344912a84ff42408db7d34f2feb642204570ab8fc5ffd29f1d3",
       "updateOwner": "dependabot-compose"
     },
     {
@@ -44,13 +44,13 @@
     {
       "name": "loki",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/loki:3.7.6@sha256:efd47c67f9bac88ca29bcf8cb997d9ab29d1848bd0aff579282295542a745952",
+      "reference": "grafana/loki:3.7.7@sha256:d70e4659623f3e109af669cae76fe2a5dd5be54e2298fe8aed380d982fbc2500",
       "updateOwner": "dependabot-compose"
     },
     {
       "name": "alloy",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/alloy:v1.19.0@sha256:c958aef7294bc40c67caadb2bcecc93b95ab7961ff8afae3abee170d77426193",
+      "reference": "grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839",
       "updateOwner": "dependabot-compose"
     },
     {
@@ -62,7 +62,7 @@
     {
       "name": "grafana",
       "ownerPath": "infra/observability/compose.base.yml",
-      "reference": "grafana/grafana:13.2.0@sha256:3fd54ae1214669f8355f065ec9f6445d5279a3d77095ab048ca045685272429b",
+      "reference": "grafana/grafana:13.2.1@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283",
       "updateOwner": "dependabot-compose"
     },
     {

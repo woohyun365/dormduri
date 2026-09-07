@@ -153,6 +153,27 @@ test('developer and agent workflow entry points stay connected without duplicati
   assert.match(workflowIndex, /orchestration\.md/u);
 });
 
+test('production-only pnpm deploy inspection stays isolated from the active checkout', () => {
+  const agents = readFileSync(rootAgentsPath, 'utf8');
+  const deployReadme = readFileSync(resolve(repoRoot, 'infra/deploy/README.md'), 'utf8');
+  const apiDockerfile = readFileSync(resolve(repoRoot, 'infra/deploy/api/Dockerfile'), 'utf8');
+  const troubleshooting = readFileSync(
+    resolve(
+      repoRoot,
+      'docs/development/troubleshooting/tooling/pnpm-legacy-deploy-active-checkout.md',
+    ),
+    'utf8',
+  );
+
+  assert.match(agents, /production-only `pnpm deploy`.*active checkout/u);
+  assert.match(agents, /Docker build stage.*disposable copy\/worktree/u);
+  assert.match(apiDockerfile, /pnpm deploy --legacy --filter api --prod \/workspace\/runtime/u);
+  assert.match(deployReadme, /격리된 image build stage/u);
+  assert.match(deployReadme, /active developer checkout/u);
+  assert.match(troubleshooting, /CI=true pnpm install --frozen-lockfile/u);
+  assert.match(troubleshooting, /git status --short/u);
+});
+
 test('agentic decisions and orchestration keep bounded single-first routing', () => {
   const decisions = readFileSync(
     resolve(repoRoot, 'docs/development/agent-workflows/agentic-architecture-decisions.md'),

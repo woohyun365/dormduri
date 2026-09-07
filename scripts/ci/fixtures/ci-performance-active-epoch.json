@@ -1,22 +1,22 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "dependency-security-five-alert-2026-09-07",
+    "id": "external-runtime-image-patch-2026-09-07",
     "state": "collecting",
-    "capturedAt": "2026-09-07T05:33:20Z",
-    "baseSha": "56233cb4693013328f8288db95b43730320b1586",
+    "capturedAt": "2026-09-07T10:23:15Z",
+    "baseSha": "3c084701447eeb6f626d71b4f7b32fb9961a4cea",
     "fileSha256": {
       "pnpm-lock.yaml": "06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b",
       "pnpm-workspace.yaml": "4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889",
-      "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
+      "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
     "versions": {
       "node": "24.19.0",
       "pnpm": "11.24.0",
       "postgresql": "18.6",
-      "nginx": "1.31.4-alpine",
+      "nginx": "1.31.5-alpine",
       "prometheus": "3.14.0",
-      "alloy": "1.19.0",
+      "alloy": "1.19.2",
       "aws-sdk": "3.1123.0",
       "argon2": "2.2.0",
       "dotenv": "17.4.2",
@@ -30,11 +30,13 @@
       "prettier": "3.9.6",
       "qs": "6.16.0",
       "supertestTypes": "7.2.1",
-      "zod": "4.5.4"
+      "zod": "4.5.4",
+      "loki": "3.7.7",
+      "grafana": "13.2.1"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The five-alert remediation resolves qs 6.16.0 and @humanfs/node 0.16.8 naturally, while Prisma retains one parent-scoped mysql2 3.23.1 selector until upstream owns the safe floor."
+      "The external runtime image epoch changes immutable Nginx, Loki, Alloy, and Grafana inputs; performance samples from the previous dependency-security epoch remain closed and are not mixed with this cohort."
     ]
   }
 }

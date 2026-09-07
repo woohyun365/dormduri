@@ -69,6 +69,8 @@
 - API/contract/persistence 변경은 owner와 transaction boundary를 함께 확인한다.
 - framework나 SDK의 version-sensitive 동작은 현재 lockfile과 공식 문서를 기준으로 검증한다.
 - generated file과 migration을 수동 편집하기 전 canonical generator/owner를 확인한다.
+- production-only `pnpm deploy` 검증은 active checkout에서 실행하지 않고 Docker build stage 또는 disposable copy/worktree를
+  사용한다. 오실행 복구는 `docs/development/troubleshooting/tooling/pnpm-legacy-deploy-active-checkout.md`를 따른다.
 - 사용자 소유 untracked file과 현재 요청 밖의 working-tree 변경을 수정·삭제·revert하지 않는다.
 - 장기 추적 문서와 owner README는 현재 책임·불변 조건·동작을 설명하며, active plan 파일명·Phase 번호·임시 checkpoint를
   근거로 사용하지 않는다. 이러한 lifecycle 표현은 plan, session checkpoint, 명시적인 migration evidence에만 둔다.

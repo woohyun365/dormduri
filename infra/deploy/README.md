@@ -94,6 +94,12 @@ Web image는 공개 가능한 `NEXT_PUBLIC_*`만 build arg로 고정한다. Serv
 
 ## Candidate 검증
 
+API Dockerfile의 `pnpm deploy --legacy --filter api --prod /workspace/runtime`은 dependency를 production runtime tree로
+materialize하는 **격리된 image build stage** 전용 명령이다. 같은 검증을 active developer checkout에서 직접 실행하면
+workspace의 development module state가 production-only 상태로 reconcile될 수 있으므로 Docker build 또는 disposable
+copy/worktree를 사용한다. 오실행 시 복구 절차는
+[`pnpm legacy deploy active checkout`](../../docs/development/troubleshooting/tooling/pnpm-legacy-deploy-active-checkout.md)을 따른다.
+
 ```bash
 pnpm infra:compose -- api-base config
 pnpm infra:compose -- api-base build api

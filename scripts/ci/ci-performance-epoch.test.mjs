@@ -96,6 +96,14 @@ const closedSharedZodSupportedLineEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedDependencySecurityEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -106,9 +114,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'dependency-security-five-alert-2026-09-07',
+    epochId: 'external-runtime-image-patch-2026-09-07',
     fileSha256: epoch.fileSha256,
-    sourceSha: '56233cb4693013328f8288db95b43730320b1586',
+    sourceSha: '3c084701447eeb6f626d71b4f7b32fb9961a4cea',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -303,6 +311,21 @@ test('closes the Shared Zod epoch before collecting the dependency security coho
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': 'e133e8f75b4576bbff5164a256e7c733b1855ad2756b8004880c7425b4309213',
     'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the dependency security epoch before collecting the external image cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedDependencySecurityEpochFixture);
+
+  assert.equal(closedEpoch.id, 'dependency-security-five-alert-2026-09-07');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '56233cb4693013328f8288db95b43730320b1586');
+  assert.equal(closedEpoch.versions.mysql2, '3.23.1');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b',
+    'pnpm-workspace.yaml': '4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
   });
