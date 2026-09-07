@@ -22,6 +22,7 @@ overrides:
   '@nestjs/platform-express>multer': 2.2.0
   'engine.io>ws': 8.21.3
   postcss: 8.5.26
+  'prisma>mysql2': 3.23.1
   'socket.io-adapter>ws': 8.21.3
 
 catalog:

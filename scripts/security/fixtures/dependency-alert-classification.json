@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-09-02",
+  "reviewedAt": "2026-09-07",
   "defaultBranch": "main",
   "packages": [
     {
@@ -16,6 +16,15 @@
       "parent": "prisma > @prisma/dev",
       "classification": "shipped-not-called",
       "action": "artifact-remediation"
+    },
+    {
+      "name": "@humanfs/node",
+      "owner": "lint-tooling",
+      "parent": "eslint",
+      "classification": "cli-only",
+      "action": "toolchain-remediation",
+      "mitigation": "The package is absent from the production API artifact and is executed only by the repository lint toolchain.",
+      "revisit": "Recheck the classification when ESLint changes its filesystem implementation or the production artifact boundary changes."
     },
     {
       "name": "body-parser",
@@ -110,6 +119,15 @@
       "revisit": "Remove or update the selector when @nestjs/platform-express declares Multer 2.2.0 or newer, or during the bounded Nest runtime migration."
     },
     {
+      "name": "mysql2",
+      "owner": "prisma-toolchain",
+      "parent": "prisma",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation",
+      "mitigation": "The driver remains in the shipped Prisma CLI graph, while application database calls use PostgreSQL through pg and @prisma/adapter-pg.",
+      "revisit": "Remove the parent-scoped selector when Prisma declares mysql2 3.23.1 or newer, or when a verified production deploy excludes the Prisma CLI graph."
+    },
+    {
       "name": "nanoid",
       "owner": "web-build",
       "parent": "PostCSS via Tailwind/Next/Vite",
@@ -137,7 +155,9 @@
       "owner": "api-http",
       "parent": "express/body-parser",
       "classification": "shipped-reachable",
-      "action": "runtime-remediation"
+      "action": "runtime-remediation",
+      "mitigation": "The compatible patched release is resolved through the existing Express and body-parser ranges without changing the public HTTP contract.",
+      "revisit": "Recheck legitimate query and form parsing behavior whenever the Express HTTP adapter or parser configuration changes."
     },
     {
       "name": "socket.io-parser",

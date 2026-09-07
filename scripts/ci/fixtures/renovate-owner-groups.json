@@ -88,6 +88,7 @@
       "engine.io>ws",
       "eslint-config-next>eslint-plugin-react-hooks",
       "postcss",
+      "prisma>mysql2",
       "socket.io-adapter>ws"
     ],
     "lockfile": "pnpm-lock.yaml"
