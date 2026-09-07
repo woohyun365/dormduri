@@ -73,8 +73,9 @@ test('active local, CI and rehearsal surfaces share one PostgreSQL patch and dig
   const references = new Set(postgresImages.map(({ reference }) => reference));
 
   assert.equal(inventory.applicationVersions.postgresql, '18.6');
-  assert.equal(inventory.applicationVersions.prisma, '7.9.1');
-  assert.equal(inventory.applicationVersions.prismaAdapterPg, '7.9.1');
+  assert.equal(inventory.applicationVersions.prisma, '7.10.0');
+  assert.equal(inventory.applicationVersions.prismaAdapterPg, '7.10.0');
+  assert.equal(inventory.applicationVersions.pg, '8.23.0');
   assert.equal(postgresImages.length, 3);
   assert.deepEqual(
     [...references],
