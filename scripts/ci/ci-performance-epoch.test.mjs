@@ -90,6 +90,12 @@ const closedApiSupertestTypesSupportedLineEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedSharedZodSupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json'),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -100,9 +106,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'shared-zod-supported-line-2026-09-06',
+    epochId: 'dependency-security-five-alert-2026-09-07',
     fileSha256: epoch.fileSha256,
-    sourceSha: '9b7e5379f082f1f51270fd85ba42c146d9947e18',
+    sourceSha: '56233cb4693013328f8288db95b43730320b1586',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -281,6 +287,21 @@ test('closes the API test-tooling epoch before collecting the Shared Zod cohort'
   assert.equal(closedEpoch.versions.supertestTypes, '7.2.1');
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': 'ab5a483e1d261941ce52f465ba419e942dff5d52ee61f28ad07c90503c20d8af',
+    'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the Shared Zod epoch before collecting the dependency security cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedSharedZodSupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'shared-zod-supported-line-2026-09-06');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '9b7e5379f082f1f51270fd85ba42c146d9947e18');
+  assert.equal(closedEpoch.versions.zod, '4.5.4');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'e133e8f75b4576bbff5164a256e7c733b1855ad2756b8004880c7425b4309213',
     'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',

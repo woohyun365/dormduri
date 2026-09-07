@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "shared-zod-supported-line-2026-09-06",
+    "id": "dependency-security-five-alert-2026-09-07",
     "state": "collecting",
-    "capturedAt": "2026-09-06T14:15:08Z",
-    "baseSha": "9b7e5379f082f1f51270fd85ba42c146d9947e18",
+    "capturedAt": "2026-09-07T05:33:20Z",
+    "baseSha": "56233cb4693013328f8288db95b43730320b1586",
     "fileSha256": {
-      "pnpm-lock.yaml": "e133e8f75b4576bbff5164a256e7c733b1855ad2756b8004880c7425b4309213",
-      "pnpm-workspace.yaml": "4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be",
+      "pnpm-lock.yaml": "06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b",
+      "pnpm-workspace.yaml": "4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889",
       "infra/image-inventory.json": "5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba"
     },
     "versions": {
@@ -21,17 +21,20 @@
       "argon2": "2.2.0",
       "dotenv": "17.4.2",
       "helmet": "8.3.0",
+      "humanfsNode": "0.16.8",
       "joi": "18.2.5",
+      "mysql2": "3.23.1",
       "prisma": "7.10.0",
       "pg": "8.23.0",
       "prometheusClient": "0.16.1",
       "prettier": "3.9.6",
+      "qs": "6.16.0",
       "supertestTypes": "7.2.1",
       "zod": "4.5.4"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The Shared contract runtime moved from Zod 4.4.3 to 4.5.4 with byte-identical representative parse/error snapshots; the lint-only eslint-plugin-react-hooks resolution remains on its independent transitive 4.4.3 copy."
+      "The five-alert remediation resolves qs 6.16.0 and @humanfs/node 0.16.8 naturally, while Prisma retains one parent-scoped mysql2 3.23.1 selector until upstream owns the safe floor."
     ]
   }
 }
