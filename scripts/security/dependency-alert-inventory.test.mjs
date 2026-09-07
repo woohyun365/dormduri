@@ -95,7 +95,6 @@ test('retained security overrides and resolved lock entries keep the known vulne
   const lockfile = readFileSync(resolve(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
   for (const contract of [
-    "'@nestjs/platform-express>multer': 2.2.0",
     "'engine.io>ws': 8.21.3",
     'postcss: 8.5.26',
     "'prisma>mysql2': 3.23.1",
@@ -105,6 +104,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
   }
 
   for (const removedSelector of [
+    "'@nestjs/platform-express>multer':",
     "'@babel/core':",
     "'brace-expansion@<2.0.0':",
     "'brace-expansion@>=5.0.0 <6.0.0':",
