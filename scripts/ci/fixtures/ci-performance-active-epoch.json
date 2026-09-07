@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "backend-nestjs11-supported-line-2026-09-07",
+    "id": "api-aws-sdk-follow-up-2026-09-07",
     "state": "collecting",
-    "capturedAt": "2026-09-07T11:49:11.869Z",
-    "baseSha": "fcd835cec1936d5f0b0502944fb9f90053c07b66",
+    "capturedAt": "2026-09-07T14:44:54.220Z",
+    "baseSha": "3d8a34d50a6b4a8d5fef560b7167e34529a8ad4d",
     "fileSha256": {
-      "pnpm-lock.yaml": "0c026b1fdb4a51556c8037220b2d0102d6f88fe008b0a9cc8f6659d28dd45b0b",
+      "pnpm-lock.yaml": "1fbc772f645414d4ff322c8dac5c5d22683bd6d9020cfb56f88995740b9b3492",
       "pnpm-workspace.yaml": "f0ae4f69a844a7e340af66e6c4b6a7add73e89124ef31b6e3fe93d64b1416957",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
@@ -17,7 +17,7 @@
       "nginx": "1.31.5-alpine",
       "prometheus": "3.14.0",
       "alloy": "1.19.2",
-      "aws-sdk": "3.1123.0",
+      "aws-sdk": "3.1126.0",
       "argon2": "2.2.0",
       "dotenv": "17.4.2",
       "helmet": "8.3.0",
@@ -40,7 +40,7 @@
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The NestJS 11 supported-line epoch changes API framework, Express adapter, and parent-owned Multer inputs; samples from the external runtime image epoch remain closed and are not mixed with this cohort."
+      "The aligned AWS Secrets Manager and SES v2 follow-up epoch changes only the two client packages from 3.1123.0 to 3.1126.0; samples from the NestJS 11 supported-line epoch remain closed and are not mixed with this cohort."
     ]
   }
 }
