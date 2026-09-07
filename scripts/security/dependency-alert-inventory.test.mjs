@@ -120,10 +120,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'qs:',
     'yaml:',
   ]) {
-    assert.doesNotMatch(
-      workspace,
-      new RegExp(escapeRegExp(removedSelector), 'u'),
-    );
+    assert.doesNotMatch(workspace, new RegExp(escapeRegExp(removedSelector), 'u'));
   }
 
   for (const vulnerable of [
