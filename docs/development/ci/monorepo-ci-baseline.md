@@ -46,14 +46,14 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| Epoch                  | `shared-zod-supported-line-2026-09-06` / `collecting`                          |
-| Base                   | `9b7e5379f082f1f51270fd85ba42c146d9947e18`                                     |
-| Dependency fingerprint | lock `e133e8f7...`, workspace `4af09d31...`, image inventory `5e31ed06...`     |
-| Package manager        | pnpm 11.24.0 / Shared runtime Zod 4.5.4 / lint-only transitive Zod 4.4.3       |
-| Compatible samples     | none yet; natural PR samples start after the Shared contract runtime migration |
-| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                  |
+| Boundary               | Current value                                                              |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Epoch                  | `api-aws-sdk-follow-up-2026-09-07` / `collecting`                          |
+| Base                   | `3d8a34d50a6b4a8d5fef560b7167e34529a8ad4d`                                 |
+| Dependency fingerprint | lock `1fbc772f...`, workspace `f0ae4f69...`, image inventory `f684f83d...` |
+| Package manager        | pnpm 11.24.0 / aligned AWS SDK clients 3.1126.0                            |
+| Compatible samples     | none yet; natural PR samples start after the aligned AWS client follow-up  |
+| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds              |
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -67,8 +67,12 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`,
 `scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json`. Their compatible samples remain
-valid only inside each frozen dependency fingerprint; they are not relabeled as samples of the current Shared Zod epoch.
+`scripts/ci/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json`,
+`scripts/ci/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json`,
+`scripts/ci/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json`,
+`scripts/ci/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json`. Their compatible samples remain valid
+only inside each frozen dependency fingerprint; they are not relabeled as samples of the current AWS SDK follow-up epoch.
 
 ### Repository-policy setup reliability incident
 
