@@ -46,14 +46,14 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------- |
-| Epoch                  | `repository-lint-tooling-current-line-2026-09-08` / `collecting`                       |
-| Base                   | `b2fdab39e323da05e1b05cb7139a7f19bc0ae0a7`                                             |
-| Dependency fingerprint | lock `11823d78...`, workspace `93c922a3...`, image inventory `f684f83d...`             |
-| Package manager        | pnpm 11.24.0 / TypeScript-ESLint 8.69.0 / globals 17.12.0 / Node types 24.13.3 catalog |
-| Compatible samples     | none yet; natural PR samples start after the lint current-line maintenance             |
-| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                          |
+| Boundary               | Current value                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| Epoch                  | `repository-vitest5-cross-surface-test-infrastructure-2026-09-08` / `collecting`                        |
+| Base                   | `26d75464bd2bd6d0f2ebf4f76d60b4087e87fe43`                                                              |
+| Dependency fingerprint | lock `c72291fd...`, workspace `c304b2a0...`, image inventory `f684f83d...`                              |
+| Package manager        | pnpm 11.24.0 / Vitest 5.0.0 / coverage-v8 5.0.0 / TypeScript-ESLint 8.69.0 / Node types 24.13.3 catalog |
+| Compatible samples     | none yet; natural PR samples start after the lint current-line maintenance                              |
+| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                                           |
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -72,8 +72,9 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json`,
 `scripts/ci/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json`. Their compatible samples remain valid only inside
-each frozen dependency fingerprint; they are not relabeled as samples of the current lint current-line epoch.
+`scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json`. Their compatible samples remain valid
+only inside each frozen dependency fingerprint; they are not relabeled as samples of the current Vitest 5 epoch.
 
 ### Repository-policy setup reliability incident
 
