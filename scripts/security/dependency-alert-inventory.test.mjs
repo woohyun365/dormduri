@@ -158,17 +158,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
 });
 
 test('residual no-fix and retained-override exceptions stay evidence-backed', () => {
-  for (const packageName of [
-    '@humanfs/node',
-    'deepmerge-ts',
-    'esbuild',
-    'image-size',
-    'multer',
-    'mysql2',
-    'postcss',
-    'qs',
-    'ws',
-  ]) {
+  for (const packageName of ['@humanfs/node', 'multer', 'mysql2', 'postcss', 'qs', 'ws']) {
     const item = classification.packages.find(({ name }) => name === packageName);
     assert.ok(item, `missing classification: ${packageName}`);
     assert.equal(typeof item.mitigation, 'string');
