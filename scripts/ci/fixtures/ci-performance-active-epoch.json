@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "repository-vitest5-cross-surface-test-infrastructure-2026-09-08",
+    "id": "repository-dependency-health-peer-audit-store-reliability-2026-09-08",
     "state": "collecting",
-    "capturedAt": "2026-09-08T04:12:30.789Z",
-    "baseSha": "26d75464bd2bd6d0f2ebf4f76d60b4087e87fe43",
+    "capturedAt": "2026-09-08T07:36:26.083Z",
+    "baseSha": "4335b493aa31715cb6ab2b7a742afb0b1c11582e",
     "fileSha256": {
-      "pnpm-lock.yaml": "c72291fd4f49b15efecb621f355331d145fa0bbfcaf7960cac64634b4b889959",
-      "pnpm-workspace.yaml": "c304b2a010fceb1b735acb37244fe9677ac24149a26509f6eeec43b9960a0abd",
+      "pnpm-lock.yaml": "6f6efc52277f125a8068a1a739fd6f59b29b9fdf6dab72b049897ea794063cc1",
+      "pnpm-workspace.yaml": "87f7eeb4b91ba1b855f2b10be8d8ac6784a15d6294679bd8071d5249f90b768a",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
     "versions": {
@@ -41,12 +41,18 @@
       "globals": "17.12.0",
       "nodeTypes": "24.13.3",
       "vitest": "5.0.0",
-      "vitestCoverageV8": "5.0.0"
+      "vitestCoverageV8": "5.0.0",
+      "storybook": "10.6.0",
+      "esbuild": "0.28.2",
+      "deepmergeTs": "8.0.2",
+      "probeImageSize": "7.4.0"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "The Vitest 5 epoch updates the shared runner and V8 coverage provider from 4.1.11 to 5.0.0 and explicitly adopts per-test mock call-history isolation for Web and Shared; samples from the lint current-line epoch remain closed and are not mixed with this cohort.",
-      "The inherited @swc/cli/chokidar peer-health signal and pnpm why store-index SQLite gap remain owned by M16 and are not hidden by this epoch."
+      "This epoch updates the Storybook owner set to 10.6.0, fixes the shared esbuild graph at 0.28.2, and applies the parent-scoped Prisma config deepmerge-ts 8.0.2 resolution; samples from the Vitest 5 epoch remain closed and are not mixed with this cohort.",
+      "The @swc/cli/chokidar 4 and tsconfck/TypeScript 6 peer exceptions remain exact, dated, owner-tested compatibility contracts.",
+      "pnpm store status may report the supported esbuild postinstall as modified; frozen install, native binary, and owning build checks remain the materialization evidence.",
+      "The five default-branch Dependabot alerts remain owned by the umbrella dev-to-main stabilization rather than this dev-only epoch."
     ]
   }
 }
