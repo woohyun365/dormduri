@@ -126,6 +126,14 @@ const closedApiAwsSdkFollowUpEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedRepositoryLintToolingCurrentLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -137,6 +145,8 @@ test('active measurement epoch matches the current dependency inputs', () => {
   assert.equal(epoch.versions.nestjsCli, '11.0.24');
   assert.equal(epoch.versions.express, '5.2.1');
   assert.equal(epoch.versions.multer, '2.2.0');
+  assert.equal(epoch.versions.vitest, '5.0.0');
+  assert.equal(epoch.versions.vitestCoverageV8, '5.0.0');
   const fingerprint = buildDependencyFingerprint({
     epoch,
     readText: (path) => readFileSync(resolve(path), 'utf8'),
@@ -144,9 +154,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'repository-lint-tooling-current-line-2026-09-08',
+    epochId: 'repository-vitest5-cross-surface-test-infrastructure-2026-09-08',
     fileSha256: epoch.fileSha256,
-    sourceSha: 'b2fdab39e323da05e1b05cb7139a7f19bc0ae0a7',
+    sourceSha: '26d75464bd2bd6d0f2ebf4f76d60b4087e87fe43',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -403,6 +413,23 @@ test('closes the AWS SDK follow-up epoch before collecting the lint current-line
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': '1fbc772f645414d4ff322c8dac5c5d22683bd6d9020cfb56f88995740b9b3492',
     'pnpm-workspace.yaml': 'f0ae4f69a844a7e340af66e6c4b6a7add73e89124ef31b6e3fe93d64b1416957',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the lint current-line epoch before collecting the Vitest 5 cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedRepositoryLintToolingCurrentLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'repository-lint-tooling-current-line-2026-09-08');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'b2fdab39e323da05e1b05cb7139a7f19bc0ae0a7');
+  assert.equal(closedEpoch.versions.typescriptEslint, '8.69.0');
+  assert.equal(closedEpoch.versions.globals, '17.12.0');
+  assert.equal(closedEpoch.versions.nodeTypes, '24.13.3');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '11823d7816f046892ea8533ca2fb5b21429e1db2d373092e12ab70490b52eb48',
+    'pnpm-workspace.yaml': '93c922a3e5a0daef8279671b01cfe8854b6db92edc208482c95fc006a253ed62',
     'infra/image-inventory.json':
       'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
