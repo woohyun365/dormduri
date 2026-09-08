@@ -134,6 +134,14 @@ const closedRepositoryLintToolingCurrentLineEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedRepositoryVitest5EpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -147,6 +155,10 @@ test('active measurement epoch matches the current dependency inputs', () => {
   assert.equal(epoch.versions.multer, '2.2.0');
   assert.equal(epoch.versions.vitest, '5.0.0');
   assert.equal(epoch.versions.vitestCoverageV8, '5.0.0');
+  assert.equal(epoch.versions.storybook, '10.6.0');
+  assert.equal(epoch.versions.esbuild, '0.28.2');
+  assert.equal(epoch.versions.deepmergeTs, '8.0.2');
+  assert.equal(epoch.versions.probeImageSize, '7.4.0');
   const fingerprint = buildDependencyFingerprint({
     epoch,
     readText: (path) => readFileSync(resolve(path), 'utf8'),
@@ -154,9 +166,9 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'repository-vitest5-cross-surface-test-infrastructure-2026-09-08',
+    epochId: 'repository-dependency-health-peer-audit-store-reliability-2026-09-08',
     fileSha256: epoch.fileSha256,
-    sourceSha: '26d75464bd2bd6d0f2ebf4f76d60b4087e87fe43',
+    sourceSha: '4335b493aa31715cb6ab2b7a742afb0b1c11582e',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
@@ -430,6 +442,22 @@ test('closes the lint current-line epoch before collecting the Vitest 5 cohort',
   assert.deepEqual(closedEpoch.fileSha256, {
     'pnpm-lock.yaml': '11823d7816f046892ea8533ca2fb5b21429e1db2d373092e12ab70490b52eb48',
     'pnpm-workspace.yaml': '93c922a3e5a0daef8279671b01cfe8854b6db92edc208482c95fc006a253ed62',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the Vitest 5 epoch before collecting the dependency-health cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedRepositoryVitest5EpochFixture);
+
+  assert.equal(closedEpoch.id, 'repository-vitest5-cross-surface-test-infrastructure-2026-09-08');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '26d75464bd2bd6d0f2ebf4f76d60b4087e87fe43');
+  assert.equal(closedEpoch.versions.vitest, '5.0.0');
+  assert.equal(closedEpoch.versions.vitestCoverageV8, '5.0.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'c72291fd4f49b15efecb621f355331d145fa0bbfcaf7960cac64634b4b889959',
+    'pnpm-workspace.yaml': 'c304b2a010fceb1b735acb37244fe9677ac24149a26509f6eeec43b9960a0abd',
     'infra/image-inventory.json':
       'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });

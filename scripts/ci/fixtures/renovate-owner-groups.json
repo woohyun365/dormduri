@@ -83,7 +83,9 @@
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
     "overrideSelectors": [
+      "@prisma/config>deepmerge-ts",
       "engine.io>ws",
+      "esbuild",
       "eslint-config-next>eslint-plugin-react-hooks",
       "postcss",
       "prisma>mysql2",

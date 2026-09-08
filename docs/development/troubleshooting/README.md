@@ -12,6 +12,7 @@
 | Tooling  | [TypeScript 6 `baseUrl` 제거](./tooling/typescript-6-baseurl-deprecation-and-api-tsconfig.md)                      | API NodeNext module resolution을 불필요한 alias 없이 유지하는 기준   |
 | Tooling  | [pnpm dependency update timeout](./tooling/pnpm-dependency-update-job-timeout.md)                                  | Provider queue·approval·root pnpm 계산 timeout의 구분과 복구         |
 | Tooling  | [pnpm legacy deploy active checkout](./tooling/pnpm-legacy-deploy-active-checkout.md)                              | production-only deploy 검증의 격리 경계와 workspace 복구             |
+| Tooling  | [pnpm store index와 postinstall 무결성](./tooling/pnpm-store-index-and-postinstall-integrity.md)                   | SQLite 접근·postinstall 변화·실제 store 손상의 구분                  |
 | Tooling  | [Mend Renovate pnpm 11 OOM](./tooling/renovate-pnpm11-hosted-oom.md)                                               | Hosted lockfile kernel OOM 판별, memory guard와 exact fallback       |
 | Tooling  | [Turbopack·Tailwind stale cache](./tooling/turbopack-tailwindcss-stale-cache.md)                                   | dependency 누락과 cache/root 추론 오류를 구분하는 절차               |
 | Tooling  | [Vitest Proxy module mock hang](./tooling/vitest-proxy-module-mock-hang.md)                                        | catch-all Proxy mock의 thenable 충돌과 명시적 mock 규칙              |

@@ -14,12 +14,18 @@ allowBuilds:
 # Keep only active parent-boundary exceptions. Remove a selector as soon as its
 # owner resolves an equal-or-newer safe version and the closest regression passes.
 overrides:
+  # Prisma 7.10.0 still pins the vulnerable deepmerge-ts 7 line in its CLI
+  # config graph. Keep this selector parent-scoped until Prisma owns 8.0.2+.
+  '@prisma/config>deepmerge-ts': 8.0.2
   # Next 16.3 allows React Hooks lint 7.x, but pnpm otherwise preserves the
   # older transitive lock entry.
   'eslint-config-next>eslint-plugin-react-hooks': 7.1.1
   # Remaining security backports whose current owning parents have not widened
   # their declared ranges yet.
   'engine.io>ws': 8.21.3
+  # Every current Vite, Storybook, Nest, Sentry, Webpack, and unplugin parent
+  # accepts this fixed line. Revalidate all build owners before changing it.
+  esbuild: 0.28.2
   postcss: 8.5.26
   'prisma>mysql2': 3.23.1
   'socket.io-adapter>ws': 8.21.3
@@ -30,8 +36,8 @@ catalog:
   '@playwright/test': 1.62.1
   '@sentry/nextjs': 10.69.0
   '@tailwindcss/postcss': 4.3.1
-  '@storybook/addon-docs': 10.5.10
-  '@storybook/nextjs-vite': 10.5.10
+  '@storybook/addon-docs': 10.6.0
+  '@storybook/nextjs-vite': 10.6.0
   '@typescript-eslint/eslint-plugin': 8.69.0
   '@typescript-eslint/parser': 8.69.0
   '@vitejs/plugin-react': 6.1.0
@@ -43,7 +49,7 @@ catalog:
   prettier: 3.9.6
   react: 19.2.7
   react-dom: 19.2.7
-  storybook: 10.5.10
+  storybook: 10.6.0
   tailwindcss: 4.3.1
   typescript: 6.0.3
   typescript-eslint: 8.69.0
@@ -55,9 +61,10 @@ onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
 
-# Storybook 10.4.6 transitive vite-tsconfig-paths -> tsconfck@3.1.6 has not
-# widened its TypeScript peer metadata for TypeScript 6 yet. Keep this exception
-# scoped to tsconfck only; remove it when upstream peer range supports TS 6.
+# These exceptions are parent-scoped, dated compatibility contracts rather than
+# broad warning suppression. Their owner tests and removal triggers live in
+# scripts/dependencies/fixtures/dependency-health-contract.json.
 peerDependencyRules:
   allowedVersions:
+    '@swc/cli>chokidar': '4'
     'tsconfck>typescript': '6'
