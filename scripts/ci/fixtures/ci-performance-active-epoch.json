@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "web-supported-line-security-consolidated-2026-09-09",
+    "id": "backend-runtime-persistence-security-consolidated-2026-09-09",
     "state": "collecting",
-    "capturedAt": "2026-09-09T07:14:42.000Z",
-    "baseSha": "6384c2d92f1074c0f81d998b2e4e6af5969370e3",
+    "capturedAt": "2026-09-09T08:59:37.790Z",
+    "baseSha": "c8251322bd2c32d5afc5ab0096abddeafd3c8f0b",
     "fileSha256": {
-      "pnpm-lock.yaml": "7a77f5981475e85ec2506680460d7627f7de943549e32f0ffa9096a3de144dd6",
-      "pnpm-workspace.yaml": "3c7ab8e7db2ddfeb6c1978c545cf4344aa865b28affbf868d51840253847a1da",
+      "pnpm-lock.yaml": "d4c2dc0dfe2047b392ef462c4551cffa81cfcd7b8249f0c1203d6d34908b42ef",
+      "pnpm-workspace.yaml": "4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
     "versions": {
@@ -22,8 +22,8 @@
       "dotenv": "17.4.2",
       "helmet": "8.3.0",
       "humanfsNode": "0.16.8",
-      "joi": "18.2.5",
-      "mysql2": "3.23.1",
+      "joi": "18.2.8",
+      "mysql2": "3.24.3",
       "prisma": "7.10.0",
       "pg": "8.23.0",
       "prometheusClient": "0.16.1",
@@ -36,7 +36,7 @@
       "nestjsRuntime": "11.2.3",
       "nestjsCli": "11.0.24",
       "express": "5.2.1",
-      "multer": "2.2.0",
+      "multer": "2.3.0",
       "typescriptEslint": "8.69.0",
       "globals": "17.12.0",
       "nodeTypes": "24.13.3",
@@ -56,15 +56,17 @@
       "motion": "13.2.0",
       "sharp": "0.35.4",
       "baselineBrowserMapping": "2.11.18",
-      "postcss": "8.5.28"
+      "postcss": "8.5.28",
+      "swcCore": "1.16.2",
+      "unpluginSwc": "1.5.11"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "This epoch moves the Web framework, browser test, and visual runtime graph together; samples from the dependency-health epoch remain closed and are not mixed with this cohort.",
+      "This epoch moves API runtime validation, Prisma-owned MySQL2, SWC build tooling, and the NestJS Express Multer patch together; samples from the Web supported-line epoch remain closed and are not mixed with this cohort.",
       "The @swc/cli/chokidar 4 and tsconfck/TypeScript 6 peer exceptions remain exact, dated, owner-tested compatibility contracts.",
       "pnpm store status may report the supported esbuild postinstall as modified; frozen install, native binary, and owning build checks remain the materialization evidence.",
-      "Multer and JS-YAML advisories remain explicitly owned by the following API and repository-tooling migrations; they are not Web security regressions.",
-      "Lucide 1.41.0 is the release-age-eligible lock target; newer compatible 1.x releases return to Renovate ownership after the three-day gate."
+      "The remaining full-audit JS-YAML advisory is development-tooling-only and is owned by M19; the production dependency graph has no high or critical advisory.",
+      "NestJS 12 remains a terminal NO-GO under Issue #415 until @nestjs/throttler publishes a supported peer line."
     ]
   }
 }

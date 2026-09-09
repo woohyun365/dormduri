@@ -59,11 +59,11 @@ group과 분리되어야 하는 이유를 보여 준다. 전체 과정·제약·
 | 책임              | 지원선                                    | 결정 근거                                                                                         |
 | ----------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | ESLint core       | 9.39.5                                    | shared/API lint와 전체 CI 통과; ESLint 10은 plugin peer support가 완성될 때까지 Issue #395가 소유 |
-| TypeScript ESLint | 8.68.0                                    | parser·plugin·meta package를 같은 owner group으로 검증                                            |
+| TypeScript ESLint | 8.69.0                                    | parser·plugin·meta package를 같은 owner group으로 검증                                            |
 | Node type         | 24.13.3                                   | Node 24 runtime line과 일치                                                                       |
-| SWC resolution    | `@swc/core` 1.16.1, `unplugin-swc` 1.5.11 | lockfile exact-candidate와 API compiler boundary 검증                                             |
+| SWC resolution    | `@swc/core` 1.16.2, `unplugin-swc` 1.5.11 | lockfile exact-candidate와 API compiler boundary 검증                                             |
 | staged-file gate  | lint-staged 17.4.1                        | Node/Git engine과 partial-stage·failure rollback 계약 검증                                        |
-| formatter         | Prettier 3.8.4                            | 3.9.6 적용 시 55개 source file churn이 발생해 dependency-only rollback 경계를 훼손하므로 보류     |
+| formatter         | Prettier 3.9.6                            | formatter-only migration과 repository-wide format 검증을 분리해 지원선 전환                       |
 | compiler          | TypeScript 6.0.3                          | TypeScript 7은 ESLint ecosystem 호환 전까지 Issue #335가 소유                                     |
 | package manager   | pnpm 11.24.0                              | 11.7.0 대비 동일 cold lockfile workload peak RSS 43.4% 감소와 frozen install 검증                 |
 

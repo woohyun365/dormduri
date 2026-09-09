@@ -46,14 +46,14 @@ Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. 
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| Epoch                  | `repository-dependency-health-peer-audit-store-reliability-2026-09-08` / `collecting` |
-| Base                   | `4335b493aa31715cb6ab2b7a742afb0b1c11582e`                                            |
-| Dependency fingerprint | lock `6f6efc52...`, workspace `87f7eeb4...`, image inventory `f684f83d...`            |
-| Package manager        | pnpm 11.24.0 / Storybook 10.6.0 / esbuild 0.28.2 / deepmerge-ts 8.0.2 / Vitest 5.0.0  |
-| Compatible samples     | none yet; natural PR samples start after the dependency-health reconciliation         |
-| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                         |
+| Boundary               | Current value                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| Epoch                  | `backend-runtime-persistence-security-consolidated-2026-09-09` / `collecting`                |
+| Base                   | `c8251322bd2c32d5afc5ab0096abddeafd3c8f0b`                                                   |
+| Dependency fingerprint | lock `d4c2dc0d...`, workspace `4b334572...`, image inventory `f684f83d...`                   |
+| Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11 |
+| Compatible samples     | none yet; natural PR samples start after the API runtime/persistence/security reconciliation |
+| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                                |
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -74,8 +74,10 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json`. Their compatible samples remain valid
-only inside each frozen dependency fingerprint; they are not relabeled as samples of the current dependency-health epoch.
+`scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json`,
+`scripts/ci/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`. Their compatible samples remain valid
+only inside each frozen dependency fingerprint; they are not relabeled as samples of the current API runtime epoch.
 
 ### Repository-policy setup reliability incident
 
@@ -513,6 +515,23 @@ the Turbopack dependency migration troubleshooting guide.
 
 Lucide `1.41.0` is pinned in the initial lock resolution because the newer `1.42.0` had not crossed the repository's three-day
 release-age gate at the freeze. Later compatible 1.x updates return to Renovate ownership rather than extending this migration.
+
+## API runtime, persistence, build, and Multer security epoch
+
+The API artifact moves Joi `18.2.8`, Prisma-owned MySQL2 `3.24.3`, SWC core `1.16.2`, and unplugin-swc `1.5.11` as separately
+reviewable commits inside one API rollback boundary. AWS clients remain at the already eligible `3.1126.0` frozen line rather than
+absorbing a release-age-ineligible update. NestJS remains on the supported 11.2 line; NestJS 12 is a separate Issue-backed NO-GO.
+
+NestJS 11.2.3 still pins vulnerable Multer `2.2.0`, so the workspace applies exact parent-scoped
+`@nestjs/platform-express>multer: 2.3.0`. The selector does not create a broad root override. Strict peers, HTTP/e2e behavior,
+production artifact reachability, and the deterministic security graph protect that temporary parent-boundary patch. The resulting
+production dependency audit has no high or critical advisory. The remaining full-audit JS-YAML advisory is development tooling
+owned by the following repository-tooling migration and is not attributed to the API production graph.
+
+Local evidence covers runtime-config/provider contracts, Prisma generate/validate/status, integration/e2e, SWC native load,
+production compile and real watch-change recompilation, full API unit/stress partitions, frozen install, strict peers, and audit.
+The active measurement epoch starts only after these dependency inputs are frozen, so Web and API dependency samples cannot be
+combined into a misleading performance cohort.
 
 The first remote run showed one environment-specific regression that local behavior checks did not expose: the Web static step's
 ESLint process reached Node's default old-space ceiling near 2 GiB after the Next/eslint-config-next graph update. The workflow gives
