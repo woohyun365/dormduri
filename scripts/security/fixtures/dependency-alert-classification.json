@@ -107,7 +107,7 @@
       "classification": "shipped-not-called",
       "action": "artifact-remediation",
       "mitigation": "The driver remains in the shipped Prisma CLI graph, while application database calls use PostgreSQL through pg and @prisma/adapter-pg.",
-      "revisit": "Remove the parent-scoped selector when Prisma declares mysql2 3.23.1 or newer, or when a verified production deploy excludes the Prisma CLI graph."
+      "revisit": "Remove the parent-scoped selector when Prisma declares mysql2 3.24.3 or newer, or when a verified production deploy excludes the Prisma CLI graph."
     },
     {
       "name": "nanoid",

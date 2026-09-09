@@ -97,7 +97,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
   for (const contract of [
     "'engine.io>ws': 8.21.3",
     'postcss: 8.5.28',
-    "'prisma>mysql2': 3.23.1",
+    "'prisma>mysql2': 3.24.3",
     "'socket.io-adapter>ws': 8.21.3",
   ]) {
     assert.match(workspace, new RegExp(escapeRegExp(contract), 'u'));
@@ -158,7 +158,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
   for (const safeResolution of [
     '@humanfs/node@0.16.8',
     'baseline-browser-mapping@2.11.18',
-    'mysql2@3.23.1',
+    'mysql2@3.24.3',
     'next@16.3.4',
     'qs@6.16.0',
     'sharp@0.35.4',
