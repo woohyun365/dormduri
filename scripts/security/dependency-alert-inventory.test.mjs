@@ -136,6 +136,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'form-data@4.0.5',
     'hono@4.12.18',
     'js-yaml@4.1.1',
+    'js-yaml@4.3.1',
     'lodash@4.17.23',
     'multer@2.1.1',
     'multer@2.2.0',
@@ -159,6 +160,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
   for (const safeResolution of [
     '@humanfs/node@0.16.8',
     'baseline-browser-mapping@2.11.18',
+    'js-yaml@4.3.2',
     'multer@2.3.0',
     'mysql2@3.24.3',
     'next@16.3.4',
@@ -173,6 +175,7 @@ test('residual no-fix and retained-override exceptions stay evidence-backed', ()
   for (const packageName of [
     '@humanfs/node',
     'baseline-browser-mapping',
+    'js-yaml',
     'multer',
     'mysql2',
     'next',
