@@ -82,7 +82,9 @@
       "owner": "lint-and-nest-cli",
       "parent": "eslint/Nest CLI",
       "classification": "cli-only",
-      "action": "toolchain-remediation"
+      "action": "toolchain-remediation",
+      "mitigation": "ESLint and Nest CLI parents both accept JS-YAML 4.3.2 through their declared ranges, so the patched version resolves naturally without a root override.",
+      "revisit": "Recheck the graph when @eslint/eslintrc, cosmiconfig, ESLint, or Nest CLI changes its JS-YAML ownership."
     },
     {
       "name": "lodash",
