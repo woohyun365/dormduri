@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-09-08",
+  "reviewedAt": "2026-09-09",
   "defaultBranch": "main",
   "packages": [
     {
@@ -25,6 +25,15 @@
       "action": "toolchain-remediation",
       "mitigation": "The package is absent from the production API artifact and is executed only by the repository lint toolchain.",
       "revisit": "Recheck the classification when ESLint changes its filesystem implementation or the production artifact boundary changes."
+    },
+    {
+      "name": "baseline-browser-mapping",
+      "owner": "web-build",
+      "parent": "Next browser target resolution",
+      "classification": "build-only",
+      "action": "toolchain-remediation",
+      "mitigation": "Next 16.3.4 resolves baseline-browser-mapping 2.11.0 or newer through its supported dependency graph without a repository override.",
+      "revisit": "Recheck the browser target graph when Next changes its baseline-browser-mapping dependency or the Web build target policy changes."
     },
     {
       "name": "body-parser",
@@ -108,6 +117,15 @@
       "action": "toolchain-remediation"
     },
     {
+      "name": "next",
+      "owner": "web-runtime",
+      "parent": "apps/web",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation",
+      "mitigation": "The Web runtime moves to the supported Next 16.3.4 patch and verifies the standalone build plus browser surfaces rather than suppressing either critical advisory.",
+      "revisit": "Recheck Next security advisories on every supported-line migration and before a production release."
+    },
+    {
       "name": "picomatch",
       "owner": "lint-and-build",
       "parent": "lint-staged/ts-loader/Vite",
@@ -120,8 +138,8 @@
       "parent": "Tailwind/Next/Vite",
       "classification": "build-only",
       "action": "toolchain-remediation",
-      "mitigation": "The root override keeps PostCSS 8.5.26 while the current Next and Tailwind parents still declare older exact patches.",
-      "revisit": "Remove the override when both Next and @tailwindcss/postcss resolve PostCSS 8.5.26 or newer without it and Web build regressions pass."
+      "mitigation": "The root override keeps PostCSS 8.5.28 while current build parents still include older exact patches.",
+      "revisit": "Remove the override when Next, Tailwind, Sentry, Storybook, and Vite all resolve PostCSS 8.5.28 or newer without it and their closest build regressions pass."
     },
     {
       "name": "qs",
@@ -131,6 +149,15 @@
       "action": "runtime-remediation",
       "mitigation": "The compatible patched release is resolved through the existing Express and body-parser ranges without changing the public HTTP contract.",
       "revisit": "Recheck legitimate query and form parsing behavior whenever the Express HTTP adapter or parser configuration changes."
+    },
+    {
+      "name": "sharp",
+      "owner": "web-runtime",
+      "parent": "Next image optimizer",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation",
+      "mitigation": "Next 16.3.4 naturally resolves Sharp 0.35.4 and the Web standalone artifact plus next/image callers are verified without a root override.",
+      "revisit": "Recheck the image optimizer graph when Next or the production image handling policy changes."
     },
     {
       "name": "socket.io-parser",

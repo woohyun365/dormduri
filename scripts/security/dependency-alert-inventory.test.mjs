@@ -96,7 +96,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
 
   for (const contract of [
     "'engine.io>ws': 8.21.3",
-    'postcss: 8.5.26',
+    'postcss: 8.5.28',
     "'prisma>mysql2': 3.23.1",
     "'socket.io-adapter>ws': 8.21.3",
   ]) {
@@ -140,25 +140,45 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'multer@2.1.1',
     'mysql2@3.15.3',
     'nanoid@3.3.12',
+    'next@16.3.0',
     'picomatch@2.3.1',
     'postcss@8.5.15',
     'qs@6.14.1',
     'qs@6.15.2',
     'socket.io-parser@4.2.6',
+    'sharp@0.35.3',
     'valibot@1.2.0',
     'ws@8.20.1',
     'yaml@2.8.2',
+    'baseline-browser-mapping@2.10.37',
   ]) {
     assert.doesNotMatch(lockfile, new RegExp(escapeRegExp(vulnerable), 'u'));
   }
 
-  for (const safeResolution of ['@humanfs/node@0.16.8', 'mysql2@3.23.1', 'qs@6.16.0']) {
+  for (const safeResolution of [
+    '@humanfs/node@0.16.8',
+    'baseline-browser-mapping@2.11.18',
+    'mysql2@3.23.1',
+    'next@16.3.4',
+    'qs@6.16.0',
+    'sharp@0.35.4',
+  ]) {
     assert.match(lockfile, new RegExp(escapeRegExp(safeResolution), 'u'));
   }
 });
 
 test('residual no-fix and retained-override exceptions stay evidence-backed', () => {
-  for (const packageName of ['@humanfs/node', 'multer', 'mysql2', 'postcss', 'qs', 'ws']) {
+  for (const packageName of [
+    '@humanfs/node',
+    'baseline-browser-mapping',
+    'multer',
+    'mysql2',
+    'next',
+    'postcss',
+    'qs',
+    'sharp',
+    'ws',
+  ]) {
     const item = classification.packages.find(({ name }) => name === packageName);
     assert.ok(item, `missing classification: ${packageName}`);
     assert.equal(typeof item.mitigation, 'string');

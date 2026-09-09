@@ -8,6 +8,11 @@ import {
   setOperationalTelemetryAdapter,
 } from '@/observability/operational/operational-telemetry';
 
+vi.mock('@sentry/nextjs', () => ({
+  captureException: vi.fn(),
+  withScope: vi.fn(),
+}));
+
 describe('App Router error recovery UI', () => {
   let restoreAdapter: () => void = () => undefined;
   const recording = createRecordingOperationalTelemetryAdapter();
