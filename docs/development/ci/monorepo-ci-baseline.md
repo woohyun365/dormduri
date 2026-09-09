@@ -495,6 +495,25 @@ SWC, stable Next cache, Web build-info, pnpm cache와 slim classify/summary를 a
 build-info, Next cache removal, Playwright binary cache, product arm64와 larger runner는 rejected/deferred decision입니다.
 세 source run은 bounded A/B evidence이며 자연 발생 cohort가 아니므로 안정된 p50/p95로 승격하지 않습니다.
 
+## Web supported-line security epoch
+
+Web framework, browser test, and visual runtime dependencies changed together because they share one Next standalone artifact and
+one Web CI owner. The frozen graph uses Next/eslint-config-next `16.3.4`, React/DOM `19.2.8`, Sentry `10.73.0`, Tailwind
+`4.3.3`, Playwright `1.63.0`, Jest DOM `7.0.1`, Lucide `1.41.0`, and Motion `13.2.0`.
+
+The supported Next parent naturally resolves Sharp `0.35.4` and baseline-browser-mapping `2.11.18`; no new security override was
+added. Full/prod audit no longer reports a Web-owned critical or high advisory. Remaining Multer and JS-YAML advisories keep their
+separate API/tooling owners and are not attributed to this cohort.
+
+Local compatibility evidence passed 221 Web test files / 1,232 tests, the production build, Storybook build, Sentry artifact check,
+and the full Playwright surface with 26 passed / 2 intentionally project-skipped cases. Sentry `10.73.0` also made two ownership boundaries explicit: Next build configuration
+imports `withSentryConfig` from the provider's config export, while operational-boundary jsdom tests mock the provider and leave SDK
+behavior to Sentry-owned tests. A stale `.next` instrumentation failure disappeared after a clean-cache rebuild and is documented in
+the Turbopack dependency migration troubleshooting guide.
+
+Lucide `1.41.0` is pinned in the initial lock resolution because the newer `1.42.0` had not crossed the repository's three-day
+release-age gate at the freeze. Later compatible 1.x updates return to Renovate ownership rather than extending this migration.
+
 Pnpm cache는 dependency install 재생성 비용 때문에 유지합니다. Playwright browser cache는 restore와 download 시간이
 유사하고 Linux system dependency를 cache할 수 없다는 upstream guidance에 따라 채택하지 않습니다. Product arm64/larger
 runner도 native/tooling parity와 current owner availability가 없어 채택하지 않습니다.
