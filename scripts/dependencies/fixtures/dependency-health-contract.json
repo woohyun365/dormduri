@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-09-08",
+  "reviewAfter": "2026-12-08",
+  "requiredWorkspaceEntries": [
+    "'@prisma/config>deepmerge-ts': 8.0.2",
+    "esbuild: 0.28.2",
+    "'@swc/cli>chokidar': '4'",
+    "'tsconfck>typescript': '6'"
+  ],
+  "requiredLockResolutions": ["deepmerge-ts@8.0.2", "esbuild@0.28.2", "probe-image-size@7.4.0"],
+  "forbiddenLockResolutions": ["deepmerge-ts@7.1.5", "esbuild@0.27.3", "image-size@2.0.2"],
+  "peerExceptions": [
+    {
+      "selector": "@swc/cli>chokidar",
+      "allowedVersion": "4",
+      "owner": "api-build-watch-tooling",
+      "reason": "The latest @swc/cli declares optional Chokidar 5, but its current lock snapshot remains on the compatible Chokidar 4 line used by Nest build tooling.",
+      "evidence": "API production build and an actual SWC file-change/recompile smoke",
+      "revisit": "Remove when @swc/cli resolves Chokidar 5 naturally or widens its peer metadata after the same behavior checks pass."
+    },
+    {
+      "selector": "tsconfck>typescript",
+      "allowedVersion": "6",
+      "owner": "storybook-vite-config-tooling",
+      "reason": "tsconfck 3.1.6 still declares TypeScript 5 even though the repository's TypeScript 6 config-loading path is behavior-tested.",
+      "evidence": "Web config typecheck, Storybook production build, and Next production build",
+      "revisit": "Remove when a stable tsconfck parent line declares TypeScript 6 support and the same config-loading checks pass."
+    }
+  ]
+}

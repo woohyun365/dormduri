@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "epoch": {
+    "id": "backend-nestjs11-supported-line-2026-09-07",
+    "state": "closed",
+    "capturedAt": "2026-09-07T11:49:11.869Z",
+    "baseSha": "fcd835cec1936d5f0b0502944fb9f90053c07b66",
+    "fileSha256": {
+      "pnpm-lock.yaml": "0c026b1fdb4a51556c8037220b2d0102d6f88fe008b0a9cc8f6659d28dd45b0b",
+      "pnpm-workspace.yaml": "f0ae4f69a844a7e340af66e6c4b6a7add73e89124ef31b6e3fe93d64b1416957",
+      "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
+    },
+    "versions": {
+      "node": "24.19.0",
+      "pnpm": "11.24.0",
+      "postgresql": "18.6",
+      "nginx": "1.31.5-alpine",
+      "prometheus": "3.14.0",
+      "alloy": "1.19.2",
+      "aws-sdk": "3.1123.0",
+      "argon2": "2.2.0",
+      "dotenv": "17.4.2",
+      "helmet": "8.3.0",
+      "humanfsNode": "0.16.8",
+      "joi": "18.2.5",
+      "mysql2": "3.23.1",
+      "prisma": "7.10.0",
+      "pg": "8.23.0",
+      "prometheusClient": "0.16.1",
+      "prettier": "3.9.6",
+      "qs": "6.16.0",
+      "supertestTypes": "7.2.1",
+      "zod": "4.5.4",
+      "loki": "3.7.7",
+      "grafana": "13.2.1",
+      "nestjsRuntime": "11.2.3",
+      "nestjsCli": "11.0.24",
+      "express": "5.2.1",
+      "multer": "2.2.0"
+    },
+    "knownGaps": [
+      "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
+      "The NestJS 11 supported-line epoch changes API framework, Express adapter, and parent-owned Multer inputs; samples from the external runtime image epoch remain closed and are not mixed with this cohort."
+    ]
+  }
+}

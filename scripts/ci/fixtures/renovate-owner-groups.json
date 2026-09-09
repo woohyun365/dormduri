@@ -53,7 +53,6 @@
       "@testing-library/user-event",
       "@types/cookie-parser",
       "@types/express",
-      "@types/node",
       "@types/pg",
       "@types/react",
       "@types/react-dom",
@@ -85,9 +84,12 @@
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
     "overrideSelectors": [
       "@nestjs/platform-express>multer",
+      "@prisma/config>deepmerge-ts",
       "engine.io>ws",
+      "esbuild",
       "eslint-config-next>eslint-plugin-react-hooks",
       "postcss",
+      "prisma>mysql2",
       "socket.io-adapter>ws"
     ],
     "lockfile": "pnpm-lock.yaml"

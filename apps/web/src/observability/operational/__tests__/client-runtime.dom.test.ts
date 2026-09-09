@@ -4,6 +4,11 @@ import {
   resetClientOperationalRuntimeForTests,
 } from '../client-runtime';
 
+vi.mock('@sentry/nextjs', () => ({
+  captureException: vi.fn(),
+  withScope: vi.fn(),
+}));
+
 describe('client operational runtime', () => {
   beforeEach(() => {
     resetClientOperationalRuntimeForTests();

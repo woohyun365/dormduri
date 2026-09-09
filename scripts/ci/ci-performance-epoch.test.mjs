@@ -82,9 +82,131 @@ const closedApiAwsSdkSupportedLinesEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedApiSupertestTypesSupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json',
+    ),
+    'utf8',
+  ),
+);
+const closedSharedZodSupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json'),
+    'utf8',
+  ),
+);
+const closedDependencySecurityEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json',
+    ),
+    'utf8',
+  ),
+);
+const closedExternalRuntimeImageEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json',
+    ),
+    'utf8',
+  ),
+);
+const closedBackendNestjs11SupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json',
+    ),
+    'utf8',
+  ),
+);
+const closedApiAwsSdkFollowUpEpochFixture = JSON.parse(
+  readFileSync(
+    resolve('scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json'),
+    'utf8',
+  ),
+);
+const closedRepositoryLintToolingCurrentLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json',
+    ),
+    'utf8',
+  ),
+);
+const closedRepositoryVitest5EpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json',
+    ),
+    'utf8',
+  ),
+);
+const closedDependencyHealthEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json',
+    ),
+    'utf8',
+  ),
+);
+const closedWebSupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
+const closedBackendRuntimePersistenceSecurityEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
+const closedBackendAwsSdkReleaseAgeEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
+  assert.equal(epoch.versions.lintStaged, '17.5.0');
+  assert.equal(epoch.versions.jsYaml, '4.3.2');
+  assert.equal(epoch.versions.typescriptEslint, '8.69.0');
+  assert.equal(epoch.versions.globals, '17.12.0');
+  assert.equal(epoch.versions.nodeTypes, '24.13.3');
+  assert.equal(epoch.versions['aws-sdk'], '3.1127.0');
+  assert.equal(epoch.versions.nestjsRuntime, '11.2.3');
+  assert.equal(epoch.versions.nestjsCli, '11.0.24');
+  assert.equal(epoch.versions.express, '5.2.1');
+  assert.equal(epoch.versions.joi, '18.2.8');
+  assert.equal(epoch.versions.mysql2, '3.24.3');
+  assert.equal(epoch.versions.multer, '2.3.0');
+  assert.equal(epoch.versions.swcCore, '1.16.2');
+  assert.equal(epoch.versions.unpluginSwc, '1.5.11');
+  assert.equal(epoch.versions.vitest, '5.0.0');
+  assert.equal(epoch.versions.vitestCoverageV8, '5.0.0');
+  assert.equal(epoch.versions.storybook, '10.6.0');
+  assert.equal(epoch.versions.esbuild, '0.28.2');
+  assert.equal(epoch.versions.deepmergeTs, '8.0.2');
+  assert.equal(epoch.versions.probeImageSize, '7.4.0');
+  assert.equal(epoch.versions.next, '16.3.4');
+  assert.equal(epoch.versions.react, '19.2.8');
+  assert.equal(epoch.versions.sentryNextjs, '10.73.0');
+  assert.equal(epoch.versions.playwright, '1.63.0');
+  assert.equal(epoch.versions.testingLibraryJestDom, '7.0.1');
+  assert.equal(epoch.versions.lucideReact, '1.41.0');
+  assert.equal(epoch.versions.motion, '13.2.0');
+  assert.equal(epoch.versions.sharp, '0.35.4');
+  assert.equal(epoch.versions.baselineBrowserMapping, '2.11.18');
+  assert.equal(epoch.versions.postcss, '8.5.28');
   const fingerprint = buildDependencyFingerprint({
     epoch,
     readText: (path) => readFileSync(resolve(path), 'utf8'),
@@ -92,15 +214,80 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'api-supertest-types-supported-line-2026-09-05',
+    epochId: 'repository-shared-tooling-security-final-reconciliation-2026-09-09',
     fileSha256: epoch.fileSha256,
-    sourceSha: 'cc756c3c2f2b59876704315ac32b8fcb2a1ec654',
+    sourceSha: '55ed59f94d708b07535650929cfa6e87f8ed5306',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the AWS release-age epoch before collecting the final tooling-security cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedBackendAwsSdkReleaseAgeEpochFixture);
+
+  assert.equal(closedEpoch.id, 'backend-aws-sdk-release-age-reconciliation-2026-09-09');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '6667763aa94a8ab8c95536cc66429e290231e4e9');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1127.0');
+  assert.equal(closedEpoch.versions.typescriptEslint, '8.69.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '491d65382f869cf9d81edb7da8ded5ba9e745d7bbf64d59dacd2075500c34fc1',
+    'pnpm-workspace.yaml': '4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the API runtime and security epoch before collecting the AWS release-age correction', () => {
+  const closedEpoch = parseMeasurementEpoch(closedBackendRuntimePersistenceSecurityEpochFixture);
+
+  assert.equal(closedEpoch.id, 'backend-runtime-persistence-security-consolidated-2026-09-09');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'c8251322bd2c32d5afc5ab0096abddeafd3c8f0b');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1126.0');
+  assert.equal(closedEpoch.versions.multer, '2.3.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'd4c2dc0dfe2047b392ef462c4551cffa81cfcd7b8249f0c1203d6d34908b42ef',
+    'pnpm-workspace.yaml': '4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the Web supported-line epoch before collecting the API runtime cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedWebSupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'web-supported-line-security-consolidated-2026-09-09');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '6384c2d92f1074c0f81d998b2e4e6af5969370e3');
+  assert.equal(closedEpoch.versions.next, '16.3.4');
+  assert.equal(closedEpoch.versions.multer, '2.2.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '7a77f5981475e85ec2506680460d7627f7de943549e32f0ffa9096a3de144dd6',
+    'pnpm-workspace.yaml': '3c7ab8e7db2ddfeb6c1978c545cf4344aa865b28affbf868d51840253847a1da',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the dependency-health epoch before collecting the Web supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedDependencyHealthEpochFixture);
+
+  assert.equal(
+    closedEpoch.id,
+    'repository-dependency-health-peer-audit-store-reliability-2026-09-08',
+  );
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '4335b493aa31715cb6ab2b7a742afb0b1c11582e');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '6f6efc52277f125a8068a1a739fd6f59b29b9fdf6dab72b049897ea794063cc1',
+    'pnpm-workspace.yaml': '87f7eeb4b91ba1b855f2b10be8d8ac6784a15d6294679bd8071d5249f90b768a',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 
@@ -261,6 +448,131 @@ test('closes the AWS SDK epoch before collecting the API test-tooling cohort', (
     'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
     'infra/image-inventory.json':
       '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the API test-tooling epoch before collecting the Shared Zod cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedApiSupertestTypesSupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'api-supertest-types-supported-line-2026-09-05');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'cc756c3c2f2b59876704315ac32b8fcb2a1ec654');
+  assert.equal(closedEpoch.versions.supertestTypes, '7.2.1');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'ab5a483e1d261941ce52f465ba419e942dff5d52ee61f28ad07c90503c20d8af',
+    'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the Shared Zod epoch before collecting the dependency security cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedSharedZodSupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'shared-zod-supported-line-2026-09-06');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '9b7e5379f082f1f51270fd85ba42c146d9947e18');
+  assert.equal(closedEpoch.versions.zod, '4.5.4');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'e133e8f75b4576bbff5164a256e7c733b1855ad2756b8004880c7425b4309213',
+    'pnpm-workspace.yaml': '4af09d31854fd55225a31db2e6b23c93d905f05d145fc6c975b75e55017975be',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the dependency security epoch before collecting the external image cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedDependencySecurityEpochFixture);
+
+  assert.equal(closedEpoch.id, 'dependency-security-five-alert-2026-09-07');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '56233cb4693013328f8288db95b43730320b1586');
+  assert.equal(closedEpoch.versions.mysql2, '3.23.1');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b',
+    'pnpm-workspace.yaml': '4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889',
+    'infra/image-inventory.json':
+      '5e31ed06d327b1f0c92f33f500d4cd4f67e736977e1007c8842062ca6d3a2bba',
+  });
+});
+
+test('closes the external image epoch before collecting the NestJS 11 supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedExternalRuntimeImageEpochFixture);
+
+  assert.equal(closedEpoch.id, 'external-runtime-image-patch-2026-09-07');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '3c084701447eeb6f626d71b4f7b32fb9961a4cea');
+  assert.equal(closedEpoch.versions.nginx, '1.31.5-alpine');
+  assert.equal(closedEpoch.versions.grafana, '13.2.1');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '06e3d334554d87ed23f9a721a6c78e62e3840f3e5c0e1298ffafd6169871e96b',
+    'pnpm-workspace.yaml': '4eb490564dbf4ab95988793b623d86a949067730c3ddd256debf8cdafb3ed889',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the NestJS 11 epoch before collecting the AWS SDK follow-up cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedBackendNestjs11SupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'backend-nestjs11-supported-line-2026-09-07');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'fcd835cec1936d5f0b0502944fb9f90053c07b66');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1123.0');
+  assert.equal(closedEpoch.versions.nestjsRuntime, '11.2.3');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '0c026b1fdb4a51556c8037220b2d0102d6f88fe008b0a9cc8f6659d28dd45b0b',
+    'pnpm-workspace.yaml': 'f0ae4f69a844a7e340af66e6c4b6a7add73e89124ef31b6e3fe93d64b1416957',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the AWS SDK follow-up epoch before collecting the lint current-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedApiAwsSdkFollowUpEpochFixture);
+
+  assert.equal(closedEpoch.id, 'api-aws-sdk-follow-up-2026-09-07');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '3d8a34d50a6b4a8d5fef560b7167e34529a8ad4d');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1126.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '1fbc772f645414d4ff322c8dac5c5d22683bd6d9020cfb56f88995740b9b3492',
+    'pnpm-workspace.yaml': 'f0ae4f69a844a7e340af66e6c4b6a7add73e89124ef31b6e3fe93d64b1416957',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the lint current-line epoch before collecting the Vitest 5 cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedRepositoryLintToolingCurrentLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'repository-lint-tooling-current-line-2026-09-08');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'b2fdab39e323da05e1b05cb7139a7f19bc0ae0a7');
+  assert.equal(closedEpoch.versions.typescriptEslint, '8.69.0');
+  assert.equal(closedEpoch.versions.globals, '17.12.0');
+  assert.equal(closedEpoch.versions.nodeTypes, '24.13.3');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '11823d7816f046892ea8533ca2fb5b21429e1db2d373092e12ab70490b52eb48',
+    'pnpm-workspace.yaml': '93c922a3e5a0daef8279671b01cfe8854b6db92edc208482c95fc006a253ed62',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
+  });
+});
+
+test('closes the Vitest 5 epoch before collecting the dependency-health cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedRepositoryVitest5EpochFixture);
+
+  assert.equal(closedEpoch.id, 'repository-vitest5-cross-surface-test-infrastructure-2026-09-08');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '26d75464bd2bd6d0f2ebf4f76d60b4087e87fe43');
+  assert.equal(closedEpoch.versions.vitest, '5.0.0');
+  assert.equal(closedEpoch.versions.vitestCoverageV8, '5.0.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'c72291fd4f49b15efecb621f355331d145fa0bbfcaf7960cac64634b4b889959',
+    'pnpm-workspace.yaml': 'c304b2a010fceb1b735acb37244fe9677ac24149a26509f6eeec43b9960a0abd',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 

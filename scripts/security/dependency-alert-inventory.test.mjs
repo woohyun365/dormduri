@@ -8,6 +8,10 @@ import {
   parseDependencyAlertClassification,
 } from './dependency-alert-inventory.mjs';
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
 const classification = parseDependencyAlertClassification(
   JSON.parse(
     readFileSync(
@@ -91,12 +95,13 @@ test('retained security overrides and resolved lock entries keep the known vulne
   const lockfile = readFileSync(resolve(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
   for (const contract of [
-    "'@nestjs/platform-express>multer': 2.2.0",
     "'engine.io>ws': 8.21.3",
-    'postcss: 8.5.26',
+    "'@nestjs/platform-express>multer': 2.3.0",
+    'postcss: 8.5.28',
+    "'prisma>mysql2': 3.24.3",
     "'socket.io-adapter>ws': 8.21.3",
   ]) {
-    assert.match(workspace, new RegExp(contract.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+    assert.match(workspace, new RegExp(escapeRegExp(contract), 'u'));
   }
 
   for (const removedSelector of [
@@ -115,13 +120,14 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'qs:',
     'yaml:',
   ]) {
-    assert.doesNotMatch(
-      workspace,
-      new RegExp(removedSelector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'),
-    );
+    assert.doesNotMatch(workspace, new RegExp(escapeRegExp(removedSelector), 'u'));
   }
 
+  assert.match(lockfile, /'@nestjs\/platform-express@11\.2\.3/u);
+  assert.match(lockfile, /\n      multer: 2\.3\.0\n/u);
+
   for (const vulnerable of [
+    '@humanfs/node@0.16.7',
     'body-parser@2.2.2',
     'brace-expansion@1.1.12',
     'brace-expansion@5.0.6',
@@ -130,23 +136,54 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'form-data@4.0.5',
     'hono@4.12.18',
     'js-yaml@4.1.1',
+    'js-yaml@4.3.1',
     'lodash@4.17.23',
     'multer@2.1.1',
+    'multer@2.2.0',
+    'mysql2@3.15.3',
     'nanoid@3.3.12',
+    'next@16.3.0',
     'picomatch@2.3.1',
     'postcss@8.5.15',
     'qs@6.14.1',
+    'qs@6.15.2',
     'socket.io-parser@4.2.6',
+    'sharp@0.35.3',
     'valibot@1.2.0',
     'ws@8.20.1',
     'yaml@2.8.2',
+    'baseline-browser-mapping@2.10.37',
   ]) {
-    assert.doesNotMatch(lockfile, new RegExp(vulnerable.replace('.', '\\.'), 'u'));
+    assert.doesNotMatch(lockfile, new RegExp(escapeRegExp(vulnerable), 'u'));
+  }
+
+  for (const safeResolution of [
+    '@humanfs/node@0.16.8',
+    'baseline-browser-mapping@2.11.18',
+    'js-yaml@4.3.2',
+    'multer@2.3.0',
+    'mysql2@3.24.3',
+    'next@16.3.4',
+    'qs@6.16.0',
+    'sharp@0.35.4',
+  ]) {
+    assert.match(lockfile, new RegExp(escapeRegExp(safeResolution), 'u'));
   }
 });
 
 test('residual no-fix and retained-override exceptions stay evidence-backed', () => {
-  for (const packageName of ['deepmerge-ts', 'esbuild', 'image-size', 'multer', 'postcss', 'ws']) {
+  for (const packageName of [
+    '@humanfs/node',
+    'baseline-browser-mapping',
+    'js-yaml',
+    'multer',
+    'mysql2',
+    'next',
+    'postcss',
+    'qs',
+    'sharp',
+    'ws',
+  ]) {
     const item = classification.packages.find(({ name }) => name === packageName);
     assert.ok(item, `missing classification: ${packageName}`);
     assert.equal(typeof item.mitigation, 'string');
