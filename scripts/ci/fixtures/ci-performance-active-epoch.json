@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "repository-dependency-health-peer-audit-store-reliability-2026-09-08",
+    "id": "web-supported-line-security-consolidated-2026-09-09",
     "state": "collecting",
-    "capturedAt": "2026-09-08T07:36:26.083Z",
-    "baseSha": "4335b493aa31715cb6ab2b7a742afb0b1c11582e",
+    "capturedAt": "2026-09-09T07:14:42.000Z",
+    "baseSha": "6384c2d92f1074c0f81d998b2e4e6af5969370e3",
     "fileSha256": {
-      "pnpm-lock.yaml": "6f6efc52277f125a8068a1a739fd6f59b29b9fdf6dab72b049897ea794063cc1",
-      "pnpm-workspace.yaml": "87f7eeb4b91ba1b855f2b10be8d8ac6784a15d6294679bd8071d5249f90b768a",
+      "pnpm-lock.yaml": "7a77f5981475e85ec2506680460d7627f7de943549e32f0ffa9096a3de144dd6",
+      "pnpm-workspace.yaml": "3c7ab8e7db2ddfeb6c1978c545cf4344aa865b28affbf868d51840253847a1da",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
     "versions": {
@@ -45,14 +45,26 @@
       "storybook": "10.6.0",
       "esbuild": "0.28.2",
       "deepmergeTs": "8.0.2",
-      "probeImageSize": "7.4.0"
+      "probeImageSize": "7.4.0",
+      "next": "16.3.4",
+      "react": "19.2.8",
+      "sentryNextjs": "10.73.0",
+      "tailwindcss": "4.3.3",
+      "playwright": "1.63.0",
+      "testingLibraryJestDom": "7.0.1",
+      "lucideReact": "1.41.0",
+      "motion": "13.2.0",
+      "sharp": "0.35.4",
+      "baselineBrowserMapping": "2.11.18",
+      "postcss": "8.5.28"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "This epoch updates the Storybook owner set to 10.6.0, fixes the shared esbuild graph at 0.28.2, and applies the parent-scoped Prisma config deepmerge-ts 8.0.2 resolution; samples from the Vitest 5 epoch remain closed and are not mixed with this cohort.",
+      "This epoch moves the Web framework, browser test, and visual runtime graph together; samples from the dependency-health epoch remain closed and are not mixed with this cohort.",
       "The @swc/cli/chokidar 4 and tsconfck/TypeScript 6 peer exceptions remain exact, dated, owner-tested compatibility contracts.",
       "pnpm store status may report the supported esbuild postinstall as modified; frozen install, native binary, and owning build checks remain the materialization evidence.",
-      "The five default-branch Dependabot alerts remain owned by the umbrella dev-to-main stabilization rather than this dev-only epoch."
+      "Multer and JS-YAML advisories remain explicitly owned by the following API and repository-tooling migrations; they are not Web security regressions.",
+      "Lucide 1.41.0 is the release-age-eligible lock target; newer compatible 1.x releases return to Renovate ownership after the three-day gate."
     ]
   }
 }

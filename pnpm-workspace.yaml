@@ -26,31 +26,31 @@ overrides:
   # Every current Vite, Storybook, Nest, Sentry, Webpack, and unplugin parent
   # accepts this fixed line. Revalidate all build owners before changing it.
   esbuild: 0.28.2
-  postcss: 8.5.26
+  postcss: 8.5.28
   'prisma>mysql2': 3.23.1
   'socket.io-adapter>ws': 8.21.3
 
 catalog:
   '@types/node': 24.13.3
   '@eslint/js': 9.39.5
-  '@playwright/test': 1.62.1
-  '@sentry/nextjs': 10.69.0
-  '@tailwindcss/postcss': 4.3.1
+  '@playwright/test': 1.63.0
+  '@sentry/nextjs': 10.73.0
+  '@tailwindcss/postcss': 4.3.3
   '@storybook/addon-docs': 10.6.0
   '@storybook/nextjs-vite': 10.6.0
   '@typescript-eslint/eslint-plugin': 8.69.0
   '@typescript-eslint/parser': 8.69.0
-  '@vitejs/plugin-react': 6.1.0
+  '@vitejs/plugin-react': 6.1.1
   '@vitest/coverage-v8': 5.0.0
   eslint: 9.39.5
-  eslint-config-next: 16.3.0
+  eslint-config-next: 16.3.4
   eslint-config-prettier: 10.1.8
-  next: 16.3.0
+  next: 16.3.4
   prettier: 3.9.6
-  react: 19.2.7
-  react-dom: 19.2.7
+  react: 19.2.8
+  react-dom: 19.2.8
   storybook: 10.6.0
-  tailwindcss: 4.3.1
+  tailwindcss: 4.3.3
   typescript: 6.0.3
   typescript-eslint: 8.69.0
   vite: 8.2.2

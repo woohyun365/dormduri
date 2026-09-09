@@ -142,6 +142,14 @@ const closedRepositoryVitest5EpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedDependencyHealthEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -159,6 +167,16 @@ test('active measurement epoch matches the current dependency inputs', () => {
   assert.equal(epoch.versions.esbuild, '0.28.2');
   assert.equal(epoch.versions.deepmergeTs, '8.0.2');
   assert.equal(epoch.versions.probeImageSize, '7.4.0');
+  assert.equal(epoch.versions.next, '16.3.4');
+  assert.equal(epoch.versions.react, '19.2.8');
+  assert.equal(epoch.versions.sentryNextjs, '10.73.0');
+  assert.equal(epoch.versions.playwright, '1.63.0');
+  assert.equal(epoch.versions.testingLibraryJestDom, '7.0.1');
+  assert.equal(epoch.versions.lucideReact, '1.41.0');
+  assert.equal(epoch.versions.motion, '13.2.0');
+  assert.equal(epoch.versions.sharp, '0.35.4');
+  assert.equal(epoch.versions.baselineBrowserMapping, '2.11.18');
+  assert.equal(epoch.versions.postcss, '8.5.28');
   const fingerprint = buildDependencyFingerprint({
     epoch,
     readText: (path) => readFileSync(resolve(path), 'utf8'),
@@ -166,15 +184,32 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'repository-dependency-health-peer-audit-store-reliability-2026-09-08',
+    epochId: 'web-supported-line-security-consolidated-2026-09-09',
     fileSha256: epoch.fileSha256,
-    sourceSha: '4335b493aa31715cb6ab2b7a742afb0b1c11582e',
+    sourceSha: '6384c2d92f1074c0f81d998b2e4e6af5969370e3',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the dependency-health epoch before collecting the Web supported-line cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedDependencyHealthEpochFixture);
+
+  assert.equal(
+    closedEpoch.id,
+    'repository-dependency-health-peer-audit-store-reliability-2026-09-08',
+  );
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '4335b493aa31715cb6ab2b7a742afb0b1c11582e');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '6f6efc52277f125a8068a1a739fd6f59b29b9fdf6dab72b049897ea794063cc1',
+    'pnpm-workspace.yaml': '87f7eeb4b91ba1b855f2b10be8d8ac6784a15d6294679bd8071d5249f90b768a',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 
