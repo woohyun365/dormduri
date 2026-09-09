@@ -158,13 +158,21 @@ const closedWebSupportedLineEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedBackendRuntimePersistenceSecurityEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
   assert.equal(epoch.versions.typescriptEslint, '8.69.0');
   assert.equal(epoch.versions.globals, '17.12.0');
   assert.equal(epoch.versions.nodeTypes, '24.13.3');
-  assert.equal(epoch.versions['aws-sdk'], '3.1126.0');
+  assert.equal(epoch.versions['aws-sdk'], '3.1127.0');
   assert.equal(epoch.versions.nestjsRuntime, '11.2.3');
   assert.equal(epoch.versions.nestjsCli, '11.0.24');
   assert.equal(epoch.versions.express, '5.2.1');
@@ -196,15 +204,31 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'backend-runtime-persistence-security-consolidated-2026-09-09',
+    epochId: 'backend-aws-sdk-release-age-reconciliation-2026-09-09',
     fileSha256: epoch.fileSha256,
-    sourceSha: 'c8251322bd2c32d5afc5ab0096abddeafd3c8f0b',
+    sourceSha: '6667763aa94a8ab8c95536cc66429e290231e4e9',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the API runtime and security epoch before collecting the AWS release-age correction', () => {
+  const closedEpoch = parseMeasurementEpoch(closedBackendRuntimePersistenceSecurityEpochFixture);
+
+  assert.equal(closedEpoch.id, 'backend-runtime-persistence-security-consolidated-2026-09-09');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, 'c8251322bd2c32d5afc5ab0096abddeafd3c8f0b');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1126.0');
+  assert.equal(closedEpoch.versions.multer, '2.3.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'd4c2dc0dfe2047b392ef462c4551cffa81cfcd7b8249f0c1203d6d34908b42ef',
+    'pnpm-workspace.yaml': '4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 

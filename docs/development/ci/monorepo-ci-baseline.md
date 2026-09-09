@@ -519,8 +519,10 @@ release-age gate at the freeze. Later compatible 1.x updates return to Renovate 
 ## API runtime, persistence, build, and Multer security epoch
 
 The API artifact moves Joi `18.2.8`, Prisma-owned MySQL2 `3.24.3`, SWC core `1.16.2`, and unplugin-swc `1.5.11` as separately
-reviewable commits inside one API rollback boundary. AWS clients remain at the already eligible `3.1126.0` frozen line rather than
-absorbing a release-age-ineligible update. NestJS remains on the supported 11.2 line; NestJS 12 is a separate Issue-backed NO-GO.
+reviewable commits inside one API rollback boundary. That broad freeze retained AWS clients at `3.1126.0`, but a later review found
+that intermediate `3.1127.0` had already crossed the three-day gate even though nominal-latest `3.1128.0` had not. The provider pair
+therefore receives its own correction epoch instead of being hidden inside the broader API cohort. NestJS remains on the supported
+11.2 line; NestJS 12 is a separate Issue-backed NO-GO.
 
 NestJS 11.2.3 still pins vulnerable Multer `2.2.0`, so the workspace applies exact parent-scoped
 `@nestjs/platform-express>multer: 2.3.0`. The selector does not create a broad root override. Strict peers, HTTP/e2e behavior,
@@ -537,6 +539,18 @@ The first remote run showed one environment-specific regression that local behav
 ESLint process reached Node's default old-space ceiling near 2 GiB after the Next/eslint-config-next graph update. The workflow gives
 only that static step a 4 GiB old-space ceiling and preserves the same lint command and rule set; it does not reduce lint scope or
 raise the memory limit job-wide. The correction and its regression contract are documented in the troubleshooting owner.
+
+## AWS SDK intermediate release-age reconciliation epoch
+
+Secrets Manager and SES v2 move together from `3.1126.0` to `3.1127.0`. Both packages were published on 2026-09-04 around 18:55 UTC,
+require Node `>=20.0.0`, and had crossed the repository's three-day gate before this epoch started. The official AWS SDK comparison
+contains no owned service-model change for either client, and the canonical lock diff changes only the two package identities while
+preserving their AWS/Smithy transitive graph.
+
+This epoch closes a selection bug in which the too-new nominal latest `3.1128.0` caused the already eligible intermediate release to
+be overlooked. Release-age selection must evaluate every candidate between current and latest, not treat an ineligible latest release
+as a reason to retain an older eligible version. Provider fakes, runtime-config/health, API checks, frozen install, peers, and audits
+remain the acceptance boundary; real AWS credentials and provider smoke remain release-owned evidence.
 
 Pnpm cache는 dependency install 재생성 비용 때문에 유지합니다. Playwright browser cache는 restore와 download 시간이
 유사하고 Linux system dependency를 cache할 수 없다는 upstream guidance에 따라 채택하지 않습니다. Product arm64/larger
