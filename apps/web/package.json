@@ -40,13 +40,13 @@
   "dependencies": {
     "@repo/shared": "workspace:*",
     "@sentry/nextjs": "catalog:",
-    "@tabler/icons-react": "^3.44.0",
-    "lucide-react": "^0.456.0",
-    "motion": "^12.38.0",
+    "@tabler/icons-react": "^3.46.0",
+    "lucide-react": "^1.41.0",
+    "motion": "^13.2.0",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "sonner": "^2.0.7"
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
