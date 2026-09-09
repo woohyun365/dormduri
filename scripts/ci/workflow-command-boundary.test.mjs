@@ -370,6 +370,12 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
   assert.equal(occurrences(webWorkflow, 'pnpm web:build:prepared'), 1);
   assert.match(playwrightConfig, /workers: process\.env\.CI \? 1 : undefined/);
   assertIncludesAll(playwrightConfig, ["name: 'desktop-chromium'", "name: 'mobile-chromium'"]);
+
+  const staticStep = webWorkflow.slice(
+    webWorkflow.indexOf('- name: Web static checks'),
+    webWorkflow.indexOf('- name: Save Web TypeScript build info'),
+  );
+  assert.match(staticStep, /NODE_OPTIONS: --max-old-space-size=4096/u);
 });
 
 test('Web CI isolates unit work without duplicating the production build', () => {

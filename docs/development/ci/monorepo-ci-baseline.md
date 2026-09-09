@@ -514,6 +514,11 @@ the Turbopack dependency migration troubleshooting guide.
 Lucide `1.41.0` is pinned in the initial lock resolution because the newer `1.42.0` had not crossed the repository's three-day
 release-age gate at the freeze. Later compatible 1.x updates return to Renovate ownership rather than extending this migration.
 
+The first remote run showed one environment-specific regression that local behavior checks did not expose: the Web static step's
+ESLint process reached Node's default old-space ceiling near 2 GiB after the Next/eslint-config-next graph update. The workflow gives
+only that static step a 4 GiB old-space ceiling and preserves the same lint command and rule set; it does not reduce lint scope or
+raise the memory limit job-wide. The correction and its regression contract are documented in the troubleshooting owner.
+
 Pnpm cache는 dependency install 재생성 비용 때문에 유지합니다. Playwright browser cache는 restore와 download 시간이
 유사하고 Linux system dependency를 cache할 수 없다는 upstream guidance에 따라 채택하지 않습니다. Product arm64/larger
 runner도 native/tooling parity와 current owner availability가 없어 채택하지 않습니다.

@@ -74,6 +74,8 @@ jobs:
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=prepare -- pnpm web:prepare
 
       - name: Web static checks
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=static -- sh -c 'pnpm web:lint:prepared && pnpm web:typecheck:prepared'
 
       - name: Save Web TypeScript build info
