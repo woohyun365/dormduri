@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "backend-runtime-persistence-security-consolidated-2026-09-09",
+    "id": "backend-aws-sdk-release-age-reconciliation-2026-09-09",
     "state": "collecting",
-    "capturedAt": "2026-09-09T08:59:37.790Z",
-    "baseSha": "c8251322bd2c32d5afc5ab0096abddeafd3c8f0b",
+    "capturedAt": "2026-09-09T11:34:18.000Z",
+    "baseSha": "6667763aa94a8ab8c95536cc66429e290231e4e9",
     "fileSha256": {
-      "pnpm-lock.yaml": "d4c2dc0dfe2047b392ef462c4551cffa81cfcd7b8249f0c1203d6d34908b42ef",
+      "pnpm-lock.yaml": "491d65382f869cf9d81edb7da8ded5ba9e745d7bbf64d59dacd2075500c34fc1",
       "pnpm-workspace.yaml": "4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
@@ -17,7 +17,7 @@
       "nginx": "1.31.5-alpine",
       "prometheus": "3.14.0",
       "alloy": "1.19.2",
-      "aws-sdk": "3.1126.0",
+      "aws-sdk": "3.1127.0",
       "argon2": "2.2.0",
       "dotenv": "17.4.2",
       "helmet": "8.3.0",
@@ -62,10 +62,11 @@
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "This epoch moves API runtime validation, Prisma-owned MySQL2, SWC build tooling, and the NestJS Express Multer patch together; samples from the Web supported-line epoch remain closed and are not mixed with this cohort.",
+      "This epoch measures the aligned AWS Secrets Manager and SES v2 3.1127.0 release-age reconciliation only; samples from the broader API runtime and security epoch remain closed and are not mixed with this cohort.",
       "The @swc/cli/chokidar 4 and tsconfck/TypeScript 6 peer exceptions remain exact, dated, owner-tested compatibility contracts.",
       "pnpm store status may report the supported esbuild postinstall as modified; frozen install, native binary, and owning build checks remain the materialization evidence.",
       "The remaining full-audit JS-YAML advisory is development-tooling-only and is owned by M19; the production dependency graph has no high or critical advisory.",
+      "AWS SDK 3.1128.0 was published inside the three-day release-age gate at this freeze and returns to normal Renovate ownership after eligibility.",
       "NestJS 12 remains a terminal NO-GO under Issue #415 until @nestjs/throttler publishes a supported peer line."
     ]
   }
