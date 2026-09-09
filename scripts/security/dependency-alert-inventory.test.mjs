@@ -96,6 +96,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
 
   for (const contract of [
     "'engine.io>ws': 8.21.3",
+    "'@nestjs/platform-express>multer': 2.3.0",
     'postcss: 8.5.28',
     "'prisma>mysql2': 3.24.3",
     "'socket.io-adapter>ws': 8.21.3",
@@ -104,7 +105,6 @@ test('retained security overrides and resolved lock entries keep the known vulne
   }
 
   for (const removedSelector of [
-    "'@nestjs/platform-express>multer':",
     "'@babel/core':",
     "'brace-expansion@<2.0.0':",
     "'brace-expansion@>=5.0.0 <6.0.0':",
@@ -124,7 +124,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
   }
 
   assert.match(lockfile, /'@nestjs\/platform-express@11\.2\.3/u);
-  assert.match(lockfile, /\n      multer: 2\.2\.0\n/u);
+  assert.match(lockfile, /\n      multer: 2\.3\.0\n/u);
 
   for (const vulnerable of [
     '@humanfs/node@0.16.7',
@@ -138,6 +138,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'js-yaml@4.1.1',
     'lodash@4.17.23',
     'multer@2.1.1',
+    'multer@2.2.0',
     'mysql2@3.15.3',
     'nanoid@3.3.12',
     'next@16.3.0',
@@ -158,6 +159,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
   for (const safeResolution of [
     '@humanfs/node@0.16.8',
     'baseline-browser-mapping@2.11.18',
+    'multer@2.3.0',
     'mysql2@3.24.3',
     'next@16.3.4',
     'qs@6.16.0',
