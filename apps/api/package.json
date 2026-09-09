@@ -110,7 +110,7 @@
     "cron": "^4.4.0",
     "dotenv": "^17.4.2",
     "helmet": "^8.3.0",
-    "joi": "^18.2.5",
+    "joi": "^18.2.8",
     "pg": "^8.23.0",
     "pino": "^10.3.1",
     "reflect-metadata": "^0.2.2",
@@ -125,7 +125,7 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
     "@swc/cli": "^0.8.1",
-    "@swc/core": "^1.15.41",
+    "@swc/core": "^1.16.2",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/node": "catalog:",
@@ -142,7 +142,7 @@
     "ts-node": "^10.9.2",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
-    "unplugin-swc": "^1.5.9",
+    "unplugin-swc": "^1.5.11",
     "vite": "catalog:",
     "vitest": "catalog:"
   }

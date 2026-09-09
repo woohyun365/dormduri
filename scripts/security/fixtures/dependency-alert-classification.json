@@ -97,8 +97,8 @@
       "parent": "@nestjs/platform-express",
       "classification": "shipped-not-called",
       "action": "runtime-remediation",
-      "mitigation": "The supported NestJS 11 parent @nestjs/platform-express declares Multer 2.2.0 directly, so the safe runtime line resolves naturally without a root override and the unused upload surface remains unchanged.",
-      "revisit": "Recheck parent ownership and upload behavior whenever @nestjs/platform-express changes its Multer dependency or the application adopts a direct upload caller."
+      "mitigation": "NestJS 11.2.3 still pins vulnerable Multer 2.2.0, so an exact @nestjs/platform-express parent-scoped selector supplies patched 2.3.0 without creating a direct upload dependency or broad override.",
+      "revisit": "Remove the selector when a supported NestJS 11 parent owns Multer 2.3.0 or newer; recheck upload behavior if the application later adopts a direct multipart caller."
     },
     {
       "name": "mysql2",
@@ -107,7 +107,7 @@
       "classification": "shipped-not-called",
       "action": "artifact-remediation",
       "mitigation": "The driver remains in the shipped Prisma CLI graph, while application database calls use PostgreSQL through pg and @prisma/adapter-pg.",
-      "revisit": "Remove the parent-scoped selector when Prisma declares mysql2 3.23.1 or newer, or when a verified production deploy excludes the Prisma CLI graph."
+      "revisit": "Remove the parent-scoped selector when Prisma declares mysql2 3.24.3 or newer, or when a verified production deploy excludes the Prisma CLI graph."
     },
     {
       "name": "nanoid",

@@ -150,6 +150,14 @@ const closedDependencyHealthEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedWebSupportedLineEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
@@ -160,7 +168,11 @@ test('active measurement epoch matches the current dependency inputs', () => {
   assert.equal(epoch.versions.nestjsRuntime, '11.2.3');
   assert.equal(epoch.versions.nestjsCli, '11.0.24');
   assert.equal(epoch.versions.express, '5.2.1');
-  assert.equal(epoch.versions.multer, '2.2.0');
+  assert.equal(epoch.versions.joi, '18.2.8');
+  assert.equal(epoch.versions.mysql2, '3.24.3');
+  assert.equal(epoch.versions.multer, '2.3.0');
+  assert.equal(epoch.versions.swcCore, '1.16.2');
+  assert.equal(epoch.versions.unpluginSwc, '1.5.11');
   assert.equal(epoch.versions.vitest, '5.0.0');
   assert.equal(epoch.versions.vitestCoverageV8, '5.0.0');
   assert.equal(epoch.versions.storybook, '10.6.0');
@@ -184,15 +196,31 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'web-supported-line-security-consolidated-2026-09-09',
+    epochId: 'backend-runtime-persistence-security-consolidated-2026-09-09',
     fileSha256: epoch.fileSha256,
-    sourceSha: '6384c2d92f1074c0f81d998b2e4e6af5969370e3',
+    sourceSha: 'c8251322bd2c32d5afc5ab0096abddeafd3c8f0b',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the Web supported-line epoch before collecting the API runtime cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedWebSupportedLineEpochFixture);
+
+  assert.equal(closedEpoch.id, 'web-supported-line-security-consolidated-2026-09-09');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '6384c2d92f1074c0f81d998b2e4e6af5969370e3');
+  assert.equal(closedEpoch.versions.next, '16.3.4');
+  assert.equal(closedEpoch.versions.multer, '2.2.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '7a77f5981475e85ec2506680460d7627f7de943549e32f0ffa9096a3de144dd6',
+    'pnpm-workspace.yaml': '3c7ab8e7db2ddfeb6c1978c545cf4344aa865b28affbf868d51840253847a1da',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 
