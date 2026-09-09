@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "backend-aws-sdk-release-age-reconciliation-2026-09-09",
+    "id": "repository-shared-tooling-security-final-reconciliation-2026-09-09",
     "state": "collecting",
-    "capturedAt": "2026-09-09T11:34:18.000Z",
-    "baseSha": "6667763aa94a8ab8c95536cc66429e290231e4e9",
+    "capturedAt": "2026-09-09T12:51:36.142Z",
+    "baseSha": "55ed59f94d708b07535650929cfa6e87f8ed5306",
     "fileSha256": {
-      "pnpm-lock.yaml": "491d65382f869cf9d81edb7da8ded5ba9e745d7bbf64d59dacd2075500c34fc1",
+      "pnpm-lock.yaml": "af100433626ee64e5a6106780f7cac4fe0444f72c149706bb437870ee318f3eb",
       "pnpm-workspace.yaml": "4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
@@ -58,16 +58,18 @@
       "baselineBrowserMapping": "2.11.18",
       "postcss": "8.5.28",
       "swcCore": "1.16.2",
-      "unpluginSwc": "1.5.11"
+      "unpluginSwc": "1.5.11",
+      "lintStaged": "17.5.0",
+      "jsYaml": "4.3.2"
     },
     "knownGaps": [
       "Natural samples remain below the five-run provisional p50 and ten-run p95 thresholds.",
-      "This epoch measures the aligned AWS Secrets Manager and SES v2 3.1127.0 release-age reconciliation only; samples from the broader API runtime and security epoch remain closed and are not mixed with this cohort.",
-      "The @swc/cli/chokidar 4 and tsconfck/TypeScript 6 peer exceptions remain exact, dated, owner-tested compatibility contracts.",
-      "pnpm store status may report the supported esbuild postinstall as modified; frozen install, native binary, and owning build checks remain the materialization evidence.",
-      "The remaining full-audit JS-YAML advisory is development-tooling-only and is owned by M19; the production dependency graph has no high or critical advisory.",
-      "AWS SDK 3.1128.0 was published inside the three-day release-age gate at this freeze and returns to normal Renovate ownership after eligibility.",
-      "NestJS 12 remains a terminal NO-GO under Issue #415 until @nestjs/throttler publishes a supported peer line."
+      "This epoch measures only the final repository lint-staged and tooling-security reconciliation; earlier Web, API, and AWS provider cohorts remain closed and are not mixed with this cohort.",
+      "TypeScript-ESLint 8.70.0 was still inside the repository three-day release-age gate at the Phase 0 freeze and remains under normal Renovate ownership.",
+      "Prisma-owned MySQL2 3.24.4, AWS SDK 3.1128.0, and Web-owned Lucide 1.43.0 are post-freeze status-check candidates owned by their normal domain maintenance paths.",
+      "GitHub Dependabot alert state still reflects the default main branch until the umbrella performs the single dev-to-main promotion; local full and production audits are the current graph authority.",
+      "TypeScript 7, ESLint 10, NestJS 12, and Node 26 remain evidence-backed NO-GO or deferred candidates under Issues #335, #395, #415, and #437.",
+      "The @swc/cli/chokidar 4 and tsconfck/TypeScript 6 peer exceptions remain exact, dated, owner-tested compatibility contracts."
     ]
   }
 }

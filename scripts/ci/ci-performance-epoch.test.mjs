@@ -166,9 +166,19 @@ const closedBackendRuntimePersistenceSecurityEpochFixture = JSON.parse(
     'utf8',
   ),
 );
+const closedBackendAwsSdkReleaseAgeEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
 
 test('active measurement epoch matches the current dependency inputs', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
+  assert.equal(epoch.versions.lintStaged, '17.5.0');
+  assert.equal(epoch.versions.jsYaml, '4.3.2');
   assert.equal(epoch.versions.typescriptEslint, '8.69.0');
   assert.equal(epoch.versions.globals, '17.12.0');
   assert.equal(epoch.versions.nodeTypes, '24.13.3');
@@ -204,15 +214,31 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'backend-aws-sdk-release-age-reconciliation-2026-09-09',
+    epochId: 'repository-shared-tooling-security-final-reconciliation-2026-09-09',
     fileSha256: epoch.fileSha256,
-    sourceSha: '6667763aa94a8ab8c95536cc66429e290231e4e9',
+    sourceSha: '55ed59f94d708b07535650929cfa6e87f8ed5306',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the AWS release-age epoch before collecting the final tooling-security cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedBackendAwsSdkReleaseAgeEpochFixture);
+
+  assert.equal(closedEpoch.id, 'backend-aws-sdk-release-age-reconciliation-2026-09-09');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '6667763aa94a8ab8c95536cc66429e290231e4e9');
+  assert.equal(closedEpoch.versions['aws-sdk'], '3.1127.0');
+  assert.equal(closedEpoch.versions.typescriptEslint, '8.69.0');
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '491d65382f869cf9d81edb7da8ded5ba9e745d7bbf64d59dacd2075500c34fc1',
+    'pnpm-workspace.yaml': '4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 

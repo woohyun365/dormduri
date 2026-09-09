@@ -552,6 +552,31 @@ be overlooked. Release-age selection must evaluate every candidate between curre
 as a reason to retain an older eligible version. Provider fakes, runtime-config/health, API checks, frozen install, peers, and audits
 remain the acceptance boundary; real AWS credentials and provider smoke remain release-owned evidence.
 
+## Repository tooling and final security reconciliation epoch
+
+The final repository-owned dependency cohort updates `lint-staged` from `17.4.1` to `17.5.0` after the release crossed the
+three-day age gate. Its acceptance is behavioral rather than version-only: partial staged snapshots preserve unstaged hunks, task
+failure propagates, unrelated files stay outside the index, and Shared/API/Web lint consumers continue to load their effective
+configuration. TypeScript-ESLint `8.70.0` remains on the same compatible ESLint 9 / TypeScript 6 line, but it was still inside the
+release-age window at the freeze and therefore stays with normal Renovate ownership instead of bypassing policy.
+
+The same cohort repairs the last current full-audit finding by allowing `js-yaml` to resolve naturally from `4.3.1` to `4.3.2`.
+`@eslint/eslintrc@3.3.6` and `cosmiconfig@8.3.6` already declare compatible ranges, so no direct dependency or root override is
+introduced. The deterministic security fixture rejects the vulnerable lock entry and requires the patched one, while lint loading,
+Nest CLI/SWC build, and the production audit prove the tooling-only boundary. Shared Zod remains current at `4.5.4`; its evidence is
+an explicit no-op version decision plus Shared build/lint/typecheck/tests and downstream API/Web compatibility, not an invented source
+change.
+
+This evidence map supports later engineering review and portfolio discussion:
+
+| Question                                     | Evidence-backed answer                                                                                                                                                      |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Why not update every detected package?       | Release age, domain ownership, and major compatibility are independent gates; current-but-ineligible or Issue-owned candidates are not bundled for a clean dashboard.       |
+| Why no JS-YAML override?                     | Both owning parents accept the patched version, so natural resolution is smaller, easier to remove, and avoids creating a new repository authority.                         |
+| How is a no-op dependency decision verified? | Current registry metadata is paired with owner-consumer build, lint, typecheck, tests, and downstream contracts rather than a meaningless manifest edit.                    |
+| What remains after this cohort?              | TypeScript 7, ESLint 10, NestJS 12, and Node 26 remain explicit Issue-backed transitions; post-freeze compatible patches return to normal Renovate ownership.               |
+| What proves security completion?             | Frozen graph, exact parent resolution, full and production audits, deterministic vulnerable-version rejection, and selected product/tooling CI—not provider counters alone. |
+
 Pnpm cache는 dependency install 재생성 비용 때문에 유지합니다. Playwright browser cache는 restore와 download 시간이
 유사하고 Linux system dependency를 cache할 수 없다는 upstream guidance에 따라 채택하지 않습니다. Product arm64/larger
 runner도 native/tooling parity와 current owner availability가 없어 채택하지 않습니다.
