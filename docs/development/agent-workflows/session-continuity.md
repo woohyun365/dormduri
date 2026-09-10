@@ -118,6 +118,45 @@ evidence 링크, blocker와 다음 행동만 이 owner들에 연결합니다. ra
 로컬 기억이 없으면 tracked code/contract/test와 Issue/PR에서 재구성합니다. 필요한 portable evidence가 없으면 gap으로
 명시하고 재조사하며, 결과를 바꾸는 중요한 결정이 빠졌을 때만 질문합니다. 과거 답변이나 pointer만으로 채우지 않습니다.
 
+### 기억 없는 checkout에서 이어받기
+
+```text
+current request + AGENTS.md
+→ branch/HEAD/working tree + 최소 tracked owner 문서
+→ 권한 있는 current work item과 연결 PR/검증 근거
+→ 다음 한 가지 작업의 outcome/결정/acceptance/non-scope/dependency 확인
+→ 현재 code/test와 delta 대조 → 필요한 계획·readiness → 승인된 작업
+```
+
+1. 요청에 Issue URL/번호가 있으면 현재 본문·최신 결정 댓글·연결 PR의 상태를 읽는다. 없으면
+   [Work item discovery](../github/issues-and-work-tracking.md#이어받을-work-item-찾기)에 따라 해당 owner 범위에서 찾는다.
+   전체 backlog의 최신 번호나 local 파일명만으로 다음 작업을 고르지 않는다.
+2. 인계에는 축약 문자만이 아닌 **작업 전체 이름**, outcome, accepted decision, AC, source/test, 선행 조건과 다음 단일
+   행동이 있어야 한다. 조건부 작업은 trigger·필요 evidence·Owner 판단·NO-GO/종료 조건을 함께 읽는다. 이전 작업의
+   완료나 패키지 설치만으로 조건부 작업을 자동 활성화하지 않는다.
+3. 과거 계획이 없더라도 위 정보가 충분하면 tracked plan-authoring 규칙으로 현재 baseline의 bounded plan을 작성할 수
+   있다. 원문 전체 복제는 필요 없지만 중요한 요구가 빠졌다면 재설계로 채우지 않고 gap/OQ로 남긴다. 분석 요청을
+   구현이나 새 plan 생성으로 확대하지 않으며, 과거 readiness는 현재 변경의 검증을 대신하지 않는다.
+4. GitHub 접근 불가와 work item 없음은 구분한다. 인증·권한·offline·검색 범위 제한을 보고하고 기존 인증 owner 경로를
+   따른다. 확인하지 못한 Issue 상태/댓글/다음 순서를 만들거나 private archive·다른 세션을 뒤져 빈칸을 채우지 않는다.
+   안전한 tracked-source 조사는 계속하되, 빠진 결정이 필요한 실행은 멈추고 Issue URL·허용된 본문 또는 Owner 결정을 요청한다.
+
+개발자 요청 예시:
+
+> 이 checkout의 AGENTS.md와 Issue #N의 현재 본문·결정 댓글·연결 PR을 읽고, 다음 Backend 작업 한 가지의 범위와
+> 수용 기준을 설명해줘. 로컬 계획이나 지난 대화는 없다고 가정해줘. 근거가 부족하면 무엇이 필요한지 알려주고
+> 아직 구현하지 마.
+
+이 경로는 문서 기반 협업 계약이며 모든 prompt를 가로채는 hook, 자동 Issue fetcher 또는 자동 작업 선택기가 아니다.
+Portable 인계 성공을 주장할 때는 고정 commit의 실제 history-free checkout에서 허용된 Issue 접근 사례와 접근 불가
+사례를 나눠 검증한다. 기존 preflight fixture나 대화만 분리한 shared-filesystem child는 이를 대신하지 못한다.
+
+### 원본 보존과 인계는 다른 책임
+
+재생성 가능한 출력과 당시 상황을 다시 얻을 수 없는 관측 원본은 [Artifact 보존 규칙](../../../artifacts/README.md#보존과-정리)을
+따른다. 원문을 외부에 보관했더라도 현재 결정·AC가 private 경로에만 있으면 portable handoff가 완료된 것이 아니다.
+반대로 핵심 인계가 끝났다고 역사 원본이나 다른 작업의 유일한 근거를 삭제할 권한이 생기지도 않는다.
+
 ## Bounded checkpoint
 
 Checkpoint는 다음 경우에만 만듭니다.
@@ -128,14 +167,16 @@ Checkpoint는 다음 경우에만 만듭니다.
 - 다른 session이 즉시 이어받아야 함
 
 내용은 [Agent execution contract](./agent-execution-contract.md)의 handoff schema를 따릅니다. 일반 turn마다 만들지
-않으며 완료 시 priority pointer를 비웁니다. tracked 문서나 commit으로 승격된 context snapshot은 제거할 수 있습니다.
+않습니다. 완료 시 해당 작업의 priority pointer는 현재 scope 소유권과 문서화된 lifecycle/API가 확인될 때만 비웁니다.
+확인할 수 없으면 유지·보류하고 stale 입력을 사용하지 않는 진단을 남깁니다. 다른 세션의 pointer/state를 손으로 정리하지
+않습니다. 승격된 context도 현재 참조·역사 원본 보존·정리 권한을 확인한 뒤 처리합니다.
 
 ## Active plan lifecycle
 
 - `.omx/plans/` root에는 authoring handoff와 active plan만 둡니다.
 - 완료 상태는 changed files, verification, commit/stage state와 blocker를 가리켜야 합니다.
 - 현재 결정할 수 없는 provider/account/domain/instance 값은 tracked readiness/evidence handoff로 옮깁니다.
-- 완료 plan은 `finished/YYYY/MM/<domain>/`으로 이동하고 current priority에서 제거합니다.
+- 완료 plan은 `finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
 
 ## Closeout
 
