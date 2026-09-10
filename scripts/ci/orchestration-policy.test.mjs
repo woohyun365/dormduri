@@ -38,7 +38,7 @@ for (const fixture of runtimeCapabilityCases) {
       assert.ok(
         result.dispatches.every(
           ({ effectiveModel, effort, effectiveEffort, requiresLeaderRuntimeConfirmation }) =>
-            effectiveModel === 'gpt-5.6-sol' &&
+            effectiveModel === 'gpt-6-astra' &&
             effort === effectiveEffort &&
             requiresLeaderRuntimeConfirmation,
         ),
@@ -55,6 +55,21 @@ for (const fixture of runtimeCapabilityCases) {
         `${fixture.id}: ${result.gaps.join(', ')}`,
       );
     }
+  });
+}
+
+for (const effort of ['none', 'minimal', 'low', 'max', 'ultra']) {
+  test(`Astra runtime evidence rejects unsupported child effort: ${effort}`, () => {
+    const evidence = structuredClone(runtimeFixture('native-project-role-success').evidence);
+    evidence.roles[0].effectiveEffort = effort;
+    const result = createDispatchRecommendation({
+      delegation: legalDelegation(),
+      reportedRuntimeEvidence: evidence,
+    });
+
+    assert.equal(result.execution, 'leader-sequential');
+    assert.deepEqual(result.dispatches, []);
+    assert.ok(result.gaps.some((gap) => gap.includes('runtime-role-metadata-invalid')));
   });
 }
 
@@ -320,7 +335,7 @@ test('tracked guidance preserves the reported-evidence trust boundary and live r
     'requiresLeaderRuntimeConfirmation=true',
     'host-tool-schema',
     'omx-runtime-overlay',
-    'gpt-5.6-sol',
+    'gpt-6-astra',
   ]) {
     assert.ok(`${orchestration}\n${recovery}`.includes(required), required);
   }

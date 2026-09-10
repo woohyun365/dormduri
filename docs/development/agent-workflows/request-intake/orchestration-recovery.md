@@ -15,7 +15,7 @@
 - 선택된 write-capable child가 최대 1개
 - native surface는 current-turn `host-tool-schema`, OMX surface는 current-session `host-tool-schema`와
   `omx-runtime-overlay`를 provenance로 보고
-- 선택된 각 project role이 fresh roster에 available 상태이며 effective model은 `gpt-5.6-sol`
+- 선택된 각 project role이 fresh roster에 available 상태이며 effective model은 `gpt-6-astra`
 - effective effort가 requested `medium | high | xhigh`와 일치하고 fixed-effort conflict가 없음
 - higher-priority runtime permission이 dispatch를 허용
 - leader-only dispatch, decision, response, integration, verification ownership 유지
@@ -48,6 +48,11 @@ roles[]:
   `leader-reported-not-host-authenticated`로 표시합니다.
 - Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
   permission을 다시 읽고 조금이라도 달라지면 descriptor를 폐기합니다.
+
+Project child model은 `.codex/config.toml`과 네 `knu_*` role이 명시적으로 선택합니다. Parent model 변경이나 OMX의
+기본값 업데이트만으로 project pin이 바뀌지는 않습니다. Runtime policy의 `REPOSITORY_CHILD_MODEL`은 현재
+`gpt-6-astra`이며, fixture에 남은 Sol/Terra/Luna는 legacy model 거절을 검증하는 negative evidence입니다.
+이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·effort·count 경계를 바꾸지 않습니다.
 
 ## Recovery ceiling
 

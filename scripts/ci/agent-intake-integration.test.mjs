@@ -280,7 +280,7 @@ function nativeRuntimeEvidenceFor(contracts) {
     roles.set(role, {
       agentType: role,
       available: true,
-      effectiveModel: 'gpt-5.6-sol',
+      effectiveModel: 'gpt-6-astra',
       effectiveEffort: effort,
       explicitEffortSupport: true,
     });

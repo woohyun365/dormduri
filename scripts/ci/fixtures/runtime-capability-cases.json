@@ -13,14 +13,14 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         },
         {
           "agentType": "knu_explorer",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -28,7 +28,7 @@
     }
   },
   {
-    "id": "omx-sol-compatible-success",
+    "id": "omx-astra-compatible-success",
     "expectedExecution": "native-bounded-dispatch",
     "evidence": {
       "schemaVersion": 1,
@@ -41,14 +41,14 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": false
         },
         {
           "agentType": "knu_explorer",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": false
         }
@@ -56,9 +56,9 @@
     }
   },
   {
-    "id": "luna-low-rejected",
+    "id": "luna-rejected",
     "expectedExecution": "leader-sequential",
-    "expectedGap": "runtime-role-metadata-invalid",
+    "expectedGap": "runtime-model-incompatible",
     "evidence": {
       "schemaVersion": 1,
       "surfaceMode": "native",
@@ -71,13 +71,13 @@
           "agentType": "knu_researcher",
           "available": true,
           "effectiveModel": "gpt-5.6-luna",
-          "effectiveEffort": "low",
+          "effectiveEffort": "high",
           "explicitEffortSupport": true
         },
         {
           "agentType": "knu_explorer",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -106,7 +106,36 @@
         {
           "agentType": "knu_explorer",
           "available": true,
+          "effectiveModel": "gpt-6-astra",
+          "effectiveEffort": "high",
+          "explicitEffortSupport": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "legacy-sol-rejected",
+    "expectedExecution": "leader-sequential",
+    "expectedGap": "runtime-model-incompatible",
+    "evidence": {
+      "schemaVersion": 1,
+      "surfaceMode": "native",
+      "observationScope": "current-turn",
+      "freshness": "current-turn",
+      "provenance": ["host-tool-schema"],
+      "dispatchPermission": "allowed",
+      "roles": [
+        {
+          "agentType": "knu_researcher",
+          "available": true,
           "effectiveModel": "gpt-5.6-sol",
+          "effectiveEffort": "high",
+          "explicitEffortSupport": true
+        },
+        {
+          "agentType": "knu_explorer",
+          "available": true,
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -128,14 +157,14 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "medium",
           "explicitEffortSupport": false
         },
         {
           "agentType": "knu_explorer",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": false
         }
@@ -178,14 +207,14 @@
         {
           "agentType": "knu_researcher",
           "available": false,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         },
         {
           "agentType": "knu_explorer",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -207,14 +236,14 @@
         {
           "agentType": "researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         },
         {
           "agentType": "explore",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -236,14 +265,14 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         },
         {
           "agentType": "knu_explorer",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -265,7 +294,7 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -287,7 +316,7 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }
@@ -309,7 +338,7 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         }

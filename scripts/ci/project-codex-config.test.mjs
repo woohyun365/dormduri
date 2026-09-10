@@ -18,7 +18,7 @@ const expectedPortablePaths = [
 ];
 const expectedProjectConfig = `[agents]
 enabled = true
-default_subagent_model = "gpt-5.6-sol"
+default_subagent_model = "gpt-6-astra"
 default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 6
 `;
@@ -92,7 +92,7 @@ test('project config owns child defaults without pinning parent or provider sett
   );
 });
 
-test('project agents expose exactly four Sol roles with dynamic effort and bounded sandboxes', () => {
+test('project agents expose exactly four Astra roles with dynamic effort and bounded sandboxes', () => {
   const agentDirectory = resolve(repoRoot, '.codex/agents');
   const files = readdirSync(agentDirectory)
     .filter((file) => file.endsWith('.toml'))
@@ -110,7 +110,7 @@ test('project agents expose exactly four Sol roles with dynamic effort and bound
     assert.deepEqual(topLevelKeys(source), allowedRoleKeys, role.file);
     assert.equal(readQuotedField(source, 'name'), role.name, role.file);
     assert.ok(readQuotedField(source, 'description')?.length > 20, role.file);
-    assert.equal(readQuotedField(source, 'model'), 'gpt-5.6-sol', role.file);
+    assert.equal(readQuotedField(source, 'model'), 'gpt-6-astra', role.file);
     assert.equal(readQuotedField(source, 'sandbox_mode'), role.sandboxMode, role.file);
     assert.ok(instructions?.length > 300, role.file);
     assert.match(instructions, /Do not spawn child agents\./u, role.file);

@@ -1,6 +1,6 @@
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
-const SOL_MODEL = 'gpt-5.6-sol';
+const REPOSITORY_CHILD_MODEL = 'gpt-6-astra';
 const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
 const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
@@ -532,7 +532,7 @@ function assessRuntimeCompatibility(runtime, contracts) {
       gaps.push(`runtime-role-unavailable:${requestedRole}`);
       continue;
     }
-    if (reportedRole.effectiveModel !== SOL_MODEL) {
+    if (reportedRole.effectiveModel !== REPOSITORY_CHILD_MODEL) {
       gaps.push(`runtime-model-incompatible:${requestedRole}`);
     }
     if (reportedRole.effectiveEffort !== requestedEffort) {
