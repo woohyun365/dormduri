@@ -72,3 +72,49 @@ test('checkpoint validation rejects forbidden, malformed, and expired state', ()
   );
   assert.equal(validateContextContract({ ...base }, new Date('2026-08-15T01:00:00Z')).valid, false);
 });
+
+test('parsers reject non-object and wrong-type input without throwing or echoing values', () => {
+  const source = readFileSync(
+    resolve(repoRoot, 'scripts/ci/fixtures/session-context.valid.md'),
+    'utf8',
+  );
+  const base = parseContextContract(source).value;
+  for (const value of [null, [], 12, true, 'value']) {
+    assert.equal(validateContextContract(value).valid, false);
+    assert.equal(parseContextContract(`\`\`\`json\n${JSON.stringify(value)}\n\`\`\``).valid, false);
+    assert.equal(parsePriorityPointer(JSON.stringify(value)).valid, false);
+  }
+  for (const value of [12, {}, []]) {
+    assert.equal(parsePriorityPointer(value).valid, false);
+    assert.equal(parseContextContract(value).valid, false);
+  }
+  for (const patch of [
+    { taskSlug: {} },
+    { head: [] },
+    { createdAt: 1 },
+    { expiresAt: false },
+    { activePlan: null },
+    { relevantFiles: 'README.md' },
+  ]) {
+    assert.equal(validateContextContract({ ...base, ...patch }).valid, false);
+  }
+  assert.deepEqual(parsePriorityPointer(''), {
+    exists: false,
+    valid: true,
+    value: null,
+    errors: [],
+  });
+});
+
+test('context parser uses injected time while preserving absolute expiry and structural task/path independence', () => {
+  const source = readFileSync(
+    resolve(repoRoot, 'scripts/ci/fixtures/session-context.valid.md'),
+    'utf8',
+  );
+  const value = { ...parseContextContract(source).value, expiresAt: '2026-08-14T00:00:00Z' };
+  const markdown = `\`\`\`json\n${JSON.stringify(value)}\n\`\`\``;
+  assert.equal(parseContextContract(markdown, new Date('2026-08-13T00:00:00Z')).valid, true);
+  assert.equal(parseContextContract(markdown, new Date('2026-08-14T00:00:00Z')).valid, false);
+  assert.equal(value.taskSlug, 'fixture-task');
+  assert.equal(value.activePlan, '.omx/plans/fixture.md');
+});
