@@ -35,6 +35,18 @@ stop condition / escalation condition
 Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정하지 않습니다. 결과에는 확인된 사실의 file/URL,
 추론, confidence, blocker를 구분합니다. Leader는 결과 충돌을 해결하고 최종 edit·verification·completion을 소유합니다.
 
+## Parent-led communication
+
+결정권과 통신 예외는 [Owner–Lead collaboration](./owner-lead-collaboration.md)의 단일 계약을 사용합니다. 기본은 Parent
+경유이며 assignment·재배정·scope/file owner 변경·판정·통합은 Parent만 소유합니다. Child 결과·blocker는 Parent에게
+돌아오고, sub-child 생성이나 peer/shell/외부 agent를 통한 업무 재위임은 금지합니다.
+
+실제 runtime이 허용할 때만 Parent가 지정한 참여자·주제·read scope·snapshot 안에서 짧은 기존 사실 확인이 가능합니다.
+그 지정은 새 조사/테스트/구현 요청이나 peer 합의를 허용하지 않습니다. 초기 QA는 builder 대화 없이 먼저 판단하고,
+후속 사실 확인·보고·만료 조건도 공통 계약과 [QA owner](./qa.md)를 따릅니다. 지침은 native message ACL이나 자동 CC가 아닙니다.
+지원/권한이 불명확하면 중계하고, 반복 peer 의존성은 Parent가 순차화합니다. 선택적 native specialist를 자동 OMX Team으로
+취급하지 않으며 명시적 Team/Conductor 실행에는 해당 host-authority/lifecycle 제약도 별도로 적용합니다.
+
 ## Git branch/worktree isolation
 
 Agent를 선택하는 책임과 Git write lifecycle은 분리합니다. Canonical branch, scope-drift, checkout/worktree ownership은

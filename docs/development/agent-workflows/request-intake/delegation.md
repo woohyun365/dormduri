@@ -95,6 +95,11 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 
 ## Ownership boundary
 
+- assignment·재배정·scope/file owner 변경·결과 판정·통합은 Parent 책임입니다. Child 결과와 blocker는 Parent로 반환합니다.
+- 기본 Parent 경유와 지정된 기존 사실 확인 예외는 [공통 협업 계약](../owner-lead-collaboration.md)을 따릅니다. 참여자·주제·
+  read scope·snapshot 지정은 기존 task text/allowedTools/nonGoals로 전달하며 schema나 runtime 권한 필드를 만들지 않습니다.
+- 도구 지원만으로 peer 권한이 생기지 않습니다. 초기 QA 독립성, 보고와 만료 조건을 지키고, 새 업무·상충·반복 의존성은
+  Parent에게 돌려보냅니다. Child의 직접/간접 offload와 sub-child 생성은 허용하지 않습니다.
 - Intake mapper는 child를 생성하지 않습니다.
 - ContextPack registry는 lane을 만들지 않습니다.
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.
