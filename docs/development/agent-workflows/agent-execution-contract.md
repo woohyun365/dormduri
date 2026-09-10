@@ -36,6 +36,11 @@
 사용합니다. Non-Plan 요청에도 관련 부분을 참고할 수 있지만 mapper의 `selectedGuides`와 output/mutation authority는
 바꾸지 않습니다. 작은 lookup이나 승인된 기지의 수정에 전체 계획 체크리스트를 강제하지 않습니다.
 
+UI의 시각적 방향·reference·화면 비평을 다루면 Plan 여부와 무관하게
+[Visual design workflow](./visual-design/README.md)를 참고합니다. 분석, 방향 제안, 계획, 승인된 구현은 각 요청의
+권한을 유지합니다. 가이드를 읽었다는 이유로 prototype·제품 파일을 수정하거나 Figma를 연결하지 않습니다.
+내용·동작 보존과 스타일 상속은 별도로 판단하며, 작은 기지 CSS 결함에는 전체 디자인 탐색을 강제하지 않습니다.
+
 ## 3. Route
 
 - deterministic search/check로 해결할 수 있으면 tool을 사용합니다.

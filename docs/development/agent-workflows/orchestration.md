@@ -97,23 +97,32 @@ leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일�
 - durable multi-goal completion과 resume: `$ultragoal`
 - hostile E2E/회귀: `$ultraqa`
 - cleanup: 계획과 회귀 보호 뒤 `$ai-slop-cleaner`
-- UI source of truth: `$design`; reference 기반 반복은 `$visual-ralph`
+- UI 방향·비평·승인된 구현: [Visual design workflow](./visual-design/README.md); skill 호출이나 Figma 연결은 필수가 아님
 
 Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 않습니다.
 
-## Figma provider 도입 경계
+## Visual design 작업 선택
 
-상세 visual capability 계약은 [Visual design workflow](./visual-design/README.md)를 읽습니다.
+[Visual design workflow](./visual-design/README.md)는 분석·제안·계획·승인된 구현 모두에서 필요한 시각 작업의 진입점입니다.
+`maintain | reimagine | new-surface`는 스타일 상속 범위이지 수정 권한이 아닙니다. 내용·action·접근성의 의미는 보존하고,
+새 방향이 요청되면 기존 token/layout을 반드시 따를 제약으로 주입하지 않습니다. Storybook은 상태·동작과 현재 화면의
+근거이며 미래 Backoffice의 미적 방향을 자동 승인하지 않습니다.
 
-1. tracked `DESIGN.md`가 있으면 이를 먼저 사용하고, 없으면 Storybook, 현재 component/token과 repository workflow를
-   source of truth로 사용합니다. untracked local `DESIGN.md`는 참고 입력일 뿐 clean clone의 필수 권한이 아닙니다.
-2. 실제 Figma file/frame이 source of truth일 때만 Official Figma MCP를 user-level opt-in으로 검토합니다.
-3. credential은 repository나 example file에 저장하지 않습니다.
-4. Figma MCP는 승인된 frame/component/variable을 읽는 evidence bridge이며 product policy나 mutation 권한을 만들지
-   않습니다.
-5. provider 장애나 연결 해제 뒤에도 기존 Storybook·design·verification 경로는 동작해야 합니다.
+- 작은 padding 수정·승인된 token 적용은 Parent의 direct path입니다. 새 디자인 후보나 child를 자동 생성하지 않습니다.
+- 실제 대안 생성이 필요하면 [Design task orchestration](./visual-design/design-task-orchestration.md)의 task packet을 기존
+  `knu_executor`에, 독립 비평이 유용하면 `knu_reviewer`에 맡깁니다. 공통 role·effort·one-writer·QA 경계를 재사용하며
+  선행 후보가 필요한 비평을 독립 병렬 작업으로 가장하지 않습니다. 새 designer role이나 별도 실행 engine은 없습니다.
+- 특정 skill이 명시되면 현재 설치·지침·권한을 확인합니다. 호출 이름만으로 제품 수정이나 root `DESIGN.md` 생성을
+  승인받은 것으로 보지 않습니다. 이 저장소의 untracked `DESIGN.md`는 non-canonical이며 보호된 사용자 파일입니다.
 
-Provider output은 증거이며 product policy와 repository design contract를 자동으로 덮지 않습니다.
+### Figma provider 도입 경계
+
+Provider 계약은 [Figma MCP evidence](./visual-design/figma-mcp-evidence.md)가 소유합니다. 현재 승인한 file/frame이
+필요할 때만 opt-in으로 사용하며 설치·로그인·쓰기 권한을 추측하지 않습니다. 실제 tool의 read/write capability와
+현재 session 접근, Owner가 허용한 action은 별개입니다. Credential은 repository에 저장하지 않습니다.
+
+Provider output은 증거이지 정책·새 action·수정 권한이 아닙니다. 장애 시 허용된 로컬 자료로 안전한 작업은 계속하되,
+보지 못한 reference의 fidelity를 PASS로 만들지 않습니다. 상세 승인·개인정보·연결 해제 절차는 provider owner를 따릅니다.
 
 ## Cross-domain 예시
 

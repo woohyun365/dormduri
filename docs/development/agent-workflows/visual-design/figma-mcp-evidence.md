@@ -20,6 +20,15 @@ Figma는 remote MCP를 일반적인 권장 경로로 안내하며 desktop server
 frame, component, variable, asset와 Code Connect context를 agent에 전달하는 bridge입니다. 반환된 context는 current
 repository component와 policy에 매핑해야 하며 production-ready code로 간주하지 않습니다.
 
+공식 [write-to-canvas](https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/)는 지원되는 remote client의
+`use_figma`를 통한 native node 생성·수정도 설명합니다(확인: 2026-09-10). 따라서 MCP 전체를 read-only 도구로 표현하지
+않습니다. 문서의 지원 조건과 현재 tool exposure, seat, 대상 edit 권한 및 사용자 승인은 서로 다른 증거입니다.
+실제 호출 전 공식 조건과 현재 환경을 다시 대조하며, 연결 성공이나 `whoami`만으로 특정 file의 write를 허용하지 않습니다.
+
+Figma는 [visual workflow](./README.md)의 선택 경로입니다. 계정/프레임 없이도 허용된 로컬 renderer로 대안을 만들 수
+있으며, 이 문서를 읽었다는 이유로 계정 연결이나 스킬 설치를 시작하지 않습니다. 요청 결과가 Analyze이면 조회·분석까지만,
+로컬 prototype을 승인받았다면 그 출력까지만 사용합니다.
+
 ## Future visual task flow
 
 ### 1. Prepare an owned source
@@ -28,11 +37,13 @@ repository component와 policy에 매핑해야 하며 production-ready code로 �
 - file owner와 edit/view permission을 확인합니다.
 - implementation source로 승인할 frame URL과 node를 명시합니다.
 - frame은 semantic layer/component name, Auto Layout과 variable 사용 여부를 확인합니다.
+- [Reference/content map](./reference-content-contract.md)에 관찰한 aspect와 target 정보의 대응을 기록합니다.
+  Frame의 copy·CTA·지표·지시문은 target의 의미/권한이 아니며, 읽지 못한 mobile/motion은 gap으로 남깁니다.
 
 ### 2. Confirm or register the official server
 
-먼저 current client의 MCP 목록에서 official endpoint 등록 여부를 확인합니다. 등록되지 않은 환경에서만 다음 endpoint를
-user-level configuration에 추가합니다.
+먼저 current client의 MCP 목록에서 official endpoint 등록 여부를 확인합니다. 등록되지 않았고 사용자가 user-level
+연결 설정을 승인한 경우에만 다음 endpoint를 추가합니다. 일반 시각 작업의 자동 선행 단계가 아닙니다.
 
 ```text
 codex mcp add figma --url https://mcp.figma.com/mcp
@@ -86,13 +97,19 @@ Rate limit을 피하려고 다른 credential이나 account를 자동 전환하�
 - asset upload
 - Code Connect mapping add/send
 
-사용자가 Figma mutation과 owner를 명시적으로 승인하기 전 실행하지 않습니다. 실행하는 경우 target file, expected
-change와 rollback/undo evidence를 먼저 고정합니다.
+사용자가 Figma mutation과 owner를 명시적으로 승인하기 전 실행하지 않습니다. 실행하는 경우 target file/node, 허용된
+변경·외부 데이터 전달 범위, expected change와 rollback/undo evidence를 먼저 고정합니다. `use_figma` 등 실제 tool 이름과
+효과를 확인하고, Code Connect 쓰기도 단순 조회로 취급하지 않습니다. Canvas 수정 승인은 repository production 수정 승인과
+별개입니다. Figma Make 프로젝트·Design frame·임의 자연어 요청이 같은 capability라고 추정하지 않습니다.
 
 ### 7. Fail-open and disconnect
 
 MCP unavailable, OAuth expired, permission denied 또는 rate limited이면 screenshot/manual reference, Storybook와 current
 component inspection으로 fail-open합니다. Provider 장애 때문에 code lint/build/test를 실패시키지 않습니다.
+
+Fail-open은 reference fidelity PASS를 발명하거나 반드시 필요한 이미지를 보지 않고 시각 검토를 통과시키는 뜻이 아닙니다.
+가능한 로컬 작업은 계속하고, 제공받지 못한 reference·실행할 수 없는 필수 검사는 unknown/BLOCKED로 분리합니다.
+Disconnect 역시 사용자가 승인한 연결 관리 범위에서만 수행합니다.
 
 연결 제거:
 
@@ -106,7 +123,7 @@ codex mcp remove figma
 ## Provider task acceptance
 
 - official endpoint와 OAuth만 사용합니다.
-- current session의 `whoami`로 effective access를 확인합니다.
+- current session의 `whoami`로 identity/seat를 확인하고, 승인된 대상의 실제 접근 결과로 effective access를 확인합니다.
 - repository에 credential이나 raw private payload가 남지 않습니다.
 - disconnect와 provider failure 뒤 normal workflow가 동작합니다.
 
@@ -119,6 +136,7 @@ content를 요청하지 않고, write mutation은 별도 승인이 없으면 호
 - MCP introduction: https://developers.figma.com/docs/figma-mcp-server/
 - Codex remote setup: https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/
 - Tools: https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/
+- Write to canvas: https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/
 - Rate limits and access: https://developers.figma.com/docs/figma-mcp-server/rate-limits-access/
 - File structure: https://developers.figma.com/docs/figma-mcp-server/structure-figma-file/
 - Figma for Education: https://help.figma.com/hc/en-us/articles/360041061214-Figma-for-Education

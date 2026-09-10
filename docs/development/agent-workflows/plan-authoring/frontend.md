@@ -34,7 +34,11 @@
 
 ## Visual and component boundary
 
-- existing production component, token, layout owner를 먼저 재사용합니다.
+- existing production component의 의미·interaction·state owner를 먼저 조사하고 재사용합니다. 시각적 방향은
+  [Visual design workflow](../visual-design/README.md)의 `maintain | reimagine | new-surface`와 surface별 승인 범위로
+  판단하며, 명시적으로 새 방향을 탐색할 때 기존 token/layout의 외형을 의무로 상속하지 않습니다.
+- content/state/action map과 reference aspect를 분리하고 제안·계획·승인된 구현의 권한을 명시합니다. 실제 화면 없이
+  미적 성과를 추측하지 않으며 기능/a11y, reference fidelity, usability, Owner 선호의 acceptance를 나눕니다.
 - 공통화는 외형 유사성이 아니라 semantics, interaction, state contract가 같은 경우에만 수행합니다.
 - page/flow/domain UI/shared primitive의 owner를 구분하고 단순 re-export와 god component를 피합니다.
 - Storybook fixture는 production controller/contract를 우회하는 별도 behavior owner가 되지 않습니다.

@@ -10,11 +10,217 @@ const visualGuidePaths = [
   `${visualRoot}/README.md`,
   `${visualRoot}/visual-brief.md`,
   `${visualRoot}/figma-mcp-evidence.md`,
+  `${visualRoot}/reference-content-contract.md`,
+  `${visualRoot}/design-task-orchestration.md`,
+  `${visualRoot}/design-review-and-acceptance.md`,
 ];
+const entryPaths = [
+  `${workflowRoot}/README.md`,
+  `${workflowRoot}/getting-started.md`,
+  `${workflowRoot}/agent-execution-contract.md`,
+  `${workflowRoot}/orchestration.md`,
+  `${workflowRoot}/plan-authoring/frontend.md`,
+];
+const cases = JSON.parse(read('scripts/ci/fixtures/visual-capability-cases.json'));
+const authorities = new Set(['analyze', 'plan', 'propose-visual-direction', 'implement']);
+const capabilities = new Set(['direct', 'visual-workflow', 'reference-review']);
+const modes = new Set(['maintain', 'reimagine', 'new-surface']);
+const artifactKinds = new Set(['local-prototype', 'owned-source', 'plan-document']);
+const dispositions = new Set(['inspect', 'propose', 'plan', 'implement', 'review', 'report-gap']);
+const evidenceKinds = new Set([
+  'response',
+  'tool-log',
+  'tree-diff',
+  'content-map',
+  'render',
+  'interaction-check',
+  'screenshot-comparison',
+  'review-disposition',
+  'owner-choice',
+]);
+const sourcePriorities = new Set([
+  'latest-user-request',
+  'product-policy',
+  'current-production-ui',
+]);
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8');
 }
+
+function nonempty(value, label) {
+  assert.ok(typeof value === 'string' && value.trim().length > 0, label);
+}
+
+function stringList(value, label, allowEmpty = false) {
+  assert.ok(Array.isArray(value) && (allowEmpty || value.length > 0), label);
+  for (const item of value) nonempty(item, label);
+  assert.equal(new Set(value).size, value.length, label);
+}
+
+// Test-corpus integrity, not a runtime classifier or a judge of model prose/aesthetic quality.
+// Parent passes only { request, ...input } to the pilot; all other fields are evaluator-only.
+function validateCorpus(value) {
+  assert.ok(Array.isArray(value) && value.length > 0);
+  const ids = new Set();
+  for (const item of value) {
+    nonempty(item.id, 'id');
+    assert.match(item.id, /^[a-z]+(?:-[a-z]+)*$/u);
+    assert.ok(!ids.has(item.id), `duplicate ${item.id}`);
+    ids.add(item.id);
+    nonempty(item.request, item.id);
+    if (item.evaluatorNotes !== undefined) nonempty(item.evaluatorNotes, item.id);
+    assert.ok(authorities.has(item.expectedAuthority), item.id);
+    assert.ok(capabilities.has(item.expectedCapability), item.id);
+    stringList(item.prohibitedActions, item.id);
+    assert.deepEqual(Object.keys(item.input).sort(), [
+      'context',
+      'mode',
+      'permittedArtifacts',
+      'sourcePaths',
+      'surfaceId',
+    ]);
+    nonempty(item.input.surfaceId, item.id);
+    nonempty(item.input.context, item.id);
+    assert.ok(modes.has(item.input.mode), item.id);
+    stringList(item.input.sourcePaths, item.id, true);
+    for (const path of item.input.sourcePaths) {
+      assert.match(path, /^(?:apps|docs|packages)\//u, item.id);
+      assert.ok(!path.split('/').includes('..'), item.id);
+      assert.ok(existsSync(resolve(repoRoot, path)), `${item.id}: ${path}`);
+    }
+    stringList(item.input.permittedArtifacts, item.id, true);
+    for (const kind of item.input.permittedArtifacts) assert.ok(artifactKinds.has(kind), item.id);
+    if (item.expectedAuthority === 'analyze') assert.deepEqual(item.input.permittedArtifacts, []);
+    if (item.input.permittedArtifacts.includes('owned-source')) {
+      assert.equal(item.expectedAuthority, 'implement', item.id);
+      assert.ok(!item.prohibitedActions.includes('write-production'), item.id);
+    }
+    if (item.input.permittedArtifacts.includes('plan-document')) {
+      assert.equal(item.expectedAuthority, 'plan', item.id);
+    }
+    if (item.expectedAuthority === 'plan') {
+      assert.ok(
+        item.input.permittedArtifacts.every((kind) => kind === 'plan-document'),
+        item.id,
+      );
+    }
+    if (item.sourcePriority) {
+      stringList(item.sourcePriority, item.id);
+      for (const source of item.sourcePriority) assert.ok(sourcePriorities.has(source), item.id);
+    }
+    assert.deepEqual(Object.keys(item.expectations).sort(), ['disposition', 'evidence', 'signals']);
+    assert.ok(dispositions.has(item.expectations.disposition), item.id);
+    if (item.expectations.disposition === 'implement')
+      assert.equal(item.expectedAuthority, 'implement');
+    if (item.expectations.disposition === 'plan') assert.equal(item.expectedAuthority, 'plan');
+    stringList(item.expectations.signals, item.id);
+    stringList(item.expectations.evidence, item.id);
+    for (const kind of item.expectations.evidence) assert.ok(evidenceKinds.has(kind), item.id);
+    assert.ok(
+      !item.expectations.signals.some((signal) => item.prohibitedActions.includes(signal)),
+      item.id,
+    );
+  }
+}
+
+test('visual fixture inputs and evaluator expectations have distinct validated boundaries', () => {
+  validateCorpus(cases);
+});
+
+test('invalid visual fixture mutations fail integrity checks, not a cosmetic scoring heuristic', () => {
+  validateCorpus(cases);
+  const mutations = [
+    (value) => value.push(structuredClone(value[0])),
+    (value) => {
+      value[0].request = ' ';
+    },
+    (value) => {
+      value[0].input.mode = 'auto-redesign';
+    },
+    (value) => {
+      value[0].expectedAuthority = 'auto-approve';
+    },
+    (value) => {
+      value[0].expectedCapability = 'mandatory-swarm';
+    },
+    (value) => {
+      value[0].input.expectedAnswer = 'PASS';
+    },
+    (value) => {
+      value[0].input.evaluatorNotes = 'synthetic answer key';
+    },
+    (value) => {
+      value[0].input.sourcePaths = ['DESIGN.md'];
+    },
+    (value) => {
+      value[0].input.permittedArtifacts = ['write-to-figma'];
+    },
+    (value) => {
+      value[0].expectations.disposition = 'owner-approved';
+    },
+    (value) => {
+      value[0].expectations.signals = [];
+    },
+    (value) => {
+      value[0].expectations.evidence = ['static-green-proves-beauty'];
+    },
+    (value) => {
+      value[0].expectations.signals = [value[0].prohibitedActions[0]];
+    },
+    (value) => {
+      value[0].prohibitedActions.push(value[0].prohibitedActions[0]);
+    },
+    (value) => {
+      value.find((item) => item.expectedAuthority === 'analyze').input.permittedArtifacts = [
+        'local-prototype',
+      ];
+    },
+    (value) => {
+      value[0].input.permittedArtifacts = ['owned-source'];
+    },
+    (value) => {
+      value[0].expectations.disposition = 'implement';
+    },
+  ];
+  for (const mutate of mutations) {
+    const invalid = structuredClone(cases);
+    mutate(invalid);
+    assert.throws(() => validateCorpus(invalid));
+  }
+});
+
+test('initial critic inputs exclude the synthetic defect key and generator self-assessment', () => {
+  const challenges = [
+    ['generator-approval-is-not-owner', ['9.8/10', 'user approved']],
+    ['missing-content-state-action', ['필수 표 생략', 'retry 추가', 'copy 완료 상태 누락']],
+  ];
+  for (const [id, withheld] of challenges) {
+    const fixture = cases.find((item) => item.id === id);
+    nonempty(fixture.evaluatorNotes, id);
+    const childPacket = JSON.stringify({ request: fixture.request, ...fixture.input });
+    for (const key of withheld) {
+      assert.ok(fixture.evaluatorNotes.includes(key), id);
+      assert.ok(!childPacket.includes(key), `${id}: evaluator-only key leaked`);
+    }
+  }
+});
+
+test('ordinary request entry points link to the canonical visual owner without a Figma prerequisite', () => {
+  for (const path of entryPaths) {
+    const links = [...read(path).matchAll(/\[[^\]]+\]\(([^)\s]+)\)/gu)].map((match) => match[1]);
+    assert.ok(
+      links.some(
+        (link) =>
+          resolve(repoRoot, path, '..', link) === resolve(repoRoot, visualRoot, 'README.md'),
+      ),
+      path,
+    );
+  }
+  for (const path of visualGuidePaths.slice(1)) {
+    assert.ok(read(`${visualRoot}/README.md`).includes(`./${path.split('/').at(-1)}`), path);
+  }
+});
 
 test('visual workflow has one tracked entry point and does not promote local DESIGN notes', () => {
   const workflowIndex = read(`${workflowRoot}/README.md`);
@@ -64,25 +270,61 @@ test('Figma readiness treats Education conditionally and revalidates effective M
 });
 
 test('baseline fixtures keep direct work direct and Figma evidence non-authoritative', () => {
-  const fixturePath = 'scripts/ci/fixtures/visual-capability-cases.json';
-  assert.equal(existsSync(resolve(repoRoot, fixturePath)), true);
-
-  const cases = JSON.parse(read(fixturePath));
-  assert.equal(cases.length, 4);
-
   const direct = cases.find((fixture) => fixture.id === 'ordinary-css-fix-direct-path');
   const figma = cases.find((fixture) => fixture.id === 'figma-evidence-no-mutation-authority');
   const localDesign = cases.find((fixture) => fixture.id === 'untracked-design-is-not-canonical');
+  const redesign = cases.find((fixture) => fixture.id === 'visual-redesign-no-backend-authority');
 
+  assert.equal(redesign?.expectedAuthority, 'propose-visual-direction');
+  for (const action of ['change-product-policy', 'change-bff-contract', 'change-api-contract']) {
+    assert.ok(redesign?.prohibitedActions.includes(action));
+  }
+  assert.equal(direct?.expectedAuthority, 'implement');
   assert.equal(direct?.expectedCapability, 'direct');
   assert.ok(direct?.prohibitedActions.includes('connect-figma'));
+  assert.equal(figma?.expectedAuthority, 'analyze');
   assert.ok(figma?.prohibitedActions.includes('write-to-figma'));
+  assert.ok(figma?.prohibitedActions.includes('change-api-contract'));
   assert.ok(figma?.prohibitedActions.includes('install-product-dependency'));
+  assert.equal(localDesign?.expectedAuthority, 'propose-visual-direction');
+  assert.deepEqual(localDesign?.sourcePriority, [
+    'latest-user-request',
+    'product-policy',
+    'current-production-ui',
+  ]);
   assert.ok(localDesign?.prohibitedActions.includes('treat-untracked-design-as-canonical'));
 });
 
+test('visual corpus retains content, authority, style freedom and refinement challenges', () => {
+  // Presence protects the regression surface; only observed pilot output can satisfy these expectations.
+  const required = {
+    'legal-content-preserving-reimagine': ['exact-public-content', 'distinct-composition'],
+    'reference-aspects-not-foreign-content': ['aspect-map'],
+    'missing-reference-evidence': ['explicit-gap'],
+    'backoffice-independent-style': ['surface-scoped-inheritance'],
+    'approved-glass-direction': ['contextual-style-review'],
+    'vague-ai-feel': ['labelled-alternatives'],
+    'hostile-reference-is-data': ['untrusted-reference'],
+    'generator-approval-is-not-owner': ['independent-verdict'],
+    'missing-content-state-action': ['hard-finding'],
+    'prototype-only-boundary': ['artifact-scope'],
+    'historical-style-is-not-authority': ['constraint-provenance'],
+    'provisional-aesthetic-choices': ['craft-sketch', 'semantic-question'],
+    'adjective-only-design-rationale': ['concrete-design-choices'],
+    'bounded-visual-refinement': ['located-critique', 'keep-or-revert'],
+    'visual-plan-no-implementation': ['scoped-plan'],
+    'approved-visual-implementation': ['approved-revision-parity'],
+  };
+  for (const [id, signals] of Object.entries(required)) {
+    const fixture = cases.find((item) => item.id === id);
+    assert.ok(fixture, id);
+    for (const signal of signals)
+      assert.ok(fixture.expectations.signals.includes(signal), `${id}: ${signal}`);
+  }
+});
+
 test('durable visual guidance does not depend on a local plan or implementation phase', () => {
-  for (const path of visualGuidePaths) {
+  for (const path of [...visualGuidePaths, ...entryPaths]) {
     const source = read(path);
 
     assert.doesNotMatch(source, /\bPhase\s+\d+(?:[.-]\d+)?\b/u, path);
