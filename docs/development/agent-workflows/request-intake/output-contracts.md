@@ -12,6 +12,10 @@ Implementation을 하나의 포괄 템플릿으로 합치지 않는다.
 
 Source는 가능한 경우 file:line, test command, direct official URL 중 하나를 가진다.
 
+실제 중요한 선택이 있을 때는 [Owner–Lead decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)으로
+해당 근거·대안·권장안을 짧게 보여준다. 아래 결과 종류를 대체하는 새 schema가 아니며, 간단한 Answer나 합의된 구현에
+협의 양식을 강제하지 않는다. Analyze의 권장은 권한 요청이나 요청하지 않은 Plan 생성으로 확대하지 않는다.
+
 ## Answer
 
 간단한 사실, 개념, 현재 상태 설명에 사용한다.

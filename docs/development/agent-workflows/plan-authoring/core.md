@@ -62,6 +62,10 @@ revisit trigger
 
 현재 evidence로 결정 가능한 것은 OQ로 미루지 않습니다.
 
+Owner와 중요한 선택을 협의할 때는 이 Decision/OQ의 내용을
+[짧은 decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)으로 제시합니다. 새 ledger/schema나
+모든 기술 선택의 재승인이 아니며, 유효한 유지안과 권장안의 반론을 현재 evidence에 맞게 포함합니다.
+
 ### Open Question
 
 ```text

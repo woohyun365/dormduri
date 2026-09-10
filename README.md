@@ -185,6 +185,19 @@ flowchart TB
 
 ### AI 출력을 통제한 방법
 
+[Owner–Lead 협업 계약](./docs/development/agent-workflows/owner-lead-collaboration.md)은 중요한 제품·비용·위험 선택은 사람에게,
+승인된 범위의 기술 판단·실행·결과 통합은 Parent Agent에게 둡니다. 매번 사람이 함수를 고르거나 고정된 Agent 팀을 가동하는 구조가 아닙니다.
+
+```text
+Human Owner ↔ Parent Agent / Lead
+                ├─ 직접 조사·구현·검증 (기본)
+                └─ 필요할 때 bounded specialist ↔ 결과·blocker 보고
+                   탐색 / 조사 / 구현 / 독립 QA
+```
+
+업무 배정·범위 변경·최종 통합은 Parent가 소유합니다. Specialist 사이에는 Parent가 지정한 사실 확인만 예외적으로 허용하며,
+업무 떠넘기기와 하위 Agent 생성은 금지합니다. 이는 지침 수준의 책임 구조이지 runtime의 강제 통신 차단이나 생산성 향상 측정 결과가 아닙니다.
+
 1. **정책을 먼저 고정**해 화면이나 agent가 action 가능 여부를 임의로 만들지 못하게 했습니다.
 2. **행동 변경과 구조 변경을 분리**하고, cleanup 전에는 기존 행동을 test로 잠갔습니다.
 3. **결정적 오류는 static guard와 CI로 차단**하고, 의미·경계 문제는 review로 판단했습니다.

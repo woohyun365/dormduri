@@ -127,6 +127,54 @@
   fallback fixture를 검사합니다.
 - **재검토**: host가 직접 인증된 immutable runtime capability token이나 동등한 dispatch contract를 제공할 때입니다.
 
+## DA-013 — Owner의 중요한 선택과 Lead의 기술 실행 분리
+
+- **결정일**: 2026-09-10, accepted collaboration contract.
+- **문제/근거**: [실행 계약](./agent-execution-contract.md)은 안전한 작업의 진행을, [계획 core](./plan-authoring/core.md)는
+  Decision/OQ를 이미 소유합니다. 그러나 계획 외 대화에서 언제 직접 진행하고 언제 대안을 제시할지 찾기 어렵습니다.
+- **결정**: [공통 협업 계약](./owner-lead-collaboration.md)을 decision-rights owner로 둡니다. 명확하고 승인된 기술 작업은
+  Lead가 진행하고, 현재 제약을 바꾸는 중요한 제품·비용·위험 선택은 짧은 근거/대안/권장안으로 Owner와 협의합니다.
+- **Trigger / non-trigger**: 승인된 정책·비용·위험·rollback 경계가 달라질 때 / 함수명·검증 명령 등 통상적 기술 선택에는
+  회의나 재승인을 강제하지 않습니다. 기존 Decision/OQ의 표현만 재사용하며 새 ledger/schema를 만들지 않습니다.
+- **기각**: 모든 선택을 Owner에게 위임, 침묵을 승인으로 처리, 모든 답변에 고정 개수의 대안 나열, 합의된 수단의 무단 교체.
+- **구현 영향**: 공통 guide와 얇은 human/agent 진입점; lifecycle·QA·Git owner는 유지합니다.
+- **검증/한계**: 문서/권한 정합성과 실제 direct-work·material-decision 사례를 구분합니다. 지침 자체가 행동 성공이나
+  생산성 개선을 증명하지 않습니다.
+- **재검토**: 불필요한 확인 요청 또는 중요한 선택의 누락이 실제 작업에서 반복될 때입니다.
+
+## DA-014 — Intent를 바꾸지 않는 선택적 domain concern consultation
+
+- **결정일**: 2026-09-10, accepted collaboration contract.
+- **문제/근거**: `scripts/agents/domain-guide-registry.mjs`는 Plan 외 intent에 authoring guide를 선택하지 않습니다.
+  [Backend](./plan-authoring/backend.md)·[Infrastructure](./plan-authoring/infrastructure.md) 등 기존의 유용한 분석 관점까지
+  읽지 말라는 의미로 해석하면, 모호한 Analyze나 승인된 구현의 실제 영향 조사가 약해질 수 있습니다.
+- **결정**: source/owner 확인 뒤 Lead가 필요한 primary guide의 관련 부분만 참고합니다. 이는 model-mediated consultation이며
+  [ContextPack](./request-intake/context-pack.md)의 `selectedGuides`, mapper/schema나 action authority를 변경하지 않습니다.
+- **Trigger / non-trigger**: transaction·비용·복구 등 구체적 근거가 관련 관점을 요구할 때 / 단순 lookup·기지의 작은 수정에
+  모든 authoring checklist를 적용하지 않습니다.
+- **기각**: classifier 확장, 매번 전체 guide 주입, guide를 읽었다는 이유로 Plan artifact 생성 또는 무단 구현.
+- **구현 영향**: execution/ContextPack의 consultation 안내; consultation 기록과 deterministic selection을 분리합니다.
+- **검증/한계**: 기존 non-Plan `selectedGuides: []`와 mutation 금지 테스트를 유지합니다. 실제 선택의 품질은 별도 관찰이며
+  정적 검사가 자동 로드나 모든 agent의 준수를 증명하지 않습니다.
+- **재검토**: 과도한 문서 탐색 또는 필요한 관점 누락의 반복 근거가 있을 때입니다.
+
+## DA-015 — Parent-led authority와 제한된 peer 사실 확인
+
+- **결정일**: 2026-09-10, accepted collaboration contract; DA-003의 중앙 통합 책임을 유지합니다.
+- **문제/근거**: [Delegation](./request-intake/delegation.md)은 독립 lane과 leader-only 결과를,
+  [QA](./qa.md)는 독립 인수 조건 도출을 소유합니다. 정보 확인과 업무 재위임을 구별하지 않으면 불필요한 중계 또는
+  권한 없는 peer 합의가 생길 수 있습니다. 실제 통신 지원 여부는 current runtime에서 다시 확인해야 합니다.
+- **결정**: 기본은 Parent 경유. Parent가 지정한 참여자·주제·읽기 범위·snapshot 안에서만 짧은 사실 확인을 허용하며
+  task 배정·범위 변경·판정·통합은 Parent에게 남깁니다. 상세 조건은 공통 협업 계약 한 곳에서 소유합니다.
+- **Trigger / non-trigger**: 각자 독립적으로 완료할 수 있는 작업의 기존 symbol/fixture 확인 / 새 조사·구현 요청, 의견 협상,
+  초기 QA의 builder 설득에는 허용하지 않습니다. Sub-child 생성과 직접/간접 offload는 금지합니다.
+- **기각**: 무제한 peer chat, 정보 교환도 일괄 금지, 직군별 상시 agent roster, 도구 노출을 실행 허가로 해석.
+- **구현 영향**: 기존 역할/할당의 instruction 수준 계약입니다. 새 scheduler·message ACL·자동 CC·config key를 도입하지 않고,
+  실제 host/role 제한이 더 좁으면 Parent 경유를 사용합니다.
+- **검증/한계**: instruction presence와 실제 허용/거절·보고·QA 독립성 관찰을 분리합니다. 문서 도입만으로 live peer 검증을
+  통과했다고 주장하지 않습니다.
+- **재검토**: 관찰된 병목·QA 오염·권한 위반이 다른 정책의 순이익을 뒷받침할 때입니다.
+
 ## Evidence inventory
 
 - [OpenAI Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md)
@@ -160,3 +208,6 @@
 | DA-010 | OpenAI AGENTS.md, repository onboarding evidence           | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지             | getting-started와 execution contract 분리        | generic agent가 동일 authority로 수렴하지 못할 때                   |
 | DA-011 | Google scaling agent systems, repository lane evidence     | 독립·bounded·positive-benefit lane / dependency·shared write                | adaptive bounded fan-out과 one-write limit       | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
 | DA-012 | OpenAI native surface, OMX runtime, repository smoke       | dispatch 직전 fresh reported evidence / config·과거 session만 존재          | dual-runtime compatibility와 sequential fallback | host-authenticated runtime capability contract가 제공될 때          |
+| DA-013 | 실행 계약, 계획 Decision/OQ owner                          | 중요한 제약 변경 / 승인된 통상 작업                                         | 공통 decision rights와 짧은 협의                 | 과잉 질문 또는 중요한 선택 누락                                     |
+| DA-014 | ContextPack registry, domain authoring guides              | 근거가 요구하는 관점 / 단순 lookup                                          | model-mediated consultation; mapper 유지         | 문서 과잉 또는 관점 누락                                            |
+| DA-015 | delegation, QA, current runtime 제약                       | 지정된 독립 사실 확인 / offload·초기 QA 설득                                | 중앙 authority와 제한된 peer 정보 교환           | 실제 병목·오염·권한 위반                                            |
