@@ -32,6 +32,11 @@ GitHub Issue는 repository 밖의 대화나 세션이 끝나도 유지되어야 
 Issue title이나 긴 본문만으로 구현 권한을 추론하지 않습니다. 구현은 current repository와 authority를 다시 확인하고
 fresh `dev` 기반 bounded branch에서 시작합니다.
 
+효과가 불확실한 사용자-facing 결과에는 기존 Outcome·Acceptance·Evidence로 가설, 관찰 방법, 관측 결과와
+keep/change/stop 결정을 연결합니다. 미래 관찰은 owner·trigger·필요 evidence가 있는 follow-up으로 남기며, 미관측 이익이나
+production success를 만들지 않습니다. [Lifecycle 예시](../agent-workflows/development-lifecycle.md#verification과-value-validation)처럼
+수동 관찰도 가능하고 모든 기술 변경에 analytics나 별도 Issue form을 요구하지 않습니다.
+
 ## Blocker contract
 
 `blocker.yml`은 다음을 명시합니다.
@@ -64,6 +69,11 @@ label taxonomy를 만들지 않습니다. Issue form은 outcome 정보를 수집
 ## Scheduling adoption trigger
 
 Issues와 dependency link가 기본 scheduling surface입니다.
+
+새 outcome 또는 blocked handoff 전에는 진행 중인 결과, review backlog, dependency부터 확인합니다. Child 수나 backlog의
+모든 계획을 active WIP로 세지 않으며, 기존 [scope disposition](./branch-and-pr-strategy.md#scope-drift-disposition)으로
+인접 작업을 분리합니다. 반복된 실패/재작업은 현재 PR에서 해결하면 그곳에 evidence를 남기고, 독립 후속이면 Issue의
+Evidence/follow-up에 `관측 → 한 가지 수정 → 효과 확인 조건 → keep/revise/drop`을 연결합니다. 별도 회고 ledger는 만들지 않습니다.
 
 - 세 개 이상의 Issue 또는 PR이 하나의 **dated release**나 public delivery target을 공유할 때 Milestone을 사용합니다.
 - 다섯 개보다 많은 active **independently scheduled** work item이 동시에 존재하고 owner·date·dependency를 filtered Issue와

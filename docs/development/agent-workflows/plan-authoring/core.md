@@ -272,6 +272,16 @@ checkpoint fields
 
 Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, build, static analysis, E2E를 확장합니다.
 
+효과가 불확실한 사용자-facing 결과는 구현 verification과 value validation을 나눕니다. 기존 Outcome·Acceptance·Evidence에
+가설, 적절한 관찰 방법, keep/change/stop 판단 owner를 연결합니다. 미래 사용자/production 관찰은 owner·trigger·필요 근거가
+있는 handoff로 분리하고, 미관측 이익을 완료 근거로 쓰지 않습니다. 기술 변경마다 analytics나 실험을 강제하지 않습니다.
+여러 owner를 잇거나 중요한 결정·학습이 있는 경우에만 짧은 evidence map을 사용합니다. 예시와 완료 주장의 구분은
+[Development lifecycle](../development-lifecycle.md)이 소유합니다.
+
+구현 후 독립 검토가 필요한지는 [QA workflow](../qa.md)의 의미 기반 trigger와 snapshot-bound packet/result를 따릅니다.
+필수 검토/runner가 없으면 safe local work와 merge readiness를 분리하고 gap을 남깁니다. 이는 위 implementation-readiness
+review를 없애거나 두 검토를 하나의 PASS로 합치는 규칙이 아닙니다. QA matrix를 계획마다 복제하지 않습니다.
+
 ## 11. AI-readable architecture without AI-specific layers
 
 계획은 다음을 선호합니다.
