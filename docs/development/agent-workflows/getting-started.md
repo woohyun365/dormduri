@@ -35,6 +35,8 @@ AGENTS.md와 docs/development/agent-workflows/README.md를 먼저 읽어줘.
 AGENTS.md를 읽고 <plan 경로 또는 task 이름> 작업을 이어서 진행해줘.
 현재 요청, branch/HEAD, working tree, plan checkpoint를 순서대로 확인하고 commit·diff·test와 대조해줘.
 완료 증거가 없는 항목은 완료로 가정하지 말고 현재 단계의 남은 작업만 구현·검증해줘.
+session-continuity.md의 bounded 진단을 사용하되, 다른 작업의 pointer나 오래된 context를 실행 허가로 쓰지 마.
+로컬 기억이 없으면 관련 code/contract와 PR/Issue에서 재구성하고, 중요한 결정이 없으면 질문이나 OQ로 남겨줘.
 ```
 
 ## 분석만 요청하기
@@ -72,6 +74,28 @@ targeted test와 필요한 정적 검증을 실행해줘.
 `dev`에서 task-owned uncommitted 파일을 발견하면 reset하지 않고 먼저 bounded branch를 생성합니다.
 
 ## 결과 읽기
+
+### 독립 QA 요청
+
+```text
+<변경/PR>을 docs/development/agent-workflows/qa.md 기준으로 검증해줘.
+base/head와 dirty 변경을 고정하고, 현재 requirement/policy/public contract에서 acceptance를 도출해줘.
+의미 있는 위험이 있으면 구현 대화를 상속하지 않는 독립 reviewer에 bounded packet을 전달해줘.
+역할 이름만 바꾼 self-review를 독립 검증으로 기록하지 마. Read-only 검토와 write-producing test runner를 분리해줘.
+직접 처리해도 충분한 변경은 이유와 targeted checks를 남기고, 필수 증거가 없으면 PASS 대신 gap을 설명해줘.
+```
+
+### 사용자 이익이 불확실한 변경 요청
+
+```text
+<화면/기능>의 <문제 가설>을 검토해줘. 현재 관찰 근거: <근거 또는 아직 없음>.
+development-lifecycle.md에 따라 작은 usable change와 verification, 적절한 관찰 방법을 나눠 제안해줘.
+내가 방향을 결정할 수 있게 keep/change/stop 기준과 미확정 질문을 설명해줘.
+이번 요청에서는 구현·analytics 설치·사용자 조사·외부 publication을 하지 마.
+```
+
+[Lifecycle 지도](./development-lifecycle.md)에서 intent, 현재 acceptance, 다음 evidence owner를 확인할 수 있습니다.
+오탈자 같은 작은 변경에도 새 세션·실험·Issue를 반드시 만드는 것은 아닙니다.
 
 완료 근거는 agent의 역할명이나 “완료했습니다”라는 문장이 아니라 실제 변경 파일, git 상태, 실행한 테스트와 그
 결과입니다. production credential, 외부 배포 또는 파괴적 작업이 필요하면 agent가 실행 전에 필요한 권한과 선택을

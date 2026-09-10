@@ -72,6 +72,13 @@
 
 검증 전략과 PASS/FAIL/BLOCKED 판정은 [QA workflow](./qa.md)를 사용합니다.
 
+의미 있는 위험에는 QA owner의 독립 검토 trigger와 snapshot-bound packet/result를 적용합니다. Self-review, context-isolated
+review, 실제 runner/test/CI와 human approval을 구분하고, 관련 snapshot 변경 후에는 영향 범위를 재검토합니다.
+Read-only reviewer가 제안한 write-producing 검증은 별도 권한 있는 runner가 실행합니다. 상세 양식은 QA 문서를 재사용합니다.
+
+의도한 사용자/운영 이익과 코드의 계약 준수는 다릅니다. 효과가 불확실하면
+[Development lifecycle](./development-lifecycle.md)의 observation/follow-up과 scoped Done을 사용하며 미래 효과를 발명하지 않습니다.
+
 ## 6. Handoff
 
 최종 결과 또는 checkpoint는 다음 schema를 사용합니다.
@@ -89,3 +96,7 @@ createdAt / expiresAt
 
 장문의 transcript, secret, raw `.env`, 개인 식별 정보, source 없는 완료 주장, finished plan과 같은 상태의 중복 사본은
 기록하지 않습니다.
+
+로컬 context 없이 이어받아야 하는 결정·검증·미해결 작업은 기존 docs/PR/test/CI/Issue owner에 연결합니다.
+[Session continuity](./session-continuity.md)의 진단은 실행 권한이나 완벽한 기억이 아니며, 부족한 근거는 재조사하거나
+결과를 바꾸는 중요한 질문으로 남깁니다.
