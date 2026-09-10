@@ -175,6 +175,31 @@
   통과했다고 주장하지 않습니다.
 - **재검토**: 관찰된 병목·QA 오염·권한 위반이 다른 정책의 순이익을 뒷받침할 때입니다.
 
+## Collaboration observation — 2026-09-10
+
+DA-013~015의 지침 존재와 실제 동작을 구분하기 위해 synthetic/local 입력으로 제한된 관찰을 수행했습니다.
+아래는 Parent가 기록한 실행과 두 context-isolated child의 보고를 대조한 결과이며, 독립된 실제 사용자 연구가 아닙니다.
+
+| Problem → Decision                                          | Change / 검증 근거                                                                               | Observed / Unknown                                                                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| 작은 승인 작업에도 불필요한 협의 → direct 기본              | artifact-only helper를 Parent가 수정하고 Node regression 실행                                    | red → green; 승인 작업 재확인은 같은 helper를 재사용한 별도 실행이지 독립 실험 두 개가 아님                   |
+| 기술 수단 선결정·비용 혼동 → 근거/대안/Owner 선택 분리      | synthetic 중복 요청에 DB/Redis 대안 검토; CI wall 10→7분, compute 12→18분 비교                   | 외부 서비스 변경 없이 반론과 선택 질문 기록; 실제 가격·비용 절감·Owner 승인 없음                              |
+| guide 참고가 구현 권한으로 오인 → concern consultation 분리 | ContextPack과 registry를 독립 reader가 대조; 기존 non-Plan mapper regression 유지                | 수동 참고와 `selectedGuides: []`가 양립; 모든 prompt의 자동 분류 성능은 미측정                                |
+| peer 협의가 재위임으로 확대 → 지정된 사실 확인만 허용       | Parent가 두 reader의 pair/topic/source를 지정; 실제 질문·답변과 양측 receipt/report 대조         | ContextPack 의미와 helper 위치 확인; 종료 후 지정 만료. 자동 CC나 hard ACL은 아님                             |
+| 만료·범위 밖 요청 → 거절 후 Parent 보고                     | 무지정/다른 수신자·주제/snapshot 불일치/완료/철회/업무 offload/nested spawn/간접 model 위임 입력 | negative assignment에서 peer 연락·spawn·offload 없이 거절 관찰; 위험 동작을 실제 시도한 보안 강제 시험은 아님 |
+| 구현자 self-PASS → 독립 acceptance 후 runner·delta review   | reviewer가 초기 source에서 non-string identity/whitespace 테스트 누락 발견; Parent가 보강        | 초기 5개 → 보강 15개 테스트 통과; 초기 gap 보존 후 같은 reviewer가 새 snapshot 재검토. 사실 교환은 그 이후    |
+
+재현 가능한 **정적** 근거는 `scripts/ci/agent-collaboration-contract.test.mjs`의 fixture 정합성/invalid mutation과
+`scripts/ci/project-codex-config.test.mjs`의 역할·설정 검사입니다. `pnpm test:repo-policy`로 실행하며,
+`scripts/ci/fixtures/agent-collaboration-cases.json`의 corpus 전체가 live 실행되었다는 뜻은 아닙니다.
+필수 9개 case group을 관찰했으며, 나머지 7개(모호한 Backend 탐색, 수단 충돌, 강결합 lane, 별도 runner 경계,
+FE content/style, UX data 한계, child 결과 충돌)는 전용 live 시나리오 미실행으로 남겼습니다.
+
+Parent는 구현 맥락을 유지했고 두 child만 `fork_turns: none`으로 시작했습니다. Child는 변경된 역할 지침을 직접 읽었으나
+자동 role hot reload나 immutable effective model/effort는 검증하지 않았습니다. 따라서 scoped 행동 관찰을
+fresh Parent 전체의 준수율·생산성·비용 향상, 모든 공격 입력의 차단 또는 runtime 권한 증명으로 확장하지 않습니다.
+새 실행은 [QA snapshot 규칙](./qa.md#portable-qa-packet)에 따라 현재 source와 실제 도구 권한을 다시 확인합니다.
+
 ## Evidence inventory
 
 - [OpenAI Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md)
