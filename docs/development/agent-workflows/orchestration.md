@@ -60,7 +60,7 @@ effort를 계산하거나 변경했다고 보고하지 않습니다.
 4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
    structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
 
-Repository-selected child는 Sol과 `medium | high | xhigh`만 사용합니다. Keyword, path, file count, LOC, broad verification
+Repository-selected child는 GPT-6 Astra와 `medium | high | xhigh`만 사용합니다. Keyword, path, file count, LOC, broad verification
 하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
 `knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
 아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
@@ -70,7 +70,7 @@ leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 reposit
 Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
 evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
 host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 leader-reported input이며 host-authenticated authority로
-표현하지 않습니다. 선택 role마다 availability, effective Sol model, Medium/High/XHigh effort, explicit-effort support와
+표현하지 않습니다. 선택 role마다 availability, effective Astra model, Medium/High/XHigh effort, explicit-effort support와
 dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
 leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
 
