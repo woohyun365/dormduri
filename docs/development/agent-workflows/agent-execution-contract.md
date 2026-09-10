@@ -32,6 +32,10 @@
 
 사실, 추론, 결정, 미확정 질문을 구분합니다. 이전 session의 완료 문구는 code/test/git 증거가 없으면 사실이 아닙니다.
 
+현재 source/owner에서 의미 있는 관점이 필요할 때만 [선택적 domain consultation](./owner-lead-collaboration.md#필요한-관점만-참고하기)을
+사용합니다. Non-Plan 요청에도 관련 부분을 참고할 수 있지만 mapper의 `selectedGuides`와 output/mutation authority는
+바꾸지 않습니다. 작은 lookup이나 승인된 기지의 수정에 전체 계획 체크리스트를 강제하지 않습니다.
+
 ## 3. Route
 
 - deterministic search/check로 해결할 수 있으면 tool을 사용합니다.
@@ -49,6 +53,9 @@
 
 ## 4. Act
 
+- 명확한 기술 작업은 승인 범위에서 진행합니다. 중요한 제품·비용·위험 선택이나 승인된 방향과 새 근거의 충돌에는
+  [Owner–Lead collaboration](./owner-lead-collaboration.md)의 짧은 decision packet을 사용합니다. 합의된 기술 세부사항을
+  매번 다시 승인받지 않으며, 안전한 독립 작업과 Owner 판단을 기다릴 경계를 구분합니다.
 - 구현 요청은 [Branch and PR strategy](../github/branch-and-pr-strategy.md)에 따라 fresh integration branch에서 bounded
   branch를 만든 뒤 수정합니다. Plan·Analyze처럼 source mutation 권한이 없는 요청은 branch 생성을 완료 조건으로
   만들지 않습니다.

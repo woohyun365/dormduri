@@ -125,3 +125,16 @@ test('project agents expose exactly four Astra roles with dynamic effort and bou
     assert.doesNotMatch(source, /\/Users\//u, role.file);
   }
 });
+
+test('role instructions reference bounded peer facts without delegating task or QA authority', () => {
+  // Instruction presence only: actual communication/refusal behavior needs an observed pilot.
+  for (const { file } of expectedRoles) {
+    const source = readFileSync(resolve(repoRoot, '.codex/agents', file), 'utf8');
+    assert.match(source, /owner-lead-collaboration\.md/u, file);
+    assert.match(source, /Default to parent-mediated communication\./u, file);
+    assert.match(source, /Do not offload tasks/u, file);
+    assert.match(source, /source\/scope changes/u, file);
+    assert.match(source, /host\/role restrictions/u, file);
+    assert.match(source, /qa\.md/u, file);
+  }
+});

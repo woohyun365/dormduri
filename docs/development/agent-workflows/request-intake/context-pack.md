@@ -58,6 +58,13 @@ limits:
 - Answer·Analyze·Implementation 요청은 plan-authoring guide를 자동 로드하지 않습니다. Domain candidate와 source
   metadata만 다음 단계에 제공합니다.
 
+### Lead의 선택적 concern consultation
+
+위 목록은 **registry의 선택 결과**입니다. Lead가 source/owner를 확인한 뒤 필요에 따라 domain guide의 관련 부분을
+참고하는 [model-mediated consultation](../owner-lead-collaboration.md#필요한-관점만-참고하기)과 구분합니다.
+Non-Plan mapper의 `selectedGuides: []`는 유지하며, 별도 참고 경로는 유용할 때 기존 작업/검토 evidence에 기록합니다.
+이를 deterministic 자동 로드, Plan 출력 또는 mutation 권한으로 해석하지 않습니다. Schema/registry는 바꾸지 않습니다.
+
 ## Freshness and authority
 
 - tracked repository path는 `current-working-tree`, tracked guide는 `tracked-current`로 표시합니다.
