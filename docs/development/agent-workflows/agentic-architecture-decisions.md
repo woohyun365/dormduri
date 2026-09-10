@@ -84,7 +84,7 @@
 - **결정**: Pass 1은 intent·authority·impact risk·candidate shape만 분류하고, Pass 2가 current ContextPack의 정규화된
   source/fact/predicate evidence로 child role과 `medium | high | xhigh`를 최종 판정합니다. Medium은 모든 boundedness
   조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
-  선택하며 나머지 substantial work는 High입니다. Child는 Sol만 사용하고 parent XHigh/Max는 사용자가 session에서
+  선택하며 나머지 substantial work는 High입니다. Child는 GPT-6 Astra만 사용하고 parent XHigh/Max는 사용자가 session에서
   선택합니다.
 - **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
   repository가 parent effort를 추천하는 방식.
@@ -117,7 +117,7 @@
 - **문제**: tracked role TOML이나 user config가 존재해도 현재 native/OMX dispatch surface가 그 role·model·effort를 실제로
   제공한다는 뜻은 아닙니다.
 - **결정**: Native는 current-turn host tool schema, OMX는 current-session runtime overlay와 host-exposed role roster를
-  bounded evidence로 사용합니다. Sol과 `medium | high | xhigh`, role availability, effective effort, explicit-effort support,
+  bounded evidence로 사용합니다. GPT-6 Astra와 `medium | high | xhigh`, role availability, effective effort, explicit-effort support,
   dispatch permission이 모두 맞아야 descriptor를 추천합니다. Evidence는 leader-reported이며 host-authenticated authority로
   표현하지 않고 실제 호출 직전에 leader가 다시 확인합니다.
 - **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.

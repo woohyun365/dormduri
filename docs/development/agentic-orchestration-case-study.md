@@ -17,7 +17,7 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 - exploration log와 중간 결과가 parent context를 오염시키는 문제를 줄이면서도 최종 판단은 한 곳에 남겨야 했습니다.
 
 이를 해결하기 위해 repository는 **Repository-guided parent–subagent orchestration with adaptive child reasoning**을
-구성했습니다. Parent의 XHigh/Max 선택은 사람과 현재 session에 남기고, repository는 Sol child의 Medium/High/XHigh만
+구성했습니다. Parent의 XHigh/Max 선택은 사람과 현재 session에 남기고, repository는 Astra child의 Medium/High/XHigh만
 현재 repository evidence로 판정합니다. Direct work는 child-free이며, 독립성과 순이익이 확인된 lane만 bounded child
 contract가 됩니다. 이 contract는 자동 spawn engine이 아니고, 실제 dispatch 직전의 live runtime 확인과 leader의 최종
 판단을 대신하지 않습니다.
@@ -83,7 +83,7 @@ clean clone이 user/global setup에 의존한다는 구조적 문제를 뜻합�
 | Repository-aware              | current request → `AGENTS.md` → `TaskEnvelope` → `ContextPack` → current code/contract/test evidence                |
 | Hierarchical                  | owner-facing parent가 child를 선택하고, child는 sibling이나 global plan을 지휘하지 않으며 결과는 leader-only fan-in |
 | Orchestrator–worker           | parent의 model-mediated lane 선택과 Codex native child surface를 결합하지만 별도 scheduler를 구현하지 않음          |
-| Adaptive inference allocation | parent는 사람이 XHigh/Max를 선택하고, repository는 Sol child에 한해 Pass 2 evidence로 Medium/High/XHigh를 선택      |
+| Adaptive inference allocation | parent는 사람이 XHigh/Max를 선택하고, repository는 Astra child에 한해 Pass 2 evidence로 Medium/High/XHigh를 선택    |
 
 Repository canonical label을 더 좁게 정한 이유는 구현 범위를 정확히 드러내기 위해서입니다.
 
@@ -104,7 +104,7 @@ human request and authority
         └── independent candidate lane
               → ContextPack and current repository inspection
                 → Pass 2: source / fact / predicate evidence
-                  → Sol child role + Medium / High / XHigh recommendation
+                  → Astra child role + Medium / High / XHigh recommendation
                     → live runtime compatibility reconfirmation
                       ├── compatible → bounded dispatch
                       └── missing or mismatched → sequential fallback
@@ -138,7 +138,7 @@ evidence를 이해하고 올바른 결론을 내리는 난이도입니다. 보�
 ### Runtime truthfulness
 
 Tracked `.codex`는 portable default와 role contract를 제공하지만 active authority를 만들지 않습니다. Dispatch 직전에는
-current host surface가 보고한 role availability, effective Sol model, requested effort, explicit-effort support와 permission을
+current host surface가 보고한 role availability, effective Astra model, requested effort, explicit-effort support와 permission을
 다시 확인합니다.
 
 현재 runtime evidence는 `leader-reported-not-host-authenticated`입니다. 즉 repository validator가 typed input의 모순을
@@ -156,7 +156,7 @@ current host surface가 보고한 role availability, effective Sol model, reques
 | 0~2개, evidence-backed third, owner max 6       | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                                    |
 | 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                                   |
 | parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 XHigh/Max 사용 의도를 repository가 추측하게 됨                                 |
-| Sol child + adaptive Medium/High/XHigh          | 채택        | model family는 고정하고 current semantic evidence만 reasoning allocation에 반영                              |
+| Astra child + adaptive Medium/High/XHigh        | 채택        | model family는 고정하고 current semantic evidence만 reasoning allocation에 반영                              |
 | boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                                     |
 | reported evidence + live reconfirmation         | 조건부 채택 | 현재 surface에서 가능한 보수적 경계이며 immutable host-authenticated metadata가 생기면 교체                  |
 | custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦       |
@@ -170,7 +170,8 @@ current host surface가 보고한 role availability, effective Sol model, reques
    피했습니다.
 2. 그 분석은 two-pass reasoning, risk/complexity 분리, semantic predicate와 domain signal이라는 hypothesis를 제시했습니다.
 3. 이후 owner directive가 repository-selected parent effort와 child Max/Ultra 방향을 명시적으로 폐기했습니다.
-4. Retained design은 수동 XHigh/Max parent 아래 Sol child의 Medium/High/XHigh만 조절하도록 좁혀졌습니다.
+4. 당시 retained design은 수동 XHigh/Max parent 아래 Sol child의 Medium/High/XHigh만 조절하도록 좁혀졌습니다.
+   현재 모델 선택은 아래 migration evidence와 current contract를 따르며, 이전 결정 당시의 모델을 소급 변경하지 않습니다.
 5. 모든 hypothesis는 current repository source, test, owner directive, official documentation과 native smoke로 다시
    검증했습니다. Raw chat은 durable authority나 evidence로 사용하지 않습니다.
 
@@ -184,6 +185,38 @@ current host surface가 보고한 role availability, effective Sol model, reques
 
 각 PR은 product runtime을 바꾸지 않는 repository agent harness 변경입니다. PR 설명과 merge commit은 검증 command와 결과를
 보존하며, 현재 behavior는 언제나 위 tracked source와 test를 다시 읽어 판정합니다.
+
+### GPT-6 Astra 모델 계약 전환 — 2026-09-10
+
+| 질문                                  | 결정과 근거                                                                                           | 검증 경계                                                                                                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 왜 tool update만으로 끝내지 않았는가? | project child default와 네 role의 명시적 Sol pin이 별도로 남아 있었음                                 | [.codex 설정](../../.codex/config.toml), [role 모델 검사](../../scripts/ci/project-codex-config.test.mjs)                                          |
+| 왜 architecture는 유지했는가?         | 변경 요구는 child 모델 선택이며, two-pass·effort·count·single-writer 구조를 변경할 실패 증거는 없었음 | [routing contract](./agent-workflows/orchestration.md), [runtime policy](../../scripts/agents/orchestration-policy.mjs)                            |
+| 어떤 회귀를 잠갔는가?                 | Astra positive, Sol/Terra/Luna mismatch, 지원하지 않는 child effort, role/permission/provenance 실패  | [runtime fixtures](../../scripts/ci/fixtures/runtime-capability-cases.json), [orchestration tests](../../scripts/ci/orchestration-policy.test.mjs) |
+| 실제 실행은 어떻게 확인했는가?        | 파일·정적 테스트와 fresh native runtime 관찰을 분리                                                   | Codex app-server의 loaded thread model/effort, child 응답, hook 완료 이벤트와 owning OMX launch의 doctor를 대조                                    |
+
+기존 Sol 구현에 Astra 기대값을 먼저 적용해 실패를 확인한 뒤 config·policy를 전환했습니다. 당시 targeted contract test는
+48개가 통과했습니다. 이 결과는 모델 품질·비용·속도 개선 측정이 아닙니다. 재현 명령은 다음과 같습니다.
+
+```sh
+node --test scripts/ci/project-codex-config.test.mjs scripts/ci/orchestration-policy.test.mjs scripts/ci/agent-intake-integration.test.mjs scripts/ci/agent-intake-fresh-session.test.mjs
+```
+
+같은 날짜의 Codex `0.153.4` / OMX `0.21.3` 검증에서는 새 read-only parent가 Astra/XHigh로 로딩되고,
+모델 override 없이 요청한 `knu_explorer` child가 Astra/High로 로딩된 것을 native `thread/read`에서 확인했습니다.
+Child는 project config 읽기를 완료했습니다. `hooks/list`는 OMX hook 7개를 enabled/trusted로 반환했고,
+SessionStart·UserPromptSubmit·PreToolUse·PostToolUse·Stop의 실제 완료 이벤트도 관찰했습니다.
+Owning OMX launch의 승인된 `omx doctor`는 검증 전후 22/22, session binding usable이었습니다. Sandbox 내부에서는
+process identity 조회가 제한됐지만, 같은 read-only 진단을 정상 권한으로 실행해 구별했으며 state를 삭제하지 않았습니다.
+
+이는 해당 실행의 **native loaded configuration과 observed behavior** 증거입니다. Immutable/per-turn attestation,
+모든 role/effort 조합, compact hook 실행, 동시성 한계의 실제 강제 집행까지 증명하지는 않습니다.
+다음 dispatch도 fresh roster·permission 재확인이 필요하며, 이 기록을 미래 실행의 권한으로 재사용하지 않습니다.
+
+[OpenAI 모델 문서](https://developers.openai.com/api/docs/models/gpt-6-astra)의 지원 effort 중 repository가 기존에
+사용하던 Medium/High/XHigh를 유지했습니다. [모델 migration guidance](https://developers.openai.com/api/docs/guides/latest-model)의
+instruction priority, bounded delegation, 간결한 보고와 검증 강도 관점은 기존 `AGENTS.md`·execution/orchestration contract에
+대조했습니다. 동일 규칙을 추가 복사하거나 새로운 hook을 설치하지 않고 현재 모델 표현만 정합성을 맞췄습니다.
 
 ## Verification에서 드러난 실패와 repair
 
@@ -264,7 +297,7 @@ authority를 대체하지 않습니다.
 - Comparable task cohort에 대한 productivity, quality, token, latency 개선률은 아직 측정하지 않았습니다.
 - Provider가 인증한 immutable effective model/effort metadata는 현재 repository가 보유하지 않습니다.
 - Native surface나 Codex config schema가 바뀌면 role/model/effort evidence contract를 다시 검증합니다.
-- Sol allowance, cost 또는 latency가 현재 child tier를 반박하면 model/effort allocation을 fresh evidence로 재설계합니다.
+- 현재 child model의 allowance, cost 또는 latency가 현재 child tier를 반박하면 model/effort allocation을 fresh evidence로 재설계합니다.
 - count별 품질·wall time·conflict 측정이 지속적으로 다른 boundary를 지지하면 0~3 proactive limit을 재검토합니다.
 - durable mailbox, long-lived task ownership, operator-visible coordination이 필요해질 때만 Team/tmux runtime을 별도 검토합니다.
 - 자동 fan-out, deterministic prompt classifier, 무제한 retry/reallocation과 autonomous merge/deploy는 현재 목표가 아닙니다.
