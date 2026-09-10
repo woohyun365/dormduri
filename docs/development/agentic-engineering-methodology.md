@@ -34,6 +34,7 @@ bounded change를 구현하며, 테스트·CI·리허설 결과를 통해 반복
 | Long-running Agent Harness               | 중간~높음       | session continuity, task context, checkpoint, finished-plan lifecycle                        |
 | Agentic DevOps                           | 중간            | CI, dependency, infrastructure, observability, release readiness; production automation 제외 |
 | Multi-agent Orchestration                | 중간            | single-first, independent lane에만 bounded child/team 사용                                   |
+| AI-DLC / Agile lifecycle practices       | 선택적 적용     | intent·evidence owner 연결, scoped Done, 독립 QA disposition, 관찰/feedback handoff          |
 | Full SDD                                 | 부분 적용       | policy·plan·acceptance는 강하지만 feature spec이 모든 code를 생성하는 구조는 아님            |
 | Autonomous Software Factory              | 낮음            | 제품 roadmap·provider·production 결정을 Agent가 자율 소유하지 않음                           |
 | Vibe Coding                              | 의도적으로 배제 | 코드·계약·테스트·diff를 검토하고 실패 evidence를 숨기지 않음                                 |
@@ -131,6 +132,27 @@ Agent의 결과는 생성량이나 설명의 자연스러움보다 검증 가능
 
 테스트 숫자를 늘리는 것이 목적은 아닙니다. 어떤 위험을 어느 계층이 검증하고, 실패 시 어떤 owner가 수정하는지를 명확히
 하는 것이 목적입니다.
+
+## AI-DLC와 Agile을 선택적으로 연결하는 방식
+
+AWS의 [AI-DLC 소개](https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle/)는 Inception, Construction,
+Operations를 설명하며 지속적인 context뿐 아니라 사람의 판단과 검증을 함께 다룹니다. 따라서 checkpoint 파일이 있다는
+사실만으로 AI-DLC 전체가 적용됐다고 말하지 않습니다. [Upstream reviewer protocol](https://awslabs.github.io/aidlc-workflows/reference/04-stage-protocol/#reviewer-invocation)은
+builder의 결론과 분리된 검토 맥락을 사용합니다. 이는 특정 구현의 방법이며 repository의 native runtime 기능을 증명하지 않습니다.
+
+KNU의 적용 판단은 별도 AI-DLC 패키지·hooks·state directory를 설치하는 대신 기존 owner를 연결하는 것입니다.
+[Development lifecycle](./agent-workflows/development-lifecycle.md)이 intent→구현→검증→통합→관찰/follow-up을 연결하고,
+[QA workflow](./agent-workflows/qa.md)는 위험 기반 독립 검토와 실제 runner/test evidence를 구분합니다. 새로운 역할 이름이나
+모델 변경 자체를 독립 검증으로 계산하지 않습니다. 독립 리뷰는 테스트·CI·사람의 승인과 서로 대체하지 않습니다.
+
+[Agile 원칙](https://agilemanifesto.org/principles.html)의 작동하는 increment와 feedback을 참고하지만, PR 병합을 곧바로
+사용자 가치 전달로 계산하거나 Scrum 전체를 채택했다고 표현하지 않습니다. 기술적 실패의 재현과 개선은 내부 feedback이고,
+사용자 관찰·aesthetic approval·production 성공은 별도 근거가 필요합니다. 미래 관측은 owner/trigger/evidence handoff로
+남기며 개발-only acceptance와 섞지 않습니다. 지도·절차는 advisory-policy이고 테스트/CI는 별도의 실행 가능한 control입니다.
+
+공식 자료 확인: 2026-09-10. 위 내용은 방법론과 현재 문서의 비교이며 upstream의 특정 release 실행 검증, KNU 생산성 향상,
+운영 자동화나 실제 사용자 효과를 입증한 benchmark가 아닙니다. 보관할 맥락은 현재 code/contract, durable 결정, PR/CI와
+bounded handoff이며, 전체 대화나 모든 방법론 산출물을 복제하는 별도 ledger가 아닙니다.
 
 ## Human-governed Agentic DevOps
 
