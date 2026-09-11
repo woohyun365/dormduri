@@ -1,7 +1,12 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { globalNoticeIdSchema, listGlobalNoticesQuerySchema } from '@repo/shared/notices';
+import {
+  globalNoticeIdSchema,
+  listGlobalNoticesQuerySchema,
+  type ListGlobalNoticesQuery,
+} from '@repo/shared/notices';
 import { Public } from '../auth/access/auth-access.decorator.js';
 import { parsePathParam, parseQueryObject } from '../platform/http/zod-request.js';
+import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
 import { NoticesService } from './application/notices.service.js';
 
 @Controller('api/notices')
@@ -10,22 +15,35 @@ export class NoticesController {
 
   @Public()
   @Get()
-  listGlobalNotices(@Query() query: Record<string, unknown>) {
-    const parsed = parseQueryObject(listGlobalNoticesQuerySchema, query, {
-      code: 'INVALID_GLOBAL_NOTICE_QUERY',
-      errorMessage: '공지사항 목록 요청이 올바르지 않습니다.',
-    });
+  listGlobalNotices(
+    @Query(
+      new ZodRequestPipe((query: unknown) =>
+        parseQueryObject(listGlobalNoticesQuerySchema, query, {
+          code: 'INVALID_GLOBAL_NOTICE_QUERY',
+          errorMessage: '공지사항 목록 요청이 올바르지 않습니다.',
+        }),
+      ),
+    )
+    parsed: ListGlobalNoticesQuery,
+  ) {
     return this.noticesService.listGlobalNotices(parsed);
   }
 
   @Public()
   @Get(':noticeId')
-  getGlobalNotice(@Param('noticeId') noticeId: string) {
-    const parsed = parsePathParam(globalNoticeIdSchema, noticeId, {
-      code: 'INVALID_GLOBAL_NOTICE_ID',
-      errorMessage: '공지사항 식별자가 올바르지 않습니다.',
-      fieldName: 'noticeId',
-    });
+  getGlobalNotice(
+    @Param(
+      'noticeId',
+      new ZodRequestPipe((noticeId: unknown) =>
+        parsePathParam(globalNoticeIdSchema, noticeId, {
+          code: 'INVALID_GLOBAL_NOTICE_ID',
+          errorMessage: '공지사항 식별자가 올바르지 않습니다.',
+          fieldName: 'noticeId',
+        }),
+      ),
+    )
+    parsed: string,
+  ) {
     return this.noticesService.getGlobalNotice(parsed);
   }
 }

@@ -4,12 +4,16 @@ import {
   seasonRegistrationFinalizeRequestSchema,
   seasonRegistrationFinalizeResponseSchema,
   updateSeasonProfileRequestSchema,
+  type UpdateSeasonProfileRequest,
+  type SelectedDormitorySubmitRequest,
+  type SeasonRegistrationFinalizeRequest,
 } from '@repo/shared/season/participation';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { forbiddenError } from '../platform/http/api-error.js';
 import { parsePathParam, parseRequestBody } from '../platform/http/zod-request.js';
+import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
 import { RequireCurrentSeasonParticipant, SeasonParticipant } from './context/index.js';
 import {
   SeasonParticipantsService,
@@ -30,10 +34,14 @@ export class CurrentSeasonProfileController {
   @RequireCurrentSeasonParticipant('season-profile-draft-not-allowed')
   async createOrUpdateSeasonProfileDraft(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(updateSeasonProfileRequestSchema, body),
+      ),
+    )
+    parsed: UpdateSeasonProfileRequest,
     @SeasonParticipant() seasonParticipant?: CurrentSeasonParticipantRecord,
   ) {
-    const parsed = parseRequestBody(updateSeasonProfileRequestSchema, body);
     return this.seasonParticipantsService.createOrUpdateSeasonProfileDraft(
       resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
       parsed,
@@ -60,17 +68,18 @@ export class SeasonProfileHistoryController {
   @Get()
   async getSeasonProfileHistory(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Param('seasonId') seasonId: string,
+    @Param(
+      'seasonId',
+      new ZodRequestPipe((seasonId: unknown) =>
+        parsePathParam(seasonRegistrationFinalizeResponseSchema.shape.seasonId, seasonId, {
+          code: 'INVALID_SEASON_ID',
+          errorMessage: '시즌 식별자가 올바르지 않습니다.',
+          fieldName: 'seasonId',
+        }),
+      ),
+    )
+    parsedSeasonId: string,
   ) {
-    const parsedSeasonId = parsePathParam(
-      seasonRegistrationFinalizeResponseSchema.shape.seasonId,
-      seasonId,
-      {
-        code: 'INVALID_SEASON_ID',
-        errorMessage: '시즌 식별자가 올바르지 않습니다.',
-        fieldName: 'seasonId',
-      },
-    );
     return this.seasonParticipantsService.getSeasonProfileHistory(authUser.id, parsedSeasonId);
   }
 }
@@ -89,10 +98,14 @@ export class CurrentSeasonParticipationController {
   @RequireCurrentSeasonParticipant('season-profile-draft-not-allowed')
   async createOrUpdateDormitorySelection(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(selectedDormitorySubmitRequestSchema, body),
+      ),
+    )
+    parsed: SelectedDormitorySubmitRequest,
     @SeasonParticipant() seasonParticipant?: CurrentSeasonParticipantRecord,
   ) {
-    const parsed = parseRequestBody(selectedDormitorySubmitRequestSchema, body);
     return this.seasonParticipantsService.createOrUpdateDormitorySelection(
       resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
       parsed,
@@ -103,10 +116,14 @@ export class CurrentSeasonParticipationController {
   @RequireCurrentSeasonParticipant('registration-not-allowed')
   async finalizeSeasonRegistration(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(seasonRegistrationFinalizeRequestSchema, body ?? {}),
+      ),
+    )
+    _body: SeasonRegistrationFinalizeRequest,
     @SeasonParticipant() seasonParticipant?: CurrentSeasonParticipantRecord,
   ) {
-    parseRequestBody(seasonRegistrationFinalizeRequestSchema, body ?? {});
     return this.seasonParticipantsService.finalizeSeasonRegistration(
       resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
     );

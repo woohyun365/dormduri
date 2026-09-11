@@ -1,19 +1,44 @@
-import { Body, Controller, Delete, Param, Patch } from '@nestjs/common';
-import { campusSchema } from '@repo/shared/identity/primitives';
+import {
+  createParamDecorator,
+  Controller,
+  Delete,
+  Param,
+  Patch,
+  type ExecutionContext,
+} from '@nestjs/common';
+import { campusSchema, type Campus } from '@repo/shared/identity/primitives';
 import {
   clearSeasonOverrideRequestSchema,
   updateSeasonOverrideRequestSchema,
   updateSeasonScheduleRequestSchema,
+  type UpdateSeasonScheduleRequest,
+  type UpdateSeasonOverrideRequest,
+  type ClearSeasonOverrideRequest,
 } from '@repo/shared/season/operations';
 import { RequireCapability } from '../../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { parsePathParam, parseRequestBody } from '../../platform/http/zod-request.js';
+import { ZodRequestPipe } from '../../platform/http/zod-request.pipe.js';
 import { ClearSeasonOverrideCommand } from './clear-season-override.command.js';
 import { UpdateSeasonOverrideCommand } from './update-season-override.command.js';
 import { UpdateSeasonScheduleCommand } from './update-season-schedule.command.js';
 
 export const SEASON_OPERATIONS_WRITE_CAPABILITY = 'admin:season:operations:write';
+
+interface RawSeasonOperation {
+  campusCode: string;
+  body: unknown;
+}
+// One ordered pipe preserves path-before-body errors; extraction does not validate.
+const SeasonOperation = createParamDecorator(
+  (_: unknown, context: ExecutionContext): RawSeasonOperation => {
+    const request = context
+      .switchToHttp()
+      .getRequest<{ params: { campusCode: string }; body?: unknown }>();
+    return { campusCode: request.params.campusCode, body: request.body };
+  },
+);
 
 @Controller('api/campuses/:campusCode/seasons')
 @RequireCapability(SEASON_OPERATIONS_WRITE_CAPABILITY)
@@ -27,37 +52,49 @@ export class SeasonsOperationsController {
   @Patch(':seasonId/schedule')
   updateSchedule(
     @CurrentUser() actor: AuthenticatedUserContext,
-    @Param('campusCode') campusCode: string,
+    @SeasonOperation(
+      new ZodRequestPipe((input: RawSeasonOperation) => {
+        const parsedCampus = parseSeasonOperationsCampusParam(input.campusCode);
+        const parsed = parseRequestBody(updateSeasonScheduleRequestSchema, input.body);
+        return { campusCode: parsedCampus, body: parsed };
+      }),
+    )
+    input: { campusCode: Campus; body: UpdateSeasonScheduleRequest },
     @Param('seasonId') seasonId: string,
-    @Body() body: unknown,
   ) {
-    const parsedCampus = parseSeasonOperationsCampusParam(campusCode);
-    const parsed = parseRequestBody(updateSeasonScheduleRequestSchema, body);
-    return this.updateSeasonScheduleCommand.execute(parsedCampus, seasonId, parsed, actor);
+    return this.updateSeasonScheduleCommand.execute(input.campusCode, seasonId, input.body, actor);
   }
 
   @Patch(':seasonId/override')
   updateOverride(
     @CurrentUser() actor: AuthenticatedUserContext,
-    @Param('campusCode') campusCode: string,
+    @SeasonOperation(
+      new ZodRequestPipe((input: RawSeasonOperation) => {
+        const parsedCampus = parseSeasonOperationsCampusParam(input.campusCode);
+        const parsed = parseRequestBody(updateSeasonOverrideRequestSchema, input.body);
+        return { campusCode: parsedCampus, body: parsed };
+      }),
+    )
+    input: { campusCode: Campus; body: UpdateSeasonOverrideRequest },
     @Param('seasonId') seasonId: string,
-    @Body() body: unknown,
   ) {
-    const parsedCampus = parseSeasonOperationsCampusParam(campusCode);
-    const parsed = parseRequestBody(updateSeasonOverrideRequestSchema, body);
-    return this.updateSeasonOverrideCommand.execute(parsedCampus, seasonId, parsed, actor);
+    return this.updateSeasonOverrideCommand.execute(input.campusCode, seasonId, input.body, actor);
   }
 
   @Delete(':seasonId/override')
   clearOverride(
     @CurrentUser() actor: AuthenticatedUserContext,
-    @Param('campusCode') campusCode: string,
+    @SeasonOperation(
+      new ZodRequestPipe((input: RawSeasonOperation) => {
+        const parsedCampus = parseSeasonOperationsCampusParam(input.campusCode);
+        const parsed = parseRequestBody(clearSeasonOverrideRequestSchema, input.body ?? {});
+        return { campusCode: parsedCampus, body: parsed };
+      }),
+    )
+    input: { campusCode: Campus; body: ClearSeasonOverrideRequest },
     @Param('seasonId') seasonId: string,
-    @Body() body: unknown,
   ) {
-    const parsedCampus = parseSeasonOperationsCampusParam(campusCode);
-    const parsed = parseRequestBody(clearSeasonOverrideRequestSchema, body ?? {});
-    return this.clearSeasonOverrideCommand.execute(parsedCampus, seasonId, parsed, actor);
+    return this.clearSeasonOverrideCommand.execute(input.campusCode, seasonId, input.body, actor);
   }
 }
 

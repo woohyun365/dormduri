@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BadRequestException, RequestMethod } from '@nestjs/common';
+import { RequestMethod } from '@nestjs/common';
 import { AUTH_ACCESS_METADATA_KEY } from '../auth/access/auth-access.decorator.js';
 import { LegalController } from './legal.controller.js';
 
@@ -45,7 +45,7 @@ describe('LegalController', () => {
     expect(legalService.getActiveBundle).toHaveBeenCalledWith();
   });
 
-  it('active document route는 kind path param을 shared contract로 검증한다', async () => {
+  it('active document route는 parsed kind를 service로 위임한다', async () => {
     legalService.getActiveDocument.mockResolvedValue({ id: 'privacy' });
     const handler = getLegalControllerHandler('getActiveDocument');
 
@@ -56,7 +56,5 @@ describe('LegalController', () => {
       id: 'privacy',
     });
     expect(legalService.getActiveDocument).toHaveBeenCalledWith('PRIVACY_POLICY');
-
-    expect(() => controller.getActiveDocument('MARKETING_CONSENT')).toThrow(BadRequestException);
   });
 });

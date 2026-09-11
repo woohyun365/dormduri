@@ -1,0 +1,2464 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.changePassword 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/change-password",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.login 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/login",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.logout 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/logout",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.renewSession 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/renew-session",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.resetPassword 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/reset-password",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.sendResetCode 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/send-reset-code",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.sendSignupCode 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/send-signup-code",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.signup 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/signup",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.validateSignupNickname 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/signup/validate-nickname",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.verifyEmailCode 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/verify-email-code",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: AuthController.verifyResetCode 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/auth/verify-reset-code",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: BlockController.create 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "차단 요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/blocks/%20target-1%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: BlockController.delete 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "차단 해제 요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/blocks/%20target-1%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: BlockController.list 1`] = `
+{
+  "code": "INVALID_BLOCK_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "차단 목록 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/blocks?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: BookmarkController.create 1`] = `
+{
+  "code": "INVALID_BOOKMARK_TARGET",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "targetUserId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "북마크 대상이 올바르지 않습니다.",
+  "fieldErrors": {
+    "targetUserId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/bookmarks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: BookmarkController.delete 1`] = `
+{
+  "code": "INVALID_BOOKMARK_TARGET",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "targetUserId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "북마크 대상이 올바르지 않습니다.",
+  "fieldErrors": {
+    "targetUserId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/bookmarks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: BookmarkController.list 1`] = `
+{
+  "code": "INVALID_BOOKMARK_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "북마크 목록 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/bookmarks?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: ChatController.sendMessage 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/chat/messages",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: ChatController.updateReadMarker 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/chat/threads/thread-1/read-marker",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: CurrentSeasonParticipationController.cr… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/seasons/current/participation/dormitory-selection",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: CurrentSeasonParticipationController.fi… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/seasons/current/participation/registration",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: CurrentSeasonProfileController.createOr… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/seasons/current/profile",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: EnforcementNoticeController.listOwn 1`] = `
+{
+  "code": "INVALID_ENFORCEMENT_NOTICE_LIST_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "이용 제한 내역 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/enforcements?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: LegalController.getActiveDocument 1`] = `
+{
+  "code": "INVALID_LEGAL_DOCUMENT_KIND",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "kind",
+      "sourceMessage": "Invalid option: expected one of "TERMS_OF_SERVICE"|"PRIVACY_POLICY"|"PERSONAL_DATA_COLLECTION_USE_CONSENT"|"AGE_14_OR_ABOVE_NOTICE"",
+    },
+  ],
+  "error": "법적 문서 종류가 올바르지 않습니다.",
+  "fieldErrors": {
+    "kind": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/legal/documents/MARKETING_CONSENT/active",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: MatchesController.createRequest 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/matches/requests",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: NoticesController.getGlobalNotice 1`] = `
+{
+  "code": "INVALID_GLOBAL_NOTICE_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "noticeId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "공지사항 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "noticeId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/notices/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: NoticesController.listGlobalNotices 1`] = `
+{
+  "code": "INVALID_GLOBAL_NOTICE_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "공지사항 목록 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/notices?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: ReportController.create 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "신고 요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/reports",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: ReportController.listOwn 1`] = `
+{
+  "code": "INVALID_REPORT_LIST_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "신고 내역 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/reports?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: RoommateSearchController.getManifest 1`] = `
+{
+  "code": "INVALID_ROOMMATE_SEARCH_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "룸메이트 찾기 manifest 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/roommate-search/manifest?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: RoommateSearchController.search 1`] = `
+{
+  "code": "INVALID_ROOMMATE_SEARCH_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "룸메이트 찾기 검색 조건이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/roommate-search?minScore=80&grade.operator=INCLUDE&grade.values=2&ageBand.values[]=20&ageBand.values[]=21&extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SeasonsController.getCurrentSeason 1`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_QUERY",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 쿼리 파라미터 값입니다.",
+      "path": "campus",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campus 쿼리 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campus": [
+      "허용되지 않는 쿼리 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/seasons/current",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SeasonsOperationsController.clearOverri… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/campuses/CHUNCHEON/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SeasonsOperationsController.updateOverr… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/campuses/CHUNCHEON/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SeasonsOperationsController.updateSched… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/campuses/CHUNCHEON/seasons/%20/schedule",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SupportController.getOperationTicket 1`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SupportController.getOwnTicket 1`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/support/tickets/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SupportController.listOperationTickets 1`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "운영 문의 목록 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/operations/support/tickets?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SupportController.listOwnTickets 1`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_QUERY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "문의 목록 요청이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 쿼리 항목가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/support/tickets?extra=true",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SupportController.replyAsOperator 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "운영 문의 답변 요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/operations/support/tickets/%20ticket-1%20/replies",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: SupportController.resolveAsOperator 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "운영 문의 종료 요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/operations/support/tickets/%20ticket-1%20/resolve",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: UsersController.dismissCurrentUserOnboa… 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/users/me/onboarding",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: UsersController.requestAccountDeletion 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/users/me/delete",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy exact invalid envelope and no service: UsersController.updateCurrentUser 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/users/me",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy invalid body before local actor mismatch: createOrUpdateDormitorySelection 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "invalid_type",
+      "message": "필수 값이 누락되었습니다.",
+      "path": "dormitoryId",
+      "sourceMessage": "Invalid input: expected string, received undefined",
+    },
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {
+    "dormitoryId": [
+      "필수 값이 누락되었습니다.",
+    ],
+  },
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/seasons/current/participation/dormitory-selection",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy invalid body before local actor mismatch: createOrUpdateSeasonProfileDraft 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "invalid_type",
+      "message": "필수 값이 누락되었습니다.",
+      "path": "lifestyle",
+      "sourceMessage": "Invalid input: expected object, received undefined",
+    },
+    {
+      "code": "invalid_type",
+      "message": "필수 값이 누락되었습니다.",
+      "path": "additional",
+      "sourceMessage": "Invalid input: expected object, received undefined",
+    },
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {
+    "additional": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "lifestyle": [
+      "필수 값이 누락되었습니다.",
+    ],
+  },
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/seasons/current/profile",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy invalid body before local actor mismatch: finalizeSeasonRegistration 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {},
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/seasons/current/participation/registration",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy invalid body before local actor mismatch: updateReadMarker 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "invalid_type",
+      "message": "필수 값이 누락되었습니다.",
+      "path": "lastReadMessageId",
+      "sourceMessage": "Invalid input: expected string, received undefined",
+    },
+    {
+      "code": "unrecognized_keys",
+      "message": "알 수 없는 필드가 포함되어 있습니다: extra",
+      "path": "",
+      "sourceMessage": "Unrecognized key: "extra"",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {
+    "lastReadMessageId": [
+      "필수 값이 누락되었습니다.",
+    ],
+  },
+  "formErrors": [
+    "알 수 없는 필드가 포함되어 있습니다: extra",
+  ],
+  "path": "/api/chat/threads/thread-1/read-marker",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy invalid chat body precedes limiter and metric side effects 1`] = `
+{
+  "code": "INVALID_REQUEST_BODY",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "body",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+    {
+      "code": "invalid_type",
+      "message": "필수 값이 누락되었습니다.",
+      "path": "clientMessageId",
+      "sourceMessage": "Invalid input: expected string, received undefined",
+    },
+  ],
+  "error": "요청 본문이 올바르지 않습니다.",
+  "fieldErrors": {
+    "body": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+    "clientMessageId": [
+      "필수 값이 누락되었습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/chat/messages",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.changePassword 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/change-password",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.login 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/login",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.logout 1`] = `
+{
+  "body": {
+    "success": true,
+  },
+  "calls": [
+    [
+      "valid-token",
+      null,
+      {
+        "requestIp": "127.0.0.1",
+        "userAgent": "rollout-test",
+      },
+    ],
+  ],
+  "status": 200,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.renewSession 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/renew-session",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.resetPassword 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/reset-password",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.sendResetCode 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/send-reset-code",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.sendSignupCode 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/send-signup-code",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.signup 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/signup",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.validateSignupNickname 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/signup/validate-nickname",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.verifyEmailCode 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/verify-email-code",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: AuthController.verifyResetCode 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/auth/verify-reset-code",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: BlockController.create 1`] = `
+{
+  "body": {
+    "success": true,
+  },
+  "calls": [
+    [
+      {
+        "actorId": "user-1",
+        "actorType": "USER",
+        "campus": "CHUNCHEON",
+        "capabilities": [
+          "user:read:self",
+          "user:update:self",
+          "auth:password:change:self",
+          "admin:support:read",
+          "admin:support:reply",
+          "admin:support:resolve",
+          "admin:season:operations:write",
+        ],
+        "gender": "M",
+        "id": "user-1",
+        "sessionId": "session-1",
+      },
+      "target-1",
+      {},
+    ],
+  ],
+  "status": 201,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: BlockController.delete 1`] = `
+{
+  "body": {
+    "success": true,
+  },
+  "calls": [
+    [
+      {
+        "actorId": "user-1",
+        "actorType": "USER",
+        "campus": "CHUNCHEON",
+        "capabilities": [
+          "user:read:self",
+          "user:update:self",
+          "auth:password:change:self",
+          "admin:support:read",
+          "admin:support:reply",
+          "admin:support:resolve",
+          "admin:season:operations:write",
+        ],
+        "gender": "M",
+        "id": "user-1",
+        "sessionId": "session-1",
+      },
+      "target-1",
+    ],
+  ],
+  "status": 200,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: ChatController.sendMessage 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/chat/messages",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: ChatController.updateReadMarker 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/chat/threads/thread-1/read-marker",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: CurrentSeasonParticipationController.cr… 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/seasons/current/participation/dormitory-selection",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: CurrentSeasonParticipationController.fi… 1`] = `
+{
+  "body": {
+    "success": true,
+  },
+  "calls": [
+    [
+      "user-1",
+    ],
+  ],
+  "status": 201,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: CurrentSeasonProfileController.createOr… 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/seasons/current/profile",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: MatchesController.createRequest 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/matches/requests",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: ReportController.create 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_value",
+        "message": "허용되지 않는 값입니다.",
+        "path": "targetType",
+        "sourceMessage": "Invalid option: expected one of "PROFILE"|"MATCH_REQUEST"|"CHAT_THREAD"|"CHAT_MESSAGE"|"SUPPORT_TICKET"",
+      },
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "targetId",
+        "sourceMessage": "Invalid input: expected string, received undefined",
+      },
+      {
+        "code": "invalid_value",
+        "message": "허용되지 않는 값입니다.",
+        "path": "reason",
+        "sourceMessage": "Invalid option: expected one of "SEXUAL_HARASSMENT"|"THREAT"|"PERSONAL_INFO_EXPOSURE"|"GENDER_IMPERSONATION"|"FALSE_PROFILE"|"SPAM_OR_AD"|"HATE_OR_DISCRIMINATION"|"OTHER"",
+      },
+      {
+        "code": "invalid_value",
+        "message": "허용되지 않는 값입니다.",
+        "path": "falseReportDisclaimerAccepted",
+        "sourceMessage": "Invalid input: expected true",
+      },
+    ],
+    "error": "신고 요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {
+      "falseReportDisclaimerAccepted": [
+        "허용되지 않는 값입니다.",
+      ],
+      "reason": [
+        "허용되지 않는 값입니다.",
+      ],
+      "targetId": [
+        "필수 값이 누락되었습니다.",
+      ],
+      "targetType": [
+        "허용되지 않는 값입니다.",
+      ],
+    },
+    "formErrors": [],
+    "path": "/api/reports",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: SeasonsOperationsController.clearOverri… 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "expectedUpdatedAt",
+        "sourceMessage": "Invalid input: expected string, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {
+      "expectedUpdatedAt": [
+        "필수 값이 누락되었습니다.",
+      ],
+    },
+    "formErrors": [],
+    "path": "/api/campuses/CHUNCHEON/seasons/%20/override",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: SeasonsOperationsController.updateOverr… 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/campuses/CHUNCHEON/seasons/%20/override",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: SeasonsOperationsController.updateSched… 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/campuses/CHUNCHEON/seasons/%20/schedule",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: SupportController.replyAsOperator 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "body",
+        "sourceMessage": "Invalid input: expected string, received undefined",
+      },
+    ],
+    "error": "운영 문의 답변 요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {
+      "body": [
+        "필수 값이 누락되었습니다.",
+      ],
+    },
+    "formErrors": [],
+    "path": "/api/operations/support/tickets/%20ticket-1%20/replies",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: SupportController.resolveAsOperator 1`] = `
+{
+  "body": {
+    "success": true,
+  },
+  "calls": [
+    [
+      {
+        "actorId": "user-1",
+        "actorType": "USER",
+        "campus": "CHUNCHEON",
+        "capabilities": [
+          "user:read:self",
+          "user:update:self",
+          "auth:password:change:self",
+          "admin:support:read",
+          "admin:support:reply",
+          "admin:support:resolve",
+          "admin:season:operations:write",
+        ],
+        "gender": "M",
+        "id": "user-1",
+        "sessionId": "session-1",
+      },
+      "ticket-1",
+      {
+        "status": "RESOLVED",
+      },
+    ],
+  ],
+  "status": 201,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: UsersController.dismissCurrentUserOnboa… 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/users/me/onboarding",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: UsersController.requestAccountDeletion 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/users/me/delete",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy missing body: UsersController.updateCurrentUser 1`] = `
+{
+  "body": {
+    "code": "INVALID_REQUEST_BODY",
+    "details": [
+      {
+        "code": "invalid_type",
+        "message": "필수 값이 누락되었습니다.",
+        "path": "",
+        "sourceMessage": "Invalid input: expected object, received undefined",
+      },
+    ],
+    "error": "요청 본문이 올바르지 않습니다.",
+    "fieldErrors": {},
+    "formErrors": [
+      "필수 값이 누락되었습니다.",
+    ],
+    "path": "/api/users/me",
+    "statusCode": 400,
+    "success": false,
+  },
+  "calls": [],
+  "status": 400,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.create 1`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.create 2`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.create 3`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.create 4`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.delete 1`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.delete 2`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.delete 3`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: BlockController.delete 4`] = `
+{
+  "code": "INVALID_BLOCK_TARGET",
+  "error": "차단 대상이 올바르지 않습니다.",
+  "path": "/api/blocks/%20",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.clearOverri… 1`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.clearOverri… 2`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.clearOverri… 3`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.clearOverri… 4`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateOverr… 1`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateOverr… 2`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateOverr… 3`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateOverr… 4`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/override",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateSched… 1`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/schedule",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateSched… 2`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/schedule",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateSched… 3`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/schedule",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SeasonsOperationsController.updateSched… 4`] = `
+{
+  "code": "SEASONS_INVALID_CAMPUS_PARAM",
+  "details": [
+    {
+      "code": "invalid_value",
+      "message": "허용되지 않는 경로 파라미터 값입니다.",
+      "path": "campusCode",
+      "sourceMessage": "Invalid option: expected one of "CHUNCHEON"|"SAMCHEOK"|"DOGYE"",
+    },
+  ],
+  "error": "campusCode 경로 파라미터 값이 올바르지 않습니다.",
+  "fieldErrors": {
+    "campusCode": [
+      "허용되지 않는 경로 파라미터 값입니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/campuses/WRONG/seasons/%20/schedule",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.replyAsOperator 1`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/replies",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.replyAsOperator 2`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/replies",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.replyAsOperator 3`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/replies",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.replyAsOperator 4`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/replies",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.resolveAsOperator 1`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/resolve",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.resolveAsOperator 2`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/resolve",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.resolveAsOperator 3`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/resolve",
+  "statusCode": 400,
+  "success": false,
+}
+`;
+
+exports[`rollout HTTP contract > legacy path first for every input combination: SupportController.resolveAsOperator 4`] = `
+{
+  "code": "INVALID_SUPPORT_TICKET_ID",
+  "details": [
+    {
+      "code": "too_small",
+      "message": "최소 허용 기준보다 작습니다.",
+      "path": "ticketId",
+      "sourceMessage": "Too small: expected string to have >=1 characters",
+    },
+  ],
+  "error": "문의 식별자가 올바르지 않습니다.",
+  "fieldErrors": {
+    "ticketId": [
+      "최소 허용 기준보다 작습니다.",
+    ],
+  },
+  "formErrors": [],
+  "path": "/api/operations/support/tickets/%20/resolve",
+  "statusCode": 400,
+  "success": false,
+}
+`;
