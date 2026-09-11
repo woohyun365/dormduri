@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  BadRequestException,
   Body,
   Controller,
   Post,
@@ -26,6 +27,7 @@ import {
 } from '../../auth/access/auth-access.decorator.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { parseRequestBody } from './zod-request.js';
+import { ZodRequestPipe } from './zod-request.pipe.js';
 
 const actor = {
   id: 'user-1',
@@ -54,40 +56,42 @@ const resolver = { resolveCurrentUserContext: vi.fn() };
 const logger = { write: vi.fn() };
 const metrics = { recordException: vi.fn() };
 const probeHandler = vi.fn();
+const probeBodyPipe = new ZodRequestPipe((body: unknown) =>
+  parseRequestBody(createSupportTicketRequestSchema, body ?? {}),
+);
 
 // Real decorators in the existing auth argument arrangements, without changing auth routes.
 @Controller('binding-probe')
 class DecoratorProbeController {
   @Public()
   @Post('required-token')
-  requiredToken(@CurrentAuthToken() token: string, @Body() body: unknown) {
-    const parsed = parseRequestBody(createSupportTicketRequestSchema, body ?? {});
-    probeHandler(token, parsed);
-    return { token, parsed };
+  requiredToken(@CurrentAuthToken() token: string, @Body(probeBodyPipe) body: unknown) {
+    probeHandler(token, body);
+    return { token, parsed: body };
   }
 
   @OptionalAuth()
   @Post('optional-token')
-  optionalToken(@CurrentAuthToken({ optional: true }) token: string | null, @Body() body: unknown) {
-    const parsed = parseRequestBody(createSupportTicketRequestSchema, body ?? {});
-    probeHandler(token, parsed);
-    return { token, parsed };
+  optionalToken(
+    @CurrentAuthToken({ optional: true }) token: string | null,
+    @Body(probeBodyPipe) body: unknown,
+  ) {
+    probeHandler(token, body);
+    return { token, parsed: body };
   }
 
   @Public()
   @Post('missing-actor')
-  missingActor(@Body() body: unknown, @CurrentUser() user: unknown) {
-    const parsed = parseRequestBody(createSupportTicketRequestSchema, body ?? {});
-    probeHandler(user, parsed);
-    return parsed;
+  missingActor(@Body(probeBodyPipe) body: unknown, @CurrentUser() user: unknown) {
+    probeHandler(user, body);
+    return body;
   }
 
   @RequireCapability('admin:support:reply')
   @Post('capability')
-  capability(@Body() body: unknown, @CurrentUser() user: unknown) {
-    const parsed = parseRequestBody(createSupportTicketRequestSchema, body ?? {});
-    probeHandler(user, parsed);
-    return parsed;
+  capability(@Body(probeBodyPipe) body: unknown, @CurrentUser() user: unknown) {
+    probeHandler(user, body);
+    return body;
   }
 }
 
@@ -122,10 +126,29 @@ function errorBody(response: request.Response) {
   return body;
 }
 
-function boundPipes(controller: Type<unknown>, method: string): PipeTransform[] {
+function boundPipes(controller: Type<unknown>, method: string): PipeTransform<unknown, unknown>[] {
   const metadata = Reflect.getMetadata(ROUTE_ARGS_METADATA, controller, method) as
-    Record<string, { pipes?: PipeTransform[] }> | undefined;
+    Record<string, { pipes?: PipeTransform<unknown, unknown>[] }> | undefined;
   return Object.values(metadata ?? {}).flatMap(({ pipes }) => pipes ?? []);
+}
+
+function firstBoundPipe(
+  controller: Type<unknown>,
+  method: string,
+): PipeTransform<unknown, unknown> {
+  const pipe = boundPipes(controller, method)[0];
+  if (!pipe) throw new Error(`Missing route parsing Pipe: ${controller.name}.${method}`);
+  return pipe;
+}
+
+function badRequestResponse(parse: () => unknown) {
+  try {
+    parse();
+  } catch (error) {
+    if (error instanceof BadRequestException) return error.getResponse();
+    throw error;
+  }
+  throw new Error('Expected canonical BadRequestException');
 }
 
 describe('existing HTTP behavior', () => {
@@ -571,6 +594,85 @@ describe('existing HTTP behavior', () => {
       .send(rawTicket);
     expect(response.status).toBe(201);
     expect(probeHandler).toHaveBeenCalledExactlyOnceWith('valid-token', parsedTicket);
+  });
+
+  it.each(['required-token', 'optional-token'])(
+    '%s still reports validation failure when extraction succeeds',
+    async (route) => {
+      const transform = vi.spyOn(probeBodyPipe, 'transform');
+      const response = await request(url)
+        .post(`/binding-probe/${route}`)
+        .auth('valid-token', { type: 'bearer' })
+        .send({});
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ code: 'INVALID_REQUEST_BODY' });
+      expect(transform).toHaveBeenCalledOnce();
+      expect(probeHandler).not.toHaveBeenCalled();
+    },
+  );
+
+  it('invalid body runs the actual pilot Pipe and short-circuits the service', async () => {
+    const pipes = boundPipes(SupportController, 'createTicket');
+    expect(pipes).toHaveLength(1);
+    const transform = vi.spyOn(firstBoundPipe(SupportController, 'createTicket'), 'transform');
+    const response = await request(url)
+      .post('/api/support/tickets')
+      .auth('valid-token', { type: 'bearer' })
+      .send({});
+    expect(response.status).toBe(400);
+    expect(transform).toHaveBeenCalledOnce();
+    expect(support.createTicket).not.toHaveBeenCalled();
+  });
+
+  it.each([null, undefined])(
+    'the actual body Pipe preserves body ?? {} for %s outside JSON parser representation',
+    (input) => {
+      const pipe = firstBoundPipe(SupportController, 'createTicket');
+      const legacyResponse = badRequestResponse(() => {
+        parseRequestBody(
+          createSupportTicketRequestSchema,
+          {},
+          '문의 생성 요청 본문이 올바르지 않습니다.',
+        );
+      });
+      expect(badRequestResponse(() => pipe.transform(input, { type: 'body' }))).toEqual(
+        legacyResponse,
+      );
+    },
+  );
+
+  it('negative control: removing the real binding bypasses parsing and invalidates its execution proof', async () => {
+    const original = Reflect.getMetadata(
+      ROUTE_ARGS_METADATA,
+      SupportController,
+      'createTicket',
+    ) as Record<string, { pipes?: PipeTransform<unknown, unknown>[] }>;
+    const pipe = firstBoundPipe(SupportController, 'createTicket');
+    const transform = vi.spyOn(pipe, 'transform');
+    let unboundApp: INestApplication | undefined;
+    try {
+      Reflect.defineMetadata(
+        ROUTE_ARGS_METADATA,
+        Object.fromEntries(
+          Object.entries(original).map(([key, value]) => [key, { ...value, pipes: [] }]),
+        ),
+        SupportController,
+        'createTicket',
+      );
+      expect(boundPipes(SupportController, 'createTicket')).toEqual([]);
+      unboundApp = await createApp();
+      const response = await request(await unboundApp.getUrl())
+        .post('/api/support/tickets')
+        .auth('valid-token', { type: 'bearer' })
+        .send(rawTicket);
+      expect(response.status).toBe(201);
+      expect(transform).not.toHaveBeenCalled();
+      expect(support.createTicket).toHaveBeenCalledExactlyOnceWith(actor, rawTicket);
+      expect(support.createTicket).not.toHaveBeenCalledWith(actor, parsedTicket);
+    } finally {
+      Reflect.defineMetadata(ROUTE_ARGS_METADATA, original, SupportController, 'createTicket');
+      if (unboundApp) await unboundApp.close();
+    }
   });
 
   it.each(

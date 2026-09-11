@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  createParamDecorator,
+  Get,
+  Param,
+  Post,
+  Query,
+  type ExecutionContext,
+} from '@nestjs/common';
 import {
   appendSupportTicketMessageRequestSchema,
   createSupportTicketRequestSchema,
@@ -6,6 +15,9 @@ import {
   listSupportTicketsQuerySchema,
   replySupportTicketRequestSchema,
   resolveSupportTicketRequestSchema,
+  type AppendSupportTicketMessageRequest,
+  type CreateSupportTicketRequest,
+  type ListSupportFaqQuery,
 } from '@repo/shared/support';
 import { Public, RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
@@ -16,10 +28,45 @@ import {
   parseRequestBody,
 } from '../platform/http/zod-request.js';
 import { SupportService } from './application/support.service.js';
+import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
 
 const supportIdPathSchema = createSupportTicketRequestSchema.shape.relatedEntityId
   .unwrap()
   .unwrap();
+
+interface RawSupportMessage {
+  ticketId: unknown;
+  body: unknown;
+}
+
+interface SupportMessageInput {
+  ticketId: string;
+  body: AppendSupportTicketMessageRequest;
+}
+
+// Extract only; validation stays in one ordered Pipe because Nest resolves parameters concurrently.
+const SupportMessage = createParamDecorator(
+  (_: unknown, context: ExecutionContext): RawSupportMessage => {
+    const request = context
+      .switchToHttp()
+      .getRequest<{ params: { ticketId: string }; body?: unknown }>();
+    return { ticketId: request.params.ticketId, body: request.body };
+  },
+);
+
+const supportMessagePipe = new ZodRequestPipe((input: RawSupportMessage): SupportMessageInput => {
+  const ticketId = parsePathParam(supportIdPathSchema, input.ticketId, {
+    code: 'INVALID_SUPPORT_TICKET_ID',
+    errorMessage: '문의 식별자가 올바르지 않습니다.',
+    fieldName: 'ticketId',
+  });
+  const body = parseRequestBody(
+    appendSupportTicketMessageRequestSchema,
+    input.body ?? {},
+    '문의 메시지 요청 본문이 올바르지 않습니다.',
+  );
+  return { ticketId, body };
+});
 
 @Controller()
 export class SupportController {
@@ -27,34 +74,54 @@ export class SupportController {
 
   @Public()
   @Get('api/support/faq')
-  listFaq(@Query() query: Record<string, unknown>) {
-    const parsed = parseQueryObject(listSupportFaqQuerySchema, query, {
-      code: 'INVALID_SUPPORT_FAQ_QUERY',
-      errorMessage: 'FAQ 목록 요청이 올바르지 않습니다.',
-    });
-    return this.supportService.listFaq(parsed);
+  listFaq(
+    @Query(
+      new ZodRequestPipe((query: unknown) =>
+        parseQueryObject(listSupportFaqQuerySchema, query, {
+          code: 'INVALID_SUPPORT_FAQ_QUERY',
+          errorMessage: 'FAQ 목록 요청이 올바르지 않습니다.',
+        }),
+      ),
+    )
+    query: ListSupportFaqQuery,
+  ) {
+    return this.supportService.listFaq(query);
   }
 
   @Public()
   @Get('api/support/faq/:articleId')
-  getFaq(@Param('articleId') articleId: string) {
-    const parsed = parsePathParam(supportIdPathSchema, articleId, {
-      code: 'INVALID_SUPPORT_FAQ_ID',
-      errorMessage: 'FAQ 식별자가 올바르지 않습니다.',
-      fieldName: 'articleId',
-    });
-    return this.supportService.getFaq(parsed);
+  getFaq(
+    @Param(
+      'articleId',
+      new ZodRequestPipe((value: unknown) =>
+        parsePathParam(supportIdPathSchema, value, {
+          code: 'INVALID_SUPPORT_FAQ_ID',
+          errorMessage: 'FAQ 식별자가 올바르지 않습니다.',
+          fieldName: 'articleId',
+        }),
+      ),
+    )
+    articleId: string,
+  ) {
+    return this.supportService.getFaq(articleId);
   }
 
   @RequireCapability()
   @Post('api/support/tickets')
-  createTicket(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
-    const parsed = parseRequestBody(
-      createSupportTicketRequestSchema,
-      body ?? {},
-      '문의 생성 요청 본문이 올바르지 않습니다.',
-    );
-    return this.supportService.createTicket(authUser, parsed);
+  createTicket(
+    @CurrentUser() authUser: AuthenticatedUserContext,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(
+          createSupportTicketRequestSchema,
+          body ?? {},
+          '문의 생성 요청 본문이 올바르지 않습니다.',
+        ),
+      ),
+    )
+    body: CreateSupportTicketRequest,
+  ) {
+    return this.supportService.createTicket(authUser, body);
   }
 
   @RequireCapability()
@@ -88,20 +155,9 @@ export class SupportController {
   @Post('api/support/tickets/:ticketId/messages')
   appendOwnMessage(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Param('ticketId') ticketId: string,
-    @Body() body: unknown,
+    @SupportMessage(supportMessagePipe) input: SupportMessageInput,
   ) {
-    const parsedTicketId = parsePathParam(supportIdPathSchema, ticketId, {
-      code: 'INVALID_SUPPORT_TICKET_ID',
-      errorMessage: '문의 식별자가 올바르지 않습니다.',
-      fieldName: 'ticketId',
-    });
-    const parsedBody = parseRequestBody(
-      appendSupportTicketMessageRequestSchema,
-      body ?? {},
-      '문의 메시지 요청 본문이 올바르지 않습니다.',
-    );
-    return this.supportService.appendOwnMessage(authUser, parsedTicketId, parsedBody);
+    return this.supportService.appendOwnMessage(authUser, input.ticketId, input.body);
   }
 
   @RequireCapability('admin:support:read')

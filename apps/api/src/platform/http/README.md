@@ -9,6 +9,7 @@ Product domains may import HTTP platform helpers for normalized error bodies, ex
 - `api-error.ts`: normalized API error body and typed error factory helpers.
 - `api-exception.filter.ts`: Nest exception filter for API responses.
 - `zod-request*.ts`: Zod request parsing and error extras helpers.
+- `zod-request.pipe.ts`: synchronous Nest parameter binding for existing request parsers.
 - `account-identity-invariant.error.ts`: maps pure account identity invariant vocabulary to an HTTP/Nest exception body.
 
 ## Directory responsibilities
@@ -38,6 +39,39 @@ Product domains may import HTTP platform helpers for normalized error bodies, ex
 - Zod request issue/extras/type behavior: `zod-request*.ts`.
 - Account identity invariant HTTP mapping: `account-identity-invariant.error.ts`.
 - Product-specific route error code or policy: owning product domain.
+
+## Request binding convention
+
+Use `ZodRequestPipe` with Nest's `@Body`, `@Query`, or `@Param` to pass parsed data to the handler. The callback calls the existing
+`parseRequestBody`, `parseQueryObject`, `parsePathParam`, or query-value helper with the route's current schema and error policy.
+There is no second DTO schema, new error formatter, request-scoped provider, or module registration. Pipes are stateless shared
+instances; do not store per-request data on them. Existing schemas are synchronous; async schema support is not added speculatively.
+
+```ts
+@Body(new ZodRequestPipe((body: unknown) =>
+  parseRequestBody(requestSchema, body ?? {}, '기존 요청 오류 메시지'),
+)) body: ParsedRequest
+```
+
+`body ?? {}` is route-specific compatibility, not a global default. Preserve schema transforms, optional `undefined`, custom
+codes/messages/field names and parsed service arguments. Authentication and business invariants stay with their existing owners.
+
+Nest resolves different parameters concurrently. When error order matters, extract one raw aggregate and parse it in one ordered
+Pipe callback. Dormitories uses the entire query to validate campus before optional gender. Support message appending uses a
+route-local, side-effect-free parameter decorator to collect ticket ID and body, then validates the path before the body. Do not
+independently pipe coupled parameters or grow a generic request facade. Guard rejection precedes binding; relative actor/token
+decorator failures and other parameter validation must be checked through actual Nest requests, not inferred from argument order.
+
+`zod-request-binding.spec.ts` runs the real pilot controllers, guard and exception filter with fake services on a loopback Nest
+application. It locks status/envelope/details and parsed input, observes bound `transform` calls, and removes a binding as a negative
+control. Direct handler tests only prove delegation after parsing. New migration groups need their own multiple-invalid matrix.
+
+`test/architecture/platform/http-transport-boundary.spec.ts` owns the exact native-import exceptions. Current auth/chat request
+carriers and health response access are transitional debt, not a general product exemption. The HTTP runtime owns trust-proxy and
+middleware; logging/metrics response-event owners retain completion semantics. Filter response writing must preserve the existing
+non-JSON content-type compatibility until a deliberate contract change is approved. Remove/review each exception with its owner
+and regression proof; do not equate a zero-import count with correctness. Existing regression owners include `http-runtime.spec.ts`,
+`api-exception.filter.spec.ts`, request-context/logging specs and metrics controller/interceptor specs.
 
 ## Useful verification
 
