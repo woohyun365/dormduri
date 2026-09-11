@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { emailRequestSchema, loginRequestSchema } from '@repo/shared/auth/contract';
 import { BadRequestException } from '@nestjs/common';
-import { parsePathParam, parseQueryValue, parseRequestBody } from './zod-request.js';
+import { createSupportTicketRequestSchema, listSupportFaqQuerySchema } from '@repo/shared/support';
+import { genderSchema } from '@repo/shared/identity/primitives';
+import {
+  parseOptionalQueryValue,
+  parsePathParam,
+  parseQueryObject,
+  parseQueryValue,
+  parseRequestBody,
+} from './zod-request.js';
 
 function getBadRequestResponse(error: unknown) {
   expect(error).toBeInstanceOf(BadRequestException);
@@ -27,6 +35,41 @@ function getBadRequestResponse(error: unknown) {
 }
 
 describe('parseRequestBody', () => {
+  it.each([undefined, null])(
+    'pilot body ?? {} normalization keeps missing-field errors for %s',
+    (input) => {
+      expect(() => parseRequestBody(createSupportTicketRequestSchema, input ?? {})).toThrow(
+        BadRequestException,
+      );
+      try {
+        parseRequestBody(createSupportTicketRequestSchema, input ?? {});
+      } catch (error) {
+        const response = getBadRequestResponse(error);
+        expect(response.formErrors).toEqual([]);
+        expect(Object.keys(response.fieldErrors ?? {})).toEqual(['category', 'subject', 'body']);
+      }
+    },
+  );
+
+  it('optional query preserves undefined rather than null or a default', () => {
+    expect(
+      parseOptionalQueryValue(genderSchema, undefined, {
+        code: 'GENDER',
+        errorMessage: 'gender',
+        fieldName: 'gender',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('query object retains the schema nullable category', () => {
+    expect(
+      parseQueryObject(
+        listSupportFaqQuerySchema,
+        { category: null },
+        { code: 'QUERY', errorMessage: 'query' },
+      ),
+    ).toEqual({ category: null });
+  });
   it('최상위 잘못된 body는 formErrors와 details를 포함한다', () => {
     try {
       parseRequestBody(emailRequestSchema, undefined);
