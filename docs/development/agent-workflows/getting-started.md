@@ -7,6 +7,42 @@
 필요한 근거와 미확정 결정으로 나눕니다. 분석을 요청했다면 code를 수정하지 않고, 계획을 요청했다면
 구현까지 자동으로 확장하지 않습니다.
 
+## Codex/OMX 실행과 승인
+
+저장소로 이동한 뒤, 설치된 `codex --help`가 `--approve-for-me`를 지원하고 계정·managed 정책이 허용하면
+다음처럼 **새 세션**을 시작합니다. 모델·추론 수준은 작업에 맞게 선택하며 전역 설정 변경은 필수가 아닙니다.
+
+```bash
+omx --direct --approve-for-me
+```
+
+`--direct`는 OMX의 tmux/HUD 관리를 사용하지 않는 실행 방식이며 sandbox 해제가 아닙니다. 지원되는 Auto-review는
+workspace-write 경계를 유지하면서 필요한 승인 요청을 reviewer에게 보냅니다. 이미 허용된 작업은 검토 없이 진행될
+수 있습니다. 동작과 권한 구분은 [실행 계약](./agent-execution-contract.md#permission-modes-and-evidence)과
+[공식 Auto-review 설명](https://learn.chatgpt.com/docs/sandboxing/auto-review)을 따릅니다.
+
+시작 후 `/status`·`/permissions` 등 현재 CLI가 제공하는 화면에서 **sandbox와 reviewer를 각각** 확인합니다.
+`on-request` 표시만으로 reviewer가 사람인지 Auto-review인지 단정하지 않습니다. 명령이 인식되거나 문서·fixture가
+통과한 것만으로 실제 적용을 확인했다고 보고하지 않습니다. 확인이 필요하면 비밀이 없는 workspace 임시 파일,
+정확히 승인한 disposable 외부 파일, 알려진 GitHub 대상 GET으로 제한하며 실제 PR/merge/delete로 시험하지 않습니다.
+검증용 세션을 동시에 열 때는 기존 session/root를 재사용하지 말고 해당 OMX 버전의 독립 root 절차를 확인합니다.
+
+지원되지 않거나 실제 reviewer를 확인하지 못하면 자동으로 full access로 바꾸지 않습니다. 사람에게 필요한 승인만
+묻는 대안은 다음과 같습니다. 이 대안도 현재 설치 버전·managed 정책에서 허용되는지 확인합니다.
+
+```bash
+omx --direct --sandbox workspace-write --ask-for-approval on-request -c 'approvals_reviewer="user"'
+```
+
+기존 broad allow는 새 세션에도 남을 수 있습니다. 예를 들어 `gh api` 허용은 GET·이 저장소에 한정된 규칙이 아니므로,
+필요하면 실제 로드되는 rule과 안전한 negative argv를 `codex execpolicy check`로 점검합니다. 이는 명령 실행이 아닌
+정적 평가입니다. 기존 규칙 변경은 정확한 diff·백업·복구와 별도 권한을 먼저 정하며, 좁은 allow 추가만으로 해결됐다고
+하지 않습니다. 기본 Auto-review policy는 유지합니다. `madmax`나 `never`는 위 대안과 동등한 보안 모드가 아닙니다.
+
+승인된 구현·검증은 업무 재승인 없이 진행하지만 PR 생성 요청이 merge·배포까지 허용하는 것은 아닙니다.
+GitHub 연결 실패는 [인증·접근 복구](../github/authentication-and-operator-access.md#failure-classification-before-authentication-recovery)에
+따라 분류하며 token 만료나 재로그인을 곧바로 가정하지 않습니다.
+
 ## 공통 입력
 
 좋은 요청은 다음 다섯 항목을 포함합니다.
