@@ -24,6 +24,9 @@
 
 함수명·기존 library API 사용·테스트 명령·범위 내 안전한 수정은 Lead가 선택합니다. 승인된 tool 사용이나 bounded child
 호출 자체를 매번 새 유료 서비스 결정으로 취급하지 않습니다. 실제 sandbox/credential 승인은 host의 절차를 따릅니다.
+업무 승인·실행 권한·외부 입력·삭제·실행 모드의 구체적인 경계는
+[Execution authority](./agent-execution-contract.md#execution-authority)가 소유합니다. 이 문서는 제품·비용·위험 선택을
+협의하는 책임을 유지하며 별도 명령 승인 정책을 복제하지 않습니다.
 
 Owner가 제안한 수단이 관찰한 제약과 충돌하면 근거와 가능한 경로를 제시하되 **명시적인 결정을 몰래 교체하지 않습니다**.
 기존 assistant 점수나 추측을 사실로 방어하지 않습니다. Owner의 침묵·시간 경과·선택지 기본값은 승인이 아닙니다.
