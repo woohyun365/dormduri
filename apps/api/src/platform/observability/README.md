@@ -34,9 +34,10 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - local/test에서 token이 없으면 scrape를 열어 두지만, production 배포에서는 nginx/private network/allowlist와 token guard를 함께 사용한다.
 - response는 Prometheus text format이고 `@prometheus-io/client` registry가 process/default metrics와 API platform metrics를
   소유한다.
-- controller는 Nest HTTP adapter로 Content-Type을 지정한 뒤 registry를 기다린다. 수집 실패 시 기존 text Content-Type,
-  no-store와 오류 JSON body를 유지하는 native compatibility writer는 `platform/http/api-error-response.ts`가 소유한다.
-  오류를 JSON media type으로 강제 변경하거나 adapter 경고를 추가하지 않는다.
+- controller는 registry 수집이 성공한 뒤 Nest HTTP adapter로 성공 응답의 Content-Type을 지정한다.
+- 수집 실패는 공통 exception filter가 `application/json`으로 응답한다. 성공 응답용 text Content-Type이나 별도 native
+  writer를 재사용하지 않는다. 기존 오류 body/status, no-store 및 Retry-After 동작은 유지한다. 알 수 없는 실패는 500,
+  명시적인 service-unavailable 오류는 503이며 일괄 변환하지 않는다.
 
 ## HTTP lifecycle 경계
 

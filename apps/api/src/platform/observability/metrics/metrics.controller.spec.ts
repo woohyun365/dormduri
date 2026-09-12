@@ -29,4 +29,50 @@ describe('MetricsController', () => {
       'text/plain; version=0.0.4; charset=utf-8',
     );
   });
+
+  it('does not set the success content type until collection resolves', async () => {
+    let resolveCollection!: (text: string) => void;
+    const collection = new Promise<string>((resolve) => {
+      resolveCollection = resolve;
+    });
+    const setHeader = vi.fn();
+    const getContentType = vi.fn(() => 'text/plain; version=0.0.4; charset=utf-8');
+    const host = new HttpAdapterHost();
+    host.httpAdapter = { setHeader } as never;
+    const controller = new MetricsController(
+      { getContentType, metrics: () => collection } as unknown as PrometheusRegistryService,
+      host,
+    );
+    const response = {};
+    const scrape = controller.scrape(response);
+
+    expect(setHeader).not.toHaveBeenCalled();
+    expect(getContentType).not.toHaveBeenCalled();
+    resolveCollection('# HELP api_http_requests_total test\n');
+    await expect(scrape).resolves.toBe('# HELP api_http_requests_total test\n');
+    expect(setHeader).toHaveBeenCalledExactlyOnceWith(
+      response,
+      'Content-Type',
+      'text/plain; version=0.0.4; charset=utf-8',
+    );
+  });
+
+  it('leaves success headers unset when collection rejects', async () => {
+    const failure = new Error('registry unavailable');
+    const setHeader = vi.fn();
+    const getContentType = vi.fn();
+    const host = new HttpAdapterHost();
+    host.httpAdapter = { setHeader } as never;
+    const controller = new MetricsController(
+      {
+        getContentType,
+        metrics: vi.fn().mockRejectedValue(failure),
+      } as unknown as PrometheusRegistryService,
+      host,
+    );
+
+    await expect(controller.scrape({})).rejects.toBe(failure);
+    expect(setHeader).not.toHaveBeenCalled();
+    expect(getContentType).not.toHaveBeenCalled();
+  });
 });

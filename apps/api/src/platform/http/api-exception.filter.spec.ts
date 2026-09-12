@@ -45,9 +45,6 @@ describe('ApiExceptionFilter', () => {
         value: string,
       ) => response.setHeader?.(name, value),
     ),
-    status: vi.fn((response: { status: Mock }, status: number) => {
-      response.status(status);
-    }),
     reply: vi.fn((response: { status: Mock; json: Mock }, body: unknown, status: number) => {
       response.status(status);
       response.json(body);
@@ -240,15 +237,23 @@ describe('ApiExceptionFilter', () => {
     );
   });
 
-  it.each(['text/plain', 'application/problem+json', 'Application/JSON'])(
-    'pre-set %s uses native JSON without invoking adapter reply',
+  it.each([undefined, 'text/plain', 'application/problem+json', 'Application/JSON'])(
+    'replaces pre-set %s with JSON before adapter reply',
     (type) => {
       const response = { status: vi.fn(), json: vi.fn(), getHeader: vi.fn(() => type) };
       filter.catch(new BadRequestException('bad'), createHost(response));
-      expect(adapter.reply).not.toHaveBeenCalled();
-      expect(adapter.status).toHaveBeenCalledExactlyOnceWith(response, 400);
-      expect(response.json).toHaveBeenCalledExactlyOnceWith(
+      expect(adapter.setHeader).toHaveBeenCalledExactlyOnceWith(
+        response,
+        'Content-Type',
+        'application/json',
+      );
+      expect(adapter.reply).toHaveBeenCalledExactlyOnceWith(
+        response,
         expect.objectContaining({ code: 'BAD_REQUEST' }),
+        400,
+      );
+      expect(adapter.setHeader.mock.invocationCallOrder[0]).toBeLessThan(
+        adapter.reply.mock.invocationCallOrder[0]!,
       );
     },
   );
@@ -267,7 +272,7 @@ describe('ApiExceptionFilter', () => {
       const expected =
         Number.isFinite(Number(raw)) && Number(raw) > 0 ? Math.ceil(Number(raw)) : undefined;
       if (expected === undefined) {
-        expect(response.setHeader).not.toHaveBeenCalled();
+        expect(response.setHeader).not.toHaveBeenCalledWith('Retry-After', expect.anything());
         expect(response.json.mock.calls[0]?.[0]).not.toHaveProperty('retryAfterSeconds');
       } else {
         expect(response.setHeader).toHaveBeenCalledWith('Retry-After', String(expected));

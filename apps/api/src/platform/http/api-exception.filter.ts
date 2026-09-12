@@ -1,7 +1,6 @@
 import { Catch, type ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { HttpAdapterHost, type AbstractHttpAdapter } from '@nestjs/core';
 import { normalizeApiError } from './api-error.js';
-import { writeApiErrorResponse } from './api-error-response.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import {
   mapExceptionToLogEvent,
@@ -42,7 +41,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     this.logException(request, normalized);
     this.recordExceptionMetric(normalized);
-    writeApiErrorResponse(httpAdapter, response, body);
+    httpAdapter.setHeader(response, 'Content-Type', 'application/json');
+    httpAdapter.reply(response, body, body.statusCode);
   }
 
   private logException(

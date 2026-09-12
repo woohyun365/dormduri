@@ -4,12 +4,10 @@ import { join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
 const sourceRoot = join(process.cwd(), 'src');
-// Exact native lifecycle/compatibility owners; removal also removes its exception.
+// Exact native lifecycle owners; removal also removes its exception.
 // No wildcard permission for new product or platform imports.
 const nativeOwners = {
   'platform/http/http-runtime.ts': 'Express trust-proxy and middleware registration',
-  'platform/http/api-error-response.ts':
-    'Express JSON compatibility for pre-set non-JSON errors without adapter warning',
   'platform/observability/logging/request-context.middleware.ts':
     'Express middleware next and request-ID header with ALS propagation',
   'platform/observability/logging/request-logging.interceptor.ts':

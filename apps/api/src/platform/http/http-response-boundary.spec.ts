@@ -120,6 +120,7 @@ describe('real Express response and observability boundary', () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    settings.metricsEnabled = true;
     registry.metrics.mockResolvedValue('# HELP api_http_requests_total test\n');
     registry.getContentType.mockReturnValue('text/plain; version=0.0.4; charset=utf-8');
     health.getReadiness.mockResolvedValue({ status: 'ok', failureCodes: [] });
@@ -164,16 +165,19 @@ describe('real Express response and observability boundary', () => {
   it('authorized metrics scrape preserves type, no-store and completion counts', async () => {
     const response = await request(url)
       .get('/internal/metrics')
-      .auth('metrics-secret', { type: 'bearer' });
+      .auth('metrics-secret', { type: 'bearer' })
+      .set('x-request-id', 'request-12345678');
     expect(response.status).toBe(200);
     expect(response.text).toBe('# HELP api_http_requests_total test\n');
     expect(response.headers['content-type']).toBe('text/plain; charset=utf-8; version=0.0.4');
     expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['x-request-id']).toBe('request-12345678');
     expect(registry.metrics).toHaveBeenCalledTimes(1);
     expect(logger.write).toHaveBeenCalledTimes(1);
     expect(metrics.recordException).not.toHaveBeenCalled();
     expect(metrics.recordRequest).toHaveBeenCalledTimes(1);
     expect(finishInFlight).toHaveBeenCalledTimes(1);
+    expect(adapterWarning).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -192,7 +196,7 @@ describe('real Express response and observability boundary', () => {
       3,
     ],
   ] as const)(
-    'metrics rejection after type assignment preserves wire body, headers, IDs and counts: %s',
+    'metrics rejection returns JSON while preserving status, body, IDs and counts: %s',
     async (error, status, code, message, retry) => {
       registry.metrics.mockRejectedValueOnce(error);
       const response = await request(url)
@@ -201,7 +205,7 @@ describe('real Express response and observability boundary', () => {
         .set('x-request-id', 'request-12345678')
         .set('x-correlation-id', 'correlation-12345678');
       expect(response.status).toBe(status);
-      expect(response.headers['content-type']).toBe('text/plain; charset=utf-8; version=0.0.4');
+      expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
       expect(response.headers['cache-control']).toBe('no-store');
       expect(response.headers['x-request-id']).toBe('request-12345678');
       expect(response.headers['retry-after']).toBe(retry === undefined ? undefined : String(retry));
@@ -221,17 +225,26 @@ describe('real Express response and observability boundary', () => {
     },
   );
 
-  it('metrics auth rejection stays JSON and never starts collection/interceptors', async () => {
-    const response = await request(url).get('/internal/metrics');
-    expect(response.status).toBe(401);
-    expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
-    expect(errorBody(response)).toMatchObject({ code: 'UNAUTHORIZED', statusCode: 401 });
-    expect(registry.getContentType).not.toHaveBeenCalled();
-    expect(registry.metrics).not.toHaveBeenCalled();
-    expect(logger.write).toHaveBeenCalledTimes(1);
-    expect(metrics.recordException).toHaveBeenCalledTimes(1);
-    expect(metrics.startRequest).not.toHaveBeenCalled();
-  });
+  it.each([
+    [true, 401, 'UNAUTHORIZED'],
+    [false, 404, 'NOT_FOUND'],
+  ] as const)(
+    'metrics enabled=%s rejects before collection/interceptors',
+    async (enabled, status, code) => {
+      settings.metricsEnabled = enabled;
+      const response = await request(url).get('/internal/metrics');
+      expect(response.status).toBe(status);
+      expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+      expect(response.headers['cache-control']).toBeUndefined();
+      expect(errorBody(response)).toMatchObject({ code, statusCode: status });
+      expect(registry.getContentType).not.toHaveBeenCalled();
+      expect(registry.metrics).not.toHaveBeenCalled();
+      expect(logger.write).toHaveBeenCalledTimes(1);
+      expect(metrics.recordException).toHaveBeenCalledTimes(1);
+      expect(metrics.startRequest).not.toHaveBeenCalled();
+      expect(adapterWarning).not.toHaveBeenCalled();
+    },
+  );
 
   it('ordinary JSON errors preserve envelope and one exception/completion event each', async () => {
     const response = await request(url).get('/boundary-probe/json-error');
@@ -261,10 +274,10 @@ describe('real Express response and observability boundary', () => {
     },
   );
 
-  it('pre-set problem+json remains its existing media type without an adapter warning', async () => {
+  it('replaces a pre-set problem+json header with the common JSON error type without warning', async () => {
     const response = await request(url).get('/boundary-probe/problem');
     expect(response.status).toBe(400);
-    expect(response.headers['content-type']).toBe('application/problem+json; charset=utf-8');
+    expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
     expect(errorBody(response)).toMatchObject({ code: 'BAD_REQUEST' });
     expectCompletedError(400, 'BAD_REQUEST', '/boundary-probe/problem');
   });

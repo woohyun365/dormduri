@@ -17,11 +17,12 @@ export class MetricsController {
   @Get()
   @Header('Cache-Control', 'no-store')
   async scrape(@Res({ passthrough: true }) response: unknown): Promise<string> {
+    const metrics = await this.registry.metrics();
     this.adapterHost.httpAdapter.setHeader(
       response,
       'Content-Type',
       this.registry.getContentType(),
     );
-    return this.registry.metrics();
+    return metrics;
   }
 }

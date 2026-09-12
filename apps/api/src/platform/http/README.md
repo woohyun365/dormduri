@@ -8,7 +8,6 @@ Product domains may import HTTP platform helpers for normalized error bodies, ex
 
 - `api-error.ts`: normalized API error body and typed error factory helpers.
 - `api-exception.filter.ts`: Nest exception filter for API responses.
-- `api-error-response.ts`: adapter response writing with the native non-JSON error compatibility branch.
 - `zod-request*.ts`: Zod request parsing and error extras helpers.
 - `zod-request.pipe.ts`: synchronous Nest parameter binding for existing request parsers.
 - `account-identity-invariant.error.ts`: maps pure account identity invariant vocabulary to an HTTP/Nest exception body.
@@ -88,17 +87,18 @@ precedence. Observability failures remain fail-open, while response write failur
 | Owner                                                  | Native responsibility                                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
 | `http-runtime.ts`                                      | Express trust-proxy and middleware registration; Helmet precedes optional non-cookie CORS        |
-| `api-error-response.ts`                                | Existing native JSON write when an error already has a non-JSON Content-Type                     |
 | `observability/logging/request-context.middleware.ts`  | Middleware next/header handling and request/correlation ID propagation through AsyncLocalStorage |
 | `observability/logging/request-logging.interceptor.ts` | Response `finish` logging only                                                                   |
 | `observability/metrics/http-metrics.interceptor.ts`    | Response `finish`/`close` metrics with exactly-once finalization                                 |
 
-The response writer retains pre-set non-JSON error media types (including metrics text and `application/problem+json`). A blanket
-`ExpressAdapter.reply()` would rewrite that header and emit an extra warning. This is a named Express compatibility boundary, not a
-claim of full adapter portability. `http-response-boundary.spec.ts` exercises the real Nest/Express response, metrics rejection after
-Content-Type assignment, request IDs, async context and event counts. Adjacent runtime/filter/interceptor tests cover the remaining
-ordering, coercion and completion paths. Remove/review native exceptions only with their owner and regression proof, not to obtain
-a zero-import count.
+The exception filter owns the JSON representation of the common error envelope. It explicitly sets `application/json` through
+the Nest adapter before replying, replacing any pre-set success or non-JSON media type without an adapter warning. Metrics sets
+its registry Content-Type only after successful collection; collection failures use the common JSON error response. Unknown
+failures remain 500 and explicit service-unavailable errors remain 503, with the existing Retry-After/envelope behavior.
+`http-response-boundary.spec.ts` exercises the real Nest/Express response, successful scrape, collection and pre-set-header errors,
+metrics access rejection, request IDs, async context and event counts. Adjacent runtime/filter/interceptor tests cover ordering,
+coercion and completion paths. Response-write failures remain visible; already-sent/streaming recovery is not a new policy here.
+Remove/review native exceptions only with their owner and regression proof, not to obtain a zero-import count.
 
 HTTP ingress configuration owns trust-proxy and CORS. The direct API does not parse browser cookies or own cookie policy/settings;
 browser authentication cookies belong to the Web/BFF. Do not restore an unused cookie parser/config surface without a direct-API
