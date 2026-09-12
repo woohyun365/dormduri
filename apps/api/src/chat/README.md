@@ -76,6 +76,7 @@
 ## Where to change
 
 - HTTP route delegation: `chat.controller.ts`.
+- HTTP ticket IP binding: `realtime/chat-request-ip.decorator.ts`. 기본 scope Pipe가 주입된 realtime limiter의 기존 IP 해석을 재사용하고 handler에는 문자열만 전달한다. `CHAT_REALTIME_TRUST_PROXY`와 HTTP runtime의 trust-proxy 설정은 별개이며, gateway/allow-request IP 경로와 ticket 소비 순서는 유지한다.
 - Controller/Gateway-facing facade delegation: `application/chat.service.ts`.
 - Send/leave/read-marker write behavior: `commands/`.
 - Thread list/detail/subscription query behavior: `queries/`.

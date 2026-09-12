@@ -7,9 +7,7 @@ import {
   Param,
   Post,
   Query,
-  Req,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
@@ -31,6 +29,7 @@ import {
   ChatRealtimeRateLimiterService,
   throwChatRealtimeRateLimitError,
 } from './realtime/chat-realtime-rate-limiter.service.js';
+import { ChatRequestIp } from './realtime/chat-request-ip.decorator.js';
 import { ChatService } from './application/chat.service.js';
 
 function parseReplayLimit(rawLimit: string | undefined): number {
@@ -137,12 +136,12 @@ export class ChatController {
   @Post('realtime/tickets')
   async issueRealtimeTicket(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Headers('authorization') authorization?: string,
-    @Req() request?: Request,
+    @Headers('authorization') authorization: string | undefined,
+    @ChatRequestIp() ip: string,
   ) {
     const rateLimit = this.rateLimiter.consumeRealtimeTicket({
       userId: authUser.id,
-      ip: this.rateLimiter.resolveRequestIp(request),
+      ip,
     });
     if (!rateLimit.allowed) {
       this.metrics.recordRateLimitRejection(rateLimit.scope);

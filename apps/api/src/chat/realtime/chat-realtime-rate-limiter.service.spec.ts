@@ -51,6 +51,39 @@ function createLimiter(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ChatRealtimeRateLimiterService', () => {
+  it.each<[Parameters<typeof resolveChatRealtimeRequestIp>[0], string]>([
+    [undefined, 'unknown'],
+    [{}, 'unknown'],
+    [{ ip: ' ', socket: { remoteAddress: null } }, 'unknown'],
+    [{ ip: ' ', socket: { remoteAddress: ' 127.0.0.2 ' } }, '127.0.0.2'],
+    [{ ip: ' 127.0.0.1 ', socket: { remoteAddress: '127.0.0.2' } }, '127.0.0.1'],
+    [
+      {
+        headers: {
+          'x-forwarded-for': [' 203.0.113.10, 10.0.0.1', '203.0.113.99'],
+          'x-real-ip': '203.0.113.20',
+        },
+      },
+      '203.0.113.10',
+    ],
+    [
+      {
+        headers: {
+          'x-forwarded-for': ', 203.0.113.99',
+          'x-real-ip': [' 203.0.113.20 ', '203.0.113.21'],
+        },
+      },
+      '203.0.113.20',
+    ],
+    [{ headers: { 'x-forwarded-for': [], 'x-real-ip': [] }, ip: '127.0.0.1' }, '127.0.0.1'],
+  ])('trusted IP fallback preserves %j -> %s', (source, expected) => {
+    expect(
+      resolveChatRealtimeRequestIp(source, {
+        trustProxy: true,
+      }),
+    ).toBe(expected);
+  });
+
   it('message send는 user/pair/burst dimension을 모두 검사하고 window reset 후 허용한다', () => {
     const { limiter, advance } = createLimiter();
 

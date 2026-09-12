@@ -7,10 +7,6 @@ const sourceRoot = join(process.cwd(), 'src');
 // Exact transitional exceptions; removing an owner must remove its exception too.
 // No wildcard permission for new product or platform imports.
 const nativeOwners = {
-  'auth/auth.controller.ts': 'temporary: request metadata moves to auth HTTP accessors',
-  'auth/application/auth-actor-context.types.ts': 'temporary: actor carrier becomes structural',
-  'auth/domain/auth-request-context.ts': 'temporary: pure domain context separates HTTP extraction',
-  'chat/chat.controller.ts': 'temporary: IP extraction moves to HTTP accessor',
   'health/health.controller.ts': 'temporary: response headers/status move to HTTP adapter owner',
   'platform/http/http-runtime.ts': 'native bootstrap: trust-proxy and middleware lifecycle',
   'platform/http/http-cookie-policy.ts': 'temporary: remove unused API-only cookie policy',
