@@ -1,6 +1,6 @@
 import { Injectable, type NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { NextFunction, Request, Response } from 'express';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RequestContextService } from './request-context.service.js';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
@@ -25,7 +25,11 @@ export function resolveSafeCorrelationId(value: unknown): string | null {
 export class RequestContextMiddleware implements NestMiddleware {
   constructor(private readonly requestContext: RequestContextService) {}
 
-  use(request: Request, response: Response, next: NextFunction): void {
+  use(
+    request: Pick<IncomingMessage, 'headers'>,
+    response: Pick<ServerResponse, 'setHeader'>,
+    next: () => void,
+  ): void {
     const requestId = resolveSafeCorrelationId(request.headers[REQUEST_ID_HEADER]) ?? randomUUID();
     const correlationId =
       resolveSafeCorrelationId(request.headers[CORRELATION_ID_HEADER]) ?? requestId;

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import { EventEmitter } from 'node:events';
 import type { Request, Response } from 'express';
 import { of } from 'rxjs';
 import { RequestLoggingInterceptor } from './request-logging.interceptor.js';
@@ -16,18 +17,14 @@ function makeExecutionContext(request: Request, response: Response): ExecutionCo
 }
 
 function makeResponse(statusCode = 200) {
-  let finishHandler: (() => void) | null = null;
-  const response = {
-    statusCode,
-    once: vi.fn((_event: string, handler: () => void) => {
-      finishHandler = handler;
-      return response;
-    }),
-  } as unknown as Response;
+  const response = Object.assign(new EventEmitter(), { statusCode }) as unknown as Response;
+  const once = vi.spyOn(response, 'once');
 
   return {
-    emitFinish: () => finishHandler?.(),
+    emitFinish: () => response.emit('finish'),
+    emitClose: () => response.emit('close'),
     response,
+    once,
   };
 }
 
@@ -35,7 +32,7 @@ describe('RequestLoggingInterceptor', () => {
   it('records safe request completion metadata without body/header/cookie values', () => {
     const write = vi.fn();
     const interceptor = new RequestLoggingInterceptor({ write } as unknown as AppLoggerService);
-    const { emitFinish, response } = makeResponse(201);
+    const { emitFinish, response, once } = makeResponse(201);
     const request = {
       body: { password: 'secret' },
       cookies: { accessToken: 'token' },
@@ -47,6 +44,8 @@ describe('RequestLoggingInterceptor', () => {
     interceptor
       .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
       .subscribe();
+    expect(once).toHaveBeenCalledExactlyOnceWith('finish', expect.any(Function));
+    expect(write).not.toHaveBeenCalled();
     emitFinish();
 
     expect(write).toHaveBeenCalledWith(
@@ -85,5 +84,21 @@ describe('RequestLoggingInterceptor', () => {
         .subscribe();
       emitFinish();
     }).not.toThrow();
+  });
+
+  it('does not log completion for a response that only closes', () => {
+    const write = vi.fn();
+    const interceptor = new RequestLoggingInterceptor({ write } as unknown as AppLoggerService);
+    const { emitClose, response, once } = makeResponse();
+    const request = { method: 'GET', route: { path: '/test' } } as unknown as Request;
+
+    interceptor
+      .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
+      .subscribe();
+    expect(write).not.toHaveBeenCalled();
+    emitClose();
+
+    expect(once).toHaveBeenCalledExactlyOnceWith('finish', expect.any(Function));
+    expect(write).not.toHaveBeenCalled();
   });
 });

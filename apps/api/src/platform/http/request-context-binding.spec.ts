@@ -9,7 +9,7 @@ import {
   type MockInstance,
 } from 'vitest';
 import type { INestApplication } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { HttpAdapterHost, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthController } from '../../auth/auth.controller.js';
@@ -83,7 +83,11 @@ describe.each([
     server.set('trust proxy', httpTrust);
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
     app.useGlobalFilters(
-      new ApiExceptionFilter({ write: vi.fn() } as never, { recordException: vi.fn() } as never),
+      new ApiExceptionFilter(
+        { write: vi.fn() } as never,
+        { recordException: vi.fn() } as never,
+        module.get(HttpAdapterHost),
+      ),
     );
     await app.listen(0, localIp);
     url = await app.getUrl();

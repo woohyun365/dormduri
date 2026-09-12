@@ -1,5 +1,5 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { HttpAdapterHost } from '@nestjs/core';
 import {
   HealthService,
   type HealthReadinessResponse,
@@ -10,7 +10,10 @@ import { Public } from '../auth/access/auth-access.decorator.js';
 @Controller('health')
 @Public()
 export class HealthController {
-  constructor(private readonly healthService: HealthService) {}
+  constructor(
+    private readonly healthService: HealthService,
+    private readonly adapterHost: HttpAdapterHost,
+  ) {}
 
   @Get()
   getLiveness(): HealthStatusResponse {
@@ -24,12 +27,12 @@ export class HealthController {
 
   @Get('ready')
   async getReadiness(
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: unknown,
   ): Promise<HealthReadinessResponse> {
     const readiness = await this.healthService.getReadiness();
 
     if (readiness.status !== 'ok') {
-      response.status(HttpStatus.SERVICE_UNAVAILABLE);
+      this.adapterHost.httpAdapter.status(response, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     return readiness;

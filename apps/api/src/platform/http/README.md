@@ -75,12 +75,41 @@ Auth metadata extraction belongs to `auth/access/auth-request-context.decorator.
 domain-context carriers are structural; only guards that read path values require a `params` field. `request-context-binding.spec.ts`
 locks the independent HTTP/chat proxy settings, metadata and token forwarding, actor identity and ticket rate-limit behavior.
 
-`test/architecture/platform/http-transport-boundary.spec.ts` owns the exact native-import exceptions. Health response access remains
-transitional debt, not a general product exemption. The HTTP runtime owns trust-proxy and
-middleware; logging/metrics response-event owners retain completion semantics. Filter response writing must preserve the existing
-non-JSON content-type compatibility until a deliberate contract change is approved. Remove/review each exception with its owner
-and regression proof; do not equate a zero-import count with correctness. Existing regression owners include `http-runtime.spec.ts`,
-`api-exception.filter.spec.ts`, request-context/logging specs and metrics controller/interceptor specs.
+## Response and native lifecycle ownership
+
+The exception filter resolves `HttpAdapterHost.httpAdapter` inside `catch()`. Equivalent header/status/reply operations use the
+Nest adapter; health readiness and metrics response headers also use the adapter. Request route/log metadata uses narrow structural
+types rather than native request types. Error paths still use `originalUrl ?? url`; Retry-After keeps its existing coercion and extras
+precedence. Observability failures remain fail-open, while response write failures are not silently swallowed.
+
+`test/architecture/platform/http-transport-boundary.spec.ts` permits the production Express import only in `http-runtime.ts`,
+which owns Express trust-proxy and middleware registration (Helmet precedes optional non-cookie CORS). The following platform
+owners retain Node HTTP lifecycle semantics without importing the full Express Request/Response types:
+
+| Owner                                                  | Required boundary                                                                                     |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `observability/logging/request-context.middleware.ts`  | Node request headers, response setHeader and a no-arg next callback for request IDs/AsyncLocalStorage |
+| `observability/logging/request-logging.interceptor.ts` | RequestRouteShape + method, Node response statusCode and finish-only logging                          |
+| `observability/metrics/http-metrics.interceptor.ts`    | The same narrow request shape, Node response finish/close with exactly-once finalization              |
+
+Types reuse `node:http` members and the existing `RequestRouteShape`, not a shared transport facade. Listener registration and
+AsyncLocalStorage timing remain unchanged. Observable/controller completion is not response completion; Node finish is not proof
+of client receipt. A close-only response does not produce a completion log, while metrics still finalizes once with its current
+statusCode (a default 200 on abort does not prove client success). Express route shape and trust-proxy assumptions remain explicit;
+narrowing types is not full adapter portability or a zero-native-dependency claim.
+
+The exception filter owns the JSON representation of the common error envelope. It explicitly sets `application/json` through
+the Nest adapter before replying, replacing any pre-set success or non-JSON media type without an adapter warning. Metrics sets
+its registry Content-Type only after successful collection; collection failures use the common JSON error response. Unknown
+failures remain 500 and explicit service-unavailable errors remain 503, with the existing Retry-After/envelope behavior.
+`http-response-boundary.spec.ts` exercises the real Nest/Express response, successful scrape, collection and pre-set-header errors,
+metrics access rejection, request IDs, async context and event counts. Adjacent runtime/filter/interceptor tests cover ordering,
+coercion and completion paths. Response-write failures remain visible; already-sent/streaming recovery is not a new policy here.
+Remove/review native exceptions only with their owner and regression proof, not to obtain a zero-import count.
+
+HTTP ingress configuration owns trust-proxy and CORS. The direct API does not parse browser cookies or own cookie policy/settings;
+browser authentication cookies belong to the Web/BFF. Do not restore an unused cookie parser/config surface without a direct-API
+consumer contract. Cookie vocabulary in log redaction and forbidden metric labels remains necessary.
 
 ## Useful verification
 

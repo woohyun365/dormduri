@@ -6,7 +6,7 @@ import {
   type Type,
 } from '@nestjs/common';
 import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants.js';
-import { Reflector } from '@nestjs/core';
+import { HttpAdapterHost, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthController } from '../../auth/auth.controller.js';
@@ -630,7 +630,13 @@ describe('rollout HTTP contract', () => {
       .compile();
     app = module.createNestApplication({ logger: false });
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
-    app.useGlobalFilters(new ApiExceptionFilter({ write: vi.fn() } as never, metrics as never));
+    app.useGlobalFilters(
+      new ApiExceptionFilter(
+        { write: vi.fn() } as never,
+        metrics as never,
+        module.get(HttpAdapterHost),
+      ),
+    );
     await app.listen(0, '127.0.0.1');
     url = await app.getUrl();
   });
