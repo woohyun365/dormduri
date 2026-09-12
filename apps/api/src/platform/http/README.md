@@ -70,8 +70,13 @@ delegation after parsing. New request shapes need their own multiple-invalid mat
 general parsing helpers remain available to Pipe callbacks, not handler bodies. The architecture guard also rejects direct handler calls
 to these helpers (including named aliases and namespace imports).
 
-`test/architecture/platform/http-transport-boundary.spec.ts` owns the exact native-import exceptions. Current auth/chat request
-carriers and health response access are transitional debt, not a general product exemption. The HTTP runtime owns trust-proxy and
+Auth metadata extraction belongs to `auth/access/auth-request-context.decorator.ts`; chat ticket IP binding belongs to
+`chat/realtime/chat-request-ip.decorator.ts`. Controllers receive context values/IP strings rather than native requests. Actor and
+domain-context carriers are structural; only guards that read path values require a `params` field. `request-context-binding.spec.ts`
+locks the independent HTTP/chat proxy settings, metadata and token forwarding, actor identity and ticket rate-limit behavior.
+
+`test/architecture/platform/http-transport-boundary.spec.ts` owns the exact native-import exceptions. Health response access remains
+transitional debt, not a general product exemption. The HTTP runtime owns trust-proxy and
 middleware; logging/metrics response-event owners retain completion semantics. Filter response writing must preserve the existing
 non-JSON content-type compatibility until a deliberate contract change is approved. Remove/review each exception with its owner
 and regression proof; do not equate a zero-import count with correctness. Existing regression owners include `http-runtime.spec.ts`,

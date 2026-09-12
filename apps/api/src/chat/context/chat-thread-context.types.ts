@@ -20,6 +20,7 @@ export interface ChatThreadDomainContexts {
 }
 
 export interface ChatThreadContextRequest extends AuthenticatedRequest {
+  params?: Record<string, unknown>;
   domainContexts?: ChatThreadDomainContexts;
 }
 

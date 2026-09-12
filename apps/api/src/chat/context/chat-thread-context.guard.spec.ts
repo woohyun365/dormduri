@@ -123,6 +123,8 @@ describe('ChatThreadContextGuard', () => {
   it.each([
     ['missing threadId', {}],
     ['empty threadId', { threadId: '   ' }],
+    ['array threadId', { threadId: ['value'] }],
+    ['non-string threadId', { threadId: 123 }],
   ])('%s는 bad request로 거절한다', async (_label, params) => {
     await expect(
       guard.canActivate(makeExecutionContext('threadRoute', makeActorRequest({ params }))),

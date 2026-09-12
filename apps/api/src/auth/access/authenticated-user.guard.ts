@@ -10,10 +10,11 @@ import type { AuthCapability } from './auth-capability.js';
 import { resolveBearerAuthToken } from './auth-token.js';
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
 import type { AuthenticatedRequest } from '../application/auth-actor-context.types.js';
+import { hasAuthRequestContext } from '../domain/auth-request-context.js';
 import {
-  hasAuthRequestContext,
   resolveAuthRequestContext,
-} from '../domain/auth-request-context.js';
+  type AuthHttpRequestMetadata,
+} from './auth-request-context.decorator.js';
 
 @Injectable()
 export class AuthenticatedUserGuard implements CanActivate {
@@ -28,7 +29,9 @@ export class AuthenticatedUserGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const request = context
+      .switchToHttp()
+      .getRequest<AuthenticatedRequest & AuthHttpRequestMetadata>();
     const token = resolveBearerAuthToken(request.headers.authorization);
     if (accessMode === 'optional' && !token) {
       return true;

@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
 import { AuthService } from './application/auth.service.js';
 import {
   changePasswordRequestSchema,
@@ -29,7 +28,8 @@ import { OptionalAuth, Public, RequireCapability } from './access/auth-access.de
 import { AUTH_CAPABILITIES } from './access/auth-capability.js';
 import { CurrentAuthToken, CurrentUser } from './access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from './application/auth-actor-context.types.js';
-import { resolveAuthRequestContext } from './domain/auth-request-context.js';
+import type { AuthRequestContext } from './domain/auth-request-context.js';
+import { AuthRequestMetadata } from './access/auth-request-context.decorator.js';
 import { EnableAuthLoginThrottle } from './login-attempts/network-throttle/auth-login-throttle.decorator.js';
 import { authErrors } from './errors/auth.errors.js';
 import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
@@ -53,9 +53,9 @@ export class AuthController {
   async sendSignupCode(
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(emailRequestSchema, body)))
     parsed: EmailRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    return this.authService.sendSignupCode(parsed.email, resolveAuthRequestContext(req));
+    return this.authService.sendSignupCode(parsed.email, requestContext);
   }
 
   @Post('send-reset-code')
@@ -63,9 +63,9 @@ export class AuthController {
   async sendResetCode(
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(emailRequestSchema, body)))
     parsed: EmailRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    return this.authService.sendResetCode(parsed.email, resolveAuthRequestContext(req));
+    return this.authService.sendResetCode(parsed.email, requestContext);
   }
 
   @Post('verify-email-code')
@@ -76,13 +76,9 @@ export class AuthController {
       new ZodRequestPipe((body: unknown) => parseRequestBody(verificationCodeRequestSchema, body)),
     )
     parsed: VerificationCodeRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    return this.authService.verifyEmailCode(
-      parsed.email,
-      parsed.code,
-      resolveAuthRequestContext(req),
-    );
+    return this.authService.verifyEmailCode(parsed.email, parsed.code, requestContext);
   }
 
   @Post('verify-reset-code')
@@ -93,20 +89,19 @@ export class AuthController {
       new ZodRequestPipe((body: unknown) => parseRequestBody(verificationCodeRequestSchema, body)),
     )
     parsed: VerificationCodeRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    return this.authService.verifyResetCode(
-      parsed.email,
-      parsed.code,
-      resolveAuthRequestContext(req),
-    );
+    return this.authService.verifyResetCode(parsed.email, parsed.code, requestContext);
   }
 
   @Get('session')
   @OptionalAuth()
   @HttpCode(200)
-  async session(@CurrentAuthToken({ optional: true }) token: string | null, @Req() req: Request) {
-    return this.authService.getSession(token, resolveAuthRequestContext(req));
+  async session(
+    @CurrentAuthToken({ optional: true }) token: string | null,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
+  ) {
+    return this.authService.getSession(token, requestContext);
   }
 
   @Post('signup/validate-nickname')
@@ -130,13 +125,9 @@ export class AuthController {
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(signupRequestSchema, body)))
     parsed: SignupRequest,
     @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant: string | undefined,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    const result = await this.authService.signup(
-      parsed,
-      verificationGrant ?? null,
-      resolveAuthRequestContext(req),
-    );
+    const result = await this.authService.signup(parsed, verificationGrant ?? null, requestContext);
     if (!result.success && result.code === 'AUTH_SIGNUP_SUBMISSION_THROTTLED') {
       throw authErrors.signupSubmissionThrottled(result.retryAfterSeconds ?? 1);
     }
@@ -151,13 +142,13 @@ export class AuthController {
   async login(
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(loginRequestSchema, body)))
     parsed: LoginRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
     const result = await this.authService.login(
       parsed.email,
       parsed.password,
       parsed.rememberMe ?? false,
-      resolveAuthRequestContext(req),
+      requestContext,
     );
     throwIfPasswordHashCapacityUnavailable(result);
     return result;
@@ -169,12 +160,12 @@ export class AuthController {
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(resetPasswordRequestSchema, body)))
     parsed: ResetPasswordRequest,
     @Headers(AUTH_VERIFICATION_GRANT_HEADER) verificationGrant: string | undefined,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
     const result = await this.authService.resetPassword(
       verificationGrant ?? null,
       parsed.newPassword,
-      resolveAuthRequestContext(req),
+      requestContext,
     );
     throwIfPasswordHashCapacityUnavailable(result);
     return result;
@@ -189,13 +180,13 @@ export class AuthController {
     )
     parsed: ChangePasswordRequest,
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
     const result = await this.authService.changePassword(
       authUser,
       parsed.currentPassword,
       parsed.newPassword,
-      resolveAuthRequestContext(req),
+      requestContext,
     );
     if (!result.success && result.code === 'AUTH_CHANGE_PASSWORD_THROTTLED') {
       throw authErrors.changePasswordThrottled(result.retryAfterSeconds ?? 1);
@@ -210,9 +201,9 @@ export class AuthController {
   async renewSession(
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(renewSessionRequestSchema, body)))
     parsed: RenewSessionRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    return this.authService.renewSession(parsed.renewalToken, resolveAuthRequestContext(req));
+    return this.authService.renewSession(parsed.renewalToken, requestContext);
   }
 
   @Post('logout')
@@ -222,12 +213,8 @@ export class AuthController {
     @CurrentAuthToken({ optional: true }) token: string | null,
     @Body(new ZodRequestPipe((body: unknown) => parseRequestBody(logoutRequestSchema, body ?? {})))
     parsed: LogoutRequest,
-    @Req() req: Request,
+    @AuthRequestMetadata() requestContext: AuthRequestContext,
   ) {
-    return this.authService.logout(
-      token,
-      parsed.renewalToken ?? null,
-      resolveAuthRequestContext(req),
-    );
+    return this.authService.logout(token, parsed.renewalToken ?? null, requestContext);
   }
 }

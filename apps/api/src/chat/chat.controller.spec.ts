@@ -46,7 +46,6 @@ describe('ChatController', () => {
     issueTicketFromAccessToken: vi.fn(),
   };
   const rateLimiter = {
-    resolveRequestIp: vi.fn(),
     consumeMessageSend: vi.fn(),
     consumeRealtimeTicket: vi.fn(),
   };
@@ -81,7 +80,6 @@ describe('ChatController', () => {
       retryAfterSeconds: 0,
       scope: 'chat:ticket:user',
     });
-    rateLimiter.resolveRequestIp.mockReturnValue('203.0.113.20');
   });
 
   it('controller class는 protected auth metadata로 보호된다', () => {
@@ -335,9 +333,7 @@ describe('ChatController', () => {
     });
 
     await expect(
-      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', {
-        headers: { 'x-forwarded-for': '203.0.113.20' },
-      } as never),
+      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', '203.0.113.20'),
     ).resolves.toEqual({
       ticket: 'ticket-1',
       scope: 'chat:realtime',
@@ -348,9 +344,6 @@ describe('ChatController', () => {
       userId: 'user-1',
       ip: '203.0.113.20',
     });
-    expect(rateLimiter.resolveRequestIp).toHaveBeenCalledWith({
-      headers: { 'x-forwarded-for': '203.0.113.20' },
-    });
     expect(realtimeTicketService.issueTicketFromAccessToken).toHaveBeenCalledWith('access-token-1');
   });
 
@@ -358,7 +351,7 @@ describe('ChatController', () => {
     realtimeTicketService.issueTicketFromAccessToken.mockResolvedValueOnce(null);
 
     await expect(
-      controller.issueRealtimeTicket(authUser as never, undefined),
+      controller.issueRealtimeTicket(authUser as never, undefined, 'unknown'),
     ).rejects.toMatchObject({
       response: { code: 'UNAUTHENTICATED' },
     });
@@ -372,7 +365,7 @@ describe('ChatController', () => {
     });
 
     await expect(
-      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1'),
+      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', 'unknown'),
     ).rejects.toMatchObject({
       response: {
         code: 'CHAT_REALTIME_RATE_LIMITED',

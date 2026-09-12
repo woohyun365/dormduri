@@ -139,6 +139,8 @@ describe('ActiveMatchContextGuard', () => {
   it.each([
     ['missing active match id', {}],
     ['empty active match id', { id: '   ' }],
+    ['array active match id', { id: ['value'] }],
+    ['non-string active match id', { id: 123 }],
   ])('%s는 bad request로 거절한다', async (_label, params) => {
     await expect(
       guard.canActivate(makeExecutionContext('activeMatchRoute', makeActorRequest({ params }))),

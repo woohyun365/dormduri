@@ -1,4 +1,3 @@
-import type { Request } from 'express';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
 import type { AuthCapability } from '../access/auth-capability.js';
 
@@ -19,6 +18,7 @@ export interface ResolvedAuthActorContext extends AuthenticatedUserContext {
   capabilities: readonly AuthCapability[];
 }
 
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest {
+  headers: { authorization?: string };
   authUser?: ResolvedAuthActorContext;
 }

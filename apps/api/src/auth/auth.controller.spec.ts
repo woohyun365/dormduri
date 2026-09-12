@@ -6,11 +6,7 @@ import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './login-attempts/network-t
 const NEST_ROUTE_PATH_METADATA = 'path';
 const NEST_ROUTE_METHOD_METADATA = 'method';
 const RENEWAL_TOKEN = `v1.session-1.${'r'.repeat(43)}`;
-const request = {
-  ip: '127.0.0.1',
-  headers: { 'user-agent': 'jest-agent' },
-  get: (name: string) => (name.toLowerCase() === 'user-agent' ? 'jest-agent' : undefined),
-};
+const requestContext = { requestIp: '127.0.0.1', userAgent: 'jest-agent' };
 
 type RouteHandler = object & ((...args: never[]) => unknown);
 
@@ -66,7 +62,7 @@ describe('AuthController', () => {
       },
     } as const;
 
-    await expect(controller.signup(body, undefined, request as never)).resolves.toEqual({
+    await expect(controller.signup(body, undefined, requestContext)).resolves.toEqual({
       success: true,
       accessToken: 'signup-token',
     });
@@ -95,13 +91,7 @@ describe('AuthController', () => {
         privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
       },
     } as const;
-    const signupHandler = controller.signup.bind(controller) as unknown as (
-      input: typeof body,
-      verificationGrant: string,
-      req: typeof request,
-    ) => Promise<unknown>;
-
-    await signupHandler(body, 'signup-grant', request);
+    await controller.signup(body, 'signup-grant', requestContext);
 
     expect(authService.signup).toHaveBeenCalledWith(body, 'signup-grant', {
       requestIp: '127.0.0.1',
@@ -141,7 +131,7 @@ describe('AuthController', () => {
 
     let failure: unknown;
     try {
-      await controller.signup(body, 'signup-grant', request as never);
+      await controller.signup(body, 'signup-grant', requestContext);
     } catch (error) {
       failure = error;
     }
@@ -178,7 +168,7 @@ describe('AuthController', () => {
     try {
       await controller.login(
         { email: 'test@kangwon.ac.kr', password: 'Password1234' },
-        request as never,
+        requestContext,
       );
     } catch (error) {
       failure = error;
@@ -224,7 +214,7 @@ describe('AuthController', () => {
           newPassword: 'NewPass1234',
         },
         { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
-        request as never,
+        requestContext,
       ),
     ).resolves.toEqual({
       success: true,
@@ -254,7 +244,7 @@ describe('AuthController', () => {
       await controller.changePassword(
         { currentPassword: 'OldPass1234', newPassword: 'NewPass1234' },
         { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
-        request as never,
+        requestContext,
       );
     } catch (error) {
       failure = error;
@@ -287,7 +277,7 @@ describe('AuthController', () => {
         {
           renewalToken: 'v1.session-1.renewal-token',
         },
-        request as never,
+        requestContext,
       ),
     ).resolves.toEqual({
       success: true,
@@ -314,7 +304,7 @@ describe('AuthController', () => {
       },
     });
 
-    await expect(controller.session('current-access-token', request as never)).resolves.toEqual({
+    await expect(controller.session('current-access-token', requestContext)).resolves.toEqual({
       authenticated: true,
       user: {
         id: 'user-1',
@@ -337,7 +327,7 @@ describe('AuthController', () => {
       reason: 'MISSING_TOKEN',
     });
 
-    await expect(controller.session(null, request as never)).resolves.toEqual({
+    await expect(controller.session(null, requestContext)).resolves.toEqual({
       authenticated: false,
       reason: 'MISSING_TOKEN',
     });
@@ -357,7 +347,7 @@ describe('AuthController', () => {
         {
           renewalToken: RENEWAL_TOKEN,
         },
-        request as never,
+        requestContext,
       ),
     ).resolves.toEqual({ success: true });
 
@@ -370,7 +360,7 @@ describe('AuthController', () => {
   it('logout request는 token이 없는 빈 body도 idempotent success로 위임한다', async () => {
     authService.logout.mockResolvedValue({ success: true });
 
-    await expect(controller.logout(null, {}, request as never)).resolves.toEqual({
+    await expect(controller.logout(null, {}, requestContext)).resolves.toEqual({
       success: true,
     });
 

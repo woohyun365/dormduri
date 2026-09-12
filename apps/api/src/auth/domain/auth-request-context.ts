@@ -1,22 +1,6 @@
-import type { Request } from 'express';
-
 export interface AuthRequestContext {
   requestIp?: string | null;
   userAgent?: string | null;
-}
-
-export function resolveAuthRequestContext(request: Request): AuthRequestContext {
-  const headerUserAgent = request.headers['user-agent'];
-
-  return {
-    requestIp: request.ip ?? null,
-    userAgent:
-      typeof request.get === 'function'
-        ? (request.get('user-agent') ?? null)
-        : typeof headerUserAgent === 'string'
-          ? headerUserAgent
-          : null,
-  };
 }
 
 export function normalizeAuthRequestContext(
