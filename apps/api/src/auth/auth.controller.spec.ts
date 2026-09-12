@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BadRequestException, HttpException, RequestMethod } from '@nestjs/common';
+import { HttpException, RequestMethod } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { AUTH_LOGIN_THROTTLE_ENABLED_METADATA } from './login-attempts/network-throttle/auth-login-throttle.decorator.js';
 
@@ -11,29 +11,6 @@ const request = {
   headers: { 'user-agent': 'jest-agent' },
   get: (name: string) => (name.toLowerCase() === 'user-agent' ? 'jest-agent' : undefined),
 };
-
-function getBadRequestResponse(error: unknown) {
-  expect(error).toBeInstanceOf(BadRequestException);
-
-  if (!(error instanceof BadRequestException)) {
-    throw new Error('Expected BadRequestException');
-  }
-
-  const response = error.getResponse();
-  expect(typeof response).toBe('object');
-  expect(response).not.toBeNull();
-
-  if (typeof response !== 'object' || response === null) {
-    throw new Error('Expected object response');
-  }
-
-  return response as {
-    code: string;
-    formErrors?: string[];
-    fieldErrors?: Record<string, string[]>;
-    details?: Array<{ path: string }>;
-  };
-}
 
 type RouteHandler = object & ((...args: never[]) => unknown);
 
@@ -68,63 +45,6 @@ describe('AuthController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('body가 없을 때 bad request 예외를 던진다', async () => {
-    try {
-      await controller.sendResetCode(undefined, { ip: null } as never);
-    } catch (error) {
-      const response = getBadRequestResponse(error);
-
-      expect(response.code).toBe('INVALID_REQUEST_BODY');
-      expect(response.formErrors?.length).toBeGreaterThan(0);
-      expect(response.details?.some((detail) => detail.path === '')).toBe(true);
-    }
-
-    await expect(controller.login(undefined, request as never)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-  });
-
-  it('필드 누락 body는 fieldErrors를 포함한다', async () => {
-    try {
-      await controller.login({}, request as never);
-    } catch (error) {
-      const response = getBadRequestResponse(error);
-
-      expect(response.code).toBe('INVALID_REQUEST_BODY');
-      expect(response.fieldErrors?.email?.length).toBeGreaterThan(0);
-      expect(response.fieldErrors?.password?.length).toBeGreaterThan(0);
-    }
-  });
-
-  it('signup body는 season profile orchestration 필드를 거부한다', async () => {
-    await expect(
-      controller.signup(
-        {
-          email: 'test@kangwon.ac.kr',
-          password: 'Test1234',
-          nickname: '테스터',
-          gender: 'M',
-          campus: 'CHUNCHEON',
-          collegeCode: 'CHUNCHEON_IT',
-          birthYear: 2002,
-          legalAcceptances: {
-            termsVersionId: 'terms-of-service-2026-06-22',
-            personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
-            ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
-            privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
-          },
-          lifestyle: {},
-          intro: '가입 단계 소개',
-          additional: { grade: 2 },
-        },
-        undefined,
-        request as never,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-
-    expect(authService.signup).not.toHaveBeenCalled();
   });
 
   it('signup body는 legal acceptance version id를 포함해 service로 위임한다', async () => {
@@ -283,22 +203,6 @@ describe('AuthController', () => {
     ).resolves.toEqual({ success: true, nickname: '테스터' });
 
     expect(authService.validateSignupNickname).toHaveBeenCalledWith('테스터', 'signup-grant');
-  });
-
-  it('validateSignupNickname은 nickname 외 draft/profile field를 거부한다', async () => {
-    await expect(
-      controller.validateSignupNickname({
-        email: 'test@kangwon.ac.kr',
-        password: 'Test1234',
-        nickname: '테스터',
-        lifestyle: {},
-        intro: '가입 단계 소개',
-        additional: { grade: 2 },
-        profile: { intro: 'signup 단계 프로필' },
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-
-    expect(authService.validateSignupNickname).not.toHaveBeenCalled();
   });
 
   it('changePassword route는 /auth/change-password로 노출되고 authenticated user context를 service로 전달한다', async () => {
@@ -463,25 +367,10 @@ describe('AuthController', () => {
     });
   });
 
-  it('logout request는 알 수 없는 필드를 거부하는 strict contract를 사용한다', async () => {
-    await expect(
-      controller.logout(
-        'current-access-token',
-        {
-          renewalToken: RENEWAL_TOKEN,
-          userId: 'forged-user-id',
-        },
-        request as never,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-
-    expect(authService.logout).not.toHaveBeenCalled();
-  });
-
   it('logout request는 token이 없는 빈 body도 idempotent success로 위임한다', async () => {
     authService.logout.mockResolvedValue({ success: true });
 
-    await expect(controller.logout(null, undefined, request as never)).resolves.toEqual({
+    await expect(controller.logout(null, {}, request as never)).resolves.toEqual({
       success: true,
     });
 

@@ -10,16 +10,19 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import type { LeaveConversationThreadResponse } from '@repo/shared/chat';
 import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
+  type UpdateChatReadMarkerRequest,
+  type SendConversationMessageRequest,
+  type LeaveConversationThreadResponse,
 } from '@repo/shared/chat';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
 import { parseRequestBody } from '../platform/http/zod-request.js';
+import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
 import { ChatThread, RequireChatThreadMember } from './context/chat-thread-context.decorator.js';
 import type { ChatThreadContext } from './context/chat-thread-context.types.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
@@ -168,10 +171,14 @@ export class ChatController {
   async updateReadMarker(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(updateChatReadMarkerRequestSchema, body),
+      ),
+    )
+    parsed: UpdateChatReadMarkerRequest,
     @ChatThread() chatThread?: ChatThreadContext,
   ) {
-    const parsed = parseRequestBody(updateChatReadMarkerRequestSchema, body);
     return this.chatService.updateReadMarker(
       authUser,
       resolveChatThreadActorThreadId(authUser, threadId, chatThread),
@@ -180,8 +187,15 @@ export class ChatController {
   }
 
   @Post('messages')
-  async sendMessage(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
-    const parsed = parseRequestBody(sendConversationMessageRequestSchema, body);
+  async sendMessage(
+    @CurrentUser() authUser: AuthenticatedUserContext,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(sendConversationMessageRequestSchema, body),
+      ),
+    )
+    parsed: SendConversationMessageRequest,
+  ) {
     const rateLimit = this.rateLimiter.consumeMessageSend({
       userId: authUser.id,
       targetUserId: parsed.targetUserId,

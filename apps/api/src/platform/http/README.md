@@ -57,14 +57,18 @@ instances; do not store per-request data on them. Existing schemas are synchrono
 codes/messages/field names and parsed service arguments. Authentication and business invariants stay with their existing owners.
 
 Nest resolves different parameters concurrently. When error order matters, extract one raw aggregate and parse it in one ordered
-Pipe callback. Dormitories uses the entire query to validate campus before optional gender. Support message appending uses a
-route-local, side-effect-free parameter decorator to collect ticket ID and body, then validates the path before the body. Do not
+Pipe callback. Dormitories uses the entire query to validate campus before optional gender. Support ticket writes, season operation writes and block writes use
+route-local, side-effect-free parameter decorators to collect their coupled path/body values, then validate the path before the body. Do not
 independently pipe coupled parameters or grow a generic request facade. Guard rejection precedes binding; relative actor/token
 decorator failures and other parameter validation must be checked through actual Nest requests, not inferred from argument order.
 
 `zod-request-binding.spec.ts` runs the real pilot controllers, guard and exception filter with fake services on a loopback Nest
 application. It locks status/envelope/details and parsed input, observes bound `transform` calls, and removes a binding as a negative
-control. Direct handler tests only prove delegation after parsing. New migration groups need their own multiple-invalid matrix.
+control. `zod-request-rollout.spec.ts` covers the remaining controllers through actual binding, preserves pre-migration error snapshots,
+checks ordered path/body combinations and verifies validation before command/throttle side effects. Direct handler tests only prove
+delegation after parsing. New request shapes need their own multiple-invalid matrix. Local semantic parsers remain domain-owned;
+general parsing helpers remain available to Pipe callbacks, not handler bodies. The architecture guard also rejects direct handler calls
+to these helpers (including named aliases and namespace imports).
 
 `test/architecture/platform/http-transport-boundary.spec.ts` owns the exact native-import exceptions. Current auth/chat request
 carriers and health response access are transitional debt, not a general product exemption. The HTTP runtime owns trust-proxy and

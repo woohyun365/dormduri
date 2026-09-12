@@ -15,6 +15,9 @@ import {
   listSupportTicketsQuerySchema,
   replySupportTicketRequestSchema,
   resolveSupportTicketRequestSchema,
+  type ReplySupportTicketRequest,
+  type ResolveSupportTicketRequest,
+  type ListSupportTicketsQuery,
   type AppendSupportTicketMessageRequest,
   type CreateSupportTicketRequest,
   type ListSupportFaqQuery,
@@ -27,8 +30,8 @@ import {
   parseQueryObject,
   parseRequestBody,
 } from '../platform/http/zod-request.js';
-import { SupportService } from './application/support.service.js';
 import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
+import { SupportService } from './application/support.service.js';
 
 const supportIdPathSchema = createSupportTicketRequestSchema.shape.relatedEntityId
   .unwrap()
@@ -128,12 +131,16 @@ export class SupportController {
   @Get('api/support/tickets')
   listOwnTickets(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Query() query: Record<string, unknown>,
+    @Query(
+      new ZodRequestPipe((query: unknown) =>
+        parseQueryObject(listSupportTicketsQuerySchema, query, {
+          code: 'INVALID_SUPPORT_TICKET_QUERY',
+          errorMessage: '문의 목록 요청이 올바르지 않습니다.',
+        }),
+      ),
+    )
+    parsed: ListSupportTicketsQuery,
   ) {
-    const parsed = parseQueryObject(listSupportTicketsQuerySchema, query, {
-      code: 'INVALID_SUPPORT_TICKET_QUERY',
-      errorMessage: '문의 목록 요청이 올바르지 않습니다.',
-    });
     return this.supportService.listOwnTickets(authUser, parsed);
   }
 
@@ -141,13 +148,18 @@ export class SupportController {
   @Get('api/support/tickets/:ticketId')
   getOwnTicket(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Param('ticketId') ticketId: string,
+    @Param(
+      'ticketId',
+      new ZodRequestPipe((ticketId: unknown) =>
+        parsePathParam(supportIdPathSchema, ticketId, {
+          code: 'INVALID_SUPPORT_TICKET_ID',
+          errorMessage: '문의 식별자가 올바르지 않습니다.',
+          fieldName: 'ticketId',
+        }),
+      ),
+    )
+    parsed: string,
   ) {
-    const parsed = parsePathParam(supportIdPathSchema, ticketId, {
-      code: 'INVALID_SUPPORT_TICKET_ID',
-      errorMessage: '문의 식별자가 올바르지 않습니다.',
-      fieldName: 'ticketId',
-    });
     return this.supportService.getOwnTicket(authUser, parsed);
   }
 
@@ -162,22 +174,35 @@ export class SupportController {
 
   @RequireCapability('admin:support:read')
   @Get('api/operations/support/tickets')
-  listOperationTickets(@Query() query: Record<string, unknown>) {
-    const parsed = parseQueryObject(listSupportTicketsQuerySchema, query, {
-      code: 'INVALID_SUPPORT_TICKET_QUERY',
-      errorMessage: '운영 문의 목록 요청이 올바르지 않습니다.',
-    });
+  listOperationTickets(
+    @Query(
+      new ZodRequestPipe((query: unknown) =>
+        parseQueryObject(listSupportTicketsQuerySchema, query, {
+          code: 'INVALID_SUPPORT_TICKET_QUERY',
+          errorMessage: '운영 문의 목록 요청이 올바르지 않습니다.',
+        }),
+      ),
+    )
+    parsed: ListSupportTicketsQuery,
+  ) {
     return this.supportService.listOperationTickets(parsed);
   }
 
   @RequireCapability('admin:support:read')
   @Get('api/operations/support/tickets/:ticketId')
-  getOperationTicket(@Param('ticketId') ticketId: string) {
-    const parsed = parsePathParam(supportIdPathSchema, ticketId, {
-      code: 'INVALID_SUPPORT_TICKET_ID',
-      errorMessage: '문의 식별자가 올바르지 않습니다.',
-      fieldName: 'ticketId',
-    });
+  getOperationTicket(
+    @Param(
+      'ticketId',
+      new ZodRequestPipe((ticketId: unknown) =>
+        parsePathParam(supportIdPathSchema, ticketId, {
+          code: 'INVALID_SUPPORT_TICKET_ID',
+          errorMessage: '문의 식별자가 올바르지 않습니다.',
+          fieldName: 'ticketId',
+        }),
+      ),
+    )
+    parsed: string,
+  ) {
     return this.supportService.getOperationTicket(parsed);
   }
 
@@ -185,39 +210,47 @@ export class SupportController {
   @Post('api/operations/support/tickets/:ticketId/replies')
   replyAsOperator(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Param('ticketId') ticketId: string,
-    @Body() body: unknown,
+    @SupportMessage(
+      new ZodRequestPipe((input: RawSupportMessage) => {
+        const parsedTicketId = parsePathParam(supportIdPathSchema, input.ticketId, {
+          code: 'INVALID_SUPPORT_TICKET_ID',
+          errorMessage: '문의 식별자가 올바르지 않습니다.',
+          fieldName: 'ticketId',
+        });
+        const parsedBody = parseRequestBody(
+          replySupportTicketRequestSchema,
+          input.body ?? {},
+          '운영 문의 답변 요청 본문이 올바르지 않습니다.',
+        );
+        return { ticketId: parsedTicketId, body: parsedBody };
+      }),
+    )
+    input: { ticketId: string; body: ReplySupportTicketRequest },
   ) {
-    const parsedTicketId = parsePathParam(supportIdPathSchema, ticketId, {
-      code: 'INVALID_SUPPORT_TICKET_ID',
-      errorMessage: '문의 식별자가 올바르지 않습니다.',
-      fieldName: 'ticketId',
-    });
-    const parsedBody = parseRequestBody(
-      replySupportTicketRequestSchema,
-      body ?? {},
-      '운영 문의 답변 요청 본문이 올바르지 않습니다.',
-    );
-    return this.supportService.replyAsOperator(authUser, parsedTicketId, parsedBody);
+    return this.supportService.replyAsOperator(authUser, input.ticketId, input.body);
   }
 
   @RequireCapability('admin:support:resolve')
   @Post('api/operations/support/tickets/:ticketId/resolve')
   resolveAsOperator(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Param('ticketId') ticketId: string,
-    @Body() body: unknown,
+    @SupportMessage(
+      new ZodRequestPipe((input: RawSupportMessage) => {
+        const parsedTicketId = parsePathParam(supportIdPathSchema, input.ticketId, {
+          code: 'INVALID_SUPPORT_TICKET_ID',
+          errorMessage: '문의 식별자가 올바르지 않습니다.',
+          fieldName: 'ticketId',
+        });
+        const parsedBody = parseRequestBody(
+          resolveSupportTicketRequestSchema,
+          input.body ?? {},
+          '운영 문의 종료 요청 본문이 올바르지 않습니다.',
+        );
+        return { ticketId: parsedTicketId, body: parsedBody };
+      }),
+    )
+    input: { ticketId: string; body: ResolveSupportTicketRequest },
   ) {
-    const parsedTicketId = parsePathParam(supportIdPathSchema, ticketId, {
-      code: 'INVALID_SUPPORT_TICKET_ID',
-      errorMessage: '문의 식별자가 올바르지 않습니다.',
-      fieldName: 'ticketId',
-    });
-    const parsedBody = parseRequestBody(
-      resolveSupportTicketRequestSchema,
-      body ?? {},
-      '운영 문의 종료 요청 본문이 올바르지 않습니다.',
-    );
-    return this.supportService.resolveAsOperator(authUser, parsedTicketId, parsedBody);
+    return this.supportService.resolveAsOperator(authUser, input.ticketId, input.body);
   }
 }

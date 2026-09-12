@@ -134,42 +134,6 @@ describe('ChatController', () => {
     expect(chatService.getConversationStats).toHaveBeenCalledWith(authUser);
   });
 
-  it('빈 message body는 bad request를 던진다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser, {
-        targetUserId: 'user-2',
-        body: '   ',
-        clientMessageId: 'client-message-empty-body',
-      }),
-    );
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-  });
-
-  it('clientMessageId 없는 메시지 전송 요청은 bad request로 거절한다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser, {
-        targetUserId: 'user-2',
-        body: '안녕하세요',
-      }),
-    );
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-    expect(response.fieldErrors?.clientMessageId).toEqual(
-      expect.arrayContaining([expect.any(String)]),
-    );
-  });
-
-  it('1,000자를 초과하는 메시지 본문은 bad request로 거절한다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser, {
-        targetUserId: 'user-2',
-        body: `${'가'.repeat(1000)}!`,
-        clientMessageId: 'client-message-1',
-      }),
-    );
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-    expect(response.fieldErrors?.body).toEqual(expect.arrayContaining([expect.any(String)]));
-  });
-
   it('유효한 메시지 전송 요청은 clientMessageId를 service로 전달한다', async () => {
     chatService.sendMessage.mockResolvedValueOnce({
       thread: { id: 'thread-1' },
@@ -180,7 +144,7 @@ describe('ChatController', () => {
     await expect(
       controller.sendMessage(authUser as never, {
         targetUserId: 'user-2',
-        body: '  안녕하세요  ',
+        body: '안녕하세요',
         clientMessageId: 'client-message-1',
       }),
     ).resolves.toMatchObject({ message: { id: 'message-1' } });
@@ -285,18 +249,6 @@ describe('ChatController', () => {
     });
 
     expect(chatService.leaveThread).toHaveBeenCalledWith(authUser, 'thread-1');
-  });
-
-  it('read marker 갱신 요청은 lastReadMessageId를 필수로 검증한다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.updateReadMarker(authUser, 'thread-1', {}),
-    );
-
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-    expect(response.fieldErrors?.lastReadMessageId).toEqual(
-      expect.arrayContaining([expect.any(String)]),
-    );
-    expect(chatService.updateReadMarker).not.toHaveBeenCalled();
   });
 
   it('유효한 read marker 갱신 요청은 service로 전달한다', async () => {

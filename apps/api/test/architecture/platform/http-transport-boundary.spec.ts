@@ -134,3 +134,87 @@ describe('HTTP transport boundary', () => {
     ).toEqual([]);
   });
 });
+
+function manualControllerParsing(source: string): string[] {
+  const file = ts.createSourceFile('controller.ts', source, ts.ScriptTarget.Latest, true);
+  const helpers = new Set<string>();
+  const namespaces = new Set<string>();
+  for (const node of file.statements) {
+    if (
+      !ts.isImportDeclaration(node) ||
+      !ts.isStringLiteral(node.moduleSpecifier) ||
+      !node.moduleSpecifier.text.endsWith('/zod-request.js')
+    )
+      continue;
+    const bindings = node.importClause?.namedBindings;
+    if (bindings && ts.isNamedImports(bindings))
+      for (const specifier of bindings.elements) helpers.add(specifier.name.text);
+    if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text);
+  }
+  const violations: string[] = [];
+  function visit(node: ts.Node) {
+    if (ts.isMethodDeclaration(node) && node.body) {
+      const methodName = node.name.getText(file);
+      function inspect(bodyNode: ts.Node) {
+        if (ts.isCallExpression(bodyNode)) {
+          const callee = bodyNode.expression;
+          if (
+            (ts.isIdentifier(callee) && helpers.has(callee.text)) ||
+            (ts.isPropertyAccessExpression(callee) &&
+              ts.isIdentifier(callee.expression) &&
+              namespaces.has(callee.expression.text))
+          )
+            violations.push(`${methodName}: ${callee.getText(file)}`);
+        }
+        ts.forEachChild(bodyNode, inspect);
+      }
+      inspect(node.body);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  return violations;
+}
+
+describe('general request parsing belongs to parameter binding', () => {
+  it('all current controller handlers delegate parsed values, not general helpers', () => {
+    const manual = productionFiles(sourceRoot)
+      .filter((path) => path.endsWith('.controller.ts'))
+      .flatMap((path) =>
+        manualControllerParsing(readFileSync(path, 'utf8')).map(
+          (finding) => `${relative(sourceRoot, path)}: ${finding}`,
+        ),
+      );
+    expect(manual).toEqual([]);
+  });
+  it.each([
+    [
+      "import { parseRequestBody } from '../platform/http/zod-request.js';",
+      'parseRequestBody(schema, body)',
+    ],
+    [
+      "import { parseQueryObject as parse } from '../platform/http/zod-request.js';",
+      'parse(schema, query)',
+    ],
+    [
+      "import * as parsing from '../platform/http/zod-request.js';",
+      'parsing.parsePathParam(schema, id)',
+    ],
+  ])('rejects manual general parsing, including aliases: %s', (imports, call) => {
+    expect(
+      manualControllerParsing(`${imports} class Controller { route(input) { return ${call}; } }`),
+    ).toHaveLength(1);
+  });
+  it('allows parameter callbacks and local semantic policy parsing', () => {
+    expect(
+      manualControllerParsing(`
+      import { parseRequestBody } from '../platform/http/zod-request.js';
+      class Controller {
+        route(@Body(new ZodRequestPipe(body => parseRequestBody(schema, body))) parsed) {
+          return service(parseLocalSemanticValue(parsed));
+        }
+      }
+    `),
+    ).toEqual([]);
+  });
+});
