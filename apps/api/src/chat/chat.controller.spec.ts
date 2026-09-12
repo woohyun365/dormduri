@@ -110,6 +110,27 @@ describe('ChatController', () => {
     expect(chatService.listThreads).not.toHaveBeenCalled();
   });
 
+  it.each([null, false, 0, 123, [], ['a', 'b'], {}].map((input) => ({ input })))(
+    'cursor/after의 비문자열 입력 $input은 service 호출 전에 거절한다',
+    async ({ input }) => {
+      const cursor = await expectBadRequest(() =>
+        controller.getThreads(authUser, undefined, input),
+      );
+      const after = await expectBadRequest(() => controller.replayRealtimeEvents(authUser, input));
+      expect(cursor).toEqual({
+        code: 'INVALID_QUERY',
+        fieldErrors: { cursor: ['cursor must be a single string'] },
+      });
+      expect(after).toEqual({
+        code: 'INVALID_QUERY',
+        fieldErrors: { after: ['after must be a single string'] },
+      });
+      expect(chatService.listThreads).not.toHaveBeenCalled();
+      expect(chatService.replayRealtimeEvents).not.toHaveBeenCalled();
+      expect(metrics.recordReplayResyncRequired).not.toHaveBeenCalled();
+    },
+  );
+
   it('conversation stats는 chat service의 read-only stats surface로 위임한다', async () => {
     chatService.getConversationStats.mockResolvedValueOnce({
       current: {

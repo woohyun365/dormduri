@@ -70,6 +70,13 @@ delegation after parsing. New request shapes need their own multiple-invalid mat
 general parsing helpers remain available to Pipe callbacks, not handler bodies. The architecture guard also rejects direct handler calls
 to these helpers (including named aliases and namespace imports).
 
+Missing versus wrong-type input is classified in Zod's synchronous per-parse error callback, before input redaction. Only fixed,
+source-aware `invalid_type` messages are produced there; raw input is neither retained nor enabled with `reportInput`. Schema-owned
+custom errors retain their higher priority. The final formatter consumes the resolved message instead of inferring missing input
+from a redacted issue. Other issue codes keep their existing localization; `details.sourceMessage` for ordinary `invalid_type`
+contains the resolved localized message. Actual shared-schema and HTTP privacy tests protect this contract; golden changes must
+be reviewed field-by-field rather than regenerated to hide differences.
+
 Auth metadata extraction belongs to `auth/access/auth-request-context.decorator.ts`; chat ticket IP binding belongs to
 `chat/realtime/chat-request-ip.decorator.ts`. Controllers receive context values/IP strings rather than native requests. Actor and
 domain-context carriers are structural; only guards that read path values require a `params` field. `request-context-binding.spec.ts`

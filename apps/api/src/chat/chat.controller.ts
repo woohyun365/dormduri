@@ -68,6 +68,17 @@ function parseThreadListLimit(rawLimit: string | undefined): number | undefined 
   return limit;
 }
 
+function parseOptionalCursor(value: unknown, field: 'cursor' | 'after'): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new BadRequestException({
+      code: 'INVALID_QUERY',
+      fieldErrors: { [field]: [`${field} must be a single string`] },
+    });
+  }
+  return value.trim() || null;
+}
+
 @Controller('api/chat')
 @RequireCapability()
 export class ChatController {
@@ -82,11 +93,11 @@ export class ChatController {
   async getThreads(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
+    @Query('cursor') cursor?: unknown,
   ) {
     return this.chatService.listThreads(authUser, {
       limit: parseThreadListLimit(limit),
-      cursor: cursor && cursor.trim().length > 0 ? cursor.trim() : null,
+      cursor: parseOptionalCursor(cursor, 'cursor'),
     });
   }
 
@@ -119,11 +130,11 @@ export class ChatController {
   @Get('realtime/replay')
   async replayRealtimeEvents(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Query('after') after?: string,
+    @Query('after') after?: unknown,
     @Query('limit') limit?: string,
   ) {
     const response = await this.chatService.replayRealtimeEvents(authUser, {
-      after: after && after.trim().length > 0 ? after.trim() : null,
+      after: parseOptionalCursor(after, 'after'),
       limit: parseReplayLimit(limit),
     });
     if (!response.ok) {

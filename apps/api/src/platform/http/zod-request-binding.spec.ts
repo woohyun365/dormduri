@@ -183,6 +183,26 @@ describe('existing HTTP behavior', () => {
     expect(support.createTicket).toHaveBeenCalledExactlyOnceWith(actor, parsedTicket);
   });
 
+  it('wrong-type body values return fixed type errors without leaking raw values to response/logs', async () => {
+    const password = 'synthetic-password-not-for-logs';
+    const token = 'synthetic-token-not-for-logs';
+    const response = await request(url)
+      .post('/api/support/tickets')
+      .auth('valid-token', { type: 'bearer' })
+      .send({ ...rawTicket, subject: { password }, body: [token] });
+    expect(response.status).toBe(400);
+    expect(errorBody(response).fieldErrors).toEqual({
+      subject: ['입력값 형식이 올바르지 않습니다.'],
+      body: ['입력값 형식이 올바르지 않습니다.'],
+    });
+    expect(support.createTicket).not.toHaveBeenCalled();
+    expect(logger.write).toHaveBeenCalledTimes(1);
+    for (const secret of [password, token]) {
+      expect(response.text).not.toContain(secret);
+      expect(JSON.stringify(logger.write.mock.calls)).not.toContain(secret);
+    }
+  });
+
   it('createTicket missing body has the exact current field errors and never calls service', async () => {
     const response = await request(url)
       .post('/api/support/tickets')
@@ -202,13 +222,13 @@ describe('existing HTTP behavior', () => {
             "code": "invalid_type",
             "message": "필수 값이 누락되었습니다.",
             "path": "subject",
-            "sourceMessage": "Invalid input: expected string, received undefined",
+            "sourceMessage": "필수 값이 누락되었습니다.",
           },
           {
             "code": "invalid_type",
             "message": "필수 값이 누락되었습니다.",
             "path": "body",
-            "sourceMessage": "Invalid input: expected string, received undefined",
+            "sourceMessage": "필수 값이 누락되었습니다.",
           },
         ],
         "error": "문의 생성 요청 본문이 올바르지 않습니다.",
@@ -244,15 +264,15 @@ describe('existing HTTP behavior', () => {
         "details": [
           {
             "code": "invalid_type",
-            "message": "필수 값이 누락되었습니다.",
+            "message": "입력값 형식이 올바르지 않습니다.",
             "path": "",
-            "sourceMessage": "Invalid input: expected object, received array",
+            "sourceMessage": "입력값 형식이 올바르지 않습니다.",
           },
         ],
         "error": "문의 생성 요청 본문이 올바르지 않습니다.",
         "fieldErrors": {},
         "formErrors": [
-          "필수 값이 누락되었습니다.",
+          "입력값 형식이 올바르지 않습니다.",
         ],
         "path": "/api/support/tickets",
         "statusCode": 400,
@@ -427,7 +447,7 @@ describe('existing HTTP behavior', () => {
             "code": "invalid_type",
             "message": "필수 값이 누락되었습니다.",
             "path": "body",
-            "sourceMessage": "Invalid input: expected string, received undefined",
+            "sourceMessage": "필수 값이 누락되었습니다.",
           },
         ],
         "error": "문의 메시지 요청 본문이 올바르지 않습니다.",
