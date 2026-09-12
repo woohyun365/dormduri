@@ -1,22 +1,13 @@
 import { registerAs } from '@nestjs/config';
 import { isIP } from 'node:net';
-import {
-  readBooleanEnv,
-  readNumberEnv,
-  readStringEnv,
-} from '../../config/environment/env.helpers.js';
+import { readNumberEnv } from '../../config/environment/env.helpers.js';
 
 export const HTTP_TRUST_PROXY_HOPS_ENV = 'HTTP_TRUST_PROXY_HOPS';
 export const HTTP_TRUST_PROXY_CIDRS_ENV = 'HTTP_TRUST_PROXY_CIDRS';
 export const HTTP_CORS_ALLOWED_ORIGINS_ENV = 'HTTP_CORS_ALLOWED_ORIGINS';
-export const HTTP_COOKIE_SECURE_ENV = 'HTTP_COOKIE_SECURE';
-export const HTTP_COOKIE_SAME_SITE_ENV = 'HTTP_COOKIE_SAME_SITE';
-export const HTTP_COOKIE_DOMAIN_ENV = 'HTTP_COOKIE_DOMAIN';
 
 export const DEFAULT_HTTP_TRUST_PROXY_HOPS = 0;
-export const DEFAULT_HTTP_COOKIE_SAME_SITE = 'lax' as const;
 
-export type HttpCookieSameSite = 'strict' | 'lax' | 'none';
 export type HttpTrustProxy = false | number | string[];
 
 const EXPRESS_TRUST_PROXY_PRESETS = new Set(['linklocal', 'loopback', 'uniquelocal']);
@@ -90,36 +81,6 @@ export function readHttpCorsAllowedOrigins(env: NodeJS.ProcessEnv = process.env)
   );
 }
 
-export function readHttpCookieSecure(env: NodeJS.ProcessEnv = process.env): boolean {
-  const nodeEnv = env.NODE_ENV?.trim() || 'development';
-  return readBooleanEnv(env, HTTP_COOKIE_SECURE_ENV, nodeEnv === 'production');
-}
-
-export function readHttpCookieSameSite(env: NodeJS.ProcessEnv = process.env): HttpCookieSameSite {
-  const value = readStringEnv(env, HTTP_COOKIE_SAME_SITE_ENV, DEFAULT_HTTP_COOKIE_SAME_SITE)
-    .trim()
-    .toLowerCase();
-
-  if (value === 'strict' || value === 'lax' || value === 'none') {
-    return value;
-  }
-
-  throw new Error(`[config] ${HTTP_COOKIE_SAME_SITE_ENV} must be one of strict, lax, none.`);
-}
-
-export function readHttpCookieDomain(env: NodeJS.ProcessEnv = process.env): string | null {
-  const value = env[HTTP_COOKIE_DOMAIN_ENV]?.trim();
-  if (!value) {
-    return null;
-  }
-
-  if (/\s/.test(value) || value.includes('://') || value.includes('/')) {
-    throw new Error(`[config] ${HTTP_COOKIE_DOMAIN_ENV} must be a domain name, not a URL/path.`);
-  }
-
-  return value.toLowerCase();
-}
-
 export function normalizeHttpCorsOrigin(origin: string): string | null {
   const trimmed = origin.trim();
   if (!trimmed) {
@@ -159,7 +120,4 @@ export function normalizeHttpCorsOrigin(origin: string): string | null {
 export default registerAs('http', () => ({
   trustProxy: readHttpTrustProxy(process.env),
   corsAllowedOrigins: readHttpCorsAllowedOrigins(process.env),
-  cookieSecure: readHttpCookieSecure(process.env),
-  cookieSameSite: readHttpCookieSameSite(process.env),
-  cookieDomain: readHttpCookieDomain(process.env),
 }));

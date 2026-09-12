@@ -1,7 +1,10 @@
-import type { Request } from 'express';
 import type { NormalizedApiError } from '../../http/api-error.js';
 import { statusClassFromStatusCode, type AppLogEvent, type AppLogLevel } from './log-event.js';
-import { resolveRequestRouteTemplate } from './request-route.js';
+import { resolveRequestRouteTemplate, type RequestRouteShape } from './request-route.js';
+
+export interface ExceptionLogRequest extends RequestRouteShape {
+  method: string;
+}
 
 export interface ExceptionLogMapping {
   event: AppLogEvent;
@@ -10,7 +13,7 @@ export interface ExceptionLogMapping {
 }
 
 export function mapExceptionToLogEvent(
-  request: Request,
+  request: ExceptionLogRequest,
   normalized: NormalizedApiError,
 ): ExceptionLogMapping {
   const level = resolveExceptionLogLevel(normalized.statusCode);

@@ -32,38 +32,46 @@ function makeResponse(statusCode = 200) {
 }
 
 describe('HttpMetricsInterceptor', () => {
-  it('records route-template based request metrics and decrements in-flight once', () => {
-    const finishInFlight = vi.fn();
-    const recordRequest = vi.fn();
-    const startRequest = vi.fn(() => finishInFlight);
-    const metrics = {
-      recordRequest,
-      startRequest,
-    } as unknown as HttpMetricsService;
-    const interceptor = new HttpMetricsInterceptor(metrics);
-    const { emit, response } = makeResponse(404);
-    const request = {
-      method: 'GET',
-      route: { path: '/profiles/:id' },
-    } as unknown as Request;
-
-    interceptor
-      .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
-      .subscribe();
-    emit('finish');
-    emit('close');
-
-    expect(startRequest).toHaveBeenCalledWith('/profiles/:id');
-    expect(recordRequest).toHaveBeenCalledTimes(1);
-    expect(recordRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
+  it.each([
+    ['finish', 'close'],
+    ['close', 'finish'],
+  ])(
+    'records route-template metrics and decrements in-flight once for %s then %s',
+    (first, second) => {
+      const finishInFlight = vi.fn();
+      const recordRequest = vi.fn();
+      const startRequest = vi.fn(() => finishInFlight);
+      const metrics = {
+        recordRequest,
+        startRequest,
+      } as unknown as HttpMetricsService;
+      const interceptor = new HttpMetricsInterceptor(metrics);
+      const { emit, response } = makeResponse(404);
+      const request = {
         method: 'GET',
-        route: '/profiles/:id',
-        statusCode: 404,
-      }),
-    );
-    expect(finishInFlight).toHaveBeenCalledTimes(1);
-  });
+        route: { path: '/profiles/:id' },
+      } as unknown as Request;
+
+      interceptor
+        .intercept(makeExecutionContext(request, response), {
+          handle: () => of('ok'),
+        } as CallHandler)
+        .subscribe();
+      emit(first);
+      emit(second);
+
+      expect(startRequest).toHaveBeenCalledWith('/profiles/:id');
+      expect(recordRequest).toHaveBeenCalledTimes(1);
+      expect(recordRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          route: '/profiles/:id',
+          statusCode: 404,
+        }),
+      );
+      expect(finishInFlight).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('does not let metrics failures affect request stream', () => {
     const metrics = {

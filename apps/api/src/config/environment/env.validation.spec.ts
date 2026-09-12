@@ -53,8 +53,6 @@ describe('envValidationSchema', () => {
       EMAIL_PROVIDER: 'stub',
       SECRET_SOURCE: 'env',
       HTTP_TRUST_PROXY_HOPS: 0,
-      HTTP_COOKIE_SECURE: false,
-      HTTP_COOKIE_SAME_SITE: 'lax',
       AUTH_LOGIN_BURST_LIMIT: 30,
       AUTH_LOGIN_BURST_WINDOW_SECONDS: 60,
       AUTH_LOGIN_SUSTAINED_LIMIT: 120,
@@ -198,16 +196,6 @@ describe('envValidationSchema', () => {
     ).toEqual([]);
   });
 
-  it('validates cookie SameSite values and secure None policy', () => {
-    expect(errorPaths(productionEnv({ HTTP_COOKIE_SAME_SITE: 'none' }))).toEqual([]);
-    expect(
-      errorPaths(productionEnv({ HTTP_COOKIE_SAME_SITE: 'none', HTTP_COOKIE_SECURE: 'false' })),
-    ).toContain('HTTP_COOKIE_SECURE');
-    expect(errorPaths(productionEnv({ HTTP_COOKIE_SAME_SITE: 'cross-site' }))).toContain(
-      'HTTP_COOKIE_SAME_SITE',
-    );
-  });
-
   it('rejects wildcard and non-origin CORS values', () => {
     expect(errorPaths(productionEnv({ HTTP_CORS_ALLOWED_ORIGINS: '*' }))).toContain(
       'HTTP_CORS_ALLOWED_ORIGINS',
@@ -222,11 +210,5 @@ describe('envValidationSchema', () => {
         }),
       ),
     ).toEqual([]);
-  });
-
-  it('rejects URL-shaped cookie domains', () => {
-    expect(errorPaths(productionEnv({ HTTP_COOKIE_DOMAIN: 'https://example.com' }))).toContain(
-      'HTTP_COOKIE_DOMAIN',
-    );
   });
 });

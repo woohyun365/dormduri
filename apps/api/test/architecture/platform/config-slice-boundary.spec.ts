@@ -72,9 +72,6 @@ const envKeyInventory = [
   'HTTP_TRUST_PROXY_HOPS',
   'HTTP_TRUST_PROXY_CIDRS',
   'HTTP_CORS_ALLOWED_ORIGINS',
-  'HTTP_COOKIE_SECURE',
-  'HTTP_COOKIE_SAME_SITE',
-  'HTTP_COOKIE_DOMAIN',
   'CHAT_REALTIME_ALLOWED_ORIGINS',
   'CHAT_REALTIME_TRUST_PROXY',
   'CHAT_REALTIME_DISPATCHER_ENABLED',
@@ -191,7 +188,6 @@ const configFactoryBaseline = {
     path: 'src/platform/http/http.config.ts',
     consumers: [
       'src/config/composition/api-config.registry.ts',
-      'src/platform/http/http-cookie-policy.ts',
       'src/platform/http/http-runtime.ts',
       'src/platform/http/http.env.ts',
     ],

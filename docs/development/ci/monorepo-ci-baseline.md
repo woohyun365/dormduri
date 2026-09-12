@@ -48,12 +48,16 @@ contents. A later local checkout can no longer relabel an older run with a newer
 
 | Boundary               | Current value                                                                                |
 | ---------------------- | -------------------------------------------------------------------------------------------- |
-| Epoch                  | `backend-runtime-persistence-security-consolidated-2026-09-09` / `collecting`                |
-| Base                   | `c8251322bd2c32d5afc5ab0096abddeafd3c8f0b`                                                   |
-| Dependency fingerprint | lock `d4c2dc0d...`, workspace `4b334572...`, image inventory `f684f83d...`                   |
+| Epoch                  | `api-http-cookie-surface-removal-2026-09-12` / `collecting`                                  |
+| Base                   | `5aa10390c64e671c4f50db736926b896d0fd6902`                                                   |
+| Dependency fingerprint | lock `93362f97...`, workspace `4b334572...`, image inventory `f684f83d...`                   |
 | Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11 |
-| Compatible samples     | none yet; natural PR samples start after the API runtime/persistence/security reconciliation |
+| Compatible samples     | none yet; direct API cookie-parser/type removal changes the dependency fingerprint           |
 | Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                                |
+
+직접 API의 사용하지 않는 cookie 의존성 제거로 lockfile만 바뀌며 package version, workspace 설정과 runtime image는
+유지됩니다. Base는 이 변경 전 integration 기준점이고 fingerprint는 변경 후 candidate input을 식별합니다. 새 hosted
+표본은 실제 run-head SHA로 수집하며, 이 기준 갱신 자체를 성능 개선이나 production release evidence로 해석하지 않습니다.
 
 The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -76,8 +80,11 @@ The previous cohorts are closed and preserved in
 `scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json`, and
 `scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json`,
 `scripts/ci/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`. Their compatible samples remain valid
-only inside each frozen dependency fingerprint; they are not relabeled as samples of the current API runtime epoch.
+`scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`,
+`scripts/ci/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json`,
+`scripts/ci/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json`, and
+`scripts/ci/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json`. Their compatible samples remain valid
+only inside each frozen dependency fingerprint; they are not relabeled as samples of the current API cookie-removal epoch.
 
 ### Repository-policy setup reliability incident
 

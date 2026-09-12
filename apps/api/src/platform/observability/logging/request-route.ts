@@ -1,6 +1,4 @@
-import type { Request } from 'express';
-
-type RequestRouteShape = {
+export type RequestRouteShape = {
   baseUrl?: unknown;
   route?: {
     path?: unknown;
@@ -14,9 +12,8 @@ function normalizeRoutePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
-export function resolveRequestRouteTemplate(request: Request): string {
-  const routeRequest = request as unknown as RequestRouteShape;
-  const routePath = routeRequest.route?.path;
+export function resolveRequestRouteTemplate(request: RequestRouteShape): string {
+  const routePath = request.route?.path;
   const selectedRoutePath = Array.isArray(routePath)
     ? routePath.find((path): path is string => typeof path === 'string')
     : typeof routePath === 'string'
@@ -27,9 +24,7 @@ export function resolveRequestRouteTemplate(request: Request): string {
     return 'UNKNOWN_ROUTE';
   }
 
-  const baseUrl = normalizeRoutePath(
-    typeof routeRequest.baseUrl === 'string' ? routeRequest.baseUrl : '',
-  );
+  const baseUrl = normalizeRoutePath(typeof request.baseUrl === 'string' ? request.baseUrl : '');
   const normalizedRoutePath = normalizeRoutePath(selectedRoutePath);
   const resolved = `${baseUrl}${normalizedRoutePath}` || '/';
 

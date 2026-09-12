@@ -34,6 +34,23 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - local/test에서 token이 없으면 scrape를 열어 두지만, production 배포에서는 nginx/private network/allowlist와 token guard를 함께 사용한다.
 - response는 Prometheus text format이고 `@prometheus-io/client` registry가 process/default metrics와 API platform metrics를
   소유한다.
+- controller는 Nest HTTP adapter로 Content-Type을 지정한 뒤 registry를 기다린다. 수집 실패 시 기존 text Content-Type,
+  no-store와 오류 JSON body를 유지하는 native compatibility writer는 `platform/http/api-error-response.ts`가 소유한다.
+  오류를 JSON media type으로 강제 변경하거나 adapter 경고를 추가하지 않는다.
+
+## HTTP lifecycle 경계
+
+- request-context middleware는 안전한 inbound request/correlation ID만 수용하고, 없거나 잘못된 request ID는 UUID로
+  대체한다. correlation ID fallback, `X-Request-Id` 응답과 downstream AsyncLocalStorage 전파를 함께 소유한다.
+- request logging interceptor는 native response의 `finish`에만 완료 로그를 기록한다. `close`만 발생한 요청까지
+  완료 로그로 처리하는 정책은 없다.
+- HTTP metrics interceptor는 native response의 `finish`와 `close`를 관찰하되 request metric과 in-flight 감소를
+  한 번만 처리한다. 관측 실패는 request stream으로 전파하지 않는다.
+- route-template 추출과 exception log mapping은 필요한 필드만 가진 structural carrier를 받는다. metrics guard의
+  Authorization 읽기에도 native request 전체를 전달하지 않는다.
+
+Native import 예외는 `test/architecture/platform/http-transport-boundary.spec.ts`가 한정한다. Middleware/interceptor
+spec과 `platform/http/http-response-boundary.spec.ts`가 이벤트 횟수, response header와 async context를 검증한다.
 
 ## Metrics label policy
 

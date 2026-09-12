@@ -28,6 +28,11 @@ factory key와 env key 중복을 거부하고 schema key와 metadata key가 정�
 설정 값의 의미, Joi schema, env metadata는 실제 consumer owner가 함께 정의한다. 이 디렉토리는
 owner-local slice를 조합하고 manifest를 생성하는 공통 contract만 담당한다.
 
+HTTP ingress slice(`platform/http/http.config.ts`, `http.env.ts`)는 trust-proxy와 CORS를 소유한다. 직접 API의 cookie
+parser/policy 설정은 없으며 브라우저 인증 cookie는 Web/BFF가 소유한다. 사용하지 않는 env key 제거도 owner schema와
+metadata, 배포 예시, rehearsal input을 함께 정리한 뒤 `pnpm infra:env:generate`와 `pnpm infra:env:check`로 생성된
+manifest의 정합성을 확인한다. 로컬 secret/env 파일은 이 projection 정리의 대상이 아니다.
+
 ## 금지 사항
 
 - `AppModule`, `environment/env.validation.ts`, `environment/env-key.registry.ts`에 별도의 수동 목록을

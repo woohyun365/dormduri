@@ -6,7 +6,6 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import type { ConfigType } from '@nestjs/config';
 import observabilityConfig from '../observability.config.js';
 
@@ -29,7 +28,9 @@ export class MetricsAuthGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ headers: { authorization?: string | string[] } }>();
     const authorization = this.resolveAuthorization(request.headers.authorization);
     if (authorization === `Bearer ${token}`) {
       return true;

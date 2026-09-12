@@ -8,6 +8,7 @@ Product domains may import HTTP platform helpers for normalized error bodies, ex
 
 - `api-error.ts`: normalized API error body and typed error factory helpers.
 - `api-exception.filter.ts`: Nest exception filter for API responses.
+- `api-error-response.ts`: adapter response writing with the native non-JSON error compatibility branch.
 - `zod-request*.ts`: Zod request parsing and error extras helpers.
 - `zod-request.pipe.ts`: synchronous Nest parameter binding for existing request parsers.
 - `account-identity-invariant.error.ts`: maps pure account identity invariant vocabulary to an HTTP/Nest exception body.
@@ -75,12 +76,33 @@ Auth metadata extraction belongs to `auth/access/auth-request-context.decorator.
 domain-context carriers are structural; only guards that read path values require a `params` field. `request-context-binding.spec.ts`
 locks the independent HTTP/chat proxy settings, metadata and token forwarding, actor identity and ticket rate-limit behavior.
 
-`test/architecture/platform/http-transport-boundary.spec.ts` owns the exact native-import exceptions. Health response access remains
-transitional debt, not a general product exemption. The HTTP runtime owns trust-proxy and
-middleware; logging/metrics response-event owners retain completion semantics. Filter response writing must preserve the existing
-non-JSON content-type compatibility until a deliberate contract change is approved. Remove/review each exception with its owner
-and regression proof; do not equate a zero-import count with correctness. Existing regression owners include `http-runtime.spec.ts`,
-`api-exception.filter.spec.ts`, request-context/logging specs and metrics controller/interceptor specs.
+## Response and native lifecycle ownership
+
+The exception filter resolves `HttpAdapterHost.httpAdapter` inside `catch()`. Equivalent header/status/reply operations use the
+Nest adapter; health readiness and metrics response headers also use the adapter. Request route/log metadata uses narrow structural
+types rather than native request types. Error paths still use `originalUrl ?? url`; Retry-After keeps its existing coercion and extras
+precedence. Observability failures remain fail-open, while response write failures are not silently swallowed.
+
+`test/architecture/platform/http-transport-boundary.spec.ts` permits exactly these production native-import owners:
+
+| Owner                                                  | Native responsibility                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `http-runtime.ts`                                      | Express trust-proxy and middleware registration; Helmet precedes optional non-cookie CORS        |
+| `api-error-response.ts`                                | Existing native JSON write when an error already has a non-JSON Content-Type                     |
+| `observability/logging/request-context.middleware.ts`  | Middleware next/header handling and request/correlation ID propagation through AsyncLocalStorage |
+| `observability/logging/request-logging.interceptor.ts` | Response `finish` logging only                                                                   |
+| `observability/metrics/http-metrics.interceptor.ts`    | Response `finish`/`close` metrics with exactly-once finalization                                 |
+
+The response writer retains pre-set non-JSON error media types (including metrics text and `application/problem+json`). A blanket
+`ExpressAdapter.reply()` would rewrite that header and emit an extra warning. This is a named Express compatibility boundary, not a
+claim of full adapter portability. `http-response-boundary.spec.ts` exercises the real Nest/Express response, metrics rejection after
+Content-Type assignment, request IDs, async context and event counts. Adjacent runtime/filter/interceptor tests cover the remaining
+ordering, coercion and completion paths. Remove/review native exceptions only with their owner and regression proof, not to obtain
+a zero-import count.
+
+HTTP ingress configuration owns trust-proxy and CORS. The direct API does not parse browser cookies or own cookie policy/settings;
+browser authentication cookies belong to the Web/BFF. Do not restore an unused cookie parser/config surface without a direct-API
+consumer contract. Cookie vocabulary in log redaction and forbidden metric labels remains necessary.
 
 ## Useful verification
 

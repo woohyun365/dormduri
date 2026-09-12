@@ -17,17 +17,19 @@ function makeExecutionContext(request: Request, response: Response): ExecutionCo
 
 function makeResponse(statusCode = 200) {
   let finishHandler: (() => void) | null = null;
+  const once = vi.fn((_event: string, handler: () => void) => {
+    finishHandler = handler;
+    return response;
+  });
   const response = {
     statusCode,
-    once: vi.fn((_event: string, handler: () => void) => {
-      finishHandler = handler;
-      return response;
-    }),
+    once,
   } as unknown as Response;
 
   return {
     emitFinish: () => finishHandler?.(),
     response,
+    once,
   };
 }
 
@@ -35,7 +37,7 @@ describe('RequestLoggingInterceptor', () => {
   it('records safe request completion metadata without body/header/cookie values', () => {
     const write = vi.fn();
     const interceptor = new RequestLoggingInterceptor({ write } as unknown as AppLoggerService);
-    const { emitFinish, response } = makeResponse(201);
+    const { emitFinish, response, once } = makeResponse(201);
     const request = {
       body: { password: 'secret' },
       cookies: { accessToken: 'token' },
@@ -47,6 +49,8 @@ describe('RequestLoggingInterceptor', () => {
     interceptor
       .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
       .subscribe();
+    expect(once).toHaveBeenCalledExactlyOnceWith('finish', expect.any(Function));
+    expect(write).not.toHaveBeenCalled();
     emitFinish();
 
     expect(write).toHaveBeenCalledWith(

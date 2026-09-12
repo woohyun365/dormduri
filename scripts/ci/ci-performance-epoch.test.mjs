@@ -12,6 +12,14 @@ import {
 const epochFixture = JSON.parse(
   readFileSync(resolve('scripts/ci/fixtures/ci-performance-active-epoch.json'), 'utf8'),
 );
+const closedFinalToolingSecurityEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json',
+    ),
+    'utf8',
+  ),
+);
 const closedEpochFixture = JSON.parse(
   readFileSync(
     resolve('scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json'),
@@ -214,15 +222,32 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'repository-shared-tooling-security-final-reconciliation-2026-09-09',
+    epochId: 'api-http-cookie-surface-removal-2026-09-12',
     fileSha256: epoch.fileSha256,
-    sourceSha: '55ed59f94d708b07535650929cfa6e87f8ed5306',
+    sourceSha: '5aa10390c64e671c4f50db736926b896d0fd6902',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the final tooling-security epoch before collecting the API cookie-removal cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedFinalToolingSecurityEpochFixture);
+  assert.equal(
+    closedEpoch.id,
+    'repository-shared-tooling-security-final-reconciliation-2026-09-09',
+  );
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '55ed59f94d708b07535650929cfa6e87f8ed5306');
+  assert.deepEqual(closedEpoch.versions, parseMeasurementEpoch(epochFixture).versions);
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': 'af100433626ee64e5a6106780f7cac4fe0444f72c149706bb437870ee318f3eb',
+    'pnpm-workspace.yaml': '4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 

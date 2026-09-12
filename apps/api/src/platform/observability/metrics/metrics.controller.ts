@@ -1,5 +1,5 @@
 import { Controller, Get, Header, Res, UseGuards } from '@nestjs/common';
-import type { Response } from 'express';
+import { HttpAdapterHost } from '@nestjs/core';
 import { Public } from '../../../auth/access/auth-access.decorator.js';
 import { DEFAULT_METRICS_ROUTE } from '../observability.config.js';
 import { MetricsAuthGuard } from './metrics-auth.guard.js';
@@ -9,12 +9,19 @@ import { PrometheusRegistryService } from './prometheus-registry.service.js';
 @Controller(DEFAULT_METRICS_ROUTE)
 @UseGuards(MetricsAuthGuard)
 export class MetricsController {
-  constructor(private readonly registry: PrometheusRegistryService) {}
+  constructor(
+    private readonly registry: PrometheusRegistryService,
+    private readonly adapterHost: HttpAdapterHost,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
-  async scrape(@Res({ passthrough: true }) response: Response): Promise<string> {
-    response.type(this.registry.getContentType());
+  async scrape(@Res({ passthrough: true }) response: unknown): Promise<string> {
+    this.adapterHost.httpAdapter.setHeader(
+      response,
+      'Content-Type',
+      this.registry.getContentType(),
+    );
     return this.registry.metrics();
   }
 }

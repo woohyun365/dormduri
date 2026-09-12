@@ -4,26 +4,18 @@ import { join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
 const sourceRoot = join(process.cwd(), 'src');
-// Exact transitional exceptions; removing an owner must remove its exception too.
+// Exact native lifecycle/compatibility owners; removal also removes its exception.
 // No wildcard permission for new product or platform imports.
 const nativeOwners = {
-  'health/health.controller.ts': 'temporary: response headers/status move to HTTP adapter owner',
-  'platform/http/http-runtime.ts': 'native bootstrap: trust-proxy and middleware lifecycle',
-  'platform/http/http-cookie-policy.ts': 'temporary: remove unused API-only cookie policy',
-  'platform/http/api-exception.filter.ts':
-    'response writer: preserve native non-JSON error compatibility',
+  'platform/http/http-runtime.ts': 'Express trust-proxy and middleware registration',
+  'platform/http/api-error-response.ts':
+    'Express JSON compatibility for pre-set non-JSON errors without adapter warning',
   'platform/observability/logging/request-context.middleware.ts':
-    'request ID/ALS and middleware next',
+    'Express middleware next and request-ID header with ALS propagation',
   'platform/observability/logging/request-logging.interceptor.ts':
-    'native response finish/close/error lifecycle',
-  'platform/observability/logging/request-route.ts': 'route-template and originalUrl extraction',
-  'platform/observability/logging/exception-log.mapper.ts': 'exception method/route/path metadata',
+    'Express response finish, not controller completion',
   'platform/observability/metrics/http-metrics.interceptor.ts':
-    'native response completion and exactly-once metrics',
-  'platform/observability/metrics/metrics.controller.ts':
-    'scrape response content-type before registry collection',
-  'platform/observability/metrics/metrics-auth.guard.ts':
-    'temporary: authorization header carrier becomes structural',
+    'Express response finish/close with exactly-once finalization',
 } satisfies Record<string, string>;
 
 function nativeModule(name: string) {
@@ -59,7 +51,6 @@ function nativeImports(source: string): string[] {
 function violations(path: string, source: string): string[] {
   return nativeImports(source)
     .filter((module) => {
-      if (module === 'cookie-parser') return path !== 'platform/http/http-runtime.ts';
       return module !== 'express' || !Object.hasOwn(nativeOwners, path);
     })
     .map((module) => `${path}: ${module}`);
@@ -113,12 +104,12 @@ describe('HTTP transport boundary', () => {
     ).toHaveLength(1);
   });
 
-  it('allows native owners, temporary product debt and normal framework imports', () => {
+  it('allows exact native lifecycle/compatibility owners and normal framework imports', () => {
     for (const path of Object.keys(nativeOwners))
       expect(violations(path, `import type { Request } from 'express';`)).toEqual([]);
     expect(
       violations('platform/http/http-runtime.ts', `import parser from 'cookie-parser';`),
-    ).toEqual([]);
+    ).toHaveLength(1);
     expect(
       violations('support/support.controller.ts', `import { Body } from '@nestjs/common';`),
     ).toEqual([]);
