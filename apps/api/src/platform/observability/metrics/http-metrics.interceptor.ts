@@ -4,9 +4,9 @@ import {
   type ExecutionContext,
   type NestInterceptor,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { ServerResponse } from 'node:http';
 import type { Observable } from 'rxjs';
-import { resolveRequestRouteTemplate } from '../logging/request-route.js';
+import { resolveRequestRouteTemplate, type RequestRouteShape } from '../logging/request-route.js';
 import { HttpMetricsService } from './http-metrics.service.js';
 
 @Injectable()
@@ -19,8 +19,8 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     }
 
     const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
-    const response = http.getResponse<Response>();
+    const request = http.getRequest<RequestRouteShape & { method: string }>();
+    const response = http.getResponse<Pick<ServerResponse, 'once' | 'statusCode'>>();
     const route = resolveRequestRouteTemplate(request);
     const startedAt = process.hrtime.bigint();
     const finishInFlight = this.safeStartRequest(route);

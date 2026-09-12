@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Request, Response } from 'express';
 import type { ConfigType } from '@nestjs/config';
 import observabilityConfig from '../observability.config.js';
 import {
@@ -42,8 +41,8 @@ describe('RequestContextMiddleware', () => {
           [CORRELATION_ID_HEADER]: 'corr-12345678',
           [REQUEST_ID_HEADER]: 'req-12345678',
         },
-      } as unknown as Request,
-      { setHeader } as unknown as Response,
+      },
+      { setHeader },
       next,
     );
 
@@ -68,8 +67,8 @@ describe('RequestContextMiddleware', () => {
         headers: {
           [REQUEST_ID_HEADER]: 'unsafe raw email student@knu.ac.kr',
         },
-      } as unknown as Request,
-      { setHeader } as unknown as Response,
+      },
+      { setHeader },
       next,
     );
 

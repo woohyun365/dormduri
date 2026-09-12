@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import { EventEmitter } from 'node:events';
 import type { Request, Response } from 'express';
 import { of } from 'rxjs';
 import { HttpMetricsInterceptor } from './http-metrics.interceptor.js';
@@ -16,17 +17,10 @@ function makeExecutionContext(request: Request, response: Response): ExecutionCo
 }
 
 function makeResponse(statusCode = 200) {
-  const handlers = new Map<string, () => void>();
-  const response = {
-    statusCode,
-    once: vi.fn((event: string, handler: () => void) => {
-      handlers.set(event, handler);
-      return response;
-    }),
-  } as unknown as Response;
+  const response = Object.assign(new EventEmitter(), { statusCode }) as unknown as Response;
 
   return {
-    emit: (event: string) => handlers.get(event)?.(),
+    emit: (event: string) => response.emit(event),
     response,
   };
 }
@@ -98,4 +92,40 @@ describe('HttpMetricsInterceptor', () => {
       emit('finish');
     }).not.toThrow();
   });
+
+  it.each([false, true])(
+    'finalizes a close-only response once even when recording fails=%s',
+    (recordingFails) => {
+      const finishInFlight = vi.fn();
+      const recordRequest = vi.fn(() => {
+        if (recordingFails) throw new Error('metrics unavailable');
+      });
+      const startRequest = vi.fn(() => finishInFlight);
+      const interceptor = new HttpMetricsInterceptor({
+        startRequest,
+        recordRequest,
+      } as unknown as HttpMetricsService);
+      const { emit, response } = makeResponse();
+      const request = { method: 'GET', route: { path: '/test' } } as unknown as Request;
+
+      interceptor
+        .intercept(makeExecutionContext(request, response), {
+          handle: () => of('ok'),
+        } as CallHandler)
+        .subscribe();
+      expect(startRequest).toHaveBeenCalledExactlyOnceWith('/test');
+      expect(recordRequest).not.toHaveBeenCalled();
+      expect(finishInFlight).not.toHaveBeenCalled();
+
+      expect(() => emit('close')).not.toThrow();
+      expect(recordRequest).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ method: 'GET', route: '/test', statusCode: 200 }),
+      );
+      expect(finishInFlight).toHaveBeenCalledTimes(1);
+      emit('close');
+      emit('finish');
+      expect(recordRequest).toHaveBeenCalledTimes(1);
+      expect(finishInFlight).toHaveBeenCalledTimes(1);
+    },
+  );
 });

@@ -4,16 +4,10 @@ import { join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
 const sourceRoot = join(process.cwd(), 'src');
-// Exact native lifecycle owners; removal also removes its exception.
+// Exact Express runtime owners; Node lifecycle types need no Express exception.
 // No wildcard permission for new product or platform imports.
 const nativeOwners = {
   'platform/http/http-runtime.ts': 'Express trust-proxy and middleware registration',
-  'platform/observability/logging/request-context.middleware.ts':
-    'Express middleware next and request-ID header with ALS propagation',
-  'platform/observability/logging/request-logging.interceptor.ts':
-    'Express response finish, not controller completion',
-  'platform/observability/metrics/http-metrics.interceptor.ts':
-    'Express response finish/close with exactly-once finalization',
 } satisfies Record<string, string>;
 
 function nativeModule(name: string) {
@@ -102,7 +96,16 @@ describe('HTTP transport boundary', () => {
     ).toHaveLength(1);
   });
 
-  it('allows exact native lifecycle/compatibility owners and normal framework imports', () => {
+  it.each([
+    'platform/observability/logging/request-context.middleware.ts',
+    'platform/observability/logging/request-logging.interceptor.ts',
+    'platform/observability/metrics/http-metrics.interceptor.ts',
+  ])('rejects broad Express types in the Node lifecycle owner %s', (path) => {
+    expect(violations(path, `import type { Response } from 'express';`)).toHaveLength(1);
+    expect(violations(path, `import type { ServerResponse } from 'node:http';`)).toEqual([]);
+  });
+
+  it('allows exact Express runtime owners and normal framework imports', () => {
     for (const path of Object.keys(nativeOwners))
       expect(violations(path, `import type { Request } from 'express';`)).toEqual([]);
     expect(

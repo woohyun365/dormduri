@@ -82,14 +82,21 @@ Nest adapter; health readiness and metrics response headers also use the adapter
 types rather than native request types. Error paths still use `originalUrl ?? url`; Retry-After keeps its existing coercion and extras
 precedence. Observability failures remain fail-open, while response write failures are not silently swallowed.
 
-`test/architecture/platform/http-transport-boundary.spec.ts` permits exactly these production native-import owners:
+`test/architecture/platform/http-transport-boundary.spec.ts` permits the production Express import only in `http-runtime.ts`,
+which owns Express trust-proxy and middleware registration (Helmet precedes optional non-cookie CORS). The following platform
+owners retain Node HTTP lifecycle semantics without importing the full Express Request/Response types:
 
-| Owner                                                  | Native responsibility                                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `http-runtime.ts`                                      | Express trust-proxy and middleware registration; Helmet precedes optional non-cookie CORS        |
-| `observability/logging/request-context.middleware.ts`  | Middleware next/header handling and request/correlation ID propagation through AsyncLocalStorage |
-| `observability/logging/request-logging.interceptor.ts` | Response `finish` logging only                                                                   |
-| `observability/metrics/http-metrics.interceptor.ts`    | Response `finish`/`close` metrics with exactly-once finalization                                 |
+| Owner                                                  | Required boundary                                                                                     |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `observability/logging/request-context.middleware.ts`  | Node request headers, response setHeader and a no-arg next callback for request IDs/AsyncLocalStorage |
+| `observability/logging/request-logging.interceptor.ts` | RequestRouteShape + method, Node response statusCode and finish-only logging                          |
+| `observability/metrics/http-metrics.interceptor.ts`    | The same narrow request shape, Node response finish/close with exactly-once finalization              |
+
+Types reuse `node:http` members and the existing `RequestRouteShape`, not a shared transport facade. Listener registration and
+AsyncLocalStorage timing remain unchanged. Observable/controller completion is not response completion; Node finish is not proof
+of client receipt. A close-only response does not produce a completion log, while metrics still finalizes once with its current
+statusCode (a default 200 on abort does not prove client success). Express route shape and trust-proxy assumptions remain explicit;
+narrowing types is not full adapter portability or a zero-native-dependency claim.
 
 The exception filter owns the JSON representation of the common error envelope. It explicitly sets `application/json` through
 the Nest adapter before replying, replacing any pre-set success or non-JSON media type without an adapter warning. Metrics sets

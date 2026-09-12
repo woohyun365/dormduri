@@ -50,8 +50,14 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - route-template 추출과 exception log mapping은 필요한 필드만 가진 structural carrier를 받는다. metrics guard의
   Authorization 읽기에도 native request 전체를 전달하지 않는다.
 
-Native import 예외는 `test/architecture/platform/http-transport-boundary.spec.ts`가 한정한다. Middleware/interceptor
-spec과 `platform/http/http-response-boundary.spec.ts`가 이벤트 횟수, response header와 async context를 검증한다.
+Middleware는 Node HTTP headers/setHeader와 no-arg next callback만, 두 interceptor는 기존 RequestRouteShape와 method,
+Node response의 once/statusCode만 타입으로 요구한다. Express 타입 전체를 전달하거나 별도 공통 transport facade를 만들지
+않는다. Node finish/close listener와 AsyncLocalStorage 실행 시점은 그대로 유지한다. Observable 완료나 finish를 client
+수신 완료로 해석하지 않으며, close-only의 기본 statusCode 200도 client 성공을 증명하지 않는다.
+
+Express import 예외는 `test/architecture/platform/http-transport-boundary.spec.ts`가 runtime bootstrap으로 한정한다.
+Express route template과 trust-proxy 동작에 대한 의존성까지 제거됐다는 뜻은 아니다. Middleware/interceptor spec과
+`platform/http/http-response-boundary.spec.ts`가 이벤트 횟수·close-only/실패 정리·response header·요청별 async context를 검증한다.
 
 ## Metrics label policy
 
