@@ -78,3 +78,22 @@ Local PostgreSQL 18이 필수 기본 경로다. 별도 disposable test DB를 사
 
 `production` 또는 `prod`로 분류된 URL은 승인 문자열과 무관하게 거부한다. External 결과는 RDS
 latency/capacity evidence가 아니며 실제 production DB에 이 명령을 실행하지 않는다.
+
+## Forwarded-client identity 검증 경계
+
+기존 DB-backed full-stack은 **no-forwarding-trust functional fixture**다. 생성 runtime 입력은
+`HTTP_TRUST_PROXY_HOPS=0`, 빈 `HTTP_TRUST_PROXY_CIDRS`, `CHAT_REALTIME_TRUST_PROXY=false`를 사용한다.
+기존 PostgreSQL/DB role, workload, resource budget, direct loopback Web smoke, observability network와
+`WEB_REHEARSAL_API_URL=http://nginx`는 이 local functional fixture의 계약으로 유지한다. 여기서 통과한
+시나리오는 distinct client IP abuse/capacity나 production ingress trust의 증거가 아니다.
+
+Forwarding trust는 [별도의 ingress-trust target](../deploy/README.md#single-public-ingress-forwarding-trust-target)을
+한 Compose project에 렌더해 검증한다. Public/API/Web/observer explicit IPAM, private listener 원본-peer ACL,
+API/Web 비노출과 관측된 Nginx source address를 검증하고, 실제 public IPv6·TLS·WS/BFF 동작의 미실행 항목은
+명시적으로 gap으로 남긴다. 단순 renderer 또는 `docker compose config` 성공은 listener/방화벽 증거가 아니다.
+
+Synthetic 기본 allocation은 public `172.30.247.0/28`, API `172.30.248.0/28`, Web `172.30.249.0/28`,
+observer `172.30.250.0/28`이며 각 Nginx `.2`, API/Web/collector `.3`를 사용한다. Native IPv6 public
+fixture에는 예를 들어 `fd45:448:247::/64`와 명시한 peer 주소를 추가한다. 이것은 실제 production 할당이
+아니다. Runtime runner는 실행 직전 host route와 현재 Docker network 충돌을 검사하고, fresh project의
+정확히 기록한 resource만 정리한다. 기존 full-stack/user project를 down하거나 network/volume prune하지 않는다.

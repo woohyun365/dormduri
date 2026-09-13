@@ -1,0 +1,15 @@
+server {
+  __PUBLIC_LISTEN__
+  server_name __WEB_HOST__;
+  __WEB_TLS__
+  if ($http_host !~* "^__WEB_HOST_PATTERN__$") { return 444; }
+  client_max_body_size 1m;
+
+  location = /internal/metrics { return 404; }
+  location ^~ /internal/metrics/ { return 404; }
+  # Includes browser /api/auth and legal BFF routes; never sends them directly to API.
+  location / {
+    proxy_pass http://__WEB_UPSTREAM__;
+    __PUBLIC_WEB_HEADERS__
+  }
+}
