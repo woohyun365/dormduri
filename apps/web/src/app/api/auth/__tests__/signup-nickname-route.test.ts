@@ -58,6 +58,7 @@ describe('auth signup nickname and email verification BFF routes', () => {
       expect.objectContaining({ method: 'POST', cache: 'no-store' }),
     );
     const [, forwardedInit] = fetchCalls(fetchMock)[0]!;
+    expect(new Headers(forwardedInit.headers).get('x-forwarded-for')).toBe('203.0.113.10');
     expect(JSON.parse(String(forwardedInit.body))).toEqual({ email: VALID_EMAIL });
     await expect(response.json()).resolves.toEqual({ success: true });
   });
@@ -87,6 +88,9 @@ describe('auth signup nickname and email verification BFF routes', () => {
       success: true,
       grantExpiresInSeconds: 900,
     });
+    expect(new Headers(fetchCalls(fetchMock)[0]![1].headers).get('x-forwarded-for')).toBe(
+      '203.0.113.10',
+    );
     expect(response.cookies.get('signup-verification-grant')).toMatchObject({
       value: VALID_SIGNUP_GRANT,
       httpOnly: true,
@@ -121,6 +125,7 @@ describe('auth signup nickname and email verification BFF routes', () => {
         body: JSON.stringify(NICKNAME_BODY),
         headers: expect.objectContaining({
           'X-Auth-Verification-Grant': VALID_SIGNUP_GRANT,
+          'x-forwarded-for': '203.0.113.10',
         }),
       }),
     );

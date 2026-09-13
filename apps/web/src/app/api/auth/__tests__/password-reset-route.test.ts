@@ -94,6 +94,7 @@ describe('auth password reset BFF routes', () => {
       expect.objectContaining({ method: 'POST', cache: 'no-store' }),
     );
     const [, forwardedInit] = fetchCalls(fetchMock)[0]!;
+    expect(new Headers(forwardedInit.headers).get('x-forwarded-for')).toBe('203.0.113.10');
     expect(JSON.parse(String(forwardedInit.body))).toEqual({
       email: VALID_EMAIL,
       code: VALID_CODE,
@@ -155,6 +156,7 @@ describe('auth password reset BFF routes', () => {
       expect.objectContaining({ method: 'POST', cache: 'no-store' }),
     );
     const [, forwardedInit] = fetchCalls(fetchMock)[0]!;
+    expect(new Headers(forwardedInit.headers).get('x-forwarded-for')).toBe('203.0.113.10');
     expect(JSON.parse(String(forwardedInit.body))).toEqual({ newPassword: VALID_PASSWORD });
     await expect(response.json()).resolves.toEqual({ success: true });
     expect(response.cookies.get('auth-token')?.value).toBe('');

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isIP, SocketAddress } from 'node:net';
 
 const SENSITIVE_BODY_KEY_PARTS = [
   'accesstoken',
@@ -12,7 +13,11 @@ const SENSITIVE_BODY_KEY_PARTS = [
 const FORBIDDEN_FORWARD_HEADER_NAMES = new Set([
   'cookie',
   'host',
+  'x-forwarded-for',
   'x-forwarded-host',
+  'x-forwarded-proto',
+  'x-real-ip',
+  'forwarded',
   'x-api-key',
   'content-length',
 ]);
@@ -21,6 +26,19 @@ export type BffSafeJsonReadResult = {
   response: Response;
   json: Record<string, unknown>;
 };
+
+// The public edge supplies one IP. Chains and alternate forwarding headers carry no identity.
+export function normalizeForwardedClientIp(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const address = value.trim();
+  if (address.includes('%')) return undefined;
+  const family = isIP(address);
+  if (family === 0) return undefined;
+  if (family === 4) return address;
+
+  const canonical = new SocketAddress({ address, family: 'ipv6' }).address;
+  return canonical.startsWith('::ffff:') ? canonical.slice('::ffff:'.length) : canonical;
+}
 
 export function buildBffUpstreamUrl(input: {
   apiUpstreamUrl: string;

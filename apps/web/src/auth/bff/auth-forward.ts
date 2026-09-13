@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
-import { isIP } from 'node:net';
 import { getWebEnv } from '@/config/env';
 import {
   buildBffUpstreamUrl,
   filterForwardHeaderRecord,
+  normalizeForwardedClientIp,
   readBffJsonResponse,
 } from '@/app/api/_bff/security';
 import { AUTH_PASSWORD_HASH_CAPACITY_UNAVAILABLE_CODE } from '@repo/shared/auth/response';
@@ -25,6 +25,7 @@ export type AuthForwardFailureKind =
   'timeout' | 'aborted' | 'network' | 'upstream' | 'invalid-response';
 
 export type AuthForwardOptions = {
+  requestHeaders?: Pick<Headers, 'get'>;
   timeoutMs?: number;
   responseSchema?: AuthUpstreamResponseSchema;
   operation?: string;
@@ -198,6 +199,7 @@ export async function forwardAuthRequest(
   }
 
   const { headers: initHeaders, ...restInit } = init ?? {};
+  const forwardedFor = normalizeForwardedClientIp(options.requestHeaders?.get('x-forwarded-for'));
   const headers = filterForwardHeaderRecord(
     {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -206,6 +208,7 @@ export async function forwardAuthRequest(
     },
     { allowAuthorization: true },
   );
+  if (forwardedFor) headers['x-forwarded-for'] = forwardedFor;
 
   const abortController = new AbortController();
   let timedOut = false;
@@ -281,18 +284,7 @@ export async function forwardAuthRequest(
 }
 
 export function resolveTrustedForwardedFor(request: NextRequest): string | undefined {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (!forwardedFor) {
-    return undefined;
-  }
-
-  const trustedEdgeValue = forwardedFor
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .at(-1);
-
-  return trustedEdgeValue && isIP(trustedEdgeValue) !== 0 ? trustedEdgeValue : undefined;
+  return normalizeForwardedClientIp(request.headers.get('x-forwarded-for'));
 }
 
 export function getForwardHeaders(
@@ -301,7 +293,6 @@ export function getForwardHeaders(
 ) {
   return filterForwardHeaderRecord(
     {
-      'x-forwarded-for': resolveTrustedForwardedFor(request),
       'user-agent': request.headers.get('user-agent') ?? undefined,
       ...(extraHeaders ?? {}),
     },
