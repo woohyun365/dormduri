@@ -23,6 +23,18 @@ services:
     build:
       args:
         NEXT_PUBLIC_APP_URL: ${INGRESS_WEB_APP_URL:?Render ingress inputs first}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:' + process.env.PORT + '/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
     networks: !override
       ingress-web:
         ipv4_address: ${INGRESS_WEB_ADDRESS:?Render ingress inputs first}

@@ -43,6 +43,16 @@ describe('chat forwarding activation', () => {
       expect(createChatRealtimeSettings(env).proxyProfile.enabled).toBe(false);
     }
   });
+  it('does not expose mutable origin configuration to DI consumers', () => {
+    const settings = createChatRealtimeSettings({
+      CHAT_REALTIME_ALLOWED_ORIGINS: 'https://api.example',
+    });
+    expect(settings.allowedOrigins).not.toBe(false);
+    if (settings.allowedOrigins === false) throw new Error('Missing fixture origins');
+    expect(Reflect.set(settings.allowedOrigins, '0', 'https://evil.example')).toBe(false);
+    expect(settings.allowedOrigins).toEqual(['https://api.example']);
+  });
+
   it('freezes explicit effective peers independent of later env changes', () => {
     const env = {
       CHAT_REALTIME_TRUST_PROXY: 'true',

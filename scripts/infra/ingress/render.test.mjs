@@ -393,3 +393,9 @@ test('TLS paths reject traversal, directive injection and unresolved variables',
     assert.throws(() => renderIngressConfig(input));
   }
 });
+
+test('target healthcheck follows the rendered nondefault Web port', () => {
+  const target = readFileSync(resolve(repoRoot, 'infra/deploy/compose.ingress-trust.yml'), 'utf8');
+  assert.match(target, /healthcheck:/u);
+  assert.match(target, /process\.env\.PORT/u);
+});

@@ -77,8 +77,9 @@ export function readChatRealtimeProxyProfile(
 }
 
 export function createChatRealtimeSettings(env: NodeJS.ProcessEnv = process.env) {
+  const origins = readChatRealtimeAllowedOrigins(env);
   return Object.freeze({
-    allowedOrigins: readChatRealtimeAllowedOrigins(env),
+    allowedOrigins: origins === false ? false : Object.freeze(origins),
     proxyProfile: readChatRealtimeProxyProfile(env),
     dispatcherEnabled: readBooleanEnv(
       env,

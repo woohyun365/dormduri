@@ -126,8 +126,13 @@ async function polling(base: string, forwarded: string | string[]) {
 }
 
 // Small bounded wire client: proves actual Engine.IO + namespace connection without a new dependency.
-async function websocket(base: string, forwarded: string) {
+async function websocket(
+  base: string,
+  forwarded: string,
+  options: { sid?: string; expectedPacket?: string } = {},
+) {
   const target = new URL('/socket.io/?EIO=4&transport=websocket', base);
+  if (options.sid) target.searchParams.set('sid', options.sid);
   return new Promise<{ status: number; packet: string }>((resolve, reject) => {
     const req = httpRequest(target, {
       headers: {
@@ -190,13 +195,18 @@ async function websocket(base: string, forwarded: string) {
           if (kind !== 1) continue;
           if (packet.startsWith('0'))
             send(`40/chat,${JSON.stringify({ ticket: randomBytes(8).toString('hex') })}`);
-          if (packet.startsWith('40/chat,') || packet.startsWith('42/chat,')) {
+          if (packet === '3probe') {
+            send('5');
+            send(`40/chat,${JSON.stringify({ ticket: randomBytes(8).toString('hex') })}`);
+          }
+          if (packet.startsWith(options.expectedPacket ?? '40/chat,')) {
             clearTimeout(timeout);
             resolve({ status: 101, packet });
             return;
           }
         }
       };
+      if (options.sid) send('2probe');
       socket.on('data', receive);
       if (head.length) receive(head);
       socket.once('error', (error) => {
@@ -259,6 +269,44 @@ describe('actual Nest chat proxy initialization and transport boundaries', () =>
     );
     expect((await polling(running.url, ['203.0.113.3', '203.0.113.4'])).status).toBe(403);
   });
+  it('DI origin mutation cannot change admission independently of CORS', async () => {
+    const running = await initialize();
+    if (running.settings.allowedOrigins === false) throw new Error('Missing fixture origins');
+    expect(Reflect.set(running.settings.allowedOrigins, '0', 'https://evil.example')).toBe(false);
+    const path = '/socket.io/?EIO=4&transport=polling';
+    await request(running.url).get(path).set('Origin', 'https://evil.example').expect(403);
+    const allowed = await request(running.url).get(path).set('Origin', origin).expect(200);
+    expect(allowed.headers['access-control-allow-origin']).toBe(origin);
+  });
+
+  it.each(['polling', 'websocket'] as const)(
+    '%s proves the independent gateway budget denies after root admission',
+    async (transport) => {
+      const running = await initialize();
+      running.limiter.consumeGatewayConnectIp({ ip: '203.0.113.1' });
+      const result =
+        transport === 'polling'
+          ? await polling(running.url, '203.0.113.1')
+          : await websocket(running.url, '203.0.113.1', { expectedPacket: '42/chat,' });
+      expect(result.status).toBe(transport === 'polling' ? 200 : 101);
+      expect(result.packet).toContain('CHAT_REALTIME_RATE_LIMITED');
+    },
+  );
+
+  it('polling→WebSocket upgrade keeps the original cached peer and identity', async () => {
+    const running = await initialize();
+    const gatewayLimit = vi.spyOn(running.limiter, 'consumeGatewayConnectIp');
+    const opened = await request(running.url)
+      .get('/socket.io/?EIO=4&transport=polling')
+      .set('Origin', origin)
+      .set('x-forwarded-for', '203.0.113.1')
+      .set('Connection', 'close')
+      .expect(200);
+    const sid = (JSON.parse(opened.text.slice(1)) as { sid: string }).sid;
+    expect((await websocket(running.url, '203.0.113.2', { sid })).packet).toContain('40/chat,');
+    expect(gatewayLimit).toHaveBeenCalledExactlyOnceWith({ ip: '203.0.113.1' });
+  });
+
   it.each([
     { HTTP_TRUST_PROXY_CIDRS: '' },
     { HTTP_TRUST_PROXY_HOPS: '1', HTTP_TRUST_PROXY_CIDRS: '' },
