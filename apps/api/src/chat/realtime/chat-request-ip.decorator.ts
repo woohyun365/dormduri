@@ -1,3 +1,4 @@
+import type { IncomingMessage } from 'node:http';
 import {
   createParamDecorator,
   Injectable,
@@ -17,8 +18,11 @@ class ChatRequestIpPipe implements PipeTransform<RequestIpSource, string> {
   }
 }
 
-const RequestIp = createParamDecorator((_data: unknown, context: ExecutionContext) =>
-  context.switchToHttp().getRequest<RequestIpSource>(),
+const RequestIp = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): RequestIpSource => {
+    const request = context.switchToHttp().getRequest<IncomingMessage>();
+    return { headers: request.headers, peerAddress: request.socket.remoteAddress };
+  },
 );
 
 // Reuse the configured realtime IP policy; HTTP trust-proxy is a separate setting.

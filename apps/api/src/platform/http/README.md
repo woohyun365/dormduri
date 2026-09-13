@@ -130,3 +130,10 @@ pnpm exec prettier --check apps/api/src/platform/http/README.md
 pnpm api:typecheck
 git diff --check
 ```
+
+### Explicit transport peer matching
+
+`trusted-proxy-peer.ts` owns Node-only canonical IP parsing and immutable explicit IP/CIDR matchers.
+It is not a general request facade or a TCP firewall. Chat consumes this stricter activation contract;
+HTTP-only Express hop/preset compatibility remains owned by `http.config.ts`. A trusted peer match
+is meaningful only with separately verified ingress sanitation and network membership.

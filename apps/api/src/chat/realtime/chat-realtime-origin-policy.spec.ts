@@ -1,3 +1,8 @@
+import { readChatRealtimeProxyProfile } from './chat-realtime.config.js';
+const proxyProfile = readChatRealtimeProxyProfile({
+  CHAT_REALTIME_TRUST_PROXY: 'true',
+  HTTP_TRUST_PROXY_CIDRS: '10.0.0.2',
+});
 import { describe, expect, it, vi } from 'vitest';
 import {
   createChatRealtimeAllowRequest,
@@ -5,6 +10,22 @@ import {
 } from './chat-realtime-origin-policy.js';
 
 describe('chat realtime origin policy', () => {
+  it('does not admit an untrusted peer through forged forwarding metadata', () => {
+    const callback = vi.fn();
+    createChatRealtimeAllowRequest(false, { proxyProfile })(
+      {
+        headers: {
+          origin: 'https://evil.example',
+          host: 'api.example',
+          'x-forwarded-host': 'evil.example',
+          'x-forwarded-proto': 'https',
+        },
+        socket: { remoteAddress: '10.0.0.99' },
+      } as never,
+      callback,
+    );
+    expect(callback).toHaveBeenCalledWith(null, false);
+  });
   it('allowlist origin과 정확히 일치하는 browser request만 허용한다', () => {
     expect(
       isChatRealtimeRequestOriginAllowed({
@@ -41,7 +62,8 @@ describe('chat realtime origin policy', () => {
         forwardedHost: 'knu-roommate.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
-        trustProxy: true,
+        proxyProfile,
+        peerAddress: '10.0.0.2',
       }),
     ).toBe(true);
 
@@ -52,7 +74,8 @@ describe('chat realtime origin policy', () => {
         forwardedHost: 'knu-roommate.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
-        trustProxy: true,
+        proxyProfile,
+        peerAddress: '10.0.0.2',
       }),
     ).toBe(false);
   });
@@ -65,7 +88,8 @@ describe('chat realtime origin policy', () => {
         forwardedHost: 'knu-roommate.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
-        trustProxy: false,
+        proxyProfile: readChatRealtimeProxyProfile({}),
+        peerAddress: '10.0.0.2',
       }),
     ).toBe(false);
   });
@@ -106,5 +130,75 @@ describe('chat realtime origin policy', () => {
     );
 
     expect(callback).toHaveBeenCalledWith(null, true);
+  });
+});
+
+describe('same-origin provenance pairs', () => {
+  it.each([
+    { forwardedHost: ['api.example'], forwardedProto: 'https' },
+    { forwardedHost: 'api.example, evil.example', forwardedProto: 'https' },
+    { forwardedHost: 'api.example', forwardedProto: undefined },
+    { forwardedHost: undefined, forwardedProto: 'https' },
+    { forwardedHost: 'api.example', forwardedProto: 'https,http' },
+    { forwardedHost: 'api.example/path', forwardedProto: 'https' },
+    { forwardedHost: 'evil@api.example', forwardedProto: 'https' },
+  ])('rejects partial/malformed pair %j without mixing provenance', (headers) => {
+    expect(
+      isChatRealtimeRequestOriginAllowed({
+        ...headers,
+        requestOrigin: 'https://api.example',
+        host: 'api.example',
+        encrypted: false,
+        allowedOrigins: false,
+        proxyProfile,
+        peerAddress: '10.0.0.2',
+      }),
+    ).toBe(false);
+    expect(
+      isChatRealtimeRequestOriginAllowed({
+        ...headers,
+        requestOrigin: 'http://api.example',
+        host: 'api.example',
+        encrypted: false,
+        allowedOrigins: false,
+        proxyProfile,
+        peerAddress: '10.0.0.2',
+      }),
+    ).toBe(true);
+  });
+  it('rejects duplicate forwarding spellings before spending the pre-auth budget', () => {
+    const preAuthRateLimit = vi.fn(() => true);
+    const callback = vi.fn();
+    createChatRealtimeAllowRequest(false, { proxyProfile, preAuthRateLimit })(
+      {
+        headers: {
+          host: 'internal',
+          origin: 'https://api.example',
+          'x-forwarded-host': 'api.example',
+          'X-Forwarded-Host': 'api.example',
+          'x-forwarded-proto': 'https',
+        },
+        socket: { remoteAddress: '10.0.0.2' },
+      } as never,
+      callback,
+    );
+    expect(callback).toHaveBeenCalledWith(null, false);
+    expect(preAuthRateLimit).not.toHaveBeenCalled();
+  });
+  it.each([
+    'null',
+    'file:///etc/passwd',
+    'https://api.example/path',
+    'https://api.example#x',
+    'https://a@api.example',
+  ])('rejects invalid Origin %s', (requestOrigin) => {
+    expect(
+      isChatRealtimeRequestOriginAllowed({
+        requestOrigin,
+        allowedOrigins: false,
+        host: 'api.example',
+        encrypted: true,
+      }),
+    ).toBe(false);
   });
 });

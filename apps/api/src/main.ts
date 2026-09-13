@@ -13,6 +13,8 @@ async function bootstrap() {
     { default: httpConfig },
     { AppLoggerService },
     { configureHttpRuntime },
+    { default: chatRealtimeConfig },
+    { ChatRealtimeIoAdapter },
   ] = await Promise.all([
     import('@nestjs/core'),
     import('./app.module.js'),
@@ -20,14 +22,23 @@ async function bootstrap() {
     import('./platform/http/http.config.js'),
     import('./platform/observability/logging/app-logger.service.js'),
     import('./platform/http/http-runtime.js'),
+    import('./chat/realtime/chat-realtime.config.js'),
+    import('./chat/realtime/chat-realtime-io.adapter.js'),
   ]);
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
-  app.useLogger(app.get(AppLoggerService));
-  const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
-  const httpSettings = app.get<ConfigType<typeof httpConfig>>(httpConfig.KEY);
-  configureHttpRuntime(app, httpSettings);
-  app.enableShutdownHooks();
-  await app.listen(appSettings.port);
+  try {
+    app.useLogger(app.get(AppLoggerService));
+    const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
+    const httpSettings = app.get<ConfigType<typeof httpConfig>>(httpConfig.KEY);
+    const chatSettings = app.get<ConfigType<typeof chatRealtimeConfig>>(chatRealtimeConfig.KEY);
+    app.useWebSocketAdapter(new ChatRealtimeIoAdapter(app, chatSettings));
+    configureHttpRuntime(app, httpSettings);
+    app.enableShutdownHooks();
+    await app.listen(appSettings.port);
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
 }
 
 try {

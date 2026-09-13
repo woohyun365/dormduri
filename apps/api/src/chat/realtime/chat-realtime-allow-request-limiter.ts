@@ -1,8 +1,6 @@
 import type { IncomingMessage } from 'node:http';
-import {
-  readChatRealtimeTrustProxy,
-  readChatRealtimeWsConnectIpRateLimit,
-} from './chat-realtime.config.js';
+import type { ConfigType } from '@nestjs/config';
+import type chatRealtimeConfig from './chat-realtime.config.js';
 import { resolveChatRealtimeRequestIp } from './chat-realtime-rate-limiter.service.js';
 
 type Bucket = {
@@ -11,11 +9,12 @@ type Bucket = {
 };
 
 export function createChatRealtimeAllowRequestIpRateLimiter(
-  env: NodeJS.ProcessEnv = process.env,
+  settings: Pick<
+    ConfigType<typeof chatRealtimeConfig>,
+    'proxyProfile' | 'wsConnectIpLimit' | 'wsConnectIpWindowMs'
+  >,
   clock: () => number = () => Date.now(),
 ) {
-  const settings = readChatRealtimeWsConnectIpRateLimit(env);
-  const trustProxy = readChatRealtimeTrustProxy(env);
   const buckets = new Map<string, Bucket>();
 
   return (request: IncomingMessage) => {
@@ -23,19 +22,17 @@ export function createChatRealtimeAllowRequestIpRateLimiter(
     const ip = resolveChatRealtimeRequestIp(
       {
         headers: request.headers,
-        socket: {
-          remoteAddress: request.socket.remoteAddress,
-        },
+        peerAddress: request.socket.remoteAddress,
       },
-      { trustProxy },
+      settings.proxyProfile,
     );
     const current = buckets.get(ip);
     const bucket =
-      !current || nowMs - current.windowStartMs >= settings.windowMs
+      !current || nowMs - current.windowStartMs >= settings.wsConnectIpWindowMs
         ? { count: 0, windowStartMs: nowMs }
         : current;
 
-    if (bucket.count >= settings.limit) {
+    if (bucket.count >= settings.wsConnectIpLimit) {
       return false;
     }
 

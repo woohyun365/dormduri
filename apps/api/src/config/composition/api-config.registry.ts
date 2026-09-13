@@ -9,7 +9,9 @@ import {
   authOperationsEnvSchema,
 } from '../../auth/operations/config/auth-operations.env.js';
 import { chatEnvKeys, chatEnvSchema } from '../../chat/config/chat.env.js';
-import chatRealtimeConfig from '../../chat/realtime/chat-realtime.config.js';
+import chatRealtimeConfig, {
+  readChatRealtimeProxyProfile,
+} from '../../chat/realtime/chat-realtime.config.js';
 import { realtimeEnvKeys, realtimeEnvSchema } from '../../chat/realtime/chat-realtime.env.js';
 import lifecycleConfig from '../../lifecycle/config/lifecycle.config.js';
 import { lifecycleEnvKeys, lifecycleEnvSchema } from '../../lifecycle/config/lifecycle.env.js';
@@ -159,7 +161,31 @@ export function composeApiConfigRegistry(slices: readonly ApiConfigSlice[]) {
 const apiConfigRegistry = composeApiConfigRegistry(API_CONFIG_SLICES);
 
 export const API_CONFIG_FACTORIES = apiConfigRegistry.factories;
-export const API_ENV_VALIDATION_SCHEMA = apiConfigRegistry.validationSchema;
+export const API_ENV_VALIDATION_SCHEMA = apiConfigRegistry.validationSchema.custom(
+  (
+    value: {
+      CHAT_REALTIME_TRUST_PROXY?: boolean;
+      HTTP_TRUST_PROXY_HOPS?: number;
+      HTTP_TRUST_PROXY_CIDRS?: string;
+    },
+    helpers,
+  ) => {
+    try {
+      readChatRealtimeProxyProfile({
+        CHAT_REALTIME_TRUST_PROXY: String(value.CHAT_REALTIME_TRUST_PROXY ?? false),
+        HTTP_TRUST_PROXY_HOPS: String(value.HTTP_TRUST_PROXY_HOPS ?? 0),
+        HTTP_TRUST_PROXY_CIDRS: String(value.HTTP_TRUST_PROXY_CIDRS ?? ''),
+      });
+      return value;
+    } catch {
+      return helpers.message({
+        'any.custom':
+          'Chat forwarding requires explicit valid proxy peers and zero HTTP proxy hops.',
+      });
+    }
+  },
+  'chat proxy activation profile',
+);
 export const API_ENV_KEYS: readonly EnvKeyDefinition[] = apiConfigRegistry.envKeys;
 
 function assertUnique(kind: string, values: readonly string[]): void {

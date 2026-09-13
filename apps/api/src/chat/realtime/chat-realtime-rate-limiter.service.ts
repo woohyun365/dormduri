@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import type { IncomingHttpHeaders } from 'node:http';
+import { normalizePeerIp } from '../../platform/http/trusted-proxy-peer.js';
+import type { ChatRealtimeProxyProfile } from './chat-realtime.config.js';
 import chatRealtimeConfig from './chat-realtime.config.js';
 import { tooManyRequestsError } from '../../platform/http/api-error.js';
 
@@ -34,16 +35,9 @@ type Bucket = {
   windowStartMs: number;
 };
 
-type RequestIpSource = {
-  headers?: IncomingHttpHeaders | Record<string, string | string[] | undefined>;
-  ip?: string;
-  socket?: {
-    remoteAddress?: string | null;
-  };
-};
-
-type RequestIpOptions = {
-  trustProxy?: boolean;
+export type ChatRequestPeer = {
+  headers?: Record<string, string | string[] | undefined>;
+  peerAddress?: string | null;
 };
 
 const DEFAULT_RETRY_AFTER_SECONDS = 1;
@@ -164,8 +158,8 @@ export class ChatRealtimeRateLimiterService {
     return this.userSocketCounts.get(userId) ?? 0;
   }
 
-  resolveRequestIp(source: RequestIpSource | undefined): string {
-    return resolveChatRealtimeRequestIp(source, { trustProxy: this.settings.trustProxy });
+  resolveRequestIp(source: ChatRequestPeer | undefined): string {
+    return resolveChatRealtimeRequestIp(source, this.settings.proxyProfile);
   }
 
   consumeThreadSubscription(input: { failed?: boolean; socketId: string }) {
@@ -245,41 +239,25 @@ export function throwChatRealtimeRateLimitError(result: ChatRealtimeRateLimitRes
 }
 
 export function resolveChatRealtimeRequestIp(
-  source: RequestIpSource | undefined,
-  options: RequestIpOptions = {},
+  source: ChatRequestPeer | undefined,
+  profile?: ChatRealtimeProxyProfile,
 ): string {
-  if (options.trustProxy) {
-    const forwardedFor = getHeader(source?.headers, 'x-forwarded-for');
-    const firstForwardedIp = forwardedFor?.split(',')[0]?.trim();
-    if (firstForwardedIp) {
-      return firstForwardedIp;
-    }
-
-    const realIp = getHeader(source?.headers, 'x-real-ip')?.trim();
-    if (realIp) {
-      return realIp;
-    }
+  const peer = normalizePeerIp(source?.peerAddress);
+  if (!peer) return 'unknown';
+  if (profile?.enabled && profile.isTrustedPeer(peer)) {
+    const forwarded = normalizePeerIp(readSingleChatHeader(source?.headers, 'x-forwarded-for'));
+    if (forwarded) return forwarded;
   }
-
-  if (source?.ip?.trim()) {
-    return source.ip.trim();
-  }
-
-  if (source?.socket?.remoteAddress?.trim()) {
-    return source.socket.remoteAddress.trim();
-  }
-
-  return 'unknown';
+  return peer;
 }
 
-function getHeader(
-  headers: RequestIpSource['headers'] | undefined,
+/** Reject competing spellings and wire-level duplicates (Node joins those with commas). */
+export function readSingleChatHeader(
+  headers: ChatRequestPeer['headers'],
   name: string,
 ): string | undefined {
-  const value = headers?.[name] ?? headers?.[name.toLowerCase()];
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
+  const entries = Object.entries(headers ?? {}).filter(([key]) => key.toLowerCase() === name);
+  if (entries.length !== 1) return undefined;
+  const value = entries[0]?.[1];
+  return typeof value === 'string' && !value.includes(',') ? value.trim() : undefined;
 }

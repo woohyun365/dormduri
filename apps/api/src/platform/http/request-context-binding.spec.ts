@@ -1,3 +1,4 @@
+import { readChatRealtimeProxyProfile } from '../../chat/realtime/chat-realtime.config.js';
 import {
   afterAll,
   beforeAll,
@@ -54,7 +55,10 @@ describe.each([
   let consumeTicket: MockInstance<ChatRealtimeRateLimiterService['consumeRealtimeTicket']>;
   const limiter = new ChatRealtimeRateLimiterService({
     ...chatRealtimeConfig(),
-    trustProxy: chatTrust,
+    proxyProfile: readChatRealtimeProxyProfile({
+      CHAT_REALTIME_TRUST_PROXY: String(chatTrust),
+      HTTP_TRUST_PROXY_CIDRS: localIp,
+    }),
     ticketUserLimit: 1,
     ticketUserWindowMs: 60_000,
     ticketIpLimit: 10,
@@ -166,7 +170,7 @@ describe.each([
   });
 
   it.each([true, false])(
-    'ticket IP preserves forwarded/real header precedence (forwarded=%s)',
+    'ticket rejects forwarding chains and real-IP fallbacks regardless of HTTP trust (forwarded=%s)',
     async (withForwarded) => {
       const req = request(url)
         .post('/api/chat/realtime/tickets')
@@ -174,13 +178,7 @@ describe.each([
         .set('x-real-ip', realIp);
       if (withForwarded) req.set('x-forwarded-for', `${forwardedIp}, 10.0.0.1`);
       expect((await req).status).toBe(201);
-      const ip = withForwarded
-        ? chatTrust || httpTrust
-          ? forwardedIp
-          : localIp
-        : chatTrust
-          ? realIp
-          : localIp;
+      const ip = localIp;
       expect(consumeTicket).toHaveBeenCalledExactlyOnceWith({
         userId: actor.id,
         ip,
@@ -188,6 +186,18 @@ describe.each([
       expect(tickets.issueTicketFromAccessToken).toHaveBeenCalledExactlyOnceWith('valid-token');
     },
   );
+
+  it('single forwarded IP is consumed only under explicit chat peer trust', async () => {
+    const response = await request(url)
+      .post('/api/chat/realtime/tickets')
+      .auth('valid-token', { type: 'bearer' })
+      .set('x-forwarded-for', forwardedIp);
+    expect(response.status).toBe(201);
+    expect(consumeTicket).toHaveBeenCalledExactlyOnceWith({
+      userId: actor.id,
+      ip: chatTrust ? forwardedIp : localIp,
+    });
+  });
 
   it('ticket limiter retains 429, retry-after, metric and no second ticket side effect', async () => {
     const issue = () =>
