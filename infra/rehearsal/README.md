@@ -97,3 +97,45 @@ observer `172.30.250.0/28`이며 각 Nginx `.2`, API/Web/collector `.3`를 사�
 fixture에는 예를 들어 `fd45:448:247::/64`와 명시한 peer 주소를 추가한다. 이것은 실제 production 할당이
 아니다. Runtime runner는 실행 직전 host route와 현재 Docker network 충돌을 검사하고, fresh project의
 정확히 기록한 resource만 정리한다. 기존 full-stack/user project를 down하거나 network/volume prune하지 않는다.
+
+### Account-free ingress fixture
+
+```bash
+docker build --label knu.fixture.kind=chat-ingress-trust \
+  --label knu.fixture.source="$(git rev-parse HEAD)" \
+  -f scripts/infra/rehearsal/ingress-trust/Dockerfile \
+  -t knu-chat-ingress-fixture:local .
+node scripts/infra/rehearsal/ingress-trust/index.mjs --image=knu-chat-ingress-fixture:local --mode=fixture-http
+node scripts/infra/rehearsal/ingress-trust/index.mjs --image=knu-chat-ingress-fixture:local --mode=production-https
+```
+
+두 모드 모두 disposable **로컬 fixture**다. HTTPS 모드도 테스트 전용 자체 서명 인증서만 사용하며
+클라이언트는 그 인증서와 hostname을 검증한다. 실제 인증서 발급, provider/DB 연결, host port publish,
+Docker daemon/global network 설정 변경은 없다. `netstat`, OpenSSL, Docker Compose와 IPv6 bridge를
+지원하는 로컬 runner가 필요하다. 이미지 빌드는 기존 lockfile dependency로 API와 실제 Web production
+surface를 빌드한다. 실행 전 image 내부의 source manifest를 현재 API/Web/packages/fixture 입력과
+비교하며, 누락·불일치·오래된 image는 거부한다. 가변 tag 대신 확인한 immutable image ID로 실행하고,
+image ID/source digest, 실제 `nginx -T` 및 Compose config digest를 결과에 기록한다. source label은
+보조 정보일 뿐 검증 근거를 대신하지 않는다.
+
+런타임은 실제 API ticket controller/guard, IP limiter, Socket.IO adapter/gateway와 두 Web BFF forwarding
+함수를 실행한다. 사용자/일회용 ticket 저장소는 메모리 합성 provider이고, Web은 실제 Next production
+서버 대신 `NextRequest`를 사용하는 테스트 전용 listener다. `/auth/fixture/probe`, readiness와 metrics
+응답은 fixture 전용이다. 따라서 production bootstrap, DB, metrics guard 자체나 전체 브라우저 기능의
+검증을 대신하지 않는다. Socket.IO namespace ack뿐 아니라 실제 gateway의 인증 후 connection counter를
+확인한다. Polling과 WebSocket 직접 연결은 ingress에서, polling→WebSocket upgrade와 gateway-only 제한은
+API의 실제 transport regression에서 검증한다.
+
+결과는 `artifacts/local/infra/ingress-trust/<project>/result.json`에 저장한다. 동일 client의 위조 prefix
+변경, 서로 다른 client, BFF, native IPv6, authority/scheme, private ACL, observer route/token과 forbidden
+TCP 경로를 확인한다. TCP 격리 실패도 끝까지 수집하되 skip/PASS로 바꾸지 않는다. 생성한 정확한 project
+label을 확인한 뒤 해당 container/network/volume을 정리하며, 모두 제거된 것을 확인하지 않으면
+결과가 PASS가 되지 않는다. 실패·남은 volume·타 project label 및 반복 cleanup 회귀를 함께 유지한다.
+
+**Runner 격리는 검증 대상이다.** Docker 호환 엔진의 custom network가 bridge 간 직접 TCP 접근을
+허용하면 이 fixture는 실패해야 한다. [OrbStack의 cross-network 접근 보고](https://github.com/orbstack/orbstack/issues/1944)나
+엔진 종류만으로 현재 버전의 성공/실패를 단정하지 말고 실제 denial 결과를 사용한다. 실패 시 표준 bridge
+격리를 제공하는 별도 Linux Docker runner에서 같은 topology를 재검증한다. `internal: true`, 광범위한
+trusted CIDR, assertion 완화 또는 host 방화벽 변경으로 실패를 숨기지 않는다. Linux runner의 PASS도 실제
+release host의 TLS/peer/IPAM/egress/monitoring 증거를 대신하지 않으며, 배포 owner가 해당 release SHA의
+증거를 확인하기 전 activation은 NO-GO다.

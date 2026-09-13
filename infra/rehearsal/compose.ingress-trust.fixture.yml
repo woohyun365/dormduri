@@ -1,0 +1,94 @@
+# Account-free fixture only. Unrelated business providers are synthetic; transport owners are real.
+services:
+  api:
+    build: !reset null
+    image: ${INGRESS_FIXTURE_IMAGE:?build the source-bound fixture image first}
+    entrypoint: !override ['node', '/fixture/api.fixture.mjs']
+    command: !override []
+    env_file: !override []
+    volumes: !override []
+    environment:
+      NODE_ENV: test
+      CHAT_REALTIME_ALLOWED_ORIGINS: ${INGRESS_FIXTURE_ORIGIN:?set fixture origin}
+      CHAT_REALTIME_TICKET_IP_LIMIT: '1'
+      CHAT_REALTIME_TICKET_USER_LIMIT: '100'
+      CHAT_REALTIME_TICKET_IP_WINDOW_SECONDS: '3600'
+      CHAT_REALTIME_WS_CONNECT_IP_LIMIT: '1'
+      CHAT_REALTIME_WS_CONNECT_IP_WINDOW_SECONDS: '3600'
+      CHAT_REALTIME_WS_CONNECT_USER_LIMIT: '100'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    restart: 'no'
+  web:
+    build: !reset null
+    image: ${INGRESS_FIXTURE_IMAGE:?build the source-bound fixture image first}
+    entrypoint:
+      !override [
+        'node',
+        '--experimental-loader',
+        '/fixture/web-loader.mjs',
+        '/fixture/web.fixture.mjs',
+      ]
+    command: !override []
+    environment:
+      NODE_ENV: test
+      WEB_APP_URL: ${INGRESS_FIXTURE_WEB_ORIGIN:?set fixture web origin}
+      WEB_BFF_OPERATIONAL_LOGGING_ENABLED: '0'
+    restart: 'no'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+  nginx:
+    restart: 'no'
+    ports: !override []
+  client_a: &client
+    image: ${INGRESS_FIXTURE_IMAGE:?build the source-bound fixture image first}
+    entrypoint: ['node', '-e', 'setInterval(()=>{},1000)']
+    user: '10001:10001'
+    volumes:
+      - ${INGRESS_TLS_DIRECTORY:?fixture certificates directory}/fixture.crt:/fixture-tls/ca.crt:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: 'no'
+    networks:
+      ingress-public:
+        ipv4_address: 172.30.247.10
+        ipv6_address: fd45:448:247::10
+  client_b:
+    <<: *client
+    networks:
+      ingress-public:
+        ipv4_address: 172.30.247.11
+        ipv6_address: fd45:448:247::11
+  collector:
+    <<: *client
+    networks:
+      ingress-observer:
+        ipv4_address: 172.30.250.3
+  untrusted_web:
+    <<: *client
+    networks:
+      ingress-web:
+        ipv4_address: 172.30.249.10
