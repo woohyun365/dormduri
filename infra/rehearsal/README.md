@@ -2,6 +2,9 @@
 
 이 디렉터리는 production 후보에 자동 합성되지 않는 local/constrained rehearsal 설정만 소유한다.
 
+OrbStack과 독립 Linux VM의 선택, profile별 자원 및 증거 경계는
+[Local environment selector](../runbooks/rehearsal/local-environments.md)를 먼저 확인한다.
+
 Lightsail secret delivery의 AWS-account-free candidate/activation/rollback fault matrix는
 [`lightsail-secret-delivery.md`](../runbooks/rehearsal/lightsail-secret-delivery.md)와
 `pnpm infra:rehearsal:lightsail-secrets`가 소유한다. Raw bundle은 rehearsal artifact로 보존하지 않는다.
@@ -39,6 +42,9 @@ pnpm infra:rehearsal:full-stack
 OrbStack은 2CPU / 4608MiB로 설정한다. 4096MiB는 production App host와 같은 제품 envelope이며,
 나머지 512MiB는 실제 배포에서 외부 RDS가 소유할 PostgreSQL을 로컬에만 띄우기 위한 별도
 allowance다.
+
+아래 전역 설정·재시작은 승인된 변경에만 사용한다. 현재 값을 먼저 확인하며 매 실행마다 자동 변경하지 않는다.
+별도 auth-capacity의 strict 4096MiB profile과 합치거나 미래 BackOffice 자원을 더하지 않는다.
 
 ```bash
 orbctl config set cpu 2
