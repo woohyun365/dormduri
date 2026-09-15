@@ -125,6 +125,199 @@ describe('ChatRealtimeGateway', () => {
     expect(publisher.bindServer).toHaveBeenCalledWith(server);
   });
 
+  it('직접 주입한 duplicate disconnect는 다른 counted socket의 gauge를 감소시키지 않는다', async () => {
+    const a = { ...createSocket('ticket-a'), id: 'socket-a' };
+    const b = { ...createSocket('ticket-b'), id: 'socket-b' };
+    authService.consumeTicket.mockResolvedValueOnce(authUser).mockResolvedValueOnce(authUser);
+    await gateway.handleConnection(a as never);
+    await gateway.handleConnection(b as never);
+    expect(metrics.snapshot()).toMatchObject({ connectedSockets: 2, totalConnections: 2 });
+    gateway.handleDisconnect(a as never);
+    expect(metrics.snapshot().connectedSockets).toBe(1);
+    gateway.handleDisconnect(a as never);
+    expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 2 });
+    expect(rateLimiter.unregisterUserSocket).toHaveBeenCalledTimes(1);
+    gateway.handleDisconnect(b as never);
+    gateway.handleDisconnect(b as never);
+    expect(metrics.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 2 });
+    expect(rateLimiter.unregisterUserSocket).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['auth', 'ip', 'user', 'concurrent'] as const)(
+    '%s rejected socket의 직접 주입 disconnect는 counted B를 감소시키지 않는다',
+    async (rejectedAt) => {
+      const b = { ...createSocket('ticket-b'), id: 'socket-b' };
+      const a = { ...createSocket('ticket-a'), id: 'socket-a' };
+      authService.consumeTicket.mockResolvedValueOnce(authUser);
+      await gateway.handleConnection(b as never);
+      if (rejectedAt === 'auth') authService.consumeTicket.mockResolvedValueOnce(null);
+      else if (rejectedAt !== 'ip') authService.consumeTicket.mockResolvedValueOnce(authUser);
+      const rejected = { allowed: false, retryAfterSeconds: 1 };
+      if (rejectedAt === 'ip')
+        rateLimiter.consumeGatewayConnectIp.mockReturnValueOnce({
+          ...rejected,
+          scope: 'chat:ws:connect:ip',
+        });
+      if (rejectedAt === 'user')
+        rateLimiter.consumeGatewayConnectUser.mockReturnValueOnce({
+          ...rejected,
+          scope: 'chat:ws:connect:user',
+        });
+      if (rejectedAt === 'concurrent')
+        rateLimiter.tryRegisterUserSocket.mockReturnValueOnce({
+          ...rejected,
+          scope: 'chat:ws:connect:concurrent-user',
+        });
+      await gateway.handleConnection(a as never);
+      expect(a.disconnect).toHaveBeenCalledWith(true);
+      expect(a.join).not.toHaveBeenCalled();
+      expect(a.data.registeredRealtimeUserId).toBeUndefined();
+      // This direct call is defensive ordering evidence, not framework reachability evidence.
+      gateway.handleDisconnect(a as never);
+      gateway.handleDisconnect(a as never);
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+      expect(rateLimiter.unregisterUserSocket).not.toHaveBeenCalled();
+      gateway.handleDisconnect(b as never);
+      expect(metrics.snapshot().connectedSockets).toBe(0);
+    },
+  );
+
+  it.each(['undefined', 'unregistered'] as const)(
+    '%s callback은 살아 있는 counted socket에 영향을 주지 않는다',
+    async (kind) => {
+      authService.consumeTicket.mockResolvedValueOnce(authUser);
+      const b = createSocket('ticket-b');
+      await gateway.handleConnection(b as never);
+      const client = kind === 'undefined' ? undefined : createSocket(null);
+      gateway.handleDisconnect(client as never);
+      gateway.handleDisconnect(client as never);
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+      expect(rateLimiter.unregisterUserSocket).not.toHaveBeenCalled();
+      gateway.handleDisconnect(b as never);
+      expect(metrics.snapshot().connectedSockets).toBe(0);
+    },
+  );
+
+  it.each([
+    ...(['auth', 'join'] as const).flatMap((point) =>
+      (['resolve', 'reject'] as const).map((outcome) => ({ point, outcome })),
+    ),
+    { point: 'auth', outcome: 'invalid' } as const,
+  ])(
+    'pending $point / $outcome: disconnect 이후 gauge가 부활하지 않는다',
+    async ({ point, outcome }) => {
+      authService.consumeTicket.mockResolvedValueOnce(authUser);
+      const b = { ...createSocket('ticket-b'), id: 'socket-b' };
+      const a = { ...createSocket('ticket-a'), id: 'socket-a' };
+      await gateway.handleConnection(b as never);
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const error = new Error('pending connection failed');
+      const wait = async () => {
+        entered();
+        await pending;
+        if (outcome === 'reject') throw error;
+      };
+      if (point === 'auth') {
+        authService.consumeTicket.mockImplementationOnce(async () => {
+          await wait();
+          return outcome === 'invalid' ? null : authUser;
+        });
+      } else {
+        authService.consumeTicket.mockResolvedValueOnce(authUser);
+        vi.mocked(a.join).mockImplementationOnce(wait);
+      }
+      const settled = gateway.handleConnection(a as never).then(
+        () => null,
+        (reason: unknown) => reason,
+      );
+      try {
+        await started;
+        expect(a.data.registeredRealtimeUserId).toBe(point === 'join' ? authUser.id : undefined);
+        gateway.handleDisconnect(a as never);
+        const duringDisconnect = metrics.snapshot();
+        release();
+        expect(await settled).toBe(outcome === 'reject' ? error : null);
+        if (outcome === 'invalid') {
+          expect(metrics.snapshot().authFailures).toEqual({ ticket_invalid: 1 });
+          expect(a.emit).toHaveBeenCalledWith(CHAT_REALTIME_ERROR_EVENT_NAME, {
+            code: 'CHAT_REALTIME_UNAUTHENTICATED',
+          });
+          expect(a.disconnect).toHaveBeenCalledWith(true);
+        }
+        // A recorded disconnect is terminal: successful late auth must not admit a dead socket.
+        expect.soft(a.data.registeredRealtimeUserId).toBeUndefined();
+        expect
+          .soft(rateLimiter.consumeGatewayConnectUser)
+          .toHaveBeenCalledTimes(point === 'join' ? 2 : 1);
+        expect
+          .soft(rateLimiter.tryRegisterUserSocket)
+          .toHaveBeenCalledTimes(point === 'join' ? 2 : 1);
+        expect
+          .soft(rateLimiter.unregisterUserSocket)
+          .toHaveBeenCalledTimes(point === 'join' ? 1 : 0);
+        if (point === 'auth') expect.soft(a.join).not.toHaveBeenCalled();
+        expect.soft(duringDisconnect).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+        expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+        gateway.handleDisconnect(a as never);
+        expect(metrics.snapshot().connectedSockets).toBe(1);
+        gateway.handleDisconnect(b as never);
+        expect(metrics.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 1 });
+      } finally {
+        release();
+        await settled;
+      }
+    },
+  );
+
+  it('일반 두 connect/disconnect의 gauge와 누적 counter는 균형을 유지한다', async () => {
+    authService.consumeTicket.mockResolvedValueOnce(authUser).mockResolvedValueOnce(authUser);
+    const a = { ...createSocket('ticket-a'), id: 'socket-a' };
+    const b = { ...createSocket('ticket-b'), id: 'socket-b' };
+    await gateway.handleConnection(a as never);
+    await gateway.handleConnection(b as never);
+    gateway.handleDisconnect(a as never);
+    expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 2 });
+    gateway.handleDisconnect(b as never);
+    expect(metrics.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 2 });
+  });
+
+  it.each(['setGauge', 'incrementCounter'] as const)(
+    '%s bridge 실패에도 gateway connection bookkeeping은 유지된다',
+    async (method) => {
+      const bridge = { setGauge: vi.fn(), incrementCounter: vi.fn(), observeHistogram: vi.fn() };
+      bridge[method].mockImplementation(() => {
+        throw new Error('metric rejected');
+      });
+      metrics = new ChatRealtimeMetricsService(bridge);
+      gateway = new ChatRealtimeGateway(
+        authService as never,
+        publisher as never,
+        metrics,
+        rateLimiter as never,
+      );
+      authService.consumeTicket.mockResolvedValueOnce(authUser).mockResolvedValueOnce(authUser);
+      const a = { ...createSocket('ticket-a'), id: 'socket-a' };
+      const b = { ...createSocket('ticket-b'), id: 'socket-b' };
+      await gateway.handleConnection(a as never);
+      await gateway.handleConnection(b as never);
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 2, totalConnections: 2 });
+      gateway.handleDisconnect(a as never);
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 2 });
+      gateway.handleDisconnect(a as never);
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 2 });
+      gateway.handleDisconnect(b as never);
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 2 });
+      expect(rateLimiter.unregisterUserSocket).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('valid ticket connection은 user room에 join하고 metrics를 증가시킨다', async () => {
     authService.consumeTicket.mockResolvedValueOnce(authUser);
     const socket = createSocket('ticket-1');

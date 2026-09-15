@@ -29,6 +29,8 @@ import {
 type ChatRealtimeSocketData = {
   authUser?: AuthenticatedUserContext;
   registeredRealtimeUserId?: string;
+  realtimeDisconnected?: boolean;
+  realtimeConnectionCounted?: boolean;
 };
 
 type ChatRealtimeSocket = Omit<Socket, 'data'> & {
@@ -74,6 +76,7 @@ export class ChatRealtimeGateway
       client.disconnect(true);
       return;
     }
+    if (client.data.realtimeDisconnected) return;
 
     const userRateLimit = this.rateLimiter.consumeGatewayConnectUser({ userId: authUser.id });
     if (!userRateLimit.allowed) {
@@ -90,17 +93,24 @@ export class ChatRealtimeGateway
     client.data.authUser = authUser;
     client.data.registeredRealtimeUserId = authUser.id;
     await Promise.resolve(client.join(chatRealtimeUserRoom(authUser.id)));
+    if (client.data.realtimeDisconnected) return;
+    client.data.realtimeConnectionCounted = true;
     this.metrics.recordSocketConnected();
   }
 
   handleDisconnect(client?: ChatRealtimeSocket) {
-    const registeredUserId = client?.data.registeredRealtimeUserId;
+    if (!client) return;
+    client.data.realtimeDisconnected = true;
+    const registeredUserId = client.data.registeredRealtimeUserId;
     if (registeredUserId) {
       this.rateLimiter.unregisterUserSocket({ userId: registeredUserId });
       delete client.data.registeredRealtimeUserId;
     }
 
-    this.metrics.recordSocketDisconnected();
+    if (client.data.realtimeConnectionCounted) {
+      delete client.data.realtimeConnectionCounted;
+      this.metrics.recordSocketDisconnected();
+    }
   }
 
   @SubscribeMessage(CHAT_REALTIME_THREAD_SUBSCRIBE_EVENT)
