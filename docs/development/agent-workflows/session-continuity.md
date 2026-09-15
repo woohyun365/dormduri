@@ -178,6 +178,24 @@ Checkpoint는 다음 경우에만 만듭니다.
 - 현재 결정할 수 없는 provider/account/domain/instance 값은 tracked readiness/evidence handoff로 옮깁니다.
 - 완료 plan은 `finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
 
+### Supporting 문서 재개와 인계
+
+문서 유형과 분할 기준은 [Plan authoring core](./plan-authoring/core.md#supporting-detail-and-bounded-plans)가 소유합니다.
+작업별 상세 문서는 `.omx/plans/supporting/<parent-plan-id>/`에 둘 수 있으며 이 로컬 배치는 문서 유형이나 승인 상태를
+결정하지 않습니다.
+
+- 재개 시 부모의 이유·영향 Phase·dependency·disposition을 읽고 현재 작업에 필요한 supporting만 따라갑니다. 전체 하위
+  트리를 재귀적으로 로드하지 않습니다. 자식 경로로 시작했으면 backlink의 부모 연결과 실제 상태를 먼저 확인합니다.
+- Preflight의 기본 `activePlans` 목록은 root 파일만 포함합니다. 중첩 문서는 부모 링크로 발견하고, 필요하면 기존
+  `--resume --plan .omx/plans/supporting/<parent-plan-id>/<detail>.md`를 명시합니다. 목록 누락은 완료/미존재 증거가 아니며,
+  상세 문서에 plan metadata가 없으면 진단을 참고하되 독립 plan으로 가장하지 않습니다.
+- 로컬 supporting 파일만으로 다른 clone에 인계됐다고 판단하지 않습니다. [Portable handoff](#portable-handoff)에 따라
+  현재 결정·AC·evidence·blocker·다음 행동을 권한 있는 기존 Issue/PR 또는 canonical 문서에 남깁니다. Raw 계획 전체를
+  추적하거나 local 경로를 장기 결정의 유일한 근거로 삼지 않습니다.
+- 완료·보관 시 부모/자식 링크와 상태 요약을 함께 확인하고, 실제 이동 경로에 맞게 링크를 보정합니다. 독립 미완료 plan은
+  부모와 함께 완료 처리하거나 finished 아래에 묻지 않고 active 진입점과 portable work item에서 발견 가능하게 유지합니다.
+  원본 보존과 runtime 상태 정리는 각각 기존 보존·소유권 경계를 따릅니다.
+
 ## Closeout
 
 작업 종료 시 plan과 notepad를 진행 결과처럼 보고하지 않습니다. 실제 파일 변경, 검증 결과와 blocker를 보고하고 active
