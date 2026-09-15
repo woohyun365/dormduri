@@ -68,5 +68,56 @@ describe('ChatRealtimeTicketService', () => {
     authSessionService.resolveCurrentUserContext.mockResolvedValueOnce(null);
 
     await expect(service.consumeTicket(issued?.ticket)).resolves.toBeNull();
+    await expect(service.consumeTicket(issued?.ticket)).resolves.toBeNull();
+    expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledTimes(2);
+  });
+
+  it('첫 consume의 재검증이 pending이어도 두 번째 consume은 resolver를 다시 호출하지 않는다', async () => {
+    const service = createService();
+    const issued = await service.issueTicketFromAccessToken('access-token-1');
+    expect(issued).not.toBeNull();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    authSessionService.resolveCurrentUserContext.mockImplementationOnce(async () => {
+      await pending;
+      return authUser;
+    });
+    const first = service.consumeTicket(issued?.ticket);
+    try {
+      expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledTimes(2);
+      await expect(service.consumeTicket(issued?.ticket)).resolves.toBeNull();
+      expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledTimes(2);
+      release();
+      await expect(first).resolves.toEqual(authUser);
+    } finally {
+      release();
+      await Promise.allSettled([first]);
+    }
+  });
+
+  it('재검증이 throw해도 이미 소비된 ticket을 복원하지 않는다', async () => {
+    const service = createService();
+    const issued = await service.issueTicketFromAccessToken('access-token-1');
+    expect(issued).not.toBeNull();
+    const error = new Error('revalidation unavailable');
+    authSessionService.resolveCurrentUserContext.mockRejectedValueOnce(error);
+
+    await expect(service.consumeTicket(issued?.ticket)).rejects.toBe(error);
+    await expect(service.consumeTicket(issued?.ticket)).resolves.toBeNull();
+    expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledTimes(2);
+  });
+
+  it('다른 service instance는 발급 ticket을 소비할 수 없고 발급 instance의 ticket도 지우지 않는다', async () => {
+    const issuer = createService();
+    const other = createService();
+    const issued = await issuer.issueTicketFromAccessToken('access-token-1');
+    expect(issued).not.toBeNull();
+
+    await expect(other.consumeTicket(issued?.ticket)).resolves.toBeNull();
+    expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledTimes(1);
+    await expect(issuer.consumeTicket(issued?.ticket)).resolves.toEqual(authUser);
+    expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledTimes(2);
   });
 });

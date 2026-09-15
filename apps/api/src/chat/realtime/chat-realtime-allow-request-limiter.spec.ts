@@ -12,6 +12,20 @@ function createRequest(ip = '203.0.113.10', remoteAddress = '10.0.0.10') {
 }
 
 describe('createChatRealtimeAllowRequestIpRateLimiter', () => {
+  it('동일 settings와 clock으로 만든 새 closure는 기존 closure의 소진된 budget을 공유하지 않는다', () => {
+    const settings = createChatRealtimeSettings({ CHAT_REALTIME_WS_CONNECT_IP_LIMIT: '1' });
+    const clock = () => 1_000;
+    const request = createRequest();
+    const first = createChatRealtimeAllowRequestIpRateLimiter(settings, clock);
+    expect(first(request)).toBe(true);
+    expect(first(request)).toBe(false);
+
+    const second = createChatRealtimeAllowRequestIpRateLimiter(settings, clock);
+    expect(second(request)).toBe(true);
+    expect(first(request)).toBe(false);
+    expect(second(request)).toBe(false);
+  });
+
   it('allowRequest 단계에서 pre-auth IP connection budget을 제한하고 window reset 후 허용한다', () => {
     let nowMs = 1_000;
     const limiter = createChatRealtimeAllowRequestIpRateLimiter(
