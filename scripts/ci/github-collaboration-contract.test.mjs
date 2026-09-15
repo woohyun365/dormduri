@@ -386,3 +386,93 @@ test('branch readiness stays advisory, semantic, and discoverable before pre-PR 
   assert.match(readiness, /advisory/u);
   assert.doesNotMatch(readiness, /\.omx\/plans|Phase\s+\d/iu);
 });
+
+function localBranchCleanupSection() {
+  const guide = read('docs/development/github/branch-and-pr-strategy.md');
+  const heading = '## Local branch cleanup\n';
+  assert.ok(guide.includes(heading), 'missing canonical local branch cleanup procedure');
+  return guide.split(heading)[1].split('\n## ')[0];
+}
+
+function assertCleanupSafetyContract(section) {
+  // Bounded document assertions, not an executable Git deletion gate.
+  for (const contract of [
+    /업무 권한.*MERGED.*CI.*대신하지/su,
+    /같은 repository.*PR.*head OID.*local tip.*expected base/su,
+    /merge OID.*fresh target.*ancestor/su,
+    /squash.*원본 commit ancestry.*필수 조건이 아니/su,
+    /현재 dev 전체 tree.*비교하지 않/u,
+    /`git branch --merged`.*증거.*대신하지 않/u,
+    /\| 추가 commit·branch 이름 재사용[ \t]*\|[^\n]*retained-with-reason/u,
+    /\| OPEN·CLOSED-unmerged·unpublished[ \t]*\|[^\n]*retained-with-reason/u,
+    /\| `\[gone\]`·CI green만 확인[ \t]*\|[^\n]*retained-with-reason/u,
+    /\| feature upstream에만 포함[ \t]*\|[^\n]*`-d`[^\n]*retained-with-reason/u,
+    /\| current·`main`·`dev`·보호 ref[ \t]*\|[^\n]*보존/u,
+    /\| 모든 registered worktree[ \t]*\|[^\n]*locked[^\n]*보존/u,
+    /\| 소유권·provider 증거 불명[ \t]*\|[^\n]*retained-with-reason/u,
+    /SHA.*reflog만.*복구.*보장하지 않/su,
+    /bundle.*verify.*list-heads/su,
+    /self-contained bundle.*제외된 prerequisite.*독립적으로 보존/su,
+    /삭제 직전.*ref\/OID.*worktree.*재확인/su,
+    /원자적 lock.*아니/su,
+    /`-D`.*별도.*강제 삭제.*권한.*복구/su,
+    /실패를 자동.*강제 삭제.*전환하지 않/u,
+    /동일 이름.*새 ref.*덮어쓰지 않/u,
+  ]) {
+    assert.match(section, contract);
+  }
+  assert.doesNotMatch(section, /git branch -d[^\n]*\|\|[^\n]*git branch -D/u);
+  assert.doesNotMatch(section, /git branch[^\n]*\|[^\n]*xargs[^\n]*git branch -D/u);
+}
+
+test('local cleanup separates ref surfaces, task scope, and execution authority', () => {
+  const section = localBranchCleanupSection();
+  assert.match(section, /local branch.*refs\/heads/su);
+  assert.match(section, /remote branch.*서버/su);
+  assert.match(section, /remote-tracking.*refs\/remotes/su);
+  assert.match(section, /task-local.*전체.*audit.*별도/su);
+  assert.match(section, /remote 삭제.*worktree 제거.*GC.*별도/su);
+  assert.match(section, /advisory-policy.*deterministic-static.*강제하지 않/su);
+  assert.doesNotMatch(section, /\.omx\/plans|artifacts\/local\/\S*\d{4}-\d{2}-\d{2}/u);
+});
+
+test('post-merge cleanup requires integration, protection, recovery, and revalidation', () => {
+  assertCleanupSafetyContract(localBranchCleanupSection());
+});
+
+test('cleanup contract assertions reject bounded unsafe guidance mutations', () => {
+  const section = localBranchCleanupSection();
+  assertCleanupSafetyContract(section);
+  for (const removedClause of [
+    /업무 권한[^\n]*/u,
+    /\| feature upstream에만 포함[ \t]*\|[^\n]*/u,
+    /\| 모든 registered worktree[ \t]*\|[^\n]*/u,
+    /SHA[^\n]*reflog만[^\n]*/u,
+    /self-contained bundle[^\n]*/u,
+    /삭제 직전[^\n]*/u,
+    /실패를 자동[^\n]*/u,
+  ]) {
+    assert.match(section, removedClause);
+    assert.throws(() => assertCleanupSafetyContract(section.replace(removedClause, '')), {
+      name: 'AssertionError',
+    });
+  }
+  for (const unsafeCommand of [
+    'git branch -d branch || git branch -D branch',
+    'git branch --merged | xargs git branch -D',
+  ]) {
+    assert.throws(() => assertCleanupSafetyContract(`${section}\n${unsafeCommand}`), {
+      name: 'AssertionError',
+    });
+  }
+});
+
+test('integration handoff records deleted or retained local branches through the canonical owner', () => {
+  const lifecycle = read('docs/development/agent-workflows/development-lifecycle.md');
+  assert.match(lifecycle, /branch-and-pr-strategy\.md#local-branch-cleanup/u);
+  assert.match(lifecycle, /deleted.*retained-with-reason/su);
+  assert.match(lifecycle, /보존 이유.*다음.*조건/su);
+  const section = localBranchCleanupSection();
+  assert.match(section, /삭제 후.*ref.*없.*확인/su);
+  assert.match(section, /retained-with-reason.*완료.*실패.*아닙/su);
+});
