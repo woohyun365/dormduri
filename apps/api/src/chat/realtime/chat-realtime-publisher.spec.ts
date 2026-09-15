@@ -23,6 +23,31 @@ function createServerMock() {
 }
 
 describe('ChatRealtimePublisher', () => {
+  it('publisher instance마다 server binding과 emit 대상이 독립적이다', () => {
+    const first = new ChatRealtimePublisher();
+    const second = new ChatRealtimePublisher();
+    const firstServer = createServerMock();
+    const secondServer = createServerMock();
+    const input = { userId: 'user-1', eventName: 'chat.event', payload: { marker: 'first' } };
+
+    first.bindServer(firstServer.server as never);
+    expect(first.isBound()).toBe(true);
+    expect(second.isBound()).toBe(false);
+    expect(() => second.publishToUserRoom(input)).toThrow('server is not bound');
+    first.publishToUserRoom(input);
+    second.bindServer(secondServer.server as never);
+    second.publishToUserRoom({ ...input, payload: { marker: 'second' } });
+    first.publishToUserRoom(input);
+
+    expect(firstServer.emits).toEqual([
+      { room: 'user:user-1', eventName: 'chat.event', payload: input.payload },
+      { room: 'user:user-1', eventName: 'chat.event', payload: input.payload },
+    ]);
+    expect(secondServer.emits).toEqual([
+      { room: 'user:user-1', eventName: 'chat.event', payload: { marker: 'second' } },
+    ]);
+  });
+
   const outboxEvent = {
     id: 'event-1',
     eventType: 'chat.read_marker.updated',

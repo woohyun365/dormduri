@@ -52,6 +52,41 @@ function createLimiter(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ChatRealtimeRateLimiterService', () => {
+  it('후순위 IP bucket 거절은 새 user bucket을 소비하지 않고 허용된 요청만 함께 소비한다', () => {
+    const { limiter } = createLimiter({ ticketUserLimit: 1, ticketIpLimit: 1 });
+    expect(limiter.consumeRealtimeTicket({ userId: 'A', ip: 'X' }).allowed).toBe(true);
+    expect(limiter.consumeRealtimeTicket({ userId: 'B', ip: 'X' })).toMatchObject({
+      allowed: false,
+      scope: 'chat:ticket:ip',
+    });
+    expect(limiter.consumeRealtimeTicket({ userId: 'B', ip: 'Y' }).allowed).toBe(true);
+    expect(limiter.consumeRealtimeTicket({ userId: 'B', ip: 'Z' })).toMatchObject({
+      allowed: false,
+      scope: 'chat:ticket:user',
+    });
+  });
+
+  it('socket count는 2→1→0으로 감소하고 zero/unknown 해제는 다른 user에 영향을 주지 않는다', () => {
+    const { limiter } = createLimiter({ wsConcurrentUserLimit: 2 });
+    const user = { userId: 'user-1' };
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(true);
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(true);
+    expect(limiter.tryRegisterUserSocket({ userId: 'user-2' }).allowed).toBe(true);
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(false);
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(2);
+
+    limiter.unregisterUserSocket(user);
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(1);
+    limiter.unregisterUserSocket(user);
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(0);
+    limiter.unregisterUserSocket(user);
+    limiter.unregisterUserSocket({ userId: 'unknown' });
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(0);
+    expect(limiter.getUserSocketCountForTest('unknown')).toBe(0);
+    expect(limiter.getUserSocketCountForTest('user-2')).toBe(1);
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(true);
+  });
+
   const trusted = readChatRealtimeProxyProfile({
     CHAT_REALTIME_TRUST_PROXY: 'true',
     HTTP_TRUST_PROXY_CIDRS: '10.0.0.2',
