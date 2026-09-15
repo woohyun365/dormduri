@@ -252,7 +252,8 @@ NODE
 4. commit은 하나의 의도와 Lore evidence를 가집니다.
 5. PR은 `dev`를 target으로 하며 실제 검증 결과와 검증 공백을 기록합니다.
 6. Required CI가 green이 된 뒤 target branch가 허용하는 merge method로 merge합니다.
-7. merge 후 local `dev`를 fast-forward하고, 다음 dependent work는 그 상태에서 새 branch를 만듭니다.
+7. merge 후 local `dev`를 fast-forward하고 [local branch disposition](#local-branch-cleanup)을 기록합니다.
+   다음 dependent work는 그 상태에서 새 branch를 만듭니다.
 
 `dev -> main` 승격은 feature PR과 별도의 integration 경계입니다. External provider 설정은 default branch 반영이 필요할 수
 있지만, repository owner 승인과 green CI 없이 직접 main을 수정하지 않습니다.
@@ -271,6 +272,69 @@ dev -> main integration: merge commit
   conflict와 byte-identical reconciliation을 만들 수 있습니다.
 - Repository setting은 squash와 merge commit을 모두 허용하되, active `dev-integration-gate`는 squash only,
   `main-release-gate`는 merge only로 제한합니다. 상세 expected/actual evidence는 `remote-repository-settings.md`가 소유합니다.
+
+## Local branch cleanup
+
+통합 완료 시 이번 task-local branch를 `deleted` 또는 `retained-with-reason`으로 인계합니다. 전체 local branch inventory
+audit는 별도 요청·대상 확정이 필요한 작업이며, 현재 PR 완료를 다른 작업/세션의 일괄 정리 권한으로 확대하지 않습니다.
+업무 권한은 현재 요청의 cleanup 대상·행동에서 확인합니다. MERGED, CI green, reviewer PASS는 삭제 승인을 대신하지 않습니다.
+권한이 없거나 증거가 모호하면 보존 이유와 다시 판단할 조건을 남기고, 독립적인 다음 구현은 계속할 수 있습니다.
+
+| Ref surface         | 의미와 정리 경계                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| local branch        | 현재 clone의 `refs/heads/*`; 아래 절차의 대상                                                                                                     |
+| remote branch       | GitHub 등 서버의 branch; merge 후 자동 삭제돼도 local ref는 남음                                                                                  |
+| remote-tracking ref | local 관측값 `refs/remotes/*`; `git fetch origin --prune`은 사라진 remote ref의 관측값을 정리할 뿐 local branch를 삭제하거나 병합을 증명하지 않음 |
+
+### 판정과 보호
+
+1. 저장소 identity, 정확한 ref 이름/OID, upstream, 현재 branch/status와 `git worktree list --porcelain`을 확인합니다.
+   `main`·`dev` 및 owner가 보호한 ref, 모든 registered worktree와 다른 세션의 작업을 후보에서 제외합니다.
+2. 같은 repository의 PR, merged head OID와 local tip의 일치, expected base, 실제 merge OID를 확인합니다.
+   merge OID가 fresh target history의 ancestor인지 확인합니다. ref 이름이나 과거 PR 번호만으로 연결하지 않습니다.
+   squash에서는 원본 commit ancestry가 필수 조건이 아니며, PR head→merge 결과의 변경 반영을 별도로 확인합니다.
+   target이 전진했다면 현재 dev 전체 tree와 원본 branch tree를 단순 비교하지 않습니다.
+   `git branch --merged`의 후보 목록도 PR·권한·소유권 증거를 대신하지 않습니다.
+3. 아래 판정에서 하나라도 보존 조건이면 삭제하지 않습니다. 이름이 재사용되거나 추가 commit이 있으면 기존 merged PR의
+   승인을 새 tip에 전용하지 않고 다시 소유권·통합 여부를 확인합니다.
+
+| 관찰                             | Disposition                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------ |
+| 정확한 merged tip·통합 증거 있음 | 보호 충돌이 없을 때만 삭제 후보; 권한·복구·재확인까지 충족해야 실행                        |
+| 추가 commit·branch 이름 재사용   | `retained-with-reason`; 현재 tip의 소유권·별도 통합 증거 확인                              |
+| OPEN·CLOSED-unmerged·unpublished | `retained-with-reason`; 완료하지 않은 작업으로 보존                                        |
+| `[gone]`·CI green만 확인         | `retained-with-reason`; remote 부재/테스트 성공은 merge 증거가 아님                        |
+| feature upstream에만 포함        | `-d`가 성공할 수 있어도 dev 통합 증거가 없으면 `retained-with-reason`                      |
+| current·`main`·`dev`·보호 ref    | 보존; 자신의 clean checkout에서 안전하게 다른 branch로 이동한 뒤에만 current 후보를 재판정 |
+| 모든 registered worktree         | attached·locked·경로 unavailable 모두 보존; 다른 worktree를 강제로 전환·제거하지 않음      |
+| 소유권·provider 증거 불명        | `retained-with-reason`; 확인할 owner·증거·권한을 다음 조건으로 기록                        |
+
+### 실행·복구·인계
+
+1. 대상 ref/OID, upstream, repository·PR·base·merge 증거와 보호 판정을 고정합니다. 복구는 위험에 비례해 준비합니다.
+   원본 tip이 보존할 target history에 도달 가능하면 그 history로 ref를 복원할 수 있습니다. squash 원본처럼 도달 가능하지
+   않은 commit은 삭제 전에 적절한 bundle과 ref manifest 등으로 객체 보존을 확인하거나 branch를 보존합니다.
+   bundle은 `git bundle verify`와 `git bundle list-heads`로 의존 history와 정확한 tip 포함 여부를 확인합니다.
+   self-contained bundle을 사용하거나 제외된 prerequisite가 이번 삭제 대상 밖의 history/ref 또는 검증한 backup에
+   독립적으로 보존됨을 확인합니다. 현재 checkout의 verify 성공만으로 삭제 후 prerequisite 생존을 보장하지 않으며,
+   이를 확인할 수 없으면 branch를 보존합니다.
+   SHA 기록이나 삭제되는 branch의 reflog만으로 복구를 보장하지 않습니다. branch 삭제는 그 reflog도 삭제합니다.
+2. 삭제 직전 ref/OID·target·current branch/status·worktree 상태를 재확인합니다. 관찰은 원자적 lock이 아니므로 다른 writer와
+   조율하고, ref 이동·새 attachment·증거 불일치가 있으면 중단·재판정합니다. 다중 writer 경쟁을 배제할 수 없으면 보존합니다.
+3. 승인된 정확한 단일 branch에 `git branch -d -- <branch>`를 우선 사용합니다. 이 명령은 설정된 upstream(없으면 HEAD)의
+   도달 가능성을 검사하므로 성공 자체가 dev 통합 증거는 아닙니다. 위 판정을 명령의 성공 여부로 대체하지 않습니다.
+   실패를 자동으로 강제 삭제로 전환하지 않습니다. `-D`는 별도 확인된 강제 삭제 범위의 권한과 통합·보호·복구 조건이
+   모두 갖춰진 정확한 ref에만 사용합니다. blanket deletion이나 삭제 loop를 기본 절차로 두지 않습니다.
+4. 삭제 후 정확한 local ref가 없는지 확인하고 다른 ref/worktree가 바뀌지 않았는지 확인합니다. 실패·변동을 숨기지 않습니다.
+   복구 시에도 동일 이름의 새 ref를 덮어쓰지 않습니다. manifest와 보존 history/bundle로 정확한 tip을 되살리되 upstream
+   등 branch 설정은 별도 확인합니다. reflog/history 복원과 설정 복원은 같은 주장이 아닙니다.
+5. handoff에 branch/tip·통합 PR·`deleted` 또는 `retained-with-reason`·근거·복구 위치 또는 보존 이유·다음 판단 조건을
+   남깁니다. `retained-with-reason`도 정리 판정의 완료이며 삭제 실패를 감추는 표현은 아닙니다.
+
+Local cleanup은 remote 삭제, worktree 제거, GC를 포함하지 않습니다. 각각 별도 범위·권한을 확인하고 복구 객체를 지우지
+않습니다. 개인 경로·과거 branch inventory·bundle receipt는 local artifact/handoff에 두며 장기 정책에 복제하지 않습니다.
+이 절차는 advisory-policy이고 관련 문서 회귀는 deterministic-static 정합성 검사입니다. Agent의 실제 삭제 판단이나
+host 권한을 강제하지 않으며, 새 CLI·hook·상태 파일 설치를 요구하지 않습니다.
 
 ## 예외와 복구
 

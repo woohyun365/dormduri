@@ -65,6 +65,10 @@ release handoff에 남깁니다. 현재 scoped acceptance는 완료할 수 있�
 - Release-ready: 실제 target의 secret, migration, rollback 등 release owner의 조건이 충족됐다.
 - Production-observed: 실제 운영 또는 사용자 관찰 결과가 있다.
 
+통합 후에는 [Local branch cleanup](../github/branch-and-pr-strategy.md#local-branch-cleanup)에 따라 해당 task의 local
+branch를 `deleted` 또는 `retained-with-reason`으로 인계합니다. PR/merge 근거와 삭제 결과·복구 위치 또는 보존 이유·다음
+판단 조건을 남깁니다. 이 판정은 배포 완료나 다른 작업의 일괄 삭제 권한을 뜻하지 않으며, 상세 절차는 Git owner를 재사용합니다.
+
 개발 도구처럼 development-only outcome에는 배포가 필요하지 않습니다. 반대로 happy path만 만든 뒤 필요한 실패 경로,
 public contract나 검증을 미래로 미루면 usable slice가 아닙니다. 계약상 필요한 acceptance가 빠지면 현재 완료를 막습니다.
 실제 target이 없는 production 주장은 `PENDING_TARGET`이며 local rehearsal나 QA PASS로 승격하지 않습니다.
