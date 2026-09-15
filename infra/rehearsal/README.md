@@ -137,6 +137,37 @@ API의 실제 transport regression에서 검증한다.
 TCP 경로를 확인한다. TCP 격리 실패도 끝까지 수집하되 skip/PASS로 바꾸지 않는다. 생성한 정확한 project
 label을 확인한 뒤 해당 container/network/volume을 정리하며, 모두 제거된 것을 확인하지 않으면
 결과가 PASS가 되지 않는다. 실패·남은 volume·타 project label 및 반복 cleanup 회귀를 함께 유지한다.
+로그 수집 실패와 cleanup 실패는 별도로 기록하며, 로그 수집이 실패해도 정확한 자원 정리를 시도한다.
+
+#### Routed synthetic egress
+
+위 기본 실행은 inbound baseline이다. `routedEgressVerified: false`인 결과는 outbound acceptance를
+완료하지 않는다. 전체 로컬 검증에서는 Docker daemon host 밖의 승인된 peer Linux에 한시적인 endpoint를
+준비하고 두 모드 모두 `--egress`를 전달한다. 아래 주소는 fixture 전용 예시이지 production 설정이 아니다.
+
+```bash
+# 실행마다 새 nonce를 만들고, 동일 JSON을 peer와 runner에 전달한다.
+egress='{"address":"172.31.254.2","sourceAddress":"172.31.254.1","port":18080,"nonce":"<32 lowercase hex characters>"}'
+# peer Linux: private interface만 bind; Docker나 product dependency는 필요 없음.
+node scripts/infra/rehearsal/ingress-trust/egress.mjs --serve="$egress"
+# runner Linux: 같은 daemon/source-bound image에서 두 mode를 각각 실행한다.
+node scripts/infra/rehearsal/ingress-trust/index.mjs \
+  --image=knu-chat-ingress-fixture:local --mode=production-https --egress="$egress"
+```
+
+Peer는 선언한 source, nonce, API/Web GET 경로만 허용하고 실제 수신 주소를 응답·로그에 기록한다.
+Privileged port·public/DNS/loopback target·fixture 내부 주소·daemon-host INPUT endpoint는 거부한다.
+Runner는 **실제 API/Web 컨테이너**의 기본 route, 외부 peer-facing interface로 향하는 Linux forward route,
+`iptables-save -c`의 FORWARD·해당 bridge MASQUERADE counter 증가와 peer 응답을 함께 검증한다.
+현재 counter 검증은 Docker iptables backend의 규칙을 요구하며, 미지원 backend를 성공으로 간주하지 않는다.
+필터/route를 수정하거나 새 trusted peer를 추가하지 않는다. Host probe·ping 또는 gateway INPUT 성공은
+대체 증거가 아니다. IPv4 synthetic outbound 검증과 fixture 내부 native IPv6 검증은 별개다.
+
+Endpoint는 최대 15분 후 종료하지만 이는 안전장치일 뿐 cleanup 증거가 아니다. VM 관리 owner는 실행 전
+포트 부재·실제 PID/command/nonce를 기록하고 정상·의도적인 실패·실제 OS SIGTERM 각각의 `finally`에서
+정확한 peer 프로세스를 종료한 뒤 socket/PID 부재와 Compose 자원 부재를 확인한다. PID 재사용이나
+다른 프로세스의 포트 점유를 kill 권한으로 해석하지 않는다. Runner가 peer VM을 직접 관리하지 않으며,
+이미 승인된 guest-management 경로를 사용한다. Image manifest에 포함된 fixture 파일을 바꾸면 재빌드한다.
 
 **Runner 격리는 검증 대상이다.** Docker 호환 엔진의 custom network가 bridge 간 직접 TCP 접근을
 허용하면 이 fixture는 실패해야 한다. [OrbStack의 cross-network 접근 보고](https://github.com/orbstack/orbstack/issues/1944)나

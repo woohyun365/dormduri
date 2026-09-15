@@ -233,3 +233,184 @@ test('manifest probe owns create/start timeout and signal cleanup before the mai
     assert.ok(calls.some((args) => args[0] === 'rm'));
   }
 });
+
+test('fixture closeout records diagnostic and cleanup failures without skipping cleanup', async () => {
+  const { closeFixture } = await import('./index.mjs');
+  for (const failLogs of [false, true]) {
+    for (const failDown of [false, true]) {
+      const fixture = cleanupDouble({ failDown });
+      const directory = mkdtempSync(resolve(tmpdir(), 'knu-ingress-closeout-'));
+      try {
+        const result = await closeFixture(
+          fixture.project,
+          fixture.docker,
+          async (args) => {
+            if (args[0] === 'logs') {
+              if (failLogs) throw new Error('injected logs failure');
+              return 'fixture logs';
+            }
+            return fixture.compose(args);
+          },
+          directory,
+        );
+        assert.equal(result.cleanupConfirmed, !failDown);
+        assert.equal(Boolean(result.diagnosticFailure), failLogs);
+        assert.equal(Boolean(result.cleanupFailure), failDown);
+        assert.ok(fixture.commands.some((args) => args[0] === 'down'));
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
+  }
+});
+
+test('routed egress config rejects unbounded, public, same-host and fixture-network endpoints', async () => {
+  const { validateEgress } = await import('./egress.mjs');
+  const valid = {
+    address: '172.31.254.2',
+    sourceAddress: '172.31.254.1',
+    port: 18080,
+    nonce: 'a'.repeat(32),
+  };
+  assert.deepEqual(validateEgress(valid, fixtureInput().networks), valid);
+  for (const change of [
+    { address: 'example.test' },
+    { address: '8.8.8.8' },
+    { address: '127.0.0.1' },
+    { address: '172.31.254.1' },
+    { address: '172.30.248.3' },
+    { sourceAddress: '172.30.249.3' },
+    { port: 80 },
+    { port: 65536 },
+    { port: '18080' },
+    { nonce: '' },
+  ])
+    assert.throws(() => validateEgress({ ...valid, ...change }, fixtureInput().networks));
+});
+
+test('synthetic peer admits only declared source, nonce and api/web GET path', async () => {
+  const { peerResponse } = await import('./egress.mjs');
+  const input = {
+    address: '172.31.254.2',
+    sourceAddress: '172.31.254.1',
+    port: 18080,
+    nonce: 'a'.repeat(32),
+  };
+  const request = {
+    remoteAddress: input.sourceAddress,
+    localAddress: input.address,
+    method: 'GET',
+    url: `/${input.nonce}/api`,
+  };
+  assert.deepEqual(peerResponse(input, request), {
+    nonce: input.nonce,
+    service: 'api',
+    remoteAddress: input.sourceAddress,
+    address: input.address,
+  });
+  for (const change of [
+    { remoteAddress: '172.31.254.3' },
+    { localAddress: '172.31.254.3' },
+    { method: 'POST' },
+    { url: '/wrong/api' },
+    { url: `/${input.nonce}/db` },
+  ])
+    assert.equal(peerResponse(input, { ...request, ...change }), null);
+});
+
+test('routed evidence requires matching NAT and FORWARD counter progress', async () => {
+  const { forwardingCounters, assertCounterProgress } = await import('./egress.mjs');
+  const rules = (n) =>
+    `*filter\n[${n}:100] -A FORWARD -j DOCKER-FORWARD\nCOMMIT\n*nat\n[${n}:100] -A POSTROUTING -s 172.30.248.0/28 ! -o br-test -j MASQUERADE\nCOMMIT\n`;
+  const before = forwardingCounters(rules(2), '172.30.248.0/28', 'br-test');
+  const after = forwardingCounters(rules(3), '172.30.248.0/28', 'br-test');
+  assert.doesNotThrow(() => assertCounterProgress(before, after));
+  assert.throws(() => assertCounterProgress(before, before));
+  assert.throws(() => forwardingCounters(rules(3), '172.30.249.0/28', 'br-test'));
+});
+
+test('egress probes both real app containers and rejects INPUT-only, stale nonce and missing NAT', async () => {
+  const { verifyRoutedEgress } = await import('./egress.mjs');
+  const input = {
+    address: '172.31.254.2',
+    sourceAddress: '172.31.254.1',
+    port: 18080,
+    nonce: 'a'.repeat(32),
+  };
+  const fixture = fixtureInput(),
+    project = 'knu-s1-012345abcdef';
+  for (const fault of [null, 'local', 'nonce', 'nat']) {
+    const calls = [],
+      records = [];
+    let packets = 1;
+    const rules = () =>
+      `*filter\n[${packets}:100] -A FORWARD -j DOCKER-FORWARD\nCOMMIT\n*nat\n` +
+      ['api', 'web']
+        .map(
+          (name) =>
+            `[${fault === 'nat' ? 1 : packets}:100] -A POSTROUTING -s ${fixture.networks[name]} ! -o br-${name} -j MASQUERADE`,
+        )
+        .join('\n') +
+      '\nCOMMIT\n';
+    const command = async (binary, args) => {
+      if (binary === 'iptables-save') return rules();
+      if (args.includes('address'))
+        return JSON.stringify([
+          {
+            ifname: 'enp0s2',
+            addr_info: [
+              { local: input.sourceAddress },
+              ...(fault === 'local' ? [{ local: input.address }] : []),
+            ],
+          },
+        ]);
+      assert.ok(args.includes('iif'));
+      return JSON.stringify([{ dev: 'enp0s2', dst: input.address }]);
+    };
+    const docker = async (args) => {
+      const name = args.at(-1).endsWith('api') ? 'api' : 'web';
+      return JSON.stringify([
+        {
+          Labels: { 'com.docker.compose.project': project },
+          Options: { 'com.docker.network.bridge.name': `br-${name}` },
+          IPAM: { Config: [{ Gateway: name === 'api' ? '172.30.248.1' : '172.30.249.1' }] },
+        },
+      ]);
+    };
+    const client = async (service, action) => {
+      calls.push([service, action]);
+      if (action === 'routes')
+        return { routes: `eth0 00000000 ${service === 'api' ? '01F81EAC' : '01F91EAC'} 0003` };
+      packets++;
+      return {
+        status: 200,
+        body: JSON.stringify({
+          nonce: fault === 'nonce' ? 'wrong' : input.nonce,
+          service,
+          remoteAddress: input.sourceAddress,
+          address: input.address,
+        }),
+      };
+    };
+    const promise = verifyRoutedEgress({
+      input,
+      fixture,
+      project,
+      docker,
+      client,
+      command,
+      record: (...args) => records.push(args),
+    });
+    if (fault) await assert.rejects(promise);
+    else {
+      await promise;
+      assert.deepEqual(calls, [
+        ['api', 'routes'],
+        ['api', 'http'],
+        ['web', 'routes'],
+        ['web', 'http'],
+      ]);
+      assert.equal(records.length, 2);
+    }
+  }
+});

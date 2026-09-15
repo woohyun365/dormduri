@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveArtifactPath } from '../../../artifacts/paths.mjs';
 import { buildIngressComposeArgs, writeIngressConfig } from '../../ingress/render.mjs';
 import { assertSourceManifest, sourceManifest } from './source-manifest.mjs';
+import { validateEgress, verifyRoutedEgress } from './egress.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 export function fixtureInput(mode = 'fixture-http') {
@@ -180,6 +181,23 @@ export async function cleanupProject(project, docker, compose) {
     assert.deepEqual(await resources(kind), [], `Owned ${kind} remains after cleanup`);
 }
 
+export async function closeFixture(project, docker, compose, directory) {
+  const result = { cleanupConfirmed: false, diagnosticFailure: null, cleanupFailure: null };
+  try {
+    const logs = await compose(['logs', '--no-color']);
+    writeFileSync(resolve(directory, 'services.log'), logs);
+  } catch (error) {
+    result.diagnosticFailure = String(error);
+  }
+  try {
+    await cleanupProject(project, docker, compose);
+    result.cleanupConfirmed = true;
+  } catch (error) {
+    result.cleanupFailure = String(error);
+  }
+  return result;
+}
+
 export function run(binary, args, env, { timeout = 120000, killGrace = 1000 } = {}) {
   return new Promise((resolveResult, reject) => {
     const child = spawn(binary, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -220,6 +238,7 @@ export function run(binary, args, env, { timeout = 120000, killGrace = 1000 } = 
 export async function runIngressFixture({
   mode = 'fixture-http',
   image,
+  egress,
   environment = process.env,
 } = {}) {
   assert.match(
@@ -229,6 +248,7 @@ export async function runIngressFixture({
   );
   const input = fixtureInput(mode),
     project = `knu-s1-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  if (egress !== undefined) validateEgress(egress, input.networks);
   const directory = resolveArtifactPath(root, ['infra', 'ingress-trust', project], environment);
   mkdirSync(directory, { recursive: true });
   const tlsDirectory = resolve(directory, 'tls');
@@ -303,6 +323,9 @@ export async function runIngressFixture({
     cleanupConfirmed = false,
     signal,
     failure,
+    diagnosticFailure,
+    cleanupFailure,
+    routedEgressVerified = false,
     nginxConfigSha256;
   const interrupted = (value) => {
     signal = value;
@@ -498,6 +521,18 @@ export async function runIngressFixture({
       200,
     );
     record('observer-metrics-route-and-token', 'PASS');
+    if (egress) {
+      await verifyRoutedEgress({
+        input: egress,
+        fixture: input,
+        project,
+        docker,
+        client,
+        command: (binary, args) => run(binary, args, env),
+        record,
+      });
+      routedEgressVerified = true;
+    }
     // Collect every forbidden path, but never turn an isolation failure into a skip or PASS.
     assert.deepEqual(
       networkFailures,
@@ -512,11 +547,14 @@ export async function runIngressFixture({
   } finally {
     try {
       if (created) {
-        await compose(['logs', '--no-color'])
-          .then((logs) => writeFileSync(resolve(directory, 'services.log'), logs))
-          .catch(() => {});
-        await cleanupProject(project, docker, compose);
-        cleanupConfirmed = true;
+        ({ cleanupConfirmed, diagnosticFailure, cleanupFailure } = await closeFixture(
+          project,
+          docker,
+          compose,
+          directory,
+        ));
+        if (cleanupFailure) throw new Error(cleanupFailure);
+        if (diagnosticFailure) throw new Error(diagnosticFailure);
         record('exact-project-cleanup', 'PASS');
       }
     } finally {
@@ -528,9 +566,17 @@ export async function runIngressFixture({
             mode,
             image: imageInfo.Id,
             checks,
-            status: complete && cleanupConfirmed && !signal ? 'passed' : 'failed',
+            status:
+              complete && cleanupConfirmed && !signal && !diagnosticFailure ? 'passed' : 'failed',
             interrupted: signal ?? null,
-            failure: failure ?? null,
+            failure:
+              failure ??
+              cleanupFailure ??
+              diagnosticFailure ??
+              (signal ? `Fixture interrupted: ${signal}` : null),
+            diagnosticFailure: diagnosticFailure ?? null,
+            cleanupFailure: cleanupFailure ?? null,
+            routedEgressVerified,
             cleanupConfirmed,
             activation: 'NO-GO; synthetic providers/certificate, not actual release evidence',
             sourceSha256: source.sha256,
@@ -553,6 +599,11 @@ export async function runIngressFixture({
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const mode = process.argv.find((arg) => arg.startsWith('--mode='))?.slice(7) ?? 'fixture-http';
   const image = process.argv.find((arg) => arg.startsWith('--image='))?.slice(8);
-  const result = await runIngressFixture({ mode, image });
+  const egressArgument = process.argv.find((arg) => arg.startsWith('--egress='))?.slice(9);
+  const result = await runIngressFixture({
+    mode,
+    image,
+    ...(egressArgument !== undefined ? { egress: JSON.parse(egressArgument) } : {}),
+  });
   console.log(JSON.stringify(result, null, 2));
 }

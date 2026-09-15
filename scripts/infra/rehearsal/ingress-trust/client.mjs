@@ -157,7 +157,13 @@ export async function websocket(input) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolvePath(process.argv[1])).href) {
   const input = JSON.parse(process.argv[2]);
-  const methods = { http: httpCall, tcp: tcpReachable, polling, websocket };
+  const methods = {
+    http: httpCall,
+    tcp: tcpReachable,
+    polling,
+    websocket,
+    routes: () => ({ routes: readFileSync('/proc/net/route', 'utf8') }),
+  };
   if (!methods[input.action]) throw new Error('Unknown fixture client action');
   const result = await methods[input.action](input);
   process.stdout.write(`${JSON.stringify(result)}\n`);
