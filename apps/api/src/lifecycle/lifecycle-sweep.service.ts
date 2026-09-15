@@ -35,6 +35,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   private readonly logger = new Logger(LifecycleSweepService.name);
   private readonly runner;
   private running = false;
+  private closing = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -59,7 +60,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   }
 
   async onApplicationBootstrap() {
-    if (!this.lifecycleSettings.sweepEnabled) {
+    if (this.closing || !this.lifecycleSettings.sweepEnabled) {
       return;
     }
 
@@ -69,6 +70,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   }
 
   onModuleDestroy() {
+    this.closing = true;
     if (this.schedulerRegistry.doesExist('interval', PERIODIC_INTERVAL_NAME)) {
       this.schedulerRegistry.deleteInterval(PERIODIC_INTERVAL_NAME);
     }
@@ -94,12 +96,14 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   }
 
   async refreshBoundarySchedules(now?: Date) {
-    if (!this.lifecycleSettings.sweepEnabled) {
+    if (this.closing || !this.lifecycleSettings.sweepEnabled) {
       return;
     }
 
     const referenceNow = now ?? (await this.prisma.getDatabaseNow());
+    if (this.closing) return;
     const desiredJobs = await this.boundarySchedule.buildBoundaryJobs(referenceNow);
+    if (this.closing) return;
 
     for (const existingName of this.schedulerRegistry.getCronJobs().keys()) {
       if (!existingName.startsWith(BOUNDARY_JOB_PREFIX)) {
@@ -139,7 +143,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   }
 
   private async runScheduledSweep(mode: 'periodic' | 'boundary') {
-    if (this.running) {
+    if (this.closing || this.running) {
       return;
     }
 

@@ -46,8 +46,9 @@
   lifecycle sweep도 실행되지 않는다.
 - `LifecycleSweepService.running`은 같은 service instance의 scheduled periodic/boundary sweep 중복 진입만 억제한다.
   Public/manual `runSweep`, `runPeriodicSweep`, `runBoundarySweep`는 이 guard를 거치지 않는다.
-- Destroy는 현재 등록된 periodic interval과 lifecycle boundary cron을 제거한다. 이미 실행 중인 task의 drain/cancel이나
-  비동기 schedule refresh의 종료 후 재등록 차단까지 보장하지 않는다.
+- Destroy는 이 instance를 closing으로 전환하고 현재 periodic interval과 lifecycle boundary cron을 제거한다.
+  Pending schedule refresh와 이후 scheduled entry도 새 timer를 등록하지 않는다. 이미 진입한 sweep의 drain/cancel은
+  보장하지 않으며 public/manual runner의 실행 의미는 바꾸지 않는다.
 - `ArchiveJob`/`RetentionReviewJob`의 `FOR UPDATE SKIP LOCKED` claim은 해당 queue row의 DB 동시성 경계다. 이를 모든
   lifecycle task의 global single-run 또는 exactly-once 보장으로 확대하지 않는다. `RetentionWorkerPrismaService`도
   credential boundary이지 별도 worker process의 증거가 아니다.

@@ -72,6 +72,7 @@ function createScheduledFixture(sweepEnabled = true) {
     intervals,
     observability,
     boundaryTick,
+    registry,
   };
 }
 
@@ -79,6 +80,174 @@ describe('LifecycleSweepService', () => {
   beforeEach(() => {
     mockCronJobs.length = 0;
     vi.clearAllMocks();
+  });
+
+  it.each(
+    (['refresh', 'bootstrap', 'periodic'] as const).flatMap((entry) =>
+      (['clock', 'schedule'] as const).flatMap((point) =>
+        (['resolve', 'reject'] as const).map((outcome) => ({ entry, point, outcome })),
+      ),
+    ),
+  )(
+    '$entry / pending $point / $outcome: destroy 이후 timer를 생성하지 않는다',
+    async ({ entry, point, outcome }) => {
+      vi.useFakeTimers();
+      const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const f = createScheduledFixture();
+      const externalInterval = setInterval(() => undefined, 60_000);
+      const externalCron = {
+        runAt: new Date('2099-01-01'),
+        onTick: () => Promise.resolve(),
+        start: vi.fn(),
+      };
+      f.intervals.set('external-interval', externalInterval);
+      f.cronJobs.set('external-cron', externalCron);
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const error = new Error('pending lookup rejected');
+      let settled: Promise<unknown> | undefined;
+      try {
+        if (entry === 'periodic') await f.service.onApplicationBootstrap();
+        const constructed = mockCronJobs.length;
+        const addCron = vi.spyOn(f.registry, 'addCronJob');
+        const addInterval = vi.spyOn(f.registry, 'addInterval');
+        const delayed = async () => {
+          await pending;
+          if (outcome === 'reject') throw error;
+        };
+        if (point === 'clock') {
+          f.prisma.getDatabaseNow.mockImplementationOnce(async () => {
+            await delayed();
+            return new Date('2026-06-01');
+          });
+        } else {
+          f.boundarySchedule.buildBoundaryJobs.mockImplementationOnce(async () => {
+            await delayed();
+            return [{ name: `${BOUNDARY_JOB_PREFIX}:late`, runAt: new Date('2099-01-01') }];
+          });
+        }
+        const work =
+          entry === 'refresh'
+            ? f.service.refreshBoundarySchedules()
+            : entry === 'bootstrap'
+              ? f.service.onApplicationBootstrap()
+              : vi.advanceTimersByTimeAsync(1_000);
+        settled = work.then(
+          () => null,
+          (reason: unknown) => reason,
+        );
+        await vi.advanceTimersByTimeAsync(0);
+        f.service.onModuleDestroy();
+        f.service.onModuleDestroy();
+        addCron.mockClear();
+        addInterval.mockClear();
+        release();
+        expect(await settled).toBe(outcome === 'reject' && entry !== 'periodic' ? error : null);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(mockCronJobs).toHaveLength(constructed);
+        expect(addCron).not.toHaveBeenCalled();
+        expect(addInterval).not.toHaveBeenCalled();
+        expect([...f.cronJobs.keys()]).toEqual(['external-cron']);
+        expect(f.cronJobs.get('external-cron')).toBe(externalCron);
+        expect([...f.intervals.keys()]).toEqual(['external-interval']);
+        expect(f.intervals.get('external-interval')).toBe(externalInterval);
+        expect(vi.getTimerCount()).toBe(1);
+        expect(f.observability.emitSweepFailure).toHaveBeenCalledTimes(
+          entry === 'periodic' && outcome === 'reject' ? 1 : 0,
+        );
+        if (entry === 'periodic') {
+          // A sweep already admitted before destroy is not cancelled by the timer gate.
+          expect(f.run).toHaveBeenCalledTimes(outcome === 'resolve' ? 2 : 1);
+        }
+      } finally {
+        release();
+        await settled;
+        await vi.advanceTimersByTimeAsync(0);
+        f.service.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        log.mockRestore();
+      }
+    },
+  );
+
+  it.each(['resolve', 'reject'] as const)(
+    'pending boundary task %s 뒤에도 종료 후 cron을 잠깐이라도 start하지 않는다',
+    async (outcome) => {
+      vi.useFakeTimers();
+      const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const f = createScheduledFixture();
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let work: Promise<void> | undefined;
+      try {
+        await f.service.onApplicationBootstrap();
+        const constructed = mockCronJobs.length;
+        const addCron = vi.spyOn(f.registry, 'addCronJob');
+        f.run.mockImplementationOnce(async () => {
+          await pending;
+          if (outcome === 'reject') throw new Error('task failed');
+          return [];
+        });
+        work = f.boundaryTick();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(f.run).toHaveBeenCalledTimes(2);
+        f.service.onModuleDestroy();
+        release();
+        await work;
+        // The callback's finally can delete a late job again: registry-empty alone is insufficient.
+        expect(mockCronJobs).toHaveLength(constructed);
+        expect(addCron).not.toHaveBeenCalled();
+        expect(f.cronJobs.size).toBe(0);
+        expect(f.observability.emitSweepFailure).toHaveBeenCalledTimes(
+          outcome === 'reject' ? 1 : 0,
+        );
+      } finally {
+        release();
+        await Promise.allSettled([work]);
+        f.service.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        log.mockRestore();
+      }
+    },
+  );
+
+  it('destroy 뒤 bootstrap/refresh/기존 callback은 재등록하지 않고 manual runner 의미는 유지한다', async () => {
+    vi.useFakeTimers();
+    const f = createScheduledFixture();
+    try {
+      await f.service.onApplicationBootstrap();
+      const callback = f.cronJobs.values().next().value?.onTick;
+      expect(callback).toBeDefined();
+      const constructed = mockCronJobs.length;
+      f.service.onModuleDestroy();
+      f.service.onModuleDestroy();
+      await f.service.onApplicationBootstrap();
+      await f.service.refreshBoundarySchedules();
+      await callback?.();
+      expect(mockCronJobs).toHaveLength(constructed);
+      expect(f.cronJobs.size).toBe(0);
+      expect(f.intervals.size).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(f.run).toHaveBeenCalledOnce();
+      await f.service.runSweep();
+      await f.service.runPeriodicSweep();
+      await f.service.runBoundarySweep();
+      expect(f.run).toHaveBeenCalledTimes(4);
+      const error = new Error('manual failure');
+      f.run.mockRejectedValueOnce(error);
+      await expect(f.service.runSweep()).rejects.toBe(error);
+    } finally {
+      f.service.onModuleDestroy();
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
 
   it.each([true, false])(
