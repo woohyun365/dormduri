@@ -136,6 +136,31 @@ uses deep reasoning, or touches many files. 반대로 짧은 문서라도 독립
 A long conversation or higher reasoning effort is not scope authority. 분석 깊이는 evidence coverage를 늘릴 수 있지만 plan의
 owner, acceptance, write boundary를 자동으로 넓히지 않습니다.
 
+### Supporting detail and bounded plans
+
+Supporting은 기본 분할 전략이 아니라 필요한 부분만 상세화하는 선택적 수단입니다. 한 Phase의 절차가 비대해지거나,
+진행 중 troubleshooting·추가 설계/구현·readiness 발견사항에 별도 조사와 검증이 필요할 때 사용합니다. 먼저 위 follow-up
+classification으로 범위와 권한을 확인하며, 문서 길이만으로 새 plan·Phase·PR을 만들지 않습니다.
+
+| 사례                                                           | 배치와 완료 책임                                     |
+| -------------------------------------------------------------- | ---------------------------------------------------- |
+| 기존 Phase의 짧은 수정·검증                                    | 부모에 inline으로 유지                               |
+| 같은 outcome·owner·완료 기준의 복잡한 troubleshooting 절차     | Supporting 상세 문서로 추출하고 부모 lifecycle 공유  |
+| Readiness 발견사항에 독립 수정 owner·검증·rollback 경계가 필요 | 위 plan-graph 규칙에 따라 별도 bounded plan으로 연결 |
+
+작업별 상세 문서의 로컬 배치는 아래 Session continuity를 따릅니다. 디렉터리 위치는 문서 유형이나 승인 상태를
+결정하지 않습니다. 단순 상세 문서는 별도 completion clock을 만들지 않고, 독립 plan은 자신의 Plan ID·status·
+readiness·acceptance·rollback을 소유합니다. 독립 작업의 실행 순서는 실제 dependency로 정하며 모두 successor로 간주하지
+않습니다. 파일 하나가 PR 하나나 subagent 하나를 요구하지 않습니다.
+
+- 부모는 발생 이유, 영향받는 Phase, dependency 순서, 현재 disposition과 상세 문서 링크를 유지합니다.
+- Supporting은 부모 backlink, 문서 유형, 범위/owner, current baseline, 실행 전제·권한, 절차·검증·종료 조건을 명시합니다.
+  독립 plan의 세부 계약은 그 plan이 소유하고 부모는 상태 요약과 근거 링크만 유지하여 이중 갱신을 줄입니다.
+- 발견사항이나 문서 생성 자체는 구현 승인이나 scope 확장이 아닙니다. 부모의 readiness가 독립 plan으로 전파되지 않으며,
+  같은 outcome의 상세화도 실제 scope/assumption이 달라졌다면 영향 범위의 readiness를 다시 확인합니다.
+- 이 tracked guide가 재사용 규칙의 owner입니다. Ignored README는 선택적 안내 링크일 뿐 규칙의 원본이나 사본이 아닙니다.
+  재개·portable handoff·완료 후 발견 가능성은 [Session continuity](../session-continuity.md#supporting-문서-재개와-인계)를 따릅니다.
+
 ### Future option boundary
 
 현재 채택하지 않는 technology, provider, service split 또는 operational capability는 장문의 speculative registry 대신
