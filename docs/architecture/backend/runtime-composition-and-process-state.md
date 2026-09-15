@@ -72,9 +72,11 @@ Notification은 기존 notification publisher adapter와 이 설정/관측 port�
 | [ProcessPasswordHashAdmission](../../../apps/api/src/auth/credentials/password-hashing/password-hash-admission.service.ts) | hash/verify CPU·memory admission과 bounded queue                    | module-level process singleton; Nest service들이 같은 instance를 configure | Restart resets queue/budget; 새 Nest service가 독립 budget을 만들지 않음                              | Admission saturation 또는 여러 process의 aggregate capacity 판단         | 각 process가 별도 budget을 가지므로 process 합산 CPU/memory 제한은 아님          |
 
 Gateway의 admission registration과 [connected-socket gauge](../../../apps/api/src/chat/realtime/chat-realtime.metrics.ts)는
-다른 상태다. Gauge는 0 미만으로 내려가지 않지만 socket identity를 추적하지 않는다. 따라서 duplicate/uncounted disconnect가
-다른 live connection의 관측값에 영향을 주지 않는다고 단정할 수 없다. Admission은 join 전에 등록하고 gauge는 await join
-후 증가하므로 두 시점도 동일하지 않다. 이 한계를 문서화하는 것이 해당 경쟁 조건의 수정·재현 완료를 뜻하지 않는다.
+다른 상태다. Admission은 join 전에 등록하고 gauge는 await join 후 증가한다. Gateway는 socket별 counted 상태를
+기록하고 disconnect에서 한 번만 소비하므로 중복·미계수 disconnect가 다른 연결의 gauge를 감소시키지 않는다.
+Disconnect가 기록된 socket은 pending auth 성공 뒤 user quota/admission/join을 새로 진행하지 않고, pending join 뒤에도
+gauge를 증가시키지 않는다. 이미 시작한 auth의 취소나 일반적인 join 실패의 정리까지 보장하는 것은 아니다.
+Metric service 자체는 socket identity가 없는 instance-local 집계이며, 누적 connection counter와 bridge fail-open은 유지한다.
 
 ## Scheduling, shutdown and durable delivery
 

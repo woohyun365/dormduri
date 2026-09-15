@@ -5,6 +5,7 @@ import { HttpAdapterHost, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { request as httpRequest } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { EventEmitter, once } from 'node:events';
 import type { Socket } from 'node:net';
 import request from 'supertest';
 import { ChatController } from '../chat.controller.js';
@@ -102,6 +103,7 @@ async function initialize(overrides: Record<string, string | undefined> = {}) {
     app,
     url: await app.getUrl(),
     limiter: module.get(ChatRealtimeRateLimiterService),
+    metrics: module.get(ChatRealtimeMetricsService),
     settings,
   };
 }
@@ -129,10 +131,11 @@ async function polling(base: string, forwarded: string | string[]) {
 async function websocket(
   base: string,
   forwarded: string,
-  options: { sid?: string; expectedPacket?: string } = {},
+  options: { sid?: string; expectedPacket?: string; ticket?: string } = {},
 ) {
   const target = new URL('/socket.io/?EIO=4&transport=websocket', base);
   if (options.sid) target.searchParams.set('sid', options.sid);
+  const ticket = options.ticket ?? randomBytes(8).toString('hex');
   return new Promise<{ status: number; packet: string }>((resolve, reject) => {
     const req = httpRequest(target, {
       headers: {
@@ -193,11 +196,10 @@ async function websocket(
           const packet = buffered.subarray(offset, offset + length).toString();
           buffered = buffered.subarray(offset + length);
           if (kind !== 1) continue;
-          if (packet.startsWith('0'))
-            send(`40/chat,${JSON.stringify({ ticket: randomBytes(8).toString('hex') })}`);
+          if (packet.startsWith('0')) send(`40/chat,${JSON.stringify({ ticket })}`);
           if (packet === '3probe') {
             send('5');
-            send(`40/chat,${JSON.stringify({ ticket: randomBytes(8).toString('hex') })}`);
+            send(`40/chat,${JSON.stringify({ ticket })}`);
           }
           if (packet.startsWith(options.expectedPacket ?? '40/chat,')) {
             clearTimeout(timeout);
@@ -219,6 +221,45 @@ async function websocket(
 }
 
 describe('actual Nest chat proxy initialization and transport boundaries', () => {
+  it('실제 auth 거절 disconnect hook은 다른 counted connection의 gauge/admission을 보존한다', async () => {
+    const events = new EventEmitter();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Rebound to each real gateway with .call below.
+    const originalDisconnect = ChatRealtimeGateway.prototype.handleDisconnect;
+    const disconnect = vi
+      .spyOn(ChatRealtimeGateway.prototype, 'handleDisconnect')
+      .mockImplementation(function (this: ChatRealtimeGateway, client) {
+        originalDisconnect.call(this, client);
+        events.emit('disconnected');
+      });
+    const running = await initialize();
+    const originalConnected = running.metrics.recordSocketConnected.bind(running.metrics);
+    vi.spyOn(running.metrics, 'recordSocketConnected').mockImplementation(() => {
+      originalConnected();
+      events.emit('counted');
+    });
+    // A namespace ACK precedes async auth/join; wait for actual accounting instead.
+    await Promise.all([
+      once(events, 'counted', { signal: AbortSignal.timeout(3000) }),
+      websocket(running.url, '203.0.113.1', { ticket: 'live-b' }),
+    ]);
+    expect(running.metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+    expect(running.limiter.getUserSocketCountForTest('live-b')).toBe(1);
+    const [, rejected] = await Promise.all([
+      once(events, 'disconnected', { signal: AbortSignal.timeout(3000) }),
+      websocket(running.url, '203.0.113.2', { ticket: '', expectedPacket: '42/chat,' }),
+    ]);
+    expect(rejected.packet).toContain('CHAT_REALTIME_UNAUTHENTICATED');
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    expect(running.metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+    expect(running.limiter.getUserSocketCountForTest('live-b')).toBe(1);
+    const closed = once(events, 'disconnected', { signal: AbortSignal.timeout(3000) });
+    sockets[0]!.destroy();
+    await closed;
+    expect(disconnect).toHaveBeenCalledTimes(2);
+    expect(running.metrics.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 1 });
+    expect(running.limiter.getUserSocketCountForTest('live-b')).toBe(0);
+  });
+
   it.each(['polling', 'websocket'] as const)(
     '%s preserves distinct client buckets at root and gateway using the same DI snapshot',
     async (transport) => {
