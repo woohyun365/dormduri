@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { Logger } from '@nestjs/common';
 import { SesEmailSenderError } from '../adapters/email/ses-email-error.js';
 import { AuthMailDispatcherService } from './auth-mail-dispatcher.service.js';
 
@@ -18,7 +19,7 @@ const event = {
   attemptCount: 1,
 } as const;
 
-function createFixture(mailSendTimeoutMs = 20) {
+function createFixture(mailSendTimeoutMs = 20, mailDispatcherEnabled = false) {
   const prisma = {
     getDatabaseNow: vi.fn().mockResolvedValue(now),
   };
@@ -44,7 +45,7 @@ function createFixture(mailSendTimeoutMs = 20) {
     sendPasswordChanged: vi.fn(),
   };
   const settings = {
-    mailDispatcherEnabled: false,
+    mailDispatcherEnabled,
     mailDispatcherIntervalMs: 1_000,
     mailDispatcherBatchSize: 20,
     mailDispatcherClaimLeaseMs: 30_000,
@@ -62,10 +63,65 @@ function createFixture(mailSendTimeoutMs = 20) {
     settings as never,
     metrics,
   );
-  return { service, repository, emailSender, metrics };
+  return { service, prisma, repository, emailSender, metrics };
 }
 
 describe('AuthMailDispatcherService', () => {
+  it.each([true, false])(
+    'enabled=%s에 따라 timer를 등록하고 destroy 뒤에는 실행하지 않는다',
+    async (enabled) => {
+      vi.useFakeTimers();
+      const { service, prisma, repository } = createFixture(1_000, enabled);
+      repository.claimBatch.mockResolvedValue([]);
+      try {
+        service.onApplicationBootstrap();
+        expect(vi.getTimerCount()).toBe(enabled ? 1 : 0);
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(repository.claimBatch).toHaveBeenCalledTimes(enabled ? 1 : 0);
+        service.onModuleDestroy();
+        expect(vi.getTimerCount()).toBe(0);
+        await vi.advanceTimersByTimeAsync(2_000);
+        expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      } finally {
+        service.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(['clock', 'expire', 'claim'] as const)(
+    '%s 초기 실패 뒤 다음 timer tick은 mail을 처리한다',
+    async (failurePoint) => {
+      vi.useFakeTimers();
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const { service, prisma, repository, emailSender } = createFixture(1_000, true);
+      const error = new Error(`${failurePoint} unavailable`);
+      if (failurePoint === 'clock') prisma.getDatabaseNow.mockRejectedValueOnce(error);
+      else if (failurePoint === 'expire') repository.expirePayloads.mockRejectedValueOnce(error);
+      else repository.claimBatch.mockRejectedValueOnce(error);
+      try {
+        service.onApplicationBootstrap();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(warn).toHaveBeenCalledOnce();
+        expect(repository.claimBatch).toHaveBeenCalledTimes(failurePoint === 'claim' ? 1 : 0);
+        expect(emailSender.sendPasswordResetCode).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(2);
+        expect(repository.claimBatch).toHaveBeenCalledTimes(failurePoint === 'claim' ? 2 : 1);
+        expect(emailSender.sendPasswordResetCode).toHaveBeenCalledOnce();
+        expect(repository.markAccepted).toHaveBeenCalledOnce();
+        expect(repository.markDeliveryFailure).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledOnce();
+      } finally {
+        service.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        warn.mockRestore();
+      }
+    },
+  );
+
   it('provider acceptance receipt 뒤에만 candidate를 활성화한다', async () => {
     const { service, repository, emailSender, metrics } = createFixture(1_000);
 
@@ -133,25 +189,39 @@ describe('AuthMailDispatcherService', () => {
   });
 
   it('동일 process의 overlapping tick은 두 번째 claim을 시작하지 않는다', async () => {
+    vi.useFakeTimers();
     const { service, repository, emailSender } = createFixture(1_000);
-    let resolveSend: ((value: { providerMessageId: string | null }) => void) | undefined;
-    emailSender.sendPasswordResetCode.mockReturnValue(
-      new Promise((resolve) => {
-        resolveSend = resolve;
-      }),
-    );
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    emailSender.sendPasswordResetCode.mockImplementationOnce(async () => {
+      await pending;
+      return { providerMessageId: 'ses-1' };
+    });
 
     const first = service.dispatchOnce(now);
-    await vi.waitFor(() => expect(emailSender.sendPasswordResetCode).toHaveBeenCalledOnce());
-    await expect(service.dispatchOnce(now)).resolves.toEqual({
-      claimedCount: 0,
-      acceptedCount: 0,
-      failedCount: 0,
-      unknownCount: 0,
-      supersededCount: 0,
-    });
-    resolveSend?.({ providerMessageId: 'ses-1' });
-    await first;
-    expect(repository.claimBatch).toHaveBeenCalledOnce();
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(emailSender.sendPasswordResetCode).toHaveBeenCalledOnce();
+      await expect(service.dispatchOnce(now)).resolves.toEqual({
+        claimedCount: 0,
+        acceptedCount: 0,
+        failedCount: 0,
+        unknownCount: 0,
+        supersededCount: 0,
+      });
+      expect(repository.claimBatch).toHaveBeenCalledOnce();
+      release();
+      await expect(first).resolves.toMatchObject({ acceptedCount: 1 });
+      await expect(service.dispatchOnce(now)).resolves.toMatchObject({ acceptedCount: 1 });
+      expect(repository.claimBatch).toHaveBeenCalledTimes(2);
+    } finally {
+      release();
+      await Promise.allSettled([first]);
+      service.onModuleDestroy();
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
 });
