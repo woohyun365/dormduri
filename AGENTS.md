@@ -28,6 +28,7 @@
 - `docs/development`: 개발·CI 기준과 troubleshooting
 - `docs/runbooks`: 제품·서비스 운영 절차
 - `infra`: 배포 후보, rehearsal, observability, release runbook
+- 로컬 infra 환경 선택: `infra/runbooks/rehearsal/local-environments.md`에서 OrbStack·독립 Linux VM의 용도와 증거 경계를 확인한다.
 - `scripts`: CI·검증·artifact·infra 자동화
 - `local-docs`: Git에서 제외하는 legacy·개인 분석·과거 기록
 - `.omx`: OMX local workflow state; 제품 source of truth가 아님

@@ -11,10 +11,6 @@ import {
 import type { Server, Socket } from 'socket.io';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import {
-  readChatRealtimeAllowedOrigins,
-  readChatRealtimeTrustProxy,
-} from './chat-realtime.config.js';
-import {
   CHAT_REALTIME_ERROR_EVENT_NAME,
   CHAT_REALTIME_NAMESPACE,
   CHAT_REALTIME_THREAD_SUBSCRIBE_EVENT,
@@ -22,10 +18,8 @@ import {
   chatRealtimeThreadRoom,
   chatRealtimeUserRoom,
 } from './chat-realtime.constants.js';
-import { createChatRealtimeAllowRequestIpRateLimiter } from './chat-realtime-allow-request-limiter.js';
 import { ChatRealtimeAuthService } from './chat-realtime-auth.service.js';
 import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
-import { createChatRealtimeAllowRequest } from './chat-realtime-origin-policy.js';
 import { ChatRealtimePublisher } from './chat-realtime-publisher.js';
 import {
   ChatRealtimeRateLimiterService,
@@ -41,21 +35,7 @@ type ChatRealtimeSocket = Omit<Socket, 'data'> & {
   data: ChatRealtimeSocketData;
 };
 
-const allowedOrigins = readChatRealtimeAllowedOrigins();
-const trustProxy = readChatRealtimeTrustProxy();
-const preAuthIpRateLimit = createChatRealtimeAllowRequestIpRateLimiter();
-
-@WebSocketGateway({
-  namespace: CHAT_REALTIME_NAMESPACE,
-  cors: {
-    origin: allowedOrigins,
-    credentials: false,
-  },
-  allowRequest: createChatRealtimeAllowRequest(allowedOrigins, {
-    preAuthRateLimit: preAuthIpRateLimit,
-    trustProxy,
-  }),
-})
+@WebSocketGateway({ namespace: CHAT_REALTIME_NAMESPACE })
 export class ChatRealtimeGateway
   implements OnGatewayInit<Server>, OnGatewayConnection, OnGatewayDisconnect
 {
@@ -77,7 +57,7 @@ export class ChatRealtimeGateway
     const ipRateLimit = this.rateLimiter.consumeGatewayConnectIp({
       ip: this.rateLimiter.resolveRequestIp({
         headers: client.handshake.headers,
-        ip: client.handshake.address,
+        peerAddress: client.conn.remoteAddress,
       }),
     });
     if (!ipRateLimit.allowed) {

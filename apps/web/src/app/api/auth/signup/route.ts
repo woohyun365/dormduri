@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       }),
     },
     {
+      requestHeaders: request.headers,
       responseSchema: signupUpstreamResponseSchema,
     },
   );

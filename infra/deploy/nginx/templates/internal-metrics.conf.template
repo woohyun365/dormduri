@@ -1,0 +1,12 @@
+server {
+  listen __OBSERVER_ADDRESS__:9091 default_server;
+  server_name _;
+
+  location = /internal/metrics {
+    __COLLECTOR_ACL__
+    proxy_pass http://__API_UPSTREAM__/internal/metrics;
+    proxy_set_header Authorization $http_authorization;
+    __OBSERVER_HEADERS__
+  }
+  location / { return 404; }
+}

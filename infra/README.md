@@ -21,6 +21,7 @@ runtime hardening, Compose 합성 순서의 machine-readable source of truth다.
 
 ## 시작 위치
 
+- 로컬 환경 선택·자원·검증 경계: [`runbooks/rehearsal/local-environments.md`](./runbooks/rehearsal/local-environments.md)
 - 로컬 full-stack 검증: [`rehearsal/README.md`](./rehearsal/README.md)
 - runtime candidate 구성: [`deploy/README.md`](./deploy/README.md)
 - 관측 configuration: [`observability/README.md`](./observability/README.md)

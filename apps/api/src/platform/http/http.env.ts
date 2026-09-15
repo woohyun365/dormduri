@@ -83,7 +83,8 @@ export const httpEnvKeys = defineEnvKeys([
     source: 'process-env',
     defaultPolicy: 'optional',
     targetRequired: true,
-    description: 'Explicit trusted reverse-proxy IP/CIDR or Express subnet preset allowlist.',
+    description:
+      'HTTP trusted reverse-proxy IP/CIDR or preset allowlist; chat forwarding requires explicit narrow peers, not presets.',
   },
   {
     key: 'HTTP_CORS_ALLOWED_ORIGINS',

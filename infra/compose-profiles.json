@@ -106,6 +106,15 @@
       "managedNetworks": [
         { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
       ]
+    },
+    "ingress-trust": {
+      "classification": "production-candidate",
+      "project": "knu-roommate-ingress-trust",
+      "files": [
+        "infra/deploy/compose.api.yml",
+        "infra/rehearsal/compose.web.yml",
+        "infra/deploy/compose.ingress-trust.yml"
+      ]
     }
   }
 }

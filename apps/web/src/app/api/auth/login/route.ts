@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       headers: getForwardHeaders(request),
     },
     {
+      requestHeaders: request.headers,
       responseSchema: loginUpstreamResponseSchema,
     },
   );

@@ -157,9 +157,10 @@ const configFactoryBaseline = {
     consumers: [
       'src/chat/composition/chat.providers.ts',
       'src/chat/realtime/chat-realtime-allow-request-limiter.ts',
+      'src/chat/realtime/chat-realtime-io.adapter.ts',
+      'src/chat/realtime/chat-realtime-origin-policy.ts',
       'src/chat/realtime/chat-realtime-rate-limiter.service.ts',
       'src/chat/realtime/chat-realtime.env.ts',
-      'src/chat/realtime/chat-realtime.gateway.ts',
       'src/config/composition/api-config.registry.ts',
     ],
   },
@@ -187,6 +188,7 @@ const configFactoryBaseline = {
     owner: 'platform/http',
     path: 'src/platform/http/http.config.ts',
     consumers: [
+      'src/chat/realtime/chat-realtime.config.ts',
       'src/config/composition/api-config.registry.ts',
       'src/platform/http/http-runtime.ts',
       'src/platform/http/http.env.ts',

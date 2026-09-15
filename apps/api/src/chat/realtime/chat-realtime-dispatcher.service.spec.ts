@@ -1,3 +1,4 @@
+import { readChatRealtimeProxyProfile } from './chat-realtime.config.js';
 import { describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { ChatRealtimeDispatcherService } from './chat-realtime-dispatcher.service.js';
@@ -53,7 +54,7 @@ function createDispatcher(input: {
   const metrics = new ChatRealtimeMetricsService();
   const settings = {
     allowedOrigins: false as const,
-    trustProxy: false,
+    proxyProfile: readChatRealtimeProxyProfile({}),
     dispatcherEnabled: false,
     dispatcherIntervalMs: 1_000,
     dispatcherBatchSize: 50,
@@ -252,7 +253,7 @@ describe('ChatRealtimeDispatcherService', () => {
     };
     const settings = {
       allowedOrigins: false as const,
-      trustProxy: false,
+      proxyProfile: readChatRealtimeProxyProfile({}),
       dispatcherEnabled: false,
       dispatcherIntervalMs: 1_000,
       dispatcherBatchSize: 50,

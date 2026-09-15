@@ -1,0 +1,63 @@
+# Required order: API base, existing Web service, this target, generated compose.networks.yml.
+# Networks deliberately remain undefined without renderer output: config fails closed.
+services:
+  api:
+    ports: !reset []
+    expose: !override
+      - '${INGRESS_API_PORT:?Render ingress inputs first}'
+    environment:
+      PORT: ${INGRESS_API_PORT:?Render ingress inputs first}
+      HTTP_TRUST_PROXY_HOPS: '0'
+      HTTP_TRUST_PROXY_CIDRS: ${INGRESS_HTTP_TRUST_PROXY_CIDRS:?Render ingress inputs first}
+      CHAT_REALTIME_TRUST_PROXY: 'true'
+    networks: !override
+      ingress-api:
+        ipv4_address: ${INGRESS_API_ADDRESS:?Render ingress inputs first}
+
+  web:
+    ports: !reset []
+    environment:
+      PORT: ${INGRESS_WEB_PORT:?Render ingress inputs first}
+      WEB_APP_URL: ${INGRESS_WEB_APP_URL:?Render ingress inputs first}
+      API_URL: ${INGRESS_API_URL:?Render ingress inputs first}
+    build:
+      args:
+        NEXT_PUBLIC_APP_URL: ${INGRESS_WEB_APP_URL:?Render ingress inputs first}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:' + process.env.PORT + '/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    networks: !override
+      ingress-web:
+        ipv4_address: ${INGRESS_WEB_ADDRESS:?Render ingress inputs first}
+
+  nginx:
+    depends_on:
+      web:
+        condition: service_started
+    ports: !override
+      - '${INGRESS_PUBLIC_BIND:-127.0.0.1}:${INGRESS_PUBLISHED_PORT:-8080}:${INGRESS_PUBLIC_PORT:?Render ingress inputs first}'
+    volumes: !override
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${INGRESS_CONFIG_DIRECTORY:?Render ingress inputs first}:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ${INGRESS_TLS_DIRECTORY:?Provide the approved TLS mount or renderer fixture directory}:/etc/nginx/ingress-tls:ro
+    networks: !override
+      ingress-public:
+        ipv4_address: ${INGRESS_PUBLIC_ADDRESS:?Render ingress inputs first}
+      ingress-api:
+        ipv4_address: ${INGRESS_API_SOURCE_ADDRESS:?Render ingress inputs first}
+      ingress-web:
+        ipv4_address: ${INGRESS_PRIVATE_ADDRESS:?Render ingress inputs first}
+      ingress-observer:
+        ipv4_address: ${INGRESS_OBSERVER_ADDRESS:?Render ingress inputs first}
+
+networks: !override {}

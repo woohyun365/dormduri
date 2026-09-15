@@ -5,6 +5,7 @@ import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
 
 type TestSocket = {
   id: string;
+  conn: { remoteAddress: string };
   handshake: {
     address: string;
     auth: { ticket?: string };
@@ -33,6 +34,7 @@ function createSocket(ticket: string | null = 'ticket-1'): TestSocket {
 
   return {
     id: 'socket-1',
+    conn: { remoteAddress: '10.0.0.2' },
     handshake: {
       address: '203.0.113.10',
       auth: ticket ? { ticket } : {},
@@ -131,7 +133,7 @@ describe('ChatRealtimeGateway', () => {
 
     expect(rateLimiter.resolveRequestIp).toHaveBeenCalledWith({
       headers: socket.handshake.headers,
-      ip: socket.handshake.address,
+      peerAddress: socket.conn.remoteAddress,
     });
     expect(rateLimiter.consumeGatewayConnectIp).toHaveBeenCalledWith({ ip: '203.0.113.10' });
     expect(authService.consumeTicket).toHaveBeenCalledWith('ticket-1');

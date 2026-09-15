@@ -60,7 +60,7 @@ describe('auth BFF session renewal transport', () => {
       method: 'POST',
       headers: {
         Cookie: `auth-token=${EXPIRED_ACCESS_TOKEN}; auth-renewal-token=${CURRENT_RENEWAL_TOKEN}`,
-        'x-forwarded-for': '203.0.113.10',
+        'x-forwarded-for': '2001:0DB8:0:0:0:0:0:1',
         'user-agent': 'vitest',
       },
     });
@@ -87,6 +87,10 @@ describe('auth BFF session renewal transport', () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${RENEWED_ACCESS_TOKEN}` }),
       }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [, init] of fetchMock.mock.calls as Array<[string, RequestInit]>) {
+      expect(new Headers(init.headers).get('x-forwarded-for')).toBe('2001:db8::1');
+    }
     expect(response.cookies.get('auth-token')?.value).toBe(RENEWED_ACCESS_TOKEN);
     expect(response.cookies.get('auth-token')?.maxAge).toBeUndefined();
     expect(response.cookies.get('auth-renewal-token')?.value).toBe(NEXT_RENEWAL_TOKEN);
@@ -114,11 +118,18 @@ describe('auth BFF session renewal transport', () => {
       method: 'POST',
       headers: {
         Cookie: `auth-renewal-token=${CURRENT_RENEWAL_TOKEN}`,
+        'x-forwarded-for': '203.0.113.10',
       },
     });
 
     const response = await renewSession(request);
 
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/renew-session',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'x-forwarded-for': '203.0.113.10' }),
+      }),
+    );
     await expect(response.json()).resolves.toEqual({ success: true });
     expect(response.cookies.get('auth-token')?.value).toBe(RENEWED_ACCESS_TOKEN);
     expect(response.cookies.get('auth-token')?.maxAge).toBeUndefined();

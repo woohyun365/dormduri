@@ -33,6 +33,18 @@ function reportInventoryDrift(label, expected, actual) {
   reportMissing(`${label} contains unknown`, missing(actual, expected));
 }
 
+for (const path of ['infra/deploy/.env.api.example', 'infra/deploy/.env.api.lightsail.example']) {
+  const example = readRepoFile(path);
+  if (
+    !/^HTTP_TRUST_PROXY_HOPS=0$/mu.test(example) ||
+    !/^HTTP_TRUST_PROXY_CIDRS=$/mu.test(example) ||
+    !/^CHAT_REALTIME_TRUST_PROXY=false$/mu.test(example)
+  ) {
+    failures.push(
+      `${path} must keep forwarding inactive until explicit ingress peers are supplied`,
+    );
+  }
+}
 const entries = Array.isArray(manifest.entries) ? manifest.entries : [];
 const entryByKey = new Map(entries.map((entry) => [entry.key, entry]));
 const runtimeKeys = new Set(

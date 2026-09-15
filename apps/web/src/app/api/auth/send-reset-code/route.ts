@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     {
       headers: getForwardHeaders(request),
     },
+    { requestHeaders: request.headers },
   );
 
   const nextResponse = buildJsonResponse(response, pickAuthMutationResponseBody(json));

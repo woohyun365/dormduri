@@ -6,6 +6,7 @@ import {
   buildBffUpstreamUrl,
   buildSafeBffErrorResponse,
   filterForwardHeaderRecord,
+  normalizeForwardedClientIp,
   readBffJsonResponse,
 } from './security';
 import { startBffReliabilityMeasurement, type BffReliabilityOutcome } from './reliability';
@@ -47,10 +48,9 @@ export function getBffForwardHeaders(
     correlationHeaders?: Record<string, string>;
   } = {},
 ): Record<string, string> {
-  const forwardedFor = request.headers.get('x-forwarded-for') ?? undefined;
+  const forwardedFor = normalizeForwardedClientIp(request.headers.get('x-forwarded-for'));
   const userAgent = request.headers.get('user-agent') ?? undefined;
   const headers = filterForwardHeaderRecord({
-    'x-forwarded-for': forwardedFor,
     'user-agent': userAgent,
     ...(options.correlationHeaders ?? {}),
     ...(options.contentType ? { 'Content-Type': options.contentType } : {}),
@@ -59,16 +59,11 @@ export function getBffForwardHeaders(
   if (options.authenticated === true) {
     const token = getBffAuthTokenCookie(request);
     if (token) {
-      return filterForwardHeaderRecord(
-        {
-          ...headers,
-          Authorization: `Bearer ${token}`,
-        },
-        { allowAuthorization: true },
-      );
+      headers.Authorization = `Bearer ${token}`;
     }
   }
 
+  if (forwardedFor) headers['x-forwarded-for'] = forwardedFor;
   return headers;
 }
 

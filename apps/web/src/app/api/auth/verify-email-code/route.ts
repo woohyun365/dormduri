@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     '/auth/verify-email-code',
     parsed.data,
     { headers: getForwardHeaders(request) },
-    { responseSchema: verifySignupCodeTransportResponseSchema },
+    { requestHeaders: request.headers, responseSchema: verifySignupCodeTransportResponseSchema },
   );
 
   if (failureKind) {
