@@ -1,11 +1,12 @@
 # Home dashboard API
 
-`home-dashboard`는 Home 탭 전용 **read-only presentation query** 경계다.
+`home-dashboard`는 Home 탭 전용 **presentation query** 경계다.
 도메인 mutation owner가 아니며, current-user/season/season-participants/matches/chat의 사용자 표시용 read model과 count만 조합해 `@repo/shared/home`의 `HomeDashboardResponse`를 반환한다.
 
 규칙:
 
-- update/create/delete 같은 side effect를 수행하지 않는다.
+- Dashboard query가 직접 model create/update/delete를 소유하지 않는다. 다만 `HomeDashboardQuery`가 호출하는 current-user/match overview 등 owner query에서 participant container 지연 생성이나 pending 상태 만료 처리가 실행될 수 있다. Endpoint 전체가 무부작용이라는 보장은 아니다.
+- 기존 owner-public 호출과 transaction 책임을 유지한다. 상세 소유권과 조회 경로의 쓰기는 [데이터 소유권 계약](../../../../docs/architecture/backend/domain-data-ownership.md)을 따른다.
 - Home 화면에 필요한 allowlist DTO만 반환한다.
 - hidden/deactivated/deleted/retention/audit/report/moderation raw field는 노출하지 않는다.
 - 사용자별 capability/activity가 포함되므로 Web BFF와 API 모두 no-store 성격으로 사용한다.
