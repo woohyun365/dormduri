@@ -4,14 +4,15 @@
 
 ## Public boundary
 
-외부 domain production code는 retention 내부 owner 구현을 직접 import하지 않는다. 필요한 기능은 목적별 module/port surface를 통해 사용한다.
+일반 product/lifecycle caller는 exported module/port surface를 사용한다. Source archive handler와 계정 삭제 등은
+아래에 명시한 함수/registry로 협업한다. 이 협업을 임의 vault/disclosure 접근 권한으로 확대하지 않는다.
 
-- `RetentionModule`: retention worker/disclosure/observability provider wiring의 module surface다.
+- `RetentionModule`: retention sweep/observability provider wiring의 module surface다. 현재 Nest export는 아래 두 port다.
 - `RETENTION_OBSERVABILITY_PORT`: lifecycle sweep result를 metric/alert candidate signal로 변환하는 observability surface다.
 - `RETENTION_SWEEP_PORT`: lifecycle sweep이 archive/review/disposal job을 실행할 때 사용하는 narrow surface다.
-- `RETENTION_VAULT_PORT`: domain-owned archive handler가 원문 payload를 retained vault에 보관하거나 disposal 상태를 갱신할 때 사용하는 retained payload surface다.
-- `RETENTION_DISCLOSURE_PORT`: 승인 근거가 있는 운영 disclosure workflow만 사용하는 retained payload/identifier disclosure surface다.
-- `ARCHIVE_TARGET_HANDLER_PORT`: `ArchiveJob` target별 domain-owned handler registry surface다.
+- Domain-owned archive handler는 `vault/retention-case.repository.ts`, `vault/retained-vault.service.ts` 등의 함수에 caller transaction을 전달한다. Archive dispatch는 `archive-jobs/targets/archive-target-handlers.ts`의 registry가 담당한다.
+- 계정 삭제는 retained identity snapshot과 archive-job 생성 함수를 worker transaction에서 호출한다. Source-owner identity-link review와 report reference append의 제한은 [데이터 소유권 계약](../../../../docs/architecture/backend/domain-data-ownership.md)을 따른다.
+- Vault/disclosure/target-handler용 별도 DI port는 현재 없다. Disclosure 함수의 존재는 BackOffice API 연결이나 운영 release readiness를 뜻하지 않는다.
 - `RetentionWorkerPrismaService`와 `RetentionDisclosurePrismaService`: DB credential boundary다. 일반 API runtime credential은 RRPD raw payload/identifier payload를 직접 읽거나 쓰는 owner가 아니다.
 
 ## Directory responsibilities
