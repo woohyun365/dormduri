@@ -33,6 +33,8 @@ Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed throug
 
 - Add or move a SQL asset only with `prisma:generate` and `test/architecture/testing/api-sql-boundary.spec.ts` inventory updates.
 - Use `pg_advisory_xact_lock` for transaction-scoped advisory locks; session-scoped advisory locks are not allowed.
+  The outer query must consume the lock operation: an unreferenced SELECT CTE can be skipped even when the result marker is returned.
+  `test/integration/platform/transaction-advisory-lock.integration.spec.ts` verifies the generated helper's acquisition, independent-session waiting and commit/rollback release against PostgreSQL.
 - Worker claim SQL that uses `FOR UPDATE SKIP LOCKED` must stay bounded with `LIMIT`, deterministic `ORDER BY`, and explicit lease/update semantics.
 - SQL time functions such as `CURRENT_TIMESTAMP` and `NOW()` must be registered with owner/rationale in the SQL boundary guard.
 - Product code should call generated TypedSQL helpers via `$queryRawTyped(...)`; do not spread direct `$queryRaw` / `$executeRaw` string queries through product domains.
