@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { AuthModule } from '../../../src/auth/auth.module.js';
 import { DormitoriesModule } from '../../../src/dormitories/dormitories.module.js';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join, posix, relative, sep } from 'node:path';
+import ts from 'typescript';
 import { CurrentSeasonParticipantContextGuard } from '../../../src/season-participants/context/current-season-participant-context.guard.js';
 import {
   CurrentSeasonParticipationController,
@@ -60,6 +61,58 @@ function filesContaining(root: string, pattern: RegExp) {
     .filter((path) => pattern.test(readSource(path)))
     .map(relativeSourcePath)
     .sort();
+}
+
+// Public providers/barrels and existing pure projections, not directory-wide exceptions.
+const participantPublicSurfaces = {
+  'season-participants.module': 'module wiring',
+  'application/season-participants.service': 'public facade, including target snapshot reads',
+  'application/current-season-participation-view.query': 'current-user view provider',
+  'context/current-season-participant-context.guard': 'route-level context guard',
+  'capabilities/index': 'pure capability barrel',
+  'policies/index': 'pure policy barrel',
+  'public-target-policy/index': 'pure target policy barrel, not its DB-backed query factory',
+  'lifestyle/lifestyle-persistence.mapper': 'existing pure lifestyle projection',
+  'participants/season-participant-records': 'existing pure selectors, mappers and types',
+};
+const participantArchiveCaller = 'retention/archive-jobs/targets/archive-target-handlers.ts';
+const participantArchiveTarget = 'retention/season-profile-history-archive.handler';
+
+function participantImportViolations(caller: string, source: string): string[] {
+  if (caller.startsWith('season-participants/')) return [];
+  const file = ts.createSourceFile(caller, source, ts.ScriptTarget.Latest, true);
+  const violations = new Set<string>();
+  // Literal module references only; runtime-computed imports require semantic review.
+  function inspect(node: ts.Node | undefined) {
+    if (!node || !ts.isStringLiteralLike(node)) return;
+    const path = posix
+      .normalize(
+        node.text.startsWith('.') ? posix.join(posix.dirname(caller), node.text) : node.text,
+      )
+      .replace(/\.(?:js|ts)$/, '');
+    if (!path.startsWith('season-participants/')) return;
+    const target = path.slice('season-participants/'.length);
+    if (Object.hasOwn(participantPublicSurfaces, target)) return;
+    // Source-owned archive handler is only consumed by this worker registry.
+    if (caller === participantArchiveCaller && target === participantArchiveTarget) return;
+    violations.add(path);
+  }
+  function visit(node: ts.Node) {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) inspect(node.moduleSpecifier);
+    if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference))
+      inspect(node.moduleReference.expression);
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument))
+      inspect(node.argument.literal);
+    if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === 'require'))
+    )
+      inspect(node.arguments[0]);
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  return [...violations].sort();
 }
 
 describe('season-participants product architecture boundary', () => {
@@ -132,17 +185,128 @@ describe('season-participants product architecture boundary', () => {
   });
 
   it('keeps external domains from importing season-participants command/query/repository internals', () => {
-    const forbiddenInternalImport =
-      /from\s+['"][^'"]*season-participants\/(?:commands|queries|repositories)(?:\/|['"])/;
     const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
       (path) => !path.startsWith(seasonParticipantsRoot),
     );
     const offenders = externalFiles
-      .filter((path) => forbiddenInternalImport.test(readSource(path)))
+      .filter(
+        (path) =>
+          participantImportViolations(rootRelativePath(path, apiSourceRoot), readSource(path))
+            .length > 0,
+      )
       .map(relativeSourcePath)
       .sort();
 
     expect(offenders).toEqual([]);
+  });
+
+  it.each([
+    'commands/legacy.command',
+    'queries/legacy.query',
+    'repositories/legacy.repository',
+    'deregistration/deregister-season-participant.command',
+    'lifecycle/backfill-current-season-participants.command',
+    'lifecycle/season-participant-lifecycle-event.repository',
+    'registration/finalize-season-registration.command',
+    'profile-draft/upsert-season-profile-draft.command',
+    'participants/season-participant-container.command',
+    'application/season-action-user.query',
+    'public-targets/registration-snapshot.query',
+  ])('rejects external implementation imports at %s', (target) => {
+    expect(
+      participantImportViolations(
+        'matches/requests/consumer.ts',
+        `import { implementation } from '../../season-participants/${target}.js';`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    `export { implementation } from '../../season-participants/deregistration/deregister-season-participant.command.js';`,
+    `const implementation = import('../../season-participants/lifecycle/backfill-current-season-participants.command.js');`,
+    `const implementation = require('../../season-participants/registration/finalize-season-registration.command.js');`,
+    `import implementation = require('../../season-participants/participants/season-participant-container.command.js');`,
+    `type Implementation = import('../../season-participants/deregistration/deregister-season-participant.command.js').DeregisterSeasonParticipantCommand;`,
+    `import { implementation } from '../../season-participants/policies/../registration/finalize-season-registration.command.js';`,
+  ])('rejects alternate literal internal import forms: %s', (source) => {
+    expect(participantImportViolations('matches/requests/consumer.ts', source)).toHaveLength(1);
+  });
+
+  it.each([
+    'season-participants.module',
+    'application/season-participants.service',
+    'application/current-season-participation-view.query',
+    'context/current-season-participant-context.guard',
+    'capabilities/index',
+    'policies/index',
+    'public-target-policy/index',
+    'lifestyle/lifestyle-persistence.mapper',
+    'participants/season-participant-records',
+  ])('preserves public surfaces and existing pure projections: %s', (target) => {
+    expect(
+      participantImportViolations(
+        'matches/requests/consumer.ts',
+        `import { publicSurface } from '../../season-participants/${target}.js';`,
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps public surfaces and the exact archive collaboration tied to existing source', () => {
+    for (const [target, reason] of Object.entries(participantPublicSurfaces)) {
+      expect(reason.length).toBeGreaterThan(0);
+      expect(existsSync(join(seasonParticipantsRoot, `${target}.ts`)), target).toBe(true);
+    }
+    expect(existsSync(join(seasonParticipantsRoot, `${participantArchiveTarget}.ts`))).toBe(true);
+    const registry = readSource(join(apiSourceRoot, participantArchiveCaller));
+    // Removing the exception must expose the registry edge, rather than leave a stale allowance.
+    expect(
+      participantImportViolations('retention/archive-jobs/targets/other-handler.ts', registry),
+    ).toContain(`season-participants/${participantArchiveTarget}`);
+  });
+
+  it('normalizes TS and extensionless paths without confusing a similarly named owner', () => {
+    for (const extension of ['.ts', '']) {
+      expect(
+        participantImportViolations(
+          'matches/consumer.ts',
+          `import { command } from '../season-participants/registration/finalize-season-registration.command${extension}';`,
+        ),
+      ).toHaveLength(1);
+    }
+    expect(
+      participantImportViolations(
+        'matches/consumer.ts',
+        `import { value } from '../season-participants-extra/registration/example.js';`,
+      ),
+    ).toEqual([]);
+  });
+
+  it('limits archive collaboration to the exact retention registry', () => {
+    const source = `import { archiveSeasonProfileHistoryJob } from '../../../season-participants/retention/season-profile-history-archive.handler.js';`;
+    expect(
+      participantImportViolations(
+        'retention/archive-jobs/targets/archive-target-handlers.ts',
+        source,
+      ),
+    ).toEqual([]);
+    expect(
+      participantImportViolations('retention/archive-jobs/targets/other-handler.ts', source),
+    ).toHaveLength(1);
+  });
+
+  it('preserves owner-internal imports and ignores comments or ordinary strings', () => {
+    expect(
+      participantImportViolations(
+        'season-participants/application/owner.ts',
+        `import { command } from '../deregistration/deregister-season-participant.command.js';`,
+      ),
+    ).toEqual([]);
+    expect(
+      participantImportViolations(
+        'matches/consumer.ts',
+        `// import { command } from '../season-participants/commands/example.js';\nconst note = "from '../season-participants/commands/example.js'";`,
+      ),
+    ).toEqual([]);
   });
 
   it('keeps SeasonParticipantsModule exports on the current public facade/context/view surface', () => {
