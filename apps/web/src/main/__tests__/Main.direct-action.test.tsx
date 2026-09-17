@@ -6,6 +6,7 @@ import Main from '../Main';
 import { seasonApi } from '@/main/legacy/seasonLegacyClient';
 import { homeDashboardApi } from '@/main/api/home-dashboard.api';
 import { legacyProfileApi as profileApi } from '@/main/legacy/profileLegacyClient';
+import { seasonParticipationApi } from '@/main/api/season-participation.api';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 
 const roommateListTabMock = vi.hoisted(() =>
@@ -20,12 +21,16 @@ const matchingTabMock = vi.hoisted(() =>
     return <section data-testid="main-matching">matching tab</section>;
   }),
 );
+const profileTabMock = vi.hoisted(() => vi.fn());
+const homeTabMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../components/BottomTabBar', () => ({
   BottomTabBar: ({
     onTabChange,
+    badges,
   }: {
     onTabChange: (tab: 'home' | 'list' | 'matching' | 'chat' | 'profile') => void;
+    badges?: Partial<Record<'home' | 'list' | 'matching' | 'chat' | 'profile', number>>;
   }) => (
     <nav aria-label="하단 탭">
       <button type="button" onClick={() => onTabChange('home')}>
@@ -37,6 +42,10 @@ vi.mock('../components/BottomTabBar', () => ({
       <button type="button" onClick={() => onTabChange('matching')}>
         매칭 현황
       </button>
+      <button type="button" onClick={() => onTabChange('profile')}>
+        프로필
+      </button>
+      {badges?.matching ? <span data-testid="matching-badge">{badges.matching}</span> : null}
     </nav>
   ),
 }));
@@ -50,35 +59,47 @@ vi.mock('../components/BuildingSelectModal', () => ({
 }));
 
 vi.mock('../tabs/home/HomeTab', () => ({
-  default: ({
-    onOpenBuildingSelect,
-    onNavigate,
-  }: {
+  default: (props: {
     onOpenBuildingSelect?: () => void;
     onNavigate: (
       tab: 'home' | 'list' | 'matching' | 'chat' | 'profile',
       options?: { requestTab?: 'sent' | 'received' },
     ) => void;
-  }) => (
-    <section data-testid="main-home">
-      home tab
-      <button type="button" onClick={onOpenBuildingSelect}>
-        기숙사 선택 시작
-      </button>
-      <button type="button" onClick={() => onNavigate('matching', { requestTab: 'received' })}>
-        받은 요청 바로가기
-      </button>
-    </section>
-  ),
+    onDeregisterSeasonParticipation: () => Promise<void>;
+  }) => {
+    homeTabMock(props);
+    return (
+      <section data-testid="main-home">
+        home tab
+        <button type="button" onClick={props.onOpenBuildingSelect}>
+          기숙사 선택 시작
+        </button>
+        <button
+          type="button"
+          onClick={() => props.onNavigate('matching', { requestTab: 'received' })}
+        >
+          받은 요청 바로가기
+        </button>
+      </section>
+    );
+  },
 }));
 
 vi.mock('../tabs/roommate-list/RoommateListTab', () => ({
   default: roommateListTabMock,
 }));
 
-vi.mock('../tabs/profile/ProfileTab', () => ({
-  default: () => null,
-}));
+vi.mock('../tabs/profile/ProfileTab', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../tabs/profile/ProfileTab')>();
+  const { createElement } = await import('react');
+
+  return {
+    default: (props: React.ComponentProps<typeof actual.default>) => {
+      profileTabMock(props);
+      return createElement(actual.default, props);
+    },
+  };
+});
 
 vi.mock('../tabs/matching/MatchingTab', () => ({
   default: matchingTabMock,
@@ -103,6 +124,8 @@ describe('Main direct-action baseline', () => {
     vi.restoreAllMocks();
     roommateListTabMock.mockClear();
     matchingTabMock.mockClear();
+    profileTabMock.mockClear();
+    homeTabMock.mockClear();
     sessionStorage.clear();
     vi.spyOn(seasonApi, 'getCurrentSeason').mockResolvedValue({
       season: { name: '2026년 1학기', roomSelectionDate: '2099-04-30' },
@@ -136,6 +159,47 @@ describe('Main direct-action baseline', () => {
     await user.click(screen.getByRole('button', { name: '기숙사 선택 시작' }));
 
     expect(screen.getByRole('dialog', { name: '배정 건물 선택' })).toBeInTheDocument();
+  });
+
+  it('시즌 참여 철회 성공 시 dashboard를 정확히 한 번 추가 조회한다', async () => {
+    vi.spyOn(seasonParticipationApi, 'deregisterCurrentSeasonParticipation').mockResolvedValue();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    const onDeregisterSeasonParticipation =
+      homeTabMock.mock.lastCall?.[0]?.onDeregisterSeasonParticipation;
+    expect(onDeregisterSeasonParticipation).toEqual(expect.any(Function));
+
+    await act(async () => {
+      await (onDeregisterSeasonParticipation as () => Promise<void>)();
+    });
+
+    expect(seasonParticipationApi.deregisterCurrentSeasonParticipation).toHaveBeenCalledTimes(1);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(2);
+  });
+
+  it('시즌 참여 철회 실패 시 dashboard를 추가 조회하지 않는다', async () => {
+    const mutationError = new Error('deregister failed');
+    vi.spyOn(seasonParticipationApi, 'deregisterCurrentSeasonParticipation').mockRejectedValue(
+      mutationError,
+    );
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    const onDeregisterSeasonParticipation =
+      homeTabMock.mock.lastCall?.[0]?.onDeregisterSeasonParticipation;
+    let caught: unknown;
+    await act(async () => {
+      try {
+        await (onDeregisterSeasonParticipation as () => Promise<void>)();
+      } catch (error) {
+        caught = error;
+      }
+    });
+
+    expect(caught).toBe(mutationError);
+    expect(seasonParticipationApi.deregisterCurrentSeasonParticipation).toHaveBeenCalledTimes(1);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
   });
 
   it('does not load legacy roommate data after moving to the list tab', async () => {
@@ -257,6 +321,108 @@ describe('Main direct-action baseline', () => {
     expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ onNavigationIntent: expect.any(Function) }),
     );
+  });
+
+  it('Profile의 저장된 local snapshot은 non-Home에서 유지하고 저장 전 draft와 Home 진입에서는 폐기한다', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '프로필' }));
+    await screen.findByRole('heading', { name: '내 프로필' });
+
+    await user.click(screen.getByRole('button', { name: '작성하기' }));
+    const editor = screen.getByRole('textbox');
+    await user.type(editor, '아직 저장하지 않은 소개');
+
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+    await user.click(screen.getByRole('button', { name: '프로필' }));
+
+    expect(screen.queryByDisplayValue('아직 저장하지 않은 소개')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '작성하기' }));
+    await user.type(screen.getByRole('textbox'), '적용된 소개');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    expect(screen.getAllByText('적용된 소개')).not.toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+    await user.click(screen.getByRole('button', { name: '프로필' }));
+    expect(screen.getAllByText('적용된 소개')).not.toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: '홈' }));
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '프로필' }));
+    expect(screen.queryAllByText('적용된 소개')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: '작성하기' })).toBeInTheDocument();
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+  });
+
+  it('Profile 기숙사 callback과 Matching badge는 non-Home 형제에만 유지되고 Home에서 reset된다', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '프로필' }));
+    await waitFor(() => expect(profileTabMock).toHaveBeenCalled());
+
+    const onDormitoryChange = profileTabMock.mock.lastCall?.[0]?.onDormitoryChange;
+    expect(onDormitoryChange).toEqual(expect.any(Function));
+    await act(async () => {
+      (onDormitoryChange as (dormitoryId: string | null) => void)('daon');
+    });
+
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+    expect(roommateListTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        user: expect.objectContaining({
+          dormitoryId: 'daon',
+          dormitory: expect.objectContaining({ id: 'daon', name: '다온관' }),
+        }),
+        searchEntryAllowed: true,
+        viewerSeasonRegistered: true,
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: '매칭 현황' }));
+    expect(matchingTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        viewerHeader: expect.objectContaining({ residenceLabel: '다온관 · 2인실' }),
+      }),
+    );
+    expect(Object.keys(matchingTabMock.mock.lastCall?.[0] ?? {}).sort()).toEqual([
+      'initialRequestTab',
+      'initialSection',
+      'onBadgeCountChange',
+      'onNavigateChat',
+      'onNavigationIntent',
+      'seasonShell',
+      'viewerHeader',
+      'viewerId',
+    ]);
+    const onBadgeCountChange = matchingTabMock.mock.lastCall?.[0]?.onBadgeCountChange;
+    await act(async () => {
+      (onBadgeCountChange as (count: number) => void)(4);
+    });
+    expect(screen.getByTestId('matching-badge')).toHaveTextContent('4');
+
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+    expect(screen.getByTestId('matching-badge')).toHaveTextContent('4');
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: '홈' }));
+    await screen.findByTestId('main-home');
+    expect(screen.queryByTestId('matching-badge')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+    expect(roommateListTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        user: expect.objectContaining({
+          dormitoryId: 'dasan',
+          dormitory: expect.objectContaining({ id: 'dasan', name: '다산관' }),
+        }),
+      }),
+    );
+    expect(screen.queryByTestId('matching-badge')).not.toBeInTheDocument();
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
   });
 
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {
