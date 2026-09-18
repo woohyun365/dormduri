@@ -30,10 +30,6 @@ const HOME_E2E_NEXT_SEASON = {
   academicYear: 2026,
   semester: 2,
   name: '2026년 2학기',
-  preparationStartDate: '2026-07-23',
-  matchingStartDate: '2026-08-01',
-  roomSelectionDate: '2026-08-06',
-  seasonEndDate: '2026-08-31',
 };
 const HOME_E2E_DORMITORY_MATRIX = [
   { dormitoryId: 'dasan', expectedMinimumParticipants: 10 },
@@ -138,10 +134,10 @@ function getSeedMode() {
 function getCurrentSeasonSchedule(now, mode) {
   if (mode === 'future-preview') {
     return {
-      preparationStartDate: HOME_E2E_NEXT_SEASON.preparationStartDate,
-      matchingStartDate: HOME_E2E_NEXT_SEASON.matchingStartDate,
-      roomSelectionDate: HOME_E2E_NEXT_SEASON.roomSelectionDate,
-      seasonEndDate: HOME_E2E_NEXT_SEASON.seasonEndDate,
+      preparationStartDate: toKstDateString(addDays(now, 7)),
+      matchingStartDate: toKstDateString(addDays(now, 14)),
+      roomSelectionDate: toKstDateString(addDays(now, 28)),
+      seasonEndDate: toKstDateString(addDays(now, 45)),
     };
   }
 
@@ -362,6 +358,7 @@ async function upsertParticipant(
         "joinedAt" = EXCLUDED."joinedAt",
         "activatedAt" = EXCLUDED."activatedAt",
         "matchedAt" = EXCLUDED."matchedAt",
+        "declinedAt" = NULL,
         "withdrawnAt" = NULL,
         "expiredAt" = NULL,
         "hiddenByAdminAt" = NULL,
@@ -414,8 +411,8 @@ async function upsertParticipant(
     storedLifestyle.drinkingTolerance,
     user.fixture.intro,
     user.fixture.college ?? 'CHUNCHEON_IT',
-    user.fixture.grade ?? null,
-    user.fixture.mbti ?? null,
+    String(user.fixture.grade ?? 2),
+    user.fixture.mbti ?? 'INTJ',
     user.fixture.birthYear ?? 2002,
   ];
 
@@ -500,6 +497,42 @@ async function upsertParticipant(
     `,
     [id, ...profileValues],
   );
+
+  if (participationIntent === 'REGISTERED' && registeredAt) {
+    // Mirror the registration mapper, using the exact live-profile values above.
+    // This fixed ID owns only the synthetic fixture snapshot; preserve other history.
+    const profileColumns = [
+      'nicknameSnapshot',
+      'nicknameNormalizedSnapshot',
+      ...Object.keys(storedLifestyle),
+      'intro',
+      'collegeCode',
+      'grade',
+      'mbti',
+      'birthYear',
+    ];
+    const snapshotColumns = [
+      'participantId',
+      'seasonId',
+      'registeredAtSnapshot',
+      ...profileColumns,
+    ];
+    await client.query(
+      `
+        INSERT INTO "SeasonParticipantProfileHistory" (
+          id, ${snapshotColumns.map((column) => `"${column}"`).join(', ')}, source, "createdAt"
+        )
+        VALUES (
+          $1, ${snapshotColumns.map((_, index) => `$${index + 2}`).join(', ')}, 'SEASON_REGISTRATION', NOW()
+        )
+        ON CONFLICT (id)
+        DO UPDATE SET
+          ${snapshotColumns.map((column) => `"${column}" = EXCLUDED."${column}"`).join(', ')},
+          source = EXCLUDED.source
+      `,
+      [`home-e2e-registration-${id}`, id, seasonId, registeredAt.toISOString(), ...profileValues],
+    );
+  }
 }
 
 async function lookupSeedSeason(client, { academicYear, semester }) {

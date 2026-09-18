@@ -32,6 +32,58 @@ export function resetHomeE2eSeed(mode: HomeE2eSeedMode) {
   }
 }
 
+// Canonical reference seed operates all campuses. Scope the negative fixture to this test,
+// and return the previous flag so the caller restores it in finally (workers: 1).
+export function setHomeE2eSamcheokOperated(operated: boolean): boolean {
+  const result = spawnSync(
+    'node',
+    [
+      '--input-type=module',
+      '-e',
+      `
+        import pg from 'pg';
+        const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+        await client.connect();
+        try {
+          await client.query('BEGIN');
+          const previous = await client.query(
+            'SELECT "isOperated" FROM "CampusMaster" WHERE code = $1 FOR UPDATE', ['SAMCHEOK'],
+          );
+          if (previous.rowCount !== 1) throw new Error('Home E2E campus fixture missing');
+          await client.query(
+            'UPDATE "CampusMaster" SET "isOperated" = $1 WHERE code = $2',
+            [process.env.HOME_E2E_CAMPUS_OPERATED === 'true', 'SAMCHEOK'],
+          );
+          await client.query('COMMIT');
+          process.stdout.write(JSON.stringify(previous.rows[0].isOperated));
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          await client.end();
+        }
+      `,
+    ],
+    {
+      cwd: apiDir,
+      env: {
+        ...process.env,
+        DATABASE_URL: localDatabaseUrl,
+        HOME_E2E_CAMPUS_OPERATED: String(operated),
+      },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`Home E2E campus override failed: ${result.stderr}`);
+  }
+  const previous: unknown = JSON.parse(result.stdout);
+  if (typeof previous !== 'boolean') throw new Error('Invalid Home E2E campus flag');
+  return previous;
+}
+
 export function issueHomeE2eSessionToken(email: string) {
   const sessionId = randomUUID();
   const accessToken = createOpaqueAccessToken(sessionId);
