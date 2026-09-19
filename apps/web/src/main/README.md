@@ -1,39 +1,56 @@
-# Web main shell
+# Web main destinations
 
-`apps/web/src/main`은 로그인 후 `/main` shell과 tab orchestration을 소유한다.
-각 tab의 세부 product behavior는 `tabs/*` owner가 담당하고, `Main.tsx`는 session user, tab state, shared modal/sheet, owner callback wiring만 얇게 연결한다.
+`apps/web/src/app/main`은 로그인 후 다섯 App Router 목적지를 소유한다.
+`/main`, `/main/roommates`, `/main/matching`, `/main/chat`, `/main/profile`의 server page가 각각
+`main/routes/*Route`를 선택하고 metadata를 제공한다. 공통 layout의 `MainRouteShell`은 인증 상태를 확인한 뒤
+viewer ID로 keyed `MainRuntime`에 children을 전달한다. 공통 loading/error boundary는 route segment가 소유한다.
 
-## Home first render boundary
+## Navigation and state lifetime
 
-- `/login`, `/signup`, `/password-reset` 이후 `/main` 첫 화면은 auth session gate 통과 후 Home dashboard read model에서 시작한다.
-- `apps/web/src/main/api/home-dashboard.api.ts`는 `homeDashboardApi.getDashboard()`만 노출하는 dashboard-only BFF client다. legacy widget/mock method를 다시 추가하지 않는다.
-- Home first render는 legacy `profileApi.getMyProfile()` 결과나 global fixture/mock DB를 기다리지 않는다.
-- non-Home tab이 과도기적으로 legacy profile/mock API를 필요로 하더라도 `MainLegacyTabAdapter` 같은 명시 boundary 안에서 lazy load되어야 한다.
+- `model/mainRoutes.ts`의 typed destination과 실제 Link/pathname이 top-level navigation을 소유한다.
+  `activeTab` sessionStorage 복원이나 manual document title/scroll effect는 사용하지 않는다.
+- `BottomTabBar`는 실제 링크, 현재 목적지의 `aria-current`, badge를 표시한다. 사용 불가능한 목적지는 이유를 표시하는
+  비탐색 button으로 남긴다. 직접 URL도 route에서 capability를 확인한다.
+- Matching의 `section`/`requestTab`만 allowlist parser/serializer로 URL에 표현한다. 생략은 overview-dependent 자동 선택이며
+  명시적인 사용자 선택과 다르다. 사용자 전환은 push, 잘못된 owned query 정규화는 replace하고 무관한 query는 보존한다.
+- 목적지 pathname 변경에서는 이름 있는 본문 landmark로 focus를 이동하되 feature가 이미 본문 안에 둔 focus는 유지한다.
+  초기 진입·query-only 변경·일반 refresh에서는 focus를 옮기지 않고 스크롤은 router에 맡긴다. native route announcer 문자열이나
+  실제 스크린리더 발화를 이 DOM focus 계약의 검증으로 가장하지 않는다.
+- Roommates filter/cursor와 Chat thread/draft는 feature-local이다. route 이탈에서 unmount하며 browser back으로 draft를 복원하지 않는다.
+- viewer 변경/logout은 private runtime 전체를 폐기한다. season 변경은 Profile/Roommates/Matching scope를 갱신하되
+  같은 viewer의 Chat draft는 season 변경만으로 지우지 않는다. Chat thread 전환은 해당 feature가 소유한다.
+- Matching overview만 badge를 publish한다. non-Home 목적지 간 last-known count를 유지하고 Home 진입·viewer/season 변경에서
+  폐기한다. 별도 overview 조회나 realtime freshness를 보장하는 cache가 아니다.
 
-## Runtime fixture boundary
+## Data and authorization ownership
 
-- Home first render와 `apps/web/src/main/api/home-dashboard.api.ts`는 삭제된 `@/main/dev-only/fixtures` mock surface를 direct/dynamic import하지 않는다.
-- `apps/web/src/main/dev-only/fixtures`와 root `src/__fixtures__`는 production correctness 근거가 아니므로 재도입하지 않는다.
-- `apps/web/src/components/*Dev*Loader` 기반 floating dev surface는 제거되었다. local scenario override는 Storybook/test-support 또는 explicit test fixture lane에서만 다룬다.
-- legacy dev override storage나 `mock-db` / `mock-matching-service` 사용은 Home/Main product correctness evidence로 사용하지 않는다.
-- `api/profile.ts`와 `api/matching.ts`의 development fallback은 non-Home legacy tab migration debt이며 Home dashboard API 완료 근거가 아니다.
-- Home/Main unit tests는 `test-support/*builder*`의 typed builders를 사용한다.
-- 로그인 사용자 mobile/desktop browser smoke는 `apps/web/playwright.fullstack.config.ts`의 API + DB seed 기반 full-stack Playwright lane에서 검증한다.
+- `MainRuntime`은 현재 `useMainHomeDashboard`의 단일 client-side dashboard read를 기다린다. route 분리 자체가 Home SSR이나
+  dashboard 의존 제거를 의미하지 않는다. Home은 `MainHomeResourceContext`의 dashboard/refresh를 소비한다.
+- `MainShellContext`는 viewer display, season scope, capability projection과 navigation/refresh 배선만 제공한다.
+  domain DTO cache나 mutable universal UserProfile store로 확장하지 않는다.
+- Roommates/Matching/Chat의 REST read/mutation은 각 feature owner가 담당한다. Home의 실제 성공 mutation은 dashboard를 refresh한다.
+- `SeasonContext`는 필요한 route-local UI projection이지 API authorization이 아니다. action은 API/BFF의 authoritative capability와
+  unavailable reason을 사용하며, UI enum으로 mutation 권한을 합성하지 않는다.
 
-## Main-owned shared surfaces
+## Explicit compatibility debt
 
-- Season context는 non-Home legacy tab bridge가 소유한다. HomeTab production path는 `SeasonContext`를 소비하지 않고 `HomeDashboardResponse`의 `season` read model만 사용한다.
-- `SeasonContext`는 Main UI composition을 위한 runtime projection일 뿐 mutation/action capability의 source of truth가 아니다.
-- 화면 action은 API/BFF가 반환한 authoritative capability와 unavailable reason을 사용한다. Context의 `SeasonState`, `isOpen`, `isMatching`으로 권한을 다시 계산하지 않는다.
-- 서로 다른 갱신 주기나 owner를 가진 데이터를 prop drilling을 줄인다는 이유만으로 `SeasonContext`에 합치지 않는다.
-- Season fallback/legacy schedule helper는 Home first render 근거가 아니다. 남은 `apps/web/src/main/season/seasonFallback.ts`와 `apps/web/src/main/legacy/seasonLegacyClient.ts`는 non-Home legacy tab 전환 debt에만 한정한다.
-- `SeasonState`는 `@repo/shared/season/runtime`에서 직접 import한다. `apps/web/src/types/season.ts` re-export를 다시 만들지 않는다.
-- 공용 계약 타입은 `@repo/shared/*`에서 직접 가져오고, Web 전용 navigation/profile/presentation 타입은 실제 owner의 `model/`에 둔다. root `apps/web/src/types` compatibility barrel은 다시 만들지 않는다.
-- Home `service-intro` dismissed state와 중복되는 local onboarding/checklist 상태를 Main에 다시 두지 않는다.
-- Home은 더 이상 `service-intro` dismissed mutation client를 소유하지 않는다. `/api/users/me/onboarding` route는 account/user dismissed notice compatibility로 남기되, Home first render나 HomeTab runtime에서 호출하지 않는다. root `apps/web/src/api/current-user.ts` 같은 넓은 compatibility path를 다시 만들지 않는다.
+- Profile의 `ProfileCompatibility`와 `useMainProfileState`/`useMainSocialState`는 기존 local-only 편집·사회 기능을 위한 명시적인
+  adapter다. 적용 값은 non-Home navigation 동안만 유지하며 Home/identity/season 전환에서 폐기한다.
+  `ProfileRoute`가 쓰는 이 값은 서버 저장 성공의 근거가 아니다.
+- 기숙사 local overlay의 좁은 projection만 필요한 Roommates/Matching consumer에 연결한다. Profile write draft를 shell display에서
+  authoritative entity로 만들어서는 안 된다.
+- Home 건물 선택의 기존 성공 안내도 아직 local-only이다. Home/Profile의 실제 저장 및 block/unblock 연결은 해당 mutation owner에서
+  별도로 해결해야 한다. route migration 완료를 persistence 완료로 표현하지 않는다.
+- 호출부 없는 예전 Main orchestrator, legacy profile/season bootstrap client와 local season fallback은 제거했다.
+  Home·Matching의 동작 근거는 실제 dashboard/overview read model이지 제거된 development override가 아니다.
 
-## Test-support rule
+## Fixture and verification boundary
 
-`test-support/`는 runtime source of truth가 아니다.
-공유 contract shape를 만드는 builder만 둔다.
-실제 product state matrix는 API/BFF contract test와 DB seed-backed E2E에서 검증한다.
+- production code는 `test-support`, Storybook fixture, 제거된 global mock DB/dev-only surface를 import하지 않는다.
+  `test-support/` builder는 contract shape를 만들 뿐 product correctness source가 아니다.
+- unit tests는 실제 runtime/route adapter의 dashboard 요청 수, capability, navigation intent, Profile editor 수명과 identity reset을 보호한다.
+  Next route delivery mock은 browser history/scroll/announcement 검증을 대신하지 않는다.
+- `e2e/main-routes.fullstack.spec.ts` 및 Home/Roommates/auth fullstack은 disposable DB seed 기반 실제 BFF/API로 검증한다.
+  fullstack 실행 전 DB identity·소유권·폐기 가능성과 서버 대상을 확인한다.
+- route chunk 경계와 client JS/navigation 성능은 production build/browser에서 측정한다. import guard나 `use client` 개수만으로
+  code splitting·성능 개선을 주장하지 않는다.

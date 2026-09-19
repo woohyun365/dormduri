@@ -1,10 +1,23 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const read = (relative: string) => readFileSync(path.join(process.cwd(), 'src', relative), 'utf8');
 
 describe('main route boundary', () => {
+  it('does not retain the superseded tab orchestrator, title effect or legacy bootstrap', () => {
+    for (const file of [
+      'main/Main.tsx',
+      'main/hooks/useMainLegacyTabData.ts',
+      'main/legacy/profileLegacyClient.ts',
+      'main/legacy/seasonLegacyClient.ts',
+      'main/season/seasonFallback.ts',
+      'main/utils/mainTabTitle.ts',
+    ])
+      expect(existsSync(path.join(process.cwd(), 'src', file)), file).toBe(false);
+    expect(read('main/components/BottomTabBar.tsx')).not.toContain('onTabChange');
+  });
+
   it('server layout composes the authenticated children shell without a tab registry', () => {
     const layout = read('app/main/layout.tsx');
     expect(layout).not.toContain("'use client'");

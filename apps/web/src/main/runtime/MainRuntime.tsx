@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMainHomeDashboard } from '@/main/hooks/useMainHomeDashboard';
 import { BottomTabBar } from '@/main/components/BottomTabBar';
@@ -12,6 +12,37 @@ import { getMainFeatureFlags } from '@/main/utils/mainFeatureFlags';
 import { mainDestination, mainHref } from '@/main/model/mainRoutes';
 import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
 import { MainHomeResourceContext, MainShellContext } from './MainContexts';
+
+const destinationNames: Record<TabId, string> = {
+  home: '홈',
+  list: '룸메 찾기',
+  matching: '매칭 현황',
+  chat: '채팅',
+  profile: '내 프로필',
+};
+
+function DestinationContent({ pathname, children }: { pathname: string; children: ReactNode }) {
+  const main = useRef<HTMLElement>(null);
+  const previousPathname = useRef(pathname);
+  useEffect(() => {
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
+    // A named content landmark gives keyboard/AT users a stable destination.
+    // Keep feature-owned focus (e.g. Matching), and leave scroll to the router.
+    if (main.current && !main.current.contains(document.activeElement)) {
+      main.current.focus({ preventScroll: true });
+    }
+  }, [pathname]);
+  return (
+    <main
+      ref={main}
+      tabIndex={-1}
+      aria-label={`${destinationNames[mainDestination(pathname)]} 주요 내용`}
+    >
+      {children}
+    </main>
+  );
+}
 
 export function MainRuntime({ viewerId, children }: { viewerId: string; children: ReactNode }) {
   const resource = useMainHomeDashboard(viewerId);
@@ -95,7 +126,7 @@ export function MainRuntime({ viewerId, children }: { viewerId: string; children
       >
         <ProfileCompatibility dashboard={dashboard} scopeKey={compatibilityScope}>
           <div className="min-h-screen bg-(--knu-background-alt) pb-[calc(5rem+env(safe-area-inset-bottom))]">
-            <main>{children}</main>
+            <DestinationContent pathname={pathname}>{children}</DestinationContent>
             <BottomTabBar
               activeTab={activeTab}
               disabledTabs={flags.disabledTabs}

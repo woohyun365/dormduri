@@ -1,4 +1,3 @@
-import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { UserProfile } from '@/main/model/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
@@ -52,23 +51,5 @@ export function toMainLegacyUserProfile(dashboard: HomeDashboardResponse): UserP
       mbti: null,
       birthYear: academicIdentity.birthYear,
     },
-  };
-}
-
-export function toMainSeasonContext(dashboard: HomeDashboardResponse): SeasonContextValue {
-  const schedule = dashboard.season.schedule;
-  const currentSeason = dashboard.season.summary;
-  const nextSeason = dashboard.nextSeasonPreview;
-
-  return {
-    season: {
-      name: currentSeason?.name ?? nextSeason?.name ?? '',
-      roomSelectionDate:
-        schedule?.matchingEnd ?? nextSeason?.operatedDormitories?.[0]?.roomSelectionDate ?? '',
-    },
-    state: dashboard.season.state ?? 'OFF_SEASON',
-    isOpen: dashboard.season.isOpen,
-    isMatching: dashboard.season.isMatching,
-    daysUntilEnd: dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0,
   };
 }

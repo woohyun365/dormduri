@@ -8,7 +8,6 @@ import type { TabId } from '@/main/model/navigation';
 
 interface BottomTabBarProps {
   activeTab: TabId;
-  onTabChange?: (tab: TabId) => void;
   badges?: Partial<Record<TabId, number>>;
   disabledTabs?: TabId[];
 }
@@ -21,12 +20,7 @@ const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
   { id: 'profile', label: '프로필', icon: User },
 ];
 
-export function BottomTabBar({
-  activeTab,
-  onTabChange,
-  badges,
-  disabledTabs = [],
-}: BottomTabBarProps) {
+export function BottomTabBar({ activeTab, badges, disabledTabs = [] }: BottomTabBarProps) {
   return (
     <nav
       aria-label="메인 네비게이션"
@@ -58,14 +52,12 @@ export function BottomTabBar({
               )}
             </>
           );
-          // The callback adapter remains only for legacy fixtures until their owner migration.
-          return onTabChange || isDisabled ? (
+          return isDisabled ? (
             <button
               key={id}
               type="button"
               aria-current={isActive ? 'page' : undefined}
               aria-disabled={isDisabled || undefined}
-              onClick={isDisabled ? undefined : () => onTabChange?.(id)}
               className={className}
             >
               {content}

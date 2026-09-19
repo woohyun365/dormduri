@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 const homeRoot = join(process.cwd(), 'src/main/tabs/home');
 const mainHomeFirstRenderSourceRoots = [
   join(process.cwd(), 'src/app/main/MainRouteShell.client.tsx'),
-  join(process.cwd(), 'src/main/Main.tsx'),
-  join(process.cwd(), 'src/main/hooks/useMainBootstrap.ts'),
+  join(process.cwd(), 'src/main/runtime/MainRuntime.tsx'),
+  join(process.cwd(), 'src/main/routes/HomeRoute.tsx'),
   join(process.cwd(), 'src/main/hooks/useMainHomeDashboard.ts'),
   homeRoot,
 ] as const;
@@ -92,6 +92,8 @@ describe('Home runtime boundary', () => {
   });
 
   it('Home first-render runtime does not depend on legacy profile/mock bootstrap sources', () => {
+    for (const root of mainHomeFirstRenderSourceRoots)
+      expect(statSync(root).isFile() || statSync(root).isDirectory()).toBe(true);
     const violations = mainHomeFirstRenderSourceRoots
       .flatMap((root) => listRuntimeSourceFiles(root))
       .flatMap((file) => {

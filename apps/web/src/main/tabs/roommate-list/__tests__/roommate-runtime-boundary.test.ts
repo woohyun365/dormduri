@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const roommateRoot = join(process.cwd(), 'src/main/tabs/roommate-list');
-const mainRuntimeSource = join(process.cwd(), 'src/main/Main.tsx');
+const mainRuntimeSource = join(process.cwd(), 'src/main/routes/RoommatesRoute.tsx');
 
 function importPath(...parts: string[]): string {
   return parts.join('');
@@ -87,7 +87,7 @@ describe('RoommateTab runtime boundary', () => {
     expect(violations).toEqual([]);
   });
 
-  it('Main delegates roommate search state instead of passing legacy list props', () => {
+  it('Roommates route delegates roommate search state instead of passing legacy list props', () => {
     const source = readFileSync(mainRuntimeSource, 'utf8');
     const violations = FORBIDDEN_MAIN_LIST_BRIDGE_PATTERNS.filter((pattern) =>
       source.includes(pattern),

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { homeDashboardApi } from '@/main/api/home-dashboard.api';
@@ -146,6 +146,58 @@ beforeEach(() => {
 });
 
 describe('destination runtime lifetimes', () => {
+  it('focuses named destination content only on pathname change, not initial load, query or refresh', async () => {
+    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    outside.focus();
+    try {
+      const view = render(tree());
+      await screen.findByRole('heading', { name: 'Home' });
+      expect(outside).toHaveFocus();
+      navigation.pathname = '/main/chat';
+      view.rerender(tree());
+      expect(screen.getByRole('main', { name: '채팅 주요 내용' })).toHaveFocus();
+      const draft = screen.getByLabelText('chat draft');
+      draft.focus();
+      navigation.search = 'campaign=keep';
+      view.rerender(tree());
+      expect(draft).toHaveFocus();
+      fireEvent.click(screen.getByText('shell refresh'));
+      await act(async () => undefined);
+      expect(draft).toHaveFocus();
+      navigation.pathname = '/main/profile';
+      view.rerender(tree());
+      expect(screen.getByRole('main', { name: '내 프로필 주요 내용' })).toHaveFocus();
+    } finally {
+      outside.remove();
+    }
+  });
+
+  it('preserves a destination feature that already focused its own content', async () => {
+    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
+    function FocusOwner() {
+      const heading = useRef<HTMLHeadingElement>(null);
+      useEffect(() => {
+        heading.current?.focus();
+      }, []);
+      return (
+        <h1 ref={heading} tabIndex={-1}>
+          Feature-owned focus
+        </h1>
+      );
+    }
+    const view = render(tree());
+    await screen.findByRole('heading', { name: 'Home' });
+    navigation.pathname = '/main/matching';
+    view.rerender(
+      <MainRuntime key="user-1" viewerId="user-1">
+        <FocusOwner />
+      </MainRuntime>,
+    );
+    expect(screen.getByRole('heading', { name: 'Feature-owned focus' })).toHaveFocus();
+  });
+
   it('five routes share one dashboard request; Links own URL and Home actions carry Matching intent', async () => {
     const get = vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
     const view = render(tree());

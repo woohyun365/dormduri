@@ -64,6 +64,7 @@ test.describe('App Router destinations', () => {
     });
     await page.goto('/main/chat');
     await ready(page, '/main/chat', '채팅');
+    await expect(page).toHaveTitle(/채팅/);
     const nav = page.getByRole('navigation', { name: '메인 네비게이션' });
     await nav.getByRole('link', { name: '프로필', exact: true }).click();
     await ready(page, '/main/profile', '프로필');
@@ -143,6 +144,111 @@ test.describe('App Router destinations', () => {
     await ready(page, '/main/chat', '채팅');
     await page.getByRole('button', { name: /대화 상대 매칭 대화/ }).click();
     await expect(page.getByRole('textbox', { name: '메시지', exact: true })).toHaveValue('');
+  });
+
+  test('320px keyboard navigation preserves reflow, focus visibility and named destination focus', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 740 });
+    await login(page);
+    await page.goto('/main/chat');
+    await ready(page, '/main/chat', '채팅');
+    await expect(page).toHaveTitle(/채팅/);
+    const nav = page.getByRole('navigation', { name: '메인 네비게이션' });
+    await nav.getByRole('link', { name: '채팅', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    const profile = nav.getByRole('link', { name: '프로필', exact: true });
+    await expect(profile).toBeFocused();
+    await expect(profile).toHaveCSS('outline-style', 'solid');
+    await page.keyboard.press('Enter');
+    await ready(page, '/main/profile', '프로필');
+    await expect(page).toHaveTitle(/내 프로필/);
+    await expect(page.getByRole('main', { name: '내 프로필 주요 내용' })).toBeFocused();
+    const content = page.getByRole('main', { name: '내 프로필 주요 내용' });
+    const profileCard = content.getByRole('button', { name: /홈스모크남.*다산관/ });
+    await expect(profileCard).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(profileCard).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: '수정', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: '생활패턴 수정' });
+    await expect(dialog).toBeVisible();
+    expect(
+      await dialog.evaluate((element) => element.getBoundingClientRect().width <= innerWidth),
+    ).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    const box = await nav.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(740);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await nav.getByRole('link', { name: '채팅', exact: true }).click();
+    await ready(page, '/main/chat', '채팅');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test('Chat composer survives a keyboard-sized viewport and route leave discards the profile editor draft', async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto('/main/chat');
+    await ready(page, '/main/chat', '채팅');
+    await page.getByRole('button', { name: /대화 상대 매칭 대화/ }).click();
+    const composer = page.getByRole('textbox', { name: '메시지', exact: true });
+    await composer.fill('전송하지 않는 keyboard draft');
+    await page.setViewportSize({ width: 320, height: 400 });
+    await composer.focus();
+    await expect(composer).toBeFocused();
+    await expect(composer).toBeInViewport();
+    await expect(composer).toHaveValue('전송하지 않는 keyboard draft');
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page
+      .getByRole('navigation', { name: '메인 네비게이션' })
+      .getByRole('link', { name: '프로필' })
+      .click();
+    await ready(page, '/main/profile', '프로필');
+    // A viewport resize models available space, not a physical mobile keyboard.
+    await page.getByRole('button', { name: '작성하기', exact: true }).click();
+    await page.getByRole('textbox').fill('저장하지 않은 프로필');
+    await page
+      .getByRole('navigation', { name: '메인 네비게이션' })
+      .getByRole('link', { name: '채팅', exact: true })
+      .click();
+    await ready(page, '/main/chat', '채팅');
+    await page.goBack();
+    await ready(page, '/main/profile', '프로필');
+    await expect(page.getByRole('textbox')).toHaveCount(0);
+    await expect(page.getByText('저장하지 않은 프로필')).toHaveCount(0);
+  });
+
+  test('logout closes private routes and a different account cannot recover the old Chat draft', async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto('/main/chat');
+    await ready(page, '/main/chat', '채팅');
+    await page.getByRole('button', { name: /대화 상대 매칭 대화/ }).click();
+    await page
+      .getByRole('textbox', { name: '메시지', exact: true })
+      .fill('이전 계정만의 미전송 문장');
+    expect((await page.request.post('/api/auth/logout')).ok()).toBe(true);
+    await page.reload();
+    await expect(page).toHaveURL(/\/login(?:\?|$)/);
+    await expect(page.getByText('이전 계정만의 미전송 문장')).toHaveCount(0);
+    await login(page, 'home-e2e-requester@kangwon.ac.kr');
+    await page.goto('/main/chat');
+    await ready(page, '/main/chat', '채팅');
+    await expect(page.getByRole('textbox', { name: '메시지', exact: true })).toHaveCount(0);
+    await expect(page.locator('textarea')).toHaveCount(0);
+    const resolution = await page.request.post('/api/auth/session/resolve');
+    expect(await resolution.json()).toMatchObject({
+      status: 'authenticated',
+      user: { email: 'home-e2e-requester@kangwon.ac.kr' },
+    });
   });
 
   test('all five unauthenticated deep links fail closed to login', async ({ page }) => {
