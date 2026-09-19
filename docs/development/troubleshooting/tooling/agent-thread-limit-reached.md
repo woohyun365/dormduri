@@ -16,8 +16,9 @@ agent thread limit reached
 
 ## 원인
 
-작업 완료와 thread 종료가 다를 수 있습니다. 공식 문서는 `agents.max_concurrent_threads_per_session`을 부모를 제외한
-동시에 열린 child thread 상한으로 설명하고 완료 thread 종료를 안내합니다. 다만 native surface별 실제 노출 도구와
+작업 완료와 thread 종료가 다를 수 있습니다. Codex 설정의 `agents.max_concurrent_threads_per_session`은 부모를 제외한
+동시에 열린 child thread 상한입니다. Responses API의 active turn 한도와는 다르므로 먼저
+[tool family와 current schema](../../agent-workflows/subagent-lifecycle.md#capability-확인과-tool-family)를 확인합니다.
 목록의 historical/completed 표시만으로 현재 점유 슬롯·특정 오류 원인을 단정할 수는 없습니다.
 
 현재 repository의 6 설정과 advisory hard cap을 늘려서 해결하지 않습니다. 공식 기본값과 모든 환경의 절대 한도가
@@ -39,6 +40,30 @@ agent thread limit reached
 
 새 session에서 진행해야만 하는 경우에도 상한 우회로 조용히 launch하지 않습니다. 현재 작업의 evidence·미정리 target·
 필수 review gap을 보존하고 지원되는 환경의 handoff로 구분합니다. 더 자세한 상태/retry 계약을 이 문서에 복제하지 않습니다.
+
+## 도구 미노출과 restart/resume
+
+**지침 반영과 기능 노출은 별개입니다.** 이미 읽은 새 지침은 현재 작업에서 적용할 수 있지만 Markdown이나 TOML 변경만으로
+host가 제공하지 않은 native tool이 생기지 않습니다. 특히 follow-up family에 close가 없다는 이유만으로 설정 결함이라고 하지 않습니다.
+
+1. Parent가 현재 schema의 조회/후속 입력/중단/종료 지원과 실제 오류를 기록합니다. 설치된 `codex --version`은 로컬 binary
+   정보이지 실행 중 app/remote host의 버전 증거가 아닙니다. secret 없이 client 종류·선택 profile·workspace를 구분합니다.
+2. 로컬 Codex에서는 지원되는 read-only config 확인으로 `agents.enabled`, `features.multi_agent` 및 managed 제한을 확인합니다.
+   설정 파일 값은 effective host 설정의 증명이 아니며, 이미 enabled인데 close만 없다면 무조건 토글하지 않습니다.
+   [공식 설정 참조](https://learn.chatgpt.com/docs/config-file/config-reference)
+3. 문서가 stale한 경우, Codex의 AGENTS instruction chain은 실행 시작에 읽힙니다. 공식 문서는 재시작/새 실행으로
+   지침을 다시 읽는 방법을 안내하지만 이를 native tool hot-reload 보장으로 확대하지 않습니다.
+   [공식 AGENTS discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md#verify-your-setup)
+4. client 재시작이 실제로 필요하고 승인된 경우 먼저 결과·미정리 child·pending 도구·branch/head·검증 gap을 보존합니다.
+   로컬 interactive 기록이 있는 **정확한 부모 세션**은 `codex resume <SESSION_ID>`로 이어갈 수 있습니다. CLI 기록이 없는
+   app/hosted 대화에 UUID를 임의 대응하지 않고 그 client의 지원 경로를 확인합니다. 잘못된 세션 선택을 피하려고 `--last`를
+   기본 복구 명령으로 쓰지 않습니다. [공식 resume](https://learn.chatgpt.com/docs/developer-commands?surface=cli#codex-resume)
+5. `resume_agent`의 child 재개와 `codex resume`의 부모 대화 재개는 다른 기능입니다. 재시작/resume은 `close_agent` 노출이나
+   슬롯 반환을 보장하지 않습니다. 재개 후 현재 tool schema·scope·status를 재확인하고 필요한 정상 작업에만 적용합니다.
+   같은 도구 미노출이면 반복 restart, history 삭제, cap 증액 대신 capability gap과 지원 host 필요성을 보고합니다.
+
+일반 repository 작업 요청으로 client 업데이트·전역 설정 변경·자동 종료/재시작을 하지 않습니다.
+지원 환경 변경은 별도 권한과 정확한 handoff 범위가 필요하며, [Session continuity](../../agent-workflows/session-continuity.md)를 따릅니다.
 
 ## 검증
 

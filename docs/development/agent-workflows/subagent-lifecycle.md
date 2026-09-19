@@ -13,6 +13,54 @@ Parent가 child 작업 완료 후 결과 회수·thread 정리·슬롯 해제 �
   사실만으로 지금 호출 가능한 기능이라고 단정하지 않습니다.
 - native thread, OS process, 저장된 session, OMX Team task는 다른 자원입니다. 각 owner의 lifecycle을 혼용하지 않습니다.
 
+## Capability 확인과 tool family
+
+공식 기능 설명, 로컬 설정/설치, 현재 호출 가능한 schema, 실제 호출 결과를 별도 evidence로 기록합니다.
+이 지침은 native tool을 생성하지 않습니다. 문서의 이름을 alias로 등록하거나 없는 함수를 추측해 호출하지 않습니다.
+
+- **Codex:** [공식 설정 참조](https://learn.chatgpt.com/docs/config-file/config-reference)의 `features.multi_agent`는
+  `spawn_agent`, `send_input`, `resume_agent`, `wait_agent`, `close_agent`를 열거합니다.
+  [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)는 실행 중 방향 조정/중단과 완료 thread 닫기를 안내합니다.
+- **Responses API:** [공식 Multi-agent guide](https://developers.openai.com/api/docs/guides/responses-multi-agent)는
+  `spawn_agent`, `send_message`, `followup_task`, `wait_agent`, `interrupt_agent`, `list_agents`라는 hosted actions를 설명합니다.
+  이 목록에는 close가 없습니다. 목록이 일치해도 도구 이름만으로 host 구현·설정 로딩·미노출 원인을 단정하지 않습니다.
+- **한도 의미:** Responses API의 active turn 한도와 Codex의 open thread 한도는 다른 계약입니다. 문서상의 기본값이나
+  전체 tree 허용 범위를 repository의 child 상한 6, 재위임 금지 또는 현재 host의 거절보다 우선하지 않습니다.
+  오류 하나로 completed thread 누수가 원인이라고 확정하지 않습니다.
+
+아래는 **해당 이름과 동작이 current schema에 있을 때**의 선택 기준입니다. 다른 family와 이름/인자를 임의 치환하지 않습니다.
+
+| 목적                    | 제공되는 기능                | Parent가 확인할 의미                                                                        |
+| ----------------------- | ---------------------------- | ------------------------------------------------------------------------------------------- |
+| 독립 새 작업            | `spawn_agent`                | 새 context 비용/독립성이 필요한 bounded lane에만 사용                                       |
+| 실행 중 사실 전달       | `send_message`               | 메시지만 전달, idle child를 깨워 작업시키는 용도로 사용하지 않음                            |
+| 기존 lane 후속 작업     | `followup_task`              | 기존 non-root에 task 부여, idle이면 turn 시작; 실행 중 전달 시점은 schema 확인              |
+| 다른 family의 후속 입력 | `send_input`                 | interrupt 옵션·turn 시작 여부는 해당 schema 확인, `send_message`와 동일하다고 가정하지 않음 |
+| 결과 대기/상태 조회     | `wait_agent` / `list_agents` | mailbox 알림인지 결과 반환인지 구분; 조회 목록이 실제 슬롯 계수라는 보장은 없음             |
+| 작업 중단               | `interrupt_agent`            | turn 중단과 context 보존; close 대용이 아님                                                 |
+| child 재개              | `resume_agent`               | 노출된 경우에만 schema의 eligible 상태·identity·권한 확인 후 사용                           |
+| thread 종료             | `close_agent`                | 아래 완료 절차를 충족한 대상만 종료, 반환 근거를 따로 기록                                  |
+
+## 후속 작업과 fan-in
+
+1. **재사용 판정:** 같은 bounded outcome의 보완·finding 수정 확인이고 기존 context가 유효하면 불필요한 spawn보다
+   기존 lane을 우선 검토합니다. unrelated task나 fresh-context QA가 필요하면 재사용하지 않습니다. 이전 builder를 reviewer로
+   바꾸거나 결과를 이미 본 reviewer를 새로운 독립 판정이라고 하지 않습니다. [QA](./qa.md)의 독립성 계약은 그대로입니다.
+2. **정확한 대상·작업:** current owned non-root ID·상태·이전 결과를 확인하고 새 task ID, source snapshot, acceptance,
+   read/write scope, 종료 조건을 전달합니다. 이는 task evidence이지 새 권한이 아닙니다. stale roster의 completed만으로
+   재사용하지 않으며 pending 작업과 충돌하는 두 번째 writer를 시작하지 않습니다.
+3. **전달과 시작 구분:** `send_message`는 새 turn을 시작하지 않습니다. idle child의 답변/작업이 필요하면
+   `followup_task`로 existing non-root에 배정합니다. 실행 중 child에는 관련 사실만 메시지로 전달하고,
+   범위 변경·중단은 Parent가 명시하여 승인된 assignment 안에서 처리합니다. `send_input`만 있으면 그 schema를 따릅니다.
+4. **fan-in:** 응답의 accepted/queued는 완료가 아닙니다. `wait_agent` timeout도 작업 완료 증거가 아님을 유지하고,
+   긴 bounded wait 후 실제 mailbox result를 회수합니다. 상태 알림만 반환한 surface에서는 알림 자체를 결과로 사용하지 않습니다.
+   이전 final을 새 task의 완료로 재사용하지 않으며 task/target/snapshot과 결과를 대조합니다. 불명확하면 재확인하고 gap을 남깁니다.
+5. **중단·재배정:** interrupt 응답은 진행 중 외부 도구의 취소·side effect rollback을 보장하지 않습니다.
+   writer 재배정 전에 pending 도구/process와 파일 상태를 확인합니다. 정확히 소유한 취소가 승인된 작업만 지원 기능으로 중단하며,
+   슬롯 확보용 interrupt는 하지 않습니다. child resume 성공도 새 task의 실행/완료 증거와 구분합니다.
+6. **완료·한도:** 후속 결과 회수 뒤 아래 완료 절차로 돌아갑니다. 재사용은 cap 우회가 아님을 유지하고,
+   follow-up/resume도 runtime 거절을 받을 수 있습니다. 실패하면 아래 동일 recovery ceiling을 소비하며 이름을 바꿔 반복하지 않습니다.
+
 ## 완료·종료·해제 구분
 
 | 관찰/기록              | 의미와 다음 행동                                                                        |

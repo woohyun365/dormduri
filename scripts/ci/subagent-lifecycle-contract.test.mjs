@@ -80,6 +80,62 @@ test('troubleshooting links the canonical procedure and states runtime verificat
   assert.match(source, /learn\.chatgpt\.com\/docs\/agent-configuration\/subagents/u);
 });
 
+test('capability guidance separates official tool families from live schema and limits', () => {
+  const guide = read(guidePath);
+  assert.match(guide, /## Capability 확인과 tool family/u);
+  for (const tool of [
+    'send_input',
+    'resume_agent',
+    'close_agent',
+    'followup_task',
+    'send_message',
+  ]) {
+    assert.ok(guide.includes(`\`${tool}\``), tool);
+  }
+  assert.match(guide, /developers\.openai\.com\/api\/docs\/guides\/responses-multi-agent/u);
+  assert.match(guide, /learn\.chatgpt\.com\/docs\/config-file\/config-reference/u);
+  assert.match(guide, /active turn.*open thread.*다른/u);
+  assert.match(guide, /도구 이름.*host.*단정하지/u);
+});
+
+test('continuation distinguishes message delivery, task activation and result collection', () => {
+  const guide = read(guidePath);
+  const section = guide.split('## 후속 작업과 fan-in')[1]?.split('\n## ')[0];
+  assert.ok(section, 'bounded continuation procedure');
+  assert.match(section, /send_message.*새 turn을 시작하지/u);
+  assert.match(section, /followup_task.*non-root/u);
+  assert.match(section, /task.*snapshot.*acceptance/u);
+  assert.match(section, /timeout.*완료.*아님/u);
+  assert.match(section, /이전 final.*새 task.*완료.*않/u);
+  assert.match(section, /cap.*우회.*아님/u);
+  assert.match(section, /QA.*독립/u);
+});
+
+test('missing tools use diagnosis and scoped resume without guaranteed capability upgrades', () => {
+  const source = read(troublePath).replace(/\s+/gu, ' ');
+  assert.match(source, /## 도구 미노출과 restart\/resume/u);
+  assert.match(source, /agents\.enabled/u);
+  assert.match(source, /features\.multi_agent/u);
+  assert.match(source, /codex resume <SESSION_ID>/u);
+  assert.match(source, /resume_agent.*codex resume.*다른/u);
+  assert.match(source, /재시작.*close_agent.*보장하지/u);
+  assert.match(source, /현재.*schema.*재확인/u);
+  assert.match(source, /자동.*재시작.*하지/u);
+  assert.match(
+    read('docs/development/agent-workflows/session-continuity.md'),
+    /subagent-lifecycle\.md/u,
+  );
+});
+
+test('stop and resume do not silently reopen owned writes or supply native capabilities', () => {
+  const guide = read(guidePath);
+  assert.match(guide, /resume_agent.*노출.*schema/u);
+  assert.match(guide, /interrupt.*진행 중.*도구.*취소.*보장하지/u);
+  assert.match(guide, /writer.*재배정.*pending/u);
+  assert.match(guide, /지침.*native tool.*생성하지/u);
+  assert.match(guide, /새 task 이름.*retry ceiling.*초기화하지/u);
+});
+
 test('lifecycle guides use portable links and do not depend on a local implementation plan', () => {
   for (const path of [guidePath, troublePath]) {
     const source = read(path);
