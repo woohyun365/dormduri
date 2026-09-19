@@ -59,6 +59,8 @@
 - 명확한 기술 작업은 승인 범위에서 진행하고 중요한 제품·비용·위험 선택은 근거를 갖춰 사용자와 협의한다.
   결정권·짧은 협의·specialist 통신 경계는 `docs/development/agent-workflows/owner-lead-collaboration.md`를 따른다.
 - 한 owner 작업은 single agent가 기본이다. 독립적인 evidence·파일 ownership이 있을 때만 bounded child lane을 사용한다.
+- child 완료 또는 thread limit 오류 시 Parent는 `docs/development/agent-workflows/subagent-lifecycle.md`에 따라 결과 회수·
+  지원되는 종료·슬롯 해제 확인을 수행한다. child 상한 6은 유지하고 미지원 종료를 정리 완료로 가장하지 않는다.
 - architecture/feature/refactor plan 요청은 tracked plan-authoring workflow를 사용한다. 세부 routing은 해당 guide가
   존재할 때 on-demand로 읽으며 ignored local handoff를 durable source로 취급하지 않는다.
 - 구현 요청은 `docs/development/github/branch-and-pr-strategy.md`를 따른다. `dev`·`main`에서 직접 구현하지 않고 fresh

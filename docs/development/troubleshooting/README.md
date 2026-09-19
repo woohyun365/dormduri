@@ -17,6 +17,7 @@
 | Tooling  | [Mend Renovate pnpm 11 OOM](./tooling/renovate-pnpm11-hosted-oom.md)                                               | Hosted lockfile kernel OOM 판별, memory guard와 exact fallback          |
 | Tooling  | [Turbopack·Tailwind stale cache](./tooling/turbopack-tailwindcss-stale-cache.md)                                   | dependency 누락과 cache/root 추론 오류를 구분하는 절차                  |
 | Tooling  | [Vitest Proxy module mock hang](./tooling/vitest-proxy-module-mock-hang.md)                                        | catch-all Proxy mock의 thenable 충돌과 명시적 mock 규칙                 |
+| Tooling  | [Subagent thread limit reached](./tooling/agent-thread-limit-reached.md)                                           | 완료/종료/슬롯 반환 구분과 Parent의 bounded cleanup·복구                |
 
 ## 유지 기준
 

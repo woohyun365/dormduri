@@ -41,6 +41,11 @@ current request
 checkpoint가 working tree나 최신 요청과 충돌하면 현재 판단 근거로 사용하지 않습니다. 다른 작업/세션의 파일을
 자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다.
 
+부모 대화 resume과 child 재개/정리는 [Subagent lifecycle](./subagent-lifecycle.md)의 다른 자원 계약입니다.
+누락된 native tool이 resume으로 생긴다고 가정하지 않고
+[도구 미노출과 restart/resume](../troubleshooting/tooling/agent-thread-limit-reached.md#도구-미노출과-restartresume)에 따라
+current schema·pending 작업·정확한 scope를 다시 확인합니다.
+
 ## Diagnostic contract
 
 기존 CLI 옵션, `schemaVersion: 1`, `resume.plan.{path,exists}`, `contextSnapshots: string[]`와 priority 출력은 유지합니다.
