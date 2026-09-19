@@ -72,6 +72,10 @@ primary attempt
   `user-handoff`로 종료합니다.
 - retry decision은 immutable record이며 worker respawn이나 task 재배치를 직접 실행하지 않습니다.
 
+Capacity 오류와 완료 thread 정리는 [Parent-owned subagent lifecycle](../subagent-lifecycle.md)을 먼저 따릅니다.
+정리 뒤 evidence-backed retry도 위 one-alternate ceiling 안에서만 실행하며 이 advisory policy에 runtime 종료 engine을
+추가하지 않습니다. 종료 미지원/실패를 성공으로 바꾸거나 같은 조건의 호출을 반복하지 않습니다.
+
 ## Child result contract
 
 각 child result는 다음만 제공할 수 있습니다.

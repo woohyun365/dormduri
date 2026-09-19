@@ -15,6 +15,7 @@
 - [Visual design](./visual-design/README.md): 내용·동작 보존과 스타일 탐색, 구체적 후보·독립 비평·수정·사람의 선택; Figma는 선택 사항
 - [Session continuity](./session-continuity.md): fresh/resume, checkpoint, active plan과 closeout 규칙
 - [Orchestration](./orchestration.md): single-agent 기본값, bounded fan-out과 reasoning effort routing
+- [Subagent lifecycle](./subagent-lifecycle.md): Parent의 완료 스레드 정리·슬롯 확인·capacity 오류 복구
 - [QA](./qa.md): 인수 조건 도출, 코드 리뷰, 완료 검증의 근거와 판정 방식
 - [Refactor analysis](./refactor-analysis.md): 책임 경계와 분리 순이익을 분석하는 방식
 
