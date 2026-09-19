@@ -127,4 +127,27 @@ describe('useMainHomeDashboard', () => {
     expect(result.current.dashboard).toEqual(newer);
     expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(3);
   });
+  it('viewer mismatch hides even a previous valid snapshot and waits for explicit retry', async () => {
+    const dashboard = createHomeDashboardTestResponse();
+    const other = structuredClone(dashboard);
+    other.viewer.identity.user.id = 'other-viewer';
+    const get = vi
+      .spyOn(homeDashboardApi, 'getDashboard')
+      .mockResolvedValueOnce(dashboard)
+      .mockResolvedValueOnce(other)
+      .mockResolvedValueOnce(dashboard);
+    const { result, unmount } = renderHook(() =>
+      useMainHomeDashboard(dashboard.viewer.identity.user.id),
+    );
+    await waitFor(() => expect(result.current.dashboard).toEqual(dashboard));
+    await act(() => result.current.refetch());
+    expect(result.current.dashboard).toBeNull();
+    expect(result.current.error).toBeTruthy();
+    expect(get).toHaveBeenCalledTimes(2);
+    await act(() => result.current.refetch());
+    expect(result.current.dashboard).toEqual(dashboard);
+    const signal = get.mock.calls[2]?.[0];
+    unmount();
+    expect(signal?.aborted).toBe(true);
+  });
 });

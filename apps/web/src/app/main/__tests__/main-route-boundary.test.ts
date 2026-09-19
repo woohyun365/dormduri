@@ -2,23 +2,39 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const readAppSource = (relativePath: string) =>
-  readFileSync(path.join(process.cwd(), 'src', 'app', relativePath), 'utf8');
+const read = (relative: string) => readFileSync(path.join(process.cwd(), 'src', relative), 'utf8');
 
 describe('main route boundary', () => {
-  it('/main route가 authenticated app shell owner를 렌더링한다', () => {
-    const pageSource = readAppSource('main/page.tsx');
-
-    expect(pageSource).toMatch(/\.\/MainRouteShell\.client/);
-    expect(pageSource).toMatch(/<MainRouteShell\s*\/?/);
+  it('server layout composes the authenticated children shell without a tab registry', () => {
+    const layout = read('app/main/layout.tsx');
+    expect(layout).not.toContain("'use client'");
+    expect(layout).toContain('<MainRouteShell>{children}</MainRouteShell>');
+    for (const file of ['app/main/MainRouteShell.client.tsx', 'main/runtime/MainRuntime.tsx']) {
+      const source = read(file);
+      expect(source).not.toMatch(/import .* from ['"].*(?:\/Main['"]|\/tabs\/.*Tab['"])/);
+      expect(source).not.toContain('sessionStorage');
+      expect(source).not.toContain('document.title');
+    }
   });
 
-  it('/main client shell이 Main ownership과 session fallback을 소유한다', () => {
-    const shellSource = readAppSource('main/MainRouteShell.client.tsx');
+  it.each([
+    ['', 'HomeRoute'],
+    ['roommates/', 'RoommatesRoute'],
+    ['matching/', 'MatchingRoute'],
+    ['chat/', 'ChatRoute'],
+    ['profile/', 'ProfileRoute'],
+  ])('%s page owns its feature entry and metadata', (destination, entry) => {
+    const source = read(`app/main/${destination}page.tsx`);
+    expect(source).not.toContain("'use client'");
+    expect(source).toContain(`/routes/${entry}`);
+    expect(source).toContain('metadata');
+    expect(source).not.toContain('MainRouteShell');
+  });
 
-    expect(shellSource).toMatch(/@\/main\/Main|main\/Main/);
-    expect(shellSource).toMatch(/<Main\b/);
-    expect(shellSource).toMatch(/@\/auth\/hooks|auth\/hooks/);
-    expect(shellSource).toMatch(/router\.replace\(['"]\/login['"]\)/);
+  it('keeps auth fallback and keys private runtime by the authenticated viewer', () => {
+    const source = read('app/main/MainRouteShell.client.tsx');
+    expect(source).toContain('useAuthSession');
+    expect(source).toContain("router.replace('/login')");
+    expect(source).toContain('key={session.user.id}');
   });
 });

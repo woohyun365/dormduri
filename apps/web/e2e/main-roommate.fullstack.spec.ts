@@ -74,7 +74,7 @@ test.describe('authenticated /main Roommate filter full-stack smoke', () => {
     await closeServiceIntroIfVisible(page);
     await page
       .getByRole('navigation', { name: '메인 네비게이션' })
-      .getByRole('button', { name: '룸메 찾기' })
+      .getByRole('link', { name: '룸메 찾기' })
       .click();
 
     await expect(page.getByRole('main', { name: '룸메이트 찾기 주요 목록' })).toBeVisible();

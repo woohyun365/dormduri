@@ -16,19 +16,20 @@ export interface SeasonContextValue {
   daysUntilEnd: number;
 }
 
-const SeasonContext = createContext<SeasonContextValue | null>(null);
+type SeasonDisplay = Pick<SeasonContextValue, 'state' | 'isOpen' | 'isMatching'>;
+const SeasonContext = createContext<SeasonDisplay | null>(null);
 
 export function SeasonProvider({
   value,
   children,
 }: {
-  value: SeasonContextValue;
+  value: SeasonDisplay;
   children: React.ReactNode;
 }) {
   return <SeasonContext.Provider value={value}>{children}</SeasonContext.Provider>;
 }
 
-export function useSeasonContext(): SeasonContextValue {
+export function useSeasonContext(): SeasonDisplay {
   const ctx = useContext(SeasonContext);
   if (!ctx) {
     throw new Error('useSeasonContext must be used within SeasonProvider');

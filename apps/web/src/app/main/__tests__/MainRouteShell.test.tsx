@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import MainRouteShell from '../MainRouteShell.client';
 import { useAuthSession } from '@/auth/hooks';
@@ -18,8 +18,10 @@ vi.mock('@/app/main/components/AppShellSkeleton', () => ({
   AppShellSkeleton: () => <div data-testid="app-shell-skeleton">loading app shell</div>,
 }));
 
-vi.mock('@/main/Main', () => ({
-  default: () => <div data-testid="main">Main</div>,
+vi.mock('@/main/runtime/MainRuntime', () => ({
+  MainRuntime: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="main">{children}</div>
+  ),
 }));
 
 const mockUseAuthSession = vi.mocked(useAuthSession);
@@ -47,7 +49,11 @@ describe('MainRouteShell', () => {
       retry: vi.fn(),
     });
 
-    render(<MainRouteShell />);
+    render(
+      <MainRouteShell>
+        <span>route child</span>
+      </MainRouteShell>,
+    );
 
     expect(screen.getByTestId('app-shell-skeleton')).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
@@ -62,7 +68,11 @@ describe('MainRouteShell', () => {
       retry: vi.fn(),
     });
 
-    render(<MainRouteShell />);
+    render(
+      <MainRouteShell>
+        <span>route child</span>
+      </MainRouteShell>,
+    );
 
     expect(screen.getByTestId('app-shell-skeleton')).toBeInTheDocument();
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
@@ -77,7 +87,11 @@ describe('MainRouteShell', () => {
       retry: vi.fn(),
     });
 
-    render(<MainRouteShell />);
+    render(
+      <MainRouteShell>
+        <span>route child</span>
+      </MainRouteShell>,
+    );
 
     expect(screen.getByTestId('main')).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
@@ -93,10 +107,69 @@ describe('MainRouteShell', () => {
       retry,
     });
 
-    render(<MainRouteShell />);
+    render(
+      <MainRouteShell>
+        <span>route child</span>
+      </MainRouteShell>,
+    );
 
     expect(screen.getByRole('heading', { name: '로그인 상태를 확인하지 못했어요' })).toHaveFocus();
     expect(screen.getByRole('button', { name: '로그인 상태 다시 확인' })).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+  it('viewer change or unavailable session discards the private child tree before recovery', () => {
+    const authenticated = {
+      user: sessionUser,
+      isLoading: false,
+      status: 'authenticated' as const,
+      code: undefined,
+      retry: vi.fn(),
+    };
+    mockUseAuthSession.mockReturnValue(authenticated);
+    function PrivateDraft() {
+      const [draft, setDraft] = React.useState('');
+      return (
+        <input
+          aria-label="private draft"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      );
+    }
+    const tree = (
+      <MainRouteShell>
+        <PrivateDraft />
+      </MainRouteShell>
+    );
+    const view = render(tree);
+    fireEvent.change(screen.getByLabelText('private draft'), {
+      target: { value: 'previous account' },
+    });
+    mockUseAuthSession.mockReturnValue({
+      ...authenticated,
+      user: { ...sessionUser, id: 'user-2' },
+    });
+    view.rerender(
+      <MainRouteShell>
+        <PrivateDraft />
+      </MainRouteShell>,
+    );
+    expect(screen.getByLabelText('private draft')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('private draft'), { target: { value: 'private' } });
+    mockUseAuthSession.mockReturnValue({ ...authenticated, user: null, status: 'unavailable' });
+    view.rerender(
+      <MainRouteShell>
+        <PrivateDraft />
+      </MainRouteShell>,
+    );
+    expect(screen.queryByLabelText('private draft')).not.toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+    mockUseAuthSession.mockReturnValue(authenticated);
+    view.rerender(
+      <MainRouteShell>
+        <PrivateDraft />
+      </MainRouteShell>,
+    );
+    expect(screen.getByLabelText('private draft')).toHaveValue('');
   });
 });

@@ -110,6 +110,7 @@ export default function ChatTab({
     }
     return (
       <ChatRoomView
+        key={selectedThreadId}
         detail={detail.data}
         viewerId={viewerId}
         onBack={() => setSelectedThreadId(null)}
