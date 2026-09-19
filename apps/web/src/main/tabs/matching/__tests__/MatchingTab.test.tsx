@@ -416,6 +416,70 @@ describe('MatchingTab canonical runtime', () => {
     );
   });
 
+  it('같은 auto URL로 Back하면 explicit intent 이전 snapshot 대신 현재 data로 request tab을 재평가한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(Response.json({ message: 'state changed' }, { status: 409 }))
+      .mockResolvedValueOnce(Response.json(overviewFixture({ receivedRequests: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+    const common = {
+      viewerId: 'viewer-1',
+      seasonShell: { id: 'season-1', state: 'SEASON_MATCHING' as const },
+    };
+    const { rerender } = render(<MatchingTab {...common} routeSelection={{}} routeIntentKey="" />);
+    expect(await screen.findByRole('tab', { name: '받은 요청 1' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ requestTab: 'sent' }}
+        routeIntentKey="requestTab=sent"
+      />,
+    );
+    expect(screen.getByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ requestTab: 'received' }}
+        routeIntentKey="requestTab=received"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '거절' }));
+    await user.click(screen.getByRole('button', { name: '거절하기' }));
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '받은 요청 0' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+    // Browser Back: received -> sent -> the original empty search string.
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ requestTab: 'sent' }}
+        routeIntentKey="requestTab=sent"
+      />,
+    );
+    rerender(<MatchingTab {...common} routeSelection={{}} routeIntentKey="" />);
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/matches/overview')).toHaveLength(
+      2,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it('controlled user selection publishes explicit URL intent while legacy initial props remain local', async () => {
     const user = userEvent.setup();
     const onRouteSelectionChange = vi.fn();

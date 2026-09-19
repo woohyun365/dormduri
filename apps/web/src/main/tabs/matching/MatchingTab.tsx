@@ -154,6 +154,14 @@ function MatchingTabRuntime({
   const selectionIntentKey =
     routeIntentKey ??
     `${routeSelection?.section ?? 'auto'}:${routeSelection?.requestTab ?? 'auto'}`;
+  const [previousSelectionIntentKey, setPreviousSelectionIntentKey] = useState(selectionIntentKey);
+  // A -> explicit B -> A is a new auto intent, not a cache hit for the old A.
+  // Reset during render so children never commit the previous intent's selection.
+  if (previousSelectionIntentKey !== selectionIntentKey) {
+    setPreviousSelectionIntentKey(selectionIntentKey);
+    setAutoSection(null);
+    setAutoRequestTab(null);
+  }
   const sectionCandidate = overview.data ? getMatchingDefaultSection(view) : null;
   const requestTabCandidate =
     view.kind === 'season-matching' && view.current.receivedPendingCount > 0 ? 'received' : 'sent';
