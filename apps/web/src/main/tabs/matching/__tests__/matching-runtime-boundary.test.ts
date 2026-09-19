@@ -8,7 +8,7 @@ const stateMatrixSource = readFileSync(
   join(matchingRoot, 'model/matching-state-matrix.ts'),
   'utf8',
 );
-const mainSource = readFileSync(join(process.cwd(), 'src/main/Main.tsx'), 'utf8');
+const mainSource = readFileSync(join(process.cwd(), 'src/main/routes/MatchingRoute.tsx'), 'utf8');
 const requestViewSource = readFileSync(
   join(matchingRoot, 'model/matching-request-view.ts'),
   'utf8',
@@ -132,10 +132,10 @@ describe('MatchingTab runtime boundary', () => {
     }
   });
 
-  it('Main은 canonical MatchingTab만 mount하고 별도 runtime entry를 두지 않는다', () => {
-    expect(mainSource).toContain("import MatchingTab from './tabs/matching/MatchingTab'");
+  it('Matching route는 canonical MatchingTab과 controlled URL selection만 연결한다', () => {
+    expect(mainSource).toContain("import MatchingTab from '@/main/tabs/matching/MatchingTab'");
     expect(mainSource).not.toContain('MatchingRuntimeTab');
-    expect(mainSource).toContain('initialSection={matchingNavOptions?.section}');
+    expect(mainSource).toContain('routeSelection={selection}');
   });
 
   it('shipping compatibility는 pair-only 토큰을 만들지 않는다', () => {

@@ -74,10 +74,10 @@ test.describe('authenticated /main Roommate filter full-stack smoke', () => {
     await closeServiceIntroIfVisible(page);
     await page
       .getByRole('navigation', { name: '메인 네비게이션' })
-      .getByRole('button', { name: '룸메 찾기' })
+      .getByRole('link', { name: '룸메 찾기' })
       .click();
 
-    await expect(page.getByRole('heading', { name: /룸메이트/ })).toBeVisible();
+    await expect(page.getByRole('main', { name: '룸메이트 찾기 주요 목록' })).toBeVisible();
     await expect(page.getByRole('region', { name: '검색 결과 설정' })).toBeVisible();
     await expect(page.getByRole('button', { name: '필터 열기' })).toBeVisible();
 
@@ -118,6 +118,7 @@ test.describe('authenticated /main Roommate filter full-stack smoke', () => {
     expect(payload.appliedSort).toBe('MATCH_SCORE');
     expect(payload.manifest.purpose).toBe('ACTIONABLE_DETAIL_DISCOVERY');
     expect(Array.isArray(payload.items)).toBe(true);
+    expect(payload.items.length).toBeGreaterThan(0);
 
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button', { name: '흡연 여부 비흡연 필터 제거' })).toBeVisible();

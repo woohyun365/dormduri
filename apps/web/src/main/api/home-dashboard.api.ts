@@ -30,13 +30,14 @@ async function readHomeDashboardJson(response: Response): Promise<unknown> {
   }
 }
 
-async function fetchHomeDashboard(): Promise<HomeDashboardResponse> {
+async function fetchHomeDashboard(signal?: AbortSignal): Promise<HomeDashboardResponse> {
   let response: Response;
   try {
     response = await fetch('/api/home/dashboard', {
       method: 'GET',
       headers: { Accept: 'application/json' },
       cache: 'no-store',
+      signal,
     });
   } catch {
     throw new HomeDashboardFetchError(

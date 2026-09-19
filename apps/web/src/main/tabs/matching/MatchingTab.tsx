@@ -39,6 +39,7 @@ import { getMatchingDefaultSection } from './model/matching-default-section';
 import type { MatchingViewerHeader } from './model/matching-viewer-header';
 import { MatchRequestResultDialog } from './overlays/MatchRequestResultDialog';
 import { DeregisteredMatchingState } from './sections/current/DeregisteredMatchingState';
+import type { MatchingNavOptions } from '../../model/navigation';
 
 export interface MatchingTabProps {
   readonly viewerId: string;
@@ -49,6 +50,9 @@ export interface MatchingTabProps {
   readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly initialRequestTab?: MatchingRequestTab;
   readonly initialSection?: MatchingSection;
+  readonly routeSelection?: MatchingNavOptions;
+  readonly onRouteSelectionChange?: (selection: MatchingNavOptions) => void;
+  readonly routeIntentKey?: string;
 }
 
 export default function MatchingTab({
@@ -60,6 +64,9 @@ export default function MatchingTab({
   onNavigationIntent,
   initialRequestTab,
   initialSection,
+  routeSelection,
+  onRouteSelectionChange,
+  routeIntentKey,
 }: MatchingTabProps) {
   const identityKey = `${viewerId}:${seasonShell.id ?? 'none'}:${seasonShell.state ?? 'none'}`;
   return (
@@ -73,6 +80,9 @@ export default function MatchingTab({
       onNavigationIntent={onNavigationIntent}
       initialRequestTab={initialRequestTab}
       initialSection={initialSection}
+      routeSelection={routeSelection}
+      onRouteSelectionChange={onRouteSelectionChange}
+      routeIntentKey={routeIntentKey}
     />
   );
 }
@@ -86,6 +96,9 @@ function MatchingTabRuntime({
   onNavigationIntent,
   initialRequestTab,
   initialSection,
+  routeSelection,
+  onRouteSelectionChange,
+  routeIntentKey,
 }: {
   readonly identityKey: string;
   readonly viewerHeader?: MatchingViewerHeader;
@@ -95,6 +108,9 @@ function MatchingTabRuntime({
   readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly initialRequestTab?: MatchingRequestTab;
   readonly initialSection?: MatchingSection;
+  readonly routeSelection?: MatchingNavOptions;
+  readonly onRouteSelectionChange?: (selection: MatchingNavOptions) => void;
+  readonly routeIntentKey?: string;
 }) {
   const overview = useMatchingOverview({ identityKey });
   const history = useMatchingHistory({ identityKey });
@@ -126,11 +142,96 @@ function MatchingTabRuntime({
   const [selectedSection, setSelectedSection] = useState<MatchingSection | null>(
     initialSection ?? null,
   );
-  const section = selectedSection ?? getMatchingDefaultSection(view);
+  const [autoSection, setAutoSection] = useState<{
+    readonly intentKey: string;
+    readonly value: MatchingSection;
+  } | null>(null);
+  const [autoRequestTab, setAutoRequestTab] = useState<{
+    readonly intentKey: string;
+    readonly value: MatchingRequestTab;
+  } | null>(null);
+  const controlledSelection = routeSelection !== undefined;
+  const selectionIntentKey =
+    routeIntentKey ??
+    `${routeSelection?.section ?? 'auto'}:${routeSelection?.requestTab ?? 'auto'}`;
+  const [previousSelectionIntentKey, setPreviousSelectionIntentKey] = useState(selectionIntentKey);
+  // A -> explicit B -> A is a new auto intent, not a cache hit for the old A.
+  // Reset during render so children never commit the previous intent's selection.
+  if (previousSelectionIntentKey !== selectionIntentKey) {
+    setPreviousSelectionIntentKey(selectionIntentKey);
+    setAutoSection(null);
+    setAutoRequestTab(null);
+  }
+  const sectionCandidate = overview.data ? getMatchingDefaultSection(view) : null;
+  const requestTabCandidate =
+    view.kind === 'season-matching' && view.current.receivedPendingCount > 0 ? 'received' : 'sent';
+  const section = controlledSelection
+    ? (routeSelection.section ??
+      (autoSection?.intentKey === selectionIntentKey ? autoSection.value : sectionCandidate) ??
+      'current')
+    : (selectedSection ?? getMatchingDefaultSection(view));
+  const requestTab = controlledSelection
+    ? (routeSelection.requestTab ??
+      (autoRequestTab?.intentKey === selectionIntentKey
+        ? autoRequestTab.value
+        : overview.data
+          ? requestTabCandidate
+          : undefined))
+    : undefined;
+
+  useEffect(() => {
+    if (!controlledSelection || routeSelection.section || !sectionCandidate) return;
+    if (autoSection?.intentKey === selectionIntentKey) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setAutoSection({ intentKey: selectionIntentKey, value: sectionCandidate });
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    autoSection?.intentKey,
+    controlledSelection,
+    routeSelection?.section,
+    sectionCandidate,
+    selectionIntentKey,
+  ]);
+
+  useEffect(() => {
+    if (!controlledSelection || routeSelection.requestTab || !overview.data) return;
+    if (autoRequestTab?.intentKey === selectionIntentKey) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setAutoRequestTab({ intentKey: selectionIntentKey, value: requestTabCandidate });
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    autoRequestTab?.intentKey,
+    controlledSelection,
+    overview.data,
+    requestTabCandidate,
+    routeSelection?.requestTab,
+    selectionIntentKey,
+  ]);
+
+  const handleSectionSelect = (nextSection: MatchingSection) => {
+    if (controlledSelection) {
+      onRouteSelectionChange?.({ ...routeSelection, section: nextSection });
+      return;
+    }
+    setSelectedSection(nextSection);
+  };
+
+  const handleRequestTabSelect = (nextRequestTab: MatchingRequestTab) => {
+    if (!controlledSelection) return;
+    onRouteSelectionChange?.({ ...routeSelection, requestTab: nextRequestTab });
+  };
 
   const handleNavigationIntent = (intent: MatchingNavigationIntent) => {
     if (intent === 'history') {
-      setSelectedSection('past');
+      handleSectionSelect('past');
       return;
     }
     onNavigationIntent?.(intent);
@@ -246,8 +347,10 @@ function MatchingTabRuntime({
       onNavigateChat={onNavigateChat}
       onNavigationIntent={handleNavigationIntent}
       initialRequestTab={initialRequestTab}
+      selectedRequestTab={requestTab}
+      onSelectRequestTab={handleRequestTabSelect}
       selectedSection={section}
-      onSelectSection={setSelectedSection}
+      onSelectSection={handleSectionSelect}
       pastContent={
         <MatchHistorySection
           data={historyData}
@@ -284,6 +387,8 @@ export function MatchingTabView({
   onNavigateChat,
   onNavigationIntent,
   initialRequestTab,
+  selectedRequestTab,
+  onSelectRequestTab,
   selectedSection = 'current',
   onSelectSection,
   pastContent,
@@ -307,6 +412,8 @@ export function MatchingTabView({
   readonly onNavigateChat?: () => void;
   readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly initialRequestTab?: MatchingRequestTab;
+  readonly selectedRequestTab?: MatchingRequestTab;
+  readonly onSelectRequestTab?: (tab: MatchingRequestTab) => void;
   readonly selectedSection?: MatchingSection;
   readonly onSelectSection?: (section: MatchingSection) => void;
   readonly pastContent?: ReactNode;
@@ -429,6 +536,8 @@ export function MatchingTabView({
           onNavigationIntent={handleNavigationIntent}
           onRefreshOverview={onRetry}
           initialRequestTab={initialRequestTab}
+          selectedRequestTab={selectedRequestTab}
+          onSelectRequestTab={onSelectRequestTab}
         />
       </>
     );

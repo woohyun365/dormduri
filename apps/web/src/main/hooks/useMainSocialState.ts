@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { ReportReason } from '@repo/shared/social-safety/report';
 import type { BlockedUser } from '@/social-safety/model/socialSafety.types';
 
-export function useMainSocialState(showToast: (msg: string) => void) {
+export function useMainSocialState(showToast: (msg: string) => void, scopeKey?: string) {
   // --- Bookmark ---
   const [bookmarkedUserIds, setBookmarkedUserIds] = useState<Set<string>>(new Set());
 
@@ -49,6 +49,14 @@ export function useMainSocialState(showToast: (msg: string) => void) {
 
   // --- Report ---
   const [reportedUserIds, setReportedUserIds] = useState<Set<string>>(new Set());
+
+  const [scope, setScope] = useState(scopeKey);
+  if (scope !== scopeKey) {
+    setScope(scopeKey);
+    setBookmarkedUserIds(new Set());
+    setBlockedUsers([]);
+    setReportedUserIds(new Set());
+  }
 
   const handleReportUser = useCallback(
     (userId: string, _reason: ReportReason, _detail: string | null) => {

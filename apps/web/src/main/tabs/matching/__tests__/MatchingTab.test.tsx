@@ -249,6 +249,43 @@ describe('MatchingTab canonical runtime', () => {
     );
   });
 
+  it('controlled auto section은 overview가 준비된 뒤 season default를 한 URL intent에 고정한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(
+          overviewFixture({
+            season: {
+              id: 'season-1',
+              state: 'OFF_SEASON',
+              roomSelectionDate: null,
+              seasonEndDate: '2026-08-31',
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(Response.json(createMatchHistoryResponse()))
+      .mockResolvedValueOnce(Response.json({ items: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'OFF_SEASON' }}
+        routeSelection={{}}
+        routeIntentKey="auto-off-season"
+      />,
+    );
+
+    expect(await screen.findByRole('tab', { name: '지난 기록' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/matches/overview')).toHaveLength(
+      1,
+    );
+  });
+
   it('current/past tab은 Arrow 이동만으로 history를 읽지 않고 explicit activation 뒤 선택 panel heading에 focus한다', async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -282,6 +319,202 @@ describe('MatchingTab canonical runtime', () => {
 
     await user.click(current);
     await waitFor(() => expect(screen.getByRole('heading', { name: '현재 매칭' })).toHaveFocus());
+  });
+
+  it('controlled URL selection rerender는 overview를 다시 읽지 않고 section/request tab을 갱신한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(Response.json(createMatchHistoryResponse()))
+      .mockResolvedValueOnce(Response.json({ items: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const common = {
+      viewerId: 'viewer-1',
+      seasonShell: { id: 'season-1', state: 'SEASON_MATCHING' as const },
+    };
+    const { rerender } = render(
+      <MatchingTab
+        {...common}
+        routeSelection={{ section: 'current', requestTab: 'sent' }}
+        routeIntentKey="?section=current&requestTab=sent"
+      />,
+    );
+
+    expect(await screen.findByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ section: 'past' }}
+        routeIntentKey="?section=past"
+      />,
+    );
+    expect(await screen.findByRole('heading', { name: '매칭 기록' })).toBeInTheDocument();
+
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ section: 'current', requestTab: 'received' }}
+        routeIntentKey="?section=current&requestTab=received"
+      />,
+    );
+    expect(await screen.findByRole('tab', { name: '받은 요청 1' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/matches/overview')).toHaveLength(
+      1,
+    );
+  });
+
+  it('controlled auto request tab은 URL intent마다 data로 평가하고 background refresh에는 고정된다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(Response.json({ message: 'state changed' }, { status: 409 }))
+      .mockResolvedValueOnce(Response.json(overviewFixture({ receivedRequests: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+        routeSelection={{}}
+        routeIntentKey="auto-1"
+      />,
+    );
+
+    const received = await screen.findByRole('tab', { name: '받은 요청 1' });
+    expect(received).toHaveAttribute('aria-selected', 'true');
+    await user.click(screen.getByRole('button', { name: '거절' }));
+    await user.click(screen.getByRole('button', { name: '거절하기' }));
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '받은 요청 0' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+
+    rerender(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+        routeSelection={{}}
+        routeIntentKey="auto-2"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+  });
+
+  it('같은 auto URL로 Back하면 explicit intent 이전 snapshot 대신 현재 data로 request tab을 재평가한다', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(overviewFixture()))
+      .mockResolvedValueOnce(Response.json({ message: 'state changed' }, { status: 409 }))
+      .mockResolvedValueOnce(Response.json(overviewFixture({ receivedRequests: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+    const common = {
+      viewerId: 'viewer-1',
+      seasonShell: { id: 'season-1', state: 'SEASON_MATCHING' as const },
+    };
+    const { rerender } = render(<MatchingTab {...common} routeSelection={{}} routeIntentKey="" />);
+    expect(await screen.findByRole('tab', { name: '받은 요청 1' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ requestTab: 'sent' }}
+        routeIntentKey="requestTab=sent"
+      />,
+    );
+    expect(screen.getByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ requestTab: 'received' }}
+        routeIntentKey="requestTab=received"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '거절' }));
+    await user.click(screen.getByRole('button', { name: '거절하기' }));
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '받은 요청 0' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+    // Browser Back: received -> sent -> the original empty search string.
+    rerender(
+      <MatchingTab
+        {...common}
+        routeSelection={{ requestTab: 'sent' }}
+        routeIntentKey="requestTab=sent"
+      />,
+    );
+    rerender(<MatchingTab {...common} routeSelection={{}} routeIntentKey="" />);
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/matches/overview')).toHaveLength(
+      2,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('controlled user selection publishes explicit URL intent while legacy initial props remain local', async () => {
+    const user = userEvent.setup();
+    const onRouteSelectionChange = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(Response.json(overviewFixture()))),
+    );
+
+    const { unmount } = render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+        routeSelection={{}}
+        routeIntentKey="auto"
+        onRouteSelectionChange={onRouteSelectionChange}
+      />,
+    );
+    await user.click(await screen.findByRole('tab', { name: '지난 기록' }));
+    expect(onRouteSelectionChange).toHaveBeenLastCalledWith({ section: 'past' });
+    await user.click(screen.getByRole('tab', { name: '보낸 요청 0' }));
+    expect(onRouteSelectionChange).toHaveBeenLastCalledWith({ requestTab: 'sent' });
+
+    unmount();
+    render(
+      <MatchingTab
+        viewerId="viewer-1"
+        seasonShell={{ id: 'season-1', state: 'SEASON_MATCHING' }}
+        initialSection="current"
+        initialRequestTab="sent"
+      />,
+    );
+    expect(await screen.findByRole('tab', { name: '보낸 요청 0' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   it('chat owner capability가 열리면 Main shell navigation command만 호출한다', async () => {

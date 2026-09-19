@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { seasonStateSchema, type SeasonState } from '@repo/shared/season/runtime';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-const SEASON_LEGACY_CLIENT_SOURCE = resolve(process.cwd(), 'src/main/legacy/seasonLegacyClient.ts');
-
-function readSource(path: string) {
-  return readFileSync(path, 'utf8');
-}
-
 describe('Web SeasonState contract', () => {
   it('shared season runtime source of truth includes post-match state', () => {
     expect(seasonStateSchema.options).toEqual([
@@ -23,12 +14,5 @@ describe('Web SeasonState contract', () => {
     const postMatch: SeasonState = 'SEASON_POST_MATCH';
 
     expect(postMatch).toBe('SEASON_POST_MATCH');
-  });
-
-  it('legacy local season override can force SEASON_POST_MATCH', () => {
-    const source = readSource(SEASON_LEGACY_CLIENT_SOURCE);
-
-    expect(source).toContain("override === 'SEASON_POST_MATCH'");
-    expect(source).toContain("isPostMatch: override === 'SEASON_POST_MATCH'");
   });
 });

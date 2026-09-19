@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShellSkeleton } from '@/app/main/components/AppShellSkeleton';
 import { SessionUnavailableRecovery } from '@/app/main/components/SessionUnavailableRecovery';
 import { useAuthSession } from '@/auth/hooks';
-import Main from '@/main/Main';
+import { MainRuntime } from '@/main/runtime/MainRuntime';
 
-export default function MainRouteShell() {
+export default function MainRouteShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const session = useAuthSession();
 
@@ -25,5 +25,11 @@ export default function MainRouteShell() {
     return <SessionUnavailableRecovery onRetryAction={session.retry} />;
   }
 
-  return <Main />;
+  if (!session.user) return <AppShellSkeleton />;
+
+  return (
+    <MainRuntime key={session.user.id} viewerId={session.user.id}>
+      {children}
+    </MainRuntime>
+  );
 }

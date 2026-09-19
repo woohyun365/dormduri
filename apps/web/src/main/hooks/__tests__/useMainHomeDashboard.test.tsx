@@ -80,4 +80,74 @@ describe('useMainHomeDashboard', () => {
     );
     expect(result.current.error).not.toContain('raw upstream stack');
   });
+
+  it('overlapping refresh에서 늦게 도착한 이전 응답을 무시한다', async () => {
+    const initial = createHomeDashboardTestResponse({ generatedAt: '2026-08-01T00:00:00.000Z' });
+    const older = createHomeDashboardTestResponse({ generatedAt: '2026-08-02T00:00:00.000Z' });
+    const newer = createHomeDashboardTestResponse({ generatedAt: '2026-08-03T00:00:00.000Z' });
+    let resolveOlder: ((dashboard: typeof older) => void) | undefined;
+    let resolveNewer: ((dashboard: typeof newer) => void) | undefined;
+    vi.spyOn(homeDashboardApi, 'getDashboard')
+      .mockResolvedValueOnce(initial)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOlder = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveNewer = resolve;
+          }),
+      );
+
+    const { result } = renderHook(() => useMainHomeDashboard());
+    await waitFor(() => expect(result.current.dashboard).toEqual(initial));
+
+    let olderRefresh: Promise<void> | undefined;
+    let newerRefresh: Promise<void> | undefined;
+    act(() => {
+      olderRefresh = result.current.refetch();
+    });
+    act(() => {
+      newerRefresh = result.current.refetch();
+    });
+
+    await act(async () => {
+      resolveNewer?.(newer);
+      await newerRefresh;
+    });
+    expect(result.current.dashboard).toEqual(newer);
+
+    await act(async () => {
+      resolveOlder?.(older);
+      await olderRefresh;
+    });
+    expect(result.current.dashboard).toEqual(newer);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(3);
+  });
+  it('viewer mismatch hides even a previous valid snapshot and waits for explicit retry', async () => {
+    const dashboard = createHomeDashboardTestResponse();
+    const other = structuredClone(dashboard);
+    other.viewer.identity.user.id = 'other-viewer';
+    const get = vi
+      .spyOn(homeDashboardApi, 'getDashboard')
+      .mockResolvedValueOnce(dashboard)
+      .mockResolvedValueOnce(other)
+      .mockResolvedValueOnce(dashboard);
+    const { result, unmount } = renderHook(() =>
+      useMainHomeDashboard(dashboard.viewer.identity.user.id),
+    );
+    await waitFor(() => expect(result.current.dashboard).toEqual(dashboard));
+    await act(() => result.current.refetch());
+    expect(result.current.dashboard).toBeNull();
+    expect(result.current.error).toBeTruthy();
+    expect(get).toHaveBeenCalledTimes(2);
+    await act(() => result.current.refetch());
+    expect(result.current.dashboard).toEqual(dashboard);
+    const signal = get.mock.calls[2]?.[0];
+    unmount();
+    expect(signal?.aborted).toBe(true);
+  });
 });

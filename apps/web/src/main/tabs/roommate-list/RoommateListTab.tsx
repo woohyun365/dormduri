@@ -45,7 +45,7 @@ import type { TabId } from '@/main/model/navigation';
 import type { UserProfile } from '@/main/model/profile';
 
 interface RoommateListTabProps {
-  user: UserProfile;
+  user: Pick<UserProfile, 'id' | 'nickname' | 'campus' | 'gender' | 'dormitoryId' | 'dormitory'>;
   onNavigate: (tab: TabId) => void;
   searchEntryAllowed?: boolean;
   viewerSeasonRegistered?: boolean;
