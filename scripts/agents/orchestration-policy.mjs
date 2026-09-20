@@ -1,3 +1,7 @@
+import { isDeepStrictEqual } from 'node:util';
+import { createModelScopeDigest } from './child-task-contract.mjs';
+import { recommendModel } from './routing-policy.mjs';
+
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
 const REPOSITORY_CHILD_MODEL = 'gpt-6-astra';
@@ -23,6 +27,7 @@ const RUNTIME_ROLE_FIELDS = new Set([
   'effectiveModel',
   'effectiveEffort',
   'explicitEffortSupport',
+  'modelSelection',
 ]);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
@@ -84,8 +89,10 @@ export function createDispatchRecommendation({
   delegation,
   reportedRuntimeEvidence = null,
   concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT,
+  modelUseByLane = {},
 } = {}) {
   assertDelegationRecommendation(delegation);
+  validateModelUses(modelUseByLane, delegation.recommendedChildren);
   const runtime = normalizeReportedRuntimeEvidence(reportedRuntimeEvidence);
   validateConcurrencyLimit(concurrencyLimit);
 
@@ -117,7 +124,7 @@ export function createDispatchRecommendation({
 
   const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
   const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
-  const compatibility = assessRuntimeCompatibility(runtime, selected);
+  const compatibility = assessRuntimeCompatibility(runtime, selected, modelUseByLane);
   if (!compatibility.compatible) {
     return dispatchRecommendation({
       delegation,
@@ -144,6 +151,13 @@ export function createDispatchRecommendation({
       dispatchOwner: 'leader',
       runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
       requiresLeaderRuntimeConfirmation: true,
+      ...(contract.routeRecommendation.modelRecommendation
+        ? {
+            requestedModel: contract.routeRecommendation.modelRecommendation.request.model,
+            recommendedModel: contract.routeRecommendation.modelRecommendation.recommendedModel,
+            modelPurpose: contract.routeRecommendation.modelRecommendation.request.purpose,
+          }
+        : {}),
     };
   });
 
@@ -399,6 +413,10 @@ function validateLifecycleEvidence(value) {
 }
 
 function requireLifecycleRecord(value, fields, name, optionalFields = []) {
+  requireExactRecord(value, fields, `lifecycle ${name}`, optionalFields);
+}
+
+function requireExactRecord(value, fields, name, optionalFields = []) {
   if (
     !value ||
     Object.getPrototypeOf(value) !== Object.prototype ||
@@ -408,7 +426,7 @@ function requireLifecycleRecord(value, fields, name, optionalFields = []) {
     fields.some((field) => !Object.hasOwn(value, field))
   ) {
     throw new TypeError(
-      `lifecycle ${name} must contain exactly: ${fields.join(', ')}; optional: ${optionalFields.join(', ')}.`,
+      `${name} must contain exactly: ${fields.join(', ')}; optional: ${optionalFields.join(', ')}.`,
     );
   }
 }
@@ -758,6 +776,9 @@ function normalizeRuntimeRoles(value, gaps) {
           role.explicitEffortSupport,
           'runtime role explicitEffortSupport',
         ),
+        ...(role.modelSelection !== undefined
+          ? { modelSelection: normalizeModelSelection(role.modelSelection) }
+          : {}),
       });
     } catch {
       gaps.push(`runtime-role-metadata-invalid:${index}`);
@@ -769,7 +790,7 @@ function normalizeRuntimeRoles(value, gaps) {
   return roles;
 }
 
-function assessRuntimeCompatibility(runtime, contracts) {
+function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   const gaps = [];
   if (runtime.dispatchPermission !== 'allowed') {
     gaps.push(`runtime-dispatch-permission-${runtime.dispatchPermission}`);
@@ -783,8 +804,13 @@ function assessRuntimeCompatibility(runtime, contracts) {
       gaps.push(`runtime-role-unavailable:${requestedRole}`);
       continue;
     }
-    if (reportedRole.effectiveModel !== REPOSITORY_CHILD_MODEL) {
+    const model = contract.routeRecommendation.modelRecommendation;
+    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
+    if (reportedRole.effectiveModel !== requestedModel) {
       gaps.push(`runtime-model-incompatible:${requestedRole}`);
+    }
+    if (model?.status === 'candidate') {
+      gaps.push(...assessModelUse(contract, reportedRole, modelUseByLane[contract.laneId]));
     }
     if (reportedRole.effectiveEffort !== requestedEffort) {
       gaps.push(
@@ -799,6 +825,189 @@ function assessRuntimeCompatibility(runtime, contracts) {
     gaps,
     rolesByAgentType,
   };
+}
+
+function normalizeModelSelection(value) {
+  requireExactRecord(
+    value,
+    ['supportedModels', 'roleModel', 'explicitModelSupport', 'reference'],
+    'modelSelection',
+  );
+  if (
+    !Array.isArray(value.supportedModels) ||
+    value.supportedModels.length < 1 ||
+    value.supportedModels.length > 24
+  ) {
+    throw new TypeError('modelSelection requires a bounded supportedModels roster.');
+  }
+  const supportedModels = value.supportedModels.map((model) =>
+    requireString(model, 'supported model', 80),
+  );
+  assertUnique(supportedModels, 'supported model');
+  return {
+    supportedModels,
+    roleModel:
+      value.roleModel === null ? null : requireString(value.roleModel, 'role model pin', 80),
+    explicitModelSupport: requireBoolean(value.explicitModelSupport, 'explicit model support'),
+    reference: requireString(value.reference, 'model capability reference', 300),
+  };
+}
+
+// Caller-reported observations are not authority. Native dispatch still needs the
+// Parent to verify the original authorization, current bytes/config and budget.
+function validateModelUses(value, contracts) {
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype)
+    throw new TypeError('modelUseByLane must be an object.');
+  const ids = new Set(contracts.map((contract) => contract.laneId));
+  for (const [id, use] of Object.entries(value)) {
+    if (!ids.has(id)) throw new TypeError(`Unknown model use lane: ${id}`);
+    requireExactRecord(
+      use,
+      [
+        'observedAt',
+        'configDigest',
+        'scopeDigest',
+        'scopeStatus',
+        'checks',
+        'remainingBudget',
+        'admission',
+      ],
+      'model use',
+    );
+    requireTimestamp(use.observedAt);
+    requireDigest(use.configDigest);
+    requireDigest(use.scopeDigest);
+    requireEnum(use.scopeStatus, new Set(['current', 'changed', 'unknown']), 'model scope status');
+    requireEnum(use.checks, new Set(['passed', 'failed', 'unknown']), 'model required checks');
+    requireExactRecord(use.remainingBudget, ['children', 'minutes'], 'remaining model budget');
+    requireBoundedInteger(use.remainingBudget.children, 'remaining children', 0, HARD_CHILD_LIMIT);
+    requireBoundedInteger(use.remainingBudget.minutes, 'remaining minutes', 0, 60);
+    const grant = use.admission;
+    if (grant === null) continue;
+    requireExactRecord(
+      grant,
+      [
+        'kind',
+        'reference',
+        'quality',
+        'model',
+        'role',
+        'effort',
+        'cohort',
+        'scopeDigest',
+        'configDigest',
+        'notBefore',
+        'expiresAt',
+        'budget',
+        'cleanupReference',
+      ],
+      'model admission',
+    );
+    requireEnum(grant.kind, new Set(['pilot', 'adoption']), 'admission kind');
+    requireEnum(grant.quality, new Set(['unadopted', 'go', 'no-go']), 'quality decision');
+    for (const field of ['reference', 'model', 'role', 'cohort', 'cleanupReference'])
+      requireString(grant[field], field, 300);
+    requireEnum(grant.effort, EFFORTS, 'admission effort');
+    requireDigest(grant.scopeDigest);
+    requireDigest(grant.configDigest);
+    requireTimestamp(grant.notBefore);
+    requireTimestamp(grant.expiresAt);
+    requireExactRecord(grant.budget, ['maxChildren', 'maxMinutes'], 'model budget');
+    requireBoundedInteger(grant.budget.maxChildren, 'model maxChildren', 1, HARD_CHILD_LIMIT);
+    requireBoundedInteger(grant.budget.maxMinutes, 'model maxMinutes', 1, 60);
+  }
+}
+
+function assessModelUse(contract, reportedRole, use) {
+  const gaps = [];
+  const route = contract.routeRecommendation;
+  const { request } = route.modelRecommendation;
+  if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
+  const selection = reportedRole.modelSelection;
+  if (
+    !selection ||
+    !selection.supportedModels.includes(request.model) ||
+    (selection.roleModel !== request.model &&
+      !(selection.roleModel === null && selection.explicitModelSupport))
+  ) {
+    gaps.push('model-pin-or-override-unverified');
+  }
+  const delivery = contract.contextDelivery;
+  if (
+    !delivery ||
+    delivery.compatible !== true ||
+    delivery.applied !== false ||
+    delivery.mode !== 'scoped' ||
+    delivery.gaps.length !== 0 ||
+    delivery.failures.length !== 0
+  )
+    gaps.push('model-context-incompatible');
+  const isReadOnly = request.cohort === 'bounded-read-only';
+  if (
+    isReadOnly
+      ? !contract.boundary.readOnly ||
+        contract.allowed.tools.some(
+          (tool) => !['repository-read', 'official-web-read'].includes(tool),
+        )
+      : contract.boundary.readOnly ||
+        !contract.allowed.tools.includes('workspace-edit') ||
+        !contract.allowed.tools.includes('test-runner')
+  )
+    gaps.push('model-cohort-boundary-incompatible');
+  const digest = createModelScopeDigest(contract);
+  if (contract.modelScopeDigest !== digest || !contract.modelTaskId)
+    gaps.push('model-contract-snapshot-changed');
+  if (!use || !use.admission) return [...gaps, 'model-admission-missing'];
+  const grant = use.admission;
+  if (
+    use.remainingBudget.children < 1 ||
+    use.remainingBudget.minutes < 1 ||
+    use.remainingBudget.children > grant.budget.maxChildren ||
+    use.remainingBudget.minutes > grant.budget.maxMinutes
+  )
+    gaps.push('model-budget-exhausted-or-incompatible');
+  if (
+    use.scopeStatus !== 'current' ||
+    use.checks !== 'passed' ||
+    use.scopeDigest !== digest ||
+    grant.scopeDigest !== digest ||
+    grant.configDigest !== use.configDigest
+  ) {
+    gaps.push('model-scope-config-or-checks-changed');
+  }
+  if (
+    grant.model !== request.model ||
+    grant.role !== route.role ||
+    grant.effort !== route.effort ||
+    grant.cohort !== request.cohort
+  )
+    gaps.push('model-admission-route-mismatch');
+  if (
+    Date.parse(grant.notBefore) > Date.parse(use.observedAt) ||
+    Date.parse(use.observedAt) >= Date.parse(grant.expiresAt)
+  )
+    gaps.push('model-admission-expired-or-not-started');
+  if (
+    request.purpose === 'pilot'
+      ? grant.kind !== 'pilot' || grant.quality === 'no-go'
+      : grant.kind !== 'adoption' || grant.quality !== 'go'
+  )
+    gaps.push('model-pilot-adoption-boundary');
+  return gaps;
+}
+
+function requireTimestamp(value) {
+  if (
+    typeof value !== 'string' ||
+    !Number.isFinite(Date.parse(value)) ||
+    new Date(value).toISOString() !== value
+  )
+    throw new TypeError('Model observation requires an exact ISO timestamp.');
+}
+
+function requireDigest(value) {
+  if (typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(value))
+    throw new TypeError('Model snapshot requires a SHA-256 digest.');
 }
 
 function rejectedRuntimeEvidence(gaps, partial = {}) {
@@ -1078,6 +1287,27 @@ function assertDelegationRecommendation(delegation) {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }
     assertSemanticRouteRecommendation(contract.routeRecommendation);
+    const model = contract.routeRecommendation.modelRecommendation;
+    if (model !== undefined) {
+      requireExactRecord(
+        model,
+        ['request', 'taskKind', 'role', 'recommendedModel', 'status', 'reason', 'applied'],
+        'model recommendation',
+      );
+      const expected = recommendModel({
+        modelRequest: model.request,
+        taskKind: model.taskKind,
+        impactRisk: contract.routeRecommendation.impactRisk,
+        assessment: contract.routeRecommendation.assessment,
+      });
+      if (!isDeepStrictEqual(model, expected))
+        throw new TypeError(
+          'Model recommendation must preserve semantic eligibility and applied=false.',
+        );
+      if (model.role !== role) throw new TypeError('Model task must preserve the semantic role.');
+      if (contract.modelTaskId !== delegation.requestId)
+        throw new TypeError('Model task identity must match the delegation.');
+    }
     if (!Array.isArray(contract.expectedOutputSchema?.required)) {
       throw new TypeError('child contract requires an expected output schema.');
     }

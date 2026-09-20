@@ -553,6 +553,50 @@ test('child contract policy remains advisory and does not own runtime lifecycle'
   assert.doesNotMatch(source, /retry\s*\(|respawn|tmux/u);
 });
 
+test('child contracts propagate optional model advice without relaxing write or verification ownership', () => {
+  const { envelope, contextPack } = legalFlow('Legal test 구현해줘.');
+  const parts = Array.from({ length: 15 }, (_, i) =>
+    semanticEvidence(contextPack, {
+      predicateId: `M-${String(i + 1).padStart(2, '0')}`,
+      statement: `Bounded verification requirement ${i}`,
+    }),
+  );
+  const evidence = Object.fromEntries(
+    ['sources', 'facts', 'predicateClaims'].map((key) => [key, parts.flatMap((part) => part[key])]),
+  );
+  Object.assign(evidence, { inferences: [], gaps: [], confidence: 'high' });
+  const lane = implementationLane(contextPack, {
+    impactRisk: 'low',
+    writeOwnership: ['apps/web/src/legal/example.test.ts'],
+    pass2Evidence: evidence,
+    modelRequest: {
+      model: 'gpt-5.6-sol',
+      purpose: 'pilot',
+      cohort: 'bounded-implementation',
+      verificationFacts: {
+        acceptance: evidence.facts[0].factId,
+        regression: evidence.facts[1].factId,
+        astraQa: evidence.facts[2].factId,
+      },
+    },
+  });
+  const result = recommendDelegation({ envelope, contextPack, laneCandidates: [lane] });
+  const [child] = result.recommendedChildren;
+  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-5.6-sol');
+  assert.match(child.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
+  assert.equal(child.leaderOwnership.finalVerification, true);
+  assert.deepEqual(child.verification, lane.verification);
+  assert.throws(
+    () =>
+      recommendDelegation({
+        envelope,
+        contextPack,
+        laneCandidates: [{ ...lane, modelRequest: { ...lane.modelRequest, pilot: true } }],
+      }),
+    TypeError,
+  );
+});
+
 function legalFlow(request = 'Legal 개선 지점 분석해줘.') {
   const envelope = buildTaskEnvelope({ request });
   const contextPack = discoverContextPack({ envelope, repositoryEvidence: legalEvidence });

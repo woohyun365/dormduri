@@ -84,8 +84,9 @@
 - **결정**: Pass 1은 intent·authority·impact risk·candidate shape만 분류하고, Pass 2가 current ContextPack의 정규화된
   source/fact/predicate evidence로 child role과 `medium | high | xhigh`를 최종 판정합니다. Medium은 모든 boundedness
   조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
-  선택하며 나머지 substantial work는 High입니다. Child는 GPT-6 Astra만 사용하고 parent XHigh/Max는 사용자가 session에서
-  선택합니다.
+  선택하며 나머지 substantial work는 High입니다. 기본 Child는 GPT-6 Astra이고 선택형 quality-gated model advice는
+  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. Terra/Sol은 좁은 실험 후보이지
+  활성화된 default가 아닙니다. 검증 fact·exact admission·live compatibility가 필요하고 최종 QA는 Astra를 유지합니다.
 - **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
   repository가 parent effort를 추천하는 방식.
 - **검증**: stable source/fact/evidence binding, duplicate fact amplification 방지, same-request/different-evidence fixture,
@@ -117,14 +118,17 @@
 - **문제**: tracked role TOML이나 user config가 존재해도 현재 native/OMX dispatch surface가 그 role·model·effort를 실제로
   제공한다는 뜻은 아닙니다.
 - **결정**: Native는 current-turn host tool schema, OMX는 current-session runtime overlay와 host-exposed role roster를
-  bounded evidence로 사용합니다. GPT-6 Astra와 `medium | high | xhigh`, role availability, effective effort, explicit-effort support,
+  bounded evidence로 사용합니다. 기본 Astra 또는 별도 admitted model과 `medium | high | xhigh`, role availability, effective effort, explicit-effort support,
   dispatch permission이 모두 맞아야 descriptor를 추천합니다. Evidence는 leader-reported이며 host-authenticated authority로
-  표현하지 않고 실제 호출 직전에 leader가 다시 확인합니다.
+  표현하지 않고 실제 호출 직전에 leader가 다시 확인합니다. Candidate는 supported/effective model, role pin/explicit model
+  support와 별도의 scoped context gate를 모두 확인합니다. Exact pilot 권한과 운영 adoption GO를 구분하고 profile/config/
+  source·scope/time/budget/check mismatch는 Parent fallback입니다. `pilot=true` 또는 pilot PASS는 채택 권한이 아닙니다.
 - **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.
 - **기각**: boolean capability assertion, local config inspection만으로 active authority 주장, generic role prompt label,
   stale session metadata 재사용.
 - **검증**: Native/OMX success, Luna/Low, Terra, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
-  fallback fixture를 검사합니다.
+  fallback fixture를 보존하고, authorized-pilot/adoption 분리·scope/config·예산/만료·context mismatch를 검사합니다.
+  이 정적 fixture는 실제 host 모델 적용이나 성능·weekly 절약을 입증하지 않습니다.
 - **재검토**: host가 직접 인증된 immutable runtime capability token이나 동등한 dispatch contract를 제공할 때입니다.
 
 ## DA-013 — Owner의 중요한 선택과 Lead의 기술 실행 분리
@@ -219,20 +223,20 @@ fresh Parent 전체의 준수율·생산성·비용 향상, 모든 공격 입력
 
 각 Decision의 짧은 본문은 읽기 흐름을 유지하고, 구현 영향과 재검토 기준은 아래 표에서 빠짐없이 추적합니다.
 
-| ID     | 근거                                                       | Trigger / non-trigger                                                       | 구현 영향                                        | 재검토 조건                                                         |
-| ------ | ---------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
-| DA-001 | OpenAI practical guide, Anthropic effective agents         | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행         | direct-first routing과 child 생성 억제           | 반복 측정된 context·처리량 병목                                     |
-| DA-002 | Google scaling agent systems, Anthropic effective agents   | 독립 evidence lane / dependency chain                                       | sequential dependency, bounded fan-out           | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때         |
-| DA-003 | OpenAI practical guide, Anthropic context engineering      | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                | leader synthesis와 one-write-owner               | 분산 merge가 더 낮은 충돌률로 검증될 때                             |
-| DA-004 | Anthropic demystifying evals, OpenAI best practices        | 검증 가능한 environment outcome / self report만 존재                        | command·test·diff 기반 완료 판정                 | 더 강한 자동 acceptance surface가 생길 때                           |
-| DA-005 | Anthropic context engineering                              | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지           | bounded checkpoint와 progressive disclosure      | startup context가 필수 규칙을 누락하거나 budget을 초과할 때         |
-| DA-006 | Anthropic writing tools, OpenAI agent guide                | 명확한 owner/action/schema / 중복 tool buffet                               | 좁은 tool contract와 bounded output              | tool 선택 오류나 context 비용이 다시 증가할 때                      |
-| DA-007 | DeepMind agent security, OpenAI running Codex safely       | deterministic guard 위 reviewer / reviewer-only guard 금지                  | static·type·sandbox·test 우선                    | model verifier가 독립적 강제력을 제공할 때                          |
-| DA-008 | DeepMind agent security, OpenAI running Codex safely       | destructive·credential·production action / reversible local work            | authority gate와 safe auto-continue              | 권한 또는 rollback model이 바뀔 때                                  |
-| DA-009 | Google scaling agent systems, repository semantic evidence | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지 | child-only two-pass routing과 normalized fixture | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
-| DA-010 | OpenAI AGENTS.md, repository onboarding evidence           | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지             | getting-started와 execution contract 분리        | generic agent가 동일 authority로 수렴하지 못할 때                   |
-| DA-011 | Google scaling agent systems, repository lane evidence     | 독립·bounded·positive-benefit lane / dependency·shared write                | adaptive bounded fan-out과 one-write limit       | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
-| DA-012 | OpenAI native surface, OMX runtime, repository smoke       | dispatch 직전 fresh reported evidence / config·과거 session만 존재          | dual-runtime compatibility와 sequential fallback | host-authenticated runtime capability contract가 제공될 때          |
-| DA-013 | 실행 계약, 계획 Decision/OQ owner                          | 중요한 제약 변경 / 승인된 통상 작업                                         | 공통 decision rights와 짧은 협의                 | 과잉 질문 또는 중요한 선택 누락                                     |
-| DA-014 | ContextPack registry, domain authoring guides              | 근거가 요구하는 관점 / 단순 lookup                                          | model-mediated consultation; mapper 유지         | 문서 과잉 또는 관점 누락                                            |
-| DA-015 | delegation, QA, current runtime 제약                       | 지정된 독립 사실 확인 / offload·초기 QA 설득                                | 중앙 authority와 제한된 peer 정보 교환           | 실제 병목·오염·권한 위반                                            |
+| ID     | 근거                                                       | Trigger / non-trigger                                                       | 구현 영향                                                  | 재검토 조건                                                         |
+| ------ | ---------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| DA-001 | OpenAI practical guide, Anthropic effective agents         | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행         | direct-first routing과 child 생성 억제                     | 반복 측정된 context·처리량 병목                                     |
+| DA-002 | Google scaling agent systems, Anthropic effective agents   | 독립 evidence lane / dependency chain                                       | sequential dependency, bounded fan-out                     | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때         |
+| DA-003 | OpenAI practical guide, Anthropic context engineering      | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                | leader synthesis와 one-write-owner                         | 분산 merge가 더 낮은 충돌률로 검증될 때                             |
+| DA-004 | Anthropic demystifying evals, OpenAI best practices        | 검증 가능한 environment outcome / self report만 존재                        | command·test·diff 기반 완료 판정                           | 더 강한 자동 acceptance surface가 생길 때                           |
+| DA-005 | Anthropic context engineering                              | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지           | bounded checkpoint와 progressive disclosure                | startup context가 필수 규칙을 누락하거나 budget을 초과할 때         |
+| DA-006 | Anthropic writing tools, OpenAI agent guide                | 명확한 owner/action/schema / 중복 tool buffet                               | 좁은 tool contract와 bounded output                        | tool 선택 오류나 context 비용이 다시 증가할 때                      |
+| DA-007 | DeepMind agent security, OpenAI running Codex safely       | deterministic guard 위 reviewer / reviewer-only guard 금지                  | static·type·sandbox·test 우선                              | model verifier가 독립적 강제력을 제공할 때                          |
+| DA-008 | DeepMind agent security, OpenAI running Codex safely       | destructive·credential·production action / reversible local work            | authority gate와 safe auto-continue                        | 권한 또는 rollback model이 바뀔 때                                  |
+| DA-009 | Google scaling agent systems, repository semantic evidence | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지 | child-only two-pass + optional quality-gated model fixture | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
+| DA-010 | OpenAI AGENTS.md, repository onboarding evidence           | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지             | getting-started와 execution contract 분리                  | generic agent가 동일 authority로 수렴하지 못할 때                   |
+| DA-011 | Google scaling agent systems, repository lane evidence     | 독립·bounded·positive-benefit lane / dependency·shared write                | adaptive bounded fan-out과 one-write limit                 | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
+| DA-012 | OpenAI native surface, OMX runtime, repository smoke       | dispatch 직전 fresh reported evidence / config·과거 session만 존재          | dual-runtime + exact model admission과 sequential fallback | host-authenticated runtime capability contract가 제공될 때          |
+| DA-013 | 실행 계약, 계획 Decision/OQ owner                          | 중요한 제약 변경 / 승인된 통상 작업                                         | 공통 decision rights와 짧은 협의                           | 과잉 질문 또는 중요한 선택 누락                                     |
+| DA-014 | ContextPack registry, domain authoring guides              | 근거가 요구하는 관점 / 단순 lookup                                          | model-mediated consultation; mapper 유지                   | 문서 과잉 또는 관점 누락                                            |
+| DA-015 | delegation, QA, current runtime 제약                       | 지정된 독립 사실 확인 / offload·초기 QA 설득                                | 중앙 authority와 제한된 peer 정보 교환                     | 실제 병목·오염·권한 위반                                            |

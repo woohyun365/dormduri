@@ -35,6 +35,20 @@ const textExtensions = new Set([
   '.yml',
 ]);
 
+test('fresh smoke consumes model advice without enabling models, pilots or usage claims', () => {
+  const { modelEvidence, boundaries } = runFreshSessionSmoke();
+  assert.equal(modelEvidence.fixtureOnly, true);
+  assert.equal(modelEvidence.candidate.recommendedModel, 'gpt-5.6-terra');
+  assert.equal(modelEvidence.candidate.applied, false);
+  assert.equal(modelEvidence.withoutAdmission.execution, 'leader-sequential');
+  assert.equal(modelEvidence.pilot.execution, 'native-bounded-dispatch');
+  assert.equal(modelEvidence.pilot.dispatches[0].modelPurpose, 'pilot');
+  assert.equal(modelEvidence.routineWithPilot.execution, 'leader-sequential');
+  assert.equal(modelEvidence.fixedRole.execution, 'leader-sequential');
+  assert.equal(boundaries.invokesChild, false);
+  assert.equal(boundaries.mutatesWorkspace, false);
+});
+
 test('fresh smoke consumes complete scoped packets and labels byte evidence separately from usage', () => {
   const { deliveryEvidence, boundaries } = runFreshSessionSmoke();
   assert.equal(deliveryEvidence.scoped.mode, 'scoped');

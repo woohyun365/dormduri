@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { recommendDelegation } from '../agents/child-task-contract.mjs';
+import { createModelScopeDigest, recommendDelegation } from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
@@ -830,6 +830,378 @@ test('tracked guidance preserves the reported-evidence trust boundary and live r
     assert.ok(`${orchestration}\n${recovery}`.includes(required), required);
   }
 });
+
+test('model pilot advice is separate from adoption, runtime and context confirmation', () => {
+  for (const purpose of ['pilot', 'routine']) {
+    const input = modelDispatchInput(purpose);
+    const before = structuredClone(input);
+    const result = createDispatchRecommendation(input);
+    assert.equal(result.execution, 'native-bounded-dispatch');
+    assert.equal(result.dispatches[0].requestedModel, 'gpt-5.6-terra');
+    assert.equal(result.dispatches[0].modelPurpose, purpose);
+    assert.equal(result.dispatches[0].requiresLeaderRuntimeConfirmation, true);
+    assert.equal(
+      result.dispatches[0].contract.routeRecommendation.runtimeApplication.applied,
+      false,
+    );
+    assert.deepEqual(input, before);
+  }
+});
+
+test('model candidates fail closed without exact live admission and compatible runtime', () => {
+  const mutations = [
+    (x) => {
+      modelUse(x).remainingBudget.children = 0;
+    },
+    (x) => {
+      modelUse(x).remainingBudget.minutes = 0;
+    },
+    (x) => {
+      delete x.modelUseByLane;
+    },
+    (x) => {
+      modelUse(x).admission = null;
+    },
+    (x) => {
+      modelUse(x).admission.reference = '';
+    },
+    (x) => {
+      modelUse(x).admission.expiresAt = '2026-09-19T10:00:00.000Z';
+    },
+    (x) => {
+      modelUse(x).admission.notBefore = '2026-09-21T10:00:00.000Z';
+    },
+    (x) => {
+      modelUse(x).admission.scopeDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      modelUse(x).configDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      modelUse(x).admission.model = 'gpt-5.6-sol';
+    },
+    (x) => {
+      modelUse(x).admission.role = 'knu_executor';
+    },
+    (x) => {
+      modelUse(x).admission.cohort = 'bounded-implementation';
+    },
+    (x) => {
+      modelUse(x).admission.effort = 'high';
+    },
+    (x) => {
+      modelUse(x).admission.budget.maxChildren = 0;
+    },
+    (x) => {
+      modelUse(x).admission.cleanupReference = '';
+    },
+    (x) => {
+      modelUse(x).scopeStatus = 'changed';
+    },
+    (x) => {
+      modelUse(x).checks = 'failed';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.dispatchPermission = 'denied';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.freshness = 'stale';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].effectiveModel = 'gpt-6-astra';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].effectiveEffort = 'high';
+    },
+    (x) => {
+      delete x.reportedRuntimeEvidence.roles[0].modelSelection;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels = ['gpt-6-astra'];
+    },
+    (x) => {
+      delete x.delegation.recommendedChildren[0].contextDelivery;
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].contextDelivery.compatible = false;
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].contextDelivery.mode = 'full-history';
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].boundary.readScope.push('apps/api');
+    },
+  ];
+  for (const mutate of mutations) {
+    const input = modelDispatchInput();
+    mutate(input);
+    let result;
+    try {
+      result = createDispatchRecommendation(input);
+    } catch (error) {
+      assert.ok(error instanceof TypeError);
+      continue;
+    }
+    assert.equal(result.execution, 'leader-sequential', String(mutate));
+    assert.equal(result.dispatches.length, 0);
+  }
+});
+
+test('pilot permission and pilot PASS never substitute for routine adoption GO', () => {
+  for (const [purpose, kind, quality] of [
+    ['routine', 'pilot', 'go'],
+    ['routine', 'adoption', 'unadopted'],
+    ['pilot', 'adoption', 'go'],
+    ['pilot', 'pilot', 'no-go'],
+  ]) {
+    const input = modelDispatchInput(purpose);
+    Object.assign(modelUse(input).admission, { kind, quality });
+    assert.equal(createDispatchRecommendation(input).execution, 'leader-sequential');
+  }
+});
+
+test('model context and cohort checks cannot be bypassed by refreshing the scope digest', () => {
+  for (const mutate of [
+    (contract) => {
+      contract.contextDelivery.compatible = false;
+    },
+    (contract) => {
+      contract.contextDelivery.mode = 'reuse';
+    },
+    (contract) => {
+      contract.contextDelivery.failures.push('regression failed');
+    },
+    (contract) => {
+      contract.allowed.tools.push('test-runner');
+    },
+    (contract) => {
+      contract.routeRecommendation.effort = 'high';
+    },
+  ]) {
+    const input = modelDispatchInput();
+    mutate(input.delegation.recommendedChildren[0]);
+    rebindModelScope(input);
+    const result = createDispatchRecommendation(input);
+    assert.equal(result.execution, 'leader-sequential');
+    assert.ok(
+      result.gaps.some((gap) =>
+        /model-context|model-cohort|model-role|runtime-role|model-effort/.test(gap),
+      ),
+    );
+  }
+});
+
+test('Sol implementation needs its exact write, regression and Astra QA evidence', () => {
+  const input = modelDispatchInput();
+  const contract = input.delegation.recommendedChildren[0];
+  const model = contract.routeRecommendation.modelRecommendation;
+  model.taskKind = 'implementation';
+  model.role = 'knu_executor';
+  model.request.model = 'gpt-5.6-sol';
+  model.request.cohort = 'bounded-implementation';
+  const id = model.request.verificationFacts.acceptance;
+  model.request.verificationFacts = { acceptance: id, regression: id, astraQa: id };
+  model.recommendedModel = 'gpt-5.6-sol';
+  contract.routeRecommendation.role = 'knu_executor';
+  contract.boundary.readOnly = false;
+  contract.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
+  contract.allowed.tools = ['repository-read', 'workspace-edit', 'test-runner'];
+  const role = input.reportedRuntimeEvidence.roles[0];
+  Object.assign(role, { agentType: 'knu_executor', effectiveModel: 'gpt-5.6-sol' });
+  role.modelSelection.supportedModels.push('gpt-5.6-sol');
+  Object.assign(modelUse(input).admission, {
+    model: 'gpt-5.6-sol',
+    role: 'knu_executor',
+    cohort: 'bounded-implementation',
+  });
+  rebindModelScope(input);
+  assert.equal(createDispatchRecommendation(input).execution, 'native-bounded-dispatch');
+  const missingQa = structuredClone(input);
+  delete missingQa.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.request
+    .verificationFacts.astraQa;
+  assert.throws(() => createDispatchRecommendation(missingQa), TypeError);
+});
+
+test('model rescue shares the existing one-alternate ceiling without a trial ladder', () => {
+  const primary = failedAttempt('terra-pilot', 'verification-failed');
+  const rescue = {
+    ...failedAttempt('astra-rescue', 'verification-failed'),
+    alternateOf: 'terra-pilot',
+  };
+  assert.equal(
+    evaluateRecovery({ laneId: 'legal-repository-map', attempts: [primary, rescue] }).status,
+    'handoff-required',
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: 'legal-repository-map',
+        attempts: [primary, rescue, { ...rescue, approachId: 'sol-trial' }],
+      }),
+    /at most one alternate/u,
+  );
+});
+
+function rebindModelScope(input) {
+  const contract = input.delegation.recommendedChildren[0];
+  contract.modelScopeDigest = createModelScopeDigest(contract);
+  modelUse(input).scopeDigest = contract.modelScopeDigest;
+  modelUse(input).admission.scopeDigest = contract.modelScopeDigest;
+}
+
+test('model evidence rejects unknown schema and preserves legacy mismatched-model rejection', () => {
+  for (const mutate of [
+    (x) => {
+      modelUse(x).pilot = true;
+    },
+    (x) => {
+      modelUse(x).admission.adopted = true;
+    },
+    (x) => {
+      modelUse(x).admission.budget.unlimited = true;
+    },
+    (x) => {
+      x.modelUseByLane.unknown = modelUse(x);
+    },
+  ]) {
+    const input = modelDispatchInput();
+    mutate(input);
+    assert.throws(() => createDispatchRecommendation(input), TypeError);
+  }
+  for (const id of ['terra-rejected', 'luna-rejected']) {
+    assert.equal(
+      createDispatchRecommendation({
+        delegation: legalDelegation(),
+        reportedRuntimeEvidence: runtimeFixture(id).evidence,
+      }).execution,
+      'leader-sequential',
+    );
+  }
+  const invalid = modelDispatchInput();
+  invalid.reportedRuntimeEvidence.roles[0].modelSelection.magicOverride = true;
+  assert.equal(createDispatchRecommendation(invalid).execution, 'leader-sequential');
+});
+
+function modelUse(input) {
+  return input.modelUseByLane['legal-repository-map'];
+}
+
+function modelDispatchInput(purpose = 'pilot') {
+  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
+  const contextPack = discoverContextPack({
+    envelope,
+    repositoryEvidence: [{ path: 'docs/policies/legal-basis.md' }],
+  });
+  const parts = Array.from({ length: 15 }, (_, i) =>
+    semanticEvidence(contextPack, `M-${String(i + 1).padStart(2, '0')}`),
+  );
+  const pass2Evidence = {
+    ...parts[0],
+    sources: parts.flatMap((p) => p.sources),
+    facts: parts.flatMap((p) => p.facts),
+    predicateClaims: parts.flatMap((p) => p.predicateClaims),
+  };
+  const lane = {
+    ...repositoryLane(contextPack),
+    impactRisk: 'low',
+    pass2Evidence,
+    modelRequest: {
+      model: 'gpt-5.6-terra',
+      purpose,
+      cohort: 'bounded-read-only',
+      verificationFacts: {
+        acceptance: parts[0].facts[0].factId,
+        independentCheck: parts[1].facts[0].factId,
+      },
+    },
+  };
+  const delivery = {
+    purpose: 'task',
+    mode: 'scoped',
+    effortMode: 'explicit',
+    rationale: null,
+    snapshot: 'synthetic-source-v1',
+    evidencePointers: ['docs/policies/legal-basis.md'],
+    findings: [],
+    failures: [],
+    previous: null,
+    runtime: {
+      freshness: 'current-turn',
+      scopedFork: true,
+      fullHistoryFork: true,
+      followup: true,
+      explicitEffort: true,
+      fullHistoryWithExplicitEffort: false,
+      effectiveEffort: 'medium',
+    },
+  };
+  const delegation = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [lane],
+    deliveryByLane: { [lane.id]: delivery },
+  });
+  const [contract] = delegation.recommendedChildren;
+  const digest = createModelScopeDigest(contract);
+  const configDigest = `sha256:${'c'.repeat(64)}`;
+  return structuredClone({
+    delegation,
+    reportedRuntimeEvidence: {
+      schemaVersion: 1,
+      surfaceMode: 'native',
+      observationScope: 'current-turn',
+      freshness: 'current-turn',
+      provenance: ['host-tool-schema'],
+      dispatchPermission: 'allowed',
+      roles: [
+        {
+          agentType: 'knu_explorer',
+          available: true,
+          effectiveModel: 'gpt-5.6-terra',
+          effectiveEffort: 'medium',
+          explicitEffortSupport: true,
+          modelSelection: {
+            supportedModels: ['gpt-6-astra', 'gpt-5.6-terra'],
+            roleModel: null,
+            explicitModelSupport: true,
+            reference: 'synthetic-host-model-schema',
+          },
+        },
+      ],
+    },
+    modelUseByLane: {
+      [lane.id]: {
+        observedAt: '2026-09-20T10:00:00.000Z',
+        configDigest,
+        scopeDigest: digest,
+        scopeStatus: 'current',
+        checks: 'passed',
+        remainingBudget: { children: 1, minutes: 10 },
+        admission: {
+          kind: purpose === 'pilot' ? 'pilot' : 'adoption',
+          reference: 'synthetic-owner-authorization',
+          quality: purpose === 'pilot' ? 'unadopted' : 'go',
+          model: 'gpt-5.6-terra',
+          role: 'knu_explorer',
+          effort: 'medium',
+          cohort: 'bounded-read-only',
+          scopeDigest: digest,
+          configDigest,
+          notBefore: '2026-09-20T09:00:00.000Z',
+          expiresAt: '2026-09-20T11:00:00.000Z',
+          budget: { maxChildren: 1, maxMinutes: 10 },
+          cleanupReference: 'synthetic-supported-cleanup-contract',
+        },
+      },
+    },
+  });
+}
 
 function runtimeFixture(id) {
   const fixture = runtimeCapabilityCases.find((candidate) => candidate.id === id);

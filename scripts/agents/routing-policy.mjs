@@ -21,6 +21,7 @@ const ROUTING_INPUT_FIELDS = new Set([
   'pass2Evidence',
   'independent',
   'childBenefit',
+  'modelRequest',
 ]);
 const PASS1_FIELDS = new Set([
   'taskKind',
@@ -142,6 +143,7 @@ const TRANSITIONAL_RUNTIME_APPLICATION = Object.freeze({
 export function selectAgentRoute(input = {}) {
   assertRecord(input, 'routing input');
   assertOnlyFields(input, ROUTING_INPUT_FIELDS, 'routing input');
+  const modelRequest = normalizeModelRequest(input.modelRequest);
 
   const pass1 = validatePass1(input.pass1);
   const independent = input.independent ?? true;
@@ -214,7 +216,85 @@ export function selectAgentRoute(input = {}) {
     gaps: unique([...assessment.gaps, 'runtime-role-evidence-deferred']),
     confidence: assessment.confidence,
     runtimeApplication: TRANSITIONAL_RUNTIME_APPLICATION,
+    ...(modelRequest
+      ? {
+          modelRecommendation: recommendModel({
+            modelRequest,
+            taskKind: pass1.taskKind,
+            impactRisk: pass1.impactRisk,
+            assessment,
+          }),
+        }
+      : {}),
   });
+}
+
+// Model advice follows (and never changes) the semantic role/effort decision.
+// These are finite experimental cohorts, not a price-based classifier or authorization.
+export function normalizeModelRequest(value) {
+  if (value === undefined) return undefined;
+  assertRecord(value, 'modelRequest');
+  assertOnlyFields(
+    value,
+    new Set(['model', 'purpose', 'cohort', 'verificationFacts']),
+    'modelRequest',
+  );
+  assertEnum(
+    value.model,
+    new Set(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra']),
+    'requested model',
+  );
+  assertEnum(value.purpose, new Set(['pilot', 'routine']), 'model purpose');
+  assertEnum(
+    value.cohort,
+    new Set(['bounded-read-only', 'bounded-implementation']),
+    'model cohort',
+  );
+  const keys =
+    value.cohort === 'bounded-read-only'
+      ? ['acceptance', 'independentCheck']
+      : ['acceptance', 'regression', 'astraQa'];
+  assertRecord(value.verificationFacts, 'model verificationFacts');
+  assertOnlyFields(value.verificationFacts, new Set(keys), 'model verificationFacts');
+  const verificationFacts = Object.fromEntries(
+    keys.map((key) => {
+      assertBoundedString(value.verificationFacts[key], `model verificationFacts.${key}`, 100);
+      return [key, value.verificationFacts[key]];
+    }),
+  );
+  return { model: value.model, purpose: value.purpose, cohort: value.cohort, verificationFacts };
+}
+
+export function recommendModel({ modelRequest, taskKind, impactRisk, assessment }) {
+  const request = normalizeModelRequest(modelRequest);
+  if (!TASK_ROLES.has(taskKind)) throw new TypeError('Unknown model task kind.');
+  const cohortMatches =
+    request.cohort === 'bounded-read-only'
+      ? request.model === 'gpt-5.6-terra' && ['lookup', 'analysis', 'research'].includes(taskKind)
+      : request.model === 'gpt-5.6-sol' && ['implementation', 'test'].includes(taskKind);
+  const bounded =
+    assessment.mediumEligibility === true &&
+    assessment.reasoningComplexity === 'bounded' &&
+    assessment.xhighSignals.length === 0 &&
+    assessment.domainSignals.length === 0 &&
+    assessment.compositeCategories.length === 0 &&
+    assessment.gaps.length === 0 &&
+    assessment.confidence === 'high' &&
+    assessment.facts.every((fact) => fact.confidence === 'high') &&
+    impactRisk !== 'high';
+  const verified = Object.values(request.verificationFacts).every((id) =>
+    assessment.facts.some((fact) => fact.factId === id && fact.confidence === 'high'),
+  );
+  const eligible = cohortMatches && bounded && verified;
+  return {
+    request,
+    taskKind,
+    role: TASK_ROLES.get(taskKind),
+    recommendedModel: eligible ? request.model : 'gpt-6-astra',
+    status: eligible ? 'candidate' : 'baseline',
+    reason: eligible ? 'bounded-quality-evidence-candidate-only' : 'baseline-risk-or-quality-gate',
+    applied: false,
+  };
 }
 
 export function createSemanticSourceId(source) {

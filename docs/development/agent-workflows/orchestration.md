@@ -106,7 +106,7 @@ effort를 계산하거나 변경했다고 보고하지 않습니다.
 4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
    structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
 
-Repository-selected child는 GPT-6 Astra와 `medium | high | xhigh`만 사용합니다. Keyword, path, file count, LOC, broad verification
+Repository-selected child의 기본값은 GPT-6 Astra이며 effort는 `medium | high | xhigh`를 유지합니다. Keyword, path, file count, LOC, broad verification
 하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
 `knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
 아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
@@ -116,9 +116,28 @@ leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 reposit
 Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
 evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
 host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 leader-reported input이며 host-authenticated authority로
-표현하지 않습니다. 선택 role마다 availability, effective Astra model, Medium/High/XHigh effort, explicit-effort support와
+표현하지 않습니다. 선택 role마다 availability, 추천과 일치하는 effective model, Medium/High/XHigh effort, explicit-effort support와
 dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
 leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
+
+### Quality-gated model advice
+
+Role/effort를 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없으면 기존
+Astra-only compatibility와 출력이 유지됩니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
+
+- Terra: 유한 source·출력 schema·독립 확인 방법을 갖춘 read-only mapping/공식 근거 추출 후보.
+- Sol: 명확한 acceptance·단일 write owner·실행할 regression·독립 Astra QA가 있는 bounded 구현/회귀 작성 후보.
+- Astra: Parent, 최종 QA, architecture/auth/trust/transaction/migration/concurrency, 미해결 실패·위험/품질 gap.
+
+현재 정적 후보는 완전한 Medium boundedness, high-confidence facts, 빈 gap/domain/composite signal, non-high impact를
+모두 요구하는 **보수적인 첫 cohort**입니다. Medium이라는 이유만으로 모델을 내리지 않습니다. Task/cohort/검증 fact와
+write/context/runtime/admission gate도 통과해야 하며 broader High cohort는 추가 품질 근거 전까지 Astra입니다.
+Luna·Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
+
+추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./request-intake/delegation.md#model-recommendation)과
+[pilot/adoption·runtime admission](./request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
+별도 허용된 최초 pilot은 adoption GO 전에도 비교할 수 있지만, pilot 허용/PASS는 운영 채택 GO가 아닙니다.
+현재 project Astra pin을 바꾸거나 실제 모델 사용·절약을 입증하는 기능이 아닙니다.
 
 ## Skill과 workflow routing
 

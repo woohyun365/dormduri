@@ -85,6 +85,7 @@ export function runFreshSessionSmoke() {
     routingEvidence,
     lifecycleEvidence: evaluateLifecycleEvidence(),
     deliveryEvidence: evaluateDeliveryEvidence(),
+    modelEvidence: evaluateModelEvidence(),
     boundaries: {
       readsLocalResumeState: false,
       readsIgnoredPlan: false,
@@ -207,6 +208,130 @@ function evaluateDeliveryEvidence() {
       tokens: null,
       weeklyAllowance: null,
     },
+  };
+}
+
+function evaluateModelEvidence() {
+  // Synthetic source, permission and host observations: never a real pilot/GO.
+  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
+  const contextPack = discoverContextPack({
+    envelope,
+    repositoryEvidence: [{ path: 'docs/policies/legal-basis.md', kind: 'policy' }],
+  });
+  const { smokePredicateIds: _predicates, ...base } = routingEvidenceLane(mediumPredicateIds());
+  const evidence = semanticEvidence(contextPack, mediumPredicateIds());
+  const makeDelegation = (purpose) =>
+    recommendDelegation({
+      envelope,
+      contextPack,
+      laneCandidates: [
+        {
+          ...base,
+          impactRisk: 'low',
+          pass2Evidence: evidence,
+          modelRequest: {
+            model: 'gpt-5.6-terra',
+            purpose,
+            cohort: 'bounded-read-only',
+            verificationFacts: {
+              acceptance: evidence.facts[0].factId,
+              independentCheck: evidence.facts[1].factId,
+            },
+          },
+        },
+      ],
+      deliveryByLane: {
+        [base.id]: {
+          purpose: 'task',
+          mode: 'scoped',
+          effortMode: 'explicit',
+          rationale: null,
+          snapshot: 'synthetic-model-source',
+          evidencePointers: base.readScope,
+          findings: [],
+          failures: [],
+          previous: null,
+          runtime: {
+            freshness: 'current-turn',
+            scopedFork: true,
+            fullHistoryFork: true,
+            followup: true,
+            explicitEffort: true,
+            fullHistoryWithExplicitEffort: false,
+            effectiveEffort: 'medium',
+          },
+        },
+      },
+    });
+  const delegation = makeDelegation('pilot');
+  const [contract] = delegation.recommendedChildren;
+  const reportedRuntimeEvidence = {
+    schemaVersion: 1,
+    surfaceMode: 'native',
+    observationScope: 'current-turn',
+    freshness: 'current-turn',
+    provenance: ['host-tool-schema'],
+    dispatchPermission: 'allowed',
+    roles: [
+      {
+        agentType: 'knu_explorer',
+        available: true,
+        effectiveModel: 'gpt-5.6-terra',
+        effectiveEffort: 'medium',
+        explicitEffortSupport: true,
+        modelSelection: {
+          supportedModels: ['gpt-6-astra', 'gpt-5.6-terra'],
+          roleModel: null,
+          explicitModelSupport: true,
+          reference: 'synthetic-host-schema',
+        },
+      },
+    ],
+  };
+  const configDigest = `sha256:${'c'.repeat(64)}`;
+  const modelUseByLane = {
+    [base.id]: {
+      observedAt: '2026-09-20T10:00:00.000Z',
+      scopeDigest: contract.modelScopeDigest,
+      configDigest,
+      scopeStatus: 'current',
+      checks: 'passed',
+      remainingBudget: { children: 1, minutes: 10 },
+      admission: {
+        kind: 'pilot',
+        reference: 'synthetic-user-pilot-authorization',
+        quality: 'unadopted',
+        model: 'gpt-5.6-terra',
+        role: 'knu_explorer',
+        effort: 'medium',
+        cohort: 'bounded-read-only',
+        scopeDigest: contract.modelScopeDigest,
+        configDigest,
+        notBefore: '2026-09-20T09:00:00.000Z',
+        expiresAt: '2026-09-20T11:00:00.000Z',
+        budget: { maxChildren: 1, maxMinutes: 10 },
+        cleanupReference: 'synthetic-cleanup-contract',
+      },
+    },
+  };
+  const input = { delegation, reportedRuntimeEvidence, modelUseByLane };
+  const routine = structuredClone({ ...input, delegation: makeDelegation('routine') });
+  // Rebind the exact routine scope; its pilot permission must STILL be rejected.
+  const routineDigest = routine.delegation.recommendedChildren[0].modelScopeDigest;
+  routine.modelUseByLane[base.id].scopeDigest = routineDigest;
+  routine.modelUseByLane[base.id].admission.scopeDigest = routineDigest;
+  const fixed = structuredClone(input);
+  fixed.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
+  const contextConflict = structuredClone(input);
+  contextConflict.delegation.recommendedChildren[0].contextDelivery.compatible = false;
+  return {
+    fixtureOnly: true,
+    candidate: contract.routeRecommendation.modelRecommendation,
+    withoutAdmission: createDispatchRecommendation({ delegation, reportedRuntimeEvidence }),
+    pilot: createDispatchRecommendation(input),
+    routineWithPilot: createDispatchRecommendation(routine),
+    fixedRole: createDispatchRecommendation(fixed),
+    contextConflict: createDispatchRecommendation(contextConflict),
   };
 }
 

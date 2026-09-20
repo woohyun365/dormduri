@@ -1,5 +1,6 @@
 import { assertValidTaskEnvelope } from './intake-policy.mjs';
-import { selectAgentRoute } from './routing-policy.mjs';
+import { createHash } from 'node:crypto';
+import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const PROACTIVE_NORMAL_LIMIT = 2;
@@ -27,6 +28,7 @@ const ALLOWED_TOOLS = new Set([
   'workspace-edit',
 ]);
 const LANE_FIELDS = new Set([
+  'modelRequest',
   'id',
   'domain',
   'taskKind',
@@ -98,6 +100,7 @@ export function recommendDelegation({
       pass2Evidence: assessment.lane.pass2Evidence,
       independent: assessment.independent,
       childBenefit: assessment.lane.benefit.value !== 'low',
+      ...(assessment.lane.modelRequest ? { modelRequest: assessment.lane.modelRequest } : {}),
     }),
   }));
   const eligible = routed
@@ -131,6 +134,10 @@ export function recommendDelegation({
         assessment.lane.taskKind,
       );
     }
+    if (contract.routeRecommendation.modelRecommendation) {
+      contract.modelTaskId = envelope.requestId;
+      contract.modelScopeDigest = createModelScopeDigest(contract);
+    }
     return contract;
   });
   const deferredLanes = routed
@@ -160,6 +167,12 @@ export function assessLaneIndependence({ lane, peerLanes = [], envelope } = {}) 
   const normalizedPeers = peerLanes.map((peer) => normalizeLane(peer, envelope));
   assertUniqueLaneIds([normalizedLane, ...normalizedPeers]);
   return deepFreeze(assessNormalizedLane(normalizedLane, [normalizedLane, ...normalizedPeers]));
+}
+
+// Binding for reported admission, not authentication or a live filesystem observation.
+export function createModelScopeDigest(contract) {
+  const { modelScopeDigest: _digest, ...scope } = contract;
+  return `sha256:${createHash('sha256').update(JSON.stringify(scope)).digest('hex')}`;
 }
 
 function assessNormalizedLane(lane, allLanes) {
@@ -256,6 +269,9 @@ function normalizeLane(lane, envelope) {
     ),
     benefit: normalizeBenefit(lane.benefit),
     pass2Evidence: lane.pass2Evidence,
+    ...(lane.modelRequest !== undefined
+      ? { modelRequest: normalizeModelRequest(lane.modelRequest) }
+      : {}),
   };
 }
 
@@ -297,6 +313,7 @@ function composeChildContract({ lane, route }) {
       gaps: route.gaps,
       confidence: route.confidence,
       runtimeApplication: route.runtimeApplication,
+      ...(route.modelRecommendation ? { modelRecommendation: route.modelRecommendation } : {}),
     },
     leaderOwnership: {
       finalDecision: true,

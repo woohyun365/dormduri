@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { runFreshSessionSmoke } from '../agents/fresh-session-smoke.mjs';
 
 import { recommendDelegation } from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
@@ -281,6 +282,19 @@ test('the integrated intake path remains advisory and cannot write files or invo
       path,
     );
   }
+});
+
+test('intake model path keeps source-bound advice, context and dispatch as separate gates', () => {
+  const { modelEvidence } = runFreshSessionSmoke();
+  const dispatch = modelEvidence.pilot.dispatches[0];
+  const contract = dispatch.contract;
+  assert.equal(contract.contextDelivery.compatible, true);
+  assert.equal(contract.contextDelivery.applied, false);
+  assert.equal(contract.routeRecommendation.runtimeApplication.applied, false);
+  assert.match(contract.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
+  assert.equal(dispatch.requiresLeaderRuntimeConfirmation, true);
+  assert.equal(modelEvidence.contextConflict.execution, 'leader-sequential');
+  assert.equal(modelEvidence.routineWithPilot.execution, 'leader-sequential');
 });
 
 function evaluateFixture(

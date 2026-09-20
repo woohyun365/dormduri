@@ -20,6 +20,121 @@ const TASK_KINDS = [
   'review',
 ];
 
+test('optional model advice preserves effort and requires bounded semantic quality evidence', () => {
+  for (const [taskKind, model, cohort] of [
+    ['lookup', 'gpt-5.6-terra', 'bounded-read-only'],
+    ['research', 'gpt-5.6-terra', 'bounded-read-only'],
+    ['implementation', 'gpt-5.6-sol', 'bounded-implementation'],
+    ['test', 'gpt-5.6-sol', 'bounded-implementation'],
+  ]) {
+    const input = routeInput({ taskKind, impactRisk: 'low', predicateIds: mediumPredicateIds() });
+    const legacy = selectAgentRoute(input);
+    input.modelRequest = {
+      model,
+      cohort,
+      purpose: 'pilot',
+      verificationFacts: modelVerification(input.pass2Evidence, cohort),
+    };
+    const result = selectAgentRoute(input);
+    assert.equal(legacy.modelRecommendation, undefined);
+    assert.equal(result.effort, legacy.effort);
+    assert.equal(result.role, legacy.role);
+    assert.equal(result.modelRecommendation.recommendedModel, model);
+    assert.equal(result.modelRecommendation.status, 'candidate');
+    assert.equal(result.modelRecommendation.applied, false);
+    assert.deepEqual(result.runtimeApplication, legacy.runtimeApplication);
+  }
+});
+
+test('model advice retains Astra for risk, QA, uncertainty and missing boundedness', () => {
+  const cases = [
+    { taskKind: 'architecture' },
+    { taskKind: 'review' },
+    { taskKind: 'verification' },
+    { taskKind: 'debugging' },
+    { impactRisk: 'high' },
+    { predicateIds: ['M-01'] },
+    ...[
+      'BE-01-concurrency-transaction',
+      'BE-02-migration-backfill',
+      'BE-06-auth-session',
+      'FE-06-auth-browser-trust',
+      'X-01',
+    ].map((predicate) => ({ predicateIds: [...mediumPredicateIds(), predicate] })),
+  ];
+  for (const patch of cases) {
+    const input = routeInput({
+      taskKind: 'lookup',
+      impactRisk: 'low',
+      predicateIds: mediumPredicateIds(),
+      ...patch,
+    });
+    input.modelRequest = {
+      model: 'gpt-5.6-terra',
+      purpose: 'pilot',
+      cohort: 'bounded-read-only',
+      verificationFacts: modelVerification(input.pass2Evidence),
+    };
+    assert.equal(
+      selectAgentRoute(input).modelRecommendation.recommendedModel,
+      'gpt-6-astra',
+      JSON.stringify(patch),
+    );
+  }
+  for (const mutate of [
+    (input) => {
+      input.pass2Evidence.gaps.push('unknown root cause');
+    },
+    (input) => {
+      input.pass2Evidence.confidence = 'medium';
+    },
+    (input) => {
+      input.modelRequest.verificationFacts.acceptance = 'fact-absent';
+    },
+  ]) {
+    const input = routeInput({
+      taskKind: 'lookup',
+      impactRisk: 'low',
+      predicateIds: mediumPredicateIds(),
+    });
+    input.modelRequest = {
+      model: 'gpt-5.6-terra',
+      purpose: 'routine',
+      cohort: 'bounded-read-only',
+      verificationFacts: modelVerification(input.pass2Evidence),
+    };
+    mutate(input);
+    assert.equal(selectAgentRoute(input).modelRecommendation.status, 'baseline');
+  }
+});
+
+test('model request is strict and cannot create children for deterministic work', () => {
+  const input = routeInput({ predicateIds: mediumPredicateIds() });
+  const request = {
+    model: 'gpt-5.6-sol',
+    purpose: 'pilot',
+    cohort: 'bounded-implementation',
+    verificationFacts: modelVerification(input.pass2Evidence, 'bounded-implementation'),
+  };
+  for (const patch of [
+    { model: 'gpt-5.6-luna' },
+    { pilot: true },
+    { purpose: 'adopt' },
+    { verificationFacts: {} },
+  ]) {
+    assert.throws(
+      () => selectAgentRoute({ ...input, modelRequest: { ...request, ...patch } }),
+      TypeError,
+    );
+  }
+  const direct = selectAgentRoute({
+    ...input,
+    modelRequest: request,
+    pass1: { ...input.pass1, executionShape: 'direct' },
+  });
+  assert.equal(direct.spawn, false);
+});
+
 test('keeps direct and missing-Pass-2 work child-free without claiming parent effort', () => {
   const direct = selectAgentRoute({
     pass1: pass1({ taskKind: 'lookup', executionShape: 'direct' }),
@@ -351,4 +466,11 @@ function transitionalRuntimeApplication() {
     applied: false,
     evidenceStatus: 'deferred-to-runtime-compatibility',
   };
+}
+
+function modelVerification(evidence, cohort = 'bounded-read-only') {
+  const id = evidence.facts[0].factId;
+  return cohort === 'bounded-read-only'
+    ? { acceptance: id, independentCheck: id }
+    : { acceptance: id, regression: id, astraQa: id };
 }

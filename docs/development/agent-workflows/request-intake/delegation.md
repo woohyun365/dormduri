@@ -46,6 +46,7 @@ expectedOutputFields[] / verification[]
 stopCondition / handoffCondition
 benefit: kind / rationale / value / evidenceIds
 pass2Evidence: sources / facts / predicateClaims / inferences / gaps / confidence
+modelRequest?: model / purpose / cohort / verificationFacts
 ```
 
 `scripts/agents/child-task-contract.mjs`는 candidate를 다음 typed handoff로 정규화합니다.
@@ -60,6 +61,37 @@ verification / stop / handoff condition
 installed role and effort recommendation
 leader-only final decision, response, integration, verification
 ```
+
+## Model recommendation
+
+선택형 `modelRequest`는 기존 lane 또는 `selectAgentRoute()` 입력에서 같은 strict schema를 사용합니다.
+
+```text
+model: gpt-6-astra | gpt-5.6-sol | gpt-5.6-terra
+purpose: pilot | routine
+cohort: bounded-read-only | bounded-implementation
+verificationFacts:
+  bounded-read-only: acceptance / independentCheck
+  bounded-implementation: acceptance / regression / astraQa
+```
+
+각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인,
+구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
+실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
+
+입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](../orchestration.md#quality-gated-model-advice)을
+충족하면 `routeRecommendation.modelRecommendation`에 request/taskKind/role, recommendedModel, candidate/baseline,
+reason, `applied=false`를 붙입니다. 부적합 cohort·위험·품질 gap은 Astra baseline이며 기존 effort는 바꾸지 않습니다.
+새 모델/unknown field/불완전 verification schema는 거부합니다.
+
+Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`를 함께 전달합니다. Digest는 source digest에
+연결된 semantic facts, 목적·role/effort/cohort, read/tool/write 범위, output/verification/stop/handoff, context delivery를 포함한
+전체 contract의 정확한 JSON 표현에 연결됩니다. Field 순서까지 달라진 재직렬화는 재생성/재승인이 필요할 수 있습니다.
+Hash는 무결성 대조값이지 source freshness·권한 증명은 아닙니다. 실제 파일/config 재확인은 Parent 책임입니다.
+
+이 packet은 candidate 제안이지 pilot 허용서/운영 profile이 아닙니다. [별도 model admission](./orchestration-recovery.md#model-admission)이
+없거나 불일치하면 dispatch는 Parent로 돌아갑니다. Candidate는 compatible한 fresh scoped context만 지원하며 full-history/reuse의
+모델 변경을 추측하지 않습니다. Context gate와 runtime/model gate는 독립이며 하나의 성공이 다른 쪽을 생략하지 않습니다.
 
 ## Context delivery
 

@@ -344,5 +344,40 @@
         }
       ]
     }
+  },
+  {
+    "id": "sol-supported-without-model-request-rejected",
+    "expectedExecution": "leader-sequential",
+    "expectedGap": "runtime-model-incompatible",
+    "evidence": {
+      "schemaVersion": 1,
+      "surfaceMode": "native",
+      "observationScope": "current-turn",
+      "freshness": "current-turn",
+      "provenance": ["host-tool-schema"],
+      "dispatchPermission": "allowed",
+      "roles": [
+        {
+          "agentType": "knu_researcher",
+          "available": true,
+          "effectiveModel": "gpt-5.6-sol",
+          "effectiveEffort": "high",
+          "explicitEffortSupport": true,
+          "modelSelection": {
+            "supportedModels": ["gpt-6-astra", "gpt-5.6-sol"],
+            "roleModel": null,
+            "explicitModelSupport": true,
+            "reference": "synthetic-current-host-model-schema"
+          }
+        },
+        {
+          "agentType": "knu_explorer",
+          "available": true,
+          "effectiveModel": "gpt-6-astra",
+          "effectiveEffort": "high",
+          "explicitEffortSupport": true
+        }
+      ]
+    }
   }
 ]
