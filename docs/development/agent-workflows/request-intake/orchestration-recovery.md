@@ -73,8 +73,11 @@ primary attempt
 - retry decision은 immutable record이며 worker respawn이나 task 재배치를 직접 실행하지 않습니다.
 
 Capacity 오류와 완료 thread 정리는 [Parent-owned subagent lifecycle](../subagent-lifecycle.md)을 먼저 따릅니다.
-정리 뒤 evidence-backed retry도 위 one-alternate ceiling 안에서만 실행하며 이 advisory policy에 runtime 종료 engine을
-추가하지 않습니다. 종료 미지원/실패를 성공으로 바꾸거나 같은 조건의 호출을 반복하지 않습니다.
+결과 회수 후 capability별 분기로 explicit-close·검증된 no-close·unknown을 구별합니다. no-close 자체는 일반 dispatch
+차단 사유가 아닙니다. 단 현재 operation의 실패나 pending/권한 미확인을 정상 경로로 바꾸지는 않습니다.
+변화 근거가 있는 retry도 위 one-alternate ceiling 안에서만 실행하며 이 advisory policy에 runtime 종료 engine을 추가하지
+않습니다. 별도 release 관측 없이 자원/슬롯 회수 성공을 주장하거나 같은 조건의 호출을 반복하지 않습니다. 실제 실행·상태·권한은
+Parent가 current schema에서 재확인하고 정적 테스트는 native lifecycle evidence를 대신하지 않습니다.
 
 ## Child result contract
 

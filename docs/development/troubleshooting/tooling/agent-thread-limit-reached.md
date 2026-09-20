@@ -16,10 +16,10 @@ agent thread limit reached
 
 ## 원인
 
-작업 완료와 thread 종료가 다를 수 있습니다. Codex 설정의 `agents.max_concurrent_threads_per_session`은 부모를 제외한
-동시에 열린 child thread 상한입니다. Responses API의 active turn 한도와는 다르므로 먼저
-[tool family와 current schema](../../agent-workflows/subagent-lifecycle.md#capability-확인과-tool-family)를 확인합니다.
-목록의 historical/completed 표시만으로 현재 점유 슬롯·특정 오류 원인을 단정할 수는 없습니다.
+작업 결과·runtime residency·저장 기록은 다른 상태입니다. 설치 version의 cap 단위와 현재 host의 산정 계약은
+[tool family와 current schema](../../agent-workflows/subagent-lifecycle.md#capability-확인과-tool-family)에서 확인합니다.
+Historical/completed 표시만으로 현재 점유 슬롯·mailbox 상태·특정 오류 원인을 단정할 수는 없습니다. 조건부 eviction이
+있는 구현에서도 pending turn/message 등의 조건이 남을 수 있으며, roster만 보고 eviction bug라고 결론 내리지 않습니다.
 
 현재 repository의 6 설정과 advisory hard cap을 늘려서 해결하지 않습니다. 공식 기본값과 모든 환경의 절대 한도가
 6이라는 뜻도 아닙니다. 실행 중 writer, 완료 후 아직 열린 thread, 정리/조회 기능 부재를 분리해 확인합니다.
@@ -30,16 +30,19 @@ agent thread limit reached
 
 - 현재 schema에 status 조회와 close 기능이 **둘 다** 있으면: 결과를 회수한 현재 소유 terminal child만 재확인하여
   정확히 종료하고 반환 증거를 확인합니다. 필요 dispatch만 bounded 재시도하며 dummy spawn으로 용량을 시험하지 않습니다.
-- status/interrupt만 있고 close가 없으면: `cleanup-unavailable` / `release-unverified`를 기록합니다. interrupt, CLI archive,
-  history 삭제를 슬롯 반환으로 가장하지 않습니다. 정상적인 parent 로컬 작업은 계속하고 필요한 독립 review는 실제 가능한
-  fresh-context 대안 또는 명시적 gap으로 처리합니다.
+- close가 없으면: [capability별 판정](../../agent-workflows/subagent-lifecycle.md#capability별-완료-판정)으로 확인된 no-close 계약과
+  unknown을 구분합니다. 안전 조건까지 확인된 경우에만 명시적 close 의무를 `not-required`로 기록합니다. 미확인은
+  cleanup gap이며, 어느 경우에도 관측 없는 release를 성공으로 쓰지 않습니다. interrupt, CLI archive, history 삭제는 대체
+  cleanup 수단이 아닙니다. Parent 로컬 작업은 계속하고 필요한 독립 review는 실제 가능한 fresh-context 대안 또는 gap으로 처리합니다.
 - 모든 child가 실행 중이거나 follow-up 예정이면: 필요한 작업 완료를 기다린 뒤 결과 회수·정리합니다. 슬롯을 만들려고
   무관한 작업을 중단하거나 다른 parent의 thread를 닫지 않습니다.
 - 실패 follow-up 대상이 roster에 없으면: 이름만으로 존재·소유·재사용을 가정하지 않습니다. 추가 recursive spawn이나
-  전역 daemon/session 조작 대신 원문 오류와 지원 기능을 남깁니다.
+  전역 daemon/session 조작 대신 `not-observed`와 원문 오류를 남기고 [cold resume 경계](../../agent-workflows/subagent-lifecycle.md#cold-resume-경계)를 확인합니다.
 
 새 session에서 진행해야만 하는 경우에도 상한 우회로 조용히 launch하지 않습니다. 현재 작업의 evidence·미정리 target·
 필수 review gap을 보존하고 지원되는 환경의 handoff로 구분합니다. 더 자세한 상태/retry 계약을 이 문서에 복제하지 않습니다.
+Cap/quota 오류에 대한 root rollover 우회는 금지합니다. Tool 부재, 실행 실패, 버전이 확인된 source issue를 구별하며
+이름을 바꾼 새 root나 반복 restart로 같은 한도를 시험하지 않습니다.
 
 ## 도구 미노출과 restart/resume
 
@@ -65,6 +68,36 @@ host가 제공하지 않은 native tool이 생기지 않습니다. 특히 follow
 일반 repository 작업 요청으로 client 업데이트·전역 설정 변경·자동 종료/재시작을 하지 않습니다.
 지원 환경 변경은 별도 권한과 정확한 handoff 범위가 필요하며, [Session continuity](../../agent-workflows/session-continuity.md)를 따릅니다.
 
+## 선택적 /agents 운영과 정상 exit/resume
+
+한 owner 작업은 **single-root가 기본**입니다. `/agents`는 지원 CLI의 root session 조회·전환용 operator UI,
+`/subagents`는 현재 root 안의 child 작업을 보는 UI로 구분합니다. 이는 delegation·capacity 복구의 필수 단계가 아닙니다.
+Shared background server가 없다는 UI 안내는 child 도구 전체가 없다는 뜻이 아닙니다. 서버를 자동으로 시작하지 않습니다.
+
+1. **현재 command/version 확인**: 로컬 `codex --version`·지원 help/menu와 실제 client의 명령을 대조합니다.
+   [Developer commands](https://learn.chatgpt.com/docs/developer-commands?surface=cli)의 `/agent`·`/subagents` 안내와
+   [rust-v0.155.1 slash source](https://github.com/openai/codex/blob/be2951ea34f0d295ed0becf97079f92fa5f6950e/codex-rs/tui/src/slash_command.rs#L75-L132)의 `/agents`·`/subagents`는 표면이 다를 수 있습니다.
+   문서의 유사 이름을 현재 명령 alias로 만들지 않습니다. 도구 노출 변경을 얻으려고 무조건 upgrade·flag 변경하지 않습니다.
+2. **정확한 부모 세션 확인**: 현재 parent ID, branch/HEAD, working tree, embedded/shared/remote 연결과 소유 runtime을
+   확인합니다. 다른 root를 선택하거나 오래된 UUID를 임의 대응하지 않습니다. 여러 독립 root가 실제 필요할 때만 각자의
+   worktree·branch·write owner·DB/port/test 자원·통합 책임을 먼저 정합니다. Shared UI는 파일 lock이나 자동 merge가 아닙니다.
+3. **pending과 결과 회수**: 현재 소유 child의 결과·도구/process·mailbox와 미완료 writer를 확인하고 짧은 checkpoint를
+   남깁니다. 미확인은 미확인으로 보존합니다. 일반 exit가 pending 외부 명령까지 취소한다고 가정하지 않으며 필요한 중단은
+   정확한 scope/권한/지원 기능으로만 수행합니다. 작업 진행을 그대로 맡길 때는 계속 실행하는 owner와 결과 회수 경로를 명시합니다.
+4. **정상 exit/resume**: 재시작이 필요하고 승인된 경우 현재 client의 정상 exit 경로를 사용하고, 로컬 저장 기록이 확인된
+   정확한 parent만 `codex resume <SESSION_ID>`로 재개합니다. 불명확한 `--last`를 기본으로 쓰지 않습니다.
+   Client exit와 root unload/stop·daemon 종료는 동일한 사건이 아닙니다. 연결 모드와 소유권을 확인하지 않은 daemon stop은 하지 않습니다.
+   `archive`와 `delete`는 슬롯 회수 수단이 아닙니다. 전자는 저장 목록 관리, 후자는 영구 삭제이며 현재 명령은 descendant
+   기록까지 영향을 줄 수 있습니다. 이 절차에서 자동 archive/delete나 타 session 정리를 하지 않습니다.
+5. **재개 후 재확인**: 현재 요청·branch/HEAD/tree, schema·role·권한, 조회 가능한 child identity·상태·pending을 다시
+   확인합니다. 과거 child 자동 승계·즉시 resident 복원·close 노출·슬롯 반환을 보장하지 않습니다. 필요한 same-scope 작업만
+   지원 경로로 재개하고 미조회는 not-observed로 남깁니다. 반복 resume으로 cap/권한 gap을 우회하지 않습니다.
+
+[해당 tag의 shared daemon](https://github.com/openai/codex/blob/be2951ea34f0d295ed0becf97079f92fa5f6950e/codex-rs/app-server-daemon/README.md)은 client별 환경 격리를 제공하지 않습니다.
+따라서 shared 연결만으로 env/credential/profile/cwd가 분리됐다고 가정하지 않습니다. 새 server/startup service·network 노출·
+전역 설정·실제 daemon stop은 별도 필요성과 정확한 소유·자원·권한·shutdown 범위가 확인될 때만 다룹니다. 위 절차를 읽는 것이
+그 실행 승인이나 독립 worktree 생성을 대신하지 않습니다.
+
 ## 검증
 
 ```bash
@@ -74,12 +107,13 @@ pnpm test:repo-policy
 
 정적 문서/정책 테스트는 실제 thread 종료나 슬롯 반환을 증명하지 않습니다. 실제 검증은 다음을 별도로 기록합니다.
 
-1. 완료 결과 보존 → exact target/status → 지원 close의 응답 → fresh status/capacity.
+1. 완료 결과 보존 → exact target/status/pending → capability별 cleanup 판정 → 해당하는 경우만 지원 close 응답 → 별도 resource 관측.
 2. 실제 필요한 다음 dispatch의 성공/실패(과거 특정 thread의 반환 여부와 구분).
 3. 기능 미지원·정리 실패·보존 대상의 reason/revisit 및 cap/config 불변.
 
-정리가 확인되지 않으면 “정리 완료” 대신 `cleanup-unavailable`, `cleanup-failed`, `retained-with-reason` 또는
-`release-unverified`를 사용합니다. 개별 상태/결과는 task evidence이지 저장소의 영구 runtime 사실이 아닙니다.
+결과 회수 완료와 explicit cleanup 의무 및 release 상태를 각각 기록합니다. 검증된 no-close의 `not-required`는 native
+release 성공이 아니며 unknown/실패도 “모두 정리됨”으로 기록하지 않습니다. 개별 상태/결과는 task evidence이지 저장소의
+영구 runtime 사실이 아닙니다.
 
 ## 참고
 

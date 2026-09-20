@@ -100,6 +100,8 @@ deliveryByLane[laneId]
 기존 fresh-session smoke는 이 결과를 실제로 소비하되 **synthetic/no-native 실행**입니다. Fixture의 UTF-8 bytes와
 중복 전달 감소는 token/weekly 절감이 아니며, 미관측 usage는 `null/unknown`입니다. 실제 fork 설정·사용량 관측은 별도
 native 실행 evidence가 필요합니다. 비용 운영 기준은 [orchestration owner](../orchestration.md#context와-검증-비용)를 따릅니다.
+Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 아닙니다. 실제 consumer 요구 없이 새 전달 모드를 만들지 않으며,
+기존 complete packet·fresh initial QA·role/context 두 gate를 유지합니다. 결과 회수 후에는 [capability별 완료 판정](../subagent-lifecycle.md#capability별-완료-판정)을 따르고, 무관한 재사용이나 close 없는 환경의 실패를 기본값으로 가정하지 않습니다.
 
 ## Role and effort
 

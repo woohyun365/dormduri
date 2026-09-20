@@ -74,10 +74,12 @@ Idle thread가 계속 token을 소비하거나 close가 이미 사용한 quota�
 ## Subagent lifecycle
 
 Child 완료·추가 dispatch·capacity 오류·turn 종료 시 Parent는 [Subagent lifecycle](./subagent-lifecycle.md)에 따라
-결과를 회수하고 현재 소유한 완료 thread를 지원 도구로 종료한 뒤 슬롯 반환을 별도로 확인합니다. child cap 6 유지,
-미지원 기능·보존 사유 기록 및 bounded recovery는 해당 문서가 소유합니다. 완료와 종료를 같은 상태로 취급하지 않습니다.
+결과를 회수하고 capability별 분기로 explicit-close·검증된 no-close·unknown을 구별합니다. 필요한 지원 close만 수행하며
+작업 결과·정리 의무·자원 반환을 각각 기록합니다. child cap 6 유지, 미확인 관측·보존 사유 및 bounded recovery는 해당 문서가
+소유합니다. 완료와 종료를 같은 상태로 취급하지 않으며, missing close만으로 runtime 결함이나 모든 dispatch 실패를 단정하지 않습니다.
 후속 배정 전에도 같은 owner의 [capability·continuation 기준](./subagent-lifecycle.md#후속-작업과-fan-in)을 적용합니다.
 관련 lane 재사용, 메시지 전달/turn 시작, fan-in 결과 식별은 actual schema와 기존 독립 QA 경계 안에서 선택합니다.
+여러 root를 보는 `/agents`는 [선택적 operator 절차](../troubleshooting/tooling/agent-thread-limit-reached.md#선택적-agents-운영과-정상-exitresume)이지 single-root 작업의 필수 인프라가 아닙니다.
 
 ## Git branch/worktree isolation
 
