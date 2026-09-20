@@ -43,6 +43,10 @@ Parent가 child 작업 완료 후 결과 회수·thread 정리·슬롯 해제 �
 
 ## 후속 작업과 fan-in
 
+Context 크기와 fork 선택은 [context delivery 계약](./request-intake/delegation.md#context-delivery)을 소비합니다.
+그 추천의 `reuseTarget`은 종료/재개 권한이 아니며, 아래 live identity·pending·결과 귀속을 따로 확인합니다.
+Full-history 전달이나 effort 적용을 config 파일/이전 성공만으로 주장하지 않습니다.
+
 1. **재사용 판정:** 같은 bounded outcome의 보완·finding 수정 확인이고 기존 context가 유효하면 불필요한 spawn보다
    기존 lane을 우선 검토합니다. unrelated task나 fresh-context QA가 필요하면 재사용하지 않습니다. 이전 builder를 reviewer로
    바꾸거나 결과를 이미 본 reviewer를 새로운 독립 판정이라고 하지 않습니다. [QA](./qa.md)의 독립성 계약은 그대로입니다.

@@ -61,6 +61,46 @@ installed role and effort recommendation
 leader-only final decision, response, integration, verification
 ```
 
+## Context delivery
+
+`recommendDelegation()`의 선택 입력 `deliveryByLane`은 기존 lane ID별 context 전달 관측을 받습니다. 생략하면 기존
+contract와 routing 동작을 그대로 반환합니다. 사용하면 선택된 child contract에 `contextDelivery`만 추가하며, 원래의
+objective·scope·allowed tools·non-goals·금지 가정·output·검증·stop/handoff·role/effort·Parent 책임을 삭제하지 않습니다.
+전달 packet은 이 **완전한 child contract 하나**이며 같은 contract나 전체 transcript를 다시 붙이지 않습니다.
+
+```text
+deliveryByLane[laneId]
+  purpose: task | initial-review | review-delta
+  mode: scoped | full-history | reuse
+  effortMode: explicit | inherit
+  rationale: string | null
+  snapshot / evidencePointers[] / findings[] / failures[]
+  previous: null | childId / laneId / role / sourceSnapshot / revalidatedForSnapshot
+                    / sameOutcome / scopeUnchanged / independentReview
+  runtime: null | freshness / scopedFork / fullHistoryFork / followup / explicitEffort
+                   / fullHistoryWithExplicitEffort / effectiveEffort
+```
+
+- 독립 작업의 기본은 `scoped`: 필요한 snapshot·evidence pointer·finding/failure만 전달하고 상위 대화는 fork하지 않습니다.
+  `AGENTS.md`와 공통 실행 계약·적용되는 하위 지침은 계속 적용됩니다. 전달 추천이 native 상속 지침을 대체하지 않습니다.
+- `initial-review`는 fresh scoped context만 허용합니다. 이전 builder를 reviewer로 바꾸거나 full history를 주입하지
+  않습니다. `review-delta`는 scoped 또는 검증된 같은 reviewer 재사용이며 최초 독립 리뷰라고 다시 부르지 않습니다.
+- `reuse`는 같은 outcome·lane·role·scope와 **이번 snapshot에 대한 재확인**이 필요합니다. 새 snapshot 자체는 delta에서
+  정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.
+  실제 child 소유·상태·pending·결과 귀속은 [lifecycle 계약](../subagent-lifecycle.md#후속-작업과-fan-in)으로 별도 확인합니다.
+- `full-history`는 사유와 actual schema 지원이 필요합니다. 명시적 effort와 full fork 조합을 지원하지 않으면 통과시키지
+  않습니다. inherited/fixed effort는 이미 선택된 role effort와 같아야 하며 비용 때문에 낮추지 않습니다.
+- 지원 불명·stale 관측은 `compatible=false`; **모든 결과의 `applied=false`**는 순수 추천이 native 설정을 적용하지 않았다는
+  뜻입니다. 실제 role/model/권한은 dispatch gate에서 별도 확인합니다. role-compatible 결과만 보고 context gate를 생략하지
+  않으며 Parent는 delivery `compatible`와 gaps까지 확인한 뒤 실제 schema에 맞춰 전달합니다.
+- evidence pointer는 기존 read scope 밖으로 확장하지 않습니다. history·allowedTools 같은 임의 필드와 길이 초과 입력은
+  거절하며 실패 내용·안전 지침을 조용히 자르지 않습니다. 긴 로그는 허용 scope 안의 원문 pointer와 정확한 실패 요약으로
+  전달합니다. 이 전달 요청은 self-attestation이며 새 권한이나 접근 허용 목록을 만들지 않습니다.
+
+기존 fresh-session smoke는 이 결과를 실제로 소비하되 **synthetic/no-native 실행**입니다. Fixture의 UTF-8 bytes와
+중복 전달 감소는 token/weekly 절감이 아니며, 미관측 usage는 `null/unknown`입니다. 실제 fork 설정·사용량 관측은 별도
+native 실행 evidence가 필요합니다. 비용 운영 기준은 [orchestration owner](../orchestration.md#context와-검증-비용)를 따릅니다.
+
 ## Role and effort
 
 `scripts/agents/routing-policy.mjs`는 raw prompt나 task label만으로 role/effort를 확정하지 않습니다.

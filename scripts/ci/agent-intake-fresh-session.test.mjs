@@ -35,6 +35,25 @@ const textExtensions = new Set([
   '.yml',
 ]);
 
+test('fresh smoke consumes complete scoped packets and labels byte evidence separately from usage', () => {
+  const { deliveryEvidence, boundaries } = runFreshSessionSmoke();
+  assert.equal(deliveryEvidence.scoped.mode, 'scoped');
+  assert.equal(deliveryEvidence.scoped.compatible, true);
+  assert.equal(deliveryEvidence.unknown.applied, false);
+  assert.equal(deliveryEvidence.unknown.compatible, false);
+  assert.equal(deliveryEvidence.fullHistoryConflict.compatible, false);
+  assert.equal(deliveryEvidence.fixtureOnly, true);
+  assert.equal(deliveryEvidence.measurement.unit, 'utf8-bytes');
+  assert.ok(
+    deliveryEvidence.measurement.withSyntheticHistoryBytes >
+      deliveryEvidence.measurement.packetBytes,
+  );
+  assert.equal(deliveryEvidence.measurement.tokens, null);
+  assert.equal(deliveryEvidence.measurement.weeklyAllowance, null);
+  assert.equal(boundaries.invokesChild, false);
+  assert.equal(boundaries.mutatesWorkspace, false);
+});
+
 test('fresh smoke consumes lifecycle recommendations without invoking native lifecycle', () => {
   const report = runFreshSessionSmoke();
   const { unsupported, eligible, closedReleaseUnknown } = report.lifecycleEvidence;

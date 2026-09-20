@@ -21,6 +21,278 @@ const legalEvidence = [
   { path: 'apps/web/src/legal/__tests__/legal-document-pages.test.tsx', kind: 'test' },
 ];
 
+test('scoped delivery preserves every original child contract field and safety boundary', () => {
+  const { envelope, contextPack } = legalFlow();
+  const lane = repositoryLane(contextPack);
+  const legacy = recommendDelegation({ envelope, contextPack, laneCandidates: [lane] });
+  const request = deliveryRequest();
+  const before = structuredClone(request);
+  const result = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [lane],
+    deliveryByLane: { [lane.id]: request },
+  });
+  const { contextDelivery, ...contract } = result.recommendedChildren[0];
+  assert.deepEqual(contract, legacy.recommendedChildren[0]);
+  assert.equal(contextDelivery.mode, 'scoped');
+  assert.equal(contextDelivery.compatible, true);
+  assert.equal(contextDelivery.applied, false);
+  assert.equal(contextDelivery.authority, 'leader-reported-not-host-authenticated');
+  assert.equal(contextDelivery.requiresLeaderRuntimeConfirmation, true);
+  assert.ok(contextDelivery.instructionSources.includes('AGENTS.md'));
+  assert.deepEqual(contextDelivery.findings, request.findings);
+  assert.deepEqual(contextDelivery.failures, request.failures);
+  assert.deepEqual(request, before);
+  assert.equal(Object.isFrozen(request.runtime), false);
+  assert.equal(Object.isFrozen(contextDelivery), true);
+  assert.equal('contextDelivery' in legacy.recommendedChildren[0], false);
+});
+
+for (const [name, patch, gap] of [
+  ['unknown runtime', null, 'delivery-runtime-unverified'],
+  ['stale runtime', { freshness: 'stale' }, 'delivery-runtime-unverified'],
+  ['unknown fork', { scopedFork: null }, 'scoped-fork-unsupported'],
+  ['missing fork', { scopedFork: false }, 'scoped-fork-unsupported'],
+  ['unknown effort', { explicitEffort: null }, 'explicit-effort-unsupported'],
+  ['fixed effort', { explicitEffort: false }, 'explicit-effort-unsupported'],
+]) {
+  test(`delivery never claims native application: ${name}`, () => {
+    const request = deliveryRequest();
+    request.runtime = patch === null ? null : { ...request.runtime, ...patch };
+    const result = deliveredContract(request).contextDelivery;
+    assert.equal(result.compatible, false);
+    assert.equal(result.applied, false);
+    assert.ok(result.gaps.includes(gap));
+  });
+}
+
+test('full history needs a reason and supported explicit effort combination', () => {
+  const request = deliveryRequest();
+  request.mode = 'full-history';
+  const noReason = deliveredContract(request).contextDelivery;
+  assert.equal(noReason.compatible, false);
+  assert.ok(noReason.gaps.includes('full-history-rationale-required'));
+  request.rationale = 'This bounded task requires the current design discussion.';
+  request.runtime.fullHistoryWithExplicitEffort = false;
+  assert.equal(deliveredContract(request).contextDelivery.compatible, false);
+  request.runtime.fullHistoryWithExplicitEffort = true;
+  assert.equal(deliveredContract(request).contextDelivery.compatible, true);
+  request.runtime.fullHistoryFork = null;
+  assert.equal(deliveredContract(request).contextDelivery.compatible, false);
+});
+
+test('inherited effort must match the selected route and never lowers high-risk work', () => {
+  const request = deliveryRequest();
+  request.effortMode = 'inherit';
+  request.runtime.explicitEffort = false;
+  for (const effort of [null, 'medium', 'xhigh']) {
+    request.runtime.effectiveEffort = effort;
+    const result = deliveredContract(request);
+    assert.equal(result.routeRecommendation.effort, 'high');
+    assert.equal(result.contextDelivery.compatible, false);
+  }
+  request.runtime.effectiveEffort = 'high';
+  assert.equal(deliveredContract(request).contextDelivery.compatible, true);
+});
+
+test('initial independent review requires fresh scoped context, not builder history or reuse', () => {
+  for (const mode of ['scoped', 'full-history', 'reuse']) {
+    const request = deliveryRequest();
+    request.purpose = 'initial-review';
+    request.mode = mode;
+    request.rationale = 'Reuse would be cheaper, but must not weaken independent QA.';
+    const result = deliveredContract(request, 'review').contextDelivery;
+    assert.equal(result.mode, 'scoped');
+    assert.equal(result.compatible, mode === 'scoped');
+    assert.equal(result.reuseTarget, null);
+  }
+  assert.equal(deliveredContract(deliveryRequest(), 'review').contextDelivery.compatible, false);
+  const wrongRole = deliveryRequest();
+  wrongRole.purpose = 'initial-review';
+  assert.equal(deliveredContract(wrongRole).contextDelivery.compatible, false);
+});
+
+test('same reviewer delta can reuse only a currently revalidated bounded context', () => {
+  const request = reuseRequest();
+  const result = deliveredContract(request, 'review').contextDelivery;
+  assert.equal(result.mode, 'reuse');
+  assert.equal(result.reuseTarget, '/root/reviewer');
+  assert.equal(result.compatible, true);
+  assert.equal(result.requiresLifecycleConfirmation, true);
+  assert.equal(result.applied, false);
+  for (const patch of [
+    { laneId: 'other' },
+    { role: 'knu_executor' },
+    { sameOutcome: false },
+    { scopeUnchanged: false },
+    { independentReview: false },
+    { revalidatedForSnapshot: 'old-snapshot' },
+  ]) {
+    const invalid = structuredClone(request);
+    Object.assign(invalid.previous, patch);
+    const recommendation = deliveredContract(invalid, 'review').contextDelivery;
+    assert.equal(recommendation.compatible, false);
+    assert.equal(recommendation.mode, 'scoped');
+    assert.equal(recommendation.reuseTarget, null);
+  }
+  request.runtime.followup = false;
+  assert.equal(deliveredContract(request, 'review').contextDelivery.compatible, false);
+  request.mode = 'full-history';
+  request.rationale = 'Do not substitute builder history for a review delta.';
+  assert.equal(deliveredContract(request, 'review').contextDelivery.compatible, false);
+});
+
+test('non-review followup can reuse a scoped same-outcome lane without claiming independent QA', () => {
+  const request = reuseRequest();
+  request.purpose = 'task';
+  request.previous.role = 'knu_explorer';
+  request.previous.independentReview = false;
+  assert.equal(deliveredContract(request).contextDelivery.compatible, true);
+  request.effortMode = 'explicit';
+  const unsupported = deliveredContract(request).contextDelivery;
+  assert.equal(unsupported.compatible, false);
+  assert.ok(unsupported.gaps.includes('reuse-effort-override-unsupported'));
+});
+
+test('context inputs cannot inject history/tools, widen evidence scope or silently truncate failures', () => {
+  for (const mutate of [
+    (v) => {
+      v.history = 'builder transcript';
+    },
+    (v) => {
+      v.allowedTools = ['workspace-edit'];
+    },
+    (v) => {
+      delete v.failures;
+    },
+    (v) => {
+      v.failures = ['x'.repeat(301)];
+    },
+    (v) => {
+      v.evidencePointers = ['apps/api/src/auth'];
+    },
+    (v) => {
+      v.runtime.scopedFork = 'true';
+    },
+    (v) => {
+      v.runtime.effectiveEffort = 'low';
+    },
+    (v) => {
+      v.runtime.hostAuthenticated = true;
+    },
+    (v) => {
+      v.previous = { childId: '/unknown' };
+    },
+  ]) {
+    const request = deliveryRequest();
+    mutate(request);
+    assert.throws(() => deliveredContract(request));
+  }
+  const { envelope, contextPack } = legalFlow();
+  assert.throws(() =>
+    recommendDelegation({
+      envelope,
+      contextPack,
+      laneCandidates: [repositoryLane(contextPack)],
+      deliveryByLane: { unknown: deliveryRequest() },
+    }),
+  );
+});
+
+test('HTTPS delivery evidence uses normalized origin/path containment, not raw prefix', () => {
+  const { envelope, contextPack } = legalFlow();
+  const lane = repositoryLane(contextPack, { readScope: ['https://example.test/docs'] });
+  const deliver = (pointer) =>
+    recommendDelegation({
+      envelope,
+      contextPack,
+      laneCandidates: [lane],
+      deliveryByLane: { [lane.id]: { ...deliveryRequest(), evidencePointers: [pointer] } },
+    });
+  for (const pointer of [
+    'https://example.test/docs/../outside',
+    'https://example.test/docs/%2e%2e/outside',
+    'https://example.test/docs/.%2E/outside',
+    'https://example.test/docs/%2F..%2Foutside',
+    'https://example.test/docs/%5c..%5coutside',
+    'https://other.test/docs/child',
+    'https://example.test/docs-other/child',
+    'https://user:password@example.test/docs/child',
+  ])
+    assert.throws(() => deliver(pointer), /readScope/u, pointer);
+  assert.equal(deliver('https://example.test/docs').recommendedChildren.length, 1);
+  assert.equal(deliver('https://example.test/docs/child').recommendedChildren.length, 1);
+  assert.equal(deliver('https://example.test/docs/a/../child').recommendedChildren.length, 1);
+});
+
+test('delivery evidence does not create children for direct or dependent work', () => {
+  for (const direct of [true, false]) {
+    const { envelope, contextPack } = legalFlow(direct ? 'AGENTS.md의 줄 수를 알려줘.' : undefined);
+    const lane = repositoryLane(contextPack, direct ? {} : { dependencies: ['prior-result'] });
+    const result = recommendDelegation({
+      envelope,
+      contextPack,
+      laneCandidates: [lane],
+      deliveryByLane: { [lane.id]: deliveryRequest() },
+    });
+    assert.deepEqual(result.recommendedChildren, []);
+  }
+});
+
+function deliveredContract(request, taskKind = 'analysis') {
+  const { envelope, contextPack } = legalFlow();
+  const lane = repositoryLane(contextPack, { taskKind });
+  return recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [lane],
+    deliveryByLane: { [lane.id]: request },
+  }).recommendedChildren[0];
+}
+
+function deliveryRequest() {
+  return {
+    purpose: 'task',
+    mode: 'scoped',
+    effortMode: 'explicit',
+    rationale: null,
+    snapshot: 'current-source-snapshot',
+    evidencePointers: ['docs/policies/legal-basis.md'],
+    findings: ['Keep the source ownership finding.'],
+    failures: ['Prior check failed; inspect the bounded evidence log.'],
+    previous: null,
+    runtime: {
+      freshness: 'current-turn',
+      scopedFork: true,
+      fullHistoryFork: true,
+      followup: true,
+      explicitEffort: true,
+      fullHistoryWithExplicitEffort: false,
+      effectiveEffort: 'high',
+    },
+  };
+}
+
+function reuseRequest() {
+  const request = deliveryRequest();
+  request.purpose = 'review-delta';
+  request.mode = 'reuse';
+  request.effortMode = 'inherit';
+  const { contextPack } = legalFlow();
+  request.previous = {
+    childId: '/root/reviewer',
+    laneId: repositoryLane(contextPack).id,
+    role: 'knu_reviewer',
+    sourceSnapshot: 'prior-source-snapshot',
+    revalidatedForSnapshot: request.snapshot,
+    sameOutcome: true,
+    scopeUnchanged: true,
+    independentReview: true,
+  };
+  return request;
+}
+
 test('keeps direct requests child-free even when semantic lane candidates are supplied', () => {
   const envelope = buildTaskEnvelope({ request: 'AGENTS.md의 줄 수를 알려줘.' });
   const contextPack = discoverContextPack({

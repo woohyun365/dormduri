@@ -48,6 +48,46 @@ const planOutputFields = new Set([
   'finalAcceptance',
 ]);
 
+test('optional context delivery crosses the existing handoff without replacing its authority gates', () => {
+  const fixture = fixtureById('legal-analysis');
+  const options = {
+    repositoryEvidence: legalEvidence({ officialVerified: false }),
+    laneCandidates: legalLanes('analyze'),
+  };
+  const legacy = evaluateFixture(fixture, options);
+  const first = legacy.delegation.recommendedChildren[0];
+  const request = {
+    purpose: 'task',
+    mode: 'scoped',
+    effortMode: 'explicit',
+    rationale: null,
+    snapshot: 'integration-fixture-v1',
+    evidencePointers: [first.boundary.readScope[0]],
+    findings: ['Keep unverified official authority as a gap.'],
+    failures: ['Do not lose failed verification evidence.'],
+    previous: null,
+    runtime: null,
+  };
+  const flow = evaluateFixture(fixture, {
+    ...options,
+    deliveryByLane: { [first.laneId]: request },
+  });
+  const dispatched = flow.dispatch.dispatches.find(
+    ({ laneId }) => laneId === first.laneId,
+  ).contract;
+  const { contextDelivery, ...unchanged } = dispatched;
+  assert.deepEqual(unchanged, first);
+  assert.equal(contextDelivery.compatible, false);
+  assert.equal(contextDelivery.applied, false);
+  assert.deepEqual(contextDelivery.failures, request.failures);
+  // Role compatibility is not context/native readiness: the Parent must check both.
+  assert.equal(flow.dispatch.requiresLeaderRuntimeConfirmation, true);
+  assert.equal(flow.dispatch.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
+  assert.deepEqual(flow.delegation.limits, legacy.delegation.limits);
+  const later = recommendDelegation({ envelope: flow.envelope, contextPack: flow.contextPack });
+  assert.deepEqual(later.recommendedChildren, []);
+});
+
 test('Legal Analyze stays read-only while discovering repository surfaces and current-source gaps', () => {
   const fixture = fixtureById('legal-analysis');
   const flow = evaluateFixture(fixture, {
@@ -245,7 +285,12 @@ test('the integrated intake path remains advisory and cannot write files or invo
 
 function evaluateFixture(
   fixture,
-  { repositoryEvidence = [], laneCandidates = [], reportedRuntimeEvidence } = {},
+  {
+    repositoryEvidence = [],
+    laneCandidates = [],
+    reportedRuntimeEvidence,
+    deliveryByLane = {},
+  } = {},
 ) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request: fixture.request });
@@ -253,6 +298,7 @@ function evaluateFixture(
   const delegation = recommendDelegation({
     envelope,
     contextPack,
+    deliveryByLane,
     laneCandidates: laneCandidates.map((lane) => ({
       ...lane,
       pass2Evidence: semanticEvidence(

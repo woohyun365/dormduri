@@ -84,6 +84,7 @@ export function runFreshSessionSmoke() {
     },
     routingEvidence,
     lifecycleEvidence: evaluateLifecycleEvidence(),
+    deliveryEvidence: evaluateDeliveryEvidence(),
     boundaries: {
       readsLocalResumeState: false,
       readsIgnoredPlan: false,
@@ -136,6 +137,61 @@ function evaluateLifecycleEvidence() {
   };
 }
 
+function evaluateDeliveryEvidence() {
+  // Deterministic fixtures, not a benchmark or real usage/host observations.
+  const request = {
+    purpose: 'task',
+    mode: 'scoped',
+    effortMode: 'explicit',
+    rationale: null,
+    snapshot: 'synthetic-source-v1',
+    evidencePointers: ['docs/policies/legal-basis.md'],
+    findings: ['Preserve the bounded source finding.'],
+    failures: ['Preserve prior failed-check evidence.'],
+    previous: null,
+    runtime: {
+      freshness: 'current-turn',
+      scopedFork: true,
+      fullHistoryFork: true,
+      followup: true,
+      explicitEffort: true,
+      fullHistoryWithExplicitEffort: false,
+      effectiveEffort: 'high',
+    },
+  };
+  const packetFor = (delivery) =>
+    evaluateScenario({
+      request: 'Legal 개선 지점 분석해줘.',
+      repositoryEvidence: [{ path: 'docs/policies/legal-basis.md', kind: 'policy' }],
+      laneCandidates: [routingEvidenceLane(['FE-08-performance-causal'])],
+      deliveryByLane: { 'legal-routing-evidence': delivery },
+    }).delegation.recommendedChildren[0];
+  const packet = packetFor(request);
+  return {
+    scoped: packet.contextDelivery,
+    unknown: packetFor({ ...request, runtime: null }).contextDelivery,
+    fullHistoryConflict: packetFor({
+      ...request,
+      mode: 'full-history',
+      rationale: 'Synthetic full-history compatibility case.',
+    }).contextDelivery,
+    fixtureOnly: true,
+    measurement: {
+      unit: 'utf8-bytes',
+      packetBytes: Buffer.byteLength(JSON.stringify(packet), 'utf8'),
+      withSyntheticHistoryBytes: Buffer.byteLength(
+        JSON.stringify({
+          packet,
+          history: 'Synthetic unrelated prior completed work.\n'.repeat(24),
+        }),
+        'utf8',
+      ),
+      tokens: null,
+      weeklyAllowance: null,
+    },
+  };
+}
+
 function discoverBootstrap() {
   for (const path of entryPoints) {
     if (!existsSync(resolve(repoRoot, path)))
@@ -171,6 +227,7 @@ function evaluateScenario({
   repositoryEvidence,
   laneCandidates = [],
   reportedRuntimeEvidence = null,
+  deliveryByLane = {},
 }) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request });
@@ -178,6 +235,7 @@ function evaluateScenario({
   const delegation = recommendDelegation({
     envelope,
     contextPack,
+    deliveryByLane,
     laneCandidates: laneCandidates.map((lane) => {
       const { smokePredicateIds, ...candidate } = lane;
       return {
