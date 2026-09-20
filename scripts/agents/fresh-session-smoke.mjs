@@ -4,7 +4,10 @@ import { resolve } from 'node:path';
 import { recommendDelegation } from './child-task-contract.mjs';
 import { discoverContextPack } from './domain-guide-registry.mjs';
 import { buildTaskEnvelope } from './intake-policy.mjs';
-import { createDispatchRecommendation } from './orchestration-policy.mjs';
+import {
+  createDispatchRecommendation,
+  createLifecycleRecommendation,
+} from './orchestration-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
@@ -80,6 +83,7 @@ export function runFreshSessionSmoke() {
       unavailableRoleRouting: summarizeScenario(unavailableRoleRouting),
     },
     routingEvidence,
+    lifecycleEvidence: evaluateLifecycleEvidence(),
     boundaries: {
       readsLocalResumeState: false,
       readsIgnoredPlan: false,
@@ -87,6 +91,49 @@ export function runFreshSessionSmoke() {
       mutatesWorkspace: false,
     },
   });
+}
+
+function evaluateLifecycleEvidence() {
+  // Synthetic contract examples only, not observations of a real native host.
+  const input = {
+    schemaVersion: 1,
+    intent: 'cleanup',
+    observation: {
+      scope: 'current-turn',
+      freshness: 'current-turn',
+      provenance: 'native-tools',
+      actionPermission: 'allowed',
+    },
+    target: {
+      parentId: '/smoke',
+      childId: '/smoke/review',
+      ownerParentId: '/smoke',
+      taskId: 'synthetic-review',
+      observedTaskId: 'synthetic-review',
+      isRoot: false,
+      state: 'completed',
+      pendingTasks: 0,
+      pendingTools: 0,
+    },
+    capabilities: { close: false, startTurn: true },
+    result: { taskId: 'synthetic-review', collected: true, delivery: 'final' },
+    retention: null,
+    close: { status: 'not-attempted', childId: null, taskId: null },
+    release: { status: 'unknown', childId: null, taskId: null },
+  };
+  return {
+    unsupported: createLifecycleRecommendation(input),
+    eligible: createLifecycleRecommendation({
+      ...input,
+      capabilities: { ...input.capabilities, close: true },
+    }),
+    closedReleaseUnknown: createLifecycleRecommendation({
+      ...input,
+      capabilities: { ...input.capabilities, close: true },
+      target: { ...input.target, state: 'closed' },
+      close: { status: 'succeeded', childId: input.target.childId, taskId: input.target.taskId },
+    }),
+  };
 }
 
 function discoverBootstrap() {

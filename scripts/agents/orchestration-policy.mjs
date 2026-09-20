@@ -162,6 +162,205 @@ export function createDispatchRecommendation({
   });
 }
 
+// Separate from reported role evidence. Every observation remains leader-reported;
+// this evaluator neither authenticates the host nor performs a lifecycle action.
+export function createLifecycleRecommendation(input) {
+  validateLifecycleEvidence(input);
+  const { intent, observation, target, capabilities, result, retention, close, release } = input;
+  const closeObserved = close.status !== 'not-attempted' || target.state === 'closed';
+  const decide = (
+    recommendation,
+    reason,
+    closeDisposition,
+    releaseDisposition = 'release-unverified',
+  ) =>
+    deepFreeze({
+      schemaVersion: 1,
+      intent,
+      target: { parentId: target.parentId, childId: target.childId, taskId: target.taskId },
+      recommendation,
+      reason,
+      gaps: ['close-eligible', 'continue', 'retained-for-followup', 'status-only'].includes(reason)
+        ? []
+        : [reason],
+      closeDisposition: closeDisposition ?? (closeObserved ? 'close-unverified' : 'not-attempted'),
+      releaseDisposition,
+      authority: 'leader-reported-not-host-authenticated',
+      requiresLeaderRuntimeConfirmation: true,
+    });
+
+  if (
+    observation.scope === 'unknown' ||
+    observation.freshness !== 'current-turn' ||
+    observation.provenance !== 'native-tools'
+  )
+    return decide('unsupported', 'observation-unverified');
+  if (
+    !target.parentId ||
+    !target.childId ||
+    !target.taskId ||
+    target.ownerParentId !== target.parentId ||
+    target.isRoot !== false ||
+    target.childId === target.parentId ||
+    target.observedTaskId !== target.taskId
+  )
+    return decide('unsupported', 'target-unverified');
+  if (observation.actionPermission !== 'allowed') {
+    return decide('unsupported', 'action-not-authorized');
+  }
+
+  const sameTarget = (event) => event.childId === target.childId && event.taskId === target.taskId;
+  if (
+    (close.status !== 'not-attempted' && !sameTarget(close)) ||
+    (release.status === 'confirmed' && !sameTarget(release))
+  )
+    return decide('unsupported', 'lifecycle-observation-mismatch');
+
+  if (target.pendingTasks !== 0 || target.pendingTools !== 0) return decide('wait', 'pending-work');
+  if (['running', 'waiting', 'unknown'].includes(target.state)) {
+    return decide('wait', 'work-not-terminal');
+  }
+  if (result.collected !== true || result.delivery !== 'final' || result.taskId !== target.taskId) {
+    return decide('retain', 'result-uncollected');
+  }
+
+  // A final task result is not proof of close. A successful close report also
+  // needs the correlated fresh closed post-state; release is independent.
+  if (close.status === 'succeeded' && target.state === 'closed' && capabilities.close === true) {
+    return decide(
+      'none',
+      'status-only',
+      'closed-confirmed',
+      release.status === 'confirmed' ? 'release-confirmed' : 'release-unverified',
+    );
+  }
+  if (close.status === 'failed') return decide('retain', 'close-failed', 'cleanup-failed');
+  if (closeObserved || release.status === 'confirmed') {
+    return decide('retain', 'close-outcome-unverified', 'close-unverified');
+  }
+  if (intent === 'status') return decide('none', 'status-only');
+  if (intent === 'continue') {
+    return capabilities.startTurn === true
+      ? decide('continue', 'continue')
+      : decide('unsupported', 'start-turn-unsupported');
+  }
+  if (retention !== null) return decide('retain', 'retained-for-followup');
+  if (capabilities.close !== true)
+    return decide('unsupported', 'close-unsupported', 'cleanup-unavailable');
+  if (target.state !== 'completed') return decide('wait', 'work-not-terminal');
+  return decide('close-eligible', 'close-eligible');
+}
+
+function validateLifecycleEvidence(value) {
+  requireLifecycleRecord(
+    value,
+    [
+      'schemaVersion',
+      'intent',
+      'observation',
+      'target',
+      'capabilities',
+      'result',
+      'retention',
+      'close',
+      'release',
+    ],
+    'input',
+  );
+  if (value.schemaVersion !== 1) throw new TypeError('Unsupported lifecycle schemaVersion.');
+  requireEnum(value.intent, new Set(['cleanup', 'continue', 'status']), 'lifecycle intent');
+  requireLifecycleRecord(
+    value.observation,
+    ['scope', 'freshness', 'provenance', 'actionPermission'],
+    'observation',
+  );
+  requireLifecycleRecord(
+    value.target,
+    [
+      'parentId',
+      'childId',
+      'ownerParentId',
+      'taskId',
+      'observedTaskId',
+      'isRoot',
+      'state',
+      'pendingTasks',
+      'pendingTools',
+    ],
+    'target',
+  );
+  requireLifecycleRecord(value.capabilities, ['close', 'startTurn'], 'capabilities');
+  requireLifecycleRecord(value.result, ['taskId', 'collected', 'delivery'], 'result');
+  requireLifecycleRecord(value.close, ['status', 'childId', 'taskId'], 'close');
+  requireLifecycleRecord(value.release, ['status', 'childId', 'taskId'], 'release');
+
+  for (const [field, choices] of Object.entries({
+    scope: ['current-turn', 'current-session', 'unknown'],
+    freshness: ['current-turn', 'stale', 'unknown'],
+    provenance: ['native-tools', 'unknown'],
+    actionPermission: ['allowed', 'denied', 'unknown'],
+  }))
+    requireEnum(value.observation[field], new Set(choices), `lifecycle observation.${field}`);
+  for (const [field, entry, choices] of [
+    [
+      'target.state',
+      value.target.state,
+      ['running', 'waiting', 'idle', 'completed', 'closed', 'unknown'],
+    ],
+    ['result.delivery', value.result.delivery, ['final', 'queued', 'timeout', 'unknown']],
+    ['close.status', value.close.status, ['not-attempted', 'succeeded', 'failed', 'unknown']],
+    ['release.status', value.release.status, ['unknown', 'confirmed']],
+  ])
+    requireEnum(entry, new Set(choices), `lifecycle ${field}`);
+
+  for (const [field, entry] of [
+    ['parentId', value.target.parentId],
+    ['childId', value.target.childId],
+    ['ownerParentId', value.target.ownerParentId],
+    ['taskId', value.target.taskId],
+    ['observedTaskId', value.target.observedTaskId],
+    ['result.taskId', value.result.taskId],
+    ['close.childId', value.close.childId],
+    ['close.taskId', value.close.taskId],
+    ['release.childId', value.release.childId],
+    ['release.taskId', value.release.taskId],
+  ]) {
+    if (entry === null) continue;
+    // Native IDs may be UUIDs or paths; do not coerce/trim them into a match.
+    if (requireString(entry, `lifecycle ${field}`, 256) !== entry) {
+      throw new TypeError(`lifecycle ${field} must be an exact identifier.`);
+    }
+  }
+  for (const [field, entry] of [
+    ['isRoot', value.target.isRoot],
+    ['close', value.capabilities.close],
+    ['startTurn', value.capabilities.startTurn],
+    ['collected', value.result.collected],
+  ])
+    if (entry !== null) requireBoolean(entry, `lifecycle ${field}`);
+  for (const field of ['pendingTasks', 'pendingTools']) {
+    if (value.target[field] !== null) {
+      requireBoundedInteger(value.target[field], `lifecycle ${field}`, 0, Number.MAX_SAFE_INTEGER);
+    }
+  }
+  if (value.retention !== null) {
+    requireLifecycleRecord(value.retention, ['reason', 'revisit'], 'retention');
+    requireString(value.retention.reason, 'lifecycle retention.reason', 500);
+    requireString(value.retention.revisit, 'lifecycle retention.revisit', 500);
+  }
+}
+
+function requireLifecycleRecord(value, fields, name) {
+  if (
+    !value ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    Object.keys(value).length !== fields.length ||
+    fields.some((field) => !Object.hasOwn(value, field))
+  ) {
+    throw new TypeError(`lifecycle ${name} must contain exactly: ${fields.join(', ')}.`);
+  }
+}
+
 export function evaluateRecovery({ laneId, attempts = [] } = {}) {
   const normalizedLaneId = requireIdentifier(laneId, 'laneId');
   if (!Array.isArray(attempts)) throw new TypeError('attempts must be an array.');

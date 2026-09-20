@@ -35,6 +35,22 @@ const textExtensions = new Set([
   '.yml',
 ]);
 
+test('fresh smoke consumes lifecycle recommendations without invoking native lifecycle', () => {
+  const report = runFreshSessionSmoke();
+  const { unsupported, eligible, closedReleaseUnknown } = report.lifecycleEvidence;
+  assert.equal(unsupported.recommendation, 'unsupported');
+  assert.equal(eligible.recommendation, 'close-eligible');
+  assert.equal(eligible.closeDisposition, 'not-attempted');
+  assert.equal(closedReleaseUnknown.closeDisposition, 'closed-confirmed');
+  assert.equal(closedReleaseUnknown.releaseDisposition, 'release-unverified');
+  for (const result of Object.values(report.lifecycleEvidence)) {
+    assert.equal(result.authority, 'leader-reported-not-host-authenticated');
+    assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+  }
+  assert.equal(report.boundaries.invokesChild, false);
+  assert.equal(report.boundaries.mutatesWorkspace, false);
+});
+
 test('generic bootstrap discovers the tracked repository guidance chain', () => {
   const report = runFreshSessionSmoke();
   const tracked = new Set(trackedPaths());

@@ -13,6 +13,7 @@ import {
 } from '../agents/routing-policy.mjs';
 import {
   createDispatchRecommendation,
+  createLifecycleRecommendation,
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../agents/orchestration-policy.mjs';
@@ -21,6 +22,293 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 const runtimeCapabilityCases = JSON.parse(
   readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/runtime-capability-cases.json'), 'utf8'),
 );
+
+test('lifecycle eligibility is immutable advice, not native close or slot evidence', () => {
+  const input = lifecycleEvidence();
+  const before = structuredClone(input);
+  const result = createLifecycleRecommendation(input);
+
+  assert.equal(result.recommendation, 'close-eligible');
+  assert.equal(result.closeDisposition, 'not-attempted');
+  assert.equal(result.releaseDisposition, 'release-unverified');
+  assert.equal(result.authority, 'leader-reported-not-host-authenticated');
+  assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+  assert.deepEqual(result.target, { parentId: '/root', childId: '/root/review', taskId: 'tb1' });
+  assert.deepEqual(result.gaps, []);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.target), true);
+  assert.deepEqual(input, before);
+  assert.equal(Object.isFrozen(input.target), false);
+});
+
+const lifecycleNegatives = [
+  ['no close', 'capabilities', { close: false }, 'unsupported', 'close-unsupported'],
+  ['unknown close', 'capabilities', { close: null }, 'unsupported', 'close-unsupported'],
+  [
+    'stale evidence',
+    'observation',
+    { freshness: 'stale' },
+    'unsupported',
+    'observation-unverified',
+  ],
+  ['unknown scope', 'observation', { scope: 'unknown' }, 'unsupported', 'observation-unverified'],
+  [
+    'unknown provenance',
+    'observation',
+    { provenance: 'unknown' },
+    'unsupported',
+    'observation-unverified',
+  ],
+  [
+    'denied authority',
+    'observation',
+    { actionPermission: 'denied' },
+    'unsupported',
+    'action-not-authorized',
+  ],
+  [
+    'unknown authority',
+    'observation',
+    { actionPermission: 'unknown' },
+    'unsupported',
+    'action-not-authorized',
+  ],
+  ['foreign owner', 'target', { ownerParentId: '/other' }, 'unsupported', 'target-unverified'],
+  ['missing owner', 'target', { ownerParentId: null }, 'unsupported', 'target-unverified'],
+  ['unknown parent', 'target', { parentId: null }, 'unsupported', 'target-unverified'],
+  ['root target', 'target', { isRoot: true }, 'unsupported', 'target-unverified'],
+  ['unknown root status', 'target', { isRoot: null }, 'unsupported', 'target-unverified'],
+  ['self target', 'target', { childId: '/root' }, 'unsupported', 'target-unverified'],
+  ['other task', 'target', { observedTaskId: 'tb0' }, 'unsupported', 'target-unverified'],
+  ['running', 'target', { state: 'running' }, 'wait', 'work-not-terminal'],
+  ['waiting', 'target', { state: 'waiting' }, 'wait', 'work-not-terminal'],
+  [
+    'completed result is not native terminal',
+    'target',
+    { state: 'unknown' },
+    'wait',
+    'work-not-terminal',
+  ],
+  ['pending task', 'target', { pendingTasks: 1 }, 'wait', 'pending-work'],
+  ['unknown pending task', 'target', { pendingTasks: null }, 'wait', 'pending-work'],
+  ['pending tool', 'target', { pendingTools: 1 }, 'wait', 'pending-work'],
+  ['unknown pending tool', 'target', { pendingTools: null }, 'wait', 'pending-work'],
+  ['uncollected result', 'result', { collected: false }, 'retain', 'result-uncollected'],
+  ['unknown collection', 'result', { collected: null }, 'retain', 'result-uncollected'],
+  ['old result', 'result', { taskId: 'tb0' }, 'retain', 'result-uncollected'],
+  ['queued is not final', 'result', { delivery: 'queued' }, 'retain', 'result-uncollected'],
+  ['timeout is not final', 'result', { delivery: 'timeout' }, 'retain', 'result-uncollected'],
+];
+
+for (const [name, field, patch, recommendation, gap] of lifecycleNegatives) {
+  test(`lifecycle fails closed: ${name}`, () => {
+    const input = lifecycleEvidence();
+    Object.assign(input[field], patch);
+    const result = createLifecycleRecommendation(input);
+    assert.equal(result.recommendation, recommendation);
+    assert.ok(result.gaps.includes(gap));
+    assert.notEqual(result.closeDisposition, 'closed-confirmed');
+    assert.equal(result.releaseDisposition, 'release-unverified');
+  });
+}
+
+test('lifecycle retention and read-only status never request close', () => {
+  const retained = lifecycleEvidence();
+  retained.retention = { reason: 'Bounded delta review', revisit: 'After corrected snapshot' };
+  assert.equal(createLifecycleRecommendation(retained).recommendation, 'retain');
+  const status = createLifecycleRecommendation({ ...lifecycleEvidence(), intent: 'status' });
+  assert.equal(status.recommendation, 'none');
+  const idle = lifecycleEvidence();
+  idle.target.state = 'idle';
+  assert.notEqual(createLifecycleRecommendation(idle).recommendation, 'close-eligible');
+});
+
+test('idle continuation requires observed start-turn support, not message-only capability', () => {
+  const input = lifecycleEvidence();
+  input.intent = 'continue';
+  input.target.state = 'idle';
+  for (const support of [false, null]) {
+    input.capabilities.startTurn = support;
+    assert.equal(createLifecycleRecommendation(input).recommendation, 'unsupported');
+  }
+  input.capabilities.startTurn = true;
+  input.capabilities.close = false;
+  assert.equal(createLifecycleRecommendation(input).recommendation, 'continue');
+  input.target.state = 'running';
+  assert.equal(createLifecycleRecommendation(input).recommendation, 'wait');
+});
+
+test('close failure, uncertain outcome and conflicting post-state never trigger an automatic retry', () => {
+  for (const status of ['failed', 'unknown', 'succeeded']) {
+    const input = lifecycleEvidence();
+    input.close = { status, childId: input.target.childId, taskId: input.target.taskId };
+    const result = createLifecycleRecommendation(input);
+    assert.equal(result.recommendation, 'retain');
+    assert.equal(
+      result.closeDisposition,
+      status === 'failed' ? 'cleanup-failed' : 'close-unverified',
+    );
+    assert.equal(result.releaseDisposition, 'release-unverified');
+  }
+});
+
+test('reported close and slot release require separate correlated observations', () => {
+  const input = closedLifecycleEvidence();
+  const closed = createLifecycleRecommendation(input);
+  assert.equal(closed.recommendation, 'none');
+  assert.equal(closed.closeDisposition, 'closed-confirmed');
+  assert.equal(closed.releaseDisposition, 'release-unverified');
+  input.release = {
+    status: 'confirmed',
+    childId: input.target.childId,
+    taskId: input.target.taskId,
+  };
+  assert.equal(createLifecycleRecommendation(input).releaseDisposition, 'release-confirmed');
+  for (const field of ['close', 'release']) {
+    for (const key of ['childId', 'taskId']) {
+      const mismatch = structuredClone(input);
+      mismatch[field][key] = 'other';
+      const result = createLifecycleRecommendation(mismatch);
+      assert.equal(result.recommendation, 'unsupported');
+      assert.notEqual(result.closeDisposition, 'closed-confirmed');
+      assert.equal(result.releaseDisposition, 'release-unverified');
+    }
+  }
+});
+
+test('closed status or release alone cannot fabricate a successful native close', () => {
+  const input = lifecycleEvidence();
+  input.target.state = 'closed';
+  assert.equal(createLifecycleRecommendation(input).closeDisposition, 'close-unverified');
+  input.release = {
+    status: 'confirmed',
+    childId: input.target.childId,
+    taskId: input.target.taskId,
+  };
+  assert.equal(createLifecycleRecommendation(input).releaseDisposition, 'release-unverified');
+  for (const [field, patch] of lifecycleNegatives.map(([, field, patch]) => [field, patch])) {
+    const unverified = closedLifecycleEvidence();
+    Object.assign(unverified[field], patch);
+    assert.notEqual(createLifecycleRecommendation(unverified).closeDisposition, 'closed-confirmed');
+  }
+});
+
+test('lifecycle input rejects missing, expanded and malformed fields without guessing authority', () => {
+  assert.throws(() => createLifecycleRecommendation(), /lifecycle/u);
+  for (const field of Object.keys(lifecycleEvidence())) {
+    const missing = lifecycleEvidence();
+    delete missing[field];
+    assert.throws(() => createLifecycleRecommendation(missing), /lifecycle/u);
+  }
+  for (const field of [
+    null,
+    'observation',
+    'target',
+    'capabilities',
+    'result',
+    'close',
+    'release',
+  ]) {
+    const input = lifecycleEvidence();
+    (field ? input[field] : input).hostAuthenticated = true;
+    assert.throws(() => createLifecycleRecommendation(input), /lifecycle/u);
+  }
+  for (const mutate of [
+    (v) => {
+      v.schemaVersion = 2;
+    },
+    (v) => {
+      v.intent = 'close-now';
+    },
+    (v) => {
+      v.target.pendingTasks = -1;
+    },
+    (v) => {
+      v.target.pendingTools = 0.5;
+    },
+    (v) => {
+      v.target.pendingTools = '0';
+    },
+    (v) => {
+      v.target.childId = ' /root/review';
+    },
+    (v) => {
+      v.target.childId = '';
+    },
+    (v) => {
+      v.capabilities.close = 'true';
+    },
+    (v) => {
+      v.retention = { reason: 'keep forever' };
+    },
+    (v) => {
+      v.result = [];
+    },
+  ]) {
+    const input = lifecycleEvidence();
+    mutate(input);
+    assert.throws(() => createLifecycleRecommendation(input), /lifecycle/u);
+  }
+});
+
+test('ordinary role dispatch remains valid without any close capability envelope', () => {
+  assert.equal(
+    createLifecycleRecommendation({
+      ...lifecycleEvidence(),
+      capabilities: { close: false, startTurn: true },
+    }).recommendation,
+    'unsupported',
+  );
+  const result = createDispatchRecommendation({
+    delegation: legalDelegation(),
+    reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
+  });
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  const expanded = createDispatchRecommendation({
+    delegation: legalDelegation(),
+    reportedRuntimeEvidence: {
+      ...runtimeFixture('native-project-role-success').evidence,
+      lifecycle: lifecycleEvidence(),
+    },
+  });
+  assert.equal(expanded.execution, 'leader-sequential');
+});
+
+function lifecycleEvidence() {
+  return {
+    schemaVersion: 1,
+    intent: 'cleanup',
+    observation: {
+      scope: 'current-turn',
+      freshness: 'current-turn',
+      provenance: 'native-tools',
+      actionPermission: 'allowed',
+    },
+    target: {
+      parentId: '/root',
+      childId: '/root/review',
+      ownerParentId: '/root',
+      taskId: 'tb1',
+      observedTaskId: 'tb1',
+      isRoot: false,
+      state: 'completed',
+      pendingTasks: 0,
+      pendingTools: 0,
+    },
+    capabilities: { close: true, startTurn: true },
+    result: { taskId: 'tb1', collected: true, delivery: 'final' },
+    retention: null,
+    close: { status: 'not-attempted', childId: null, taskId: null },
+    release: { status: 'unknown', childId: null, taskId: null },
+  };
+}
+
+function closedLifecycleEvidence() {
+  const input = lifecycleEvidence();
+  input.target.state = 'closed';
+  input.close = { status: 'succeeded', childId: input.target.childId, taskId: input.target.taskId };
+  return input;
+}
 
 for (const fixture of runtimeCapabilityCases) {
   test(`runtime evidence: ${fixture.id}`, () => {
