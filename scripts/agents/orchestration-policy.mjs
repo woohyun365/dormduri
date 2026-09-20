@@ -168,21 +168,27 @@ export function createLifecycleRecommendation(input) {
   validateLifecycleEvidence(input);
   const { intent, observation, target, capabilities, result, retention, close, release } = input;
   const closeObserved = close.status !== 'not-attempted' || target.state === 'closed';
-  const decide = (
-    recommendation,
-    reason,
-    closeDisposition,
-    releaseDisposition = 'release-unverified',
-  ) =>
+  let resultDisposition = 'unverified';
+  let cleanupDisposition = 'unknown';
+  let releaseDisposition = 'release-unverified';
+  const decide = (recommendation, reason, closeDisposition) =>
     deepFreeze({
       schemaVersion: 1,
       intent,
       target: { parentId: target.parentId, childId: target.childId, taskId: target.taskId },
       recommendation,
       reason,
-      gaps: ['close-eligible', 'continue', 'retained-for-followup', 'status-only'].includes(reason)
+      gaps: [
+        'close-eligible',
+        'continue',
+        'retained-for-followup',
+        'status-only',
+        'no-explicit-close-required',
+      ].includes(reason)
         ? []
         : [reason],
+      resultDisposition,
+      cleanupDisposition,
       closeDisposition: closeDisposition ?? (closeObserved ? 'close-unverified' : 'not-attempted'),
       releaseDisposition,
       authority: 'leader-reported-not-host-authenticated',
@@ -216,38 +222,60 @@ export function createLifecycleRecommendation(input) {
   )
     return decide('unsupported', 'lifecycle-observation-mismatch');
 
-  if (target.pendingTasks !== 0 || target.pendingTools !== 0) return decide('wait', 'pending-work');
+  // Collection of this task's final result does not prove a quiescent child.
+  resultDisposition =
+    result.collected === true && result.delivery === 'final' && result.taskId === target.taskId
+      ? 'collected'
+      : 'uncollected';
+  if (target.pendingTasks !== 0 || target.pendingTools !== 0 || target.pendingMailbox !== 0)
+    return decide('wait', 'pending-work');
   if (['running', 'waiting', 'unknown'].includes(target.state)) {
     return decide('wait', 'work-not-terminal');
   }
-  if (result.collected !== true || result.delivery !== 'final' || result.taskId !== target.taskId) {
+  if (resultDisposition !== 'collected') {
     return decide('retain', 'result-uncollected');
   }
 
+  // An applicable contract is reported by the Parent, never inferred from a tool
+  // name, local feature flag, source tag, or the absence of close alone.
+  const runtimeManaged =
+    input.lifecycleContract?.cleanup === 'runtime-managed' &&
+    input.lifecycleContract.verification === 'current-host';
+  if (runtimeManaged && capabilities.close !== false)
+    return decide('unsupported', 'lifecycle-contract-conflict');
+
+  // Resource release has its own correlated observation, even without close.
+  releaseDisposition = release.status === 'confirmed' ? 'release-confirmed' : 'release-unverified';
   // A final task result is not proof of close. A successful close report also
-  // needs the correlated fresh closed post-state; release is independent.
+  // needs the correlated fresh closed post-state.
   if (close.status === 'succeeded' && target.state === 'closed' && capabilities.close === true) {
-    return decide(
-      'none',
-      'status-only',
-      'closed-confirmed',
-      release.status === 'confirmed' ? 'release-confirmed' : 'release-unverified',
-    );
+    cleanupDisposition = 'satisfied';
+    return decide('none', 'status-only', 'closed-confirmed');
   }
   if (close.status === 'failed') return decide('retain', 'close-failed', 'cleanup-failed');
-  if (closeObserved || release.status === 'confirmed') {
+  if (closeObserved) {
     return decide('retain', 'close-outcome-unverified', 'close-unverified');
   }
   if (intent === 'status') return decide('none', 'status-only');
   if (intent === 'continue') {
+    if (release.status === 'confirmed')
+      return decide('retain', 'released-target-requires-confirmation');
     return capabilities.startTurn === true
       ? decide('continue', 'continue')
       : decide('unsupported', 'start-turn-unsupported');
   }
   if (retention !== null) return decide('retain', 'retained-for-followup');
+  if (runtimeManaged) {
+    if (target.state !== 'completed') return decide('wait', 'work-not-terminal');
+    cleanupDisposition = 'not-required';
+    return decide('none', 'no-explicit-close-required');
+  }
   if (capabilities.close !== true)
     return decide('unsupported', 'close-unsupported', 'cleanup-unavailable');
   if (target.state !== 'completed') return decide('wait', 'work-not-terminal');
+  cleanupDisposition = 'required';
+  if (release.status === 'confirmed')
+    return decide('retain', 'released-target-requires-confirmation');
   return decide('close-eligible', 'close-eligible');
 }
 
@@ -266,6 +294,7 @@ function validateLifecycleEvidence(value) {
       'release',
     ],
     'input',
+    ['lifecycleContract'],
   );
   if (value.schemaVersion !== 1) throw new TypeError('Unsupported lifecycle schemaVersion.');
   requireEnum(value.intent, new Set(['cleanup', 'continue', 'status']), 'lifecycle intent');
@@ -288,6 +317,7 @@ function validateLifecycleEvidence(value) {
       'pendingTools',
     ],
     'target',
+    ['pendingMailbox'],
   );
   requireLifecycleRecord(value.capabilities, ['close', 'startTurn'], 'capabilities');
   requireLifecycleRecord(value.result, ['taskId', 'collected', 'delivery'], 'result');
@@ -338,9 +368,27 @@ function validateLifecycleEvidence(value) {
     ['collected', value.result.collected],
   ])
     if (entry !== null) requireBoolean(entry, `lifecycle ${field}`);
-  for (const field of ['pendingTasks', 'pendingTools']) {
+  for (const field of ['pendingTasks', 'pendingTools', 'pendingMailbox']) {
+    if (field === 'pendingMailbox' && !Object.hasOwn(value.target, field)) continue;
     if (value.target[field] !== null) {
       requireBoundedInteger(value.target[field], `lifecycle ${field}`, 0, Number.MAX_SAFE_INTEGER);
+    }
+  }
+  if (Object.hasOwn(value, 'lifecycleContract') && value.lifecycleContract !== null) {
+    const contract = value.lifecycleContract;
+    requireLifecycleRecord(contract, ['cleanup', 'verification', 'reference'], 'lifecycleContract');
+    requireEnum(
+      contract.cleanup,
+      new Set(['explicit-close', 'runtime-managed', 'unknown']),
+      'lifecycle contract.cleanup',
+    );
+    requireEnum(
+      contract.verification,
+      new Set(['current-host', 'unverified']),
+      'lifecycle contract.verification',
+    );
+    if (contract.reference !== null || contract.verification === 'current-host') {
+      requireString(contract.reference, 'lifecycle contract.reference', 500);
     }
   }
   if (value.retention !== null) {
@@ -350,14 +398,18 @@ function validateLifecycleEvidence(value) {
   }
 }
 
-function requireLifecycleRecord(value, fields, name) {
+function requireLifecycleRecord(value, fields, name, optionalFields = []) {
   if (
     !value ||
     Object.getPrototypeOf(value) !== Object.prototype ||
-    Object.keys(value).length !== fields.length ||
+    Object.keys(value).some(
+      (field) => !fields.includes(field) && !optionalFields.includes(field),
+    ) ||
     fields.some((field) => !Object.hasOwn(value, field))
   ) {
-    throw new TypeError(`lifecycle ${name} must contain exactly: ${fields.join(', ')}.`);
+    throw new TypeError(
+      `lifecycle ${name} must contain exactly: ${fields.join(', ')}; optional: ${optionalFields.join(', ')}.`,
+    );
   }
 }
 

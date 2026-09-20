@@ -115,6 +115,7 @@ function evaluateLifecycleEvidence() {
       state: 'completed',
       pendingTasks: 0,
       pendingTools: 0,
+      pendingMailbox: 0,
     },
     capabilities: { close: false, startTurn: true },
     result: { taskId: 'synthetic-review', collected: true, delivery: 'final' },
@@ -122,8 +123,25 @@ function evaluateLifecycleEvidence() {
     close: { status: 'not-attempted', childId: null, taskId: null },
     release: { status: 'unknown', childId: null, taskId: null },
   };
+  const noClose = {
+    ...input,
+    lifecycleContract: {
+      cleanup: 'runtime-managed',
+      verification: 'current-host',
+      reference: 'synthetic-host-contract-not-a-native-observation',
+    },
+  };
   return {
     unsupported: createLifecycleRecommendation(input),
+    noClose: createLifecycleRecommendation(noClose),
+    mailboxUnknown: createLifecycleRecommendation({
+      ...noClose,
+      target: { ...input.target, pendingMailbox: null },
+    }),
+    releasedWithoutClose: createLifecycleRecommendation({
+      ...noClose,
+      release: { status: 'confirmed', childId: input.target.childId, taskId: input.target.taskId },
+    }),
     eligible: createLifecycleRecommendation({
       ...input,
       capabilities: { ...input.capabilities, close: true },

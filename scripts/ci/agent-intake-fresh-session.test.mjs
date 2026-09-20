@@ -56,12 +56,30 @@ test('fresh smoke consumes complete scoped packets and labels byte evidence sepa
 
 test('fresh smoke consumes lifecycle recommendations without invoking native lifecycle', () => {
   const report = runFreshSessionSmoke();
-  const { unsupported, eligible, closedReleaseUnknown } = report.lifecycleEvidence;
+  const {
+    unsupported,
+    eligible,
+    closedReleaseUnknown,
+    noClose,
+    mailboxUnknown,
+    releasedWithoutClose,
+  } = report.lifecycleEvidence;
   assert.equal(unsupported.recommendation, 'unsupported');
   assert.equal(eligible.recommendation, 'close-eligible');
   assert.equal(eligible.closeDisposition, 'not-attempted');
   assert.equal(closedReleaseUnknown.closeDisposition, 'closed-confirmed');
   assert.equal(closedReleaseUnknown.releaseDisposition, 'release-unverified');
+  assert.equal(eligible.cleanupDisposition, 'required');
+  assert.equal(closedReleaseUnknown.cleanupDisposition, 'satisfied');
+  assert.equal(noClose.resultDisposition, 'collected');
+  assert.equal(noClose.cleanupDisposition, 'not-required');
+  assert.equal(noClose.recommendation, 'none');
+  assert.equal(noClose.releaseDisposition, 'release-unverified');
+  assert.equal(mailboxUnknown.resultDisposition, 'collected');
+  assert.equal(mailboxUnknown.recommendation, 'wait');
+  assert.equal(mailboxUnknown.cleanupDisposition, 'unknown');
+  assert.equal(releasedWithoutClose.releaseDisposition, 'release-confirmed');
+  assert.equal(releasedWithoutClose.closeDisposition, 'not-attempted');
   for (const result of Object.values(report.lifecycleEvidence)) {
     assert.equal(result.authority, 'leader-reported-not-host-authenticated');
     assert.equal(result.requiresLeaderRuntimeConfirmation, true);

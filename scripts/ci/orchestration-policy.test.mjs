@@ -31,6 +31,8 @@ test('lifecycle eligibility is immutable advice, not native close or slot eviden
   assert.equal(result.recommendation, 'close-eligible');
   assert.equal(result.closeDisposition, 'not-attempted');
   assert.equal(result.releaseDisposition, 'release-unverified');
+  assert.equal(result.resultDisposition, 'collected');
+  assert.equal(result.cleanupDisposition, 'required');
   assert.equal(result.authority, 'leader-reported-not-host-authenticated');
   assert.equal(result.requiresLeaderRuntimeConfirmation, true);
   assert.deepEqual(result.target, { parentId: '/root', childId: '/root/review', taskId: 'tb1' });
@@ -93,6 +95,8 @@ const lifecycleNegatives = [
   ['unknown pending task', 'target', { pendingTasks: null }, 'wait', 'pending-work'],
   ['pending tool', 'target', { pendingTools: 1 }, 'wait', 'pending-work'],
   ['unknown pending tool', 'target', { pendingTools: null }, 'wait', 'pending-work'],
+  ['pending mailbox', 'target', { pendingMailbox: 1 }, 'wait', 'pending-work'],
+  ['unknown pending mailbox', 'target', { pendingMailbox: null }, 'wait', 'pending-work'],
   ['uncollected result', 'result', { collected: false }, 'retain', 'result-uncollected'],
   ['unknown collection', 'result', { collected: null }, 'retain', 'result-uncollected'],
   ['old result', 'result', { taskId: 'tb0' }, 'retain', 'result-uncollected'],
@@ -185,7 +189,10 @@ test('closed status or release alone cannot fabricate a successful native close'
     childId: input.target.childId,
     taskId: input.target.taskId,
   };
-  assert.equal(createLifecycleRecommendation(input).releaseDisposition, 'release-unverified');
+  const released = createLifecycleRecommendation(input);
+  assert.equal(released.releaseDisposition, 'release-confirmed');
+  assert.equal(released.closeDisposition, 'close-unverified');
+  assert.notEqual(released.recommendation, 'close-eligible');
   for (const [field, patch] of lifecycleNegatives.map(([, field, patch]) => [field, patch])) {
     const unverified = closedLifecycleEvidence();
     Object.assign(unverified[field], patch);
@@ -228,6 +235,12 @@ test('lifecycle input rejects missing, expanded and malformed fields without gue
     },
     (v) => {
       v.target.pendingTools = '0';
+    },
+    (v) => {
+      v.target.pendingMailbox = -1;
+    },
+    (v) => {
+      v.target.pendingMailbox = undefined;
     },
     (v) => {
       v.target.childId = ' /root/review';
@@ -274,6 +287,194 @@ test('ordinary role dispatch remains valid without any close capability envelope
   assert.equal(expanded.execution, 'leader-sequential');
 });
 
+test('verified no-close separates task collection and cleanup from unobserved release', () => {
+  const input = noCloseLifecycleEvidence();
+  const before = structuredClone(input);
+  const result = createLifecycleRecommendation(input);
+  assert.equal(result.recommendation, 'none');
+  assert.equal(result.reason, 'no-explicit-close-required');
+  assert.equal(result.resultDisposition, 'collected');
+  assert.equal(result.cleanupDisposition, 'not-required');
+  assert.equal(result.closeDisposition, 'not-attempted');
+  assert.equal(result.releaseDisposition, 'release-unverified');
+  assert.deepEqual(result.gaps, []);
+  assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+  assert.equal(result.authority, 'leader-reported-not-host-authenticated');
+  assert.deepEqual(input, before);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(input.lifecycleContract), false);
+});
+
+test('no close capability or unverified contract cannot prove runtime-managed cleanup', () => {
+  for (const contract of [
+    undefined,
+    null,
+    { cleanup: 'unknown', verification: 'unverified', reference: null },
+    { cleanup: 'runtime-managed', verification: 'unverified', reference: 'source-only' },
+    { cleanup: 'explicit-close', verification: 'current-host', reference: 'other contract' },
+  ]) {
+    const input = noCloseLifecycleEvidence();
+    if (contract === undefined) delete input.lifecycleContract;
+    else input.lifecycleContract = contract;
+    const result = createLifecycleRecommendation(input);
+    assert.equal(result.recommendation, 'unsupported');
+    assert.equal(result.cleanupDisposition, 'unknown');
+    assert.equal(result.resultDisposition, 'collected');
+    assert.equal(result.closeDisposition, 'cleanup-unavailable');
+    assert.equal(result.releaseDisposition, 'release-unverified');
+  }
+  for (const support of [true, null]) {
+    const conflict = noCloseLifecycleEvidence();
+    conflict.capabilities.close = support;
+    const result = createLifecycleRecommendation(conflict);
+    assert.equal(result.recommendation, 'unsupported');
+    assert.equal(result.reason, 'lifecycle-contract-conflict');
+    assert.equal(result.cleanupDisposition, 'unknown');
+  }
+});
+
+test('legacy input still parses but missing mailbox does not authorize cleanup or continuation', () => {
+  for (const intent of ['cleanup', 'continue', 'status']) {
+    const input = lifecycleEvidence();
+    input.intent = intent;
+    delete input.target.pendingMailbox;
+    const result = createLifecycleRecommendation(input);
+    assert.equal(result.recommendation, 'wait');
+    assert.equal(result.reason, 'pending-work');
+    assert.equal(result.resultDisposition, 'collected');
+    assert.equal(result.cleanupDisposition, 'unknown');
+  }
+});
+
+test('collected result may coexist with pending or unknown work without cleanup authority', () => {
+  for (const factory of [lifecycleEvidence, noCloseLifecycleEvidence]) {
+    for (const field of ['pendingTasks', 'pendingTools', 'pendingMailbox']) {
+      for (const pending of [1, null]) {
+        const input = factory();
+        input.target[field] = pending;
+        const result = createLifecycleRecommendation(input);
+        assert.equal(result.resultDisposition, 'collected');
+        assert.equal(result.cleanupDisposition, 'unknown');
+        assert.equal(result.recommendation, 'wait');
+        assert.equal(result.releaseDisposition, 'release-unverified');
+      }
+    }
+  }
+});
+
+test('runtime-managed release needs its own correlated evidence, never a synthetic close', () => {
+  const input = noCloseLifecycleEvidence();
+  input.release = {
+    status: 'confirmed',
+    childId: input.target.childId,
+    taskId: input.target.taskId,
+  };
+  const result = createLifecycleRecommendation(input);
+  assert.equal(result.recommendation, 'none');
+  assert.equal(result.releaseDisposition, 'release-confirmed');
+  assert.equal(result.closeDisposition, 'not-attempted');
+  assert.equal(result.cleanupDisposition, 'not-required');
+  for (const key of ['childId', 'taskId']) {
+    const mismatch = structuredClone(input);
+    mismatch.release[key] = 'other';
+    const rejected = createLifecycleRecommendation(mismatch);
+    assert.equal(rejected.recommendation, 'unsupported');
+    assert.equal(rejected.releaseDisposition, 'release-unverified');
+    assert.equal(rejected.resultDisposition, 'unverified');
+  }
+});
+
+test('reported release never authorizes another close or automatic continuation', () => {
+  for (const intent of ['cleanup', 'continue']) {
+    const input = lifecycleEvidence();
+    input.intent = intent;
+    input.release = {
+      status: 'confirmed',
+      childId: input.target.childId,
+      taskId: input.target.taskId,
+    };
+    const result = createLifecycleRecommendation(input);
+    assert.equal(result.recommendation, 'retain');
+    assert.equal(result.reason, 'released-target-requires-confirmation');
+    assert.equal(result.resultDisposition, 'collected');
+    assert.equal(result.closeDisposition, 'not-attempted');
+    assert.equal(result.releaseDisposition, 'release-confirmed');
+    assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+  }
+});
+
+test('no-close preserves identity, permission, state, pending and final-result guards', () => {
+  for (const [name, field, patch, recommendation, gap] of lifecycleNegatives.slice(2)) {
+    const input = noCloseLifecycleEvidence();
+    Object.assign(input[field], patch);
+    const result = createLifecycleRecommendation(input);
+    assert.equal(result.recommendation, recommendation, name);
+    assert.ok(result.gaps.includes(gap), name);
+    assert.notEqual(result.cleanupDisposition, 'not-required', name);
+    assert.notEqual(result.closeDisposition, 'closed-confirmed', name);
+    assert.equal(result.releaseDisposition, 'release-unverified', name);
+  }
+  const uncollected = noCloseLifecycleEvidence();
+  uncollected.result.collected = false;
+  assert.equal(createLifecycleRecommendation(uncollected).resultDisposition, 'uncollected');
+});
+
+test('no-close does not swallow retained followup, continuation or conflicting close evidence', () => {
+  const retained = noCloseLifecycleEvidence();
+  retained.retention = { reason: 'Same-scope delta review', revisit: 'After exact new snapshot' };
+  assert.equal(createLifecycleRecommendation(retained).reason, 'retained-for-followup');
+  const followup = noCloseLifecycleEvidence();
+  followup.intent = 'continue';
+  followup.target.state = 'idle';
+  assert.equal(createLifecycleRecommendation(followup).recommendation, 'continue');
+  delete followup.target.pendingMailbox;
+  assert.equal(createLifecycleRecommendation(followup).recommendation, 'wait');
+  const idle = noCloseLifecycleEvidence();
+  idle.target.state = 'idle';
+  assert.equal(createLifecycleRecommendation(idle).recommendation, 'wait');
+  for (const status of ['succeeded', 'failed', 'unknown']) {
+    const conflicting = noCloseLifecycleEvidence();
+    conflicting.close = {
+      status,
+      childId: conflicting.target.childId,
+      taskId: conflicting.target.taskId,
+    };
+    assert.equal(createLifecycleRecommendation(conflicting).recommendation, 'retain');
+  }
+});
+
+test('finite optional lifecycle contract rejects malformed or invented host authority', () => {
+  for (const contract of [
+    {},
+    undefined,
+    { cleanup: 'auto-close', verification: 'current-host', reference: 'fixture' },
+    { cleanup: 'runtime-managed', verification: 'source-tag', reference: 'fixture' },
+    { cleanup: 'runtime-managed', verification: 'current-host', reference: null },
+    { cleanup: 'runtime-managed', verification: 'current-host', reference: '' },
+    {
+      cleanup: 'runtime-managed',
+      verification: 'current-host',
+      reference: 'fixture',
+      hostAuthenticated: true,
+    },
+  ]) {
+    const input = lifecycleEvidence();
+    input.lifecycleContract = contract;
+    assert.throws(() => createLifecycleRecommendation(input), /lifecycle/u);
+  }
+});
+
+function noCloseLifecycleEvidence() {
+  const input = lifecycleEvidence();
+  input.capabilities.close = false;
+  input.lifecycleContract = {
+    cleanup: 'runtime-managed',
+    verification: 'current-host',
+    reference: 'synthetic-host-contract',
+  };
+  return input;
+}
+
 function lifecycleEvidence() {
   return {
     schemaVersion: 1,
@@ -294,6 +495,7 @@ function lifecycleEvidence() {
       state: 'completed',
       pendingTasks: 0,
       pendingTools: 0,
+      pendingMailbox: 0,
     },
     capabilities: { close: true, startTurn: true },
     result: { taskId: 'tb1', collected: true, delivery: 'final' },
