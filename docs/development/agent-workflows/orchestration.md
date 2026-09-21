@@ -140,13 +140,52 @@ Luna도 complete Medium을 요구합니다. Low effort·Parent 모델 변경·�
 [pilot/adoption·runtime admission](./request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
 별도 허용된 최초 pilot은 adoption GO 전에도 비교할 수 있지만, pilot 허용/PASS는 운영 채택 GO가 아닙니다.
 Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. 자동 keyword classifier나 scheduler는 없습니다.
-기본값/최종 QA는 Astra이고, 현재 project pin을 변경하지 않은 상태에서는 lower model 인자만으로 pin을 우회하지 않습니다.
+기본값/최종 QA는 Astra입니다. 실행·읽기 역할은 model pin 없이 task 선택을 받지만, 실제 loaded role에 pin이 있으면
+lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 지원된 명시적 모델·effort/scoped fork와 source/config/권한을 확인한 descriptor만 실제 native 호출에 전달합니다.
 Lower-model lane은 하나씩 실행합니다. 품질/지원 불일치는 pending writer를 회수한 뒤 Astra로 최대 한 번 복귀하며,
 quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
 
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
 아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
+
+### Task model configuration and fresh loading
+
+| 설정 owner                       | 계약                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| `.codex/config.toml`             | child 기본 Astra/high, 상한6. Parent 모델·provider·전역 설정은 소유하지 않음 |
+| `knu_executor`                   | model/effort pin 없음, 기존 workspace-write 및 단일 write owner 유지         |
+| `knu_explorer`, `knu_researcher` | model/effort pin 없음, 기존 read-only 및 각 조사 책임 유지                   |
+| `knu_reviewer`                   | Astra model pin, read-only, effort는 기존 evidence 판정 유지                 |
+
+Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
+따라서 pin 제거는 **명시적 모델 선택을 받을 수 있는 설정**이지 기본값을 Sol로 바꾸는 조치가 아닙니다. Parent는 허용된
+cohort에서 model과 reasoning_effort를 함께 명시하며, 미분류/무요청 경로는 Astra 기본값을 유지합니다.
+[공식 subagent 설정](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+
+설정 변경 후 실제 dispatch 전 Parent가 수행할 확인:
+
+1. 현재 branch/HEAD/working tree와 프로젝트 config·네 role 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
+   이름·sandbox·instructions·기본값·reviewer pin·상한은 별도로 대조합니다.
+2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
+   역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.
+   파일만 읽고 `configurationResolution`을 만들거나 actual model을 관측했다고 쓰지 않습니다.
+3. 현재 host에서 지원되는 refresh/loaded-config 확인 수단이 있으면 사용합니다. 없다면 정확한 config SHA·검증·현재 schema·
+   남은 gap을 handoff하고 정상적인 새 repository process/conversation에서 다시 확인합니다. 공식 문서에 custom-agent hot
+   reload 보장이 없다는 사실은 모든 host에서 restart가 필수라는 뜻도 아닙니다. MCP reload를 role reload로 대체하지 않습니다.
+4. `codex resume`은 이전 대화를 재개하면서 override를 받을 수 있지만 custom-role 재발견을 증명하지 않습니다. 새 conversation이
+   필요한 경우 [정상 exit/resume와 소유 경계](../troubleshooting/tooling/agent-thread-limit-reached.md#선택적-agents-운영과-정상-exitresume)를
+   따릅니다. Parent가 현재 root를 임의 종료하거나 `/agents` 서버·별도 유료 CLI trial을 시작하지 않습니다.
+5. 새 session에서도 actual native schema/설정 출처가 맞지 않으면 해당 모델 dispatch를 보류하고 Astra로 유지합니다.
+   generic role·새 alias·전역 pin 변경으로 우회하지 않습니다. 지원 계약 확인과 실제 모델별 실행·독립 품질 검증은 별도 gate입니다.
+
+[공식 설정 precedence](https://learn.chatgpt.com/docs/config-file/config-basic),
+[CLI launch/resume](https://learn.chatgpt.com/docs/developer-commands?surface=cli).
+Fresh-load handoff는 source/config/현재 host 근거를 넘기는 절차이며 기존 child의 결과 회수·pending·residency를 대신하지 않습니다.
+상세 자원 처리는 [Subagent lifecycle](./subagent-lifecycle.md)을 따릅니다.
+
+Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/docs 복원으로 한정합니다. 이전 source 구현이나 다른 owner
+변경을 reset하지 않습니다. 이미 시작한 child는 설정 원복으로 종료/재설정됐다고 가정하지 않고 별도 lifecycle을 확인합니다.
 
 ## Skill과 workflow routing
 

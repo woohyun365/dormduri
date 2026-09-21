@@ -51,8 +51,9 @@ roles[]:
 - Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
   permission을 다시 읽고 조금이라도 달라지면 descriptor를 폐기합니다.
 
-Project child model은 `.codex/config.toml`과 네 `knu_*` role이 명시적으로 선택합니다. Parent model 변경이나 OMX의
-기본값 업데이트만으로 project pin이 바뀌지는 않습니다. Runtime policy의 `REPOSITORY_CHILD_MODEL`은 현재
+Project child 기본값은 `.codex/config.toml`의 Astra이며, `knu_reviewer`만 Astra를 고정합니다. 나머지 세 역할은
+model/effort pin 없이 지원되는 명시적 task 모델과 기존 effort 판정을 받습니다. Parent model 변경이나 OMX의 기본값
+업데이트를 project 역할·설정의 실제 로드 증거로 사용하지 않습니다. Runtime policy의 `REPOSITORY_CHILD_MODEL`은 현재
 `gpt-6-astra`이며, 기존 fixture의 Sol/Terra/Luna 거절은 모델 입력·허용 근거 없는 caller를 검증하는 negative evidence로 유지합니다.
 이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·effort·count 경계를 바꾸지 않습니다.
 
@@ -95,7 +96,8 @@ admission: null | {
   read-only 도구만, Luna는 고정된 repository-read만, Sol은 단일 write owner와 workspace-edit/test-runner를 요구합니다.
   Advice는 실제 applied model을 보장하지 않습니다.
 
-Project 설정/role pin을 수정하거나 서버/CLI를 시작하지 않습니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
+이 advisory helper는 project 설정/role pin을 수정하거나 서버/CLI를 시작하지 않습니다. 설정 변경과 loaded-schema 확인은
+[Task model configuration and fresh loading](../orchestration.md#task-model-configuration-and-fresh-loading)이 소유합니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
 fixture일 뿐 실제 모델 사용·native 지원·품질 동등성·비용 절약 증거가 아닙니다. Parent/최종 QA/effort/cap/권한 경계는 유지합니다.
 
 ## First dispatch and post-execution evidence
