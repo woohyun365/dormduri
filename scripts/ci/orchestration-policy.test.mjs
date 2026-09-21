@@ -1,3 +1,4 @@
+import * as modelPolicy from '../agents/orchestration-policy.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -1364,3 +1365,299 @@ function failedAttempt(approachId, failureCategory) {
     evidence: `${failureCategory} blocked the attempt.`,
   };
 }
+
+function resolvedDispatchInput(purpose = 'pilot') {
+  const input = modelDispatchInput(purpose);
+  Object.assign(input.reportedRuntimeEvidence.roles[0], {
+    effectiveModel: null,
+    effectiveEffort: null,
+    configurationResolution: {
+      model: 'gpt-5.6-terra',
+      effort: 'medium',
+      configDigest: modelUse(input).configDigest,
+      reference: 'synthetic-current-schema-and-loaded-config',
+    },
+  });
+  return input;
+}
+
+function executionObservation(dispatch) {
+  return {
+    childId: '/root/bounded-task',
+    taskId: dispatch.contract.modelTaskId,
+    scopeDigest: dispatch.contract.modelScopeDigest,
+    provenance: 'native-tool-result',
+    accepted: true,
+    executed: true,
+    resultReference: 'synthetic-native-final',
+    independentCheck: { status: 'passed', reference: 'synthetic-independent-check' },
+    hostMetadata: null,
+    usageReference: null,
+  };
+}
+
+test('first dispatch uses resolved configuration, not invented effective telemetry', () => {
+  const input = resolvedDispatchInput('routine');
+  const before = structuredClone(input);
+  const result = createDispatchRecommendation(input);
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  const [dispatch] = result.dispatches;
+  assert.equal(dispatch.effectiveModel, null);
+  assert.equal(dispatch.effectiveEffort, null);
+  assert.equal(dispatch.resolvedModel, 'gpt-5.6-terra');
+  assert.equal(dispatch.resolvedEffort, 'medium');
+  assert.deepEqual(dispatch.spawnArguments, {
+    agent_type: 'knu_explorer',
+    model: 'gpt-5.6-terra',
+    reasoning_effort: 'medium',
+    fork_turns: 'none',
+  });
+  assert.equal(dispatch.runtimeAction, false);
+  assert.deepEqual(input, before);
+});
+
+test('pre-dispatch resolution rejects file-only, stale, pin, digest, effort and mixed evidence', () => {
+  for (const mutate of [
+    (x) => {
+      x.reportedRuntimeEvidence.provenance = ['config-file'];
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.freshness = 'stale';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].configurationResolution.configDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].configurationResolution.effort = 'high';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].effectiveModel = 'gpt-6-astra';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].explicitEffortSupport = false;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].configurationResolution.reference = '';
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].contextDelivery.mode = 'full-history';
+      rebindModelScope(x);
+    },
+  ]) {
+    const input = resolvedDispatchInput();
+    mutate(input);
+    assert.equal(
+      createDispatchRecommendation(input).execution,
+      'leader-sequential',
+      String(mutate),
+    );
+  }
+});
+
+test('lower model dispatch is sequential without duplicate role roster tricks', () => {
+  const input = resolvedDispatchInput();
+  const second = structuredClone(input.delegation.recommendedChildren[0]);
+  second.laneId = 'second-map';
+  second.modelScopeDigest = createModelScopeDigest(second);
+  input.delegation.recommendedChildren.push(second);
+  input.modelUseByLane[second.laneId] = structuredClone(modelUse(input));
+  input.modelUseByLane[second.laneId].scopeDigest = second.modelScopeDigest;
+  input.modelUseByLane[second.laneId].admission.scopeDigest = second.modelScopeDigest;
+  const result = createDispatchRecommendation(input);
+  assert.equal(result.dispatches.length, 1);
+  assert.deepEqual(result.deferredLaneIds, ['second-map']);
+});
+
+test('post-dispatch evidence binds child/task/quality without requiring cost telemetry', () => {
+  const dispatch = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
+  assert.ok(dispatch);
+  const observation = executionObservation(dispatch);
+  const report = modelPolicy.evaluateModelExecution({
+    dispatch,
+    expectedChildId: observation.childId,
+    reportedExecution: observation,
+  });
+  assert.equal(report.accepted, true);
+  assert.equal(report.evidenceKind, 'runtime-contract-resolved');
+  assert.equal(report.providerAttested, false);
+  assert.equal(report.usageReference, null);
+  assert.equal(report.runtimeAction, false);
+  for (const mutate of [
+    (x) => {
+      x.childId = '/root/other';
+    },
+    (x) => {
+      x.taskId = 'other-task';
+    },
+    (x) => {
+      x.scopeDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      x.provenance = 'child-self-report';
+    },
+    (x) => {
+      x.accepted = false;
+    },
+    (x) => {
+      x.executed = false;
+    },
+    (x) => {
+      x.resultReference = '';
+    },
+    (x) => {
+      x.independentCheck.status = 'failed';
+    },
+    (x) => {
+      x.hostMetadata = { model: 'gpt-6-astra', effort: 'medium' };
+    },
+    (x) => {
+      x.hostMetadata = { model: 'gpt-5.6-terra', effort: 'high' };
+    },
+  ]) {
+    const bad = structuredClone(observation);
+    mutate(bad);
+    assert.equal(
+      modelPolicy.evaluateModelExecution({
+        dispatch,
+        expectedChildId: observation.childId,
+        reportedExecution: bad,
+      }).accepted,
+      false,
+      String(mutate),
+    );
+  }
+  const matching = { ...observation, hostMetadata: { model: 'gpt-5.6-terra', effort: 'medium' } };
+  assert.equal(
+    modelPolicy.evaluateModelExecution({
+      dispatch,
+      expectedChildId: observation.childId,
+      reportedExecution: matching,
+    }).evidenceKind,
+    'host-reported-model',
+  );
+});
+
+test('model recovery binds one Astra alternate and waits for writer clearance', () => {
+  const primary = {
+    ...failedAttempt('lower-primary', 'verification-failed'),
+    model: 'gpt-5.6-terra',
+  };
+  const base = {
+    laneId: 'legal-repository-map',
+    attempts: [primary],
+    modelRecovery: { primaryModel: primary.model, pendingWriter: 'cleared' },
+  };
+  const recovery = evaluateRecovery(base);
+  assert.equal(recovery.action, 'alternate-once');
+  assert.equal(recovery.nextModel, 'gpt-6-astra');
+  for (const state of ['pending', 'unknown']) {
+    assert.equal(
+      evaluateRecovery({ ...base, modelRecovery: { ...base.modelRecovery, pendingWriter: state } })
+        .action,
+      'terminal-handoff',
+    );
+  }
+  const rescue = {
+    ...failedAttempt('astra-rescue', 'verification-failed'),
+    alternateOf: 'lower-primary',
+    model: 'gpt-6-astra',
+  };
+  assert.equal(evaluateRecovery({ ...base, attempts: [primary, rescue] }).nextModel, null);
+  assert.throws(
+    () => evaluateRecovery({ ...base, attempts: [primary, { ...rescue, model: 'gpt-5.6-sol' }] }),
+    /Astra/,
+  );
+  for (const category of ['quota-exhausted', 'capacity-denied', 'missing-authority']) {
+    assert.equal(
+      evaluateRecovery({ ...base, attempts: [{ ...primary, failureCategory: category }] }).action,
+      'terminal-handoff',
+    );
+    assert.throws(
+      () =>
+        evaluateRecovery({
+          ...base,
+          attempts: [{ ...primary, failureCategory: category }, rescue],
+        }),
+      /non-retryable/,
+    );
+  }
+});
+
+test('post evidence cannot promote contradictory or malformed resolution descriptors', () => {
+  const dispatch = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
+  const observation = executionObservation(dispatch);
+  for (const mutate of [
+    (d) => {
+      d.resolvedModel = 'gpt-6-astra';
+      d.configurationResolution.model = 'gpt-6-astra';
+    },
+    (d) => {
+      d.configurationResolution.reference = '';
+    },
+    (d) => {
+      d.configurationResolution.configDigest = 'unbound-config';
+    },
+    (d) => {
+      d.spawnArguments.fork_turns = 'all';
+    },
+    (d) => {
+      d.contract.boundary.readScope.push('apps/api');
+    },
+  ]) {
+    const bad = structuredClone(dispatch);
+    mutate(bad);
+    assert.equal(
+      modelPolicy.evaluateModelExecution({
+        dispatch: bad,
+        expectedChildId: observation.childId,
+        reportedExecution: observation,
+      }).accepted,
+      false,
+      String(mutate),
+    );
+  }
+});
+
+test('Luna boundary remains read-only fixed input even with rebound admission', () => {
+  const input = resolvedDispatchInput();
+  const contract = input.delegation.recommendedChildren[0];
+  const model = contract.routeRecommendation.modelRecommendation;
+  model.request.model = model.recommendedModel = 'gpt-5.6-luna';
+  model.request.cohort = 'bounded-extraction';
+  const id = model.request.verificationFacts.acceptance;
+  Object.assign(model.request.verificationFacts, {
+    fixedInput: id,
+    outputSchema: id,
+    singleStep: id,
+  });
+  const role = input.reportedRuntimeEvidence.roles[0];
+  role.configurationResolution.model = 'gpt-5.6-luna';
+  role.modelSelection.supportedModels.push('gpt-5.6-luna');
+  Object.assign(modelUse(input).admission, { model: 'gpt-5.6-luna', cohort: 'bounded-extraction' });
+  rebindModelScope(input);
+  assert.equal(createDispatchRecommendation(input).dispatches.length, 1);
+  for (const tool of ['official-web-read', 'test-runner']) {
+    const bad = structuredClone(input);
+    bad.delegation.recommendedChildren[0].allowed.tools.push(tool);
+    rebindModelScope(bad);
+    assert.equal(createDispatchRecommendation(bad).execution, 'leader-sequential');
+  }
+});
+
+test('legacy pinned compatibility does not promise unsupported explicit invocation arguments', () => {
+  const input = modelDispatchInput();
+  const role = input.reportedRuntimeEvidence.roles[0];
+  role.modelSelection.roleModel = 'gpt-5.6-terra';
+  role.modelSelection.explicitModelSupport = false;
+  role.explicitEffortSupport = false;
+  const result = createDispatchRecommendation(input);
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  assert.equal(result.dispatches[0].effectiveModel, 'gpt-5.6-terra');
+  assert.equal(result.dispatches[0].spawnArguments, undefined);
+});

@@ -117,7 +117,7 @@ test('model request is strict and cannot create children for deterministic work'
     verificationFacts: modelVerification(input.pass2Evidence, 'bounded-implementation'),
   };
   for (const patch of [
-    { model: 'gpt-5.6-luna' },
+    { model: 'unknown-model' },
     { pilot: true },
     { purpose: 'adopt' },
     { verificationFacts: {} },
@@ -474,3 +474,57 @@ function modelVerification(evidence, cohort = 'bounded-read-only') {
     ? { acceptance: id, independentCheck: id }
     : { acceptance: id, regression: id, astraQa: id };
 }
+
+test('Luna extraction requires low-impact finite semantic work and never replaces shell or QA', () => {
+  const make = (patch = {}) => {
+    const input = routeInput({
+      taskKind: 'lookup',
+      impactRisk: 'low',
+      predicateIds: mediumPredicateIds(),
+      ...patch,
+    });
+    const ids = input.pass2Evidence.facts.map(({ factId }) => factId);
+    input.modelRequest = {
+      model: 'gpt-5.6-luna',
+      purpose: 'routine',
+      cohort: 'bounded-extraction',
+      verificationFacts: Object.fromEntries(
+        ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'].map(
+          (key, i) => [key, ids[i]],
+        ),
+      ),
+    };
+    return input;
+  };
+  const result = selectAgentRoute(make());
+  assert.equal(result.modelRecommendation.recommendedModel, 'gpt-5.6-luna');
+  assert.equal(result.role, 'knu_explorer');
+  assert.equal(result.effort, 'medium');
+  for (const patch of [
+    { impactRisk: 'medium' },
+    { impactRisk: 'high' },
+    ...['implementation', 'research', 'review', 'verification', 'architecture'].map((taskKind) => ({
+      taskKind,
+    })),
+  ]) {
+    assert.equal(selectAgentRoute(make(patch)).modelRecommendation.recommendedModel, 'gpt-6-astra');
+  }
+  for (const key of [
+    'acceptance',
+    'fixedInput',
+    'outputSchema',
+    'singleStep',
+    'independentCheck',
+  ]) {
+    const missing = make();
+    delete missing.modelRequest.verificationFacts[key];
+    assert.throws(() => selectAgentRoute(missing), TypeError);
+    const unknown = make();
+    unknown.modelRequest.verificationFacts[key] = 'missing-fact';
+    assert.equal(selectAgentRoute(unknown).modelRecommendation.status, 'baseline');
+  }
+  const uncertain = make();
+  uncertain.pass2Evidence.gaps.push('incomplete input set');
+  assert.equal(selectAgentRoute(uncertain).modelRecommendation.status, 'baseline');
+  assert.equal(selectAgentRoute({ ...make(), childBenefit: false }).spawn, false);
+});

@@ -241,19 +241,21 @@ export function normalizeModelRequest(value) {
   );
   assertEnum(
     value.model,
-    new Set(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra']),
+    new Set(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']),
     'requested model',
   );
   assertEnum(value.purpose, new Set(['pilot', 'routine']), 'model purpose');
   assertEnum(
     value.cohort,
-    new Set(['bounded-read-only', 'bounded-implementation']),
+    new Set(['bounded-read-only', 'bounded-implementation', 'bounded-extraction']),
     'model cohort',
   );
   const keys =
-    value.cohort === 'bounded-read-only'
-      ? ['acceptance', 'independentCheck']
-      : ['acceptance', 'regression', 'astraQa'];
+    value.cohort === 'bounded-extraction'
+      ? ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck']
+      : value.cohort === 'bounded-read-only'
+        ? ['acceptance', 'independentCheck']
+        : ['acceptance', 'regression', 'astraQa'];
   assertRecord(value.verificationFacts, 'model verificationFacts');
   assertOnlyFields(value.verificationFacts, new Set(keys), 'model verificationFacts');
   const verificationFacts = Object.fromEntries(
@@ -269,9 +271,13 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
   const request = normalizeModelRequest(modelRequest);
   if (!TASK_ROLES.has(taskKind)) throw new TypeError('Unknown model task kind.');
   const cohortMatches =
-    request.cohort === 'bounded-read-only'
-      ? request.model === 'gpt-5.6-terra' && ['lookup', 'analysis', 'research'].includes(taskKind)
-      : request.model === 'gpt-5.6-sol' && ['implementation', 'test'].includes(taskKind);
+    request.cohort === 'bounded-extraction'
+      ? request.model === 'gpt-5.6-luna' &&
+        ['lookup', 'analysis'].includes(taskKind) &&
+        impactRisk === 'low'
+      : request.cohort === 'bounded-read-only'
+        ? request.model === 'gpt-5.6-terra' && ['lookup', 'analysis', 'research'].includes(taskKind)
+        : request.model === 'gpt-5.6-sol' && ['implementation', 'test'].includes(taskKind);
   const bounded =
     assessment.mediumEligibility === true &&
     assessment.reasoningComplexity === 'bounded' &&

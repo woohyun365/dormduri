@@ -7,6 +7,8 @@ import { buildTaskEnvelope } from './intake-policy.mjs';
 import {
   createDispatchRecommendation,
   createLifecycleRecommendation,
+  evaluateModelExecution,
+  evaluateRecovery,
 } from './orchestration-policy.mjs';
 import {
   createSemanticEvidenceId,
@@ -220,7 +222,7 @@ function evaluateModelEvidence() {
   });
   const { smokePredicateIds: _predicates, ...base } = routingEvidenceLane(mediumPredicateIds());
   const evidence = semanticEvidence(contextPack, mediumPredicateIds());
-  const makeDelegation = (purpose) =>
+  const makeDelegation = (purpose, extraction = false) =>
     recommendDelegation({
       envelope,
       contextPack,
@@ -230,12 +232,19 @@ function evaluateModelEvidence() {
           impactRisk: 'low',
           pass2Evidence: evidence,
           modelRequest: {
-            model: 'gpt-5.6-terra',
+            model: extraction ? 'gpt-5.6-luna' : 'gpt-5.6-terra',
             purpose,
-            cohort: 'bounded-read-only',
+            cohort: extraction ? 'bounded-extraction' : 'bounded-read-only',
             verificationFacts: {
               acceptance: evidence.facts[0].factId,
               independentCheck: evidence.facts[1].factId,
+              ...(extraction
+                ? {
+                    fixedInput: evidence.facts[2].factId,
+                    outputSchema: evidence.facts[3].factId,
+                    singleStep: evidence.facts[4].factId,
+                  }
+                : {}),
             },
           },
         },
@@ -324,8 +333,60 @@ function evaluateModelEvidence() {
   fixed.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
   const contextConflict = structuredClone(input);
   contextConflict.delegation.recommendedChildren[0].contextDelivery.compatible = false;
+  const luna = structuredClone({ ...input, delegation: makeDelegation('routine', true) });
+  const lunaContract = luna.delegation.recommendedChildren[0];
+  Object.assign(luna.reportedRuntimeEvidence.roles[0], {
+    effectiveModel: null,
+    effectiveEffort: null,
+    configurationResolution: {
+      model: 'gpt-5.6-luna',
+      effort: 'medium',
+      configDigest,
+      reference: 'synthetic-current-resolution',
+    },
+  });
+  luna.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels.push('gpt-5.6-luna');
+  luna.modelUseByLane[base.id].scopeDigest = lunaContract.modelScopeDigest;
+  Object.assign(luna.modelUseByLane[base.id].admission, {
+    kind: 'adoption',
+    quality: 'go',
+    model: 'gpt-5.6-luna',
+    cohort: 'bounded-extraction',
+    scopeDigest: lunaContract.modelScopeDigest,
+  });
+  const lunaDispatch = createDispatchRecommendation(luna);
+  const post = evaluateModelExecution({
+    dispatch: lunaDispatch.dispatches[0],
+    expectedChildId: '/root/synthetic-luna',
+    reportedExecution: {
+      childId: '/root/synthetic-luna',
+      taskId: lunaContract.modelTaskId,
+      scopeDigest: lunaContract.modelScopeDigest,
+      provenance: 'native-tool-result',
+      accepted: true,
+      executed: true,
+      resultReference: 'synthetic-native-final',
+      independentCheck: { status: 'passed', reference: 'synthetic-quality-oracle' },
+      hostMetadata: null,
+      usageReference: null,
+    },
+  });
+  const recovery = evaluateRecovery({
+    laneId: base.id,
+    attempts: [
+      {
+        approachId: 'synthetic-luna',
+        outcome: 'failure',
+        failureCategory: 'verification-failed',
+        evidence: 'synthetic-controlled-failure-not-actual-model-failure',
+        model: 'gpt-5.6-luna',
+      },
+    ],
+    modelRecovery: { primaryModel: 'gpt-5.6-luna', pendingWriter: 'cleared' },
+  });
   return {
     fixtureOnly: true,
+    activation: { dispatch: lunaDispatch, post, recovery },
     candidate: contract.routeRecommendation.modelRecommendation,
     withoutAdmission: createDispatchRecommendation({ delegation, reportedRuntimeEvidence }),
     pilot: createDispatchRecommendation(input),

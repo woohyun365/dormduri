@@ -116,9 +116,10 @@ leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 reposit
 Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
 evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
 host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 leader-reported input이며 host-authenticated authority로
-표현하지 않습니다. 선택 role마다 availability, 추천과 일치하는 effective model, Medium/High/XHigh effort, explicit-effort support와
+표현하지 않습니다. 선택 role마다 availability, 추천과 일치하는 model/effort 해석, explicit-effort support와
 dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
 leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
+첫 실행은 configuration resolution을 사용하며 실행 전 값을 effective telemetry라고 쓰지 않습니다. 실행 후 관측은 별도 검사합니다.
 
 ### Quality-gated model advice
 
@@ -127,17 +128,25 @@ Astra-only compatibility와 출력이 유지됩니다. 결정적인 grep/check/l
 
 - Terra: 유한 source·출력 schema·독립 확인 방법을 갖춘 read-only mapping/공식 근거 추출 후보.
 - Sol: 명확한 acceptance·단일 write owner·실행할 regression·독립 Astra QA가 있는 bounded 구현/회귀 작성 후보.
+- Luna: 영향도가 낮은 read-only 고정 입력·output schema·단일 semantic extraction·독립 검사가 있는 후보.
 - Astra: Parent, 최종 QA, architecture/auth/trust/transaction/migration/concurrency, 미해결 실패·위험/품질 gap.
 
 현재 정적 후보는 완전한 Medium boundedness, high-confidence facts, 빈 gap/domain/composite signal, non-high impact를
 모두 요구하는 **보수적인 첫 cohort**입니다. Medium이라는 이유만으로 모델을 내리지 않습니다. Task/cohort/검증 fact와
 write/context/runtime/admission gate도 통과해야 하며 broader High cohort는 추가 품질 근거 전까지 Astra입니다.
-Luna·Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
+Luna도 complete Medium을 요구합니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
 
 추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./request-intake/delegation.md#model-recommendation)과
 [pilot/adoption·runtime admission](./request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
 별도 허용된 최초 pilot은 adoption GO 전에도 비교할 수 있지만, pilot 허용/PASS는 운영 채택 GO가 아닙니다.
-현재 project Astra pin을 바꾸거나 실제 모델 사용·절약을 입증하는 기능이 아닙니다.
+Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. 자동 keyword classifier나 scheduler는 없습니다.
+기본값/최종 QA는 Astra이고, 현재 project pin을 변경하지 않은 상태에서는 lower model 인자만으로 pin을 우회하지 않습니다.
+지원된 명시적 모델·effort/scoped fork와 source/config/권한을 확인한 descriptor만 실제 native 호출에 전달합니다.
+Lower-model lane은 하나씩 실행합니다. 품질/지원 불일치는 pending writer를 회수한 뒤 Astra로 최대 한 번 복귀하며,
+quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
+
+공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
+아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
 
 ## Skill과 workflow routing
 

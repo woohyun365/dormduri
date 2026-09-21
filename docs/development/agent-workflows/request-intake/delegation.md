@@ -67,17 +67,23 @@ leader-only final decision, response, integration, verification
 선택형 `modelRequest`는 기존 lane 또는 `selectAgentRoute()` 입력에서 같은 strict schema를 사용합니다.
 
 ```text
-model: gpt-6-astra | gpt-5.6-sol | gpt-5.6-terra
+model: gpt-6-astra | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna
 purpose: pilot | routine
-cohort: bounded-read-only | bounded-implementation
+cohort: bounded-read-only | bounded-implementation | bounded-extraction
 verificationFacts:
   bounded-read-only: acceptance / independentCheck
   bounded-implementation: acceptance / regression / astraQa
+  bounded-extraction: acceptance / fixedInput / outputSchema / singleStep / independentCheck
 ```
 
 각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인,
 구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
 실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
+
+일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
+사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
+Sol은 구현/test, Terra는 lookup/analysis/research, Luna는 low-impact lookup/analysis의 고정 입력·단일 semantic extraction만
+후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
 입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](../orchestration.md#quality-gated-model-advice)을
 충족하면 `routeRecommendation.modelRecommendation`에 request/taskKind/role, recommendedModel, candidate/baseline,

@@ -85,8 +85,8 @@
   source/fact/predicate evidence로 child role과 `medium | high | xhigh`를 최종 판정합니다. Medium은 모든 boundedness
   조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
   선택하며 나머지 substantial work는 High입니다. 기본 Child는 GPT-6 Astra이고 선택형 quality-gated model advice는
-  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. Terra/Sol은 좁은 실험 후보이지
-  활성화된 default가 아닙니다. 검증 fact·exact admission·live compatibility가 필요하고 최종 QA는 Astra를 유지합니다.
+  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. Terra/Sol/Luna는 검증 가능한 task별 후보이지
+  활성화된 default가 아닙니다. Parent는 일반 bounded 업무에서 적합한 request를 채우고 shell로 충분하면 child를 만들지 않습니다. 검증 fact·exact admission·live compatibility가 필요하고 최종 QA는 Astra를 유지합니다.
 - **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
   repository가 parent effort를 추천하는 방식.
 - **검증**: stable source/fact/evidence binding, duplicate fact amplification 방지, same-request/different-evidence fixture,
@@ -120,14 +120,17 @@
 - **결정**: Native는 current-turn host tool schema, OMX는 current-session runtime overlay와 host-exposed role roster를
   bounded evidence로 사용합니다. 기본 Astra 또는 별도 admitted model과 `medium | high | xhigh`, role availability, effective effort, explicit-effort support,
   dispatch permission이 모두 맞아야 descriptor를 추천합니다. Evidence는 leader-reported이며 host-authenticated authority로
-  표현하지 않고 실제 호출 직전에 leader가 다시 확인합니다. Candidate는 supported/effective model, role pin/explicit model
-  support와 별도의 scoped context gate를 모두 확인합니다. Exact pilot 권한과 운영 adoption GO를 구분하고 profile/config/
+  표현하지 않고 실제 호출 직전에 leader가 다시 확인합니다. Candidate는 supported/resolved model, role pin/explicit model
+  support와 별도의 scoped context gate를 모두 확인합니다. 첫 실행 전 resolution과 실행 후 정확한 child/task/result/독립 검증을
+  분리하며 runtime-contract-resolved를 provider attestation으로 오인하지 않습니다. Exact pilot 권한과 운영 adoption GO를 구분하고 profile/config/
   source·scope/time/budget/check mismatch는 Parent fallback입니다. `pilot=true` 또는 pilot PASS는 채택 권한이 아닙니다.
 - **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.
 - **기각**: boolean capability assertion, local config inspection만으로 active authority 주장, generic role prompt label,
   stale session metadata 재사용.
-- **검증**: Native/OMX success, Luna/Low, Terra, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
+- **검증**: Native/OMX success, 미허용 Luna/Terra/Low, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
   fallback fixture를 보존하고, authorized-pilot/adoption 분리·scope/config·예산/만료·context mismatch를 검사합니다.
+  추가로 세 모델 task/cohort, Luna finite read-only, null usage 비차단, Astra one-alternate와 writer clearance를 검사합니다.
+  공식 단가 우위와 실측 절약은 구분하며 usage 미노출만으로 품질 GO를 거절하지 않습니다.
   이 정적 fixture는 실제 host 모델 적용이나 성능·weekly 절약을 입증하지 않습니다.
 - **재검토**: host가 직접 인증된 immutable runtime capability token이나 동등한 dispatch contract를 제공할 때입니다.
 

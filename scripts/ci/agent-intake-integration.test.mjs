@@ -548,3 +548,14 @@ function completedChildResult(contract, { preserveCurrentSourceGap = false } = {
     blocker: null,
   };
 }
+
+test('fresh intake consumes Luna resolution, post evidence and bounded Astra recovery', () => {
+  const { modelEvidence, boundaries } = runFreshSessionSmoke();
+  const activation = modelEvidence.activation;
+  assert.equal(activation.dispatch.dispatches[0].spawnArguments.model, 'gpt-5.6-luna');
+  assert.equal(activation.dispatch.dispatches[0].effectiveModel, null);
+  assert.equal(activation.post.accepted, true);
+  assert.equal(activation.post.usageReference, null);
+  assert.equal(activation.recovery.nextModel, 'gpt-6-astra');
+  assert.equal(boundaries.invokesChild, false);
+});
