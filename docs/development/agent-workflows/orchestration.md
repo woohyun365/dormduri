@@ -110,7 +110,7 @@ Repository-selected child의 기본값은 GPT-6 Astra이며 effort는 `medium | 
 하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
 `knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
 아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
-leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 repository child route에 사용하지 않습니다. Role routing을
+leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Bound recovery invocation은 아래 별도 계약을 따릅니다. Role routing을
 증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
 
 Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
@@ -137,7 +137,7 @@ Astra-only compatibility와 출력이 유지됩니다. 결정적인 grep/check/l
 현재 정적 후보는 완전한 Medium boundedness, high-confidence facts, 빈 gap/domain/composite signal, non-high impact를
 모두 요구하는 **보수적인 첫 cohort**입니다. Medium이라는 이유만으로 모델을 내리지 않습니다. Task/cohort/검증 fact와
 write/context/runtime/admission gate도 통과해야 하며 broader High cohort는 추가 품질 근거 전까지 Astra입니다.
-Luna도 semantic complete Medium을 요구하되 세 profile의 invocation effort는 xhigh입니다. Semantic 위험도와 모델별 호출 effort는 별도 축입니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
+Luna도 semantic complete Medium을 요구하되 세 profile의 invocation effort는 xhigh입니다. Semantic 위험도와 모델별 호출 effort는 별도 축입니다. 일반 Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
 
 Parent는 선택 근거를 짧은 sanitized evidence reference로 남깁니다. 결정적 도구로 충분한지, semantic 작업의
 목표·acceptance·입력·context가 완전한지, dependency/owner/검증 경계가 유한한지, 직접 oracle·독립 검사가 있는지,
@@ -159,6 +159,16 @@ quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니�
 
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
 아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
+
+### Bound Astra recovery invocation
+
+실행된 candidate의 적격 실패에는 같은 역할·쓰기 owner·도구 범위를 보존한 별도 recovery selection을 사용합니다.
+`astra-bounded-recovery`는 원인과 남은 acceptance가 좁고 context·oracle가 충분한 non-high-risk 작업의 **Low invocation**이며,
+ordinary modelRequest나 semantic Medium 판정을 바꾸지 않습니다. Unknown/deep/high-risk는 기존 semantic effort를 따른
+`astra-standard-recovery` 또는 handoff, QA·identity·permission/quota/cap 문제는 이 경로로 우회하지 않습니다.
+Pending writer 회수 후 정확한 첫 실패·현재 rescue source/config/scope·승인·예산·시간에 bind한 alternate 한 번만 가능합니다.
+한 번의 Low 실패 뒤 더 높은 effort로 추가 호출하지 않습니다. 이 정적 경로의 지원은 실제 rescue 품질/운영 채택 증거가 아닙니다.
+[Recovery selection과 admission 계약](./request-intake/orchestration-recovery.md#bound-recovery-selection-and-admission)을 따릅니다.
 
 ### Central profile migration boundary
 

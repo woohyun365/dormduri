@@ -726,3 +726,22 @@ function transitionalRuntimeApplication() {
     evidenceStatus: 'deferred-to-runtime-compatibility',
   };
 }
+
+test('ordinary child delivery still rejects low and max invocation claims', () => {
+  const { envelope, contextPack } = legalFlow();
+  const lane = repositoryLane(contextPack);
+  for (const effort of ['low', 'max']) {
+    const delivery = deliveryRequest();
+    delivery.runtime.effectiveEffort = effort;
+    assert.throws(
+      () =>
+        recommendDelegation({
+          envelope,
+          contextPack,
+          laneCandidates: [lane],
+          deliveryByLane: { [lane.id]: delivery },
+        }),
+      TypeError,
+    );
+  }
+});

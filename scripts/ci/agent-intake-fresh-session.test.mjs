@@ -290,3 +290,23 @@ test('synthetic model smoke preserves controlled miss, once rescue and null usag
   assert.equal(runRecord.attempts[1].alternateOf, runRecord.attempts[0].attemptId);
   assert.ok(runRecord.attempts.every((a) => a.hostObserved === null && a.usage.tokens === null));
 });
+
+test('smoke actually carries low recovery admission, descriptor, post, synthesis and bound record', () => {
+  const { activation } = runFreshSessionSmoke().modelEvidence;
+  const d = activation.rescueDispatch.dispatches[0];
+  assert.equal(d.kind, 'model-recovery');
+  assert.equal(d.recoveryUse.admission.kind, 'recovery');
+  assert.equal(d.spawnArguments.reasoning_effort, 'low');
+  assert.equal(d.contract.routeRecommendation.effort, 'medium');
+  assert.equal(d.contract.routeRecommendation.modelRecommendation, undefined);
+  assert.equal(activation.rescuePost.accepted, true);
+  assert.equal(activation.synthesis.readyForLeaderDecision, true);
+  assert.equal(activation.synthesis.recoveryDecisions[0].attempts[0].outcome, 'failure');
+  assert.equal(activation.synthesis.recoveryDecisions[0].attempts[1].effort, 'low');
+  assert.deepEqual(activation.runRecord.recoveryBinding, d.recoveryBinding);
+  assert.equal(activation.runRecord.attempts[1].resolved.effort, 'low');
+  assert.notEqual(
+    activation.runRecord.attempts[0].sourceDigest,
+    activation.runRecord.attempts[1].sourceDigest,
+  );
+});

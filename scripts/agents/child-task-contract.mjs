@@ -1,4 +1,4 @@
-import { resolveRouteEffort } from './model-profiles.mjs';
+import { assertCurrentRecoveryBinding, resolveRouteEffort } from './model-profiles.mjs';
 import { assertValidTaskEnvelope } from './intake-policy.mjs';
 import { createHash } from 'node:crypto';
 import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
@@ -168,6 +168,51 @@ export function assessLaneIndependence({ lane, peerLanes = [], envelope } = {}) 
   const normalizedPeers = peerLanes.map((peer) => normalizeLane(peer, envelope));
   assertUniqueLaneIds([normalizedLane, ...normalizedPeers]);
   return deepFreeze(assessNormalizedLane(normalizedLane, [normalizedLane, ...normalizedPeers]));
+}
+
+// Fresh scoped rescue, preserving semantic risk and all original ownership constraints.
+// Invocation effort is bound separately; ordinary delivery low/inheritance stays unsupported.
+export function createRecoveryChildContract({ primaryContract, sourceSnapshot }) {
+  requireString(sourceSnapshot, 'recovery source snapshot', 300);
+  if (!primaryContract?.routeRecommendation?.modelRecommendation || !primaryContract.modelTaskId)
+    throw new TypeError('Recovery requires a model-bound primary contract.');
+  const contract = structuredClone(primaryContract);
+  delete contract.routeRecommendation.modelRecommendation;
+  if (
+    !contract.contextDelivery ||
+    contract.contextDelivery.mode !== 'scoped' ||
+    contract.contextDelivery.effortMode !== 'explicit'
+  )
+    throw new TypeError('Recovery requires fresh scoped explicit context.');
+  contract.contextDelivery.snapshot = sourceSnapshot;
+  contract.modelScopeDigest = createModelScopeDigest(contract);
+  return contract;
+}
+
+export function assertRecoveryChildContract(contract, recoveryBinding) {
+  const binding = assertCurrentRecoveryBinding(recoveryBinding);
+  const delivery = contract.contextDelivery;
+  if (
+    contract.routeRecommendation.modelRecommendation !== undefined ||
+    contract.routeRecommendation.role !== binding.rescue.role ||
+    contract.routeRecommendation.effort !== binding.rescue.semanticEffort ||
+    contract.routeRecommendation.impactRisk !== binding.rescue.impactRisk ||
+    contract.modelTaskId !== binding.rescue.taskId ||
+    contract.laneId !== binding.rescue.laneId ||
+    contract.modelScopeDigest !== binding.rescue.scopeDigest ||
+    createModelScopeDigest(contract) !== binding.rescue.scopeDigest ||
+    createModelScopeDigest({ boundary: contract.boundary, allowed: contract.allowed }) !==
+      binding.primary.ownershipDigest ||
+    !delivery ||
+    delivery.purpose !== 'task' ||
+    delivery.mode !== 'scoped' ||
+    delivery.effortMode !== 'explicit' ||
+    delivery.compatible !== true ||
+    delivery.applied !== false ||
+    delivery.gaps.length !== 0 ||
+    delivery.failures.length !== 0
+  )
+    throw new TypeError('Recovery contract/context must match its exact selection.');
 }
 
 // Binding for reported admission, not authentication or a live filesystem observation.

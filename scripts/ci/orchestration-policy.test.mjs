@@ -1842,3 +1842,516 @@ test('old medium/high profile data remains invalid across grant, descriptor, pos
     );
   }
 });
+
+async function recoveryDispatchInput(cause = 'controlled-injection') {
+  const { createRecoveryChildContract } = await import('../agents/child-task-contract.mjs');
+  const primaryInput = resolvedDispatchInput();
+  const primaryContract = primaryInput.delegation.recommendedChildren[0];
+  const rescueContract = createRecoveryChildContract({
+    primaryContract,
+    sourceSnapshot: 'synthetic-rescue-source',
+  });
+  const sourceDigest = `sha256:${'a'.repeat(64)}`;
+  const attempt = {
+    ...failedAttempt('primary', 'verification-failed'),
+    model: 'gpt-6-sol',
+    effort: 'xhigh',
+    executed: true,
+    identity: {
+      taskId: primaryContract.modelTaskId,
+      childId: '/root/primary',
+      sourceDigest,
+      scopeDigest: primaryContract.modelScopeDigest,
+    },
+  };
+  const modelRecovery = {
+    profileBinding: primaryContract.routeRecommendation.modelRecommendation.profileBinding,
+    pendingWriter: 'cleared',
+    request: {
+      primaryContract,
+      rescueContract,
+      sourceDigest: `sha256:${'b'.repeat(64)}`,
+      configDigest: modelUse(primaryInput).configDigest,
+      attemptId: 'rescue',
+      assessment: {
+        cause,
+        bounded: true,
+        contextComplete: true,
+        oracleAvailable: true,
+        identityVerified: true,
+        reasonRefs: ['evidence:known-failure'],
+      },
+    },
+  };
+  const recoveryDecision = evaluateRecovery({
+    laneId: primaryContract.laneId,
+    attempts: [attempt],
+    modelRecovery,
+  });
+  const binding = recoveryDecision.recoveryBinding;
+  const input = structuredClone(primaryInput);
+  input.delegation.recommendedChildren = [rescueContract];
+  input.recoveryDecision = recoveryDecision;
+  const role = input.reportedRuntimeEvidence.roles[0];
+  role.configurationResolution = {
+    kind: 'recovery',
+    recoveryBinding: binding,
+    model: binding.model,
+    effort: binding.resolvedEffort,
+    configDigest: binding.rescue.configDigest,
+    reference: 'synthetic-current-recovery-resolution',
+  };
+  const use = modelUse(input);
+  use.scopeDigest = rescueContract.modelScopeDigest;
+  use.admission = {
+    kind: 'recovery',
+    reference: 'synthetic-exact-rescue-permission',
+    recoveryBinding: binding,
+    notBefore: '2026-09-20T09:00:00.000Z',
+    expiresAt: '2026-09-20T11:00:00.000Z',
+    budget: { maxChildren: 1, maxMinutes: 10 },
+    cleanupReference: 'synthetic-rescue-cleanup',
+  };
+  return { input, modelRecovery, attempt };
+}
+function rescueObservation(dispatch) {
+  return {
+    recoveryBinding: dispatch.recoveryBinding,
+    childId: '/root/rescue',
+    taskId: dispatch.contract.modelTaskId,
+    scopeDigest: dispatch.contract.modelScopeDigest,
+    provenance: 'native-tool-result',
+    accepted: true,
+    executed: true,
+    resultReference: 'synthetic-rescue-result',
+    independentCheck: { status: 'passed', reference: 'synthetic-rescue-oracle' },
+    hostMetadata: null,
+    usageReference: null,
+  };
+}
+
+test('bound recovery selects low, admits exact new rescue, dispatches and post-validates without fake candidate', async () => {
+  const { input, modelRecovery, attempt } = await recoveryDispatchInput();
+  const output = createDispatchRecommendation(input);
+  assert.equal(output.execution, 'native-bounded-dispatch');
+  const d = output.dispatches[0];
+  assert.equal(d.contract.routeRecommendation.modelRecommendation, undefined);
+  assert.equal(d.contract.routeRecommendation.effort, 'medium');
+  assert.deepEqual(d.spawnArguments, {
+    agent_type: 'knu_explorer',
+    model: 'gpt-6-astra',
+    reasoning_effort: 'low',
+    fork_turns: 'none',
+  });
+  const reportedExecution = rescueObservation(d);
+  assert.equal(
+    modelPolicy.evaluateModelExecution({
+      dispatch: d,
+      expectedChildId: '/root/rescue',
+      reportedExecution,
+    }).accepted,
+    true,
+  );
+  const completed = evaluateRecovery({
+    laneId: d.laneId,
+    attempts: [
+      attempt,
+      {
+        approachId: 'rescue',
+        alternateOf: 'primary',
+        outcome: 'success',
+        evidence: 'synthetic-rescue-oracle',
+        model: 'gpt-6-astra',
+        effort: 'low',
+        executed: true,
+        recoveryBinding: d.recoveryBinding,
+        identity: {
+          taskId: d.contract.modelTaskId,
+          childId: '/root/rescue',
+          sourceDigest: d.recoveryBinding.rescue.sourceDigest,
+          scopeDigest: d.contract.modelScopeDigest,
+        },
+      },
+    ],
+    modelRecovery,
+  });
+  assert.equal(completed.status, 'complete');
+  assert.equal(completed.attempts[1].effort, 'low');
+  const synthesis = prepareLeaderSynthesis({
+    delegation: input.delegation,
+    recoveryDecisions: [completed],
+  });
+  assert.deepEqual(synthesis.recoveryDecisions[0].recoveryBinding, d.recoveryBinding);
+  assert.equal(synthesis.recoveryDecisions[0].attempts[0].model, 'gpt-6-sol');
+});
+
+test('recovery low fails closed for missing grants, drift, pin, permission, budget and malformed post identity', async () => {
+  for (const mutate of [
+    (x) => {
+      delete x.recoveryDecision;
+    },
+    (x) => {
+      modelUse(x).admission = null;
+    },
+    (x) => {
+      modelUse(x).admission.kind = 'pilot';
+    },
+    (x) => {
+      modelUse(x).remainingBudget.children = 0;
+    },
+    (x) => {
+      modelUse(x).admission.expiresAt = '2026-09-20T09:30:00.000Z';
+    },
+    (x) => {
+      modelUse(x).admission.recoveryBinding = {
+        ...modelUse(x).admission.recoveryBinding,
+        resolvedEffort: 'high',
+      };
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].configurationResolution.effort = 'high';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-sol';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].explicitEffortSupport = false;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.dispatchPermission = 'denied';
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].boundary.writeOwnership.push('outside');
+    },
+  ]) {
+    const { input } = await recoveryDispatchInput();
+    mutate(input);
+    try {
+      assert.equal(createDispatchRecommendation(input).dispatches.length, 0, String(mutate));
+    } catch (e) {
+      if (!(e instanceof TypeError)) throw e;
+    }
+  }
+  const { input } = await recoveryDispatchInput();
+  const dispatch = createDispatchRecommendation(input).dispatches[0];
+  for (const mutate of [
+    (x) => {
+      x.childId = '/root/other';
+    },
+    (x) => {
+      x.taskId = 'other-task';
+    },
+    (x) => {
+      x.scopeDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      x.recoveryBinding.resolvedEffort = 'high';
+    },
+    (x) => {
+      x.hostMetadata = { model: 'gpt-6-astra', effort: 'high' };
+    },
+  ]) {
+    const observation = structuredClone(rescueObservation(dispatch));
+    mutate(observation);
+    assert.equal(
+      modelPolicy.evaluateModelExecution({
+        dispatch,
+        expectedChildId: '/root/rescue',
+        reportedExecution: observation,
+      }).accepted,
+      false,
+    );
+  }
+});
+
+test('bound recovery denies success, pending writers, nonretryable/identity failures and ownership expansion', async () => {
+  for (const mutate of [
+    (x) => {
+      x.attempt.outcome = 'success';
+    },
+    (x) => {
+      x.modelRecovery.pendingWriter = 'pending';
+    },
+    (x) => {
+      x.attempt.failureCategory = 'quota-exhausted';
+    },
+    (x) => {
+      x.attempt.failureCategory = 'capacity-denied';
+    },
+    (x) => {
+      x.attempt.failureCategory = 'missing-authority';
+    },
+    (x) => {
+      x.attempt.identity.taskId = 'other';
+    },
+    (x) => {
+      x.modelRecovery.request.assessment.identityVerified = false;
+    },
+    (x) => {
+      x.modelRecovery.request.rescueContract.boundary.readScope.push('outside');
+    },
+  ]) {
+    const x = await recoveryDispatchInput();
+    mutate(x);
+    try {
+      assert.equal(
+        evaluateRecovery({
+          laneId:
+            x.attempt.identity.taskId === 'other'
+              ? 'legal-repository-map'
+              : x.input.recoveryDecision.laneId,
+          attempts: [x.attempt],
+          modelRecovery: x.modelRecovery,
+        }).recoveryBinding,
+        undefined,
+        String(mutate),
+      );
+    } catch (e) {
+      if (!(e instanceof TypeError)) throw e;
+    }
+  }
+  const { input } = await recoveryDispatchInput('unknown');
+  assert.equal(createDispatchRecommendation(input).dispatches[0].resolvedEffort, 'medium');
+});
+
+test('recovery descriptor and synthesis resist altered bindings, identity, source and outcome replay', async () => {
+  const { input, attempt, modelRecovery } = await recoveryDispatchInput();
+  const d = createDispatchRecommendation(input).dispatches[0];
+  for (const mutate of [
+    (x) => {
+      x.recoveryBinding.policyRevision = '2026-09-24.2';
+    },
+    (x) => {
+      x.recoveryUse.admission.recoveryBinding.selectionDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      x.spawnArguments.reasoning_effort = 'high';
+    },
+    (x) => {
+      x.configurationResolution.configDigest = `sha256:${'0'.repeat(64)}`;
+    },
+    (x) => {
+      x.contract.contextDelivery.snapshot = 'changed';
+    },
+    (x) => {
+      x.requestedModel = 'gpt-6-sol';
+    },
+    (x) => {
+      x.recoveryDecision.attempts[0].outcome = 'success';
+    },
+  ]) {
+    const bad = structuredClone(d);
+    mutate(bad);
+    assert.equal(
+      modelPolicy.evaluateModelExecution({
+        dispatch: bad,
+        expectedChildId: '/root/rescue',
+        reportedExecution: rescueObservation(d),
+      }).accepted,
+      false,
+    );
+  }
+  const altered = structuredClone(input.recoveryDecision);
+  altered.status = 'complete';
+  altered.action = 'none';
+  altered.remainingAlternateAttempts = 0;
+  assert.throws(
+    () => prepareLeaderSynthesis({ delegation: input.delegation, recoveryDecisions: [altered] }),
+    TypeError,
+  );
+  const rescue = {
+    approachId: 'rescue',
+    alternateOf: 'primary',
+    outcome: 'failure',
+    failureCategory: 'verification-failed',
+    evidence: 'synthetic-second-miss',
+    model: 'gpt-6-astra',
+    effort: 'low',
+    executed: true,
+    recoveryBinding: d.recoveryBinding,
+    identity: {
+      taskId: d.contract.modelTaskId,
+      childId: '/root/rescue',
+      sourceDigest: d.recoveryBinding.rescue.sourceDigest,
+      scopeDigest: d.contract.modelScopeDigest,
+    },
+  };
+  assert.equal(
+    evaluateRecovery({ laneId: d.laneId, attempts: [attempt, rescue], modelRecovery }).nextModel,
+    null,
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: d.laneId,
+        attempts: [attempt, rescue, { ...rescue, approachId: 'third' }],
+        modelRecovery,
+      }),
+    TypeError,
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: d.laneId,
+        attempts: [attempt, rescue],
+        modelRecovery: { ...modelRecovery, pendingWriter: 'unknown' },
+      }),
+    TypeError,
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: d.laneId,
+        attempts: [attempt, rescue],
+        modelRecovery: { profileBinding: modelRecovery.profileBinding, pendingWriter: 'cleared' },
+      }),
+    TypeError,
+  );
+});
+
+test('rehashing rescue scope never changes original authorized ownership and missing low host support is denied', async () => {
+  const { createRecoveryBinding } = await import('../agents/model-profiles.mjs');
+  const { input } = await recoveryDispatchInput();
+  const contract = input.delegation.recommendedChildren[0];
+  contract.boundary.readScope.push('outside-original-owner');
+  contract.modelScopeDigest = createModelScopeDigest(contract);
+  const old = input.recoveryDecision.recoveryBinding;
+  const rebound = createRecoveryBinding({
+    primary: old.primary,
+    rescue: { ...old.rescue, scopeDigest: contract.modelScopeDigest },
+    assessment: old.assessment,
+  });
+  input.recoveryDecision = { ...input.recoveryDecision, recoveryBinding: rebound };
+  modelUse(input).scopeDigest = contract.modelScopeDigest;
+  modelUse(input).admission.recoveryBinding = rebound;
+  input.reportedRuntimeEvidence.roles[0].configurationResolution.recoveryBinding = rebound;
+  assert.equal(createDispatchRecommendation(input).dispatches.length, 0);
+  for (const mutate of [
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels = ['gpt-6-sol'];
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.freshness = 'stale';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].available = false;
+    },
+  ]) {
+    const { input: x } = await recoveryDispatchInput();
+    mutate(x);
+    assert.equal(createDispatchRecommendation(x).dispatches.length, 0);
+  }
+});
+
+async function completedRecoverySynthesisInput() {
+  const { input, modelRecovery, attempt } = await recoveryDispatchInput();
+  const dispatch = createDispatchRecommendation(input).dispatches[0];
+  const post = modelPolicy.evaluateModelExecution({
+    dispatch,
+    expectedChildId: '/root/rescue',
+    reportedExecution: rescueObservation(dispatch),
+  });
+  assert.equal(post.accepted, true);
+  const recovery = evaluateRecovery({
+    laneId: dispatch.laneId,
+    attempts: [
+      attempt,
+      {
+        approachId: 'rescue',
+        alternateOf: attempt.approachId,
+        outcome: post.accepted ? 'success' : 'failure',
+        evidence: 'synthetic-rescue-oracle',
+        model: dispatch.resolvedModel,
+        effort: dispatch.resolvedEffort,
+        executed: true,
+        recoveryBinding: dispatch.recoveryBinding,
+        identity: {
+          taskId: dispatch.contract.modelTaskId,
+          childId: '/root/rescue',
+          sourceDigest: dispatch.recoveryBinding.rescue.sourceDigest,
+          scopeDigest: dispatch.contract.modelScopeDigest,
+        },
+      },
+    ],
+    modelRecovery,
+  });
+  return structuredClone({
+    delegation: input.delegation,
+    recoveryDecisions: [recovery],
+    childResults: [
+      {
+        laneId: dispatch.laneId,
+        status: 'completed',
+        outputs: Object.fromEntries(
+          dispatch.contract.expectedOutputSchema.required
+            .filter((key) => !['facts', 'inferences', 'gaps', 'confidence'].includes(key))
+            .map((key) => [key, ['synthetic-validated-result']]),
+        ),
+        facts: [
+          { statement: 'Synthetic rescue oracle passed.', source: 'synthetic-rescue-oracle' },
+        ],
+        inferences: [],
+        gaps: [],
+        confidence: 'high',
+        verification: [
+          {
+            claim: 'Synthetic rescue result',
+            evidence: 'synthetic-rescue-oracle',
+            status: 'passed',
+          },
+        ],
+        blocker: null,
+      },
+    ],
+  });
+}
+
+test('synthesis cannot drop the decision binding and reinterpret attributed rescue attempts as legacy', async () => {
+  const original = await completedRecoverySynthesisInput();
+  assert.equal(prepareLeaderSynthesis(original).readyForLeaderDecision, true);
+  for (const outcome of ['failure', 'success']) {
+    const input = structuredClone(original);
+    const decision = input.recoveryDecisions[0];
+    delete decision.recoveryBinding;
+    decision.attempts[1].outcome = outcome;
+    decision.attempts[1].failureCategory = outcome === 'failure' ? 'verification-failed' : null;
+    assert.throws(() => prepareLeaderSynthesis(input), TypeError, outcome);
+  }
+});
+
+test('synthesis binds recovery to the exact current delegation task and rescue contract, not just lane', async () => {
+  const original = await completedRecoverySynthesisInput();
+  assert.equal(prepareLeaderSynthesis(original).readyForLeaderDecision, true);
+  for (const mutate of [
+    (x) => {
+      x.delegation.requestId = 'different-task';
+      x.delegation.recommendedChildren[0].modelTaskId = 'different-task';
+      x.delegation.recommendedChildren[0].contextDelivery.snapshot = 'different-source';
+    },
+    (x) => {
+      x.delegation.requestId = 'different-task';
+    },
+    (x) => {
+      x.delegation.requestId = 'different-task';
+      x.delegation.recommendedChildren[0].modelTaskId = 'different-task';
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].contextDelivery.snapshot = 'different-source';
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].boundary.readScope.push('outside-original-owner');
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].routeRecommendation.role = 'knu_researcher';
+    },
+  ]) {
+    const input = structuredClone(original);
+    mutate(input);
+    const contract = input.delegation.recommendedChildren[0];
+    contract.modelScopeDigest = createModelScopeDigest(contract);
+    assert.throws(() => prepareLeaderSynthesis(input), TypeError, String(mutate));
+  }
+});

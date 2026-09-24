@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createModelProfileBinding, getModelProfile } from '../agents/model-profiles.mjs';
+import {
+  createRecoveryBinding,
+  createModelProfileBinding,
+  getModelProfile,
+} from '../agents/model-profiles.mjs';
 import {
   createModelRunEvidence,
   validateModelRunEvidence,
@@ -110,6 +114,38 @@ function controlled() {
   });
   rescue.checks = rescue.checks.filter((c) => c.kind !== 'canary');
   x.attempts.push(rescue);
+  x.recoveryBinding = createRecoveryBinding({
+    primary: {
+      profileBinding: x.profileBinding,
+      attemptId: p.attemptId,
+      taskId: x.taskId,
+      laneId: x.laneId,
+      childId: p.childId,
+      sourceDigest: p.sourceDigest,
+      scopeDigest: p.scopeDigest,
+      ownershipDigest: digest,
+      failureCategory: 'verification-failed',
+    },
+    rescue: {
+      attemptId: rescue.attemptId,
+      taskId: x.taskId,
+      laneId: x.laneId,
+      sourceDigest: rescue.sourceDigest,
+      configDigest: rescue.configDigest,
+      scopeDigest: rescue.scopeDigest,
+      role: 'knu_explorer',
+      semanticEffort: 'high',
+      impactRisk: 'low',
+    },
+    assessment: {
+      cause: 'controlled-injection',
+      bounded: true,
+      contextComplete: true,
+      oracleAvailable: true,
+      identityVerified: true,
+      reasonRefs: ['evidence:fault-manifest'],
+    },
+  });
   return x;
 }
 
@@ -335,4 +371,37 @@ test('observed measurements require provenance; raw symbol fields and sparse ref
   const sparse = fixture();
   sparse.selectionRefs = Array(2);
   assert.throws(() => createModelRunEvidence(sparse));
+});
+
+test('alternate attribution requires its exact recovery selection, including low and changed source', () => {
+  const x = controlled();
+  x.recoveryBinding = createRecoveryBinding({
+    primary: x.recoveryBinding.primary,
+    rescue: { ...x.recoveryBinding.rescue, semanticEffort: 'medium' },
+    assessment: x.recoveryBinding.assessment,
+  });
+  x.attempts[1].requested.effort = 'low';
+  x.attempts[1].resolved.effort = 'low';
+  assert.equal(createModelRunEvidence(x).attempts[1].resolved.effort, 'low');
+  for (const mutate of [
+    (y) => {
+      delete y.recoveryBinding;
+    },
+    (y) => {
+      y.attempts[1].sourceDigest = `sha256:${'c'.repeat(64)}`;
+    },
+    (y) => {
+      y.attempts[1].scopeDigest = `sha256:${'d'.repeat(64)}`;
+    },
+    (y) => {
+      y.attempts[1].requested.effort = 'high';
+    },
+    (y) => {
+      y.recoveryBinding.rescue.attemptId = 'other';
+    },
+  ]) {
+    const y = structuredClone(x);
+    mutate(y);
+    assert.throws(() => createModelRunEvidence(y));
+  }
 });

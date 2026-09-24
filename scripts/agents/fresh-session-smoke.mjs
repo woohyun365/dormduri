@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { recommendDelegation } from './child-task-contract.mjs';
+import { createRecoveryChildContract, recommendDelegation } from './child-task-contract.mjs';
 import { discoverContextPack } from './domain-guide-registry.mjs';
 import { createModelRunEvidence } from './model-run-evidence.mjs';
 import { buildTaskEnvelope } from './intake-policy.mjs';
@@ -10,6 +10,7 @@ import {
   createLifecycleRecommendation,
   evaluateModelExecution,
   evaluateRecovery,
+  prepareLeaderSynthesis,
 } from './orchestration-policy.mjs';
 import {
   createSemanticEvidenceId,
@@ -376,34 +377,152 @@ function evaluateModelEvidence() {
       usageReference: null,
     },
   });
+  const sourceDigest = `sha256:${'a'.repeat(64)}`;
+  const rescueSourceDigest = `sha256:${'b'.repeat(64)}`;
+  const rescueContract = createRecoveryChildContract({
+    primaryContract: lunaContract,
+    sourceSnapshot: 'synthetic-post-fault-source',
+  });
   const primaryAttempt = {
     approachId: 'synthetic-luna',
     outcome: 'failure',
     failureCategory: 'verification-failed',
     evidence: 'synthetic-controlled-failure-not-actual-model-failure',
     model: 'gpt-6-luna',
+    effort: 'xhigh',
+    executed: true,
+    identity: {
+      taskId: lunaContract.modelTaskId,
+      childId: '/root/synthetic-luna',
+      sourceDigest,
+      scopeDigest: lunaContract.modelScopeDigest,
+    },
   };
   const modelRecovery = {
     profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
     pendingWriter: 'cleared',
+    request: {
+      primaryContract: lunaContract,
+      rescueContract,
+      sourceDigest: rescueSourceDigest,
+      configDigest,
+      attemptId: 'synthetic-astra',
+      assessment: {
+        cause: 'controlled-injection',
+        bounded: true,
+        contextComplete: true,
+        oracleAvailable: true,
+        identityVerified: true,
+        reasonRefs: ['evidence:synthetic-fault-manifest'],
+      },
+    },
   };
   const recovery = evaluateRecovery({ laneId: base.id, attempts: [primaryAttempt], modelRecovery });
+  const recoveryBinding = recovery.recoveryBinding;
+  const rescueDelegation = { ...luna.delegation, recommendedChildren: [rescueContract] };
+  const rescueRuntime = structuredClone(luna.reportedRuntimeEvidence);
+  rescueRuntime.roles[0].configurationResolution = {
+    kind: 'recovery',
+    recoveryBinding,
+    model: recoveryBinding.model,
+    effort: recoveryBinding.resolvedEffort,
+    configDigest,
+    reference: 'synthetic-current-recovery-resolution',
+  };
+  const rescueUse = {
+    ...luna.modelUseByLane[base.id],
+    scopeDigest: rescueContract.modelScopeDigest,
+    admission: {
+      kind: 'recovery',
+      reference: 'synthetic-exact-rescue-authorization',
+      recoveryBinding,
+      notBefore: '2026-09-20T09:00:00.000Z',
+      expiresAt: '2026-09-20T11:00:00.000Z',
+      budget: { maxChildren: 1, maxMinutes: 10 },
+      cleanupReference: 'synthetic-rescue-cleanup',
+    },
+  };
+  const rescueDispatch = createDispatchRecommendation({
+    delegation: rescueDelegation,
+    reportedRuntimeEvidence: rescueRuntime,
+    modelUseByLane: { [base.id]: rescueUse },
+    recoveryDecision: recovery,
+  });
+  const [rescueDescriptor] = rescueDispatch.dispatches;
+  const rescuePost = evaluateModelExecution({
+    dispatch: rescueDescriptor,
+    expectedChildId: '/root/synthetic-astra',
+    reportedExecution: {
+      recoveryBinding,
+      childId: '/root/synthetic-astra',
+      taskId: rescueContract.modelTaskId,
+      scopeDigest: rescueContract.modelScopeDigest,
+      provenance: 'native-tool-result',
+      accepted: true,
+      executed: true,
+      resultReference: 'synthetic-rescue-result',
+      independentCheck: { status: 'passed', reference: 'synthetic-rescue-oracle-and-qa' },
+      hostMetadata: null,
+      usageReference: null,
+    },
+  });
   const completedRecovery = evaluateRecovery({
     laneId: base.id,
     attempts: [
       primaryAttempt,
       {
-        approachId: 'synthetic-astra',
+        approachId: recoveryBinding.rescue.attemptId,
         alternateOf: primaryAttempt.approachId,
-        outcome: 'success',
+        outcome: rescuePost.accepted ? 'success' : 'failure',
+        failureCategory: rescuePost.accepted ? null : 'verification-failed',
         evidence: 'synthetic-revalidation',
-        model: recovery.nextModel,
+        model: rescueDescriptor.resolvedModel,
+        effort: rescueDescriptor.resolvedEffort,
+        executed: true,
+        recoveryBinding,
+        identity: {
+          taskId: rescueContract.modelTaskId,
+          childId: '/root/synthetic-astra',
+          sourceDigest: rescueSourceDigest,
+          scopeDigest: rescueContract.modelScopeDigest,
+        },
       },
     ],
     modelRecovery,
   });
+  const synthesis = prepareLeaderSynthesis({
+    delegation: rescueDelegation,
+    recoveryDecisions: [completedRecovery],
+    childResults: [
+      {
+        laneId: base.id,
+        status: rescuePost.accepted ? 'completed' : 'failed',
+        outputs: Object.fromEntries(
+          rescueContract.expectedOutputSchema.required
+            .filter((key) => !['facts', 'inferences', 'gaps', 'confidence'].includes(key))
+            .map((key) => [key, ['synthetic-validated-result']]),
+        ),
+        facts: [
+          {
+            statement: 'Synthetic rescue oracle and independent QA passed.',
+            source: 'synthetic-rescue-oracle-and-qa',
+          },
+        ],
+        inferences: [],
+        gaps: [],
+        confidence: 'high',
+        verification: [
+          {
+            claim: 'Synthetic rescue result',
+            evidence: 'synthetic-rescue-oracle-and-qa',
+            status: rescuePost.accepted ? 'passed' : 'failed',
+          },
+        ],
+        blocker: rescuePost.accepted ? null : 'synthetic-rescue-failed',
+      },
+    ],
+  });
   const dispatch = lunaDispatch.dispatches[0];
-  const sourceDigest = `sha256:${'a'.repeat(64)}`;
   const check = (kind, name, status) => ({
     kind,
     commandRef: `command:${name}`,
@@ -451,16 +570,21 @@ function evaluateModelEvidence() {
     },
     usage: { tokens: null, cost: null, reference: null },
   };
-  // Standard Astra simulation only: no recovery descriptor, low effort or native attestation.
+  // Synthetic reports consume the actual recovery adapters; no native/provider attestation.
   const rescueRecord = {
     ...primaryRecord,
     attemptId: 'synthetic-astra',
     alternateOf: primaryRecord.attemptId,
     childId: '/root/synthetic-astra',
     case: 'approved-baseline',
-    requested: { model: recovery.nextModel, effort: 'high' },
-    resolved: { model: recovery.nextModel, effort: 'high' },
-    disposition: completedRecovery.status === 'complete' ? 'success' : 'failure',
+    sourceDigest: rescueSourceDigest,
+    scopeDigest: rescueContract.modelScopeDigest,
+    requested: {
+      model: rescueDescriptor.spawnArguments.model,
+      effort: rescueDescriptor.spawnArguments.reasoning_effort,
+    },
+    resolved: { model: rescueDescriptor.resolvedModel, effort: rescueDescriptor.resolvedEffort },
+    disposition: synthesis.readyForLeaderDecision ? 'success' : 'failure',
     failureCategory: null,
     checks: [
       check('acceptance', 'rescue-oracle', 'passed'),
@@ -485,12 +609,22 @@ function evaluateModelEvidence() {
     scopeDigest: lunaContract.modelScopeDigest,
     selectionRefs: ['evidence:synthetic-bounded-extraction-rubric'],
     writerClearance: modelRecovery.pendingWriter,
+    recoveryBinding: synthesis.recoveryDecisions[0].recoveryBinding,
     attempts: [primaryRecord, rescueRecord],
     finalDisposition: rescueRecord.disposition,
   });
   return {
     fixtureOnly: true,
-    activation: { dispatch: lunaDispatch, post, recovery, completedRecovery, runRecord },
+    activation: {
+      dispatch: lunaDispatch,
+      post,
+      recovery,
+      rescueDispatch,
+      rescuePost,
+      completedRecovery,
+      synthesis,
+      runRecord,
+    },
     candidate: contract.routeRecommendation.modelRecommendation,
     withoutAdmission: createDispatchRecommendation({ delegation, reportedRuntimeEvidence }),
     pilot: createDispatchRecommendation(input),

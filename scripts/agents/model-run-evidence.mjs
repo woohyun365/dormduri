@@ -1,7 +1,11 @@
 import { isDeepStrictEqual } from 'node:util';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { resolveArtifactPath } from '../artifacts/paths.mjs';
-import { assertCurrentModelProfileBinding, BASELINE_CHILD_MODEL } from './model-profiles.mjs';
+import {
+  assertCurrentModelProfileBinding,
+  assertCurrentRecoveryBinding,
+  BASELINE_CHILD_MODEL,
+} from './model-profiles.mjs';
 import { evaluateRecovery } from './orchestration-policy.mjs';
 
 // Caller-sanitized references only: no prompt, transcript, environment or hidden reasoning.
@@ -66,6 +70,7 @@ export function validateModelRunEvidence(record) {
     'writerClearance',
     'attempts',
     'finalDisposition',
+    ...(record.recoveryBinding !== undefined ? ['recoveryBinding'] : []),
   ]);
   require(record.schemaVersion === 1);
   for (const field of ['runId', 'taskId', 'laneId']) identifier(record[field]);
@@ -80,7 +85,37 @@ export function validateModelRunEvidence(record) {
   record.attempts.forEach((attempt, index) => validateAttempt(attempt, index, record, binding));
   require(record.finalDisposition === record.attempts.at(-1).disposition);
   const primary = record.attempts[0];
+  if (record.recoveryBinding !== undefined) {
+    const recoveryBinding = assertCurrentRecoveryBinding(record.recoveryBinding);
+    require(recoveryBinding.assessment.cause === primary.hypothesis.cause);
+    require(
+      isDeepStrictEqual(recoveryBinding.primary, {
+        profileBinding: binding,
+        failureCategory: primary.failureCategory,
+        ownershipDigest: recoveryBinding.primary.ownershipDigest,
+        attemptId: primary.attemptId,
+        taskId: record.taskId,
+        laneId: record.laneId,
+        childId: primary.childId,
+        sourceDigest: primary.sourceDigest,
+        scopeDigest: primary.scopeDigest,
+      }),
+    );
+  }
   if (record.attempts.length === 2) {
+    const selection = assertCurrentRecoveryBinding(record.recoveryBinding);
+    const rescue = record.attempts[1];
+    require(
+      selection.rescue.attemptId === rescue.attemptId &&
+        selection.rescue.taskId === rescue.taskId &&
+        selection.rescue.laneId === rescue.laneId,
+    );
+    for (const field of ['sourceDigest', 'configDigest', 'scopeDigest'])
+      require(selection.rescue[field] === rescue[field]);
+    require(
+      rescue.requested.model === selection.model &&
+        rescue.requested.effort === selection.resolvedEffort,
+    );
     require(
       primary.executed && primary.disposition === 'failure' && record.writerClearance === 'cleared',
     );
@@ -133,7 +168,8 @@ function validateAttempt(a, index, record, binding) {
     digest(a[field]);
     if (index === 0) require(a[field] === record[field]);
   }
-  pair(a.requested);
+  const recovery = index === 1 ? assertCurrentRecoveryBinding(record.recoveryBinding) : null;
+  pair(a.requested, recovery);
   require(a.requested.model === (index === 0 ? binding.model : BASELINE_CHILD_MODEL));
   if (index === 0) {
     require(a.alternateOf === null && a.requested.effort === binding.resolvedEffort);
@@ -142,11 +178,11 @@ function validateAttempt(a, index, record, binding) {
     require(a.childId === null || a.childId !== record.attempts[0].childId);
   }
   if (a.resolved !== null) {
-    pair(a.resolved);
+    pair(a.resolved, recovery);
     require(isDeepStrictEqual(a.requested, a.resolved));
   }
   if (a.hostObserved !== null) {
-    pair(a.hostObserved);
+    pair(a.hostObserved, recovery);
     require(isDeepStrictEqual(a.resolved, a.hostObserved));
   }
   oneOf(a.case, ['live', 'approved-baseline', 'controlled-failure']);
@@ -299,10 +335,10 @@ function refs(values, nonempty = false) {
   require(Array.isArray(values) && values.length <= 64 && (!nonempty || values.length > 0));
   for (const value of values) reference(value);
 }
-function pair(value) {
+function pair(value, recovery = null) {
   exact(value, ['model', 'effort']);
   oneOf(value.model, [BASELINE_CHILD_MODEL, 'gpt-6-sol', 'gpt-6-luna']);
-  oneOf(value.effort, ['medium', 'high', 'xhigh']);
+  oneOf(value.effort, recovery?.resolvedEffort === 'low' ? ['low'] : ['medium', 'high', 'xhigh']);
 }
 function count(value) {
   require(value === null || (Number.isSafeInteger(value) && value >= 0));

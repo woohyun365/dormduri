@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
 // Bump for eligibility changes outside this data, too. Old grants never migrate implicitly.
-const POLICY_REVISION = '2026-09-24.2';
+const POLICY_REVISION = '2026-09-24.3';
 const PROFILES = deepFreeze({
   'bounded-build': {
     profileId: 'bounded-build',
@@ -85,6 +85,151 @@ export function assertCurrentModelProfileBinding(binding) {
   if (!isDeepStrictEqual(binding, expected))
     throw new TypeError('Model profile binding must match the current installed policy.');
   return expected;
+}
+
+// A separate recovery policy: never an ordinary candidate or a raw effort override.
+export function createRecoveryBinding({ primary, rescue, assessment, ...extra }) {
+  recoveryAssert(Object.keys(extra).length === 0);
+  recoveryExact(primary, [
+    'profileBinding',
+    'attemptId',
+    'taskId',
+    'laneId',
+    'childId',
+    'sourceDigest',
+    'scopeDigest',
+    'ownershipDigest',
+    'failureCategory',
+  ]);
+  assertCurrentModelProfileBinding(primary.profileBinding);
+  recoveryExact(rescue, [
+    'attemptId',
+    'taskId',
+    'laneId',
+    'sourceDigest',
+    'scopeDigest',
+    'configDigest',
+    'role',
+    'semanticEffort',
+    'impactRisk',
+  ]);
+  recoveryExact(assessment, [
+    'cause',
+    'bounded',
+    'contextComplete',
+    'oracleAvailable',
+    'identityVerified',
+    'reasonRefs',
+  ]);
+  for (const identity of [primary, rescue]) {
+    for (const field of ['attemptId', 'taskId', 'laneId'])
+      recoveryAssert(
+        typeof identity[field] === 'string' &&
+          /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/.test(identity[field]),
+      );
+    for (const field of ['sourceDigest', 'scopeDigest']) recoveryDigest(identity[field]);
+  }
+  recoveryDigest(rescue.configDigest);
+  recoveryDigest(primary.ownershipDigest);
+  recoveryAssert(
+    [
+      'verification-failed',
+      'tool-unavailable',
+      'repository-evidence-missing',
+      'official-source-unavailable',
+      'unknown',
+    ].includes(primary.failureCategory),
+  );
+  recoveryAssert(
+    typeof primary.childId === 'string' &&
+      /^\/?[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(primary.childId) &&
+      primary.childId.length <= 160,
+  );
+  recoveryAssert(
+    primary.taskId === rescue.taskId &&
+      primary.laneId === rescue.laneId &&
+      primary.attemptId !== rescue.attemptId,
+  );
+  recoveryAssert(['knu_executor', 'knu_explorer', 'knu_researcher'].includes(rescue.role));
+  recoveryAssert(getModelProfile(primary.profileBinding.profileId).roles.includes(rescue.role));
+  recoveryAssert(['medium', 'high', 'xhigh'].includes(rescue.semanticEffort));
+  recoveryAssert(['low', 'medium', 'high'].includes(rescue.impactRisk));
+  recoveryAssert(
+    [
+      'controlled-injection',
+      'code-defect',
+      'context-missing',
+      'tool-fixture-environment',
+      'task-model-mismatch',
+      'reasoning-miss',
+      'unknown',
+    ].includes(assessment.cause),
+  );
+  for (const field of ['bounded', 'contextComplete', 'oracleAvailable', 'identityVerified'])
+    recoveryAssert(typeof assessment[field] === 'boolean');
+  recoveryAssert(
+    assessment.identityVerified && assessment.contextComplete && assessment.oracleAvailable,
+  );
+  recoveryAssert(
+    Array.isArray(assessment.reasonRefs) &&
+      assessment.reasonRefs.length > 0 &&
+      assessment.reasonRefs.length <= 16,
+  );
+  for (const ref of assessment.reasonRefs)
+    recoveryAssert(
+      typeof ref === 'string' && /^evidence:[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/.test(ref),
+    );
+  const bounded =
+    ['controlled-injection', 'code-defect', 'context-missing', 'tool-fixture-environment'].includes(
+      assessment.cause,
+    ) &&
+    assessment.bounded &&
+    assessment.contextComplete &&
+    assessment.oracleAvailable &&
+    rescue.impactRisk !== 'high' &&
+    rescue.semanticEffort === 'medium';
+  const data = {
+    kind: 'model-recovery',
+    policyRevision: POLICY_REVISION,
+    policyId: bounded ? 'astra-bounded-recovery' : 'astra-standard-recovery',
+    model: BASELINE_CHILD_MODEL,
+    resolvedEffort: bounded ? 'low' : rescue.semanticEffort,
+    primary,
+    rescue,
+    assessment,
+  };
+  return deepFreeze(
+    structuredClone({
+      ...data,
+      selectionDigest: `sha256:${createHash('sha256')
+        .update(JSON.stringify(canonical(data)))
+        .digest('hex')}`,
+    }),
+  );
+}
+
+export function assertCurrentRecoveryBinding(binding) {
+  const expected = createRecoveryBinding({
+    primary: binding?.primary,
+    rescue: binding?.rescue,
+    assessment: binding?.assessment,
+  });
+  recoveryAssert(isDeepStrictEqual(binding, expected));
+  return expected;
+}
+function recoveryAssert(valid) {
+  if (!valid) throw new TypeError('Recovery binding must match the current bounded policy.');
+}
+function recoveryExact(value, keys) {
+  recoveryAssert(
+    value &&
+      Object.getPrototypeOf(value) === Object.prototype &&
+      Reflect.ownKeys(value).length === keys.length &&
+      keys.every((key) => Object.hasOwn(value, key)),
+  );
+}
+function recoveryDigest(value) {
+  recoveryAssert(typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value));
 }
 
 // Semantic route effort classifies risk; a finite candidate profile resolves invocation effort.

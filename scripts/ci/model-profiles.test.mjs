@@ -87,3 +87,106 @@ test('previous effort revisions cannot be restored by rehashing profile data', (
     }
   }
 });
+
+test('recovery policy chooses low only for finite known non-QA work and never accepts raw effort', async () => {
+  const { createRecoveryBinding, assertCurrentRecoveryBinding } =
+    await import('../agents/model-profiles.mjs');
+  const digest = `sha256:${'a'.repeat(64)}`;
+  const input = {
+    primary: {
+      profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
+      attemptId: 'primary',
+      taskId: 'task-1',
+      laneId: 'lane-1',
+      childId: '/root/primary',
+      sourceDigest: digest,
+      scopeDigest: digest,
+      ownershipDigest: digest,
+      failureCategory: 'verification-failed',
+    },
+    rescue: {
+      attemptId: 'rescue',
+      taskId: 'task-1',
+      laneId: 'lane-1',
+      sourceDigest: digest,
+      scopeDigest: digest,
+      configDigest: digest,
+      role: 'knu_explorer',
+      semanticEffort: 'medium',
+      impactRisk: 'low',
+    },
+    assessment: {
+      cause: 'controlled-injection',
+      bounded: true,
+      contextComplete: true,
+      oracleAvailable: true,
+      identityVerified: true,
+      reasonRefs: ['evidence:known-failure'],
+    },
+  };
+  const b = createRecoveryBinding(input);
+  assert.equal(b.kind, 'model-recovery');
+  assert.equal(b.policyId, 'astra-bounded-recovery');
+  assert.equal(b.model, 'gpt-6-astra');
+  assert.equal(b.resolvedEffort, 'low');
+  assert.doesNotThrow(() => assertCurrentRecoveryBinding(b));
+  for (const mutate of [
+    (x) => {
+      x.assessment.cause = 'unknown';
+    },
+    (x) => {
+      x.assessment.cause = 'reasoning-miss';
+    },
+    (x) => {
+      x.assessment.bounded = false;
+    },
+    (x) => {
+      x.rescue.impactRisk = 'high';
+    },
+  ]) {
+    const x = structuredClone(input);
+    mutate(x);
+    assert.notEqual(createRecoveryBinding(x).resolvedEffort, 'low');
+  }
+  for (const effort of ['medium', 'high', 'xhigh']) {
+    const x = structuredClone(input);
+    x.assessment.cause = 'unknown';
+    x.rescue.semanticEffort = effort;
+    assert.equal(createRecoveryBinding(x).resolvedEffort, effort);
+  }
+  for (const mutate of [
+    (x) => {
+      x.rescue.role = 'knu_reviewer';
+    },
+    (x) => {
+      x.assessment.identityVerified = false;
+    },
+    (x) => {
+      x.rescue.semanticEffort = 'low';
+    },
+    (x) => {
+      x.rescue.resolvedEffort = 'max';
+    },
+  ]) {
+    const x = structuredClone(input);
+    mutate(x);
+    assert.throws(() => createRecoveryBinding(x), TypeError);
+  }
+  for (const patch of [
+    { resolvedEffort: 'high' },
+    { model: 'gpt-5.6-sol' },
+    { policyRevision: 'old' },
+    { selectionDigest: digest },
+  ])
+    assert.throws(() => assertCurrentRecoveryBinding({ ...b, ...patch }), TypeError);
+});
+
+test('quality-only revision grants do not survive recovery policy activation', () => {
+  for (const id of ['bounded-build', 'bounded-read', 'bounded-extract']) {
+    const old = createModelProfileBinding({
+      ...getModelProfile(id),
+      policyRevision: '2026-09-24.2',
+    });
+    assert.throws(() => assertCurrentModelProfileBinding(old), TypeError);
+  }
+});

@@ -190,3 +190,15 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.
 - `orchestration-policy.mjs`는 existing native surface를 사용하기 전 leader가 최종 독립성과 runtime capability를
   다시 확인할 수 있는 advisory result를 제공합니다.
+
+### Recovery child context
+
+`createRecoveryChildContract({ primaryContract, sourceSnapshot })`는 기존 primary의 task/lane/role·semantic effort와
+owner/tool/verification 경계를 복제하고 candidate recommendation만 제거합니다. 현재 rescue snapshot으로 scoped explicit
+context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들지 않습니다. 이 helper 자체는 실패·권한을 승인하지 않습니다.
+
+`assertRecoveryChildContract(contract, recoveryBinding)`은 current binding, 원래 boundary/allowed ownership digest,
+rescue task/lane/source scope, semantic risk와 scoped task context를 확인합니다. Recovery invocation의 low는 별도 binding과
+runtime resolution에서만 해석됩니다. Ordinary delivery effectiveEffort의 low/max, inherited/full-history rescue는 계속 거절합니다.
+`evaluateRecovery`에서 원래 primary 실패·현재 contract를 검증한 뒤 새 admission을 받아야 하며 source 변경이 쓰기 범위 확대를
+허용하지 않습니다. 자세한 입력은 [bound recovery](./orchestration-recovery.md#bound-recovery-selection-and-admission)를 따릅니다.
