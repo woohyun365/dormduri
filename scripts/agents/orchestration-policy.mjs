@@ -1,10 +1,16 @@
+import {
+  BASELINE_CHILD_MODEL,
+  getModelProfile,
+  assertCurrentModelProfileBinding,
+  resolveRouteEffort,
+} from './model-profiles.mjs';
 import { isDeepStrictEqual } from 'node:util';
 import { createModelScopeDigest } from './child-task-contract.mjs';
 import { recommendModel } from './routing-policy.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
-const REPOSITORY_CHILD_MODEL = 'gpt-6-astra';
+const REPOSITORY_CHILD_MODEL = BASELINE_CHILD_MODEL;
 const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
 const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
@@ -163,7 +169,7 @@ export function createDispatchRecommendation({
       requiresLeaderRuntimeConfirmation: true,
       ...(contract.routeRecommendation.modelRecommendation
         ? {
-            requestedModel: contract.routeRecommendation.modelRecommendation.request.model,
+            requestedModel: contract.routeRecommendation.modelRecommendation.profileBinding.model,
             recommendedModel: contract.routeRecommendation.modelRecommendation.recommendedModel,
             modelPurpose: contract.routeRecommendation.modelRecommendation.request.purpose,
             resolvedModel:
@@ -176,7 +182,7 @@ export function createDispatchRecommendation({
                   spawnArguments: {
                     agent_type: contract.routeRecommendation.role,
                     model: contract.routeRecommendation.modelRecommendation.recommendedModel,
-                    reasoning_effort: contract.routeRecommendation.effort,
+                    reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
                     fork_turns: 'none',
                   },
                   configurationResolution: reportedRole.configurationResolution,
@@ -212,18 +218,20 @@ export function evaluateModelExecution({ dispatch, expectedChildId, reportedExec
   try {
     requireString(expectedChildId, 'returned child identity', 160);
     const contract = dispatch.contract;
+    assertSemanticRouteRecommendation(contract.routeRecommendation);
+    assertCurrentModelRecommendation(contract);
     normalizeConfigurationResolution(dispatch.configurationResolution);
     if (
       dispatch.runtimeAction !== false ||
       contract.routeRecommendation.modelRecommendation.status !== 'candidate' ||
       dispatch.resolvedModel !==
         contract.routeRecommendation.modelRecommendation.recommendedModel ||
-      dispatch.resolvedEffort !== contract.routeRecommendation.effort ||
+      dispatch.resolvedEffort !== resolveRouteEffort(contract.routeRecommendation) ||
       contract.modelScopeDigest !== createModelScopeDigest(contract) ||
       !isDeepStrictEqual(dispatch.spawnArguments, {
         agent_type: contract.routeRecommendation.role,
         model: contract.routeRecommendation.modelRecommendation.recommendedModel,
-        reasoning_effort: contract.routeRecommendation.effort,
+        reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
         fork_turns: 'none',
       }) ||
       dispatch.resolvedModel !== dispatch.configurationResolution.model ||
@@ -234,6 +242,7 @@ export function evaluateModelExecution({ dispatch, expectedChildId, reportedExec
       reportedExecution,
       [
         'childId',
+        'profileBinding',
         'taskId',
         'scopeDigest',
         'provenance',
@@ -247,6 +256,15 @@ export function evaluateModelExecution({ dispatch, expectedChildId, reportedExec
       'model execution',
     );
     observation = reportedExecution;
+    const profileBinding = assertCurrentModelProfileBinding(observation.profileBinding);
+    if (
+      !isDeepStrictEqual(
+        profileBinding,
+        contract.routeRecommendation.modelRecommendation.profileBinding,
+      ) ||
+      !isDeepStrictEqual(profileBinding, dispatch.configurationResolution.profileBinding)
+    )
+      gaps.push('model-execution-profile-mismatch');
     if (
       observation.childId !== expectedChildId ||
       observation.taskId !== contract.modelTaskId ||
@@ -550,20 +568,20 @@ function requireExactRecord(value, fields, name, optionalFields = []) {
 
 export function evaluateRecovery({ laneId, attempts = [], modelRecovery } = {}) {
   const result = evaluateAttemptRecovery({ laneId, attempts });
-  if (modelRecovery === undefined) return result;
-  requireExactRecord(modelRecovery, ['primaryModel', 'pendingWriter'], 'model recovery');
-  requireEnum(
-    modelRecovery.primaryModel,
-    new Set(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']),
-    'primary model',
-  );
+  if (modelRecovery === undefined) {
+    if (attempts.some((attempt) => Object.hasOwn(attempt, 'model')))
+      throw new TypeError('Explicit model recovery requires a current profile binding.');
+    return result;
+  }
+  requireExactRecord(modelRecovery, ['profileBinding', 'pendingWriter'], 'model recovery');
+  const binding = assertCurrentModelProfileBinding(modelRecovery.profileBinding);
   requireEnum(
     modelRecovery.pendingWriter,
     new Set(['cleared', 'pending', 'unknown']),
     'pending writer',
   );
   for (const [index, attempt] of attempts.entries()) {
-    if (attempt.model !== (index === 0 ? modelRecovery.primaryModel : REPOSITORY_CHILD_MODEL))
+    if (attempt.model !== (index === 0 ? binding.model : REPOSITORY_CHILD_MODEL))
       throw new TypeError('Model recovery requires the exact primary model then Astra only.');
   }
   if (attempts.length > 1 && NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory))
@@ -965,7 +983,7 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
   for (const contract of contracts) {
     const requestedRole = contract.routeRecommendation.role;
-    const requestedEffort = contract.routeRecommendation.effort;
+    const requestedEffort = resolveRouteEffort(contract.routeRecommendation);
     const reportedRole = rolesByAgentType.get(requestedRole);
     if (!reportedRole || !reportedRole.available) {
       gaps.push(`runtime-role-unavailable:${requestedRole}`);
@@ -1005,11 +1023,12 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
 function normalizeConfigurationResolution(value) {
   requireExactRecord(
     value,
-    ['model', 'effort', 'configDigest', 'reference'],
+    ['profileBinding', 'model', 'effort', 'configDigest', 'reference'],
     'configuration resolution',
   );
   requireDigest(value.configDigest);
   return {
+    profileBinding: assertCurrentModelProfileBinding(value.profileBinding),
     model: requireString(value.model, 'resolved model', 80),
     effort: requireEnum(value.effort, EFFORTS, 'resolved effort'),
     configDigest: value.configDigest,
@@ -1090,9 +1109,11 @@ function validateModelUses(value, contracts) {
         'expiresAt',
         'budget',
         'cleanupReference',
+        'profileBinding',
       ],
       'model admission',
     );
+    assertCurrentModelProfileBinding(grant.profileBinding);
     requireEnum(grant.kind, new Set(['pilot', 'adoption']), 'admission kind');
     requireEnum(grant.quality, new Set(['unadopted', 'go', 'no-go']), 'quality decision');
     for (const field of ['reference', 'model', 'role', 'cohort', 'cleanupReference'])
@@ -1111,13 +1132,14 @@ function validateModelUses(value, contracts) {
 function assessModelUse(contract, reportedRole, use) {
   const gaps = [];
   const route = contract.routeRecommendation;
-  const { request } = route.modelRecommendation;
+  const { request, profileBinding } = route.modelRecommendation;
+  const profile = getModelProfile(request.profileId);
   if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
   const selection = reportedRole.modelSelection;
   if (
     !selection ||
-    !selection.supportedModels.includes(request.model) ||
-    (selection.roleModel !== request.model &&
+    !selection.supportedModels.includes(profileBinding.model) ||
+    (selection.roleModel !== profileBinding.model &&
       !(selection.roleModel === null && selection.explicitModelSupport))
   ) {
     gaps.push('model-pin-or-override-unverified');
@@ -1127,7 +1149,8 @@ function assessModelUse(contract, reportedRole, use) {
     resolution &&
     (!reportedRole.explicitEffortSupport ||
       !selection?.explicitModelSupport ||
-      resolution.configDigest !== use?.configDigest)
+      resolution.configDigest !== use?.configDigest ||
+      !isDeepStrictEqual(resolution.profileBinding, profileBinding))
   )
     gaps.push('model-resolution-unverified');
   const delivery = contract.contextDelivery;
@@ -1140,23 +1163,12 @@ function assessModelUse(contract, reportedRole, use) {
     delivery.failures.length !== 0
   )
     gaps.push('model-context-incompatible');
-  const isReadOnly = request.cohort !== 'bounded-implementation';
   if (
-    isReadOnly
-      ? !contract.boundary.readOnly ||
-        contract.allowed.tools.some(
-          (tool) => !['repository-read', 'official-web-read'].includes(tool),
-        )
-      : contract.boundary.readOnly ||
-        !contract.allowed.tools.includes('workspace-edit') ||
-        !contract.allowed.tools.includes('test-runner')
+    contract.boundary.readOnly !== profile.readOnly ||
+    contract.allowed.tools.some((tool) => !profile.allowedTools.includes(tool)) ||
+    profile.requiredTools.some((tool) => !contract.allowed.tools.includes(tool))
   )
     gaps.push('model-cohort-boundary-incompatible');
-  if (
-    request.cohort === 'bounded-extraction' &&
-    contract.allowed.tools.some((tool) => tool !== 'repository-read')
-  )
-    gaps.push('model-extraction-must-use-fixed-repository-input');
   const digest = createModelScopeDigest(contract);
   if (contract.modelScopeDigest !== digest || !contract.modelTaskId)
     gaps.push('model-contract-snapshot-changed');
@@ -1179,10 +1191,11 @@ function assessModelUse(contract, reportedRole, use) {
     gaps.push('model-scope-config-or-checks-changed');
   }
   if (
-    grant.model !== request.model ||
+    grant.model !== profileBinding.model ||
     grant.role !== route.role ||
-    grant.effort !== route.effort ||
-    grant.cohort !== request.cohort
+    grant.effort !== resolveRouteEffort(route) ||
+    grant.cohort !== profileBinding.cohort ||
+    !isDeepStrictEqual(grant.profileBinding, profileBinding)
   )
     gaps.push('model-admission-route-mismatch');
   if (
@@ -1492,22 +1505,7 @@ function assertDelegationRecommendation(delegation) {
     assertSemanticRouteRecommendation(contract.routeRecommendation);
     const model = contract.routeRecommendation.modelRecommendation;
     if (model !== undefined) {
-      requireExactRecord(
-        model,
-        ['request', 'taskKind', 'role', 'recommendedModel', 'status', 'reason', 'applied'],
-        'model recommendation',
-      );
-      const expected = recommendModel({
-        modelRequest: model.request,
-        taskKind: model.taskKind,
-        impactRisk: contract.routeRecommendation.impactRisk,
-        assessment: contract.routeRecommendation.assessment,
-      });
-      if (!isDeepStrictEqual(model, expected))
-        throw new TypeError(
-          'Model recommendation must preserve semantic eligibility and applied=false.',
-        );
-      if (model.role !== role) throw new TypeError('Model task must preserve the semantic role.');
+      assertCurrentModelRecommendation(contract);
       if (contract.modelTaskId !== delegation.requestId)
         throw new TypeError('Model task identity must match the delegation.');
     }
@@ -1686,4 +1684,34 @@ function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   for (const nested of Object.values(value)) deepFreeze(nested);
   return Object.freeze(value);
+}
+
+function assertCurrentModelRecommendation(contract) {
+  const model = contract.routeRecommendation.modelRecommendation;
+  requireExactRecord(
+    model,
+    [
+      'request',
+      'profileBinding',
+      'taskKind',
+      'role',
+      'recommendedModel',
+      'status',
+      'reason',
+      'applied',
+    ],
+    'model recommendation',
+  );
+  const expected = recommendModel({
+    modelRequest: model.request,
+    taskKind: model.taskKind,
+    impactRisk: contract.routeRecommendation.impactRisk,
+    assessment: contract.routeRecommendation.assessment,
+  });
+  if (!isDeepStrictEqual(model, expected))
+    throw new TypeError(
+      'Model recommendation must preserve semantic eligibility and applied=false.',
+    );
+  if (model.role !== contract.routeRecommendation.role)
+    throw new TypeError('Model task must preserve the semantic role.');
 }

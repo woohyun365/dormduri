@@ -232,9 +232,8 @@ function evaluateModelEvidence() {
           impactRisk: 'low',
           pass2Evidence: evidence,
           modelRequest: {
-            model: extraction ? 'gpt-5.6-luna' : 'gpt-5.6-terra',
+            profileId: extraction ? 'bounded-extract' : 'bounded-read',
             purpose,
-            cohort: extraction ? 'bounded-extraction' : 'bounded-read-only',
             verificationFacts: {
               acceptance: evidence.facts[0].factId,
               independentCheck: evidence.facts[1].factId,
@@ -285,11 +284,11 @@ function evaluateModelEvidence() {
       {
         agentType: 'knu_explorer',
         available: true,
-        effectiveModel: 'gpt-5.6-terra',
+        effectiveModel: 'gpt-6-sol',
         effectiveEffort: 'medium',
         explicitEffortSupport: true,
         modelSelection: {
-          supportedModels: ['gpt-6-astra', 'gpt-5.6-terra'],
+          supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
           roleModel: null,
           explicitModelSupport: true,
           reference: 'synthetic-host-schema',
@@ -307,10 +306,11 @@ function evaluateModelEvidence() {
       checks: 'passed',
       remainingBudget: { children: 1, minutes: 10 },
       admission: {
+        profileBinding: contract.routeRecommendation.modelRecommendation.profileBinding,
         kind: 'pilot',
         reference: 'synthetic-user-pilot-authorization',
         quality: 'unadopted',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6-sol',
         role: 'knu_explorer',
         effort: 'medium',
         cohort: 'bounded-read-only',
@@ -339,18 +339,21 @@ function evaluateModelEvidence() {
     effectiveModel: null,
     effectiveEffort: null,
     configurationResolution: {
-      model: 'gpt-5.6-luna',
-      effort: 'medium',
+      profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
+      model: 'gpt-6-luna',
+      effort: 'high',
       configDigest,
       reference: 'synthetic-current-resolution',
     },
   });
-  luna.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels.push('gpt-5.6-luna');
+  luna.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels.push('gpt-6-luna');
   luna.modelUseByLane[base.id].scopeDigest = lunaContract.modelScopeDigest;
   Object.assign(luna.modelUseByLane[base.id].admission, {
+    profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
+    effort: 'high',
     kind: 'adoption',
     quality: 'go',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     cohort: 'bounded-extraction',
     scopeDigest: lunaContract.modelScopeDigest,
   });
@@ -359,6 +362,7 @@ function evaluateModelEvidence() {
     dispatch: lunaDispatch.dispatches[0],
     expectedChildId: '/root/synthetic-luna',
     reportedExecution: {
+      profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
       childId: '/root/synthetic-luna',
       taskId: lunaContract.modelTaskId,
       scopeDigest: lunaContract.modelScopeDigest,
@@ -379,10 +383,13 @@ function evaluateModelEvidence() {
         outcome: 'failure',
         failureCategory: 'verification-failed',
         evidence: 'synthetic-controlled-failure-not-actual-model-failure',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
       },
     ],
-    modelRecovery: { primaryModel: 'gpt-5.6-luna', pendingWriter: 'cleared' },
+    modelRecovery: {
+      profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
+      pendingWriter: 'cleared',
+    },
   });
   return {
     fixtureOnly: true,

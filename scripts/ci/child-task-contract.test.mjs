@@ -3,7 +3,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { assessLaneIndependence, recommendDelegation } from '../agents/child-task-contract.mjs';
+import {
+  assessLaneIndependence,
+  createModelScopeDigest,
+  recommendDelegation,
+} from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
@@ -570,9 +574,8 @@ test('child contracts propagate optional model advice without relaxing write or 
     writeOwnership: ['apps/web/src/legal/example.test.ts'],
     pass2Evidence: evidence,
     modelRequest: {
-      model: 'gpt-5.6-sol',
+      profileId: 'bounded-build',
       purpose: 'pilot',
-      cohort: 'bounded-implementation',
       verificationFacts: {
         acceptance: evidence.facts[0].factId,
         regression: evidence.facts[1].factId,
@@ -582,10 +585,39 @@ test('child contracts propagate optional model advice without relaxing write or 
   });
   const result = recommendDelegation({ envelope, contextPack, laneCandidates: [lane] });
   const [child] = result.recommendedChildren;
-  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-5.6-sol');
+  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-6-sol');
   assert.match(child.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
   assert.equal(child.leaderOwnership.finalVerification, true);
+  const changed = structuredClone(child);
+  changed.routeRecommendation.modelRecommendation.profileBinding.policyRevision = 'stale';
+  assert.notEqual(createModelScopeDigest(changed), child.modelScopeDigest);
   assert.deepEqual(child.verification, lane.verification);
+  const extraction = repositoryLane(contextPack, {
+    impactRisk: 'low',
+    pass2Evidence: evidence,
+    modelRequest: {
+      profileId: 'bounded-extract',
+      purpose: 'pilot',
+      verificationFacts: Object.fromEntries(
+        ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'].map(
+          (k, i) => [k, evidence.facts[i].factId],
+        ),
+      ),
+    },
+  });
+  for (const effort of ['medium', 'high']) {
+    const delivery = deliveryRequest();
+    delivery.effortMode = 'inherit';
+    delivery.runtime.effectiveEffort = effort;
+    const [c] = recommendDelegation({
+      envelope,
+      contextPack,
+      laneCandidates: [extraction],
+      deliveryByLane: { [extraction.id]: delivery },
+    }).recommendedChildren;
+    assert.equal(c.routeRecommendation.effort, 'medium');
+    assert.equal(c.contextDelivery.compatible, effort === 'high');
+  }
   assert.throws(
     () =>
       recommendDelegation({

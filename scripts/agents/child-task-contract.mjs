@@ -1,3 +1,4 @@
+import { resolveRouteEffort } from './model-profiles.mjs';
 import { assertValidTaskEnvelope } from './intake-policy.mjs';
 import { createHash } from 'node:crypto';
 import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
@@ -326,7 +327,8 @@ function composeChildContract({ lane, route }) {
 
 function composeContextDelivery(contract, request, taskKind) {
   const { purpose, runtime, previous, effortMode } = request;
-  const { role, effort } = contract.routeRecommendation;
+  const { role } = contract.routeRecommendation;
+  const effort = resolveRouteEffort(contract.routeRecommendation);
   const gaps = [];
   let mode = request.mode;
   if (['review', 'verification'].includes(taskKind) && purpose === 'task') {

@@ -126,15 +126,18 @@ leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일�
 Role/effort를 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없으면 기존
 Astra-only compatibility와 출력이 유지됩니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
 
-- Terra: 유한 source·출력 schema·독립 확인 방법을 갖춘 read-only mapping/공식 근거 추출 후보.
-- Sol: 명확한 acceptance·단일 write owner·실행할 regression·독립 Astra QA가 있는 bounded 구현/회귀 작성 후보.
-- Luna: 영향도가 낮은 read-only 고정 입력·output schema·단일 semantic extraction·독립 검사가 있는 후보.
+| Task profile      | 후보 model / invocation effort | 범위                                                                                |
+| ----------------- | ------------------------------ | ----------------------------------------------------------------------------------- |
+| `bounded-build`   | `gpt-6-sol` / medium           | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA                    |
+| `bounded-read`    | `gpt-6-sol` / medium           | lookup·analysis read-only, acceptance·독립 검사. Researcher는 pilot-only            |
+| `bounded-extract` | `gpt-6-luna` / high            | 낮은 영향도의 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 |
+
 - Astra: Parent, 최종 QA, architecture/auth/trust/transaction/migration/concurrency, 미해결 실패·위험/품질 gap.
 
 현재 정적 후보는 완전한 Medium boundedness, high-confidence facts, 빈 gap/domain/composite signal, non-high impact를
 모두 요구하는 **보수적인 첫 cohort**입니다. Medium이라는 이유만으로 모델을 내리지 않습니다. Task/cohort/검증 fact와
 write/context/runtime/admission gate도 통과해야 하며 broader High cohort는 추가 품질 근거 전까지 Astra입니다.
-Luna도 complete Medium을 요구합니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
+Luna도 semantic complete Medium을 요구하되 invocation effort는 high입니다. Semantic 위험도와 모델별 호출 effort는 별도 축입니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
 
 추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./request-intake/delegation.md#model-recommendation)과
 [pilot/adoption·runtime admission](./request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
@@ -148,6 +151,18 @@ quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니�
 
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
 아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
+
+### Central profile migration boundary
+
+`scripts/agents/model-profiles.mjs`가 finite task profile의 model/effort/허용 role·task·도구·검증 키를 소유합니다.
+Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report →
+recovery에 연결합니다. Raw model/구형 GPT-5.6 request는 거절하며 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
+
+미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
+갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 승인·사후 보고·recovery binding을 재사용하지 못합니다.
+설치된 registry와 정확히 비교하므로 synthetic hash나 scope digest 재계산만으로 새 모델을 허용할 수 없습니다.
+현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된 GPT-6
+profile로 복귀하며 retired GPT-5.6을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
 
 ### Task model configuration and fresh loading
 

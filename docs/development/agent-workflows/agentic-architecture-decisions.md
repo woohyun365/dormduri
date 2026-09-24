@@ -85,7 +85,7 @@
   source/fact/predicate evidence로 child role과 `medium | high | xhigh`를 최종 판정합니다. Medium은 모든 boundedness
   조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
   선택하며 나머지 substantial work는 High입니다. 기본 Child는 GPT-6 Astra이고 선택형 quality-gated model advice는
-  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. Terra/Sol/Luna는 검증 가능한 task별 후보이지
+  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. GPT-6 Sol/Luna는 중앙 task profile의 검증 가능한 후보이지
   활성화된 default가 아닙니다. Parent는 일반 bounded 업무에서 적합한 request를 채우고 shell로 충분하면 child를 만들지 않습니다. 검증 fact·exact admission·live compatibility가 필요하고 최종 QA는 Astra를 유지합니다.
 - **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
   repository가 parent effort를 추천하는 방식.
@@ -129,7 +129,9 @@
   stale session metadata 재사용.
 - **검증**: Native/OMX success, 미허용 Luna/Terra/Low, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
   fallback fixture를 보존하고, authorized-pilot/adoption 분리·scope/config·예산/만료·context mismatch를 검사합니다.
-  추가로 세 모델 task/cohort, Luna finite read-only, null usage 비차단, Astra one-alternate와 writer clearance를 검사합니다.
+  추가로 finite GPT-6 task profiles, semantic/resolved effort 분리, Luna high·finite read-only, 구형 GPT-5.6 요청과 stale
+  profile 승인 거절, null usage 비차단, Astra one-alternate와 writer clearance를 검사합니다. 중앙 profile policyRevision/hash는
+  계약·승인·설정 해석·사후 보고·복구에 연결되며 hash 자체는 권한을 부여하지 않습니다.
   공식 단가 우위와 실측 절약은 구분하며 usage 미노출만으로 품질 GO를 거절하지 않습니다.
   이 정적 fixture는 실제 host 모델 적용이나 성능·weekly 절약을 입증하지 않습니다.
 - **재검토**: host가 직접 인증된 immutable runtime capability token이나 동등한 dispatch contract를 제공할 때입니다.

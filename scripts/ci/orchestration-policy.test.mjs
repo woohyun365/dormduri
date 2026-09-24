@@ -1,3 +1,4 @@
+import { getModelProfile, createModelProfileBinding } from '../agents/model-profiles.mjs';
 import * as modelPolicy from '../agents/orchestration-policy.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -838,7 +839,7 @@ test('model pilot advice is separate from adoption, runtime and context confirma
     const before = structuredClone(input);
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'native-bounded-dispatch');
-    assert.equal(result.dispatches[0].requestedModel, 'gpt-5.6-terra');
+    assert.equal(result.dispatches[0].requestedModel, 'gpt-6-sol');
     assert.equal(result.dispatches[0].modelPurpose, purpose);
     assert.equal(result.dispatches[0].requiresLeaderRuntimeConfirmation, true);
     assert.equal(
@@ -1004,20 +1005,20 @@ test('Sol implementation needs its exact write, regression and Astra QA evidence
   const model = contract.routeRecommendation.modelRecommendation;
   model.taskKind = 'implementation';
   model.role = 'knu_executor';
-  model.request.model = 'gpt-5.6-sol';
-  model.request.cohort = 'bounded-implementation';
+  model.request.profileId = 'bounded-build';
+  model.profileBinding = createModelProfileBinding(getModelProfile('bounded-build'));
   const id = model.request.verificationFacts.acceptance;
   model.request.verificationFacts = { acceptance: id, regression: id, astraQa: id };
-  model.recommendedModel = 'gpt-5.6-sol';
+  model.recommendedModel = 'gpt-6-sol';
   contract.routeRecommendation.role = 'knu_executor';
   contract.boundary.readOnly = false;
   contract.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
   contract.allowed.tools = ['repository-read', 'workspace-edit', 'test-runner'];
   const role = input.reportedRuntimeEvidence.roles[0];
-  Object.assign(role, { agentType: 'knu_executor', effectiveModel: 'gpt-5.6-sol' });
-  role.modelSelection.supportedModels.push('gpt-5.6-sol');
+  Object.assign(role, { agentType: 'knu_executor', effectiveModel: 'gpt-6-sol' });
   Object.assign(modelUse(input).admission, {
-    model: 'gpt-5.6-sol',
+    profileBinding: model.profileBinding,
+    model: 'gpt-6-sol',
     role: 'knu_executor',
     cohort: 'bounded-implementation',
   });
@@ -1113,9 +1114,8 @@ function modelDispatchInput(purpose = 'pilot') {
     impactRisk: 'low',
     pass2Evidence,
     modelRequest: {
-      model: 'gpt-5.6-terra',
+      profileId: 'bounded-read',
       purpose,
-      cohort: 'bounded-read-only',
       verificationFacts: {
         acceptance: parts[0].facts[0].factId,
         independentCheck: parts[1].facts[0].factId,
@@ -1164,11 +1164,11 @@ function modelDispatchInput(purpose = 'pilot') {
         {
           agentType: 'knu_explorer',
           available: true,
-          effectiveModel: 'gpt-5.6-terra',
+          effectiveModel: 'gpt-6-sol',
           effectiveEffort: 'medium',
           explicitEffortSupport: true,
           modelSelection: {
-            supportedModels: ['gpt-6-astra', 'gpt-5.6-terra'],
+            supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
             roleModel: null,
             explicitModelSupport: true,
             reference: 'synthetic-host-model-schema',
@@ -1185,10 +1185,11 @@ function modelDispatchInput(purpose = 'pilot') {
         checks: 'passed',
         remainingBudget: { children: 1, minutes: 10 },
         admission: {
+          profileBinding: contract.routeRecommendation.modelRecommendation.profileBinding,
           kind: purpose === 'pilot' ? 'pilot' : 'adoption',
           reference: 'synthetic-owner-authorization',
           quality: purpose === 'pilot' ? 'unadopted' : 'go',
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6-sol',
           role: 'knu_explorer',
           effort: 'medium',
           cohort: 'bounded-read-only',
@@ -1372,7 +1373,10 @@ function resolvedDispatchInput(purpose = 'pilot') {
     effectiveModel: null,
     effectiveEffort: null,
     configurationResolution: {
-      model: 'gpt-5.6-terra',
+      profileBinding:
+        input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation
+          .profileBinding,
+      model: 'gpt-6-sol',
       effort: 'medium',
       configDigest: modelUse(input).configDigest,
       reference: 'synthetic-current-schema-and-loaded-config',
@@ -1383,6 +1387,7 @@ function resolvedDispatchInput(purpose = 'pilot') {
 
 function executionObservation(dispatch) {
   return {
+    profileBinding: dispatch.contract.routeRecommendation.modelRecommendation.profileBinding,
     childId: '/root/bounded-task',
     taskId: dispatch.contract.modelTaskId,
     scopeDigest: dispatch.contract.modelScopeDigest,
@@ -1404,11 +1409,11 @@ test('first dispatch uses resolved configuration, not invented effective telemet
   const [dispatch] = result.dispatches;
   assert.equal(dispatch.effectiveModel, null);
   assert.equal(dispatch.effectiveEffort, null);
-  assert.equal(dispatch.resolvedModel, 'gpt-5.6-terra');
+  assert.equal(dispatch.resolvedModel, 'gpt-6-sol');
   assert.equal(dispatch.resolvedEffort, 'medium');
   assert.deepEqual(dispatch.spawnArguments, {
     agent_type: 'knu_explorer',
-    model: 'gpt-5.6-terra',
+    model: 'gpt-6-sol',
     reasoning_effort: 'medium',
     fork_turns: 'none',
   });
@@ -1517,7 +1522,7 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
       x.hostMetadata = { model: 'gpt-6-astra', effort: 'medium' };
     },
     (x) => {
-      x.hostMetadata = { model: 'gpt-5.6-terra', effort: 'high' };
+      x.hostMetadata = { model: 'gpt-6-sol', effort: 'high' };
     },
   ]) {
     const bad = structuredClone(observation);
@@ -1532,7 +1537,7 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
       String(mutate),
     );
   }
-  const matching = { ...observation, hostMetadata: { model: 'gpt-5.6-terra', effort: 'medium' } };
+  const matching = { ...observation, hostMetadata: { model: 'gpt-6-sol', effort: 'medium' } };
   assert.equal(
     modelPolicy.evaluateModelExecution({
       dispatch,
@@ -1546,12 +1551,15 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
 test('model recovery binds one Astra alternate and waits for writer clearance', () => {
   const primary = {
     ...failedAttempt('lower-primary', 'verification-failed'),
-    model: 'gpt-5.6-terra',
+    model: 'gpt-6-sol',
   };
   const base = {
     laneId: 'legal-repository-map',
     attempts: [primary],
-    modelRecovery: { primaryModel: primary.model, pendingWriter: 'cleared' },
+    modelRecovery: {
+      profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
+      pendingWriter: 'cleared',
+    },
   };
   const recovery = evaluateRecovery(base);
   assert.equal(recovery.action, 'alternate-once');
@@ -1628,8 +1636,9 @@ test('Luna boundary remains read-only fixed input even with rebound admission', 
   const input = resolvedDispatchInput();
   const contract = input.delegation.recommendedChildren[0];
   const model = contract.routeRecommendation.modelRecommendation;
-  model.request.model = model.recommendedModel = 'gpt-5.6-luna';
-  model.request.cohort = 'bounded-extraction';
+  model.recommendedModel = 'gpt-6-luna';
+  model.request.profileId = 'bounded-extract';
+  model.profileBinding = createModelProfileBinding(getModelProfile('bounded-extract'));
   const id = model.request.verificationFacts.acceptance;
   Object.assign(model.request.verificationFacts, {
     fixedInput: id,
@@ -1637,11 +1646,23 @@ test('Luna boundary remains read-only fixed input even with rebound admission', 
     singleStep: id,
   });
   const role = input.reportedRuntimeEvidence.roles[0];
-  role.configurationResolution.model = 'gpt-5.6-luna';
-  role.modelSelection.supportedModels.push('gpt-5.6-luna');
-  Object.assign(modelUse(input).admission, { model: 'gpt-5.6-luna', cohort: 'bounded-extraction' });
+  Object.assign(role.configurationResolution, {
+    model: 'gpt-6-luna',
+    effort: 'high',
+    profileBinding: model.profileBinding,
+  });
+  role.modelSelection.supportedModels.push('gpt-6-luna');
+  Object.assign(modelUse(input).admission, {
+    model: 'gpt-6-luna',
+    effort: 'high',
+    profileBinding: model.profileBinding,
+    cohort: 'bounded-extraction',
+  });
   rebindModelScope(input);
-  assert.equal(createDispatchRecommendation(input).dispatches.length, 1);
+  const dispatch = createDispatchRecommendation(input).dispatches[0];
+  assert.equal(dispatch.contract.routeRecommendation.effort, 'medium');
+  assert.equal(dispatch.spawnArguments.reasoning_effort, 'high');
+  assert.equal(dispatch.resolvedEffort, 'high');
   for (const tool of ['official-web-read', 'test-runner']) {
     const bad = structuredClone(input);
     bad.delegation.recommendedChildren[0].allowed.tools.push(tool);
@@ -1653,11 +1674,120 @@ test('Luna boundary remains read-only fixed input even with rebound admission', 
 test('legacy pinned compatibility does not promise unsupported explicit invocation arguments', () => {
   const input = modelDispatchInput();
   const role = input.reportedRuntimeEvidence.roles[0];
-  role.modelSelection.roleModel = 'gpt-5.6-terra';
+  role.modelSelection.roleModel = 'gpt-6-sol';
   role.modelSelection.explicitModelSupport = false;
   role.explicitEffortSupport = false;
   const result = createDispatchRecommendation(input);
   assert.equal(result.execution, 'native-bounded-dispatch');
-  assert.equal(result.dispatches[0].effectiveModel, 'gpt-5.6-terra');
+  assert.equal(result.dispatches[0].effectiveModel, 'gpt-6-sol');
   assert.equal(result.dispatches[0].spawnArguments, undefined);
+});
+
+test('stale profile grants and resolution cannot be revived by rebinding scope', () => {
+  for (const target of ['admission', 'configuration', 'recommendation']) {
+    for (const patch of [
+      { policyRevision: 'old' },
+      { profileDigest: `sha256:${'0'.repeat(64)}` },
+      { model: 'gpt-5.6-sol' },
+      { resolvedEffort: 'xhigh' },
+      { cohort: 'bounded-extraction' },
+      { profileId: 'future' },
+    ]) {
+      const input = resolvedDispatchInput();
+      const binding =
+        target === 'admission'
+          ? modelUse(input).admission.profileBinding
+          : target === 'configuration'
+            ? input.reportedRuntimeEvidence.roles[0].configurationResolution.profileBinding
+            : input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation
+                .profileBinding;
+      // Clone each boundary independently; shared fixture references are not authority.
+      const bad = { ...binding, ...patch };
+      if (target === 'admission') modelUse(input).admission.profileBinding = bad;
+      else if (target === 'configuration')
+        input.reportedRuntimeEvidence.roles[0].configurationResolution.profileBinding = bad;
+      else
+        input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.profileBinding =
+          bad;
+      rebindModelScope(input);
+      try {
+        assert.equal(createDispatchRecommendation(input).dispatches.length, 0);
+      } catch (e) {
+        if (!(e instanceof TypeError)) throw e;
+      }
+    }
+  }
+});
+test('post execution revalidates recommendation and exact installed binding even with a refreshed scope', () => {
+  const original = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
+  for (const mutate of [
+    (d) => {
+      d.contract.routeRecommendation.modelRecommendation.request.profileId = 'future';
+    },
+    (d) => {
+      d.contract.routeRecommendation.impactRisk = 'high';
+    },
+    (d) => {
+      d.contract.routeRecommendation.modelRecommendation.profileBinding.policyRevision = 'stale';
+    },
+  ]) {
+    const d = structuredClone(original);
+    mutate(d);
+    d.contract.modelScopeDigest = createModelScopeDigest(d.contract);
+    const observation = executionObservation(d);
+    assert.equal(
+      modelPolicy.evaluateModelExecution({
+        dispatch: d,
+        expectedChildId: observation.childId,
+        reportedExecution: observation,
+      }).accepted,
+      false,
+    );
+  }
+  const observation = executionObservation(original);
+  observation.profileBinding = { ...observation.profileBinding, policyRevision: 'old' };
+  assert.equal(
+    modelPolicy.evaluateModelExecution({
+      dispatch: original,
+      expectedChildId: observation.childId,
+      reportedExecution: observation,
+    }).accepted,
+    false,
+  );
+});
+test('explicit recovery requires a current profile and rejects retired raw-model requests', () => {
+  const base = {
+    laneId: 'legal-repository-map',
+    attempts: [{ ...failedAttempt('primary', 'verification-failed'), model: 'gpt-6-sol' }],
+    modelRecovery: {
+      profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
+      pendingWriter: 'cleared',
+    },
+  };
+  assert.throws(() => evaluateRecovery({ ...base, modelRecovery: undefined }), TypeError);
+  for (const model of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
+    assert.throws(
+      () => evaluateRecovery({ ...base, attempts: [{ ...base.attempts[0], model }] }),
+      TypeError,
+    );
+    assert.throws(
+      () =>
+        evaluateRecovery({
+          ...base,
+          modelRecovery: { primaryModel: model, pendingWriter: 'cleared' },
+        }),
+      TypeError,
+    );
+  }
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        ...base,
+        modelRecovery: {
+          ...base.modelRecovery,
+          profileBinding: { ...base.modelRecovery.profileBinding, policyRevision: 'old' },
+        },
+      }),
+    TypeError,
+  );
 });

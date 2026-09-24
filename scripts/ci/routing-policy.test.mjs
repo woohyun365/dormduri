@@ -6,6 +6,7 @@ import {
   createSemanticFactId,
   createSemanticSourceId,
   selectAgentRoute,
+  normalizeModelRequest,
 } from '../agents/routing-policy.mjs';
 
 const TASK_KINDS = [
@@ -21,17 +22,16 @@ const TASK_KINDS = [
 ];
 
 test('optional model advice preserves effort and requires bounded semantic quality evidence', () => {
-  for (const [taskKind, model, cohort] of [
-    ['lookup', 'gpt-5.6-terra', 'bounded-read-only'],
-    ['research', 'gpt-5.6-terra', 'bounded-read-only'],
-    ['implementation', 'gpt-5.6-sol', 'bounded-implementation'],
-    ['test', 'gpt-5.6-sol', 'bounded-implementation'],
+  for (const [taskKind, model, cohort, profileId] of [
+    ['lookup', 'gpt-6-sol', 'bounded-read-only', 'bounded-read'],
+    ['research', 'gpt-6-sol', 'bounded-read-only', 'bounded-read'],
+    ['implementation', 'gpt-6-sol', 'bounded-implementation', 'bounded-build'],
+    ['test', 'gpt-6-sol', 'bounded-implementation', 'bounded-build'],
   ]) {
     const input = routeInput({ taskKind, impactRisk: 'low', predicateIds: mediumPredicateIds() });
     const legacy = selectAgentRoute(input);
     input.modelRequest = {
-      model,
-      cohort,
+      profileId,
       purpose: 'pilot',
       verificationFacts: modelVerification(input.pass2Evidence, cohort),
     };
@@ -70,9 +70,8 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
       ...patch,
     });
     input.modelRequest = {
-      model: 'gpt-5.6-terra',
+      profileId: 'bounded-read',
       purpose: 'pilot',
-      cohort: 'bounded-read-only',
       verificationFacts: modelVerification(input.pass2Evidence),
     };
     assert.equal(
@@ -98,9 +97,8 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
       predicateIds: mediumPredicateIds(),
     });
     input.modelRequest = {
-      model: 'gpt-5.6-terra',
+      profileId: 'bounded-read',
       purpose: 'routine',
-      cohort: 'bounded-read-only',
       verificationFacts: modelVerification(input.pass2Evidence),
     };
     mutate(input);
@@ -109,15 +107,39 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
 });
 
 test('model request is strict and cannot create children for deterministic work', () => {
+  for (const [model, cohort] of [
+    ['gpt-5.6-sol', 'bounded-implementation'],
+    ['gpt-5.6-terra', 'bounded-read-only'],
+    ['gpt-5.6-luna', 'bounded-extraction'],
+  ]) {
+    const keys =
+      cohort === 'bounded-implementation'
+        ? ['acceptance', 'regression', 'astraQa']
+        : cohort === 'bounded-read-only'
+          ? ['acceptance', 'independentCheck']
+          : ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'];
+    assert.throws(
+      () =>
+        normalizeModelRequest({
+          model,
+          cohort,
+          purpose: 'pilot',
+          verificationFacts: Object.fromEntries(keys.map((k) => [k, 'fact-original'])),
+        }),
+      TypeError,
+    );
+  }
   const input = routeInput({ predicateIds: mediumPredicateIds() });
   const request = {
-    model: 'gpt-5.6-sol',
+    profileId: 'bounded-build',
     purpose: 'pilot',
-    cohort: 'bounded-implementation',
     verificationFacts: modelVerification(input.pass2Evidence, 'bounded-implementation'),
   };
   for (const patch of [
     { model: 'unknown-model' },
+    ...['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6-sol'].map((model) => ({ model })),
+    { profileId: 'unknown-profile' },
+    { cohort: 'bounded-implementation' },
     { pilot: true },
     { purpose: 'adopt' },
     { verificationFacts: {} },
@@ -485,9 +507,8 @@ test('Luna extraction requires low-impact finite semantic work and never replace
     });
     const ids = input.pass2Evidence.facts.map(({ factId }) => factId);
     input.modelRequest = {
-      model: 'gpt-5.6-luna',
+      profileId: 'bounded-extract',
       purpose: 'routine',
-      cohort: 'bounded-extraction',
       verificationFacts: Object.fromEntries(
         ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'].map(
           (key, i) => [key, ids[i]],
@@ -497,9 +518,10 @@ test('Luna extraction requires low-impact finite semantic work and never replace
     return input;
   };
   const result = selectAgentRoute(make());
-  assert.equal(result.modelRecommendation.recommendedModel, 'gpt-5.6-luna');
+  assert.equal(result.modelRecommendation.recommendedModel, 'gpt-6-luna');
   assert.equal(result.role, 'knu_explorer');
   assert.equal(result.effort, 'medium');
+  assert.equal(result.modelRecommendation.profileBinding.resolvedEffort, 'high');
   for (const patch of [
     { impactRisk: 'medium' },
     { impactRisk: 'high' },
@@ -527,4 +549,20 @@ test('Luna extraction requires low-impact finite semantic work and never replace
   uncertain.pass2Evidence.gaps.push('incomplete input set');
   assert.equal(selectAgentRoute(uncertain).modelRecommendation.status, 'baseline');
   assert.equal(selectAgentRoute({ ...make(), childBenefit: false }).spawn, false);
+});
+
+test('researcher routine remains Astra even when the read profile is eligible for a pilot', () => {
+  const input = routeInput({
+    taskKind: 'research',
+    impactRisk: 'low',
+    predicateIds: mediumPredicateIds(),
+  });
+  input.modelRequest = {
+    profileId: 'bounded-read',
+    purpose: 'routine',
+    verificationFacts: modelVerification(input.pass2Evidence),
+  };
+  assert.equal(selectAgentRoute(input).modelRecommendation.status, 'baseline');
+  input.modelRequest.purpose = 'pilot';
+  assert.equal(selectAgentRoute(input).modelRecommendation.status, 'candidate');
 });

@@ -38,7 +38,7 @@ const textExtensions = new Set([
 test('fresh smoke consumes model advice without enabling models, pilots or usage claims', () => {
   const { modelEvidence, boundaries } = runFreshSessionSmoke();
   assert.equal(modelEvidence.fixtureOnly, true);
-  assert.equal(modelEvidence.candidate.recommendedModel, 'gpt-5.6-terra');
+  assert.equal(modelEvidence.candidate.recommendedModel, 'gpt-6-sol');
   assert.equal(modelEvidence.candidate.applied, false);
   assert.equal(modelEvidence.withoutAdmission.execution, 'leader-sequential');
   assert.equal(modelEvidence.pilot.execution, 'native-bounded-dispatch');

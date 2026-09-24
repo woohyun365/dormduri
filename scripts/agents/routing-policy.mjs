@@ -1,3 +1,8 @@
+import {
+  BASELINE_CHILD_MODEL,
+  getModelProfile,
+  createModelProfileBinding,
+} from './model-profiles.mjs';
 import { createHash } from 'node:crypto';
 
 const TASK_ROLES = new Map([
@@ -234,28 +239,10 @@ export function selectAgentRoute(input = {}) {
 export function normalizeModelRequest(value) {
   if (value === undefined) return undefined;
   assertRecord(value, 'modelRequest');
-  assertOnlyFields(
-    value,
-    new Set(['model', 'purpose', 'cohort', 'verificationFacts']),
-    'modelRequest',
-  );
-  assertEnum(
-    value.model,
-    new Set(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']),
-    'requested model',
-  );
+  assertOnlyFields(value, new Set(['profileId', 'purpose', 'verificationFacts']), 'modelRequest');
+  const profile = getModelProfile(value.profileId);
   assertEnum(value.purpose, new Set(['pilot', 'routine']), 'model purpose');
-  assertEnum(
-    value.cohort,
-    new Set(['bounded-read-only', 'bounded-implementation', 'bounded-extraction']),
-    'model cohort',
-  );
-  const keys =
-    value.cohort === 'bounded-extraction'
-      ? ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck']
-      : value.cohort === 'bounded-read-only'
-        ? ['acceptance', 'independentCheck']
-        : ['acceptance', 'regression', 'astraQa'];
+  const keys = profile.verificationKeys;
   assertRecord(value.verificationFacts, 'model verificationFacts');
   assertOnlyFields(value.verificationFacts, new Set(keys), 'model verificationFacts');
   const verificationFacts = Object.fromEntries(
@@ -264,20 +251,19 @@ export function normalizeModelRequest(value) {
       return [key, value.verificationFacts[key]];
     }),
   );
-  return { model: value.model, purpose: value.purpose, cohort: value.cohort, verificationFacts };
+  return { profileId: value.profileId, purpose: value.purpose, verificationFacts };
 }
 
 export function recommendModel({ modelRequest, taskKind, impactRisk, assessment }) {
   const request = normalizeModelRequest(modelRequest);
   if (!TASK_ROLES.has(taskKind)) throw new TypeError('Unknown model task kind.');
+  const profile = getModelProfile(request.profileId);
+  const role = TASK_ROLES.get(taskKind);
   const cohortMatches =
-    request.cohort === 'bounded-extraction'
-      ? request.model === 'gpt-5.6-luna' &&
-        ['lookup', 'analysis'].includes(taskKind) &&
-        impactRisk === 'low'
-      : request.cohort === 'bounded-read-only'
-        ? request.model === 'gpt-5.6-terra' && ['lookup', 'analysis', 'research'].includes(taskKind)
-        : request.model === 'gpt-5.6-sol' && ['implementation', 'test'].includes(taskKind);
+    profile.taskKinds.includes(taskKind) &&
+    profile.roles.includes(role) &&
+    profile.impactRisks.includes(impactRisk) &&
+    (request.purpose === 'pilot' || profile.routineRoles.includes(role));
   const bounded =
     assessment.mediumEligibility === true &&
     assessment.reasoningComplexity === 'bounded' &&
@@ -296,7 +282,8 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
     request,
     taskKind,
     role: TASK_ROLES.get(taskKind),
-    recommendedModel: eligible ? request.model : 'gpt-6-astra',
+    profileBinding: createModelProfileBinding(profile),
+    recommendedModel: eligible ? profile.model : BASELINE_CHILD_MODEL,
     status: eligible ? 'candidate' : 'baseline',
     reason: eligible ? 'bounded-quality-evidence-candidate-only' : 'baseline-risk-or-quality-gate',
     applied: false,

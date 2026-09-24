@@ -46,7 +46,7 @@ expectedOutputFields[] / verification[]
 stopCondition / handoffCondition
 benefit: kind / rationale / value / evidenceIds
 pass2Evidence: sources / facts / predicateClaims / inferences / gaps / confidence
-modelRequest?: model / purpose / cohort / verificationFacts
+modelRequest?: profileId / purpose / verificationFacts
 ```
 
 `scripts/agents/child-task-contract.mjs`는 candidate를 다음 typed handoff로 정규화합니다.
@@ -67,13 +67,12 @@ leader-only final decision, response, integration, verification
 선택형 `modelRequest`는 기존 lane 또는 `selectAgentRoute()` 입력에서 같은 strict schema를 사용합니다.
 
 ```text
-model: gpt-6-astra | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna
+profileId: bounded-build | bounded-read | bounded-extract
 purpose: pilot | routine
-cohort: bounded-read-only | bounded-implementation | bounded-extraction
 verificationFacts:
-  bounded-read-only: acceptance / independentCheck
-  bounded-implementation: acceptance / regression / astraQa
-  bounded-extraction: acceptance / fixedInput / outputSchema / singleStep / independentCheck
+  bounded-read: acceptance / independentCheck
+  bounded-build: acceptance / regression / astraQa
+  bounded-extract: acceptance / fixedInput / outputSchema / singleStep / independentCheck
 ```
 
 각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인,
@@ -82,20 +81,26 @@ verificationFacts:
 
 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
-Sol은 구현/test, Terra는 lookup/analysis/research, Luna는 low-impact lookup/analysis의 고정 입력·단일 semantic extraction만
-후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
+GPT-6 Sol은 bounded-build의 구현/test 또는 bounded-read의 lookup/analysis 후보입니다. Researcher는 bounded-read pilot만
+가능하며 routine은 Astra입니다. GPT-6 Luna는 bounded-extract의 low-impact lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
 입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](../orchestration.md#quality-gated-model-advice)을
 충족하면 `routeRecommendation.modelRecommendation`에 request/taskKind/role, recommendedModel, candidate/baseline,
-reason, `applied=false`를 붙입니다. 부적합 cohort·위험·품질 gap은 Astra baseline이며 기존 effort는 바꾸지 않습니다.
-새 모델/unknown field/불완전 verification schema는 거부합니다.
+reason, `applied=false`, `profileBinding`을 붙입니다. 부적합 task·위험·품질 gap은 Astra baseline입니다.
+
+중앙 owner는 `scripts/agents/model-profiles.mjs`입니다. `profileBinding`은 profileId/policyRevision/profileDigest/model/
+resolvedEffort/cohort이며, digest는 role/task/risk/검증 fact/tool 범위를 포함한 전체 profile data의 canonical hash입니다.
+`routeRecommendation.effort`는 기존 semantic 위험 판정(Medium gate)을 유지하고, 실제 후보 호출에는 `resolvedEffort`를
+사용합니다. Sol 두 프로필은 medium, Luna extraction은 high입니다. Context 상속·runtime·admission·native descriptor·
+사후 검증은 같은 resolved effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 GPT-5.6을 요청하는 구형 schema,
+unknown profile/field/불완전 verification schema는 거부합니다. Astra default는 modelRequest 생략으로 유지합니다.
 
 Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`를 함께 전달합니다. Digest는 source digest에
-연결된 semantic facts, 목적·role/effort/cohort, read/tool/write 범위, output/verification/stop/handoff, context delivery를 포함한
+연결된 semantic facts, 전체 profileBinding, 목적·role/effort/cohort, read/tool/write 범위, output/verification/stop/handoff, context delivery를 포함한
 전체 contract의 정확한 JSON 표현에 연결됩니다. Field 순서까지 달라진 재직렬화는 재생성/재승인이 필요할 수 있습니다.
 Hash는 무결성 대조값이지 source freshness·권한 증명은 아닙니다. 실제 파일/config 재확인은 Parent 책임입니다.
 
-이 packet은 candidate 제안이지 pilot 허용서/운영 profile이 아닙니다. [별도 model admission](./orchestration-recovery.md#model-admission)이
+이 packet은 candidate 제안이지 pilot 허용서/운영 채택 GO가 아닙니다. [별도 model admission](./orchestration-recovery.md#model-admission)이
 없거나 불일치하면 dispatch는 Parent로 돌아갑니다. Candidate는 compatible한 fresh scoped context만 지원하며 full-history/reuse의
 모델 변경을 추측하지 않습니다. Context gate와 runtime/model gate는 독립이며 하나의 성공이 다른 쪽을 생략하지 않습니다.
 
