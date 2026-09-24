@@ -1,5 +1,7 @@
+import { assertCurrentRecoveryBinding, resolveRouteEffort } from './model-profiles.mjs';
 import { assertValidTaskEnvelope } from './intake-policy.mjs';
-import { selectAgentRoute } from './routing-policy.mjs';
+import { createHash } from 'node:crypto';
+import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const PROACTIVE_NORMAL_LIMIT = 2;
@@ -27,6 +29,7 @@ const ALLOWED_TOOLS = new Set([
   'workspace-edit',
 ]);
 const LANE_FIELDS = new Set([
+  'modelRequest',
   'id',
   'domain',
   'taskKind',
@@ -54,6 +57,7 @@ export function recommendDelegation({
   contextPack,
   laneCandidates = [],
   ownerDirectedChildLimit = null,
+  deliveryByLane = {},
 } = {}) {
   assertValidTaskEnvelope(envelope);
   assertContextPack(contextPack, envelope.requestId);
@@ -66,6 +70,7 @@ export function recommendDelegation({
 
   const lanes = laneCandidates.map((lane) => normalizeLane(lane, envelope));
   assertUniqueLaneIds(lanes);
+  const deliveries = normalizeDeliveryRequests(deliveryByLane, lanes);
   const assessments = lanes.map((lane) => assessNormalizedLane(lane, lanes));
   const baseGate = delegationGate(envelope, contextPack);
 
@@ -96,6 +101,7 @@ export function recommendDelegation({
       pass2Evidence: assessment.lane.pass2Evidence,
       independent: assessment.independent,
       childBenefit: assessment.lane.benefit.value !== 'low',
+      ...(assessment.lane.modelRequest ? { modelRequest: assessment.lane.modelRequest } : {}),
     }),
   }));
   const eligible = routed
@@ -119,7 +125,22 @@ export function recommendDelegation({
   const selection = selectEligibleLanes(eligible, ownerDirectedChildLimit);
   const selected = selection.selected;
   const selectedIds = new Set(selected.map(({ lane }) => lane.id));
-  const recommendedChildren = selected.map(composeChildContract);
+  const recommendedChildren = selected.map((assessment) => {
+    const contract = composeChildContract(assessment);
+    const delivery = deliveries.get(assessment.lane.id);
+    if (delivery) {
+      contract.contextDelivery = composeContextDelivery(
+        contract,
+        delivery,
+        assessment.lane.taskKind,
+      );
+    }
+    if (contract.routeRecommendation.modelRecommendation) {
+      contract.modelTaskId = envelope.requestId;
+      contract.modelScopeDigest = createModelScopeDigest(contract);
+    }
+    return contract;
+  });
   const deferredLanes = routed
     .filter(({ lane }) => !selectedIds.has(lane.id))
     .map((assessment) =>
@@ -147,6 +168,57 @@ export function assessLaneIndependence({ lane, peerLanes = [], envelope } = {}) 
   const normalizedPeers = peerLanes.map((peer) => normalizeLane(peer, envelope));
   assertUniqueLaneIds([normalizedLane, ...normalizedPeers]);
   return deepFreeze(assessNormalizedLane(normalizedLane, [normalizedLane, ...normalizedPeers]));
+}
+
+// Fresh scoped rescue, preserving semantic risk and all original ownership constraints.
+// Invocation effort is bound separately; ordinary delivery low/inheritance stays unsupported.
+export function createRecoveryChildContract({ primaryContract, sourceSnapshot }) {
+  requireString(sourceSnapshot, 'recovery source snapshot', 300);
+  if (!primaryContract?.routeRecommendation?.modelRecommendation || !primaryContract.modelTaskId)
+    throw new TypeError('Recovery requires a model-bound primary contract.');
+  const contract = structuredClone(primaryContract);
+  delete contract.routeRecommendation.modelRecommendation;
+  if (
+    !contract.contextDelivery ||
+    contract.contextDelivery.mode !== 'scoped' ||
+    contract.contextDelivery.effortMode !== 'explicit'
+  )
+    throw new TypeError('Recovery requires fresh scoped explicit context.');
+  contract.contextDelivery.snapshot = sourceSnapshot;
+  contract.modelScopeDigest = createModelScopeDigest(contract);
+  return contract;
+}
+
+export function assertRecoveryChildContract(contract, recoveryBinding) {
+  const binding = assertCurrentRecoveryBinding(recoveryBinding);
+  const delivery = contract.contextDelivery;
+  if (
+    contract.routeRecommendation.modelRecommendation !== undefined ||
+    contract.routeRecommendation.role !== binding.rescue.role ||
+    contract.routeRecommendation.effort !== binding.rescue.semanticEffort ||
+    contract.routeRecommendation.impactRisk !== binding.rescue.impactRisk ||
+    contract.modelTaskId !== binding.rescue.taskId ||
+    contract.laneId !== binding.rescue.laneId ||
+    contract.modelScopeDigest !== binding.rescue.scopeDigest ||
+    createModelScopeDigest(contract) !== binding.rescue.scopeDigest ||
+    createModelScopeDigest({ boundary: contract.boundary, allowed: contract.allowed }) !==
+      binding.primary.ownershipDigest ||
+    !delivery ||
+    delivery.purpose !== 'task' ||
+    delivery.mode !== 'scoped' ||
+    delivery.effortMode !== 'explicit' ||
+    delivery.compatible !== true ||
+    delivery.applied !== false ||
+    delivery.gaps.length !== 0 ||
+    delivery.failures.length !== 0
+  )
+    throw new TypeError('Recovery contract/context must match its exact selection.');
+}
+
+// Binding for reported admission, not authentication or a live filesystem observation.
+export function createModelScopeDigest(contract) {
+  const { modelScopeDigest: _digest, ...scope } = contract;
+  return `sha256:${createHash('sha256').update(JSON.stringify(scope)).digest('hex')}`;
 }
 
 function assessNormalizedLane(lane, allLanes) {
@@ -243,6 +315,9 @@ function normalizeLane(lane, envelope) {
     ),
     benefit: normalizeBenefit(lane.benefit),
     pass2Evidence: lane.pass2Evidence,
+    ...(lane.modelRequest !== undefined
+      ? { modelRequest: normalizeModelRequest(lane.modelRequest) }
+      : {}),
   };
 }
 
@@ -284,6 +359,7 @@ function composeChildContract({ lane, route }) {
       gaps: route.gaps,
       confidence: route.confidence,
       runtimeApplication: route.runtimeApplication,
+      ...(route.modelRecommendation ? { modelRecommendation: route.modelRecommendation } : {}),
     },
     leaderOwnership: {
       finalDecision: true,
@@ -292,6 +368,243 @@ function composeChildContract({ lane, route }) {
       finalVerification: true,
     },
   };
+}
+
+function composeContextDelivery(contract, request, taskKind) {
+  const { purpose, runtime, previous, effortMode } = request;
+  const { role } = contract.routeRecommendation;
+  const effort = resolveRouteEffort(contract.routeRecommendation);
+  const gaps = [];
+  let mode = request.mode;
+  if (['review', 'verification'].includes(taskKind) && purpose === 'task') {
+    gaps.push('review-purpose-required');
+  }
+  if (purpose !== 'task' && role !== 'knu_reviewer') gaps.push('independent-review-role-required');
+  if (purpose === 'initial-review' && mode !== 'scoped') {
+    mode = 'scoped';
+    gaps.push('initial-review-requires-fresh-scoped-context');
+  }
+  if (purpose === 'review-delta' && mode === 'full-history') {
+    mode = 'scoped';
+    gaps.push('review-delta-requires-scoped-or-reused-context');
+  }
+  if (
+    mode === 'reuse' &&
+    (!previous ||
+      previous.laneId !== contract.laneId ||
+      previous.role !== role ||
+      previous.sameOutcome !== true ||
+      previous.scopeUnchanged !== true ||
+      previous.revalidatedForSnapshot !== request.snapshot ||
+      (purpose === 'review-delta' && previous.independentReview !== true))
+  ) {
+    mode = 'scoped';
+    gaps.push('reuse-context-incompatible');
+  }
+  if (mode === 'full-history' && !request.rationale) gaps.push('full-history-rationale-required');
+  if (!runtime || runtime.freshness !== 'current-turn') {
+    gaps.push('delivery-runtime-unverified');
+  } else {
+    const capability = {
+      scoped: 'scopedFork',
+      'full-history': 'fullHistoryFork',
+      reuse: 'followup',
+    }[mode];
+    if (runtime[capability] !== true)
+      gaps.push(`${mode === 'scoped' ? 'scoped-fork' : mode}-unsupported`);
+    if (effortMode === 'explicit') {
+      if (mode === 'reuse') gaps.push('reuse-effort-override-unsupported');
+      if (runtime.explicitEffort !== true) gaps.push('explicit-effort-unsupported');
+      if (mode === 'full-history' && runtime.fullHistoryWithExplicitEffort !== true) {
+        gaps.push('full-history-explicit-effort-unsupported');
+      }
+    } else if (runtime.effectiveEffort !== effort) {
+      gaps.push('inherited-effort-mismatch');
+    }
+  }
+
+  return {
+    schemaVersion: 1,
+    purpose,
+    requestedMode: request.mode,
+    mode,
+    effortMode,
+    rationale: request.rationale,
+    snapshot: request.snapshot,
+    instructionSources: [
+      'AGENTS.md',
+      'docs/development/agent-workflows/agent-execution-contract.md',
+    ],
+    evidencePointers: request.evidencePointers,
+    findings: request.findings,
+    failures: request.failures,
+    reuseTarget: mode === 'reuse' && gaps.length === 0 ? previous.childId : null,
+    compatible: gaps.length === 0,
+    // Pure advice cannot assert applied settings, ownership, or native permission.
+    applied: false,
+    authority: 'leader-reported-not-host-authenticated',
+    requiresLeaderRuntimeConfirmation: true,
+    requiresLifecycleConfirmation: mode === 'reuse',
+    gaps,
+  };
+}
+
+function normalizeDeliveryRequests(value, lanes) {
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype) {
+    throw new TypeError('deliveryByLane must be an object.');
+  }
+  const byId = new Map(lanes.map((lane) => [lane.id, lane]));
+  return new Map(
+    Object.entries(value).map(([id, request]) => {
+      const lane = byId.get(id);
+      if (!lane) throw new TypeError(`Unknown delivery lane: ${id}`);
+      requireDeliveryRecord(request, [
+        'purpose',
+        'mode',
+        'effortMode',
+        'rationale',
+        'snapshot',
+        'evidencePointers',
+        'findings',
+        'failures',
+        'previous',
+        'runtime',
+      ]);
+      const normalized = {
+        purpose: requireEnum(
+          request.purpose,
+          new Set(['task', 'initial-review', 'review-delta']),
+          'delivery purpose',
+        ),
+        mode: requireEnum(
+          request.mode,
+          new Set(['scoped', 'full-history', 'reuse']),
+          'delivery mode',
+        ),
+        effortMode: requireEnum(
+          request.effortMode,
+          new Set(['explicit', 'inherit']),
+          'delivery effortMode',
+        ),
+        rationale:
+          request.rationale === null
+            ? null
+            : requireString(request.rationale, 'delivery rationale', 300),
+        snapshot: requireString(request.snapshot, 'delivery snapshot', 300),
+        evidencePointers: normalizeScopeArray(
+          request.evidencePointers,
+          'delivery evidencePointers',
+        ),
+        findings: normalizeStringArray(request.findings, 'delivery findings', { allowEmpty: true }),
+        failures: normalizeStringArray(request.failures, 'delivery failures', { allowEmpty: true }),
+        previous: normalizePreviousContext(request.previous),
+        runtime: normalizeDeliveryRuntime(request.runtime),
+      };
+      for (const pointer of normalized.evidencePointers) {
+        if (!lane.readScope.some((scope) => deliveryPointerWithinScope(pointer, scope))) {
+          throw new TypeError('Delivery evidence cannot expand the lane readScope.');
+        }
+      }
+      return [id, normalized];
+    }),
+  );
+}
+
+function deliveryPointerWithinScope(pointer, scope) {
+  if (pointer.startsWith('https://') || scope.startsWith('https://')) {
+    if (!pointer.startsWith('https://') || !scope.startsWith('https://')) return false;
+    try {
+      const target = new URL(pointer);
+      const root = new URL(scope);
+      if (
+        target.origin !== root.origin ||
+        target.username ||
+        target.password ||
+        root.username ||
+        root.password
+      )
+        return false;
+      // WHATWG URL resolves literal/encoded dot segments. Reject encoded path
+      // separators rather than guessing a provider's additional decoding rules.
+      if (/%2f|%5c/iu.test(`${target.pathname}${root.pathname}`)) return false;
+      if (root.search || root.hash) return target.href === root.href;
+      pointer = target.pathname;
+      scope = root.pathname;
+    } catch {
+      return false;
+    }
+  }
+  return pointer === scope || pointer.startsWith(`${scope.replace(/\/$/u, '')}/`);
+}
+
+function normalizePreviousContext(value) {
+  if (value === null) return null;
+  requireDeliveryRecord(value, [
+    'childId',
+    'laneId',
+    'role',
+    'sourceSnapshot',
+    'revalidatedForSnapshot',
+    'sameOutcome',
+    'scopeUnchanged',
+    'independentReview',
+  ]);
+  const result = {};
+  for (const field of ['childId', 'laneId', 'role', 'sourceSnapshot', 'revalidatedForSnapshot']) {
+    result[field] = requireString(value[field], `delivery previous.${field}`, 300);
+    if (result[field] !== value[field]) throw new TypeError('Delivery context IDs must be exact.');
+  }
+  for (const field of ['sameOutcome', 'scopeUnchanged', 'independentReview']) {
+    if (typeof value[field] !== 'boolean')
+      throw new TypeError(`delivery previous.${field} must be boolean.`);
+    result[field] = value[field];
+  }
+  return result;
+}
+
+function normalizeDeliveryRuntime(value) {
+  if (value === null) return null;
+  const flags = [
+    'scopedFork',
+    'fullHistoryFork',
+    'followup',
+    'explicitEffort',
+    'fullHistoryWithExplicitEffort',
+  ];
+  requireDeliveryRecord(value, ['freshness', 'effectiveEffort', ...flags]);
+  const result = {
+    freshness: requireEnum(
+      value.freshness,
+      new Set(['current-turn', 'stale', 'unknown']),
+      'delivery freshness',
+    ),
+    effectiveEffort:
+      value.effectiveEffort === null
+        ? null
+        : requireEnum(
+            value.effectiveEffort,
+            new Set(['medium', 'high', 'xhigh']),
+            'delivery effectiveEffort',
+          ),
+  };
+  for (const field of flags) {
+    if (value[field] !== null && typeof value[field] !== 'boolean') {
+      throw new TypeError(`delivery runtime.${field} must be boolean or null.`);
+    }
+    result[field] = value[field];
+  }
+  return result;
+}
+
+function requireDeliveryRecord(value, fields) {
+  if (
+    !value ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    Object.keys(value).length !== fields.length ||
+    fields.some((field) => !Object.hasOwn(value, field))
+  ) {
+    throw new TypeError(`Delivery record must contain exactly: ${fields.join(', ')}.`);
+  }
 }
 
 function delegationGate(envelope, contextPack) {

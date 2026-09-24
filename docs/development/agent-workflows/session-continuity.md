@@ -46,6 +46,11 @@ checkpoint가 working tree나 최신 요청과 충돌하면 현재 판단 근거
 [도구 미노출과 restart/resume](../troubleshooting/tooling/agent-thread-limit-reached.md#도구-미노출과-restartresume)에 따라
 current schema·pending 작업·정확한 scope를 다시 확인합니다.
 
+저장된 child ID는 현재 소유·실행 권한 증거가 아닙니다. Cold-root 이후 lazy reload를 지원하는 구현은 있지만 실제 적용과
+재개 성공은 [Cold resume 경계](./subagent-lifecycle.md#cold-resume-경계)에 따라 재확인합니다. 목록에서 사라졌다고 영구 소실이나
+자동 복원으로 판단하지 않습니다. 선택적 shared server, 정상 exit/resume, archive/delete의 서로 다른 영향은
+[operator 절차](../troubleshooting/tooling/agent-thread-limit-reached.md#선택적-agents-운영과-정상-exitresume)가 소유하며 일반 resume 요청으로 서버 시작·전역 설정·history 정리를 실행하지 않습니다.
+
 ## Diagnostic contract
 
 기존 CLI 옵션, `schemaVersion: 1`, `resume.plan.{path,exists}`, `contextSnapshots: string[]`와 priority 출력은 유지합니다.

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { runFreshSessionSmoke } from '../agents/fresh-session-smoke.mjs';
 
 import { recommendDelegation } from '../agents/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
@@ -47,6 +48,48 @@ const planOutputFields = new Set([
   'mitigations',
   'finalAcceptance',
 ]);
+
+test('supplied incompatible context stops dispatch while preserving the complete handoff', () => {
+  const fixture = fixtureById('legal-analysis');
+  const options = {
+    repositoryEvidence: legalEvidence({ officialVerified: false }),
+    laneCandidates: legalLanes('analyze'),
+  };
+  const legacy = evaluateFixture(fixture, options);
+  const first = legacy.delegation.recommendedChildren[0];
+  const request = {
+    purpose: 'task',
+    mode: 'scoped',
+    effortMode: 'explicit',
+    rationale: null,
+    snapshot: 'integration-fixture-v1',
+    evidencePointers: [first.boundary.readScope[0]],
+    findings: ['Keep unverified official authority as a gap.'],
+    failures: ['Do not lose failed verification evidence.'],
+    previous: null,
+    runtime: null,
+  };
+  const flow = evaluateFixture(fixture, {
+    ...options,
+    deliveryByLane: { [first.laneId]: request },
+  });
+  const supplied = flow.delegation.recommendedChildren.find(
+    ({ laneId }) => laneId === first.laneId,
+  );
+  const { contextDelivery, ...unchanged } = supplied;
+  assert.deepEqual(unchanged, first);
+  assert.equal(contextDelivery.compatible, false);
+  assert.equal(contextDelivery.applied, false);
+  assert.deepEqual(contextDelivery.failures, request.failures);
+  assert.equal(flow.dispatch.execution, 'leader-sequential');
+  assert.deepEqual(flow.dispatch.dispatches, []);
+  assert.ok(flow.dispatch.gaps.includes(`runtime-context-incompatible:${first.laneId}`));
+  assert.equal(flow.dispatch.requiresLeaderRuntimeConfirmation, false);
+  assert.equal(flow.dispatch.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
+  assert.deepEqual(flow.delegation.limits, legacy.delegation.limits);
+  const later = recommendDelegation({ envelope: flow.envelope, contextPack: flow.contextPack });
+  assert.deepEqual(later.recommendedChildren, []);
+});
 
 test('Legal Analyze stays read-only while discovering repository surfaces and current-source gaps', () => {
   const fixture = fixtureById('legal-analysis');
@@ -243,9 +286,27 @@ test('the integrated intake path remains advisory and cannot write files or invo
   }
 });
 
+test('intake model path keeps source-bound advice, context and dispatch as separate gates', () => {
+  const { modelEvidence } = runFreshSessionSmoke();
+  const dispatch = modelEvidence.pilot.dispatches[0];
+  const contract = dispatch.contract;
+  assert.equal(contract.contextDelivery.compatible, true);
+  assert.equal(contract.contextDelivery.applied, false);
+  assert.equal(contract.routeRecommendation.runtimeApplication.applied, false);
+  assert.match(contract.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
+  assert.equal(dispatch.requiresLeaderRuntimeConfirmation, true);
+  assert.equal(modelEvidence.contextConflict.execution, 'leader-sequential');
+  assert.equal(modelEvidence.routineWithPilot.execution, 'leader-sequential');
+});
+
 function evaluateFixture(
   fixture,
-  { repositoryEvidence = [], laneCandidates = [], reportedRuntimeEvidence } = {},
+  {
+    repositoryEvidence = [],
+    laneCandidates = [],
+    reportedRuntimeEvidence,
+    deliveryByLane = {},
+  } = {},
 ) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request: fixture.request });
@@ -253,6 +314,7 @@ function evaluateFixture(
   const delegation = recommendDelegation({
     envelope,
     contextPack,
+    deliveryByLane,
     laneCandidates: laneCandidates.map((lane) => ({
       ...lane,
       pass2Evidence: semanticEvidence(
@@ -488,3 +550,15 @@ function completedChildResult(contract, { preserveCurrentSourceGap = false } = {
     blocker: null,
   };
 }
+
+test('fresh intake consumes Luna resolution, controlled failure and bounded Astra recovery', () => {
+  const { modelEvidence, boundaries } = runFreshSessionSmoke();
+  const activation = modelEvidence.activation;
+  assert.equal(activation.dispatch.dispatches[0].spawnArguments.model, 'gpt-6-luna');
+  assert.equal(activation.dispatch.dispatches[0].effectiveModel, null);
+  assert.equal(activation.post.accepted, false);
+  assert.equal(activation.completedRecovery.status, 'complete');
+  assert.equal(activation.post.usageReference, null);
+  assert.equal(activation.recovery.nextModel, 'gpt-6-astra');
+  assert.equal(boundaries.invokesChild, false);
+});

@@ -1,6 +1,18 @@
+import {
+  BASELINE_CHILD_MODEL,
+  getModelProfile,
+  assertCurrentModelProfileBinding,
+  resolveRouteEffort,
+  createRecoveryBinding,
+  assertCurrentRecoveryBinding,
+} from './model-profiles.mjs';
+import { isDeepStrictEqual } from 'node:util';
+import { assertRecoveryChildContract, createModelScopeDigest } from './child-task-contract.mjs';
+import { recommendModel } from './routing-policy.mjs';
+
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
-const REPOSITORY_CHILD_MODEL = 'gpt-6-astra';
+const REPOSITORY_CHILD_MODEL = BASELINE_CHILD_MODEL;
 const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
 const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
@@ -23,6 +35,8 @@ const RUNTIME_ROLE_FIELDS = new Set([
   'effectiveModel',
   'effectiveEffort',
   'explicitEffortSupport',
+  'modelSelection',
+  'configurationResolution',
 ]);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
@@ -60,8 +74,12 @@ const FAILURE_CATEGORIES = new Set([
   'credential-required',
   'external-production',
   'unknown',
+  'quota-exhausted',
+  'capacity-denied',
 ]);
 const NON_RETRYABLE_FAILURES = new Set([
+  'quota-exhausted',
+  'capacity-denied',
   'role-routing-unavailable',
   'scope-conflict',
   'missing-authority',
@@ -84,8 +102,19 @@ export function createDispatchRecommendation({
   delegation,
   reportedRuntimeEvidence = null,
   concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT,
+  modelUseByLane = {},
+  recoveryDecision,
 } = {}) {
+  if (recoveryDecision !== undefined)
+    return createRecoveryDispatch({
+      delegation,
+      reportedRuntimeEvidence,
+      concurrencyLimit,
+      modelUseByLane,
+      recoveryDecision,
+    });
   assertDelegationRecommendation(delegation);
+  validateModelUses(modelUseByLane, delegation.recommendedChildren);
   const runtime = normalizeReportedRuntimeEvidence(reportedRuntimeEvidence);
   validateConcurrencyLimit(concurrencyLimit);
 
@@ -115,9 +144,14 @@ export function createDispatchRecommendation({
     });
   }
 
-  const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
-  const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
-  const compatibility = assessRuntimeCompatibility(runtime, selected);
+  // The role-keyed roster cannot resolve concurrent same-role/different-model lanes.
+  const hasCandidate = delegation.recommendedChildren.some(
+    (contract) => contract.routeRecommendation.modelRecommendation?.status === 'candidate',
+  );
+  const batchLimit = hasCandidate ? 1 : concurrencyLimit;
+  const selected = delegation.recommendedChildren.slice(0, batchLimit);
+  const deferred = delegation.recommendedChildren.slice(batchLimit);
+  const compatibility = assessRuntimeCompatibility(runtime, selected, modelUseByLane);
   if (!compatibility.compatible) {
     return dispatchRecommendation({
       delegation,
@@ -144,6 +178,41 @@ export function createDispatchRecommendation({
       dispatchOwner: 'leader',
       runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
       requiresLeaderRuntimeConfirmation: true,
+      ...(usesOrdinaryScopedArguments(runtime, contract)
+        ? {
+            spawnArguments: {
+              agent_type: contract.routeRecommendation.role,
+              model: REPOSITORY_CHILD_MODEL,
+              reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
+              fork_turns: 'none',
+            },
+            runtimeAction: false,
+          }
+        : {}),
+      ...(contract.routeRecommendation.modelRecommendation
+        ? {
+            requestedModel: contract.routeRecommendation.modelRecommendation.profileBinding.model,
+            recommendedModel: contract.routeRecommendation.modelRecommendation.recommendedModel,
+            modelPurpose: contract.routeRecommendation.modelRecommendation.request.purpose,
+            resolvedModel:
+              reportedRole.configurationResolution?.model ?? reportedRole.effectiveModel,
+            resolvedEffort:
+              reportedRole.configurationResolution?.effort ?? reportedRole.effectiveEffort,
+            ...(contract.routeRecommendation.modelRecommendation.status === 'candidate' &&
+            reportedRole.configurationResolution
+              ? {
+                  spawnArguments: {
+                    agent_type: contract.routeRecommendation.role,
+                    model: contract.routeRecommendation.modelRecommendation.recommendedModel,
+                    reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
+                    fork_turns: 'none',
+                  },
+                  configurationResolution: reportedRole.configurationResolution,
+                }
+              : {}),
+            runtimeAction: false,
+          }
+        : {}),
     };
   });
 
@@ -157,12 +226,493 @@ export function createDispatchRecommendation({
     concurrencyLimit,
     gaps:
       deferred.length > 0
-        ? [`runtime-concurrency-limit: ${deferred.length} lane(s) deferred.`]
+        ? [
+            `${hasCandidate ? 'model-sequential-rollout' : 'runtime-concurrency-limit'}: ${deferred.length} lane(s) deferred.`,
+          ]
         : [],
   });
 }
 
-export function evaluateRecovery({ laneId, attempts = [] } = {}) {
+// Reports are caller-supplied evidence, never authenticated execution or authority.
+export function evaluateModelExecution({ dispatch, expectedChildId, reportedExecution } = {}) {
+  if (dispatch?.kind === 'model-recovery')
+    return evaluateRecoveryExecution({ dispatch, expectedChildId, reportedExecution });
+  const gaps = [];
+  let observation = null;
+  try {
+    requireString(expectedChildId, 'returned child identity', 160);
+    const contract = dispatch.contract;
+    assertSemanticRouteRecommendation(contract.routeRecommendation);
+    assertCurrentModelRecommendation(contract);
+    gaps.push(...assessModelContractBoundary(contract));
+    normalizeConfigurationResolution(dispatch.configurationResolution);
+    if (
+      dispatch.runtimeAction !== false ||
+      contract.routeRecommendation.modelRecommendation.status !== 'candidate' ||
+      dispatch.resolvedModel !==
+        contract.routeRecommendation.modelRecommendation.recommendedModel ||
+      dispatch.resolvedEffort !== resolveRouteEffort(contract.routeRecommendation) ||
+      contract.modelScopeDigest !== createModelScopeDigest(contract) ||
+      !isDeepStrictEqual(dispatch.spawnArguments, {
+        agent_type: contract.routeRecommendation.role,
+        model: contract.routeRecommendation.modelRecommendation.recommendedModel,
+        reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
+        fork_turns: 'none',
+      }) ||
+      dispatch.resolvedModel !== dispatch.configurationResolution.model ||
+      dispatch.resolvedEffort !== dispatch.configurationResolution.effort
+    )
+      gaps.push('model-dispatch-resolution-invalid');
+    requireExactRecord(
+      reportedExecution,
+      [
+        'childId',
+        'profileBinding',
+        'taskId',
+        'scopeDigest',
+        'provenance',
+        'accepted',
+        'executed',
+        'resultReference',
+        'independentCheck',
+        'hostMetadata',
+        'usageReference',
+      ],
+      'model execution',
+    );
+    observation = reportedExecution;
+    const profileBinding = assertCurrentModelProfileBinding(observation.profileBinding);
+    if (
+      !isDeepStrictEqual(
+        profileBinding,
+        contract.routeRecommendation.modelRecommendation.profileBinding,
+      ) ||
+      !isDeepStrictEqual(profileBinding, dispatch.configurationResolution.profileBinding)
+    )
+      gaps.push('model-execution-profile-mismatch');
+    if (
+      observation.childId !== expectedChildId ||
+      observation.taskId !== contract.modelTaskId ||
+      observation.scopeDigest !== contract.modelScopeDigest
+    )
+      gaps.push('model-execution-identity-mismatch');
+    if (
+      observation.provenance !== 'native-tool-result' ||
+      observation.accepted !== true ||
+      observation.executed !== true
+    )
+      gaps.push('model-execution-unverified');
+    requireString(observation.resultReference, 'native result reference', 300);
+    requireExactRecord(observation.independentCheck, ['status', 'reference'], 'independent check');
+    requireString(observation.independentCheck.reference, 'independent check reference', 300);
+    if (observation.independentCheck.status !== 'passed')
+      gaps.push('model-independent-quality-not-passed');
+    if (observation.hostMetadata !== null) {
+      requireExactRecord(observation.hostMetadata, ['model', 'effort'], 'host model metadata');
+      if (
+        observation.hostMetadata.model !== dispatch.resolvedModel ||
+        observation.hostMetadata.effort !== dispatch.resolvedEffort
+      )
+        gaps.push('model-host-metadata-mismatch');
+    }
+    if (observation.usageReference !== null)
+      requireString(observation.usageReference, 'usage reference', 300);
+  } catch {
+    gaps.push('model-execution-evidence-invalid');
+  }
+  return deepFreeze({
+    accepted: gaps.length === 0,
+    evidenceKind: gaps.length
+      ? 'unverified'
+      : observation.hostMetadata
+        ? 'host-reported-model'
+        : 'runtime-contract-resolved',
+    providerAttested: false,
+    usageReference: gaps.length ? null : observation.usageReference,
+    authority: 'leader-reported-not-host-authenticated',
+    requiresLeaderRuntimeConfirmation: true,
+    runtimeAction: false,
+    gaps,
+  });
+}
+
+// Separate from reported role evidence. Every observation remains leader-reported;
+// this evaluator neither authenticates the host nor performs a lifecycle action.
+export function createLifecycleRecommendation(input) {
+  validateLifecycleEvidence(input);
+  const { intent, observation, target, capabilities, result, retention, close, release } = input;
+  const closeObserved = close.status !== 'not-attempted' || target.state === 'closed';
+  let resultDisposition = 'unverified';
+  let cleanupDisposition = 'unknown';
+  let releaseDisposition = 'release-unverified';
+  const decide = (recommendation, reason, closeDisposition) =>
+    deepFreeze({
+      schemaVersion: 1,
+      intent,
+      target: { parentId: target.parentId, childId: target.childId, taskId: target.taskId },
+      recommendation,
+      reason,
+      gaps: [
+        'close-eligible',
+        'continue',
+        'retained-for-followup',
+        'status-only',
+        'no-explicit-close-required',
+      ].includes(reason)
+        ? []
+        : [reason],
+      resultDisposition,
+      cleanupDisposition,
+      closeDisposition: closeDisposition ?? (closeObserved ? 'close-unverified' : 'not-attempted'),
+      releaseDisposition,
+      authority: 'leader-reported-not-host-authenticated',
+      requiresLeaderRuntimeConfirmation: true,
+    });
+
+  if (
+    observation.scope === 'unknown' ||
+    observation.freshness !== 'current-turn' ||
+    observation.provenance !== 'native-tools'
+  )
+    return decide('unsupported', 'observation-unverified');
+  if (
+    !target.parentId ||
+    !target.childId ||
+    !target.taskId ||
+    target.ownerParentId !== target.parentId ||
+    target.isRoot !== false ||
+    target.childId === target.parentId ||
+    target.observedTaskId !== target.taskId
+  )
+    return decide('unsupported', 'target-unverified');
+  if (observation.actionPermission !== 'allowed') {
+    return decide('unsupported', 'action-not-authorized');
+  }
+
+  const sameTarget = (event) => event.childId === target.childId && event.taskId === target.taskId;
+  if (
+    (close.status !== 'not-attempted' && !sameTarget(close)) ||
+    (release.status === 'confirmed' && !sameTarget(release))
+  )
+    return decide('unsupported', 'lifecycle-observation-mismatch');
+
+  // Collection of this task's final result does not prove a quiescent child.
+  resultDisposition =
+    result.collected === true && result.delivery === 'final' && result.taskId === target.taskId
+      ? 'collected'
+      : 'uncollected';
+  if (target.pendingTasks !== 0 || target.pendingTools !== 0 || target.pendingMailbox !== 0)
+    return decide('wait', 'pending-work');
+  if (['running', 'waiting', 'unknown'].includes(target.state)) {
+    return decide('wait', 'work-not-terminal');
+  }
+  if (resultDisposition !== 'collected') {
+    return decide('retain', 'result-uncollected');
+  }
+
+  // An applicable contract is reported by the Parent, never inferred from a tool
+  // name, local feature flag, source tag, or the absence of close alone.
+  const runtimeManaged =
+    input.lifecycleContract?.cleanup === 'runtime-managed' &&
+    input.lifecycleContract.verification === 'current-host';
+  if (runtimeManaged && capabilities.close !== false)
+    return decide('unsupported', 'lifecycle-contract-conflict');
+
+  // Resource release has its own correlated observation, even without close.
+  releaseDisposition = release.status === 'confirmed' ? 'release-confirmed' : 'release-unverified';
+  // A final task result is not proof of close. A successful close report also
+  // needs the correlated fresh closed post-state.
+  if (close.status === 'succeeded' && target.state === 'closed' && capabilities.close === true) {
+    cleanupDisposition = 'satisfied';
+    return decide('none', 'status-only', 'closed-confirmed');
+  }
+  if (close.status === 'failed') return decide('retain', 'close-failed', 'cleanup-failed');
+  if (closeObserved) {
+    return decide('retain', 'close-outcome-unverified', 'close-unverified');
+  }
+  if (intent === 'status') return decide('none', 'status-only');
+  if (intent === 'continue') {
+    if (release.status === 'confirmed')
+      return decide('retain', 'released-target-requires-confirmation');
+    return capabilities.startTurn === true
+      ? decide('continue', 'continue')
+      : decide('unsupported', 'start-turn-unsupported');
+  }
+  if (retention !== null) return decide('retain', 'retained-for-followup');
+  if (runtimeManaged) {
+    if (target.state !== 'completed') return decide('wait', 'work-not-terminal');
+    cleanupDisposition = 'not-required';
+    return decide('none', 'no-explicit-close-required');
+  }
+  if (capabilities.close !== true)
+    return decide('unsupported', 'close-unsupported', 'cleanup-unavailable');
+  if (target.state !== 'completed') return decide('wait', 'work-not-terminal');
+  cleanupDisposition = 'required';
+  if (release.status === 'confirmed')
+    return decide('retain', 'released-target-requires-confirmation');
+  return decide('close-eligible', 'close-eligible');
+}
+
+function validateLifecycleEvidence(value) {
+  requireLifecycleRecord(
+    value,
+    [
+      'schemaVersion',
+      'intent',
+      'observation',
+      'target',
+      'capabilities',
+      'result',
+      'retention',
+      'close',
+      'release',
+    ],
+    'input',
+    ['lifecycleContract'],
+  );
+  if (value.schemaVersion !== 1) throw new TypeError('Unsupported lifecycle schemaVersion.');
+  requireEnum(value.intent, new Set(['cleanup', 'continue', 'status']), 'lifecycle intent');
+  requireLifecycleRecord(
+    value.observation,
+    ['scope', 'freshness', 'provenance', 'actionPermission'],
+    'observation',
+  );
+  requireLifecycleRecord(
+    value.target,
+    [
+      'parentId',
+      'childId',
+      'ownerParentId',
+      'taskId',
+      'observedTaskId',
+      'isRoot',
+      'state',
+      'pendingTasks',
+      'pendingTools',
+    ],
+    'target',
+    ['pendingMailbox'],
+  );
+  requireLifecycleRecord(value.capabilities, ['close', 'startTurn'], 'capabilities');
+  requireLifecycleRecord(value.result, ['taskId', 'collected', 'delivery'], 'result');
+  requireLifecycleRecord(value.close, ['status', 'childId', 'taskId'], 'close');
+  requireLifecycleRecord(value.release, ['status', 'childId', 'taskId'], 'release');
+
+  for (const [field, choices] of Object.entries({
+    scope: ['current-turn', 'current-session', 'unknown'],
+    freshness: ['current-turn', 'stale', 'unknown'],
+    provenance: ['native-tools', 'unknown'],
+    actionPermission: ['allowed', 'denied', 'unknown'],
+  }))
+    requireEnum(value.observation[field], new Set(choices), `lifecycle observation.${field}`);
+  for (const [field, entry, choices] of [
+    [
+      'target.state',
+      value.target.state,
+      ['running', 'waiting', 'idle', 'completed', 'closed', 'unknown'],
+    ],
+    ['result.delivery', value.result.delivery, ['final', 'queued', 'timeout', 'unknown']],
+    ['close.status', value.close.status, ['not-attempted', 'succeeded', 'failed', 'unknown']],
+    ['release.status', value.release.status, ['unknown', 'confirmed']],
+  ])
+    requireEnum(entry, new Set(choices), `lifecycle ${field}`);
+
+  for (const [field, entry] of [
+    ['parentId', value.target.parentId],
+    ['childId', value.target.childId],
+    ['ownerParentId', value.target.ownerParentId],
+    ['taskId', value.target.taskId],
+    ['observedTaskId', value.target.observedTaskId],
+    ['result.taskId', value.result.taskId],
+    ['close.childId', value.close.childId],
+    ['close.taskId', value.close.taskId],
+    ['release.childId', value.release.childId],
+    ['release.taskId', value.release.taskId],
+  ]) {
+    if (entry === null) continue;
+    // Native IDs may be UUIDs or paths; do not coerce/trim them into a match.
+    if (requireString(entry, `lifecycle ${field}`, 256) !== entry) {
+      throw new TypeError(`lifecycle ${field} must be an exact identifier.`);
+    }
+  }
+  for (const [field, entry] of [
+    ['isRoot', value.target.isRoot],
+    ['close', value.capabilities.close],
+    ['startTurn', value.capabilities.startTurn],
+    ['collected', value.result.collected],
+  ])
+    if (entry !== null) requireBoolean(entry, `lifecycle ${field}`);
+  for (const field of ['pendingTasks', 'pendingTools', 'pendingMailbox']) {
+    if (field === 'pendingMailbox' && !Object.hasOwn(value.target, field)) continue;
+    if (value.target[field] !== null) {
+      requireBoundedInteger(value.target[field], `lifecycle ${field}`, 0, Number.MAX_SAFE_INTEGER);
+    }
+  }
+  if (Object.hasOwn(value, 'lifecycleContract') && value.lifecycleContract !== null) {
+    const contract = value.lifecycleContract;
+    requireLifecycleRecord(contract, ['cleanup', 'verification', 'reference'], 'lifecycleContract');
+    requireEnum(
+      contract.cleanup,
+      new Set(['explicit-close', 'runtime-managed', 'unknown']),
+      'lifecycle contract.cleanup',
+    );
+    requireEnum(
+      contract.verification,
+      new Set(['current-host', 'unverified']),
+      'lifecycle contract.verification',
+    );
+    if (contract.reference !== null || contract.verification === 'current-host') {
+      requireString(contract.reference, 'lifecycle contract.reference', 500);
+    }
+  }
+  if (value.retention !== null) {
+    requireLifecycleRecord(value.retention, ['reason', 'revisit'], 'retention');
+    requireString(value.retention.reason, 'lifecycle retention.reason', 500);
+    requireString(value.retention.revisit, 'lifecycle retention.revisit', 500);
+  }
+}
+
+function requireLifecycleRecord(value, fields, name, optionalFields = []) {
+  requireExactRecord(value, fields, `lifecycle ${name}`, optionalFields);
+}
+
+function requireExactRecord(value, fields, name, optionalFields = []) {
+  if (
+    !value ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    Object.keys(value).some(
+      (field) => !fields.includes(field) && !optionalFields.includes(field),
+    ) ||
+    fields.some((field) => !Object.hasOwn(value, field))
+  ) {
+    throw new TypeError(
+      `${name} must contain exactly: ${fields.join(', ')}; optional: ${optionalFields.join(', ')}.`,
+    );
+  }
+}
+
+export function evaluateRecovery({ laneId, attempts = [], modelRecovery } = {}) {
+  const result = evaluateAttemptRecovery({ laneId, attempts });
+  if (modelRecovery === undefined) {
+    if (
+      attempts.some(
+        (attempt) =>
+          Object.hasOwn(attempt, 'model') || attempt.recoveryBinding || attempt.effort === 'low',
+      )
+    )
+      throw new TypeError('Explicit model recovery requires a current profile binding.');
+    return result;
+  }
+  requireExactRecord(modelRecovery, ['profileBinding', 'pendingWriter'], 'model recovery', [
+    'request',
+  ]);
+  const binding = assertCurrentModelProfileBinding(modelRecovery.profileBinding);
+  if (
+    modelRecovery.request === undefined &&
+    attempts.some((a) => a.recoveryBinding || a.effort === 'low')
+  )
+    throw new TypeError('Bound invocation recovery requires its original selection request.');
+  requireEnum(
+    modelRecovery.pendingWriter,
+    new Set(['cleared', 'pending', 'unknown']),
+    'pending writer',
+  );
+  for (const [index, attempt] of attempts.entries()) {
+    if (attempt.model !== (index === 0 ? binding.model : REPOSITORY_CHILD_MODEL))
+      throw new TypeError('Model recovery requires the exact primary model then Astra only.');
+  }
+  if (attempts.length > 1 && NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory))
+    throw new TypeError('Model recovery cannot retry a non-retryable failure.');
+  const waiting = result.action === 'alternate-once' && modelRecovery.pendingWriter !== 'cleared';
+  let recoveryBinding;
+  if (
+    modelRecovery.request !== undefined &&
+    attempts[0]?.outcome === 'failure' &&
+    !NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory) &&
+    modelRecovery.pendingWriter === 'cleared'
+  ) {
+    const request = modelRecovery.request;
+    requireExactRecord(
+      request,
+      [
+        'primaryContract',
+        'rescueContract',
+        'sourceDigest',
+        'configDigest',
+        'attemptId',
+        'assessment',
+      ],
+      'recovery request',
+    );
+    const { primaryContract: primary, rescueContract: rescue } = request;
+    assertCurrentModelRecommendation(primary);
+    assertSemanticRouteRecommendation(rescue.routeRecommendation);
+    if (
+      !isDeepStrictEqual(primary.routeRecommendation.modelRecommendation.profileBinding, binding) ||
+      primary.laneId !== laneId ||
+      rescue.laneId !== laneId ||
+      primary.routeRecommendation.role !== rescue.routeRecommendation.role ||
+      !isDeepStrictEqual(primary.boundary, rescue.boundary) ||
+      !isDeepStrictEqual(primary.allowed, rescue.allowed)
+    )
+      throw new TypeError('Recovery cannot expand or change the authorized owner/role boundary.');
+    const first = attempts[0];
+    if (
+      !first.executed ||
+      first.effort !== binding.resolvedEffort ||
+      first.identity?.taskId !== primary.modelTaskId ||
+      first.identity.scopeDigest !== primary.modelScopeDigest ||
+      primary.modelScopeDigest !== createModelScopeDigest(primary)
+    )
+      throw new TypeError('Recovery requires an executed, exact failed primary identity.');
+    recoveryBinding = createRecoveryBinding({
+      primary: {
+        profileBinding: binding,
+        failureCategory: first.failureCategory,
+        attemptId: first.approachId,
+        laneId,
+        ...first.identity,
+        ownershipDigest: createModelScopeDigest({
+          boundary: primary.boundary,
+          allowed: primary.allowed,
+        }),
+      },
+      rescue: {
+        attemptId: request.attemptId,
+        taskId: rescue.modelTaskId,
+        laneId,
+        sourceDigest: request.sourceDigest,
+        configDigest: request.configDigest,
+        scopeDigest: createModelScopeDigest(rescue),
+        role: rescue.routeRecommendation.role,
+        semanticEffort: rescue.routeRecommendation.effort,
+        impactRisk: rescue.routeRecommendation.impactRisk,
+      },
+      assessment: request.assessment,
+    });
+    assertRecoveryChildContract(rescue, recoveryBinding);
+    assertRecoveryAttempts(attempts, recoveryBinding);
+  }
+  if (!recoveryBinding && attempts.some((a) => a.recoveryBinding || a.effort === 'low'))
+    throw new TypeError('An attributed alternate requires cleared current recovery selection.');
+  return deepFreeze({
+    ...result,
+    ...(recoveryBinding ? { recoveryBinding } : {}),
+    ...(waiting
+      ? {
+          status: 'handoff-required',
+          action: 'terminal-handoff',
+          remainingAlternateAttempts: 0,
+          blocker: 'model-pending-writer-not-cleared',
+          disposition: 'blocker-handoff',
+        }
+      : {}),
+    nextModel: !waiting && result.action === 'alternate-once' ? REPOSITORY_CHILD_MODEL : null,
+    runtimeAction: false,
+  });
+}
+
+function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
   const normalizedLaneId = requireIdentifier(laneId, 'laneId');
   if (!Array.isArray(attempts)) throw new TypeError('attempts must be an array.');
   if (attempts.length > 2) {
@@ -259,6 +809,11 @@ export function prepareLeaderSynthesis({
   for (const recovery of normalizedRecoveries) {
     if (!contracts.has(recovery.laneId)) {
       throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
+    }
+    if (recovery.recoveryBinding) {
+      if (delegation.requestId !== recovery.recoveryBinding.rescue.taskId)
+        throw new TypeError('Recovery synthesis must match the current delegation task.');
+      assertRecoveryChildContract(contracts.get(recovery.laneId), recovery.recoveryBinding);
     }
     const result = results.find(({ laneId }) => laneId === recovery.laneId);
     if (result?.status === 'completed' && recovery.action !== 'none') {
@@ -501,12 +1056,28 @@ function normalizeRuntimeRoles(value, gaps) {
       roles.push({
         agentType: requireRuntimeRole(role.agentType),
         available: requireBoolean(role.available, 'runtime role available'),
-        effectiveModel: requireString(role.effectiveModel, 'runtime role effectiveModel', 80),
-        effectiveEffort: requireEnum(role.effectiveEffort, EFFORTS, 'runtime role effectiveEffort'),
+        effectiveModel:
+          role.configurationResolution !== undefined && role.effectiveModel === null
+            ? null
+            : requireString(role.effectiveModel, 'runtime role effectiveModel', 80),
+        effectiveEffort:
+          role.configurationResolution !== undefined && role.effectiveEffort === null
+            ? null
+            : requireEnum(role.effectiveEffort, EFFORTS, 'runtime role effectiveEffort'),
+        ...(role.configurationResolution !== undefined
+          ? {
+              configurationResolution: normalizeConfigurationResolution(
+                role.configurationResolution,
+              ),
+            }
+          : {}),
         explicitEffortSupport: requireBoolean(
           role.explicitEffortSupport,
           'runtime role explicitEffortSupport',
         ),
+        ...(role.modelSelection !== undefined
+          ? { modelSelection: normalizeModelSelection(role.modelSelection) }
+          : {}),
       });
     } catch {
       gaps.push(`runtime-role-metadata-invalid:${index}`);
@@ -518,24 +1089,68 @@ function normalizeRuntimeRoles(value, gaps) {
   return roles;
 }
 
-function assessRuntimeCompatibility(runtime, contracts) {
+function usesOrdinaryScopedArguments(runtime, contract) {
+  return (
+    !contract.routeRecommendation.modelRecommendation &&
+    runtime.surfaceMode === 'native' &&
+    contract.contextDelivery?.mode === 'scoped' &&
+    contract.contextDelivery?.effortMode === 'explicit'
+  );
+}
+
+function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   const gaps = [];
   if (runtime.dispatchPermission !== 'allowed') {
     gaps.push(`runtime-dispatch-permission-${runtime.dispatchPermission}`);
   }
   const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
   for (const contract of contracts) {
+    // Omitted optional context preserves legacy advice; supplied gaps must not be
+    // lost between the context composer and its dispatch consumer.
+    const delivery = contract.contextDelivery;
+    if (
+      delivery !== undefined &&
+      (delivery?.compatible !== true ||
+        delivery?.applied !== false ||
+        !Array.isArray(delivery?.gaps) ||
+        delivery.gaps.length !== 0)
+    )
+      gaps.push(`runtime-context-incompatible:${contract.laneId}`);
     const requestedRole = contract.routeRecommendation.role;
-    const requestedEffort = contract.routeRecommendation.effort;
+    const requestedEffort = resolveRouteEffort(contract.routeRecommendation);
     const reportedRole = rolesByAgentType.get(requestedRole);
     if (!reportedRole || !reportedRole.available) {
       gaps.push(`runtime-role-unavailable:${requestedRole}`);
       continue;
     }
-    if (reportedRole.effectiveModel !== REPOSITORY_CHILD_MODEL) {
+    const model = contract.routeRecommendation.modelRecommendation;
+    if (usesOrdinaryScopedArguments(runtime, contract)) {
+      const selection = reportedRole.modelSelection;
+      if (
+        !selection?.explicitModelSupport ||
+        !selection.supportedModels.includes(REPOSITORY_CHILD_MODEL) ||
+        (selection.roleModel !== null && selection.roleModel !== REPOSITORY_CHILD_MODEL)
+      )
+        gaps.push(`runtime-scoped-model-unsupported:${requestedRole}`);
+      if (!reportedRole.explicitEffortSupport)
+        gaps.push(`runtime-scoped-effort-unsupported:${requestedRole}`);
+    }
+    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
+    const resolution = reportedRole.configurationResolution;
+    if (
+      resolution &&
+      (reportedRole.effectiveModel !== null || reportedRole.effectiveEffort !== null)
+    )
+      gaps.push(`runtime-mixed-resolution-observation:${requestedRole}`);
+    if ((resolution?.model ?? reportedRole.effectiveModel) !== requestedModel) {
       gaps.push(`runtime-model-incompatible:${requestedRole}`);
     }
-    if (reportedRole.effectiveEffort !== requestedEffort) {
+    if (resolution && model?.status !== 'candidate')
+      gaps.push('model-resolution-requires-candidate');
+    if (model?.status === 'candidate') {
+      gaps.push(...assessModelUse(contract, reportedRole, modelUseByLane[contract.laneId]));
+    }
+    if ((resolution?.effort ?? reportedRole.effectiveEffort) !== requestedEffort) {
       gaps.push(
         reportedRole.explicitEffortSupport
           ? `runtime-effective-effort-mismatch:${requestedRole}`
@@ -548,6 +1163,238 @@ function assessRuntimeCompatibility(runtime, contracts) {
     gaps,
     rolesByAgentType,
   };
+}
+
+function normalizeConfigurationResolution(value) {
+  if (value?.kind === 'recovery') {
+    requireExactRecord(
+      value,
+      ['kind', 'recoveryBinding', 'model', 'effort', 'configDigest', 'reference'],
+      'recovery resolution',
+    );
+    const binding = assertCurrentRecoveryBinding(value.recoveryBinding);
+    requireString(value.reference, 'recovery resolution reference', 300);
+    if (
+      value.model !== binding.model ||
+      value.effort !== binding.resolvedEffort ||
+      value.configDigest !== binding.rescue.configDigest
+    )
+      throw new TypeError('Recovery resolution must exactly match its selection.');
+    return { ...value, recoveryBinding: binding };
+  }
+
+  requireExactRecord(
+    value,
+    ['profileBinding', 'model', 'effort', 'configDigest', 'reference'],
+    'configuration resolution',
+  );
+  requireDigest(value.configDigest);
+  return {
+    profileBinding: assertCurrentModelProfileBinding(value.profileBinding),
+    model: requireString(value.model, 'resolved model', 80),
+    effort: requireEnum(value.effort, EFFORTS, 'resolved effort'),
+    configDigest: value.configDigest,
+    reference: requireString(value.reference, 'resolution reference', 300),
+  };
+}
+
+function normalizeModelSelection(value) {
+  requireExactRecord(
+    value,
+    ['supportedModels', 'roleModel', 'explicitModelSupport', 'reference'],
+    'modelSelection',
+  );
+  if (
+    !Array.isArray(value.supportedModels) ||
+    value.supportedModels.length < 1 ||
+    value.supportedModels.length > 24
+  ) {
+    throw new TypeError('modelSelection requires a bounded supportedModels roster.');
+  }
+  const supportedModels = value.supportedModels.map((model) =>
+    requireString(model, 'supported model', 80),
+  );
+  assertUnique(supportedModels, 'supported model');
+  return {
+    supportedModels,
+    roleModel:
+      value.roleModel === null ? null : requireString(value.roleModel, 'role model pin', 80),
+    explicitModelSupport: requireBoolean(value.explicitModelSupport, 'explicit model support'),
+    reference: requireString(value.reference, 'model capability reference', 300),
+  };
+}
+
+// Caller-reported observations are not authority. Native dispatch still needs the
+// Parent to verify the original authorization, current bytes/config and budget.
+function validateModelUses(value, contracts) {
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype)
+    throw new TypeError('modelUseByLane must be an object.');
+  const ids = new Set(contracts.map((contract) => contract.laneId));
+  for (const [id, use] of Object.entries(value)) {
+    if (!ids.has(id)) throw new TypeError(`Unknown model use lane: ${id}`);
+    requireExactRecord(
+      use,
+      [
+        'observedAt',
+        'configDigest',
+        'scopeDigest',
+        'scopeStatus',
+        'checks',
+        'remainingBudget',
+        'admission',
+      ],
+      'model use',
+    );
+    requireTimestamp(use.observedAt);
+    requireDigest(use.configDigest);
+    requireDigest(use.scopeDigest);
+    requireEnum(use.scopeStatus, new Set(['current', 'changed', 'unknown']), 'model scope status');
+    requireEnum(use.checks, new Set(['passed', 'failed', 'unknown']), 'model required checks');
+    requireExactRecord(use.remainingBudget, ['children', 'minutes'], 'remaining model budget');
+    requireBoundedInteger(use.remainingBudget.children, 'remaining children', 0, HARD_CHILD_LIMIT);
+    requireBoundedInteger(use.remainingBudget.minutes, 'remaining minutes', 0, 60);
+    const grant = use.admission;
+    if (grant === null) continue;
+    requireExactRecord(
+      grant,
+      [
+        'kind',
+        'reference',
+        'quality',
+        'model',
+        'role',
+        'effort',
+        'cohort',
+        'scopeDigest',
+        'configDigest',
+        'notBefore',
+        'expiresAt',
+        'budget',
+        'cleanupReference',
+        'profileBinding',
+      ],
+      'model admission',
+    );
+    assertCurrentModelProfileBinding(grant.profileBinding);
+    requireEnum(grant.kind, new Set(['pilot', 'adoption']), 'admission kind');
+    requireEnum(grant.quality, new Set(['unadopted', 'go', 'no-go']), 'quality decision');
+    for (const field of ['reference', 'model', 'role', 'cohort', 'cleanupReference'])
+      requireString(grant[field], field, 300);
+    requireEnum(grant.effort, EFFORTS, 'admission effort');
+    requireDigest(grant.scopeDigest);
+    requireDigest(grant.configDigest);
+    requireTimestamp(grant.notBefore);
+    requireTimestamp(grant.expiresAt);
+    requireExactRecord(grant.budget, ['maxChildren', 'maxMinutes'], 'model budget');
+    requireBoundedInteger(grant.budget.maxChildren, 'model maxChildren', 1, HARD_CHILD_LIMIT);
+    requireBoundedInteger(grant.budget.maxMinutes, 'model maxMinutes', 1, 60);
+  }
+}
+
+// Same static cohort boundary before dispatch and after attributed execution.
+// Rehashing a caller-supplied contract must not make an invalid profile valid.
+function assessModelContractBoundary(contract) {
+  assertChildWriteBoundary(contract);
+  const gaps = [];
+  const route = contract.routeRecommendation;
+  const profile = getModelProfile(route.modelRecommendation.request.profileId);
+  if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
+  const delivery = contract.contextDelivery;
+  if (
+    !delivery ||
+    delivery.compatible !== true ||
+    delivery.applied !== false ||
+    delivery.mode !== 'scoped' ||
+    delivery.gaps.length !== 0 ||
+    delivery.failures.length !== 0
+  )
+    gaps.push('model-context-incompatible');
+  if (
+    contract.boundary.readOnly !== profile.readOnly ||
+    contract.allowed.tools.some((tool) => !profile.allowedTools.includes(tool)) ||
+    profile.requiredTools.some((tool) => !contract.allowed.tools.includes(tool))
+  )
+    gaps.push('model-cohort-boundary-incompatible');
+  return gaps;
+}
+
+function assessModelUse(contract, reportedRole, use) {
+  const gaps = assessModelContractBoundary(contract);
+  const route = contract.routeRecommendation;
+  const { request, profileBinding } = route.modelRecommendation;
+  const selection = reportedRole.modelSelection;
+  if (
+    !selection ||
+    !selection.supportedModels.includes(profileBinding.model) ||
+    (selection.roleModel !== profileBinding.model &&
+      !(selection.roleModel === null && selection.explicitModelSupport))
+  ) {
+    gaps.push('model-pin-or-override-unverified');
+  }
+  const resolution = reportedRole.configurationResolution;
+  if (
+    resolution &&
+    (!reportedRole.explicitEffortSupport ||
+      !selection?.explicitModelSupport ||
+      resolution.configDigest !== use?.configDigest ||
+      !isDeepStrictEqual(resolution.profileBinding, profileBinding))
+  )
+    gaps.push('model-resolution-unverified');
+  const digest = createModelScopeDigest(contract);
+  if (contract.modelScopeDigest !== digest || !contract.modelTaskId)
+    gaps.push('model-contract-snapshot-changed');
+  if (!use || !use.admission) return [...gaps, 'model-admission-missing'];
+  const grant = use.admission;
+  if (
+    use.remainingBudget.children < 1 ||
+    use.remainingBudget.minutes < 1 ||
+    use.remainingBudget.children > grant.budget.maxChildren ||
+    use.remainingBudget.minutes > grant.budget.maxMinutes
+  )
+    gaps.push('model-budget-exhausted-or-incompatible');
+  if (
+    use.scopeStatus !== 'current' ||
+    use.checks !== 'passed' ||
+    use.scopeDigest !== digest ||
+    grant.scopeDigest !== digest ||
+    grant.configDigest !== use.configDigest
+  ) {
+    gaps.push('model-scope-config-or-checks-changed');
+  }
+  if (
+    grant.model !== profileBinding.model ||
+    grant.role !== route.role ||
+    grant.effort !== resolveRouteEffort(route) ||
+    grant.cohort !== profileBinding.cohort ||
+    !isDeepStrictEqual(grant.profileBinding, profileBinding)
+  )
+    gaps.push('model-admission-route-mismatch');
+  if (
+    Date.parse(grant.notBefore) > Date.parse(use.observedAt) ||
+    Date.parse(use.observedAt) >= Date.parse(grant.expiresAt)
+  )
+    gaps.push('model-admission-expired-or-not-started');
+  if (
+    request.purpose === 'pilot'
+      ? grant.kind !== 'pilot' || grant.quality === 'no-go'
+      : grant.kind !== 'adoption' || grant.quality !== 'go'
+  )
+    gaps.push('model-pilot-adoption-boundary');
+  return gaps;
+}
+
+function requireTimestamp(value) {
+  if (
+    typeof value !== 'string' ||
+    !Number.isFinite(Date.parse(value)) ||
+    new Date(value).toISOString() !== value
+  )
+    throw new TypeError('Model observation requires an exact ISO timestamp.');
+}
+
+function requireDigest(value) {
+  if (typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(value))
+    throw new TypeError('Model snapshot requires a SHA-256 digest.');
 }
 
 function rejectedRuntimeEvidence(gaps, partial = {}) {
@@ -583,6 +1430,27 @@ function normalizeAttempt(attempt, index) {
   }
   const outcome = requireEnum(attempt.outcome, ATTEMPT_OUTCOMES, 'attempt outcome');
   return {
+    ...(attempt.model !== undefined
+      ? { model: requireString(attempt.model, 'attempt model', 80) }
+      : {}),
+    ...(attempt.effort !== undefined
+      ? {
+          effort: requireEnum(
+            attempt.effort,
+            attempt.recoveryBinding ? new Set(['low', ...EFFORTS]) : EFFORTS,
+            'attempt effort',
+          ),
+        }
+      : {}),
+    ...(attempt.executed !== undefined
+      ? { executed: requireBoolean(attempt.executed, 'attempt executed') }
+      : {}),
+    ...(attempt.identity !== undefined
+      ? { identity: normalizeAttemptIdentity(attempt.identity) }
+      : {}),
+    ...(attempt.recoveryBinding !== undefined
+      ? { recoveryBinding: assertCurrentRecoveryBinding(attempt.recoveryBinding) }
+      : {}),
     number: index + 1,
     approachId: requireIdentifier(attempt.approachId, 'approachId'),
     alternateOf:
@@ -723,7 +1591,34 @@ function normalizeRecoveryDecision(value) {
       ? null
       : requireEnum(value.disposition, RECOVERY_DISPOSITIONS, 'recovery disposition');
   validateRecoveryShape({ status, action, remainingAlternateAttempts, blocker, disposition });
+  const attempts = value.attempts.map(normalizeAttempt);
+  validateAttemptSequence(attempts);
+  if (!value.recoveryBinding && attempts.some((attempt) => attempt.recoveryBinding))
+    throw new TypeError('Attributed recovery attempts require their decision-level binding.');
+  if (value.recoveryBinding) {
+    assertRecoveryAttempts(attempts, value.recoveryBinding);
+    if (
+      value.laneId !== value.recoveryBinding.rescue.laneId ||
+      value.nextModel !== (action === 'alternate-once' ? value.recoveryBinding.model : null)
+    )
+      throw new TypeError('Recovery decision must preserve lane and next-model attribution.');
+    const expected = evaluateAttemptRecovery({ laneId: value.laneId, attempts });
+    for (const field of [
+      'status',
+      'action',
+      'remainingAlternateAttempts',
+      'blocker',
+      'disposition',
+    ])
+      if (value[field] !== expected[field])
+        throw new TypeError('Recovery decision must preserve its attempt outcomes.');
+  }
   return deepFreeze({
+    attempts,
+    ...(value.recoveryBinding
+      ? { recoveryBinding: assertCurrentRecoveryBinding(value.recoveryBinding) }
+      : {}),
+    ...(value.nextModel !== undefined ? { nextModel: value.nextModel } : {}),
     laneId: requireIdentifier(value.laneId, 'recovery laneId'),
     status,
     action,
@@ -827,6 +1722,12 @@ function assertDelegationRecommendation(delegation) {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }
     assertSemanticRouteRecommendation(contract.routeRecommendation);
+    const model = contract.routeRecommendation.modelRecommendation;
+    if (model !== undefined) {
+      assertCurrentModelRecommendation(contract);
+      if (contract.modelTaskId !== delegation.requestId)
+        throw new TypeError('Model task identity must match the delegation.');
+    }
     if (!Array.isArray(contract.expectedOutputSchema?.required)) {
       throw new TypeError('child contract requires an expected output schema.');
     }
@@ -1002,4 +1903,337 @@ function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   for (const nested of Object.values(value)) deepFreeze(nested);
   return Object.freeze(value);
+}
+
+function assertCurrentModelRecommendation(contract) {
+  const model = contract.routeRecommendation.modelRecommendation;
+  requireExactRecord(
+    model,
+    [
+      'request',
+      'profileBinding',
+      'taskKind',
+      'role',
+      'recommendedModel',
+      'status',
+      'reason',
+      'applied',
+    ],
+    'model recommendation',
+  );
+  const expected = recommendModel({
+    modelRequest: model.request,
+    taskKind: model.taskKind,
+    impactRisk: contract.routeRecommendation.impactRisk,
+    assessment: contract.routeRecommendation.assessment,
+  });
+  if (!isDeepStrictEqual(model, expected))
+    throw new TypeError(
+      'Model recommendation must preserve semantic eligibility and applied=false.',
+    );
+  if (model.role !== contract.routeRecommendation.role)
+    throw new TypeError('Model task must preserve the semantic role.');
+}
+
+function normalizeAttemptIdentity(value) {
+  requireExactRecord(
+    value,
+    ['taskId', 'childId', 'sourceDigest', 'scopeDigest'],
+    'attempt identity',
+  );
+  requireIdentifier(value.taskId, 'attempt task');
+  requireString(value.childId, 'attempt child', 160);
+  requireDigest(value.sourceDigest);
+  requireDigest(value.scopeDigest);
+  return { ...value };
+}
+
+function assertRecoveryAttempts(attempts, binding) {
+  assertCurrentRecoveryBinding(binding);
+  if (attempts.length < 1 || attempts.length > 2)
+    throw new TypeError('Recovery requires one primary and at most one alternate.');
+  const [first, second] = attempts;
+  const primary = binding.primary;
+  if (
+    first.outcome !== 'failure' ||
+    first.failureCategory !== primary.failureCategory ||
+    NON_RETRYABLE_FAILURES.has(first.failureCategory) ||
+    first.executed !== true ||
+    first.approachId !== primary.attemptId ||
+    first.alternateOf != null ||
+    first.model !== primary.profileBinding.model ||
+    first.effort !== primary.profileBinding.resolvedEffort ||
+    !isDeepStrictEqual(first.identity, {
+      taskId: primary.taskId,
+      childId: primary.childId,
+      sourceDigest: primary.sourceDigest,
+      scopeDigest: primary.scopeDigest,
+    })
+  )
+    throw new TypeError('Recovery selection does not match the exact failed primary.');
+  if (
+    second &&
+    (second.approachId !== binding.rescue.attemptId ||
+      second.alternateOf !== first.approachId ||
+      second.model !== binding.model ||
+      second.effort !== binding.resolvedEffort ||
+      second.executed !== true ||
+      !isDeepStrictEqual(second.recoveryBinding, binding) ||
+      second.identity?.taskId !== binding.rescue.taskId ||
+      second.identity?.scopeDigest !== binding.rescue.scopeDigest ||
+      second.identity?.sourceDigest !== binding.rescue.sourceDigest ||
+      !second.identity?.childId ||
+      second.identity.childId === primary.childId)
+  )
+    throw new TypeError('Only the exact once-bound Astra alternate can complete recovery.');
+}
+
+function assertRecoveryAdmission(use, binding) {
+  requireExactRecord(
+    use,
+    [
+      'observedAt',
+      'configDigest',
+      'scopeDigest',
+      'scopeStatus',
+      'checks',
+      'remainingBudget',
+      'admission',
+    ],
+    'recovery use',
+  );
+  requireTimestamp(use.observedAt);
+  const grant = use.admission;
+  requireExactRecord(
+    grant,
+    [
+      'kind',
+      'reference',
+      'recoveryBinding',
+      'notBefore',
+      'expiresAt',
+      'budget',
+      'cleanupReference',
+    ],
+    'recovery admission',
+  );
+  assertCurrentRecoveryBinding(grant.recoveryBinding);
+  for (const key of ['reference', 'cleanupReference']) requireString(grant[key], key, 300);
+  requireTimestamp(grant.notBefore);
+  requireTimestamp(grant.expiresAt);
+  requireExactRecord(grant.budget, ['maxChildren', 'maxMinutes'], 'recovery budget');
+  requireExactRecord(use.remainingBudget, ['children', 'minutes'], 'remaining recovery budget');
+  requireBoundedInteger(grant.budget.maxMinutes, 'recovery minutes', 1, 60);
+  requireBoundedInteger(
+    use.remainingBudget.minutes,
+    'remaining recovery minutes',
+    1,
+    grant.budget.maxMinutes,
+  );
+  if (
+    grant.kind !== 'recovery' ||
+    !isDeepStrictEqual(grant.recoveryBinding, binding) ||
+    grant.budget.maxChildren !== 1 ||
+    use.remainingBudget.children !== 1 ||
+    use.configDigest !== binding.rescue.configDigest ||
+    use.scopeDigest !== binding.rescue.scopeDigest ||
+    use.scopeStatus !== 'current' ||
+    use.checks !== 'passed' ||
+    Date.parse(grant.notBefore) > Date.parse(use.observedAt) ||
+    Date.parse(use.observedAt) >= Date.parse(grant.expiresAt)
+  )
+    throw new TypeError('A fresh exact once-only recovery admission is required.');
+}
+
+function createRecoveryDispatch({
+  delegation,
+  reportedRuntimeEvidence,
+  concurrencyLimit,
+  modelUseByLane,
+  recoveryDecision: decision,
+}) {
+  assertDelegationRecommendation(delegation);
+  validateConcurrencyLimit(concurrencyLimit);
+  const runtime = normalizeReportedRuntimeEvidence(reportedRuntimeEvidence);
+  const gaps = [];
+  let dispatch;
+  try {
+    const binding = assertCurrentRecoveryBinding(decision.recoveryBinding);
+    const contract = delegation.recommendedChildren[0];
+    const normalized = normalizeRecoveryDecision(decision);
+    if (
+      delegation.recommendedChildren.length !== 1 ||
+      delegation.requestId !== binding.rescue.taskId ||
+      normalized.action !== 'alternate-once' ||
+      normalized.attempts.length !== 1 ||
+      decision.nextModel !== binding.model ||
+      decision.laneId !== binding.rescue.laneId ||
+      runtime.evidenceStatus !== 'accepted' ||
+      runtime.dispatchPermission !== 'allowed'
+    )
+      throw new TypeError('Recovery is not dispatchable.');
+    assertRecoveryChildContract(contract, binding);
+    if (Object.keys(modelUseByLane).length !== 1)
+      throw new TypeError('Recovery is one exact lane.');
+    const use = modelUseByLane[contract.laneId];
+    assertRecoveryAdmission(use, binding);
+    const role = runtime.roles.find((r) => r.agentType === binding.rescue.role);
+    const resolution = role?.configurationResolution;
+    if (
+      !role?.available ||
+      role.effectiveModel !== null ||
+      role.effectiveEffort !== null ||
+      !role.explicitEffortSupport ||
+      !role.modelSelection?.explicitModelSupport ||
+      !role.modelSelection.supportedModels.includes(binding.model) ||
+      ![null, binding.model].includes(role.modelSelection.roleModel) ||
+      resolution?.kind !== 'recovery' ||
+      !isDeepStrictEqual(resolution.recoveryBinding, binding)
+    )
+      throw new TypeError('Current host cannot resolve the exact recovery invocation.');
+    dispatch = {
+      kind: 'model-recovery',
+      laneId: contract.laneId,
+      agentType: binding.rescue.role,
+      effort: contract.routeRecommendation.effort,
+      effectiveModel: null,
+      effectiveEffort: null,
+      requestedModel: binding.model,
+      resolvedModel: binding.model,
+      resolvedEffort: binding.resolvedEffort,
+      explicitEffortSupport: true,
+      contract,
+      recoveryBinding: binding,
+      recoveryDecision: decision,
+      recoveryUse: use,
+      configurationResolution: resolution,
+      spawnArguments: {
+        agent_type: binding.rescue.role,
+        model: binding.model,
+        reasoning_effort: binding.resolvedEffort,
+        fork_turns: 'none',
+      },
+      dispatchOwner: 'leader',
+      runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
+      requiresLeaderRuntimeConfirmation: true,
+      runtimeAction: false,
+    };
+  } catch {
+    gaps.push('model-recovery-incompatible-or-unadmitted');
+  }
+  return dispatchRecommendation({
+    delegation,
+    runtime,
+    concurrencyLimit,
+    execution: dispatch ? 'native-bounded-dispatch' : 'leader-sequential',
+    reason: dispatch
+      ? 'One exact recovery is ready for leader-controlled native dispatch.'
+      : 'Recovery requires current selection, host and authorization evidence.',
+    dispatches: dispatch ? [dispatch] : [],
+    deferredLaneIds: dispatch ? [] : delegation.recommendedChildren.map((c) => c.laneId),
+    gaps,
+  });
+}
+
+function evaluateRecoveryExecution({ dispatch, expectedChildId, reportedExecution: observation }) {
+  const gaps = [];
+  try {
+    const binding = assertCurrentRecoveryBinding(dispatch.recoveryBinding);
+    assertRecoveryChildContract(dispatch.contract, binding);
+    assertSemanticRouteRecommendation(dispatch.contract.routeRecommendation);
+    assertRecoveryAdmission(dispatch.recoveryUse, binding);
+    const decision = normalizeRecoveryDecision(dispatch.recoveryDecision);
+    if (
+      decision.action !== 'alternate-once' ||
+      decision.attempts.length !== 1 ||
+      !isDeepStrictEqual(decision.recoveryBinding, binding)
+    )
+      throw new TypeError('Recovery dispatch no longer matches the decision.');
+    const resolution = normalizeConfigurationResolution(dispatch.configurationResolution);
+    if (
+      !isDeepStrictEqual(resolution.recoveryBinding, binding) ||
+      dispatch.runtimeAction !== false ||
+      dispatch.kind !== 'model-recovery' ||
+      dispatch.agentType !== binding.rescue.role ||
+      dispatch.requestedModel !== binding.model ||
+      dispatch.effort !== binding.rescue.semanticEffort ||
+      dispatch.resolvedModel !== binding.model ||
+      dispatch.resolvedEffort !== binding.resolvedEffort ||
+      !isDeepStrictEqual(dispatch.spawnArguments, {
+        agent_type: binding.rescue.role,
+        model: binding.model,
+        reasoning_effort: binding.resolvedEffort,
+        fork_turns: 'none',
+      })
+    )
+      throw new TypeError('Recovery descriptor mismatch.');
+    requireString(expectedChildId, 'actual returned rescue child', 160);
+    requireExactRecord(
+      observation,
+      [
+        'recoveryBinding',
+        'childId',
+        'taskId',
+        'scopeDigest',
+        'provenance',
+        'accepted',
+        'executed',
+        'resultReference',
+        'independentCheck',
+        'hostMetadata',
+        'usageReference',
+      ],
+      'recovery execution',
+    );
+    if (
+      !isDeepStrictEqual(observation.recoveryBinding, binding) ||
+      observation.childId !== expectedChildId ||
+      observation.childId === binding.primary.childId ||
+      observation.taskId !== binding.rescue.taskId ||
+      observation.scopeDigest !== binding.rescue.scopeDigest ||
+      observation.provenance !== 'native-tool-result' ||
+      observation.accepted !== true ||
+      observation.executed !== true
+    )
+      throw new TypeError('Recovery execution identity mismatch.');
+    requireString(observation.resultReference, 'rescue result reference', 300);
+    requireExactRecord(
+      observation.independentCheck,
+      ['status', 'reference'],
+      'rescue independent check',
+    );
+    requireString(
+      observation.independentCheck.reference,
+      'rescue independent check reference',
+      300,
+    );
+    if (observation.independentCheck.status !== 'passed')
+      gaps.push('model-independent-quality-not-passed');
+    if (
+      observation.hostMetadata !== null &&
+      !isDeepStrictEqual(observation.hostMetadata, {
+        model: binding.model,
+        effort: binding.resolvedEffort,
+      })
+    )
+      gaps.push('model-host-metadata-mismatch');
+    if (observation.usageReference !== null)
+      requireString(observation.usageReference, 'usage reference', 300);
+  } catch {
+    gaps.push('model-recovery-execution-evidence-invalid');
+  }
+  return deepFreeze({
+    accepted: gaps.length === 0,
+    evidenceKind: gaps.length
+      ? 'unverified'
+      : observation.hostMetadata
+        ? 'host-reported-model'
+        : 'runtime-contract-resolved',
+    providerAttested: false,
+    usageReference: gaps.length ? null : observation.usageReference,
+    authority: 'leader-reported-not-host-authenticated',
+    requiresLeaderRuntimeConfirmation: true,
+    runtimeAction: false,
+    gaps,
+  });
 }

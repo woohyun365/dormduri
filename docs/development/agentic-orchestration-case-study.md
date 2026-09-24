@@ -17,10 +17,14 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 - exploration log와 중간 결과가 parent context를 오염시키는 문제를 줄이면서도 최종 판단은 한 곳에 남겨야 했습니다.
 
 이를 해결하기 위해 repository는 **Repository-guided parent–subagent orchestration with adaptive child reasoning**을
-구성했습니다. Parent의 XHigh/Max 선택은 사람과 현재 session에 남기고, repository는 Astra child의 Medium/High/XHigh만
-현재 repository evidence로 판정합니다. Direct work는 child-free이며, 독립성과 순이익이 확인된 lane만 bounded child
-contract가 됩니다. 이 contract는 자동 spawn engine이 아니고, 실제 dispatch 직전의 live runtime 확인과 leader의 최종
-판단을 대신하지 않습니다.
+구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 GPT-6 Sol/Luna xhigh를 실제 배정**합니다.
+Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
+Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
+Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra xhigh child를 검토합니다.
+
+Direct work는 child-free이며, 독립성과 순이익이 확인된 lane만 bounded child contract가 됩니다. 이 contract는 자동 spawn
+engine이 아니며 실제 dispatch 직전의 live runtime 확인과 Parent의 최종 판단을 대신하지 않습니다. **2026-09-25의 아래 확장 기록은 PR 생성 전 로컬 검증을 기준으로 작성했습니다.**
+이후 원격 CI·merge 상태는 해당 PR과 Git 이력에서 별도로 확인하며 과거 병합 이력과 구분합니다.
 
 ## 권한과 evidence 경계
 
@@ -29,8 +33,10 @@ contract가 됩니다. 이 contract는 자동 spawn engine이 아니고, 실제 
 - **Instruction authority:** `AGENTS.md`, `docs/development/agent-workflows/`, current code와 test
 - **Human authority:** 제품·보안·법적 결정, provider/credential, 최종 UX, merge, production과 비용 수용
 - **Agent responsibility:** bounded exploration, 공식 근거 조사, 구현, review, test와 evidence handoff
-- **Evidence priority:** current tracked source/test → merged PR/commit → external engineering context
-- **제외:** raw chat, 개인 설정, local artifact, 확인되지 않은 생산성·채용·운영 효과
+- **Evidence priority:** current tracked source/test → 해당 snapshot의 검증·날짜가 있는 관찰 → merged PR/commit → external context
+- **Portable evidence:** 이 문서의 실험 요약은 날짜·조건·표본·한계를 보존한 Parent 기록입니다. Raw local 산출물 없이도
+  설계와 정적 회귀는 재검증할 수 있지만 과거 native 호출을 이 요약만으로 독립 재현·인증할 수는 없습니다.
+- **제외:** raw chat·개인 설정 내용, 다른 clone이 읽어야 하는 ignored 파일, 확인되지 않은 생산성·채용·운영 효과
 
 ## 이전 상태에서 확인한 문제
 
@@ -78,12 +84,12 @@ clean clone이 user/global setup에 의존한다는 구조적 문제를 뜻합�
 이는 provider가 정의한 고유 제품명이나 이 repository가 그대로 구현한 표준 architecture name이 아닙니다. 다음 요소를
 비교하기 위한 **synthesized analytical label**입니다.
 
-| 분석 표현                     | Repository implementation                                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Repository-aware              | current request → `AGENTS.md` → `TaskEnvelope` → `ContextPack` → current code/contract/test evidence                |
-| Hierarchical                  | owner-facing parent가 child를 선택하고, child는 sibling이나 global plan을 지휘하지 않으며 결과는 leader-only fan-in |
-| Orchestrator–worker           | parent의 model-mediated lane 선택과 Codex native child surface를 결합하지만 별도 scheduler를 구현하지 않음          |
-| Adaptive inference allocation | parent는 사람이 XHigh/Max를 선택하고, repository는 Astra child에 한해 Pass 2 evidence로 Medium/High/XHigh를 선택    |
+| 분석 표현                     | Repository implementation                                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Repository-aware              | current request → `AGENTS.md` → `TaskEnvelope` → `ContextPack` → current code/contract/test evidence                  |
+| Hierarchical                  | owner-facing parent가 child를 선택하고, child는 sibling이나 global plan을 지휘하지 않으며 결과는 leader-only fan-in   |
+| Orchestrator–worker           | parent의 model-mediated lane 선택과 Codex native child surface를 결합하지만 별도 scheduler를 구현하지 않음            |
+| Adaptive inference allocation | Parent effort는 session owner 선택; child semantic Medium/High/XHigh와 finite task profile의 호출 model/effort를 분리 |
 
 Repository canonical label을 더 좁게 정한 이유는 구현 범위를 정확히 드러내기 위해서입니다.
 
@@ -91,24 +97,25 @@ Repository canonical label을 더 좁게 정한 이유는 구현 범위를 정�
 
 - “repository-guided”는 repository가 recommendation과 guard를 제공하지만 host runtime을 대체하지 않음을 나타냅니다.
 - “parent–subagent”는 owner-facing parent가 user interaction과 synthesis authority를 유지함을 나타냅니다.
-- “adaptive child reasoning”은 parent effort가 아니라 child effort만 evidence에 따라 달라짐을 나타냅니다.
+- “adaptive child reasoning”은 Parent 설정을 자동 변경하지 않고 child의 semantic 난이도와 task profile을 근거로 선택함을 나타냅니다.
 
 ## 선택한 구조
 
 ```text
 human request and authority
-  → parent session (manually selected XHigh or Max)
+  → parent session (owner-selected Astra; high start / xhigh escalation)
     → Pass 1: intent / authority / impact risk / candidate shape
       → direct-first gate
         ├── deterministic or dependent work → parent direct/sequential
         └── independent candidate lane
               → ContextPack and current repository inspection
                 → Pass 2: source / fact / predicate evidence
-                  → Astra child role + Medium / High / XHigh recommendation
-                    → live runtime compatibility reconfirmation
-                      ├── compatible → bounded dispatch
-                      └── missing or mismatched → sequential fallback
-                            → leader-only conflict resolution, verification, and response
+                  → semantic role / Medium / High / XHigh assessment
+                    → default Astra or eligible finite Sol/Luna xhigh profile
+                      → current task admission + live runtime compatibility
+                        ├── compatible → native dispatch → independent quality evidence
+                        └── unsupported / failed → stop or one bounded Astra recovery
+                              → leader-only evidence integration and capability-aware cleanup
 ```
 
 ### Risk와 reasoning complexity 분리
@@ -138,8 +145,8 @@ evidence를 이해하고 올바른 결론을 내리는 난이도입니다. 보�
 ### Runtime truthfulness
 
 Tracked `.codex`는 portable default와 role contract를 제공하지만 active authority를 만들지 않습니다. Dispatch 직전에는
-current host surface가 보고한 role availability, effective Astra model, requested effort, explicit-effort support와 permission을
-다시 확인합니다.
+current host surface의 role availability, explicit model/effort 지원, role pin과 permission을 다시 확인합니다.
+Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 미노출 effective 값은 null입니다.
 
 현재 runtime evidence는 `leader-reported-not-host-authenticated`입니다. 즉 repository validator가 typed input의 모순을
 검사할 수는 있지만, provider가 서명한 immutable effective metadata는 아닙니다. 조금이라도 불일치하면 role을 prompt label로
@@ -147,20 +154,20 @@ current host surface가 보고한 role availability, effective Astra model, requ
 
 ## 대안과 결정
 
-| 대안                                            | 결정        | 근거                                                                                                         |
-| ----------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
-| user/global child config만 유지                 | 기각        | clean clone portability와 reviewable project role contract를 보장하지 못함                                   |
-| project child default와 role만 추가             | 불충분      | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                             |
-| 모든 lookup을 Low로 비용 최적화                 | 기각        | repository owner·contract 관계 탐색을 task label 하나로 축소함                                               |
-| 최소 2개 또는 가능한 lane 전부 fan-out          | 기각        | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                                     |
-| 0~2개, evidence-backed third, owner max 6       | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                                    |
-| 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                                   |
-| parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 XHigh/Max 사용 의도를 repository가 추측하게 됨                                 |
-| Astra child + adaptive Medium/High/XHigh        | 채택        | model family는 고정하고 current semantic evidence만 reasoning allocation에 반영                              |
-| boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                                     |
-| reported evidence + live reconfirmation         | 조건부 채택 | 현재 surface에서 가능한 보수적 경계이며 immutable host-authenticated metadata가 생기면 교체                  |
-| custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦       |
-| Ultra emulation 또는 autonomous factory         | 기각        | 목표는 parent autonomy 확대가 아니라 수동 XHigh/Max parent 아래 bounded child reasoning과 evidence hygiene임 |
+| 대안                                            | 결정        | 근거                                                                                                   |
+| ----------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
+| user/global child config만 유지                 | 기각        | clean clone portability와 reviewable project role contract를 보장하지 못함                             |
+| project child default와 role만 추가             | 불충분      | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                       |
+| 모든 lookup을 Low로 비용 최적화                 | 기각        | repository owner·contract 관계 탐색을 task label 하나로 축소함                                         |
+| 최소 2개 또는 가능한 lane 전부 fan-out          | 기각        | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                               |
+| 0~2개, evidence-backed third, owner max 6       | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                              |
+| 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                             |
+| parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                            |
+| Astra default + finite task profiles            | 채택        | semantic Medium/High/XHigh와 model invocation effort를 분리; 한정 Sol/Luna와 Astra 복구는 별도 gate    |
+| boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                               |
+| reported evidence + live reconfirmation         | 조건부 채택 | 현재 surface에서 가능한 보수적 경계이며 immutable host-authenticated metadata가 생기면 교체            |
+| custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦 |
+| Ultra emulation 또는 autonomous factory         | 기각        | 목표는 Parent autonomy 확대가 아니라 bounded delegation·독립 검증·evidence hygiene임                   |
 
 ## Decision lineage
 
@@ -172,8 +179,10 @@ current host surface가 보고한 role availability, effective Astra model, requ
 3. 이후 owner directive가 repository-selected parent effort와 child Max/Ultra 방향을 명시적으로 폐기했습니다.
 4. 당시 retained design은 수동 XHigh/Max parent 아래 Sol child의 Medium/High/XHigh만 조절하도록 좁혀졌습니다.
    현재 모델 선택은 아래 migration evidence와 current contract를 따르며, 이전 결정 당시의 모델을 소급 변경하지 않습니다.
-5. 모든 hypothesis는 current repository source, test, owner directive, official documentation과 native smoke로 다시
-   검증했습니다. Raw chat은 durable authority나 evidence로 사용하지 않습니다.
+5. 가설은 source/test·owner directive·공식 문서·한정 native smoke로 나누어 검토했습니다. 미검증 품질·비용 가설은
+   아래 한계로 남깁니다. Raw chat은 durable authority나 evidence로 사용하지 않습니다.
+6. 2026-09-19~25에는 lifecycle의 close 의무를 capability별로 수정하고, 단일 모델 고정에서 finite task profiles로 확장했습니다.
+   과거 5.6 후보와 당시 지원 NO-GO는 보존하며 GPT-6 성공으로 소급하지 않습니다.
 
 ## 구현 chronology와 evidence
 
@@ -218,6 +227,145 @@ process identity 조회가 제한됐지만, 같은 read-only 진단을 정상 �
 instruction priority, bounded delegation, 간결한 보고와 검증 강도 관점은 기존 `AGENTS.md`·execution/orchestration contract에
 대조했습니다. 동일 규칙을 추가 복사하거나 새로운 hook을 설치하지 않고 현재 모델 표현만 정합성을 맞췄습니다.
 
+## 2026-09 task-aware 모델과 lifecycle 검증
+
+### 문제와 대안
+
+Owner가 weekly 한도가 빨리 소모된다고 관찰했지만 원인별 토큰·비용은 미계량이었습니다. 목표를 **싼 모델로 전면 교체**가
+아니라 **Astra 기본값·독립 QA를 유지하면서 검증 가능한 작업만 낮은 단가의 모델에 맡기는 것**으로 제한했습니다.
+함께 조사한 “완료 child를 항상 close해야 하는가?”도 task 완료와 runtime 자원 반환을 혼동한 문제로 재정의했습니다.
+
+| 대안                                      | 판정과 trade-off                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 모든 child Astra 고정                     | 안전한 fallback으로 유지; 분명한 bounded 작업도 비싼 기본값에 묶이는 비용 기회는 남음                    |
+| Sol/Luna를 전체 기본값으로 변경           | 기각; 미분류·고위험·독립 QA까지 작은 표본을 확대 적용하게 됨                                             |
+| role × model별 TOML 복제                  | 기각; role 권한과 generation 변경 지점이 중복되어 drift·review 비용 증가                                 |
+| 세 role의 pin 해제 + 중앙 finite profiles | 채택; executor/explorer/researcher의 model pin만 해제, project Astra/high와 reviewer Astra pin·cap6 유지 |
+| 별도 provider adapter/자동 scheduler      | 기각; 기존 native contract가 호출 seam이며 새 SDK·실행 엔진이 필요하지 않음                              |
+| 모든 host에 close 의무/강제 V2 전환       | 기각; live capability별 완료를 판정하고 backend 이름·자동 eviction을 추측하지 않음                       |
+
+### 구현 경로와 방어선
+
+```text
+task / acceptance / source facts
+  → semantic role + risk + complexity
+  → finite profile binding (revision + digest)
+  → scoped child contract + current source/config + bounded admission
+  → supported native model/effort arguments (Parent가 실제 호출)
+  → child/task 귀속 + independent quality check
+  → success 또는 한 번의 Astra recovery / stop
+  → sanitized attempt record + capability별 lifecycle disposition
+```
+
+- [중앙 profile registry](../../scripts/agents/model-profiles.mjs): 모델별 TOML 대신 안정된 task ID가 세대별 모델·effort·
+  tools·role·cohort를 가집니다. `bounded-build`, `bounded-read`, `bounded-extract`의 호출 effort는 xhigh지만 **대상 난이도는
+  complete Medium evidence**가 필요합니다. xhigh 선택은 품질 우선 owner 정책이지 medium보다 재작업이 적다는 실측 결론이 아닙니다.
+- [호출·결과 정책](../../scripts/agents/orchestration-policy.mjs): role pin, current scope/config, 승인 기간·예산, context,
+  exact task/profile/child 귀속을 확인합니다. Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
+- [실행 기록](../../scripts/agents/model-run-evidence.mjs): 최초 실패·원인 가설·조치·재검증과 recovery를 분리합니다.
+  [기록 회귀](../../scripts/ci/model-run-evidence.test.mjs)는 진단값과 성공·복구 자격을 분리합니다.
+  원인 confidence와 근거 참조만 보존하며 secret·전체 대화·hidden reasoning을 수집하는 daemon이 아닙니다.
+- [Lifecycle owner](./agent-workflows/subagent-lifecycle.md): `resultDisposition`, `cleanupDisposition`, `closeDisposition`,
+  `releaseDisposition`을 분리합니다. Explicit-close, verified-no-close, unknown을 다르게 처리하며 close 미노출만으로
+  managed cleanup을 증명하지 않습니다. 완료·interrupt·archive·빈 roster를 terminate/slot 반환으로 바꾸지 않습니다.
+- [Cold resume와 선택적 운영](./agent-workflows/session-continuity.md): 저장 history와 runtime residency는 별개입니다.
+  `/agents` shared server는 별도 control plane이지 child close 대체재가 아닙니다. 서버 시작·설정 변경·cap 우회는 하지 않았습니다.
+
+로컬 구현 계보는 `3f58d5ee` lifecycle 의미 수정 → `f1be6cac` 세 pin 해제 → `ecf60e48` profile binding → `f7bee958`
+xhigh·기록 → `630ed20c` bounded low 복구 → `c90c634f` context/QA 보완 → `f0130275` 한정 운영 채택입니다.
+이는 **로컬 commit 이력**이며 위 과거 merged PR 표와 다른 상태입니다. 현재 동작은 링크한 source/tests가 소유합니다.
+
+### 실제 관찰과 표본 범위
+
+아래는 당시 동의된 read-only 또는 disposable fixture 실험의 요약입니다. Scope와 oracle을 **실행 전에** 고정했습니다.
+현재 문서 정리를 위해 다시 호출한 실험이 아니며, fresh review 자체를 추가 모델 비교 표본으로 세지 않습니다.
+
+| 날짜 / 조건                                                                                           | 관찰 결과                                                                                                   | 해석 한계                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-20, 같은 SHA의 별도 clean worktree 2개; Astra explorer/high 요청, fresh scoped context 두 arm | 확장 task context와 pointer-scoped 입력 모두 source map **5/5**, 별도 source-first QA PASS; 총 child3/turn3 | 한 task의 한 pair; full-history 대 scoped 비교가 아님. 당시 role pin 때문에 낮은 모델 활성화는 **NO-GO**, 품질 실패가 아님 |
+| 2026-09-24, `bounded-build` / knu_executor / Sol xhigh                                                | disposable feed merge: child tests5/5, Parent oracle8/8, 독립 QA PASS                                       | 구현 표본1개; production 변경이나 모든 구현 작업 성능 보장 아님                                                            |
+| 같은 날, `bounded-read` / knu_explorer / Sol xhigh                                                    | 고정 source4개의 owner·query navigation 의미 map, source oracle 및 독립 QA PASS                             | 조사 표본1개; 외부 research/새 도메인으로 확대 안 함                                                                       |
+| 같은 날, `bounded-extract` / knu_explorer / Luna xhigh                                                | 고정 query transformation8건, executable oracle8/8·독립 QA PASS                                             | task1개 안의 case8개이며 모델 표본8개가 아님                                                                               |
+| 같은 날, `astra-bounded-recovery` / knu_executor / Astra low                                          | **controlled** canary RED 후 fresh source binding·writer clearance, 복구 oracle9/9·독립 QA PASS             | Parent가 주입한 fault이며 Sol의 실제 miss가 아님. 원래 candidate와 failed primary attempt·rescue를 별도 보존               |
+| 같은 날, fresh knu_reviewer / Astra high                                                              | 원본3결과와 복구1결과, 총4개 결과 독립 QA PASS                                                              | reviewer model 비교가 아님; Sol max 등의 reviewer 실험은 Owner-deferred/not-run                                            |
+
+두 번째 실험은 **5 child / 5 turn, 동시1**, 승인 상한 합산40분 중 Parent의 call-to-result 관측 합계357,391ms
+(약5분57초)였습니다. 이는 다섯 관측 구간의 합이지 준비·간격·후처리를 포함한 전체 작업시간이나 순수 추론 latency가 아닙니다.
+2026-09-24 baseline은 `630ed20c`, profile revision `2026-09-24.3`입니다. 설치 CLI0.156.1 관찰과 실제 host build는
+구분하며, 실제 native surface의 explicit model/effort 인자와 exact child/task final을 확인했습니다. **provider-effective
+metadata는 미노출/null**로 유지합니다. Config 해석·요청 성공이 provider attestation은 아닙니다.
+
+Controlled fault는 원본 품질 결과를 보존한 뒤 **primary의 terminal acceptance 전에** 주입했습니다. 따라서 원래 candidate
+표본3/3 통과와 controlled primary 실패→Astra 복구를 동시에 기록하며, recovery 성공으로 최초 실패를 지우지 않습니다.
+관측된 scope 위반0은 보고된 ownership·고정 파일·diff 검사 범위이며 숨은 도구/파일 접근 telemetry 보장은 아닙니다.
+
+실험 worktree2개와 disposable workspace는 exact ownership·cleanliness·결과 보존 후 정리했습니다. Native child는 finals와
+completed를 회수했지만 close 미노출·pending/residency 미관측이므로 **cleanup-unavailable / release-unverified**입니다.
+일괄 process kill이나 다른 session/history 삭제는 하지 않았습니다.
+
+### 한정 채택·세대교체·rollback
+
+[운영 채택 결정](./agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과 executor의
+controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·explorer/researcher low·deep failure·max·저가 reviewer는
+미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
+
+[Profile 회귀](../../scripts/ci/model-profiles.test.mjs)와 [dispatch 회귀](../../scripts/ci/orchestration-policy.test.mjs)는
+retired GPT-5.6 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
+유지하되 새 revision, 지원 재검증, 해당 cohort 품질 근거·새 승인이 필요합니다. Synthetic next-revision 검증은 **GPT-7 실제
+실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
+
+철회는 Parent가 admission을 회수해 candidate dispatch를 멈추고 Astra/direct로 돌아가는 방식입니다. **같은 유효 GO packet을
+재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 GPT-6 binding 또는 Astra-only를
+**새 revision**으로 발행합니다. Old code와 grant를 함께 복원하면 과거 상태 재사용을 막는 monotonic history 보장은 없습니다.
+완료 child history 복원, GPT-5.6 호출 부활, 권한 우회를 rollback으로 취급하지 않습니다.
+
+## 비용 가설과 관측 한계
+
+2026-09-25 확인한 [공식 Codex Standard 가격](https://learn.chatgpt.com/docs/pricing#token-rates)은 다음과 같습니다.
+API USD 가격이나 구독 포함량이 아닌 **100만 토큰당 credits**입니다.
+
+| Model       | Input | Cached input | Output |
+| ----------- | ----: | -----------: | -----: |
+| GPT-6 Astra |   250 |           25 |  1,250 |
+| GPT-6 Sol   |    50 |            5 |    250 |
+| GPT-6 Luna  |   2.5 |         0.25 |   12.5 |
+
+같은 billable token 구성이라면 Sol/Astra=20%, Luna/Astra=1%라는 **단가 비율**입니다. 실제 task·weekly **절감률이 아닙니다**.
+Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있습니다. 비교하려면 **Parent + child + QA + 실패·복구 + setup**
+전체를 포함해야 합니다. Included weekly allowance를 이 표로 고정 환산하지 않습니다.
+
+| 비용/효율 가설               | 적용한 방법                                                    | 관찰과 미채택 범위                                                                                                   |
+| ---------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 필요 context만 전달          | scoped packet, source·제약·acceptance·output 지정              | 한 pair 품질 통과; token 감소율·주입된 총 context 크기 미측정                                                        |
+| 중복 primary 분석 축소       | 한 primary owner, source/test 포인터 회수; 필수 독립 QA는 예외 | workflow/회귀로 경계 보호; 실제 운영 시간·재작업 감소 미측정                                                         |
+| 싼 단가를 적절한 작업에 사용 | finite Sol/Luna profiles + 지원·품질·Astra 복구 gate           | actual sample 가능성 확인; 모델 간 동일 task 비용/품질 비교 없음                                                     |
+| Cache 활용                   | 안정된 공통 지침·schema를 불필요하게 흔들지 않기               | cache hit·cached/input/output·credits·USD·weekly delta 모두 **null**; API cache knob·padding·warmup·collector 미도입 |
+| 불필요한 child 비용 제거     | 작은 결정적 작업은 child0, 필요한 같은 task만 followup         | idle thread 자체의 token 소비·close의 비용 환급을 가정하지 않음                                                      |
+
+[공식 Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching)은 안정된 prefix 재사용을 설명하지만,
+실제 native prompt 구성·cache 적중률은 host/usage 관측이 필요합니다. 긴 무관 history를 유지하거나 API 설정을 Codex TOML에
+복사하는 근거가 아닙니다. 관측되지 않은 cache/token/비용은 0이 아니라 null입니다.
+
+따라서 성과는 **“품질 우선의 제한 모델 배정·검증·복구 workflow를 구현하고 한정 실제 호출을 확인했다”**입니다.
+“비용 N% 절감”, “Astra와 동등한 품질”, “xhigh로 재작업 제거”는 주장하지 않습니다. 단가 우위는 도입 rationale이며 실측
+부재만으로 한정 채택을 막지 않되, 실제 이익 검증과 구분합니다.
+
+Reviewer 모델 비교는 Owner가 작성 전제의 착오를 확인해 **미실행 취소**했습니다. 불필요한 계획은 제거했으며,
+위 날짜별 보류 이력은 비교 실험의 성공·실패 근거가 아닙니다. 운영 reviewer의 Astra pin과 독립 QA는 그대로 유지합니다.
+
+## Parent high 시작과 품질 stop
+
+Owner가 선택한 후속 기본값은 **Parent Astra high**입니다. 로컬 구현·전체 review gate를 완료한 다음 실제 host의 지원되는
+session model/effort control에서 확인·선택합니다. CLI에서 `/model`을 제공하면 그 UI를 사용하고, 현재 schema에 설정 기능이
+없으면 파일이나 숨은 API로 대체하지 않습니다. 이 문서 작성에서 전역·Parent·운영 reviewer 설정은 변경하지 않았으며,
+**실제 Parent high 적용·품질·비용은 미관측**입니다. 구체 절차와 품질 stop은 [orchestration owner](./agent-workflows/orchestration.md#parent-high-운영과-quality-stop)를 따릅니다.
+
+- 필요한 context만 제공하고 primary 분석을 중복하지 않되 [독립 QA](./agent-workflows/qa.md)를 비용 이유로 생략하지 않습니다.
+- 작은 작업은 Parent 직접, 격리 가능한 깊은 문제만 Astra xhigh child; 전체 framing·통합 자체가 어렵다면 Parent xhigh를 권고합니다.
+- 첫 실제 task부터 acceptance 누락·substantive finding·scope 위반·재작업/복구 원인을 확인합니다. 보안·권한·데이터 invariant
+  위반이나 허위 완료면 무인 계속을 멈춥니다. Source/환경/권한/검증 gap부터 고치고, 추론 부족·반복 누락이면 effort를 재검토합니다.
+- Xhigh 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 지원 불일치·필수 QA 부재를 effort로 우회하지 않습니다.
+
 ## Verification에서 드러난 실패와 repair
 
 초기 runtime compatibility 구현은 semantic reviewer에서 두 가지 gap이 발견되었습니다.
@@ -229,6 +377,19 @@ PR #387은 두 gap을 expected-red regression으로 고정한 뒤 fail-closed bo
 merge evidence는 targeted agent suite 49/49, repository policy 297/297, clean-clone suite 36/36과 selected Monorepo CI를
 기록합니다. 숫자는 해당 merge 시점의 test inventory이며 보편적인 품질·생산성 비율을 의미하지 않습니다.
 
+2026-09-25 전체 로컬 변경의 fresh source-first review에서는 다음 두 결함을 별도로 재현했습니다.
+
+- Post-execution 검사가 scope digest를 다시 계산한 잘못된 context/tool 경계를 받아들였습니다. Pre/post가 기존 cohort·
+  scoped context·write ownership 검사를 공유하도록 보완하고, 세 profile 정상 결과와 변조 거절을 함께 검사했습니다.
+- 기록 constructor가 실패의 requested/resolved/hostObserved 불일치까지 거절했습니다. 유효한 진단값은 failure/blocked로
+  보존하되 success와 mismatch primary의 rescue 자격은 계속 거절하도록 수정했습니다. Low rescue의 observed high 실패도
+  원형 보존합니다. 알 수 없는 model/effort를 허용하거나 실제 실행 권한을 넓힌 변경이 아닙니다.
+
+두 repair의 기존 suite는 새 negative에서 **114 PASS / 3 FAIL → 117 PASS / 0 FAIL**로 전환됐습니다. 이것은 로컬
+deterministic 검증이며, 모델 품질·native authority나 원격 CI 성공을 의미하지 않습니다. 위
+[dispatch 회귀](../../scripts/ci/orchestration-policy.test.mjs)와 [진단 기록 회귀](../../scripts/ci/model-run-evidence.test.mjs)가
+재현 owner입니다. 문서의 링크·경계 guard도 실제 관찰의 진실성이나 agent의 지침 준수를 자동 보증하지 않습니다.
+
 현재 checkout에서 최소 재검증은 다음과 같습니다.
 
 ```bash
@@ -237,6 +398,9 @@ node --test \
   scripts/ci/routing-policy.test.mjs \
   scripts/ci/child-task-contract.test.mjs \
   scripts/ci/orchestration-policy.test.mjs \
+  scripts/ci/model-profiles.test.mjs \
+  scripts/ci/model-run-evidence.test.mjs \
+  scripts/ci/subagent-lifecycle-contract.test.mjs \
   scripts/ci/agent-intake-fresh-session.test.mjs
 pnpm test:repo-policy
 ```
@@ -284,7 +448,7 @@ authority를 대체하지 않습니다.
 | 왜 direct-first와 benefit-gated delegation인가?                                     | [DA-001~003](./agent-workflows/agentic-architecture-decisions.md), [delegation single-first gate](./agent-workflows/request-intake/delegation.md)                                             |
 | impact risk와 reasoning complexity를 왜 분리했는가?                                 | [DA-009](./agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정), [routing regression](../../scripts/ci/routing-policy.test.mjs)      |
 | architecture가 아닌 transaction·migration·lifecycle·trust work도 왜 XHigh가 되는가? | [semantic predicates](../../scripts/agents/routing-policy.mjs), [deep non-architecture fixtures](../../scripts/ci/routing-policy.test.mjs)                                                    |
-| parent는 왜 수동 XHigh/Max이고 child만 adaptive한가?                                | [.codex parent exclusion test](../../scripts/ci/project-codex-config.test.mjs), [reasoning effort routing](./agent-workflows/orchestration.md#reasoning-effort-routing)                       |
+| Parent effort는 왜 session owner가 선택하고 child만 task profile로 배정하는가?      | [.codex parent exclusion test](../../scripts/ci/project-codex-config.test.mjs), [reasoning effort routing](./agent-workflows/orchestration.md#reasoning-effort-routing)                       |
 | model·effort·count·write ownership을 어떻게 통제했는가?                             | [.codex config](../../.codex/config.toml), [delegation contract](./agent-workflows/request-intake/delegation.md), [runtime fixture](../../scripts/ci/fixtures/runtime-capability-cases.json)  |
 | hallucinated role/capability claim을 어떻게 막았는가?                               | [reported runtime evidence](./agent-workflows/request-intake/orchestration-recovery.md#reported-runtime-evidence), [orchestration regression](../../scripts/ci/orchestration-policy.test.mjs) |
 | context pollution과 delegation cost를 어떻게 제한했는가?                            | direct-first, bounded lane, facts/inferences/gaps output, leader-only fan-in contract                                                                                                         |
@@ -294,7 +458,7 @@ authority를 대체하지 않습니다.
 
 ## 한계와 재검토 조건
 
-- Comparable task cohort에 대한 productivity, quality, token, latency 개선률은 아직 측정하지 않았습니다.
+- 한정 activation 표본과 context pair는 있으나 comparable model/effort cohort의 productivity·품질·token·latency 개선률은 측정하지 않았습니다.
 - Provider가 인증한 immutable effective model/effort metadata는 현재 repository가 보유하지 않습니다.
 - Native surface나 Codex config schema가 바뀌면 role/model/effort evidence contract를 다시 검증합니다.
 - 현재 child model의 allowance, cost 또는 latency가 현재 child tier를 반박하면 model/effort allocation을 fresh evidence로 재설계합니다.
@@ -303,4 +467,4 @@ authority를 대체하지 않습니다.
 - 자동 fan-out, deterministic prompt classifier, 무제한 retry/reallocation과 autonomous merge/deploy는 현재 목표가 아닙니다.
 - 실제 사용자·production impact는 향후 운영 evidence 없이는 주장하지 않습니다.
 
-마지막 검토일: 2026-08-31
+마지막 검토일: 2026-09-25

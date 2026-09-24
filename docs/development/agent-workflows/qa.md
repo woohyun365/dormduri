@@ -96,6 +96,13 @@ Result
 4. Parent는 결과를 재현 가능한 증거와 대조합니다. Reviewer가 실행했다고 말한 것만으로 test PASS를 기록하지 않습니다.
    허용된 reader가 결과를 확인할 수 있도록 필요한 command/output 포인터를 제공하고, 실행하지 않은 검증은 그대로 남깁니다.
 
+최종 fan-in은 **criterion → source/test → gap** 순서로 대조합니다. Child completed, self-PASS, 한 테스트 성공이나
+테스트 개수는 전체 acceptance coverage가 아닙니다. 각 required criterion에 현재 snapshot의 근거가 있어야 하며, 중요한
+누락·상충 finding·필수 미실행 검증은 gap으로 남겨 완료를 막습니다. 단순 구조/문구 검사로 semantic evidence의 진실성을
+보장하지 않습니다. Future 관측처럼 현재 acceptance 밖인 항목은 분리해 handoff하고, 작은 direct 작업에 무조건 독립 child를
+추가하지 않습니다. 재조회/재현과 불필요한 primary 중복의 구분은 [orchestration](./orchestration.md#primary-작업과-증거-재사용)을
+따르며 필수 reviewer를 Parent self-review로 대체하지 않습니다.
+
 Source/contract 또는 acceptance에 영향을 주는 요구사항·guide가 바뀌면 이전 리뷰는 해당 snapshot의 historical evidence입니다.
 바뀐 가정과 영향 범위에 대해 delta re-review와 관련 regression을 수행한 후 새 snapshot을 기록합니다. 무관한 metadata 수정으로
 전체 suite를 자동 재실행하지 않지만, 기존 PASS를 새 코드의 PASS로 옮기지 않습니다.

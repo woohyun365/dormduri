@@ -193,7 +193,13 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
   assert.match(orchestration, /medium/u);
   assert.match(orchestration, /high/u);
   assert.match(orchestration, /xhigh/u);
-  assert.doesNotMatch(orchestration, /\blow\b/u);
+  // Task risk (low-impact) and separately bound recovery are not ordinary effort.
+  // Check the declared route contract rather than banning a word across all docs.
+  assert.match(orchestration, /effort는 `medium \| high \| xhigh`/u);
+  assert.match(
+    orchestration,
+    /Low와 `max\/ultra`는 일반 repository child route에 사용하지 않습니다/u,
+  );
   assert.match(orchestration, /`max\/ultra`.*사용하지/u);
   assert.match(orchestration, /역할을 prompt label로 가장하지 않고/u);
 });
