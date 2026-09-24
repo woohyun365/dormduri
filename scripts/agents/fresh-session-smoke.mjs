@@ -189,6 +189,42 @@ function evaluateDeliveryEvidence() {
       laneCandidates: [routingEvidenceLane(['FE-08-performance-causal'])],
       deliveryByLane: { 'legal-routing-evidence': delivery },
     }).delegation.recommendedChildren[0];
+  const dispatchFor = (change = {}) =>
+    evaluateScenario({
+      request: 'Legal 개선 지점 분석해줘.',
+      repositoryEvidence: [{ path: 'docs/policies/legal-basis.md', kind: 'policy' }],
+      laneCandidates: [routingEvidenceLane(['BE-01-concurrency-transaction'])],
+      deliveryByLane: {
+        'legal-routing-evidence': {
+          ...request,
+          runtime: { ...request.runtime, effectiveEffort: 'xhigh' },
+          ...change,
+        },
+      },
+      reportedRuntimeEvidence: {
+        schemaVersion: 1,
+        surfaceMode: 'native',
+        observationScope: 'current-turn',
+        freshness: 'current-turn',
+        provenance: ['host-tool-schema'],
+        dispatchPermission: 'allowed',
+        roles: [
+          {
+            agentType: 'knu_explorer',
+            available: true,
+            effectiveModel: 'gpt-6-astra',
+            effectiveEffort: 'xhigh',
+            explicitEffortSupport: true,
+            modelSelection: {
+              supportedModels: ['gpt-6-astra'],
+              roleModel: null,
+              explicitModelSupport: true,
+              reference: 'synthetic-current-native-schema',
+            },
+          },
+        ],
+      },
+    }).dispatch;
   const packet = packetFor(request);
   return {
     scoped: packet.contextDelivery,
@@ -198,6 +234,14 @@ function evaluateDeliveryEvidence() {
       mode: 'full-history',
       rationale: 'Synthetic full-history compatibility case.',
     }).contextDelivery,
+    ordinaryDispatch: {
+      scoped: dispatchFor(),
+      unknown: dispatchFor({ runtime: null }),
+      fullHistoryConflict: dispatchFor({
+        mode: 'full-history',
+        rationale: 'Synthetic full-history compatibility case.',
+      }),
+    },
     fixtureOnly: true,
     measurement: {
       unit: 'utf8-bytes',

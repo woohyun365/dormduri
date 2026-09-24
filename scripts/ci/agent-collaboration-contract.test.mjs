@@ -290,3 +290,27 @@ test('execution security has one document owner and distinguishes guidance from 
     assert.ok(authentication.includes(term), term);
   }
 });
+
+// These assertions cover finite inputs and instruction presence, not live agent judgment.
+test('primary work and acceptance-bound QA have finite quality-stop scenarios and canonical owners', () => {
+  for (const [id, signal, forbidden] of [
+    ['primary-answer-reuse', 'single-primary-owner', 'duplicate-primary-solve'],
+    ['acceptance-evidence-gap', 'criterion-evidence-gap', 'test-count-as-full-acceptance'],
+    ['changed-source-review', 'delta-review', 'reuse-stale-pass'],
+    ['parent-quality-stop', 'cause-before-effort', 'automatic-model-change'],
+  ]) {
+    const item = corpus.cases.find((entry) => entry.id === id);
+    assert.ok(item, id);
+    assert.ok(item.requiredSignals.includes(signal), id);
+    assert.ok(item.prohibitedActions.includes(forbidden), id);
+  }
+  const orchestration = read(workflow + 'orchestration.md');
+  const qa = read(workflow + 'qa.md');
+  assert.match(orchestration, /primary analysis owner/u);
+  assert.match(orchestration, /Parent-high 운영과 quality stop/u);
+  assert.match(orchestration, /원인.*effort/u);
+  assert.match(orchestration, /보안\/권한\/범위\/데이터 invariant 위반/u);
+  assert.match(qa, /criterion → source\/test → gap/u);
+  assert.match(qa, /테스트 개수/u);
+  assert.match(qa, /self-PASS/u);
+});

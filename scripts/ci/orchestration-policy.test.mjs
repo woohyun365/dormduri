@@ -633,6 +633,216 @@ test('accepts one validated bounded lane while retaining the runtime capability 
   assert.deepEqual(unsupported.dispatches, []);
 });
 
+test('ordinary scoped Astra advice binds exact native arguments without changing input or Parent', () => {
+  const input = ordinaryScopedDispatchInput();
+  const before = structuredClone(input);
+  const result = createDispatchRecommendation(input);
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  assert.deepEqual(result.dispatches[0].spawnArguments, {
+    agent_type: 'knu_explorer',
+    model: 'gpt-6-astra',
+    reasoning_effort: 'xhigh',
+    fork_turns: 'none',
+  });
+  assert.equal(result.dispatches[0].runtimeAction, false);
+  assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+  assert.equal(result.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
+  assert.equal(result.dispatches[0].contract.contextDelivery.applied, false);
+  assert.deepEqual(result.dispatches[0].contract.contextDelivery.failures, [
+    'Preserve the earlier failed verification as evidence.',
+  ]);
+  assert.ok(Object.isFrozen(result.dispatches[0].spawnArguments));
+  assert.deepEqual(input, before);
+  assert.equal(Object.isFrozen(input.reportedRuntimeEvidence), false);
+});
+
+test('ordinary context and explicit invocation gaps cannot leave a ready descriptor', () => {
+  const cases = [
+    [
+      'null context',
+      (v) => {
+        v.delegation.recommendedChildren[0].contextDelivery = null;
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'incompatible context',
+      (v, c) => {
+        c.compatible = false;
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'unknown compatibility',
+      (v, c) => {
+        delete c.compatible;
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'already applied claim',
+      (v, c) => {
+        c.applied = true;
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'unknown application',
+      (v, c) => {
+        delete c.applied;
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'contradictory gap',
+      (v, c) => {
+        c.gaps = ['delivery-runtime-unverified'];
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'unknown gaps',
+      (v, c) => {
+        delete c.gaps;
+      },
+      'runtime-context-incompatible',
+    ],
+    [
+      'no model metadata',
+      (v, c, r) => {
+        delete r.modelSelection;
+      },
+      'runtime-scoped-model-unsupported',
+    ],
+    [
+      'explicit model unsupported',
+      (v, c, r) => {
+        r.modelSelection.explicitModelSupport = false;
+      },
+      'runtime-scoped-model-unsupported',
+    ],
+    [
+      'Astra not supported',
+      (v, c, r) => {
+        r.modelSelection.supportedModels = ['gpt-6-sol'];
+      },
+      'runtime-scoped-model-unsupported',
+    ],
+    [
+      'different role pin',
+      (v, c, r) => {
+        r.modelSelection.roleModel = 'gpt-6-sol';
+      },
+      'runtime-scoped-model-unsupported',
+    ],
+    [
+      'explicit effort unsupported',
+      (v, c, r) => {
+        r.explicitEffortSupport = false;
+      },
+      'runtime-scoped-effort-unsupported',
+    ],
+    [
+      'reported effort mismatch',
+      (v, c, r) => {
+        r.effectiveEffort = 'high';
+      },
+      'runtime-effective-effort-mismatch',
+    ],
+    [
+      'denied runtime',
+      (v) => {
+        v.reportedRuntimeEvidence.dispatchPermission = 'denied';
+      },
+      'runtime-dispatch-permission-denied',
+    ],
+    [
+      'stale runtime',
+      (v) => {
+        v.reportedRuntimeEvidence.freshness = 'stale';
+      },
+      'runtime',
+    ],
+  ];
+  for (const [name, mutate, gap] of cases) {
+    const input = structuredClone(ordinaryScopedDispatchInput());
+    mutate(
+      input,
+      input.delegation.recommendedChildren[0].contextDelivery,
+      input.reportedRuntimeEvidence.roles[0],
+    );
+    const result = createDispatchRecommendation(input);
+    assert.equal(result.execution, 'leader-sequential', name);
+    assert.deepEqual(result.dispatches, [], name);
+    assert.ok(
+      result.gaps.some((item) => item.startsWith(gap)),
+      name,
+    );
+    assert.equal(result.requiresLeaderRuntimeConfirmation, false, name);
+  }
+});
+
+test('composed unknown, stale, unsupported fork and full-history conflicts stop ordinary dispatch', () => {
+  for (const change of [
+    { runtime: null },
+    { runtime: { ...ordinaryDelivery().runtime, freshness: 'stale' } },
+    { runtime: { ...ordinaryDelivery().runtime, scopedFork: false } },
+    { mode: 'full-history', rationale: 'Synthetic history conflict.' },
+  ]) {
+    const input = ordinaryScopedDispatchInput(change);
+    assert.equal(input.delegation.recommendedChildren[0].contextDelivery.compatible, false);
+    const result = createDispatchRecommendation(input);
+    assert.equal(result.execution, 'leader-sequential');
+    assert.deepEqual(result.dispatches, []);
+    assert.ok(result.gaps.includes('runtime-context-incompatible:legal-repository-map'));
+  }
+});
+
+test('legacy and compatible non-explicit contexts are not silently converted to fresh scoped calls', () => {
+  const legacy = structuredClone(ordinaryScopedDispatchInput());
+  delete legacy.delegation.recommendedChildren[0].contextDelivery;
+  delete legacy.reportedRuntimeEvidence.roles[0].modelSelection;
+  const fullHistory = ordinaryScopedDispatchInput({
+    mode: 'full-history',
+    effortMode: 'inherit',
+    rationale: 'Necessary complete context.',
+  });
+  const reuse = ordinaryScopedDispatchInput({
+    mode: 'reuse',
+    effortMode: 'inherit',
+    previous: {
+      childId: '/root/same-task',
+      laneId: 'legal-repository-map',
+      role: 'knu_explorer',
+      sameOutcome: true,
+      scopeUnchanged: true,
+      sourceSnapshot: 'synthetic-source-v1',
+      revalidatedForSnapshot: 'synthetic-source-v1',
+      independentReview: false,
+    },
+  });
+  const inherited = ordinaryScopedDispatchInput({ effortMode: 'inherit' });
+  const omx = ordinaryScopedDispatchInput();
+  Object.assign(omx.reportedRuntimeEvidence, {
+    surfaceMode: 'omx',
+    observationScope: 'current-session',
+    freshness: 'current-session',
+    provenance: ['host-tool-schema', 'omx-runtime-overlay'],
+  });
+  for (const input of [legacy, fullHistory, reuse, inherited, omx]) {
+    const result = createDispatchRecommendation(input);
+    assert.equal(result.execution, 'native-bounded-dispatch');
+    assert.equal(result.dispatches[0].spawnArguments, undefined);
+    assert.equal(result.requiresLeaderRuntimeConfirmation, true);
+  }
+  const pinned = ordinaryScopedDispatchInput();
+  pinned.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
+  assert.equal(
+    createDispatchRecommendation(pinned).dispatches[0].spawnArguments.model,
+    'gpt-6-astra',
+  );
+});
+
 test('permits one distinct alternate attempt and then requires a terminal handoff', () => {
   const firstFailure = evaluateRecovery({
     laneId: 'legal-official-evidence',
@@ -1205,13 +1415,65 @@ function modelDispatchInput(purpose = 'pilot') {
   });
 }
 
+function ordinaryDelivery() {
+  return {
+    purpose: 'task',
+    mode: 'scoped',
+    effortMode: 'explicit',
+    rationale: null,
+    snapshot: 'synthetic-source-v1',
+    evidencePointers: ['docs/policies/legal-basis.md'],
+    findings: ['One unresolved, bounded deep analysis question.'],
+    failures: ['Preserve the earlier failed verification as evidence.'],
+    previous: null,
+    runtime: {
+      freshness: 'current-turn',
+      scopedFork: true,
+      fullHistoryFork: true,
+      followup: true,
+      explicitEffort: true,
+      fullHistoryWithExplicitEffort: false,
+      effectiveEffort: 'xhigh',
+    },
+  };
+}
+
+function ordinaryScopedDispatchInput(change = {}) {
+  const reportedRuntimeEvidence = structuredClone(
+    runtimeFixture('native-project-role-success').evidence,
+  );
+  reportedRuntimeEvidence.roles = [
+    {
+      agentType: 'knu_explorer',
+      available: true,
+      effectiveModel: 'gpt-6-astra',
+      effectiveEffort: 'xhigh',
+      explicitEffortSupport: true,
+      modelSelection: {
+        supportedModels: ['gpt-6-astra'],
+        roleModel: null,
+        explicitModelSupport: true,
+        reference: 'synthetic-current-native-schema',
+      },
+    },
+  ];
+  return {
+    delegation: legalDelegation({
+      oneLane: true,
+      predicateId: 'BE-01-concurrency-transaction',
+      delivery: { ...ordinaryDelivery(), ...change },
+    }),
+    reportedRuntimeEvidence,
+  };
+}
+
 function runtimeFixture(id) {
   const fixture = runtimeCapabilityCases.find((candidate) => candidate.id === id);
   assert.ok(fixture, `Missing runtime capability fixture: ${id}`);
   return fixture;
 }
 
-function legalDelegation({ oneLane = false } = {}) {
+function legalDelegation({ oneLane = false, delivery, predicateId } = {}) {
   const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
   const contextPack = discoverContextPack({
     envelope,
@@ -1224,13 +1486,14 @@ function legalDelegation({ oneLane = false } = {}) {
   return recommendDelegation({
     envelope,
     contextPack,
+    deliveryByLane: delivery ? { 'legal-repository-map': delivery } : {},
     laneCandidates: oneLane
-      ? [repositoryLane(contextPack)]
+      ? [repositoryLane(contextPack, predicateId)]
       : [repositoryLane(contextPack), officialLane(contextPack)],
   });
 }
 
-function repositoryLane(contextPack) {
+function repositoryLane(contextPack, predicateId = 'SEC-05-disclosure') {
   return {
     id: 'legal-repository-map',
     domain: 'legal',
@@ -1249,7 +1512,7 @@ function repositoryLane(contextPack) {
       kind: 'completeness',
       rationale: 'Repository ownership can be mapped independently.',
     },
-    pass2Evidence: semanticEvidence(contextPack, 'SEC-05-disclosure'),
+    pass2Evidence: semanticEvidence(contextPack, predicateId),
   };
 }
 

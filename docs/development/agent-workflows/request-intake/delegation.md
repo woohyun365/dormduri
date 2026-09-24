@@ -140,6 +140,21 @@ deliveryByLane[laneId]
   거절하며 실패 내용·안전 지침을 조용히 자르지 않습니다. 긴 로그는 허용 scope 안의 원문 pointer와 정확한 실패 요약으로
   전달합니다. 이 전달 요청은 self-attestation이며 새 권한이나 접근 허용 목록을 만들지 않습니다.
 
+`createDispatchRecommendation()`은 **공급된** `contextDelivery`의 `compatible=true`, `applied=false`, 빈 `gaps`를
+확인하고 불일치/unknown이면 ordinary Astra에서도 dispatch 없이 `runtime-context-incompatible:<laneId>`를 반환합니다.
+선택 입력을 **생략**한 legacy caller는 기존 advisory shape를 유지하지만, 이 생략은 실제 호출의 context 확인을 면제하지
+않습니다. 필수 독립 QA가 막힌 경우 sequential disposition을 Parent self-review PASS로 바꾸지 않습니다.
+
+Ordinary Astra의 native + scoped + explicit-effort 경로는 기존 role metadata의 `modelSelection`과
+`explicitEffortSupport`를 확인합니다. Astra 지원, explicit model 지원, 호환 role pin, 기존 role/model/effort/permission
+검사를 모두 통과할 때만 descriptor에 `spawnArguments={agent_type, model: gpt-6-astra, reasoning_effort, fork_turns: none}`을
+연결합니다. Metadata가 없거나 충돌하면 ready descriptor 대신 명시 gap입니다. `failures`는 ordinary 전달에서 보존해야 할
+근거이며 자동 거절 사유가 아닙니다. Candidate admission과 bound recovery의 별도 제한은 바꾸지 않습니다.
+
+Compatible full-history/reuse/inherit 및 OMX advisory 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor에는
+Parent의 live 재확인이 계속 필요하며 실제 실행·provider-effective 설정을 증명하지 않습니다. 기존 source/권한 의미의
+진실성까지 순수 helper가 인증하지 않으므로 Parent는 실제 host와 완전한 packet을 확인한 후에만 호출합니다.
+
 기존 fresh-session smoke는 이 결과를 실제로 소비하되 **synthetic/no-native 실행**입니다. Fixture의 UTF-8 bytes와
 중복 전달 감소는 token/weekly 절감이 아니며, 미관측 usage는 `null/unknown`입니다. 실제 fork 설정·사용량 관측은 별도
 native 실행 evidence가 필요합니다. 비용 운영 기준은 [orchestration owner](../orchestration.md#context와-검증-비용)를 따릅니다.

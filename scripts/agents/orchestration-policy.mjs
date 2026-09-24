@@ -178,6 +178,17 @@ export function createDispatchRecommendation({
       dispatchOwner: 'leader',
       runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
       requiresLeaderRuntimeConfirmation: true,
+      ...(usesOrdinaryScopedArguments(runtime, contract)
+        ? {
+            spawnArguments: {
+              agent_type: contract.routeRecommendation.role,
+              model: REPOSITORY_CHILD_MODEL,
+              reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
+              fork_turns: 'none',
+            },
+            runtimeAction: false,
+          }
+        : {}),
       ...(contract.routeRecommendation.modelRecommendation
         ? {
             requestedModel: contract.routeRecommendation.modelRecommendation.profileBinding.model,
@@ -1077,6 +1088,15 @@ function normalizeRuntimeRoles(value, gaps) {
   return roles;
 }
 
+function usesOrdinaryScopedArguments(runtime, contract) {
+  return (
+    !contract.routeRecommendation.modelRecommendation &&
+    runtime.surfaceMode === 'native' &&
+    contract.contextDelivery?.mode === 'scoped' &&
+    contract.contextDelivery?.effortMode === 'explicit'
+  );
+}
+
 function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   const gaps = [];
   if (runtime.dispatchPermission !== 'allowed') {
@@ -1084,6 +1104,17 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   }
   const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
   for (const contract of contracts) {
+    // Omitted optional context preserves legacy advice; supplied gaps must not be
+    // lost between the context composer and its dispatch consumer.
+    const delivery = contract.contextDelivery;
+    if (
+      delivery !== undefined &&
+      (delivery?.compatible !== true ||
+        delivery?.applied !== false ||
+        !Array.isArray(delivery?.gaps) ||
+        delivery.gaps.length !== 0)
+    )
+      gaps.push(`runtime-context-incompatible:${contract.laneId}`);
     const requestedRole = contract.routeRecommendation.role;
     const requestedEffort = resolveRouteEffort(contract.routeRecommendation);
     const reportedRole = rolesByAgentType.get(requestedRole);
@@ -1092,6 +1123,17 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
       continue;
     }
     const model = contract.routeRecommendation.modelRecommendation;
+    if (usesOrdinaryScopedArguments(runtime, contract)) {
+      const selection = reportedRole.modelSelection;
+      if (
+        !selection?.explicitModelSupport ||
+        !selection.supportedModels.includes(REPOSITORY_CHILD_MODEL) ||
+        (selection.roleModel !== null && selection.roleModel !== REPOSITORY_CHILD_MODEL)
+      )
+        gaps.push(`runtime-scoped-model-unsupported:${requestedRole}`);
+      if (!reportedRole.explicitEffortSupport)
+        gaps.push(`runtime-scoped-effort-unsupported:${requestedRole}`);
+    }
     const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
     const resolution = reportedRole.configurationResolution;
     if (

@@ -86,6 +86,10 @@ Role·effort·count·독립성·one-writer 판정은 기존 [Orchestration](./or
 독립 lane은 peer 답변을 기다리지 않아도 완료 가능해야 합니다. 반복 질문이 필수가 되면 Parent가 범위를 다시 나누거나
 순차화합니다. 다수결이나 같은 모델의 반복 답변을 독립 증거로 세지 않습니다.
 
+Primary 분석을 한 owner에 배정하고 이미 해결한 문제를 반복하지 않는 기준은
+[orchestration의 증거 재사용](./orchestration.md#primary-작업과-증거-재사용)을 따릅니다. 독립 QA와 필요한 실패 재현은
+비용 절감을 이유로 생략하지 않습니다.
+
 ## 통신: 기본은 Parent 경유, 예외는 지정된 사실 확인
 
 Parent만 assignment·재배정·scope/file owner 변경·충돌 해결·결과 판정·통합을 소유합니다. Child의 결과·blocker·결정 요청은

@@ -49,7 +49,7 @@ const planOutputFields = new Set([
   'finalAcceptance',
 ]);
 
-test('optional context delivery crosses the existing handoff without replacing its authority gates', () => {
+test('supplied incompatible context stops dispatch while preserving the complete handoff', () => {
   const fixture = fixtureById('legal-analysis');
   const options = {
     repositoryEvidence: legalEvidence({ officialVerified: false }),
@@ -73,16 +73,18 @@ test('optional context delivery crosses the existing handoff without replacing i
     ...options,
     deliveryByLane: { [first.laneId]: request },
   });
-  const dispatched = flow.dispatch.dispatches.find(
+  const supplied = flow.delegation.recommendedChildren.find(
     ({ laneId }) => laneId === first.laneId,
-  ).contract;
-  const { contextDelivery, ...unchanged } = dispatched;
+  );
+  const { contextDelivery, ...unchanged } = supplied;
   assert.deepEqual(unchanged, first);
   assert.equal(contextDelivery.compatible, false);
   assert.equal(contextDelivery.applied, false);
   assert.deepEqual(contextDelivery.failures, request.failures);
-  // Role compatibility is not context/native readiness: the Parent must check both.
-  assert.equal(flow.dispatch.requiresLeaderRuntimeConfirmation, true);
+  assert.equal(flow.dispatch.execution, 'leader-sequential');
+  assert.deepEqual(flow.dispatch.dispatches, []);
+  assert.ok(flow.dispatch.gaps.includes(`runtime-context-incompatible:${first.laneId}`));
+  assert.equal(flow.dispatch.requiresLeaderRuntimeConfirmation, false);
   assert.equal(flow.dispatch.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
   assert.deepEqual(flow.delegation.limits, legacy.delegation.limits);
   const later = recommendDelegation({ envelope: flow.envelope, contextPack: flow.contextPack });

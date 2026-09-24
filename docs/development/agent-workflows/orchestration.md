@@ -59,6 +59,17 @@ Cached가 input에 포함되면 중복 합산하지 않습니다. 문자열 길�
 측정 자체의 비용도 기록합니다. 별도 권한 없는 host/benchmark를 실행하거나 global usage DB/수집 daemon을 만들지 않습니다.
 Idle thread가 계속 token을 소비하거나 close가 이미 사용한 quota를 환급한다고 가정하지 않습니다.
 
+### Primary 작업과 증거 재사용
+
+Parent는 unresolved question·범위·acceptance를 정할 만큼 triage한 뒤 **primary analysis owner**를 하나 선택합니다.
+이미 직접 끝낸 분석을 같은 목적의 child에게 다시 풀게 하지 않습니다. 근거가 최신이면 결과를 재사용하고, 작은 lookup이나
+단일 dependency chain은 child 0으로 끝냅니다. Child를 쓰는 경우 기존 결과 계약에 근거 위치·실제 command/exit/result·
+대안·불확실성을 받아 [criterion별 QA](./qa.md#portable-qa-packet)로 통합합니다. 긴 설명이나 completed 상태는 완료 증거가 아닙니다.
+
+원문 확인, source 변경, 모순 해소, 실패 재현, 필요한 **독립 QA**는 불필요한 중복이 아닙니다. 재조회·재검증의 이유와 관련
+snapshot만 task-local evidence에 짧게 남기며 비용 때문에 생략하지 않습니다. Primary 중복 여부와 의미상 누락은 사람이 읽는
+작업 계약/독립 QA로 판단합니다. Fixture 문자열 검사나 새 점수 엔진이 agent의 실제 준수를 보장한다고 표현하지 않습니다.
+
 ## Parent-led communication
 
 결정권과 통신 예외는 [Owner–Lead collaboration](./owner-lead-collaboration.md)의 단일 계약을 사용합니다. 기본은 Parent
@@ -97,7 +108,7 @@ recurring human production owner가 생길 때 CODEOWNERS와 non-author approval
 
 ## Reasoning effort routing
 
-Reasoning routing은 parent와 child를 분리합니다. Parent XHigh/Max는 사용자가 session에서 선택하며 repository는 parent
+Reasoning routing은 Parent와 child를 분리합니다. Parent effort는 사용자가 session에서 선택하며 repository는 Parent
 effort를 계산하거나 변경했다고 보고하지 않습니다.
 
 1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
@@ -120,6 +131,26 @@ host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 lead
 dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
 leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
 첫 실행은 configuration resolution을 사용하며 실행 전 값을 effective telemetry라고 쓰지 않습니다. 실행 후 관측은 별도 검사합니다.
+
+### Parent-high 운영과 quality stop
+
+Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작업은 직접 처리합니다. 분리 가능한 깊은 미해결 문제만
+기존 semantic evidence와 active schema 확인을 거쳐 **Astra xhigh child**에 배정합니다. 전체 문제 정의·범위·cross-owner
+통합이 어려우면 Parent xhigh를 권고하며, 높은 child effort가 Parent의 통합 판단을 대신하지는 않습니다.
+
+- 적용은 관련 구현·검증·운영 handoff가 완료된 뒤 실제 host의 session control에서 선택합니다. 이 지침 추가, 설정 파일 값,
+  child descriptor만으로 현재 Parent high 적용을 주장하지 않습니다. Parent/global/reviewer 설정을 자동 변경하지 않습니다.
+- 첫 실제 업무에서 required tests와 [독립 QA trigger](./qa.md#independent-review-disposition)를 유지하고 acceptance 누락·
+  scope 위반·substantive finding·수정/복구 원인을 기록합니다. 작은 작업마다 새 QA child를 만들지는 않습니다.
+- 보안/권한/범위/데이터 invariant 위반 또는 잘못된 완료 주장이 확인되면 해당 작업의 무인 계속을 멈추고 원인·영향을 확인합니다.
+  **원인을 먼저 구분한 뒤 effort를 판단**합니다. Source/환경/권한/테스트 공백부터 바로잡고, Parent의 framing·통합 추론 부족이
+  의심되거나 같은 누락이 재발하면 Parent xhigh 재검토를 권고합니다. 격리 가능한 기술 문제만이면 bounded xhigh child를 씁니다.
+- 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 입력 부족·권한 거절·필수 독립 검증 부재를 effort로 우회하지 않습니다.
+  기존 retry ceiling·QA gap 처리를 유지하고 해결 불가능하면 근거를 보존해 handoff합니다.
+
+Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합니다. Supported native scoped/explicit 호출의 정확한
+인자와 legacy/reuse 경계는 [context delivery](./request-intake/delegation.md#context-delivery)가 소유합니다. 이 경계의 회귀
+검사와 실제 Parent-high 품질/사용량 관측은 별개이며, 검증되지 않은 동등 성능·weekly 절감 수치를 보고하지 않습니다.
 
 ### Quality-gated model advice
 

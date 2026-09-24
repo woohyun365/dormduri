@@ -68,6 +68,25 @@ test('fresh smoke consumes complete scoped packets and labels byte evidence sepa
   assert.equal(boundaries.mutatesWorkspace, false);
 });
 
+test('fresh smoke reaches ordinary scoped Astra dispatch and rejects context gaps', () => {
+  const { deliveryEvidence, boundaries } = runFreshSessionSmoke();
+  const { scoped, unknown, fullHistoryConflict } = deliveryEvidence.ordinaryDispatch;
+  assert.deepEqual(scoped.dispatches[0].spawnArguments, {
+    agent_type: 'knu_explorer',
+    model: 'gpt-6-astra',
+    reasoning_effort: 'xhigh',
+    fork_turns: 'none',
+  });
+  assert.equal(scoped.dispatches[0].runtimeAction, false);
+  for (const rejected of [unknown, fullHistoryConflict]) {
+    assert.equal(rejected.execution, 'leader-sequential');
+    assert.deepEqual(rejected.dispatches, []);
+    assert.ok(rejected.gaps.includes('runtime-context-incompatible:legal-routing-evidence'));
+  }
+  assert.equal(boundaries.invokesChild, false);
+  assert.equal(boundaries.mutatesWorkspace, false);
+});
+
 test('fresh smoke consumes lifecycle recommendations without invoking native lifecycle', () => {
   const report = runFreshSessionSmoke();
   const {
