@@ -1684,6 +1684,76 @@ test('first dispatch uses resolved configuration, not invented effective telemet
   assert.deepEqual(input, before);
 });
 
+test('routine withdrawal emits no candidate, permits safe direct work and requires fresh re-admission', () => {
+  const original = resolvedDispatchInput('routine');
+  assert.equal(createDispatchRecommendation(original).dispatches.length, 1);
+  for (const withdraw of [
+    (x) => {
+      modelUse(x).admission = null;
+    },
+    (x) => {
+      modelUse(x).admission.quality = 'no-go';
+    },
+    (x) => {
+      modelUse(x).checks = 'failed';
+    },
+    (x) => {
+      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
+    },
+    (x) => {
+      modelUse(x).configDigest = `sha256:${'e'.repeat(64)}`;
+      x.reportedRuntimeEvidence.roles[0].configurationResolution.configDigest =
+        modelUse(x).configDigest;
+    },
+  ]) {
+    const input = structuredClone(original);
+    withdraw(input);
+    const blocked = createDispatchRecommendation(input);
+    assert.equal(blocked.execution, 'leader-sequential');
+    assert.deepEqual(blocked.dispatches, []);
+    assert.ok(blocked.gaps.length > 0);
+  }
+
+  // Rebuild from current task evidence, not by relabeling a candidate contract.
+  const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
+  const contextPack = discoverContextPack({
+    envelope,
+    repositoryEvidence: [{ path: 'docs/policies/legal-basis.md' }],
+  });
+  const direct = createDispatchRecommendation({
+    delegation: recommendDelegation({ envelope, contextPack }),
+  });
+  assert.deepEqual(direct.dispatches, []);
+  assert.ok(['leader-direct', 'leader-sequential'].includes(direct.execution));
+  const astra = createDispatchRecommendation(ordinaryScopedDispatchInput());
+  assert.equal(astra.dispatches[0].spawnArguments.model, 'gpt-6-astra');
+  assert.equal(astra.dispatches[0].contract.routeRecommendation.modelRecommendation, undefined);
+
+  // New current bytes/config + fresh bounded GO. A restored config or old packet
+  // alone is not a revocation service; the Parent owns this re-authorization.
+  const renewed = structuredClone(original);
+  const contract = renewed.delegation.recommendedChildren[0];
+  contract.contextDelivery.snapshot = 'synthetic-new-authorized-source';
+  rebindModelScope(renewed);
+  const use = modelUse(renewed);
+  use.configDigest = `sha256:${'e'.repeat(64)}`;
+  renewed.reportedRuntimeEvidence.roles[0].configurationResolution.configDigest = use.configDigest;
+  assert.deepEqual(createDispatchRecommendation(renewed).dispatches, []);
+  use.admission.configDigest = use.configDigest;
+  use.admission.reference = 'synthetic-new-owner-task-and-cohort-decision';
+  use.observedAt = '2026-09-24T12:00:00.000Z';
+  use.admission.notBefore = '2026-09-24T11:59:00.000Z';
+  use.admission.expiresAt = '2026-09-24T12:10:00.000Z';
+  const ready = createDispatchRecommendation(renewed);
+  assert.equal(ready.execution, 'native-bounded-dispatch');
+  assert.equal(ready.dispatches[0].spawnArguments.model, 'gpt-6-sol');
+  assert.notEqual(
+    contract.modelScopeDigest,
+    original.delegation.recommendedChildren[0].modelScopeDigest,
+  );
+  assert.equal(modelUse(original).admission.reference, 'synthetic-owner-authorization');
+});
+
 test('pre-dispatch resolution rejects file-only, stale, pin, digest, effort and mixed evidence', () => {
   for (const mutate of [
     (x) => {

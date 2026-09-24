@@ -102,6 +102,26 @@ admission: null | {
 [Task model configuration and fresh loading](../orchestration.md#task-model-configuration-and-fresh-loading)이 소유합니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
 fixture일 뿐 실제 모델 사용·native 지원·품질 동등성·비용 절약 증거가 아닙니다. Parent/최종 QA/effort/cap/권한 경계는 유지합니다.
 
+## Routine admission lifetime
+
+[운영 cohort 결정과 cold-start](../orchestration.md#routine-task-model-operation)를 먼저 확인합니다. 그 결정의 reference는
+profile/role/범위의 채택 근거이지 이 호출의 scope/config/time/budget 승인 JSON이 아닙니다. Parent는 현재 승인된 사용자
+업무를 원문으로 확인하고 양쪽 reference를 연결해 새 packet을 작성합니다. 별도 모델명 재승인을 매번 요구하지 않지만
+동일한 source/권한·risk로 확인하지 않은 scope 확대를 일반 업무로 위장하지 않습니다.
+
+**철회는 Parent의 운영 책임**입니다. 새 dispatch를 멈추고 관련 admission을 `null` 또는 `quality=no-go`로 폐기/갱신하며
+불일치 source/config/role·실패한 checks는 그대로 남깁니다. 과거 grant의 만료 시간만 바꾸거나 scope hash만 재계산해
+재사용하지 않습니다. Routine은 pilot/PASS를 adoption GO로 대체할 수 없습니다.
+
+이 helper에는 외부 revoked-state lookup이나 영구 취소 목록이 없습니다. **같은 유효한 GO packet을 다시 넣으면 통과할 수
+있습니다.** 따라서 철회 기록·사용 중단·원래 권한 재확인과 재채택은 Parent가 수행해야 하며 boolean/해시로 강제했다고
+주장하지 않습니다. Code/registry 전체를 과거 버전으로 되돌려 옛 grant를 살리는 것도 보호하는 엔진이 아닙니다.
+
+재채택할 때는 필요한 품질·독립 검사 후 현재 contract/profileBinding과 config/scope bytes, 새 bounded validity window,
+잔여 budget, cleanup reference를 다시 연결합니다. 이미 실행된 실패는 exact recovery identity에 남기고 성공으로 재명명하지
+않습니다. 아직 실행하지 않은 지원 불일치는 pre-dispatch gap이지 candidate 품질 실패가 아닙니다. 운영 철회와 설정 rollback의
+순서는 [Astra-only rollback](../orchestration.md#suspension-and-astra-only-rollback)을 따릅니다.
+
 ## First dispatch and post-execution evidence
 
 첫 실행 전에는 `configurationResolution`으로 현재 host schema·loaded config의 해석과 정확한 digest/reference를 보고하고

@@ -178,6 +178,7 @@ Max worker/복구, Parent·운영 reviewer 변경은 허용하지 않습니다.
 [실행 기록과 원인/복구 관측](./request-intake/orchestration-recovery.md#bounded-model-run-evidence)은 선택을 기록할 뿐
 semantic eligibility나 admission을 완화하지 않습니다.
 
+현재 채택 범위와 새 세션의 선택 순서는 [Routine task-model operation](#routine-task-model-operation)을 따릅니다.
 추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./request-intake/delegation.md#model-recommendation)과
 [pilot/adoption·runtime admission](./request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
 별도 허용된 최초 pilot은 adoption GO 전에도 비교할 수 있지만, pilot 허용/PASS는 운영 채택 GO가 아닙니다.
@@ -199,6 +200,9 @@ ordinary modelRequest나 semantic Medium 판정을 바꾸지 않습니다. Unkno
 `astra-standard-recovery` 또는 handoff, QA·identity·permission/quota/cap 문제는 이 경로로 우회하지 않습니다.
 Pending writer 회수 후 정확한 첫 실패·현재 rescue source/config/scope·승인·예산·시간에 bind한 alternate 한 번만 가능합니다.
 한 번의 Low 실패 뒤 더 높은 effort로 추가 호출하지 않습니다. 이 정적 경로의 지원은 실제 rescue 품질/운영 채택 증거가 아닙니다.
+현재 routine Low 채택은 [검증된 executor cohort](./agentic-architecture-decisions.md#routine-model-adoption)에 한정합니다.
+Explorer/researcher 등 미채택 역할에 helper가 Low를 추천해도 실행 GO가 아니며, Parent direct/검증된 Astra 경로 또는
+새 evidence handoff를 사용합니다. Standard recovery를 강제하려고 cause·semantic effort를 조작하지 않습니다.
 [Recovery selection과 admission 계약](./request-intake/orchestration-recovery.md#bound-recovery-selection-and-admission)을 따릅니다.
 
 ### Central profile migration boundary
@@ -212,6 +216,23 @@ recovery에 연결합니다. Raw model/구형 GPT-5.6 request는 거절하며 �
 설치된 registry와 정확히 비교하므로 synthetic hash나 scope digest 재계산만으로 새 모델을 허용할 수 없습니다.
 현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된 GPT-6
 profile을 current source/config에 다시 승인해 복귀하며 retired GPT-5.6을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
+
+세대교체·철회는 다음 순서로 재현합니다.
+
+1. 변경 profile의 신규 dispatch를 중단하고 current registry/binding·source/config·채택 결정·미완료 writer를 확인합니다.
+2. 선택된 실제 모델의 exact ID/effort/지원·품질 근거를 확인한 뒤 **중앙 profile data + 새 policyRevision**으로 변경합니다.
+   Eligibility를 바꾸면 그 알고리즘도 owner이며 revision이 필요합니다. 역할별 TOML 복제나 `latest` alias로 넘기지 않습니다.
+3. 기존 static/integration 회귀로 새 binding, stale grant/resolution/post/recovery 거절을 검증합니다. 검증되지 않은 미래 ID를
+   실제 registry에 등록하지 않습니다. 새 모델 canary는 별도 bounded 권한·환경·독립 QA 후 채택합니다.
+4. 새 채택 결정과 이번 task의 새 source/config/scope/time/budget admission을 만들고 live host를 다시 확인합니다.
+   테스트의 synthetic revision은 데이터 seam 검사이지 새 모델 실행·품질 증거가 아닙니다.
+5. **Data rollback도 새 revision**으로 게시하고 새 승인으로 연결합니다. 현재 validator가 installed data와 비교하는 것이지,
+   과거 code와 grant를 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 grant·5.6을
+   되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
+
+Reproduction: `scripts/ci/model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
+`scripts/ci/orchestration-policy.test.mjs`의 routine withdrawal→fresh re-admission·stale binding 회귀. 실제 설정 변경 없이
+fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/default/reviewer generation은 별도 설정·권한 결정입니다.
 
 ### Task model configuration and fresh loading
 
@@ -250,6 +271,55 @@ Fresh-load handoff는 source/config/현재 host 근거를 넘기는 절차이며
 
 Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/docs 복원으로 한정합니다. 이전 source 구현이나 다른 owner
 변경을 reset하지 않습니다. 이미 시작한 child는 설정 원복으로 종료/재설정됐다고 가정하지 않고 별도 lifecycle을 확인합니다.
+
+## Routine task-model operation
+
+[채택 결정과 한정된 실제 관측](./agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
+**개별 task 호출 승인**과 다릅니다. 승인된 일반 업무에서 Parent가 적격 profile을 선택하므로 매번 사용자에게 모델명을
+다시 묻지 않습니다. 그러나 현재 작업 범위·runtime·예산·독립 QA를 생략하거나 과거 pilot grant를 재사용하지 않습니다.
+운영 procedure는 model-mediated이며 script/schema만으로 task의 실제 의미나 권한을 인증하지 않습니다.
+
+새 세션/일반 task의 cold-start 순서:
+
+1. **현재 작업부터**: request → AGENTS → 이 owner와 현재 source/test. Branch/HEAD/diff·변경 owner·acceptance를 확인합니다.
+   작은 deterministic 작업·단일 chain은 child0입니다. 분리 가능한 미해결 질문 하나에 primary owner를 배정하고
+   [불필요한 중복과 독립 QA](#primary-작업과-증거-재사용)를 구별합니다.
+2. **Task→profile**: current Pass 2 사실에서 complete Medium·non-high impact·빈 gap과 실제 oracle/검증 계획을 확인합니다.
+   구현/test는 bounded-build, 유한 repo 분석은 bounded-read, 고정 입력의 low-impact 단일 추출은 bounded-extract입니다.
+   Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 Astra입니다. Semantic Medium과 후보 invocation xhigh는 별개입니다.
+3. **완전한 packet**: [request/context 계약](./request-intake/delegation.md#model-recommendation)의 `purpose=routine`, 현재
+   profileBinding, scope/도구/쓰기 owner·사실/실패·acceptance·stop/return을 작성합니다. 최초 QA는 fresh source-first context입니다.
+   Full history를 복사하지 않되 필요한 실패·제약을 생략하지 않습니다. Candidate의 미해결 실패는 새 lower-model task로 숨기지 않습니다.
+4. **이번 호출의 admission**: [modelUseByLane](./request-intake/orchestration-recovery.md#model-admission)에 이 cohort 결정과
+   현재 사용자 업무 권한을 함께 reference합니다. 현재 source/config/scope digests, bounded 시간 창과 남은 child/time budget,
+   checks·cleanup을 확인해 새 adoption/go packet을 만듭니다. 원래 권한이 부족하거나 범위를 늘리는 경우에만 해당 경계를
+   협의합니다. 고정 과거 pilot 예산이나 영구 grant를 일반 업무 예산으로 쓰지 않습니다.
+5. **Native 확인·실행**: current host schema·loaded role·모델/effort 지원·pin·permission·context를 재확인합니다.
+   `createDispatchRecommendation()`의 supported spawnArguments를 실제 도구에 전달하되 완료 packet도 함께 전달합니다.
+   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보는 동시1/단일 writer, cap6·host 한도 유지.
+   지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
+6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `evaluateModelExecution()`과
+   [criterion별 QA](./qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer effort는 근거로 선택합니다.
+   `prepareLeaderSynthesis()`로 failed/blocked/conflicting evidence를 보존하고 근거 없는 completed/self-PASS를 수용하지 않습니다.
+7. **실패·기록·cleanup**: [bound recovery](./request-intake/orchestration-recovery.md#bound-recovery-selection-and-admission)는
+   원인·identity·writer 회수·현재 rescue 권한·adopted role을 확인한 alternate 한 번뿐입니다. Usage가 없으면 null로 남기고
+   [run evidence](./request-intake/orchestration-recovery.md#bounded-model-run-evidence)에 controlled fault와 실제 miss를 구분합니다.
+   실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](./subagent-lifecycle.md)로 따로 판정합니다.
+
+### Suspension and Astra-only rollback
+
+- 품질/지원/scope 변화 시 해당 cohort의 신규 사용을 멈추고 [admission 철회](./request-intake/orchestration-recovery.md#routine-admission-lifetime)를
+  기록합니다. Scope/권한·보안·허위 완료는 [quality stop](#parent-high-운영과-quality-stop)을 적용합니다.
+- Pending writer의 결과·도구·변경을 먼저 회수합니다. 현재 source로 새 Astra ordinary contract를 판정하거나 Parent가 직접 처리합니다.
+  Candidate의 model 필드만 Astra로 바꾸거나 scope를 늘려 재시도하지 않습니다. Quota/cap/permission 거절은 다른 모델로 우회하지 않습니다.
+- 재채택은 문제 원인과 required checks·독립 QA, current profile/host/source/config를 다시 확인한 **새** bounded admission입니다.
+  단순한 config 복원이 adoption GO를 복구하지 않습니다. 설정 rollback이 정말 필요하면 정확한 권한·diff로 수행하며 현재 child가
+  자동 종료/재설정되었다고 가정하지 않습니다. 여기서는 TOML을 변경하는 자동 rollback command를 만들지 않습니다.
+
+최종 whole-change QA/통합 증거와 **Parent-high** 시작은 별도 gate입니다. 이 routine cohort 결정은 Parent 설정을 바꾸지
+않으며 [Parent-high 준비·품질 stop](#parent-high-운영과-quality-stop)을 대체하지 않습니다. 단가·cache는 선택의 입력일 뿐
+Parent+child+QA+수정/복구 총 비용의 절감 실측이 아닙니다. Token/weekly 수집이 없어도 품질 판정은 가능하지만 절감 숫자는
+만들지 않습니다. Portfolio/전체 통합 평가는 현재 운영 계약이나 이 작은 표본과 별도로 검증합니다.
 
 ## Skill과 workflow routing
 

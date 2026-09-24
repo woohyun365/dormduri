@@ -269,3 +269,38 @@ test('lifecycle guides use portable links and do not depend on a local implement
     }
   }
 });
+
+// Documentation presence/link integrity, not live routing, adoption or model quality.
+test('routine cold start and withdrawal have tracked owners with bounded adoption evidence', () => {
+  const orchestration = read(ownerPaths[2]);
+  const recovery = read(ownerPaths[5]);
+  const decisions = read('docs/development/agent-workflows/agentic-architecture-decisions.md');
+  const operation = section(ownerPaths[2], 'Routine task-model operation');
+  for (const term of [
+    'cohort GO',
+    '개별 task',
+    'Astra',
+    'modelUseByLane',
+    'evaluateModelExecution',
+    'prepareLeaderSynthesis',
+    'source',
+    'profile',
+    'cleanup',
+    'Parent-high',
+  ])
+    assert.ok(operation.includes(term), term);
+  assert.match(orchestration, /agentic-architecture-decisions\.md#routine-model-adoption/u);
+  assert.match(read(ownerPaths[4]), /orchestration\.md#routine-task-model-operation/u);
+  assert.match(recovery, /## Routine admission lifetime/u);
+  assert.match(recovery, /철회.*Parent.*책임/u);
+  assert.match(recovery, /같은.*GO packet.*다시.*통과/u);
+  assert.match(orchestration, /rollback.*새 revision/u);
+  assert.match(decisions, /id="routine-model-adoption"/u);
+  assert.match(decisions, /2026-09-24\.3/u);
+  assert.match(decisions, /astra-bounded-recovery.*knu_executor.*gpt-6-astra.*low/u);
+  assert.match(decisions, /explorer.*researcher.*low.*미채택/u);
+  assert.doesNotMatch(decisions, /Luna high/u);
+  assert.match(decisions, /provider-effective.*미관측/iu);
+  assert.match(decisions, /weekly.*미측정/u);
+  assert.doesNotMatch(operation, /\.omx\/plans\//u);
+});

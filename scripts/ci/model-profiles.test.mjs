@@ -190,3 +190,26 @@ test('quality-only revision grants do not survive recovery policy activation', (
     assert.throws(() => assertCurrentModelProfileBinding(old), TypeError);
   }
 });
+
+// Fingerprint/data seam only: this does not install a registry or protect against
+// an operator restoring old validator code together with old grants.
+test('rollback data with a new revision has a new binding, not a revived old grant', () => {
+  const current = getModelProfile('bounded-build');
+  const original = createModelProfileBinding(current);
+  const changed = createModelProfileBinding({
+    ...current,
+    policyRevision: 'synthetic-next',
+    resolvedEffort: 'high',
+  });
+  const rolledBack = createModelProfileBinding({
+    ...current,
+    policyRevision: 'synthetic-rollback-new-revision',
+  });
+  assert.equal(rolledBack.model, original.model);
+  assert.equal(rolledBack.resolvedEffort, original.resolvedEffort);
+  assert.notEqual(rolledBack.profileDigest, original.profileDigest);
+  assert.notEqual(rolledBack.profileDigest, changed.profileDigest);
+  for (const uninstalled of [changed, rolledBack])
+    assert.throws(() => assertCurrentModelProfileBinding(uninstalled), TypeError);
+  assert.deepEqual(assertCurrentModelProfileBinding(original), original);
+});

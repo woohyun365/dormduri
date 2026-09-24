@@ -79,7 +79,7 @@ verificationFacts:
 구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
 실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
 
-일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
+[채택 범위와 cold-start 순서](../orchestration.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
 GPT-6 Sol은 bounded-build의 구현/test 또는 bounded-read의 lookup/analysis 후보입니다. Researcher는 bounded-read pilot만
 가능하며 routine은 Astra입니다. GPT-6 Luna는 bounded-extract의 low-impact lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
