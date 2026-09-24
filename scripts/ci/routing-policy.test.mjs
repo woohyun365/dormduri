@@ -521,7 +521,7 @@ test('Luna extraction requires low-impact finite semantic work and never replace
   assert.equal(result.modelRecommendation.recommendedModel, 'gpt-6-luna');
   assert.equal(result.role, 'knu_explorer');
   assert.equal(result.effort, 'medium');
-  assert.equal(result.modelRecommendation.profileBinding.resolvedEffort, 'high');
+  assert.equal(result.modelRecommendation.profileBinding.resolvedEffort, 'xhigh');
   for (const patch of [
     { impactRisk: 'medium' },
     { impactRisk: 'high' },

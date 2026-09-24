@@ -3,13 +3,13 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
 // Bump for eligibility changes outside this data, too. Old grants never migrate implicitly.
-const POLICY_REVISION = '2026-09-24.1';
+const POLICY_REVISION = '2026-09-24.2';
 const PROFILES = deepFreeze({
   'bounded-build': {
     profileId: 'bounded-build',
     policyRevision: POLICY_REVISION,
     model: 'gpt-6-sol',
-    resolvedEffort: 'medium',
+    resolvedEffort: 'xhigh',
     cohort: 'bounded-implementation',
     taskKinds: ['implementation', 'test'],
     roles: ['knu_executor'],
@@ -24,7 +24,7 @@ const PROFILES = deepFreeze({
     profileId: 'bounded-read',
     policyRevision: POLICY_REVISION,
     model: 'gpt-6-sol',
-    resolvedEffort: 'medium',
+    resolvedEffort: 'xhigh',
     cohort: 'bounded-read-only',
     taskKinds: ['lookup', 'analysis', 'research'],
     roles: ['knu_explorer', 'knu_researcher'],
@@ -40,7 +40,7 @@ const PROFILES = deepFreeze({
     profileId: 'bounded-extract',
     policyRevision: POLICY_REVISION,
     model: 'gpt-6-luna',
-    resolvedEffort: 'high',
+    resolvedEffort: 'xhigh',
     cohort: 'bounded-extraction',
     taskKinds: ['lookup', 'analysis'],
     roles: ['knu_explorer'],

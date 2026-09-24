@@ -1139,7 +1139,7 @@ function modelDispatchInput(purpose = 'pilot') {
       followup: true,
       explicitEffort: true,
       fullHistoryWithExplicitEffort: false,
-      effectiveEffort: 'medium',
+      effectiveEffort: 'xhigh',
     },
   };
   const delegation = recommendDelegation({
@@ -1165,7 +1165,7 @@ function modelDispatchInput(purpose = 'pilot') {
           agentType: 'knu_explorer',
           available: true,
           effectiveModel: 'gpt-6-sol',
-          effectiveEffort: 'medium',
+          effectiveEffort: 'xhigh',
           explicitEffortSupport: true,
           modelSelection: {
             supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
@@ -1191,7 +1191,7 @@ function modelDispatchInput(purpose = 'pilot') {
           quality: purpose === 'pilot' ? 'unadopted' : 'go',
           model: 'gpt-6-sol',
           role: 'knu_explorer',
-          effort: 'medium',
+          effort: 'xhigh',
           cohort: 'bounded-read-only',
           scopeDigest: digest,
           configDigest,
@@ -1377,7 +1377,7 @@ function resolvedDispatchInput(purpose = 'pilot') {
         input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation
           .profileBinding,
       model: 'gpt-6-sol',
-      effort: 'medium',
+      effort: 'xhigh',
       configDigest: modelUse(input).configDigest,
       reference: 'synthetic-current-schema-and-loaded-config',
     },
@@ -1410,11 +1410,11 @@ test('first dispatch uses resolved configuration, not invented effective telemet
   assert.equal(dispatch.effectiveModel, null);
   assert.equal(dispatch.effectiveEffort, null);
   assert.equal(dispatch.resolvedModel, 'gpt-6-sol');
-  assert.equal(dispatch.resolvedEffort, 'medium');
+  assert.equal(dispatch.resolvedEffort, 'xhigh');
   assert.deepEqual(dispatch.spawnArguments, {
     agent_type: 'knu_explorer',
     model: 'gpt-6-sol',
-    reasoning_effort: 'medium',
+    reasoning_effort: 'xhigh',
     fork_turns: 'none',
   });
   assert.equal(dispatch.runtimeAction, false);
@@ -1519,7 +1519,7 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
       x.independentCheck.status = 'failed';
     },
     (x) => {
-      x.hostMetadata = { model: 'gpt-6-astra', effort: 'medium' };
+      x.hostMetadata = { model: 'gpt-6-astra', effort: 'xhigh' };
     },
     (x) => {
       x.hostMetadata = { model: 'gpt-6-sol', effort: 'high' };
@@ -1537,7 +1537,7 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
       String(mutate),
     );
   }
-  const matching = { ...observation, hostMetadata: { model: 'gpt-6-sol', effort: 'medium' } };
+  const matching = { ...observation, hostMetadata: { model: 'gpt-6-sol', effort: 'xhigh' } };
   assert.equal(
     modelPolicy.evaluateModelExecution({
       dispatch,
@@ -1648,21 +1648,21 @@ test('Luna boundary remains read-only fixed input even with rebound admission', 
   const role = input.reportedRuntimeEvidence.roles[0];
   Object.assign(role.configurationResolution, {
     model: 'gpt-6-luna',
-    effort: 'high',
+    effort: 'xhigh',
     profileBinding: model.profileBinding,
   });
   role.modelSelection.supportedModels.push('gpt-6-luna');
   Object.assign(modelUse(input).admission, {
     model: 'gpt-6-luna',
-    effort: 'high',
+    effort: 'xhigh',
     profileBinding: model.profileBinding,
     cohort: 'bounded-extraction',
   });
   rebindModelScope(input);
   const dispatch = createDispatchRecommendation(input).dispatches[0];
   assert.equal(dispatch.contract.routeRecommendation.effort, 'medium');
-  assert.equal(dispatch.spawnArguments.reasoning_effort, 'high');
-  assert.equal(dispatch.resolvedEffort, 'high');
+  assert.equal(dispatch.spawnArguments.reasoning_effort, 'xhigh');
+  assert.equal(dispatch.resolvedEffort, 'xhigh');
   for (const tool of ['official-web-read', 'test-runner']) {
     const bad = structuredClone(input);
     bad.delegation.recommendedChildren[0].allowed.tools.push(tool);
@@ -1689,7 +1689,7 @@ test('stale profile grants and resolution cannot be revived by rebinding scope',
       { policyRevision: 'old' },
       { profileDigest: `sha256:${'0'.repeat(64)}` },
       { model: 'gpt-5.6-sol' },
-      { resolvedEffort: 'xhigh' },
+      { resolvedEffort: 'medium' },
       { cohort: 'bounded-extraction' },
       { profileId: 'future' },
     ]) {
@@ -1790,4 +1790,55 @@ test('explicit recovery requires a current profile and rejects retired raw-model
       }),
     TypeError,
   );
+});
+
+test('old medium/high profile data remains invalid across grant, descriptor, post and recovery after full rehash', () => {
+  for (const oldEffort of ['medium', 'high']) {
+    const oldBinding = createModelProfileBinding({
+      ...getModelProfile('bounded-read'),
+      policyRevision: '2026-09-24.1',
+      resolvedEffort: oldEffort,
+    });
+    const input = resolvedDispatchInput();
+    input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.profileBinding =
+      oldBinding;
+    Object.assign(input.reportedRuntimeEvidence.roles[0].configurationResolution, {
+      profileBinding: oldBinding,
+      effort: oldEffort,
+    });
+    Object.assign(modelUse(input).admission, { profileBinding: oldBinding, effort: oldEffort });
+    rebindModelScope(input);
+    assert.throws(() => createDispatchRecommendation(input), TypeError);
+    const dispatch = structuredClone(
+      createDispatchRecommendation(resolvedDispatchInput()).dispatches[0],
+    );
+    dispatch.contract.routeRecommendation.modelRecommendation.profileBinding = oldBinding;
+    dispatch.contract.modelScopeDigest = createModelScopeDigest(dispatch.contract);
+    Object.assign(dispatch.configurationResolution, {
+      profileBinding: oldBinding,
+      effort: oldEffort,
+    });
+    dispatch.resolvedEffort = oldEffort;
+    dispatch.spawnArguments.reasoning_effort = oldEffort;
+    const reportedExecution = executionObservation(dispatch);
+    assert.equal(
+      modelPolicy.evaluateModelExecution({
+        dispatch,
+        expectedChildId: reportedExecution.childId,
+        reportedExecution,
+      }).accepted,
+      false,
+    );
+    assert.throws(
+      () =>
+        evaluateRecovery({
+          laneId: 'old-profile',
+          attempts: [
+            { ...failedAttempt('old-primary', 'verification-failed'), model: 'gpt-6-sol' },
+          ],
+          modelRecovery: { profileBinding: oldBinding, pendingWriter: 'cleared' },
+        }),
+      TypeError,
+    );
+  }
 });

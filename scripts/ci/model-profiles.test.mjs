@@ -9,9 +9,9 @@ import {
 
 test('finite immutable profiles resolve GPT-6 models independently from semantic effort', () => {
   for (const [id, model, effort] of [
-    ['bounded-read', 'gpt-6-sol', 'medium'],
-    ['bounded-build', 'gpt-6-sol', 'medium'],
-    ['bounded-extract', 'gpt-6-luna', 'high'],
+    ['bounded-read', 'gpt-6-sol', 'xhigh'],
+    ['bounded-build', 'gpt-6-sol', 'xhigh'],
+    ['bounded-extract', 'gpt-6-luna', 'xhigh'],
   ]) {
     const p = getModelProfile(id);
     const b = createModelProfileBinding(p);
@@ -65,5 +65,25 @@ test('binding hashes complete policy canonically; synthetic future profiles neve
     { extra: true },
   ]) {
     assert.throws(() => assertCurrentModelProfileBinding({ ...current, ...patch }), TypeError);
+  }
+});
+
+test('previous effort revisions cannot be restored by rehashing profile data', () => {
+  for (const id of ['bounded-build', 'bounded-read', 'bounded-extract']) {
+    const profile = getModelProfile(id);
+    assert.notEqual(profile.policyRevision, '2026-09-24.1');
+    for (const resolvedEffort of ['medium', 'high', 'max']) {
+      assert.throws(
+        () =>
+          assertCurrentModelProfileBinding(
+            createModelProfileBinding({
+              ...profile,
+              policyRevision: '2026-09-24.1',
+              resolvedEffort,
+            }),
+          ),
+        TypeError,
+      );
+    }
   }
 });

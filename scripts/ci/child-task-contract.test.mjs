@@ -605,7 +605,7 @@ test('child contracts propagate optional model advice without relaxing write or 
       ),
     },
   });
-  for (const effort of ['medium', 'high']) {
+  for (const effort of ['medium', 'high', 'xhigh']) {
     const delivery = deliveryRequest();
     delivery.effortMode = 'inherit';
     delivery.runtime.effectiveEffort = effort;
@@ -616,7 +616,7 @@ test('child contracts propagate optional model advice without relaxing write or 
       deliveryByLane: { [extraction.id]: delivery },
     }).recommendedChildren;
     assert.equal(c.routeRecommendation.effort, 'medium');
-    assert.equal(c.contextDelivery.compatible, effort === 'high');
+    assert.equal(c.contextDelivery.compatible, effort === 'xhigh');
   }
   assert.throws(
     () =>

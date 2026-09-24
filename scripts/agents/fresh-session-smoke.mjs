@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import { recommendDelegation } from './child-task-contract.mjs';
 import { discoverContextPack } from './domain-guide-registry.mjs';
+import { createModelRunEvidence } from './model-run-evidence.mjs';
 import { buildTaskEnvelope } from './intake-policy.mjs';
 import {
   createDispatchRecommendation,
@@ -266,7 +267,7 @@ function evaluateModelEvidence() {
             followup: true,
             explicitEffort: true,
             fullHistoryWithExplicitEffort: false,
-            effectiveEffort: 'medium',
+            effectiveEffort: 'xhigh',
           },
         },
       },
@@ -285,7 +286,7 @@ function evaluateModelEvidence() {
         agentType: 'knu_explorer',
         available: true,
         effectiveModel: 'gpt-6-sol',
-        effectiveEffort: 'medium',
+        effectiveEffort: 'xhigh',
         explicitEffortSupport: true,
         modelSelection: {
           supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
@@ -312,7 +313,7 @@ function evaluateModelEvidence() {
         quality: 'unadopted',
         model: 'gpt-6-sol',
         role: 'knu_explorer',
-        effort: 'medium',
+        effort: 'xhigh',
         cohort: 'bounded-read-only',
         scopeDigest: contract.modelScopeDigest,
         configDigest,
@@ -341,7 +342,7 @@ function evaluateModelEvidence() {
     configurationResolution: {
       profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
       model: 'gpt-6-luna',
-      effort: 'high',
+      effort: 'xhigh',
       configDigest,
       reference: 'synthetic-current-resolution',
     },
@@ -350,7 +351,7 @@ function evaluateModelEvidence() {
   luna.modelUseByLane[base.id].scopeDigest = lunaContract.modelScopeDigest;
   Object.assign(luna.modelUseByLane[base.id].admission, {
     profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
-    effort: 'high',
+    effort: 'xhigh',
     kind: 'adoption',
     quality: 'go',
     model: 'gpt-6-luna',
@@ -370,30 +371,126 @@ function evaluateModelEvidence() {
       accepted: true,
       executed: true,
       resultReference: 'synthetic-native-final',
-      independentCheck: { status: 'passed', reference: 'synthetic-quality-oracle' },
+      independentCheck: { status: 'failed', reference: 'synthetic-controlled-canary' },
       hostMetadata: null,
       usageReference: null,
     },
   });
-  const recovery = evaluateRecovery({
+  const primaryAttempt = {
+    approachId: 'synthetic-luna',
+    outcome: 'failure',
+    failureCategory: 'verification-failed',
+    evidence: 'synthetic-controlled-failure-not-actual-model-failure',
+    model: 'gpt-6-luna',
+  };
+  const modelRecovery = {
+    profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
+    pendingWriter: 'cleared',
+  };
+  const recovery = evaluateRecovery({ laneId: base.id, attempts: [primaryAttempt], modelRecovery });
+  const completedRecovery = evaluateRecovery({
     laneId: base.id,
     attempts: [
+      primaryAttempt,
       {
-        approachId: 'synthetic-luna',
-        outcome: 'failure',
-        failureCategory: 'verification-failed',
-        evidence: 'synthetic-controlled-failure-not-actual-model-failure',
-        model: 'gpt-6-luna',
+        approachId: 'synthetic-astra',
+        alternateOf: primaryAttempt.approachId,
+        outcome: 'success',
+        evidence: 'synthetic-revalidation',
+        model: recovery.nextModel,
       },
     ],
-    modelRecovery: {
-      profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
-      pendingWriter: 'cleared',
+    modelRecovery,
+  });
+  const dispatch = lunaDispatch.dispatches[0];
+  const sourceDigest = `sha256:${'a'.repeat(64)}`;
+  const check = (kind, name, status) => ({
+    kind,
+    commandRef: `command:${name}`,
+    resultRef: `artifact:${name}`,
+    status,
+  });
+  const primaryRecord = {
+    attemptId: primaryAttempt.approachId,
+    alternateOf: null,
+    taskId: lunaContract.modelTaskId,
+    laneId: base.id,
+    sourceDigest,
+    configDigest,
+    scopeDigest: lunaContract.modelScopeDigest,
+    requested: {
+      model: dispatch.spawnArguments.model,
+      effort: dispatch.spawnArguments.reasoning_effort,
     },
+    resolved: { model: dispatch.resolvedModel, effort: dispatch.resolvedEffort },
+    hostObserved: null,
+    stage: 'completed',
+    executed: true,
+    childId: '/root/synthetic-luna',
+    case: 'controlled-failure',
+    disposition: post.accepted ? 'success' : 'failure',
+    failureCategory: primaryAttempt.failureCategory,
+    checks: [
+      check('quality', 'original-quality', 'passed'),
+      check('canary', 'controlled-canary', 'failed'),
+    ],
+    factRefs: ['evidence:synthetic-canary-failure'],
+    hypothesis: {
+      cause: 'controlled-injection',
+      confidence: 'high',
+      evidenceRefs: ['evidence:synthetic-fault-manifest'],
+    },
+    remediation: null,
+    metrics: {
+      durationMs: null,
+      timeSource: null,
+      corrections: null,
+      revalidations: null,
+      scopeViolations: null,
+      qaFindings: null,
+    },
+    usage: { tokens: null, cost: null, reference: null },
+  };
+  // Standard Astra simulation only: no recovery descriptor, low effort or native attestation.
+  const rescueRecord = {
+    ...primaryRecord,
+    attemptId: 'synthetic-astra',
+    alternateOf: primaryRecord.attemptId,
+    childId: '/root/synthetic-astra',
+    case: 'approved-baseline',
+    requested: { model: recovery.nextModel, effort: 'high' },
+    resolved: { model: recovery.nextModel, effort: 'high' },
+    disposition: completedRecovery.status === 'complete' ? 'success' : 'failure',
+    failureCategory: null,
+    checks: [
+      check('acceptance', 'rescue-oracle', 'passed'),
+      check('independent-qa', 'rescue-qa', 'passed'),
+    ],
+    factRefs: ['evidence:synthetic-rescue-result'],
+    hypothesis: { cause: 'unknown', confidence: 'unknown', evidenceRefs: [] },
+    remediation: {
+      action: 'astra-handoff',
+      evidenceRefs: ['evidence:synthetic-recovery-decision'],
+      checkRefs: ['artifact:rescue-oracle', 'artifact:rescue-qa'],
+    },
+  };
+  const runRecord = createModelRunEvidence({
+    schemaVersion: 1,
+    runId: 'synthetic-model-smoke',
+    taskId: lunaContract.modelTaskId,
+    laneId: base.id,
+    profileBinding: modelRecovery.profileBinding,
+    sourceDigest,
+    configDigest,
+    scopeDigest: lunaContract.modelScopeDigest,
+    selectionRefs: ['evidence:synthetic-bounded-extraction-rubric'],
+    writerClearance: modelRecovery.pendingWriter,
+    attempts: [primaryRecord, rescueRecord],
+    finalDisposition: rescueRecord.disposition,
   });
   return {
     fixtureOnly: true,
-    activation: { dispatch: lunaDispatch, post, recovery },
+    activation: { dispatch: lunaDispatch, post, recovery, completedRecovery, runRecord },
     candidate: contract.routeRecommendation.modelRecommendation,
     withoutAdmission: createDispatchRecommendation({ delegation, reportedRuntimeEvidence }),
     pilot: createDispatchRecommendation(input),

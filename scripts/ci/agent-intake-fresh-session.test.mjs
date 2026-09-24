@@ -265,3 +265,28 @@ function trackedPaths() {
 function pick(value, fields) {
   return Object.fromEntries(fields.map((field) => [field, value[field]]));
 }
+
+test('synthetic model smoke preserves controlled miss, once rescue and null usage coherently', () => {
+  const result = runFreshSessionSmoke();
+  const { post, recovery, completedRecovery, runRecord } = result.modelEvidence.activation;
+  assert.equal(result.modelEvidence.fixtureOnly, true);
+  assert.equal(result.boundaries.mutatesWorkspace, false);
+  assert.equal(post.accepted, false);
+  assert.equal(recovery.action, 'alternate-once');
+  assert.equal(completedRecovery.status, 'complete');
+  assert.equal(completedRecovery.remainingAlternateAttempts, 0);
+  assert.equal(runRecord.profileBinding.resolvedEffort, 'xhigh');
+  assert.deepEqual(
+    runRecord.attempts.map((a) => a.disposition),
+    ['failure', 'success'],
+  );
+  assert.deepEqual(
+    runRecord.attempts.map((a) => a.requested.model),
+    ['gpt-6-luna', 'gpt-6-astra'],
+  );
+  assert.equal(runRecord.attempts[0].case, 'controlled-failure');
+  assert.equal(runRecord.attempts[0].checks[0].status, 'passed');
+  assert.equal(runRecord.attempts[0].checks[1].status, 'failed');
+  assert.equal(runRecord.attempts[1].alternateOf, runRecord.attempts[0].attemptId);
+  assert.ok(runRecord.attempts.every((a) => a.hostObserved === null && a.usage.tokens === null));
+});

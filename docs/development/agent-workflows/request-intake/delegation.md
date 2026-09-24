@@ -91,7 +91,7 @@ reason, `applied=false`, `profileBinding`을 붙입니다. 부적합 task·위�
 중앙 owner는 `scripts/agents/model-profiles.mjs`입니다. `profileBinding`은 profileId/policyRevision/profileDigest/model/
 resolvedEffort/cohort이며, digest는 role/task/risk/검증 fact/tool 범위를 포함한 전체 profile data의 canonical hash입니다.
 `routeRecommendation.effort`는 기존 semantic 위험 판정(Medium gate)을 유지하고, 실제 후보 호출에는 `resolvedEffort`를
-사용합니다. Sol 두 프로필은 medium, Luna extraction은 high입니다. Context 상속·runtime·admission·native descriptor·
+사용합니다. Sol 두 프로필과 Luna extraction의 invocation effort는 모두 xhigh입니다. Semantic Medium eligibility는 그대로입니다. Context 상속·runtime·admission·native descriptor·
 사후 검증은 같은 resolved effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 GPT-5.6을 요청하는 구형 schema,
 unknown profile/field/불완전 verification schema는 거부합니다. Astra default는 modelRequest 생략으로 유지합니다.
 
