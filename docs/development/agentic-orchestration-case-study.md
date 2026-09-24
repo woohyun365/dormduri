@@ -23,8 +23,8 @@ Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 ses
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra xhigh child를 검토합니다.
 
 Direct work는 child-free이며, 독립성과 순이익이 확인된 lane만 bounded child contract가 됩니다. 이 contract는 자동 spawn
-engine이 아니며 실제 dispatch 직전의 live runtime 확인과 Parent의 최종 판단을 대신하지 않습니다. **2026-09-25 기준
-아래 최신 확장은 로컬 검증 범위이며 아직 PR/CI/merge된 결과가 아닙니다.** 과거 병합 이력과 구분합니다.
+engine이 아니며 실제 dispatch 직전의 live runtime 확인과 Parent의 최종 판단을 대신하지 않습니다. **2026-09-25의 아래 확장 기록은 PR 생성 전 로컬 검증을 기준으로 작성했습니다.**
+이후 원격 CI·merge 상태는 해당 PR과 Git 이력에서 별도로 확인하며 과거 병합 이력과 구분합니다.
 
 ## 권한과 evidence 경계
 
@@ -349,6 +349,9 @@ Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있
 따라서 성과는 **“품질 우선의 제한 모델 배정·검증·복구 workflow를 구현하고 한정 실제 호출을 확인했다”**입니다.
 “비용 N% 절감”, “Astra와 동등한 품질”, “xhigh로 재작업 제거”는 주장하지 않습니다. 단가 우위는 도입 rationale이며 실측
 부재만으로 한정 채택을 막지 않되, 실제 이익 검증과 구분합니다.
+
+Reviewer 모델 비교는 Owner가 작성 전제의 착오를 확인해 **미실행 취소**했습니다. 불필요한 계획은 제거했으며,
+위 날짜별 보류 이력은 비교 실험의 성공·실패 근거가 아닙니다. 운영 reviewer의 Astra pin과 독립 QA는 그대로 유지합니다.
 
 ## Parent high 시작과 품질 stop
 
