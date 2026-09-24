@@ -1881,6 +1881,95 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
   );
 });
 
+test('post execution revalidates cohort, context and write ownership after a scope rehash', () => {
+  for (const profileId of ['bounded-read', 'bounded-extract', 'bounded-build']) {
+    const input = resolvedDispatchInput();
+    const c = input.delegation.recommendedChildren[0];
+    const model = c.routeRecommendation.modelRecommendation;
+    const profile = getModelProfile(profileId);
+    model.request.profileId = profileId;
+    model.profileBinding = createModelProfileBinding(profile);
+    model.recommendedModel = profile.model;
+    const fact = model.request.verificationFacts.acceptance;
+    model.request.verificationFacts = Object.fromEntries(
+      profile.verificationKeys.map((k) => [k, fact]),
+    );
+    if (!profile.readOnly) {
+      model.taskKind = 'implementation';
+      model.role = c.routeRecommendation.role = 'knu_executor';
+      c.boundary.readOnly = false;
+      c.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
+    }
+    c.allowed.tools = [...profile.allowedTools];
+    const role = input.reportedRuntimeEvidence.roles[0];
+    role.agentType = c.routeRecommendation.role;
+    role.modelSelection.supportedModels = [profile.model];
+    Object.assign(role.configurationResolution, {
+      profileBinding: model.profileBinding,
+      model: profile.model,
+    });
+    Object.assign(modelUse(input).admission, {
+      profileBinding: model.profileBinding,
+      role: role.agentType,
+      model: profile.model,
+      cohort: profile.cohort,
+    });
+    rebindModelScope(input);
+    const original = createDispatchRecommendation(input).dispatches[0];
+    assert.ok(original, profileId);
+    const check = (d) =>
+      modelPolicy.evaluateModelExecution({
+        dispatch: d,
+        expectedChildId: '/root/bounded-task',
+        reportedExecution: executionObservation(d),
+      });
+    assert.equal(check(original).accepted, true, profileId);
+    for (const mutate of [
+      (d) => {
+        d.contract.contextDelivery.mode = 'full-history';
+      },
+      (d) => {
+        d.contract.contextDelivery.mode = 'reuse';
+      },
+      (d) => {
+        d.contract.contextDelivery.compatible = false;
+      },
+      (d) => {
+        d.contract.contextDelivery.applied = true;
+      },
+      (d) => {
+        d.contract.contextDelivery.gaps.push('missing input');
+      },
+      (d) => {
+        d.contract.contextDelivery.failures.push('failed validation');
+      },
+      (d) => {
+        d.contract.contextDelivery = null;
+      },
+      (d) => {
+        d.contract.allowed.tools.push('unapproved-tool');
+      },
+      (d) => {
+        d.contract.boundary.writeOwnership = profile.readOnly ? ['outside.ts'] : [];
+      },
+      (d) => {
+        if (profile.readOnly) {
+          d.contract.boundary.readOnly = false;
+          d.contract.boundary.writeOwnership = ['outside.ts'];
+          d.contract.allowed.tools.push('workspace-edit');
+        } else d.contract.allowed.tools = ['repository-read'];
+      },
+    ]) {
+      const d = structuredClone(original);
+      mutate(d);
+      d.contract.modelScopeDigest = createModelScopeDigest(d.contract);
+      const before = structuredClone(d);
+      assert.equal(check(d).accepted, false, `${profileId}: ${mutate}`);
+      assert.deepEqual(d, before);
+    }
+  }
+});
+
 test('model recovery binds one Astra alternate and waits for writer clearance', () => {
   const primary = {
     ...failedAttempt('lower-primary', 'verification-failed'),

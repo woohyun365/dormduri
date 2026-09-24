@@ -103,6 +103,8 @@ export function validateModelRunEvidence(record) {
     );
   }
   if (record.attempts.length === 2) {
+    // Recording a support mismatch is not evidence of an eligible primary model.
+    require(matchingPairs(primary));
     const selection = assertCurrentRecoveryBinding(record.recoveryBinding);
     const rescue = record.attempts[1];
     require(
@@ -169,7 +171,7 @@ function validateAttempt(a, index, record, binding) {
     if (index === 0) require(a[field] === record[field]);
   }
   const recovery = index === 1 ? assertCurrentRecoveryBinding(record.recoveryBinding) : null;
-  pair(a.requested, recovery);
+  pair(a.requested, recovery?.resolvedEffort === 'low' ? ['low'] : undefined);
   require(a.requested.model === (index === 0 ? binding.model : BASELINE_CHILD_MODEL));
   if (index === 0) {
     require(a.alternateOf === null && a.requested.effort === binding.resolvedEffort);
@@ -177,14 +179,10 @@ function validateAttempt(a, index, record, binding) {
     require(a.alternateOf === record.attempts[0].attemptId && a.attemptId !== a.alternateOf);
     require(a.childId === null || a.childId !== record.attempts[0].childId);
   }
-  if (a.resolved !== null) {
-    pair(a.resolved, recovery);
-    require(isDeepStrictEqual(a.requested, a.resolved));
-  }
-  if (a.hostObserved !== null) {
-    pair(a.hostObserved, recovery);
-    require(isDeepStrictEqual(a.resolved, a.hostObserved));
-  }
+  if (a.resolved !== null) observedPair(a.resolved);
+  if (a.hostObserved !== null) observedPair(a.hostObserved);
+  // Preserve known failure facts without accepting that configuration for success.
+  if (!matchingPairs(a)) require(['failure', 'blocked'].includes(a.disposition));
   oneOf(a.case, ['live', 'approved-baseline', 'controlled-failure']);
   oneOf(a.disposition, DISPOSITIONS);
   oneOf(a.stage, ['pre-dispatch', 'completed']);
@@ -335,10 +333,23 @@ function refs(values, nonempty = false) {
   require(Array.isArray(values) && values.length <= 64 && (!nonempty || values.length > 0));
   for (const value of values) reference(value);
 }
-function pair(value, recovery = null) {
+function pair(value, efforts = ['medium', 'high', 'xhigh']) {
   exact(value, ['model', 'effort']);
   oneOf(value.model, [BASELINE_CHILD_MODEL, 'gpt-6-sol', 'gpt-6-luna']);
-  oneOf(value.effort, recovery?.resolvedEffort === 'low' ? ['low'] : ['medium', 'high', 'xhigh']);
+  oneOf(value.effort, efforts);
+}
+function observedPair(value) {
+  // Observed Astra low is a diagnostic fact, not permission for an unbound low request.
+  pair(
+    value,
+    value?.model === BASELINE_CHILD_MODEL ? ['low', 'medium', 'high', 'xhigh'] : undefined,
+  );
+}
+function matchingPairs(a) {
+  return (
+    (a.resolved === null || isDeepStrictEqual(a.requested, a.resolved)) &&
+    (a.hostObserved === null || isDeepStrictEqual(a.resolved, a.hostObserved))
+  );
 }
 function count(value) {
   require(value === null || (Number.isSafeInteger(value) && value >= 0));

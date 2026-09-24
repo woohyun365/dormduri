@@ -244,6 +244,7 @@ export function evaluateModelExecution({ dispatch, expectedChildId, reportedExec
     const contract = dispatch.contract;
     assertSemanticRouteRecommendation(contract.routeRecommendation);
     assertCurrentModelRecommendation(contract);
+    gaps.push(...assessModelContractBoundary(contract));
     normalizeConfigurationResolution(dispatch.configurationResolution);
     if (
       dispatch.runtimeAction !== false ||
@@ -1290,12 +1291,37 @@ function validateModelUses(value, contracts) {
   }
 }
 
-function assessModelUse(contract, reportedRole, use) {
+// Same static cohort boundary before dispatch and after attributed execution.
+// Rehashing a caller-supplied contract must not make an invalid profile valid.
+function assessModelContractBoundary(contract) {
+  assertChildWriteBoundary(contract);
   const gaps = [];
   const route = contract.routeRecommendation;
-  const { request, profileBinding } = route.modelRecommendation;
-  const profile = getModelProfile(request.profileId);
+  const profile = getModelProfile(route.modelRecommendation.request.profileId);
   if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
+  const delivery = contract.contextDelivery;
+  if (
+    !delivery ||
+    delivery.compatible !== true ||
+    delivery.applied !== false ||
+    delivery.mode !== 'scoped' ||
+    delivery.gaps.length !== 0 ||
+    delivery.failures.length !== 0
+  )
+    gaps.push('model-context-incompatible');
+  if (
+    contract.boundary.readOnly !== profile.readOnly ||
+    contract.allowed.tools.some((tool) => !profile.allowedTools.includes(tool)) ||
+    profile.requiredTools.some((tool) => !contract.allowed.tools.includes(tool))
+  )
+    gaps.push('model-cohort-boundary-incompatible');
+  return gaps;
+}
+
+function assessModelUse(contract, reportedRole, use) {
+  const gaps = assessModelContractBoundary(contract);
+  const route = contract.routeRecommendation;
+  const { request, profileBinding } = route.modelRecommendation;
   const selection = reportedRole.modelSelection;
   if (
     !selection ||
@@ -1314,22 +1340,6 @@ function assessModelUse(contract, reportedRole, use) {
       !isDeepStrictEqual(resolution.profileBinding, profileBinding))
   )
     gaps.push('model-resolution-unverified');
-  const delivery = contract.contextDelivery;
-  if (
-    !delivery ||
-    delivery.compatible !== true ||
-    delivery.applied !== false ||
-    delivery.mode !== 'scoped' ||
-    delivery.gaps.length !== 0 ||
-    delivery.failures.length !== 0
-  )
-    gaps.push('model-context-incompatible');
-  if (
-    contract.boundary.readOnly !== profile.readOnly ||
-    contract.allowed.tools.some((tool) => !profile.allowedTools.includes(tool)) ||
-    profile.requiredTools.some((tool) => !contract.allowed.tools.includes(tool))
-  )
-    gaps.push('model-cohort-boundary-incompatible');
   const digest = createModelScopeDigest(contract);
   if (contract.modelScopeDigest !== digest || !contract.modelTaskId)
     gaps.push('model-contract-snapshot-changed');

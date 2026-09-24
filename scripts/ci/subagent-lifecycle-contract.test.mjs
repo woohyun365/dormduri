@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
@@ -303,4 +303,54 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   assert.match(decisions, /provider-effective.*미관측/iu);
   assert.match(decisions, /weekly.*미측정/u);
   assert.doesNotMatch(operation, /\.omx\/plans\//u);
+});
+
+// Portable summary/link guards only: actual observation truth requires source-first QA.
+test('portfolio current summary distinguishes task profiles from historical Astra-only routing', () => {
+  const path = 'docs/development/agentic-orchestration-case-study.md';
+  const summary = section(path, '요약');
+  for (const term of ['Astra', 'Sol/Luna', 'xhigh', 'Parent', 'high', '별도']) {
+    assert.ok(summary.includes(term), term);
+  }
+  assert.doesNotMatch(summary, /repository는 Astra child의 Medium\/High\/XHigh만/u);
+  const evidence = section(path, '2026-09 task-aware 모델과 lifecycle 검증');
+  for (const term of [
+    'bounded-build',
+    'bounded-read',
+    'bounded-extract',
+    'controlled',
+    'provider-effective',
+    'release-unverified',
+    'NO-GO',
+    'null',
+  ])
+    assert.ok(evidence.includes(term), term);
+});
+
+test('portfolio preserves unmeasured cost and session-owned Parent choice with portable evidence', () => {
+  const path = 'docs/development/agentic-orchestration-case-study.md';
+  const source = read(path);
+  const costs = section(path, '비용 가설과 관측 한계');
+  assert.match(costs, /단가.*weekly.*절감률.*아/u);
+  assert.match(costs, /cache.*null/iu);
+  assert.match(costs, /Parent.*child.*QA.*복구/u);
+  const handoff = section(path, 'Parent high 시작과 품질 stop');
+  assert.match(handoff, /실제.*적용.*미관측/u);
+  assert.match(handoff, /xhigh/u);
+  assert.match(handoff, /scope.*위반/iu);
+  assert.doesNotMatch(source, /\.omx\/plans\/|artifacts\/local\/|\/Users\//u);
+  const requiredLinks = [
+    '../../scripts/agents/model-profiles.mjs',
+    '../../scripts/agents/model-run-evidence.mjs',
+    '../../scripts/ci/model-profiles.test.mjs',
+    '../../scripts/ci/model-run-evidence.test.mjs',
+    './agent-workflows/subagent-lifecycle.md',
+    './agent-workflows/qa.md',
+  ];
+  for (const link of requiredLinks) assert.ok(source.includes(`](${link})`), link);
+  for (const [, href] of source.matchAll(/\]\(([^)]+)\)/gu)) {
+    if (/^https?:/u.test(href) || href.startsWith('#')) continue;
+    const target = resolve(dirname(resolve(repoRoot, path)), decodeURI(href.split('#')[0]));
+    assert.ok(existsSync(target), `${path}: ${href}`);
+  }
 });

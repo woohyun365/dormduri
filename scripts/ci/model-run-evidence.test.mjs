@@ -405,3 +405,88 @@ test('alternate attribution requires its exact recovery selection, including low
     assert.throws(() => createModelRunEvidence(y));
   }
 });
+
+test('failed model resolution and host mismatches are preserved but cannot become success', () => {
+  for (const field of ['resolved', 'hostObserved']) {
+    for (const mismatch of [
+      { model: 'gpt-6-astra', effort: 'high' },
+      { model: 'gpt-6-luna', effort: 'high' },
+      { model: 'gpt-6-astra', effort: 'low' },
+    ]) {
+      for (const disposition of ['failure', 'blocked']) {
+        const x = fixture();
+        const a = x.attempts[0];
+        x.finalDisposition = a.disposition = disposition;
+        a.failureCategory = 'verification-failed';
+        a.checks[0].status = 'failed';
+        a.hypothesis = {
+          cause: 'host-support',
+          confidence: 'high',
+          evidenceRefs: ['evidence:mismatch'],
+        };
+        a[field] = mismatch;
+        const before = structuredClone(x);
+        assert.deepEqual(createModelRunEvidence(x), before);
+        assert.deepEqual(x, before);
+        const success = structuredClone(x);
+        success.finalDisposition = success.attempts[0].disposition = 'success';
+        success.attempts[0].failureCategory = null;
+        success.attempts[0].checks[0].status = 'passed';
+        assert.throws(() => createModelRunEvidence(success));
+      }
+    }
+  }
+  const blocked = fixture();
+  const a = blocked.attempts[0];
+  Object.assign(a, {
+    disposition: 'blocked',
+    failureCategory: 'tool-unavailable',
+    executed: false,
+    stage: 'pre-dispatch',
+    childId: null,
+    resolved: { model: 'gpt-6-astra', effort: 'high' },
+  });
+  a.checks.forEach((c) => (c.status = 'not-run'));
+  blocked.finalDisposition = 'blocked';
+  assert.deepEqual(createModelRunEvidence(blocked), blocked);
+  for (const invalid of [
+    { model: 'unknown', effort: 'high' },
+    { model: 'gpt-5.6-sol', effort: 'high' },
+    { model: 'gpt-6-sol', effort: 'max' },
+    { model: 'gpt-6-sol', effort: 'low' },
+    { model: 'gpt-6-astra', effort: 'high', extra: true },
+  ]) {
+    const bad = structuredClone(blocked);
+    bad.attempts[0].resolved = invalid;
+    assert.throws(() => createModelRunEvidence(bad));
+  }
+});
+
+test('mismatch logging cannot authorize rescue and preserves low rescue observed high failure', () => {
+  const mismatch = controlled();
+  mismatch.attempts[0].hostObserved = { model: 'gpt-6-astra', effort: 'high' };
+  assert.throws(() => createModelRunEvidence(mismatch));
+  const x = controlled();
+  x.recoveryBinding = createRecoveryBinding({
+    primary: x.recoveryBinding.primary,
+    rescue: { ...x.recoveryBinding.rescue, semanticEffort: 'medium' },
+    assessment: x.recoveryBinding.assessment,
+  });
+  const rescue = x.attempts[1];
+  rescue.requested.effort = rescue.resolved.effort = 'low';
+  rescue.hostObserved = { model: 'gpt-6-astra', effort: 'high' };
+  x.finalDisposition = rescue.disposition = 'failure';
+  rescue.failureCategory = 'verification-failed';
+  rescue.checks[0].status = 'failed';
+  rescue.hypothesis = {
+    cause: 'host-support',
+    confidence: 'high',
+    evidenceRefs: ['evidence:mismatch'],
+  };
+  assert.deepEqual(createModelRunEvidence(x), x);
+  const success = structuredClone(x);
+  success.finalDisposition = success.attempts[1].disposition = 'success';
+  success.attempts[1].failureCategory = null;
+  success.attempts[1].checks[0].status = 'passed';
+  assert.throws(() => createModelRunEvidence(success));
+});
