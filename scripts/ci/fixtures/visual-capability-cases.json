@@ -532,5 +532,240 @@
       "signals": ["approved-revision-parity", "content-state-action-map", "separate-verdicts"],
       "evidence": ["response", "tree-diff", "interaction-check", "screenshot-comparison"]
     }
+  },
+  {
+    "id": "presentation-small-responsive",
+    "request": "Home dialog의 모바일 좌우 여백만 승인된 값으로 고쳐줘.",
+    "expectedAuthority": "implement",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "home-dialog",
+      "mode": "maintain",
+      "context": "기지 여백 결함 한 곳만 수정 승인. 정보 구조와 행동 변경 요청은 없다.",
+      "sourcePaths": [
+        "apps/web/src/main/tabs/home/overlays/HomeResponsiveDialog.tsx",
+        "apps/web/src/main/tabs/home/__tests__/HomeResponsiveOverlay.test.tsx"
+      ],
+      "permittedArtifacts": ["owned-source"]
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "duplicate-device-views",
+      "mandatory-design-candidates"
+    ],
+    "expectations": {
+      "disposition": "implement",
+      "signals": ["shared-responsive", "preserve-focus-close"],
+      "evidence": ["response", "tree-diff", "interaction-check"]
+    }
+  },
+  {
+    "id": "presentation-distinct-ia",
+    "request": "Profile을 desktop 편집 패널과 mobile 단계형 편집으로 바꿀 계획을 작성해줘. 아직 구현하지 마.",
+    "expectedAuthority": "plan",
+    "expectedCapability": "visual-workflow",
+    "input": {
+      "surfaceId": "profile-editor",
+      "mode": "reimagine",
+      "context": "위 IA 방향은 승인되었고 field와 저장 의미는 같다. 현재 route와 hook에서 실제 연결 상태도 조사한다.",
+      "sourcePaths": [
+        "apps/web/src/main/routes/ProfileRoute.tsx",
+        "apps/web/src/main/tabs/profile/ProfileCompatibility.tsx",
+        "apps/web/src/main/hooks/useMainProfileState.ts"
+      ],
+      "permittedArtifacts": ["plan-document"]
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "duplicate-save-owner",
+      "claim-toast-proves-persistence"
+    ],
+    "expectations": {
+      "disposition": "plan",
+      "signals": ["split-presentation", "subtree-only", "persistence-gap"],
+      "evidence": ["response", "content-map"]
+    }
+  },
+  {
+    "id": "presentation-shared-mutation",
+    "request": "Home 시즌 참여 철회 버튼을 desktop과 mobile 표현에서 제공할 때 행동 책임과 회귀 검증을 조사해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "home-deregister",
+      "mode": "maintain",
+      "context": "두 표현이 동시에 DOM에 존재할 가능성도 검토한다. 조사만 허용하며 실제 철회 action을 실행하지 않는다.",
+      "sourcePaths": [
+        "apps/web/src/main/routes/HomeRoute.tsx",
+        "apps/web/src/main/runtime/MainRuntime.test.tsx"
+      ],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "execute-mutation",
+      "duplicate-mutation-owner"
+    ],
+    "expectations": {
+      "disposition": "inspect",
+      "signals": ["single-action-owner", "success-refresh-once", "failure-no-refresh"],
+      "evidence": ["response", "content-map"]
+    }
+  },
+  {
+    "id": "presentation-local-state",
+    "request": "Desktop 펼침 영역과 mobile drawer의 상태 책임 및 resize 처리 계획을 작성해줘.",
+    "expectedAuthority": "plan",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "profile-drawer",
+      "mode": "maintain",
+      "context": "같은 Profile 편집 데이터와 선택 상태를 보여주지만 각 표현에서 여닫는 방식은 다르다. 구현은 아직 하지 않는다.",
+      "sourcePaths": [
+        "apps/web/src/main/routes/ProfileRoute.tsx",
+        "apps/web/src/main/tabs/profile/ProfileCompatibility.tsx"
+      ],
+      "permittedArtifacts": ["plan-document"]
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "globalize-all-ui-state"
+    ],
+    "expectations": {
+      "disposition": "plan",
+      "signals": ["view-local-state", "shared-draft-owner", "resize-focus-contract"],
+      "evidence": ["response", "content-map"]
+    }
+  },
+  {
+    "id": "presentation-unchanged-legacy",
+    "request": "표현 책임 지침을 채택하면 이번 변경 대상이 아닌 Chat도 먼저 Desktop/Mobile로 나눠야 하는지 검토해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "unchanged-chat",
+      "mode": "maintain",
+      "context": "이번에 Chat 기능·디자인을 바꾸라는 요청은 없다. 지침 적용을 위한 기존 화면 선행 분해 필요성만 조사한다.",
+      "sourcePaths": ["apps/web/src/main/README.md"],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "require-all-screen-adoption"
+    ],
+    "expectations": {
+      "disposition": "inspect",
+      "signals": ["unchanged-out-of-scope", "no-migration-required"],
+      "evidence": ["response"]
+    }
+  },
+  {
+    "id": "presentation-functional-fix",
+    "request": "Profile 저장 실패 처리를 수리할 후속 계획에 표현 분리도 필요한지 판단해줘.",
+    "expectedAuthority": "plan",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "profile-save-error",
+      "mode": "maintain",
+      "context": "표현·탐색 변경은 요청하지 않았다. 현재 local hook과 서버 저장 연결의 차이를 확인하고 필요한 기능 회귀와 제외 범위를 계획한다.",
+      "sourcePaths": [
+        "apps/web/src/main/hooks/useMainProfileState.ts",
+        "apps/web/src/main/hooks/__tests__/useMainProfileState.dom.test.ts"
+      ],
+      "permittedArtifacts": ["plan-document"]
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "defer-required-fix-for-redesign",
+      "mandatory-design-candidates"
+    ],
+    "expectations": {
+      "disposition": "plan",
+      "signals": ["unchanged-out-of-scope", "required-behavior-fix"],
+      "evidence": ["response", "content-map"]
+    }
+  },
+  {
+    "id": "presentation-native-boundary",
+    "request": "Mobile Web 컴포넌트와 Tailwind를 미래 RN 앱에 그대로 공유할 수 있는지 조사해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "future-native",
+      "mode": "maintain",
+      "context": "아직 Native 앱 도입·패키지 설치·adapter 생성을 승인하지 않았다. 확인된 재사용 후보와 미검증 경계만 보고한다.",
+      "sourcePaths": [
+        "apps/web/src/main/routes/ProfileRoute.tsx",
+        "apps/web/src/main/model/mainRoutes.ts"
+      ],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "create-native-package",
+      "claim-native-compatibility"
+    ],
+    "expectations": {
+      "disposition": "inspect",
+      "signals": ["separate-native-renderer", "verified-pure-contract-only"],
+      "evidence": ["response"]
+    }
+  },
+  {
+    "id": "presentation-false-dual-device",
+    "request": "desktop-chromium과 mobile-chromium 두 프로젝트의 Legal 모바일 목차 성공 캡처로 양쪽 device 검증 완료를 보고해도 되는지 검토해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "reference-review",
+    "input": {
+      "surfaceId": "legal-device-evidence",
+      "mode": "maintain",
+      "context": "제공 evidence는 해당 case의 두 캡처가 모두 390×844라는 실행 기록이다. 다른 viewport·실기기 결과는 제공되지 않았다.",
+      "sourcePaths": ["apps/web/playwright.config.ts", "apps/web/e2e/legal.spec.ts"],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "infer-device-from-project-name",
+      "claim-emulation-proves-os-keyboard"
+    ],
+    "expectations": {
+      "disposition": "report-gap",
+      "signals": ["desktop-evidence-gap", "actual-viewport-input"],
+      "evidence": ["response", "review-disposition"]
+    }
+  },
+  {
+    "id": "presentation-assertion-transition",
+    "request": "승인된 Home IA 개편이 기존 class와 section order test에 충돌한다. 구현 전에 회귀 전환 계획을 작성해줘.",
+    "expectedAuthority": "plan",
+    "expectedCapability": "visual-workflow",
+    "input": {
+      "surfaceId": "home-layout-transition",
+      "mode": "reimagine",
+      "context": "새 정보 배치를 위한 계획만 요청한다. 기존 test의 class/order와 region/content 및 focus/action 검증을 함께 확인한다.",
+      "sourcePaths": [
+        "apps/web/src/main/tabs/home/__tests__/HomeDashboardLayout.test.tsx",
+        "apps/web/src/main/tabs/home/__tests__/HomeResponsiveOverlay.test.tsx"
+      ],
+      "permittedArtifacts": ["plan-document"]
+    },
+    "prohibitedActions": [
+      "preemptive-screen-decomposition",
+      "write-production",
+      "delete-whole-test-file",
+      "blanket-snapshot-update"
+    ],
+    "expectations": {
+      "disposition": "plan",
+      "signals": ["replacement-before-change", "preserve-semantic-regressions"],
+      "evidence": ["response", "content-map"]
+    }
   }
 ]
