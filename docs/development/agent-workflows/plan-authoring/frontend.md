@@ -36,6 +36,8 @@
 
 ## Visual and component boundary
 
+- 승인된 개편은 기존 미감을 자동 상속하지 않되 [assertion 전환](../visual-design/design-review-and-acceptance.md#assertion-transition-before-ui-changes)을
+  UI 변경 전에 설계합니다. 문구 분류·명시적으로 허용된 font/dependency 실험은 [VisualBrief](../visual-design/visual-brief.md)를 소비하며 제품 정책 변경 권한은 별도입니다.
 - token 역할·값·theme·override는 [Web semantic token 계약](../visual-design/web-semantic-token-contract.md)을
   변경 surface에만 적용합니다. 작은 수리는 직접 판단하고, 지침 채택을 위한 전수 CSS migration은 하지 않습니다.
 - existing production component의 의미·interaction·state owner를 먼저 조사하고 재사용합니다. 시각적 방향은

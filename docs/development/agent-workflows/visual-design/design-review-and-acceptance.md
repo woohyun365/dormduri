@@ -49,6 +49,26 @@ production surface와 Storybook의 상태 정합성도 검증합니다. 정적 H
 정의된 범위에서 끝낼 수 있지만, 이를 production 디자인 승인으로 표현하지 않습니다. 필수 기능·권한 위반은 취향 차이로
 완화하지 않습니다. 접근성 문제와 Owner 선호가 충돌하면 그 방향을 살린 접근 가능한 대안을 제시합니다.
 
+## Assertion transition before UI changes
+
+승인된 개편에서도 테스트의 미감과 보호 의미를 구분합니다. 기존 class 때문에 새 방향을 축소하거나 파일 전체를 삭제하지 않습니다.
+
+1. 영향 surface의 instruction·token·class/text/DOM assertion·snapshot을 조사합니다. 전 화면 inventory는 불필요합니다.
+2. `assertion → 보호 intent → authority/source → preserve/replace/retire → replacement evidence`를 매핑합니다.
+3. 현재 semantic regression baseline을 확보하고 **대체 회귀를 먼저 정의한 뒤** 충돌하는 미감 guard의 교체를 설계합니다.
+   실제 UI branch에서 필요한 test 전환과 구현을 RED→GREEN으로 진행합니다. 기존 PASS를 인위적인 결함으로 세지 않습니다.
+4. 개인정보·상태·action·정책·a11y 보호는 유지하고, 새 palette/layout/copy는 승인된 revision으로 검증합니다.
+   blanket snapshot 갱신·미감 테스트 전부 삭제는 대체 검증이 아닙니다.
+
+예: header의 blur 부재 assertion은 개편 시 교체할 수 있지만 home link 의미는 보존합니다. Login의 grid/spacing은
+reflow·reset action·고지 노출을 보호할 수 있으므로 cosmetic이라고 일괄 제거하지 않습니다. Roommate 카드의 색은
+바꿔도 private detail/token 비노출 회귀는 유지합니다. Hero 문구/heading 순서는 [copy 권한](./reference-content-contract.md)을
+분류하고, 학교 이메일 lookalike 거절은 미감과 무관한 eligibility/security 불변 조건으로 남깁니다.
+
+실제 변경은 [표현·device packet](./device-presentation-and-verification.md)과
+[token/theme 계약](./web-semantic-token-contract.md)을 소비하고 production/fixture의 해당 state를 대조합니다.
+이 절차 채택 자체는 제품 테스트 삭제나 현재 화면 baseline 전환 완료가 아닙니다.
+
 ## Anti-slop은 맥락 비평이지 CSS 금지 목록이 아님
 
 AI-slop은 작성자를 탐지하는 지표가 아니라 **이 brief를 검토하지 않고 반복한 template 선택**으로 다룹니다.

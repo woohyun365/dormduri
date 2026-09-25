@@ -46,6 +46,14 @@ Next.js/React/BFF, accessibility contract, component owner, performance와 test 
 Mode는 **권한과 별개**입니다. Analyze는 분석으로, Plan은 계획으로 끝나며, 로컬 prototype 권한은 production/Figma
 수정 권한이 아닙니다. [VisualBrief](./visual-brief.md)에 실제 요청 결과와 허용된 출력/수정 경로를 따로 기록합니다.
 
+Landing/Auth/Main/support 모두 승인된 reimagine에서 palette·font·layout·density·composition을 다시 선택할 수 있습니다.
+KNU 미감을 의무로 삼지는 않지만 실제 지원 대상·가입 자격·privacy·서비스 사실을 바꾸는 권한도 생기지 않습니다.
+[copy 분류](./reference-content-contract.md#copy-authority-classes),
+[폰트·dependency 실험](./visual-brief.md#bounded-dependency-and-font-experiments),
+[미감 assertion 전환](./design-review-and-acceptance.md#assertion-transition-before-ui-changes)을 해당 작업에만 적용합니다.
+한국어 가독성·핵심 문구/CTA 위계·실제 상태/행동을 관찰하며 “AI-slop 0%”나 사용자 효과를 점수로 보장하지 않습니다.
+[task-fit skill](./design-task-orchestration.md#task-fit-skills)은 보조 도구이며 미설치 시에도 기존 direct workflow를 사용합니다.
+
 ## Source hierarchy
 
 1. latest user request: 목표·허용 범위·명시적으로 승인된 visual reference

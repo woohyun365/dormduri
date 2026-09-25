@@ -473,3 +473,60 @@ test('token corpus preserves role, theme, mode, no-op and future-renderer challe
     assert.equal(gap.expectations.disposition, 'report-gap');
   }
 });
+
+test('visual freedom contracts separate copy classes, experiment authority and assertion transitions', () => {
+  const content = read(`${visualRoot}/reference-content-contract.md`);
+  for (const field of ['exact-governed', 'factual-semantic', 'editable-editorial'])
+    assert.ok(content.includes(field), field);
+  const brief = read(`${visualRoot}/visual-brief.md`);
+  for (const field of [
+    '### Bounded dependency and font experiments',
+    'allowed category',
+    'license',
+    'keep/revert',
+  ])
+    assert.ok(brief.includes(field), field);
+  const review = read(`${visualRoot}/design-review-and-acceptance.md`);
+  assert.ok(review.includes('## Assertion transition before UI changes'));
+  assert.ok(review.includes('preserve/replace/retire'));
+});
+
+test('task-fit skill routing keeps source, installation and native qualification distinct', () => {
+  const guide = read(`${visualRoot}/design-task-orchestration.md`);
+  for (const field of [
+    '## Task-fit skills',
+    'design-taste-frontend',
+    'redesign-existing-projects',
+    'c184364c58658b2f131b4ae8bd3d206cabb3deee',
+    'LICENSE',
+    'installed-unqualified',
+    'native-qualified',
+  ])
+    assert.ok(guide.includes(field), field);
+});
+
+test('visual delta corpus retains freedom and scoped skill negative cases', () => {
+  // Finite coverage/schema, not a native skill loader or a model-behavior judge.
+  const required = {
+    'visual-copy-authority': ['copy-classification', 'editorial-within-authority'],
+    'visual-aesthetic-versus-eligibility': ['aesthetic-freedom', 'preserve-eligibility'],
+    'visual-mixed-assertion-transition': [
+      'replacement-before-change',
+      'preserve-private-token-guard',
+    ],
+    'visual-approved-font-experiment': ['bounded-experiment', 'keep-or-revert'],
+    'visual-unapproved-skill-side-effect': ['reject-external-side-effect', 'branch-not-sandbox'],
+    'visual-task-fit-skills': ['task-fit-primary', 'product-ia-owner'],
+    'visual-missing-native-discovery': ['installed-unqualified', 'direct-fallback'],
+  };
+  for (const [id, signals] of Object.entries(required)) {
+    const fixture = cases.find((item) => item.id === id);
+    assert.ok(fixture, id);
+    for (const signal of signals)
+      assert.ok(fixture.expectations.signals.includes(signal), `${id}: ${signal}`);
+    assert.ok(fixture.prohibitedActions.includes('change-product-policy'), id);
+  }
+  const gap = cases.find((item) => item.id === 'visual-missing-native-discovery');
+  assert.equal(gap.expectedAuthority, 'analyze');
+  assert.equal(gap.expectations.disposition, 'report-gap');
+});

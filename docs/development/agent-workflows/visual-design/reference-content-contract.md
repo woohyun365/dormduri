@@ -10,7 +10,7 @@ Current policy, hook/mapper 결과, 공개 문구, 실제 component/test에서 �
 | Field               | 기록할 내용                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------ |
 | ID / source         | content·state·action을 가리키는 안정적인 task ID, 파일/export/contract와 snapshot    |
-| copy/data policy    | 기본 `exact`; 값·단위·문구를 그대로 보존, copy 변경은 별도 승인 범위                 |
+| copy/data policy    | 아래 copy 분류와 승인 범위; 미분류·미승인 항목은 기본 `exact`                        |
 | visibility          | 필수/조건부/내부 provenance; 어느 상태에서 보여야 하는지                             |
 | behavior            | 실제 action effect·precondition, 상태 피드백과 navigation; 없는 동작은 추가하지 않음 |
 | destination / check | 후보의 배치 위치와 내용·노출·동작을 확인할 방법                                      |
@@ -18,6 +18,20 @@ Current policy, hook/mapper 결과, 공개 문구, 실제 component/test에서 �
 Source→content slot→state/action→새 destination→verification을 이어 적습니다. 새 DOM 구조나 many-to-one grouping/reordering은
 가능하지만 필수 고지를 덜 보이게 하거나 의미를 바꾸는 것은 단순 스타일 변경이 아닙니다. UI가 그럴듯해 보이도록 문장·표를
 줄이거나 placeholder/가짜 지표로 바꾸지 않습니다. Typography가 어려운 원문에서도 작동하는지를 봅니다.
+
+### Copy authority classes
+
+| 분류                 | 보존과 허용                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exact-governed`     | 법적 원문·동의·실제 값/날짜/사용자 데이터 등. provenance와 결정 owner를 밝히고 원문 또는 잠긴 의미를 보존. 디자인 승인으로 변경하지 않음                       |
+| `factual-semantic`   | 지원 대상·서비스 기능·운영 상태·고지 의미와 필수 노출 보존. 승인된 editorial 범위에서 표현만 재작성 가능                                                       |
+| `editable-editorial` | hero·보조 설명·CTA 표현·정보 위계 등 명시적으로 허용된 가독성/개편 범위. 문장마다 재승인을 강제하지 않되 action 의미·accessible name·selector와 대체 회귀 확인 |
+
+분류 자체가 수정 권한을 만들지 않습니다. `maintain`이나 “문구 그대로” 요청에서는 승인 없는 재작성을 하지 않습니다.
+`reimagine`라도 가입 자격·privacy·필수 고지를 editorial로 낮추지 않습니다. 예를 들어 hero의 표현·순서는 새로 설계할 수
+있지만 현재 KNU 춘천 지원 사실·학교 이메일 자격·비공식 서비스 고지와 실제 CTA 목적지를 숨기거나 바꾸지 않습니다.
+가짜 다대학 지원·학교 제휴·성공 보장·사용자 후기·통계는 미적 자유가 아닙니다. 익명 portfolio가 필요하면 실제 서비스와
+구분한 synthetic 화면으로 표시합니다. 허용 범위가 없는 항목은 exact로 두고 중요한 의미 변경만 확인합니다.
 
 Hook/API·validation/cache/timing/side effect는 해당 owner에 남깁니다. 승인된 구현에서 presentation binding은 재배치할 수
 있지만, hook을 happy-path 하드코딩으로 바꾸거나 컴포넌트 공유를 이유로 BFF·persistence 경계를 옮기지 않습니다.
