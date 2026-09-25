@@ -76,6 +76,7 @@ assistant의 문장은 정책이 아닙니다. 실제 사용자가 대학생이�
 상세 계약:
 
 - [VisualBrief](./visual-brief.md)
+- [Web semantic token 계약](./web-semantic-token-contract.md): 역할·값·theme·override와 변경 surface만의 점진 적용; 작은 token 수리도 직접 참조
 - [Desktop/Mobile 표현 책임과 검증](./device-presentation-and-verification.md): 공통 행동 비복제·점진 적용·device evidence
 - [Reference/content contract](./reference-content-contract.md): 무엇을 보존하고 무엇만 참고할지
 - [Design task orchestration](./design-task-orchestration.md): 직접 작업과 필요한 specialist의 산출물

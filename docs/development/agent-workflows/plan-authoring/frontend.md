@@ -36,6 +36,8 @@
 
 ## Visual and component boundary
 
+- token 역할·값·theme·override는 [Web semantic token 계약](../visual-design/web-semantic-token-contract.md)을
+  변경 surface에만 적용합니다. 작은 수리는 직접 판단하고, 지침 채택을 위한 전수 CSS migration은 하지 않습니다.
 - existing production component의 의미·interaction·state owner를 먼저 조사하고 재사용합니다. 시각적 방향은
   [Visual design workflow](../visual-design/README.md)의 `maintain | reimagine | new-surface`와 surface별 승인 범위로
   판단하며, 명시적으로 새 방향을 탐색할 때 기존 token/layout의 외형을 의무로 상속하지 않습니다.

@@ -72,6 +72,8 @@ prototype 금지가 아닙니다. Writer의 rationale/self-check는 보존하되
 
 ### Component and token boundary
 
+- [Web semantic token 계약](./web-semantic-token-contract.md)의 역할/값/theme → 정의·참조·owner → 유지/교체/신규/unchanged
+  → consumer delta → production/fixture evidence packet을 영향 surface에만 사용합니다. 전체 token 정리는 선행 조건이 아닙니다.
 - 재사용 가능한 current component/token
 - surface-local로 유지할 presentation
 - semantics/interaction/state contract가 같을 때만 고려할 shared component
