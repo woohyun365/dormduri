@@ -13,6 +13,7 @@ const visualGuidePaths = [
   `${visualRoot}/reference-content-contract.md`,
   `${visualRoot}/design-task-orchestration.md`,
   `${visualRoot}/design-review-and-acceptance.md`,
+  `${visualRoot}/device-presentation-and-verification.md`,
 ];
 const entryPaths = [
   `${workflowRoot}/README.md`,
@@ -330,4 +331,81 @@ test('durable visual guidance does not depend on a local plan or implementation 
     assert.doesNotMatch(source, /\bPhase\s+\d+(?:[.-]\d+)?\b/u, path);
     assert.doesNotMatch(source, /\.omx\/plans\//u, path);
   }
+});
+
+test('frontend and visual consumers link directly to one presentation contract', () => {
+  const canonical = resolve(repoRoot, visualRoot, 'device-presentation-and-verification.md');
+  for (const path of [
+    `${workflowRoot}/plan-authoring/frontend.md`,
+    `${visualRoot}/README.md`,
+    `${visualRoot}/visual-brief.md`,
+    `${visualRoot}/design-review-and-acceptance.md`,
+  ]) {
+    const links = [...read(path).matchAll(/\[[^\]]+\]\(([^)\s]+)\)/gu)];
+    assert.ok(
+      links.some(([, link]) => resolve(repoRoot, path, '..', link.split('#')[0]) === canonical),
+      path,
+    );
+  }
+  for (const path of visualGuidePaths) {
+    for (const [, link] of read(path).matchAll(/\[[^\]]+\]\(([^)\s]+)\)/gu)) {
+      if (/^(?:https?:|#)/u.test(link)) continue;
+      assert.ok(existsSync(resolve(repoRoot, path, '..', link.split('#')[0])), `${path}: ${link}`);
+    }
+  }
+});
+
+test('presentation guidance retains decision, ownership, adoption and evidence sections', () => {
+  const guide = read(`${visualRoot}/device-presentation-and-verification.md`);
+  // Finite document contract only: presence cannot prove semantic compliance or browser behavior.
+  for (const phrase of [
+    'shared-responsive',
+    'split-presentation',
+    'unchanged-out-of-scope',
+    'Tailwind',
+    '## 공통 행동과 표현 전용 state',
+    '## 같은 URL과 rendering 안전',
+    '## 변경할 때 점진 적용',
+    '## Device verification packet',
+    '## Mobile Web과 미래 Native',
+    '## 읽기 전용 적용 예시',
+    'advisory-policy',
+    'model-mediated',
+    'deterministic-static',
+  ])
+    assert.ok(guide.includes(phrase), phrase);
+});
+
+test('presentation corpus preserves incremental choices and negative evidence cases', () => {
+  const required = {
+    'presentation-small-responsive': ['shared-responsive', 'preserve-focus-close'],
+    'presentation-distinct-ia': ['split-presentation', 'subtree-only', 'persistence-gap'],
+    'presentation-shared-mutation': [
+      'single-action-owner',
+      'success-refresh-once',
+      'failure-no-refresh',
+    ],
+    'presentation-local-state': ['view-local-state', 'shared-draft-owner', 'resize-focus-contract'],
+    'presentation-unchanged-legacy': ['unchanged-out-of-scope', 'no-migration-required'],
+    'presentation-functional-fix': ['unchanged-out-of-scope', 'required-behavior-fix'],
+    'presentation-native-boundary': ['separate-native-renderer', 'verified-pure-contract-only'],
+    'presentation-false-dual-device': ['desktop-evidence-gap', 'actual-viewport-input'],
+    'presentation-assertion-transition': [
+      'replacement-before-change',
+      'preserve-semantic-regressions',
+    ],
+  };
+  for (const [id, signals] of Object.entries(required)) {
+    const fixture = cases.find((item) => item.id === id);
+    assert.ok(fixture, id);
+    for (const signal of signals)
+      assert.ok(fixture.expectations.signals.includes(signal), `${id}: ${signal}`);
+    assert.ok(fixture.prohibitedActions.includes('preemptive-screen-decomposition'), id);
+  }
+  const direct = cases.find((item) => item.id === 'presentation-small-responsive');
+  assert.equal(direct.expectedCapability, 'direct');
+  assert.equal(direct.expectedAuthority, 'implement');
+  const gap = cases.find((item) => item.id === 'presentation-false-dual-device');
+  assert.equal(gap.expectedAuthority, 'analyze');
+  assert.equal(gap.expectations.disposition, 'report-gap');
 });

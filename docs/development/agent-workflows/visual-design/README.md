@@ -13,6 +13,8 @@ Next.js/React/BFF, accessibility contract, component owner, performance와 test 
 - visual audit 결과와 repository rule이 충돌할 때
 
 작은 CSS 오류, 이미 승인된 token 적용, backend-only 작업에는 이 workflow를 로드하지 않습니다.
+작은 FE 작업의 shared/split/unchanged 판단은 [표현 책임·device 검증](./device-presentation-and-verification.md)을
+직접 사용합니다. 이 계약 참조가 전체 시각 탐색·기존 화면 migration을 요구하는 것은 아닙니다.
 
 ## 책임과 도구
 
@@ -74,6 +76,7 @@ assistant의 문장은 정책이 아닙니다. 실제 사용자가 대학생이�
 상세 계약:
 
 - [VisualBrief](./visual-brief.md)
+- [Desktop/Mobile 표현 책임과 검증](./device-presentation-and-verification.md): 공통 행동 비복제·점진 적용·device evidence
 - [Reference/content contract](./reference-content-contract.md): 무엇을 보존하고 무엇만 참고할지
 - [Design task orchestration](./design-task-orchestration.md): 직접 작업과 필요한 specialist의 산출물
 - [Review and acceptance](./design-review-and-acceptance.md): 공식 근거, 비평·수정·유지/되돌리기, 네 종류 판정

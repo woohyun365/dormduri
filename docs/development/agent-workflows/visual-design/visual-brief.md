@@ -79,6 +79,9 @@ prototype 금지가 아닙니다. Writer의 rationale/self-check는 보존하되
 
 ### Responsive and accessibility
 
+- [표현 책임·device 검증](./device-presentation-and-verification.md)의 짧은 packet을 소비합니다:
+  affected surface → Desktop/Mobile IA·interaction 차이 → 공통 data/action owner → shared/split/unchanged와 이유 →
+  assertion transition → device verification → remaining gaps. 변경하지 않는 화면의 선행 분해는 요구하지 않습니다.
 - 320px, 390px, tablet landscape와 desktop
 - zoom/reflow, long copy, empty/loading/error/action states
 - keyboard order, visible focus, modal focus restore와 screen-reader status

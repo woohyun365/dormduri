@@ -34,6 +34,10 @@ verification/value validation 구분을 따릅니다.
 fidelity와 코드 검증을 확인합니다. 동일한 픽셀을 모든 기기·콘텐츠에서 강제하지 않습니다. 실제 컴포넌트를 바꿨다면
 production surface와 Storybook의 상태 정합성도 검증합니다. 정적 HTML prototype은 production parity의 증거가 아닙니다.
 
+표현 분리·공통 행동·점진 적용은 [표현 책임·device 검증](./device-presentation-and-verification.md)을 기준으로 검토합니다.
+프로젝트 이름 대신 실제 viewport/input/state/action과 양쪽 성공 캡처·gap을 확인합니다. 문서-only 채택·읽기 전용 사례
+검토를 실제 화면 전환이나 browser/RN 검증 완료로 승격하지 않습니다.
+
 | 판정                         | 필요한 근거                                           | 대체할 수 없는 것                                         |
 | ---------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
 | functional/a11y verification | 내용·상태·action, keyboard/focus/reflow와 해당 테스트 | 예쁜 screenshot이 필수 검사를 면제하지 않음               |

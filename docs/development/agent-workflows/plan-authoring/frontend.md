@@ -27,6 +27,8 @@
 
 ## Accessibility and responsive interaction
 
+- 작은 responsive 수리를 포함해 [표현 책임·device 검증](../visual-design/device-presentation-and-verification.md)에서
+  shared/split/unchanged를 판단합니다. 변경 surface만 적용하며 전체 디자인 탐색이나 기존 화면 선행 분해를 요구하지 않습니다.
 - semantic HTML, label, keyboard order, visible focus, modal focus trap/restore, live status를 acceptance에 포함합니다.
 - 320px mobile, tablet landscape, desktop, zoom/reflow, safe area와 virtual keyboard를 점검합니다.
 - sticky/fixed/portal/scroll lock은 실제 scroll owner와 stacking context를 근거로 설계합니다.
