@@ -14,6 +14,7 @@ const visualGuidePaths = [
   `${visualRoot}/design-task-orchestration.md`,
   `${visualRoot}/design-review-and-acceptance.md`,
   `${visualRoot}/device-presentation-and-verification.md`,
+  `${visualRoot}/web-semantic-token-contract.md`,
 ];
 const entryPaths = [
   `${workflowRoot}/README.md`,
@@ -408,4 +409,67 @@ test('presentation corpus preserves incremental choices and negative evidence ca
   const gap = cases.find((item) => item.id === 'presentation-false-dual-device');
   assert.equal(gap.expectedAuthority, 'analyze');
   assert.equal(gap.expectations.disposition, 'report-gap');
+});
+
+test('token consumers link to one canonical styling contract', () => {
+  const canonical = resolve(repoRoot, visualRoot, 'web-semantic-token-contract.md');
+  for (const path of [
+    `${workflowRoot}/plan-authoring/frontend.md`,
+    `${visualRoot}/README.md`,
+    `${visualRoot}/visual-brief.md`,
+  ]) {
+    const links = [...read(path).matchAll(/\[[^\]]+\]\(([^)\s]+)\)/gu)];
+    assert.ok(
+      links.some(([, link]) => resolve(repoRoot, path, '..', link.split('#')[0]) === canonical),
+      path,
+    );
+  }
+});
+
+test('token contract retains owner, adoption and unresolved-observation evidence boundaries', () => {
+  const guide = read(`${visualRoot}/web-semantic-token-contract.md`);
+  // Finite document shape only, not CSS resolution, accessibility or semantic proof.
+  for (const phrase of [
+    '## 현재 구현과 목표 계약',
+    '## Namespace, mapping, theme, override',
+    '## 변경할 때의 packet',
+    '## 읽기 전용 적용 예시',
+    '## 미확인 참조의 인계',
+    '## 미래 Native와 검증 한계',
+    'maintain',
+    'reimagine',
+    'unchanged',
+    'advisory-policy',
+    'model-mediated',
+    'deterministic-static',
+  ])
+    assert.ok(guide.includes(phrase), phrase);
+});
+
+test('token corpus preserves role, theme, mode, no-op and future-renderer challenges', () => {
+  const required = {
+    'token-maintain-direct': ['affected-only', 'preserve-affected-baseline'],
+    'token-approved-reimagine': ['replacement-before-change', 'no-palette-lock'],
+    'token-different-theme': ['reject-name-only-alias', 'theme-resolution-gap'],
+    'token-same-value-distinct-role': ['same-value-not-same-meaning'],
+    'token-device-geometry': ['shared-meaning-distinct-values', 'consume-device-packet'],
+    'token-unchanged-surface': ['unchanged', 'no-migration-required'],
+    'token-unresolved-reference': ['owner-trigger-evidence', 'no-runtime-fix-claim'],
+    'token-future-native': ['actual-second-renderer-trigger', 'web-owner-now'],
+  };
+  for (const [id, signals] of Object.entries(required)) {
+    const fixture = cases.find((item) => item.id === id);
+    assert.ok(fixture, id);
+    for (const signal of signals)
+      assert.ok(fixture.expectations.signals.includes(signal), `${id}: ${signal}`);
+    assert.ok(fixture.prohibitedActions.includes('preemptive-token-migration'), id);
+  }
+  const direct = cases.find((item) => item.id === 'token-maintain-direct');
+  assert.equal(direct.expectedAuthority, 'implement');
+  assert.equal(direct.expectedCapability, 'direct');
+  for (const id of ['token-different-theme', 'token-unresolved-reference']) {
+    const gap = cases.find((item) => item.id === id);
+    assert.equal(gap.expectedAuthority, 'analyze');
+    assert.equal(gap.expectations.disposition, 'report-gap');
+  }
 });

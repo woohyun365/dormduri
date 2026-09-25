@@ -767,5 +767,220 @@
       "signals": ["replacement-before-change", "preserve-semantic-regressions"],
       "evidence": ["response", "content-map"]
     }
+  },
+  {
+    "id": "token-maintain-direct",
+    "request": "Button의 기존 색과 행동을 유지하면서 sm의 승인된 간격 수정만 구현해줘.",
+    "expectedAuthority": "implement",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "token-maintain-direct",
+      "mode": "maintain",
+      "context": "Button sm 간격 변경만 승인되었으며 기존 state와 색은 유지한다.",
+      "sourcePaths": [
+        "apps/web/src/components/ui/Button.tsx",
+        "apps/web/src/app/globals.css",
+        "apps/web/src/styles/knu.css"
+      ],
+      "permittedArtifacts": ["owned-source"]
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy"
+    ],
+    "expectations": {
+      "disposition": "implement",
+      "evidence": ["tree-diff", "interaction-check"],
+      "signals": ["affected-only", "preserve-affected-baseline"]
+    },
+    "evaluatorNotes": "작은 수정은 직접 처리하되 미래 실제 구현에서 영향 state/theme/device 증거가 필요하다."
+  },
+  {
+    "id": "token-approved-reimagine",
+    "request": "Home 개편의 새 팔레트가 승인됐어. 기존 token/class assertion을 어떻게 전환할지 계획해줘.",
+    "expectedAuthority": "plan",
+    "expectedCapability": "visual-workflow",
+    "input": {
+      "surfaceId": "token-approved-reimagine",
+      "mode": "reimagine",
+      "context": "새 시각 방향은 승인됐지만 이번 요청은 계획뿐이다. 기존 action·필수 문구·개인정보 노출 조건은 바꾸지 않는다.",
+      "sourcePaths": [
+        "apps/web/src/main/routes/HomeRoute.tsx",
+        "apps/web/src/app/globals.css",
+        "apps/web/src/styles/knu.css"
+      ],
+      "permittedArtifacts": ["plan-document"]
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "plan",
+      "evidence": ["response"],
+      "signals": ["replacement-before-change", "no-palette-lock"]
+    },
+    "evaluatorNotes": "승인된 디자인 자유는 제품 mutation authority나 업무 의미 변경 허가가 아니다."
+  },
+  {
+    "id": "token-different-theme",
+    "request": "--primary와 --knu-primary는 이름이 비슷한데 alias 하나로 합쳐도 되는지 분석해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "token-different-theme",
+      "mode": "maintain",
+      "context": "두 CSS owner의 root/theme 값과 실제 consumer를 조사하는 읽기 전용 요청이다.",
+      "sourcePaths": ["apps/web/src/app/globals.css", "apps/web/src/styles/knu.css"],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "report-gap",
+      "evidence": ["response", "tool-log"],
+      "signals": ["reject-name-only-alias", "theme-resolution-gap"]
+    },
+    "evaluatorNotes": "현재 다른 값과 theme 의미를 보호한다. source 조사로 runtime parity를 증명할 수 없다."
+  },
+  {
+    "id": "token-same-value-distinct-role",
+    "request": "background와 surface가 둘 다 white인데 하나로 합치는 게 맞는지 분석해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "token-same-value-distinct-role",
+      "mode": "maintain",
+      "context": "값 중복을 줄이고 싶지만 아직 제품 수정은 승인하지 않았다.",
+      "sourcePaths": ["apps/web/src/app/globals.css", "apps/web/src/styles/knu.css"],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "inspect",
+      "evidence": ["response"],
+      "signals": ["same-value-not-same-meaning"]
+    },
+    "evaluatorNotes": "동일 값은 동일 역할 증거가 아니며 사용 의미와 독립 변화 가능성을 조사한다."
+  },
+  {
+    "id": "token-device-geometry",
+    "request": "Desktop sidebar와 Mobile drawer의 간격과 글자 크기가 달라. token 기준 적용 계획을 작성해줘.",
+    "expectedAuthority": "plan",
+    "expectedCapability": "visual-workflow",
+    "input": {
+      "surfaceId": "token-device-geometry",
+      "mode": "reimagine",
+      "context": "같은 업무 상태와 action을 제공하며 IA 차이와 새 layout 방향은 승인됐다. 현재 요청은 계획이다.",
+      "sourcePaths": [
+        "docs/development/agent-workflows/visual-design/device-presentation-and-verification.md",
+        "apps/web/src/app/globals.css",
+        "apps/web/src/styles/knu.css"
+      ],
+      "permittedArtifacts": ["plan-document"]
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "plan",
+      "evidence": ["response"],
+      "signals": ["shared-meaning-distinct-values", "consume-device-packet"]
+    },
+    "evaluatorNotes": "값 통일이나 업무 로직 복제 없이 표현 owner 및 양쪽 device/theme 증거를 계획한다."
+  },
+  {
+    "id": "token-unchanged-surface",
+    "request": "다른 기능을 수정하기 전에 기존 Chat의 token도 먼저 전환해야 하는지 알려줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "token-unchanged-surface",
+      "mode": "maintain",
+      "context": "이번 작업에는 Chat 시각·기능 변경 요청이 없다.",
+      "sourcePaths": ["apps/web/src/app/globals.css", "apps/web/src/styles/knu.css"],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "inspect",
+      "evidence": ["response"],
+      "signals": ["unchanged", "no-migration-required"]
+    },
+    "evaluatorNotes": "변경하지 않는 화면을 그대로 두며 전수 cleanup이나 강제 migration을 만들지 않는다."
+  },
+  {
+    "id": "token-unresolved-reference",
+    "request": "Home hover에서 --knu-primary-dark를 참조하는데 정의가 안 보인다. 현재 사실과 후속 처리 조건만 분석해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "token-unresolved-reference",
+      "mode": "maintain",
+      "context": "브라우저 재현은 없고 제품 수정 권한도 없다.",
+      "sourcePaths": [
+        "apps/web/src/main/tabs/home/sections/primary/PrimaryWithdrawalSheet.tsx",
+        "apps/web/src/app/globals.css",
+        "apps/web/src/styles/knu.css"
+      ],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "report-gap",
+      "evidence": ["response", "tool-log"],
+      "signals": ["owner-trigger-evidence", "no-runtime-fix-claim"]
+    },
+    "evaluatorNotes": "source 정의 부재와 runtime 결함을 구분; affected owner/trigger/cascade/fallback/state/theme evidence. 실제 기능/a11y 결함 확인 시 별도 bounded fix."
+  },
+  {
+    "id": "token-future-native",
+    "request": "미래 RN 확장 때문에 지금 Web token을 공용 패키지로 옮겨야 할지 분석해줘.",
+    "expectedAuthority": "analyze",
+    "expectedCapability": "direct",
+    "input": {
+      "surfaceId": "token-future-native",
+      "mode": "new-surface",
+      "context": "실제 Native renderer나 동일 의미의 두 번째 consumer는 아직 없다.",
+      "sourcePaths": ["apps/web/src/app/globals.css", "apps/web/src/styles/knu.css"],
+      "permittedArtifacts": []
+    },
+    "prohibitedActions": [
+      "preemptive-token-migration",
+      "install-product-dependency",
+      "change-product-policy",
+      "write-production"
+    ],
+    "expectations": {
+      "disposition": "inspect",
+      "evidence": ["response"],
+      "signals": ["actual-second-renderer-trigger", "web-owner-now"]
+    },
+    "evaluatorNotes": "미래 희망만으로 package/adapter를 만들거나 CSS가 RN UI와 호환된다고 주장하지 않는다."
   }
 ]
