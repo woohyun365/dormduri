@@ -6,7 +6,7 @@ On child completion, added dispatch, capacity error or turn end, the Parent foll
 
 ## Visual skill scope
 
-Taste (`design-taste-frontend`) is **Codex-only**: it is a task-fit design aid for Codex, not a common workflow prerequisite or a Claude port. Preserve the existing personal Codex installation; use the [visual skill selection and Codex installation boundary](../visual-design/design-task-orchestration.md#task-fit-skills) only when the task benefits. This scope decision does not assert a model's design superiority. Redesign is a separate skill with its own host discovery and qualification.
+Taste (`design-taste-frontend`) and Redesign (`redesign-existing-projects`) are **Codex-only** task-fit design aids, not common workflow prerequisites or Claude ports. Preserve the existing personal Codex installations; use the [visual skill selection and Codex installation boundary](../visual-design/design-task-orchestration.md#task-fit-skills) only when the task benefits. Each skill keeps its own discovery and qualification evidence. This scope decision does not assert a model's design superiority.
 
 ## Reasoning effort routing
 
