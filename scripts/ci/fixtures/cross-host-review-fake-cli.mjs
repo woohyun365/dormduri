@@ -18,7 +18,13 @@ if (fixtureCase === 'hang') {
   const corpus = JSON.parse(
     readFileSync(resolve(import.meta.dirname, 'cross-model-handoff-cases.json'), 'utf8'),
   );
-  process.stdout.write(JSON.stringify(corpus.baseResult));
+  process.stdout.write(
+    JSON.stringify({
+      schemaVersion: 'cross-host-fake-output/v1',
+      packetReceived: false,
+      result: corpus.baseResult,
+    }),
+  );
 } else {
   let input = '';
   for await (const chunk of process.stdin) input += chunk;
@@ -51,5 +57,7 @@ if (fixtureCase === 'hang') {
   ) {
     result.secret = 'inherited-credential-variable';
   }
-  process.stdout.write(JSON.stringify(result));
+  process.stdout.write(
+    JSON.stringify({ schemaVersion: 'cross-host-fake-output/v1', packetReceived: true, result }),
+  );
 }

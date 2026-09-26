@@ -289,12 +289,23 @@ export async function runFakeReviewProcess(input = {}) {
       if (/ANTHROPIC_API_KEY|OPENAI_API_KEY|sk-[A-Za-z0-9]{12}|Bearer\s/i.test(stdout)) {
         return finish(receipt('malformed', common));
       }
-      let result;
+      let envelope;
       try {
-        result = JSON.parse(stdout);
+        envelope = JSON.parse(stdout);
       } catch {
         return finish(receipt('malformed', common));
       }
+      if (
+        !envelope ||
+        typeof envelope !== 'object' ||
+        Array.isArray(envelope) ||
+        Object.keys(envelope).sort().join(',') !== 'packetReceived,result,schemaVersion' ||
+        envelope.schemaVersion !== 'cross-host-fake-output/v1'
+      ) {
+        return finish(receipt('malformed', common));
+      }
+      if (envelope.packetReceived !== true) return finish(receipt('input-error', common));
+      const { result } = envelope;
       const validation = validateCrossModelResult(result, {
         packet,
         currentSnapshot: packet.snapshot,
