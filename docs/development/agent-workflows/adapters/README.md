@@ -11,6 +11,8 @@ Names and similar task packets do not prove equivalent capabilities. Each lead c
 
 The Codex-only routing/model scripts remain Codex compatibility checks, not a universal dispatcher or a Claude admission engine. Existing Codex model cohorts and required Astra QA are not satisfied by a Claude review. Cross-model review requires a separately authorized evidence packet and independent qualification.
 
+For a Codex↔Claude checker handoff, use the [host-neutral cross-model QA contract](./cross-model-handoff.md) with the canonical [QA packet](../qa.md#portable-qa-packet). It does not install a host, select a provider model or qualify direct CLI process delegation.
+
 ## Preparation versus live adoption
 
 `repository-prepared` means the tracked instructions, native role definitions, selective tracking, regression tests and clean-clone handoff are ready for a future developer environment. This milestone does not require buying a provider plan, logging in, or invoking another host's agents. It is not evidence of actual role discovery, permission enforcement or model behavior.
