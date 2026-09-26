@@ -107,6 +107,10 @@ UI의 시각적 방향·reference·화면 비평을 다루면 Plan 여부와 무
 
 ### Permission modes and evidence
 
+이 절의 `workspace-write`, Auto-review, `on-request`, `madmax` 및 실행 규칙은 **Codex/OMX host 전용**입니다.
+공통 권한 원칙은 위의 source·scope·authority 계약이며, Claude Code의 native 도구/permission 검증은
+[Claude Code adapter](./adapters/claude-code.md)를 따릅니다. Codex 권한 모드를 다른 host의 실제 격리로 추정하지 않습니다.
+
 기본 권장 조합은 **workspace-write + 필요한 범위만 좁게 허용 + 지원되는 Auto-review**입니다. Auto-review는 기존
 승인 요청의 검토자를 바꾸는 native 기능이지 모든 명령의 보안 검사나 업무 승인자가 아닙니다. 이미 허용된 작업은 검토를
 거치지 않을 수 있고 `never`는 자동 검토 모드가 아닙니다. 지원되지 않으면 `on-request` 대안을 확인하며 몰래 full access로

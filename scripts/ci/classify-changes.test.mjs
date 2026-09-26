@@ -28,6 +28,35 @@ test('keeps an empty comparison visible through the repo-policy lane', () => {
   });
 });
 
+test('tracked Claude project adapter files select policy checks without unrelated product lanes', () => {
+  assert.deepEqual(
+    classifyChanges([
+      '.gitignore',
+      'CLAUDE.md',
+      '.claude/agents/knu_explorer.md',
+      '.claude/skills/redesign-existing-projects/SKILL.md',
+      '.claude/skills/redesign-existing-projects/SOURCE.json',
+    ]),
+    { web: false, api: false, shared: false, storybook: false, infra: false, repoPolicy: true },
+  );
+  assert.deepEqual(classifyChanges(['.claude/settings.json']), {
+    web: true,
+    api: true,
+    shared: true,
+    storybook: true,
+    infra: true,
+    repoPolicy: true,
+  });
+  assert.deepEqual(classifyChanges(['.claude/skills/design-taste-frontend/SKILL.md']), {
+    web: true,
+    api: true,
+    shared: true,
+    storybook: true,
+    infra: true,
+    repoPolicy: true,
+  });
+});
+
 test('uses pull request base and head commits as the primary comparison hints', () => {
   assert.deepEqual(
     eventComparisonHints({

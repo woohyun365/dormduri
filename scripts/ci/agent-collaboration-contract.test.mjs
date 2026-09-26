@@ -305,11 +305,12 @@ test('primary work and acceptance-bound QA have finite quality-stop scenarios an
     assert.ok(item.prohibitedActions.includes(forbidden), id);
   }
   const orchestration = read(workflow + 'orchestration.md');
+  const codexAdapter = read(workflow + 'adapters/codex.md');
   const qa = read(workflow + 'qa.md');
   assert.match(orchestration, /primary analysis owner/u);
-  assert.match(orchestration, /Parent-high 운영과 quality stop/u);
-  assert.match(orchestration, /원인.*effort/u);
-  assert.match(orchestration, /보안\/권한\/범위\/데이터 invariant 위반/u);
+  assert.match(codexAdapter, /Parent-high 운영과 quality stop/u);
+  assert.match(codexAdapter, /원인.*effort/u);
+  assert.match(codexAdapter, /보안\/권한\/범위\/데이터 invariant 위반/u);
   assert.match(qa, /criterion → source\/test → gap/u);
   assert.match(qa, /테스트 개수/u);
   assert.match(qa, /self-PASS/u);

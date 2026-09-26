@@ -58,7 +58,7 @@ git show e8624c65:docs/development/agent-workflows/request-intake/delegation.md
 | lexical risk와 complexity 결합    | “실패 시 위험함”과 “추론이 어려움”이 한 route에 섞여 keyword가 effort의 대리 신호가 됨                    | [routing contract 전환 PR #386](https://github.com/woohyun365/knu_roommate/pull/386)과 [routing regression](../../scripts/ci/routing-policy.test.mjs)                                                       |
 | repository inspection 재평가 없음 | 같은 request라도 실제 transaction·contract·state evidence에 따라 effort를 다시 고를 구조가 없음           | [Pass 1/Pass 2 decision](./agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정)과 [same-request fixture](../../scripts/ci/routing-policy.test.mjs) |
 | boolean 중심 runtime 판정         | 설치 파일이나 caller assertion을 active role/model/effort authority로 오인할 수 있음                      | [runtime evidence 전환 PR #387](https://github.com/woohyun365/knu_roommate/pull/387)과 [runtime capability fixture](../../scripts/ci/fixtures/runtime-capability-cases.json)                                |
-| sequential route의 effort `null`  | child-free route의 값이 parent routing인지 “child를 선택하지 않음”인지 책임이 불분명함                    | [parent-effort isolation regression](../../scripts/ci/routing-policy.test.mjs)과 [current parent/child boundary](./agent-workflows/orchestration.md#reasoning-effort-routing)                               |
+| sequential route의 effort `null`  | child-free route의 값이 parent routing인지 “child를 선택하지 않음”인지 책임이 불분명함                    | [parent-effort isolation regression](../../scripts/ci/routing-policy.test.mjs)과 [current parent/child boundary](agent-workflows/adapters/codex.md#reasoning-effort-routing)                                |
 | prose와 runtime 경계 중복         | 여러 guide의 설명과 advisory code가 실제 spawn/lifecycle authority처럼 해석될 여지가 있음                 | [current delegation ownership boundary](./agent-workflows/request-intake/delegation.md#ownership-boundary)와 [runtime recovery contract](./agent-workflows/request-intake/orchestration-recovery.md)        |
 
 “개인 설정 drift”는 특정 개인 파일의 내용을 durable evidence로 보존한다는 뜻이 아닙니다. Tracked project default가 없으면
@@ -358,7 +358,7 @@ Reviewer 모델 비교는 Owner가 작성 전제의 착오를 확인해 **미실
 Owner가 선택한 후속 기본값은 **Parent Astra high**입니다. 로컬 구현·전체 review gate를 완료한 다음 실제 host의 지원되는
 session model/effort control에서 확인·선택합니다. CLI에서 `/model`을 제공하면 그 UI를 사용하고, 현재 schema에 설정 기능이
 없으면 파일이나 숨은 API로 대체하지 않습니다. 이 문서 작성에서 전역·Parent·운영 reviewer 설정은 변경하지 않았으며,
-**실제 Parent high 적용·품질·비용은 미관측**입니다. 구체 절차와 품질 stop은 [orchestration owner](./agent-workflows/orchestration.md#parent-high-운영과-quality-stop)를 따릅니다.
+**실제 Parent high 적용·품질·비용은 미관측**입니다. 구체 절차와 품질 stop은 [orchestration owner](agent-workflows/adapters/codex.md#parent-high-운영과-quality-stop)를 따릅니다.
 
 - 필요한 context만 제공하고 primary 분석을 중복하지 않되 [독립 QA](./agent-workflows/qa.md)를 비용 이유로 생략하지 않습니다.
 - 작은 작업은 Parent 직접, 격리 가능한 깊은 문제만 Astra xhigh child; 전체 framing·통합 자체가 어렵다면 Parent xhigh를 권고합니다.
@@ -448,7 +448,7 @@ authority를 대체하지 않습니다.
 | 왜 direct-first와 benefit-gated delegation인가?                                     | [DA-001~003](./agent-workflows/agentic-architecture-decisions.md), [delegation single-first gate](./agent-workflows/request-intake/delegation.md)                                             |
 | impact risk와 reasoning complexity를 왜 분리했는가?                                 | [DA-009](./agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정), [routing regression](../../scripts/ci/routing-policy.test.mjs)      |
 | architecture가 아닌 transaction·migration·lifecycle·trust work도 왜 XHigh가 되는가? | [semantic predicates](../../scripts/agents/routing-policy.mjs), [deep non-architecture fixtures](../../scripts/ci/routing-policy.test.mjs)                                                    |
-| Parent effort는 왜 session owner가 선택하고 child만 task profile로 배정하는가?      | [.codex parent exclusion test](../../scripts/ci/project-codex-config.test.mjs), [reasoning effort routing](./agent-workflows/orchestration.md#reasoning-effort-routing)                       |
+| Parent effort는 왜 session owner가 선택하고 child만 task profile로 배정하는가?      | [.codex parent exclusion test](../../scripts/ci/project-codex-config.test.mjs), [reasoning effort routing](agent-workflows/adapters/codex.md#reasoning-effort-routing)                        |
 | model·effort·count·write ownership을 어떻게 통제했는가?                             | [.codex config](../../.codex/config.toml), [delegation contract](./agent-workflows/request-intake/delegation.md), [runtime fixture](../../scripts/ci/fixtures/runtime-capability-cases.json)  |
 | hallucinated role/capability claim을 어떻게 막았는가?                               | [reported runtime evidence](./agent-workflows/request-intake/orchestration-recovery.md#reported-runtime-evidence), [orchestration regression](../../scripts/ci/orchestration-policy.test.mjs) |
 | context pollution과 delegation cost를 어떻게 제한했는가?                            | direct-first, bounded lane, facts/inferences/gaps output, leader-only fan-in contract                                                                                                         |

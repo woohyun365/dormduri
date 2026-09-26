@@ -14,6 +14,7 @@ const ownerPaths = [
   'docs/development/agent-workflows/request-intake/delegation.md',
   'docs/development/agent-workflows/request-intake/orchestration-recovery.md',
 ];
+const codexAdapterPath = 'docs/development/agent-workflows/adapters/codex.md';
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const compact = (source) => source.replace(/\s+/gu, ' ');
 const section = (path, heading) => {
@@ -130,7 +131,8 @@ test('capability closeout separates known no-close from unknown and native relea
   assert.match(body, /작업 결과.*회수.*release-unverified/u);
   assert.match(body, /host.*인증.*권한.*생성하지/u);
   const entry = section(ownerPaths[2], 'Subagent lifecycle');
-  assert.match(entry, /capability.*분기/u);
+  assert.match(entry, /실제 host.*capability/u);
+  assert.match(entry, /Codex\/OMX subagent lifecycle/u);
   assert.doesNotMatch(entry, /완료 thread를 지원 도구로 종료한 뒤/u);
 });
 
@@ -272,10 +274,10 @@ test('lifecycle guides use portable links and do not depend on a local implement
 
 // Documentation presence/link integrity, not live routing, adoption or model quality.
 test('routine cold start and withdrawal have tracked owners with bounded adoption evidence', () => {
-  const orchestration = read(ownerPaths[2]);
+  const orchestration = read(codexAdapterPath);
   const recovery = read(ownerPaths[5]);
   const decisions = read('docs/development/agent-workflows/agentic-architecture-decisions.md');
-  const operation = section(ownerPaths[2], 'Routine task-model operation');
+  const operation = section(codexAdapterPath, 'Routine task-model operation');
   for (const term of [
     'cohort GO',
     '개별 task',
@@ -290,7 +292,7 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   ])
     assert.ok(operation.includes(term), term);
   assert.match(orchestration, /agentic-architecture-decisions\.md#routine-model-adoption/u);
-  assert.match(read(ownerPaths[4]), /orchestration\.md#routine-task-model-operation/u);
+  assert.match(read(ownerPaths[4]), /adapters\/codex\.md#routine-task-model-operation/u);
   assert.match(recovery, /## Routine admission lifetime/u);
   assert.match(recovery, /철회.*Parent.*책임/u);
   assert.match(recovery, /같은.*GO packet.*다시.*통과/u);
