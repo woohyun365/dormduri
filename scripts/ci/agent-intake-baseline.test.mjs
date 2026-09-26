@@ -18,7 +18,7 @@ const capabilityOwners = {
   'ambiguity-authority-gate':
     'docs/development/agent-workflows/request-intake/ambiguity-and-authority.md',
   'direct-path-gate': 'scripts/agents/intake-policy.mjs',
-  'bounded-recovery': 'scripts/agents/orchestration-policy.mjs',
+  'bounded-recovery': 'scripts/agents/codex/orchestration-policy.mjs',
 };
 
 test('representative intake fixtures declare observable outcomes and current gaps', () => {

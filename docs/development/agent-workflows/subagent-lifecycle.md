@@ -63,7 +63,7 @@ Parent가 child 작업 완료 후 결과 회수·capability별 cleanup 판정·�
 
 ## 후속 작업과 fan-in
 
-Context 크기와 fork 선택은 [context delivery 계약](./request-intake/delegation.md#context-delivery)을 소비합니다.
+Context 크기와 fork 선택은 [context delivery 계약](./adapters/codex-delegation.md#context-delivery)을 소비합니다.
 그 추천의 `reuseTarget`은 종료/재개 권한이 아니며, 아래 live identity·pending·결과 귀속을 따로 확인합니다.
 Full-history 전달이나 effort 적용을 config 파일/이전 성공만으로 주장하지 않습니다.
 
@@ -97,7 +97,7 @@ Full-history 전달이나 effort 적용을 config 파일/이전 성공만으로 
 `close=false`만으로 자동으로 `not-required`가 되지는 않습니다. 로컬 flag, upstream source, 도구 이름 조합만으로
 현재 host 적용 계약을 채우지 않습니다. 작업 결과를 회수해도 자원 반환을 관측하지 못했다면 `release-unverified`입니다.
 
-기존 [순수 evaluator](../../../scripts/agents/orchestration-policy.mjs)의 출력은 다음을 분리합니다.
+기존 [순수 evaluator](../../../scripts/agents/codex/orchestration-policy.mjs)의 출력은 다음을 분리합니다.
 
 | 출력                 | 의미                                                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |

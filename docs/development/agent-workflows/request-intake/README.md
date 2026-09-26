@@ -11,17 +11,18 @@
 - [Ambiguity and authority](./ambiguity-and-authority.md): 모호함, 사용자 확인, OQ, release handoff,
   mutation 권한 경계
 - [ContextPack](./context-pack.md): repository evidence에서 domain candidate와 최소 tracked guide를 발견하는 계약
-- [Delegation](./delegation.md): independent lane 판별, typed child handoff, role·effort recommendation 계약
-- [Orchestration and recovery](./orchestration-recovery.md): native dispatch gate, one-alternate ceiling,
-  leader-only synthesis 계약
+- [Delegation](./delegation.md): independent lane, one-writer, source-bound handoff 공통 책임
+- [Codex child policy](../adapters/codex-delegation.md): typed child handoff, role·effort·model recommendation
+- [Codex orchestration and recovery](./orchestration-recovery.md): Codex/OMX native dispatch gate, one-alternate ceiling,
+  leader-only synthesis 계약. Claude 기본값이 아님.
 
 ## Regression surface
 
 - `scripts/ci/fixtures/agent-intake-cases.json`: Analyze, Plan, direct, ambiguity, recovery 대표 입력과 기대 계약
 - `scripts/ci/agent-intake-integration.test.mjs`: intake부터 dispatch 또는 handoff까지의 조합, source freshness,
   no-write 경계
-- `scripts/agents/fresh-session-smoke.mjs`: local session memory 없이 tracked bootstrap과 대표 route를 확인하는
-  read-only smoke
+- `scripts/agents/codex/fresh-session-smoke.mjs`: local session memory 없이 Codex/OMX 대표 route를 확인하는
+  read-only smoke (`scripts/agents/fresh-session-smoke.mjs`는 호환 CLI)
 - `scripts/ci/agent-intake-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
   stale handoff 참조 방지
 

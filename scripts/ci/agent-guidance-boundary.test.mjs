@@ -25,6 +25,7 @@ const localPlanBoundaryAllowlist = new Set([
   'docs/architecture/README.md',
   'docs/development/agent-workflows/session-continuity.md',
   'scripts/agents/session-preflight.mjs',
+  'scripts/agents/codex/session-preflight.mjs',
   'scripts/ci/fixtures/session-context.valid.md',
   'scripts/ci/session-contract.test.mjs',
   'scripts/ci/session-preflight.test.mjs',

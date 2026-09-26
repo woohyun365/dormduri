@@ -15,6 +15,7 @@ const ownerPaths = [
   'docs/development/agent-workflows/request-intake/orchestration-recovery.md',
 ];
 const codexAdapterPath = 'docs/development/agent-workflows/adapters/codex.md';
+const codexDelegationPath = 'docs/development/agent-workflows/adapters/codex-delegation.md';
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const compact = (source) => source.replace(/\s+/gu, ' ');
 const section = (path, heading) => {
@@ -205,7 +206,8 @@ test('optional shared operator procedure preserves exact root, pending and disti
 });
 
 test('existing advisory delivery and recovery owners preserve independent gates and bounded reuse', () => {
-  const delegation = compact(read(ownerPaths[4]));
+  const delegation = compact(read(codexDelegationPath));
+  assert.match(read(ownerPaths[4]), /codex-delegation\.md#context-delivery/u);
   assert.match(delegation, /initial-review.*fresh scoped/u);
   assert.match(delegation, /review-delta.*같은 reviewer/u);
   assert.match(delegation, /role-compatible.*context gate.*생략하지/u);
@@ -292,7 +294,7 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   ])
     assert.ok(operation.includes(term), term);
   assert.match(orchestration, /agentic-architecture-decisions\.md#routine-model-adoption/u);
-  assert.match(read(ownerPaths[4]), /adapters\/codex\.md#routine-task-model-operation/u);
+  assert.match(read(codexDelegationPath), /codex\.md#routine-task-model-operation/u);
   assert.match(recovery, /## Routine admission lifetime/u);
   assert.match(recovery, /철회.*Parent.*책임/u);
   assert.match(recovery, /같은.*GO packet.*다시.*통과/u);

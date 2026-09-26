@@ -272,8 +272,8 @@ test('the integrated intake path remains advisory and cannot write files or invo
   for (const path of [
     'scripts/agents/intake-policy.mjs',
     'scripts/agents/domain-guide-registry.mjs',
-    'scripts/agents/child-task-contract.mjs',
-    'scripts/agents/orchestration-policy.mjs',
+    'scripts/agents/codex/child-task-contract.mjs',
+    'scripts/agents/codex/orchestration-policy.mjs',
   ]) {
     const source = readFileSync(resolve(repoRoot, path), 'utf8');
 

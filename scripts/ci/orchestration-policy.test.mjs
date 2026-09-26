@@ -1014,7 +1014,10 @@ test('rejects child attempts to claim final decisions or omit contract outputs',
 });
 
 test('orchestration policy is pure advisory and does not implement a child lifecycle engine', () => {
-  const source = readFileSync(resolve(repoRoot, 'scripts/agents/orchestration-policy.mjs'), 'utf8');
+  const source = readFileSync(
+    resolve(repoRoot, 'scripts/agents/codex/orchestration-policy.mjs'),
+    'utf8',
+  );
 
   assert.doesNotMatch(source, /node:child_process|spawn_agent|exec_command|create_goal|tmux/u);
   assert.doesNotMatch(source, /setInterval|setTimeout|while\s*\(|process\.kill/u);

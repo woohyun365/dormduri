@@ -20,7 +20,7 @@ Agent 수 자체를 품질 지표로 사용하지 않습니다. sequential task,
 
 Machine-checkable recommendation contract는
 [Independent lane and child task contract](./request-intake/delegation.md)를 따릅니다. 이 문서의 orchestration 규칙을
-실행 engine으로 복제하지 않으며, `scripts/agents/child-task-contract.mjs`도 child를 직접 생성하지 않습니다.
+실행 engine으로 복제하지 않으며, `scripts/agents/codex/child-task-contract.mjs`도 child를 직접 생성하지 않습니다.
 
 Child task에는 다음을 포함합니다.
 
@@ -37,7 +37,9 @@ Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정�
 
 ## Context와 검증 비용
 
-전달 packet·fork/reuse/QA 경계는 [context delivery 계약](./request-intake/delegation.md#context-delivery)이 소유합니다.
+공통 전달 packet·독립 QA 경계는 [shared context delivery](./request-intake/delegation.md#context-delivery)와
+[QA 계약](./qa.md)이 소유합니다. Codex의 fork/reuse·effort 적용은
+[Codex context delivery](./adapters/codex-delegation.md#context-delivery)에서 별도로 확인합니다.
 비용은 agent 수나 짧은 답변 자체가 아니라 **acceptance를 통과한 결과당 총 작업량**으로 판단합니다.
 
 | 후보 / 현재 결정                                          | 예상 이익                           | 품질 위험·보존 조건                                  | 관측 방법                                                 |
