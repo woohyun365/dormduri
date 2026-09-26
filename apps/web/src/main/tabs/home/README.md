@@ -7,9 +7,11 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
 ## 제품 책임
 
 - `HomeDashboardResponse`를 기준으로 현재 시즌, 내 시즌 참여 상태, 건물 선택 상태, 매칭 요약, 준비 체크리스트를 렌더링한다.
-- `GET /api/home/dashboard` Web BFF를 통해 Home 전용 dashboard read model을 가져온다.
+- Nest `GET /api/home/dashboard`가 Home 전용 dashboard read model authority다. Web initial read는
+  configured upstream을 직접 사용하고, browser BFF route를 initial waterfall로 호출하지 않는다.
 - Home production path는 `SeasonContext`, `seasonFallback`, `homeDevOverrides`를 import하지 않는다. 시즌 상태와 D-day는 `HomeDashboardResponse.season`만 source-of-truth로 삼는다.
-- Web client의 `homeDashboardApi` public surface는 `getDashboard()` 하나로 고정한다. `getBuildingStats`, `getPastSeasonResult`, `getPastSeasons` 같은 legacy widget/mock method는 Home 완료 범위로 복원하지 않는다.
+- Home dashboard initial read는 `main/server/readMainLayoutBootstrap.ts`의 configured upstream
+  server read가 소유한다. browser `/api/home/dashboard` initial fetch orchestration은 두지 않는다.
 - Home first render는 `profileApi.getMyProfile()`이나 global fixture/mock DB를 요구하지 않는다.
 - 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
 - 체크리스트, 매칭 안내, operations surface가 Home 안내 역할을 대체하므로 `service-intro` onboarding sheet와 Home-local dismissed client는 제거한다. 계정 단위 dismissed notice API는 account/user contract에 남지만 Home 기본 렌더링 source는 아니다.
@@ -39,7 +41,7 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 | 주제                                 | Source                                                                                                                                                                                                                       |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home dashboard read model            | `packages/shared/src/home/dashboard.ts`, `apps/web/src/main/api/home-dashboard.api.ts` (`getDashboard()` only), `apps/web/src/app/api/home/dashboard/route.ts`                                                               |
+| Home dashboard read model            | `packages/shared/src/home/dashboard.ts`, `apps/web/src/main/server/readMainLayoutBootstrap.ts`, browser mutation consumers용 `apps/web/src/app/api/home/dashboard/route.ts`                                                  |
 | Account dismissed notice contract    | `packages/shared/src/user/current-user.ts`, `apps/web/src/app/api/users/me/onboarding/route.ts`                                                                                                                              |
 | Home profile/detail modal read model | `packages/shared/src/season/participation/profile-draft.ts`, `packages/shared/src/profile/contract/public.ts`, `packages/shared/src/match/contract/history.ts`, `apps/web/src/main/tabs/home/api/home-profile-detail.api.ts` |
 | Home dashboard fetch state           | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                                                                                                            |
@@ -105,8 +107,8 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 - `src/main/hooks/__tests__/useMainHomeDashboard.test.tsx`
   - dashboard fetch success/error/retry state, status별 safe copy, previous success preservation.
-- `src/main/api/__tests__/home-dashboard.api.test.ts`
-  - `homeDashboardApi.getDashboard` no-store fetch, shared schema parse, upstream error fallback 금지, legacy widget/mock method 복원 금지.
+- `src/main/server/readMainLayoutBootstrap.test.ts`
+  - direct configured upstream, shared schema, session/dashboard identity match, cross-user isolation.
 - `src/app/api/home/dashboard/route.test.ts`
   - BFF auth forward, schema guard, non-json/malformed JSON safe error, internal key fail-closed.
 - `src/app/api/__tests__/home-profile-detail-bff-routes.test.ts`, `src/main/tabs/home/api/__tests__/home-profile-detail.api.test.ts`, `src/main/tabs/home/model/profile/__tests__/homeProfileDisplay.mapper.test.ts`

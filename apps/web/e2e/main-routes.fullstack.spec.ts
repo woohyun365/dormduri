@@ -56,7 +56,9 @@ test.describe('App Router destinations', () => {
     }
   });
 
-  test('Link navigation and back/forward reuse the single dashboard owner', async ({ page }) => {
+  test('Link navigation and back/forward use the server dashboard owner without browser loopback', async ({
+    page,
+  }) => {
     await login(page);
     let dashboardRequests = 0;
     page.on('request', (r) => {
@@ -76,7 +78,7 @@ test.describe('App Router destinations', () => {
     await ready(page, '/main/chat', '채팅');
     await page.goForward();
     await ready(page, '/main/profile', '프로필');
-    expect(dashboardRequests).toBe(1);
+    expect(dashboardRequests).toBe(0);
   });
 
   test('Matching query normalizes only owned keys and history updates selection without overview refetch', async ({

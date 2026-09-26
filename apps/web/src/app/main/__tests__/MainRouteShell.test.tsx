@@ -1,175 +1,140 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MainRouteShell from '../MainRouteShell.client';
-import { useAuthSession } from '@/auth/hooks';
+import { authApi } from '@/auth/api';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 
-const mockReplace = vi.fn();
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-
-vi.mock('@/auth/hooks', () => ({
-  useAuthSession: vi.fn(),
-}));
-
-vi.mock('@/app/main/components/AppShellSkeleton', () => ({
-  AppShellSkeleton: () => <div data-testid="app-shell-skeleton">loading app shell</div>,
-}));
-
+const navigation = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => navigation }));
+vi.mock('@/auth/api', () => ({ authApi: { resolveSession: vi.fn() } }));
 vi.mock('@/main/runtime/MainRuntime', () => ({
-  MainRuntime: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="main">{children}</div>
-  ),
-}));
-
-const mockUseAuthSession = vi.mocked(useAuthSession);
-
-const sessionUser = {
-  id: 'user-1',
-  email: 'tester@kangwon.ac.kr',
-  nickname: '세션유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-} satisfies NonNullable<ReturnType<typeof useAuthSession>['user']>;
-
-describe('MainRouteShell', () => {
-  beforeEach(() => {
-    mockReplace.mockClear();
-    mockUseAuthSession.mockReset();
-  });
-
-  it('session 확인 중에는 app shell skeleton을 표시한다', () => {
-    mockUseAuthSession.mockReturnValue({
-      user: null,
-      isLoading: true,
-      status: 'loading',
-      code: undefined,
-      retry: vi.fn(),
-    });
-
-    render(
-      <MainRouteShell>
-        <span>route child</span>
-      </MainRouteShell>,
-    );
-
-    expect(screen.getByTestId('app-shell-skeleton')).toBeInTheDocument();
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('proxy 보호를 통과했지만 session이 없으면 /login으로 fail-closed 한다', async () => {
-    mockUseAuthSession.mockReturnValue({
-      user: null,
-      isLoading: false,
-      status: 'unauthenticated',
-      code: undefined,
-      retry: vi.fn(),
-    });
-
-    render(
-      <MainRouteShell>
-        <span>route child</span>
-      </MainRouteShell>,
-    );
-
-    expect(screen.getByTestId('app-shell-skeleton')).toBeInTheDocument();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
-  });
-
-  it('인증 session이 있으면 profile bootstrap 없이 Main을 렌더링한다', () => {
-    mockUseAuthSession.mockReturnValue({
-      user: sessionUser,
-      isLoading: false,
-      status: 'authenticated',
-      code: undefined,
-      retry: vi.fn(),
-    });
-
-    render(
-      <MainRouteShell>
-        <span>route child</span>
-      </MainRouteShell>,
-    );
-
-    expect(screen.getByTestId('main')).toBeInTheDocument();
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('session dependency 장애는 로그인으로 이동하지 않고 복구 화면을 표시한다', () => {
-    const retry = vi.fn();
-    mockUseAuthSession.mockReturnValue({
-      user: null,
-      isLoading: false,
-      status: 'unavailable',
-      code: 'AUTH_SESSION_UNAVAILABLE',
-      retry,
-    });
-
-    render(
-      <MainRouteShell>
-        <span>route child</span>
-      </MainRouteShell>,
-    );
-
-    expect(screen.getByRole('heading', { name: '로그인 상태를 확인하지 못했어요' })).toHaveFocus();
-    expect(screen.getByRole('button', { name: '로그인 상태 다시 확인' })).toBeInTheDocument();
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-  it('viewer change or unavailable session discards the private child tree before recovery', () => {
-    const authenticated = {
-      user: sessionUser,
-      isLoading: false,
-      status: 'authenticated' as const,
-      code: undefined,
-      retry: vi.fn(),
-    };
-    mockUseAuthSession.mockReturnValue(authenticated);
-    function PrivateDraft() {
-      const [draft, setDraft] = React.useState('');
-      return (
+  MainRuntime: ({ children, viewerId }: { children: React.ReactNode; viewerId: string }) => {
+    const [draft, setDraft] = React.useState('');
+    return (
+      <div data-testid="main" data-viewer={viewerId}>
+        {children}
         <input
           aria-label="private draft"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
-      );
-    }
-    const tree = (
-      <MainRouteShell>
-        <PrivateDraft />
-      </MainRouteShell>
+      </div>
     );
-    const view = render(tree);
-    fireEvent.change(screen.getByLabelText('private draft'), {
-      target: { value: 'previous account' },
+  },
+}));
+
+const resolveSession = vi.mocked(authApi.resolveSession);
+const dashboard = createHomeDashboardTestResponse();
+const ready = { status: 'ready' as const, viewerId: dashboard.viewer.identity.user.id, dashboard };
+
+function shell(bootstrap: Parameters<typeof MainRouteShell>[0]['bootstrap']) {
+  return (
+    <MainRouteShell bootstrap={bootstrap}>
+      <span>meaningful route child</span>
+    </MainRouteShell>
+  );
+}
+
+describe('MainRouteShell server bootstrap boundary', () => {
+  beforeEach(() => {
+    navigation.replace.mockReset();
+    navigation.refresh.mockReset();
+    resolveSession.mockReset();
+  });
+
+  it('renders the server-seeded private runtime immediately without a client auth/loading gate', () => {
+    render(shell(ready));
+    expect(screen.getByTestId('main')).toHaveAttribute('data-viewer', ready.viewerId);
+    expect(screen.getByText('meaningful route child')).toBeInTheDocument();
+    expect(resolveSession).not.toHaveBeenCalled();
+  });
+
+  it('automatically resolves recovery once across a router refresh and repeated recovery props', async () => {
+    resolveSession.mockResolvedValue({
+      status: 'authenticated',
+      user: dashboard.viewer.identity.user,
     });
-    mockUseAuthSession.mockReturnValue({
-      ...authenticated,
-      user: { ...sessionUser, id: 'user-2' },
-    });
-    view.rerender(
-      <MainRouteShell>
-        <PrivateDraft />
-      </MainRouteShell>,
+    const view = render(shell({ status: 'session-recovery-required' }));
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalledTimes(1));
+    expect(resolveSession).toHaveBeenCalledTimes(1);
+    view.rerender(shell({ status: 'session-recovery-required' }));
+    await Promise.resolve();
+    expect(resolveSession).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '로그인 상태 다시 확인' })).toBeInTheDocument();
+  });
+
+  it('redirects only after the response-capable recovery BFF confirms unauthenticated', async () => {
+    resolveSession.mockResolvedValue({ status: 'unauthenticated' });
+    render(shell({ status: 'session-recovery-required' }));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/login'));
+    expect(navigation.refresh).not.toHaveBeenCalled();
+  });
+
+  it('keeps unavailable failures token-free and supports explicit retry', async () => {
+    resolveSession.mockResolvedValue({ status: 'unavailable', code: 'AUTH_SESSION_UNAVAILABLE' });
+    render(shell({ status: 'session-recovery-required' }));
+    await waitFor(() => expect(resolveSession).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: '로그인 상태 다시 확인' }));
+    await waitFor(() => expect(resolveSession).toHaveBeenCalledTimes(2));
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it('does not navigate when an in-flight recovery resolves after the shell unmounts', async () => {
+    let recoverySignal: AbortSignal | undefined;
+    let finish: ((value: Awaited<ReturnType<typeof authApi.resolveSession>>) => void) | undefined;
+    resolveSession.mockImplementation(
+      (signal) =>
+        new Promise((resolve) => {
+          recoverySignal = signal;
+          finish = resolve;
+        }),
     );
-    expect(screen.getByLabelText('private draft')).toHaveValue('');
-    fireEvent.change(screen.getByLabelText('private draft'), { target: { value: 'private' } });
-    mockUseAuthSession.mockReturnValue({ ...authenticated, user: null, status: 'unavailable' });
-    view.rerender(
-      <MainRouteShell>
-        <PrivateDraft />
-      </MainRouteShell>,
+    const view = render(shell({ status: 'session-recovery-required' }));
+    await waitFor(() => expect(resolveSession).toHaveBeenCalledTimes(1));
+    view.unmount();
+    await waitFor(() => expect(recoverySignal?.aborted).toBe(true));
+    finish?.({ status: 'authenticated', user: dashboard.viewer.identity.user });
+    await Promise.resolve();
+    expect(navigation.refresh).not.toHaveBeenCalled();
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it('aborts an in-flight recovery when a newer server bootstrap supersedes it', async () => {
+    let recoverySignal: AbortSignal | undefined;
+    resolveSession.mockImplementation(
+      (signal) =>
+        new Promise(() => {
+          recoverySignal = signal;
+        }),
     );
+    const view = render(shell({ status: 'session-recovery-required' }));
+    await waitFor(() => expect(resolveSession).toHaveBeenCalledTimes(1));
+
+    view.rerender(shell({ status: 'session-unavailable' }));
+
+    await waitFor(() => expect(recoverySignal?.aborted).toBe(true));
+    expect(navigation.refresh).not.toHaveBeenCalled();
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it('retries server-only unavailable reads with router.refresh without invoking browser renewal', () => {
+    render(shell({ status: 'session-unavailable' }));
+    fireEvent.click(screen.getByRole('button', { name: '로그인 상태 다시 확인' }));
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+    expect(resolveSession).not.toHaveBeenCalled();
+  });
+
+  it('keys private client state by viewer only and discards it for unknown auth or another viewer', () => {
+    const view = render(shell(ready));
+    fireEvent.change(screen.getByLabelText('private draft'), { target: { value: 'viewer-a' } });
+    view.rerender(shell({ status: 'dashboard-unavailable', viewerId: ready.viewerId }));
+    expect(screen.getByLabelText('private draft')).toHaveValue('viewer-a');
+    view.rerender(shell({ status: 'session-unavailable' }));
     expect(screen.queryByLabelText('private draft')).not.toBeInTheDocument();
-    expect(mockReplace).not.toHaveBeenCalled();
-    mockUseAuthSession.mockReturnValue(authenticated);
-    view.rerender(
-      <MainRouteShell>
-        <PrivateDraft />
-      </MainRouteShell>,
-    );
+    const otherDashboard = structuredClone(dashboard);
+    otherDashboard.viewer.identity.user.id = 'viewer-b';
+    view.rerender(shell({ status: 'ready', viewerId: 'viewer-b', dashboard: otherDashboard }));
     expect(screen.getByLabelText('private draft')).toHaveValue('');
   });
 });

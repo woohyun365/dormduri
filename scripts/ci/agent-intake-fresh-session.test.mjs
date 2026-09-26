@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -278,7 +278,10 @@ function trackedPaths() {
   });
 
   assert.equal(result.status, 0, result.stderr || 'git ls-files failed');
-  return result.stdout.split('\0').filter(Boolean);
+  return result.stdout
+    .split('\0')
+    .filter(Boolean)
+    .filter((path) => existsSync(resolve(repoRoot, path)));
 }
 
 function pick(value, fields) {

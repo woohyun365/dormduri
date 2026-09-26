@@ -14,6 +14,7 @@ apps/web/src/auth/
   README.md
   api/                 # browser-side auth API facade
   bff/                 # App Router auth BFF helper facade
+  server/              # RSC 전용 read-only session facade
   components/          # auth-only shared UI
     layout/             # state를 모르는 shared responsive frame/notice
   hooks/               # auth-only session/redirect/countdown hooks
@@ -50,12 +51,14 @@ apps/web/src/auth/
 External Web features should consume auth through a small public facade:
 
 - `@/auth/api` for browser-side auth client calls such as login, logout, session, signup, and reset.
+- `@/auth/server` for server-only, read-only session resolution. It never renews or mutates cookies.
 - `@/auth/components`, `@/auth/hooks`, `@/auth/model` only for explicitly exported auth-wide UI/hook/model helpers.
 - `@/auth` only if a broader facade becomes necessary.
 
 Private implementation areas should not be deep-imported by non-auth features:
 
 - `@/auth/bff/*`
+- `@/auth/server/*` (the public `@/auth/server` facade is the only external server import)
 - `@/auth/flows/*/components/*`
 - `@/auth/flows/*/hooks/*`
 - `@/auth/flows/*/model/*`
@@ -88,6 +91,14 @@ app/api/auth/<route>/route.ts -> auth/bff helpers + route-local schema/policy
 ```
 
 Route handlers must preserve upstream status, `Retry-After`, cookie mutation, and token-like response redaction.
+
+## Protected server reads
+
+`@/auth/server` reads incoming cookies and verifies the access session through configured upstream
+`GET /auth/session`. It returns only a safe identity/status union. It does not call renewal, clear or
+set cookies, expose tokens, or turn transport/schema/timeout failures into logout. Any rejected cookie
+material renders a token-free client recovery boundary; the existing response-capable auth BFF remains
+the sole renewal/cleanup owner. Requests with no auth material redirect before private content.
 
 ## Blocked compatibility surfaces
 

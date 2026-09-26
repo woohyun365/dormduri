@@ -24,6 +24,7 @@ const navigation = vi.hoisted(() => {
       listeners.forEach((listener) => listener());
     },
     replace: (href: string) => state.push(href),
+    refresh: vi.fn(),
   };
   return state;
 });
@@ -66,11 +67,23 @@ function MainRoutesHarness() {
     ) : (
       <HomeRoute />
     );
-  return <MainRuntime viewerId="user-1">{entry}</MainRuntime>;
+  return (
+    <MainRuntime
+      viewerId="user-1"
+      initialDashboard={testDashboardUnavailable ? null : testDashboard}
+      dashboardUnavailable={testDashboardUnavailable}
+      resourceSnapshot={testResourceSnapshot}
+    >
+      {entry}
+    </MainRuntime>
+  );
 }
-import { homeDashboardApi } from '@/main/api/home-dashboard.api';
 import { seasonParticipationApi } from '@/main/api/season-participation.api';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
+
+let testDashboard = createHomeDashboardTestResponse();
+let testDashboardUnavailable = false;
+let testResourceSnapshot: object = {};
 
 const roommateListTabMock = vi.hoisted(() =>
   vi.fn((props: Record<string, unknown>) => {
@@ -165,7 +178,11 @@ describe('Main route direct actions and compatibility', () => {
     homeTabMock.mockClear();
     sessionStorage.clear();
     navigation.href = '/main';
-    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
+    testDashboard = createHomeDashboardTestResponse();
+    testDashboard.viewer.identity.user.id = 'user-1';
+    testDashboardUnavailable = false;
+    testResourceSnapshot = {};
+    navigation.refresh.mockReset();
   });
 
   it('Home entry does not force building selection for unassigned open-season users', async () => {
@@ -174,7 +191,7 @@ describe('Main route direct actions and compatibility', () => {
     await screen.findByTestId('main-home');
 
     expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
   });
 
   it('opens building selection only after the explicit Home CTA', async () => {
@@ -191,19 +208,26 @@ describe('Main route direct actions and compatibility', () => {
 
   it('시즌 참여 철회 성공 시 dashboard를 정확히 한 번 추가 조회한다', async () => {
     vi.spyOn(seasonParticipationApi, 'deregisterCurrentSeasonParticipation').mockResolvedValue();
-    render(<MainRoutesHarness />);
+    const view = render(<MainRoutesHarness />);
 
     await screen.findByTestId('main-home');
     const onDeregisterSeasonParticipation =
       homeTabMock.mock.lastCall?.[0]?.onDeregisterSeasonParticipation;
     expect(onDeregisterSeasonParticipation).toEqual(expect.any(Function));
 
+    let completion: Promise<void> | undefined;
     await act(async () => {
-      await (onDeregisterSeasonParticipation as () => Promise<void>)();
+      completion = (onDeregisterSeasonParticipation as () => Promise<void>)();
+      await Promise.resolve();
     });
 
     expect(seasonParticipationApi.deregisterCurrentSeasonParticipation).toHaveBeenCalledTimes(1);
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(2);
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+    await (onDeregisterSeasonParticipation as () => Promise<void>)();
+    expect(seasonParticipationApi.deregisterCurrentSeasonParticipation).toHaveBeenCalledTimes(1);
+    testResourceSnapshot = {};
+    view.rerender(<MainRoutesHarness />);
+    await expect(completion).resolves.toBeUndefined();
   });
 
   it('시즌 참여 철회 실패 시 dashboard를 추가 조회하지 않는다', async () => {
@@ -227,7 +251,7 @@ describe('Main route direct actions and compatibility', () => {
 
     expect(caught).toBe(mutationError);
     expect(seasonParticipationApi.deregisterCurrentSeasonParticipation).toHaveBeenCalledTimes(1);
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
   });
 
   it('does not load legacy roommate data after moving to the list tab', async () => {
@@ -239,7 +263,7 @@ describe('Main route direct actions and compatibility', () => {
     await user.click(screen.getByRole('link', { name: '룸메 찾기' }));
 
     await waitFor(() => expect(roommateListTabMock).toHaveBeenCalled());
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
 
     const props = roommateListTabMock.mock.lastCall?.[0];
     expect(props).toBeDefined();
@@ -262,16 +286,20 @@ describe('Main route direct actions and compatibility', () => {
   it('passes closed search entry capability without loading legacy list data', async () => {
     const user = userEvent.setup();
     const dashboard = createHomeDashboardTestResponse();
-    vi.mocked(homeDashboardApi.getDashboard).mockResolvedValue({
+    testDashboard = {
       ...dashboard,
       viewer: {
         ...dashboard.viewer,
+        identity: {
+          ...dashboard.viewer.identity,
+          user: { ...dashboard.viewer.identity.user, id: 'user-1' },
+        },
         capabilities: {
           ...dashboard.viewer.capabilities,
           canEnterRoommateSearch: false,
         },
       },
-    });
+    };
 
     render(<MainRoutesHarness />);
 
@@ -296,7 +324,7 @@ describe('Main route direct actions and compatibility', () => {
     await user.click(screen.getByRole('link', { name: /매칭 현황/ }));
 
     await screen.findByTestId('main-matching');
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
     expect(matchingTabMock).toHaveBeenCalledWith(
       expect.objectContaining({
         viewerId: 'user-1',
@@ -371,7 +399,7 @@ describe('Main route direct actions and compatibility', () => {
     await user.click(screen.getByRole('link', { name: '프로필' }));
     expect(screen.queryAllByText('적용된 소개')).toHaveLength(0);
     expect(screen.getByRole('button', { name: '작성하기' })).toBeInTheDocument();
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
   });
 
   it('Profile 기숙사 callback과 Matching badge는 non-Home 형제에만 유지되고 Home에서 reset된다', async () => {
@@ -425,7 +453,7 @@ describe('Main route direct actions and compatibility', () => {
 
     await user.click(screen.getByRole('link', { name: '룸메 찾기' }));
     expect(screen.getByRole('link', { name: /매칭 현황/ })).toHaveTextContent('4');
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('link', { name: '홈' }));
     await screen.findByTestId('main-home');
@@ -441,15 +469,12 @@ describe('Main route direct actions and compatibility', () => {
       }),
     );
     expect(screen.getByRole('link', { name: /매칭 현황/ })).not.toHaveTextContent('4');
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
   });
 
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {
     const user = userEvent.setup();
-    vi.mocked(homeDashboardApi.getDashboard)
-      .mockRejectedValueOnce(new Error('raw upstream stack'))
-      .mockResolvedValueOnce(createHomeDashboardTestResponse());
-
+    testDashboardUnavailable = true;
     render(<MainRoutesHarness />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('홈 정보를 불러오지 못했어요');
@@ -457,7 +482,6 @@ describe('Main route direct actions and compatibility', () => {
 
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
 
-    await screen.findByTestId('main-home');
-    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(2);
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
   });
 });

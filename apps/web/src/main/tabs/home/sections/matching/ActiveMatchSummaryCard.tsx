@@ -19,6 +19,7 @@ import type {
   ActiveMatchRoomSelectionSummary,
   MatchingSummaryActiveMatch,
 } from './HomeMatchingSummary';
+import { isMainHomeRefreshCancelled } from '@/main/hooks/useMainHomeDashboard';
 
 export function ActiveMatchSummaryCard({
   activeMatch,
@@ -51,6 +52,7 @@ export function ActiveMatchSummaryCard({
       }
       setModal(null);
     } catch (error) {
+      if (isMainHomeRefreshCancelled(error)) return;
       setActionError(error instanceof Error ? error.message : '요청을 처리하지 못했어요.');
     } finally {
       setSubmitting(false);
