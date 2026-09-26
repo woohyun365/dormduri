@@ -1,5 +1,9 @@
 # Claude Code project adapter
 
+## Cross-host direct CLI reviewer (static boundary)
+
+The [Claude-target bridge policy](../../../../scripts/agents/claude/review-bridge.mjs) is **separate** from the native-subagent model admission below. For a Codex Lead's optional one-shot review it describes `claude --print --agent knu_reviewer --model opus`, Read/Grep/Glob-only, empty MCP, and a frozen H3 packet. The command object is `enabled:false`; the current bridge runs only a fixed fake CLI. The current CLI exposes `--restricted` and project-agent options, but project-role loading **under that restricted mode**, effective tool boundary, subscription-auth route and resolved Opus identity are unobserved. A role file, flag, or static `candidate` is not a sandbox or live permission proof. A later live qualification must prove these on a disposable read-only snapshot before any provider call; an OMC advisor prompt is not a substitute. See the [neutral handoff](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only).
+
 Use the repository's common [execution contract](../agent-execution-contract.md), [orchestration](../orchestration.md), [QA](../qa.md), and [child task contract](../request-intake/delegation.md). This file translates those responsibilities to Claude Code; it does not change Codex/OMX model cohorts or claim that two hosts have equivalent enforcement.
 
 ## Loading and scope
