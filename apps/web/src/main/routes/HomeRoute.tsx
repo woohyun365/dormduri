@@ -8,6 +8,7 @@ import { HomeDashboardErrorState } from '@/main/tabs/home/layout/HomeDashboardEr
 import { seasonParticipationApi } from '@/main/api/season-participation.api';
 import { getDormitoryDisplayFromSeasonOperations } from '@/main/model/dormitoryDisplay.adapter';
 import { useMainHomeResource, useMainShell } from '@/main/runtime/MainContexts';
+import { isMainHomeRefreshCancelled } from '@/main/hooks/useMainHomeDashboard';
 
 export default function HomeRoute() {
   const resource = useMainHomeResource();
@@ -33,24 +34,24 @@ function HomeContent({
       toast('시즌 참여를 철회했어요.');
       await resource.refetch();
     } catch (error) {
+      if (isMainHomeRefreshCancelled(error)) throw error;
       toast('시즌 참여 철회를 완료하지 못했어요. 잠시 후 다시 시도해주세요.');
       throw error;
     } finally {
       deregistering.current = false;
     }
   }, [resource]);
-  if (resource.error)
-    return (
-      <HomeDashboardErrorState
-        message={resource.error}
-        refreshing={resource.refreshing}
-        onRetry={resource.refetch}
-      />
-    );
   if (!dashboard) return null;
   const user = dashboard.viewer.identity.user;
   return (
     <>
+      {resource.error && (
+        <HomeDashboardErrorState
+          message={resource.error}
+          refreshing={resource.refreshing}
+          onRetry={resource.refetch}
+        />
+      )}
       {dashboard.viewer.campusOperated &&
         (dashboard.season.isOpen || dashboard.season.isMatching) &&
         showBuildingSelect && (

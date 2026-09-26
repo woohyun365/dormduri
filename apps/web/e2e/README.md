@@ -34,6 +34,9 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
   다른 DB를 쓰려면 `HOME_E2E_DATABASE_URL`을 명시한다.
 - 기본 API/Web URL은 각각 `http://127.0.0.1:4000`, `http://127.0.0.1:3000`이다.
   필요하면 `API_URL`, `PLAYWRIGHT_BASE_URL`로 override한다.
+- production Web runtime에 synthetic session cookie를 주입하는 isolated harness는
+  `HOME_E2E_WEB_RUNTIME_MODE=production`을 명시한다. Playwright/seed process의 `NODE_ENV`를
+  production server cookie 이름의 대리값으로 사용하지 않는다.
 
 ### Seed accounts / mode matrix
 

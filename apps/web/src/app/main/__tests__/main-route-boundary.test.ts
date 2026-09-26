@@ -18,16 +18,24 @@ describe('main route boundary', () => {
     expect(read('main/components/BottomTabBar.tsx')).not.toContain('onTabChange');
   });
 
-  it('server layout composes the authenticated children shell without a tab registry', () => {
+  it('server layout resolves the protected bootstrap before composing children without a tab registry', () => {
     const layout = read('app/main/layout.tsx');
     expect(layout).not.toContain("'use client'");
-    expect(layout).toContain('<MainRouteShell>{children}</MainRouteShell>');
+    expect(layout).toContain('await readMainLayoutBootstrap()');
+    expect(layout).toContain('<MainRouteShell bootstrap={bootstrap}>{children}</MainRouteShell>');
     for (const file of ['app/main/MainRouteShell.client.tsx', 'main/runtime/MainRuntime.tsx']) {
       const source = read(file);
       expect(source).not.toMatch(/import .* from ['"].*(?:\/Main['"]|\/tabs\/.*Tab['"])/);
       expect(source).not.toContain('sessionStorage');
       expect(source).not.toContain('document.title');
     }
+  });
+
+  it('does not hide the protected primary aggregate behind a blanket loading boundary', () => {
+    expect(existsSync(path.join(process.cwd(), 'src/app/main/loading.tsx'))).toBe(false);
+    expect(existsSync(path.join(process.cwd(), 'src/app/main/error.tsx'))).toBe(true);
+    expect(read('app/main/layout.tsx')).not.toContain('Suspense');
+    expect(read('main/runtime/MainRuntime.tsx')).toContain('<AppShellSkeleton />');
   });
 
   it.each([
@@ -44,10 +52,11 @@ describe('main route boundary', () => {
     expect(source).not.toContain('MainRouteShell');
   });
 
-  it('keeps auth fallback and keys private runtime by the authenticated viewer', () => {
+  it('keeps token-free recovery and keys private runtime by the server-verified viewer', () => {
     const source = read('app/main/MainRouteShell.client.tsx');
-    expect(source).toContain('useAuthSession');
+    expect(source).not.toContain('useAuthSession');
+    expect(source).toContain("bootstrap.status === 'session-recovery-required'");
     expect(source).toContain("router.replace('/login')");
-    expect(source).toContain('key={session.user.id}');
+    expect(source).toContain('key={bootstrap.viewerId}');
   });
 });

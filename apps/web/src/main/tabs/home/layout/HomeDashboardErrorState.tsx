@@ -21,9 +21,7 @@ export function HomeDashboardErrorState({
         <p className="mt-2 text-sm text-(--knu-text-secondary)">{message}</p>
         <button
           type="button"
-          onClick={() => {
-            void onRetry();
-          }}
+          onClick={() => void onRetry().catch(() => undefined)}
           disabled={refreshing}
           className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-(--knu-primary) px-4 text-sm font-semibold text-white transition-colors hover:bg-(--knu-primary-hover) disabled:cursor-not-allowed disabled:opacity-60"
         >

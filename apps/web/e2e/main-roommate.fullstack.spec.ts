@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+import { resolveAuthCookieNames } from '@/config/auth-cookie.config';
 import {
   issueHomeE2eSessionToken,
   resetHomeE2eSeed,
@@ -9,6 +10,9 @@ import {
 const roommateFilterViewerEmail = 'home-e2e-requester@kangwon.ac.kr';
 const webBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
 const apiHealthUrl = `${process.env.API_URL ?? 'http://127.0.0.1:4000'}/health`;
+const homeE2eRuntimeMode =
+  process.env.HOME_E2E_WEB_RUNTIME_MODE === 'production' ? 'production' : 'development';
+const authCookieNames = resolveAuthCookieNames(homeE2eRuntimeMode);
 
 async function authenticateWithSeedSession(page: Page, email: string) {
   await page.context().clearCookies();
@@ -16,11 +20,11 @@ async function authenticateWithSeedSession(page: Page, email: string) {
 
   await page.context().addCookies([
     {
-      name: 'auth-token',
+      name: authCookieNames.access,
       value: accessToken,
       url: webBaseUrl,
       httpOnly: true,
-      secure: false,
+      secure: homeE2eRuntimeMode === 'production',
       sameSite: 'Lax',
     },
   ]);

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { homeDashboardApi } from '@/main/api/home-dashboard.api';
 import { seasonParticipationApi } from '@/main/api/season-participation.api';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { MainRuntime } from './MainRuntime';
@@ -17,6 +16,7 @@ const navigation = vi.hoisted(() => ({
   search: '',
   push: vi.fn(),
   replace: vi.fn(),
+  refresh: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({
   usePathname: () => navigation.pathname,
@@ -26,7 +26,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('sonner', () => ({ toast: vi.fn() }));
 vi.mock('@/main/tabs/home/HomeTab', () => ({
   default: (props: {
-    onDashboardRefresh: () => Promise<void>;
+    onDashboardRefresh: () => void;
     onDeregisterSeasonParticipation: () => Promise<void>;
     onNavigate: (tab: string, selection: object) => void;
   }) => (
@@ -128,9 +128,20 @@ const entries = {
   '/main/matching': <MatchingRoute />,
 };
 const base = () => createHomeDashboardTestResponse();
-function tree(viewer = base().viewer.identity.user.id) {
+function tree(
+  viewer = base().viewer.identity.user.id,
+  dashboard = base(),
+  dashboardUnavailable = false,
+) {
+  const seeded = structuredClone(dashboard);
+  seeded.viewer.identity.user.id = viewer;
   return (
-    <MainRuntime key={viewer} viewerId={viewer}>
+    <MainRuntime
+      key={viewer}
+      viewerId={viewer}
+      initialDashboard={seeded}
+      dashboardUnavailable={dashboardUnavailable}
+    >
       <RefreshProbe />
       {entries[navigation.pathname as keyof typeof entries]}
     </MainRuntime>
@@ -143,11 +154,11 @@ beforeEach(() => {
   navigation.search = '';
   navigation.push.mockReset();
   navigation.replace.mockReset();
+  navigation.refresh.mockReset();
 });
 
 describe('destination runtime lifetimes', () => {
   it('focuses named destination content only on pathname change, not initial load, query or refresh', async () => {
-    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
     const outside = document.createElement('button');
     document.body.appendChild(outside);
     outside.focus();
@@ -175,7 +186,6 @@ describe('destination runtime lifetimes', () => {
   });
 
   it('preserves a destination feature that already focused its own content', async () => {
-    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
     function FocusOwner() {
       const heading = useRef<HTMLHeadingElement>(null);
       useEffect(() => {
@@ -191,7 +201,21 @@ describe('destination runtime lifetimes', () => {
     await screen.findByRole('heading', { name: 'Home' });
     navigation.pathname = '/main/matching';
     view.rerender(
-      <MainRuntime key="user-1" viewerId="user-1">
+      <MainRuntime
+        key="user-1"
+        viewerId="user-1"
+        initialDashboard={{
+          ...base(),
+          viewer: {
+            ...base().viewer,
+            identity: {
+              ...base().viewer.identity,
+              user: { ...base().viewer.identity.user, id: 'user-1' },
+            },
+          },
+        }}
+        dashboardUnavailable={false}
+      >
         <FocusOwner />
       </MainRuntime>,
     );
@@ -199,7 +223,6 @@ describe('destination runtime lifetimes', () => {
   });
 
   it('five routes share one dashboard request; Links own URL and Home actions carry Matching intent', async () => {
-    const get = vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
     const view = render(tree());
     await screen.findByRole('heading', { name: 'Home' });
     expect(screen.getByTestId('projection').textContent).toBe(
@@ -223,12 +246,11 @@ describe('destination runtime lifetimes', () => {
         pathname,
       );
     }
-    expect(get).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
   });
 
   it('Profile applied state and explicit null overlay survive non-Home routes, not draft or Home reset', async () => {
     const dashboard = base();
-    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(dashboard);
     navigation.pathname = '/main/profile';
     const view = render(tree());
     await screen.findByRole('heading', { name: 'Profile' });
@@ -237,7 +259,7 @@ describe('destination runtime lifetimes', () => {
     fireEvent.click(screen.getByText('clear dormitory'));
     fireEvent.change(screen.getByLabelText('profile draft'), { target: { value: 'not applied' } });
     navigation.pathname = '/main/roommates';
-    view.rerender(tree());
+    await act(async () => view.rerender(tree()));
     expect(screen.getByTestId('dormitory')).toHaveTextContent('null');
     expect(screen.getByTestId('registered')).toHaveTextContent(
       String(dashboard.viewer.seasonProfile.registered),
@@ -257,10 +279,6 @@ describe('destination runtime lifetimes', () => {
     const dashboard = base();
     const next = structuredClone(dashboard);
     next.season.state = 'OFF_SEASON';
-    const get = vi
-      .spyOn(homeDashboardApi, 'getDashboard')
-      .mockResolvedValueOnce(dashboard)
-      .mockResolvedValue(next);
     navigation.pathname = '/main/matching';
     const view = render(tree());
     await screen.findByRole('heading', { name: 'Matching' });
@@ -269,9 +287,9 @@ describe('destination runtime lifetimes', () => {
     view.rerender(tree());
     expect(screen.getByRole('link', { name: /매칭 현황/ })).toHaveTextContent('7');
     fireEvent.click(screen.getByText('shell refresh'));
-    await waitFor(() =>
-      expect(screen.getByRole('link', { name: /매칭 현황/ })).not.toHaveTextContent('7'),
-    );
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+    view.rerender(tree(dashboard.viewer.identity.user.id, next));
+    expect(screen.getByRole('link', { name: /매칭 현황/ })).not.toHaveTextContent('7');
     navigation.pathname = '/main/matching';
     view.rerender(tree());
     fireEvent.click(screen.getByText('publish badge'));
@@ -280,17 +298,13 @@ describe('destination runtime lifetimes', () => {
     navigation.pathname = '/main/chat';
     view.rerender(tree());
     expect(screen.getByRole('link', { name: /매칭 현황/ })).not.toHaveTextContent('7');
-    expect(get).toHaveBeenCalledTimes(2);
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
   });
 
   it('season change clears Profile and Roommate state but keeps Chat draft; leaving Chat clears it', async () => {
     const dashboard = base();
     const next = structuredClone(dashboard);
     next.season.state = 'OFF_SEASON';
-    const get = vi
-      .spyOn(homeDashboardApi, 'getDashboard')
-      .mockResolvedValueOnce(dashboard)
-      .mockResolvedValue(next);
     navigation.pathname = '/main/profile';
     const view = render(tree());
     await screen.findByLabelText('profile draft');
@@ -304,7 +318,8 @@ describe('destination runtime lifetimes', () => {
       target: { value: 'keep conversation' },
     });
     fireEvent.click(screen.getByText('shell refresh'));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+    view.rerender(tree(dashboard.viewer.identity.user.id, next));
     await act(async () => undefined);
     expect(screen.getByLabelText('chat draft')).toHaveValue('keep conversation');
     navigation.pathname = '/main/profile';
@@ -316,44 +331,27 @@ describe('destination runtime lifetimes', () => {
     navigation.pathname = '/main/roommates';
     view.rerender(tree());
     fireEvent.change(screen.getByLabelText('filter'), { target: { value: 'old filter' } });
-    get.mockResolvedValue(dashboard);
-    fireEvent.click(screen.getByText('shell refresh'));
-    await waitFor(() => expect(screen.getByLabelText('filter')).toHaveValue(''));
+    view.rerender(tree(dashboard.viewer.identity.user.id, dashboard));
+    expect(screen.getByLabelText('filter')).toHaveValue('old filter');
+    navigation.pathname = '/main/chat';
+    view.rerender(tree(dashboard.viewer.identity.user.id, dashboard));
+    navigation.pathname = '/main/roommates';
+    view.rerender(tree(dashboard.viewer.identity.user.id, dashboard));
+    expect(screen.getByLabelText('filter')).toHaveValue('');
   });
 
-  it('viewer change aborts old dashboard and removes private draft before the new response', async () => {
-    const dashboard = base();
-    const other = structuredClone(dashboard);
-    other.viewer.identity.user.id = 'other';
-    let resolveLate!: (value: typeof dashboard) => void;
-    const get = vi
-      .spyOn(homeDashboardApi, 'getDashboard')
-      .mockResolvedValueOnce(dashboard)
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveLate = resolve;
-          }),
-      )
-      .mockResolvedValueOnce(other);
+  it('viewer change removes private draft without waiting for a browser dashboard response', async () => {
     navigation.pathname = '/main/chat';
     const view = render(tree());
-    await screen.findByLabelText('chat draft');
-    fireEvent.change(screen.getByLabelText('chat draft'), { target: { value: 'secret' } });
+    fireEvent.change(await screen.findByLabelText('chat draft'), { target: { value: 'secret' } });
     fireEvent.click(screen.getByText('shell refresh'));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
-    const oldSignal = get.mock.calls[1]?.[0];
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
     view.rerender(tree('other'));
     expect(screen.queryByDisplayValue('secret')).not.toBeInTheDocument();
-    expect(oldSignal?.aborted).toBe(true);
-    await screen.findByLabelText('chat draft');
-    await act(async () => resolveLate(dashboard));
-    expect(screen.getByLabelText('chat draft')).toHaveValue('');
-    expect(get).toHaveBeenCalledTimes(3);
+    expect(await screen.findByLabelText('chat draft')).toHaveValue('');
   });
 
   it('invalid owned query is replaced, explicit query follows history without dashboard reload', async () => {
-    const get = vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
     navigation.pathname = '/main/matching';
     navigation.search = 'section=bad&requestTab=sent&campaign=keep';
     const view = render(tree());
@@ -372,15 +370,14 @@ describe('destination runtime lifetimes', () => {
     expect(navigation.push).toHaveBeenCalledWith('/main/matching?section=past&requestTab=sent', {
       scroll: false,
     });
-    expect(get).toHaveBeenCalledTimes(1);
+    expect(navigation.refresh).not.toHaveBeenCalled();
   });
 
   it('disabled Matching has visible reason and no navigating link, including direct URL', async () => {
     const dashboard = base();
     dashboard.viewer.campusOperated = false;
-    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(dashboard);
     navigation.pathname = '/main/matching';
-    render(tree());
+    render(tree(dashboard.viewer.identity.user.id, dashboard));
     await screen.findByText('캠퍼스 운영 준비 중이에요.');
     expect(screen.queryByRole('link', { name: /매칭 현황/ })).not.toBeInTheDocument();
     const disabled = screen.getByRole('button', { name: /매칭 현황/ });
@@ -390,18 +387,19 @@ describe('destination runtime lifetimes', () => {
   });
 
   it('successful deregistration refreshes once; failed mutation does not refresh', async () => {
-    const get = vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(base());
     const deregister = vi
       .spyOn(seasonParticipationApi, 'deregisterCurrentSeasonParticipation')
       .mockResolvedValue(undefined as never);
-    render(tree());
+    const view = render(tree());
     await screen.findByText('deregister');
     fireEvent.click(screen.getByText('deregister'));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalledTimes(1));
     expect(deregister).toHaveBeenCalledTimes(1);
+    view.unmount();
+    render(tree());
     deregister.mockRejectedValueOnce(new Error('failed'));
     fireEvent.click(screen.getByText('deregister'));
     await waitFor(() => expect(deregister).toHaveBeenCalledTimes(2));
-    expect(get).toHaveBeenCalledTimes(2);
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
   });
 });

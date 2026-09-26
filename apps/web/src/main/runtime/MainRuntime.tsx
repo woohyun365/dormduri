@@ -11,6 +11,7 @@ import { getDormitoryDisplayFromSeasonOperations } from '@/main/model/dormitoryD
 import { getMainFeatureFlags } from '@/main/utils/mainFeatureFlags';
 import { mainDestination, mainHref } from '@/main/model/mainRoutes';
 import type { MatchingNavOptions, TabId } from '@/main/model/navigation';
+import type { HomeDashboardResponse } from '@repo/shared/home';
 import { MainHomeResourceContext, MainShellContext } from './MainContexts';
 
 const destinationNames: Record<TabId, string> = {
@@ -44,10 +45,28 @@ function DestinationContent({ pathname, children }: { pathname: string; children
   );
 }
 
-export function MainRuntime({ viewerId, children }: { viewerId: string; children: ReactNode }) {
-  const resource = useMainHomeDashboard(viewerId);
+export function MainRuntime({
+  viewerId,
+  initialDashboard,
+  dashboardUnavailable,
+  resourceSnapshot,
+  children,
+}: {
+  viewerId: string;
+  initialDashboard: HomeDashboardResponse | null;
+  dashboardUnavailable: boolean;
+  resourceSnapshot?: object;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
+  const resource = useMainHomeDashboard({
+    viewerId,
+    initialDashboard,
+    dashboardUnavailable,
+    resourceSnapshot,
+    refresh: router.refresh,
+  });
   const activeTab = mainDestination(pathname);
   const dashboard = resource.dashboard;
   const scopeKey = JSON.stringify([

@@ -3,7 +3,10 @@
 `apps/web/src/app/main`은 로그인 후 다섯 App Router 목적지를 소유한다.
 `/main`, `/main/roommates`, `/main/matching`, `/main/chat`, `/main/profile`의 server page가 각각
 `main/routes/*Route`를 선택하고 metadata를 제공한다. 공통 layout의 `MainRouteShell`은 인증 상태를 확인한 뒤
-viewer ID로 keyed `MainRuntime`에 children을 전달한다. 공통 loading/error boundary는 route segment가 소유한다.
+viewer ID로 keyed `MainRuntime`에 children을 전달한다. route segment는 공통 error boundary를 유지하지만,
+coherent protected bootstrap 전체를 가리는 `main/loading.tsx`나 blanket Suspense boundary는 두지 않는다.
+서버 bootstrap이 완료되면 의미 있는 목적지 HTML을 바로 전달하고, dashboard payload가 없는 feature-local 상태만
+`MainRuntime`의 skeleton/retry surface가 소유한다.
 
 ## Navigation and state lifetime
 
@@ -19,13 +22,18 @@ viewer ID로 keyed `MainRuntime`에 children을 전달한다. 공통 loading/err
 - Roommates filter/cursor와 Chat thread/draft는 feature-local이다. route 이탈에서 unmount하며 browser back으로 draft를 복원하지 않는다.
 - viewer 변경/logout은 private runtime 전체를 폐기한다. season 변경은 Profile/Roommates/Matching scope를 갱신하되
   같은 viewer의 Chat draft는 season 변경만으로 지우지 않는다. Chat thread 전환은 해당 feature가 소유한다.
+- session identity가 unknown/recovery 상태가 되거나 dashboard identity가 다르면 private runtime을 즉시 폐기한다.
 - Matching overview만 badge를 publish한다. non-Home 목적지 간 last-known count를 유지하고 Home 진입·viewer/season 변경에서
   폐기한다. 별도 overview 조회나 realtime freshness를 보장하는 cache가 아니다.
 
 ## Data and authorization ownership
 
-- `MainRuntime`은 현재 `useMainHomeDashboard`의 단일 client-side dashboard read를 기다린다. route 분리 자체가 Home SSR이나
-  dashboard 의존 제거를 의미하지 않는다. Home은 `MainHomeResourceContext`의 dashboard/refresh를 소비한다.
+- async `app/main/layout`은 server-only session gate 뒤 configured API upstream의 dashboard를
+  `no-store`로 직접 읽고, identity가 일치하는 최소 bootstrap union만 `MainRouteShell`에 전달한다.
+  own Route Handler loopback이나 RSC cookie renewal은 하지 않는다.
+- `MainRuntime`은 server-seeded dashboard로 첫 render를 만들고 Home은
+  `MainHomeResourceContext`의 dashboard/refresh를 소비한다. refresh는 browser dashboard fetch가 아니라
+  `router.refresh()`이며, 같은 viewer의 검증된 stale success만 일시 유지한다.
 - `MainShellContext`는 viewer display, season scope, capability projection과 navigation/refresh 배선만 제공한다.
   domain DTO cache나 mutable universal UserProfile store로 확장하지 않는다.
 - Roommates/Matching/Chat의 REST read/mutation은 각 feature owner가 담당한다. Home의 실제 성공 mutation은 dashboard를 refresh한다.

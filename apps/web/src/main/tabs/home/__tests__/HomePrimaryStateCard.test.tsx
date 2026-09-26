@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomePrimaryStateCard } from '../sections/primary/HomePrimaryStateCard';
@@ -815,6 +816,44 @@ describe('HomePrimaryStateCard', () => {
     } finally {
       setIntervalSpy.mockRestore();
     }
+  });
+
+  it('시즌 참여 철회는 새 dashboard bootstrap이 올 때까지 중복 제출을 막는다', async () => {
+    const user = userEvent.setup();
+    let finishDeregister: (() => void) | undefined;
+    const onDeregisterSeasonParticipation = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDeregister = resolve;
+        }),
+    );
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+    });
+    renderCard({
+      dashboard,
+      seasonState: 'SEASON_MATCHING',
+      onDeregisterSeasonParticipation,
+    });
+
+    await user.click(screen.getByRole('button', { name: /시즌 참여 철회하기/ }));
+    const confirm = screen.getAllByRole('button', { name: '시즌 참여 철회하기' }).at(-1);
+    if (!confirm) throw new Error('deregister confirmation button was not rendered');
+    await user.click(confirm);
+    await waitFor(() => expect(onDeregisterSeasonParticipation).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: '처리 중...' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '처리 중...' }));
+    expect(onDeregisterSeasonParticipation).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishDeregister?.());
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '시즌 참여 철회' })).not.toBeInTheDocument(),
+    );
   });
 
   it('시즌 매칭 registered 진행률 tone은 PrimaryCard 색상이 아니라 ProgressBar 값만 바꾼다', () => {
