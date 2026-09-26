@@ -43,7 +43,26 @@ apps/web/storybook-static/
 # 참고: next-env.d.ts는 타입 선언 파일이므로 버전 관리 포함 권장
 
 ## AI 도구 (Claude Code, Codex, OMC, OMX)
-.claude/
+# 검토한 프로젝트 adapter와 skill만 추적하고 개인 설정·세션·plugin cache는 제외한다.
+.claude/*
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/knu_explorer.md
+!.claude/agents/knu_researcher.md
+!.claude/agents/knu_executor.md
+!.claude/agents/knu_reviewer.md
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/design-taste-frontend/
+.claude/skills/design-taste-frontend/*
+!.claude/skills/design-taste-frontend/SKILL.md
+!.claude/skills/design-taste-frontend/LICENSE
+!.claude/skills/design-taste-frontend/SOURCE.json
+!.claude/skills/redesign-existing-projects/
+.claude/skills/redesign-existing-projects/*
+!.claude/skills/redesign-existing-projects/SKILL.md
+!.claude/skills/redesign-existing-projects/LICENSE
+!.claude/skills/redesign-existing-projects/SOURCE.json
 # Codex는 검토된 프로젝트 child 설정만 추적하고 개인·runtime 상태는 제외한다.
 .codex/*
 !.codex/config.toml

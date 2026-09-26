@@ -8,6 +8,11 @@
 수렴하도록 하는 결정을 소유합니다. 외부 benchmark 수치는 해당 실험 범위에만 적용하며 repository의 보편 법칙으로
 해석하지 않습니다.
 
+공통 single-first·권한·QA 결정과 host별 모델 실행 결정을 구별합니다. DA-009/012/016/017의 GPT/effort,
+native/OMX dispatch, profile/admission과 필수 Astra QA는 **Codex cohort**에 한정하며
+[Codex adapter](./adapters/codex.md)가 실행 절차를 소유합니다. Claude Code는 이 cohort에 자동 편입되지 않고
+[Claude adapter](./adapters/claude-code.md)의 역할·권한 확인과 공통 QA를 사용합니다.
+
 ## Decision schema
 
 각 결정은 문제, 근거, 결정, trigger/non-trigger, 기각 대안, 구현 영향, 검증, 재검토 조건을 포함합니다. 근거가
@@ -78,6 +83,9 @@
 - **검증**: external-production과 secret action은 실행 전에 authority가 기록되어야 합니다.
 
 ## DA-009 — Child reasoning은 repository evidence로 두 번 판정
+
+이 결정의 model/effort와 Pass 1/2 helper는 Codex/OMX 실행에 한정합니다. 다른 host에 `medium | high | xhigh`나
+Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundedness는 [orchestration](./orchestration.md)을 따릅니다.
 
 - **문제**: task label·요청 keyword·lexical risk만으로 effort를 고르면 실제 transaction, migration, public contract,
   trust boundary 복잡도를 놓치거나 단순 lookup을 불필요하게 child로 보낼 수 있습니다.
@@ -192,7 +200,7 @@
   단순 child 수/테스트 개수로 대신할 수 없습니다.
 - **결정**: 기존 `orchestration-policy.mjs`에서 supplied context failure를 거절하고, 검증된 native Astra scoped/explicit
   경로만 정확한 spawn 인자로 연결합니다. 생략 legacy는 advisory 호환성을 유지하되 실제 context gate를 면제하지 않습니다.
-  Primary owner·QA·Parent-high 품질 stop은 [orchestration](./orchestration.md#parent-high-운영과-quality-stop)과
+  Primary owner·QA·Parent-high 품질 stop은 [orchestration](adapters/codex.md#parent-high-운영과-quality-stop)과
   [QA](./qa.md#portable-qa-packet)가 각각 소유합니다. Parent 선택/변경은 실제 host control에 남깁니다.
 - **Trigger / non-trigger**: 검증 가능한 bounded 미해결 문제, criterion gap, source 변경 / 이미 해결된 primary 재분석,
   작은 direct 작업의 상시 fan-out, 비용만을 위한 필수 QA 축소는 선택하지 않습니다.
@@ -236,8 +244,8 @@ candidate/recovery 집합과 실제 검증·채택된 집합은 다릅니다. �
 - **결정의 이유/기각**: 보수적인 적격 작업에 다른 모델을 배정하되 총 작업 품질을 oracle·Astra 독립 QA로 우선합니다. 단가나
   짧은 답변만으로 총 비용 우위를 입증하지 않습니다. 상시 Astra-only, 전면 lower-model 전환, 반복 모델명 확인, 자동 alias 승격,
   새 dispatcher/TOML clone을 채택하지 않습니다. 미해결 gap·지원 불일치는 Astra/direct로 돌아갑니다.
-- **운영/철회**: [cold-start](./orchestration.md#routine-task-model-operation), [철회와 재승인](./request-intake/orchestration-recovery.md#routine-admission-lifetime),
-  [generation seam](./orchestration.md#central-profile-migration-boundary)이 소유합니다. Revision/eligibility/model/effort/role·host 또는
+- **운영/철회**: [cold-start](adapters/codex.md#routine-task-model-operation), [철회와 재승인](./request-intake/orchestration-recovery.md#routine-admission-lifetime),
+  [generation seam](adapters/codex.md#central-profile-migration-boundary)이 소유합니다. Revision/eligibility/model/effort/role·host 또는
   품질이 바뀌면 해당 cohort를 중단·재검증합니다. Data rollback에도 새 revision/승인이 필요합니다. 전체 과거 code+grant 복원을
   차단하는 영구 이력 장치를 구현했다는 뜻은 아닙니다.
 - **검증/재검토**: routine→withdrawal→Astra/direct→fresh admission, config pin/drift, stale generation binding 회귀를 사용합니다.

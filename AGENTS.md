@@ -56,6 +56,7 @@
 - repository 상태의 읽기 전용 기준점이 필요한 multi-step/resume 작업은 `pnpm agent:preflight`를 사용하되, 그 결과도
   current request와 working tree evidence에 다시 대조한다.
 - 분석·구현·검증 공통 계약은 `agent-execution-contract.md`, orchestration 선택은 `orchestration.md`를 따른다.
+- Host별 모델·역할·권한 실행은 `docs/development/agent-workflows/adapters/README.md`에서 현재 host adapter를 선택한다.
 - 명확한 기술 작업은 승인 범위에서 진행하고 중요한 제품·비용·위험 선택은 근거를 갖춰 사용자와 협의한다.
   결정권·짧은 협의·specialist 통신 경계는 `docs/development/agent-workflows/owner-lead-collaboration.md`를 따른다.
 - 한 owner 작업은 single agent가 기본이다. 독립적인 evidence·파일 ownership이 있을 때만 bounded child lane을 사용한다.

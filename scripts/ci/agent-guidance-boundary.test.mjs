@@ -112,7 +112,7 @@ test('repository guidance does not depend on retired workflow names or documenta
   assert.deepEqual(forbiddenReferences, []);
 });
 
-test('historical root agent documents do not remain startup instruction owners', () => {
+test('root CLAUDE bridge stays small and historical duplicate guidance does not return', () => {
   const gitignore = readFileSync(gitignorePath, 'utf8');
   const ignoredCanonicalFiles = ['AGENTS.md', 'CLAUDE.md', 'QA.md', 'REFACTOR-ANALYZE.md'].filter(
     (path) => new RegExp(`^${path.replace('.', '\\.')}$`, 'mu').test(gitignore),
@@ -125,11 +125,10 @@ test('historical root agent documents do not remain startup instruction owners',
     false,
     'REFACTOR-ANALYZE.md must move out of the root',
   );
-  assert.equal(
-    existsSync(resolve(repoRoot, 'CLAUDE.md')),
-    false,
-    'historical CLAUDE.md must not remain a root startup instruction owner',
-  );
+  const claude = readFileSync(resolve(repoRoot, 'CLAUDE.md'), 'utf8');
+  assert.match(claude, /^@AGENTS\.md\s*$/mu);
+  assert.ok(claude.split('\n').length <= 35, 'root CLAUDE.md must remain a small adapter');
+  assert.match(claude, /adapters\/claude-code\.md/u);
 
   for (const path of workflowGuidePaths) {
     assert.equal(existsSync(resolve(repoRoot, path)), true, `${path} must exist`);
@@ -183,25 +182,31 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
     resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
     'utf8',
   );
+  const codexAdapter = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/adapters/codex.md'),
+    'utf8',
+  );
 
   for (let index = 1; index <= 10; index += 1) {
     assert.match(decisions, new RegExp(`DA-${String(index).padStart(3, '0')}`, 'u'));
   }
   assert.match(orchestration, /single agent/u);
-  assert.match(orchestration, /Pass 1/u);
-  assert.match(orchestration, /Pass 2/u);
-  assert.match(orchestration, /medium/u);
-  assert.match(orchestration, /high/u);
-  assert.match(orchestration, /xhigh/u);
+  assert.match(orchestration, /Codex\/OMX adapter/u);
+  assert.match(orchestration, /Claude Code adapter/u);
+  assert.match(codexAdapter, /Pass 1/u);
+  assert.match(codexAdapter, /Pass 2/u);
+  assert.match(codexAdapter, /medium/u);
+  assert.match(codexAdapter, /high/u);
+  assert.match(codexAdapter, /xhigh/u);
   // Task risk (low-impact) and separately bound recovery are not ordinary effort.
   // Check the declared route contract rather than banning a word across all docs.
-  assert.match(orchestration, /effort는 `medium \| high \| xhigh`/u);
+  assert.match(codexAdapter, /effort는 `medium \| high \| xhigh`/u);
   assert.match(
-    orchestration,
+    codexAdapter,
     /Low와 `max\/ultra`는 일반 repository child route에 사용하지 않습니다/u,
   );
-  assert.match(orchestration, /`max\/ultra`.*사용하지/u);
-  assert.match(orchestration, /역할을 prompt label로 가장하지 않고/u);
+  assert.match(codexAdapter, /`max\/ultra`.*사용하지/u);
+  assert.match(codexAdapter, /역할을 prompt label로 가장하지 않고/u);
 });
 
 test('runtime code and scripts do not use retired OMX directories as output owners', () => {

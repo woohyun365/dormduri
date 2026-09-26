@@ -8,6 +8,10 @@ pnpm-lock.yaml
 artifacts/local/
 omx_wiki/
 
+# Reviewed upstream Claude skill sources retain their exact qualified SHA.
+.claude/skills/design-taste-frontend/SKILL.md
+.claude/skills/redesign-existing-projects/SKILL.md
+
 # Generated from the API config registry; preserve generator-owned serialization.
 infra/deploy/api/env.manifest.json
 

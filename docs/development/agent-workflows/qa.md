@@ -1,5 +1,10 @@
 # QA workflow
 
+인수 기준·독립성·증거 packet은 host 공통입니다. Codex cohort의 필수 Astra QA는
+[Codex adapter](./adapters/codex.md)와 [채택 결정](./agentic-architecture-decisions.md)이 소유하며,
+Claude reviewer의 독립 검토로 그 requirement를 충족했다고 주장하지 않습니다. 반대로 Claude Code의 native
+read-only 여부는 [Claude adapter](./adapters/claude-code.md)의 실제 permission/tool 관측이 필요합니다.
+
 QA는 구현 역할이 아니라 완료 기준을 만들고, 변경의 안전성과 결과의 충족 여부를 검증하는 역할입니다.
 사용자가 구현이나 테스트 보강까지 명시한 경우에만 제품 코드를 수정합니다.
 

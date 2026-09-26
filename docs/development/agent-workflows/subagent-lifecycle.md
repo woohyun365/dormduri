@@ -1,5 +1,9 @@
 # Parent-owned subagent lifecycle
 
+결과 회수·writer 소유권·검증 의무는 host 공통입니다. 아래 `agent thread limit reached`, native close capability와
+OMX Team 절차는 Codex/OMX runtime에 한정합니다. Claude Code의 실제 subagent 종료·permission 동작은
+[Claude Code adapter](./adapters/claude-code.md)와 현재 host 관측으로 판정하고, 이 절차를 그대로 이식하지 않습니다.
+
 Parent가 child 작업 완료 후 결과 회수·capability별 cleanup 판정·자원 관측과 `agent thread limit reached` 복구를 소유합니다.
 호출 거절만 보고 종료하지 않고, 실제 지원 계약 안에서 안전한 정리와 bounded 대안을 선택합니다. 새 scheduler나 runtime hook을
 구현하는 문서가 아닙니다. 배정/권한은 [Orchestration](./orchestration.md), 독립성은 [QA](./qa.md)를 따릅니다.

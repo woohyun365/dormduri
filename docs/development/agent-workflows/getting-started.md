@@ -7,6 +7,13 @@
 필요한 근거와 미확정 결정으로 나눕니다. 분석을 요청했다면 code를 수정하지 않고, 계획을 요청했다면
 구현까지 자동으로 확장하지 않습니다.
 
+## Host 선택
+
+Codex/OMX에서는 아래의 native 실행·승인 경계를 따릅니다. Claude Code에서는 root `CLAUDE.md`가 `AGENTS.md`를
+명시적으로 import하며, [Claude Code adapter](./adapters/claude-code.md)의 역할·도구·권한 확인을 거칩니다.
+같은 요청 예시를 사용할 수 있지만 Codex의 model/effort/승인 옵션을 Claude 옵션으로 번역하지 않습니다.
+두 host 모두 현재 로드된 권한을 확인하고 실제 결과와 정적 문서 검사를 구분합니다.
+
 ## Codex/OMX 실행과 승인
 
 저장소로 이동한 뒤, 설치된 `codex --help`가 `--approve-for-me`를 지원하고 계정·managed 정책이 허용하면

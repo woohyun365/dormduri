@@ -24,6 +24,8 @@ const ROOT_TOOLCHAIN_PATHS = new Set([
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
+const CLAUDE_PROJECT_ADAPTER_PATTERN =
+  /^\.claude\/(?:agents\/knu_(?:explorer|researcher|executor|reviewer)\.md|skills\/(?:design-taste-frontend|redesign-existing-projects)\/(?:SKILL\.md|LICENSE|SOURCE\.json))$/;
 
 function normalizePath(path) {
   return path.replaceAll('\\', '/').replace(/^\.\//, '');
@@ -117,8 +119,11 @@ export function classifyChanges(paths) {
       path.startsWith('.husky/') ||
       (path.startsWith('.github/') && path.endsWith('.md')) ||
       path === '.prettierignore' ||
+      path === '.gitignore' ||
       path === 'README.md' ||
       path === 'AGENTS.md' ||
+      path === 'CLAUDE.md' ||
+      CLAUDE_PROJECT_ADAPTER_PATTERN.test(path) ||
       path === 'DESIGN.md'
     ) {
       result.repoPolicy = true;

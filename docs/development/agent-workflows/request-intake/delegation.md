@@ -1,5 +1,9 @@
 # Independent lane and child task contract
 
+Single-first, one-writer, source-bound packet과 stop/escalation은 공통 책임입니다. 아래 `modelRequest`, Pass 2 effort,
+`selectAgentRoute()` schema와 Astra admission은 Codex/OMX helper 계약이며 Claude native parameter가 아닙니다.
+Host별 실행은 [adapters](../adapters/README.md)에서 확인합니다.
+
 Delegation recommendation은 validated `TaskEnvelope`, current `ContextPack`, leader가 제시한 bounded lane
 candidate를 입력으로 받는 advisory 결과입니다. Runtime child lifecycle이나 자동 spawn engine이 아닙니다.
 
@@ -79,12 +83,12 @@ verificationFacts:
 구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
 실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
 
-[채택 범위와 cold-start 순서](../orchestration.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
+[채택 범위와 cold-start 순서](../adapters/codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
 GPT-6 Sol은 bounded-build의 구현/test 또는 bounded-read의 lookup/analysis 후보입니다. Researcher는 bounded-read pilot만
 가능하며 routine은 Astra입니다. GPT-6 Luna는 bounded-extract의 low-impact lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
-입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](../orchestration.md#quality-gated-model-advice)을
+입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](../adapters/codex.md#quality-gated-model-advice)을
 충족하면 `routeRecommendation.modelRecommendation`에 request/taskKind/role, recommendedModel, candidate/baseline,
 reason, `applied=false`, `profileBinding`을 붙입니다. 부적합 task·위험·품질 gap은 Astra baseline입니다.
 

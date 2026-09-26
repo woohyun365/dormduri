@@ -56,6 +56,10 @@ frontmatter 이름은 위 호출 이름입니다. 각 subtree의 필수 파일�
 
 ### Installation and qualification boundary
 
+아래 `skill-installer`, `${CODEX_HOME:-~/.codex}/skills` 및 `$...` 호출 예시는 **Codex 설치·발견 경로**입니다.
+Claude Code는 repository의 [project skill copies와 별도 native qualification](../adapters/claude-code.md#project-visual-skills)을
+사용합니다. 같은 source SHA는 두 host의 실제 발견·지침 적용이 같다는 증거가 아닙니다.
+
 1. 현재 host의 installer/discovery 경로·동명 skill·수정 권한을 확인합니다. 설치 요청은 제품 package/font/global config
    변경 승인이 아닙니다. 설치할 두 directory와 network/tmp side effect만 고정하고 기존 설치는 덮어쓰지 않습니다.
 2. 설치된 공식 `skill-installer`를 사용합니다. 그 helper의 기본 목적지는 `${CODEX_HOME:-~/.codex}/skills`이고,

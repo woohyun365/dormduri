@@ -1,5 +1,9 @@
 # Bounded orchestration, recovery, and leader synthesis
 
+이 문서의 model profile, Astra recovery, `scripts/agents` descriptor와 admission은 Codex/OMX 실행 계약입니다.
+공통 one-writer·source freshness·authority·QA는 [orchestration](../orchestration.md)과 [execution contract](../agent-execution-contract.md)가 소유합니다.
+Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 이 schema로 Claude model/runtime 지원을 가장하지 않습니다.
+
 이 계약은 독립 lane과 typed child contract를 포함한 delegation recommendation을 existing native child surface에
 전달하기 전 마지막 advisory gate를 정의합니다. 새로운 child scheduler, queue, runtime state machine을 구현하지
 않습니다.
@@ -99,12 +103,12 @@ admission: null | {
   Advice는 실제 applied model을 보장하지 않습니다.
 
 이 advisory helper는 project 설정/role pin을 수정하거나 서버/CLI를 시작하지 않습니다. 설정 변경과 loaded-schema 확인은
-[Task model configuration and fresh loading](../orchestration.md#task-model-configuration-and-fresh-loading)이 소유합니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
+[Task model configuration and fresh loading](../adapters/codex.md#task-model-configuration-and-fresh-loading)이 소유합니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
 fixture일 뿐 실제 모델 사용·native 지원·품질 동등성·비용 절약 증거가 아닙니다. Parent/최종 QA/effort/cap/권한 경계는 유지합니다.
 
 ## Routine admission lifetime
 
-[운영 cohort 결정과 cold-start](../orchestration.md#routine-task-model-operation)를 먼저 확인합니다. 그 결정의 reference는
+[운영 cohort 결정과 cold-start](../adapters/codex.md#routine-task-model-operation)를 먼저 확인합니다. 그 결정의 reference는
 profile/role/범위의 채택 근거이지 이 호출의 scope/config/time/budget 승인 JSON이 아닙니다. Parent는 현재 승인된 사용자
 업무를 원문으로 확인하고 양쪽 reference를 연결해 새 packet을 작성합니다. 별도 모델명 재승인을 매번 요구하지 않지만
 동일한 source/권한·risk로 확인하지 않은 scope 확대를 일반 업무로 위장하지 않습니다.
@@ -120,7 +124,7 @@ profile/role/범위의 채택 근거이지 이 호출의 scope/config/time/budge
 재채택할 때는 필요한 품질·독립 검사 후 현재 contract/profileBinding과 config/scope bytes, 새 bounded validity window,
 잔여 budget, cleanup reference를 다시 연결합니다. 이미 실행된 실패는 exact recovery identity에 남기고 성공으로 재명명하지
 않습니다. 아직 실행하지 않은 지원 불일치는 pre-dispatch gap이지 candidate 품질 실패가 아닙니다. 운영 철회와 설정 rollback의
-순서는 [Astra-only rollback](../orchestration.md#suspension-and-astra-only-rollback)을 따릅니다.
+순서는 [Astra-only rollback](../adapters/codex.md#suspension-and-astra-only-rollback)을 따릅니다.
 
 ## First dispatch and post-execution evidence
 
