@@ -1,6 +1,6 @@
 # Bounded orchestration, recovery, and leader synthesis
 
-이 문서의 model profile, Astra recovery, `scripts/agents` descriptor와 admission은 Codex/OMX 실행 계약입니다.
+이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, Astra recovery, `scripts/agents/codex/` descriptor와 admission은 Codex/OMX 실행 계약입니다.
 공통 one-writer·source freshness·authority·QA는 [orchestration](../orchestration.md)과 [execution contract](../agent-execution-contract.md)가 소유합니다.
 Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 이 schema로 Claude model/runtime 지원을 가장하지 않습니다.
 
@@ -10,7 +10,7 @@ Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 �
 
 ## Native dispatch gate
 
-`scripts/agents/orchestration-policy.mjs`는 다음을 모두 확인한 경우에만 typed native dispatch descriptor를
+`scripts/agents/codex/orchestration-policy.mjs`는 다음을 모두 확인한 경우에만 typed native dispatch descriptor를
 추천합니다.
 
 - delegation 결과가 `bounded-lanes`
@@ -245,7 +245,7 @@ recoveryBinding을 보존합니다. 두 번째 attempt만 첫 attempt의 approac
 
 ## Bounded model-run evidence
 
-`scripts/agents/model-run-evidence.mjs`의 `createModelRunEvidence`/`validateModelRunEvidence`는 작은 순수 계약입니다.
+`scripts/agents/codex/model-run-evidence.mjs`의 `createModelRunEvidence`/`validateModelRunEvidence`는 작은 순수 계약입니다.
 `evaluateModelExecution`/`evaluateRecovery` 결과와 실제 returned identity를 Parent가 연결하며 logging 자체는
 native 실행·모델 인증·adoption·추가 호출 권한이 아닙니다. Fresh-session smoke는 실제 constructor를 소비하지만
 `fixtureOnly=true`, `mutatesWorkspace=false`인 합성 controlled failure→bound Astra low once→재검증 예시입니다.

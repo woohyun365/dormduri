@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parseContextContract, parsePriorityPointer } from './session-contract.mjs';
 
-const repoRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const args = parseArgs(process.argv.slice(2));
 const now = new Date();
 const readLimit = 64 * 1024;

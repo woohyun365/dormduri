@@ -2,9 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { createRecoveryChildContract, recommendDelegation } from './child-task-contract.mjs';
-import { discoverContextPack } from './domain-guide-registry.mjs';
+import { discoverContextPack } from '../domain-guide-registry.mjs';
 import { createModelRunEvidence } from './model-run-evidence.mjs';
-import { buildTaskEnvelope } from './intake-policy.mjs';
+import { buildTaskEnvelope } from '../intake-policy.mjs';
 import {
   createDispatchRecommendation,
   createLifecycleRecommendation,
@@ -18,7 +18,7 @@ import {
   createSemanticSourceId,
 } from './routing-policy.mjs';
 
-const repoRoot = resolve(import.meta.dirname, '../..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const entryPoints = Object.freeze([
   'AGENTS.md',
   'docs/development/agent-workflows/README.md',

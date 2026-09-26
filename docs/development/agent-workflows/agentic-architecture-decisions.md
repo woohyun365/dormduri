@@ -216,7 +216,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 ## DA-017 — Evidence-bounded routine task-model adoption
 
 - **결정일**: 2026-09-24. Owner의 task-aware 운영 채택 구현 요청과 독립 품질 검증을 근거로 아래 cohort를 **로컬 routine GO**로
-  채택합니다. Policy revision `2026-09-24.3`; canonical model/effort/role/tool data는 `scripts/agents/model-profiles.mjs`가 소유합니다.
+  채택합니다. Policy revision `2026-09-24.3`; canonical model/effort/role/tool data는 `scripts/agents/codex/model-profiles.mjs`가 소유합니다.
 - **범위/권한**: 승인된 일반 업무에서 Parent가 이 결정을 소비합니다. 개별 task의 원문 권한·현재 schema·정확한 profile/source/
   config/scope/time/budget·독립 QA는 [별도 admission](./request-intake/orchestration-recovery.md#model-admission)이 필요합니다.
   문서/table/과거 JSON은 영구 실행 허가가 아닙니다. 전체 변경의 최종 QA·통합과 Parent-high 적용 완료를 뜻하지 않습니다.

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { selectAgentRoute } from '../agents/routing-policy.mjs';
+import { selectAgentRoute } from '../agents/codex/routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const fixtures = JSON.parse(
@@ -18,7 +18,7 @@ const capabilityOwners = {
   'ambiguity-authority-gate':
     'docs/development/agent-workflows/request-intake/ambiguity-and-authority.md',
   'direct-path-gate': 'scripts/agents/intake-policy.mjs',
-  'bounded-recovery': 'scripts/agents/orchestration-policy.mjs',
+  'bounded-recovery': 'scripts/agents/codex/orchestration-policy.mjs',
 };
 
 test('representative intake fixtures declare observable outcomes and current gaps', () => {

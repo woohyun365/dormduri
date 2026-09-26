@@ -4,13 +4,13 @@ import {
   createRecoveryBinding,
   createModelProfileBinding,
   getModelProfile,
-} from '../agents/model-profiles.mjs';
+} from '../agents/codex/model-profiles.mjs';
 import {
   createModelRunEvidence,
   validateModelRunEvidence,
   resolveModelRunEvidencePath,
   writeModelRunEvidence,
-} from '../agents/model-run-evidence.mjs';
+} from '../agents/codex/model-run-evidence.mjs';
 
 const digest = `sha256:${'a'.repeat(64)}`;
 function fixture() {

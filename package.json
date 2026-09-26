@@ -63,7 +63,7 @@
     "infra:compose": "node scripts/infra/compose/profile.mjs",
     "infra:rehearsal:full-stack": "node scripts/infra/rehearsal/full-stack/index.mjs",
     "infra:rehearsal:lightsail-secrets": "pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts test/operations/platform/lightsail-secret-delivery.spec.ts test/operations/platform/mounted-file-secret-reader.spec.ts",
-    "agent:preflight": "node scripts/agents/session-preflight.mjs --json",
+    "agent:preflight": "node scripts/agents/codex/session-preflight.mjs --json",
     "git:validate-commit-message": "node scripts/git/validate-commit-message.mjs",
     "git:branch-readiness": "node scripts/git/branch-readiness.mjs",
     "github:account:evidence": "node scripts/github/account-evidence.mjs",

@@ -157,7 +157,7 @@
   },
   {
     "name": "agent-guidance-only",
-    "paths": ["scripts/agents/session-preflight.mjs"],
+    "paths": ["scripts/agents/codex/session-preflight.mjs"],
     "expected": {
       "web": false,
       "api": false,

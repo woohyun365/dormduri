@@ -1,24 +1,27 @@
-import { getModelProfile, createModelProfileBinding } from '../agents/model-profiles.mjs';
-import * as modelPolicy from '../agents/orchestration-policy.mjs';
+import { getModelProfile, createModelProfileBinding } from '../agents/codex/model-profiles.mjs';
+import * as modelPolicy from '../agents/codex/orchestration-policy.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { createModelScopeDigest, recommendDelegation } from '../agents/child-task-contract.mjs';
+import {
+  createModelScopeDigest,
+  recommendDelegation,
+} from '../agents/codex/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
   createSemanticSourceId,
-} from '../agents/routing-policy.mjs';
+} from '../agents/codex/routing-policy.mjs';
 import {
   createDispatchRecommendation,
   createLifecycleRecommendation,
   evaluateRecovery,
   prepareLeaderSynthesis,
-} from '../agents/orchestration-policy.mjs';
+} from '../agents/codex/orchestration-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const runtimeCapabilityCases = JSON.parse(
@@ -1014,7 +1017,10 @@ test('rejects child attempts to claim final decisions or omit contract outputs',
 });
 
 test('orchestration policy is pure advisory and does not implement a child lifecycle engine', () => {
-  const source = readFileSync(resolve(repoRoot, 'scripts/agents/orchestration-policy.mjs'), 'utf8');
+  const source = readFileSync(
+    resolve(repoRoot, 'scripts/agents/codex/orchestration-policy.mjs'),
+    'utf8',
+  );
 
   assert.doesNotMatch(source, /node:child_process|spawn_agent|exec_command|create_goal|tmux/u);
   assert.doesNotMatch(source, /setInterval|setTimeout|while\s*\(|process\.kill/u);
@@ -2266,7 +2272,7 @@ test('old medium/high profile data remains invalid across grant, descriptor, pos
 });
 
 async function recoveryDispatchInput(cause = 'controlled-injection') {
-  const { createRecoveryChildContract } = await import('../agents/child-task-contract.mjs');
+  const { createRecoveryChildContract } = await import('../agents/codex/child-task-contract.mjs');
   const primaryInput = resolvedDispatchInput();
   const primaryContract = primaryInput.delegation.recommendedChildren[0];
   const rescueContract = createRecoveryChildContract({
@@ -2632,7 +2638,7 @@ test('recovery descriptor and synthesis resist altered bindings, identity, sourc
 });
 
 test('rehashing rescue scope never changes original authorized ownership and missing low host support is denied', async () => {
-  const { createRecoveryBinding } = await import('../agents/model-profiles.mjs');
+  const { createRecoveryBinding } = await import('../agents/codex/model-profiles.mjs');
   const { input } = await recoveryDispatchInput();
   const contract = input.delegation.recommendedChildren[0];
   contract.boundary.readScope.push('outside-original-owner');

@@ -7,14 +7,14 @@ import {
   assessLaneIndependence,
   createModelScopeDigest,
   recommendDelegation,
-} from '../agents/child-task-contract.mjs';
+} from '../agents/codex/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
   createSemanticSourceId,
-} from '../agents/routing-policy.mjs';
+} from '../agents/codex/routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const legalEvidence = [
@@ -551,7 +551,10 @@ test('fails closed on malformed contracts and hard-limit overflow', () => {
 });
 
 test('child contract policy remains advisory and does not own runtime lifecycle', () => {
-  const source = readFileSync(resolve(repoRoot, 'scripts/agents/child-task-contract.mjs'), 'utf8');
+  const source = readFileSync(
+    resolve(repoRoot, 'scripts/agents/codex/child-task-contract.mjs'),
+    'utf8',
+  );
 
   assert.doesNotMatch(source, /node:child_process|spawn_agent|exec_command|create_goal/u);
   assert.doesNotMatch(source, /retry\s*\(|respawn|tmux/u);

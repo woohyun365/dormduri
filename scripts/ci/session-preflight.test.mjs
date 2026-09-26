@@ -36,8 +36,11 @@ function fixture(t, options = {}) {
     return resolve(root, path);
   };
   for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
-    mkdirSync(resolve(root, 'scripts/agents'), { recursive: true });
-    cpSync(resolve(repoRoot, 'scripts/agents', file), resolve(root, 'scripts/agents', file));
+    mkdirSync(resolve(root, 'scripts/agents/codex'), { recursive: true });
+    cpSync(
+      resolve(repoRoot, 'scripts/agents/codex', file),
+      resolve(root, 'scripts/agents/codex', file),
+    );
   }
   put(selectedPlan, '# Example\n- Plan ID: alpha-task\n- Status: in-progress\n\n## Work\n');
   put('README.md', 'public fixture file');
@@ -137,7 +140,7 @@ syncBuiltinESMExports();`,
       [
         '--import',
         resolve(root, 'audit.mjs'),
-        resolve(root, 'scripts/agents/session-preflight.mjs'),
+        resolve(root, 'scripts/agents/codex/session-preflight.mjs'),
         ...args,
       ],
       {
@@ -491,7 +494,10 @@ test('calendar-invalid creation and expiry cannot normalize into current evidenc
 });
 
 test('preflight implementation remains read-only', () => {
-  const source = readFileSync(resolve(repoRoot, 'scripts/agents/session-preflight.mjs'), 'utf8');
+  const source = readFileSync(
+    resolve(repoRoot, 'scripts/agents/codex/session-preflight.mjs'),
+    'utf8',
+  );
   for (const mutation of [
     'writeFile',
     'appendFile',

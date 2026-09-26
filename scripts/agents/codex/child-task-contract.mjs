@@ -1,5 +1,5 @@
 import { assertCurrentRecoveryBinding, resolveRouteEffort } from './model-profiles.mjs';
-import { assertValidTaskEnvelope } from './intake-policy.mjs';
+import { assertValidTaskEnvelope } from '../intake-policy.mjs';
 import { createHash } from 'node:crypto';
 import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
 

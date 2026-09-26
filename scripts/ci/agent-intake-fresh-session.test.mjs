@@ -4,10 +4,10 @@ import { extname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { runFreshSessionSmoke } from '../agents/fresh-session-smoke.mjs';
+import { runFreshSessionSmoke } from '../agents/codex/fresh-session-smoke.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
-const smokeScript = resolve(repoRoot, 'scripts/agents/fresh-session-smoke.mjs');
+const smokeScript = resolve(repoRoot, 'scripts/agents/codex/fresh-session-smoke.mjs');
 const staleHandoffNames = [
   'frontend-feature-refactor-plan-authoring-handoff.md',
   'backend-feature-refactor-plan-authoring-handoff.md',

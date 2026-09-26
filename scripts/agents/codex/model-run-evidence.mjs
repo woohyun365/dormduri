@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { resolve, relative, isAbsolute } from 'node:path';
-import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import {
   assertCurrentModelProfileBinding,
   assertCurrentRecoveryBinding,

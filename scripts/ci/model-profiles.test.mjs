@@ -5,7 +5,7 @@ import {
   createModelProfileBinding,
   assertCurrentModelProfileBinding,
   resolveRouteEffort,
-} from '../agents/model-profiles.mjs';
+} from '../agents/codex/model-profiles.mjs';
 
 test('finite immutable profiles resolve GPT-6 models independently from semantic effort', () => {
   for (const [id, model, effort] of [
@@ -90,7 +90,7 @@ test('previous effort revisions cannot be restored by rehashing profile data', (
 
 test('recovery policy chooses low only for finite known non-QA work and never accepts raw effort', async () => {
   const { createRecoveryBinding, assertCurrentRecoveryBinding } =
-    await import('../agents/model-profiles.mjs');
+    await import('../agents/codex/model-profiles.mjs');
   const digest = `sha256:${'a'.repeat(64)}`;
   const input = {
     primary: {

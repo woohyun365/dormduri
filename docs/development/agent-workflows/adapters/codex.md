@@ -51,7 +51,7 @@ Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작
   기존 retry ceiling·QA gap 처리를 유지하고 해결 불가능하면 근거를 보존해 handoff합니다.
 
 Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합니다. Supported native scoped/explicit 호출의 정확한
-인자와 legacy/reuse 경계는 [context delivery](../request-intake/delegation.md#context-delivery)가 소유합니다. 이 경계의 회귀
+인자와 legacy/reuse 경계는 [context delivery](./codex-delegation.md#context-delivery)가 소유합니다. 이 경계의 회귀
 검사와 실제 Parent-high 품질/사용량 관측은 별개이며, 검증되지 않은 동등 성능·weekly 절감 수치를 보고하지 않습니다.
 
 ### Quality-gated model advice
@@ -81,7 +81,7 @@ Max worker/복구, Parent·운영 reviewer 변경은 허용하지 않습니다.
 semantic eligibility나 admission을 완화하지 않습니다.
 
 현재 채택 범위와 새 세션의 선택 순서는 [Routine task-model operation](#routine-task-model-operation)을 따릅니다.
-추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](../request-intake/delegation.md#model-recommendation)과
+추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./codex-delegation.md#model-recommendation)과
 [pilot/adoption·runtime admission](../request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
 별도 허용된 최초 pilot은 adoption GO 전에도 비교할 수 있지만, pilot 허용/PASS는 운영 채택 GO가 아닙니다.
 Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. 자동 keyword classifier나 scheduler는 없습니다.
@@ -109,7 +109,7 @@ Explorer/researcher 등 미채택 역할에 helper가 Low를 추천해도 실행
 
 ### Central profile migration boundary
 
-`scripts/agents/model-profiles.mjs`가 finite task profile의 model/effort/허용 role·task·도구·검증 키를 소유합니다.
+`scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model/effort/허용 role·task·도구·검증 키를 소유합니다.
 Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report →
 recovery에 연결합니다. Raw model/구형 GPT-5.6 request는 거절하며 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
 
@@ -189,7 +189,7 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 2. **Task→profile**: current Pass 2 사실에서 complete Medium·non-high impact·빈 gap과 실제 oracle/검증 계획을 확인합니다.
    구현/test는 bounded-build, 유한 repo 분석은 bounded-read, 고정 입력의 low-impact 단일 추출은 bounded-extract입니다.
    Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 Astra입니다. Semantic Medium과 후보 invocation xhigh는 별개입니다.
-3. **완전한 packet**: [request/context 계약](../request-intake/delegation.md#model-recommendation)의 `purpose=routine`, 현재
+3. **완전한 packet**: [request/context 계약](./codex-delegation.md#model-recommendation)의 `purpose=routine`, 현재
    profileBinding, scope/도구/쓰기 owner·사실/실패·acceptance·stop/return을 작성합니다. 최초 QA는 fresh source-first context입니다.
    Full history를 복사하지 않되 필요한 실패·제약을 생략하지 않습니다. Candidate의 미해결 실패는 새 lower-model task로 숨기지 않습니다.
 4. **이번 호출의 admission**: [modelUseByLane](../request-intake/orchestration-recovery.md#model-admission)에 이 cohort 결정과
