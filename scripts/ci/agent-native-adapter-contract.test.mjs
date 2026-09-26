@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -81,32 +80,25 @@ test('Claude private runtime state stays ignored while both host adapters have e
   );
 });
 
-test('project Claude Redesign skill preserves reviewed source without claiming native qualification', () => {
-  const base = '.claude/skills/redesign-existing-projects';
-  const source = read(`${base}/SKILL.md`);
-  const provenance = JSON.parse(read(`${base}/SOURCE.json`));
-  const hash = createHash('sha256').update(source).digest('hex');
-  assert.equal(hash, provenance.sha256, 'Redesign: source drift requires re-review');
-  assert.equal(provenance.commit, 'c184364c58658b2f131b4ae8bd3d206cabb3deee');
-  assert.match(read(`${base}/LICENSE`), /MIT License/u);
-  assert.match(provenance.qualification, /Codex|codex/u);
-  for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
-    assert.equal(isIgnored(`${base}/${file}`), false, `${base}/${file}: not portable`);
+test('Taste and Redesign remain Codex-only and are not Claude project skills', () => {
+  for (const skill of ['design-taste-frontend', 'redesign-existing-projects']) {
+    for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
+      const path = `.claude/skills/${skill}/${file}`;
+      assert.equal(existsSync(resolve(root, path)), false, `${path}: skill must not be ported`);
+      assert.equal(isIgnored(path), true, `${path}: skill must not be allowlisted`);
+    }
   }
-  assert.equal(isIgnored(`${base}/local-notes.md`), true);
-});
 
-test('Taste remains Codex-only and is not a Claude project skill', () => {
-  for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
-    const path = `.claude/skills/design-taste-frontend/${file}`;
-    assert.equal(existsSync(resolve(root, path)), false, `${path}: Taste must not be ported`);
-    assert.equal(isIgnored(path), true, `${path}: Taste must not be allowlisted`);
-  }
-  assert.match(read('docs/development/agent-workflows/adapters/codex.md'), /Taste.*Codex-only/u);
-  assert.match(
-    read('docs/development/agent-workflows/visual-design/design-task-orchestration.md'),
-    /`design-taste-frontend`.*Codex 전용/u,
+  const claude = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const codex = read('docs/development/agent-workflows/adapters/codex.md');
+  const design = read(
+    'docs/development/agent-workflows/visual-design/design-task-orchestration.md',
   );
+  const codexOnlySkills =
+    /Taste \(`design-taste-frontend`\) and Redesign \(`redesign-existing-projects`\) are \*\*Codex-only\*\*/u;
+  assert.match(claude, codexOnlySkills);
+  assert.match(codex, codexOnlySkills);
+  assert.match(design, /`design-taste-frontend`.*`redesign-existing-projects`.*Codex 전용/su);
 });
 
 test('repository preparation and future live qualification are distinct completion claims', () => {

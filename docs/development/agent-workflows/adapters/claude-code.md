@@ -21,11 +21,7 @@ Use native role dispatch only after verifying project discovery and tool availab
 
 ## Project visual skills
 
-The project Redesign copy is in `.claude/skills/redesign-existing-projects/`, containing `SKILL.md`, MIT `LICENSE`, and `SOURCE.json`. It comes from the previously reviewed Codex installation at commit `c184364c58658b2f131b4ae8bd3d206cabb3deee`; the `SOURCE.json` _qualification_ string describes the **old Codex invocation only**, not Claude qualification. Do not edit the existing personal `~/.codex/skills`, claim global Claude installation, or invoke a skill as authority for product edits. See [visual skill choice](../visual-design/design-task-orchestration.md#task-fit-skills).
-
-Taste (`design-taste-frontend`) is **Codex-only**. Do not port, install or invoke it as a Claude workflow requirement. Claude visual work uses the common VisualBrief/content/a11y/review contract directly, with Redesign only when relevant and qualified; no replacement skill is required. The shared upstream repository name `taste-skill` in Redesign provenance does not make the two skills the same adoption target.
-
-The lead chooses at most the relevant skill for an approved design task and checks current project discovery/instructions. A read-only skill smoke checks discovery and instruction consumption without changing a product file. Use a separate disposable fixture for an authorized rendering/implementation check. If discovery, model access, permission, or instruction consumption cannot be observed, mark Claude skill qualification **pending**, even when the files and static hash tests pass.
+Taste (`design-taste-frontend`) and Redesign (`redesign-existing-projects`) are **Codex-only** task aids. Do not port, install, qualify, or invoke either skill as a Claude workflow requirement, and do not edit the existing personal `~/.codex/skills`. Claude visual work uses the common VisualBrief/content/a11y/review contract directly; no replacement skill is required. See [visual skill choice](../visual-design/design-task-orchestration.md#task-fit-skills).
 
 ## Bounded fresh-host qualification
 
