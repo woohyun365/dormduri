@@ -166,7 +166,7 @@ parity와 장치 성능은 이 로컬 하네스 검증으로 대신하지 않습
 
 ## Task-fit skill의 로컬 렌더 관측 — 2026-09-25
 
-[Task-fit routing](./design-task-orchestration.md#task-fit-skills)을 통해 Landing형 `reimagine`에는
+[Task-fit routing](./design-task-orchestration.md#task-fit-skills)을 사용한 **Codex 환경의 관측**입니다. Landing형 `reimagine`에는
 `design-taste-frontend`, 기존 form형 `maintain`에는 `redesign-existing-projects`를 각각 적용했습니다.
 각 baseline/candidate는 같은 한국어 문구·지원 자격·필수 고지·mock 행동을 가진 독립 HTML fixture입니다.
 현재 production 화면의 복제나 채택된 새 디자인이 아니며, 폰트·package·API·DB·전역 설정은 변경하지 않았습니다.

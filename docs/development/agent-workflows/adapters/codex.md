@@ -4,6 +4,10 @@ This document owns Codex/OMX model, effort, runtime dispatch, workflow names, an
 
 On child completion, added dispatch, capacity error or turn end, the Parent follows [subagent lifecycle](../subagent-lifecycle.md): collect the result, distinguish explicit-close from verified no-close or unknown, and record cleanup and slot evidence separately. The Codex child cap remains six. Missing close support alone does not prove release or failure. Subsequent allocation uses the documented continuation/fan-in capability; `/agents` is optional operator evidence, not mandatory single-root infrastructure.
 
+## Visual skill scope
+
+Taste (`design-taste-frontend`) is **Codex-only**: it is a task-fit design aid for Codex, not a common workflow prerequisite or a Claude port. Preserve the existing personal Codex installation; use the [visual skill selection and Codex installation boundary](../visual-design/design-task-orchestration.md#task-fit-skills) only when the task benefits. This scope decision does not assert a model's design superiority. Redesign is a separate skill with its own host discovery and qualification.
+
 ## Reasoning effort routing
 
 Reasoning routing은 Parent와 child를 분리합니다. Parent effort는 사용자가 session에서 선택하며 repository는 Parent

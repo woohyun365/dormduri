@@ -9,7 +9,7 @@ const root = resolve(import.meta.dirname, '../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 
 function isIgnored(path) {
-  const result = spawnSync('git', ['check-ignore', '-q', path], { cwd: root });
+  const result = spawnSync('git', ['check-ignore', '--no-index', '-q', path], { cwd: root });
   assert.ok([0, 1].includes(result.status), result.stderr?.toString());
   return result.status === 0;
 }
@@ -81,19 +81,40 @@ test('Claude private runtime state stays ignored while both host adapters have e
   );
 });
 
-test('project Claude visual skills are allowlisted with reviewed source and Codex-only qualification', () => {
-  for (const skill of ['design-taste-frontend', 'redesign-existing-projects']) {
-    const base = `.claude/skills/${skill}`;
-    const source = read(`${base}/SKILL.md`);
-    const provenance = JSON.parse(read(`${base}/SOURCE.json`));
-    const hash = createHash('sha256').update(source).digest('hex');
-    assert.equal(hash, provenance.sha256, `${skill}: source drift requires re-review`);
-    assert.equal(provenance.commit, 'c184364c58658b2f131b4ae8bd3d206cabb3deee');
-    assert.match(read(`${base}/LICENSE`), /MIT License/u);
-    assert.match(provenance.qualification, /Codex|codex/u);
-    for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
-      assert.equal(isIgnored(`${base}/${file}`), false, `${base}/${file}: not portable`);
-    }
-    assert.equal(isIgnored(`${base}/local-notes.md`), true);
+test('project Claude Redesign skill preserves reviewed source without claiming native qualification', () => {
+  const base = '.claude/skills/redesign-existing-projects';
+  const source = read(`${base}/SKILL.md`);
+  const provenance = JSON.parse(read(`${base}/SOURCE.json`));
+  const hash = createHash('sha256').update(source).digest('hex');
+  assert.equal(hash, provenance.sha256, 'Redesign: source drift requires re-review');
+  assert.equal(provenance.commit, 'c184364c58658b2f131b4ae8bd3d206cabb3deee');
+  assert.match(read(`${base}/LICENSE`), /MIT License/u);
+  assert.match(provenance.qualification, /Codex|codex/u);
+  for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
+    assert.equal(isIgnored(`${base}/${file}`), false, `${base}/${file}: not portable`);
   }
+  assert.equal(isIgnored(`${base}/local-notes.md`), true);
+});
+
+test('Taste remains Codex-only and is not a Claude project skill', () => {
+  for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
+    const path = `.claude/skills/design-taste-frontend/${file}`;
+    assert.equal(existsSync(resolve(root, path)), false, `${path}: Taste must not be ported`);
+    assert.equal(isIgnored(path), true, `${path}: Taste must not be allowlisted`);
+  }
+  assert.match(read('docs/development/agent-workflows/adapters/codex.md'), /Taste.*Codex-only/u);
+  assert.match(
+    read('docs/development/agent-workflows/visual-design/design-task-orchestration.md'),
+    /`design-taste-frontend`.*Codex 전용/u,
+  );
+});
+
+test('repository preparation and future live qualification are distinct completion claims', () => {
+  const adapters = read('docs/development/agent-workflows/adapters/README.md');
+  const claude = read('docs/development/agent-workflows/adapters/claude-code.md');
+  for (const source of [adapters, claude]) {
+    assert.match(source, /repository-prepared/u);
+    assert.match(source, /runtime-qualified/u);
+  }
+  assert.match(claude, /separately authorized/u);
 });

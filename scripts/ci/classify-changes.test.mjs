@@ -34,12 +34,20 @@ test('tracked Claude project adapter files select policy checks without unrelate
       '.gitignore',
       'CLAUDE.md',
       '.claude/agents/knu_explorer.md',
-      '.claude/skills/design-taste-frontend/SKILL.md',
+      '.claude/skills/redesign-existing-projects/SKILL.md',
       '.claude/skills/redesign-existing-projects/SOURCE.json',
     ]),
     { web: false, api: false, shared: false, storybook: false, infra: false, repoPolicy: true },
   );
   assert.deepEqual(classifyChanges(['.claude/settings.json']), {
+    web: true,
+    api: true,
+    shared: true,
+    storybook: true,
+    infra: true,
+    repoPolicy: true,
+  });
+  assert.deepEqual(classifyChanges(['.claude/skills/design-taste-frontend/SKILL.md']), {
     web: true,
     api: true,
     shared: true,

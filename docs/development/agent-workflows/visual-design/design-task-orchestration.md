@@ -42,12 +42,16 @@ Human Owner ↔ Parent (brief, alternatives, important decisions)
 Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·한국어/a11y·기존 표현/token owner를 덮어쓰지 않습니다.
 한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다.
 
-| 작업                                                | 선택 / 제한                                                                                                   |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Landing·portfolio·소개/전환형 public 화면           | `$design-taste-frontend`; dashboard·data table·multi-step product UI·Native를 소유하지 않음                   |
-| 기존 Auth/Main/support의 audit·targeted improvement | `$redesign-existing-projects`; 기존 stack을 존중하지만 승인된 전면 reimagine를 작은 diff로 강제 축소하지 않음 |
-| 복잡한 제품 flow·전면 IA 개편                       | VisualBrief + domain/state/IA + 실제 render/critique가 owner. 필요한 skill 항목만 보조 사용                   |
-| 작은 padding 수리·이미 승인된 token 적용            | direct path, 두 skill 동시 호출·전면 탐색 불필요                                                              |
+`design-taste-frontend`는 **Codex 전용** 보조 도구입니다. Claude에 이식하거나 공통 workflow 필수 항목으로 요구하지 않습니다.
+Claude의 Landing·public 화면 작업은 공통 VisualBrief·content·a11y·독립 review로 직접 수행합니다.
+`redesign-existing-projects`는 별도 채택 대상이며 host별 발견·자격검증 후 필요한 작업에만 사용합니다.
+
+| 작업                                                | 선택 / 제한                                                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Landing·portfolio·소개/전환형 public 화면           | Codex: `$design-taste-frontend`; Claude: 공통 계약 direct path. Dashboard·data table·multi-step product UI·Native를 소유하지 않음 |
+| 기존 Auth/Main/support의 audit·targeted improvement | `$redesign-existing-projects`; 기존 stack을 존중하지만 승인된 전면 reimagine를 작은 diff로 강제 축소하지 않음                     |
+| 복잡한 제품 flow·전면 IA 개편                       | VisualBrief + domain/state/IA + 실제 render/critique가 owner. 필요한 skill 항목만 보조 사용                                       |
+| 작은 padding 수리·이미 승인된 token 적용            | direct path, 두 skill 동시 호출·전면 탐색 불필요                                                                                  |
 
 검토한 upstream은 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill/tree/c184364c58658b2f131b4ae8bd3d206cabb3deee)의
 `c184364c58658b2f131b4ae8bd3d206cabb3deee`입니다. 경로는 `skills/taste-skill`, `skills/redesign-skill`이며
@@ -57,8 +61,8 @@ frontmatter 이름은 위 호출 이름입니다. 각 subtree의 필수 파일�
 ### Installation and qualification boundary
 
 아래 `skill-installer`, `${CODEX_HOME:-~/.codex}/skills` 및 `$...` 호출 예시는 **Codex 설치·발견 경로**입니다.
-Claude Code는 repository의 [project skill copies와 별도 native qualification](../adapters/claude-code.md#project-visual-skills)을
-사용합니다. 같은 source SHA는 두 host의 실제 발견·지침 적용이 같다는 증거가 아닙니다.
+Claude Code에는 Taste를 복사하지 않으며 [Redesign project copy와 별도 native qualification](../adapters/claude-code.md#project-visual-skills)만
+적용합니다. 아래 두 skill 설치·호출 절차는 Codex에 한정합니다. 같은 source SHA는 두 host의 실제 발견·지침 적용이 같다는 증거가 아닙니다.
 
 1. 현재 host의 installer/discovery 경로·동명 skill·수정 권한을 확인합니다. 설치 요청은 제품 package/font/global config
    변경 승인이 아닙니다. 설치할 두 directory와 network/tmp side effect만 고정하고 기존 설치는 덮어쓰지 않습니다.
