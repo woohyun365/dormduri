@@ -1,5 +1,9 @@
 # Codex and OMX execution adapter
 
+## Cross-host direct CLI reviewer (static boundary)
+
+The [Codex-target bridge policy](../../../../scripts/agents/codex/review-bridge.mjs) describes a **top-level** `codex exec` process for an authorized Claude Lead's additional read-only check. It pins `gpt-6-astra`, `--sandbox read-only`, noninteractive approval denial, a frozen H3 packet and finite source/config/role digests. The top-level CLI has no proven native project-agent selector here: this process must **not** be reported as `.codex/agents/knu_reviewer.toml` or as satisfying Codex's separate required Astra QA. The command object is `enabled:false`; the current bridge cannot run it. A static `candidate` records no auth, model resolution, sandbox observation or live role proof. See the [neutral handoff and live-qualification boundary](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only). Do not switch to `omx ask` as an implicit fallback.
+
 This document owns Codex/OMX model, effort, runtime dispatch, workflow names, and rollback details. It consumes the tool-neutral [orchestration contract](../orchestration.md), [execution contract](../agent-execution-contract.md), and [QA](../qa.md); it does not apply to Claude Code or another host by default. Existing Codex cohort/admission and required Astra QA remain in force for that cohort.
 
 On child completion, added dispatch, capacity error or turn end, the Parent follows [subagent lifecycle](../subagent-lifecycle.md): collect the result, distinguish explicit-close from verified no-close or unknown, and record cleanup and slot evidence separately. The Codex child cap remains six. Missing close support alone does not prove release or failure. Subsequent allocation uses the documented continuation/fan-in capability; `/agents` is optional operator evidence, not mandatory single-root infrastructure.
