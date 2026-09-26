@@ -66,7 +66,7 @@ test('common H3 packet cannot grant Claude runtime or accept Codex-only defaults
   assert.equal(common.validateCrossModelPacket(packet).decision, 'reject');
 });
 
-test('Claude extension is an explicit fail-closed namespace, not model admission', async () => {
+test('Claude extension retains fail-closed runtime readiness alongside static model policy', async () => {
   const { CLAUDE_ADAPTER_READINESS } = await import('../agents/claude/index.mjs');
   assert.deepEqual(CLAUDE_ADAPTER_READINESS, {
     host: 'claude-code',
