@@ -22,12 +22,12 @@
 - `scripts/ci/agent-intake-integration.test.mjs`: intake부터 dispatch 또는 handoff까지의 조합, source freshness,
   no-write 경계
 - `scripts/agents/codex/fresh-session-smoke.mjs`: local session memory 없이 Codex/OMX 대표 route를 확인하는
-  read-only smoke (`scripts/agents/fresh-session-smoke.mjs`는 호환 CLI)
+  read-only smoke
 - `scripts/ci/agent-intake-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
   stale handoff 참조 방지
 
 ```bash
-node scripts/agents/fresh-session-smoke.mjs --json
+node scripts/agents/codex/fresh-session-smoke.mjs --json
 ```
 
 ## 적용 순서

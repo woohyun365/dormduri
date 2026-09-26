@@ -2,21 +2,21 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { runFreshSessionSmoke } from '../agents/fresh-session-smoke.mjs';
+import { runFreshSessionSmoke } from '../agents/codex/fresh-session-smoke.mjs';
 
-import { recommendDelegation } from '../agents/child-task-contract.mjs';
+import { recommendDelegation } from '../agents/codex/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
   createSemanticSourceId,
-} from '../agents/routing-policy.mjs';
+} from '../agents/codex/routing-policy.mjs';
 import {
   createDispatchRecommendation,
   evaluateRecovery,
   prepareLeaderSynthesis,
-} from '../agents/orchestration-policy.mjs';
+} from '../agents/codex/orchestration-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const fixtures = JSON.parse(

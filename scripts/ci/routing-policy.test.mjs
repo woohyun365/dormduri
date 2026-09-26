@@ -7,7 +7,7 @@ import {
   createSemanticSourceId,
   selectAgentRoute,
   normalizeModelRequest,
-} from '../agents/routing-policy.mjs';
+} from '../agents/codex/routing-policy.mjs';
 
 const TASK_KINDS = [
   'lookup',

@@ -7,7 +7,7 @@ import {
   parseContextContract,
   parsePriorityPointer,
   validateContextContract,
-} from '../agents/session-contract.mjs';
+} from '../agents/codex/session-contract.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 

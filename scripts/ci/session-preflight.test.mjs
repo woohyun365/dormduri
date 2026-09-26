@@ -36,10 +36,6 @@ function fixture(t, options = {}) {
     return resolve(root, path);
   };
   for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
-    mkdirSync(resolve(root, 'scripts/agents'), { recursive: true });
-    cpSync(resolve(repoRoot, 'scripts/agents', file), resolve(root, 'scripts/agents', file));
-  }
-  for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
     mkdirSync(resolve(root, 'scripts/agents/codex'), { recursive: true });
     cpSync(
       resolve(repoRoot, 'scripts/agents/codex', file),
@@ -144,7 +140,7 @@ syncBuiltinESMExports();`,
       [
         '--import',
         resolve(root, 'audit.mjs'),
-        resolve(root, 'scripts/agents/session-preflight.mjs'),
+        resolve(root, 'scripts/agents/codex/session-preflight.mjs'),
         ...args,
       ],
       {

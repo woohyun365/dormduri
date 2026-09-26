@@ -7,14 +7,14 @@ import {
   assessLaneIndependence,
   createModelScopeDigest,
   recommendDelegation,
-} from '../agents/child-task-contract.mjs';
+} from '../agents/codex/child-task-contract.mjs';
 import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
 import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
   createSemanticSourceId,
-} from '../agents/routing-policy.mjs';
+} from '../agents/codex/routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const legalEvidence = [

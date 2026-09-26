@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { selectAgentRoute } from '../agents/routing-policy.mjs';
+import { selectAgentRoute } from '../agents/codex/routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const fixtures = JSON.parse(

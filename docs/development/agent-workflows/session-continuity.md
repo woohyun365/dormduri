@@ -3,7 +3,7 @@
 새 session은 이전 transcript를 복제하는 대신 현재 repository evidence로 작업을 재구성합니다.
 
 Repository 상태의 읽기 전용 요약은 `pnpm agent:preflight`를 사용합니다. Resume 작업에서는
-`node scripts/agents/session-preflight.mjs --resume --plan <repository-relative-plan> --json`으로 선택한 계획과 관련된
+`node scripts/agents/codex/session-preflight.mjs --resume --plan <repository-relative-plan> --json`으로 선택한 계획과 관련된
 bounded context 진단을 확인합니다. 파싱 성공과 현재 작업에 사용할 수 있다는 판단은 다릅니다. 진단 결과도 실제
 code/test/git evidence 및 최신 사용자 요청과 대조하며, 실행 권한이나 완벽한 기억을 보장하지 않습니다.
 

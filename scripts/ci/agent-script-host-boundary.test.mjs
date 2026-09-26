@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -77,18 +77,20 @@ test('Claude extension is an explicit fail-closed namespace, not model admission
   assert.equal(Object.isFrozen(CLAUDE_ADAPTER_READINESS), true);
 });
 
-test('Codex implementations have one owner and root compatibility exports stay exact', async () => {
+test('Codex implementations have one owner and no root compatibility imports remain', async () => {
   for (const name of codexOwners) {
     const owner = await import(`../agents/codex/${name}.mjs`);
-    const compatibility = await import(`../agents/${name}.mjs`);
-    assert.deepEqual(Object.keys(compatibility), Object.keys(owner), name);
-    for (const key of Object.keys(owner))
-      assert.equal(compatibility[key], owner[key], `${name}.${key}`);
-    const wrapper = readFileSync(resolve(root, `scripts/agents/${name}.mjs`), 'utf8');
-    assert.match(wrapper, new RegExp(`export \\* from './codex/${name}\\.mjs';`));
+    assert.ok(Object.keys(owner).length > 0, name);
+    assert.equal(existsSync(resolve(root, `scripts/agents/${name}.mjs`)), false, name);
   }
-  const cliWrapper = readFileSync(resolve(root, 'scripts/agents/session-preflight.mjs'), 'utf8');
-  assert.match(cliWrapper, /import '\.\/codex\/session-preflight\.mjs';/u);
+  assert.equal(existsSync(resolve(root, 'scripts/agents/session-preflight.mjs')), false);
+  const cli = resolve(root, 'scripts/agents/codex/session-preflight.mjs');
+  assert.notEqual(statSync(cli).mode & 0o111, 0, 'direct preflight CLI stays executable');
+  const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
+  assert.match(
+    manifest.scripts['agent:preflight'],
+    /scripts\/agents\/codex\/session-preflight\.mjs/u,
+  );
 });
 
 test('common import graph cannot acquire Codex, Claude, model or OMX policy', () => {
