@@ -71,6 +71,8 @@ Role 파일/이름은 tool permission을 넓히지 않습니다.
 
 아래가 공통 QA 입력/결과의 단일 owner입니다. 실행 계약·plan·PR은 이곳을 참조하며 양식을 복제하지 않습니다.
 필요한 포인터와 범위를 제공하되 raw transcript, secret, 불필요한 ignored memory는 넘기지 않습니다.
+Codex↔Claude checker handoff의 방향·transport·finding 판정 경계는
+[Cross-model handoff](./adapters/cross-model-handoff.md)가 이 packet을 재사용해 설명합니다.
 
 ```text
 Input

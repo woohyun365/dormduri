@@ -16,6 +16,7 @@
 - [Session continuity](./session-continuity.md): fresh/resume, checkpoint, active plan과 closeout 규칙
 - [Orchestration](./orchestration.md): host 공통 single-agent 기본값, bounded fan-out과 책임 경계
 - [Host adapters](./adapters/README.md): Codex/OMX 전용 모델·runtime 및 Claude Code native 역할·권한·skill 적용
+- [Cross-model QA handoff](./adapters/cross-model-handoff.md): Codex↔Claude 독립 checker의 단일 writer, fresh snapshot, finding 재현과 live qualification 경계
 - [Subagent lifecycle](./subagent-lifecycle.md): Parent의 완료 스레드 정리·슬롯 확인·capacity 오류 복구
 - [QA](./qa.md): 인수 조건 도출, 코드 리뷰, 완료 검증의 근거와 판정 방식
 - [Refactor analysis](./refactor-analysis.md): 책임 경계와 분리 순이익을 분석하는 방식
