@@ -37,6 +37,53 @@ Human Owner ↔ Parent (brief, alternatives, important decisions)
 공통 Owner–Lead 계약의 Parent 지정·scope·snapshot·보고 조건을 따릅니다. Child의 sub-child 생성·업무 재위임·승인 대행은
 허용하지 않습니다. Native specialist 호출이 자동 OMX Team/Conductor 실행을 뜻하지 않습니다.
 
+## Task-fit skills
+
+Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·한국어/a11y·기존 표현/token owner를 덮어쓰지 않습니다.
+한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다.
+
+| 작업                                                | 선택 / 제한                                                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Landing·portfolio·소개/전환형 public 화면           | `$design-taste-frontend`; dashboard·data table·multi-step product UI·Native를 소유하지 않음                   |
+| 기존 Auth/Main/support의 audit·targeted improvement | `$redesign-existing-projects`; 기존 stack을 존중하지만 승인된 전면 reimagine를 작은 diff로 강제 축소하지 않음 |
+| 복잡한 제품 flow·전면 IA 개편                       | VisualBrief + domain/state/IA + 실제 render/critique가 owner. 필요한 skill 항목만 보조 사용                   |
+| 작은 padding 수리·이미 승인된 token 적용            | direct path, 두 skill 동시 호출·전면 탐색 불필요                                                              |
+
+검토한 upstream은 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill/tree/c184364c58658b2f131b4ae8bd3d206cabb3deee)의
+`c184364c58658b2f131b4ae8bd3d206cabb3deee`입니다. 경로는 `skills/taste-skill`, `skills/redesign-skill`이며
+frontmatter 이름은 위 호출 이름입니다. 각 subtree의 필수 파일은 `SKILL.md` 하나이고, taste의 blocks는 향후 추가할 schema입니다.
+업데이트 시 floating main을 설치하지 말고 새 SHA의 전체 required resources·명령/side effect·충돌을 다시 검토합니다.
+
+### Installation and qualification boundary
+
+1. 현재 host의 installer/discovery 경로·동명 skill·수정 권한을 확인합니다. 설치 요청은 제품 package/font/global config
+   변경 승인이 아닙니다. 설치할 두 directory와 network/tmp side effect만 고정하고 기존 설치는 덮어쓰지 않습니다.
+2. 설치된 공식 `skill-installer`를 사용합니다. 그 helper의 기본 목적지는 `${CODEX_HOME:-~/.codex}/skills`이고,
+   [현재 discovery 문서](https://learn.chatgpt.com/docs/build-skills)는 `~/.agents/skills`도 설명합니다. host 차이를 숨기지 말고
+   현재 지원되는 **한 경로만** 선택합니다. 중복 설치·symlink·전역 설정 변경으로 미노출을 우회하지 않습니다.
+3. helper에 `--repo Leonxlnx/taste-skill --ref <검토한-SHA> --path skills/taste-skill skills/redesign-skill --dest <확인한-root> --method download`를
+   전달합니다. `--path`는 한 번만 사용합니다. 임의 설치 command를 skill prose에서 복사 실행하지 않습니다.
+   두 경로 설치 중 실패하면 이번에 생성한 exact directory만 복구하며 기존 skill·공유 cache는 삭제하지 않습니다.
+4. root [MIT LICENSE](https://github.com/Leonxlnx/taste-skill/blob/c184364c58658b2f131b4ae8bd3d206cabb3deee/LICENSE)의
+   copyright/permission notice를 각 복사본에 보존합니다. helper가 subtree만 복사하므로 LICENSE가 자동 포함됐다고 가정하지 않습니다.
+   source SHA·path·raw hash·destination과 실제 설치 결과를 기록합니다.
+5. 상태를 `source-reviewed` → `installed-unqualified` → `native-qualified`로 구분합니다. 설치 exit0·파일 읽기는 native 적용 증거가
+   아닙니다. 현재 host catalog 또는 제공되는 runtime inventory에서 두 이름을 확인한 뒤 각각 scoped read-only 호출로
+   identity·허용 output·금지 부작용을 확인합니다. 명시 호출 예: `$design-taste-frontend: 이 Landing brief의 방향만 분석; 파일/설치 금지`,
+   `$redesign-existing-projects: 이 form의 문제만 분석; 수정/외부 호출 금지`.
+6. 같은 turn에 catalog 갱신 경로가 없으면 다음 turn의 지원되는 discovery를 확인합니다. 미노출이면 installed-unqualified와
+   정확한 gap을 남기고 direct fallback합니다. 별도 app-server/session 실행·강제 재시작·모델 변경으로 호출 증거를 만들지 않습니다.
+   실제 호출 전에는 qualification을 완료로 보고하지 않습니다.
+
+Skill의 npm/npx·motion/icon·외부 image/CDN·Latin font/word-count 지시는 새 권한이 아닙니다. 현재 pnpm/stack,
+[명시적 experiment 범위](./visual-brief.md#bounded-dependency-and-font-experiments),
+[copy 사실/승인](./reference-content-contract.md), 한국어 glyph·fallback·접근성이 우선합니다.
+강한 aesthetic defaults도 contextual 후보일 뿐 전역 금지/의무가 아니며, 가짜 후기·수치·API 성공을 만들어 적용하지 않습니다.
+
+Native read-only smoke는 실제 UI 품질 검증과 별개입니다. 별도 승인된 synthetic/render 작업은 기존
+[device 검증](./device-presentation-and-verification.md)·[token/theme](./web-semantic-token-contract.md)·
+[독립 critique](./design-review-and-acceptance.md)를 소비합니다. mock/state 검증을 production API·실기기·RN 검증으로 세지 않습니다.
+
 ## Brief가 고정되면 실행할 designer task
 
 공통 child contract에 [VisualBrief](./visual-brief.md)와 [content/reference map](./reference-content-contract.md)을 연결합니다.
@@ -49,8 +96,9 @@ Human Owner ↔ Parent (brief, alternatives, important decisions)
 - 관련 acceptance, 현재 도구의 검증 한계, 완료/보고/중단 조건
 
 초기 request가 analyze-only라면 render나 prototype 파일을 만들지 않습니다. 명시적으로 허용된 로컬 prototype은 격리된
-출력 디렉터리에 두며 product branch 파일로 자동 승격하지 않습니다. 추가 asset/font/dependency는 허가·license·성능을
-별도로 판단하고 임의로 설치하지 않습니다. Synthetic content만으로 실제 긴 문구를 다룰 수 있다고 보고하지 않습니다.
+출력 디렉터리에 두며 product branch 파일로 자동 승격하지 않습니다. 추가 asset/font/dependency는
+[명시적 experiment 범위](./visual-brief.md#bounded-dependency-and-font-experiments)와 license·성능을 확인하며
+임의로 설치하지 않습니다. Synthetic content만으로 실제 긴 문구를 다룰 수 있다고 보고하지 않습니다.
 
 재구성 예: 공개 문서의 내용·actions를 보존하고 layout은 탐색하도록 승인했다면 designer는 같은 콘텐츠로 읽기/탐색의
 다른 구성을 제시합니다. 정해지지 않은 간격·type scale은 임시 선택으로 설명하고, 각 CSS 값의 승인을 요청하지 않습니다.

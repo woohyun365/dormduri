@@ -49,6 +49,26 @@ production surface와 Storybook의 상태 정합성도 검증합니다. 정적 H
 정의된 범위에서 끝낼 수 있지만, 이를 production 디자인 승인으로 표현하지 않습니다. 필수 기능·권한 위반은 취향 차이로
 완화하지 않습니다. 접근성 문제와 Owner 선호가 충돌하면 그 방향을 살린 접근 가능한 대안을 제시합니다.
 
+## Assertion transition before UI changes
+
+승인된 개편에서도 테스트의 미감과 보호 의미를 구분합니다. 기존 class 때문에 새 방향을 축소하거나 파일 전체를 삭제하지 않습니다.
+
+1. 영향 surface의 instruction·token·class/text/DOM assertion·snapshot을 조사합니다. 전 화면 inventory는 불필요합니다.
+2. `assertion → 보호 intent → authority/source → preserve/replace/retire → replacement evidence`를 매핑합니다.
+3. 현재 semantic regression baseline을 확보하고 **대체 회귀를 먼저 정의한 뒤** 충돌하는 미감 guard의 교체를 설계합니다.
+   실제 UI branch에서 필요한 test 전환과 구현을 RED→GREEN으로 진행합니다. 기존 PASS를 인위적인 결함으로 세지 않습니다.
+4. 개인정보·상태·action·정책·a11y 보호는 유지하고, 새 palette/layout/copy는 승인된 revision으로 검증합니다.
+   blanket snapshot 갱신·미감 테스트 전부 삭제는 대체 검증이 아닙니다.
+
+예: header의 blur 부재 assertion은 개편 시 교체할 수 있지만 home link 의미는 보존합니다. Login의 grid/spacing은
+reflow·reset action·고지 노출을 보호할 수 있으므로 cosmetic이라고 일괄 제거하지 않습니다. Roommate 카드의 색은
+바꿔도 private detail/token 비노출 회귀는 유지합니다. Hero 문구/heading 순서는 [copy 권한](./reference-content-contract.md)을
+분류하고, 학교 이메일 lookalike 거절은 미감과 무관한 eligibility/security 불변 조건으로 남깁니다.
+
+실제 변경은 [표현·device packet](./device-presentation-and-verification.md)과
+[token/theme 계약](./web-semantic-token-contract.md)을 소비하고 production/fixture의 해당 state를 대조합니다.
+이 절차 채택 자체는 제품 테스트 삭제나 현재 화면 baseline 전환 완료가 아닙니다.
+
 ## Anti-slop은 맥락 비평이지 CSS 금지 목록이 아님
 
 AI-slop은 작성자를 탐지하는 지표가 아니라 **이 brief를 검토하지 않고 반복한 template 선택**으로 다룹니다.
@@ -143,3 +163,33 @@ light·reduced motion·scale 1, viewport **390×900 / 1280×900**과 **320×900*
 Owner preference는 **not-collected**, 승인된 외부 reference fidelity는 **not-applicable**, 인간 usability는 **unvalidated**입니다.
 전 조항 keyboard-only 탐색, screen reader, 전체 색상 대비·zoom·교차 브라우저, 실제 API/OS 동작, production/Storybook
 parity와 장치 성능은 이 로컬 하네스 검증으로 대신하지 않습니다. 제품 적용 시에는 해당 화면의 새 brief·승인·검증이 필요합니다.
+
+## Task-fit skill의 로컬 렌더 관측 — 2026-09-25
+
+[Task-fit routing](./design-task-orchestration.md#task-fit-skills)을 통해 Landing형 `reimagine`에는
+`design-taste-frontend`, 기존 form형 `maintain`에는 `redesign-existing-projects`를 각각 적용했습니다.
+각 baseline/candidate는 같은 한국어 문구·지원 자격·필수 고지·mock 행동을 가진 독립 HTML fixture입니다.
+현재 production 화면의 복제나 채택된 새 디자인이 아니며, 폰트·package·API·DB·전역 설정은 변경하지 않았습니다.
+
+- 기존 파란색/class는 Landing candidate의 제약으로 상속하지 않았습니다. 대신 CTA 이름·행동·고지와
+  실제 text contrast·focus·touch target·reflow를 대체 검증으로 두었습니다. Form은 필드/action 구조를 유지했습니다.
+- 두 task의 baseline/candidate를 각각 320·390·767·768·1280×900, 1024×768에서 렌더했고,
+  form에는 390×560을 추가했습니다. 한 revision당 26개 context에서 실제 viewport와 PNG 크기를 대조했습니다.
+  Mobile touch emulation/tap과 Desktop mouse, 순차 Tab을 사용했으며 프로젝트 이름만으로 device를 판정하지 않았습니다.
+- Form의 idle/pending/error/명시적 mock success, pending 잠금·재시도·reset·resize 후 입력 보존,
+  320px text-spacing override를 확인했습니다. 공유 mock script는 baseline/candidate에서 동일합니다.
+- 독립 검토에서 Landing 제목의 한국어 단어 내부 줄바꿈을 관찰했습니다. `word-break: keep-all`과 긴 token의
+  emergency wrapping만 한 차례 적용하고 동일 matrix를 재캡처했습니다. Form에는 근거 없는 추가 수정을 하지 않았습니다.
+- Playwright 1.63.0 / Chromium 153.0.8010.12, macOS system font, ko-KR, light 환경·reduced motion·scale 1입니다.
+  페이지 외부 요청은 차단했고 시도·JS 오류는 0건이었습니다. 각 초기 viewport 캡처는 연속 hash가 같았습니다.
+  최초 sandbox의 MachPort 제한은 동일 로컬 renderer에 대한 host 승인으로 해소했습니다.
+
+Source·brief hash, 원본 HTML, 캡처, runner, 독립 critique·keep/revert는
+`artifacts/local/frontend-visual-skill-adoption/2026-09-25/vd3/`의 로컬 관측 evidence입니다.
+다른 clone의 재현은 같은 [device packet](./device-presentation-and-verification.md#device-verification-packet)과
+새 artifact를 사용하며, skill 갱신·미노출·설치 복구는 [기존 설치/qualification 계약](./design-task-orchestration.md#installation-and-qualification-boundary)을 따릅니다.
+
+이는 유한한 synthetic workflow 검증입니다. Mock은 실제 인증·저장·자격 validation의 증거가 아니며,
+production/Storybook parity, 실제 OS keyboard·safe area, screen reader, 전체 zoom·WCAG·교차 browser는 미검증입니다.
+계산된 text contrast는 pseudo 배경 texture와 focus indicator 전체를 인증하지 않습니다. 사람의 선호·사용성 향상은
+미측정이며, 선택한 후보의 제품 채택은 별도 surface brief·권한·실제 동작 검증이 필요합니다.

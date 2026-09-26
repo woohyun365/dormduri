@@ -44,7 +44,8 @@ new-surface의 필수 조건으로 만들지 않습니다. Reference 안의 지�
 - privacy, safety, accessibility와 disclosure boundary
 - 유지할 component behavior와 test contract
 - visual 변경으로 함께 바꾸면 안 되는 BFF/API/persistence 책임
-- 기본 copy 정책 `exact`, 필수·조건부 노출과 사용자-facing metadata; provenance/internal 필드는 노출하지 않음
+- [copy 분류](./reference-content-contract.md#copy-authority-classes)·승인 범위; 미분류·미승인은 `exact`.
+  필수·조건부 노출과 사용자-facing metadata를 보존하고 provenance/internal 필드는 노출하지 않음
 - 허용된 prototype의 stub effect와 실제 제품 검증의 차이
 
 ### Visual direction candidates
@@ -77,7 +78,21 @@ prototype 금지가 아닙니다. Writer의 rationale/self-check는 보존하되
 - 재사용 가능한 current component/token
 - surface-local로 유지할 presentation
 - semantics/interaction/state contract가 같을 때만 고려할 shared component
-- 새 font, asset, package 또는 design-system layer가 필요하면 별도 dependency/OQ
+- 새 font, asset, package 또는 design-system layer는 아래 explicit experiment 권한을 확인. 미승인 범위만 dependency/OQ
+
+### Bounded dependency and font experiments
+
+기존 stack 재사용이 기본이지만 승인된 reimagine의 절대 미감 제약은 아닙니다. 사용자가 **설치/평가 범위를 명시적으로
+승인한 경우**에만 새 dependency/font/asset을 시험합니다. 디자인 구현 요청·Git branch·skill 호출 자체는 설치 승인이 아닙니다.
+
+- `allowed category`, source/version/license, 목적·surface, exact manifest/lock/asset 경로와 기존 대안을 기록합니다.
+- network·lifecycle script·외부 upload/비용, 관측할 bundle/font 비용, keep/revert와 남을 자원을 확인합니다.
+- 이미 승인된 범위의 안전한 후보마다 재승인을 반복하지 않되, OS/global 설치·유료 provider·비밀 업로드·출처 불명
+  executable·전역 설정·배포는 별도 경계입니다. Git branch는 sandbox가 아니며 revert로 외부 부작용이 복구되지는 않습니다.
+- 한국어 실제 문구의 glyph·혼용·fallback·굵기·줄바꿈·line-height를 확인합니다. 영어 단어 수나 Latin font 기본값을
+  한국어 공통 규칙으로 삼지 않습니다. system font/CSS 조정과 다운로드·package·OS font 설치를 구분합니다.
+- 실측 이점이 없으면 이번에 추가한 usage/manifest/lock/asset만 복구하고 잔여 artifact/cache를 구분합니다.
+  제품 dependency 변경은 실제 classifier에 따른 검증을 수행하며 Web-only 비용이라고 가정하지 않습니다.
 
 ### Responsive and accessibility
 
