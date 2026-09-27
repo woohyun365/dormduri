@@ -24,7 +24,7 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 | `common/adapter-contract.mjs` | descriptor/capability, bounded lanes·receipt/fan-in, 독립 QA 입력 적합성                 | static conformance tests와 명시적 API 소비자; scheduler·provider launcher 아님        |
 | `common/index.mjs`            | 위 공통 API의 공개 facade                                                                | export만으로 host admission/invocation을 입증하지 않음                                |
 | `codex/`                      | profiles·routing·child/orchestration·model evidence·smoke·session parser/preflight       | 기존 Codex tests/CLI 유지, 모델·effort·상한은 공통 기본값이 아님                      |
-| `claude/`                     | Git/계획 preflight·direct workflow·finite static model policy                            | 실제 CLI/API가 공통 계약을 소비; native `unsupported/unknown`, `applied:false` 유지   |
+| `claude/`                     | Git/계획 preflight·direct workflow·finite model policy·native session coordination       | 공통 계약과 project hook이 manifest/Agent input/receipt를 연결; 인증·전역 지원 아님   |
 | `bridge/`                     | static one-shot packet와 고정 fake process                                               | 실제 provider launcher가 아님; live 기본 비활성 유지                                  |
 
 `codex/workflow-entry.mjs`는 공통 route·lane/result/QA contract와 기존 Codex policy의 실제 composition입니다. `codex:workflow`와 smoke가 이를 소비하며 native/provider 실행은 하지 않습니다.
@@ -65,5 +65,16 @@ allow/deny, executor evidence, lifecycle/cleanup 및 host 간 인계를 관측�
 스크립트·테스트·fixture의 host 명명 및 owner 배치는 [scripts/agents 안내](../../../../scripts/agents/README.md)를 따릅니다.
 
 Claude의 `claude:preflight`·`claude:workflow`는 [Claude adapter](./claude-code.md#loading-and-scope)의 실제
-Git/계획·direct-task 경로입니다. Common validator를 소비하지만 native Agent/model 호출은 활성화하지 않습니다.
-두 host가 같은 공통 source와 QA 계약을 사용한다는 사실과 runtime의 강제 통제·관측은 별도입니다.
+Git/계획·direct-task 경로입니다. `claude --permission-mode auto`는 기존 Home·project 설정을 로드하는 표준 interactive
+entry이며 bypass mode가 아닙니다. OMC가 Claude 설정에서 설치·활성화되어 있으면 Claude가 자동으로 plugin을 로드하므로
+별도 `omc` CLI prefix는 필요하지 않습니다. 모든 설치에 OMC가 있다는 뜻은 아닙니다. Codex/OMX의 승인 classifier와
+의도는 유사하지만 sandbox·보안 동작이 동일하다는 뜻은 아닙니다. Parent model·fallback과 native Agent 지원은 실제
+UI/tool 결과로 확인합니다.
+
+같은 session에서 `pnpm claude:native register --input <JSON-file>`로 등록한 manifest는 project `SessionStart`,
+`PreToolUse Agent`, `PostToolUse Agent` hook이 정확한 Agent 입력과 receipt를 연결하는 coordination record입니다.
+Manifest는 인증·업무 승인·model 설정이 아닙니다. Healthy PreToolUse는 model 누락·불일치를 거부하고 일치하면 allow
+override 없이 정상 `auto` classifier에 맡깁니다. Hook 부재·crash는 fail-closed 보장이 아니므로 같은 session/tool
+receipt, source·의미 검증과 공통 QA가 완료에 필요합니다. 이 경로만으로 generic native support나 `runtime-qualified`를
+전역 선언하지 않습니다. 기존 headless qualification은 별도 legacy test이고 interactive auto evidence가 아니며,
+cross-CLI bridge는 계속 unsupported입니다.

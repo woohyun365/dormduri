@@ -17,6 +17,39 @@ Codex/OMX에서는 아래의 native 실행·승인 경계를 따릅니다. Claud
 미입증 위임·필수 독립 검토는 완료로 가장하지 않습니다. 실제 결과와 정적 문서 검사를 구분합니다.
 아래 Codex 절은 Codex/OMX를 선택한 경우에만 읽으며, 다른 host는 **공통 입력**으로 이동합니다.
 
+## Claude Code 실행과 승인
+
+Claude Code를 선택했다면 저장소 root에서 다음 표준 명령으로 새 interactive session을 시작합니다.
+
+```bash
+claude --permission-mode auto
+```
+
+이 명령은 사용자의 기존 Home·project 설정을 그대로 로드합니다. OMC가 해당 설정에 설치·활성화되어 있으면 Claude가
+함께 로드하므로 별도 `omc` CLI prefix가 필요하지 않습니다. 모든 Claude 설치에 OMC가 있다는 뜻은 아니며 plugin
+loading은 현재 Claude 설정이 결정합니다. 저장소 작업을 위해 Home에 plugin·hook·role을 설치하거나 기존 설정을
+바꾸지 않습니다. `auto`는 각 tool 요청을 Claude Code의 일반 승인 classifier로 판정하는 모드이며
+`bypassPermissions`가 아닙니다. Codex/OMX의 `--approve-for-me`와 같은 사용자 의도를 지원하지만
+sandbox·reviewer·보안 강제가 동일하다는 뜻은 아닙니다.
+
+시작 후 현재 CLI의 실제 UI에서 permission mode, loaded source와 parent model을 확인합니다. 원하는 parent model이
+가용하지 않아 fallback되거나 native Agent 지원이 보이지 않으면 실제 표시를 현재 사실로 사용합니다. 실행 명령이
+model을 설정하거나 task 권한을 부여한다고 가정하지 않습니다.
+
+Native Agent에 맡길 bounded task가 있을 때만 같은 parent session의 `session_id`로 manifest를 등록합니다.
+
+```bash
+pnpm claude:native register --input <JSON-file>
+```
+
+입력 파일의 manifest는 역할·범위·profile과 정확한 Agent 입력을 연결하는 coordination record입니다. 인증이나 업무 승인 수단이
+아닙니다. 정상 hook은 manifest와 다른 model 또는 model 누락을 거부하지만 hook 부재·crash까지 fail-closed라고
+보장하지 않습니다. 완료 판정에는 같은 session과 tool 호출의 receipt, 현재 source, 의미 검증과 공통 QA가 모두
+필요합니다. 일반 작업은 먼저 공통 문서를 따르고, 역할별 tool 제한·single writer·필요한 독립 QA를 유지합니다.
+
+세부 hook과 증거 경계는 [Claude Code adapter](./adapters/claude-code.md)를 따릅니다. 기존 headless native
+qualification은 별도 legacy 검증이며 interactive `auto`의 증거가 아닙니다. Cross-CLI bridge도 계속 미지원입니다.
+
 ## Codex/OMX 실행과 승인
 
 저장소로 이동한 뒤, 설치된 `codex --help`가 `--approve-for-me`를 지원하고 계정·managed 정책이 허용하면

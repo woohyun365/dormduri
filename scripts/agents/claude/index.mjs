@@ -1,8 +1,10 @@
-// Static contract only. Runtime/model admission still requires later live validation.
+// Mode-specific repository wiring, not a claim about a currently running host.
 export const CLAUDE_ADAPTER_READINESS = Object.freeze({
   host: 'claude-code',
-  admission: 'unsupported',
-  runtimeSupport: 'unknown',
+  admission: 'mode-specific',
+  mode: 'interactive-auto',
+  enforcement: 'healthy-hook-request-check',
+  runtimeSupport: 'per-run-observation-required',
   applied: false,
 });
 
@@ -24,3 +26,9 @@ export {
   decideClaudeNativePermission,
 } from './native-qualification.mjs';
 export { createClaudeNativeCollector } from './native-run-evidence.mjs';
+
+export {
+  registerClaudeNativeTask,
+  handleClaudeNativeSessionEvent,
+  completeClaudeNativeTask,
+} from './native-session.mjs';

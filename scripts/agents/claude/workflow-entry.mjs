@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
@@ -22,7 +23,7 @@ function fields(value, allowed, label) {
 
 // No provider transport is accepted here. Native reports remain caller-supplied data;
 // even an eligible immutable model binding is not a dispatch or runtime permission.
-function nativeAssessment(nativeRequest, envelope, adapterIdentity) {
+function nativeAssessment(nativeRequest, envelope, adapterIdentity, nativeMode) {
   let profileAssessment = null,
     binding = null;
   if (nativeRequest !== undefined) {
@@ -47,10 +48,15 @@ function nativeAssessment(nativeRequest, envelope, adapterIdentity) {
     profileAssessment = evaluateClaudeProfileEligibility(selection);
     if (profileAssessment.eligible) binding = createClaudeSubagentBinding(selection);
   }
+  const eligible = Boolean(binding && nativeMode === 'interactive-auto');
   return {
-    status: 'not-ready',
-    requestStatus: nativeRequest === undefined ? 'not-requested' : 'blocked',
-    reason: 'strict-native-dispatch-not-qualified',
+    mode: nativeMode ?? 'unselected',
+    status: eligible ? 'policy-ready' : 'not-ready',
+    requestStatus:
+      nativeRequest === undefined ? 'not-requested' : eligible ? 'eligible' : 'blocked',
+    reason: eligible
+      ? 'live-hook-and-result-checks-required'
+      : 'strict-native-dispatch-not-qualified',
     runtimeSupport: 'unknown',
     reportedEvidenceAuthority: 'none',
     profileAssessment,
@@ -75,10 +81,13 @@ export function prepareClaudeWorkflow({
   planReadiness,
   reviewDisposition,
   nativeRequest,
+  nativeMode,
   reportedRuntimeEvidence,
   ...extra
 } = {}) {
   fields(extra, [], 'workflow');
+  if (nativeMode !== undefined && nativeMode !== 'interactive-auto')
+    throw new TypeError('unsupported native mode');
   const envelope = buildTaskEnvelope({ request });
   // A sanitized display summary can truncate or redact distinct requests to the same text.
   // Bind the full input independently without storing its plaintext in portable outputs.
@@ -113,7 +122,7 @@ export function prepareClaudeWorkflow({
           identity: adapterIdentity,
           capabilities: {
             direct: 'supported',
-            'native-child': 'unsupported',
+            'native-child': nativeMode === 'interactive-auto' ? 'unknown' : 'unsupported',
             'model-observation': 'unknown',
             'permission-observation': 'unknown',
           },
@@ -139,7 +148,7 @@ export function prepareClaudeWorkflow({
     : null;
   if (laneValidation && !laneValidation.valid)
     throw new TypeError(laneValidation.errors.join('; '));
-  const native = nativeAssessment(nativeRequest, envelope, adapterIdentity);
+  const native = nativeAssessment(nativeRequest, envelope, adapterIdentity, nativeMode);
   // Reports do not change this gate; no alternate CLI or provider path is selected.
   void reportedRuntimeEvidence;
   const gaps = [
@@ -154,6 +163,13 @@ export function prepareClaudeWorkflow({
     currentSnapshot.dirtyDiffDigest !==
       (preflight.baseline.clean ? null : `sha256:${preflight.baseline.diffHash}`)
       ? ['current-source-diff-mismatch']
+      : []),
+    ...(currentSnapshot &&
+    !isDeepStrictEqual(
+      currentSnapshot.untrackedInputDigests,
+      preflight.baseline.untrackedInputDigests,
+    )
+      ? ['current-untracked-input-mismatch']
       : []),
     ...(adapterValidation ? adapterValidation.errors : ['adapter-identity-required']),
     ...(reviewDisposition === undefined ? ['independent-review-disposition-required'] : []),

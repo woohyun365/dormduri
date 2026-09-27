@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { realpathSync } from 'node:fs';
+import { realpathSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readPlan, assessPlanContinuation } from '../common/plan-store.mjs';
@@ -143,24 +143,42 @@ export function runClaudePreflight({
       (rawStatus !== null && rawStatus !== '' && !rawStatus.endsWith('\0')))
   )
     diagnostics.push('git-baseline-invalid');
+  // Fingerprint new source files as well as tracked bytes; stage is not an execution prerequisite.
+  const untrackedInputDigests = [];
+  try {
+    if (untracked !== null) {
+      const names = untracked.toString('utf8');
+      if (!Buffer.from(names).equals(untracked)) throw new Error('non-UTF8 untracked path');
+      let total = 0;
+      for (const path of names.split('\0').filter(Boolean)) {
+        const full = resolve(realpathSync(root), path),
+          stat = lstatSync(full);
+        if (realpathSync(resolve(full, '..')) !== resolve(full, '..'))
+          throw new Error('untracked ancestor symlink');
+        if (!stat.isFile() && !stat.isSymbolicLink()) throw new Error('untracked non-file');
+        if (stat.size > 8 * 1024 * 1024 || (total += stat.size) > 32 * 1024 * 1024)
+          throw new Error('untracked byte limit');
+        const bytes = stat.isSymbolicLink()
+          ? readlinkSync(full, { encoding: 'buffer' })
+          : readFileSync(full);
+        const digest =
+          'sha256:' + createHash('sha256').update(`${stat.mode}\n`).update(bytes).digest('hex');
+        untrackedInputDigests.push({ path, digest });
+      }
+    }
+  } catch {
+    diagnostics.push('untracked-content-unobservable');
+  }
   const gitComplete = diagnostics.length === 0;
-  // Base64 preserves even non-UTF8 filenames; rawStatus is the readable UTF8 projection.
-  // Do not implement a second XY/rename classifier.
-  // Git diff does not fingerprint untracked contents. Refuse a continuation snapshot rather
-  // than silently treating unchanged filenames as unchanged source. Ignored files are excluded.
-  if (untracked?.length) diagnostics.push('untracked-content-not-fingerprinted');
-  // Versioned digest: each status/index/HEAD-diff byte sequence is framed by its decimal
-  // byte length + LF. Index mode/blob/stage/path records bind staged content independently
-  // of the worktree (MM plus an empty HEAD diff does not identify the staged blob).
-  const diffHash =
-    gitComplete && untracked?.length === 0
-      ? [statusBytes, indexBytes, diff]
-          .reduce(
-            (hash, bytes) => hash.update(`${bytes.length}\n`).update(bytes),
-            createHash('sha256').update('claude-git-baseline/v2\n'),
-          )
-          .digest('hex')
-      : null;
+  // Length-framed raw status/index/diff plus bounded new-file digests. Ignored inputs remain outside Git.
+  const diffHash = gitComplete
+    ? [statusBytes, indexBytes, diff, Buffer.from(JSON.stringify(untrackedInputDigests))]
+        .reduce(
+          (hash, bytes) => hash.update(`${bytes.length}\n`).update(bytes),
+          createHash('sha256').update('claude-git-baseline/v3\n'),
+        )
+        .digest('hex')
+    : null;
   const snapshot = diffHash ? { branch, head, diffHash } : null;
   // The common owner performs canonical-path, bounded-header and identity-inventory checks.
   // Fresh mode never enumerates .plans or any host memory.
@@ -190,6 +208,7 @@ export function runClaudePreflight({
       rawStatusBase64: statusBytes?.toString('base64') ?? null,
       clean: gitComplete ? statusBytes.length === 0 : null,
       diffHash,
+      untrackedInputDigests,
     },
     snapshot,
     snapshotLimits: [

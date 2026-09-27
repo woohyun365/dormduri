@@ -121,6 +121,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
   for (const [command, file] of [
     ['claude:preflight', 'session-preflight'],
     ['claude:workflow', 'workflow-entry'],
+    ['claude:native', 'native-session'],
   ]) {
     assert.ok(manifest.scripts[command].includes(`scripts/agents/claude/${file}.mjs`));
     assert.ok(existsSync(resolve(root, `scripts/agents/claude/${file}.mjs`)));
@@ -134,8 +135,10 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '.plans/cancelled/',
     'Native Plan Mode',
     'OMC 없이도',
-    '검증 전용 entry에는 구조 collector가 있지만',
-    '일반 native admission을 허용하는 qualified collector로',
+    '일반 interactive auto 세션',
+    'PreToolUse',
+    'PostToolUse',
+    '실행 자체의 fail-closed를 보장하지 않습니다',
     'common result는 `partial`',
   ]) {
     assert.ok(guide.includes(boundary), boundary);

@@ -197,8 +197,10 @@ test('finite Claude profiles are lead-selected task candidates, never role pins 
   assert.equal(Object.isFrozen(profiles), true);
   assert.deepEqual(CLAUDE_ADAPTER_READINESS, {
     host: 'claude-code',
-    admission: 'unsupported',
-    runtimeSupport: 'unknown',
+    admission: 'mode-specific',
+    mode: 'interactive-auto',
+    enforcement: 'healthy-hook-request-check',
+    runtimeSupport: 'per-run-observation-required',
     applied: false,
   });
   for (const profile of profiles) assert.equal(Object.isFrozen(profile), true);

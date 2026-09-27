@@ -56,9 +56,17 @@ test('raw porcelain preserves rename, spaces, newlines, quotes and staged/worktr
   writeFileSync(join(root, 'untracked\n file.txt'), 'untracked content');
   const untracked = runClaudePreflight({ root });
   assert.equal(untracked.baseline.clean, false);
-  assert.equal(untracked.baseline.diffHash, null);
-  assert.equal(untracked.snapshot, null);
-  assert.ok(untracked.diagnostics.includes('untracked-content-not-fingerprinted'));
+  assert.match(untracked.baseline.diffHash, /^[a-f0-9]{64}$/);
+  assert.ok(untracked.snapshot);
+  assert.deepEqual(untracked.diagnostics, []);
+  assert.equal(untracked.baseline.untrackedInputDigests.length, 1);
+  writeFileSync(join(root, 'untracked\n file.txt'), 'different content');
+  const changed = runClaudePreflight({ root });
+  assert.notEqual(changed.baseline.diffHash, untracked.baseline.diffHash);
+  assert.notDeepEqual(
+    changed.baseline.untrackedInputDigests,
+    untracked.baseline.untrackedInputDigests,
+  );
 });
 test('fresh never scans plans; resume consumes explicit common plan reader and actual snapshot', (t) => {
   const { root } = fixture(t);

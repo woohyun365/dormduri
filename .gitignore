@@ -45,6 +45,7 @@ apps/web/storybook-static/
 ## AI 도구 (Claude Code, Codex, OMC, OMX)
 # 검토한 프로젝트 adapter와 agent만 추적하고 개인 설정·세션·plugin cache는 제외한다.
 .claude/*
+!.claude/settings.json
 !.claude/agents/
 .claude/agents/*
 !.claude/agents/knu_explorer.md

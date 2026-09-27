@@ -26,12 +26,12 @@ pnpm claude:workflow -- --mode resume --plan .plans/example-plan.md --request '�
 ```
 
 `claude/session-preflight.mjs`는 raw Git 상태와 명시적으로 선택한 공통 `.plans` reader를 소비합니다. Fresh는 계획
-목록·memory·Claude Home 설정·OMC state를 직접 탐색하지 않습니다. 오류/unknown을 clean으로 바꾸지 않으며 미추적 파일 내용과
-ignored 입력은 source fingerprint의 한계로 표시합니다. Codex 전용 `codex:preflight`를 대신 호출하지 않습니다.
+목록·memory·Claude Home 설정·OMC state를 직접 탐색하지 않습니다. 오류/unknown을 clean으로 바꾸지 않습니다. 미추적 일반 파일은 내용 digest로 결합하며(파일당8MiB/총32MiB),
+ignored 입력은 Git fingerprint 밖입니다. Native task가 명시한 ignored 파일은 별도 inventory로 결합하지만 ignored 디렉터리 전체를 자동 조사하지 않습니다. Codex 전용 `codex:preflight`를 대신 호출하지 않습니다.
 현재 설정·loaded roles·실제 permissions는 별도 관측이 필요하고 Git hash가 이를 인증하지 않습니다.
 Git filter의 설정 key만 bounded 조회해 clean/process·fsmonitor를 해당 명령에서 비활성화합니다. Submodule gitlink는
 미점검 nested 설정을 실행하지 않도록 worktree 조회 전에 차단합니다. Snapshot은 비원자적 local 진단이며
-`claude-git-baseline/v2`의 length-framed raw status/index stage records/HEAD binary diff를 SHA-256으로 결합합니다.
+`claude-git-baseline/v3`의 length-framed raw status/index stage records/HEAD binary diff/미추적 파일 digest를 SHA-256으로 결합합니다.
 Dirty `currentSnapshot.dirtyDiffDigest`는 `sha256:`을 붙인 실제 fingerprint와 일치해야 합니다.
 
 `claude/workflow-entry.mjs`의 `prepareClaudeWorkflow`는 공통 intake/context/문서 경로·명시 direct assignment·계획
@@ -44,9 +44,69 @@ Dirty `currentSnapshot.dirtyDiffDigest`는 `sha256:`을 붙인 실제 fingerprin
 요구 변경이나 redaction으로 서로 다른 요청이 같은 요약이 되어도 결과를 재사용하지 않습니다. Digest는 인증·암호화나
 비밀의 안전한 저장을 보장하지 않습니다.
 
-Native 요청은 `--native`로 차단 상태를 진단할 수 있으나 실행 명령이 아닙니다. 현재 exit2와 `blocked`를 반환하며
-`dispatchAuthorized:false`, `runtimeQualified:false`를 유지합니다. Native 미지원은 권한 있는 direct 작업을 전역
-금지한다는 뜻이 아닙니다. JS API가 Claude native Agent tool을 직접 실행한다고 가장하지 않습니다.
+Native 실행은 일반 interactive 세션과 아래 검증 전용 headless caller를 구분합니다. `claude:workflow --native`는
+완전한 task 입력 없이 상태만 진단하는 명령이므로 실행하지 않습니다. JS validator의 `dispatchAuthorized:false`는
+host 권한을 발급하지 않는다는 뜻이며 `runtimeQualified:false`도 해당 실행의 전체 검증을 대신하지 않습니다. 모든 정상 native 사용을 영구 금지한다는 뜻이 아닙니다.
+
+## 일반 interactive auto 세션
+
+기본 실행은 `claude --permission-mode auto`입니다. [시작과 승인 안내](../getting-started.md#claude-code-실행과-승인)를
+따르고 실제 UI에서 auto 적용을 확인합니다. Home·project 설정과 owner가 사용 중인 OMC를 그대로 로드합니다.
+`--safe-mode`, `--restricted`, project-only settings, 빈 MCP, 강제 tool 축소로 운영 환경을 대체하지 않습니다.
+새 세션의 project `.claude/settings.json`은 hook만 추가하며 permission mode/allow/deny·plugin 설정을 덮어쓰지 않습니다.
+
+`scripts/agents/claude/native-session.mjs`는 별도 Claude 프로세스를 만드는 launcher가 아니라 현재 세션의
+SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure → SubagentStop·완료 알림 → 공통 QA 연결입니다.
+
+1. SessionStart의 `session_id`를 사용합니다. cwd·최근 artifact에서 세션을 추측하지 않습니다.
+2. Lead가 현재 요청·source·역할·acceptance·read/write 범위·QA 필요 여부와 아래 task profile을 명시합니다.
+3. `pnpm claude:native register --input <JSON file>`로 task를 등록합니다. 입력은 `workflowInput`, `sessionId`,
+   `prompt`, `expectedResolvedModel`입니다. `workflowInput`은 `prepareClaudeWorkflow`의 입력이며
+   `nativeRequest`에 profile·선택 근거·task facts·issuedAt/expiresAt, `directAssignment`에 owner/dispatchId/
+   acceptance/writeOwnership, `reviewDisposition`에 required/reason을 둡니다. currentSnapshot 생략 시 현재 Git을
+   읽고, 제공하면 현재 source와 대조합니다. 임의 모델·역할 pin 대신 기존 model-policy를 재사용합니다.
+4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
+   prompt 변경·다른 session·만료·재사용·source drift는 정상 PreToolUse가 거부합니다. 이 등록은 업무/host 승인이나
+   악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `artifacts/local/claude-native/`가 소유합니다.
+5. 정상 PreToolUse는 `allow`를 반환하지 않습니다. 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
+   KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.
+   필수 KNU 작업을 OMC 역할로 바꿔 이 계약을 피하지 않습니다.
+6. Auto의 Agent는 background로 시작될 수 있고 현재 schema에는 `run_in_background` 입력이 없습니다. PostToolUse의
+   `async_launched`는 같은 session/tool/input의 child ID·요청 모델 관측만 저장하며 완료가 아닙니다. SubagentStop도
+   다시 실행될 수 있으므로 종료 보장으로 취급하지 않습니다. 같은 child/tool의 부모 `task-notification completed`와
+   Stop, 한정된 child transcript의 최초 prompt·실제 assistant 모델·handback/마지막 응답을 함께 대조합니다.
+   transcript는 CLI 2.1.283 실측 schema이며 지연 flush는 complete에서 같은 Stop에 한해서 재검사합니다.
+   Child transcript4MiB/parent8MiB 한도를 넘으면 gap이지 PASS가 아닙니다. 누락·다른 모델·재개에 따른 transcript
+   변경을 거부하고 output은 semantic PASS로 자동 승격하지 않습니다. Bound child에 대한 SendMessage 재개는 새 등록
+   없이 허용하지 않습니다. OMC의 다른 child messaging은 이 registry가 소유하지 않습니다.
+7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
+   필요한 `review`, 관측한 `responseDigest`, 그리고 `acceptance` 배열의 criterion/passed/evidenceRef입니다.
+   Result의 snapshot은 completion.json의 finalSnapshot을 사용합니다. 같은 응답에 대한 acceptance와 독립 QA를
+   실제로 수행해야 하며 boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다. Parent는 finding과 변경 범위를
+   독립 확인합니다. 오류·거부·취소·collector 누락이면 완료를 보고하지 않고 원인과 다음 행동을 남깁니다.
+
+Native writer는 repository당 하나의 active lease로 직렬화합니다. 확인된 완료/관측된 tool failure는 해당 task의
+lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합니다. 세션 종료·취소·권한 거부로 Post 이벤트가 없으면 실제 child 종료를 먼저 확인한 뒤
+`pnpm claude:native release --task <taskId> --ended`로 그 task만 해제합니다. Timeout/만료를 종료 증거로 추측하지
+않습니다. Release는 작업 완료가 아니며 다른 writer의 lease를 삭제하지 않습니다.
+
+### 운영 보장과 제한
+
+- Auto의 목적은 일상 개발의 승인 병목 감소입니다. 읽기 전용은 reviewer/explorer의 역할 경계이지 전체 session의
+  강제 모드가 아닙니다. Executor의 명시된 구현과 검증도 같은 workflow에서 다룹니다.
+- 정적 entry의 `interactive-auto` eligibility와 실제 현재 session의 모델/권한 입증은 별개입니다. 전역
+  `runtimeQualified:true`를 저장하거나 다른 session에 과거 PASS를 재사용하지 않습니다.
+- Hook이 정상 실행될 때 요청 모델을 검사합니다. 실행 파일 부재·crash·malformed·timeout 또는 경쟁 설정으로
+  hook이 작동하지 않으면 **실행 자체의 fail-closed를 보장하지 않습니다**. 누락된 pre/post 증거는 작업 완료를 막는
+  기준이지 이미 일어난 실행을 취소하는 장치가 아닙니다. 이를 해결하려고 auto를 몰래 manual/bypass로 바꾸지 않습니다.
+- FORCE 환경변수의 명시적 충돌은 hook에서 거부하지만 Home/managed/provider의 모든 모델 대체를 사전에 인증하는
+  것은 아닙니다. 정상 환경을 scrub하지 않고 실행 후 모델을 확인합니다. 정상 설정 출처/role precedence와 충돌을
+  관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.
+- Project hook/role/settings와 task source의 변경은 재등록이 필요합니다. Hook 장애 이후에도 prompt가 알아서
+  준수했을 것이라 가정하지 않습니다. 새로운 설정·CLI 버전·역할·OMC 조합의 실제 지원은 해당 조합의 증거로 판단합니다.
+- 지원되는 auto 부모 모델과 child task 모델은 다른 선택입니다. Haiku child 가용성을 이유로 auto 부모도 Haiku로
+  바꾸지 않습니다. [permission modes](https://code.claude.com/docs/en/permission-modes),
+  [hooks](https://code.claude.com/docs/en/hooks), [설정 우선순위](https://code.claude.com/docs/en/settings)를 따릅니다.
 
 ### 프로젝트 역할과 실제 권한
 
@@ -88,7 +148,7 @@ runtime·unapproved fallback은 거부합니다. Source가 바뀌면 이전 bind
 
 `scripts/agents/claude/native-qualification.mjs`는 `prepareClaudeNativeQualification()`과
 `runClaudeNativeQualification()`으로 현재 workflow의 profile/binding을 실제 Claude CLI 내부 native Agent 호출에
-연결하는 **검증 전용 API**입니다. 일반 `claude:workflow --native`의 차단을 해제하거나 교차 CLI bridge를 대신하지
+연결하는 **격리된 headless 검증 전용 API**입니다. 위 ordinary interactive auto 운영 경로와 별개이며 교차 CLI bridge를 대신하지
 않습니다. API를 호출할 수 있다는 사실은 외부 전송·모델 비용·host 권한 승인이 아닙니다.
 
 - `prepareClaudeWorkflow()`의 current task/source와 full requestDigest, adapter source, project role bytes,
@@ -136,8 +196,8 @@ Proxy/interceptor는 승인 우회 수단이 아니며 host가 실행을 거절�
   terminal child count 0, 정상 CLI 종료가 모두 필요합니다. 모델의 자발적 포기, 빈 로그, timeout으로 잘린 stream,
   collector invalid만으로 통과하지 않습니다. 구조 판정 API에 JSON을 넣는 것 역시 actual-run authority가 아닙니다.
 - Ambient model/FORCE 환경변수 제거와 project settings/frontmatter 변경의 사전 거부는 관리형 정책·provider 모델
-  대체의 통제 증거가 아닙니다. 완전한 predispatch policy attestation이 없는 일반 interactive/managed 조합은
-  **routine admission 차단**을 유지합니다. `--settings`나 설정 출처 목록만으로 모든 경쟁 허용 hook의 부재를
+  대체의 통제 증거가 아닙니다. 이 headless 증거로 일반 interactive/managed 조합의 강한 사전 보장을 선언하지
+  않습니다. 일반 auto는 위 healthy-hook 요청 검사와 결과 관측 계약을 따릅니다. `--settings`나 설정 출처 목록만으로 모든 경쟁 허용 hook의 부재를
   인증하지 않습니다. [설정 우선순위](https://code.claude.com/docs/en/settings)와
   [모델 정책](https://code.claude.com/docs/en/model-config)을 별도로 확인합니다.
 
@@ -147,7 +207,7 @@ Proxy/interceptor는 승인 우회 수단이 아니며 host가 실행을 거절�
 2. **호출 전 차단:** 실제 host가 잘못되거나 누락된 모델 요청을 막았는지 별도로 입증합니다.
 3. **호출 후 관측:** 해석된 시작 모델·실행 중 변경·완료와 같은 run의 결과를 연결합니다.
 
-현재 native strict admission은 미입증이며 위 source entry는 이를 활성화하지 않습니다. 정상 hook의 deny 성공만으로
+모든 오류 시 실행 자체를 막는 native strict admission은 일반 auto에서 보장하지 않습니다. 정상 hook의 deny 성공만으로
 startup failure/crash/malformed output/timeout 때도 차단된다고 주장하지 않습니다. Command hook 실패는 일반 permission
 판정으로 진행될 수 있습니다. 이것이 모든 default-deny 조합의 허용을 의미하지는 않습니다. 다만 `ask:Agent`와 `dontAsk`에
 PreToolUse allow를 더하는 조합은 matching ask가 남아 정상 허용 경로도 입증되지 않습니다.
@@ -175,8 +235,8 @@ CLI `stream-json`의 complete assistant/user message `parent_tool_use_id`와 hoo
 
 같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다. Child session ID가 parent와
 다를 수 있으므로 단순 ID 동일성도 올바른 관계 검사의 대체물이 아닙니다. 누락·중복·역순·취소·불명확 provenance는 gap으로
-남깁니다. 검증 전용 entry에는 구조 collector가 있지만 일반 native admission을 허용하는 qualified collector로
-승격하지 않았습니다. 임의 JSON receipt를 actual host observation으로 취급하지 않습니다. [qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
+남깁니다. Headless entry의 구조 collector와 interactive PostToolUse 결과 판정은 서로 다른 event 계약입니다.
+Headless init/terminal·단일 child·plugin 배제 전제를 interactive event에 적용하지 않습니다. 임의 JSON receipt를 actual host observation으로 취급하지 않습니다. [qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
 현재 세션의 PASS 증거가 아닙니다.
 
 ## Plan continuity
