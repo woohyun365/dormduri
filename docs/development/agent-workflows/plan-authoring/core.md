@@ -158,6 +158,10 @@ readiness·acceptance·rollback을 소유합니다. 독립 작업의 실행 순�
 
 - 부모는 발생 이유, 영향받는 Phase, dependency 순서, 현재 disposition과 상세 문서 링크를 유지합니다.
 - Supporting은 부모 backlink, 문서 유형, 범위/owner, current baseline, 실행 전제·권한, 절차·검증·종료 조건을 명시합니다.
+  비실행 상세는 첫 `## ` heading 전 header에 `- Document Type: reference`를 선언하고 독립 lifecycle을 만들지 않습니다.
+  독립 plan은 이 선언으로 제외하지 않고 자신의 canonical `- Plan ID:`·`- Status:`를 유지합니다. 단순 위치/본문에서
+  유형·ID·상태를 추론하거나 malformed 과거 계획을 참고 자료로 재분류하여 재개 차단을 우회하지 않습니다.
+  Reference에 실제 Plan ID를 선언했다면 archive/navigation과 마찬가지로 전역 중복 검사 대상입니다.
   독립 plan의 세부 계약은 그 plan이 소유하고 부모는 상태 요약과 근거 링크만 유지하여 이중 갱신을 줄입니다.
 - 발견사항이나 문서 생성 자체는 구현 승인이나 scope 확장이 아닙니다. 부모의 readiness가 독립 plan으로 전파되지 않으며,
   같은 outcome의 상세화도 실제 scope/assumption이 달라졌다면 영향 범위의 readiness를 다시 확인합니다.
@@ -231,7 +235,7 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 ### Normalized readiness evidence
 
-[Readiness policy](../../../../scripts/agents/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
+[Readiness policy](../../../../scripts/agents/common/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
 않는 read-only advisory validator입니다. Reviewer는 계획과 repository evidence를 다음 입력으로 명시적으로 매핑합니다.
 
 | Plan evidence                         | Normalized input            |

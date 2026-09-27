@@ -61,18 +61,43 @@ Parent가 child 작업 완료 후 결과 회수·capability별 cleanup 판정·�
 | child 재개              | `resume_agent`               | 노출된 경우에만 schema의 eligible 상태·identity·권한 확인 후 사용                           |
 | thread 종료             | `close_agent`                | 아래 완료 절차를 충족한 대상만 종료, 반환 근거를 따로 기록                                  |
 
+## V1/V2 lifecycle 분기
+
+[OpenAI plugins의 Codex 도구 안내](https://github.com/openai/plugins/blob/33bd9529725fcee78c9e51fcbaa93cd963c3a47b/plugins/superpowers/skills/using-superpowers/references/codex-tools.md)는
+V2에 `close_agent`가 없고 완료 child는 필요 시 runtime이 자동 eviction한다고 설명합니다. 같은 작업의 후속은
+`followup_task`가 evicted child를 재로딩하여 turn을 시작하는 경로입니다. 이는 저장 대화 삭제가 아닙니다.
+실제 session의 tool list/schema를 우선하고, upstream의 preset·model·fork 설명을 현재 host에 무조건 적용하지 않습니다.
+
+- **V2 runtime-managed:** 적용 가능한 lifecycle 안내와 현재 followup/message tool schema를 대조하여 계약을 식별합니다.
+  이 계약에서 close 부재는 정상이며 명시적 close 의무는 `not-required`입니다. 별도 close 응답이나 내부 eviction telemetry를
+  얻으려고 없는 도구를 호출하지 않습니다. 완료된 child를 닫지 않았다는 이유로 추가 token 비용/누수/용량 점유를 단정하지 않습니다.
+- **V1 explicit-close:** 현재 schema가 지원하는 close를 소유·결과 회수·terminal/pending 조건 확인 뒤 수행합니다.
+  V2의 no-close 규칙을 V1의 지원 cleanup 생략 근거로 사용하지 않습니다.
+- **계약 미확정:** close 하나의 부재만 보고 V2라고 확정하지 않습니다. 가능한 후속/조회 schema와 source 계약을 대조하고
+  불일치는 해당 기능의 gap으로 둡니다. 내부 telemetry가 안 보이는 것과 명시적 close 의무가 없는 것은 다릅니다.
+- `release-unverified`는 특정 child의 자원 반환을 관측하지 못했다는 뜻이며 정상 후속 배정의 전역 차단 사유가 아닙니다.
+  새 dispatch/followup의 실제 수용·거절을 기록합니다. 성공도 어느 child가 evict됐는지 또는 모든 슬롯이 비었는지의 증명은 아닙니다.
+- `/subagents`의 누적 대화 목록은 현재 resident 슬롯 수가 아닙니다. 완료/idle 표시와 실제 runtime capacity를 분리하며
+  한 번의 spawn/followup 실패를 전체 child의 재사용 불가로 확대하지 않습니다. roster 부재도 삭제·영구 재사용 불가 증거가 아닙니다.
+
+**app-server protocol V2와 model-facing multi-agent V2는 다른 계층입니다.**
+[고정 protocol schema](https://github.com/openai/codex/blob/be2951ea34f0d295ed0becf97079f92fa5f6950e/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json)의
+`CollabAgentTool`에 있는 `closeAgent` enum은 현재 모델의 도구 노출 증거가 아닙니다. Protocol/event 표현을 실행 가능한
+native function으로 치환하지 않습니다. 현재 호출 가능한 tool schema가 최종 실행 경계를 결정합니다.
+
 ## 후속 작업과 fan-in
 
 Context 크기와 fork 선택은 [context delivery 계약](./adapters/codex-delegation.md#context-delivery)을 소비합니다.
 그 추천의 `reuseTarget`은 종료/재개 권한이 아니며, 아래 live identity·pending·결과 귀속을 따로 확인합니다.
 Full-history 전달이나 effort 적용을 config 파일/이전 성공만으로 주장하지 않습니다.
 
-1. **재사용 판정:** 같은 bounded outcome의 보완·finding 수정 확인이고 기존 context가 유효하면 불필요한 spawn보다
-   기존 lane을 우선 검토합니다. unrelated task나 최초 독립 QA는 fresh scoped context를 사용하고 재사용하지 않습니다. 이전 builder를 reviewer로
+1. **재사용 판정:** 같은 bounded outcome의 보완·finding 수정 확인이고 기존 context가 유효하면 같은 lane의 후속은 `followup_task`를 우선합니다.
+   V2 자동 eviction은 새 implementer를 만들어야 한다는 근거가 아니며 지원되는 재로딩을 사용합니다. unrelated task나 최초 독립 QA는 fresh scoped context를 사용하고 재사용하지 않습니다. 이전 builder를 reviewer로
    바꾸거나 결과를 이미 본 reviewer를 새로운 독립 판정이라고 하지 않습니다. [QA](./qa.md)의 독립성 계약은 그대로입니다.
 2. **정확한 대상·작업:** current owned non-root ID·상태·이전 결과를 확인하고 새 task ID, source snapshot, acceptance,
    read/write scope, 종료 조건을 전달합니다. 이는 task evidence이지 새 권한이 아닙니다. stale roster의 completed만으로
-   재사용하지 않으며 pending 작업과 충돌하는 두 번째 writer를 시작하지 않습니다.
+   재사용하지 않으며 pending 작업과 충돌하는 두 번째 writer를 시작하지 않습니다. 현재 조회되는 적합한 대상부터 선택하고,
+   미조회 target의 복원은 아래 cold-resume 근거로 판단합니다. 실패한 과거 ID를 현재 조회된 대상처럼 기록하지 않습니다.
 3. **전달과 시작 구분:** `send_message`는 새 turn을 시작하지 않습니다. idle child의 답변/작업이 필요하면
    `followup_task`로 existing non-root에 배정합니다. 실행 중 child에는 관련 사실만 메시지로 전달하고,
    범위 변경·중단은 Parent가 명시하여 승인된 assignment 안에서 처리합니다. `send_input`만 있으면 그 schema를 따릅니다.
@@ -94,8 +119,9 @@ Full-history 전달이나 effort 적용을 config 파일/이전 성공만으로 
 | `verified-no-close` | 현재 host에 적용되는 runtime-managed 계약과 close 미지원 및 같은 안전 조건을 확인했다면 명시적 close 의무는 `not-required`다. 추가 정리 명령을 발명하지 않는다. |
 | `unknown`           | 계약·대상·pending 등의 미확인을 그대로 남긴다. 결과 회수 성공과 미확인 cleanup을 구분하고 unsafe action을 추천하지 않는다.                                      |
 
-`close=false`만으로 자동으로 `not-required`가 되지는 않습니다. 로컬 flag, upstream source, 도구 이름 조합만으로
-현재 host 적용 계약을 채우지 않습니다. 작업 결과를 회수해도 자원 반환을 관측하지 못했다면 `release-unverified`입니다.
+`close=false`만으로 자동으로 `not-required`가 되지는 않습니다. 로컬 flag나 protocol enum만으로 적용 계약을 채우지 않습니다.
+위 V1/V2 분기의 적용 가능한 안내와 실제 tool schema를 대조해 runtime-managed로 판정했다면 별도의 close/eviction 성공
+관측을 그 판정의 선행 조건으로 요구하지 않습니다. 작업 결과를 회수해도 자원 반환을 관측하지 못했다면 `release-unverified`입니다.
 
 기존 [순수 evaluator](../../../scripts/agents/codex/orchestration-policy.mjs)의 출력은 다음을 분리합니다.
 
@@ -123,7 +149,8 @@ saved-session UUID를 native child ID로 임의 매핑하지 않습니다.
    결과 회수 완료를 fresh runtime으로 확인합니다. 이름·cwd·과거 로그만으로 소유를 증명하지 않습니다.
    running/waiting/unknown 대상은 슬롯 확보만을 위해 닫지 않는다. 다른 parent·다른 session·Team 대상도 건드리지 않습니다.
 3. 보존이 필요하면 `retained-with-reason`에 reason과 revisit를 기록합니다(예: 특정 수정의 delta review 뒤 종료).
-   막연한 “나중에 재사용”은 무기한 보존 사유가 아닙니다. 같은 reviewer 재사용은 최초 context-isolated review 뒤
+   V1의 명시적 close를 미룰 때 막연한 “나중에 재사용”은 무기한 보존 사유가 아닙니다. V2에는 저장된 완료 대화 자체를
+   없애야 하는 close 의무가 없으며 보존 사유를 꾸며 내거나 자동 eviction을 수동 실행하지 않습니다. 같은 reviewer 재사용은 최초 context-isolated review 뒤
    그 finding의 delta 확인에 한정할 수 있으며 builder를 독립 reviewer로 바꾸는 방법은 아닙니다.
 4. **Capability 분기**: 위 판정표를 적용합니다. `explicit-close`이면 **지원 close 호출**: 보존할 이유가 없는 eligible child를 지금 노출된 native close 기능으로 정확한 ID만
    종료합니다. 예를 들어 `close_agent`가 실제 schema에 있을 때만 그 schema대로 호출합니다. 실행 직전 identity/status가
@@ -137,13 +164,15 @@ saved-session UUID를 native child ID로 임의 매핑하지 않습니다.
 
 ## Capacity error 복구
 
-1. 오류가 난 실제 operation/target과 응답, 현재 tools/roster/status를 한 번 수집합니다. 실패 응답에 유효한 child ID가
+1. 오류가 난 실제 operation/target과 응답, 현재 tools/roster/status를 한 번 수집합니다. V2에서 close 부재를 오류 원인으로 단정하지 않습니다. 실패 응답에 유효한 child ID가
    없으면 생성 성공으로 등록하지 않습니다. 반대로 pending/부분 성공이면 runtime 결과를 먼저 확인해 중복 spawn을 피합니다.
-2. 위 절차로 완료·회수된 **현재 소유 child만** 정리합니다. 재사용 중인 lane, 진행 중 작업, 소유 미확인 대상은 보호합니다.
-3. close 성공/새 capacity 등 상태 변화 evidence가 있으면 필요한 post-cleanup dispatch를 최대 1회 재시도합니다.
+2. V1은 위 절차로 완료·회수된 **현재 소유 child만** 지원 close 대상으로 판정합니다. V2는 결과/pending을 회수하고
+   runtime-managed 계약을 적용하며 수동 close 없이 적합한 기존 lane의 재사용을 검토합니다. 재사용 중인 lane, 진행 중 작업, 소유 미확인 대상은 보호합니다.
+3. V1 close 성공, 새 capacity, 유효한 현재 target/후속 경로 확인 등 실제 대안 근거가 있으면 필요한 post-cleanup dispatch를 최대 1회 재시도합니다.
+   V2 재사용도 동일 one-alternate ceiling을 따르되 존재하지 않는 close 성공을 선행 조건으로 요구하지 않습니다.
    이것은 [Recovery ceiling](./request-intake/orchestration-recovery.md#recovery-ceiling)의 distinct alternate 한 번을
    소비합니다(`approachId: post-cleanup`, `alternateOf: 원래 시도`). 같은 상태의 spawn/follow-up 반복 재시도는 금지합니다.
-4. 종료 기능이 없거나 실패/슬롯 미확인이고 유효한 복구 evidence도 없으면 같은 호출 대신 parent의 안전한 sequential
+4. 선택한 실제 대안도 실패하거나 적합한 target/후속 경로가 없으면 같은 호출 대신 parent의 안전한 sequential
    작업을 계속합니다. 현재 존재·권한·상태가 확인된 child의 bounded 재사용은 실제 runtime이 허용하고 작업/독립성 계약에
    맞을 때만 대안입니다. cleanup 후 retry, 재사용, 별도 reviewer를 차례로 모두 시도하는 무제한 ladder는 만들지 않습니다.
 5. 독립 review가 필수이면 self-review로 독립 검토를 대체하지 않습니다. 실제 지원·권한이 확인된 fresh-context surface가
@@ -173,7 +202,8 @@ Parent의 정상 exit/resume과 daemon 운영은 [선택적 operator 절차](../
 최소 기록: `child ID / parent scope evidence / 결과 회수 / cleanup 계약·의무 / close tool+result / release evidence / last status /
 retained reason+revisit / next action`. task-local artifact/checkpoint에 기록하되 hidden runtime state를 대신하지 않습니다.
 
-모든 시작한 child는 결과 회수 및 closure disposition을 가져야 합니다. 실행 중 child가 있으면 대기/명시된 진행 소유자를
+모든 시작한 child는 결과 회수 및 capability에 맞는 closure disposition을 가져야 합니다. V2 runtime-managed는 `not-required`로
+인계할 수 있으며 close 미노출만을 이유로 `cleanup-unavailable`로 내리지 않습니다. 실행 중 child가 있으면 대기/명시된 진행 소유자를
 남기고 완료라고 하지 않습니다. 검증된 `not-required`는 슬롯 반환 증거가 아닙니다. `cleanup-unavailable`도 “모두 정리됨”이
 아닙니다. 지원·계약이 바뀌면 현재 eligible 대상만 재판정하며 제품 검증·작업 결과·자원 관측의 공백을 분리해 보고합니다.
 

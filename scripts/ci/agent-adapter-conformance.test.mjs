@@ -10,8 +10,8 @@ import {
   validateFanIn,
   validateAdapterReview,
 } from '../agents/common/adapter-contract.mjs';
-import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
-import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
+import { buildTaskEnvelope } from '../agents/common/intake-policy.mjs';
+import { discoverContextPack } from '../agents/common/domain-guide-registry.mjs';
 
 const qa = JSON.parse(
   readFileSync(new URL('./fixtures/cross-model-handoff-cases.json', import.meta.url)),

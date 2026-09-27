@@ -118,32 +118,7 @@ UI의 시각적 방향·reference·화면 비평을 다루면 Plan 여부와 무
 
 #### Codex/OMX permission mechanism
 
-이 절의 `workspace-write`, Auto-review, `on-request`, `madmax` 및 실행 규칙은 **Codex/OMX host 전용**입니다.
-공통 권한 원칙은 위의 source·scope·authority 계약이며, Claude Code의 native 도구/permission 검증은
-[Claude Code adapter](./adapters/claude-code.md)를 따릅니다. Codex 권한 모드를 다른 host의 실제 격리로 추정하지 않습니다.
-
-기본 권장 조합은 **workspace-write + 필요한 범위만 좁게 허용 + 지원되는 Auto-review**입니다. Auto-review는 기존
-승인 요청의 검토자를 바꾸는 native 기능이지 모든 명령의 보안 검사나 업무 승인자가 아닙니다. 이미 허용된 작업은 검토를
-거치지 않을 수 있고 `never`는 자동 검토 모드가 아닙니다. 지원되지 않으면 `on-request` 대안을 확인하며 몰래 full access로
-전환하지 않습니다. [공식 Auto-review 문서](https://learn.chatgpt.com/docs/sandboxing/auto-review)
-
-- 기존 broad allow가 적용되면 좁은 allow 추가만으로 그 범위가 줄지 않습니다. 예를 들어 `gh api` prefix는 repo·HTTP method를
-  제한하지 않습니다. 실제 loaded scope·규칙 우선순위를 확인하고 잘못된 repo/method/host·추가 인자에 대한 negative case로
-  평가합니다. 전역 shell/interpreter 허용이나 홈 전체 writable을 편의상 기본값으로 추가하지 않습니다.
-  [공식 실행 규칙](https://learn.chatgpt.com/docs/agent-configuration/rules)
-- 기본 reviewer policy는 유지합니다. `[auto_review].policy`는 추가 병합이 아닌 교체이므로 짧은 repository 지침을 넣어
-  기존 보호를 덮어쓰지 않습니다. 개인 실행값은 로컬 설정이고, 업무 안전 계약은 이 문서가 소유합니다.
-- `madmax`/sandbox bypass에서도 업무·비밀·소유권 지침은 유지되지만 Codex shell sandbox와 승인 검토가 유지된다고
-  보고하지 않습니다. OS/managed policy/provider 제한은 별개입니다. 전면 접근이 불가피하면 최소 credential의 별도 격리
-  환경을 검토하며, worktree를 보안 sandbox로 간주하지 않습니다.
-  [공식 승인·보안 문서](https://learn.chatgpt.com/docs/agent-approvals-security)
-- 문서는 `advisory-policy`, Lead/Auto-review 판단은 `model-mediated`, fixture·정적 규칙 검사는 `deterministic-static`,
-  실제 host/provider 강제는 `native-runtime`으로 구분합니다. 설정 파일·parent 실행 옵션만으로 child effective permission이나
-  runtime 활성화를 단정하지 않습니다. 지침·모델 reviewer 하나만으로 기술적 접근 제한을 대체하지 않습니다.
-
-[`agent-collaboration-cases.json`](../../../scripts/ci/fixtures/agent-collaboration-cases.json)은 보안 판단의 유한 입력 사례입니다.
-정적 검사는 fixture·문서의 정합성만 증명합니다. 실제 Agent의 답변, Auto-review의 허용/거절, 접근 격리는 각각 별도 실행
-evidence가 필요하며 한 종류의 PASS를 다른 종류의 PASS로 보고하지 않습니다.
+Codex에서만 [permission mechanism](./adapters/codex.md#codexomx-permission-mechanism)을 읽습니다. 다른 host의 승인·격리를 Codex 모드로 추정하지 않습니다. 공통 evidence 분류와 업무 권한은 위 절이 소유하며 host 설정·실행 규칙은 adapter가 소유합니다.
 
 ## 5. Verify
 

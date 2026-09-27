@@ -8,7 +8,7 @@ export const CLAUDE_ADAPTER_READINESS = Object.freeze({
 
 export {
   assessClaudeModelObservation,
-  assessClaudeH3StaticExchange,
+  assessClaudeStaticExchange,
   assessClaudeSubagentAdmission,
   createClaudeSubagentBinding,
   evaluateClaudeProfileEligibility,

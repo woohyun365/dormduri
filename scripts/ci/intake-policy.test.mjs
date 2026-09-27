@@ -7,7 +7,7 @@ import {
   assertValidTaskEnvelope,
   buildTaskEnvelope,
   validateTaskEnvelope,
-} from '../agents/intake-policy.mjs';
+} from '../agents/common/intake-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const fixtures = JSON.parse(
@@ -161,7 +161,7 @@ test('rejects malformed and authority-conflicting envelopes', () => {
 });
 
 test('intake policy is pure advisory and imports no execution surface', () => {
-  const source = readFileSync(resolve(repoRoot, 'scripts/agents/intake-policy.mjs'), 'utf8');
+  const source = readFileSync(resolve(repoRoot, 'scripts/agents/common/intake-policy.mjs'), 'utf8');
 
   assert.doesNotMatch(source, /node:child_process|spawn_agent|exec_command|fetch\s*\(/u);
   assert.doesNotMatch(source, /routing-policy|domain-guide-registry|orchestration-policy/u);

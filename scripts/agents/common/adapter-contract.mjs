@@ -1,9 +1,9 @@
 import { isDeepStrictEqual } from 'node:util';
 import { posix } from 'node:path';
-import { listDomainGuides } from '../domain-guide-registry.mjs';
-import { validateTaskEnvelope } from '../intake-policy.mjs';
+import { listDomainGuides } from './domain-guide-registry.mjs';
+import { validateTaskEnvelope } from './intake-policy.mjs';
 import { PLAN_ROOT } from './plan-store.mjs';
-import { validateCrossModelExchange } from '../cross-model-handoff.mjs';
+import { validateCrossModelExchange } from './cross-model-handoff.mjs';
 
 export const ADAPTER_CONTRACT_SCHEMA = 'workflow-adapter/v1';
 const STATES = new Set(['supported', 'unsupported', 'unknown']);

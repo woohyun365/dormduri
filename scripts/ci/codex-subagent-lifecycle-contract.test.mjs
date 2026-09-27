@@ -346,8 +346,8 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
   const requiredLinks = [
     '../../scripts/agents/codex/model-profiles.mjs',
     '../../scripts/agents/codex/model-run-evidence.mjs',
-    '../../scripts/ci/model-profiles.test.mjs',
-    '../../scripts/ci/model-run-evidence.test.mjs',
+    '../../scripts/ci/codex-model-profiles.test.mjs',
+    '../../scripts/ci/codex-model-run-evidence.test.mjs',
     './agent-workflows/subagent-lifecycle.md',
     './agent-workflows/qa.md',
   ];
@@ -356,5 +356,42 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
     if (/^https?:/u.test(href) || href.startsWith('#')) continue;
     const target = resolve(dirname(resolve(repoRoot, path)), decodeURI(href.split('#')[0]));
     assert.ok(existsSync(target), `${path}: ${href}`);
+  }
+});
+
+test('V2 runtime-managed lifecycle is not treated as missing V1 close support', () => {
+  const body = section(guidePath, 'V1/V2 lifecycle 분기');
+  assert.match(body, /openai\/plugins\/blob\/[a-f0-9]{40}\/.*codex-tools\.md/u);
+  assert.match(body, /V2.*close_agent.*없/u);
+  assert.match(body, /자동 eviction/u);
+  assert.match(body, /followup_task.*재로딩/u);
+  assert.match(body, /실제.*tool.*schema.*우선/u);
+  assert.match(body, /app-server protocol V2.*model-facing.*다른/u);
+  assert.match(body, /closeAgent.*노출.*증거.*아/u);
+  assert.match(body, /V1.*지원.*close/u);
+});
+
+test('V2 completion needs no synthetic close or proof of individual eviction to continue normal work', () => {
+  const body = section(guidePath, 'V1/V2 lifecycle 분기');
+  assert.match(body, /not-required/u);
+  assert.match(body, /release-unverified.*차단.*아/u);
+  assert.match(body, /누적.*목록.*슬롯.*아/u);
+  assert.match(body, /한 번.*실패.*전체.*재사용 불가.*확대하지/u);
+  const reuse = section(guidePath, '후속 작업과 fan-in');
+  assert.match(reuse, /같은.*후속.*followup_task.*우선/u);
+  assert.match(reuse, /최초 독립 QA.*fresh scoped/u);
+  const recovery = section(guidePath, 'Capacity error 복구');
+  assert.match(recovery, /V2.*close.*원인.*단정하지/u);
+  assert.match(recovery, /재사용.*one-alternate/u);
+});
+
+test('entry and troubleshooting preserve V2 semantics without changing host caps or independent QA', () => {
+  assert.match(read('AGENTS.md'), /V2.*자동 회수.*close.*결함.*않/u);
+  assert.match(read(codexAdapterPath), /V2.*followup_task/u);
+  assert.match(compact(read(troublePath)), /V2.*close 부재.*정상/u);
+  assert.match(compact(read(ownerPaths[5])), /V2.*자동 회수/u);
+  for (const path of [guidePath, troublePath]) {
+    assert.match(compact(read(path)), /최초.*독립.*fresh/u);
+    assert.match(compact(read(path)), /상한.*우회.*금지/u);
   }
 });

@@ -47,7 +47,7 @@ confidence: low | medium | high
 
 ## Mapper boundary
 
-`scripts/agents/intake-policy.mjs`는 다음만 수행하는 pure advisory mapper다.
+`scripts/agents/common/intake-policy.mjs`는 다음만 수행하는 pure advisory mapper다.
 
 - 명시적인 결과 동사에서 intent와 action authority를 보수적으로 분리
 - high-risk broad request를 `inspect`와 ambiguity로 fail-closed

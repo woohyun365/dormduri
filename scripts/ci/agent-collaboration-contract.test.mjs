@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
+import { buildTaskEnvelope } from '../agents/common/intake-policy.mjs';
 import { discoverScriptTests } from './repo-policy-test-files.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -277,19 +277,15 @@ test('execution security has one document owner and distinguishes guidance from 
     '### Permission modes and evidence',
   ])
     assert.ok(execution.includes(heading), heading);
-  for (const term of [
-    '업무 권한',
-    'host 승인',
-    'provider 권한',
-    'model-mediated',
-    'madmax',
-    'on-request',
-  ]) {
+  for (const term of ['업무 권한', 'host 승인', 'provider 권한', 'model-mediated']) {
     assert.ok(execution.includes(term), term);
   }
-  assert.match(execution, /agent-collaboration-cases\.json/u);
-  assert.match(execution, /fixture.*정합성/u);
-  assert.match(execution, /learn\.chatgpt\.com\/docs\/sandboxing\/auto-review/u);
+  const codex = read(workflow + 'adapters/codex.md');
+  assert.match(execution, /adapters\/codex\.md#codexomx-permission-mechanism/u);
+  for (const term of ['madmax', 'on-request']) assert.ok(codex.includes(term), term);
+  assert.match(codex, /agent-collaboration-cases\.json/u);
+  assert.match(codex, /fixture.*정합성/u);
+  assert.match(codex, /learn\.chatgpt\.com\/docs\/sandboxing\/auto-review/u);
   assert.match(
     read(workflow + 'owner-lead-collaboration.md'),
     /agent-execution-contract\.md#execution-authority/u,

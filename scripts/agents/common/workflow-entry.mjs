@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
-import { buildTaskEnvelope, assertValidTaskEnvelope } from '../intake-policy.mjs';
-import { discoverContextPack, listDomainGuides } from '../domain-guide-registry.mjs';
+import { buildTaskEnvelope, assertValidTaskEnvelope } from './intake-policy.mjs';
+import { discoverContextPack, listDomainGuides } from './domain-guide-registry.mjs';
 import { readPlan } from './plan-store.mjs';
 
 const W = 'docs/development/agent-workflows/';

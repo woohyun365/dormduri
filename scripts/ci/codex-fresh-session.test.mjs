@@ -237,7 +237,7 @@ test('a clean process produces the same smoke result without OMX or Codex sessio
 
 test('tracked guidance and runtime code no longer reference obsolete authoring handoffs', () => {
   const violations = trackedPaths()
-    .filter((path) => path !== 'scripts/ci/agent-intake-fresh-session.test.mjs')
+    .filter((path) => path !== 'scripts/ci/codex-fresh-session.test.mjs')
     .filter((path) => textExtensions.has(extname(path)))
     .flatMap((path) => {
       const source = readFileSync(resolve(repoRoot, path), 'utf8');
@@ -251,7 +251,7 @@ test('tracked guidance and runtime code no longer reference obsolete authoring h
 
 test('tracked guidance no longer routes to retired user workflows', () => {
   const scannedPaths = trackedPaths()
-    .filter((path) => path !== 'scripts/ci/agent-intake-fresh-session.test.mjs')
+    .filter((path) => path !== 'scripts/ci/codex-fresh-session.test.mjs')
     .filter(
       (path) =>
         path === 'AGENTS.md' ||

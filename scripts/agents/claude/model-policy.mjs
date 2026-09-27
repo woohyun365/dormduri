@@ -395,7 +395,7 @@ export function assessClaudeModelObservation({ binding, descriptor, receipt, ...
   }
 }
 
-export function assessClaudeH3StaticExchange({
+export function assessClaudeStaticExchange({
   binding,
   descriptor,
   packet,

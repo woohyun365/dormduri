@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -20,9 +21,10 @@ const selectedPlan = '.omx/plans/alpha-task-plan.md';
 const head = 'a'.repeat(40);
 const otherHead = 'b'.repeat(40);
 const template = JSON.parse(
-  readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/session-context.valid.md'), 'utf8').match(
-    /```json\s*([\s\S]*?)```/u,
-  )[1],
+  readFileSync(
+    resolve(repoRoot, 'scripts/ci/fixtures/codex-session-context.valid.md'),
+    'utf8',
+  ).match(/```json\s*([\s\S]*?)```/u)[1],
 );
 const snapshotPath = (stamp = '20260102T030405Z', slug = 'alpha-task') =>
   `.omx/context/${slug}-${stamp}.md`;
@@ -35,6 +37,10 @@ function fixture(t, options = {}) {
     writeFileSync(resolve(root, path), content);
     return resolve(root, path);
   };
+  cpSync(
+    resolve(repoRoot, 'scripts/agents/common/plan-store.mjs'),
+    put('scripts/agents/common/plan-store.mjs', ''),
+  );
   for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
     mkdirSync(resolve(root, 'scripts/agents/codex'), { recursive: true });
     cpSync(
@@ -56,10 +62,10 @@ if (kind === 'git') {
  const known = new Map([
   [JSON.stringify(['branch','--show-current']), config.branch],
   [JSON.stringify(['rev-parse','HEAD']), config.head],
-  [JSON.stringify(['status','--short','--untracked-files=all']), config.status],
+  [JSON.stringify(['status','--porcelain=v1','-z','--untracked-files=all']), config.status],
   ...[config.head, '${otherHead}'].flatMap(sha => [sha, sha.slice(0, 8)].map(value => [JSON.stringify(['rev-parse','--verify','--end-of-options',value+'^{commit}']), sha])),
  ]);
- if (known.has(key)) { process.stdout.write(known.get(key) + '\\n'); process.exit(0); }
+ if (known.has(key)) { process.stdout.write(known.get(key) + (args[0] === 'status' ? '' : '\\n')); process.exit(0); }
  if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === '--end-of-options' && /^[a-f0-9]{7,40}\\^\\{commit\\}$/.test(args[3] ?? '')) process.exit(1);
 } else if (kind === 'omx') {
  const active = key === JSON.stringify(['state','list-active','--json']);
@@ -212,10 +218,7 @@ test('header metadata accepts aliases/equivalence but never prose, fences or con
     f.put(selectedPlan, `# Example\n- Plan ID: alpha-task\n${metadata}\n`);
     const s = f.summary();
     assert.equal(s.resume.diagnostics.planStatus, expected, metadata);
-    assert.equal(
-      s.activePlans.find((p) => p.path === selectedPlan).status,
-      expected === 'unknown' ? 'unspecified' : expected,
-    );
+    assert.deepEqual(s.activePlans, [], 'legacy reads never enter canonical discovery');
   }
 });
 
@@ -322,7 +325,7 @@ test('freshness separates expiry, drift, malformed evidence and phase-unknown; s
     assert.equal(s.diagnostics.recommendedContextPath, null);
   }
   f.snapshot(path);
-  f.settings.status = '?? untouched-user-file.md';
+  f.settings.status = '?? untouched-user-file.md\0';
   let d = f.summary().resume.diagnostics;
   assert.equal(d.priority.freshness, 'needs-review');
   assert.ok(d.priority.reasons.includes('dirty-tree'));
@@ -508,4 +511,189 @@ test('preflight implementation remains read-only', () => {
     'copyFile',
   ])
     assert.equal(source.includes(mutation), false, mutation);
+});
+
+const canonicalPlan = '.plans/alpha-task-plan.md';
+const canonicalBody = (id = 'alpha-task', status = 'active') =>
+  `# Plan\n- Plan ID: ${id}\n- Status: ${status}\n`;
+const resumePlan = (path) => ['--resume', '--plan', path, '--json'];
+
+test('canonical discovery uses only active root plans and preserves explicit nested binding', (t) => {
+  const f = fixture(t);
+  assert.deepEqual(f.summary(['--fresh', '--json']).activePlans, []);
+  assert.ok(f.summary(['--fresh', '--json']).planDiscovery.issues.includes('missing-root'));
+  f.put(canonicalPlan, canonicalBody());
+  f.put('.plans/README.md', '# navigation');
+  f.put('.plans/supporting/child.md', canonicalBody('child'));
+  f.put('.plans/done.md', canonicalBody('done', 'completed'));
+  f.put('.plans/cancelled.md', canonicalBody('cancelled', 'cancelled'));
+  f.put('.plans/finished/archived.md', canonicalBody('archived'));
+  let s = f.summary(['--fresh', '--json']);
+  assert.deepEqual(s.activePlans, [{ path: canonicalPlan, status: 'active' }]);
+  assert.equal(s.planDiscovery.complete, true);
+  assert.equal(s.resume, null);
+  for (const legacy of [`./${selectedPlan}`, resolve(f.root, selectedPlan)]) {
+    assert.deepEqual(f.summary(resumePlan(legacy)).resume.plan, {
+      path: selectedPlan,
+      exists: true,
+    });
+  }
+  assert.equal(
+    f.summary().resume.planBinding,
+    null,
+    'legacy selection remains a compatibility read',
+  );
+  s = f.summary(resumePlan('.plans/supporting/child.md'));
+  assert.equal(s.resume.planBinding.id, 'child');
+  assert.equal(s.resume.planBinding.state, 'active');
+  assert.equal(s.resume.diagnostics.taskId, 'child');
+});
+
+test('canonical resume keeps OMX context owner and does not repair moved plan pointers', (t) => {
+  const f = fixture(t);
+  f.put(canonicalPlan, canonicalBody());
+  const path = f.snapshot(undefined, { activePlan: canonicalPlan });
+  f.point(path);
+  let s = f.summary(resumePlan(canonicalPlan)).resume;
+  assert.equal(s.diagnostics.recommendedContextPath, path);
+  assert.equal(s.planBinding.state, 'active');
+  assert.deepEqual(s.plan, { path: canonicalPlan, exists: true });
+  const moved = '.plans/supporting/moved.md';
+  mkdirSync(resolve(f.root, '.plans/supporting'));
+  renameSync(resolve(f.root, canonicalPlan), resolve(f.root, moved));
+  s = f.summary(resumePlan(canonicalPlan)).resume;
+  assert.equal(s.planBinding.state, 'missing');
+  assert.equal(s.plan.exists, false);
+  assert.equal(s.diagnostics.recommendedContextPath, null);
+  s = f.summary(resumePlan(moved)).resume;
+  assert.equal(s.planBinding.state, 'active');
+  assert.equal(s.diagnostics.priority.taskMatch, 'mismatched');
+  assert.equal(s.diagnostics.recommendedContextPath, null);
+  f.snapshot(path, { activePlan: moved });
+  assert.equal(f.summary(resumePlan(moved)).resume.diagnostics.recommendedContextPath, path);
+  assert.ok(readFileSync(resolve(f.root, path), 'utf8').includes(moved));
+});
+
+test('canonical terminal, archived, duplicate, navigation and unknown plans cannot recommend context', (t) => {
+  const f = fixture(t);
+  const path = f.snapshot(undefined, { activePlan: canonicalPlan });
+  f.point(path);
+  for (const status of [
+    'completed',
+    'cancelled',
+    'superseded',
+    'paused',
+    'blocked',
+    'proposed',
+    'nonsense',
+  ]) {
+    f.put(canonicalPlan, canonicalBody('alpha-task', status));
+    const s = f.summary(resumePlan(canonicalPlan));
+    assert.equal(s.resume.diagnostics.recommendedContextPath, null, status);
+    assert.ok(s.resume.diagnostics.limitations.includes('plan-not-active'), status);
+    assert.deepEqual(s.activePlans, []);
+  }
+  for (const archived of ['.plans/finished/alpha.md', '.plans/cancelled/alpha.md']) {
+    rmSync(resolve(f.root, '.plans'), { recursive: true });
+    f.put(archived, canonicalBody());
+    f.snapshot(path, { activePlan: archived });
+    const s = f.summary(resumePlan(archived)).resume;
+    assert.equal(s.planBinding.state, 'archived');
+    assert.equal(s.diagnostics.recommendedContextPath, null);
+  }
+  rmSync(resolve(f.root, '.plans'), { recursive: true });
+  f.put(canonicalPlan, canonicalBody());
+  f.put('.plans/supporting/duplicate.md', canonicalBody());
+  f.snapshot(path, { activePlan: canonicalPlan });
+  let s = f.summary(resumePlan(canonicalPlan));
+  assert.deepEqual(s.activePlans, []);
+  assert.equal(s.planDiscovery.complete, false);
+  assert.ok(s.planDiscovery.issues.includes('duplicate-plan-id'));
+  assert.equal(s.resume.planBinding.state, 'ambiguous');
+  assert.ok(s.resume.diagnostics.limitations.includes('duplicate-plan-id'));
+  assert.equal(s.resume.diagnostics.recommendedContextPath, null);
+  f.put('.plans/README.md', canonicalBody('navigation'));
+  s = f.summary(resumePlan('.plans/README.md'));
+  assert.equal(s.resume.planBinding.state, 'navigation');
+  assert.equal(s.resume.diagnostics.recommendedContextPath, null);
+});
+
+test('canonical safe paths reject escapes, symlink files/owners and retain incomplete discovery reasons', (t) => {
+  const f = fixture(t);
+  f.put(canonicalPlan, canonicalBody());
+  symlinkSync(
+    f.put('outside-plan.md', canonicalBody('outside')),
+    resolve(f.root, '.plans/link.md'),
+  );
+  for (const path of [
+    '.plans/link.md',
+    '.plans/../README.md',
+    `.plans/../${selectedPlan}`,
+    '.plans/supporting/../alpha-task-plan.md',
+    resolve(f.root, canonicalPlan),
+    '.plans',
+    '.plans/not-markdown.txt',
+  ]) {
+    assert.notEqual(f.run(resumePlan(path)).status, 0, path);
+  }
+  let s = f.summary(resumePlan(canonicalPlan));
+  assert.equal(s.planDiscovery.complete, false);
+  assert.ok(s.planDiscovery.issues.includes('unsafe-entry'));
+  assert.equal(s.resume.planBinding.state, 'unknown');
+  assert.ok(s.resume.diagnostics.limitations.includes('unsafe-entry'));
+  rmSync(resolve(f.root, '.plans'), { recursive: true });
+  mkdirSync(resolve(f.root, 'outside-plans'));
+  symlinkSync(resolve(f.root, 'outside-plans'), resolve(f.root, '.plans'));
+  s = f.summary(['--fresh', '--json']);
+  assert.deepEqual(s.activePlans, []);
+  assert.ok(s.planDiscovery.issues.includes('unsafe-directory'));
+  assert.notEqual(f.run(resumePlan(canonicalPlan)).status, 0);
+});
+
+test('host-named package preflight accepts one forwarded separator after its default flags', (t) => {
+  const f = fixture(t);
+  const manifest = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
+  const defaults = manifest.scripts['codex:preflight'].split(' ').slice(2);
+  assert.deepEqual(defaults, ['--json']);
+  assert.equal(f.summary([...defaults, '--', '--fresh']).mode, 'fresh');
+  const resumed = f.summary([...defaults, '--', '--resume', '--plan', selectedPlan]);
+  assert.equal(resumed.mode, 'resume');
+  assert.equal(resumed.resume.plan.path, selectedPlan);
+  assert.notEqual(f.run([...defaults, '--', '--', '--fresh']).status, 0);
+  assert.notEqual(f.run([...defaults, '--', '--unknown']).status, 0);
+});
+
+test('canonical resume exposes corpus warnings separately from selected identity readiness', (t) => {
+  const f = fixture(t);
+  f.put(canonicalPlan, canonicalBody() + '## Work\n' + 'x'.repeat(100000));
+  f.put(
+    '.plans/supporting/detail.md',
+    '- Document Type: reference\n- Status: narrative\n## Detail\n' + 'x'.repeat(100000),
+  );
+  f.put('.plans/pending/old.md', '- Status: unfinished old proposal\n');
+  const path = f.snapshot(undefined, { activePlan: canonicalPlan });
+  f.point(path);
+  let s = f.summary(resumePlan(canonicalPlan));
+  assert.equal(s.planDiscovery.complete, false);
+  assert.ok(s.planDiscovery.issues.includes('metadata-unknown'));
+  assert.equal(s.planDiscovery.identityComplete, true);
+  assert.deepEqual(s.planDiscovery.identityIssues, []);
+  assert.equal(s.resume.planBinding.state, 'active');
+  assert.equal(s.resume.diagnostics.recommendedContextPath, path);
+  assert.equal(
+    f.summary(resumePlan('.plans/pending/old.md')).resume.diagnostics.recommendedContextPath,
+    null,
+  );
+  f.snapshot(path, { activePlan: canonicalPlan, head: otherHead });
+  assert.equal(
+    f.summary(resumePlan(canonicalPlan)).resume.diagnostics.recommendedContextPath,
+    null,
+  );
+  f.snapshot(path, { activePlan: canonicalPlan });
+  f.put('.plans/finished/duplicate.md', canonicalBody());
+  s = f.summary(resumePlan(canonicalPlan));
+  assert.equal(s.planDiscovery.identityComplete, false);
+  assert.deepEqual(s.activePlans, []);
+  assert.equal(s.resume.planBinding.state, 'ambiguous');
+  assert.equal(s.resume.diagnostics.recommendedContextPath, null);
 });

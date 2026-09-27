@@ -68,7 +68,7 @@ const CREDENTIAL_OVERRIDE =
 /**
  * Build a static Codex top-level CLI candidate. This is deliberately separate
  * from native `.codex/agents/knu_reviewer.toml` admission: `codex exec` has no
- * project-agent selector, so H3P must not claim that native role was loaded.
+ * project-agent selector, so static readiness must not claim that native role was loaded.
  */
 export function createCodexReviewBinding(input) {
   assertExactObject(input, INPUT_FIELDS, 'input');
@@ -111,8 +111,8 @@ export function createCodexReviewBinding(input) {
 }
 
 /**
- * Assess only H3P static readiness. A candidate is never dispatch authority;
- * live auth, role/model/tool observation and provider execution remain H4 work.
+ * Assess only static readiness. A candidate is never dispatch authority;
+ * live auth, role/model/tool observation and provider execution require separate live qualification.
  */
 export function assessCodexReviewAdmission(input) {
   const errors = [];
@@ -153,7 +153,7 @@ export function assessCodexReviewAdmission(input) {
       errors.push('invocationId has already been dispatched.');
     }
     if (input.providerDispatchEnabled !== false) {
-      errors.push('real provider dispatch is not qualified by H3P.');
+      errors.push('real provider dispatch is not qualified by static readiness.');
     }
     if (
       !Array.isArray(input.ambientCredentialKeys) ||
@@ -255,7 +255,8 @@ function assertCodexPacket(packet) {
   require(packet.intent.direction ===
     TARGET_DIRECTION, `packet direction must be ${TARGET_DIRECTION}.`);
   require(packet.lifecycle.transport === 'cli', 'packet transport must be cli.');
-  require(packet.lifecycle.support === 'unknown', 'packet CLI support must remain unknown in H3P.');
+  require(packet.lifecycle.support ===
+    'unknown', 'packet CLI support must remain unknown before live qualification.');
   require(isDeepStrictEqual(
     packet.boundaries.allowedTools,
     ALLOWED_TOOLS,

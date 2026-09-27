@@ -235,7 +235,7 @@ function validatePacket(packet, errors, currentSnapshot) {
   if (!isRecord(packet)) return;
   if (packet.lifecycle?.transport !== 'cli') errors.push('packet transport must be cli.');
   if (packet.lifecycle?.support !== 'unknown') {
-    errors.push('packet CLI support must remain unknown before H4 live qualification.');
+    errors.push('packet CLI support must remain unknown before live qualification.');
   }
   if (packet.intent?.direction !== 'codex-maker-claude-checker') {
     errors.push('packet direction must target the Claude checker.');

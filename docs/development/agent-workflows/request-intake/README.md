@@ -28,11 +28,11 @@
 다음 조합 smoke와 host-specific fixture는 **Codex/OMX adapter 회귀**입니다. Claude·제3 host의 native 실행 입증이나
 공통 startup 명령으로 사용하지 않습니다.
 
-- `scripts/ci/agent-intake-integration.test.mjs`: intake부터 Codex dispatch 또는 handoff까지의 조합, source freshness,
+- `scripts/ci/codex-intake-integration.test.mjs`: intake부터 Codex dispatch 또는 handoff까지의 조합, source freshness,
   no-write 경계
 - `scripts/agents/codex/fresh-session-smoke.mjs`: local session memory 없이 Codex/OMX 대표 route를 확인하는
   read-only smoke
-- `scripts/ci/agent-intake-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
+- `scripts/ci/codex-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
   stale handoff 참조 방지
 
 ```bash

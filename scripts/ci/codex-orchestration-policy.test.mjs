@@ -9,8 +9,8 @@ import {
   createModelScopeDigest,
   recommendDelegation,
 } from '../agents/codex/child-task-contract.mjs';
-import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
-import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
+import { discoverContextPack } from '../agents/common/domain-guide-registry.mjs';
+import { buildTaskEnvelope } from '../agents/common/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
@@ -25,7 +25,10 @@ import {
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const runtimeCapabilityCases = JSON.parse(
-  readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/runtime-capability-cases.json'), 'utf8'),
+  readFileSync(
+    resolve(repoRoot, 'scripts/ci/fixtures/codex-runtime-capability-cases.json'),
+    'utf8',
+  ),
 );
 
 test('lifecycle eligibility is immutable advice, not native close or slot evidence', () => {
@@ -2782,4 +2785,19 @@ test('synthesis binds recovery to the exact current delegation task and rescue c
     contract.modelScopeDigest = createModelScopeDigest(contract);
     assert.throws(() => prepareLeaderSynthesis(input), TypeError, String(mutate));
   }
+});
+
+test('runtime-managed no-close permits same-lane continuation without synthetic release evidence', () => {
+  const input = noCloseLifecycleEvidence();
+  const finished = createLifecycleRecommendation(input);
+  assert.equal(finished.cleanupDisposition, 'not-required');
+  assert.equal(finished.releaseDisposition, 'release-unverified');
+  input.intent = 'continue';
+  input.capabilities.startTurn = true;
+  const continuation = createLifecycleRecommendation(input);
+  assert.equal(continuation.recommendation, 'continue');
+  assert.equal(continuation.releaseDisposition, 'release-unverified');
+  assert.equal(continuation.requiresLeaderRuntimeConfirmation, true);
+  input.target.pendingTasks = 1;
+  assert.equal(createLifecycleRecommendation(input).recommendation, 'wait');
 });

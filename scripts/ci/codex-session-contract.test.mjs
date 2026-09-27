@@ -13,7 +13,7 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 
 test('tracked fixture satisfies the bounded resume contract used by local checkpoints', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'scripts/ci/fixtures/session-context.valid.md'),
+    resolve(repoRoot, 'scripts/ci/fixtures/codex-session-context.valid.md'),
     'utf8',
   );
   const result = parseContextContract(source);
@@ -75,7 +75,7 @@ test('checkpoint validation rejects forbidden, malformed, and expired state', ()
 
 test('parsers reject non-object and wrong-type input without throwing or echoing values', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'scripts/ci/fixtures/session-context.valid.md'),
+    resolve(repoRoot, 'scripts/ci/fixtures/codex-session-context.valid.md'),
     'utf8',
   );
   const base = parseContextContract(source).value;
@@ -108,7 +108,7 @@ test('parsers reject non-object and wrong-type input without throwing or echoing
 
 test('context parser uses injected time while preserving absolute expiry and structural task/path independence', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'scripts/ci/fixtures/session-context.valid.md'),
+    resolve(repoRoot, 'scripts/ci/fixtures/codex-session-context.valid.md'),
     'utf8',
   );
   const value = { ...parseContextContract(source).value, expiresAt: '2026-08-14T00:00:00Z' };

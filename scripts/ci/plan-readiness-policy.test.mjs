@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { assessPlanReadiness } from '../agents/plan-readiness-policy.mjs';
+import { assessPlanReadiness } from '../agents/common/plan-readiness-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
@@ -130,7 +130,7 @@ test('fails closed on an unsupported readiness schema', () => {
 
 test('readiness policy is pure advisory and owns no execution or workspace mutation', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'scripts/agents/plan-readiness-policy.mjs'),
+    resolve(repoRoot, 'scripts/agents/common/plan-readiness-policy.mjs'),
     'utf8',
   );
 

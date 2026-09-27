@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { discoverContextPack, listDomainGuides } from '../agents/domain-guide-registry.mjs';
-import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
+import { discoverContextPack, listDomainGuides } from '../agents/common/domain-guide-registry.mjs';
+import { buildTaskEnvelope } from '../agents/common/intake-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const fixtures = JSON.parse(
@@ -161,7 +161,7 @@ test('rejects unsafe paths, malformed freshness, and unbounded cross-cutting lim
 
 test('registry is advisory, exposes only tracked guides, and imports no execution surface', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'scripts/agents/domain-guide-registry.mjs'),
+    resolve(repoRoot, 'scripts/agents/common/domain-guide-registry.mjs'),
     'utf8',
   );
   const guides = listDomainGuides();

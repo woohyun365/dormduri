@@ -7,7 +7,7 @@ import test from 'node:test';
 import { buildTaskEnvelope, validateCrossModelExchange } from '../agents/common/index.mjs';
 import {
   CLAUDE_ADAPTER_READINESS,
-  assessClaudeH3StaticExchange,
+  assessClaudeStaticExchange,
   assessClaudeModelObservation,
   assessClaudeSubagentAdmission,
   createClaudeSubagentBinding,
@@ -583,7 +583,7 @@ test('neutral intake to Claude proposal and H3 blocked QA is deterministic but n
   assert.equal(validation.decision, 'accept', JSON.stringify(validation));
   assert.equal(validation.verificationClass, 'runner-live-required');
   assert.deepEqual(
-    assessClaudeH3StaticExchange({
+    assessClaudeStaticExchange({
       binding,
       descriptor: result.descriptor,
       packet,
@@ -595,7 +595,7 @@ test('neutral intake to Claude proposal and H3 blocked QA is deterministic but n
   const unrelated = structuredClone(packet);
   unrelated.snapshot.headSHA = 'f'.repeat(64);
   assert.equal(
-    assessClaudeH3StaticExchange({
+    assessClaudeStaticExchange({
       binding,
       descriptor: result.descriptor,
       packet: unrelated,
@@ -607,7 +607,7 @@ test('neutral intake to Claude proposal and H3 blocked QA is deterministic but n
   const unrelatedObjective = structuredClone(packet);
   unrelatedObjective.objective = 'Review another unrelated change.';
   assert.equal(
-    assessClaudeH3StaticExchange({
+    assessClaudeStaticExchange({
       binding,
       descriptor: result.descriptor,
       packet: unrelatedObjective,
@@ -623,9 +623,12 @@ test('neutral intake to Claude proposal and H3 blocked QA is deterministic but n
   );
 });
 
-test('H4 matrix leaves every native candidate and failure path not-run', () => {
+test('qualification matrix leaves every native candidate and failure path not-run', () => {
   const matrix = JSON.parse(
-    readFileSync(resolve(root, 'scripts/ci/fixtures/claude-subagent-model-h4-matrix.json'), 'utf8'),
+    readFileSync(
+      resolve(root, 'scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json'),
+      'utf8',
+    ),
   );
   assert.deepEqual(
     new Set(matrix.rows.map((row) => row.profileId)),
