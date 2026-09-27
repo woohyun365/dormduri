@@ -119,8 +119,8 @@ test('production workflow graph has real discoverable owners and required DAG wi
 });
 test('host mechanics remain scoped and no unrelated host is mandatory in shared entry', () => {
   for (const [path, pattern] of [
-    ['agent-execution-contract.md', /Codex\/OMX host 전용/u],
-    ['session-continuity.md', /Codex\/OMX 전용 호환 계약/u],
+    ['agent-execution-contract.md', /adapters\/codex\.md#codexomx-permission-mechanism/u],
+    ['session-continuity.md', /adapters\/codex\.md#diagnostic-contract/u],
     ['request-intake/decisions.md', /Codex/u],
     ['visual-design/figma-mcp-evidence.md', /Codex/u],
   ])
@@ -135,4 +135,13 @@ test('host mechanics remain scoped and no unrelated host is mandatory in shared 
   assert.match(adapterIndex, /모든 adapter를 기본 입력으로 읽지/u);
   assert.match(adapterIndex, /등록 전 Codex fallback 없음/u);
   assert.match(adapterIndex, /static PASS만으로/u);
+});
+
+test('Codex mechanisms have a conditional canonical host owner after extraction', () => {
+  const read = (path) =>
+    readFileSync(resolve(root, 'docs/development/agent-workflows', path), 'utf8');
+  assert.match(read('adapters/codex.md'), /Codex\/OMX host 전용/u);
+  assert.match(read('adapters/codex.md'), /Codex\/OMX 전용 호환 계약/u);
+  assert.doesNotMatch(read('agent-execution-contract.md'), /\[auto_review\]\.policy/u);
+  assert.doesNotMatch(read('session-continuity.md'), /"taskMatch"\s*:/u);
 });

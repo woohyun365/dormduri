@@ -40,7 +40,7 @@ test('common facade exposes only host-neutral intake, decision, readiness and QA
     assert.equal(common[name], undefined, `${name} must remain Codex/OMX-owned`);
   }
 
-  const envelope = common.buildTaskEnvelope({ request: 'H3S Phase 0~2 작업을 진행해줘.' });
+  const envelope = common.buildTaskEnvelope({ request: '저장소 workflow 경계 변경을 구현해줘.' });
   assert.equal(common.validateTaskEnvelope(envelope).valid, true);
   assert.equal(common.validateTaskEnvelope({ ...envelope, modelRequest: {} }).valid, false);
   assert.equal(common.validateTaskEnvelope({ ...envelope, reasoning_effort: 'low' }).valid, false);
@@ -52,7 +52,7 @@ test('common facade exposes only host-neutral intake, decision, readiness and QA
   );
 });
 
-test('common H3 packet cannot grant Claude runtime or accept Codex-only defaults', async () => {
+test('common QA packet cannot grant Claude runtime or accept Codex-only defaults', async () => {
   const common = await import('../agents/common/index.mjs');
   const { basePacket, baseResult } = JSON.parse(
     readFileSync(resolve(root, 'scripts/ci/fixtures/cross-model-handoff-cases.json'), 'utf8'),
@@ -92,7 +92,7 @@ test('Codex implementations have one owner and no root compatibility imports rem
   assert.notEqual(statSync(cli).mode & 0o111, 0, 'direct preflight CLI stays executable');
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
   assert.match(
-    manifest.scripts['agent:preflight'],
+    manifest.scripts['codex:preflight'],
     /scripts\/agents\/codex\/session-preflight\.mjs/u,
   );
 });
@@ -103,10 +103,10 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
     'common/workflow-entry.mjs',
     'common/plan-store.mjs',
     'common/adapter-contract.mjs',
-    'intake-policy.mjs',
-    'domain-guide-registry.mjs',
-    'plan-readiness-policy.mjs',
-    'cross-model-handoff.mjs',
+    'common/intake-policy.mjs',
+    'common/domain-guide-registry.mjs',
+    'common/plan-readiness-policy.mjs',
+    'common/cross-model-handoff.mjs',
   ];
   for (const file of neutralFiles) {
     const source = readFileSync(resolve(root, 'scripts/agents', file), 'utf8');

@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "cross-host-review-h4-matrix/v1",
-  "qualificationOwner": "H4",
+  "schemaVersion": "cross-host-review-qualification-matrix/v1",
+  "qualificationOwner": "authorized-live-qualification-lead",
   "routineProviderDispatch": "disabled",
   "directions": [
     {

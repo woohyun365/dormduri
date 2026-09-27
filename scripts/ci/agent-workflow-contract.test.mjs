@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { buildTaskEnvelope, validateTaskEnvelope } from '../agents/intake-policy.mjs';
-import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
-import { validateProposedGraph } from '../agents/fixtures/workflow-general-phase0/proposed-graph-validator.mjs';
+import { buildTaskEnvelope, validateTaskEnvelope } from '../agents/common/intake-policy.mjs';
+import { discoverContextPack } from '../agents/common/domain-guide-registry.mjs';
+import { validateFixtureGraph } from '../agents/fixtures/workflow-contract/graph-oracle.mjs';
 import { discoverScriptTests } from './repo-policy-test-files.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
-const fixtureRoot = 'scripts/agents/fixtures/workflow-general-phase0';
+const fixtureRoot = 'scripts/agents/fixtures/workflow-contract';
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const intake = JSON.parse(read(`${fixtureRoot}/intake-cases.json`));
 const graphs = JSON.parse(read(`${fixtureRoot}/graph-cases.json`));
@@ -35,7 +35,7 @@ test('oracle covers six outputs, not unknown or session lifecycle as additional 
 });
 
 // The session dimension is request wording, not a fabricated mode field on these APIs.
-// Actual preflight fresh/resume behavior remains in session-preflight.test.mjs.
+// Actual preflight fresh/resume behavior remains in codex-session-preflight.test.mjs.
 for (const session of intake.sessions) {
   for (const row of intake.cases) {
     test(`actual intake: ${row.intent} × ${session.id} wording keeps output and Plan-only guides`, () => {
@@ -138,20 +138,20 @@ test('source-linked contracts retain advisory authority and Plan-only selection 
 });
 
 for (const row of graphs.cases) {
-  test(`PROPOSED fixture-only graph oracle: ${row.id}`, () => {
-    assert.equal(graphs.evidenceClass, 'proposed-test-only-graph-not-runtime');
+  test(`Synthetic fixture-only graph oracle: ${row.id}`, () => {
+    assert.equal(graphs.evidenceClass, 'synthetic-test-only-graph-not-runtime');
     const graph = structuredClone(graphs.graph);
     graph.nodes.push(...(row.addNodes ?? []));
     graph.edges.push(...(row.addEdges ?? []));
-    assert.deepEqual(validateProposedGraph(graph, { host: row.host }), row.expected);
+    assert.deepEqual(validateFixtureGraph(graph, { host: row.host }), row.expected);
   });
 }
 
-test('actual repo-policy discovery includes baseline but excludes explicit red probes', () => {
+test('actual repo-policy discovery includes the contract suite without fixture runners', () => {
   const discovered = discoverScriptTests(root);
-  assert.ok(discovered.includes('scripts/ci/agent-workflow-general-baseline.test.mjs'));
+  assert.ok(discovered.includes('scripts/ci/agent-workflow-contract.test.mjs'));
   assert.equal(
-    discovered.some((path) => path.endsWith('expected-red-probes.mjs')),
+    discovered.some((path) => path.startsWith('scripts/agents/fixtures/')),
     false,
   );
 });

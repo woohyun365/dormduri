@@ -25,7 +25,7 @@
     },
     "sources": {
       "requirements": ["docs/development/agent-workflows/qa.md"],
-      "contracts": ["scripts/agents/cross-model-handoff.mjs"],
+      "contracts": ["scripts/agents/common/cross-model-handoff.mjs"],
       "owners": ["docs/development/agent-workflows/adapters/cross-model-handoff.md"]
     },
     "evidence": {
@@ -40,7 +40,7 @@
     "boundaries": {
       "allowedReadPaths": [
         "docs/development/agent-workflows",
-        "scripts/agents/cross-model-handoff.mjs"
+        "scripts/agents/common/cross-model-handoff.mjs"
       ],
       "doNotTouch": ["apps", "packages"],
       "permittedReadsAndTests": ["repository-read", "targeted-contract-test"],
@@ -406,7 +406,7 @@
           "value": [
             {
               "severity": "high",
-              "location": "scripts/agents/cross-model-handoff.mjs:1",
+              "location": "scripts/agents/common/cross-model-handoff.mjs:1",
               "impact": "A reproduced contract defect remains.",
               "reproduction": "Run the bounded hostile fixture.",
               "evidence": "hostile-fixture:failed"
@@ -546,7 +546,7 @@
           "value": [
             {
               "severity": "high",
-              "location": "scripts/agents/cross-model-handoff.mjs:1",
+              "location": "scripts/agents/common/cross-model-handoff.mjs:1",
               "impact": "Unsafe packet could pass.",
               "reproduction": "Run hostile fixture.",
               "evidence": "fixture failure"

@@ -20,17 +20,20 @@ import {
 const corpus = JSON.parse(
   readFileSync(resolve(import.meta.dirname, 'fixtures/cross-model-handoff-cases.json'), 'utf8'),
 );
-const h4Matrix = JSON.parse(
-  readFileSync(resolve(import.meta.dirname, 'fixtures/cross-host-review-h4-matrix.json'), 'utf8'),
+const qualificationMatrix = JSON.parse(
+  readFileSync(
+    resolve(import.meta.dirname, 'fixtures/cross-host-review-qualification-matrix.json'),
+    'utf8',
+  ),
 );
 
-test('H4 direct CLI matrix is bidirectional and entirely not-run', () => {
+test('qualification direct CLI matrix is bidirectional and entirely not-run', () => {
   assert.deepEqual(
-    new Set(h4Matrix.directions.map(({ direction }) => direction)),
+    new Set(qualificationMatrix.directions.map(({ direction }) => direction)),
     new Set(['codex-maker-claude-checker', 'claude-maker-codex-checker']),
   );
-  assert.equal(h4Matrix.routineProviderDispatch, 'disabled');
-  for (const row of h4Matrix.directions) {
+  assert.equal(qualificationMatrix.routineProviderDispatch, 'disabled');
+  for (const row of qualificationMatrix.directions) {
     for (const [key, value] of Object.entries(row)) {
       if (['direction', 'targetHost', 'staticBinding'].includes(key)) continue;
       assert.equal(value, 'not-run', `${row.direction}.${key}`);

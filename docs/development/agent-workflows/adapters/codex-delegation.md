@@ -1,6 +1,6 @@
 # Codex/OMX child selection, model and context delivery
 
-This is the Codex-only extension of the [shared lane contract](../request-intake/delegation.md). It does not define Claude model admission or runtime support. The implementation owner is `scripts/agents/codex/`; root imports are transitional compatibility exports.
+이 문서는 [공통 lane 계약](../request-intake/delegation.md)의 Codex 전용 확장입니다. Claude 모델 admission/runtime을 정의하지 않습니다. 구현 owner는 `scripts/agents/codex/`이며 제거된 root compatibility imports를 사용하지 않습니다. 일반 요청의 composition은 [Codex workflow entry](./codex.md#repository-workflow-entry)를 사용하고, 아래 API는 host policy leaf입니다.
 
 ## Candidate schema
 

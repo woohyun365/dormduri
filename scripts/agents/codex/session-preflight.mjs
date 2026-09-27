@@ -14,6 +14,7 @@ import { basename, isAbsolute, resolve, relative, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { discoverPlans, readPlan } from '../common/plan-store.mjs';
 import { parseContextContract, parsePriorityPointer } from './session-contract.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -30,11 +31,14 @@ if (args.plan && !args.resume) fail('--plan requires --resume.');
 const mode = args.resume ? 'resume' : 'fresh';
 const branch = resolveBranch();
 const head = git(['rev-parse', 'HEAD']);
-const statusLines = git(['status', '--short', '--untracked-files=all']).split('\n').filter(Boolean);
+const statusLines = statusRecords(
+  git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], { trim: false }),
+);
 const workingTree = classifyChanges(statusLines);
 const changeLimit = 100;
 
 const omx = readOmxActiveModes();
+const planDiscovery = discoverPlans(repoRoot);
 
 const result = {
   schemaVersion: 1,
@@ -51,7 +55,8 @@ const result = {
     unstagedPaths: workingTree.unstaged.slice(0, changeLimit),
     untrackedPaths: workingTree.untracked.slice(0, changeLimit),
   },
-  activePlans: listActivePlans(),
+  activePlans: planDiscovery.plans.map(({ path, status }) => ({ path, status })),
+  planDiscovery: { complete: planDiscovery.complete, issues: planDiscovery.issues },
   omx,
   canonicalVerification: [
     'pnpm test:repo-policy',
@@ -82,10 +87,13 @@ if (args.json) {
 
 function parseArgs(argv) {
   const parsed = { fresh: false, resume: false, json: false, plan: undefined };
+  let separatorSeen = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
-    if (argument === '--fresh') parsed.fresh = true;
+    // Package runners can forward one separator after default --json flags.
+    if (argument === '--' && !separatorSeen) separatorSeen = true;
+    else if (argument === '--fresh') parsed.fresh = true;
     else if (argument === '--resume') parsed.resume = true;
     else if (argument === '--json') parsed.json = true;
     else if (argument === '--plan') {
@@ -102,7 +110,16 @@ function parseArgs(argv) {
 
 function buildResumeSummary(planInput) {
   const selected = planInput ? resolveRepositoryPath(planInput) : null;
-  const metadata = selected?.exists ? readPlanMetadata(selected.path) : unknownMetadata();
+  const planBinding = selected?.binding ?? null;
+  const metadata = planBinding
+    ? {
+        id: planBinding.id ?? null,
+        idState: planBinding.id ? 'valid' : 'unknown',
+        status: planBinding.status ?? 'unknown',
+      }
+    : selected?.exists
+      ? readPlanMetadata(selected.path)
+      : unknownMetadata();
   const taskId =
     metadata.idState === 'valid'
       ? metadata.id
@@ -112,12 +129,15 @@ function buildResumeSummary(planInput) {
   const info = {
     selected,
     metadata,
+    planBinding,
     taskId: /^[a-z0-9][a-z0-9-]*$/u.test(taskId ?? '') ? taskId : null,
     taskIdSource: metadata.idState === 'valid' ? 'plan-id' : taskId ? 'filename-hint' : 'unknown',
   };
   if (!info.taskId) info.taskIdSource = 'unknown';
   const priority = readNotepadPriority();
   const limitations = [];
+  if (planBinding && planBinding.state !== 'active')
+    limitations.push('plan-not-active', ...planBinding.reasons);
   if (!selected) limitations.push('no-selected-plan');
   else if (!selected.exists) limitations.push('selected-plan-missing');
   if (metadata.status === 'unknown' || !info.taskId) limitations.push('plan-metadata-unknown');
@@ -171,6 +191,7 @@ function buildResumeSummary(planInput) {
       };
   return {
     plan: selected ? { path: selected.path, exists: selected.exists } : null,
+    planBinding,
     notepadPriority: priority.summary,
     contextSnapshots: checked.map((item) => item.path),
     diagnostics: {
@@ -211,11 +232,16 @@ function inspectContext(path, info, pointer, pointerValid) {
   if (!info.selected) gap('no-selected-plan');
   else if (!info.selected.exists) gap('selected-plan-missing');
   if (!info.taskId || info.metadata.status === 'unknown') gap('plan-metadata-unknown');
-  if (['completed', 'cancelled'].includes(info.metadata.status)) {
+  if (info.planBinding && info.planBinding.state !== 'active') gap('plan-not-active');
+  if (['completed', 'cancelled', 'superseded'].includes(info.metadata.status)) {
     expired = true;
     reasons.push('plan-terminal');
   }
-  if (info.selected?.path.startsWith('.omx/plans/finished/')) drift('archived-plan');
+  if (
+    info.planBinding?.state === 'archived' ||
+    info.selected?.path.startsWith('.omx/plans/finished/')
+  )
+    drift('archived-plan');
   if (statusLines.length) drift('dirty-tree');
   if (pointer && !pointerValid) gap('priority-invalid');
 
@@ -234,7 +260,8 @@ function inspectContext(path, info, pointer, pointerValid) {
   let taskMatch = 'unknown';
   let time = null;
   if (value) {
-    const activePlan = inspectPath(value.activePlan, '.omx/plans');
+    const owner = planOwner(value.activePlan);
+    const activePlan = owner ? inspectPath(value.activePlan, owner) : { safe: false };
     const knownTask =
       typeof value.taskSlug === 'string' && /^[a-z0-9][a-z0-9-]*$/u.test(value.taskSlug);
     const knownPointerTask =
@@ -359,6 +386,20 @@ function parseTimestamp(value) {
   return Date.parse(value);
 }
 
+// Porcelain -z preserves both columns and literal paths. R/C records carry a second
+// source-path token; only the destination belongs in the current path collections.
+function statusRecords(raw) {
+  const tokens = raw.split('\0');
+  const records = [];
+  for (let index = 0; index < tokens.length; index++) {
+    const record = tokens[index];
+    if (!record) continue;
+    records.push(record);
+    if (/[RC]/u.test(record.slice(0, 2))) index++;
+  }
+  return records;
+}
+
 function classifyChanges(lines) {
   const result = { staged: [], unstaged: [], untracked: [] };
   for (const line of lines) {
@@ -371,23 +412,6 @@ function classifyChanges(lines) {
     }
   }
   return result;
-}
-
-function listActivePlans() {
-  const directory = inspectPath('.omx/plans', '.omx/plans', 'directory');
-  if (!directory.safe || !directory.exists) return [];
-  try {
-    return readdirSync(directory.absolute, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
-      .map((entry) => {
-        const path = `.omx/plans/${entry.name}`;
-        const metadata = readPlanMetadata(path);
-        return { path, status: metadata.status === 'unknown' ? 'unspecified' : metadata.status };
-      })
-      .sort((a, b) => comparePaths(a.path, b.path));
-  } catch {
-    return [];
-  }
 }
 
 function unknownMetadata() {
@@ -518,12 +542,25 @@ function readNotepadPriority() {
   };
 }
 
+function planOwner(input) {
+  if (typeof input !== 'string') return null;
+  if (input.startsWith('.plans/')) return '.plans';
+  if (input.startsWith('.omx/plans/')) return '.omx/plans';
+  return null;
+}
+
 function resolveRepositoryPath(input) {
-  const path = relative(repoRoot, resolve(repoRoot, input));
-  const inspected = inspectPath(path, '.omx/plans');
-  if (!inspected.safe || path === '.omx/plans')
-    fail('--plan must point safely inside .omx/plans/.');
-  return inspected;
+  // Preserve the legacy CLI's explicit path normalization, not legacy discovery.
+  const legacyPath = relative(repoRoot, resolve(repoRoot, input));
+  const path =
+    planOwner(input) !== '.plans' && legacyPath.startsWith('.omx/plans/') ? legacyPath : input;
+  const owner = planOwner(path);
+  if (!owner) fail('--plan must point safely inside .plans/ or explicitly inside .omx/plans/.');
+  const binding = owner === '.plans' ? readPlan(repoRoot, path) : null;
+  if (binding?.state === 'unsafe') fail('--plan must point safely inside .plans/.');
+  const inspected = inspectPath(path, owner);
+  if (!inspected.safe) fail('--plan must point safely inside .plans/ or .omx/plans/.');
+  return { ...inspected, binding };
 }
 
 // Check every component before opening a body, including symlinked owner directories.
@@ -597,13 +634,13 @@ function readBounded(input, owner) {
   }
 }
 
-function git(commandArgs) {
+function git(commandArgs, { trim = true } = {}) {
   const result = spawnSync('git', commandArgs, {
     cwd: repoRoot,
     encoding: 'utf8',
   });
   if (result.status !== 0) fail(result.stderr.trim() || `git ${commandArgs.join(' ')} failed`);
-  return result.stdout.trim();
+  return trim ? result.stdout.trim() : result.stdout;
 }
 
 function resolveBranch() {

@@ -97,7 +97,10 @@ test('Taste and Redesign remain Codex-only and are not Claude project skills', (
   const codexOnlySkills =
     /Taste \(`design-taste-frontend`\) and Redesign \(`redesign-existing-projects`\) are \*\*Codex-only\*\*/u;
   assert.match(claude, codexOnlySkills);
-  assert.match(codex, codexOnlySkills);
+  assert.match(
+    codex,
+    /Taste \(`design-taste-frontend`\)와 Redesign \(`redesign-existing-projects`\)은 \*\*Codex-only\*\*/u,
+  );
   assert.match(design, /`design-taste-frontend`.*`redesign-existing-projects`.*Codex 전용/su);
 });
 

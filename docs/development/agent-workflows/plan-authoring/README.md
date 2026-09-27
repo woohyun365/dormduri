@@ -34,7 +34,7 @@ local runtime, configuration precedence, complete Phase ownership, acceptance ev
 
 1. [Core의 readiness promotion gate](./core.md#7-implementation-readiness-promotion)로 Markdown과 current evidence를
    대조합니다.
-2. 필요한 경우 이를 [read-only readiness policy](../../../../scripts/agents/plan-readiness-policy.mjs)의 normalized input으로
+2. 필요한 경우 이를 [read-only readiness policy](../../../../scripts/agents/common/plan-readiness-policy.mjs)의 normalized input으로
    매핑해 self-contradiction을 검사합니다.
 3. Validator green은 보조 evidence입니다. Fresh reviewer가 입력의 사실성, blocking OQ, mutation authority를 독립적으로
    확인한 뒤에만 구현을 시작합니다.

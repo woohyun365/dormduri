@@ -78,6 +78,13 @@ function metadata(root, path) {
     const id = ids.length === 1 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(ids[0]) ? ids[0] : null;
     const statusMap = {
       active: 'active',
+      'in-progress': 'active',
+      draft: 'proposed',
+      진행중: 'active',
+      초안: 'proposed',
+      제안: 'proposed',
+      차단: 'blocked',
+      '구현 준비 완료': 'implementation-ready',
       'implementation-ready': 'implementation-ready',
       proposed: 'proposed',
       blocked: 'blocked',

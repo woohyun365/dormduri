@@ -11,13 +11,13 @@ const fixtures = JSON.parse(
 );
 const capabilityOwners = {
   'task-envelope-contract': 'docs/development/agent-workflows/request-intake/task-envelope.md',
-  'task-envelope-mapper': 'scripts/agents/intake-policy.mjs',
-  'domain-guide-discovery': 'scripts/agents/domain-guide-registry.mjs',
+  'task-envelope-mapper': 'scripts/agents/common/intake-policy.mjs',
+  'domain-guide-discovery': 'scripts/agents/common/domain-guide-registry.mjs',
   'analyze-output-contract': 'docs/development/agent-workflows/request-intake/output-contracts.md',
   'plan-output-contract': 'docs/development/agent-workflows/request-intake/output-contracts.md',
   'ambiguity-authority-gate':
     'docs/development/agent-workflows/request-intake/ambiguity-and-authority.md',
-  'direct-path-gate': 'scripts/agents/intake-policy.mjs',
+  'direct-path-gate': 'scripts/agents/common/intake-policy.mjs',
   'bounded-recovery': 'scripts/agents/codex/orchestration-policy.mjs',
 };
 

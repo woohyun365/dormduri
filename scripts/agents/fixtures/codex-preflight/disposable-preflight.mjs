@@ -17,7 +17,7 @@ const repoRoot = resolve(import.meta.dirname, '../../../..');
 // Copies actual source unchanged, uses real Git, and stubs ONLY optional OMX reads.
 // No repository under test is staged, committed, or modified by this fixture.
 export function disposablePreflight(t) {
-  const root = realpathSync(mkdtempSync(resolve(tmpdir(), 'knu-general-phase0-')));
+  const root = realpathSync(mkdtempSync(resolve(tmpdir(), 'knu-codex-preflight-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
@@ -34,12 +34,22 @@ export function disposablePreflight(t) {
     writeFileSync(absolute, body);
     return absolute;
   };
-  const git = (args) => {
-    const result = spawnSync('git', args, { cwd: root, env, encoding: 'utf8', timeout: 10000 });
+  const git = (args, input) => {
+    const result = spawnSync('git', args, {
+      cwd: root,
+      env,
+      input,
+      encoding: 'utf8',
+      timeout: 10000,
+    });
     assert.ifError(result.error);
     assert.equal(result.status, 0, `fixture Git setup/read failed: ${result.stderr}`);
     return result.stdout;
   };
+  cpSync(
+    resolve(repoRoot, 'scripts/agents/common/plan-store.mjs'),
+    put('scripts/agents/common/plan-store.mjs', ''),
+  );
   for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
     const destination = put(`scripts/agents/codex/${file}`, '');
     cpSync(resolve(repoRoot, 'scripts/agents/codex', file), destination);

@@ -1,4 +1,4 @@
-// TEST-ONLY proposed graph oracle. No production caller imports this module.
+// TEST-ONLY synthetic graph oracle. No production caller imports this module.
 // Passing these fixtures does not validate the repository's actual document graph.
 const edgeKinds = new Set([
   'entry',
@@ -9,7 +9,7 @@ const edgeKinds = new Set([
   'historical',
 ]);
 
-export function validateProposedGraph(graph, { host = 'unknown', intent = 'analyze' } = {}) {
+export function validateFixtureGraph(graph, { host = 'unknown', intent = 'analyze' } = {}) {
   const errors = [];
   const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
   const owners = new Map();

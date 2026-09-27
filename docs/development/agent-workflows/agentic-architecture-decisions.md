@@ -165,7 +165,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 ## DA-014 — Intent를 바꾸지 않는 선택적 domain concern consultation
 
 - **결정일**: 2026-09-10, accepted collaboration contract.
-- **문제/근거**: `scripts/agents/domain-guide-registry.mjs`는 Plan 외 intent에 authoring guide를 선택하지 않습니다.
+- **문제/근거**: `scripts/agents/common/domain-guide-registry.mjs`는 Plan 외 intent에 authoring guide를 선택하지 않습니다.
   [Backend](./plan-authoring/backend.md)·[Infrastructure](./plan-authoring/infrastructure.md) 등 기존의 유용한 분석 관점까지
   읽지 말라는 의미로 해석하면, 모호한 Analyze나 승인된 구현의 실제 영향 조사가 약해질 수 있습니다.
 - **결정**: source/owner 확인 뒤 Lead가 필요한 primary guide의 관련 부분만 참고합니다. 이는 model-mediated consultation이며

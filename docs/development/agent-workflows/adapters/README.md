@@ -18,7 +18,7 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 
 | Source owner                  | 책임                                                                                     | 현재 caller·증거 경계                                                                 |
 | ----------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Neutral root modules          | `intake-policy`, `domain-guide-registry`, `plan-readiness-policy`, `cross-model-handoff` | 기존 TaskEnvelope/ContextPack/readiness/QA validation; Plan-only guide selection 보존 |
+| `common/`의 neutral services  | `intake-policy`, `domain-guide-registry`, `plan-readiness-policy`, `cross-model-handoff` | 기존 TaskEnvelope/ContextPack/readiness/QA validation; Plan-only guide selection 보존 |
 | `common/workflow-entry.mjs`   | ordered readset·조건부 host/domain guide                                                 | 명시적 CLI가 intake/context를 호출; 자동 startup hook이나 dispatcher가 아님           |
 | `common/plan-store.mjs`       | 공통 authoring root의 bounded metadata·discovery·resume 후보                             | 공통 CLI와 tests; host memory/state를 읽거나 쓰지 않음                                |
 | `common/adapter-contract.mjs` | descriptor/capability, bounded lanes·receipt/fan-in, 독립 QA 입력 적합성                 | static conformance tests와 명시적 API 소비자; scheduler·provider launcher 아님        |
@@ -27,8 +27,10 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 | `claude/`                     | finite static model policy, fail-closed readiness                                        | `unsupported/unknown`, `applied:false` 는 dispatch/live qualification과 별개          |
 | `bridge/`                     | static one-shot packet와 고정 fake process                                               | 실제 provider launcher가 아님; live 기본 비활성 유지                                  |
 
-`session-contract`와 `session-preflight`는 Codex/OMX 소유입니다. `pnpm agent:preflight`도 아직 그 owner를 직접
-호출합니다. 공통 reader가 추가됐다고 이 기존 caller의 authoring root나 native/plugin 출력 경로까지 전환된 것은 아닙니다.
+`codex/workflow-entry.mjs`는 공통 route·lane/result/QA contract와 기존 Codex policy의 실제 composition입니다. `codex:workflow`와 smoke가 이를 소비하며 native/provider 실행은 하지 않습니다.
+
+`session-contract`와 `session-preflight`는 Codex/OMX 소유입니다. `pnpm codex:preflight`는 해당 owner를 직접
+호출하며 Claude용 명령이 아닙니다. 기존 caller의 기본 authoring 탐색은 공통 `.plans` reader를 소비하며 legacy `.omx/plans`는 명시적 읽기만 유지합니다. native/plugin 출력 설정이나 실제 local 파일 이동까지 완료됐다는 뜻은 아닙니다.
 공통 계획 생성·legacy 원본 보존·실제 이동 gate는 [Session continuity](../session-continuity.md#active-plan-lifecycle)를 따릅니다.
 
 [Codex child policy](./codex-delegation.md)와 [Codex recovery](../request-intake/orchestration-recovery.md)는 해당 host만
@@ -59,3 +61,5 @@ builder와 reviewer의 독립성을 확인합니다. 실제 finding의 valid/inv
 `runtime-qualified`는 별도 승인된 실제 host 시험입니다. 고정 disposable fixture에서 instruction/role/tool loading,
 allow/deny, executor evidence, lifecycle/cleanup 및 host 간 인계를 관측해야 합니다. 파일 존재·metadata·static PASS만으로
 전체 runtime readiness를 선언하지 않습니다. Plugin 설치와 실제 모델 실행도 각각 별도 권한·evidence가 필요합니다.
+
+스크립트·테스트·fixture의 host 명명 및 owner 배치는 [scripts/agents 안내](../../../../scripts/agents/README.md)를 따릅니다.

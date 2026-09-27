@@ -5,7 +5,7 @@ candidate, source metadata와 tracked guide 추천으로 변환한 immutable adv
 
 ## Boundary
 
-- `scripts/agents/domain-guide-registry.mjs`는 filesystem search engine이 아닙니다.
+- `scripts/agents/common/domain-guide-registry.mjs`는 filesystem search engine이 아닙니다.
 - Caller는 current request, changed path, policy, public contract, owner README, route/controller/BFF, test와 필요 시
   official external source 후보를 수집합니다.
 - Registry는 입력 evidence를 정규화·분류하지만 tool, web, child, mutation을 실행하지 않습니다.

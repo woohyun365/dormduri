@@ -54,10 +54,7 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 
 - **공통 결정**: 독립 lane 하나도 허용하며 한 task에는 하나의 write owner만 둔다. 최종 결정·응답·통합·검증은
   leader가 소유한다. 현재 host가 지원·허용하는 범위 안에서만 위임한다.
-- **Codex 구현**: proactive fan-out은 보통 0~2개, Pass 2 evidence에 연결된 high-value third
-  lane까지 최대 3개로 제한한다. Owner가 명시적으로 요청한 manual fan-out만 hard cap 6까지 허용하며 write-capable
-  child는 하나만 선택한다. 이 cap은 [Codex delegation](../adapters/codex-delegation.md#count와-write-policy)의 정책이며
-  Claude·제3 host에 자동 적용하지 않는다.
+- **Host binding**: Codex의 fan-out cap·write policy는 [Codex delegation](../adapters/codex-delegation.md#count와-write-policy)이 소유하며 다른 host에 자동 적용하지 않는다.
 - **기각**: child 수를 품질 지표로 사용하거나 child가 global plan을 각자 작성.
 - **재검토**: repository fixture가 다른 bound에서 지속적인 품질·latency 이득을 증명할 때.
 
@@ -65,13 +62,9 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 
 - **공통 결정**: 필요한 조사·구현·검토 책임과 impact risk·reasoning complexity를 구분한다. 실제 역할·모델·자원
   설정은 현재 adapter가 소유하며 dispatch 전에 capability를 확인한다.
-- **Codex 구현**: current ContextPack에 연결된 Pass 2 source/fact/predicate graph로
-  `knu_explorer | knu_researcher | knu_executor | knu_reviewer`와 `medium | high | xhigh`를 추천한다. Impact risk와
-  reasoning complexity를 분리하고 runtime capability는 dispatch 직전에 leader가 확인한다.
-- **기각**: model family hard-code, leader effort 무조건 상속, `max/ultra` 기본 추천.
-- **구현 영향**: contract는 support unknown/applied false evidence를 보존하고, runtime role routing을 증명할 수 없으면
-  역할을 가장하지 않고 dispatch gate에서 sequential fallback한다. Codex enum·Pass 2를 다른 host에 강제하지 않는다.
-  필수 독립 QA나 권한 증거가 부족한 경우에는 direct fallback만으로 완료를 주장하지 않는다.
+- **Host binding**: Codex의 Pass 2·role/effort·runtime gate는 [Codex routing](../adapters/codex.md#reasoning-effort-routing)을 따른다. Host별 enum을 공통 기본값으로 삼지 않는다.
+- **기각**: model family를 공통 core에 고정하거나 Parent 자원 설정을 무조건 상속.
+- **구현 영향**: capability를 입증하지 못하면 지원된 direct/sequential 경로 또는 blocker를 선택한다. 필수 독립 QA·권한 증거를 fallback으로 대체하지 않는다.
 
 ## AIPO-009 — Child task는 typed handoff
 

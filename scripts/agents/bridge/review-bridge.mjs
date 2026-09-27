@@ -2,7 +2,10 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
-import { validateCrossModelPacket, validateCrossModelResult } from '../cross-model-handoff.mjs';
+import {
+  validateCrossModelPacket,
+  validateCrossModelResult,
+} from '../common/cross-model-handoff.mjs';
 
 const FAKE_CLI = resolve(import.meta.dirname, '../../ci/fixtures/cross-host-review-fake-cli.mjs');
 const FIXTURE_CASES = new Set([
@@ -42,7 +45,7 @@ function fingerprint(value) {
 }
 
 // This is a static declaration check, not Lead authentication or live host admission.
-// H3P has intentionally no real-provider spawn path.
+// This static bridge intentionally has no real-provider spawn path.
 export function assessReviewBridgeInvocation(input = {}) {
   const {
     packet,
@@ -193,7 +196,7 @@ function receipt(
 }
 
 // Only the checked-in fake executable is reachable. Real CLI commands are descriptive
-// host artifacts for H4 review; no option or environment flag enables them here.
+// host artifacts for authorized live qualification; no option or environment flag enables them here.
 export async function runFakeReviewProcess(input = {}) {
   const {
     admission,

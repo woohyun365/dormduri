@@ -5,8 +5,8 @@ import test from 'node:test';
 import { runFreshSessionSmoke } from '../agents/codex/fresh-session-smoke.mjs';
 
 import { recommendDelegation } from '../agents/codex/child-task-contract.mjs';
-import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
-import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
+import { discoverContextPack } from '../agents/common/domain-guide-registry.mjs';
+import { buildTaskEnvelope } from '../agents/common/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
@@ -270,8 +270,8 @@ test('official-source recovery stops after one distinct alternate and preserves 
 
 test('the integrated intake path remains advisory and cannot write files or invoke children', () => {
   for (const path of [
-    'scripts/agents/intake-policy.mjs',
-    'scripts/agents/domain-guide-registry.mjs',
+    'scripts/agents/common/intake-policy.mjs',
+    'scripts/agents/common/domain-guide-registry.mjs',
     'scripts/agents/codex/child-task-contract.mjs',
     'scripts/agents/codex/orchestration-policy.mjs',
   ]) {

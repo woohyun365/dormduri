@@ -1,5 +1,5 @@
 {
-  "evidenceClass": "proposed-test-only-graph-not-runtime",
+  "evidenceClass": "synthetic-test-only-graph-not-runtime",
   "graph": {
     "contracts": ["authority", "qa"],
     "entries": ["entry"],

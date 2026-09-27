@@ -24,17 +24,18 @@ const textExtensions = new Set([
 const localPlanBoundaryAllowlist = new Set([
   'docs/architecture/README.md',
   'docs/development/agent-workflows/session-continuity.md',
+  'docs/development/agent-workflows/adapters/codex.md',
   'scripts/agents/codex/session-preflight.mjs',
-  'scripts/ci/fixtures/session-context.valid.md',
-  'scripts/ci/session-contract.test.mjs',
-  'scripts/ci/session-preflight.test.mjs',
+  'scripts/ci/fixtures/codex-session-context.valid.md',
+  'scripts/ci/codex-session-contract.test.mjs',
+  'scripts/ci/codex-session-preflight.test.mjs',
   'scripts/ci/agent-guidance-boundary.test.mjs',
   'scripts/agents/common/plan-store.mjs',
   'scripts/ci/agent-plan-store.test.mjs',
   'scripts/ci/agent-adapter-conformance.test.mjs',
   'scripts/ci/agent-workflow-entry.test.mjs',
-  'scripts/agents/fixtures/workflow-general-phase0/disposable-preflight.mjs',
-  'scripts/agents/fixtures/workflow-general-phase0/expected-red-probes.mjs',
+  'scripts/ci/codex-workflow-entry.test.mjs', // Disposable plan lifecycle fixture, not durable authority.
+  'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
 ]);
 const workflowGuidePaths = [
   'docs/development/agent-workflows/README.md',
@@ -74,7 +75,8 @@ function workingPaths() {
       ...trackedPaths(),
       'CONTRIBUTING.md',
       'scripts/agents/codex/session-preflight.mjs',
-      'scripts/ci/session-preflight.test.mjs',
+      'scripts/ci/codex-session-preflight.test.mjs',
+      'scripts/ci/codex-workflow-entry.test.mjs',
       ...workflowGuidePaths,
     ]),
   ];

@@ -1,8 +1,8 @@
 {
   "evidenceClass": "actual-public-api-characterization",
   "sources": {
-    "intake": "scripts/agents/intake-policy.mjs",
-    "guides": "scripts/agents/domain-guide-registry.mjs",
+    "intake": "scripts/agents/common/intake-policy.mjs",
+    "guides": "scripts/agents/common/domain-guide-registry.mjs",
     "authority": "docs/development/agent-workflows/request-intake/task-envelope.md",
     "guideContract": "docs/development/agent-workflows/request-intake/context-pack.md"
   },

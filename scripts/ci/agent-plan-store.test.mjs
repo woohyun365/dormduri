@@ -175,3 +175,19 @@ test('explicit malformed metadata reports an incomplete inventory but supporting
     assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
   }
 });
+
+test('legacy authoring status aliases normalize without changing runtime ownership', (t) => {
+  const { root, put } = fixture(t);
+  for (const [raw, status] of Object.entries({
+    'in-progress': 'active',
+    draft: 'proposed',
+    진행중: 'active',
+    초안: 'proposed',
+    제안: 'proposed',
+    차단: 'blocked',
+    '구현 준비 완료': 'implementation-ready',
+  })) {
+    put('.plans/one.md', `- Plan ID: one\n- Status: ${raw}\n`);
+    assert.equal(readPlan(root, '.plans/one.md').status, status);
+  }
+});

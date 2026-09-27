@@ -346,8 +346,8 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
   const requiredLinks = [
     '../../scripts/agents/codex/model-profiles.mjs',
     '../../scripts/agents/codex/model-run-evidence.mjs',
-    '../../scripts/ci/model-profiles.test.mjs',
-    '../../scripts/ci/model-run-evidence.test.mjs',
+    '../../scripts/ci/codex-model-profiles.test.mjs',
+    '../../scripts/ci/codex-model-run-evidence.test.mjs',
     './agent-workflows/subagent-lifecycle.md',
     './agent-workflows/qa.md',
   ];

@@ -52,7 +52,7 @@ release handoff에 남깁니다. 현재 scoped acceptance는 완료할 수 있�
 운영/개발 도구의 acceptance는 사용자 analytics 없이도 기술적으로 검증할 수 있습니다.
 선택한 작업과 무관하거나 만료된 context를 추천하지 않는지 synthetic fixture로 확인하고, 기존 CLI 소비자와 실패 경로를
 보호합니다. 실제 [재개 진단 변경 PR #444](https://github.com/woohyun365/knu_roommate/pull/444)와
-[session-preflight 회귀 테스트](../../../scripts/ci/session-preflight.test.mjs)는 그 증거입니다.
+[session-preflight 회귀 테스트](../../../scripts/ci/codex-session-preflight.test.mjs)는 그 증거입니다.
 이는 모든 fresh session의 성능, native compaction 동등성 또는 개발 시간 단축을 증명하지 않습니다.
 
 ## Scoped Done과 portable evidence

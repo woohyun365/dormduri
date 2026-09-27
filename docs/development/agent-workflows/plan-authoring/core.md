@@ -231,7 +231,7 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 ### Normalized readiness evidence
 
-[Readiness policy](../../../../scripts/agents/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
+[Readiness policy](../../../../scripts/agents/common/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
 않는 read-only advisory validator입니다. Reviewer는 계획과 repository evidence를 다음 입력으로 명시적으로 매핑합니다.
 
 | Plan evidence                         | Normalized input            |

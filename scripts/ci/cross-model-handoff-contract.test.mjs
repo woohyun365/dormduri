@@ -8,7 +8,7 @@ import {
   validateCrossModelExchange,
   validateCrossModelPacket,
   validateCrossModelResult,
-} from '../agents/cross-model-handoff.mjs';
+} from '../agents/common/cross-model-handoff.mjs';
 
 const fixturePath = resolve(import.meta.dirname, 'fixtures/cross-model-handoff-cases.json');
 const corpus = JSON.parse(readFileSync(fixturePath, 'utf8'));
@@ -183,7 +183,7 @@ test('tracked workflow docs discover the neutral contract without local plan aut
   assert.match(adapterIndex, /cross-model-handoff\.md/u);
   assert.doesNotMatch(adapter, /\.omx\/plans/u);
   for (const linkedPath of [
-    '../../../../scripts/agents/cross-model-handoff.mjs',
+    '../../../../scripts/agents/common/cross-model-handoff.mjs',
     '../../../../scripts/ci/fixtures/cross-model-handoff-cases.json',
   ]) {
     assert.match(adapter, new RegExp(linkedPath.replaceAll('.', '\\.')));

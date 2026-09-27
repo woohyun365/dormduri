@@ -55,7 +55,7 @@
 - 새 작업은 과거 memory를 기본 입력으로 읽지 않는다. `이어서`, plan/phase가 명시되거나 현재 요청이 같은 task의 active
   runtime/checkpoint를 명확히 이어갈 때만 `session-continuity.md`의 resume 경로를 사용한다.
 - multi-step/resume 작업의 Git 기준점은 branch·HEAD·raw working tree로 확인한다. 공통 문서/계획 진단은
-  `session-continuity.md`의 명시적 host 진입 명령을 사용한다. `pnpm agent:preflight`는 Codex 전용 호환 명령이다.
+  `session-continuity.md`의 명시적 host 진입 명령을 사용한다. `pnpm codex:preflight`는 Codex 전용 명령이다.
 - 분석·구현·검증 공통 계약은 `agent-execution-contract.md`, orchestration 선택은 `orchestration.md`를 따른다.
 - Host별 모델·역할·권한 실행은 `docs/development/agent-workflows/adapters/README.md`에서 현재 host adapter를 선택한다.
 - 명확한 기술 작업은 승인 범위에서 진행하고 중요한 제품·비용·위험 선택은 근거를 갖춰 사용자와 협의한다.

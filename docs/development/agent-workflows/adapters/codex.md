@@ -2,15 +2,29 @@
 
 ## Cross-host direct CLI reviewer (static boundary)
 
-The [Codex-target bridge policy](../../../../scripts/agents/codex/review-bridge.mjs) describes a **top-level** `codex exec` process for an authorized Claude Lead's additional read-only check. It pins `gpt-6-astra`, `--sandbox read-only`, noninteractive approval denial, a frozen H3 packet and finite source/config/role digests. The top-level CLI has no proven native project-agent selector here: this process must **not** be reported as `.codex/agents/knu_reviewer.toml` or as satisfying Codex's separate required Astra QA. The command object is `enabled:false`; the current bridge cannot run it. A static `candidate` records no auth, model resolution, sandbox observation or live role proof. See the [neutral handoff and live-qualification boundary](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only). Do not switch to `omx ask` as an implicit fallback.
+[Codex-target bridge policy](../../../../scripts/agents/codex/review-bridge.mjs)는 승인된 Claude Lead의 추가 읽기 전용 검토를 위한 **top-level** `codex exec` 계약입니다. `gpt-6-astra`, `--sandbox read-only`, 비대화식 승인 거부와 source/config/role digest를 사용합니다. 이 프로세스가 `.codex/agents/knu_reviewer.toml`을 로드하거나 별도 필수 Astra QA를 충족했다고 주장하지 않습니다. 명령은 `enabled:false`이며 현재 bridge는 실행하지 않습니다. auth·실제 모델·sandbox·role 입증은 별도입니다. [교차 인계](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only)를 따르며 `omx ask`로 자동 우회하지 않습니다.
 
-This document owns Codex/OMX model, effort, runtime dispatch, workflow names, and rollback details. It consumes the tool-neutral [orchestration contract](../orchestration.md), [execution contract](../agent-execution-contract.md), and [QA](../qa.md); it does not apply to Claude Code or another host by default. Existing Codex cohort/admission and required Astra QA remain in force for that cohort.
+이 문서는 공통 [orchestration](../orchestration.md)·[execution](../agent-execution-contract.md)·[QA](../qa.md)를 소비하는 Codex/OMX 전용 모델·effort·dispatch·복구 owner입니다. 다른 host에 자동 적용하지 않습니다. 기존 finite cohort/admission과 필수 Astra QA는 유지합니다.
 
-On child completion, added dispatch, capacity error or turn end, the Parent follows [subagent lifecycle](../subagent-lifecycle.md): collect the result, distinguish explicit-close from verified no-close or unknown, and record cleanup and slot evidence separately. The Codex child cap remains six. Missing close support alone does not prove release or failure. Subsequent allocation uses the documented continuation/fan-in capability; `/agents` is optional operator evidence, not mandatory single-root infrastructure.
+Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. 상한은 6이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
 
 ## Visual skill scope
 
-Taste (`design-taste-frontend`) and Redesign (`redesign-existing-projects`) are **Codex-only** task-fit design aids, not common workflow prerequisites or Claude ports. Preserve the existing personal Codex installations; use the [visual skill selection and Codex installation boundary](../visual-design/design-task-orchestration.md#task-fit-skills) only when the task benefits. Each skill keeps its own discovery and qualification evidence. This scope decision does not assert a model's design superiority.
+Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **Codex-only** task-fit 도구이며 공통 필수 skill이나 Claude 이식 대상이 아닙니다. 기존 personal Codex 설치는 보존하고 [선택·설치 경계](../visual-design/design-task-orchestration.md#task-fit-skills)를 따릅니다. 각 skill의 discovery/qualification은 별개이고 모델의 디자인 우열을 주장하지 않습니다.
+
+## Repository workflow entry
+
+```sh
+pnpm codex:workflow -- --request '변경 원인을 분석해줘.' --mode fresh --json
+pnpm codex:workflow -- --request '지정 작업을 분석해줘.' --mode resume --plan .plans/example-plan.md --json
+pnpm codex:preflight -- --fresh
+```
+
+`codex/workflow-entry.mjs`의 `prepareCodexWorkflow`는 공통 intake/context/readset → 기존 Codex delegation/dispatch 추천 → 공통 bounded lane 검증을 연결합니다. `fresh-session-smoke`도 이 caller를 소비합니다. CLI는 현재 요청의 deterministic 진단이며 provider·native agent·OMX를 실행하지 않습니다. 명시한 plan 외에 local memory를 탐색하지 않습니다.
+
+API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnapshot`, `adapterIdentity`는 Parent가 현재 source와 비교해 제공합니다. Missing binding은 gap이며 자동 권한이 아닙니다. `validateCodexWorkflowResults`는 원래 입력에서 계약을 다시 계산하고 common fan-in과 독립 QA exchange를 검사합니다. `reviewDisposition: { required, reason }`에 공통 QA trigger를 검토한 Lead 판단을 명시합니다. 오탈자 등 저위험 direct 작업의 `not-needed` 의미를 보존하고, disposition 누락은 gap입니다. Bounded-build의 필수 Astra QA는 면제하지 않습니다. QA가 필요하면 현재 task/owner/snapshot뿐 아니라 lane acceptance와 read/write scope에 대응하는 완료 PASS를 요구합니다. 제출된 coverage·관측 모델은 Lead가 실제 증거와 다시 대조해야 합니다. 결과 `valid`는 정적 정합성뿐입니다. 실제 호출·model/permission·finding 재현·Astra QA·종료 입증은 계속 Parent와 host의 책임입니다.
+
+`codex:preflight`는 Codex Git/OMX snapshot 명령이며 request CLI의 alias가 아닙니다. 기본 계획 탐색은 `.plans`, 명시적 legacy `.omx/plans` 읽기만 과도기 호환입니다. `planDiscovery.complete/issues` 및 선택된 `planBinding`으로 불완전한 inventory와 잘못된 상태를 드러냅니다. Legacy reader 제거 조건은 필요한 callers와 owner-local 계획 migration 완료입니다. 파일을 자동 생성·이동하거나 runtime `.omx/context`를 옮기지 않습니다.
 
 ## Reasoning effort routing
 
@@ -136,8 +150,8 @@ profile을 current source/config에 다시 승인해 복귀하며 retired GPT-5.
    과거 code와 grant를 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 grant·5.6을
    되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
 
-Reproduction: `scripts/ci/model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
-`scripts/ci/orchestration-policy.test.mjs`의 routine withdrawal→fresh re-admission·stale binding 회귀. 실제 설정 변경 없이
+Reproduction: `scripts/ci/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
+`scripts/ci/codex-orchestration-policy.test.mjs`의 routine withdrawal→fresh re-admission·stale binding 회귀. 실제 설정 변경 없이
 fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/default/reviewer generation은 별도 설정·권한 결정입니다.
 
 ### Task model configuration and fresh loading
@@ -241,3 +255,107 @@ Parent+child+QA+수정/복구 총 비용의 절감 실측이 아닙니다. Token
 - UI 방향·비평·승인된 구현: [Visual design workflow](../visual-design/README.md); skill 호출이나 Figma 연결은 필수가 아님
 
 Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 않습니다.
+
+## Codex/OMX permission mechanism
+
+이 절의 `workspace-write`, Auto-review, `on-request`, `madmax` 및 실행 규칙은 **Codex/OMX host 전용**입니다.
+공통 권한 원칙은 위의 source·scope·authority 계약이며, Claude Code의 native 도구/permission 검증은
+[Claude Code adapter](./claude-code.md)를 따릅니다. Codex 권한 모드를 다른 host의 실제 격리로 추정하지 않습니다.
+
+기본 권장 조합은 **workspace-write + 필요한 범위만 좁게 허용 + 지원되는 Auto-review**입니다. Auto-review는 기존
+승인 요청의 검토자를 바꾸는 native 기능이지 모든 명령의 보안 검사나 업무 승인자가 아닙니다. 이미 허용된 작업은 검토를
+거치지 않을 수 있고 `never`는 자동 검토 모드가 아닙니다. 지원되지 않으면 `on-request` 대안을 확인하며 몰래 full access로
+전환하지 않습니다. [공식 Auto-review 문서](https://learn.chatgpt.com/docs/sandboxing/auto-review)
+
+- 기존 broad allow가 적용되면 좁은 allow 추가만으로 그 범위가 줄지 않습니다. 예를 들어 `gh api` prefix는 repo·HTTP method를
+  제한하지 않습니다. 실제 loaded scope·규칙 우선순위를 확인하고 잘못된 repo/method/host·추가 인자에 대한 negative case로
+  평가합니다. 전역 shell/interpreter 허용이나 홈 전체 writable을 편의상 기본값으로 추가하지 않습니다.
+  [공식 실행 규칙](https://learn.chatgpt.com/docs/agent-configuration/rules)
+- 기본 reviewer policy는 유지합니다. `[auto_review].policy`는 추가 병합이 아닌 교체이므로 짧은 repository 지침을 넣어
+  기존 보호를 덮어쓰지 않습니다. 개인 실행값은 로컬 설정이고, 업무 안전 계약은 이 문서가 소유합니다.
+- `madmax`/sandbox bypass에서도 업무·비밀·소유권 지침은 유지되지만 Codex shell sandbox와 승인 검토가 유지된다고
+  보고하지 않습니다. OS/managed policy/provider 제한은 별개입니다. 전면 접근이 불가피하면 최소 credential의 별도 격리
+  환경을 검토하며, worktree를 보안 sandbox로 간주하지 않습니다.
+  [공식 승인·보안 문서](https://learn.chatgpt.com/docs/agent-approvals-security)
+- 문서는 `advisory-policy`, Lead/Auto-review 판단은 `model-mediated`, fixture·정적 규칙 검사는 `deterministic-static`,
+  실제 host/provider 강제는 `native-runtime`으로 구분합니다. 설정 파일·parent 실행 옵션만으로 child effective permission이나
+  runtime 활성화를 단정하지 않습니다. 지침·모델 reviewer 하나만으로 기술적 접근 제한을 대체하지 않습니다.
+
+[`agent-collaboration-cases.json`](../../../../scripts/ci/fixtures/agent-collaboration-cases.json)은 보안 판단의 유한 입력 사례입니다.
+정적 검사는 fixture·문서의 정합성만 증명합니다. 실제 Agent의 답변, Auto-review의 허용/거절, 접근 격리는 각각 별도 실행
+evidence가 필요하며 한 종류의 PASS를 다른 종류의 PASS로 보고하지 않습니다.
+
+## Diagnostic contract
+
+**Codex/OMX 전용 호환 계약**입니다. 다른 host에 이 필드·CLI·OMX 설치를 요구하지 않습니다.
+`pnpm codex:preflight` 또는
+`node scripts/agents/codex/session-preflight.mjs --resume --plan <repository-relative-plan> --json`이 소비합니다.
+기본 탐색은 공통 reader의 `.plans`이고 자동 legacy fallback은 없습니다. 명시적 `.omx/plans/...` 선택만 과도기 읽기를 지원합니다.
+Source caller 전환은 local plan 파일 이동의 완료 증거가 아니며, 이동은 별도 owner receipt로 확인합니다.
+
+기존 CLI 옵션, `schemaVersion: 1`, `resume.plan.{path,exists}`, `contextSnapshots: string[]`와 priority 출력은 유지합니다.
+Fresh 모드의 `resume`은 `null`이며 notepad나 context 본문을 읽지 않습니다. `activePlans`는 canonical `.plans`의
+active 상태만 포함합니다. `planDiscovery.complete/issues`는 불완전한 탐색을 드러내며, unknown·duplicate ID·종료 상태를 active로 추천하지 않습니다.
+선택한 canonical 계획은 `resume.planBinding`으로 공통 lifecycle 결과를 제공합니다. 명시적 legacy read의 binding은 null이고 불명확한 metadata는 `unknown`입니다. 과거 inventory용 `unspecified`는 더 이상 출력하지 않습니다.
+
+Resume의 추가 필드는 다음과 같습니다.
+
+```text
+resume.diagnostics
+  taskId / taskIdSource: plan-id | filename-hint | unknown
+  planStatus
+  priority: taskMatch / freshness / reasons[]
+  snapshots[]: path / taskMatch / freshness / reasons[]
+  recommendedContextPath: path | null
+  limitations[]
+```
+
+`snapshots`는 `contextSnapshots`와 같은 경로·순서이며 최대 5개입니다. 출력은 포인터와 고정 진단 코드만 담고
+checkpoint의 objective, 요청 본문, nextAction 또는 raw notepad/JSON을 복제하지 않습니다.
+
+| 진단                     | 의미                                                                                           | 후속 행동                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| priority `valid`         | 기존 priority JSON 구조가 파싱됨; 빈 priority의 기존 `valid: true`도 유지                      | taskMatch/freshness와 별개로 해석                                 |
+| context parser `valid`   | 필수 구조·타입·금지 필드·절대 만료 검사를 통과                                                 | 현재 요청과의 동일성이나 live phase 증명은 아님                   |
+| `taskMatch: matched`     | 선택한 계획 경로와 task metadata가 충돌 없이 일치                                              | 현재 code/test evidence 추가 확인                                 |
+| `mismatched` / `unknown` | 서로 다른 작업 / 비교할 충분한 근거 없음                                                       | 과거 작업을 임의로 이어가지 않음                                  |
+| `freshness: current`     | 알려진 비종료 계획, 절대 만료 전, 유효한 시각, 같은 branch/HEAD, clean tree와 관련 경로를 확인 | 선택 후보일 뿐 실행 허가나 정확성 보장은 아님                     |
+| `needs-review`           | branch/HEAD 변경, dirty tree 또는 archived plan                                                | 관련 변경을 확인; HEAD가 다르다는 이유만으로 기억을 삭제하지 않음 |
+| `expired`                | 절대 기한 도달 또는 선택한 계획이 명확히 completed/cancelled                                   | active continuation으로 추천하지 않음                             |
+| `unknown`                | 잘못된/누락된 identity·시각·경로·SHA, 불명확한 계획/만료 등                                    | 부족한 정보를 재조사하고 중요한 결정만 재확인                     |
+
+여러 사유가 있으면 `expired > unknown > needs-review > current` 순으로 판정하며 사유들은 함께 남깁니다.
+`recommendedContextPath`는 검사한 후보 중 가장 최신의 `matched/current` 경로입니다. 해당 후보가 없으면 `null`이고,
+priority가 항상 추천되는 것은 아닙니다. 실패한 priority와 별개의 정상 후보는 독립적으로 검사하되, 동일 경로에 대한
+priority/checkpoint 충돌을 중복 제거로 숨기지 않습니다.
+
+### Identity and freshness
+
+- 첫 level-two section 전, fenced block 밖의 top-level `- Status:` / `- 상태:`와 `- Plan ID:`만 metadata로 읽습니다.
+  상태값의 plain/backtick 표기와 세미콜론 뒤 설명을 지원합니다. `done/완료`, `진행 중`, `취소` 등의 동등 상태를
+  정규화하지만 서로 충돌하거나 알 수 없는 선언은 unknown입니다. 본문/체크박스의 완료 단어로 추측하지 않습니다.
+- 명시한 계획 경로가 anchor입니다. 유효한 단일 kebab-case Plan ID가 있으면 context의 `taskSlug`도 일치해야 합니다.
+  Canonical `.plans`는 명시적 ID가 필요합니다. Legacy 읽기에서만 Plan ID가 없을 때 파일명에서 `.md`와 말미 `-plan`을 뺀 값을 검색 힌트로 사용합니다. 잘못되거나 충돌하는 ID를
+  filename fallback으로 덮지 않습니다. `activePlan` 경로는 항상 일치해야 하며, priority `task`와 context task의 충돌도
+  다른 일치값보다 우선합니다. `--plan`이 없으면 저장된 기억에서 현재 작업을 추론하거나 추천하지 않습니다.
+- 이동/삭제된 계획은 missing으로 남깁니다. 전역 archive 검색, 자동 경로 재작성이나 task alias를 만들지 않습니다.
+  명시적으로 선택한 `finished/` 경로는 읽을 수 있지만 active context로 추천하지 않습니다.
+- `createdAt`은 파일명 UTC 초와 일치하고 미래가 아니어야 합니다. 잘못된 달력 날짜/시각 불일치는 진단합니다.
+  축약 SHA는 로컬에서 유일한 commit으로 해석할 수 있어야 하며 이를 위해 fetch하지 않습니다.
+- `expiresAt: on-phase-completion`에는 live phase oracle이 없습니다. 저장된 `currentPhase`, `completed`, `planStatus`나
+  OMX mode만으로 현재 phase 종료 여부를 확정하지 않습니다. 선택한 계획의 명확한 종료는 expired, 그렇지 않으면
+  `expiry-unknown`입니다. 동일 `workingTreeSummary`도 diff hash가 아니므로 dirty tree는 항상 재검토 대상입니다.
+
+### Bounded reads and failure handling
+
+- `.omx/context`는 filename만 비재귀적으로 열거합니다. 계약에 맞는 파일명과 유효한 시각을 가진 관련 task를 우선합니다.
+  안전하고 구조적으로 유효한 priority 대상에 한 슬롯을 배정한 뒤, 관련 후보를 filename 시각 내림차순·동률 경로
+  오름차순으로 채웁니다. 누락된 priority 경로도 진단하며, 본문은 총 5개 이내로 검사하고 실패 슬롯을 재충전하지 않습니다.
+- 검증된 `createdAt` 내림차순으로 결과를 정렬하고 유효하지 않은 시각은 뒤에 둡니다. 관련 없는 검색 후보의 본문은
+  읽지 않습니다. `candidate-limit`은 검색이 부분적임을 뜻하며 과거 기억 전체를 조사했다고 주장하지 않습니다.
+- Plan/context는 lexical 및 realpath containment, symlink·owner-directory·일반 파일 여부를 확인하고 파일당 64 KiB까지만
+  읽습니다. 관련 파일은 경로/존재만 확인합니다. 안전하지 않은 `--plan`은 CLI 오류, 선택적 context 문제는 진단 gap입니다.
+- 선택적 OMX 호출은 각각 5초·64 KiB로 제한합니다. 실패·malformed·oversized 결과는 `omx-unavailable` 등으로 표시하며
+  정상적인 fresh 조사 자체를 차단하지 않습니다. `plan-metadata-unknown`, `identity-conflict`, `context-invalid`,
+  `unsafe-path`, `head-changed`, `dirty-tree` 등은 조사 이유이지 state 변경 명령이 아닙니다.
+- Preflight는 `.omx/state`, notepad, checkpoint, 전역 설정을 쓰거나 정리하지 않습니다. 자동 실행/dispatch 권한도 없습니다.

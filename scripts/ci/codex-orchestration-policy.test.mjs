@@ -9,8 +9,8 @@ import {
   createModelScopeDigest,
   recommendDelegation,
 } from '../agents/codex/child-task-contract.mjs';
-import { discoverContextPack } from '../agents/domain-guide-registry.mjs';
-import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
+import { discoverContextPack } from '../agents/common/domain-guide-registry.mjs';
+import { buildTaskEnvelope } from '../agents/common/intake-policy.mjs';
 import {
   createSemanticEvidenceId,
   createSemanticFactId,
@@ -25,7 +25,10 @@ import {
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const runtimeCapabilityCases = JSON.parse(
-  readFileSync(resolve(repoRoot, 'scripts/ci/fixtures/runtime-capability-cases.json'), 'utf8'),
+  readFileSync(
+    resolve(repoRoot, 'scripts/ci/fixtures/codex-runtime-capability-cases.json'),
+    'utf8',
+  ),
 );
 
 test('lifecycle eligibility is immutable advice, not native close or slot evidence', () => {

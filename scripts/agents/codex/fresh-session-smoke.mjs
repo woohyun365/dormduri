@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { createRecoveryChildContract, recommendDelegation } from './child-task-contract.mjs';
-import { discoverContextPack } from '../domain-guide-registry.mjs';
+import { prepareCodexWorkflow } from './workflow-entry.mjs';
+import { discoverContextPack } from '../common/domain-guide-registry.mjs';
 import { createModelRunEvidence } from './model-run-evidence.mjs';
-import { buildTaskEnvelope } from '../intake-policy.mjs';
+import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import {
   createDispatchRecommendation,
   createLifecycleRecommendation,
@@ -718,9 +719,11 @@ function evaluateScenario({
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request });
   const contextPack = discoverContextPack({ envelope, repositoryEvidence });
-  const delegation = recommendDelegation({
-    envelope,
-    contextPack,
+  const workflow = prepareCodexWorkflow({
+    request,
+    mode: 'fresh',
+    repositoryEvidence,
+    reportedRuntimeEvidence,
     deliveryByLane,
     laneCandidates: laneCandidates.map((lane) => {
       const { smokePredicateIds, ...candidate } = lane;
@@ -734,9 +737,7 @@ function evaluateScenario({
       };
     }),
   });
-  const dispatch = createDispatchRecommendation({ delegation, reportedRuntimeEvidence });
-
-  return { envelope, contextPack, delegation, dispatch };
+  return workflow;
 }
 
 function evaluateRoutingEvidence() {
