@@ -118,6 +118,29 @@ foreign session, 실제 시작·완료 prompt 변경, 모델/도구 불일치, t
 출력 symlink 및 transcript를 확인합니다. Event의 임의 경로를 따라 삭제하지 않고 승인된 정확한 경로만 정리하며,
 Home settings·다른 session·공유 runtime root는 보존합니다.
 
+### Native failure qualification
+
+`scripts/agents/claude/native-qualification-probe.mjs`는 일반 caller를 고치지 않고 유한한 실패 조건을 시험하는
+별도 검증 API입니다. 실제 Claude subprocess와 전송 payload, 호출 수·시간·정리 범위를 먼저 승인받아야 합니다.
+Proxy/interceptor는 승인 우회 수단이 아니며 host가 실행을 거절하면 다른 경로로 재시도하지 않습니다.
+
+- `good`, `ambient-override`: 정상 production callback의 모델·파일 범위·collector 기준점입니다.
+- `wrong-model`, `missing-model`: 부모에게 제공하는 native 입력의 모델 값 또는 키만 변경하고, 원래 production
+  callback이 실제로 거부하는지 확인합니다.
+- `hook-missing`, `hook-crash`, `hook-malformed`, `hook-timeout`: callback 명령의 실패 조건만 변경합니다.
+  정상 callback 본문이 실행됐다는 주장이 아니라 **그 callback을 사용할 수 없을 때 host가 어떻게 처리하는지**를
+  시험합니다. Crash는 유효한 allow 출력을 먼저 내보내지 않습니다.
+- 원래/변형 argv·prompt, source/context, 실제 CLI 경로·PID·종료, interceptor digest를 별도 기록하고 유한 변경
+  이외의 차이는 거부합니다. 다른 설정을 사용한 실험을 원래 config digest의 실행이라고 보고하지 않습니다.
+- Negative PASS에는 실제 Agent 시도, 정확한 hook/tool/session 연결, 명시 거부, child 시작·message·completion 부재,
+  terminal child count 0, 정상 CLI 종료가 모두 필요합니다. 모델의 자발적 포기, 빈 로그, timeout으로 잘린 stream,
+  collector invalid만으로 통과하지 않습니다. 구조 판정 API에 JSON을 넣는 것 역시 actual-run authority가 아닙니다.
+- Ambient model/FORCE 환경변수 제거와 project settings/frontmatter 변경의 사전 거부는 관리형 정책·provider 모델
+  대체의 통제 증거가 아닙니다. 완전한 predispatch policy attestation이 없는 일반 interactive/managed 조합은
+  **routine admission 차단**을 유지합니다. `--settings`나 설정 출처 목록만으로 모든 경쟁 허용 hook의 부재를
+  인증하지 않습니다. [설정 우선순위](https://code.claude.com/docs/en/settings)와
+  [모델 정책](https://code.claude.com/docs/en/model-config)을 별도로 확인합니다.
+
 ### 요청·차단·관측의 세 경계
 
 1. **요청 선택:** 명시 task profile/binding으로 어떤 모델을 요청했는지 결정합니다.
