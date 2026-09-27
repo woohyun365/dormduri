@@ -84,6 +84,40 @@ Lead가 현재 facts를 근거로 선택하며 role 이름·토큰 잔량만으�
 `runtimeQualification:not-run`입니다. Source/config/scope/expiry·writer 충돌·missing/child-chosen/free-form 모델·unknown
 runtime·unapproved fallback은 거부합니다. Source가 바뀌면 이전 binding을 재사용하지 않습니다.
 
+### 명시적 native qualification caller
+
+`scripts/agents/claude/native-qualification.mjs`는 `prepareClaudeNativeQualification()`과
+`runClaudeNativeQualification()`으로 현재 workflow의 profile/binding을 실제 Claude CLI 내부 native Agent 호출에
+연결하는 **검증 전용 API**입니다. 일반 `claude:workflow --native`의 차단을 해제하거나 교차 CLI bridge를 대신하지
+않습니다. API를 호출할 수 있다는 사실은 외부 전송·모델 비용·host 권한 승인이 아닙니다.
+
+- `prepareClaudeWorkflow()`의 current task/source와 full requestDigest, adapter source, project role bytes,
+  task snapshot, 명시 launch config, 만료와 run/session identity를 별도로 묶습니다. 임의 JSON으로 복원한 plan은 실행하지 않습니다.
+- 현재 구현은 명시한 파일의 `Read`만 지원하는 read-only qualification입니다. 추가 tool, write scope, custom project
+  settings가 있으면 거부합니다. Native 역할 정의의 도구 목록을 runtime에서 모두 허용했다는 뜻이 아닙니다.
+- `--safe-mode`와 `--restricted`는 이 caller에 사용하지 않습니다. Project role discovery를 유지하며
+  `--setting-sources project`, 제한된 tools, 빈 MCP, `manual` 및 `--permission-prompts none`을 사용합니다.
+  이 검증에만 OMC plugin을 명시적으로 비활성화하며 Home 설정을 수정하지 않습니다. Collector는 startup hook과
+  builtin 이외 plugin, 다른 cwd·permission mode를 거부합니다. 이는 이미 실행된 startup side effect를 되돌리는 sandbox가
+  아니므로 승인된 disposable fixture만 사용하고 숨겨진 managed 설정을 인증했다고 주장하지 않습니다.
+- 모든 native Agent/Read/Grep/Glob 호출에 `permissions.ask`를 적용하고 `PermissionRequest` hook이 정확한 session,
+  source/config, role, model, prompt와 파일 범위를 확인합니다. Agent grant는 한 번만 발급합니다. Hook 허용 결과는
+  일반 dispatcher 활성화나 영구 permission 변경이 아닙니다.
+- Agent는 기본적으로 승인 질문이 없는 도구이므로 `dontAsk`와 불완전한 allowlist만으로 default-deny를 주장하지 않습니다.
+  `Tool(param:value)`는 ask/deny용이며 model parameter allow 규칙으로 사용하지 않습니다.
+- Read 성공과 실행 중인 process의 stream을 `native-run-evidence.mjs`로 검증한 결과는 common result/QA validator에도
+  전달합니다. 구조 검사만으로 의미상 acceptance를 입증하지 않았으므로 common result는 `partial`과 명시적 QA gap을
+  유지합니다. Native readiness와 독립 QA가 미충족이면 common assessment도 완료로 승격되지 않습니다.
+
+Collector는 실제 CLI의 init, Agent tool use, task lifecycle, forwarded child messages, structured tool_use_result,
+terminal result를 같은 session/task/tool에 연결합니다. Chunk별 동일 message ID는 허용하지만 UUID 중복·역순·누락,
+foreign session, 실제 시작·완료 prompt 변경, 모델/도구 불일치, timeout/비정상 종료/source drift를 거부합니다. Import한 event JSON은 구조 검사 자료이지
+실행 provenance나 host authority가 아니며, 실제 caller만 자신의 subprocess stream과 종료 상태를 소유합니다.
+
+`--no-session-persistence`가 child transcript까지 없애는 것은 아닙니다. Fixture 정리와 별도로 실제 session/task에 속한
+출력 symlink 및 transcript를 확인합니다. Event의 임의 경로를 따라 삭제하지 않고 승인된 정확한 경로만 정리하며,
+Home settings·다른 session·공유 runtime root는 보존합니다.
+
 ### 요청·차단·관측의 세 경계
 
 1. **요청 선택:** 명시 task profile/binding으로 어떤 모델을 요청했는지 결정합니다.
@@ -96,6 +130,12 @@ startup failure/crash/malformed output/timeout 때도 차단된다고 주장하�
 PreToolUse allow를 더하는 조합은 matching ask가 남아 정상 허용 경로도 입증되지 않습니다.
 [Permission과 hooks](https://code.claude.com/docs/en/permissions#extend-permissions-with-hooks),
 [hook 실패 처리](https://code.claude.com/docs/en/hooks)를 확인합니다.
+
+이 검증 caller는 [headless 승인 계약](https://code.claude.com/docs/en/headless#turn-off-permission-prompts-in-unattended-runs)의
+`manual` + `--permission-prompts none`을 사용합니다. Matching ask에 대한 PermissionRequest의 유효한 allow가 없으면
+비대화식 실행은 거부되도록 구성합니다. 이 조합의 유한 정상·오류 시험을 모든 interactive mode, 다른 hook 조합이나
+Home/managed 정책의 일반 보장으로 확대하지 않습니다. PermissionRequest에는 `tool_use_id`가 없으므로 caller가 소유한
+일회용 request grant와 실제 Agent 입력을 대조하며 존재하지 않는 hook 필드를 만들어 연결하지 않습니다.
 
 공식 parameter rule의 `Agent(model:opus)`는 literal 입력 비교이며 model 누락은 그 값 규칙에 매치되지 않습니다.
 이를 task별 정확한 하나의 모델·provider-effective identity 강제로 과장하지 않습니다. Native invocation → frontmatter →
@@ -112,8 +152,8 @@ CLI `stream-json`의 complete assistant/user message `parent_tool_use_id`와 hoo
 
 같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다. Child session ID가 parent와
 다를 수 있으므로 단순 ID 동일성도 올바른 관계 검사의 대체물이 아닙니다. 누락·중복·역순·취소·불명확 provenance는 gap으로
-남깁니다. 현재 entry에는 qualified native collector가 없으며 임의 JSON receipt를 actual host observation으로 승격하지
-않습니다. [qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
+남깁니다. 검증 전용 entry에는 구조 collector가 있지만 일반 native admission을 허용하는 qualified collector로
+승격하지 않았습니다. 임의 JSON receipt를 actual host observation으로 취급하지 않습니다. [qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
 현재 세션의 PASS 증거가 아닙니다.
 
 ## Plan continuity
