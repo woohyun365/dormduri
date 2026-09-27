@@ -14,3 +14,6 @@ export {
   evaluateClaudeProfileEligibility,
   listClaudeSubagentProfiles,
 } from './model-policy.mjs';
+
+export { runClaudePreflight } from './session-preflight.mjs';
+export { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';

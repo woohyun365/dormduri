@@ -25,6 +25,11 @@ const localPlanBoundaryAllowlist = new Set([
   'docs/architecture/README.md',
   'docs/development/agent-workflows/session-continuity.md',
   'docs/development/agent-workflows/adapters/codex.md',
+  // Host lifecycle examples and disposable fixtures, never active-plan authority.
+  'docs/development/agent-workflows/adapters/claude-code.md',
+  'scripts/ci/claude-session-preflight.test.mjs',
+  'scripts/ci/claude-workflow-entry.test.mjs',
+  'scripts/ci/agent-native-adapter-contract.test.mjs',
   'scripts/agents/codex/session-preflight.mjs',
   'scripts/ci/fixtures/codex-session-context.valid.md',
   'scripts/ci/codex-session-contract.test.mjs',

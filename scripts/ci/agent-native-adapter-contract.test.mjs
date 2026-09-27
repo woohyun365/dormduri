@@ -95,7 +95,7 @@ test('Taste and Redesign remain Codex-only and are not Claude project skills', (
     'docs/development/agent-workflows/visual-design/design-task-orchestration.md',
   );
   const codexOnlySkills =
-    /Taste \(`design-taste-frontend`\) and Redesign \(`redesign-existing-projects`\) are \*\*Codex-only\*\*/u;
+    /Taste \(`design-taste-frontend`\)와 Redesign \(`redesign-existing-projects`\)은 \*\*Codex-only\*\*/u;
   assert.match(claude, codexOnlySkills);
   assert.match(
     codex,
@@ -112,4 +112,35 @@ test('repository preparation and future live qualification are distinct completi
     assert.match(source, /runtime-qualified/u);
   }
   assert.match(claude, /separately authorized/u);
+});
+
+test('Claude entry documents actual host commands and keeps native/lifecycle evidence distinct', () => {
+  const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const entry = read('CLAUDE.md');
+  const manifest = JSON.parse(read('package.json'));
+  for (const [command, file] of [
+    ['claude:preflight', 'session-preflight'],
+    ['claude:workflow', 'workflow-entry'],
+  ]) {
+    assert.ok(manifest.scripts[command].includes(`scripts/agents/claude/${file}.mjs`));
+    assert.ok(existsSync(resolve(root, `scripts/agents/claude/${file}.mjs`)));
+    assert.ok(guide.includes(`pnpm ${command}`));
+    assert.ok(entry.includes(`pnpm ${command}`));
+  }
+  for (const boundary of [
+    'dispatchAuthorized:false',
+    'runtimeQualified:false',
+    '.plans/finished/',
+    '.plans/cancelled/',
+    'Native Plan Mode',
+    'OMC 없이도',
+    'qualified native collector가 없',
+  ]) {
+    assert.ok(guide.includes(boundary), boundary);
+  }
+  for (const role of ['explorer', 'researcher', 'executor', 'reviewer']) {
+    const source = read(`.claude/agents/knu_${role}.md`);
+    assert.doesNotMatch(source, /^model:/mu, 'no unauthorized permanent model pin');
+    assert.ok(source.includes('다른 agent'), 'child offload boundary remains explicit');
+  }
 });

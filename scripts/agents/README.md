@@ -8,7 +8,7 @@
 | ----------------------------- | ----------------------------------------------------------------------------------------------- |
 | `common/`                     | host-neutral intake·context·plan readiness/storage·workflow graph·QA packet·adapter conformance |
 | `codex/`                      | Codex 모델/effort·위임·복구·결과·Git/OMX preflight와 workflow composition                       |
-| `claude/`                     | Claude finite model 정책·static admission·host bridge binding; runtime 지원과 별개              |
+| `claude/`                     | Claude Git/계획 preflight·direct workflow·finite model 정책; native admission 미입증            |
 | `bridge/`                     | 교차-host static 계약과 fake process 검증; real provider 기본 비활성                            |
 | `fixtures/workflow-contract/` | 공통 intake·synthetic graph fixture; 실제 host/runtime 증거가 아님                              |
 | `fixtures/codex-preflight/`   | 실제 disposable Git와 optional OMX stub로 Codex preflight 회귀 검증                             |
@@ -17,7 +17,7 @@
 ## 명명과 호출
 
 - host 명령은 `<host>:<operation>`: `pnpm codex:preflight`, `pnpm codex:workflow`.
-  Claude용 preflight/workflow 명령은 아직 제공하지 않으며 Codex 명령으로 대체하지 않습니다.
+  Claude는 `pnpm claude:preflight`·`pnpm claude:workflow`를 사용합니다. Native dispatcher가 아니며 Codex 명령으로 대체하지 않습니다.
 - `codex/`·`claude/` 안의 `.mjs`는 경로 자체가 host를 구분하므로 파일명에 prefix를 중복하지 않습니다.
 - flat `scripts/ci/`의 host 전용 suite는 `codex-*`·`claude-*`처럼 host를 식별합니다.
   공통 계약 및 여러 host의 경계를 함께 검사하는 suite는 `agent-*`·`cross-host-*` 등 검증 책임을 표시합니다.

@@ -1,44 +1,154 @@
 # Claude Code project adapter
 
+공통 책임은 [실행 계약](../agent-execution-contract.md), [orchestration](../orchestration.md),
+[QA](../qa.md), [위임 계약](../request-intake/delegation.md)이 소유합니다. 이 문서는 Claude의 실행 접점만
+연결하며 Codex의 모델·effort·상한·runtime 규칙을 복사하지 않습니다.
+
 ## Cross-host direct CLI reviewer (static boundary)
 
-The [Claude-target bridge policy](../../../../scripts/agents/claude/review-bridge.mjs) is **separate** from the native-subagent model admission below. For a Codex Lead's optional one-shot review it describes `claude --print --agent knu_reviewer --model opus`, Read/Grep/Glob-only, empty MCP, and a frozen H3 packet. The command object is `enabled:false`; the current bridge runs only a fixed fake CLI. The current CLI exposes `--restricted` and project-agent options, but project-role loading **under that restricted mode**, effective tool boundary, subscription-auth route and resolved Opus identity are unobserved. A role file, flag, or static `candidate` is not a sandbox or live permission proof. A later live qualification must prove these on a disposable read-only snapshot before any provider call; an OMC advisor prompt is not a substitute. See the [neutral handoff](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only).
-
-Use the repository's common [execution contract](../agent-execution-contract.md), [orchestration](../orchestration.md), [QA](../qa.md), and [child task contract](../request-intake/delegation.md). This file translates those responsibilities to Claude Code; it does not change Codex/OMX model cohorts or claim that two hosts have equivalent enforcement.
+[Claude-target bridge](../../../../scripts/agents/claude/review-bridge.mjs)는 아래 native child와 다른 transport입니다.
+현재 command descriptor는 `enabled:false`이며 고정 fake CLI만 검증합니다. Lead가 별도 승인한 local subscription
+CLI를 실행하는 구조와 native Agent 호출을 혼동하지 않습니다. `--restricted`, `--agent`, role 파일 존재만으로
+project loading·실제 도구/권한·구독 인증·effective model을 입증하지 않습니다. OMC advisor도 프로젝트 reviewer의
+대체 증거가 아닙니다. [교차 인계 계약](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only)을
+따르며 native 차단을 다른 CLI나 API-key SDK로 우회하지 않습니다.
 
 ## Loading and scope
 
-Root `CLAUDE.md` explicitly imports `@AGENTS.md`, then points here. The import is deliberate: Claude Code can otherwise choose a project/ancestor `CLAUDE.md` instead of automatic `AGENTS.md` discovery. Read the task-specific guide after the root contract, not the entire docs tree at startup. Check the actual loaded instructions in a fresh trusted checkout; file presence and a passing static test are not runtime evidence.
+`CLAUDE.md`는 `@AGENTS.md`를 import하고 이 adapter로 연결합니다. 현재 요청에 필요한 guide만 읽습니다.
+공통 instructions를 네 role에 복제하거나 전체 docs를 startup context에 넣지 않습니다.
 
-The four project subagents live in `.claude/agents/knu_{explorer,researcher,executor,reviewer}.md`. Their YAML `name`, `description`, and `tools` are native Claude metadata; none has a model pin. Without an admitted per-invocation choice they inherit host selection, but repository-owned child routing must not silently accept that inheritance. No Codex `reasoning_effort`, `agent_type`, `modelRequest`, or reviewer Astra pin is translated into an invented Claude parameter. Use one writer, bounded read/write scope, source snapshot, acceptance and stop conditions. The lead owns routing, fan-in and final verification.
+```sh
+pnpm claude:preflight -- --mode fresh
+pnpm claude:workflow -- --mode fresh --request '변경 내용을 설명해줘.'
+pnpm claude:preflight -- --mode resume --plan .plans/example-plan.md
+pnpm claude:workflow -- --mode resume --plan .plans/example-plan.md --request '이 계획을 분석해줘.'
+```
 
-| Role             | Allowed tool class                    | Task boundary                                                             |
-| ---------------- | ------------------------------------- | ------------------------------------------------------------------------- |
-| `knu_explorer`   | Read, Grep, Glob                      | Current repository facts only                                             |
-| `knu_researcher` | Read, Grep, Glob, WebSearch, WebFetch | Current primary-source research for a chosen technology                   |
-| `knu_executor`   | Read, Grep, Glob, Edit, Write, Bash   | One explicitly owned implementation slice and close verification          |
-| `knu_reviewer`   | Read, Grep, Glob                      | Independent frozen-source assessment; lead/runner provides diff and tests |
+`claude/session-preflight.mjs`는 raw Git 상태와 명시적으로 선택한 공통 `.plans` reader를 소비합니다. Fresh는 계획
+목록·memory·Claude Home 설정·OMC state를 직접 탐색하지 않습니다. 오류/unknown을 clean으로 바꾸지 않으며 미추적 파일 내용과
+ignored 입력은 source fingerprint의 한계로 표시합니다. Codex 전용 `codex:preflight`를 대신 호출하지 않습니다.
+현재 설정·loaded roles·실제 permissions는 별도 관측이 필요하고 Git hash가 이를 인증하지 않습니다.
+Git filter의 설정 key만 bounded 조회해 clean/process·fsmonitor를 해당 명령에서 비활성화합니다. Submodule gitlink는
+미점검 nested 설정을 실행하지 않도록 worktree 조회 전에 차단합니다. Snapshot은 비원자적 local 진단이며
+`claude-git-baseline/v2`의 length-framed raw status/index stage records/HEAD binary diff를 SHA-256으로 결합합니다.
+Dirty `currentSnapshot.dirtyDiffDigest`는 `sha256:`을 붙인 실제 fingerprint와 일치해야 합니다.
 
-Read-only roles omit Bash, Edit, Write, Agent, and broad MCP tools. This is a capability limit only if the **loaded** role/tool allowlist and current host permissions actually enforce it. The agent text is a behavioral instruction, not a sandbox. Parent permission modes can override a subagent's mode; never qualify read-only under bypass/auto-accept merely because a role file says so. If the host cannot prove a safe role, do not dispatch that role; provide the packet to a verified read-only path or keep work with the lead. Do not grant Bash to a read-only role just to obtain Git output: the lead may provide a frozen diff or use a separately approved read surface.
+`claude/workflow-entry.mjs`의 `prepareClaudeWorkflow`는 공통 intake/context/문서 경로·명시 direct assignment·계획
+진단을 연결합니다. `validateClaudeWorkflowResults`는 같은 원본 입력에서 계약을 다시 계산하고 공통 lane/result/fan-in
+및 독립 QA packet을 검사합니다. 여섯 intent와 fresh/resume는 별도 축이며 Analyze·Plan을 제품 수정 권한으로 바꾸지
+않습니다. CLI는 진단용이고 API의 source/assignment/QA 입력을 자동 발명하지 않습니다. 정적 `valid`는 실제 작업·검증·
+권한 완료가 아닙니다.
+표시용 objective는 공통 sanitized summary를 재사용하고 원문을 출력하지 않습니다. 전체 요청의 `requestDigest`를 별도로
+계산해 lane identity와 QA wrapper에 연결합니다. QA 입력의 `requestDigest`도 현재 값과 일치해야 하므로 요약 뒤의
+요구 변경이나 redaction으로 서로 다른 요청이 같은 요약이 되어도 결과를 재사용하지 않습니다. Digest는 인증·암호화나
+비밀의 안전한 저장을 보장하지 않습니다.
+
+Native 요청은 `--native`로 차단 상태를 진단할 수 있으나 실행 명령이 아닙니다. 현재 exit2와 `blocked`를 반환하며
+`dispatchAuthorized:false`, `runtimeQualified:false`를 유지합니다. Native 미지원은 권한 있는 direct 작업을 전역
+금지한다는 뜻이 아닙니다. JS API가 Claude native Agent tool을 직접 실행한다고 가장하지 않습니다.
+
+### 프로젝트 역할과 실제 권한
+
+| Role             | 도구 선언                             | 책임                                                 |
+| ---------------- | ------------------------------------- | ---------------------------------------------------- |
+| `knu_explorer`   | Read, Grep, Glob                      | 한 repository 질문의 현재 source/owner/evidence 조사 |
+| `knu_researcher` | Read, Grep, Glob, WebSearch, WebFetch | 이미 선택한 기술의 공식 근거 조사                    |
+| `knu_executor`   | Read, Grep, Glob, Edit, Write, Bash   | 명시적으로 소유한 구현·가까운 검증                   |
+| `knu_reviewer`   | Read, Grep, Glob                      | builder reasoning을 받지 않는 독립 source 검토       |
+
+네 `.claude/agents/knu_*.md`에는 영구 model pin이 없습니다. 그렇다고 parent 자동 상속을 task별 승인된 모델 선택으로
+간주하지 않습니다. Lead가 bounded responsibility·source·acceptance·read/write scope·단일 writer를 정합니다.
+Child는 다른 child/외부 CLI로 재위임하지 않고 blocker를 Lead에 반환합니다. Reviewer의 테스트 제안은 실행 승인이 아니며
+write-producing 테스트는 별도 runner가 소유합니다.
+
+Role의 tools 선언은 실제로 해당 정의가 로드되고 host가 적용했을 때만 도구 제한입니다. 같은 이름의 managed/CLI/project/
+user/plugin 정의와 parent permission mode를 확인합니다. Managed 역할 위치는 managed-settings directory 아래
+`.claude/agents/`이며 파일명만으로 frontmatter `name` 충돌을 배제하지 않습니다. Parent의 `auto`·`acceptEdits`·
+`bypassPermissions`는 child mode를 덮어쓸 수 있으므로 read-only 선언만으로 sandbox를 입증하지 않습니다.
+[공식 subagents](https://code.claude.com/docs/en/sub-agents)의 현재 버전 규칙과 실제 session을 함께 확인합니다.
 
 ## Finite native-subagent model candidates
 
-The [Claude-owned policy](../../../../scripts/agents/claude/model-policy.mjs) consumes the [neutral intake and QA facade](../../../../scripts/agents/common/index.mjs). An authorized Lead selects one finite **task** profile from current source facts; a role name alone never chooses a model. Repository candidates are `bounded-extraction → haiku`, `bounded-standard read/build → sonnet`, and `complex-critical/high-risk or independent review → opus`. These are family-alias admission hypotheses, **not** provider availability, quality equivalence, cost savings, or routine adoption. Deterministic work with no valuable child remains child-free. Missing facts, stale source/config/scope, overlapping writer, weak oracle, absent task approval or unknown/denied host support refuses the proposal. This policy does not pin `.claude/agents/` roles or set a global subagent model.
+[Claude model policy](../../../../scripts/agents/claude/model-policy.mjs)는 공통 risk/complexity·task authority를 소비합니다.
+Lead가 현재 facts를 근거로 선택하며 role 이름·토큰 잔량만으로 자동 결정하지 않습니다.
 
-Cold start: current request/`AGENTS.md`/source → child-worthiness and semantic risk → Lead-selected eligible profile → task-specific authority, binding and expiry → reported fresh role/model/tool/permission and active-writer evidence → **advisory** explicit-model descriptor → separately authorized native invocation → actual resolved/observed identity and oracle → independent QA, cleanup or withdrawal. The static policy checks neutral intake action/risk against task kind, exact loaded-role tool list against the descriptor, and overlapping active write scopes. Its finite refusal reasons preserve stale, unknown, denied, conflict and mismatch outcomes without echoing raw provider input; caller-supplied evidence is not an authenticated runtime grant. Cohort candidacy is not a task grant. The descriptor always reports `dispatchAllowed=false`, `applied=false`, `runtimeQualification=not-run` during this repository-prepared phase. An unknown or mismatched model, quota/permission denial, timeout or substituted alias cannot become PASS or trigger an unapproved model fallback. The H3 `modelIntent` stays semantic; exact Claude requested alias and profile binding remain Claude-owned, while H3 results carry resolved/observed identity. The Claude-owned static H3 exchange check binds review task, source digest and packet identity, then delegates packet/result validity to the neutral validator; it never qualifies a live run.
+| Task profile         | 요청 family alias | 조건                                      |
+| -------------------- | ----------------- | ----------------------------------------- |
+| `bounded-extraction` | `haiku`           | 낮은 위험·고정 입력·단일 추출·명시 oracle |
+| `bounded-standard`   | `sonnet`          | bounded read/build·scope·검증·독립 QA     |
+| `complex-critical`   | `opus`            | 복잡/고위험 또는 독립 review              |
 
-Current [Claude Code subagent documentation](https://code.claude.com/docs/en/sub-agents#choose-a-model) orders model selection per-invocation → agent frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL` → parent; organization allowlists may substitute a requested alias. Project role files or a supplied static runtime report therefore cannot prove effective selection. The [Agent PreToolUse hook](https://code.claude.com/docs/en/hooks#pretooluse) may inspect the proposed tool input, but command hook startup failure, malformed output and timeout can fail open; no project hook is installed here. H4 must verify actual tool input, precedence, hook failure/denial behavior, `PostToolUse` `resolvedModel`, `/tasks` model, loaded tools/permission and exact cleanup on disposable fixtures before routine GO. The [H4 candidate matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json) marks every host run `not-run`.
+이는 finite 후보이지 가용성·동등 품질·routine admission 보장이 아닙니다. `selectedBy/approvedBy` 문자열과 caller가
+공급한 runtime report는 인증된 host grant가 아닙니다. 현재 static descriptor는 `dispatchAllowed:false`, `applied:false`,
+`runtimeQualification:not-run`입니다. Source/config/scope/expiry·writer 충돌·missing/child-chosen/free-form 모델·unknown
+runtime·unapproved fallback은 거부합니다. Source가 바뀌면 이전 binding을 재사용하지 않습니다.
 
-Use native role dispatch only after verifying project discovery and tool availability in the active Claude session. Do not call another `claude`, `codex`, or agent CLI through Bash as a child-work or permission workaround. Child-to-child delegation and peer work transfer are excluded. A helper that cannot perform its bounded task returns the exact missing capability to the lead. Current effective model, role, tool/permission mode, and any unavailable mechanism belong in the handoff evidence; names or settings files alone do not prove them.
+### 요청·차단·관측의 세 경계
+
+1. **요청 선택:** 명시 task profile/binding으로 어떤 모델을 요청했는지 결정합니다.
+2. **호출 전 차단:** 실제 host가 잘못되거나 누락된 모델 요청을 막았는지 별도로 입증합니다.
+3. **호출 후 관측:** 해석된 시작 모델·실행 중 변경·완료와 같은 run의 결과를 연결합니다.
+
+현재 native strict admission은 미입증이며 위 source entry는 이를 활성화하지 않습니다. 정상 hook의 deny 성공만으로
+startup failure/crash/malformed output/timeout 때도 차단된다고 주장하지 않습니다. Command hook 실패는 일반 permission
+판정으로 진행될 수 있습니다. 이것이 모든 default-deny 조합의 허용을 의미하지는 않습니다. 다만 `ask:Agent`와 `dontAsk`에
+PreToolUse allow를 더하는 조합은 matching ask가 남아 정상 허용 경로도 입증되지 않습니다.
+[Permission과 hooks](https://code.claude.com/docs/en/permissions#extend-permissions-with-hooks),
+[hook 실패 처리](https://code.claude.com/docs/en/hooks)를 확인합니다.
+
+공식 parameter rule의 `Agent(model:opus)`는 literal 입력 비교이며 model 누락은 그 값 규칙에 매치되지 않습니다.
+이를 task별 정확한 하나의 모델·provider-effective identity 강제로 과장하지 않습니다. Native invocation → frontmatter →
+env default → parent 우선순위 외에도 FORCE override·managed 허용 모델 대체가 있습니다. Managed exact allowlist 역시
+허용 집합 제한과 개별 task 선택은 별개입니다. [Model 설정](https://code.claude.com/docs/en/model-config)과
+[env 규칙](https://code.claude.com/docs/en/env-vars)을 현재 설치 버전에서 확인합니다.
+
+### 결과와 observation 경계
+
+CLI `stream-json`의 complete assistant/user message `parent_tool_use_id`와 hook의 `session_id`·`agent_id`·
+`tool_use_id`는 같은 envelope가 아닙니다. Agent PostToolUse의 `resolvedModel`은 시작 또는 background 전환 시점 모델이고
+`modelsUsed`는 변경 관측입니다. Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다.
+[CLI streaming](https://code.claude.com/docs/en/headless#follow-subagent-messages)과 실제 설치본의 machine record를 대조합니다.
+
+같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다. Child session ID가 parent와
+다를 수 있으므로 단순 ID 동일성도 올바른 관계 검사의 대체물이 아닙니다. 누락·중복·역순·취소·불명확 provenance는 gap으로
+남깁니다. 현재 entry에는 qualified native collector가 없으며 임의 JSON receipt를 actual host observation으로 승격하지
+않습니다. [qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
+현재 세션의 PASS 증거가 아닙니다.
+
+## Plan continuity
+
+공통 [session continuity](../session-continuity.md#active-plan-lifecycle)가 lifecycle을 소유합니다.
+
+- 새 계획은 `.plans/<plan-id>-plan.md`에 하나의 canonical Plan ID로 생성합니다. Native Plan Mode 파일은 초안이며
+  현재 요청·source와 비교해 명시적으로 채택합니다. runtime draft를 자동 이동·덮어쓰거나 이중 계획으로 동기화하지 않습니다.
+- Resume는 위 명령의 명시 plan 경로와 현재 branch/HEAD/변경 상태를 확인합니다. 진단용 경로만 전달해서 실행 권한이나
+  checkpoint 일치를 얻지는 않습니다. `--continuation`에 `expectedPlanId`와 `checkpointSnapshot`(branch/head/diffHash)의
+  JSON을 명시하면 현재 Git 진단과 대조합니다. 입력은 4096자로 제한하며 미제공 snapshot을 발명하지 않습니다.
+  Missing/moved/terminal/reference/duplicate/불완전 identity는 공통 reader 판정을
+  따릅니다. Full corpus 경고와 identity completeness도 구별합니다.
+- Codex에 인계할 때 같은 `.plans` path/ID와 snapshot, changed files, verification, blocker, 다음 행동 및 기존 writer
+  해제를 전달합니다. Codex runtime state를 Claude에 복사하거나 Codex 명령을 Claude preflight로 사용하지 않습니다.
+- 완료 AC와 통합 근거가 충족되면 `.plans/finished/YYYY/MM/<domain>/`, 취소/대체는 `.plans/cancelled/YYYY/MM/<domain>/`에
+  이동하고 링크를 갱신합니다. 독립 미완료 supporting plan을 함께 완료하지 않습니다.
+- OMC 사용은 owner 선택입니다. 같은 repository 계획을 소비하되 실제 OMC 초안 경로·session 소유권·resume/stop API는
+  현재 runtime의 확인된 절차를 따릅니다. `.omc/plans`를 자동 canonical로 추측하거나 `.omx` 명령/state를 사용하지 않습니다.
+  OMC 없이도 위 Git/계획 진단은 작동합니다. 특정 session resume/cleanup 지원은 별도 live 증거가 필요합니다.
 
 ## Project visual skills
 
-Taste (`design-taste-frontend`) and Redesign (`redesign-existing-projects`) are **Codex-only** task aids. Do not port, install, qualify, or invoke either skill as a Claude workflow requirement, and do not edit the existing personal `~/.codex/skills`. Claude visual work uses the common VisualBrief/content/a11y/review contract directly; no replacement skill is required. See [visual skill choice](../visual-design/design-task-orchestration.md#task-fit-skills).
+Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **Codex-only**입니다. Claude에 이식·설치·호출하지
+않으며 개인 Codex skill을 수정하지 않습니다. Claude UI 작업은 공통 VisualBrief/content/a11y/독립 검토 계약을 직접
+따르고 대체 skill 설치를 요구하지 않습니다. [Visual skill 선택](../visual-design/design-task-orchestration.md#task-fit-skills)을
+참고합니다.
 
 ## Bounded fresh-host qualification
 
-The `repository-prepared` milestone covers static adapter checks and a reproducible clean checkout. Actual Claude invocation and cross-provider QA are deferred to a **separately authorized** adoption run after account access, host permissions and current capabilities are available. Preparing the repository does not request account creation, plan purchase, login or model calls. Missing account access does not block static preparation; it does prevent claiming `runtime-qualified` or approving unverified native dispatch.
+`repository-prepared`와 `runtime-qualified`는 별개입니다. Source entry/정적 테스트가 실제 model/role/permission을
+입증하지 않습니다. Native pilot은 별도 승인된(separately authorized) 범위·비용·호출 수·timeout·정리 조건을 먼저 고정하고
+필요한 최소 payload만 전송합니다. 로그인 완료나 Phase 요청을 secret·무제한 호출·권한 확대 승인으로 해석하지 않습니다.
 
-On a trusted disposable checkout with no credential/product write target, record `claude --version`, loaded project instruction/role/skill source, exact invoked role, effective tools/permission mode, command/result, and `git diff`. Use the same requirement packet for direct analysis, plan, bounded implementation and independent review. Include a harmless write denial for a read-only role and an allowed disposable edit/test plus failing-test report for the executor. Never use production, PR/merge, secret reads, global settings changes, or a bypass mode to make the smoke pass. A CLI `--agent` flag or saved role file alone is not evidence of project discovery. If account or host access is unavailable, retain deterministic checks and report native-runtime acceptance as blocked rather than fabricating a PASS.
-
-Official references: [memory and imports](https://code.claude.com/docs/en/memory), [subagents](https://code.claude.com/docs/en/sub-agents), [skills](https://code.claude.com/docs/en/skills), [CLI](https://code.claude.com/docs/en/cli-usage).
+Disposable fixture에서 readonly 도구 부재·자발적 거부·host denial을 구별하고, executor의 허용 write/test·실패 보고·
+독립 QA·취소/결과 회수도 따로 관측합니다. 실제 지원 없는 mode는 scoped NO-GO로 두며 prompt/advisory로 몰래 낮추거나
+다른 모델로 fallback하지 않습니다. Source/config/host drift가 있으면 관련 qualification을 다시 수행합니다.
+Home/managed 정책을 바꾸거나 bypass로 성공시키지 않습니다.

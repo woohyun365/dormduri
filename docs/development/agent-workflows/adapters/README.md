@@ -24,12 +24,12 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 | `common/adapter-contract.mjs` | descriptor/capability, bounded lanes·receipt/fan-in, 독립 QA 입력 적합성                 | static conformance tests와 명시적 API 소비자; scheduler·provider launcher 아님        |
 | `common/index.mjs`            | 위 공통 API의 공개 facade                                                                | export만으로 host admission/invocation을 입증하지 않음                                |
 | `codex/`                      | profiles·routing·child/orchestration·model evidence·smoke·session parser/preflight       | 기존 Codex tests/CLI 유지, 모델·effort·상한은 공통 기본값이 아님                      |
-| `claude/`                     | finite static model policy, fail-closed readiness                                        | `unsupported/unknown`, `applied:false` 는 dispatch/live qualification과 별개          |
+| `claude/`                     | Git/계획 preflight·direct workflow·finite static model policy                            | 실제 CLI/API가 공통 계약을 소비; native `unsupported/unknown`, `applied:false` 유지   |
 | `bridge/`                     | static one-shot packet와 고정 fake process                                               | 실제 provider launcher가 아님; live 기본 비활성 유지                                  |
 
 `codex/workflow-entry.mjs`는 공통 route·lane/result/QA contract와 기존 Codex policy의 실제 composition입니다. `codex:workflow`와 smoke가 이를 소비하며 native/provider 실행은 하지 않습니다.
 
-`session-contract`와 `session-preflight`는 Codex/OMX 소유입니다. `pnpm codex:preflight`는 해당 owner를 직접
+`codex/session-contract`와 `codex/session-preflight`는 Codex/OMX 소유입니다. `pnpm codex:preflight`는 해당 owner를 직접
 호출하며 Claude용 명령이 아닙니다. 기존 caller의 기본 authoring 탐색은 공통 `.plans` reader를 소비하며 legacy `.omx/plans`는 명시적 읽기만 유지합니다. native/plugin 출력 설정이나 실제 local 파일 이동까지 완료됐다는 뜻은 아닙니다.
 공통 계획 생성·legacy 원본 보존·실제 이동 gate는 [Session continuity](../session-continuity.md#active-plan-lifecycle)를 따릅니다.
 
@@ -63,3 +63,7 @@ allow/deny, executor evidence, lifecycle/cleanup 및 host 간 인계를 관측�
 전체 runtime readiness를 선언하지 않습니다. Plugin 설치와 실제 모델 실행도 각각 별도 권한·evidence가 필요합니다.
 
 스크립트·테스트·fixture의 host 명명 및 owner 배치는 [scripts/agents 안내](../../../../scripts/agents/README.md)를 따릅니다.
+
+Claude의 `claude:preflight`·`claude:workflow`는 [Claude adapter](./claude-code.md#loading-and-scope)의 실제
+Git/계획·direct-task 경로입니다. Common validator를 소비하지만 native Agent/model 호출은 활성화하지 않습니다.
+두 host가 같은 공통 source와 QA 계약을 사용한다는 사실과 runtime의 강제 통제·관측은 별도입니다.
