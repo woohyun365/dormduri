@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, renameSync 
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
 import { discoverPlans, readPlan, assessPlanContinuation } from '../agents/common/plan-store.mjs';
 
 function fixture(t) {
@@ -18,13 +19,19 @@ function fixture(t) {
 test('missing common root is explicit, never reads legacy runtime or creates files', (t) => {
   const { root, put } = fixture(t);
   put('.omx/plans/legacy.md');
-  assert.deepEqual(discoverPlans(root), { plans: [], issues: ['missing-root'], complete: false });
+  assert.deepEqual(discoverPlans(root), {
+    plans: [],
+    issues: ['missing-root'],
+    complete: false,
+    identityComplete: false,
+    identityIssues: ['missing-root'],
+  });
   assert.equal(readPlan(root, '.plans/absent.md').state, 'missing');
 });
 
 test('discovery ignores navigation, nested support and terminal plans; explicit support can resume', (t) => {
   const { root, put } = fixture(t);
-  put('.plans/README.md');
+  put('.plans/README.md', '# Navigation\n');
   put('.plans/current.md');
   put('.plans/supporting/detail.md', '# Design detail without a separate lifecycle\n');
   put('.plans/supporting/child.md', '- Plan ID: child\n- Status: active\n');
@@ -140,6 +147,8 @@ test('a bounded partial inventory never certifies unique active resume', (t) => 
   const inventory = discoverPlans(root);
   assert.equal(inventory.complete, false);
   assert.ok(inventory.issues.includes('candidate-limit'));
+  assert.equal(inventory.identityComplete, false);
+  assert.deepEqual(inventory.plans, []);
   assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
 });
 
@@ -162,17 +171,19 @@ test('fenced and indented examples never become active plan metadata', (t) => {
   assert.equal(readPlan(root, '.plans/actual.md').state, 'active');
 });
 
-test('explicit malformed metadata reports an incomplete inventory but supporting prose does not', (t) => {
+test('malformed candidates remain unresumable without poisoning a complete identity scan', (t) => {
   const { root, put } = fixture(t);
   put('.plans/current.md');
   put('.plans/supporting/detail.md', '# Supporting detail without metadata\n');
-  assert.equal(discoverPlans(root).complete, true);
+  assert.equal(discoverPlans(root).complete, false);
+  assert.equal(discoverPlans(root).identityComplete, true);
+  assert.equal(readPlan(root, '.plans/supporting/detail.md').state, 'unknown');
   for (const status of ['perhaps', 'constructor', '__proto__']) {
     put('.plans/unclear.md', `- Plan ID: unclear\n- Status: ${status}\n`);
     assert.equal(readPlan(root, '.plans/unclear.md').state, 'unknown');
     assert.ok(discoverPlans(root).issues.includes('metadata-unknown'));
     assert.equal(discoverPlans(root).complete, false);
-    assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
+    assert.equal(readPlan(root, '.plans/current.md').state, 'active');
   }
 });
 
@@ -190,4 +201,157 @@ test('legacy authoring status aliases normalize without changing runtime ownersh
     put('.plans/one.md', `- Plan ID: one\n- Status: ${raw}\n`);
     assert.equal(readPlan(root, '.plans/one.md').status, status);
   }
+});
+
+test('large bodies and non-executable lifecycle warnings preserve selected readiness and audit gaps', (t) => {
+  const { root, put } = fixture(t);
+  put('.plans/current.md', '- Plan ID: task-one\n- Status: active\n## Work\n' + 'x'.repeat(100000));
+  put(
+    '.plans/supporting/detail.md',
+    '- Document Type: reference\n- Status: partial detail\n## Notes\n' + 'x'.repeat(100000),
+  );
+  put(
+    '.plans/finished/history.md',
+    '- Plan ID: history\n- Status: completed with caveats\n## History\n',
+  );
+  put('.plans/pending/old.md', '- Status: pending old decision\n## Work\n');
+  const scan = discoverPlans(root);
+  assert.equal(scan.complete, false);
+  assert.ok(scan.issues.includes('metadata-unknown'));
+  assert.equal(scan.identityComplete, true);
+  assert.deepEqual(scan.identityIssues, []);
+  assert.deepEqual(
+    scan.plans.map((p) => p.path),
+    ['.plans/current.md'],
+  );
+  const selected = readPlan(root, '.plans/current.md');
+  assert.equal(selected.state, 'active');
+  assert.equal(selected.complete, false);
+  assert.equal(selected.identityComplete, true);
+  assert.equal(readPlan(root, '.plans/supporting/detail.md').state, 'reference');
+  assert.equal(readPlan(root, '.plans/finished/history.md').state, 'archived');
+  assert.equal(readPlan(root, '.plans/pending/old.md').state, 'unknown');
+});
+
+test('document classification is explicit and never inferred from supporting location', (t) => {
+  const { root, put } = fixture(t);
+  for (const [name, text, expected] of [
+    ['detail', '- Document Type: reference\n', 'reference'],
+    ['missing', '# Supporting notes\n', 'unknown'],
+    ['status-only', '- Status: active\n', 'unknown'],
+    ['ambiguous', '- Document Type: reference\n- Document Type: reference\n', 'unknown'],
+    ['invalid', '- Document Type: narrative\n', 'unknown'],
+    ['standalone', '- Plan ID: standalone\n- Status: active\n', 'active'],
+  ]) {
+    put(`.plans/supporting/${name}.md`, text);
+    assert.equal(readPlan(root, `.plans/supporting/${name}.md`).state, expected);
+  }
+});
+
+test('all actual header declarations participate in duplicate identity detection', (t) => {
+  const { root, put } = fixture(t);
+  put('.plans/current.md');
+  for (const path of [
+    '.plans/other.md',
+    '.plans/supporting/other.md',
+    '.plans/finished/other.md',
+    '.plans/cancelled/other.md',
+    '.plans/README.md',
+  ]) {
+    put(path, '- Document Type: reference\n- Plan ID: task-one\n- Status: narrative\n');
+    assert.equal(readPlan(root, '.plans/current.md').state, 'ambiguous', path);
+    assert.ok(discoverPlans(root).identityIssues.includes('duplicate-plan-id'), path);
+    rmSync(join(root, path));
+  }
+  put(
+    '.plans/supporting/example.md',
+    '- Document Type: reference\n```md\n- Plan ID: task-one\n```\n    - Plan ID: task-one\n## Body\n- Plan ID: task-one\n',
+  );
+  assert.equal(readPlan(root, '.plans/current.md').state, 'active');
+});
+
+test('invalid or repeated identity declarations cannot hide behind reference classification', (t) => {
+  const { root, put } = fixture(t);
+  put('.plans/current.md');
+  for (const declaration of [
+    '- Plan ID: bad_id',
+    '- Plan ID: task-one\n- Plan ID: other',
+    '- Plan ID: task-one\n- Plan ID: task-one',
+  ]) {
+    put('.plans/supporting/detail.md', `- Document Type: reference\n${declaration}\n`);
+    assert.equal(discoverPlans(root).identityComplete, false);
+    assert.ok(discoverPlans(root).identityIssues.includes('identity-invalid'));
+    assert.notEqual(readPlan(root, '.plans/current.md').state, 'active');
+  }
+});
+
+test('incomplete headers fail closed while a bounded complete header may precede an arbitrary body', (t) => {
+  const { root, put } = fixture(t);
+  put('.plans/current.md');
+  for (const header of [
+    '- Document Type: reference\n' + 'x'.repeat(65537),
+    '- Document Type: reference\n```md\n## Not a boundary\n' + 'x'.repeat(65537),
+    '- Document Type: reference\n```md\n',
+    '- Document Type: reference\n' + 'x'.repeat(65537) + '\n## Too late\n',
+  ]) {
+    put('.plans/supporting/incomplete.md', header);
+    assert.equal(discoverPlans(root).identityComplete, false);
+    assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
+  }
+  put(
+    '.plans/supporting/incomplete.md',
+    '- Document Type: reference\n## Body\n' + 'x'.repeat(65537),
+  );
+  assert.equal(discoverPlans(root).identityComplete, true);
+  assert.equal(readPlan(root, '.plans/current.md').state, 'active');
+});
+
+test('short reads and read errors cannot certify header identity completeness', (t) => {
+  const { root, put } = fixture(t);
+  put('.plans/short.md', '## Body\n' + 'x'.repeat(100));
+  for (const failure of ['short', 'error']) {
+    const run = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      const { discoverPlans } = await import(${JSON.stringify(new URL('../agents/common/plan-store.mjs', import.meta.url).href)});
+      const original = fs.readSync;
+      fs.readSync = (fd, buffer, offset, length, position) => {
+        if (${JSON.stringify(failure)} === 'error') throw Object.assign(new Error('read failed'), { code: 'EIO' });
+        return original(fd, buffer, offset, Math.min(length, 3), position);
+      };
+      syncBuiltinESMExports();
+      process.stdout.write(JSON.stringify(discoverPlans(${JSON.stringify(root)})));
+    `,
+      ],
+      { encoding: 'utf8', timeout: 10000 },
+    );
+    assert.equal(run.status, 0, run.stderr);
+    const scan = JSON.parse(run.stdout);
+    assert.equal(scan.identityComplete, false, failure);
+    assert.deepEqual(scan.plans, []);
+    assert.ok(
+      scan.identityIssues.includes(
+        failure === 'short' ? 'header-incomplete' : 'unreadable-or-unsafe',
+      ),
+    );
+  }
+});
+
+test('only a complete boundary line within the header byte budget admits a large body', (t) => {
+  const { root, put } = fixture(t);
+  put('.plans/current.md');
+  const prefix = '- Document Type: reference\n';
+  const boundary = '\n## Body\n';
+  const padding = 'x'.repeat(65536 - Buffer.byteLength(prefix + boundary));
+  put('.plans/detail.md', prefix + padding + boundary + 'body'.repeat(30000));
+  assert.equal(discoverPlans(root).identityComplete, true);
+  assert.equal(readPlan(root, '.plans/current.md').state, 'active');
+  put('.plans/detail.md', prefix + padding + 'x' + boundary + 'body'.repeat(30000));
+  assert.equal(discoverPlans(root).identityComplete, false);
+  assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
 });

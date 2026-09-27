@@ -147,7 +147,15 @@ test('canonical selected plan gates resume; continuation is candidate only', (t)
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.plans'));
   const path = '.plans/selected.md';
-  writeFileSync(join(root, path), '- Plan ID: selected\n- Status: active\n');
+  writeFileSync(
+    join(root, path),
+    '- Plan ID: selected\n- Status: active\n## Work\n' + 'x'.repeat(100000),
+  );
+  mkdirSync(join(root, '.plans/supporting'));
+  writeFileSync(
+    join(root, '.plans/supporting/detail.md'),
+    '- Document Type: reference\n- Status: narrative\n',
+  );
   const source = { branch: 'fixture', head: 'b'.repeat(40), diffHash: 'f'.repeat(64) };
   const i = {
     ...input('analyze', 'resume'),
@@ -161,6 +169,15 @@ test('canonical selected plan gates resume; continuation is candidate only', (t)
   };
   const w = prepareCodexWorkflow(i);
   assert.equal(w.continuation.decision, 'candidate');
+  assert.equal(w.plan.complete, false);
+  assert.equal(w.plan.identityComplete, true);
+  assert.equal(
+    prepareCodexWorkflow({
+      ...i,
+      continuation: { ...i.continuation, currentSnapshot: { ...source, diffHash: 'a'.repeat(64) } },
+    }).continuation.decision,
+    'needs-review',
+  );
   assert.equal(w.continuation.grantsExecutionAuthority, false);
   writeFileSync(join(root, path), '- Plan ID: selected\n- Status: cancelled\n');
   assert.equal(prepareCodexWorkflow(i).continuation.decision, 'needs-review');

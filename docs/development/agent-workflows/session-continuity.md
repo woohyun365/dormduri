@@ -160,10 +160,20 @@ Checkpoint는 다음 경우에만 만듭니다.
 - 재개 시 부모의 이유·영향 Phase·dependency·disposition을 읽고 현재 작업에 필요한 supporting만 따라갑니다. 전체 하위
   트리를 재귀적으로 로드하지 않습니다. 자식 경로로 시작했으면 backlink의 부모 연결과 실제 상태를 먼저 확인합니다.
 - 공통 `discoverPlans`는 root의 active/implementation-ready metadata 문서만 발견합니다. 중첩 supporting은 부모 링크 또는 명시적 경로로
-  `readPlan`에 전달합니다. `README.md`·finished/cancelled·metadata 없는 상세 문서는 active plan이 아닙니다.
+  `readPlan`에 전달합니다. `README.md`·finished/cancelled·terminal·reference 문서는 명시적으로 선택해도 재개 후보가 아닙니다.
+  비실행 상세는 header에 `- Document Type: reference`를 선언합니다. supporting/pending 위치나 status 한 줄만으로
+  참고 자료라고 추측하지 않으며, 유형 선언 중복/미지원 값 또는 실행 metadata 누락은 해당 문서를 unknown으로 남깁니다.
   `assessPlanContinuation`은 명시적 resume·Plan ID·branch/HEAD/diff hash 일치를 검사하며 결과는 승인 아닌 후보입니다.
-- 64 KiB/file·512개 후보 한도를 넘거나 symlink/unsafe path/중복 ID/불명확 metadata가 있으면 진단 gap으로 남깁니다.
-  incomplete discovery를 전체 inventory라고 하지 않습니다. 파일이 이동됐으면 새 명시적 경로를 요청/확인합니다.
+- Header는 처음 unfenced `## ` heading 또는 EOF까지이며 최대 64 KiB만 파싱합니다(경계 확인용 1 byte 추가 읽기).
+  완전한 header 뒤 큰 본문은 읽기 실패가 아닙니다. Header 경계 미확인·미종결 fence·short read·읽기 실패와
+  512개 filesystem entry 한도/unsafe path는 identity 검사를 불완전하게 하여 재개와 discovery 후보를 차단합니다.
+  Fenced/indented 예시, blockquote, 본문의 선언은 canonical metadata가 아닙니다.
+- `complete`/`issues`는 전체 corpus의 metadata 감사 결과이며 readiness로 재정의하지 않습니다. `identityComplete`/
+  `identityIssues`는 모든 header의 선언 검사와 중복 검사가 완료됐는지 별도로 표시합니다. 모든 실제 canonical ID는
+  reference·README·archive·terminal에도 중복 검사하며, 잘못된 ID 문법/중복 ID 필드는 fail-closed입니다.
+  완전한 header에서 ID 부재를 확인한 unknown 문서나 무관한 lifecycle warning은 감사 gap으로 보존하되 정상 selected
+  plan을 전역 차단하지 않습니다. 해당 malformed 문서 자체는 재개할 수 없습니다. `readPlan`은 선택 문서 state/reasons와
+  corpus 감사/identity 결과를 함께 반환합니다. 불완전한 감사를 전체 PASS라고 하지 않으며, 파일이 이동됐으면 새 명시적 경로를 확인합니다.
 - 로컬 supporting 파일만으로 다른 clone에 인계됐다고 판단하지 않습니다. [Portable handoff](#portable-handoff)에 따라
   현재 결정·AC·evidence·blocker·다음 행동을 권한 있는 기존 Issue/PR 또는 canonical 문서에 남깁니다. Raw 계획 전체를
   추적하거나 local 경로를 장기 결정의 유일한 근거로 삼지 않습니다.

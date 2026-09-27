@@ -662,3 +662,38 @@ test('host-named package preflight accepts one forwarded separator after its def
   assert.notEqual(f.run([...defaults, '--', '--', '--fresh']).status, 0);
   assert.notEqual(f.run([...defaults, '--', '--unknown']).status, 0);
 });
+
+test('canonical resume exposes corpus warnings separately from selected identity readiness', (t) => {
+  const f = fixture(t);
+  f.put(canonicalPlan, canonicalBody() + '## Work\n' + 'x'.repeat(100000));
+  f.put(
+    '.plans/supporting/detail.md',
+    '- Document Type: reference\n- Status: narrative\n## Detail\n' + 'x'.repeat(100000),
+  );
+  f.put('.plans/pending/old.md', '- Status: unfinished old proposal\n');
+  const path = f.snapshot(undefined, { activePlan: canonicalPlan });
+  f.point(path);
+  let s = f.summary(resumePlan(canonicalPlan));
+  assert.equal(s.planDiscovery.complete, false);
+  assert.ok(s.planDiscovery.issues.includes('metadata-unknown'));
+  assert.equal(s.planDiscovery.identityComplete, true);
+  assert.deepEqual(s.planDiscovery.identityIssues, []);
+  assert.equal(s.resume.planBinding.state, 'active');
+  assert.equal(s.resume.diagnostics.recommendedContextPath, path);
+  assert.equal(
+    f.summary(resumePlan('.plans/pending/old.md')).resume.diagnostics.recommendedContextPath,
+    null,
+  );
+  f.snapshot(path, { activePlan: canonicalPlan, head: otherHead });
+  assert.equal(
+    f.summary(resumePlan(canonicalPlan)).resume.diagnostics.recommendedContextPath,
+    null,
+  );
+  f.snapshot(path, { activePlan: canonicalPlan });
+  f.put('.plans/finished/duplicate.md', canonicalBody());
+  s = f.summary(resumePlan(canonicalPlan));
+  assert.equal(s.planDiscovery.identityComplete, false);
+  assert.deepEqual(s.activePlans, []);
+  assert.equal(s.resume.planBinding.state, 'ambiguous');
+  assert.equal(s.resume.diagnostics.recommendedContextPath, null);
+});

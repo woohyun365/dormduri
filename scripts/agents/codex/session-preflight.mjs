@@ -56,7 +56,12 @@ const result = {
     untrackedPaths: workingTree.untracked.slice(0, changeLimit),
   },
   activePlans: planDiscovery.plans.map(({ path, status }) => ({ path, status })),
-  planDiscovery: { complete: planDiscovery.complete, issues: planDiscovery.issues },
+  planDiscovery: {
+    complete: planDiscovery.complete,
+    issues: planDiscovery.issues,
+    identityComplete: planDiscovery.identityComplete,
+    identityIssues: planDiscovery.identityIssues,
+  },
   omx,
   canonicalVerification: [
     'pnpm test:repo-policy',

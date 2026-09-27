@@ -10,7 +10,7 @@ import {
 import { resolve, join } from 'node:path';
 
 export const PLAN_ROOT = '.plans';
-const MAX_BYTES = 64 * 1024;
+const MAX_HEADER_BYTES = 64 * 1024;
 const MAX_ENTRIES = 512;
 const TERMINAL = new Set(['completed', 'cancelled', 'superseded']);
 
@@ -40,15 +40,22 @@ function metadata(root, path) {
   try {
     const absolute = safePath(root, path);
     fd = openSync(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
-    if (!fstatSync(fd).isFile() || fstatSync(fd).size > MAX_BYTES)
-      return { path, state: 'unknown', reasons: ['bounded-read'] };
-    const bytes = Buffer.alloc(MAX_BYTES + 1);
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) throw new Error('unsafe-path');
+    const bytes = Buffer.alloc(MAX_HEADER_BYTES + 1);
     const count = readSync(fd, bytes, 0, bytes.length, 0);
-    if (count > MAX_BYTES) return { path, state: 'unknown', reasons: ['bounded-read'] };
-    let fence = null;
+    let fence = null,
+      headerEnded = false;
     const ids = [],
-      statuses = [];
-    for (const line of bytes.subarray(0, count).toString('utf8').split(/\r?\n/u)) {
+      statuses = [],
+      documentTypes = [];
+    const lines = bytes
+      .subarray(0, Math.min(count, MAX_HEADER_BYTES))
+      .toString('utf8')
+      .split(/\r?\n/u);
+    // A partial last line cannot prove a heading boundary or a complete declaration.
+    if (count > MAX_HEADER_BYTES) lines.pop();
+    for (const line of lines) {
       const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
       if (fence) {
         if (
@@ -64,10 +71,18 @@ function metadata(root, path) {
         fence = { character: marker[1][0], length: marker[1].length };
         continue;
       }
-      if (/^##\s/u.test(line)) break;
-      const field = line.match(/^ {0,3}-\s*(Plan ID|Status|상태):\s*(.*)$/u);
+      if (/^##\s/u.test(line)) {
+        headerEnded = true;
+        break;
+      }
+      const field = line.match(/^ {0,3}-\s*(Plan ID|Status|상태|Document Type):\s*(.*)$/u);
       if (field)
-        (field[1] === 'Plan ID' ? ids : statuses).push(
+        (field[1] === 'Plan ID'
+          ? ids
+          : field[1] === 'Document Type'
+            ? documentTypes
+            : statuses
+        ).push(
           field[2]
             .trim()
             .replace(/^`([^`]+)`/u, '$1')
@@ -75,6 +90,17 @@ function metadata(root, path) {
             .trim(),
         );
     }
+    if (
+      count < Math.min(stat.size, bytes.length) ||
+      (!headerEnded && count > MAX_HEADER_BYTES) ||
+      fence
+    )
+      return {
+        path,
+        state: 'unknown',
+        reasons: ['header-incomplete'],
+        identityIssues: ['header-incomplete'],
+      };
     const id = ids.length === 1 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(ids[0]) ? ids[0] : null;
     const statusMap = {
       active: 'active',
@@ -106,26 +132,38 @@ function metadata(root, path) {
         : 'unknown';
     const navigation = path.split('/').at(-1).toLowerCase() === 'readme.md';
     const archived = /^\.plans\/(finished|cancelled)\//u.test(path);
-    const state = navigation
-      ? 'navigation'
-      : archived
-        ? 'archived'
-        : !id || status === 'unknown'
-          ? 'unknown'
-          : TERMINAL.has(status)
-            ? 'terminal'
-            : status === 'implementation-ready'
-              ? 'active'
-              : status;
+    const reference = documentTypes.length === 1 && documentTypes[0] === 'reference';
+    const classificationInvalid = documentTypes.length > 0 && !reference;
+    const identityIssues = ids.length && !id ? ['identity-invalid'] : [];
+    const metadataInvalid =
+      classificationInvalid ||
+      identityIssues.length > 0 ||
+      (reference || navigation
+        ? statuses.length > 0 && status === 'unknown'
+        : !id || status === 'unknown');
+    const state = classificationInvalid
+      ? 'unknown'
+      : navigation
+        ? 'navigation'
+        : archived
+          ? 'archived'
+          : reference
+            ? 'reference'
+            : !id || status === 'unknown'
+              ? 'unknown'
+              : TERMINAL.has(status)
+                ? 'terminal'
+                : status === 'implementation-ready'
+                  ? 'active'
+                  : status;
     return {
       path,
       id,
+      declaredIds: ids.filter((value) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(value)),
       status,
       state,
-      reasons:
-        (ids.length || statuses.length) && (!id || status === 'unknown')
-          ? ['metadata-invalid']
-          : [],
+      identityIssues,
+      reasons: metadataInvalid ? ['metadata-invalid'] : [],
     };
   } catch (error) {
     return {
@@ -137,6 +175,7 @@ function metadata(root, path) {
             ? 'unsafe'
             : 'unknown',
       reasons: [error.code === 'ENOENT' ? 'missing-path' : 'unreadable-or-unsafe'],
+      identityIssues: [error.code === 'ENOENT' ? 'missing-path' : 'unreadable-or-unsafe'],
     };
   } finally {
     if (fd !== undefined) closeSync(fd);
@@ -145,7 +184,12 @@ function metadata(root, path) {
 
 function inventory(root) {
   const plans = [],
-    issues = [];
+    issues = [],
+    identityIssues = [];
+  const scanIssue = (issue) => {
+    issues.push(issue);
+    identityIssues.push(issue);
+  };
   let count = 0;
   function visit(path) {
     let entries;
@@ -153,48 +197,52 @@ function inventory(root) {
       const absolute = resolve(root, path),
         stat = lstatSync(absolute);
       if (stat.isSymbolicLink() || !stat.isDirectory()) {
-        issues.push('unsafe-directory');
+        scanIssue('unsafe-directory');
         return;
       }
       entries = readdirSync(absolute, { withFileTypes: true }).sort((a, b) =>
         a.name.localeCompare(b.name),
       );
     } catch (error) {
-      issues.push(error.code === 'ENOENT' ? 'missing-root' : 'unreadable-directory');
+      scanIssue(error.code === 'ENOENT' ? 'missing-root' : 'unreadable-directory');
       return;
     }
     for (const entry of entries) {
       if (++count > MAX_ENTRIES) {
-        issues.push('candidate-limit');
+        scanIssue('candidate-limit');
         return;
       }
       const child = `${path}/${entry.name}`;
       if (entry.isSymbolicLink()) {
-        issues.push('unsafe-entry');
+        scanIssue('unsafe-entry');
         continue;
       }
       if (entry.isDirectory()) visit(child);
-      else if (
-        entry.isFile() &&
-        entry.name.endsWith('.md') &&
-        entry.name.toLowerCase() !== 'readme.md'
-      ) {
+      else if (entry.isFile() && entry.name.endsWith('.md')) {
         const plan = metadata(root, child);
         plans.push(plan);
         if (plan.reasons.length) issues.push('metadata-unknown');
+        for (const issue of plan.identityIssues) scanIssue(issue);
       }
     }
   }
   visit(PLAN_ROOT);
   const ids = new Map();
-  for (const plan of plans) if (plan.id) ids.set(plan.id, (ids.get(plan.id) ?? 0) + 1);
   for (const plan of plans)
-    if (ids.get(plan.id) > 1) {
+    for (const id of plan.declaredIds ?? []) ids.set(id, (ids.get(id) ?? 0) + 1);
+  for (const plan of plans)
+    if (plan.declaredIds?.some((id) => ids.get(id) > 1)) {
       plan.state = 'ambiguous';
       plan.reasons.push('duplicate-plan-id');
-      issues.push('duplicate-plan-id');
+      scanIssue('duplicate-plan-id');
     }
-  return { plans, issues: [...new Set(issues)], complete: issues.length === 0 };
+  return {
+    plans,
+    issues: [...new Set(issues)],
+    complete: issues.length === 0,
+    identityComplete: identityIssues.length === 0,
+    identityIssues: [...new Set(identityIssues)],
+  };
 }
 
 export function discoverPlans(root) {
@@ -202,19 +250,28 @@ export function discoverPlans(root) {
   return {
     ...result,
     plans: result.plans.filter(
-      (plan) => plan.path.split('/').length === 2 && plan.state === 'active',
+      (plan) =>
+        result.identityComplete && plan.path.split('/').length === 2 && plan.state === 'active',
     ),
   };
 }
 
 export function readPlan(root, path) {
   const selected = metadata(root, path);
-  if (['missing', 'unsafe', 'unknown', 'navigation'].includes(selected.state)) return selected;
-  const scan = inventory(root);
-  const plan = scan.plans.find((plan) => plan.path === path) ?? selected;
-  if (!scan.complete && !['archived', 'terminal', 'ambiguous'].includes(plan.state))
-    return { ...plan, state: 'unknown', reasons: [...plan.reasons, ...scan.issues] };
-  return plan;
+  if (['missing', 'unsafe'].includes(selected.state)) return selected;
+  const { plans, ...audit } = inventory(root);
+  const plan = plans.find((plan) => plan.path === path) ?? selected;
+  if (
+    !audit.identityComplete &&
+    !['archived', 'terminal', 'ambiguous', 'navigation', 'reference'].includes(plan.state)
+  )
+    return {
+      ...plan,
+      ...audit,
+      state: 'unknown',
+      reasons: [...new Set([...plan.reasons, ...audit.identityIssues])],
+    };
+  return { ...plan, ...audit };
 }
 
 export function assessPlanContinuation({
