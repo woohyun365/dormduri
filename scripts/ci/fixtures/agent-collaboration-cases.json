@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "corpusVersion": "1.2.0",
+  "corpusVersion": "1.1.0",
   "purpose": "Static integrity and finite behavioral acceptance inputs, not an executing policy or live PASS evidence. Participant labels must be bound by Parent at runtime.",
   "cases": [
     {
@@ -84,7 +84,7 @@
     {
       "id": "independent-lanes",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "delegation",
       "scenario": "Independent mapper lookup and authority assessment; Parent integrates.",
       "requiredSignals": ["bounded-assignment", "independent-completion", "parent-integration"],
@@ -168,7 +168,7 @@
     {
       "id": "qa-independence",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "qa",
       "scenario": "Assess independently before later designated existing-symbol clarification.",
       "requiredSignals": [
@@ -206,7 +206,7 @@
     {
       "id": "qa-runner-boundary",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "qa",
       "scenario": "Required DB/browser check produces files; reviewer lacks runner authority.",
       "requiredSignals": ["runner-gap", "parent-report"],
@@ -245,7 +245,7 @@
     {
       "id": "conflict-snapshot",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "evidence",
       "scenario": "Child claims conflict; one cites old source, the other current source.",
       "requiredSignals": ["source-revalidation", "parent-adjudication"],
@@ -328,7 +328,7 @@
     {
       "id": "read-only-wrapper-install",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "security",
       "scenario": "A read-only preflight package wrapper tries to install dependencies and aborts before purging modules. Its inspected direct Node entrypoint performs the same read-only task.",
       "requiredSignals": ["direct-read-only-entrypoint", "report-original-failure"],
@@ -367,7 +367,7 @@
     {
       "id": "broad-rule-shadow",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "security",
       "scenario": "A stored broad gh api allow matches a synthetic wrong-repository DELETE in static execpolicy evaluation; a narrower allow was proposed. No API action ran.",
       "requiredSignals": ["effective-rule-check", "negative-argv-check", "static-not-executed"],
@@ -423,7 +423,7 @@
     {
       "id": "acceptance-evidence-gap",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "qa",
       "scenario": "One targeted test passes but a required criterion has no current source or test evidence. A completed child labels the whole change PASS.",
       "requiredSignals": ["criterion-evidence-gap", "source-first-review", "report-required-gap"],
@@ -440,7 +440,7 @@
     {
       "id": "changed-source-review",
       "intent": "review",
-      "authority": "inspect",
+      "authority": "produce-analysis",
       "category": "qa",
       "scenario": "Source or requirement changes after an independent assessment at the same HEAD; scope the new review to affected assumptions and checks.",
       "requiredSignals": ["delta-review", "snapshot-binding", "source-revalidation"],

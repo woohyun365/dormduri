@@ -16,10 +16,19 @@
 - [Codex orchestration and recovery](./orchestration-recovery.md): Codex/OMX native dispatch gate, one-alternate ceiling,
   leader-only synthesis 계약. Claude 기본값이 아님.
 
+공통 문서는 위의 Decisions부터 Delegation까지 필요한 부분만 읽습니다. Codex child policy와 recovery는 **Codex/OMX일 때만**
+조건부로 선택하며 Claude·제3 host의 실행 전제가 아닙니다. 다른 host는 [adapter index](../adapters/README.md)를 사용합니다.
+
 ## Regression surface
 
 - `scripts/ci/fixtures/agent-intake-cases.json`: Analyze, Plan, direct, ambiguity, recovery 대표 입력과 기대 계약
-- `scripts/ci/agent-intake-integration.test.mjs`: intake부터 dispatch 또는 handoff까지의 조합, source freshness,
+
+### Codex adapter 회귀
+
+다음 조합 smoke와 host-specific fixture는 **Codex/OMX adapter 회귀**입니다. Claude·제3 host의 native 실행 입증이나
+공통 startup 명령으로 사용하지 않습니다.
+
+- `scripts/ci/agent-intake-integration.test.mjs`: intake부터 Codex dispatch 또는 handoff까지의 조합, source freshness,
   no-write 경계
 - `scripts/agents/codex/fresh-session-smoke.mjs`: local session memory 없이 Codex/OMX 대표 route를 확인하는
   read-only smoke
@@ -41,6 +50,9 @@ current request
 → direct·sequential·clarify·OQ handoff·bounded lane 추천
 ```
 
+- Canonical intent는 `answer/analyze/plan/implement/review/debug`이며 `unknown`은 미확정 상태다.
+  `fresh/resume`은 별도의 continuity 축이다. Debug 분류 자체가 읽기 전용 요청을 수정 승인으로 바꾸지 않는다.
+- ContextPack의 `selectedGuides`는 Plan-only이며 다른 intent의 문서 탐색과 동일하지 않다.
 - `TaskEnvelope`는 advisory다. 자체적으로 tool을 실행하거나 child를 생성하지 않는다.
 - explicit user request와 repository safety rule만 action authority를 부여한다.
 - 분석 요청은 구현이 아니며, 계획 요청은 계획 자료와 구현을 동시에 승인하지 않는다.

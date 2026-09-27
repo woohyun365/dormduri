@@ -6,7 +6,7 @@
 ## Guides
 
 - [Agentic architecture decisions](./agentic-architecture-decisions.md): agent pattern, 검증, 권한과 orchestration 결정
-- [Getting started](./getting-started.md): 처음 참여한 개발자의 fresh/resume/analysis/plan/implementation 요청 예시
+- [Getting started](./getting-started.md): 처음 참여한 개발자의 여섯 intent와 별도 fresh/resume 요청 예시
 - [Agent execution contract](./agent-execution-contract.md): coding agent의 classify→inspect→route→act→verify→handoff 계약
 - [Owner–Lead collaboration](./owner-lead-collaboration.md): 기술 실행과 중요한 사용자 선택, 짧은 협의와 선택적 specialist 통신 경계
 - [Development lifecycle](./development-lifecycle.md): intent→검증→통합→관찰/feedback의 evidence owner와 scoped Done
@@ -17,7 +17,7 @@
 - [Orchestration](./orchestration.md): host 공통 single-agent 기본값, bounded fan-out과 책임 경계
 - [Host adapters](./adapters/README.md): Codex/OMX 전용 모델·runtime 및 Claude Code native 역할·권한·skill 적용
 - [Cross-model QA handoff](./adapters/cross-model-handoff.md): Codex↔Claude 독립 checker의 단일 writer, fresh snapshot, finding 재현과 live qualification 경계
-- [Subagent lifecycle](./subagent-lifecycle.md): Parent의 완료 스레드 정리·슬롯 확인·capacity 오류 복구
+- [Codex/OMX Subagent lifecycle](./subagent-lifecycle.md): Parent의 완료 스레드 정리·슬롯 확인·capacity 오류 복구
 - [QA](./qa.md): 인수 조건 도출, 코드 리뷰, 완료 검증의 근거와 판정 방식
 - [Refactor analysis](./refactor-analysis.md): 책임 경계와 분리 순이익을 분석하는 방식
 
@@ -43,4 +43,14 @@ Parent/평가자는 전체 자료를 읽되 pilot child에는 `{ request, ...inp
 - 현재 사용자 요청, working tree의 코드·계약·테스트, tracked policy·architecture를 과거 문서보다 우선합니다.
 - historical root 원문은 `local-docs/repo-root/`에 보존하지만 현재 판단 근거로 직접 사용하지 않습니다.
 - workflow를 변경하면 현재 repository script와 CI 명령을 함께 확인합니다.
-- `.omx/`의 checkpoint와 memory는 tracked guide를 대체하지 않습니다.
+- `.plans`의 local 계획 및 각 host의 checkpoint/memory는 tracked guide를 대체하지 않습니다.
+
+## 공통 진입과 실행 책임
+
+[공통 entry registry](../../../scripts/agents/common/workflow-entry.mjs)는 여섯 intent × fresh/resume의 최소 순서와
+조건부 host/domain/시각 작업 guide를 반환합니다. [Session continuity](./session-continuity.md)의 CLI가 실제 소비자이며
+단순 export와 구분합니다. CLI 실행만으로 문서를 읽거나 작업/child를 실행하지 않습니다.
+
+방법론 → execution/intake → 현재 source/context → direct 또는 bounded delegation → adapter admission → 결과/QA →
+continuity 순서입니다. `[requires]`만 필수 의존이고 조건부·참조·역사 링크를 전체 prompt로 읽지 않습니다.
+Domain ContextPack의 `selectedGuides`는 계속 Plan-only입니다. 모르는 host를 Codex로 자동 해석하지 않습니다.

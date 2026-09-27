@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Current document ownership and conditional reading; not runtime qualification or startup load list",
+  "documents": [
+    {
+      "path": "docs/development/README.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "개발 index가 workflow·GitHub·CI·비용·troubleshooting owner로 이미 연결한다. 최소 탐색 entry를 보존하고 전체 문서를 startup 필수로 만들지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/README.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "최소 guide 선택과 source freshness를 유지하되 Subagent lifecycle의 무조건 탐색을 Codex 조건으로 바꾸고 .omx memory 예시를 공통 의미와 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/README.md",
+      "owner": "host registry/cross-host boundary owner",
+      "kind": "normative",
+      "rationale": "명시적 active-host registry와 capability/보장 수준의 단일 owner를 유지하고 한국어 설명 및 unknown-host 비추정 경로를 명확히 한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/claude-code.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "Claude native role·permission·model admission·resume·QA mapping을 Claude owner에 두며 static preparation을 live qualification으로 승격하지 않는다. 현재 보호된 변경은 G가 수정하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/codex-delegation.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "Codex cap·effort·cohort 및 typed child mapping이 이미 명시적으로 scoped되어 있다. 공통 packet과 혼합하지 않고 기존 회귀 oracle을 보존한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/codex.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "Codex model·QA·권한·runtime의 canonical destination을 유지한다. 공통 문서에서 추출하는 절차를 수용하고 한국어 설명을 강화하되 Astra QA/cohort 의미는 바꾸지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/cross-model-handoff.md",
+      "owner": "host registry/cross-host boundary owner",
+      "kind": "adapter",
+      "rationale": "one-shot 독립 checker·single-writer·source-bound evidence 계약을 유지하고 한국어로 설명한다. 임시 작업 진행 상태는 영속 규범에서 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/agent-execution-contract.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "intent/authority·source priority·결과 계약은 공통 owner에 남긴다. Auto-review/sandbox/rules/madmax는 Codex permission destination으로 옮기고 debug와 continuity 축을 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/agentic-architecture-decisions.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "날짜별 DA 결정과 관측을 보존한다. DA-009/011/012/016/017의 host 정책을 공통 계약으로 오인하지 않게 Codex 조건과 역사 범위를 표시한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/development-lifecycle.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "evidence 기반 scoped Done·통합·관찰 책임은 host-neutral이다. preflight 개선 사례는 제한된 사례로 보존하며 모든 host의 runtime prerequisite으로 승격하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/getting-started.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "공통 요청 예시와 명시적 host 선택을 유지하되 OMX launch/approve/rule 확인 절차는 Codex startup owner로 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/orchestration.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "single-first·bounded packet·최소 context·parent 통신·one-writer를 유지한다. Codex recommender/effort/native recovery 호출은 조건부 adapter로 이동하며 공통 두 cycle 제한은 보존한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/owner-lead-collaboration.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "사람의 제품·비용·위험 결정과 Parent 통합·peer 사실확인·QA 독립성은 공통이다. knu_*와 TOML 구현만 host mapping으로 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/README.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "Plan-only core→primary→필요한 cross-cutting의 progressive disclosure와 readiness review가 canonical이다. 모든 intent의 필수 readset으로 확대하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/backend.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "backend transaction·uniqueness·idempotency·schema 책임을 보존한다. 제품 persistence 판단을 host adapter로 이동하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/core.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "Decision/OQ·dependency·acceptance·readiness gate와 enforcement enum은 공통이다. native-runtime 설명의 Codex/OMX 예시만 조건부로 분리하고 stable anchor를 보존한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/cross-cutting/operations-release.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "release/rollback/observability 및 future evidence 책임을 보존한다. 실제 release target 없이 agent host가 값을 결정하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/cross-cutting/security-privacy.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "권한·민감정보·trust boundary planning 관점을 보존한다. domain/risk 조건일 때만 추가하며 전 intent 의무로 확대하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/frontend.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "FE 상태·접근성·화면과 contract owner planning 관점을 보존한다. visual reference 사용과 implementation 권한을 혼동하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/infrastructure.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "infra 비용·failure isolation·복구·release input 관점을 보존한다. provider 선택이나 실행 자격을 추정하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/migration-map.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "기존 domain graph와 retired local handoff의 content-loss 추적을 보존하고 부분 영문만 한국어로 보강한다. historical source를 current authority로 만들지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/qa.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "acceptance·독립성·reviewer/runner 분리·criterion coverage를 보존한다. fork_turns/TOML/knu_*는 Codex mapping이며 scoped Astra QA 요구는 그대로 보존한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/refactor-analysis.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "분석 권한과 책임 경계·분리 순이익·회귀 evidence를 보존한다. 기존 감사에서 추가 Codex 실행 prerequisite은 발견되지 않았다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/README.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "intake→authority→context→output의 공통 의미를 보존한다. Codex recovery와 fresh-session-smoke 명령을 host 조건으로 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/ambiguity-and-authority.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "clarify/OQ/release handoff와 mutation 경계를 보존한다. advisory 결과가 상위 요청·권한을 대체하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/context-pack.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "evidence-first domain 발견과 Plan-only selectedGuides를 그대로 보존한다. non-Plan graph를 mapper에 강제로 넣지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/decisions.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "single-first·semantic role fit·bounded recovery를 보존한다. AIPO-007/008 Pass2/cap6/effort는 Codex로 분리한다. ordinary failure/recovery route의 one-alternate/one-retry는 공통 budget으로 유지하고 Codex dispatch 구현과 분리한다; 일반 구현 test-fix 횟수 제한이나 alternate-host retry 권한이 아니다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/delegation.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "independent lane·one-writer·source-bound handoff 공통 책임은 유지한다. 영어 설명을 한국어로 보강하고 host cap·native role mapping과 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/orchestration-recovery.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "현재 Codex/OMX native gate와 recovery가 명시적으로 scoped되어 있다. 공통 필수 경로에서 제거하는 대신 조건부 Codex destination으로 보존한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/output-contracts.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "Answer/Analyze/Plan의 서로 다른 output·완료 경계를 보존한다. 분석을 계획이나 구현으로 자동 승격하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/request-intake/task-envelope.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "answer/analyze/plan/implement/review/debug(+unknown)와 authorizedAction의 독립성을 보존한다. fresh/resume을 intent enum으로 오인하지 않고 부분 영문을 보강한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/session-continuity.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "current source 재구성·portable handoff·공통 .plans lifecycle을 유지한다. Codex preflight/schema 및 OMX context/priority/wiki는 Codex runtime owner로 분리하고 실제 이동은 Parent cutover가 소유한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/subagent-lifecycle.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "Codex native child cleanup/capacity recovery가 기존 canonical owner다. incoming edge를 host 조건화하고 미지원 종료를 완료로 가장하지 않는 경계를 보존한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/README.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "visual discovery·content 보존·critic·renderer 책임을 유지한다. knu_*/TOML을 모든 host의 prerequisite으로 요구하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/design-review-and-acceptance.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "bounded maker-checker와 사람의 방향 승인·technical QA 분리를 유지한다. 과거 visual/skill 관측과 현재 공통 계약은 구별한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/design-task-orchestration.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "연구/설계/구현/critic과 one-writer는 공통이다. role/effort/OMX 및 Taste/Redesign 호출은 Codex destination으로 분리한다. 최대 두 independent advisory lane과 maker/checker 최대 두 cycle은 공통 task-shape budget으로 유지하며 cap6/runtime concurrency와 분리한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/device-presentation-and-verification.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "device별 presentation·실제 render 검증 계약을 보존한다. 정적 fixture를 live UI 관측으로 대체하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/figma-mcp-evidence.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "reference identity·권한·exact disconnect 의미는 공통이다. codex mcp add/login/logout/remove/list 절차는 Codex MCP owner에 둔다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/reference-content-contract.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "reference content 보존·수정 가능 경계와 source 우선순위를 보존한다. provider 연결 여부가 content 변경 승인을 주지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/visual-brief.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "목표·내용·시각 제약·승인 revision을 가진 VisualBrief의 domain 책임을 보존한다. native role 존재를 요구하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/visual-design/web-semantic-token-contract.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web semantic token과 UI 표현의 owner 경계를 보존한다. agent host 일반화가 제품 token policy를 변경하지 않는다."
+    },
+    {
+      "path": "docs/development/agentic-engineering-methodology.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "single-first·semantic evidence·권한과 권고 구분을 공통 방법론으로 유지한다. stale Sol 중심 표현을 Codex 사례로 한정하며 historical 성과를 cross-host 성과로 바꾸지 않는다."
+    },
+    {
+      "path": "docs/development/agentic-orchestration-case-study.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "history",
+      "rationale": "당시 Codex 실험·commit·성과와 한계를 역사 자료로 보존한다. 현재 Claude/unknown-host 자격의 증거로 사용하지 않는다."
+    },
+    {
+      "path": "docs/development/ci/monorepo-ci-baseline.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "monorepo test/lint/typecheck/CI 기준의 domain owner를 유지한다. 특정 coding host 실행을 CI prerequisite으로 추가하지 않는다."
+    },
+    {
+      "path": "docs/development/cost/README.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "비용 기록 entry와 gross/personal/project/future 비용의 분리를 유지한다. agent runtime 선택이 비용 집계 의미를 바꾸지 않는다."
+    },
+    {
+      "path": "docs/development/cost/owner-monthly-costs.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "owner 월별 비용 ledger와 attribution을 보존한다. 현재 비용 관측을 다른 host 도입 승인이나 future provider 가격으로 대체하지 않는다."
+    },
+    {
+      "path": "docs/development/future-production-deployment-inputs.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "미확정 production deployment input의 release-owner handoff를 보존한다. agent가 환경 값·credential·target을 추정하지 않는다."
+    },
+    {
+      "path": "docs/development/github/README.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "GitHub 협업·인증·branch/PR·readiness 문서의 index를 보존한다. Git 작업 조건일 때만 필요한 owner로 탐색한다."
+    },
+    {
+      "path": "docs/development/github/authentication-and-operator-access.md",
+      "owner": "host registry/cross-host boundary owner",
+      "kind": "domain",
+      "rationale": "Git transport credential과 GitHub control-plane·operator 권한을 구분한다. shell capability로 경로를 선택하고 no-shell connector 가용성을 보장하지 않으며 provider 절차는 scoped 유지한다."
+    },
+    {
+      "path": "docs/development/github/branch-and-pr-strategy.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "fresh integration baseline·bounded branch·PR/commit 규약을 보존한다. 부분 영문 설명만 보강하고 host-neutral Git 경계를 유지한다."
+    },
+    {
+      "path": "docs/development/github/branch-readiness.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "branch readiness와 integration evidence owner를 보존한다. local PASS를 remote readiness로 승격하지 않는다."
+    },
+    {
+      "path": "docs/development/github/collaboration.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "review·merge·협업 책임과 local/remote 역할 분리를 보존한다. agent host가 GitHub 권한을 자동 부여하지 않는다."
+    },
+    {
+      "path": "docs/development/github/dependency-updates.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "dependency update·자동화·검증 경계를 보존한다. host 일반화 작업이 새 dependency 도입 승인이 되지 않는다."
+    },
+    {
+      "path": "docs/development/github/issues-and-work-tracking.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Issue/작업 추적의 책임과 durability를 보존한다. agent local memory를 tracked work source로 대체하지 않는다."
+    },
+    {
+      "path": "docs/development/github/remote-repository-settings.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "remote settings와 설치 Apps evidence를 domain 관측으로 유지한다. 목록은 coding agent startup prerequisite이 아니다."
+    },
+    {
+      "path": "docs/development/github/renovate-provider-readiness.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Renovate provider readiness와 실제 operator evidence 경계를 보존한다. static readiness를 provider 활성화로 보고하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/README.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "재현 가능한 문제별 index를 보존한다. 모든 troubleshooting 문서를 startup readset으로 넣지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/TEMPLATE.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "재현·원인·해결·검증 템플릿을 작성 시 조건부 reference로 유지한다. runtime prerequisite이 아닌 authoring leaf다."
+    },
+    {
+      "path": "docs/development/troubleshooting/ci/repository-policy-pnpm-setup-timeout.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "repository-policy의 pnpm setup timeout 원인과 CI 복구 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/ci/web-eslint-node-heap-oom.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Web ESLint heap OOM의 재현·메모리 경계 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/database/orbstack-postgresql-clock-drift-after-sleep.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "sleep 이후 OrbStack PostgreSQL clock drift의 local 진단 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/database/prisma-7-seed-config-and-generated-client.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Prisma 7 seed config와 generated client의 owner/generator 경계 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/frontend/email-verification-request-identity-and-stale-response.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "email verification 요청 identity와 stale response 제품 회귀 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/agent-thread-limit-reached.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "Codex thread-limit의 lifecycle·capacity 복구 및 미지원 종료 gap 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/pnpm-dependency-update-job-timeout.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "pnpm dependency update job timeout의 재현과 CI 복구 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/pnpm-legacy-deploy-active-checkout.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "legacy deploy의 active checkout 변경 위험과 disposable 검증 경계 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/pnpm-store-index-and-postinstall-integrity.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "pnpm store index/postinstall integrity의 tooling 복구 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/renovate-pnpm11-hosted-oom.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Renovate pnpm11 hosted OOM의 provider/메모리 증거 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/turbopack-tailwindcss-stale-cache.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Turbopack/Tailwind stale cache의 local 원인과 복구 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/typescript-6-baseurl-deprecation-and-api-tsconfig.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "TypeScript 6 baseUrl 폐기와 API tsconfig의 compiler boundary 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    },
+    {
+      "path": "docs/development/troubleshooting/tooling/vitest-proxy-module-mock-hang.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "Vitest proxy module mock hang의 test-runner 원인과 재현 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
+    }
+  ]
+}

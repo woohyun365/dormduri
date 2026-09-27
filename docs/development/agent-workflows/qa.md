@@ -48,24 +48,27 @@ QA 절차 자체의 누락이 검증을 잘못 PASS시키는 변경은 단순 Ma
 | Human / release approval | 해당 권한을 가진 owner의 결정; QA PASS가 대신하지 않음                                            |
 
 독립성은 context 분리이지 정답 보장이 아닙니다. 실제 지원되는 launch 방식과 전달 입력을 기록하고, 숨겨진 runtime
-attestation을 추측하지 않습니다. 예를 들어 native surface가 지원하면 `fork_turns: none`으로 새 context를 만들되, prompt에
-builder transcript를 다시 붙이지 않습니다. 필요한 독립 surface가 없으면 안전한 로컬 검증은 계속하고 `BLOCKED`/review gap을
+attestation을 추측하지 않습니다. 현재 host adapter가 지원하는 fresh-context 경로를 사용하되 prompt에
+builder transcript를 다시 붙이지 않습니다. **Codex native 예시로만**, 지원되는 surface의 `fork_turns: none`을 사용할 수 있습니다.
+다른 host에 그 인자를 강제하지 않습니다. 필요한 독립 surface가 없으면 안전한 로컬 검증은 계속하고 `BLOCKED`/review gap을
 남깁니다. 다른 독립 검토를 확보하기 전에는 merge-ready로 표현하지 않습니다. Model-mediated 절차는 권한 강제 장치가 아닙니다.
 
 ## Reviewer와 runner의 책임
 
-새 QA role TOML을 설치하지 않고 [현재 orchestration 역할](./orchestration.md)을 재사용합니다.
+새 역할 설정을 일괄 설치하지 않고 [현재 orchestration 역할](./orchestration.md)을 재사용합니다.
+공통 책임을 현재 host의 실제 역할·tool permission에 연결하며, Codex의 TOML이나 role ID를 다른 host의 전제로 삼지 않습니다.
 
-| 책임                                               | 수행 주체                                                      | 제한                                                                     |
-| -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| acceptance·negative case 도출, diff review         | context-isolated `knu_reviewer` 또는 실제 지원되는 독립 검토자 | current requirement/source를 읽고 findings·snapshot·gap 반환; read-only  |
-| test 작성·실행, cache/build/DB/browser 산출물 생성 | 권한 있는 parent 또는 별도 범위의 `knu_executor`               | 명시된 runner/write owner, 허용된 환경·출력 경로만 사용                  |
-| 결과 통합·의견 차이 해결                           | parent                                                         | current evidence와 scope로 판단; human/release authority를 대신하지 않음 |
+| 책임                                               | 수행 주체                                          | 제한                                                                     |
+| -------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| acceptance·negative case 도출, diff review         | context-isolated 독립 검토자                       | current requirement/source를 읽고 findings·snapshot·gap 반환; read-only  |
+| test 작성·실행, cache/build/DB/browser 산출물 생성 | 권한 있는 parent 또는 별도 범위의 구현·검증 runner | 명시된 runner/write owner, 허용된 환경·출력 경로만 사용                  |
+| 결과 통합·의견 차이 해결                           | parent                                             | current evidence와 scope로 판단; human/release authority를 대신하지 않음 |
 
 Read-only 검토가 모든 test 실행을 허용하는 것은 아닙니다. cache, service, fixture DB나 screenshot을 만드는 명령은
 side effect를 확인한 authorized runner에게 넘깁니다. Reviewer는 재현·테스트를 제안할 수 있지만 구현 checkout을 조용히
 수정하지 않습니다. 회귀 테스트 추가가 필요하면 write ownership을 별도로 정하고 같은 파일에 두 writer를 두지 않습니다.
-Role 파일/이름은 tool permission을 넓히지 않습니다.
+Role 파일/이름은 tool permission을 넓히지 않습니다. Codex에서 `knu_reviewer`/`knu_executor`를 사용하는 mapping은
+[Codex delegation](./adapters/codex-delegation.md)을 확인하고, 다른 host는 [해당 adapter](./adapters/README.md)를 따릅니다.
 
 ## Portable QA packet
 

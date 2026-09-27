@@ -6,6 +6,7 @@
 
 이 문서는 [Agentic architecture decisions](../agentic-architecture-decisions.md)를 request intake에 적용한다. 모델이나
 provider 선택이 아니라 authority, evidence, output, recovery의 repository 계약을 고정한다.
+공통 의미와 Codex 구현 수치는 구분하며 다른 host는 [adapter index](../adapters/README.md)를 통해 연결한다.
 
 ## AIPO-001 — Advisory intake와 mutation authority 분리
 
@@ -51,20 +52,26 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 
 ## AIPO-007 — Bounded fan-out, leader-only fan-in
 
-- **결정**: 독립 lane 하나도 허용하되 proactive fan-out은 보통 0~2개, Pass 2 evidence에 연결된 high-value third
+- **공통 결정**: 독립 lane 하나도 허용하며 한 task에는 하나의 write owner만 둔다. 최종 결정·응답·통합·검증은
+  leader가 소유한다. 현재 host가 지원·허용하는 범위 안에서만 위임한다.
+- **Codex 구현**: proactive fan-out은 보통 0~2개, Pass 2 evidence에 연결된 high-value third
   lane까지 최대 3개로 제한한다. Owner가 명시적으로 요청한 manual fan-out만 hard cap 6까지 허용하며 write-capable
-  child는 하나만 선택한다. 최종 결정·응답·통합·검증은 leader가 소유한다.
+  child는 하나만 선택한다. 이 cap은 [Codex delegation](../adapters/codex-delegation.md#count와-write-policy)의 정책이며
+  Claude·제3 host에 자동 적용하지 않는다.
 - **기각**: child 수를 품질 지표로 사용하거나 child가 global plan을 각자 작성.
 - **재검토**: repository fixture가 다른 bound에서 지속적인 품질·latency 이득을 증명할 때.
 
 ## AIPO-008 — Role·effort는 recommendation
 
-- **결정**: current ContextPack에 연결된 Pass 2 source/fact/predicate graph로
+- **공통 결정**: 필요한 조사·구현·검토 책임과 impact risk·reasoning complexity를 구분한다. 실제 역할·모델·자원
+  설정은 현재 adapter가 소유하며 dispatch 전에 capability를 확인한다.
+- **Codex 구현**: current ContextPack에 연결된 Pass 2 source/fact/predicate graph로
   `knu_explorer | knu_researcher | knu_executor | knu_reviewer`와 `medium | high | xhigh`를 추천한다. Impact risk와
   reasoning complexity를 분리하고 runtime capability는 dispatch 직전에 leader가 확인한다.
 - **기각**: model family hard-code, leader effort 무조건 상속, `max/ultra` 기본 추천.
 - **구현 영향**: contract는 support unknown/applied false evidence를 보존하고, runtime role routing을 증명할 수 없으면
-  역할을 가장하지 않고 dispatch gate에서 sequential fallback한다.
+  역할을 가장하지 않고 dispatch gate에서 sequential fallback한다. Codex enum·Pass 2를 다른 host에 강제하지 않는다.
+  필수 독립 QA나 권한 증거가 부족한 경우에는 direct fallback만으로 완료를 주장하지 않는다.
 
 ## AIPO-009 — Child task는 typed handoff
 
@@ -76,7 +83,9 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 ## AIPO-010 — Recovery는 한 번의 alternate attempt
 
 - **결정**: failure category를 기록하고 동일 시도를 반복하지 않는다. 한 번의 안전한 대체 시도
-  후 evidence gap, OQ, user handoff 중 하나로 종료한다.
+  후 evidence gap, OQ, user handoff 중 하나로 종료한다. 이는 **해당 ordinary recovery route**의 budget이며,
+  일반 구현 전체의 test-fix 반복을 한 번으로 제한하는 규칙이 아니다. 권한·scope·quota 거절은 다른 provider로 우회하지 않는다.
+  Codex의 실제 descriptor·재시도 판정은 [Codex recovery](./orchestration-recovery.md)가 소유한다.
 - **기각**: 무제한 reflection, respawn, reallocation loop.
 - **재검토**: 실패 분류가 잘못되어 서로 다른 recovery를 같은 시도로 오판할 때.
 
@@ -90,7 +99,7 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 ## AIPO-012 — Eval은 outcome과 negative behavior를 검증
 
 - **결정**: route label만이 아니라 no-write, no-plan, no-child, freshness, fact/inference separation,
-  one-retry ceiling을 검증한다.
+  해당 ordinary recovery route의 one-retry ceiling을 검증한다. 전체 구현의 수정·검증 횟수와 혼동하지 않는다.
 - **기각**: agent의 완료 선언과 happy-path transcript만을 grader로 사용.
 - **구현 영향**: positive·negative·ambiguity·recovery fixture를 같이 유지.
 

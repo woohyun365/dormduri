@@ -29,6 +29,12 @@ const localPlanBoundaryAllowlist = new Set([
   'scripts/ci/session-contract.test.mjs',
   'scripts/ci/session-preflight.test.mjs',
   'scripts/ci/agent-guidance-boundary.test.mjs',
+  'scripts/agents/common/plan-store.mjs',
+  'scripts/ci/agent-plan-store.test.mjs',
+  'scripts/ci/agent-adapter-conformance.test.mjs',
+  'scripts/ci/agent-workflow-entry.test.mjs',
+  'scripts/agents/fixtures/workflow-general-phase0/disposable-preflight.mjs',
+  'scripts/agents/fixtures/workflow-general-phase0/expected-red-probes.mjs',
 ]);
 const workflowGuidePaths = [
   'docs/development/agent-workflows/README.md',
@@ -269,16 +275,32 @@ test('generated local evidence stays outside the repository formatting gate', ()
 
   assert.match(prettierIgnore, /^artifacts\/local\/$/mu);
   assert.match(prettierIgnore, /^omx_wiki\/$/mu);
+  assert.match(prettierIgnore, /^\.plans\/$/mu);
+  assert.equal(isIgnored('.plans/example-plan.md'), true);
 });
 
-test('tracked durable documentation does not use ignored OMX plans as source of truth', () => {
+// Generic root explanation is allowed; an individual ignored plan cannot be durable authority.
+function referencesLocalPlan(source) {
+  return /(?:\.omx\/plans|\.plans)\/[^\s`'"<>)]/u.test(source);
+}
+test('local-plan guard distinguishes root usage from ignored task authority', () => {
+  for (const source of ['`.plans/` is the local root', '`.omx/plans/` legacy root'])
+    assert.equal(referencesLocalPlan(source), false);
+  for (const source of [
+    'See .plans/task-plan.md',
+    '[authority](.plans/supporting/task/detail.md)',
+    'Use .omx/plans/task.md',
+  ])
+    assert.equal(referencesLocalPlan(source), true);
+});
+test('tracked durable documentation does not use ignored plans as source of truth', () => {
   const references = workingPaths()
     .filter((path) => textExtensions.has(extname(path)))
     .filter((path) => !localPlanBoundaryAllowlist.has(path))
     .flatMap((path) => {
       const absolutePath = resolve(repoRoot, path);
       if (!existsSync(absolutePath)) return [];
-      return readFileSync(absolutePath, 'utf8').includes('.omx/plans/')
+      return referencesLocalPlan(readFileSync(absolutePath, 'utf8'))
         ? [relative(repoRoot, absolutePath)]
         : [];
     });
@@ -295,7 +317,7 @@ test('durable orchestration contracts describe current responsibility without im
     const source = readFileSync(resolve(repoRoot, path), 'utf8');
 
     assert.doesNotMatch(source, /\bPhase\s+\d+(?:[.-]\d+)?\b/u, path);
-    assert.doesNotMatch(source, /\.omx\/plans\//u, path);
+    assert.equal(referencesLocalPlan(source), false, path);
   }
 });
 

@@ -24,6 +24,10 @@ test('common facade exposes only host-neutral intake, decision, readiness and QA
     'validateCrossModelPacket',
     'validateCrossModelResult',
     'validateCrossModelExchange',
+    'resolveWorkflowEntry',
+    'readPlan',
+    'validateAdapterDescriptor',
+    'validateBoundedLanes',
   ];
   for (const name of expected) assert.equal(typeof common[name], 'function', name);
   for (const name of [
@@ -96,6 +100,9 @@ test('Codex implementations have one owner and no root compatibility imports rem
 test('common import graph cannot acquire Codex, Claude, model or OMX policy', () => {
   const neutralFiles = [
     'common/index.mjs',
+    'common/workflow-entry.mjs',
+    'common/plan-store.mjs',
+    'common/adapter-contract.mjs',
     'intake-policy.mjs',
     'domain-guide-registry.mjs',
     'plan-readiness-policy.mjs',

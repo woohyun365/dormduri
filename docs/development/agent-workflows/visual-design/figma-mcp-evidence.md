@@ -43,7 +43,10 @@ Figma는 [visual workflow](./README.md)의 선택 경로입니다. 계정/프레
 ### 2. Confirm or register the official server
 
 먼저 current client의 MCP 목록에서 official endpoint 등록 여부를 확인합니다. 등록되지 않았고 사용자가 user-level
-연결 설정을 승인한 경우에만 다음 endpoint를 추가합니다. 일반 시각 작업의 자동 선행 단계가 아닙니다.
+연결 설정을 승인한 경우에만 official endpoint를 추가합니다. 일반 시각 작업의 자동 선행 단계가 아닙니다.
+현재 host가 MCP를 지원하는지 [adapter](../adapters/README.md)와 실제 client로 확인하며, 미지원이면 승인된 screenshot/local
+자료를 사용하고 접근하지 못한 reference는 gap으로 남깁니다. 아래 명령은 **Codex client에만** 적용하는 예시입니다.
+Claude·제3 host에는 Codex 명령을 실행하거나 같은 설정 경로가 있다고 추정하지 않습니다.
 
 ```text
 codex mcp add figma --url https://mcp.figma.com/mcp
@@ -54,7 +57,7 @@ Repository script, `.env`, `.env.example` 또는 tracked config에 token을 넣�
 ### 3. Reverify identity for the task
 
 - 기존 OAuth가 유효하면 재로그인하지 않습니다.
-- 인증이 만료되었을 때만 `codex mcp login figma` 또는 client가 제공하는 login flow를 사용합니다.
+- 인증이 만료되었을 때만 현재 client가 지원하는 login flow를 사용합니다. Codex client에서만 `codex mcp login figma`를 사용합니다.
 - Figma `whoami` tool 결과로 account email, plan membership와 seat를 확인합니다.
 - Education verification 만료나 view-only downgrade가 없는지 확인합니다.
 
@@ -111,14 +114,16 @@ Fail-open은 reference fidelity PASS를 발명하거나 반드시 필요한 이�
 가능한 로컬 작업은 계속하고, 제공받지 못한 reference·실행할 수 없는 필수 검사는 unknown/BLOCKED로 분리합니다.
 Disconnect 역시 사용자가 승인한 연결 관리 범위에서만 수행합니다.
 
-연결 제거:
+현재 client가 지원하는 exact connection의 logout/remove와 제거 확인을 사용합니다. 지원 여부를 모르면 broad config 삭제로
+대체하지 않습니다. **Codex client의 연결 제거 예시:**
 
 ```text
 codex mcp logout figma
 codex mcp remove figma
 ```
 
-제거 후 `codex mcp list`에서 absence를 확인하고 normal visual workflow smoke를 실행합니다.
+Codex에서는 제거 후 `codex mcp list`에서 absence를 확인합니다. 다른 host는 해당 client의 확인 절차를 사용합니다.
+Normal visual workflow smoke와 아직 필요한 reference gap은 별도로 확인합니다.
 
 ## Provider task acceptance
 

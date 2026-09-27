@@ -72,7 +72,9 @@ TaskEnvelope/schema를 바꾸지 않습니다. Non-Plan mapper의 빈 guide 목�
 ## 선택적 specialist와 중앙 책임
 
 Role·effort·count·독립성·one-writer 판정은 기존 [Orchestration](./orchestration.md)과
-[Child task contract](./request-intake/delegation.md)를 재사용합니다. 직군 이름만으로 agent 수나 새 TOML을 만들지 않습니다.
+[Child task contract](./request-intake/delegation.md)를 재사용합니다. 직군 이름만으로 agent 수나 새 host 역할 설정을 만들지 않습니다.
+아래 `knu_*` 이름과 TOML은 **Codex mapping 예시**이며 공통 역할 식별자가 아닙니다. 다른 host는
+[현재 adapter](./adapters/README.md)의 조사·구현·검토 역할과 실제 tool 권한을 확인합니다.
 
 | 필요한 관점            | 기존 경로                                      | 경계                                                                     |
 | ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
