@@ -8,7 +8,7 @@
 수렴하도록 하는 결정을 소유합니다. 외부 benchmark 수치는 해당 실험 범위에만 적용하며 repository의 보편 법칙으로
 해석하지 않습니다.
 
-공통 single-first·권한·QA 결정과 host별 모델 실행 결정을 구별합니다. DA-009/012/016/017의 GPT/effort,
+공통 single-first·권한·QA 결정과 host별 모델 실행 결정을 구별합니다. DA-009/011/012/016/017의 GPT/effort·수치 cap·Pass 2,
 native/OMX dispatch, profile/admission과 필수 Astra QA는 **Codex cohort**에 한정하며
 [Codex adapter](./adapters/codex.md)가 실행 절차를 소유합니다. Claude Code는 이 cohort에 자동 편입되지 않고
 [Claude adapter](./adapters/claude-code.md)의 역할·권한 확인과 공통 QA를 사용합니다.
@@ -112,13 +112,16 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 
 - **문제**: child 수를 최소 2개처럼 고정하거나 가능한 lane을 모두 fan-out하면 단일 evidence lane도 배제하거나 context·충돌
   비용을 불필요하게 키웁니다.
-- **결정**: 기본 child 수는 0이며 독립적인 bounded lane 하나도 허용합니다. Proactive 경로는 보통 최대 2개이고 current
+- **공통 결정**: 기본 child 수는 0이며 독립적인 bounded lane 하나도 허용합니다. 순이익·one-writer·Lead 통합은 모든
+  host에 적용하고 수치 cap과 추천 메커니즘은 현재 adapter가 소유합니다.
+- **Codex/OMX 결정**: Proactive 경로는 보통 최대 2개이고 current
   Pass 2 evidence에 직접 연결된 high-value benefit이 있을 때만 세 번째를 허용합니다. Owner가 명시적으로 확장해도 hard
   cap은 6이며 write-capable child는 하나만 선택합니다.
 - **Trigger**: 결과 dependency와 write scope가 분리되고 completeness·latency·specialist evidence·risk review 순이익이
   검증된 lane입니다.
 - **기각**: minimum-two, more-agents-is-better, shared-write fan-out, 모든 작업에 execution graph 생성.
-- **검증**: zero/one/two/evidence-backed-three/owner-directed-six와 one-write fixture를 검사합니다.
+- **검증**: 공통 독립성·one-writer 계약과 별개로 Codex의 zero/one/two/evidence-backed-three/owner-directed-six
+  fixture를 유지합니다. 다른 host의 cap을 이 값으로 추정하지 않습니다.
 - **재검토**: 실제 품질·walltime·conflict 측정이 다른 count boundary를 지속적으로 지지할 때입니다.
 
 ## DA-012 — Active runtime은 reported evidence와 live reconfirmation으로 판정

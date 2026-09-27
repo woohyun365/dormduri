@@ -10,6 +10,9 @@
 - Plan은 `produce-plan`만 승인하며 product code mutation을 승인하지 않습니다.
 - 모호함과 외부 결정은 [Ambiguity and authority](../request-intake/ambiguity-and-authority.md)를 따릅니다.
 
+계획 저장·발견·재개·완료/취소 보관은 [공통 lifecycle](../session-continuity.md#active-plan-lifecycle)이 소유합니다.
+Native plan mode의 초안과 repository canonical 계획을 구분하며 local 파일만으로 portable 인계를 완료하지 않습니다.
+
 ## 2. Source of truth and freshness
 
 다음 순서를 유지합니다.
@@ -216,7 +219,7 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
    - `deterministic-static`: test, schema 또는 script가 같은 입력에 기계적으로 판정
    - `advisory-policy`: 문서 지침이며 runtime 강제가 아님
    - `model-mediated`: agent가 evidence를 바탕으로 판단
-   - `native-runtime`: Codex·OMX·provider가 실행 시 강제
+   - `native-runtime`: 현재 host/runtime/provider가 실행 시 강제 (Codex·OMX는 해당 adapter의 예)
 6. proposed 계획의 미실행 acceptance는 unchecked `required`로 유지합니다. Evidence가 없는 항목을 passed 또는 완료
    checkbox로 표현하지 않습니다.
 7. tracked source를 수정하는 단계는 complete Phase contract를 가지거나 같은 계획의 explicit shared owner table을

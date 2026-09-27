@@ -5,14 +5,16 @@
 
 ## 1. Classify
 
-현재 요청을 다음 중 하나로 분류합니다.
+현재 요청의 **intent**와 **continuity**를 별도로 분류합니다.
 
-- `fresh`: 과거 task를 이어받지 않는 새 작업
-- `resume`: 명시된 plan, phase, checkpoint 또는 active workflow를 이어받음
-- `analysis`: 읽기 전용 사실·원인·책임 분석
-- `plan`: 구현 전 architecture와 검증 순서 설계
-- `implementation`: 승인된 범위의 edit-test-verify
-- `verification`: 변경의 완료 주장과 evidence 검증
+- Intent: `answer`(직접 답변), `analyze`(근거·원인 분석), `plan`(설계·검증 순서),
+  `implement`(승인된 구현), `review`(독립 검토·완료 근거), `debug`(결함 진단·허용된 수정).
+- Continuity: `fresh`는 새 작업, `resume`은 명시된 plan·checkpoint 또는 같은 active task를 이어받는 작업입니다.
+  Resume는 일곱 번째 intent가 아니며 과거 수정 권한을 자동 복원하지 않습니다.
+- `unknown`은 미확정 상태입니다. 안전한 읽기 전용 조사로 좁히고, 결과를 바꾸는 중요한 분기만 확인합니다.
+
+TaskEnvelope의 action 분류는 실행 허가 자체가 아닙니다. 특히 `debug`라도 분석만 요청하거나 읽기 전용 제약이 있으면
+수정하지 않습니다. ContextPack의 `selectedGuides`는 Plan-only 계약을 유지하며 다른 intent의 문서 탐색과 구분합니다.
 
 분류가 모호해도 reversible local inspection은 진행할 수 있습니다. 결과를 바꾸는 중요한 분기나 외부 side effect만
 사용자에게 확인합니다.
@@ -48,13 +50,16 @@ UI의 시각적 방향·reference·화면 비평을 다루면 Plan 여부와 무
 - 독립적인 evidence 또는 파일 ownership이 있을 때만 bounded child lane을 사용합니다.
 - external official evidence가 설계를 바꿀 때만 research lane을 추가합니다.
 - destructive, irreversible, credential, external-production action은 authority gate를 적용합니다.
-- GitHub remote 작업은 shell-capable local session에서 `gh` CLI-first, ChatGPT Web/no-shell session에서 GitHub
-  Connector-first로 선택합니다. Fallback과 인증 경계는
+- GitHub remote 작업은 shell-capable local session에서 `gh` CLI-first입니다. No-shell host는 실제 지원·승인된
+  Connector가 있을 때만 그 경로를 선택하며 없으면 결과와 권한 있는 실행자에게 줄 handoff를 남깁니다.
+  ChatGPT Web의 GitHub Connector-first는 해당 host에 한정합니다. Fallback과 인증 경계는
   [GitHub authentication and operator access](../github/authentication-and-operator-access.md)를 따릅니다.
 - 사용자가 Connector 기반 skill/workflow를 명시적으로 호출했다면 그 documented primary surface가 일반 default보다
   우선하며, 같은 lifecycle 동안 선택을 유지합니다.
 
-세부 선택은 [Orchestration](./orchestration.md)을 따릅니다.
+세부 선택은 [Orchestration](./orchestration.md)을 따릅니다. 역할·모델·도구·권한의 실제 실행은
+[현재 host adapter](./adapters/README.md)를 조건부로 선택합니다. 미등록 host를 Codex로 추정하지 않으며,
+선택적 위임이 미지원이면 허용된 direct 작업으로 제한하고 필수 독립 QA·권한 증거가 없으면 gap을 남깁니다.
 
 ## 4. Act
 
@@ -106,6 +111,12 @@ UI의 시각적 방향·reference·화면 비평을 다루면 Plan 여부와 무
   이는 host의 명시적 거절을 우회하는 경로가 아니며, 설치 확인을 강제로 통과시키기 위한 설정 변경도 하지 않습니다.
 
 ### Permission modes and evidence
+
+공통 판정에서는 지침(`advisory-policy`), Agent 판단(`model-mediated`), 정적 검사(`deterministic-static`),
+실제 host/provider 강제(`native-runtime`)를 구별합니다. 설정 선언이나 parent 옵션만으로 child의 실제 권한을
+입증하지 않으며, 각 adapter가 현재 지원과 관측을 연결해야 합니다.
+
+#### Codex/OMX permission mechanism
 
 이 절의 `workspace-write`, Auto-review, `on-request`, `madmax` 및 실행 규칙은 **Codex/OMX host 전용**입니다.
 공통 권한 원칙은 위의 source·scope·authority 계약이며, Claude Code의 native 도구/permission 검증은

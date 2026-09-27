@@ -2,10 +2,21 @@
 
 새 session은 이전 transcript를 복제하는 대신 현재 repository evidence로 작업을 재구성합니다.
 
-Repository 상태의 읽기 전용 요약은 `pnpm agent:preflight`를 사용합니다. Resume 작업에서는
-`node scripts/agents/codex/session-preflight.mjs --resume --plan <repository-relative-plan> --json`으로 선택한 계획과 관련된
-bounded context 진단을 확인합니다. 파싱 성공과 현재 작업에 사용할 수 있다는 판단은 다릅니다. 진단 결과도 실제
-code/test/git evidence 및 최신 사용자 요청과 대조하며, 실행 권한이나 완벽한 기억을 보장하지 않습니다.
+공통 계획·인계 계약은 host와 독립적입니다. 실제 대화/child/state 재개는 선택한
+[host adapter](./adapters/README.md)의 지원 여부와 현재 권한으로 확인합니다. 저장된 경로나 Plan ID만으로
+소유권·실행 승인이 생기지 않습니다.
+
+공통 읽기 경로 진단은 다음 명령을 명시적으로 호출할 수 있습니다. 자동 hook이나 dispatch가 아닙니다.
+
+```sh
+node scripts/agents/common/workflow-entry.mjs --host claude-code --mode fresh --request '변경 내용을 설명해줘.'
+node scripts/agents/common/workflow-entry.mjs --host codex --mode resume --request '지정 작업을 분석해줘.' --plan .plans/example-plan.md
+```
+
+Host는 Lead가 실제 session을 확인해 명시합니다. 다른 host 이름을 쓰거나 경로를 전달해 권한·모델을 가장하지 않습니다.
+Common CLI는 문서 readset·기존 ContextPack과 선택된 계획 metadata만 반환합니다. Fresh는 계획·memory를 탐색하지 않습니다.
+Git 기준점은 `git branch --show-current`, `git rev-parse HEAD`, `git status --short`로 직접 확인합니다.
+`pnpm agent:preflight`는 아직 **Codex/OMX 전용 기존 CLI**이며 공통 CLI의 alias가 아닙니다.
 
 ## Fresh task
 
@@ -20,7 +31,7 @@ code/test/git evidence 및 최신 사용자 요청과 대조하며, 실행 권�
 다음 중 하나가 참일 때만 resume 경로를 사용합니다.
 
 - 사용자가 `이어서`, 특정 plan 또는 phase 재개를 명시함
-- current request가 같은 task를 계속하는 내용이고, 그 task의 active OMX mode, team 또는 goal이 존재함
+- current request가 같은 task를 계속하는 내용이고, 그 task의 명시적으로 확인한 active workflow가 존재함
 - current request가 interruption 또는 compaction 이후 같은 task의 계속을 요구하고, bounded checkpoint가 존재함
 
 notepad priority, context snapshot 또는 active runtime이 존재한다는 사실만으로 fresh request를 resume으로 바꾸지 않습니다.
@@ -32,7 +43,7 @@ Resume 순서:
 current request
 → branch / HEAD / working tree
 → explicit selected plan / task identity
-→ bounded priority / context diagnostics
+→ 선택한 adapter가 지원하는 bounded context diagnostics (선택 사항)
 → relevant plan checkpoint (사용 가능성 확인 후)
 → code/test/git log freshness verification
 → relevant tracked policy/architecture/runbook
@@ -41,6 +52,9 @@ current request
 checkpoint가 working tree나 최신 요청과 충돌하면 현재 판단 근거로 사용하지 않습니다. 다른 작업/세션의 파일을
 자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다.
 
+### Codex child 재개 (조건부)
+
+다음 native cold-resume/operator 설명은 Codex에서만 읽습니다. 다른 host는 adapter의 관측된 lifecycle을 따릅니다.
 부모 대화 resume과 child 재개/정리는 [Subagent lifecycle](./subagent-lifecycle.md)의 다른 자원 계약입니다.
 누락된 native tool이 resume으로 생긴다고 가정하지 않고
 [도구 미노출과 restart/resume](../troubleshooting/tooling/agent-thread-limit-reached.md#도구-미노출과-restartresume)에 따라
@@ -52,6 +66,12 @@ current schema·pending 작업·정확한 scope를 다시 확인합니다.
 [operator 절차](../troubleshooting/tooling/agent-thread-limit-reached.md#선택적-agents-운영과-정상-exitresume)가 소유하며 일반 resume 요청으로 서버 시작·전역 설정·history 정리를 실행하지 않습니다.
 
 ## Diagnostic contract
+
+**Codex/OMX 전용 호환 계약**입니다. 다른 host에 이 필드·CLI·OMX 설치를 요구하지 않습니다.
+`pnpm agent:preflight` 또는
+`node scripts/agents/codex/session-preflight.mjs --resume --plan <repository-relative-plan> --json`이 소비합니다.
+이 기존 CLI의 실제 caller는 아직 legacy authoring root를 사용합니다. 공통 reader 준비가 caller 전환이나 local 이동을
+완료시키지 않습니다. Codex adapter 통합에서 전환할 때 output 호환성과 safe-path 회귀를 함께 검증합니다.
 
 기존 CLI 옵션, `schemaVersion: 1`, `resume.plan.{path,exists}`, `contextSnapshots: string[]`와 priority 출력은 유지합니다.
 Fresh 모드의 `resume`은 `null`이며 notepad나 context 본문을 읽지 않습니다. `activePlans`는 `.omx/plans` root의
@@ -183,22 +203,29 @@ Checkpoint는 다음 경우에만 만듭니다.
 
 ## Active plan lifecycle
 
-- `.omx/plans/` root에는 authoring handoff와 active plan만 둡니다.
+- 공통 authoring root는 `.plans/`입니다. Git/formatter에서 제외하며 runtime memory나 제품 source of truth가 아닙니다.
+- top-level `Plan ID`·`Status`·owner·AC·source snapshot을 명시하고 task당 canonical path/writer 하나를 유지합니다.
+- root `README.md`는 navigation이며 active plan이 아닙니다. supporting 상세와 독립 bounded plan을 구분합니다.
+- 새 계획 생성은 승인된 planning 행동입니다. Analyze만 요청받고 계획 파일을 자동 생성하지 않습니다.
+- 기존 legacy 원본은 actual caller 전환과 별도 승인된 migration receipt 이전까지 보존합니다. 자동 복사·이중 canonical
+  root·symlink·전체 archive 검색으로 missing pointer를 숨기지 않습니다. 공통 reader는 legacy root로 fallback하지 않습니다.
 - 완료 상태는 changed files, verification, commit/stage state와 blocker를 가리켜야 합니다.
 - 현재 결정할 수 없는 provider/account/domain/instance 값은 tracked readiness/evidence handoff로 옮깁니다.
-- 완료 plan은 `finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
+- 실제 AC를 충족한 완료 plan만 `.plans/finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
 
 ### Supporting 문서 재개와 인계
 
 문서 유형과 분할 기준은 [Plan authoring core](./plan-authoring/core.md#supporting-detail-and-bounded-plans)가 소유합니다.
-작업별 상세 문서는 `.omx/plans/supporting/<parent-plan-id>/`에 둘 수 있으며 이 로컬 배치는 문서 유형이나 승인 상태를
+작업별 상세 문서는 `.plans/supporting/<parent-plan-id>/`에 둘 수 있으며 이 로컬 배치는 문서 유형이나 승인 상태를
 결정하지 않습니다.
 
 - 재개 시 부모의 이유·영향 Phase·dependency·disposition을 읽고 현재 작업에 필요한 supporting만 따라갑니다. 전체 하위
   트리를 재귀적으로 로드하지 않습니다. 자식 경로로 시작했으면 backlink의 부모 연결과 실제 상태를 먼저 확인합니다.
-- Preflight의 기본 `activePlans` 목록은 root 파일만 포함합니다. 중첩 문서는 부모 링크로 발견하고, 필요하면 기존
-  `--resume --plan .omx/plans/supporting/<parent-plan-id>/<detail>.md`를 명시합니다. 목록 누락은 완료/미존재 증거가 아니며,
-  상세 문서에 plan metadata가 없으면 진단을 참고하되 독립 plan으로 가장하지 않습니다.
+- 공통 `discoverPlans`는 root의 active/implementation-ready metadata 문서만 발견합니다. 중첩 supporting은 부모 링크 또는 명시적 경로로
+  `readPlan`에 전달합니다. `README.md`·finished/cancelled·metadata 없는 상세 문서는 active plan이 아닙니다.
+  `assessPlanContinuation`은 명시적 resume·Plan ID·branch/HEAD/diff hash 일치를 검사하며 결과는 승인 아닌 후보입니다.
+- 64 KiB/file·512개 후보 한도를 넘거나 symlink/unsafe path/중복 ID/불명확 metadata가 있으면 진단 gap으로 남깁니다.
+  incomplete discovery를 전체 inventory라고 하지 않습니다. 파일이 이동됐으면 새 명시적 경로를 요청/확인합니다.
 - 로컬 supporting 파일만으로 다른 clone에 인계됐다고 판단하지 않습니다. [Portable handoff](#portable-handoff)에 따라
   현재 결정·AC·evidence·blocker·다음 행동을 권한 있는 기존 Issue/PR 또는 canonical 문서에 남깁니다. Raw 계획 전체를
   추적하거나 local 경로를 장기 결정의 유일한 근거로 삼지 않습니다.
@@ -206,11 +233,22 @@ Checkpoint는 다음 경우에만 만듭니다.
   부모와 함께 완료 처리하거나 finished 아래에 묻지 않고 active 진입점과 portable work item에서 발견 가능하게 유지합니다.
   원본 보존과 runtime 상태 정리는 각각 기존 보존·소유권 경계를 따릅니다.
 
+### 취소·대체 종료와 host 교체
+
+- AC 미충족 작업의 취소/대체는 `cancelled` 또는 `superseded`로 기록하고 `.plans/cancelled/YYYY/MM/<domain>/`에 보관합니다.
+  실패·미입증·대체 plan 연결을 보존하고 `finished`로 표시하지 않습니다.
+- 인계 시 Plan ID/path, branch/HEAD/diff, 변경·검증·blocker·다음 행동, 이전 writer 해제와 새 writer를 명시합니다.
+  두 host가 동시에 같은 파일을 쓰지 않습니다. 이전 reasoning 대신 source/AC·재현 가능한 evidence를 독립 QA에 줍니다.
+- Codex native·Codex+OMX·Claude native·Claude+OMC 모두 같은 repository 계획을 소비하도록 adapter에서 연결합니다.
+  이 네 모드의 native 내부 파일·대화/session 기능은 별도 관측 대상이며 여기서 지원을 보장하지 않습니다.
+- native/plugin이 별도 위치에 만든 초안은 출처와 채택 여부를 기록한 뒤 명시적으로 repository 계획으로 채택합니다.
+  미지원 설정을 Home/plugin 패치로 가장하거나 runtime state를 옮기지 않습니다. 해당 모드의 미지원만 표시합니다.
+
 ## Closeout
 
 작업 종료 시 plan과 notepad를 진행 결과처럼 보고하지 않습니다. 실제 파일 변경, 검증 결과와 blocker를 보고하고 active
-runtime을 닫습니다. local state가 tracked source of truth를 대신하지 않게 정리합니다.
+runtime이 있다면 지원 API와 정확한 소유권으로 정리합니다. 미지원 종료는 완료로 가장하지 않습니다. local state가 tracked source of truth를 대신하지 않게 정리합니다.
 
-`omx_wiki/`는 명시적으로 승격한 재사용 지식만 소유합니다. 세션 종료 메타데이터는 repository
+**Codex/OMX에서만:** `omx_wiki/`는 명시적으로 승격한 재사용 지식만 소유합니다. 세션 종료 메타데이터는 repository
 `.omx-config.json`의 `wiki.autoCapture: false`로 자동 생성하지 않으며, `session-log-*.md`는 Git 방어선에서도
 제외합니다.

@@ -24,15 +24,16 @@ Next.js/React/BFF, accessibility contract, component owner, performance와 test 
 | FE architecture          | `plan-authoring/frontend.md`                 | React/Next.js/BFF/component/a11y/performance/test boundary |
 | completion evidence      | [QA](../qa.md), 이 디렉터리의 review guide   | 공통 독립 검토와 시각 판정의 분리                          |
 | visual iteration         | 허용된 로컬 render, Storybook, production UI | 실제 state/viewport와 수정 전후 비교                       |
-| design discovery         | Parent 또는 현재 `knu_executor` task         | 구체적 대안과 짧은 자체 점검; 실제 역할·도구 권한 확인     |
-| independent critique     | 현재 `knu_reviewer`, 별도 허용된 runner      | 실제 이미지·동작의 비평; 사람의 승인 아님                  |
+| design discovery         | Parent 또는 현재 host의 허용된 구현 역할     | 구체적 대안과 짧은 자체 점검; 실제 역할·도구 권한 확인     |
+| independent critique     | 격리된 검토 역할, 별도 허용된 runner         | 실제 이미지·동작의 비평; 사람의 승인 아님                  |
 | Figma evidence           | 이 workflow                                  | authority, trigger, failure와 rollback                     |
 
 현재 repository는 project-scoped Figma MCP를 추적하지 않습니다. User-level provider 연결은 repository dependency가
 아니며 실제 승인된 Figma source가 있을 때만 선택적으로 사용합니다.
 
 이 흐름은 문서와 현재 Agent 판단에 의한 **model-mediated** orchestration입니다. Hook 자동 로딩, 자동 spawn 또는
-새 runtime engine이 아닙니다. 별도 디자인 스킬·Figma·추가 role TOML이 없어도 허용된 로컬 작업은 가능합니다.
+새 runtime engine이 아닙니다. 별도 디자인 스킬·Figma·추가 역할 설정이 없어도 허용된 로컬 작업은 가능합니다.
+Concrete role·tool·permission은 [현재 host adapter](../adapters/README.md)가 연결하며 Codex의 TOML·role ID는 공통 전제가 아닙니다.
 스킬을 명시적으로 호출하면 그 지침과 현재 권한을 확인하되 저장소 정책이나 사용자 소유 파일 보호를 우회하지 않습니다.
 
 ## 작업 mode와 허용 행동

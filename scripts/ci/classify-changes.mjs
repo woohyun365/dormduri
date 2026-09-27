@@ -25,7 +25,7 @@ const ROOT_TOOLCHAIN_PATHS = new Set([
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
 const CLAUDE_PROJECT_ADAPTER_PATTERN =
-  /^\.claude\/(?:agents\/knu_(?:explorer|researcher|executor|reviewer)\.md|skills\/redesign-existing-projects\/(?:SKILL\.md|LICENSE|SOURCE\.json))$/;
+  /^\.claude\/agents\/knu_(?:explorer|researcher|executor|reviewer)\.md$/;
 
 function normalizePath(path) {
   return path.replaceAll('\\', '/').replace(/^\.\//, '');

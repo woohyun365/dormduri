@@ -85,11 +85,14 @@ credential evidence로 남기지 않습니다.
 Git credential, `gh` OAuth, Connector OAuth는 합칠 대상이 아니라 서로 다른 인증 계층입니다. 일관성은 credential을
 복사해서 만드는 것이 아니라, session surface에 따라 **primary control plane과 fallback을 한 번 선택**해서 만듭니다.
 
-| Session surface                   | Primary control plane                           | Git transport                          | Fallback                                          |
-| --------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------------- |
-| Shell-capable local Codex/OMX     | `gh` CLI-first for PR·Issue·Actions·API         | Git credential via `gh auth setup-git` | Connector는 read 또는 이미 승인된 단발 mutation   |
-| ChatGPT Web 또는 shell 없는 agent | GitHub Connector-first                          | local Git transport 없음               | 지원하지 않는 작업은 owner/CLI handoff            |
-| CI workflow                       | checked-in workflow와 run-scoped `GITHUB_TOKEN` | checkout 설정이 명시한 경계            | local `gh`나 Connector credential을 주입하지 않음 |
+| Session surface                  | Primary control plane                           | Git transport                          | Fallback                                          |
+| -------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------------- |
+| Shell-capable local Codex/Claude | `gh` CLI-first for PR·Issue·Actions·API         | Git credential via `gh auth setup-git` | Connector는 read 또는 이미 승인된 단발 mutation   |
+| ChatGPT Web (지원된 Connector)   | GitHub Connector-first                          | local Git transport 없음               | 지원하지 않는 작업은 owner/CLI handoff            |
+| CI workflow                      | checked-in workflow와 run-scoped `GITHUB_TOKEN` | checkout 설정이 명시한 경계            | local `gh`나 Connector credential을 주입하지 않음 |
+
+다른 no-shell host는 실제 지원·승인된 Connector가 있을 때만 사용합니다. 미지원이면 권한 있는 실행자에게
+최소 handoff를 남기며 Codex/ChatGPT의 connector가 존재한다고 가정하지 않습니다.
 
 ### Local session flow
 

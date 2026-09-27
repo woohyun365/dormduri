@@ -207,8 +207,9 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   assert.match(authentication, /ghs_\[A-Za-z0-9\.\\-_\]\{36,\}/u);
   assert.match(authentication, /Connector permission: `Allow read actions`/u);
   assert.match(authentication, /gh auth status --show-token.*금지/su);
-  assert.match(authentication, /Shell-capable local Codex\/OMX.*`gh` CLI-first/su);
-  assert.match(authentication, /ChatGPT Web 또는 shell 없는 agent.*GitHub Connector-first/su);
+  assert.match(authentication, /Shell-capable local Codex\/Claude.*`gh` CLI-first/su);
+  assert.match(authentication, /ChatGPT Web \(지원된 Connector\).*GitHub Connector-first/su);
+  assert.match(authentication, /다른 no-shell host는 실제 지원·승인된 Connector/u);
   assert.match(authentication, /Mutation 전에.*duplicate.*Mutation 뒤에는 같은 surface/su);
   assert.match(authentication, /Silent\s+fallback.*tool switching/su);
   assert.match(authentication, /Connector 기반 skill\/workflow.*intentional\s+override/su);
@@ -222,7 +223,7 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   );
   assert.match(
     execution,
-    /shell-capable local session.*`gh` CLI-first.*ChatGPT Web\/no-shell session.*Connector-first/su,
+    /shell-capable local session.*`gh` CLI-first.*No-shell host는 실제 지원·승인된.*Connector.*ChatGPT Web의 GitHub Connector-first/su,
   );
   assert.match(execution, /같은 대상이 이미 존재.*같은 surface로 결과를 read back/su);
   assert.doesNotMatch(authentication, /\.omx\/plans/u);

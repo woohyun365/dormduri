@@ -12,7 +12,10 @@
 Codex/OMX에서는 아래의 native 실행·승인 경계를 따릅니다. Claude Code에서는 root `CLAUDE.md`가 `AGENTS.md`를
 명시적으로 import하며, [Claude Code adapter](./adapters/claude-code.md)의 역할·도구·권한 확인을 거칩니다.
 같은 요청 예시를 사용할 수 있지만 Codex의 model/effort/승인 옵션을 Claude 옵션으로 번역하지 않습니다.
-두 host 모두 현재 로드된 권한을 확인하고 실제 결과와 정적 문서 검사를 구분합니다.
+모든 host는 [adapter index](./adapters/README.md)에서 명시적으로 경로를 선택하고 현재 로드된 권한을 확인합니다.
+미등록 host에는 Codex 옵션을 대입하지 않습니다. 공통 입력·진행·QA 계약으로 허용된 직접 작업은 가능하지만,
+미입증 위임·필수 독립 검토는 완료로 가장하지 않습니다. 실제 결과와 정적 문서 검사를 구분합니다.
+아래 Codex 절은 Codex/OMX를 선택한 경우에만 읽으며, 다른 host는 **공통 입력**으로 이동합니다.
 
 ## Codex/OMX 실행과 승인
 

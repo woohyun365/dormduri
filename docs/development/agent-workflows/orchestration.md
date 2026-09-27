@@ -18,9 +18,10 @@ Agent 수 자체를 품질 지표로 사용하지 않습니다. sequential task,
 
 ## Child contract
 
-Machine-checkable recommendation contract는
-[Independent lane and child task contract](./request-intake/delegation.md)를 따릅니다. 이 문서의 orchestration 규칙을
-실행 engine으로 복제하지 않으며, `scripts/agents/codex/child-task-contract.mjs`도 child를 직접 생성하지 않습니다.
+공통 입력·책임은 [Independent lane and child task contract](./request-intake/delegation.md)를 따릅니다.
+현재 host의 [adapter](./adapters/README.md)가 공통 packet을 실제 역할·권한에 연결합니다. 공통 문서와 정적 validator는
+실행 engine이 아닙니다. **Codex/OMX를 사용하는 경우에만** `scripts/agents/codex/child-task-contract.mjs`의
+recommendation을 확인하며, 그 helper도 child를 직접 생성하지 않습니다.
 
 Child task에는 다음을 포함합니다.
 
@@ -45,7 +46,7 @@ Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정�
 | 후보 / 현재 결정                                          | 예상 이익                           | 품질 위험·보존 조건                                  | 관측 방법                                                 |
 | --------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------- | --------------------------------------------------------- |
 | Full-history fan-out → 필요한 scoped packet으로 변경      | 무관한 이력 반복 전달 감소          | 전체 scope·권한·실패 근거 보존, 최초 QA 독립성       | 동일 snapshot의 packet bytes/중복 필드; 실제 token은 별도 |
-| Child 수·effort → 기존 single-first/증거 기반 유지        | 불필요한 child·과도한 추론 감소     | high-risk 임의 downgrade 금지, 적용 지원 확인        | child 수·역할/effort·결과 품질, 실제 사용량               |
+| Child 수·host별 자원 선택 → single-first/증거 기반 유지   | 불필요한 child·과도한 추론 감소     | high-risk 임의 downgrade 금지, 적용 지원 확인        | child 수·역할/effort·결과 품질, 실제 사용량               |
 | 대량 조회·문서 반복 → 필요한 heading/range와 pointer 사용 | 같은 source 재조회·출력 감소        | snapshot 변경 시 재조회, 실패 원문 보존              | tool 호출·중복 조회·반환 bytes                            |
 | 반복 검증/CI → targeted 후 필요한 전체 gate 1회           | 동일 source의 불필요한 재검증 감소  | 수정 후 영향 gate 재실행, required CI 생략 금지      | source digest·command·exit code·재실행 사유               |
 | 긴 session → 짧은 checkpoint·관련 delta 재사용 유지       | 인계 시 transcript 복사 감소        | stale/무관한 context는 새 scope, cap/quota 우회 금지 | snapshot·재사용 사유·재작업 수                            |
@@ -81,8 +82,9 @@ snapshot만 task-local evidence에 짧게 남기며 비용 때문에 생략하�
 실제 runtime이 허용할 때만 Parent가 지정한 참여자·주제·read scope·snapshot 안에서 짧은 기존 사실 확인이 가능합니다.
 그 지정은 새 조사/테스트/구현 요청이나 peer 합의를 허용하지 않습니다. 초기 QA는 builder 대화 없이 먼저 판단하고,
 후속 사실 확인·보고·만료 조건도 공통 계약과 [QA owner](./qa.md)를 따릅니다. 지침은 native message ACL이나 자동 CC가 아닙니다.
-지원/권한이 불명확하면 중계하고, 반복 peer 의존성은 Parent가 순차화합니다. 선택적 native specialist를 자동 OMX Team으로
-취급하지 않으며 명시적 Team/Conductor 실행에는 해당 host-authority/lifecycle 제약도 별도로 적용합니다.
+지원/권한이 불명확하면 중계하고, 반복 peer 의존성은 Parent가 순차화합니다. 선택적 native specialist를 자동 runtime Team으로
+취급하지 않으며 명시적 Team 실행에는 해당 host-authority/lifecycle 제약도 별도로 적용합니다.
+Codex/OMX의 Team/Conductor는 그 adapter를 선택했을 때만 적용되는 실행 방식입니다.
 
 ## Subagent lifecycle
 
@@ -107,7 +109,12 @@ recurring human production owner가 생길 때 CODEOWNERS와 non-author approval
 
 ## Host-specific execution
 
-The preceding single-first, context, ownership and verification rules are common to coding agents. Model/effort defaults, role configuration, runtime API, workflow commands, and host permission behavior are not portable by name. Use the [Codex/OMX adapter](./adapters/codex.md) or [Claude Code adapter](./adapters/claude-code.md) after checking the actual host capabilities. A missing adapter or unavailable capability falls back to direct/sequential work; it is not simulated with a prompt label.
+앞의 single-first·context·소유권·검증 계약은 모든 coding agent에 공통입니다. 모델·effort 기본값, 역할 설정,
+runtime API·명령·권한 동작은 이름만으로 이식되지 않습니다. [Adapter index](./adapters/README.md)에서 현재 host를
+명시적으로 선택합니다. Codex/OMX는 [Codex/OMX adapter](./adapters/codex.md), Claude Code는
+[Claude Code adapter](./adapters/claude-code.md)의 실제 capability를 확인합니다. 제3 host에 Codex 값을 자동 대입하지 않습니다.
+선택적 위임 미지원은 승인 범위의 direct/sequential 작업으로 제한합니다. 필수 독립 QA·권한 증거가 부족하면 gap/NO-GO이며,
+prompt label이나 다른 CLI로 미지원 기능·권한을 가장하지 않습니다.
 
 ## Visual design 작업 선택
 

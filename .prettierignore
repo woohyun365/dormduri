@@ -13,3 +13,6 @@ infra/deploy/api/env.manifest.json
 
 # Next.js generated typing artifact; Next rewrites quote style during build.
 **/next-env.d.ts
+
+# Host-neutral local authoring plans; runtime state remains host-owned.
+.plans/

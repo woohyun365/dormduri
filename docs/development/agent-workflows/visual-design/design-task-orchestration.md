@@ -2,22 +2,24 @@
 
 디자이너가 없는 작업에서 Agent는 **대안을 보여주고 피드백을 반영하는 동료 역할**을 합니다. 사람을 여러 직군의 Agent로
 일괄 치환하지 않고, 현재 필요한 책임과 산출물만 분리합니다. 공통 결정권·통신은 [Owner–Lead collaboration](../owner-lead-collaboration.md),
-역할·effort·독립성은 [Orchestration](../orchestration.md), 검토 packet은 [QA](../qa.md)가 소유합니다.
+역할 책임·독립성은 [Orchestration](../orchestration.md), 검토 packet은 [QA](../qa.md)가 소유합니다.
 
 ## 책임에서 task로
 
-| 필요한 관점         | 입력 → 산출물                                                       | 기본 수행자와 한계                                                             |
-| ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Product/UX          | 실제 사용자 job·content/state → flow/IA·보존할 의미                 | Parent 제안; 중요한 제품 선택은 사람, 요구사항 발명 금지                       |
-| UX research         | 실제 관찰·문제 → 가설·사용자 test 과제·불확실성                     | Parent; repository 조사는 `knu_explorer` 가능, 합성 persona는 인터뷰 결과 아님 |
-| UI/BX/art direction | brief·reference aspect → 구체적 craft sketch·자체 점검·렌더링 후보  | Parent 또는 허용된 `knu_executor`; 임의 전역 brand 결정 금지                   |
-| Interaction         | 현재 state/action → feedback/focus/reduced-motion 설계              | 선행 결과를 받은 같은 writer; 없는 product action 추가 금지                    |
-| Design engineering  | 승인된 candidate → component/slot map·구현·검증 handoff             | 현재 FE owner의 Parent/`knu_executor`; API/hook 의미 보존                      |
-| Critique/QA         | frozen requirement + 실제 이미지/동작 → 위치 있는 findings·대안·gap | 격리된 `knu_reviewer`; 실행 산출물은 허용된 runner, 사람 취향 승인 불가        |
+| 필요한 관점         | 입력 → 산출물                                                       | 기본 수행자와 한계                                                               |
+| ------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Product/UX          | 실제 사용자 job·content/state → flow/IA·보존할 의미                 | Parent 제안; 중요한 제품 선택은 사람, 요구사항 발명 금지                         |
+| UX research         | 실제 관찰·문제 → 가설·사용자 test 과제·불확실성                     | Parent; repository 조사는 허용된 조사 역할 가능, 합성 persona는 인터뷰 결과 아님 |
+| UI/BX/art direction | brief·reference aspect → 구체적 craft sketch·자체 점검·렌더링 후보  | Parent 또는 허용된 구현 역할; 임의 전역 brand 결정 금지                          |
+| Interaction         | 현재 state/action → feedback/focus/reduced-motion 설계              | 선행 결과를 받은 같은 writer; 없는 product action 추가 금지                      |
+| Design engineering  | 승인된 candidate → component/slot map·구현·검증 handoff             | 현재 FE owner의 Parent/구현 역할; API/hook 의미 보존                             |
+| Critique/QA         | frozen requirement + 실제 이미지/동작 → 위치 있는 findings·대안·gap | 격리된 독립 검토자; 실행 산출물은 허용된 runner, 사람 취향 승인 불가             |
 
-위 직군명은 새 role TOML이나 고정 인원 수가 아닙니다. Source 기반 기술 연구가 실제로 필요할 때만 현재 `knu_researcher`를
-사용합니다. Repository가 선택하는 모델·effort와 현재 host의 역할/도구 지원을 매번 확인하며, 이름만 보고 global designer로
-대체하거나 설정을 변경하지 않습니다. Role과 task packet은 host 권한을 넓히지 않습니다.
+위 직군명은 새 역할 설정이나 고정 인원 수가 아닙니다. Source 기반 외부 기술 근거가 필요할 때만 연구 역할을 사용합니다.
+[현재 host adapter](../adapters/README.md)가 concrete role·모델·자원 설정을 연결하고 실제 역할/도구 지원을 확인합니다.
+Codex에서는 `knu_explorer`·`knu_researcher`·`knu_executor`·`knu_reviewer`와 TOML을 사용하는
+[Codex delegation](../adapters/codex-delegation.md)을 따릅니다. 다른 host에 이 이름이나 effort를 강제하지 않습니다.
+이름만 보고 global designer로 대체하거나 설정을 변경하지 않으며 role/task packet은 host 권한을 넓히지 않습니다.
 
 ## Direct path와 의존성
 
@@ -35,7 +37,8 @@ Human Owner ↔ Parent (brief, alternatives, important decisions)
 하나의 checkout에는 한 write owner만 둡니다. 보통 독립 조언 lane이 유용할 때만 최대 두 개를 선택하며 UX→UI→구현을
 독립 병렬 task로 가장하지 않습니다. 초기 critic은 builder/peer와 대화하지 않고 먼저 판단합니다. 이후 짧은 사실 확인은
 공통 Owner–Lead 계약의 Parent 지정·scope·snapshot·보고 조건을 따릅니다. Child의 sub-child 생성·업무 재위임·승인 대행은
-허용하지 않습니다. Native specialist 호출이 자동 OMX Team/Conductor 실행을 뜻하지 않습니다.
+허용하지 않습니다. 최대 두 advisory lane은 이 시각 작업의 공통 budget이지 host의 native 동시 호출 cap이 아닙니다.
+Native specialist 호출이 자동 runtime Team 실행을 뜻하지 않으며 Codex/OMX Team/Conductor는 해당 adapter에서만 확인합니다.
 
 ## Task-fit skills
 
@@ -43,7 +46,7 @@ Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·
 한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다.
 
 `design-taste-frontend`와 `redesign-existing-projects`는 **Codex 전용** 보조 도구입니다. Claude에 이식하거나 공통 workflow
-필수 항목으로 요구하지 않습니다. Claude의 시각 작업은 공통 VisualBrief·content·a11y·독립 review로 직접 수행합니다.
+필수 항목으로 요구하지 않습니다. 제3 host에도 이식이나 설치를 요구하지 않습니다. Claude의 시각 작업은 공통 VisualBrief·content·a11y·독립 review로 직접 수행합니다.
 Codex에서도 두 skill은 별도 채택 대상이며 각각 발견·자격검증 후 필요한 작업에만 사용합니다.
 
 | 작업                                                | 선택 / 제한                                                                                                                       |

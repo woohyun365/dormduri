@@ -77,3 +77,6 @@ infra/observability/alertmanager/*.local.yml
 # Stress test local artifacts
 apps/api/test/stress/reports/.tmp-*
 apps/api/test/stress/fixtures/.tmp-*
+
+# Host-neutral local authoring plans; runtime state remains host-owned.
+.plans/

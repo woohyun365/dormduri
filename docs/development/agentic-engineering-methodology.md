@@ -216,10 +216,15 @@ feedback loop의 품질을 먼저 높이는 방향을 선택했습니다.
 Multi-agent는 모든 작업의 기본값이 아닙니다. 독립적인 evidence·파일 owner가 존재하고 병렬화 이득이 coordination 비용보다
 클 때만 사용합니다. 최종 decision, integration, response, verification은 leader가 소유합니다.
 
-현재 repository는 이 원칙을 [Repository-guided parent–subagent orchestration case study](./agentic-orchestration-case-study.md)로
-검증 가능한 구현 evidence와 연결합니다. Parent effort는 사람이 session에서 선택하고, repository는 direct-first gate와
-current semantic evidence를 통해 Sol child의 role·Medium/High/XHigh effort·bounded count·write ownership만 추천합니다.
-Recommendation은 자동 spawn이나 runtime authority가 아니며 live compatibility 확인과 leader-only synthesis를 거칩니다.
+이 원칙의 현재 공통 owner는 [실행 계약](./agent-workflows/agent-execution-contract.md),
+[Orchestration](./agent-workflows/orchestration.md), [독립 QA](./agent-workflows/qa.md)입니다. 공통 절차·위임 packet·완료 기준 위에
+[host adapter](./agent-workflows/adapters/README.md)가 실제 역할·모델·권한·lifecycle을 연결합니다. Codex와 Claude 모두
+이 공통 계약의 소비자이며, 새 host도 명시적인 adapter와 capability 검증 없이 기존 host의 설정을 상속하지 않습니다.
+
+[Repository-guided parent–subagent orchestration case study](./agentic-orchestration-case-study.md)는 당시 Codex 구현의
+역사적 evidence이지 현재 공통 모델 기본값이 아닙니다. Codex의 현재 role/model/effort·count 추천과 admission은
+[Codex adapter](./agent-workflows/adapters/codex.md)가 소유합니다. Recommendation은 자동 spawn이나 runtime authority가
+아니며 실제 지원 확인과 leader-only synthesis를 거칩니다. 문서 연결·정적 검증을 실제 host 실행 입증으로 세지 않습니다.
 
 긴 작업은 대화 전체를 기억한다고 가정하지 않고 다음 artifact로 이어갑니다.
 

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { buildTaskEnvelope } from '../agents/intake-policy.mjs';
 import { discoverScriptTests } from './repo-policy-test-files.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -19,12 +20,22 @@ const categories = new Set([
   'evidence',
   'security',
 ]);
-const actions = {
-  answer: 'answer',
-  analyze: 'produce-analysis',
-  implement: 'mutate',
-  review: 'inspect',
+// Concrete classifier calls, not a second intent -> authority map.
+const requests = {
+  answer: 'API 코드의 역할을 설명해줘.',
+  analyze: 'API 오류 원인을 분석해줘.',
+  plan: 'API 변경 계획을 작성해줘.',
+  implement: 'API 응답에 필드를 추가해줘.',
+  review: 'API 변경을 리뷰해줘.',
+  debug: 'API 재현 오류를 고쳐줘.',
 };
+const actions = Object.fromEntries(
+  Object.entries(requests).map(([intent, request]) => {
+    const envelope = buildTaskEnvelope({ request });
+    assert.equal(envelope.intent, intent);
+    return [intent, envelope.authorizedAction];
+  }),
+);
 const dispositions = new Set([
   'execute',
   'recommend',
