@@ -22,7 +22,8 @@ Historical/completed 표시만으로 현재 점유 슬롯·mailbox 상태·특�
 있는 구현에서도 pending turn/message 등의 조건이 남을 수 있으며, roster만 보고 eviction bug라고 결론 내리지 않습니다.
 
 현재 repository의 6 설정과 advisory hard cap을 늘려서 해결하지 않습니다. 공식 기본값과 모든 환경의 절대 한도가
-6이라는 뜻도 아닙니다. 실행 중 writer, 완료 후 아직 열린 thread, 정리/조회 기능 부재를 분리해 확인합니다.
+6이라는 뜻도 아닙니다. 실행 중 writer, runtime residency, 누적 저장 대화, 실제 도구 지원을 분리해 확인합니다. V2의 close 부재는 정상이며
+완료 child의 자동 eviction 계약과 특정 오류 원인 조사는 별개입니다. `/subagents` 누적 목록 수를 resident 슬롯 수로 세지 않습니다.
 
 ## 해결
 
@@ -30,14 +31,17 @@ Historical/completed 표시만으로 현재 점유 슬롯·mailbox 상태·특�
 
 - 현재 schema에 status 조회와 close 기능이 **둘 다** 있으면: 결과를 회수한 현재 소유 terminal child만 재확인하여
   정확히 종료하고 반환 증거를 확인합니다. 필요 dispatch만 bounded 재시도하며 dummy spawn으로 용량을 시험하지 않습니다.
-- close가 없으면: [capability별 판정](../../agent-workflows/subagent-lifecycle.md#capability별-완료-판정)으로 확인된 no-close 계약과
-  unknown을 구분합니다. 안전 조건까지 확인된 경우에만 명시적 close 의무를 `not-required`로 기록합니다. 미확인은
-  cleanup gap이며, 어느 경우에도 관측 없는 release를 성공으로 쓰지 않습니다. interrupt, CLI archive, history 삭제는 대체
-  cleanup 수단이 아닙니다. Parent 로컬 작업은 계속하고 필요한 독립 review는 실제 가능한 fresh-context 대안 또는 gap으로 처리합니다.
+- V2 followup family이면: [V1/V2 lifecycle 분기](../../agent-workflows/subagent-lifecycle.md#v1v2-lifecycle-분기)의
+  runtime-managed 계약과 실제 schema를 대조합니다. 지원 close를 찾거나 내부 eviction 입증을 기다리지 않고 결과/pending을
+  회수한 뒤 적합한 같은 lane에 `followup_task`를 사용합니다. 실제 call 결과와 release 관측은 분리하며 한 번의 실패를
+  전체 재사용 불가로 확대하지 않습니다. 최초 독립 QA는 여전히 fresh scoped context가 필요합니다.
+- close도 적용 가능한 runtime-managed 계약도 확인되지 않으면: [capability별 판정](../../agent-workflows/subagent-lifecycle.md#capability별-완료-판정)의
+  unknown을 남깁니다. interrupt, CLI archive, history 삭제는 cleanup 대용이 아니며 Parent의 안전한 로컬 작업은 계속합니다.
 - 모든 child가 실행 중이거나 follow-up 예정이면: 필요한 작업 완료를 기다린 뒤 결과 회수·정리합니다. 슬롯을 만들려고
   무관한 작업을 중단하거나 다른 parent의 thread를 닫지 않습니다.
-- 실패 follow-up 대상이 roster에 없으면: 이름만으로 존재·소유·재사용을 가정하지 않습니다. 추가 recursive spawn이나
-  전역 daemon/session 조작 대신 `not-observed`와 원문 오류를 남기고 [cold resume 경계](../../agent-workflows/subagent-lifecycle.md#cold-resume-경계)를 확인합니다.
+- 실패 follow-up 대상이 roster에 없으면: 이름만으로 존재·소유를 가정하지도 영구 재사용 불가로 단정하지도 않습니다.
+  `not-observed`와 원문 오류를 남기고 [cold resume 경계](../../agent-workflows/subagent-lifecycle.md#cold-resume-경계)를 확인합니다.
+  현재 조회되는 적합한 owned target을 우선하며 기존 원문의 실패를 다른 target의 실패로 전용하지 않습니다.
 
 새 session에서 진행해야만 하는 경우에도 상한 우회로 조용히 launch하지 않습니다. 현재 작업의 evidence·미정리 target·
 필수 review gap을 보존하고 지원되는 환경의 handoff로 구분합니다. 더 자세한 상태/retry 계약을 이 문서에 복제하지 않습니다.

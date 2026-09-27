@@ -2786,3 +2786,18 @@ test('synthesis binds recovery to the exact current delegation task and rescue c
     assert.throws(() => prepareLeaderSynthesis(input), TypeError, String(mutate));
   }
 });
+
+test('runtime-managed no-close permits same-lane continuation without synthetic release evidence', () => {
+  const input = noCloseLifecycleEvidence();
+  const finished = createLifecycleRecommendation(input);
+  assert.equal(finished.cleanupDisposition, 'not-required');
+  assert.equal(finished.releaseDisposition, 'release-unverified');
+  input.intent = 'continue';
+  input.capabilities.startTurn = true;
+  const continuation = createLifecycleRecommendation(input);
+  assert.equal(continuation.recommendation, 'continue');
+  assert.equal(continuation.releaseDisposition, 'release-unverified');
+  assert.equal(continuation.requiresLeaderRuntimeConfirmation, true);
+  input.target.pendingTasks = 1;
+  assert.equal(createLifecycleRecommendation(input).recommendation, 'wait');
+});
