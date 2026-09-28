@@ -122,6 +122,7 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
     'claude-native-completion-observation-missing',
     'claude-native-registration-and-review-rejections',
     'claude-live-session-from-claude-session',
+    'claude-auto-classifier-no-verdict',
   ]) {
     const source = read(`docs/development/troubleshooting/tooling/${name}.md`);
     for (const heading of ['증상', '원인', '해결', '검증', '참고'])

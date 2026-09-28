@@ -387,6 +387,12 @@
       "rationale": "Codex thread-limit의 lifecycle·capacity 복구 및 미지원 종료 gap 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
     },
     {
+      "path": "docs/development/troubleshooting/tooling/claude-auto-classifier-no-verdict.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "auto mode 서버 판정 누락과 권한 설정 자가 수정 거부의 구분, 개인 allow 규칙·compact 운영 경계를 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 Codex나 제품 문서를 재작성하지 않는다."
+    },
+    {
       "path": "docs/development/troubleshooting/tooling/claude-live-session-from-claude-session.md",
       "owner": "Claude native adapter owner",
       "kind": "adapter",

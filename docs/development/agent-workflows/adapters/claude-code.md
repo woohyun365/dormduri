@@ -158,6 +158,8 @@ lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합�
   관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.
 - Project hook/role/settings와 task source의 변경은 재등록이 필요합니다. Hook 장애 이후에도 prompt가 알아서
   준수했을 것이라 가정하지 않습니다. 새로운 설정·CLI 버전·역할·OMC 조합의 실제 지원은 해당 조합의 증거로 판단합니다.
+- Auto mode 판정이 서버에서 누락되면 명령은 실행되지 않습니다. 연속 재시도, 권한 설정 자가 수정, tracked settings의 permission 규칙으로
+  해결하지 않고 [classifier no verdict 대응](../../troubleshooting/tooling/claude-auto-classifier-no-verdict.md)을 따릅니다.
 - 지원되는 auto 부모 모델과 child task 모델은 다른 선택입니다. Haiku child 가용성을 이유로 auto 부모도 Haiku로
   바꾸지 않습니다. [permission modes](https://code.claude.com/docs/en/permission-modes),
   [hooks](https://code.claude.com/docs/en/hooks), [설정 우선순위](https://code.claude.com/docs/en/settings)를 따릅니다.
