@@ -65,7 +65,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    `nativeRequest`에 profile·선택 근거·task facts·issuedAt/expiresAt, `directAssignment`에 owner/dispatchId/
    acceptance/writeOwnership, `reviewDisposition`에 required/reason을 둡니다. currentSnapshot 생략 시 현재 Git을
    읽고, 제공하면 현재 source와 대조합니다. 임의 모델·역할 pin 대신 기존 model-policy를 재사용합니다. 독립 reviewer는
-   아래의 `independentReview`를 추가하며 일반 task의 QA disposition을 임의로 끄지 않습니다.
+   아래의 `independentReview`를 추가하며 일반 task의 QA disposition을 임의로 끄지 않습니다. 등록이 거부되면
+   [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 확인합니다.
 4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
    prompt 변경·다른 session·만료·재사용·source drift는 정상 PreToolUse가 거부합니다. 이 등록은 업무/host 승인이나
    악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `artifacts/local/claude-native/`가 소유합니다.
@@ -77,7 +78,7 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    다시 실행될 수 있으므로 종료 보장으로 취급하지 않습니다. 같은 child/tool의 부모 `task-notification completed`와
    Stop, 한정된 child transcript의 최초 prompt·실제 assistant 모델·handback/마지막 응답을 함께 대조합니다.
    transcript는 CLI 2.1.283 실측 schema이며 지연 flush는 complete에서 같은 Stop에 한해서 재검사합니다.
-   Child transcript4MiB/parent8MiB 한도를 넘으면 gap이지 PASS가 아닙니다. 누락·다른 모델·재개에 따른 transcript
+   Parent transcript는 해당 child ID·task marker가 있는 행만 파싱합니다. Child transcript 4MiB/parent 128MiB 한도를 넘으면 gap이지 PASS가 아닙니다. 누락·다른 모델·재개에 따른 transcript
    변경을 거부하고 output은 semantic PASS로 자동 승격하지 않습니다. Bound child에 대한 SendMessage 재개는 새 등록
    없이 허용하지 않습니다. OMC의 다른 child messaging은 이 registry가 소유하지 않습니다.
 7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
@@ -86,6 +87,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    Result의 snapshot은 completion.json의 finalSnapshot을 사용합니다. 같은 응답에 대한 acceptance와 독립 QA를
    실제로 수행해야 하며 boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다. Parent는 finding과 변경 범위를
    독립 확인합니다. 오류·거부·취소·collector 누락이면 완료를 보고하지 않고 원인과 다음 행동을 남깁니다.
+   `no-completion-observation`은 [완료 관측 누락](../../troubleshooting/tooling/claude-native-completion-observation-missing.md)의 task 기록 기준으로
+   원인을 구분합니다.
 
 ### Same-host independent review
 
@@ -118,8 +121,19 @@ Builder complete 입력은 연결된 `reviewerTaskId`를 받습니다. Registry�
 builder의 subject binding/full request/response/snapshot과 일치할 때만 공통 review wrapper를 파생합니다. Caller가 만든
 별도 PASS 객체나 unrelated reviewer result로 대체하지 않습니다. Reviewer FAIL이면 Parent가 finding을 판정하고 builder는
 PASS할 수 없습니다. 같은 subject를 실제로 dispatch한 다른 reviewer가 PASS가 아닌 receipt를 남겼거나, 완료 기록에 PASS가 아닌
-결과를 전달했거나, 아직 정산되지 않았다면 다른 reviewer의 PASS를 연결해도 builder는 완료되지 않습니다. 읽을 수 없는 native task
-기록도 완료를 막습니다. 이는 [QA](../qa.md)의 Parent adjudication보다 엄격한 adapter 규칙입니다. Parent가 finding을
+결과를 전달했거나, 정산 전에 release되어 결과가 기록되지 않았다면 다른 reviewer의 PASS를 연결해도 builder는 완료되지 않습니다.
+읽을 수 없는 native task·receipt·완료 기록도 완료를 막습니다. Agent 호출 자체가 실패해 결과 없이 오류만 돌아온 시도와 등록만 하고
+dispatch하지 않은 reviewer는 막지 않습니다. Hook은 reviewer task마다 한 번의 Agent 호출과 그 세션 transcript 경로만 기록합니다.
+그래서 builder를 완료할 때 연결한 reviewer를 포함한 같은 subject의 모든 reviewer에 대해, 기록된 세션 transcript(연결한 reviewer가
+비동기로 정산됐다면 그 정산 transcript)에서 reviewer marker를 가진 Agent 호출과 결과를 대조합니다. Hook이 기록한 호출이 아니면서
+오류로 끝나지 않은(진행 중 포함) 호출이 있으면 hook이 놓친 dispatch로 거부합니다. Hook이 기록했지만 이후 다른 hook·규칙·classifier가
+거부해 오류만 돌아온 호출은 미정산으로 막지 않습니다. 비동기로 정산된 reviewer의 child transcript가 정산 뒤 바뀌었다면(예: hook 장애 중
+SendMessage 재개) 기록된 판정을 믿을 수 없으므로 거부합니다. Transcript를 읽을 수 없거나 한도를 넘으면 대조 불가로 거부합니다.
+Transcript 경로가 없는 이전 형식의 attempt, 어떤 reviewer attempt도 남기지 않은 세션의 호출, 다른 subagent 안에서 호출돼 child
+transcript에만 남은 Agent 호출은 대조하지 못하며 hook 장애 경계를 따릅니다. Foreground로 완료된 reviewer는 transcript proof가
+없으므로 hook 장애 중이나 사용자가 subagent 화면에서 직접 재개한 경우를 감지하지 못합니다. Transcript는 비동기로 기록되어 완료 시점의
+proof가 정상 경로에서도 어긋날 수 있으므로 이 경로에 proof를 강제하지 않습니다. Hook이 정상일 때 이 재개는 SendMessage 단계에서 거부됩니다. 거부 사유별 해소는
+[등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 따릅니다. 이는 [QA](../qa.md)의 Parent adjudication보다 엄격한 adapter 규칙입니다. Parent가 finding을
 false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 이 연결은 coordination과 completion evidence이며
 host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff처럼 native subject task가 없는 검토에는 이 terminal 규칙이
 적용되지 않습니다.
@@ -138,6 +152,7 @@ lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합�
 - Hook이 정상 실행될 때 요청 모델을 검사합니다. 실행 파일 부재·crash·malformed·timeout 또는 경쟁 설정으로
   hook이 작동하지 않으면 **실행 자체의 fail-closed를 보장하지 않습니다**. 누락된 pre/post 증거는 작업 완료를 막는
   기준이지 이미 일어난 실행을 취소하는 장치가 아닙니다. 이를 해결하려고 auto를 몰래 manual/bypass로 바꾸지 않습니다.
+  진단과 복구는 [hook 장애와 완료 거부](../../troubleshooting/tooling/claude-native-hook-failure-and-completion-refusal.md)를 따릅니다.
 - FORCE 환경변수의 명시적 충돌은 hook에서 거부하지만 Home/managed/provider의 모든 모델 대체를 사전에 인증하는
   것은 아닙니다. 정상 환경을 scrub하지 않고 실행 후 모델을 확인합니다. 정상 설정 출처/role precedence와 충돌을
   관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.
@@ -250,6 +265,12 @@ Proxy/interceptor는 승인 우회 수단이 아니며 host가 실행을 거절�
 startup failure/crash/malformed output/timeout 때도 차단된다고 주장하지 않습니다. Command hook 실패는 일반 permission
 판정으로 진행될 수 있습니다. 이것이 모든 default-deny 조합의 허용을 의미하지는 않습니다. 다만 `ask:Agent`와 `dontAsk`에
 PreToolUse allow를 더하는 조합은 matching ask가 남아 정상 허용 경로도 입증되지 않습니다.
+역할 이름을 지정한 `Agent(<role>)` ask 규칙과 PermissionRequest hook으로 hook 장애를 사람 승인으로 넘기는 구성도 일반 auto의
+gate로 사용하지 않습니다. 공식 문서는 explicit ask 규칙이 auto에서도 prompt를 띄운다고 설명하지만, CLI 2.1.283 새 auto 세션
+(owner Home 설정과 OMC 5.5.0 plugin 로드)에서 project `Agent(knu_explorer)` ask 규칙은 승인 prompt와 PermissionRequest 이벤트
+없이 child를 시작했습니다. 이 관측은 문서화된 ask 동작과 다르므로 문서만으로 gate를 주장하지 않습니다. Bare `Agent` ask, 다른 mode,
+Home·plugin이 없는 조합은 이 관측으로 판정하지 않습니다. 따라서 일반 auto에서 hook 장애 시 남는 보장은 완료 판정 거부입니다
+([hook 장애 troubleshooting](../../troubleshooting/tooling/claude-native-hook-failure-and-completion-refusal.md)).
 [Permission과 hooks](https://code.claude.com/docs/en/permissions#extend-permissions-with-hooks),
 [hook 실패 처리](https://code.claude.com/docs/en/hooks)를 확인합니다.
 
@@ -313,4 +334,5 @@ Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **
 Disposable fixture에서 readonly 도구 부재·자발적 거부·host denial을 구별하고, executor의 허용 write/test·실패 보고·
 독립 QA·취소/결과 회수도 따로 관측합니다. 실제 지원 없는 mode는 scoped NO-GO로 두며 prompt/advisory로 몰래 낮추거나
 다른 모델로 fallback하지 않습니다. Source/config/host drift가 있으면 관련 qualification을 다시 수행합니다.
-Home/managed 정책을 바꾸거나 bypass로 성공시키지 않습니다.
+Home/managed 정책을 바꾸거나 bypass로 성공시키지 않습니다. 실행 중인 Claude 세션에서 새 auto 세션을 띄워 재현할 때는
+환경 상속을 피하는 [owner tmux 절차](../../troubleshooting/tooling/claude-live-session-from-claude-session.md)를 사용합니다.

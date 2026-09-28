@@ -361,6 +361,23 @@ function loadTask(root, id) {
   check(marker.exec(invocation.prompt)?.[2] === hash(record), 'task digest mismatch');
   return { dir, record, invocation };
 }
+// A resumed child appends to its transcript, so a settled result no longer matches its proof.
+function childTranscriptDrifted(dir, observation) {
+  if (observation.completionSource !== 'SubagentStop+task-notification+transcript') return false;
+  try {
+    const proof = jsonFile(join(dir, 'transcript-proof.json'));
+    check(
+      proof.responseDigest === observation.responseDigest &&
+        realpathSync(proof.path) === proof.path &&
+        lstatSync(proof.path).size <= 4 * 1024 * 1024 &&
+        hash(readFileSync(proof.path)) === proof.digest,
+      'child resumed/transcript drift',
+    );
+    return false;
+  } catch {
+    return true;
+  }
+}
 function currentObservation(task) {
   const { dir, record, invocation } = task;
   const errors = [];
@@ -376,20 +393,7 @@ function currentObservation(task) {
   }
   errors.push(...(observation.errors ?? []));
   if (existsSync(join(dir, 'observation-error.json'))) errors.push('observation-error');
-  if (observation.completionSource === 'SubagentStop+task-notification+transcript') {
-    try {
-      const proof = jsonFile(join(dir, 'transcript-proof.json'));
-      check(
-        proof.responseDigest === observation.responseDigest &&
-          realpathSync(proof.path) === proof.path &&
-          lstatSync(proof.path).size <= 4 * 1024 * 1024 &&
-          hash(readFileSync(proof.path)) === proof.digest,
-        'child resumed/transcript drift',
-      );
-    } catch {
-      errors.push('child-transcript-drift-or-missing');
-    }
-  }
+  if (childTranscriptDrifted(dir, observation)) errors.push('child-transcript-drift-or-missing');
   let attempt;
   try {
     attempt = jsonFile(join(dir, 'attempt.json'));
@@ -481,6 +485,22 @@ function saveCompletion(task, attempt, r, completionSource) {
   return observation;
 }
 
+const PARENT_TRANSCRIPT_LIMIT = 128 * 1024 * 1024;
+// A long Lead session's transcript grows well past a few MiB. Only rows mentioning a needle are
+// parsed, so the cap bounds resources and an unrelated malformed row neither hides nor fakes them.
+function parentTranscriptRows(path, sessionId, needles) {
+  check(
+    typeof path === 'string' &&
+      path.endsWith(`/${sessionId}.jsonl`) &&
+      realpathSync(path) === path &&
+      lstatSync(path).size <= PARENT_TRANSCRIPT_LIMIT,
+    'parent transcript unavailable/oversized',
+  );
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .filter((line) => needles.some((needle) => line.includes(needle)))
+    .map((line) => JSON.parse(line));
+}
 function settleStoppedTask(task) {
   const { dir, record, invocation } = task;
   if (existsSync(join(dir, 'completion.json'))) return;
@@ -504,18 +524,7 @@ function settleStoppedTask(task) {
   );
   const stat = lstatSync(path);
   check(stat.isFile() && stat.size <= 4 * 1024 * 1024, 'transcript byte limit');
-  const parentPath = stop.transcript_path;
-  check(
-    typeof parentPath === 'string' &&
-      parentPath.endsWith(`/${record.sessionId}.jsonl`) &&
-      realpathSync(parentPath) === parentPath &&
-      lstatSync(parentPath).size <= 8 * 1024 * 1024,
-    'parent transcript unavailable/oversized',
-  );
-  const parentRows = readFileSync(parentPath, 'utf8')
-    .trim()
-    .split('\n')
-    .map((line) => JSON.parse(line));
+  const parentRows = parentTranscriptRows(stop.transcript_path, record.sessionId, [stop.agent_id]);
   check(
     parentRows.some((row) =>
       isClaudeCompletedNotification(row, {
@@ -611,12 +620,18 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     if (existsSync(base))
       for (const id of readdirSync(base).filter((id) => uuid.test(id))) {
         const task = loadTask(root, id);
-        if (
-          task.record.sessionId !== event.session_id ||
-          !existsSync(join(task.dir, 'launch.json'))
-        )
-          continue;
-        if (jsonFile(join(task.dir, 'launch.json')).response.agentId === event.tool_input?.to)
+        if (task.record.sessionId !== event.session_id) continue;
+        // A background launch and a foreground completion both bind the child; neither may resume.
+        const bound = ['launch.json', 'completion.json']
+          .filter((file) => existsSync(join(task.dir, file)))
+          .map((file) => {
+            try {
+              return jsonFile(join(task.dir, file)).response?.agentId;
+            } catch {
+              return undefined;
+            }
+          });
+        if (bound.includes(event.tool_input?.to))
           return deny('bound child resume requires a new registered Agent task');
       }
     return {};
@@ -692,6 +707,8 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
           sessionId: event.session_id,
           toolUseId: event.tool_use_id,
           inputDigest: inputHash(event.tool_input),
+          // Lets review closure check this session's transcript for calls the hooks missed.
+          transcriptPath: typeof event.transcript_path === 'string' ? event.transcript_path : null,
         }),
         { flag: 'wx', mode: 0o600 },
       );
@@ -752,6 +769,84 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
       },
     };
   }
+}
+
+// Hooks record one Agent call per reviewer task; a failed hook records none. The linked reviewer's
+// settled parent transcript still shows every Agent call of that session and whether it returned
+// only an error (a deny by any hook, rule or auto classifier). Any other call carrying a reviewer's
+// marker is a review the hooks did not observe. An unreadable transcript blocks instead of passing.
+function reviewAgentCalls(path, sessionId, ids) {
+  const calls = parentTranscriptRows(
+    path,
+    sessionId,
+    ids.map((id) => `KNU_NATIVE_TASK:${id}:`),
+  ).flatMap((row) =>
+    row?.type === 'assistant' && Array.isArray(row.message?.content)
+      ? row.message.content
+          .filter((c) => c?.type === 'tool_use' && c.name === 'Agent')
+          .flatMap((c) =>
+            ids
+              .filter((id) => String(c.input?.prompt ?? '').includes(`KNU_NATIVE_TASK:${id}:`))
+              .map((id) => ({ id, toolUseId: String(c.id) })),
+          )
+      : [],
+  );
+  if (!calls.length) return [];
+  const results = parentTranscriptRows(
+    path,
+    sessionId,
+    calls.map((call) => call.toolUseId),
+  ).flatMap((row) =>
+    row?.type === 'user' && Array.isArray(row.message?.content)
+      ? row.message.content.filter((c) => c?.type === 'tool_result')
+      : [],
+  );
+  // A call without a result is still in flight and counts as dispatched.
+  return calls.map((call) => ({
+    ...call,
+    errored: results.some((r) => r.tool_use_id === call.toolUseId && r.is_error === true),
+  }));
+}
+function reviewDispatchErrors(root, reviewerTaskId, recorded, unsettled) {
+  const pending = (ids) =>
+    ids.map((id) => `subject has an unsettled or released review attempt: ${id}`);
+  let calls = [];
+  try {
+    const { dir, record } = loadTask(root, reviewerTaskId);
+    const attempt = jsonFile(join(dir, 'attempt.json'));
+    recorded = new Map(recorded).set(reviewerTaskId, {
+      toolUseId: attempt.toolUseId,
+      transcriptPath: existsSync(join(dir, 'stop.json'))
+        ? jsonFile(join(dir, 'stop.json')).transcript_path
+        : (attempt.transcriptPath ?? null),
+      sessionId: record.sessionId,
+    });
+    // Every session transcript a reviewer attempt came from, including other sessions.
+    const sources = new Map();
+    for (const { transcriptPath, sessionId } of recorded.values())
+      if (transcriptPath) sources.set(transcriptPath, sessionId);
+    if (!sources.has(recorded.get(reviewerTaskId).transcriptPath)) return pending(unsettled); // Legacy attempt without a transcript: nothing to compare.
+    for (const [path, sessionId] of sources)
+      calls.push(...reviewAgentCalls(path, sessionId, [...recorded.keys()]));
+  } catch (error) {
+    return [`review dispatch check unavailable: ${error.message}`, ...pending(unsettled)];
+  }
+  const errors = [];
+  for (const [id, { toolUseId }] of recorded)
+    if (calls.some((c) => c.id === id && c.toolUseId !== toolUseId && !c.errored))
+      errors.push(`subject has a review dispatch not observed by hooks: ${id}`);
+  // A call refused after PreToolUse returns only an error and fires no Post event.
+  errors.push(
+    ...pending(
+      unsettled.filter(
+        (id) =>
+          !calls.some(
+            (c) => c.id === id && c.toolUseId === recorded.get(id).toolUseId && c.errored,
+          ),
+      ),
+    ),
+  );
+  return errors;
 }
 
 export function completeClaudeNativeTask(
@@ -870,6 +965,9 @@ export function completeClaudeNativeTask(
     // Every dispatched review of this subject must end in PASS; a later PASS cannot hide another
     // reviewer's delivered or recorded non-PASS, and an unsettled attempt has no known verdict.
     const base = resolveArtifactPath(root, ['claude-native'], {});
+    // Each same-subject reviewer and the Agent call id its PreToolUse recorded (null: none seen).
+    const recorded = new Map();
+    const unsettled = [];
     for (const otherId of readdirSync(base).filter((name) => uuid.test(name))) {
       if (otherId === reviewerTaskId) continue;
       let other;
@@ -882,17 +980,59 @@ export function completeClaudeNativeTask(
       if (other.record.independentReview?.subjectTaskId !== record.taskId) continue;
       const receiptPath = join(other.dir, 'review-receipt.json');
       const completionPath = join(other.dir, 'completion.json');
+      const attemptPath = join(other.dir, 'attempt.json');
+      let attempt = null;
+      try {
+        if (existsSync(attemptPath)) attempt = jsonFile(attemptPath);
+      } catch {
+        errors.push(`unreadable native task: ${otherId}`);
+        continue;
+      }
+      const recordedId = attempt?.toolUseId ?? null;
+      recorded.set(otherId, {
+        toolUseId: recordedId,
+        transcriptPath: attempt?.transcriptPath ?? null,
+        sessionId: other.record.sessionId,
+      });
+      // A settled review resumed later (for example SendMessage while hooks were down) may have
+      // delivered a different verdict than the one recorded.
+      if (existsSync(completionPath)) {
+        let settled;
+        try {
+          settled = jsonFile(completionPath);
+        } catch {
+          errors.push(`unreadable native task: ${otherId}`);
+          continue;
+        }
+        if (childTranscriptDrifted(other.dir, settled))
+          errors.push(
+            `subject has a review whose child transcript changed after settlement: ${otherId}`,
+          );
+      }
       if (existsSync(receiptPath)) {
-        if (jsonFile(receiptPath).result?.verdict !== 'PASS')
-          errors.push(`subject has a FAIL review receipt: ${otherId}`);
-      } else if (!existsSync(join(other.dir, 'attempt.json'))) {
-        continue; // Registered but never dispatched.
-      } else if (!existsSync(completionPath)) {
-        errors.push(`subject has an unsettled review attempt: ${otherId}`);
-      } else {
         let verdict;
         try {
-          const content = jsonFile(completionPath).response?.content;
+          verdict = jsonFile(receiptPath).result?.verdict;
+        } catch {
+          verdict = undefined;
+        }
+        if (verdict !== 'PASS') errors.push(`subject has a FAIL review receipt: ${otherId}`);
+      } else if (recordedId === null) {
+        continue; // Hooks saw no dispatch; missed dispatches are checked against the transcript.
+      } else if (!existsSync(completionPath)) {
+        unsettled.push(otherId);
+      } else {
+        let response;
+        try {
+          response = jsonFile(completionPath).response;
+        } catch {
+          response = undefined;
+        }
+        // A failed Agent tool call returned an error to the parent, never a verdict.
+        if (response?.status === 'failed' && response.content === undefined) continue;
+        let verdict;
+        try {
+          const content = response?.content;
           if (content?.length === 1 && content[0]?.type === 'text')
             verdict = JSON.parse(content[0].text)?.verdict;
         } catch {
@@ -901,6 +1041,7 @@ export function completeClaudeNativeTask(
         if (verdict !== 'PASS') errors.push(`subject has a delivered non-PASS review: ${otherId}`);
       }
     }
+    errors.push(...reviewDispatchErrors(root, reviewerTaskId, recorded, unsettled));
     try {
       const reviewer = loadTask(root, reviewerTaskId);
       const receipt = jsonFile(join(reviewer.dir, 'review-receipt.json'));

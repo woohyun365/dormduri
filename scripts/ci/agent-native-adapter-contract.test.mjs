@@ -114,6 +114,34 @@ test('repository preparation and future live qualification are distinct completi
   assert.match(claude, /separately authorized/u);
 });
 
+test('Claude troubleshooting is linked both ways from the adapter steps and the index', () => {
+  const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const index = read('docs/development/troubleshooting/README.md');
+  for (const name of [
+    'claude-native-hook-failure-and-completion-refusal',
+    'claude-native-completion-observation-missing',
+    'claude-native-registration-and-review-rejections',
+    'claude-live-session-from-claude-session',
+  ]) {
+    const source = read(`docs/development/troubleshooting/tooling/${name}.md`);
+    for (const heading of ['증상', '원인', '해결', '검증', '참고'])
+      assert.ok(source.includes(`## ${heading}`), `${name}: ${heading}`);
+    assert.match(source, /agent-workflows\/adapters\/claude-code\.md/u, name);
+    assert.ok(guide.includes(`troubleshooting/tooling/${name}.md`), name);
+    assert.ok(index.includes(`./tooling/${name}.md`), name);
+  }
+  // Hook failure stays a completion refusal, never an execution gate.
+  const hook = read(
+    'docs/development/troubleshooting/tooling/claude-native-hook-failure-and-completion-refusal.md',
+  );
+  assert.match(hook, /완료 판정 거부/u);
+  assert.match(
+    hook,
+    /정적 테스트는 실제 host가\s*hook 장애를 어떻게 처리하는지 증명하지 않습니다/u,
+  );
+  assert.doesNotMatch(hook, /fail-closed(를|로) 보장/u);
+});
+
 test('Claude entry documents actual host commands and keeps native/lifecycle evidence distinct', () => {
   const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
   const entry = read('CLAUDE.md');
@@ -139,6 +167,9 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     'PreToolUse',
     'PostToolUse',
     '실행 자체의 fail-closed를 보장하지 않습니다',
+    '일반 auto의\ngate로 사용하지 않습니다',
+    '문서화된 ask 동작과 다르므로',
+    '완료 판정 거부입니다',
     'common result는 `partial`',
   ]) {
     assert.ok(guide.includes(boundary), boundary);

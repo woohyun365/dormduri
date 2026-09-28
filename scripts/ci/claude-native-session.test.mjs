@@ -8,6 +8,7 @@ import {
   readdirSync,
   rmSync,
   realpathSync,
+  truncateSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -136,6 +137,7 @@ test('settings connect real project hooks without overriding auto/Home/plugins/t
   const settings = JSON.parse(
     readFileSync(new URL('../../.claude/settings.json', import.meta.url)),
   );
+  // No project permission rules: an Agent(<role>) ask rule did not prompt in a fresh ordinary auto session.
   assert.deepEqual(Object.keys(settings), ['hooks']);
   assert.deepEqual(Object.keys(settings.hooks), [
     'SessionStart',
@@ -434,7 +436,7 @@ function reviewer(t, subject, packet, options = {}) {
   const expectedResolvedModel = 'claude-opus-4-6';
   const registered = registerClaudeNativeTask({
     workflowInput: input,
-    sessionId: subject.event.session_id,
+    sessionId: options.sessionId ?? subject.event.session_id,
     prompt: 'Review the frozen subject packet only.',
     expectedResolvedModel,
     independentReview: {
@@ -452,6 +454,7 @@ function reviewer(t, subject, packet, options = {}) {
     registered,
     event: {
       ...subject.event,
+      session_id: options.sessionId ?? subject.event.session_id,
       tool_use_id: 'review-1',
       tool_input: registered.invocation,
     },
@@ -743,7 +746,7 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   handle(unsettled);
   const pending = builderLinkedTo(passingReview());
   assert.equal(pending.valid, false);
-  assert.ok(pending.errors.some((error) => /unsettled review attempt/.test(error)));
+  assert.ok(pending.errors.some((error) => /unsettled or released review attempt/.test(error)));
 
   finish(unsettled, {
     content: [{ type: 'text', text: JSON.stringify(reviewResult(packet, 'unknown', 'FAIL')) }],
@@ -757,6 +760,401 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   assert.equal(malformed.valid, false);
   assert.ok(malformed.errors.some((error) => /unreadable native task/.test(error)));
 });
+function reviewedSubject(t) {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  const builderLinkedTo = (qa) => {
+    const semantic = semanticResult(subject);
+    semantic.results[0].changedPaths = ['sample.txt'];
+    semantic.reviewerTaskId = qa.registered.taskId;
+    return completeClaudeNativeTask(subject.registered.taskId, semantic, { root: subject.root });
+  };
+  return { subject, packet, builderLinkedTo };
+}
+function completedReview(t, subject, packet, verdict = 'PASS') {
+  const qa = reviewer(t, subject, packet);
+  const result = reviewResult(packet, 'unknown', verdict);
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const semantic = semanticResult(qa);
+  semantic.reviewResult = result;
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
+    true,
+  );
+  return qa;
+}
+// Settles a reviewer through SubagentStop + parent notification, as ordinary auto does.
+function asyncReview(t, subject, packet, parentRows = []) {
+  const qa = reviewer(t, subject, packet);
+  const result = reviewResult(packet, 'unknown');
+  const agentId = `review-${randomUUID().slice(0, 8)}`;
+  handle(qa);
+  finish(qa, { status: 'async_launched', agentId, prompt: qa.registered.invocation.prompt });
+  const base = join(realpathSync(qa.root), 'artifacts/transcripts'),
+    childDir = join(base, qa.event.session_id, 'subagents');
+  mkdirSync(childDir, { recursive: true });
+  const childPath = join(childDir, `agent-${agentId}.jsonl`),
+    parentPath = join(base, `${qa.event.session_id}.jsonl`);
+  const childRows = [
+    {
+      type: 'user',
+      sessionId: qa.event.session_id,
+      agentId,
+      message: { content: qa.registered.invocation.prompt },
+    },
+    {
+      type: 'assistant',
+      sessionId: qa.event.session_id,
+      agentId,
+      message: {
+        model: qa.options.expectedResolvedModel,
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+      },
+    },
+  ];
+  writeFileSync(childPath, childRows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  const notification = {
+    type: 'user',
+    sessionId: qa.event.session_id,
+    message: {
+      content: `<task-notification>\n<task-id>${agentId}</task-id>\n<tool-use-id>${qa.event.tool_use_id}</tool-use-id>\n<status>completed</status>\n</task-notification>`,
+    },
+  };
+  const extraRows = typeof parentRows === 'function' ? parentRows(qa) : parentRows;
+  writeFileSync(
+    parentPath,
+    [...extraRows, notification].map((r) => JSON.stringify(r)).join('\n') + '\n',
+  );
+  handle(qa, {
+    hook_event_name: 'SubagentStop',
+    session_id: qa.event.session_id,
+    cwd: qa.root,
+    agent_id: agentId,
+    agent_type: 'knu_reviewer',
+    agent_transcript_path: childPath,
+    transcript_path: parentPath,
+  });
+  const semantic = semanticResult(qa);
+  semantic.reviewResult = result;
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
+    true,
+  );
+  return qa;
+}
+
+test('undispatched, PASS and failed-call sibling reviews do not block a PASS review', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  reviewer(t, subject, packet); // registered, never dispatched
+  completedReview(t, subject, packet, 'PASS');
+  const failedCall = reviewer(t, subject, packet);
+  handle(failedCall);
+  handle(failedCall, { ...failedCall.event, hook_event_name: 'PostToolUseFailure' });
+  const linked = builderLinkedTo(completedReview(t, subject, packet));
+  assert.equal(linked.valid, true, linked.errors.join(','));
+});
+
+test('released attempts and malformed sibling receipts block without throwing', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const released = reviewer(t, subject, packet);
+  handle(released);
+  releaseClaudeNativeTask(released.registered.taskId, { root: released.root, ended: true });
+  const pending = builderLinkedTo(completedReview(t, subject, packet));
+  assert.ok(pending.errors.some((error) => /unsettled or released review attempt/.test(error)));
+
+  const second = reviewedSubject(t);
+  const broken = completedReview(t, second.subject, second.packet);
+  writeFileSync(join(broken.registered.evidenceDirectory, 'review-receipt.json'), '{');
+  let result;
+  assert.doesNotThrow(() => {
+    result = second.builderLinkedTo(completedReview(t, second.subject, second.packet));
+  });
+  assert.ok(result.errors.some((error) => /FAIL review receipt/.test(error)));
+
+  // Only an error-only failed call is exempt; failed content and unreadable completions still block.
+  for (const damage of ['failed-with-content', 'malformed-completion']) {
+    const third = reviewedSubject(t);
+    const sibling = reviewer(t, third.subject, third.packet);
+    handle(sibling);
+    finish(sibling, {
+      status: damage === 'failed-with-content' ? 'failed' : 'completed',
+      content: [
+        { type: 'text', text: JSON.stringify(reviewResult(third.packet, 'unknown', 'FAIL')) },
+      ],
+    });
+    if (damage === 'malformed-completion')
+      writeFileSync(join(sibling.registered.evidenceDirectory, 'completion.json'), '{');
+    let linked;
+    assert.doesNotThrow(() => {
+      linked = third.builderLinkedTo(completedReview(t, third.subject, third.packet));
+    });
+    const expected =
+      damage === 'malformed-completion' ? /unreadable native task/ : /delivered non-PASS review/;
+    assert.ok(
+      linked.errors.some((error) => expected.test(error)),
+      damage,
+    );
+  }
+});
+
+test('a sibling review dispatched while hooks were not running blocks the linked PASS', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const unseen = reviewer(t, subject, packet); // hooks never recorded this dispatch
+  const agentCall = (prompt) => ({
+    type: 'assistant',
+    sessionId: subject.event.session_id,
+    message: { content: [{ type: 'tool_use', id: 'x', name: 'Agent', input: { prompt } }] },
+  });
+  const mentioned = {
+    type: 'user',
+    sessionId: subject.event.session_id,
+    message: { content: [{ type: 'tool_result', content: unseen.registered.invocation.prompt }] },
+  };
+  const quiet = builderLinkedTo(asyncReview(t, subject, packet, [mentioned]));
+  assert.equal(quiet.valid, true, quiet.errors.join(','));
+  const shopped = builderLinkedTo(
+    asyncReview(t, subject, packet, [agentCall(unseen.registered.invocation.prompt)]),
+  );
+  assert.equal(shopped.valid, false);
+  assert.ok(shopped.errors.some((error) => /dispatch not observed by hooks/.test(error)));
+});
+
+test('the unseen-dispatch check ignores denied or non-Agent calls and blocks when unreadable', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const sibling = reviewer(t, subject, packet);
+  const marker = sibling.registered.invocation.prompt;
+  const row = (type, content) => ({
+    type,
+    sessionId: subject.event.session_id,
+    message: { content },
+  });
+  const denied = [
+    row('assistant', [
+      { type: 'tool_use', id: 'denied-1', name: 'Agent', input: { prompt: marker } },
+    ]),
+    row('user', [
+      {
+        type: 'tool_result',
+        tool_use_id: 'denied-1',
+        is_error: true,
+        content: 'KNU native task: expired binding',
+      },
+    ]),
+    row('assistant', [
+      { type: 'tool_use', id: 'bash-1', name: 'Bash', input: { command: `echo '${marker}'` } },
+    ]),
+  ];
+  // A long Lead session: unrelated rows beyond the old 8 MiB cap must not block settlement.
+  denied.unshift(row('user', 'x'.repeat(9 * 1024 * 1024)));
+  const quiet = builderLinkedTo(asyncReview(t, subject, packet, denied));
+  assert.equal(quiet.valid, true, quiet.errors.join(','));
+
+  const settled = asyncReview(t, subject, packet);
+  const parentPath = join(
+    realpathSync(subject.root),
+    'artifacts/transcripts',
+    `${subject.event.session_id}.jsonl`,
+  );
+  writeFileSync(parentPath, readFileSync(parentPath, 'utf8') + `{${marker}\n`);
+  const malformed = builderLinkedTo(settled);
+  assert.equal(malformed.valid, false);
+  assert.ok(malformed.errors.some((error) => /review dispatch check unavailable/.test(error)));
+  rmSync(parentPath);
+  const missing = builderLinkedTo(settled);
+  assert.ok(missing.errors.some((error) => /review dispatch check unavailable/.test(error)));
+});
+
+test('a hook-less retry of an attempted or linked reviewer blocks; a refused attempt does not', (t) => {
+  const row = (subject, type, content) => ({
+    type,
+    sessionId: subject.event.session_id,
+    message: { content },
+  });
+  const call = (subject, id, prompt, isError) => [
+    row(subject, 'assistant', [{ type: 'tool_use', id, name: 'Agent', input: { prompt } }]),
+    row(subject, 'user', [
+      {
+        type: 'tool_result',
+        tool_use_id: id,
+        is_error: isError,
+        content: isError ? 'denied' : 'ok',
+      },
+    ]),
+  ];
+
+  // Sibling failed once with hooks healthy, then ran again while PreToolUse was down.
+  const retried = reviewedSubject(t);
+  const sibling = reviewer(t, retried.subject, retried.packet);
+  handle(sibling);
+  handle(sibling, { ...sibling.event, hook_event_name: 'PostToolUseFailure' });
+  const siblingRetry = call(
+    retried.subject,
+    'retry-1',
+    sibling.registered.invocation.prompt,
+    false,
+  );
+  const shopped = retried.builderLinkedTo(
+    asyncReview(t, retried.subject, retried.packet, siblingRetry),
+  );
+  assert.ok(
+    shopped.errors.some((e) => /not observed by hooks: .*/.test(e)),
+    shopped.errors.join(),
+  );
+
+  // The linked reviewer's own second, unobserved call.
+  const self = reviewedSubject(t);
+  const selfRetry = self.builderLinkedTo(
+    asyncReview(t, self.subject, self.packet, (qa) =>
+      call(self.subject, 'retry-2', qa.registered.invocation.prompt, false),
+    ),
+  );
+  assert.ok(
+    selfRetry.errors.some((e) => /not observed by hooks/.test(e)),
+    selfRetry.errors.join(),
+  );
+
+  // PreToolUse recorded the call, then a later permission step refused it: no Post event follows.
+  const refused = reviewedSubject(t);
+  const blocked = reviewer(t, refused.subject, refused.packet);
+  blocked.event = { ...blocked.event, tool_use_id: 'refused-1' };
+  handle(blocked);
+  const refusal = call(refused.subject, 'refused-1', blocked.registered.invocation.prompt, true);
+  const linked = refused.builderLinkedTo(asyncReview(t, refused.subject, refused.packet, refusal));
+  assert.equal(linked.valid, true, linked.errors.join(','));
+  const running = call(refused.subject, 'refused-1', blocked.registered.invocation.prompt, false);
+  const pending = refused.builderLinkedTo(asyncReview(t, refused.subject, refused.packet, running));
+  assert.ok(pending.errors.some((e) => /unsettled or released review attempt/.test(e)));
+});
+
+test('an undrifted background PASS sibling does not block another PASS review', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  asyncReview(t, subject, packet);
+  const linked = builderLinkedTo(asyncReview(t, subject, packet));
+  assert.equal(linked.valid, true, linked.errors.join(','));
+});
+
+test('a foreground-completed reviewer cannot be resumed and its unreadable completion blocks', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const settled = completedReview(t, subject, packet);
+  const resume = handle(settled, {
+    ...settled.event,
+    tool_name: 'SendMessage',
+    tool_input: { to: 'child-1', message: 'resume' },
+  });
+  assert.equal(resume.hookSpecificOutput.permissionDecision, 'deny');
+  // Messaging a child the registry never bound (for example an OMC child) stays untouched.
+  assert.deepEqual(
+    handle(settled, {
+      ...settled.event,
+      tool_name: 'SendMessage',
+      tool_input: { to: 'unrelated-omc-agent', message: 'hello' },
+    }),
+    {},
+  );
+  writeFileSync(join(settled.registered.evidenceDirectory, 'completion.json'), '{');
+  const linked = builderLinkedTo(completedReview(t, subject, packet));
+  assert.ok(
+    linked.errors.some((e) => /unreadable native task/.test(e)),
+    linked.errors.join(),
+  );
+});
+
+test('a settled sibling review resumed afterwards blocks a later PASS', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const resumed = asyncReview(t, subject, packet);
+  const proof = JSON.parse(
+    readFileSync(join(resumed.registered.evidenceDirectory, 'transcript-proof.json')),
+  );
+  writeFileSync(proof.path, readFileSync(proof.path, 'utf8') + '{"type":"assistant"}\n');
+  const linked = builderLinkedTo(asyncReview(t, subject, packet));
+  assert.equal(linked.valid, false);
+  assert.ok(linked.errors.some((e) => /child transcript changed after settlement/.test(e)));
+});
+
+test('each reviewer session transcript is compared for synchronous and cross-session reviews', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const base = join(realpathSync(subject.root), 'artifacts/transcripts');
+  mkdirSync(base, { recursive: true });
+  const call = (sessionId, id, prompt, isError) =>
+    [
+      {
+        type: 'assistant',
+        sessionId,
+        message: { content: [{ type: 'tool_use', id, name: 'Agent', input: { prompt } }] },
+      },
+      {
+        type: 'user',
+        sessionId,
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: id, is_error: isError, content: 'x' }],
+        },
+      },
+    ]
+      .map((r) => JSON.stringify(r))
+      .join('\n') + '\n';
+
+  // A sibling in another session: PreToolUse recorded it, then a later permission step refused it.
+  const otherSession = randomUUID();
+  const otherPath = join(base, `${otherSession}.jsonl`);
+  const refused = reviewer(t, subject, packet, { sessionId: otherSession });
+  refused.event = { ...refused.event, tool_use_id: 'refused-x', transcript_path: otherPath };
+  handle(refused);
+  writeFileSync(
+    otherPath,
+    call(otherSession, 'refused-x', refused.registered.invocation.prompt, true),
+  );
+
+  // The linked reviewer completes synchronously in the subject's session.
+  const mainPath = join(base, `${subject.event.session_id}.jsonl`);
+  writeFileSync(mainPath, '');
+  const qa = reviewer(t, subject, packet);
+  qa.event = { ...qa.event, transcript_path: mainPath };
+  const result = reviewResult(packet, 'unknown');
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const semantic = semanticResult(qa);
+  semantic.reviewResult = result;
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
+    true,
+  );
+  const clean = builderLinkedTo(qa);
+  assert.equal(clean.valid, true, clean.errors.join(','));
+
+  // A hook-less retry of that sibling in its own session is still caught.
+  writeFileSync(
+    otherPath,
+    readFileSync(otherPath, 'utf8') +
+      call(otherSession, 'retry-x', refused.registered.invocation.prompt, false),
+  );
+  const shopped = builderLinkedTo(qa);
+  assert.ok(
+    shopped.errors.some((e) => /not observed by hooks/.test(e)),
+    shopped.errors.join(),
+  );
+});
+
+test('a parent transcript above the cap is a gap, not a pass', (t) => {
+  const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+  const settled = asyncReview(t, subject, packet);
+  const parentPath = join(
+    realpathSync(subject.root),
+    'artifacts/transcripts',
+    `${subject.event.session_id}.jsonl`,
+  );
+  truncateSync(parentPath, 128 * 1024 * 1024 + 1); // sparse; refused before it is read
+  const result = builderLinkedTo(settled);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((e) => /review dispatch check unavailable/.test(e)));
+});
+
 test('reviewer completion requires a delivered JSON object, not a falsy JSON value', (t) => {
   const subject = writer(t);
   handle(subject);
