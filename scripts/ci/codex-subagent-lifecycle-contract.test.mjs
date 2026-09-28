@@ -92,6 +92,13 @@ test('troubleshooting links the canonical procedure and states runtime verificat
     read('docs/development/troubleshooting/README.md'),
     /agent-thread-limit-reached\.md/u,
   );
+  // The procedure owners must route to this diagnosis at the step where the failure appears.
+  for (const owner of [
+    'docs/development/agent-workflows/subagent-lifecycle.md',
+    'docs/development/agent-workflows/session-continuity.md',
+    'docs/development/agent-workflows/adapters/codex.md',
+  ])
+    assert.match(read(owner), /troubleshooting\/tooling\/agent-thread-limit-reached\.md/u, owner);
   assert.match(source, /정적.*실제.*슬롯.*증명하지/u);
   assert.match(source, /learn\.chatgpt\.com\/docs\/agent-configuration\/subagents/u);
 });

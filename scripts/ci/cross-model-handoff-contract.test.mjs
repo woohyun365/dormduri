@@ -206,3 +206,18 @@ function applyPatch(target, patch) {
   else if (patch.op === 'delete') delete parent[key];
   else assert.fail(`unsupported fixture patch operation: ${patch.op}`);
 }
+
+test('same-host independent review uses the neutral QA contract without pretending cross-host transport', () => {
+  const packet = structuredClone(corpus.basePacket);
+  const result = structuredClone(corpus.baseResult);
+  packet.intent.direction = 'same-host-independent-review';
+  assert.equal(
+    validateCrossModelExchange({ packet, result, currentSnapshot: packet.snapshot }).valid,
+    true,
+  );
+  packet.review.freshContext = false;
+  assert.equal(
+    validateCrossModelExchange({ packet, result, currentSnapshot: packet.snapshot }).valid,
+    false,
+  );
+});

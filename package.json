@@ -65,6 +65,8 @@
     "infra:rehearsal:lightsail-secrets": "pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts test/operations/platform/lightsail-secret-delivery.spec.ts test/operations/platform/mounted-file-secret-reader.spec.ts",
     "codex:workflow": "node scripts/agents/codex/workflow-entry.mjs",
     "codex:preflight": "node scripts/agents/codex/session-preflight.mjs --json",
+    "claude:workflow": "node scripts/agents/claude/workflow-entry.mjs",
+    "claude:preflight": "node scripts/agents/claude/session-preflight.mjs --json",
     "git:validate-commit-message": "node scripts/git/validate-commit-message.mjs",
     "git:branch-readiness": "node scripts/git/branch-readiness.mjs",
     "github:account:evidence": "node scripts/github/account-evidence.mjs",
@@ -101,7 +103,8 @@
     "web:check:prepared": "pnpm --dir apps/web ci:check",
     "infra:env:prepare": "pnpm shared:build",
     "infra:env:generate": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:generate",
-    "infra:env:check": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:check && node scripts/infra/check/validate-env-projections.mjs"
+    "infra:env:check": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:check && node scripts/infra/check/validate-env-projections.mjs",
+    "claude:native": "node scripts/agents/claude/native-session.mjs"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

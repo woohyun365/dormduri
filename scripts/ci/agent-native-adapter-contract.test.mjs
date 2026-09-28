@@ -95,7 +95,7 @@ test('Taste and Redesign remain Codex-only and are not Claude project skills', (
     'docs/development/agent-workflows/visual-design/design-task-orchestration.md',
   );
   const codexOnlySkills =
-    /Taste \(`design-taste-frontend`\) and Redesign \(`redesign-existing-projects`\) are \*\*Codex-only\*\*/u;
+    /Taste \(`design-taste-frontend`\)와 Redesign \(`redesign-existing-projects`\)은 \*\*Codex-only\*\*/u;
   assert.match(claude, codexOnlySkills);
   assert.match(
     codex,
@@ -112,4 +112,71 @@ test('repository preparation and future live qualification are distinct completi
     assert.match(source, /runtime-qualified/u);
   }
   assert.match(claude, /separately authorized/u);
+});
+
+test('Claude troubleshooting is linked both ways from the adapter steps and the index', () => {
+  const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const index = read('docs/development/troubleshooting/README.md');
+  for (const name of [
+    'claude-native-hook-failure-and-completion-refusal',
+    'claude-native-completion-observation-missing',
+    'claude-native-registration-and-review-rejections',
+    'claude-live-session-from-claude-session',
+  ]) {
+    const source = read(`docs/development/troubleshooting/tooling/${name}.md`);
+    for (const heading of ['증상', '원인', '해결', '검증', '참고'])
+      assert.ok(source.includes(`## ${heading}`), `${name}: ${heading}`);
+    assert.match(source, /agent-workflows\/adapters\/claude-code\.md/u, name);
+    assert.ok(guide.includes(`troubleshooting/tooling/${name}.md`), name);
+    assert.ok(index.includes(`./tooling/${name}.md`), name);
+  }
+  // Hook failure stays a completion refusal, never an execution gate.
+  const hook = read(
+    'docs/development/troubleshooting/tooling/claude-native-hook-failure-and-completion-refusal.md',
+  );
+  assert.match(hook, /완료 판정 거부/u);
+  assert.match(
+    hook,
+    /정적 테스트는 실제 host가\s*hook 장애를 어떻게 처리하는지 증명하지 않습니다/u,
+  );
+  assert.doesNotMatch(hook, /fail-closed(를|로) 보장/u);
+});
+
+test('Claude entry documents actual host commands and keeps native/lifecycle evidence distinct', () => {
+  const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const entry = read('CLAUDE.md');
+  const manifest = JSON.parse(read('package.json'));
+  for (const [command, file] of [
+    ['claude:preflight', 'session-preflight'],
+    ['claude:workflow', 'workflow-entry'],
+    ['claude:native', 'native-session'],
+  ]) {
+    assert.ok(manifest.scripts[command].includes(`scripts/agents/claude/${file}.mjs`));
+    assert.ok(existsSync(resolve(root, `scripts/agents/claude/${file}.mjs`)));
+    assert.ok(guide.includes(`pnpm ${command}`));
+    assert.ok(entry.includes(`pnpm ${command}`));
+  }
+  for (const boundary of [
+    'dispatchAuthorized:false',
+    'runtimeQualified:false',
+    '.plans/finished/',
+    '.plans/cancelled/',
+    'Native Plan Mode',
+    'OMC 없이도',
+    '일반 interactive auto 세션',
+    'PreToolUse',
+    'PostToolUse',
+    '실행 자체의 fail-closed를 보장하지 않습니다',
+    '일반 auto의\ngate로 사용하지 않습니다',
+    '문서화된 ask 동작과 다르므로',
+    '완료 판정 거부입니다',
+    'common result는 `partial`',
+  ]) {
+    assert.ok(guide.includes(boundary), boundary);
+  }
+  for (const role of ['explorer', 'researcher', 'executor', 'reviewer']) {
+    const source = read(`.claude/agents/knu_${role}.md`);
+    assert.doesNotMatch(source, /^model:/mu, 'no unauthorized permanent model pin');
+    assert.ok(source.includes('다른 agent'), 'child offload boundary remains explicit');
+  }
 });

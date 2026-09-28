@@ -80,6 +80,7 @@ const VERDICTS = new Set(['PASS', 'FAIL', 'BLOCKED']);
 const TRANSPORTS = new Set(['manual', 'native', 'cli', 'unknown']);
 const SUPPORT_STATES = new Set(['supported', 'unsupported', 'unknown']);
 const DIRECTIONS = new Set([
+  'same-host-independent-review',
   'claude-maker-codex-checker',
   'codex-maker-claude-checker',
   'lead-takeover',

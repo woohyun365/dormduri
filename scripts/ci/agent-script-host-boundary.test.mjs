@@ -74,8 +74,10 @@ test('Claude extension retains fail-closed runtime readiness alongside static mo
   const { CLAUDE_ADAPTER_READINESS } = await import('../agents/claude/index.mjs');
   assert.deepEqual(CLAUDE_ADAPTER_READINESS, {
     host: 'claude-code',
-    admission: 'unsupported',
-    runtimeSupport: 'unknown',
+    admission: 'mode-specific',
+    mode: 'interactive-auto',
+    enforcement: 'healthy-hook-request-check',
+    runtimeSupport: 'per-run-observation-required',
     applied: false,
   });
   assert.equal(Object.isFrozen(CLAUDE_ADAPTER_READINESS), true);

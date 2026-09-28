@@ -197,8 +197,10 @@ test('finite Claude profiles are lead-selected task candidates, never role pins 
   assert.equal(Object.isFrozen(profiles), true);
   assert.deepEqual(CLAUDE_ADAPTER_READINESS, {
     host: 'claude-code',
-    admission: 'unsupported',
-    runtimeSupport: 'unknown',
+    admission: 'mode-specific',
+    mode: 'interactive-auto',
+    enforcement: 'healthy-hook-request-check',
+    runtimeSupport: 'per-run-observation-required',
     applied: false,
   });
   for (const profile of profiles) assert.equal(Object.isFrozen(profile), true);
@@ -299,6 +301,46 @@ test('Opus baseline covers bounded complex/high-risk/uncertain tasks, not only r
   const verifiedBuild = inputFor('bounded-standard', 'build');
   assert.ok(verifiedBuild.task.allowedTools.includes('Bash'));
   assert.equal(evaluateClaudeProfileEligibility(verifiedBuild).eligible, true);
+});
+
+test('Opus admits explicit bounded independent review without fabricated critical risk', () => {
+  const review = inputFor('complex-critical');
+  review.envelope = buildTaskEnvelope({ request: '현재 코드를 검토해줘.' });
+  review.task.impactRisk = 'low';
+  review.task.complexity = 'bounded';
+  review.task.uncertainty = 'resolved';
+
+  assert.deepEqual(evaluateClaudeProfileEligibility(review), { eligible: true, reasons: [] });
+  assert.equal(createClaudeSubagentBinding(review).requestedModelAlias, 'opus');
+  const mediumReview = structuredClone(review);
+  mediumReview.task.impactRisk = 'medium';
+  assert.deepEqual(evaluateClaudeProfileEligibility(mediumReview), { eligible: true, reasons: [] });
+
+  for (const mutate of [
+    (x) => {
+      x.task.kind = 'read';
+      x.task.role = 'knu_explorer';
+      x.task.allowedTools = [...roles.knu_explorer];
+    },
+    (x) => {
+      x.task.independent = false;
+    },
+    (x) => {
+      x.task.writeScope = ['scripts/agents/claude'];
+      x.task.writeOwner = 'reviewer-h4l';
+    },
+    (x) => {
+      x.task.role = 'knu_explorer';
+      x.task.allowedTools = [...roles.knu_explorer];
+    },
+  ]) {
+    const invalid = structuredClone(review);
+    mutate(invalid);
+    const assessed = evaluateClaudeProfileEligibility(invalid);
+    assert.equal(assessed.eligible, false, JSON.stringify(invalid.task));
+    // Each mutation must lose the narrowed review exemption itself, not only an older rule.
+    assert.ok(assessed.reasons.includes('critical-signal'), JSON.stringify(assessed.reasons));
+  }
 });
 
 test('binding refuses free-form model choice, unknown profile/fields and stale or child-selected facts', () => {

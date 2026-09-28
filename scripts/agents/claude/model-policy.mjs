@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-09-26.2';
+const POLICY_REVISION = '2026-09-28.1';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -467,6 +467,13 @@ function validateTask(task) {
 
 function eligibilityReasons(profile, task) {
   const reasons = [];
+  const writing = Array.isArray(task.writeScope) && task.writeScope.length > 0;
+  const independentReadOnlyReview =
+    task.kind === 'review' &&
+    task.role === 'knu_reviewer' &&
+    task.independent === true &&
+    !writing &&
+    task.writeOwner === null;
   if (!profile.kinds.includes(task.kind)) reasons.push('kind');
   if (!profile.impactRisks.includes(task.impactRisk)) reasons.push('impact-risk');
   if (!profile.complexities.includes(task.complexity)) reasons.push('complexity');
@@ -475,6 +482,7 @@ function eligibilityReasons(profile, task) {
   }
   if (
     profile.id === 'complex-critical' &&
+    !independentReadOnlyReview &&
     task.impactRisk !== 'high' &&
     task.complexity !== 'complex' &&
     task.uncertainty !== 'uncertain'
@@ -492,7 +500,6 @@ function eligibilityReasons(profile, task) {
   if (task.independent !== true) reasons.push('independence');
   if (!Array.isArray(task.knownGaps) || task.knownGaps.length > 0) reasons.push('known-gaps');
 
-  const writing = Array.isArray(task.writeScope) && task.writeScope.length > 0;
   if (task.kind === 'build' && (!writing || !task.writeOwner || task.role !== 'knu_executor')) {
     reasons.push('write-owner');
   }

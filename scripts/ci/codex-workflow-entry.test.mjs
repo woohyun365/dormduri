@@ -452,3 +452,34 @@ test('malformed QA coverage returns invalid rather than throwing after structura
     assert.equal(validateCodexWorkflowResults(i, { results: [r], review }).valid, false);
   }
 });
+
+test('same-host reviewer extension preserves Codex independent QA and builder completion gates', () => {
+  const { i, review, r } = reviewCase();
+  review.packet.intent.direction = 'same-host-independent-review';
+  const accepted = validateCodexWorkflowResults(i, { results: [r], review });
+  assert.equal(accepted.valid, true, JSON.stringify(accepted.errors));
+  assert.equal(accepted.runtimeQualified, false);
+  assert.equal(accepted.dispatchAuthorized, false);
+  for (const mutate of [
+    (q) => {
+      q.reviewerId = q.builderIds[0];
+    },
+    (q) => {
+      q.packet.review.freshContext = false;
+    },
+    (q) => {
+      q.result.verdict = 'FAIL';
+    },
+    (q) => {
+      q.result.reviewedSnapshot.headSHA = 'f'.repeat(40);
+    },
+    (q) => {
+      q.result.acceptanceCoverage = [];
+    },
+  ]) {
+    const bad = structuredClone(review);
+    mutate(bad);
+    assert.equal(validateCodexWorkflowResults(i, { results: [r], review: bad }).valid, false);
+  }
+  assert.equal(validateCodexWorkflowResults(i, { results: [r] }).valid, false);
+});

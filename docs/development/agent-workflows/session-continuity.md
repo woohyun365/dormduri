@@ -187,8 +187,8 @@ Checkpoint는 다음 경우에만 만듭니다.
   실패·미입증·대체 plan 연결을 보존하고 `finished`로 표시하지 않습니다.
 - 인계 시 Plan ID/path, branch/HEAD/diff, 변경·검증·blocker·다음 행동, 이전 writer 해제와 새 writer를 명시합니다.
   두 host가 동시에 같은 파일을 쓰지 않습니다. 이전 reasoning 대신 source/AC·재현 가능한 evidence를 독립 QA에 줍니다.
-- Codex native·Codex+OMX·Claude native·Claude+OMC 모두 같은 repository 계획을 소비하도록 adapter에서 연결합니다.
-  이 네 모드의 native 내부 파일·대화/session 기능은 별도 관측 대상이며 여기서 지원을 보장하지 않습니다.
+- Host와 선택적 orchestration plugin은 같은 repository 계획을 소비하도록 [adapter](./adapters/README.md)에서 연결합니다.
+  실제 로딩·대화/session 기능은 각 adapter의 관측 대상이며 공통 continuity가 지원을 보장하지 않습니다.
 - native/plugin이 별도 위치에 만든 초안은 출처와 채택 여부를 기록한 뒤 명시적으로 repository 계획으로 채택합니다.
   미지원 설정을 Home/plugin 패치로 가장하거나 runtime state를 옮기지 않습니다. 해당 모드의 미지원만 표시합니다.
 
@@ -197,6 +197,4 @@ Checkpoint는 다음 경우에만 만듭니다.
 작업 종료 시 plan과 notepad를 진행 결과처럼 보고하지 않습니다. 실제 파일 변경, 검증 결과와 blocker를 보고하고 active
 runtime이 있다면 지원 API와 정확한 소유권으로 정리합니다. 미지원 종료는 완료로 가장하지 않습니다. local state가 tracked source of truth를 대신하지 않게 정리합니다.
 
-**Codex/OMX에서만:** `omx_wiki/`는 명시적으로 승격한 재사용 지식만 소유합니다. 세션 종료 메타데이터는 repository
-`.omx-config.json`의 `wiki.autoCapture: false`로 자동 생성하지 않으며, `session-log-*.md`는 Git 방어선에서도
-제외합니다.
+Host별 자동 기록·보존 설정은 해당 [adapter](./adapters/README.md)가 소유합니다.
