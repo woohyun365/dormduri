@@ -141,6 +141,20 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
     /정적 테스트는 실제 host가\s*hook 장애를 어떻게 처리하는지 증명하지 않습니다/u,
   );
   assert.doesNotMatch(hook, /fail-closed(를|로) 보장/u);
+  // Documented classifier skips are not an observed guarantee; keep the dated observation and the gap.
+  const noVerdict = read(
+    'docs/development/troubleshooting/tooling/claude-auto-classifier-no-verdict.md',
+  );
+  assert.doesNotMatch(noVerdict, /작업 디렉터리 편집은\s*판정을 거치지 않습니다/u);
+  assert.doesNotMatch(
+    noVerdict,
+    /(Edit|전용 도구)[^.]*?판정(을\s*거치지\s*않|을\s*건너(뛰|뜁)|의\s*대상이\s*아니|에서\s*제외)/u,
+  );
+  assert.match(noVerdict, /관측\(\d{4}-\d{2}-\d{2}, CLI [\d.]+\)/u);
+  assert.match(noVerdict, /원인[^\n]*확인하지 못했습니다/u);
+  assert.match(noVerdict, /판정 누락을 없애지는 못합니다/u);
+  assert.match(noVerdict, /부분 명령마다/u);
+  assert.match(noVerdict, /claude auto-mode config/u);
 });
 
 test('Claude entry documents actual host commands and keeps native/lifecycle evidence distinct', () => {
