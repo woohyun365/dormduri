@@ -64,7 +64,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    `prompt`, `expectedResolvedModel`입니다. `workflowInput`은 `prepareClaudeWorkflow`의 입력이며
    `nativeRequest`에 profile·선택 근거·task facts·issuedAt/expiresAt, `directAssignment`에 owner/dispatchId/
    acceptance/writeOwnership, `reviewDisposition`에 required/reason을 둡니다. currentSnapshot 생략 시 현재 Git을
-   읽고, 제공하면 현재 source와 대조합니다. 임의 모델·역할 pin 대신 기존 model-policy를 재사용합니다.
+   읽고, 제공하면 현재 source와 대조합니다. 임의 모델·역할 pin 대신 기존 model-policy를 재사용합니다. 독립 reviewer는
+   아래의 `independentReview`를 추가하며 일반 task의 QA disposition을 임의로 끄지 않습니다.
 4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
    prompt 변경·다른 session·만료·재사용·source drift는 정상 PreToolUse가 거부합니다. 이 등록은 업무/host 승인이나
    악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `artifacts/local/claude-native/`가 소유합니다.
@@ -80,10 +81,48 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    변경을 거부하고 output은 semantic PASS로 자동 승격하지 않습니다. Bound child에 대한 SendMessage 재개는 새 등록
    없이 허용하지 않습니다. OMC의 다른 child messaging은 이 registry가 소유하지 않습니다.
 7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
-   필요한 `review`, 관측한 `responseDigest`, 그리고 `acceptance` 배열의 criterion/passed/evidenceRef입니다.
+   관측한 `responseDigest`, `acceptance` 배열의 criterion/passed/evidenceRef, 그리고 독립 QA가 필요한 builder의
+   `reviewerTaskId` 또는 reviewer task 자신의 `reviewResult`입니다. 별도 `review` 객체로 대체하지 않습니다.
    Result의 snapshot은 completion.json의 finalSnapshot을 사용합니다. 같은 응답에 대한 acceptance와 독립 QA를
    실제로 수행해야 하며 boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다. Parent는 finding과 변경 범위를
    독립 확인합니다. 오류·거부·취소·collector 누락이면 완료를 보고하지 않고 원인과 다음 행동을 남깁니다.
+
+### Same-host independent review
+
+Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방향을 사용합니다. 등록 입력의 선택적
+`independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
+관측 완료를 읽어 full request digest, binding, response, final snapshot에 packet을 연결합니다. Packet objective는 subject
+request summary와 같고, write owner는 builder에 포함되며, reviewer는 builder와 다른 read-only lane owner여야 합니다.
+Packet read scope는 reviewer task 범위 안에 있고 subject의 write ownership과 실제 변경 경로를 포함해야 합니다. Subject의
+모든 acceptance criterion은 reviewer completion에서 result coverage로 검사합니다. Reviewer는 packet `authority.runnerOwner`가
+될 수 없습니다.
+검증된 packet은 reviewer의 bound prompt에 포함되므로 caller가 실행 전에 바꾸거나 다른 subject에 재사용할 수 없습니다.
+
+Reviewer는 같은 session에 있을 필요는 없지만 fresh session에서도 동일한 current source를 사용해 명시적으로 새 task를
+등록해야 합니다. 이 조건을 충족한 terminal reviewer task만 자기 `reviewDisposition.required:false`를 사용할 수 있습니다.
+이는 reviewer를 다시 review하는 무한 재귀를 막기 위한 종료 규칙이며 builder의 필수 QA를 해제하지 않습니다.
+
+Reviewer complete 입력은 `reviewResult`를 사용합니다. 값은 실제 관측 응답에서 parse한 JSON과 구조적으로 같아야 합니다.
+Native 관측 model의 일치를 별도로 확인한 뒤 공통 `validateAdapterReview`가 packet, current snapshot, 독립
+reviewer/builder identity와 acceptance coverage를 검사합니다. `complete + PASS`와 `complete + FAIL`은 reviewer task의
+terminal 결과가 될 수 있지만 FAIL은 builder PASS가 아닙니다. `partial`·`denied`·`timed-out`·`cancelled` 또는
+`BLOCKED`는 reviewer completion이 아닙니다.
+
+Read-only reviewer는 명령을 실행하지 않습니다. Packet `authority.runnerOwner`가 실행하고 evidence로 제공한 검증은 result의
+`commandsActuallyRun`에 그 runner·exit·관측 결과·환경으로 기록하며 reviewer가 실행했다고 쓰지 않습니다. `notRun`은 누구도
+수행하지 않은 필수 검증, `knownGaps`는 acceptance를 막는 미해결 gap이며, 공통 validator는 이 둘이나 coverage gap이 남은
+PASS를 거부합니다. Parent는 필요한 runner 증거를 같은 source digest와 함께 packet에 먼저 제공하고, 실행되지 않은 검증을
+PASS로 바꾸거나 reviewer에게 기대 결론을 전달하지 않습니다.
+
+Builder complete 입력은 연결된 `reviewerTaskId`를 받습니다. Registry는 해당 reviewer의 실제 task·완료·result가 이
+builder의 subject binding/full request/response/snapshot과 일치할 때만 공통 review wrapper를 파생합니다. Caller가 만든
+별도 PASS 객체나 unrelated reviewer result로 대체하지 않습니다. Reviewer FAIL이면 Parent가 finding을 판정하고 builder는
+PASS할 수 없습니다. 같은 subject를 실제로 dispatch한 다른 reviewer가 PASS가 아닌 receipt를 남겼거나, 완료 기록에 PASS가 아닌
+결과를 전달했거나, 아직 정산되지 않았다면 다른 reviewer의 PASS를 연결해도 builder는 완료되지 않습니다. 읽을 수 없는 native task
+기록도 완료를 막습니다. 이는 [QA](../qa.md)의 Parent adjudication보다 엄격한 adapter 규칙입니다. Parent가 finding을
+false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 이 연결은 coordination과 completion evidence이며
+host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff처럼 native subject task가 없는 검토에는 이 terminal 규칙이
+적용되지 않습니다.
 
 Native writer는 repository당 하나의 active lease로 직렬화합니다. 확인된 완료/관측된 tool failure는 해당 task의
 lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합니다. 세션 종료·취소·권한 거부로 Post 이벤트가 없으면 실제 child 종료를 먼저 확인한 뒤

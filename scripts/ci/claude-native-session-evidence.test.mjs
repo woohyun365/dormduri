@@ -71,3 +71,24 @@ test('only complete top-level matching task notification is completion', () => {
   ])
     assert.equal(isClaudeCompletedNotification(notification(text), nc), false);
 });
+
+test('absorbed mid-turn task notification uses its delivered typed attachment, not queue intent', () => {
+  const attached = {
+    type: 'attachment',
+    sessionId: 'session',
+    session_id: 'session',
+    isSidechain: false,
+    attachment: { type: 'queued_command', commandMode: 'task-notification', prompt: good },
+  };
+  assert.equal(isClaudeCompletedNotification(attached, nc), true);
+  for (const change of [
+    { type: 'queue-operation', operation: 'enqueue', content: good },
+    { sessionId: 'foreign' },
+    { session_id: 'foreign' },
+    { isSidechain: true },
+    { attachment: { ...attached.attachment, type: 'prompt_snapshot' } },
+    { attachment: { ...attached.attachment, commandMode: 'user' } },
+    { attachment: { ...attached.attachment, prompt: good.replace('completed', 'failed') } },
+  ])
+    assert.equal(isClaudeCompletedNotification({ ...attached, ...change }, nc), false);
+});

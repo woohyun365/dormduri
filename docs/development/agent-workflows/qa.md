@@ -77,6 +77,13 @@ Role 파일/이름은 tool permission을 넓히지 않습니다. Codex에서 `kn
 Codex↔Claude checker handoff의 방향·transport·finding 판정 경계는
 [Cross-model handoff](./adapters/cross-model-handoff.md)가 이 packet을 재사용해 설명합니다.
 
+같은 host의 context-isolated reviewer도 `same-host-independent-review` 방향으로 이 packet을 그대로 사용합니다. Host가
+같다는 이유로 reviewer/builder 분리, fresh context, current snapshot, read-only scope와 acceptance coverage를 줄이지
+않습니다. Reviewer의 `complete + FAIL`은 검토 작업이 정상 종료되어 finding을 반환했다는 뜻이지 builder 결과의 PASS가
+아닙니다. `partial`·`denied`·`timed-out`·`cancelled` 또는 `BLOCKED`는 완료된 독립 QA로 승격하지 않습니다. Parent가
+현재 source에서 finding을 재현·판정하고 builder 완료 여부를 결정합니다. Reviewer task 자체에 다시 독립 reviewer를
+요구해 재귀시키지 않으며, 이 예외는 builder의 필수 QA를 생략하는 경로가 아닙니다.
+
 ```text
 Input
   outcome / nonScope

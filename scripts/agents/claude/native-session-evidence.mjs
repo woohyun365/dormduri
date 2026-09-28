@@ -61,10 +61,18 @@ export function readClaudeStoppedTranscript(bytes, { sessionId, agentId, prompt,
 }
 
 export function isClaudeCompletedNotification(row, { sessionId, agentId, toolUseId }) {
-  const text = row?.message?.content;
+  // Claude can deliver a notification between turns as a user message, or absorb it
+  // mid-turn as this typed attachment. Queue enqueue alone is not delivery evidence.
+  const attached =
+    row?.type === 'attachment' &&
+    row.isSidechain === false &&
+    row.attachment?.type === 'queued_command' &&
+    row.attachment.commandMode === 'task-notification';
+  const text = attached ? row.attachment.prompt : row?.message?.content;
   if (
-    row?.type !== 'user' ||
+    (row?.type !== 'user' && !attached) ||
     row.sessionId !== sessionId ||
+    (row.session_id !== undefined && row.session_id !== sessionId) ||
     typeof text !== 'string' ||
     !text.endsWith('</task-notification>')
   )

@@ -17,6 +17,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
+import { validateAdapterReview, validateCrossModelPacket } from '../common/index.mjs';
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
 import {
   readClaudeStoppedTranscript,
@@ -35,6 +36,22 @@ const inputHash = (value) =>
   hash(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
 function check(value, reason) {
   if (!value) throw new TypeError(reason);
+}
+function exact(value, keys, reason) {
+  check(
+    value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      isDeepStrictEqual(Object.keys(value).sort(), [...keys].sort()),
+    reason,
+  );
+}
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+  }
+  return value;
 }
 function jsonFile(path) {
   check(realpathSync(path) === path, 'artifact symlink');
@@ -158,6 +175,7 @@ export function registerClaudeNativeTask({
   sessionId,
   prompt,
   expectedResolvedModel,
+  independentReview,
 } = {}) {
   check(uuid.test(sessionId), 'current SessionStart session_id required');
   check(
@@ -207,6 +225,89 @@ export function registerClaudeNativeTask({
     !binding.writeOwner || binding.writeOwner === input.directAssignment.owner,
     'writer mismatch',
   );
+  let reviewBinding = null;
+  if (independentReview !== undefined) {
+    exact(
+      independentReview,
+      ['subjectTaskId', 'reviewerId', 'builderIds', 'packet'],
+      'invalid independent review registration',
+    );
+    const subject = loadTask(root, independentReview.subjectTaskId);
+    check(!subject.record.independentReview, 'reviewer-of-reviewer is not supported');
+    const subjectState = currentObservation(subject);
+    check(
+      subjectState.errors.length === 0,
+      `completed subject observation required: ${subjectState.errors.join(',')}`,
+    );
+    const subjectObservation = subjectState.observation;
+    check(
+      role === 'knu_reviewer' &&
+        binding.taskKind === 'review' &&
+        binding.writeScope.length === 0 &&
+        binding.writeOwner === null,
+      'independent reviewer must be read-only knu_reviewer review',
+    );
+    check(
+      input.directAssignment.owner === independentReview.reviewerId &&
+        Array.isArray(independentReview.builderIds) &&
+        independentReview.builderIds.length > 0 &&
+        !independentReview.builderIds.includes(independentReview.reviewerId),
+      'reviewer must be independent from builders',
+    );
+    // A read-only reviewer cannot attest its own commandsActuallyRun as runner evidence.
+    check(
+      independentReview.packet?.authority?.runnerOwner !== independentReview.reviewerId,
+      'read-only reviewer cannot be the packet runner',
+    );
+    check(
+      independentReview.packet?.objective === subject.record.requestSummary,
+      'review packet objective mismatch',
+    );
+    check(
+      independentReview.packet?.authority?.writeOwner ===
+        subject.record.input.directAssignment.owner &&
+        independentReview.builderIds.includes(subject.record.input.directAssignment.owner),
+      'review packet writer/builders mismatch',
+    );
+    check(
+      isDeepStrictEqual(subjectObservation.finalSnapshot, input.currentSnapshot) &&
+        isDeepStrictEqual(baseline(root), subjectObservation.finalSnapshot),
+      'review subject source is not current',
+    );
+    const packet = deepFreeze(structuredClone(independentReview.packet));
+    const packetValidation = validateCrossModelPacket(packet, {
+      currentSnapshot: subjectObservation.finalSnapshot,
+    });
+    check(packetValidation.valid, packetValidation.errors.join('; '));
+    check(
+      packet.intent.direction === 'same-host-independent-review',
+      'terminal reviewer requires same-host-independent-review direction',
+    );
+    check(packet.lifecycle.transport === 'native', 'terminal reviewer requires native transport');
+    const allowedReadPaths = packet.boundaries.allowedReadPaths;
+    check(
+      allowedReadPaths.every((path) => covered(path, binding.readScope)),
+      'packet read scope exceeds reviewer task scope',
+    );
+    check(
+      [
+        ...subject.record.input.directAssignment.writeOwnership,
+        ...subjectObservation.changedPaths,
+      ].every((path) => covered(path, allowedReadPaths)),
+      'review packet does not cover subject changes',
+    );
+    reviewBinding = deepFreeze({
+      subjectTaskId: subject.record.taskId,
+      reviewerId: independentReview.reviewerId,
+      builderIds: [...independentReview.builderIds],
+      packet,
+      subjectRequestDigest: subject.record.requestDigest,
+      subjectBindingDigest: subject.record.bindingDigest,
+      subjectResponseDigest: subjectObservation.responseDigest,
+      subjectFinalSnapshot: subjectObservation.finalSnapshot,
+      subjectAcceptance: [...subject.record.input.directAssignment.acceptance],
+    });
+  }
   const roleText = readFileSync(join(root, '.claude/agents', role + '.md'), 'utf8');
   const header = /^---\n([\s\S]*?)\n---/u.exec(roleText)?.[1];
   check(header && new RegExp(`^name: ${role}$`, 'mu').test(header), 'project role mismatch');
@@ -216,7 +317,9 @@ export function registerClaudeNativeTask({
     .map((s) => s.trim());
   check(isDeepStrictEqual(declared, binding.allowedTools), 'project role tools mismatch');
   check(
-    binding.profileId === 'bounded-extraction' || input.reviewDisposition.required === true,
+    binding.profileId === 'bounded-extraction' ||
+      input.reviewDisposition.required === true ||
+      Boolean(reviewBinding),
     'independent QA required for this profile',
   );
   const taskId = randomUUID();
@@ -230,6 +333,8 @@ export function registerClaudeNativeTask({
     expectedResolvedModel,
     bindingDigest: binding.bindingDigest,
     requestDigest: workflow.requestDigest,
+    requestSummary: workflow.envelope.requestSummary,
+    independentReview: reviewBinding,
     initialFiles: inventory(root, binding.readScope),
   };
   const digest = hash(record);
@@ -237,7 +342,7 @@ export function registerClaudeNativeTask({
     description: 'Repository bounded task',
     subagent_type: role,
     model: binding.requestedModelAlias,
-    prompt: `${prompt}\n\nKNU_NATIVE_TASK:${taskId}:${digest}`,
+    prompt: `${prompt}${reviewBinding ? `\n\nKNU_INDEPENDENT_REVIEW_PACKET:${JSON.stringify(reviewBinding.packet)}` : ''}\n\nKNU_NATIVE_TASK:${taskId}:${digest}`,
   };
   const dir = taskDirectory(root, taskId);
   ensureLocalDirectory(root, dir);
@@ -255,6 +360,72 @@ function loadTask(root, id) {
   check(record.version === 1 && record.taskId === id && record.root === root, 'foreign task');
   check(marker.exec(invocation.prompt)?.[2] === hash(record), 'task digest mismatch');
   return { dir, record, invocation };
+}
+function currentObservation(task) {
+  const { dir, record, invocation } = task;
+  const errors = [];
+  let observation;
+  try {
+    observation = jsonFile(join(dir, 'completion.json'));
+  } catch {
+    return {
+      observation: { valid: false, errors: ['no-completion-observation'] },
+      actualPaths: [],
+      errors: ['no-completion-observation'],
+    };
+  }
+  errors.push(...(observation.errors ?? []));
+  if (existsSync(join(dir, 'observation-error.json'))) errors.push('observation-error');
+  if (observation.completionSource === 'SubagentStop+task-notification+transcript') {
+    try {
+      const proof = jsonFile(join(dir, 'transcript-proof.json'));
+      check(
+        proof.responseDigest === observation.responseDigest &&
+          realpathSync(proof.path) === proof.path &&
+          lstatSync(proof.path).size <= 4 * 1024 * 1024 &&
+          hash(readFileSync(proof.path)) === proof.digest,
+        'child resumed/transcript drift',
+      );
+    } catch {
+      errors.push('child-transcript-drift-or-missing');
+    }
+  }
+  let attempt;
+  try {
+    attempt = jsonFile(join(dir, 'attempt.json'));
+  } catch {
+    errors.push('missing-pretool');
+  }
+  if (
+    observation.taskId !== record.taskId ||
+    observation.bindingDigest !== record.bindingDigest ||
+    observation.sessionId !== record.sessionId ||
+    observation.toolUseId !== attempt?.toolUseId ||
+    attempt?.sessionId !== record.sessionId ||
+    observation.inputDigest !== inputHash(invocation) ||
+    attempt?.inputDigest !== inputHash(invocation)
+  )
+    errors.push('foreign-completion');
+  errors.push(...responseErrors(record, observation.response));
+  if (observation.responseDigest !== hash(observation.response ?? null))
+    errors.push('response-digest-mismatch');
+  const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
+  const actualPaths = delta(record.initialFiles, finalFiles);
+  if (!isDeepStrictEqual(finalFiles, observation.finalFiles))
+    errors.push('post-completion-file-drift');
+  if (actualPaths.some((p) => !covered(p, record.input.directAssignment.writeOwnership)))
+    errors.push('outside-write-ownership');
+  if (!observation.valid) errors.push('native-observation-required');
+  if (
+    !isDeepStrictEqual(
+      localIdentity(record.root, invocation.subagent_type),
+      record.input.adapterIdentity,
+    )
+  )
+    errors.push('adapter/role/settings drift');
+  if (!isDeepStrictEqual(baseline(record.root), observation.finalSnapshot))
+    errors.push('post-completion-source-drift');
+  return { observation, actualPaths, errors: [...new Set(errors)] };
 }
 function associated(event, task) {
   const { record, invocation } = task;
@@ -585,7 +756,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
 
 export function completeClaudeNativeTask(
   id,
-  { results = [], review, responseDigest, acceptance = [] } = {},
+  { results = [], review, reviewerTaskId, reviewResult, responseDigest, acceptance = [] } = {},
   { root = process.cwd() } = {},
 ) {
   root = realpathSync(root);
@@ -598,62 +769,12 @@ export function completeClaudeNativeTask(
       /* Report missing completion, not a fabricated success. */
     }
   }
-  let observation;
-  try {
-    observation = jsonFile(join(dir, 'completion.json'));
-  } catch {
-    observation = { valid: false, errors: ['no-completion-observation'] };
-  }
-  const errors = [...(observation.errors ?? [])];
-  if (existsSync(join(dir, 'observation-error.json'))) errors.push('observation-error');
-  if (observation.completionSource === 'SubagentStop+task-notification+transcript') {
-    try {
-      const proof = jsonFile(join(dir, 'transcript-proof.json'));
-      check(
-        proof.responseDigest === observation.responseDigest &&
-          realpathSync(proof.path) === proof.path &&
-          lstatSync(proof.path).size <= 4 * 1024 * 1024 &&
-          hash(readFileSync(proof.path)) === proof.digest,
-        'child resumed/transcript drift',
-      );
-    } catch {
-      errors.push('child-transcript-drift-or-missing');
-    }
-  }
-  let attempt;
-  try {
-    attempt = jsonFile(join(dir, 'attempt.json'));
-  } catch {
-    errors.push('missing-pretool');
-  }
-  if (
-    observation.taskId !== id ||
-    observation.bindingDigest !== record.bindingDigest ||
-    observation.sessionId !== record.sessionId ||
-    observation.toolUseId !== attempt?.toolUseId ||
-    attempt?.sessionId !== record.sessionId ||
-    observation.inputDigest !== inputHash(invocation) ||
-    attempt?.inputDigest !== inputHash(invocation)
-  )
-    errors.push('foreign-completion');
-  errors.push(...responseErrors(record, observation.response));
-  if (observation.responseDigest !== hash(observation.response ?? null))
-    errors.push('response-digest-mismatch');
-  const finalFiles = inventory(root, record.input.nativeRequest.task.readScope);
-  const actualPaths = delta(record.initialFiles, finalFiles);
-  if (!isDeepStrictEqual(finalFiles, observation.finalFiles))
-    errors.push('post-completion-file-drift');
-  if (actualPaths.some((p) => !covered(p, record.input.directAssignment.writeOwnership)))
-    errors.push('outside-write-ownership');
+  const currentState = currentObservation(task);
+  const observation = currentState.observation;
+  const errors = [...currentState.errors];
+  const actualPaths = currentState.actualPaths;
   const reported = [...new Set(results.flatMap((r) => r.changedPaths ?? []))].sort();
   if (!isDeepStrictEqual(actualPaths, reported)) errors.push('reported-change-path-mismatch');
-  if (!observation.valid) errors.push('native-observation-required');
-  if (
-    !isDeepStrictEqual(localIdentity(root, invocation.subagent_type), record.input.adapterIdentity)
-  )
-    errors.push('adapter/role/settings drift');
-  if (!isDeepStrictEqual(baseline(root), observation.finalSnapshot))
-    errors.push('post-completion-source-drift');
   if (responseDigest !== observation.responseDigest || !responseDigest)
     errors.push('same-response-semantic-check-required');
   for (const criterion of record.input.directAssignment.acceptance) {
@@ -668,13 +789,198 @@ export function completeClaudeNativeTask(
     )
       errors.push(`semantic-acceptance-required:${criterion}`);
   }
+  let linkedReview = review;
+  let pendingReviewReceipt = null;
+  if (
+    !record.independentReview &&
+    record.input.reviewDisposition.required === true &&
+    reviewerTaskId === undefined
+  )
+    errors.push('native required QA requires linked reviewerTaskId');
+  if (record.independentReview) {
+    if (reviewerTaskId !== undefined || review !== undefined)
+      errors.push('reviewer task cannot consume another review');
+    let delivered;
+    try {
+      check(
+        observation.response.content.length === 1 &&
+          observation.response.content[0]?.type === 'text',
+        'review response must contain one JSON text result',
+      );
+      delivered = JSON.parse(observation.response.content[0].text);
+      check(
+        delivered !== null && typeof delivered === 'object' && !Array.isArray(delivered),
+        'review result must be a delivered JSON object',
+      );
+      check(
+        isDeepStrictEqual(delivered, reviewResult),
+        'review result differs from delivered JSON',
+      );
+    } catch (error) {
+      errors.push(error.message);
+    }
+    if (delivered) {
+      const namedModels = [delivered.identity?.resolvedModel, delivered.identity?.observedModel];
+      if (namedModels.some((model) => model !== 'unknown' && model !== observation.resolvedModel))
+        errors.push('review result model contradicts native observation');
+      const verifiedResult = structuredClone(delivered);
+      if (verifiedResult.identity) {
+        verifiedResult.identity.resolvedModel = observation.resolvedModel;
+        verifiedResult.identity.observedModel = observation.resolvedModel;
+      }
+      const qa = validateAdapterReview({
+        reviewerId: record.independentReview.reviewerId,
+        builderIds: record.independentReview.builderIds,
+        packet: record.independentReview.packet,
+        result: verifiedResult,
+        currentSnapshot: observation.finalSnapshot,
+      });
+      errors.push(...qa.errors);
+      if (delivered.status !== 'complete' || !['PASS', 'FAIL'].includes(delivered.verdict))
+        errors.push('review result must be terminal complete PASS or FAIL');
+      for (const criterion of record.independentReview.subjectAcceptance) {
+        if (
+          !delivered.acceptanceCoverage?.some(
+            (item) => item?.criterion === criterion && item.gap === null,
+          )
+        )
+          errors.push(`review coverage required:${criterion}`);
+      }
+      if (errors.length === 0) {
+        pendingReviewReceipt = {
+          reviewerTaskId: record.taskId,
+          subjectTaskId: record.independentReview.subjectTaskId,
+          subjectRequestDigest: record.independentReview.subjectRequestDigest,
+          subjectBindingDigest: record.independentReview.subjectBindingDigest,
+          subjectResponseDigest: record.independentReview.subjectResponseDigest,
+          subjectFinalSnapshot: record.independentReview.subjectFinalSnapshot,
+          reviewerBindingDigest: record.bindingDigest,
+          reviewerResponseDigest: observation.responseDigest,
+          reviewerFinalSnapshot: observation.finalSnapshot,
+          reviewerResolvedModel: observation.resolvedModel,
+          reviewerId: record.independentReview.reviewerId,
+          builderIds: record.independentReview.builderIds,
+          packet: record.independentReview.packet,
+          result: delivered,
+        };
+      }
+    }
+  } else if (reviewerTaskId !== undefined) {
+    if (review !== undefined) errors.push('native reviewer link cannot override review payload');
+    // Every dispatched review of this subject must end in PASS; a later PASS cannot hide another
+    // reviewer's delivered or recorded non-PASS, and an unsettled attempt has no known verdict.
+    const base = resolveArtifactPath(root, ['claude-native'], {});
+    for (const otherId of readdirSync(base).filter((name) => uuid.test(name))) {
+      if (otherId === reviewerTaskId) continue;
+      let other;
+      try {
+        other = loadTask(root, otherId);
+      } catch {
+        errors.push(`unreadable native task: ${otherId}`);
+        continue;
+      }
+      if (other.record.independentReview?.subjectTaskId !== record.taskId) continue;
+      const receiptPath = join(other.dir, 'review-receipt.json');
+      const completionPath = join(other.dir, 'completion.json');
+      if (existsSync(receiptPath)) {
+        if (jsonFile(receiptPath).result?.verdict !== 'PASS')
+          errors.push(`subject has a FAIL review receipt: ${otherId}`);
+      } else if (!existsSync(join(other.dir, 'attempt.json'))) {
+        continue; // Registered but never dispatched.
+      } else if (!existsSync(completionPath)) {
+        errors.push(`subject has an unsettled review attempt: ${otherId}`);
+      } else {
+        let verdict;
+        try {
+          const content = jsonFile(completionPath).response?.content;
+          if (content?.length === 1 && content[0]?.type === 'text')
+            verdict = JSON.parse(content[0].text)?.verdict;
+        } catch {
+          verdict = undefined;
+        }
+        if (verdict !== 'PASS') errors.push(`subject has a delivered non-PASS review: ${otherId}`);
+      }
+    }
+    try {
+      const reviewer = loadTask(root, reviewerTaskId);
+      const receipt = jsonFile(join(reviewer.dir, 'review-receipt.json'));
+      const reviewerState = currentObservation(reviewer);
+      check(
+        reviewerState.errors.length === 0,
+        `reviewer observation is no longer valid: ${reviewerState.errors.join(',')}`,
+      );
+      const reviewerObservation = reviewerState.observation;
+      check(reviewer.record.independentReview?.subjectTaskId === record.taskId, 'foreign reviewer');
+      check(receipt.reviewerTaskId === reviewerTaskId, 'review receipt task mismatch');
+      check(receipt.subjectTaskId === record.taskId, 'foreign review receipt');
+      check(
+        receipt.subjectRequestDigest === record.requestDigest,
+        'review request digest mismatch',
+      );
+      check(receipt.subjectBindingDigest === record.bindingDigest, 'review binding mismatch');
+      check(
+        receipt.subjectResponseDigest === observation.responseDigest,
+        'review response mismatch',
+      );
+      check(
+        isDeepStrictEqual(receipt.subjectFinalSnapshot, observation.finalSnapshot) &&
+          isDeepStrictEqual(receipt.reviewerFinalSnapshot, observation.finalSnapshot),
+        'review snapshot mismatch',
+      );
+      check(
+        receipt.reviewerBindingDigest === reviewer.record.bindingDigest &&
+          receipt.reviewerResponseDigest === reviewerObservation.responseDigest &&
+          receipt.reviewerResolvedModel === reviewerObservation.resolvedModel,
+        'reviewer observation mismatch',
+      );
+      check(
+        receipt.reviewerId === reviewer.record.independentReview.reviewerId &&
+          isDeepStrictEqual(receipt.builderIds, reviewer.record.independentReview.builderIds) &&
+          isDeepStrictEqual(receipt.packet, reviewer.record.independentReview.packet),
+        'reviewer scope mismatch',
+      );
+      check(
+        reviewerObservation.response.content.length === 1 &&
+          reviewerObservation.response.content[0]?.type === 'text' &&
+          isDeepStrictEqual(
+            JSON.parse(reviewerObservation.response.content[0].text),
+            receipt.result,
+          ),
+        'review result is not the delivered reviewer response',
+      );
+      const derivedResult = structuredClone(receipt.result);
+      derivedResult.identity.resolvedModel = reviewerObservation.resolvedModel;
+      derivedResult.identity.observedModel = reviewerObservation.resolvedModel;
+      linkedReview = {
+        requestDigest: record.requestDigest,
+        reviewerId: receipt.reviewerId,
+        builderIds: receipt.builderIds,
+        packet: receipt.packet,
+        result: derivedResult,
+      };
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
   // A writer's allowed changes are an output snapshot, not stale pre-dispatch input.
   // Common fan-in checks changedPaths against assignment; parent still reproduces findings.
   const common = validateClaudeWorkflowResults(
     { ...record.input, currentSnapshot: observation.finalSnapshot ?? record.input.currentSnapshot },
-    { results, review },
+    { results, review: linkedReview },
   );
   errors.push(...common.errors);
+  if (pendingReviewReceipt && errors.length === 0) {
+    const receiptPath = join(dir, 'review-receipt.json');
+    if (existsSync(receiptPath)) {
+      if (!isDeepStrictEqual(jsonFile(receiptPath), pendingReviewReceipt))
+        errors.push('review receipt changed');
+    } else {
+      writeFileSync(receiptPath, JSON.stringify(pendingReviewReceipt), {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    }
+  }
   return {
     valid: errors.length === 0,
     errors,

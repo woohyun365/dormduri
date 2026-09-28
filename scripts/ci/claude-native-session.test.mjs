@@ -289,6 +289,10 @@ function writer(t) {
     join(f.root, '.claude/agents/knu_executor.md'),
     '---\nname: knu_executor\ntools: Read, Grep, Glob, Edit, Write, Bash\n---\nImplement bounded work.\n',
   );
+  writeFileSync(
+    join(f.root, '.claude/agents/knu_reviewer.md'),
+    '---\nname: knu_reviewer\ntools: Read, Grep, Glob\n---\nReview only.\n',
+  );
   execFileSync('git', ['add', '.'], { cwd: f.root });
   delete f.input.currentSnapshot;
   f.input.request = 'sample.txt 변경을 구현해줘.';
@@ -330,6 +334,479 @@ function writer(t) {
     },
   };
 }
+
+function reviewPacket(subject, snapshot) {
+  const { basePacket } = JSON.parse(
+    readFileSync(join(import.meta.dirname, 'fixtures/cross-model-handoff-cases.json')),
+  );
+  return {
+    ...structuredClone(basePacket),
+    packetId: 'native-review-packet',
+    objective: subject.registered.workflow.envelope.requestSummary,
+    snapshot,
+    authority: {
+      ...basePacket.authority,
+      integrationOwner: 'parent',
+      writeOwner: 'builder',
+      runnerOwner: 'parent',
+      parentClarificationOwner: 'parent',
+    },
+    boundaries: {
+      ...basePacket.boundaries,
+      allowedReadPaths: ['sample.txt'],
+      permittedOutputPaths: ['artifacts/local/claude-native'],
+    },
+    lifecycle: {
+      ...basePacket.lifecycle,
+      dispatchId: 'native-review-dispatch',
+      cancelOwner: 'parent',
+      cleanupOwner: 'parent',
+    },
+    intent: { ...basePacket.intent, direction: 'same-host-independent-review' },
+  };
+}
+
+function reviewResult(packet, model, verdict = 'PASS') {
+  const { baseResult } = JSON.parse(
+    readFileSync(join(import.meta.dirname, 'fixtures/cross-model-handoff-cases.json')),
+  );
+  return {
+    ...structuredClone(baseResult),
+    packetId: packet.packetId,
+    dispatchId: packet.lifecycle.dispatchId,
+    resultId: 'native-review-result',
+    reviewedSnapshot: packet.snapshot,
+    identity: {
+      requestedModelIntent: packet.intent.modelIntent,
+      resolvedModel: model,
+      observedModel: model,
+    },
+    acceptanceCoverage: [
+      {
+        criterion: 'oracle returned',
+        sourceRefs: ['fixture'],
+        evidenceRefs: ['fixture:review'],
+        gap: null,
+      },
+    ],
+    commandsActuallyRun: [],
+    verdict,
+    disposition: { owner: 'parent', nextAction: 'Adjudicate the native review.' },
+    cleanup: { owner: 'parent', status: 'complete', handoff: 'No cleanup required.' },
+    handoff: { integrationOwner: 'parent', requestedWriteOwner: null },
+  };
+}
+
+function reviewer(t, subject, packet, options = {}) {
+  const input = structuredClone(subject.input);
+  input.request = 'sample.txt 변경을 독립 검토해줘.';
+  input.currentSnapshot = options.currentSnapshot ?? packet.snapshot;
+  input.directAssignment = {
+    owner: 'reviewer',
+    dispatchId: 'native-review-lane',
+    acceptance: ['review subject acceptance'],
+    writeOwnership: [],
+  };
+  input.reviewDisposition = { required: false, reason: 'terminal independent native review' };
+  input.nativeRequest.profileId = 'complex-critical';
+  Object.assign(input.nativeRequest.task, {
+    taskId: 'review-task',
+    kind: 'review',
+    impactRisk: 'medium',
+    complexity: 'bounded',
+    uncertainty: 'resolved',
+    role: 'knu_reviewer',
+    allowedTools: ['Read', 'Grep', 'Glob'],
+    readScope: options.readScope ?? ['sample.txt'],
+    writeScope: [],
+    writeOwner: null,
+    childValue: 'independent-review',
+    independent: true,
+    facts: [
+      'source-bound',
+      'bounded-scope',
+      'acceptance',
+      'oracle',
+      'independent-qa',
+      'fresh-context',
+    ].map((key) => ({ key, sourceRef: 'fixture', confidence: 'high' })),
+  });
+  const expectedResolvedModel = 'claude-opus-4-6';
+  const registered = registerClaudeNativeTask({
+    workflowInput: input,
+    sessionId: subject.event.session_id,
+    prompt: 'Review the frozen subject packet only.',
+    expectedResolvedModel,
+    independentReview: {
+      subjectTaskId: subject.registered.taskId,
+      reviewerId: 'reviewer',
+      builderIds: ['builder'],
+      packet,
+      ...options.independentReview,
+    },
+  });
+  return {
+    ...subject,
+    input,
+    options: { ...subject.options, expectedResolvedModel },
+    registered,
+    event: {
+      ...subject.event,
+      tool_use_id: 'review-1',
+      tool_input: registered.invocation,
+    },
+  };
+}
+
+test('terminal native reviewer receipt completes its subject without recursive QA', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const subjectObservation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, subjectObservation.finalSnapshot);
+  const qa = reviewer(t, subject, packet);
+  const result = reviewResult(packet, qa.options.expectedResolvedModel);
+  assert.match(qa.registered.invocation.prompt, /native-review-packet/);
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const qaSemantic = semanticResult(qa);
+  qaSemantic.reviewResult = result;
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, qaSemantic, { root: qa.root }).valid,
+    true,
+  );
+  const subjectSemantic = semanticResult(subject);
+  subjectSemantic.results[0].changedPaths = ['sample.txt'];
+  subjectSemantic.reviewerTaskId = qa.registered.taskId;
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
+      .valid,
+    true,
+  );
+  const rawReviewOnly = structuredClone(subjectSemantic);
+  delete rawReviewOnly.reviewerTaskId;
+  rawReviewOnly.review = {
+    requestDigest: subject.registered.workflow.requestDigest,
+    reviewerId: 'reviewer',
+    builderIds: ['builder'],
+    packet,
+    result,
+  };
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, rawReviewOnly, { root: subject.root })
+      .valid,
+    false,
+  );
+  releaseClaudeNativeTask(qa.registered.taskId, { root: qa.root, ended: true });
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
+      .valid,
+    false,
+  );
+});
+
+test('terminal reviewer rejects self, stale packet, missing observation and raw review override', (t) => {
+  const missing = writer(t);
+  const missingPacket = reviewPacket(missing, missing.registered.workflow.currentSnapshot);
+  assert.throws(() => reviewer(t, missing, missingPacket), /completion\.json|observation/);
+
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  assert.throws(
+    () =>
+      reviewer(t, subject, packet, {
+        independentReview: { builderIds: ['builder', 'reviewer'] },
+      }),
+    /independent/,
+  );
+  const stale = structuredClone(packet);
+  stale.snapshot.headSHA = 'f'.repeat(40);
+  assert.throws(
+    () => reviewer(t, subject, stale, { currentSnapshot: observation.finalSnapshot }),
+    /stale/,
+  );
+  const crossHost = structuredClone(packet);
+  crossHost.intent.direction = 'codex-maker-claude-checker';
+  assert.throws(() => reviewer(t, subject, crossHost), /same-host/);
+  const manual = structuredClone(packet);
+  manual.lifecycle.transport = 'manual';
+  assert.throws(() => reviewer(t, subject, manual), /native/);
+
+  const qa = reviewer(t, subject, packet);
+  const result = reviewResult(packet, 'unknown');
+  const subjectSemantic = semanticResult(subject);
+  subjectSemantic.results[0].changedPaths = ['sample.txt'];
+  subjectSemantic.reviewerTaskId = qa.registered.taskId;
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
+      .valid,
+    false,
+  );
+  const foreign = structuredClone(subjectSemantic);
+  foreign.reviewerTaskId = randomUUID();
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, foreign, { root: subject.root }).valid,
+    false,
+  );
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const qaSemantic = semanticResult(qa);
+  qaSemantic.reviewResult = { ...result, verdict: 'FAIL' };
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, qaSemantic, { root: qa.root }).valid,
+    false,
+  );
+  qaSemantic.reviewResult = result;
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, qaSemantic, { root: qa.root }).valid,
+    true,
+  );
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
+      .valid,
+    false,
+  );
+  subjectSemantic.review = {
+    requestDigest: subject.registered.workflow.requestDigest,
+    reviewerId: 'builder',
+  };
+  const overridden = completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, {
+    root: subject.root,
+  });
+  assert.equal(overridden.valid, false);
+  assert.ok(overridden.errors.includes('native reviewer link cannot override review payload'));
+});
+
+test('terminal reviewer records complete FAIL but rejects partial BLOCKED and cannot pass builder', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  const failedQa = reviewer(t, subject, packet);
+  const failedResult = reviewResult(packet, 'unknown', 'FAIL');
+  handle(failedQa);
+  finish(failedQa, { content: [{ type: 'text', text: JSON.stringify(failedResult) }] });
+  const failedSemantic = semanticResult(failedQa);
+  failedSemantic.reviewResult = failedResult;
+  assert.equal(
+    completeClaudeNativeTask(failedQa.registered.taskId, failedSemantic, {
+      root: failedQa.root,
+    }).valid,
+    true,
+  );
+  const subjectSemantic = semanticResult(subject);
+  subjectSemantic.results[0].changedPaths = ['sample.txt'];
+  subjectSemantic.reviewerTaskId = failedQa.registered.taskId;
+  assert.equal(
+    completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
+      .valid,
+    false,
+  );
+
+  const blockedQa = reviewer(t, subject, packet);
+  const blockedResult = {
+    ...reviewResult(packet, 'unknown'),
+    status: 'partial',
+    verdict: 'BLOCKED',
+    blocker: 'Reviewer did not finish.',
+  };
+  handle(blockedQa);
+  finish(blockedQa, { content: [{ type: 'text', text: JSON.stringify(blockedResult) }] });
+  const blockedSemantic = semanticResult(blockedQa);
+  blockedSemantic.reviewResult = blockedResult;
+  assert.equal(
+    completeClaudeNativeTask(blockedQa.registered.taskId, blockedSemantic, {
+      root: blockedQa.root,
+    }).valid,
+    false,
+  );
+});
+test('read-only reviewer cites runner-owned checks as runner commands; unexecuted checks block PASS', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  packet.authority.runnerOwner = 'parent';
+  const runnerCommand = (runner) => ({
+    runner,
+    exit: 0,
+    observedResult: 'node --test sample: 1 pass',
+    environment: 'node, same reviewed snapshot',
+    outputPaths: [],
+  });
+  const reviewed = (result) => {
+    const qa = reviewer(t, subject, packet);
+    handle(qa);
+    finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+    const semantic = semanticResult(qa);
+    semantic.reviewResult = result;
+    return completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root });
+  };
+
+  const unexecuted = reviewResult(packet, 'unknown');
+  unexecuted.notRun = ['node --test sample (runner-owned, not provided)'];
+  const pending = reviewed(unexecuted);
+  assert.equal(pending.valid, false);
+  assert.ok(pending.errors.some((error) => /PASS requires/.test(error)));
+
+  const selfReported = reviewResult(packet, 'unknown');
+  selfReported.commandsActuallyRun = [runnerCommand('reviewer')];
+  const misattributed = reviewed(selfReported);
+  assert.equal(misattributed.valid, false);
+  assert.ok(misattributed.errors.some((error) => /commandsActuallyRun\[0\]\.runner/.test(error)));
+
+  const runnerEvidence = reviewResult(packet, 'unknown');
+  runnerEvidence.commandsActuallyRun = [runnerCommand('parent')];
+  assert.equal(reviewed(runnerEvidence).valid, true);
+});
+test('a reviewer FAIL receipt cannot be bypassed by linking another reviewer of the same subject', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  const completeReview = (verdict) => {
+    const qa = reviewer(t, subject, packet);
+    const result = reviewResult(packet, 'unknown', verdict);
+    handle(qa);
+    finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+    const semantic = semanticResult(qa);
+    semantic.reviewResult = result;
+    assert.equal(
+      completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
+      true,
+    );
+    return qa;
+  };
+  completeReview('FAIL');
+  const passing = completeReview('PASS');
+  const subjectSemantic = semanticResult(subject);
+  subjectSemantic.results[0].changedPaths = ['sample.txt'];
+  subjectSemantic.reviewerTaskId = passing.registered.taskId;
+  const shopped = completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, {
+    root: subject.root,
+  });
+  assert.equal(shopped.valid, false);
+  assert.ok(shopped.errors.some((error) => /FAIL review receipt/.test(error)));
+});
+test('a delivered non-PASS or unsettled review of the subject blocks linking another reviewer', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  const passingReview = () => {
+    const qa = reviewer(t, subject, packet);
+    const result = reviewResult(packet, 'unknown');
+    handle(qa);
+    finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+    const semantic = semanticResult(qa);
+    semantic.reviewResult = result;
+    assert.equal(
+      completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
+      true,
+    );
+    return qa;
+  };
+  const builderLinkedTo = (qa) => {
+    const semantic = semanticResult(subject);
+    semantic.results[0].changedPaths = ['sample.txt'];
+    semantic.reviewerTaskId = qa.registered.taskId;
+    return completeClaudeNativeTask(subject.registered.taskId, semantic, { root: subject.root });
+  };
+
+  const unsettled = reviewer(t, subject, packet);
+  handle(unsettled);
+  const pending = builderLinkedTo(passingReview());
+  assert.equal(pending.valid, false);
+  assert.ok(pending.errors.some((error) => /unsettled review attempt/.test(error)));
+
+  finish(unsettled, {
+    content: [{ type: 'text', text: JSON.stringify(reviewResult(packet, 'unknown', 'FAIL')) }],
+  });
+  const delivered = builderLinkedTo(passingReview());
+  assert.equal(delivered.valid, false);
+  assert.ok(delivered.errors.some((error) => /delivered non-PASS review/.test(error)));
+
+  mkdirSync(join(subject.root, 'artifacts/local/claude-native', randomUUID()));
+  const malformed = builderLinkedTo(passingReview());
+  assert.equal(malformed.valid, false);
+  assert.ok(malformed.errors.some((error) => /unreadable native task/.test(error)));
+});
+test('reviewer completion requires a delivered JSON object, not a falsy JSON value', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const qa = reviewer(t, subject, reviewPacket(subject, observation.finalSnapshot));
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: 'null' }] });
+  const semantic = semanticResult(qa);
+  semantic.reviewResult = null;
+  const completion = completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root });
+  assert.equal(completion.valid, false);
+  assert.ok(completion.errors.some((error) => /JSON object/.test(error)));
+});
+test('reviewer registration rejects the reviewer as runner and unbound packet scope', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  const selfRunner = structuredClone(packet);
+  selfRunner.authority.runnerOwner = 'reviewer';
+  assert.throws(() => reviewer(t, subject, selfRunner), /reviewer cannot be the packet runner/);
+  const objective = structuredClone(packet);
+  objective.objective = 'different request';
+  assert.throws(() => reviewer(t, subject, objective), /objective mismatch/);
+  const writerMismatch = structuredClone(packet);
+  writerMismatch.authority.writeOwner = 'someone-else';
+  assert.throws(() => reviewer(t, subject, writerMismatch), /writer\/builders mismatch/);
+  const wider = structuredClone(packet);
+  wider.boundaries.allowedReadPaths = ['sample.txt', 'other.txt'];
+  assert.throws(() => reviewer(t, subject, wider), /exceeds reviewer task scope/);
+  const uncovered = structuredClone(packet);
+  uncovered.boundaries.allowedReadPaths = ['other.txt'];
+  assert.throws(
+    () => reviewer(t, subject, uncovered, { readScope: ['other.txt'] }),
+    /does not cover subject changes/,
+  );
+  const qa = reviewer(t, subject, packet);
+  assert.throws(
+    () => reviewer(t, qa, reviewPacket(qa, observation.finalSnapshot)),
+    /reviewer-of-reviewer/,
+  );
+});
 test('one native writer at a time, allowed writes observed, independent QA cannot be omitted', (t) => {
   const f = writer(t);
   const other = registerClaudeNativeTask({
@@ -436,7 +913,10 @@ test('ordinary executor new files are fingerprinted without staging, then common
   const checked = completeClaudeNativeTask(r.taskId, input, { root: f.root });
   assert.equal(checked.observation.valid, true, JSON.stringify(checked.errors));
   assert.equal(checked.observation.finalSnapshot.untrackedInputDigests[0].path, 'new.txt');
-  assert.deepEqual(checked.errors, ['independent QA exchange required']);
+  assert.deepEqual(checked.errors, [
+    'native required QA requires linked reviewerTaskId',
+    'independent QA exchange required',
+  ]);
 });
 
 test('foreign completion and async child do not release a live writer lease', (t) => {
