@@ -9,6 +9,7 @@ import {
   rmSync,
   realpathSync,
   truncateSync,
+  existsSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -1417,8 +1418,8 @@ for (const stopFirst of [false, true])
     );
   });
 
-for (const damage of ['oversized', 'malformed'])
-  test(`settlement refuses a ${damage} parent transcript instead of completing`, (t) => {
+for (const damage of ['intact', 'oversized', 'malformed'])
+  test(`settlement of a ${damage} parent transcript`, (t) => {
     const f = setup(t);
     handle(f);
     const agentId = 'async-cap';
@@ -1484,6 +1485,12 @@ for (const damage of ['oversized', 'malformed'])
         root: f.root,
       },
     );
+    // The intact control uses the same fixture and must settle, so a refusal below comes from the damage.
+    if (damage === 'intact') {
+      assert.ok(existsSync(join(f.registered.evidenceDirectory, 'completion.json')));
+      assert.ok(!result.errors.includes('no-completion-observation'), result.errors.join());
+      return;
+    }
     assert.equal(result.valid, false);
     assert.ok(result.errors.includes('no-completion-observation'), result.errors.join());
   });
