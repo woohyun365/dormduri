@@ -132,7 +132,7 @@ SendMessage 재개) 기록된 판정을 믿을 수 없으므로 거부합니다.
 Transcript 경로가 없는 이전 형식의 attempt, 어떤 reviewer attempt도 남기지 않은 세션의 호출, 다른 subagent 안에서 호출돼 child
 transcript에만 남은 Agent 호출은 대조하지 못하며 hook 장애 경계를 따릅니다. Foreground로 완료된 reviewer는 transcript proof가
 없으므로 hook 장애 중이나 사용자가 subagent 화면에서 직접 재개한 경우를 감지하지 못합니다. Transcript는 비동기로 기록되어 완료 시점의
-proof가 정상 경로에서도 어긋날 수 있으므로 이 경로에 proof를 강제하지 않습니다. Hook이 정상일 때 이 재개는 SendMessage 단계에서 거부됩니다. 거부 사유별 해소는
+proof가 정상 경로에서도 어긋날 수 있으므로 이 경로에 proof를 강제하지 않습니다. Hook이 정상이면 SendMessage를 통한 재개는 그 단계에서 거부되지만, 사용자가 패널에서 직접 재개한 경우에는 hook이 관여하지 않습니다. 거부 사유별 해소는
 [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 따릅니다. 이는 [QA](../qa.md)의 Parent adjudication보다 엄격한 adapter 규칙입니다. Parent가 finding을
 false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 이 연결은 coordination과 completion evidence이며
 host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff처럼 native subject task가 없는 검토에는 이 terminal 규칙이

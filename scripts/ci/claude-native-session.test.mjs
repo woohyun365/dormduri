@@ -1417,6 +1417,77 @@ for (const stopFirst of [false, true])
     );
   });
 
+for (const damage of ['oversized', 'malformed'])
+  test(`settlement refuses a ${damage} parent transcript instead of completing`, (t) => {
+    const f = setup(t);
+    handle(f);
+    const agentId = 'async-cap';
+    handle(f, {
+      ...f.event,
+      hook_event_name: 'PostToolUse',
+      tool_response: {
+        status: 'async_launched',
+        agentId,
+        resolvedModel: f.options.expectedResolvedModel,
+        prompt: f.registered.invocation.prompt,
+      },
+    });
+    const base = join(realpathSync(f.root), 'artifacts/transcripts'),
+      childDir = join(base, f.event.session_id, 'subagents');
+    mkdirSync(childDir, { recursive: true });
+    const childPath = join(childDir, `agent-${agentId}.jsonl`),
+      parentPath = join(base, `${f.event.session_id}.jsonl`);
+    const childRows = [
+      {
+        type: 'user',
+        sessionId: f.event.session_id,
+        agentId,
+        message: { content: f.registered.invocation.prompt },
+      },
+      {
+        type: 'assistant',
+        sessionId: f.event.session_id,
+        agentId,
+        message: {
+          model: f.options.expectedResolvedModel,
+          content: [{ type: 'text', text: 'oracle' }],
+        },
+      },
+    ];
+    writeFileSync(childPath, childRows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const notification = JSON.stringify({
+      type: 'user',
+      sessionId: f.event.session_id,
+      message: {
+        content: `<task-notification>\n<task-id>${agentId}</task-id>\n<tool-use-id>${f.event.tool_use_id}</tool-use-id>\n<status>completed</status>\n</task-notification>`,
+      },
+    });
+    // A malformed row naming the child must not be skipped; an oversized file is refused before reading.
+    writeFileSync(
+      parentPath,
+      (damage === 'malformed' ? `{"agent":"${agentId}"\n` : '') + notification + '\n',
+    );
+    if (damage === 'oversized') truncateSync(parentPath, 128 * 1024 * 1024 + 1);
+    handle(f, {
+      hook_event_name: 'SubagentStop',
+      session_id: f.event.session_id,
+      cwd: f.root,
+      agent_id: agentId,
+      agent_type: 'knu_explorer',
+      agent_transcript_path: childPath,
+      transcript_path: parentPath,
+    });
+    const result = completeClaudeNativeTask(
+      f.registered.taskId,
+      {},
+      {
+        root: f.root,
+      },
+    );
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes('no-completion-observation'), result.errors.join());
+  });
+
 test('native input key order does not break actual hook association', (t) => {
   const f = setup(t);
   f.event.tool_input = Object.fromEntries(Object.entries(f.event.tool_input).reverse());
