@@ -37,7 +37,7 @@
 
 ## 3. Canonical commands
 
-- 빠른 staged-file 검사: `pnpm check:fast`
+- 빠른 staged-file·작업 공간 배치 검사: `pnpm check:fast`
 - repository policy: `pnpm test:repo-policy`
 - API 검사: `pnpm api:check`
 - Web 검사: `pnpm web:check`

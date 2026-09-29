@@ -66,6 +66,15 @@ const durableOrchestrationContractPaths = [
   'docs/development/agent-workflows/request-intake/task-envelope.md',
 ];
 
+// Local workspace roots keep content untracked; only their guidance files are tracked.
+const localWorkspaceReadmes = [
+  '.artifacts/README.md',
+  '.plans/cancelled/README.md',
+  '.plans/finished/README.md',
+  '.plans/pending/README.md',
+  '.plans/supporting/README.md',
+];
+
 function trackedPaths() {
   const result = spawnSync('git', ['ls-files', '-z'], {
     cwd: repoRoot,
@@ -371,15 +380,6 @@ test('tracked guidance does not present host runtime directories as the plan loc
   }
 });
 
-// Local workspace roots keep content untracked; only their guidance files are tracked.
-const localWorkspaceReadmes = [
-  '.artifacts/README.md',
-  '.plans/cancelled/README.md',
-  '.plans/finished/README.md',
-  '.plans/pending/README.md',
-  '.plans/supporting/README.md',
-];
-
 function checkIgnoredInCleanClone(paths) {
   const directory = mkdtempSync(resolve(tmpdir(), 'knu-ignore-'));
   try {
@@ -423,10 +423,9 @@ test('local workspace roots ignore content and keep only guidance files for clea
 
 // Old root names; segment boundaries keep docs/references/, .artifacts/references/ and URLs valid.
 const renamedWorkspaceRoot =
-  /(?<![\w./-])(?:\.\.\/)*(?:artifacts\/(?:local\b|README\.md|\.gitignore)|local-docs\b|references\/figma\b)/u;
-// Guard fixtures quote the old names; the artifact guide names the external archive's local-docs/ folder.
+  /(?<![\w./-])(?:\.{1,2}\/)*(?:artifacts\/(?:local\b|README\.md|\.gitignore)|local-docs\b|references\/figma\b)/u;
+// Guard fixtures and the layout detector quote the old names.
 const renamedWorkspaceRootAllowlist = new Set([
-  '.artifacts/README.md',
   'scripts/ci/agent-guidance-boundary.test.mjs',
   'scripts/git/workspace-layout-check.mjs',
   'scripts/git/workspace-layout-check.test.mjs',
@@ -434,6 +433,7 @@ const renamedWorkspaceRootAllowlist = new Set([
 
 test('tracked files do not point to renamed local workspace roots', () => {
   for (const source of [
+    '`./artifacts/local/`',
     '`artifacts/local/`',
     '[rules](../artifacts/README.md)',
     '`local-docs/`',

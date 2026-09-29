@@ -26,7 +26,7 @@ production runtime에서는 사용하지 않는다. 내용은 Git에서 제외�
   업로드한다.
 - **secret 금지.** token, cookie, password, DB URL, webhook 등 secret 원문을 기록하지 않는다.
 - **저장소 밖 보관.** 끝난 증거는 삭제하지 않고 저장소 상위의 `Archives/<repo>/`(이하 `<archive>`)로 옮긴다.
-  `<archive>`는 `plans/`, `artifacts/`, `local-docs/`, `design-history/`, `code/`, `_meta/` 공통 폴더와 `README.md`
+  `<archive>`는 `<archive>/plans/`, `<archive>/artifacts/`, `<archive>/local-docs/`, `<archive>/design-history/`, `<archive>/code/`, `<archive>/_meta/` 공통 폴더와 `README.md`
   색인 하나를 가진다. 추적 문서는 `<archive>/<폴더>/<topic>`처럼 개인 절대 경로 없이 가리킨다.
 
 ## 보존과 정리

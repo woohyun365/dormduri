@@ -141,7 +141,8 @@ Checkpoint는 다음 경우에만 만듭니다.
 
 ## Active plan lifecycle
 
-- 공통 authoring root는 `.plans/`입니다. Git/formatter에서 제외하며 runtime memory나 제품 source of truth가 아닙니다.
+- 공통 authoring root는 `.plans/`입니다. lifecycle 디렉터리 README 네 개를 빼고 Git/formatter에서 제외하며 runtime memory나
+  제품 source of truth가 아닙니다.
 - top-level `Plan ID`·`Status`·owner·AC·source snapshot을 명시하고 task당 canonical path/writer 하나를 유지합니다.
 - root `README.md`는 navigation이며 active plan이 아닙니다. supporting 상세와 독립 bounded plan을 구분합니다.
 - 새 계획 생성은 승인된 planning 행동입니다. Analyze만 요청받고 계획 파일을 자동 생성하지 않습니다.

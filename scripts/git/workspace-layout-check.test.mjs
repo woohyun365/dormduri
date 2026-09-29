@@ -76,10 +76,24 @@ test('untracked listing collapses ignored trees and nested repositories', () => 
     ['.omx/state.json', false],
   ]);
   try {
-    mkdirSync(resolve(root, 'worktrees/linked'), { recursive: true });
-    git(resolve(root, 'worktrees/linked'), 'init', '-q');
-    mkdirSync(resolve(root, 'worktrees/linked/.omc'));
-    writeFileSync(resolve(root, 'worktrees/linked/.omc/state.json'), 'x\n');
+    mkdirSync(resolve(root, 'worktrees/nested'), { recursive: true });
+    git(resolve(root, 'worktrees/nested'), 'init', '-q');
+    mkdirSync(resolve(root, 'worktrees/nested/.omc'));
+    writeFileSync(resolve(root, 'worktrees/nested/.omc/state.json'), 'x\n');
+    // A linked worktree has a .git file instead of a directory.
+    git(
+      root,
+      '-c',
+      'user.name=fixture',
+      '-c',
+      'user.email=fixture@example.com',
+      'commit',
+      '-qm',
+      'init',
+    );
+    assert.equal(git(root, 'worktree', 'add', '-q', 'linked-worktree').status, 0);
+    mkdirSync(resolve(root, 'linked-worktree/.omc'));
+    writeFileSync(resolve(root, 'linked-worktree/.omc/state.json'), 'x\n');
 
     const issues = findWorkspaceLayoutIssues(listUntrackedEntries(root));
     assert.deepEqual(issues.map((issue) => issue.path).sort(), [
