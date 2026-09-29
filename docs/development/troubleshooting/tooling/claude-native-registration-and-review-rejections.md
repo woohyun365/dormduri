@@ -6,14 +6,23 @@
 
 ## 증상
 
-- `pnpm claude:native prepare --spec <JSON file>` 또는 `register --input <JSON file>`가 거부됩니다. 일반 사유 뒤에
-  model policy 사유(`profile:`)와 입력 필드(`input:`)가 붙습니다.
+- `pnpm claude:native register --input <JSON file>`가 거부됩니다. 일반 사유 뒤에 model policy 사유(`profile:`)와
+  입력 필드(`input:`)가 붙습니다.
 
   ```text
   workflow not ready: strict-native-dispatch-not-qualified; profile: invalid-input; input: binding-lifetime-exceeds-30m
   workflow not ready: strict-native-dispatch-not-qualified; profile: invalid-input; input: unsafe-reference:nativeRequest.task.facts[0].sourceRef
   workflow not ready: strict-native-dispatch-not-qualified; profile: risk-downgrade
+  ```
+
+- `pnpm claude:native prepare --spec <JSON file>`는 같은 입력 필드 사유를 register 전에 `invalid prepare spec:`으로 보여 줍니다.
+  Policy 판정 사유(`risk-downgrade` 등)는 register와 같은 형식으로 나옵니다.
+
+  ```text
   invalid prepare spec: selection-basis-required
+  invalid prepare spec: binding-lifetime-exceeds-30m
+  invalid prepare spec: fact-confidence-not-high:source-bound
+  invalid prepare spec: review-snapshot-stale: rebuild the review for the current source
   ```
 
 - 공통 workflow가 요청을 `intent: unknown`으로 분류해 등록이 진행되지 않습니다.
@@ -66,7 +75,8 @@
   PASS로 바꾸지 않습니다. 다른 회차의 digest나 추가 필드가 있는 기록은 거부됩니다.
 - Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file>`은 `settlement:"parent-adjudication"`을
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
-  reviewer의 `completion.json` 관측(valid·모델·변경 경로)과 finding 재현으로 판정합니다.
+  reviewer의 `completion.json` 관측(valid·모델·변경 경로)과 finding 재현으로 판정하고, `finalSnapshot`의 digest가 review
+  `logHeader`의 digest와 같은지 확인합니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
 - 나머지 builder 연결 거부는 기존 결과를 신뢰할 수 없다는 뜻입니다. 기록을 고치거나 지우지 말고, hook을 확인한 뒤 새 builder task와
   새 review로 해소합니다.

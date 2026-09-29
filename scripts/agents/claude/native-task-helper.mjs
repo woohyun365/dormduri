@@ -16,6 +16,7 @@ import {
 const DEFAULT_LIFETIME_MINUTES = 15;
 // registerClaudeNativeTask accepts a caller prompt of at most this many characters.
 const PROMPT_LIMIT = 12000;
+const KNU_ROLES = ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer'];
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const SPEC_REQUIRED = [
   'sessionId',
@@ -84,7 +85,19 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   if (typeof spec.owner !== 'string' || !ID.test(spec.owner)) issues.push('owner-identifier');
   if (!textList(spec.acceptance) || !spec.acceptance.length) issues.push('acceptance-required');
   if (!Array.isArray(spec.facts) || !spec.facts.length) issues.push('facts-required');
+  if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
+  for (const key of ['readScope', 'writeScope'])
+    if (!Array.isArray(spec[key])) issues.push(`${key}-array-required`);
   fail('invalid prepare spec', issues);
+  const reviewHeader = /^KNU review snapshot (sha256:[a-f0-9]{64})\n/u.exec(spec.prompt)?.[1];
+  // A review prompt names the round it was built for; a later source change makes it stale.
+  if (
+    reviewHeader &&
+    reviewHeader !== claudeNativeSnapshotDigest(currentClaudeNativeSnapshot(root))
+  )
+    fail('invalid prepare spec', [
+      'review-snapshot-stale: rebuild the review for the current source',
+    ]);
 
   const short = randomUUID().slice(0, 8);
   const issuedAt = new Date(now - 1000).toISOString();
@@ -109,7 +122,7 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
       childValue: spec.childValue,
       independent: true,
       knownGaps: [],
-      facts: spec.facts.map((fact) => ({ confidence: 'high', ...fact })),
+      facts: spec.facts,
     },
   };
   fail('invalid prepare spec', nativeRequestIssues(nativeRequest));
@@ -447,7 +460,7 @@ export function buildClaudeNativeReview(
     reviewDisposition: native
       ? { required: false, reason: 'terminal same-host independent native review' }
       : { required: true, reason: 'Parent-authored subject: Parent adjudicates this review' },
-    facts: REVIEW_FACTS.map((key) => ({ key, sourceRef: selectionBasisRef })),
+    facts: REVIEW_FACTS.map((key) => ({ key, sourceRef: selectionBasisRef, confidence: 'high' })),
     prompt,
     ...(native
       ? {

@@ -47,7 +47,8 @@ function repo(t) {
   execFileSync('git', ['add', '.'], { cwd: f.root });
   return { root: realpathSync(f.root), sessionId: randomUUID() };
 }
-const facts = (keys) => keys.map((key) => ({ key, sourceRef: 'plan:helper-test' }));
+const facts = (keys) =>
+  keys.map((key) => ({ key, sourceRef: 'plan:helper-test', confidence: 'high' }));
 function explorerSpec(r, patch = {}) {
   return {
     sessionId: r.sessionId,
@@ -207,6 +208,12 @@ test('prepare names spec problems before registration and keeps policy reasons c
       /unsafe-reference:nativeRequest\.task\.facts\[0\]\.sourceRef/,
     ],
     [explorerSpec(r, { request: 'sample.txt 보안 정책 영향을 분석해줘.' }), /risk-downgrade/],
+    [
+      explorerSpec(r, { facts: [{ key: 'source-bound', sourceRef: 'plan:helper-test' }] }),
+      /fact-confidence-not-high:source-bound/,
+    ],
+    [explorerSpec(r, { role: '../x' }), /unknown-role/],
+    [explorerSpec(r, { writeScope: null }), /writeScope-array-required/],
   ])
     assert.throws(() => prepareClaudeNativeTask(spec, { root: r.root }), reason);
 });
@@ -391,6 +398,12 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
   assert.equal(review.reviewerSpec.independentReview, undefined);
   assert.equal(review.reviewerSpec.reviewDisposition.required, true);
   assert.match(review.reviewerPrompt, /KNU_REVIEW_PACKET:/u);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit after the review was built');
+  assert.throws(
+    () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
+    /review-snapshot-stale/,
+  );
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
   const result = structuredClone(review.resultTemplate);
   result.verdict = 'PASS';
