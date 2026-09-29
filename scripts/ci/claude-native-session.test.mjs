@@ -1505,3 +1505,243 @@ test('native input key order does not break actual hook association', (t) => {
     true,
   );
 });
+
+test('registration names the concrete policy reason instead of only the generic gap', (t) => {
+  const cases = [
+    [
+      (f) => {
+        f.input.nativeRequest.expiresAt = new Date(Date.now() + 31 * 60000).toISOString();
+      },
+      /binding-lifetime-exceeds-30m/,
+    ],
+    [
+      (f) => {
+        f.input.nativeRequest.task.facts[0].sourceRef = '.hidden/supporting/x.md';
+      },
+      /unsafe-reference:nativeRequest\.task\.facts\[0\]\.sourceRef/,
+    ],
+    [
+      (f) => {
+        f.input.nativeRequest.selectionBasisRef = '.hidden/x.md';
+      },
+      /unsafe-reference:nativeRequest\.selectionBasisRef/,
+    ],
+    [
+      (f) => {
+        f.input.request = 'sample.txt 보안 정책 영향을 분석해줘.';
+      },
+      /risk-downgrade/,
+    ],
+  ];
+  for (const [mutate, reason] of cases) {
+    const f = fixture(t);
+    mutate(f);
+    assert.throws(
+      () =>
+        registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId: randomUUID() }),
+      (error) =>
+        reason.test(error.message) && /strict-native-dispatch-not-qualified/.test(error.message),
+    );
+  }
+});
+
+// Registration-to-settlement changes outside the child's write scope cannot be told apart from a
+// Parent edit, so they are refused as unattributable instead of being recorded as child changes.
+function readOnlyWithOtherFile(t) {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  writeFileSync(join(f.root, 'other.txt'), 'outside read scope');
+  execFileSync('git', ['add', 'other.txt'], { cwd: f.root });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'other'],
+    { cwd: f.root },
+  );
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: f.root, encoding: 'utf8' }).trim();
+  Object.assign(f.input.currentSnapshot, { baseSHA: head, headSHA: head });
+  f.input.nativeRequest.task.readScope = ['sample.txt', 'in-scope-new.txt'];
+  const sessionId = randomUUID();
+  const registered = registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId });
+  return {
+    ...f,
+    registered,
+    event: {
+      hook_event_name: 'PreToolUse',
+      session_id: sessionId,
+      cwd: f.root,
+      permission_mode: 'auto',
+      tool_name: 'Agent',
+      tool_use_id: 'tool-1',
+      tool_input: registered.invocation,
+    },
+  };
+}
+for (const [kind, path, change] of [
+  ['tracked edit in read scope', 'sample.txt', (p) => writeFileSync(p, 'parent edit')],
+  ['tracked edit outside read scope', 'other.txt', (p) => writeFileSync(p, 'parent edit')],
+  ['new file in read scope', 'in-scope-new.txt', (p) => writeFileSync(p, 'new')],
+  ['new file outside read scope', 'outside-new.txt', (p) => writeFileSync(p, 'new')],
+  ['deletion in read scope', 'sample.txt', (p) => rmSync(p)],
+  ['deletion outside read scope', 'other.txt', (p) => rmSync(p)],
+])
+  test(`unattributable change: ${kind}`, (t) => {
+    const f = readOnlyWithOtherFile(t);
+    handle(f);
+    change(join(f.root, path));
+    finish(f);
+    const observed = JSON.parse(
+      readFileSync(join(f.registered.evidenceDirectory, 'completion.json')),
+    );
+    assert.deepEqual(observed.errors, [`unattributable-change:${path}`]);
+    assert.deepEqual(observed.changedPaths, []);
+    const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+      root: f.root,
+    });
+    assert.equal(checked.valid, false);
+    assert.ok(checked.errors.includes(`unattributable-change:${path}`), checked.errors.join());
+    assert.ok(!checked.errors.includes('reported-change-path-mismatch'), checked.errors.join());
+    assert.ok(!checked.errors.some((e) => e.startsWith('outside-write')), checked.errors.join());
+  });
+
+test('a writer changing only its write scope has no unattributable change at either point', (t) => {
+  const f = writer(t);
+  handle(f);
+  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+  finish(f);
+  const observed = JSON.parse(
+    readFileSync(join(f.registered.evidenceDirectory, 'completion.json')),
+  );
+  assert.deepEqual(observed.errors, []);
+  assert.deepEqual(observed.changedPaths, ['sample.txt']);
+  const input = semanticResult(f);
+  input.results[0].changedPaths = ['sample.txt'];
+  const checked = completeClaudeNativeTask(f.registered.taskId, input, { root: f.root });
+  assert.ok(
+    !checked.errors.some((e) => e.startsWith('unattributable-change')),
+    checked.errors.join(),
+  );
+  assert.ok(!checked.errors.includes('reported-change-path-mismatch'), checked.errors.join());
+});
+
+test('an edit after the child stopped is post-completion drift, not a child change', (t) => {
+  const f = readOnlyWithOtherFile(t);
+  handle(f);
+  finish(f);
+  writeFileSync(join(f.root, 'other.txt'), 'parent edit after stop');
+  const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+    root: f.root,
+  });
+  assert.equal(checked.valid, false);
+  assert.ok(checked.errors.includes('post-completion-file-drift'), checked.errors.join());
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(f.registered.evidenceDirectory, 'completion.json'))).errors,
+    [],
+  );
+});
+
+function asyncStopped(t, notificationRow) {
+  const f = setup(t);
+  handle(f);
+  const agentId = 'resumed-child';
+  handle(f, {
+    ...f.event,
+    hook_event_name: 'PostToolUse',
+    tool_response: {
+      status: 'async_launched',
+      agentId,
+      resolvedModel: f.options.expectedResolvedModel,
+      prompt: f.registered.invocation.prompt,
+    },
+  });
+  const base = join(realpathSync(f.root), '.artifacts/transcripts'),
+    childDir = join(base, f.event.session_id, 'subagents');
+  mkdirSync(childDir, { recursive: true });
+  const childPath = join(childDir, `agent-${agentId}.jsonl`),
+    parentPath = join(base, `${f.event.session_id}.jsonl`);
+  const rows = [
+    {
+      type: 'user',
+      sessionId: f.event.session_id,
+      agentId,
+      message: { content: f.registered.invocation.prompt },
+    },
+    {
+      type: 'assistant',
+      sessionId: f.event.session_id,
+      agentId,
+      message: {
+        model: f.options.expectedResolvedModel,
+        content: [{ type: 'text', text: 'oracle' }],
+      },
+    },
+  ];
+  writeFileSync(childPath, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  const prompt = `<task-notification>\n<task-id>${agentId}</task-id>\n<tool-use-id>${f.event.tool_use_id}</tool-use-id>\n<status>completed</status>\n</task-notification>`;
+  writeFileSync(
+    parentPath,
+    JSON.stringify(notificationRow({ sessionId: f.event.session_id, prompt })) + '\n',
+  );
+  handle(f, {
+    hook_event_name: 'SubagentStop',
+    session_id: f.event.session_id,
+    cwd: f.root,
+    agent_id: agentId,
+    agent_type: 'knu_explorer',
+    agent_transcript_path: childPath,
+    transcript_path: parentPath,
+  });
+  return { ...f, childPath, parentPath };
+}
+const attachmentRow =
+  (processSessionId) =>
+  ({ sessionId, prompt }) => ({
+    type: 'attachment',
+    isSidechain: false,
+    sessionId,
+    session_id: processSessionId ?? sessionId,
+    attachment: { type: 'queued_command', commandMode: 'task-notification', prompt },
+  });
+
+test('a resumed session notification settles: row sessionId matches, process session_id differs', (t) => {
+  const f = asyncStopped(t, attachmentRow(randomUUID()));
+  assert.ok(existsSync(join(f.registered.evidenceDirectory, 'completion.json')));
+  assert.equal(
+    completeClaudeNativeTask(f.registered.taskId, semanticResult(f), { root: f.root }).valid,
+    true,
+  );
+});
+
+test('a notification whose row sessionId or process id is foreign does not settle', (t) => {
+  for (const row of [
+    ({ prompt }) => ({ ...attachmentRow()({ sessionId: randomUUID(), prompt }) }),
+    ({ sessionId, prompt }) => ({ ...attachmentRow('not-a-session')({ sessionId, prompt }) }),
+  ]) {
+    const f = asyncStopped(t, row);
+    const result = completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes('no-completion-observation'), result.errors.join());
+    assert.ok(
+      result.errors.includes(
+        'stopped-task-settlement-failed: matching task completion notification required',
+      ),
+      result.errors.join(),
+    );
+  }
+});
+
+test('complete names the stopped-task settlement failure instead of hiding it', (t) => {
+  const f = asyncStopped(t, attachmentRow());
+  // The hook settled; a fresh stop with a changed child transcript is refused and reported.
+  rmSync(join(f.registered.evidenceDirectory, 'completion.json'));
+  rmSync(join(f.registered.evidenceDirectory, 'transcript-proof.json'));
+  writeFileSync(
+    f.childPath,
+    readFileSync(f.childPath, 'utf8').replace(/claude-haiku/gu, 'claude-sonnet'),
+  );
+  const result = completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+  assert.ok(result.errors.includes('no-completion-observation'), result.errors.join());
+  assert.ok(
+    result.errors.includes('stopped-task-settlement-failed: transcript model mismatch'),
+    result.errors.join(),
+  );
+});
