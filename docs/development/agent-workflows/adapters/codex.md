@@ -54,6 +54,8 @@ leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일�
 
 ### Parent-high 운영과 quality stop
 
+공통 조건은 [Quality stop](../orchestration.md#quality-stop)을 따르며, 이 절은 Codex Parent Astra high·xhigh 운영을 더합니다.
+
 Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작업은 직접 처리합니다. 분리 가능한 깊은 미해결 문제만
 기존 semantic evidence와 active schema 확인을 거쳐 **Astra xhigh child**에 배정합니다. 전체 문제 정의·범위·cross-owner
 통합이 어려우면 Parent xhigh를 권고하며, 높은 child effort가 Parent의 통합 판단을 대신하지는 않습니다.
@@ -168,7 +170,7 @@ Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents 
 cohort에서 model과 reasoning_effort를 함께 명시하며, 미분류/무요청 경로는 Astra 기본값을 유지합니다.
 [공식 subagent 설정](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 
-설정 변경 후 실제 dispatch 전 Parent가 수행할 확인:
+설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
 
 1. 현재 branch/HEAD/working tree와 프로젝트 config·네 role 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
    이름·sandbox·instructions·기본값·reviewer pin·상한은 별도로 대조합니다.
@@ -193,6 +195,8 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 변경을 reset하지 않습니다. 이미 시작한 child는 설정 원복으로 종료/재설정됐다고 가정하지 않고 별도 lifecycle을 확인합니다.
 
 ## Routine task-model operation
+
+공통 채택·철회 원칙은 [Routine adoption](../orchestration.md#routine-adoption)을 따르며, 이 절은 Codex cohort와 admission 절차를 정합니다.
 
 [채택 결정과 한정된 실제 관측](../agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
 **개별 task 호출 승인**과 다릅니다. 승인된 일반 업무에서 Parent가 적격 profile을 선택하므로 매번 사용자에게 모델명을
