@@ -216,6 +216,19 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
     '같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다',
     '임의 JSON receipt를 actual host observation으로 취급하지 않습니다',
+    '## Routine operation',
+    '같은 turn에서 정산을 반복 시도하지 않습니다',
+    'Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다',
+    '아래 관측 ID 밖의 exact 모델로 해석되는\n조합은 관측 전까지 routine이 아닙니다',
+    '## Recovery',
+    '**한 번만** 허용하며 새 task로 다시 등록합니다',
+    'Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다',
+    '## Parent 운영과 quality stop',
+    '같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다',
+    '## OMC 공존과 skill routing',
+    '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
+    '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
+    '`settlement:"parent-adjudication"`',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
@@ -224,4 +237,10 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     assert.doesNotMatch(source, /^model:/mu, 'no unauthorized permanent model pin');
     assert.ok(source.includes('다른 agent'), 'child offload boundary remains explicit');
   }
+  assert.ok(
+    read('.claude/agents/knu_researcher.md').includes(
+      '원문 문장을 URL과 함께 인용할 때만 사실로 씁니다',
+    ),
+    'researcher states identifiers as fact only with a quoted source',
+  );
 });
