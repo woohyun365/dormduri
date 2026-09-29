@@ -1242,6 +1242,13 @@ async function helperCommand(action, args) {
     check(args.length === 2 && args[0] === '--spec', 'expected prepare --spec FILE');
     return helper.prepareClaudeNativeTask(jsonFile(resolve(args[1])));
   }
+  if (action === 'settle') {
+    check(
+      args.length === 4 && args[0] === '--task' && args[2] === '--judgment',
+      'expected settle --task ID --judgment FILE',
+    );
+    return helper.settleClaudeNativeTask(args[1], jsonFile(resolve(args[3])));
+  }
   const options = {};
   for (let i = 0; i < args.length; i += 2) {
     const key = REVIEW_OPTIONS[args[i]];
@@ -1256,10 +1263,10 @@ async function helperCommand(action, args) {
   return helper.buildClaudeNativeReview(options);
 }
 async function main(args) {
-  if (['prepare', 'review'].includes(args[0])) {
-    process.stdout.write(
-      JSON.stringify(await helperCommand(args[0], args.slice(1)), null, 2) + '\n',
-    );
+  if (['prepare', 'review', 'settle'].includes(args[0])) {
+    const result = await helperCommand(args[0], args.slice(1));
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    if (result.valid === false) process.exitCode = 1;
     return;
   }
   if (args[0] === '--hook' && args.length === 1) {

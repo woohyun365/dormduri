@@ -1,5 +1,6 @@
 // Lead-side assembly for ordinary native tasks. prepare consumes the Lead's role/profile/scope/facts
-// choices and the existing registry; it never infers a profile, authorizes dispatch or settles QA.
+// choices and the existing registry; it never infers a profile or authorizes dispatch. settle only
+// assembles complete's input from the observation and the Lead's own judgment; complete still decides.
 // The reviewer spec from review is a draft with the only reviewer role/profile (knu_reviewer,
 // complex-critical) and review facts citing the Lead's --basis; the Lead reviews it before prepare.
 import { randomUUID } from 'node:crypto';
@@ -8,8 +9,10 @@ import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { validateCrossModelPacket } from '../common/index.mjs';
+import { prepareClaudeWorkflow } from './workflow-entry.mjs';
 import {
   registerClaudeNativeTask,
+  completeClaudeNativeTask,
   nativeRequestIssues,
   observeClaudeNativeTask,
   currentClaudeNativeSnapshot,
@@ -480,4 +483,76 @@ export function buildClaudeNativeReview(
       : {}),
   };
   return { ...status, packet, resultTemplate: template, reviewerPrompt: prompt, reviewerSpec };
+}
+
+const JUDGMENT_FIELDS = [
+  'responseDigest',
+  'acceptance',
+  'checks',
+  'findings',
+  'gaps',
+  'reviewerTaskId',
+];
+// complete's input from the settled observation plus the Lead's judgment. The Lead states the digest
+// of the response it judged and each acceptance result; lane ids, snapshot, observed changed paths
+// and a reviewer's delivered result come from the records, so none of them is retyped by hand.
+export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() } = {}) {
+  root = realpathSync(root);
+  const issues = [];
+  if (!judgment || typeof judgment !== 'object' || Array.isArray(judgment))
+    fail('invalid settle judgment', ['object required']);
+  for (const key of Object.keys(judgment))
+    if (!JUDGMENT_FIELDS.includes(key)) issues.push(`unknown-field:${key}`);
+  if (typeof judgment.responseDigest !== 'string' || !judgment.responseDigest)
+    issues.push('response-digest-required');
+  if (!Array.isArray(judgment.acceptance)) issues.push('acceptance-array-required');
+  if (!textList(judgment.checks) || !judgment.checks.length) issues.push('checks-required');
+  for (const key of ['findings', 'gaps'])
+    if (judgment[key] !== undefined && !Array.isArray(judgment[key]))
+      issues.push(`${key}-array-required`);
+  fail('invalid settle judgment', issues);
+  const state = observeClaudeNativeTask(taskId, { root });
+  if (state.errors.includes('no-completion-observation'))
+    throw new TypeError(
+      `cannot settle yet (${state.errors.join(',')}): wait for the completed task-notification, then settle`,
+    );
+  const { record, observation } = state;
+  const reviewer = record.input.nativeRequest.task.role === 'knu_reviewer';
+  if (reviewer && !record.independentReview)
+    throw new TypeError(
+      'parent-adjudication: this reviewer has no native subject; the Parent judges its completion.json',
+    );
+  const lane = prepareClaudeWorkflow({
+    ...record.input,
+    currentSnapshot: observation.finalSnapshot,
+  }).lanes[0];
+  const submitted = {
+    results: [
+      {
+        resultId: `result-${record.taskId.slice(0, 8)}`,
+        dispatchId: lane.dispatchId,
+        laneId: lane.id,
+        owner: lane.owner,
+        hostId: 'claude-code',
+        adapterIdentity: record.input.adapterIdentity,
+        sourceSnapshot: observation.finalSnapshot,
+        status: 'complete',
+        checks: judgment.checks,
+        findings: judgment.findings ?? [],
+        gaps: judgment.gaps ?? [],
+        changedPaths: state.changedPaths,
+      },
+    ],
+    responseDigest: judgment.responseDigest,
+    acceptance: judgment.acceptance,
+    ...(judgment.reviewerTaskId === undefined ? {} : { reviewerTaskId: judgment.reviewerTaskId }),
+  };
+  if (record.independentReview) {
+    try {
+      submitted.reviewResult = JSON.parse(observation.response.content[0].text);
+    } catch {
+      /* complete reports the missing delivered JSON result. */
+    }
+  }
+  return { ...completeClaudeNativeTask(taskId, submitted, { root }), submitted };
 }
