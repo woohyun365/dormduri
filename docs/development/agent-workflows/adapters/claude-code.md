@@ -282,7 +282,9 @@ Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troublesho
 재시도·Owner 직접 실행 경로를 따릅니다.
 
 채택·철회 원칙은 [Routine adoption](../orchestration.md#routine-adoption)을 따릅니다. 역할 파일이나 `.claude/settings.json`을 바꾸면
-[Configuration changes](../agent-execution-contract.md#configuration-changes)에 따라 새 세션의 native 관측(역할·`resolvedModel`)으로 확인한 뒤 위임합니다.
+[Configuration changes](../agent-execution-contract.md#configuration-changes)에 따라 새 세션에서 바뀐 항목을 관측한 뒤 위임합니다.
+역할·도구는 세션이 보고하는 agent 목록, 모델은 native 기록의 `resolvedModel`, hook은 새 세션의 hook 기록으로 확인합니다. 권한 규칙처럼
+이 기록에 나타나지 않는 변경은 실제 허용·거절을 관측하기 전까지 적용됐다고 보지 않습니다.
 
 Routine 위임 대상은 live 관측(CLI 2.1.283~2.1.284, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
 동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
