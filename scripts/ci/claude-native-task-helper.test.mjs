@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { fixture } from './fixtures/claude-native-qualification-fixture.mjs';
+import { fixture } from './fixtures/claude-native-session-fixture.mjs';
 import {
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,

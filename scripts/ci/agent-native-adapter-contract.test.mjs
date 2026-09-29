@@ -195,8 +195,9 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     assert.ok(entry.includes(`pnpm ${command}`));
   }
   for (const boundary of [
-    'dispatchAuthorized:false',
-    'runtimeQualified:false',
+    '`claude:workflow --native`는 완전한 task 입력 없이 상태만 진단하는 명령이므로 실행하지 않습니다',
+    '`dispatchAuthorized:false`는 host 권한을 발급하지 않는다는 뜻이며',
+    '`runtimeQualified:false`도 해당 실행의 전체 검증을 대신하지 않습니다',
     '.plans/finished/',
     '.plans/cancelled/',
     'Native Plan Mode',
@@ -208,7 +209,13 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '일반 auto의\ngate로 사용하지 않습니다',
     '문서화된 ask 동작과 다르므로',
     '완료 판정 거부입니다',
-    'common result는 `partial`',
+    'semantic PASS로 자동 승격하지 않습니다',
+    'boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다',
+    '`resolvedModel`은 시작 또는 background 전환 시점 모델이고',
+    '`modelsUsed`는 변경 관측입니다',
+    'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
+    '같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다',
+    '임의 JSON receipt를 actual host observation으로 취급하지 않습니다',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
