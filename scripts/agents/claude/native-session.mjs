@@ -108,6 +108,16 @@ function inventory(root, readScope = []) {
 const delta = (a, b) =>
   [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((p) => a[p] !== b[p]).sort();
 const covered = (path, scope) => scope.some((p) => path === p || path.startsWith(p + '/'));
+// Between registration and settlement a Parent edit and a child edit look the same. Only changes
+// inside the child's write scope count as the child's; any other change is unattributable.
+function attributeChanges(paths, writeScope) {
+  return {
+    changedPaths: paths.filter((p) => covered(p, writeScope)),
+    unattributable: paths
+      .filter((p) => !covered(p, writeScope))
+      .map((p) => `unattributable-change:${p}`),
+  };
+}
 function markInvalid(dir, reason) {
   try {
     writeFileSync(join(dir, 'observation-error.json'), JSON.stringify({ reason }), {
@@ -159,6 +169,62 @@ function localIdentity(root, role) {
     configDigest: hash({ role: hash(readFileSync(rolePath)), config }),
   };
 }
+// A review built by the task helper binds its result template, including the runner records, into
+// the registered prompt on the line starting with this prefix.
+export const REVIEW_RESULT_TEMPLATE_PREFIX = 'Result template: ';
+function boundRunnerRecords(prompt) {
+  const line = prompt.split('\n').find((l) => l.startsWith(REVIEW_RESULT_TEMPLATE_PREFIX));
+  if (line === undefined) return undefined;
+  try {
+    return JSON.parse(line.slice(REVIEW_RESULT_TEMPLATE_PREFIX.length)).commandsActuallyRun ?? null;
+  } catch {
+    return null;
+  }
+}
+// model-policy owns the decision and reports malformed input only as `invalid-input`. These checks
+// mirror its input rules so a refusal names the field; they never admit what the policy refuses.
+const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+const safeRef = (value) =>
+  typeof value === 'string' &&
+  SAFE_REF.test(value) &&
+  !value.includes('//') &&
+  value.split('/').every((segment) => segment !== '.' && segment !== '..');
+const safePath = (value) =>
+  typeof value === 'string' &&
+  !value.startsWith('/') &&
+  !value.endsWith('/') &&
+  value.split('/').every((segment) => /^(?!\.{1,2}$)[a-zA-Z0-9._-]+$/u.test(segment));
+export function nativeRequestIssues(nativeRequest) {
+  const issues = [];
+  const { issuedAt, expiresAt, selectionBasisRef, task } = nativeRequest ?? {};
+  const start = ISO_UTC.test(issuedAt ?? '') ? Date.parse(issuedAt) : NaN;
+  const end = ISO_UTC.test(expiresAt ?? '') ? Date.parse(expiresAt) : NaN;
+  if (!(start < end)) issues.push('invalid-binding-interval');
+  else if (end - start > 30 * 60 * 1000) issues.push('binding-lifetime-exceeds-30m');
+  if (!safeRef(selectionBasisRef)) issues.push('unsafe-reference:nativeRequest.selectionBasisRef');
+  const keys = new Set();
+  for (const [index, fact] of (Array.isArray(task?.facts) ? task.facts : []).entries()) {
+    if (!safeRef(fact?.sourceRef))
+      issues.push(`unsafe-reference:nativeRequest.task.facts[${index}].sourceRef`);
+    if (fact?.confidence !== 'high') issues.push(`fact-confidence-not-high:${fact?.key}`);
+    if (keys.has(fact?.key)) issues.push(`duplicate-fact:${fact?.key}`);
+    keys.add(fact?.key);
+  }
+  for (const field of ['readScope', 'writeScope'])
+    for (const path of Array.isArray(task?.[field]) ? task[field] : [])
+      if (!safePath(path)) issues.push(`unsafe-path:nativeRequest.task.${field}:${path}`);
+  return issues;
+}
+function notReadyReasons(workflow, nativeRequest) {
+  const profile = workflow.native.profileAssessment?.reasons ?? [];
+  const issues = profile.includes('invalid-input') ? nativeRequestIssues(nativeRequest) : [];
+  return [
+    workflow.gaps.join(','),
+    ...(profile.length ? [`profile: ${profile.join(',')}`] : []),
+    ...(issues.length ? [`input: ${issues.join(',')}`] : []),
+  ].join('; ');
+}
 function baseline(root) {
   const p = runClaudePreflight({ root, mode: 'fresh' });
   check(p.diagnostics.length === 0, `unobservable source: ${p.diagnostics.join(',')}`);
@@ -207,7 +273,7 @@ export function registerClaudeNativeTask({
     binding = workflow.native.binding;
   check(
     workflow.native.requestStatus === 'eligible' && workflow.gaps.length === 0,
-    `workflow not ready: ${workflow.gaps.join(',')}`,
+    `workflow not ready: ${notReadyReasons(workflow, input.nativeRequest)}`,
   );
   check(
     Date.now() >= Date.parse(binding.issuedAt) && Date.now() <= Date.parse(binding.expiresAt),
@@ -414,11 +480,13 @@ function currentObservation(task) {
   if (observation.responseDigest !== hash(observation.response ?? null))
     errors.push('response-digest-mismatch');
   const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
-  const actualPaths = delta(record.initialFiles, finalFiles);
+  const { changedPaths: actualPaths, unattributable } = attributeChanges(
+    delta(record.initialFiles, finalFiles),
+    record.input.directAssignment.writeOwnership,
+  );
   if (!isDeepStrictEqual(finalFiles, observation.finalFiles))
     errors.push('post-completion-file-drift');
-  if (actualPaths.some((p) => !covered(p, record.input.directAssignment.writeOwnership)))
-    errors.push('outside-write-ownership');
+  errors.push(...unattributable);
   if (!observation.valid) errors.push('native-observation-required');
   if (
     !isDeepStrictEqual(
@@ -456,9 +524,11 @@ function saveCompletion(task, attempt, r, completionSource) {
     errors.push('role-mismatch');
   if (r?.prompt !== undefined && r.prompt !== invocation.prompt) errors.push('prompt-mismatch');
   const finalFiles = inventory(root, record.input.nativeRequest.task.readScope);
-  const changedPaths = delta(record.initialFiles, finalFiles);
-  if (changedPaths.some((p) => !covered(p, record.input.directAssignment.writeOwnership)))
-    errors.push('outside-write-ownership');
+  const { changedPaths, unattributable } = attributeChanges(
+    delta(record.initialFiles, finalFiles),
+    record.input.directAssignment.writeOwnership,
+  );
+  errors.push(...unattributable);
   const observation = {
     completionSource,
     valid: errors.length === 0,
@@ -549,6 +619,17 @@ function settleStoppedTask(task) {
     { flag: 'wx', mode: 0o600 },
   );
   releaseWriter(record.root, record.taskId);
+}
+// Report missing completion, not a fabricated success, and name why the recorded Stop did not settle.
+function settleIfStopped(task) {
+  if (!existsSync(join(task.dir, 'stop.json')) || existsSync(join(task.dir, 'completion.json')))
+    return [];
+  try {
+    settleStoppedTask(task);
+    return [];
+  } catch (error) {
+    return [`stopped-task-settlement-failed: ${error.message}`];
+  }
 }
 function stopped(event, root) {
   check(
@@ -730,9 +811,10 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
         'missing async child identity',
       );
       check(
-        r.resolvedModel === record.expectedResolvedModel && r.prompt === task.invocation.prompt,
-        'async launch mismatch',
+        r.resolvedModel === record.expectedResolvedModel,
+        `async launch model mismatch: expected ${record.expectedResolvedModel}, observed ${r.resolvedModel}`,
       );
+      check(r.prompt === task.invocation.prompt, 'async launch prompt mismatch');
       writeFileSync(
         join(dir, 'launch.json'),
         JSON.stringify({ response: r, sessionId: record.sessionId, toolUseId: attempt.toolUseId }),
@@ -857,16 +939,10 @@ export function completeClaudeNativeTask(
   root = realpathSync(root);
   const task = loadTask(root, id),
     { dir, record, invocation } = task;
-  if (existsSync(join(dir, 'stop.json')) && !existsSync(join(dir, 'completion.json'))) {
-    try {
-      settleStoppedTask(task);
-    } catch {
-      /* Report missing completion, not a fabricated success. */
-    }
-  }
+  const settlement = settleIfStopped(task);
   const currentState = currentObservation(task);
   const observation = currentState.observation;
-  const errors = [...currentState.errors];
+  const errors = [...currentState.errors, ...settlement];
   const actualPaths = currentState.actualPaths;
   const reported = [...new Set(results.flatMap((r) => r.changedPaths ?? []))].sort();
   if (!isDeepStrictEqual(actualPaths, reported)) errors.push('reported-change-path-mismatch');
@@ -933,6 +1009,12 @@ export function completeClaudeNativeTask(
       errors.push(...qa.errors);
       if (delivered.status !== 'complete' || !['PASS', 'FAIL'].includes(delivered.verdict))
         errors.push('review result must be terminal complete PASS or FAIL');
+      const runnerRecords = boundRunnerRecords(invocation.prompt);
+      if (
+        runnerRecords !== undefined &&
+        !isDeepStrictEqual(delivered.commandsActuallyRun, runnerRecords)
+      )
+        errors.push('review commandsActuallyRun differs from the bound runner records');
       for (const criterion of record.independentReview.subjectAcceptance) {
         if (
           !delivered.acceptanceCoverage?.some(
@@ -1133,6 +1215,28 @@ export function completeClaudeNativeTask(
   };
 }
 
+// Observation view for the task helper. Like complete, it first settles a recorded Stop (writing
+// completion.json and releasing that task's writer lease), but it accepts no result and writes no receipt.
+export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
+  root = realpathSync(root);
+  const task = loadTask(root, id);
+  const settlement = settleIfStopped(task);
+  const state = currentObservation(task);
+  return {
+    record: task.record,
+    observation: state.observation,
+    changedPaths: state.actualPaths,
+    errors: [...state.errors, ...settlement],
+  };
+}
+export function currentClaudeNativeSnapshot(root = process.cwd()) {
+  return baseline(realpathSync(root));
+}
+export function claudeNativeSnapshotDigest(snapshot) {
+  const { baseSHA, headSHA, dirtyDiffDigest, untrackedInputDigests } = snapshot;
+  return hash({ baseSHA, headSHA, dirtyDiffDigest, untrackedInputDigests });
+}
+
 export function releaseClaudeNativeTask(id, { root = process.cwd(), ended = false } = {}) {
   check(ended === true, 'verify actual native task ended before release');
   root = realpathSync(root);
@@ -1142,7 +1246,52 @@ export function releaseClaudeNativeTask(id, { root = process.cwd(), ended = fals
   return { taskId: id, released: true, completed: false };
 }
 
-function main(args) {
+const REVIEW_OPTIONS = {
+  '--subject': 'subjectTaskId',
+  '--parent-subject': 'parentSubject',
+  '--runner-evidence': 'runnerEvidence',
+  '--basis': 'selectionBasisRef',
+  '--reviewer-model': 'reviewerModel',
+  '--session': 'sessionId',
+};
+async function helperCommand(action, args) {
+  // Loaded on demand: the helper consumes this module, and hooks never need it.
+  const helper = await import('./native-task-helper.mjs');
+  if (action === 'prepare') {
+    check(args.length === 2 && args[0] === '--spec', 'expected prepare --spec FILE');
+    return helper.prepareClaudeNativeTask(jsonFile(resolve(args[1])));
+  }
+  if (action === 'settle') {
+    check(
+      args[0] === '--task' &&
+        (args.length === 2 || (args.length === 4 && args[2] === '--judgment')),
+      'expected settle --task ID [--judgment FILE]',
+    );
+    return helper.settleClaudeNativeTask(
+      args[1],
+      args.length === 4 ? jsonFile(resolve(args[3])) : undefined,
+    );
+  }
+  const options = {};
+  for (let i = 0; i < args.length; i += 2) {
+    const key = REVIEW_OPTIONS[args[i]];
+    check(
+      key && args[i + 1] && !Object.hasOwn(options, key),
+      'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID [--session ID]]',
+    );
+    options[key] = ['parentSubject', 'runnerEvidence'].includes(key)
+      ? jsonFile(resolve(args[i + 1]))
+      : args[i + 1];
+  }
+  return helper.buildClaudeNativeReview(options);
+}
+async function main(args) {
+  if (['prepare', 'review', 'settle'].includes(args[0])) {
+    const result = await helperCommand(args[0], args.slice(1));
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    if (result.valid === false) process.exitCode = 1;
+    return;
+  }
   if (args[0] === '--hook' && args.length === 1) {
     let event;
     try {
@@ -1192,10 +1341,8 @@ function main(args) {
   if (result.valid === false) process.exitCode = 1;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main(process.argv.slice(2).filter((a, i) => !(i === 0 && a === '--')));
-  } catch (error) {
+  main(process.argv.slice(2).filter((a, i) => !(i === 0 && a === '--'))).catch((error) => {
     process.stderr.write(error.message + '\n');
     process.exitCode = 1;
-  }
+  });
 }

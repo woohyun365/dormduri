@@ -67,6 +67,12 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    읽고, 제공하면 현재 source와 대조합니다. 임의 모델·역할 pin 대신 기존 model-policy를 재사용합니다. 독립 reviewer는
    아래의 `independentReview`를 추가하며 일반 task의 QA disposition을 임의로 끄지 않습니다. 등록이 거부되면
    [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 확인합니다.
+   일상 경로는 `pnpm claude:native prepare --spec <JSON file>`입니다. Spec에는 `sessionId`·`request`와 Lead가 고른 `role`·
+   `profileId`·`selectionBasisRef`(필수)·`expectedResolvedModel`·task 분류(`kind`·`impactRisk`·`complexity`·`uncertainty`·
+   `childValue`)·`owner`·read/write 범위·`acceptance`·`reviewDisposition`·`facts`(각 `confidence` 포함)·`prompt`만 둡니다.
+   선택 필드는 `lifetimeMinutes`·`independentReview`뿐이며 다른 필드는 `unknown-field`로 거부합니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
+   호출하고 거부 사유를 policy 사유와 입력 필드까지 그대로 보여 줍니다. Profile을 추론하거나 dispatch를 승인하지 않으며
+   출력은 `dispatchAuthorized:false`입니다.
 4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
    prompt 변경·다른 session·만료·재사용·source drift는 정상 PreToolUse가 거부합니다. 이 등록은 업무/host 승인이나
    악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `.artifacts/tools/claude-native/`가 소유합니다.
@@ -84,13 +90,32 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
    관측한 `responseDigest`, `acceptance` 배열의 criterion/passed/evidenceRef, 그리고 독립 QA가 필요한 builder의
    `reviewerTaskId` 또는 reviewer task 자신의 `reviewResult`입니다. 별도 `review` 객체로 대체하지 않습니다.
+   일상 경로는 완료 알림 뒤 `pnpm claude:native settle --task <taskId>`로 관측을 정산해 판단할 응답·`responseDigest`·
+   변경 경로를 보고, `settle --task <taskId> --judgment <JSON file>`로 판정하는 두 단계입니다. Judgment에는 Lead가 판단한
+   응답의 `responseDigest`, `acceptance`, `checks`(필요하면 `findings`·`gaps`·`reviewerTaskId`)만 둡니다. Helper는 lane ID·
+   finalSnapshot·관측된 변경 경로와 reviewer가 전달한 결과를 기록에서 채워 같은 complete를 호출합니다. 완료 관측이 없으면
+   정산하지 않고, native subject가 없는 reviewer는 `parent-adjudication`으로 거부합니다.
    Result의 snapshot은 completion.json의 finalSnapshot을 사용합니다. 같은 응답에 대한 acceptance와 독립 QA를
    실제로 수행해야 하며 boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다. Parent는 finding과 변경 범위를
    독립 확인합니다. 오류·거부·취소·collector 누락이면 완료를 보고하지 않고 원인과 다음 행동을 남깁니다.
    `no-completion-observation`은 [완료 관측 누락](../../troubleshooting/tooling/claude-native-completion-observation-missing.md)의 task 기록 기준으로
-   원인을 구분합니다.
+   원인을 구분합니다. Stop이 기록됐는데 정산되지 않으면 `stopped-task-settlement-failed: <사유>`가 함께 나옵니다.
+8. 등록부터 정산까지 Parent는 tracked·비ignored 경로를 수정하지 않습니다. Collector는 등록·정산 시점 파일 목록의 차이 중
+   child write 범위 안의 변경만 child 변경으로 기록하고, 범위 밖 변경은 누가 바꿨는지 알 수 없으므로
+   `unattributable-change:<path>`로 거부합니다. Write 범위 안의 Parent 수정은 구분할 수 없어 이 운영 규칙으로만 막습니다
+   ([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)). 완료 알림이 오면 편집 전에 먼저
+   정산합니다. `--resume`한 세션의 완료 알림은 행 `sessionId`가 등록 세션이면 새 process `session_id`와 관계없이 대조합니다.
 
 ### Same-host independent review
+
+Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <taskId>`만 주면 관측이 정산된 subject의 이번 회차
+`snapshotDigest`와 `logHeader`를 출력하고, 완료 관측이 없으면 거부합니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고
+각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. `--runner-evidence`·
+`--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
+`sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. Packet과 prompt에는 builder 응답·추론이 없고, template의
+`commandsActuallyRun`은 runner 기록에서만 채우고, 정산 때 reviewer 결과가 prompt에 결속된 그 기록과 같아야 합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
+review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
+알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 
 Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방향을 사용합니다. 등록 입력의 선택적
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
@@ -136,7 +161,10 @@ proof가 정상 경로에서도 어긋날 수 있으므로 이 경로에 proof�
 [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 따릅니다. 이는 [QA](../qa.md)의 Parent adjudication보다 엄격한 adapter 규칙입니다. Parent가 finding을
 false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 이 연결은 coordination과 completion evidence이며
 host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff처럼 native subject task가 없는 검토에는 이 terminal 규칙이
-적용되지 않습니다.
+적용되지 않습니다. 이때 `review --parent-subject <file>`은 `settlement:"parent-adjudication"`과 QA가 필요한 일반 review task spec을
+만듭니다. 그 reviewer는 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `completion.json` 관측(valid·모델·변경 경로)과
+finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지 확인합니다. Review prompt 첫 줄의 회차 digest가
+현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
 
 Native writer는 repository당 하나의 active lease로 직렬화합니다. 확인된 완료/관측된 tool failure는 해당 task의
 lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합니다. 세션 종료·취소·권한 거부로 Post 이벤트가 없으면 실제 child 종료를 먼저 확인한 뒤
