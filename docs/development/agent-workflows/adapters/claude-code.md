@@ -283,11 +283,13 @@ Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troublesho
 
 채택·철회 원칙은 [Routine adoption](../orchestration.md#routine-adoption)을 따릅니다. 역할 파일이나 `.claude/settings.json`을 바꾸면
 [Configuration changes](../agent-execution-contract.md#configuration-changes)에 따라 새 세션에서 바뀐 항목을 관측한 뒤 위임합니다.
-역할·도구는 세션이 보고하는 agent 목록, 모델은 native 기록의 `resolvedModel`, hook은 새 세션의 hook 기록으로 확인합니다. 권한 규칙처럼
-이 기록에 나타나지 않는 변경은 실제 허용·거절을 관측하기 전까지 적용됐다고 보지 않습니다.
+역할·도구는 새 세션이 보고하는 agent 목록, hook은 새 세션의 hook 기록으로 위임 전에 확인합니다. 모델은 첫 위임에서
+`expectedResolvedModel`과 native 기록의 `resolvedModel`을 대조해 확인하며, 다르면 그 결과를 쓰지 않습니다. 권한 규칙처럼 이
+기록에 나타나지 않는 변경은 실제 허용·거절을 관측하기 전까지 적용됐다고 보지 않습니다.
 
 Routine 위임 대상은 live 관측(CLI 2.1.283~2.1.284, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
 동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
+Live 증거는 필요조건일 뿐이며, Q 행을 routine으로 바꾸는 것은 이 표를 갱신하는 별도 채택 결정입니다.
 
 Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 시점에 정합니다. 같은 family의 Parent면 Parent의 exact 모델로
 해석되므로 Parent 모델과 CLI 버전에 따라 달라질 수 있습니다([Model 설정](https://code.claude.com/docs/en/model-config)).
@@ -332,8 +334,8 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 생기기 전에는 쓰지 않습니다. Parent 모델·effort는 Owner가 session control에서 직접 바꾸며, 이 문서나 설정 파일 값만으로
 현재 Parent 설정을 주장하지 않습니다. Host는 이 규칙을 강제하지 않습니다(advisory).
 
-- 보안·권한·범위 위반, 허위 완료 주장, 같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다. 해당 작업의 무인
-  계속을 멈추고 원인을 먼저 구분합니다.
+- 공통 조건에 더해 같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다. 해당 작업의 무인 계속을 멈추고 원인을
+  먼저 구분합니다.
 - Source·환경·권한·테스트 공백부터 바로잡습니다. Parent의 framing·통합 추론 부족이 의심되거나 같은 누락이 재발하면 Parent
   xhigh 재검토를 권고합니다. 격리 가능한 기술 문제만이면 bounded child를 씁니다.
 - 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 필수 독립 검증 부재를 모델·effort로 우회하지 않습니다.
