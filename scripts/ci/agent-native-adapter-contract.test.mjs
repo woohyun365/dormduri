@@ -209,6 +209,10 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '문서화된 ask 동작과 다르므로',
     '완료 판정 거부입니다',
     'common result는 `partial`',
+    '`modelsUsed`는 변경 관측입니다',
+    'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
+    'record를 합치지 않습니다',
+    '임의 JSON receipt를 actual host observation으로 취급하지 않습니다',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
