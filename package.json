@@ -23,7 +23,7 @@
     "web:test": "pnpm --dir apps/web test",
     "web:test:coverage": "pnpm --dir apps/web test:coverage",
     "web:build": "pnpm --dir apps/web build",
-    "check:fast": "pnpm lint-staged",
+    "check:fast": "pnpm lint-staged && node scripts/git/workspace-layout-check.mjs",
     "typecheck": "pnpm shared:build && pnpm api:prisma:generate && pnpm shared:typecheck && pnpm shared:typecheck:test && pnpm api:typecheck:prepared && pnpm web:typecheck:prepared",
     "dev": "pnpm shared:build && pnpm -r --parallel --filter './apps/**' dev",
     "build": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:build:prepared && pnpm web:build:prepared",

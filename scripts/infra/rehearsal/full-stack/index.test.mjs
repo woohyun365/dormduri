@@ -91,7 +91,7 @@ test('rehearsal documentation separates local evidence from release evidence', (
   const runbook = readRepoFile('infra/runbooks/rehearsal/full-stack.md');
 
   assert.match(readme, /pnpm infra:rehearsal:full-stack/u);
-  assert.match(readme, /artifacts\/local\/infra\/full-stack-rehearsal/u);
+  assert.match(readme, /\.artifacts\/tools\/infra\/full-stack-rehearsal/u);
   assert.match(runbook, /실제[\s\S]*release evidence를 대체하지 않는다/u);
   assert.match(runbook, /FULL_STACK_REHEARSAL_DB_MODE=external/u);
 });

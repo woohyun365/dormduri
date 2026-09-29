@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { resolve, relative, isAbsolute } from 'node:path';
-import { resolveArtifactPath } from '../../artifacts/paths.mjs';
+import { DEFAULT_ARTIFACTS_DIRECTORY, resolveArtifactPath } from '../../artifacts/paths.mjs';
 import {
   assertCurrentModelProfileBinding,
   assertCurrentRecoveryBinding,
@@ -272,7 +272,7 @@ export function resolveModelRunEvidencePath(repoRoot, date, runId, environment =
   const configured = environment.KNU_ARTIFACTS_DIR;
   if (configured !== undefined)
     require(typeof configured === 'string' && !configured.split(/[\\/]/).includes('..'));
-  const root = resolve(repoRoot, 'artifacts/local');
+  const root = resolve(repoRoot, DEFAULT_ARTIFACTS_DIRECTORY);
   const path = resolveArtifactPath(
     repoRoot,
     ['agent-thread-lifecycle', date, 'model-activation', runId, 'attempts.json'],

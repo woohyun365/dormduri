@@ -62,7 +62,7 @@ pnpm --dir apps/api stress:local:auth-password
 5. 실제 login/signup/reset/change endpoint mix 실행
 6. health/readiness/metrics, Docker stats, PostgreSQL 상태 수집
 7. fixture와 raw artifact 정리 및 compose 종료
-8. `artifacts/local/stress/api-auth-password-capacity-result-*.md` 작성
+8. `.artifacts/tools/stress/api-auth-password-capacity-result-*.md` 작성
 
 ## 4. Profile 실행
 

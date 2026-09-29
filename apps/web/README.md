@@ -71,8 +71,8 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 
 ## Boundary notes
 
-- Figma에서 받은 TS/TSX 참조 소스는 app root가 아닌 `references/figma/web/`에 둡니다.
-- `references/figma/web/src/`는 generated reference source로 취급해 git 추적과 Web lint/type 대상에서 제외합니다.
+- Figma에서 받은 TS/TSX 참조 소스는 app root가 아닌 `.artifacts/references/<source>/`에 둡니다.
+- 이 참조 소스는 generated reference로 취급해 Git 추적과 Web lint/type 대상에서 제외합니다([Artifact 보존 규칙](../../.artifacts/README.md)).
 - Monorepo CI의 Web validation은 DB service 없이 실행되므로 API 통합 검증은 별도 API validation이 담당합니다.
 - Web Playwright smoke도 기본은 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다.
 - 로그인 사용자 `/main` journey는 `playwright.fullstack.config.ts`가 API 서버와 DB seed를 함께 띄워 별도 full-stack lane에서 검증합니다. 이 lane은 Docker/API 의존성이 있어 상시 PR gate보다는 manual/scheduled 또는 final-readiness 후보입니다.

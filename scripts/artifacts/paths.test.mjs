@@ -10,12 +10,12 @@ import {
 
 const repoRoot = '/workspace/knu-roommate';
 
-test('repository tools default to an understandable local artifact directory', () => {
-  assert.equal(DEFAULT_ARTIFACTS_DIRECTORY, 'artifacts/local');
-  assert.equal(resolveArtifactsDirectory(repoRoot, {}), resolve(repoRoot, 'artifacts/local'));
+test('repository tools default to the tool output area of the local artifact directory', () => {
+  assert.equal(DEFAULT_ARTIFACTS_DIRECTORY, '.artifacts/tools');
+  assert.equal(resolveArtifactsDirectory(repoRoot, {}), resolve(repoRoot, '.artifacts/tools'));
   assert.equal(
     resolveArtifactPath(repoRoot, ['infra', 'runtime-configs.json'], {}),
-    resolve(repoRoot, 'artifacts/local/infra/runtime-configs.json'),
+    resolve(repoRoot, '.artifacts/tools/infra/runtime-configs.json'),
   );
 });
 

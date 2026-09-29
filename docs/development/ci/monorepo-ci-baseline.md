@@ -97,7 +97,7 @@ current dependency epoch does not rotate for the timeout correction because depe
 cache inputs, and the successful command graph remain unchanged. Diagnosis and recovery are owned by
 [Repository policy pnpm setup timeout](../troubleshooting/ci/repository-policy-pnpm-setup-timeout.md).
 
-Generated local evidence is reproducible under `artifacts/local/ci-performance/` and is not tracked source:
+Generated local evidence is reproducible under `.artifacts/tools/ci-performance/` and is not tracked source:
 
 - `transition-nginx-pr378.json`
 - `active-epoch-observability-pr379.json`
@@ -125,7 +125,7 @@ Collect additional runs without storing raw logs:
 pnpm ci:performance:collect -- \
   --repo=woohyun365/knu_roommate \
   --run-id=<run-id> \
-  --output=artifacts/local/ci-performance/<dataset>.json
+  --output=.artifacts/tools/ci-performance/<dataset>.json
 ```
 
 The collector accepts completed runs and records run/job/stage timing, queue, raw compute, per-job rounded minutes, runner labels,
@@ -138,12 +138,12 @@ no-op PRs are not created only to increase sample count.
 ```bash
 pnpm ci:performance:resources -- \
   --repo=woohyun365/knu_roommate \
-  --output=artifacts/local/ci-performance/resources-<date>.json
+  --output=.artifacts/tools/ci-performance/resources-<date>.json
 
 pnpm ci:performance:report -- \
-  --input=artifacts/local/ci-performance/<dataset>.json \
-  --resource-inventory=artifacts/local/ci-performance/resources-<date>.json \
-  --output=artifacts/local/ci-performance/cohort-report.json
+  --input=.artifacts/tools/ci-performance/<dataset>.json \
+  --resource-inventory=.artifacts/tools/ci-performance/resources-<date>.json \
+  --output=.artifacts/tools/ci-performance/cohort-report.json
 ```
 
 Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본, active epoch input을 변경한 run, run head SHA와
@@ -183,7 +183,7 @@ Native environment/sharding 개선 전 provisional stage denominator:
 | Web production build  |            5 |   8s |  11s |              9s |
 | API production build  |            5 |  15s |  16s |             15s |
 
-Generated local evidence belongs under `artifacts/local/ci-performance/`. Full PR operations report zero retry, failed job,
+Generated local evidence belongs under `.artifacts/tools/ci-performance/`. Full PR operations report zero retry, failed job,
 cancelled job, and wasted compute across the comparable dataset.
 
 ### Accepted Web-only environment partition evidence
@@ -207,8 +207,8 @@ work is still needed to reach the broader 300~360s narrow-PR target.
 
 Generated local evidence:
 
-- `artifacts/local/ci-performance/web-environment-partition-pr370.json`
-- `artifacts/local/ci-performance/web-environment-partition-pr370-rerun.json`
+- `.artifacts/tools/ci-performance/web-environment-partition-pr370.json`
+- `.artifacts/tools/ci-performance/web-environment-partition-pr370-rerun.json`
 
 PR `32939047806`의 변경은 현재 classifier 기준 Infra+repository-policy였지만 당시 workflow는 Shared/API/Web까지
 실행했습니다. `observedSurface=full`, `expectedSurface=infra-only`, `selectionMatchesObservedJobs=false`로 기록되어 변경 분류

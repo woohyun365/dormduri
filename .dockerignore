@@ -2,11 +2,12 @@
 .github
 .husky
 .omx
-artifacts
+.artifacts
 .codex
 .claude
 omx_wiki
-local-docs
+.local-docs
+.plans
 node_modules
 **/node_modules
 **/.turbo

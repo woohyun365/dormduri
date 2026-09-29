@@ -107,7 +107,7 @@ Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Requir
 | correctness         | PR #354의 Shared·API·Web·Infra·repository policy·CI summary 통과                 |
 | reconciliation      | merge 후 사용한 approval과 branch가 제거되고 Dashboard가 남은 후보를 다시 계산함 |
 
-원본 hosted job log는 Git으로 추적하지 않는 `artifacts/local/dependency-automation/`에 둔다. 재현 가능한 account-free
+원본 hosted job log는 Git으로 추적하지 않는 `.artifacts/tools/dependency-automation/`에 둔다. 재현 가능한 account-free
 lookup과 canonical lockfile rehearsal은 `pnpm dependency:renovate:dry-run`과 `scripts/dependencies/`가 소유한다.
 
 ## Provider-independent 검증

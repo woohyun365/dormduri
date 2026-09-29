@@ -214,7 +214,7 @@ pnpm github:account:evidence -- --repo=<owner/repository> --year=<yyyy> --month=
 unset KNU_GITHUB_PLAN_READ_TOKEN
 ```
 
-수집기는 billing child process에만 token을 전달하고 allowlist로 축약한 값을 `artifacts/local/github/`에 기록합니다.
+수집기는 billing child process에만 token을 전달하고 allowlist로 축약한 값을 `.artifacts/tools/github/`에 기록합니다.
 fine-grained token을 daily `gh auth login --with-token` credential이나 shell profile에 저장하지 않습니다. Repository
 administration은 GitHub UI가 기본 owner이며, API 자동화가 반복적으로 필요하다는 근거가 생길 때만 별도
 selected-repository credential을 설계합니다.

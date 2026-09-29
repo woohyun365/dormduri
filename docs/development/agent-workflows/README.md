@@ -41,7 +41,7 @@ Parent/평가자는 전체 자료를 읽되 pilot child에는 `{ request, ...inp
 ## Freshness
 
 - 현재 사용자 요청, working tree의 코드·계약·테스트, tracked policy·architecture를 과거 문서보다 우선합니다.
-- historical root 원문은 `local-docs/repo-root/`에 보존하지만 현재 판단 근거로 직접 사용하지 않습니다.
+- historical root 원문은 `.local-docs/repo-root/`에 보존하지만 현재 판단 근거로 직접 사용하지 않습니다.
 - workflow를 변경하면 현재 repository script와 CI 명령을 함께 확인합니다.
 - `.plans`의 local 계획 및 각 host의 checkpoint/memory는 tracked guide를 대체하지 않습니다.
 

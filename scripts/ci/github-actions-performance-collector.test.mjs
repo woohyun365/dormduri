@@ -204,18 +204,18 @@ test('accepts the pnpm argument separator without widening CLI inputs', () => {
       '--',
       '--repo=example/repository',
       '--run-id=1001',
-      '--output=artifacts/local/ci-performance/example.json',
+      '--output=.artifacts/tools/ci-performance/example.json',
     ]),
     {
-      output: 'artifacts/local/ci-performance/example.json',
+      output: '.artifacts/tools/ci-performance/example.json',
       repository: 'example/repository',
       runIds: [1001],
     },
   );
   assert.throws(() => parseArgs(['--repo=example/repository', '--run-id=0']), /positive integer/u);
   assert.match(
-    resolveCollectorOutputPath('artifacts/local/ci-performance/example.json'),
-    /artifacts\/local\/ci-performance\/example\.json$/u,
+    resolveCollectorOutputPath('.artifacts/tools/ci-performance/example.json'),
+    /\.artifacts\/tools\/ci-performance\/example\.json$/u,
   );
   assert.throws(() => resolveCollectorOutputPath('../outside.json'), /inside the repository/u);
 });

@@ -35,7 +35,7 @@
       "tests": ["node --test scripts/ci/cross-model-handoff-contract.test.mjs"],
       "knownFailures": [],
       "knownGaps": ["Live host identity is outside H3."],
-      "sanitizedLinks": ["artifacts/local/cross-model-handoff/test-output.txt"]
+      "sanitizedLinks": [".artifacts/tools/cross-model-handoff/test-output.txt"]
     },
     "boundaries": {
       "allowedReadPaths": [
@@ -45,7 +45,7 @@
       "doNotTouch": ["apps", "packages"],
       "permittedReadsAndTests": ["repository-read", "targeted-contract-test"],
       "forbiddenMutations": ["workspace-write", "provider-delegation", "credential-read"],
-      "permittedOutputPaths": ["artifacts/local/cross-model-handoff"],
+      "permittedOutputPaths": [".artifacts/tools/cross-model-handoff"],
       "allowedTools": ["repository-read", "test-result-read"],
       "disclosure": "sanitized-only"
     },
@@ -117,7 +117,7 @@
         "exit": 0,
         "observedResult": "Targeted static fixture suite passed.",
         "environment": "fixture-only; no provider invocation",
-        "outputPaths": ["artifacts/local/cross-model-handoff/test-output.txt"]
+        "outputPaths": [".artifacts/tools/cross-model-handoff/test-output.txt"]
       }
     ],
     "notRun": [],
@@ -302,7 +302,7 @@
         {
           "op": "set",
           "path": "commandsActuallyRun.0.outputPaths",
-          "value": ["artifacts/local/cross-model-handoff/../../../secrets.txt"]
+          "value": [".artifacts/tools/cross-model-handoff/../../../secrets.txt"]
         }
       ],
       "expectedDecision": "reject",
@@ -328,7 +328,7 @@
         {
           "op": "set",
           "path": "boundaries.permittedOutputPaths",
-          "value": ["artifacts/local/.."]
+          "value": [".artifacts/tools/.."]
         }
       ],
       "expectedDecision": "reject",

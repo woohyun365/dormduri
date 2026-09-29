@@ -272,11 +272,11 @@ discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않�
 ## Verification과 revisit trigger
 
 - `pnpm ci:performance:collect`는 run identity, changed paths, expected/observed lane, stage, cache, tests, artifact, retry/waste와
-  list-price gross estimate를 `artifacts/local/ci-performance/`에 저장한다.
+  list-price gross estimate를 `.artifacts/tools/ci-performance/`에 저장한다.
 - `pnpm ci:performance:resources`는 cache family와 artifact/Packages visibility를 별도 snapshot으로 수집한다.
 - `pnpm ci:performance:report`는 dependency fingerprint가 같은 자연 발생 PR만 cohort 통계로 집계한다.
 - `pnpm github:account:evidence`는 billing token을 daily gh와 분리하고 account usage·repository resource의 sanitized
-  snapshot만 `artifacts/local/github/`에 기록한다.
+  snapshot만 `.artifacts/tools/github/`에 기록한다.
 - Concurrent contributor, stale-base failure, p95 budget 초과, cache 80% 이상 churn, test inventory drift 또는 default-branch
   검증 공백이 관측되면 분류·ruleset·job graph를 재검토한다.
 - Repository 분리는 독립 release/data/ownership boundary가 실제로 생겼을 때, Turborepo/remote cache는 native 개선 후에도

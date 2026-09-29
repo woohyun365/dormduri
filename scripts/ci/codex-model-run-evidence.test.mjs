@@ -291,7 +291,7 @@ test('sanitized allowlist rejects raw text, credentials, unknown fields and path
   }
   assert.equal(
     resolveModelRunEvidencePath('/repo', '2026-09-24', 'run-1'),
-    '/repo/artifacts/local/agent-thread-lifecycle/2026-09-24/model-activation/run-1/attempts.json',
+    '/repo/.artifacts/tools/agent-thread-lifecycle/2026-09-24/model-activation/run-1/attempts.json',
   );
   for (const [date, run, environment] of [
     ['2026-09-24', '../escape', {}],
@@ -299,7 +299,7 @@ test('sanitized allowlist rejects raw text, credentials, unknown fields and path
     ['2026-09-31', 'run', {}],
     ['../escape', 'run', {}],
     ['2026-09-24', 'run', { KNU_ARTIFACTS_DIR: '/tmp' }],
-    ['2026-09-24', 'run', { KNU_ARTIFACTS_DIR: 'artifacts/local/../outside' }],
+    ['2026-09-24', 'run', { KNU_ARTIFACTS_DIR: '.artifacts/tools/../outside' }],
   ])
     assert.throws(() => resolveModelRunEvidencePath('/repo', date, run, environment));
 });

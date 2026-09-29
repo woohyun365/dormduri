@@ -13,4 +13,4 @@
 - [Agentic orchestration case study](./agentic-orchestration-case-study.md): evidence 기반 parent–subagent 설계의 문제·대안·구현·검증·한계
 - [Production deployment implementation inputs](./future-production-deployment-inputs.md)
 
-과거 Sprint·Phase 실행 기록, 개인 장비·절대 경로, 폐기된 구현의 원문은 `local-docs/`에 둡니다.
+과거 Sprint·Phase 실행 기록, 개인 장비·절대 경로, 폐기된 구현의 원문은 `.local-docs/`에 둡니다.

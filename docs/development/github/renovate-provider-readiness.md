@@ -96,7 +96,7 @@ Active provider path에서 다음을 독립적으로 확인했다.
 - Reconciliation: merge 후 approval과 branch 제거, Dashboard candidate 재계산
 - Ownership: duplicate npm Dependabot PR 종료; Actions·Docker·Compose owner는 유지
 
-Raw logs are local evidence under `artifacts/local/dependency-automation/`; tracked source에는 provider credential이나 raw
+Raw logs are local evidence under `.artifacts/tools/dependency-automation/`; tracked source에는 provider credential이나 raw
 configuration dump를 저장하지 않는다.
 
 ## Freshness preflight
@@ -107,7 +107,7 @@ Permission이나 repository scope를 변경하기 전 다음 read-only command�
 pnpm dependency:renovate:provider-preflight
 ```
 
-Preflight는 `artifacts/local/dependency-automation/renovate-provider-preflight.json`에 secret-free 결과를 기록하며 설치,
+Preflight는 `.artifacts/tools/dependency-automation/renovate-provider-preflight.json`에 secret-free 결과를 기록하며 설치,
 Suspend, repository access 변경을 수행하지 않는다.
 
 ## NO-GO conditions

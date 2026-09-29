@@ -137,6 +137,6 @@ Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남�
 필요하면 허용된 fresh task에서 실제 산출물·렌더링·독립 비평·수정 결과를 확인합니다. Self-authored 모의 답변을 fresh Agent
 결과로 쓰지 않습니다. Tool/권한이 없으면 필요한 항목은 BLOCKED로 보고하고 안전한 독립 작업만 계속합니다.
 
-로컬 검증 산출물은 `artifacts/local/`, repository script는 `resolveArtifactPath()`를 사용합니다. 승인된 장기 결정만 기존
+로컬 검증 산출물은 `.artifacts/`, repository script는 `resolveArtifactPath()`를 사용합니다. 승인된 장기 결정만 기존
 정책/component/token owner로 승격합니다. Raw prompt·private provider payload·로컬 transcript를 durable 규칙으로 복제하거나
 특정 모델의 디자인 우월성·미관측 생산성 향상을 주장하지 않습니다.

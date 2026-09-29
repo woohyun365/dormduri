@@ -68,7 +68,7 @@ Standalone Web rehearsal의 `web-upstream` fixture는 full-stack profile에 합�
 Web은 실제 nginx/API를 사용하며, evidence의 제품 container limit 합계에는 fixture나 PostgreSQL을
 포함하지 않는다.
 
-Secret-free JSON/Markdown 결과는 기본적으로 `artifacts/local/infra/full-stack-rehearsal/`에 생성된다.
+Secret-free JSON/Markdown 결과는 기본적으로 `.artifacts/tools/infra/full-stack-rehearsal/`에 생성된다.
 실행 중 생성한 DB password, HMAC key, metrics token은 OS 임시 디렉터리에만 두고 종료 시 삭제한다.
 실행·실패 해석·cleanup 절차는
 [`infra/runbooks/rehearsal/full-stack.md`](../runbooks/rehearsal/full-stack.md)를 따른다.
@@ -132,7 +132,7 @@ image ID/source digest, 실제 `nginx -T` 및 Compose config digest를 결과에
 확인한다. Polling과 WebSocket 직접 연결은 ingress에서, polling→WebSocket upgrade와 gateway-only 제한은
 API의 실제 transport regression에서 검증한다.
 
-결과는 `artifacts/local/infra/ingress-trust/<project>/result.json`에 저장한다. 동일 client의 위조 prefix
+결과는 `.artifacts/tools/infra/ingress-trust/<project>/result.json`에 저장한다. 동일 client의 위조 prefix
 변경, 서로 다른 client, BFF, native IPv6, authority/scheme, private ACL, observer route/token과 forbidden
 TCP 경로를 확인한다. TCP 격리 실패도 끝까지 수집하되 skip/PASS로 바꾸지 않는다. 생성한 정확한 project
 label을 확인한 뒤 해당 container/network/volume을 정리하며, 모두 제거된 것을 확인하지 않으면

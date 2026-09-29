@@ -2,7 +2,7 @@
 
 이 문서는 API production secret을 AWS Secrets Manager에 저장하고 Lightsail release plane에서
 read-only file bundle로 materialize하기 위한 운영 checklist다. 실제 secret 원문은 이 문서, Git commit,
-issue, CI log, `artifacts/local/`에 남기지 않는다.
+issue, CI log, `.artifacts/`에 남기지 않는다.
 
 ## 책임 용어
 

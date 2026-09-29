@@ -69,7 +69,7 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 확인합니다.
 4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
    prompt 변경·다른 session·만료·재사용·source drift는 정상 PreToolUse가 거부합니다. 이 등록은 업무/host 승인이나
-   악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `artifacts/local/claude-native/`가 소유합니다.
+   악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `.artifacts/tools/claude-native/`가 소유합니다.
 5. 정상 PreToolUse는 `allow`를 반환하지 않습니다. 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
    KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.
    필수 KNU 작업을 OMC 역할로 바꿔 이 계약을 피하지 않습니다.
@@ -319,6 +319,17 @@ Headless init/terminal·단일 child·plugin 배제 전제를 interactive event�
 - OMC 사용은 owner 선택입니다. 같은 repository 계획을 소비하되 실제 OMC 초안 경로·session 소유권·resume/stop API는
   현재 runtime의 확인된 절차를 따릅니다. `.omc/plans`를 자동 canonical로 추측하거나 `.omx` 명령/state를 사용하지 않습니다.
   OMC 없이도 위 Git/계획 진단은 작동합니다. 특정 session resume/cleanup 지원은 별도 live 증거가 필요합니다.
+
+### 저장소 root와 runtime state 위치
+
+- Claude Code는 저장소 root에서 시작하고, Bash에서 하위 디렉터리로 작업 위치를 영구히 옮기지 않습니다. 하위 경로는
+  절대 경로, `git -C <dir>`, 명령 인자, 또는 subshell `( cd <dir> && … )`로 다룹니다.
+- OMC 5.5.0에서는 hook이 넘긴 작업 위치를 state root 계산에 그대로 써서, 하위 디렉터리에서 도구를 호출하면 그 위치에
+  `.omc`가 생기는 것을 관측했습니다. 추적 파일 `.omc-workspace`는 OMC가 위로 올라가며 찾는 표식이라 state를 root `.omc`로
+  모읍니다. OMC를 쓰지 않는 설치에는 영향이 없습니다.
+- Agent가 만든 screenshot·log·검증 출력은 `.omc`가 아니라 [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다.
+- `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omc`·`.omx`와 이름을 바꾸기 전의 local 작업 공간 root를 탐지해 commit을 멈춥니다. 탐지이지 차단 장치가 아니므로 발견하면 내용을 옮기고
+  원인이 된 작업 위치를 바로잡습니다.
 
 ## Project visual skills
 

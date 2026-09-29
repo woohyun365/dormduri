@@ -121,7 +121,7 @@ Portable 인계 성공을 주장할 때는 고정 commit의 실제 history-free 
 
 ### 원본 보존과 인계는 다른 책임
 
-재생성 가능한 출력과 당시 상황을 다시 얻을 수 없는 관측 원본은 [Artifact 보존 규칙](../../../artifacts/README.md#보존과-정리)을
+재생성 가능한 출력과 당시 상황을 다시 얻을 수 없는 관측 원본은 [Artifact 보존 규칙](../../../.artifacts/README.md#보존과-정리)을
 따른다. 원문을 외부에 보관했더라도 현재 결정·AC가 private 경로에만 있으면 portable handoff가 완료된 것이 아니다.
 반대로 핵심 인계가 끝났다고 역사 원본이나 다른 작업의 유일한 근거를 삭제할 권한이 생기지도 않는다.
 
@@ -141,7 +141,8 @@ Checkpoint는 다음 경우에만 만듭니다.
 
 ## Active plan lifecycle
 
-- 공통 authoring root는 `.plans/`입니다. Git/formatter에서 제외하며 runtime memory나 제품 source of truth가 아닙니다.
+- 공통 authoring root는 `.plans/`입니다. lifecycle 디렉터리 README 네 개를 빼고 Git/formatter에서 제외하며 runtime memory나
+  제품 source of truth가 아닙니다.
 - top-level `Plan ID`·`Status`·owner·AC·source snapshot을 명시하고 task당 canonical path/writer 하나를 유지합니다.
 - root `README.md`는 navigation이며 active plan이 아닙니다. supporting 상세와 독립 bounded plan을 구분합니다.
 - 새 계획 생성은 승인된 planning 행동입니다. Analyze만 요청받고 계획 파일을 자동 생성하지 않습니다.
@@ -150,6 +151,27 @@ Checkpoint는 다음 경우에만 만듭니다.
 - 완료 상태는 changed files, verification, commit/stage state와 blocker를 가리켜야 합니다.
 - 현재 결정할 수 없는 provider/account/domain/instance 값은 tracked readiness/evidence handoff로 옮깁니다.
 - 실제 AC를 충족한 완료 plan만 `.plans/finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
+
+### Lifecycle 디렉터리와 이동
+
+`.plans`는 계획 문서(Markdown)만 둡니다. 계획 진행용 script·log·JSON·diff·screenshot·review 입력은
+[Artifact 배치 규칙](../../../.artifacts/README.md#배치-규칙)에 따라 `.artifacts/plans/<umbrella Plan ID>/<bounded Plan ID>/`에 둡니다.
+
+| 위치                           | 용도                                                   | 날짜 기준         |
+| ------------------------------ | ------------------------------------------------------ | ----------------- |
+| root                           | active·implementation-ready 진입점과 navigation README | 없음              |
+| `supporting/<parent Plan ID>/` | 부모에 딸린 상세·reference·하위 bounded plan 문서      | 없음(부모를 따름) |
+| `pending/YYYY/MM/<domain>/`    | 보류한 계획                                            | 작성일            |
+| `finished/YYYY/MM/<domain>/`   | AC를 충족한 완료 계획                                  | 완료일            |
+| `cancelled/YYYY/MM/<domain>/`  | 취소·대체로 종료한 계획                                | 취소·대체 결정일  |
+
+- 완료 계획에 딸린 supporting은 `finished/YYYY/MM/<domain>/supporting/<plan>/`로 함께 옮깁니다. 독립 미완료 자식은 옮기지 않습니다.
+- 이동은 agent가 **제안**하고 사용자(Owner)가 확인한 뒤 수행합니다. 파일명과 Plan ID는 유지하고, 옮긴 문서의 상대 링크와
+  inbound 링크를 새 위치 기준으로 보정합니다. root에 중복 실행 계획이나 자동 redirect를 만들지 않습니다.
+- 취소·대체 계획은 `Status: cancelled` 또는 `superseded`로 기록하고, 파일 상단에 결정일·종료 사유·후속 계획 링크(있을 때)·
+  남은 미완료/NO-GO 경계를 적습니다. 과거 Authority·lease·next action을 현재 실행 승인으로 재사용하지 않습니다.
+- 추적하는 파일은 `supporting`·`pending`·`finished`·`cancelled`의 `README.md` 네 개뿐입니다. 이 README는 용도 요약과 이
+  절로 가는 링크만 담고, 로컬 목록과 링크는 비추적 root `README.md`가 소유합니다.
 
 ### Supporting 문서 재개와 인계
 

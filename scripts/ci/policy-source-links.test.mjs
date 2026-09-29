@@ -75,7 +75,7 @@ test('tracked documentation uses semantic source-of-truth directories', () => {
 
   assert.deepEqual(missingDirectories, []);
   assert.deepEqual(remainingRetiredDirectories, []);
-  assert.match(gitignore, /^local-docs\/$/mu);
+  assert.match(gitignore, /^\.local-docs\/$/mu);
   assert.doesNotMatch(gitignore, /^docs\/\*$/mu);
 });
 

@@ -108,7 +108,7 @@ Fixture 내부의 native IPv6 요구는 유지한다. 별도 synthetic peer가 I
 owner를 승인 범위 안에서 기록한다. 명시되지 않은 무기한 보존이나 자동 삭제 scheduler를 만들지 않는다.
 
 다음 필드를 기존 artifact/handoff owner에 남긴다. 재사용할 정책은 이 문서에, 기기별 관측값과 임시 자원은
-`artifacts/local/`에 둔다. CI 출력은 runner temp 아래에서 생성해 artifact로 전달한다.
+`.artifacts/`에 둔다. CI 출력은 runner temp 아래에서 생성해 artifact로 전달한다.
 
 - Objective/claim/nonclaims; branch/HEAD, source/config/archive/image hashes.
 - Runner/VM/daemon identity, tool versions, effective profile/caps와 관측 storage/network 경로.

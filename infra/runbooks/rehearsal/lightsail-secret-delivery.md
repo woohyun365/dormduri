@@ -22,7 +22,7 @@ pnpm infra:rehearsal:lightsail-secrets
 | activation 실패                    | previous current symlink 유지                         |
 | host restart                       | persistent version directory와 current pointer로 복구 |
 
-결과물은 runner temp 또는 `artifacts/local/`만 사용하며 bundle 자체는 artifact로 보존하지 않는다.
+결과물은 runner temp 또는 `.artifacts/`만 사용하며 bundle 자체는 artifact로 보존하지 않는다.
 로그에는 bounded result, release ID, timestamp만 남긴다.
 
 Bootstrap 전에 실패하면 API listener와 Prometheus endpoint가 열리지 않는 것이 정상이다. 운영에서는

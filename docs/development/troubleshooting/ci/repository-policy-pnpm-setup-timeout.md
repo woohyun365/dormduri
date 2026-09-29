@@ -63,7 +63,7 @@ Repository-policy lane은 다음 두 경계를 함께 유지한다.
 7. 10분 setup cap에서도 반복 실패하거나 action-specific error가 나오면 action/pnpm 교체를 즉시 시도하지 말고 별도
    upstream/provider incident로 분리한다.
 
-Raw workflow log를 `docs/`에 복사하지 않는다. 필요한 로컬 진단 산출물은 `artifacts/local/ci-performance/`에 저장하고,
+Raw workflow log를 `docs/`에 복사하지 않는다. 필요한 로컬 진단 산출물은 `.artifacts/tools/ci-performance/`에 저장하고,
 Issue에는 secret 없는 run ID, job ID, step, duration, conclusion만 기록한다.
 
 ## 검증

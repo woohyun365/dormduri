@@ -1,26 +1,33 @@
-# Generated development artifacts
+# Local artifacts
 
-이 디렉터리는 저장소 도구가 생성하는 로컬 검증 결과의 공통 진입점이다. OMX를 포함한
-특정 개발 도구의 설치 여부와 무관하며, production runtime에서는 사용하지 않는다.
-
-기본 출력은 Git에서 제외되는 `artifacts/local/` 아래에 생성된다.
+이 디렉터리는 계획 진행 증거와 저장소 script 출력의 공통 위치다. 특정 개발 도구·host의 설치 여부와 무관하며
+production runtime에서는 사용하지 않는다. 내용은 Git에서 제외하고 이 README와 `.gitignore`만 추적한다.
 
 ```text
-artifacts/local/
-├── build/          # OCI image, SBOM, provenance, manifest
-├── infra/          # compose·runtime config 검증 결과
-├── observability/  # Web/BFF 관측 rehearsal 결과
-├── stress/         # API stress·capacity 결과
-└── visual/         # 일반 개발 workflow의 시각 검증 결과
+.artifacts/
+├── plans/<umbrella Plan ID>/<bounded Plan ID>/<phase|YYYY-MM-DD>/  # 계획 진행용 script·log·json·diff·screenshot·review 입력
+├── tools/<kind>/                                              # 저장소 script 기본 출력(build, infra, stress, ci-performance, claude-native …)
+└── references/<source>/                                       # 디자인 등 외부에서 받은 참조 자료
 ```
 
-- token, cookie, password, DB URL, webhook 등 secret 원문을 기록하지 않는다.
-- 출력 위치를 바꿔야 하면 `KNU_ARTIFACTS_DIR` 또는 각 command의 명시적 `--output`·전용
-  환경변수를 사용한다.
-- GitHub Actions는 checkout 내부가 아니라 `${{ runner.temp }}`에 evidence를 생성한 뒤
-  Actions artifact로 업로드한다.
-- `.omx/`는 OMX session state와 agent-owned 계획·로그만 소유하며 repository script의
-  기본 출력 경로로 사용하지 않는다.
+## 배치 규칙
+
+- **계획 문서와 증거를 나눈다.** `.plans/`에는 계획 문서(Markdown)만 둔다. `.plans/supporting/`도 부모 계획에 딸린
+  상세·reference·하위 계획 문서만 소유한다. 계획을 진행하며 만든 script, log, JSON, diff, screenshot, review 입력은
+  `plans/…` 아래에 둔다. `.plans` lifecycle은
+  [Session continuity](../docs/development/agent-workflows/session-continuity.md)가 소유한다.
+- **Plan ID 두 단.** 첫 단은 가장 위 active index(umbrella)의 Plan ID, 둘째 단은 증거를 소유한 bounded plan의
+  Plan ID다. umbrella 자신의 증거는 `plans/<umbrella>/<umbrella>/`, umbrella가 없는 단독 계획은
+  `plans/<Plan ID>/<Plan ID>/`에 둔다. 더 깊은 계획 계층은 bounded 단으로 평탄화하고 그 아래는 phase나 날짜로 나눈다.
+- **script 출력.** repository script는 `scripts/artifacts/paths.mjs`의 `resolveArtifactPath()`로 `tools/<kind>/`에
+  쓴다. `KNU_ARTIFACTS_DIR`은 이 `tools` 기본 위치를 대체하며, 각 command의 명시적 `--output`·전용 환경변수도
+  사용할 수 있다.
+- **CI.** GitHub Actions는 checkout 내부가 아니라 `${{ runner.temp }}`에 evidence를 생성한 뒤 Actions artifact로
+  업로드한다.
+- **secret 금지.** token, cookie, password, DB URL, webhook 등 secret 원문을 기록하지 않는다.
+- **저장소 밖 보관.** 끝난 증거는 삭제하지 않고 저장소 상위의 `Archives/<repo>/`(이하 `<archive>`)로 옮긴다.
+  `<archive>`는 `<archive>/plans/`, `<archive>/artifacts/`, `<archive>/local-docs/`, `<archive>/design-history/`, `<archive>/code/`, `<archive>/_meta/` 공통 폴더와 `README.md`
+  색인 하나를 가진다. 추적 문서는 `<archive>/<폴더>/<topic>`처럼 개인 절대 경로 없이 가리킨다.
 
 ## 보존과 정리
 
@@ -50,5 +57,5 @@ PR/test/CI에 연결한다. [Session continuity](../docs/development/agent-workf
 로컬 locator는 접근 제한된 보관 위치와 manifest를 가리킬 수 있지만, 개인 절대경로나 secret을 docs/Issue에 게시하지 않는다.
 
 정리는 일괄 purge나 runtime state 정리 권한이 아니다. 원본 보존이 필요한 작업에서 standalone 삭제를 대안으로
-사용하지 않으며, 보류 목록을 남긴다. `.omx` 같은 runtime 소유 자료는 해당 runtime의 문서화된 lifecycle과 확인된
+사용하지 않으며, 보류 목록을 남긴다. host runtime 소유 자료는 해당 runtime의 문서화된 lifecycle과 확인된
 작업 소유권을 추가로 요구한다. CI 결과는 기존 `${{ runner.temp }}`·upload-artifact 및 workflow retention을 따른다.

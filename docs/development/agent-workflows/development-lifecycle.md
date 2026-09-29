@@ -79,7 +79,7 @@ public contract나 검증을 미래로 미루면 usable slice가 아닙니다. �
 | --------- | ------------------------ | --------- | -------------------------- | ------------------------------------------ |
 | 근거 링크 | policy/architecture 링크 | commit/PR | tests/review/CI와 snapshot | 실제 결과 또는 owner·trigger·필요 evidence |
 
-기존 본문을 새 ledger로 복제하지 않습니다. 임시 plan/checkpoint와 `artifacts/local/`은 다른 clone의 필수 입력이 아니므로,
+기존 본문을 새 ledger로 복제하지 않습니다. 임시 plan/checkpoint와 `.artifacts/`은 다른 clone의 필수 입력이 아니므로,
 다음 개발자가 필요한 결정은 tracked owner, 구현 근거는 PR/test/CI, 미해결 작업은 Issue로 연결합니다.
 로컬 기억 없이 재개하거나 중요한 근거가 없을 때는 [Session continuity](./session-continuity.md)에 따라 재조사합니다.
 
