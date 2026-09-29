@@ -136,7 +136,7 @@ release-age-eligible stable candidate를 동일한 isolated cache/store workload
 lockfile command completion을 별도로 확인한다.
 
 현재 검증 pin은 `pnpm@11.24.0`이다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며, 결과 artifact는
-`artifacts/local/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider credential을
+`.artifacts/tools/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider credential을
 사용하지 않으며 disposable workspace만 변경한다.
 
 Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 hosted recovery 증거가 아니다. Main 반영 후

@@ -165,7 +165,7 @@ STRESS_LOCAL_REHEARSAL_PROFILES=h1,h2,h3,h7,h4,h5,h6,h9 \
 
 전체 절차와 H8 soak opt-in은 `docs/runbooks/observability/auth-password-capacity-rehearsal-runbook.md`를 따른다.
 
-새 237명 ramp evidence는 `artifacts/local/stress/api-237-ramp-decision-result-*.md`에
+새 237명 ramp evidence는 `.artifacts/tools/stress/api-237-ramp-decision-result-*.md`에
 생성한다. 과거 개인 실행 결과는 repository source of truth가 아니며 재검증이 필요하면 같은
 runner로 다시 생성한다. 후속 최적화 추적은 #281 `MATCH_SCORE` read path를 기준으로 한다.
 

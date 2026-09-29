@@ -34,4 +34,4 @@ runtime hardening, Compose 합성 순서의 machine-readable source of truth다.
 2. Container startup은 migration, role grant, fixture seed를 실행하지 않는다.
 3. Provider secret과 실제 endpoint를 tracked file이나 evidence template에 기록하지 않는다.
 4. Local evidence를 실제 target release evidence로 승격하지 않는다.
-5. 생성 결과는 `artifacts/local/` 또는 CI artifact storage에 두고 `infra/`에 쓰지 않는다.
+5. 생성 결과는 `.artifacts/` 또는 CI artifact storage에 두고 `infra/`에 쓰지 않는다.

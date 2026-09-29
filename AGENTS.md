@@ -30,7 +30,8 @@
 - `infra`: 배포 후보, rehearsal, observability, release runbook
 - 로컬 infra 환경 선택: `infra/runbooks/rehearsal/local-environments.md`에서 OrbStack·독립 Linux VM의 용도와 증거 경계를 확인한다.
 - `scripts`: CI·검증·artifact·infra 자동화
-- `local-docs`: Git에서 제외하는 legacy·개인 분석·과거 기록
+- `.local-docs`: Git에서 제외하는 legacy·개인 분석·과거 기록
+- `.artifacts`: Git에서 제외하는 실행 증거·script 출력; 구조와 보존 규칙은 `.artifacts/README.md`
 - `.plans`: host 공통 local 계획; lifecycle은 tracked session-continuity가 소유
 - `.omx`·`.omc`: 선택한 host의 local runtime state; 제품 source of truth가 아님
 
@@ -119,7 +120,7 @@
 
 ## 9. Artifact responsibility
 
-- 로컬 검증 결과: `artifacts/local/`
+- 로컬 검증 결과: `.artifacts/`(계획 증거 `plans/<umbrella Plan ID>/<bounded Plan ID>/`, script 기본 출력 `tools/<kind>/`)
 - 추적 가능한 infra schema·manifest: `infra/artifacts/`
 - 장기 정책·아키텍처·운영 문서: `docs/`
 - CI 생성물: `${{ runner.temp }}` 아래 생성 후 `upload-artifact`

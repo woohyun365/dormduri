@@ -349,7 +349,7 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
   assert.match(handoff, /실제.*적용.*미관측/u);
   assert.match(handoff, /xhigh/u);
   assert.match(handoff, /scope.*위반/iu);
-  assert.doesNotMatch(source, /\.omx\/plans\/|artifacts\/local\/|\/Users\//u);
+  assert.doesNotMatch(source, /\.omx\/plans\/|\.?artifacts\/(?:local|plans|tools)\/|\/Users\//u);
   const requiredLinks = [
     '../../scripts/agents/codex/model-profiles.mjs',
     '../../scripts/agents/codex/model-run-evidence.mjs',

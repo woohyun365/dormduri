@@ -16,7 +16,7 @@
 4. 해결 순서는 owning parent patch/minor, compatible resolution, bounded override, mitigation 순이다.
 5. Override에는 compatibility test, owner 설명, 제거 조건이 있어야 한다.
 6. Default branch reconciliation 전에는 GitHub alert closure를 완료 증거로 사용하지 않는다.
-7. Raw GitHub/provider output과 exploit detail은 `artifacts/local/security/`에 두며 tracked policy에 복사하지 않는다.
+7. Raw GitHub/provider output과 exploit detail은 `.artifacts/tools/security/`에 두며 tracked policy에 복사하지 않는다.
 
 ## 3. 분류
 

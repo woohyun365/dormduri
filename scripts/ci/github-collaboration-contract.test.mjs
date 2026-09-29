@@ -434,7 +434,10 @@ test('local cleanup separates ref surfaces, task scope, and execution authority'
   assert.match(section, /task-local.*전체.*audit.*별도/su);
   assert.match(section, /remote 삭제.*worktree 제거.*GC.*별도/su);
   assert.match(section, /advisory-policy.*deterministic-static.*강제하지 않/su);
-  assert.doesNotMatch(section, /\.omx\/plans|artifacts\/local\/\S*\d{4}-\d{2}-\d{2}/u);
+  assert.doesNotMatch(
+    section,
+    /\.omx\/plans|\.?artifacts\/(?:local|plans|tools)\/\S*\d{4}-\d{2}-\d{2}/u,
+  );
 });
 
 test('post-merge cleanup requires integration, protection, recovery, and revalidation', () => {

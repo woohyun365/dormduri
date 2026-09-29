@@ -1,7 +1,7 @@
 # Architecture
 
 장기 유지할 기술 결정과 현재 구현 경계를 기록합니다. 특정 작업의 실행 계획이나 비교 초안은
-`.omx/plans/`, 과거 구현 기록과 개인 참고 자료는 `local-docs/`에 둡니다.
+`.omx/plans/`, 과거 구현 기록과 개인 참고 자료는 `.local-docs/`에 둡니다.
 
 이 디렉터리에는 owner README나 policy만으로 설명할 수 없는 **현재 채택된 결정**만 유지합니다.
 구현 위치를 찾기 위한 문서, Sprint 실행 기록, 폐기된 API·model·path는 architecture 문서로

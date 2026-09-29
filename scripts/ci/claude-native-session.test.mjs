@@ -26,7 +26,7 @@ import {
 
 function setup(t) {
   const f = fixture(t);
-  writeFileSync(join(f.root, '.git/info/exclude'), 'artifacts/\n');
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
   const sessionId = randomUUID();
   const registered = registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId });
   const event = {
@@ -275,9 +275,9 @@ test('registration rejects artifact ancestor symlink before writing outside repo
   const f = fixture(t);
   const outside = mkdtempSync(join(tmpdir(), 'native-outside-'));
   t.after(() => rmSync(outside, { recursive: true, force: true }));
-  writeFileSync(join(f.root, '.git/info/exclude'), 'artifacts/\n');
-  mkdirSync(join(f.root, 'artifacts/local'), { recursive: true });
-  symlinkSync(outside, join(f.root, 'artifacts/local/claude-native'));
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  mkdirSync(join(f.root, '.artifacts/tools'), { recursive: true });
+  symlinkSync(outside, join(f.root, '.artifacts/tools/claude-native'));
   assert.throws(
     () =>
       registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId: randomUUID() }),
@@ -287,7 +287,7 @@ test('registration rejects artifact ancestor symlink before writing outside repo
 });
 function writer(t) {
   const f = fixture(t);
-  writeFileSync(join(f.root, '.git/info/exclude'), 'artifacts/\n');
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
   writeFileSync(
     join(f.root, '.claude/agents/knu_executor.md'),
     '---\nname: knu_executor\ntools: Read, Grep, Glob, Edit, Write, Bash\n---\nImplement bounded work.\n',
@@ -357,7 +357,7 @@ function reviewPacket(subject, snapshot) {
     boundaries: {
       ...basePacket.boundaries,
       allowedReadPaths: ['sample.txt'],
-      permittedOutputPaths: ['artifacts/local/claude-native'],
+      permittedOutputPaths: ['.artifacts/tools/claude-native'],
     },
     lifecycle: {
       ...basePacket.lifecycle,
@@ -756,7 +756,7 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   assert.equal(delivered.valid, false);
   assert.ok(delivered.errors.some((error) => /delivered non-PASS review/.test(error)));
 
-  mkdirSync(join(subject.root, 'artifacts/local/claude-native', randomUUID()));
+  mkdirSync(join(subject.root, '.artifacts/tools/claude-native', randomUUID()));
   const malformed = builderLinkedTo(passingReview());
   assert.equal(malformed.valid, false);
   assert.ok(malformed.errors.some((error) => /unreadable native task/.test(error)));
@@ -798,7 +798,7 @@ function asyncReview(t, subject, packet, parentRows = []) {
   const agentId = `review-${randomUUID().slice(0, 8)}`;
   handle(qa);
   finish(qa, { status: 'async_launched', agentId, prompt: qa.registered.invocation.prompt });
-  const base = join(realpathSync(qa.root), 'artifacts/transcripts'),
+  const base = join(realpathSync(qa.root), '.artifacts/transcripts'),
     childDir = join(base, qa.event.session_id, 'subagents');
   mkdirSync(childDir, { recursive: true });
   const childPath = join(childDir, `agent-${agentId}.jsonl`),
@@ -960,7 +960,7 @@ test('the unseen-dispatch check ignores denied or non-Agent calls and blocks whe
   const settled = asyncReview(t, subject, packet);
   const parentPath = join(
     realpathSync(subject.root),
-    'artifacts/transcripts',
+    '.artifacts/transcripts',
     `${subject.event.session_id}.jsonl`,
   );
   writeFileSync(parentPath, readFileSync(parentPath, 'utf8') + `{${marker}\n`);
@@ -1081,7 +1081,7 @@ test('a settled sibling review resumed afterwards blocks a later PASS', (t) => {
 
 test('each reviewer session transcript is compared for synchronous and cross-session reviews', (t) => {
   const { subject, packet, builderLinkedTo } = reviewedSubject(t);
-  const base = join(realpathSync(subject.root), 'artifacts/transcripts');
+  const base = join(realpathSync(subject.root), '.artifacts/transcripts');
   mkdirSync(base, { recursive: true });
   const call = (sessionId, id, prompt, isError) =>
     [
@@ -1147,7 +1147,7 @@ test('a parent transcript above the cap is a gap, not a pass', (t) => {
   const settled = asyncReview(t, subject, packet);
   const parentPath = join(
     realpathSync(subject.root),
-    'artifacts/transcripts',
+    '.artifacts/transcripts',
     `${subject.event.session_id}.jsonl`,
   );
   truncateSync(parentPath, 128 * 1024 * 1024 + 1); // sparse; refused before it is read
@@ -1352,7 +1352,7 @@ for (const stopFirst of [false, true])
     };
     if (!stopFirst) handle(f, launch);
     assert.equal(completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root }).valid, false);
-    const base = join(realpathSync(f.root), 'artifacts/transcripts'),
+    const base = join(realpathSync(f.root), '.artifacts/transcripts'),
       childDir = join(base, f.event.session_id, 'subagents');
     mkdirSync(childDir, { recursive: true });
     const childPath = join(childDir, `agent-${agentId}.jsonl`),
@@ -1433,7 +1433,7 @@ for (const damage of ['intact', 'oversized', 'malformed'])
         prompt: f.registered.invocation.prompt,
       },
     });
-    const base = join(realpathSync(f.root), 'artifacts/transcripts'),
+    const base = join(realpathSync(f.root), '.artifacts/transcripts'),
       childDir = join(base, f.event.session_id, 'subagents');
     mkdirSync(childDir, { recursive: true });
     const childPath = join(childDir, `agent-${agentId}.jsonl`),

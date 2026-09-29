@@ -280,7 +280,7 @@ Parent의 로컬 저장 절차:
    허용된 진단 schema 안의 requested/resolved/hostObserved 불일치는 failure/blocked에 그대로 보존합니다. 성공으로
    승격하거나 미관측 null로 덮지 않으며, mismatch primary 기록만으로 rescue history를 허용하지 않습니다.
 2. `resolveModelRunEvidencePath(repoRoot, date, runId, environment)`로
-   `artifacts/local/agent-thread-lifecycle/<date>/model-activation/<run-id>/attempts.json`을 구합니다.
+   `.artifacts/tools/agent-thread-lifecycle/<date>/model-activation/<run-id>/attempts.json`을 구합니다.
    Canonical `resolveArtifactPath()`를 재사용하되 root 탈출·traversal을 거절합니다. 환경 입력은 명시적이며 기본 `{}`입니다.
 3. Parent가 해당 run directory의 소유권·실제 symlink-free 경로를 확인하고 생성합니다. Pure path 검사는 symlink를 조회하지
    않습니다. 외부 root로 연결되는 symlink 아래에는 쓰지 않습니다. 다른 run의 artifact를 덮어쓰지 않습니다.

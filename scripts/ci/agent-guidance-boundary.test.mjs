@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { extname, relative, resolve } from 'node:path';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, extname, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
@@ -22,6 +23,7 @@ const textExtensions = new Set([
   '.yml',
 ]);
 const localPlanBoundaryAllowlist = new Set([
+  '.artifacts/README.md',
   'docs/architecture/README.md',
   'docs/development/agent-workflows/session-continuity.md',
   'docs/development/agent-workflows/adapters/codex.md',
@@ -277,13 +279,130 @@ test('OMX wiki stays curated instead of auto-capturing session transcripts', () 
   );
 });
 
-test('generated local evidence stays outside the repository formatting gate', () => {
-  const prettierIgnore = readFileSync(resolve(repoRoot, '.prettierignore'), 'utf8');
+test('generated local evidence stays outside the repository formatting gate', async () => {
+  const { getFileInfo } = await import('prettier');
+  const formatIgnored = async (path) =>
+    (
+      await getFileInfo(resolve(repoRoot, path), {
+        ignorePath: resolve(repoRoot, '.prettierignore'),
+      })
+    ).ignored;
 
-  assert.match(prettierIgnore, /^artifacts\/local\/$/mu);
-  assert.match(prettierIgnore, /^omx_wiki\/$/mu);
-  assert.match(prettierIgnore, /^\.plans\/$/mu);
+  for (const path of [
+    '.artifacts/plans/umbrella/bounded/result.json',
+    '.artifacts/tools/infra/runtime-configs.json',
+    '.local-docs/analysis.md',
+    '.plans/example-plan.md',
+    '.plans/finished/2026/09/domain/example-plan.md',
+    'omx_wiki/page.md',
+  ])
+    assert.equal(await formatIgnored(path), true, path);
+  for (const path of localWorkspaceReadmes) assert.equal(await formatIgnored(path), false, path);
   assert.equal(isIgnored('.plans/example-plan.md'), true);
+});
+
+// Local workspace roots keep content untracked; only their guidance files are tracked.
+const localWorkspaceReadmes = [
+  '.artifacts/README.md',
+  '.plans/cancelled/README.md',
+  '.plans/finished/README.md',
+  '.plans/pending/README.md',
+  '.plans/supporting/README.md',
+];
+
+function checkIgnoredInCleanClone(paths) {
+  const directory = mkdtempSync(resolve(tmpdir(), 'knu-ignore-'));
+  try {
+    const git = (...args) =>
+      spawnSync('git', ['-c', 'core.excludesFile=/dev/null', ...args], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+    assert.equal(git('init', '-q').status, 0);
+    for (const file of ['.gitignore', '.artifacts/.gitignore']) {
+      mkdirSync(dirname(resolve(directory, file)), { recursive: true });
+      cpSync(resolve(repoRoot, file), resolve(directory, file));
+    }
+    return Object.fromEntries(
+      paths.map((path) => [path, git('check-ignore', '-q', '--no-index', path).status === 0]),
+    );
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+}
+
+test('local workspace roots ignore content and keep only guidance files for clean clones', () => {
+  const ignored = [
+    '.artifacts/plans/umbrella/bounded/result.json',
+    '.artifacts/tools/claude-native/task/task.json',
+    '.artifacts/references/source/page.png',
+    '.local-docs/analysis.md',
+    '.plans/root-plan.md',
+    '.plans/finished/2026/09/domain/example-plan.md',
+    '.plans/supporting/parent/detail.md',
+  ];
+  const result = checkIgnoredInCleanClone([...ignored, ...localWorkspaceReadmes]);
+
+  for (const path of ignored) assert.equal(result[path], true, path);
+  for (const path of localWorkspaceReadmes) assert.equal(result[path], false, path);
+
+  const dockerIgnore = readFileSync(resolve(repoRoot, '.dockerignore'), 'utf8');
+  for (const entry of ['.artifacts', '.local-docs', '.plans'])
+    assert.match(dockerIgnore, new RegExp(`^${entry.replace('.', '\\.')}$`, 'mu'), entry);
+});
+
+// Old root names; segment boundaries keep docs/references/, .artifacts/references/ and URLs valid.
+const renamedWorkspaceRoot =
+  /(?<![\w./-])(?:\.\.\/)*(?:artifacts\/(?:local\b|README\.md|\.gitignore)|local-docs\b|references\/figma\b)/u;
+// Guard fixtures quote the old names; the artifact guide names the external archive's local-docs/ folder.
+const renamedWorkspaceRootAllowlist = new Set([
+  '.artifacts/README.md',
+  'scripts/ci/agent-guidance-boundary.test.mjs',
+]);
+
+test('tracked files do not point to renamed local workspace roots', () => {
+  for (const source of [
+    '`artifacts/local/`',
+    '[rules](../artifacts/README.md)',
+    '`local-docs/`',
+    'references/figma/web',
+  ])
+    assert.equal(renamedWorkspaceRoot.test(source), true, source);
+  for (const source of [
+    '`.artifacts/tools/`',
+    'infra/artifacts/README.md',
+    '`.local-docs/`',
+    'docs/references/',
+    '.artifacts/references/source',
+    'https://example.com/references/figma',
+  ])
+    assert.equal(renamedWorkspaceRoot.test(source), false, source);
+
+  const matches = trackedPaths()
+    .filter(
+      (path) => textExtensions.has(extname(path)) || /^\.(git|prettier|docker)ignore$/u.test(path),
+    )
+    .filter((path) => !renamedWorkspaceRootAllowlist.has(path))
+    .filter((path) => existsSync(resolve(repoRoot, path)))
+    .filter((path) => renamedWorkspaceRoot.test(readFileSync(resolve(repoRoot, path), 'utf8')));
+
+  assert.deepEqual(matches, []);
+});
+
+test('the local artifact guide describes the shared layout without host runtime paths', () => {
+  const guide = readFileSync(resolve(repoRoot, '.artifacts/README.md'), 'utf8');
+
+  for (const pattern of [
+    /plans\/<umbrella Plan ID>\/<bounded Plan ID>\//u,
+    /tools\/<kind>\//u,
+    /references\/<source>\//u,
+    /KNU_ARTIFACTS_DIR/u,
+    /<archive>/u,
+    /\.plans\/supporting\//u,
+  ])
+    assert.match(guide, pattern);
+  assert.doesNotMatch(guide, /\.omx\//u);
+  assert.doesNotMatch(guide, /figma/iu);
 });
 
 // Generic root explanation is allowed; an individual ignored plan cannot be durable authority.

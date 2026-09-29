@@ -60,14 +60,16 @@ apps/web/storybook-static/
 !.codex/agents/*.toml
 .omc/
 .omx/
-local-docs/
 
-## Figma 참조 (코드 이식 후 불필요)
-references/figma/web/src/
+## Local 작업 공간: 내용은 추적하지 않고 안내 파일만 추적한다(.artifacts/README.md).
+.local-docs/
+.artifacts/*
+!.artifacts/README.md
+!.artifacts/.gitignore
 
 ## 문서
 # docs/는 repository source of truth로 모두 추적한다.
-# legacy·개인 분석·과거 작업 기록은 local-docs/에 둔다.
+# legacy·개인 분석·과거 작업 기록은 .local-docs/에 둔다.
 
 ## OS/기타
 .DS_Store
@@ -80,4 +82,17 @@ apps/api/test/stress/reports/.tmp-*
 apps/api/test/stress/fixtures/.tmp-*
 
 # Host-neutral local authoring plans; runtime state remains host-owned.
-.plans/
+# 계획 문서는 추적하지 않고 lifecycle 디렉터리의 README.md만 추적한다.
+.plans/*
+!.plans/cancelled/
+.plans/cancelled/*
+!.plans/cancelled/README.md
+!.plans/finished/
+.plans/finished/*
+!.plans/finished/README.md
+!.plans/pending/
+.plans/pending/*
+!.plans/pending/README.md
+!.plans/supporting/
+.plans/supporting/*
+!.plans/supporting/README.md

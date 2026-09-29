@@ -185,7 +185,7 @@ parity와 장치 성능은 이 로컬 하네스 검증으로 대신하지 않습
   최초 sandbox의 MachPort 제한은 동일 로컬 renderer에 대한 host 승인으로 해소했습니다.
 
 Source·brief hash, 원본 HTML, 캡처, runner, 독립 critique·keep/revert는
-`artifacts/local/frontend-visual-skill-adoption/2026-09-25/vd3/`의 로컬 관측 evidence입니다.
+`.artifacts/plans/frontend-modernization-execution-index/frontend-visual-skill-adoption/2026-09-25/vd3/`의 로컬 관측 evidence입니다.
 다른 clone의 재현은 같은 [device packet](./device-presentation-and-verification.md#device-verification-packet)과
 새 artifact를 사용하며, skill 갱신·미노출·설치 복구는 [기존 설치/qualification 계약](./design-task-orchestration.md#installation-and-qualification-boundary)을 따릅니다.
 

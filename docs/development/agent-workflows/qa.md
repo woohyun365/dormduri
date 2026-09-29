@@ -128,7 +128,7 @@ Source/contract 또는 acceptance에 영향을 주는 요구사항·guide가 바
 필수 검증 부재는 BLOCKED, 재현된 결함은 FAIL입니다. 같은 rubric의 maker-checker 재검토는
 [기존 bounded 반복 기준](./orchestration.md#pattern-selector)을 따르고, 해결되지 않으면 무한 reviewer/retry 대신 gap을 보고합니다.
 
-임시 packet/result는 `artifacts/local/`에 두고 script는 `resolveArtifactPath()`를 사용합니다. 다른 clone에 필요한 최종 근거는
+임시 packet/result는 `.artifacts/`에 두고 script는 `resolveArtifactPath()`를 사용합니다. 다른 clone에 필요한 최종 근거는
 PR/test/CI와 기존 Issue/owner docs로 연결합니다. 제품 디자인의 취향·reference fidelity 판정은 이 공통 양식에 필요한 별도
 입력을 더하는 것이며, 기술 QA PASS가 사람의 시각적 방향 승인을 의미하지 않습니다.
 

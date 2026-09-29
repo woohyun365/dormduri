@@ -13,7 +13,7 @@ Project hook 명령이 실행되지 않는 상태(checkout 이동, `node` PATH �
 /nonexistent/knu-qualified-hook: No such file or directory
 ```
 
-`artifacts/local/claude-native/<taskId>/`에는 `task.json`만 있고 `attempt.json`·`launch.json`·`completion.json`이 없습니다.
+`.artifacts/tools/claude-native/<taskId>/`에는 `task.json`만 있고 `attempt.json`·`launch.json`·`completion.json`이 없습니다.
 
 ## 원인
 

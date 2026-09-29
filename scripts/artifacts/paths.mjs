@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-export const DEFAULT_ARTIFACTS_DIRECTORY = 'artifacts/local';
+export const DEFAULT_ARTIFACTS_DIRECTORY = '.artifacts/tools';
 
 export function resolveArtifactsDirectory(repoRoot, environment = process.env) {
   const configuredDirectory = environment.KNU_ARTIFACTS_DIR?.trim();

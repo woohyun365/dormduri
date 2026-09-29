@@ -51,7 +51,7 @@ orbctl start
 제외하고 실제 nginx/API 연결을 사용한다. 미래 BackOffice는 별도 2GiB host가 목표이므로 이
 4GiB User App rehearsal에 합성하지 않는다.
 
-결과는 `artifacts/local/infra/full-stack-rehearsal/<run-id>.{json,md}`에 저장한다. evidence에는
+결과는 `.artifacts/tools/infra/full-stack-rehearsal/<run-id>.{json,md}`에 저장한다. evidence에는
 secret과 DB URL을 기록하지 않는다. 임시 password, HMAC key, metrics token은 OS 임시
 디렉터리에 mode `0600`으로 생성하고 종료 시 제거한다.
 
