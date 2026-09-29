@@ -254,6 +254,8 @@ env default → parent 우선순위 외에도 FORCE override·managed 허용 모
 
 ### 결과와 observation 경계
 
+기록 원칙은 [Execution evidence](../qa.md#execution-evidence)를 따릅니다. 요청 모델과 관측 모델이 다르면 그대로 남기고 성공으로 바꾸지 않습니다.
+
 Agent PostToolUse의 `resolvedModel`은 시작 또는 background 전환 시점 모델이고 `modelsUsed`는 변경 관측입니다.
 Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다.
 
@@ -279,6 +281,9 @@ Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않�
 Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troubleshooting/tooling/claude-auto-classifier-no-verdict.md)의
 재시도·Owner 직접 실행 경로를 따릅니다.
 
+채택·철회 원칙은 [Routine adoption](../orchestration.md#routine-adoption)을 따릅니다. 역할 파일이나 `.claude/settings.json`을 바꾸면
+[Configuration changes](../agent-execution-contract.md#configuration-changes)에 따라 새 세션의 native 관측(역할·`resolvedModel`)으로 확인한 뒤 위임합니다.
+
 Routine 위임 대상은 live 관측(CLI 2.1.283~2.1.284, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
 동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
 
@@ -298,6 +303,8 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 
 ## Recovery
 
+공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유하며, 이 절은 Claude의 재등록과 모델·effort 상향을 정합니다.
+
 위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산하거나 `release`해 writer를 회수합니다. 재시도는
 **한 번만** 허용하며 새 task로 다시 등록합니다. 원인에 따라 선택을 바꿉니다
 ([Choosing a Claude model and effort level in Claude Code](https://claude.com/blog/claude-model-and-effort-level-in-claude-code)).
@@ -316,6 +323,8 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 - 재시도도 실패하면 무인 계속을 멈추고 원인·증거를 보존해 Owner와 다음 행동을 정합니다.
 
 ## Parent 운영과 quality stop
+
+공통 조건은 [Quality stop](../orchestration.md#quality-stop)을 따르며, 이 절은 Claude Parent 설정과 추가 stop 조건을 정합니다.
 
 Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 부족이 재발하면 xhigh를 권고합니다. Fable은 사용 근거가
 생기기 전에는 쓰지 않습니다. Parent 모델·effort는 Owner가 session control에서 직접 바꾸며, 이 문서나 설정 파일 값만으로
