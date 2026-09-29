@@ -343,17 +343,24 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
     configuration: section(execution, '### Configuration changes'),
   };
   for (const [name, text] of Object.entries(rules)) {
-    assert.doesNotMatch(text, /Astra|GPT|\bSol\b|Luna|Opus|Sonnet|Haiku|Fable|OMX|OMC|Codex|Claude/iu, name);
+    assert.doesNotMatch(text, /Astra|Terra|GPT|\bSol\b|Luna|Opus|Sonnet|Haiku|Fable|OMX|OMC|Codex|Claude|knu_|TOML|settings\.json|fork_turns/iu, name);
+    assert.match(text, /[Hh]ost adapter가 [^\n]*(?:정합니다|소유합니다)/u, `${name} adapter ownership`);
   }
   assert.match(rules.ceiling, /다른 접근으로 한 번/u);
   assert.match(rules.ceiling, /세 번째 시도/u);
   assert.match(rules.ceiling, /모델이나 effort를 바꿔 우회하지 않습니다/u);
   assert.match(rules.stop, /원인을 먼저 구분/u);
-  assert.match(rules.adoption, /pilot PASS는 채택이 아닙니다/u);
+  assert.match(rules.stop, /상향은 원인 입증이나 품질 회복 보장이 아닙니다/u);
+  assert.match(rules.stop, /조건을 더할 수 있지만 뺄 수 없습니다/u);
+  assert.match(rules.adoption, /Pilot 허용이나 pilot PASS는 채택이 아닙니다/u);
+  assert.match(rules.adoption, /채택은 별도 결정으로 기록합니다/u);
+  assert.match(rules.adoption, /철회를 기록합니다/u);
   assert.match(rules.adoption, /개별 호출 승인이 아닙니다/u);
   assert.match(rules.evidence, /관측하지 않은 값은 null/u);
   assert.match(rules.evidence, /성공으로 바꾸지 않습니다/u);
   assert.match(rules.configuration, /파일 내용만으로/u);
+  assert.match(rules.configuration, /재개했다고/u);
+  assert.match(rules.configuration, /실행을 보류하고/u);
 
   const codexRecovery = read(workflow + 'request-intake/orchestration-recovery.md');
   const codexAdapter = read(workflow + 'adapters/codex.md');
