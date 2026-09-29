@@ -12,6 +12,12 @@ Child가 끝났는데 `pnpm claude:native complete --task <taskId> --input <JSON
 no-completion-observation
 ```
 
+`pnpm claude:native settle --task <taskId>`는 같은 상태를 다음 문구로 거부합니다.
+
+```text
+cannot settle yet (no-completion-observation): wait for the completed task-notification, then settle
+```
+
 `no-completion-observation`과 함께 `stopped-task-settlement-failed: <사유>`가 나오면 Stop은 기록됐지만 정산이 그 사유로
 거부된 것입니다. Observation이 invalid이고 `unattributable-change:<path>`나 `post-completion-*-drift`가 나올 수도 있습니다.
 
@@ -34,7 +40,8 @@ no-completion-observation
 
 ## 해결
 
-1. 완료 알림(`<status>completed</status>`)이 온 뒤에 complete를 다시 실행합니다. 같은 Stop에 한해 지연 flush를 재검사합니다.
+1. 완료 알림(`<status>completed</status>`)이 온 뒤에 settle 또는 complete를 다시 실행합니다. Child의 최종 보고가 알림보다 먼저 도착해도
+   `stop.json`이 생길 때까지 기다립니다. 같은 Stop에 한해 지연 flush를 재검사합니다.
 2. Child가 끝나면 **파일을 편집하기 전에** 먼저 정산합니다. 이미 편집했다면 그 관측은 되돌리지 말고 invalid로 기록한 뒤,
    필요하면 새 task로 다시 실행합니다.
 3. 부모 transcript가 한도를 넘으면 새 세션에서 새로 등록합니다. 한도를 높인 사본이나 수동 JSON으로 정산하지 않습니다.

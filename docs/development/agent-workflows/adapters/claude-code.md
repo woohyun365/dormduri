@@ -67,9 +67,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    읽고, 제공하면 현재 source와 대조합니다. 임의 모델·역할 pin 대신 기존 model-policy를 재사용합니다. 독립 reviewer는
    아래의 `independentReview`를 추가하며 일반 task의 QA disposition을 임의로 끄지 않습니다. 등록이 거부되면
    [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 확인합니다.
-   일상 경로는 `pnpm claude:native prepare --spec <JSON file>`입니다. Spec에는 Lead가 고른 `role`·`profileId`·
-   `selectionBasisRef`(필수)·`expectedResolvedModel`·task 분류·`owner`·read/write 범위·`acceptance`·`reviewDisposition`·
-   `facts`(각 `confidence` 포함)·`prompt`만 둡니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
+   일상 경로는 `pnpm claude:native prepare --spec <JSON file>`입니다. Spec에는 `sessionId`·`request`와 Lead가 고른 `role`·
+   `profileId`·`selectionBasisRef`(필수)·`expectedResolvedModel`·task 분류(`kind`·`impactRisk`·`complexity`·`uncertainty`·
+   `childValue`)·`owner`·read/write 범위·`acceptance`·`reviewDisposition`·`facts`(각 `confidence` 포함)·`prompt`만 둡니다.
+   선택 필드는 `lifetimeMinutes`·`independentReview`뿐이며 다른 필드는 `unknown-field`로 거부합니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
    호출하고 거부 사유를 policy 사유와 입력 필드까지 그대로 보여 줍니다. Profile을 추론하거나 dispatch를 승인하지 않으며
    출력은 `dispatchAuthorized:false`입니다.
 4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
@@ -112,7 +113,7 @@ Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <task
 각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. `--runner-evidence`·
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
 `sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. Packet과 prompt에는 builder 응답·추론이 없고, template의
-`commandsActuallyRun`은 runner 기록에서만 채웁니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
+`commandsActuallyRun`은 runner 기록에서만 채우고, 정산 때 reviewer 결과가 prompt에 결속된 그 기록과 같아야 합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
 알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 

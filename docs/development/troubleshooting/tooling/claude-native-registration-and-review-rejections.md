@@ -1,7 +1,7 @@
 # 트러블슈팅: Claude native 등록·독립 리뷰 결과가 거부됨
 
 **상태**: Current
-**마지막 검증 환경**: Claude Code CLI 2.1.283, `pnpm claude:native prepare/register/review/complete`
+**마지막 검증 환경**: Claude Code CLI 2.1.283, `pnpm claude:native prepare/register/review/settle/complete`
 **현재 owner**: [Claude Code adapter](../../agent-workflows/adapters/claude-code.md)
 
 ## 증상
@@ -31,8 +31,10 @@
   ```text
   PASS requires a complete result with no blocking finding or evidence gap.
   read-only reviewer cannot be the packet runner
+  review commandsActuallyRun differs from the bound runner records
   ```
 
+- `settle --task <reviewerTaskId> --judgment <file>`이 `parent-adjudication: this reviewer has no native subject`로 거부됩니다.
 - reviewer PASS를 연결해 builder를 완료하려는데 다음 중 하나로 거부됩니다.
 
   ```text
@@ -54,6 +56,9 @@
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
   실행하지 말라고 하면서 실행 결과 칸을 비우게 하면, 실행하지 않은 검증이 `notRun`으로 들어가 PASS가 거부됩니다.
 - 읽기 전용 reviewer는 packet의 runner(`authority.runnerOwner`)가 될 수 없습니다.
+- Helper가 만든 review는 결과 template(runner 기록 포함)을 등록 prompt에 결속합니다. Reviewer 결과의 `commandsActuallyRun`이
+  그 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
+- `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
   hook이 기록하지 않은 reviewer 호출(hook 장애 중 재호출 등), 읽을 수 없는 세션 transcript, 정산 뒤 재개된 reviewer, 손상된 task 기록은
   FAIL을 숨길 수 있으므로 PASS 연결을 막습니다.
@@ -77,6 +82,8 @@
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
   reviewer의 `completion.json` 관측(valid·모델·변경 경로)과 finding 재현으로 판정하고, `finalSnapshot`의 digest가 review
   `logHeader`의 digest와 같은지 확인합니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
+- `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
+- `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
 - 나머지 builder 연결 거부는 기존 결과를 신뢰할 수 없다는 뜻입니다. 기록을 고치거나 지우지 말고, hook을 확인한 뒤 새 builder task와
   새 review로 해소합니다.
@@ -90,7 +97,8 @@ node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-t
 ```
 
 `registration names the concrete policy reason`과 `claude-native-task-helper.test.mjs`의 prepare·review·Parent-authored 테스트가
-등록 사유 표시, runner 기록 형식, `parent-adjudication` 경로를 고정합니다.
+등록 사유 표시, runner 기록 형식, `parent-adjudication` 경로를 고정하고, `a helper-built review cannot add, drop or change
+runner records`가 runner 기록 결속을 고정합니다.
 `read-only reviewer cites runner-owned checks`, `reviewer registration rejects the reviewer as runner`,
 `a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Builder 연결 거부는 `hook-less retry`,
 `each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed` 테스트가
