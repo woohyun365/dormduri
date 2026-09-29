@@ -77,7 +77,7 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `.artifacts/tools/claude-native/`가 소유합니다.
 5. 정상 PreToolUse는 `allow`를 반환하지 않습니다. 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
    KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.
-   필수 KNU 작업을 OMC 역할로 바꿔 이 계약을 피하지 않습니다.
+   필수 KNU 작업을 OMC 역할로 바꿔 이 계약을 피하지 않습니다([OMC 공존](#omc-공존과-skill-routing)).
 6. Auto의 Agent는 background로 시작될 수 있고 현재 schema에는 `run_in_background` 입력이 없습니다. PostToolUse의
    `async_launched`는 같은 session/tool/input의 child ID·요청 모델 관측만 저장하며 완료가 아닙니다. SubagentStop도
    다시 실행될 수 있으므로 종료 보장으로 취급하지 않습니다. 같은 child/tool의 부모 `task-notification completed`와
@@ -262,6 +262,87 @@ Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않�
 남깁니다. 임의 JSON receipt를 actual host observation으로 취급하지 않습니다.
 [qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
 현재 세션의 PASS 증거가 아닙니다.
+
+## Routine operation
+
+새 세션의 일상 순서입니다. 작은 작업은 Lead가 직접 처리하고, 분리 가능한 bounded 작업만 KNU 역할에 위임합니다.
+
+1. `pnpm claude:preflight -- --mode fresh`로 branch·HEAD·working tree와 계획 상태를 확인합니다.
+2. `pnpm claude:workflow -- --mode fresh --request '<요청>'`으로 공통 intake 분류와 읽을 문서를 확인합니다.
+3. 위임할 때만 Lead가 역할·profile·선택 근거·범위·acceptance를 정해 `pnpm claude:native prepare --spec <JSON file>`로 등록합니다.
+4. 반환된 `invocation` 그대로 Agent를 호출합니다. 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](#일반-interactive-auto-세션).
+5. 완료 알림(`task-notification completed`)을 받은 **다음** `settle --task <taskId>`로 관측을 정산합니다. 알림 행은 Lead turn이
+   끝난 뒤 parent transcript에 기록되므로 같은 turn에서 정산을 반복 시도하지 않습니다. 이어서 `settle --judgment`로 판정합니다.
+6. 독립 QA가 필요하면 `pnpm claude:native review`로 packet을 만들고 reviewer를 같은 방식으로 등록·호출·정산합니다.
+   Parent가 직접 작성한 변경은 `parent-adjudication`으로 판정합니다([Same-host independent review](#same-host-independent-review)).
+
+Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troubleshooting/tooling/claude-auto-classifier-no-verdict.md)의
+재시도·Owner 직접 실행 경로를 따릅니다.
+
+Routine 위임 대상은 live 관측(CLI 2.1.283~2.1.284, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
+동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
+
+Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 시점에 정합니다. 같은 family의 Parent면 Parent의 exact 모델로
+해석되므로 Parent 모델과 CLI 버전에 따라 달라질 수 있습니다([Model 설정](https://code.claude.com/docs/en/model-config)).
+`prepare`의 `expectedResolvedModel`에 exact ID를 두고 관측값이 다르면 거부합니다. 아래 관측 ID 밖의 exact 모델로 해석되는
+조합은 관측 전까지 routine이 아닙니다.
+
+| 역할             | Profile              | Alias    | 관측된 모델 ID                                           | 작업                 | 상태           |
+| ---------------- | -------------------- | -------- | -------------------------------------------------------- | -------------------- | -------------- |
+| `knu_explorer`   | `bounded-extraction` | `haiku`  | `claude-haiku-4-5-20251001`                              | 고정 입력 추출       | 관측           |
+| `knu_executor`   | `bounded-standard`   | `sonnet` | `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측           |
+| `knu_researcher` | `bounded-standard`   | `sonnet` | `claude-sonnet-5`(2.1.283)                               | 공식 근거 읽기       | 관측           |
+| `knu_reviewer`   | `complex-critical`   | `opus`   | `claude-opus-5-5`                                        | 독립 source review   | 관측           |
+| `knu_explorer`   | `bounded-standard`   | `sonnet` | 없음                                                     | repository 읽기 조사 | Q(live 미관측) |
+| `knu_executor`   | `complex-critical`   | `opus`   | 없음                                                     | 복잡한 구현          | Q(live 미관측) |
+
+## Recovery
+
+위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산하거나 `release`해 writer를 회수합니다. 재시도는
+**한 번만** 허용하며 새 task로 다시 등록합니다. 원인에 따라 선택을 바꿉니다
+([Choosing a Claude model and effort level in Claude Code](https://claude.com/blog/claude-model-and-effort-level-in-claude-code)).
+
+- 필요한 context가 충분했는데 결과가 틀렸다면 모델을 한 단계 올립니다(`sonnet`→`opus`). Lead가 새 profile과 선택 근거로 다시 prepare합니다.
+  올린 profile도 자기 조건을 그대로 만족해야 합니다. `complex-critical`은 독립 read-only review가 아니면 impact `high`,
+  complexity `complex`, uncertainty `uncertain` 중 하나가 필요하고 `bounded-standard`는 kind `extract`를 받지 않습니다.
+  조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다.
+- 파일을 빠뜨렸거나 테스트를 실행하지 않았거나 중도에 멈췄다면 effort를 올립니다. 현재 KNU 역할에는 effort 필드가 없어
+  child가 session effort를 상속하므로 effort 상향은 candidate이며, 적용됐다는 관측 없이 주장하지 않습니다.
+- Context·acceptance가 부족했다면 모델·effort를 바꾸기 전에 입력을 보완합니다.
+- 올린 역할×profile이 [Routine operation](#routine-operation) 표의 Q 행이거나 표에 없으면 그 재시도가 해당 조합의 첫 live
+  관측입니다. `expectedResolvedModel`에는 같은 alias가 현재 CLI 버전에서 관측된 ID(예: `opus` → `claude-opus-5-5`,
+  2.1.284의 `sonnet` → `claude-sonnet-5-5`)를 두고, 결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다.
+- Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다.
+- 재시도도 실패하면 무인 계속을 멈추고 원인·증거를 보존해 Owner와 다음 행동을 정합니다.
+
+## Parent 운영과 quality stop
+
+Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 부족이 재발하면 xhigh를 권고합니다. Fable은 사용 근거가
+생기기 전에는 쓰지 않습니다. Parent 모델·effort는 Owner가 session control에서 직접 바꾸며, 이 문서나 설정 파일 값만으로
+현재 Parent 설정을 주장하지 않습니다. Host는 이 규칙을 강제하지 않습니다(advisory).
+
+- 보안·권한·범위 위반, 허위 완료 주장, 같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다. 해당 작업의 무인
+  계속을 멈추고 원인을 먼저 구분합니다.
+- Source·환경·권한·테스트 공백부터 바로잡습니다. Parent의 framing·통합 추론 부족이 의심되거나 같은 누락이 재발하면 Parent
+  xhigh 재검토를 권고합니다. 격리 가능한 기술 문제만이면 bounded child를 씁니다.
+- 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 필수 독립 검증 부재를 모델·effort로 우회하지 않습니다.
+
+## OMC 공존과 skill routing
+
+저장소 작업의 지침 우선순위는 **현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**입니다.
+
+- OMC agent·skill은 선택적 보조입니다. 보조 조사와 저장소에 쓰지 않는 초안(제안)만 만들고, Parent가 검토해 채택합니다.
+- 위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다. 정산은 `complete`(또는 `settle --judgment`)와
+  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다. Lead 직접 구현은 그대로 허용됩니다.
+- KNU hook은 KNU 역할·marker 호출에만 적용되어 OMC 사용을 막지 않습니다. 이 규칙은 runtime 차단이 아니라 운영 규칙입니다.
+
+| OMC 요청·skill                          | 저장소 workflow owner                                                                                      |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `plan`, `ralplan`, `deep-interview`     | [Plan authoring](../plan-authoring/core.md). OMC 초안은 `.plans` 계획으로 채택하기 전 제안입니다.          |
+| `execute`, `autopilot`, `ralph`, `team` | [Branch와 PR 전략](../../github/branch-and-pr-strategy.md)과 Lead 직접 구현 또는 `knu_executor` 위임       |
+| `review`, `verify`, code reviewer       | [QA](../qa.md#independent-review-disposition)의 필수 독립 review는 `claude:native review`와 `knu_reviewer` |
+| `research`, document specialist         | 공식 근거가 acceptance에 필요하면 `knu_researcher`                                                         |
+| `wiki`, `remember`, notepad             | Local memory입니다. Source of truth가 아닙니다(`AGENTS.md` §1)                                             |
 
 ## Plan continuity
 
