@@ -208,7 +208,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '일반 auto의\ngate로 사용하지 않습니다',
     '문서화된 ask 동작과 다르므로',
     '완료 판정 거부입니다',
-    'common result는 `partial`',
+    'semantic PASS로 자동 승격하지 않습니다',
     '`modelsUsed`는 변경 관측입니다',
     'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
     'record를 합치지 않습니다',

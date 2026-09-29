@@ -76,5 +76,4 @@ UI/tool 결과로 확인합니다.
 Manifest는 인증·업무 승인·model 설정이 아닙니다. Healthy PreToolUse는 model 누락·불일치를 거부하고 일치하면 allow
 override 없이 정상 `auto` classifier에 맡깁니다. Hook 부재·crash는 fail-closed 보장이 아니므로 같은 session/tool
 receipt, source·의미 검증과 공통 QA가 완료에 필요합니다. 이 경로만으로 generic native support나 `runtime-qualified`를
-전역 선언하지 않습니다. 기존 headless qualification은 별도 legacy test이고 interactive auto evidence가 아니며,
-cross-CLI bridge는 계속 unsupported입니다.
+전역 선언하지 않습니다. Cross-CLI bridge는 계속 unsupported입니다.

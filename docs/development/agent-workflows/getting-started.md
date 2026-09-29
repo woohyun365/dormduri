@@ -47,8 +47,7 @@ pnpm claude:native register --input <JSON-file>
 보장하지 않습니다. 완료 판정에는 같은 session과 tool 호출의 receipt, 현재 source, 의미 검증과 공통 QA가 모두
 필요합니다. 일반 작업은 먼저 공통 문서를 따르고, 역할별 tool 제한·single writer·필요한 독립 QA를 유지합니다.
 
-세부 hook과 증거 경계는 [Claude Code adapter](./adapters/claude-code.md)를 따릅니다. 기존 headless native
-qualification은 별도 legacy 검증이며 interactive `auto`의 증거가 아닙니다. Cross-CLI bridge도 계속 미지원입니다.
+세부 hook과 증거 경계는 [Claude Code adapter](./adapters/claude-code.md)를 따릅니다. Cross-CLI bridge는 계속 미지원입니다.
 
 ## Codex/OMX 실행과 승인
 

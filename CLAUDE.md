@@ -14,5 +14,5 @@
 `auto`는 bypass가 아니며 기존 Home·project 설정을 로드합니다. 설정에서 설치·활성화된 OMC는 Claude가 자동 로드하므로
 별도 `omc` prefix가 필요하지 않지만 모든 설치에 OMC가 있는 것은 아닙니다. Home을 설치·변경하지 않습니다. Manifest는
 coordination record이지 인증·권한·model 설정이 아닙니다. 역할별 tool, single writer와 독립 QA를 유지하고 실제 UI,
-같은 session/tool receipt, source·의미 검증으로 완료를 판단합니다. Hook 부재·crash, legacy headless qualification,
-cross-CLI bridge의 경계는 adapter를 따릅니다. Codex 전용 model/effort/runtime state를 Claude 기능으로 해석하지 않습니다.
+같은 session/tool receipt, source·의미 검증으로 완료를 판단합니다. Hook 부재·crash, cross-CLI bridge의
+경계는 adapter를 따릅니다. Codex 전용 model/effort/runtime state를 Claude 기능으로 해석하지 않습니다.

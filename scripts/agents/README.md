@@ -29,7 +29,7 @@
   반환하지 않아 일반 auto classifier를 유지합니다. Hook 부재·crash는 fail-closed가 아니므로 receipt만으로 완료하지
   않고 source·의미·공통 QA를 함께 확인합니다.
 - 이 source entry는 generic native support·live qualification·parent model 설정·task authority를 주장하지 않습니다.
-  기존 headless qualification은 별도 legacy test이고 auto evidence가 아니며 cross-CLI bridge는 계속 unsupported입니다.
+  Cross-CLI bridge는 계속 unsupported입니다.
 - `codex/`·`claude/` 안의 `.mjs`는 경로 자체가 host를 구분하므로 파일명에 prefix를 중복하지 않습니다.
 - flat `scripts/ci/`의 host 전용 suite는 `codex-*`·`claude-*`처럼 host를 식별합니다.
   공통 계약 및 여러 host의 경계를 함께 검사하는 suite는 `agent-*`·`cross-host-*` 등 검증 책임을 표시합니다.
