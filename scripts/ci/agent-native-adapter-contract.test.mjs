@@ -214,7 +214,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '`resolvedModel`은 시작 또는 background 전환 시점 모델이고',
     '`modelsUsed`는 변경 관측입니다',
     'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
-    'record를 합치지 않습니다',
+    '같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다',
     '임의 JSON receipt를 actual host observation으로 취급하지 않습니다',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
