@@ -73,7 +73,7 @@
   packet·reviewer prompt·결과 template·reviewer spec이 나옵니다. 결과 template의 `commandsActuallyRun`은 runner 기록에서만
   채워지고 builder의 응답·추론은 packet에 들어가지 않습니다. Reviewer는 자신이 실행했다고 주장하지 않으며, 실행하지 않은 검증을
   PASS로 바꾸지 않습니다. 다른 회차의 digest나 추가 필드가 있는 기록은 거부됩니다.
-- Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file>`은 `settlement:"parent-adjudication"`을
+- Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file> --session <session_id>`는 `settlement:"parent-adjudication"`을
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
   reviewer의 `completion.json` 관측(valid·모델·변경 경로)과 finding 재현으로 판정하고, `finalSnapshot`의 digest가 review
   `logHeader`의 digest와 같은지 확인합니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.

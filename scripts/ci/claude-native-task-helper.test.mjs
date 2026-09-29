@@ -395,6 +395,11 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
     { root: r.root },
   );
   assert.equal(review.settlement, 'parent-adjudication');
+  assert.equal(review.snapshotDigest, status.snapshotDigest);
+  const parentPacket = validateCrossModelPacket(review.packet, {
+    currentSnapshot: review.packet.snapshot,
+  });
+  assert.equal(parentPacket.valid, true, parentPacket.errors.join('; '));
   assert.equal(review.reviewerSpec.independentReview, undefined);
   assert.equal(review.reviewerSpec.reviewDisposition.required, true);
   assert.match(review.reviewerPrompt, /KNU_REVIEW_PACKET:/u);

@@ -1,10 +1,13 @@
-// Lead-side assembly for ordinary native tasks. It consumes the Lead's role/profile/scope/facts
-// choices and the existing registry; it never picks a profile, authorizes dispatch or settles QA.
+// Lead-side assembly for ordinary native tasks. prepare consumes the Lead's role/profile/scope/facts
+// choices and the existing registry; it never infers a profile, authorizes dispatch or settles QA.
+// The reviewer spec from review is a draft with the only reviewer role/profile (knu_reviewer,
+// complex-critical) and review facts citing the Lead's --basis; the Lead reviews it before prepare.
 import { randomUUID } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
+import { validateCrossModelPacket } from '../common/index.mjs';
 import {
   registerClaudeNativeTask,
   nativeRequestIssues,
@@ -425,6 +428,9 @@ export function buildClaudeNativeReview(
   validateRunnerEvidence(runnerEvidence, snapshotDigest, reviewerId);
   const reviewId = `${(subject.taskId ?? snapshotDigest.slice(7)).slice(0, 8)}-${randomUUID().slice(0, 8)}`;
   const packet = reviewPacket(subject, runnerEvidence, reviewId);
+  // The registry re-validates a native subject's packet; a Parent subject's packet is only checked here.
+  const packetCheck = validateCrossModelPacket(packet, { currentSnapshot: subject.snapshot });
+  fail('invalid review packet', packetCheck.errors);
   const template = resultTemplate(packet, runnerEvidence);
   const prompt = reviewerPrompt(logHeader, subject, packet, template);
   fail('invalid review request', [

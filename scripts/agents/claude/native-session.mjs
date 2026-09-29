@@ -1196,8 +1196,8 @@ export function completeClaudeNativeTask(
   };
 }
 
-// Read-side view for the task helper: the same settlement and observation checks as complete,
-// without accepting results, writing a receipt or releasing anything.
+// Observation view for the task helper. Like complete, it first settles a recorded Stop (writing
+// completion.json and releasing that task's writer lease), but it accepts no result and writes no receipt.
 export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
   root = realpathSync(root);
   const task = loadTask(root, id);

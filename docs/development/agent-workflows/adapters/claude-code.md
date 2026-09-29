@@ -107,7 +107,9 @@ Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <task
 각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. `--runner-evidence`·
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
 `sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. Packet과 prompt에는 builder 응답·추론이 없고, template의
-`commandsActuallyRun`은 runner 기록에서만 채웁니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
+`commandsActuallyRun`은 runner 기록에서만 채웁니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
+review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
+알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 
 Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방향을 사용합니다. 등록 입력의 선택적
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
