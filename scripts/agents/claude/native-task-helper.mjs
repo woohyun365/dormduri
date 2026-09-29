@@ -17,6 +17,7 @@ import {
   observeClaudeNativeTask,
   currentClaudeNativeSnapshot,
   claudeNativeSnapshotDigest,
+  REVIEW_RESULT_TEMPLATE_PREFIX,
 } from './native-session.mjs';
 
 const DEFAULT_LIFETIME_MINUTES = 15;
@@ -384,7 +385,7 @@ function reviewerPrompt(logHeader, subject, packet, template) {
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
     '- Each finding needs severity, location, impact, reproduction and evidence.',
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
-    `Result template: ${JSON.stringify(template)}`,
+    `${REVIEW_RESULT_TEMPLATE_PREFIX}${JSON.stringify(template)}`,
     ...(subject.settlement === 'parent-adjudication'
       ? [`KNU_REVIEW_PACKET:${JSON.stringify(packet)}`]
       : []),

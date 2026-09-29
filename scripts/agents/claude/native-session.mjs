@@ -169,6 +169,18 @@ function localIdentity(root, role) {
     configDigest: hash({ role: hash(readFileSync(rolePath)), config }),
   };
 }
+// A review built by the task helper binds its result template, including the runner records, into
+// the registered prompt on the line starting with this prefix.
+export const REVIEW_RESULT_TEMPLATE_PREFIX = 'Result template: ';
+function boundRunnerRecords(prompt) {
+  const line = prompt.split('\n').find((l) => l.startsWith(REVIEW_RESULT_TEMPLATE_PREFIX));
+  if (line === undefined) return undefined;
+  try {
+    return JSON.parse(line.slice(REVIEW_RESULT_TEMPLATE_PREFIX.length)).commandsActuallyRun ?? null;
+  } catch {
+    return null;
+  }
+}
 // model-policy owns the decision and reports malformed input only as `invalid-input`. These checks
 // mirror its input rules so a refusal names the field; they never admit what the policy refuses.
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -997,6 +1009,12 @@ export function completeClaudeNativeTask(
       errors.push(...qa.errors);
       if (delivered.status !== 'complete' || !['PASS', 'FAIL'].includes(delivered.verdict))
         errors.push('review result must be terminal complete PASS or FAIL');
+      const runnerRecords = boundRunnerRecords(invocation.prompt);
+      if (
+        runnerRecords !== undefined &&
+        !isDeepStrictEqual(delivered.commandsActuallyRun, runnerRecords)
+      )
+        errors.push('review commandsActuallyRun differs from the bound runner records');
       for (const criterion of record.independentReview.subjectAcceptance) {
         if (
           !delivered.acceptanceCoverage?.some(
