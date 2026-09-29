@@ -570,6 +570,53 @@ test('executor → reviewer → complete runs with the tracked helper commands o
   assert.equal(settled.dispatchAuthorized, false);
 });
 
+test('a helper-built review cannot add, drop or change runner records', (t) => {
+  const r = settledBuilder(t);
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  const review = buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+    },
+    { root: r.root },
+  );
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const delivered = structuredClone(review.resultTemplate);
+  delivered.acceptanceCoverage = delivered.acceptanceCoverage.map((c) => ({
+    ...c,
+    sourceRefs: ['sample.txt'],
+    evidenceRefs: ['runner:node --test'],
+    gap: null,
+  }));
+  delivered.verdict = 'PASS';
+  delivered.confidence = 'high';
+  delivered.commandsActuallyRun.push({
+    runner: 'parent',
+    exit: 0,
+    observedResult: 'claimed but never run',
+    environment: 'reviewer',
+    outputPaths: ['.artifacts/plans/helper-test/extra.log'],
+  });
+  dispatch(r, reviewer, 'review-1', JSON.stringify(delivered));
+
+  const reviewed = settleClaudeNativeTask(
+    reviewer.taskId,
+    judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+    { root: r.root },
+  );
+  assert.equal(reviewed.valid, false);
+  assert.ok(
+    reviewed.errors.includes('review commandsActuallyRun differs from the bound runner records'),
+    reviewed.errors.join('; '),
+  );
+  assert.ok(!existsSync(join(reviewer.evidenceDirectory, 'review-receipt.json')));
+});
+
 test('CLI settle reads a judgment file', (t) => {
   const r = settledBuilder(t);
   const path = join(r.root, '.artifacts-judgment.json');
