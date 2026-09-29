@@ -42,6 +42,7 @@ const localPlanBoundaryAllowlist = new Set([
   'scripts/ci/agent-workflow-entry.test.mjs',
   'scripts/ci/codex-workflow-entry.test.mjs', // Disposable plan lifecycle fixture, not durable authority.
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
+  'scripts/git/workspace-layout-check.test.mjs', // Detector fixture paths, not plan authority.
 ]);
 const workflowGuidePaths = [
   'docs/development/agent-workflows/README.md',
@@ -427,6 +428,8 @@ const renamedWorkspaceRoot =
 const renamedWorkspaceRootAllowlist = new Set([
   '.artifacts/README.md',
   'scripts/ci/agent-guidance-boundary.test.mjs',
+  'scripts/git/workspace-layout-check.mjs',
+  'scripts/git/workspace-layout-check.test.mjs',
 ]);
 
 test('tracked files do not point to renamed local workspace roots', () => {

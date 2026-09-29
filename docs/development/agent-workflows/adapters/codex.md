@@ -360,6 +360,15 @@ priority/checkpoint 충돌을 중복 제거로 숨기지 않습니다.
   `unsafe-path`, `head-changed`, `dirty-tree` 등은 조사 이유이지 state 변경 명령이 아닙니다.
 - Preflight는 `.omx/state`, notepad, checkpoint, 전역 설정을 쓰거나 정리하지 않습니다. 자동 실행/dispatch 권한도 없습니다.
 
+### 저장소 root와 runtime state 위치
+
+- Codex와 OMX는 저장소 root에서 시작합니다. OMX 0.21.6은 `OMX_ROOT`·`OMX_STATE_ROOT`가 없으면 현재 작업 디렉터리의
+  `.omx`를 state root로 쓰고 OMC 같은 위치 표식을 지원하지 않습니다. 하위 디렉터리에서 시작하면 그 아래에 `.omx`가 생깁니다.
+- Agent가 만든 screenshot·dev server log·검증 출력은 `.omx/`나 app 하위 디렉터리가 아니라
+  [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다. repository script는 `resolveArtifactPath()`를 씁니다.
+- `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omx`·`.omc`와 옛 root 이름을 탐지해
+  commit을 멈춥니다. 탐지이지 차단 장치가 아니므로 발견하면 내용을 옮기고 시작 위치를 바로잡습니다.
+
 ## OMX 종료 기록 경계
 
 **Codex/OMX에서만:** `omx_wiki/`는 명시적으로 승격한 재사용 지식만 소유합니다. 세션 종료 메타데이터는 repository
