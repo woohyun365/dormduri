@@ -141,6 +141,43 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
     /정적 테스트는 실제 host가\s*hook 장애를 어떻게 처리하는지 증명하지 않습니다/u,
   );
   assert.doesNotMatch(hook, /fail-closed(를|로) 보장/u);
+  // Documented classifier skips are not an observed guarantee; keep the dated observation and the gap.
+  const noVerdict = read(
+    'docs/development/troubleshooting/tooling/claude-auto-classifier-no-verdict.md',
+  );
+  assert.doesNotMatch(noVerdict, /작업 디렉터리 편집은\s*판정을 거치지 않습니다/u);
+  assert.doesNotMatch(
+    noVerdict,
+    /(Edit|전용 도구)[^.]*?판정(을\s*거치지\s*않|을\s*건너(뛰|뜁)|의\s*대상이\s*아니|에서\s*제외)/u,
+  );
+  assert.match(noVerdict, /관측\(\d{4}-\d{2}-\d{2}, CLI [\d.]+\)/u);
+  assert.match(noVerdict, /원인[^\n]*확인하지 못했습니다/u);
+  assert.match(noVerdict, /판정 누락을 없애지는 못합니다/u);
+  assert.match(noVerdict, /부분 명령마다/u);
+  assert.match(noVerdict, /claude auto-mode config/u);
+  // A prefix allow also passes exec/write flags; pair them with ask and keep the boundary caveat.
+  // Broad prefix rules appear only as the subject of the flag warning, never as a plain allow example.
+  assert.doesNotMatch(noVerdict, /`Bash\((rg|git diff|git fetch) \*\)`(?!는)/u);
+  assert.match(noVerdict, /prefix allow는 뒤에 붙는 flag를 가리지 않습니다/u);
+  assert.match(noVerdict, /flag를\s*`permissions\.ask`\s*규칙으로 짝짓/u);
+  assert.match(
+    noVerdict,
+    /`Bash\(rg --pre \*\)`, `Bash\(rg --pre=\*\)`, `Bash\(rg \* --pre \*\)`, `Bash\(rg \* --pre=\*\)`/u,
+  );
+  assert.match(noVerdict, /관측\(\d{4}-\d{2}-\d{2}, git [\d.]+\):/u);
+  assert.match(
+    noVerdict,
+    /관측\(\d{4}-\d{2}-\d{2}, CLI [\d.]+\):\s*auto 세션에서 Bash `ask` 규칙에 맞는 명령은\s*확인 창을 띄웠고,\s*`deny` 규칙에 맞는 명령은\s*확인 창 없이\s*차단/u,
+  );
+  assert.match(noVerdict, /`git diff`·`git log`·`git show`는 받지 않았습니다/u);
+  assert.match(noVerdict, /보안 경계가 아닙니다/u);
+  assert.match(noVerdict, /판정 누락 노출이 늘어납니다/u);
+  assert.match(noVerdict, /classifyAllShell: true`는 Bash·PowerShell allow 규칙/u);
+  assert.match(noVerdict, /critical path[^\n]*`rm`·`rmdir`/u);
+  assert.match(noVerdict, /직접 쓴 `environment` 배열에는\s*`"\$defaults"`가 들어 있습니다/u);
+  for (const personal of [/\/Users\//u, /\.claude\/jobs/u, /\.plans\//u, /Phase \d/u]) {
+    assert.doesNotMatch(noVerdict, personal);
+  }
 });
 
 test('Claude entry documents actual host commands and keeps native/lifecycle evidence distinct', () => {
