@@ -799,9 +799,10 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
         'missing async child identity',
       );
       check(
-        r.resolvedModel === record.expectedResolvedModel && r.prompt === task.invocation.prompt,
-        'async launch mismatch',
+        r.resolvedModel === record.expectedResolvedModel,
+        `async launch model mismatch: expected ${record.expectedResolvedModel}, observed ${r.resolvedModel}`,
       );
+      check(r.prompt === task.invocation.prompt, 'async launch prompt mismatch');
       writeFileSync(
         join(dir, 'launch.json'),
         JSON.stringify({ response: r, sessionId: record.sessionId, toolUseId: attempt.toolUseId }),
@@ -1244,10 +1245,14 @@ async function helperCommand(action, args) {
   }
   if (action === 'settle') {
     check(
-      args.length === 4 && args[0] === '--task' && args[2] === '--judgment',
-      'expected settle --task ID --judgment FILE',
+      args[0] === '--task' &&
+        (args.length === 2 || (args.length === 4 && args[2] === '--judgment')),
+      'expected settle --task ID [--judgment FILE]',
     );
-    return helper.settleClaudeNativeTask(args[1], jsonFile(resolve(args[3])));
+    return helper.settleClaudeNativeTask(
+      args[1],
+      args.length === 4 ? jsonFile(resolve(args[3])) : undefined,
+    );
   }
   const options = {};
   for (let i = 0; i < args.length; i += 2) {

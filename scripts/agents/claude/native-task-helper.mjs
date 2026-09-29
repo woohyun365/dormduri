@@ -496,8 +496,29 @@ const JUDGMENT_FIELDS = [
 // complete's input from the settled observation plus the Lead's judgment. The Lead states the digest
 // of the response it judged and each acceptance result; lane ids, snapshot, observed changed paths
 // and a reviewer's delivered result come from the records, so none of them is retyped by hand.
+// Without a judgment it only settles the observation and shows what the Lead must judge: the
+// response, its digest, the observed changes and the acceptance criteria. It decides nothing.
+function settlementStatus(taskId, root) {
+  const state = observeClaudeNativeTask(taskId, { root });
+  if (state.errors.includes('no-completion-observation'))
+    throw new TypeError(
+      `cannot settle yet (${state.errors.join(',')}): wait for the completed task-notification, then settle`,
+    );
+  const content = state.observation.response?.content;
+  return {
+    taskId,
+    responseDigest: state.observation.responseDigest,
+    response: content?.length === 1 && content[0]?.type === 'text' ? content[0].text : content,
+    resolvedModel: state.observation.resolvedModel,
+    changedPaths: state.changedPaths,
+    acceptance: state.record.input.directAssignment.acceptance,
+    observationErrors: state.errors,
+    dispatchAuthorized: false,
+  };
+}
 export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() } = {}) {
   root = realpathSync(root);
+  if (judgment === undefined) return settlementStatus(taskId, root);
   const issues = [];
   if (!judgment || typeof judgment !== 'object' || Array.isArray(judgment))
     fail('invalid settle judgment', ['object required']);

@@ -89,7 +89,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
    관측한 `responseDigest`, `acceptance` 배열의 criterion/passed/evidenceRef, 그리고 독립 QA가 필요한 builder의
    `reviewerTaskId` 또는 reviewer task 자신의 `reviewResult`입니다. 별도 `review` 객체로 대체하지 않습니다.
-   일상 경로는 `pnpm claude:native settle --task <taskId> --judgment <JSON file>`입니다. Judgment에는 Lead가 판단한
+   일상 경로는 완료 알림 뒤 `pnpm claude:native settle --task <taskId>`로 관측을 정산해 판단할 응답·`responseDigest`·
+   변경 경로를 보고, `settle --task <taskId> --judgment <JSON file>`로 판정하는 두 단계입니다. Judgment에는 Lead가 판단한
    응답의 `responseDigest`, `acceptance`, `checks`(필요하면 `findings`·`gaps`·`reviewerTaskId`)만 둡니다. Helper는 lane ID·
    finalSnapshot·관측된 변경 경로와 reviewer가 전달한 결과를 기록에서 채워 같은 complete를 호출합니다. 완료 관측이 없으면
    정산하지 않고, native subject가 없는 reviewer는 `parent-adjudication`으로 거부합니다.
