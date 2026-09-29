@@ -151,6 +151,8 @@ classification으로 범위와 권한을 확인하며, 문서 길이만으로 �
 | 같은 outcome·owner·완료 기준의 복잡한 troubleshooting 절차     | Supporting 상세 문서로 추출하고 부모 lifecycle 공유  |
 | Readiness 발견사항에 독립 수정 owner·검증·rollback 경계가 필요 | 위 plan-graph 규칙에 따라 별도 bounded plan으로 연결 |
 
+Supporting은 계획 문서(Markdown)만 소유합니다. 계획을 진행하며 만든 script·log·JSON·diff·screenshot·review 입력은 실행
+증거이므로 [Artifact 배치 규칙](../../../../.artifacts/README.md#배치-규칙)에 따라 `.artifacts/plans/` 아래 Plan ID 경로에 둡니다.
 작업별 상세 문서의 로컬 배치는 아래 Session continuity를 따릅니다. 디렉터리 위치는 문서 유형이나 승인 상태를
 결정하지 않습니다. 단순 상세 문서는 별도 completion clock을 만들지 않고, 독립 plan은 자신의 Plan ID·status·
 readiness·acceptance·rollback을 소유합니다. 독립 작업의 실행 순서는 실제 dependency로 정하며 모두 successor로 간주하지
@@ -165,7 +167,8 @@ readiness·acceptance·rollback을 소유합니다. 독립 작업의 실행 순�
   독립 plan의 세부 계약은 그 plan이 소유하고 부모는 상태 요약과 근거 링크만 유지하여 이중 갱신을 줄입니다.
 - 발견사항이나 문서 생성 자체는 구현 승인이나 scope 확장이 아닙니다. 부모의 readiness가 독립 plan으로 전파되지 않으며,
   같은 outcome의 상세화도 실제 scope/assumption이 달라졌다면 영향 범위의 readiness를 다시 확인합니다.
-- 이 tracked guide가 재사용 규칙의 owner입니다. Ignored README는 선택적 안내 링크일 뿐 규칙의 원본이나 사본이 아닙니다.
+- 이 tracked guide가 재사용 규칙의 owner입니다. `.plans` lifecycle 디렉터리의 README는 용도 요약과 원본 링크만 가진 안내이며
+  규칙의 원본이나 사본이 아닙니다.
   재개·portable handoff·완료 후 발견 가능성은 [Session continuity](../session-continuity.md#supporting-문서-재개와-인계)를 따릅니다.
 
 ### Future option boundary

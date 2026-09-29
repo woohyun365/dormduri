@@ -24,7 +24,6 @@ const textExtensions = new Set([
 ]);
 const localPlanBoundaryAllowlist = new Set([
   '.artifacts/README.md',
-  'docs/architecture/README.md',
   'docs/development/agent-workflows/session-continuity.md',
   'docs/development/agent-workflows/adapters/codex.md',
   // Host lifecycle examples and disposable fixtures, never active-plan authority.
@@ -299,6 +298,76 @@ test('generated local evidence stays outside the repository formatting gate', as
     assert.equal(await formatIgnored(path), true, path);
   for (const path of localWorkspaceReadmes) assert.equal(await formatIgnored(path), false, path);
   assert.equal(isIgnored('.plans/example-plan.md'), true);
+});
+
+// GitHub-style heading slugs, enough to catch a renamed section behind a guide link.
+function headingAnchors(path) {
+  const source = readFileSync(resolve(repoRoot, path), 'utf8').replace(/^```[\s\S]*?^```/gmu, '');
+  return new Set(
+    [...source.matchAll(/^#{1,6}\s+(.+)$/gmu)].map((match) =>
+      match[1]
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}_\-\s]/gu, '')
+        .replace(/\s/gu, '-'),
+    ),
+  );
+}
+
+test('tracked workspace guides link only to tracked sources and defer lifecycle rules', () => {
+  const tracked = new Set(trackedPaths());
+  for (const path of localWorkspaceReadmes)
+    assert.equal(tracked.has(path), true, `${path} is tracked`);
+
+  for (const path of localWorkspaceReadmes) {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    for (const [, href] of source.matchAll(/\]\(([^)\s]+)\)/gu)) {
+      if (/^[a-z]+:/iu.test(href) || href.startsWith('#')) continue;
+      const [file, fragment] = href.split('#');
+      const target = relative(repoRoot, resolve(repoRoot, dirname(path), decodeURIComponent(file)));
+      assert.equal(tracked.has(target), true, `${path} links to untracked ${href}`);
+      if (fragment)
+        assert.equal(
+          headingAnchors(target).has(decodeURIComponent(fragment)),
+          true,
+          `${path} -> ${href}`,
+        );
+    }
+    if (!path.startsWith('.plans/')) continue;
+    assert.match(source, /session-continuity\.md#lifecycle-디렉터리와-이동/u, path);
+    assert.doesNotMatch(
+      source,
+      /작성일|완료일|결정일|Status:/u,
+      `${path} restates lifecycle rules`,
+    );
+  }
+});
+
+// Plans moved to the shared .plans root; .omx/plans remains only as explicit legacy read compatibility.
+const legacyPlanRootFiles = new Set([
+  'docs/development/agent-workflows/adapters/README.md',
+  'docs/development/agent-workflows/adapters/codex.md',
+  'scripts/agents/codex/session-preflight.mjs',
+  'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
+  'scripts/ci/fixtures/codex-session-context.valid.md',
+]);
+
+test('tracked guidance does not present host runtime directories as the plan location', () => {
+  const sources = trackedPaths()
+    .filter((path) => textExtensions.has(extname(path)) && !path.endsWith('.test.mjs'))
+    .filter((path) => existsSync(resolve(repoRoot, path)))
+    .map((path) => [path, readFileSync(resolve(repoRoot, path), 'utf8')]);
+
+  const legacyMentions = sources
+    .filter(([path, source]) => /\.omx\/plans/u.test(source) && !legacyPlanRootFiles.has(path))
+    .map(([path]) => path);
+  assert.deepEqual(legacyMentions, []);
+
+  for (const [path, source] of sources.filter(([path]) => /^docs\/.*\.md$/u.test(path))) {
+    for (const line of source.split('\n').filter((text) => /\.omx\/plans/u.test(text)))
+      assert.match(line, /legacy|명시적/u, `${path}: ${line}`);
+    assert.doesNotMatch(source, /계획[^\n`]{0,30}`\.omx\/`/u, path);
+  }
 });
 
 // Local workspace roots keep content untracked; only their guidance files are tracked.
