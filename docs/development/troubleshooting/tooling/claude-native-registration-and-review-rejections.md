@@ -53,7 +53,7 @@
   숨김 디렉터리 경로처럼 `.`으로 시작하는 참조는 `unsafe-reference:<field>`입니다.
 - Task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다.
 - 공통 intake가 모든 한국어 조사 표현을 읽기 intent로 분류하지는 않습니다. `조사해줘`·문장 끝 `조사`는 `analyze`지만
-  `살펴봐줘`·`확인해줘`·`파악해줘`처럼 인식하지 않는 표현은 `unknown`으로 남습니다.
+  `살펴봐줘`·`확인해줘`, `원인` 없이 쓴 `파악해줘`처럼 인식하지 않는 표현은 `unknown`으로 남습니다.
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
   실행하지 말라고 하면서 실행 결과 칸을 비우게 하면, 실행하지 않은 검증이 `notRun`으로 들어가 PASS가 거부됩니다.
 - 읽기 전용 reviewer는 packet의 runner(`authority.runnerOwner`)가 될 수 없습니다.
