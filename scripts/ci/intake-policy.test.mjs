@@ -59,6 +59,28 @@ test('grants mutate authority only for an explicit implementation or debugging r
   assert.equal(plan.authorizedAction, 'produce-plan');
 });
 
+test('read-only investigation requests are analysis, and investigate-then-change stays implementation', () => {
+  for (const request of [
+    'Claude hook 동작을 조사해줘.',
+    '결제 모듈 의존성을 조사해 줘.',
+    '이 오류 원인을 조사해줘.',
+    'Hook 실패 처리 방식 조사.',
+  ]) {
+    const envelope = buildTaskEnvelope({ request });
+    assert.equal(envelope.intent, 'analyze', request);
+    assert.equal(envelope.authorizedAction, 'produce-analysis', request);
+  }
+  for (const request of [
+    '조사해서 수정해줘.',
+    '원인을 조사한 뒤 수정해줘.',
+    '조사 후 설정을 변경해줘.',
+  ]) {
+    const envelope = buildTaskEnvelope({ request });
+    assert.equal(envelope.intent, 'implement', request);
+    assert.equal(envelope.authorizedAction, 'mutate', request);
+  }
+});
+
 test('preserves typed fact, inference, gap, confidence, constraints, and candidate evidence', () => {
   const envelope = buildTaskEnvelope({
     request: 'Auth 구조 개선 계획을 작성해줘.',
