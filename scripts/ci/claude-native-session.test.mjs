@@ -1745,3 +1745,24 @@ test('complete names the stopped-task settlement failure instead of hiding it', 
     result.errors.join(),
   );
 });
+
+test('an async launch mismatch names the expected and observed model', (t) => {
+  const f = setup(t);
+  handle(f);
+  const out = handle(f, {
+    ...f.event,
+    hook_event_name: 'PostToolUse',
+    tool_response: {
+      status: 'async_launched',
+      agentId: 'async-other-model',
+      resolvedModel: 'claude-haiku-9',
+      prompt: f.registered.invocation.prompt,
+    },
+  });
+  assert.match(
+    out.hookSpecificOutput.additionalContext,
+    new RegExp(
+      `async launch model mismatch: expected ${f.options.expectedResolvedModel}, observed claude-haiku-9`,
+    ),
+  );
+});

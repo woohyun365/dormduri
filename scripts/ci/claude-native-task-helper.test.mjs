@@ -585,3 +585,24 @@ test('CLI settle reads a judgment file', (t) => {
     JSON.parse(run.stdout).errors.includes('native required QA requires linked reviewerTaskId'),
   );
 });
+
+test('settle without a judgment settles the observation and shows what the Lead judges', (t) => {
+  const r = repo(t);
+  const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
+  dispatch(r, subject, 'build-1');
+  assert.throws(
+    () => settleClaudeNativeTask(subject.taskId, undefined, { root: r.root }),
+    /no-completion-observation.*task-notification/su,
+  );
+  const settled = settledBuilder(t);
+  const status = settleClaudeNativeTask(settled.subject.taskId, undefined, { root: settled.root });
+  const completion = JSON.parse(
+    readFileSync(join(settled.subject.evidenceDirectory, 'completion.json')),
+  );
+  assert.equal(status.responseDigest, completion.responseDigest);
+  assert.deepEqual(status.changedPaths, ['sample.txt']);
+  assert.deepEqual(status.acceptance, ['sample.txt updated']);
+  assert.match(status.response, /BUILDER-REASONING-SENTINEL/u);
+  assert.equal(status.valid, undefined, 'status is not a completion decision');
+  assert.equal(status.dispatchAuthorized, false);
+});
