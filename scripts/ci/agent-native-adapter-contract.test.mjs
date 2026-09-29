@@ -155,6 +155,29 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
   assert.match(noVerdict, /판정 누락을 없애지는 못합니다/u);
   assert.match(noVerdict, /부분 명령마다/u);
   assert.match(noVerdict, /claude auto-mode config/u);
+  // A prefix allow also passes exec/write flags; pair them with ask and keep the boundary caveat.
+  // Broad prefix rules appear only as the subject of the flag warning, never as a plain allow example.
+  assert.doesNotMatch(noVerdict, /`Bash\((rg|git diff|git fetch) \*\)`(?!는)/u);
+  assert.match(noVerdict, /prefix allow는 뒤에 붙는 flag를 가리지 않습니다/u);
+  assert.match(noVerdict, /flag를\s*`permissions\.ask`\s*규칙으로 짝짓/u);
+  assert.match(
+    noVerdict,
+    /`Bash\(rg --pre \*\)`, `Bash\(rg --pre=\*\)`, `Bash\(rg \* --pre \*\)`, `Bash\(rg \* --pre=\*\)`/u,
+  );
+  assert.match(noVerdict, /관측\(\d{4}-\d{2}-\d{2}, git [\d.]+\):/u);
+  assert.match(
+    noVerdict,
+    /관측\(\d{4}-\d{2}-\d{2}, CLI [\d.]+\):\s*auto 세션에서 Bash `ask` 규칙에 맞는 명령은\s*확인 창을 띄웠고,\s*`deny` 규칙에 맞는 명령은\s*확인 창 없이\s*차단/u,
+  );
+  assert.match(noVerdict, /`git diff`·`git log`·`git show`는 받지 않았습니다/u);
+  assert.match(noVerdict, /보안 경계가 아닙니다/u);
+  assert.match(noVerdict, /판정 누락 노출이 늘어납니다/u);
+  assert.match(noVerdict, /classifyAllShell: true`는 Bash·PowerShell allow 규칙/u);
+  assert.match(noVerdict, /critical path[^\n]*`rm`·`rmdir`/u);
+  assert.match(noVerdict, /직접 쓴 `environment` 배열에는\s*`"\$defaults"`가 들어 있습니다/u);
+  for (const personal of [/\/Users\//u, /\.claude\/jobs/u, /\.plans\//u, /Phase \d/u]) {
+    assert.doesNotMatch(noVerdict, personal);
+  }
 });
 
 test('Claude entry documents actual host commands and keeps native/lifecycle evidence distinct', () => {
