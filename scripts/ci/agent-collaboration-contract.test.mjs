@@ -322,3 +322,52 @@ test('primary work and acceptance-bound QA have finite quality-stop scenarios an
   assert.match(qa, /테스트 개수/u);
   assert.match(qa, /self-PASS/u);
 });
+
+test('recovery, quality stop, adoption, run evidence and configuration rules are host-neutral common owners', () => {
+  const section = (doc, heading) => {
+    const start = doc.indexOf(`\n${heading}\n`);
+    assert.notEqual(start, -1, heading);
+    const level = heading.match(/^#+/u)[0].length;
+    const rest = doc.slice(start + heading.length + 1);
+    const next = rest.search(new RegExp(`\\n#{1,${level}} `, 'u'));
+    return next === -1 ? rest : rest.slice(0, next);
+  };
+  const orchestration = read(workflow + 'orchestration.md');
+  const qa = read(workflow + 'qa.md');
+  const execution = read(workflow + 'agent-execution-contract.md');
+  const rules = {
+    ceiling: section(orchestration, '## Recovery ceiling'),
+    stop: section(orchestration, '## Quality stop'),
+    adoption: section(orchestration, '## Routine adoption'),
+    evidence: section(qa, '## Execution evidence'),
+    configuration: section(execution, '### Configuration changes'),
+  };
+  for (const [name, text] of Object.entries(rules)) {
+    assert.doesNotMatch(text, /Astra|gpt-|\bSol\b|Luna|opus|sonnet|haiku|OMX|OMC|Codex|Claude/u, name);
+  }
+  assert.match(rules.ceiling, /다른 접근으로 한 번/u);
+  assert.match(rules.ceiling, /세 번째 시도/u);
+  assert.match(rules.ceiling, /모델이나 effort를 바꿔 우회하지 않습니다/u);
+  assert.match(rules.stop, /원인을 먼저 구분/u);
+  assert.match(rules.adoption, /pilot PASS는 채택이 아닙니다/u);
+  assert.match(rules.adoption, /개별 호출 승인이 아닙니다/u);
+  assert.match(rules.evidence, /관측하지 않은 값은 null/u);
+  assert.match(rules.evidence, /성공으로 바꾸지 않습니다/u);
+  assert.match(rules.configuration, /파일 내용만으로/u);
+
+  const codexRecovery = read(workflow + 'request-intake/orchestration-recovery.md');
+  const codexAdapter = read(workflow + 'adapters/codex.md');
+  const claudeAdapter = read(workflow + 'adapters/claude-code.md');
+  assert.match(codexRecovery, /\.\.\/orchestration\.md#recovery-ceiling/u);
+  assert.match(codexAdapter, /\.\.\/orchestration\.md#quality-stop/u);
+  assert.match(codexAdapter, /\.\.\/orchestration\.md#routine-adoption/u);
+  for (const anchor of [
+    '../orchestration.md#recovery-ceiling',
+    '../orchestration.md#quality-stop',
+    '../orchestration.md#routine-adoption',
+    '../qa.md#execution-evidence',
+    '../agent-execution-contract.md#configuration-changes',
+  ]) {
+    assert.ok(claudeAdapter.includes(anchor), anchor);
+  }
+});
