@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { fixture } from './fixtures/claude-native-qualification-fixture.mjs';
+import { fixture } from './fixtures/claude-native-session-fixture.mjs';
 import {
   registerClaudeNativeTask,
   handleClaudeNativeSessionEvent,

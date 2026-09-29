@@ -21,13 +21,6 @@ export { runClaudePreflight } from './session-preflight.mjs';
 export { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
 
 export {
-  prepareClaudeNativeQualification,
-  runClaudeNativeQualification,
-  decideClaudeNativePermission,
-} from './native-qualification.mjs';
-export { createClaudeNativeCollector } from './native-run-evidence.mjs';
-
-export {
   registerClaudeNativeTask,
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,

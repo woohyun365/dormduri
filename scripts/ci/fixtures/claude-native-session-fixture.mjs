@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 export function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'native-qualification-test-'));
+  const root = mkdtempSync(join(tmpdir(), 'native-session-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.claude/agents'), { recursive: true });
   writeFileSync(
