@@ -228,7 +228,14 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '## OMC 공존과 skill routing',
     '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
     '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
-    '`settlement:"parent-adjudication"`',
+    '정산은 `complete`(또는 `settle --judgment`)와\n  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다',
+    '이 규칙은 runtime 차단이 아니라 운영 규칙입니다',
+    '| OMC 요청·skill',
+    '모델을 한 단계 올립니다(`sonnet`→`opus`)',
+    '중도에 멈췄다면 effort를 올립니다',
+    '결과는 그 조합의\n  증거로 기록할 뿐 routine 채택으로 보지 않습니다',
+    'Claude Parent 기본값은 **Opus 5.5 high**입니다',
+    'Host는 이 규칙을 강제하지 않습니다(advisory)',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
@@ -240,7 +247,10 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
   assert.ok(
     read('.claude/agents/knu_researcher.md').includes(
       '원문 문장을 URL과 함께 인용할 때만 사실로 씁니다',
-    ),
+    ) &&
+      read('.claude/agents/knu_researcher.md').includes(
+        '표시명·예시·다른 식별자에서 유도한 값은 추론으로 표시하고 확인하지 못한 식별자는 gap으로 남깁니다',
+      ),
     'researcher states identifiers as fact only with a quoted source',
   );
 });
