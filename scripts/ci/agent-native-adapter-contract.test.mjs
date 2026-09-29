@@ -233,12 +233,33 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '| OMC 요청·skill',
     '모델을 한 단계 올립니다(`sonnet`→`opus`)',
     '중도에 멈췄다면 effort를 올립니다',
-    '결과는 그 조합의\n  증거로 기록할 뿐 routine 채택으로 보지 않습니다',
+    '결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다',
+    '같은 alias가 현재 CLI 버전에서 관측된 ID',
+    '조건을 맞추려고 task 사실을 바꾸지 않으며',
     'Claude Parent 기본값은 **Opus 5.5 high**입니다',
     'Host는 이 규칙을 강제하지 않습니다(advisory)',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
+  const routine = guide.slice(guide.indexOf('## Routine operation'), guide.indexOf('## Recovery'));
+  assert.deepEqual(
+    routine
+      .split('\n')
+      .filter((line) => line.startsWith('| `knu_'))
+      .map((line) => {
+        const cells = line.split('|').map((cell) => cell.trim());
+        return [cells[1], cells[2], cells[3], cells[6]].join(' ');
+      }),
+    [
+      '`knu_explorer` `bounded-extraction` `haiku` 관측',
+      '`knu_executor` `bounded-standard` `sonnet` 관측',
+      '`knu_researcher` `bounded-standard` `sonnet` 관측',
+      '`knu_reviewer` `complex-critical` `opus` 관측',
+      '`knu_explorer` `bounded-standard` `sonnet` Q(live 미관측)',
+      '`knu_executor` `complex-critical` `opus` Q(live 미관측)',
+    ],
+    'routine table keeps only live-observed rows plus the unobserved Q rows',
+  );
   for (const role of ['explorer', 'researcher', 'executor', 'reviewer']) {
     const source = read(`.claude/agents/knu_${role}.md`);
     assert.doesNotMatch(source, /^model:/mu, 'no unauthorized permanent model pin');

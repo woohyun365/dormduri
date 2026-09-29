@@ -303,12 +303,15 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 ([Choosing a Claude model and effort level in Claude Code](https://claude.com/blog/claude-model-and-effort-level-in-claude-code)).
 
 - 필요한 context가 충분했는데 결과가 틀렸다면 모델을 한 단계 올립니다(`sonnet`→`opus`). Lead가 새 profile과 선택 근거로 다시 prepare합니다.
+  올린 profile도 자기 조건을 그대로 만족해야 합니다. `complex-critical`은 독립 read-only review가 아니면 impact `high`,
+  complexity `complex`, uncertainty `uncertain` 중 하나가 필요하고 `bounded-standard`는 kind `extract`를 받지 않습니다.
+  조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다.
 - 파일을 빠뜨렸거나 테스트를 실행하지 않았거나 중도에 멈췄다면 effort를 올립니다. 현재 KNU 역할에는 effort 필드가 없어
   child가 session effort를 상속하므로 effort 상향은 candidate이며, 적용됐다는 관측 없이 주장하지 않습니다.
 - Context·acceptance가 부족했다면 모델·effort를 바꾸기 전에 입력을 보완합니다.
 - 올린 역할×profile이 [Routine operation](#routine-operation) 표의 Q 행이거나 표에 없으면 그 재시도가 해당 조합의 첫 live
-  관측입니다. `expectedResolvedModel`에는 같은 alias의 관측 ID(예: `opus` → `claude-opus-5-5`)를 두고, 결과는 그 조합의
-  증거로 기록할 뿐 routine 채택으로 보지 않습니다.
+  관측입니다. `expectedResolvedModel`에는 같은 alias가 현재 CLI 버전에서 관측된 ID(예: `opus` → `claude-opus-5-5`,
+  2.1.284의 `sonnet` → `claude-sonnet-5-5`)를 두고, 결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다.
 - Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다.
 - 재시도도 실패하면 무인 계속을 멈추고 원인·증거를 보존해 Owner와 다음 행동을 정합니다.
 
