@@ -26,6 +26,20 @@ mock이나 assertion으로 false positive가 생길 수 있습니다.
 - 테스트는 mock 정확성, false positive 가능성, 실제 계약을 보호하는 assertion인지 확인합니다.
 - finding이 없으면 잔여 위험과 검증하지 못한 범위를 명시합니다.
 
+## Execution evidence
+
+위임·실행 결과를 기록할 때 다음을 지킵니다. 기록 형식과 저장 위치는 공통
+[배치 규칙](../../../.artifacts/README.md#배치-규칙) 안에서 host adapter가 정합니다.
+
+- 성공·실패·blocked를 같은 형식으로 남깁니다. 요청한 값·실제 값·관측 값이 어긋나면 그대로 두고 성공으로 바꾸지 않습니다.
+- 성공은 acceptance, 필수 독립 QA와 기록된 모든 검사가 PASS일 때만 기록합니다.
+- 관측하지 않은 값은 null로 둡니다. 시간·비용·재작업 횟수를 0으로 채우지 않습니다.
+- 실행 전 거절·미지원은 실행하지 않은 gap이지 품질 실패가 아닙니다. 의도적으로 주입한 실패와 실제 실패를 구분하고,
+  첫 시도 통과율 같은 집계는 실제 실행만으로 계산해 거절·주입 실패와 따로 셉니다.
+- 확인된 사실과 원인 가설을 나눕니다. 원인이 확정되지 않으면 unknown이며 추론 실패로 단정하지 않습니다.
+- 원문 prompt·transcript·환경 변수·credential·개인 정보는 넣지 않고 참조 ID로 연결합니다. 참조 ID에도 비밀을 넣지 않습니다.
+- 기록 실패는 gap으로 보고하며 실행 권한이나 PASS를 만들지 않습니다.
+
 ## Independent review disposition
 
 기존 [계획 readiness review](./plan-authoring/README.md#implementation-readiness-review)는 구현 전의 검토입니다.

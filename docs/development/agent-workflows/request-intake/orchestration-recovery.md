@@ -245,6 +245,8 @@ recoveryBinding을 보존합니다. 두 번째 attempt만 첫 attempt의 approac
 
 ## Bounded model-run evidence
 
+기록 원칙은 [Execution evidence](../qa.md#execution-evidence)가 소유하며 이 절은 Codex의 schema와 저장 경로를 정합니다.
+
 `scripts/agents/codex/model-run-evidence.mjs`의 `createModelRunEvidence`/`validateModelRunEvidence`는 작은 순수 계약입니다.
 `evaluateModelExecution`/`evaluateRecovery` 결과와 실제 returned identity를 Parent가 연결하며 logging 자체는
 native 실행·모델 인증·adoption·추가 호출 권한이 아닙니다. Fresh-session smoke는 실제 constructor를 소비하지만
@@ -291,6 +293,8 @@ Parent의 로컬 저장 절차:
    잘못된 schema/path는 쓰기 전 거절하므로 Parent가 바로잡거나 별도 gap으로 보고합니다. 누락 로그를 PASS·비용0으로 채우지 않습니다.
 
 ## Recovery ceiling
+
+공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 approach 식별과 모델 binding을 더합니다.
 
 ```text
 primary attempt

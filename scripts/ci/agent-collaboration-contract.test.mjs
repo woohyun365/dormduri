@@ -322,3 +322,81 @@ test('primary work and acceptance-bound QA have finite quality-stop scenarios an
   assert.match(qa, /테스트 개수/u);
   assert.match(qa, /self-PASS/u);
 });
+
+test('recovery, quality stop, adoption, run evidence and configuration rules are host-neutral common owners', () => {
+  const section = (doc, heading) => {
+    const start = doc.indexOf(`\n${heading}\n`);
+    assert.notEqual(start, -1, heading);
+    const level = heading.match(/^#+/u)[0].length;
+    const rest = doc.slice(start + heading.length + 1);
+    const next = rest.search(new RegExp(`\\n#{1,${level}} `, 'u'));
+    return next === -1 ? rest : rest.slice(0, next);
+  };
+  const orchestration = read(workflow + 'orchestration.md');
+  const qa = read(workflow + 'qa.md');
+  const execution = read(workflow + 'agent-execution-contract.md');
+  const rules = {
+    ceiling: section(orchestration, '## Recovery ceiling'),
+    stop: section(orchestration, '## Quality stop'),
+    adoption: section(orchestration, '## Routine adoption'),
+    evidence: section(qa, '## Execution evidence'),
+    configuration: section(execution, '### Configuration changes'),
+  };
+  for (const [name, text] of Object.entries(rules)) {
+    assert.doesNotMatch(
+      text,
+      /Astra|Terra|GPT|\bSol\b|Luna|Opus|Sonnet|Haiku|Fable|OMX|OMC|Codex|Claude|knu_|TOML|settings\.json|fork_turns/iu,
+      name,
+    );
+    assert.match(
+      text,
+      /[Hh]ost adapter가 [^\n]*(?:정합니다|소유합니다)/u,
+      `${name} adapter ownership`,
+    );
+  }
+  assert.match(rules.ceiling, /다른 접근으로 한 번/u);
+  assert.match(rules.ceiling, /세 번째 시도/u);
+  assert.match(rules.ceiling, /모델이나 effort를 바꿔 우회하지 않습니다/u);
+  assert.match(rules.ceiling, /^위임한 작업\(/mu);
+  assert.match(rules.ceiling, /직접 수행한 작업의 실패는 이 상한이 아니라/u);
+  assert.match(rules.ceiling, /같은 상한을 소비합니다/u);
+  assert.match(rules.stop, /원인을 먼저 구분/u);
+  assert.match(rules.stop, /상향은 원인 입증이나 품질 회복 보장이 아닙니다/u);
+  assert.match(rules.stop, /조건을 더할 수 있지만 뺄 수 없습니다/u);
+  assert.match(rules.stop, /같은 누락이 재발하면/u);
+  assert.match(rules.stop, /근거를 보존해 인계합니다/u);
+  assert.match(rules.adoption, /Pilot 허용이나 pilot PASS는 채택이 아닙니다/u);
+  assert.match(rules.adoption, /채택은 별도 결정으로 기록하며/u);
+  assert.match(rules.adoption, /철회를 기록합니다/u);
+  assert.match(rules.adoption, /다시 묻지\s+않습니다/u);
+  assert.match(rules.evidence, /배치-규칙/u);
+  assert.match(rules.adoption, /개별 호출 승인이 아닙니다/u);
+  assert.match(rules.evidence, /관측하지 않은 값은 null/u);
+  assert.match(rules.evidence, /성공으로 바꾸지 않습니다/u);
+  assert.match(rules.configuration, /파일 내용만으로/u);
+  assert.match(rules.configuration, /재개했다고/u);
+  assert.match(rules.configuration, /실행을 보류하고/u);
+
+  const codexRecovery = read(workflow + 'request-intake/orchestration-recovery.md');
+  const codexAdapter = read(workflow + 'adapters/codex.md');
+  const claudeAdapter = read(workflow + 'adapters/claude-code.md');
+  const links = [
+    [codexRecovery, '## Recovery ceiling', '../orchestration.md#recovery-ceiling'],
+    [codexRecovery, '## Bounded model-run evidence', '../qa.md#execution-evidence'],
+    [codexAdapter, '### Parent-high 운영과 quality stop', '../orchestration.md#quality-stop'],
+    [
+      codexAdapter,
+      '### Task model configuration and fresh loading',
+      '../agent-execution-contract.md#configuration-changes',
+    ],
+    [codexAdapter, '## Routine task-model operation', '../orchestration.md#routine-adoption'],
+    [claudeAdapter, '### 결과와 observation 경계', '../qa.md#execution-evidence'],
+    [claudeAdapter, '## Routine operation', '../orchestration.md#routine-adoption'],
+    [claudeAdapter, '## Routine operation', '../agent-execution-contract.md#configuration-changes'],
+    [claudeAdapter, '## Recovery', '../orchestration.md#recovery-ceiling'],
+    [claudeAdapter, '## Parent 운영과 quality stop', '../orchestration.md#quality-stop'],
+  ];
+  for (const [doc, heading, anchor] of links) {
+    assert.ok(section(doc, heading).includes(anchor), `${heading} → ${anchor}`);
+  }
+});
