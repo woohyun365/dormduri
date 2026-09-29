@@ -343,7 +343,7 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
     configuration: section(execution, '### Configuration changes'),
   };
   for (const [name, text] of Object.entries(rules)) {
-    assert.doesNotMatch(text, /Astra|gpt-|\bSol\b|Luna|opus|sonnet|haiku|OMX|OMC|Codex|Claude/u, name);
+    assert.doesNotMatch(text, /Astra|GPT|\bSol\b|Luna|Opus|Sonnet|Haiku|Fable|OMX|OMC|Codex|Claude/iu, name);
   }
   assert.match(rules.ceiling, /다른 접근으로 한 번/u);
   assert.match(rules.ceiling, /세 번째 시도/u);
@@ -358,16 +358,19 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
   const codexRecovery = read(workflow + 'request-intake/orchestration-recovery.md');
   const codexAdapter = read(workflow + 'adapters/codex.md');
   const claudeAdapter = read(workflow + 'adapters/claude-code.md');
-  assert.match(codexRecovery, /\.\.\/orchestration\.md#recovery-ceiling/u);
-  assert.match(codexAdapter, /\.\.\/orchestration\.md#quality-stop/u);
-  assert.match(codexAdapter, /\.\.\/orchestration\.md#routine-adoption/u);
-  for (const anchor of [
-    '../orchestration.md#recovery-ceiling',
-    '../orchestration.md#quality-stop',
-    '../orchestration.md#routine-adoption',
-    '../qa.md#execution-evidence',
-    '../agent-execution-contract.md#configuration-changes',
-  ]) {
-    assert.ok(claudeAdapter.includes(anchor), anchor);
+  const links = [
+    [codexRecovery, '## Recovery ceiling', '../orchestration.md#recovery-ceiling'],
+    [codexRecovery, '## Bounded model-run evidence', '../qa.md#execution-evidence'],
+    [codexAdapter, '### Parent-high 운영과 quality stop', '../orchestration.md#quality-stop'],
+    [codexAdapter, '### Task model configuration and fresh loading', '../agent-execution-contract.md#configuration-changes'],
+    [codexAdapter, '## Routine task-model operation', '../orchestration.md#routine-adoption'],
+    [claudeAdapter, '### 결과와 observation 경계', '../qa.md#execution-evidence'],
+    [claudeAdapter, '## Routine operation', '../orchestration.md#routine-adoption'],
+    [claudeAdapter, '## Routine operation', '../agent-execution-contract.md#configuration-changes'],
+    [claudeAdapter, '## Recovery', '../orchestration.md#recovery-ceiling'],
+    [claudeAdapter, '## Parent 운영과 quality stop', '../orchestration.md#quality-stop'],
+  ];
+  for (const [doc, heading, anchor] of links) {
+    assert.ok(section(doc, heading).includes(anchor), `${heading} → ${anchor}`);
   }
 });
