@@ -12,10 +12,10 @@ import {
 import {
   prepareClaudeNativeTask,
   buildClaudeNativeReview,
+  settleClaudeNativeTask,
 } from '../agents/claude/native-task-helper.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../agents/common/index.mjs';
 
-const helperPath = resolve(import.meta.dirname, '../agents/claude/native-task-helper.mjs');
 const cliPath = resolve(import.meta.dirname, '../agents/claude/native-session.mjs');
 const PACKET_KEYS = [
   'schemaVersion',
@@ -422,7 +422,16 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
   );
   assert.ok(checked.errors.includes('native required QA requires linked reviewerTaskId'));
   assert.ok(!existsSync(join(reviewer.evidenceDirectory, 'review-receipt.json')));
-  assert.doesNotMatch(readFileSync(helperPath, 'utf8'), /completeClaudeNativeTask/u);
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        reviewer.taskId,
+        { responseDigest: completion.responseDigest, acceptance: [], checks: ['read'] },
+        { root: r.root },
+      ),
+    /parent-adjudication/,
+  );
+  assert.ok(!existsSync(join(reviewer.evidenceDirectory, 'review-receipt.json')));
 });
 
 test('a terminal reviewer without a native subject still cannot waive QA', (t) => {
@@ -470,4 +479,109 @@ test('CLI prepare and review status use tracked commands only', (t) => {
   const status = run('review', '--subject', output.taskId);
   assert.equal(status.status, 1);
   assert.match(status.stderr, /no-completion-observation/);
+});
+
+function judgment(prepared, criterion, extra = {}) {
+  const completion = JSON.parse(readFileSync(join(prepared.evidenceDirectory, 'completion.json')));
+  return {
+    responseDigest: completion.responseDigest,
+    acceptance: [{ criterion, passed: true, evidenceRef: 'fixture:lead-check' }],
+    checks: ['Lead compared the delivered response with the source'],
+    ...extra,
+  };
+}
+
+test('settle refuses before the completion notification and rejects unknown judgment fields', (t) => {
+  const r = repo(t);
+  const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
+  dispatch(r, subject, 'build-1');
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        subject.taskId,
+        { responseDigest: 'x', acceptance: [], checks: ['c'] },
+        { root: r.root },
+      ),
+    /no-completion-observation.*task-notification/su,
+  );
+  const settled = settledBuilder(t);
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        settled.subject.taskId,
+        { ...judgment(settled.subject, 'sample.txt updated'), results: [] },
+        { root: settled.root },
+      ),
+    /unknown-field:results/,
+  );
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        settled.subject.taskId,
+        { acceptance: [], checks: ['c'] },
+        { root: settled.root },
+      ),
+    /response-digest-required/,
+  );
+});
+
+test('executor → reviewer → complete runs with the tracked helper commands only', (t) => {
+  const r = settledBuilder(t);
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  const review = buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+    },
+    { root: r.root },
+  );
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const delivered = structuredClone(review.resultTemplate);
+  delivered.acceptanceCoverage = delivered.acceptanceCoverage.map((c) => ({
+    ...c,
+    sourceRefs: ['sample.txt'],
+    evidenceRefs: ['runner:node --test'],
+    gap: null,
+  }));
+  delivered.verdict = 'PASS';
+  delivered.confidence = 'high';
+  dispatch(r, reviewer, 'review-1', JSON.stringify(delivered));
+
+  const reviewed = settleClaudeNativeTask(
+    reviewer.taskId,
+    judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+    { root: r.root },
+  );
+  assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
+  assert.ok(existsSync(join(reviewer.evidenceDirectory, 'review-receipt.json')));
+
+  const settled = settleClaudeNativeTask(
+    r.subject.taskId,
+    judgment(r.subject, 'sample.txt updated', { reviewerTaskId: reviewer.taskId }),
+    { root: r.root },
+  );
+  assert.equal(settled.valid, true, settled.errors.join('; '));
+  assert.deepEqual(settled.submitted.results[0].changedPaths, ['sample.txt']);
+  assert.equal(settled.dispatchAuthorized, false);
+});
+
+test('CLI settle reads a judgment file', (t) => {
+  const r = settledBuilder(t);
+  const path = join(r.root, '.artifacts-judgment.json');
+  writeFileSync(join(r.root, '.git/info/exclude'), '.artifacts/\n.artifacts-judgment.json\n');
+  writeFileSync(path, JSON.stringify(judgment(r.subject, 'sample.txt updated')));
+  const run = spawnSync(
+    process.execPath,
+    [cliPath, 'settle', '--task', r.subject.taskId, '--judgment', path],
+    { cwd: r.root, encoding: 'utf8' },
+  );
+  assert.equal(run.status, 1, run.stderr);
+  assert.ok(
+    JSON.parse(run.stdout).errors.includes('native required QA requires linked reviewerTaskId'),
+  );
 });
