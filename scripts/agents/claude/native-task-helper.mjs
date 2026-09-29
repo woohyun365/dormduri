@@ -14,6 +14,8 @@ import {
 } from './native-session.mjs';
 
 const DEFAULT_LIFETIME_MINUTES = 15;
+// registerClaudeNativeTask accepts a caller prompt of at most this many characters.
+const PROMPT_LIMIT = 12000;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const SPEC_REQUIRED = [
   'sessionId',
@@ -350,22 +352,19 @@ function resultTemplate(packet, evidence) {
   };
 }
 
-function reviewerPrompt(logHeader, subject, packet, evidence, template) {
+// Criteria and runner records appear once, inside the template, to stay within the register limit.
+function reviewerPrompt(logHeader, subject, packet, template) {
   return [
     logHeader,
     'Independent read-only review of one frozen subject (same host, fresh context).',
     '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
-    '- Judge the source against the acceptance criteria; no builder reasoning is provided or needed.',
-    '- commandsActuallyRun: keep exactly the runner records below. Never add or claim a command yourself.',
+    '- Judge the source against each acceptanceCoverage criterion; no builder reasoning is provided or needed.',
+    '- commandsActuallyRun holds the runner records. Keep them exactly; never add or claim a command yourself.',
     '- notRun lists only required checks nobody ran; knownGaps lists unresolved gaps blocking acceptance.',
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
     '- Each finding needs severity, location, impact, reproduction and evidence.',
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
-    'Acceptance criteria:',
-    ...subject.acceptance.map((criterion, index) => `${index + 1}. ${criterion}`),
-    `Runner records (runner ${evidence.runner}):`,
-    ...evidence.records.map((r) => `- ${r.command} → exit ${r.exit}: ${r.observedResult}`),
     `Result template: ${JSON.stringify(template)}`,
     ...(subject.settlement === 'parent-adjudication'
       ? [`KNU_REVIEW_PACKET:${JSON.stringify(packet)}`]
@@ -414,7 +413,14 @@ export function buildClaudeNativeReview(
   const reviewId = `${(subject.taskId ?? snapshotDigest.slice(7)).slice(0, 8)}-${randomUUID().slice(0, 8)}`;
   const packet = reviewPacket(subject, runnerEvidence, reviewId);
   const template = resultTemplate(packet, runnerEvidence);
-  const prompt = reviewerPrompt(logHeader, subject, packet, runnerEvidence, template);
+  const prompt = reviewerPrompt(logHeader, subject, packet, template);
+  fail('invalid review request', [
+    ...(prompt.length <= PROMPT_LIMIT
+      ? []
+      : [
+          `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}): shorten acceptance criteria, read paths or runner records`,
+        ]),
+  ]);
   const native = subject.settlement === 'native-subject';
   const reviewerSpec = {
     sessionId: sessionId ?? subject.sessionId,

@@ -333,6 +333,31 @@ test('runner evidence has a fixed record format bound to the current round snaps
   ]);
 });
 
+test('an oversized reviewer prompt is refused by the helper before registration', (t) => {
+  const r = repo(t);
+  const parentSubject = {
+    request: 'sample.txt 변경을 구현해줘.',
+    owner: 'parent',
+    acceptance: Array.from({ length: 40 }, (_, i) => `criterion ${i} `.padEnd(200, 'x')),
+    paths: ['sample.txt'],
+  };
+  const { snapshotDigest } = buildClaudeNativeReview({ parentSubject }, { root: r.root });
+  assert.throws(
+    () =>
+      buildClaudeNativeReview(
+        {
+          parentSubject,
+          runnerEvidence: runnerEvidence(snapshotDigest),
+          selectionBasisRef: 'plan:helper-test/review',
+          reviewerModel: 'claude-opus-4-6',
+          sessionId: r.sessionId,
+        },
+        { root: r.root },
+      ),
+    /reviewer-prompt-exceeds-12000-chars/,
+  );
+});
+
 test('a Parent-authored subject is marked parent-adjudication and keeps the terminal gate unchanged', (t) => {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
