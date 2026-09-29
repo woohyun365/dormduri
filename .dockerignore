@@ -1,6 +1,7 @@
 .git
 .github
 .husky
+.omc
 .omx
 .artifacts
 .codex

@@ -417,7 +417,7 @@ test('local workspace roots ignore content and keep only guidance files for clea
   for (const path of localWorkspaceReadmes) assert.equal(result[path], false, path);
 
   const dockerIgnore = readFileSync(resolve(repoRoot, '.dockerignore'), 'utf8');
-  for (const entry of ['.artifacts', '.local-docs', '.plans'])
+  for (const entry of ['.artifacts', '.local-docs', '.plans', '.omc', '.omx'])
     assert.match(dockerIgnore, new RegExp(`^${entry.replace('.', '\\.')}$`, 'mu'), entry);
 });
 
