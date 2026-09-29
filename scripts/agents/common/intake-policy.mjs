@@ -223,7 +223,7 @@ function inferExplicitIntent(request) {
   }
   if (/(리뷰|review|검토해\s*줘|검토해줘)/iu.test(request)) return 'review';
   if (
-    /(원인.*(분석|파악)|분석해\s*줘|분석해줘|조사해\s*줘|조사해줘|조사\s*[.!?]?\s*$|평가해\s*줘|평가해줘|검증해\s*줘|검증해줘|investigate|analy[sz]e|verify)/iu.test(
+    /(원인.*(분석|파악)|분석해\s*줘|분석해줘|평가해\s*줘|평가해줘|검증해\s*줘|검증해줘|investigate|analy[sz]e|verify)/iu.test(
       request,
     )
   ) {
@@ -237,6 +237,8 @@ function inferExplicitIntent(request) {
   ) {
     return 'implement';
   }
+  // Checked after debug/implement so a request that also asks for a change keeps mutate authority.
+  if (/(조사해\s*줘|조사해줘|(?<![가-힣])조사\s*[.!?]?\s*$)/u.test(request)) return 'analyze';
   if (
     /(알려\s*줘|알려줘|설명해\s*줘|설명해줘|무슨\s+의미|뭐야|궁금|몇\s*(줄|개|명|번)|what|why|how)/iu.test(
       request,

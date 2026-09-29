@@ -64,7 +64,7 @@ write authority를 부여하지 않는다.
 
 - `Legal 개선 지점 분석해줘.`: Analyze. repo/official evidence를 조사하고 수정·plan 생성 없음.
 - `Hook 동작을 조사해줘.`·`Hook 실패 처리 방식 조사.`: Analyze. 조사는 읽기 전용 분석이며 수정 없음.
-  `조사해서 수정해줘.`처럼 조사 뒤 변경을 요청하면 Implement.
+  `조사해서 수정해줘.`·`조사해줘. 그리고 고쳐줘.`처럼 같은 요청에 변경 동사가 있으면 조사보다 Implement·Debug가 우선.
 - `Legal 개선 계획을 작성해줘.`: Plan. Decision/OQ/test/acceptance를 작성하고 구현 없음.
 - `Legal을 개선해줘.`: safe read-only baseline으로 scope를 줄이고, behavior·legal decision이 갈리면
   clarify-now. confidence만으로 mutate하지 않음.
