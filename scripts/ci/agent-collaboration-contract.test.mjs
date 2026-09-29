@@ -343,8 +343,16 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
     configuration: section(execution, '### Configuration changes'),
   };
   for (const [name, text] of Object.entries(rules)) {
-    assert.doesNotMatch(text, /Astra|Terra|GPT|\bSol\b|Luna|Opus|Sonnet|Haiku|Fable|OMX|OMC|Codex|Claude|knu_|TOML|settings\.json|fork_turns/iu, name);
-    assert.match(text, /[Hh]ost adapter가 [^\n]*(?:정합니다|소유합니다)/u, `${name} adapter ownership`);
+    assert.doesNotMatch(
+      text,
+      /Astra|Terra|GPT|\bSol\b|Luna|Opus|Sonnet|Haiku|Fable|OMX|OMC|Codex|Claude|knu_|TOML|settings\.json|fork_turns/iu,
+      name,
+    );
+    assert.match(
+      text,
+      /[Hh]ost adapter가 [^\n]*(?:정합니다|소유합니다)/u,
+      `${name} adapter ownership`,
+    );
   }
   assert.match(rules.ceiling, /다른 접근으로 한 번/u);
   assert.match(rules.ceiling, /세 번째 시도/u);
@@ -376,7 +384,11 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
     [codexRecovery, '## Recovery ceiling', '../orchestration.md#recovery-ceiling'],
     [codexRecovery, '## Bounded model-run evidence', '../qa.md#execution-evidence'],
     [codexAdapter, '### Parent-high 운영과 quality stop', '../orchestration.md#quality-stop'],
-    [codexAdapter, '### Task model configuration and fresh loading', '../agent-execution-contract.md#configuration-changes'],
+    [
+      codexAdapter,
+      '### Task model configuration and fresh loading',
+      '../agent-execution-contract.md#configuration-changes',
+    ],
     [codexAdapter, '## Routine task-model operation', '../orchestration.md#routine-adoption'],
     [claudeAdapter, '### 결과와 observation 경계', '../qa.md#execution-evidence'],
     [claudeAdapter, '## Routine operation', '../orchestration.md#routine-adoption'],
