@@ -32,3 +32,4 @@ export {
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,
 } from './native-session.mjs';
+export { prepareClaudeNativeTask, buildClaudeNativeReview } from './native-task-helper.mjs';

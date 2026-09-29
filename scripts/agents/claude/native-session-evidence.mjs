@@ -69,10 +69,15 @@ export function isClaudeCompletedNotification(row, { sessionId, agentId, toolUse
     row.attachment?.type === 'queued_command' &&
     row.attachment.commandMode === 'task-notification';
   const text = attached ? row.attachment.prompt : row?.message?.content;
+  // `sessionId` is the transcript's session. After `--resume` the same transcript also records the
+  // new process as `session_id`, so only its shape is checked; the caller already requires the
+  // registered session's transcript file.
   if (
     (row?.type !== 'user' && !attached) ||
     row.sessionId !== sessionId ||
-    (row.session_id !== undefined && row.session_id !== sessionId) ||
+    (row.session_id !== undefined &&
+      row.session_id !== sessionId &&
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(row.session_id)) ||
     typeof text !== 'string' ||
     !text.endsWith('</task-notification>')
   )

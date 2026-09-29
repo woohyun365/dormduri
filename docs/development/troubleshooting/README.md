@@ -19,7 +19,8 @@
 | Tooling  | [Vitest Proxy module mock hang](./tooling/vitest-proxy-module-mock-hang.md)                                        | catch-all Proxy mock의 thenable 충돌과 명시적 mock 규칙                                           |
 | Tooling  | [Subagent thread limit reached](./tooling/agent-thread-limit-reached.md)                                           | 완료/종료/슬롯 반환 구분과 Parent의 bounded cleanup·복구                                          |
 | Tooling  | [Claude hook 장애와 완료 거부](./tooling/claude-native-hook-failure-and-completion-refusal.md)                     | hook 장애 시 실행은 진행되고 완료 판정만 거부되는 보장 범위                                       |
-| Tooling  | [Claude native 완료 관측 누락](./tooling/claude-native-completion-observation-missing.md)                          | task 기록으로 알림 전 호출·긴 transcript·Parent 동시 수정을 구분                                  |
+| Tooling  | [Claude native 완료 관측 누락](./tooling/claude-native-completion-observation-missing.md)                          | task 기록으로 알림 전 호출·긴 transcript·정산 실패 사유를 구분                                    |
+| Tooling  | [Claude native Parent 동시 쓰기](./tooling/claude-native-parent-concurrent-write.md)                               | 등록~정산 중 write 범위 밖 변경의 `unattributable-change` 거부와 Parent 쓰기 금지                 |
 | Tooling  | [Claude native 등록·리뷰 거부](./tooling/claude-native-registration-and-review-rejections.md)                      | 등록 수명·intake 분류·runner 증거 누락과 builder 연결 거부(미정산·hook 미관측·재개된 리뷰)의 해소 |
 | Tooling  | [Claude 안에서 live 세션 실행](./tooling/claude-live-session-from-claude-session.md)                               | 환경 상속 없이 owner tmux로 새 auto 세션을 재현하는 절차                                          |
 | Tooling  | [Claude auto classifier no verdict](./tooling/claude-auto-classifier-no-verdict.md)                                | 서버 판정 누락·설정 자가 수정 거부의 구분과 개인 allow 규칙·compact 기준                          |

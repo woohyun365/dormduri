@@ -411,6 +411,12 @@
       "rationale": "Claude hook 장애 시 실행 fail-open과 완료 판정 거부라는 보장 범위를 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 Codex나 제품 문서를 재작성하지 않는다."
     },
     {
+      "path": "docs/development/troubleshooting/tooling/claude-native-parent-concurrent-write.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "등록~정산 중 write 범위 밖 변경을 unattributable-change로 거부하는 collector 동작과 Parent 쓰기 금지 운영 규칙을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 Codex나 제품 문서를 재작성하지 않는다."
+    },
+    {
       "path": "docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md",
       "owner": "Claude native adapter owner",
       "kind": "adapter",
