@@ -704,6 +704,10 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
   dispatch(r, reviewer, 'review-1', JSON.stringify(result));
   const completion = JSON.parse(readFileSync(join(reviewer.evidenceDirectory, 'completion.json')));
   assert.equal(completion.valid, true, completion.errors.join());
+  // The Parent judges this reviewer's completion.json, so settle offers no judgment template.
+  const settleStatus = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+  assert.equal(settleStatus.judgmentTemplatePath, null);
+  assert.ok(!existsSync(templateOf(reviewer)));
   const checked = completeClaudeNativeTask(
     reviewer.taskId,
     { responseDigest: completion.responseDigest },
@@ -770,6 +774,8 @@ test('CLI prepare and review status use tracked commands only', (t) => {
   assert.match(status.stderr, /no-completion-observation/);
 });
 
+const templateOf = (prepared) => join(prepared.evidenceDirectory, 'judgment-template.json');
+const templateIn = (status) => JSON.parse(readFileSync(status.judgmentTemplatePath, 'utf8'));
 function judgment(prepared, criterion, extra = {}) {
   const completion = JSON.parse(readFileSync(join(prepared.evidenceDirectory, 'completion.json')));
   return {
@@ -941,6 +947,184 @@ test('settle without a judgment settles the observation and shows what the Lead 
   assert.match(status.response, /BUILDER-REASONING-SENTINEL/u);
   assert.equal(status.valid, undefined, 'status is not a completion decision');
   assert.equal(status.dispatchAuthorized, false);
+});
+
+test('settle status writes a judgment template once and keeps the Lead edits', (t) => {
+  const settled = settledBuilder(t);
+  const { taskId } = settled.subject;
+  const status = settleClaudeNativeTask(taskId, undefined, { root: settled.root });
+  assert.equal(status.judgmentTemplatePath, templateOf(settled.subject));
+  const completion = JSON.parse(
+    readFileSync(join(settled.subject.evidenceDirectory, 'completion.json')),
+  );
+  // This builder needs independent QA, so the template also asks for the linked reviewer.
+  assert.deepEqual(templateIn(status), {
+    responseDigest: completion.responseDigest,
+    acceptance: [{ criterion: 'sample.txt updated', passed: null, evidenceRef: null }],
+    checks: [],
+    reviewerTaskId: null,
+  });
+  const edited = { ...templateIn(status), checks: ['Lead read sample.txt'] };
+  writeFileSync(status.judgmentTemplatePath, JSON.stringify(edited));
+  const again = settleClaudeNativeTask(taskId, undefined, { root: settled.root });
+  assert.equal(again.judgmentTemplatePath, status.judgmentTemplatePath);
+  assert.deepEqual(templateIn(again), edited);
+  assert.equal(again.valid, undefined, 'status is still not a completion decision');
+});
+
+test('an unfilled judgment is refused before complete; a filled template settles', (t) => {
+  const r = settledExplorer(t, 'oracle');
+  const unfilled = {
+    responseDigest: 'sha256:x',
+    acceptance: [{ criterion: 'oracle returned', passed: null, evidenceRef: null }],
+    checks: ['c'],
+  };
+  assert.throws(
+    () => settleClaudeNativeTask(r.subject.taskId, unfilled, { root: r.root }),
+    /invalid settle judgment.*acceptance-unfilled:oracle returned/su,
+  );
+  const status = settleClaudeNativeTask(r.subject.taskId, undefined, { root: r.root });
+  const template = templateIn(status);
+  assert.ok(!Object.hasOwn(template, 'reviewerTaskId'), 'no QA is required for this task');
+  assert.throws(
+    () => settleClaudeNativeTask(r.subject.taskId, template, { root: r.root }),
+    /acceptance-unfilled:oracle returned.*checks-required/su,
+  );
+  template.acceptance[0].passed = true;
+  template.acceptance[0].evidenceRef = 'fixture:lead-check';
+  template.checks = ['Lead compared the response with sample.txt'];
+  writeFileSync(status.judgmentTemplatePath, JSON.stringify(template));
+  const settled = settleClaudeNativeTask(r.subject.taskId, templateIn(status), { root: r.root });
+  assert.equal(settled.valid, true, settled.errors.join('; '));
+});
+
+test('a null reviewerTaskId is refused before complete', (t) => {
+  const settled = settledBuilder(t);
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        settled.subject.taskId,
+        judgment(settled.subject, 'sample.txt updated', { reviewerTaskId: null }),
+        { root: settled.root },
+      ),
+    /invalid settle judgment.*reviewer-task-id-unfilled/su,
+  );
+});
+
+test('malformed acceptance items are refused as unfilled; passed:false reaches complete', (t) => {
+  const r = settledExplorer(t, 'oracle');
+  const base = judgment(r.subject, 'oracle returned');
+  for (const [acceptance, reason] of [
+    [[{ criterion: 'oracle returned', passed: 'true', evidenceRef: 'x' }], 'oracle returned'],
+    [[{ criterion: 'oracle returned', passed: true, evidenceRef: '   ' }], 'oracle returned'],
+    [[null], '0'],
+    [['oracle returned'], '0'],
+  ])
+    assert.throws(
+      () => settleClaudeNativeTask(r.subject.taskId, { ...base, acceptance }, { root: r.root }),
+      new RegExp(`invalid settle judgment.*acceptance-unfilled:${reason}`, 'su'),
+    );
+  const failed = settleClaudeNativeTask(
+    r.subject.taskId,
+    { ...base, acceptance: [{ ...base.acceptance[0], passed: false }] },
+    { root: r.root },
+  );
+  assert.equal(failed.valid, false);
+  assert.ok(failed.errors.includes('semantic-acceptance-required:oracle returned'));
+});
+
+test('a linked reviewer template has no reviewerTaskId', (t) => {
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  const review = reviewOf(r);
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  dispatch(r, reviewer, 'review-1', passing(review));
+  const status = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+  assert.equal(status.judgmentTemplatePath, templateOf(reviewer));
+  assert.ok(!Object.hasOwn(templateIn(status), 'reviewerTaskId'));
+});
+
+test('no template is written before a background child is settled', (t) => {
+  const r = repo(t);
+  const subject = prepareClaudeNativeTask(explorerSpec(r), { root: r.root });
+  dispatch(r, subject, 'explore-bg');
+  const refused = () =>
+    assert.throws(
+      () => settleClaudeNativeTask(subject.taskId, undefined, { root: r.root }),
+      /cannot settle yet/u,
+    );
+  refused();
+  assert.ok(!existsSync(templateOf(subject)));
+  // Background launch and SubagentStop are recorded, but the completion notification has not arrived.
+  const event = {
+    session_id: r.sessionId,
+    cwd: r.root,
+    permission_mode: 'auto',
+    tool_name: 'Agent',
+    tool_use_id: 'explore-bg',
+    tool_input: subject.invocation,
+  };
+  const agentId = 'explore-bg-agent';
+  const model = subject.registerInput.expectedResolvedModel;
+  handleClaudeNativeSessionEvent(
+    {
+      ...event,
+      hook_event_name: 'PostToolUse',
+      tool_response: {
+        status: 'async_launched',
+        agentId,
+        resolvedModel: model,
+        prompt: subject.invocation.prompt,
+      },
+    },
+    { root: r.root },
+  );
+  const base = join(r.root, '.artifacts/transcripts');
+  mkdirSync(join(base, r.sessionId, 'subagents'), { recursive: true });
+  const childPath = join(base, r.sessionId, 'subagents', `agent-${agentId}.jsonl`);
+  const parentPath = join(base, `${r.sessionId}.jsonl`);
+  const row = (type, message) => JSON.stringify({ type, sessionId: r.sessionId, agentId, message });
+  writeFileSync(
+    childPath,
+    `${row('user', { content: subject.invocation.prompt })}\n${row('assistant', { model, content: [{ type: 'text', text: 'oracle' }] })}\n`,
+  );
+  writeFileSync(parentPath, '');
+  handleClaudeNativeSessionEvent(
+    {
+      hook_event_name: 'SubagentStop',
+      session_id: r.sessionId,
+      cwd: r.root,
+      agent_id: agentId,
+      agent_type: 'knu_explorer',
+      agent_transcript_path: childPath,
+      transcript_path: parentPath,
+      stop_hook_active: false,
+    },
+    { root: r.root },
+  );
+  assert.ok(existsSync(join(subject.evidenceDirectory, 'stop.json')));
+  assert.throws(
+    () => settleClaudeNativeTask(subject.taskId, undefined, { root: r.root }),
+    /cannot settle yet.*stopped-task-settlement-failed: matching task completion notification required/su,
+  );
+  assert.ok(!existsSync(templateOf(subject)));
+  writeFileSync(
+    parentPath,
+    `${JSON.stringify({ type: 'user', sessionId: r.sessionId, message: { content: `<task-notification>\n<task-id>${agentId}</task-id>\n<tool-use-id>explore-bg</tool-use-id>\n<status>completed</status>\n</task-notification>` } })}\n`,
+  );
+  const status = settleClaudeNativeTask(subject.taskId, undefined, { root: r.root });
+  assert.equal(status.judgmentTemplatePath, templateOf(subject));
+});
+
+test('CLI settle status names the judgment template file', (t) => {
+  const r = settledBuilder(t);
+  const run = spawnSync(process.execPath, [cliPath, 'settle', '--task', r.subject.taskId], {
+    cwd: r.root,
+    encoding: 'utf8',
+  });
+  assert.equal(run.status, 0, run.stderr);
+  const output = JSON.parse(run.stdout);
+  assert.equal(output.judgmentTemplatePath, templateOf(r.subject));
+  assert.ok(existsSync(output.judgmentTemplatePath));
 });
 
 test('the reviewer prompt names every allowed finding severity', (t) => {

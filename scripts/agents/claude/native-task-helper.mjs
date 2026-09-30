@@ -4,7 +4,7 @@
 // The reviewer spec from review is a draft with the only reviewer role/profile (knu_reviewer,
 // complex-critical) and review facts citing the Lead's --basis; the Lead reviews it before prepare.
 import { randomUUID } from 'node:crypto';
-import { readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
@@ -576,6 +576,8 @@ const JUDGMENT_FIELDS = [
 // and a reviewer's delivered result come from the records, so none of them is retyped by hand.
 // Without a judgment it only settles the observation and shows what the Lead must judge: the
 // response, its digest, the observed changes and the acceptance criteria. It decides nothing.
+// It also writes a judgment template once, holding what the records already fix; the Lead fills in
+// only its own judgment, and a template left unfilled is refused before complete.
 function settlementStatus(taskId, root) {
   const state = observeClaudeNativeTask(taskId, { root });
   if (state.errors.includes('no-completion-observation'))
@@ -583,6 +585,33 @@ function settlementStatus(taskId, root) {
       `cannot settle yet (${state.errors.join(',')}): wait for the completed task-notification, then settle`,
     );
   const content = state.observation.response?.content;
+  const { record } = state;
+  let judgmentTemplatePath = null;
+  // A reviewer without a native subject is judged by the Parent from its completion.json.
+  if (record.input.nativeRequest.task.role !== 'knu_reviewer' || record.independentReview) {
+    judgmentTemplatePath = join(state.evidenceDirectory, 'judgment-template.json');
+    const template = {
+      responseDigest: state.observation.responseDigest,
+      acceptance: record.input.directAssignment.acceptance.map((criterion) => ({
+        criterion,
+        passed: null,
+        evidenceRef: null,
+      })),
+      checks: [],
+      // complete asks for a linked reviewer under exactly this condition.
+      ...(!record.independentReview && record.input.reviewDisposition.required === true
+        ? { reviewerTaskId: null }
+        : {}),
+    };
+    try {
+      writeFileSync(judgmentTemplatePath, `${JSON.stringify(template, null, 2)}\n`, {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error; // Keep the Lead's edits.
+    }
+  }
   return {
     taskId,
     responseDigest: state.observation.responseDigest,
@@ -591,6 +620,7 @@ function settlementStatus(taskId, root) {
     changedPaths: state.changedPaths,
     acceptance: state.record.input.directAssignment.acceptance,
     observationErrors: state.errors,
+    judgmentTemplatePath,
     dispatchAuthorized: false,
   };
 }
@@ -605,6 +635,18 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
   if (typeof judgment.responseDigest !== 'string' || !judgment.responseDigest)
     issues.push('response-digest-required');
   if (!Array.isArray(judgment.acceptance)) issues.push('acceptance-array-required');
+  else
+    judgment.acceptance.forEach((item, index) => {
+      const named = item && typeof item === 'object' && typeof item.criterion === 'string';
+      if (
+        !named ||
+        typeof item.passed !== 'boolean' ||
+        typeof item.evidenceRef !== 'string' ||
+        !item.evidenceRef.trim()
+      )
+        issues.push(`acceptance-unfilled:${named ? item.criterion : index}`);
+    });
+  if (judgment.reviewerTaskId === null) issues.push('reviewer-task-id-unfilled');
   if (!textList(judgment.checks) || !judgment.checks.length) issues.push('checks-required');
   for (const key of ['findings', 'gaps'])
     if (judgment[key] !== undefined && !Array.isArray(judgment[key]))
