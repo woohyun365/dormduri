@@ -71,7 +71,8 @@
 - `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
 - Read-only subject의 응답은 helper가 `subject-response.txt`에 한 번 쓰고 reviewer 등록 때 정산된 응답과 대조합니다. 파일을 고치면
   거부됩니다. Writer subject의 응답은 builder 추론이라 read path에 넣을 수 없습니다. 다른 native task 기록은 대소문자를 바꾼 경로,
-  symlink(연결된 디렉터리 포함), Parent subject 경로로도 `native task evidence is not review input`으로 거부됩니다.
+  symlink, `.artifacts` 아래에서 연결된 디렉터리, Parent subject 경로로도 `native task evidence is not review input`으로
+  거부됩니다. `.artifacts` 밖 디렉터리 안의 symlink와 hard link는 탐지하지 않으므로 native 기록을 연결해 두지 않습니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),

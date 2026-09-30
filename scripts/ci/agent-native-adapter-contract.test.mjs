@@ -138,6 +138,7 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
   for (const rule of [
     '수정 전 실패(RED)는 exit를 뒤집지 말고',
     '1~255의 `expectedExit`',
+    'hard link는 탐지하지 않으므로 native 기록을 연결해 두지 않습니다',
     '응답을 Parent가 파일로 옮겨 `--parent-subject`로\n  우회하지 않습니다',
     'a read-only subject is reviewed from its bound response',
     'a RED record passes only at its declared expected exit',
@@ -255,6 +256,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다',
     'Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다',
     'writer subject면 응답 artifact를 포함할 수 없습니다',
+    '디렉터리 안의 symlink는 검사하지 않고 working tree 변경으로 snapshot에 드러나며, hard link는 탐지 대상이 아닙니다',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
