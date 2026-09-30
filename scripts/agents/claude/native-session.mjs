@@ -710,6 +710,26 @@ function settleIfStopped(task) {
     return [`stopped-task-settlement-failed: ${error.message}`];
   }
 }
+// Hook paths that look up this session's children skip a task they cannot trust (copied from another
+// checkout, symlinked, damaged). Completion still loads each task strictly and refuses such records.
+function readableTasks(root, base) {
+  const tasks = [];
+  for (const id of readdirSync(base).filter((id) => uuid.test(id))) {
+    try {
+      tasks.push(loadTask(root, id));
+    } catch {
+      continue;
+    }
+  }
+  return tasks;
+}
+function launchedAgentId(task) {
+  try {
+    return jsonFile(join(task.dir, 'launch.json')).response?.agentId;
+  } catch {
+    return undefined;
+  }
+}
 function stopped(event, root) {
   check(
     uuid.test(event.session_id) &&
@@ -725,14 +745,12 @@ function stopped(event, root) {
   const pendingPath = join(pendingDir, `${event.session_id}-${event.agent_id}.json`);
   if (!existsSync(pendingPath))
     writeFileSync(pendingPath, JSON.stringify(event), { flag: 'wx', mode: 0o600 });
-  const matches = [];
-  for (const id of readdirSync(base).filter((id) => uuid.test(id))) {
-    const task = loadTask(root, id);
-    if (task.record.sessionId !== event.session_id || !existsSync(join(task.dir, 'launch.json')))
-      continue;
-    const launch = jsonFile(join(task.dir, 'launch.json'));
-    if (launch.response.agentId === event.agent_id) matches.push(task);
-  }
+  const matches = readableTasks(root, base).filter(
+    (task) =>
+      task.record.sessionId === event.session_id &&
+      existsSync(join(task.dir, 'launch.json')) &&
+      launchedAgentId(task) === event.agent_id,
+  );
   check(matches.length <= 1, 'ambiguous child association');
   if (!matches.length) return {}; // Another role/task is not silently assigned to the newest registration.
   const task = matches[0];
@@ -778,8 +796,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
   if (event?.hook_event_name === 'PreToolUse' && event.tool_name === 'SendMessage') {
     const base = resolveArtifactPath(root, ['claude-native'], {});
     if (existsSync(base))
-      for (const id of readdirSync(base).filter((id) => uuid.test(id))) {
-        const task = loadTask(root, id);
+      for (const task of readableTasks(root, base)) {
         if (task.record.sessionId !== event.session_id) continue;
         // A background launch and a foreground completion both bind the child; neither may resume.
         const bound = ['launch.json', 'completion.json']
@@ -1409,7 +1426,9 @@ async function main(args) {
       );
     } catch (error) {
       process.stderr.write(`KNU hook failed: ${error.message}\n`);
-      process.exitCode = 2;
+      // Exit 2 blocks a PreToolUse call but also keeps a subagent from stopping, so a failed stop or
+      // session-start hook reports a non-blocking error. PostToolUse exit 2 only shows stderr.
+      process.exitCode = ['SubagentStop', 'SessionStart'].includes(event?.hook_event_name) ? 1 : 2;
     }
     return;
   }
