@@ -23,6 +23,13 @@ exit 2가 아닌 오류는 non-blocking입니다. 그래서 PreToolUse 검사가
 위 검증 환경의 새 auto 세션에서는 prompt와 PermissionRequest 이벤트가 생기지 않았습니다. 공식 문서의 ask 설명과 다른 관측이므로
 이 조합을 실행 전 gate로 쓰지 않습니다.
 
+Hook이 실행된 뒤 오류로 끝나는 경우는 이벤트마다 다릅니다. PreToolUse 오류는 exit 2로 그 호출을 막습니다. PostToolUse 계열은
+exit 2로 stderr를 Claude에게 보여 주지만 막지 않습니다. SubagentStop·SessionStart 오류는 stderr `KNU hook failed: …`와 exit 1로
+끝납니다. 공식 문서 기준 exit 1은 transcript에 `<hook name> hook error` 알림을 남기는 non-blocking 오류라 child 정지를 막지
+않습니다. 이 알림 행은 live로 관측하지 않았고, 단위 test는 exit code와 stderr만 확인합니다. 다른 checkout에서 복사됐거나 손상된
+task 기록은 SendMessage·SubagentStop 처리에서 건너뛰고, 그 task 자체는 완료 판정에서 거부됩니다. Payload를 해석할 수 없거나
+관리 대상 확인 전에 난 오류는 exit 2로 남습니다.
+
 ## 해결
 
 - 실행 자체를 막는다고 주장하지 않습니다. 이 adapter가 보장하는 것은 **완료 판정 거부**입니다. hook 기록이 없는 task는
@@ -44,7 +51,9 @@ node --test scripts/ci/claude-native-session.test.mjs
 pnpm test:repo-policy
 ```
 
-`posttool without healthy pretool cannot complete` 테스트가 hook 없는 실행의 완료 거부를 고정합니다. 정적 테스트는 실제 host가
+`posttool without healthy pretool cannot complete` 테스트가 hook 없는 실행의 완료 거부를 고정합니다. `a foreign task …`,
+`a SubagentStop hook error is a non-blocking exit 1 …`, `PostToolUse hook errors keep exit 2 …` 테스트가 이벤트별 hook 오류
+결과와 손상 task 건너뛰기를 고정합니다. 정적 테스트는 실제 host가
 hook 장애를 어떻게 처리하는지 증명하지 않습니다. Live 재현은 모든 KNU hook
 명령을 없는 실행 파일로 바꾼 disposable checkout에서 새 auto 세션을 1회 실행해 task 기록과 완료 거부를 확인합니다.
 

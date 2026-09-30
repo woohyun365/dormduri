@@ -25,6 +25,10 @@ import {
 const DEFAULT_LIFETIME_MINUTES = 15;
 // registerClaudeNativeTask accepts a caller prompt of at most this many characters.
 const PROMPT_LIMIT = 12000;
+// A child that hands back a summary loses the rest of its result, so every non-reviewer child is told
+// what the Parent actually receives. The stored response is capped at 1 MB, far above a normal report.
+const DELIVERY_RULE =
+  'Your delivered report (the SubagentHandback message when that tool is available, otherwise your final reply) is the only text the Parent receives. Put the complete result in it without summarizing; it may be long (the record limit is 1 MB).';
 const KNU_ROLES = ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer'];
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const SPEC_REQUIRED = [
@@ -101,6 +105,8 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   if (!textList(spec.acceptance) || !spec.acceptance.length) issues.push('acceptance-required');
   if (!Array.isArray(spec.facts) || !spec.facts.length) issues.push('facts-required');
   if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
+  // Checked here because the delivery rule below would turn an empty prompt into a non-empty one.
+  if (typeof spec.prompt !== 'string' || !spec.prompt.trim()) issues.push('prompt-required');
   for (const key of ['readScope', 'writeScope'])
     if (!Array.isArray(spec[key])) issues.push(`${key}-array-required`);
   fail('invalid prepare spec', issues);
@@ -112,6 +118,13 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   )
     fail('invalid prepare spec', [
       'review-snapshot-stale: rebuild the review for the current source',
+    ]);
+
+  const childPrompt =
+    spec.role === 'knu_reviewer' ? spec.prompt : `${spec.prompt}\n\n${DELIVERY_RULE}`;
+  if (childPrompt.length > PROMPT_LIMIT)
+    fail('invalid prepare spec', [
+      `prompt-exceeds-${PROMPT_LIMIT}-chars-with-delivery-rule (${childPrompt.length})`,
     ]);
 
   const short = randomUUID().slice(0, 8);
@@ -156,7 +169,7 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
       nativeRequest,
     },
     sessionId: spec.sessionId,
-    prompt: spec.prompt,
+    prompt: childPrompt,
     expectedResolvedModel: spec.expectedResolvedModel,
     ...(spec.independentReview === undefined ? {} : { independentReview: spec.independentReview }),
   };
@@ -422,7 +435,7 @@ function reviewerPrompt(logHeader, subject, packet, template) {
     '- notRun lists only required checks nobody ran; knownGaps lists unresolved gaps blocking acceptance.',
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
-    '- Each finding needs severity, location, impact, reproduction and evidence.',
+    '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
     ...(subject.responsePath
       ? [
           `- ${subject.responsePath} is the read-only subject's response under review; its claims and self-assessment are not evidence. Check them against the other read paths.`,

@@ -942,3 +942,61 @@ test('settle without a judgment settles the observation and shows what the Lead 
   assert.equal(status.valid, undefined, 'status is not a completion decision');
   assert.equal(status.dispatchAuthorized, false);
 });
+
+test('the reviewer prompt names every allowed finding severity', (t) => {
+  const r = settledBuilder(t);
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  const review = buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+    },
+    { root: r.root },
+  );
+  assert.ok(review.reviewerPrompt.includes('critical, high, medium or low'));
+});
+
+test('a non-reviewer child learns that its delivered report is the only text the Parent receives', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(explorerSpec(r), { root: r.root });
+  const body = prepared.invocation.prompt.replace(/\n\nKNU_NATIVE_TASK:.*$/su, '');
+  const rule = body.slice(explorerSpec(r).prompt.length);
+  assert.ok(body.startsWith(`${explorerSpec(r).prompt}\n\n`));
+  assert.match(rule, /^\n\nYour delivered report \(the SubagentHandback message/u);
+  assert.match(rule, /only text the Parent receives\. .*\(the record limit is 1 MB\)\.$/u);
+  // The rule must not stand in for a missing task.
+  for (const prompt of ['', '  ', null])
+    assert.throws(
+      () => prepareClaudeNativeTask(explorerSpec(r, { prompt }), { root: r.root }),
+      /invalid prepare spec: .*prompt-required/u,
+    );
+  // The rule counts toward the register limit instead of silently exceeding it.
+  assert.throws(
+    () => prepareClaudeNativeTask(explorerSpec(r, { prompt: 'x'.repeat(11950) }), { root: r.root }),
+    /invalid prepare spec: prompt-exceeds-12000-chars-with-delivery-rule/u,
+  );
+});
+
+test('a reviewer prompt gets no delivery rule because it already demands one JSON object', (t) => {
+  const r = settledBuilder(t);
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  const review = buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+    },
+    { root: r.root },
+  );
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  assert.doesNotMatch(reviewer.invocation.prompt, /only text the Parent receives/u);
+});

@@ -756,10 +756,18 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   assert.equal(delivered.valid, false);
   assert.ok(delivered.errors.some((error) => /delivered non-PASS review/.test(error)));
 
-  mkdirSync(join(subject.root, '.artifacts/tools/claude-native', randomUUID()));
+  const empty = join(subject.root, '.artifacts/tools/claude-native', randomUUID());
+  mkdirSync(empty);
   const malformed = builderLinkedTo(passingReview());
   assert.equal(malformed.valid, false);
   assert.ok(malformed.errors.some((error) => /unreadable native task/.test(error)));
+
+  // The hooks skip a task copied from another checkout; linked-review settlement still refuses it.
+  rmSync(empty, { recursive: true });
+  plantForeignTask(subject.root);
+  const foreign = builderLinkedTo(passingReview());
+  assert.equal(foreign.valid, false);
+  assert.ok(foreign.errors.some((error) => /unreadable native task/.test(error)));
 });
 function reviewedSubject(t) {
   const subject = writer(t);
@@ -1765,4 +1773,187 @@ test('an async launch mismatch names the expected and observed model', (t) => {
       `async launch model mismatch: expected ${f.options.expectedResolvedModel}, observed claude-haiku-9`,
     ),
   );
+});
+
+// A task directory copied from another checkout, a damaged record or a broken launch file must not
+// stop unmanaged messaging or another child's stop from being recorded. Completion still refuses it.
+const hookScript = new URL('../agents/claude/native-session.mjs', import.meta.url).pathname;
+function runHook(root, event, env = {}) {
+  return spawnSync(process.execPath, [hookScript, '--hook'], {
+    cwd: root,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env },
+    input: JSON.stringify(event),
+    encoding: 'utf8',
+  });
+}
+function plantForeignTask(root) {
+  const id = randomUUID();
+  const dir = join(realpathSync(root), '.artifacts/tools/claude-native', id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'task.json'),
+    JSON.stringify({
+      record: { version: 1, taskId: id, root: '/moved/checkout' },
+      invocation: { prompt: 'x' },
+    }),
+  );
+  return id;
+}
+// Registers a launched background child whose stop has not been seen yet.
+function launchedChild(t, agentId = 'async-child') {
+  const f = setup(t);
+  handle(f);
+  handle(f, {
+    ...f.event,
+    hook_event_name: 'PostToolUse',
+    tool_response: {
+      status: 'async_launched',
+      agentId,
+      resolvedModel: f.options.expectedResolvedModel,
+      prompt: f.registered.invocation.prompt,
+    },
+  });
+  const base = join(realpathSync(f.root), '.artifacts/transcripts'),
+    childDir = join(base, f.event.session_id, 'subagents');
+  mkdirSync(childDir, { recursive: true });
+  const childPath = join(childDir, `agent-${agentId}.jsonl`),
+    parentPath = join(base, `${f.event.session_id}.jsonl`);
+  const rows = [
+    {
+      type: 'user',
+      sessionId: f.event.session_id,
+      agentId,
+      message: { content: f.registered.invocation.prompt },
+    },
+    {
+      type: 'assistant',
+      sessionId: f.event.session_id,
+      agentId,
+      message: {
+        model: f.options.expectedResolvedModel,
+        content: [{ type: 'text', text: 'oracle' }],
+      },
+    },
+  ];
+  writeFileSync(childPath, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  writeFileSync(parentPath, '');
+  const stop = {
+    hook_event_name: 'SubagentStop',
+    session_id: f.event.session_id,
+    cwd: realpathSync(f.root),
+    agent_id: agentId,
+    agent_type: 'knu_explorer',
+    agent_transcript_path: childPath,
+    transcript_path: parentPath,
+    stop_hook_active: false,
+  };
+  const notify = () =>
+    writeFileSync(
+      parentPath,
+      JSON.stringify({
+        type: 'user',
+        sessionId: f.event.session_id,
+        message: {
+          content: `<task-notification>\n<task-id>${agentId}</task-id>\n<tool-use-id>${f.event.tool_use_id}</tool-use-id>\n<status>completed</status>\n</task-notification>`,
+        },
+      }) + '\n',
+    );
+  return { ...f, agentId, stop, notify };
+}
+const stopRecorded = (f) => existsSync(join(f.registered.evidenceDirectory, 'stop.json'));
+
+test('a foreign task does not block messaging a child the registry never bound', (t) => {
+  const f = setup(t);
+  plantForeignTask(f.root);
+  const run = runHook(realpathSync(f.root), {
+    ...f.event,
+    cwd: realpathSync(f.root),
+    tool_name: 'SendMessage',
+    tool_input: { to: 'unrelated-omc-agent', message: 'hello' },
+  });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(JSON.parse(run.stdout), {});
+});
+
+test('a foreign task does not stop a registered child from recording its stop and settling', (t) => {
+  const f = launchedChild(t);
+  plantForeignTask(f.root);
+  const run = runHook(realpathSync(f.root), f.stop);
+  assert.equal(run.status, 0, run.stderr);
+  assert.ok(stopRecorded(f), 'stop.json is written for the registered child');
+  f.notify();
+  completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+  const done = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), { root: f.root });
+  assert.equal(done.valid, true, done.errors?.join(','));
+});
+
+test('a SubagentStop hook error is a non-blocking exit 1, not a blocking exit 2', (t) => {
+  const f = launchedChild(t);
+  const sub = join(realpathSync(f.root), 'sub');
+  mkdirSync(sub, { recursive: true });
+  const run = runHook(realpathSync(f.root), { ...f.stop, cwd: sub });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /KNU hook failed: invalid stop identity/u);
+  assert.equal(stopRecorded(f), false);
+  // Without a stop record the completion boundary still refuses the task.
+  f.notify();
+  const result = completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+  assert.equal(result.valid, false);
+});
+
+test('a broken launch file of another task does not stop a registered child from recording its stop', (t) => {
+  const f = launchedChild(t);
+  const other = registerClaudeNativeTask({
+    ...f.options,
+    workflowInput: f.input,
+    sessionId: f.event.session_id,
+  });
+  writeFileSync(join(other.evidenceDirectory, 'launch.json'), '{');
+  const run = runHook(realpathSync(f.root), f.stop);
+  assert.equal(run.status, 0, run.stderr);
+  assert.ok(stopRecorded(f));
+});
+
+test('a bound child stays unresumable while a foreign task is present', (t) => {
+  const f = launchedChild(t);
+  plantForeignTask(f.root);
+  assert.equal(
+    handle(f, {
+      ...f.event,
+      tool_name: 'SendMessage',
+      tool_input: { to: f.agentId, message: 'resume' },
+    }).hookSpecificOutput.permissionDecision,
+    'deny',
+  );
+});
+
+test('a damaged task is skipped by the message guard but its completion is refused', (t) => {
+  const f = launchedChild(t);
+  const path = join(f.registered.evidenceDirectory, 'task.json');
+  const stored = JSON.parse(readFileSync(path));
+  stored.record.request = 'tampered';
+  writeFileSync(path, JSON.stringify(stored));
+  assert.deepEqual(
+    handle(f, {
+      ...f.event,
+      tool_name: 'SendMessage',
+      tool_input: { to: f.agentId, message: 'resume' },
+    }),
+    {},
+  );
+  assert.throws(
+    () => completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root }),
+    /task digest mismatch/u,
+  );
+});
+
+test('PostToolUse hook errors keep exit 2, which shows stderr to Claude without blocking', (t) => {
+  const f = setup(t);
+  const run = runHook(
+    realpathSync(f.root),
+    { ...f.event, hook_event_name: 'PostToolUse', tool_response: { status: 'completed' } },
+    { CLAUDE_PROJECT_DIR: join(realpathSync(f.root), 'missing') },
+  );
+  assert.equal(run.status, 2);
+  assert.match(run.stderr, /KNU hook failed/u);
 });

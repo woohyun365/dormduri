@@ -190,6 +190,11 @@ lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합�
   hook이 작동하지 않으면 **실행 자체의 fail-closed를 보장하지 않습니다**. 누락된 pre/post 증거는 작업 완료를 막는
   기준이지 이미 일어난 실행을 취소하는 장치가 아닙니다. 이를 해결하려고 auto를 몰래 manual/bypass로 바꾸지 않습니다.
   진단과 복구는 [hook 장애와 완료 거부](../../troubleshooting/tooling/claude-native-hook-failure-and-completion-refusal.md)를 따릅니다.
+- KNU hook이 실행된 뒤 오류로 끝나면 결과는 이벤트마다 다릅니다. PreToolUse는 exit 2로 그 호출을 막고, PostToolUse 계열은
+  exit 2로 stderr를 Claude에게 보여 주되 막지 않습니다. SubagentStop·SessionStart는 exit 1(transcript의 non-blocking hook 오류)로
+  끝나 child 정지를 막지 않습니다. 이 hook들은 다른 checkout에서 복사됐거나 손상된 task 기록을 건너뛰고, 그런 task는 완료
+  판정에서 거부됩니다. 남는 한계: payload를 해석할 수 없거나(1 MB 초과·JSON 오류) 관리 대상 확인 전에 오류가 나면 exit 2가
+  남아 비KNU 호출이나 정지를 막을 수 있습니다. 보장은 여전히 완료 판정 거부뿐입니다.
 - FORCE 환경변수의 명시적 충돌은 hook에서 거부하지만 Home/managed/provider의 모든 모델 대체를 사전에 인증하는
   것은 아닙니다. 정상 환경을 scrub하지 않고 실행 후 모델을 확인합니다. 정상 설정 출처/role precedence와 충돌을
   관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.
@@ -357,7 +362,8 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 - OMC agent·skill은 선택적 보조입니다. 보조 조사와 저장소에 쓰지 않는 초안(제안)만 만들고, Parent가 검토해 채택합니다.
 - 위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다. 정산은 `complete`(또는 `settle --judgment`)와
   Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다. Lead 직접 구현은 그대로 허용됩니다.
-- KNU hook은 KNU 역할·marker 호출에만 적용되어 OMC 사용을 막지 않습니다. 이 규칙은 runtime 차단이 아니라 운영 규칙입니다.
+- KNU hook은 KNU 역할·marker 호출에만 적용되어 OMC 사용을 막지 않습니다(hook 자체 오류의 남는 한계는 [운영 보장과 제한](#운영-보장과-제한)).
+  이 규칙은 runtime 차단이 아니라 운영 규칙입니다.
 
 | OMC 요청·skill                          | 저장소 workflow owner                                                                                      |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
