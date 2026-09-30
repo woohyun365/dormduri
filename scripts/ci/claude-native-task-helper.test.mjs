@@ -451,17 +451,29 @@ test('other native task evidence never enters a review read path', (t) => {
     outputPaths: ['.artifacts/plans/helper-test/runner.log', outputPath],
   });
   // A writer's completion.json holds its full response; a runner cannot relabel it as its output.
-  const writerReview = reviewOf(w, [record(evidenceOf(w.subject.taskId, 'completion.json'))]);
   assert.throws(
-    () => prepareClaudeNativeTask(writerReview.reviewerSpec, { root: w.root }),
+    () => reviewOf(w, [record(evidenceOf(w.subject.taskId, 'completion.json'))]),
     /native task evidence is not review input/,
   );
   const r = settledExplorer(t, 'sample.txt holds the value 42.');
-  const readOnlyReview = reviewOf(r, [record(evidenceOf(r.subject.taskId, 'task.json'))]);
   assert.throws(
-    () => prepareClaudeNativeTask(readOnlyReview.reviewerSpec, { root: r.root }),
+    () => reviewOf(r, [record(evidenceOf(r.subject.taskId, 'task.json'))]),
     /native task evidence is not review input/,
   );
+  // Registration refuses the same paths in a hand-edited spec that skipped the helper.
+  for (const [subject, file] of [
+    [w, 'completion.json'],
+    [r, 'task.json'],
+  ]) {
+    const spec = structuredClone(reviewOf(subject).reviewerSpec);
+    spec.readScope = [...spec.readScope, evidenceOf(subject.subject.taskId, file)];
+    spec.independentReview.packet.boundaries.allowedReadPaths = [...spec.readScope];
+    spec.independentReview.packet.sources.contracts = [...spec.readScope];
+    assert.throws(
+      () => prepareClaudeNativeTask(spec, { root: subject.root }),
+      /native task evidence is not review input/,
+    );
+  }
 });
 
 test('native task evidence stays out of review paths under another case, a symlink or a Parent subject', (t) => {

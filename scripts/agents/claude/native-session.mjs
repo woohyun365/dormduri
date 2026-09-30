@@ -85,6 +85,28 @@ function sameSubjectResponse(root, path, text) {
     readFileSync(absolute, 'utf8') === text
   );
 }
+// Task records, completions and transcripts hold prompts and builder responses. A review path must
+// not reach them under another case (case-insensitive filesystems), through a symlink, or through a
+// directory under .artifacts that links into them.
+export function isClaudeNativeEvidencePath(root, path) {
+  const base = relative(root, resolveArtifactPath(root, ['claude-native'], {})).toLowerCase();
+  const inside = (candidate) => {
+    const lower = candidate.toLowerCase();
+    return lower === base || lower.startsWith(`${base}/`) || base.startsWith(`${lower}/`);
+  };
+  if (inside(path)) return true;
+  const absolute = join(root, path);
+  if (!existsSync(absolute)) return false;
+  if (inside(relative(root, realpathSync(absolute)))) return true;
+  if (!lstatSync(absolute).isDirectory() || !path.toLowerCase().startsWith('.artifacts/'))
+    return false;
+  for (const entry of readdirSync(absolute, { recursive: true })) {
+    const child = join(absolute, entry);
+    if (lstatSync(child).isSymbolicLink() && existsSync(child))
+      if (inside(relative(root, realpathSync(child)))) return true;
+  }
+  return false;
+}
 function ensureLocalDirectory(root, target) {
   let current = root;
   for (const part of target.slice(root.length + 1).split('/')) {
@@ -391,13 +413,10 @@ export function registerClaudeNativeTask({
         !covered(responsePath, allowedReadPaths),
         'writer subject response is not review input',
       );
-    // Task records, completions and transcripts hold prompts and builder responses; only the bound
-    // read-only response artifact may be read from the native evidence directory.
-    const nativeBase = relative(root, resolveArtifactPath(root, ['claude-native'], {}));
+    // Only the bound read-only response artifact may be read from the native evidence directory.
     check(
       allowedReadPaths.every(
-        (path) =>
-          path === responsePath || (!covered(path, [nativeBase]) && !covered(nativeBase, [path])),
+        (path) => path === responsePath || !isClaudeNativeEvidencePath(root, path),
       ),
       'native task evidence is not review input',
     );

@@ -18,6 +18,7 @@ import {
   currentClaudeNativeSnapshot,
   claudeNativeSnapshotDigest,
   writeClaudeNativeSubjectResponse,
+  isClaudeNativeEvidencePath,
   REVIEW_RESULT_TEMPLATE_PREFIX,
 } from './native-session.mjs';
 
@@ -175,7 +176,11 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   };
 }
 
-function validateRunnerEvidence(evidence, snapshotDigest, reviewerId) {
+const nativeEvidenceIssues = (root, paths) =>
+  paths.some((path) => isClaudeNativeEvidencePath(root, path))
+    ? ['native task evidence is not review input']
+    : [];
+function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
   const issues = [];
   if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence))
     fail('invalid runner evidence', ['object required']);
@@ -224,6 +229,7 @@ function validateRunnerEvidence(evidence, snapshotDigest, reviewerId) {
       !record.outputPaths.every((path) => path.startsWith('.artifacts/') && !path.includes('..'))
     )
       issues.push(`records[${index}].outputPaths must stay under .artifacts/`);
+    else issues.push(...nativeEvidenceIssues(root, record.outputPaths));
     if (record.sourceDigest !== snapshotDigest)
       issues.push(
         `records[${index}].sourceDigest is not the current subject snapshot ${snapshotDigest}`,
@@ -267,7 +273,7 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
     ...(typeof request === 'string' && request.trim() ? [] : ['request required']),
     ...(typeof owner === 'string' && ID.test(owner) ? [] : ['owner identifier required']),
     ...(textList(acceptance) && acceptance.length ? [] : ['acceptance required']),
-    ...(textList(paths) && paths.length ? [] : ['paths required']),
+    ...(textList(paths) && paths.length ? nativeEvidenceIssues(root, paths) : ['paths required']),
   ]);
   return {
     settlement: 'parent-adjudication',
@@ -471,7 +477,7 @@ export function buildClaudeNativeReview(
       ? []
       : ['reviewer must be an identifier distinct from the subject owner']),
   ]);
-  validateRunnerEvidence(runnerEvidence, snapshotDigest, reviewerId);
+  validateRunnerEvidence(runnerEvidence, snapshotDigest, reviewerId, root);
   if (subject.settlement === 'native-subject') {
     // The reviewer can check a read-only subject's claims against its read scope and the raw runner
     // outputs; the response itself is read from a file bound to the settled response.
