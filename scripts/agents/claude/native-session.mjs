@@ -29,6 +29,16 @@ import { runClaudePreflight } from './session-preflight.mjs';
 const ownDirectory = dirname(fileURLToPath(import.meta.url));
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const marker = /\n\nKNU_NATIVE_TASK:([a-f0-9-]{36}):(sha256:[a-f0-9]{64})$/u;
+// The short Agent input carries only the marker line; PreToolUse injects the registered invocation.
+const shortMarker = /^KNU_NATIVE_TASK:([a-f0-9-]{36}):(sha256:[a-f0-9]{64})$/u;
+const registeredPrompt = ({ prompt, independentReview, taskId }, digest) =>
+  `${prompt}${independentReview ? `\n\nKNU_INDEPENDENT_REVIEW_PACKET:${JSON.stringify(independentReview.packet)}` : ''}\n\nKNU_NATIVE_TASK:${taskId}:${digest}`;
+const agentInputOf = ({ description, subagent_type, model, prompt }) => ({
+  description,
+  subagent_type,
+  model,
+  prompt: prompt.slice(prompt.lastIndexOf('KNU_NATIVE_TASK:')),
+});
 const hash = (value) =>
   `sha256:${createHash('sha256')
     .update(typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value))
@@ -487,7 +497,7 @@ export function registerClaudeNativeTask({
     description: 'Repository bounded task',
     subagent_type: role,
     model: binding.requestedModelAlias,
-    prompt: `${prompt}${reviewBinding ? `\n\nKNU_INDEPENDENT_REVIEW_PACKET:${JSON.stringify(reviewBinding.packet)}` : ''}\n\nKNU_NATIVE_TASK:${taskId}:${digest}`,
+    prompt: registeredPrompt(record, digest),
   };
   const dir = taskDirectory(root, taskId);
   ensureLocalDirectory(root, dir);
@@ -495,7 +505,14 @@ export function registerClaudeNativeTask({
     flag: 'wx',
     mode: 0o600,
   });
-  return { taskId, invocation, workflow, evidenceDirectory: dir, dispatchAuthorized: false };
+  return {
+    taskId,
+    invocation,
+    agentInput: agentInputOf(invocation),
+    workflow,
+    evidenceDirectory: dir,
+    dispatchAuthorized: false,
+  };
 }
 
 function loadTask(root, id) {
@@ -578,7 +595,7 @@ function currentObservation(task) {
     errors.push('post-completion-source-drift');
   return { observation, actualPaths, errors: [...new Set(errors)] };
 }
-function associated(event, task) {
+function associated(event, task, expectedInput = task.invocation) {
   const { record, invocation } = task;
   check(
     event.session_id === record.sessionId && realpathSync(event.cwd) === record.root,
@@ -586,7 +603,7 @@ function associated(event, task) {
   );
   check(event.permission_mode === 'auto', 'expected auto permission mode');
   check(typeof event.tool_use_id === 'string' && event.tool_use_id.length > 0, 'missing tool id');
-  check(isDeepStrictEqual(event.tool_input, invocation), 'native input/model mismatch');
+  check(isDeepStrictEqual(event.tool_input, expectedInput), 'native input/model mismatch');
   check(
     isDeepStrictEqual(
       localIdentity(record.root, invocation.subagent_type),
@@ -819,7 +836,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     return {
       hookSpecificOutput: {
         hookEventName: 'SessionStart',
-        additionalContext: `KNU native session_id=${event.session_id}. Start with claude --permission-mode auto. For repository knu_* delegation read docs/development/agent-workflows/adapters/claude-code.md; register a bounded task with pnpm claude:native register --input <JSON file>, then call Agent with the exact returned invocation. Registration is not permission approval. Existing OMC roles keep their own policy; do not substitute them for a required KNU role. Missing/error hook is not fail-closed; verify completion receipts and semantic QA.`,
+        additionalContext: `KNU native session_id=${event.session_id}. Start with claude --permission-mode auto. For repository knu_* delegation read docs/development/agent-workflows/adapters/claude-code.md; register a bounded task with pnpm claude:native prepare --spec <JSON file>, then call Agent with the returned agentInput (the hook injects the registered prompt). Registration is not permission approval. Existing OMC roles keep their own policy; do not substitute them for a required KNU role. Missing/error hook is not fail-closed; verify completion receipts and semantic QA.`,
       },
     };
   }
@@ -828,8 +845,10 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     event.tool_name !== 'Agent'
   )
     return {};
-  const match =
-    typeof event.tool_input?.prompt === 'string' && marker.exec(event.tool_input.prompt);
+  const prompt = typeof event.tool_input?.prompt === 'string' ? event.tool_input.prompt : '';
+  // Only PreToolUse accepts the short input; afterwards Claude reports the injected invocation.
+  const short = event.hook_event_name === 'PreToolUse' && shortMarker.exec(prompt);
+  const match = marker.exec(prompt) ?? short;
   const managed =
     event.tool_input?.subagent_type?.startsWith('knu_') ||
     event.tool_input?.prompt?.includes('KNU_NATIVE_TASK:');
@@ -841,7 +860,19 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     check(match, 'registered task required');
     const task = loadTask(root, match[1]),
       { dir, record } = task;
-    associated(event, task);
+    // The injected prompt comes from task.json, so it must still be the one the record digest binds;
+    // a full-input caller would notice an edited body, a short-input caller cannot.
+    if (short) {
+      // The whole stored invocation is injected, so it may not carry keys the Lead never saw.
+      exact(task.invocation, Object.keys(agentInputOf(task.invocation)), 'task digest mismatch');
+      check(
+        task.invocation.prompt === registeredPrompt(record, hash(record)) &&
+          task.invocation.subagent_type === record.input.nativeRequest.task.role,
+        'task digest mismatch',
+      );
+    }
+    // A short input goes through the same checks; only the expected tool input differs.
+    associated(event, task, short ? agentInputOf(task.invocation) : task.invocation);
     currentTask = task;
     if (event.hook_event_name === 'PreToolUse') {
       check(
@@ -883,13 +914,17 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
         JSON.stringify({
           sessionId: event.session_id,
           toolUseId: event.tool_use_id,
-          inputDigest: inputHash(event.tool_input),
+          // PostToolUse reports the invocation, whether it was sent in full or injected.
+          inputDigest: inputHash(task.invocation),
           // Lets review closure check this session's transcript for calls the hooks missed.
           transcriptPath: typeof event.transcript_path === 'string' ? event.transcript_path : null,
         }),
         { flag: 'wx', mode: 0o600 },
       );
-      return {}; // No allow: auto classifier/other permissions still decide.
+      // No allow: auto classifier/other permissions still decide.
+      return short
+        ? { hookSpecificOutput: { hookEventName: 'PreToolUse', updatedInput: task.invocation } }
+        : {};
     }
     const attempt = jsonFile(join(dir, 'attempt.json'));
     check(

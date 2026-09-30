@@ -14,6 +14,7 @@ Project hook 명령이 실행되지 않는 상태(checkout 이동, `node` PATH �
 ```
 
 `.artifacts/tools/claude-native/<taskId>/`에는 `task.json`만 있고 `attempt.json`·`launch.json`·`completion.json`이 없습니다.
+`agentInput`으로 호출했다면 등록 prompt가 주입되지 않아 child는 task marker 한 줄만 받습니다.
 
 ## 원인
 
