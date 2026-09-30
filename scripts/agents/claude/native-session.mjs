@@ -1,7 +1,7 @@
 // Ordinary interactive session adapter. No child process, permission allow, Home edits,
 // or host authentication: files coordinate one task; Claude owns execution/permissions.
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   readFileSync,
   writeFileSync,
@@ -14,7 +14,7 @@ import {
   readlinkSync,
   unlinkSync,
 } from 'node:fs';
-import { join, resolve, dirname, relative } from 'node:path';
+import { join, resolve, dirname, relative, basename, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
@@ -807,6 +807,50 @@ const deny = (reason) => ({
     permissionDecisionReason: `KNU native task: ${reason}`,
   },
 });
+// A file that may not exist yet resolves through its nearest existing ancestor. Null means the
+// target is outside the repository or is the repository itself.
+function repositoryPath(root, absolute) {
+  const rest = [];
+  let existing = absolute;
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) return null;
+    rest.unshift(basename(existing));
+    existing = parent;
+  }
+  const path = relative(root, join(realpathSync(existing), ...rest));
+  return !path || path === '..' || path.startsWith('../') || isAbsolute(path) ? null : path;
+}
+// Edit, Write and NotebookEdit guard. It denies only a subagent writing native evidence, and this
+// session's main thread writing a tracked or non-ignored path while its writer task holds the lease.
+// It never allows. Bash and other tools do not reach it, and a missing or failed hook lets the
+// write through, so the collector still refuses unattributable changes at settlement.
+export function guardClaudeNativeFileWrite(event, { root = process.cwd() } = {}) {
+  const input = event?.tool_input ?? {};
+  const target = event?.tool_name === 'NotebookEdit' ? input.notebook_path : input.file_path;
+  if (typeof target !== 'string' || !target) return {};
+  root = realpathSync(root);
+  const base = typeof event.cwd === 'string' && isAbsolute(event.cwd) ? event.cwd : root;
+  const path = repositoryPath(root, resolve(base, target));
+  if (path === null) return {};
+  if (event.agent_id)
+    return isClaudeNativeEvidencePath(root, path)
+      ? deny('native evidence is written by the hook and helper only')
+      : {};
+  const lease = writerPath(root);
+  if (!existsSync(lease)) return {};
+  const { taskId, sessionId } = jsonFile(lease);
+  check(typeof taskId === 'string' && typeof sessionId === 'string', 'invalid writer lease');
+  if (sessionId !== event.session_id) return {};
+  const ignored = spawnSync('git', ['-C', root, 'check-ignore', '-q', '--', path], {
+    timeout: 5000,
+  });
+  if (ignored.status === 0) return {};
+  check(ignored.status === 1, 'git check-ignore failed');
+  return deny(
+    `Parent write during active writer task ${taskId}: settle it first, or after the child ended run pnpm claude:native release --task ${taskId} --ended`,
+  );
+}
 export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } = {}) {
   root = realpathSync(root);
   if (event?.hook_event_name === 'SubagentStop') return stopped(event, root);
@@ -1445,6 +1489,21 @@ async function main(args) {
     const result = await helperCommand(args[0], args.slice(1));
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     if (result.valid === false) process.exitCode = 1;
+    return;
+  }
+  if (args[0] === '--hook' && args[1] === '--file-guard' && args.length === 2) {
+    try {
+      const raw = readFileSync(0);
+      check(raw.length <= 1024 * 1024, 'hook payload limit');
+      const result = guardClaudeNativeFileWrite(JSON.parse(raw), {
+        root: process.env.CLAUDE_PROJECT_DIR ?? process.cwd(),
+      });
+      process.stdout.write(JSON.stringify(result));
+    } catch (error) {
+      process.stderr.write(`KNU file guard failed: ${error.message}\n`);
+      // Exit 1 is a non-blocking error: a broken guard must never stop an ordinary edit.
+      process.exitCode = 1;
+    }
     return;
   }
   if (args[0] === '--hook' && args.length === 1) {

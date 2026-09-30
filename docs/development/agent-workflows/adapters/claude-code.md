@@ -121,8 +121,11 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    원인을 구분합니다. Stop이 기록됐는데 정산되지 않으면 `stopped-task-settlement-failed: <사유>`가 함께 나옵니다.
 8. 등록부터 정산까지 Parent는 tracked·비ignored 경로를 수정하지 않습니다. Collector는 등록·정산 시점 파일 목록의 차이 중
    child write 범위 안의 변경만 child 변경으로 기록하고, 범위 밖 변경은 누가 바꿨는지 알 수 없으므로
-   `unattributable-change:<path>`로 거부합니다. Write 범위 안의 Parent 수정은 구분할 수 없어 이 운영 규칙으로만 막습니다
-   ([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)). 완료 알림이 오면 편집 전에 먼저
+   `unattributable-change:<path>`로 거부합니다. Write 범위 안의 Parent 수정은 구분할 수 없습니다. 그래서 이 세션의 writer
+   task가 실행되는 동안 file guard(PreToolUse `Edit|Write|NotebookEdit`)가 Parent의 tracked·비ignored 경로 쓰기를 deny합니다.
+   Bash·기타 도구 쓰기와 hook이 실행되지 않은 경우는 이 운영 규칙으로 막습니다
+   ([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)). 같은 guard는 subagent가 native
+   evidence(`.artifacts/tools/claude-native/**`)를 쓰는 것도 deny합니다. 완료 알림이 오면 편집 전에 먼저
    정산합니다. `--resume`한 세션의 완료 알림은 행 `sessionId`가 등록 세션이면 새 process `session_id`와 관계없이 대조합니다.
 
 ### Same-host independent review
@@ -214,7 +217,8 @@ lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합�
   exit 2로 stderr를 Claude에게 보여 주되 막지 않습니다. SubagentStop·SessionStart는 exit 1(transcript의 non-blocking hook 오류)로
   끝나 child 정지를 막지 않습니다. 이 hook들은 다른 checkout에서 복사됐거나 손상된 task 기록을 건너뛰고, 그런 task는 완료
   판정에서 거부됩니다. 남는 한계: payload를 해석할 수 없거나(1 MB 초과·JSON 오류) 관리 대상 확인 전에 오류가 나면 exit 2가
-  남아 비KNU 호출이나 정지를 막을 수 있습니다. 보장은 여전히 완료 판정 거부뿐입니다.
+  남아 비KNU 호출이나 정지를 막을 수 있습니다. 보장은 여전히 완료 판정 거부뿐입니다. File guard(`--hook --file-guard`)는
+  별도 hook 항목이라 payload 오류를 포함한 모든 오류가 exit 1로 끝나며 편집을 막지 않습니다.
 - FORCE 환경변수의 명시적 충돌은 hook에서 거부하지만 Home/managed/provider의 모든 모델 대체를 사전에 인증하는
   것은 아닙니다. 정상 환경을 scrub하지 않고 실행 후 모델을 확인합니다. 정상 설정 출처/role precedence와 충돌을
   관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.

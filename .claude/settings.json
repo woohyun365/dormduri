@@ -21,6 +21,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agents/claude/native-session.mjs\" --hook --file-guard",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
