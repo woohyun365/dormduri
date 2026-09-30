@@ -238,6 +238,9 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     '조건을 맞추려고 task 사실을 바꾸지 않으며',
     'Claude Parent 기본값은 **Opus 5.5 high**입니다',
     'Host는 이 규칙을 강제하지 않습니다(advisory)',
+    'Exit를 뒤집는 명령으로 기록하지 않습니다',
+    'Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다',
+    'writer subject면 응답 artifact를 포함할 수 없습니다',
   ]) {
     assert.ok(guide.includes(boundary), boundary);
   }
