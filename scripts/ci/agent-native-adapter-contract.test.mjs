@@ -131,6 +131,17 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
     assert.ok(guide.includes(`troubleshooting/tooling/${name}.md`), name);
     assert.ok(index.includes(`./tooling/${name}.md`), name);
   }
+  // Rejections must not push the operator back to transcription or exit inversion.
+  const rejections = read(
+    'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
+  );
+  for (const rule of [
+    '수정 전 실패(RED)는 exit를 뒤집지 말고',
+    '응답을 Parent가 파일로 옮겨 `--parent-subject`로\n  우회하지 않습니다',
+    'a read-only subject is reviewed from its bound response',
+    'a RED record passes only at its declared expected exit',
+  ])
+    assert.ok(rejections.includes(rule), rule);
   // Hook failure stays a completion refusal, never an execution gate.
   const hook = read(
     'docs/development/troubleshooting/tooling/claude-native-hook-failure-and-completion-refusal.md',

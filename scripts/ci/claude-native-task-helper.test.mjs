@@ -433,6 +433,42 @@ test('a changed response artifact is refused and a writer response never becomes
   );
 });
 
+test('other native task evidence never enters a review read path', (t) => {
+  const w = settledBuilder(t);
+  const evidenceOf = (id, file) => `.artifacts/tools/claude-native/${id}/${file}`;
+  const record = (outputPath) => ({
+    command: 'node --test scripts/ci/sample.test.mjs',
+    exit: 0,
+    environment: 'repository root, Node.js test runner',
+    observedResult: '3/3 pass',
+    outputPaths: ['.artifacts/plans/helper-test/runner.log', outputPath],
+  });
+  // A writer's completion.json holds its full response; a runner cannot relabel it as its output.
+  const writerReview = reviewOf(w, [record(evidenceOf(w.subject.taskId, 'completion.json'))]);
+  assert.throws(
+    () => prepareClaudeNativeTask(writerReview.reviewerSpec, { root: w.root }),
+    /native task evidence is not review input/,
+  );
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  const readOnlyReview = reviewOf(r, [record(evidenceOf(r.subject.taskId, 'task.json'))]);
+  assert.throws(
+    () => prepareClaudeNativeTask(readOnlyReview.reviewerSpec, { root: r.root }),
+    /native task evidence is not review input/,
+  );
+});
+
+test('the response artifact comes from the digest-bound response, not a mirrored field', (t) => {
+  const claim = 'sample.txt holds the value 42.';
+  const r = settledExplorer(t, claim);
+  const completionPath = join(r.subject.evidenceDirectory, 'completion.json');
+  const completion = JSON.parse(readFileSync(completionPath, 'utf8'));
+  completion.content = [{ type: 'text', text: 'sample.txt holds the value 7.' }];
+  writeFileSync(completionPath, JSON.stringify(completion));
+  const review = reviewOf(r);
+  assert.equal(readFileSync(join(r.root, responsePathOf(r.subject.taskId)), 'utf8'), claim);
+  prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+});
+
 test('a RED record passes only at its declared expected exit and the reviewer sees both exits', (t) => {
   const r = settledBuilder(t);
   const green = {
