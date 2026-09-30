@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -338,6 +345,288 @@ test('runner evidence has a fixed record format bound to the current round snaps
   assert.deepEqual(failing.packet.evidence.knownFailures, [
     'node --test scripts/ci/sample.test.mjs',
   ]);
+});
+
+function settledExplorer(t, text) {
+  const r = repo(t);
+  const subject = prepareClaudeNativeTask(explorerSpec(r), { root: r.root });
+  dispatch(r, subject, 'explore-1', text);
+  return { ...r, subject };
+}
+function reviewOf(r, records) {
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  return buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: records
+        ? {
+            runner: 'parent',
+            records: records.map((record) => ({ ...record, sourceDigest: snapshotDigest })),
+          }
+        : runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+    },
+    { root: r.root },
+  );
+}
+function passing(review) {
+  const delivered = structuredClone(review.resultTemplate);
+  delivered.acceptanceCoverage = delivered.acceptanceCoverage.map((c) => ({
+    ...c,
+    sourceRefs: ['sample.txt'],
+    evidenceRefs: ['runner:node --test'],
+    gap: null,
+  }));
+  delivered.verdict = 'PASS';
+  delivered.confidence = 'high';
+  return JSON.stringify(delivered);
+}
+const responsePathOf = (taskId) => `.artifacts/tools/claude-native/${taskId}/subject-response.txt`;
+
+test('a read-only subject is reviewed from its bound response, its read scope and the runner outputs', (t) => {
+  const claim = 'sample.txt holds the value 42. I checked it myself and it is correct.';
+  const r = settledExplorer(t, claim);
+  const review = reviewOf(r);
+  const responsePath = responsePathOf(r.subject.taskId);
+  // The response is the deliverable under review; the reviewer can check its claim against sample.txt.
+  assert.deepEqual(review.packet.boundaries.allowedReadPaths, [
+    responsePath,
+    'sample.txt',
+    '.artifacts/plans/helper-test/runner.log',
+  ]);
+  assert.deepEqual(review.reviewerSpec.readScope, review.packet.boundaries.allowedReadPaths);
+  assert.equal(readFileSync(join(r.root, responsePath), 'utf8'), claim);
+  assert.ok(!review.reviewerPrompt.includes(claim), 'the response is read from its file');
+  assert.match(review.reviewerPrompt, new RegExp(`${responsePath}.*not evidence`, 'u'));
+
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  dispatch(r, reviewer, 'review-1', passing(review));
+  const reviewed = settleClaudeNativeTask(
+    reviewer.taskId,
+    judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+    { root: r.root },
+  );
+  assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
+});
+
+test('a changed response artifact is refused and a writer response never becomes review input', (t) => {
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  const review = reviewOf(r);
+  const responsePath = responsePathOf(r.subject.taskId);
+  writeFileSync(join(r.root, responsePath), 'sample.txt holds the value 7.');
+  assert.throws(
+    () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
+    /subject response artifact does not match the settled response/,
+  );
+  assert.throws(() => reviewOf(r), /subject response artifact does not match/);
+
+  const w = settledBuilder(t);
+  const writerReview = reviewOf(w);
+  const writerResponse = responsePathOf(w.subject.taskId);
+  assert.ok(!writerReview.packet.boundaries.allowedReadPaths.includes(writerResponse));
+  assert.ok(!existsSync(join(w.root, writerResponse)));
+  const spec = structuredClone(writerReview.reviewerSpec);
+  spec.readScope = [...spec.readScope, writerResponse];
+  const { packet } = spec.independentReview;
+  packet.boundaries.allowedReadPaths = [...spec.readScope];
+  packet.sources.contracts = [...spec.readScope];
+  assert.throws(
+    () => prepareClaudeNativeTask(spec, { root: w.root }),
+    /writer subject response is not review input/,
+  );
+});
+
+test('other native task evidence never enters a review read path', (t) => {
+  const w = settledBuilder(t);
+  const evidenceOf = (id, file) => `.artifacts/tools/claude-native/${id}/${file}`;
+  const record = (outputPath) => ({
+    command: 'node --test scripts/ci/sample.test.mjs',
+    exit: 0,
+    environment: 'repository root, Node.js test runner',
+    observedResult: '3/3 pass',
+    outputPaths: ['.artifacts/plans/helper-test/runner.log', outputPath],
+  });
+  // A writer's completion.json holds its full response; a runner cannot relabel it as its output.
+  assert.throws(
+    () => reviewOf(w, [record(evidenceOf(w.subject.taskId, 'completion.json'))]),
+    /native task evidence is not review input/,
+  );
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  assert.throws(
+    () => reviewOf(r, [record(evidenceOf(r.subject.taskId, 'task.json'))]),
+    /native task evidence is not review input/,
+  );
+  // Registration refuses the same paths in a hand-edited spec that skipped the helper.
+  for (const [subject, file] of [
+    [w, 'completion.json'],
+    [r, 'task.json'],
+  ]) {
+    const spec = structuredClone(reviewOf(subject).reviewerSpec);
+    spec.readScope = [...spec.readScope, evidenceOf(subject.subject.taskId, file)];
+    spec.independentReview.packet.boundaries.allowedReadPaths = [...spec.readScope];
+    spec.independentReview.packet.sources.contracts = [...spec.readScope];
+    assert.throws(
+      () => prepareClaudeNativeTask(spec, { root: subject.root }),
+      /native task evidence is not review input/,
+    );
+  }
+});
+
+test('native task evidence stays out of review paths under another case, a symlink or a Parent subject', (t) => {
+  const w = settledBuilder(t);
+  const record = (outputPath) => ({
+    command: 'node --test scripts/ci/sample.test.mjs',
+    exit: 0,
+    environment: 'repository root, Node.js test runner',
+    observedResult: '3/3 pass',
+    outputPaths: [outputPath],
+  });
+  const completion = `.artifacts/tools/claude-native/${w.subject.taskId}/completion.json`;
+  // A case-insensitive filesystem opens the same file under another spelling.
+  assert.throws(
+    () => reviewOf(w, [record(completion.replace('claude-native', 'Claude-Native'))]),
+    /native task evidence is not review input/,
+  );
+  mkdirSync(join(w.root, '.artifacts/plans/helper-test'), { recursive: true });
+  symlinkSync(
+    join(w.root, completion),
+    join(w.root, '.artifacts/plans/helper-test/completion-link.json'),
+  );
+  assert.throws(
+    () => reviewOf(w, [record('.artifacts/plans/helper-test/completion-link.json')]),
+    /native task evidence is not review input/,
+  );
+  assert.throws(
+    () => reviewOf(w, [record('.artifacts/plans/helper-test')]),
+    /native task evidence is not review input/,
+  );
+  // A symlinked directory, or one nested under a real directory, still leads to the task records.
+  symlinkSync('helper-test', join(w.root, '.artifacts/plans/helper-alias'));
+  mkdirSync(join(w.root, '.artifacts/plans/helper-outer'), { recursive: true });
+  symlinkSync('../helper-alias', join(w.root, '.artifacts/plans/helper-outer/nested'));
+  for (const path of ['.artifacts/plans/helper-alias', '.artifacts/plans/helper-outer'])
+    assert.throws(() => reviewOf(w, [record(path)]), /native task evidence is not review input/);
+  // A link cycle is scanned once and a plain runner directory stays usable.
+  mkdirSync(join(w.root, '.artifacts/plans/helper-cycle'), { recursive: true });
+  symlinkSync('.', join(w.root, '.artifacts/plans/helper-cycle/self'));
+  reviewOf(w, [record('.artifacts/plans/helper-cycle')]);
+  assert.throws(
+    () =>
+      buildClaudeNativeReview(
+        {
+          parentSubject: {
+            request: 'sample.txt 변경을 구현해줘.',
+            owner: 'parent',
+            acceptance: ['sample.txt updated'],
+            paths: ['sample.txt', completion],
+          },
+        },
+        { root: w.root },
+      ),
+    /native task evidence is not review input/,
+  );
+});
+
+test('a read-only subject review without its response artifact is refused at registration', (t) => {
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  const spec = structuredClone(reviewOf(r).reviewerSpec);
+  const without = spec.readScope.filter((path) => path !== responsePathOf(r.subject.taskId));
+  spec.readScope = without;
+  spec.independentReview.packet.boundaries.allowedReadPaths = [...without];
+  spec.independentReview.packet.sources.contracts = [...without];
+  assert.throws(
+    () => prepareClaudeNativeTask(spec, { root: r.root }),
+    /read-only subject review needs its response artifact/,
+  );
+});
+
+test('the response artifact comes from the digest-bound response, not a mirrored field', (t) => {
+  const claim = 'sample.txt holds the value 42.';
+  const r = settledExplorer(t, claim);
+  const completionPath = join(r.subject.evidenceDirectory, 'completion.json');
+  const completion = JSON.parse(readFileSync(completionPath, 'utf8'));
+  completion.content = [{ type: 'text', text: 'sample.txt holds the value 7.' }];
+  writeFileSync(completionPath, JSON.stringify(completion));
+  const review = reviewOf(r);
+  assert.equal(readFileSync(join(r.root, responsePathOf(r.subject.taskId)), 'utf8'), claim);
+  prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+});
+
+test('a RED record passes only at its declared expected exit and the reviewer sees both exits', (t) => {
+  const r = settledBuilder(t);
+  const green = {
+    command: 'node --test scripts/ci/sample.test.mjs',
+    exit: 0,
+    environment: 'repository root, Node.js test runner',
+    observedResult: '3/3 pass',
+    outputPaths: ['.artifacts/plans/helper-test/runner.log'],
+  };
+  const red = {
+    ...green,
+    command: 'node --test scripts/ci/red.test.mjs',
+    exit: 1,
+    purpose: 'red',
+    expectedExit: 1,
+    observedResult: '1 fail before the fix',
+    outputPaths: ['.artifacts/plans/helper-test/red.log'],
+  };
+  const matched = reviewOf(r, [green, red]);
+  assert.deepEqual(matched.packet.evidence.knownFailures, []);
+  assert.deepEqual(matched.resultTemplate.commandsActuallyRun[1], {
+    runner: 'parent',
+    exit: 1,
+    purpose: 'red',
+    expectedExit: 1,
+    observedResult: '1 fail before the fix',
+    environment: 'repository root, Node.js test runner',
+    outputPaths: ['.artifacts/plans/helper-test/red.log'],
+  });
+  assert.ok(
+    matched.packet.evidence.tests.includes(
+      'node --test scripts/ci/red.test.mjs (RED: expected exit 1, actual exit 1)',
+    ),
+  );
+  assert.match(matched.reviewerPrompt, /purpose "red"/u);
+  // A GREEN or differently failing run declared as RED stays a known failure.
+  for (const exit of [0, 2]) {
+    const mismatched = reviewOf(r, [green, { ...red, exit }]);
+    assert.deepEqual(mismatched.packet.evidence.knownFailures, [
+      'node --test scripts/ci/red.test.mjs',
+    ]);
+    assert.ok(
+      mismatched.packet.evidence.tests.includes(
+        `node --test scripts/ci/red.test.mjs (RED: expected exit 1, actual exit ${exit})`,
+      ),
+    );
+  }
+  const { purpose, ...withoutPurpose } = red;
+  const { expectedExit, ...withoutExpected } = red;
+  void purpose;
+  void expectedExit;
+  for (const record of [
+    withoutPurpose,
+    withoutExpected,
+    { ...red, expectedExit: 0 },
+    // A process exit status is 1 to 255 when it fails; anything else cannot be observed.
+    { ...red, exit: -1, expectedExit: -1 },
+    { ...red, exit: 256, expectedExit: 256 },
+    { ...red, expectedExit: 1.5 },
+    { ...red, purpose: 'green' },
+  ])
+    assert.throws(() => reviewOf(r, [green, record]), /records\[1\]: RED/);
+
+  const reviewer = prepareClaudeNativeTask(matched.reviewerSpec, { root: r.root });
+  dispatch(r, reviewer, 'review-1', passing(matched));
+  const reviewed = settleClaudeNativeTask(
+    reviewer.taskId,
+    judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+    { root: r.root },
+  );
+  assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
 });
 
 test('an oversized reviewer prompt is refused by the helper before registration', (t) => {

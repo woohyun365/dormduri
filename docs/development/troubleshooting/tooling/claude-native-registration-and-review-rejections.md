@@ -34,6 +34,15 @@
   review commandsActuallyRun differs from the bound runner records
   ```
 
+- Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
+
+  ```text
+  subject response artifact does not match the settled response
+  read-only subject review needs its response artifact
+  writer subject response is not review input
+  records[<n>]: RED record needs purpose "red" and an integer expectedExit from 1 to 255
+  ```
+
 - `settle --task <reviewerTaskId> --judgment <file>`이 `parent-adjudication: this reviewer has no native subject`로 거부됩니다.
 - reviewer PASS를 연결해 builder를 완료하려는데 다음 중 하나로 거부됩니다.
 
@@ -60,6 +69,12 @@
 - Helper가 만든 review는 결과 template(runner 기록 포함)을 등록 prompt에 결속합니다. Reviewer 결과의 `commandsActuallyRun`이
   그 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
 - `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
+- Read-only subject의 응답은 helper가 `subject-response.txt`에 한 번 쓰고 reviewer 등록 때 정산된 응답과 대조합니다. 파일을 고치면
+  거부됩니다. Writer subject의 응답은 builder 추론이라 read path에 넣을 수 없습니다. 다른 native task 기록은 대소문자를 바꾼 경로,
+  symlink, `.artifacts` 아래에서 연결된 디렉터리, Parent subject 경로로도 `native task evidence is not review input`으로
+  거부됩니다. `.artifacts` 밖 디렉터리 안의 symlink와 hard link는 탐지하지 않으므로 native 기록을 연결해 두지 않습니다.
+- RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
+  다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
   hook이 기록하지 않은 reviewer 호출(hook 장애 중 재호출 등), 읽을 수 없는 세션 transcript, 정산 뒤 재개된 reviewer, 손상된 task 기록은
   FAIL을 숨길 수 있으므로 PASS 연결을 막습니다.
@@ -79,6 +94,11 @@
   packet·reviewer prompt·결과 template·reviewer spec이 나옵니다. 결과 template의 `commandsActuallyRun`은 runner 기록에서만
   채워지고 builder의 응답·추론은 packet에 들어가지 않습니다. Reviewer는 자신이 실행했다고 주장하지 않으며, 실행하지 않은 검증을
   PASS로 바꾸지 않습니다. 다른 회차의 digest나 추가 필드가 있는 기록은 거부됩니다.
+- 수정 전 실패(RED)는 exit를 뒤집지 말고 `purpose:"red"`·`expectedExit`로 기록합니다. 기대와 같은 exit만 known failure에서
+  빠지고, 다른 exit(0 포함)는 known failure로 남아 PASS를 막습니다.
+- Read-only subject는 `review --subject <taskId>`로 그대로 review합니다. 응답을 Parent가 파일로 옮겨 `--parent-subject`로
+  우회하지 않습니다. `subject response artifact does not match`는 artifact가 바뀐 것입니다. 손으로 고치지 말고 파일을 지운 뒤
+  `review`를 다시 실행하면 정산된 응답으로 다시 씁니다.
 - Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file> --session <session_id>`는 `settlement:"parent-adjudication"`을
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
   reviewer의 `completion.json` 관측(valid·모델·변경 경로)과 finding 재현으로 판정하고, `finalSnapshot`의 digest가 review
@@ -101,7 +121,10 @@ node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-t
 등록 사유 표시, runner 기록 형식, `parent-adjudication` 경로를 고정하고, `a helper-built review cannot add, drop or change
 runner records`가 runner 기록 결속을 고정합니다.
 `read-only reviewer cites runner-owned checks`, `reviewer registration rejects the reviewer as runner`,
-`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Builder 연결 거부는 `hook-less retry`,
+`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Read-only subject와 RED 기록은
+`a read-only subject is reviewed from its bound response`, `a changed response artifact is refused`,
+`other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
+테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,
 `each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed` 테스트가
 고정합니다.
 

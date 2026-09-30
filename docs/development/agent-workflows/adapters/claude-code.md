@@ -109,9 +109,14 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 
 Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <taskId>`만 주면 관측이 정산된 subject의 이번 회차
 `snapshotDigest`와 `logHeader`를 출력하고, 완료 관측이 없으면 거부합니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고
-각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. `--runner-evidence`·
+각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. 수정 전 실패를 보이는
+RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실제 exit가 기대와 같을 때만 known failure가 아닙니다.
+다른 exit(0 포함)는 known failure이고 기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다. Exit를 뒤집는 명령으로 기록하지 않습니다. `--runner-evidence`·
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
-`sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. Packet과 prompt에는 builder 응답·추론이 없고, template의
+`sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. Native subject의 read path는 subject `readScope`·쓰기 범위·
+변경 경로와 runner 출력 경로입니다. Writer subject의 응답·추론은 packet과 prompt에 넣지 않습니다. Read-only subject는 응답이
+산출물이므로 helper가 정산된 응답을 subject task 디렉터리의 `subject-response.txt`에 한 번 쓰고 read path 맨 앞에 두며, prompt는
+그 주장과 자기평가가 근거가 아니라고 적습니다. Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다. Template의
 `commandsActuallyRun`은 runner 기록에서만 채우고, 정산 때 reviewer 결과가 prompt에 결속된 그 기록과 같아야 합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
 알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
@@ -120,7 +125,12 @@ Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
 관측 완료를 읽어 full request digest, binding, response, final snapshot에 packet을 연결합니다. Packet objective는 subject
 request summary와 같고, write owner는 builder에 포함되며, reviewer는 builder와 다른 read-only lane owner여야 합니다.
-Packet read scope는 reviewer task 범위 안에 있고 subject의 write ownership과 실제 변경 경로를 포함해야 합니다. Subject의
+Packet read scope는 reviewer task 범위 안에 있고 subject의 write ownership과 실제 변경 경로를 포함해야 합니다. Read-only
+subject면 응답 artifact를 포함하고 그 내용이 정산된 응답과 같아야 하며, writer subject면 응답 artifact를 포함할 수 없습니다.
+그 밖의 native task 기록(task·completion·transcript)과 그 상위 경로는 대소문자를 바꾼 경로, symlink, `.artifacts` 아래에서 연결된
+디렉터리로도 read path가 될 수 없으며, helper는 runner 출력과 Parent subject 경로에서 먼저 거부합니다. `.artifacts` 밖
+디렉터리 안의 symlink는 검사하지 않고 working tree 변경으로 snapshot에 드러나며, hard link는 탐지 대상이 아닙니다.
+등록 뒤 artifact가 바뀌면 reviewer 입력 inventory 대조가 거부합니다. Subject의
 모든 acceptance criterion은 reviewer completion에서 result coverage로 검사합니다. Reviewer는 packet `authority.runnerOwner`가
 될 수 없습니다.
 검증된 packet은 reviewer의 bound prompt에 포함되므로 caller가 실행 전에 바꾸거나 다른 subject에 재사용할 수 없습니다.
