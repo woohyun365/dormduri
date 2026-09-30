@@ -13,7 +13,7 @@ import {
   readlinkSync,
   unlinkSync,
 } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
@@ -63,6 +63,26 @@ function taskDirectory(root, id) {
   check(uuid.test(id), 'invalid task id');
   // Fixed repo-local owner: do not let ambient artifact configuration redirect hook writes.
   return resolveArtifactPath(root, ['claude-native', id], {});
+}
+// A read-only subject's response is its deliverable, so review reads it from this file. A writer's
+// response carries builder rationale and self-assessment, so it never becomes review input.
+function subjectResponsePath(root, id) {
+  return relative(root, join(taskDirectory(root, id), 'subject-response.txt'));
+}
+function subjectResponseText(observation) {
+  const content = observation.content;
+  return content?.length === 1 && content[0]?.type === 'text'
+    ? content[0].text
+    : JSON.stringify(content);
+}
+function sameSubjectResponse(root, path, text) {
+  const absolute = join(root, path);
+  return (
+    existsSync(absolute) &&
+    realpathSync(absolute) === absolute &&
+    lstatSync(absolute).isFile() &&
+    readFileSync(absolute, 'utf8') === text
+  );
 }
 function ensureLocalDirectory(root, target) {
   let current = root;
@@ -355,6 +375,21 @@ export function registerClaudeNativeTask({
       allowedReadPaths.every((path) => covered(path, binding.readScope)),
       'packet read scope exceeds reviewer task scope',
     );
+    const responsePath = subjectResponsePath(root, subject.record.taskId);
+    if (subject.record.input.directAssignment.writeOwnership.length === 0) {
+      check(
+        allowedReadPaths.includes(responsePath),
+        'read-only subject review needs its response artifact',
+      );
+      check(
+        sameSubjectResponse(root, responsePath, subjectResponseText(subjectObservation)),
+        'subject response artifact does not match the settled response',
+      );
+    } else
+      check(
+        !covered(responsePath, allowedReadPaths),
+        'writer subject response is not review input',
+      );
     check(
       [
         ...subject.record.input.directAssignment.writeOwnership,
@@ -1228,6 +1263,29 @@ export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
     changedPaths: state.actualPaths,
     errors: [...state.errors, ...settlement],
   };
+}
+// Writes a settled read-only subject's response once; a later call only confirms the file is unchanged.
+export function writeClaudeNativeSubjectResponse(id, { root = process.cwd() } = {}) {
+  root = realpathSync(root);
+  const task = loadTask(root, id);
+  const state = currentObservation(task);
+  check(
+    state.errors.length === 0,
+    `completed subject observation required: ${state.errors.join(',')}`,
+  );
+  check(
+    task.record.input.directAssignment.writeOwnership.length === 0,
+    'writer subject response is not review input',
+  );
+  const path = subjectResponsePath(root, id);
+  const text = subjectResponseText(state.observation);
+  if (existsSync(join(root, path)))
+    check(
+      sameSubjectResponse(root, path, text),
+      'subject response artifact does not match the settled response',
+    );
+  else writeFileSync(join(root, path), text, { flag: 'wx', mode: 0o600 });
+  return path;
 }
 export function currentClaudeNativeSnapshot(root = process.cwd()) {
   return baseline(realpathSync(root));

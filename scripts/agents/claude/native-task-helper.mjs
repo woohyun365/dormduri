@@ -17,6 +17,7 @@ import {
   observeClaudeNativeTask,
   currentClaudeNativeSnapshot,
   claudeNativeSnapshotDigest,
+  writeClaudeNativeSubjectResponse,
   REVIEW_RESULT_TEMPLATE_PREFIX,
 } from './native-session.mjs';
 
@@ -54,6 +55,12 @@ const RUNNER_RECORD_FIELDS = [
   'outputPaths',
   'sourceDigest',
 ];
+// A RED record shows a check failing before the fix. It declares the exit it expects; only that exit
+// keeps it out of knownFailures, and any other exit, including 0, is a known failure.
+const RED_RECORD_FIELDS = ['purpose', 'expectedExit'];
+const red = (record) => record.purpose === 'red';
+const knownFailure = (record) =>
+  red(record) ? record.exit !== record.expectedExit : record.exit !== 0;
 const REVIEW_FACTS = [
   'source-bound',
   'bounded-scope',
@@ -183,16 +190,31 @@ function validateRunnerEvidence(evidence, snapshotDigest, reviewerId) {
     ? evidence.records
     : []
   ).entries()) {
+    const keys = record && typeof record === 'object' ? Object.keys(record) : [];
+    const redKeys = keys.filter((key) => RED_RECORD_FIELDS.includes(key));
     if (
       !record ||
       typeof record !== 'object' ||
-      !isDeepStrictEqual(Object.keys(record).sort(), [...RUNNER_RECORD_FIELDS].sort())
+      !isDeepStrictEqual(
+        keys.filter((key) => !RED_RECORD_FIELDS.includes(key)).sort(),
+        [...RUNNER_RECORD_FIELDS].sort(),
+      )
     ) {
       issues.push(
-        `records[${index}]: runner evidence record fields are ${RUNNER_RECORD_FIELDS.join(', ')}`,
+        `records[${index}]: runner evidence record fields are ${RUNNER_RECORD_FIELDS.join(', ')}, plus ${RED_RECORD_FIELDS.join(' and ')} together for a RED record`,
       );
       continue;
     }
+    if (
+      redKeys.length &&
+      (redKeys.length !== RED_RECORD_FIELDS.length ||
+        record.purpose !== 'red' ||
+        !Number.isSafeInteger(record.expectedExit) ||
+        record.expectedExit === 0)
+    )
+      issues.push(
+        `records[${index}]: RED record needs purpose "red" and a non-zero integer expectedExit`,
+      );
     if (!Number.isSafeInteger(record.exit)) issues.push(`records[${index}].exit integer`);
     for (const field of ['command', 'environment', 'observedResult'])
       if (typeof record[field] !== 'string' || !record[field].trim())
@@ -227,8 +249,13 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
       objective: record.requestSummary,
       owner: record.input.directAssignment.owner,
       acceptance: record.input.directAssignment.acceptance,
+      readOnly: record.input.directAssignment.writeOwnership.length === 0,
       readPaths: [
-        ...new Set([...record.input.directAssignment.writeOwnership, ...state.changedPaths]),
+        ...new Set([
+          ...record.input.nativeRequest.task.readScope,
+          ...record.input.directAssignment.writeOwnership,
+          ...state.changedPaths,
+        ]),
       ],
       impactRisk: record.input.nativeRequest.task.impactRisk,
       snapshot: state.observation.finalSnapshot,
@@ -282,8 +309,12 @@ function reviewPacket(subject, evidence, reviewId) {
       environment: [...new Set(evidence.records.map((record) => record.environment))].join('; '),
       prerequisites: ['Source snapshot equals the reviewed subject snapshot'],
       commands,
-      tests: commands,
-      knownFailures: evidence.records.filter((r) => r.exit !== 0).map((r) => r.command),
+      tests: evidence.records.map((record) =>
+        red(record)
+          ? `${record.command} (RED: expected exit ${record.expectedExit})`
+          : record.command,
+      ),
+      knownFailures: evidence.records.filter(knownFailure).map((record) => record.command),
       knownGaps: [],
       sanitizedLinks: [...new Set(evidence.records.flatMap((record) => record.outputPaths))],
     },
@@ -353,6 +384,7 @@ function resultTemplate(packet, evidence) {
     commandsActuallyRun: evidence.records.map((record) => ({
       runner: evidence.runner,
       exit: record.exit,
+      ...(red(record) ? { purpose: record.purpose, expectedExit: record.expectedExit } : {}),
       observedResult: record.observedResult,
       environment: record.environment,
       outputPaths: record.outputPaths,
@@ -384,6 +416,16 @@ function reviewerPrompt(logHeader, subject, packet, template) {
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
     '- Each finding needs severity, location, impact, reproduction and evidence.',
+    ...(subject.responsePath
+      ? [
+          `- ${subject.responsePath} is the read-only subject's response under review; its claims and self-assessment are not evidence. Check them against the other read paths.`,
+        ]
+      : []),
+    ...(template.commandsActuallyRun.some((command) => command.purpose === 'red')
+      ? [
+          '- A record with purpose "red" shows a check failing before the fix; it is a known failure unless exit equals expectedExit.',
+        ]
+      : []),
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
     `${REVIEW_RESULT_TEMPLATE_PREFIX}${JSON.stringify(template)}`,
     ...(subject.settlement === 'parent-adjudication'
@@ -430,6 +472,20 @@ export function buildClaudeNativeReview(
       : ['reviewer must be an identifier distinct from the subject owner']),
   ]);
   validateRunnerEvidence(runnerEvidence, snapshotDigest, reviewerId);
+  if (subject.settlement === 'native-subject') {
+    // The reviewer can check a read-only subject's claims against its read scope and the raw runner
+    // outputs; the response itself is read from a file bound to the settled response.
+    subject.responsePath = subject.readOnly
+      ? writeClaudeNativeSubjectResponse(subject.taskId, { root })
+      : undefined;
+    subject.readPaths = [
+      ...new Set([
+        ...(subject.responsePath ? [subject.responsePath] : []),
+        ...subject.readPaths,
+        ...runnerEvidence.records.flatMap((record) => record.outputPaths),
+      ]),
+    ];
+  }
   const reviewId = `${(subject.taskId ?? snapshotDigest.slice(7)).slice(0, 8)}-${randomUUID().slice(0, 8)}`;
   const packet = reviewPacket(subject, runnerEvidence, reviewId);
   // The registry re-validates a native subject's packet; a Parent subject's packet is only checked here.

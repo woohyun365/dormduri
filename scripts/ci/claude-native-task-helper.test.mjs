@@ -424,8 +424,9 @@ test('a changed response artifact is refused and a writer response never becomes
   assert.ok(!existsSync(join(w.root, writerResponse)));
   const spec = structuredClone(writerReview.reviewerSpec);
   spec.readScope = [...spec.readScope, writerResponse];
-  spec.independentReview.packet.boundaries.allowedReadPaths.push(writerResponse);
-  spec.independentReview.packet.sources.contracts.push(writerResponse);
+  const { packet } = spec.independentReview;
+  packet.boundaries.allowedReadPaths = [...spec.readScope];
+  packet.sources.contracts = [...spec.readScope];
   assert.throws(
     () => prepareClaudeNativeTask(spec, { root: w.root }),
     /writer subject response is not review input/,
