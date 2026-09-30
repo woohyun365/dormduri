@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -454,6 +461,64 @@ test('other native task evidence never enters a review read path', (t) => {
   assert.throws(
     () => prepareClaudeNativeTask(readOnlyReview.reviewerSpec, { root: r.root }),
     /native task evidence is not review input/,
+  );
+});
+
+test('native task evidence stays out of review paths under another case, a symlink or a Parent subject', (t) => {
+  const w = settledBuilder(t);
+  const record = (outputPath) => ({
+    command: 'node --test scripts/ci/sample.test.mjs',
+    exit: 0,
+    environment: 'repository root, Node.js test runner',
+    observedResult: '3/3 pass',
+    outputPaths: [outputPath],
+  });
+  const completion = `.artifacts/tools/claude-native/${w.subject.taskId}/completion.json`;
+  // A case-insensitive filesystem opens the same file under another spelling.
+  assert.throws(
+    () => reviewOf(w, [record(completion.replace('claude-native', 'Claude-Native'))]),
+    /native task evidence is not review input/,
+  );
+  mkdirSync(join(w.root, '.artifacts/plans/helper-test'), { recursive: true });
+  symlinkSync(
+    join(w.root, completion),
+    join(w.root, '.artifacts/plans/helper-test/completion-link.json'),
+  );
+  assert.throws(
+    () => reviewOf(w, [record('.artifacts/plans/helper-test/completion-link.json')]),
+    /native task evidence is not review input/,
+  );
+  assert.throws(
+    () => reviewOf(w, [record('.artifacts/plans/helper-test')]),
+    /native task evidence is not review input/,
+  );
+  assert.throws(
+    () =>
+      buildClaudeNativeReview(
+        {
+          parentSubject: {
+            request: 'sample.txt 변경을 구현해줘.',
+            owner: 'parent',
+            acceptance: ['sample.txt updated'],
+            paths: ['sample.txt', completion],
+          },
+        },
+        { root: w.root },
+      ),
+    /native task evidence is not review input/,
+  );
+});
+
+test('a read-only subject review without its response artifact is refused at registration', (t) => {
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  const spec = structuredClone(reviewOf(r).reviewerSpec);
+  const without = spec.readScope.filter((path) => path !== responsePathOf(r.subject.taskId));
+  spec.readScope = without;
+  spec.independentReview.packet.boundaries.allowedReadPaths = [...without];
+  spec.independentReview.packet.sources.contracts = [...without];
+  assert.throws(
+    () => prepareClaudeNativeTask(spec, { root: r.root }),
+    /read-only subject review needs its response artifact/,
   );
 });
 
