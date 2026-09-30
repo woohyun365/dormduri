@@ -148,6 +148,16 @@ test('settings connect real project hooks without overriding auto/Home/plugins/t
     'SubagentStop',
   ]);
   assert.equal(settings.hooks.PreToolUse[0].matcher, 'Agent|SendMessage');
+  // A separate entry keeps the file guard's exit rules apart from the task hook's.
+  assert.equal(settings.hooks.PreToolUse.length, 2);
+  assert.equal(settings.hooks.PreToolUse[1].matcher, 'Edit|Write|NotebookEdit');
+  const hook = 'node "$CLAUDE_PROJECT_DIR/scripts/agents/claude/native-session.mjs" --hook';
+  assert.deepEqual(settings.hooks.PreToolUse[0].hooks, [
+    { type: 'command', command: hook, timeout: 10 },
+  ]);
+  assert.deepEqual(settings.hooks.PreToolUse[1].hooks, [
+    { type: 'command', command: `${hook} --file-guard`, timeout: 10 },
+  ]);
   assert.equal(settings.hooks.PostToolUse[0].matcher, 'Agent');
 });
 
@@ -2304,4 +2314,139 @@ test('a background launch that reports another prompt is refused', (t) => {
     },
   });
   assert.match(out.hookSpecificOutput.additionalContext, /async launch prompt mismatch/u);
+});
+
+// The file guard runs as its own CLI entry, so these tests spawn it instead of importing it.
+function runGuard(root, event, input = JSON.stringify(event)) {
+  return spawnSync(process.execPath, [hookScript, '--hook', '--file-guard'], {
+    cwd: root,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+    input,
+    encoding: 'utf8',
+  });
+}
+function fileEvent(f, tool, path, patch = {}) {
+  return {
+    hook_event_name: 'PreToolUse',
+    session_id: f.event.session_id,
+    cwd: f.root,
+    permission_mode: 'auto',
+    tool_name: tool,
+    tool_use_id: 'file-1',
+    tool_input: { [tool === 'NotebookEdit' ? 'notebook_path' : 'file_path']: path, content: 'x' },
+    ...patch,
+  };
+}
+function guarded(run) {
+  assert.equal(run.status, 0, run.stderr);
+  const out = JSON.parse(run.stdout);
+  assert.doesNotMatch(run.stdout, /"allow"/u);
+  return out;
+}
+const denied = (run) => guarded(run).hookSpecificOutput?.permissionDecision === 'deny';
+
+test('file guard denies a main-thread write to a tracked file while this session holds the writer lease', (t) => {
+  const f = writer(t);
+  assert.deepEqual(handle(f), {});
+  const out = guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'sample.txt'))));
+  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(
+    out.hookSpecificOutput.permissionDecisionReason,
+    new RegExp(f.registered.taskId, 'u'),
+  );
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /release --task/u);
+});
+
+test('file guard denies new non-ignored files and NotebookEdit, not ignored paths', (t) => {
+  const f = writer(t);
+  handle(f);
+  assert.ok(denied(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'new-file.md')))));
+  assert.ok(denied(runGuard(f.root, fileEvent(f, 'NotebookEdit', 'sample.txt'))));
+  assert.deepEqual(
+    guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, '.artifacts/x')))),
+    {},
+  );
+  // A relative path resolves against the event cwd, and missing directories resolve upwards.
+  mkdirSync(join(f.root, 'sub'));
+  const nested = fileEvent(f, 'Write', 'a/b/c.md', { cwd: join(f.root, 'sub') });
+  assert.ok(denied(runGuard(f.root, nested)));
+  const ignoredNested = fileEvent(f, 'Write', '../.artifacts/a/b.md', { cwd: join(f.root, 'sub') });
+  assert.deepEqual(guarded(runGuard(f.root, ignoredNested)), {});
+});
+
+test('file guard denies a subagent write to native evidence under any case', (t) => {
+  const f = setup(t);
+  const id = f.registered.taskId;
+  const child = { agent_id: 'child-1', agent_type: 'knu_explorer' };
+  for (const [tool, path] of [
+    ['Write', `.artifacts/tools/claude-native/${id}/judgment-template.json`],
+    ['Edit', `.artifacts/tools/Claude-Native/${id}/judgment-template.json`],
+  ])
+    assert.ok(denied(runGuard(f.root, fileEvent(f, tool, join(f.root, path), child))), path);
+});
+
+test('file guard payload errors are non-blocking exit 1 with a guard message', (t) => {
+  const f = setup(t);
+  for (const input of ['{', 'x'.repeat(1024 * 1024 + 1)]) {
+    const run = runGuard(f.root, null, input);
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, /KNU file guard failed/u);
+  }
+});
+
+test('file guard internal errors are non-blocking exit 1 and never deny', (t) => {
+  const f = setup(t);
+  const lease = join(f.root, '.artifacts/tools/claude-native/writer.json');
+  writeFileSync(lease, '{');
+  const damaged = runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'sample.txt')));
+  assert.equal(damaged.status, 1);
+  assert.match(damaged.stderr, /KNU file guard failed/u);
+  assert.doesNotMatch(damaged.stdout, /deny/u);
+  const bare = mkdtempSync(join(tmpdir(), 'file-guard-no-git-'));
+  t.after(() => rmSync(bare, { recursive: true, force: true }));
+  mkdirSync(join(bare, '.artifacts/tools/claude-native'), { recursive: true });
+  writeFileSync(
+    join(bare, '.artifacts/tools/claude-native/writer.json'),
+    JSON.stringify({ taskId: 'task-x', sessionId: f.event.session_id }),
+  );
+  const noGit = runGuard(bare, fileEvent({ ...f, root: bare }, 'Write', join(bare, 'a.txt')));
+  assert.equal(noGit.status, 1);
+  assert.match(noGit.stderr, /KNU file guard failed/u);
+  assert.doesNotMatch(noGit.stdout, /deny/u);
+});
+
+test('file guard leaves ordinary work alone', (t) => {
+  const plain = fixture(t);
+  const plainEvent = fileEvent(
+    { event: { session_id: randomUUID() }, root: plain.root },
+    'Write',
+    join(plain.root, 'sample.txt'),
+  );
+  assert.deepEqual(guarded(runGuard(plain.root, plainEvent)), {});
+  const reader = setup(t);
+  assert.deepEqual(
+    guarded(runGuard(reader.root, fileEvent(reader, 'Write', join(reader.root, 'sample.txt')))),
+    {},
+  );
+  const f = writer(t);
+  handle(f);
+  const outside = join(tmpdir(), `file-guard-outside-${randomUUID()}.txt`);
+  const evidence = `.artifacts/tools/claude-native/${f.registered.taskId}/judgment-template.json`;
+  for (const event of [
+    fileEvent(f, 'Write', join(f.root, 'sample.txt'), { session_id: randomUUID() }),
+    fileEvent(f, 'Write', join(f.root, 'sample.txt'), {
+      agent_id: 'child-1',
+      agent_type: 'knu_executor',
+    }),
+    fileEvent(f, 'Write', join(f.root, evidence)),
+    fileEvent(f, 'Write', outside),
+    fileEvent(f, 'Write', join(f.root, 'sample.txt'), { tool_input: { content: 'x' } }),
+    fileEvent(f, 'NotebookEdit', '.artifacts/notes.ipynb'),
+  ])
+    assert.deepEqual(guarded(runGuard(f.root, event)), {}, JSON.stringify(event.tool_input));
+  releaseClaudeNativeTask(f.registered.taskId, { root: f.root, ended: true });
+  assert.deepEqual(
+    guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'sample.txt')))),
+    {},
+  );
 });

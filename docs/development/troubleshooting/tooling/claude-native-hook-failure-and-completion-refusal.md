@@ -29,7 +29,8 @@ exit 2로 stderr를 Claude에게 보여 주지만 막지 않습니다. SubagentS
 끝납니다. 공식 문서 기준 exit 1은 transcript에 `<hook name> hook error` 알림을 남기는 non-blocking 오류라 child 정지를 막지
 않습니다. 이 알림 행은 live로 관측하지 않았고, 단위 test는 exit code와 stderr만 확인합니다. 다른 checkout에서 복사됐거나 손상된
 task 기록은 SendMessage·SubagentStop 처리에서 건너뛰고, 그 task 자체는 완료 판정에서 거부됩니다. Payload를 해석할 수 없거나
-관리 대상 확인 전에 난 오류는 exit 2로 남습니다.
+관리 대상 확인 전에 난 오류는 exit 2로 남습니다. File guard(`--hook --file-guard`) 오류는 stderr `KNU file guard failed: …`와
+exit 1로 끝나 편집을 막지 않습니다.
 
 ## 해결
 
