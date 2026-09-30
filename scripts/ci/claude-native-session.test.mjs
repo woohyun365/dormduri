@@ -1029,6 +1029,18 @@ test('a hook-less retry of an attempted or linked reviewer blocks; a refused att
     selfRetry.errors.join(),
   );
 
+  // The same unobserved retry made with the short agent input, which is all the transcript holds.
+  const shortSelf = reviewedSubject(t);
+  const shortRetry = shortSelf.builderLinkedTo(
+    asyncReview(t, shortSelf.subject, shortSelf.packet, (qa) =>
+      call(shortSelf.subject, 'retry-short', qa.registered.agentInput.prompt, false),
+    ),
+  );
+  assert.ok(
+    shortRetry.errors.some((e) => /not observed by hooks/.test(e)),
+    shortRetry.errors.join(),
+  );
+
   // PreToolUse recorded the call, then a later permission step refused it: no Post event follows.
   const refused = reviewedSubject(t);
   const blocked = reviewer(t, refused.subject, refused.packet);
@@ -1037,6 +1049,30 @@ test('a hook-less retry of an attempted or linked reviewer blocks; a refused att
   const refusal = call(refused.subject, 'refused-1', blocked.registered.invocation.prompt, true);
   const linked = refused.builderLinkedTo(asyncReview(t, refused.subject, refused.packet, refusal));
   assert.equal(linked.valid, true, linked.errors.join(','));
+
+  // A refused attempt made with the short agent input is matched the same way.
+  const refusedShort = reviewedSubject(t);
+  const blockedShort = reviewer(t, refusedShort.subject, refusedShort.packet);
+  blockedShort.event = {
+    ...blockedShort.event,
+    tool_use_id: 'refused-short',
+    tool_input: blockedShort.registered.agentInput,
+  };
+  // The reviewer's short input must really reach injection, or the row below passes vacuously.
+  assert.deepEqual(
+    handle(blockedShort).hookSpecificOutput?.updatedInput,
+    blockedShort.registered.invocation,
+  );
+  const shortRefusal = call(
+    refusedShort.subject,
+    'refused-short',
+    blockedShort.registered.agentInput.prompt,
+    true,
+  );
+  const linkedShort = refusedShort.builderLinkedTo(
+    asyncReview(t, refusedShort.subject, refusedShort.packet, shortRefusal),
+  );
+  assert.equal(linkedShort.valid, true, linkedShort.errors.join(','));
   const running = call(refused.subject, 'refused-1', blocked.registered.invocation.prompt, false);
   const pending = refused.builderLinkedTo(asyncReview(t, refused.subject, refused.packet, running));
   assert.ok(pending.errors.some((e) => /unsettled or released review attempt/.test(e)));
@@ -1800,9 +1836,9 @@ function plantForeignTask(root) {
   return id;
 }
 // Registers a launched background child whose stop has not been seen yet.
-function launchedChild(t, agentId = 'async-child') {
+function launchedChild(t, agentId = 'async-child', preInput) {
   const f = setup(t);
-  handle(f);
+  handle(f, preInput ? { ...f.event, tool_input: preInput(f.registered.invocation) } : f.event);
   handle(f, {
     ...f.event,
     hook_event_name: 'PostToolUse',
@@ -1956,4 +1992,316 @@ test('PostToolUse hook errors keep exit 2, which shows stderr to Claude without 
   );
   assert.equal(run.status, 2);
   assert.match(run.stderr, /KNU hook failed/u);
+});
+
+// The Lead may call Agent with a short input that names the registered task; PreToolUse injects the
+// registered invocation. The short input is built here from the invocation itself, not from any
+// field the helper returns, so it exists before the change too.
+const shortInput = ({ description, subagent_type, model, prompt }) => ({
+  description,
+  subagent_type,
+  model,
+  prompt: prompt.slice(prompt.lastIndexOf('KNU_NATIVE_TASK:')),
+});
+const denial = (out) => out.hookSpecificOutput?.permissionDecisionReason;
+
+test('a short agent input is checked and replaced by the registered invocation without allow', (t) => {
+  const f = setup(t);
+  const out = handle(f, { ...f.event, tool_input: shortInput(f.registered.invocation) });
+  assert.equal(denial(out), undefined, denial(out));
+  assert.deepEqual(out, {
+    hookSpecificOutput: { hookEventName: 'PreToolUse', updatedInput: f.registered.invocation },
+  });
+  assert.deepEqual(f.registered.agentInput, shortInput(f.registered.invocation));
+  // PostToolUse reports the injected input; the attempt was recorded against it.
+  finish(f);
+  const status = completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+  assert.equal(status.observation.valid, true, status.errors.join(','));
+});
+
+test('a background child started from the short input records its stop and settles', (t) => {
+  const f = launchedChild(t, 'short-child', shortInput);
+  assert.equal(handle(f, f.stop).hookSpecificOutput, undefined);
+  f.notify();
+  completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+  const status = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+    root: f.root,
+  });
+  assert.equal(status.observation.valid, true, status.errors.join(','));
+  assert.equal(status.valid, true, status.errors.join(','));
+});
+
+test('SessionStart points the Lead at prepare and the short agent input', (t) => {
+  const f = setup(t);
+  const context = handle(f, {
+    hook_event_name: 'SessionStart',
+    session_id: f.event.session_id,
+    cwd: f.root,
+  }).hookSpecificOutput.additionalContext;
+  assert.match(context, /pnpm claude:native prepare --spec <JSON file>/u);
+  assert.match(context, /agentInput/u);
+  assert.doesNotMatch(context, /register --input/u);
+});
+
+// Every PreToolUse gate refuses the short input for the same reason as the full invocation.
+const gates = [
+  ['missing model', /native input\/model mismatch/u, (e) => delete e.tool_input.model],
+  ['wrong model', /native input\/model mismatch/u, (e) => (e.tool_input.model = 'opus')],
+  [
+    'foreign role',
+    /native input\/model mismatch/u,
+    (e) => (e.tool_input.subagent_type = 'knu_reviewer'),
+  ],
+  ['background', /native input\/model mismatch/u, (e) => (e.tool_input.run_in_background = true)],
+  ['changed description', /native input\/model mismatch/u, (e) => (e.tool_input.description = 'x')],
+  ['foreign session', /foreign session\/root/u, (e) => (e.session_id = randomUUID())],
+  [
+    'permission drift',
+    /expected auto permission mode/u,
+    (e) => (e.permission_mode = 'bypassPermissions'),
+  ],
+  ['missing tool id', /missing tool id/u, (e) => delete e.tool_use_id],
+  [
+    'stale source (stale workflow)',
+    /stale workflow/u,
+    (e, f) => writeFileSync(join(f.root, 'sample.txt'), 'different'),
+  ],
+  [
+    'adapter drift',
+    /adapter\/role\/settings drift/u,
+    (e, f) => writeFileSync(join(f.root, '.claude/agents/knu_explorer.md'), 'changed role\n'),
+  ],
+  [
+    'expired binding',
+    /expired binding/u,
+    (e, f, t) => t.mock.timers.enable({ apis: ['Date'], now: Date.now() + 10 * 60 * 1000 }),
+  ],
+  [
+    'forced ambient model',
+    /conflicting ambient forced model/u,
+    () => {
+      const saved = {
+        CLAUDE_CODE_SUBAGENT_MODEL_FORCE: process.env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE,
+        CLAUDE_CODE_SUBAGENT_MODEL: process.env.CLAUDE_CODE_SUBAGENT_MODEL,
+      };
+      process.env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE = '1';
+      process.env.CLAUDE_CODE_SUBAGENT_MODEL = 'claude-other-1';
+      return () => {
+        for (const [key, value] of Object.entries(saved))
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+      };
+    },
+  ],
+  [
+    'replay',
+    /task already attempted/u,
+    (e, f) => handle(f, { ...e, tool_input: f.registered.invocation, tool_use_id: 'first' }),
+  ],
+];
+for (const [name, reason, mutate] of gates)
+  test(`the short input and the full invocation are both refused for ${name}`, (t) => {
+    const reasons = ['full', 'short'].map((mode) => {
+      const f = setup(t);
+      const event = structuredClone({
+        ...f.event,
+        tool_input:
+          mode === 'short' ? shortInput(f.registered.invocation) : f.registered.invocation,
+      });
+      const restore = mutate(event, f, t);
+      try {
+        return denial(handle(f, event));
+      } finally {
+        if (typeof restore === 'function') restore();
+        t.mock.timers.reset();
+      }
+    });
+    assert.match(reasons[0] ?? '', reason, `full: ${reasons[0]}`);
+    assert.equal(reasons[1], reasons[0]);
+  });
+
+test('the short input and the full invocation are both refused for input file drift', (t) => {
+  const reasons = ['full', 'short'].map((mode) => {
+    const f = fixture(t);
+    writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\nnotes.local\n');
+    writeFileSync(join(f.root, 'notes.local'), 'before');
+    f.input.nativeRequest.task.readScope = ['sample.txt', 'notes.local'];
+    const sessionId = randomUUID();
+    const registered = registerClaudeNativeTask({
+      ...f.options,
+      workflowInput: f.input,
+      sessionId,
+    });
+    writeFileSync(join(f.root, 'notes.local'), 'after');
+    return denial(
+      handleClaudeNativeSessionEvent(
+        {
+          hook_event_name: 'PreToolUse',
+          session_id: sessionId,
+          cwd: f.root,
+          permission_mode: 'auto',
+          tool_name: 'Agent',
+          tool_use_id: 'tool-1',
+          tool_input: mode === 'short' ? shortInput(registered.invocation) : registered.invocation,
+        },
+        { root: f.root },
+      ),
+    );
+  });
+  assert.match(reasons[0] ?? '', /input file drift/u, `full: ${reasons[0]}`);
+  assert.equal(reasons[1], reasons[0]);
+});
+
+// Prompt gates: each input form gets its own malformed prompt; both must be refused for the same reason.
+for (const [name, reason, full, short] of [
+  [
+    'an unregistered prompt',
+    /registered task required/u,
+    () => 'no registration',
+    (p) => `${p} and more`,
+  ],
+  [
+    'a changed prompt or digest',
+    /native input\/model mismatch/u,
+    (p) => `changed\n${p}`,
+    (p) => p.replace(/sha256:[a-f0-9]{64}$/u, `sha256:${'0'.repeat(64)}`),
+  ],
+  [
+    'an unknown task id',
+    /no such file or directory/u,
+    (p, id) => `x\n\nKNU_NATIVE_TASK:${id}:sha256:${'0'.repeat(64)}`,
+    (p, id) => `KNU_NATIVE_TASK:${id}:sha256:${'0'.repeat(64)}`,
+  ],
+])
+  test(`the short input and the full invocation are both refused for ${name}`, (t) => {
+    const unknown = randomUUID();
+    const reasons = [full, short].map((change, index) => {
+      const f = setup(t);
+      const input =
+        index === 0 ? { ...f.registered.invocation } : shortInput(f.registered.invocation);
+      input.prompt = change(input.prompt, unknown);
+      const out = handle(f, { ...f.event, tool_input: input });
+      assert.equal(out.hookSpecificOutput.updatedInput, undefined);
+      return denial(out)?.replace(realpathSync(f.root), '<root>');
+    });
+    assert.match(reasons[0] ?? '', reason, `full: ${reasons[0]}`);
+    assert.equal(reasons[1], reasons[0]);
+  });
+
+for (const [name, edit] of [
+  [
+    'prompt',
+    (invocation) => (invocation.prompt = `Do something else.\n\n${shortInput(invocation).prompt}`),
+  ],
+  ['extra key', (invocation) => (invocation.run_in_background = true)],
+])
+  test(`an edited task.json ${name} is not injected for a short input`, (t) => {
+    const f = setup(t);
+    const path = join(f.registered.evidenceDirectory, 'task.json');
+    const task = JSON.parse(readFileSync(path, 'utf8'));
+    edit(task.invocation);
+    writeFileSync(path, JSON.stringify(task));
+    const out = handle(f, { ...f.event, tool_input: shortInput(f.registered.invocation) });
+    assert.equal(denial(out), 'KNU native task: task digest mismatch');
+    assert.equal(out.hookSpecificOutput.updatedInput, undefined);
+  });
+
+test('a writer lease held by another task refuses the short input like the full invocation', (t) => {
+  const reasons = ['full', 'short'].map((mode) => {
+    const f = writer(t);
+    const other = registerClaudeNativeTask({
+      ...f.options,
+      workflowInput: f.input,
+      sessionId: f.event.session_id,
+    });
+    handle(f, { ...f.event, tool_input: other.invocation, tool_use_id: 'other' });
+    return denial(
+      handle(f, {
+        ...f.event,
+        tool_input:
+          mode === 'short' ? shortInput(f.registered.invocation) : f.registered.invocation,
+      }),
+    );
+  });
+  // The lease path differs per fixture root, so only the reason itself is compared.
+  const [full, short] = reasons.map((r) => r?.replace(/'[^']*'/u, '<writer lease>'));
+  assert.match(full ?? '', /EEXIST: file already exists, open <writer lease>/u, `full: ${full}`);
+  assert.equal(short, full);
+});
+
+// Without the injection, or when another hook rewrote the input afterwards, PostToolUse sees an input
+// other than the registered invocation. Completion is refused whatever the reported reason is.
+for (const [name, reported, input] of [
+  ['the short input itself', /NOT VERIFIED: registered task required/u, (i) => shortInput(i)],
+  [
+    'another rewrite that keeps the marker',
+    /NOT VERIFIED: native input\/model mismatch/u,
+    (i) => ({ ...i, prompt: `other\n\n${shortInput(i).prompt}` }),
+  ],
+  [
+    'a rewrite that drops the role and marker',
+    null,
+    (i) => ({ ...i, subagent_type: 'Explore', prompt: 'other' }),
+  ],
+])
+  test(`PostToolUse with ${name} is not verified and completion is refused`, (t) => {
+    const f = setup(t);
+    handle(f, { ...f.event, tool_input: shortInput(f.registered.invocation) });
+    const out = handle(f, {
+      ...f.event,
+      hook_event_name: 'PostToolUse',
+      tool_input: input(f.registered.invocation),
+      tool_response: { status: 'completed', agentId: 'child-1', content: [] },
+    });
+    if (reported) assert.match(out.hookSpecificOutput.additionalContext, reported);
+    else assert.deepEqual(out, {});
+    const status = completeClaudeNativeTask(f.registered.taskId, {}, { root: f.root });
+    assert.deepEqual(status.observation.errors, ['no-completion-observation']);
+    assert.equal(status.valid, false);
+  });
+
+test('a writer lease left by a rewritten input is freed only by an explicit release', (t) => {
+  const f = writer(t);
+  handle(f, { ...f.event, tool_input: shortInput(f.registered.invocation) });
+  handle(f, {
+    ...f.event,
+    hook_event_name: 'PostToolUseFailure',
+    tool_input: shortInput(f.registered.invocation),
+  });
+  const next = registerClaudeNativeTask({
+    ...f.options,
+    workflowInput: f.input,
+    sessionId: f.event.session_id,
+  });
+  const nextEvent = { ...f.event, tool_input: next.invocation, tool_use_id: 'next' };
+  assert.equal(handle(f, nextEvent).hookSpecificOutput?.permissionDecision, 'deny');
+  releaseClaudeNativeTask(f.registered.taskId, { root: f.root, ended: true });
+  assert.deepEqual(handle(f, nextEvent), {});
+});
+
+test('a failed call started from the short input is recorded as a failed observation', (t) => {
+  const f = setup(t);
+  handle(f, { ...f.event, tool_input: shortInput(f.registered.invocation) });
+  handle(f, { ...f.event, hook_event_name: 'PostToolUseFailure' });
+  const completion = JSON.parse(
+    readFileSync(join(f.registered.evidenceDirectory, 'completion.json'), 'utf8'),
+  );
+  assert.equal(completion.valid, false);
+  assert.equal(completion.completionSource, 'PostToolUseFailure');
+});
+
+test('a background launch that reports another prompt is refused', (t) => {
+  const f = setup(t);
+  handle(f);
+  const out = handle(f, {
+    ...f.event,
+    hook_event_name: 'PostToolUse',
+    tool_response: {
+      status: 'async_launched',
+      agentId: 'async-other-prompt',
+      resolvedModel: f.options.expectedResolvedModel,
+      prompt: 'another prompt',
+    },
+  });
+  assert.match(out.hookSpecificOutput.additionalContext, /async launch prompt mismatch/u);
 });

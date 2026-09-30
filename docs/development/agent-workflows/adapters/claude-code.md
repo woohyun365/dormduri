@@ -72,10 +72,20 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    선택 필드는 `lifetimeMinutes`·`independentReview`뿐이며 다른 필드는 `unknown-field`로 거부합니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
    호출하고 거부 사유를 policy 사유와 입력 필드까지 그대로 보여 줍니다. Profile을 추론하거나 dispatch를 승인하지 않으며
    출력은 `dispatchAuthorized:false`입니다.
-4. 반환한 `invocation` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. model 누락·임의 변경·미지원 인자·
-   prompt 변경·다른 session·만료·재사용·source drift는 정상 PreToolUse가 거부합니다. 이 등록은 업무/host 승인이나
-   악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `.artifacts/tools/claude-native/`가 소유합니다.
-5. 정상 PreToolUse는 `allow`를 반환하지 않습니다. 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
+4. 반환한 `agentInput` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. `agentInput`은 등록 invocation과 같은 역할·model·description에
+   prompt로 task marker 한 줄(`KNU_NATIVE_TASK:<taskId>:<digest>`)만 가집니다. 정상 PreToolUse는 전체 invocation과 같은 검사를 거친 뒤
+   `updatedInput`으로 등록 invocation 전체를 child 입력에 주입합니다. 반환한 `invocation`을 그대로 호출해도 같은 검사로 동작합니다.
+   model 누락·임의 변경·미지원 인자·prompt 변경·다른 session·만료·재사용·source drift는 두 입력 모두 같은 사유로 거부됩니다.
+   이 등록은 업무/host 승인이나 악성 로컬 프로세스에 대한 인증 수단이 아닙니다. task artifact는 `.artifacts/tools/claude-native/`가 소유합니다.
+   주입은 fail-open입니다. Hook이 실행되지 않으면 child는 marker 한 줄만 받고 PostToolUse 관측이 없어 `complete`가
+   `no-completion-observation`으로 거부합니다([완료 관측 누락](../../troubleshooting/tooling/claude-native-completion-observation-missing.md)).
+   다른 hook이 같은 입력을 다시 바꾸면(마지막 hook이 이김) PostToolUse 입력이 invocation과 달라 검증되지 않고 완료도 같은 사유로 거부됩니다.
+   이때 writer task의 lease가 남으면 child 종료를 확인한 뒤 `pnpm claude:native release --task <taskId> --ended`로 해제합니다.
+   관측 범위(Claude Code 2.1.285): background 호출에서 10,910자 invocation prompt가 그대로 주입됐습니다. Foreground 호출과
+   linked reviewer invocation(12,000자 prompt와 review packet)의 주입은 관측하지 않았습니다. 주입이 적용되지 않은 task는 검증 실패로 끝나고
+   같은 task는 다시 호출할 수 없습니다(`task already attempted`). Child 종료를 확인하고 필요하면 lease를 해제한 뒤 새로 `prepare`한 task를
+   전체 `invocation`으로 호출합니다.
+5. 정상 PreToolUse는 `allow`를 반환하지 않습니다(주입도 결정 없는 `updatedInput`). 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
    KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.
    필수 KNU 작업을 OMC 역할로 바꿔 이 계약을 피하지 않습니다([OMC 공존](#omc-공존과-skill-routing)).
 6. Auto의 Agent는 background로 시작될 수 있고 현재 schema에는 `run_in_background` 입력이 없습니다. PostToolUse의
@@ -287,7 +297,7 @@ Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않�
 1. `pnpm claude:preflight -- --mode fresh`로 branch·HEAD·working tree와 계획 상태를 확인합니다.
 2. `pnpm claude:workflow -- --mode fresh --request '<요청>'`으로 공통 intake 분류와 읽을 문서를 확인합니다.
 3. 위임할 때만 Lead가 역할·profile·선택 근거·범위·acceptance를 정해 `pnpm claude:native prepare --spec <JSON file>`로 등록합니다.
-4. 반환된 `invocation` 그대로 Agent를 호출합니다. 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](#일반-interactive-auto-세션).
+4. 반환된 `agentInput` 그대로 Agent를 호출합니다(hook이 등록 prompt를 주입). 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](#일반-interactive-auto-세션).
 5. 완료 알림(`task-notification completed`)을 받은 **다음** `settle --task <taskId>`로 관측을 정산합니다. 알림 행은 Lead turn이
    끝난 뒤 parent transcript에 기록되므로 같은 turn에서 정산을 반복 시도하지 않습니다. 이어서 `settle --judgment`로 판정합니다.
 6. 독립 QA가 필요하면 `pnpm claude:native review`로 packet을 만들고 reviewer를 같은 방식으로 등록·호출·정산합니다.

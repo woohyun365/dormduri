@@ -177,6 +177,7 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   return {
     taskId: registered.taskId,
     invocation: registered.invocation,
+    agentInput: registered.agentInput,
     evidenceDirectory: registered.evidenceDirectory,
     lifetimeMinutes: lifetime,
     selection: {

@@ -1000,3 +1000,17 @@ test('a reviewer prompt gets no delivery rule because it already demands one JSO
   const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
   assert.doesNotMatch(reviewer.invocation.prompt, /only text the Parent receives/u);
 });
+
+test('prepare returns a short agent input that names the registered task', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(explorerSpec(r), { root: r.root });
+  const { description, subagent_type, model, prompt } = prepared.invocation;
+  assert.deepEqual(prepared.agentInput, {
+    description,
+    subagent_type,
+    model,
+    prompt: `KNU_NATIVE_TASK:${prepared.taskId}:${prompt.split(`KNU_NATIVE_TASK:${prepared.taskId}:`)[1]}`,
+  });
+  assert.ok(prompt.endsWith(`\n\n${prepared.agentInput.prompt}`));
+  assert.equal(prepared.dispatchAuthorized, false);
+});
