@@ -504,6 +504,12 @@ test('native task evidence stays out of review paths under another case, a symli
     () => reviewOf(w, [record('.artifacts/plans/helper-test')]),
     /native task evidence is not review input/,
   );
+  // A symlinked directory, or one nested under a real directory, still leads to the task records.
+  symlinkSync('helper-test', join(w.root, '.artifacts/plans/helper-alias'));
+  mkdirSync(join(w.root, '.artifacts/plans/helper-outer'), { recursive: true });
+  symlinkSync('../helper-alias', join(w.root, '.artifacts/plans/helper-outer/nested'));
+  for (const path of ['.artifacts/plans/helper-alias', '.artifacts/plans/helper-outer'])
+    assert.throws(() => reviewOf(w, [record(path)]), /native task evidence is not review input/);
   assert.throws(
     () =>
       buildClaudeNativeReview(
@@ -577,15 +583,22 @@ test('a RED record passes only at its declared expected exit and the reviewer se
   });
   assert.ok(
     matched.packet.evidence.tests.includes(
-      'node --test scripts/ci/red.test.mjs (RED: expected exit 1)',
+      'node --test scripts/ci/red.test.mjs (RED: expected exit 1, actual exit 1)',
     ),
   );
   assert.match(matched.reviewerPrompt, /purpose "red"/u);
   // A GREEN or differently failing run declared as RED stays a known failure.
-  for (const exit of [0, 2])
-    assert.deepEqual(reviewOf(r, [green, { ...red, exit }]).packet.evidence.knownFailures, [
+  for (const exit of [0, 2]) {
+    const mismatched = reviewOf(r, [green, { ...red, exit }]);
+    assert.deepEqual(mismatched.packet.evidence.knownFailures, [
       'node --test scripts/ci/red.test.mjs',
     ]);
+    assert.ok(
+      mismatched.packet.evidence.tests.includes(
+        `node --test scripts/ci/red.test.mjs (RED: expected exit 1, actual exit ${exit})`,
+      ),
+    );
+  }
   const { purpose, ...withoutPurpose } = red;
   const { expectedExit, ...withoutExpected } = red;
   void purpose;
@@ -594,6 +607,10 @@ test('a RED record passes only at its declared expected exit and the reviewer se
     withoutPurpose,
     withoutExpected,
     { ...red, expectedExit: 0 },
+    // A process exit status is 1 to 255 when it fails; anything else cannot be observed.
+    { ...red, exit: -1, expectedExit: -1 },
+    { ...red, exit: 256, expectedExit: 256 },
+    { ...red, expectedExit: 1.5 },
     { ...red, purpose: 'green' },
   ])
     assert.throws(() => reviewOf(r, [green, record]), /records\[1\]: RED/);

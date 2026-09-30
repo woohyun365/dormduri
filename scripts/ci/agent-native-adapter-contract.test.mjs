@@ -137,6 +137,7 @@ test('Claude troubleshooting is linked both ways from the adapter steps and the 
   );
   for (const rule of [
     '수정 전 실패(RED)는 exit를 뒤집지 말고',
+    '1~255의 `expectedExit`',
     '응답을 Parent가 파일로 옮겨 `--parent-subject`로\n  우회하지 않습니다',
     'a read-only subject is reviewed from its bound response',
     'a RED record passes only at its declared expected exit',
@@ -250,6 +251,8 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     'Claude Parent 기본값은 **Opus 5.5 high**입니다',
     'Host는 이 규칙을 강제하지 않습니다(advisory)',
     'Exit를 뒤집는 명령으로 기록하지 않습니다',
+    '1~255의 `expectedExit`',
+    '기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다',
     'Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다',
     'writer subject면 응답 artifact를 포함할 수 없습니다',
   ]) {
