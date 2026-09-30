@@ -510,6 +510,10 @@ test('native task evidence stays out of review paths under another case, a symli
   symlinkSync('../helper-alias', join(w.root, '.artifacts/plans/helper-outer/nested'));
   for (const path of ['.artifacts/plans/helper-alias', '.artifacts/plans/helper-outer'])
     assert.throws(() => reviewOf(w, [record(path)]), /native task evidence is not review input/);
+  // A link cycle is scanned once and a plain runner directory stays usable.
+  mkdirSync(join(w.root, '.artifacts/plans/helper-cycle'), { recursive: true });
+  symlinkSync('.', join(w.root, '.artifacts/plans/helper-cycle/self'));
+  reviewOf(w, [record('.artifacts/plans/helper-cycle')]);
   assert.throws(
     () =>
       buildClaudeNativeReview(

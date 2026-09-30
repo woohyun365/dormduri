@@ -40,7 +40,7 @@
   subject response artifact does not match the settled response
   read-only subject review needs its response artifact
   writer subject response is not review input
-  records[<n>]: RED record needs purpose "red" and a non-zero integer expectedExit
+  records[<n>]: RED record needs purpose "red" and an integer expectedExit from 1 to 255
   ```
 
 - `settle --task <reviewerTaskId> --judgment <file>`이 `parent-adjudication: this reviewer has no native subject`로 거부됩니다.
@@ -71,8 +71,9 @@
 - `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
 - Read-only subject의 응답은 helper가 `subject-response.txt`에 한 번 쓰고 reviewer 등록 때 정산된 응답과 대조합니다. 파일을 고치면
   거부됩니다. Writer subject의 응답은 builder 추론이라 read path에 넣을 수 없습니다. 다른 native task 기록은 대소문자를 바꾼 경로,
-  symlink, Parent subject 경로로도 `native task evidence is not review input`으로 거부됩니다.
-- RED 기록은 `purpose:"red"`와 0이 아닌 `expectedExit`를 함께 가져야 합니다. 한쪽만 있거나 다른 값이면 거부합니다.
+  symlink(연결된 디렉터리 포함), Parent subject 경로로도 `native task evidence is not review input`으로 거부됩니다.
+- RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
+  다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
   hook이 기록하지 않은 reviewer 호출(hook 장애 중 재호출 등), 읽을 수 없는 세션 transcript, 정산 뒤 재개된 reviewer, 손상된 task 기록은
   FAIL을 숨길 수 있으므로 PASS 연결을 막습니다.

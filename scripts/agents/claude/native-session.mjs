@@ -10,6 +10,7 @@ import {
   realpathSync,
   existsSync,
   lstatSync,
+  statSync,
   readlinkSync,
   unlinkSync,
 } from 'node:fs';
@@ -87,7 +88,7 @@ function sameSubjectResponse(root, path, text) {
 }
 // Task records, completions and transcripts hold prompts and builder responses. A review path must
 // not reach them under another case (case-insensitive filesystems), through a symlink, or through a
-// directory under .artifacts that links into them.
+// directory under .artifacts that links into them, however deep or through linked directories.
 export function isClaudeNativeEvidencePath(root, path) {
   const base = relative(root, resolveArtifactPath(root, ['claude-native'], {})).toLowerCase();
   const inside = (candidate) => {
@@ -97,15 +98,28 @@ export function isClaudeNativeEvidencePath(root, path) {
   if (inside(path)) return true;
   const absolute = join(root, path);
   if (!existsSync(absolute)) return false;
-  if (inside(relative(root, realpathSync(absolute)))) return true;
-  if (!lstatSync(absolute).isDirectory() || !path.toLowerCase().startsWith('.artifacts/'))
+  const realRoot = realpathSync(root);
+  const target = realpathSync(absolute);
+  if (inside(relative(realRoot, target))) return true;
+  if (!path.toLowerCase().startsWith('.artifacts/') || !statSync(target).isDirectory())
     return false;
-  for (const entry of readdirSync(absolute, { recursive: true })) {
-    const child = join(absolute, entry);
-    if (lstatSync(child).isSymbolicLink() && existsSync(child))
-      if (inside(relative(root, realpathSync(child)))) return true;
-  }
-  return false;
+  // Each real directory is scanned once, so a link cycle ends.
+  const seen = new Set();
+  const scan = (directory) => {
+    if (seen.has(directory)) return false;
+    seen.add(directory);
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const child = join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        if (!existsSync(child)) continue;
+        const linked = realpathSync(child);
+        if (inside(relative(realRoot, linked))) return true;
+        if (statSync(linked).isDirectory() && scan(linked)) return true;
+      } else if (entry.isDirectory() && scan(child)) return true;
+    }
+    return false;
+  };
+  return scan(target);
 }
 function ensureLocalDirectory(root, target) {
   let current = root;

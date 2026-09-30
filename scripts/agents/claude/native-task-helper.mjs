@@ -214,11 +214,12 @@ function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
       redKeys.length &&
       (redKeys.length !== RED_RECORD_FIELDS.length ||
         record.purpose !== 'red' ||
-        !Number.isSafeInteger(record.expectedExit) ||
-        record.expectedExit === 0)
+        !Number.isInteger(record.expectedExit) ||
+        record.expectedExit < 1 ||
+        record.expectedExit > 255)
     )
       issues.push(
-        `records[${index}]: RED record needs purpose "red" and a non-zero integer expectedExit`,
+        `records[${index}]: RED record needs purpose "red" and an integer expectedExit from 1 to 255`,
       );
     if (!Number.isSafeInteger(record.exit)) issues.push(`records[${index}].exit integer`);
     for (const field of ['command', 'environment', 'observedResult'])
@@ -317,7 +318,7 @@ function reviewPacket(subject, evidence, reviewId) {
       commands,
       tests: evidence.records.map((record) =>
         red(record)
-          ? `${record.command} (RED: expected exit ${record.expectedExit})`
+          ? `${record.command} (RED: expected exit ${record.expectedExit}, actual exit ${record.exit})`
           : record.command,
       ),
       knownFailures: evidence.records.filter(knownFailure).map((record) => record.command),
