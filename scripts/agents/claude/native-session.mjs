@@ -69,8 +69,9 @@ function taskDirectory(root, id) {
 function subjectResponsePath(root, id) {
   return relative(root, join(taskDirectory(root, id), 'subject-response.txt'));
 }
+// Built from the digest-bound response, never from the mirrored top-level content field.
 function subjectResponseText(observation) {
-  const content = observation.content;
+  const content = observation.response?.content;
   return content?.length === 1 && content[0]?.type === 'text'
     ? content[0].text
     : JSON.stringify(content);
@@ -390,6 +391,16 @@ export function registerClaudeNativeTask({
         !covered(responsePath, allowedReadPaths),
         'writer subject response is not review input',
       );
+    // Task records, completions and transcripts hold prompts and builder responses; only the bound
+    // read-only response artifact may be read from the native evidence directory.
+    const nativeBase = relative(root, resolveArtifactPath(root, ['claude-native'], {}));
+    check(
+      allowedReadPaths.every(
+        (path) =>
+          path === responsePath || (!covered(path, [nativeBase]) && !covered(nativeBase, [path])),
+      ),
+      'native task evidence is not review input',
+    );
     check(
       [
         ...subject.record.input.directAssignment.writeOwnership,

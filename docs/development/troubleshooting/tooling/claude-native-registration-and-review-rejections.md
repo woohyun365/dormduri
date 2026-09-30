@@ -118,7 +118,10 @@ node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-t
 등록 사유 표시, runner 기록 형식, `parent-adjudication` 경로를 고정하고, `a helper-built review cannot add, drop or change
 runner records`가 runner 기록 결속을 고정합니다.
 `read-only reviewer cites runner-owned checks`, `reviewer registration rejects the reviewer as runner`,
-`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Builder 연결 거부는 `hook-less retry`,
+`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Read-only subject와 RED 기록은
+`a read-only subject is reviewed from its bound response`, `a changed response artifact is refused`,
+`other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
+테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,
 `each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed` 테스트가
 고정합니다.
 

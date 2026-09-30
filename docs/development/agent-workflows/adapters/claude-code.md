@@ -127,6 +127,7 @@ Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방
 request summary와 같고, write owner는 builder에 포함되며, reviewer는 builder와 다른 read-only lane owner여야 합니다.
 Packet read scope는 reviewer task 범위 안에 있고 subject의 write ownership과 실제 변경 경로를 포함해야 합니다. Read-only
 subject면 응답 artifact를 포함하고 그 내용이 정산된 응답과 같아야 하며, writer subject면 응답 artifact를 포함할 수 없습니다.
+그 밖의 native task 기록(task·completion·transcript)과 그 상위 경로는 read path가 될 수 없습니다.
 등록 뒤 artifact가 바뀌면 reviewer 입력 inventory 대조가 거부합니다. Subject의
 모든 acceptance criterion은 reviewer completion에서 result coverage로 검사합니다. Reviewer는 packet `authority.runnerOwner`가
 될 수 없습니다.
