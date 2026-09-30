@@ -1358,6 +1358,7 @@ export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
     observation: state.observation,
     changedPaths: state.actualPaths,
     errors: [...state.errors, ...settlement],
+    evidenceDirectory: task.dir,
   };
 }
 // Writes a settled read-only subject's response once; a later call only confirms the file is unchanged.

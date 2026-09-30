@@ -104,6 +104,16 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    응답의 `responseDigest`, `acceptance`, `checks`(필요하면 `findings`·`gaps`·`reviewerTaskId`)만 둡니다. Helper는 lane ID·
    finalSnapshot·관측된 변경 경로와 reviewer가 전달한 결과를 기록에서 채워 같은 complete를 호출합니다. 완료 관측이 없으면
    정산하지 않고, native subject가 없는 reviewer는 `parent-adjudication`으로 거부합니다.
+   첫 단계는 task evidence 디렉터리에 `judgment-template.json`을 한 번 쓰고 `judgmentTemplatePath`로 알려 줍니다. Template에는
+   `responseDigest`와 acceptance 기준이 채워져 있고, 독립 QA가 필요한 builder면 `reviewerTaskId: null`이 있습니다. Lead는 기준별
+   `passed`·`evidenceRef`, `checks`와 필요하면 `reviewerTaskId`만 채워 그 파일을 `--judgment`로 넘깁니다. 다시 조회해도 편집한 파일은
+   덮어쓰지 않습니다. 채우지 않은 항목은 `acceptance-unfilled:<기준 또는 순번>`·`reviewer-task-id-unfilled`·`checks-required`로
+   complete 전에 거부됩니다. Template은 입력 보조이며 판정이 아닙니다. Native subject가 없는 reviewer에는 template이 없습니다
+   (`judgmentTemplatePath: null`).
+   강도: background 호출의 이 순서(알림 전 거부 → 관측 정산 → template → judgment 검증 → complete)는 helper를 쓸 때만
+   결정적(deterministic-static)입니다. `complete`를 직접 호출해 우회해도 완료 관측이 없으면 `no-completion-observation`, 판정 입력이
+   부족하면 `semantic-acceptance-required`·`same-response-semantic-check-required`·`native required QA requires linked reviewerTaskId`로
+   거부됩니다. Foreground 호출은 PostToolUse가 바로 완료를 기록하므로 알림을 기다리지 않습니다.
    Result의 snapshot은 completion.json의 finalSnapshot을 사용합니다. 같은 응답에 대한 acceptance와 독립 QA를
    실제로 수행해야 하며 boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다. Parent는 finding과 변경 범위를
    독립 확인합니다. 오류·거부·취소·collector 누락이면 완료를 보고하지 않고 원인과 다음 행동을 남깁니다.
@@ -300,6 +310,9 @@ Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않�
 4. 반환된 `agentInput` 그대로 Agent를 호출합니다(hook이 등록 prompt를 주입). 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](#일반-interactive-auto-세션).
 5. 완료 알림(`task-notification completed`)을 받은 **다음** `settle --task <taskId>`로 관측을 정산합니다. 알림 행은 Lead turn이
    끝난 뒤 parent transcript에 기록되므로 같은 turn에서 정산을 반복 시도하지 않습니다. 이어서 `settle --judgment`로 판정합니다.
+   판정 입력은 첫 `settle`이 만든 `judgment-template.json`을 채워 씁니다(`settle --judgment <그 파일>`).
+   Child의 hand-back 메시지가 알림보다 먼저 와도 완료 관측이 아니므로 알림 뒤에 정산합니다. 알림 도착에 맞춰 발화하는 hook이
+   공식 문서에 없어 이 순서는 자동화하지 않습니다(추론).
 6. 독립 QA가 필요하면 `pnpm claude:native review`로 packet을 만들고 reviewer를 같은 방식으로 등록·호출·정산합니다.
    Parent가 직접 작성한 변경은 `parent-adjudication`으로 판정합니다([Same-host independent review](#same-host-independent-review)).
 
