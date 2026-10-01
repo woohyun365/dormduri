@@ -328,6 +328,20 @@ test('settle, registry and qualification documents carry the E2 recovery and pil
     'recovery-used',
   ])
     assert.ok(registry.includes(`\`${reason}\``), `registry names ${reason}`);
+  const section = registry.slice(registry.indexOf('## Recovery 결속'));
+  const order = [
+    'recovery-cause',
+    'recovery-not-bound',
+    'recovery-chain',
+    'recovery-step',
+    'recovery-not-ran',
+    'recovery-accepted',
+    'recovery-used',
+  ].map((reason) => section.indexOf(`\`${reason}\``));
+  assert.ok(
+    order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])),
+    `judging order ${order}`,
+  );
   for (const file of ['accepted.json', 'recovery.json'])
     assert.ok(registry.includes(`\`${file}\``), `registry names ${file}`);
   const start = 'claude --permission-mode auto --model opus --effort high';

@@ -207,13 +207,14 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
      관측 오류가 붙습니다.
    - 다음 행동: 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
      `effort-transcript-pending`이면 잠시 뒤 다시 정산합니다. 정산 뒤에도 오류가 남으면 첫 task는 복구 대상이 아닙니다. 위
-     해결 절의 사유별 절차를 따르고 Owner에게 묻습니다. Dispatch 없이 release한 task도 실행되지 않았으므로 복구 대상이 아닙니다.
+     해결 절의 사유별 절차를 따르고 Owner에게 묻습니다. Dispatch 없이 release한 task도 실행되지 않았으므로 복구 대상이 아닙니다. 실행·관측된 task라도 `release`하면 무효로 표시되어
+     이 사유가 됩니다. 관측된 1차 task는 `release`하지 말고 정산합니다.
 6. `recovery-accepted`
    - 원인: 첫 task의 `accepted.json`이 있습니다. 유효한 `complete`가 이미 결과를 채택했습니다.
    - 다음 행동: retry하지 않고 채택된 결과를 씁니다. 더 바꿀 것이 있으면 새 요청으로 다룹니다.
 7. `recovery-used`
    - 원인: 이 session과 사실의 marker가 이미 있어 한 번뿐인 retry를 썼습니다. 같은 사실의 첫 task가 둘이어도 retry는 하나를
-     공유합니다. 대체된(superseded) 첫 task도 사용된 것으로 보고합니다.
+     공유합니다. 대체된(superseded) 첫 task는 `recovery-step` 다음에 바로 이 사유로 보고합니다. Retry가 그 뒤 파일을 바꿔도 같습니다.
    - 다음 행동: 멈추고 Owner에게 묻습니다. 새 이름으로 다시 등록하지 않습니다.
 
 ### 형식 오류와 hook 거부

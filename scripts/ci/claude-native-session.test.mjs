@@ -3061,3 +3061,48 @@ test('an unbound bounded task on the Opus profile still needs a critical signal'
     /critical-signal/u,
   );
 });
+
+test('a duplicate first task whose facts differ only in key order still shares the one retry', (t) => {
+  const f = ladder(t);
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const reordered = structuredClone(f.input);
+  const { required, reason } = reordered.reviewDisposition;
+  reordered.reviewDisposition = { reason, required };
+  reordered.nativeRequest.task.facts = reordered.nativeRequest.task.facts.map(
+    ({ key, sourceRef, confidence }) => ({ confidence, sourceRef, key }),
+  );
+  const twin = ranUnaccepted(
+    registerAs({ ...f, input: reordered }, { profileId: 'bounded-standard', role: 'knu_explorer' }),
+  );
+  const up = (g, of) =>
+    registerAs(g, {
+      profileId: 'complex-critical',
+      role: 'knu_explorer',
+      recovery: { of, cause: 'result-error' },
+    });
+  up(f, a.registered.taskId);
+  assert.throws(() => up({ ...f, input: reordered }, twin.registered.taskId), /recovery-used/u);
+  assert.equal(markerFiles(f).length, 1);
+});
+
+test('a superseded first task reports used even after its writer retry changed files', (t) => {
+  const f = ladder(t, 'build');
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' }));
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_executor',
+    recovery: { of: a.registered.taskId, cause: 'result-error' },
+  });
+  assert.deepEqual(handle(b), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'retry output');
+  finish(b);
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_executor',
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-used/u,
+  );
+});

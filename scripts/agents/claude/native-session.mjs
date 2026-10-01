@@ -328,9 +328,20 @@ function recoveryFacts(input) {
 const RECOVERY_CAUSES = ['result-error', 'omission', 'context-missing'];
 // One bound retry per session and fact set. The marker is created exclusively, so a duplicate first
 // task with the same facts shares the same retry.
+// Key order must not split one fact set into two markers: the facts compare with isDeepStrictEqual.
+const canonical = (value) =>
+  Array.isArray(value)
+    ? value.map(canonical)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, canonical(value[key])]),
+        )
+      : value;
 function recoveryMarkerPath(root, sessionId, facts) {
   const dir = resolveArtifactPath(root, ['claude-native', 'recovery', sessionId], {});
-  return { dir, path: join(dir, `${hash(facts).slice(7)}.json`) };
+  return { dir, path: join(dir, `${hash(canonical(facts)).slice(7)}.json`) };
 }
 // Read-only. Reasons come in a fixed order so each can be seen on its own; nothing is written here.
 function bindRecovery(root, sessionId, workflowInput, recovery) {
@@ -366,10 +377,13 @@ function bindRecovery(root, sessionId, workflowInput, recovery) {
     recovery.cause === 'context-missing' ? step === 0 : step === 1 || step === 2,
     `recovery-step: ${recovery.cause} cannot move from ${from.profileId}/${from.role} to this task`,
   );
-  // A superseded first task is the result of its used retry, so that case is reported as used.
+  // A superseded first task is the result of its used retry, so it is reported as used, even when
+  // the retry has since changed files the first task observed.
   const superseded = existsSync(join(dir, 'recovery.json'));
+  const marker = recoveryMarkerPath(root, sessionId, facts);
+  check(!superseded, 'recovery-used: this work item already used its one bound retry');
   const state = currentObservation(first);
-  const errors = state.errors.filter((e) => !(superseded && e === 'observation-error'));
+  const errors = state.errors;
   check(
     existsSync(join(dir, 'attempt.json')) &&
       state.observation.valid === true &&
@@ -379,11 +393,7 @@ function bindRecovery(root, sessionId, workflowInput, recovery) {
     `recovery-not-ran: the first task must have run and be observed valid with its effort (${errors.join(',') || 'invalid observation'})`,
   );
   check(!existsSync(join(dir, 'accepted.json')), 'recovery-accepted: the first task was accepted');
-  const marker = recoveryMarkerPath(root, sessionId, facts);
-  check(
-    !superseded && !existsSync(marker.path),
-    'recovery-used: this work item already used its one bound retry',
-  );
+  check(!existsSync(marker.path), 'recovery-used: this work item already used its one bound retry');
   return {
     value: {
       of: recovery.of,

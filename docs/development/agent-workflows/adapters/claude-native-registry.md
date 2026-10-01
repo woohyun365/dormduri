@@ -158,7 +158,7 @@ Registry는 workflow를 준비하기 전에 아래 순서로 판정합니다. �
    대조에서 빠집니다.
 6. `recovery-accepted`: 1차 task에 `accepted.json`이 있습니다.
 7. `recovery-used`: 이 세션과 사실 묶음의 marker가 이미 있습니다. 같은 사실의 1차 task가 둘이어도 재시도 하나를 함께 씁니다.
-   Superseded 1차 task도 이 사유로 보고합니다.
+   Superseded 1차 task는 `recovery-step` 다음에 바로 이 사유로 보고합니다. 재시도가 그 뒤 파일을 바꿔도 같습니다.
 
 형식 오류는 이 순서 밖입니다.
 

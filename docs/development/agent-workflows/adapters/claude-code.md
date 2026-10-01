@@ -125,7 +125,7 @@ Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 �
 
 공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유하며, 이 절은 Claude의 재등록과 모델·effort 상향을 정합니다.
 
-위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산하거나 `release`해 writer를 회수합니다. 재시도는
+위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산합니다. `release`한 task에는 결속할 수 없으므로 `release`는 관측 없이 끝난 child의 writer 회수에만 씁니다. 재시도는
 **한 번만** 허용하며 새 task로 다시 등록합니다. 재시도는 실패한 1차 task에 결속합니다. Spec의 `recovery`에
 `{of: <1차 taskId>, cause}`를 두고 1차 task와 같은 사실로 등록합니다. 1차 task는 실행·관측되어 있어야 합니다.
 조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다

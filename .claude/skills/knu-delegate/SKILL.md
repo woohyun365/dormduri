@@ -76,7 +76,8 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 ## 3. 실패 복구
 
 [Recovery](../../../docs/development/agent-workflows/adapters/claude-code.md#recovery)를 따릅니다. 같은 task는 다시 호출할 수 없고
-재시도는 한 번입니다. Writer lease가 남으면 child 종료를 확인한 뒤
+재시도는 한 번입니다. 실행·관측된 task는 `release`하지 않고 정산합니다. `release`한 task는 결속 재시도의 1차가 될 수
+없습니다(`recovery-not-ran`). 관측 없이 Writer lease가 남으면 child 종료를 확인한 뒤
 `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native release --task <taskId> --ended`로 해제하고 새로 `prepare`합니다.
 
 재시도는 실패한 1차 task에 결속합니다.
