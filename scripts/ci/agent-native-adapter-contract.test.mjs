@@ -106,7 +106,7 @@ test('Taste and Redesign remain Codex-only and are not Claude project skills', (
 
 test('repository preparation and future live qualification are distinct completion claims', () => {
   const adapters = read('docs/development/agent-workflows/adapters/README.md');
-  const claude = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const claude = read('docs/development/agent-workflows/adapters/claude-qualification.md');
   for (const source of [adapters, claude]) {
     assert.match(source, /repository-prepared/u);
     assert.match(source, /runtime-qualified/u);
@@ -115,15 +115,15 @@ test('repository preparation and future live qualification are distinct completi
 });
 
 test('Claude troubleshooting is linked both ways from the adapter steps and the index', () => {
-  const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
   const index = read('docs/development/troubleshooting/README.md');
-  for (const name of [
-    'claude-native-hook-failure-and-completion-refusal',
-    'claude-native-completion-observation-missing',
-    'claude-native-registration-and-review-rejections',
-    'claude-live-session-from-claude-session',
-    'claude-auto-classifier-no-verdict',
+  for (const [name, step] of [
+    ['claude-native-hook-failure-and-completion-refusal', 'claude-native-registry.md'],
+    ['claude-native-completion-observation-missing', 'claude-native-registry.md'],
+    ['claude-native-registration-and-review-rejections', 'claude-native-registry.md'],
+    ['claude-live-session-from-claude-session', 'claude-qualification.md'],
+    ['claude-auto-classifier-no-verdict', 'claude-native-registry.md'],
   ]) {
+    const guide = read(`docs/development/agent-workflows/adapters/${step}`);
     const source = read(`docs/development/troubleshooting/tooling/${name}.md`);
     for (const heading of ['증상', '원인', '해결', '검증', '참고'])
       assert.ok(source.includes(`## ${heading}`), `${name}: ${heading}`);
@@ -207,58 +207,69 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     assert.ok(guide.includes(`pnpm ${command}`));
     assert.ok(entry.includes(`pnpm ${command}`));
   }
-  for (const boundary of [
-    '`claude:workflow --native`는 완전한 task 입력 없이 상태만 진단하는 명령이므로 실행하지 않습니다',
-    '`dispatchAuthorized:false`는 host 권한을 발급하지 않는다는 뜻이며',
-    '`runtimeQualified:false`도 해당 실행의 전체 검증을 대신하지 않습니다',
-    '.plans/finished/',
-    '.plans/cancelled/',
-    'Native Plan Mode',
-    'OMC 없이도',
-    '일반 interactive auto 세션',
-    'PreToolUse',
-    'PostToolUse',
-    '실행 자체의 fail-closed를 보장하지 않습니다',
-    '일반 auto의\ngate로 사용하지 않습니다',
-    '문서화된 ask 동작과 다르므로',
-    '완료 판정 거부입니다',
-    'semantic PASS로 자동 승격하지 않습니다',
-    'boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다',
-    '`resolvedModel`은 시작 또는 background 전환 시점 모델이고',
-    '`modelsUsed`는 변경 관측입니다',
-    'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
-    '같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다',
-    '임의 JSON receipt를 actual host observation으로 취급하지 않습니다',
-    '## Routine operation',
-    '같은 turn에서 정산을 반복 시도하지 않습니다',
-    'Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다',
-    '아래 관측 ID 밖의 exact 모델로 해석되는\n조합은 관측 전까지 routine이 아닙니다',
-    '## Recovery',
-    '**한 번만** 허용하며 새 task로 다시 등록합니다',
-    'Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다',
-    '## Parent 운영과 quality stop',
-    '같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다',
-    '## OMC 공존과 skill routing',
-    '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
-    '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
-    '정산은 `complete`(또는 `settle --judgment`)와\n  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다',
-    '이 규칙은 runtime 차단이 아니라 운영 규칙입니다',
-    '| OMC 요청·skill',
-    '모델을 한 단계 올립니다(`sonnet`→`opus`)',
-    '중도에 멈췄다면 effort를 올립니다',
-    '결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다',
-    '같은 alias가 현재 CLI 버전에서 관측된 ID',
-    '조건을 맞추려고 task 사실을 바꾸지 않으며',
-    'Claude Parent 기본값은 **Opus 5.5 high**입니다',
-    'Host는 이 규칙을 강제하지 않습니다(advisory)',
-    'Exit를 뒤집는 명령으로 기록하지 않습니다',
-    '1~255의 `expectedExit`',
-    '기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다',
-    'Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다',
-    'writer subject면 응답 artifact를 포함할 수 없습니다',
-    '디렉터리 안의 symlink는 검사하지 않고 working tree 변경으로 snapshot에 드러나며, hard link는 탐지 대상이 아닙니다',
-  ]) {
-    assert.ok(guide.includes(boundary), boundary);
+  // Each pinned boundary is read from the one document that holds it after the adapter split.
+  const boundaries = {
+    'claude-code.md': [
+      '`claude:workflow --native`는 완전한 task 입력 없이 상태만 진단하는 명령이므로 실행하지 않습니다',
+      '`dispatchAuthorized:false`는 host 권한을 발급하지 않는다는 뜻이며',
+      '`runtimeQualified:false`도 해당 실행의 전체 검증을 대신하지 않습니다',
+      '.plans/finished/',
+      '.plans/cancelled/',
+      'Native Plan Mode',
+      'OMC 없이도',
+      '## Routine operation',
+      '같은 turn에서 정산을 반복 시도하지 않습니다',
+      'Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다',
+      '아래 관측 ID 밖의 exact 모델로 해석되는\n조합은 관측 전까지 routine이 아닙니다',
+      '## Recovery',
+      '**한 번만** 허용하며 새 task로 다시 등록합니다',
+      'Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다',
+      '## Parent 운영과 quality stop',
+      '같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다',
+      '## OMC 공존과 skill routing',
+      '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
+      '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
+      '정산은 `complete`(또는 `settle --judgment`)와\n  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다',
+      '이 규칙은 runtime 차단이 아니라 운영 규칙입니다',
+      '| OMC 요청·skill',
+      '모델을 한 단계 올립니다(`sonnet`→`opus`)',
+      '중도에 멈췄다면 effort를 올립니다',
+      '결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다',
+      '같은 alias가 현재 CLI 버전에서 관측된 ID',
+      '조건을 맞추려고 task 사실을 바꾸지 않으며',
+      'Claude Parent 기본값은 **Opus 5.5 high**입니다',
+      'Host는 이 규칙을 강제하지 않습니다(advisory)',
+    ],
+    'claude-native-registry.md': [
+      '일반 interactive auto 세션',
+      'PreToolUse',
+      'PostToolUse',
+      '실행 자체의 fail-closed를 보장하지 않습니다',
+      'semantic PASS로 자동 승격하지 않습니다',
+      'boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다',
+    ],
+    'claude-model-profiles.md': [
+      '일반 auto의\ngate로 사용하지 않습니다',
+      '문서화된 ask 동작과 다르므로',
+      '완료 판정 거부입니다',
+      '`resolvedModel`은 시작 또는 background 전환 시점 모델이고',
+      '`modelsUsed`는 변경 관측입니다',
+      'Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않습니다',
+      '같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다',
+      '임의 JSON receipt를 actual host observation으로 취급하지 않습니다',
+    ],
+    'claude-same-host-review.md': [
+      'Exit를 뒤집는 명령으로 기록하지 않습니다',
+      '1~255의 `expectedExit`',
+      '기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다',
+      'Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다',
+      'writer subject면 응답 artifact를 포함할 수 없습니다',
+      '디렉터리 안의 symlink는 검사하지 않고 working tree 변경으로 snapshot에 드러나며, hard link는 탐지 대상이 아닙니다',
+    ],
+  };
+  for (const [file, pinned] of Object.entries(boundaries)) {
+    const source = read(`docs/development/agent-workflows/adapters/${file}`);
+    for (const boundary of pinned) assert.ok(source.includes(boundary), `${file}: ${boundary}`);
   }
   const routine = guide.slice(guide.indexOf('## Routine operation'), guide.indexOf('## Recovery'));
   assert.deepEqual(

@@ -143,4 +143,4 @@ runner records`가 runner 기록 결속을 고정합니다.
 ## 참고
 
 - [독립 review disposition](../../agent-workflows/qa.md)
-- [Claude Code adapter의 same-host 독립 review](../../agent-workflows/adapters/claude-code.md)
+- [Claude Code adapter의 same-host 독립 review](../../agent-workflows/adapters/claude-same-host-review.md)
