@@ -380,12 +380,12 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 고정 입력 추출 관측',
       '`knu_executor` `bounded-standard` `sonnet` high `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.284) bounded 구현·검증 관측',
       '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.286) 공식 근거 읽기 관측',
-      '`knu_reviewer` `complex-critical` `opus` xhigh `claude-opus-5-5` 독립 source review 관측',
-      '`knu_explorer` `bounded-standard` `sonnet` high 없음 repository 읽기 조사 Q(live 미관측)',
-      '`knu_executor` `complex-critical` `opus` high 없음 복잡한 구현 Q(live 미관측)',
-      '`knu_executor_xhigh` `complex-critical` `opus` xhigh 없음 고위험 구현 Q(live 미관측)',
+      '`knu_reviewer` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 독립 source review 관측',
+      '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) repository 읽기 조사 Q(관측 2.1.286, 채택 대기)',
+      '`knu_executor` `complex-critical` `opus` high `claude-opus-5-5`(2.1.286) 복잡한 구현 Q(관측 2.1.286, 채택 대기)',
+      '`knu_executor_xhigh` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 고위험 구현 Q(관측 2.1.286, 채택 대기)',
     ],
-    'routine table keeps only live-observed rows plus the unobserved Q rows',
+    'routine table keeps live-observed rows plus Q rows awaiting an adoption decision',
   );
   for (const row of rows) {
     const cells = row.split('|').map((cell) => cell.trim());

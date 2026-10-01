@@ -26,7 +26,10 @@ Claude 안의 shell에는 현재 세션을 가리키는 환경 변수가 있습�
 
 2. Claude는 `tmux send-keys`로 그 pane에 명령을 보내고 `tmux capture-pane`으로 화면을 읽습니다. 먼저
    `env | grep -c '^CLAUDE'`가 0인지 확인합니다.
-3. 시나리오마다 새 `claude --permission-mode auto` 프로세스를 띄웁니다. 실행 중인 세션의 결과를 새 세션 결과로 쓰지 않습니다.
+3. 시나리오마다 `claude --permission-mode auto --model opus --effort high`로 새 프로세스를 띄웁니다. 실행 중인 세션의 결과를
+   새 세션 결과로 쓰지 않습니다. 세션 안에서는 `/effort`를 쓰지 않습니다. `/effort`는 Home 설정의 다음 세션 기본값도 바꿉니다.
+   시작 전과 끝난 뒤 Home 설정의 `effortLevel`을 기록하고, 바뀌었으면 시작 전 값으로 되돌려 보고합니다
+   ([qualification](../../agent-workflows/adapters/claude-qualification.md#bounded-fresh-host-qualification)).
 4. 시험은 소유가 분명한 disposable checkout에서만 합니다. 폴더 trust 확인은 그 폴더에 한해 수락합니다.
 5. Classifier가 이 경로도 거부하면 우회하지 않고 owner가 직접 실행하는 runbook으로 돌아갑니다.
 6. 화면 기록은 증거로 저장합니다. Owner가 `tmux attach`로 지켜볼 수 있지만 조작 중에는 키를 입력하지 않습니다.
@@ -37,6 +40,7 @@ Claude 안의 shell에는 현재 세션을 가리키는 환경 변수가 있습�
 
 - Pane에서 `env | grep -c '^CLAUDE'` 결과가 0입니다.
 - 새 세션의 transcript `permissionMode`가 `auto`이고, 화면 상태줄에 owner의 plugin 로드가 보입니다.
+- 끝난 뒤 Home 설정의 `effortLevel`이 시작 전 값과 같습니다. 바뀌었다면 되돌린 기록이 있습니다.
 - 결과 수집은 [완료 관측 누락](./claude-native-completion-observation-missing.md)과
   [hook 장애](./claude-native-hook-failure-and-completion-refusal.md)의 task 기록 기준을 따릅니다.
 

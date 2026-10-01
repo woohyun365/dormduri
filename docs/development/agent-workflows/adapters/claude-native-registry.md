@@ -24,7 +24,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    일상 경로는 `pnpm claude:native prepare --spec <JSON file>`입니다. Spec에는 `sessionId`·`request`와 Lead가 고른 `role`·
    `profileId`·`selectionBasisRef`(필수)·`expectedResolvedModel`·task 분류(`kind`·`impactRisk`·`complexity`·`uncertainty`·
    `childValue`)·`owner`·read/write 범위·`acceptance`·`reviewDisposition`·`facts`(각 `confidence` 포함)·`prompt`만 둡니다.
-   선택 필드는 `lifetimeMinutes`·`independentReview`뿐이며 다른 필드는 `unknown-field`로 거부합니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
+   선택 필드는 `lifetimeMinutes`·`independentReview`·`recovery`뿐이며 다른 필드는 `unknown-field`로 거부합니다.
+   `recovery`는 [Recovery 결속](#recovery-결속)을 따릅니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
    호출하고 거부 사유를 policy 사유와 입력 필드까지 그대로 보여 줍니다. Profile을 추론하거나 dispatch를 승인하지 않으며
    출력은 `dispatchAuthorized:false`입니다.
 4. 반환한 `agentInput` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. `agentInput`은 등록 invocation과 같은 역할·model·description에
@@ -130,3 +131,61 @@ user/plugin 정의와 parent permission mode를 확인합니다. Managed 역할 
 `.claude/agents/`이며 파일명만으로 frontmatter `name` 충돌을 배제하지 않습니다. Parent의 `auto`·`acceptEdits`·
 `bypassPermissions`는 child mode를 덮어쓸 수 있으므로 read-only 선언만으로 sandbox를 입증하지 않습니다.
 [공식 subagents](https://code.claude.com/docs/en/sub-agents)의 현재 버전 규칙과 실제 session을 함께 확인합니다.
+
+## Recovery 결속
+
+[Recovery](./claude-code.md#recovery)의 재시도를 실패한 1차 task에 묶는 등록 규칙입니다. 단계는
+[상향 사다리](./claude-model-profiles.md#recovery-상향-사다리)가 정합니다. 사유별 다음 행동은
+[복구 등록 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md#복구-등록-거부)를 따릅니다.
+
+Spec의 `recovery`는 `{of: <1차 taskId>, cause}`입니다. Registry가 결속을 판정하고 `step`·`fromProfileId`·`fromRole`을 더해
+`task.recovery`에 씁니다.
+
+- `result-error`와 `omission`은 사다리를 한 단계 올립니다.
+- `context-missing`은 같은 profile·역할로 다시 등록합니다(단계 0). Prompt에만 context를 보탤 수 있습니다.
+- 단계 1·2의 재시도만 `complex-critical`의 critical signal 요구를 면제받습니다. 다른 admission 검사는 그대로 적용됩니다.
+
+Registry는 workflow를 준비하기 전에 아래 순서로 판정합니다. 처음 걸린 사유 하나만 보고합니다. 판정 중에는 아무것도 쓰지 않습니다.
+
+1. `recovery-cause`: `cause`가 세 원인 밖의 값입니다.
+2. `recovery-not-bound`: 1차 task가 없거나 다른 세션의 task입니다. 사실이 다른 경우도 같습니다. 비교하는 사실은 `request`·
+   `kind`·`impactRisk`·`complexity`·`uncertainty`·`childValue`·`owner`·`readScope`·`writeScope`·`acceptance`·
+   `reviewDisposition`·`facts`입니다.
+3. `recovery-chain`: 1차 task가 이미 재시도입니다. 재시도의 재시도는 없습니다.
+4. `recovery-step`: 요청한 profile·역할이 원인에 맞는 사다리 단계가 아닙니다.
+5. `recovery-not-ran`: 1차 task가 실행·관측되지 않았습니다. 1차 task에는 `attempt.json`과 `completion.json`이 있어야 합니다.
+   저장된 관측이 유효해야 하고 현재 관측 오류가 없어야 합니다. 관측한 effort는 역할 effort와 같아야 합니다. Haiku는 effort
+   대조에서 빠집니다.
+6. `recovery-accepted`: 1차 task에 `accepted.json`이 있습니다.
+7. `recovery-used`: 이 세션과 사실 묶음의 marker가 이미 있습니다. 같은 사실의 1차 task가 둘이어도 재시도 하나를 함께 씁니다.
+   Superseded 1차 task도 이 사유로 보고합니다.
+
+형식 오류는 이 순서 밖입니다.
+
+- `recovery-format`: `recovery`가 `of`·`cause` 두 키의 객체가 아니거나 `of`가 task ID 형식이 아닙니다. `prepare`에서는 helper가
+  먼저 거부합니다.
+- `recovery-unregistered`: 입력의 `task.recovery`를 registry가 쓰지 않았습니다.
+
+기록은 다음과 같습니다.
+
+- 유효한 `complete`는 task 디렉터리에 `accepted.json`을 씁니다. 그 뒤 이 task에 결속하는 재시도는 `recovery-accepted`입니다.
+- 결속한 재시도는 다른 등록 검사를 모두 통과한 뒤에만 기록합니다. 순서는 다음과 같습니다.
+  1. Marker `.artifacts/tools/claude-native/recovery/<sessionId>/<fact digest>.json`을 배타적으로 만듭니다.
+  2. 1차 task의 `recovery.json`에 재시도 `taskId`를 씁니다.
+  3. 재시도의 `task.json`을 씁니다.
+  4. 1차 task를 superseded로 표시합니다(`observation-error.json`의 `superseded-by-recovery`).
+- Superseded 1차 task는 더 이상 완료할 수 없습니다.
+- 거부된 등록은 아무것도 쓰지 않습니다.
+- PreToolUse는 1차 task의 `recovery.json`이 이 재시도를 가리키지 않으면 `recovery binding mismatch`로 거부합니다.
+
+상한과 한계는 다음과 같습니다.
+
+- Registry는 결속한 재시도의 상한만 강제합니다. 세션과 사실 묶음마다 한 번입니다.
+- `recovery` 없이 같은 사실을 다시 등록하면 일반 admission을 받습니다. 면제는 없습니다. 그 상한은
+  [Recovery ceiling](../orchestration.md#recovery-ceiling)의 "이름만 바꾼 새 task로 상한을 초기화하지 않습니다"를 따르는
+  Lead 운영 규칙입니다.
+- 등록한 재시도가 실행되지 못해도 재시도 기회는 쓴 것입니다. 결속 만료(`expired binding`), 입력 파일 drift(`input file drift`),
+  오래된 workflow(`stale workflow`), 주입 실패 뒤 `task already attempted`가 여기에 속합니다. 1차 task는 이미 superseded입니다.
+  다른 재시도를 등록하지 않고 Owner에게 넘깁니다.
+- 실패한 Agent 호출(PostToolUseFailure)은 해석된 모델이 없어 결속할 수 없습니다(`effective-model-mismatch`). Lead와 Owner가
+  원인을 보고 다음 행동을 정합니다.

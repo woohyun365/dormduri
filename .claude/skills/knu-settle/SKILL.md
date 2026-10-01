@@ -19,8 +19,8 @@ description: 이 저장소에서 KNU native task의 완료 알림(task-notificat
 
 - Native subject reviewer: 위와 같이 template을 채워 `--judgment`로 정산합니다. 결과 JSON은
   `.artifacts/tools/claude-native/<taskId>/completion.json`의 응답에서 읽습니다.
-- `parent-adjudication` reviewer: template이 없고 `--judgment`는 거부됩니다. Parent가 `completion.json`의 관측(valid·모델·변경
-  경로)과 finding 재현으로 판정하고, `finalSnapshot` digest가 review `logHeader`와 같은지 확인합니다.
+- `parent-adjudication` reviewer: template이 없고 `--judgment`는 거부됩니다. Parent가 settle 결과의 `observationErrors`가
+  비었는지(모델·변경 경로 포함)와 finding 재현으로 판정하고, `finalSnapshot` digest가 review `logHeader`와 같은지 확인합니다.
 - Coverage gap이 있는 FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
 
 정산 결과가 invalid면 완료를 보고하지 않고 사유와 다음 행동을 남깁니다. Boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다.

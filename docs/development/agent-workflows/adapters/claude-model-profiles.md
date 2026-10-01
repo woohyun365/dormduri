@@ -48,6 +48,34 @@ transcript의 assistant 행 `effort`와 대조합니다. SubagentStop의 `effort
   위치가 다르면 foreground task는 수명이 끝난 뒤 `effort-unobserved`로 거부되며, 통과로 남지 않습니다.
 - 역할 effort를 덮어쓰는 설정(effort 환경변수·상한)이 있으면 관측이 `effort-mismatch`로 드러납니다.
 
+### Recovery 상향 사다리
+
+[Recovery](./claude-code.md#recovery)의 결속 재시도가 오를 수 있는 단계입니다. 공통 원천은
+[Recovery ceiling](../orchestration.md#recovery-ceiling) 하나입니다. 공통 원칙은 다른 접근의 구체를 host adapter에 맡기고,
+이 표가 Claude의 구체입니다.
+
+| 단계 | 1차 profile·역할·모델·effort                    | 재시도 profile·역할·모델·effort                    | Kind              |
+| ---- | ----------------------------------------------- | -------------------------------------------------- | ----------------- |
+| 0    | 1차 task와 같음                                 | 1차 task와 같음                                    | 1차 task의 kind   |
+| 1    | `bounded-standard`·`knu_explorer`·Sonnet high   | `complex-critical`·`knu_explorer`·Opus high        | `extract`, `read` |
+| 1    | `bounded-standard`·`knu_researcher`·Sonnet high | `complex-critical`·`knu_researcher`·Opus high      | `read`            |
+| 1    | `bounded-standard`·`knu_executor`·Sonnet high   | `complex-critical`·`knu_executor`·Opus high        | `build`           |
+| 2    | `complex-critical`·`knu_executor`·Opus high     | `complex-critical`·`knu_executor_xhigh`·Opus xhigh | `build`           |
+
+- `result-error`와 `omission`은 다음 단계 하나로 오릅니다. `context-missing`은 단계 0이며 prompt에만 context를 보탭니다.
+- Kind는 1차 task와 같아야 합니다. 표 밖의 이동은 단계가 아니며 `recovery-step`으로 거부됩니다.
+- 단계 1·2만 `complex-critical`의 critical signal 요구를 면제합니다. 1차 task의 사실을 그대로 두기 때문입니다.
+- 단계 0은 1차 profile의 조건을 그대로 따릅니다. `bounded-extraction`(Haiku)과 `knu_reviewer`는 단계 0만 받습니다.
+
+Claude에서만 쓰는 해석은 다음과 같습니다.
+
+- Executor 역할 묶음(`knu_executor`·`knu_executor_xhigh`)은 한 역할의 effort 변형으로 봅니다. Agent 호출에 effort 입력이
+  없어 별도 역할로 두었을 뿐입니다.
+- `result-error`와 `omission`은 원인과 무관하게 다음 단계로 오릅니다. Sonnet에는 effort 변형이 없고 Opus에는 위 모델이
+  없기 때문입니다. 이 선택은 Owner의 성능 우선 결정입니다.
+- 공통 원천은 `orchestration.md`뿐입니다. `request-intake/orchestration-recovery.md`는 Codex reference이며 Claude 규칙의
+  근거로 인용하지 않습니다.
+
 ### Frontmatter 필드 처분
 
 KNU 역할 파일은 `name`·`description`·`tools`·`effort`만 씁니다. 공식 필드 목록(2026-10-01 기준)의 처분은 다음과 같고,

@@ -155,6 +155,96 @@
 - FAIL은 review 완료입니다. Finding을 판정하고 수정한 뒤 새 builder task와 새 review로 해소합니다. 다른 reviewer의 PASS를
   연결해 FAIL을 덮을 수 없습니다.
 
+## 복구 등록 거부
+
+실패한 task를 다시 위임하는 등록은 spec의 `recovery: {of: <첫 taskId>, cause}`로만 합니다. 이 절은 그 등록의 거부 사유를
+다룹니다. Registry는 workflow를 준비하기 전에 복구 결속을 판정합니다. 그래서 `recovery-*` 사유는 `workflow not ready:` 없이
+그대로 나옵니다. 형식 오류만 helper가 다른 spec 오류와 함께 `invalid prepare spec:`으로 보여 줍니다.
+
+```text
+recovery-cause: quota
+recovery-not-bound: task facts differ from the first task
+invalid prepare spec: recovery-format: {of: <first taskId>, cause}
+```
+
+복구 사유를 고친 뒤에도 일반 등록 사유(`workflow not ready: ...`)가 나올 수 있습니다. 거부된 등록은 아무것도 쓰지 않습니다.
+
+- `cause`는 `result-error`, `omission`, `context-missing` 중 하나입니다.
+- `result-error`와 `omission`은 사다리를 한 단계 올립니다. `context-missing`은 같은 profile과 role로 다시 등록하고(0단계)
+  prompt에만 맥락을 더할 수 있습니다.
+- 1단계는 `bounded-standard` + role R(Sonnet high)에서 `complex-critical` + 같은 R(Opus high)로 올립니다. R은 `knu_explorer`,
+  `knu_researcher`, `knu_executor`입니다.
+- 2단계는 `complex-critical`의 `knu_executor`(Opus high)에서 `complex-critical`의 `knu_executor_xhigh`(Opus xhigh)로 올립니다.
+  build에만 씁니다.
+- 1·2단계 retry만 `critical-signal` 요건을 면제받습니다. 다른 admission 검사는 모든 등록에 그대로 적용됩니다.
+- 같은 session과 같은 사실의 retry는 한 번만 등록됩니다.
+
+### 사유와 다음 행동
+
+사유는 아래 순서로 판정하고 처음 걸린 하나만 보고합니다. 위 사유를 고쳐도 아래 사유가 다시 나올 수 있습니다.
+
+1. `recovery-cause`
+   - 원인: `cause`가 문자열이지만 위 세 값이 아닙니다. `cause`나 `of`가 없으면 이 사유가 아니라 `recovery-format`입니다.
+   - 다음 행동: spec을 고칩니다. 실패가 결과 오류인지, 누락인지, 맥락 부족인지 사실대로 고릅니다.
+2. `recovery-not-bound`
+   - 원인: `of`의 첫 task가 없거나, 다른 session의 task이거나, 첫 task와 사실이 다릅니다. 비교하는 사실은 request, `kind`,
+     `impactRisk`, `complexity`, `uncertainty`, `childValue`, `owner`, `readScope`, `writeScope`, `acceptance`,
+     `reviewDisposition`, `facts`입니다.
+   - 다음 행동: spec을 고칩니다. `of`를 현재 session의 첫 `taskId`로 맞추고 위 사실을 첫 task와 같게 둡니다. 사실을 바꿔야 하면
+     그것은 복구가 아니므로 `recovery` 없이 일반 등록으로 하고, 이름만 바꿔 상한을 초기화하지 않습니다.
+3. `recovery-chain`
+   - 원인: 첫 task가 이미 bound retry입니다. Retry의 retry는 없습니다.
+   - 다음 행동: 멈추고 Owner에게 묻습니다.
+4. `recovery-step`
+   - 원인: 요청한 profile·role이 첫 task에서 올라가는 사다리 단계와 다릅니다. 단계를 건너뛰거나 그대로 두는 경우와
+     `context-missing`인데 profile이나 role을 바꾼 경우가 해당합니다. `result-error`·`omission`은 올릴 단계가 없는 첫 task에서도
+     이 사유입니다. `bounded-extraction` task, `knu_reviewer`, `knu_executor_xhigh`, `complex-critical`의
+     `knu_explorer`·`knu_researcher`, build가 아닌 `complex-critical`의 `knu_executor`에는 올릴 단계가 없습니다.
+   - 다음 행동: 사다리 단계에 맞춰 spec의 profile·role을 고칩니다. 올릴 단계가 없으면 멈추고 Owner에게 묻습니다.
+5. `recovery-not-ran`
+   - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
+     않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. Haiku는 effort 검사에서 제외됩니다. 괄호 안에
+     관측 오류가 붙습니다.
+   - 다음 행동: 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
+     `effort-transcript-pending`이면 잠시 뒤 다시 정산합니다. 정산 뒤에도 오류가 남으면 첫 task는 복구 대상이 아닙니다. 위
+     해결 절의 사유별 절차를 따르고 Owner에게 묻습니다. Dispatch 없이 release한 task도 실행되지 않았으므로 복구 대상이 아닙니다.
+6. `recovery-accepted`
+   - 원인: 첫 task의 `accepted.json`이 있습니다. 유효한 `complete`가 이미 결과를 채택했습니다.
+   - 다음 행동: retry하지 않고 채택된 결과를 씁니다. 더 바꿀 것이 있으면 새 요청으로 다룹니다.
+7. `recovery-used`
+   - 원인: 이 session과 사실의 marker가 이미 있어 한 번뿐인 retry를 썼습니다. 같은 사실의 첫 task가 둘이어도 retry는 하나를
+     공유합니다. 대체된(superseded) 첫 task도 사용된 것으로 보고합니다.
+   - 다음 행동: 멈추고 Owner에게 묻습니다. 새 이름으로 다시 등록하지 않습니다.
+
+### 형식 오류와 hook 거부
+
+- `recovery-format`: `recovery`가 `of`·`cause` 두 키의 객체가 아니거나, `of`가 task ID 형식이 아니거나, `cause`가 문자열이
+  아닙니다. `cause`나 `of`가 빠진 경우도 여기에 속합니다. `prepare`에서는 helper가 `invalid prepare spec: recovery-format: ...`으로
+  거부합니다. `register --input`의 최상위 `recovery`는 registry가 같은 이름으로 거부합니다. Spec을 고칩니다.
+- `recovery-unregistered`: 등록 입력의 `nativeRequest.task.recovery`를 registry가 쓰지 않았습니다. 직접 적은 값은 registry가
+  묶은 값과 같지 않으면 거부됩니다. 그 필드를 지우고 spec의 `recovery`로 `prepare --spec`을 다시 실행합니다.
+- PreToolUse의 `recovery binding mismatch` 거부: 첫 task의 `recovery.json`이 이 retry를 가리키지 않습니다. 기록이 지워졌거나
+  바뀐 것입니다. 이 retry는 등록될 때 이미 marker를 썼으므로 다시 등록해도 `recovery-used`입니다. 기록을 고치거나 지우지 말고
+  아래 절처럼 Owner에게 넘깁니다.
+
+### 등록된 retry가 실행되지 않은 경우
+
+retry가 등록된 뒤에 실행되지 않아도 한 번뿐인 retry는 이미 썼습니다. 결속 만료, 입력 파일 변경, 오래된 workflow, 주입 실패로
+task가 이미 시도된 상태가 이에 해당합니다. 첫 task는 이미 대체되어 더 완료할 수 없습니다. 다른 retry를 등록하지 말고 Owner에게
+넘깁니다.
+
+### 기록과 상한
+
+- 유효한 `complete`는 `accepted.json`을 씁니다.
+- Bound retry는 다른 등록 검사가 모두 통과한 뒤에만 다음 순서로 씁니다. 먼저 `.artifacts/tools/claude-native/recovery/<sessionId>/<fact digest>.json`
+  marker를, 그다음 첫 task의 `recovery.json`을, 그다음 retry의 `task.json`을 쓰고 마지막으로 첫 task를 대체됨으로
+  표시합니다(`observation-error.json`의 `superseded-by-recovery`).
+- Registry는 bound retry의 상한만 강제합니다. `recovery` 없이 같은 사실로 다시 등록하면 일반 admission을 받고 면제는 없습니다.
+  그 상한은 [orchestration.md](../../agent-workflows/orchestration.md)의 "이름만 바꾼 새 task로 상한을 초기화하지 않습니다"를
+  따르는 Lead 운영 규칙입니다.
+- 실패한 Agent 호출(PostToolUseFailure)은 확인된 model이 없습니다. 관측에 `effective-model-mismatch`가 남으므로 retry에 묶을 수
+  없고 등록은 `recovery-not-ran`으로 거부됩니다. 다음 행동은 Lead와 Owner가 원인을 보고 정합니다.
+
 ## 검증
 
 ```bash
