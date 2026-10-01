@@ -184,12 +184,13 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 사유는 아래 순서로 판정하고 처음 걸린 하나만 보고합니다. 위 사유를 고쳐도 아래 사유가 다시 나올 수 있습니다.
 
 1. `recovery-cause`
-   - 원인: `cause`가 문자열이지만 위 세 값이 아닙니다. `cause`나 `of`가 없으면 이 사유가 아니라 `recovery-format`입니다.
+   - 원인: `cause`가 위 세 값이 아닙니다. `register --input`에서는 문자열이 아닌 `cause`도 이 사유입니다. `prepare`에서는
+     helper가 문자열이 아닌 `cause`를 먼저 `recovery-format`으로 거부합니다. `cause`나 `of`가 없으면 `recovery-format`입니다.
    - 다음 행동: spec을 고칩니다. 실패가 결과 오류인지, 누락인지, 맥락 부족인지 사실대로 고릅니다.
 2. `recovery-not-bound`
    - 원인: `of`의 첫 task가 없거나, 다른 session의 task이거나, 첫 task와 사실이 다릅니다. 비교하는 사실은 request, `kind`,
      `impactRisk`, `complexity`, `uncertainty`, `childValue`, `owner`, `readScope`, `writeScope`, `acceptance`,
-     `reviewDisposition`, `facts`입니다.
+     `reviewDisposition`, `facts`입니다. 배열은 순서까지 같아야 합니다.
    - 다음 행동: spec을 고칩니다. `of`를 현재 session의 첫 `taskId`로 맞추고 위 사실을 첫 task와 같게 둡니다. 사실을 바꿔야 하면
      그것은 복구가 아니므로 `recovery` 없이 일반 등록으로 하고, 이름만 바꿔 상한을 초기화하지 않습니다.
 3. `recovery-chain`
@@ -204,8 +205,9 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 5. `recovery-not-ran`
    - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
      않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. Haiku는 effort 검사에서 제외됩니다. 괄호 안에
-     관측 오류가 붙습니다.
-   - 다음 행동: 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
+     관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
+     사유가 됩니다.
+   - 다음 행동: 첫 task 완료부터 retry 등록까지 working tree를 바꾸지 않습니다. 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
      `effort-transcript-pending`이면 잠시 뒤 다시 정산합니다. 정산 뒤에도 오류가 남으면 첫 task는 복구 대상이 아닙니다. 위
      해결 절의 사유별 절차를 따르고 Owner에게 묻습니다. Dispatch 없이 release한 task도 실행되지 않았으므로 복구 대상이 아닙니다. 실행·관측된 task라도 `release`하면 무효로 표시되어
      이 사유가 됩니다. 관측된 1차 task는 `release`하지 말고 정산합니다.
@@ -219,9 +221,10 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 
 ### 형식 오류와 hook 거부
 
-- `recovery-format`: `recovery`가 `of`·`cause` 두 키의 객체가 아니거나, `of`가 task ID 형식이 아니거나, `cause`가 문자열이
-  아닙니다. `cause`나 `of`가 빠진 경우도 여기에 속합니다. `prepare`에서는 helper가 `invalid prepare spec: recovery-format: ...`으로
-  거부합니다. `register --input`의 최상위 `recovery`는 registry가 같은 이름으로 거부합니다. Spec을 고칩니다.
+- `recovery-format`: `recovery`가 `of`·`cause` 두 키의 객체가 아니거나 `of`가 task ID 형식이 아닙니다. `cause`나 `of`가 빠진
+  경우도 여기에 속합니다. `prepare`에서는 helper가 문자열이 아닌 `cause`까지 `invalid prepare spec: recovery-format: ...`으로
+  거부합니다. `register --input`의 최상위 `recovery`는 registry가 같은 이름으로 거부하지만, 문자열이 아닌 `cause`는
+  `recovery-cause`로 보고합니다. Spec을 고칩니다.
 - `recovery-unregistered`: 등록 입력의 `nativeRequest.task.recovery`를 registry가 쓰지 않았습니다. 직접 적은 값은 registry가
   묶은 값과 같지 않으면 거부됩니다. 그 필드를 지우고 spec의 `recovery`로 `prepare --spec`을 다시 실행합니다.
 - PreToolUse의 `recovery binding mismatch` 거부: 첫 task의 `recovery.json`이 이 retry를 가리키지 않습니다. 기록이 지워졌거나

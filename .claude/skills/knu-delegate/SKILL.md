@@ -82,9 +82,10 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 
 재시도는 실패한 1차 task에 결속합니다.
 
-1. 실패한 1차 task를 먼저 `/knu-settle`로 정산합니다. 실행·관측되지 않은 1차 task에는 결속할 수 없습니다.
+1. 실패한 1차 task를 먼저 `/knu-settle`로 정산합니다. 실행·관측되지 않은 1차 task에는 결속할 수 없습니다. 1차 완료부터
+   재시도 등록까지 working tree를 바꾸지 않습니다(편집, commit, child 변경 되돌리기). 바뀌면 `recovery-not-ran`입니다.
 2. 1차 spec을 복사합니다. `request`·task 분류(`kind`·`impactRisk`·`complexity`·`uncertainty`·`childValue`)·`owner`·
-   read/write 범위·`acceptance`·`reviewDisposition`·`facts`는 바꾸지 않습니다. Prompt에만 실패 근거를 보탭니다.
+   read/write 범위·`acceptance`·`reviewDisposition`·`facts`는 배열 순서까지 바꾸지 않습니다. Prompt에만 실패 근거를 보탭니다.
 3. `recovery`에 1차 `taskId`와 원인을 채웁니다. 원인은 `result-error`·`omission`·`context-missing` 중 하나입니다.
 4. Profile과 역할은 [상향 사다리](../../../docs/development/agent-workflows/adapters/claude-model-profiles.md#recovery-상향-사다리)로
    고릅니다. `result-error`·`omission`은 한 단계 올립니다. `context-missing`은 1차 task의 profile·역할을 그대로 씁니다.

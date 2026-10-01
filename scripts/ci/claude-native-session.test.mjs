@@ -3106,3 +3106,47 @@ test('a superseded first task reports used even after its writer retry changed f
     /recovery-used/u,
   );
 });
+
+test('a bounded build retry climbs ladder step 1 and completes without the critical signal', (t) => {
+  const f = ladder(t, 'build');
+  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' });
+  assert.deepEqual(handle(a), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
+  finish(a);
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_executor',
+    recovery: { of: a.registered.taskId, cause: 'result-error' },
+  });
+  assert.equal(taskInputOf(b).recovery.step, 1);
+  assert.equal(b.registered.invocation.model, 'opus');
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  // A build still needs its independent QA; recovery adds no other completion error.
+  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
+  assert.equal(done.observation.valid, true);
+  assert.ok(done.errors.includes('independent QA exchange required'));
+  assert.deepEqual(
+    done.errors.filter((error) => !/QA/u.test(error)),
+    [],
+  );
+});
+
+test('a working-tree change after the first task completes forfeits its bound retry', (t) => {
+  const f = ladder(t, 'build');
+  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' });
+  assert.deepEqual(handle(a), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
+  finish(a);
+  writeFileSync(join(f.root, 'sample.txt'), 'reverted by the Parent');
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_executor',
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-not-ran: .*post-completion/u,
+  );
+  assert.equal(markerFiles(f).length, 0);
+});

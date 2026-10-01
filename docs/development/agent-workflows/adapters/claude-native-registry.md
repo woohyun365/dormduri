@@ -150,12 +150,14 @@ Registry는 workflow를 준비하기 전에 아래 순서로 판정합니다. �
 1. `recovery-cause`: `cause`가 세 원인 밖의 값입니다.
 2. `recovery-not-bound`: 1차 task가 없거나 다른 세션의 task입니다. 사실이 다른 경우도 같습니다. 비교하는 사실은 `request`·
    `kind`·`impactRisk`·`complexity`·`uncertainty`·`childValue`·`owner`·`readScope`·`writeScope`·`acceptance`·
-   `reviewDisposition`·`facts`입니다.
+   `reviewDisposition`·`facts`입니다. 배열은 순서까지 같아야 합니다. 순서만 바꾼 spec은 다른 사실 묶음이고 marker도
+   따로 씁니다. 그 우회는 아래 Lead 운영 규칙이 막습니다.
 3. `recovery-chain`: 1차 task가 이미 재시도입니다. 재시도의 재시도는 없습니다.
 4. `recovery-step`: 요청한 profile·역할이 원인에 맞는 사다리 단계가 아닙니다.
 5. `recovery-not-ran`: 1차 task가 실행·관측되지 않았습니다. 1차 task에는 `attempt.json`과 `completion.json`이 있어야 합니다.
    저장된 관측이 유효해야 하고 현재 관측 오류가 없어야 합니다. 관측한 effort는 역할 effort와 같아야 합니다. Haiku는 effort
-   대조에서 빠집니다.
+   대조에서 빠집니다. 1차 task 완료 뒤 working tree가 바뀌면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
+   사유가 됩니다. 1차 task 완료부터 재시도 등록까지 tree를 바꾸지 않습니다.
 6. `recovery-accepted`: 1차 task에 `accepted.json`이 있습니다.
 7. `recovery-used`: 이 세션과 사실 묶음의 marker가 이미 있습니다. 같은 사실의 1차 task가 둘이어도 재시도 하나를 함께 씁니다.
    Superseded 1차 task는 `recovery-step` 다음에 바로 이 사유로 보고합니다. 재시도가 그 뒤 파일을 바꿔도 같습니다.
