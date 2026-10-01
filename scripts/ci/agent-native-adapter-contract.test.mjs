@@ -22,16 +22,33 @@ test('Claude entry imports the shared repository contract without copying it', (
   assert.match(source, /docs\/development\/agent-workflows\/adapters\/claude-code\.md/u);
 });
 
-test('four project Claude agents declare bounded native tools', () => {
+// Each role fixes its effort so a child never inherits the Parent session's effort.
+const ROLE_EFFORT = {
+  knu_explorer: 'high',
+  knu_researcher: 'high',
+  knu_executor: 'high',
+  knu_executor_xhigh: 'xhigh',
+  knu_reviewer: 'xhigh',
+};
+const roleSource = (role) => read(`.claude/agents/${role}.md`);
+const roleBody = (source) => source.replace(/^---\n[\s\S]*?\n---\n/u, '');
+
+test('five project Claude agents declare bounded native tools and a fixed effort', () => {
   const readOnly = new Set(['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch']);
 
-  for (const role of ['explorer', 'researcher', 'executor', 'reviewer']) {
-    const path = `.claude/agents/knu_${role}.md`;
-    const source = read(path);
+  for (const [role, effort] of Object.entries(ROLE_EFFORT)) {
+    const path = `.claude/agents/${role}.md`;
+    const source = roleSource(role);
     const frontmatter = /^---\n([\s\S]*?)\n---/u.exec(source)?.[1];
     assert.ok(frontmatter, `${path}: missing YAML frontmatter`);
-    assert.match(frontmatter, new RegExp(`^name: knu_${role}$`, 'mu'));
+    assert.deepEqual(
+      frontmatter.split('\n').map((line) => line.slice(0, line.indexOf(':'))),
+      ['name', 'description', 'tools', 'effort'],
+      `${path}: frontmatter keys`,
+    );
+    assert.match(frontmatter, new RegExp(`^name: ${role}$`, 'mu'));
     assert.match(frontmatter, /^description: .+$/mu);
+    assert.match(frontmatter, new RegExp(`^effort: ${effort}$`, 'mu'), `${path}: effort`);
 
     const tools = /^tools: (.+)$/mu
       .exec(frontmatter)?.[1]
@@ -41,7 +58,7 @@ test('four project Claude agents declare bounded native tools', () => {
     assert.equal(new Set(tools).size, tools.length, `${path}: duplicate tool`);
     assert.ok(!tools.includes('Agent'), `${path}: child re-delegation is not allowed`);
     assert.doesNotMatch(frontmatter, /^permissionMode: bypassPermissions$/mu);
-    if (role === 'executor') {
+    if (role.startsWith('knu_executor')) {
       assert.ok(tools.includes('Edit') && tools.includes('Bash'));
     } else {
       assert.ok(
@@ -52,6 +69,76 @@ test('four project Claude agents declare bounded native tools', () => {
     assert.equal(isIgnored(path), false, `${path}: project role must be portable`);
     assert.match(source, /docs\/development\/agent-workflows\//u);
   }
+  assert.equal(
+    roleBody(roleSource('knu_executor_xhigh')),
+    roleBody(roleSource('knu_executor')),
+    'the xhigh variant differs from knu_executor only in its frontmatter',
+  );
+});
+
+// Official subagent frontmatter fields as of the 2026-10-01 Claude Code subagent docs. This list is a
+// pinned copy, not a live read: a new official field fails here until the disposition table covers it.
+const OFFICIAL_SUBAGENT_FIELDS = [
+  'name',
+  'description',
+  'tools',
+  'disallowedTools',
+  'model',
+  'permissionMode',
+  'maxTurns',
+  'skills',
+  'mcpServers',
+  'hooks',
+  'memory',
+  'background',
+  'omitClaudeMd',
+  'effort',
+  'isolation',
+  'color',
+  'initialPrompt',
+  'experimental',
+];
+
+test('effort documents cover rejection reasons, five roles, field dispositions and Parent judgment', () => {
+  const adapters = 'docs/development/agent-workflows/adapters/';
+  const recovery = read(`${adapters}claude-code.md`).split('## Recovery')[1] ?? '';
+  for (const stale of ['kind `extract`를 받지 않습니다', '현재 KNU 역할에는 effort 필드가 없어'])
+    assert.ok(!recovery.includes(stale), `stale Recovery fact: ${stale}`);
+
+  const rejections = read(
+    'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
+  );
+  for (const reason of [
+    'effort-tier',
+    'invalid-role-effort',
+    'effort-transcript-pending',
+    'effort-transcript-foreign',
+    'effort-unobserved',
+    'effort-mismatch',
+  ])
+    assert.ok(rejections.includes(`\`${reason}\``), `rejection reason: ${reason}`);
+
+  const registry = read(`${adapters}claude-native-registry.md`);
+  for (const role of Object.keys(ROLE_EFFORT))
+    assert.match(registry, new RegExp(`^\\| \`${role}\` +\\|`, 'mu'), `registry role row: ${role}`);
+  assert.ok(!registry.includes('네 `.claude/agents/knu_*.md`'), 'registry still counts four roles');
+
+  for (const doc of [`${adapters}claude-same-host-review.md`, rejections]) {
+    const text = doc.startsWith(adapters) ? read(doc) : doc;
+    assert.ok(
+      text.includes('`observationErrors`'),
+      'Parent judgment reads settle observation errors',
+    );
+    assert.ok(
+      !text.includes('`completion.json` 관측(valid'),
+      'Parent judgment must not use completion valid',
+    );
+  }
+
+  const profiles = read(`${adapters}claude-model-profiles.md`);
+  const table = profiles.split('### Frontmatter 필드 처분')[1]?.split('\n#')[0] ?? '';
+  const fields = [...table.matchAll(/^\| `([A-Za-z]+)` +\|/gmu)].map((match) => match[1]);
+  assert.deepEqual([...fields].sort(), [...OFFICIAL_SUBAGENT_FIELDS].sort(), 'field dispositions');
 });
 
 test('Claude private runtime state stays ignored while both host adapters have entry points', () => {
@@ -272,26 +359,43 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     for (const boundary of pinned) assert.ok(source.includes(boundary), `${file}: ${boundary}`);
   }
   const routine = guide.slice(guide.indexOf('## Routine operation'), guide.indexOf('## Recovery'));
+  const header = routine.split('\n').find((line) => line.startsWith('| 역할'));
   assert.deepEqual(
-    routine
-      .split('\n')
-      .filter((line) => line.startsWith('| `knu_'))
-      .map((line) => {
-        const cells = line.split('|').map((cell) => cell.trim());
-        return [cells[1], cells[2], cells[3], cells[6]].join(' ');
-      }),
+    header?.split('|').map((cell) => cell.trim()),
+    ['', '역할', 'Profile', 'Alias', 'Effort', '관측된 모델 ID', '작업', '상태', ''],
+    'routine table columns',
+  );
+  // Every role row keeps the backticked role prefix, so a reformatted row cannot drop out of this check.
+  const rows = routine.split('\n').filter((line) => /^\|\s*`?knu_/u.test(line));
+  for (const row of rows) assert.match(row, /^\| `knu_[a-z_]+` +\|/u, row);
+  assert.deepEqual(
+    rows.map((line) => {
+      const cells = line.split('|').map((cell) => cell.trim());
+      return cells.slice(1, 8).join(' ');
+    }),
     [
-      '`knu_explorer` `bounded-extraction` `haiku` 관측',
-      '`knu_executor` `bounded-standard` `sonnet` 관측',
-      '`knu_researcher` `bounded-standard` `sonnet` 관측',
-      '`knu_reviewer` `complex-critical` `opus` 관측',
-      '`knu_explorer` `bounded-standard` `sonnet` Q(live 미관측)',
-      '`knu_executor` `complex-critical` `opus` Q(live 미관측)',
+      '`knu_explorer` `bounded-extraction` `haiku` —(미지원) `claude-haiku-4-5-20251001` 고정 입력 추출 미사용(Haiku 5.5 migration plan 대기)',
+      '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 고정 입력 추출 관측',
+      '`knu_executor` `bounded-standard` `sonnet` high `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.284) bounded 구현·검증 관측',
+      '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.286) 공식 근거 읽기 관측',
+      '`knu_reviewer` `complex-critical` `opus` xhigh `claude-opus-5-5` 독립 source review 관측',
+      '`knu_explorer` `bounded-standard` `sonnet` high 없음 repository 읽기 조사 Q(live 미관측)',
+      '`knu_executor` `complex-critical` `opus` high 없음 복잡한 구현 Q(live 미관측)',
+      '`knu_executor_xhigh` `complex-critical` `opus` xhigh 없음 고위험 구현 Q(live 미관측)',
     ],
     'routine table keeps only live-observed rows plus the unobserved Q rows',
   );
-  for (const role of ['explorer', 'researcher', 'executor', 'reviewer']) {
-    const source = read(`.claude/agents/knu_${role}.md`);
+  for (const row of rows) {
+    const cells = row.split('|').map((cell) => cell.trim());
+    const role = cells[1].replaceAll('`', '');
+    if (cells[3] !== '`haiku`') assert.equal(cells[4], ROLE_EFFORT[role], `${role}: effort column`);
+  }
+  assert.ok(
+    routine.replace(/\s+/gu, ' ').includes('Effort 열은 역할 파일의 설정값이고'),
+    'effort column is the configured value, not an observation',
+  );
+  for (const role of Object.keys(ROLE_EFFORT)) {
+    const source = roleSource(role);
     assert.doesNotMatch(source, /^model:/mu, 'no unauthorized permanent model pin');
     assert.ok(source.includes('다른 agent'), 'child offload boundary remains explicit');
   }

@@ -1,15 +1,44 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+// The effort each tracked role file declares; fixture roles mirror it so registration binds it.
+export const ROLE_EFFORT = {
+  knu_explorer: 'high',
+  knu_researcher: 'high',
+  knu_executor: 'high',
+  knu_executor_xhigh: 'xhigh',
+  knu_reviewer: 'xhigh',
+};
+export function writeRole(root, role, tools, body = 'Bounded fixture role.') {
+  writeFileSync(
+    join(root, '.claude/agents', `${role}.md`),
+    `---\nname: ${role}\ntools: ${tools}\neffort: ${ROLE_EFFORT[role]}\n---\n${body}\n`,
+  );
+}
+// Writes a finished child transcript where Claude Code keeps it: beside the parent session
+// transcript, under <session>/subagents/. Returns the parent transcript path a hook event names.
+export function writeChildTranscript(
+  root,
+  { sessionId, agentId, prompt, model, effort, text = 'done' },
+) {
+  const base = join(realpathSync(root), '.artifacts/transcripts');
+  mkdirSync(join(base, sessionId, 'subagents'), { recursive: true });
+  const parentPath = join(base, `${sessionId}.jsonl`);
+  if (!existsSync(parentPath)) writeFileSync(parentPath, '');
+  const row = (type, message, extra = {}) =>
+    JSON.stringify({ type, sessionId, agentId, ...extra, message });
+  writeFileSync(
+    join(base, sessionId, 'subagents', `agent-${agentId}.jsonl`),
+    `${row('user', { content: prompt })}\n${row('assistant', { model, content: [{ type: 'text', text }] }, effort === undefined ? {} : { effort })}\n`,
+  );
+  return parentPath;
+}
 export function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'native-session-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.claude/agents'), { recursive: true });
-  writeFileSync(
-    join(root, '.claude/agents/knu_explorer.md'),
-    '---\nname: knu_explorer\ntools: Read, Grep, Glob\n---\nRead only.\n',
-  );
+  writeRole(root, 'knu_explorer', 'Read, Grep, Glob', 'Read only.');
   writeFileSync(join(root, 'sample.txt'), 'oracle');
   const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
   git('init', '-q');

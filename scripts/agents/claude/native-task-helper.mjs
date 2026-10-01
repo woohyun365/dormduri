@@ -29,7 +29,13 @@ const PROMPT_LIMIT = 12000;
 // what the Parent actually receives. The stored response is capped at 1 MB, far above a normal report.
 const DELIVERY_RULE =
   'Your delivered report (the SubagentHandback message when that tool is available, otherwise your final reply) is the only text the Parent receives. Put the complete result in it without summarizing; it may be long (the record limit is 1 MB).';
-const KNU_ROLES = ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer'];
+const KNU_ROLES = [
+  'knu_explorer',
+  'knu_researcher',
+  'knu_executor',
+  'knu_executor_xhigh',
+  'knu_reviewer',
+];
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const SPEC_REQUIRED = [
   'sessionId',
@@ -543,7 +549,7 @@ export function buildClaudeNativeReview(
     writeScope: [],
     acceptance: ['terminal review result delivered for the frozen packet'],
     // A reviewer without a native subject cannot be a terminal reviewer; it stays QA-required and
-    // the Parent adjudicates from its completion observation instead of a PASS settlement.
+    // the Parent adjudicates from its settle observation instead of a PASS settlement.
     reviewDisposition: native
       ? { required: false, reason: 'terminal same-host independent native review' }
       : { required: true, reason: 'Parent-authored subject: Parent adjudicates this review' },
@@ -587,7 +593,7 @@ function settlementStatus(taskId, root) {
   const content = state.observation.response?.content;
   const { record } = state;
   let judgmentTemplatePath = null;
-  // A reviewer without a native subject is judged by the Parent from its completion.json.
+  // A reviewer without a native subject is judged by the Parent from this settle observation.
   if (record.input.nativeRequest.task.role !== 'knu_reviewer' || record.independentReview) {
     judgmentTemplatePath = join(state.evidenceDirectory, 'judgment-template.json');
     const template = {
@@ -618,6 +624,7 @@ function settlementStatus(taskId, root) {
     response: content?.length === 1 && content[0]?.type === 'text' ? content[0].text : content,
     resolvedModel: state.observation.resolvedModel,
     changedPaths: state.changedPaths,
+    observedEfforts: state.observedEfforts,
     acceptance: state.record.input.directAssignment.acceptance,
     observationErrors: state.errors,
     judgmentTemplatePath,
@@ -661,7 +668,7 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
   const reviewer = record.input.nativeRequest.task.role === 'knu_reviewer';
   if (reviewer && !record.independentReview)
     throw new TypeError(
-      'parent-adjudication: this reviewer has no native subject; the Parent judges its completion.json',
+      'parent-adjudication: this reviewer has no native subject; the Parent judges its settle --task observation (observationErrors empty) and findings',
     );
   const lane = prepareClaudeWorkflow({
     ...record.input,

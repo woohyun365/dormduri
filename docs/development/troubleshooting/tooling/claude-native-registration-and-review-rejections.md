@@ -25,6 +25,16 @@
   invalid prepare spec: review-snapshot-stale: rebuild the review for the current source
   ```
 
+- 역할·effort·QA 조건으로 등록이 거부됩니다.
+
+  ```text
+  workflow not ready: strict-native-dispatch-not-qualified; profile: effort-tier
+  invalid-role-effort: knu_explorer must declare effort medium|high|xhigh
+  independent QA required for this profile
+  ```
+
+- `settle --task <taskId>`가 exit 1이고 `observationErrors`에 `effort-transcript-pending`, `effort-transcript-foreign`,
+  `effort-unobserved`, `effort-mismatch` 중 하나가 있습니다. `completion.json`의 `valid`는 `true`일 수 있습니다.
 - 공통 workflow가 요청을 `intent: unknown`으로 분류해 등록이 진행되지 않습니다.
 - 독립 reviewer가 PASS를 반환했는데 완료 판정이 거부됩니다.
 
@@ -72,6 +82,21 @@
   | `build`   | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `regression`, `one-writer` |
   | `review`  | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `fresh-context`            |
 
+- Effort는 역할 파일의 `effort`가 정합니다. 등록은 그 값(`medium`·`high`·`xhigh`)을 기대값으로 기록하고, 없거나 다른 값이면
+  `invalid-role-effort`입니다. Model policy는 impact `high` build에 `complex-critical`의 `knu_executor_xhigh`만 허용하고,
+  `knu_executor_xhigh`는 `complex-critical` build에서만 허용합니다. 어긋나면 `effort-tier`입니다.
+- 추출(kind `extract`)은 impact `low`·complexity `bounded`·uncertainty `resolved`일 때만 독립 QA 없이 등록됩니다. 어느 profile이든
+  그 밖의 추출과 다른 kind는 `reviewDisposition.required:true`나 연결된 review가 없으면 `independent QA required for this profile`입니다.
+- Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
+  합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
+  - `effort-transcript-pending`: transcript가 없거나 마지막 행이 미완성이거나 assistant 행이 아직 없습니다. Host가 transcript를
+    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 Haiku를 포함해
+    `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
+    한 번 수명 만료 판정을 받은 task의 결과는 쓰지 않습니다.
+  - `effort-transcript-foreign`: 경로·세션·child·prompt·모델이 등록과 맞지 않습니다.
+  - `effort-unobserved`: assistant 행에 `effort`가 없습니다. 이미 기록된 행은 바뀌지 않습니다.
+  - `effort-mismatch`: 관측 effort가 역할 파일의 기대값과 다릅니다. Haiku 기대 모델은 effort를 지원하지 않아 transcript를
+    읽은 뒤의 `effort-unobserved`와 이 사유를 판정하지 않고 관측값만 남깁니다.
 - 공통 intake가 모든 한국어 조사 표현을 읽기 intent로 분류하지는 않습니다. `조사해줘`·문장 끝 `조사`는 `analyze`지만
   `살펴봐줘`·`확인해줘`, `원인` 없이 쓴 `파악해줘`처럼 인식하지 않는 표현은 `unknown`으로 남습니다.
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
@@ -98,6 +123,12 @@
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
 - `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
 - `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
+- `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. Effort 변형은 Opus build에만
+  있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
+- `independent QA required for this profile`은 task 사실을 바꾸지 말고 `reviewDisposition.required:true`로 두고 review를 연결합니다.
+- `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유는 그 결과를 쓰지 않고 새 task로
+  다시 위임합니다. 수명이 지난 뒤의 `effort-unobserved`도 결과를 쓰지 않습니다. `effort-mismatch`는 역할 파일의 effort를 무시하는 설정이 있는지 먼저 확인합니다(`CLAUDE_CODE_EFFORT_LEVEL`
+  환경변수, effort 상한 설정, 역할 파일을 바꾼 뒤 재시작하지 않은 세션).
 - 요청 문장은 분석·검토처럼 intake가 인식하는 동사로 씁니다. 분류를 우회하려고 intent를 직접 조작하지 않습니다.
 - 검증 명령은 Parent(runner)가 실행하고 `pnpm claude:native review`로 packet을 만듭니다. `review --subject <taskId>`만 실행하면
   이번 회차의 `snapshotDigest`와 `logHeader`가 나옵니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고, 각 기록을
@@ -113,8 +144,9 @@
   `review`를 다시 실행하면 정산된 응답으로 다시 씁니다.
 - Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file> --session <session_id>`는 `settlement:"parent-adjudication"`을
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
-  reviewer의 `completion.json` 관측(valid·모델·변경 경로)과 finding 재현으로 판정하고, `finalSnapshot`의 digest가 review
-  `logHeader`의 digest와 같은지 확인합니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
+  reviewer의 `settle --task` 출력에서 `observationErrors`가 비었는지(effort 사유 포함)와 모델·변경 경로, finding 재현으로
+  판정하고, `finalSnapshot`의 digest가 review `logHeader`의 digest와 같은지 확인합니다. `completion.json`의 `valid`만으로는
+  판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
@@ -126,14 +158,17 @@
 ## 검증
 
 ```bash
-node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-task-helper.test.mjs scripts/ci/cross-model-handoff-contract.test.mjs
+node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-task-helper.test.mjs scripts/ci/claude-subagent-model-routing.test.mjs scripts/ci/cross-model-handoff-contract.test.mjs
 ```
 
 `registration names the concrete policy reason`과 `claude-native-task-helper.test.mjs`의 prepare·review·Parent-authored 테스트가
 등록 사유 표시, runner 기록 형식, `parent-adjudication` 경로를 고정하고, `a helper-built review cannot add, drop or change
 runner records`가 runner 기록 결속을 고정합니다.
 `read-only reviewer cites runner-owned checks`, `reviewer registration rejects the reviewer as runner`,
-`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Read-only subject와 RED 기록은
+`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Effort·QA 규칙은
+`high-risk builds require the xhigh executor`, `extract QA exemption keeps the low, bounded, resolved range`,
+`registration binds the role effort`, `foreground effort matches, mismatches or stays unobserved`,
+`a foreground transcript written after PostToolUse is pending`, `a Parent-judged reviewer whose effort differs` 테스트가 고정합니다. Read-only subject와 RED 기록은
 `a read-only subject is reviewed from its bound response`, `a changed response artifact is refused`,
 `other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
 테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,

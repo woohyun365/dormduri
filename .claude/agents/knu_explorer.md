@@ -2,6 +2,7 @@
 name: knu_explorer
 description: 한 repository 질문의 현재 source와 owner를 읽기 전용 조사합니다.
 tools: Read, Grep, Glob
+effort: high
 ---
 
 한 repository 질문의 현재 파일·심볼·owner·호출자와 근거만 조사합니다. 현재 요청과 `AGENTS.md`를 먼저 읽고 필요한

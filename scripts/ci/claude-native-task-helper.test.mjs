@@ -11,7 +11,12 @@ import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { fixture } from './fixtures/claude-native-session-fixture.mjs';
+import {
+  ROLE_EFFORT,
+  fixture,
+  writeChildTranscript,
+  writeRole,
+} from './fixtures/claude-native-session-fixture.mjs';
 import {
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,
@@ -43,14 +48,19 @@ const SENTINEL = 'BUILDER-REASONING-SENTINEL';
 function repo(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
-  writeFileSync(
-    join(f.root, '.claude/agents/knu_executor.md'),
-    '---\nname: knu_executor\ntools: Read, Grep, Glob, Edit, Write, Bash\n---\nImplement bounded work.\n',
+  writeRole(
+    f.root,
+    'knu_executor',
+    'Read, Grep, Glob, Edit, Write, Bash',
+    'Implement bounded work.',
   );
-  writeFileSync(
-    join(f.root, '.claude/agents/knu_reviewer.md'),
-    '---\nname: knu_reviewer\ntools: Read, Grep, Glob\n---\nReview only.\n',
+  writeRole(
+    f.root,
+    'knu_executor_xhigh',
+    'Read, Grep, Glob, Edit, Write, Bash',
+    'Implement bounded work.',
   );
+  writeRole(f.root, 'knu_reviewer', 'Read, Grep, Glob', 'Review only.');
   execFileSync('git', ['add', '.'], { cwd: f.root });
   return { root: realpathSync(f.root), sessionId: randomUUID() };
 }
@@ -116,7 +126,7 @@ function builderSpec(r) {
     prompt: 'Update sample.txt only.',
   };
 }
-function dispatch(r, prepared, toolUseId, response) {
+function dispatch(r, prepared, toolUseId, response, effort) {
   const event = {
     hook_event_name: 'PreToolUse',
     session_id: r.sessionId,
@@ -128,13 +138,21 @@ function dispatch(r, prepared, toolUseId, response) {
   };
   assert.deepEqual(handleClaudeNativeSessionEvent(event, { root: r.root }), {});
   if (response === undefined) return;
+  const agentId = `${toolUseId}-agent`;
   handleClaudeNativeSessionEvent(
     {
       ...event,
       hook_event_name: 'PostToolUse',
+      transcript_path: writeChildTranscript(r.root, {
+        sessionId: r.sessionId,
+        agentId,
+        prompt: prepared.invocation.prompt,
+        model: prepared.registerInput.expectedResolvedModel,
+        effort: effort ?? ROLE_EFFORT[prepared.invocation.subagent_type],
+      }),
       tool_response: {
         status: 'completed',
-        agentId: `${toolUseId}-agent`,
+        agentId,
         resolvedModel: prepared.registerInput.expectedResolvedModel,
         content: [{ type: 'text', text: response }],
       },
@@ -156,6 +174,13 @@ function settledBuilder(t) {
       tool_name: 'Agent',
       tool_use_id: 'build-1',
       tool_input: subject.invocation,
+      transcript_path: writeChildTranscript(r.root, {
+        sessionId: r.sessionId,
+        agentId: 'build-agent',
+        prompt: subject.invocation.prompt,
+        model: 'claude-sonnet-5',
+        effort: 'high',
+      }),
       tool_response: {
         status: 'completed',
         agentId: 'build-agent',
@@ -704,7 +729,7 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
   dispatch(r, reviewer, 'review-1', JSON.stringify(result));
   const completion = JSON.parse(readFileSync(join(reviewer.evidenceDirectory, 'completion.json')));
   assert.equal(completion.valid, true, completion.errors.join());
-  // The Parent judges this reviewer's completion.json, so settle offers no judgment template.
+  // The Parent judges this reviewer from settle's observation, so settle offers no judgment template.
   const settleStatus = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
   assert.equal(settleStatus.judgmentTemplatePath, null);
   assert.ok(!existsSync(templateOf(reviewer)));
@@ -722,7 +747,8 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
         { responseDigest: completion.responseDigest, acceptance: [], checks: ['read'] },
         { root: r.root },
       ),
-    /parent-adjudication/,
+    // The refusal points the Lead at settle's observation errors, not at completion.json validity.
+    /parent-adjudication: .*settle --task observation \(observationErrors empty\)/u,
   );
   assert.ok(!existsSync(join(reviewer.evidenceDirectory, 'review-receipt.json')));
 });
@@ -1197,4 +1223,55 @@ test('prepare returns a short agent input that names the registered task', (t) =
   });
   assert.ok(prompt.endsWith(`\n\n${prepared.agentInput.prompt}`));
   assert.equal(prepared.dispatchAuthorized, false);
+});
+
+test('prepare accepts the xhigh executor for a high-risk Opus build', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    {
+      ...builderSpec(r),
+      role: 'knu_executor_xhigh',
+      profileId: 'complex-critical',
+      impactRisk: 'high',
+      complexity: 'complex',
+      expectedResolvedModel: 'claude-opus-5-5',
+    },
+    { root: r.root },
+  );
+  assert.equal(prepared.invocation.subagent_type, 'knu_executor_xhigh');
+  assert.equal(prepared.invocation.model, 'opus');
+});
+
+test('a Parent-judged reviewer whose effort differs fails settle although completion.json is valid', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const parentSubject = {
+    request: 'sample.txt 변경을 구현해줘.',
+    owner: 'parent',
+    acceptance: ['sample.txt updated'],
+    paths: ['sample.txt'],
+  };
+  const { snapshotDigest } = buildClaudeNativeReview({ parentSubject }, { root: r.root });
+  const review = buildClaudeNativeReview(
+    {
+      parentSubject,
+      runnerEvidence: { ...runnerEvidence(snapshotDigest), runner: 'lead-runner' },
+      selectionBasisRef: 'plan:helper-test/parent-review',
+      reviewerModel: 'claude-opus-4-6',
+      sessionId: r.sessionId,
+    },
+    { root: r.root },
+  );
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const result = structuredClone(review.resultTemplate);
+  result.verdict = 'PASS';
+  dispatch(r, reviewer, 'review-1', JSON.stringify(result), 'high');
+  const completion = JSON.parse(readFileSync(join(reviewer.evidenceDirectory, 'completion.json')));
+  assert.equal(completion.valid, true, completion.errors.join());
+  const run = spawnSync(process.execPath, [cliPath, 'settle', '--task', reviewer.taskId], {
+    cwd: r.root,
+    encoding: 'utf8',
+  });
+  assert.equal(run.status, 1, run.stderr);
+  assert.ok(JSON.parse(run.stdout).observationErrors.includes('effort-mismatch'));
 });

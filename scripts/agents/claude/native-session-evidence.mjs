@@ -92,3 +92,37 @@ export function isClaudeCompletedNotification(row, { sessionId, agentId, toolUse
     (tag) => text.split(`<${tag}>`).length === 2 && text.split(`</${tag}>`).length === 2,
   );
 }
+
+// Effort on the assistant rows of a finished child transcript. A transcript still being written
+// (absent, partial last row, no assistant row yet) is pending; rows from another child, prompt or
+// model are foreign. `missing` reports an assistant row without the field, which no flush adds.
+export function readClaudeTranscriptEfforts(bytes, { sessionId, agentId, prompt, expectedModel }) {
+  if (bytes === null) return { status: 'pending' };
+  if (!Buffer.isBuffer(bytes) || bytes.length > 4 * 1024 * 1024) return { status: 'foreign' };
+  const raw = bytes.toString('utf8');
+  if (!Buffer.from(raw).equals(bytes)) return { status: 'foreign' };
+  if (!raw.endsWith('\n')) return { status: 'pending' };
+  let rows;
+  try {
+    rows = raw
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+  } catch {
+    return { status: 'foreign' };
+  }
+  const messages = rows.filter((r) => ['assistant', 'user'].includes(r?.type));
+  if (messages.some((r) => r.sessionId !== sessionId || r.agentId !== agentId))
+    return { status: 'foreign' };
+  if (messages.length && (messages[0].type !== 'user' || messages[0].message?.content !== prompt))
+    return { status: 'foreign' };
+  const assistants = messages.filter((r) => r.type === 'assistant');
+  if (!assistants.length) return { status: 'pending' };
+  if (assistants.some((r) => r.message?.model !== expectedModel)) return { status: 'foreign' };
+  const efforts = assistants.map((r) => r.effort);
+  return {
+    status: 'observed',
+    efforts: [...new Set(efforts.filter((e) => typeof e === 'string'))].sort(),
+    missing: efforts.some((e) => typeof e !== 'string'),
+  };
+}

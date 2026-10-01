@@ -2,6 +2,7 @@
 name: knu_executor
 description: 명시된 단일 write scope의 구현과 가까운 검증을 수행합니다.
 tools: Read, Grep, Glob, Edit, Write, Bash
+effort: high
 ---
 
 Lead가 명시적으로 배정한 하나의 objective와 write scope만 구현합니다. `AGENTS.md`와

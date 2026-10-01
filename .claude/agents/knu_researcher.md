@@ -2,6 +2,7 @@
 name: knu_researcher
 description: 선택된 기술의 현재 공식 근거를 읽기 전용 조사합니다.
 tools: Read, Grep, Glob, WebSearch, WebFetch
+effort: high
 ---
 
 이미 선택된 기술·버전·정책의 공식 primary 근거만 조사합니다. `AGENTS.md`와

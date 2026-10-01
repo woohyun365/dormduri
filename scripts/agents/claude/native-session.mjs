@@ -22,12 +22,15 @@ import { validateAdapterReview, validateCrossModelPacket } from '../common/index
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
 import {
   readClaudeStoppedTranscript,
+  readClaudeTranscriptEfforts,
   isClaudeCompletedNotification,
 } from './native-session-evidence.mjs';
 import { runClaudePreflight } from './session-preflight.mjs';
 
 const ownDirectory = dirname(fileURLToPath(import.meta.url));
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
+const CHILD_ID = /^[a-zA-Z0-9_-]{1,80}$/u;
+const ROLE_EFFORTS = ['medium', 'high', 'xhigh'];
 const marker = /\n\nKNU_NATIVE_TASK:([a-f0-9-]{36}):(sha256:[a-f0-9]{64})$/u;
 // The short Agent input carries only the marker line; PreToolUse injects the registered invocation.
 const shortMarker = /^KNU_NATIVE_TASK:([a-f0-9-]{36}):(sha256:[a-f0-9]{64})$/u;
@@ -325,7 +328,13 @@ export function registerClaudeNativeTask({
   const root = realpathSync(workflowInput?.root ?? process.cwd());
   const role = workflowInput?.nativeRequest?.task?.role;
   check(
-    ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer'].includes(role),
+    [
+      'knu_explorer',
+      'knu_researcher',
+      'knu_executor',
+      'knu_executor_xhigh',
+      'knu_reviewer',
+    ].includes(role),
     'unknown repository role',
   );
   const identity = localIdentity(root, role);
@@ -471,10 +480,21 @@ export function registerClaudeNativeTask({
     ?.split(',')
     .map((s) => s.trim());
   check(isDeepStrictEqual(declared, binding.allowedTools), 'project role tools mismatch');
+  // The role file fixes the child's effort; observation compares the child transcript against it.
+  const expectedEffort = /^effort: (\S+)$/mu.exec(header)?.[1];
   check(
-    binding.profileId === 'bounded-extraction' ||
-      input.reviewDisposition.required === true ||
-      Boolean(reviewBinding),
+    ROLE_EFFORTS.includes(expectedEffort),
+    `invalid-role-effort: ${role} must declare effort ${ROLE_EFFORTS.join('|')}`,
+  );
+  // Extraction skips independent QA only in the low-risk, bounded, resolved range, on any profile:
+  // its required facts already demand a fixed input, one step and an independent check.
+  const boundedExtraction =
+    binding.taskKind === 'extract' &&
+    binding.impactRisk === 'low' &&
+    binding.complexity === 'bounded' &&
+    binding.uncertainty === 'resolved';
+  check(
+    boundedExtraction || input.reviewDisposition.required === true || Boolean(reviewBinding),
     'independent QA required for this profile',
   );
   const taskId = randomUUID();
@@ -486,6 +506,7 @@ export function registerClaudeNativeTask({
     input,
     prompt,
     expectedResolvedModel,
+    expectedEffort,
     bindingDigest: binding.bindingDigest,
     requestDigest: workflow.requestDigest,
     requestSummary: workflow.envelope.requestSummary,
@@ -593,7 +614,68 @@ function currentObservation(task) {
     errors.push('adapter/role/settings drift');
   if (!isDeepStrictEqual(baseline(record.root), observation.finalSnapshot))
     errors.push('post-completion-source-drift');
-  return { observation, actualPaths, errors: [...new Set(errors)] };
+  const effort = effortObservation(task, observation);
+  errors.push(...effort.errors);
+  return {
+    observation,
+    actualPaths,
+    errors: [...new Set(errors)],
+    observedEfforts: effort.observedEfforts,
+  };
+}
+// The settled background transcript, or the location a foreground completion recorded.
+function childTranscriptOf(dir, observation) {
+  if (observation.completionSource !== 'SubagentStop+task-notification+transcript')
+    return observation.childTranscriptPath ?? null;
+  try {
+    return jsonFile(join(dir, 'transcript-proof.json')).path;
+  } catch {
+    return null;
+  }
+}
+// Judged on every observation, so a transcript the host writes after completion is still read.
+// Pending turns into unobserved once the task lifetime ends; Haiku has no effort to compare.
+function effortObservation({ dir, record, invocation }, observation) {
+  if (!observation.valid) return { errors: [], observedEfforts: [] };
+  const agentId = observation.agentId;
+  const path = childTranscriptOf(dir, observation);
+  let read;
+  if (path === null) read = { status: 'pending' };
+  else if (
+    typeof path !== 'string' ||
+    !path.endsWith(`/${record.sessionId}/subagents/agent-${agentId}.jsonl`)
+  )
+    read = { status: 'foreign' };
+  else if (!existsSync(path)) read = { status: 'pending' };
+  else {
+    try {
+      const stat = lstatSync(path);
+      check(
+        realpathSync(path) === path && stat.isFile() && stat.size <= 4 * 1024 * 1024,
+        'child transcript path/size',
+      );
+      read = readClaudeTranscriptEfforts(readFileSync(path), {
+        sessionId: record.sessionId,
+        agentId,
+        prompt: invocation.prompt,
+        expectedModel: record.expectedResolvedModel,
+      });
+    } catch {
+      read = { status: 'foreign' };
+    }
+  }
+  const observedEfforts = read.efforts ?? [];
+  if (read.status === 'foreign') return { errors: ['effort-transcript-foreign'], observedEfforts };
+  if (read.status === 'pending') {
+    const ended = Date.now() > Date.parse(record.input.nativeRequest.expiresAt);
+    return { errors: [ended ? 'effort-unobserved' : 'effort-transcript-pending'], observedEfforts };
+  }
+  if (record.expectedResolvedModel.startsWith('claude-haiku-'))
+    return { errors: [], observedEfforts };
+  if (read.missing) return { errors: ['effort-unobserved'], observedEfforts };
+  if (!isDeepStrictEqual(observedEfforts, [record.expectedEffort]))
+    return { errors: ['effort-mismatch'], observedEfforts };
+  return { errors: [], observedEfforts };
 }
 function associated(event, task, expectedInput = task.invocation) {
   const { record, invocation } = task;
@@ -612,10 +694,12 @@ function associated(event, task, expectedInput = task.invocation) {
     'adapter/role/settings drift',
   );
 }
-function saveCompletion(task, attempt, r, completionSource) {
+function saveCompletion(task, attempt, r, completionSource, childTranscriptPath = null) {
   const { dir, record, invocation } = task,
     root = record.root;
   const errors = responseErrors(record, r);
+  if (r?.status === 'completed' && !CHILD_ID.test(r.agentId ?? ''))
+    errors.push('invalid-child-identity');
   if (r?.agentType !== undefined && r.agentType !== invocation.subagent_type)
     errors.push('role-mismatch');
   if (r?.prompt !== undefined && r.prompt !== invocation.prompt) errors.push('prompt-mismatch');
@@ -641,6 +725,7 @@ function saveCompletion(task, attempt, r, completionSource) {
     resolvedModel: r?.resolvedModel ?? null,
     responseDigest: hash(r ?? null),
     content: r?.content ?? null,
+    childTranscriptPath,
     finalSnapshot: baseline(root),
     verificationClass: 'local-hook-observation-not-authentication',
   };
@@ -880,7 +965,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     return {
       hookSpecificOutput: {
         hookEventName: 'SessionStart',
-        additionalContext: `KNU native session_id=${event.session_id}. Start with claude --permission-mode auto. For repository knu_* delegation read docs/development/agent-workflows/adapters/claude-code.md; register a bounded task with pnpm claude:native prepare --spec <JSON file>, then call Agent with the returned agentInput (the hook injects the registered prompt). Registration is not permission approval. Existing OMC roles keep their own policy; do not substitute them for a required KNU role. Missing/error hook is not fail-closed; verify completion receipts and semantic QA.`,
+        additionalContext: `KNU native session_id=${event.session_id}. Start with claude --permission-mode auto. For repository knu_* delegation use /knu-delegate, /knu-review and /knu-settle, and read docs/development/agent-workflows/adapters/claude-code.md; the skills register a bounded task with pnpm claude:native prepare --spec <JSON file>, then call Agent with the returned agentInput (the hook injects the registered prompt). Registration is not permission approval. Existing OMC roles keep their own policy; do not substitute them for a required KNU role. Missing/error hook is not fail-closed; verify completion receipts and semantic QA.`,
       },
     };
   }
@@ -982,7 +1067,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     terminalObserved = event.hook_event_name === 'PostToolUseFailure' || r?.status === 'completed';
     if (r?.status === 'async_launched') {
       check(
-        typeof r.agentId === 'string' && /^[a-zA-Z0-9_-]{1,80}$/u.test(r.agentId),
+        typeof r.agentId === 'string' && CHILD_ID.test(r.agentId),
         'missing async child identity',
       );
       check(
@@ -1003,13 +1088,27 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
       if (existsSync(pending)) stopped(jsonFile(pending), root);
       return {}; // Native auto dispatch is asynchronous; this is not completion.
     }
-    const observation = saveCompletion(task, attempt, r, event.hook_event_name);
+    // A foreground child's transcript sits beside the parent's; only its location is recorded here,
+    // since the host may still be writing it. Observation reads it at settle/complete.
+    const childTranscript =
+      r?.status === 'completed' &&
+      CHILD_ID.test(r.agentId ?? '') &&
+      typeof event.transcript_path === 'string' &&
+      isAbsolute(event.transcript_path)
+        ? join(
+            dirname(event.transcript_path),
+            record.sessionId,
+            'subagents',
+            `agent-${r.agentId}.jsonl`,
+          )
+        : null;
+    const observation = saveCompletion(task, attempt, r, event.hook_event_name, childTranscript);
     const errors = observation.errors;
     if (terminalObserved) releaseWriter(root, record.taskId);
     return {
       hookSpecificOutput: {
         hookEventName: event.hook_event_name,
-        additionalContext: `KNU task ${record.taskId}: ${observation.valid ? 'model observed; semantic acceptance and QA still required' : 'NOT COMPLETE: ' + errors.join(',')}. Evidence ${dir}/completion.json. Complete with pnpm claude:native complete --task ${record.taskId} --input <result JSON>.`,
+        additionalContext: `KNU task ${record.taskId}: ${observation.valid ? 'child completed; effort, semantic acceptance and QA are judged at settle' : 'NOT COMPLETE: ' + errors.join(',')}. Evidence ${dir}/completion.json. Complete with pnpm claude:native complete --task ${record.taskId} --input <result JSON>.`,
       },
     };
   } catch (error) {
@@ -1210,6 +1309,7 @@ export function completeClaudeNativeTask(
           reviewerResponseDigest: observation.responseDigest,
           reviewerFinalSnapshot: observation.finalSnapshot,
           reviewerResolvedModel: observation.resolvedModel,
+          reviewerObservedEfforts: currentState.observedEfforts,
           reviewerId: record.independentReview.reviewerId,
           builderIds: record.independentReview.builderIds,
           packet: record.independentReview.packet,
@@ -1383,6 +1483,7 @@ export function completeClaudeNativeTask(
     valid: errors.length === 0,
     errors,
     observation,
+    observedEfforts: currentState.observedEfforts,
     common,
     verificationClass: 'local-evidence-and-static-contract',
     dispatchAuthorized: false,
@@ -1401,6 +1502,7 @@ export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
     record: task.record,
     observation: state.observation,
     changedPaths: state.actualPaths,
+    observedEfforts: state.observedEfforts,
     errors: [...state.errors, ...settlement],
     evidenceDirectory: task.dir,
   };
@@ -1488,7 +1590,8 @@ async function main(args) {
   if (['prepare', 'review', 'settle'].includes(args[0])) {
     const result = await helperCommand(args[0], args.slice(1));
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-    if (result.valid === false) process.exitCode = 1;
+    // A settle status with observation errors (effort included) is not an acceptable observation.
+    if (result.valid === false || result.observationErrors?.length) process.exitCode = 1;
     return;
   }
   if (args[0] === '--hook' && args[1] === '--file-guard' && args.length === 2) {
