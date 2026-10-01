@@ -52,9 +52,9 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 증상: 비동기 child(예: `knu_reviewer`)의 hand-back 메시지가 Lead에게 먼저 오고, Lead가 "알림을 기다린다"는 text만 남기고 turn을
 끝냅니다. 그 뒤 완료 알림이 새 turn을 시작하지 않아 정산이 멈춘 것처럼 보이고, 알림은 사용자의 다음 입력과 함께 옵니다.
 
-원인(관측, CLI 2.1.286, 2026-10-01 한 세션 6회): hand-back과 완료 알림은 약 0.5초 간격으로 대기열에 들어옵니다. Hand-back turn을
-text로만 끝낸 3회는 알림이 다음 사용자 입력에 붙어 왔고, 그 turn에서 tool을 호출한 3회는 알림이 tool 결과에 붙어 같은 turn에
-왔습니다. 저장소 hook은 완료를 기록할 뿐 Lead turn을 시작하지 않습니다. 하네스 전달 방식의 공식 설명은 찾지 못했습니다(추론).
+원인(관측, CLI 2.1.286, 2026-10-01 한 세션 7회): Hand-back turn에서 tool을 호출한 4회는 hand-back 약 0.5초 뒤 알림이 tool 결과에
+붙어 같은 turn에 왔습니다. Text로만 끝낸 3회는 알림 행이 4~6초 뒤 transcript에 기록됐지만 Lead turn을 시작하지 않았고, Lead는
+다음 사용자 입력 뒤에야 알림을 보고 이어 갔습니다. 저장소 hook은 완료를 기록할 뿐 Lead turn을 시작하지 않습니다. 하네스 전달 방식의 공식 설명은 찾지 못했습니다(추론).
 
 해결:
 

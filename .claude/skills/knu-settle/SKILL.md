@@ -1,6 +1,6 @@
 ---
 name: knu-settle
-description: 이 저장소에서 KNU native task의 완료 알림(task-notification completed)을 받은 뒤 관측을 정산하고 판정할 때의 절차입니다.
+description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완료 알림 task-notification completed 뒤, foreground는 Agent 결과 뒤) 관측을 정산하고 판정할 때의 절차입니다.
 ---
 
 # KNU native 정산
