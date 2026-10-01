@@ -8,7 +8,12 @@ import test from 'node:test';
 import { buildTaskEnvelope } from '../agents/common/index.mjs';
 import { evaluateClaudeProfileEligibility } from '../agents/claude/model-policy.mjs';
 import { prepareClaudeNativeTask } from '../agents/claude/native-task-helper.mjs';
-import { fixture } from './fixtures/claude-native-session-fixture.mjs';
+import { handleClaudeNativeSessionEvent } from '../agents/claude/native-session.mjs';
+import {
+  ROLE_EFFORT,
+  fixture,
+  writeChildTranscript,
+} from './fixtures/claude-native-session-fixture.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -245,4 +250,93 @@ test('CLAUDE.md points to the skills instead of low-level registration', () => {
   const entry = read('CLAUDE.md');
   assert.doesNotMatch(entry, /register --input/u);
   assert.match(entry, /\/knu-delegate/u);
+});
+
+// The recovery example is the second json block: fields merged onto the delegate template.
+test('the delegate recovery example binds a retry to a ran, unaccepted first task', (t) => {
+  const blocks = [...skill('knu-delegate').matchAll(/```json\n([\s\S]*?)\n```/gu)].map((m) => m[1]);
+  assert.equal(blocks.length, 2, 'knu-delegate needs the template and a recovery example');
+  const sessionId = randomUUID();
+  const template = JSON.parse(blocks[0].replaceAll('${CLAUDE_SESSION_ID}', sessionId));
+  const example = JSON.parse(blocks[1]);
+  const helper = read('scripts/agents/claude/native-task-helper.mjs');
+  const allowed = new Set([
+    ...sourceArray(helper, 'SPEC_REQUIRED'),
+    ...sourceArray(helper, 'SPEC_OPTIONAL'),
+  ]);
+  assert.ok(allowed.has('recovery'), 'recovery is a helper spec field');
+  assert.deepEqual(
+    Object.keys(example).filter((key) => !allowed.has(key)),
+    [],
+  );
+  assert.deepEqual(Object.keys(example.recovery).sort(), ['cause', 'of']);
+
+  const f = fixture(t);
+  writeFileSync(join(f.root, 'package.json'), '{ "packageManager": "pnpm@0.0.0" }\n');
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  execFileSync('git', ['add', '.'], { cwd: f.root });
+  const repo = realpathSync(f.root);
+  const first = prepareClaudeNativeTask(structuredClone(template), { root: repo });
+  const event = {
+    hook_event_name: 'PreToolUse',
+    session_id: sessionId,
+    cwd: repo,
+    permission_mode: 'auto',
+    tool_name: 'Agent',
+    tool_use_id: 'first-1',
+    tool_input: first.invocation,
+  };
+  assert.deepEqual(handleClaudeNativeSessionEvent(event, { root: repo }), {});
+  const model = first.registerInput.expectedResolvedModel;
+  handleClaudeNativeSessionEvent(
+    {
+      ...event,
+      hook_event_name: 'PostToolUse',
+      transcript_path: writeChildTranscript(repo, {
+        sessionId,
+        agentId: 'first-1-agent',
+        prompt: first.invocation.prompt,
+        model,
+        effort: ROLE_EFFORT[first.invocation.subagent_type],
+      }),
+      tool_response: {
+        status: 'completed',
+        agentId: 'first-1-agent',
+        resolvedModel: model,
+        content: [{ type: 'text', text: 'partial answer' }],
+      },
+    },
+    { root: repo },
+  );
+  const retry = { ...template, ...example, recovery: { ...example.recovery, of: first.taskId } };
+  assert.ok(prepareClaudeNativeTask(retry, { root: repo }).taskId);
+});
+
+test('settle, registry and qualification documents carry the E2 recovery and pilot rules', () => {
+  const settle = skill('knu-settle');
+  assert.match(settle, /`parent-adjudication` reviewer:[^\n]*\n?[^\n]*`observationErrors`/u);
+  assert.ok(!settle.includes('`completion.json`의 관측(valid'), 'old settle basis remains');
+  const registry = read('docs/development/agent-workflows/adapters/claude-native-registry.md');
+  assert.match(registry, /선택 필드는[^\n]*`recovery`/u);
+  for (const reason of [
+    'recovery-cause',
+    'recovery-not-bound',
+    'recovery-chain',
+    'recovery-step',
+    'recovery-not-ran',
+    'recovery-accepted',
+    'recovery-used',
+  ])
+    assert.ok(registry.includes(`\`${reason}\``), `registry names ${reason}`);
+  for (const file of ['accepted.json', 'recovery.json'])
+    assert.ok(registry.includes(`\`${file}\``), `registry names ${file}`);
+  const start = 'claude --permission-mode auto --model opus --effort high';
+  for (const path of [
+    'docs/development/agent-workflows/adapters/claude-qualification.md',
+    'docs/development/troubleshooting/tooling/claude-live-session-from-claude-session.md',
+  ]) {
+    const text = read(path);
+    assert.ok(text.includes(start), `${path}: pilot start command`);
+    assert.ok(text.includes('`/effort`'), `${path}: /effort rule`);
+  }
 });

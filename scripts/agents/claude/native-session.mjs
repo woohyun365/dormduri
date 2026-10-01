@@ -20,6 +20,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../common/index.mjs';
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
+import { claudeRecoveryStep } from './model-policy.mjs';
 import {
   readClaudeStoppedTranscript,
   readClaudeTranscriptEfforts,
@@ -306,12 +307,102 @@ function baseline(root) {
   };
 }
 
+// A bound retry keeps these task facts of its first task; only the prompt may add failure evidence.
+function recoveryFacts(input) {
+  const task = input?.nativeRequest?.task ?? {};
+  return {
+    request: input?.request,
+    kind: task.kind,
+    impactRisk: task.impactRisk,
+    complexity: task.complexity,
+    uncertainty: task.uncertainty,
+    childValue: task.childValue,
+    owner: input?.directAssignment?.owner,
+    readScope: task.readScope,
+    writeScope: task.writeScope,
+    acceptance: input?.directAssignment?.acceptance,
+    reviewDisposition: input?.reviewDisposition,
+    facts: task.facts,
+  };
+}
+const RECOVERY_CAUSES = ['result-error', 'omission', 'context-missing'];
+// One bound retry per session and fact set. The marker is created exclusively, so a duplicate first
+// task with the same facts shares the same retry.
+function recoveryMarkerPath(root, sessionId, facts) {
+  const dir = resolveArtifactPath(root, ['claude-native', 'recovery', sessionId], {});
+  return { dir, path: join(dir, `${hash(facts).slice(7)}.json`) };
+}
+// Read-only. Reasons come in a fixed order so each can be seen on its own; nothing is written here.
+function bindRecovery(root, sessionId, workflowInput, recovery) {
+  exact(recovery, ['of', 'cause'], 'recovery-format');
+  check(typeof recovery.of === 'string' && uuid.test(recovery.of), 'recovery-format');
+  check(RECOVERY_CAUSES.includes(recovery.cause), `recovery-cause: ${recovery.cause}`);
+  let first;
+  try {
+    first = loadTask(root, recovery.of);
+  } catch {
+    throw new TypeError('recovery-not-bound: first task not found');
+  }
+  const { dir, record } = first;
+  const facts = recoveryFacts(workflowInput);
+  check(record.sessionId === sessionId, 'recovery-not-bound: first task is from another session');
+  check(
+    isDeepStrictEqual(recoveryFacts(record.input), facts),
+    'recovery-not-bound: task facts differ from the first task',
+  );
+  const firstTask = record.input.nativeRequest.task;
+  check(firstTask.recovery === undefined, 'recovery-chain: the first task is itself a retry');
+  const from = {
+    profileId: record.input.nativeRequest.profileId,
+    role: firstTask.role,
+    kind: firstTask.kind,
+  };
+  const step = claudeRecoveryStep(from, {
+    profileId: workflowInput?.nativeRequest?.profileId,
+    role: workflowInput?.nativeRequest?.task?.role,
+    kind: workflowInput?.nativeRequest?.task?.kind,
+  });
+  check(
+    recovery.cause === 'context-missing' ? step === 0 : step === 1 || step === 2,
+    `recovery-step: ${recovery.cause} cannot move from ${from.profileId}/${from.role} to this task`,
+  );
+  // A superseded first task is the result of its used retry, so that case is reported as used.
+  const superseded = existsSync(join(dir, 'recovery.json'));
+  const state = currentObservation(first);
+  const errors = state.errors.filter((e) => !(superseded && e === 'observation-error'));
+  check(
+    existsSync(join(dir, 'attempt.json')) &&
+      state.observation.valid === true &&
+      errors.length === 0 &&
+      (record.expectedResolvedModel.startsWith('claude-haiku-') ||
+        isDeepStrictEqual(state.observedEfforts, [record.expectedEffort])),
+    `recovery-not-ran: the first task must have run and be observed valid with its effort (${errors.join(',') || 'invalid observation'})`,
+  );
+  check(!existsSync(join(dir, 'accepted.json')), 'recovery-accepted: the first task was accepted');
+  const marker = recoveryMarkerPath(root, sessionId, facts);
+  check(
+    !superseded && !existsSync(marker.path),
+    'recovery-used: this work item already used its one bound retry',
+  );
+  return {
+    value: {
+      of: recovery.of,
+      cause: recovery.cause,
+      step,
+      fromProfileId: from.profileId,
+      fromRole: from.role,
+    },
+    firstDirectory: dir,
+    marker,
+  };
+}
 export function registerClaudeNativeTask({
   workflowInput,
   sessionId,
   prompt,
   expectedResolvedModel,
   independentReview,
+  recovery,
 } = {}) {
   check(uuid.test(sessionId), 'current SessionStart session_id required');
   check(
@@ -337,6 +428,21 @@ export function registerClaudeNativeTask({
     ].includes(role),
     'unknown repository role',
   );
+  const bound =
+    recovery === undefined ? null : bindRecovery(root, sessionId, workflowInput, recovery);
+  const given = workflowInput?.nativeRequest?.task?.recovery;
+  check(
+    given === undefined || (bound !== null && isDeepStrictEqual(given, bound.value)),
+    'recovery-unregistered: only the registry writes task.recovery',
+  );
+  if (bound !== null)
+    workflowInput = {
+      ...workflowInput,
+      nativeRequest: {
+        ...workflowInput.nativeRequest,
+        task: { ...workflowInput.nativeRequest.task, recovery: bound.value },
+      },
+    };
   const identity = localIdentity(root, role);
   const input = {
     ...workflowInput,
@@ -520,12 +626,32 @@ export function registerClaudeNativeTask({
     model: binding.requestedModelAlias,
     prompt: registeredPrompt(record, digest),
   };
+  // Every other check has passed: claim the work item's retry, point the first task at this one,
+  // then supersede the first task so it can no longer complete.
+  if (bound !== null) {
+    ensureLocalDirectory(root, bound.marker.dir);
+    try {
+      writeFileSync(bound.marker.path, JSON.stringify({ of: bound.value.of, taskId }), {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (error.code === 'EEXIST')
+        throw new TypeError('recovery-used: this work item already used its one bound retry');
+      throw error;
+    }
+    writeFileSync(join(bound.firstDirectory, 'recovery.json'), JSON.stringify({ taskId }), {
+      flag: 'wx',
+      mode: 0o600,
+    });
+  }
   const dir = taskDirectory(root, taskId);
   ensureLocalDirectory(root, dir);
   writeFileSync(join(dir, 'task.json'), JSON.stringify({ record, invocation }), {
     flag: 'wx',
     mode: 0o600,
   });
+  if (bound !== null) markInvalid(bound.firstDirectory, 'superseded-by-recovery');
   return {
     taskId,
     invocation,
@@ -1030,6 +1156,16 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
         'input file drift',
       );
       check(!existsSync(join(dir, 'attempt.json')), 'task already attempted');
+      const bound = record.input.nativeRequest.task.recovery;
+      if (bound !== undefined) {
+        let pointer = null;
+        try {
+          pointer = jsonFile(join(taskDirectory(root, bound.of), 'recovery.json')).taskId;
+        } catch {
+          pointer = null;
+        }
+        check(pointer === record.taskId, 'recovery binding mismatch');
+      }
       if (b.writeScope.length) {
         writeFileSync(
           writerPath(root),
@@ -1477,6 +1613,18 @@ export function completeClaudeNativeTask(
         flag: 'wx',
         mode: 0o600,
       });
+    }
+  }
+  // A valid completion is the Parent's acceptance; a bound retry of this task is then refused.
+  if (errors.length === 0) {
+    try {
+      writeFileSync(
+        join(dir, 'accepted.json'),
+        JSON.stringify({ taskId: record.taskId, responseDigest: observation.responseDigest }),
+        { flag: 'wx', mode: 0o600 },
+      );
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
     }
   }
   return {

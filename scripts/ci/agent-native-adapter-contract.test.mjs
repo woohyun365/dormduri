@@ -319,8 +319,10 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '정산은 `complete`(또는 `settle --judgment`)와\n  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다',
       '이 규칙은 runtime 차단이 아니라 운영 규칙입니다',
       '| OMC 요청·skill',
-      '모델을 한 단계 올립니다(`sonnet`→`opus`)',
-      '중도에 멈췄다면 effort를 올립니다',
+      '재시도는 실패한 1차 task에 결속합니다',
+      '공통 원칙의 자동 사다리가 아닙니다',
+      '등록된 재시도가 실행되지 못해도 재시도 기회는 쓴 것입니다',
+      '결속 없는 같은 사실 재등록의 상한은 Lead 운영 규칙입니다',
       '결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다',
       '같은 alias가 현재 CLI 버전에서 관측된 ID',
       '조건을 맞추려고 task 사실을 바꾸지 않으며',
@@ -407,5 +409,26 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
         '표시명·예시·다른 식별자에서 유도한 값은 추론으로 표시하고 확인하지 못한 식별자는 gap으로 남깁니다',
       ),
     'researcher states identifiers as fact only with a quoted source',
+  );
+});
+
+test('Claude Recovery summarizes the bound ladder and drops the rules it replaced', () => {
+  const guide = read('docs/development/agent-workflows/adapters/claude-code.md');
+  const recovery = guide.slice(
+    guide.indexOf('## Recovery'),
+    guide.indexOf('\n## ', guide.indexOf('## Recovery') + 1),
+  );
+  for (const replaced of [
+    '올린 profile도 자기 조건을 그대로 만족해야',
+    '중도에 멈췄다면 effort를 올립니다',
+    'Context·acceptance가 부족했다면',
+  ])
+    assert.ok(!recovery.includes(replaced), `replaced Recovery rule remains: ${replaced}`);
+  for (const link of ['./claude-model-profiles.md#', './claude-native-registry.md#'])
+    assert.ok(recovery.includes(link), `Recovery links its detail: ${link}`);
+  assert.ok(recovery.includes('../orchestration.md#recovery-ceiling'));
+  assert.match(
+    read('docs/development/agent-workflows/adapters/claude-model-profiles.md'),
+    /^#{2,4} [^\n]*상향 사다리/mu,
   );
 });
