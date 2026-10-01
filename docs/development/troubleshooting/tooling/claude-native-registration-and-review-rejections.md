@@ -147,6 +147,10 @@
   reviewer의 `settle --task` 출력에서 `observationErrors`가 비었는지(effort 사유 포함)와 모델·변경 경로, finding 재현으로
   판정하고, `finalSnapshot`의 digest가 review `logHeader`의 digest와 같은지 확인합니다. `completion.json`의 `valid`만으로는
   판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
+- Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
+  읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
+  prompt에서 packet 파일 줄이 빠진 것입니다. 둘 다 결과를 쓰지 말고 파일을
+  고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.

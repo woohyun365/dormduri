@@ -29,11 +29,14 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    `logHeader`를 받습니다.
 2. 그 digest로 runner evidence를 만듭니다.
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --session ${CLAUDE_SESSION_ID}`
-4. 출력 `reviewerSpec`으로 `prepare --spec`하고 `agentInput`으로 Agent를 호출합니다.
+4. 출력 `reviewerSpec`으로 `prepare --spec`하고 `agentInput`으로 Agent를 호출합니다. Packet은 prompt에 싣지 않고
+   `.artifacts/tools/claude-review-packets/<reviewId>.json`에 씁니다. Prompt에는 `KNU_REVIEW_PACKET_FILE:<경로> <digest>` 한 줄만
+   남고 reviewer가 그 파일을 먼저 읽습니다. 출력 `packetFile`이 같은 경로와 digest입니다.
 5. 정산은 `parent-adjudication`입니다. `/knu-settle`의 reviewer 종류 구분을 따릅니다.
 
 ## 공통
 
-- Reviewer prompt는 12,000자를 넘을 수 없습니다. 넘으면 acceptance·read path·runner 기록을 줄입니다.
+- Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
+  acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.
 - Reviewer가 실행 중일 때 read 범위의 입력(계획·증거 포함)을 수정하지 않습니다.
 - 같은 subject가 연속으로 PASS가 아니면 quality stop입니다. Owner에게 다음 행동을 묻습니다.
