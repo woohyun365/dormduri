@@ -16,11 +16,17 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { fixture } from './fixtures/claude-native-session-fixture.mjs';
+import {
+  ROLE_EFFORT,
+  fixture,
+  writeChildTranscript,
+  writeRole,
+} from './fixtures/claude-native-session-fixture.mjs';
 import {
   registerClaudeNativeTask,
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,
+  observeClaudeNativeTask,
   releaseClaudeNativeTask,
 } from '../agents/claude/native-session.mjs';
 
@@ -43,13 +49,31 @@ function setup(t) {
 function handle(f, event = f.event) {
   return handleClaudeNativeSessionEvent(event, { root: f.root });
 }
-function finish(f, patch = {}) {
+// A foreground completion: the finished child's transcript sits beside the parent transcript the
+// PostToolUse event names, with the role's effort on each assistant row unless a case overrides it.
+// Each registered task gets its own child id, so two children never share a transcript path.
+const agentIdOf = (f) => `child-${f.registered.taskId.slice(0, 8)}`;
+function finish(f, patch = {}, child = {}) {
+  const agentId = patch.agentId ?? agentIdOf(f);
+  const completed = (patch.status ?? 'completed') === 'completed';
+  const transcriptPath =
+    completed && /^[a-zA-Z0-9_-]{1,80}$/u.test(agentId) && child.write !== false
+      ? writeChildTranscript(f.root, {
+          sessionId: f.event.session_id,
+          agentId,
+          prompt: f.registered.invocation.prompt,
+          model: f.options.expectedResolvedModel,
+          effort: ROLE_EFFORT[f.registered.invocation.subagent_type],
+          ...child,
+        })
+      : join(realpathSync(f.root), '.artifacts/transcripts', `${f.event.session_id}.jsonl`);
   return handle(f, {
     ...f.event,
     hook_event_name: 'PostToolUse',
+    transcript_path: transcriptPath,
     tool_response: {
       status: 'completed',
-      agentId: 'child-1',
+      agentId,
       resolvedModel: f.options.expectedResolvedModel,
       content: [{ type: 'text', text: 'oracle' }],
       ...patch,
@@ -298,14 +322,13 @@ test('registration rejects artifact ancestor symlink before writing outside repo
 function writer(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
-  writeFileSync(
-    join(f.root, '.claude/agents/knu_executor.md'),
-    '---\nname: knu_executor\ntools: Read, Grep, Glob, Edit, Write, Bash\n---\nImplement bounded work.\n',
+  writeRole(
+    f.root,
+    'knu_executor',
+    'Read, Grep, Glob, Edit, Write, Bash',
+    'Implement bounded work.',
   );
-  writeFileSync(
-    join(f.root, '.claude/agents/knu_reviewer.md'),
-    '---\nname: knu_reviewer\ntools: Read, Grep, Glob\n---\nReview only.\n',
-  );
+  writeRole(f.root, 'knu_reviewer', 'Read, Grep, Glob', 'Review only.');
   execFileSync('git', ['add', '.'], { cwd: f.root });
   delete f.input.currentSnapshot;
   f.input.request = 'sample.txt 변경을 구현해줘.';
@@ -810,7 +833,7 @@ function completedReview(t, subject, packet, verdict = 'PASS') {
   return qa;
 }
 // Settles a reviewer through SubagentStop + parent notification, as ordinary auto does.
-function asyncReview(t, subject, packet, parentRows = []) {
+function asyncReview(t, subject, packet, parentRows = [], effort = 'xhigh') {
   const qa = reviewer(t, subject, packet);
   const result = reviewResult(packet, 'unknown');
   const agentId = `review-${randomUUID().slice(0, 8)}`;
@@ -832,6 +855,7 @@ function asyncReview(t, subject, packet, parentRows = []) {
       type: 'assistant',
       sessionId: qa.event.session_id,
       agentId,
+      ...(effort === null ? {} : { effort }),
       message: {
         model: qa.options.expectedResolvedModel,
         content: [{ type: 'text', text: JSON.stringify(result) }],
@@ -862,10 +886,9 @@ function asyncReview(t, subject, packet, parentRows = []) {
   });
   const semantic = semanticResult(qa);
   semantic.reviewResult = result;
-  assert.equal(
-    completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
-    true,
-  );
+  const completed = completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root });
+  // Only a child that ran at the reviewer role's effort completes.
+  assert.equal(completed.valid, effort === 'xhigh', completed.errors.join(','));
   return qa;
 }
 
@@ -1101,7 +1124,7 @@ test('a foreground-completed reviewer cannot be resumed and its unreadable compl
   const resume = handle(settled, {
     ...settled.event,
     tool_name: 'SendMessage',
-    tool_input: { to: 'child-1', message: 'resume' },
+    tool_input: { to: agentIdOf(settled), message: 'resume' },
   });
   assert.equal(resume.hookSpecificOutput.permissionDecision, 'deny');
   // Messaging a child the registry never bound (for example an OMC child) stays untouched.
@@ -2051,6 +2074,15 @@ test('SessionStart points the Lead at prepare and the short agent input', (t) =>
   assert.match(context, /pnpm claude:native prepare --spec <JSON file>/u);
   assert.match(context, /agentInput/u);
   assert.doesNotMatch(context, /register --input/u);
+  // The skills are the routine entry; the helper command stays as their low-level form.
+  for (const skill of ['/knu-delegate', '/knu-review', '/knu-settle'])
+    assert.ok(context.includes(skill), skill);
+  for (const boundary of [
+    'Registration is not permission approval',
+    'do not substitute them for a required KNU role',
+    'Missing/error hook is not fail-closed',
+  ])
+    assert.ok(context.includes(boundary), boundary);
 });
 
 // Every PreToolUse gate refuses the short input for the same reason as the full invocation.
@@ -2449,4 +2481,259 @@ test('file guard leaves ordinary work alone', (t) => {
     guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'sample.txt')))),
     {},
   );
+});
+
+// Effort is judged when the task is observed (settle/complete), never frozen into completion.json.
+const effortErrors = (f) =>
+  observeClaudeNativeTask(f.registered.taskId, { root: f.root }).errors.filter((e) =>
+    e.startsWith('effort-'),
+  );
+const recordOf = (f) =>
+  JSON.parse(readFileSync(join(f.registered.evidenceDirectory, 'task.json'))).record;
+const childPathOf = (f, agentId = agentIdOf(f)) =>
+  join(
+    realpathSync(f.root),
+    '.artifacts/transcripts',
+    f.event.session_id,
+    'subagents',
+    `agent-${agentId}.jsonl`,
+  );
+
+test('registration binds the role effort and refuses a role without a supported one', (t) => {
+  const f = setup(t);
+  assert.equal(recordOf(f).expectedEffort, 'high');
+  for (const header of ['', 'effort: max\n', 'effort: low\n']) {
+    const g = fixture(t);
+    delete g.input.currentSnapshot;
+    writeFileSync(
+      join(g.root, '.claude/agents/knu_explorer.md'),
+      `---\nname: knu_explorer\ntools: Read, Grep, Glob\n${header}---\nRead only.\n`,
+    );
+    assert.throws(
+      () =>
+        registerClaudeNativeTask({ ...g.options, workflowInput: g.input, sessionId: randomUUID() }),
+      /invalid-role-effort/u,
+      header || 'missing effort',
+    );
+  }
+});
+
+test('foreground effort matches, mismatches or stays unobserved at observation time', (t) => {
+  for (const [effort, expected] of [
+    ['high', []],
+    ['xhigh', ['effort-mismatch']],
+    [undefined, ['effort-unobserved']],
+  ]) {
+    const f = writer(t);
+    handle(f);
+    writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+    finish(f, {}, { effort });
+    const completion = JSON.parse(
+      readFileSync(join(f.registered.evidenceDirectory, 'completion.json')),
+    );
+    assert.equal(completion.valid, true, 'completion.json carries no effort verdict');
+    assert.deepEqual(effortErrors(f), expected, String(effort));
+    const observed = observeClaudeNativeTask(f.registered.taskId, { root: f.root });
+    assert.deepEqual(observed.observedEfforts, effort ? [effort] : [], String(effort));
+  }
+});
+
+test('a foreground transcript written after PostToolUse is pending, then judged', (t) => {
+  const f = writer(t);
+  handle(f);
+  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+  finish(f, {}, { write: false });
+  assert.ok(existsSync(join(f.registered.evidenceDirectory, 'completion.json')));
+  assert.deepEqual(effortErrors(f), ['effort-transcript-pending']);
+  // While pending the child stays bound: resuming it needs a new registration.
+  const resume = handle(f, {
+    ...f.event,
+    tool_name: 'SendMessage',
+    tool_input: { to: agentIdOf(f), message: 'continue' },
+  });
+  assert.equal(resume.hookSpecificOutput?.permissionDecision, 'deny');
+  // A partial last row is still being written.
+  mkdirSync(join(childPathOf(f), '..'), { recursive: true });
+  writeFileSync(
+    childPathOf(f),
+    `${JSON.stringify({ type: 'user', sessionId: f.event.session_id, agentId: agentIdOf(f), message: { content: f.registered.invocation.prompt } })}\n{"type":"assis`,
+  );
+  assert.deepEqual(effortErrors(f), ['effort-transcript-pending']);
+  // A Parent edit while effort is still pending is drift: completion already fixed the files.
+  writeFileSync(join(f.root, 'sample.txt'), 'parent edit while pending');
+  assert.ok(
+    observeClaudeNativeTask(f.registered.taskId, { root: f.root }).errors.includes(
+      'post-completion-file-drift',
+    ),
+  );
+  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+  writeChildTranscript(f.root, {
+    sessionId: f.event.session_id,
+    agentId: agentIdOf(f),
+    prompt: f.registered.invocation.prompt,
+    model: f.options.expectedResolvedModel,
+    effort: 'high',
+  });
+  assert.deepEqual(effortErrors(f), []);
+  // A Parent edit after completion is drift whether or not effort was settled yet.
+  writeFileSync(join(f.root, 'sample.txt'), 'parent edit');
+  assert.ok(
+    observeClaudeNativeTask(f.registered.taskId, { root: f.root }).errors.includes(
+      'post-completion-file-drift',
+    ),
+  );
+});
+
+test('a foreground transcript that never appears is unobserved once the task lifetime ends', (t) => {
+  const f = writer(t);
+  handle(f);
+  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+  finish(f, {}, { write: false });
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() + 10 * 60 * 1000 });
+  assert.deepEqual(effortErrors(f), ['effort-unobserved']);
+});
+
+test('an expired Haiku task without a transcript is unobserved as well', (t) => {
+  const f = setup(t);
+  handle(f);
+  finish(f, {}, { write: false });
+  assert.deepEqual(effortErrors(f), ['effort-transcript-pending']);
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() + 10 * 60 * 1000 });
+  assert.deepEqual(effortErrors(f), ['effort-unobserved']);
+});
+
+test('foreground child identity is checked before its transcript is trusted', (t) => {
+  const bad = writer(t);
+  handle(bad);
+  finish(bad, { agentId: '../x' });
+  const completion = JSON.parse(
+    readFileSync(join(bad.registered.evidenceDirectory, 'completion.json')),
+  );
+  assert.equal(completion.valid, false);
+  assert.ok(completion.errors.includes('invalid-child-identity'), completion.errors.join());
+
+  const foreign = writer(t);
+  handle(foreign);
+  writeFileSync(join(foreign.root, 'sample.txt'), 'allowed output');
+  finish(foreign);
+  const rows = readFileSync(childPathOf(foreign), 'utf8').replaceAll(
+    `"agentId":"${agentIdOf(foreign)}"`,
+    '"agentId":"other-child"',
+  );
+  writeFileSync(childPathOf(foreign), rows);
+  assert.deepEqual(effortErrors(foreign), ['effort-transcript-foreign']);
+});
+
+test('Haiku is not held to an effort it does not support, but its transcript identity still is', (t) => {
+  const f = setup(t);
+  handle(f);
+  finish(f, {}, { effort: undefined });
+  assert.deepEqual(effortErrors(f), []);
+  const g = setup(t);
+  handle(g);
+  finish(g, {}, { write: false });
+  assert.deepEqual(effortErrors(g), ['effort-transcript-pending']);
+  const other = setup(t);
+  handle(other);
+  finish(other);
+  const rows = readFileSync(childPathOf(other), 'utf8').replaceAll(
+    `"agentId":"${agentIdOf(other)}"`,
+    '"agentId":"other-child"',
+  );
+  writeFileSync(childPathOf(other), rows);
+  assert.deepEqual(effortErrors(other), ['effort-transcript-foreign']);
+  const h = setup(t);
+  handle(h);
+  finish(h, {}, { prompt: 'another prompt' });
+  assert.deepEqual(effortErrors(h), ['effort-transcript-foreign']);
+});
+
+test('background completion judges effort from the settled child transcript', (t) => {
+  const { subject, packet } = reviewedSubject(t);
+  const qa = asyncReview(t, subject, packet);
+  assert.deepEqual(effortErrors(qa), []);
+  assert.deepEqual(
+    observeClaudeNativeTask(qa.registered.taskId, { root: qa.root }).observedEfforts,
+    ['xhigh'],
+  );
+  const proof = JSON.parse(
+    readFileSync(join(qa.registered.evidenceDirectory, 'transcript-proof.json')),
+  );
+  const high = asyncReview(t, subject, packet, [], 'high');
+  assert.deepEqual(effortErrors(high), ['effort-mismatch']);
+  const unmarked = asyncReview(t, subject, packet, [], null);
+  assert.deepEqual(effortErrors(unmarked), ['effort-unobserved']);
+  assert.ok(proof.path.endsWith('.jsonl'));
+});
+
+// Extraction skips review only in the bounded-extraction risk range, whichever profile runs it.
+function extraction(t, profileId, model, patch = {}) {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  f.input.nativeRequest.profileId = profileId;
+  Object.assign(f.input.nativeRequest.task, patch);
+  f.options.expectedResolvedModel = model;
+  return (required) => {
+    const input = structuredClone(f.input);
+    input.reviewDisposition = required
+      ? { required: true, reason: 'independent QA for this extraction' }
+      : input.reviewDisposition;
+    return registerClaudeNativeTask({
+      ...f.options,
+      workflowInput: input,
+      sessionId: randomUUID(),
+    });
+  };
+}
+test('extract QA exemption keeps the low, bounded, resolved range on Sonnet and refuses the rest', (t) => {
+  const sonnet = extraction(t, 'bounded-standard', 'claude-sonnet-5-5');
+  assert.equal(sonnet(false).invocation.model, 'sonnet');
+  const readFacts = ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'].map(
+    (key) => ({ key, sourceRef: 'test-case', confidence: 'high' }),
+  );
+  for (const [name, register] of [
+    [
+      'medium-risk Sonnet extract',
+      extraction(t, 'bounded-standard', 'claude-sonnet-5-5', { impactRisk: 'medium' }),
+    ],
+    [
+      'high-risk Opus extract',
+      extraction(t, 'complex-critical', 'claude-opus-5-5', { impactRisk: 'high' }),
+    ],
+    [
+      'Sonnet read',
+      extraction(t, 'bounded-standard', 'claude-sonnet-5-5', { kind: 'read', facts: readFacts }),
+    ],
+  ]) {
+    assert.throws(() => register(false), /independent QA required for this profile/u, name);
+    assert.ok(register(true).taskId, `${name} registers with independent QA`);
+  }
+});
+
+test('the xhigh executor registers for a high-risk Opus build and binds xhigh', (t) => {
+  const f = writer(t);
+  writeRole(
+    f.root,
+    'knu_executor_xhigh',
+    'Read, Grep, Glob, Edit, Write, Bash',
+    'Implement bounded work.',
+  );
+  execFileSync('git', ['add', '.'], { cwd: f.root });
+  const input = structuredClone(f.input);
+  input.nativeRequest.profileId = 'complex-critical';
+  Object.assign(input.nativeRequest.task, {
+    impactRisk: 'high',
+    complexity: 'complex',
+    role: 'knu_executor_xhigh',
+  });
+  const registered = registerClaudeNativeTask({
+    ...f.options,
+    expectedResolvedModel: 'claude-opus-5-5',
+    workflowInput: input,
+    sessionId: randomUUID(),
+  });
+  assert.equal(registered.invocation.subagent_type, 'knu_executor_xhigh');
+  assert.equal(registered.invocation.model, 'opus');
+  const { record } = JSON.parse(readFileSync(join(registered.evidenceDirectory, 'task.json')));
+  assert.equal(record.expectedEffort, 'xhigh');
 });

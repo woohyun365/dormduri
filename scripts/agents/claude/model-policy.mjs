@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-09-28.1';
+const POLICY_REVISION = '2026-10-01.1';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -13,8 +13,11 @@ const ROLE_TOOLS = deepFreeze({
   knu_explorer: ['Read', 'Grep', 'Glob'],
   knu_researcher: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
   knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
+  knu_executor_xhigh: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 });
+// Both executor roles build; they differ only in the effort their role files fix.
+const EXECUTORS = deepFreeze(['knu_executor', 'knu_executor_xhigh']);
 
 const PROFILES = deepFreeze([
   {
@@ -38,7 +41,7 @@ const PROFILES = deepFreeze([
   {
     id: 'bounded-standard',
     modelAlias: 'sonnet',
-    kinds: ['read', 'build'],
+    kinds: ['extract', 'read', 'build'],
     impactRisks: ['low', 'medium'],
     complexities: ['bounded'],
     roles: ['knu_explorer', 'knu_researcher', 'knu_executor'],
@@ -52,7 +55,7 @@ const PROFILES = deepFreeze([
     kinds: ['extract', 'read', 'build', 'review'],
     impactRisks: ['low', 'medium', 'high'],
     complexities: ['bounded', 'complex'],
-    roles: ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer'],
+    roles: ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_executor_xhigh', 'knu_reviewer'],
     allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Edit', 'Write', 'Bash'],
     requiredFacts: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
     readOnly: false,
@@ -500,8 +503,17 @@ function eligibilityReasons(profile, task) {
   if (task.independent !== true) reasons.push('independence');
   if (!Array.isArray(task.knownGaps) || task.knownGaps.length > 0) reasons.push('known-gaps');
 
-  if (task.kind === 'build' && (!writing || !task.writeOwner || task.role !== 'knu_executor')) {
+  if (task.kind === 'build' && (!writing || !task.writeOwner || !EXECUTORS.includes(task.role))) {
     reasons.push('write-owner');
+  }
+  // A high-risk build runs at xhigh; the xhigh executor is an Opus build role, also reachable by a
+  // Recovery escalation of a non-high-risk complex build.
+  const xhighBuild = profile.id === 'complex-critical' && task.kind === 'build';
+  if (
+    (task.role === 'knu_executor_xhigh' && !xhighBuild) ||
+    (task.kind === 'build' && task.impactRisk === 'high' && task.role !== 'knu_executor_xhigh')
+  ) {
+    reasons.push('effort-tier');
   }
   if (task.kind !== 'build' && (writing || task.writeOwner !== null)) reasons.push('read-only');
   if (profile.readOnly && writing) reasons.push('profile-read-only');
@@ -558,7 +570,7 @@ function rolesForKind(kind) {
     {
       extract: ['knu_explorer'],
       read: ['knu_explorer', 'knu_researcher'],
-      build: ['knu_executor'],
+      build: [...EXECUTORS],
       review: ['knu_reviewer'],
     }[kind] ?? []
   );

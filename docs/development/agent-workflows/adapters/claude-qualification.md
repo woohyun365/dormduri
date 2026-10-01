@@ -16,6 +16,8 @@ project loading·실제 도구/권한·구독 인증·effective model을 입증�
 `repository-prepared`와 `runtime-qualified`는 별개입니다. Source entry/정적 테스트가 실제 model/role/permission을
 입증하지 않습니다. Native pilot은 별도 승인된(separately authorized) 범위·비용·호출 수·timeout·정리 조건을 먼저 고정하고
 필요한 최소 payload만 전송합니다. 로그인 완료나 Phase 요청을 secret·무제한 호출·권한 확대 승인으로 해석하지 않습니다.
+`/effort <level>`은 현재 세션뿐 아니라 Home 설정의 다음 세션 기본값도 바꿉니다(CLI 2.1.286 관측). Pilot이 세션 effort를 바꿨다면
+끝난 뒤 Home 설정의 effort 값이 시작 전과 같은지 확인하고, 다르면 되돌린 사실을 pilot 기록에 남깁니다.
 
 Disposable fixture에서 readonly 도구 부재·자발적 거부·host denial을 구별하고, executor의 허용 write/test·실패 보고·
 독립 QA·취소/결과 회수도 따로 관측합니다. 실제 지원 없는 mode는 scoped NO-GO로 두며 prompt/advisory로 몰래 낮추거나

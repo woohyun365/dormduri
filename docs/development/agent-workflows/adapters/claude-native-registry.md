@@ -112,14 +112,15 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 
 ### 프로젝트 역할과 실제 권한
 
-| Role             | 도구 선언                             | 책임                                                 |
-| ---------------- | ------------------------------------- | ---------------------------------------------------- |
-| `knu_explorer`   | Read, Grep, Glob                      | 한 repository 질문의 현재 source/owner/evidence 조사 |
-| `knu_researcher` | Read, Grep, Glob, WebSearch, WebFetch | 이미 선택한 기술의 공식 근거 조사                    |
-| `knu_executor`   | Read, Grep, Glob, Edit, Write, Bash   | 명시적으로 소유한 구현·가까운 검증                   |
-| `knu_reviewer`   | Read, Grep, Glob                      | builder reasoning을 받지 않는 독립 source 검토       |
+| Role                 | 도구 선언                             | Effort  | 책임                                                 |
+| -------------------- | ------------------------------------- | ------- | ---------------------------------------------------- |
+| `knu_explorer`       | Read, Grep, Glob                      | `high`  | 한 repository 질문의 현재 source/owner/evidence 조사 |
+| `knu_researcher`     | Read, Grep, Glob, WebSearch, WebFetch | `high`  | 이미 선택한 기술의 공식 근거 조사                    |
+| `knu_executor`       | Read, Grep, Glob, Edit, Write, Bash   | `high`  | 명시적으로 소유한 구현·가까운 검증                   |
+| `knu_executor_xhigh` | Read, Grep, Glob, Edit, Write, Bash   | `xhigh` | `knu_executor`와 같은 책임의 high-risk·상향 build    |
+| `knu_reviewer`       | Read, Grep, Glob                      | `xhigh` | builder reasoning을 받지 않는 독립 source 검토       |
 
-네 `.claude/agents/knu_*.md`에는 영구 model pin이 없습니다. 그렇다고 parent 자동 상속을 task별 승인된 모델 선택으로
+다섯 `.claude/agents/knu_*.md`는 effort를 고정하지만 영구 model pin은 없습니다([Model profiles](./claude-model-profiles.md)). 그렇다고 parent 자동 상속을 task별 승인된 모델 선택으로
 간주하지 않습니다. Lead가 bounded responsibility·source·acceptance·read/write scope·단일 writer를 정합니다.
 Child는 다른 child/외부 CLI로 재위임하지 않고 blocker를 Lead에 반환합니다. Reviewer의 테스트 제안은 실행 승인이 아니며
 write-producing 테스트는 별도 runner가 소유합니다.

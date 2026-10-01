@@ -1,6 +1,6 @@
 ---
 name: knu-delegate
-description: 이 저장소에서 bounded 작업을 KNU 역할(knu_explorer·knu_researcher·knu_executor)에 위임할 때 native task를 등록하고 호출하는 절차입니다.
+description: 이 저장소에서 bounded 작업을 KNU 역할(knu_explorer·knu_researcher·knu_executor·knu_executor_xhigh)에 위임할 때 native task를 등록하고 호출하는 절차입니다.
 ---
 
 # KNU native 위임
@@ -19,9 +19,9 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
   "sessionId": "${CLAUDE_SESSION_ID}",
   "request": "package.json의 packageManager 값을 조사해줘.",
   "role": "knu_explorer",
-  "profileId": "bounded-extraction",
+  "profileId": "bounded-standard",
   "selectionBasisRef": "plan:example/delegate",
-  "expectedResolvedModel": "claude-haiku-4-5-20251001",
+  "expectedResolvedModel": "claude-sonnet-5-5",
   "kind": "extract",
   "impactRisk": "low",
   "complexity": "bounded",
@@ -47,7 +47,20 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 }
 ```
 
-- 역할·profile·모델 조합은 adapter의 routine 표에서 `관측` 행만 고릅니다.
+- 역할·profile·모델 조합은 adapter의 routine 표에서 `관측` 행만 고릅니다. Effort는 역할 파일이 정하므로 역할로 고릅니다.
+
+  | 작업               | 역할                 | Profile            | 모델·effort | 상태 |
+  | ------------------ | -------------------- | ------------------ | ----------- | ---- |
+  | 고정 입력 추출     | `knu_explorer`       | `bounded-standard` | Sonnet high | 관측 |
+  | 공식 근거 조사     | `knu_researcher`     | `bounded-standard` | Sonnet high | 관측 |
+  | bounded 구현       | `knu_executor`       | `bounded-standard` | Sonnet high | 관측 |
+  | repository 읽기    | `knu_explorer`       | `bounded-standard` | Sonnet high | Q    |
+  | 복잡한 구현        | `knu_executor`       | `complex-critical` | Opus high   | Q    |
+  | impact `high` 구현 | `knu_executor_xhigh` | `complex-critical` | Opus xhigh  | Q    |
+
+  Q 조합은 routine 위임에 쓰지 않습니다. 상태는 adapter의 routine 표가 원본입니다.
+
+- 추출만 impact `low`·complexity `bounded`·uncertainty `resolved`에서 `reviewDisposition.required:false`를 쓸 수 있습니다.
 - kind별 필수 fact, 빈 `readScope` 금지, `impactRisk` 하향 금지는
   [등록 거부 원인](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#원인)을
   따릅니다. 요청 문장은 intake가 인식하는 동사로 씁니다.

@@ -2,6 +2,7 @@
 name: knu_reviewer
 description: 요구사항과 frozen source를 독립적으로 읽기 전용 검토합니다.
 tools: Read, Grep, Glob
+effort: xhigh
 ---
 
 현재 요구와 frozen source를 먼저 읽고 builder 설명 전에 독립적으로 acceptance와 negative case를 도출합니다.

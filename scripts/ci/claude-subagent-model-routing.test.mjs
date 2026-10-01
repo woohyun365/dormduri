@@ -23,6 +23,7 @@ const roles = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
   knu_researcher: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
   knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
+  knu_executor_xhigh: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 };
 
@@ -284,6 +285,7 @@ test('Opus baseline covers bounded complex/high-risk/uncertain tasks, not only r
   highRiskBuild.profileId = 'complex-critical';
   highRiskBuild.task.impactRisk = 'high';
   highRiskBuild.task.complexity = 'complex';
+  highRiskBuild.task.role = 'knu_executor_xhigh';
   assert.equal(evaluateClaudeProfileEligibility(highRiskBuild).eligible, true);
   assert.equal(createClaudeSubagentBinding(highRiskBuild).requestedModelAlias, 'opus');
 
@@ -301,6 +303,58 @@ test('Opus baseline covers bounded complex/high-risk/uncertain tasks, not only r
   const verifiedBuild = inputFor('bounded-standard', 'build');
   assert.ok(verifiedBuild.task.allowedTools.includes('Bash'));
   assert.equal(evaluateClaudeProfileEligibility(verifiedBuild).eligible, true);
+});
+
+// Effort comes from the role file, so the policy picks the effort tier through the executor role.
+function executorBuild(profileId, impactRisk, complexity, role) {
+  const input = inputFor('bounded-standard', 'build');
+  input.profileId = profileId;
+  Object.assign(input.task, { impactRisk, complexity, role, allowedTools: [...roles[role]] });
+  return evaluateClaudeProfileEligibility(input);
+}
+
+test('high-risk builds require the xhigh executor and the variant stays an Opus build role', () => {
+  const tier = (...args) => executorBuild(...args).reasons;
+  assert.deepEqual(tier('complex-critical', 'high', 'complex', 'knu_executor_xhigh'), []);
+  assert.deepEqual(tier('complex-critical', 'high', 'bounded', 'knu_executor_xhigh'), []);
+  assert.deepEqual(tier('complex-critical', 'high', 'complex', 'knu_executor'), ['effort-tier']);
+  // Recovery may escalate a non-high-risk complex build from Opus high to Opus xhigh.
+  assert.deepEqual(tier('complex-critical', 'medium', 'complex', 'knu_executor_xhigh'), []);
+  assert.deepEqual(tier('complex-critical', 'medium', 'complex', 'knu_executor'), []);
+  assert.ok(
+    tier('bounded-standard', 'medium', 'bounded', 'knu_executor_xhigh').includes('effort-tier'),
+  );
+  assert.deepEqual(tier('bounded-standard', 'medium', 'bounded', 'knu_executor'), []);
+
+  const read = inputFor('bounded-standard', 'read');
+  read.profileId = 'complex-critical';
+  read.task.uncertainty = 'uncertain';
+  Object.assign(read.task, {
+    role: 'knu_executor_xhigh',
+    allowedTools: [...roles.knu_executor_xhigh],
+  });
+  assert.ok(evaluateClaudeProfileEligibility(read).reasons.includes('effort-tier'));
+
+  const unowned = inputFor('bounded-standard', 'build');
+  unowned.profileId = 'complex-critical';
+  Object.assign(unowned.task, {
+    impactRisk: 'high',
+    role: 'knu_executor_xhigh',
+    writeScope: [],
+    writeOwner: null,
+  });
+  assert.ok(evaluateClaudeProfileEligibility(unowned).reasons.includes('write-owner'));
+});
+
+test('Sonnet bounded-standard admits the same fixed extraction as the Haiku profile', () => {
+  const extraction = inputFor('bounded-extraction');
+  extraction.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
+  extraction.profileId = 'bounded-standard';
+  assert.deepEqual(evaluateClaudeProfileEligibility(extraction), { eligible: true, reasons: [] });
+  assert.equal(createClaudeSubagentBinding(extraction).requestedModelAlias, 'sonnet');
+  const missing = structuredClone(extraction);
+  missing.task.facts = missing.task.facts.filter(({ key }) => key !== 'independent-check');
+  assert.ok(evaluateClaudeProfileEligibility(missing).reasons.includes('required-facts'));
 });
 
 test('Opus admits explicit bounded independent review without fabricated critical risk', () => {

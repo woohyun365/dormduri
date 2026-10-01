@@ -68,8 +68,9 @@ proof가 정상 경로에서도 어긋날 수 있으므로 이 경로에 proof�
 false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 이 연결은 coordination과 completion evidence이며
 host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff처럼 native subject task가 없는 검토에는 이 terminal 규칙이
 적용되지 않습니다. 이때 `review --parent-subject <file>`은 `settlement:"parent-adjudication"`과 QA가 필요한 일반 review task spec을
-만듭니다. 그 reviewer는 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `completion.json` 관측(valid·모델·변경 경로)과
-finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지 확인합니다. Review prompt 첫 줄의 회차 digest가
+만듭니다. 그 reviewer는 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
+비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지
+확인합니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
 현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
 
 Native writer는 repository당 하나의 active lease로 직렬화합니다. 확인된 완료/관측된 tool failure는 해당 task의
