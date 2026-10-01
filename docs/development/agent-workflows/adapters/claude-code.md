@@ -308,6 +308,10 @@ Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않�
 
 새 세션의 일상 순서입니다. 작은 작업은 Lead가 직접 처리하고, 분리 가능한 bounded 작업만 KNU 역할에 위임합니다.
 
+3~6단계는 프로젝트 skill `/knu-delegate`·`/knu-review`·`/knu-settle`(`.claude/skills/`)이 명령 형식과 순서를 안내합니다. Skill은
+spec의 `sessionId`와 `review --session`에 현재 session ID(`${CLAUDE_SESSION_ID}`)를 넣고 기존 helper만 호출하며, 권한을 부여하지
+않습니다(`allowed-tools` 없음). 규칙의 원본은 이 문서와 등록 거부 troubleshooting 문서입니다.
+
 1. `pnpm claude:preflight -- --mode fresh`로 branch·HEAD·working tree와 계획 상태를 확인합니다.
 2. `pnpm claude:workflow -- --mode fresh --request '<요청>'`으로 공통 intake 분류와 읽을 문서를 확인합니다.
 3. 위임할 때만 Lead가 역할·profile·선택 근거·범위·acceptance를 정해 `pnpm claude:native prepare --spec <JSON file>`로 등록합니다.
@@ -367,6 +371,8 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
   2.1.284의 `sonnet` → `claude-sonnet-5-5`)를 두고, 결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다.
 - Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다.
 - 재시도도 실패하면 무인 계속을 멈추고 원인·증거를 보존해 Owner와 다음 행동을 정합니다.
+
+Coverage gap이 있는 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
 
 ## Parent 운영과 quality stop
 

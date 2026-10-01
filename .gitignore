@@ -52,6 +52,11 @@ apps/web/storybook-static/
 !.claude/agents/knu_researcher.md
 !.claude/agents/knu_executor.md
 !.claude/agents/knu_reviewer.md
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/knu-delegate/
+!.claude/skills/knu-review/
+!.claude/skills/knu-settle/
 # Codex는 검토된 프로젝트 child 설정만 추적하고 개인·runtime 상태는 제외한다.
 .codex/*
 !.codex/config.toml
