@@ -353,7 +353,7 @@ function writer(t) {
       'one-writer',
     ].map((key) => ({ key, sourceRef: 'fixture', confidence: 'high' })),
   });
-  f.options.expectedResolvedModel = 'claude-sonnet-5';
+  f.options.expectedResolvedModel = 'claude-sonnet-5-5';
   const sessionId = randomUUID();
   const registered = registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId });
   return {
