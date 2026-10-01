@@ -399,3 +399,34 @@ test('settle documents keep the hand-back turn alive until the completion notifi
   assert.ok(!flat.includes('둘 다 결과를 쓰지 말고'), 'stale count');
   assert.ok(!/\bE[0-9]\b/u.test(flat), 'no plan phase label in a tracked doc');
 });
+
+test('the delegate skill routine table matches the adapter status for each role and profile', () => {
+  const rows = (path, pattern) =>
+    read(path)
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => pattern.test(line))
+      .map((line) =>
+        line
+          .split('|')
+          .slice(1, -1)
+          .map((cell) => cell.trim()),
+      );
+  const adapter = new Map();
+  for (const [role, profile, , , , , status] of rows(
+    'docs/development/agent-workflows/adapters/claude-code.md',
+    /^\| `knu_/u,
+  )) {
+    const key = `${role} ${profile}`;
+    adapter.set(key, [...(adapter.get(key) ?? []), status.startsWith('Q') ? 'Q' : status]);
+  }
+  const skill = rows('.claude/skills/knu-delegate/SKILL.md', /^\| [^`|][^|]*\| `knu_/u);
+  assert.ok(skill.length >= 6, 'skill routine rows');
+  for (const [work, role, profile, , status] of skill) {
+    const statuses = adapter.get(`${role} ${profile}`) ?? [];
+    assert.ok(
+      statuses.includes(status),
+      `${work}: skill status ${status} not in adapter ${statuses.join(',')}`,
+    );
+  }
+});

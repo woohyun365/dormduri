@@ -7,7 +7,7 @@
 ## Loading and scope
 
 `CLAUDE.md`는 `@AGENTS.md`를 import하고 이 adapter로 연결합니다. 현재 요청에 필요한 guide만 읽습니다.
-공통 instructions를 네 role에 복제하거나 전체 docs를 startup context에 넣지 않습니다.
+공통 instructions를 역할 파일마다 복제하거나 전체 docs를 startup context에 넣지 않습니다.
 
 ```sh
 pnpm claude:preflight -- --mode fresh
