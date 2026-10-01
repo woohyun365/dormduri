@@ -7,8 +7,9 @@ description: 이 저장소에서 KNU native task의 완료 알림(task-notificat
 
 규칙의 원본은 [Routine operation](../../../docs/development/agent-workflows/adapters/claude-code.md#routine-operation) 5단계입니다.
 
-1. 완료 알림을 받은 **다음** `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native settle --task <taskId>`로 관측을 정산합니다. 알림 전
-   조회는 거부되며 알림 전에는 반복하지 않습니다. Child의 hand-back이 먼저 와도 완료 관측이 아닙니다. hand-back을 받은 turn은
+1. Background child는 완료 알림을 받은 **다음** `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native settle --task <taskId>`로 관측을
+   정산합니다. Foreground 호출은 PostToolUse가 완료를 기록하므로 알림을 기다리지 않습니다. 알림 전
+   조회는 거부되며 알림 전에는 반복하지 않습니다. Background child의 hand-back이 먼저 와도 완료 관측이 아닙니다. hand-back을 받은 turn은
    text로 끝내지 않고 finding 재현 같은 tool 작업으로 이어 가며, 알림이 그 turn에 오면 바로 정산합니다. Text로만 끝내면 알림이
    다음 입력까지 오지 않을 수 있습니다.
 2. 결과의 `judgmentTemplatePath` 파일에서 acceptance마다 `passed`와 `evidenceRef`를, `checks`에 Parent가 직접 확인한 내용을

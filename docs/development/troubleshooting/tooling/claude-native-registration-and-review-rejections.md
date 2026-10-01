@@ -149,7 +149,7 @@
   판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
-  prompt에서 packet 파일 줄이 빠진 것입니다. E3 이전에 만든 Parent reviewer를 이후에 정산해도 이 사유입니다. 세 사유 모두 결과를 쓰지 말고 파일을
+  prompt에서 packet 파일 줄이 빠진 것입니다. Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산해도 이 사유입니다. 세 사유 모두 결과를 쓰지 말고 파일을
   고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.

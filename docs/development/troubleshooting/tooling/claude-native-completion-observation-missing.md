@@ -40,8 +40,8 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 
 ## 해결
 
-1. 완료 알림(`<status>completed</status>`)이 온 뒤에 settle 또는 complete를 다시 실행합니다. Child의 최종 보고가 알림보다 먼저 도착해도
-   `stop.json`이 생길 때까지 기다립니다. 같은 Stop에 한해 지연 flush를 재검사합니다.
+1. 완료 알림(`<status>completed</status>`)이 온 뒤에 settle 또는 complete를 다시 실행합니다. Child의 최종 보고(hand-back)가 알림보다 먼저 도착해도
+   알림까지 기다립니다. `stop.json`만으로는 정산되지 않습니다. 기다리는 turn은 아래 [hand-back 뒤 완료 알림이 오지 않음](#hand-back-뒤-완료-알림이-오지-않음)을 따릅니다. 같은 Stop에 한해 지연 flush를 재검사합니다.
 2. Child가 끝나면 **파일을 편집하기 전에** 먼저 정산합니다. 이미 편집했다면 그 관측은 되돌리지 말고 invalid로 기록한 뒤,
    필요하면 새 task로 다시 실행합니다.
 3. 부모 transcript가 한도를 넘으면 새 세션에서 새로 등록합니다. 한도를 높인 사본이나 수동 JSON으로 정산하지 않습니다.

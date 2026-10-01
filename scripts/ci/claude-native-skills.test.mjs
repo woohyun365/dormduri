@@ -391,8 +391,11 @@ test('settle documents keep the hand-back turn alive until the completion notifi
   const rejections = read(
     'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
   );
+  const flat = rejections.replace(/\s+/gu, ' ');
   assert.ok(
-    !rejections.includes('prompt에서 packet 파일 줄이 빠진 것입니다. 둘 다'),
-    'stale count',
+    flat.includes('세 사유 모두 결과를 쓰지 말고'),
+    'three packet reasons share one remedy',
   );
+  assert.ok(!flat.includes('둘 다 결과를 쓰지 말고'), 'stale count');
+  assert.ok(!/\bE[0-9]\b/u.test(flat), 'no plan phase label in a tracked doc');
 });
