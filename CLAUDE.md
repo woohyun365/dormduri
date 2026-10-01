@@ -8,7 +8,7 @@
 - 표준 interactive 시작: `claude --permission-mode auto`
 - Git/계획 진단: `pnpm claude:preflight -- --mode fresh`
 - 공통 요청·문서 경로: `pnpm claude:workflow -- --mode fresh --request '변경 내용을 설명해줘.'`
-- Native task 등록: 같은 session의 `session_id`로 `pnpm claude:native register --input <JSON-file>`
+- KNU 위임·리뷰·정산: `/knu-delegate`·`/knu-review`·`/knu-settle` skill(내부는 `pnpm claude:native prepare`·`review`·`settle`)
 - 재개: 명시적인 `.plans` 경로와 현재 source를 대조합니다. OMC 없이도 공통 계획을 사용합니다.
 
 `auto`는 bypass가 아니며 기존 Home·project 설정을 로드합니다. 설정에서 설치·활성화된 OMC는 Claude가 자동 로드하므로

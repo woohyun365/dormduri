@@ -61,6 +61,17 @@
 - 선택 근거(`selectionBasisRef`)와 fact `sourceRef`는 영문자·숫자로 시작하고 `#`·`//`·`.`·`..` 경로 조각을 쓸 수 없습니다.
   숨김 디렉터리 경로처럼 `.`으로 시작하는 참조는 `unsafe-reference:<field>`입니다.
 - Task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다.
+- Task `readScope`가 빈 배열이면 model policy가 `invalid-input`으로 거부합니다. 쓰기 task도 읽을 경로를 하나 이상 적습니다.
+- Task `facts`에는 kind별 필수 fact가 모두 있어야 하며, 빠지면 `required-facts`입니다. 필수 fact는 model policy 기준으로 다음과
+  같습니다.
+
+  | kind      | 필수 fact                                                                                             |
+  | --------- | ----------------------------------------------------------------------------------------------------- |
+  | `extract` | `source-bound`, `fixed-input`, `single-step`, `output-schema`, `acceptance`, `independent-check`      |
+  | `read`    | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`                             |
+  | `build`   | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `regression`, `one-writer` |
+  | `review`  | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `fresh-context`            |
+
 - 공통 intake가 모든 한국어 조사 표현을 읽기 intent로 분류하지는 않습니다. `조사해줘`·문장 끝 `조사`는 `analyze`지만
   `살펴봐줘`·`확인해줘`, `원인` 없이 쓴 `파악해줘`처럼 인식하지 않는 표현은 `unknown`으로 남습니다.
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
@@ -86,6 +97,7 @@
   출력의 `dispatchAuthorized:false`는 host 권한이 아니라는 뜻입니다. 만료되면 새로 prepare합니다.
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
 - `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
+- `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
 - 요청 문장은 분석·검토처럼 intake가 인식하는 동사로 씁니다. 분류를 우회하려고 intent를 직접 조작하지 않습니다.
 - 검증 명령은 Parent(runner)가 실행하고 `pnpm claude:native review`로 packet을 만듭니다. `review --subject <taskId>`만 실행하면
   이번 회차의 `snapshotDigest`와 `logHeader`가 나옵니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고, 각 기록을
