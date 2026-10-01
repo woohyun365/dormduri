@@ -1275,3 +1275,33 @@ test('a Parent-judged reviewer whose effort differs fails settle although comple
   assert.equal(run.status, 1, run.stderr);
   assert.ok(JSON.parse(run.stdout).observationErrors.includes('effort-mismatch'));
 });
+
+test('prepare passes a recovery spec to the registry and refuses a malformed one', (t) => {
+  const r = repo(t);
+  const sonnet = { profileId: 'bounded-standard', expectedResolvedModel: 'claude-sonnet-5-5' };
+  const first = prepareClaudeNativeTask(explorerSpec(r, sonnet), { root: r.root });
+  dispatch(r, first, 'first-1', 'partial answer');
+  const retry = (recovery) =>
+    explorerSpec(r, {
+      profileId: 'complex-critical',
+      expectedResolvedModel: 'claude-opus-5-5',
+      recovery,
+    });
+  for (const [recovery, reason] of [
+    [{ of: first.taskId }, /recovery-format/u],
+    [{ of: 'not-a-task', cause: 'result-error' }, /recovery-format/u],
+    [{ of: first.taskId, cause: 'result-error', step: 1 }, /recovery-format/u],
+    ['result-error', /recovery-format/u],
+  ])
+    assert.throws(() => prepareClaudeNativeTask(retry(recovery), { root: r.root }), reason);
+  const prepared = prepareClaudeNativeTask(retry({ of: first.taskId, cause: 'result-error' }), {
+    root: r.root,
+  });
+  assert.deepEqual(prepared.registerInput.recovery, { of: first.taskId, cause: 'result-error' });
+  assert.equal(prepared.invocation.model, 'opus');
+  assert.equal(
+    prepared.registerInput.workflowInput.nativeRequest.task.recovery,
+    undefined,
+    'the registry, not the helper, writes the checked recovery into the task',
+  );
+});

@@ -742,3 +742,87 @@ test('qualification matrix leaves every native candidate and failure path not-ru
     assert.ok(row.cleanupTarget.includes(row.caseId) && row.cleanupVerifier.includes(row.caseId));
   }
 });
+
+// A registry-bound recovery travels in the task and the binding, so every recomputation agrees.
+function recoveryInput(recovery) {
+  const input = inputFor('bounded-standard', 'build');
+  input.profileId = 'complex-critical';
+  if (recovery !== undefined) input.task.recovery = recovery;
+  return input;
+}
+const STEP_ONE = {
+  of: '00000000-0000-4000-8000-000000000001',
+  cause: 'result-error',
+  step: 1,
+  fromProfileId: 'bounded-standard',
+  fromRole: 'knu_executor',
+};
+
+test('an unbound binding carries recovery null; a ladder step lifts only the critical signal', () => {
+  assert.equal(candidate().binding.recovery, null);
+  assert.deepEqual(evaluateClaudeProfileEligibility(recoveryInput()).reasons, ['critical-signal']);
+  assert.equal(evaluateClaudeProfileEligibility(recoveryInput(STEP_ONE)).eligible, true);
+  for (const recovery of [
+    { ...STEP_ONE, step: 2 },
+    { ...STEP_ONE, fromRole: 'knu_explorer' },
+    { ...STEP_ONE, fromProfileId: 'complex-critical' },
+  ])
+    assert.ok(
+      evaluateClaudeProfileEligibility(recoveryInput(recovery)).reasons.includes('critical-signal'),
+      JSON.stringify(recovery),
+    );
+  for (const recovery of [{ ...STEP_ONE, cause: 'quota' }, { ...STEP_ONE, extra: true }, null])
+    assert.deepEqual(
+      evaluateClaudeProfileEligibility(recoveryInput(recovery)).reasons,
+      ['invalid-input'],
+      JSON.stringify(recovery),
+    );
+});
+
+test('a step-1 recovery binding passes admission and observation; static exchange stays reviewer-only', () => {
+  const { binding, result } = candidate(recoveryInput(STEP_ONE));
+  assert.deepEqual(binding.recovery, STEP_ONE);
+  assert.equal(result.decision, 'candidate', JSON.stringify(result));
+  const descriptor = result.descriptor;
+  const observed = assessClaudeModelObservation({
+    binding,
+    descriptor,
+    receipt: {
+      bindingDigest: descriptor.bindingDigest,
+      status: 'complete',
+      role: descriptor.role,
+      requestedAlias: descriptor.requestedModel.alias,
+      resolvedModel: descriptor.expectedResolvedModel,
+      observedModel: descriptor.expectedResolvedModel,
+      evidenceRef: 'fixture:post-tool-use',
+      oracle: 'pass',
+    },
+  });
+  assert.equal(observed.decision, 'compatible-static', JSON.stringify(observed));
+  // The binding validates, so the refusal is the reviewer-only gate, not malformed input.
+  assert.equal(
+    assessClaudeStaticExchange({
+      binding,
+      descriptor,
+      packet: {},
+      result: {},
+      currentSnapshot: {},
+    }).reason,
+    'role-mismatch',
+  );
+  // Without the bound recovery the same facts lack a critical signal, so the binding is invalid.
+  const { bindingDigest, ...data } = structuredClone(binding);
+  void bindingDigest;
+  data.recovery = null;
+  const stripped = { ...data, bindingDigest: digestObject(data) };
+  assert.equal(
+    assessClaudeStaticExchange({
+      binding: stripped,
+      descriptor,
+      packet: {},
+      result: {},
+      currentSnapshot: {},
+    }).reason,
+    'invalid-input',
+  );
+});

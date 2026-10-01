@@ -2737,3 +2737,416 @@ test('the xhigh executor registers for a high-risk Opus build and binds xhigh', 
   const { record } = JSON.parse(readFileSync(join(registered.evidenceDirectory, 'task.json')));
   assert.equal(record.expectedEffort, 'xhigh');
 });
+
+// Recovery: one retry, bound to a first task that ran, was observed and was not accepted, climbs one
+// ladder step without changing the task facts. Every other bound retry is refused before any write.
+const LADDER_MODEL = {
+  'bounded-standard': 'claude-sonnet-5-5',
+  'complex-critical': 'claude-opus-5-5',
+};
+function ladder(t, kind = 'extract') {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  if (kind === 'build') {
+    for (const role of ['knu_executor', 'knu_executor_xhigh'])
+      writeRole(f.root, role, 'Read, Grep, Glob, Edit, Write, Bash', 'Implement bounded work.');
+    writeRole(f.root, 'knu_reviewer', 'Read, Grep, Glob', 'Review only.');
+    execFileSync('git', ['add', '.'], { cwd: f.root });
+    delete f.input.currentSnapshot;
+    f.input.request = 'sample.txt 변경을 구현해줘.';
+    f.input.directAssignment.writeOwnership = ['sample.txt'];
+    f.input.directAssignment.owner = 'builder';
+    f.input.reviewDisposition.required = true;
+    Object.assign(f.input.nativeRequest.task, {
+      kind: 'build',
+      impactRisk: 'medium',
+      allowedTools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
+      writeScope: ['sample.txt'],
+      writeOwner: 'builder',
+      facts: [
+        'source-bound',
+        'bounded-scope',
+        'acceptance',
+        'oracle',
+        'independent-qa',
+        'regression',
+        'one-writer',
+      ].map((key) => ({ key, sourceRef: 'fixture', confidence: 'high' })),
+    });
+  }
+  return { ...f, sessionId: randomUUID() };
+}
+function registerAs(f, { profileId, role, recovery, sessionId = f.sessionId, patch = {}, model }) {
+  const input = structuredClone(f.input);
+  input.nativeRequest.profileId = profileId;
+  Object.assign(input.nativeRequest.task, { role, ...patch });
+  const options = { ...f.options, expectedResolvedModel: model ?? LADDER_MODEL[profileId] };
+  const registered = registerClaudeNativeTask({
+    ...options,
+    workflowInput: input,
+    sessionId,
+    ...(recovery === undefined ? {} : { recovery }),
+  });
+  return {
+    ...f,
+    options,
+    registered,
+    event: {
+      hook_event_name: 'PreToolUse',
+      session_id: sessionId,
+      cwd: f.root,
+      permission_mode: 'auto',
+      tool_name: 'Agent',
+      tool_use_id: `tool-${registered.taskId.slice(0, 8)}`,
+      tool_input: registered.invocation,
+    },
+  };
+}
+// Runs the task to a completed, observed child; Parent judges acceptance as not met.
+function ranUnaccepted(g, child = {}) {
+  assert.deepEqual(handle(g), {});
+  finish(g, {}, child);
+  const r = semanticResult(g);
+  r.acceptance[0].passed = false;
+  assert.equal(completeClaudeNativeTask(g.registered.taskId, r, { root: g.root }).valid, false);
+  return g;
+}
+const taskInputOf = (g) => recordOf(g).input.nativeRequest.task;
+const markerFiles = (f) => {
+  const dir = join(realpathSync(f.root), '.artifacts/tools/claude-native/recovery', f.sessionId);
+  return existsSync(dir) ? readdirSync(dir) : [];
+};
+
+test('a bound retry climbs ladder step 1 and passes register, PreToolUse and complete', (t) => {
+  const f = ladder(t);
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_explorer',
+    recovery: { of: a.registered.taskId, cause: 'result-error' },
+  });
+  assert.deepEqual(taskInputOf(b).recovery, {
+    of: a.registered.taskId,
+    cause: 'result-error',
+    step: 1,
+    fromProfileId: 'bounded-standard',
+    fromRole: 'knu_explorer',
+  });
+  assert.equal(b.registered.invocation.model, 'opus');
+  assert.equal(
+    JSON.parse(readFileSync(join(a.registered.evidenceDirectory, 'recovery.json'))).taskId,
+    b.registered.taskId,
+  );
+  assert.equal(markerFiles(f).length, 1);
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
+  assert.equal(done.valid, true, JSON.stringify(done.errors));
+  assert.ok(existsSync(join(b.registered.evidenceDirectory, 'accepted.json')));
+  // The superseded first task can no longer complete.
+  const late = completeClaudeNativeTask(a.registered.taskId, semanticResult(a), { root: f.root });
+  assert.equal(late.valid, false);
+  assert.ok(late.errors.includes('observation-error'), JSON.stringify(late.errors));
+});
+
+test('a bound retry climbs ladder step 2 to the xhigh executor for a complex build', (t) => {
+  const f = ladder(t, 'build');
+  const complex = { complexity: 'complex' };
+  const a = registerAs(f, { profileId: 'complex-critical', role: 'knu_executor', patch: complex });
+  assert.deepEqual(handle(a), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
+  finish(a);
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_executor_xhigh',
+    patch: complex,
+    recovery: { of: a.registered.taskId, cause: 'omission' },
+  });
+  assert.equal(taskInputOf(b).recovery.step, 2);
+  assert.equal(recordOf(b).expectedEffort, 'xhigh');
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  // A build still needs its independent QA; recovery adds no other completion error.
+  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
+  assert.equal(done.observation.valid, true);
+  assert.ok(done.errors.includes('independent QA exchange required'));
+  assert.deepEqual(
+    done.errors.filter((error) => !/QA/u.test(error)),
+    [],
+  );
+});
+
+test('step 0 re-registers the same profile and role for missing context', (t) => {
+  const f = ladder(t);
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const b = registerAs(f, {
+    profileId: 'bounded-standard',
+    role: 'knu_explorer',
+    recovery: { of: a.registered.taskId, cause: 'context-missing' },
+  });
+  assert.equal(taskInputOf(b).recovery.step, 0);
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  assert.equal(
+    completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root }).valid,
+    true,
+  );
+});
+
+test('recovery reasons are judged in a fixed order and each refuses on its own', (t) => {
+  const f = ladder(t);
+  const up = (of, cause = 'result-error', extra = {}) =>
+    registerAs(f, {
+      profileId: 'complex-critical',
+      role: 'knu_explorer',
+      recovery: { of, cause },
+      ...extra,
+    });
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  assert.throws(() => up(a.registered.taskId, 'quota'), /recovery-cause/u);
+  assert.throws(() => up(randomUUID()), /recovery-not-bound/u, 'missing first task');
+  assert.throws(
+    () => up(a.registered.taskId, 'result-error', { sessionId: randomUUID() }),
+    /recovery-not-bound/u,
+    'other session',
+  );
+  assert.throws(
+    () =>
+      up(a.registered.taskId, 'result-error', {
+        patch: { readScope: ['sample.txt', '.claude/agents'] },
+      }),
+    /recovery-not-bound/u,
+    'changed facts',
+  );
+  // Step: result-error must climb one step; context-missing must stay; no skipping.
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'bounded-standard',
+        role: 'knu_explorer',
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-step/u,
+  );
+  assert.throws(() => up(a.registered.taskId, 'context-missing'), /recovery-step/u);
+  assert.equal(markerFiles(f).length, 0, 'refused registrations write nothing');
+  const b = ranUnaccepted(up(a.registered.taskId));
+  // b is itself a retry with the same facts, so chain is reported before used.
+  assert.throws(() => up(b.registered.taskId, 'context-missing'), /recovery-chain/u);
+  assert.throws(() => up(a.registered.taskId), /recovery-used/u, 'A→B then A→C');
+});
+
+test('a duplicate first task with the same facts shares the one retry', (t) => {
+  const f = ladder(t);
+  const first = () =>
+    ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const a = first();
+  const twin = first();
+  const up = (of) =>
+    registerAs(f, {
+      profileId: 'complex-critical',
+      role: 'knu_explorer',
+      recovery: { of, cause: 'result-error' },
+    });
+  up(a.registered.taskId);
+  assert.throws(() => up(twin.registered.taskId), /recovery-used/u);
+});
+
+test('only a first task that ran, was observed valid with its effort and was not accepted binds', (t) => {
+  const f = ladder(t);
+  const first = () => registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' });
+  const up = (g) => () =>
+    registerAs(f, {
+      profileId: 'complex-critical',
+      role: 'knu_explorer',
+      recovery: { of: g.registered.taskId, cause: 'omission' },
+    });
+  const released = first();
+  releaseClaudeNativeTask(released.registered.taskId, { root: f.root, ended: true });
+  assert.throws(up(released), /recovery-not-ran/u, 'released without dispatch');
+  const pending = first();
+  assert.deepEqual(handle(pending), {});
+  finish(pending, {}, { write: false });
+  assert.throws(up(pending), /recovery-not-ran/u, 'effort still pending');
+  const mismatch = ranUnaccepted(first(), { effort: 'xhigh' });
+  assert.throws(up(mismatch), /recovery-not-ran/u, 'effort mismatch');
+  const mutated = first();
+  assert.deepEqual(handle(mutated), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'read-only child changed this');
+  finish(mutated);
+  assert.equal(
+    JSON.parse(readFileSync(join(mutated.registered.evidenceDirectory, 'completion.json'))).valid,
+    false,
+  );
+  writeFileSync(join(f.root, 'sample.txt'), 'oracle');
+  assert.throws(up(mutated), /recovery-not-ran/u, 'saved observation invalid');
+  const accepted = first();
+  assert.deepEqual(handle(accepted), {});
+  finish(accepted);
+  assert.equal(
+    completeClaudeNativeTask(accepted.registered.taskId, semanticResult(accepted), {
+      root: f.root,
+    }).valid,
+    true,
+  );
+  assert.ok(existsSync(join(accepted.registered.evidenceDirectory, 'accepted.json')));
+  assert.throws(up(accepted), /recovery-accepted/u);
+});
+
+test('a retry refused by another register check consumes nothing and leaves the first task live', (t) => {
+  const f = ladder(t);
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const recovery = { of: a.registered.taskId, cause: 'result-error' };
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_explorer',
+        recovery,
+        model: 'claude-sonnet-5-5',
+      }),
+    /expected model\/profile mismatch/u,
+  );
+  assert.deepEqual(markerFiles(f), []);
+  assert.equal(existsSync(join(a.registered.evidenceDirectory, 'recovery.json')), false);
+  assert.equal(existsSync(join(a.registered.evidenceDirectory, 'observation-error.json')), false);
+  assert.ok(registerAs(f, { profileId: 'complex-critical', role: 'knu_explorer', recovery }));
+});
+
+test('recovery made outside the registry is refused and PreToolUse checks the binding file', (t) => {
+  const f = ladder(t);
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const forged = {
+    of: a.registered.taskId,
+    cause: 'result-error',
+    step: 1,
+    fromProfileId: 'bounded-standard',
+    fromRole: 'knu_explorer',
+  };
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_explorer',
+        patch: { recovery: forged },
+      }),
+    /recovery-unregistered/u,
+  );
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_explorer',
+        patch: { recovery: { ...forged, step: 2 } },
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-unregistered/u,
+  );
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_explorer',
+    recovery: { of: a.registered.taskId, cause: 'result-error' },
+  });
+  writeFileSync(
+    join(a.registered.evidenceDirectory, 'recovery.json'),
+    JSON.stringify({ taskId: randomUUID() }),
+  );
+  assert.equal(handle(b).hookSpecificOutput?.permissionDecision, 'deny');
+});
+
+test('an unbound bounded task on the Opus profile still needs a critical signal', (t) => {
+  const f = ladder(t);
+  assert.throws(
+    () => registerAs(f, { profileId: 'complex-critical', role: 'knu_explorer' }),
+    /critical-signal/u,
+  );
+});
+
+test('a duplicate first task whose facts differ only in key order still shares the one retry', (t) => {
+  const f = ladder(t);
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' }));
+  const reordered = structuredClone(f.input);
+  const { required, reason } = reordered.reviewDisposition;
+  reordered.reviewDisposition = { reason, required };
+  reordered.nativeRequest.task.facts = reordered.nativeRequest.task.facts.map(
+    ({ key, sourceRef, confidence }) => ({ confidence, sourceRef, key }),
+  );
+  const twin = ranUnaccepted(
+    registerAs({ ...f, input: reordered }, { profileId: 'bounded-standard', role: 'knu_explorer' }),
+  );
+  const up = (g, of) =>
+    registerAs(g, {
+      profileId: 'complex-critical',
+      role: 'knu_explorer',
+      recovery: { of, cause: 'result-error' },
+    });
+  up(f, a.registered.taskId);
+  assert.throws(() => up({ ...f, input: reordered }, twin.registered.taskId), /recovery-used/u);
+  assert.equal(markerFiles(f).length, 1);
+});
+
+test('a superseded first task reports used even after its writer retry changed files', (t) => {
+  const f = ladder(t, 'build');
+  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' }));
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_executor',
+    recovery: { of: a.registered.taskId, cause: 'result-error' },
+  });
+  assert.deepEqual(handle(b), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'retry output');
+  finish(b);
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_executor',
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-used/u,
+  );
+});
+
+test('a bounded build retry climbs ladder step 1 and completes without the critical signal', (t) => {
+  const f = ladder(t, 'build');
+  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' });
+  assert.deepEqual(handle(a), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
+  finish(a);
+  const b = registerAs(f, {
+    profileId: 'complex-critical',
+    role: 'knu_executor',
+    recovery: { of: a.registered.taskId, cause: 'result-error' },
+  });
+  assert.equal(taskInputOf(b).recovery.step, 1);
+  assert.equal(b.registered.invocation.model, 'opus');
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  // A build still needs its independent QA; recovery adds no other completion error.
+  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
+  assert.equal(done.observation.valid, true);
+  assert.ok(done.errors.includes('independent QA exchange required'));
+  assert.deepEqual(
+    done.errors.filter((error) => !/QA/u.test(error)),
+    [],
+  );
+});
+
+test('a working-tree change after the first task completes forfeits its bound retry', (t) => {
+  const f = ladder(t, 'build');
+  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' });
+  assert.deepEqual(handle(a), {});
+  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
+  finish(a);
+  writeFileSync(join(f.root, 'sample.txt'), 'reverted by the Parent');
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_executor',
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-not-ran: .*post-completion/u,
+  );
+  assert.equal(markerFiles(f).length, 0);
+});

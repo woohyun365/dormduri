@@ -76,5 +76,33 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 ## 3. 실패 복구
 
 [Recovery](../../../docs/development/agent-workflows/adapters/claude-code.md#recovery)를 따릅니다. 같은 task는 다시 호출할 수 없고
-재시도는 한 번입니다. Writer lease가 남으면 child 종료를 확인한 뒤
+재시도는 한 번입니다. 실행·관측된 task는 `release`하지 않고 정산합니다. `release`한 task는 결속 재시도의 1차가 될 수
+없습니다(`recovery-not-ran`). 관측 없이 Writer lease가 남으면 child 종료를 확인한 뒤
 `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native release --task <taskId> --ended`로 해제하고 새로 `prepare`합니다.
+
+재시도는 실패한 1차 task에 결속합니다.
+
+1. 실패한 1차 task를 먼저 `/knu-settle`로 정산합니다. 실행·관측되지 않은 1차 task에는 결속할 수 없습니다. 1차 완료부터
+   재시도 등록까지 working tree를 바꾸지 않습니다(편집, commit, child 변경 되돌리기). 바뀌면 `recovery-not-ran`입니다.
+2. 1차 spec을 복사합니다. `request`·task 분류(`kind`·`impactRisk`·`complexity`·`uncertainty`·`childValue`)·`owner`·
+   read/write 범위·`acceptance`·`reviewDisposition`·`facts`는 배열 순서까지 바꾸지 않습니다. Prompt에만 실패 근거를 보탭니다.
+3. `recovery`에 1차 `taskId`와 원인을 채웁니다. 원인은 `result-error`·`omission`·`context-missing` 중 하나입니다.
+4. Profile과 역할은 [상향 사다리](../../../docs/development/agent-workflows/adapters/claude-model-profiles.md#recovery-상향-사다리)로
+   고릅니다. `result-error`·`omission`은 한 단계 올립니다. `context-missing`은 1차 task의 profile·역할을 그대로 씁니다.
+5. `prepare`합니다. 재시도는 한 번뿐입니다. Registry는 이 밖의 재시도를 모두 거부합니다.
+
+아래는 1단계 재시도(Sonnet high → Opus high)에서 위 template에 덮어쓸 필드만 보인 예입니다. 2단계는 `profileId`가 이미
+`complex-critical`이므로 `role`만 `knu_executor_xhigh`로 바꿉니다.
+
+```json
+{
+  "profileId": "complex-critical",
+  "expectedResolvedModel": "claude-opus-5-5",
+  "recovery": { "of": "<failed first taskId>", "cause": "result-error" }
+}
+```
+
+- 거부 사유와 기록은 [Recovery 결속](../../../docs/development/agent-workflows/adapters/claude-native-registry.md#recovery-결속)을
+  따릅니다.
+- 등록한 재시도가 실행되지 못해도 재시도 기회는 쓴 것입니다. 다른 재시도를 등록하지 않고 Owner와 다음 행동을 정합니다.
+- `recovery` 없이 같은 사실을 다시 등록하면 재시도가 아니라 일반 등록입니다. 이름만 바꾼 새 task로 상한을 초기화하지 않습니다.

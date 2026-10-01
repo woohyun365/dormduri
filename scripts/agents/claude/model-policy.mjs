@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-10-01.1';
+const POLICY_REVISION = '2026-10-01.2';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -90,6 +90,11 @@ const TASK_FIELDS = [
   'knownGaps',
   'facts',
 ];
+// Only the registry writes `recovery`, after binding the retry to its failed first task.
+const TASK_OPTIONAL_FIELDS = ['recovery'];
+const RECOVERY_FIELDS = ['of', 'cause', 'step', 'fromProfileId', 'fromRole'];
+const RECOVERY_CAUSES = deepFreeze(['result-error', 'omission', 'context-missing']);
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const FACT_FIELDS = ['key', 'sourceRef', 'confidence'];
 const ADMISSION_FIELDS = [
   'bindingDigest',
@@ -160,6 +165,7 @@ const BINDING_FIELDS = [
   'issuedAt',
   'expiresAt',
   'taskFacts',
+  'recovery',
   'bindingDigest',
 ];
 const DESCRIPTOR_FIELDS = [
@@ -197,7 +203,7 @@ export function evaluateClaudeProfileEligibility(input) {
   const reasons = [];
   try {
     exact(input, INPUT_FIELDS);
-    exact(input.task, TASK_FIELDS);
+    exact(input.task, TASK_FIELDS, TASK_OPTIONAL_FIELDS);
     assertEnvelope(input.envelope);
     digest(input.sourceDigest);
     digest(input.configDigest);
@@ -268,6 +274,7 @@ export function createClaudeSubagentBinding(input) {
     issuedAt: input.issuedAt,
     expiresAt: input.expiresAt,
     taskFacts: structuredClone(input.task.facts),
+    recovery: input.task.recovery ? { ...input.task.recovery } : null,
   };
   return deepFreeze({ ...data, bindingDigest: hash(data) });
 }
@@ -466,6 +473,53 @@ function validateTask(task) {
     reference(fact.sourceRef);
     require(fact.confidence === 'high');
   }
+  if (task.recovery !== undefined) validateRecovery(task.recovery);
+}
+
+function validateRecovery(recovery) {
+  exact(recovery, RECOVERY_FIELDS);
+  require(typeof recovery.of === 'string' && UUID.test(recovery.of));
+  require(RECOVERY_CAUSES.includes(recovery.cause));
+  require([0, 1, 2].includes(recovery.step));
+  require((recovery.cause === 'context-missing') === (recovery.step === 0));
+  require(PROFILE_BY_ID.has(recovery.fromProfileId));
+  require(Object.hasOwn(ROLE_TOOLS, recovery.fromRole));
+}
+
+// The Owner ladder: 1 Sonnet high to Opus high in the same role, 2 Opus high executor to the Opus
+// xhigh executor (build only), 0 the same profile and role. Any other move is no ladder step.
+export function claudeRecoveryStep(from, to) {
+  if (from.kind !== to.kind) return null;
+  if (from.profileId === to.profileId && from.role === to.role) return 0;
+  if (
+    from.profileId === 'bounded-standard' &&
+    to.profileId === 'complex-critical' &&
+    from.role === to.role &&
+    ['knu_explorer', 'knu_researcher', 'knu_executor'].includes(to.role)
+  )
+    return 1;
+  if (
+    from.profileId === 'complex-critical' &&
+    to.profileId === 'complex-critical' &&
+    from.role === 'knu_executor' &&
+    to.role === 'knu_executor_xhigh' &&
+    to.kind === 'build'
+  )
+    return 2;
+  return null;
+}
+
+// A bound retry one step up keeps the first task facts, so it is exempt from the critical signal.
+function ladderRetry(profile, task) {
+  const recovery = task.recovery;
+  return (
+    Boolean(recovery) &&
+    recovery.step > 0 &&
+    claudeRecoveryStep(
+      { profileId: recovery.fromProfileId, role: recovery.fromRole, kind: task.kind },
+      { profileId: profile.id, role: task.role, kind: task.kind },
+    ) === recovery.step
+  );
 }
 
 function eligibilityReasons(profile, task) {
@@ -486,6 +540,7 @@ function eligibilityReasons(profile, task) {
   if (
     profile.id === 'complex-critical' &&
     !independentReadOnlyReview &&
+    !ladderRetry(profile, task) &&
     task.impactRisk !== 'high' &&
     task.complexity !== 'complex' &&
     task.uncertainty !== 'uncertain'
@@ -635,6 +690,7 @@ function validateBinding(binding) {
     reference(fact.sourceRef);
     require(fact.confidence === 'high');
   }
+  if (binding.recovery !== null) validateRecovery(binding.recovery);
   digest(binding.sourceDigest);
   digest(binding.configDigest);
   digest(binding.scopeDigest);
@@ -666,6 +722,7 @@ function validateBinding(binding) {
       independent: binding.independent,
       knownGaps: binding.knownGaps,
       facts: binding.taskFacts,
+      ...(binding.recovery === null ? {} : { recovery: binding.recovery }),
     }).length === 0,
   );
 }
@@ -722,10 +779,10 @@ function assertEnvelope(envelope) {
   require(result.valid);
 }
 
-function exact(value, fields) {
+function exact(value, fields, optional = []) {
   require(value && Object.getPrototypeOf(value) === Object.prototype);
-  require(Reflect.ownKeys(value).length === fields.length);
   require(fields.every((field) => Object.hasOwn(value, field)));
+  require(Reflect.ownKeys(value).every((key) => fields.includes(key) || optional.includes(key)));
 }
 
 function exactStringArray(value) {

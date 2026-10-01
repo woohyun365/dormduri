@@ -100,6 +100,7 @@ Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troublesho
 Routine 위임 대상은 live 관측(CLI 2.1.283~2.1.286, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
 동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
 Live 증거는 필요조건일 뿐이며, Q 행을 routine으로 바꾸는 것은 이 표를 갱신하는 별도 채택 결정입니다.
+`Q(관측 <버전>, 채택 대기)`는 live 관측은 있지만 채택 결정 전인 Q 행입니다.
 
 Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 시점에 정합니다. 같은 family의 Parent면 Parent의 exact 모델로
 해석되므로 Parent 모델과 CLI 버전에 따라 달라질 수 있습니다([Model 설정](https://code.claude.com/docs/en/model-config)).
@@ -112,10 +113,10 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 | `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286)                             | 고정 입력 추출       | 관측                                  |
 | `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측                                  |
 | `knu_researcher`     | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.286) | 공식 근거 읽기       | 관측                                  |
-| `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`                                        | 독립 source review   | 관측                                  |
-| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | 없음                                                     | repository 읽기 조사 | Q(live 미관측)                        |
-| `knu_executor`       | `complex-critical`   | `opus`   | high      | 없음                                                     | 복잡한 구현          | Q(live 미관측)                        |
-| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | 없음                                                     | 고위험 구현          | Q(live 미관측)                        |
+| `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)                               | 독립 source review   | 관측                                  |
+| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286)                             | repository 읽기 조사 | Q(관측 2.1.286, 채택 대기)            |
+| `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)                               | 복잡한 구현          | Q(관측 2.1.286, 채택 대기)            |
+| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)                               | 고위험 구현          | Q(관측 2.1.286, 채택 대기)            |
 
 Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 않아 역할 값을 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
 대조합니다([Model profiles](./claude-model-profiles.md#역할-effort와-executor-단계)).
@@ -124,21 +125,27 @@ Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 �
 
 공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유하며, 이 절은 Claude의 재등록과 모델·effort 상향을 정합니다.
 
-위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산하거나 `release`해 writer를 회수합니다. 재시도는
-**한 번만** 허용하며 새 task로 다시 등록합니다. 원인에 따라 선택을 바꿉니다
+위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산합니다. `release`한 task에는 결속할 수 없으므로 `release`는 관측 없이 끝난 child의 writer 회수에만 씁니다. 재시도는
+**한 번만** 허용하며 새 task로 다시 등록합니다. 재시도는 실패한 1차 task에 결속합니다. Spec의 `recovery`에
+`{of: <1차 taskId>, cause}`를 두고 1차 task와 같은 사실로 등록합니다. 1차 task는 실행·관측되어 있어야 합니다.
+조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다
 ([Choosing a Claude model and effort level in Claude Code](https://claude.com/blog/claude-model-and-effort-level-in-claude-code)).
 
-- 필요한 context가 충분했는데 결과가 틀렸다면 모델을 한 단계 올립니다(`sonnet`→`opus`). Lead가 새 profile과 선택 근거로 다시 prepare합니다.
-  올린 profile도 자기 조건을 그대로 만족해야 합니다. `complex-critical`은 독립 read-only review가 아니면 impact `high`,
-  complexity `complex`, uncertainty `uncertain` 중 하나가 필요하고 `bounded-standard`는 complexity `bounded`·uncertainty
-  `resolved`만 받습니다.
-  조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다.
-- 파일을 빠뜨렸거나 테스트를 실행하지 않았거나 중도에 멈췄다면 effort를 올립니다. Effort는 역할 파일이 정하며 올릴 수 있는
-  변형은 `complex-critical` build의 `knu_executor_xhigh`뿐입니다. 정산이 child transcript의 effort를 역할 기대값과 대조합니다.
-- Context·acceptance가 부족했다면 모델·effort를 바꾸기 전에 입력을 보완합니다.
+이 상향은 공통 원칙의 자동 사다리가 아닙니다. 재시도는 한 번, 한 단계뿐이며 Lead가 원인을 보고 등록합니다. 공통 원칙은
+다른 접근의 구체를 host adapter에 맡기고, Claude의 구체는 [상향 사다리](./claude-model-profiles.md#recovery-상향-사다리)가
+정합니다. 거부 이유와 기록 순서는 [Recovery 결속](./claude-native-registry.md#recovery-결속)이 소유합니다.
+
+- `result-error`(결과가 틀림)와 `omission`(파일 누락·테스트 미실행·중도 정지)은 사다리의 다음 단계로 올립니다.
+- `context-missing`은 같은 profile·역할로 다시 등록합니다. Prompt에만 context를 보탭니다.
+- Acceptance나 scope를 바꿔야 하면 재시도가 아닙니다. Owner와 정합니다.
 - 올린 역할×profile이 [Routine operation](#routine-operation) 표의 Q 행이거나 표에 없으면 그 재시도가 해당 조합의 첫 live
   관측입니다. `expectedResolvedModel`에는 같은 alias가 현재 CLI 버전에서 관측된 ID(예: `opus` → `claude-opus-5-5`,
   2.1.284의 `sonnet` → `claude-sonnet-5-5`)를 두고, 결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다.
+- 실패한 Agent 호출(PostToolUseFailure)은 해석된 모델이 없어 결속할 수 없습니다(`effective-model-mismatch`). Lead와 Owner가
+  원인을 보고 다음 행동을 정합니다.
+- 등록된 재시도가 실행되지 못해도 재시도 기회는 쓴 것입니다. 1차 task는 이미 superseded라 완료할 수 없습니다. 다음 행동은
+  Owner와 정합니다.
+- Registry는 결속한 재시도의 상한만 강제합니다. 결속 없는 같은 사실 재등록의 상한은 Lead 운영 규칙입니다.
 - Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다.
 - 재시도도 실패하면 무인 계속을 멈추고 원인·증거를 보존해 Owner와 다음 행동을 정합니다.
 

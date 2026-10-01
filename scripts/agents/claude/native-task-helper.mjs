@@ -57,7 +57,8 @@ const SPEC_REQUIRED = [
   'facts',
   'prompt',
 ];
-const SPEC_OPTIONAL = ['lifetimeMinutes', 'independentReview'];
+const SPEC_OPTIONAL = ['lifetimeMinutes', 'independentReview', 'recovery'];
+const TASK_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const RUNNER_RECORD_FIELDS = [
   'command',
   'exit',
@@ -115,6 +116,19 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   if (typeof spec.prompt !== 'string' || !spec.prompt.trim()) issues.push('prompt-required');
   for (const key of ['readScope', 'writeScope'])
     if (!Array.isArray(spec[key])) issues.push(`${key}-array-required`);
+  // The registry judges the cause and the binding; the spec only names the first task and a cause.
+  if (
+    spec.recovery !== undefined &&
+    !(
+      spec.recovery &&
+      typeof spec.recovery === 'object' &&
+      !Array.isArray(spec.recovery) &&
+      Object.keys(spec.recovery).sort().join() === 'cause,of' &&
+      TASK_ID.test(spec.recovery.of) &&
+      typeof spec.recovery.cause === 'string'
+    )
+  )
+    issues.push('recovery-format: {of: <first taskId>, cause}');
   fail('invalid prepare spec', issues);
   const reviewHeader = /^KNU review snapshot (sha256:[a-f0-9]{64})\n/u.exec(spec.prompt)?.[1];
   // A review prompt names the round it was built for; a later source change makes it stale.
@@ -178,6 +192,7 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
     prompt: childPrompt,
     expectedResolvedModel: spec.expectedResolvedModel,
     ...(spec.independentReview === undefined ? {} : { independentReview: spec.independentReview }),
+    ...(spec.recovery === undefined ? {} : { recovery: spec.recovery }),
   };
   const registered = registerClaudeNativeTask(structuredClone(registerInput));
   return {
