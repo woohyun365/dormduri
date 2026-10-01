@@ -369,7 +369,7 @@ test('review and settle documents carry the E3 packet file and its settle reason
     'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
   ]) {
     const text = read(path);
-    for (const reason of ['review-packet-unread', 'review-packet-changed'])
+    for (const reason of ['review-packet-unread', 'review-packet-changed', 'review-packet-missing'])
       assert.ok(text.includes(`\`${reason}\``), `${path}: ${reason}`);
   }
 });

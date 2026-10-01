@@ -5,6 +5,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -1429,7 +1430,11 @@ test('a packet file is written once, only after the prompt fits, and only under 
     /reviewer-prompt-exceeds-12000-chars/u,
   );
   assert.equal(packetFiles(r).length, 1);
+});
 
+test('writeClaudeReviewPacket writes the same bytes once and refuses other bytes, ids and symlinks', async (t) => {
+  const helper = await import('../agents/claude/native-task-helper.mjs');
+  const r = repo(t);
   const bytes = Buffer.from('{"packet":1}\n');
   const written = helper.writeClaudeReviewPacket(r.root, 'abcd1234-0123abcd', bytes);
   assert.deepEqual(written, {
@@ -1455,7 +1460,7 @@ test('a packet file is written once, only after the prompt fits, and only under 
   );
 });
 
-function readRows(r, agentId, packetPath, { error = false } = {}) {
+function readRows(r, agentId, packetPath, { error = false, root = r.root } = {}) {
   const child = join(
     r.root,
     '.artifacts/transcripts',
@@ -1477,7 +1482,7 @@ function readRows(r, agentId, packetPath, { error = false } = {}) {
               type: 'tool_use',
               id: 'toolu_packet',
               name: 'Read',
-              input: { file_path: join(r.root, packetPath) },
+              input: { file_path: join(root, packetPath) },
             },
           ],
         },
@@ -1494,15 +1499,33 @@ function readRows(r, agentId, packetPath, { error = false } = {}) {
       })}\n`,
   );
 }
-function settledParentReview(t, { read = true, error = false, change = false } = {}) {
+function settledParentReview(
+  t,
+  { read = true, error = false, change = false, alias = false, dropLine = false } = {},
+) {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   const review = parentReview(r, SMALL_PARENT_SUBJECT);
-  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const spec = dropLine
+    ? {
+        ...review.reviewerSpec,
+        prompt: review.reviewerSpec.prompt
+          .split('\n')
+          .filter((line) => !line.startsWith('KNU_REVIEW_PACKET_FILE:'))
+          .join('\n'),
+      }
+    : review.reviewerSpec;
+  const reviewer = prepareClaudeNativeTask(spec, { root: r.root });
   const result = structuredClone(review.resultTemplate);
   result.verdict = 'PASS';
   dispatch(r, reviewer, 'review-1', JSON.stringify(result));
-  if (read) readRows(r, 'review-1-agent', review.packetFile.path, { error });
+  let root = r.root;
+  if (alias) {
+    root = `${r.root}-alias`;
+    symlinkSync(r.root, root);
+    t.after(() => rmSync(root, { force: true }));
+  }
+  if (read) readRows(r, 'review-1-agent', review.packetFile.path, { error, root });
   if (change) writeFileSync(join(r.root, review.packetFile.path), '{}\n');
   return {
     r,
@@ -1519,7 +1542,9 @@ test('settle reports whether the Parent reviewer read the unchanged packet file'
     currentDigest: review.packetFile.digest,
     read: true,
   });
-  assert.ok(!status.observationErrors.some((e) => e.startsWith('review-packet-')));
+  assert.deepEqual(status.observationErrors, []);
+  // The same file read through a symlinked root still counts as read.
+  assert.deepEqual(settledParentReview(t, { alias: true }).status.observationErrors, []);
   for (const [options, reason] of [
     [{ read: false }, 'review-packet-unread'],
     [{ error: true }, 'review-packet-unread'],
@@ -1529,4 +1554,10 @@ test('settle reports whether the Parent reviewer read the unchanged packet file'
       settledParentReview(t, options).status.observationErrors.includes(reason),
       JSON.stringify(options),
     );
+});
+
+test('settle refuses a Parent reviewer whose prompt lost the packet file line', (t) => {
+  const { status } = settledParentReview(t, { dropLine: true });
+  assert.equal(status.reviewPacket.missing, true);
+  assert.ok(status.observationErrors.includes('review-packet-missing'));
 });

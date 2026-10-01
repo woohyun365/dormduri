@@ -523,7 +523,7 @@ function reviewerPrompt(logHeader, subject, packet, template, packetFile) {
       : []),
     ...(packetFile
       ? [
-          `- Read the packet file first: ${packetFile.path}. It holds the objective, sources and read boundaries. If it cannot be read or is not JSON, end with a blocker.`,
+          `- Read the packet file first with the Read tool: ${packetFile.path}. It holds the objective, sources and read boundaries. If it cannot be read or is not JSON, end with a blocker.`,
         ]
       : []),
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
@@ -686,6 +686,16 @@ function childTranscriptPath(state) {
     return null;
   }
 }
+// The same file reached through another absolute spelling (a symlinked root) still counts.
+function samePath(candidate, file) {
+  if (typeof candidate !== 'string') return false;
+  if (candidate === file) return true;
+  try {
+    return realpathSync(candidate) === realpathSync(file);
+  } catch {
+    return false;
+  }
+}
 // A Read of the packet file counts only when its tool_result is not an error.
 function readPacketInTranscript(path, file) {
   let rows;
@@ -707,7 +717,7 @@ function readPacketInTranscript(path, file) {
   const reads = rows.flatMap((row) =>
     row?.type === 'assistant'
       ? content(row).filter(
-          (c) => c?.type === 'tool_use' && c.name === 'Read' && c.input?.file_path === file,
+          (c) => c?.type === 'tool_use' && c.name === 'Read' && samePath(c.input?.file_path, file),
         )
       : [],
   );
@@ -722,7 +732,12 @@ function readPacketInTranscript(path, file) {
 function reviewPacketStatus(state, root) {
   const { invocation } = JSON.parse(readFileSync(join(state.evidenceDirectory, 'task.json')));
   const line = invocation.prompt.split('\n').find((l) => l.startsWith(REVIEW_PACKET_LINE));
-  if (line === undefined) return null;
+  // A Parent-judged reviewer always gets a packet file; a prompt without the line was edited.
+  if (line === undefined)
+    return state.record.input.nativeRequest.task.role === 'knu_reviewer' &&
+      !state.record.independentReview
+      ? { path: null, expectedDigest: null, currentDigest: null, read: false, missing: true }
+      : null;
   const [path, expectedDigest] = line.slice(REVIEW_PACKET_LINE.length).split(' ');
   let currentDigest = null;
   try {
@@ -745,7 +760,8 @@ function settlementStatus(taskId, root) {
       `cannot settle yet (${state.errors.join(',')}): wait for the completed task-notification, then settle`,
     );
   const reviewPacket = reviewPacketStatus(state, root);
-  if (reviewPacket && !reviewPacket.read) state.errors.push('review-packet-unread');
+  if (reviewPacket?.missing) state.errors.push('review-packet-missing');
+  else if (reviewPacket && !reviewPacket.read) state.errors.push('review-packet-unread');
   if (reviewPacket && reviewPacket.currentDigest !== reviewPacket.expectedDigest)
     state.errors.push('review-packet-changed');
   const content = state.observation.response?.content;

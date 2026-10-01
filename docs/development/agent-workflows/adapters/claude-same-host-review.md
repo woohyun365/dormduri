@@ -71,7 +71,8 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 만듭니다. Packet은 prompt에 싣지 않고 helper가 `.artifacts/tools/claude-review-packets/<reviewId>.json`(ignored, native 증거
 경로 아님)에 상한 검사를 통과한 뒤 한 번 씁니다. Prompt에는 `KNU_REVIEW_PACKET_FILE:<경로> <sha256 digest>` 한 줄이 남고, 그
 경로가 reviewer read 범위에 들어갑니다. `settle --task`는 `reviewPacket`(경로, 기대·현재 digest, 성공한 `Read` 관측)을 더하고,
-읽지 않았으면 `review-packet-unread`, 파일이 바뀌었으면 `review-packet-changed`를 `observationErrors`에 넣습니다. 그 reviewer는
+읽지 않았으면 `review-packet-unread`, 파일이 바뀌었으면 `review-packet-changed`, Parent reviewer prompt에 packet 파일 줄이
+없으면 `review-packet-missing`을 `observationErrors`에 넣습니다. 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지
 확인합니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
