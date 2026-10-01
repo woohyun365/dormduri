@@ -381,11 +381,11 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '`knu_executor` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.284) bounded 구현·검증 관측',
       '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 공식 근거 읽기 관측',
       '`knu_reviewer` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 독립 source review 관측',
-      '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) repository 읽기 조사 Q(관측 2.1.286, 채택 대기)',
-      '`knu_executor` `complex-critical` `opus` high `claude-opus-5-5`(2.1.286) 복잡한 구현 Q(관측 2.1.286, 채택 대기)',
-      '`knu_executor_xhigh` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 고위험 구현 Q(관측 2.1.286, 채택 대기)',
+      '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) repository 읽기 조사 관측',
+      '`knu_executor` `complex-critical` `opus` high `claude-opus-5-5`(2.1.286) 복잡한 구현 관측',
+      '`knu_executor_xhigh` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 고위험 구현 관측',
     ],
-    'routine table keeps live-observed rows plus Q rows awaiting an adoption decision',
+    'routine table keeps only live-observed rows adopted by the Owner',
   );
   for (const row of rows) {
     const cells = row.split('|').map((cell) => cell.trim());
