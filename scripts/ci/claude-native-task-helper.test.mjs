@@ -1070,6 +1070,9 @@ test('a linked reviewer template has no reviewerTaskId', (t) => {
   const status = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
   assert.equal(status.judgmentTemplatePath, templateOf(reviewer));
   assert.ok(!Object.hasOwn(templateIn(status), 'reviewerTaskId'));
+  // A native linked reviewer gets no packet file, so settle reports no packet status or reason.
+  assert.equal(status.reviewPacket, undefined);
+  assert.ok(!status.observationErrors.some((e) => e.startsWith('review-packet-')));
 });
 
 test('no template is written before a background child is settled', (t) => {
@@ -1415,8 +1418,7 @@ test('a Parent review with many read paths and runner records fits the prompt li
   assert.ok(review.reviewerPrompt.length <= 12000, String(review.reviewerPrompt.length));
 });
 
-test('a packet file is written once, only after the prompt fits, and only under the packet directory', async (t) => {
-  const helper = await import('../agents/claude/native-task-helper.mjs');
+test('a packet file is written once, only after the prompt fits, and only under the packet directory', (t) => {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   parentReview(r, SMALL_PARENT_SUBJECT);

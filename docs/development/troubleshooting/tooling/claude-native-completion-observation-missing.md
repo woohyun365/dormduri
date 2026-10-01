@@ -1,7 +1,7 @@
 # 트러블슈팅: Claude native task 완료 시 `no-completion-observation`
 
 **상태**: Current
-**마지막 검증 환경**: Claude Code CLI 2.1.283, 일반 `claude --permission-mode auto`, 비동기 Agent 완료
+**마지막 검증 환경**: Claude Code CLI 2.1.283(정산 거부)·2.1.286(hand-back 뒤 알림), 일반 `claude --permission-mode auto`, 비동기 Agent 완료
 **현재 owner**: [Claude Code adapter](../../agent-workflows/adapters/claude-code.md)
 
 ## 증상
@@ -40,12 +40,30 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 
 ## 해결
 
-1. 완료 알림(`<status>completed</status>`)이 온 뒤에 settle 또는 complete를 다시 실행합니다. Child의 최종 보고가 알림보다 먼저 도착해도
-   `stop.json`이 생길 때까지 기다립니다. 같은 Stop에 한해 지연 flush를 재검사합니다.
+1. 완료 알림(`<status>completed</status>`)이 온 뒤에 settle 또는 complete를 다시 실행합니다. Child의 최종 보고(hand-back)가 알림보다 먼저 도착해도
+   알림까지 기다립니다. `stop.json`만으로는 정산되지 않습니다. 기다리는 turn은 아래 [hand-back 뒤 완료 알림이 오지 않음](#hand-back-뒤-완료-알림이-오지-않음)을 따릅니다. 같은 Stop에 한해 지연 flush를 재검사합니다.
 2. Child가 끝나면 **파일을 편집하기 전에** 먼저 정산합니다. 이미 편집했다면 그 관측은 되돌리지 말고 invalid로 기록한 뒤,
    필요하면 새 task로 다시 실행합니다.
 3. 부모 transcript가 한도를 넘으면 새 세션에서 새로 등록합니다. 한도를 높인 사본이나 수동 JSON으로 정산하지 않습니다.
 4. 거부 사유를 PASS로 바꾸지 않고 evidence에 그대로 남깁니다.
+
+## hand-back 뒤 완료 알림이 오지 않음
+
+증상: 비동기 child(예: `knu_reviewer`)의 hand-back 메시지가 Lead에게 먼저 오고, Lead가 "알림을 기다린다"는 text만 남기고 turn을
+끝냅니다. 그 뒤 완료 알림이 새 turn을 시작하지 않아 정산이 멈춘 것처럼 보이고, 알림은 사용자의 다음 입력과 함께 옵니다.
+
+원인(관측, CLI 2.1.286, 2026-10-01 한 세션 6회): hand-back과 완료 알림은 약 0.5초 간격으로 대기열에 들어옵니다. Hand-back turn을
+text로만 끝낸 3회는 알림이 다음 사용자 입력에 붙어 왔고, 그 turn에서 tool을 호출한 3회는 알림이 tool 결과에 붙어 같은 turn에
+왔습니다. 저장소 hook은 완료를 기록할 뿐 Lead turn을 시작하지 않습니다. 하네스 전달 방식의 공식 설명은 찾지 못했습니다(추론).
+
+해결:
+
+1. hand-back을 받은 turn은 text로 끝내지 않고 finding 재현·source 확인 같은 tool 작업으로 이어 갑니다. 이때 정산은 시도하지
+   않습니다.
+2. 알림이 그 turn에 오면 바로 `settle --task <taskId>`로 정산하고 판정까지 진행합니다.
+3. 이미 turn이 끝났다면 사용자의 다음 입력과 함께 온 알림을 확인한 뒤 정산합니다.
+
+알림 없이 정산하지 않습니다. 완료 알림은 hand-back과 달리 registry가 완료 관측으로 쓰는 증거이므로 이 요구를 완화하지 않습니다.
 
 ## 검증
 

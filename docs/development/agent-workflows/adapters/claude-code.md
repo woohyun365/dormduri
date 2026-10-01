@@ -80,11 +80,13 @@ spec의 `sessionId`와 `review --session`에 현재 session ID(`${CLAUDE_SESSION
 2. `pnpm claude:workflow -- --mode fresh --request '<요청>'`으로 공통 intake 분류와 읽을 문서를 확인합니다.
 3. 위임할 때만 Lead가 역할·profile·선택 근거·범위·acceptance를 정해 `pnpm claude:native prepare --spec <JSON file>`로 등록합니다.
 4. 반환된 `agentInput` 그대로 Agent를 호출합니다(hook이 등록 prompt를 주입). 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](./claude-native-registry.md#일반-interactive-auto-세션).
-5. 완료 알림(`task-notification completed`)을 받은 **다음** `settle --task <taskId>`로 관측을 정산합니다. 알림 행은 Lead turn이
-   끝난 뒤 parent transcript에 기록되므로 같은 turn에서 정산을 반복 시도하지 않습니다. 이어서 `settle --judgment`로 판정합니다.
+5. Background child는 완료 알림(`task-notification completed`)을 받은 **다음** `settle --task <taskId>`로 관측을 정산합니다.
+   Foreground 호출은 PostToolUse가 완료를 기록하므로 알림을 기다리지 않습니다. 알림 전 정산은
+   거부되므로 알림을 받기 전에는 같은 turn에서 정산을 반복 시도하지 않습니다. 이어서 `settle --judgment`로 판정합니다.
    판정 입력은 첫 `settle`이 만든 `judgment-template.json`을 채워 씁니다(`settle --judgment <그 파일>`).
-   Child의 hand-back 메시지가 알림보다 먼저 와도 완료 관측이 아니므로 알림 뒤에 정산합니다. 알림 도착에 맞춰 발화하는 hook이
-   공식 문서에 없어 이 순서는 자동화하지 않습니다(추론).
+   Background child의 hand-back 메시지가 알림보다 먼저 와도 완료 관측이 아니므로 알림 뒤에 정산합니다. hand-back을 받은 turn은 text로
+   끝내지 않고 finding 재현 같은 tool 작업으로 이어 가며, 알림이 그 turn에 오면 바로 정산합니다
+   ([hand-back 뒤 알림](../../troubleshooting/tooling/claude-native-completion-observation-missing.md#hand-back-뒤-완료-알림이-오지-않음)). 알림 도착에 맞춰 발화하는 hook이 공식 문서에 없어 이 순서는 자동화하지 않습니다(추론).
 6. 독립 QA가 필요하면 `pnpm claude:native review`로 packet을 만들고 reviewer를 같은 방식으로 등록·호출·정산합니다.
    Parent가 직접 작성한 변경은 `parent-adjudication`으로 판정합니다([Same-host independent review](./claude-same-host-review.md#same-host-independent-review)).
 

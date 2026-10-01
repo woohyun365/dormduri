@@ -373,3 +373,29 @@ test('review and settle documents carry the E3 packet file and its settle reason
       assert.ok(text.includes(`\`${reason}\``), `${path}: ${reason}`);
   }
 });
+
+test('settle documents keep the hand-back turn alive until the completion notification arrives', () => {
+  const rule = 'hand-back을 받은 turn은 text로 끝내지 않고';
+  for (const path of [
+    'docs/development/agent-workflows/adapters/claude-code.md',
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/troubleshooting/tooling/claude-native-completion-observation-missing.md',
+  ])
+    // Line wrapping may split the sentence, so whitespace is compared as one space.
+    assert.ok(read(path).replace(/\s+/gu, ' ').includes(rule), `${path}: hand-back turn rule`);
+  const doc = read(
+    'docs/development/troubleshooting/tooling/claude-native-completion-observation-missing.md',
+  );
+  assert.match(doc, /## hand-back 뒤 완료 알림이 오지 않음/u);
+  assert.match(doc, /알림 없이 정산하지 않습니다/u);
+  const rejections = read(
+    'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
+  );
+  const flat = rejections.replace(/\s+/gu, ' ');
+  assert.ok(
+    flat.includes('세 사유 모두 결과를 쓰지 말고'),
+    'three packet reasons share one remedy',
+  );
+  assert.ok(!flat.includes('둘 다 결과를 쓰지 말고'), 'stale count');
+  assert.ok(!/\bE[0-9]\b/u.test(flat), 'no plan phase label in a tracked doc');
+});
