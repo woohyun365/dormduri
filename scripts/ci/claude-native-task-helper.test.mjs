@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
 import {
@@ -20,6 +21,7 @@ import {
 import {
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,
+  isClaudeNativeEvidencePath,
 } from '../agents/claude/native-session.mjs';
 import {
   prepareClaudeNativeTask,
@@ -716,7 +718,7 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
   assert.equal(parentPacket.valid, true, parentPacket.errors.join('; '));
   assert.equal(review.reviewerSpec.independentReview, undefined);
   assert.equal(review.reviewerSpec.reviewDisposition.required, true);
-  assert.match(review.reviewerPrompt, /KNU_REVIEW_PACKET:/u);
+  assert.match(review.reviewerPrompt, /KNU_REVIEW_PACKET_FILE:/u);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit after the review was built');
   assert.throws(
     () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
@@ -1304,4 +1306,227 @@ test('prepare passes a recovery spec to the registry and refuses a malformed one
     undefined,
     'the registry, not the helper, writes the checked recovery into the task',
   );
+});
+
+// A Parent-authored review hands its packet over as a digest-bound file, so the prompt keeps room
+// for the result template; the native subject prompt is left exactly as it was.
+function parentReview(r, parentSubject, records) {
+  const { snapshotDigest } = buildClaudeNativeReview({ parentSubject }, { root: r.root });
+  return buildClaudeNativeReview(
+    {
+      parentSubject,
+      runnerEvidence: records
+        ? {
+            runner: 'lead-runner',
+            records: records.map((record) => ({ ...record, sourceDigest: snapshotDigest })),
+          }
+        : { ...runnerEvidence(snapshotDigest), runner: 'lead-runner' },
+      selectionBasisRef: 'plan:helper-test/parent-review',
+      reviewerModel: 'claude-opus-4-6',
+      sessionId: r.sessionId,
+    },
+    { root: r.root },
+  );
+}
+const SMALL_PARENT_SUBJECT = {
+  request: 'sample.txt 변경을 구현해줘.',
+  owner: 'parent',
+  acceptance: ['sample.txt updated'],
+  paths: ['sample.txt'],
+};
+const PACKET_DIR = '.artifacts/tools/claude-review-packets';
+const packetFiles = (r) =>
+  existsSync(join(r.root, PACKET_DIR)) ? readdirSync(join(r.root, PACKET_DIR)) : [];
+const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+
+test('the native subject reviewer prompt keeps its fixed lines and gets no packet file', (t) => {
+  const r = settledBuilder(t);
+  const review = reviewOf(r);
+  const lines = review.reviewerPrompt.split('\n');
+  assert.equal(lines[0], review.logHeader);
+  assert.ok(lines.at(-1).startsWith('Result template: '));
+  assert.deepEqual(lines.slice(1, -1), [
+    'Independent read-only review of one frozen subject (same host, fresh context).',
+    '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
+    '- Judge the source against each acceptanceCoverage criterion; no builder reasoning is provided or needed.',
+    '- commandsActuallyRun holds the runner records. Keep them exactly; never add or claim a command yourself.',
+    '- notRun lists only required checks nobody ran; knownGaps lists unresolved gaps blocking acceptance.',
+    '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
+    '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
+    '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
+    '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
+  ]);
+  assert.ok(!review.reviewerPrompt.includes('KNU_REVIEW_PACKET'));
+  assert.equal(review.packetFile, undefined);
+  assert.deepEqual(packetFiles(r), []);
+});
+
+test('a Parent review prompt names a digest-bound packet file instead of the packet JSON', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  assert.ok(!review.reviewerPrompt.includes('KNU_REVIEW_PACKET:{'));
+  const { path, digest } = review.packetFile;
+  assert.match(path, /^\.artifacts\/tools\/claude-review-packets\/[a-z0-9]{8}-[a-f0-9]{8}\.json$/u);
+  assert.ok(review.reviewerPrompt.split('\n').includes(`KNU_REVIEW_PACKET_FILE:${path} ${digest}`));
+  assert.match(review.reviewerPrompt, /Read the packet file first/u);
+  const bytes = readFileSync(join(r.root, path));
+  assert.equal(bytes.toString('utf8'), `${JSON.stringify(review.packet)}\n`);
+  assert.equal(digest, sha256(bytes));
+  assert.ok(review.reviewerSpec.readScope.includes(path));
+  assert.ok(review.packet.boundaries.allowedReadPaths.includes(path));
+  // The file is ignored and is not native task evidence, so the review snapshot is unchanged.
+  execFileSync('git', ['check-ignore', '-q', path], { cwd: r.root });
+  assert.equal(isClaudeNativeEvidencePath(r.root, path), false);
+  prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+});
+
+test('a Parent review with many read paths and runner records fits the prompt limit', (t) => {
+  const r = repo(t);
+  const paths = Array.from({ length: 18 }, (_, i) => {
+    const path = `docs/development/agent-workflows/adapters/review-input-${String(i).padStart(2, '0')}.md`;
+    mkdirSync(join(r.root, 'docs/development/agent-workflows/adapters'), { recursive: true });
+    writeFileSync(join(r.root, path), `input ${i}\n`);
+    return path;
+  });
+  execFileSync('git', ['add', '.'], { cwd: r.root });
+  const subject = {
+    request: 'Parent 작성 변경이 contract와 맞는지 읽기 전용으로 독립 검토해줘.',
+    owner: 'parent',
+    acceptance: Array.from(
+      { length: 6 },
+      (_, i) =>
+        `Criterion ${i}: the changed behaviour matches the contract, refused inputs write nothing, and the documented reasons follow the fixed order`,
+    ),
+    paths,
+  };
+  const records = Array.from({ length: 8 }, (_, i) => ({
+    command: `node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-task-helper.test.mjs # section ${i}`,
+    exit: 0,
+    environment: 'feat/claude-review-packet-file clean, macOS, Node 24.15, CLI 2.1.286',
+    observedResult: `section ${i}: 486/486 pass, repo-policy 1165/1165, prettier clean, no change under scripts/agents/common`,
+    outputPaths: [
+      `.artifacts/plans/agent-workflow-portability-execution-index/review/runner-${i}.log`,
+      `.artifacts/plans/agent-workflow-portability-execution-index/review/green-${i}.tap`,
+    ],
+  }));
+  const review = parentReview(r, subject, records);
+  assert.ok(review.reviewerPrompt.length <= 12000, String(review.reviewerPrompt.length));
+});
+
+test('a packet file is written once, only after the prompt fits, and only under the packet directory', async (t) => {
+  const helper = await import('../agents/claude/native-task-helper.mjs');
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  parentReview(r, SMALL_PARENT_SUBJECT);
+  assert.equal(packetFiles(r).length, 1);
+  assert.throws(
+    () =>
+      parentReview(r, {
+        ...SMALL_PARENT_SUBJECT,
+        acceptance: Array.from({ length: 40 }, (_, i) => `criterion ${i} `.padEnd(200, 'x')),
+      }),
+    /reviewer-prompt-exceeds-12000-chars/u,
+  );
+  assert.equal(packetFiles(r).length, 1);
+
+  const bytes = Buffer.from('{"packet":1}\n');
+  const written = helper.writeClaudeReviewPacket(r.root, 'abcd1234-0123abcd', bytes);
+  assert.deepEqual(written, {
+    path: `${PACKET_DIR}/abcd1234-0123abcd.json`,
+    digest: sha256(bytes),
+  });
+  assert.deepEqual(helper.writeClaudeReviewPacket(r.root, 'abcd1234-0123abcd', bytes), written);
+  assert.throws(
+    () => helper.writeClaudeReviewPacket(r.root, 'abcd1234-0123abcd', Buffer.from('{}\n')),
+    /review packet .* differs/u,
+  );
+  for (const reviewId of ['../../plans/x', 'ABCD1234-0123abcd', 'abcd1234'])
+    assert.throws(
+      () => helper.writeClaudeReviewPacket(r.root, reviewId, bytes),
+      /invalid review packet id/u,
+    );
+  const other = repo(t);
+  mkdirSync(join(other.root, '.artifacts/tools/claude-native'), { recursive: true });
+  symlinkSync(join(other.root, '.artifacts/tools/claude-native'), join(other.root, PACKET_DIR));
+  assert.throws(
+    () => helper.writeClaudeReviewPacket(other.root, 'abcd1234-0123abcd', bytes),
+    /artifact ancestor symlink/u,
+  );
+});
+
+function readRows(r, agentId, packetPath, { error = false } = {}) {
+  const child = join(
+    r.root,
+    '.artifacts/transcripts',
+    r.sessionId,
+    'subagents',
+    `agent-${agentId}.jsonl`,
+  );
+  const row = (type, message, extra = {}) =>
+    JSON.stringify({ type, sessionId: r.sessionId, agentId, ...extra, message });
+  writeFileSync(
+    child,
+    readFileSync(child, 'utf8') +
+      `${row(
+        'assistant',
+        {
+          model: 'claude-opus-4-6',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'toolu_packet',
+              name: 'Read',
+              input: { file_path: join(r.root, packetPath) },
+            },
+          ],
+        },
+        { effort: ROLE_EFFORT.knu_reviewer },
+      )}\n${row('user', {
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'toolu_packet',
+            ...(error ? { is_error: true } : {}),
+            content: error ? 'File does not exist.' : '{}',
+          },
+        ],
+      })}\n`,
+  );
+}
+function settledParentReview(t, { read = true, error = false, change = false } = {}) {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const result = structuredClone(review.resultTemplate);
+  result.verdict = 'PASS';
+  dispatch(r, reviewer, 'review-1', JSON.stringify(result));
+  if (read) readRows(r, 'review-1-agent', review.packetFile.path, { error });
+  if (change) writeFileSync(join(r.root, review.packetFile.path), '{}\n');
+  return {
+    r,
+    review,
+    status: settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root }),
+  };
+}
+
+test('settle reports whether the Parent reviewer read the unchanged packet file', (t) => {
+  const { review, status } = settledParentReview(t);
+  assert.deepEqual(status.reviewPacket, {
+    path: review.packetFile.path,
+    expectedDigest: review.packetFile.digest,
+    currentDigest: review.packetFile.digest,
+    read: true,
+  });
+  assert.ok(!status.observationErrors.some((e) => e.startsWith('review-packet-')));
+  for (const [options, reason] of [
+    [{ read: false }, 'review-packet-unread'],
+    [{ error: true }, 'review-packet-unread'],
+    [{ change: true }, 'review-packet-changed'],
+  ])
+    assert.ok(
+      settledParentReview(t, options).status.observationErrors.includes(reason),
+      JSON.stringify(options),
+    );
 });

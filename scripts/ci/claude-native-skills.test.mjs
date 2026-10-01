@@ -354,3 +354,22 @@ test('settle, registry and qualification documents carry the E2 recovery and pil
     assert.ok(text.includes('`/effort`'), `${path}: /effort rule`);
   }
 });
+
+test('review and settle documents carry the E3 packet file and its settle reasons', () => {
+  const review = skill('knu-review');
+  assert.ok(review.includes('KNU_REVIEW_PACKET_FILE'), 'knu-review names the packet file line');
+  assert.ok(
+    !review.includes('넘으면 acceptance·read path·runner 기록을 줄입니다'),
+    'old limit advice',
+  );
+  assert.match(review, /packet[^\n]*빠진 뒤/u);
+  for (const path of [
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+    'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
+  ]) {
+    const text = read(path);
+    for (const reason of ['review-packet-unread', 'review-packet-changed'])
+      assert.ok(text.includes(`\`${reason}\``), `${path}: ${reason}`);
+  }
+});

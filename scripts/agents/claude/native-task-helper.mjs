@@ -3,12 +3,20 @@
 // assembles complete's input from the observation and the Lead's own judgment; complete still decides.
 // The reviewer spec from review is a draft with the only reviewer role/profile (knu_reviewer,
 // complex-critical) and review facts citing the Lead's --basis; the Lead reviews it before prepare.
-import { randomUUID } from 'node:crypto';
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { validateCrossModelPacket } from '../common/index.mjs';
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
 import {
   registerClaudeNativeTask,
@@ -447,7 +455,52 @@ function resultTemplate(packet, evidence) {
 }
 
 // Criteria and runner records appear once, inside the template, to stay within the register limit.
-function reviewerPrompt(logHeader, subject, packet, template) {
+// A Parent-authored review hands its packet over as a file under this helper-owned directory, so
+// the packet no longer counts against the prompt limit. The file is ignored and is not native task
+// evidence, so it never enters the review snapshot. A native subject keeps its registry-held packet.
+const REVIEW_PACKET_ID = /^[a-z0-9]{8}-[a-f0-9]{8}$/u;
+const REVIEW_PACKET_LINE = 'KNU_REVIEW_PACKET_FILE:';
+const packetDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+function reviewPacketPath(root, reviewId) {
+  if (typeof reviewId !== 'string' || !REVIEW_PACKET_ID.test(reviewId))
+    throw new TypeError(`invalid review packet id: ${reviewId}`);
+  const dir = resolveArtifactPath(root, ['claude-review-packets'], {});
+  const path = relative(root, join(dir, `${reviewId}.json`));
+  if (
+    !path.startsWith('.artifacts/') ||
+    path.includes('..') ||
+    isClaudeNativeEvidencePath(root, path)
+  )
+    throw new TypeError(
+      `review packet path must stay under .artifacts/ outside native evidence: ${path}`,
+    );
+  return { dir, path };
+}
+// Writes the packet bytes once. The same bytes again pass; different bytes, a symlinked ancestor or a
+// target that is not a regular file are refused, so a reviewer always reads what the digest names.
+export function writeClaudeReviewPacket(root, reviewId, bytes) {
+  root = realpathSync(root);
+  const { dir, path } = reviewPacketPath(root, reviewId);
+  let current = root;
+  for (const part of relative(root, dir).split('/')) {
+    current = join(current, part);
+    if (!existsSync(current)) mkdirSync(current, { mode: 0o700 });
+    if (realpathSync(current) !== current || !lstatSync(current).isDirectory())
+      throw new TypeError('artifact ancestor symlink');
+  }
+  const full = join(root, path);
+  try {
+    writeFileSync(full, bytes, { flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    if (!lstatSync(full).isFile() || !readFileSync(full).equals(Buffer.from(bytes)))
+      throw new TypeError(`review packet ${path} differs from this review`);
+  }
+  if (dirname(realpathSync(full)) !== dir) throw new TypeError('artifact ancestor symlink');
+  return { path, digest: packetDigest(bytes) };
+}
+
+function reviewerPrompt(logHeader, subject, packet, template, packetFile) {
   return [
     logHeader,
     'Independent read-only review of one frozen subject (same host, fresh context).',
@@ -468,11 +521,14 @@ function reviewerPrompt(logHeader, subject, packet, template) {
           '- A record with purpose "red" shows a check failing before the fix; it is a known failure unless exit equals expectedExit.',
         ]
       : []),
+    ...(packetFile
+      ? [
+          `- Read the packet file first: ${packetFile.path}. It holds the objective, sources and read boundaries. If it cannot be read or is not JSON, end with a blocker.`,
+        ]
+      : []),
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
     `${REVIEW_RESULT_TEMPLATE_PREFIX}${JSON.stringify(template)}`,
-    ...(subject.settlement === 'parent-adjudication'
-      ? [`KNU_REVIEW_PACKET:${JSON.stringify(packet)}`]
-      : []),
+    ...(packetFile ? [`${REVIEW_PACKET_LINE}${packetFile.path} ${packetFile.digest}`] : []),
   ].join('\n');
 }
 
@@ -529,19 +585,33 @@ export function buildClaudeNativeReview(
     ];
   }
   const reviewId = `${(subject.taskId ?? snapshotDigest.slice(7)).slice(0, 8)}-${randomUUID().slice(0, 8)}`;
+  // The packet names its own file as a read path, so the path is fixed before the packet is built.
+  const packetPath =
+    subject.settlement === 'parent-adjudication' ? reviewPacketPath(root, reviewId).path : null;
+  if (packetPath) subject.readPaths = [...new Set([...subject.readPaths, packetPath])];
   const packet = reviewPacket(subject, runnerEvidence, reviewId);
   // The registry re-validates a native subject's packet; a Parent subject's packet is only checked here.
   const packetCheck = validateCrossModelPacket(packet, { currentSnapshot: subject.snapshot });
   fail('invalid review packet', packetCheck.errors);
   const template = resultTemplate(packet, runnerEvidence);
-  const prompt = reviewerPrompt(logHeader, subject, packet, template);
+  const packetBytes = packetPath ? Buffer.from(`${JSON.stringify(packet)}\n`) : null;
+  const packetFile = packetPath
+    ? { path: packetPath, digest: packetDigest(packetBytes) }
+    : undefined;
+  const prompt = reviewerPrompt(logHeader, subject, packet, template, packetFile);
   fail('invalid review request', [
     ...(prompt.length <= PROMPT_LIMIT
       ? []
       : [
-          `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}): shorten acceptance criteria, read paths or runner records`,
+          `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}): ${
+            packetFile
+              ? 'the packet is already a file; shorten acceptance criteria or runner records'
+              : 'shorten acceptance criteria, read paths or runner records'
+          }`,
         ]),
   ]);
+  // Only a review that will be returned leaves a packet file behind.
+  if (packetFile) writeClaudeReviewPacket(root, reviewId, packetBytes);
   const native = subject.settlement === 'native-subject';
   const reviewerSpec = {
     sessionId: sessionId ?? subject.sessionId,
@@ -581,7 +651,14 @@ export function buildClaudeNativeReview(
         }
       : {}),
   };
-  return { ...status, packet, resultTemplate: template, reviewerPrompt: prompt, reviewerSpec };
+  return {
+    ...status,
+    packet,
+    ...(packetFile ? { packetFile } : {}),
+    resultTemplate: template,
+    reviewerPrompt: prompt,
+    reviewerSpec,
+  };
 }
 
 const JUDGMENT_FIELDS = [
@@ -599,12 +676,78 @@ const JUDGMENT_FIELDS = [
 // response, its digest, the observed changes and the acceptance criteria. It decides nothing.
 // It also writes a judgment template once, holding what the records already fix; the Lead fills in
 // only its own judgment, and a template left unfilled is refused before complete.
+// The settled child transcript: a background completion's proof, else the recorded location.
+function childTranscriptPath(state) {
+  if (state.observation.completionSource !== 'SubagentStop+task-notification+transcript')
+    return state.observation.childTranscriptPath ?? null;
+  try {
+    return JSON.parse(readFileSync(join(state.evidenceDirectory, 'transcript-proof.json'))).path;
+  } catch {
+    return null;
+  }
+}
+// A Read of the packet file counts only when its tool_result is not an error.
+function readPacketInTranscript(path, file) {
+  let rows;
+  try {
+    rows = readFileSync(path, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      });
+  } catch {
+    return false;
+  }
+  const content = (row) => (Array.isArray(row?.message?.content) ? row.message.content : []);
+  const reads = rows.flatMap((row) =>
+    row?.type === 'assistant'
+      ? content(row).filter(
+          (c) => c?.type === 'tool_use' && c.name === 'Read' && c.input?.file_path === file,
+        )
+      : [],
+  );
+  const results = rows.flatMap((row) =>
+    row?.type === 'user' ? content(row).filter((c) => c?.type === 'tool_result') : [],
+  );
+  return reads.some((use) =>
+    results.some((result) => result.tool_use_id === use.id && result.is_error !== true),
+  );
+}
+// For a review whose prompt names a packet file: did the reviewer read it, and is it unchanged?
+function reviewPacketStatus(state, root) {
+  const { invocation } = JSON.parse(readFileSync(join(state.evidenceDirectory, 'task.json')));
+  const line = invocation.prompt.split('\n').find((l) => l.startsWith(REVIEW_PACKET_LINE));
+  if (line === undefined) return null;
+  const [path, expectedDigest] = line.slice(REVIEW_PACKET_LINE.length).split(' ');
+  let currentDigest = null;
+  try {
+    currentDigest = packetDigest(readFileSync(join(root, path)));
+  } catch {
+    currentDigest = null;
+  }
+  const transcript = childTranscriptPath(state);
+  return {
+    path,
+    expectedDigest,
+    currentDigest,
+    read: transcript !== null && readPacketInTranscript(transcript, resolve(root, path)),
+  };
+}
 function settlementStatus(taskId, root) {
   const state = observeClaudeNativeTask(taskId, { root });
   if (state.errors.includes('no-completion-observation'))
     throw new TypeError(
       `cannot settle yet (${state.errors.join(',')}): wait for the completed task-notification, then settle`,
     );
+  const reviewPacket = reviewPacketStatus(state, root);
+  if (reviewPacket && !reviewPacket.read) state.errors.push('review-packet-unread');
+  if (reviewPacket && reviewPacket.currentDigest !== reviewPacket.expectedDigest)
+    state.errors.push('review-packet-changed');
   const content = state.observation.response?.content;
   const { record } = state;
   let judgmentTemplatePath = null;
@@ -642,6 +785,7 @@ function settlementStatus(taskId, root) {
     observedEfforts: state.observedEfforts,
     acceptance: state.record.input.directAssignment.acceptance,
     observationErrors: state.errors,
+    ...(reviewPacket ? { reviewPacket } : {}),
     judgmentTemplatePath,
     dispatchAuthorized: false,
   };
