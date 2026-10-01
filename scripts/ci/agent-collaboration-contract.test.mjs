@@ -380,6 +380,7 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
   const codexRecovery = read(workflow + 'request-intake/orchestration-recovery.md');
   const codexAdapter = read(workflow + 'adapters/codex.md');
   const claudeAdapter = read(workflow + 'adapters/claude-code.md');
+  const claudeProfiles = read(workflow + 'adapters/claude-model-profiles.md');
   const links = [
     [codexRecovery, '## Recovery ceiling', '../orchestration.md#recovery-ceiling'],
     [codexRecovery, '## Bounded model-run evidence', '../qa.md#execution-evidence'],
@@ -390,7 +391,7 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
       '../agent-execution-contract.md#configuration-changes',
     ],
     [codexAdapter, '## Routine task-model operation', '../orchestration.md#routine-adoption'],
-    [claudeAdapter, '### 결과와 observation 경계', '../qa.md#execution-evidence'],
+    [claudeProfiles, '### 결과와 observation 경계', '../qa.md#execution-evidence'],
     [claudeAdapter, '## Routine operation', '../orchestration.md#routine-adoption'],
     [claudeAdapter, '## Routine operation', '../agent-execution-contract.md#configuration-changes'],
     [claudeAdapter, '## Recovery', '../orchestration.md#recovery-ceiling'],

@@ -122,7 +122,7 @@ Codex에서만 [permission mechanism](./adapters/codex.md#codexomx-permission-me
 
 #### Claude Code permission mechanism
 
-Claude Code에서만 [permission mechanism](./adapters/claude-code.md#일반-interactive-auto-세션)을 읽습니다. 다른 host의
+Claude Code에서만 [permission mechanism](./adapters/claude-native-registry.md#일반-interactive-auto-세션)을 읽습니다. 다른 host의
 승인·격리·plugin·native task 동작을 Claude 설정이나 hook으로 추정하지 않습니다. 공통 evidence 분류와 업무 권한은
 위 절이 소유하며 host의 실행 명령·설정·관측 규칙은 adapter가 소유합니다.
 

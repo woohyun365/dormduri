@@ -24,7 +24,31 @@
       "path": "docs/development/agent-workflows/adapters/claude-code.md",
       "owner": "Claude native adapter owner",
       "kind": "adapter",
-      "rationale": "Claude native role·permission·model admission·resume·QA mapping을 Claude owner에 두며 static preparation을 live qualification으로 승격하지 않는다. 현재 보호된 변경은 G가 수정하지 않는다."
+      "rationale": "Claude 진입 절차(loading, 구조, routine operation, recovery, quality stop, OMC·plan continuity)를 Claude owner에 두고 세부는 reference 4개로 연결한다. static preparation을 live qualification으로 승격하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/claude-model-profiles.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "task profile 표와 요청·차단·관측 경계, 결과 observation 경계의 reference다. 모델 선택 때만 읽는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/claude-native-registry.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "일반 auto 세션의 등록·hook·관측 단계와 운영 보장·역할 권한의 원문 reference다. 진입 문서가 필요할 때만 연결한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/claude-qualification.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "cross-host direct CLI reviewer의 정적 경계와 fresh-host qualification reference다. live qualification으로 승격하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/claude-same-host-review.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "같은 host 독립 reviewer의 registry·packet·정산 규칙 reference다. 진입 문서와 /knu-review가 연결한다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/codex-delegation.md",

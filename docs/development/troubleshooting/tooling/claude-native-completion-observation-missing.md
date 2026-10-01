@@ -59,5 +59,5 @@ transcript에서의 정산을 고정합니다. `a resumed session notification s
 
 ## 참고
 
-- [Claude Code adapter의 비동기 완료 수집](../../agent-workflows/adapters/claude-code.md)
+- [Claude Code adapter의 비동기 완료 수집](../../agent-workflows/adapters/claude-native-registry.md)
 - [Subagents: run in background](https://code.claude.com/docs/en/sub-agents)

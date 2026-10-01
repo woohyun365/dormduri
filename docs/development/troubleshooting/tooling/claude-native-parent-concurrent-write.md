@@ -80,5 +80,5 @@ node --test scripts/ci/claude-native-session.test.mjs
 
 ## 참고
 
-- [Claude Code adapter의 등록·정산 절차](../../agent-workflows/adapters/claude-code.md)
+- [Claude Code adapter의 등록·정산 절차](../../agent-workflows/adapters/claude-native-registry.md)
 - [완료 관측 누락](./claude-native-completion-observation-missing.md)

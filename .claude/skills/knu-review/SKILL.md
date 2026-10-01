@@ -6,7 +6,7 @@ description: 이 저장소에서 위임 결과나 Parent가 작성한 변경을 
 # KNU 독립 리뷰
 
 규칙의 원본은
-[Same-host independent review](../../../docs/development/agent-workflows/adapters/claude-code.md#same-host-independent-review)입니다.
+[Same-host independent review](../../../docs/development/agent-workflows/adapters/claude-same-host-review.md#same-host-independent-review)입니다.
 Reviewer에게 기대 결론을 전달하거나 PASS로 유도하지 않습니다.
 
 ## Native subject 경로 (위임한 task의 QA)
