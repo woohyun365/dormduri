@@ -373,3 +373,26 @@ test('review and settle documents carry the E3 packet file and its settle reason
       assert.ok(text.includes(`\`${reason}\``), `${path}: ${reason}`);
   }
 });
+
+test('settle documents keep the hand-back turn alive until the completion notification arrives', () => {
+  const rule = 'hand-back을 받은 turn은 text로 끝내지 않고';
+  for (const path of [
+    'docs/development/agent-workflows/adapters/claude-code.md',
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/troubleshooting/tooling/claude-native-completion-observation-missing.md',
+  ])
+    // Line wrapping may split the sentence, so whitespace is compared as one space.
+    assert.ok(read(path).replace(/\s+/gu, ' ').includes(rule), `${path}: hand-back turn rule`);
+  const doc = read(
+    'docs/development/troubleshooting/tooling/claude-native-completion-observation-missing.md',
+  );
+  assert.match(doc, /## hand-back 뒤 완료 알림이 오지 않음/u);
+  assert.match(doc, /알림 없이 정산하지 않습니다/u);
+  const rejections = read(
+    'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md',
+  );
+  assert.ok(
+    !rejections.includes('prompt에서 packet 파일 줄이 빠진 것입니다. 둘 다'),
+    'stale count',
+  );
+});
