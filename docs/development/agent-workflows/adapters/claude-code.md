@@ -97,7 +97,7 @@ Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troublesho
 `expectedResolvedModel`과 native 기록의 `resolvedModel`을 대조해 확인하며, 다르면 그 결과를 쓰지 않습니다. 권한 규칙처럼 이
 기록에 나타나지 않는 변경은 실제 허용·거절을 관측하기 전까지 적용됐다고 보지 않습니다.
 
-Routine 위임 대상은 live 관측(CLI 2.1.283~2.1.286, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
+Routine 위임 대상은 live 관측(CLI 2.1.284~2.1.286, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
 동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
 Live 증거는 필요조건일 뿐이며, Q 행을 routine으로 바꾸는 것은 이 표를 갱신하는 별도 채택 결정입니다.
 `Q(관측 <버전>, 채택 대기)`는 live 관측은 있지만 채택 결정 전인 Q 행입니다.
@@ -107,16 +107,16 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 `prepare`의 `expectedResolvedModel`에 exact ID를 두고 관측값이 다르면 거부합니다. 아래 관측 ID 밖의 exact 모델로 해석되는
 조합은 관측 전까지 routine이 아닙니다.
 
-| 역할                 | Profile              | Alias    | Effort    | 관측된 모델 ID                                           | 작업                 | 상태                                  |
-| -------------------- | -------------------- | -------- | --------- | -------------------------------------------------------- | -------------------- | ------------------------------------- |
-| `knu_explorer`       | `bounded-extraction` | `haiku`  | —(미지원) | `claude-haiku-4-5-20251001`                              | 고정 입력 추출       | 미사용(Haiku 5.5 migration plan 대기) |
-| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286)                             | 고정 입력 추출       | 관측                                  |
-| `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측                                  |
-| `knu_researcher`     | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5`(2.1.283), `claude-sonnet-5-5`(2.1.286) | 공식 근거 읽기       | 관측                                  |
-| `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)                               | 독립 source review   | 관측                                  |
-| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286)                             | repository 읽기 조사 | Q(관측 2.1.286, 채택 대기)            |
-| `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)                               | 복잡한 구현          | Q(관측 2.1.286, 채택 대기)            |
-| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)                               | 고위험 구현          | Q(관측 2.1.286, 채택 대기)            |
+| 역할                 | Profile              | Alias    | Effort    | 관측된 모델 ID               | 작업                 | 상태                                  |
+| -------------------- | -------------------- | -------- | --------- | ---------------------------- | -------------------- | ------------------------------------- |
+| `knu_explorer`       | `bounded-extraction` | `haiku`  | —(미지원) | `claude-haiku-4-5-20251001`  | 고정 입력 추출       | 미사용(Haiku 5.5 migration plan 대기) |
+| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 고정 입력 추출       | 관측                                  |
+| `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측                                  |
+| `knu_researcher`     | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 공식 근거 읽기       | 관측                                  |
+| `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 독립 source review   | 관측                                  |
+| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | repository 읽기 조사 | Q(관측 2.1.286, 채택 대기)            |
+| `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)   | 복잡한 구현          | Q(관측 2.1.286, 채택 대기)            |
+| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 고위험 구현          | Q(관측 2.1.286, 채택 대기)            |
 
 Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 않아 역할 값을 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
 대조합니다([Model profiles](./claude-model-profiles.md#역할-effort와-executor-단계)).
