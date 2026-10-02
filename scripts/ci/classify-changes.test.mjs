@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   classifyChanges,
   eventComparisonHints,
+  isIntendedFanOut,
   summarizeChangedPaths,
 } from './classify-changes.mjs';
 
@@ -77,30 +78,21 @@ test('keeps an empty comparison visible through the repo-policy lane', () => {
 });
 
 test('tracked Claude project adapter files select policy checks without unrelated product lanes', () => {
-  assert.deepEqual(classifyChanges(['.gitignore', 'CLAUDE.md', '.claude/agents/knu_explorer.md']), {
-    web: false,
-    api: false,
-    shared: false,
-    storybook: false,
-    infra: false,
-    repoPolicy: true,
-  });
-  assert.deepEqual(classifyChanges(['.claude/settings.json']), {
-    web: true,
-    api: true,
-    shared: true,
-    storybook: true,
-    infra: true,
-    repoPolicy: true,
-  });
-  assert.deepEqual(classifyChanges(['.claude/skills/design-taste-frontend/SKILL.md']), {
-    web: true,
-    api: true,
-    shared: true,
-    storybook: true,
-    infra: true,
-    repoPolicy: true,
-  });
+  for (const paths of [
+    ['.gitignore', 'CLAUDE.md', '.claude/agents/knu_explorer.md'],
+    ['.claude/agents/knu_executor_xhigh.md'],
+    ['.claude/settings.json'],
+    ['.claude/skills/knu-review/SKILL.md'],
+  ]) {
+    assert.deepEqual(classifyChanges(paths), {
+      web: false,
+      api: false,
+      shared: false,
+      storybook: false,
+      infra: false,
+      repoPolicy: true,
+    });
+  }
 });
 
 test('uses pull request base and head commits as the primary comparison hints', () => {
@@ -144,11 +136,8 @@ test('bounds changed path output while preserving the total count', () => {
   });
 });
 
-test('retired Claude visual skill paths retain conservative unknown fallback', () => {
-  for (const path of [
-    '.claude/skills/redesign-existing-projects/SKILL.md',
-    '.claude/skills/redesign-existing-projects/SOURCE.json',
-  ]) {
+test('unknown paths outside every surface keep the conservative fail-open', () => {
+  for (const path of ['future-surface/unknown.file', 'DESIGN.md', '.npmrc', '.nvmrc']) {
     assert.deepEqual(classifyChanges([path]), {
       web: true,
       api: true,
@@ -158,6 +147,9 @@ test('retired Claude visual skill paths retain conservative unknown fallback', (
       repoPolicy: true,
     });
   }
+});
+
+test('common agent workflow scripts select only the repo-policy lane', () => {
   for (const path of [
     'scripts/agents/common/workflow-entry.mjs',
     'scripts/agents/common/plan-store.mjs',
@@ -202,4 +194,34 @@ test('surface ownership document rows match the classifier for every representat
       assert.deepEqual(classifyChanges([path]), expectedLanes(row.lanes), `${row.family}: ${path}`);
     }
   }
+});
+
+test('every tracked path that selects every lane is an intended fan-out path', () => {
+  const gaps = [...tracked]
+    .filter(Boolean)
+    .filter((path) => Object.values(classifyChanges([path])).every(Boolean))
+    .filter((path) => !isIntendedFanOut(path));
+  assert.deepEqual(gaps, []);
+});
+
+// Planned paths may name a rule before a tracked file exists; each entry records its owner decision.
+const PLANNED_RULE_PATHS = new Map([
+  ['.agents/', 'Codex repository skill directory adopted by the host adapter requalification plan'],
+]);
+
+test('every path literal in the classifier rules matches a tracked path or a planned owner entry', async () => {
+  const source = await readFile(new URL('./classify-changes.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('const ROOT_TOOLCHAIN_PATHS');
+  const end = source.indexOf('function runGit');
+  assert.ok(start >= 0 && end > start, 'classifier rule region must stay before runGit');
+  const literals = [...source.slice(start, end).matchAll(/'([^'\s]+)'/gu)]
+    .map((match) => match[1])
+    .filter((literal) => /[A-Za-z]/u.test(literal) && /[./]/u.test(literal) && literal !== '.md');
+  assert.ok(literals.length > 0, 'classifier rules must name paths');
+  const dead = [...new Set(literals)].filter((literal) =>
+    literal.endsWith('/')
+      ? ![...tracked].some((path) => path.startsWith(literal)) && !PLANNED_RULE_PATHS.has(literal)
+      : !tracked.has(literal),
+  );
+  assert.deepEqual(dead, []);
 });

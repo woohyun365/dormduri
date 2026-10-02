@@ -288,6 +288,108 @@
     }
   },
   {
+    "name": "agent-host-configuration-only",
+    "paths": [
+      ".claude/settings.json",
+      ".claude/skills/knu-review/SKILL.md",
+      ".claude/agents/knu_executor_xhigh.md",
+      ".codex/config.toml",
+      ".codex/agents/knu_reviewer.toml",
+      ".omc-workspace",
+      ".omx-config.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "docs/development/agent-workflows/README.md",
+      "scripts/agents/README.md",
+      "scripts/ci/claude-native-session.test.mjs"
+    ],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "planned-codex-skill-path",
+    "paths": [".agents/skills/example/SKILL.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "repository-support-scripts-only",
+    "paths": [
+      "scripts/dependencies/dependency-health-contract.mjs",
+      "scripts/security/dependency-alert-inventory.mjs",
+      "scripts/artifacts/paths.mjs",
+      "scripts/README.md"
+    ],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "repository-configuration-only",
+    "paths": ["renovate.json", ".editorconfig", ".prettierrc", ".vscode/settings.json"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "repository-root-documents-only",
+    "paths": ["CONTRIBUTING.md", "SERVICE.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "github-issue-templates-only",
+    "paths": [".github/ISSUE_TEMPLATE/work-item.yml", ".github/ISSUE_TEMPLATE/config.yml"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "local-record-placeholders-only",
+    "paths": [".artifacts/README.md", "omx_wiki/.gitignore"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "unknown-fail-open",
     "paths": ["future-surface/unknown.file"],
     "expected": {

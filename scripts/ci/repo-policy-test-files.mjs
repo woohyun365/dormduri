@@ -9,6 +9,7 @@ export const REPO_POLICY_SCRIPT_DIRECTORIES = [
   'scripts/github',
   'scripts/infra',
   'scripts/observability',
+  'scripts/security',
 ];
 
 export function discoverScriptTests(repoRoot, directories = REPO_POLICY_SCRIPT_DIRECTORIES) {

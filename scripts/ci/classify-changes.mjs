@@ -16,16 +16,61 @@ const ROOT_TOOLCHAIN_PATHS = new Set([
   'package.json',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
-  '.npmrc',
   '.node-version',
-  '.nvmrc',
   '.lintstagedrc.mjs',
 ]);
 
+// Paths that change every lane's inputs. Any other path that selects every lane is a classification gap
+// (scripts/ci/classify-changes.test.mjs checks the tracked tree against this list).
+const INTENDED_FAN_OUT_PREFIXES = ['packages/eslint-config/', 'packages/tsconfig/'];
+const INTENDED_FAN_OUT_PATHS = new Set([...ROOT_TOOLCHAIN_PATHS, '.github/workflows/ci.yml']);
+
+export function isIntendedFanOut(rawPath) {
+  const path = normalizePath(rawPath);
+  return (
+    INTENDED_FAN_OUT_PATHS.has(path) ||
+    INTENDED_FAN_OUT_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+}
+
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-const CLAUDE_PROJECT_ADAPTER_PATTERN =
-  /^\.claude\/agents\/knu_(?:explorer|researcher|executor|reviewer)\.md$/;
+// Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
+// scripts, tests and instructions) and repository support files never select product lanes.
+const REPO_POLICY_PREFIXES = [
+  'docs/',
+  'scripts/agents/',
+  'scripts/artifacts/',
+  'scripts/ci/',
+  'scripts/dependencies/',
+  'scripts/git/',
+  'scripts/github/',
+  'scripts/security/',
+  '.agents/',
+  '.claude/',
+  '.codex/',
+  '.github/ISSUE_TEMPLATE/',
+  '.husky/',
+  '.vscode/',
+  '.artifacts/',
+  '.plans/',
+  'omx_wiki/',
+];
+const REPO_POLICY_PATHS = new Set([
+  'AGENTS.md',
+  'CLAUDE.md',
+  'CONTRIBUTING.md',
+  'README.md',
+  'SERVICE.md',
+  'renovate.json',
+  'scripts/README.md',
+  '.editorconfig',
+  '.gitignore',
+  '.omc-workspace',
+  '.omx-config.json',
+  '.prettierignore',
+  '.prettierrc',
+]);
 
 function normalizePath(path) {
   return path.replaceAll('\\', '/').replace(/^\.\//, '');
@@ -76,7 +121,7 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path.startsWith('packages/eslint-config/') || path.startsWith('packages/tsconfig/')) {
+    if (isIntendedFanOut(path)) {
       markAll(result);
       matched = true;
     }
@@ -111,20 +156,9 @@ export function classifyChanges(paths) {
     }
 
     if (
-      path.startsWith('docs/') ||
-      path.startsWith('scripts/agents/') ||
-      path.startsWith('scripts/ci/') ||
-      path.startsWith('scripts/git/') ||
-      path.startsWith('scripts/github/') ||
-      path.startsWith('.husky/') ||
-      (path.startsWith('.github/') && path.endsWith('.md')) ||
-      path === '.prettierignore' ||
-      path === '.gitignore' ||
-      path === 'README.md' ||
-      path === 'AGENTS.md' ||
-      path === 'CLAUDE.md' ||
-      CLAUDE_PROJECT_ADAPTER_PATTERN.test(path) ||
-      path === 'DESIGN.md'
+      REPO_POLICY_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
+      REPO_POLICY_PATHS.has(path) ||
+      (path.startsWith('.github/') && path.endsWith('.md'))
     ) {
       result.repoPolicy = true;
       matched = true;
