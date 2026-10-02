@@ -30,6 +30,7 @@ const BASE_SPEC = {
   'impact.json': JSON.stringify({
     classes: ['A', 'B', 'NONE'],
     passiveClasses: ['NONE'],
+    otherOwnerClasses: [],
     blockClasses: ['A', 'B'],
     universe: ['docs/**', 'scripts/**'],
     blockFiles: { extensions: ['mjs', 'md'], names: [] },
@@ -265,6 +266,58 @@ test('an additional row must point at an existing line', () => {
     problems({ spec: { 'additional/L2.tsv': 'scripts/gone.mjs:1\tNONE\tremoved file\n' } }),
     ['ERROR additional row points to no line: scripts/gone.mjs:1'],
   );
+  // docs/guide.md has 7 lines and a final newline; line 8 does not exist.
+  assert.deepEqual(problems({ spec: { 'additional/L2.tsv': 'docs/guide.md:8\tA\tafter end\n' } }), [
+    'ERROR additional row points to no line: docs/guide.md:8',
+  ]);
+});
+
+test('malformed line ranges and inconsistent class lists make the spec unreadable', () => {
+  const run = (spec) => {
+    const { repo, specDirectory } = fixture({ spec });
+    return () => runImpact({ root: repo, specDirectory });
+  };
+  for (const range of ['6-5', '5-', '0', 'x']) {
+    assert.throws(
+      run({ 'regression.tsv': `scripts/tool.mjs\t${range}\tA\tcited\n` }),
+      /bad line spec/u,
+      range,
+    );
+  }
+  const impact = (override) =>
+    JSON.stringify({ ...JSON.parse(BASE_SPEC['impact.json']), ...override });
+  assert.throws(
+    run({ 'impact.json': impact({ otherOwnerClasses: ['NOEN'] }) }),
+    /otherOwnerClasses not in passiveClasses: NOEN/u,
+  );
+  assert.throws(
+    run({ 'impact.json': impact({ otherOwnerClasses: undefined }) }),
+    /otherOwnerClasses must be an array/u,
+  );
+  assert.throws(
+    run({ 'impact.json': impact({ passiveClasses: ['NONE', 'Z'] }) }),
+    /passiveClasses not in classes: Z/u,
+  );
+  assert.throws(
+    run({ 'impact.json': impact({ blockClasses: ['A', 'NONE'] }) }),
+    /blockClasses not in non-passive classes: NONE/u,
+  );
+});
+
+test('a directory is not a contract target', () => {
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'scripts\tB\tblocks\tdirectory\n' } }),
+    ['ERROR contract path missing: scripts'],
+  );
+  assert.deepEqual(
+    problems({
+      spec: {
+        'contract-targets.tsv': 'scripts\tB\tfile\tdirectory\n',
+        'consumers.tsv': '@exports:B\tB\t\tcallers\n',
+      },
+    }),
+    ['ERROR contract path missing: scripts', 'ERROR consumer @exports:B found no exported names'],
+  );
 });
 
 test('a file rule with an unknown class or an empty reason is rejected', () => {
@@ -394,6 +447,16 @@ test('Markdown, JSON and other files map to sections, root children and whole fi
       [7, 11],
     ],
   );
+  // A fence closes only with its own character, at least as long and with nothing after it.
+  assert.deepEqual(blockMap('a.md', '````\n```\n~~~~\n# in\n````\n# B\n'), [
+    [1, 5],
+    [6, 7],
+  ]);
+  // A backtick line whose info string holds a backtick is inline code, not a fence.
+  assert.deepEqual(blockMap('a.md', '# A\n```js` code\n# B\n'), [
+    [1, 2],
+    [3, 4],
+  ]);
   assert.deepEqual(blockMap('a.toml', 'a = 1\nb = 2\n'), [[1, 3]]);
   assert.deepEqual(blockMap('a.tsx', "const a = 1;\nexport const B = () => <p>it's</p>;\n"), [
     [1, 3],

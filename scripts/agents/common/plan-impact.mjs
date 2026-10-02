@@ -4,10 +4,11 @@
 //
 // Usage: pnpm plan:impact -- --spec <dir> [--root <repo>] [--out <dir>]
 // The spec directory holds the inputs described in readSpec(). Output goes to `--out` or
-// `.artifacts/tools/plan-impact/<spec directory name>/`. Exit 1 when any check fails.
+// `.artifacts/tools/plan-impact/<spec directory name>/`. Exit 1 when any check fails; exit 2 without output for
+// usage errors and specs that cannot be read (invalid JSON or config, malformed line ranges).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -49,14 +50,14 @@ export function globMatch(path, glob) {
   return new RegExp(`^${source}$`, 'su').test(path);
 }
 
-// Line specs: `N`, `N-M` or comma lists of both.
+// Line specs: `N`, `N-M` or comma lists of both, with 1 <= N <= M.
 export function expandLines(spec) {
   return spec.split(',').flatMap((part) => {
-    const [a, b] = part.split('-').map(Number);
-    if (!Number.isInteger(a) || (b !== undefined && !Number.isInteger(b))) {
-      throw new Error(`bad line spec: ${spec}`);
-    }
-    return Array.from({ length: (b ?? a) - a + 1 }, (_, k) => a + k);
+    const match = /^(\d+)(?:-(\d+))?$/u.exec(part);
+    const a = Number(match?.[1]);
+    const b = Number(match?.[2] ?? match?.[1]);
+    if (!match || a < 1 || b < a) throw new Error(`bad line spec: ${spec}`);
+    return Array.from({ length: b - a + 1 }, (_, k) => a + k);
   });
 }
 
@@ -76,6 +77,33 @@ function tableFiles(directory) {
     .map((name) => resolve(directory, name));
 }
 
+// Class lists in impact.json: passive classes flag no block, other-owner classes are passive classes whose files
+// leave the block universe, block classes are reported per PR. A typo must not silently widen or narrow them.
+function validateConfig(config) {
+  for (const name of ['classes', 'passiveClasses', 'otherOwnerClasses']) {
+    if (!Array.isArray(config[name])) throw new Error(`impact.json: ${name} must be an array`);
+  }
+  const subset = (name, values, within, label) => {
+    const outside = values.filter((c) => !within.includes(c));
+    if (outside.length)
+      throw new Error(`impact.json: ${name} not in ${label}: ${outside.join(', ')}`);
+  };
+  subset('passiveClasses', config.passiveClasses, config.classes, 'classes');
+  subset('otherOwnerClasses', config.otherOwnerClasses, config.passiveClasses, 'passiveClasses');
+  if (config.blockClasses !== undefined) {
+    const active = config.classes.filter((c) => !config.passiveClasses.includes(c));
+    subset('blockClasses', config.blockClasses, active, 'non-passive classes');
+  }
+}
+
+function isFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 // Spec directory:
 //   impact.json         { classes: [ordered], passiveClasses, otherOwnerClasses, blockClasses?, universe: [globs],
 //                         blockFiles: { extensions, names }, importTargets: [paths],
@@ -92,6 +120,7 @@ function tableFiles(directory) {
 // Classes may be joined with `+`.
 export function readSpec(specDirectory) {
   const config = JSON.parse(readFileSync(resolve(specDirectory, 'impact.json'), 'utf8'));
+  validateConfig(config);
   const rowsOf = (paths) =>
     paths.flatMap((path) =>
       readTable(path).map(({ line, number }) => ({
@@ -103,11 +132,10 @@ export function readSpec(specDirectory) {
   return {
     name: basename(resolve(specDirectory)),
     classes: config.classes,
-    passive: new Set(config.passiveClasses ?? []),
-    otherOwners: new Set(config.otherOwnerClasses ?? []),
+    passive: new Set(config.passiveClasses),
+    otherOwners: new Set(config.otherOwnerClasses),
     blockClasses:
-      config.blockClasses ??
-      config.classes.filter((c) => !(config.passiveClasses ?? []).includes(c)),
+      config.blockClasses ?? config.classes.filter((c) => !config.passiveClasses.includes(c)),
     universe: (config.universe ?? []).map(toPosix),
     blockExtensions: config.blockFiles?.extensions ?? [],
     blockNames: (config.blockFiles?.names ?? []).map(toPosix),
@@ -334,7 +362,10 @@ export function lineInventory(root, spec, scanned) {
     const at = key.lastIndexOf(':');
     const text = readText(root, key.slice(0, at));
     const line = Number(key.slice(at + 1));
-    return text !== null && line >= 1 && line <= splitLines(text).length;
+    const lines = text === null ? [] : splitLines(text);
+    // A final newline ends the last line; it does not start another one.
+    if (lines.at(-1) === '') lines.pop();
+    return line >= 1 && line <= lines.length;
   };
   for (const [key, value] of overrides) {
     if (!scanned.keys.has(key) && !additional.has(key))
@@ -365,7 +396,8 @@ function pick({ cls, reason }) {
   return { cls, reason };
 }
 
-// Python sorts the inventory tuples by key, class, reason and source in code point order.
+// Inventory rows sort by key, class, reason and source in code point order, so regenerated files compare
+// byte for byte.
 function compareRows(a, b) {
   for (const field of ['key', 'cls', 'reason', 'source']) {
     if (a[field] !== b[field]) return a[field] < b[field] ? -1 : 1;
@@ -463,7 +495,7 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
   const fileTargets = [];
   for (const [selector, cls, scope, reason] of spec.contracts) {
     const path = selectorPath(selector);
-    if (!existsSync(resolve(root, path))) {
+    if (!isFile(resolve(root, path))) {
       errors.push(`contract path missing: ${selector}`);
       continue;
     }

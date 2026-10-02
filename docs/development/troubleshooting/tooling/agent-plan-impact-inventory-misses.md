@@ -103,11 +103,12 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
 
 - 줄 층: 분류되지 않은 scan 줄(추가 행 범위 안이어도 자기 행이 필요), scan에서 사라진 분류 행(stale), hit가 0인 패턴,
   Parent override 없이 scan 분류와 다른 추가 행, 없는 줄을 가리키는 override·추가 행, 행·file rule의 모르는 class나 빈 사유
-- 블록 층: 없는 계약 경로·heading, 어떤 블록과도 겹치지 않는 계약 selector, 블록 밖 비어 있지 않은 줄의 행, universe 밖
+- 블록 층: 없는 계약 경로(디렉터리 포함)·heading, 어떤 블록과도 겹치지 않는 계약 selector, 블록 밖 비어 있지 않은 줄의 행, universe 밖
   파일의 active 행, export 이름을 찾지 못한 `@exports`
 - 회귀 목록: 기대 class 블록 밖에 있는 리뷰 지적 줄
 
-사용법 오류와 읽을 수 없는 spec(JSON 오류, 잘못된 줄 범위)은 exit 2이며 출력 파일을 쓰지 않습니다.
+사용법 오류와 읽을 수 없는 spec(JSON 오류, class 목록 불일치, `1 ≤ N ≤ M`이 아닌 줄 범위)은 exit 2이며 출력 파일을 쓰지
+않습니다. `impact.json`의 `passiveClasses`는 `classes` 안, `otherOwnerClasses`는 `passiveClasses` 안에 있어야 하며 셋 다 필수입니다.
 
 ### 블록 map
 

@@ -211,8 +211,10 @@ export function markdownHeadingLines(lines) {
       ) {
         fence = null;
       }
-    } else if (marker) fence = marker[1];
-    else if (/^#{1,6} /u.test(line)) headings.push(index + 1);
+    } else if (marker && !(marker[1][0] === '`' && marker[2].includes('`'))) {
+      // A backtick fence's info string cannot contain backticks; such a line is inline code, not a fence.
+      fence = marker[1];
+    } else if (/^#{1,6} /u.test(line)) headings.push(index + 1);
   });
   return headings;
 }
