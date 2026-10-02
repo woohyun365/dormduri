@@ -195,8 +195,30 @@ function codeBlocks(lines) {
   return starts.map((start, k) => [k === 0 ? 1 : ends[k - 1] + 2, ends[k] + 1]);
 }
 
+// 1-based heading lines. `#` lines inside fenced code (``` or ~~~) are code, not headings.
+export function markdownHeadingLines(lines) {
+  const headings = [];
+  let fence = null;
+  lines.forEach((line, index) => {
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(line);
+    if (fence) {
+      // A closing fence uses the opening character, is at least as long and has nothing after it.
+      if (
+        marker &&
+        marker[1][0] === fence[0] &&
+        marker[1].length >= fence.length &&
+        !marker[2].trim()
+      ) {
+        fence = null;
+      }
+    } else if (marker) fence = marker[1];
+    else if (/^#{1,6} /u.test(line)) headings.push(index + 1);
+  });
+  return headings;
+}
+
 function markdownBlocks(lines) {
-  const headings = lines.flatMap((line, index) => (/^#{1,6} /u.test(line) ? [index + 1] : []));
+  const headings = markdownHeadingLines(lines);
   const starts = headings[0] === 1 ? headings : [1, ...headings];
   return starts.map((start, k) => [start, (starts[k + 1] ?? lines.length + 1) - 1]);
 }

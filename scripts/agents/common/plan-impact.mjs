@@ -12,7 +12,7 @@ import { basename, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
-import { blockMap, splitLines } from './plan-impact-blocks.mjs';
+import { blockMap, markdownHeadingLines, splitLines } from './plan-impact-blocks.mjs';
 
 // ripgrep and Python `re` treat `\b` as a Unicode word boundary; JavaScript's `\b` is ASCII-only even with `u`.
 const WORD = '[\\p{Alphabetic}\\p{M}\\p{Nd}\\p{Pc}\\p{Join_Control}]';
@@ -77,7 +77,7 @@ function tableFiles(directory) {
 }
 
 // Spec directory:
-//   impact.json         { classes: [ordered], passiveClasses, blockClasses?, universe: [globs],
+//   impact.json         { classes: [ordered], passiveClasses, otherOwnerClasses, blockClasses?, universe: [globs],
 //                         blockFiles: { extensions, names }, importTargets: [paths],
 //                         importSourcesExclude: [globs], linkTargets: [file names] }
 //   patterns.tsv        name<TAB>regex                     identifier patterns (Unicode \b)
@@ -86,7 +86,8 @@ function tableFiles(directory) {
 //   additional/*.tsv    path:lines<TAB>class<TAB>reason    semantic review rows, lines may be N, N-M, lists
 //   overrides.tsv       path:line<TAB>class<TAB>reason     Parent adjudication, wins over rows and additional
 //   contract-targets.tsv selector<TAB>class<TAB>blocks|file<TAB>reason   path | path:a-b | path#Heading
-//   consumers.tsv       regex<TAB>class<TAB>subjects<TAB>reason   `@exports:<class>` = exports of file targets
+//   consumers.tsv       regex<TAB>class<TAB>subjects<TAB>reason   `@exports:<class>[:<path prefix>]` = exports of
+//                       the file targets in that class
 //   regression.tsv      path<TAB>lines<TAB>class<TAB>reason   review-cited lines that must stay covered
 // Classes may be joined with `+`.
 export function readSpec(specDirectory) {
@@ -103,6 +104,7 @@ export function readSpec(specDirectory) {
     name: basename(resolve(specDirectory)),
     classes: config.classes,
     passive: new Set(config.passiveClasses ?? []),
+    otherOwners: new Set(config.otherOwnerClasses ?? []),
     blockClasses:
       config.blockClasses ??
       config.classes.filter((c) => !(config.passiveClasses ?? []).includes(c)),
@@ -291,6 +293,11 @@ export function lineInventory(root, spec, scanned) {
     }
     return result;
   };
+  for (const rule of spec.rules) {
+    if (!rule.cls?.split('+').every((c) => known.has(c)) || !rule.reason?.trim()) {
+      errors.push(`file rule ${rule.glob}: bad class or empty reason`);
+    }
+  }
   const rows = parseRows(spec.rows, false);
   const additional = new Map(
     [...parseRows(spec.additional, true)].map(([key, { classes, reasons }]) => [
@@ -323,25 +330,28 @@ export function lineInventory(root, spec, scanned) {
     );
   }
   const stale = [...rows.keys()].filter((key) => !scanned.keys.has(key));
-  for (const [key, value] of overrides) {
-    if (!scanned.keys.has(key) && !additional.has(key))
-      out.push({ key, ...pick(value), source: 'parent' });
+  const lineExists = (key) => {
     const at = key.lastIndexOf(':');
     const text = readText(root, key.slice(0, at));
     const line = Number(key.slice(at + 1));
-    if (text === null || !(line >= 1 && line <= splitLines(text).length)) {
-      errors.push(`override points to no line: ${key}`);
-    }
+    return text !== null && line >= 1 && line <= splitLines(text).length;
+  };
+  for (const [key, value] of overrides) {
+    if (!scanned.keys.has(key) && !additional.has(key))
+      out.push({ key, ...pick(value), source: 'parent' });
+    if (!lineExists(key)) errors.push(`override points to no line: ${key}`);
   }
   const final = new Map(out.map((row) => [row.key, row.cls]));
   for (const [key, value] of additional) {
     if (!scanned.keys.has(key)) {
+      if (!lineExists(key)) errors.push(`additional row points to no line: ${key}`);
       out.push(
         overrides.has(key)
           ? { key, ...pick(overrides.get(key)), source: 'parent' }
           : { key, ...value, source: 'semantic' },
       );
-    } else if (!overrides.has(key) && !sameClasses(value.cls, final.get(key))) {
+    } else if (final.has(key) && !overrides.has(key) && !sameClasses(value.cls, final.get(key))) {
+      // A scanned line without its own row is already reported as unclassified; additional rows never classify it.
       errors.push(
         `unadjudicated conflict ${key}: scan ${final.get(key)} vs additional ${value.cls}`,
       );
@@ -369,22 +379,27 @@ function selectorPath(selector) {
 
 function headingRange(lines, heading) {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  const start = lines.findIndex((line) => new RegExp(`^#{1,6} ${escaped}\\s*$`, 'u').test(line));
-  if (start < 0) return null;
-  const level = lines[start].length - lines[start].replace(/^#+/u, '').length;
-  const next = lines.findIndex(
-    (line, index) => index > start && new RegExp(`^#{1,${level}} `, 'u').test(line),
+  const headings = markdownHeadingLines(lines).map((line) => line - 1);
+  const start = headings.find((index) =>
+    new RegExp(`^#{1,6} ${escaped}\\s*$`, 'u').test(lines[index]),
   );
-  return [start + 1, next < 0 ? lines.length : next];
+  if (start === undefined) return null;
+  const level = lines[start].length - lines[start].replace(/^#+/u, '').length;
+  const next = headings.find(
+    (index) => index > start && new RegExp(`^#{1,${level}} `, 'u').test(lines[index]),
+  );
+  return [start + 1, next === undefined ? lines.length : next];
 }
 
-// Block layer: the universe is the configured globs plus files with active rows or contract targets, minus
-// files whose rule class is passive-only. Each block gets the union of non-passive classes from the rows inside
-// it, the contract targets that overlap it and the consumer patterns it contains.
+// Block layer: the universe is the configured globs, contract target files and files with rows in a class
+// other than `otherOwnerClasses`, minus files whose file rule names another owner (`otherOwnerClasses`). A file
+// whose rule class is passive joins only through the globs or a contract target. Each block gets the union of
+// non-passive classes from the rows inside it, the contract targets that overlap it and the consumer patterns it
+// contains.
 export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) {
   const errors = [];
   const passive = spec.passive;
-  const ownedOnlyRules = new Set([...passive].filter((c) => c !== 'NONE'));
+  const ownedOnlyRules = spec.otherOwners;
   const ruleClass = (path) => ruleFor(path, spec.rules)?.cls ?? null;
   const targetFiles = new Set(spec.contracts.map(([selector]) => selectorPath(selector)));
   const rowFiles = new Set(
@@ -400,7 +415,7 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
       const inScope =
         targetFiles.has(path) ||
         spec.universe.some((glob) => globMatch(path, glob)) ||
-        (rowFiles.has(path) && cls !== 'NONE');
+        (rowFiles.has(path) && !passive.has(cls));
       return inScope && (extension.test(path) || spec.blockNames.includes(path));
     })
     .sort();
@@ -479,9 +494,10 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
     let pattern = rawPattern;
     let subjects = rawSubjects.split(',').filter(Boolean).map(toPosix);
     if (pattern.startsWith('@exports:')) {
-      const target = pattern.slice('@exports:'.length);
+      // `@exports:<class>[:<path prefix>]`: export names of the file targets in that class (under the prefix).
+      const [target, prefix = ''] = pattern.slice('@exports:'.length).split(':');
       const modules = fileTargets
-        .filter((t) => classSet(t.cls).has(target) && t.path.startsWith('scripts/agents/'))
+        .filter((t) => classSet(t.cls).has(target) && t.path.startsWith(toPosix(prefix)))
         .map((t) => t.path);
       const names = new Set();
       for (const module of modules) {
@@ -491,6 +507,10 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
         )) {
           names.add(match[1]);
         }
+      }
+      if (!names.size) {
+        errors.push(`consumer ${rawPattern} found no exported names`);
+        continue;
       }
       pattern = `\\b(${[...names].sort().join('|')})\\b`;
       subjects = modules;
@@ -647,6 +667,16 @@ export function writeOutputs(result, outDirectory) {
     'inventory.tsv',
     'key\tclass\treason\tsource\n' +
       result.lines.rows.map((r) => `${r.key}\t${r.cls}\t${r.reason}\t${r.source}\n`).join(''),
+  );
+  // Every universe block, so the semantic review can walk the blocks the tool did not flag.
+  const flagged = new Set(result.blocks.flagged.map((b) => `${b.path}\t${b.start}\t${b.end}`));
+  write(
+    'blocks.tsv',
+    'path\tstart\tend\tflagged\n' +
+      [...result.blocks.blocks]
+        .flatMap(([path, list]) => list.map(([a, b]) => `${path}\t${a}\t${b}`))
+        .map((key) => `${key}\t${flagged.has(key) ? 'yes' : 'no'}\n`)
+        .join(''),
   );
   write(
     'blocks-inventory.tsv',

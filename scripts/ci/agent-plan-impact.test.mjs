@@ -171,6 +171,13 @@ test('contract selectors must match a heading or a block', () => {
     problems({ spec: { 'contract-targets.tsv': 'scripts/gone.mjs\tB\tfile\tremoved\n' } }),
     ['ERROR contract path missing: scripts/gone.mjs'],
   );
+  assert.deepEqual(
+    problems({
+      files: { 'docs/fenced.md': '# Fenced\n\n```sh\n# Comment\n```\n' },
+      spec: { 'contract-targets.tsv': 'docs/fenced.md#Comment\tB\tblocks\tshell comment\n' },
+    }),
+    ['ERROR heading not found: docs/fenced.md#Comment'],
+  );
 });
 
 test('a row on a non-blank line outside every block fails the block layer', () => {
@@ -211,6 +218,77 @@ test('consumer patterns flag blocks outside their subjects, and @exports reads f
     result.blocks.flagged.some((b) => b.path === 'docs/use.md' && b.sources.has('consumer')),
   );
   assert.ok(!result.blocks.flagged.some((b) => b.path === 'scripts/agents/mod.mjs'));
+});
+
+test('@exports covers file targets anywhere unless a path prefix narrows it, and needs exported names', () => {
+  const spec = (consumer, target = 'scripts/lib.mjs') => ({
+    'contract-targets.tsv': `${BASE_SPEC['contract-targets.tsv']}${target}\tB\tfile\tmodule disposition\n`,
+    'consumers.tsv': `${consumer}\tB\t\tcallers of the module\n`,
+  });
+  const { repo, specDirectory } = fixture({ spec: spec('@exports:B') });
+  const result = runImpact({ root: repo, specDirectory });
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(
+    result.blocks.flagged
+      .filter((b) => b.sources.has('consumer'))
+      .map((b) => `${b.path}:${b.start}-${b.end}`),
+    ['scripts/tool.mjs:1-2', 'scripts/tool.mjs:3-6'],
+  );
+  assert.deepEqual(problems({ spec: spec('@exports:B:scripts/agents/') }), [
+    'ERROR consumer @exports:B:scripts/agents/ found no exported names',
+  ]);
+  assert.deepEqual(problems({ spec: spec('@exports:B', 'docs/guide.md') }), [
+    'ERROR consumer @exports:B found no exported names',
+  ]);
+});
+
+test('a scanned line inside an additional range still needs its own row', () => {
+  const rows = BASE_SPEC['rows/L1.tsv'].replace('scripts/tool.mjs:5\tA\treturn value\n', '');
+  assert.deepEqual(
+    problems({
+      spec: {
+        'rows/L1.tsv': rows,
+        'additional/L2.tsv': 'scripts/tool.mjs:4-6\tA\tfunction body\n',
+        'regression.tsv': '',
+      },
+    }),
+    ['UNCLASSIFIED scripts/tool.mjs:5'],
+  );
+});
+
+test('an additional row must point at an existing line', () => {
+  assert.deepEqual(
+    problems({ spec: { 'additional/L2.tsv': 'scripts/tool.mjs:50\tA\tpast end\n' } }),
+    ['ERROR additional row points to no line: scripts/tool.mjs:50'],
+  );
+  assert.deepEqual(
+    problems({ spec: { 'additional/L2.tsv': 'scripts/gone.mjs:1\tNONE\tremoved file\n' } }),
+    ['ERROR additional row points to no line: scripts/gone.mjs:1'],
+  );
+});
+
+test('a file rule with an unknown class or an empty reason is rejected', () => {
+  assert.deepEqual(problems({ spec: { 'file-rules.tsv': 'other/**\tNOEN\tproduct wording\n' } }), [
+    'ERROR file rule other/**: bad class or empty reason',
+  ]);
+});
+
+test('files whose rule names another owner leave the universe even under a universe glob', () => {
+  const spec = (otherOwnerClasses) => ({
+    'impact.json': JSON.stringify({
+      ...JSON.parse(BASE_SPEC['impact.json']),
+      classes: ['A', 'B', 'OWNER', 'NONE'],
+      passiveClasses: ['NONE', 'OWNER'],
+      otherOwnerClasses,
+    }),
+    'file-rules.tsv': 'docs/other.md\tOWNER\tanother owner\nother/**\tNONE\tproduct wording\n',
+    'overrides.tsv': 'docs/other.md:1\tA\tactive here\n',
+  });
+  const files = { 'docs/other.md': '# Other\n' };
+  assert.deepEqual(problems({ files, spec: spec(['OWNER']) }), [
+    'ERROR active row outside universe: docs/other.md:1',
+  ]);
+  assert.deepEqual(problems({ files, spec: spec([]) }), []);
 });
 
 test('CRLF sources and spec files give the same result as LF', () => {
@@ -309,6 +387,13 @@ test('Markdown, JSON and other files map to sections, root children and whole fi
     [2, 2],
     [3, 5],
   ]);
+  assert.deepEqual(
+    blockMap('a.md', '# A\n\n```sh\n# comment\n``` x\n```\n## B\n~~~\n# not\n~~~\n'),
+    [
+      [1, 6],
+      [7, 11],
+    ],
+  );
   assert.deepEqual(blockMap('a.toml', 'a = 1\nb = 2\n'), [[1, 3]]);
   assert.deepEqual(blockMap('a.tsx', "const a = 1;\nexport const B = () => <p>it's</p>;\n"), [
     [1, 3],
@@ -326,12 +411,18 @@ test('the CLI writes the inventories and exits 1 only when a check fails', () =>
     'scan.tsv',
     'unclassified.tsv',
     'inventory.tsv',
+    'blocks.tsv',
     'blocks-inventory.tsv',
     'files-inventory.tsv',
     'summary.json',
   ]) {
     assert.ok(existsSync(resolve(out, name)), name);
   }
+  assert.match(readFileSync(resolve(out, 'blocks.tsv'), 'utf8'), /^scripts\/lib\.mjs\t1\t1\tno$/mu);
+  assert.match(
+    readFileSync(resolve(out, 'blocks.tsv'), 'utf8'),
+    /^scripts\/tool\.mjs\t3\t6\tyes$/mu,
+  );
   assert.match(
     readFileSync(resolve(out, 'blocks-inventory.tsv'), 'utf8'),
     /^path\tstart\tend\tclasses\tsource\n/u,

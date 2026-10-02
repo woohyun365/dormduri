@@ -49,14 +49,14 @@
 
 ### 보완 도구
 
-| 사각지대                          | 도구                                                 | 재현 명령                          |
-| --------------------------------- | ---------------------------------------------------- | ---------------------------------- |
-| 이름·식별자                       | 패턴 regex(`patterns.tsv`, Unicode 단어 경계)        | `pnpm plan:impact -- --spec <dir>` |
-| 구조 패턴·식별자 없는 대상        | 계약 대상(`contract-targets.tsv`)과 블록 map         | 같은 명령                          |
-| import·문서 링크                  | import 대상 모듈과 anchor 링크 그래프(`impact.json`) | 같은 명령                          |
-| 처분 모듈의 이름·경로·export 참조 | consumer 전파(`consumers.tsv`, `@exports:<class>`)   | 같은 명령                          |
-| 기존 동작                         | 해당 module의 기존 test                              | `node --test <test file>`          |
-| 같은 의미의 다른 표현             | 사람의 의미 검토(표시된 블록과 그 밖의 블록 리뷰)    | 블록 리뷰 기록                     |
+| 사각지대                          | 도구                                                               | 재현 명령                          |
+| --------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
+| 이름·식별자                       | 패턴 regex(`patterns.tsv`, Unicode 단어 경계)                      | `pnpm plan:impact -- --spec <dir>` |
+| 구조 패턴·식별자 없는 대상        | 계약 대상(`contract-targets.tsv`)과 블록 map                       | 같은 명령                          |
+| import·문서 링크                  | import 대상 모듈과 anchor 링크 그래프(`impact.json`)               | 같은 명령                          |
+| 처분 모듈의 이름·경로·export 참조 | consumer 전파(`consumers.tsv`, `@exports:<class>[:<경로 prefix>]`) | 같은 명령                          |
+| 기존 동작                         | 해당 module의 기존 test                                            | `node --test <test file>`          |
+| 같은 의미의 다른 표현             | 사람의 의미 검토(표시된 블록과 그 밖의 블록 리뷰)                  | 블록 리뷰 기록                     |
 
 `rg`, ast-grep, LSP 같은 로컬 도구는 대화 중 후보를 찾는 보조 수단입니다. 절차의 근거 명령은 Node script 하나입니다. 이
 script는 셸 pipe나 `rg`를 쓰지 않고, `git ls-files`와 Node regex만 사용합니다.
@@ -69,7 +69,8 @@ script는 셸 pipe나 `rg`를 쓰지 않고, `git ls-files`와 Node regex만 사
 4. 모든 층에 같은 행 종류 집합을 적용하고, 층별 차이는 문서로 남깁니다.
 5. 새 파일을 추가하는 변경은 stage(또는 `git add -N`)한 뒤에 tracked 목록 기반 검증을 다시 실행합니다.
 6. 경로 영향은 "누가 이 경로를 읽는가"와 "누가 이 경로를 실행·import하는가"를 모두 따라갑니다. 실행 경로는 직접 `node` 호출뿐
-   아니라 `pnpm` script(재귀, `--dir` package 포함), package script, image build, lane package 파일의 import까지 펼칩니다.
+   아니라 `pnpm` script(재귀, `--dir` package 포함), package script, image build까지 펼칩니다. Lane package 파일(test·harness·
+   config)이 import하거나 경로로 읽는 저장소 script도 따라갑니다.
 
 ### Script 사용
 
@@ -80,18 +81,33 @@ pnpm plan:impact -- --spec <spec directory> [--root <repository>] [--out <output
 Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec()` 주석이 정의합니다. 출력 기본 위치는
 `.artifacts/tools/plan-impact/<spec 디렉터리 이름>/`입니다.
 
+- Class: `classes`는 출력 순서, `passiveClasses`는 블록을 표시하지 않는 class(영향 없음, 다른 owner)입니다.
+  `otherOwnerClasses`는 그중 다른 owner의 class입니다. File rule이 이 class인 파일은 universe glob 안에 있어도 블록 층에서
+  빠지고, 그 파일의 active 행은 실패합니다. File rule이 그 밖의 passive class(예: 영향 없음)인 파일은 universe glob이나 계약
+  대상으로만 들어옵니다.
+- `@exports:<class>[:<경로 prefix>]`: 그 class의 파일 단위 계약 대상(prefix가 있으면 그 아래만)의 `export` 이름을 담은
+  블록을 표시합니다. 대상 모듈 자신은 제외합니다.
+- 추가 행(`additional/`)과 override는 줄 번호에 고정됩니다. 파일을 고친 뒤 다시 생성할 때 없는 줄은 실패하지만, 밀린 범위는
+  잡지 못하므로 범위가 같은 내용을 가리키는지 다시 확인합니다.
+
+출력 파일은 다음과 같습니다.
+
 - `scan.tsv`: 패턴·import·링크로 잡힌 모든 줄
 - `unclassified.tsv`: 분류 칸이 빈 줄 목록. 채운 뒤 spec의 `rows/`로 옮깁니다.
 - `inventory.tsv`: 줄 층 결과(`scan`·`semantic`·`parent` 출처)
+- `blocks.tsv`: universe의 모든 블록과 표시 여부. 의미 검토가 표시되지 않은 블록을 훑을 때 씁니다.
 - `blocks-inventory.tsv`, `files-inventory.tsv`: 표시된 블록과 파일 단위 처분 대상
 - `summary.json`: 수치와 실패 목록
 
 다음 경우 exit 1로 실패합니다.
 
-- 줄 층: 분류되지 않은 scan 줄, scan에서 사라진 분류 행(stale), hit가 0인 패턴, Parent override 없이 scan 분류와 다른 의미
-  검토 행, 없는 줄을 가리키는 override, 모르는 class나 빈 사유
-- 블록 층: 어떤 블록과도 겹치지 않는 계약 selector, 블록 밖 비어 있지 않은 줄의 행, universe 밖 파일의 active 행
+- 줄 층: 분류되지 않은 scan 줄(추가 행 범위 안이어도 자기 행이 필요), scan에서 사라진 분류 행(stale), hit가 0인 패턴,
+  Parent override 없이 scan 분류와 다른 추가 행, 없는 줄을 가리키는 override·추가 행, 행·file rule의 모르는 class나 빈 사유
+- 블록 층: 없는 계약 경로·heading, 어떤 블록과도 겹치지 않는 계약 selector, 블록 밖 비어 있지 않은 줄의 행, universe 밖
+  파일의 active 행, export 이름을 찾지 못한 `@exports`
 - 회귀 목록: 기대 class 블록 밖에 있는 리뷰 지적 줄
+
+사용법 오류와 읽을 수 없는 spec(JSON 오류, 잘못된 줄 범위)은 exit 2이며 출력 파일을 쓰지 않습니다.
 
 ### 블록 map
 
@@ -99,7 +115,7 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
 
 - 코드: top-level 문장 하나와 그 앞 주석. 의존성 없는 lexer가 문자열·template·regex·주석을 구분해 prettier의 0열 문장
   시작을 읽습니다. 0열 decorator, generic 닫힘(`>`), class heritage 뒤 단독 `{`는 앞 문장에 속합니다.
-- Markdown: 가장 작은 heading 절
+- Markdown: 가장 작은 heading 절. Fenced code(` ``` `·`~~~`) 안의 `#` 줄은 heading이 아닙니다.
 - JSON: root 배열·객체의 자식 하나
 - 그 밖의 파일과 `.jsx`·`.tsx`: 파일 전체. JSX 본문은 JavaScript가 아니라서 parser보다 넓게, 좁지 않게 잡습니다.
 
@@ -107,8 +123,9 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
 
 - `node --test scripts/ci/agent-plan-impact.test.mjs`: 위 실패 조건마다 실패 사례가 있고, CRLF 입력과 `\` 경로 입력이 LF·
   `/` 입력과 같은 결과를 내는지 확인합니다.
-- 블록 map은 2026-10-02 snapshot(`0eafa5cd`)의 tracked `.mjs`·`.js`·`.cjs`·`.ts` 1,950개 파일과 Markdown·JSON·TOML
-  파일에서 TypeScript parser 기준 경계와 같습니다.
+- 코드 블록 map은 2026-10-02 snapshot(`0eafa5cd`)의 tracked `.mjs`·`.js`·`.cjs`·`.ts` 1,950개 파일에서 TypeScript parser
+  기준 경계와 같습니다. Markdown·JSON·TOML은 parser가 아니라 첫 inventory의 같은 규칙과 비교했으므로 독립 근거가
+  아닙니다. Fenced code 처리는 그 규칙에 없던 보완입니다.
 - 같은 snapshot에서 손으로 만든 첫 inventory를 재생성하면 줄 층·블록 층·회귀 목록 수치와 출력 파일이 Python 원본과 같습니다.
 
 ## 참고
