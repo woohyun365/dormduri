@@ -177,16 +177,35 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 
 ## 6. 개선별 전후 측정
 
-| 개선 항목                        | PR  | 표본 수 | Wall p50 | Wall p95 | 분 올림 합 p50 | 상태   |
-| -------------------------------- | --- | ------: | -------: | -------: | -------------: | ------ |
-| 분류 완전성                      | -   |       - |        - |        - |              - | 미측정 |
-| Agent workflow 분류 출력         | -   |       - |        - |        - |              - | 미측정 |
-| Agent test 배치                  | -   |       - |        - |        - |              - | 미측정 |
-| Agent test lane 분리             | -   |       - |        - |        - |              - | 미측정 |
-| Formatting 검사 범위             | -   |       - |        - |        - |              - | 미측정 |
-| Policy script test critical path | -   |       - |        - |        - |              - | 미측정 |
+| 개선 항목                        | PR   | 표본 수 | Wall p50 | Wall p95 | 분 올림 합 p50 | 상태     |
+| -------------------------------- | ---- | ------: | -------: | -------: | -------------: | -------- |
+| 분류 완전성                      | #537 |     0/5 |        - |        - |              - | 표본 0/5 |
+| Agent workflow 분류 출력         | -    |       - |        - |        - |              - | 미측정   |
+| Agent test 배치                  | -    |       - |        - |        - |              - | 미측정   |
+| Agent test lane 분리             | -    |       - |        - |        - |              - | 미측정   |
+| Formatting 검사 범위             | -    |       - |        - |        - |              - | 미측정   |
+| Policy script test critical path | -    |       - |        - |        - |              - | 미측정   |
 
 p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorepo CI architecture의 표본 규칙).
+
+표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `CI` run입니다. 개선 전 값은 §3입니다.
+
+### 분류 완전성(#537) 정적 replay
+
+§2의 replay 명령을 #537의 분류기로 다시 실행한 결과입니다. CI 시간 표본이 아니라 분류 결과의 전후 비교입니다.
+
+| 대상                                       | 개선 전(`0eafa5cd`) | #537 |
+| ------------------------------------------ | ------------------: | ---: |
+| Tracked 경로 중 전체 lane                  |                  65 |   16 |
+| 그중 의도한 fan-out 밖                     |                  49 |    0 |
+| 최근 first-parent 60개 commit 중 전체 lane |                  21 |    7 |
+| Agent PR 9개 중 전체 lane                  |                   8 |    0 |
+
+- #537의 tracked 경로 수는 #535의 문서 2개가 더해진 2,917개입니다.
+- 60개 commit 중 남은 7개 가운데 6개는 root toolchain 파일(`package.json`, `pnpm-lock.yaml`)을 바꿔 의도한 fan-out입니다.
+  그중 1개는 이후 이름이 바뀌어 지금 tree에 없는 local workspace 경로도 바꿨습니다. 나머지 1개는 그런 옛 경로만 바꿨고,
+  모르는 경로로 fail-open합니다(commit `059bf6da`).
+- Agent PR 9개는 모두 `repoPolicy`만 선택합니다.
 
 ## 7. 한계와 재측정 조건
 
