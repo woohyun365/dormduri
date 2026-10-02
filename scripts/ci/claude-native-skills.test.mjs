@@ -427,17 +427,20 @@ test('the delegate skill routine table matches the adapter routine rows one to o
   ]);
   const status = (value) => (value.startsWith('Q') ? 'Q' : value);
   const alias = { '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
-  const adapter = new Map(
-    tableRows(routine, /^\| `knu_/u)
-      // knu_reviewer is dispatched by /knu-review, not copied into the delegate skill.
-      .filter(
-        (row) =>
-          row[6] !== undefined && !row[6].startsWith('미사용') && row[0] !== '`knu_reviewer`',
-      )
-      .map(([role, profile, model, effort, , work, state]) => [
-        `${role} ${profile} ${work}`,
-        { model: `${alias[model]} ${effort}`, state: status(state) },
-      ]),
+  const adapterRows = tableRows(routine, /^\| `knu_/u)
+    // knu_reviewer is dispatched by /knu-review, not copied into the delegate skill.
+    .filter(
+      (row) => row[6] !== undefined && !row[6].startsWith('미사용') && row[0] !== '`knu_reviewer`',
+    )
+    .map(([role, profile, model, effort, , work, state]) => [
+      `${role} ${profile} ${work}`,
+      { model: `${alias[model]} ${effort}`, state: status(state) },
+    ]);
+  const adapter = new Map(adapterRows);
+  assert.equal(
+    adapter.size,
+    adapterRows.length,
+    'adapter routine rows are unique by role, profile and work',
   );
   const skill = tableRows(read('.claude/skills/knu-delegate/SKILL.md'), /^\| [^`|][^|]*\| `knu_/u);
   const seen = new Set();
