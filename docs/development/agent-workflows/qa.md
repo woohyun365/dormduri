@@ -44,7 +44,8 @@ mock이나 assertion으로 false positive가 생길 수 있습니다.
 
 기존 [계획 readiness review](./plan-authoring/README.md#implementation-readiness-review)는 구현 전의 검토입니다.
 변경 후 acceptance 검증은 별도로 판단합니다. 다음과 같은 **의미 있는 변경/근거**가 있으면 merge 전에 독립 검토의
-결과와 남은 gap을 기록합니다.
+결과와 남은 gap을 기록합니다. 검토는 첫 push 전 local commit에서 받고 PASS 뒤에 PR을 만듭니다
+([PR과 merge](../github/branch-and-pr-strategy.md#pr과-merge)).
 
 - trust/authorization 경계, transaction/concurrency 불변 조건, schema/data migration
 - 여러 surface의 public contract 또는 CI/security gate
