@@ -183,7 +183,7 @@ test('surface ownership document rows match the classifier for every representat
     assert.equal(
       row.lanes === '전체',
       row.status !== '분류됨',
-      `${row.family}: only fan-out and fail-open rows select every lane`,
+      `${row.family}: only intended fan-out rows select every lane`,
     );
     assert.ok(codeSpans(row.owner).length > 0, `${row.family}: owner document is required`);
     for (const owner of codeSpans(row.owner)) {
