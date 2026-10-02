@@ -105,11 +105,13 @@ Storybook workflow step의 wrapper이고, `scripts/observability/sentry/check-bu
 - Product package가 infra 검사의 입력인 경우(예: `pnpm infra:env:check`가 읽는 API env manifest)
 - Lane package 파일이 읽는 저장소 script 밖의 파일(예: API operations test가 읽는 `infra/**`·`docs/**` 문서)
 - 계산된 import 경로, `spawn` 인자 배열로 넘긴 경로, `pnpm --filter` 형식의 호출
-- 상대 경로 문자열(`'../../scripts/...'`)로 읽는 script, `node ./scripts/...` 형식이나 `.js`·`.sh` 실행
-- Storybook 설정·story 파일이 참조하는 script(Storybook이 아니라 Web lane으로만 검사)
+- 상대 경로 문자열(`'../../scripts/...'`)로 읽는 script, `node ./scripts/...`·`node --옵션 scripts/...` 형식, interpreter 없는
+  직접 실행, `.js`·`.sh` 실행
+- JS·TS가 아닌 lane package 파일(예: `*.stories.mdx`)이 참조하는 script
+- JS·TS인 Storybook 설정·story 파일이 참조하는 script(Storybook이 아니라 Web lane으로만 검사)
 
-이 검사는 repo-policy lane에서 실행됩니다. 그래서 product package 파일만 바꾼 PR이 그 lane을 켜지 않는 script를 새로 참조하면
-그 PR에서는 검사가 돌지 않고, 다음에 repo-policy lane이 실행될 때 실패합니다.
+이 검사는 repo-policy lane에서 실행됩니다. 그래서 product package 파일만 바꾼 PR이 그 파일이 속한 package의 lane(예: Web)을
+켜지 않는 script를 새로 참조하면, 그 PR에서는 검사가 돌지 않고 다음에 repo-policy lane이 실행될 때 실패합니다.
 
 현재 tracked 경로 중 의도하지 않은 fail-open은 없습니다. `classify-changes.test.mjs`가 두 가지를 함께 검사합니다.
 
