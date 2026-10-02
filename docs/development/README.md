@@ -6,6 +6,8 @@
 
 - [Troubleshooting index](./troubleshooting/README.md)
 - [Monorepo CI baseline](./ci/monorepo-ci-baseline.md)
+- [CI surface ownership](./ci/ci-surface-ownership.md): 경로 family별 표면·lane·owner와 새 경로 추가 절차
+- [CI change classification evidence](./ci/ci-change-classification-evidence.md): 변경 분류 개선의 문제·측정·대안·전후 측정 기록
 - [GitHub collaboration](./github/README.md): PR·commit·local hook과 remote repository setting 책임
 - [Owner cost tracking](./cost/README.md): 월별 gross cash, personal baseline, project-attributable delta와 future cost
 - [Agent workflow guides](./agent-workflows/README.md): host 공통 실행·검증·session continuity와 조건부 Codex/Claude adapter

@@ -285,6 +285,18 @@
       "rationale": "당시 Codex 실험·commit·성과와 한계를 역사 자료로 보존한다. 현재 Claude/unknown-host 자격의 증거로 사용하지 않는다."
     },
     {
+      "path": "docs/development/ci/ci-change-classification-evidence.md",
+      "owner": "development domain owner",
+      "kind": "explanation",
+      "rationale": "CI 변경 분류 개선의 문제·측정·대안·전후 측정을 portfolio용 측정 기록으로 보존한다. 분류 규칙의 owner가 아니며 현재 규칙은 ci-surface-ownership.md가 소유한다."
+    },
+    {
+      "path": "docs/development/ci/ci-surface-ownership.md",
+      "owner": "development domain owner",
+      "kind": "domain",
+      "rationale": "경로 family별 CI 표면·lane·owner와 새 경로 추가 절차를 소유한다. 분류기 동작과의 일치는 classify-changes.test.mjs가 행마다 검사한다."
+    },
+    {
       "path": "docs/development/ci/monorepo-ci-baseline.md",
       "owner": "development domain owner",
       "kind": "domain",
