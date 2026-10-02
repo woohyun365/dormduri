@@ -104,7 +104,8 @@
     "infra:env:prepare": "pnpm shared:build",
     "infra:env:generate": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:generate",
     "infra:env:check": "pnpm infra:env:prepare && pnpm --dir apps/api env:manifest:check && node scripts/infra/check/validate-env-projections.mjs",
-    "claude:native": "node scripts/agents/claude/native-session.mjs"
+    "claude:native": "node scripts/agents/claude/native-session.mjs",
+    "plan:impact": "node scripts/agents/common/plan-impact.mjs"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

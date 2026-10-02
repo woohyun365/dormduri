@@ -24,6 +24,7 @@
 | Tooling  | [Claude native 등록·리뷰 거부](./tooling/claude-native-registration-and-review-rejections.md)                      | 등록 수명·intake 분류·runner 증거 누락과 builder 연결 거부(미정산·hook 미관측·재개된 리뷰)의 해소 |
 | Tooling  | [Claude 안에서 live 세션 실행](./tooling/claude-live-session-from-claude-session.md)                               | 환경 상속 없이 owner tmux로 새 auto 세션을 재현하는 절차                                          |
 | Tooling  | [Claude auto classifier no verdict](./tooling/claude-auto-classifier-no-verdict.md)                                | 서버 판정 누락·설정 자가 수정 거부의 구분과 개인 allow 규칙·compact 기준                          |
+| Tooling  | [Plan 영향 목록 누락](./tooling/agent-plan-impact-inventory-misses.md)                                             | 손 영향 목록의 사각지대와 `pnpm plan:impact` 재생성·검사 절차                                     |
 
 ## 유지 기준
 
