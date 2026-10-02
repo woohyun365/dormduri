@@ -35,14 +35,17 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-// Repository scripts that lane jobs run or import (workflow steps, pnpm scripts, the web image build). A change
-// re-runs those lanes; classify-changes.test.mjs derives the set from the workflows, package scripts and imports.
+// Repository scripts that lane jobs run or import (workflow steps, pnpm scripts, the web image build) or that files
+// of a lane package import or read. A change re-runs those lanes; classify-changes.test.mjs derives the set from the
+// workflows, package scripts, package files and imports.
 const LANE_SCRIPT_PATHS = new Map([
+  ['scripts/artifacts/paths.mjs', ['api']],
   ['scripts/ci/prepare-next-standalone.mjs', ['web']],
   ['scripts/ci/repo-policy-test-files.mjs', ['infra']],
-  ['scripts/ci/run-timed-command.mjs', ['web', 'api']],
+  ['scripts/ci/run-timed-command.mjs', ['web', 'api', 'storybook']],
   ['scripts/infra/compose/profile.mjs', ['api']],
   ['scripts/observability/production/environment.mjs', ['api']],
+  ['scripts/observability/rehearsal/web-bff.mjs', ['api']],
   ['scripts/observability/sentry/check-build.mjs', ['web']],
 ]);
 

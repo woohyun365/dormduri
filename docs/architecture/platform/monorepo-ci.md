@@ -57,7 +57,7 @@ classify
 - Storybook-owned 변경은 Web lane 안에서만 Storybook static build를 추가한다.
 - Docs-only 변경은 product lane을 실행하지 않는다.
 - Agent workflow(host 설정, agent script·test·문서), repository 지원 script·설정, tracked local record 변경도 repo-policy lane만
-  실행한다. 다만 lane job이 실행하거나 import하는 저장소 script는 그 lane도 실행한다.
+  실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행한다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
 
 경로 family별 표면·lane·owner와 새 경로를 추가하는 절차는

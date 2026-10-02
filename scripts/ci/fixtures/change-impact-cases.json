@@ -377,8 +377,20 @@
     }
   },
   {
-    "name": "infra-check-shared-modules",
-    "paths": ["scripts/artifacts/paths.mjs", "scripts/ci/repo-policy-test-files.mjs"],
+    "name": "artifact-path-module",
+    "paths": ["scripts/artifacts/paths.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "infra-test-discovery",
+    "paths": ["scripts/ci/repo-policy-test-files.mjs"],
     "expected": {
       "web": false,
       "api": false,
@@ -395,17 +407,26 @@
       "web": true,
       "api": true,
       "shared": false,
+      "storybook": true,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "web-standalone-prepare",
+    "paths": ["scripts/ci/prepare-next-standalone.mjs"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
       "storybook": false,
       "infra": false,
       "repoPolicy": true
     }
   },
   {
-    "name": "web-lane-scripts",
-    "paths": [
-      "scripts/ci/prepare-next-standalone.mjs",
-      "scripts/observability/sentry/check-build.mjs"
-    ],
+    "name": "web-sentry-build-check",
+    "paths": ["scripts/observability/sentry/check-build.mjs"],
     "expected": {
       "web": true,
       "api": false,
@@ -416,11 +437,32 @@
     }
   },
   {
-    "name": "api-lane-scripts",
-    "paths": [
-      "scripts/infra/compose/profile.mjs",
-      "scripts/observability/production/environment.mjs"
-    ],
+    "name": "api-compose-profile",
+    "paths": ["scripts/infra/compose/profile.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-production-environment",
+    "paths": ["scripts/observability/production/environment.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-read-rehearsal-runner",
+    "paths": ["scripts/observability/rehearsal/web-bff.mjs"],
     "expected": {
       "web": false,
       "api": true,
