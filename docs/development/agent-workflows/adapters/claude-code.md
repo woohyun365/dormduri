@@ -7,7 +7,7 @@
 ## Loading and scope
 
 `CLAUDE.md`는 `@AGENTS.md`를 import하고 이 adapter로 연결합니다. 현재 요청에 필요한 guide만 읽습니다.
-공통 instructions를 네 role에 복제하거나 전체 docs를 startup context에 넣지 않습니다.
+공통 instructions를 역할 파일마다 복제하거나 전체 docs를 startup context에 넣지 않습니다.
 
 ```sh
 pnpm claude:preflight -- --mode fresh
@@ -140,8 +140,8 @@ Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 �
 - `result-error`(결과가 틀림)와 `omission`(파일 누락·테스트 미실행·중도 정지)은 사다리의 다음 단계로 올립니다.
 - `context-missing`은 같은 profile·역할로 다시 등록합니다. Prompt에만 context를 보탭니다.
 - Acceptance나 scope를 바꿔야 하면 재시도가 아닙니다. Owner와 정합니다.
-- 올린 역할×profile이 [Routine operation](#routine-operation) 표의 Q 행이거나 표에 없으면 그 재시도가 해당 조합의 첫 live
-  관측입니다. `expectedResolvedModel`에는 같은 alias가 현재 CLI 버전에서 관측된 ID(예: `opus` → `claude-opus-5-5`,
+- 올린 역할×profile이 [Routine operation](#routine-operation) 표에 없거나 live 관측이 없는 Q 행이면 그 재시도가 해당 조합의
+  첫 live 관측입니다. `expectedResolvedModel`에는 같은 alias가 현재 CLI 버전에서 관측된 ID(예: `opus` → `claude-opus-5-5`,
   2.1.284의 `sonnet` → `claude-sonnet-5-5`)를 두고, 결과는 그 조합의 증거로 기록할 뿐 routine 채택으로 보지 않습니다.
 - 실패한 Agent 호출(PostToolUseFailure)은 해석된 모델이 없어 결속할 수 없습니다(`effective-model-mismatch`). Lead와 Owner가
   원인을 보고 다음 행동을 정합니다.

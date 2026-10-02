@@ -54,11 +54,11 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
   | 고정 입력 추출     | `knu_explorer`       | `bounded-standard` | Sonnet high | 관측 |
   | 공식 근거 조사     | `knu_researcher`     | `bounded-standard` | Sonnet high | 관측 |
   | bounded 구현       | `knu_executor`       | `bounded-standard` | Sonnet high | 관측 |
-  | repository 읽기    | `knu_explorer`       | `bounded-standard` | Sonnet high | Q    |
-  | 복잡한 구현        | `knu_executor`       | `complex-critical` | Opus high   | Q    |
-  | impact `high` 구현 | `knu_executor_xhigh` | `complex-critical` | Opus xhigh  | Q    |
+  | repository 읽기    | `knu_explorer`       | `bounded-standard` | Sonnet high | 관측 |
+  | 복잡한 구현        | `knu_executor`       | `complex-critical` | Opus high   | 관측 |
+  | impact `high` 구현 | `knu_executor_xhigh` | `complex-critical` | Opus xhigh  | 관측 |
 
-  Q 조합은 routine 위임에 쓰지 않습니다. 상태는 adapter의 routine 표가 원본입니다.
+  상태는 adapter의 routine 표가 원본입니다. Adapter 표에서 Q인 조합은 routine 위임에 쓰지 않습니다.
 
 - 추출만 impact `low`·complexity `bounded`·uncertainty `resolved`에서 `reviewDisposition.required:false`를 쓸 수 있습니다.
 - kind별 필수 fact, 빈 `readScope` 금지, `impactRisk` 하향 금지는

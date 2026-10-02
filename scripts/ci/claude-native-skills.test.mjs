@@ -399,3 +399,63 @@ test('settle documents keep the hand-back turn alive until the completion notifi
   assert.ok(!flat.includes('둘 다 결과를 쓰지 말고'), 'stale count');
   assert.ok(!/\bE[0-9]\b/u.test(flat), 'no plan phase label in a tracked doc');
 });
+
+test('the delegate skill routine table matches the adapter routine rows one to one', () => {
+  const cells = (line) =>
+    line
+      .split('|')
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+  const routine =
+    read('docs/development/agent-workflows/adapters/claude-code.md')
+      .split('## Routine operation')[1]
+      ?.split('## Recovery')[0] ?? '';
+  const tableRows = (text, pattern) =>
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => pattern.test(line))
+      .map(cells);
+  // Skill work labels are short forms of the adapter work column; each maps to exactly one adapter row.
+  const WORK = new Map([
+    ['고정 입력 추출', '고정 입력 추출'],
+    ['공식 근거 조사', '공식 근거 읽기'],
+    ['bounded 구현', 'bounded 구현·검증'],
+    ['repository 읽기', 'repository 읽기 조사'],
+    ['복잡한 구현', '복잡한 구현'],
+    ['impact `high` 구현', '고위험 구현'],
+  ]);
+  const status = (value) => (value.startsWith('Q') ? 'Q' : value);
+  const alias = { '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
+  const adapterRows = tableRows(routine, /^\| `knu_/u)
+    // knu_reviewer is dispatched by /knu-review, not copied into the delegate skill.
+    .filter(
+      (row) => row[6] !== undefined && !row[6].startsWith('미사용') && row[0] !== '`knu_reviewer`',
+    )
+    .map(([role, profile, model, effort, , work, state]) => [
+      `${role} ${profile} ${work}`,
+      { model: `${alias[model]} ${effort}`, state: status(state) },
+    ]);
+  const adapter = new Map(adapterRows);
+  assert.equal(
+    adapter.size,
+    adapterRows.length,
+    'adapter routine rows are unique by role, profile and work',
+  );
+  const skill = tableRows(read('.claude/skills/knu-delegate/SKILL.md'), /^\| [^`|][^|]*\| `knu_/u);
+  const seen = new Set();
+  for (const [work, role, profile, model, state] of skill) {
+    assert.ok(WORK.has(work), `${work}: unmapped skill work label`);
+    const key = `${role} ${profile} ${WORK.get(work)}`;
+    const row = adapter.get(key);
+    assert.ok(row, `${key}: no adapter routine row`);
+    assert.equal(model, row.model, `${key}: model and effort`);
+    assert.equal(state, row.state, `${key}: status`);
+    seen.add(key);
+  }
+  assert.deepEqual(
+    [...seen].sort(),
+    [...adapter.keys()].sort(),
+    'skill copies every routine row once',
+  );
+});
