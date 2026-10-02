@@ -58,6 +58,10 @@ classify
 - Docs-only 변경은 product lane을 실행하지 않는다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
 
+경로 family별 표면·lane·owner와 새 경로를 추가하는 절차는
+[CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유한다. 분류 개선의 문제·측정·결정 기록은
+[CI change classification evidence](../../development/ci/ci-change-classification-evidence.md)에 둔다.
+
 분류 source of truth는 `scripts/ci/classify-changes.mjs`이며 path matrix는 `scripts/ci/fixtures/`와 Node built-in tests가 고정한다.
 
 ## Public command와 prepared command

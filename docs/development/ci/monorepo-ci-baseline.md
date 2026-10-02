@@ -3,6 +3,9 @@
 API/Web CI 구조의 개선 전 denominator, accepted A/B evidence, current measurement epoch를 재현 가능하게 기록합니다. 이
 문서는 성능 측정 기준이며 제품 정책의 source of truth는 아닙니다.
 
+> 이 문서는 시점별 측정 기록입니다. 경로별 표면·lane·owner의 현재 책임은 [CI surface ownership](./ci-surface-ownership.md)이
+> 소유합니다.
+
 ## 측정 기준
 
 - 기준일: 2026-08-06
