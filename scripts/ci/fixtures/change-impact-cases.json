@@ -313,23 +313,10 @@
     }
   },
   {
-    "name": "planned-codex-skill-path",
-    "paths": [".agents/skills/example/SKILL.md"],
-    "expected": {
-      "web": false,
-      "api": false,
-      "shared": false,
-      "storybook": false,
-      "infra": false,
-      "repoPolicy": true
-    }
-  },
-  {
     "name": "repository-support-scripts-only",
     "paths": [
       "scripts/dependencies/dependency-health-contract.mjs",
       "scripts/security/dependency-alert-inventory.mjs",
-      "scripts/artifacts/paths.mjs",
       "scripts/README.md"
     ],
     "expected": {
@@ -390,8 +377,44 @@
     }
   },
   {
+    "name": "infra-check-shared-modules",
+    "paths": ["scripts/artifacts/paths.mjs", "scripts/ci/repo-policy-test-files.mjs"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "lane-command-wrapper",
+    "paths": ["scripts/ci/run-timed-command.mjs"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "unknown-fail-open",
     "paths": ["future-surface/unknown.file"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": true,
+      "storybook": true,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "unknown-github-workflow-fail-open",
+    "paths": [".github/workflows/future-lane.yml"],
     "expected": {
       "web": true,
       "api": true,

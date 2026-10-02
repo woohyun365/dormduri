@@ -169,7 +169,8 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 
 1. 분류 완전성: 의도하지 않은 fail-open family마다 표면에 맞는 규칙을 둡니다. Tracked 전수 test가 의도한 fan-out 밖의
    전체 lane을 막습니다.
-2. Agent workflow 분류 출력: agent 파일만 바뀐 PR은 product lane을 실행하지 않습니다.
+2. Agent workflow 분류 출력: agent lane job이 쓸 분류 출력을 둡니다. Agent 파일만 바뀐 PR의 product lane 미실행은 분류
+   완전성이 이미 달성합니다(§6).
 3. Agent test 배치: `scripts/ci`의 agent test·fixture를 하위 디렉터리로 모아 분류 규칙을 디렉터리 단위로 둡니다.
 4. Agent test lane 분리: 측정으로 이득이 확인될 때만 채택합니다.
 5. Formatting 검사 범위: formatting 설정이 바뀌지 않은 PR은 변경 파일만 검사합니다.
@@ -188,7 +189,7 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 
 p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorepo CI architecture의 표본 규칙).
 
-표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `CI` run입니다. 개선 전 값은 §3입니다.
+표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `Monorepo CI` workflow run입니다. 개선 전 값은 §3입니다.
 
 ### 분류 완전성(#537) 정적 replay
 

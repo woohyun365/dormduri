@@ -35,18 +35,23 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
+// Repository scripts that lane jobs run or import (workflow steps, `pnpm infra:check`). A change re-runs those
+// lanes; classify-changes.test.mjs derives the set from the workflows and import graph.
+const LANE_SCRIPT_PATHS = new Map([
+  ['scripts/ci/run-timed-command.mjs', ['web', 'api']],
+  ['scripts/ci/repo-policy-test-files.mjs', ['infra']],
+]);
+
 // Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
 // scripts, tests and instructions) and repository support files never select product lanes.
 const REPO_POLICY_PREFIXES = [
   'docs/',
   'scripts/agents/',
-  'scripts/artifacts/',
   'scripts/ci/',
   'scripts/dependencies/',
   'scripts/git/',
   'scripts/github/',
   'scripts/security/',
-  '.agents/',
   '.claude/',
   '.codex/',
   '.github/ISSUE_TEMPLATE/',
@@ -128,6 +133,7 @@ export function classifyChanges(paths) {
 
     if (
       path.startsWith('infra/') ||
+      path.startsWith('scripts/artifacts/') ||
       path.startsWith('scripts/infra/') ||
       path.startsWith('scripts/observability/')
     ) {
@@ -145,6 +151,12 @@ export function classifyChanges(paths) {
       if (path.startsWith('infra/deploy/web/')) {
         result.web = true;
       }
+      matched = true;
+    }
+
+    for (const lane of LANE_SCRIPT_PATHS.get(path) ?? []) {
+      result[lane] = true;
+      result.repoPolicy = true;
       matched = true;
     }
 
@@ -189,7 +201,7 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if ((path.startsWith('.github/') && !matched) || ROOT_TOOLCHAIN_PATHS.has(path)) {
+    if (path.startsWith('.github/') && !matched) {
       markAll(result);
       matched = true;
     }

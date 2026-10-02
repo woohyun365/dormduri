@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { dirname, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -16,8 +18,7 @@ const cases = JSON.parse(await readFile(fixtureUrl, 'utf8'));
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
 const surfaceDocPath = 'docs/development/ci/ci-surface-ownership.md';
 const LANES = ['web', 'api', 'shared', 'storybook', 'infra', 'repoPolicy'];
-const STATUSES = ['분류됨', '의도한 fan-out', '의도하지 않은 fail-open'];
-const REQUIRED_STATUSES = ['분류됨', '의도한 fan-out'];
+const STATUSES = ['분류됨', '의도한 fan-out'];
 const tracked = new Set(
   execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' }).split('\0'),
 );
@@ -170,7 +171,7 @@ test('surface ownership document rows match the classifier for every representat
   const { surfaces, rows } = surfaceTable(await readFile(`${repoRoot}${surfaceDocPath}`, 'utf8'));
   assert.ok(surfaces.length > 0, 'surface definitions must name each surface in code spans');
   assert.ok(rows.length > 0, 'surface table must have rows');
-  for (const status of REQUIRED_STATUSES) {
+  for (const status of STATUSES) {
     assert.ok(
       rows.some((row) => row.status === status),
       `surface table must keep a ${status} row`,
@@ -192,8 +193,25 @@ test('surface ownership document rows match the classifier for every representat
     for (const path of row.examples) {
       assert.ok(tracked.has(path), `${row.family}: ${path} is not tracked`);
       assert.deepEqual(classifyChanges([path]), expectedLanes(row.lanes), `${row.family}: ${path}`);
+      assert.equal(
+        isIntendedFanOut(path),
+        row.status === '의도한 fan-out',
+        `${row.family}: ${path} status must match isIntendedFanOut`,
+      );
     }
   }
+  const fanOutFamilies = rows
+    .filter((row) => row.status === '의도한 fan-out')
+    .flatMap((row) => codeSpans(row.family));
+  const uncovered = [...tracked]
+    .filter((path) => path && isIntendedFanOut(path))
+    .filter(
+      (path) =>
+        !fanOutFamilies.some((family) =>
+          family.endsWith('/**') ? path.startsWith(family.slice(0, -2)) : path === family,
+        ),
+    );
+  assert.deepEqual(uncovered, [], 'every intended fan-out path needs a fan-out row');
 });
 
 test('every tracked path that selects every lane is an intended fan-out path', () => {
@@ -204,12 +222,7 @@ test('every tracked path that selects every lane is an intended fan-out path', (
   assert.deepEqual(gaps, []);
 });
 
-// Planned paths may name a rule before a tracked file exists; each entry records its owner decision.
-const PLANNED_RULE_PATHS = new Map([
-  ['.agents/', 'Codex repository skill directory adopted by the host adapter requalification plan'],
-]);
-
-test('every path literal in the classifier rules matches a tracked path or a planned owner entry', async () => {
+test('every path literal in the classifier rules matches a tracked path', async () => {
   const source = await readFile(new URL('./classify-changes.mjs', import.meta.url), 'utf8');
   const start = source.indexOf('const ROOT_TOOLCHAIN_PATHS');
   const end = source.indexOf('function runGit');
@@ -220,8 +233,53 @@ test('every path literal in the classifier rules matches a tracked path or a pla
   assert.ok(literals.length > 0, 'classifier rules must name paths');
   const dead = [...new Set(literals)].filter((literal) =>
     literal.endsWith('/')
-      ? ![...tracked].some((path) => path.startsWith(literal)) && !PLANNED_RULE_PATHS.has(literal)
+      ? ![...tracked].some((path) => path.startsWith(literal))
       : !tracked.has(literal),
   );
   assert.deepEqual(dead, []);
+});
+
+// Lane jobs run repository scripts (workflow `node scripts/...` steps, `pnpm infra:check`). A change to such a
+// script or to any module it imports must still select that lane.
+function importClosure(entries) {
+  const seen = new Set();
+  const queue = [...entries];
+  while (queue.length) {
+    const path = queue.shift();
+    if (seen.has(path) || !tracked.has(path)) continue;
+    seen.add(path);
+    const source = readFileSync(`${repoRoot}${path}`, 'utf8');
+    for (const match of source.matchAll(/from\s+'(\.{1,2}\/[^']+)'/gu)) {
+      queue.push(
+        relative(repoRoot, resolve(repoRoot, dirname(path), match[1]))
+          .split(sep)
+          .join('/'),
+      );
+    }
+  }
+  return seen;
+}
+
+function workflowScripts(workflow) {
+  const source = readFileSync(`${repoRoot}.github/workflows/${workflow}`, 'utf8');
+  return [...source.matchAll(/\bnode\s+(scripts\/\S+\.mjs)/gu)].map((match) => match[1]);
+}
+
+test('scripts run by lane jobs and their imports select that lane', () => {
+  const infraChecks = [...tracked].filter(
+    (path) =>
+      /^scripts\/(?:infra|observability)\/.+\.mjs$/u.test(path) && !path.endsWith('.test.mjs'),
+  );
+  const lanes = {
+    api: workflowScripts('api-ci.yml'),
+    web: workflowScripts('web-ci.yml'),
+    infra: infraChecks,
+  };
+  const missing = [];
+  for (const [lane, entries] of Object.entries(lanes)) {
+    assert.ok(entries.length > 0, `${lane} lane must run at least one repository script`);
+    for (const path of importClosure(entries))
+      if (!classifyChanges([path])[lane]) missing.push(`${lane}: ${path}`);
+  }
+  assert.deepEqual(missing, []);
 });
