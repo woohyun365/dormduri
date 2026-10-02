@@ -288,8 +288,205 @@
     }
   },
   {
+    "name": "agent-host-configuration-only",
+    "paths": [
+      ".claude/settings.json",
+      ".claude/skills/knu-review/SKILL.md",
+      ".claude/agents/knu_executor_xhigh.md",
+      ".codex/config.toml",
+      ".codex/agents/knu_reviewer.toml",
+      ".omc-workspace",
+      ".omx-config.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "docs/development/agent-workflows/README.md",
+      "scripts/agents/README.md",
+      "scripts/ci/claude-native-session.test.mjs"
+    ],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "repository-support-scripts-only",
+    "paths": [
+      "scripts/dependencies/dependency-health-contract.mjs",
+      "scripts/security/dependency-alert-inventory.mjs",
+      "scripts/README.md"
+    ],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "repository-configuration-only",
+    "paths": ["renovate.json", ".editorconfig", ".prettierrc", ".vscode/settings.json"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "repository-root-documents-only",
+    "paths": ["CONTRIBUTING.md", "SERVICE.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "github-issue-templates-only",
+    "paths": [".github/ISSUE_TEMPLATE/work-item.yml", ".github/ISSUE_TEMPLATE/config.yml"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "local-record-placeholders-only",
+    "paths": [".artifacts/README.md", "omx_wiki/.gitignore"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "artifact-path-module",
+    "paths": ["scripts/artifacts/paths.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "infra-test-discovery",
+    "paths": ["scripts/ci/repo-policy-test-files.mjs"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "lane-command-wrapper",
+    "paths": ["scripts/ci/run-timed-command.mjs"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": false,
+      "storybook": true,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "web-standalone-prepare",
+    "paths": ["scripts/ci/prepare-next-standalone.mjs"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "web-sentry-build-check",
+    "paths": ["scripts/observability/sentry/check-build.mjs"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-compose-profile",
+    "paths": ["scripts/infra/compose/profile.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-production-environment",
+    "paths": ["scripts/observability/production/environment.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "api-read-rehearsal-runner",
+    "paths": ["scripts/observability/rehearsal/web-bff.mjs"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
     "name": "unknown-fail-open",
     "paths": ["future-surface/unknown.file"],
+    "expected": {
+      "web": true,
+      "api": true,
+      "shared": true,
+      "storybook": true,
+      "infra": true,
+      "repoPolicy": true
+    }
+  },
+  {
+    "name": "unknown-github-workflow-fail-open",
+    "paths": [".github/workflows/future-lane.yml"],
     "expected": {
       "web": true,
       "api": true,
