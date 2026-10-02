@@ -239,8 +239,9 @@ test('every path literal in the classifier rules matches a tracked path', async 
   assert.deepEqual(dead, []);
 });
 
-// Lane jobs run repository scripts (workflow `node scripts/...` steps, `pnpm infra:check`). A change to such a
-// script or to any module it imports must still select that lane.
+// Lane jobs run repository scripts: workflow `node scripts/...` steps, `pnpm` scripts (root and `--dir` packages,
+// followed recursively), the lane package's own scripts and the web image build. A change to such a script or to
+// any module it imports (static, side-effect or dynamic) must still select that lane.
 function importClosure(entries) {
   const seen = new Set();
   const queue = [...entries];
@@ -249,7 +250,7 @@ function importClosure(entries) {
     if (seen.has(path) || !tracked.has(path)) continue;
     seen.add(path);
     const source = readFileSync(`${repoRoot}${path}`, 'utf8');
-    for (const match of source.matchAll(/from\s+'(\.{1,2}\/[^']+)'/gu)) {
+    for (const match of source.matchAll(/(?:\bfrom\s+|\bimport\s*\(?\s*)'(\.{1,2}\/[^']+)'/gu)) {
       queue.push(
         relative(repoRoot, resolve(repoRoot, dirname(path), match[1]))
           .split(sep)
@@ -260,26 +261,67 @@ function importClosure(entries) {
   return seen;
 }
 
-function workflowScripts(workflow) {
-  const source = readFileSync(`${repoRoot}.github/workflows/${workflow}`, 'utf8');
-  return [...source.matchAll(/\bnode\s+(scripts\/\S+\.mjs)/gu)].map((match) => match[1]);
+function packageScripts(directory) {
+  return JSON.parse(readFileSync(`${repoRoot}${directory}/package.json`, 'utf8')).scripts ?? {};
+}
+
+function repositoryScripts(command, directory = '.', depth = 0, found = new Set()) {
+  for (const match of command.matchAll(/\bnode\s+((?:\.\.\/)*scripts\/\S+?\.mjs)\b/gu))
+    found.add(
+      relative(repoRoot, resolve(repoRoot, directory, match[1]))
+        .split(sep)
+        .join('/'),
+    );
+  if (depth > 6) return found;
+  for (const match of command.matchAll(
+    /\bpnpm((?:\s+(?:--dir|-C)\s+\S+|\s+-s|\s+--silent|\s+run)*)\s+([a-z][\w:.-]*)/gu,
+  )) {
+    const target = (match[1].match(/(?:--dir|-C)\s+(\S+)/u) ?? [])[1];
+    const scriptDirectory = target
+      ? relative(repoRoot, resolve(repoRoot, directory, target))
+          .split(sep)
+          .join('/') || '.'
+      : directory;
+    const script = packageScripts(scriptDirectory)[match[2]];
+    if (script) repositoryScripts(script, scriptDirectory, depth + 1, found);
+  }
+  return found;
+}
+
+function laneEntries(sources, packageDirectory) {
+  const found = new Set();
+  for (const source of sources) repositoryScripts(source, '.', 0, found);
+  if (packageDirectory)
+    for (const script of Object.values(packageScripts(packageDirectory)))
+      repositoryScripts(script, packageDirectory, 0, found);
+  return [...found];
 }
 
 test('scripts run by lane jobs and their imports select that lane', () => {
+  const read = (path) => readFileSync(`${repoRoot}${path}`, 'utf8');
+  const ciWorkflow = read('.github/workflows/ci.yml');
+  const sharedJob = ciWorkflow.slice(
+    ciWorkflow.indexOf('\n  shared:'),
+    ciWorkflow.indexOf('\n  api:'),
+  );
   const infraChecks = [...tracked].filter(
     (path) =>
       /^scripts\/(?:infra|observability)\/.+\.mjs$/u.test(path) && !path.endsWith('.test.mjs'),
   );
   const lanes = {
-    api: workflowScripts('api-ci.yml'),
-    web: workflowScripts('web-ci.yml'),
-    infra: infraChecks,
+    api: laneEntries([read('.github/workflows/api-ci.yml')], 'apps/api'),
+    web: laneEntries(
+      [read('.github/workflows/web-ci.yml'), read('infra/deploy/web/Dockerfile')],
+      'apps/web',
+    ),
+    shared: laneEntries([sharedJob], 'packages/shared'),
+    infra: [...laneEntries([read('.github/workflows/infra-ci.yml')]), ...infraChecks],
   };
+  for (const lane of ['api', 'web', 'infra'])
+    assert.ok(lanes[lane].length > 0, `${lane} lane must run at least one repository script`);
   const missing = [];
-  for (const [lane, entries] of Object.entries(lanes)) {
-    assert.ok(entries.length > 0, `${lane} lane must run at least one repository script`);
+  for (const [lane, entries] of Object.entries(lanes))
     for (const path of importClosure(entries))
       if (!classifyChanges([path])[lane]) missing.push(`${lane}: ${path}`);
-  }
   assert.deepEqual(missing, []);
 });

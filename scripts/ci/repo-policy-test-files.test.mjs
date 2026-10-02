@@ -21,6 +21,11 @@ test('every scripts directory with colocated tests is part of the policy lane di
     withTests.filter((directory) => !REPO_POLICY_SCRIPT_DIRECTORIES.includes(directory)),
     [],
   );
+  // Discovery walks directories only, so a test file directly under scripts/ would never run.
+  assert.deepEqual(
+    readdirSync(resolve(repoRoot, 'scripts')).filter((name) => name.endsWith('.test.mjs')),
+    [],
+  );
 });
 
 test('discovers colocated tests recursively without depending on a flat directory', () => {

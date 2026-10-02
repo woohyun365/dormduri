@@ -35,11 +35,15 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-// Repository scripts that lane jobs run or import (workflow steps, `pnpm infra:check`). A change re-runs those
-// lanes; classify-changes.test.mjs derives the set from the workflows and import graph.
+// Repository scripts that lane jobs run or import (workflow steps, pnpm scripts, the web image build). A change
+// re-runs those lanes; classify-changes.test.mjs derives the set from the workflows, package scripts and imports.
 const LANE_SCRIPT_PATHS = new Map([
-  ['scripts/ci/run-timed-command.mjs', ['web', 'api']],
+  ['scripts/ci/prepare-next-standalone.mjs', ['web']],
   ['scripts/ci/repo-policy-test-files.mjs', ['infra']],
+  ['scripts/ci/run-timed-command.mjs', ['web', 'api']],
+  ['scripts/infra/compose/profile.mjs', ['api']],
+  ['scripts/observability/production/environment.mjs', ['api']],
+  ['scripts/observability/sentry/check-build.mjs', ['web']],
 ]);
 
 // Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
