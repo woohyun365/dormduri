@@ -49,7 +49,7 @@ exit 1로 끝나 편집을 막지 않습니다.
 ## 검증
 
 ```bash
-node --test scripts/ci/claude-native-session.test.mjs
+node --test scripts/ci/agents/claude/claude-native-session.test.mjs
 pnpm test:repo-policy
 ```
 

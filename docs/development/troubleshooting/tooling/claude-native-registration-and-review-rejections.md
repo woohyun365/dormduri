@@ -256,7 +256,7 @@ task가 이미 시도된 상태가 이에 해당합니다. 첫 task는 이미 �
 ## 검증
 
 ```bash
-node --test scripts/ci/claude-native-session.test.mjs scripts/ci/claude-native-task-helper.test.mjs scripts/ci/claude-subagent-model-routing.test.mjs scripts/ci/cross-model-handoff-contract.test.mjs
+node --test scripts/ci/agents/claude/claude-native-session.test.mjs scripts/ci/agents/claude/claude-native-task-helper.test.mjs scripts/ci/agents/claude/claude-subagent-model-routing.test.mjs scripts/ci/agents/common/cross-model-handoff-contract.test.mjs
 ```
 
 `registration names the concrete policy reason`과 `claude-native-task-helper.test.mjs`의 prepare·review·Parent-authored 테스트가

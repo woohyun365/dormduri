@@ -60,7 +60,7 @@ pnpm check:fast
 ## 검증
 
 ```bash
-node --test scripts/ci/agent-guidance-boundary.test.mjs
+node --test scripts/ci/agents/common/agent-guidance-boundary.test.mjs
 pnpm test:repo-policy
 pnpm infra:compose -- api-base build api
 ```

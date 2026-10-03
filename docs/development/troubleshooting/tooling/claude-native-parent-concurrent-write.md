@@ -71,7 +71,7 @@ Child의 evidence 쓰기 쪽은 다릅니다. `.artifacts`는 ignored라 collect
 ## 검증
 
 ```bash
-node --test scripts/ci/claude-native-session.test.mjs
+node --test scripts/ci/agents/claude/claude-native-session.test.mjs
 ```
 
 `unattributable change: *` 여섯 테스트가 수정·새 파일·삭제(read 범위 안팎)의 거부와 `changedPaths` 제외를 고정합니다.

@@ -26,7 +26,7 @@
 
 ## 시각 작업 회귀 자료 사용
 
-[Visual capability cases](../../../scripts/ci/fixtures/visual-capability-cases.json)는 입력과 평가 기대를 분리한 회귀 corpus입니다.
+[Visual capability cases](../../../scripts/ci/agents/common/fixtures/visual-capability-cases.json)는 입력과 평가 기대를 분리한 회귀 corpus입니다.
 Parent/평가자는 전체 자료를 읽되 pilot child에는 `{ request, ...input }`만 전달합니다. `expectedAuthority`,
 `expectedCapability`, `sourcePriority`, `prohibitedActions`, `expectations`, `evaluatorNotes`는 평가자용이며 초기 child 입력에
 포함하지 않습니다. 합성 결함의 정답과 generator 자체 점수는 초기 critic 밖에 두되 실제 관측한 제품·runner 실패는 숨기지 않습니다.

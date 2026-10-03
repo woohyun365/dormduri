@@ -79,7 +79,7 @@ Claude에서만 쓰는 해석은 다음과 같습니다.
 ### Frontmatter 필드 처분
 
 KNU 역할 파일은 `name`·`description`·`tools`·`effort`만 씁니다. 공식 필드 목록(2026-10-01 기준)의 처분은 다음과 같고,
-`scripts/ci/agent-native-adapter-contract.test.mjs`가 이 목록을 복사본으로 고정합니다. 공식 필드가 늘면 이 표를 갱신합니다.
+`scripts/ci/agents/common/agent-native-adapter-contract.test.mjs`가 이 목록을 복사본으로 고정합니다. 공식 필드가 늘면 이 표를 갱신합니다.
 
 | 필드              | 처분 | 근거                                                   |
 | ----------------- | ---- | ------------------------------------------------------ |
@@ -137,5 +137,5 @@ Parent modelUsage나 응답 문장을 child model 입증으로 사용하지 않�
 같은 tool ID라도 다른 parent/session/run/source/config/binding의 record를 합치지 않습니다. Child session ID가 parent와
 다를 수 있으므로 단순 ID 동일성도 올바른 관계 검사의 대체물이 아닙니다. 누락·중복·역순·취소·불명확 provenance는 gap으로
 남깁니다. 임의 JSON receipt를 actual host observation으로 취급하지 않습니다.
-[qualification matrix](../../../../scripts/ci/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
+[qualification matrix](../../../../scripts/ci/agents/claude/fixtures/claude-subagent-model-qualification-matrix.json)는 test scenario이지
 현재 세션의 PASS 증거가 아닙니다.

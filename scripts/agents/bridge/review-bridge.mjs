@@ -7,7 +7,10 @@ import {
   validateCrossModelResult,
 } from '../common/cross-model-handoff.mjs';
 
-const FAKE_CLI = resolve(import.meta.dirname, '../../ci/fixtures/cross-host-review-fake-cli.mjs');
+const FAKE_CLI = resolve(
+  import.meta.dirname,
+  '../../ci/agents/common/fixtures/cross-host-review-fake-cli.mjs',
+);
 const FIXTURE_CASES = new Set([
   'complete',
   'error',

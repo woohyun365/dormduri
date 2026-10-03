@@ -105,7 +105,7 @@ Shared background server가 없다는 UI 안내는 child 도구 전체가 없다
 ## 검증
 
 ```bash
-node --test scripts/ci/codex-subagent-lifecycle-contract.test.mjs scripts/ci/codex-orchestration-policy.test.mjs
+node --test scripts/ci/agents/codex/codex-subagent-lifecycle-contract.test.mjs scripts/ci/agents/codex/codex-orchestration-policy.test.mjs
 pnpm test:repo-policy
 ```
 

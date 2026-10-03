@@ -4,8 +4,8 @@
 독립 oracle을 만듭니다. 저장소 checkout에는 stage/commit하지 않으며 기존 disposable preflight helper를 재사용합니다.
 실제 Codex preflight source를 그대로 복사하고 optional OMX read만 stub 처리합니다. Native/model/sandbox 증거가 아닙니다.
 
-- Green: `node --test scripts/ci/codex-git-status.test.mjs`
-- 계획 root·명시적 binding·OMX context: `node --test scripts/ci/codex-session-preflight.test.mjs`
+- Green: `node --test scripts/ci/agents/codex/codex-git-status.test.mjs`
+- 계획 root·명시적 binding·OMX context: `node --test scripts/ci/agents/codex/codex-session-preflight.test.mjs`
 
 첫 unstaged, staged-only, mixed, untracked, unstaged/staged delete, rename+edit, 일곱 unmerged shape와
 공백·한글·quote·newline·tab·backslash·화살표 파일명을 검사합니다.

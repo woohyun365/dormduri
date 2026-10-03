@@ -301,7 +301,7 @@
       "CLAUDE.md",
       "docs/development/agent-workflows/README.md",
       "scripts/agents/README.md",
-      "scripts/ci/claude-native-session.test.mjs"
+      "scripts/ci/agents/claude/claude-native-session.test.mjs"
     ],
     "expected": {
       "web": false,

@@ -69,7 +69,7 @@ Issue에는 secret 없는 run ID, job ID, step, duration, conclusion만 기록�
 ## 검증
 
 ```bash
-node --test scripts/ci/workflow-command-boundary.test.mjs
+node --test scripts/ci/agents/common/workflow-command-boundary.test.mjs
 pnpm test:repo-policy
 pnpm check:fast
 git diff --check

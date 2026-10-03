@@ -269,9 +269,9 @@ DA-013~015의 지침 존재와 실제 동작을 구분하기 위해 synthetic/lo
 | 만료·범위 밖 요청 → 거절 후 Parent 보고                     | 무지정/다른 수신자·주제/snapshot 불일치/완료/철회/업무 offload/nested spawn/간접 model 위임 입력 | negative assignment에서 peer 연락·spawn·offload 없이 거절 관찰; 위험 동작을 실제 시도한 보안 강제 시험은 아님 |
 | 구현자 self-PASS → 독립 acceptance 후 runner·delta review   | reviewer가 초기 source에서 non-string identity/whitespace 테스트 누락 발견; Parent가 보강        | 초기 5개 → 보강 15개 테스트 통과; 초기 gap 보존 후 같은 reviewer가 새 snapshot 재검토. 사실 교환은 그 이후    |
 
-재현 가능한 **정적** 근거는 `scripts/ci/agent-collaboration-contract.test.mjs`의 fixture 정합성/invalid mutation과
-`scripts/ci/project-codex-config.test.mjs`의 역할·설정 검사입니다. `pnpm test:repo-policy`로 실행하며,
-`scripts/ci/fixtures/agent-collaboration-cases.json`의 corpus 전체가 live 실행되었다는 뜻은 아닙니다.
+재현 가능한 **정적** 근거는 `scripts/ci/agents/common/agent-collaboration-contract.test.mjs`의 fixture 정합성/invalid mutation과
+`scripts/ci/agents/codex/project-codex-config.test.mjs`의 역할·설정 검사입니다. `pnpm test:repo-policy`로 실행하며,
+`scripts/ci/agents/common/fixtures/agent-collaboration-cases.json`의 corpus 전체가 live 실행되었다는 뜻은 아닙니다.
 필수 9개 case group을 관찰했으며, 나머지 7개(모호한 Backend 탐색, 수단 충돌, 강결합 lane, 별도 runner 경계,
 FE content/style, UX data 한계, child 결과 충돌)는 전용 live 시나리오 미실행으로 남겼습니다.
 

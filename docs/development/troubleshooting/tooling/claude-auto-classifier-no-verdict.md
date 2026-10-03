@@ -99,7 +99,7 @@ Claude 안에서 새 세션을 띄워 재현하는 방법은 [Claude 안에서 l
   `claude auto-mode config`는 실제 적용 규칙을 문장 목록으로 출력하므로 추가한 항목과 기본 규칙이 함께 보입니다.
 - 위험 flag를 `ask`로 짝지었다면 부작용 없는 형태(예: `rg --pre=cat <패턴> <파일>`, `rg --pre cat <패턴> <파일>`)로 확인 창이 뜨는지, 평소 쓰는 형태는 확인 창 없이 실행되는지
   새 auto 세션에서 봅니다.
-- 정적 검사: `node --test scripts/ci/agent-native-adapter-contract.test.mjs scripts/ci/agent-document-graph.test.mjs`.
+- 정적 검사: `node --test scripts/ci/agents/common/agent-native-adapter-contract.test.mjs scripts/ci/agents/common/agent-document-graph.test.mjs`.
   정적 테스트는 서버 판정의 가용성을 증명하지 않습니다.
 
 ## 참고

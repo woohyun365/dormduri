@@ -12,8 +12,8 @@
   **실제 문서 graph, 전체 문서 coverage, host capability의 관측 또는 runtime conformance 증거가 아닙니다.**
 
 ```sh
-node --test scripts/ci/agent-workflow-contract.test.mjs
-node --test scripts/ci/codex-git-status.test.mjs scripts/ci/codex-session-preflight.test.mjs
+node --test scripts/ci/agents/common/agent-workflow-contract.test.mjs
+node --test scripts/ci/agents/codex/codex-git-status.test.mjs scripts/ci/agents/codex/codex-session-preflight.test.mjs
 ```
 
 Codex Git/OMX 실제 preflight fixture는 `../codex-preflight/`가 소유합니다. `skip`, `todo`, 실패 기대 wrapper로 결함을 숨기지 않으며 정상 CI가 현재 intended behavior를 보호한다. Native 모델·권한 관측과 테스트 fixture는 다른 증거다.

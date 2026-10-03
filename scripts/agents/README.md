@@ -44,4 +44,4 @@
 
 `pnpm test:repo-policy`가 `scripts/ci/**/*.test.mjs`를 재귀적으로 발견합니다.
 Fixture는 suite에서 import하며 별도 과거 probe wrapper로 중복 실행하지 않습니다.
-Host 명명·공통 source owner·현재 명령·fixture 경계는 `scripts/ci/agent-host-naming.test.mjs`가 검사합니다.
+Host 명명·공통 source owner·현재 명령·fixture 경계는 `scripts/ci/agents/common/agent-host-naming.test.mjs`가 검사합니다.

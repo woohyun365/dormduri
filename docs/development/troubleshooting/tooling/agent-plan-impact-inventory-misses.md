@@ -128,7 +128,7 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
 
 ## 검증
 
-- `node --test scripts/ci/agent-plan-impact.test.mjs`: 위 실패 조건마다 실패 사례가 있고, CRLF 입력과 `\` 경로 입력이 LF·
+- `node --test scripts/ci/agents/common/agent-plan-impact.test.mjs`: 위 실패 조건마다 실패 사례가 있고, CRLF 입력과 `\` 경로 입력이 LF·
   `/` 입력과 같은 결과를 내는지 확인합니다.
 - 코드 블록 map은 2026-10-02 snapshot(`0eafa5cd`)의 tracked `.mjs`·`.js`·`.cjs`·`.ts` 1,950개 파일에서 TypeScript parser
   기준 경계와 같습니다. Markdown·JSON·TOML은 parser가 아니라 첫 inventory의 같은 규칙과 비교했으므로 독립 근거가
