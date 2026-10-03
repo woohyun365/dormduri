@@ -104,6 +104,15 @@ function isFile(path) {
   }
 }
 
+// Number of lines a citation may use in a file, or null when the path is not a readable text file. It matches the
+// block map's extent: after a final newline the map's last block ends on the empty line that follows, so a range
+// copied from blocks.tsv up to the end of a file stays valid.
+function lineCount(root, path) {
+  if (!isFile(resolve(root, path))) return null;
+  const text = readText(root, path);
+  return text === null ? null : splitLines(text).length;
+}
+
 // Spec directory:
 //   impact.json         { classes: [ordered], passiveClasses, otherOwnerClasses, blockClasses?, universe: [globs],
 //                         blockFiles: { extensions, names }, importTargets: [paths],
@@ -360,12 +369,8 @@ export function lineInventory(root, spec, scanned) {
   const stale = [...rows.keys()].filter((key) => !scanned.keys.has(key));
   const lineExists = (key) => {
     const at = key.lastIndexOf(':');
-    const text = readText(root, key.slice(0, at));
     const line = Number(key.slice(at + 1));
-    const lines = text === null ? [] : splitLines(text);
-    // A final newline ends the last line; it does not start another one.
-    if (lines.at(-1) === '') lines.pop();
-    return line >= 1 && line <= lines.length;
+    return line >= 1 && line <= (lineCount(root, key.slice(0, at)) ?? 0);
   };
   for (const [key, value] of overrides) {
     if (!scanned.keys.has(key) && !additional.has(key))
@@ -512,11 +517,12 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
         continue;
       }
     } else if (selector.includes(':')) {
-      const [a, b] = selector
-        .slice(selector.indexOf(':') + 1)
-        .split('-')
-        .map(Number);
-      range = [a, b || a];
+      const cited = expandLines(selector.slice(selector.indexOf(':') + 1));
+      range = [cited[0], cited.at(-1)];
+      if (range[1] > lineCount(root, path)) {
+        errors.push(`selector points to no line: ${selector}`);
+        continue;
+      }
     } else range = [1, fileLines.length];
     const hit = (blocks.get(path) ?? []).filter(([a, b]) => a <= range[1] && range[0] <= b);
     if (!hit.length) errors.push(`selector matches no block: ${selector}`);
@@ -571,10 +577,16 @@ export function regressionCheck(root, spec, blockResult, lines) {
     (byPath.get(entry.path) ?? byPath.set(entry.path, []).get(entry.path)).push(entry);
   }
   const misses = [];
+  const errors = [];
   let covered = 0;
   for (const [rawPath, spec_, expected] of spec.regression) {
     const path = toPosix(rawPath);
+    const count = lineCount(root, path) ?? 0;
     for (const line of expandLines(spec_)) {
+      if (line > count) {
+        errors.push(`regression row points to no line: ${path}:${line}`);
+        continue;
+      }
       const block = (byPath.get(path) ?? []).find((b) => b.start <= line && line <= b.end);
       if (block && expected.split('+').some((c) => block.classes.has(c))) covered += 1;
       else misses.push(`${path}:${line} expected ${expected}`);
@@ -600,7 +612,7 @@ export function regressionCheck(root, spec, blockResult, lines) {
         total += 1;
         const map =
           blockResult.blocks.get(path) ??
-          (existsSync(resolve(root, path))
+          (isFile(resolve(root, path))
             ? blockMap(path, readFileSync(resolve(root, path), 'utf8'))
             : []);
         const block = map.find(([a, b]) => a <= line && line <= b);
@@ -616,7 +628,7 @@ export function regressionCheck(root, spec, blockResult, lines) {
     }
     return { title, lines: total, coveredByRowsAlone: byRows };
   });
-  return { covered, misses, sections };
+  return { covered, misses, errors, sections };
 }
 
 export function runImpact({ root, specDirectory }) {
@@ -665,6 +677,7 @@ export function runImpact({ root, specDirectory }) {
     regression: {
       covered: regression.covered,
       notCovered: regression.misses.length,
+      errors: regression.errors.length,
       sections: regression.sections,
     },
   };
@@ -674,6 +687,7 @@ export function runImpact({ root, specDirectory }) {
     ...lines.errors.map((e) => `ERROR ${e}`),
     ...deadPatterns.map((p) => `DEAD PATTERN ${p}`),
     ...blocks.errors.map((e) => `ERROR ${e}`),
+    ...regression.errors.map((e) => `ERROR ${e}`),
     ...regression.misses.map((m) => `NOT COVERED ${m}`),
   ];
   return { spec, scanned, lines, blocks, regression, summary, problems };

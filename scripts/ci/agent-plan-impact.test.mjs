@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -97,6 +97,7 @@ test('a fully classified fixture passes every line, block and regression check',
   assert.deepEqual(result.summary.regression, {
     covered: 1,
     notCovered: 0,
+    errors: 0,
     sections: [{ title: 'Lane review', lines: 1, coveredByRowsAlone: 1 }],
   });
 });
@@ -266,10 +267,14 @@ test('an additional row must point at an existing line', () => {
     problems({ spec: { 'additional/L2.tsv': 'scripts/gone.mjs:1\tNONE\tremoved file\n' } }),
     ['ERROR additional row points to no line: scripts/gone.mjs:1'],
   );
-  // docs/guide.md has 7 lines and a final newline; line 8 does not exist.
-  assert.deepEqual(problems({ spec: { 'additional/L2.tsv': 'docs/guide.md:8\tA\tafter end\n' } }), [
-    'ERROR additional row points to no line: docs/guide.md:8',
+  // docs/guide.md has 7 lines and a final newline: line 8 is the block map's end, line 9 does not exist.
+  assert.deepEqual(problems({ spec: { 'additional/L2.tsv': 'docs/guide.md:9\tA\tafter end\n' } }), [
+    'ERROR additional row points to no line: docs/guide.md:9',
   ]);
+  assert.deepEqual(
+    problems({ spec: { 'additional/L2.tsv': 'docs/guide.md:8\tB\tsection end\n' } }),
+    [],
+  );
 });
 
 test('malformed line ranges and inconsistent class lists make the spec unreadable', () => {
@@ -302,6 +307,54 @@ test('malformed line ranges and inconsistent class lists make the spec unreadabl
     run({ 'impact.json': impact({ blockClasses: ['A', 'NONE'] }) }),
     /blockClasses not in non-passive classes: NONE/u,
   );
+});
+
+test('contract selectors and regression rows must cite existing lines', () => {
+  // docs/guide.md has 7 lines and a final newline: ranges may end on the block map's end (8), not after it.
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md:5-9\tA\tblocks\tafter end\n' } }),
+    ['ERROR selector points to no line: docs/guide.md:5-9'],
+  );
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md:5-8\tB\tblocks\tsection\n' } }),
+    [],
+  );
+  assert.deepEqual(problems({ spec: { 'regression.tsv': 'docs/guide.md\t9\tB\tafter end\n' } }), [
+    'ERROR regression row points to no line: docs/guide.md:9',
+  ]);
+  assert.deepEqual(
+    problems({ spec: { 'regression.tsv': '# Lane review\nscripts\t1\tA\tdirectory\n' } }),
+    ['ERROR regression row points to no line: scripts:1'],
+  );
+  for (const selector of ['docs/guide.md:3-', 'docs/guide.md:6-5', 'docs/guide.md:0']) {
+    const { repo, specDirectory } = fixture({
+      spec: { 'contract-targets.tsv': `${selector}\tA\tblocks\tmalformed\n` },
+    });
+    assert.throws(() => runImpact({ root: repo, specDirectory }), /bad line spec/u, selector);
+  }
+});
+
+test('the CLI exits 2 without output when the spec cannot be read', () => {
+  const { repo, specDirectory, root } = fixture({
+    spec: { 'regression.tsv': 'scripts/tool.mjs\t6-5\tA\tx\n' },
+  });
+  const out = resolve(root, 'out');
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(repoRoot, 'scripts/agents/common/plan-impact.mjs'),
+      '--spec',
+      specDirectory,
+      '--root',
+      repo,
+      '--out',
+      out,
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /bad line spec: 6-5/u);
+  assert.equal(existsSync(out), false);
 });
 
 test('a directory is not a contract target', () => {

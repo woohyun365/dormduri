@@ -102,13 +102,18 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
 다음 경우 exit 1로 실패합니다.
 
 - 줄 층: 분류되지 않은 scan 줄(추가 행 범위 안이어도 자기 행이 필요), scan에서 사라진 분류 행(stale), hit가 0인 패턴,
-  Parent override 없이 scan 분류와 다른 추가 행, 없는 줄을 가리키는 override·추가 행, 행·file rule의 모르는 class나 빈 사유
-- 블록 층: 없는 계약 경로(디렉터리 포함)·heading, 어떤 블록과도 겹치지 않는 계약 selector, 블록 밖 비어 있지 않은 줄의 행, universe 밖
+  Parent override 없이 scan 분류와 다른 추가 행, 없는 줄을 가리키는 override·추가 행, 행·file rule의 모르는 class나 빈 사유,
+  칸이 셋이 아니거나 `path:줄` 형식이 아닌 행(malformed)
+- 블록 층: 없는 계약 경로(디렉터리 포함)·heading·줄, 어떤 블록과도 겹치지 않는 계약 selector, 블록 밖 비어 있지 않은 줄의 행, universe 밖
   파일의 active 행, export 이름을 찾지 못한 `@exports`
-- 회귀 목록: 기대 class 블록 밖에 있는 리뷰 지적 줄
+- 회귀 목록: 기대 class 블록 밖에 있는 리뷰 지적 줄, 없는 파일·줄을 가리키는 행
 
 사용법 오류와 읽을 수 없는 spec(JSON 오류, class 목록 불일치, `1 ≤ N ≤ M`이 아닌 줄 범위)은 exit 2이며 출력 파일을 쓰지
-않습니다. `impact.json`의 `passiveClasses`는 `classes` 안, `otherOwnerClasses`는 `passiveClasses` 안에 있어야 하며 셋 다 필수입니다.
+않습니다. `impact.json`의 `classes`·`passiveClasses`·`otherOwnerClasses`는 필수입니다. `passiveClasses`는 `classes` 안,
+`otherOwnerClasses`는 `passiveClasses` 안, 선택 항목 `blockClasses`는 passive가 아닌 class 안에 있어야 합니다.
+
+줄 번호는 파일 끝 개행 뒤의 빈 줄까지 셉니다. Markdown과 파일 전체 블록은 그 줄에서 끝나므로 `blocks.tsv`에서 옮긴 범위가
+그대로 유효하고, 그 뒤 줄은 없는 줄입니다.
 
 ### 블록 map
 
