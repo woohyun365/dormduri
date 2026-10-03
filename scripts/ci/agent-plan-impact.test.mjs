@@ -370,6 +370,35 @@ test('the CLI exits 2 without output when the spec cannot be read', () => {
   assert.equal(existsSync(out), false);
 });
 
+test('classified rows and overrides need a path:line key', () => {
+  for (const key of ['docs/guide.md:3 ', 'docs/guide.md:03', 'docs/guide.md']) {
+    assert.deepEqual(problems({ spec: { 'overrides.tsv': `${key}\tB\tx\n` } }), [
+      'ERROR overrides.tsv:1 malformed',
+    ]);
+  }
+  const rows = BASE_SPEC['rows/L1.tsv'];
+  assert.deepEqual(problems({ spec: { 'rows/L1.tsv': `${rows}docs/guide.md:3x\tA\tx\n` } }), [
+    'ERROR L1.tsv:4 malformed',
+  ]);
+});
+
+test('contract targets and consumers need a known class and a reason', () => {
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md#Details\tZ\tblocks\tx\n' } }),
+    ['ERROR contract docs/guide.md#Details: bad class or empty reason'],
+  );
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md#Details\tA\tblocks\t \n' } }),
+    ['ERROR contract docs/guide.md#Details: bad class or empty reason'],
+  );
+  assert.deepEqual(problems({ spec: { 'consumers.tsv': 'helper\tZ\t\tx\n' } }), [
+    'ERROR consumer helper: bad class or empty reason',
+  ]);
+  assert.deepEqual(problems({ spec: { 'consumers.tsv': 'helper\tB\t\n' } }), [
+    'ERROR consumer helper: bad class or empty reason',
+  ]);
+});
+
 test('contract targets need a known scope, file targets a bare path and selectors one range', () => {
   assert.deepEqual(
     problems({ spec: { 'contract-targets.tsv': 'docs/guide.md\tA\tblock\ttypo\n' } }),
@@ -382,6 +411,10 @@ test('contract targets need a known scope, file targets a bare path and selector
   assert.deepEqual(
     problems({ spec: { 'contract-targets.tsv': 'docs/guide.md#Details\tA\tfile\theading\n' } }),
     ['ERROR file target must be a bare path: docs/guide.md#Details'],
+  );
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'scripts\\lib.mjs\tB\tfile\tmodule\n' } }),
+    [],
   );
   const { repo, specDirectory } = fixture({
     spec: { 'contract-targets.tsv': 'docs/guide.md:1,99,2\tA\tblocks\tlist\n' },

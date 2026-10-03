@@ -313,7 +313,9 @@ export function lineInventory(root, spec, scanned) {
         );
       }
       if (!allowRanges) {
-        result.set(key, { cls, reason, file });
+        // Classified rows and overrides name one line; any other key would match nothing and stay silent.
+        if (!/^.+:[1-9]\d*$/u.test(key)) errors.push(`${file}:${number} malformed`);
+        else result.set(key, { cls, reason, file });
         continue;
       }
       const match = /^(.+?):([\d,-]+)$/u.exec(key);
@@ -499,7 +501,14 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
     if (active.length) flag(path, block, active, 'rows');
   }
   const fileTargets = [];
+  const known = new Set(spec.classes);
+  // An unknown class would flag blocks that the inventory then drops, so the scope narrows silently.
+  const knownClasses = (cls) => Boolean(cls) && cls.split('+').every((c) => known.has(c));
   for (const [selector, cls, scope, reason] of spec.contracts) {
+    if (!knownClasses(cls) || !reason?.trim()) {
+      errors.push(`contract ${selector}: bad class or empty reason`);
+      continue;
+    }
     const path = selectorPath(selector);
     if (!isFile(resolve(root, path))) {
       errors.push(`contract path missing: ${selector}`);
@@ -511,7 +520,7 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
     }
     if (scope === 'file') {
       // A file target covers the whole file, so a line or heading selector would be silently ignored.
-      if (selector !== path) errors.push(`file target must be a bare path: ${selector}`);
+      if (toPosix(selector) !== path) errors.push(`file target must be a bare path: ${selector}`);
       else fileTargets.push({ path, cls, reason });
       continue;
     }
@@ -538,7 +547,11 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
     if (!hit.length) errors.push(`selector matches no block: ${selector}`);
     for (const block of hit) flag(path, block, classSet(cls), 'contract');
   }
-  for (const [rawPattern, cls, rawSubjects = ''] of spec.consumers) {
+  for (const [rawPattern, cls, rawSubjects = '', reason] of spec.consumers) {
+    if (!knownClasses(cls) || !reason?.trim()) {
+      errors.push(`consumer ${rawPattern}: bad class or empty reason`);
+      continue;
+    }
     let pattern = rawPattern;
     let subjects = rawSubjects.split(',').filter(Boolean).map(toPosix);
     if (pattern.startsWith('@exports:')) {
