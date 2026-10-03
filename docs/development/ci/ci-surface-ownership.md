@@ -124,10 +124,14 @@ Storybook workflow step의 wrapper이고, `scripts/observability/sentry/check-bu
 Repository policy gate의 formatting 검사(`scripts/ci/check-formatting.mjs`)는 분류기의 `formatting_scope` 출력을 따릅니다.
 Lane 선택과는 별개입니다. 이 출력은 repoPolicy가 켜진 PR에서 검사할 파일만 정합니다.
 
-- `full`: `prettier . -c`로 tree 전체를 검사합니다. 아래 설정 파일 중 하나가 바뀌었거나, 변경 경로가 없거나 500개를
-  넘거나, 분류에 실패한 경우입니다. 출력이 비었거나 형식이 맞지 않아도 `full`로 검사합니다.
+- `full`: `prettier . -c`로 tree 전체를 검사합니다. 다음 경우입니다.
+  - 아래 설정 파일 중 하나가 바뀐 경우
+  - 변경 경로가 없거나 500개를 넘는 경우
+  - 분류에 실패했거나, 비교 기준을 PR base·push 범위로 구하지 못해 직전 commit이나 빈 tree와 비교한 경우
+  - 출력이 없거나 비었거나 형식이 맞지 않는 경우(검사 script가 판정)
 - `changed`: 변경 경로 중 checkout에 있는 일반 파일만 `prettier -c --ignore-unknown`으로 검사합니다. Prettier가 parser를
-  모르는 파일은 건너뛰고, ignore 파일 대상은 전체 검사와 같이 제외합니다.
+  모르는 파일은 건너뛰고, ignore 파일 대상은 전체 검사와 같이 제외합니다. 디렉터리와 symlink는 넘기지 않으며, 남는 파일이
+  없으면(삭제만 한 PR) 검사를 건너뜁니다.
 
 설정 파일은 깊이와 관계없이 파일 이름으로 판정합니다. Prettier와 EditorConfig는 파일마다 상위 디렉터리로 올라가며 설정을
 찾기 때문입니다.

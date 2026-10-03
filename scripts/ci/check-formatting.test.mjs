@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -36,6 +36,7 @@ test('anything but a well-formed changed scope checks the whole tree', () => {
     { scope: undefined, pathsJson: undefined },
     { scope: 'changed', pathsJson: undefined },
     { scope: 'changed', pathsJson: '{not json' },
+    { scope: 'changed', pathsJson: '[]' },
     { scope: 'changed', pathsJson: '{"path":"docs/a.md"}' },
     { scope: 'changed', pathsJson: '["docs/a.md", 1]' },
     { scope: 'changed', pathsJson: '["docs/a.md", ""]' },
@@ -44,9 +45,10 @@ test('anything but a well-formed changed scope checks the whole tree', () => {
   }
 });
 
-test('deleted paths and rename sources are dropped; rename destinations are checked', () => {
+test('deleted paths, rename sources, directories and symlinks are dropped; rename destinations are checked', () => {
   const root = workspace({ 'docs/kept.md': '# Kept\n', 'docs/renamed.md': '# Renamed\n' });
   try {
+    symlinkSync('kept.md', join(root, 'docs/link.md'));
     assert.deepEqual(
       prettierArguments({
         scope: 'changed',
@@ -56,6 +58,7 @@ test('deleted paths and rename sources are dropped; rename destinations are chec
           'docs/rename-source.md',
           'docs/renamed.md',
           'docs',
+          'docs/link.md',
         ]),
         cwd: root,
       }),
@@ -65,7 +68,7 @@ test('deleted paths and rename sources are dropped; rename destinations are chec
       prettierArguments({ scope: 'changed', pathsJson: '["docs/deleted.md"]', cwd: root }),
       null,
     );
-    assert.equal(prettierArguments({ scope: 'changed', pathsJson: '[]', cwd: root }), null);
+    assert.deepEqual(prettierArguments({ scope: 'changed', pathsJson: '[]', cwd: root }), FULL);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

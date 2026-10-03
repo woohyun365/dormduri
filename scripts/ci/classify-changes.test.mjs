@@ -525,6 +525,33 @@ test('the classify step outputs the formatting scope and the changed paths it co
   }
 });
 
+test('a fallback comparison against the head parent keeps the full formatting check', () => {
+  const repository = temporaryRepository();
+  const output = join(tmpdir(), `knu-classify-fallback-output-${process.pid}`);
+  try {
+    repository.write('docs/a.md', '# A\n');
+    repository.commit('base');
+    repository.write('docs/a.md', '# A\n\nEdited.\n');
+    const head = repository.commit('docs');
+    writeFileSync(output, '');
+    const result = classifyGithubEvent({
+      eventName: 'workflow_dispatch',
+      githubSha: head,
+      githubOutput: output,
+      cwd: repository.root,
+    });
+    assert.equal(result.comparison.strategy, 'head-parent');
+    assert.deepEqual(result.changedPaths, ['docs/a.md']);
+    assert.equal(formattingScope(result.changedPaths), 'changed');
+    const outputs = githubOutputs(output);
+    assert.equal(outputs.formatting_scope, 'full');
+    assert.equal(outputs.formatting_paths_json, '[]');
+  } finally {
+    rmSync(output, { force: true });
+    rmSync(repository.root, { recursive: true, force: true });
+  }
+});
+
 test('a classification failure keeps the full formatting check', () => {
   const root = mkdtempSync(join(tmpdir(), 'knu-classify-failure-'));
   try {

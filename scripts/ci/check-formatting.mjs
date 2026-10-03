@@ -16,9 +16,9 @@ function isRegularFile(path, cwd) {
 }
 
 // Returns the Prettier arguments for the scope chosen by classify-changes.mjs, or null when no changed file is left
-// to check. Anything but a well-formed `changed` scope falls back to the full check. Deleted paths and the source of
-// a rename no longer exist in the checkout, so only regular files that do are passed; --ignore-unknown skips files
-// Prettier has no parser for, as the directory expansion of the full check does.
+// to check. Anything but a well-formed, non-empty `changed` scope falls back to the full check. Deleted paths and the
+// source of a rename no longer exist in the checkout, so only regular files that do are passed; --ignore-unknown
+// skips files Prettier has no parser for, as the directory expansion of the full check does.
 export function prettierArguments({ scope, pathsJson, cwd = process.cwd() }) {
   if (scope !== 'changed') {
     return FULL_CHECK;
@@ -30,7 +30,11 @@ export function prettierArguments({ scope, pathsJson, cwd = process.cwd() }) {
   } catch {
     return FULL_CHECK;
   }
-  if (!Array.isArray(paths) || !paths.every((path) => typeof path === 'string' && path)) {
+  if (
+    !Array.isArray(paths) ||
+    paths.length === 0 ||
+    !paths.every((path) => typeof path === 'string' && path)
+  ) {
     return FULL_CHECK;
   }
 

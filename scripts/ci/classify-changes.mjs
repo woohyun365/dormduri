@@ -392,8 +392,11 @@ export function classifyGithubEvent({
     error = caught instanceof Error ? caught.message : String(caught);
   }
 
-  // A failure leaves the change list empty, which keeps the full formatting check.
-  const formatting = formattingScope(changedPaths);
+  // Only a change list measured against the PR base or the pushed range can narrow the formatting check; a failure
+  // or a fallback comparison (head parent, empty tree) keeps the full check.
+  const precise =
+    !classificationFailed && ['event-sha', 'merge-base'].includes(comparison?.strategy);
+  const formatting = precise ? formattingScope(changedPaths) : 'full';
   const outputs = {
     ...classification,
     classification_failed: classificationFailed,
