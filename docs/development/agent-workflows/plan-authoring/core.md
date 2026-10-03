@@ -201,6 +201,34 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 빈 heading을 채우기 위해 내용을 발명하지 않습니다. 적용되지 않는 항목은 이유와 함께 생략합니다.
 
+### Structural change impact inventory
+
+여러 파일의 계약을 함께 바꾸는 구조 변경 plan(모듈 처분, 역할·profile 개편, 문서 구조 분리 등)은 source inventory에 다음
+네 가지를 남깁니다. 손으로 만든 영향 줄 목록은 완전성을 재현할 수 없으므로 근거로 쓰지 않습니다.
+
+1. **기준 표:** 결정마다 단일 원본 한 곳. 다른 절은 이 표를 참조만 합니다.
+2. **영향 목록:** 두 층으로 만듭니다.
+   - 줄 층(증거): 식별자 패턴, import 그래프, 문서 anchor 링크로 scan한 모든 줄을 "PR X 변경" 또는 "영향 없음(이유)"으로
+     분류합니다. 미분류는 0건이어야 합니다.
+   - 블록 층(완전성 단위): 코드 top-level 문장, 문서 절, JSON root 자식을 블록으로 나눕니다. 블록은 그 안의 줄 행 class,
+     계약 대상(PR Work가 지목한 파일·범위·절), consumer 전파(파일 단위 처분 대상의 이름·경로·export를 담은 블록)의
+     합집합으로 표시합니다. 블록을 나누는 universe는 영향 분석 glob, 계약 대상 파일, 줄 행이 있는 파일(영향 없음 규칙
+     파일과 다른 owner class 행만 있는 파일 제외)이며, 다른 owner의 규칙이 적용되는 파일은 뺍니다.
+   - 회귀 목록: 리뷰가 지적한 줄과 결정 문서가 PR에 직접 인용한 범위를 기대 class와 함께 누적합니다. 모두 그 class
+     블록 안에 있어야 합니다.
+3. **PR 경계 상태표:** 기능 × 각 PR merge 직후의 동작·중단·대체. 빈 칸이 없어야 합니다.
+4. **의미 검토 범위:** 도구가 좁힌 범위(표시되지 않은 블록)와 남은 공백을 적습니다.
+
+영향 목록은 `pnpm plan:impact -- --spec <dir>`로 생성하고 검사합니다. 미분류 줄, stale 분류, override 없는 불일치, 블록과
+겹치지 않는 계약 selector, 블록 밖 행, universe 밖 active 행, 회귀 목록 미포괄 등은 exit 1입니다(전체 실패 조건은
+[plan 영향 목록 누락](../../troubleshooting/tooling/agent-plan-impact-inventory-misses.md#script-사용)). 리뷰 acceptance는 "목록이
+완전하다"가 아니라 "분류가 정확하고, 표시되지 않은 블록 중 바뀌어야 하는 블록이 0이며, 상태표 빈 칸이 0"으로 씁니다.
+
+미정 결정(채택 여부, 처분, 위치)에 따라 바뀌는 블록은 조건부로 보수적으로 표시합니다. 각 PR은 plan을 개정할 때 결정이 정해진
+상태로 영향 목록을 다시 생성하고 그 PR 범위를 블록 단위로 리뷰합니다. 의미 단위 누락은 도구로 완전히 막을 수 없으므로, 도구는
+의미 검토의 범위를 좁히는 데 씁니다. 사례와 도구표는
+[plan 영향 목록 누락](../../troubleshooting/tooling/agent-plan-impact-inventory-misses.md)에 있습니다.
+
 ## 7. Implementation readiness promotion
 
 계획이 상세하다는 사실과 바로 구현할 수 있다는 판정은 분리합니다. Canonical status lifecycle은 다음과 같습니다.

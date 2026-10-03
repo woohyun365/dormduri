@@ -417,6 +417,12 @@
       "rationale": "email verification 요청 identity와 stale response 제품 회귀 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
     },
     {
+      "path": "docs/development/troubleshooting/tooling/agent-plan-impact-inventory-misses.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "구조 변경 plan의 손 영향 목록이 재현 불가능하게 누락되는 원인과 `pnpm plan:impact` 재생성·검사 절차를 보존한다. Host와 무관하며 plan 개정 때만 조건부로 읽는다."
+    },
+    {
       "path": "docs/development/troubleshooting/tooling/agent-thread-limit-reached.md",
       "owner": "Codex adapter/history owner",
       "kind": "adapter",
