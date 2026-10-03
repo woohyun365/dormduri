@@ -27,6 +27,7 @@
 - `docs/architecture`: 현재 책임 경계와 설계 결정
 - `docs/development`: 개발·CI 기준과 troubleshooting
 - `docs/runbooks`: 제품·서비스 운영 절차
+- `docs/evidence`: 개선의 측정값·설계 근거·문제 해결 기록(사람 대상, 규칙 owner 아님)
 - `infra`: 배포 후보, rehearsal, observability, release runbook
 - 로컬 infra 환경 선택: `infra/runbooks/rehearsal/local-environments.md`에서 OrbStack·독립 Linux VM의 용도와 증거 경계를 확인한다.
 - `scripts`: CI·검증·artifact·infra 자동화

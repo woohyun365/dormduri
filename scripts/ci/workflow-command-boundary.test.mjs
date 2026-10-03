@@ -187,7 +187,9 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
   assertIncludesAll(orchestrator, [
     'pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86',
     'pnpm install --frozen-lockfile',
-    'pnpm exec prettier . -c',
+    'formatting_scope: ${{ steps.changes.outputs.formatting_scope }}',
+    'formatting_paths: ${{ steps.changes.outputs.formatting_paths_json }}',
+    'node scripts/ci/check-formatting.mjs',
   ]);
   assertIncludesAll(apiWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(webWorkflow, ['workflow_call:', 'cache: pnpm']);
@@ -209,7 +211,9 @@ test('the repository policy gate gives pnpm setup bounded headroom before policy
   assertIncludesAll(repositoryPolicyJob, [
     'pnpm install --frozen-lockfile',
     'node scripts/ci/run-repo-policy.mjs',
-    'pnpm exec prettier . -c',
+    'FORMATTING_SCOPE: ${{ needs.classify.outputs.formatting_scope }}',
+    'FORMATTING_PATHS: ${{ needs.classify.outputs.formatting_paths }}',
+    'node scripts/ci/check-formatting.mjs',
   ]);
 });
 
