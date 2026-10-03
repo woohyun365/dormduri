@@ -18,6 +18,15 @@ RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실�
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
 알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 
+Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함께 줍니다. `--round N`(1부터)은 항상 필요하고, 2회차부터는
+`--previous-result <file>`로 직전 회차 result JSON(verdict·findings가 있는 파일, native task 기록 경로 제외)이 필요합니다. 1회차에
+직전 result를 주거나 2회차부터 빠뜨리면 거부합니다. `--criteria <id,id>`는 변경 유형으로 고른
+[review criteria](../review-criteria/README.md) id이며, 해당 문서가 packet `sources.owners`와 read path에 들어갑니다. 직전 result도
+read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
+1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
+문서가 있으면 미충족 항목 id와 기본 severity를 쓰게 합니다. 이 경로는 1회차 다중 reviewer를 지원하지 않으므로 trigger를 충족한
+변경도 한 회차에 reviewer 하나를 등록하고, 그 사실을 PR에 적습니다.
+
 Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방향을 사용합니다. 등록 입력의 선택적
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
 관측 완료를 읽어 full request digest, binding, response, final snapshot에 packet을 연결합니다. Packet objective는 subject

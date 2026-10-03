@@ -161,8 +161,9 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 생기기 전에는 쓰지 않습니다. Parent 모델·effort는 Owner가 session control에서 직접 바꾸며, 이 문서나 설정 파일 값만으로
 현재 Parent 설정을 주장하지 않습니다. Host는 이 규칙을 강제하지 않습니다(advisory).
 
-- 공통 조건에 더해 같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다. 해당 작업의 무인 계속을 멈추고 원인을
-  먼저 구분합니다.
+- 같은 subject의 연속 non-PASS 회차가 상한에 이르면 **quality stop**입니다([QA 리뷰 회차](../qa.md#리뷰-회차), 3회).
+  Native FAIL을 새 builder task로 고쳐도 같은 변경이면 같은 subject로 세며, 회차는 reviewer 실행 수가 아니라 리뷰한 snapshot
+  수입니다. 해당 작업의 무인 계속을 멈추고 원인을 먼저 구분합니다.
 
 ## OMC 공존과 skill routing
 

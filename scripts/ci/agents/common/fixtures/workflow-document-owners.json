@@ -159,6 +159,24 @@
       "rationale": "acceptance·독립성·reviewer/runner 분리·criterion coverage를 보존한다. fork_turns/TOML/knu_*는 Codex mapping이며 scoped Astra QA 요구는 그대로 보존한다."
     },
     {
+      "path": "docs/development/agent-workflows/review-criteria/README.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "변경 유형별 기준 문서 선택과 항목 형식(문서당 8개 이하, 질문·기본 severity·적용 조건·결함 패턴)을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/documents.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "문서 리뷰의 정합성 기준 항목을 소유한다. 항목은 반복된 리뷰 결함 유형에서 고르고 local 증거 경로를 근거로 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/agent-workflow-tooling.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "agent workflow script·검사·helper·skill 리뷰의 기준 항목(조용한 통과 금지, 보고와 실행의 일치, 대조군, 입력 결속 등)을 소유한다. host 실행은 adapter가 소유한다."
+    },
+    {
       "path": "docs/development/agent-workflows/refactor-analysis.md",
       "owner": "general development workflow owner",
       "kind": "normative",

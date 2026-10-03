@@ -223,6 +223,77 @@ const nativeEvidenceIssues = (root, paths) =>
   paths.some((path) => isClaudeNativeEvidencePath(root, path))
     ? ['native task evidence is not review input']
     : [];
+// Review round inputs (qa.md review rounds). Round 1 reports broadly; a later round reads the
+// previous round's result and reports only blocking findings, so it cannot start without it.
+// Criteria ids name tracked review-criteria documents; they join the packet owners and read paths.
+const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
+const CRITERIA_ID = /^[a-z0-9][a-z0-9-]{0,63}$/u;
+const LOW_FINDING_LIMIT = 5;
+function reviewRoundInputs({ reviewRound, previousResult, criteria }, root) {
+  const issues = [];
+  const round = Number.isInteger(reviewRound) && reviewRound >= 1 ? reviewRound : null;
+  if (round === null) issues.push('review-round-required: a positive integer');
+  let previous = null;
+  if (round > 1 && previousResult === undefined)
+    issues.push('previous-result-required-after-round-1');
+  if (round === 1 && previousResult !== undefined)
+    issues.push('previous-result-only-after-round-1');
+  if (round > 1 && previousResult !== undefined) {
+    const path =
+      typeof previousResult === 'string' ? relative(root, resolve(root, previousResult)) : '';
+    let value;
+    if (
+      !path ||
+      path.startsWith('..') ||
+      !existsSync(join(root, path)) ||
+      !lstatSync(join(root, path)).isFile()
+    )
+      issues.push(`previous-result-unreadable: ${previousResult}`);
+    else if (nativeEvidenceIssues(root, [path]).length)
+      issues.push('previous-result-invalid: native task evidence is not review input');
+    else {
+      const bytes = readFileSync(join(root, path));
+      try {
+        value = JSON.parse(bytes);
+      } catch {
+        value = null;
+      }
+      if (
+        !value ||
+        typeof value !== 'object' ||
+        !['PASS', 'FAIL', 'BLOCKED'].includes(value.verdict) ||
+        !Array.isArray(value.findings)
+      )
+        issues.push('previous-result-invalid: a review result JSON with verdict and findings');
+      else previous = { path, digest: packetDigest(bytes) };
+    }
+  }
+  const ids = criteria ?? [];
+  const criteriaIssue = !Array.isArray(ids)
+    ? 'criteria-invalid: a list of review-criteria ids'
+    : criteria !== undefined && !ids.length
+      ? 'criteria-invalid: omit criteria instead of an empty list'
+      : new Set(ids).size !== ids.length
+        ? 'criteria-invalid: duplicate id'
+        : ids
+            .filter(
+              (id) =>
+                typeof id !== 'string' ||
+                !CRITERIA_ID.test(id) ||
+                id === 'readme' ||
+                !existsSync(join(root, CRITERIA_DIR, `${id}.md`)) ||
+                !lstatSync(join(root, CRITERIA_DIR, `${id}.md`)).isFile(),
+            )
+            .map((id) => `criteria-invalid: no ${CRITERIA_DIR}/${id}.md`)[0];
+  if (criteriaIssue) issues.push(criteriaIssue);
+  fail('invalid review request', issues);
+  return {
+    round,
+    previous,
+    criteriaPaths: ids.map((id) => `${CRITERIA_DIR}/${id}.md`),
+  };
+}
+
 function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
   const issues = [];
   if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence))
@@ -353,6 +424,7 @@ function reviewPacket(subject, evidence, reviewId) {
       owners: [
         'docs/development/agent-workflows/qa.md',
         'docs/development/agent-workflows/adapters/claude-code.md',
+        ...subject.criteriaPaths,
       ],
     },
     evidence: {
@@ -511,6 +583,15 @@ function reviewerPrompt(logHeader, subject, packet, template, packetFile) {
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
     '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
+    subject.round === 1
+      ? `- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most ${LOW_FINDING_LIMIT} low findings, most important first.`
+      : `- Review round ${subject.round}: read the full scope again but report only blocking findings (critical, high or medium): new ones and those in the previous result that remain unresolved. Report no low findings. Previous result: ${subject.previous.path} ${subject.previous.digest}`,
+    '- An empty findings list is a valid result; do not add findings to fill it.',
+    ...(subject.criteriaPaths.length
+      ? [
+          `- Criteria documents: ${subject.criteriaPaths.join(', ')}. Judge each item whose condition applies; an unmet item is a finding that names the item id and keeps the item's default severity unless the finding gives a reason.`,
+        ]
+      : []),
     ...(subject.responsePath
       ? [
           `- ${subject.responsePath} is the read-only subject's response under review; its claims and self-assessment are not evidence. Check them against the other read paths.`,
@@ -545,6 +626,9 @@ export function buildClaudeNativeReview(
     sessionId,
     request,
     impactRisk,
+    reviewRound,
+    previousResult,
+    criteria,
   } = {},
   { root = process.cwd() } = {},
 ) {
@@ -570,6 +654,7 @@ export function buildClaudeNativeReview(
       : ['reviewer must be an identifier distinct from the subject owner']),
   ]);
   validateRunnerEvidence(runnerEvidence, snapshotDigest, reviewerId, root);
+  Object.assign(subject, reviewRoundInputs({ reviewRound, previousResult, criteria }, root));
   if (subject.settlement === 'native-subject') {
     // The reviewer can check a read-only subject's claims against its read scope and the raw runner
     // outputs; the response itself is read from a file bound to the settled response.
@@ -588,7 +673,14 @@ export function buildClaudeNativeReview(
   // The packet names its own file as a read path, so the path is fixed before the packet is built.
   const packetPath =
     subject.settlement === 'parent-adjudication' ? reviewPacketPath(root, reviewId).path : null;
-  if (packetPath) subject.readPaths = [...new Set([...subject.readPaths, packetPath])];
+  subject.readPaths = [
+    ...new Set([
+      ...subject.readPaths,
+      ...subject.criteriaPaths,
+      ...(subject.previous ? [subject.previous.path] : []),
+      ...(packetPath ? [packetPath] : []),
+    ]),
+  ];
   const packet = reviewPacket(subject, runnerEvidence, reviewId);
   // The registry re-validates a native subject's packet; a Parent subject's packet is only checked here.
   const packetCheck = validateCrossModelPacket(packet, { currentSnapshot: subject.snapshot });

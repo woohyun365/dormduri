@@ -51,7 +51,7 @@ mock이나 assertion으로 false positive가 생길 수 있습니다.
 - 테스트와 구현이 같은 잘못된 가정을 공유할 수 있다는 구체적 evidence
 
 이 검토는 첫 push·PR 전에 local commit에서 받고, 결과(PASS 또는 BLOCKED·남은 gap과 그 근거)를 PR에 기록합니다. 검토 뒤
-source가 바뀌면 아래 delta re-review를 따릅니다. Hosted-only evidence가 필요한 예외는
+source가 바뀌면 아래 delta re-review를 따르며, PASS 뒤 기계적 수정만 [PASS 뒤 처분](#pass-뒤-처분)으로 닫습니다. Hosted-only evidence가 필요한 예외는
 [Remote push budget](../github/branch-and-pr-strategy.md#remote-push-budget)을 따릅니다
 ([PR과 merge](../github/branch-and-pr-strategy.md#pr과-merge)).
 
@@ -71,6 +71,71 @@ attestation을 추측하지 않습니다. 현재 host adapter가 지원하는 fr
 builder transcript를 다시 붙이지 않습니다. **Codex native 예시로만**, 지원되는 surface의 `fork_turns: none`을 사용할 수 있습니다.
 다른 host에 그 인자를 강제하지 않습니다. 필요한 독립 surface가 없으면 안전한 로컬 검증은 계속하고 `BLOCKED`/review gap을
 남깁니다. 다른 독립 검토를 확보하기 전에는 merge-ready로 표현하지 않습니다. Model-mediated 절차는 권한 강제 장치가 아닙니다.
+
+## Review criteria와 회차
+
+독립 리뷰가 무엇을 기준으로 몇 회차에 판정하는지의 공통 규칙입니다. 변경 유형별 기준 항목은
+[Review criteria](./review-criteria/README.md)가 소유하고, host adapter는 이 규칙을 자기 reviewer 실행에 연결합니다.
+
+### Severity
+
+| Severity   | 정의                                                                                                                                           |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `critical` | merge하면 보안·권한·데이터·production에 되돌리기 어려운 피해가 생김                                                                            |
+| `high`     | 핵심 acceptance 미충족, 검증 gate 전체를 무력화하는 우회, public contract 파손                                                                 |
+| `medium`   | 재현되는 결함이나 근거 결함으로 완료 판정이 틀릴 수 있음: 문서와 동작 불일치, 일부 경로의 조용한 통과, 보호 test·대조군 누락, 증거를 넘는 주장 |
+| `low`      | 동작과 판정을 바꾸지 않는 개선: 표현, 일관성, 작은 중복, 비차단 risk 기록                                                                      |
+
+- `critical`·`high`·`medium`이 **blocking**이며 PASS를 막습니다(공통 result validator). `low`만 남으면 PASS할 수 있습니다.
+- 기준 항목에 기본 severity가 있으면 그 값에서 시작합니다. 다르게 매기면 finding에 이유를 적습니다.
+- 변경 전부터 있던 결함은 severity가 아니라 처분 값 `pre-existing`으로 기록합니다.
+
+### Gate
+
+위 [Independent review disposition](#independent-review-disposition)의 trigger를 충족한 변경은 **재현된 blocking finding 0과
+acceptance coverage gap 0**이 merge 조건입니다. 보고된 blocking finding은 고쳐서 다음 회차에서 해소를 확인하거나, Parent가 재현되지
+않는 근거를 기록하고 기각합니다. Host adapter는 이보다 엄격한 규칙을 둘 수 있습니다. Trigger가 없는 변경은 기존
+`not-needed: 이유` 규칙을 따릅니다.
+
+### 리뷰 회차
+
+회차는 reviewer 실행 수가 아니라 같은 subject의 한 snapshot에 대한 리뷰 한 번입니다. 수정 뒤 새 snapshot을 리뷰하면 다음
+회차입니다. Subject는 리뷰 대상 변경(같은 PR 또는 계획)이며, 고치려고 task를 새로 만들어도 같은 변경이면 같은 subject입니다.
+
+- **1회차**는 넓게 봅니다. 확신이 낮은 blocking 후보도 근거와 함께 보고하고 `low`는 중요한 순서로 5건까지 보고합니다.
+  Trigger를 충족한 변경의 1회차는 같은 snapshot에 reviewer 여러 명을 둡니다. 구성(같은 범위 여러 명 또는 기준 항목 분담)과
+  지원 범위는 host adapter가 정하며, 다중 reviewer를 지원하지 않는 host는 단일 reviewer로 리뷰하고 그 사실을 PR에 적습니다.
+- **2회차부터**는 단일 독립 reviewer가 전 범위를 다시 읽되 blocking finding만 보고합니다. 새로 생긴 것과 직전 결과에서 아직
+  해소되지 않은 것이 대상이며 `low`는 보고하지 않습니다. 직전 회차 결과는 리뷰 입력으로 함께 줍니다.
+- 모든 회차에서 finding 0건은 정상 결과입니다. 채우려고 finding을 만들지 않습니다.
+- 여러 reviewer 중 한 명만 낸 blocking finding은 다수결로 버리지 않습니다. Parent가 재현해 반영하거나, 재현 근거를 기록하고
+  기각합니다. 한 명만 낸 비차단 finding은 처분 기록에 남깁니다.
+- Parent는 회차마다 reviewer result와 finding별 재현·처분(adjudication)을 계획 증거 위치에 남기고, PR에는 회차 수·최종 verdict·
+  처분 요약을 기록합니다.
+- **같은 subject의 연속 non-PASS 회차가 3회에 이르면 quality stop**입니다. PASS가 나오면 다시 셉니다. 무인 계속을 멈추고
+  Owner에게 다음 행동을 묻습니다. 이 상한은
+  [maker-checker 기본 2회](./orchestration.md#pattern-selector)의 독립 리뷰 예외입니다.
+
+### PASS 뒤 처분
+
+기본은 PASS한 snapshot을 그대로 merge하는 것입니다. 남은 `low`는 다음 처분 값 중 하나로 기록합니다.
+
+| 처분               | 뜻                                                 |
+| ------------------ | -------------------------------------------------- |
+| `fixed-mechanical` | 같은 PR에서 아래 기계적 수정으로 고침              |
+| `deferred`         | 후속 작업으로 넘김(위치를 적음)                    |
+| `rejected`         | 재현되지 않거나 기준과 맞지 않아 기각(근거를 적음) |
+| `pre-existing`     | 변경 전부터 있던 결함(필요하면 후속 작업)          |
+
+**기계적 수정**은 실행 의미가 바뀌지 않는 수정입니다. 예: 오탈자, link·anchor, 표 정렬, 인용 줄 번호, 포맷. 그 변경을
+판정하는 결정적 검사(문서 graph, format, test 등)가 통과하고 Parent가 diff와 검사 출력을 기록하면 재리뷰 없이 닫습니다. 판정할
+검사가 없으면 기계적 수정으로 닫지 않습니다. 동작·조건·수치·규칙·test assertion·인용 근거가 바뀌는 수정은 의미 수정이며
+다음 회차의 독립 리뷰를 받습니다.
+
+### 계획 readiness 리뷰
+
+[계획 readiness review](./plan-authoring/README.md#implementation-readiness-review)에도 위 severity·gate·회차·처분 규칙을 적용합니다.
+1회차 다중 reviewer는 적용하지 않고 단일 reviewer로 리뷰합니다. Readiness PASS는 구현 뒤 QA PASS를 대신하지 않습니다.
 
 ## Reviewer와 runner의 책임
 
@@ -140,12 +205,15 @@ Result
 따르며 필수 reviewer를 Parent self-review로 대체하지 않습니다.
 
 Source/contract 또는 acceptance에 영향을 주는 요구사항·guide가 바뀌면 이전 리뷰는 해당 snapshot의 historical evidence입니다.
-바뀐 가정과 영향 범위에 대해 delta re-review와 관련 regression을 수행한 후 새 snapshot을 기록합니다. 무관한 metadata 수정으로
-전체 suite를 자동 재실행하지 않지만, 기존 PASS를 새 코드의 PASS로 옮기지 않습니다.
+바뀐 가정과 영향 범위를 packet에 밝힌 delta re-review와 관련 regression을 수행한 후 새 snapshot을 기록합니다. Delta re-review는
+[리뷰 회차](#리뷰-회차)의 다음 회차이므로 reviewer는 전 범위를 다시 읽고 blocking finding만 보고합니다. 무관한 metadata 수정으로
+전체 suite를 자동 재실행하지 않지만, 기존 PASS를 새 코드의 PASS로 옮기지 않습니다. PASS 뒤 기계적 수정만
+[PASS 뒤 처분](#pass-뒤-처분)으로 닫습니다.
 
 의견이 다르면 parent가 현재 정책·source·재현 결과로 adjudication을 남깁니다. 해결되지 않은 중요한 정책 결정은 owner OQ,
 필수 검증 부재는 BLOCKED, 재현된 결함은 FAIL입니다. 같은 rubric의 maker-checker 재검토는
-[기존 bounded 반복 기준](./orchestration.md#pattern-selector)을 따르고, 해결되지 않으면 무한 reviewer/retry 대신 gap을 보고합니다.
+[기존 bounded 반복 기준](./orchestration.md#pattern-selector)을 따르되 독립 리뷰의 회차 상한은 [리뷰 회차](#리뷰-회차)를 따르고,
+해결되지 않으면 무한 reviewer/retry 대신 gap을 보고합니다.
 
 계획 진행용 packet/result는 `.artifacts/plans/<umbrella Plan ID>/<bounded Plan ID>/`에 두고 script는 `resolveArtifactPath()`로
 `.artifacts/tools/`에 씁니다([배치 규칙](../../../.artifacts/README.md#배치-규칙)). 다른 clone에 필요한 최종 근거는

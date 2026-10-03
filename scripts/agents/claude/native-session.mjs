@@ -1712,6 +1712,9 @@ const REVIEW_OPTIONS = {
   '--basis': 'selectionBasisRef',
   '--reviewer-model': 'reviewerModel',
   '--session': 'sessionId',
+  '--round': 'reviewRound',
+  '--previous-result': 'previousResult',
+  '--criteria': 'criteria',
 };
 async function helperCommand(action, args) {
   // Loaded on demand: the helper consumes this module, and hooks never need it.
@@ -1736,11 +1739,20 @@ async function helperCommand(action, args) {
     const key = REVIEW_OPTIONS[args[i]];
     check(
       key && args[i + 1] && !Object.hasOwn(options, key),
-      'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID [--session ID]]',
+      'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--session ID]]',
     );
+    const value = args[i + 1];
     options[key] = ['parentSubject', 'runnerEvidence'].includes(key)
-      ? jsonFile(resolve(args[i + 1]))
-      : args[i + 1];
+      ? jsonFile(resolve(value))
+      : key === 'reviewRound'
+        ? /^[1-9]\d*$/u.test(value)
+          ? Number(value)
+          : value
+        : key === 'previousResult'
+          ? resolve(value)
+          : key === 'criteria'
+            ? value.split(',')
+            : value;
   }
   return helper.buildClaudeNativeReview(options);
 }

@@ -21,7 +21,13 @@ const SKILLS = ['knu-delegate', 'knu-review', 'knu-settle'];
 const REJECTIONS =
   'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md';
 const ACTIONS = new Set(['prepare', 'review', 'settle', 'release']);
-const FILE_FLAGS = new Set(['--spec', '--parent-subject', '--runner-evidence', '--judgment']);
+const FILE_FLAGS = new Set([
+  '--spec',
+  '--parent-subject',
+  '--runner-evidence',
+  '--previous-result',
+  '--judgment',
+]);
 const COMMAND_PREFIX = /^pnpm -C "\$\{CLAUDE_PROJECT_DIR\}" -s claude:native (\S+)(.*)$/u;
 
 // The helper owns spec keys and CLI flags; read them from source so the skills cannot drift.
@@ -244,6 +250,12 @@ test('skills guide only helper actions in the project-rooted form', () => {
     for (const command of commands) assert.deepEqual(commandIssues(command, flags), [], command);
     assert.doesNotMatch(skill(name), /register --input|claude:native complete/u, name);
   }
+  // Building a review packet needs the round; a documented command without it is refused.
+  const packetCommands = commandsIn(skill('knu-review')).filter((command) =>
+    command.includes('--runner-evidence'),
+  );
+  assert.equal(packetCommands.length, 2);
+  for (const command of packetCommands) assert.match(command, / --round <N>(?: |$)/u, command);
 });
 
 test('CLAUDE.md points to the skills instead of low-level registration', () => {
