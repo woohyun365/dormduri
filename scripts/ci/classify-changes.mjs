@@ -222,19 +222,28 @@ export function classifyChanges(paths) {
 }
 
 // Files that change how Prettier formats or which files it checks, matched at any depth: Prettier and EditorConfig
-// resolve configuration upward from each file, Prettier reads .gitignore and .prettierignore by default,
-// package.json may carry a `prettier` key, and the lockfile and workspace catalog pin the Prettier version. A change
-// to any of them re-checks the whole tree.
+// resolve configuration upward from each file, Prettier reads .gitignore and .prettierignore by default, Git applies
+// .gitattributes (line endings) to every checked-out file, package.json may carry a `prettier` key, and the lockfile
+// and workspace catalog pin the Prettier version. A change to any of them re-checks the whole tree.
 const FORMATTING_CONFIG_PATTERN =
-  /(?:^|\/)(?:\.prettierrc(?:\.[^/]+)?|prettier\.config\.[cm]?[jt]s|\.prettierignore|\.gitignore|\.editorconfig|package\.json|package\.yaml|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/u;
+  /(?:^|\/)(?:\.prettierrc(?:\.[^/]+)?|prettier\.config\.[cm]?[jt]s|\.prettierignore|\.gitignore|\.gitattributes|\.editorconfig|package\.json|package\.yaml|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/u;
 // Above this many changed paths a full check costs about the same and keeps the job output small.
 export const FORMATTING_CHANGED_PATH_LIMIT = 500;
+
+// A path no lane rule knows may be a new formatting input (a Prettier plugin, a checkout attribute file), so it keeps
+// the full check just as it keeps every lane.
+function isUnknownPath(path) {
+  return !isIntendedFanOut(path) && Object.values(classifyChanges([path])).every(Boolean);
+}
 
 export function formattingScope(paths) {
   if (paths.length === 0 || paths.length > FORMATTING_CHANGED_PATH_LIMIT) {
     return 'full';
   }
-  return paths.some((path) => FORMATTING_CONFIG_PATTERN.test(normalizePath(path)))
+  return paths.some((rawPath) => {
+    const path = normalizePath(rawPath);
+    return FORMATTING_CONFIG_PATTERN.test(path) || isUnknownPath(path);
+  })
     ? 'full'
     : 'changed';
 }

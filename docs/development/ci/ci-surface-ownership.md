@@ -122,10 +122,12 @@ Storybook workflow step의 wrapper이고, `scripts/observability/sentry/check-bu
 ## Formatting 검사 범위
 
 Repository policy gate의 formatting 검사(`scripts/ci/check-formatting.mjs`)는 분류기의 `formatting_scope` 출력을 따릅니다.
-Lane 선택과는 별개입니다. 이 출력은 repoPolicy가 켜진 PR에서 검사할 파일만 정합니다.
+Lane 선택과는 별개입니다. 이 출력은 repoPolicy가 켜진 PR과 `main` push에서 검사할 파일만 정합니다.
 
 - `full`: `prettier . -c`로 tree 전체를 검사합니다. 다음 경우입니다.
   - 아래 설정 파일 중 하나가 바뀐 경우
+  - 어떤 lane 규칙에도 맞지 않는 경로(모르는 경로의 fail-open)가 있는 경우. 새 Prettier plugin처럼 아직 규칙이 없는
+    formatting 입력일 수 있기 때문입니다
   - 변경 경로가 없거나 500개를 넘는 경우
   - 분류에 실패했거나, 비교 기준을 PR base·push 범위로 구하지 못해 직전 commit이나 빈 tree와 비교한 경우
   - 출력이 없거나 비었거나 형식이 맞지 않는 경우(검사 script가 판정)
@@ -140,11 +142,16 @@ Lane 선택과는 별개입니다. 이 출력은 repoPolicy가 켜진 PR에서 �
 | --------------------------------------------------- | ---------------------------------------------------------------- |
 | `.prettierrc`, `.prettierrc.*`, `prettier.config.*` | Prettier 설정                                                    |
 | `.prettierignore`, `.gitignore`                     | Prettier가 기본으로 읽는 ignore 파일(검사 대상을 정함)           |
+| `.gitattributes`                                    | checkout된 파일의 줄끝을 바꿈                                    |
 | `.editorconfig`                                     | Prettier가 읽으며, `.prettierrc`가 들여쓰기·줄끝을 고정하지 않음 |
 | `package.json`, `package.yaml`                      | `prettier` key를 담을 수 있음                                    |
 | `pnpm-lock.yaml`, `pnpm-workspace.yaml`             | Prettier version(lockfile과 workspace catalog)                   |
 
 Formatting 결과는 파일 내용과 설정·version으로만 정해집니다. 그래서 설정이 그대로면 바뀌지 않은 파일의 결과도 그대로입니다.
+이 판단은 비교 기준의 tree가 현재 설정으로 이미 formatting되어 있다는 전제에 기댑니다. `dev`는 strict up-to-date가 꺼져
+있어, 설정 PR보다 먼저 CI를 통과한 다른 PR이 설정 PR 뒤에 merge되면 새 설정에 맞지 않는 파일이 남을 수 있습니다. 그 파일은
+로컬 `pnpm check`에서 바로 실패하고, CI에서는 그 파일을 바꾸는 PR이나 설정 변경을 포함하는 `dev`→`main` release PR의
+전체 검사에서 드러납니다.
 
 삭제된 경로와 rename의 원래 경로는 checkout에 없으므로 검사하지 않고, rename의 새 경로는 검사합니다. 분류기는 rename을
 삭제와 추가로 나눠(`git diff --no-renames`) 원래 경로와 새 경로가 모두 lane을 고르게 합니다. 로컬 `pnpm check`는 계속

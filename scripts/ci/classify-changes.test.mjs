@@ -359,6 +359,8 @@ test('formatting configuration changes at any depth select the full formatting c
     'packages/shared/prettier.config.ts',
     '.prettierignore',
     '.gitignore',
+    '.gitattributes',
+    'apps/web/.gitattributes',
     'omx_wiki/.gitignore',
     '.editorconfig',
     'apps/api/.editorconfig',
@@ -395,10 +397,19 @@ test('other changes select only the changed files for the formatting check', () 
     ['docs/README.md'],
     ['apps/web/src/app/[id]/page.tsx', 'scripts/ci/classify-changes.mjs'],
     ['.github/workflows/ci.yml'],
-    ['docs/prettierrc-notes.md', 'apps/web/package.json.md', 'scripts/editorconfig.mjs'],
+    ['docs/prettierrc-notes.md', 'apps/web/package.json.md', 'scripts/ci/editorconfig.mjs'],
   ]) {
     assert.equal(formattingScope(paths), 'changed', paths.join(', '));
   }
+});
+
+test('a path outside every lane rule keeps the full formatting check like every lane', () => {
+  for (const path of ['future-surface/prettier-plugin.mjs', 'DESIGN.md', '.github/new-tool.yml']) {
+    assert.ok(Object.values(classifyChanges([path])).every(Boolean), `${path} must be unknown`);
+    assert.equal(formattingScope([path]), 'full', path);
+    assert.equal(formattingScope(['docs/README.md', path]), 'full', `docs/README.md + ${path}`);
+  }
+  assert.equal(formattingScope(['packages/tsconfig/base.json']), 'changed');
 });
 
 test('an empty or oversized change list keeps the full formatting check', () => {

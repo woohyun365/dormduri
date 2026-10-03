@@ -210,8 +210,9 @@ p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorep
 
 ### Formatting 검사 범위(#545) step 시간
 
-이 개선은 Repository policy gate의 `Verify repository formatting` step만 바꿉니다. 그래서 run 전체 시간과 함께 이 step의
-시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에는 모든 run이 `prettier . -c`로 tree 전체를 검사했습니다.
+이 개선은 Repository policy gate의 `Verify repository formatting` step이 검사하는 파일 범위를 바꿉니다. 같은 PR에서 rename의 원래
+경로도 lane을 고르게 했으므로, 파일을 lane 밖으로 옮기는 PR에서는 선택되는 lane이 늘 수 있습니다. 그래서 run 전체 시간과 함께 이
+step의 시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에는 모든 run이 `prettier . -c`로 tree 전체를 검사했습니다.
 
 | Run ID        | PR   | Head SHA   | Job | Formatting step |
 | ------------- | ---- | ---------- | --: | --------------: |
