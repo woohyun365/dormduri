@@ -244,7 +244,7 @@ NODE
 6. 실제 assertion·type·format·build 실패는 첫 push 전에 해결합니다. Agent sandbox의 port binding 차단, provider credential,
    Docker authority처럼 source 변경으로 해결할 수 없는 **environment gap**은 같은 명령을 적절한 local authority에서 한 번만
    재검증하고, 계속 제한되면 PR 검증 공백에 기록합니다. 환경 제한을 추측으로 고치거나 trial push로 디버깅하지 않습니다.
-7. 독립 검토가 필요한 변경은 그 검토의 PASS를 먼저 받습니다([PR과 merge](#pr과-merge) 5단계). 예상 lane, scope audit,
+7. 독립 검토가 필요한 변경은 push할 HEAD 기준의 검토 결과를 먼저 받습니다([PR과 merge](#pr과-merge) 5단계). 예상 lane, scope audit,
    local-green 결과, 환경 gap, 독립 검토 결과, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
    생성합니다. Remote failure가 발생하면 전체 log를 읽어 하나의 corrective push로 묶습니다.
 
@@ -255,7 +255,9 @@ NODE
 3. staged 범위와 unrelated 파일 제외를 다시 확인합니다.
 4. commit은 하나의 의도와 Lore evidence를 가집니다.
 5. merge 전 독립 검토가 필요한 변경([QA disposition](../agent-workflows/qa.md#independent-review-disposition))은 이 local
-   commit에서 검토를 받습니다. 지적 수정과 재검토도 push 전에 끝내고, 수정 commit은 local에 모읍니다.
+   commit에서 검토를 받습니다. 지적 수정과 재검토도 push 전에 끝내고, 수정 commit은 local에 모읍니다. 검토 뒤 preflight
+   수정 등으로 source가 바뀌면 그 delta를 push 전에 다시 검토합니다. Hosted-only evidence가 필요한 예외는
+   [Remote push budget](#remote-push-budget) 9를 따릅니다.
 6. [Pre-PR CI lane preflight](#pre-pr-ci-lane-preflight)를 거쳐 branch를 한 번 push하고 PR을 만듭니다. PR은 `dev`를
    target으로 하며 실제 검증 결과, 검증 공백과 독립 검토 결과를 기록합니다.
 7. Required CI가 green이 된 뒤 target branch가 허용하는 merge method로 merge합니다.
