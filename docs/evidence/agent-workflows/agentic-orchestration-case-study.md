@@ -2,7 +2,7 @@
 
 > **Audience:** human-to-human portfolio, onboarding, and engineering discussion reference.
 > 이 문서는 `AGENTS.md`나 agent workflow를 대체하는 instruction owner가 아닙니다. 현재 실행 규칙은
-> [Agent orchestration](./agent-workflows/orchestration.md)과 연결된 tracked contract가 소유합니다.
+> [Agent orchestration](../../development/agent-workflows/orchestration.md)과 연결된 tracked contract가 소유합니다.
 
 ## 요약
 
@@ -49,17 +49,17 @@ git show e8624c65:docs/development/agent-workflows/orchestration.md
 git show e8624c65:docs/development/agent-workflows/request-intake/delegation.md
 ```
 
-| 확인한 상태                       | Engineering consequence                                                                                   | 재현 가능한 evidence                                                                                                                                                                                                           |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| project `.codex`가 없음           | clone마다 user/global role·model·effort가 달라질 수 있고 repository가 같은 child baseline을 보장하지 못함 | 위 `git ls-tree`와 [.codex tracking 도입 PR #385](https://github.com/woohyun365/knu_roommate/pull/385)                                                                                                                         |
-| lookup은 Low                      | 큰 repository의 symbol 관계·owner 탐색도 lexical task kind만으로 낮은 effort에 고정될 수 있음             | [이전 orchestration contract](https://github.com/woohyun365/knu_roommate/blob/e8624c65e99e65da014f62be12d5c04f0bf90276/docs/development/agent-workflows/orchestration.md)                                                      |
-| 독립 lane 최소 2개 요구           | independently valuable lane 하나는 사용하지 못하고, count가 value보다 먼저 판단됨                         | [이전 delegation contract](https://github.com/woohyun365/knu_roommate/blob/e8624c65e99e65da014f62be12d5c04f0bf90276/docs/development/agent-workflows/request-intake/delegation.md)                                             |
-| architecture만 제한적 XHigh       | transaction·migration·lifecycle·trust boundary 같은 deep non-architecture work가 High에서 멈출 수 있음    | 같은 이전 delegation contract의 role/effort table                                                                                                                                                                              |
-| lexical risk와 complexity 결합    | “실패 시 위험함”과 “추론이 어려움”이 한 route에 섞여 keyword가 effort의 대리 신호가 됨                    | [routing contract 전환 PR #386](https://github.com/woohyun365/knu_roommate/pull/386)과 [routing regression](../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)                                                       |
-| repository inspection 재평가 없음 | 같은 request라도 실제 transaction·contract·state evidence에 따라 effort를 다시 고를 구조가 없음           | [Pass 1/Pass 2 decision](./agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정)과 [same-request fixture](../../scripts/ci/agents/codex/codex-routing-policy.test.mjs) |
-| boolean 중심 runtime 판정         | 설치 파일이나 caller assertion을 active role/model/effort authority로 오인할 수 있음                      | [runtime evidence 전환 PR #387](https://github.com/woohyun365/knu_roommate/pull/387)과 [runtime capability fixture](../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json)                                |
-| sequential route의 effort `null`  | child-free route의 값이 parent routing인지 “child를 선택하지 않음”인지 책임이 불분명함                    | [parent-effort isolation regression](../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)과 [current parent/child boundary](agent-workflows/adapters/codex.md#reasoning-effort-routing)                                |
-| prose와 runtime 경계 중복         | 여러 guide의 설명과 advisory code가 실제 spawn/lifecycle authority처럼 해석될 여지가 있음                 | [current delegation ownership boundary](./agent-workflows/request-intake/delegation.md#ownership-boundary)와 [runtime recovery contract](./agent-workflows/request-intake/orchestration-recovery.md)                           |
+| 확인한 상태                       | Engineering consequence                                                                                   | 재현 가능한 evidence                                                                                                                                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| project `.codex`가 없음           | clone마다 user/global role·model·effort가 달라질 수 있고 repository가 같은 child baseline을 보장하지 못함 | 위 `git ls-tree`와 [.codex tracking 도입 PR #385](https://github.com/woohyun365/knu_roommate/pull/385)                                                                                                                                            |
+| lookup은 Low                      | 큰 repository의 symbol 관계·owner 탐색도 lexical task kind만으로 낮은 effort에 고정될 수 있음             | [이전 orchestration contract](https://github.com/woohyun365/knu_roommate/blob/e8624c65e99e65da014f62be12d5c04f0bf90276/docs/development/agent-workflows/orchestration.md)                                                                         |
+| 독립 lane 최소 2개 요구           | independently valuable lane 하나는 사용하지 못하고, count가 value보다 먼저 판단됨                         | [이전 delegation contract](https://github.com/woohyun365/knu_roommate/blob/e8624c65e99e65da014f62be12d5c04f0bf90276/docs/development/agent-workflows/request-intake/delegation.md)                                                                |
+| architecture만 제한적 XHigh       | transaction·migration·lifecycle·trust boundary 같은 deep non-architecture work가 High에서 멈출 수 있음    | 같은 이전 delegation contract의 role/effort table                                                                                                                                                                                                 |
+| lexical risk와 complexity 결합    | “실패 시 위험함”과 “추론이 어려움”이 한 route에 섞여 keyword가 effort의 대리 신호가 됨                    | [routing contract 전환 PR #386](https://github.com/woohyun365/knu_roommate/pull/386)과 [routing regression](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)                                                                       |
+| repository inspection 재평가 없음 | 같은 request라도 실제 transaction·contract·state evidence에 따라 effort를 다시 고를 구조가 없음           | [Pass 1/Pass 2 decision](../../development/agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정)과 [same-request fixture](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs) |
+| boolean 중심 runtime 판정         | 설치 파일이나 caller assertion을 active role/model/effort authority로 오인할 수 있음                      | [runtime evidence 전환 PR #387](https://github.com/woohyun365/knu_roommate/pull/387)과 [runtime capability fixture](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json)                                                |
+| sequential route의 effort `null`  | child-free route의 값이 parent routing인지 “child를 선택하지 않음”인지 책임이 불분명함                    | [parent-effort isolation regression](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)과 [current parent/child boundary](../../development/agent-workflows/adapters/codex.md#reasoning-effort-routing)                              |
+| prose와 runtime 경계 중복         | 여러 guide의 설명과 advisory code가 실제 spawn/lifecycle authority처럼 해석될 여지가 있음                 | [current delegation ownership boundary](../../development/agent-workflows/request-intake/delegation.md#ownership-boundary)와 [runtime recovery contract](../../development/agent-workflows/request-intake/orchestration-recovery.md)              |
 
 “개인 설정 drift”는 특정 개인 파일의 내용을 durable evidence로 보존한다는 뜻이 아닙니다. Tracked project default가 없으면
 clean clone이 user/global setup에 의존한다는 구조적 문제를 뜻합니다.
@@ -186,23 +186,23 @@ Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 
 
 ## 구현 chronology와 evidence
 
-| Merge                                                                                                                                                                     | 구현 책임                                                                                                                                    | Tracked evidence                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [PR #385](https://github.com/woohyun365/knu_roommate/pull/385) / [`6c9d1a52`](https://github.com/woohyun365/knu_roommate/commit/6c9d1a52153babb5bf4bf5f1b589691d7b5c17de) | project `.codex` allowlist, Sol/High child default, four bounded roles, parent config exclusion                                              | [.codex/config.toml](../../.codex/config.toml), [.codex/agents](../../.codex/agents), [project config contract](../../scripts/ci/agents/codex/project-codex-config.test.mjs), [tracking fixtures](../../scripts/ci/agents/codex/fixtures/project-codex-tracking-cases.json)                                                                                        |
-| [PR #386](https://github.com/woohyun365/knu_roommate/pull/386) / [`fa819dca`](https://github.com/woohyun365/knu_roommate/commit/fa819dca9e6d8a5e35f0d20263e3cfb20204217e) | Pass 1/Pass 2 separation, semantic effort predicates, one-to-three proactive lanes, owner-directed six, one-writer recommendation            | [routing policy](../../scripts/agents/codex/routing-policy.mjs), [child contract](../../scripts/agents/codex/child-task-contract.mjs), [routing regression](../../scripts/ci/agents/codex/codex-routing-policy.test.mjs), [child regression](../../scripts/ci/agents/codex/codex-child-task-contract.test.mjs)                                                     |
-| [PR #387](https://github.com/woohyun365/knu_roommate/pull/387) / [`24b74185`](https://github.com/woohyun365/knu_roommate/commit/24b74185913580365bf55f82efc0c90271b5f4e4) | bounded reported runtime evidence, model/effort/permission compatibility, live reconfirmation, one alternate recovery, leader-only synthesis | [orchestration policy](../../scripts/agents/codex/orchestration-policy.mjs), [runtime fixtures](../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration regression](../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs), [fresh-session regression](../../scripts/ci/agents/codex/codex-fresh-session.test.mjs) |
+| Merge                                                                                                                                                                     | 구현 책임                                                                                                                                    | Tracked evidence                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [PR #385](https://github.com/woohyun365/knu_roommate/pull/385) / [`6c9d1a52`](https://github.com/woohyun365/knu_roommate/commit/6c9d1a52153babb5bf4bf5f1b589691d7b5c17de) | project `.codex` allowlist, Sol/High child default, four bounded roles, parent config exclusion                                              | [.codex/config.toml](../../../.codex/config.toml), [.codex/agents](../../../.codex/agents), [project config contract](../../../scripts/ci/agents/codex/project-codex-config.test.mjs), [tracking fixtures](../../../scripts/ci/agents/codex/fixtures/project-codex-tracking-cases.json)                                                                                        |
+| [PR #386](https://github.com/woohyun365/knu_roommate/pull/386) / [`fa819dca`](https://github.com/woohyun365/knu_roommate/commit/fa819dca9e6d8a5e35f0d20263e3cfb20204217e) | Pass 1/Pass 2 separation, semantic effort predicates, one-to-three proactive lanes, owner-directed six, one-writer recommendation            | [routing policy](../../../scripts/agents/codex/routing-policy.mjs), [child contract](../../../scripts/agents/codex/child-task-contract.mjs), [routing regression](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs), [child regression](../../../scripts/ci/agents/codex/codex-child-task-contract.test.mjs)                                                     |
+| [PR #387](https://github.com/woohyun365/knu_roommate/pull/387) / [`24b74185`](https://github.com/woohyun365/knu_roommate/commit/24b74185913580365bf55f82efc0c90271b5f4e4) | bounded reported runtime evidence, model/effort/permission compatibility, live reconfirmation, one alternate recovery, leader-only synthesis | [orchestration policy](../../../scripts/agents/codex/orchestration-policy.mjs), [runtime fixtures](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration regression](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs), [fresh-session regression](../../../scripts/ci/agents/codex/codex-fresh-session.test.mjs) |
 
 각 PR은 product runtime을 바꾸지 않는 repository agent harness 변경입니다. PR 설명과 merge commit은 검증 command와 결과를
 보존하며, 현재 behavior는 언제나 위 tracked source와 test를 다시 읽어 판정합니다.
 
 ### GPT-6 Astra 모델 계약 전환 — 2026-09-10
 
-| 질문                                  | 결정과 근거                                                                                           | 검증 경계                                                                                                                                                                                |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 왜 tool update만으로 끝내지 않았는가? | project child default와 네 role의 명시적 Sol pin이 별도로 남아 있었음                                 | [.codex 설정](../../.codex/config.toml), [role 모델 검사](../../scripts/ci/agents/codex/project-codex-config.test.mjs)                                                                   |
-| 왜 architecture는 유지했는가?         | 변경 요구는 child 모델 선택이며, two-pass·effort·count·single-writer 구조를 변경할 실패 증거는 없었음 | [routing contract](./agent-workflows/orchestration.md), [runtime policy](../../scripts/agents/codex/orchestration-policy.mjs)                                                            |
-| 어떤 회귀를 잠갔는가?                 | Astra positive, Sol/Terra/Luna mismatch, 지원하지 않는 child effort, role/permission/provenance 실패  | [runtime fixtures](../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration tests](../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs) |
-| 실제 실행은 어떻게 확인했는가?        | 파일·정적 테스트와 fresh native runtime 관찰을 분리                                                   | Codex app-server의 loaded thread model/effort, child 응답, hook 완료 이벤트와 owning OMX launch의 doctor를 대조                                                                          |
+| 질문                                  | 결정과 근거                                                                                           | 검증 경계                                                                                                                                                                                      |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 왜 tool update만으로 끝내지 않았는가? | project child default와 네 role의 명시적 Sol pin이 별도로 남아 있었음                                 | [.codex 설정](../../../.codex/config.toml), [role 모델 검사](../../../scripts/ci/agents/codex/project-codex-config.test.mjs)                                                                   |
+| 왜 architecture는 유지했는가?         | 변경 요구는 child 모델 선택이며, two-pass·effort·count·single-writer 구조를 변경할 실패 증거는 없었음 | [routing contract](../../development/agent-workflows/orchestration.md), [runtime policy](../../../scripts/agents/codex/orchestration-policy.mjs)                                               |
+| 어떤 회귀를 잠갔는가?                 | Astra positive, Sol/Terra/Luna mismatch, 지원하지 않는 child effort, role/permission/provenance 실패  | [runtime fixtures](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration tests](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs) |
+| 실제 실행은 어떻게 확인했는가?        | 파일·정적 테스트와 fresh native runtime 관찰을 분리                                                   | Codex app-server의 loaded thread model/effort, child 응답, hook 완료 이벤트와 owning OMX launch의 doctor를 대조                                                                                |
 
 기존 Sol 구현에 Astra 기대값을 먼저 적용해 실패를 확인한 뒤 config·policy를 전환했습니다. 당시 targeted contract test는
 48개가 통과했습니다. 이 결과는 모델 품질·비용·속도 개선 측정이 아닙니다. 재현 명령은 다음과 같습니다.
@@ -257,18 +257,18 @@ task / acceptance / source facts
   → sanitized attempt record + capability별 lifecycle disposition
 ```
 
-- [중앙 profile registry](../../scripts/agents/codex/model-profiles.mjs): 모델별 TOML 대신 안정된 task ID가 세대별 모델·effort·
+- [중앙 profile registry](../../../scripts/agents/codex/model-profiles.mjs): 모델별 TOML 대신 안정된 task ID가 세대별 모델·effort·
   tools·role·cohort를 가집니다. `bounded-build`, `bounded-read`, `bounded-extract`의 호출 effort는 xhigh지만 **대상 난이도는
   complete Medium evidence**가 필요합니다. xhigh 선택은 품질 우선 owner 정책이지 medium보다 재작업이 적다는 실측 결론이 아닙니다.
-- [호출·결과 정책](../../scripts/agents/codex/orchestration-policy.mjs): role pin, current scope/config, 승인 기간·예산, context,
+- [호출·결과 정책](../../../scripts/agents/codex/orchestration-policy.mjs): role pin, current scope/config, 승인 기간·예산, context,
   exact task/profile/child 귀속을 확인합니다. Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
-- [실행 기록](../../scripts/agents/codex/model-run-evidence.mjs): 최초 실패·원인 가설·조치·재검증과 recovery를 분리합니다.
-  [기록 회귀](../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)는 진단값과 성공·복구 자격을 분리합니다.
+- [실행 기록](../../../scripts/agents/codex/model-run-evidence.mjs): 최초 실패·원인 가설·조치·재검증과 recovery를 분리합니다.
+  [기록 회귀](../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)는 진단값과 성공·복구 자격을 분리합니다.
   원인 confidence와 근거 참조만 보존하며 secret·전체 대화·hidden reasoning을 수집하는 daemon이 아닙니다.
-- [Lifecycle owner](./agent-workflows/subagent-lifecycle.md): `resultDisposition`, `cleanupDisposition`, `closeDisposition`,
+- [Lifecycle owner](../../development/agent-workflows/subagent-lifecycle.md): `resultDisposition`, `cleanupDisposition`, `closeDisposition`,
   `releaseDisposition`을 분리합니다. Explicit-close, verified-no-close, unknown을 다르게 처리하며 close 미노출만으로
   managed cleanup을 증명하지 않습니다. 완료·interrupt·archive·빈 roster를 terminate/slot 반환으로 바꾸지 않습니다.
-- [Cold resume와 선택적 운영](./agent-workflows/session-continuity.md): 저장 history와 runtime residency는 별개입니다.
+- [Cold resume와 선택적 운영](../../development/agent-workflows/session-continuity.md): 저장 history와 runtime residency는 별개입니다.
   `/agents` shared server는 별도 control plane이지 child close 대체재가 아닙니다. 서버 시작·설정 변경·cap 우회는 하지 않았습니다.
 
 로컬 구현 계보는 `3f58d5ee` lifecycle 의미 수정 → `f1be6cac` 세 pin 해제 → `ecf60e48` profile binding → `f7bee958`
@@ -305,11 +305,11 @@ completed를 회수했지만 close 미노출·pending/residency 미관측이므�
 
 ### 한정 채택·세대교체·rollback
 
-[운영 채택 결정](./agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과 executor의
+[운영 채택 결정](../../development/agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과 executor의
 controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·explorer/researcher low·deep failure·max·저가 reviewer는
 미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
 
-[Profile 회귀](../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
+[Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
 retired GPT-5.6 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
 유지하되 새 revision, 지원 재검증, 해당 cohort 품질 근거·새 승인이 필요합니다. Synthetic next-revision 검증은 **GPT-7 실제
 실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
@@ -358,9 +358,9 @@ Reviewer 모델 비교는 Owner가 작성 전제의 착오를 확인해 **미실
 Owner가 선택한 후속 기본값은 **Parent Astra high**입니다. 로컬 구현·전체 review gate를 완료한 다음 실제 host의 지원되는
 session model/effort control에서 확인·선택합니다. CLI에서 `/model`을 제공하면 그 UI를 사용하고, 현재 schema에 설정 기능이
 없으면 파일이나 숨은 API로 대체하지 않습니다. 이 문서 작성에서 전역·Parent·운영 reviewer 설정은 변경하지 않았으며,
-**실제 Parent high 적용·품질·비용은 미관측**입니다. 구체 절차와 품질 stop은 [orchestration owner](agent-workflows/adapters/codex.md#parent-high-운영과-quality-stop)를 따릅니다.
+**실제 Parent high 적용·품질·비용은 미관측**입니다. 구체 절차와 품질 stop은 [orchestration owner](../../development/agent-workflows/adapters/codex.md#parent-high-운영과-quality-stop)를 따릅니다.
 
-- 필요한 context만 제공하고 primary 분석을 중복하지 않되 [독립 QA](./agent-workflows/qa.md)를 비용 이유로 생략하지 않습니다.
+- 필요한 context만 제공하고 primary 분석을 중복하지 않되 [독립 QA](../../development/agent-workflows/qa.md)를 비용 이유로 생략하지 않습니다.
 - 작은 작업은 Parent 직접, 격리 가능한 깊은 문제만 Astra xhigh child; 전체 framing·통합 자체가 어렵다면 Parent xhigh를 권고합니다.
 - 첫 실제 task부터 acceptance 누락·substantive finding·scope 위반·재작업/복구 원인을 확인합니다. 보안·권한·데이터 invariant
   위반이나 허위 완료면 무인 계속을 멈춥니다. Source/환경/권한/검증 gap부터 고치고, 추론 부족·반복 누락이면 effort를 재검토합니다.
@@ -387,7 +387,7 @@ merge evidence는 targeted agent suite 49/49, repository policy 297/297, clean-c
 
 두 repair의 기존 suite는 새 negative에서 **114 PASS / 3 FAIL → 117 PASS / 0 FAIL**로 전환됐습니다. 이것은 로컬
 deterministic 검증이며, 모델 품질·native authority나 원격 CI 성공을 의미하지 않습니다. 위
-[dispatch 회귀](../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)와 [진단 기록 회귀](../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)가
+[dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)와 [진단 기록 회귀](../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)가
 재현 owner입니다. 문서의 링크·경계 guard도 실제 관찰의 진실성이나 agent의 지침 준수를 자동 보증하지 않습니다.
 
 현재 checkout에서 최소 재검증은 다음과 같습니다.
@@ -442,19 +442,19 @@ authority를 대체하지 않습니다.
 
 다음 질문은 암기할 답변이 아니라 current source와 Git history를 다시 읽기 위한 entry입니다.
 
-| 질문                                                                                | 먼저 확인할 evidence                                                                                                                                                                                             |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 왜 single-agent harness 이후에 multi-agent를 도입했는가?                            | [Agentic Engineering methodology](./agentic-engineering-methodology.md), [orchestration direct-first gate](./agent-workflows/orchestration.md)                                                                   |
-| 왜 direct-first와 benefit-gated delegation인가?                                     | [DA-001~003](./agent-workflows/agentic-architecture-decisions.md), [delegation single-first gate](./agent-workflows/request-intake/delegation.md)                                                                |
-| impact risk와 reasoning complexity를 왜 분리했는가?                                 | [DA-009](./agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정), [routing regression](../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)      |
-| architecture가 아닌 transaction·migration·lifecycle·trust work도 왜 XHigh가 되는가? | [semantic predicates](../../scripts/agents/codex/routing-policy.mjs), [deep non-architecture fixtures](../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)                                              |
-| Parent effort는 왜 session owner가 선택하고 child만 task profile로 배정하는가?      | [.codex parent exclusion test](../../scripts/ci/agents/codex/project-codex-config.test.mjs), [reasoning effort routing](agent-workflows/adapters/codex.md#reasoning-effort-routing)                              |
-| model·effort·count·write ownership을 어떻게 통제했는가?                             | [.codex config](../../.codex/config.toml), [delegation contract](./agent-workflows/request-intake/delegation.md), [runtime fixture](../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json)  |
-| hallucinated role/capability claim을 어떻게 막았는가?                               | [reported runtime evidence](./agent-workflows/request-intake/orchestration-recovery.md#reported-runtime-evidence), [orchestration regression](../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs) |
-| context pollution과 delegation cost를 어떻게 제한했는가?                            | direct-first, bounded lane, facts/inferences/gaps output, leader-only fan-in contract                                                                                                                            |
-| 무엇이 실패했고 어떻게 고쳤는가?                                                    | [PR #387 review/repair history](https://github.com/woohyun365/knu_roommate/pull/387), caller-expanded write boundary와 TOML regression                                                                           |
-| 무엇을 의도적으로 자동화하지 않았는가?                                              | custom scheduler/classifier, child lifecycle engine, automatic parent effort, merge/deploy authority 기각 표                                                                                                     |
-| 어떤 evidence가 redesign을 촉발하는가?                                              | 아래 limitation과 [DA-009~012 revisit triggers](./agent-workflows/agentic-architecture-decisions.md)                                                                                                             |
+| 질문                                                                                | 먼저 확인할 evidence                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 왜 single-agent harness 이후에 multi-agent를 도입했는가?                            | [Agentic Engineering methodology](./agentic-engineering-methodology.md), [orchestration direct-first gate](../../development/agent-workflows/orchestration.md)                                                                        |
+| 왜 direct-first와 benefit-gated delegation인가?                                     | [DA-001~003](../../development/agent-workflows/agentic-architecture-decisions.md), [delegation single-first gate](../../development/agent-workflows/request-intake/delegation.md)                                                     |
+| impact risk와 reasoning complexity를 왜 분리했는가?                                 | [DA-009](../../development/agent-workflows/agentic-architecture-decisions.md#da-009--child-reasoning은-repository-evidence로-두-번-판정), [routing regression](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)        |
+| architecture가 아닌 transaction·migration·lifecycle·trust work도 왜 XHigh가 되는가? | [semantic predicates](../../../scripts/agents/codex/routing-policy.mjs), [deep non-architecture fixtures](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs)                                                             |
+| Parent effort는 왜 session owner가 선택하고 child만 task profile로 배정하는가?      | [.codex parent exclusion test](../../../scripts/ci/agents/codex/project-codex-config.test.mjs), [reasoning effort routing](../../development/agent-workflows/adapters/codex.md#reasoning-effort-routing)                              |
+| model·effort·count·write ownership을 어떻게 통제했는가?                             | [.codex config](../../../.codex/config.toml), [delegation contract](../../development/agent-workflows/request-intake/delegation.md), [runtime fixture](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json) |
+| hallucinated role/capability claim을 어떻게 막았는가?                               | [reported runtime evidence](../../development/agent-workflows/request-intake/orchestration-recovery.md#reported-runtime-evidence), [orchestration regression](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)   |
+| context pollution과 delegation cost를 어떻게 제한했는가?                            | direct-first, bounded lane, facts/inferences/gaps output, leader-only fan-in contract                                                                                                                                                 |
+| 무엇이 실패했고 어떻게 고쳤는가?                                                    | [PR #387 review/repair history](https://github.com/woohyun365/knu_roommate/pull/387), caller-expanded write boundary와 TOML regression                                                                                                |
+| 무엇을 의도적으로 자동화하지 않았는가?                                              | custom scheduler/classifier, child lifecycle engine, automatic parent effort, merge/deploy authority 기각 표                                                                                                                          |
+| 어떤 evidence가 redesign을 촉발하는가?                                              | 아래 limitation과 [DA-009~012 revisit triggers](../../development/agent-workflows/agentic-architecture-decisions.md)                                                                                                                  |
 
 ## 한계와 재검토 조건
 

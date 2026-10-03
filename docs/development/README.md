@@ -10,8 +10,9 @@
 - [GitHub collaboration](./github/README.md): PR·commit·local hook과 remote repository setting 책임
 - [Owner cost tracking](./cost/README.md): 월별 gross cash, personal baseline, project-attributable delta와 future cost
 - [Agent workflow guides](./agent-workflows/README.md): host 공통 실행·검증·session continuity와 조건부 Codex/Claude adapter
-- [Agentic Engineering methodology](./agentic-engineering-methodology.md): AI 시대에 선택한 개발 방식, 적용 수준과 한계
-- [Agentic orchestration case study](./agentic-orchestration-case-study.md): evidence 기반 parent–subagent 설계의 문제·대안·구현·검증·한계
+- Agent workflow의 사람 대상 portfolio 문서는 [Agent workflow evidence](../evidence/agent-workflows/README.md)가 소유합니다:
+  [Agentic Engineering methodology](../evidence/agent-workflows/agentic-engineering-methodology.md),
+  [Agentic orchestration case study](../evidence/agent-workflows/agentic-orchestration-case-study.md)
 - [Production deployment implementation inputs](./future-production-deployment-inputs.md)
 
 과거 Sprint·Phase 실행 기록, 개인 장비·절대 경로, 폐기된 구현의 원문은 `.local-docs/`에 둡니다.

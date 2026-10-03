@@ -318,7 +318,7 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
 
 // Portable summary/link guards only: actual observation truth requires source-first QA.
 test('portfolio current summary distinguishes task profiles from historical Astra-only routing', () => {
-  const path = 'docs/development/agentic-orchestration-case-study.md';
+  const path = 'docs/evidence/agent-workflows/agentic-orchestration-case-study.md';
   const summary = section(path, '요약');
   for (const term of ['Astra', 'Sol/Luna', 'xhigh', 'Parent', 'high', '별도']) {
     assert.ok(summary.includes(term), term);
@@ -339,7 +339,7 @@ test('portfolio current summary distinguishes task profiles from historical Astr
 });
 
 test('portfolio preserves unmeasured cost and session-owned Parent choice with portable evidence', () => {
-  const path = 'docs/development/agentic-orchestration-case-study.md';
+  const path = 'docs/evidence/agent-workflows/agentic-orchestration-case-study.md';
   const source = read(path);
   const costs = section(path, '비용 가설과 관측 한계');
   assert.match(costs, /단가.*weekly.*절감률.*아/u);
@@ -351,12 +351,12 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
   assert.match(handoff, /scope.*위반/iu);
   assert.doesNotMatch(source, /\.omx\/plans\/|\.?artifacts\/(?:local|plans|tools)\/|\/Users\//u);
   const requiredLinks = [
-    '../../scripts/agents/codex/model-profiles.mjs',
-    '../../scripts/agents/codex/model-run-evidence.mjs',
-    '../../scripts/ci/agents/codex/codex-model-profiles.test.mjs',
-    '../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs',
-    './agent-workflows/subagent-lifecycle.md',
-    './agent-workflows/qa.md',
+    '../../../scripts/agents/codex/model-profiles.mjs',
+    '../../../scripts/agents/codex/model-run-evidence.mjs',
+    '../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs',
+    '../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs',
+    '../../development/agent-workflows/subagent-lifecycle.md',
+    '../../development/agent-workflows/qa.md',
   ];
   for (const link of requiredLinks) assert.ok(source.includes(`](${link})`), link);
   for (const [, href] of source.matchAll(/\]\(([^)]+)\)/gu)) {
