@@ -210,11 +210,43 @@ test('the repository policy gate gives pnpm setup bounded headroom before policy
   assert.equal(occurrences(repositoryPolicyJob, 'timeout-minutes:'), 2);
   assertIncludesAll(repositoryPolicyJob, [
     'pnpm install --frozen-lockfile',
-    'node scripts/ci/run-repo-policy.mjs',
+    'node scripts/ci/run-repo-policy.mjs --suite repo-policy',
     'FORMATTING_SCOPE: ${{ needs.classify.outputs.formatting_scope }}',
     'FORMATTING_PATHS: ${{ needs.classify.outputs.formatting_paths }}',
     'node scripts/ci/check-formatting.mjs',
   ]);
+});
+
+test('the agent workflow gate runs the agent suite without installing packages', () => {
+  const ci = read('.github/workflows/ci.yml');
+  const agentJob = workflowJob(ci, 'agent_workflow');
+
+  assertIncludesAll(workflowJob(ci, 'classify'), [
+    'agent_workflow: ${{ steps.changes.outputs.agentWorkflow }}',
+  ]);
+  assertIncludesAll(agentJob, [
+    'name: Agent workflow gate',
+    'needs: classify',
+    "if: ${{ needs.classify.outputs.agent_workflow == 'true' }}",
+    "node-version: '24'",
+    'node scripts/ci/run-repo-policy.mjs --suite agent-workflow',
+  ]);
+  for (const installStep of ['pnpm install', 'pnpm/action-setup', 'cache: pnpm'])
+    assert.ok(!agentJob.includes(installStep), `agent workflow gate must not use ${installStep}`);
+});
+
+test('the CI summary fails closed for every lane job it waits for', () => {
+  const summary = workflowJob(read('.github/workflows/ci.yml'), 'ci-summary');
+  const needs = [...summary.matchAll(/^      - ([a-z_]+)$/gmu)].map((match) => match[1]);
+  assert.ok(needs.includes('agent_workflow'), 'ci-summary must wait for agent_workflow');
+  for (const job of needs.filter((name) => name !== 'classify')) {
+    const env = job.toUpperCase();
+    assertIncludesAll(summary, [
+      `${env}_SELECTED: \${{ needs.classify.outputs.${job} }}`,
+      `${env}_RESULT: \${{ needs.${job}.result }}`,
+      `"$${env}_SELECTED" "$${env}_RESULT"`,
+    ]);
+  }
 });
 
 test('infrastructure CI separates static and container-backed validation', () => {
@@ -307,7 +339,7 @@ test('compiler cache stays small, architecture-aware, and owner-local', () => {
   const webWorkflow = read('.github/workflows/web-ci.yml');
 
   assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 2);
-  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 2);
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 3);
   assert.ok(!apiWorkflow.includes('API TypeScript build info'));
   assert.ok(!apiWorkflow.includes('apps/api/dist/.tsbuildinfo'));
   assertIncludesAll(webWorkflow, [

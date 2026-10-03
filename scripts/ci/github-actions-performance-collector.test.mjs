@@ -33,6 +33,7 @@ test('summarizes GitHub run wall, raw compute, billed rounding, queue, cache, te
   assert.deepEqual(evidence.change, {
     changedPaths: ['apps/web/src/example.tsx'],
     classification: {
+      agentWorkflow: false,
       api: false,
       infra: false,
       repoPolicy: false,
@@ -162,6 +163,34 @@ test('separates expected change surface from the jobs the historical workflow ac
   assert.equal(evidence.change.observedSurface, 'web-only');
   assert.equal(evidence.change.selectionMatchesObservedJobs, false);
   assert.equal(evidence.change.surface, 'web-only');
+});
+
+test('counts the agent workflow gate as the agent lane an agent-only change selects', () => {
+  const job = (name, startedAt, completedAt) => ({
+    ...fixture.jobs[0],
+    name,
+    started_at: startedAt,
+    completed_at: completedAt,
+  });
+  const evidence = buildRunEvidence({
+    ...fixture,
+    changedPaths: ['.claude/skills/knu-review/SKILL.md'],
+    jobs: [
+      job('Classify changed surfaces', '2026-08-26T00:00:02Z', '2026-08-26T00:00:12Z'),
+      job('Repository policy gate', '2026-08-26T00:00:15Z', '2026-08-26T00:01:10Z'),
+      job('Agent workflow gate', '2026-08-26T00:00:15Z', '2026-08-26T00:01:45Z'),
+      job('CI summary', '2026-08-26T00:01:50Z', '2026-08-26T00:01:54Z'),
+    ],
+  });
+
+  assert.deepEqual(evidence.change.observedSelectedLanes, [
+    'classify',
+    'repoPolicy',
+    'agentWorkflow',
+    'summary',
+  ]);
+  assert.equal(evidence.change.selectionMatchesObservedJobs, true);
+  assert.equal(evidence.change.surface, 'docs-config-tooling-only');
 });
 
 test('keeps a push run identity distinct from its associated source pull request', () => {

@@ -235,7 +235,7 @@ NODE
 
 | Selected lane                  | Pre-PR local gate                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `repoPolicy`                   | `pnpm test:repo-policy`                                                                           |
+| `repoPolicy`, `agentWorkflow`  | `pnpm test:repo-policy`(두 suite 모두 실행)                                                       |
 | `shared`, `api`, `web`         | local PostgreSQL 준비 후 `pnpm check`; API runtime 변경은 관련 API test lane을 추가               |
 | `storybook`                    | `pnpm --dir apps/web ci:storybook:build`                                                          |
 | `infra`                        | `pnpm infra:check:static`; runtime/Compose 변경일 때만 `pnpm infra:check`까지 확장                |

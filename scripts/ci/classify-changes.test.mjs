@@ -7,7 +7,9 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { discoverSuiteTests } from './repo-policy-test-files.mjs';
 import {
+  AGENT_TEST_PRODUCT_INPUTS,
   changedPathsForComparison,
   classifyChanges,
   classifyGithubEvent,
@@ -22,7 +24,7 @@ const fixtureUrl = new URL('./fixtures/change-impact-cases.json', import.meta.ur
 const cases = JSON.parse(await readFile(fixtureUrl, 'utf8'));
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
 const surfaceDocPath = 'docs/development/ci/ci-surface-ownership.md';
-const LANES = ['web', 'api', 'shared', 'storybook', 'infra', 'repoPolicy'];
+const LANES = ['web', 'api', 'shared', 'storybook', 'infra', 'repoPolicy', 'agentWorkflow'];
 const STATUSES = ['분류됨', '의도한 fan-out'];
 const tracked = new Set(
   execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' }).split('\0'),
@@ -80,6 +82,7 @@ test('keeps an empty comparison visible through the repo-policy lane', () => {
     storybook: false,
     infra: false,
     repoPolicy: true,
+    agentWorkflow: true,
   });
 });
 
@@ -97,6 +100,7 @@ test('tracked Claude project adapter files select policy checks without unrelate
       storybook: false,
       infra: false,
       repoPolicy: true,
+      agentWorkflow: true,
     });
   }
 });
@@ -151,6 +155,7 @@ test('unknown paths outside every surface keep the conservative fail-open', () =
       storybook: true,
       infra: true,
       repoPolicy: true,
+      agentWorkflow: true,
     });
   }
 });
@@ -168,8 +173,95 @@ test('common agent workflow scripts select only the repo-policy lane', () => {
       storybook: false,
       infra: false,
       repoPolicy: true,
+      agentWorkflow: true,
     });
   }
+});
+
+test('agent surface changes select the agent workflow lane with the repo-policy lane', () => {
+  for (const path of [
+    'scripts/ci/agents/claude/claude-native-skills.test.mjs',
+    'scripts/agents/claude/native-session.mjs',
+    '.claude/skills/knu-review/SKILL.md',
+    'docs/development/agent-workflows/qa.md',
+  ]) {
+    assert.deepEqual(classifyChanges([path]), {
+      web: false,
+      api: false,
+      shared: false,
+      storybook: false,
+      infra: false,
+      repoPolicy: true,
+      agentWorkflow: true,
+    });
+  }
+});
+
+test('product files that agent tests read select the agent workflow lane, other product files do not', () => {
+  assert.deepEqual(classifyChanges(['apps/web/src/legal/components/LegalDocumentLayout.tsx']), {
+    web: true,
+    api: false,
+    shared: false,
+    storybook: false,
+    infra: false,
+    repoPolicy: false,
+    agentWorkflow: true,
+  });
+  assert.equal(classifyChanges(['packages/shared/src/legal/contract.ts']).agentWorkflow, true);
+  assert.equal(
+    classifyChanges(['apps/web/src/main/tabs/home/sections/activity/dialogs/NewDialog.tsx'])
+      .agentWorkflow,
+    true,
+  );
+  assert.equal(classifyChanges(['apps/web/src/app/page.tsx']).agentWorkflow, false);
+  assert.equal(classifyChanges(['apps/api/src/auth/auth.controller.ts']).agentWorkflow, false);
+});
+
+test('agent test product inputs are tracked and cover every product file the agent suite names or links', () => {
+  for (const path of AGENT_TEST_PRODUCT_INPUTS.files) {
+    assert.ok(tracked.has(path), `${path} is not tracked`);
+    assert.match(path, /^(?:apps|packages)\//u);
+  }
+  for (const prefix of AGENT_TEST_PRODUCT_INPUTS.prefixes) {
+    assert.ok(
+      [...tracked].some((path) => path.startsWith(prefix)),
+      `${prefix} has no tracked file`,
+    );
+  }
+  const covered = (path) =>
+    AGENT_TEST_PRODUCT_INPUTS.files.includes(path) ||
+    AGENT_TEST_PRODUCT_INPUTS.prefixes.some((prefix) => path.startsWith(prefix));
+  // Files under the agent test directory (tests of the agent suite, helpers and fixtures) that name a tracked product file,
+  // and development documents that link one (the document graph test reads link targets). Directory names are routing
+  // examples, not reads.
+  const suite = discoverSuiteTests(repoRoot, 'agent-workflow');
+  const sources = [...tracked].filter(
+    (path) =>
+      path.startsWith('scripts/ci/agents/') &&
+      (!path.endsWith('.test.mjs') || suite.includes(path)),
+  );
+  const named = new Set();
+  for (const source of sources) {
+    for (const match of readFileSync(resolve(repoRoot, source), 'utf8').matchAll(
+      /['`"]((?:apps|packages)\/[^'`"\s]+)['`"]/gu,
+    ))
+      if (tracked.has(match[1])) named.add(match[1]);
+  }
+  for (const document of [...tracked].filter(
+    (path) => path.startsWith('docs/development/') && path.endsWith('.md'),
+  )) {
+    for (const match of readFileSync(resolve(repoRoot, document), 'utf8').matchAll(
+      /\]\(([^)#\s]+)(?:#[^)]*)?\)/gu,
+    )) {
+      const target = relative(repoRoot, resolve(repoRoot, dirname(document), match[1]));
+      if (/^(?:apps|packages)\//u.test(target) && tracked.has(target)) named.add(target);
+    }
+  }
+  assert.ok(named.size > 0, 'the scan must find product files named by the agent suite');
+  assert.deepEqual(
+    [...named].filter((path) => !covered(path)),
+    [],
+  );
 });
 
 test('surface ownership document rows match the classifier for every representative path', async () => {

@@ -174,7 +174,8 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
    완전성이 이미 달성합니다(§6). 출력을 소비하는 job 없이 출력만 두면 CI에서 검증할 수 없으므로, 이 출력은 Agent test lane
    분리와 같은 변경에서 둡니다.
 3. Agent test 배치: `scripts/ci`의 agent test·fixture를 하위 디렉터리로 모아 분류 규칙을 디렉터리 단위로 둡니다.
-4. Agent test lane 분리: 측정으로 이득이 확인될 때만 채택합니다.
+4. Agent test lane 분리: agent workflow test를 package install 없는 job으로 나눠 agent-only PR의 critical path를 줄입니다.
+   개선 전 측정과 예상치로 채택했고, merge 뒤 표본으로 효과를 확인합니다(§6).
 5. Formatting 검사 범위: formatting 설정이 바뀌지 않은 PR은 변경 파일만 검사합니다.
 6. Policy script test critical path: 가장 긴 test 파일의 시간을 줄입니다.
 
@@ -182,17 +183,18 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 
 | 개선 항목                        | PR   | 표본 수 | Wall p50 | Wall p95 | 분 올림 합 p50 | 상태                             |
 | -------------------------------- | ---- | ------: | -------: | -------: | -------------: | -------------------------------- |
-| 분류 완전성                      | #537 |     2/5 |        - |        - |              - | 표본 2/5                         |
-| Agent workflow 분류 출력         | -    |       - |        - |        - |              - | Agent test lane 분리와 함께 측정 |
+| 분류 완전성                      | #537 |     5/5 |     181s |        - |            5분 | 표본 5/5                         |
+| Agent workflow 분류 출력         | #553 |       - |        - |        - |              - | Agent test lane 분리와 함께 측정 |
 | Agent test 배치                  | #543 |       - |        - |        - |              - | 시간 측정 대상 아님              |
-| Agent test lane 분리             | -    |       - |        - |        - |              - | 미측정                           |
-| Formatting 검사 범위             | #545 |     0/5 |        - |        - |              - | 표본 0/5                         |
+| Agent test lane 분리             | #553 |     0/5 |        - |        - |              - | 표본 0/5                         |
+| Formatting 검사 범위             | #545 |     3/5 |        - |        - |              - | 표본 3/5                         |
 | Policy script test critical path | -    |       - |        - |        - |              - | 미측정                           |
 
 p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorepo CI architecture의 표본 규칙).
 
-표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `Monorepo CI` workflow run입니다. Agent-only PR은 product lane 없이
-classify·repository policy·summary job만 실행한 PR입니다. 개선 전 값은 §3입니다. 시간을 바꾸지 않는 개선은 시간 표본
+표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `Monorepo CI` workflow run입니다. Agent-only PR은 agent 표면 경로를 바꾸고
+product lane 없이 실행한 PR입니다. #553 전에는 classify·repository policy·summary job 3개, #553 뒤에는 Agent workflow gate가 더해진
+job 4개를 실행합니다. 개선 전 값은 §3입니다. 시간을 바꾸지 않는 개선은 시간 표본
 대신 동등성 검증을 적습니다.
 
 ### 분류 완전성(#537) 정적 replay
@@ -220,10 +222,43 @@ classify·repository policy·summary job만 실행한 PR입니다. 개선 전 �
 | ------------- | ---- | ---------- | --: | ---: | ---: | ---------: |
 | `37086373593` | #541 | `b5a62079` |   3 | 181s | 177s |        5분 |
 | `37088505466` | #543 | `69ce428a` |   3 | 176s | 171s |        5분 |
+| `37122518625` | #547 | `a0e9c9ef` |   3 | 177s | 171s |        5분 |
+| `37125113375` | #549 | `761d53f1` |   3 | 235s | 192s |        5분 |
+| `37130366695` | #551 | `e0afecb9` |   3 | 217s | 211s |        5분 |
 
-- 두 run 모두 job 3개(classify, repository policy, summary)만 실행했습니다. 개선 전 agent PR 9개 중 8개는 job 11개, wall
+- 다섯 run 모두 job 3개(classify, repository policy, summary)만 실행했습니다. 개선 전 agent PR 9개 중 8개는 job 11개, wall
   274–555s, 분 올림 합 33–39분이었습니다(§1).
-- 표본 2/5라 p50을 적지 않습니다.
+- 표본 5개의 wall p50은 181s, raw p50은 177s, 분 올림 합은 5개 모두 5분입니다. p95는 표본 10개 뒤에 적습니다.
+
+### Agent test lane 분리(#553) 개선 전 기준과 예상
+
+위 #537 표본 5개가 개선 전 기준입니다. 모두 job 3개이고 Repository policy gate 하나가 policy test 전체를 실행했습니다. §2의
+step 시간 명령으로 이 job을 나누면 다음과 같습니다.
+
+| 구간                                                     |     시간 |
+| -------------------------------------------------------- | -------: |
+| Repository policy gate                                   | 148–171s |
+| Policy test step                                         |  77–114s |
+| Install 관련(Setup pnpm + Install + Post Setup Node.js)  |   41–48s |
+| 그 밖의 test 밖 시간(set up, checkout, setup-node, post) |    7–10s |
+| Formatting step                                          |    1–25s |
+
+- Formatting step은 #545 전 run(#541·#543, tree 전체 20–25s)과 뒤 run(#547·#549·#551, 변경 파일 1–2s)이 섞여 있습니다. 아래
+  예상은 formatting을 Repository policy gate에 남기므로 agent job의 critical path에는 들어가지 않습니다.
+
+- Agent test 비율은 run `36947143906`(#532)의 policy step 출력에서 잽니다. 이 run은 test 파일을 한 번에 하나씩 실행했습니다. 파일별
+  시간은 그 파일의 마지막 결과 줄과 앞 파일의 마지막 결과 줄 사이 시각 차이이고, 파일 경계는 파일별 test 수와 test 이름 순서로
+  정합니다. Policy test 105.8s 중 agent test 42개가 101.3s(95.7%)이고, 그중 tree 전체를 읽는 guard 2개(1.2s)를 뺀 옮겨지는 몫은
+  100.0s(94.5%)입니다.
+- Agent workflow test 중 tree 전체를 읽는 2개를 뺀 나머지는 `node_modules` 없는 checkout에서 모두 통과합니다. 남은 2개 중
+  하나는 `prettier`를 import합니다. 그래서 이 2개는 Repository policy gate에 남기고, Agent workflow gate는 install 없이 실행합니다.
+- 예상(추정, 측정 아님): 표본마다 policy test step의 94.5%를 install 없는 새 job으로 옮기고, 새 job의 test 밖 시간을 5–19s,
+  formatting step을 #545 뒤 값(1–2s)으로 둡니다. Agent-only PR의 wall은 표본별로 42–73s 줄고, raw는 새 job의 test 밖 시간만큼
+  5–19s 늘고, 분 올림 합은 5–7분(classify 1 + summary 1 + repository policy 1–2 + agent workflow 2–3)입니다. Full fan-out PR은 product lane이 critical path라 wall은 그대로입니다.
+- 비교한 대안(같은 방식의 추정): 두 job 모두 install하면 #545 뒤 표본에서 wall이 6–8s 줄고 raw가 54–56s(두 번째 job의 install
+  포함 test 밖 시간) 늘어납니다. Agent job 하나로 합치면 기존 Repository policy gate와 같은 일을 한 job에서 하므로 wall·raw
+  변화가 거의 없습니다. 둘 다 critical path를 줄이지 못해 채택하지 않았습니다.
+- 개선 뒤 표본은 #553 merge 뒤 agent-only PR의 run이고, 지금은 0/5입니다.
 
 ### 분류 완전성(#537) 리뷰에서 찾은 under-selection
 
@@ -271,7 +306,14 @@ step의 시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에
 | `37017495949` | #535 | `564eb0bd` |   3 |             35s |
 
 - 개선 전 5개의 step 시간은 20–35s이고 중앙값은 25s입니다. §3의 두 run(34s, 33s)도 같은 범위입니다.
-- 개선 뒤 표본은 #545 merge 뒤 formatting 설정을 바꾸지 않은 agent-only PR의 run입니다. 지금은 표본 0/5입니다.
+- 개선 뒤 표본은 #545 merge 뒤 formatting 설정을 바꾸지 않은 agent-only PR의 run입니다. 지금은 표본 3/5입니다.
+
+| Run ID        | PR   | Head SHA   | Formatting scope     | Formatting step |
+| ------------- | ---- | ---------- | -------------------- | --------------: |
+| `37122518625` | #547 | `a0e9c9ef` | `changed`, 파일 4개  |              1s |
+| `37125113375` | #549 | `761d53f1` | `changed`, 파일 10개 |              1s |
+| `37130366695` | #551 | `e0afecb9` | `changed`, 파일 19개 |              2s |
+
 - 개선 뒤 run에서는 step 출력의 `Formatting scope:` 줄로 검사 범위(`full`·`changed`)와 검사한 파일 수를 확인합니다.
 
 #545 자신의 run과 로컬 측정은 표본이 아니라 동작 확인입니다. #545는 `.github/workflows/ci.yml`을 바꿔 전체 lane을 실행하므로
