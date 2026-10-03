@@ -155,6 +155,19 @@ test('an override must point at an existing line', () => {
   ]);
 });
 
+test('rows without three cells and additional keys without path:lines are malformed', () => {
+  const rows = BASE_SPEC['rows/L1.tsv'];
+  assert.deepEqual(problems({ spec: { 'rows/L1.tsv': `${rows}docs/guide.md:3\tA\n` } }), [
+    'ERROR L1.tsv:4 malformed',
+  ]);
+  assert.deepEqual(problems({ spec: { 'rows/L1.tsv': `${rows}docs/guide.md:3\tA\tx\textra\n` } }), [
+    'ERROR L1.tsv:4 malformed',
+  ]);
+  assert.deepEqual(problems({ spec: { 'additional/L2.tsv': 'docs/guide.md\tA\tno line\n' } }), [
+    'ERROR L2.tsv:1 malformed',
+  ]);
+});
+
 test('a row with an unknown class or an empty reason is rejected', () => {
   const rows = BASE_SPEC['rows/L1.tsv'].replace('\tB\timport of the target module', '\tZ\t ');
   assert.equal(problems({ spec: { 'rows/L1.tsv': rows } }).length, 1);
@@ -355,6 +368,25 @@ test('the CLI exits 2 without output when the spec cannot be read', () => {
   assert.equal(result.status, 2);
   assert.match(result.stderr, /bad line spec: 6-5/u);
   assert.equal(existsSync(out), false);
+});
+
+test('contract targets need a known scope, file targets a bare path and selectors one range', () => {
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md\tA\tblock\ttypo\n' } }),
+    ['ERROR contract scope must be blocks or file: docs/guide.md'],
+  );
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md:3-5\tA\tfile\trange\n' } }),
+    ['ERROR file target must be a bare path: docs/guide.md:3-5'],
+  );
+  assert.deepEqual(
+    problems({ spec: { 'contract-targets.tsv': 'docs/guide.md#Details\tA\tfile\theading\n' } }),
+    ['ERROR file target must be a bare path: docs/guide.md#Details'],
+  );
+  const { repo, specDirectory } = fixture({
+    spec: { 'contract-targets.tsv': 'docs/guide.md:1,99,2\tA\tblocks\tlist\n' },
+  });
+  assert.throws(() => runImpact({ root: repo, specDirectory }), /bad line spec: 1,99,2/u);
 });
 
 test('a directory is not a contract target', () => {

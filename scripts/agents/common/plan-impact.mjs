@@ -122,7 +122,8 @@ function lineCount(root, path) {
 //   rows/*.tsv          path:line<TAB>class<TAB>reason     classification of scanned lines
 //   additional/*.tsv    path:lines<TAB>class<TAB>reason    semantic review rows, lines may be N, N-M, lists
 //   overrides.tsv       path:line<TAB>class<TAB>reason     Parent adjudication, wins over rows and additional
-//   contract-targets.tsv selector<TAB>class<TAB>blocks|file<TAB>reason   path | path:a-b | path#Heading
+//   contract-targets.tsv selector<TAB>class<TAB>blocks|file<TAB>reason   blocks: path | path:N | path:N-M |
+//                       path#Heading; file: path only
 //   consumers.tsv       regex<TAB>class<TAB>subjects<TAB>reason   `@exports:<class>[:<path prefix>]` = exports of
 //                       the file targets in that class
 //   regression.tsv      path<TAB>lines<TAB>class<TAB>reason   review-cited lines that must stay covered
@@ -504,8 +505,14 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
       errors.push(`contract path missing: ${selector}`);
       continue;
     }
+    if (scope !== 'blocks' && scope !== 'file') {
+      errors.push(`contract scope must be blocks or file: ${selector}`);
+      continue;
+    }
     if (scope === 'file') {
-      fileTargets.push({ path, cls, reason });
+      // A file target covers the whole file, so a line or heading selector would be silently ignored.
+      if (selector !== path) errors.push(`file target must be a bare path: ${selector}`);
+      else fileTargets.push({ path, cls, reason });
       continue;
     }
     const fileLines = splitLines(readFileSync(resolve(root, path), 'utf8'));
@@ -517,7 +524,10 @@ export function blockInventory(root, spec, lines, tracked = trackedFiles(root)) 
         continue;
       }
     } else if (selector.includes(':')) {
-      const cited = expandLines(selector.slice(selector.indexOf(':') + 1));
+      // One `N` or `N-M` range; a comma list would hide every line between its ends.
+      const spec_ = selector.slice(selector.indexOf(':') + 1);
+      if (spec_.includes(',')) throw new Error(`bad line spec: ${spec_}`);
+      const cited = expandLines(spec_);
       range = [cited[0], cited.at(-1)];
       if (range[1] > lineCount(root, path)) {
         errors.push(`selector points to no line: ${selector}`);
