@@ -3,7 +3,7 @@
 API/Web CI 구조의 개선 전 denominator, accepted A/B evidence, current measurement epoch를 재현 가능하게 기록합니다. 이
 문서는 성능 측정 기준이며 제품 정책의 source of truth는 아닙니다.
 
-> 이 문서는 시점별 측정 기록입니다. 경로별 표면·lane·owner의 현재 책임은 [CI surface ownership](./ci-surface-ownership.md)이
+> 이 문서는 시점별 측정 기록입니다. 경로별 표면·lane·owner의 현재 책임은 [CI surface ownership](../../development/ci/ci-surface-ownership.md)이
 > 소유합니다.
 
 ## 측정 기준
@@ -98,7 +98,7 @@ five-minute whole-job budget. In the same run, sibling jobs completed the identi
 Cancelled attempts remain visible as retry/wasted compute and are excluded from successful wall-time and percentile cohorts. The
 current dependency epoch does not rotate for the timeout correction because dependency inputs, action pin, package-manager version,
 cache inputs, and the successful command graph remain unchanged. Diagnosis and recovery are owned by
-[Repository policy pnpm setup timeout](../troubleshooting/ci/repository-policy-pnpm-setup-timeout.md).
+[Repository policy pnpm setup timeout](../../development/troubleshooting/ci/repository-policy-pnpm-setup-timeout.md).
 
 Generated local evidence is reproducible under `.artifacts/tools/ci-performance/` and is not tracked source:
 

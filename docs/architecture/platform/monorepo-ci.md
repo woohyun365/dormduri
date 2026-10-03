@@ -64,7 +64,7 @@ classify
 
 경로 family별 표면·lane·owner와 새 경로를 추가하는 절차는
 [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유한다. 분류 개선의 문제·측정·결정 기록은
-[CI change classification evidence](../../development/ci/ci-change-classification-evidence.md)에 둔다.
+[CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md)에 둔다.
 
 분류 source of truth는 `scripts/ci/classify-changes.mjs`이며 path matrix는 `scripts/ci/fixtures/`와 Node built-in tests가 고정한다.
 
@@ -157,7 +157,7 @@ p95로 승격하지 않는다.
 
 Web unit은 current Web job에서 가장 긴 독립 cohort였고 production build나 browser artifact를 소비하지 않는다. Hosted
 evidence에서 unit만 별도 runner로 이동했을 때 workflow wall은 460s에서 286s로 줄었고 raw compute와 rounded billing은
-bounded하게 증가했다. 상세 수치는 [CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
+bounded하게 증가했다. 상세 수치는 [CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다.
 
 Static, build, Storybook, browser는 core job에 남는다. Static/build/browser를 더 나누는 구조, Web Node/jsdom project별
 shard, API core의 추가 split, 별도 nested summary runner는 duplicated install과 job rounding 대비 추가 acceptance 근거가
@@ -179,7 +179,7 @@ fail-closed summary가 reusable API workflow의 모든 job 결과를 집계한�
 두 hosted 반복에서 느린 shard도 frozen integration p50 대비 acceptance를 넘었고 full-run job rounding 환산은 기존
 baseline의 20% 증가 상한 안에 남았다. API-only run은 15-minute advisory를 초과하므로 duplicated install/prepare와 artifact
 reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
-[CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
+[CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다.
 
 ## Stage timing evidence
 
@@ -269,7 +269,7 @@ Job-rounded billed-minute advisory budget:
 | Infra-only          | 10 minutes |
 | Docs/config/tooling |  5 minutes |
 
-Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 최근 10개 표본과 산출 근거는 `docs/development/ci/monorepo-ci-baseline.md`에 유지한다.
+Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 최근 10개 표본과 산출 근거는 `docs/evidence/ci/monorepo-ci-baseline.md`에 유지한다.
 
 비용 budget은 초기에는 advisory다. 표준 private-repository Linux 2-core list rate는 2026-08-26 공식 문서 기준
 `$0.006/min`이며, 포함 minutes 할인 전 gross estimate에만 사용한다. 표본 5개 전에는 p50, 10개 전에는 p95를 게시하지

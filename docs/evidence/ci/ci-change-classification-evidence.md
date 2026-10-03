@@ -2,7 +2,7 @@
 
 > **Audience:** human-to-human portfolio, onboarding, and engineering discussion reference.
 > 이 문서는 CI 분류 규칙의 owner가 아닙니다. 현재 경로별 표면·lane·owner는
-> [CI surface ownership](./ci-surface-ownership.md), 설계 결정과 job graph는
+> [CI surface ownership](../../development/ci/ci-surface-ownership.md), 설계 결정과 job graph는
 > [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md)가 소유합니다. 분류별 누적 측정 표본은
 > [Monorepo CI baseline](./monorepo-ci-baseline.md)에 둡니다. 이 개선의 개선 전 표본(agent PR 9개)은 §3에 둡니다.
 
@@ -170,7 +170,8 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 1. 분류 완전성: 의도하지 않은 fail-open family마다 표면에 맞는 규칙을 둡니다. Tracked 전수 test가 의도한 fan-out 밖의
    전체 lane을 막습니다.
 2. Agent workflow 분류 출력: agent lane job이 쓸 분류 출력을 둡니다. Agent 파일만 바뀐 PR의 product lane 미실행은 분류
-   완전성이 이미 달성합니다(§6).
+   완전성이 이미 달성합니다(§6). 출력을 소비하는 job 없이 출력만 두면 CI에서 검증할 수 없으므로, 이 출력은 Agent test lane
+   분리와 같은 변경에서 둡니다.
 3. Agent test 배치: `scripts/ci`의 agent test·fixture를 하위 디렉터리로 모아 분류 규칙을 디렉터리 단위로 둡니다.
 4. Agent test lane 분리: 측정으로 이득이 확인될 때만 채택합니다.
 5. Formatting 검사 범위: formatting 설정이 바뀌지 않은 PR은 변경 파일만 검사합니다.
@@ -178,18 +179,20 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 
 ## 6. 개선별 전후 측정
 
-| 개선 항목                        | PR   | 표본 수 | Wall p50 | Wall p95 | 분 올림 합 p50 | 상태     |
-| -------------------------------- | ---- | ------: | -------: | -------: | -------------: | -------- |
-| 분류 완전성                      | #537 |     0/5 |        - |        - |              - | 표본 0/5 |
-| Agent workflow 분류 출력         | -    |       - |        - |        - |              - | 미측정   |
-| Agent test 배치                  | -    |       - |        - |        - |              - | 미측정   |
-| Agent test lane 분리             | -    |       - |        - |        - |              - | 미측정   |
-| Formatting 검사 범위             | #545 |     0/5 |        - |        - |              - | 표본 0/5 |
-| Policy script test critical path | -    |       - |        - |        - |              - | 미측정   |
+| 개선 항목                        | PR   | 표본 수 | Wall p50 | Wall p95 | 분 올림 합 p50 | 상태                             |
+| -------------------------------- | ---- | ------: | -------: | -------: | -------------: | -------------------------------- |
+| 분류 완전성                      | #537 |     2/5 |        - |        - |              - | 표본 2/5                         |
+| Agent workflow 분류 출력         | -    |       - |        - |        - |              - | Agent test lane 분리와 함께 측정 |
+| Agent test 배치                  | #543 |       - |        - |        - |              - | 시간 측정 대상 아님              |
+| Agent test lane 분리             | -    |       - |        - |        - |              - | 미측정                           |
+| Formatting 검사 범위             | #545 |     0/5 |        - |        - |              - | 표본 0/5                         |
+| Policy script test critical path | -    |       - |        - |        - |              - | 미측정                           |
 
 p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorepo CI architecture의 표본 규칙).
 
-표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `Monorepo CI` workflow run입니다. 개선 전 값은 §3입니다.
+표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `Monorepo CI` workflow run입니다. Agent-only PR은 product lane 없이
+classify·repository policy·summary job만 실행한 PR입니다. 개선 전 값은 §3입니다. 시간을 바꾸지 않는 개선은 시간 표본
+대신 동등성 검증을 적습니다.
 
 ### 분류 완전성(#537) 정적 replay
 
@@ -207,6 +210,50 @@ p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorep
   그중 1개는 이후 이름이 바뀌어 지금 tree에 없는 local workspace 경로도 바꿨습니다. 나머지 1개는 그런 옛 경로만 바꿨고,
   모르는 경로로 fail-open합니다(commit `059bf6da`).
 - Agent PR 9개는 모두 `repoPolicy`만 선택합니다.
+
+### 분류 완전성(#537) 시간 표본
+
+#537 merge 뒤 agent-only PR의 run입니다. §2의 run 단위 시간 명령으로 산출했습니다.
+
+| Run ID        | PR   | Head SHA   | Job | Wall |  Raw | 분 올림 합 |
+| ------------- | ---- | ---------- | --: | ---: | ---: | ---------: |
+| `37086373593` | #541 | `b5a62079` |   3 | 181s | 177s |        5분 |
+| `37088505466` | #543 | `69ce428a` |   3 | 176s | 171s |        5분 |
+
+- 두 run 모두 job 3개(classify, repository policy, summary)만 실행했습니다. 개선 전 agent PR 9개 중 8개는 job 11개, wall
+  274–555s, 분 올림 합 33–39분이었습니다(§1).
+- 표본 2/5라 p50을 적지 않습니다.
+
+### 분류 완전성(#537) 리뷰에서 찾은 under-selection
+
+규칙을 좁히면 fail-open 때문에 우연히 실행되던 lane이 빠질 수 있습니다. #537의 독립 리뷰 세 회차에서 lane job이 실행하거나
+import하는 저장소 script가 그 lane을 켜지 않는 경로를 찾았습니다. 대응으로 이런 script를 lane별로 지정하고, workflow step,
+package script, Web image build, lane package 파일의 import와 경로 참조에서 출발해 import closure를 따라가는 test를 두었습니다.
+규칙은 [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유합니다.
+
+| 발견 회차 | Script                                                                                   | 실행·참조 경로                                         | 구분                                        |
+| --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------- |
+| 1차       | `scripts/artifacts/paths.mjs`                                                            | `pnpm infra:check` import                              | #537이 만든 공백                            |
+| 1차       | `scripts/ci/run-timed-command.mjs`                                                       | Web·API step wrapper                                   | 기존 공백                                   |
+| 1차       | `scripts/ci/repo-policy-test-files.mjs`                                                  | `pnpm infra:check` import                              | 기존 공백                                   |
+| 2차       | `scripts/observability/sentry/check-build.mjs`, `scripts/ci/prepare-next-standalone.mjs` | Web job의 pnpm script, Playwright smoke·Web Dockerfile | 기존 공백                                   |
+| 2차       | `scripts/infra/compose/profile.mjs`, `scripts/observability/production/environment.mjs`  | API job의 `pnpm infra:compose`와 그 import             | 기존 공백                                   |
+| 3차       | `scripts/artifacts/paths.mjs`                                                            | API stress harness import                              | #537이 만든 공백(전에는 fail-open으로 실행) |
+| 3차       | `scripts/observability/rehearsal/web-bff.mjs`                                            | API operations test가 경로로 읽음                      | 기존 공백                                   |
+| 3차       | `scripts/ci/run-timed-command.mjs`                                                       | Storybook step wrapper                                 | 기존 공백                                   |
+
+- 회차마다 test를 먼저 실패시킨 뒤(1차 4건, 2차 4건, 3차 3건) 규칙을 추가했습니다.
+- 3차 회차의 mutation 9건은 모두 test 실패로 잡혔습니다.
+- 계산된 경로, `spawn` 인자, `pnpm --filter` 형식처럼 이 test가 따라가지 않는 경로는 표면 문서에 검사 범위 밖으로 적었습니다.
+
+### Agent test 배치(#543) 동등성
+
+Agent test 43개와 fixture 12개를 `scripts/ci/agents/{common,claude,codex}/`로 옮긴 변경입니다. 분류 결과와 실행 시간은 바뀌지
+않으므로 시간 표본 대신 이동 전후가 같다는 것을 확인했습니다.
+
+- Repository policy test 1,238/1,238이 이동 전후 같고, test 이름 목록은 경로만 다릅니다.
+- Test discovery 82개의 basename이 같고, tracked 참조에 옛 경로가 0건입니다.
+- 이 배치는 이후 agent test를 디렉터리 단위로 분류하는 기준입니다.
 
 ### Formatting 검사 범위(#545) step 시간
 
@@ -226,6 +273,23 @@ step의 시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에
 - 개선 뒤 표본은 #545 merge 뒤 formatting 설정을 바꾸지 않은 agent-only PR의 run입니다. 지금은 표본 0/5입니다.
 - 개선 뒤 run에서는 step 출력의 `Formatting scope:` 줄로 검사 범위(`full`·`changed`)와 검사한 파일 수를 확인합니다.
 
+#545 자신의 run과 로컬 측정은 표본이 아니라 동작 확인입니다. #545는 `.github/workflows/ci.yml`을 바꿔 전체 lane을 실행하므로
+agent-only 표본에 넣지 않습니다.
+
+| 측정                          | 환경                                                 | 검사 범위           | Formatting 검사 시간 |
+| ----------------------------- | ---------------------------------------------------- | ------------------- | -------------------: |
+| Run `37101560534`(`ad565715`) | GitHub Actions, Repository policy gate               | `changed`, 파일 9개 |                   1s |
+| 로컬 3회 반복(`cbf203f6`)     | macOS, Node.js 24, `scripts/ci/check-formatting.mjs` | `full`(tree 전체)   |          9.99–10.34s |
+| 로컬 3회 반복                 | 같음                                                 | `changed`, 파일 9개 |           0.27–0.28s |
+
+- Run `37101560534`의 step 로그는 `FORMATTING_SCOPE: changed`, `Formatting scope: changed (9 files)`,
+  `All matched files use Prettier code style!`입니다.
+- 같은 PR에서 변경 경로를 `git diff --no-renames`로 구하게 바꿨습니다. Rename의 원래 경로도 lane을 고르므로, 파일을 lane 밖으로
+  옮기는 PR에서 그 lane이 빠지던 under-selection이 사라졌습니다.
+- 리뷰에서 찾은 fail-closed 공백도 고쳤습니다. `changed`인데 경로 목록이 비어 있던 경우의 검사 생략, 대체 비교 기준(직전
+  commit·빈 tree)에서의 범위 축소, 규칙 밖 경로와 `.gitattributes` 변경에서의 범위 축소입니다. 지금 동작은 표면 문서의
+  "Formatting 검사 범위" 절이 소유합니다.
+
 ## 7. 한계와 재측정 조건
 
 - Baseline은 agent PR 9개입니다. 분류별 p50·p95를 주장하지 않습니다.
@@ -236,9 +300,10 @@ step의 시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에
 
 ## 8. Interview evidence map
 
-| 질문                               | 근거 절 |
-| ---------------------------------- | ------- |
-| 어떤 문제를 어떤 수치로 확인했는가 | §1, §3  |
-| 원인을 어떻게 좁혔는가             | §2, §4  |
-| 왜 다른 방법을 쓰지 않았는가       | §5      |
-| 개선 효과를 어떻게 검증하는가      | §2, §6  |
+| 질문                                  | 근거 절 |
+| ------------------------------------- | ------- |
+| 어떤 문제를 어떤 수치로 확인했는가    | §1, §3  |
+| 원인을 어떻게 좁혔는가                | §2, §4  |
+| 왜 다른 방법을 쓰지 않았는가          | §5      |
+| 개선 효과를 어떻게 검증하는가         | §2, §6  |
+| 검증 중 발견한 공백을 어떻게 다뤘는가 | §6      |

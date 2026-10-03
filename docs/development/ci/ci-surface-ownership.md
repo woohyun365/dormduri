@@ -4,8 +4,8 @@
 현재 분류 규칙의 책임 표입니다. 분류 동작의 원본은 `scripts/ci/classify-changes.mjs`이고, 아래 표는
 `scripts/ci/classify-changes.test.mjs`가 행마다 대표 경로로 분류기와 대조합니다. 설계 결정과 job graph는
 [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md), 분류별 누적 측정 표본은
-[Monorepo CI baseline](./monorepo-ci-baseline.md), 분류 개선의 문제·측정·결정 기록은
-[CI change classification evidence](./ci-change-classification-evidence.md)가 소유합니다.
+[Monorepo CI baseline](../../evidence/ci/monorepo-ci-baseline.md), 분류 개선의 문제·측정·결정 기록은
+[CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md)가 소유합니다.
 
 ## Lane
 
