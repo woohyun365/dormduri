@@ -50,6 +50,11 @@ mock이나 assertion으로 false positive가 생길 수 있습니다.
 - 여러 surface의 public contract 또는 CI/security gate
 - 테스트와 구현이 같은 잘못된 가정을 공유할 수 있다는 구체적 evidence
 
+이 검토는 첫 push·PR 전에 local commit에서 받고, 결과(PASS 또는 BLOCKED·남은 gap과 그 근거)를 PR에 기록합니다. 검토 뒤
+source가 바뀌면 아래 delta re-review를 따릅니다. Hosted-only evidence가 필요한 예외는
+[Remote push budget](../github/branch-and-pr-strategy.md#remote-push-budget)을 따릅니다
+([PR과 merge](../github/branch-and-pr-strategy.md#pr과-merge)).
+
 단순 경로명, diff 크기, commit 수, AI 사용 여부만으로 추가 reviewer를 요구하지 않습니다. 오탈자·포맷 변경이나 위 신호
 없이 이미 검증 가능한 bounded 변경은 direct path로 targeted checks를 실행하고 `not-needed: 이유`를 남길 수 있습니다.
 QA 절차 자체의 누락이 검증을 잘못 PASS시키는 변경은 단순 Markdown 오탈자가 아니므로 의미를 검토합니다.

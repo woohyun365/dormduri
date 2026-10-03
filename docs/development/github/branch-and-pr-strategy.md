@@ -175,9 +175,12 @@ Local iteration은 빠른 feedback 경계이고 remote push는 GitHub Actions �
 7. `cancel-in-progress`는 superseded completion을 막지만 이미 사용한 runner minutes를 복구하지 않습니다. 알려진 security,
    credential, destructive migration 문제를 중단할 때만 active run을 즉시 supersede합니다.
 8. Draft PR도 현재 `pull_request` workflow를 실행합니다. Remote test runner 용도로만 draft를 일찍 열지 않고, hosted-only
-   evidence나 review가 필요할 때 생성합니다.
-9. `[skip ci]`, direct `dev`/`main` push, red fail-closed summary merge는 정상적인 비용 절감 수단이 아닙니다.
-10. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 `dev`
+   evidence나 PR에서만 할 수 있는 review(사람 reviewer 등)가 필요할 때 생성합니다.
+9. Agent 독립 검토는 hosted CI 없이 local commit의 diff와 검증 기록으로 할 수 있으므로 첫 push 전에 받습니다. PR을 먼저
+   열면 검토 지적을 고칠 때마다 선택된 lane 전체가 다시 실행됩니다. 검토 입력에 hosted-only evidence가 꼭 필요하면 그 이유를
+   PR에 남기고 먼저 push합니다.
+10. `[skip ci]`, direct `dev`/`main` push, red fail-closed summary merge는 정상적인 비용 절감 수단이 아닙니다.
+11. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 `dev`
     대상 squash merge를 bounded integration history 정리 경계로 사용합니다.
 
 이 전략은 PR 수를 무작정 줄이지 않습니다. 서로 독립적인 owner와 rollback 경계는 별도 PR로 유지하고, CI 비용은 safe
@@ -241,7 +244,8 @@ NODE
 6. 실제 assertion·type·format·build 실패는 첫 push 전에 해결합니다. Agent sandbox의 port binding 차단, provider credential,
    Docker authority처럼 source 변경으로 해결할 수 없는 **environment gap**은 같은 명령을 적절한 local authority에서 한 번만
    재검증하고, 계속 제한되면 PR 검증 공백에 기록합니다. 환경 제한을 추측으로 고치거나 trial push로 디버깅하지 않습니다.
-7. 예상 lane, scope audit, local-green 결과, 환경 gap, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
+7. 독립 검토가 필요한 변경은 push할 HEAD 기준의 검토 결과를 먼저 받습니다([PR과 merge](#pr과-merge) 5단계). 예상 lane, scope audit,
+   local-green 결과, 환경 gap, 독립 검토 결과, `doNotTouch` 파일을 PR body에 한 번에 기록한 뒤 branch를 한 번 push하고 PR을
    생성합니다. Remote failure가 발생하면 전체 log를 읽어 하나의 corrective push로 묶습니다.
 
 ## PR과 merge
@@ -250,9 +254,14 @@ NODE
 2. 관련 lint, typecheck, build, integration, repository policy를 확장합니다.
 3. staged 범위와 unrelated 파일 제외를 다시 확인합니다.
 4. commit은 하나의 의도와 Lore evidence를 가집니다.
-5. PR은 `dev`를 target으로 하며 실제 검증 결과와 검증 공백을 기록합니다.
-6. Required CI가 green이 된 뒤 target branch가 허용하는 merge method로 merge합니다.
-7. merge 후 local `dev`를 fast-forward하고 [local branch disposition](#local-branch-cleanup)을 기록합니다.
+5. merge 전 독립 검토가 필요한 변경([QA disposition](../agent-workflows/qa.md#independent-review-disposition))은 이 local
+   commit에서 검토를 받습니다. 지적 수정과 재검토도 push 전에 끝내고, 수정 commit은 local에 모읍니다. 검토 뒤 preflight
+   수정 등으로 source가 바뀌면 그 delta를 push 전에 다시 검토합니다. Hosted-only evidence가 필요한 예외는
+   [Remote push budget](#remote-push-budget) 9를 따릅니다.
+6. [Pre-PR CI lane preflight](#pre-pr-ci-lane-preflight)를 거쳐 branch를 한 번 push하고 PR을 만듭니다. PR은 `dev`를
+   target으로 하며 실제 검증 결과, 검증 공백과 독립 검토 결과를 기록합니다.
+7. Required CI가 green이 된 뒤 target branch가 허용하는 merge method로 merge합니다.
+8. merge 후 local `dev`를 fast-forward하고 [local branch disposition](#local-branch-cleanup)을 기록합니다.
    다음 dependent work는 그 상태에서 새 branch를 만듭니다.
 
 `dev -> main` 승격은 feature PR과 별도의 integration 경계입니다. External provider 설정은 default branch 반영이 필요할 수
