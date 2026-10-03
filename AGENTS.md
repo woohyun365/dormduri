@@ -69,6 +69,7 @@
   존재할 때 on-demand로 읽으며 ignored local handoff를 durable source로 취급하지 않는다.
 - 구현 요청은 `docs/development/github/branch-and-pr-strategy.md`를 따른다. `dev`·`main`에서 직접 구현하지 않고 fresh
   integration baseline에서 bounded branch를 만든 뒤 edit·stage·commit한다.
+- before/after 수치나 대안 비교가 있는 개선 작업이면 `docs/portfolio/evidence-instruction.md`의 evidence 기록·승격 절차를 함께 따른다.
 
 ## 5. Implementation agreements
 

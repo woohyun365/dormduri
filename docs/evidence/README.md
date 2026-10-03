@@ -19,7 +19,7 @@
   규칙을 복제하거나 바꾸지 않습니다.
 - 재발할 수 있는 장애의 증상·원인·해결·회귀 검증은
   [Troubleshooting](../development/troubleshooting/README.md)에 둡니다. 여기에는 개선 하나의 전후 기록을 둡니다.
-- 개인 분석, 초안, PR review 원문, 첨부 자료는 ignored `.local-docs/`, 실행 로그와 원시 출력은 ignored `.artifacts/`에 둡니다.
+- 개인 분석, 계획에 묶이지 않은 초안, PR review 원문, 첨부 자료는 ignored `.local-docs/`, 계획 진행 중의 evidence 초안·원자료와 실행 로그·원시 출력은 ignored `.artifacts/`에 둡니다.
 
 ## 작성 기준
 
@@ -27,3 +27,4 @@
 - 표본이 모이기 전의 통계는 주장하지 않고 "표본 n/5"처럼 수집 상태를 적습니다.
 - 측정 시점(commit·날짜)을 함께 적습니다. 이후 동작이 바뀌어도 당시 측정은 고치지 않고, 새 측정을 추가합니다.
 - 개인 장비 경로, ignored 계획 파일 경로, secret 원문을 쓰지 않습니다.
+- 개선 작업 중에 evidence 초안을 남기고 이 디렉터리로 옮기는 절차는 [Portfolio evidence instruction](../portfolio/evidence-instruction.md)이 소유합니다.
