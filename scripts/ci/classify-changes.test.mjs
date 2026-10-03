@@ -1,14 +1,19 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  changedPathsForComparison,
   classifyChanges,
+  classifyGithubEvent,
   eventComparisonHints,
+  FORMATTING_CHANGED_PATH_LIMIT,
+  formattingScope,
   isIntendedFanOut,
   summarizeChangedPaths,
 } from './classify-changes.mjs';
@@ -343,4 +348,200 @@ test('scripts run or referenced by lane jobs and their imports select that lane'
     for (const path of new Set([...importClosure(run), ...named.filter((p) => tracked.has(p))]))
       if (!classifyChanges([path])[lane]) missing.push(`${lane}: ${path}`);
   assert.deepEqual(missing, []);
+});
+
+test('formatting configuration changes at any depth select the full formatting check', () => {
+  for (const path of [
+    '.prettierrc',
+    '.prettierrc.json',
+    'apps/web/.prettierrc.yaml',
+    'prettier.config.mjs',
+    'packages/shared/prettier.config.ts',
+    '.prettierignore',
+    '.gitignore',
+    'omx_wiki/.gitignore',
+    '.editorconfig',
+    'apps/api/.editorconfig',
+    'package.json',
+    'apps/web/package.json',
+    'packages/shared/package.yaml',
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+  ]) {
+    assert.equal(formattingScope([path]), 'full', path);
+    assert.equal(formattingScope(['docs/README.md', path]), 'full', `docs/README.md + ${path}`);
+  }
+});
+
+test('every formatting configuration file in the surface document selects the full check', async () => {
+  const section = (await readFile(`${repoRoot}${surfaceDocPath}`, 'utf8'))
+    .split(/^## /mu)
+    .find((part) => part.startsWith('Formatting 검사 범위'));
+  assert.ok(section, `${surfaceDocPath} must keep the "Formatting 검사 범위" section`);
+  const files = section
+    .split('\n')
+    .filter((line) => line.startsWith('|'))
+    .slice(2)
+    .flatMap((line) => codeSpans(line.split('|')[1]));
+  assert.ok(files.length >= 10, 'the formatting table must list the configuration files');
+  for (const file of files) {
+    const path = file.replace('*', file.startsWith('prettier.config') ? 'mjs' : 'json');
+    assert.equal(formattingScope([path]), 'full', path);
+  }
+});
+
+test('other changes select only the changed files for the formatting check', () => {
+  for (const paths of [
+    ['docs/README.md'],
+    ['apps/web/src/app/[id]/page.tsx', 'scripts/ci/classify-changes.mjs'],
+    ['.github/workflows/ci.yml'],
+    ['docs/prettierrc-notes.md', 'apps/web/package.json.md', 'scripts/editorconfig.mjs'],
+  ]) {
+    assert.equal(formattingScope(paths), 'changed', paths.join(', '));
+  }
+});
+
+test('an empty or oversized change list keeps the full formatting check', () => {
+  const paths = (count) => Array.from({ length: count }, (_, index) => `docs/change-${index}.md`);
+  assert.equal(formattingScope([]), 'full');
+  assert.equal(formattingScope(paths(FORMATTING_CHANGED_PATH_LIMIT)), 'changed');
+  assert.equal(formattingScope(paths(FORMATTING_CHANGED_PATH_LIMIT + 1)), 'full');
+});
+
+function temporaryRepository() {
+  const root = mkdtempSync(join(tmpdir(), 'knu-classify-changes-'));
+  const git = (...args) =>
+    execFileSync('git', args, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  git('init', '-q');
+  git('config', 'user.email', 'ci@example.invalid');
+  git('config', 'user.name', 'CI');
+  git('config', 'commit.gpgsign', 'false');
+  git('config', 'diff.renames', 'true');
+  const write = (path, content) => {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), content);
+  };
+  const commit = (message) => {
+    git('add', '-A');
+    git('commit', '-q', '--no-verify', '-m', message);
+    return git('rev-parse', 'HEAD');
+  };
+  return { root, git, write, commit };
+}
+
+test('changed paths list deletions and both sides of a rename for classification and formatting', () => {
+  const repository = temporaryRepository();
+  try {
+    repository.write('apps/web/src/moved.ts', 'export const moved = 1;\n');
+    repository.write('apps/api/src/removed.ts', 'export const removed = 1;\n');
+    repository.write('docs/kept.md', '# Kept\n');
+    const base = repository.commit('base');
+    renameSync(
+      join(repository.root, 'apps/web/src/moved.ts'),
+      join(repository.root, 'docs/moved.ts'),
+    );
+    rmSync(join(repository.root, 'apps/api/src/removed.ts'));
+    repository.write('docs/kept.md', '# Kept\n\nEdited.\n');
+    const head = repository.commit('head');
+    assert.match(
+      repository.git('diff', '--name-status', base, head),
+      /^R100\tapps\/web\/src\/moved\.ts/mu,
+      'the fixture must be a rename under diff.renames',
+    );
+
+    const paths = changedPathsForComparison({ base, head }, repository.root);
+    assert.deepEqual(paths.toSorted(), [
+      'apps/api/src/removed.ts',
+      'apps/web/src/moved.ts',
+      'docs/kept.md',
+      'docs/moved.ts',
+    ]);
+    const lanes = classifyChanges(paths);
+    assert.equal(lanes.web, true, 'the rename source keeps its lane');
+    assert.equal(lanes.api, true, 'the deleted path keeps its lane');
+    assert.equal(formattingScope(paths), 'changed');
+  } finally {
+    rmSync(repository.root, { recursive: true, force: true });
+  }
+});
+
+function githubOutputs(path) {
+  return Object.fromEntries(
+    readFileSync(path, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
+  );
+}
+
+test('the classify step outputs the formatting scope and the changed paths it covers', () => {
+  const repository = temporaryRepository();
+  try {
+    repository.write('docs/a.md', '# A\n');
+    repository.write('docs/b.md', '# B\n');
+    const base = repository.commit('base');
+    rmSync(join(repository.root, 'docs/b.md'));
+    repository.write('docs/a.md', '# A\n\nEdited.\n');
+    const head = repository.commit('docs');
+    repository.write('.prettierrc', '{}\n');
+    const configHead = repository.commit('config');
+
+    const event = join(tmpdir(), `knu-classify-event-${process.pid}.json`);
+    const output = join(tmpdir(), `knu-classify-output-${process.pid}`);
+    const run = (before, after) => {
+      writeFileSync(event, JSON.stringify({ before, after }));
+      writeFileSync(output, '');
+      classifyGithubEvent({
+        eventName: 'push',
+        eventPath: event,
+        githubSha: after,
+        githubOutput: output,
+        cwd: repository.root,
+      });
+      return githubOutputs(output);
+    };
+
+    try {
+      const changed = run(base, head);
+      assert.equal(changed.formatting_scope, 'changed');
+      assert.deepEqual(JSON.parse(changed.formatting_paths_json).toSorted(), [
+        'docs/a.md',
+        'docs/b.md',
+      ]);
+
+      const full = run(head, configHead);
+      assert.equal(full.formatting_scope, 'full');
+      assert.equal(full.formatting_paths_json, '[]');
+    } finally {
+      rmSync(event, { force: true });
+      rmSync(output, { force: true });
+    }
+  } finally {
+    rmSync(repository.root, { recursive: true, force: true });
+  }
+});
+
+test('a classification failure keeps the full formatting check', () => {
+  const root = mkdtempSync(join(tmpdir(), 'knu-classify-failure-'));
+  try {
+    const output = join(root, 'github-output');
+    writeFileSync(join(root, 'event.json'), '{not json');
+    const result = classifyGithubEvent({
+      eventName: 'pull_request',
+      eventPath: join(root, 'event.json'),
+      githubOutput: output,
+      cwd: root,
+    });
+    assert.equal(result.classificationFailed, true);
+    const outputs = githubOutputs(output);
+    assert.equal(outputs.classification_failed, 'true');
+    assert.equal(outputs.formatting_scope, 'full');
+    assert.equal(outputs.formatting_paths_json, '[]');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

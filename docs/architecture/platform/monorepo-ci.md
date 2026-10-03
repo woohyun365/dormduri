@@ -59,6 +59,8 @@ classify
 - Agent workflow(host 설정, agent script·test·문서), repository 지원 script·설정, tracked local record 변경도 repo-policy lane만
   실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행한다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
+- Repo-policy lane의 formatting 검사는 formatting 설정·lockfile이 바뀌었거나 분류에 실패했을 때만 tree 전체를 검사하고,
+  그 밖에는 변경 파일만 검사한다. 판정 규칙은 CI surface ownership의 "Formatting 검사 범위"가 소유한다.
 
 경로 family별 표면·lane·owner와 새 경로를 추가하는 절차는
 [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유한다. 분류 개선의 문제·측정·결정 기록은

@@ -221,6 +221,24 @@ export function classifyChanges(paths) {
   return result;
 }
 
+// Files that change how Prettier formats or which files it checks, matched at any depth: Prettier and EditorConfig
+// resolve configuration upward from each file, Prettier reads .gitignore and .prettierignore by default,
+// package.json may carry a `prettier` key, and the lockfile and workspace catalog pin the Prettier version. A change
+// to any of them re-checks the whole tree.
+const FORMATTING_CONFIG_PATTERN =
+  /(?:^|\/)(?:\.prettierrc(?:\.[^/]+)?|prettier\.config\.[cm]?[jt]s|\.prettierignore|\.gitignore|\.editorconfig|package\.json|package\.yaml|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/u;
+// Above this many changed paths a full check costs about the same and keeps the job output small.
+export const FORMATTING_CHANGED_PATH_LIMIT = 500;
+
+export function formattingScope(paths) {
+  if (paths.length === 0 || paths.length > FORMATTING_CHANGED_PATH_LIMIT) {
+    return 'full';
+  }
+  return paths.some((path) => FORMATTING_CONFIG_PATTERN.test(normalizePath(path)))
+    ? 'full'
+    : 'changed';
+}
+
 function runGit(args, cwd) {
   return execFileSync('git', args, {
     cwd,
@@ -308,10 +326,20 @@ export function resolveComparison({ eventName, event, githubSha, cwd = process.c
   return { base: emptyTree, head, strategy: 'empty-tree' };
 }
 
+// --no-renames lists a rename as its deleted source and added destination, so both paths select their lanes
+// regardless of the diff.renames setting.
 export function changedPathsForComparison(comparison, cwd = process.cwd()) {
   const output = execFileSync(
     'git',
-    ['diff', '--name-only', '--diff-filter=ACDMRTUXB', '-z', comparison.base, comparison.head],
+    [
+      'diff',
+      '--name-only',
+      '--no-renames',
+      '--diff-filter=ACDMRTUXB',
+      '-z',
+      comparison.base,
+      comparison.head,
+    ],
     { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );
 
@@ -364,9 +392,13 @@ export function classifyGithubEvent({
     error = caught instanceof Error ? caught.message : String(caught);
   }
 
+  // A failure leaves the change list empty, which keeps the full formatting check.
+  const formatting = formattingScope(changedPaths);
   const outputs = {
     ...classification,
     classification_failed: classificationFailed,
+    formatting_scope: formatting,
+    formatting_paths_json: JSON.stringify(formatting === 'changed' ? changedPaths : []),
     ...summarizeChangedPaths(changedPaths),
     comparison_base: comparison?.base ?? '',
     comparison_head: comparison?.head ?? '',
@@ -377,7 +409,14 @@ export function classifyGithubEvent({
     appendGithubOutputs(githubOutput, outputs);
   }
 
-  return { classification, classificationFailed, changedPaths, comparison, error };
+  return {
+    classification,
+    classificationFailed,
+    changedPaths,
+    comparison,
+    formattingScope: formatting,
+    error,
+  };
 }
 
 const isDirectExecution =

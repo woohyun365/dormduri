@@ -20,7 +20,7 @@
 | `web`        | Web validation(static/build/browser, unit)                   |
 | `storybook`  | Web validation 안의 Storybook static build                   |
 | `infra`      | Infrastructure validation(static, container config)          |
-| `repoPolicy` | Repository policy gate(policy script test와 `prettier . -c`) |
+| `repoPolicy` | Repository policy gate(policy script test와 formatting 검사) |
 
 표의 "전체"는 여섯 출력을 모두 켜는 경우입니다.
 
@@ -118,6 +118,33 @@ Storybook workflow step의 wrapper이고, `scripts/observability/sentry/check-bu
 - tracked 경로 전체를 하나씩 분류해, 전체 lane을 켜는 경로가 의도한 fan-out 목록(`isIntendedFanOut`)에만 있는지 확인합니다.
 - 분류기 규칙의 경로 literal마다 tracked 대상이 있는지 확인합니다. 아직 파일이 없는 경로의 규칙은 두지 않고, 그 경로의
   첫 파일을 추가하는 PR에서 규칙을 정합니다.
+
+## Formatting 검사 범위
+
+Repository policy gate의 formatting 검사(`scripts/ci/check-formatting.mjs`)는 분류기의 `formatting_scope` 출력을 따릅니다.
+Lane 선택과는 별개입니다. 이 출력은 repoPolicy가 켜진 PR에서 검사할 파일만 정합니다.
+
+- `full`: `prettier . -c`로 tree 전체를 검사합니다. 아래 설정 파일 중 하나가 바뀌었거나, 변경 경로가 없거나 500개를
+  넘거나, 분류에 실패한 경우입니다. 출력이 비었거나 형식이 맞지 않아도 `full`로 검사합니다.
+- `changed`: 변경 경로 중 checkout에 있는 일반 파일만 `prettier -c --ignore-unknown`으로 검사합니다. Prettier가 parser를
+  모르는 파일은 건너뛰고, ignore 파일 대상은 전체 검사와 같이 제외합니다.
+
+설정 파일은 깊이와 관계없이 파일 이름으로 판정합니다. Prettier와 EditorConfig는 파일마다 상위 디렉터리로 올라가며 설정을
+찾기 때문입니다.
+
+| 설정 파일                                           | 전체 검사 이유                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------- |
+| `.prettierrc`, `.prettierrc.*`, `prettier.config.*` | Prettier 설정                                                    |
+| `.prettierignore`, `.gitignore`                     | Prettier가 기본으로 읽는 ignore 파일(검사 대상을 정함)           |
+| `.editorconfig`                                     | Prettier가 읽으며, `.prettierrc`가 들여쓰기·줄끝을 고정하지 않음 |
+| `package.json`, `package.yaml`                      | `prettier` key를 담을 수 있음                                    |
+| `pnpm-lock.yaml`, `pnpm-workspace.yaml`             | Prettier version(lockfile과 workspace catalog)                   |
+
+Formatting 결과는 파일 내용과 설정·version으로만 정해집니다. 그래서 설정이 그대로면 바뀌지 않은 파일의 결과도 그대로입니다.
+
+삭제된 경로와 rename의 원래 경로는 checkout에 없으므로 검사하지 않고, rename의 새 경로는 검사합니다. 분류기는 rename을
+삭제와 추가로 나눠(`git diff --no-renames`) 원래 경로와 새 경로가 모두 lane을 고르게 합니다. 로컬 `pnpm check`는 계속
+`prettier . -c`로 전체를 검사합니다.
 
 ## 의도한 fan-out과 이유
 

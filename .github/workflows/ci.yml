@@ -26,6 +26,8 @@ jobs:
       infra: ${{ steps.changes.outputs.infra }}
       repo_policy: ${{ steps.changes.outputs.repoPolicy }}
       classification_failed: ${{ steps.changes.outputs.classification_failed }}
+      formatting_scope: ${{ steps.changes.outputs.formatting_scope }}
+      formatting_paths: ${{ steps.changes.outputs.formatting_paths_json }}
     steps:
       - name: Checkout full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,10 +53,12 @@ jobs:
           COMPARISON_HEAD: ${{ steps.changes.outputs.comparison_head }}
           COMPARISON_STRATEGY: ${{ steps.changes.outputs.comparison_strategy }}
           CLASSIFICATION_FAILED: ${{ steps.changes.outputs.classification_failed }}
+          FORMATTING_SCOPE: ${{ steps.changes.outputs.formatting_scope }}
         run: |
           echo "### Change classification" >> "$GITHUB_STEP_SUMMARY"
           echo "- comparison: ${COMPARISON_BASE}..${COMPARISON_HEAD} (${COMPARISON_STRATEGY})" >> "$GITHUB_STEP_SUMMARY"
           echo "- fallback_to_all_lanes: ${CLASSIFICATION_FAILED}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- formatting_scope: ${FORMATTING_SCOPE}" >> "$GITHUB_STEP_SUMMARY"
           echo "- changed_path_count: ${CHANGED_PATH_COUNT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- changed_paths_sample_truncated: ${CHANGED_PATHS_TRUNCATED}" >> "$GITHUB_STEP_SUMMARY"
           echo "- changed_paths_sample: \`${CHANGED_PATHS}\`" >> "$GITHUB_STEP_SUMMARY"
@@ -146,7 +150,10 @@ jobs:
         run: node scripts/ci/run-repo-policy.mjs
 
       - name: Verify repository formatting
-        run: pnpm exec prettier . -c
+        env:
+          FORMATTING_SCOPE: ${{ needs.classify.outputs.formatting_scope }}
+          FORMATTING_PATHS: ${{ needs.classify.outputs.formatting_paths }}
+        run: node scripts/ci/check-formatting.mjs
 
   ci-summary:
     name: CI summary

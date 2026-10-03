@@ -184,7 +184,7 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 | Agent workflow 분류 출력         | -    |       - |        - |        - |              - | 미측정   |
 | Agent test 배치                  | -    |       - |        - |        - |              - | 미측정   |
 | Agent test lane 분리             | -    |       - |        - |        - |              - | 미측정   |
-| Formatting 검사 범위             | -    |       - |        - |        - |              - | 미측정   |
+| Formatting 검사 범위             | #545 |     0/5 |        - |        - |              - | 표본 0/5 |
 | Policy script test critical path | -    |       - |        - |        - |              - | 미측정   |
 
 p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorepo CI architecture의 표본 규칙).
@@ -207,6 +207,23 @@ p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorep
   그중 1개는 이후 이름이 바뀌어 지금 tree에 없는 local workspace 경로도 바꿨습니다. 나머지 1개는 그런 옛 경로만 바꿨고,
   모르는 경로로 fail-open합니다(commit `059bf6da`).
 - Agent PR 9개는 모두 `repoPolicy`만 선택합니다.
+
+### Formatting 검사 범위(#545) step 시간
+
+이 개선은 Repository policy gate의 `Verify repository formatting` step만 바꿉니다. 그래서 run 전체 시간과 함께 이 step의
+시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에는 모든 run이 `prettier . -c`로 tree 전체를 검사했습니다.
+
+| Run ID        | PR   | Head SHA   | Job | Formatting step |
+| ------------- | ---- | ---------- | --: | --------------: |
+| `37088505466` | #543 | `69ce428a` |   3 |             20s |
+| `37086373593` | #541 | `b5a62079` |   3 |             25s |
+| `37084666943` | #539 | `b8aa3ea8` |  11 |             24s |
+| `37030067867` | #537 | `87bba80d` |   5 |             28s |
+| `37017495949` | #535 | `564eb0bd` |   3 |             35s |
+
+- 개선 전 5개의 step 시간은 20–35s이고 중앙값은 25s입니다. §3의 두 run(34s, 33s)도 같은 범위입니다.
+- 개선 뒤 표본은 #545 merge 뒤 formatting 설정을 바꾸지 않은 agent-only PR의 run입니다. 지금은 표본 0/5입니다.
+- 개선 뒤 run에서는 step 출력의 `Formatting scope:` 줄로 검사 범위(`full`·`changed`)와 검사한 파일 수를 확인합니다.
 
 ## 7. 한계와 재측정 조건
 
