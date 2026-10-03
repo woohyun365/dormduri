@@ -3,7 +3,8 @@
 > **Audience:** human-to-human portfolio, onboarding, and engineering discussion reference.
 > 이 문서는 CI 분류 규칙의 owner가 아닙니다. 현재 경로별 표면·lane·owner는
 > [CI surface ownership](../../development/ci/ci-surface-ownership.md), 설계 결정과 job graph는
-> [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md)가 소유합니다. 분류별 누적 측정 표본은
+> [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md)가 소유합니다. 선택 실행을 처음 도입한 구조 개선은
+> [Monorepo CI restructuring evidence](./monorepo-ci-restructuring-evidence.md), run별 측정 원장은
 > [Monorepo CI baseline](./monorepo-ci-baseline.md)에 둡니다. 이 개선의 개선 전 표본(agent PR 9개)은 §3에 둡니다.
 
 이 문서는 변경 분류 개선의 문제, 측정 방법, 개선 전 baseline, 원인, 대안과 개선별 전후 측정을 기록합니다. 회고가

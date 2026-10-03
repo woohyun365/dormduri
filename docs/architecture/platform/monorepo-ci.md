@@ -224,31 +224,12 @@ Web unit summary 단계:
 
 ## Historical baseline과 performance budget
 
-2026-08-06에 수집한 최근 10개 merged PR은 현재 selective orchestrator가 merge되기 전의 unconditional API/Web workflow 결과다. 따라서 아래 값은 개선 전 기준이며 새 구조의 달성 결과가 아니다.
-
-| 변경 분류   | 표본 | PR wall p50 | PR wall p95 | runner 합계 p50 | runner 합계 p95 |
-| ----------- | ---: | ----------: | ----------: | --------------: | --------------: |
-| Web-only    |    3 |      5m 58s |      6m 00s |         10m 58s |         11m 03s |
-| Shared/root |    7 |      5m 30s |      7m 10s |         10m 27s |         12m 18s |
-| 전체        |   10 |      5m 50s |      7m 01s |         10m 51s |         12m 10s |
-
-최근 10개 표본에는 API-only PR이 없으므로 API-only p50/p95는 미측정 상태다. Selective workflow가 원격에서 실행된 뒤 분류별 성공 run 10개가 쌓이기 전에는 목표 달성을 주장하지 않는다.
-
-개선 전 단계별 p50/p95:
-
-| Lane stage                           |    p50 |    p95 |
-| ------------------------------------ | -----: | -----: |
-| API install                          |    25s |    26s |
-| API Shared build + Prisma generation |     8s |    10s |
-| API public schema migration          |     2s |     3s |
-| API static                           | 1m 23s | 1m 25s |
-| API aggregate tests                  | 2m 01s | 2m 05s |
-| API build                            |    28s |    31s |
-| Web pnpm cache restore               |     7s |     8s |
-| Web install                          |    16s |    19s |
-| Web aggregate static/unit/build      | 3m 47s | 4m 46s |
-| Browser install                      |    27s |    32s |
-| Browser smoke                        |    54s | 1m 00s |
+선택 실행 도입 전에는 모든 PR이 API·Web workflow를 함께 실행했다. 2026-08-06에 수집한 최근 merged PR 10개의 wall p50은
+5m 50s였고, 당시 API job은 unit test만 실행했다. 같은 시기에 API CI가 integration·E2E·stress까지 실행하게 되면서 full
+fan-out의 critical path가 API·Web job으로 바뀌었다. 개선 전 표본, 단계별 p50/p95, 개선별 전후 측정은
+[Monorepo CI restructuring evidence](../../evidence/ci/monorepo-ci-restructuring-evidence.md)와
+[CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다. 아래 budget은 분류별 성공 run이 쌓인 뒤 판정하며,
+개선 전 표본만으로 목표 달성을 주장하지 않는다.
 
 Rollout budget:
 
@@ -269,7 +250,7 @@ Job-rounded billed-minute advisory budget:
 | Infra-only          | 10 minutes |
 | Docs/config/tooling |  5 minutes |
 
-Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 최근 10개 표본과 산출 근거는 `docs/evidence/ci/monorepo-ci-baseline.md`에 유지한다.
+Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
 비용 budget은 초기에는 advisory다. 표준 private-repository Linux 2-core list rate는 2026-08-26 공식 문서 기준
 `$0.006/min`이며, 포함 minutes 할인 전 gross estimate에만 사용한다. 표본 5개 전에는 p50, 10개 전에는 p95를 게시하지
