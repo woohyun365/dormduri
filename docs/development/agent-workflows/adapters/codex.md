@@ -152,8 +152,8 @@ profile을 current source/config에 다시 승인해 복귀하며 retired GPT-5.
    과거 code와 grant를 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 grant·5.6을
    되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
 
-Reproduction: `scripts/ci/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
-`scripts/ci/codex-orchestration-policy.test.mjs`의 routine withdrawal→fresh re-admission·stale binding 회귀. 실제 설정 변경 없이
+Reproduction: `scripts/ci/agents/codex/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
+`scripts/ci/agents/codex/codex-orchestration-policy.test.mjs`의 routine withdrawal→fresh re-admission·stale binding 회귀. 실제 설정 변경 없이
 fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/default/reviewer generation은 별도 설정·권한 결정입니다.
 
 ### Task model configuration and fresh loading
@@ -285,7 +285,7 @@ Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 
   실제 host/provider 강제는 `native-runtime`으로 구분합니다. 설정 파일·parent 실행 옵션만으로 child effective permission이나
   runtime 활성화를 단정하지 않습니다. 지침·모델 reviewer 하나만으로 기술적 접근 제한을 대체하지 않습니다.
 
-[`agent-collaboration-cases.json`](../../../../scripts/ci/fixtures/agent-collaboration-cases.json)은 보안 판단의 유한 입력 사례입니다.
+[`agent-collaboration-cases.json`](../../../../scripts/ci/agents/common/fixtures/agent-collaboration-cases.json)은 보안 판단의 유한 입력 사례입니다.
 정적 검사는 fixture·문서의 정합성만 증명합니다. 실제 Agent의 답변, Auto-review의 허용/거절, 접근 격리는 각각 별도 실행
 evidence가 필요하며 한 종류의 PASS를 다른 종류의 PASS로 보고하지 않습니다.
 

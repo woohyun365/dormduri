@@ -153,8 +153,8 @@ light·reduced motion·scale 1, viewport **390×900 / 1280×900**과 **320×900*
 시도 0건, browser JS 오류 0건을 관측했습니다. 최초 sandbox의 macOS MachPort 권한 실패는 승인된 동일 로컬 명령으로
 해소했으며 설치·계정·전역 설정·제품 코드를 바꾸지 않았습니다. Font 파일을 고정하거나 다른 OS의 동일 픽셀을 보장하지 않습니다.
 
-정적 회귀 owner는 [시각 workflow contract test](../../../../scripts/ci/visual-design-workflow-contract.test.mjs)와
-[입력/평가 분리 corpus](../../../../scripts/ci/fixtures/visual-capability-cases.json)입니다. **20개 corpus 전체의 live 실행은
+정적 회귀 owner는 [시각 workflow contract test](../../../../scripts/ci/agents/common/visual-design-workflow-contract.test.mjs)와
+[입력/평가 분리 corpus](../../../../scripts/ci/agents/common/fixtures/visual-capability-cases.json)입니다. **20개 corpus 전체의 live 실행은
 아니며**, 정적 무결성 PASS를 Agent 행동·미감 PASS로 세지 않습니다. 실제 생성자·검토자는 별도 context로 시작했고
 검토자는 작성자의 선호/점수를 받지 않은 채 화면부터 확인했습니다. 요청한 native role/effort는 기록했지만
 숨겨진 effective-runtime attestation을 확보했다고 주장하지 않습니다.

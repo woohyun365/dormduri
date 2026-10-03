@@ -68,7 +68,7 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 ## 검증
 
 ```bash
-node --test scripts/ci/claude-native-session.test.mjs
+node --test scripts/ci/agents/claude/claude-native-session.test.mjs
 ```
 
 `async stop/notification association`과 `unseen-dispatch check` 테스트가 알림 전 거부, 알림 후 정산, 8MiB를 넘는 부모

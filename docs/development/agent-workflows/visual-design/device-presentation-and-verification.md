@@ -110,8 +110,8 @@ RN build·성능·호환성을 실증했다고 말하지 않습니다.
 ## 강제력과 완료 범위
 
 이 지침은 `advisory-policy`, 독립 적용 walkthrough는 `model-mediated`, 문서 링크/필드/유한 corpus 검사는
-`deterministic-static`입니다. [정적 contract test](../../../../scripts/ci/visual-design-workflow-contract.test.mjs)와
-[corpus](../../../../scripts/ci/fixtures/visual-capability-cases.json)의 GREEN은 agent 준수·미감·현재 제품 구조·RN 호환성의
+`deterministic-static`입니다. [정적 contract test](../../../../scripts/ci/agents/common/visual-design-workflow-contract.test.mjs)와
+[corpus](../../../../scripts/ci/agents/common/fixtures/visual-capability-cases.json)의 GREEN은 agent 준수·미감·현재 제품 구조·RN 호환성의
 runtime proof가 아닙니다. Reviewer에게는 request/input만 전달하고 evaluator expectations를 정답으로 주입하지 않습니다.
 
 완료 보고는 **지침 채택 / 읽기 전용 사례 검토 / 실제 surface 적용 / browser·Native evidence**를 구분합니다.
