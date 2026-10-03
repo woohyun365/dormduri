@@ -278,6 +278,7 @@ test('review builds a same-host packet with no builder reasoning; commands come 
       runnerEvidence: evidence,
       selectionBasisRef: 'plan:helper-test/review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
     },
     { root: r.root },
   );
@@ -351,6 +352,7 @@ test('runner evidence has a fixed record format bound to the current round snaps
         runnerEvidence: runnerEvidencePatch,
         selectionBasisRef: 'plan:helper-test/review',
         reviewerModel: 'claude-opus-4-6',
+        reviewRound: 1,
         ...options,
       },
       { root: r.root },
@@ -397,6 +399,7 @@ function reviewOf(r, records) {
         : runnerEvidence(snapshotDigest),
       selectionBasisRef: 'plan:helper-test/review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
     },
     { root: r.root },
   );
@@ -674,6 +677,7 @@ test('an oversized reviewer prompt is refused by the helper before registration'
           runnerEvidence: runnerEvidence(snapshotDigest),
           selectionBasisRef: 'plan:helper-test/review',
           reviewerModel: 'claude-opus-4-6',
+          reviewRound: 1,
           sessionId: r.sessionId,
         },
         { root: r.root },
@@ -707,6 +711,7 @@ test('a Parent-authored subject is marked parent-adjudication and keeps the term
       runnerEvidence: { ...runnerEvidence(status.snapshotDigest), runner: 'lead-runner' },
       selectionBasisRef: 'plan:helper-test/parent-review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
       sessionId: r.sessionId,
     },
     { root: r.root },
@@ -861,6 +866,7 @@ test('executor → reviewer → complete runs with the tracked helper commands o
       runnerEvidence: runnerEvidence(snapshotDigest),
       selectionBasisRef: 'plan:helper-test/review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
     },
     { root: r.root },
   );
@@ -906,6 +912,7 @@ test('a helper-built review cannot add, drop or change runner records', (t) => {
       runnerEvidence: runnerEvidence(snapshotDigest),
       selectionBasisRef: 'plan:helper-test/review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
     },
     { root: r.root },
   );
@@ -1171,6 +1178,7 @@ test('the reviewer prompt names every allowed finding severity', (t) => {
       runnerEvidence: runnerEvidence(snapshotDigest),
       selectionBasisRef: 'plan:helper-test/review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
     },
     { root: r.root },
   );
@@ -1210,6 +1218,7 @@ test('a reviewer prompt gets no delivery rule because it already demands one JSO
       runnerEvidence: runnerEvidence(snapshotDigest),
       selectionBasisRef: 'plan:helper-test/review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
     },
     { root: r.root },
   );
@@ -1264,6 +1273,7 @@ test('a Parent-judged reviewer whose effort differs fails settle although comple
       runnerEvidence: { ...runnerEvidence(snapshotDigest), runner: 'lead-runner' },
       selectionBasisRef: 'plan:helper-test/parent-review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
       sessionId: r.sessionId,
     },
     { root: r.root },
@@ -1327,6 +1337,7 @@ function parentReview(r, parentSubject, records) {
         : { ...runnerEvidence(snapshotDigest), runner: 'lead-runner' },
       selectionBasisRef: 'plan:helper-test/parent-review',
       reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
       sessionId: r.sessionId,
     },
     { root: r.root },
@@ -1358,6 +1369,8 @@ test('the native subject reviewer prompt keeps its fixed lines and gets no packe
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
     '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
+    '- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most 5 low findings, most important first.',
+    '- An empty findings list is a valid result; do not add findings to fill it.',
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
   ]);
   assert.ok(!review.reviewerPrompt.includes('KNU_REVIEW_PACKET'));
@@ -1562,4 +1575,201 @@ test('settle refuses a Parent reviewer whose prompt lost the packet file line', 
   const { status } = settledParentReview(t, { dropLine: true });
   assert.equal(status.reviewPacket.missing, true);
   assert.ok(status.observationErrors.includes('review-packet-missing'));
+});
+
+// A review round is a review input: round 1 reports broadly, later rounds report only blocking
+// findings against the previous result, and the selected criteria documents become packet owners.
+const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
+function writeCriteria(r, ...ids) {
+  mkdirSync(join(r.root, CRITERIA_DIR), { recursive: true });
+  for (const id of ['README', ...ids])
+    writeFileSync(join(r.root, CRITERIA_DIR, `${id}.md`), `# ${id}\n`);
+  execFileSync('git', ['add', '.'], { cwd: r.root });
+}
+function writePreviousResult(r, value = { verdict: 'FAIL', findings: [] }) {
+  const path = '.artifacts/plans/helper-test/review-r1-result.json';
+  mkdirSync(join(r.root, '.artifacts/plans/helper-test'), { recursive: true });
+  writeFileSync(join(r.root, path), typeof value === 'string' ? value : JSON.stringify(value));
+  return path;
+}
+function roundReview(r, options) {
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { parentSubject: SMALL_PARENT_SUBJECT },
+    { root: r.root },
+  );
+  return buildClaudeNativeReview(
+    {
+      parentSubject: SMALL_PARENT_SUBJECT,
+      runnerEvidence: { ...runnerEvidence(snapshotDigest), runner: 'lead-runner' },
+      selectionBasisRef: 'plan:helper-test/round-review',
+      reviewerModel: 'claude-opus-4-6',
+      sessionId: r.sessionId,
+      ...options,
+    },
+    { root: r.root },
+  );
+}
+
+test('a review names its round; a later round needs the previous result and round 1 refuses one', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const previous = writePreviousResult(r);
+  for (const [options, reason] of [
+    [{}, /review-round-required/u],
+    [{ reviewRound: 0 }, /review-round-required/u],
+    [{ reviewRound: 1.5 }, /review-round-required/u],
+    [{ reviewRound: '2' }, /review-round-required/u],
+    [{ reviewRound: 2 }, /previous-result-required-after-round-1/u],
+    [{ reviewRound: 1, previousResult: previous }, /previous-result-only-after-round-1/u],
+    [
+      { reviewRound: 2, previousResult: '.artifacts/plans/helper-test/none.json' },
+      /previous-result/u,
+    ],
+  ])
+    assert.throws(() => roundReview(r, options), reason, JSON.stringify(options));
+  for (const bad of [
+    'not json',
+    { findings: [] },
+    { verdict: 'MAYBE', findings: [] },
+    { verdict: 'FAIL' },
+  ])
+    assert.throws(
+      () => roundReview(r, { reviewRound: 2, previousResult: writePreviousResult(r, bad) }),
+      /previous-result-invalid/u,
+      JSON.stringify(bad),
+    );
+  // A native task record is never review input, even when it parses as a result; another case
+  // spelling or a symlink to it is refused too.
+  const nativeResult = `.artifacts/tools/claude-native/${randomUUID()}/review-result.json`;
+  mkdirSync(join(r.root, nativeResult, '..'), { recursive: true });
+  writeFileSync(join(r.root, nativeResult), JSON.stringify({ verdict: 'FAIL', findings: [] }));
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: nativeResult }),
+    /previous-result-invalid: native task evidence/u,
+  );
+  symlinkSync(join(r.root, nativeResult), join(r.root, '.artifacts/plans/helper-test/linked.json'));
+  for (const path of [
+    nativeResult.replace('claude-native', 'Claude-Native'),
+    '.artifacts/plans/helper-test/linked.json',
+  ])
+    assert.throws(
+      () => roundReview(r, { reviewRound: 2, previousResult: path }),
+      /previous-result-(?:invalid|unreadable)/u,
+      path,
+    );
+  writePreviousResult(r);
+  const second = roundReview(r, { reviewRound: 2, previousResult: previous });
+  assert.ok(second.reviewerSpec.readScope.includes(previous));
+  assert.ok(second.packet.boundaries.allowedReadPaths.includes(previous));
+  const digest = sha256(readFileSync(join(r.root, previous)));
+  assert.ok(
+    second.reviewerPrompt.includes(`${previous} ${digest}`),
+    'the prompt binds the previous result',
+  );
+  prepareClaudeNativeTask(second.reviewerSpec, { root: r.root });
+});
+
+test('round 1 asks for a broad report and later rounds ask only for blocking findings', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const first = roundReview(r, { reviewRound: 1 }).reviewerPrompt;
+  const second = roundReview(r, {
+    reviewRound: 2,
+    previousResult: writePreviousResult(r),
+  }).reviewerPrompt;
+  assert.match(first, /Review round 1: report broadly/u);
+  assert.match(first, /at most 5 low findings/u);
+  assert.doesNotMatch(first, /only blocking findings/u);
+  assert.match(second, /Review round 2: .*only blocking findings \(critical, high or medium\)/u);
+  assert.match(second, /no low findings/u);
+  assert.doesNotMatch(second, /at most 5 low findings|report broadly/u);
+  for (const prompt of [first, second])
+    assert.match(prompt, /An empty findings list is a valid result/u);
+});
+
+test('selected criteria documents join the packet owners and read paths; unknown ones are refused', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  writeCriteria(r, 'documents', 'agent-workflow-tooling');
+  const review = roundReview(r, {
+    reviewRound: 1,
+    criteria: ['documents', 'agent-workflow-tooling'],
+  });
+  const selected = [`${CRITERIA_DIR}/documents.md`, `${CRITERIA_DIR}/agent-workflow-tooling.md`];
+  assert.deepEqual(review.packet.sources.owners, [
+    'docs/development/agent-workflows/qa.md',
+    'docs/development/agent-workflows/adapters/claude-code.md',
+    ...selected,
+  ]);
+  for (const path of selected) {
+    assert.ok(review.reviewerSpec.readScope.includes(path), path);
+    assert.ok(review.reviewerPrompt.includes(path), path);
+  }
+  assert.match(review.reviewerPrompt, /names the item id/u);
+  const plain = roundReview(r, { reviewRound: 1 });
+  assert.deepEqual(plain.packet.sources.owners, review.packet.sources.owners.slice(0, 2));
+  assert.doesNotMatch(plain.reviewerPrompt, /Criteria documents/u);
+  for (const criteria of [
+    ['README'],
+    ['missing'],
+    ['../qa'],
+    ['documents', 'documents'],
+    'documents',
+    [],
+  ])
+    assert.throws(
+      () => roundReview(r, { reviewRound: 1, criteria }),
+      /criteria-invalid/u,
+      JSON.stringify(criteria),
+    );
+});
+
+test('CLI review takes the round, previous result and criteria inputs', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  writeCriteria(r, 'documents');
+  const previous = writePreviousResult(r);
+  const write = (name, value) => {
+    const path = join(r.root, '.artifacts/plans/helper-test', name);
+    writeFileSync(path, JSON.stringify(value));
+    return path;
+  };
+  const run = (...args) =>
+    spawnSync(process.execPath, [cliPath, ...args], { cwd: r.root, encoding: 'utf8' });
+  const subjectPath = write('subject.json', SMALL_PARENT_SUBJECT);
+  const status = JSON.parse(run('review', '--parent-subject', subjectPath).stdout);
+  const evidencePath = write('evidence.json', {
+    ...runnerEvidence(status.snapshotDigest),
+    runner: 'lead-runner',
+  });
+  const base = [
+    'review',
+    '--parent-subject',
+    subjectPath,
+    '--runner-evidence',
+    evidencePath,
+    '--basis',
+    'plan:helper-test/cli-round',
+    '--reviewer-model',
+    'claude-opus-4-6',
+    '--session',
+    r.sessionId,
+  ];
+  const missing = run(...base);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /review-round-required/u);
+  const ok = run(
+    ...base,
+    '--round',
+    '2',
+    '--previous-result',
+    join(r.root, previous),
+    '--criteria',
+    'documents',
+  );
+  assert.equal(ok.status, 0, ok.stderr);
+  const review = JSON.parse(ok.stdout);
+  assert.ok(review.reviewerSpec.readScope.includes(previous));
+  assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/documents.md`));
+  assert.match(review.reviewerPrompt, /Review round 2:/u);
 });

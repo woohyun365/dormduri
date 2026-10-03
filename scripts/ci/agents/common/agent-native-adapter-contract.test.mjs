@@ -312,7 +312,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '**한 번만** 허용하며 새 task로 다시 등록합니다',
       'Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다',
       '## Parent 운영과 quality stop',
-      '같은 subject의 연속 non-PASS가 확인되면 **quality stop**입니다',
+      '회차가 상한에 이르면 **quality stop**입니다',
       '## OMC 공존과 skill routing',
       '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
       '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',

@@ -107,6 +107,63 @@ test('actual document links/anchors resolve and every development owner is index
     [],
   );
 });
+// Review criteria documents follow one item format under the common QA owner; a capped list keeps
+// them from growing into a ritual checklist, and tracked criteria never cite ignored local evidence.
+const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
+const CRITERIA_ITEM_CAP = 8;
+test('review criteria documents are registered owners with capped, complete items', () => {
+  const readme = `${CRITERIA_DIR}/README.md`;
+  // Every criteria document the helper can select is checked, not only the ones that exist today.
+  const criteria = markdownFiles(CRITERIA_DIR)
+    .filter((path) => path !== readme)
+    .sort();
+  for (const path of [`${CRITERIA_DIR}/agent-workflow-tooling.md`, `${CRITERIA_DIR}/documents.md`])
+    assert.ok(criteria.includes(path), path);
+  const paths = corpus.documents.map((x) => x.path);
+  for (const path of [readme, ...criteria]) {
+    assert.ok(existsSync(resolve(root, path)), path);
+    assert.ok(paths.includes(path), `${path} needs an owner row`);
+  }
+  const qa = readFileSync(resolve(root, 'docs/development/agent-workflows/qa.md'), 'utf8');
+  assert.ok(links('docs/development/agent-workflows/qa.md').some((x) => x.path === readme));
+  assert.match(qa, /^### Severity$/mu);
+  const readmeText = readFileSync(resolve(root, readme), 'utf8');
+  assert.match(readmeText, new RegExp(`${CRITERIA_ITEM_CAP}개`, 'u'));
+  assert.doesNotMatch(
+    readmeText,
+    /\.artifacts\/|\.plans\/|\.local-docs\//u,
+    `${readme} cites ignored evidence`,
+  );
+  for (const path of criteria) {
+    assert.ok(
+      links(readme).some((x) => x.path === path),
+      `${readme} -> ${path}`,
+    );
+    const text = readFileSync(resolve(root, path), 'utf8');
+    const items = prose(text)
+      .split(/^(?=### [A-Z]\d+\. )/mu)
+      .slice(1);
+    assert.ok(
+      items.length > 0 && items.length <= CRITERIA_ITEM_CAP,
+      `${path}: ${items.length} items`,
+    );
+    const ids = items.map((item) => item.match(/^### ([A-Z]\d+)\. /u)[1]);
+    assert.equal(new Set(ids).size, ids.length, `${path}: duplicate item id`);
+    for (const item of items)
+      for (const field of [
+        /^- 질문: \S/mu,
+        /^- 기본 severity: `(?:critical|high|medium|low)`/mu,
+        /^- 적용 조건: \S/mu,
+        /^- 결함 패턴: \S/mu,
+      ])
+        assert.match(item, field, `${path} ${item.split('\n')[0]}`);
+    assert.doesNotMatch(
+      text,
+      /\.artifacts\/|\.plans\/|\.local-docs\//u,
+      `${path} cites ignored evidence`,
+    );
+  }
+});
 test('production workflow graph has real discoverable owners and required DAG without banning backlinks', () => {
   assert.deepEqual(validateWorkflowGraph(workflowGraph), []);
   for (const node of workflowGraph.nodes)

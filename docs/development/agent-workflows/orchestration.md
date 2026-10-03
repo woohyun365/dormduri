@@ -14,6 +14,7 @@
 | objective rubric가 있는 고위험 결과               | maker-checker, 기본 최대 2회 |
 | destructive, credential, external production      | human/authority gate         |
 
+Maker-checker 기본 2회의 예외로, 독립 리뷰의 회차 상한(3회)과 회차별 보고 범위는 [QA 리뷰 회차](./qa.md#리뷰-회차)를 따릅니다.
 Agent 수 자체를 품질 지표로 사용하지 않습니다. sequential task, shared-file write, vague scope는 병렬화하지 않습니다.
 
 ## Child contract
@@ -173,7 +174,8 @@ Legal 정책과 FE/BE를 함께 바꾸는 작업은 정책 결정을 먼저 고�
 ## Quality stop
 
 - 보안·권한·범위·데이터 불변 조건 위반이나 근거 없는 완료 주장이 확인되면 해당 작업의 무인 계속을 멈추고 원인·영향을
-  확인합니다. Host adapter는 조건을 더할 수 있지만 뺄 수 없습니다.
+  확인합니다. 독립 리뷰의 연속 non-PASS 회차가 [QA 리뷰 회차](./qa.md#리뷰-회차) 상한에 이른 경우도 같습니다.
+  Host adapter는 조건을 더할 수 있지만 뺄 수 없습니다.
 - 모델·effort를 바꾸기 전에 원인을 먼저 구분합니다. Source·환경·권한·테스트 공백은 그 자체를 바로잡습니다. Leader의
   framing·통합 추론 부족이 의심되거나 같은 누락이 재발하면 leader 설정 상향을 사람에게 권고하고, 격리 가능한 기술 문제만
   bounded child로 넘깁니다.

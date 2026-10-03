@@ -28,7 +28,8 @@
 - Targeted: <!-- 변경 동작을 직접 검증한 명령과 결과 -->
 - Repository policy: <!-- `pnpm test:repo-policy` 또는 해당 없음 -->
 - Scope check: <!-- `pnpm api:check`, `pnpm web:check`, `pnpm infra:check:static` 등 -->
-- Review evidence: <!-- docs/development/agent-workflows/qa.md 기준 disposition·검토 snapshot·결과/근거·gap; 독립 검토 불필요 시 이유. Self-review/test/CI는 구분 -->
+- Review evidence: <!-- docs/development/agent-workflows/qa.md 기준 disposition·검토 snapshot·회차 수·결과/근거·gap; 독립 검토 불필요 시 이유. Self-review/test/CI는 구분 -->
+- Finding disposition: <!-- PASS 뒤 남은 finding의 처분(fixed-mechanical·deferred·rejected·pre-existing)과 근거 또는 해당 없음 -->
 - Not tested: <!-- 검증하지 못한 범위와 이유 또는 해당 없음 -->
 
 ## UI Evidence

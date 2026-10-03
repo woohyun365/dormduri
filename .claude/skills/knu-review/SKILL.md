@@ -17,7 +17,7 @@ Reviewer에게 기대 결론을 전달하거나 PASS로 유도하지 않습니�
 2. Runner(Parent)가 `logHeader`를 첫 줄에 둔 검증 로그를 남기고 runner evidence JSON을 만듭니다. 각 기록은
    `{command, exit, environment, observedResult, outputPaths, sourceDigest}`이고 수정 전 실패(RED)는
    `purpose:"red"`·`expectedExit`를 더합니다. Exit를 뒤집어 기록하지 않습니다.
-3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --subject <taskId> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --session ${CLAUDE_SESSION_ID}`
+3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --subject <taskId> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --session ${CLAUDE_SESSION_ID}`
 4. 출력 `reviewerSpec`을 확인해 파일로 저장하고 `prepare --spec`으로 등록한 뒤 `agentInput`으로 Agent를 호출합니다.
 5. 알림 뒤 `/knu-settle`로 reviewer를 정산하고, builder judgment의 `reviewerTaskId`에 reviewer task id를 적습니다.
 
@@ -28,7 +28,7 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 1. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
    `logHeader`를 받습니다.
 2. 그 digest로 runner evidence를 만듭니다.
-3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --session ${CLAUDE_SESSION_ID}`
+3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --session ${CLAUDE_SESSION_ID}`
 4. 출력 `reviewerSpec`으로 `prepare --spec`하고 `agentInput`으로 Agent를 호출합니다. Packet은 prompt에 싣지 않고
    `.artifacts/tools/claude-review-packets/<reviewId>.json`에 씁니다. Prompt에는 `KNU_REVIEW_PACKET_FILE:<경로> <digest>` 한 줄만
    남고 reviewer가 그 파일을 먼저 읽습니다. 출력 `packetFile`이 같은 경로와 digest입니다.
@@ -36,7 +36,13 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 
 ## 공통
 
+- 회차 입력: `--round <N>`은 항상 줍니다. 2회차부터 `--previous-result <absolute-result-path>`(직전 회차 result JSON을
+  계획 증거 위치에 저장한 파일)를 더합니다. 변경 유형에 맞는 기준 문서 id를 `--criteria documents,agent-workflow-tooling`처럼
+  더합니다([review criteria](../../../docs/development/agent-workflows/review-criteria/README.md)). 회차와 처분 규칙은
+  [QA 리뷰 회차](../../../docs/development/agent-workflows/qa.md#리뷰-회차)입니다.
+
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.
 - Reviewer가 실행 중일 때 read 범위의 입력(계획·증거 포함)을 수정하지 않습니다.
-- 같은 subject가 연속으로 PASS가 아니면 quality stop입니다. Owner에게 다음 행동을 묻습니다.
+- 같은 subject(같은 변경; 새 builder task로 고쳐도 같음)의 연속 non-PASS 회차가 3회에 이르면 quality stop입니다. 회차는
+  reviewer 실행 수가 아니라 리뷰한 snapshot 수입니다. Owner에게 다음 행동을 묻습니다.
