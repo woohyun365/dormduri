@@ -45,7 +45,7 @@ test('documentation and provider checklist indexes explain their non-overlapping
 
 test('human-facing agentic engineering methodology is discoverable without becoming an instruction owner', () => {
   const development = read('docs/development/README.md');
-  const methodology = read('docs/development/agentic-engineering-methodology.md');
+  const methodology = read('docs/evidence/agent-workflows/agentic-engineering-methodology.md');
   const rootReadme = read('README.md');
 
   assert.match(development, /agentic-engineering-methodology\.md/u);

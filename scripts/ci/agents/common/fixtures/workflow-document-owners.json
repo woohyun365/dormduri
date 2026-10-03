@@ -273,18 +273,6 @@
       "rationale": "web semantic token과 UI 표현의 owner 경계를 보존한다. agent host 일반화가 제품 token policy를 변경하지 않는다."
     },
     {
-      "path": "docs/development/agentic-engineering-methodology.md",
-      "owner": "general development workflow owner",
-      "kind": "explanation",
-      "rationale": "single-first·semantic evidence·권한과 권고 구분을 공통 방법론으로 유지한다. stale Sol 중심 표현을 Codex 사례로 한정하며 historical 성과를 cross-host 성과로 바꾸지 않는다."
-    },
-    {
-      "path": "docs/development/agentic-orchestration-case-study.md",
-      "owner": "Codex adapter/history owner",
-      "kind": "history",
-      "rationale": "당시 Codex 실험·commit·성과와 한계를 역사 자료로 보존한다. 현재 Claude/unknown-host 자격의 증거로 사용하지 않는다."
-    },
-    {
       "path": "docs/development/ci/README.md",
       "owner": "development domain owner",
       "kind": "domain",
