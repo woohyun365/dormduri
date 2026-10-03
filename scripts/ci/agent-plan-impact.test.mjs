@@ -412,9 +412,15 @@ test('contract targets need a known scope, file targets a bare path and selector
     problems({ spec: { 'contract-targets.tsv': 'docs/guide.md#Details\tA\tfile\theading\n' } }),
     ['ERROR file target must be a bare path: docs/guide.md#Details'],
   );
+  // A `\` file target is stored as the same `/` path, so it matches `/` input everywhere downstream.
+  const backslash = fixture({
+    spec: { 'contract-targets.tsv': 'scripts\\lib.mjs\tB\tfile\tmodule\n' },
+  });
+  const stored = runImpact({ root: backslash.repo, specDirectory: backslash.specDirectory });
+  assert.deepEqual(stored.problems, []);
   assert.deepEqual(
-    problems({ spec: { 'contract-targets.tsv': 'scripts\\lib.mjs\tB\tfile\tmodule\n' } }),
-    [],
+    stored.blocks.fileTargets.map((t) => t.path),
+    ['scripts/lib.mjs'],
   );
   const { repo, specDirectory } = fixture({
     spec: { 'contract-targets.tsv': 'docs/guide.md:1,99,2\tA\tblocks\tlist\n' },
