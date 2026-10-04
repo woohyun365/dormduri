@@ -186,7 +186,7 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 | 분류 완전성                      | #537 |     5/5 |     181s |        - |            5분 | 표본 5/5                         |
 | Agent workflow 분류 출력         | #553 |       - |        - |        - |              - | Agent test lane 분리와 함께 측정 |
 | Agent test 배치                  | #543 |       - |        - |        - |              - | 시간 측정 대상 아님              |
-| Agent test lane 분리             | #553 |     0/5 |        - |        - |              - | 표본 0/5                         |
+| Agent test lane 분리             | #553 |     2/5 |        - |        - |              - | 표본 2/5                         |
 | Formatting 검사 범위             | #545 |     3/5 |        - |        - |              - | 표본 3/5                         |
 | Policy script test critical path | -    |       - |        - |        - |              - | 미측정                           |
 
@@ -258,7 +258,35 @@ step 시간 명령으로 이 job을 나누면 다음과 같습니다.
 - 비교한 대안(같은 방식의 추정): 두 job 모두 install하면 #545 뒤 표본에서 wall이 6–8s 줄고 raw가 54–56s(두 번째 job의 install
   포함 test 밖 시간) 늘어납니다. Agent job 하나로 합치면 기존 Repository policy gate와 같은 일을 한 job에서 하므로 wall·raw
   변화가 거의 없습니다. 둘 다 critical path를 줄이지 못해 채택하지 않았습니다.
-- 개선 뒤 표본은 #553 merge 뒤 agent-only PR의 run이고, 지금은 0/5입니다.
+- 개선 뒤 표본은 #553 merge 뒤 agent-only PR의 run이고, 지금은 2/5입니다(아래 절).
+
+### Agent test lane 분리(#553) 시간 표본
+
+#553 merge 뒤 agent-only PR의 run입니다. 앞 표본과 같이 PR마다 merge된 head의 run을 쓰고, §2의 run 단위 시간 명령과 step 시간
+명령으로 산출했습니다.
+
+| Run ID        | PR   | Head SHA   | Job | Wall |  Raw | 분 올림 합 |
+| ------------- | ---- | ---------- | --: | ---: | ---: | ---------: |
+| `37171086025` | #555 | `526f9872` |   4 |  92s | 149s |        6분 |
+| `37179618039` | #557 | `d3080a59` |   4 | 149s | 199s |        6분 |
+
+| Run ID        | Classify | Repository policy gate | Agent workflow gate | CI summary |
+| ------------- | -------: | ---------------------: | ------------------: | ---------: |
+| `37171086025` |      15s |                    61s |                 69s |         4s |
+| `37179618039` |      16s |                    57s |                122s |         4s |
+
+- 두 run 모두 job 4개이고 product lane은 실행하지 않았습니다.
+- Repository policy gate: install 관련(Setup pnpm + Install + Post Setup Node.js) 44s·43s, policy test step 7s·5s, formatting step
+  1s·1s입니다. 개선 전 표본에서는 이 job이 148–171s였습니다.
+- Agent workflow gate: install 없이 test step 62s·112s, 그 밖의 시간 7s·10s입니다. 예상한 test 밖 시간 5–19s 안입니다.
+- 위 예상과 비교: wall은 개선 전 p50 181s보다 89s·32s 짧습니다(예상 42–73s 감소). Raw는 개선 전 p50 177s보다 28s 짧고 22s
+  깁니다(예상 5–19s 증가). 분 올림 합은 6분·6분입니다(예상 5–7분).
+- #557의 Agent workflow gate가 #555보다 53s 길었습니다. Test step 출력의 test별 시간으로 나누면, #557이 더한 test 33개(894 → 927)는
+  합 약 6s이고, 두 run에 모두 있는 test 894개는 60.1s에서 약 102s로 늘었습니다. 같은 test가 느려진 원인은 이 두 run으로 가리지
+  않았습니다.
+- #557에는 merge 전 실패 run `37179149839`(`be578dc3`, repository policy test 실패, wall 149s, raw 196s, 분 올림 합 5분)가 있습니다.
+  merge된 head의 run이 아니라 표본에 넣지 않았지만, 재실행 비용으로는 PR 하나가 run 2회를 쓴 것입니다.
+- p50은 표본 5개 뒤에 적습니다.
 
 ### 분류 완전성(#537) 리뷰에서 찾은 under-selection
 
