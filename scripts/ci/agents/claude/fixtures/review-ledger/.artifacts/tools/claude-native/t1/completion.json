@@ -1,0 +1,12 @@
+{
+  "valid": true,
+  "response": {
+    "status": "completed",
+    "content": [
+      {
+        "type": "text",
+        "text": "Final result:\n{\"schemaVersion\": \"cross-model-handoff/v1\", \"status\": \"complete\", \"verdict\": \"FAIL\", \"findings\": [{\"severity\": \"medium\", \"location\": \"a.mjs:1\", \"impact\": \"i\", \"reproduction\": \"r\", \"evidence\": \"e\", \"criteriaItem\": \"documents.md D2\"}, {\"severity\": \"low\", \"location\": \"a.mjs:1\", \"impact\": \"i\", \"reproduction\": \"r\", \"evidence\": \"e\"}], \"acceptanceCoverage\": []}"
+      }
+    ]
+  }
+}

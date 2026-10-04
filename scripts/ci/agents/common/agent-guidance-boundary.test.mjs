@@ -43,6 +43,9 @@ const localPlanBoundaryAllowlist = new Set([
   'scripts/ci/agents/codex/codex-workflow-entry.test.mjs', // Disposable plan lifecycle fixture, not durable authority.
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
   'scripts/git/workspace-layout-check.test.mjs', // Detector fixture paths, not plan authority.
+  // Plan reference checker fixtures: a disposable repository copy whose plan paths are the checked input.
+  'scripts/ci/agents/common/plan-reference-check.test.mjs',
+  'scripts/ci/agents/common/fixtures/plan-reference/.plans/x-plan.md',
 ]);
 const workflowGuidePaths = [
   'docs/development/agent-workflows/README.md',

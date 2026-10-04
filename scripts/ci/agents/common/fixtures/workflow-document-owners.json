@@ -153,6 +153,12 @@
       "rationale": "기존 domain graph와 retired local handoff의 content-loss 추적을 보존하고 부분 영문만 한국어로 보강한다. historical source를 current authority로 만들지 않는다."
     },
     {
+      "path": "docs/development/agent-workflows/plan-authoring/references.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "계획 안 절·OQ·Phase 참조와 상대 링크의 문법, 판정 종류와 known limit을 소유한다. 승격 조건은 core.md §7이 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
       "path": "docs/development/agent-workflows/qa.md",
       "owner": "general development workflow owner",
       "kind": "normative",
