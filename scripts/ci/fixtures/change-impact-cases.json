@@ -8,7 +8,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -20,7 +21,8 @@
       "shared": false,
       "storybook": true,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -32,7 +34,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -44,7 +47,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -56,7 +60,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -68,7 +73,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -80,7 +86,8 @@
       "shared": true,
       "storybook": false,
       "infra": false,
-      "repoPolicy": false
+      "repoPolicy": false,
+      "agentWorkflow": false
     }
   },
   {
@@ -92,7 +99,8 @@
       "shared": true,
       "storybook": true,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -104,7 +112,8 @@
       "shared": true,
       "storybook": true,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -116,7 +125,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -128,7 +138,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -140,7 +151,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -152,7 +164,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -164,7 +177,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -176,7 +190,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -188,7 +203,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -200,7 +216,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -212,7 +229,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -224,7 +242,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -236,7 +255,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -248,7 +268,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -260,7 +281,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -272,7 +294,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -284,7 +307,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -309,7 +333,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -325,7 +350,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -337,7 +363,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -349,7 +376,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -361,7 +389,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -373,7 +402,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -385,7 +415,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -397,7 +428,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -409,7 +441,8 @@
       "shared": false,
       "storybook": true,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -421,7 +454,8 @@
       "shared": false,
       "storybook": false,
       "infra": false,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -433,7 +467,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -445,7 +480,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -457,7 +493,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -469,7 +506,8 @@
       "shared": false,
       "storybook": false,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -481,7 +519,8 @@
       "shared": true,
       "storybook": true,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   },
   {
@@ -493,7 +532,8 @@
       "shared": true,
       "storybook": true,
       "infra": true,
-      "repoPolicy": true
+      "repoPolicy": true,
+      "agentWorkflow": true
     }
   }
 ]

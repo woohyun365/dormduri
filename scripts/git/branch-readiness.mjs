@@ -366,7 +366,7 @@ export function assessBranchReadiness({ evidence, declaration = {} }) {
   }
 
   const selectedProductLanes = (evidence?.selectedLanes ?? []).filter(
-    (lane) => lane !== 'repoPolicy' && lane !== 'storybook',
+    (lane) => !['repoPolicy', 'agentWorkflow', 'storybook'].includes(lane),
   );
   if (selectedProductLanes.length > 1 && !normalized.semantic.sharedAcceptanceAcrossLanes) {
     auditReasons.push(

@@ -34,6 +34,7 @@ function roundCurrency(value) {
 function jobLane(job) {
   if (job.name === 'Classify changed surfaces') return 'classify';
   if (job.name === 'Repository policy gate') return 'repoPolicy';
+  if (job.name === 'Agent workflow gate') return 'agentWorkflow';
   if (job.name === 'Shared contract gate') return 'shared';
   if (job.name.startsWith('API validation')) return 'api';
   if (job.name.startsWith('Web validation')) return 'web';
@@ -50,7 +51,9 @@ export function classifyPerformanceSurface(classification) {
 }
 
 function expectedObservedLanes(classification) {
-  return ['repoPolicy', 'shared', 'api', 'web', 'infra'].filter((lane) => classification[lane]);
+  return ['repoPolicy', 'agentWorkflow', 'shared', 'api', 'web', 'infra'].filter(
+    (lane) => classification[lane],
+  );
 }
 
 function sameValues(left, right) {
@@ -164,6 +167,7 @@ export function buildRunEvidence({
     (lane) => lane !== 'classify' && lane !== 'summary',
   );
   const observedClassification = {
+    agentWorkflow: observedComparableLanes.includes('agentWorkflow'),
     api: observedComparableLanes.includes('api'),
     infra: observedComparableLanes.includes('infra'),
     repoPolicy: observedComparableLanes.includes('repoPolicy'),

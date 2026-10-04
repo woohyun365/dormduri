@@ -10,6 +10,7 @@ const ALL_PRODUCT_LANES = {
   storybook: true,
   infra: true,
   repoPolicy: true,
+  agentWorkflow: true,
 };
 
 const ROOT_TOOLCHAIN_PATHS = new Set([
@@ -48,6 +49,60 @@ const LANE_SCRIPT_PATHS = new Map([
   ['scripts/observability/rehearsal/web-bff.mjs', ['api']],
   ['scripts/observability/sentry/check-build.mjs', ['web']],
 ]);
+
+// Product files that agent workflow tests read (measured by tracing the agent suite's file reads). A change to one
+// re-runs the agent workflow lane next to its product lane. classify-changes.test.mjs checks that every product file
+// the agent tests or their fixtures name, or that a development document links, is listed here.
+export const AGENT_TEST_PRODUCT_INPUTS = {
+  files: [
+    'apps/api/src/auth/auth.module.ts',
+    'apps/api/src/legal/README.md',
+    'apps/api/src/legal/contracts/legal-public-api.spec.ts',
+    'apps/api/src/legal/legal.controller.ts',
+    'apps/web/.storybook/preview.tsx',
+    'apps/web/e2e/legal.spec.ts',
+    'apps/web/playwright.config.ts',
+    'apps/web/src/app/api/legal/documents/[kind]/route.ts',
+    'apps/web/src/app/api/legal/documents/active-bundle/route.ts',
+    'apps/web/src/app/globals.css',
+    'apps/web/src/app/layout.tsx',
+    'apps/web/src/auth/model/__tests__/authSharedValidation.contract.test.ts',
+    'apps/web/src/components/ui/Button.tsx',
+    'apps/web/src/components/ui/Chip.tsx',
+    'apps/web/src/legal/README.md',
+    'apps/web/src/legal/__tests__/legal-document-pages.test.tsx',
+    'apps/web/src/legal/api/legal-document.mapper.ts',
+    'apps/web/src/legal/components/LegalDocumentActions.tsx',
+    'apps/web/src/legal/components/LegalDocumentBackButton.tsx',
+    'apps/web/src/legal/components/LegalDocumentLayout.tsx',
+    'apps/web/src/legal/components/LegalDocumentUnavailable.tsx',
+    'apps/web/src/legal/content/legal-copy.ts',
+    'apps/web/src/legal/content/legal-fallback-documents.ts',
+    'apps/web/src/main/README.md',
+    'apps/web/src/main/hooks/__tests__/useMainProfileState.dom.test.ts',
+    'apps/web/src/main/hooks/useMainProfileState.ts',
+    'apps/web/src/main/model/mainRoutes.ts',
+    'apps/web/src/main/routes/HomeRoute.tsx',
+    'apps/web/src/main/routes/ProfileRoute.tsx',
+    'apps/web/src/main/runtime/MainRuntime.test.tsx',
+    'apps/web/src/main/tabs/home/__tests__/HomeDashboardLayout.test.tsx',
+    'apps/web/src/main/tabs/home/__tests__/HomeResponsiveOverlay.test.tsx',
+    'apps/web/src/main/tabs/home/overlays/HomeResponsiveDialog.tsx',
+    'apps/web/src/main/tabs/home/sections/primary/PrimaryWithdrawalSheet.tsx',
+    'apps/web/src/main/tabs/profile/ProfileCompatibility.tsx',
+    'apps/web/src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx',
+    'apps/web/src/styles/knu.css',
+    'packages/shared/src/legal/contract.ts',
+  ],
+  prefixes: ['apps/web/src/main/tabs/home/sections/activity/dialogs/'],
+};
+
+function isAgentTestProductInput(path) {
+  return (
+    AGENT_TEST_PRODUCT_INPUTS.files.includes(path) ||
+    AGENT_TEST_PRODUCT_INPUTS.prefixes.some((prefix) => path.startsWith(prefix))
+  );
+}
 
 // Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
 // scripts, tests and instructions) and repository support files never select product lanes.
@@ -96,6 +151,7 @@ function emptyClassification() {
     storybook: false,
     infra: false,
     repoPolicy: false,
+    agentWorkflow: false,
   };
 }
 
@@ -108,6 +164,7 @@ export function classifyChanges(paths) {
 
   if (paths.length === 0) {
     result.repoPolicy = true;
+    result.agentWorkflow = true;
     return result;
   }
 
@@ -216,8 +273,15 @@ export function classifyChanges(paths) {
     if (!matched) {
       markAll(result);
     }
+
+    if (isAgentTestProductInput(path)) {
+      result.agentWorkflow = true;
+    }
   }
 
+  // Agent workflow tests read the agent surface, documentation and repository support files, the same inputs that
+  // select the repo-policy lane, so every repo-policy change also runs them.
+  result.agentWorkflow ||= result.repoPolicy;
   return result;
 }
 

@@ -47,7 +47,8 @@ classify
   │   ├─ core      # static, build, optional Storybook, browser smoke
   │   └─ unit      # Node/jsdom Vitest projects
   ├─ infra         # infra와 observability 변경
-  ├─ repo-policy   # CI/workflow/root policy와 repository formatting
+  ├─ repo-policy   # CI/workflow/root policy, tree 전체 guard와 repository formatting
+  ├─ agent-workflow # agent workflow test(package install 없음)
   └─ CI summary    # 선택된 모든 lane의 결과를 하나의 required check로 판정
 ```
 
@@ -56,7 +57,8 @@ classify
 - Shared/root toolchain 변경은 Shared, API, Web을 함께 검증한다.
 - Storybook-owned 변경은 Web lane 안에서만 Storybook static build를 추가한다.
 - Docs-only 변경은 product lane을 실행하지 않는다.
-- Agent workflow(host 설정, agent script·test·문서), repository 지원 script·설정, tracked local record 변경도 repo-policy lane만
+- Agent workflow(host 설정, agent script·test·문서), repository 지원 script·설정, tracked local record 변경도 repo-policy lane과
+  agent-workflow lane만 실행한다. Agent workflow test가 읽는 product 파일을 바꾸면 그 product lane과 함께 agent-workflow lane도
   실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행한다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
 - Repo-policy lane의 formatting 검사는 formatting 설정이 그대로이고 PR base·push 범위 기준의 변경 목록을 얻은 경우에만
@@ -239,6 +241,7 @@ Rollout budget:
 | API-only            |     5m 이하 |
 | Shared/root fan-out |     8m 이하 |
 | Docs-only           | 1m 30s 이하 |
+| Agent workflow      |        미정 |
 
 Job-rounded billed-minute advisory budget:
 
@@ -249,6 +252,13 @@ Job-rounded billed-minute advisory budget:
 | Web-only            | 15 minutes |
 | Infra-only          | 10 minutes |
 | Docs/config/tooling |  5 minutes |
+| Agent workflow      |       미정 |
+
+Product lane이 없는 PR(Docs-only, Docs/config/tooling, Agent workflow)은 모두 `repoPolicy`와 `agentWorkflow`를 선택해
+classify, Repository policy gate, Agent workflow gate, CI summary를 실행한다. Lane 선택이 같으므로 Agent workflow 분류는 변경
+경로로 고른다: agent 지침·adapter·script·test·host 설정을 바꾼 PR이다. 성능 collector의 surface는 lane 기준이라 이 셋을
+`docs-config-tooling-only`로 묶는다. Agent workflow 목표는 표본 10개로 p95를 낸 뒤 정한다.
+Job 분리 전 agent-only 표본 5개의 wall p50은 3m 01s, job 분 올림 합 p50은 5분이다(CI change classification evidence §6).
 
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
