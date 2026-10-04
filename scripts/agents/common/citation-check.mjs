@@ -34,7 +34,7 @@ function isFile(path) {
 
 // Case-insensitive file systems would accept `SRC/Tool.mjs`; compare every segment with the directory listing so the
 // result does not depend on the OS. Paths outside the root get the plain existence check only.
-function existsWithCase(root, path) {
+export function existsWithCase(root, path) {
   const absolute = resolve(root, path);
   if (!existsSync(absolute)) return false;
   const inside = relative(root, absolute);

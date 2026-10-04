@@ -1,0 +1,24 @@
+{
+  "schema": "review-adjudication/v1",
+  "subject": "feature-x",
+  "round": 1,
+  "reviews": [
+    {
+      "taskId": "t1",
+      "resultPath": "evidence/r1-result.json"
+    }
+  ],
+  "findings": [
+    {
+      "id": "t1#0",
+      "severity": "medium",
+      "disposition": "fixed"
+    },
+    {
+      "id": "t1#1",
+      "severity": "low",
+      "disposition": "rejected",
+      "reason": "not reproduced"
+    }
+  ]
+}

@@ -38,7 +38,8 @@ local runtime, configuration precedence, complete Phase ownership, acceptance ev
    매핑해 self-contradiction을 검사합니다.
 3. Validator green은 보조 evidence입니다. Fresh reviewer가 입력의 사실성, blocking OQ, mutation authority를 독립적으로
    확인한 뒤에만 구현을 시작합니다.
-4. Readiness 리뷰의 severity·gate·회차 상한·PASS 뒤 처분은 [QA의 계획 readiness 리뷰 규칙](../qa.md#계획-readiness-리뷰)을
+4. 절·OQ·Phase 참조와 상대 링크는 [Plan references](./references.md) 문법으로 쓰고 그 검사 출력을 readiness 근거로 둡니다.
+5. Readiness 리뷰의 severity·gate·회차 상한·PASS 뒤 처분은 [QA의 계획 readiness 리뷰 규칙](../qa.md#계획-readiness-리뷰)을
    따릅니다. Readiness PASS와 구현 뒤 QA PASS는 따로 판정합니다.
 
 세부 status·evidence·enforcement matrix는 Core가 소유합니다. Root `AGENTS.md`나 domain guide에 이를 복사하지 않습니다.

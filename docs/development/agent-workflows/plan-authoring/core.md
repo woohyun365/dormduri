@@ -260,6 +260,9 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 7. tracked source를 수정하는 단계는 complete Phase contract를 가지거나 같은 계획의 explicit shared owner table을
    참조해야 합니다.
 8. 구현 결과를 바꾸는 blocking OQ가 없고, 비차단 gap은 owner·필요 evidence·revisit trigger를 가집니다.
+9. 새로 작성하는 계획은 [Plan references](./references.md) 검사 위반이 0입니다. 이 문법 전부터 있던 계획은
+   `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer가 검사 출력으로 확인합니다
+   (`model-mediated`).
 
 계획이 커질 때 invariant는 durable owner에 once 기록하고 plan에서는 link합니다. 같은 결정·행렬을 여러 Phase에
 복사하지 않으며, current code와 drift가 발견되면 구현 전에 baseline과 영향받는 Phase만 갱신합니다.

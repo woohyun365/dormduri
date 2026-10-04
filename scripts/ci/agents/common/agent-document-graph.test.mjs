@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { resolve, dirname, relative } from 'node:path';
+import { resolve } from 'node:path';
 import test from 'node:test';
+import { anchors, links as markdownLinks, prose } from '../../../agents/common/markdown-links.mjs';
 import { workflowGraph, validateWorkflowGraph } from '../../../agents/common/workflow-entry.mjs';
 const root = resolve(import.meta.dirname, '../../../..');
 const corpus = JSON.parse(
@@ -19,56 +20,6 @@ function markdownFiles(dir) {
         : [],
   );
 }
-function prose(source) {
-  let fence = null;
-  return source
-    .split('\n')
-    .filter((line) => {
-      const marker = line.match(/^\s*(`{3,}|~{3,})/u)?.[1];
-      if (marker) {
-        if (!fence) fence = marker[0];
-        else if (fence === marker[0]) fence = null;
-        return false;
-      }
-      return !fence;
-    })
-    .join('\n');
-}
-function anchors(source) {
-  const result = new Set(),
-    counts = new Map();
-  for (const match of prose(source).matchAll(/^#{1,6}\s+(.+)$/gmu)) {
-    const base = match[1]
-      .trim()
-      .toLowerCase()
-      .replace(/<[^>]+>/gu, '')
-      .replace(/[^\p{L}\p{N}_\-\s]/gu, '')
-      .replace(/\s/gu, '-');
-    const count = counts.get(base) ?? 0;
-    counts.set(base, count + 1);
-    result.add(base + (count ? `-${count}` : ''));
-  }
-  for (const match of source.matchAll(/<(?:a|h[1-6])[^>]+(?:id|name)=["']([^"']+)["']/gu))
-    result.add(match[1]);
-  return result;
-}
-function links(path) {
-  const text = prose(readFileSync(resolve(root, path), 'utf8')).replace(/`+[^`\n]*`+/gu, '');
-  const targets = [...text.matchAll(/(?<!!)\[[^\]]*\]\(([^\s)]+)(?:\s+[^)]*)?\)/gu)].map(
-    (m) => m[1],
-  );
-  for (const match of text.matchAll(/^\s*\[[^\]]+\]:\s*(\S+)/gmu)) targets.push(match[1]);
-  return targets
-    .filter((target) => !/^(?:[a-z]+:|\/\/)/iu.test(target))
-    .map((target) => {
-      const [file, fragment] = target.split('#');
-      return {
-        path: relative(root, resolve(root, dirname(path), decodeURIComponent(file))),
-        fragment: fragment ? decodeURIComponent(fragment) : null,
-      };
-    });
-}
-
 test('every current development Markdown owner is classified, with rationale rather than blanket rewrite', () => {
   const actual = markdownFiles('docs/development').sort();
   assert.deepEqual(corpus.documents.map((x) => x.path).sort(), actual);
@@ -81,7 +32,7 @@ test('actual document links/anchors resolve and every development owner is index
   const paths = corpus.documents.map((x) => x.path),
     edges = new Map();
   for (const path of paths) {
-    const targets = links(path);
+    const targets = markdownLinks(root, path);
     edges.set(
       path,
       targets.map((x) => x.path),
@@ -125,7 +76,9 @@ test('review criteria documents are registered owners with capped, complete item
     assert.ok(paths.includes(path), `${path} needs an owner row`);
   }
   const qa = readFileSync(resolve(root, 'docs/development/agent-workflows/qa.md'), 'utf8');
-  assert.ok(links('docs/development/agent-workflows/qa.md').some((x) => x.path === readme));
+  assert.ok(
+    markdownLinks(root, 'docs/development/agent-workflows/qa.md').some((x) => x.path === readme),
+  );
   assert.match(qa, /^### Severity$/mu);
   const readmeText = readFileSync(resolve(root, readme), 'utf8');
   assert.match(readmeText, new RegExp(`${CRITERIA_ITEM_CAP}개`, 'u'));
@@ -136,7 +89,7 @@ test('review criteria documents are registered owners with capped, complete item
   );
   for (const path of criteria) {
     assert.ok(
-      links(readme).some((x) => x.path === path),
+      markdownLinks(root, readme).some((x) => x.path === path),
       `${readme} -> ${path}`,
     );
     const text = readFileSync(resolve(root, path), 'utf8');
