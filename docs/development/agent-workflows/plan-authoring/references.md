@@ -44,7 +44,7 @@ node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-on
 - 위반: 해석되지 않는 참조(`unresolved`), 대상 파일이 없고 ignore되지도 않은 참조(`unresolved-target`), 같은 절 번호나
   OQ의 중복 정의(`duplicate-definition`), 깨진 상대 링크·anchor(같은 문서 `#anchor` 포함, `broken-link`).
 - 대상이 ignored 경로라 지금 없으면 위반이 아니라 `targetUnavailable` 건수로 셉니다. 계획은 ignored `.plans` 아래에
-  있으므로 없는 계획을 가리키는 상대 링크와 root 기준 backtick 경로(`` `.plans/…/x-plan.md` §3 ``)는 오타인지 다른 사람의
+  있으므로 없는 계획을 가리키는 상대 링크와 `.plans` 아래를 가리키는 root 기준 backtick 경로는 오타인지 다른 사람의
   local 파일인지 구별하지 못하고 이 건수로 셉니다(known limit). Backtick 경로가 root와 문서 기준 모두에 없으면 root 기준으로
   판정하므로, ignored가 아닌 경로의 오타(`` `core.md` §7 ``)는 `unresolved-target`입니다.
 - Fenced code와 inline code 안은 검사하지 않습니다.

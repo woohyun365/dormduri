@@ -136,8 +136,8 @@ function qualifier(before, { root, documentPath, plans }) {
   const code = CODE_BEFORE.exec(before)?.groups.target;
   if (code) {
     // Found neither way, the path is judged at the root: a plan sits in an ignored directory, and judging the missing
-    // path there would turn a mistyped path into an unavailable target. A root path inside an ignored directory
-    // (`.plans/…`) still counts as unavailable.
+    // path there would turn a mistyped path into an unavailable target. A root path inside an ignored directory (such as
+    // the plan directory) still counts as unavailable.
     const fromRoot = resolve(root, code);
     const fromDocument = resolve(dirname(documentPath), code);
     return !present(root, fromRoot) && present(root, fromDocument) ? fromDocument : fromRoot;
