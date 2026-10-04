@@ -28,7 +28,9 @@ import {
   completeClaudeNativeTask,
   observeClaudeNativeTask,
   releaseClaudeNativeTask,
+  claudeNativeSnapshotDigest,
 } from '../../../agents/claude/native-session.mjs';
+import { settleClaudeNativeTask } from '../../../agents/claude/native-task-helper.mjs';
 
 function setup(t) {
   const f = fixture(t);
@@ -471,7 +473,7 @@ function reviewer(t, subject, packet, options = {}) {
   const registered = registerClaudeNativeTask({
     workflowInput: input,
     sessionId: options.sessionId ?? subject.event.session_id,
-    prompt: 'Review the frozen subject packet only.',
+    prompt: options.prompt ?? 'Review the frozen subject packet only.',
     expectedResolvedModel,
     independentReview: {
       subjectTaskId: subject.registered.taskId,
@@ -3149,4 +3151,505 @@ test('a working-tree change after the first task completes forfeits its bound re
     /recovery-not-ran: .*post-completion/u,
   );
   assert.equal(markerFiles(f).length, 0);
+});
+
+// A first-round review group (V1c): members share a group line on prompt line 2, and the Parent may
+// close a member's non-PASS only with a review-adjudication/v1 record whose rejections cite a
+// reproduction log bound to the builder's snapshot. A single reviewer's FAIL stays unclosable.
+const GROUP_ID = 'abcd1234';
+const GROUP_DIR = '.artifacts/plans/group-test';
+const groupPrompt = (index, { size = 2, composition = 'e2', groupId = GROUP_ID } = {}) =>
+  `KNU review snapshot sha256:${'0'.repeat(64)}\nKNU review group ${groupId} ${index}/${size} ${composition}\nReview the frozen subject packet only.`;
+const groupFinding = (id, severity = 'medium') => ({
+  ...(id === undefined ? {} : { id }),
+  severity,
+  location: 'sample.txt:1',
+  impact: 'fixture impact',
+  reproduction: 'fixture reproduction',
+  evidence: 'fixture evidence',
+});
+const failing =
+  (findings, extra = {}) =>
+  (result) => ({ ...result, findings, ...extra });
+const gapped = (gap) => (result) => ({
+  ...result,
+  acceptanceCoverage: result.acceptanceCoverage.map((entry) => ({ ...entry, gap })),
+});
+function groupMember(t, subject, packet, index, options = {}) {
+  const { verdict = 'PASS', patch = (result) => result, prompt, dispatch = 'delivered' } = options;
+  const qa = reviewer(t, subject, packet, { prompt: prompt ?? groupPrompt(index, options) });
+  const result = patch(reviewResult(packet, 'unknown', verdict));
+  handle(qa);
+  if (dispatch === 'failed-call') {
+    handle(qa, { ...qa.event, hook_event_name: 'PostToolUseFailure' });
+    return { qa, result: null };
+  }
+  if (dispatch === 'unsettled') return { qa, result: null };
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const semantic = semanticResult(qa);
+  semantic.reviewResult = result;
+  // A FAIL with a coverage gap does not complete; it stays a delivered non-PASS review.
+  completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root });
+  return { qa, result };
+}
+const blockingSeverity = (severity) => ['critical', 'high', 'medium'].includes(severity);
+// Writes each delivered result, a reproduction log headed by `header`, and the adjudication record.
+function writeGroupAdjudication(subject, members, options = {}) {
+  const root = realpathSync(subject.root);
+  mkdirSync(join(root, GROUP_DIR), { recursive: true });
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const header =
+    options.header ??
+    `KNU review snapshot ${claudeNativeSnapshotDigest(observation.finalSnapshot)}`;
+  const log = options.log ?? `${GROUP_DIR}/repro.log`;
+  if (options.writeLog !== false) {
+    mkdirSync(join(root, log, '..'), { recursive: true });
+    writeFileSync(join(root, log), `${header}\nrg exit=1\nexit=0\n`);
+  }
+  const delivered = members.filter((member) => member.result);
+  const reviews = delivered.map((member, index) => {
+    const resultPath = `${GROUP_DIR}/r1-result-${index + 1}.json`;
+    writeFileSync(join(root, resultPath), JSON.stringify(member.result));
+    return { taskId: member.qa.registered.taskId, resultPath };
+  });
+  const findings = delivered.flatMap((member) =>
+    member.result.findings.map((finding, index) => ({
+      id: finding.id ?? `${member.qa.registered.taskId}#${index}`,
+      severity: finding.severity,
+      disposition: blockingSeverity(finding.severity) ? 'rejected' : 'fixed',
+      reason: `not reproduced: \`${log}\``,
+    })),
+  );
+  const record = {
+    schema: 'review-adjudication/v1',
+    subject: 'group fixture',
+    round: 1,
+    reviews,
+    findings,
+  };
+  const path = `${GROUP_DIR}/r1-adjudication.json`;
+  writeFileSync(
+    join(root, path),
+    JSON.stringify(options.edit ? (options.edit(record, root) ?? record) : record),
+  );
+  return path;
+}
+function linkGroup(subject, linked, reviewAdjudication) {
+  const semantic = semanticResult(subject);
+  semantic.results[0].changedPaths = ['sample.txt'];
+  semantic.reviewerTaskId = linked.qa.registered.taskId;
+  if (reviewAdjudication !== undefined) semantic.reviewAdjudication = reviewAdjudication;
+  return completeClaudeNativeTask(subject.registered.taskId, semantic, { root: subject.root });
+}
+// One PASS member and one FAIL member whose findings come from `failPatch`.
+function groupCase(t, { failPatch = failing([groupFinding('m2-F1')]), ...options } = {}) {
+  const { subject, packet } = reviewedSubject(t);
+  const pass = groupMember(t, subject, packet, 1);
+  const fail = groupMember(t, subject, packet, 2, { verdict: 'FAIL', patch: failPatch });
+  const members = [pass, fail];
+  const path =
+    options.adjudication === false
+      ? undefined
+      : writeGroupAdjudication(subject, members, options.adjudication ?? {});
+  return { subject, packet, pass, fail, members, path, linked: linkGroup(subject, pass, path) };
+}
+const rejectedWith = (outcome, pattern) =>
+  assert.ok(
+    outcome.valid === false && outcome.errors.some((error) => pattern.test(error)),
+    outcome.errors.join(' | '),
+  );
+
+test('a group FAIL rejected with a bound reproduction log lets the PASS member complete the builder', (t) => {
+  const { linked } = groupCase(t);
+  assert.equal(linked.valid, true, linked.errors.join(' | '));
+  // A FAIL member whose coverage gap and knownGaps name its rejected finding is closed with it.
+  const named = groupCase(t, {
+    failPatch: (result) =>
+      gapped('criterion unmet until m2-F1 is fixed')(
+        failing([groupFinding('m2-F1')], { knownGaps: ['m2-F1: acceptance blocked'] })(result),
+      ),
+  });
+  assert.equal(named.linked.valid, true, named.linked.errors.join(' | '));
+  // A finding without an id is named by its `<taskId>#<index>` id.
+  const unnamed = groupCase(t, {
+    failPatch: failing([groupFinding(undefined)]),
+  });
+  assert.equal(unnamed.linked.valid, true, unnamed.linked.errors.join(' | '));
+});
+
+test('a group non-PASS needs a valid adjudication record that names every delivered member', (t) => {
+  const missing = groupCase(t, { adjudication: false });
+  rejectedWith(missing.linked, /review-adjudication-required/u);
+  // The current refusal stays alongside the new reason.
+  rejectedWith(missing.linked, /FAIL review receipt|delivered non-PASS review/u);
+  rejectedWith(
+    groupCase(t, {
+      adjudication: {
+        edit: (record) => ({ ...record, reviews: record.reviews.slice(1) }),
+      },
+    }).linked,
+    /review-adjudication-invalid: .*every member/u,
+  );
+  rejectedWith(
+    groupCase(t, {
+      adjudication: {
+        edit: (record) => ({
+          ...record,
+          round: 2,
+          findings: record.findings.map((f) => ({ ...f, origin: 'fix-induced' })),
+        }),
+      },
+    }).linked,
+    /review-adjudication-invalid: .*round 1/u,
+  );
+  rejectedWith(
+    groupCase(t, {
+      adjudication: { edit: (record) => ({ ...record, findings: [] }) },
+    }).linked,
+    /review-adjudication-invalid: missing-finding/u,
+  );
+  rejectedWith(
+    groupCase(t, {
+      adjudication: {
+        edit: (record, root) => {
+          const path = join(root, record.reviews[1].resultPath);
+          const result = JSON.parse(readFileSync(path));
+          writeFileSync(path, JSON.stringify({ ...result, confidence: 'low' }));
+          return record;
+        },
+      },
+    }).linked,
+    /review-adjudication-result-mismatch/u,
+  );
+  const outside = groupCase(t, { adjudication: false });
+  rejectedWith(
+    linkGroup(outside.subject, outside.pass, '../outside.json'),
+    /review-adjudication-invalid/u,
+  );
+  // Members that ignore the id prefix collide; their results cannot share one record.
+  {
+    const { subject, packet } = reviewedSubject(t);
+    const pass = groupMember(t, subject, packet, 1, {
+      patch: failing([groupFinding('F1', 'low')]),
+    });
+    const fail = groupMember(t, subject, packet, 2, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('F1')]),
+    });
+    rejectedWith(
+      linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail])),
+      /review-adjudication-invalid: duplicate-result-id F1/u,
+    );
+  }
+});
+
+test('every blocking finding of a group non-PASS is rejected with a log bound to the same snapshot', (t) => {
+  for (const disposition of ['fixed', 'deferred'])
+    rejectedWith(
+      groupCase(t, {
+        adjudication: {
+          edit: (record) => ({
+            ...record,
+            findings: record.findings.map((f) => ({ ...f, disposition })),
+          }),
+        },
+      }).linked,
+      /review-blocking-not-rejected: m2-F1/u,
+    );
+  // Lowering the severity in the record does not turn a delivered medium into a non-blocking one.
+  rejectedWith(
+    groupCase(t, {
+      adjudication: {
+        edit: (record) => ({
+          ...record,
+          findings: record.findings.map((f) => ({ ...f, severity: 'low', disposition: 'fixed' })),
+        }),
+      },
+    }).linked,
+    /review-blocking-not-rejected: m2-F1/u,
+  );
+  for (const adjudication of [
+    { writeLog: false },
+    { header: `KNU review snapshot sha256:${'f'.repeat(64)}` },
+    {
+      edit: (record) => ({
+        ...record,
+        findings: record.findings.map((f) => ({ ...f, reason: 'not reproduced' })),
+      }),
+    },
+    // A packet runner output is pre-review evidence, not a reproduction.
+    { log: '.artifacts/tools/cross-model-handoff/test-output.txt' },
+  ])
+    rejectedWith(groupCase(t, { adjudication }).linked, /review-rejection-unbound: m2-F1/u);
+  // A native task record is never a reproduction log, even with the right first line.
+  const native = groupCase(t, { adjudication: false });
+  const nativeLog = `.artifacts/tools/claude-native/${native.fail.qa.registered.taskId}/repro.log`;
+  rejectedWith(
+    linkGroup(
+      native.subject,
+      native.pass,
+      writeGroupAdjudication(native.subject, native.members, { log: nativeLog }),
+    ),
+    /review-rejection-unbound: m2-F1/u,
+  );
+});
+
+test('a group non-PASS without blocking findings, with notRun or with an unnamed gap stays open', (t) => {
+  rejectedWith(
+    groupCase(t, {
+      failPatch: failing([groupFinding('m2-F1')], { notRun: ['node --test sample'] }),
+    }).linked,
+    /review-not-run-not-rejectable/u,
+  );
+  for (const failPatch of [
+    (result) => gapped('criterion unverified')(failing([])(result)),
+    failing([], { knownGaps: ['criterion unverified'] }),
+    (result) => gapped('m2-L1 only')(failing([groupFinding('m2-L1', 'low')])(result)),
+    // A FAIL with only low findings and no gap has nothing to reject either.
+    failing([groupFinding('m2-L1', 'low')]),
+  ])
+    rejectedWith(groupCase(t, { failPatch }).linked, /review-gap-not-rejectable/u);
+  // Rejecting the blocking finding does not close a gap or knownGaps entry that does not name it.
+  for (const failPatch of [
+    (result) => gapped('criterion 3 has no test output')(failing([groupFinding('m2-F1')])(result)),
+    failing([groupFinding('m2-F1')], { knownGaps: ['criterion 3 unverified'] }),
+    // m2-F10 is another id, not m2-F1.
+    (result) => gapped('blocked by m2-F10')(failing([groupFinding('m2-F1')])(result)),
+  ])
+    rejectedWith(groupCase(t, { failPatch }).linked, /review-gap-not-rejectable: /u);
+});
+
+test('only the members of one first-round group can close a non-PASS member', (t) => {
+  // An extra reviewer outside the group, even a PASS one, is reviewer shopping.
+  {
+    const { subject, packet } = reviewedSubject(t);
+    const pass = groupMember(t, subject, packet, 1);
+    const fail = groupMember(t, subject, packet, 2, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m2-F1')]),
+    });
+    const extra = groupMember(t, subject, packet, 0, {
+      prompt: 'Review the frozen subject packet only.',
+    });
+    rejectedWith(
+      linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail, extra])),
+      /review-group-mismatch/u,
+    );
+  }
+  {
+    const { subject, packet } = reviewedSubject(t);
+    const pass = groupMember(t, subject, packet, 1);
+    const fail = groupMember(t, subject, packet, 2, {
+      verdict: 'FAIL',
+      groupId: 'ffff0000',
+      patch: failing([groupFinding('m2-F1')]),
+    });
+    rejectedWith(
+      linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail])),
+      /review-group-mismatch/u,
+    );
+  }
+  {
+    // A member index above the group size.
+    const { subject, packet } = reviewedSubject(t);
+    const pass = groupMember(t, subject, packet, 1);
+    const fail = groupMember(t, subject, packet, 3, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m3-F1')]),
+    });
+    rejectedWith(
+      linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail])),
+      /review-group-mismatch/u,
+    );
+  }
+  {
+    // A single reviewer's FAIL stays unclosable by an adjudication record.
+    const { subject, packet } = reviewedSubject(t);
+    const single = groupMember(t, subject, packet, 0, {
+      verdict: 'FAIL',
+      prompt: 'Review the frozen subject packet only.',
+      patch: failing([groupFinding('F1')]),
+    });
+    const pass = groupMember(t, subject, packet, 0, {
+      prompt: 'Review the frozen subject packet only.',
+    });
+    const outcome = linkGroup(subject, pass, writeGroupAdjudication(subject, [single, pass]));
+    rejectedWith(outcome, /FAIL review receipt/u);
+  }
+  {
+    // Re-dispatching a member index to find a PASS inside the group is refused.
+    const { subject, packet } = reviewedSubject(t);
+    const fail = groupMember(t, subject, packet, 1, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m1-F1')]),
+    });
+    const retry = groupMember(t, subject, packet, 1);
+    const pass = groupMember(t, subject, packet, 2);
+    rejectedWith(
+      linkGroup(subject, retry, writeGroupAdjudication(subject, [fail, retry, pass])),
+      /review-group-duplicate-member/u,
+    );
+  }
+  {
+    // A reviewer registered but never dispatched is not a member and does not block.
+    const { subject, packet } = reviewedSubject(t);
+    reviewer(t, subject, packet);
+    const pass = groupMember(t, subject, packet, 1);
+    const fail = groupMember(t, subject, packet, 2, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m2-F1')]),
+    });
+    const outcome = linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail]));
+    assert.equal(outcome.valid, true, outcome.errors.join(' | '));
+  }
+  {
+    // An earlier attempt of the same index that failed as an Agent call is not a member.
+    const { subject, packet } = reviewedSubject(t);
+    groupMember(t, subject, packet, 1, { dispatch: 'failed-call' });
+    const pass = groupMember(t, subject, packet, 1);
+    const fail = groupMember(t, subject, packet, 2, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m2-F1')]),
+    });
+    const outcome = linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail]));
+    assert.equal(outcome.valid, true, outcome.errors.join(' | '));
+  }
+  {
+    // An unsettled member has no known verdict.
+    const { subject, packet } = reviewedSubject(t);
+    const pass = groupMember(t, subject, packet, 1, { size: 3 });
+    const fail = groupMember(t, subject, packet, 2, {
+      size: 3,
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m2-F1')]),
+    });
+    groupMember(t, subject, packet, 3, { size: 3, dispatch: 'unsettled' });
+    rejectedWith(
+      linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail])),
+      /unsettled or released review attempt/u,
+    );
+  }
+  {
+    // With every member FAIL there is no PASS member to link.
+    const { subject, packet } = reviewedSubject(t);
+    const first = groupMember(t, subject, packet, 1, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m1-F1')]),
+    });
+    const second = groupMember(t, subject, packet, 2, {
+      verdict: 'FAIL',
+      patch: failing([groupFinding('m2-F1')]),
+    });
+    assert.equal(
+      linkGroup(subject, first, writeGroupAdjudication(subject, [first, second])).valid,
+      false,
+    );
+  }
+});
+
+test('a group non-PASS member whose result or receipt cannot be read keeps blocking', (t) => {
+  for (const text of [
+    'FAIL m2-F1 medium (not JSON)',
+    'null',
+    JSON.stringify({ verdict: 'FAIL' }),
+  ]) {
+    const { subject, packet } = reviewedSubject(t);
+    const pass = groupMember(t, subject, packet, 1);
+    const qa = reviewer(t, subject, packet, { prompt: groupPrompt(2) });
+    handle(qa);
+    finish(qa, { content: [{ type: 'text', text }] });
+    const outcome = linkGroup(subject, pass, writeGroupAdjudication(subject, [pass]));
+    rejectedWith(outcome, /review-group-unreadable-member/u);
+    rejectedWith(outcome, /delivered non-PASS review/u);
+  }
+  // A FAIL member whose receipt was damaged after it completed.
+  const { subject, packet } = reviewedSubject(t);
+  const pass = groupMember(t, subject, packet, 1);
+  const fail = groupMember(t, subject, packet, 2, {
+    verdict: 'FAIL',
+    patch: failing([groupFinding('m2-F1')]),
+  });
+  const path = writeGroupAdjudication(subject, [pass, fail]);
+  writeFileSync(join(fail.qa.registered.evidenceDirectory, 'review-receipt.json'), '{');
+  rejectedWith(linkGroup(subject, pass, path), /review-group-unreadable-member/u);
+});
+
+test('a packet runner output is not a reproduction under another spelling or as a copy', (t) => {
+  for (const log of [
+    '.artifacts/tools/cross-model-handoff/./test-output.txt',
+    '.artifacts/tools//cross-model-handoff/test-output.txt',
+  ])
+    rejectedWith(
+      groupCase(t, { adjudication: { log } }).linked,
+      /review-rejection-unbound: m2-F1/u,
+    );
+  // A byte-identical copy of the runner output under a new name.
+  const copied = groupCase(t, { adjudication: false });
+  const root = realpathSync(copied.subject.root);
+  const path = writeGroupAdjudication(copied.subject, copied.members, {
+    log: '.artifacts/tools/cross-model-handoff/test-output.txt',
+  });
+  mkdirSync(join(root, GROUP_DIR), { recursive: true });
+  writeFileSync(
+    join(root, GROUP_DIR, 'copy.log'),
+    readFileSync(join(root, '.artifacts/tools/cross-model-handoff/test-output.txt')),
+  );
+  const record = JSON.parse(readFileSync(join(root, path)));
+  record.findings = record.findings.map((f) => ({
+    ...f,
+    reason: `not reproduced: \`${GROUP_DIR}/copy.log\``,
+  }));
+  writeFileSync(join(root, path), JSON.stringify(record));
+  rejectedWith(linkGroup(copied.subject, copied.pass, path), /review-rejection-unbound: m2-F1/u);
+});
+
+test('a gap may name an id-less finding by its task id and index', (t) => {
+  const { subject, packet } = reviewedSubject(t);
+  const pass = groupMember(t, subject, packet, 1);
+  const qa = reviewer(t, subject, packet, { prompt: groupPrompt(2) });
+  const id = `${qa.registered.taskId}#0`;
+  const result = gapped(`criterion blocked by ${id}`)(
+    failing([groupFinding(undefined)], { knownGaps: [`${id} unresolved`] })(
+      reviewResult(packet, 'unknown', 'FAIL'),
+    ),
+  );
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const fail = { qa, result };
+  const outcome = linkGroup(subject, pass, writeGroupAdjudication(subject, [pass, fail]));
+  assert.equal(outcome.valid, true, outcome.errors.join(' | '));
+});
+
+test('settle forwards the reviewAdjudication judgment field to builder completion', (t) => {
+  const { subject, pass, members } = groupCase(t, { adjudication: false });
+  const path = writeGroupAdjudication(subject, members);
+  const semantic = semanticResult(subject);
+  const judgment = {
+    responseDigest: semantic.responseDigest,
+    acceptance: semantic.acceptance,
+    checks: ['group adjudication checked'],
+    reviewerTaskId: pass.qa.registered.taskId,
+  };
+  const root = realpathSync(subject.root);
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        subject.registered.taskId,
+        { ...judgment, reviewAdjudication: '' },
+        { root },
+      ),
+    /review-adjudication-path-required/u,
+  );
+  rejectedWith(
+    settleClaudeNativeTask(subject.registered.taskId, judgment, { root }),
+    /review-adjudication-required/u,
+  );
+  const settled = settleClaudeNativeTask(
+    subject.registered.taskId,
+    { ...judgment, reviewAdjudication: path },
+    { root },
+  );
+  assert.equal(settled.valid, true, settled.errors.join(' | '));
 });

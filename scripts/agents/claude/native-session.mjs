@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../common/index.mjs';
+import { resultFindingIds, validateAdjudication } from '../common/review-adjudication.mjs';
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
 import { claudeRecoveryStep } from './model-policy.mjs';
 import {
@@ -256,7 +257,7 @@ function boundRunnerRecords(prompt) {
 // mirror its input rules so a refusal names the field; they never admit what the policy refuses.
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const safeRef = (value) =>
+export const safeRef = (value) =>
   typeof value === 'string' &&
   SAFE_REF.test(value) &&
   !value.includes('//') &&
@@ -1351,9 +1352,179 @@ function reviewDispatchErrors(root, reviewerTaskId, recorded, unsettled) {
   return errors;
 }
 
+// First-round review group (qa.md E5, I3). Each member prompt carries this line second; the
+// registry binds the prompt, so membership cannot change after registration.
+const REVIEW_GROUP_LINE = /^KNU review group ([a-f0-9]{8}) ([1-9]\d*)\/([1-9]\d*) (e2|e3)$/u;
+const BLOCKING_SEVERITIES = ['critical', 'high', 'medium'];
+function reviewGroupOf(invocation) {
+  const match = REVIEW_GROUP_LINE.exec(String(invocation?.prompt ?? '').split('\n')[1] ?? '');
+  return match
+    ? { id: match[1], index: Number(match[2]), size: Number(match[3]), composition: match[4] }
+    : null;
+}
+// A file the adjudication names: inside the root, a regular file and not native task evidence.
+function adjudicationFile(root, path) {
+  const rel = typeof path === 'string' ? relative(root, resolve(root, path)) : '';
+  check(
+    rel && !rel.startsWith('..') && !isAbsolute(rel) && !isClaudeNativeEvidencePath(root, rel),
+    `${path} must be a repository file outside native task evidence`,
+  );
+  check(
+    existsSync(join(root, rel)) && lstatSync(join(root, rel)).isFile(),
+    `${path} is not a file`,
+  );
+  return join(root, rel);
+}
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+// An id counts only as a whole token: m2-F1 does not name m2-F10.
+const namesId = (text, id) =>
+  new RegExp(`(?:^|[^A-Za-z0-9-])${escapeRegExp(id)}(?![A-Za-z0-9-])`, 'u').test(text);
+// A rejection is bound when its reason cites, in backticks, a reproduction log under .artifacts/ whose
+// first line is this builder's snapshot header. A native record or a packet runner output (the
+// evidence the review already saw) is not a reproduction, under another spelling of its path or as
+// a byte-identical copy either (any spelling of the same file has the same bytes); an edited copy is
+// the Parent's responsibility.
+function runnerOutputDigests(root, paths) {
+  const digests = new Set();
+  for (const path of paths)
+    try {
+      digests.add(hash(readFileSync(join(root, path))));
+    } catch {
+      /* A runner output that cannot be read has no bytes to compare. */
+    }
+  return digests;
+}
+function boundRejection(root, reason, header, runnerOutputs) {
+  return [...String(reason ?? '').matchAll(/`(\.artifacts\/[^`\s]+)`/gu)].some(([, path]) => {
+    try {
+      const bytes = readFileSync(adjudicationFile(root, path));
+      if (runnerOutputs.has(hash(bytes))) return false;
+      return bytes.toString('utf8').split('\n')[0] === header;
+    } catch {
+      return false;
+    }
+  });
+}
+// A member result the group rule can judge: an object with the result arrays it reads.
+const judgeableResult = (result) =>
+  result !== null &&
+  typeof result === 'object' &&
+  !Array.isArray(result) &&
+  ['findings', 'notRun', 'knownGaps', 'acceptanceCoverage'].every((key) =>
+    Array.isArray(result[key]),
+  );
+// When a same-subject reviewer is not PASS, the builder links a PASS member only if every
+// dispatched reviewer belongs to the linked reviewer's first-round group and the Parent's
+// review-adjudication/v1 record rejects every blocking finding of each non-PASS member with a
+// reproduction log bound to the builder snapshot. Returns the reasons it is not closed.
+function reviewGroupErrors(root, { linked, siblings, reviewAdjudication, finalSnapshot }) {
+  if (!linked.group) return [];
+  if (reviewAdjudication === undefined) return ['review-adjudication-required'];
+  const errors = [];
+  const dispatched = [linked, ...siblings.filter((member) => member.status !== 'undispatched')];
+  for (const member of dispatched) {
+    const g = member.group;
+    if (
+      !g ||
+      g.id !== linked.group.id ||
+      g.size !== linked.group.size ||
+      g.composition !== linked.group.composition ||
+      g.index > g.size
+    )
+      errors.push(`review-group-mismatch: ${member.id}`);
+  }
+  // A failed Agent call returned no result; its index may be dispatched again.
+  const counted = dispatched.filter((member) => member.status !== 'failed-call');
+  const indexes = counted.map((member) => member.group?.index);
+  for (const index of new Set(indexes))
+    if (indexes.filter((value) => value === index).length > 1)
+      errors.push(`review-group-duplicate-member: ${index}`);
+  // A non-PASS member whose result or receipt cannot be read keeps blocking; it is never dropped.
+  for (const member of counted)
+    if (member.status === 'nonpass' && !judgeableResult(member.result))
+      errors.push(`review-group-unreadable-member: ${member.id}`);
+  if (errors.length) return errors;
+  const delivered = counted.filter((member) => member.result);
+  let record;
+  const resultFiles = new Map();
+  try {
+    record = JSON.parse(readFileSync(adjudicationFile(root, reviewAdjudication), 'utf8'));
+    check(record && typeof record === 'object' && !Array.isArray(record), 'not a JSON object');
+  } catch (error) {
+    return [`review-adjudication-invalid: ${error.message}`];
+  }
+  const violations = validateAdjudication(record, (resultPath) => {
+    const value = JSON.parse(readFileSync(adjudicationFile(root, resultPath), 'utf8'));
+    resultFiles.set(resultPath, value);
+    return value;
+  });
+  for (const v of violations)
+    errors.push(`review-adjudication-invalid: ${v.kind}${v.id ? ` ${v.id}` : ''}: ${v.detail}`);
+  if (record.round !== 1) errors.push('review-adjudication-invalid: a group record is round 1');
+  const named = new Set(
+    (Array.isArray(record.reviews) ? record.reviews : []).map((r) => r?.taskId),
+  );
+  if (named.size !== delivered.length || !delivered.every((member) => named.has(member.id)))
+    errors.push(
+      'review-adjudication-invalid: reviews must name every member that delivered a result',
+    );
+  for (const review of Array.isArray(record.reviews) ? record.reviews : []) {
+    const member = delivered.find((m) => m.id === review?.taskId);
+    if (member && !isDeepStrictEqual(resultFiles.get(review.resultPath), member.result))
+      errors.push(`review-adjudication-result-mismatch: ${member.id}`);
+  }
+  if (errors.length) return errors;
+  const byId = new Map(record.findings.map((finding) => [finding.id, finding]));
+  const target = (finding) => (finding?.duplicateOf ? byId.get(finding.duplicateOf) : finding);
+  const header = `KNU review snapshot ${claudeNativeSnapshotDigest(finalSnapshot)}`;
+  const runnerOutputs = runnerOutputDigests(
+    root,
+    dispatched.flatMap((member) => member.packet?.evidence?.sanitizedLinks ?? []),
+  );
+  for (const member of delivered.filter((m) => m.status === 'nonpass')) {
+    const { result } = member;
+    if (result.notRun.length) errors.push(`review-not-run-not-rejectable: ${member.id}`);
+    const ids = resultFindingIds(member.id, result);
+    const blocking = ids.filter(
+      (findingId, index) =>
+        BLOCKING_SEVERITIES.includes(result.findings[index]?.severity) ||
+        BLOCKING_SEVERITIES.includes(byId.get(findingId)?.severity),
+    );
+    if (!blocking.length) {
+      errors.push(`review-gap-not-rejectable: ${member.id} has no blocking finding to reject`);
+      continue;
+    }
+    const gaps = [
+      ...result.acceptanceCoverage
+        .map((entry) => entry?.gap)
+        .filter((gap) => gap !== null && gap !== undefined),
+      ...result.knownGaps,
+    ].map(String);
+    for (const gap of gaps)
+      if (!blocking.some((findingId) => namesId(gap, findingId)))
+        errors.push(`review-gap-not-rejectable: ${member.id}: ${gap.slice(0, 120)}`);
+    for (const findingId of blocking) {
+      const decided = target(byId.get(findingId));
+      if (decided?.disposition !== 'rejected')
+        errors.push(`review-blocking-not-rejected: ${findingId}`);
+      else if (!boundRejection(root, decided.reason, header, runnerOutputs))
+        errors.push(`review-rejection-unbound: ${findingId}`);
+    }
+  }
+  return errors;
+}
+
 export function completeClaudeNativeTask(
   id,
-  { results = [], review, reviewerTaskId, reviewResult, responseDigest, acceptance = [] } = {},
+  {
+    results = [],
+    review,
+    reviewerTaskId,
+    reviewAdjudication,
+    reviewResult,
+    responseDigest,
+    acceptance = [],
+  } = {},
   { root = process.cwd() } = {},
 ) {
   root = realpathSync(root);
@@ -1471,6 +1642,9 @@ export function completeClaudeNativeTask(
     // Each same-subject reviewer and the Agent call id its PreToolUse recorded (null: none seen).
     const recorded = new Map();
     const unsettled = [];
+    // Same-subject reviewers and their state, for a first-round group adjudication.
+    const siblings = [];
+    const nonPassErrors = [];
     for (const otherId of readdirSync(base).filter((name) => uuid.test(name))) {
       if (otherId === reviewerTaskId) continue;
       let other;
@@ -1492,6 +1666,14 @@ export function completeClaudeNativeTask(
         continue;
       }
       const recordedId = attempt?.toolUseId ?? null;
+      const sibling = {
+        id: otherId,
+        group: reviewGroupOf(other.invocation),
+        packet: other.record.independentReview.packet,
+        status: 'undispatched',
+        result: null,
+      };
+      siblings.push(sibling);
       recorded.set(otherId, {
         toolUseId: recordedId,
         transcriptPath: attempt?.transcriptPath ?? null,
@@ -1515,14 +1697,17 @@ export function completeClaudeNativeTask(
       if (existsSync(receiptPath)) {
         let verdict;
         try {
-          verdict = jsonFile(receiptPath).result?.verdict;
+          sibling.result = jsonFile(receiptPath).result ?? null;
+          verdict = sibling.result?.verdict;
         } catch {
           verdict = undefined;
         }
-        if (verdict !== 'PASS') errors.push(`subject has a FAIL review receipt: ${otherId}`);
+        sibling.status = verdict === 'PASS' ? 'pass' : 'nonpass';
+        if (verdict !== 'PASS') nonPassErrors.push(`subject has a FAIL review receipt: ${otherId}`);
       } else if (recordedId === null) {
         continue; // Hooks saw no dispatch; missed dispatches are checked against the transcript.
       } else if (!existsSync(completionPath)) {
+        sibling.status = 'unsettled';
         unsettled.push(otherId);
       } else {
         let response;
@@ -1532,17 +1717,46 @@ export function completeClaudeNativeTask(
           response = undefined;
         }
         // A failed Agent tool call returned an error to the parent, never a verdict.
-        if (response?.status === 'failed' && response.content === undefined) continue;
+        if (response?.status === 'failed' && response.content === undefined) {
+          sibling.status = 'failed-call';
+          continue;
+        }
         let verdict;
         try {
           const content = response?.content;
-          if (content?.length === 1 && content[0]?.type === 'text')
-            verdict = JSON.parse(content[0].text)?.verdict;
+          if (content?.length === 1 && content[0]?.type === 'text') {
+            sibling.result = JSON.parse(content[0].text);
+            verdict = sibling.result?.verdict;
+          }
         } catch {
           verdict = undefined;
         }
-        if (verdict !== 'PASS') errors.push(`subject has a delivered non-PASS review: ${otherId}`);
+        sibling.status = verdict === 'PASS' ? 'pass' : 'nonpass';
+        if (verdict !== 'PASS')
+          nonPassErrors.push(`subject has a delivered non-PASS review: ${otherId}`);
       }
+    }
+    // A non-PASS sibling blocks unless the linked reviewer's first-round group closes it (V1c).
+    if (nonPassErrors.length) {
+      let linked = { id: reviewerTaskId, group: null, packet: null, status: 'pass', result: null };
+      try {
+        const linkedTask = loadTask(root, reviewerTaskId);
+        linked = {
+          ...linked,
+          group: reviewGroupOf(linkedTask.invocation),
+          packet: linkedTask.record.independentReview?.packet ?? null,
+          result: jsonFile(join(linkedTask.dir, 'review-receipt.json')).result ?? null,
+        };
+      } catch {
+        /* The linked receipt checks below name an unreadable reviewer. */
+      }
+      const groupErrors = reviewGroupErrors(root, {
+        linked,
+        siblings,
+        reviewAdjudication,
+        finalSnapshot: observation.finalSnapshot,
+      });
+      if (!linked.group || groupErrors.length) errors.push(...nonPassErrors, ...groupErrors);
     }
     errors.push(...reviewDispatchErrors(root, reviewerTaskId, recorded, unsettled));
     try {
@@ -1715,6 +1929,8 @@ const REVIEW_OPTIONS = {
   '--round': 'reviewRound',
   '--previous-result': 'previousResult',
   '--criteria': 'criteria',
+  '--composition': 'composition',
+  '--reviewers': 'reviewers',
 };
 async function helperCommand(action, args) {
   // Loaded on demand: the helper consumes this module, and hooks never need it.
@@ -1739,12 +1955,12 @@ async function helperCommand(action, args) {
     const key = REVIEW_OPTIONS[args[i]];
     check(
       key && args[i + 1] && !Object.hasOwn(options, key),
-      'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--session ID]]',
+      'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID]]',
     );
     const value = args[i + 1];
     options[key] = ['parentSubject', 'runnerEvidence'].includes(key)
       ? jsonFile(resolve(value))
-      : key === 'reviewRound'
+      : key === 'reviewRound' || key === 'reviewers'
         ? /^[1-9]\d*$/u.test(value)
           ? Number(value)
           : value

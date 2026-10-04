@@ -44,6 +44,21 @@
   review commandsActuallyRun differs from the bound runner records
   ```
 
+- `review`가 1회차 그룹 입력이나 `--basis`를 거부합니다.
+
+  ```text
+  invalid review request: composition-round-1-only
+  invalid review request: reviewers-invalid: 2 or 3
+  invalid review request: composition-e3-criteria-required: give --criteria
+  invalid review request: unsafe-reference:selectionBasisRef
+  ```
+
+- 1회차 그룹의 PASS 구성원을 연결한 builder 완료가 `review-adjudication-required`, `review-group-mismatch`,
+  `review-group-duplicate-member`, `review-group-unreadable-member`, `review-adjudication-invalid`,
+  `review-adjudication-result-mismatch`, `review-not-run-not-rejectable`, `review-gap-not-rejectable`,
+  `review-blocking-not-rejected`, `review-rejection-unbound` 중 하나와 기존 `FAIL review receipt`·`delivered non-PASS review`
+  사유로 거부됩니다.
+
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
 
   ```text
@@ -114,6 +129,10 @@
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
   hook이 기록하지 않은 reviewer 호출(hook 장애 중 재호출 등), 읽을 수 없는 세션 transcript, 정산 뒤 재개된 reviewer, 손상된 task 기록은
   FAIL을 숨길 수 있으므로 PASS 연결을 막습니다.
+- 1회차 그룹의 non-PASS 구성원은 Parent의 `review-adjudication/v1` 처분 기록이
+  [builder 완료와 1회차 그룹](../../agent-workflows/adapters/claude-same-host-review.md#builder-완료와-1회차-그룹)의 조건을 모두
+  만족할 때만 완료를 막지 않습니다. 그룹 밖 reviewer(PASS 포함), 같은 번호로 다시 보낸 구성원, 그룹 줄이 없는 단일 reviewer의
+  FAIL은 처분 기록으로 마감하지 않습니다.
 
 ## 해결
 
@@ -157,7 +176,21 @@
 - 나머지 builder 연결 거부는 기존 결과를 신뢰할 수 없다는 뜻입니다. 기록을 고치거나 지우지 말고, hook을 확인한 뒤 새 builder task와
   새 review로 해소합니다.
 - FAIL은 review 완료입니다. Finding을 판정하고 수정한 뒤 새 builder task와 새 review로 해소합니다. 다른 reviewer의 PASS를
-  연결해 FAIL을 덮을 수 없습니다.
+  연결해 FAIL을 덮을 수 없습니다. 예외는 1회차 그룹에서 Parent가 재현해 기각한 non-PASS 구성원뿐입니다.
+- 1회차 그룹 입력 거부: 구성은 1회차에만, 인원은 2·3명, `--composition`과 `--reviewers`는 함께, `e3`는 `--criteria`와 함께 줍니다.
+  `criteria-items-too-few`는 고른 기준 문서의 항목이 인원보다 적은 것이므로 인원을 줄이거나 `e2`를 씁니다.
+  `unsafe-reference:selectionBasisRef`는 `--basis`를 `plan:<Plan ID>/<절>`처럼 영문자로 시작하는 형식으로 고칩니다.
+- `review-adjudication-required`·`review-adjudication-invalid`·`review-adjudication-result-mismatch`는 처분 기록을 고칩니다. 기록은
+  round 1이고, 결과를 전달한 구성원을 모두 `reviews`에 두며, 각 `resultPath`는 전달된 result를 그대로 저장한 파일입니다. Result
+  파일을 고쳐 맞추지 않습니다.
+- `review-adjudication-invalid: duplicate-result-id`는 구성원이 `m<i>-` id 접두 지시를 어겨 두 result에 같은 finding id가 있는
+  것입니다. 기록이나 result를 고쳐 풀 수 없으므로 native 경로는 새 builder task와 새 review로 갑니다. Parent 경로는 구성원마다
+  기록을 하나씩 쓰고(구성원 사이 `duplicateOf` 없음) 그 사실을 처분 요약에 적습니다.
+- `review-blocking-not-rejected`는 기각하지 않은 blocking finding이 남은 것이고, `review-rejection-unbound`는 기각 근거가 같은
+  snapshot의 재현 로그가 아닌 것입니다. 재현 실행을 첫 줄이 builder snapshot의 `logHeader`인 `.artifacts/` 로그로 남기고 `reason`에
+  backtick 경로로 적습니다. 리뷰 전 runner 출력은 다른 경로 표기나 같은 bytes의 사본으로도 근거가 되지 않습니다. 재현되면 기각하지 말고 수정한 뒤 새 builder task로 갑니다.
+- `review-gap-not-rejectable`·`review-not-run-not-rejectable`·`review-group-mismatch`·`review-group-duplicate-member`·
+  `review-group-unreadable-member`(결과가 JSON result가 아니거나 receipt를 읽을 수 없는 non-PASS 구성원)는 처분으로 풀 수 없습니다. 새 builder task와 새 review로 해소합니다.
 
 ## 복구 등록 거부
 
@@ -263,7 +296,9 @@ node --test scripts/ci/agents/claude/claude-native-session.test.mjs scripts/ci/a
 등록 사유 표시, runner 기록 형식, `parent-adjudication` 경로를 고정하고, `a helper-built review cannot add, drop or change
 runner records`가 runner 기록 결속을 고정합니다.
 `read-only reviewer cites runner-owned checks`, `reviewer registration rejects the reviewer as runner`,
-`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. Effort·QA 규칙은
+`a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. 1회차 그룹은 `a group FAIL rejected with a bound
+reproduction log`, `only the members of one first-round group`, `a first-round composition builds one frozen review per member`
+테스트가 고정합니다. Effort·QA 규칙은
 `high-risk builds require the xhigh executor`, `extract QA exemption keeps the low, bounded, resolved range`,
 `registration binds the role effort`, `foreground effort matches, mismatches or stays unobserved`,
 `a foreground transcript written after PostToolUse is pending`, `a Parent-judged reviewer whose effort differs` 테스트가 고정합니다. Read-only subject와 RED 기록은

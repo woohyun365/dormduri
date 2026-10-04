@@ -25,7 +25,9 @@ Reviewer에게 기대 결론을 전달하거나 PASS로 유도하지 않습니�
 
 Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerTaskId`를 대신할 수 없습니다.
 
-1. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
+1. Subject 파일은 `{"request": "...", "owner": "parent", "acceptance": ["..."], "paths": ["..."]}` JSON입니다. `request`는 검토할
+   변경의 설명, `owner`는 작성자 식별자, `acceptance`는 판정 기준 문장, `paths`는 리뷰 대상 파일입니다(native task 기록은 넣을 수
+   없음). `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
    `logHeader`를 받습니다.
 2. 그 digest로 runner evidence를 만듭니다.
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --session ${CLAUDE_SESSION_ID}`
@@ -34,10 +36,35 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    남고 reviewer가 그 파일을 먼저 읽습니다. 출력 `packetFile`이 같은 경로와 digest입니다.
 5. 정산은 `parent-adjudication`입니다. `/knu-settle`의 reviewer 종류 구분을 따릅니다.
 
+## Dispatch 전 단계
+
+해당하는 단계만 실행하고, 각 실행은 runner evidence record로 남깁니다. 명령은 `scripts/agents/common/` 아래 도구입니다.
+
+1. 자체 정합 점검: 수정이 규칙·수치·범위를 바꾸면 같은 유형의 서술(같은 문서의 다른 절·표, 다른 owner 문서, 개수·합계)을 전 범위에서
+   검색합니다. 로그에는 검색마다 명령과 exit 줄(`rg exit=1`은 0건)을 남기고, record는 검색을 모두 실행한 묶음의 exit 0과
+   조각(`` `rg exit=1` `` 등)으로 씁니다. 0건 검색을 실패 record로 남기지 않고 exit를 뒤집는 명령(`|| true`, `!`)도 쓰지 않습니다.
+2. 새 파일이 있으면 `logHeader`를 받기 **전에** 그 파일을 만든 쪽이 `git add -N <새 파일>`을 하고, 그 snapshot에서
+   `pnpm test:repo-policy`를 record로 남깁니다. Native subject는 builder가 hand-back 전에 합니다. `logHeader`를 받은 뒤의
+   `git add -N`은 snapshot digest를 바꿔 runner 기록과 native reviewer 등록을 무효로 만듭니다.
+3. RED 기록이 있으면 `red-reason-check.mjs`로 실패 사유를 대조합니다.
+4. 리뷰 입력에 계획·증거·readiness Markdown이 있으면 `citation-check.mjs`를 실행합니다.
+5. 계획 readiness 리뷰면 `plan-reference-check.mjs`를 실행합니다.
+6. 검사·harness 변경의 test 보호를 주장하면 `mutation-harness.mjs`를 실행합니다(spec은 계획 증거 위치의 리뷰 디렉터리).
+7. `review` 직전 runner evidence에 `runner-log-check.mjs`를 실행하고 exit 0이 아니면 dispatch하지 않습니다. 이 실행은 같은
+   evidence의 record가 될 수 없으므로 출력만 evidence 옆에 둡니다.
+
+## 1회차 다중 reviewer
+
+- Owner가 정한 변경의 1회차에만 `--composition e2|e3 --reviewers 2|3`을 더합니다. 계획 readiness 리뷰는 단일입니다. `e3`는
+  `--criteria`가 필요하고 기준 항목을 구성원에게 연속 구간으로 나눕니다. 2회차부터는 단일 reviewer입니다.
+- 출력은 `reviewerSpec` 대신 `reviewers[]`(구성원마다 `reviewerSpec`·`packet`·`reviewerPrompt`)와 `group`입니다. 구성원 spec을 각각
+  `prepare`하고, Agent 호출 N개를 한 메시지에서 background로 보냅니다. 같은 구성원 spec을 다시 `prepare`해 보내지 않습니다.
+- 집계·처분은 `/knu-settle`의 그룹 처분 기록을 따릅니다.
+
 ## 공통
 
 - 회차 입력: `--round <N>`은 항상 줍니다. 2회차부터 `--previous-result <absolute-result-path>`(직전 회차 result JSON을
-  계획 증거 위치에 저장한 파일)를 더합니다. 변경 유형에 맞는 기준 문서 id를 `--criteria documents,agent-workflow-tooling`처럼
+  계획 증거 위치에 저장한 파일, 1회차가 그룹이었으면 그 회차의 `review-adjudication/v1` 처분 기록)를 더합니다. 변경 유형에 맞는 기준 문서 id를 `--criteria documents,agent-workflow-tooling`처럼
   더합니다([review criteria](../../../docs/development/agent-workflows/review-criteria/README.md)). 회차와 처분 규칙은
   [QA 리뷰 회차](../../../docs/development/agent-workflows/qa.md#리뷰-회차)입니다.
 

@@ -27,6 +27,22 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
   Packet 파일 review는 settle 결과의 `reviewPacket`을 함께 봅니다. Reviewer가 packet 파일을 성공적으로 읽지 않았으면
   `review-packet-unread`, 파일이 prompt의 digest와 다르면 `review-packet-changed`, prompt에서 packet 파일 줄이 빠졌으면
   `review-packet-missing`이 `observationErrors`에 들어가므로 재리뷰합니다.
-- Coverage gap이 있는 FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
+- Coverage gap이 있는 단일 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
+  1회차 그룹 구성원은 아래 처분 기록 규칙만 따릅니다.
+
+## 회차 처분 기록
+
+- 회차마다 계획 증거 위치에 reviewer가 전달한 result를 그대로 `r<N>-result.json`(그룹은 `r<N>-result-<i>.json`)으로 저장하고
+  `r<N>-adjudication.json`(`review-adjudication/v1`)을 써서 `node scripts/agents/common/review-adjudication.mjs <파일>`이 exit 0인지
+  확인합니다. 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
+  풀 수 없으므로 native 경로는 새 builder task와 새 review로 가고, Parent 경로는 구성원마다 기록을 하나씩 씁니다.
+- 1회차 그룹의 non-PASS 구성원은 그 구성원의 blocking finding(critical·high·medium)을 Parent가 재현해 볼 때만 기각할 수 있습니다.
+  재현 실행을 첫 줄이 그 회차 `logHeader`인 `.artifacts/` 로그로 남기고 `reason`에 그 경로를 backtick으로 적은 뒤 `rejected`로
+  둡니다. 재현되면 `fixed`이고 같은 변경의 다음 회차로 갑니다. 리뷰 전 runner 출력은 재현 근거가 아닙니다.
+- `notRun`이 있거나 blocking finding 없이 gap·`knownGaps`·low만 있는 구성원, gap·`knownGaps` 항목이 기각한 finding id를 적지 않은
+  구성원은 처분으로 마감하지 않습니다. 새 builder task와 재리뷰로 갑니다. 다른 구성원의 PASS는 근거가 아닙니다.
+- Native builder 판정 파일에 non-PASS 구성원이 있으면 `reviewerTaskId`에 PASS 구성원을, `reviewAdjudication`에 처분 기록의 root 기준
+  경로를 적습니다. 규칙의 원본은 [builder 완료와 1회차 그룹](../../../docs/development/agent-workflows/adapters/claude-same-host-review.md#builder-완료와-1회차-그룹)입니다.
+- 리뷰 회차를 측정하는 PR은 마지막 회차를 정산한 뒤 `node scripts/agents/claude/review-ledger-source.mjs`를 실행해 행을 남깁니다.
 
 정산 결과가 invalid면 완료를 보고하지 않고 사유와 다음 행동을 남깁니다. Boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다.
