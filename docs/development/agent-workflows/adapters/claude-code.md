@@ -151,7 +151,9 @@ Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 �
 - Quota·permission·QA 문제는 모델·effort 변경으로 우회하지 않습니다.
 - 재시도도 실패하면 무인 계속을 멈추고 원인·증거를 보존해 Owner와 다음 행동을 정합니다.
 
-Coverage gap이 있는 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
+Coverage gap이 있는 단일 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다. 1회차 그룹
+구성원은 gap·`knownGaps` 항목마다 기각된 blocking finding id를 담을 때만 처분 기록으로 마감합니다
+([builder 완료와 1회차 그룹](./claude-same-host-review.md#builder-완료와-1회차-그룹)).
 
 ## Parent 운영과 quality stop
 

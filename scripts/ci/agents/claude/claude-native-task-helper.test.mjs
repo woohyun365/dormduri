@@ -1773,3 +1773,297 @@ test('CLI review takes the round, previous result and criteria inputs', (t) => {
   assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/documents.md`));
   assert.match(review.reviewerPrompt, /Review round 2:/u);
 });
+
+// A first-round composition (V1c) builds one frozen review per member. The members share the
+// snapshot, acceptance and a group line on prompt line 2; only the Parent packet file differs.
+function writeCriteriaItems(r, id, letter, count) {
+  mkdirSync(join(r.root, CRITERIA_DIR), { recursive: true });
+  writeFileSync(join(r.root, CRITERIA_DIR, 'README.md'), '# README\n');
+  const items = Array.from({ length: count }, (_, i) => `### ${letter}${i + 1}. item\n\nbody\n`);
+  writeFileSync(join(r.root, CRITERIA_DIR, `${id}.md`), `# ${id}\n\n${items.join('\n')}`);
+  execFileSync('git', ['add', '.'], { cwd: r.root });
+}
+const groupLine = (review) => review.reviewerPrompt.split('\n')[1];
+const assignedItems = (review) =>
+  /^- Assigned criteria items: (.+?)\. /mu.exec(review.reviewerPrompt)?.[1].split(', ');
+
+test('a first-round composition builds one frozen review per member with a shared group line', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const built = roundReview(r, { reviewRound: 1, composition: 'e2', reviewers: 2 });
+  assert.equal(built.reviewers.length, 2);
+  assert.equal(built.reviewerSpec, undefined);
+  const { groupId } = built.group;
+  assert.match(groupId, /^[a-f0-9]{8}$/u);
+  assert.deepEqual(built.group, { groupId, composition: 'e2', reviewers: 2 });
+  built.reviewers.forEach((member, index) => {
+    const i = index + 1;
+    const lines = member.reviewerPrompt.split('\n');
+    assert.equal(lines[0], built.logHeader);
+    assert.equal(lines[1], `KNU review group ${groupId} ${i}/2 e2`);
+    assert.match(
+      member.reviewerPrompt,
+      new RegExp(`start it with m${i}- \\(for example m${i}-F1\\)`, 'u'),
+    );
+    assert.match(
+      member.reviewerPrompt,
+      /name in each coverage gap and each knownGaps entry the id/u,
+    );
+    assert.equal(member.reviewerSpec.owner, `reviewer-${i}`);
+    assert.deepEqual(member.packet.snapshot, built.reviewers[0].packet.snapshot);
+    assert.deepEqual(member.packet.sources.requirements, SMALL_PARENT_SUBJECT.acceptance);
+    assert.ok(member.reviewerSpec.readScope.includes(member.packetFile.path));
+    assert.equal(member.reviewerSpec.prompt, member.reviewerPrompt);
+  });
+  const [first, second] = built.reviewers;
+  assert.notEqual(first.packet.packetId, second.packet.packetId);
+  assert.notEqual(first.packet.lifecycle.dispatchId, second.packet.lifecycle.dispatchId);
+  // Each member reads its own packet file; every other read path is the same.
+  const others = (member) =>
+    member.reviewerSpec.readScope.filter((path) => path !== member.packetFile.path);
+  assert.deepEqual(others(first), others(second));
+  assert.equal(packetFiles(r).length, 2);
+  for (const member of built.reviewers)
+    prepareClaudeNativeTask(member.reviewerSpec, { root: r.root });
+});
+
+test('a composition is refused outside round 1, outside 2 or 3 reviewers and without its partner', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  writeCriteriaItems(r, 'documents', 'D', 1);
+  const previous = writePreviousResult(r);
+  for (const [options, reason] of [
+    [
+      { reviewRound: 2, previousResult: previous, composition: 'e2', reviewers: 2 },
+      /composition-round-1-only/u,
+    ],
+    [{ reviewRound: 1, composition: 'e2', reviewers: 1 }, /reviewers-invalid/u],
+    [{ reviewRound: 1, composition: 'e2', reviewers: 4 }, /reviewers-invalid/u],
+    [{ reviewRound: 1, composition: 'e2', reviewers: '2' }, /reviewers-invalid/u],
+    [{ reviewRound: 1, composition: 'e2' }, /composition-invalid/u],
+    [{ reviewRound: 1, reviewers: 2 }, /composition-invalid/u],
+    [{ reviewRound: 1, composition: 'e4', reviewers: 2 }, /composition-invalid/u],
+    [{ reviewRound: 1, composition: 'e3', reviewers: 2 }, /composition-e3-criteria-required/u],
+    [
+      { reviewRound: 1, composition: 'e3', reviewers: 2, criteria: ['documents'] },
+      /criteria-items-too-few/u,
+    ],
+  ])
+    assert.throws(() => roundReview(r, options), reason, JSON.stringify(options));
+  assert.deepEqual(packetFiles(r), []);
+});
+
+test('e3 splits the criteria items into contiguous member ranges with nothing missing or repeated', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  writeCriteriaItems(r, 'documents', 'D', 8);
+  writeFileSync(
+    join(r.root, CRITERIA_DIR, 'agent-workflow-tooling.md'),
+    `# tooling\n\n${Array.from({ length: 8 }, (_, i) => `### W${i + 1}. item\n`).join('\n')}`,
+  );
+  execFileSync('git', ['add', '.'], { cwd: r.root });
+  const criteria = ['documents', 'agent-workflow-tooling'];
+  const all = [
+    ...Array.from({ length: 8 }, (_, i) => `D${i + 1}`),
+    ...Array.from({ length: 8 }, (_, i) => `W${i + 1}`),
+  ];
+  for (const [reviewers, expected] of [
+    [2, [all.slice(0, 8), all.slice(8)]],
+    [3, [all.slice(0, 6), all.slice(6, 11), all.slice(11)]],
+  ]) {
+    const built = roundReview(r, { reviewRound: 1, composition: 'e3', reviewers, criteria });
+    const assigned = built.reviewers.map(assignedItems);
+    assert.deepEqual(assigned, expected);
+    assert.deepEqual(assigned.flat(), all);
+    for (const member of built.reviewers) {
+      assert.match(
+        groupLine(member),
+        new RegExp(`^KNU review group [a-f0-9]{8} [1-${reviewers}]/${reviewers} e3$`, 'u'),
+      );
+      assert.match(
+        member.reviewerPrompt,
+        /report any blocking defect you find regardless of item/u,
+      );
+    }
+  }
+  // e2 members get the same prompt apart from their index lines and assign no items.
+  const e2 = roundReview(r, { reviewRound: 1, composition: 'e2', reviewers: 2, criteria });
+  assert.equal(assignedItems(e2.reviewers[0]), undefined);
+});
+
+test('a native subject composition gives each member its own reviewer id and the same read paths', (t) => {
+  const r = settledBuilder(t);
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  const built = buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
+      composition: 'e2',
+      reviewers: 2,
+    },
+    { root: r.root },
+  );
+  const [first, second] = built.reviewers;
+  assert.deepEqual(first.reviewerSpec.readScope, second.reviewerSpec.readScope);
+  assert.equal(first.packetFile, undefined);
+  assert.deepEqual(
+    built.reviewers.map((member) => member.reviewerSpec.independentReview.reviewerId),
+    ['reviewer-1', 'reviewer-2'],
+  );
+  for (const member of built.reviewers)
+    prepareClaudeNativeTask(member.reviewerSpec, { root: r.root });
+});
+
+test('an unsafe basis is refused by review before any packet file is written', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  for (const selectionBasisRef of ['plan with space', '../escape', 'a//b'])
+    assert.throws(
+      () => roundReview(r, { reviewRound: 1, selectionBasisRef }),
+      /unsafe-reference:selectionBasisRef/u,
+      selectionBasisRef,
+    );
+  assert.deepEqual(packetFiles(r), []);
+});
+
+test('a Parent review reads the runner outputs too', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = roundReview(r, { reviewRound: 1 });
+  assert.ok(review.reviewerSpec.readScope.includes('.artifacts/plans/helper-test/runner.log'));
+  assert.ok(
+    review.packet.boundaries.allowedReadPaths.includes('.artifacts/plans/helper-test/runner.log'),
+  );
+});
+
+// Round 2 after a group reads the Parent's adjudication record and every result it names.
+function writeGroupRecord(r, { results, record = {} } = {}) {
+  const dir = '.artifacts/plans/helper-test/group';
+  mkdirSync(join(r.root, dir), { recursive: true });
+  const reviews = (
+    results ?? [
+      { verdict: 'PASS', findings: [] },
+      { verdict: 'FAIL', findings: [{ id: 'm2-F1', severity: 'medium' }] },
+    ]
+  ).map((result, index) => {
+    const resultPath = `${dir}/r1-result-${index + 1}.json`;
+    if (typeof result === 'string') return { taskId: `task-${index + 1}`, resultPath: result };
+    writeFileSync(join(r.root, resultPath), JSON.stringify(result));
+    return { taskId: `task-${index + 1}`, resultPath };
+  });
+  const path = `${dir}/r1-adjudication.json`;
+  writeFileSync(
+    join(r.root, path),
+    JSON.stringify({
+      schema: 'review-adjudication/v1',
+      subject: 'group',
+      round: 1,
+      reviews,
+      findings: [{ id: 'm2-F1', severity: 'medium', disposition: 'fixed' }],
+      ...record,
+    }),
+  );
+  return { path, reviews };
+}
+
+test('round 2 takes an adjudication record and binds every result it names', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const { path, reviews } = writeGroupRecord(r);
+  const second = roundReview(r, { reviewRound: 2, previousResult: path });
+  for (const input of [path, ...reviews.map((review) => review.resultPath)]) {
+    assert.ok(second.reviewerSpec.readScope.includes(input), input);
+    assert.ok(
+      second.reviewerPrompt.includes(`${input} ${sha256(readFileSync(join(r.root, input)))}`),
+      input,
+    );
+  }
+  assert.match(second.reviewerPrompt, /the Parent's claims, not evidence/u);
+  prepareClaudeNativeTask(second.reviewerSpec, { root: r.root });
+
+  const invalid = writeGroupRecord(r, { record: { findings: [] } });
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: invalid.path }),
+    /previous-result-invalid/u,
+  );
+  const outside = writeGroupRecord(r, {
+    results: [{ verdict: 'PASS', findings: [] }, '../outside.json'],
+  });
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: outside.path }),
+    /previous-result-unreadable/u,
+  );
+  const missing = writeGroupRecord(r, {
+    results: [{ verdict: 'PASS', findings: [] }, '.artifacts/plans/helper-test/group/none.json'],
+  });
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: missing.path }),
+    /previous-result-unreadable/u,
+  );
+  writeFileSync(
+    join(r.root, '.artifacts/plans/helper-test/group/no-verdict.json'),
+    '{"findings":[]}',
+  );
+  const noVerdict = writeGroupRecord(r, {
+    results: ['.artifacts/plans/helper-test/group/no-verdict.json'],
+    record: { findings: [] },
+  });
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: noVerdict.path }),
+    /previous-result-invalid: .*no-verdict\.json is not a review result/u,
+  );
+  const nativeResult = `.artifacts/tools/claude-native/${randomUUID()}/review-result.json`;
+  mkdirSync(join(r.root, nativeResult, '..'), { recursive: true });
+  writeFileSync(join(r.root, nativeResult), JSON.stringify({ verdict: 'PASS', findings: [] }));
+  const native = writeGroupRecord(r, { results: [nativeResult], record: { findings: [] } });
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: native.path }),
+    /previous-result-invalid: native task evidence/u,
+  );
+});
+
+test('CLI review takes the composition and reviewer count', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  mkdirSync(join(r.root, '.artifacts/plans/helper-test'), { recursive: true });
+  const write = (name, value) => {
+    const path = join(r.root, '.artifacts/plans/helper-test', name);
+    writeFileSync(path, JSON.stringify(value));
+    return path;
+  };
+  const run = (...args) =>
+    spawnSync(process.execPath, [cliPath, ...args], { cwd: r.root, encoding: 'utf8' });
+  const subjectPath = write('subject.json', SMALL_PARENT_SUBJECT);
+  const status = JSON.parse(run('review', '--parent-subject', subjectPath).stdout);
+  const evidencePath = write('evidence.json', {
+    ...runnerEvidence(status.snapshotDigest),
+    runner: 'lead-runner',
+  });
+  const ok = run(
+    'review',
+    '--parent-subject',
+    subjectPath,
+    '--runner-evidence',
+    evidencePath,
+    '--basis',
+    'plan:helper-test/cli-group',
+    '--reviewer-model',
+    'claude-opus-4-6',
+    '--session',
+    r.sessionId,
+    '--round',
+    '1',
+    '--composition',
+    'e2',
+    '--reviewers',
+    '2',
+  );
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.equal(JSON.parse(ok.stdout).reviewers.length, 2);
+});

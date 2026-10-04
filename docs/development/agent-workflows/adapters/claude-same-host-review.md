@@ -10,8 +10,9 @@ Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <task
 RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실제 exit가 기대와 같을 때만 known failure가 아닙니다.
 다른 exit(0 포함)는 known failure이고 기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다. Exit를 뒤집는 명령으로 기록하지 않습니다. `--runner-evidence`·
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
-`sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. Native subject의 read path는 subject `readScope`·쓰기 범위·
-변경 경로와 runner 출력 경로입니다. Writer subject의 응답·추론은 packet과 prompt에 넣지 않습니다. Read-only subject는 응답이
+`sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. `--basis`가 안전한 참조 형식이 아니면 packet 파일을 쓰기 전에
+`unsafe-reference:selectionBasisRef`로 거부합니다. Native subject의 read path는 subject `readScope`·쓰기 범위·
+변경 경로와 runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 runner 출력 경로를 함께 담습니다. Writer subject의 응답·추론은 packet과 prompt에 넣지 않습니다. Read-only subject는 응답이
 산출물이므로 helper가 정산된 응답을 subject task 디렉터리의 `subject-response.txt`에 한 번 쓰고 read path 맨 앞에 두며, prompt는
 그 주장과 자기평가가 근거가 아니라고 적습니다. Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다. Template의
 `commandsActuallyRun`은 runner 기록에서만 채우고, 정산 때 reviewer 결과가 prompt에 결속된 그 기록과 같아야 합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
@@ -24,8 +25,23 @@ Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함
 [review criteria](../review-criteria/README.md) id이며, 해당 문서가 packet `sources.owners`와 read path에 들어갑니다. 직전 result도
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
-문서가 있으면 미충족 항목 id와 기본 severity를 쓰게 합니다. 이 경로는 1회차 다중 reviewer를 지원하지 않으므로 trigger를 충족한
-변경도 한 회차에 reviewer 하나를 등록하고, 그 사실을 PR에 적습니다.
+문서가 있으면 미충족 항목 id와 기본 severity를 쓰게 합니다.
+
+1회차에는 `--composition e2|e3 --reviewers 2|3`으로 같은 snapshot의 reviewer 그룹을 만들 수 있습니다. 1회차가 아니면
+`composition-round-1-only`, 인원이 2·3이 아니면 `reviewers-invalid`, 둘 중 하나만 주거나 모르는 구성이면 `composition-invalid`로
+거부합니다. 출력은 구성원마다 packet·prompt·결과 template·spec을 담은 `reviewers[]`와 `group`입니다. 구성원은 snapshot·acceptance가
+같고 `packetId`·`dispatchId`가 다르며 reviewer id는 `reviewer-<i>`입니다. Native subject는 read path가 같고, Parent subject는
+구성원마다 자기 packet 파일만 다릅니다. 각 prompt 둘째 줄은 `KNU review group <groupId> <i>/<N> <e2|e3>`이고 등록 digest로
+결속됩니다. Prompt는 finding id를 `m<i>-`로 시작하고, 결과가 PASS가 아니면 각 coverage gap과 `knownGaps` 항목에 원인 finding id를
+적게 합니다. `e3`는 `--criteria`가 필요하고(`composition-e3-criteria-required`) 고른 기준 문서의 `### <문자><번호>.` 항목을 순서대로
+이어 구성원 수만큼 연속 구간으로 나눕니다. 항목이 구성원보다 적으면 `criteria-items-too-few`입니다. 구성원은 배정 항목을 빠짐없이
+판정하고 다른 항목의 blocking 결함도 보고합니다. Acceptance coverage는 구성원 모두 전체를 채웁니다. 모든 prompt가 상한 안에
+들어온 뒤에만 packet 파일을 씁니다. 계획 readiness 리뷰는 단일 reviewer입니다.
+
+그룹 뒤 2회차는 단일 reviewer이며 `--previous-result`에 Parent의 `review-adjudication/v1` 처분 기록을 줄 수 있습니다. Helper는
+기록을 `review-adjudication.mjs` validator로 검사하고 기록이 가리키는 각 result에도 직전 result와 같은 조건(root 안 일반 파일, native
+task 기록 아님, verdict·findings JSON)을 적용합니다(`previous-result-invalid`·`previous-result-unreadable`). 기록과 각 result가 read
+path에 들어가고 prompt에 경로와 digest가 남으며, prompt는 처분과 그 근거가 Parent의 주장이지 증거가 아니라고 적습니다.
 
 Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방향을 사용합니다. 등록 입력의 선택적
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
@@ -61,7 +77,8 @@ Builder complete 입력은 연결된 `reviewerTaskId`를 받습니다. Registry�
 builder의 subject binding/full request/response/snapshot과 일치할 때만 공통 review wrapper를 파생합니다. Caller가 만든
 별도 PASS 객체나 unrelated reviewer result로 대체하지 않습니다. Reviewer FAIL이면 Parent가 finding을 판정하고 builder는
 PASS할 수 없습니다. 같은 subject를 실제로 dispatch한 다른 reviewer가 PASS가 아닌 receipt를 남겼거나, 완료 기록에 PASS가 아닌
-결과를 전달했거나, 정산 전에 release되어 결과가 기록되지 않았다면 다른 reviewer의 PASS를 연결해도 builder는 완료되지 않습니다.
+결과를 전달했거나, 정산 전에 release되어 결과가 기록되지 않았다면 다른 reviewer의 PASS를 연결해도 builder는 완료되지 않습니다
+(PASS가 아닌 결과를 처분 기록으로 마감하는 1회차 그룹 예외만 아래에 둡니다).
 읽을 수 없는 native task·receipt·완료 기록도 완료를 막습니다. Agent 호출 자체가 실패해 결과 없이 오류만 돌아온 시도와 등록만 하고
 dispatch하지 않은 reviewer는 막지 않습니다. Hook은 reviewer task마다 한 번의 Agent 호출과 그 세션 transcript 경로만 기록합니다.
 그래서 builder를 완료할 때 연결한 reviewer를 포함한 같은 subject의 모든 reviewer에 대해, 기록된 세션 transcript(연결한 reviewer가
@@ -74,7 +91,8 @@ transcript에만 남은 Agent 호출은 대조하지 못하며 hook 장애 경�
 없으므로 hook 장애 중이나 사용자가 subagent 화면에서 직접 재개한 경우를 감지하지 못합니다. Transcript는 비동기로 기록되어 완료 시점의
 proof가 정상 경로에서도 어긋날 수 있으므로 이 경로에 proof를 강제하지 않습니다. Hook이 정상이면 SendMessage를 통한 재개는 그 단계에서 거부되지만, 사용자가 패널에서 직접 재개한 경우에는 hook이 관여하지 않습니다. 거부 사유별 해소는
 [등록·리뷰 거부](../../troubleshooting/tooling/claude-native-registration-and-review-rejections.md)를 따릅니다. 이는 [QA](../qa.md)의 Parent adjudication보다 엄격한 adapter 규칙입니다. Parent가 finding을
-false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 이 연결은 coordination과 completion evidence이며
+false positive로 판정해도 native 경로에서는 새 builder task와 새 review로 해소합니다. 유일한 예외는 아래
+[builder 완료와 1회차 그룹](#builder-완료와-1회차-그룹)입니다. 이 연결은 coordination과 completion evidence이며
 host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff처럼 native subject task가 없는 검토에는 이 terminal 규칙이
 적용되지 않습니다. 이때 `review --parent-subject <file>`은 `settlement:"parent-adjudication"`과 QA가 필요한 일반 review task spec을
 만듭니다. Packet은 prompt에 싣지 않고 helper가 `.artifacts/tools/claude-review-packets/<reviewId>.json`(ignored, native 증거
@@ -86,6 +104,35 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지
 확인합니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
 현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
+
+## Builder 완료와 1회차 그룹
+
+같은 subject의 reviewer 중 PASS가 아닌 것이 있어도, 연결한 reviewer가 1회차 그룹의 PASS 구성원이고 builder 판정에
+`reviewAdjudication`(root 기준 `review-adjudication/v1` 처분 기록 경로)이 있으면 아래를 모두 만족할 때만 그 non-PASS가 완료를 막지
+않습니다. 하나라도 어기면 기존 거부 사유와 함께 괄호 안 사유가 남습니다.
+
+1. 처분 기록이 있습니다(`review-adjudication-required`).
+2. 같은 subject에 dispatch된 모든 reviewer가 연결한 reviewer와 같은 group id·인원·구성의 그룹 줄을 갖고, 번호가 인원 이하입니다
+   (`review-group-mismatch`). 그룹 밖 reviewer는 PASS여도 거부합니다. 결과 없이 실패한 Agent 호출을 뺀 구성원의 번호는 서로 다릅니다
+   (`review-group-duplicate-member`). 결과가 JSON result 객체가 아니거나 receipt를 읽을 수 없는 non-PASS 구성원은 처분 대상에서
+   빠지지 않고 완료를 막습니다(`review-group-unreadable-member`). 그룹 줄이 없는 단일 reviewer의 FAIL은 처분 기록으로 마감하지 않습니다.
+3. 처분 기록이 validator 위반 없이 round 1이고, `reviews`가 결과를 전달한 구성원 전부를 가리키며, 각 `resultPath`가 그 구성원이 전달한
+   result와 구조적으로 같습니다(`review-adjudication-invalid`, `review-adjudication-result-mismatch`). 기록과 result는 root 안 일반
+   파일이고 native task 기록이 아닙니다.
+4. Non-PASS 구성원은 `notRun`이 비어 있고(`review-not-run-not-rejectable`) blocking finding(critical·high·medium)이 하나 이상 있으며,
+   null이 아닌 각 coverage gap과 각 `knownGaps` 항목이 그 구성원의 blocking finding id를 token으로 담습니다(`review-gap-not-rejectable`;
+   `m2-F1`은 `m2-F10`에 맞지 않음). Finding id는 result의 `id`, 없으면 `<taskId>#<index>`입니다. 다른 구성원의 PASS는 근거가 아닙니다.
+5. 전달된 severity나 기록 severity가 blocking인 finding은 직접 또는 `duplicateOf` 대상의 처분이 `rejected`입니다
+   (`review-blocking-not-rejected`).
+6. 각 `rejected`의 `reason`이 backtick으로 `.artifacts/` 아래 재현 로그를 하나 이상 가리키고, 그 파일은 native task 기록도 구성원
+   packet의 runner 출력(`evidence.sanitizedLinks`; 다른 경로 표기와 같은 bytes의 사본 포함)도 아니며 첫 줄이 `KNU review snapshot <builder 최종 snapshot digest>`입니다
+   (`review-rejection-unbound`).
+
+미정산·release된 구성원, 정산 뒤 child transcript가 바뀐 구성원, 읽을 수 없는 기록, hook이 놓친 dispatch는 처분 기록으로 풀지 않습니다.
+구성원이 모두 FAIL이면 연결할 PASS가 없으므로 새 builder task와 새 review로 갑니다. 처분 기록은 ignored 경로지만 완료 때 내용으로 직접
+대조합니다. Parent 작성 diff의 그룹 집계·기각은 같은 기록과 같은 재현 로그 규칙을 `/knu-settle`이 요구할 뿐 runtime 강제는 없습니다.
+회차 번호와 "같은 변경"의 판단은 Parent가 선언하며, 내용이 같은 새 builder task로 새 1회차 그룹을 만드는 경로는 runtime이 구별하지
+못합니다.
 
 Native writer는 repository당 하나의 active lease로 직렬화합니다. 확인된 완료/관측된 tool failure는 해당 task의
 lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합니다. 세션 종료·취소·권한 거부로 Post 이벤트가 없으면 실제 child 종료를 먼저 확인한 뒤

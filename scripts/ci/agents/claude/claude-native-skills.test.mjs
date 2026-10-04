@@ -258,6 +258,30 @@ test('skills guide only helper actions in the project-rooted form', () => {
   for (const command of packetCommands) assert.match(command, / --round <N>(?: |$)/u, command);
 });
 
+// The review skill names the composition flags and the dispatch-step tools that actually exist.
+test('the review skill names real composition flags and dispatch-step tools', () => {
+  const text = skill('knu-review');
+  const flags = helperFlags();
+  for (const flag of ['--composition', '--reviewers']) {
+    assert.ok(flags.has(flag), `${flag} is a review option`);
+    assert.match(text, new RegExp(`${flag} `, 'u'), flag);
+  }
+  const tools = [...text.matchAll(/`([a-z-]+\.mjs)`/gu)].map((m) => m[1]);
+  assert.deepEqual([...new Set(tools)].sort(), [
+    'citation-check.mjs',
+    'mutation-harness.mjs',
+    'plan-reference-check.mjs',
+    'red-reason-check.mjs',
+    'runner-log-check.mjs',
+  ]);
+  for (const tool of tools)
+    assert.ok(existsSync(resolve(root, 'scripts/agents/common', tool)), tool);
+  const settle = skill('knu-settle');
+  for (const [, path] of settle.matchAll(/`node (scripts\/agents\/[a-z/-]+\.mjs)/gu))
+    assert.ok(existsSync(resolve(root, path)), path);
+  assert.match(settle, /reviewAdjudication/u);
+});
+
 test('CLAUDE.md points to the skills instead of low-level registration', () => {
   const entry = read('CLAUDE.md');
   assert.doesNotMatch(entry, /register --input/u);

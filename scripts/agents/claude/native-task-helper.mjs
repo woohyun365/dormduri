@@ -16,6 +16,10 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { validateCrossModelPacket } from '../common/index.mjs';
+import {
+  SCHEMA as ADJUDICATION_SCHEMA,
+  validateAdjudication,
+} from '../common/review-adjudication.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
 import {
@@ -27,6 +31,7 @@ import {
   claudeNativeSnapshotDigest,
   writeClaudeNativeSubjectResponse,
   isClaudeNativeEvidencePath,
+  safeRef,
   REVIEW_RESULT_TEMPLATE_PREFIX,
 } from './native-session.mjs';
 
@@ -225,10 +230,70 @@ const nativeEvidenceIssues = (root, paths) =>
     : [];
 // Review round inputs (qa.md review rounds). Round 1 reports broadly; a later round reads the
 // previous round's result and reports only blocking findings, so it cannot start without it.
+// After a first-round group the previous input is the Parent's review-adjudication/v1 record; every
+// result it names is checked like a single previous result and becomes a read path too.
 // Criteria ids name tracked review-criteria documents; they join the packet owners and read paths.
 const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
 const CRITERIA_ID = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 const LOW_FINDING_LIMIT = 5;
+const isReviewResult = (value) =>
+  Boolean(value) &&
+  typeof value === 'object' &&
+  ['PASS', 'FAIL', 'BLOCKED'].includes(value.verdict) &&
+  Array.isArray(value.findings);
+// A previous input file: inside the root, a regular file, not native task evidence, JSON.
+function previousInput(root, input) {
+  const path = typeof input === 'string' ? relative(root, resolve(root, input)) : '';
+  if (
+    !path ||
+    path.startsWith('..') ||
+    !existsSync(join(root, path)) ||
+    !lstatSync(join(root, path)).isFile()
+  )
+    return { issue: `previous-result-unreadable: ${input}` };
+  if (nativeEvidenceIssues(root, [path]).length)
+    return { issue: 'previous-result-invalid: native task evidence is not review input' };
+  const bytes = readFileSync(join(root, path));
+  let value;
+  try {
+    value = JSON.parse(bytes);
+  } catch {
+    value = null;
+  }
+  return { path, digest: packetDigest(bytes), value };
+}
+function previousRound(root, previousResult) {
+  const input = previousInput(root, previousResult);
+  if (input.issue) return { issue: input.issue };
+  if (input.value?.schema !== ADJUDICATION_SCHEMA)
+    return isReviewResult(input.value)
+      ? { previous: { path: input.path, digest: input.digest } }
+      : { issue: 'previous-result-invalid: a review result JSON with verdict and findings' };
+  const results = [];
+  let issue = null;
+  const violations = validateAdjudication(input.value, (resultPath) => {
+    const result = previousInput(root, resultPath);
+    if (result.issue) {
+      issue ??= result.issue;
+      throw new Error(result.issue);
+    }
+    if (!isReviewResult(result.value)) {
+      issue ??= `previous-result-invalid: ${resultPath} is not a review result JSON with verdict and findings`;
+      throw new Error(issue);
+    }
+    results.push({ path: result.path, digest: result.digest });
+    return result.value;
+  });
+  if (issue) return { issue };
+  if (violations.length)
+    return {
+      issue: `previous-result-invalid: adjudication record ${violations
+        .slice(0, 3)
+        .map((v) => `${v.kind}${v.id ? ` ${v.id}` : ''}`)
+        .join(', ')}`,
+    };
+  return { previous: { path: input.path, digest: input.digest, results } };
+}
 function reviewRoundInputs({ reviewRound, previousResult, criteria }, root) {
   const issues = [];
   const round = Number.isInteger(reviewRound) && reviewRound >= 1 ? reviewRound : null;
@@ -239,34 +304,9 @@ function reviewRoundInputs({ reviewRound, previousResult, criteria }, root) {
   if (round === 1 && previousResult !== undefined)
     issues.push('previous-result-only-after-round-1');
   if (round > 1 && previousResult !== undefined) {
-    const path =
-      typeof previousResult === 'string' ? relative(root, resolve(root, previousResult)) : '';
-    let value;
-    if (
-      !path ||
-      path.startsWith('..') ||
-      !existsSync(join(root, path)) ||
-      !lstatSync(join(root, path)).isFile()
-    )
-      issues.push(`previous-result-unreadable: ${previousResult}`);
-    else if (nativeEvidenceIssues(root, [path]).length)
-      issues.push('previous-result-invalid: native task evidence is not review input');
-    else {
-      const bytes = readFileSync(join(root, path));
-      try {
-        value = JSON.parse(bytes);
-      } catch {
-        value = null;
-      }
-      if (
-        !value ||
-        typeof value !== 'object' ||
-        !['PASS', 'FAIL', 'BLOCKED'].includes(value.verdict) ||
-        !Array.isArray(value.findings)
-      )
-        issues.push('previous-result-invalid: a review result JSON with verdict and findings');
-      else previous = { path, digest: packetDigest(bytes) };
-    }
+    const read = previousRound(root, previousResult);
+    if (read.issue) issues.push(read.issue);
+    else previous = read.previous;
   }
   const ids = criteria ?? [];
   const criteriaIssue = !Array.isArray(ids)
@@ -292,6 +332,41 @@ function reviewRoundInputs({ reviewRound, previousResult, criteria }, root) {
     previous,
     criteriaPaths: ids.map((id) => `${CRITERIA_DIR}/${id}.md`),
   };
+}
+
+// First-round composition (qa.md E5): e2 gives every member the same scope, e3 splits the selected
+// criteria items into contiguous member ranges. Later rounds stay single (F5).
+const COMPOSITIONS = ['e2', 'e3'];
+const CRITERIA_ITEM = /^### ([A-Z][0-9]+)\./gmu;
+function reviewComposition({ composition, reviewers, round, criteriaPaths }, root) {
+  if (composition === undefined && reviewers === undefined) return null;
+  const issues = [];
+  if (!COMPOSITIONS.includes(composition))
+    issues.push(
+      `composition-invalid: give --composition ${COMPOSITIONS.join('|')} with --reviewers`,
+    );
+  if (reviewers === undefined)
+    issues.push('composition-invalid: give --reviewers with --composition');
+  else if (reviewers !== 2 && reviewers !== 3) issues.push('reviewers-invalid: 2 or 3');
+  if (round !== 1) issues.push('composition-round-1-only');
+  fail('invalid review request', issues);
+  if (composition === 'e2') return { composition, size: reviewers, items: null };
+  if (!criteriaPaths.length)
+    fail('invalid review request', ['composition-e3-criteria-required: give --criteria']);
+  const all = criteriaPaths.flatMap((path) =>
+    [...readFileSync(join(root, path), 'utf8').matchAll(CRITERIA_ITEM)].map((match) => match[1]),
+  );
+  if (all.length < reviewers)
+    fail('invalid review request', [
+      `criteria-items-too-few: ${all.length} items for ${reviewers} reviewers`,
+    ]);
+  const items = [];
+  for (let i = 0, start = 0; i < reviewers; i += 1) {
+    const size = Math.floor(all.length / reviewers) + (i < all.length % reviewers ? 1 : 0);
+    items.push(all.slice(start, start + size));
+    start += size;
+  }
+  return { composition, size: reviewers, items };
 }
 
 function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
@@ -572,9 +647,10 @@ export function writeClaudeReviewPacket(root, reviewId, bytes) {
   return { path, digest: packetDigest(bytes) };
 }
 
-function reviewerPrompt(logHeader, subject, packet, template, packetFile) {
+function reviewerPrompt(logHeader, subject, packet, template, packetFile, member) {
   return [
     logHeader,
+    ...(member ? [member.line] : []),
     'Independent read-only review of one frozen subject (same host, fresh context).',
     '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
     '- Judge the source against each acceptanceCoverage criterion; no builder reasoning is provided or needed.',
@@ -586,6 +662,23 @@ function reviewerPrompt(logHeader, subject, packet, template, packetFile) {
     subject.round === 1
       ? `- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most ${LOW_FINDING_LIMIT} low findings, most important first.`
       : `- Review round ${subject.round}: read the full scope again but report only blocking findings (critical, high or medium): new ones and those in the previous result that remain unresolved. Report no low findings. Previous result: ${subject.previous.path} ${subject.previous.digest}`,
+    ...(subject.previous?.results
+      ? [
+          `- The previous result is the Parent's adjudication record of round ${subject.round - 1}. Reviewed results: ${subject.previous.results.map((result) => `${result.path} ${result.digest}`).join(', ')}.`,
+          "- Its dispositions and their reasons are the Parent's claims, not evidence. Report a rejected blocking finding again only when the source does not match the rejection basis.",
+        ]
+      : []),
+    ...(member
+      ? [
+          `- Group member ${member.index} of ${member.size} (${member.composition}). If you give a finding an id, start it with m${member.index}- (for example m${member.index}-F1); a finding without one is named <taskId>#<index>.`,
+          '- If this result is not PASS, name in each coverage gap and each knownGaps entry the id of the finding that causes it. A gap unrelated to any finding stays open; the Parent cannot close it.',
+          ...(member.items
+            ? [
+                `- Assigned criteria items: ${member.items.join(', ')}. Judge every assigned item; other items belong to other group members, but report any blocking defect you find regardless of item.`,
+              ]
+            : []),
+        ]
+      : []),
     '- An empty findings list is a valid result; do not add findings to fill it.',
     ...(subject.criteriaPaths.length
       ? [
@@ -629,6 +722,8 @@ export function buildClaudeNativeReview(
     reviewRound,
     previousResult,
     criteria,
+    composition,
+    reviewers,
   } = {},
   { root = process.cwd() } = {},
 ) {
@@ -644,112 +739,142 @@ export function buildClaudeNativeReview(
     dispatchAuthorized: false,
   };
   if (runnerEvidence === undefined) return status;
+  const basisIssues =
+    typeof selectionBasisRef === 'string' && selectionBasisRef.trim()
+      ? safeRef(selectionBasisRef)
+        ? []
+        : ['unsafe-reference:selectionBasisRef']
+      : ['selection-basis-required'];
   fail('invalid review request', [
-    ...(typeof selectionBasisRef === 'string' && selectionBasisRef.trim()
-      ? []
-      : ['selection-basis-required']),
+    ...basisIssues,
     ...(typeof reviewerModel === 'string' ? [] : ['reviewer-model-required']),
     ...(typeof reviewerId === 'string' && ID.test(reviewerId) && reviewerId !== subject.owner
       ? []
       : ['reviewer must be an identifier distinct from the subject owner']),
   ]);
-  validateRunnerEvidence(runnerEvidence, snapshotDigest, reviewerId, root);
   Object.assign(subject, reviewRoundInputs({ reviewRound, previousResult, criteria }, root));
+  const group = reviewComposition(
+    { composition, reviewers, round: subject.round, criteriaPaths: subject.criteriaPaths },
+    root,
+  );
+  // Each group member is reviewer-<i>; the runner may be none of them.
+  const reviewerIds = group
+    ? Array.from({ length: group.size }, (_, i) => `${reviewerId}-${i + 1}`)
+    : [reviewerId];
+  for (const id of reviewerIds) validateRunnerEvidence(runnerEvidence, snapshotDigest, id, root);
   if (subject.settlement === 'native-subject') {
-    // The reviewer can check a read-only subject's claims against its read scope and the raw runner
-    // outputs; the response itself is read from a file bound to the settled response.
+    // The reviewer can check a read-only subject's claims against its read scope; the response
+    // itself is read from a file bound to the settled response.
     subject.responsePath = subject.readOnly
       ? writeClaudeNativeSubjectResponse(subject.taskId, { root })
       : undefined;
-    subject.readPaths = [
-      ...new Set([
-        ...(subject.responsePath ? [subject.responsePath] : []),
-        ...subject.readPaths,
-        ...runnerEvidence.records.flatMap((record) => record.outputPaths),
-      ]),
-    ];
   }
-  const reviewId = `${(subject.taskId ?? snapshotDigest.slice(7)).slice(0, 8)}-${randomUUID().slice(0, 8)}`;
-  // The packet names its own file as a read path, so the path is fixed before the packet is built.
-  const packetPath =
-    subject.settlement === 'parent-adjudication' ? reviewPacketPath(root, reviewId).path : null;
-  subject.readPaths = [
+  // Both settlements read the raw runner outputs, so no reviewer depends on a runner's summary.
+  const sharedPaths = [
     ...new Set([
+      ...(subject.responsePath ? [subject.responsePath] : []),
       ...subject.readPaths,
+      ...runnerEvidence.records.flatMap((record) => record.outputPaths),
       ...subject.criteriaPaths,
       ...(subject.previous ? [subject.previous.path] : []),
-      ...(packetPath ? [packetPath] : []),
+      ...(subject.previous?.results ?? []).map((result) => result.path),
     ]),
   ];
-  const packet = reviewPacket(subject, runnerEvidence, reviewId);
-  // The registry re-validates a native subject's packet; a Parent subject's packet is only checked here.
-  const packetCheck = validateCrossModelPacket(packet, { currentSnapshot: subject.snapshot });
-  fail('invalid review packet', packetCheck.errors);
-  const template = resultTemplate(packet, runnerEvidence);
-  const packetBytes = packetPath ? Buffer.from(`${JSON.stringify(packet)}\n`) : null;
-  const packetFile = packetPath
-    ? { path: packetPath, digest: packetDigest(packetBytes) }
-    : undefined;
-  const prompt = reviewerPrompt(logHeader, subject, packet, template, packetFile);
-  fail('invalid review request', [
-    ...(prompt.length <= PROMPT_LIMIT
-      ? []
-      : [
-          `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}): ${
-            packetFile
-              ? 'the packet is already a file; shorten acceptance criteria or runner records'
-              : 'shorten acceptance criteria, read paths or runner records'
-          }`,
-        ]),
-  ]);
-  // Only a review that will be returned leaves a packet file behind.
-  if (packetFile) writeClaudeReviewPacket(root, reviewId, packetBytes);
   const native = subject.settlement === 'native-subject';
-  const reviewerSpec = {
-    sessionId: sessionId ?? subject.sessionId,
-    request:
-      request ??
-      (native
-        ? `KNU native task ${subject.taskId.slice(0, 8)} 결과를 독립 검토해줘.`
-        : `Parent 작성 변경 ${snapshotDigest.slice(7, 15)} 결과를 독립 검토해줘.`),
-    role: 'knu_reviewer',
-    profileId: 'complex-critical',
-    selectionBasisRef,
-    expectedResolvedModel: reviewerModel,
-    kind: 'review',
-    impactRisk: impactRisk ?? subject.impactRisk,
-    complexity: 'bounded',
-    uncertainty: 'resolved',
-    childValue: 'independent-review',
-    owner: reviewerId,
-    readScope: subject.readPaths,
-    writeScope: [],
-    acceptance: ['terminal review result delivered for the frozen packet'],
-    // A reviewer without a native subject cannot be a terminal reviewer; it stays QA-required and
-    // the Parent adjudicates from its settle observation instead of a PASS settlement.
-    reviewDisposition: native
-      ? { required: false, reason: 'terminal same-host independent native review' }
-      : { required: true, reason: 'Parent-authored subject: Parent adjudicates this review' },
-    facts: REVIEW_FACTS.map((key) => ({ key, sourceRef: selectionBasisRef, confidence: 'high' })),
-    prompt,
-    ...(native
+  const groupId = group ? randomUUID().slice(0, 8) : null;
+  const members = reviewerIds.map((memberReviewerId, index) => {
+    const member = group
       ? {
-          independentReview: {
-            subjectTaskId: subject.taskId,
-            reviewerId,
-            builderIds: [subject.owner],
-            packet,
-          },
+          index: index + 1,
+          size: group.size,
+          composition: group.composition,
+          items: group.items?.[index] ?? null,
+          line: `KNU review group ${groupId} ${index + 1}/${group.size} ${group.composition}`,
         }
-      : {}),
-  };
+      : null;
+    const reviewId = `${(subject.taskId ?? snapshotDigest.slice(7)).slice(0, 8)}-${randomUUID().slice(0, 8)}`;
+    // The packet names its own file as a read path, so the path is fixed before the packet is built.
+    const packetPath = native ? null : reviewPacketPath(root, reviewId).path;
+    const memberSubject = {
+      ...subject,
+      readPaths: [...new Set([...sharedPaths, ...(packetPath ? [packetPath] : [])])],
+    };
+    const packet = reviewPacket(memberSubject, runnerEvidence, reviewId);
+    // The registry re-validates a native subject's packet; a Parent subject's packet is only checked here.
+    const packetCheck = validateCrossModelPacket(packet, { currentSnapshot: subject.snapshot });
+    fail('invalid review packet', packetCheck.errors);
+    const template = resultTemplate(packet, runnerEvidence);
+    const packetBytes = packetPath ? Buffer.from(`${JSON.stringify(packet)}\n`) : null;
+    const packetFile = packetPath
+      ? { path: packetPath, digest: packetDigest(packetBytes) }
+      : undefined;
+    const prompt = reviewerPrompt(logHeader, memberSubject, packet, template, packetFile, member);
+    fail('invalid review request', [
+      ...(prompt.length <= PROMPT_LIMIT
+        ? []
+        : [
+            `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}): ${
+              packetFile
+                ? 'the packet is already a file; shorten acceptance criteria or runner records'
+                : 'shorten acceptance criteria, read paths or runner records'
+            }`,
+          ]),
+    ]);
+    const reviewerSpec = {
+      sessionId: sessionId ?? subject.sessionId,
+      request:
+        request ??
+        (native
+          ? `KNU native task ${subject.taskId.slice(0, 8)} 결과를 독립 검토해줘.`
+          : `Parent 작성 변경 ${snapshotDigest.slice(7, 15)} 결과를 독립 검토해줘.`),
+      role: 'knu_reviewer',
+      profileId: 'complex-critical',
+      selectionBasisRef,
+      expectedResolvedModel: reviewerModel,
+      kind: 'review',
+      impactRisk: impactRisk ?? subject.impactRisk,
+      complexity: 'bounded',
+      uncertainty: 'resolved',
+      childValue: 'independent-review',
+      owner: memberReviewerId,
+      readScope: memberSubject.readPaths,
+      writeScope: [],
+      acceptance: ['terminal review result delivered for the frozen packet'],
+      // A reviewer without a native subject cannot be a terminal reviewer; it stays QA-required and
+      // the Parent adjudicates from its settle observation instead of a PASS settlement.
+      reviewDisposition: native
+        ? { required: false, reason: 'terminal same-host independent native review' }
+        : { required: true, reason: 'Parent-authored subject: Parent adjudicates this review' },
+      facts: REVIEW_FACTS.map((key) => ({ key, sourceRef: selectionBasisRef, confidence: 'high' })),
+      prompt,
+      ...(native
+        ? {
+            independentReview: {
+              subjectTaskId: subject.taskId,
+              reviewerId: memberReviewerId,
+              builderIds: [subject.owner],
+              packet,
+            },
+          }
+        : {}),
+    };
+    return { reviewId, packetBytes, packet, packetFile, template, prompt, reviewerSpec };
+  });
+  // Only a review that will be returned leaves packet files behind: every prompt fits first.
+  for (const member of members)
+    if (member.packetFile) writeClaudeReviewPacket(root, member.reviewId, member.packetBytes);
+  const output = (member) => ({
+    packet: member.packet,
+    ...(member.packetFile ? { packetFile: member.packetFile } : {}),
+    resultTemplate: member.template,
+    reviewerPrompt: member.prompt,
+    reviewerSpec: member.reviewerSpec,
+  });
+  if (!group) return { ...status, ...output(members[0]) };
   return {
     ...status,
-    packet,
-    ...(packetFile ? { packetFile } : {}),
-    resultTemplate: template,
-    reviewerPrompt: prompt,
-    reviewerSpec,
+    group: { groupId, composition: group.composition, reviewers: group.size },
+    reviewers: members.map(output),
   };
 }
 
@@ -760,6 +885,7 @@ const JUDGMENT_FIELDS = [
   'findings',
   'gaps',
   'reviewerTaskId',
+  'reviewAdjudication',
 ];
 // complete's input from the settled observation plus the Lead's judgment. The Lead states the digest
 // of the response it judged and each acceptance result; lane ids, snapshot, observed changed paths
@@ -925,6 +1051,11 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
   for (const key of ['findings', 'gaps'])
     if (judgment[key] !== undefined && !Array.isArray(judgment[key]))
       issues.push(`${key}-array-required`);
+  if (
+    judgment.reviewAdjudication !== undefined &&
+    (typeof judgment.reviewAdjudication !== 'string' || !judgment.reviewAdjudication.trim())
+  )
+    issues.push('review-adjudication-path-required');
   fail('invalid settle judgment', issues);
   const state = observeClaudeNativeTask(taskId, { root });
   if (state.errors.includes('no-completion-observation'))
@@ -961,6 +1092,9 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
     responseDigest: judgment.responseDigest,
     acceptance: judgment.acceptance,
     ...(judgment.reviewerTaskId === undefined ? {} : { reviewerTaskId: judgment.reviewerTaskId }),
+    ...(judgment.reviewAdjudication === undefined
+      ? {}
+      : { reviewAdjudication: judgment.reviewAdjudication }),
   };
   if (record.independentReview) {
     try {
