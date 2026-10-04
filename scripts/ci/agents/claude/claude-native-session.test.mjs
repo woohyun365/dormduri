@@ -803,12 +803,90 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   assert.equal(malformed.valid, false);
   assert.ok(malformed.errors.some((error) => /unreadable native task/.test(error)));
 
-  // The hooks skip a task copied from another checkout; linked-review settlement still refuses it.
+  // The hooks skip a task copied from another checkout; linked-review settlement still refuses one
+  // that names this subject.
   rmSync(empty, { recursive: true });
-  plantForeignTask(subject.root);
+  plantForeignTask(subject.root, subject.registered.taskId);
   const foreign = builderLinkedTo(passingReview());
   assert.equal(foreign.valid, false);
   assert.ok(foreign.errors.some((error) => /unreadable native task/.test(error)));
+});
+test('a task copied from another checkout blocks a linked builder only when it may be its review', (t) => {
+  const subject = writer(t);
+  handle(subject);
+  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
+  finish(subject);
+  const observation = JSON.parse(
+    readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
+  );
+  const packet = reviewPacket(subject, observation.finalSnapshot);
+  const qa = reviewer(t, subject, packet);
+  const result = reviewResult(packet, 'unknown');
+  handle(qa);
+  finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+  const semantic = semanticResult(qa);
+  semantic.reviewResult = result;
+  assert.equal(
+    completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root }).valid,
+    true,
+  );
+  const base = join(realpathSync(subject.root), '.artifacts/tools/claude-native');
+  const linkBuilder = () => {
+    const builder = semanticResult(subject);
+    builder.results[0].changedPaths = ['sample.txt'];
+    builder.reviewerTaskId = qa.registered.taskId;
+    return completeClaudeNativeTask(subject.registered.taskId, builder, { root: subject.root });
+  };
+  const refusedFor = (id) => {
+    const outcome = linkBuilder();
+    assert.equal(outcome.valid, false);
+    assert.deepEqual(outcome.errors, [`unreadable native task: ${id}`]);
+  };
+
+  const naming = plantForeignTask(subject.root, subject.registered.taskId);
+  refusedFor(naming);
+  rmSync(join(base, naming), { recursive: true });
+
+  const elsewhere = mkdtempSync(join(tmpdir(), 'knu-foreign-'));
+  t.after(() => rmSync(elsewhere, { recursive: true, force: true }));
+  const real = plantForeignTask(elsewhere);
+  const linked = randomUUID();
+  symlinkSync(
+    join(realpathSync(elsewhere), '.artifacts/tools/claude-native', real),
+    join(base, linked),
+  );
+  refusedFor(linked);
+  rmSync(join(base, linked));
+
+  // A record of this checkout that fails its digest is damaged, not copied.
+  const tampered = plantForeignTask(subject.root);
+  const tamperedPath = join(base, tampered, 'task.json');
+  const copy = JSON.parse(readFileSync(tamperedPath));
+  copy.record.root = realpathSync(subject.root);
+  writeFileSync(tamperedPath, JSON.stringify(copy));
+  refusedFor(tampered);
+  rmSync(join(base, tampered), { recursive: true });
+
+  for (const text of [
+    '{"record":',
+    '{"record":{"version":1}}',
+    '{"record":{"root":""}}',
+    '{"record":{"root":"moved/checkout"}}',
+  ]) {
+    const garbled = randomUUID();
+    mkdirSync(join(base, garbled));
+    writeFileSync(join(base, garbled, 'task.json'), text);
+    refusedFor(garbled);
+    rmSync(join(base, garbled), { recursive: true });
+  }
+
+  plantForeignTask(subject.root);
+  plantForeignTask(subject.root, randomUUID());
+  const unrelated = linkBuilder();
+  assert.deepEqual(
+    { valid: unrelated.valid, errors: unrelated.errors },
+    { valid: true, errors: [] },
+  );
 });
 function reviewedSubject(t) {
   const subject = writer(t);
@@ -1881,14 +1959,15 @@ function runHook(root, event, env = {}) {
     encoding: 'utf8',
   });
 }
-function plantForeignTask(root) {
+function plantForeignTask(root, subjectTaskId) {
   const id = randomUUID();
   const dir = join(realpathSync(root), '.artifacts/tools/claude-native', id);
   mkdirSync(dir, { recursive: true });
+  const independentReview = subjectTaskId === undefined ? undefined : { subjectTaskId };
   writeFileSync(
     join(dir, 'task.json'),
     JSON.stringify({
-      record: { version: 1, taskId: id, root: '/moved/checkout' },
+      record: { version: 1, taskId: id, root: '/moved/checkout', independentReview },
       invocation: { prompt: 'x' },
     }),
   );
