@@ -1,0 +1,11 @@
+KNU review snapshot sha256:57e3babd7077b0d3a8e000f8d4b0a91892b0fcaff7e83f0f50ab8d232d896085
+# input sha256 (ignored inputs are outside the snapshot digest; this log excluded)
+b6cdd9f94632dcd9bdf6ac80399c366c93fb246c1d9ca5de6331c91b4cd1bf73  notes/records 4.md
+basis sha256:a5699ce2c615cf3bc53fdecd0c4334499edbc9071e6b5c5c303ebdca174db78a install 42
+$ node --test scripts/ci/agents/common/citation-check.test.mjs
+ℹ tests 6
+ℹ pass 873
+ℹ fail 0
+Install dependencies=28
+10 failed
+exit=0

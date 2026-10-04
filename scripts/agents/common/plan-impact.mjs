@@ -107,7 +107,7 @@ function isFile(path) {
 // Number of lines a citation may use in a file, or null when the path is not a readable text file. It matches the
 // block map's extent: after a final newline the map's last block ends on the empty line that follows, so a range
 // copied from blocks.tsv up to the end of a file stays valid.
-function lineCount(root, path) {
+export function lineCount(root, path) {
   if (!isFile(resolve(root, path))) return null;
   const text = readText(root, path);
   return text === null ? null : splitLines(text).length;

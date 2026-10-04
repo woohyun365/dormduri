@@ -4,15 +4,15 @@
 [adapter 안내](../../docs/development/agent-workflows/adapters/README.md)가 소유합니다.
 이 디렉터리의 정적 validator·recommendation은 실제 provider 호출·모델·권한 입증을 대신하지 않습니다.
 
-| 경로                          | 책임                                                                                              |
-| ----------------------------- | ------------------------------------------------------------------------------------------------- |
-| `common/`                     | host-neutral intake·context·plan readiness/storage·workflow graph·QA packet·adapter conformance   |
-| `codex/`                      | Codex 모델/effort·위임·복구·결과·Git/OMX preflight와 workflow composition                         |
-| `claude/`                     | Claude Git/계획 preflight·direct workflow·finite model 정책·same-session native task coordination |
-| `bridge/`                     | 교차-host static 계약과 fake process 검증; real provider 기본 비활성                              |
-| `fixtures/workflow-contract/` | 공통 intake·synthetic graph fixture; 실제 host/runtime 증거가 아님                                |
-| `fixtures/codex-preflight/`   | 실제 disposable Git와 optional OMX stub로 Codex preflight 회귀 검증                               |
-| `fixtures/plan-readiness/`    | 공통 계획 readiness positive/negative 입력                                                        |
+| 경로                          | 책임                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `common/`                     | host-neutral intake·context·plan readiness/storage·workflow graph·QA packet·adapter conformance·review 증거 검사 |
+| `codex/`                      | Codex 모델/effort·위임·복구·결과·Git/OMX preflight와 workflow composition                                        |
+| `claude/`                     | Claude Git/계획 preflight·direct workflow·finite model 정책·same-session native task coordination                |
+| `bridge/`                     | 교차-host static 계약과 fake process 검증; real provider 기본 비활성                                             |
+| `fixtures/workflow-contract/` | 공통 intake·synthetic graph fixture; 실제 host/runtime 증거가 아님                                               |
+| `fixtures/codex-preflight/`   | 실제 disposable Git와 optional OMX stub로 Codex preflight 회귀 검증                                              |
+| `fixtures/plan-readiness/`    | 공통 계획 readiness positive/negative 입력                                                                       |
 
 ## 명명과 호출
 
