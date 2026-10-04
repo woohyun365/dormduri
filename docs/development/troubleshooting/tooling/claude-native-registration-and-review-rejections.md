@@ -164,7 +164,9 @@
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
   hook이 기록하지 않은 reviewer 호출(hook 장애 중 재호출 등), 읽을 수 없는 세션 transcript, 정산 뒤 재개된 reviewer, 손상된 task 기록은
-  FAIL을 숨길 수 있으므로 PASS 연결을 막습니다.
+  FAIL을 숨길 수 있으므로 PASS 연결을 막습니다. 다른 checkout에서 복사된 기록(task.json의 `root`가 이 checkout과 다른 절대 경로 문자열)은 이
+  subject를 가리키지 않으면 이 subject의 리뷰일 수 없어 건너뜁니다. 비었거나 깨졌거나 `root`가 없거나 절대 경로가 아닌 기록, symlink, 이 subject를 가리키는 복사본은
+  `unreadable native task`로 막습니다.
 - 1회차 그룹의 non-PASS 구성원은 Parent의 `review-adjudication/v1` 처분 기록이
   [builder 완료와 1회차 그룹](../../agent-workflows/adapters/claude-same-host-review.md#builder-완료와-1회차-그룹)의 조건을 모두
   만족할 때만 완료를 막지 않습니다. 그룹 밖 reviewer(PASS 포함), 같은 번호로 다시 보낸 구성원, 그룹 줄이 없는 단일 reviewer의
@@ -210,6 +212,10 @@
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
+- `unreadable native task`의 기록이 다른 checkout(지운 linked worktree 등)에서 복사된 것이면(task.json의 `root`가 이 checkout과 다른 경로) 그
+  디렉터리를 저장소 밖 보관 절차로 `<archive>/artifacts/` 아래에 옮깁니다. `.artifacts/plans/`는 리뷰 입력 위치이고 리뷰 입력 검사는 옮긴
+  native 기록을 알아보지 못하므로 그곳에 두지 않습니다. Worktree 증거를 가져올 때 runtime 기록을 가져오지 않는 규칙과 보관 절차는
+  [Local artifacts](../../../../.artifacts/README.md#배치-규칙)입니다. 이 checkout의 기록이면 아래와 같습니다.
 - 나머지 builder 연결 거부는 기존 결과를 신뢰할 수 없다는 뜻입니다. 기록을 고치거나 지우지 말고, hook을 확인한 뒤 새 builder task와
   새 review로 해소합니다.
 - FAIL은 review 완료입니다. Finding을 판정하고 수정한 뒤 새 builder task와 새 review로 해소합니다. 다른 reviewer의 PASS를
@@ -354,8 +360,8 @@ reproduction log`, `only the members of one first-round group`, `a first-round c
 `a read-only subject is reviewed from its bound response`, `a changed response artifact is refused`,
 `other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
 테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,
-`each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed` 테스트가
-고정합니다.
+`each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed`,
+`a task copied from another checkout blocks a linked builder only when it may be its review` 테스트가 고정합니다.
 
 ## 참고
 

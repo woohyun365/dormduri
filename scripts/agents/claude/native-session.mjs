@@ -1121,6 +1121,22 @@ function readableTasks(root, base) {
   }
   return tasks;
 }
+// A record copied from another checkout (its task names another absolute root) cannot be a review
+// of a subject here unless it names that subject; only then may it hide a verdict. An empty, damaged
+// or symlinked record (`jsonFile` refuses symlinks), or a copy naming the subject, still refuses.
+function copiedUnrelatedTask(root, base, id, subjectTaskId) {
+  try {
+    const { record } = jsonFile(join(base, id, 'task.json'));
+    return (
+      // `isAbsolute` throws on a missing or non-string root, which refuses below.
+      isAbsolute(record.root) &&
+      record.root !== root &&
+      record.independentReview?.subjectTaskId !== subjectTaskId
+    );
+  } catch {
+    return false;
+  }
+}
 function launchedAgentId(task) {
   try {
     return jsonFile(join(task.dir, 'launch.json')).response?.agentId;
@@ -1811,7 +1827,8 @@ export function completeClaudeNativeTask(
       try {
         other = loadTask(root, otherId);
       } catch {
-        errors.push(`unreadable native task: ${otherId}`);
+        if (!copiedUnrelatedTask(root, base, otherId, record.taskId))
+          errors.push(`unreadable native task: ${otherId}`);
         continue;
       }
       if (other.record.independentReview?.subjectTaskId !== record.taskId) continue;

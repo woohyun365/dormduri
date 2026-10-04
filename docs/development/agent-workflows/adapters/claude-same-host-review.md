@@ -79,7 +79,8 @@ builder의 subject binding/full request/response/snapshot과 일치할 때만 �
 PASS할 수 없습니다. 같은 subject를 실제로 dispatch한 다른 reviewer가 PASS가 아닌 receipt를 남겼거나, 완료 기록에 PASS가 아닌
 결과를 전달했거나, 정산 전에 release되어 결과가 기록되지 않았다면 다른 reviewer의 PASS를 연결해도 builder는 완료되지 않습니다
 (PASS가 아닌 결과를 처분 기록으로 마감하는 1회차 그룹 예외만 아래에 둡니다).
-읽을 수 없는 native task·receipt·완료 기록도 완료를 막습니다. Agent 호출 자체가 실패해 결과 없이 오류만 돌아온 시도와 등록만 하고
+읽을 수 없는 native task·receipt·완료 기록도 완료를 막습니다. 예외는 다른 checkout에서 복사된 task 기록(task.json의 `root`가 이 checkout과
+다른 절대 경로)이 이 subject를 가리키지 않을 때뿐이며 그 기록은 건너뜁니다. Agent 호출 자체가 실패해 결과 없이 오류만 돌아온 시도와 등록만 하고
 dispatch하지 않은 reviewer는 막지 않습니다. Hook은 reviewer task마다 한 번의 Agent 호출과 그 세션 transcript 경로만 기록합니다.
 그래서 builder를 완료할 때 연결한 reviewer를 포함한 같은 subject의 모든 reviewer에 대해, 기록된 세션 transcript(연결한 reviewer가
 비동기로 정산됐다면 그 정산 transcript)에서 reviewer marker를 가진 Agent 호출과 결과를 대조합니다. Hook이 기록한 호출이 아니면서

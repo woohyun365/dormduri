@@ -22,6 +22,11 @@ production runtime에서는 사용하지 않는다. 내용은 Git에서 제외�
 - **script 출력.** repository script는 `scripts/artifacts/paths.mjs`의 `resolveArtifactPath()`로 `tools/<kind>/`에
   쓴다. `KNU_ARTIFACTS_DIR`은 이 `tools` 기본 위치를 대체하며, 각 command의 명시적 `--output`·전용 환경변수도
   사용할 수 있다.
+- **Worktree 증거 회수.** Linked worktree를 지우기 전에는 그 checkout의 `plans/…` 증거만 가져온다. `tools/` 아래 runtime
+  기록(`claude-native/`, `claude-review-packets/` 등)은 그 checkout 경로에 묶여 다른 checkout에서 쓸 수 없고, 다른 checkout의
+  `claude-native/`에 섞이면 그 checkout의 리뷰 연결 판정을 막을 수 있다. `.artifacts/` 전체를 복사하지 않는다. 보존이 필요하면
+  아래 저장소 밖 보관 절차로 `<archive>/artifacts/`에 옮긴다. `plans/…`는 review 입력 위치이고 review 입력 검사는 옮긴 native
+  기록(prompt·builder 응답·다른 reviewer 결과)을 알아보지 못하므로 그곳에 두지 않는다.
 - **CI.** GitHub Actions는 checkout 내부가 아니라 `${{ runner.temp }}`에 evidence를 생성한 뒤 Actions artifact로
   업로드한다.
 - **secret 금지.** token, cookie, password, DB URL, webhook 등 secret 원문을 기록하지 않는다.
