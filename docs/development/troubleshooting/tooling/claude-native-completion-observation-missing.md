@@ -1,7 +1,7 @@
 # 트러블슈팅: Claude native task 완료 시 `no-completion-observation`
 
 **상태**: Current
-**마지막 검증 환경**: Claude Code CLI 2.1.283(정산 거부)·2.1.286(hand-back 뒤 알림), 일반 `claude --permission-mode auto`, 비동기 Agent 완료
+**마지막 검증 환경**: Claude Code CLI 2.1.283(정산 거부)·2.1.286(hand-back 뒤 알림)·2.1.289(child transcript 32 MiB 한도는 fixture test로만 확인, live 확인은 merge 뒤 새 세션), 일반 `claude --permission-mode auto`, 비동기 Agent 완료
 **현재 owner**: [Claude Code adapter](../../agent-workflows/adapters/claude-code.md)
 
 ## 증상
@@ -25,16 +25,19 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 
 먼저 `.artifacts/tools/claude-native/<taskId>/`의 기록으로 원인을 구분합니다.
 
-| 기록                                      | 원인                                                                                                                                                                                                                                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `task.json`만 있음                        | 아직 dispatch하지 않은 정상 등록 상태이거나, dispatch했는데 hook이 실행되지 않았습니다. 후자는 [hook 장애](./claude-native-hook-failure-and-completion-refusal.md)를 확인합니다.                                                                                                                 |
-| `attempt.json`은 있고 `launch.json` 없음  | 비동기 시작이 거부됐습니다. Hook 문구가 `async launch model mismatch: expected <A>, observed <B>`이면 등록한 `expectedResolvedModel`이 현재 CLI의 alias 해석과 다릅니다. 실제 child 종료를 확인해 `release --task <taskId> --ended`로 해제하고, 관측된 모델 ID로 새로 등록합니다.                |
-| `launch.json`은 있고 `stop.json` 없음     | Child가 아직 실행 중이거나 SubagentStop이 오지 않았습니다.                                                                                                                                                                                                                                       |
-| `stop.json`은 있고 `completion.json` 없음 | 부모 transcript에 같은 child·tool의 `task-notification completed`가 아직 없거나 부모 transcript를 읽을 수 없습니다. Child transcript가 4MiB를 넘거나, 기대와 다른 모델·prompt이거나, 아직 flush되지 않은 경우도 같습니다. `complete`는 이 사유를 `stopped-task-settlement-failed`로 보여 줍니다. |
-| `completion.json`이 있지만 invalid        | 등록부터 정산 사이에 child write 범위 밖 파일이 바뀌면 `unattributable-change:<path>`입니다. Parent 수정인지 구분할 수 없어 거부합니다([Parent 동시 쓰기](./claude-native-parent-concurrent-write.md)).                                                                                          |
+| 기록                                      | 원인                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task.json`만 있음                        | 아직 dispatch하지 않은 정상 등록 상태이거나, dispatch했는데 hook이 실행되지 않았습니다. 후자는 [hook 장애](./claude-native-hook-failure-and-completion-refusal.md)를 확인합니다.                                                                                                                                                               |
+| `attempt.json`은 있고 `launch.json` 없음  | 비동기 시작이 거부됐습니다. Hook 문구가 `async launch model mismatch: expected <A>, observed <B>`이면 등록한 `expectedResolvedModel`이 현재 CLI의 alias 해석과 다릅니다. 실제 child 종료를 확인해 `release --task <taskId> --ended`로 해제하고, 관측된 모델 ID로 새로 등록합니다.                                                              |
+| `launch.json`은 있고 `stop.json` 없음     | Child가 아직 실행 중이거나 SubagentStop이 오지 않았습니다.                                                                                                                                                                                                                                                                                     |
+| `stop.json`은 있고 `completion.json` 없음 | 부모 transcript에 같은 child·tool의 `task-notification completed`가 아직 없거나 부모 transcript를 읽을 수 없습니다. Child transcript가 32 MiB를 넘거나(`transcript byte limit: <bytes> > <limit>`), 기대와 다른 모델·prompt이거나, 아직 flush되지 않은 경우도 같습니다. `complete`는 이 사유를 `stopped-task-settlement-failed`로 보여 줍니다. |
+| `completion.json`이 있지만 invalid        | 등록부터 정산 사이에 child write 범위 밖 파일이 바뀌면 `unattributable-change:<path>`입니다. Parent 수정인지 구분할 수 없어 거부합니다([Parent 동시 쓰기](./claude-native-parent-concurrent-write.md)).                                                                                                                                        |
 
 비동기 Agent는 PostToolUse의 `async_launched`만으로 완료되지 않습니다. 완료 알림 전에 complete를 호출하면 관측이 없습니다.
 부모 transcript는 child ID와 task marker가 있는 행만 파싱하며 128MiB를 넘으면 정산하지 않습니다(gap).
+Child transcript 한도(`CHILD_TRANSCRIPT_BYTE_LIMIT`, 32 MiB)는 메모리 보호입니다. 그 아래에서는 크기와 관계없이 전체 bytes와 모든 행의
+session·child id, 첫 prompt, assistant 행 모델, hand-back 전달을 검사합니다. 관측된 가장 긴 child는 웹 조사가 긴 researcher의
+10.39 MiB였습니다.
 `--resume`한 세션의 알림 행은 `sessionId`가 등록 세션이고 `session_id`가 새 process ID입니다. 등록 세션의 transcript 파일 안에서
 행 `sessionId`가 일치하면 이 차이는 정산을 막지 않습니다.
 
@@ -45,6 +48,8 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 2. Child가 끝나면 **파일을 편집하기 전에** 먼저 정산합니다. 이미 편집했다면 그 관측은 되돌리지 말고 invalid로 기록한 뒤,
    필요하면 새 task로 다시 실행합니다.
 3. 부모 transcript가 한도를 넘으면 새 세션에서 새로 등록합니다. 한도를 높인 사본이나 수동 JSON으로 정산하지 않습니다.
+   `stopped-task-settlement-failed: transcript byte limit: <bytes> > <limit>`은 child transcript가 한도를 넘은 것입니다. 결과를 쓰지
+   말고 조사 범위를 나눈 task로 다시 위임합니다. Transcript에서 결과를 손으로 추출해 정산하지 않습니다.
 4. 거부 사유를 PASS로 바꾸지 않고 evidence에 그대로 남깁니다.
 
 ## hand-back 뒤 완료 알림이 오지 않음
@@ -72,7 +77,8 @@ node --test scripts/ci/agents/claude/claude-native-session.test.mjs
 ```
 
 `async stop/notification association`과 `unseen-dispatch check` 테스트가 알림 전 거부, 알림 후 정산, 8MiB를 넘는 부모
-transcript에서의 정산을 고정합니다. `a resumed session notification settles`와 `complete names the stopped-task settlement failure`
+transcript에서의 정산을 고정합니다. `a 5 MiB child transcript settles in the background`와 `a child transcript over the limit is
+refused`가 child transcript 한도를 고정합니다. `a resumed session notification settles`와 `complete names the stopped-task settlement failure`
 테스트가 resume 알림 수락과 정산 실패 사유 표시를 고정합니다. 범위 밖 변경은 `unattributable change: *` 테스트가 고정합니다.
 
 ## 참고

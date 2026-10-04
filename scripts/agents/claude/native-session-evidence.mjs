@@ -1,7 +1,13 @@
+// One bound for every child transcript read. It guards memory, not integrity: every row is still
+// checked whatever the size (the longest observed child, a researcher, wrote 10.39 MiB).
+export const CHILD_TRANSCRIPT_BYTE_LIMIT = 32 * 1024 * 1024;
+export const childTranscriptLimitReason = (bytes) =>
+  `transcript byte limit: ${bytes} > ${CHILD_TRANSCRIPT_BYTE_LIMIT}`;
 // Bounded normalization of an observed SubagentStop transcript, not a host grant.
 export function readClaudeStoppedTranscript(bytes, { sessionId, agentId, prompt, expectedModel }) {
-  if (!Buffer.isBuffer(bytes) || bytes.length > 4 * 1024 * 1024)
-    throw new TypeError('transcript byte limit');
+  if (!Buffer.isBuffer(bytes)) throw new TypeError('transcript bytes required');
+  if (bytes.length > CHILD_TRANSCRIPT_BYTE_LIMIT)
+    throw new TypeError(childTranscriptLimitReason(bytes.length));
   const raw = bytes.toString('utf8');
   if (!Buffer.from(raw).equals(bytes) || !raw.endsWith('\n'))
     throw new TypeError('incomplete transcript');
@@ -98,7 +104,8 @@ export function isClaudeCompletedNotification(row, { sessionId, agentId, toolUse
 // model are foreign. `missing` reports an assistant row without the field, which no flush adds.
 export function readClaudeTranscriptEfforts(bytes, { sessionId, agentId, prompt, expectedModel }) {
   if (bytes === null) return { status: 'pending' };
-  if (!Buffer.isBuffer(bytes) || bytes.length > 4 * 1024 * 1024) return { status: 'foreign' };
+  if (!Buffer.isBuffer(bytes)) return { status: 'foreign' };
+  if (bytes.length > CHILD_TRANSCRIPT_BYTE_LIMIT) return { status: 'too-large' };
   const raw = bytes.toString('utf8');
   if (!Buffer.from(raw).equals(bytes)) return { status: 'foreign' };
   if (!raw.endsWith('\n')) return { status: 'pending' };

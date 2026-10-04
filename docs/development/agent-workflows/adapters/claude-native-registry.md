@@ -49,7 +49,7 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    다시 실행될 수 있으므로 종료 보장으로 취급하지 않습니다. 같은 child/tool의 부모 `task-notification completed`와
    Stop, 한정된 child transcript의 최초 prompt·실제 assistant 모델·handback/마지막 응답을 함께 대조합니다.
    transcript는 CLI 2.1.283 실측 schema이며 지연 flush는 complete에서 같은 Stop에 한해서 재검사합니다.
-   Parent transcript는 해당 child ID·task marker가 있는 행만 파싱합니다. Child transcript 4MiB/parent 128MiB 한도를 넘으면 gap이지 PASS가 아닙니다. 누락·다른 모델·재개에 따른 transcript
+   Parent transcript는 해당 child ID·task marker가 있는 행만 파싱합니다. Child transcript 32 MiB/parent 128MiB 한도를 넘으면 gap이지 PASS가 아닙니다. Child 한도는 메모리 보호이며 그 아래에서는 모든 행을 검사합니다. 누락·다른 모델·재개에 따른 transcript
    변경을 거부하고 output은 semantic PASS로 자동 승격하지 않습니다. Bound child에 대한 SendMessage 재개는 새 등록
    없이 허용하지 않습니다. OMC의 다른 child messaging은 이 registry가 소유하지 않습니다.
 7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
@@ -83,6 +83,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    ([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)). 같은 guard는 subagent가 native
    evidence(`.artifacts/tools/claude-native/**`)를 쓰는 것도 deny합니다. 완료 알림이 오면 편집 전에 먼저
    정산합니다. `--resume`한 세션의 완료 알림은 행 `sessionId`가 등록 세션이면 새 process `session_id`와 관계없이 대조합니다.
+   Reviewer는 범위가 더 넓습니다. Helper가 ignored 리뷰 입력(ignored read path 아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored
+   파일)을 manifest로 결속하므로 `review` 생성부터 그 reviewer 정산과 연결 builder 완료까지 그 ignored 경로를 바꾸면
+   `review-input-stale`·`review-input-changed`로 거부됩니다([same-host 독립 review](./claude-same-host-review.md)). 정산 뒤 쓰는
+   result·처분 기록·재현 로그는 리뷰 read path 밖에 둡니다.
 
 ### 운영 보장과 제한
 

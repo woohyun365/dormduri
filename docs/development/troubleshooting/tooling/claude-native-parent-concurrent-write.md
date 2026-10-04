@@ -59,7 +59,9 @@ Child의 evidence 쓰기 쪽은 다릅니다. `.artifacts`는 ignored라 collect
 ## 해결
 
 1. 등록부터 정산까지 Parent는 tracked·비ignored 경로를 수정하지 않습니다. Child의 write 범위 안이든 밖이든 같습니다.
-   Parent 메모와 증거는 ignored 경로(`.artifacts/`·`.plans/`)에 둡니다.
+   Parent 메모와 증거는 ignored 경로(`.artifacts/`·`.plans/`)에 둡니다. 단 reviewer task는 ignored 리뷰 입력도 결속하므로
+   `review` 생성부터 그 reviewer 정산과 연결 builder 완료까지 리뷰 read path(디렉터리 포함) 아래 ignored 파일도 바꾸지 않고, 그 기간의
+   메모·result·처분 기록·재현 로그는 리뷰 read path 밖에 둡니다.
 2. 완료 알림이 오면 **파일을 편집하기 전에** 먼저 정산합니다.
 3. File guard deny를 받으면 child 완료를 기다려 정산합니다. Child가 끝났는데 정산할 수 없으면
    `pnpm claude:native release --task <taskId> --ended`로 lease를 해제합니다. Task 기록이 손상돼 `release`도 실패하면

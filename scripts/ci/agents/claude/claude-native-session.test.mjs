@@ -29,8 +29,14 @@ import {
   observeClaudeNativeTask,
   releaseClaudeNativeTask,
   claudeNativeSnapshotDigest,
+  claudeReviewInputs,
+  REVIEW_INPUTS_LINE,
 } from '../../../agents/claude/native-session.mjs';
-import { settleClaudeNativeTask } from '../../../agents/claude/native-task-helper.mjs';
+import { CHILD_TRANSCRIPT_BYTE_LIMIT } from '../../../agents/claude/native-session-evidence.mjs';
+import {
+  settleClaudeNativeTask,
+  writeClaudeReviewPacket,
+} from '../../../agents/claude/native-task-helper.mjs';
 
 function setup(t) {
   const f = fixture(t);
@@ -835,7 +841,7 @@ function completedReview(t, subject, packet, verdict = 'PASS') {
   return qa;
 }
 // Settles a reviewer through SubagentStop + parent notification, as ordinary auto does.
-function asyncReview(t, subject, packet, parentRows = [], effort = 'xhigh') {
+function asyncReview(t, subject, packet, parentRows = [], effort = 'xhigh', padding = '') {
   const qa = reviewer(t, subject, packet);
   const result = reviewResult(packet, 'unknown');
   const agentId = `review-${randomUUID().slice(0, 8)}`;
@@ -853,6 +859,19 @@ function asyncReview(t, subject, packet, parentRows = [], effort = 'xhigh') {
       agentId,
       message: { content: qa.registered.invocation.prompt },
     },
+    // A long tool result, as a researcher reading many pages produces.
+    ...(padding
+      ? [
+          {
+            type: 'user',
+            sessionId: qa.event.session_id,
+            agentId,
+            message: {
+              content: [{ type: 'tool_result', tool_use_id: 'toolu_pad', content: padding }],
+            },
+          },
+        ]
+      : []),
     {
       type: 'assistant',
       sessionId: qa.event.session_id,
@@ -886,6 +905,11 @@ function asyncReview(t, subject, packet, parentRows = [], effort = 'xhigh') {
     agent_transcript_path: childPath,
     transcript_path: parentPath,
   });
+  // A background settlement failure names its reason here instead of a missing completion file.
+  assert.ok(
+    existsSync(join(qa.registered.evidenceDirectory, 'completion.json')),
+    observeClaudeNativeTask(qa.registered.taskId, { root: qa.root }).errors.join(','),
+  );
   const semantic = semanticResult(qa);
   semantic.reviewResult = result;
   const completed = completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root });
@@ -3176,8 +3200,17 @@ const gapped = (gap) => (result) => ({
   acceptanceCoverage: result.acceptanceCoverage.map((entry) => ({ ...entry, gap })),
 });
 function groupMember(t, subject, packet, index, options = {}) {
-  const { verdict = 'PASS', patch = (result) => result, prompt, dispatch = 'delivered' } = options;
-  const qa = reviewer(t, subject, packet, { prompt: prompt ?? groupPrompt(index, options) });
+  const {
+    verdict = 'PASS',
+    patch = (result) => result,
+    prompt,
+    readScope,
+    dispatch = 'delivered',
+  } = options;
+  const qa = reviewer(t, subject, packet, {
+    prompt: prompt ?? groupPrompt(index, options),
+    readScope,
+  });
   const result = patch(reviewResult(packet, 'unknown', verdict));
   handle(qa);
   if (dispatch === 'failed-call') {
@@ -3652,4 +3685,77 @@ test('settle forwards the reviewAdjudication judgment field to builder completio
     { root },
   );
   assert.equal(settled.valid, true, settled.errors.join(' | '));
+});
+
+// The child transcript limit guards memory, not integrity: a 5 MiB transcript (a long researcher
+// run reached 10.39 MiB) settles with every row still checked.
+const FIVE_MIB = 5 * 1024 * 1024;
+test('a 5 MiB child transcript keeps its foreground effort observation', (t) => {
+  const f = setup(t);
+  handle(f);
+  finish(f, {}, { text: 'x'.repeat(FIVE_MIB) });
+  assert.deepEqual(effortErrors(f), []);
+});
+test('a 5 MiB child transcript settles in the background', (t) => {
+  const { subject, packet } = reviewedSubject(t);
+  asyncReview(t, subject, packet, [], 'xhigh', 'x'.repeat(FIVE_MIB));
+});
+test('a child transcript over the limit is refused: background names its size, foreground its reason', (t) => {
+  const f = setup(t);
+  handle(f);
+  finish(f);
+  truncateSync(childPathOf(f), CHILD_TRANSCRIPT_BYTE_LIMIT + 1); // sparse
+  assert.deepEqual(effortErrors(f), ['effort-transcript-too-large']);
+  const { subject, packet } = reviewedSubject(t);
+  assert.throws(
+    () => asyncReview(t, subject, packet, [], 'xhigh', 'x'.repeat(CHILD_TRANSCRIPT_BYTE_LIMIT)),
+    new RegExp(
+      `stopped-task-settlement-failed: transcript byte limit: \\d+ > ${CHILD_TRANSCRIPT_BYTE_LIMIT}`,
+      'u',
+    ),
+  );
+});
+
+// A group member that read ignored inputs carries its own manifest. Only the linked member passes
+// through currentObservation, so builder completion judges every delivered member's manifest.
+const MEMBER_INPUT = '.artifacts/plans/group-inputs/plan.md';
+function groupWithInputs(t, change) {
+  const { subject, packet } = reviewedSubject(t);
+  const root = realpathSync(subject.root);
+  mkdirSync(join(root, MEMBER_INPUT, '..'), { recursive: true });
+  writeFileSync(join(root, MEMBER_INPUT), 'rev 1\n');
+  const readScope = ['sample.txt', MEMBER_INPUT];
+  const files = claudeReviewInputs(root, readScope);
+  assert.deepEqual(Object.keys(files), [MEMBER_INPUT]);
+  const bytes = Buffer.from(`${JSON.stringify({ files })}\n`);
+  const inputs = writeClaudeReviewPacket(root, 'abcd1234-0000aaaa', bytes, '.inputs.json');
+  const pass = groupMember(t, subject, packet, 1);
+  const fail = groupMember(t, subject, packet, 2, {
+    verdict: 'FAIL',
+    patch: failing([groupFinding('m2-F1')]),
+    readScope,
+    prompt: `${groupPrompt(2)}\n${REVIEW_INPUTS_LINE}${inputs.path} ${inputs.digest}`,
+  });
+  const path = writeGroupAdjudication(subject, [pass, fail]);
+  change?.(root, inputs.path);
+  return { fail, outcome: linkGroup(subject, pass, path) };
+}
+test('builder completion judges the manifest of every delivered group member', (t) => {
+  const { outcome } = groupWithInputs(t);
+  assert.equal(outcome.valid, true, outcome.errors.join(' | '));
+  const changed = groupWithInputs(t, (root) => writeFileSync(join(root, MEMBER_INPUT), 'rev 2\n'));
+  rejectedWith(
+    changed.outcome,
+    new RegExp(
+      `^review-input-changed:${MEMBER_INPUT} \\(${changed.fail.qa.registered.taskId}\\)$`,
+      'u',
+    ),
+  );
+  const tampered = groupWithInputs(t, (root, manifest) =>
+    writeFileSync(join(root, manifest), '{"files":{}}\n'),
+  );
+  rejectedWith(
+    tampered.outcome,
+    new RegExp(`^review-input-manifest-changed \\(${tampered.fail.qa.registered.taskId}\\)$`, 'u'),
+  );
 });

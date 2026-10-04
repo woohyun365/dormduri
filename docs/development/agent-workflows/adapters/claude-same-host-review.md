@@ -105,6 +105,23 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 확인합니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
 현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
 
+Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가
+따로 결속합니다. 대상은 reviewer read path 중 ignored read path 아래 파일과, 어느 read path든 그 아래 `.plans/`·`.artifacts/`·
+`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 packet·manifest와 native task 기록은 빠지고, 그 밖의 비ignored
+디렉터리 안 ignored 파일(package 의존성·build 산출물)은 결속하지 않습니다(known limit). Helper는 파일마다 digest(mode·bytes, symlink는
+링크 문자열)를 `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 한 번 쓰고 prompt 마지막 줄에
+`KNU_REVIEW_INPUTS_FILE:<경로> <sha256 digest>`를 둡니다. 대상이 없으면 줄도 없습니다. 2,000개·파일 8 MiB·합계 32 MiB를 넘으면
+`review-input-too-large`로 review를 만들지 않습니다. 1회차 그룹은 구성원마다 자기 manifest를 갖습니다.
+
+`prepare`·`settle`·builder 완료는 줄이 아니라 등록된 read 범위에서 대상을 다시 계산합니다. 대상이 있는데 줄이 없으면
+`review-input-manifest-missing`, 줄·경로·파일이 틀리면 `review-input-manifest-invalid`, manifest 파일이 바뀌면
+`review-input-manifest-changed`, 파일이 생기거나 사라지거나 바뀌면 등록은 `review-input-stale: <path>`, 정산은
+`review-input-changed:<path>`입니다. Read path가 저장된 이름과 대소문자만 다르면 Git이 아무 파일도 내지 않으므로
+`review-input-path-case`로 거부합니다. Builder 완료는 연결 reviewer를 대조하고, 1회차 그룹의 non-PASS 구성원을 처분 기록으로 마감할
+때는 결과를 전달한 구성원마다 이 대조를 해 구성원 task id를 괄호로 붙입니다. 그래서 `review` 생성부터 그 reviewer 정산·연결 builder 완료까지 리뷰 입력인 ignored 경로를 바꾸지
+않고, 정산 뒤 쓰는 result·처분 기록·재현 로그는 리뷰 read path(디렉터리 포함) 밖에 둡니다. Runner가 실행된 시점의 입력은 결속하지
+않으므로 마지막 입력 수정 뒤 runner를 실행하고 바로 `review`를 만듭니다.
+
 ## Builder 완료와 1회차 그룹
 
 같은 subject의 reviewer 중 PASS가 아닌 것이 있어도, 연결한 reviewer가 1회차 그룹의 PASS 구성원이고 builder 판정에

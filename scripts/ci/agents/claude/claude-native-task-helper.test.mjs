@@ -7,6 +7,8 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  truncateSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -23,6 +25,7 @@ import {
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,
   isClaudeNativeEvidencePath,
+  registerClaudeNativeTask,
 } from '../../../agents/claude/native-session.mjs';
 import {
   prepareClaudeNativeTask,
@@ -2066,4 +2069,320 @@ test('CLI review takes the composition and reviewer count', (t) => {
   );
   assert.equal(ok.status, 0, ok.stderr);
   assert.equal(JSON.parse(ok.stdout).reviewers.length, 2);
+});
+
+// Ignored review inputs (plans, evidence) are outside the review snapshot, so the helper binds their
+// contents in a manifest; registration and every settlement compute it again.
+const INPUT_DIR = '.artifacts/plans/helper-test/inputs';
+const INPUT_FILE = `${INPUT_DIR}/plan.md`;
+function ignoredInputReview(t) {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  mkdirSync(join(r.root, INPUT_DIR), { recursive: true });
+  writeFileSync(join(r.root, INPUT_FILE), 'rev 1\n');
+  const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', INPUT_DIR] });
+  return { r, review };
+}
+// Dispatches a prepared reviewer, runs `during` while it works, then records its PASS result.
+function reviewedWhile(r, review, during = () => {}) {
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const event = {
+    hook_event_name: 'PreToolUse',
+    session_id: r.sessionId,
+    cwd: r.root,
+    permission_mode: 'auto',
+    tool_name: 'Agent',
+    tool_use_id: 'review-1',
+    tool_input: reviewer.invocation,
+  };
+  assert.deepEqual(handleClaudeNativeSessionEvent(event, { root: r.root }), {});
+  during();
+  const result = structuredClone(review.resultTemplate);
+  result.verdict = 'PASS';
+  handleClaudeNativeSessionEvent(
+    {
+      ...event,
+      hook_event_name: 'PostToolUse',
+      transcript_path: writeChildTranscript(r.root, {
+        sessionId: r.sessionId,
+        agentId: 'review-1-agent',
+        prompt: reviewer.invocation.prompt,
+        model: reviewer.registerInput.expectedResolvedModel,
+        effort: ROLE_EFFORT.knu_reviewer,
+      }),
+      tool_response: {
+        status: 'completed',
+        agentId: 'review-1-agent',
+        resolvedModel: reviewer.registerInput.expectedResolvedModel,
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+      },
+    },
+    { root: r.root },
+  );
+  readRows(r, 'review-1-agent', review.packetFile.path);
+  return settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+}
+
+test('an ignored review input changed after the review was built is refused at registration', (t) => {
+  const { r, review } = ignoredInputReview(t);
+  writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n');
+  assert.throws(
+    () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
+    /review-input-stale: \.artifacts\/plans\/helper-test\/inputs\/plan\.md/u,
+  );
+});
+
+test('an ignored file inside a review read directory changed during the review fails settle', (t) => {
+  const { r, review } = ignoredInputReview(t);
+  const status = reviewedWhile(r, review, () => writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n'));
+  assert.ok(
+    status.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
+    status.observationErrors.join(','),
+  );
+});
+
+const RUNNER_LOG = '.artifacts/plans/helper-test/runner.log';
+// A record location that is not ignored itself (only its contents are), like the repository's plan root.
+const PLANS = '.plans';
+const PLAN_FILE = `${PLANS}/p.md`;
+const inputsLine = (prompt) =>
+  prompt.split('\n').find((line) => line.startsWith('KNU_REVIEW_INPUTS_FILE:'));
+const manifestOf = (r, review) =>
+  JSON.parse(readFileSync(join(r.root, review.inputsFile.path), 'utf8'));
+const withoutInputsLine = (spec) => ({
+  ...spec,
+  prompt: spec.prompt
+    .split('\n')
+    .filter((line) => !line.startsWith('KNU_REVIEW_INPUTS_FILE:'))
+    .join('\n'),
+});
+// A repository with every kind of path a read path can reach: ignored record files, a record
+// directory that is not ignored itself, package output that is ignored, tracked and untracked files.
+function inputRepo(t) {
+  const r = repo(t);
+  writeFileSync(
+    join(r.root, '.git/info/exclude'),
+    `.artifacts/\n${PLANS}/*\n!${PLANS}/README.md\npkg/node_modules/\npkg/dist/\n`,
+  );
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  for (const [path, text] of [
+    [INPUT_FILE, 'rev 1\n'],
+    [RUNNER_LOG, 'runner output\n'],
+    [`${PLANS}/README.md`, 'tracked guide\n'],
+    [PLAN_FILE, 'plan\n'],
+    ['pkg/node_modules/x.js', 'dependency\n'],
+    ['pkg/dist/y.js', 'build output\n'],
+    ['pkg/src.js', 'source\n'],
+    ['notes.txt', 'untracked\n'],
+  ]) {
+    mkdirSync(join(r.root, path, '..'), { recursive: true });
+    writeFileSync(join(r.root, path), text);
+  }
+  symlinkSync('plan.md', join(r.root, INPUT_DIR, 'link'));
+  symlinkSync('../dist/y.js', join(r.root, 'pkg/node_modules/link.js'));
+  return r;
+}
+const INPUT_PATHS = ['sample.txt', PLANS, INPUT_DIR, 'pkg', 'notes.txt'];
+const inputReview = (r) => parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: INPUT_PATHS });
+
+test('a review binds the bounded ignored inputs in a manifest named on its last prompt line', (t) => {
+  const r = inputRepo(t);
+  const review = inputReview(r);
+  const lines = review.reviewerPrompt.split('\n');
+  assert.equal(
+    lines.at(-1),
+    `KNU_REVIEW_INPUTS_FILE:${review.inputsFile.path} ${review.inputsFile.digest}`,
+  );
+  assert.equal(review.inputsFile.path, review.packetFile.path.replace(/\.json$/u, '.inputs.json'));
+  assert.equal(
+    review.inputsFile.digest,
+    sha256(readFileSync(join(r.root, review.inputsFile.path))),
+  );
+  // Ignored files under an ignored read path and in record locations, plus the runner output. Not
+  // the packet file, package output, tracked or untracked files (the snapshot binds those).
+  assert.deepEqual(Object.keys(manifestOf(r, review).files), [
+    `${INPUT_DIR}/link`,
+    INPUT_FILE,
+    RUNNER_LOG,
+    PLAN_FILE,
+  ]);
+  // The package directory is a normal read path: the review registers and settles cleanly.
+  assert.deepEqual(reviewedWhile(r, review).observationErrors, []);
+  // A review without ignored inputs has no manifest and no line.
+  const plain = parentReview(repo(t), SMALL_PARENT_SUBJECT);
+  assert.equal(plain.inputsFile, undefined);
+  assert.equal(inputsLine(plain.reviewerPrompt), undefined);
+});
+
+test('a changed, added, deleted or relinked ignored input fails the reviewer settlement', (t) => {
+  for (const [change, path] of [
+    [(root) => writeFileSync(join(root, INPUT_FILE), 'rev 2\n'), INPUT_FILE],
+    [(root) => writeFileSync(join(root, INPUT_DIR, 'new.md'), 'new\n'), `${INPUT_DIR}/new.md`],
+    [(root) => unlinkSync(join(root, INPUT_FILE)), INPUT_FILE],
+    [
+      (root) => {
+        unlinkSync(join(root, INPUT_DIR, 'link'));
+        symlinkSync('new.md', join(root, INPUT_DIR, 'link'));
+      },
+      `${INPUT_DIR}/link`,
+    ],
+    [(root) => writeFileSync(join(root, PLAN_FILE), 'plan 2\n'), PLAN_FILE],
+  ]) {
+    const r = inputRepo(t);
+    const status = reviewedWhile(r, inputReview(r), () => change(r.root));
+    assert.ok(
+      status.observationErrors.includes(`review-input-changed:${path}`),
+      `${path}: ${status.observationErrors.join(',')}`,
+    );
+  }
+  // Package output under a read path is not bound, so its change is not a review input change.
+  const r = inputRepo(t);
+  const status = reviewedWhile(r, inputReview(r), () =>
+    writeFileSync(join(r.root, 'pkg/dist/y.js'), 'rebuilt\n'),
+  );
+  assert.deepEqual(status.observationErrors, []);
+});
+
+test('a missing, misplaced, unreadable or other manifest is refused at registration', (t) => {
+  const r = inputRepo(t);
+  const review = inputReview(r);
+  const spec = review.reviewerSpec;
+  const line = inputsLine(spec.prompt);
+  const withLine = (next) => ({ ...spec, prompt: spec.prompt.replace(line, next) });
+  const prepare = (candidate) => () => prepareClaudeNativeTask(candidate, { root: r.root });
+  assert.throws(prepare(withoutInputsLine(spec)), /review-input-manifest-missing/u);
+  // A copy outside the helper directory, a malformed line and an unreadable or non-JSON manifest.
+  const outside = '.artifacts/plans/helper-test/copy.inputs.json';
+  writeFileSync(join(r.root, outside), readFileSync(join(r.root, review.inputsFile.path)));
+  for (const next of [
+    `KNU_REVIEW_INPUTS_FILE:${outside} ${review.inputsFile.digest}`,
+    `KNU_REVIEW_INPUTS_FILE:${review.inputsFile.path}`,
+    `KNU_REVIEW_INPUTS_FILE:${PACKET_DIR}/missing.inputs.json ${review.inputsFile.digest}`,
+  ])
+    assert.throws(prepare(withLine(next)), /review-input-manifest-invalid/u, next);
+  // Another manifest with fewer paths names the paths it lacks.
+  const fewer = Buffer.from(`${JSON.stringify({ files: { [RUNNER_LOG]: 'x' } })}\n`);
+  const other = `${PACKET_DIR}/00000000-00000000.inputs.json`;
+  writeFileSync(join(r.root, other), fewer);
+  assert.throws(
+    prepare(withLine(`KNU_REVIEW_INPUTS_FILE:${other} ${sha256(fewer)}`)),
+    /review-input-stale: \.artifacts\/plans\/helper-test\/inputs\/link/u,
+  );
+  writeFileSync(join(r.root, review.inputsFile.path), 'not json\n');
+  assert.throws(prepare(spec), /review-input-manifest-invalid/u);
+});
+
+test('a runner output changed after the review is stale; a tampered manifest fails settle', (t) => {
+  const r = inputRepo(t);
+  const review = inputReview(r);
+  writeFileSync(join(r.root, RUNNER_LOG), 'rerun\n');
+  assert.throws(
+    () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
+    /review-input-stale: \.artifacts\/plans\/helper-test\/runner\.log/u,
+  );
+  const s = inputRepo(t);
+  const tampered = inputReview(s);
+  const status = reviewedWhile(s, tampered, () =>
+    writeFileSync(
+      join(s.root, tampered.inputsFile.path),
+      `${JSON.stringify(manifestOf(s, tampered), null, 2)}\n`,
+    ),
+  );
+  assert.deepEqual(status.observationErrors, ['review-input-manifest-changed']);
+});
+
+test('a reviewer registered without the manifest line fails its settlement', (t) => {
+  const r = inputRepo(t);
+  const review = inputReview(r);
+  const prepared = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const direct = registerClaudeNativeTask({
+    ...structuredClone(prepared.registerInput),
+    prompt: withoutInputsLine(prepared.registerInput).prompt,
+  });
+  dispatch(r, { ...prepared, ...direct }, 'direct-1', '{}');
+  assert.ok(
+    settleClaudeNativeTask(direct.taskId, undefined, {
+      root: r.root,
+    }).observationErrors.includes('review-input-manifest-missing'),
+  );
+});
+
+test('too many or too large ignored inputs are refused before any packet file is written', (t) => {
+  const r = inputRepo(t);
+  for (let i = 0; i < 2000; i += 1) writeFileSync(join(r.root, INPUT_DIR, `f${i}.md`), '');
+  assert.throws(() => inputReview(r), /review-input-too-large: 200\d files > 2000/u);
+  assert.deepEqual(packetFiles(r), []);
+  const s = inputRepo(t);
+  truncateSync(join(s.root, INPUT_FILE), 8 * 1024 * 1024 + 1); // sparse
+  assert.throws(
+    () => inputReview(s),
+    /review-input-too-large: \.artifacts\/plans\/helper-test\/inputs\/plan\.md 8388609 bytes/u,
+  );
+  const u = inputRepo(t);
+  for (let i = 0; i < 5; i += 1)
+    writeFileSync(join(u.root, INPUT_DIR, `big${i}.md`), Buffer.alloc(7 * 1024 * 1024));
+  assert.throws(
+    () => inputReview(u),
+    /review-input-too-large: ignored inputs exceed 33554432 bytes/u,
+  );
+});
+
+test('a native subject review binds its runner outputs and never its response', (t) => {
+  const r = settledExplorer(t, 'oracle');
+  mkdirSync(join(r.root, RUNNER_LOG, '..'), { recursive: true });
+  writeFileSync(join(r.root, RUNNER_LOG), 'runner output\n');
+  const review = reviewOf(r);
+  assert.ok(review.reviewerSpec.readScope.includes(responsePathOf(r.subject.taskId)));
+  assert.deepEqual(Object.keys(manifestOf(r, review).files), [RUNNER_LOG]);
+});
+
+test('an ignored input changed after the reviewer settled blocks builder completion', (t) => {
+  const r = settledBuilder(t);
+  mkdirSync(join(r.root, RUNNER_LOG, '..'), { recursive: true });
+  writeFileSync(join(r.root, RUNNER_LOG), 'runner output\n');
+  const review = reviewOf(r);
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  dispatch(r, reviewer, 'review-1', passing(review));
+  const reviewed = settleClaudeNativeTask(
+    reviewer.taskId,
+    judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+    { root: r.root },
+  );
+  assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
+  writeFileSync(join(r.root, RUNNER_LOG), 'rerun\n');
+  const settled = settleClaudeNativeTask(
+    r.subject.taskId,
+    judgment(r.subject, 'sample.txt updated', { reviewerTaskId: reviewer.taskId }),
+    { root: r.root },
+  );
+  assert.equal(settled.valid, false);
+  assert.ok(
+    settled.errors.some((error) => error.includes(`review-input-changed:${RUNNER_LOG}`)),
+    settled.errors.join('; '),
+  );
+});
+
+test('a round-2 review binds the adjudication record and every result it names', (t) => {
+  const r = repo(t);
+  const { path, reviews } = writeGroupRecord(r);
+  const review = roundReview(r, { reviewRound: 2, previousResult: path });
+  assert.deepEqual(
+    Object.keys(manifestOf(r, review).files),
+    [path, ...reviews.map((entry) => entry.resultPath)].sort(),
+  );
+  writeFileSync(join(r.root, reviews[1].resultPath), '{"verdict":"FAIL","findings":[]}');
+  assert.throws(
+    () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
+    new RegExp(`review-input-stale: ${reviews[1].resultPath.replaceAll('.', '\\.')}`, 'u'),
+  );
+});
+
+test('a read path in another case than its stored name is refused instead of binding nothing', (t) => {
+  const r = inputRepo(t);
+  const variant = PLANS.toUpperCase();
+  assert.throws(
+    () => parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', variant] }),
+    new RegExp(`review-input-path-case: \\${variant} differs from the stored name`, 'u'),
+  );
+  assert.deepEqual(packetFiles(r), []);
 });

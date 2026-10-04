@@ -70,6 +70,12 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.
-- Reviewer가 실행 중일 때 read 범위의 입력(계획·증거 포함)을 수정하지 않습니다.
+- Reviewer가 실행 중일 때 read 범위의 입력(계획·증거 포함)을 수정하지 않습니다. Helper가 ignored 리뷰 입력(ignored read path
+  아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored 파일)을 `KNU_REVIEW_INPUTS_FILE:` manifest로 결속하므로 `review` 생성부터
+  그 reviewer 정산과 연결 builder 완료까지 그 파일을 바꾸면 `review-input-stale`·`review-input-changed`로 거부됩니다.
+- 마지막 입력 수정 뒤 runner를 실행하고 바로 `review`를 만듭니다. Runner가 실행된 시점의 입력은 결속되지 않으므로 runner 로그에
+  입력 sha256을 남기는 관례는 유지합니다.
+- Read path는 가능하면 파일로 줍니다. 디렉터리를 주면 그 아래 ignored 파일 전체가 결속되므로, 정산 뒤 쓸 result·처분 기록·재현 로그는
+  리뷰 read path 밖(예: 리뷰 대상과 다른 `review/` 디렉터리)에 둡니다.
 - 같은 subject(같은 변경; 새 builder task로 고쳐도 같음)의 연속 non-PASS 회차가 3회에 이르면 quality stop입니다. 회차는
   reviewer 실행 수가 아니라 리뷰한 snapshot 수입니다. Owner에게 다음 행동을 묻습니다.

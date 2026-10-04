@@ -26,7 +26,8 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
   비었는지(모델·변경 경로 포함)와 finding 재현으로 판정하고, `finalSnapshot` digest가 review `logHeader`와 같은지 확인합니다.
   Packet 파일 review는 settle 결과의 `reviewPacket`을 함께 봅니다. Reviewer가 packet 파일을 성공적으로 읽지 않았으면
   `review-packet-unread`, 파일이 prompt의 digest와 다르면 `review-packet-changed`, prompt에서 packet 파일 줄이 빠졌으면
-  `review-packet-missing`이 `observationErrors`에 들어가므로 재리뷰합니다.
+  `review-packet-missing`이 `observationErrors`에 들어가므로 재리뷰합니다. 리뷰 입력인 ignored 파일이나 그 manifest가 바뀌었거나
+  빠졌으면 `review-input-*`가 들어가므로 역시 결과를 쓰지 않고 `review`를 다시 만들어 재리뷰합니다.
 - Coverage gap이 있는 단일 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
   1회차 그룹 구성원은 아래 처분 기록 규칙만 따릅니다.
 
@@ -34,7 +35,8 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
 
 - 회차마다 계획 증거 위치에 reviewer가 전달한 result를 그대로 `r<N>-result.json`(그룹은 `r<N>-result-<i>.json`)으로 저장하고
   `r<N>-adjudication.json`(`review-adjudication/v1`)을 써서 `node scripts/agents/common/review-adjudication.mjs <파일>`이 exit 0인지
-  확인합니다. 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
+  확인합니다. 이 파일들과 재현 로그는 리뷰 read path(디렉터리 포함) 밖에 둡니다. Read path 아래 ignored 파일을 바꾸면 그 reviewer의
+  `review-input-changed`로 정산과 연결 builder 완료가 거부됩니다(그룹은 마지막 구성원 정산과 builder 완료까지). 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
   풀 수 없으므로 native 경로는 새 builder task와 새 review로 가고, Parent 경로는 구성원마다 기록을 하나씩 씁니다.
 - 1회차 그룹의 non-PASS 구성원은 그 구성원의 blocking finding(critical·high·medium)을 Parent가 재현해 볼 때만 기각할 수 있습니다.
   재현 실행을 첫 줄이 그 회차 `logHeader`인 `.artifacts/` 로그로 남기고 `reason`에 그 경로를 backtick으로 적은 뒤 `rejected`로
