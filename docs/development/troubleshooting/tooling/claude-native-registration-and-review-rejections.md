@@ -1,7 +1,7 @@
 # 트러블슈팅: Claude native 등록·독립 리뷰 결과가 거부됨
 
 **상태**: Current
-**마지막 검증 환경**: Claude Code CLI 2.1.283, `pnpm claude:native prepare/register/review/settle/complete`
+**마지막 검증 환경**: Claude Code CLI 2.1.289, `pnpm claude:native prepare/register/review/settle/complete`
 **현재 owner**: [Claude Code adapter](../../agent-workflows/adapters/claude-code.md)
 
 ## 증상
@@ -23,6 +23,8 @@
   invalid prepare spec: binding-lifetime-exceeds-30m
   invalid prepare spec: fact-confidence-not-high:source-bound
   invalid prepare spec: review-snapshot-stale: rebuild the review for the current source
+  invalid prepare spec: review-input-stale: .plans/<plan>.md
+  invalid prepare spec: review-input-manifest-missing
   ```
 
 - 역할·effort·QA 조건으로 등록이 거부됩니다.
@@ -34,7 +36,7 @@
   ```
 
 - `settle --task <taskId>`가 exit 1이고 `observationErrors`에 `effort-transcript-pending`, `effort-transcript-foreign`,
-  `effort-unobserved`, `effort-mismatch` 중 하나가 있습니다. `completion.json`의 `valid`는 `true`일 수 있습니다.
+  `effort-transcript-too-large`, `effort-unobserved`, `effort-mismatch` 중 하나가 있습니다. `completion.json`의 `valid`는 `true`일 수 있습니다.
 - 공통 workflow가 요청을 `intent: unknown`으로 분류해 등록이 진행되지 않습니다.
 - 독립 reviewer가 PASS를 반환했는데 완료 판정이 거부됩니다.
 
@@ -44,9 +46,19 @@
   review commandsActuallyRun differs from the bound runner records
   ```
 
-- `review`가 1회차 그룹 입력이나 `--basis`를 거부합니다.
+- `review`가 회차·직전 결과·기준 문서·1회차 그룹 입력, `--basis`나 ignored 리뷰 입력을 거부합니다.
 
   ```text
+  invalid review request: review-round-required: a positive integer
+  invalid review request: previous-result-required-after-round-1
+  invalid review request: previous-result-only-after-round-1
+  invalid review request: previous-result-unreadable: <path>
+  invalid review request: previous-result-invalid: a review result JSON with verdict and findings
+  invalid review request: previous-result-invalid: <result path> is not a review result JSON with verdict and findings
+  invalid review request: previous-result-invalid: adjudication record <kind> <id>
+  invalid review request: criteria-invalid: no docs/development/agent-workflows/review-criteria/<id>.md
+  invalid review request: review-input-too-large: 2400 files > 2000; give narrower read paths
+  invalid review request: review-input-path-case: .Plans differs from the stored name; use its exact case
   invalid review request: composition-round-1-only
   invalid review request: reviewers-invalid: 2 or 3
   invalid review request: composition-e3-criteria-required: give --criteria
@@ -59,6 +71,9 @@
   `review-blocking-not-rejected`, `review-rejection-unbound` 중 하나와 기존 `FAIL review receipt`·`delivered non-PASS review`
   사유로 거부됩니다.
 
+- Reviewer의 `settle --task` `observationErrors`나 그 reviewer를 연결한 builder 완료에 `review-input-changed:<path>`,
+  `review-input-manifest-changed`, `review-input-manifest-missing`, `review-input-manifest-invalid` 중 하나가 있습니다. 그룹
+  구성원이면 사유 뒤에 구성원 task id가 괄호로 붙습니다.
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
 
   ```text
@@ -109,6 +124,8 @@
     `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
     한 번 수명 만료 판정을 받은 task의 결과는 쓰지 않습니다.
   - `effort-transcript-foreign`: 경로·세션·child·prompt·모델이 등록과 맞지 않습니다.
+  - `effort-transcript-too-large`: child transcript가 한도(`CHILD_TRANSCRIPT_BYTE_LIMIT`, 32 MiB)를 넘습니다. 한도는 메모리
+    보호이며, 그 아래에서는 크기와 관계없이 모든 행을 검사합니다.
   - `effort-unobserved`: assistant 행에 `effort`가 없습니다. 이미 기록된 행은 바뀌지 않습니다.
   - `effort-mismatch`: 관측 effort가 역할 파일의 기대값과 다릅니다. Haiku 기대 모델은 effort를 지원하지 않아 transcript를
     읽은 뒤의 `effort-unobserved`와 이 사유를 판정하지 않고 관측값만 남깁니다.
@@ -124,6 +141,25 @@
   거부됩니다. Writer subject의 응답은 builder 추론이라 read path에 넣을 수 없습니다. 다른 native task 기록은 대소문자를 바꾼 경로,
   symlink, `.artifacts` 아래에서 연결된 디렉터리, Parent subject 경로로도 `native task evidence is not review input`으로
   거부됩니다. `.artifacts` 밖 디렉터리 안의 symlink와 hard link는 탐지하지 않으므로 native 기록을 연결해 두지 않습니다.
+- 리뷰 회차 입력: `--round`는 양의 정수이고, 2회차부터 `--previous-result`가 필요하며 1회차에는 줄 수 없습니다. 직전 결과는
+  root 안의 일반 파일로 native task 기록이 아니며, verdict·findings가 있는 result JSON이거나 1회차 그룹의 `review-adjudication/v1`
+  처분 기록입니다. 처분 기록이면 기록이 가리키는 result마다 같은 조건을 보고, 기록 자체가 validator 규칙을 어기면
+  `previous-result-invalid: adjudication record <kind> <id>`입니다. `--criteria`는 `review-criteria/` 아래 있는 기준 문서 id 목록입니다.
+- Ignored 리뷰 입력: review snapshot은 tracked·비ignored 파일만 결속합니다. 그래서 helper는 reviewer read path 중 ignored read path
+  아래 파일과 기록 위치(`.plans/`·`.artifacts/`·`.local-docs/`) 아래 ignored 파일(runner 출력, 2회차 직전 결과 포함)의 digest를
+  `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 쓰고 prompt 마지막 줄 `KNU_REVIEW_INPUTS_FILE:<path> <sha256>`로
+  결속합니다. `prepare`·`settle`·builder 완료가 reviewer의 read 범위에서 대상을 다시 계산해 대조합니다.
+  - `review-input-stale: <path>`(등록)·`review-input-changed:<path>`(정산): 그 파일이 생기거나 사라지거나 바뀌었습니다.
+  - `review-input-manifest-changed`: manifest 파일이 prompt의 digest와 다릅니다.
+  - `review-input-manifest-missing`: 대상 ignored 입력이 있는데 prompt에 줄이 없습니다. Lead가 줄을 지운 spec, 줄을 쓰기 전 helper로
+    만든 reviewer, `register --input` 직접 등록이 해당합니다. Native subject review는 runner 출력이 늘 대상이라 이전 helper로 만든
+    reviewer를 지금 정산하거나 builder에 연결하면 이 사유가 먼저 나옵니다.
+  - `review-input-manifest-invalid`: 줄 형식이 틀리거나, 경로가 helper 디렉터리 밖이거나, manifest를 읽을 수 없거나 JSON이 아닙니다.
+  - `review-input-too-large`: 대상이 2,000개, 파일 하나가 8 MiB, 합계가 32 MiB를 넘습니다.
+  - `review-input-path-case`: read path가 저장된 이름과 대소문자만 다릅니다. 대소문자를 무시하는 파일 시스템은 그 경로로 파일을 읽어 주지만
+    Git은 아무것도 내지 않아 결속이 비게 되므로 거부합니다.
+  - 그 밖의 비ignored 디렉터리 안 ignored 파일(package 의존성·build 산출물), symlink가 가리키는 파일의 내용(링크 문자열만 결속),
+    runner가 실행된 시점의 입력은 결속하지 않습니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
@@ -145,8 +181,9 @@
 - `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. Effort 변형은 Opus build에만
   있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
 - `independent QA required for this profile`은 task 사실을 바꾸지 말고 `reviewDisposition.required:true`로 두고 review를 연결합니다.
-- `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유는 그 결과를 쓰지 않고 새 task로
-  다시 위임합니다. 수명이 지난 뒤의 `effort-unobserved`도 결과를 쓰지 않습니다. `effort-mismatch`는 역할 파일의 effort를 무시하는 설정이 있는지 먼저 확인합니다(`CLAUDE_CODE_EFFORT_LEVEL`
+- `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유(`effort-transcript-too-large` 포함)는
+  그 결과를 쓰지 않고 새 task로 다시 위임합니다. `effort-transcript-too-large`는 task를 나눠 다시 위임하고 transcript를 손으로
+  추출해 정산하지 않습니다. 수명이 지난 뒤의 `effort-unobserved`도 결과를 쓰지 않습니다. `effort-mismatch`는 역할 파일의 effort를 무시하는 설정이 있는지 먼저 확인합니다(`CLAUDE_CODE_EFFORT_LEVEL`
   환경변수, effort 상한 설정, 역할 파일을 바꾼 뒤 재시작하지 않은 세션).
 - 요청 문장은 분석·검토처럼 intake가 인식하는 동사로 씁니다. 분류를 우회하려고 intent를 직접 조작하지 않습니다.
 - 검증 명령은 Parent(runner)가 실행하고 `pnpm claude:native review`로 packet을 만듭니다. `review --subject <taskId>`만 실행하면
@@ -177,6 +214,13 @@
   새 review로 해소합니다.
 - FAIL은 review 완료입니다. Finding을 판정하고 수정한 뒤 새 builder task와 새 review로 해소합니다. 다른 reviewer의 PASS를
   연결해 FAIL을 덮을 수 없습니다. 예외는 1회차 그룹에서 Parent가 재현해 기각한 non-PASS 구성원뿐입니다.
+- 회차 입력 거부: `--round <N>`을 줍니다. 2회차부터는 직전 회차 result 파일이나 처분 기록을 `--previous-result`로 주고,
+  1회차에는 빼고 `--criteria`의 빈 목록·중복·없는 id를 고칩니다. 처분 기록이 가리키는 result 파일을 고쳐 맞추지 말고 기록의 경로를
+  고칩니다.
+- `review-input-*`는 입력을 되돌려 맞추지 않습니다. 그 reviewer 결과를 쓰지 말고 `review`를 다시 만들어 새 reviewer로 재리뷰합니다.
+  이전 helper로 만든 reviewer의 `review-input-manifest-missing`도 같습니다. 재발을 막으려면 `review` 생성부터 그 reviewer 정산과
+  연결 builder 완료까지 리뷰 입력인 ignored 경로를 바꾸지 않고, 정산 뒤 쓰는 result·처분 기록·재현 로그는 리뷰 read path 밖에
+  둡니다. `review-input-too-large`는 read path를 좁히고, `review-input-path-case`는 read path를 저장된 대소문자로 고칩니다.
 - 1회차 그룹 입력 거부: 구성은 1회차에만, 인원은 2·3명, `--composition`과 `--reviewers`는 함께, `e3`는 `--criteria`와 함께 줍니다.
   `criteria-items-too-few`는 고른 기준 문서의 항목이 인원보다 적은 것이므로 인원을 줄이거나 `e2`를 씁니다.
   `unsafe-reference:selectionBasisRef`는 `--basis`를 `plan:<Plan ID>/<절>`처럼 영문자로 시작하는 형식으로 고칩니다.
@@ -289,7 +333,7 @@ task가 이미 시도된 상태가 이에 해당합니다. 첫 task는 이미 �
 ## 검증
 
 ```bash
-node --test scripts/ci/agents/claude/claude-native-session.test.mjs scripts/ci/agents/claude/claude-native-task-helper.test.mjs scripts/ci/agents/claude/claude-subagent-model-routing.test.mjs scripts/ci/agents/common/cross-model-handoff-contract.test.mjs
+node --test scripts/ci/agents/claude/claude-native-session.test.mjs scripts/ci/agents/claude/claude-native-session-evidence.test.mjs scripts/ci/agents/claude/claude-native-task-helper.test.mjs scripts/ci/agents/claude/claude-subagent-model-routing.test.mjs scripts/ci/agents/common/cross-model-handoff-contract.test.mjs
 ```
 
 `registration names the concrete policy reason`과 `claude-native-task-helper.test.mjs`의 prepare·review·Parent-authored 테스트가
@@ -298,10 +342,15 @@ runner records`가 runner 기록 결속을 고정합니다.
 `read-only reviewer cites runner-owned checks`, `reviewer registration rejects the reviewer as runner`,
 `a reviewer FAIL receipt cannot be bypassed` 테스트가 위 규칙을 고정합니다. 1회차 그룹은 `a group FAIL rejected with a bound
 reproduction log`, `only the members of one first-round group`, `a first-round composition builds one frozen review per member`
+테스트가 고정합니다. 회차 입력과 ignored 리뷰 입력은 `a review names its round`, `round 2 takes an adjudication record`,
+`a review binds the bounded ignored inputs`, `a changed, added, deleted or relinked ignored input`,
+`a missing, misplaced, unreadable or other manifest`, `a read path in another case than its stored name`,
+`builder completion judges the manifest of every delivered group member`
 테스트가 고정합니다. Effort·QA 규칙은
 `high-risk builds require the xhigh executor`, `extract QA exemption keeps the low, bounded, resolved range`,
 `registration binds the role effort`, `foreground effort matches, mismatches or stays unobserved`,
-`a foreground transcript written after PostToolUse is pending`, `a Parent-judged reviewer whose effort differs` 테스트가 고정합니다. Read-only subject와 RED 기록은
+`a foreground transcript written after PostToolUse is pending`, `a Parent-judged reviewer whose effort differs`,
+`a child transcript over the limit is refused` 테스트가 고정합니다. Read-only subject와 RED 기록은
 `a read-only subject is reviewed from its bound response`, `a changed response artifact is refused`,
 `other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
 테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,

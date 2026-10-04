@@ -18,7 +18,7 @@ pnpm claude:workflow -- --mode resume --plan .plans/example-plan.md --request '�
 
 `claude/session-preflight.mjs`는 raw Git 상태와 명시적으로 선택한 공통 `.plans` reader를 소비합니다. Fresh는 계획
 목록·memory·Claude Home 설정·OMC state를 직접 탐색하지 않습니다. 오류/unknown을 clean으로 바꾸지 않습니다. 미추적 일반 파일은 내용 digest로 결합하며(파일당8MiB/총32MiB),
-ignored 입력은 Git fingerprint 밖입니다. Native task가 명시한 ignored 파일은 별도 inventory로 결합하지만 ignored 디렉터리 전체를 자동 조사하지 않습니다. Codex 전용 `codex:preflight`를 대신 호출하지 않습니다.
+ignored 입력은 Git fingerprint 밖입니다. Native task가 명시한 ignored 파일은 별도 inventory로 결합하지만 ignored 디렉터리 전체를 자동 조사하지 않습니다. 리뷰 task는 예외로, helper가 reviewer read path 중 ignored read path 아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored 파일을 manifest로 결속하고 등록·정산·builder 완료에서 다시 대조합니다([same-host 독립 review](./claude-same-host-review.md)). Codex 전용 `codex:preflight`를 대신 호출하지 않습니다.
 현재 설정·loaded roles·실제 permissions는 별도 관측이 필요하고 Git hash가 이를 인증하지 않습니다.
 Git filter의 설정 key만 bounded 조회해 clean/process·fsmonitor를 해당 명령에서 비활성화합니다. Submodule gitlink는
 미점검 nested 설정을 실행하지 않도록 worktree 조회 전에 차단합니다. Snapshot은 비원자적 local 진단이며
@@ -79,7 +79,7 @@ spec의 `sessionId`와 `review --session`에 현재 session ID(`${CLAUDE_SESSION
 1. `pnpm claude:preflight -- --mode fresh`로 branch·HEAD·working tree와 계획 상태를 확인합니다.
 2. `pnpm claude:workflow -- --mode fresh --request '<요청>'`으로 공통 intake 분류와 읽을 문서를 확인합니다.
 3. 위임할 때만 Lead가 역할·profile·선택 근거·범위·acceptance를 정해 `pnpm claude:native prepare --spec <JSON file>`로 등록합니다.
-4. 반환된 `agentInput` 그대로 Agent를 호출합니다(hook이 등록 prompt를 주입). 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](./claude-native-registry.md#일반-interactive-auto-세션).
+4. 반환된 `agentInput` 그대로 Agent를 호출합니다(hook이 등록 prompt를 주입). 정산 전에는 [Parent도 tracked·비ignored 파일을 수정하지 않습니다](./claude-native-registry.md#일반-interactive-auto-세션). Reviewer는 `review` 생성부터 연결 builder 완료까지 리뷰 입력인 ignored 경로도 수정하지 않습니다.
 5. Background child는 완료 알림(`task-notification completed`)을 받은 **다음** `settle --task <taskId>`로 관측을 정산합니다.
    Foreground 호출은 PostToolUse가 완료를 기록하므로 알림을 기다리지 않습니다. 알림 전 정산은
    거부되므로 알림을 받기 전에는 같은 turn에서 정산을 반복 시도하지 않습니다. 이어서 `settle --judgment`로 판정합니다.

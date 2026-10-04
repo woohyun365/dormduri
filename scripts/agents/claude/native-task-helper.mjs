@@ -22,6 +22,7 @@ import {
 } from '../common/review-adjudication.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
+import { CHILD_TRANSCRIPT_BYTE_LIMIT } from './native-session-evidence.mjs';
 import {
   registerClaudeNativeTask,
   completeClaudeNativeTask,
@@ -32,6 +33,9 @@ import {
   writeClaudeNativeSubjectResponse,
   isClaudeNativeEvidencePath,
   safeRef,
+  claudeReviewInputs,
+  claudeReviewInputErrors,
+  REVIEW_INPUTS_LINE,
   REVIEW_RESULT_TEMPLATE_PREFIX,
 } from './native-session.mjs';
 
@@ -152,6 +156,16 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
     fail('invalid prepare spec', [
       'review-snapshot-stale: rebuild the review for the current source',
     ]);
+  // Ignored review inputs are outside that snapshot; their manifest is checked against the files now.
+  if (spec.role === 'knu_reviewer')
+    fail(
+      'invalid prepare spec',
+      claudeReviewInputErrors(root, spec.prompt, spec.readScope).map((issue) =>
+        issue.startsWith('review-input-changed:')
+          ? `review-input-stale: ${issue.slice('review-input-changed:'.length)}`
+          : issue,
+      ),
+    );
 
   const childPrompt =
     spec.role === 'knu_reviewer' ? spec.prompt : `${spec.prompt}\n\n${DELIVERY_RULE}`;
@@ -608,11 +622,13 @@ function resultTemplate(packet, evidence) {
 const REVIEW_PACKET_ID = /^[a-z0-9]{8}-[a-f0-9]{8}$/u;
 const REVIEW_PACKET_LINE = 'KNU_REVIEW_PACKET_FILE:';
 const packetDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-function reviewPacketPath(root, reviewId) {
+// The helper directory holds each review's packet (<reviewId>.json) and, when the review has ignored
+// inputs, their manifest (<reviewId>.inputs.json).
+function reviewPacketPath(root, reviewId, suffix = '.json') {
   if (typeof reviewId !== 'string' || !REVIEW_PACKET_ID.test(reviewId))
     throw new TypeError(`invalid review packet id: ${reviewId}`);
   const dir = resolveArtifactPath(root, ['claude-review-packets'], {});
-  const path = relative(root, join(dir, `${reviewId}.json`));
+  const path = relative(root, join(dir, `${reviewId}${suffix}`));
   if (
     !path.startsWith('.artifacts/') ||
     path.includes('..') ||
@@ -625,9 +641,9 @@ function reviewPacketPath(root, reviewId) {
 }
 // Writes the packet bytes once. The same bytes again pass; different bytes, a symlinked ancestor or a
 // target that is not a regular file are refused, so a reviewer always reads what the digest names.
-export function writeClaudeReviewPacket(root, reviewId, bytes) {
+export function writeClaudeReviewPacket(root, reviewId, bytes, suffix = '.json') {
   root = realpathSync(root);
-  const { dir, path } = reviewPacketPath(root, reviewId);
+  const { dir, path } = reviewPacketPath(root, reviewId, suffix);
   let current = root;
   for (const part of relative(root, dir).split('/')) {
     current = join(current, part);
@@ -647,7 +663,7 @@ export function writeClaudeReviewPacket(root, reviewId, bytes) {
   return { path, digest: packetDigest(bytes) };
 }
 
-function reviewerPrompt(logHeader, subject, packet, template, packetFile, member) {
+function reviewerPrompt(logHeader, subject, packet, template, packetFile, member, inputsFile) {
   return [
     logHeader,
     ...(member ? [member.line] : []),
@@ -703,6 +719,7 @@ function reviewerPrompt(logHeader, subject, packet, template, packetFile, member
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
     `${REVIEW_RESULT_TEMPLATE_PREFIX}${JSON.stringify(template)}`,
     ...(packetFile ? [`${REVIEW_PACKET_LINE}${packetFile.path} ${packetFile.digest}`] : []),
+    ...(inputsFile ? [`${REVIEW_INPUTS_LINE}${inputsFile.path} ${inputsFile.digest}`] : []),
   ].join('\n');
 }
 
@@ -808,7 +825,31 @@ export function buildClaudeNativeReview(
     const packetFile = packetPath
       ? { path: packetPath, digest: packetDigest(packetBytes) }
       : undefined;
-    const prompt = reviewerPrompt(logHeader, memberSubject, packet, template, packetFile, member);
+    // The reviewer's ignored inputs, bound now; registration and settlement compute them again.
+    const inputsPath = reviewPacketPath(root, reviewId, '.inputs.json').path;
+    let inputs;
+    try {
+      inputs = claudeReviewInputs(root, memberSubject.readPaths);
+    } catch (error) {
+      fail('invalid review request', [error.message]);
+    }
+    const inputsBytes = Object.keys(inputs).length
+      ? Buffer.from(
+          `${JSON.stringify({ schema: 'claude-review-inputs/v1', reviewId, files: inputs })}\n`,
+        )
+      : null;
+    const inputsFile = inputsBytes
+      ? { path: inputsPath, digest: packetDigest(inputsBytes) }
+      : undefined;
+    const prompt = reviewerPrompt(
+      logHeader,
+      memberSubject,
+      packet,
+      template,
+      packetFile,
+      member,
+      inputsFile,
+    );
     fail('invalid review request', [
       ...(prompt.length <= PROMPT_LIMIT
         ? []
@@ -858,14 +899,28 @@ export function buildClaudeNativeReview(
           }
         : {}),
     };
-    return { reviewId, packetBytes, packet, packetFile, template, prompt, reviewerSpec };
+    return {
+      reviewId,
+      packetBytes,
+      packet,
+      packetFile,
+      inputsBytes,
+      inputsFile,
+      template,
+      prompt,
+      reviewerSpec,
+    };
   });
   // Only a review that will be returned leaves packet files behind: every prompt fits first.
-  for (const member of members)
+  for (const member of members) {
     if (member.packetFile) writeClaudeReviewPacket(root, member.reviewId, member.packetBytes);
+    if (member.inputsFile)
+      writeClaudeReviewPacket(root, member.reviewId, member.inputsBytes, '.inputs.json');
+  }
   const output = (member) => ({
     packet: member.packet,
     ...(member.packetFile ? { packetFile: member.packetFile } : {}),
+    ...(member.inputsFile ? { inputsFile: member.inputsFile } : {}),
     resultTemplate: member.template,
     reviewerPrompt: member.prompt,
     reviewerSpec: member.reviewerSpec,
@@ -914,10 +969,12 @@ function samePath(candidate, file) {
     return false;
   }
 }
-// A Read of the packet file counts only when its tool_result is not an error.
+// A Read of the packet file counts only when its tool_result is not an error. A transcript over the
+// child limit is not read at all (its effort observation already refuses it).
 function readPacketInTranscript(path, file) {
   let rows;
   try {
+    if (lstatSync(path).size > CHILD_TRANSCRIPT_BYTE_LIMIT) return false;
     rows = readFileSync(path, 'utf8')
       .split('\n')
       .filter(Boolean)

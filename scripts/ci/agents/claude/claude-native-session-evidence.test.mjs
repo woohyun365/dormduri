@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  CHILD_TRANSCRIPT_BYTE_LIMIT,
   readClaudeStoppedTranscript,
+  readClaudeTranscriptEfforts,
   isClaudeCompletedNotification,
 } from '../../../agents/claude/native-session-evidence.mjs';
 const context = {
@@ -92,3 +94,38 @@ test('absorbed mid-turn task notification uses its delivered typed attachment, n
   ])
     assert.equal(isClaudeCompletedNotification({ ...attached, ...change }, nc), false);
 });
+
+// The child transcript bound is one 32 MiB constant; past it a read is refused with its size, and
+// below it a long transcript is still checked row by row.
+const padded = (rows) => [
+  rows[0],
+  row('user', [{ type: 'tool_result', tool_use_id: 'pad', content: 'x'.repeat(5 * 1024 * 1024) }]),
+  ...rows.slice(1),
+];
+test('a child transcript over the single limit is refused with its size', () => {
+  assert.equal(CHILD_TRANSCRIPT_BYTE_LIMIT, 32 * 1024 * 1024);
+  const over = Buffer.alloc(CHILD_TRANSCRIPT_BYTE_LIMIT + 1, 0x0a);
+  assert.throws(
+    () => readClaudeStoppedTranscript(over, context),
+    new RegExp(
+      `^TypeError: transcript byte limit: ${over.length} > ${CHILD_TRANSCRIPT_BYTE_LIMIT}$`,
+      'u',
+    ),
+  );
+  assert.deepEqual(readClaudeTranscriptEfforts(over, context), { status: 'too-large' });
+  assert.equal(
+    readClaudeStoppedTranscript(encode(padded(base())), context).content[0].text,
+    'oracle',
+  );
+});
+for (const [name, mutate] of [
+  ['foreign session', (r) => (r[2].sessionId = 'other')],
+  ['wrong model', (r) => (r[2].message.model = 'claude-opus-4-6')],
+  ['wrong prompt', (r) => (r[0].message.content = 'other')],
+  ['undelivered handback', (r) => r.pop()],
+])
+  test(`a 5 MiB transcript still rejects ${name}`, () => {
+    const r = padded(base());
+    mutate(r);
+    assert.throws(() => readClaudeStoppedTranscript(encode(r), context));
+  });

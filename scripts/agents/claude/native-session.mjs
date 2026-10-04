@@ -23,6 +23,8 @@ import { resultFindingIds, validateAdjudication } from '../common/review-adjudic
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
 import { claudeRecoveryStep } from './model-policy.mjs';
 import {
+  CHILD_TRANSCRIPT_BYTE_LIMIT,
+  childTranscriptLimitReason,
   readClaudeStoppedTranscript,
   readClaudeTranscriptEfforts,
   isClaudeCompletedNotification,
@@ -189,6 +191,152 @@ function attributeChanges(paths, writeScope) {
       .filter((p) => !covered(p, writeScope))
       .map((p) => `unattributable-change:${p}`),
   };
+}
+// Review inputs outside the snapshot. A review snapshot binds tracked and non-ignored files only, so
+// the ignored plans and evidence a reviewer reads are bound here: the helper writes their digests to a
+// manifest named on one prompt line, and registration and every settlement compute them again. The
+// set covers ignored files under an ignored read path and, under any read path, ignored files in the
+// repository's record locations. Other ignored files (package dependencies, build output) stay out.
+export const REVIEW_INPUT_RECORD_DIRS = ['.plans/', '.artifacts/', '.local-docs/'];
+export const REVIEW_INPUTS_LINE = 'KNU_REVIEW_INPUTS_FILE:';
+const REVIEW_INPUT_LIMITS = { file: 8 * 1024 * 1024, total: 32 * 1024 * 1024, count: 2000 };
+const gitIgnored = (root, path) => {
+  const r = spawnSync('git', ['-C', root, 'check-ignore', '-q', '--', path], { timeout: 5000 });
+  check(r.status === 0 || r.status === 1, 'git check-ignore failed');
+  return r.status === 0;
+};
+// A read path must name its entries in their stored case. On a case-insensitive filesystem a variant
+// (`.Plans` for `.plans`) still reads the files while Git lists nothing for it, so nothing would bind.
+function caseVariantOf(root, path) {
+  let dir = root;
+  for (const part of path.split('/').filter((p) => p && p !== '.')) {
+    let names;
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return null;
+    }
+    if (!names.includes(part))
+      return names.some((name) => name.toLowerCase() === part.toLowerCase()) ? part : null;
+    dir = join(dir, part);
+  }
+  return null;
+}
+export const claudeReviewInputsDirectory = (root) =>
+  relative(root, resolveArtifactPath(root, ['claude-review-packets'], {}));
+// The bound ignored files under readPaths and their digests, inventory's format. A symlink is bound
+// by its link text and not followed. Too many or too large inputs are refused, not truncated. The
+// helper directory is left out: a packet file and a manifest are each bound by their own prompt line
+// (a lost packet line is review-packet-missing, not a missing manifest).
+export function claudeReviewInputs(root, readPaths) {
+  const helperDir = `${claudeReviewInputsDirectory(root)}/`;
+  const paths = new Set();
+  for (const readPath of readPaths) {
+    if (caseVariantOf(root, readPath) !== null)
+      throw new TypeError(
+        `review-input-path-case: ${readPath} differs from the stored name; use its exact case`,
+      );
+    // `ls-files --ignored` also lists the ignored files inside a directory that is not itself ignored.
+    const listed = execFileSync(
+      'git',
+      [
+        '-c',
+        'core.fsmonitor=false',
+        'ls-files',
+        '-z',
+        '--others',
+        '--ignored',
+        '--exclude-standard',
+        '--',
+        readPath,
+      ],
+      { cwd: root, maxBuffer: 64 * 1024 * 1024, timeout: 10000 },
+    )
+      .toString()
+      .split('\0')
+      .filter(Boolean);
+    if (!listed.length) continue;
+    const ignoredReadPath = gitIgnored(root, readPath);
+    for (const path of listed)
+      if (
+        (ignoredReadPath || REVIEW_INPUT_RECORD_DIRS.some((dir) => path.startsWith(dir))) &&
+        !path.startsWith(helperDir) &&
+        !(path.startsWith('.artifacts/') && isClaudeNativeEvidencePath(root, path))
+      )
+        paths.add(path);
+  }
+  if (paths.size > REVIEW_INPUT_LIMITS.count)
+    throw new TypeError(
+      `review-input-too-large: ${paths.size} files > ${REVIEW_INPUT_LIMITS.count}; give narrower read paths`,
+    );
+  let total = 0;
+  const files = {};
+  for (const path of [...paths].sort()) {
+    const full = join(root, path);
+    const st = lstatSync(full);
+    if (st.isSymbolicLink()) {
+      files[path] = hash({ link: readlinkSync(full) });
+      continue;
+    }
+    if (st.size > REVIEW_INPUT_LIMITS.file)
+      throw new TypeError(
+        `review-input-too-large: ${path} ${st.size} bytes > ${REVIEW_INPUT_LIMITS.file}`,
+      );
+    total += st.size;
+    if (total > REVIEW_INPUT_LIMITS.total)
+      throw new TypeError(
+        `review-input-too-large: ignored inputs exceed ${REVIEW_INPUT_LIMITS.total} bytes`,
+      );
+    files[path] = st.isFile()
+      ? hash({ mode: st.mode & 0o777, bytes: hash(readFileSync(full)) })
+      : 'not-a-file';
+  }
+  return files;
+}
+// Judges a reviewer prompt against its read scope now. The expected set comes from the read scope,
+// not from the line: a prompt that lost the line, an older helper's prompt or a direct registration
+// with ignored inputs is refused like a prompt that lost its packet file line.
+export function claudeReviewInputErrors(root, prompt, readScope) {
+  const line = String(prompt)
+    .split('\n')
+    .find((l) => l.startsWith(REVIEW_INPUTS_LINE));
+  const [manifestPath, digest, ...rest] = (line ?? '').slice(REVIEW_INPUTS_LINE.length).split(' ');
+  let expected;
+  try {
+    expected = claudeReviewInputs(root, readScope);
+  } catch (error) {
+    return [error.message];
+  }
+  if (line === undefined)
+    return Object.keys(expected).length ? ['review-input-manifest-missing'] : [];
+  const dir = `${claudeReviewInputsDirectory(root)}/`;
+  let bytes;
+  let manifest;
+  try {
+    check(
+      !rest.length &&
+        /^sha256:[a-f0-9]{64}$/u.test(digest) &&
+        manifestPath.startsWith(dir) &&
+        !manifestPath.slice(dir.length).includes('/') &&
+        manifestPath.endsWith('.inputs.json') &&
+        lstatSync(join(root, manifestPath)).isFile(),
+      'manifest line',
+    );
+    bytes = readFileSync(join(root, manifestPath));
+    manifest = JSON.parse(bytes);
+    check(
+      manifest?.files && typeof manifest.files === 'object' && !Array.isArray(manifest.files),
+      'manifest files',
+    );
+  } catch {
+    return ['review-input-manifest-invalid'];
+  }
+  const errors = hash(bytes) === digest ? [] : ['review-input-manifest-changed'];
+  for (const path of [
+    ...new Set([...Object.keys(manifest.files), ...Object.keys(expected)]),
+  ].sort())
+    if (manifest.files[path] !== expected[path]) errors.push(`review-input-changed:${path}`);
+  return errors;
 }
 function markInvalid(dir, reason) {
   try {
@@ -689,7 +837,7 @@ function childTranscriptDrifted(dir, observation) {
     check(
       proof.responseDigest === observation.responseDigest &&
         realpathSync(proof.path) === proof.path &&
-        lstatSync(proof.path).size <= 4 * 1024 * 1024 &&
+        lstatSync(proof.path).size <= CHILD_TRANSCRIPT_BYTE_LIMIT &&
         hash(readFileSync(proof.path)) === proof.digest,
       'child resumed/transcript drift',
     );
@@ -751,6 +899,14 @@ function currentObservation(task) {
     errors.push('adapter/role/settings drift');
   if (!isDeepStrictEqual(baseline(record.root), observation.finalSnapshot))
     errors.push('post-completion-source-drift');
+  if (record.input.nativeRequest.task.role === 'knu_reviewer')
+    errors.push(
+      ...claudeReviewInputErrors(
+        record.root,
+        invocation.prompt,
+        record.input.nativeRequest.task.readScope,
+      ),
+    );
   const effort = effortObservation(task, observation);
   errors.push(...effort.errors);
   return {
@@ -787,22 +943,24 @@ function effortObservation({ dir, record, invocation }, observation) {
   else {
     try {
       const stat = lstatSync(path);
-      check(
-        realpathSync(path) === path && stat.isFile() && stat.size <= 4 * 1024 * 1024,
-        'child transcript path/size',
-      );
-      read = readClaudeTranscriptEfforts(readFileSync(path), {
-        sessionId: record.sessionId,
-        agentId,
-        prompt: invocation.prompt,
-        expectedModel: record.expectedResolvedModel,
-      });
+      check(realpathSync(path) === path && stat.isFile(), 'child transcript path');
+      read =
+        stat.size > CHILD_TRANSCRIPT_BYTE_LIMIT
+          ? { status: 'too-large' }
+          : readClaudeTranscriptEfforts(readFileSync(path), {
+              sessionId: record.sessionId,
+              agentId,
+              prompt: invocation.prompt,
+              expectedModel: record.expectedResolvedModel,
+            });
     } catch {
       read = { status: 'foreign' };
     }
   }
   const observedEfforts = read.efforts ?? [];
   if (read.status === 'foreign') return { errors: ['effort-transcript-foreign'], observedEfforts };
+  if (read.status === 'too-large')
+    return { errors: ['effort-transcript-too-large'], observedEfforts };
   if (read.status === 'pending') {
     const ended = Date.now() > Date.parse(record.input.nativeRequest.expiresAt);
     return { errors: [ended ? 'effort-unobserved' : 'effort-transcript-pending'], observedEfforts };
@@ -911,7 +1069,8 @@ function settleStoppedTask(task) {
     'unexpected transcript path',
   );
   const stat = lstatSync(path);
-  check(stat.isFile() && stat.size <= 4 * 1024 * 1024, 'transcript byte limit');
+  check(stat.isFile(), 'transcript is not a file');
+  check(stat.size <= CHILD_TRANSCRIPT_BYTE_LIMIT, childTranscriptLimitReason(stat.size));
   const parentRows = parentTranscriptRows(stop.transcript_path, record.sessionId, [stop.agent_id]);
   check(
     parentRows.some((row) =>
@@ -1644,6 +1803,7 @@ export function completeClaudeNativeTask(
     const unsettled = [];
     // Same-subject reviewers and their state, for a first-round group adjudication.
     const siblings = [];
+    const siblingTasks = new Map();
     const nonPassErrors = [];
     for (const otherId of readdirSync(base).filter((name) => uuid.test(name))) {
       if (otherId === reviewerTaskId) continue;
@@ -1674,6 +1834,7 @@ export function completeClaudeNativeTask(
         result: null,
       };
       siblings.push(sibling);
+      siblingTasks.set(otherId, other);
       recorded.set(otherId, {
         toolUseId: recordedId,
         transcriptPath: attempt?.transcriptPath ?? null,
@@ -1756,6 +1917,18 @@ export function completeClaudeNativeTask(
         reviewAdjudication,
         finalSnapshot: observation.finalSnapshot,
       });
+      // The linked reviewer's inputs are judged by currentObservation below; a sibling is only read
+      // from its receipt, so each member that delivered a result is judged here by its own manifest.
+      if (linked.group)
+        for (const member of siblings.filter((m) => ['pass', 'nonpass'].includes(m.status))) {
+          const { record: memberRecord, invocation } = siblingTasks.get(member.id);
+          for (const error of claudeReviewInputErrors(
+            root,
+            invocation.prompt,
+            memberRecord.input.nativeRequest.task.readScope,
+          ))
+            groupErrors.push(`${error} (${member.id})`);
+        }
       if (!linked.group || groupErrors.length) errors.push(...nonPassErrors, ...groupErrors);
     }
     errors.push(...reviewDispatchErrors(root, reviewerTaskId, recorded, unsettled));
