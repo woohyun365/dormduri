@@ -137,7 +137,7 @@ evidence를 이해하고 올바른 결론을 내리는 난이도입니다. 보�
 - 독립적이고 가치 있는 lane 하나도 허용합니다.
 - 일반 proactive recommendation은 최대 2개입니다.
 - Pass 2 evidence에 연결된 high-value third lane만 3개까지 허용합니다.
-- owner가 명시적으로 확장한 native/manual capacity는 최대 6개입니다.
+- owner가 명시적으로 확장한 native/manual capacity는 child 최대 6개(root 제외)입니다.
 - proactive write-capable child는 최대 하나이며 scope가 겹치면 sequential fallback입니다.
 
 이 count는 “많을수록 좋다”는 성능 주장이 아닙니다. 현재 contract를 반박하는 품질·wall time·conflict evidence가 축적되면
@@ -161,7 +161,7 @@ Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 
 | project child default와 role만 추가             | 불충분      | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                       |
 | 모든 lookup을 Low로 비용 최적화                 | 기각        | repository owner·contract 관계 탐색을 task label 하나로 축소함                                         |
 | 최소 2개 또는 가능한 lane 전부 fan-out          | 기각        | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                               |
-| 0~2개, evidence-backed third, owner max 6       | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                              |
+| 0~2개, evidence-backed third, owner max 6 child | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                              |
 | 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                             |
 | parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                            |
 | Astra default + finite task profiles            | 채택        | semantic Medium/High/XHigh와 model invocation effort를 분리; 한정 Sol/Luna와 Astra 복구는 별도 gate    |
@@ -236,14 +236,14 @@ Owner가 weekly 한도가 빨리 소모된다고 관찰했지만 원인별 토�
 아니라 **Astra 기본값·독립 QA를 유지하면서 검증 가능한 작업만 낮은 단가의 모델에 맡기는 것**으로 제한했습니다.
 함께 조사한 “완료 child를 항상 close해야 하는가?”도 task 완료와 runtime 자원 반환을 혼동한 문제로 재정의했습니다.
 
-| 대안                                      | 판정과 trade-off                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 모든 child Astra 고정                     | 안전한 fallback으로 유지; 분명한 bounded 작업도 비싼 기본값에 묶이는 비용 기회는 남음                    |
-| Sol/Luna를 전체 기본값으로 변경           | 기각; 미분류·고위험·독립 QA까지 작은 표본을 확대 적용하게 됨                                             |
-| role × model별 TOML 복제                  | 기각; role 권한과 generation 변경 지점이 중복되어 drift·review 비용 증가                                 |
-| 세 role의 pin 해제 + 중앙 finite profiles | 채택; executor/explorer/researcher의 model pin만 해제, project Astra/high와 reviewer Astra pin·cap6 유지 |
-| 별도 provider adapter/자동 scheduler      | 기각; 기존 native contract가 호출 seam이며 새 SDK·실행 엔진이 필요하지 않음                              |
-| 모든 host에 close 의무/강제 V2 전환       | 기각; live capability별 완료를 판정하고 backend 이름·자동 eviction을 추측하지 않음                       |
+| 대안                                      | 판정과 trade-off                                                                                                |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 모든 child Astra 고정                     | 안전한 fallback으로 유지; 분명한 bounded 작업도 비싼 기본값에 묶이는 비용 기회는 남음                           |
+| Sol/Luna를 전체 기본값으로 변경           | 기각; 미분류·고위험·독립 QA까지 작은 표본을 확대 적용하게 됨                                                    |
+| role × model별 TOML 복제                  | 기각; role 권한과 generation 변경 지점이 중복되어 drift·review 비용 증가                                        |
+| 세 role의 pin 해제 + 중앙 finite profiles | 채택; executor/explorer/researcher의 model pin만 해제, project Astra/high와 reviewer Astra pin·child cap 6 유지 |
+| 별도 provider adapter/자동 scheduler      | 기각; 기존 native contract가 호출 seam이며 새 SDK·실행 엔진이 필요하지 않음                                     |
+| 모든 host에 close 의무/강제 V2 전환       | 기각; live capability별 완료를 판정하고 backend 이름·자동 eviction을 추측하지 않음                              |
 
 ### 구현 경로와 방어선
 
