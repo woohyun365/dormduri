@@ -148,13 +148,9 @@ export function createDispatchRecommendation({
     });
   }
 
-  // The role-keyed roster cannot resolve concurrent same-role/different-model lanes.
-  const hasCandidate = delegation.recommendedChildren.some(
-    (contract) => contract.routeRecommendation.modelRecommendation?.status === 'candidate',
-  );
-  const batchLimit = hasCandidate ? 1 : concurrencyLimit;
-  const selected = delegation.recommendedChildren.slice(0, batchLimit);
-  const deferred = delegation.recommendedChildren.slice(batchLimit);
+  // Same-role lanes on different models run together (T1 live R11); the roster resolves each lane by role and model.
+  const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
+  const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
   const compatibility = assessRuntimeCompatibility(runtime, selected, modelUseByLane);
   if (!compatibility.compatible) {
     return dispatchRecommendation({
@@ -170,7 +166,7 @@ export function createDispatchRecommendation({
   }
 
   const dispatches = selected.map((contract) => {
-    const reportedRole = compatibility.rolesByAgentType.get(contract.routeRecommendation.role);
+    const reportedRole = compatibility.rolesByLane.get(contract.laneId);
     return {
       laneId: contract.laneId,
       agentType: contract.routeRecommendation.role,
@@ -230,9 +226,7 @@ export function createDispatchRecommendation({
     concurrencyLimit,
     gaps:
       deferred.length > 0
-        ? [
-            `${hasCandidate ? 'model-sequential-rollout' : 'runtime-concurrency-limit'}: ${deferred.length} lane(s) deferred.`,
-          ]
+        ? [`runtime-concurrency-limit: ${deferred.length} lane(s) deferred.`]
         : [],
   });
 }
@@ -1101,7 +1095,10 @@ function normalizeRuntimeRoles(value, gaps) {
       gaps.push(`runtime-role-metadata-invalid:${index}`);
     }
   }
-  if (new Set(roles.map(({ agentType }) => agentType)).size !== roles.length) {
+  // A role may be reported once per model; the same role and model twice is ambiguous.
+  if (
+    new Set(roles.map((role) => `${role.agentType}\0${reportedModel(role)}`)).size !== roles.length
+  ) {
     gaps.push('runtime-role-roster-duplicate');
   }
   return roles;
@@ -1121,7 +1118,7 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   if (runtime.dispatchPermission !== 'allowed') {
     gaps.push(`runtime-dispatch-permission-${runtime.dispatchPermission}`);
   }
-  const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
+  const rolesByLane = new Map();
   for (const contract of contracts) {
     // Omitted optional context preserves legacy advice; supplied gaps must not be
     // lost between the context composer and its dispatch consumer.
@@ -1136,12 +1133,16 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
       gaps.push(`runtime-context-incompatible:${contract.laneId}`);
     const requestedRole = contract.routeRecommendation.role;
     const requestedEffort = resolveRouteEffort(contract.routeRecommendation);
-    const reportedRole = rolesByAgentType.get(requestedRole);
+    const model = contract.routeRecommendation.modelRecommendation;
+    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
+    const reports = runtime.roles.filter(({ agentType }) => agentType === requestedRole);
+    const reportedRole =
+      reports.find((role) => reportedModel(role) === requestedModel) ?? reports[0];
     if (!reportedRole || !reportedRole.available) {
       gaps.push(`runtime-role-unavailable:${requestedRole}`);
       continue;
     }
-    const model = contract.routeRecommendation.modelRecommendation;
+    rolesByLane.set(contract.laneId, reportedRole);
     if (usesOrdinaryScopedArguments(runtime, contract)) {
       const selection = reportedRole.modelSelection;
       if (
@@ -1153,14 +1154,13 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
       if (!reportedRole.explicitEffortSupport)
         gaps.push(`runtime-scoped-effort-unsupported:${requestedRole}`);
     }
-    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
     const resolution = reportedRole.configurationResolution;
     if (
       resolution &&
       (reportedRole.effectiveModel !== null || reportedRole.effectiveEffort !== null)
     )
       gaps.push(`runtime-mixed-resolution-observation:${requestedRole}`);
-    if ((resolution?.model ?? reportedRole.effectiveModel) !== requestedModel) {
+    if (reportedModel(reportedRole) !== requestedModel) {
       gaps.push(`runtime-model-incompatible:${requestedRole}`);
     }
     if (resolution && model?.status !== 'candidate')
@@ -1179,8 +1179,12 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   return {
     compatible: gaps.length === 0,
     gaps,
-    rolesByAgentType,
+    rolesByLane,
   };
+}
+
+function reportedModel(role) {
+  return role.configurationResolution?.model ?? role.effectiveModel;
 }
 
 function normalizeConfigurationResolution(value) {

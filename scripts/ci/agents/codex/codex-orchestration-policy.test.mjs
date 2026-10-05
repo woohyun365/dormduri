@@ -1187,6 +1187,62 @@ test('model candidates fail closed without exact live admission and compatible r
   }
 });
 
+test('same-role lanes on different models dispatch together under the ordinary concurrency limit (R11)', () => {
+  // T1 live R11: two concurrent knu_explorer children ran on gpt-6.1-sol and gpt-6-astra as requested.
+  const ordinaryLane = (contextPack) => ({
+    ...repositoryLane(contextPack),
+    id: 'legal-repository-owners',
+    impactRisk: 'medium',
+  });
+  const input = modelDispatchInput('routine', 'standard-read', [ordinaryLane]);
+  const routes = input.delegation.recommendedChildren.map(({ laneId, routeRecommendation }) => [
+    laneId,
+    routeRecommendation.role,
+    routeRecommendation.profileId,
+  ]);
+  assert.deepEqual(routes, [
+    ['legal-repository-map', 'knu_explorer', 'standard-read'],
+    ['legal-repository-owners', 'knu_explorer', 'astra-fallback'],
+  ]);
+  const solRole = input.reportedRuntimeEvidence.roles[0];
+  input.reportedRuntimeEvidence.roles.push({
+    ...structuredClone(solRole),
+    effectiveModel: 'gpt-6-astra',
+  });
+
+  const result = createDispatchRecommendation(input);
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  assert.deepEqual(result.deferredLaneIds, []);
+  assert.deepEqual(result.gaps, []);
+  assert.deepEqual(
+    result.dispatches.map(({ laneId, agentType, effectiveModel }) => [
+      laneId,
+      agentType,
+      effectiveModel,
+    ]),
+    [
+      ['legal-repository-map', 'knu_explorer', 'gpt-6.1-sol'],
+      ['legal-repository-owners', 'knu_explorer', 'gpt-6-astra'],
+    ],
+  );
+
+  // A concurrency limit of one still defers the second lane as an ordinary limit.
+  const limited = createDispatchRecommendation({ ...structuredClone(input), concurrencyLimit: 1 });
+  assert.deepEqual(limited.deferredLaneIds, ['legal-repository-owners']);
+  assert.deepEqual(limited.gaps, ['runtime-concurrency-limit: 1 lane(s) deferred.']);
+
+  // The roster still rejects a repeated role and model pair, and a role with no report for the requested model.
+  const repeated = structuredClone(input);
+  repeated.reportedRuntimeEvidence.roles.push(structuredClone(solRole));
+  assert.equal(createDispatchRecommendation(repeated).execution, 'leader-sequential');
+  assert.ok(createDispatchRecommendation(repeated).gaps.includes('runtime-role-roster-duplicate'));
+  const missing = structuredClone(input);
+  missing.reportedRuntimeEvidence.roles.pop();
+  assert.ok(
+    createDispatchRecommendation(missing).gaps.includes('runtime-model-incompatible:knu_explorer'),
+  );
+});
+
 test('pilot permission and pilot PASS never substitute for routine adoption GO', () => {
   for (const [purpose, kind, quality] of [
     ['routine', 'pilot', 'go'],
@@ -1370,7 +1426,7 @@ function modelUse(input) {
   return input.modelUseByLane['legal-repository-map'];
 }
 
-function modelDispatchInput(purpose = 'pilot', profileId = 'standard-read') {
+function modelDispatchInput(purpose = 'pilot', profileId = 'standard-read', extraLanes = []) {
   const profile = getModelProfile(profileId);
   const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
   const contextPack = discoverContextPack({
@@ -1429,7 +1485,7 @@ function modelDispatchInput(purpose = 'pilot', profileId = 'standard-read') {
   const delegation = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates: [lane],
+    laneCandidates: [lane, ...extraLanes.map((extra) => extra(contextPack))],
     deliveryByLane: { [lane.id]: delivery },
   });
   const [contract] = delegation.recommendedChildren;
@@ -1873,7 +1929,7 @@ test('pre-dispatch resolution rejects file-only, stale, pin, digest, effort and 
   }
 });
 
-test('lower model dispatch is sequential without duplicate role roster tricks', () => {
+test('lower model lanes share the ordinary concurrency limit with one role and model report', () => {
   const input = resolvedDispatchInput();
   const second = structuredClone(input.delegation.recommendedChildren[0]);
   second.laneId = 'second-map';
@@ -1883,8 +1939,14 @@ test('lower model dispatch is sequential without duplicate role roster tricks', 
   input.modelUseByLane[second.laneId].scopeDigest = second.modelScopeDigest;
   input.modelUseByLane[second.laneId].admission.scopeDigest = second.modelScopeDigest;
   const result = createDispatchRecommendation(input);
-  assert.equal(result.dispatches.length, 1);
-  assert.deepEqual(result.deferredLaneIds, ['second-map']);
+  assert.deepEqual(
+    result.dispatches.map(({ laneId }) => laneId),
+    ['legal-repository-map', 'second-map'],
+  );
+  assert.deepEqual(result.deferredLaneIds, []);
+  const limited = createDispatchRecommendation({ ...structuredClone(input), concurrencyLimit: 1 });
+  assert.deepEqual(limited.deferredLaneIds, ['second-map']);
+  assert.deepEqual(limited.gaps, ['runtime-concurrency-limit: 1 lane(s) deferred.']);
 });
 
 test('post-dispatch evidence binds child/task/quality without requiring cost telemetry', () => {
