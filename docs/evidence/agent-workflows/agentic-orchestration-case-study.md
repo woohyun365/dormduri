@@ -114,10 +114,10 @@ human request and authority
               → ContextPack and current repository inspection
                 → Pass 2: source / fact / predicate evidence
                   → semantic role / Medium / High / XHigh assessment
-                    → default Astra or eligible finite Sol/Luna xhigh profile
+                    → effort-pinned role variant + Astra or admitted Sol/Luna profile model
                       → current task admission + live runtime compatibility
                         ├── compatible → native dispatch → independent quality evidence
-                        └── unsupported / failed → stop or one bounded Astra recovery
+                        └── unsupported / failed → stop and hand back (model recovery suspended)
                               → leader-only evidence integration and capability-aware cleanup
 ```
 
@@ -347,7 +347,7 @@ Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있
 | ---------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | 필요 context만 전달          | scoped packet, source·제약·acceptance·output 지정              | 한 pair 품질 통과; token 감소율·주입된 총 context 크기 미측정                                                        |
 | 중복 primary 분석 축소       | 한 primary owner, source/test 포인터 회수; 필수 독립 QA는 예외 | workflow/회귀로 경계 보호; 실제 운영 시간·재작업 감소 미측정                                                         |
-| 싼 단가를 적절한 작업에 사용 | finite Sol/Luna profiles + 지원·품질·Astra 복구 gate           | actual sample 가능성 확인; 모델 간 동일 task 비용/품질 비교 없음                                                     |
+| 싼 단가를 적절한 작업에 사용 | finite Sol/Luna profiles + 지원·품질 gate(복구는 중단)         | actual sample 가능성 확인; 모델 간 동일 task 비용/품질 비교 없음                                                     |
 | Cache 활용                   | 안정된 공통 지침·schema를 불필요하게 흔들지 않기               | cache hit·cached/input/output·credits·USD·weekly delta 모두 **null**; API cache knob·padding·warmup·collector 미도입 |
 | 불필요한 child 비용 제거     | 작은 결정적 작업은 child0, 필요한 같은 task만 followup         | idle thread 자체의 token 소비·close의 비용 환급을 가정하지 않음                                                      |
 
