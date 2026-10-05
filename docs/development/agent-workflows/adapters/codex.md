@@ -131,9 +131,11 @@ Explorer/researcher 등 미채택 역할에 helper가 Low를 추천해도 실행
 
 `scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model/effort/허용 role·task·도구·검증 키를 소유합니다.
 Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report →
-recovery에 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐이며,
-raw model request와 허용 목록 밖 model은 이름과 무관하게 같은 사유로 거절합니다. Codex가 직접 읽는 `.codex` 기본값·reviewer pin은
-test로 `BASELINE_CHILD_MODEL`에 결속합니다. 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
+recovery에 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐입니다.
+Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding, attempt, admission, run evidence의 허용 목록 밖 model은
+이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Dispatch 판정이 읽는 host 관측(effective·
+supported·role model, configuration resolution, hostMetadata)은 거절하지 않고 gap으로 남깁니다. Codex가 직접 읽는 `.codex`
+기본값·reviewer pin은 test로 `BASELINE_CHILD_MODEL`에 결속합니다. 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
 
 미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
 갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 승인·사후 보고·recovery binding을 재사용하지 못합니다.

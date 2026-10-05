@@ -1330,6 +1330,25 @@ test('model admission and attempt inputs outside the allowlist fail for the allo
   const result = createDispatchRecommendation(observed);
   assert.equal(result.execution, 'leader-sequential');
   assert.ok(result.gaps.includes('runtime-model-incompatible:knu_explorer'), result.gaps.join());
+  const resolved = resolvedDispatchInput();
+  resolved.reportedRuntimeEvidence.roles[0].configurationResolution.model = UNLISTED_MODEL;
+  const resolution = createDispatchRecommendation(resolved);
+  assert.equal(resolution.execution, 'leader-sequential');
+  assert.ok(
+    resolution.gaps.includes('runtime-model-incompatible:knu_explorer'),
+    resolution.gaps.join(),
+  );
+  const dispatch = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
+  const execution = {
+    ...executionObservation(dispatch),
+    hostMetadata: { model: UNLISTED_MODEL, effort: 'xhigh' },
+  };
+  const report = modelPolicy.evaluateModelExecution({
+    dispatch,
+    expectedChildId: execution.childId,
+    reportedExecution: execution,
+  });
+  assert.deepEqual([report.accepted, report.gaps], [false, ['model-host-metadata-mismatch']]);
 });
 
 function modelUse(input) {

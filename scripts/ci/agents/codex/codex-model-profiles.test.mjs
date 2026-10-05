@@ -21,8 +21,8 @@ const UNLISTED_REASON = {
 // Version-shaped model IDs; the synthetic UNLISTED_MODEL is deliberately not one.
 const MODEL_ID_LITERAL = /\bgpt-\d/iu;
 const ALLOWLIST_OWNER = 'scripts/agents/codex/model-profiles.mjs';
-// H4-X owns the Codex-target bridge model; this exception goes away with that plan.
-const MODEL_LITERAL_EXCEPTIONS = ['scripts/agents/codex/review-bridge.mjs'];
+// The Codex-target review bridge keeps its own model constant until that bridge is reworked: exactly one literal there.
+const MODEL_LITERAL_EXCEPTIONS = { 'scripts/agents/codex/review-bridge.mjs': 1 };
 
 test('one allowlist owns child models and rejects any other ID for the same reason', () => {
   const profileModels = ['bounded-build', 'bounded-read', 'bounded-extract'].map(
@@ -53,10 +53,18 @@ test('runtime modules take model IDs only from the allowlist owner', () => {
     .map((path) => `scripts/agents/codex/${path.split('\\').join('/')}`)
     .filter((path) => /\.(?:mjs|js|cjs)$/u.test(path));
   assert.ok(runtime.includes(ALLOWLIST_OWNER));
-  const withLiterals = runtime.filter((path) =>
-    MODEL_ID_LITERAL.test(readFileSync(resolve(repoRoot, path), 'utf8')),
+  const literalCounts = Object.fromEntries(
+    runtime
+      .filter((path) => path !== ALLOWLIST_OWNER)
+      .map((path) => [
+        path,
+        readFileSync(resolve(repoRoot, path), 'utf8').match(new RegExp(MODEL_ID_LITERAL, 'giu'))
+          ?.length ?? 0,
+      ])
+      .filter(([, count]) => count > 0),
   );
-  assert.deepEqual(withLiterals.sort(), [ALLOWLIST_OWNER, ...MODEL_LITERAL_EXCEPTIONS].sort());
+  assert.deepEqual(literalCounts, MODEL_LITERAL_EXCEPTIONS);
+  assert.match(readFileSync(resolve(repoRoot, ALLOWLIST_OWNER), 'utf8'), MODEL_ID_LITERAL);
 });
 
 test('finite immutable profiles resolve GPT-6 models independently from semantic effort', () => {
