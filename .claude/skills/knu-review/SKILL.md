@@ -59,6 +59,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `--criteria`가 필요하고 기준 항목을 구성원에게 연속 구간으로 나눕니다. 2회차부터는 단일 reviewer입니다.
 - 출력은 `reviewerSpec` 대신 `reviewers[]`(구성원마다 `reviewerSpec`·`packet`·`reviewerPrompt`)와 `group`입니다. 구성원 spec을 각각
   `prepare`하고, Agent 호출 N개를 한 메시지에서 background로 보냅니다. 같은 구성원 spec을 다시 `prepare`해 보내지 않습니다.
+  예외는 hook 뒤 거부(auto classifier 판정 누락 등)로 결과 없이 실행되지 못해 `task already attempted`가 된 구성원이며, 그 spec을
+  새로 `prepare`해 한 번 보냅니다([registry 4단계](../../../docs/development/agent-workflows/adapters/claude-native-registry.md)).
 - 집계·처분은 `/knu-settle`의 그룹 처분 기록을 따릅니다.
 
 ## 공통

@@ -13,6 +13,10 @@ The server-side auto mode classifier gave no verdict (error), so auto mode canno
 This is a transient failure of the check, not a judgment about the action
 ```
 
+KNU native task의 Agent 호출이 이렇게 거부되면 PreToolUse hook이 이미 attempt를 기록했으므로 같은 task를 다시 부르면
+`task already attempted`가 납니다. [registry 4단계](../../agent-workflows/adapters/claude-native-registry.md)대로 새로 `prepare`한
+task로 호출합니다.
+
 판정 없는 응답이 연속 10개가 되면 turn이 멈춥니다. 공식 문서가 응답 단위로 세므로 한 응답의 병렬 호출은 한 번으로 봅니다. 이 거부는 `/permissions`의 **Recently denied** 목록에 남지 않습니다.
 
 Claude가 자기 권한 설정 파일(`.claude/settings*.json`)을 바꾸려 할 때는 다른 메시지가 나옵니다. 이것은 일시 오류가 아니라 판정입니다.
