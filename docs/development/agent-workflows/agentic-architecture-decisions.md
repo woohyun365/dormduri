@@ -138,9 +138,9 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 - **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.
 - **기각**: boolean capability assertion, local config inspection만으로 active authority 주장, generic role prompt label,
   stale session metadata 재사용.
-- **검증**: Native/OMX success, 미허용 Luna/Terra/Low, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
+- **검증**: Native/OMX success, 허용 목록 밖 model·미허용 Low, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
   fallback fixture를 보존하고, authorized-pilot/adoption 분리·scope/config·예산/만료·context mismatch를 검사합니다.
-  추가로 finite GPT-6 task profiles, semantic/resolved effort 분리, Luna xhigh·finite read-only, 구형 GPT-5.6 요청과 stale
+  추가로 finite GPT-6 task profiles, semantic/resolved effort 분리, Luna xhigh·finite read-only, 허용 목록 밖 model 요청과 stale
   profile 승인 거절, null usage 비차단, Astra one-alternate와 writer clearance를 검사합니다. 중앙 profile policyRevision/hash는
   계약·승인·설정 해석·사후 보고·복구에 연결되며 hash 자체는 권한을 부여하지 않습니다.
   공식 단가 우위와 실측 절약은 구분하며 usage 미노출만으로 품질 GO를 거절하지 않습니다.

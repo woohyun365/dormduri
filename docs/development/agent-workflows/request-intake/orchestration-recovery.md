@@ -49,7 +49,8 @@ roles[]:
 - OMX evidence는 current-session `host-tool-schema + omx-runtime-overlay`를 모두 요구합니다.
 - local CLI/config inspection과 과거 session 결과는 supporting evidence일 뿐 active dispatch surface의 증명이 아닙니다.
 - missing/stale/unknown/caller-invented provenance, generic `explore`로 project `knu_explorer`를 대신하는 mapping, Low,
-  미채택/미허용 Sol·Luna 또는 구형 GPT-5.6, unavailable role, fixed-effort mismatch는 모두 sequential fallback입니다.
+  미채택/미허용 Sol·Luna 또는 host가 보고한 허용 목록 밖 model, unavailable role, fixed-effort mismatch는 모두 sequential
+  fallback입니다.
 - Policy는 이 descriptor를 검증하지만 host event를 인증할 수 없으므로 결과를
   `leader-reported-not-host-authenticated`로 표시합니다.
 - Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
@@ -57,15 +58,16 @@ roles[]:
 
 Project child 기본값은 `.codex/config.toml`의 Astra이며, `knu_reviewer`만 Astra를 고정합니다. 나머지 세 역할은
 model/effort pin 없이 지원되는 명시적 task 모델과 기존 effort 판정을 받습니다. Parent model 변경이나 OMX의 기본값
-업데이트를 project 역할·설정의 실제 로드 증거로 사용하지 않습니다. Runtime policy의 `REPOSITORY_CHILD_MODEL`은 현재
-`gpt-6-astra`이며, 기존 fixture의 Sol/Terra/Luna 거절은 모델 입력·허용 근거 없는 caller를 검증하는 negative evidence로 유지합니다.
+업데이트를 project 역할·설정의 실제 로드 증거로 사용하지 않습니다. Runtime policy의 child 기본값은 허용 목록 owner의
+`BASELINE_CHILD_MODEL`이고, `.codex/config.toml` 기본값과 `knu_reviewer` pin은 test로 이 값에 결속됩니다. 허용 목록 밖 model
+거절은 합성 ID 하나로 검증하며, 모델 입력·허용 근거 없는 caller를 막는 negative evidence로 유지합니다.
 이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다. Semantic effort와 후보 resolved effort는 별도 대조합니다.
 
 ## Model admission
 
 Candidate descriptor는 추가적인 `modelUseByLane[laneId]`를 요구합니다. 모든 값은 **Parent가 보고한 evidence**이며
-boolean/JSON packet만으로 사용자 허용·host 권한·품질 GO가 생기지 않습니다. Unknown field/누락 schema는 TypeError,
-없거나 불일치한 evidence는 sequential fallback입니다.
+boolean/JSON packet만으로 사용자 허용·host 권한·품질 GO가 생기지 않습니다. Unknown field/누락 schema와 허용 목록 밖
+admission·attempt `model`은 TypeError, 없거나 불일치한 evidence는 sequential fallback입니다.
 
 ```text
 observedAt: exact ISO timestamp
@@ -310,7 +312,7 @@ primary attempt
 - `evaluateRecovery`의 선택 입력 `modelRecovery={profileBinding,pendingWriter}`는 현재 installed profile의 exact primary 모델과 각 attempt의
   `model`을 대조하고 두 번째 attempt를 Astra로 제한합니다. `pendingWriter=cleared`일 때만 `nextModel=gpt-6-astra`인
   `alternate-once`를 추천합니다. pending/unknown은 handoff이며 takeover를 먼저 실행하지 않습니다.
-  명시적 model attempt는 이 binding 없이 처리하지 않습니다. Raw primaryModel/구형 GPT-5.6/만료 profile 입력은 거부하며,
+  명시적 model attempt는 이 binding 없이 처리하지 않습니다. Raw primaryModel, 허용 목록 밖 model, 만료 profile 입력은 거부하며,
   model 필드가 없는 일반 recovery 계약은 유지합니다.
 - `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다.
 - 모델 후보 실패도 같은 ceiling을 소비합니다. 같은 write owner·snapshot·남은 권한을 재확인한 Astra rescue를 최대 한 번

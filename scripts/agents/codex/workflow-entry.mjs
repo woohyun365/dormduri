@@ -10,6 +10,7 @@ import {
   validateAdapterReview,
 } from '../common/adapter-contract.mjs';
 import { recommendDelegation } from './child-task-contract.mjs';
+import { BASELINE_CHILD_MODEL } from './model-profiles.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
 
 // Actual deterministic Codex composition, not a native scheduler or permission grant.
@@ -215,7 +216,10 @@ export function validateCodexWorkflowResults(input, { results = [], review } = {
       errors.push('QA read scope must cover current assigned scope');
     if (review.result?.status !== 'complete' || review.result?.verdict !== 'PASS')
       errors.push('QA exchange does not report complete PASS');
-    if (workflow.requiresAstraReview && review.result?.identity?.observedModel !== 'gpt-6-astra')
+    if (
+      workflow.requiresAstraReview &&
+      review.result?.identity?.observedModel !== BASELINE_CHILD_MODEL
+    )
       errors.push(
         'bounded-build requires reported Astra QA; host observation still needs verification',
       );

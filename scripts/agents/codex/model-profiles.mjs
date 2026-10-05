@@ -58,6 +58,16 @@ const PROFILES = deepFreeze({
     requiredTools: [],
   },
 });
+// The only child models the repository requests. Any other ID fails for the same reason, whatever its name.
+export const ALLOWED_CHILD_MODELS = Object.freeze([
+  ...new Set([BASELINE_CHILD_MODEL, ...Object.values(PROFILES).map(({ model }) => model)]),
+]);
+
+export function assertAllowedChildModel(model) {
+  if (!ALLOWED_CHILD_MODELS.includes(model))
+    throw new TypeError('Model is outside the allowed child model list.');
+  return model;
+}
 
 export function getModelProfile(profileId) {
   if (typeof profileId !== 'string' || !Object.hasOwn(PROFILES, profileId))
@@ -82,6 +92,7 @@ export function createModelProfileBinding(profile) {
 
 export function assertCurrentModelProfileBinding(binding) {
   const expected = createModelProfileBinding(getModelProfile(binding?.profileId));
+  assertAllowedChildModel(binding.model);
   if (!isDeepStrictEqual(binding, expected))
     throw new TypeError('Model profile binding must match the current installed policy.');
   return expected;
@@ -214,6 +225,7 @@ export function assertCurrentRecoveryBinding(binding) {
     rescue: binding?.rescue,
     assessment: binding?.assessment,
   });
+  assertAllowedChildModel(binding.model);
   recoveryAssert(isDeepStrictEqual(binding, expected));
   return expected;
 }

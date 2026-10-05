@@ -56,7 +56,7 @@
     }
   },
   {
-    "id": "luna-rejected",
+    "id": "unlisted-model-rejected",
     "expectedExecution": "leader-sequential",
     "expectedGap": "runtime-model-incompatible",
     "evidence": {
@@ -70,65 +70,7 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-luna",
-          "effectiveEffort": "high",
-          "explicitEffortSupport": true
-        },
-        {
-          "agentType": "knu_explorer",
-          "available": true,
-          "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
-          "explicitEffortSupport": true
-        }
-      ]
-    }
-  },
-  {
-    "id": "terra-rejected",
-    "expectedExecution": "leader-sequential",
-    "expectedGap": "runtime-model-incompatible",
-    "evidence": {
-      "schemaVersion": 1,
-      "surfaceMode": "native",
-      "observationScope": "current-turn",
-      "freshness": "current-turn",
-      "provenance": ["host-tool-schema"],
-      "dispatchPermission": "allowed",
-      "roles": [
-        {
-          "agentType": "knu_researcher",
-          "available": true,
-          "effectiveModel": "gpt-5.6-terra",
-          "effectiveEffort": "high",
-          "explicitEffortSupport": true
-        },
-        {
-          "agentType": "knu_explorer",
-          "available": true,
-          "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
-          "explicitEffortSupport": true
-        }
-      ]
-    }
-  },
-  {
-    "id": "legacy-sol-rejected",
-    "expectedExecution": "leader-sequential",
-    "expectedGap": "runtime-model-incompatible",
-    "evidence": {
-      "schemaVersion": 1,
-      "surfaceMode": "native",
-      "observationScope": "current-turn",
-      "freshness": "current-turn",
-      "provenance": ["host-tool-schema"],
-      "dispatchPermission": "allowed",
-      "roles": [
-        {
-          "agentType": "knu_researcher",
-          "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-x-unlisted",
           "effectiveEffort": "high",
           "explicitEffortSupport": true
         },
@@ -360,11 +302,11 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-5.6-sol",
+          "effectiveModel": "gpt-6-sol",
           "effectiveEffort": "high",
           "explicitEffortSupport": true,
           "modelSelection": {
-            "supportedModels": ["gpt-6-astra", "gpt-5.6-sol"],
+            "supportedModels": ["gpt-6-astra", "gpt-6-sol"],
             "roleModel": null,
             "explicitModelSupport": true,
             "reference": "synthetic-current-host-model-schema"

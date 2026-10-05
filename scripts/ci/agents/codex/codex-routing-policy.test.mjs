@@ -8,6 +8,9 @@ import {
   selectAgentRoute,
   normalizeModelRequest,
 } from '../../../agents/codex/routing-policy.mjs';
+import { ALLOWED_CHILD_MODELS } from '../../../agents/codex/model-profiles.mjs';
+
+const UNLISTED_MODEL = 'gpt-x-unlisted';
 
 const TASK_KINDS = [
   'lookup',
@@ -108,9 +111,9 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
 
 test('model request is strict and cannot create children for deterministic work', () => {
   for (const [model, cohort] of [
-    ['gpt-5.6-sol', 'bounded-implementation'],
-    ['gpt-5.6-terra', 'bounded-read-only'],
-    ['gpt-5.6-luna', 'bounded-extraction'],
+    [UNLISTED_MODEL, 'bounded-implementation'],
+    [UNLISTED_MODEL, 'bounded-read-only'],
+    [UNLISTED_MODEL, 'bounded-extraction'],
   ]) {
     const keys =
       cohort === 'bounded-implementation'
@@ -137,7 +140,8 @@ test('model request is strict and cannot create children for deterministic work'
   };
   for (const patch of [
     { model: 'unknown-model' },
-    ...['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6-sol'].map((model) => ({ model })),
+    // Raw models are never request input, whether or not the allowlist holds them.
+    ...[UNLISTED_MODEL, ...ALLOWED_CHILD_MODELS].map((model) => ({ model })),
     { profileId: 'unknown-profile' },
     { cohort: 'bounded-implementation' },
     { pilot: true },
