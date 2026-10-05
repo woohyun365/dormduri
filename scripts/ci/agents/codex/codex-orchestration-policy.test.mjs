@@ -1321,9 +1321,15 @@ test('model admission and attempt inputs outside the allowlist fail for the allo
   const admission = modelDispatchInput();
   modelUse(admission).admission.model = UNLISTED_MODEL;
   assert.throws(() => createDispatchRecommendation(admission), UNLISTED_REASON);
-  const observed = modelDispatchInput();
-  observed.reportedRuntimeEvidence.roles[0].effectiveModel = UNLISTED_MODEL;
-  assert.doesNotThrow(() => createDispatchRecommendation(observed));
+  // Host observations stay facts: an unlisted model the host reports becomes a gap, never an error.
+  const observed = ordinaryScopedDispatchInput();
+  const role = observed.reportedRuntimeEvidence.roles[0];
+  role.effectiveModel = UNLISTED_MODEL;
+  role.modelSelection.supportedModels.push(UNLISTED_MODEL);
+  role.modelSelection.roleModel = UNLISTED_MODEL;
+  const result = createDispatchRecommendation(observed);
+  assert.equal(result.execution, 'leader-sequential');
+  assert.ok(result.gaps.includes('runtime-model-incompatible:knu_explorer'), result.gaps.join());
 });
 
 function modelUse(input) {
