@@ -1,5 +1,5 @@
 name = "knu_explorer_xhigh"
-description = "XHigh·impact high 계층 또는 고정 입력 추출의 bounded 질문 하나를 xhigh effort로 repository 내부 파일·symbol·owner·호출자·근거에서 조사합니다"
+description = "XHigh·impact high 읽기, High 계층 candidate(`elevated-read`) 읽기 또는 고정 입력 추출의 bounded 질문 하나를 xhigh effort로 repository 내부 파일·symbol·owner·호출자·근거에서 조사합니다"
 sandbox_mode = "read-only"
 model_reasoning_effort = "xhigh"
 developer_instructions = """

@@ -148,7 +148,8 @@ export function createDispatchRecommendation({
     });
   }
 
-  // Same-role lanes on different models run together (T1 live R11); the roster resolves each lane by role and model.
+  // Same-role lanes on different models run together (native observation, DA-018); the roster resolves each lane by
+  // role and model.
   const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
   const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
   const compatibility = assessRuntimeCompatibility(runtime, selected, modelUseByLane);
@@ -1622,6 +1623,13 @@ function normalizeRecoveryDecision(value) {
   validateRecoveryShape({ status, action, remainingAlternateAttempts, blocker, disposition });
   const attempts = value.attempts.map(normalizeAttempt);
   validateAttemptSequence(attempts);
+  // Suspended model recovery: a model-attributed decision cannot carry an alternate, bound or not.
+  if (
+    MODEL_RECOVERY_SUSPENDED &&
+    attempts.length > 1 &&
+    attempts.some((attempt) => attempt.model !== undefined)
+  )
+    throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
   if (!value.recoveryBinding && attempts.some((attempt) => attempt.recoveryBinding))
     throw new TypeError('Attributed recovery attempts require their decision-level binding.');
   if (value.recoveryBinding) {
@@ -1750,8 +1758,17 @@ function assertDelegationRecommendation(delegation) {
     if (contract.routeRecommendation.effort !== ROLE_EFFORTS[role])
       throw new TypeError('Route effort must be the effort its role file pins.');
     requireEnum(contract.routeRecommendation.tier, EFFORTS, 'route tier');
-    if (!getModelProfile(contract.routeRecommendation.profileId).roles.includes(role))
+    const routeProfile = getModelProfile(contract.routeRecommendation.profileId);
+    if (!routeProfile.roles.includes(role))
       throw new TypeError('Route profile must list its role.');
+    // Only an admitted candidate may carry a candidate profile; the spawn model comes from this profile.
+    if (
+      contract.routeRecommendation.modelRecommendation?.status !== 'candidate' &&
+      routeProfile.kind !== 'assignment'
+    )
+      throw new TypeError(
+        'A route without an admitted candidate must name an Astra assignment profile.',
+      );
     if (contract.routeRecommendation?.execution !== 'bounded-child') {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }

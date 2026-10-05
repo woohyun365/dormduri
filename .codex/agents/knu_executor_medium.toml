@@ -1,5 +1,5 @@
 name = "knu_executor_medium"
-description = "Pass 2 Medium·Low 계층의 bounded repository 변경 하나를 medium effort로 명시된 write ownership 안에서 구현하고 가장 가까운 동작을 검증합니다"
+description = "Pass 2 Medium 계층의 bounded repository 변경 하나를 medium effort로 명시된 write ownership 안에서 구현하고 가장 가까운 동작을 검증합니다"
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "medium"
 developer_instructions = """

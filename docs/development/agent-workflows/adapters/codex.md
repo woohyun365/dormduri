@@ -103,8 +103,8 @@ admission을 통과하지 못하면 위 Astra 배정이 그대로입니다. 결�
 
 - Astra: Parent, 최종 QA, 구현의 XHigh·impact high(`deep-build`), 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
 
-모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Elevated profile은
-같은 조건에서 계층만 High로 올린 것입니다. Task/cohort/검증 fact와 write/context/runtime/admission gate도 통과해야 합니다.
+모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Standard profile은
+complete Medium 계층, elevated profile은 같은 조건의 High 계층입니다(읽기는 XHigh와 impact high 읽기도 포함). Task/cohort/검증 fact와 write/context/runtime/admission gate도 통과해야 합니다.
 6.1 Sol 후보는 Owner 채택(2026-10-06)으로 routine입니다. 별도 품질 canary 없이 채택했으므로 작업마다 oracle·독립 검사,
 구현의 필수 Astra QA와 [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)가 품질을 지킵니다.
 Pilot 요청도 그대로 받습니다. Semantic 계층과 후보 역할의
@@ -126,7 +126,7 @@ Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest�
 기본값/최종 QA는 Astra입니다. 실행·읽기 역할은 model pin 없이 task 선택을 받지만, 실제 loaded role에 pin이 있으면
 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 지원된 명시적 모델·effort/scoped fork와 source/config/권한을 확인한 descriptor만 실제 native 호출에 전달합니다.
-Lower-model lane은 하나씩 실행합니다. 품질/지원 불일치는 pending writer를 회수한 뒤 Parent 판단이나 handoff로 넘기며,
+Lower-model lane도 일반 동시 한도를 따릅니다(같은 role의 다른 model lane 포함). 품질/지원 불일치는 pending writer를 회수한 뒤 Parent 판단이나 handoff로 넘기며,
 quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
 
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
@@ -237,9 +237,9 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 1. **현재 작업부터**: request → AGENTS → 이 owner와 현재 source/test. Branch/HEAD/diff·변경 owner·acceptance를 확인합니다.
    작은 deterministic 작업·단일 chain은 child0입니다. 분리 가능한 미해결 질문 하나에 primary owner를 배정하고
    [불필요한 중복과 독립 QA](../orchestration.md#primary-작업과-증거-재사용)를 구별합니다.
-2. **Task→profile**: current Pass 2 사실에서 complete Medium·non-high impact·빈 gap과 실제 oracle/검증 계획을 확인합니다.
-   Complete boundedness를 갖춘 읽기는 `standard-read`·`elevated-read`, 구현은 `standard-build`·`elevated-build`,
-   고정 입력의 low-impact 단일 추출은 `extract`입니다.
+2. **Task→profile**: current Pass 2 사실에서 complete boundedness·빈 gap과 실제 oracle/검증 계획을 확인하고, 계층·impact가
+   위 표의 한 행에 맞는지 봅니다. Medium 읽기는 `standard-read`, High·XHigh·impact high 읽기는 `elevated-read`, Medium 구현은
+   `standard-build`, High(non-deep)·low·medium impact 구현은 `elevated-build`, 고정 입력의 low-impact 단일 추출은 `extract`입니다.
    Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 [Astra 배정](#reasoning-effort-routing)입니다.
 3. **완전한 packet**: [request/context 계약](./codex-delegation.md#model-recommendation)의 `purpose=routine`, 현재
    profileBinding, scope/도구/쓰기 owner·사실/실패·acceptance·stop/return을 작성합니다. 최초 QA는 fresh source-first context입니다.

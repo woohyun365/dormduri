@@ -1,5 +1,5 @@
 name = "knu_researcher_xhigh"
-description = "XHigh·impact high 계층의 bounded 질문 하나를 xhigh effort로 현재 공식 외부 문서와 version별 참조 근거에서 조사합니다"
+description = "XHigh·impact high 읽기 또는 High 계층 candidate(`elevated-read`) 읽기의 bounded 질문 하나를 xhigh effort로 현재 공식 외부 문서와 version별 참조 근거에서 조사합니다"
 sandbox_mode = "read-only"
 model_reasoning_effort = "xhigh"
 developer_instructions = """

@@ -310,12 +310,12 @@ completed를 회수했지만 close 미노출·pending/residency 미관측이므�
 
 ### 한정 채택·세대교체·rollback
 
-[운영 채택 결정](../../development/agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과 executor의
-controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·explorer/researcher low·deep failure·max·저가 reviewer는
-미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
+2026-09의 [운영 채택 결정](../../development/agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과
+executor의 controlled low 복구만 local cohort GO로 제한했고, Researcher Sol·explorer/researcher low·deep failure·max·저가
+reviewer는 미채택이었습니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
 2026-10-05 Sol model 교체(`gpt-6.1-sol`) 뒤 bounded-build·bounded-read cohort는 품질 근거·독립 QA 전까지 Q입니다.
-2026-10-06 effort 구조 개편으로 이 둘은 `standard-build`·`standard-read`(high 역할)가 되었고, 새 `elevated-*`와 함께
-Owner 채택으로 routine입니다(품질 canary 없음).
+2026-10-06 effort 구조 개편으로 이 둘은 `standard-build`·`standard-read`(high 역할, 읽기는 researcher 포함)가 되었고, 새
+`elevated-*`와 함께 Owner 채택으로 routine입니다(품질 canary 없음).
 같은 개편에서 executor의 controlled low 복구를 포함한 model recovery를 중단했습니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는

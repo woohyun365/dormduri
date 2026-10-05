@@ -1,5 +1,5 @@
 name = "knu_executor_xhigh"
-description = "impact high 계층 또는 High 계층 pilot의 bounded repository 변경 하나를 xhigh effort로 명시된 write ownership 안에서 구현하고 가장 가까운 동작을 검증합니다"
+description = "impact high 구현 또는 High 계층 candidate(`elevated-build`) 구현의 bounded repository 변경 하나를 xhigh effort로 명시된 write ownership 안에서 구현하고 가장 가까운 동작을 검증합니다"
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "xhigh"
 developer_instructions = """

@@ -1,5 +1,5 @@
 name = "knu_explorer_medium"
-description = "Pass 2 Medium·Low 계층의 bounded 질문 하나를 medium effort로 repository 내부 파일·symbol·owner·호출자·근거에서 조사합니다"
+description = "Pass 2 Medium 계층의 bounded 질문 하나를 medium effort로 repository 내부 파일·symbol·owner·호출자·근거에서 조사합니다"
 sandbox_mode = "read-only"
 model_reasoning_effort = "medium"
 developer_instructions = """

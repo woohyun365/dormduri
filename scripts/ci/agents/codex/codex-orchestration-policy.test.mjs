@@ -1187,8 +1187,8 @@ test('model candidates fail closed without exact live admission and compatible r
   }
 });
 
-test('same-role lanes on different models dispatch together under the ordinary concurrency limit (R11)', () => {
-  // T1 live R11: two concurrent knu_explorer children ran on gpt-6.1-sol and gpt-6-astra as requested.
+test('same-role lanes on different models dispatch together under the ordinary concurrency limit', () => {
+  // Native observation (DA-018): two concurrent knu_explorer children ran on gpt-6.1-sol and gpt-6-astra as requested.
   const ordinaryLane = (contextPack) => ({
     ...repositoryLane(contextPack),
     id: 'legal-repository-owners',
@@ -2447,6 +2447,70 @@ test('a failed candidate gets no Astra alternate while model recovery is suspend
       attempts: [failedAttempt('official-api', 'official-source-unavailable')],
     }).action,
     'alternate-once',
+  );
+});
+
+test('a route without an admitted candidate names an Astra assignment profile and spawns Astra', () => {
+  const ordinary = createDispatchRecommendation(ordinaryScopedDispatchInput());
+  assert.equal(ordinary.dispatches[0].spawnArguments.model, 'gpt-6-astra');
+  for (const profileId of ['extract', 'elevated-read']) {
+    const input = structuredClone(ordinaryScopedDispatchInput());
+    input.delegation.recommendedChildren[0].routeRecommendation.profileId = profileId;
+    assert.throws(() => createDispatchRecommendation(input), {
+      name: 'TypeError',
+      message: 'A route without an admitted candidate must name an Astra assignment profile.',
+    });
+  }
+});
+
+test('leader synthesis rejects a model-attributed alternate while model recovery is suspended', () => {
+  const laneId = 'legal-official-evidence';
+  const decision = (attempts) => ({
+    schemaVersion: 1,
+    maxAlternateAttempts: 1,
+    laneId,
+    status: 'complete',
+    action: 'none',
+    remainingAlternateAttempts: 0,
+    blocker: null,
+    disposition: null,
+    attempts,
+  });
+  const solFailure = {
+    approachId: 'sol-primary',
+    outcome: 'failure',
+    failureCategory: 'verification-failed',
+    evidence: 'The Sol attempt failed its oracle.',
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+  };
+  const astraAlternate = {
+    approachId: 'astra-rescue',
+    alternateOf: 'sol-primary',
+    outcome: 'success',
+    evidence: 'The Astra alternate passed.',
+    model: 'gpt-6-astra',
+    effort: 'high',
+  };
+  assert.throws(
+    () =>
+      prepareLeaderSynthesis({
+        delegation: legalDelegation(),
+        childResults: successfulLegalResults(),
+        recoveryDecisions: [decision([solFailure, astraAlternate])],
+      }),
+    { name: 'TypeError', message: MODEL_RECOVERY_SUSPENDED_REASON },
+  );
+  // An ordinary distinct-approach alternate without model attribution is unchanged.
+  const { model: _m1, effort: _e1, ...ordinaryFailure } = solFailure;
+  const { model: _m2, effort: _e2, ...ordinaryAlternate } = astraAlternate;
+  assert.equal(
+    prepareLeaderSynthesis({
+      delegation: legalDelegation(),
+      childResults: successfulLegalResults(),
+      recoveryDecisions: [decision([ordinaryFailure, ordinaryAlternate])],
+    }).readyForLeaderDecision,
+    true,
   );
 });
 
