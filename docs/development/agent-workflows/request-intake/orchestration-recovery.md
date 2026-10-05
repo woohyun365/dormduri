@@ -49,7 +49,8 @@ roles[]:
 - OMX evidence는 current-session `host-tool-schema + omx-runtime-overlay`를 모두 요구합니다.
 - local CLI/config inspection과 과거 session 결과는 supporting evidence일 뿐 active dispatch surface의 증명이 아닙니다.
 - missing/stale/unknown/caller-invented provenance, generic `explore`로 project `knu_explorer`를 대신하는 mapping, Low,
-  미채택/미허용 Sol·Luna 또는 허용 목록 밖 model, unavailable role, fixed-effort mismatch는 모두 sequential fallback입니다.
+  미채택/미허용 Sol·Luna 또는 host가 보고한 허용 목록 밖 model, unavailable role, fixed-effort mismatch는 모두 sequential
+  fallback입니다.
 - Policy는 이 descriptor를 검증하지만 host event를 인증할 수 없으므로 결과를
   `leader-reported-not-host-authenticated`로 표시합니다.
 - Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
@@ -65,8 +66,8 @@ model/effort pin 없이 지원되는 명시적 task 모델과 기존 effort 판�
 ## Model admission
 
 Candidate descriptor는 추가적인 `modelUseByLane[laneId]`를 요구합니다. 모든 값은 **Parent가 보고한 evidence**이며
-boolean/JSON packet만으로 사용자 허용·host 권한·품질 GO가 생기지 않습니다. Unknown field/누락 schema는 TypeError,
-없거나 불일치한 evidence는 sequential fallback입니다.
+boolean/JSON packet만으로 사용자 허용·host 권한·품질 GO가 생기지 않습니다. Unknown field/누락 schema와 허용 목록 밖
+admission·attempt `model`은 TypeError, 없거나 불일치한 evidence는 sequential fallback입니다.
 
 ```text
 observedAt: exact ISO timestamp
