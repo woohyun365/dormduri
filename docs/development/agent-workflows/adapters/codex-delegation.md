@@ -189,7 +189,7 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 Model recovery는 [중단](./codex.md#model-recovery-suspension)되어 있어 아래 helper는 현재 호출 경로가 없습니다. 중단 해제나
 대체 정책이 정해질 때까지 계약 기록으로만 남습니다.
 
-`createRecoveryChildContract({ primaryContract, sourceSnapshot })`는 기존 primary의 task/lane/role·semantic effort와
+`createRecoveryChildContract({ primaryContract, sourceSnapshot })`는 기존 primary의 task/lane/role·effort·계층과
 owner/tool/verification 경계를 복제하고 candidate recommendation만 제거합니다. 현재 rescue snapshot으로 scoped explicit
 context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들지 않습니다. 이 helper 자체는 실패·권한을 승인하지 않습니다.
 

@@ -33,7 +33,7 @@ effort를 계산하거나 변경했다고 보고하지 않습니다.
 
 1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
 2. Direct/deterministic work 또는 Medium child보다 직접 수행이 저렴한 work는 child-free로 유지합니다.
-3. Pass 2는 current ContextPack의 source/fact/predicate evidence를 정규화하고 child role과 effort를 판정합니다.
+3. Pass 2는 current ContextPack의 source/fact/predicate evidence를 정규화하고 child 계층과 역할 변형을 판정합니다(effort는 그 역할의 pin).
 4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
    structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
 
@@ -253,7 +253,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따릅니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `evaluateModelExecution()`과
-   [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer effort는 근거로 선택합니다.
+   [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
    `prepareLeaderSynthesis()`로 failed/blocked/conflicting evidence를 보존하고 근거 없는 completed/self-PASS를 수용하지 않습니다.
 7. **실패·기록·cleanup**: [model recovery는 중단](#model-recovery-suspension)되어 있어 실패한 candidate는 writer 회수 뒤
    Parent 판단이나 handoff로 돌아갑니다. Usage가 없으면 null로 남기고
