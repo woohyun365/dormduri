@@ -22,7 +22,7 @@ import {
 
 const fixtureUrl = new URL('./fixtures/change-impact-cases.json', import.meta.url);
 const cases = JSON.parse(await readFile(fixtureUrl, 'utf8'));
-const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const surfaceDocPath = 'docs/development/ci/ci-surface-ownership.md';
 const LANES = ['web', 'api', 'shared', 'storybook', 'infra', 'repoPolicy', 'agentWorkflow'];
 const STATUSES = ['분류됨', '의도한 fan-out'];
@@ -487,7 +487,7 @@ test('every formatting configuration file in the surface document selects the fu
 test('other changes select only the changed files for the formatting check', () => {
   for (const paths of [
     ['docs/README.md'],
-    ['apps/web/src/app/[id]/page.tsx', 'scripts/ci/classify-changes.mjs'],
+    ['apps/web/src/app/[id]/page.tsx', 'scripts/ci/lanes/classify-changes.mjs'],
     ['.github/workflows/ci.yml'],
     ['docs/prettierrc-notes.md', 'apps/web/package.json.md', 'scripts/ci/editorconfig.mjs'],
   ]) {

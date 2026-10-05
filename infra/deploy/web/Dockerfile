@@ -53,12 +53,12 @@ COPY apps/web apps/web
 COPY packages/shared packages/shared
 COPY packages/tsconfig packages/tsconfig
 COPY packages/eslint-config packages/eslint-config
-COPY scripts/ci/prepare-next-standalone.mjs scripts/ci/prepare-next-standalone.mjs
+COPY scripts/ci/product/prepare-next-standalone.mjs scripts/ci/product/prepare-next-standalone.mjs
 RUN pnpm --dir apps/web exec tsc -p ../../packages/shared/tsconfig.json
 RUN --mount=type=secret,id=sentry_auth_token,required=false \
   SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
   pnpm --dir apps/web run ci:build
-RUN node scripts/ci/prepare-next-standalone.mjs --web-root=apps/web
+RUN node scripts/ci/product/prepare-next-standalone.mjs --web-root=apps/web
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production

@@ -132,5 +132,5 @@ CODEOWNERS와 non-author approval을 검토합니다.
 | scope drift는 어떻게 다루는가                       | [`branch-and-pr-strategy.md`](./branch-and-pr-strategy.md)의 four dispositions                       |
 | blocker와 follow-up은 어디에 남기는가               | [`issues-and-work-tracking.md`](./issues-and-work-tracking.md)                                       |
 | agent 병렬 작업이 branch를 오염시키지 않는가        | branch strategy와 [`orchestration.md`](../agent-workflows/orchestration.md)의 single-writer boundary |
-| 어떤 CI를 실행할지 어떻게 정하는가                  | `scripts/ci/classify-changes.mjs`와 pre-PR CI lane preflight                                         |
+| 어떤 CI를 실행할지 어떻게 정하는가                  | `scripts/ci/lanes/classify-changes.mjs`와 pre-PR CI lane preflight                                   |
 | guardrail이 size gate로 변하지 않는 근거는 무엇인가 | `scripts/git/branch-readiness.test.mjs`의 semantic·mechanical negative fixtures                      |

@@ -37,7 +37,7 @@ Job 전체나 unit/build step에는 적용하지 않습니다. 이 값은 lint �
 ## 검증
 
 ```bash
-node --test scripts/ci/workflow-command-boundary.test.mjs
+node --test scripts/ci/contracts/workflow-command-boundary.test.mjs
 pnpm web:lint:prepared
 pnpm web:typecheck:prepared
 ```

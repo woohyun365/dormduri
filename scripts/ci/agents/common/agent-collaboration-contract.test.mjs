@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 
 import { buildTaskEnvelope } from '../../../agents/common/intake-policy.mjs';
-import { discoverScriptTests } from '../../repo-policy-test-files.mjs';
+import { discoverScriptTests } from '../../lanes/repo-policy-test-files.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');

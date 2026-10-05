@@ -43,7 +43,7 @@ jobs:
 
       - name: Classify changes
         id: changes
-        run: node scripts/ci/classify-changes.mjs
+        run: node scripts/ci/lanes/classify-changes.mjs
 
       - name: Summarize classification
         env:
@@ -148,13 +148,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify repository policy scripts
-        run: node scripts/ci/run-repo-policy.mjs --suite repo-policy
+        run: node scripts/ci/lanes/run-repo-policy.mjs --suite repo-policy
 
       - name: Verify repository formatting
         env:
           FORMATTING_SCOPE: ${{ needs.classify.outputs.formatting_scope }}
           FORMATTING_PATHS: ${{ needs.classify.outputs.formatting_paths }}
-        run: node scripts/ci/check-formatting.mjs
+        run: node scripts/ci/lanes/check-formatting.mjs
 
   agent_workflow:
     name: Agent workflow gate
@@ -175,7 +175,7 @@ jobs:
           node-version: '24'
 
       - name: Verify agent workflow scripts
-        run: node scripts/ci/run-repo-policy.mjs --suite agent-workflow
+        run: node scripts/ci/lanes/run-repo-policy.mjs --suite agent-workflow
 
   ci-summary:
     name: CI summary

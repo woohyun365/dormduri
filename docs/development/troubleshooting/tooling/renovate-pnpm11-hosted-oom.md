@@ -166,7 +166,7 @@ pnpm version 재검토는 warm cache 체감이 아니라 같은 workspace 입력
 ## 검증
 
 ```bash
-node --test scripts/ci/dependency-automation-policy.test.mjs
+node --test scripts/ci/contracts/dependency-automation-policy.test.mjs
 pnpm dependency:renovate:dry-run
 pnpm test:repo-policy
 ```

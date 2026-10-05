@@ -22,7 +22,7 @@ const ROOT_TOOLCHAIN_PATHS = new Set([
 ]);
 
 // Paths that change every lane's inputs. Any other path that selects every lane is a classification gap
-// (scripts/ci/classify-changes.test.mjs checks the tracked tree against this list).
+// (scripts/ci/lanes/classify-changes.test.mjs checks the tracked tree against this list).
 const INTENDED_FAN_OUT_PREFIXES = ['packages/eslint-config/', 'packages/tsconfig/'];
 const INTENDED_FAN_OUT_PATHS = new Set([...ROOT_TOOLCHAIN_PATHS, '.github/workflows/ci.yml']);
 
@@ -41,9 +41,9 @@ const STORYBOOK_PATTERN =
 // workflows, package scripts, package files and imports.
 const LANE_SCRIPT_PATHS = new Map([
   ['scripts/artifacts/paths.mjs', ['api']],
-  ['scripts/ci/prepare-next-standalone.mjs', ['web']],
-  ['scripts/ci/repo-policy-test-files.mjs', ['infra']],
-  ['scripts/ci/run-timed-command.mjs', ['web', 'api', 'storybook']],
+  ['scripts/ci/product/prepare-next-standalone.mjs', ['web']],
+  ['scripts/ci/lanes/repo-policy-test-files.mjs', ['infra']],
+  ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
   ['scripts/infra/compose/profile.mjs', ['api']],
   ['scripts/observability/production/environment.mjs', ['api']],
   ['scripts/observability/rehearsal/web-bff.mjs', ['api']],

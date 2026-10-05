@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-const scriptPath = join(process.cwd(), 'scripts/ci/run-timed-command.mjs');
+const scriptPath = join(process.cwd(), 'scripts/ci/lanes/run-timed-command.mjs');
 
 function runTimedCommand(summaryPath, stage, commandSource) {
   return spawnSync(

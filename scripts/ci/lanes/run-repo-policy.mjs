@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { selectTestFiles } from './repo-policy-test-files.mjs';
 
-const repoRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 let testFiles;
 try {
   testFiles = selectTestFiles(repoRoot, process.argv.slice(2));

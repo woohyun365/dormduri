@@ -6,7 +6,7 @@ import test from 'node:test';
 import { buildTaskEnvelope, validateTaskEnvelope } from '../../../agents/common/intake-policy.mjs';
 import { discoverContextPack } from '../../../agents/common/domain-guide-registry.mjs';
 import { validateFixtureGraph } from '../../../agents/fixtures/workflow-contract/graph-oracle.mjs';
-import { discoverScriptTests } from '../../repo-policy-test-files.mjs';
+import { discoverScriptTests } from '../../lanes/repo-policy-test-files.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const fixtureRoot = 'scripts/agents/fixtures/workflow-contract';

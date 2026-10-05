@@ -21,7 +21,7 @@ inventory를 run ID 단위로 재현 가능하게 기록합니다. 제품 정책
 
 2026-08-26 기준 개선 전 비교 표본은 `dev` commit `db9638295f8191eced847950fb704c19ae780ba8`의 dependency/toolchain
 상태를 사용했습니다. 정확한 input SHA-256, acceptance run, queue, security, cache snapshot은
-`scripts/ci/fixtures/ci-performance-baseline.json`의 immutable `dependencyBaseline`이 소유합니다.
+`scripts/ci/performance/fixtures/ci-performance-baseline.json`의 immutable `dependencyBaseline`이 소유합니다.
 
 Historical `fileSha256`와 `workflowBaselineSha256`는 current tree를 따라 갱신하지 않습니다. 현재 표본의 compatibility는
 별도 `ci-performance-active-epoch.json`과 각 run head에서 읽은 fingerprint가 소유합니다.
@@ -48,7 +48,7 @@ remain separate release/owner evidence.
 
 ## Active post-native measurement epoch
 
-Current collection uses `scripts/ci/fixtures/ci-performance-active-epoch.json`. The collector reads `pnpm-lock.yaml`,
+Current collection uses `scripts/ci/performance/fixtures/ci-performance-active-epoch.json`. The collector reads `pnpm-lock.yaml`,
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
@@ -66,30 +66,30 @@ contents. A later local checkout can no longer relabel an older run with a newer
 표본은 실제 run-head SHA로 수집하며, 이 기준 갱신 자체를 성능 개선이나 production release evidence로 해석하지 않습니다.
 
 The previous cohorts are closed and preserved in
-`scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
-`scripts/ci/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`,
-`scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json`,
-`scripts/ci/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json`,
-`scripts/ci/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json`,
-`scripts/ci/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json`,
-`scripts/ci/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`,
-`scripts/ci/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json`,
-`scripts/ci/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json`, and
-`scripts/ci/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json`. Their compatible samples remain valid
+`scripts/ci/performance/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
+`scripts/ci/performance/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json`,
+`scripts/ci/performance/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json`. Their compatible samples remain valid
 only inside each frozen dependency fingerprint; they are not relabeled as samples of the current API cookie-removal epoch.
 
 ### Repository-policy setup reliability incident

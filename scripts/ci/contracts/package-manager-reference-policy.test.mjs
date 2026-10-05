@@ -31,7 +31,10 @@ test('active Corepack and CI references match the exact root pnpm version', () =
   assert.equal(renovateFixture.packageManager, manifest.packageManager);
 
   const activeEpoch = JSON.parse(
-    readFileSync(resolve('scripts/ci/fixtures/ci-performance-active-epoch.json'), 'utf8'),
+    readFileSync(
+      resolve('scripts/ci/performance/fixtures/ci-performance-active-epoch.json'),
+      'utf8',
+    ),
   );
   assert.equal(activeEpoch.epoch.versions.pnpm, expectedVersion);
 });

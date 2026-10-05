@@ -173,8 +173,8 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
   assertIncludesAll(orchestrator, [
     'pull_request:',
     'push:',
-    'node scripts/ci/classify-changes.mjs',
-    'node scripts/ci/run-repo-policy.mjs',
+    'node scripts/ci/lanes/classify-changes.mjs',
+    'node scripts/ci/lanes/run-repo-policy.mjs',
     'uses: ./.github/workflows/api-ci.yml',
     'uses: ./.github/workflows/web-ci.yml',
     'uses: ./.github/workflows/infra-ci.yml',
@@ -189,7 +189,7 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'pnpm install --frozen-lockfile',
     'formatting_scope: ${{ steps.changes.outputs.formatting_scope }}',
     'formatting_paths: ${{ steps.changes.outputs.formatting_paths_json }}',
-    'node scripts/ci/check-formatting.mjs',
+    'node scripts/ci/lanes/check-formatting.mjs',
   ]);
   assertIncludesAll(apiWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(webWorkflow, ['workflow_call:', 'cache: pnpm']);
@@ -210,10 +210,10 @@ test('the repository policy gate gives pnpm setup bounded headroom before policy
   assert.equal(occurrences(repositoryPolicyJob, 'timeout-minutes:'), 2);
   assertIncludesAll(repositoryPolicyJob, [
     'pnpm install --frozen-lockfile',
-    'node scripts/ci/run-repo-policy.mjs --suite repo-policy',
+    'node scripts/ci/lanes/run-repo-policy.mjs --suite repo-policy',
     'FORMATTING_SCOPE: ${{ needs.classify.outputs.formatting_scope }}',
     'FORMATTING_PATHS: ${{ needs.classify.outputs.formatting_paths }}',
-    'node scripts/ci/check-formatting.mjs',
+    'node scripts/ci/lanes/check-formatting.mjs',
   ]);
 });
 
@@ -229,7 +229,7 @@ test('the agent workflow gate runs the agent suite without installing packages',
     'needs: classify',
     "if: ${{ needs.classify.outputs.agent_workflow == 'true' }}",
     "node-version: '24'",
-    'node scripts/ci/run-repo-policy.mjs --suite agent-workflow',
+    'node scripts/ci/lanes/run-repo-policy.mjs --suite agent-workflow',
   ]);
   for (const installStep of ['pnpm install', 'pnpm/action-setup', 'cache: pnpm'])
     assert.ok(!agentJob.includes(installStep), `agent workflow gate must not use ${installStep}`);

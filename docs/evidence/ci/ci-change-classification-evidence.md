@@ -145,7 +145,7 @@ Repository policy gate의 step 시간(초). Job 전체는 job 시작·종료 기
 Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시간은 install(31–33s), policy script test(97–106s),
 `prettier . -c`(33–34s)가 대부분입니다(§3). Policy script test는 test 파일을 한 번에 하나씩 실행합니다.
 
-- `scripts/ci/run-repo-policy.mjs`는 `node --test`에 `--test-concurrency`를 넘기지 않습니다.
+- `scripts/ci/lanes/run-repo-policy.mjs`는 `node --test`에 `--test-concurrency`를 넘기지 않습니다.
 - [Node.js CLI 문서](https://nodejs.org/docs/latest-v24.x/api/cli.html#--test-concurrency): "concurrency defaults to
   `os.availableParallelism() - 1`."
 - [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners): private 저장소의
@@ -322,16 +322,16 @@ import하는 저장소 script가 그 lane을 켜지 않는 경로를 찾았습�
 package script, Web image build, lane package 파일의 import와 경로 참조에서 출발해 import closure를 따라가는 test를 두었습니다.
 규칙은 [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유합니다.
 
-| 발견 회차 | Script                                                                                   | 실행·참조 경로                                         | 구분                                        |
-| --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------- |
-| 1차       | `scripts/artifacts/paths.mjs`                                                            | `pnpm infra:check` import                              | #537이 만든 공백                            |
-| 1차       | `scripts/ci/run-timed-command.mjs`                                                       | Web·API step wrapper                                   | 기존 공백                                   |
-| 1차       | `scripts/ci/repo-policy-test-files.mjs`                                                  | `pnpm infra:check` import                              | 기존 공백                                   |
-| 2차       | `scripts/observability/sentry/check-build.mjs`, `scripts/ci/prepare-next-standalone.mjs` | Web job의 pnpm script, Playwright smoke·Web Dockerfile | 기존 공백                                   |
-| 2차       | `scripts/infra/compose/profile.mjs`, `scripts/observability/production/environment.mjs`  | API job의 `pnpm infra:compose`와 그 import             | 기존 공백                                   |
-| 3차       | `scripts/artifacts/paths.mjs`                                                            | API stress harness import                              | #537이 만든 공백(전에는 fail-open으로 실행) |
-| 3차       | `scripts/observability/rehearsal/web-bff.mjs`                                            | API operations test가 경로로 읽음                      | 기존 공백                                   |
-| 3차       | `scripts/ci/run-timed-command.mjs`                                                       | Storybook step wrapper                                 | 기존 공백                                   |
+| 발견 회차 | Script                                                                                           | 실행·참조 경로                                         | 구분                                        |
+| --------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------- |
+| 1차       | `scripts/artifacts/paths.mjs`                                                                    | `pnpm infra:check` import                              | #537이 만든 공백                            |
+| 1차       | `scripts/ci/lanes/run-timed-command.mjs`                                                         | Web·API step wrapper                                   | 기존 공백                                   |
+| 1차       | `scripts/ci/lanes/repo-policy-test-files.mjs`                                                    | `pnpm infra:check` import                              | 기존 공백                                   |
+| 2차       | `scripts/observability/sentry/check-build.mjs`, `scripts/ci/product/prepare-next-standalone.mjs` | Web job의 pnpm script, Playwright smoke·Web Dockerfile | 기존 공백                                   |
+| 2차       | `scripts/infra/compose/profile.mjs`, `scripts/observability/production/environment.mjs`          | API job의 `pnpm infra:compose`와 그 import             | 기존 공백                                   |
+| 3차       | `scripts/artifacts/paths.mjs`                                                                    | API stress harness import                              | #537이 만든 공백(전에는 fail-open으로 실행) |
+| 3차       | `scripts/observability/rehearsal/web-bff.mjs`                                                    | API operations test가 경로로 읽음                      | 기존 공백                                   |
+| 3차       | `scripts/ci/lanes/run-timed-command.mjs`                                                         | Storybook step wrapper                                 | 기존 공백                                   |
 
 - 회차마다 test를 먼저 실패시킨 뒤(1차 4건, 2차 4건, 3차 3건) 규칙을 추가했습니다.
 - 3차 회차의 mutation 9건은 모두 test 실패로 잡혔습니다.
@@ -345,6 +345,17 @@ Agent test 43개와 fixture 12개를 `scripts/ci/agents/{common,claude,codex}/`�
 - Repository policy test 1,238/1,238이 이동 전후 같고, test 이름 목록은 경로만 다릅니다.
 - Test discovery 82개의 basename이 같고, tracked 참조에 옛 경로가 0건입니다.
 - 이 배치는 이후 agent test를 디렉터리 단위로 분류하는 기준입니다.
+
+### 비 agent CI script 배치(#567) 동등성
+
+Agent test 밖의 `scripts/ci` 파일 63개(script 32, fixture 31)를 `scripts/ci/{lanes,performance,contracts,product}/`로 옮긴
+변경입니다. #543처럼 시간 표본 대신 이동 전후가 같다는 것을 확인했습니다.
+
+- Repository policy test 1,361/1,361이 이동 전후 같고, test 이름 목록도 같습니다.
+- Test discovery 91개(repo-policy suite 42, agent workflow suite 49)의 basename이 같습니다.
+- Tracked 경로 2,975개를 하나씩 분류한 결과(lane, formatting 범위, 의도한 fan-out 여부)가 이동 전후 같습니다.
+- 옛 경로는 과거 commit의 tree에서 실행하거나 그 tree의 줄을 인용하는 6줄에만 남습니다(§2 분류기 replay 등). 옛 배치의
+  glob `scripts/ci/*.test.mjs`도 같은 이유로 [Monorepo CI baseline](./monorepo-ci-baseline.md)의 초기 baseline 실행 서술 1줄에 남습니다.
 
 ### Formatting 검사 범위(#545) step 시간
 
