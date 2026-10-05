@@ -15,7 +15,7 @@ This is a transient failure of the check, not a judgment about the action
 
 KNU native task의 Agent 호출이 이렇게 거부되면 PreToolUse hook이 이미 attempt를 기록했으므로 같은 task를 다시 부르면
 `task already attempted`가 납니다. [registry 4단계](../../agent-workflows/adapters/claude-native-registry.md)대로 새로 `prepare`한
-task로 호출합니다.
+task로 호출합니다. 1회차 리뷰 그룹 구성원은 `/knu-review` skill의 재등록 예외 범위를 따릅니다.
 
 판정 없는 응답이 연속 10개가 되면 turn이 멈춥니다. 공식 문서가 응답 단위로 세므로 한 응답의 병렬 호출은 한 번으로 봅니다. 이 거부는 `/permissions`의 **Recently denied** 목록에 남지 않습니다.
 
