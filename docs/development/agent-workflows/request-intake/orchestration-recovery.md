@@ -56,12 +56,13 @@ roles[]:
 - Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
   permission을 다시 읽고 조금이라도 달라지면 descriptor를 폐기합니다.
 
-Project child 기본값은 `.codex/config.toml`의 Astra이며, `knu_reviewer`만 Astra를 고정합니다. 나머지 세 역할은
-model/effort pin 없이 지원되는 명시적 task 모델과 기존 effort 판정을 받습니다. Parent model 변경이나 OMX의 기본값
+Project child 기본값은 `.codex/config.toml`의 Astra이며, `knu_reviewer`만 Astra를 고정합니다. 나머지 아홉 역할(explorer·
+researcher·executor의 `_medium`·기본·`_xhigh`)은 model pin 없이 profile이 정한 명시적 task 모델을 받고, effort는 각 역할
+파일의 pin이 정합니다. Parent model 변경이나 OMX의 기본값
 업데이트를 project 역할·설정의 실제 로드 증거로 사용하지 않습니다. Runtime policy의 child 기본값은 허용 목록 owner의
 `BASELINE_CHILD_MODEL`이고, `.codex/config.toml` 기본값과 `knu_reviewer` pin은 test로 이 값에 결속됩니다. 허용 목록 밖 model
 거절은 합성 ID 하나로 검증하며, 모델 입력·허용 근거 없는 caller를 막는 negative evidence로 유지합니다.
-이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다. Semantic effort와 후보 resolved effort는 별도 대조합니다.
+이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다. Semantic 계층(`tier`)은 역할 변형을 고를 뿐이며, route effort와 후보 resolved effort는 모두 그 역할의 pin과 대조합니다.
 
 ## Model admission
 

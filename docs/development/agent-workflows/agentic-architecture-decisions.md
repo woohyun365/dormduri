@@ -325,8 +325,10 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   dispatch의 route effort = 역할 pin 검사와 profile model spawn 인자, recovery 입구 차단. Revision이 바뀌어 이전 grant·binding은
   재사용하지 않습니다.
 - **검증/한계**: 정적 회귀(역할 파일·변형 prompt 동일성, profile 표, routing 변형, admission, recovery 차단)는 native 적용
-  증거가 아닙니다. 역할 pin과 explicit model 조합의 실제 child model·effort는 live 관측으로 따로 확인합니다. 6.1 Sol의 품질,
-  provider-effective 값, tokens/weekly 절감은 미관측입니다.
+  증거가 아닙니다. Native 관측(2026-10-06, Codex CLI 0.160.0, Parent Astra high, read-only, 각 1회): 역할 pin과 다른 explicit
+  effort를 넘긴 세 child(`_medium`+Astra, 기본+6.1 Sol, `_xhigh`+Luna)의 own-turn effort는 역할 pin이고 model은 요청대로였습니다.
+  같은 `knu_explorer` 두 child를 6.1 Sol·Astra로 겹쳐 띄우면 각각 요청 model로 실행되어, candidate도 일반 동시 한도를 따르고
+  runtime roster는 role·model 행으로 받습니다. 6.1 Sol의 품질, provider-effective 값, tokens/weekly 절감은 미관측입니다.
 - **재검토**: 6.1 Sol의 반복된 oracle·QA 실패나 품질 finding, 승격 사다리 결정, 역할 pin 우선순위 등 host 지원 변화, 같은 작업 기준 품질·비용 근거가
   생길 때입니다.
 
