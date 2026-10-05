@@ -1,6 +1,6 @@
 # Bounded orchestration, recovery, and leader synthesis
 
-이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, Astra recovery, `scripts/agents/codex/` descriptor와 admission은 Codex/OMX 실행 계약입니다.
+이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, model recovery 중단, `scripts/agents/codex/` descriptor와 admission은 Codex/OMX 실행 계약입니다.
 공통 one-writer·source freshness·authority·QA는 [orchestration](../orchestration.md)과 [execution contract](../agent-execution-contract.md)가 소유합니다.
 Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 이 schema로 Claude model/runtime 지원을 가장하지 않습니다.
 
@@ -20,7 +20,7 @@ Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 �
 - native surface는 current-turn `host-tool-schema`, OMX surface는 current-session `host-tool-schema`와
   `omx-runtime-overlay`를 provenance로 보고
 - 선택된 각 project role이 fresh roster에 available 상태이며 model 해석이 기본 `gpt-6-astra` 또는 아래 exact admission 후보와 일치
-- 해석된 effort가 requested `medium | high | xhigh`와 일치하고 fixed-effort conflict가 없음
+- route effort가 그 역할 파일의 pin effort이고, 해석된 effort가 그 값(`medium | high | xhigh`)과 일치하며 fixed-effort conflict가 없음
 - higher-priority runtime permission이 dispatch를 허용
 - leader-only dispatch, decision, response, integration, verification ownership 유지
 
@@ -100,8 +100,10 @@ admission: null | {
 - `modelSelection`은 현재 runtime provenance 아래 지원 모델 roster·실제 role pin·explicit override 지원·원문 reference를
   보고합니다. `roleModel=null`은 확인된 unpinned이지 unknown이 아닙니다. Requested model이 지원되고 model 해석과
   일치해야 하며, candidate pin 또는 확인된 unpinned+explicit support가 필요합니다. Astra pin은 인자만으로 우회하지 않습니다.
-- Candidate는 `contextDelivery.compatible=true`, scoped, 실패 evidence 없음이 별도로 필요합니다. bounded-read는 repository/official
-  read-only 도구만, bounded-extract는 고정된 repository-read만, bounded-build는 단일 write owner와 workspace-edit/test-runner를 요구합니다.
+- Candidate는 `contextDelivery.compatible=true`, scoped, 실패 evidence 없음이 별도로 필요합니다. 읽기 profile(`standard-read`·
+  `elevated-read`)은 repository/official read-only 도구만, `extract`는 고정된 repository-read만, 구현 profile(`standard-build`·
+  `elevated-build`)은 단일 write owner와 workspace-edit/test-runner를 요구합니다. Route의 역할·effort·`profileId`가 그 profile의
+  역할 변형과 effort에 맞지 않으면 `model-effort-eligibility-mismatch`입니다.
   Advice는 실제 applied model을 보장하지 않습니다.
 
 이 advisory helper는 project 설정/role pin을 수정하거나 서버/CLI를 시작하지 않습니다. 설정 변경과 loaded-schema 확인은
@@ -140,14 +142,15 @@ provenance는 여전히 거절합니다. 기존 effective 필드 형식의 compa
 
 ```json
 {
-  "agent_type": "knu_explorer",
+  "agent_type": "knu_explorer_xhigh",
   "model": "gpt-6-luna",
   "reasoning_effort": "xhigh",
   "fork_turns": "none"
 }
 ```
 
-`dispatch.effort`는 semantic 판정이며 `spawnArguments.reasoning_effort`는 후보의 실제 요청 effort입니다.
+`dispatch.effort`와 `spawnArguments.reasoning_effort`는 모두 선택된 역할 파일의 pin effort이고, semantic 계층은 contract의
+`routeRecommendation.tier`에 남습니다.
 `resolvedModel/resolvedEffort`는 해석 결과, `runtimeAction=false`는 미실행을 뜻합니다. Parent가 실제 source/config/scope/
 시간·예산·권한을 재확인하고 지원되는 native tool의 `task_name/message`와 bounded contract를 구성해 호출합니다.
 순수 helper는 spawn을 수행하지 않습니다. 역할별 roster가 동일 role의 다른 모델을 표현하지 못하므로 candidate가 포함된
@@ -176,74 +179,23 @@ provider를 인증했다는 뜻은 아니므로 `providerAttested=false`입니�
 매번 사용자에게 모델명 또는 새 pilot을 요구하지 않습니다. 범위/품질/지원 변화만 재평가하며 cost telemetry를 필수 승인서로
 추가하지 않습니다.
 
-## Bound recovery selection and admission
+## Model recovery suspension
 
-일반 candidate profile과 구분되는 `kind=model-recovery` binding은 `model-profiles.mjs`가 소유합니다.
-`createRecoveryBinding`은 finite policy를 계산하고 `assertCurrentRecoveryBinding`은 current revision과 canonical digest를
-검증합니다. Caller의 임의 effort/model override가 아닙니다. Registry revision 변경은 primary/recovery의 이전 승인 모두를
-무효화하며 raw hash 재계산은 재승인이 아닙니다. Parent/default/운영 reviewer·TOML effort pin 규칙은 변경하지 않습니다.
+Model recovery는 중단되어 있습니다. 실패한 candidate는 Astra alternate를 받지 않고, pending writer를 회수한 뒤 Parent 판단이나
+handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 pin effort와 다른 Low·semantic effort를 기록했기 때문입니다.
+역할이 effort를 고정한 뒤에는 그 기록을 재현할 수 없습니다. 같은 역할로 한 단계씩 올리는 승격 사다리가 이 정책을 대체하기
+전까지 중단합니다.
 
-선택 규칙:
-
-- 동일 역할·owner/tool 범위, identity 확인, writer cleared, 충분한 현재 context와 독립 oracle를 먼저 요구합니다.
-- controlled-injection/code-defect/context-missing/tool-fixture-environment 원인이 evidence로 좁혀졌고 bounded,
-  semantic Medium, non-high impact이면 `astra-bounded-recovery` / Astra **low**입니다.
-- unknown/reasoning-miss/task-model-mismatch, bounded 미충족 또는 semantic High/XHigh·high impact이면
-  `astra-standard-recovery` / 기존 semantic medium/high/xhigh입니다. Context/oracle 부족은 먼저 보완하거나 handoff합니다.
-- QA/reviewer, 미실행·identity mismatch, 이미 성공한 primary, quota/capacity/권한/범위 실패는 Low로 우회하지 않습니다.
-  단순 deterministic repair는 도구 우선이며 본 경로는 새 native 권한을 만들지 않습니다.
-
-Parent의 호출 순서와 최소 입력:
-
-```text
-rescueContract = createRecoveryChildContract({ primaryContract, sourceSnapshot })
-primaryAttempt:
-  approachId / outcome=failure / failureCategory / evidence / model / effort / executed=true
-  identity: taskId / childId / sourceDigest / scopeDigest
-modelRecovery:
-  profileBinding / pendingWriter=cleared
-  request:
-    primaryContract / rescueContract / sourceDigest / configDigest / attemptId
-    assessment: cause / bounded / contextComplete / oracleAvailable / identityVerified / reasonRefs
-recoveryDecision = evaluateRecovery({ laneId, attempts: [primaryAttempt], modelRecovery })
-```
-
-`request.sourceDigest/configDigest`는 **rescue의 현재** 값입니다. 원래 primary identity·source·scope·profile과 원래
-boundary/allowed ownership digest, rescue task/attempt/source/config/scope/role·semantic risk, 선택 assessment/reasonRefs가
-하나의 recoveryBinding에 연결됩니다. Source가 바뀌어도 원래 write/read/tool ownership은 같아야 합니다.
-Binding은 보고된 근거의 일관성 검사이며 provider 또는 권한 인증이 아닙니다.
-
-`createDispatchRecommendation`에는 primary delegation의 해당 contract를 rescueContract로 바꾼 단일-lane delegation과
-`recoveryDecision`을 넘깁니다. `modelUseByLane`은 기존 observedAt/configDigest/scopeDigest/scopeStatus/checks/remainingBudget를
-유지하되 admission만 다음 discriminated 형식으로 새로 받습니다. Primary pilot/adoption grant를 재활용하지 않습니다.
-
-```text
-admission:
-  kind: recovery
-  reference / recoveryBinding / notBefore / expiresAt
-  budget: maxChildren=1 / maxMinutes
-  cleanupReference
-role.configurationResolution:
-  kind: recovery
-  recoveryBinding / model=gpt-6-astra / effort=선택된 effort / configDigest / reference
-```
-
-Current runtime은 기존 freshness/provenance/dispatch permission을 충족하고 role availability, Astra 지원, model pin 정합성,
-explicit model/effort 지원을 보여야 합니다. Effective model/effort는 최초 dispatch 전 null입니다. 낮은 effort 지원 근거를
-configuration resolution에 반영하며 unsupported/fixed pin이면 호출하지 않습니다. Low는 이 exact recovery resolution에서만
-허용되고 ordinary route/delivery/admission enum은 여전히 medium/high/xhigh입니다. 결과 descriptor는
-`{agent_type, model: gpt-6-astra, reasoning_effort: 선택된 effort, fork_turns: none}`입니다. 순수 helper는 호출하지 않습니다.
-
-`evaluateModelExecution`의 recovery 보고는 primary profileBinding 대신 exact **recoveryBinding**을 받고 나머지
-childId/taskId/scopeDigest/provenance/accepted/executed/resultReference/independentCheck/hostMetadata/usageReference는 같습니다.
-실제 returned child와 일치해야 하며 primary child 재사용은 거절합니다. Parent는 이 post 결과와 oracle/QA로 alternate의
-outcome을 판정합니다. 실패를 성공으로 꾸미거나 host 미관측 값을 채우지 않습니다.
-
-완료 시 같은 `modelRecovery`와 두 attempts로 `evaluateRecovery`를 호출합니다. Alternate에는 model/effort/executed/identity와
-recoveryBinding을 보존합니다. 두 번째 attempt만 첫 attempt의 approachId를 alternateOf로 지정합니다.
-`prepareLeaderSynthesis`는 primary 실패와 rescue 선택/model/effort/identity를 버리지 않고 보존하며 결과와 decision의
-정합성을 재검사합니다. Low→High 세 번째 호출이나 성공 뒤 alternate는 불가합니다. 기존 generic no-model recovery는 유지하지만
-그 경로로 bound low invocation을 표현하거나 허용할 수 없습니다. 최종 검증·dispatch·integration은 Parent 소유입니다.
+- 입구는 `model-profiles.mjs`의 `createRecoveryBinding()` 하나입니다. 중단 상태(`MODEL_RECOVERY_SUSPENDED`)에서는
+  `Model recovery is suspended; a failed candidate returns to the Parent or a handoff.`로 거절합니다.
+  `assertCurrentRecoveryBinding()`과 run evidence의 alternate 검증도 이 입구를 거치므로 같은 사유로 거절됩니다.
+- `evaluateRecovery()`의 model 경로는 재시도 가능한 primary 실패에 `alternate-once` 대신 `terminal-handoff`,
+  `disposition=blocker-handoff`, `nextModel=null`을 반환합니다. Blocker는 writer가 회수됐으면 `model-recovery-suspended`,
+  pending/unknown이면 `model-pending-writer-not-cleared`입니다. 이미 기록된 Astra alternate도 같은 중단 사유로 거절하며,
+  attempt model 순서와 non-retryable 검사는 그 앞에서 그대로 적용됩니다.
+- Recovery decision을 받은 dispatch는 binding을 검증하지 못해 `model-recovery-incompatible-or-unadmitted` gap을 남기고
+  descriptor를 만들지 않습니다.
+- Model 필드가 없는 일반 lane의 distinct-approach alternate 한 번은 [Recovery ceiling](#recovery-ceiling) 그대로입니다.
 
 ## Bounded model-run evidence
 
@@ -252,13 +204,14 @@ recoveryBinding을 보존합니다. 두 번째 attempt만 첫 attempt의 approac
 `scripts/agents/codex/model-run-evidence.mjs`의 `createModelRunEvidence`/`validateModelRunEvidence`는 작은 순수 계약입니다.
 `evaluateModelExecution`/`evaluateRecovery` 결과와 실제 returned identity를 Parent가 연결하며 logging 자체는
 native 실행·모델 인증·adoption·추가 호출 권한이 아닙니다. Fresh-session smoke는 실제 constructor를 소비하지만
-`fixtureOnly=true`, `mutatesWorkspace=false`인 합성 controlled failure→bound Astra low once→재검증 예시입니다.
+`fixtureOnly=true`, `mutatesWorkspace=false`인 합성 controlled failure→recovery 중단 handoff 예시입니다.
 
 - Envelope: schemaVersion/runId/taskId/laneId, current profileBinding, source/config/scope digest, selectionRefs,
-  writerClearance, 최대 두 attempts와 finalDisposition. Alternate가 있으면 recoveryBinding도 필수입니다. 첫 attempt identity/digest는 envelope와 일치해야 합니다.
+  writerClearance, attempts와 finalDisposition. Model recovery 중단 중에는 attempt가 하나이고, alternate나 recoveryBinding이 있는
+  기록은 중단 사유로 거절됩니다. 첫 attempt identity/digest는 envelope와 일치해야 합니다.
 - Attempt: attemptId/alternateOf, task/lane/source/config/scope, requested/resolved model-effort, hostObserved 또는 null,
   stage/executed/childId, case, disposition/failureCategory, checks, factRefs/hypothesis/remediation, metrics/usage.
-  Rescue의 source/config/scope·model/effort·attempt identity는 recoveryBinding과 일치해야 하며 새 admission을 대신하지 않습니다. Generic no-model recovery는 그대로입니다.
+  Generic no-model recovery는 그대로입니다.
 - Case는 live/approved-baseline/controlled-failure로 구분합니다. 미지원·거절은 pre-dispatch,
   executed=false, childId/hostObserved=null, blocked/not-executed로 남기며 실제 모델 품질 실패로 세지 않습니다.
 - Checks는 acceptance/quality/canary/independent-qa/remediation의 commandRef/resultRef와 passed/failed/not-run입니다.
@@ -291,7 +244,7 @@ Parent의 로컬 저장 절차:
 4. 명시적 `writeModelRunEvidence({ record, repoRoot, date, environment, writeFile })`에 허용된 writer를 주거나,
    같은 검증 결과를 Parent가 저장합니다. 이 helper는 filesystem을 import하거나 directory/native 호출을 자동 생성하지 않습니다.
 5. Writer rejection은 원문 오류 없이 `observability-gap`/`write-failed`로 반환합니다. Supporting artifact 또는 짧은 sanitized
-   보고에 gap을 남기고 안전한 writer 회수·Astra 복귀는 계속합니다. Logging 실패는 recovery gate도 새 실행 권한도 아닙니다.
+   보고에 gap을 남기고 안전한 writer 회수·Parent 반환은 계속합니다. Logging 실패는 recovery gate도 새 실행 권한도 아닙니다.
    잘못된 schema/path는 쓰기 전 거절하므로 Parent가 바로잡거나 별도 gap으로 보고합니다. 누락 로그를 PASS·비용0으로 채우지 않습니다.
 
 ## Recovery ceiling
@@ -310,13 +263,13 @@ primary attempt
 - alternate attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
 - 세 번째 attempt, 같은 approach 반복, success 이후 retry는 invalid입니다.
 - `evaluateRecovery`의 선택 입력 `modelRecovery={profileBinding,pendingWriter}`는 현재 installed profile의 exact primary 모델과 각 attempt의
-  `model`을 대조하고 두 번째 attempt를 Astra로 제한합니다. `pendingWriter=cleared`일 때만 `nextModel=gpt-6-astra`인
-  `alternate-once`를 추천합니다. pending/unknown은 handoff이며 takeover를 먼저 실행하지 않습니다.
+  `model`을 대조하고 두 번째 attempt를 Astra로 제한합니다. Model recovery가 [중단](#model-recovery-suspension)되어 있어 이
+  경로는 alternate를 추천하지 않고 handoff를 반환합니다. Pending/unknown writer는 takeover를 먼저 실행하지 않습니다.
   명시적 model attempt는 이 binding 없이 처리하지 않습니다. Raw primaryModel, 허용 목록 밖 model, 만료 profile 입력은 거부하며,
   model 필드가 없는 일반 recovery 계약은 유지합니다.
 - `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다.
-- 모델 후보 실패도 같은 ceiling을 소비합니다. 같은 write owner·snapshot·남은 권한을 재확인한 Astra rescue를 최대 한 번
-  검토할 수 있으나 자동 Luna→Sol→Astra ladder는 없습니다. Scope/권한 변경을 모델 교체로 우회하지 않습니다.
+- 모델 후보 실패는 중단 동안 alternate 없이 Parent나 handoff로 갑니다. 자동 Luna→Sol→Astra ladder는 없습니다.
+  Scope/권한 변경을 모델 교체로 우회하지 않습니다.
 - 권한·credential·external production은 기술적 retry로 해결하지 않습니다.
 - official/repository evidence가 계속 없으면 `evidence-gap`, owner 결정이 없으면 `plan-oq`, 외부 권한이 필요하면
   `user-handoff`로 종료합니다.
