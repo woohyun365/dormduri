@@ -120,7 +120,7 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
       /(?:from|import)\s*['"][^'"]*(?:\/codex\/|\/claude\/|model-profiles|routing-policy|child-task-contract|orchestration-policy|session-contract|session-preflight)/u,
       file,
     );
-    assert.doesNotMatch(source, /gpt-6-|reasoning_effort|\.omx\//u, file);
+    assert.doesNotMatch(source, /gpt-\d|reasoning_effort|\.omx\//iu, file);
   }
 });
 
@@ -134,7 +134,7 @@ test('common delegation guidance links to host policy without inheriting Codex d
     'utf8',
   );
   assert.match(common, /codex-delegation\.md#model-recommendation/u);
-  assert.doesNotMatch(common, /gpt-6-|reasoning_effort|profileBinding|spawnArguments/u);
+  assert.doesNotMatch(common, /gpt-\d|reasoning_effort|profileBinding|spawnArguments/iu);
   assert.match(codex, /modelRequest/u);
   assert.match(codex, /profileBinding/u);
   assert.match(codex, /applied=false/u);

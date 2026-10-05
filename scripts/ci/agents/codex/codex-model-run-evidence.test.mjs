@@ -17,6 +17,7 @@ const UNLISTED_REASON = {
   name: 'TypeError',
   message: 'Model is outside the allowed child model list.',
 };
+const EVIDENCE_REASON = { name: 'TypeError', message: 'Invalid bounded model-run evidence.' };
 
 const digest = `sha256:${'a'.repeat(64)}`;
 function fixture() {
@@ -460,14 +461,16 @@ test('failed model resolution and host mismatches are preserved but cannot becom
     bad.attempts[0].resolved = { model, effort: 'high' };
     assert.throws(() => createModelRunEvidence(bad), UNLISTED_REASON);
   }
+  // A listed Sol model keeps these cases about effort, not about the allowlist.
+  const sol = getModelProfile('bounded-build').model;
   for (const invalid of [
-    { model: 'gpt-6-sol', effort: 'max' },
-    { model: 'gpt-6-sol', effort: 'low' },
+    { model: sol, effort: 'max' },
+    { model: sol, effort: 'low' },
     { model: 'gpt-6-astra', effort: 'high', extra: true },
   ]) {
     const bad = structuredClone(blocked);
     bad.attempts[0].resolved = invalid;
-    assert.throws(() => createModelRunEvidence(bad));
+    assert.throws(() => createModelRunEvidence(bad), EVIDENCE_REASON);
   }
 });
 

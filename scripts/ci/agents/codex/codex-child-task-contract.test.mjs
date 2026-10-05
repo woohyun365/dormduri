@@ -588,7 +588,7 @@ test('child contracts propagate optional model advice without relaxing write or 
   });
   const result = recommendDelegation({ envelope, contextPack, laneCandidates: [lane] });
   const [child] = result.recommendedChildren;
-  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-6-sol');
+  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-6.1-sol');
   assert.match(child.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
   assert.equal(child.leaderOwnership.finalVerification, true);
   const changed = structuredClone(child);

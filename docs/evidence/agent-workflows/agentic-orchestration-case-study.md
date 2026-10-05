@@ -17,7 +17,8 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 - exploration log와 중간 결과가 parent context를 오염시키는 문제를 줄이면서도 최종 판단은 한 곳에 남겨야 했습니다.
 
 이를 해결하기 위해 repository는 **Repository-guided parent–subagent orchestration with adaptive child reasoning**을
-구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 GPT-6 Sol/Luna xhigh를 실제 배정**합니다.
+구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 Sol/Luna xhigh profile을 실제 배정**했습니다(2026-09-24 GPT-6 Sol·Luna 관측).
+현재 Sol profile model인 GPT-6.1 Sol은 품질 근거·독립 QA 전이라 Q(routine으로 쓰지 않음)입니다.
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra xhigh child를 검토합니다.
@@ -308,6 +309,7 @@ completed를 회수했지만 close 미노출·pending/residency 미관측이므�
 [운영 채택 결정](../../development/agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과 executor의
 controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·explorer/researcher low·deep failure·max·저가 reviewer는
 미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
+2026-10-05 Sol model 교체(`gpt-6.1-sol`) 뒤 bounded-build·bounded-read cohort는 품질 근거·독립 QA 전까지 Q입니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
 허용 목록 밖 model 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
@@ -315,7 +317,7 @@ controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·exp
 실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
 
 철회는 Parent가 admission을 회수해 candidate dispatch를 멈추고 Astra/direct로 돌아가는 방식입니다. **같은 유효 GO packet을
-재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 GPT-6 binding 또는 Astra-only를
+재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 profile binding 또는 Astra-only를
 **새 revision**으로 발행합니다. Old code와 grant를 함께 복원하면 과거 상태 재사용을 막는 monotonic history 보장은 없습니다.
 완료 child history 복원, 허용 목록에서 빠진 모델 호출 부활, 권한 우회를 rollback으로 취급하지 않습니다.
 
@@ -330,7 +332,7 @@ API USD 가격이나 구독 포함량이 아닌 **100만 토큰당 credits**입�
 | GPT-6 Sol   |    50 |            5 |    250 |
 | GPT-6 Luna  |   2.5 |         0.25 |   12.5 |
 
-같은 billable token 구성이라면 Sol/Astra=20%, Luna/Astra=1%라는 **단가 비율**입니다. 실제 task·weekly **절감률이 아닙니다**.
+같은 billable token 구성이라면 Sol/Astra=20%, Luna/Astra=1%라는 **단가 비율**입니다(GPT-6 Sol 기준, GPT-6.1 Sol credit 단가는 다시 확인하지 않음). 실제 task·weekly **절감률이 아닙니다**.
 Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있습니다. 비교하려면 **Parent + child + QA + 실패·복구 + setup**
 전체를 포함해야 합니다. Included weekly allowance를 이 표로 고정 환산하지 않습니다.
 
