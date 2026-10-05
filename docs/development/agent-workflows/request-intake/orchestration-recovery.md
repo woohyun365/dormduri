@@ -153,8 +153,9 @@ provenance는 여전히 거절합니다. 기존 effective 필드 형식의 compa
 `routeRecommendation.tier`에 남습니다.
 `resolvedModel/resolvedEffort`는 해석 결과, `runtimeAction=false`는 미실행을 뜻합니다. Parent가 실제 source/config/scope/
 시간·예산·권한을 재확인하고 지원되는 native tool의 `task_name/message`와 bounded contract를 구성해 호출합니다.
-순수 helper는 spawn을 수행하지 않습니다. 역할별 roster가 동일 role의 다른 모델을 표현하지 못하므로 candidate가 포함된
-추천 batch는 한 lane만 내보내고 나머지를 defer합니다. Duplicate role rows로 이를 우회하지 않습니다.
+순수 helper는 spawn을 수행하지 않습니다. Runtime roster는 role을 model마다 한 행으로 보고하고, 각 lane은 자기 role과
+요청 model이 맞는 행으로 검사합니다. 그래서 같은 role의 다른 model lane(2026-10-06 native 관측)도 candidate를 포함해 일반
+동시 한도 안에서 함께 나갑니다. 같은 role·model 행이 두 번이면 roster duplicate gap입니다.
 
 `evaluateModelExecution({ dispatch, expectedChildId, reportedExecution })`은 별도 사후 보고를 검사합니다.
 
