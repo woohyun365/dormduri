@@ -205,8 +205,9 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 [채택 결정과 한정된 실제 관측](../agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
 **개별 task 호출 승인**과 다릅니다. 승인된 일반 업무에서 Parent가 적격 profile을 선택하므로 매번 사용자에게 모델명을
 다시 묻지 않습니다. 그러나 현재 작업 범위·runtime·예산·독립 QA를 생략하거나 과거 pilot grant를 재사용하지 않습니다.
-Profile model이 바뀐 cohort는 native live에서 새 model ID·effort를 관측하기 전까지 Q(routine으로 쓰지 않음)이며, 이전 model의
-관측 행은 historical로 남습니다. 행별 현재 상태는 위 채택 결정의 표가 소유합니다.
+Profile model이 바뀐 cohort는 새 model ID·effort의 native live 관측과 [세대교체 절차](#central-profile-migration-boundary)의
+cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않음)이며, 이전 model의 관측 행은 historical로 남습니다.
+행별 현재 상태는 위 채택 결정의 표가 소유합니다.
 운영 procedure는 model-mediated이며 script/schema만으로 task의 실제 의미나 권한을 인증하지 않습니다.
 
 새 세션/일반 task의 cold-start 순서:

@@ -1303,6 +1303,11 @@ test('model evidence rejects unknown schema and preserves legacy mismatched-mode
     mutate(input);
     assert.throws(() => createDispatchRecommendation(input), TypeError);
   }
+  // The Sol case must name the current Sol profile model, or it silently becomes another unlisted-model case.
+  assert.equal(
+    runtimeFixture('sol-supported-without-model-request-rejected').evidence.roles[0].effectiveModel,
+    getModelProfile('bounded-read').model,
+  );
   for (const id of ['unlisted-model-rejected', 'sol-supported-without-model-request-rejected']) {
     assert.equal(
       createDispatchRecommendation({

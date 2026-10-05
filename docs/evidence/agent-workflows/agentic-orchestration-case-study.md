@@ -330,7 +330,7 @@ API USD 가격이나 구독 포함량이 아닌 **100만 토큰당 credits**입�
 | GPT-6 Sol   |    50 |            5 |    250 |
 | GPT-6 Luna  |   2.5 |         0.25 |   12.5 |
 
-같은 billable token 구성이라면 Sol/Astra=20%, Luna/Astra=1%라는 **단가 비율**입니다. 실제 task·weekly **절감률이 아닙니다**.
+같은 billable token 구성이라면 Sol/Astra=20%, Luna/Astra=1%라는 **단가 비율**입니다(GPT-6 Sol 기준, GPT-6.1 Sol credit 단가는 다시 확인하지 않음). 실제 task·weekly **절감률이 아닙니다**.
 Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있습니다. 비교하려면 **Parent + child + QA + 실패·복구 + setup**
 전체를 포함해야 합니다. Included weekly allowance를 이 표로 고정 환산하지 않습니다.
 
