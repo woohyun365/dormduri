@@ -12,7 +12,7 @@ import {
   realpathSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { validateCrossModelPacket } from '../common/index.mjs';
@@ -367,8 +367,11 @@ function reviewComposition({ composition, reviewers, round, criteriaPaths }, roo
   if (composition === 'e2') return { composition, size: reviewers, items: null };
   if (!criteriaPaths.length)
     fail('invalid review request', ['composition-e3-criteria-required: give --criteria']);
+  // Ids carry their document name (`documents.md D2`), the form a finding's criteriaItem takes.
   const all = criteriaPaths.flatMap((path) =>
-    [...readFileSync(join(root, path), 'utf8').matchAll(CRITERIA_ITEM)].map((match) => match[1]),
+    [...readFileSync(join(root, path), 'utf8').matchAll(CRITERIA_ITEM)].map(
+      (match) => `${basename(path)} ${match[1]}`,
+    ),
   );
   if (all.length < reviewers)
     fail('invalid review request', [
@@ -698,7 +701,7 @@ function reviewerPrompt(logHeader, subject, packet, template, packetFile, member
     '- An empty findings list is a valid result; do not add findings to fill it.',
     ...(subject.criteriaPaths.length
       ? [
-          `- Criteria documents: ${subject.criteriaPaths.join(', ')}. Judge each item whose condition applies; an unmet item is a finding that names the item id and keeps the item's default severity unless the finding gives a reason.`,
+          `- Criteria documents: ${subject.criteriaPaths.join(', ')}. Judge each item whose condition applies; an unmet item is a finding whose \`criteriaItem\` field holds exactly one item id such as \`documents.md D2\` (no other text; name related items and reasons in the finding). It keeps the item's default severity unless the finding gives a reason.`,
         ]
       : []),
     ...(subject.responsePath

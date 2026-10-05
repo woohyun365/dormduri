@@ -32,8 +32,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 ```
 
 - 결함 패턴은 유형 요약입니다. Local 증거 경로, plan 파일명, 작업 단계 이름을 근거로 인용하지 않습니다.
-- Reviewer는 적용 조건에 맞는 항목을 판정합니다. 미충족 항목은 항목 id(예: `documents.md D2`)를 적은 finding이 되고 기본
-  severity에서 시작합니다. 다르게 매기면 finding에 이유를 적습니다. 충족한 항목은 finding이 아니라 acceptance coverage의 근거로 씁니다.
+- Reviewer는 적용 조건에 맞는 항목을 판정합니다. 미충족 항목은 `criteriaItem` 필드에 항목 id 하나(예: `documents.md D2`)만 적은
+  finding이 되고 기본 severity에서 시작합니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 다르게 매기면 finding에 이유를 적습니다. 충족한 항목은 finding이 아니라 acceptance coverage의 근거로 씁니다.
 - 결정적 검사가 이미 판정하는 내용(Markdown link·anchor 해석 등)은 항목으로 두지 않습니다.
 
 ## 결정적 검사
