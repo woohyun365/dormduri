@@ -6,7 +6,7 @@
 
 이 문서는 공통 [orchestration](../orchestration.md)·[execution](../agent-execution-contract.md)·[QA](../qa.md)를 소비하는 Codex/OMX 전용 모델·effort·dispatch·복구 owner입니다. 다른 host에 자동 적용하지 않습니다. 기존 finite cohort/admission과 필수 Astra QA는 유지합니다.
 
-Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. 상한은 6이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. V2 runtime-managed에서는 같은 lane 후속에 `followup_task`를 우선하며 최초 독립 QA는 fresh scoped context를 유지합니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
+Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. Child 상한은 6(root 제외, V2가 표시하는 slot 7은 root 포함)이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. V2 runtime-managed에서는 같은 lane 후속에 `followup_task`를 우선하며 최초 독립 QA는 fresh scoped context를 유지합니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
 
 ## Visual skill scope
 
@@ -162,12 +162,12 @@ fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/d
 
 ### Task model configuration and fresh loading
 
-| 설정 owner                       | 계약                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------- |
-| `.codex/config.toml`             | child 기본 Astra/high, 상한6. Parent 모델·provider·전역 설정은 소유하지 않음 |
-| `knu_executor`                   | model/effort pin 없음, 기존 workspace-write 및 단일 write owner 유지         |
-| `knu_explorer`, `knu_researcher` | model/effort pin 없음, 기존 read-only 및 각 조사 책임 유지                   |
-| `knu_reviewer`                   | Astra model pin, read-only, effort는 기존 evidence 판정 유지                 |
+| 설정 owner                       | 계약                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `.codex/config.toml`             | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음 |
+| `knu_executor`                   | model/effort pin 없음, 기존 workspace-write 및 단일 write owner 유지                |
+| `knu_explorer`, `knu_researcher` | model/effort pin 없음, 기존 read-only 및 각 조사 책임 유지                          |
+| `knu_reviewer`                   | Astra model pin, read-only, effort는 기존 evidence 판정 유지                        |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 따라서 pin 제거는 **명시적 모델 선택을 받을 수 있는 설정**이지 기본값을 Sol로 바꾸는 조치가 아닙니다. Parent는 허용된
@@ -227,7 +227,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    협의합니다. 고정 과거 pilot 예산이나 영구 grant를 일반 업무 예산으로 쓰지 않습니다.
 5. **Native 확인·실행**: current host schema·loaded role·모델/effort 지원·pin·permission·context를 재확인합니다.
    `createDispatchRecommendation()`의 supported spawnArguments를 실제 도구에 전달하되 완료 packet도 함께 전달합니다.
-   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보는 동시1/단일 writer, cap6·host 한도 유지.
+   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보는 동시1/단일 writer, child cap 6·host 한도 유지.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `evaluateModelExecution()`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer effort는 근거로 선택합니다.
