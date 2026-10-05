@@ -698,7 +698,7 @@ function reviewerPrompt(logHeader, subject, packet, template, packetFile, member
     '- An empty findings list is a valid result; do not add findings to fill it.',
     ...(subject.criteriaPaths.length
       ? [
-          `- Criteria documents: ${subject.criteriaPaths.join(', ')}. Judge each item whose condition applies; an unmet item is a finding that names the item id and keeps the item's default severity unless the finding gives a reason.`,
+          `- Criteria documents: ${subject.criteriaPaths.join(', ')}. Judge each item whose condition applies; an unmet item is a finding whose \`criteriaItem\` field holds exactly one item id such as \`documents.md D2\` (no other text; name related items and reasons in the finding). It keeps the item's default severity unless the finding gives a reason.`,
         ]
       : []),
     ...(subject.responsePath

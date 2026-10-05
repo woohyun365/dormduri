@@ -25,7 +25,7 @@ Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함
 [review criteria](../review-criteria/README.md) id이며, 해당 문서가 packet `sources.owners`와 read path에 들어갑니다. 직전 result도
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
-문서가 있으면 미충족 항목 id와 기본 severity를 쓰게 합니다.
+문서가 있으면 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다.
 
 1회차에는 `--composition e2|e3 --reviewers 2|3`으로 같은 snapshot의 reviewer 그룹을 만들 수 있습니다. 1회차가 아니면
 `composition-round-1-only`, 인원이 2·3이 아니면 `reviewers-invalid`, 둘 중 하나만 주거나 모르는 구성이면 `composition-invalid`로
