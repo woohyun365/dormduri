@@ -131,13 +131,15 @@ Explorer/researcher 등 미채택 역할에 helper가 Low를 추천해도 실행
 
 `scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model/effort/허용 role·task·도구·검증 키를 소유합니다.
 Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report →
-recovery에 연결합니다. Raw model/구형 GPT-5.6 request는 거절하며 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
+recovery에 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐이며,
+raw model request와 허용 목록 밖 model은 이름과 무관하게 같은 사유로 거절합니다. Codex가 직접 읽는 `.codex` 기본값·reviewer pin은
+test로 `BASELINE_CHILD_MODEL`에 결속합니다. 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
 
 미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
 갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 승인·사후 보고·recovery binding을 재사용하지 못합니다.
 설치된 registry와 정확히 비교하므로 synthetic hash나 scope digest 재계산만으로 새 모델을 허용할 수 없습니다.
 현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된 GPT-6
-profile을 current source/config에 다시 승인해 복귀하며 retired GPT-5.6을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
+profile을 current source/config에 다시 승인해 복귀하며 허용 목록에서 빠진 모델을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
 
 세대교체·철회는 다음 순서로 재현합니다.
 
@@ -149,8 +151,8 @@ profile을 current source/config에 다시 승인해 복귀하며 retired GPT-5.
 4. 새 채택 결정과 이번 task의 새 source/config/scope/time/budget admission을 만들고 live host를 다시 확인합니다.
    테스트의 synthetic revision은 데이터 seam 검사이지 새 모델 실행·품질 증거가 아닙니다.
 5. **Data rollback도 새 revision**으로 게시하고 새 승인으로 연결합니다. 현재 validator가 installed data와 비교하는 것이지,
-   과거 code와 grant를 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 grant·5.6을
-   되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
+   과거 code와 grant를 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 grant나 허용 목록에서
+   빠진 모델을 되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
 
 Reproduction: `scripts/ci/agents/codex/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
 `scripts/ci/agents/codex/codex-orchestration-policy.test.mjs`의 routine withdrawal→fresh re-admission·stale binding 회귀. 실제 설정 변경 없이

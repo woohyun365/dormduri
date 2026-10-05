@@ -4,7 +4,13 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+import {
+  ALLOWED_CHILD_MODELS,
+  BASELINE_CHILD_MODEL,
+} from '../../../agents/codex/model-profiles.mjs';
+
 const repoRoot = resolve(import.meta.dirname, '../../../..');
+const UNLISTED_MODEL = 'gpt-x-unlisted';
 const gitignorePath = resolve(repoRoot, '.gitignore');
 const cases = JSON.parse(
   readFileSync(
@@ -21,7 +27,7 @@ const expectedPortablePaths = [
 ];
 const expectedProjectConfig = `[agents]
 enabled = true
-default_subagent_model = "gpt-6-astra"
+default_subagent_model = "${BASELINE_CHILD_MODEL}"
 default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 6
 `;
@@ -33,7 +39,7 @@ const expectedRoles = [
     file: 'knu_reviewer.toml',
     name: 'knu_reviewer',
     sandboxMode: 'read-only',
-    model: 'gpt-6-astra',
+    model: BASELINE_CHILD_MODEL,
   },
 ];
 const allowedRoleKeys = ['description', 'developer_instructions', 'model', 'name', 'sandbox_mode'];
@@ -165,14 +171,30 @@ test('role contract rejects execution repins, reviewer downgrade and permission 
       source.replace(`name = "${role.name}"`, 'name = "shadow_role"'),
     ];
     if (role.model === null) {
-      mutations.push(source + '\nmodel = "gpt-6-astra"\n', source + '\nmodel = "gpt-5.6-luna"\n');
+      mutations.push(
+        source + `\nmodel = "${BASELINE_CHILD_MODEL}"\n`,
+        source + `\nmodel = "${UNLISTED_MODEL}"\n`,
+      );
     } else {
       mutations.push(
-        source.replace('model = "gpt-6-astra"\n', ''),
-        source.replace('model = "gpt-6-astra"', 'model = "gpt-5.6-sol"'),
+        source.replace(`model = "${role.model}"\n`, ''),
+        source.replace(`model = "${role.model}"`, `model = "${UNLISTED_MODEL}"`),
       );
     }
     for (const mutated of mutations)
       assert.throws(() => assertRoleContract(mutated, role), assert.AssertionError);
   }
+});
+
+test('project Codex model values are bound to the runtime allowlist owner', () => {
+  // Codex loads these files directly, so a test, not the runtime, keeps them inside the allowlist.
+  const config = readFileSync(resolve(repoRoot, '.codex/config.toml'), 'utf8');
+  assert.equal(readQuotedField(config, 'default_subagent_model'), BASELINE_CHILD_MODEL);
+  for (const path of expectedPortablePaths) {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    for (const [, value] of source.matchAll(/^(?:model|default_subagent_model) = "([^"\n]*)"$/gmu))
+      assert.ok(ALLOWED_CHILD_MODELS.includes(value), `${path}: ${value}`);
+  }
+  const reviewer = readFileSync(resolve(repoRoot, '.codex/agents/knu_reviewer.toml'), 'utf8');
+  assert.equal(readQuotedField(reviewer, 'model'), BASELINE_CHILD_MODEL);
 });

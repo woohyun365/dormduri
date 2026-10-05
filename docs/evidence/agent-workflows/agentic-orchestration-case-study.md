@@ -197,12 +197,12 @@ Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 
 
 ### GPT-6 Astra 모델 계약 전환 — 2026-09-10
 
-| 질문                                  | 결정과 근거                                                                                           | 검증 경계                                                                                                                                                                                      |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 왜 tool update만으로 끝내지 않았는가? | project child default와 네 role의 명시적 Sol pin이 별도로 남아 있었음                                 | [.codex 설정](../../../.codex/config.toml), [role 모델 검사](../../../scripts/ci/agents/codex/project-codex-config.test.mjs)                                                                   |
-| 왜 architecture는 유지했는가?         | 변경 요구는 child 모델 선택이며, two-pass·effort·count·single-writer 구조를 변경할 실패 증거는 없었음 | [routing contract](../../development/agent-workflows/orchestration.md), [runtime policy](../../../scripts/agents/codex/orchestration-policy.mjs)                                               |
-| 어떤 회귀를 잠갔는가?                 | Astra positive, Sol/Terra/Luna mismatch, 지원하지 않는 child effort, role/permission/provenance 실패  | [runtime fixtures](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration tests](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs) |
-| 실제 실행은 어떻게 확인했는가?        | 파일·정적 테스트와 fresh native runtime 관찰을 분리                                                   | Codex app-server의 loaded thread model/effort, child 응답, hook 완료 이벤트와 owning OMX launch의 doctor를 대조                                                                                |
+| 질문                                  | 결정과 근거                                                                                                                           | 검증 경계                                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 왜 tool update만으로 끝내지 않았는가? | project child default와 네 role의 명시적 Sol pin이 별도로 남아 있었음                                                                 | [.codex 설정](../../../.codex/config.toml), [role 모델 검사](../../../scripts/ci/agents/codex/project-codex-config.test.mjs)                                                                   |
+| 왜 architecture는 유지했는가?         | 변경 요구는 child 모델 선택이며, two-pass·effort·count·single-writer 구조를 변경할 실패 증거는 없었음                                 | [routing contract](../../development/agent-workflows/orchestration.md), [runtime policy](../../../scripts/agents/codex/orchestration-policy.mjs)                                               |
+| 어떤 회귀를 잠갔는가?                 | Astra positive, Sol/Terra/Luna mismatch(현재는 허용 목록 밖 합성 ID 1개), 지원하지 않는 child effort, role/permission/provenance 실패 | [runtime fixtures](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration tests](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs) |
+| 실제 실행은 어떻게 확인했는가?        | 파일·정적 테스트와 fresh native runtime 관찰을 분리                                                                                   | Codex app-server의 loaded thread model/effort, child 응답, hook 완료 이벤트와 owning OMX launch의 doctor를 대조                                                                                |
 
 기존 Sol 구현에 Astra 기대값을 먼저 적용해 실패를 확인한 뒤 config·policy를 전환했습니다. 당시 targeted contract test는
 48개가 통과했습니다. 이 결과는 모델 품질·비용·속도 개선 측정이 아닙니다. 재현 명령은 다음과 같습니다.
@@ -310,14 +310,14 @@ controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·exp
 미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
-retired GPT-5.6 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
+허용 목록 밖 model 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
 유지하되 새 revision, 지원 재검증, 해당 cohort 품질 근거·새 승인이 필요합니다. Synthetic next-revision 검증은 **GPT-7 실제
 실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
 
 철회는 Parent가 admission을 회수해 candidate dispatch를 멈추고 Astra/direct로 돌아가는 방식입니다. **같은 유효 GO packet을
 재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 GPT-6 binding 또는 Astra-only를
 **새 revision**으로 발행합니다. Old code와 grant를 함께 복원하면 과거 상태 재사용을 막는 monotonic history 보장은 없습니다.
-완료 child history 복원, GPT-5.6 호출 부활, 권한 우회를 rollback으로 취급하지 않습니다.
+완료 child history 복원, 허용 목록에서 빠진 모델 호출 부활, 권한 우회를 rollback으로 취급하지 않습니다.
 
 ## 비용 가설과 관측 한계
 

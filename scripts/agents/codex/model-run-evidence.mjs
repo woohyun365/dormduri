@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { DEFAULT_ARTIFACTS_DIRECTORY, resolveArtifactPath } from '../../artifacts/paths.mjs';
 import {
+  assertAllowedChildModel,
   assertCurrentModelProfileBinding,
   assertCurrentRecoveryBinding,
   BASELINE_CHILD_MODEL,
@@ -335,7 +336,7 @@ function refs(values, nonempty = false) {
 }
 function pair(value, efforts = ['medium', 'high', 'xhigh']) {
   exact(value, ['model', 'effort']);
-  oneOf(value.model, [BASELINE_CHILD_MODEL, 'gpt-6-sol', 'gpt-6-luna']);
+  assertAllowedChildModel(value.model);
   oneOf(value.effort, efforts);
 }
 function observedPair(value) {

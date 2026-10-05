@@ -1,5 +1,6 @@
 import {
   BASELINE_CHILD_MODEL,
+  assertAllowedChildModel,
   getModelProfile,
   assertCurrentModelProfileBinding,
   resolveRouteEffort,
@@ -1280,6 +1281,7 @@ function validateModelUses(value, contracts) {
     requireEnum(grant.quality, new Set(['unadopted', 'go', 'no-go']), 'quality decision');
     for (const field of ['reference', 'model', 'role', 'cohort', 'cleanupReference'])
       requireString(grant[field], field, 300);
+    assertAllowedChildModel(grant.model);
     requireEnum(grant.effort, EFFORTS, 'admission effort');
     requireDigest(grant.scopeDigest);
     requireDigest(grant.configDigest);
@@ -1431,7 +1433,7 @@ function normalizeAttempt(attempt, index) {
   const outcome = requireEnum(attempt.outcome, ATTEMPT_OUTCOMES, 'attempt outcome');
   return {
     ...(attempt.model !== undefined
-      ? { model: requireString(attempt.model, 'attempt model', 80) }
+      ? { model: assertAllowedChildModel(requireString(attempt.model, 'attempt model', 80)) }
       : {}),
     ...(attempt.effort !== undefined
       ? {

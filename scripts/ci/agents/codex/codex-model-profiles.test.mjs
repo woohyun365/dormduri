@@ -1,11 +1,63 @@
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test from 'node:test';
 import {
+  ALLOWED_CHILD_MODELS,
+  BASELINE_CHILD_MODEL,
   getModelProfile,
   createModelProfileBinding,
+  assertAllowedChildModel,
   assertCurrentModelProfileBinding,
   resolveRouteEffort,
 } from '../../../agents/codex/model-profiles.mjs';
+
+const repoRoot = resolve(import.meta.dirname, '../../../..');
+const UNLISTED_MODEL = 'gpt-x-unlisted';
+const UNLISTED_REASON = {
+  name: 'TypeError',
+  message: 'Model is outside the allowed child model list.',
+};
+// Version-shaped model IDs; the synthetic UNLISTED_MODEL is deliberately not one.
+const MODEL_ID_LITERAL = /\bgpt-\d/iu;
+const ALLOWLIST_OWNER = 'scripts/agents/codex/model-profiles.mjs';
+// H4-X owns the Codex-target bridge model; this exception goes away with that plan.
+const MODEL_LITERAL_EXCEPTIONS = ['scripts/agents/codex/review-bridge.mjs'];
+
+test('one allowlist owns child models and rejects any other ID for the same reason', () => {
+  const profileModels = ['bounded-build', 'bounded-read', 'bounded-extract'].map(
+    (id) => getModelProfile(id).model,
+  );
+  assert.deepEqual(ALLOWED_CHILD_MODELS, [...new Set([BASELINE_CHILD_MODEL, ...profileModels])]);
+  assert.ok(Object.isFrozen(ALLOWED_CHILD_MODELS));
+  for (const model of ALLOWED_CHILD_MODELS) assert.equal(assertAllowedChildModel(model), model);
+  for (const model of [
+    UNLISTED_MODEL,
+    '',
+    undefined,
+    null,
+    'GPT-6-ASTRA',
+    ` ${BASELINE_CHILD_MODEL}`,
+  ])
+    assert.throws(() => assertAllowedChildModel(model), UNLISTED_REASON);
+  const binding = createModelProfileBinding(getModelProfile('bounded-build'));
+  assert.throws(
+    () => assertCurrentModelProfileBinding({ ...binding, model: UNLISTED_MODEL }),
+    UNLISTED_REASON,
+  );
+});
+
+test('runtime modules take model IDs only from the allowlist owner', () => {
+  // A directory read, not `git ls-files`: this suite stays off the tracked tree and also sees untracked modules.
+  const runtime = readdirSync(resolve(repoRoot, 'scripts/agents/codex'), { recursive: true })
+    .map((path) => `scripts/agents/codex/${path.split('\\').join('/')}`)
+    .filter((path) => /\.(?:mjs|js|cjs)$/u.test(path));
+  assert.ok(runtime.includes(ALLOWLIST_OWNER));
+  const withLiterals = runtime.filter((path) =>
+    MODEL_ID_LITERAL.test(readFileSync(resolve(repoRoot, path), 'utf8')),
+  );
+  assert.deepEqual(withLiterals.sort(), [ALLOWLIST_OWNER, ...MODEL_LITERAL_EXCEPTIONS].sort());
+});
 
 test('finite immutable profiles resolve GPT-6 models independently from semantic effort', () => {
   for (const [id, model, effort] of [
@@ -33,7 +85,7 @@ test('finite immutable profiles resolve GPT-6 models independently from semantic
     resolveRouteEffort({ effort: 'high', modelRecommendation: { status: 'baseline' } }),
     'high',
   );
-  for (const id of ['gpt-5.6-sol', 'gpt-6-sol', 'latest', 'gpt-7', '__proto__'])
+  for (const id of [UNLISTED_MODEL, 'gpt-6-sol', 'latest', 'gpt-7', '__proto__'])
     assert.throws(() => getModelProfile(id), TypeError);
 });
 
@@ -59,7 +111,7 @@ test('binding hashes complete policy canonically; synthetic future profiles neve
   for (const patch of [
     { policyRevision: 'old' },
     { profileDigest: `sha256:${'0'.repeat(64)}` },
-    { model: 'gpt-5.6-sol' },
+    { model: UNLISTED_MODEL },
     { resolvedEffort: 'high' },
     { cohort: 'bounded-extraction' },
     { extra: true },
@@ -174,11 +226,14 @@ test('recovery policy chooses low only for finite known non-QA work and never ac
   }
   for (const patch of [
     { resolvedEffort: 'high' },
-    { model: 'gpt-5.6-sol' },
     { policyRevision: 'old' },
     { selectionDigest: digest },
   ])
     assert.throws(() => assertCurrentRecoveryBinding({ ...b, ...patch }), TypeError);
+  assert.throws(
+    () => assertCurrentRecoveryBinding({ ...b, model: UNLISTED_MODEL }),
+    UNLISTED_REASON,
+  );
 });
 
 test('quality-only revision grants do not survive recovery policy activation', () => {

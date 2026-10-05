@@ -12,6 +12,12 @@ import {
   writeModelRunEvidence,
 } from '../../../agents/codex/model-run-evidence.mjs';
 
+const UNLISTED_MODEL = 'gpt-x-unlisted';
+const UNLISTED_REASON = {
+  name: 'TypeError',
+  message: 'Model is outside the allowed child model list.',
+};
+
 const digest = `sha256:${'a'.repeat(64)}`;
 function fixture() {
   const profileBinding = structuredClone(
@@ -449,9 +455,12 @@ test('failed model resolution and host mismatches are preserved but cannot becom
   a.checks.forEach((c) => (c.status = 'not-run'));
   blocked.finalDisposition = 'blocked';
   assert.deepEqual(createModelRunEvidence(blocked), blocked);
+  for (const model of ['unknown', UNLISTED_MODEL]) {
+    const bad = structuredClone(blocked);
+    bad.attempts[0].resolved = { model, effort: 'high' };
+    assert.throws(() => createModelRunEvidence(bad), UNLISTED_REASON);
+  }
   for (const invalid of [
-    { model: 'unknown', effort: 'high' },
-    { model: 'gpt-5.6-sol', effort: 'high' },
     { model: 'gpt-6-sol', effort: 'max' },
     { model: 'gpt-6-sol', effort: 'low' },
     { model: 'gpt-6-astra', effort: 'high', extra: true },

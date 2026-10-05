@@ -5,6 +5,7 @@ import { createRecoveryChildContract, recommendDelegation } from './child-task-c
 import { prepareCodexWorkflow } from './workflow-entry.mjs';
 import { discoverContextPack } from '../common/domain-guide-registry.mjs';
 import { createModelRunEvidence } from './model-run-evidence.mjs';
+import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import {
   createDispatchRecommendation,
@@ -20,6 +21,8 @@ import {
 } from './routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
+const READ_MODEL = getModelProfile('bounded-read').model;
+const EXTRACT_MODEL = getModelProfile('bounded-extract').model;
 const entryPoints = Object.freeze([
   'AGENTS.md',
   'docs/development/agent-workflows/README.md',
@@ -69,7 +72,8 @@ export function runFreshSessionSmoke() {
         {
           agentType: 'explore',
           available: true,
-          effectiveModel: 'gpt-5.6-luna',
+          // A generic role on a model outside the allowlist; neither stands in for a project role.
+          effectiveModel: 'gpt-x-unlisted',
           effectiveEffort: 'medium',
           explicitEffortSupport: true,
         },
@@ -213,11 +217,11 @@ function evaluateDeliveryEvidence() {
           {
             agentType: 'knu_explorer',
             available: true,
-            effectiveModel: 'gpt-6-astra',
+            effectiveModel: BASELINE_CHILD_MODEL,
             effectiveEffort: 'xhigh',
             explicitEffortSupport: true,
             modelSelection: {
-              supportedModels: ['gpt-6-astra'],
+              supportedModels: [BASELINE_CHILD_MODEL],
               roleModel: null,
               explicitModelSupport: true,
               reference: 'synthetic-current-native-schema',
@@ -331,11 +335,11 @@ function evaluateModelEvidence() {
       {
         agentType: 'knu_explorer',
         available: true,
-        effectiveModel: 'gpt-6-sol',
+        effectiveModel: READ_MODEL,
         effectiveEffort: 'xhigh',
         explicitEffortSupport: true,
         modelSelection: {
-          supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
+          supportedModels: [BASELINE_CHILD_MODEL, READ_MODEL],
           roleModel: null,
           explicitModelSupport: true,
           reference: 'synthetic-host-schema',
@@ -357,7 +361,7 @@ function evaluateModelEvidence() {
         kind: 'pilot',
         reference: 'synthetic-user-pilot-authorization',
         quality: 'unadopted',
-        model: 'gpt-6-sol',
+        model: READ_MODEL,
         role: 'knu_explorer',
         effort: 'xhigh',
         cohort: 'bounded-read-only',
@@ -377,7 +381,7 @@ function evaluateModelEvidence() {
   routine.modelUseByLane[base.id].scopeDigest = routineDigest;
   routine.modelUseByLane[base.id].admission.scopeDigest = routineDigest;
   const fixed = structuredClone(input);
-  fixed.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
+  fixed.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = BASELINE_CHILD_MODEL;
   const contextConflict = structuredClone(input);
   contextConflict.delegation.recommendedChildren[0].contextDelivery.compatible = false;
   const luna = structuredClone({ ...input, delegation: makeDelegation('routine', true) });
@@ -387,20 +391,20 @@ function evaluateModelEvidence() {
     effectiveEffort: null,
     configurationResolution: {
       profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
-      model: 'gpt-6-luna',
+      model: EXTRACT_MODEL,
       effort: 'xhigh',
       configDigest,
       reference: 'synthetic-current-resolution',
     },
   });
-  luna.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels.push('gpt-6-luna');
+  luna.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels.push(EXTRACT_MODEL);
   luna.modelUseByLane[base.id].scopeDigest = lunaContract.modelScopeDigest;
   Object.assign(luna.modelUseByLane[base.id].admission, {
     profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
     effort: 'xhigh',
     kind: 'adoption',
     quality: 'go',
-    model: 'gpt-6-luna',
+    model: EXTRACT_MODEL,
     cohort: 'bounded-extraction',
     scopeDigest: lunaContract.modelScopeDigest,
   });
@@ -433,7 +437,7 @@ function evaluateModelEvidence() {
     outcome: 'failure',
     failureCategory: 'verification-failed',
     evidence: 'synthetic-controlled-failure-not-actual-model-failure',
-    model: 'gpt-6-luna',
+    model: EXTRACT_MODEL,
     effort: 'xhigh',
     executed: true,
     identity: {

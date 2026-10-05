@@ -27,6 +27,11 @@ import {
 } from '../../../agents/codex/orchestration-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
+const UNLISTED_MODEL = 'gpt-x-unlisted';
+const UNLISTED_REASON = {
+  name: 'TypeError',
+  message: 'Model is outside the allowed child model list.',
+};
 const runtimeCapabilityCases = JSON.parse(
   readFileSync(
     resolve(repoRoot, 'scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json'),
@@ -1102,7 +1107,7 @@ test('model candidates fail closed without exact live admission and compatible r
       modelUse(x).configDigest = `sha256:${'0'.repeat(64)}`;
     },
     (x) => {
-      modelUse(x).admission.model = 'gpt-5.6-sol';
+      modelUse(x).admission.model = UNLISTED_MODEL;
     },
     (x) => {
       modelUse(x).admission.role = 'knu_executor';
@@ -1298,7 +1303,7 @@ test('model evidence rejects unknown schema and preserves legacy mismatched-mode
     mutate(input);
     assert.throws(() => createDispatchRecommendation(input), TypeError);
   }
-  for (const id of ['terra-rejected', 'luna-rejected']) {
+  for (const id of ['unlisted-model-rejected', 'sol-supported-without-model-request-rejected']) {
     assert.equal(
       createDispatchRecommendation({
         delegation: legalDelegation(),
@@ -1310,6 +1315,15 @@ test('model evidence rejects unknown schema and preserves legacy mismatched-mode
   const invalid = modelDispatchInput();
   invalid.reportedRuntimeEvidence.roles[0].modelSelection.magicOverride = true;
   assert.equal(createDispatchRecommendation(invalid).execution, 'leader-sequential');
+});
+
+test('model admission and attempt inputs outside the allowlist fail for the allowlist reason', () => {
+  const admission = modelDispatchInput();
+  modelUse(admission).admission.model = UNLISTED_MODEL;
+  assert.throws(() => createDispatchRecommendation(admission), UNLISTED_REASON);
+  const observed = modelDispatchInput();
+  observed.reportedRuntimeEvidence.roles[0].effectiveModel = UNLISTED_MODEL;
+  assert.doesNotThrow(() => createDispatchRecommendation(observed));
 });
 
 function modelUse(input) {
@@ -2012,8 +2026,16 @@ test('model recovery binds one Astra alternate and waits for writer clearance', 
   };
   assert.equal(evaluateRecovery({ ...base, attempts: [primary, rescue] }).nextModel, null);
   assert.throws(
-    () => evaluateRecovery({ ...base, attempts: [primary, { ...rescue, model: 'gpt-5.6-sol' }] }),
+    () =>
+      evaluateRecovery({
+        ...base,
+        attempts: [primary, { ...rescue, model: getModelProfile('bounded-extract').model }],
+      }),
     /Astra/,
+  );
+  assert.throws(
+    () => evaluateRecovery({ ...base, attempts: [primary, { ...rescue, model: UNLISTED_MODEL }] }),
+    UNLISTED_REASON,
   );
   for (const category of ['quota-exhausted', 'capacity-denied', 'missing-authority']) {
     assert.equal(
@@ -2122,7 +2144,7 @@ test('stale profile grants and resolution cannot be revived by rebinding scope',
     for (const patch of [
       { policyRevision: 'old' },
       { profileDigest: `sha256:${'0'.repeat(64)}` },
-      { model: 'gpt-5.6-sol' },
+      { model: UNLISTED_MODEL },
       { resolvedEffort: 'medium' },
       { cohort: 'bounded-extraction' },
       { profileId: 'future' },
@@ -2189,7 +2211,7 @@ test('post execution revalidates recommendation and exact installed binding even
     false,
   );
 });
-test('explicit recovery requires a current profile and rejects retired raw-model requests', () => {
+test('explicit recovery requires a current profile and rejects unlisted or raw-model requests', () => {
   const base = {
     laneId: 'legal-repository-map',
     attempts: [{ ...failedAttempt('primary', 'verification-failed'), model: 'gpt-6-sol' }],
@@ -2199,10 +2221,10 @@ test('explicit recovery requires a current profile and rejects retired raw-model
     },
   };
   assert.throws(() => evaluateRecovery({ ...base, modelRecovery: undefined }), TypeError);
-  for (const model of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
+  for (const model of [UNLISTED_MODEL]) {
     assert.throws(
       () => evaluateRecovery({ ...base, attempts: [{ ...base.attempts[0], model }] }),
-      TypeError,
+      UNLISTED_REASON,
     );
     assert.throws(
       () =>
