@@ -230,8 +230,8 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 | bounded-read / knu_explorer           | gpt-6-sol / xhigh   | 고정된 repository source 4개의 owner/URL semantics map: source oracle·독립 QA PASS. 유한 repo lookup/analysis, 완전한 Medium·독립 확인                                          |
 | bounded-extract / knu_explorer        | gpt-6-luna / xhigh  | 고정 source의 query 변환 8개: executable oracle 8/8·독립 QA PASS. Low impact·단일 semantic extraction·고정 입력/schema, read-only                                               |
 | astra-bounded-recovery / knu_executor | gpt-6-astra / low   | Cleared writer + 새 faulted-source binding의 controlled rescue: RED→GREEN, Parent build/canary 9/9·독립 QA PASS. 원인이 좁혀진 non-high-risk, 같은 owner/tools, alternate 한 번 |
-| bounded-build / knu_executor          | gpt-6.1-sol / xhigh | **Q** — revision `2026-10-05.1`에서 model만 교체. Native live 관측 전 routine으로 쓰지 않음. 위 `gpt-6-sol` 행은 revision `2026-09-24.3` 관측(historical)                       |
-| bounded-read / knu_explorer           | gpt-6.1-sol / xhigh | **Q** — 위와 같음                                                                                                                                                               |
+| bounded-build / knu_executor          | gpt-6.1-sol / xhigh | Revision `2026-10-05.1`, 2026-10-05 native live 1회: child own-turn gpt-6.1-sol·xhigh, profile test 11/11 = Parent oracle. 표본 1회, 채택 상한은 위 행과 같음                   |
+| bounded-read / knu_explorer           | gpt-6.1-sol / xhigh | 같은 live 1회: child own-turn gpt-6.1-sol·xhigh, owner revision·model 조회 = source. 위 `gpt-6-sol` 두 행(revision `2026-09-24.3`)은 historical                                 |
 
 **미채택**: explorer/researcher의 low recovery는 미채택이며 별도 evidence/권한 전 routine에 확대하지 않습니다. Researcher의
 Sol routine, 다른 role/도구/High·deep cohort, max worker, QA model downgrade도 미채택입니다. Pure helper가 표현할 수 있는
