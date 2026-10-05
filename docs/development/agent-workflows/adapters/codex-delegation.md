@@ -27,7 +27,7 @@ read-only boundary or distinct write ownership
 non-goals / prohibited assumptions
 facts / inferences / gaps / confidence output labels
 verification / stop / handoff condition
-installed role and effort recommendation
+installed role variant, its pinned effort, semantic tier and profileId
 leader-only final decision, response, integration, verification
 ```
 
@@ -36,13 +36,15 @@ leader-only final decision, response, integration, verification
 선택형 `modelRequest`는 기존 lane 또는 `selectAgentRoute()` 입력에서 같은 strict schema를 사용합니다.
 
 ```text
-profileId: bounded-build | bounded-read | bounded-extract
+profileId: extract | standard-read | elevated-read | standard-build | elevated-build
 purpose: pilot | routine
 verificationFacts:
-  bounded-read: acceptance / independentCheck
-  bounded-build: acceptance / regression / astraQa
-  bounded-extract: acceptance / fixedInput / outputSchema / singleStep / independentCheck
+  standard-read, elevated-read: acceptance / independentCheck
+  standard-build, elevated-build: acceptance / regression / astraQa
+  extract: acceptance / fixedInput / outputSchema / singleStep / independentCheck
 ```
+
+Assignment profile(`deep-build`·`review`·`astra-fallback`)은 routing이 정하는 Astra 배정이라 `modelRequest`로 요청할 수 없습니다.
 
 각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인,
 구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
@@ -50,18 +52,20 @@ verificationFacts:
 
 [채택 범위와 cold-start 순서](./codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
-GPT-6.1 Sol은 bounded-build의 구현/test 또는 bounded-read의 lookup/analysis 후보입니다. Researcher는 bounded-read pilot만
-가능하며 routine은 Astra입니다. GPT-6 Luna는 bounded-extract의 low-impact lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
+GPT-6.1 Sol은 `standard-build`·`elevated-build`의 구현/test 또는 `standard-read`·`elevated-read`의 lookup/analysis/research
+후보이며 routine과 pilot 모두 받습니다. GPT-6 Luna는 `extract`의 low-impact
+lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
 입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](./codex.md#quality-gated-model-advice)을
 충족하면 `routeRecommendation.modelRecommendation`에 request/taskKind/role, recommendedModel, candidate/baseline,
-reason, `applied=false`, `profileBinding`을 붙입니다. 부적합 task·위험·품질 gap은 Astra baseline입니다.
+reason, `applied=false`, `profileBinding`을 붙이고 route의 `role`·`effort`·`profileId`를 후보 역할 변형으로 정합니다.
+부적합 task·위험·품질 gap이나 routine 미채택 profile은 Astra baseline이며 route는 [Astra 배정](./codex.md#reasoning-effort-routing)입니다.
 
 중앙 owner는 `scripts/agents/codex/model-profiles.mjs`입니다. `profileBinding`은 profileId/policyRevision/profileDigest/model/
 resolvedEffort/cohort이며, digest는 role/task/risk/검증 fact/tool 범위를 포함한 전체 profile data의 canonical hash입니다.
-`routeRecommendation.effort`는 기존 semantic 위험 판정(Medium gate)을 유지하고, 실제 후보 호출에는 `resolvedEffort`를
-사용합니다. Sol 두 프로필과 Luna extraction의 invocation effort는 모두 xhigh입니다. Semantic Medium eligibility는 그대로입니다. Context 상속·runtime·admission·native descriptor·
-사후 검증은 같은 resolved effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 허용 목록 밖 model을 쓰는 입력,
+`routeRecommendation.tier`는 semantic 계층(Medium/High/XHigh)이고, `routeRecommendation.effort`는 선택된 역할 파일의
+pin effort입니다. Candidate의 `resolvedEffort`는 그 역할의 effort와 같습니다(standard high, elevated·extract xhigh).
+Context 상속·runtime·admission·native descriptor·사후 검증은 같은 effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 허용 목록 밖 model을 쓰는 입력,
 unknown profile/field/불완전 verification schema는 거부합니다. Astra default는 modelRequest 생략으로 유지합니다.
 
 Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`를 함께 전달합니다. Digest는 source digest에
@@ -118,7 +122,7 @@ Ordinary Astra의 native + scoped + explicit-effort 경로는 기존 role metada
 `explicitEffortSupport`를 확인합니다. Astra 지원, explicit model 지원, 호환 role pin, 기존 role/model/effort/permission
 검사를 모두 통과할 때만 descriptor에 `spawnArguments={agent_type, model: gpt-6-astra, reasoning_effort, fork_turns: none}`을
 연결합니다. Metadata가 없거나 충돌하면 ready descriptor 대신 명시 gap입니다. `failures`는 ordinary 전달에서 보존해야 할
-근거이며 자동 거절 사유가 아닙니다. Candidate admission과 bound recovery의 별도 제한은 바꾸지 않습니다.
+근거이며 자동 거절 사유가 아닙니다. Candidate admission의 별도 제한은 바꾸지 않으며 model recovery는 중단되어 있습니다.
 
 Compatible full-history/reuse/inherit 및 OMX advisory 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor에는
 Parent의 live 재확인이 계속 필요하며 실제 실행·provider-effective 설정을 증명하지 않습니다. 기존 source/권한 의미의
@@ -136,10 +140,12 @@ Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 �
 
 - Pass 1: TaskEnvelope의 intent·authority·impact risk와 candidate task shape를 보존합니다.
 - Pass 2: current ContextPack source에 연결된 stable fact와 semantic predicate claim을 검증합니다.
-- 역할: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, implementation/debug/test는
+- 역할 family: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, implementation/debug/test는
   `knu_executor`, review/verification/architecture evidence lane은 `knu_reviewer`입니다.
-- Effort: complete positive boundedness evidence는 Medium, mandatory/deep-composite evidence는 XHigh, 나머지 substantial
+- 계층(`tier`): complete positive boundedness evidence는 Medium, mandatory/deep-composite evidence는 XHigh, 나머지 substantial
   evidence는 High입니다. Low/Max/Ultra는 repository child route가 아닙니다.
+- 역할 변형과 effort: 계층·impact가 family 안의 변형(`_medium`·기본·`_xhigh`)과 `profileId`를 고르고, `effort`는 그 역할
+  파일이 pin한 값입니다. 배정 표는 [Codex routing](./codex.md#reasoning-effort-routing)이 소유합니다.
 
 Impact risk와 reasoning complexity는 서로 다른 결과입니다. Keyword, path, file count, LOC, task label은 semantic signal을
 대체할 수 없고, 동일 fact를 여러 composite category에 중복 반영하지 않습니다. 이 결과는 dispatch 명령이나 live role
@@ -158,7 +164,7 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 - 선택 가능한 write-capable child: 최대 1개
 - sibling write scope가 겹치면 해당 lane들은 independent가 아니므로 선택하지 않음
 
-각 `routeRecommendation`은 최종 effort뿐 아니라 validated Pass 2 assessment, evidence ID, confidence와
+각 `routeRecommendation`은 역할 변형·pin effort·계층·`profileId`뿐 아니라 validated Pass 2 assessment, evidence ID, confidence와
 `runtime-role-evidence-deferred` gap을 함께 전달합니다. Keyword나 candidate의 legacy `risk` field로 이 근거를 대체할 수
 없습니다.
 
@@ -180,6 +186,9 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 
 ### Recovery child context
 
+Model recovery는 [중단](./codex.md#model-recovery-suspension)되어 있어 아래 helper는 현재 호출 경로가 없습니다. 중단 해제나
+대체 정책이 정해질 때까지 계약 기록으로만 남습니다.
+
 `createRecoveryChildContract({ primaryContract, sourceSnapshot })`는 기존 primary의 task/lane/role·semantic effort와
 owner/tool/verification 경계를 복제하고 candidate recommendation만 제거합니다. 현재 rescue snapshot으로 scoped explicit
 context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들지 않습니다. 이 helper 자체는 실패·권한을 승인하지 않습니다.
@@ -188,4 +197,4 @@ context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들�
 rescue task/lane/source scope, semantic risk와 scoped task context를 확인합니다. Recovery invocation의 low는 별도 binding과
 runtime resolution에서만 해석됩니다. Ordinary delivery effectiveEffort의 low/max, inherited/full-history rescue는 계속 거절합니다.
 `evaluateRecovery`에서 원래 primary 실패·현재 contract를 검증한 뒤 새 admission을 받아야 하며 source 변경이 쓰기 범위 확대를
-허용하지 않습니다. 자세한 입력은 [bound recovery](../request-intake/orchestration-recovery.md#bound-recovery-selection-and-admission)를 따릅니다.
+허용하지 않습니다. 중단 계약은 [model recovery suspension](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.

@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   ALLOWED_CHILD_MODELS,
   BASELINE_CHILD_MODEL,
+  MODEL_PROFILE_IDS,
   getModelProfile,
   createModelProfileBinding,
   assertAllowedChildModel,
@@ -25,9 +26,7 @@ const ALLOWLIST_OWNER = 'scripts/agents/codex/model-profiles.mjs';
 const MODEL_LITERAL_EXCEPTIONS = { 'scripts/agents/codex/review-bridge.mjs': 1 };
 
 test('one allowlist owns child models and rejects any other ID for the same reason', () => {
-  const profileModels = ['bounded-build', 'bounded-read', 'bounded-extract'].map(
-    (id) => getModelProfile(id).model,
-  );
+  const profileModels = MODEL_PROFILE_IDS.map((id) => getModelProfile(id).model);
   assert.deepEqual(ALLOWED_CHILD_MODELS, [...new Set([BASELINE_CHILD_MODEL, ...profileModels])]);
   assert.ok(Object.isFrozen(ALLOWED_CHILD_MODELS));
   for (const model of ALLOWED_CHILD_MODELS) assert.equal(assertAllowedChildModel(model), model);
@@ -40,7 +39,7 @@ test('one allowlist owns child models and rejects any other ID for the same reas
     ` ${BASELINE_CHILD_MODEL}`,
   ])
     assert.throws(() => assertAllowedChildModel(model), UNLISTED_REASON);
-  const binding = createModelProfileBinding(getModelProfile('bounded-build'));
+  const binding = createModelProfileBinding(getModelProfile('standard-build'));
   assert.throws(
     () => assertCurrentModelProfileBinding({ ...binding, model: UNLISTED_MODEL }),
     UNLISTED_REASON,
@@ -67,12 +66,16 @@ test('runtime modules take model IDs only from the allowlist owner', () => {
   assert.match(readFileSync(resolve(repoRoot, ALLOWLIST_OWNER), 'utf8'), MODEL_ID_LITERAL);
 });
 
-test('finite immutable profiles resolve GPT-6 models independently from semantic effort', () => {
-  for (const [id, model, effort] of [
-    ['bounded-read', 'gpt-6.1-sol', 'xhigh'],
-    ['bounded-build', 'gpt-6.1-sol', 'xhigh'],
-    ['bounded-extract', 'gpt-6-luna', 'xhigh'],
-  ]) {
+const CANDIDATE_PROFILES = [
+  ['extract', 'gpt-6-luna', 'xhigh'],
+  ['standard-read', 'gpt-6.1-sol', 'high'],
+  ['elevated-read', 'gpt-6.1-sol', 'xhigh'],
+  ['standard-build', 'gpt-6.1-sol', 'high'],
+  ['elevated-build', 'gpt-6.1-sol', 'xhigh'],
+];
+
+test('finite immutable candidate profiles bind their model and the effort of their roles', () => {
+  for (const [id, model, effort] of CANDIDATE_PROFILES) {
     const p = getModelProfile(id);
     const b = createModelProfileBinding(p);
     assert.equal(b.model, model);
@@ -93,12 +96,12 @@ test('finite immutable profiles resolve GPT-6 models independently from semantic
     resolveRouteEffort({ effort: 'high', modelRecommendation: { status: 'baseline' } }),
     'high',
   );
-  for (const id of [UNLISTED_MODEL, 'gpt-6-sol', 'latest', 'gpt-7', '__proto__'])
+  for (const id of [UNLISTED_MODEL, 'gpt-6-sol', 'latest', 'gpt-7', '__proto__', 'bounded-build'])
     assert.throws(() => getModelProfile(id), TypeError);
 });
 
 test('binding hashes complete policy canonically; synthetic future profiles never become installed', () => {
-  const p = getModelProfile('bounded-build');
+  const p = getModelProfile('standard-build');
   const current = createModelProfileBinding(p);
   assert.deepEqual(
     createModelProfileBinding(Object.fromEntries(Object.entries(p).reverse())),
@@ -107,9 +110,11 @@ test('binding hashes complete policy canonically; synthetic future profiles neve
   for (const patch of [
     { policyRevision: 'next' },
     { model: 'gpt-7' },
-    { resolvedEffort: 'high' },
+    { resolvedEffort: 'medium' },
+    { tiers: ['high'] },
     { taskKinds: ['review'] },
     { allowedTools: ['repository-read'] },
+    // Routine admission is policy too: narrowing it to pilot-only needs a new revision.
     { routineRoles: [] },
   ]) {
     const future = createModelProfileBinding({ ...p, ...patch });
@@ -120,7 +125,7 @@ test('binding hashes complete policy canonically; synthetic future profiles neve
     { policyRevision: 'old' },
     { profileDigest: `sha256:${'0'.repeat(64)}` },
     { model: UNLISTED_MODEL },
-    { resolvedEffort: 'high' },
+    { resolvedEffort: 'medium' },
     { cohort: 'bounded-extraction' },
     { extra: true },
   ]) {
@@ -129,7 +134,7 @@ test('binding hashes complete policy canonically; synthetic future profiles neve
 });
 
 test('previous effort revisions cannot be restored by rehashing profile data', () => {
-  for (const id of ['bounded-build', 'bounded-read', 'bounded-extract']) {
+  for (const [id] of CANDIDATE_PROFILES) {
     const profile = getModelProfile(id);
     assert.notEqual(profile.policyRevision, '2026-09-24.1');
     for (const resolvedEffort of ['medium', 'high', 'max']) {
@@ -148,13 +153,156 @@ test('previous effort revisions cannot be restored by rehashing profile data', (
   }
 });
 
-test('recovery policy chooses low only for finite known non-QA work and never accepts raw effort', async () => {
+test('quality-only revision grants do not survive recovery policy activation', () => {
+  for (const [id] of CANDIDATE_PROFILES) {
+    const old = createModelProfileBinding({
+      ...getModelProfile(id),
+      policyRevision: '2026-09-24.2',
+    });
+    assert.throws(() => assertCurrentModelProfileBinding(old), TypeError);
+  }
+});
+
+// GPT-6 Sol to GPT-6.1 Sol and the effort structure: each change came with a new revision.
+const SOL_PROFILES = ['standard-read', 'elevated-read', 'standard-build', 'elevated-build'];
+const SOL6_REVISION = '2026-09-24.3';
+const STALE_REASON = {
+  name: 'TypeError',
+  message: 'Model profile binding must match the current installed policy.',
+};
+
+test('Sol profiles bind GPT-6.1 Sol under a revision newer than both earlier Sol revisions', () => {
+  for (const id of SOL_PROFILES) {
+    const profile = getModelProfile(id);
+    assert.equal(profile.model, 'gpt-6.1-sol');
+    for (const old of [SOL6_REVISION, '2026-10-05.1']) assert.notEqual(profile.policyRevision, old);
+  }
+  for (const id of MODEL_PROFILE_IDS)
+    assert.equal(getModelProfile(id).policyRevision, getModelProfile('extract').policyRevision);
+});
+
+test('the previous revision is stale even when it already names the new model', () => {
+  for (const id of SOL_PROFILES) {
+    const stale = createModelProfileBinding({
+      ...getModelProfile(id),
+      model: 'gpt-6.1-sol',
+      policyRevision: SOL6_REVISION,
+    });
+    assert.throws(() => assertCurrentModelProfileBinding(stale), STALE_REASON);
+  }
+});
+
+test('a reused Sol 6 grant fails like any unlisted model, with no rule naming it', () => {
+  for (const id of SOL_PROFILES) {
+    const old = { ...getModelProfile(id), model: 'gpt-6-sol', policyRevision: SOL6_REVISION };
+    const unlisted = { ...old, model: UNLISTED_MODEL };
+    for (const profile of [old, unlisted])
+      assert.throws(
+        () => assertCurrentModelProfileBinding(createModelProfileBinding(profile)),
+        UNLISTED_REASON,
+      );
+  }
+});
+
+// Fingerprint/data seam only: this does not install a registry or protect against
+// an operator restoring old validator code together with old grants.
+test('rollback data with a new revision has a new binding, not a revived old grant', () => {
+  const current = getModelProfile('standard-build');
+  const original = createModelProfileBinding(current);
+  const changed = createModelProfileBinding({
+    ...current,
+    policyRevision: 'synthetic-next',
+    resolvedEffort: 'medium',
+  });
+  const rolledBack = createModelProfileBinding({
+    ...current,
+    policyRevision: 'synthetic-rollback-new-revision',
+  });
+  assert.equal(rolledBack.model, original.model);
+  assert.equal(rolledBack.resolvedEffort, original.resolvedEffort);
+  assert.notEqual(rolledBack.profileDigest, original.profileDigest);
+  assert.notEqual(rolledBack.profileDigest, changed.profileDigest);
+  for (const uninstalled of [changed, rolledBack])
+    assert.throws(() => assertCurrentModelProfileBinding(uninstalled), TypeError);
+  assert.deepEqual(assertCurrentModelProfileBinding(original), original);
+});
+
+// Effort structure: role files pin effort, profiles pin the model passed as spawn_agent.model.
+const EXPECTED_PROFILES = {
+  extract: ['candidate', 'gpt-6-luna', ['knu_explorer_xhigh'], ['knu_explorer_xhigh']],
+  'standard-read': [
+    'candidate',
+    'gpt-6.1-sol',
+    ['knu_explorer', 'knu_researcher'],
+    ['knu_explorer', 'knu_researcher'],
+  ],
+  'elevated-read': [
+    'candidate',
+    'gpt-6.1-sol',
+    ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
+    ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
+  ],
+  'standard-build': ['candidate', 'gpt-6.1-sol', ['knu_executor'], ['knu_executor']],
+  'elevated-build': ['candidate', 'gpt-6.1-sol', ['knu_executor_xhigh'], ['knu_executor_xhigh']],
+  'deep-build': ['assignment', 'gpt-6-astra', ['knu_executor', 'knu_executor_xhigh'], null],
+  review: ['assignment', 'gpt-6-astra', ['knu_reviewer'], null],
+  'astra-fallback': [
+    'assignment',
+    'gpt-6-astra',
+    [
+      'knu_explorer_medium',
+      'knu_explorer',
+      'knu_explorer_xhigh',
+      'knu_researcher_medium',
+      'knu_researcher',
+      'knu_researcher_xhigh',
+      'knu_executor_medium',
+      'knu_executor',
+    ],
+    null,
+  ],
+};
+const RECOVERY_SUSPENDED = {
+  name: 'TypeError',
+  message: 'Model recovery is suspended; a failed candidate returns to the Parent or a handoff.',
+};
+
+test('profiles own models and roles while each role file owns its effort', async () => {
+  const { ROLE_EFFORTS, MODEL_PROFILE_IDS } =
+    await import('../../../agents/codex/model-profiles.mjs');
+  assert.deepEqual(MODEL_PROFILE_IDS, Object.keys(EXPECTED_PROFILES));
+  for (const [id, [kind, model, roles, routineRoles]] of Object.entries(EXPECTED_PROFILES)) {
+    const profile = getModelProfile(id);
+    assert.equal(profile.kind, kind, id);
+    assert.equal(profile.model, model, id);
+    assert.deepEqual(profile.roles, roles, id);
+    assert.ok(Object.isFrozen(profile.roles), id);
+    if (kind === 'candidate') {
+      // Every candidate is routine on all of its roles: 6.1 Sol by Owner adoption, Luna from its observed cohort.
+      assert.deepEqual(profile.routineRoles, routineRoles, id);
+      for (const role of roles)
+        assert.equal(profile.resolvedEffort, ROLE_EFFORTS[role], `${id}:${role}`);
+      assert.equal(createModelProfileBinding(profile).resolvedEffort, profile.resolvedEffort);
+    } else {
+      // An assignment profile names the model for roles of different efforts; it is never a model request.
+      assert.equal(Object.hasOwn(profile, 'resolvedEffort'), false, id);
+      assert.throws(() => createModelProfileBinding(profile), {
+        name: 'TypeError',
+        message: 'Only a candidate profile has a model binding.',
+      });
+    }
+  }
+  assert.equal(getModelProfile('review').roles.length, 1);
+  assert.equal(ROLE_EFFORTS.knu_reviewer, 'xhigh');
+});
+
+test('model recovery is suspended at its single entry and no recovery binding is current', async () => {
   const { createRecoveryBinding, assertCurrentRecoveryBinding } =
     await import('../../../agents/codex/model-profiles.mjs');
   const digest = `sha256:${'a'.repeat(64)}`;
   const input = {
     primary: {
-      profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
+      profileBinding: createModelProfileBinding(getModelProfile('standard-read')),
       attemptId: 'primary',
       taskId: 'task-1',
       laneId: 'lane-1',
@@ -184,139 +332,9 @@ test('recovery policy chooses low only for finite known non-QA work and never ac
       reasonRefs: ['evidence:known-failure'],
     },
   };
-  const b = createRecoveryBinding(input);
-  assert.equal(b.kind, 'model-recovery');
-  assert.equal(b.policyId, 'astra-bounded-recovery');
-  assert.equal(b.model, 'gpt-6-astra');
-  assert.equal(b.resolvedEffort, 'low');
-  assert.doesNotThrow(() => assertCurrentRecoveryBinding(b));
-  for (const mutate of [
-    (x) => {
-      x.assessment.cause = 'unknown';
-    },
-    (x) => {
-      x.assessment.cause = 'reasoning-miss';
-    },
-    (x) => {
-      x.assessment.bounded = false;
-    },
-    (x) => {
-      x.rescue.impactRisk = 'high';
-    },
-  ]) {
-    const x = structuredClone(input);
-    mutate(x);
-    assert.notEqual(createRecoveryBinding(x).resolvedEffort, 'low');
-  }
-  for (const effort of ['medium', 'high', 'xhigh']) {
-    const x = structuredClone(input);
-    x.assessment.cause = 'unknown';
-    x.rescue.semanticEffort = effort;
-    assert.equal(createRecoveryBinding(x).resolvedEffort, effort);
-  }
-  for (const mutate of [
-    (x) => {
-      x.rescue.role = 'knu_reviewer';
-    },
-    (x) => {
-      x.assessment.identityVerified = false;
-    },
-    (x) => {
-      x.rescue.semanticEffort = 'low';
-    },
-    (x) => {
-      x.rescue.resolvedEffort = 'max';
-    },
-  ]) {
-    const x = structuredClone(input);
-    mutate(x);
-    assert.throws(() => createRecoveryBinding(x), TypeError);
-  }
-  for (const patch of [
-    { resolvedEffort: 'high' },
-    { policyRevision: 'old' },
-    { selectionDigest: digest },
-  ])
-    assert.throws(() => assertCurrentRecoveryBinding({ ...b, ...patch }), TypeError);
+  assert.throws(() => createRecoveryBinding(input), RECOVERY_SUSPENDED);
   assert.throws(
-    () => assertCurrentRecoveryBinding({ ...b, model: UNLISTED_MODEL }),
-    UNLISTED_REASON,
+    () => assertCurrentRecoveryBinding({ kind: 'model-recovery', ...input }),
+    RECOVERY_SUSPENDED,
   );
-});
-
-test('quality-only revision grants do not survive recovery policy activation', () => {
-  for (const id of ['bounded-build', 'bounded-read', 'bounded-extract']) {
-    const old = createModelProfileBinding({
-      ...getModelProfile(id),
-      policyRevision: '2026-09-24.2',
-    });
-    assert.throws(() => assertCurrentModelProfileBinding(old), TypeError);
-  }
-});
-
-// GPT-6 Sol to GPT-6.1 Sol: only the model changes, under a new revision.
-const SOL_PROFILES = ['bounded-build', 'bounded-read'];
-const SOL6_REVISION = '2026-09-24.3';
-const STALE_REASON = {
-  name: 'TypeError',
-  message: 'Model profile binding must match the current installed policy.',
-};
-
-test('Sol profiles bind GPT-6.1 Sol at the same effort under a new revision', () => {
-  for (const id of SOL_PROFILES) {
-    const profile = getModelProfile(id);
-    assert.equal(profile.model, 'gpt-6.1-sol');
-    assert.equal(profile.resolvedEffort, 'xhigh');
-    assert.notEqual(profile.policyRevision, SOL6_REVISION);
-  }
-  assert.equal(
-    getModelProfile('bounded-extract').policyRevision,
-    getModelProfile('bounded-read').policyRevision,
-  );
-});
-
-test('the previous revision is stale even when it already names the new model', () => {
-  for (const id of SOL_PROFILES) {
-    const stale = createModelProfileBinding({
-      ...getModelProfile(id),
-      model: 'gpt-6.1-sol',
-      policyRevision: SOL6_REVISION,
-    });
-    assert.throws(() => assertCurrentModelProfileBinding(stale), STALE_REASON);
-  }
-});
-
-test('a reused Sol 6 grant fails like any unlisted model, with no rule naming it', () => {
-  for (const id of SOL_PROFILES) {
-    const old = { ...getModelProfile(id), model: 'gpt-6-sol', policyRevision: SOL6_REVISION };
-    const unlisted = { ...old, model: UNLISTED_MODEL };
-    for (const profile of [old, unlisted])
-      assert.throws(
-        () => assertCurrentModelProfileBinding(createModelProfileBinding(profile)),
-        UNLISTED_REASON,
-      );
-  }
-});
-
-// Fingerprint/data seam only: this does not install a registry or protect against
-// an operator restoring old validator code together with old grants.
-test('rollback data with a new revision has a new binding, not a revived old grant', () => {
-  const current = getModelProfile('bounded-build');
-  const original = createModelProfileBinding(current);
-  const changed = createModelProfileBinding({
-    ...current,
-    policyRevision: 'synthetic-next',
-    resolvedEffort: 'high',
-  });
-  const rolledBack = createModelProfileBinding({
-    ...current,
-    policyRevision: 'synthetic-rollback-new-revision',
-  });
-  assert.equal(rolledBack.model, original.model);
-  assert.equal(rolledBack.resolvedEffort, original.resolvedEffort);
-  assert.notEqual(rolledBack.profileDigest, original.profileDigest);
-  assert.notEqual(rolledBack.profileDigest, changed.profileDigest);
-  for (const uninstalled of [changed, rolledBack])
-    assert.throws(() => assertCurrentModelProfileBinding(uninstalled), TypeError);
-  assert.deepEqual(assertCurrentModelProfileBinding(original), original);
 });

@@ -37,12 +37,24 @@ effort를 계산하거나 변경했다고 보고하지 않습니다.
 4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
    structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
 
-Repository-selected child의 기본값은 GPT-6 Astra이며 effort는 `medium | high | xhigh`를 유지합니다. Keyword, path, file count, LOC, broad verification
-하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
-`knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
-아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
-leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Bound recovery invocation은 아래 별도 계약을 따릅니다. Role routing을
-증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
+Child model은 profile이 정합니다. Admission을 통과한 bounded 읽기·구현은 GPT-6.1 Sol, 고정 입력 추출은 GPT-6 Luna이고
+([후보 표](#quality-gated-model-advice)), 그 밖의 child와 독립 리뷰는 GPT-6 Astra입니다. Child effort는 `medium | high | xhigh`이고 역할 파일이 정합니다.
+각 `.codex/agents` 역할은 `model_reasoning_effort`를 pin하고 이 값이 spawn의 explicit effort보다 우선하므로, Parent는 effort
+인자가 아니라 역할을 골라 effort를 정합니다. Routing은 Pass 2 계층과 impact로 역할 변형과 `profileId`를 함께 출력합니다.
+`effort`는 그 역할이 pin한 값이고 spawn model은 profile의 model입니다. Candidate가 없을 때의 배정은 다음과 같습니다.
+
+| 작업                                       | Medium    | High            | XHigh                         | Impact high                        |
+| ------------------------------------------ | --------- | --------------- | ----------------------------- | ---------------------------------- |
+| 읽기·조사(`knu_explorer`·`knu_researcher`) | `_medium` | 기본 역할(high) | `_xhigh`                      | `_xhigh`                           |
+| 구현(`knu_executor`)                       | `_medium` | 기본 역할(high) | 기본 역할(high), `deep-build` | `knu_executor_xhigh`, `deep-build` |
+
+독립 리뷰는 계층과 무관하게 `knu_reviewer`(xhigh)와 `review`입니다. 표에서 profile을 적지 않은 칸은 `astra-fallback`입니다. 세 profile 모두 Astra입니다. `_medium`·`_xhigh` 변형의 prompt·sandbox는
+기본 역할과 같고 이름·설명·effort만 다르며 test가 이를 결속합니다. Keyword, path, file count, LOC, broad verification
+하나만으로 계층을 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Role 이름 자체는 live runtime
+지원 증거가 아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch
+전에 leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Low 역할도 없습니다.
+Model recovery는 [중단](#model-recovery-suspension)되어 있습니다.
+Role routing을 증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
 
 Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
 evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
@@ -57,7 +69,8 @@ leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일�
 공통 조건은 [Quality stop](../orchestration.md#quality-stop)을 따르며, 이 절은 Codex Parent Astra high·xhigh 운영을 더합니다.
 
 Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작업은 직접 처리합니다. 분리 가능한 깊은 미해결 문제만
-기존 semantic evidence와 active schema 확인을 거쳐 **Astra xhigh child**에 배정합니다. 전체 문제 정의·범위·cross-owner
+기존 semantic evidence와 active schema 확인을 거쳐 **Astra XHigh 배정**(읽기는 `_xhigh` 역할 xhigh, 구현은
+`deep-build`)으로 보냅니다. 전체 문제 정의·범위·cross-owner
 통합이 어려우면 Parent xhigh를 권고하며, 높은 child effort가 Parent의 통합 판단을 대신하지는 않습니다.
 
 - 적용은 관련 구현·검증·운영 handoff가 완료된 뒤 실제 host의 session control에서 선택합니다. 이 지침 추가, 설정 파일 값,
@@ -76,21 +89,26 @@ Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합�
 
 ### Quality-gated model advice
 
-Role/effort를 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없으면 기존
-Astra-only compatibility와 출력이 유지됩니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
+Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없거나 후보가
+admission을 통과하지 못하면 위 Astra 배정이 그대로입니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
+후보는 자기 역할 변형을 가지며, 그 역할의 pin effort가 곧 호출 effort입니다.
 
-| Task profile      | 후보 model / invocation effort | 범위                                                                                |
-| ----------------- | ------------------------------ | ----------------------------------------------------------------------------------- |
-| `bounded-build`   | `gpt-6.1-sol` / xhigh          | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA                    |
-| `bounded-read`    | `gpt-6.1-sol` / xhigh          | lookup·analysis read-only, acceptance·독립 검사. Researcher는 pilot-only            |
-| `bounded-extract` | `gpt-6-luna` / xhigh           | 낮은 영향도의 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 |
+| Candidate profile | model / 역할(effort)                                  | 계층·impact                      | 범위                                                                  | 운영    |
+| ----------------- | ----------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- | ------- |
+| `extract`         | `gpt-6-luna` / `knu_explorer_xhigh`(xhigh)            | Medium, low                      | 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 | routine |
+| `standard-read`   | `gpt-6.1-sol` / `knu_explorer`·`knu_researcher`(high) | Medium, low·medium               | lookup·analysis·research read-only, acceptance·독립 검사              | routine |
+| `elevated-read`   | `gpt-6.1-sol` / `_xhigh` 읽기 역할(xhigh)             | High·XHigh 또는 impact high 읽기 | 위와 같음                                                             | routine |
+| `standard-build`  | `gpt-6.1-sol` / `knu_executor`(high)                  | Medium, low·medium               | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA      | routine |
+| `elevated-build`  | `gpt-6.1-sol` / `knu_executor_xhigh`(xhigh)           | High(non-deep), low·medium       | 위와 같음                                                             | routine |
 
-- Astra: Parent, 최종 QA, architecture/auth/trust/transaction/migration/concurrency, 미해결 실패·위험/품질 gap.
+- Astra: Parent, 최종 QA, 구현의 XHigh·impact high(`deep-build`), 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
 
-현재 정적 후보는 완전한 Medium boundedness, high-confidence facts, 빈 gap/domain/composite signal, non-high impact를
-모두 요구하는 **보수적인 첫 cohort**입니다. Medium이라는 이유만으로 모델을 내리지 않습니다. Task/cohort/검증 fact와
-write/context/runtime/admission gate도 통과해야 하며 broader High cohort는 추가 품질 근거 전까지 Astra입니다.
-Luna도 semantic complete Medium을 요구하되 세 profile의 invocation effort는 xhigh입니다. Semantic 위험도와 모델별 호출 effort는 별도 축입니다. 일반 Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
+모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Elevated profile은
+같은 조건에서 계층만 High로 올린 것입니다. Task/cohort/검증 fact와 write/context/runtime/admission gate도 통과해야 합니다.
+6.1 Sol 후보는 Owner 채택(2026-10-06)으로 routine입니다. 별도 품질 canary 없이 채택했으므로 작업마다 oracle·독립 검사,
+구현의 필수 Astra QA와 [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)가 품질을 지킵니다.
+Pilot 요청도 그대로 받습니다. Semantic 계층과 후보 역할의
+effort는 별도 축입니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
 
 Parent는 선택 근거를 짧은 sanitized evidence reference로 남깁니다. 결정적 도구로 충분한지, semantic 작업의
 목표·acceptance·입력·context가 완전한지, dependency/owner/검증 경계가 유한한지, 직접 oracle·독립 검사가 있는지,
@@ -108,37 +126,39 @@ Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest�
 기본값/최종 QA는 Astra입니다. 실행·읽기 역할은 model pin 없이 task 선택을 받지만, 실제 loaded role에 pin이 있으면
 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 지원된 명시적 모델·effort/scoped fork와 source/config/권한을 확인한 descriptor만 실제 native 호출에 전달합니다.
-Lower-model lane은 하나씩 실행합니다. 품질/지원 불일치는 pending writer를 회수한 뒤 Astra로 최대 한 번 복귀하며,
+Lower-model lane은 하나씩 실행합니다. 품질/지원 불일치는 pending writer를 회수한 뒤 Parent 판단이나 handoff로 넘기며,
 quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
 
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
 아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
 
-### Bound Astra recovery invocation
+### Model recovery suspension
 
-실행된 candidate의 적격 실패에는 같은 역할·쓰기 owner·도구 범위를 보존한 별도 recovery selection을 사용합니다.
-`astra-bounded-recovery`는 원인과 남은 acceptance가 좁고 context·oracle가 충분한 non-high-risk 작업의 **Low invocation**이며,
-ordinary modelRequest나 semantic Medium 판정을 바꾸지 않습니다. Unknown/deep/high-risk는 기존 semantic effort를 따른
-`astra-standard-recovery` 또는 handoff, QA·identity·permission/quota/cap 문제는 이 경로로 우회하지 않습니다.
-Pending writer 회수 후 정확한 첫 실패·현재 rescue source/config/scope·승인·예산·시간에 bind한 alternate 한 번만 가능합니다.
-한 번의 Low 실패 뒤 더 높은 effort로 추가 호출하지 않습니다. 이 정적 경로의 지원은 실제 rescue 품질/운영 채택 증거가 아닙니다.
-현재 routine Low 채택은 [검증된 executor cohort](../agentic-architecture-decisions.md#routine-model-adoption)에 한정합니다.
-Explorer/researcher 등 미채택 역할에 helper가 Low를 추천해도 실행 GO가 아니며, Parent direct/검증된 Astra 경로 또는
-새 evidence handoff를 사용합니다. Standard recovery를 강제하려고 cause·semantic effort를 조작하지 않습니다.
-[Recovery selection과 admission 계약](../request-intake/orchestration-recovery.md#bound-recovery-selection-and-admission)을 따릅니다.
+Model recovery는 중단되어 있습니다. 실패한 candidate는 Astra alternate를 받지 않고 Parent 판단이나 handoff로 돌아갑니다.
+`createRecoveryBinding()`이 유일한 입구이며 중단 상태에서는 `Model recovery is suspended; a failed candidate returns to the
+Parent or a handoff.`로 거절합니다. 같은 입구를 거치는 binding 검증과 run evidence는 같은 사유로 거절되고, recovery
+dispatch는 `model-recovery-incompatible-or-unadmitted` gap을 남기며 descriptor를 만들지 않습니다.
+`evaluateRecovery()`는 model 경로의 재시도 가능 실패에 `terminal-handoff`와 `model-recovery-suspended`(writer 미회수면
+`model-pending-writer-not-cleared`)를 반환하고, 이미 기록된 Astra alternate는 같은 사유로 거절합니다. 중단 이유는 이전
+Astra-only rescue가 역할 pin effort와 다른 Low·semantic effort를 기록했기 때문입니다. 역할이 effort를 고정한 뒤에는 그 기록을
+재현할 수 없습니다. 같은 역할로 한 단계씩 올리는 승격 사다리가 이 정책을 대체하기 전까지 중단합니다.
+일반 lane의 distinct-approach alternate 한 번은 그대로입니다.
+[공통 중단 계약](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.
 
 ### Central profile migration boundary
 
-`scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model/effort/허용 role·task·도구·검증 키를 소유합니다.
-Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report →
-recovery에 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐입니다.
+`scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model·허용 role·계층·task·도구·검증 키와 역할별 effort 표
+`ROLE_EFFORTS`를 소유합니다. Effort 값은 각 역할 파일이 pin하며 test가 두 값을 결속합니다.
+Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report에
+연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐입니다.
 Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding, attempt, admission, run evidence의 허용 목록 밖 model은
 이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Dispatch 판정이 읽는 host 관측(effective·
 supported·role model, configuration resolution, hostMetadata)은 거절하지 않고 gap으로 남깁니다. Codex가 직접 읽는 `.codex`
-기본값·reviewer pin은 test로 `BASELINE_CHILD_MODEL`에 결속합니다. 모델별 TOML clone이나 provider adapter/scheduler를 만들지 않습니다.
+기본값·reviewer pin은 test로 `BASELINE_CHILD_MODEL`에 결속합니다. Effort 변형 역할은 있지만 모델별 TOML clone이나
+provider adapter/scheduler는 만들지 않습니다.
 
 미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
-갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 승인·사후 보고·recovery binding을 재사용하지 못합니다.
+갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 승인·사후 보고를 재사용하지 못합니다.
 설치된 registry와 정확히 비교하므로 synthetic hash나 scope digest 재계산만으로 새 모델을 허용할 수 없습니다.
 현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된
 profile을 current source/config에 다시 승인해 복귀하며 허용 목록에서 빠진 모델을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
@@ -148,7 +168,7 @@ profile을 current source/config에 다시 승인해 복귀하며 허용 목록�
 1. 변경 profile의 신규 dispatch를 중단하고 current registry/binding·source/config·채택 결정·미완료 writer를 확인합니다.
 2. 선택된 실제 모델의 exact ID/effort/지원·품질 근거를 확인한 뒤 **중앙 profile data + 새 policyRevision**으로 변경합니다.
    Eligibility를 바꾸면 그 알고리즘도 owner이며 revision이 필요합니다. 역할별 TOML 복제나 `latest` alias로 넘기지 않습니다.
-3. 기존 static/integration 회귀로 새 binding, stale grant/resolution/post/recovery 거절을 검증합니다. 검증되지 않은 미래 ID를
+3. 기존 static/integration 회귀로 새 binding, stale grant/resolution/post 거절을 검증합니다. 검증되지 않은 미래 ID를
    실제 registry에 등록하지 않습니다. 새 모델 canary는 별도 bounded 권한·환경·독립 QA 후 채택합니다.
 4. 새 채택 결정과 이번 task의 새 source/config/scope/time/budget admission을 만들고 live host를 다시 확인합니다.
    테스트의 synthetic revision은 데이터 seam 검사이지 새 모델 실행·품질 증거가 아닙니다.
@@ -162,21 +182,22 @@ fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/d
 
 ### Task model configuration and fresh loading
 
-| 설정 owner                       | 계약                                                                                |
-| -------------------------------- | ----------------------------------------------------------------------------------- |
-| `.codex/config.toml`             | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음 |
-| `knu_executor`                   | model/effort pin 없음, 기존 workspace-write 및 단일 write owner 유지                |
-| `knu_explorer`, `knu_researcher` | model/effort pin 없음, 기존 read-only 및 각 조사 책임 유지                          |
-| `knu_reviewer`                   | Astra model pin, read-only, effort는 기존 evidence 판정 유지                        |
+| 설정 owner                                                     | 계약                                                                                |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음 |
+| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner    |
+| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임              |
+| `knu_reviewer`                                                 | Astra model pin, effort pin xhigh, read-only                                        |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
-따라서 pin 제거는 **명시적 모델 선택을 받을 수 있는 설정**이지 기본값을 Sol로 바꾸는 조치가 아닙니다. Parent는 허용된
-cohort에서 model과 reasoning_effort를 함께 명시하며, 미분류/무요청 경로는 Astra 기본값을 유지합니다.
+그래서 effort는 역할 pin이 정하고, spawn의 `reasoning_effort`는 그 값과 같을 때만 dispatch descriptor가 됩니다. Model pin이
+없는 역할은 **명시적 모델 선택을 받을 수 있는 설정**이지 기본값을 Sol로 바꾸는 조치가 아닙니다. Parent는 profile의 model을
+명시하며, 미분류/무요청 경로는 Astra 기본값을 유지합니다.
 [공식 subagent 설정](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 
 설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
 
-1. 현재 branch/HEAD/working tree와 프로젝트 config·네 role 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
+1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
    이름·sandbox·instructions·기본값·reviewer pin·상한은 별도로 대조합니다.
 2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
    역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.
@@ -202,11 +223,12 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 
 공통 채택·철회 원칙은 [Routine adoption](../orchestration.md#routine-adoption)을 따르며, 이 절은 Codex cohort와 admission 절차를 정합니다.
 
-[채택 결정과 한정된 실제 관측](../agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
+[현재 profile 결정](../agentic-architecture-decisions.md#task-model-effort-structure)과 [한정된 실제 관측](../agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
 **개별 task 호출 승인**과 다릅니다. 승인된 일반 업무에서 Parent가 적격 profile을 선택하므로 매번 사용자에게 모델명을
 다시 묻지 않습니다. 그러나 현재 작업 범위·runtime·예산·독립 QA를 생략하거나 과거 pilot grant를 재사용하지 않습니다.
 Profile model이 바뀐 cohort는 새 model ID·effort의 native live 관측과 [세대교체 절차](#central-profile-migration-boundary)의
 cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않음)이며, 이전 model의 관측 행은 historical로 남습니다.
+예외는 Owner가 품질 근거 전에 routine으로 채택한 경우이며 결정에 그 사실과 대신 지키는 gate를 기록합니다(6.1 Sol, DA-018).
 행별 현재 상태는 위 채택 결정의 표가 소유합니다.
 운영 procedure는 model-mediated이며 script/schema만으로 task의 실제 의미나 권한을 인증하지 않습니다.
 
@@ -216,8 +238,9 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    작은 deterministic 작업·단일 chain은 child0입니다. 분리 가능한 미해결 질문 하나에 primary owner를 배정하고
    [불필요한 중복과 독립 QA](../orchestration.md#primary-작업과-증거-재사용)를 구별합니다.
 2. **Task→profile**: current Pass 2 사실에서 complete Medium·non-high impact·빈 gap과 실제 oracle/검증 계획을 확인합니다.
-   구현/test는 bounded-build, 유한 repo 분석은 bounded-read, 고정 입력의 low-impact 단일 추출은 bounded-extract입니다.
-   Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 Astra입니다. Semantic Medium과 후보 invocation xhigh는 별개입니다.
+   Complete boundedness를 갖춘 읽기는 `standard-read`·`elevated-read`, 구현은 `standard-build`·`elevated-build`,
+   고정 입력의 low-impact 단일 추출은 `extract`입니다.
+   Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 [Astra 배정](#reasoning-effort-routing)입니다.
 3. **완전한 packet**: [request/context 계약](./codex-delegation.md#model-recommendation)의 `purpose=routine`, 현재
    profileBinding, scope/도구/쓰기 owner·사실/실패·acceptance·stop/return을 작성합니다. 최초 QA는 fresh source-first context입니다.
    Full history를 복사하지 않되 필요한 실패·제약을 생략하지 않습니다. Candidate의 미해결 실패는 새 lower-model task로 숨기지 않습니다.
@@ -232,8 +255,8 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `evaluateModelExecution()`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer effort는 근거로 선택합니다.
    `prepareLeaderSynthesis()`로 failed/blocked/conflicting evidence를 보존하고 근거 없는 completed/self-PASS를 수용하지 않습니다.
-7. **실패·기록·cleanup**: [bound recovery](../request-intake/orchestration-recovery.md#bound-recovery-selection-and-admission)는
-   원인·identity·writer 회수·현재 rescue 권한·adopted role을 확인한 alternate 한 번뿐입니다. Usage가 없으면 null로 남기고
+7. **실패·기록·cleanup**: [model recovery는 중단](#model-recovery-suspension)되어 있어 실패한 candidate는 writer 회수 뒤
+   Parent 판단이나 handoff로 돌아갑니다. Usage가 없으면 null로 남기고
    [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.
 

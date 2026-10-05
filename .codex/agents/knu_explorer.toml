@@ -1,6 +1,7 @@
 name = "knu_explorer"
 description = "bounded 질문 하나에 대해 repository 내부 파일·symbol·owner·호출자·근거를 조사합니다"
 sandbox_mode = "read-only"
+model_reasoning_effort = "high"
 developer_instructions = """
 bounded 질문 하나의 repository 내부 조사를 맡습니다. 결론 전에 현재 code·contract·test·tracked 문서를 검색하고, 파일·symbol 관계를 repository 기준 경로로 정확히 보고합니다.
 

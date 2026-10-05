@@ -1,5 +1,8 @@
 import {
   BASELINE_CHILD_MODEL,
+  MODEL_RECOVERY_SUSPENDED,
+  MODEL_RECOVERY_SUSPENDED_REASON,
+  ROLE_EFFORTS,
   assertAllowedChildModel,
   getModelProfile,
   assertCurrentModelProfileBinding,
@@ -16,7 +19,7 @@ const DEFAULT_CONCURRENCY_LIMIT = 3;
 const REPOSITORY_CHILD_MODEL = BASELINE_CHILD_MODEL;
 const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
-const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
+const INSTALLED_ROLES = new Set(Object.keys(ROLE_EFFORTS));
 const RUNTIME_SURFACES = new Set(['native', 'omx']);
 const RUNTIME_OBSERVATION_SCOPES = new Set(['current-turn', 'current-session']);
 const RUNTIME_PROVENANCE = new Set(['host-tool-schema', 'omx-runtime-overlay']);
@@ -183,7 +186,7 @@ export function createDispatchRecommendation({
         ? {
             spawnArguments: {
               agent_type: contract.routeRecommendation.role,
-              model: REPOSITORY_CHILD_MODEL,
+              model: getModelProfile(contract.routeRecommendation.profileId).model,
               reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
               fork_turns: 'none',
             },
@@ -625,6 +628,20 @@ export function evaluateRecovery({ laneId, attempts = [], modelRecovery } = {}) 
   if (attempts.length > 1 && NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory))
     throw new TypeError('Model recovery cannot retry a non-retryable failure.');
   const waiting = result.action === 'alternate-once' && modelRecovery.pendingWriter !== 'cleared';
+  // Model recovery is suspended: a failed candidate returns to the Parent or a handoff, never an Astra alternate.
+  if (MODEL_RECOVERY_SUSPENDED && attempts.length > 1)
+    throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
+  if (MODEL_RECOVERY_SUSPENDED && result.action === 'alternate-once')
+    return deepFreeze({
+      ...result,
+      status: 'handoff-required',
+      action: 'terminal-handoff',
+      remainingAlternateAttempts: 0,
+      blocker: waiting ? 'model-pending-writer-not-cleared' : 'model-recovery-suspended',
+      disposition: 'blocker-handoff',
+      nextModel: null,
+      runtimeAction: false,
+    });
   let recoveryBinding;
   if (
     modelRecovery.request !== undefined &&
@@ -1300,7 +1317,13 @@ function assessModelContractBoundary(contract) {
   const gaps = [];
   const route = contract.routeRecommendation;
   const profile = getModelProfile(route.modelRecommendation.request.profileId);
-  if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
+  // The candidate's role carries the profile effort; the tier gate itself is recomputed by recommendModel.
+  if (
+    !profile.roles.includes(route.role) ||
+    route.effort !== profile.resolvedEffort ||
+    route.profileId !== profile.profileId
+  )
+    gaps.push('model-effort-eligibility-mismatch');
   const delivery = contract.contextDelivery;
   if (
     !delivery ||
@@ -1720,6 +1743,11 @@ function assertDelegationRecommendation(delegation) {
     const role = requireString(contract.routeRecommendation?.role, 'route role', 80);
     if (!INSTALLED_ROLES.has(role)) throw new TypeError(`Unsupported native role route: ${role}`);
     requireEnum(contract.routeRecommendation?.effort, EFFORTS, 'route effort');
+    if (contract.routeRecommendation.effort !== ROLE_EFFORTS[role])
+      throw new TypeError('Route effort must be the effort its role file pins.');
+    requireEnum(contract.routeRecommendation.tier, EFFORTS, 'route tier');
+    if (!getModelProfile(contract.routeRecommendation.profileId).roles.includes(role))
+      throw new TypeError('Route profile must list its role.');
     if (contract.routeRecommendation?.execution !== 'bounded-child') {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { createRecoveryChildContract, recommendDelegation } from './child-task-contract.mjs';
+import { recommendDelegation } from './child-task-contract.mjs';
 import { prepareCodexWorkflow } from './workflow-entry.mjs';
 import { discoverContextPack } from '../common/domain-guide-registry.mjs';
 import { createModelRunEvidence } from './model-run-evidence.mjs';
@@ -21,8 +21,8 @@ import {
 } from './routing-policy.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
-const READ_MODEL = getModelProfile('bounded-read').model;
-const EXTRACT_MODEL = getModelProfile('bounded-extract').model;
+const READ_MODEL = getModelProfile('standard-read').model;
+const EXTRACT_MODEL = getModelProfile('extract').model;
 const entryPoints = Object.freeze([
   'AGENTS.md',
   'docs/development/agent-workflows/README.md',
@@ -215,7 +215,8 @@ function evaluateDeliveryEvidence() {
         dispatchPermission: 'allowed',
         roles: [
           {
-            agentType: 'knu_explorer',
+            // Concurrency/transaction evidence is an XHigh read: the xhigh explorer variant.
+            agentType: 'knu_explorer_xhigh',
             available: true,
             effectiveModel: BASELINE_CHILD_MODEL,
             effectiveEffort: 'xhigh',
@@ -283,7 +284,7 @@ function evaluateModelEvidence() {
           impactRisk: 'low',
           pass2Evidence: evidence,
           modelRequest: {
-            profileId: extraction ? 'bounded-extract' : 'bounded-read',
+            profileId: extraction ? 'extract' : 'standard-read',
             purpose,
             verificationFacts: {
               acceptance: evidence.facts[0].factId,
@@ -317,7 +318,7 @@ function evaluateModelEvidence() {
             followup: true,
             explicitEffort: true,
             fullHistoryWithExplicitEffort: false,
-            effectiveEffort: 'xhigh',
+            effectiveEffort: 'high',
           },
         },
       },
@@ -336,7 +337,7 @@ function evaluateModelEvidence() {
         agentType: 'knu_explorer',
         available: true,
         effectiveModel: READ_MODEL,
-        effectiveEffort: 'xhigh',
+        effectiveEffort: 'high',
         explicitEffortSupport: true,
         modelSelection: {
           supportedModels: [BASELINE_CHILD_MODEL, READ_MODEL],
@@ -363,7 +364,7 @@ function evaluateModelEvidence() {
         quality: 'unadopted',
         model: READ_MODEL,
         role: 'knu_explorer',
-        effort: 'xhigh',
+        effort: 'high',
         cohort: 'bounded-read-only',
         scopeDigest: contract.modelScopeDigest,
         configDigest,
@@ -387,6 +388,7 @@ function evaluateModelEvidence() {
   const luna = structuredClone({ ...input, delegation: makeDelegation('routine', true) });
   const lunaContract = luna.delegation.recommendedChildren[0];
   Object.assign(luna.reportedRuntimeEvidence.roles[0], {
+    agentType: lunaContract.routeRecommendation.role,
     effectiveModel: null,
     effectiveEffort: null,
     configurationResolution: {
@@ -402,6 +404,7 @@ function evaluateModelEvidence() {
   Object.assign(luna.modelUseByLane[base.id].admission, {
     profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
     effort: 'xhigh',
+    role: lunaContract.routeRecommendation.role,
     kind: 'adoption',
     quality: 'go',
     model: EXTRACT_MODEL,
@@ -427,11 +430,6 @@ function evaluateModelEvidence() {
     },
   });
   const sourceDigest = `sha256:${'a'.repeat(64)}`;
-  const rescueSourceDigest = `sha256:${'b'.repeat(64)}`;
-  const rescueContract = createRecoveryChildContract({
-    primaryContract: lunaContract,
-    sourceSnapshot: 'synthetic-post-fault-source',
-  });
   const primaryAttempt = {
     approachId: 'synthetic-luna',
     outcome: 'failure',
@@ -450,111 +448,25 @@ function evaluateModelEvidence() {
   const modelRecovery = {
     profileBinding: lunaContract.routeRecommendation.modelRecommendation.profileBinding,
     pendingWriter: 'cleared',
-    request: {
-      primaryContract: lunaContract,
-      rescueContract,
-      sourceDigest: rescueSourceDigest,
-      configDigest,
-      attemptId: 'synthetic-astra',
-      assessment: {
-        cause: 'controlled-injection',
-        bounded: true,
-        contextComplete: true,
-        oracleAvailable: true,
-        identityVerified: true,
-        reasonRefs: ['evidence:synthetic-fault-manifest'],
-      },
-    },
   };
+  // Model recovery is suspended: the failed candidate goes to the Parent or a handoff, with no Astra alternate.
   const recovery = evaluateRecovery({ laneId: base.id, attempts: [primaryAttempt], modelRecovery });
-  const recoveryBinding = recovery.recoveryBinding;
-  const rescueDelegation = { ...luna.delegation, recommendedChildren: [rescueContract] };
-  const rescueRuntime = structuredClone(luna.reportedRuntimeEvidence);
-  rescueRuntime.roles[0].configurationResolution = {
-    kind: 'recovery',
-    recoveryBinding,
-    model: recoveryBinding.model,
-    effort: recoveryBinding.resolvedEffort,
-    configDigest,
-    reference: 'synthetic-current-recovery-resolution',
-  };
-  const rescueUse = {
-    ...luna.modelUseByLane[base.id],
-    scopeDigest: rescueContract.modelScopeDigest,
-    admission: {
-      kind: 'recovery',
-      reference: 'synthetic-exact-rescue-authorization',
-      recoveryBinding,
-      notBefore: '2026-09-20T09:00:00.000Z',
-      expiresAt: '2026-09-20T11:00:00.000Z',
-      budget: { maxChildren: 1, maxMinutes: 10 },
-      cleanupReference: 'synthetic-rescue-cleanup',
-    },
-  };
-  const rescueDispatch = createDispatchRecommendation({
-    delegation: rescueDelegation,
-    reportedRuntimeEvidence: rescueRuntime,
-    modelUseByLane: { [base.id]: rescueUse },
-    recoveryDecision: recovery,
-  });
-  const [rescueDescriptor] = rescueDispatch.dispatches;
-  const rescuePost = evaluateModelExecution({
-    dispatch: rescueDescriptor,
-    expectedChildId: '/root/synthetic-astra',
-    reportedExecution: {
-      recoveryBinding,
-      childId: '/root/synthetic-astra',
-      taskId: rescueContract.modelTaskId,
-      scopeDigest: rescueContract.modelScopeDigest,
-      provenance: 'native-tool-result',
-      accepted: true,
-      executed: true,
-      resultReference: 'synthetic-rescue-result',
-      independentCheck: { status: 'passed', reference: 'synthetic-rescue-oracle-and-qa' },
-      hostMetadata: null,
-      usageReference: null,
-    },
-  });
-  const completedRecovery = evaluateRecovery({
-    laneId: base.id,
-    attempts: [
-      primaryAttempt,
-      {
-        approachId: recoveryBinding.rescue.attemptId,
-        alternateOf: primaryAttempt.approachId,
-        outcome: rescuePost.accepted ? 'success' : 'failure',
-        failureCategory: rescuePost.accepted ? null : 'verification-failed',
-        evidence: 'synthetic-revalidation',
-        model: rescueDescriptor.resolvedModel,
-        effort: rescueDescriptor.resolvedEffort,
-        executed: true,
-        recoveryBinding,
-        identity: {
-          taskId: rescueContract.modelTaskId,
-          childId: '/root/synthetic-astra',
-          sourceDigest: rescueSourceDigest,
-          scopeDigest: rescueContract.modelScopeDigest,
-        },
-      },
-    ],
-    modelRecovery,
-  });
   const synthesis = prepareLeaderSynthesis({
-    delegation: rescueDelegation,
-    recoveryDecisions: [completedRecovery],
+    delegation: luna.delegation,
+    recoveryDecisions: [recovery],
     childResults: [
       {
         laneId: base.id,
-        status: rescuePost.accepted ? 'completed' : 'failed',
+        status: 'failed',
         outputs: Object.fromEntries(
-          rescueContract.expectedOutputSchema.required
+          lunaContract.expectedOutputSchema.required
             .filter((key) => !['facts', 'inferences', 'gaps', 'confidence'].includes(key))
-            .map((key) => [key, ['synthetic-validated-result']]),
+            .map((key) => [key, ['synthetic-unaccepted-result']]),
         ),
         facts: [
           {
-            statement: 'Synthetic rescue oracle and independent QA passed.',
-            source: 'synthetic-rescue-oracle-and-qa',
+            statement: 'Synthetic controlled canary failed the independent check.',
+            source: 'synthetic-controlled-canary',
           },
         ],
         inferences: [],
@@ -562,12 +474,12 @@ function evaluateModelEvidence() {
         confidence: 'high',
         verification: [
           {
-            claim: 'Synthetic rescue result',
-            evidence: 'synthetic-rescue-oracle-and-qa',
-            status: rescuePost.accepted ? 'passed' : 'failed',
+            claim: 'Synthetic Luna result',
+            evidence: 'synthetic-controlled-canary',
+            status: 'failed',
           },
         ],
-        blocker: rescuePost.accepted ? null : 'synthetic-rescue-failed',
+        blocker: recovery.blocker,
       },
     ],
   });
@@ -619,34 +531,6 @@ function evaluateModelEvidence() {
     },
     usage: { tokens: null, cost: null, reference: null },
   };
-  // Synthetic reports consume the actual recovery adapters; no native/provider attestation.
-  const rescueRecord = {
-    ...primaryRecord,
-    attemptId: 'synthetic-astra',
-    alternateOf: primaryRecord.attemptId,
-    childId: '/root/synthetic-astra',
-    case: 'approved-baseline',
-    sourceDigest: rescueSourceDigest,
-    scopeDigest: rescueContract.modelScopeDigest,
-    requested: {
-      model: rescueDescriptor.spawnArguments.model,
-      effort: rescueDescriptor.spawnArguments.reasoning_effort,
-    },
-    resolved: { model: rescueDescriptor.resolvedModel, effort: rescueDescriptor.resolvedEffort },
-    disposition: synthesis.readyForLeaderDecision ? 'success' : 'failure',
-    failureCategory: null,
-    checks: [
-      check('acceptance', 'rescue-oracle', 'passed'),
-      check('independent-qa', 'rescue-qa', 'passed'),
-    ],
-    factRefs: ['evidence:synthetic-rescue-result'],
-    hypothesis: { cause: 'unknown', confidence: 'unknown', evidenceRefs: [] },
-    remediation: {
-      action: 'astra-handoff',
-      evidenceRefs: ['evidence:synthetic-recovery-decision'],
-      checkRefs: ['artifact:rescue-oracle', 'artifact:rescue-qa'],
-    },
-  };
   const runRecord = createModelRunEvidence({
     schemaVersion: 1,
     runId: 'synthetic-model-smoke',
@@ -658,9 +542,8 @@ function evaluateModelEvidence() {
     scopeDigest: lunaContract.modelScopeDigest,
     selectionRefs: ['evidence:synthetic-bounded-extraction-rubric'],
     writerClearance: modelRecovery.pendingWriter,
-    recoveryBinding: synthesis.recoveryDecisions[0].recoveryBinding,
-    attempts: [primaryRecord, rescueRecord],
-    finalDisposition: rescueRecord.disposition,
+    attempts: [primaryRecord],
+    finalDisposition: primaryRecord.disposition,
   });
   return {
     fixtureOnly: true,
@@ -668,9 +551,6 @@ function evaluateModelEvidence() {
       dispatch: lunaDispatch,
       post,
       recovery,
-      rescueDispatch,
-      rescuePost,
-      completedRecovery,
       synthesis,
       runRecord,
     },
@@ -790,7 +670,8 @@ function routingEvidenceLane(predicateIds) {
     domain: 'legal-policy',
     taskKind: 'analysis',
     priority: 'high',
-    impactRisk: 'high',
+    // Medium impact leaves the read variant to the evidence tier; a high-impact read always takes the xhigh variant.
+    impactRisk: 'medium',
     objective: 'Analyze one bounded Legal repository question.',
     question: 'Which current evidence determines the reasoning complexity?',
     allowedEvidence: ['repo', 'test'],

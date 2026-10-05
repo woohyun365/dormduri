@@ -1,6 +1,7 @@
 name = "knu_executor"
 description = "명시된 write ownership 안에서 bounded repository 변경 하나를 구현하고 가장 가까운 동작을 검증합니다"
 sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
 developer_instructions = """
 배정된 bounded 목표만 명시된 writeOwnership 안에서 구현합니다. 현재 repository pattern을 재사용하고, 관련 없는 working-tree 변경을 보존하며, 넓은 검사 전에 가장 가까운 regression을 먼저 실행합니다.
 

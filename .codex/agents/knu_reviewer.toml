@@ -2,6 +2,7 @@ name = "knu_reviewer"
 description = "최종 결정을 소유하지 않고 correctness·보안·architecture·검증 근거를 검토합니다"
 model = "gpt-6-astra"
 sandbox_mode = "read-only"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 bounded 변경 또는 결정 하나를 현재 요청·repository contract·test·보안 경계·acceptance 근거에 비춰 검토합니다. style보다 correctness와 빠진 동작을 우선하고, 조치가 필요한 finding마다 구체적인 경로와 줄을 인용합니다.
 

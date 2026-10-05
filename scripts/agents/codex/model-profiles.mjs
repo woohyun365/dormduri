@@ -3,48 +3,49 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
 // Bump for eligibility changes outside this data, too. Old grants never migrate implicitly.
-const POLICY_REVISION = '2026-10-05.1';
+const POLICY_REVISION = '2026-10-06.1';
+// Role files pin `model_reasoning_effort`, which outranks a spawn's effort; a test binds each `.codex/agents` file here.
+export const ROLE_EFFORTS = deepFreeze({
+  knu_explorer_medium: 'medium',
+  knu_explorer: 'high',
+  knu_explorer_xhigh: 'xhigh',
+  knu_researcher_medium: 'medium',
+  knu_researcher: 'high',
+  knu_researcher_xhigh: 'xhigh',
+  knu_executor_medium: 'medium',
+  knu_executor: 'high',
+  knu_executor_xhigh: 'xhigh',
+  knu_reviewer: 'xhigh',
+});
+const READ = {
+  taskKinds: ['lookup', 'analysis', 'research'],
+  verificationKeys: ['acceptance', 'independentCheck'],
+  readOnly: true,
+  allowedTools: ['repository-read', 'official-web-read'],
+  requiredTools: [],
+};
+const BUILD = {
+  taskKinds: ['implementation', 'test'],
+  verificationKeys: ['acceptance', 'regression', 'astraQa'],
+  readOnly: false,
+  allowedTools: ['repository-read', 'workspace-edit', 'test-runner'],
+  requiredTools: ['workspace-edit', 'test-runner'],
+};
+// A profile names the model passed as spawn_agent.model; the chosen role names the effort. Candidate profiles are
+// model requests with a quality gate and one effort; assignment profiles carry the Astra roles of every effort.
+// 6.1 Sol is the routine bounded model (Owner adoption 2026-10-06); its quality rests on the oracle, Astra QA and run evidence.
 const PROFILES = deepFreeze({
-  'bounded-build': {
-    profileId: 'bounded-build',
+  extract: {
+    profileId: 'extract',
     policyRevision: POLICY_REVISION,
-    model: 'gpt-6.1-sol',
-    resolvedEffort: 'xhigh',
-    cohort: 'bounded-implementation',
-    taskKinds: ['implementation', 'test'],
-    roles: ['knu_executor'],
-    routineRoles: ['knu_executor'],
-    impactRisks: ['low', 'medium'],
-    verificationKeys: ['acceptance', 'regression', 'astraQa'],
-    readOnly: false,
-    allowedTools: ['repository-read', 'workspace-edit', 'test-runner'],
-    requiredTools: ['workspace-edit', 'test-runner'],
-  },
-  'bounded-read': {
-    profileId: 'bounded-read',
-    policyRevision: POLICY_REVISION,
-    model: 'gpt-6.1-sol',
-    resolvedEffort: 'xhigh',
-    cohort: 'bounded-read-only',
-    taskKinds: ['lookup', 'analysis', 'research'],
-    roles: ['knu_explorer', 'knu_researcher'],
-    // Researcher remains pilot-only until independently validated for routine use.
-    routineRoles: ['knu_explorer'],
-    impactRisks: ['low', 'medium'],
-    verificationKeys: ['acceptance', 'independentCheck'],
-    readOnly: true,
-    allowedTools: ['repository-read', 'official-web-read'],
-    requiredTools: [],
-  },
-  'bounded-extract': {
-    profileId: 'bounded-extract',
-    policyRevision: POLICY_REVISION,
+    kind: 'candidate',
     model: 'gpt-6-luna',
     resolvedEffort: 'xhigh',
     cohort: 'bounded-extraction',
+    tiers: ['medium'],
     taskKinds: ['lookup', 'analysis'],
-    roles: ['knu_explorer'],
-    routineRoles: ['knu_explorer'],
+    roles: ['knu_explorer_xhigh'],
+    routineRoles: ['knu_explorer_xhigh'],
     impactRisks: ['low'],
     verificationKeys: [
       'acceptance',
@@ -57,7 +58,90 @@ const PROFILES = deepFreeze({
     allowedTools: ['repository-read'],
     requiredTools: [],
   },
+  'standard-read': {
+    profileId: 'standard-read',
+    policyRevision: POLICY_REVISION,
+    kind: 'candidate',
+    model: 'gpt-6.1-sol',
+    resolvedEffort: 'high',
+    cohort: 'bounded-read-only',
+    tiers: ['medium'],
+    ...READ,
+    roles: ['knu_explorer', 'knu_researcher'],
+    routineRoles: ['knu_explorer', 'knu_researcher'],
+    impactRisks: ['low', 'medium'],
+  },
+  'elevated-read': {
+    profileId: 'elevated-read',
+    policyRevision: POLICY_REVISION,
+    kind: 'candidate',
+    model: 'gpt-6.1-sol',
+    resolvedEffort: 'xhigh',
+    cohort: 'elevated-read-only',
+    tiers: ['high', 'xhigh'],
+    ...READ,
+    roles: ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
+    routineRoles: ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
+    impactRisks: ['low', 'medium', 'high'],
+  },
+  'standard-build': {
+    profileId: 'standard-build',
+    policyRevision: POLICY_REVISION,
+    kind: 'candidate',
+    model: 'gpt-6.1-sol',
+    resolvedEffort: 'high',
+    cohort: 'bounded-implementation',
+    tiers: ['medium'],
+    ...BUILD,
+    roles: ['knu_executor'],
+    routineRoles: ['knu_executor'],
+    impactRisks: ['low', 'medium'],
+  },
+  'elevated-build': {
+    profileId: 'elevated-build',
+    policyRevision: POLICY_REVISION,
+    kind: 'candidate',
+    model: 'gpt-6.1-sol',
+    resolvedEffort: 'xhigh',
+    cohort: 'elevated-implementation',
+    tiers: ['high'],
+    ...BUILD,
+    roles: ['knu_executor_xhigh'],
+    routineRoles: ['knu_executor_xhigh'],
+    impactRisks: ['low', 'medium'],
+  },
+  'deep-build': {
+    profileId: 'deep-build',
+    policyRevision: POLICY_REVISION,
+    kind: 'assignment',
+    model: BASELINE_CHILD_MODEL,
+    roles: ['knu_executor', 'knu_executor_xhigh'],
+  },
+  review: {
+    profileId: 'review',
+    policyRevision: POLICY_REVISION,
+    kind: 'assignment',
+    model: BASELINE_CHILD_MODEL,
+    roles: ['knu_reviewer'],
+  },
+  'astra-fallback': {
+    profileId: 'astra-fallback',
+    policyRevision: POLICY_REVISION,
+    kind: 'assignment',
+    model: BASELINE_CHILD_MODEL,
+    roles: [
+      'knu_explorer_medium',
+      'knu_explorer',
+      'knu_explorer_xhigh',
+      'knu_researcher_medium',
+      'knu_researcher',
+      'knu_researcher_xhigh',
+      'knu_executor_medium',
+      'knu_executor',
+    ],
+  },
 });
+export const MODEL_PROFILE_IDS = Object.freeze(Object.keys(PROFILES));
 // The only child models the repository requests. Any other ID fails for the same reason, whatever its name.
 export const ALLOWED_CHILD_MODELS = Object.freeze([
   ...new Set([BASELINE_CHILD_MODEL, ...Object.values(PROFILES).map(({ model }) => model)]),
@@ -77,6 +161,8 @@ export function getModelProfile(profileId) {
 
 // Pure fingerprint, not registry injection or authority. Runtime always checks installed data.
 export function createModelProfileBinding(profile) {
+  if (profile?.kind !== 'candidate')
+    throw new TypeError('Only a candidate profile has a model binding.');
   const { profileId, policyRevision, model, resolvedEffort, cohort } = profile;
   return deepFreeze({
     profileId,
@@ -98,8 +184,15 @@ export function assertCurrentModelProfileBinding(binding) {
   return expected;
 }
 
+// Suspended: the Astra-only rescue recorded a Low or semantic effort that a role-pinned rescue would not run, so a
+// failed candidate returns to the Parent or a handoff until a same-role promotion ladder replaces this policy.
+export const MODEL_RECOVERY_SUSPENDED = true;
+export const MODEL_RECOVERY_SUSPENDED_REASON =
+  'Model recovery is suspended; a failed candidate returns to the Parent or a handoff.';
+
 // A separate recovery policy: never an ordinary candidate or a raw effort override.
 export function createRecoveryBinding({ primary, rescue, assessment, ...extra }) {
+  if (MODEL_RECOVERY_SUSPENDED) throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
   recoveryAssert(Object.keys(extra).length === 0);
   recoveryExact(primary, [
     'profileBinding',
@@ -244,7 +337,7 @@ function recoveryDigest(value) {
   recoveryAssert(typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value));
 }
 
-// Semantic route effort classifies risk; a finite candidate profile resolves invocation effort.
+// The route's role pins invocation effort; a candidate binding must agree with that role.
 export function resolveRouteEffort(route) {
   return route.modelRecommendation?.status === 'candidate'
     ? assertCurrentModelProfileBinding(route.modelRecommendation.profileBinding).resolvedEffort

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createRecoveryBinding,
   createModelProfileBinding,
   getModelProfile,
+  MODEL_RECOVERY_SUSPENDED_REASON,
 } from '../../../agents/codex/model-profiles.mjs';
 import {
   createModelRunEvidence,
@@ -18,12 +18,11 @@ const UNLISTED_REASON = {
   message: 'Model is outside the allowed child model list.',
 };
 const EVIDENCE_REASON = { name: 'TypeError', message: 'Invalid bounded model-run evidence.' };
+const RECOVERY_SUSPENDED = { name: 'TypeError', message: MODEL_RECOVERY_SUSPENDED_REASON };
 
 const digest = `sha256:${'a'.repeat(64)}`;
 function fixture() {
-  const profileBinding = structuredClone(
-    createModelProfileBinding(getModelProfile('bounded-extract')),
-  );
+  const profileBinding = structuredClone(createModelProfileBinding(getModelProfile('extract')));
   const pair = { model: profileBinding.model, effort: profileBinding.resolvedEffort };
   return {
     schemaVersion: 1,
@@ -102,7 +101,13 @@ function controlled() {
     confidence: 'high',
     evidenceRefs: ['evidence:fault-manifest'],
   };
-  const rescue = structuredClone(p);
+  x.finalDisposition = 'failure';
+  return x;
+}
+
+// The rescue attempt and recovery selection a record would carry if model recovery were not suspended.
+function withRescue(x) {
+  const rescue = structuredClone(x.attempts[0]);
   Object.assign(rescue, {
     attemptId: 'rescue',
     alternateOf: 'primary',
@@ -121,38 +126,7 @@ function controlled() {
   });
   rescue.checks = rescue.checks.filter((c) => c.kind !== 'canary');
   x.attempts.push(rescue);
-  x.recoveryBinding = createRecoveryBinding({
-    primary: {
-      profileBinding: x.profileBinding,
-      attemptId: p.attemptId,
-      taskId: x.taskId,
-      laneId: x.laneId,
-      childId: p.childId,
-      sourceDigest: p.sourceDigest,
-      scopeDigest: p.scopeDigest,
-      ownershipDigest: digest,
-      failureCategory: 'verification-failed',
-    },
-    rescue: {
-      attemptId: rescue.attemptId,
-      taskId: x.taskId,
-      laneId: x.laneId,
-      sourceDigest: rescue.sourceDigest,
-      configDigest: rescue.configDigest,
-      scopeDigest: rescue.scopeDigest,
-      role: 'knu_explorer',
-      semanticEffort: 'high',
-      impactRisk: 'low',
-    },
-    assessment: {
-      cause: 'controlled-injection',
-      bounded: true,
-      contextComplete: true,
-      oracleAvailable: true,
-      identityVerified: true,
-      reasonRefs: ['evidence:fault-manifest'],
-    },
-  });
+  x.finalDisposition = 'success';
   return x;
 }
 
@@ -166,11 +140,7 @@ test('run evidence is strict, pure, immutable and preserves null observations an
   assert.equal(result.attempts[0].metrics.corrections, null);
   assert.throws(() => result.attempts.push({}), TypeError);
   assert.doesNotThrow(() => validateModelRunEvidence(result));
-  const x = controlled();
-  assert.equal(createModelRunEvidence(x).attempts[0].disposition, 'failure');
-  x.attempts.pop();
-  x.finalDisposition = 'failure';
-  assert.doesNotThrow(() => createModelRunEvidence(x));
+  assert.equal(createModelRunEvidence(controlled()).attempts[0].disposition, 'failure');
 });
 
 test('denied records do not invent child identity, host telemetry or quality failures', () => {
@@ -237,26 +207,14 @@ test('records reject identity, binding, effort, retry, cause and remediation con
   }
   for (const mutate of [
     (x) => {
-      x.attempts.push(structuredClone(x.attempts[1]));
-    },
-    (x) => {
-      x.writerClearance = 'pending';
-    },
-    (x) => {
       x.attempts[0].disposition = 'success';
       x.attempts[0].failureCategory = null;
     },
     (x) => {
-      x.attempts[0].failureCategory = 'quota-exhausted';
-    },
-    (x) => {
-      x.attempts[1].requested.effort = 'low';
-    },
-    (x) => {
-      x.attempts[1].alternateOf = 'other';
-    },
-    (x) => {
       x.attempts[0].checks = x.attempts[0].checks.filter((c) => c.kind !== 'canary');
+    },
+    (x) => {
+      withRescue(x);
     },
   ]) {
     const x = controlled();
@@ -380,37 +338,15 @@ test('observed measurements require provenance; raw symbol fields and sparse ref
   assert.throws(() => createModelRunEvidence(sparse));
 });
 
-test('alternate attribution requires its exact recovery selection, including low and changed source', () => {
-  const x = controlled();
-  x.recoveryBinding = createRecoveryBinding({
-    primary: x.recoveryBinding.primary,
-    rescue: { ...x.recoveryBinding.rescue, semanticEffort: 'medium' },
-    assessment: x.recoveryBinding.assessment,
-  });
-  x.attempts[1].requested.effort = 'low';
-  x.attempts[1].resolved.effort = 'low';
-  assert.equal(createModelRunEvidence(x).attempts[1].resolved.effort, 'low');
-  for (const mutate of [
-    (y) => {
-      delete y.recoveryBinding;
-    },
-    (y) => {
-      y.attempts[1].sourceDigest = `sha256:${'c'.repeat(64)}`;
-    },
-    (y) => {
-      y.attempts[1].scopeDigest = `sha256:${'d'.repeat(64)}`;
-    },
-    (y) => {
-      y.attempts[1].requested.effort = 'high';
-    },
-    (y) => {
-      y.recoveryBinding.rescue.attemptId = 'other';
-    },
-  ]) {
-    const y = structuredClone(x);
-    mutate(y);
-    assert.throws(() => createModelRunEvidence(y));
-  }
+test('a rescue attempt cannot be recorded while model recovery is suspended', () => {
+  // With or without a selection, the alternate reaches the suspended recovery policy and is rejected.
+  assert.throws(() => createModelRunEvidence(withRescue(controlled())), RECOVERY_SUSPENDED);
+  const x = withRescue(controlled());
+  x.recoveryBinding = { kind: 'model-recovery', primary: {}, rescue: {}, assessment: {} };
+  assert.throws(() => createModelRunEvidence(x), RECOVERY_SUSPENDED);
+  const single = controlled();
+  single.recoveryBinding = x.recoveryBinding;
+  assert.throws(() => createModelRunEvidence(single), RECOVERY_SUSPENDED);
 });
 
 test('failed model resolution and host mismatches are preserved but cannot become success', () => {
@@ -462,7 +398,7 @@ test('failed model resolution and host mismatches are preserved but cannot becom
     assert.throws(() => createModelRunEvidence(bad), UNLISTED_REASON);
   }
   // A listed Sol model keeps these cases about effort, not about the allowlist.
-  const sol = getModelProfile('bounded-build').model;
+  const sol = getModelProfile('standard-build').model;
   for (const invalid of [
     { model: sol, effort: 'max' },
     { model: sol, effort: 'low' },
@@ -474,31 +410,9 @@ test('failed model resolution and host mismatches are preserved but cannot becom
   }
 });
 
-test('mismatch logging cannot authorize rescue and preserves low rescue observed high failure', () => {
+test('mismatch logging is preserved on a failed candidate and cannot authorize a rescue', () => {
   const mismatch = controlled();
   mismatch.attempts[0].hostObserved = { model: 'gpt-6-astra', effort: 'high' };
-  assert.throws(() => createModelRunEvidence(mismatch));
-  const x = controlled();
-  x.recoveryBinding = createRecoveryBinding({
-    primary: x.recoveryBinding.primary,
-    rescue: { ...x.recoveryBinding.rescue, semanticEffort: 'medium' },
-    assessment: x.recoveryBinding.assessment,
-  });
-  const rescue = x.attempts[1];
-  rescue.requested.effort = rescue.resolved.effort = 'low';
-  rescue.hostObserved = { model: 'gpt-6-astra', effort: 'high' };
-  x.finalDisposition = rescue.disposition = 'failure';
-  rescue.failureCategory = 'verification-failed';
-  rescue.checks[0].status = 'failed';
-  rescue.hypothesis = {
-    cause: 'host-support',
-    confidence: 'high',
-    evidenceRefs: ['evidence:mismatch'],
-  };
-  assert.deepEqual(createModelRunEvidence(x), x);
-  const success = structuredClone(x);
-  success.finalDisposition = success.attempts[1].disposition = 'success';
-  success.attempts[1].failureCategory = null;
-  success.attempts[1].checks[0].status = 'passed';
-  assert.throws(() => createModelRunEvidence(success));
+  assert.deepEqual(createModelRunEvidence(mismatch), mismatch);
+  assert.throws(() => createModelRunEvidence(withRescue(mismatch)), RECOVERY_SUSPENDED);
 });

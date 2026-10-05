@@ -72,7 +72,7 @@ test('fresh smoke reaches ordinary scoped Astra dispatch and rejects context gap
   const { deliveryEvidence, boundaries } = runFreshSessionSmoke();
   const { scoped, unknown, fullHistoryConflict } = deliveryEvidence.ordinaryDispatch;
   assert.deepEqual(scoped.dispatches[0].spawnArguments, {
-    agent_type: 'knu_explorer',
+    agent_type: 'knu_explorer_xhigh',
     model: 'gpt-6-astra',
     reasoning_effort: 'xhigh',
     fork_turns: 'none',
@@ -208,9 +208,9 @@ test('fresh routing ignores lexical escalation and changes effort only from curr
   });
   assert.deepEqual(routingEvidence.sameRequest.efforts, ['medium', 'high', 'xhigh']);
   assert.deepEqual(routingEvidence.sameRequest.roles, [
+    'knu_explorer_medium',
     'knu_explorer',
-    'knu_explorer',
-    'knu_explorer',
+    'knu_explorer_xhigh',
   ]);
   assert.deepEqual(routingEvidence.sameRequest.childCounts, [1, 1, 1]);
   assert.equal(routingEvidence.parentEffortClaimed, false);
@@ -288,47 +288,33 @@ function pick(value, fields) {
   return Object.fromEntries(fields.map((field) => [field, value[field]]));
 }
 
-test('synthetic model smoke preserves controlled miss, once rescue and null usage coherently', () => {
+test('synthetic model smoke preserves a controlled miss as a suspended-recovery handoff with null usage', () => {
   const result = runFreshSessionSmoke();
-  const { post, recovery, completedRecovery, runRecord } = result.modelEvidence.activation;
+  const { dispatch, post, recovery, synthesis, runRecord } = result.modelEvidence.activation;
   assert.equal(result.modelEvidence.fixtureOnly, true);
   assert.equal(result.boundaries.mutatesWorkspace, false);
+  assert.deepEqual(dispatch.dispatches[0].spawnArguments, {
+    agent_type: 'knu_explorer_xhigh',
+    model: 'gpt-6-luna',
+    reasoning_effort: 'xhigh',
+    fork_turns: 'none',
+  });
   assert.equal(post.accepted, false);
-  assert.equal(recovery.action, 'alternate-once');
-  assert.equal(completedRecovery.status, 'complete');
-  assert.equal(completedRecovery.remainingAlternateAttempts, 0);
+  assert.equal(recovery.action, 'terminal-handoff');
+  assert.equal(recovery.blocker, 'model-recovery-suspended');
+  assert.equal(recovery.nextModel, null);
+  assert.equal(recovery.recoveryBinding, undefined);
+  assert.equal(synthesis.readyForLeaderDecision, false);
   assert.equal(runRecord.profileBinding.resolvedEffort, 'xhigh');
+  assert.equal(runRecord.recoveryBinding, undefined);
   assert.deepEqual(
-    runRecord.attempts.map((a) => a.disposition),
-    ['failure', 'success'],
+    runRecord.attempts.map((a) => [a.requested.model, a.disposition]),
+    [['gpt-6-luna', 'failure']],
   );
-  assert.deepEqual(
-    runRecord.attempts.map((a) => a.requested.model),
-    ['gpt-6-luna', 'gpt-6-astra'],
-  );
+  assert.equal(runRecord.finalDisposition, 'failure');
   assert.equal(runRecord.attempts[0].case, 'controlled-failure');
   assert.equal(runRecord.attempts[0].checks[0].status, 'passed');
   assert.equal(runRecord.attempts[0].checks[1].status, 'failed');
-  assert.equal(runRecord.attempts[1].alternateOf, runRecord.attempts[0].attemptId);
   assert.ok(runRecord.attempts.every((a) => a.hostObserved === null && a.usage.tokens === null));
-});
-
-test('smoke actually carries low recovery admission, descriptor, post, synthesis and bound record', () => {
-  const { activation } = runFreshSessionSmoke().modelEvidence;
-  const d = activation.rescueDispatch.dispatches[0];
-  assert.equal(d.kind, 'model-recovery');
-  assert.equal(d.recoveryUse.admission.kind, 'recovery');
-  assert.equal(d.spawnArguments.reasoning_effort, 'low');
-  assert.equal(d.contract.routeRecommendation.effort, 'medium');
-  assert.equal(d.contract.routeRecommendation.modelRecommendation, undefined);
-  assert.equal(activation.rescuePost.accepted, true);
-  assert.equal(activation.synthesis.readyForLeaderDecision, true);
-  assert.equal(activation.synthesis.recoveryDecisions[0].attempts[0].outcome, 'failure');
-  assert.equal(activation.synthesis.recoveryDecisions[0].attempts[1].effort, 'low');
-  assert.deepEqual(activation.runRecord.recoveryBinding, d.recoveryBinding);
-  assert.equal(activation.runRecord.attempts[1].resolved.effort, 'low');
-  assert.notEqual(
-    activation.runRecord.attempts[0].sourceDigest,
-    activation.runRecord.attempts[1].sourceDigest,
-  );
+  assert.equal('rescueDispatch' in result.modelEvidence.activation, false);
 });

@@ -378,7 +378,7 @@ function boundedInput() {
       },
       pass2Evidence: evidence,
       modelRequest: {
-        profileId: 'bounded-build',
+        profileId: 'standard-build',
         purpose: 'pilot',
         verificationFacts: {
           acceptance: evidence.facts[0].factId,

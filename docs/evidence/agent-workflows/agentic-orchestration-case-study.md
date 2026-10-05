@@ -18,10 +18,11 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 
 이를 해결하기 위해 repository는 **Repository-guided parent–subagent orchestration with adaptive child reasoning**을
 구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 Sol/Luna xhigh profile을 실제 배정**했습니다(2026-09-24 GPT-6 Sol·Luna 관측).
-현재 Sol profile model인 GPT-6.1 Sol은 품질 근거·독립 QA 전이라 Q(routine으로 쓰지 않음)입니다.
+현재 Sol profile model인 GPT-6.1 Sol은 2026-10-06 Owner 채택으로 bounded 작업의 routine model입니다. 별도 품질 canary 없이
+채택했으므로 작업별 oracle·독립 QA가 품질 근거입니다.
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
-Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra xhigh child를 검토합니다.
+Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra XHigh 배정(읽기 xhigh 역할, 구현 `deep-build`)을 검토합니다.
 
 Direct work는 child-free이며, 독립성과 순이익이 확인된 lane만 bounded child contract가 됩니다. 이 contract는 자동 spawn
 engine이 아니며 실제 dispatch 직전의 live runtime 확인과 Parent의 최종 판단을 대신하지 않습니다. **2026-09-25의 아래 확장 기록은 PR 생성 전 로컬 검증을 기준으로 작성했습니다.**
@@ -85,12 +86,12 @@ clean clone이 user/global setup에 의존한다는 구조적 문제를 뜻합�
 이는 provider가 정의한 고유 제품명이나 이 repository가 그대로 구현한 표준 architecture name이 아닙니다. 다음 요소를
 비교하기 위한 **synthesized analytical label**입니다.
 
-| 분석 표현                     | Repository implementation                                                                                             |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Repository-aware              | current request → `AGENTS.md` → `TaskEnvelope` → `ContextPack` → current code/contract/test evidence                  |
-| Hierarchical                  | owner-facing parent가 child를 선택하고, child는 sibling이나 global plan을 지휘하지 않으며 결과는 leader-only fan-in   |
-| Orchestrator–worker           | parent의 model-mediated lane 선택과 Codex native child surface를 결합하지만 별도 scheduler를 구현하지 않음            |
-| Adaptive inference allocation | Parent effort는 session owner 선택; child semantic Medium/High/XHigh와 finite task profile의 호출 model/effort를 분리 |
+| 분석 표현                     | Repository implementation                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository-aware              | current request → `AGENTS.md` → `TaskEnvelope` → `ContextPack` → current code/contract/test evidence                                        |
+| Hierarchical                  | owner-facing parent가 child를 선택하고, child는 sibling이나 global plan을 지휘하지 않으며 결과는 leader-only fan-in                         |
+| Orchestrator–worker           | parent의 model-mediated lane 선택과 Codex native child surface를 결합하지만 별도 scheduler를 구현하지 않음                                  |
+| Adaptive inference allocation | Parent effort는 session owner 선택; child semantic Medium/High/XHigh가 effort를 pin한 역할 변형을 고르고 finite task profile이 model을 정함 |
 
 Repository canonical label을 더 좁게 정한 이유는 구현 범위를 정확히 드러내기 위해서입니다.
 
@@ -164,7 +165,7 @@ Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 
 | 0~2개, evidence-backed third, owner max 6 child | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                              |
 | 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                             |
 | parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                            |
-| Astra default + finite task profiles            | 채택        | semantic Medium/High/XHigh와 model invocation effort를 분리; 한정 Sol/Luna와 Astra 복구는 별도 gate    |
+| Astra default + finite task profiles            | 채택        | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 admission gate, model recovery 중단 |
 | boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                               |
 | reported evidence + live reconfirmation         | 조건부 채택 | 현재 surface에서 가능한 보수적 경계이며 immutable host-authenticated metadata가 생기면 교체            |
 | custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦 |
@@ -254,13 +255,15 @@ task / acceptance / source facts
   → scoped child contract + current source/config + bounded admission
   → supported native model/effort arguments (Parent가 실제 호출)
   → child/task 귀속 + independent quality check
-  → success 또는 한 번의 Astra recovery / stop
+  → success 또는 Parent 판단·handoff(model recovery 중단) / stop
   → sanitized attempt record + capability별 lifecycle disposition
 ```
 
-- [중앙 profile registry](../../../scripts/agents/codex/model-profiles.mjs): 모델별 TOML 대신 안정된 task ID가 세대별 모델·effort·
-  tools·role·cohort를 가집니다. `bounded-build`, `bounded-read`, `bounded-extract`의 호출 effort는 xhigh지만 **대상 난이도는
-  complete Medium evidence**가 필요합니다. xhigh 선택은 품질 우선 owner 정책이지 medium보다 재작업이 적다는 실측 결론이 아닙니다.
+- [중앙 profile registry](../../../scripts/agents/codex/model-profiles.mjs): 모델별 TOML 대신 안정된 task ID가 세대별 모델·
+  tools·role·cohort를 가지고, effort는 역할 파일의 pin(`_medium`·기본 high·`_xhigh`)이 정합니다. 2026-09 관측 당시의
+  `bounded-build`, `bounded-read`, `bounded-extract`는 호출 effort가 모두 xhigh였고 **대상 난이도는 complete Medium
+  evidence**였습니다. 2026-10-06 effort 구조 개편 뒤 Luna `extract`는 `knu_explorer_xhigh`(xhigh), Sol `standard-*`는 high
+  역할입니다. xhigh 선택은 품질 우선 owner 정책이지 medium보다 재작업이 적다는 실측 결론이 아닙니다.
 - [호출·결과 정책](../../../scripts/agents/codex/orchestration-policy.mjs): role pin, current scope/config, 승인 기간·예산, context,
   exact task/profile/child 귀속을 확인합니다. Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
 - [실행 기록](../../../scripts/agents/codex/model-run-evidence.mjs): 최초 실패·원인 가설·조치·재검증과 recovery를 분리합니다.
@@ -310,6 +313,9 @@ completed를 회수했지만 close 미노출·pending/residency 미관측이므�
 controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·explorer/researcher low·deep failure·max·저가 reviewer는
 미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
 2026-10-05 Sol model 교체(`gpt-6.1-sol`) 뒤 bounded-build·bounded-read cohort는 품질 근거·독립 QA 전까지 Q입니다.
+2026-10-06 effort 구조 개편으로 이 둘은 `standard-build`·`standard-read`(high 역할)가 되었고, 새 `elevated-*`와 함께
+Owner 채택으로 routine입니다(품질 canary 없음).
+같은 개편에서 executor의 controlled low 복구를 포함한 model recovery를 중단했습니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
 허용 목록 밖 model 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
@@ -363,7 +369,7 @@ session model/effort control에서 확인·선택합니다. CLI에서 `/model`�
 **실제 Parent high 적용·품질·비용은 미관측**입니다. 구체 절차와 품질 stop은 [orchestration owner](../../development/agent-workflows/adapters/codex.md#parent-high-운영과-quality-stop)를 따릅니다.
 
 - 필요한 context만 제공하고 primary 분석을 중복하지 않되 [독립 QA](../../development/agent-workflows/qa.md)를 비용 이유로 생략하지 않습니다.
-- 작은 작업은 Parent 직접, 격리 가능한 깊은 문제만 Astra xhigh child; 전체 framing·통합 자체가 어렵다면 Parent xhigh를 권고합니다.
+- 작은 작업은 Parent 직접, 격리 가능한 깊은 문제만 Astra XHigh 배정; 전체 framing·통합 자체가 어렵다면 Parent xhigh를 권고합니다.
 - 첫 실제 task부터 acceptance 누락·substantive finding·scope 위반·재작업/복구 원인을 확인합니다. 보안·권한·데이터 invariant
   위반이나 허위 완료면 무인 계속을 멈춥니다. Source/환경/권한/검증 gap부터 고치고, 추론 부족·반복 누락이면 effort를 재검토합니다.
 - Xhigh 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 지원 불일치·필수 QA 부재를 effort로 우회하지 않습니다.

@@ -11,17 +11,17 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -39,17 +39,17 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": false
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": false
         }
       ]
@@ -68,17 +68,17 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-x-unlisted",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -97,17 +97,17 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
           "effectiveEffort": "medium",
           "explicitEffortSupport": false
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": false
         }
       ]
@@ -126,9 +126,9 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -147,17 +147,17 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": false,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -179,14 +179,14 @@
           "agentType": "researcher",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         },
         {
           "agentType": "explore",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -205,17 +205,17 @@
       "dispatchPermission": "denied",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -234,10 +234,10 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -256,10 +256,10 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -278,10 +278,10 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
@@ -300,10 +300,10 @@
       "dispatchPermission": "allowed",
       "roles": [
         {
-          "agentType": "knu_researcher",
+          "agentType": "knu_researcher_xhigh",
           "available": true,
           "effectiveModel": "gpt-6.1-sol",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true,
           "modelSelection": {
             "supportedModels": ["gpt-6-astra", "gpt-6.1-sol"],
@@ -313,10 +313,10 @@
           }
         },
         {
-          "agentType": "knu_explorer",
+          "agentType": "knu_explorer_xhigh",
           "available": true,
           "effectiveModel": "gpt-6-astra",
-          "effectiveEffort": "high",
+          "effectiveEffort": "xhigh",
           "explicitEffortSupport": true
         }
       ]
