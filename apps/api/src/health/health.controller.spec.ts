@@ -1,5 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
+import { HttpAdapterHost } from '@nestjs/core';
 import type { Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HealthController } from './health.controller.js';
@@ -21,7 +22,17 @@ describe('HealthController', () => {
     vi.clearAllMocks();
     const app: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
-      providers: [{ provide: HealthService, useValue: healthService }],
+      providers: [
+        { provide: HealthService, useValue: healthService },
+        {
+          provide: HttpAdapterHost,
+          useValue: {
+            httpAdapter: {
+              status: (response: Response, status: number) => response.status(status),
+            },
+          },
+        },
+      ],
     }).compile();
     healthController = app.get(HealthController);
   });

@@ -1,4 +1,9 @@
-import type { ParseSource, SchemaIssue, SchemaIssuePath } from './zod-request-types.js';
+import type {
+  ParseSource,
+  SchemaIssue,
+  SchemaIssuePath,
+  SchemaParseIssue,
+} from './zod-request-types.js';
 
 export function formatIssuePath(path: SchemaIssuePath): string {
   if (path.length === 0) {
@@ -19,8 +24,6 @@ export function formatIssuePath(path: SchemaIssuePath): string {
 export function toLocalizedIssueMessage(issue: SchemaIssue, source: ParseSource): string {
   const sourceLabel =
     source === 'query' ? '쿼리 항목' : source === 'param' ? '경로 파라미터' : '필드';
-  const typeLabel =
-    source === 'query' ? '쿼리 파라미터' : source === 'param' ? '경로 파라미터' : '입력값';
 
   if (issue.code === 'unrecognized_keys') {
     const keys = Array.isArray(issue.keys) ? issue.keys.join(', ') : '';
@@ -30,14 +33,8 @@ export function toLocalizedIssueMessage(issue: SchemaIssue, source: ParseSource)
   }
 
   if (issue.code === 'invalid_type') {
-    if (issue.input === undefined) {
-      return source === 'query'
-        ? '필수 쿼리 파라미터가 누락되었습니다.'
-        : source === 'param'
-          ? '필수 경로 파라미터가 누락되었습니다.'
-          : '필수 값이 누락되었습니다.';
-    }
-    return `${typeLabel} 형식이 올바르지 않습니다.`;
+    // Already resolved during parsing, including higher-priority schema custom errors.
+    return issue.message;
   }
 
   if (issue.code === 'invalid_value') {
@@ -57,4 +54,21 @@ export function toLocalizedIssueMessage(issue: SchemaIssue, source: ParseSource)
   }
 
   return issue.message || '입력값이 올바르지 않습니다.';
+}
+
+export function toParseIssueMessage(
+  issue: SchemaParseIssue,
+  source: ParseSource,
+): string | undefined {
+  if (issue.code !== 'invalid_type') return undefined;
+  if (issue.input === undefined) {
+    return source === 'query'
+      ? '필수 쿼리 파라미터가 누락되었습니다.'
+      : source === 'param'
+        ? '필수 경로 파라미터가 누락되었습니다.'
+        : '필수 값이 누락되었습니다.';
+  }
+  const label =
+    source === 'query' ? '쿼리 파라미터' : source === 'param' ? '경로 파라미터' : '입력값';
+  return `${label} 형식이 올바르지 않습니다.`;
 }

@@ -1,9 +1,11 @@
 import type { Page, TestInfo } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import type { HomeDashboardResponse } from '@repo/shared/home';
+import { resolveAuthCookieNames } from '@/config/auth-cookie.config';
 import {
   issueHomeE2eSessionToken,
   resetHomeE2eSeed,
+  setHomeE2eSamcheokOperated,
   type HomeE2eSeedMode,
 } from './support/home-e2e-seed';
 
@@ -14,6 +16,9 @@ const incompleteEmail = 'home-e2e-incomplete@kangwon.ac.kr';
 const fixturePassword = '1q2w3e4r';
 const webBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
 const apiHealthUrl = `${process.env.API_URL ?? 'http://127.0.0.1:4000'}/health`;
+const homeE2eRuntimeMode =
+  process.env.HOME_E2E_WEB_RUNTIME_MODE === 'production' ? 'production' : 'development';
+const authCookieNames = resolveAuthCookieNames(homeE2eRuntimeMode);
 
 async function authenticateWithSeedSession(page: Page, email: string) {
   await page.context().clearCookies();
@@ -21,11 +26,11 @@ async function authenticateWithSeedSession(page: Page, email: string) {
 
   await page.context().addCookies([
     {
-      name: 'auth-token',
+      name: authCookieNames.access,
       value: accessToken,
       url: webBaseUrl,
       httpOnly: true,
-      secure: false,
+      secure: homeE2eRuntimeMode === 'production',
       sameSite: 'Lax',
     },
   ]);
@@ -165,9 +170,16 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
     if (isDesktopProject(testInfo)) {
       await expect(page.getByRole('complementary', { name: '홈 보조 정보' })).toBeVisible();
     }
-    await expect(page.getByRole('heading', { name: /확정된 룸메 결과를 확인해요/ })).toBeVisible();
-    await expect(page.getByRole('heading', { name: '매칭 활동' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /채팅 대기/ })).toBeDisabled();
+    await expect(
+      page.getByRole('heading', { name: '확정된 룸메이트와 남은 일정을 확인해요.' }),
+    ).toBeVisible();
+    const activeMatch = page.getByRole('region', { name: '확정된 룸메이트', exact: true });
+    await expect(activeMatch.getByRole('heading', { name: '확정된 룸메이트' })).toBeVisible();
+    // Starting a new conversation and entering the existing matched thread are separate intents.
+    await expect(activeMatch.getByRole('button', { name: '채팅 바로가기' })).toBeEnabled();
+    await activeMatch.getByRole('button', { name: '채팅 바로가기' }).click();
+    await expect(page.getByRole('heading', { name: '채팅', exact: true, level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: /대화 상대 매칭 대화/ })).toBeVisible();
   });
 
   test('captures past-season registration without match success for history-only users', async ({
@@ -182,7 +194,9 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
   });
 
   test('renders future season preview when there is no active current season', async ({ page }) => {
+    const beforeSeed = Date.now();
     await resetSeedForTest(page, 'future-preview');
+    const afterSeed = Date.now();
     await authenticateWithSeedSession(page, homeViewerEmail);
 
     const dashboard = await fetchHomeDashboard(page);
@@ -194,15 +208,31 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
       isPostMatch: false,
     });
     expectPastHistorySummary(dashboard, { viewerHadMatchSuccess: true });
+    const preview = dashboard.nextSeasonPreview;
+    expect(preview).not.toBeNull();
+    if (!preview) throw new Error('Expected a future season preview');
+    // Independently bound the seed's KST day, including a midnight during seed/reset.
+    const dateAfterDays = (timestamp: number, days: number) =>
+      new Date(timestamp + (9 + days * 24) * 60 * 60 * 1_000).toISOString().slice(0, 10);
+    expect([dateAfterDays(beforeSeed, 7), dateAfterDays(afterSeed, 7)]).toContain(
+      preview.preparationStartDate,
+    );
+    const preparationKstStart = Date.parse(`${preview.preparationStartDate}T00:00:00+09:00`);
     expect(dashboard.nextSeasonPreview).toMatchObject({
       name: '2026년 2학기',
-      preparationStartDate: '2026-07-23',
-      matchingStartDate: '2026-08-01',
-      seasonEndDate: '2026-08-31',
+      preparationStartDate: preview.preparationStartDate,
+      matchingStartDate: dateAfterDays(preparationKstStart, 7),
+      seasonEndDate: dateAfterDays(preparationKstStart, 38),
       visibleToUser: true,
       operatedDormitories: expect.arrayContaining([
-        expect.objectContaining({ dormitoryId: 'dasan', roomSelectionDate: '2026-08-06' }),
-        expect.objectContaining({ dormitoryId: 'yeji', roomSelectionDate: '2026-08-06' }),
+        expect.objectContaining({
+          dormitoryId: 'dasan',
+          roomSelectionDate: dateAfterDays(preparationKstStart, 21),
+        }),
+        expect.objectContaining({
+          dormitoryId: 'yeji',
+          roomSelectionDate: dateAfterDays(preparationKstStart, 21),
+        }),
       ]),
     });
 
@@ -212,11 +242,17 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
     await expect(
       page.getByRole('heading', { name: '2026년 2학기 준비가 곧 시작돼요' }),
     ).toBeVisible();
-    await expect(page.getByRole('heading', { name: '지난 시즌 요약' })).toBeVisible();
-    await expect(page.getByText(/2026년 2학기 준비는 2026[.-]07[.-]23부터/)).toBeVisible();
+    const primary = page.getByTestId('home-section-primary');
+    await expect(primary.getByText('이전 시즌 요약', { exact: true })).toBeVisible();
+    await expect(primary.getByText('시즌 오픈:', { exact: true })).toBeVisible();
+    await expect(
+      primary.getByText(preview.preparationStartDate.replaceAll('-', '.'), { exact: true }),
+    ).toBeVisible();
   });
 
-  test('opens building selection only after explicit season-open CTA', async ({ page }) => {
+  test('opens building selection only through explicit season-open profile setup', async ({
+    page,
+  }) => {
     await resetSeedForTest(page, 'season-open');
     await authenticateWithSeedSession(page, incompleteEmail);
 
@@ -240,10 +276,14 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
     await page.goto('/main');
     await closeServiceIntroIfVisible(page);
 
-    await expect(page.getByRole('heading', { name: '시즌 프로필을 준비해요' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '시즌 참여를 준비해요' })).toBeVisible();
     await expect(page.getByRole('dialog', { name: '배정 건물 선택' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: '내 프로필', exact: true })).toHaveCount(0);
 
-    await page.getByRole('button', { name: /배정 건물 입력하기/ }).click();
+    await page.getByRole('button', { name: '시즌 프로필/기숙사 설정', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '내 프로필', exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: '배정 건물 선택' })).toHaveCount(0);
+    await page.getByRole('button', { name: '건물 미배정', exact: true }).click();
     await expect(page.getByRole('dialog', { name: '배정 건물 선택' })).toBeVisible();
   });
 
@@ -263,21 +303,34 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
     await page.goto('/main');
     await closeServiceIntroIfVisible(page);
 
-    await expect(page.getByRole('heading', { name: /확정 결과를 확인해요/ })).toBeVisible();
+    const primary = page.getByTestId('home-section-primary');
+    await expect(primary.getByRole('heading', { name: /매칭이 종료됐어요\./ })).toBeVisible();
+    await expect(primary.getByText('이번 시즌 요약', { exact: true })).toBeVisible();
+    await expect(primary.getByRole('button', { name: /시즌 결과 보기/ })).toHaveCount(0);
     await expect(
-      page.getByTestId('home-section-primary').getByRole('button', { name: /시즌 결과 보기/ }),
+      page.getByRole('heading', { name: '이번 시즌 활동 기록을 확인해요' }),
     ).toBeVisible();
-    await expect(page.getByRole('heading', { name: '시즌 결과 요약' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '확정스모크남', exact: true })).toBeVisible();
   });
 
   test('keeps non-operated campus users in fail-closed waiting UX', async ({ page }) => {
     await resetSeedForTest(page, 'current-matching');
     await authenticateWithSeedSession(page, nonOperatedEmail);
-    await page.goto('/main');
+    const previousOperated = setHomeE2eSamcheokOperated(false);
+    try {
+      const dashboard = await fetchHomeDashboard(page);
+      expect(dashboard.viewer.campusOperated).toBe(false);
+      expect(dashboard.viewer.capabilities.canEnterRoommateSearch).toBe(false);
+      await page.goto('/main');
 
-    await expect(page).toHaveURL(/\/main(?:$|\?)/);
-    await expect(page.getByRole('heading', { name: /테스트삼척남님/ })).toBeVisible();
-    await expect(page.getByText('서비스 운영 준비 중이에요!')).toBeVisible();
-    await expect(page.getByTestId('home-content')).toHaveAttribute('aria-hidden', 'true');
+      await expect(page).toHaveURL(/\/main(?:$|\?)/);
+      await expect(page.getByRole('heading', { name: '삼척로그인남님' })).toBeVisible();
+      await expect(page.getByText('해당 캠퍼스는 서비스 운영 준비 중이에요!')).toBeVisible();
+      await expect(page.getByTestId('home-content')).toHaveAttribute('aria-hidden', 'true');
+      await expect(page.getByTestId('home-content')).toHaveAttribute('inert', '');
+    } finally {
+      expect(setHomeE2eSamcheokOperated(previousOperated)).toBe(false);
+    }
+    expect((await fetchHomeDashboard(page)).viewer.campusOperated).toBe(previousOperated);
   });
 });

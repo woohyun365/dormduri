@@ -14,13 +14,15 @@
 | objective rubric가 있는 고위험 결과               | maker-checker, 기본 최대 2회 |
 | destructive, credential, external production      | human/authority gate         |
 
+Maker-checker 기본 2회의 예외로, 독립 리뷰의 회차 상한(3회)과 회차별 보고 범위는 [QA 리뷰 회차](./qa.md#리뷰-회차)를 따릅니다.
 Agent 수 자체를 품질 지표로 사용하지 않습니다. sequential task, shared-file write, vague scope는 병렬화하지 않습니다.
 
 ## Child contract
 
-Machine-checkable recommendation contract는
-[Independent lane and child task contract](./request-intake/delegation.md)를 따릅니다. 이 문서의 orchestration 규칙을
-실행 engine으로 복제하지 않으며, `scripts/agents/child-task-contract.mjs`도 child를 직접 생성하지 않습니다.
+공통 입력·책임은 [Independent lane and child task contract](./request-intake/delegation.md)를 따릅니다.
+현재 host의 [adapter](./adapters/README.md)가 공통 packet을 실제 역할·권한에 연결합니다. 공통 문서와 정적 validator는
+실행 engine이 아닙니다. **Codex/OMX를 사용하는 경우에만** `scripts/agents/codex/child-task-contract.mjs`의
+recommendation을 확인하며, 그 helper도 child를 직접 생성하지 않습니다.
 
 Child task에는 다음을 포함합니다.
 
@@ -34,6 +36,63 @@ stop condition / escalation condition
 
 Child는 전역 plan을 다시 작성하거나 다른 owner의 파일을 수정하지 않습니다. 결과에는 확인된 사실의 file/URL,
 추론, confidence, blocker를 구분합니다. Leader는 결과 충돌을 해결하고 최종 edit·verification·completion을 소유합니다.
+
+## Context와 검증 비용
+
+공통 전달 packet·독립 QA 경계는 [shared context delivery](./request-intake/delegation.md#context-delivery)와
+[QA 계약](./qa.md)이 소유합니다. Codex의 fork/reuse·effort 적용은
+[Codex context delivery](./adapters/codex-delegation.md#context-delivery)에서 별도로 확인합니다.
+비용은 agent 수나 짧은 답변 자체가 아니라 **acceptance를 통과한 결과당 총 작업량**으로 판단합니다.
+
+| 후보 / 현재 결정                                          | 예상 이익                           | 품질 위험·보존 조건                                  | 관측 방법                                                 |
+| --------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------- | --------------------------------------------------------- |
+| Full-history fan-out → 필요한 scoped packet으로 변경      | 무관한 이력 반복 전달 감소          | 전체 scope·권한·실패 근거 보존, 최초 QA 독립성       | 동일 snapshot의 packet bytes/중복 필드; 실제 token은 별도 |
+| Child 수·host별 자원 선택 → single-first/증거 기반 유지   | 불필요한 child·과도한 추론 감소     | high-risk 임의 downgrade 금지, 적용 지원 확인        | child 수·역할/effort·결과 품질, 실제 사용량               |
+| 대량 조회·문서 반복 → 필요한 heading/range와 pointer 사용 | 같은 source 재조회·출력 감소        | snapshot 변경 시 재조회, 실패 원문 보존              | tool 호출·중복 조회·반환 bytes                            |
+| 반복 검증/CI → targeted 후 필요한 전체 gate 1회           | 동일 source의 불필요한 재검증 감소  | 수정 후 영향 gate 재실행, required CI 생략 금지      | source digest·command·exit code·재실행 사유               |
+| 긴 session → 짧은 checkpoint·관련 delta 재사용 유지       | 인계 시 transcript 복사 감소        | stale/무관한 context는 새 scope, cap/quota 우회 금지 | snapshot·재사용 사유·재작업 수                            |
+| 도구/role 문구 중복 → 기존 owner 링크 유지                | 중복 instruction·registry 비용 억제 | safety/권한/검증 지침 삭제 금지                      | 중복 내용과 accepted outcome 검토                         |
+
+Raw 검증 로그는 task-local artifacts에 보존하고 Parent는 command·exit code·실패/결과 요약부터 읽습니다. 실패하면 해당
+원문과 관련 source를 읽고 수정한 뒤 재검증합니다. 같은 digest의 성공 로그를 재사용할 수 있지만 새 source의 PASS로
+표시하지 않습니다. `stderr`나 finding을 숨겨 비용을 절감하지 않습니다.
+
+측정하지 않은 input/output/cached/reasoning tokens·child 합계·weekly usage는 `null/unknown`이지 0이 아닙니다.
+Cached가 input에 포함되면 중복 합산하지 않습니다. 문자열 길이/byte나 API USD로 weekly allowance를 환산하지 않으며,
+실제 비교는 같은 task/snapshot·품질·host/model/effort에서 합니다. 표본·cache/warmup·동시 작업·관측 coverage의 한계와
+측정 자체의 비용도 기록합니다. 별도 권한 없는 host/benchmark를 실행하거나 global usage DB/수집 daemon을 만들지 않습니다.
+Idle thread가 계속 token을 소비하거나 close가 이미 사용한 quota를 환급한다고 가정하지 않습니다.
+
+### Primary 작업과 증거 재사용
+
+Parent는 unresolved question·범위·acceptance를 정할 만큼 triage한 뒤 **primary analysis owner**를 하나 선택합니다.
+이미 직접 끝낸 분석을 같은 목적의 child에게 다시 풀게 하지 않습니다. 근거가 최신이면 결과를 재사용하고, 작은 lookup이나
+단일 dependency chain은 child 0으로 끝냅니다. Child를 쓰는 경우 기존 결과 계약에 근거 위치·실제 command/exit/result·
+대안·불확실성을 받아 [criterion별 QA](./qa.md#portable-qa-packet)로 통합합니다. 긴 설명이나 completed 상태는 완료 증거가 아닙니다.
+
+원문 확인, source 변경, 모순 해소, 실패 재현, 필요한 **독립 QA**는 불필요한 중복이 아닙니다. 재조회·재검증의 이유와 관련
+snapshot만 task-local evidence에 짧게 남기며 비용 때문에 생략하지 않습니다. Primary 중복 여부와 의미상 누락은 사람이 읽는
+작업 계약/독립 QA로 판단합니다. Fixture 문자열 검사나 새 점수 엔진이 agent의 실제 준수를 보장한다고 표현하지 않습니다.
+
+## Parent-led communication
+
+결정권과 통신 예외는 [Owner–Lead collaboration](./owner-lead-collaboration.md)의 단일 계약을 사용합니다. 기본은 Parent
+경유이며 assignment·재배정·scope/file owner 변경·판정·통합은 Parent만 소유합니다. Child 결과·blocker는 Parent에게
+돌아오고, sub-child 생성이나 peer/shell/외부 agent를 통한 업무 재위임은 금지합니다.
+
+실제 runtime이 허용할 때만 Parent가 지정한 참여자·주제·read scope·snapshot 안에서 짧은 기존 사실 확인이 가능합니다.
+그 지정은 새 조사/테스트/구현 요청이나 peer 합의를 허용하지 않습니다. 초기 QA는 builder 대화 없이 먼저 판단하고,
+후속 사실 확인·보고·만료 조건도 공통 계약과 [QA owner](./qa.md)를 따릅니다. 지침은 native message ACL이나 자동 CC가 아닙니다.
+지원/권한이 불명확하면 중계하고, 반복 peer 의존성은 Parent가 순차화합니다. 선택적 native specialist를 자동 runtime Team으로
+취급하지 않으며 명시적 Team 실행에는 해당 host-authority/lifecycle 제약도 별도로 적용합니다.
+Codex/OMX의 Team/Conductor는 그 adapter를 선택했을 때만 적용되는 실행 방식입니다.
+
+## Subagent lifecycle
+
+Child 완료·capacity 오류·turn 종료 시 Parent는 결과를 회수하고 실제 host가 제공하는 종료/자원 반환 capability를
+확인합니다. 완료 선언과 종료·slot 반환을 같은 상태로 취급하지 않으며 후속 배정은 현재 host의 관측에 따릅니다.
+[Codex/OMX subagent lifecycle](./subagent-lifecycle.md)의 exact close/continuation 절차와 상한은 Codex adapter에 한정합니다.
+Claude Code는 [Claude adapter](./adapters/claude-code.md)와 현재 native surface를 확인합니다.
 
 ## Git branch/worktree isolation
 
@@ -49,59 +108,37 @@ Agent를 선택하는 책임과 Git write lifecycle은 분리합니다. Canonica
 Agent review는 CI나 owner review를 보조할 수 있지만 미래의 human approval requirement를 대체하지 않습니다. 두 번째
 recurring human production owner가 생길 때 CODEOWNERS와 non-author approval을 GitHub remote-setting decision으로 검토합니다.
 
-## Reasoning effort routing
+## Host-specific execution
 
-Reasoning routing은 parent와 child를 분리합니다. Parent XHigh/Max는 사용자가 session에서 선택하며 repository는 parent
-effort를 계산하거나 변경했다고 보고하지 않습니다.
+앞의 single-first·context·소유권·검증 계약은 모든 coding agent에 공통입니다. 모델·effort 기본값, 역할 설정,
+runtime API·명령·권한 동작은 이름만으로 이식되지 않습니다. [Adapter index](./adapters/README.md)에서 현재 host를
+명시적으로 선택합니다. Codex/OMX는 [Codex/OMX adapter](./adapters/codex.md), Claude Code는
+[Claude Code adapter](./adapters/claude-code.md)의 실제 capability를 확인합니다. 제3 host에 Codex 값을 자동 대입하지 않습니다.
+선택적 위임 미지원은 승인 범위의 direct/sequential 작업으로 제한합니다. 필수 독립 QA·권한 증거가 부족하면 gap/NO-GO이며,
+prompt label이나 다른 CLI로 미지원 기능·권한을 가장하지 않습니다.
 
-1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
-2. Direct/deterministic work 또는 Medium child보다 직접 수행이 저렴한 work는 child-free로 유지합니다.
-3. Pass 2는 current ContextPack의 source/fact/predicate evidence를 정규화하고 child role과 effort를 판정합니다.
-4. 모든 boundedness predicate가 positive evidence로 확인되면 Medium, mandatory state/trust/concurrency/migration signal 또는
-   structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
+## Visual design 작업 선택
 
-Repository-selected child는 Sol과 `medium | high | xhigh`만 사용합니다. Keyword, path, file count, LOC, broad verification
-하나만으로 effort를 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Semantic role mapping은
-`knu_explorer | knu_researcher | knu_executor | knu_reviewer`를 사용하지만 role 이름 자체는 live runtime 지원 증거가
-아닙니다. Fresh active-surface evidence가 없으면 runtime descriptor는 support unknown/applied false이고 실제 dispatch 전에
-leader가 compatibility를 다시 확인합니다. Low와 `max/ultra`는 repository child route에 사용하지 않습니다. Role routing을
-증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
+[Visual design workflow](./visual-design/README.md)는 분석·제안·계획·승인된 구현 모두에서 필요한 시각 작업의 진입점입니다.
+`maintain | reimagine | new-surface`는 스타일 상속 범위이지 수정 권한이 아닙니다. 내용·action·접근성의 의미는 보존하고,
+새 방향이 요청되면 기존 token/layout을 반드시 따를 제약으로 주입하지 않습니다. Storybook은 상태·동작과 현재 화면의
+근거이며 미래 Backoffice의 미적 방향을 자동 승인하지 않습니다.
 
-Runtime compatibility는 repository config나 설치 파일 존재 여부가 아니라 현재 surface가 leader에게 보고한 bounded
-evidence로 판정합니다. Native surface는 current-turn host tool schema, OMX surface는 current-session runtime overlay와
-host-exposed `agent_type` roster가 함께 필요합니다. 이 evidence는 leader-reported input이며 host-authenticated authority로
-표현하지 않습니다. 선택 role마다 availability, effective Sol model, Medium/High/XHigh effort, explicit-effort support와
-dispatch permission이 일치해야 합니다. Advisory descriptor가 만들어져도 `requiresLeaderRuntimeConfirmation=true`이므로
-leader는 실제 child dispatch 직전에 live surface를 다시 읽고 불일치하면 sequential fallback으로 전환합니다.
+- 작은 padding 수정·승인된 token 적용은 Parent의 direct path입니다. 새 디자인 후보나 child를 자동 생성하지 않습니다.
+- 실제 대안 생성이 필요하면 [Design task orchestration](./visual-design/design-task-orchestration.md)의 task packet을 현재
+  host의 확인된 executor에, 독립 비평이 유용하면 확인된 reviewer에 맡깁니다. 공통 one-writer·QA 경계를 재사용하며
+  선행 후보가 필요한 비평을 독립 병렬 작업으로 가장하지 않습니다. 새 designer role이나 별도 실행 engine은 없습니다.
+- 특정 skill이 명시되면 현재 설치·지침·권한을 확인합니다. 호출 이름만으로 제품 수정이나 root `DESIGN.md` 생성을
+  승인받은 것으로 보지 않습니다. 이 저장소의 untracked `DESIGN.md`는 non-canonical이며 보호된 사용자 파일입니다.
 
-## Skill과 workflow routing
+### Figma provider 도입 경계
 
-- read-only 원인/책임 분석: `$analyze`
-- 공식 최신 근거 조사: `$best-practice-research`
-- 요구가 모호하고 가정 금지: `$deep-interview`
-- architecture/test 합의가 필요한 계획: `$ralplan`
-- 한 owner 구현: solo 또는 executor
-- 독립 구현 lane과 shared coordination: 실제 OMX runtime의 `$team`
-- durable multi-goal completion과 resume: `$ultragoal`
-- hostile E2E/회귀: `$ultraqa`
-- cleanup: 계획과 회귀 보호 뒤 `$ai-slop-cleaner`
-- UI source of truth: `$design`; reference 기반 반복은 `$visual-ralph`
+Provider 계약은 [Figma MCP evidence](./visual-design/figma-mcp-evidence.md)가 소유합니다. 현재 승인한 file/frame이
+필요할 때만 opt-in으로 사용하며 설치·로그인·쓰기 권한을 추측하지 않습니다. 실제 tool의 read/write capability와
+현재 session 접근, Owner가 허용한 action은 별개입니다. Credential은 repository에 저장하지 않습니다.
 
-Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 않습니다.
-
-## Figma provider 도입 경계
-
-상세 visual capability 계약은 [Visual design workflow](./visual-design/README.md)를 읽습니다.
-
-1. tracked `DESIGN.md`가 있으면 이를 먼저 사용하고, 없으면 Storybook, 현재 component/token과 repository workflow를
-   source of truth로 사용합니다. untracked local `DESIGN.md`는 참고 입력일 뿐 clean clone의 필수 권한이 아닙니다.
-2. 실제 Figma file/frame이 source of truth일 때만 Official Figma MCP를 user-level opt-in으로 검토합니다.
-3. credential은 repository나 example file에 저장하지 않습니다.
-4. Figma MCP는 승인된 frame/component/variable을 읽는 evidence bridge이며 product policy나 mutation 권한을 만들지
-   않습니다.
-5. provider 장애나 연결 해제 뒤에도 기존 Storybook·design·verification 경로는 동작해야 합니다.
-
-Provider output은 증거이며 product policy와 repository design contract를 자동으로 덮지 않습니다.
+Provider output은 증거이지 정책·새 action·수정 권한이 아닙니다. 장애 시 허용된 로컬 자료로 안전한 작업은 계속하되,
+보지 못한 reference의 fidelity를 PASS로 만들지 않습니다. 상세 승인·개인정보·연결 해제 절차는 provider owner를 따릅니다.
 
 ## Cross-domain 예시
 
@@ -109,6 +146,62 @@ Legal 정책과 FE/BE를 함께 바꾸는 작업은 정책 결정을 먼저 고�
 다만 기존 정책·API·UI mapping과 외부 법적 근거 조사는 서로 독립이면 read-only lane으로 나눌 수 있습니다. Leader는
 근거를 합쳐 하나의 dependency-ordered plan을 만들고, 구현 단계에서는 shared contract와 파일 owner가 겹치지 않게
 순서를 정합니다.
+
+## Recovery ceiling
+
+위임한 작업(child·lane·외부 실행)이 실패하면 먼저 결과·변경·진행 중인 도구를 회수하고 writer를 정리합니다. 위임 시도의
+재시도 상한은 다음과 같습니다.
+
+```text
+첫 시도
+├── 성공 → 완료
+├── 재시도 가능한 실패 → 원인을 반영한 다른 접근으로 한 번
+│   ├── 성공 → 완료
+│   └── 실패 → 멈추고 근거와 함께 인계
+└── 권한·credential·production·범위·역할 실패 → 즉시 인계 또는 leader 직접 처리
+```
+
+- 세 번째 시도, 같은 접근의 반복, 성공한 뒤의 재시도는 하지 않습니다. 이름만 바꾼 새 task로 상한을 초기화하지 않습니다.
+- Quota·capacity·권한 거절은 재시도 대상이 아니며 즉시 인계합니다. 모델이나 effort를 바꿔 우회하지 않습니다.
+- 모델을 바꾼 시도도 같은 상한을 소비합니다. 실패할 때마다 모델을 차례로 올리는 자동 사다리는 없습니다.
+- 범위·권한 변경이 필요하면 기술적 재시도가 아니라 사람의 결정입니다.
+- 근거가 계속 없으면 `evidence-gap`, 결정이 필요하면 `plan-oq`, 외부 권한이 필요하면 `user-handoff`로 끝냅니다.
+- 재시도 판단은 기록으로 남기며, 그 기록이 child 재생성이나 task 재배치를 직접 실행하지는 않습니다.
+- Leader가 직접 수행한 작업의 실패는 이 상한이 아니라 [Context와 검증 비용](#context와-검증-비용)의 원인 수정·재검증
+  규칙을 따릅니다.
+- 다른 접근의 구체(모델·effort 상향, 대체 역할, 호출 인자)는 host adapter가 정합니다.
+
+## Quality stop
+
+- 보안·권한·범위·데이터 불변 조건 위반이나 근거 없는 완료 주장이 확인되면 해당 작업의 무인 계속을 멈추고 원인·영향을
+  확인합니다. 독립 리뷰의 연속 non-PASS 회차가 [QA 리뷰 회차](./qa.md#리뷰-회차) 상한에 이른 경우도 같습니다.
+  Host adapter는 조건을 더할 수 있지만 뺄 수 없습니다.
+- 모델·effort를 바꾸기 전에 원인을 먼저 구분합니다. Source·환경·권한·테스트 공백은 그 자체를 바로잡습니다. Leader의
+  framing·통합 추론 부족이 의심되거나 같은 누락이 재발하면 leader 설정 상향을 사람에게 권고하고, 격리 가능한 기술 문제만
+  bounded child로 넘깁니다.
+- 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 입력 부족·권한 거절·필수 독립 검증 부재를 상향으로 우회하지 않습니다.
+  [Recovery ceiling](#recovery-ceiling)과 QA gap 처리는 그대로 유지하고, 해결할 수 없으면 근거를 보존해 인계합니다.
+- Leader 설정을 바꾼 뒤 첫 실제 업무에서도 required test와 독립 QA trigger를 줄이지 않고 acceptance 누락·범위 위반·
+  substantive finding·수정 원인을 기록합니다.
+- Leader의 모델·effort는 사람이 host session control에서 바꿉니다. 문서나 설정 파일 값만으로 현재 설정을 주장하지 않고,
+  leader·전역·reviewer 설정을 자동으로 바꾸지 않습니다.
+- 기본값과 권고 단계는 host adapter가 정합니다.
+
+## Routine adoption
+
+위임 조합(역할·모델·effort·작업 유형)을 일상적으로 쓰려면 실제 관측 근거와 별도의 채택 결정이 필요합니다.
+
+- Pilot 허용이나 pilot PASS는 채택이 아닙니다. 결과가 좋아도 채택은 별도 결정으로 기록하며, pilot 기록을 일상 호출에
+  재사용하지 않습니다.
+- 채택은 관측한 작업 유형과 범위 안에서만 유효하며 관측하지 않은 조합으로 넓히지 않습니다.
+- 채택 결정은 개별 호출 승인이 아닙니다. 채택 범위 안에서는 leader가 조합을 고르며 호출마다 사람에게 모델을 다시 묻지
+  않습니다. 대신 호출마다 현재 요청의 권한·범위·source와 독립 QA 필요 여부를 확인하고, 확인하지 않은 범위 확대를 일상
+  업무로 처리하지 않습니다.
+- 품질·지원·범위가 바뀌면 신규 사용을 멈추고 철회를 기록합니다. 실패한 검사와 불일치는 그대로 남기며, 과거 승인 기록의
+  시간이나 digest만 바꿔 재사용하지 않습니다.
+- 철회와 사용 중단은 leader의 운영 책임입니다. 도구가 철회를 강제한다고 주장하지 않습니다.
+- 재채택은 원인 확인과 필요한 검증·독립 QA를 다시 거친 새 결정입니다. 설정 파일 복원만으로 채택이 되살아나지 않습니다.
+- 채택 목록과 관측값은 host adapter가 소유합니다.
 
 ## Anti-patterns
 
@@ -126,6 +219,6 @@ Legal 정책과 FE/BE를 함께 바꾸는 작업은 정책 결정을 먼저 고�
 Fan-in 이후 leader는 source 누락, conflicting inference, unresolved high-risk decision, changed file ownership과 실제
 verification을 확인합니다. Blocking finding이 남으면 완료로 판정하지 않습니다.
 
-Machine-checkable native dispatch, one-alternate recovery와 synthesis input validation은
+Codex/OMX의 machine-checkable native dispatch, one-alternate recovery와 synthesis input validation은
 [Bounded orchestration, recovery, and leader synthesis](./request-intake/orchestration-recovery.md)를 따릅니다. 이
 policy는 child lifecycle을 실행하지 않으며 최종 completion authority를 갖지 않습니다.

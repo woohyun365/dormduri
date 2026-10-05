@@ -20,6 +20,8 @@ export function SeasonStateRenderer({
   onNavigationIntent,
   onRefreshOverview,
   initialRequestTab,
+  selectedRequestTab,
+  onSelectRequestTab,
 }: {
   readonly state: Exclude<
     MatchingViewState,
@@ -35,6 +37,8 @@ export function SeasonStateRenderer({
   readonly onNavigationIntent?: (intent: MatchingNavigationIntent) => void;
   readonly onRefreshOverview?: () => Promise<void>;
   readonly initialRequestTab?: MatchingRequestTab;
+  readonly selectedRequestTab?: MatchingRequestTab;
+  readonly onSelectRequestTab?: (tab: MatchingRequestTab) => void;
 }) {
   switch (state.kind) {
     case 'off-season':
@@ -65,6 +69,8 @@ export function SeasonStateRenderer({
           onNavigateChat={onNavigateChat}
           onRefreshOverview={onRefreshOverview}
           initialRequestTab={initialRequestTab}
+          selectedRequestTab={selectedRequestTab}
+          onSelectRequestTab={onSelectRequestTab}
         />
       );
     case 'season-post-match':

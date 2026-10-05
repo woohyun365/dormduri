@@ -9,12 +9,17 @@ release evidence를 대체하지 않는다.
 
 ## 기본 실행
 
+실행 전 [환경 selector](./local-environments.md)에서 runner 제약과 profile을 확인한다.
+이 runbook의 4608MiB full-stack과 auth-capacity의 strict 4096MiB는 다른 실험이다.
+
 ```bash
 pnpm infra:rehearsal:full-stack
 ```
 
 기본 경로는 OrbStack Docker context가 2CPU와 4608MiB(허용 오차 ±256MiB)로 제한되어 있어야
 한다.
+
+다음 명령은 승인된 전역 설정 변경 예시다. 현재 설정을 먼저 확인하고 기존 workload를 임의로 재시작하지 않는다.
 
 ```bash
 orbctl config set cpu 2
@@ -46,7 +51,7 @@ orbctl start
 제외하고 실제 nginx/API 연결을 사용한다. 미래 BackOffice는 별도 2GiB host가 목표이므로 이
 4GiB User App rehearsal에 합성하지 않는다.
 
-결과는 `artifacts/local/infra/full-stack-rehearsal/<run-id>.{json,md}`에 저장한다. evidence에는
+결과는 `.artifacts/tools/infra/full-stack-rehearsal/<run-id>.{json,md}`에 저장한다. evidence에는
 secret과 DB URL을 기록하지 않는다. 임시 password, HMAC key, metrics token은 OS 임시
 디렉터리에 mode `0600`으로 생성하고 종료 시 제거한다.
 

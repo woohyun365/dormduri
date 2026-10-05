@@ -46,7 +46,6 @@ describe('ChatController', () => {
     issueTicketFromAccessToken: vi.fn(),
   };
   const rateLimiter = {
-    resolveRequestIp: vi.fn(),
     consumeMessageSend: vi.fn(),
     consumeRealtimeTicket: vi.fn(),
   };
@@ -81,7 +80,6 @@ describe('ChatController', () => {
       retryAfterSeconds: 0,
       scope: 'chat:ticket:user',
     });
-    rateLimiter.resolveRequestIp.mockReturnValue('203.0.113.20');
   });
 
   it('controller class는 protected auth metadata로 보호된다', () => {
@@ -112,6 +110,27 @@ describe('ChatController', () => {
     expect(chatService.listThreads).not.toHaveBeenCalled();
   });
 
+  it.each([null, false, 0, 123, [], ['a', 'b'], {}].map((input) => ({ input })))(
+    'cursor/after의 비문자열 입력 $input은 service 호출 전에 거절한다',
+    async ({ input }) => {
+      const cursor = await expectBadRequest(() =>
+        controller.getThreads(authUser, undefined, input),
+      );
+      const after = await expectBadRequest(() => controller.replayRealtimeEvents(authUser, input));
+      expect(cursor).toEqual({
+        code: 'INVALID_QUERY',
+        fieldErrors: { cursor: ['cursor must be a single string'] },
+      });
+      expect(after).toEqual({
+        code: 'INVALID_QUERY',
+        fieldErrors: { after: ['after must be a single string'] },
+      });
+      expect(chatService.listThreads).not.toHaveBeenCalled();
+      expect(chatService.replayRealtimeEvents).not.toHaveBeenCalled();
+      expect(metrics.recordReplayResyncRequired).not.toHaveBeenCalled();
+    },
+  );
+
   it('conversation stats는 chat service의 read-only stats surface로 위임한다', async () => {
     chatService.getConversationStats.mockResolvedValueOnce({
       current: {
@@ -134,42 +153,6 @@ describe('ChatController', () => {
     expect(chatService.getConversationStats).toHaveBeenCalledWith(authUser);
   });
 
-  it('빈 message body는 bad request를 던진다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser, {
-        targetUserId: 'user-2',
-        body: '   ',
-        clientMessageId: 'client-message-empty-body',
-      }),
-    );
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-  });
-
-  it('clientMessageId 없는 메시지 전송 요청은 bad request로 거절한다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser, {
-        targetUserId: 'user-2',
-        body: '안녕하세요',
-      }),
-    );
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-    expect(response.fieldErrors?.clientMessageId).toEqual(
-      expect.arrayContaining([expect.any(String)]),
-    );
-  });
-
-  it('1,000자를 초과하는 메시지 본문은 bad request로 거절한다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser, {
-        targetUserId: 'user-2',
-        body: `${'가'.repeat(1000)}!`,
-        clientMessageId: 'client-message-1',
-      }),
-    );
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-    expect(response.fieldErrors?.body).toEqual(expect.arrayContaining([expect.any(String)]));
-  });
-
   it('유효한 메시지 전송 요청은 clientMessageId를 service로 전달한다', async () => {
     chatService.sendMessage.mockResolvedValueOnce({
       thread: { id: 'thread-1' },
@@ -180,7 +163,7 @@ describe('ChatController', () => {
     await expect(
       controller.sendMessage(authUser as never, {
         targetUserId: 'user-2',
-        body: '  안녕하세요  ',
+        body: '안녕하세요',
         clientMessageId: 'client-message-1',
       }),
     ).resolves.toMatchObject({ message: { id: 'message-1' } });
@@ -287,18 +270,6 @@ describe('ChatController', () => {
     expect(chatService.leaveThread).toHaveBeenCalledWith(authUser, 'thread-1');
   });
 
-  it('read marker 갱신 요청은 lastReadMessageId를 필수로 검증한다', async () => {
-    const response = await expectBadRequest(() =>
-      controller.updateReadMarker(authUser, 'thread-1', {}),
-    );
-
-    expect(response.code).toBe('INVALID_REQUEST_BODY');
-    expect(response.fieldErrors?.lastReadMessageId).toEqual(
-      expect.arrayContaining([expect.any(String)]),
-    );
-    expect(chatService.updateReadMarker).not.toHaveBeenCalled();
-  });
-
   it('유효한 read marker 갱신 요청은 service로 전달한다', async () => {
     chatService.updateReadMarker.mockResolvedValueOnce({
       threadId: 'thread-1',
@@ -383,9 +354,7 @@ describe('ChatController', () => {
     });
 
     await expect(
-      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', {
-        headers: { 'x-forwarded-for': '203.0.113.20' },
-      } as never),
+      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', '203.0.113.20'),
     ).resolves.toEqual({
       ticket: 'ticket-1',
       scope: 'chat:realtime',
@@ -396,9 +365,6 @@ describe('ChatController', () => {
       userId: 'user-1',
       ip: '203.0.113.20',
     });
-    expect(rateLimiter.resolveRequestIp).toHaveBeenCalledWith({
-      headers: { 'x-forwarded-for': '203.0.113.20' },
-    });
     expect(realtimeTicketService.issueTicketFromAccessToken).toHaveBeenCalledWith('access-token-1');
   });
 
@@ -406,7 +372,7 @@ describe('ChatController', () => {
     realtimeTicketService.issueTicketFromAccessToken.mockResolvedValueOnce(null);
 
     await expect(
-      controller.issueRealtimeTicket(authUser as never, undefined),
+      controller.issueRealtimeTicket(authUser as never, undefined, 'unknown'),
     ).rejects.toMatchObject({
       response: { code: 'UNAUTHENTICATED' },
     });
@@ -420,7 +386,7 @@ describe('ChatController', () => {
     });
 
     await expect(
-      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1'),
+      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', 'unknown'),
     ).rejects.toMatchObject({
       response: {
         code: 'CHAT_REALTIME_RATE_LIMITED',

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { classifyChanges } from '../ci/classify-changes.mjs';
+import { classifyChanges } from '../ci/lanes/classify-changes.mjs';
 
 const RECOMMENDATIONS = new Set(['cohesive', 'scope-audit-required', 'stop-and-split']);
 const DISPOSITIONS = [
@@ -366,7 +366,7 @@ export function assessBranchReadiness({ evidence, declaration = {} }) {
   }
 
   const selectedProductLanes = (evidence?.selectedLanes ?? []).filter(
-    (lane) => lane !== 'repoPolicy' && lane !== 'storybook',
+    (lane) => !['repoPolicy', 'agentWorkflow', 'storybook'].includes(lane),
   );
   if (selectedProductLanes.length > 1 && !normalized.semantic.sharedAcceptanceAcrossLanes) {
     auditReasons.push(

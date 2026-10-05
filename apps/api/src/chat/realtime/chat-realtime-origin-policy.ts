@@ -1,11 +1,11 @@
 import type { IncomingMessage } from 'node:http';
 import type { TLSSocket } from 'node:tls';
 import { URL } from 'node:url';
+import type { ChatRealtimeProxyProfile } from './chat-realtime.config.js';
+import { readSingleChatHeader } from './chat-realtime-rate-limiter.service.js';
 
 type HeaderValue = string | string[] | null | undefined;
-
-export type ChatRealtimeAllowedOrigins = string[] | false;
-
+export type ChatRealtimeAllowedOrigins = readonly string[] | false;
 export type ChatRealtimeOriginPolicyInput = {
   requestOrigin?: HeaderValue;
   allowedOrigins: ChatRealtimeAllowedOrigins;
@@ -13,12 +13,12 @@ export type ChatRealtimeOriginPolicyInput = {
   forwardedHost?: HeaderValue;
   forwardedProto?: HeaderValue;
   encrypted?: boolean;
-  trustProxy?: boolean;
+  peerAddress?: string | null;
+  proxyProfile?: ChatRealtimeProxyProfile;
 };
-
 export type ChatRealtimeAllowRequestOptions = {
   preAuthRateLimit?: (request: IncomingMessage) => boolean;
-  trustProxy?: boolean;
+  proxyProfile?: ChatRealtimeProxyProfile;
 };
 
 export function createChatRealtimeAllowRequest(
@@ -27,75 +27,63 @@ export function createChatRealtimeAllowRequest(
 ) {
   return (request: IncomingMessage, callback: (error: string | null, success: boolean) => void) => {
     const originAllowed = isChatRealtimeRequestOriginAllowed({
-      requestOrigin: request.headers.origin,
+      requestOrigin: readSingleChatHeader(request.headers, 'origin'),
       allowedOrigins,
-      host: request.headers.host,
-      forwardedHost: request.headers['x-forwarded-host'],
-      forwardedProto: request.headers['x-forwarded-proto'],
+      host: readSingleChatHeader(request.headers, 'host'),
+      forwardedHost: readSingleChatHeader(request.headers, 'x-forwarded-host'),
+      forwardedProto: readSingleChatHeader(request.headers, 'x-forwarded-proto'),
       encrypted: Boolean((request.socket as TLSSocket | undefined)?.encrypted),
-      trustProxy: options.trustProxy,
+      peerAddress: request.socket?.remoteAddress,
+      proxyProfile: options.proxyProfile,
     });
-
     if (!originAllowed) {
       callback(null, false);
       return;
     }
-
     callback(null, options.preAuthRateLimit ? options.preAuthRateLimit(request) : true);
   };
 }
 
 export function isChatRealtimeRequestOriginAllowed(input: ChatRealtimeOriginPolicyInput): boolean {
-  const requestOrigin = normalizeOrigin(firstHeaderValue(input.requestOrigin));
-  if (!requestOrigin) {
-    return false;
-  }
-
+  const requestOrigin = normalizeOrigin(singleValue(input.requestOrigin));
+  if (!requestOrigin) return false;
   if (input.allowedOrigins !== false) {
-    return input.allowedOrigins.some((allowedOrigin) => {
-      const normalizedAllowedOrigin = normalizeOrigin(allowedOrigin);
-      return normalizedAllowedOrigin !== null && normalizedAllowedOrigin === requestOrigin;
-    });
+    return input.allowedOrigins.some((origin) => normalizeOrigin(origin) === requestOrigin);
   }
-
-  const sameOrigin = resolveRequestUrlOrigin(input);
+  let sameOrigin: string | null = null;
+  if (input.proxyProfile?.enabled && input.proxyProfile.isTrustedPeer(input.peerAddress)) {
+    const host = singleValue(input.forwardedHost);
+    const proto = singleValue(input.forwardedProto);
+    if (host && (proto === 'https' || proto === 'http')) sameOrigin = originFromHost(host, proto);
+  }
+  // Forwarded host/protocol form a single provenance pair: never mix one with local metadata.
+  sameOrigin ??= originFromHost(singleValue(input.host), input.encrypted ? 'https' : 'http');
   return sameOrigin !== null && sameOrigin === requestOrigin;
 }
 
-function resolveRequestUrlOrigin(input: ChatRealtimeOriginPolicyInput): string | null {
-  const host =
-    (input.trustProxy ? firstForwardedHeaderValue(input.forwardedHost) : null) ??
-    firstHeaderValue(input.host);
-  if (!host) {
-    return null;
-  }
+function singleValue(value: HeaderValue): string | null {
+  return typeof value === 'string' && value.trim() && !value.includes(',') ? value.trim() : null;
+}
 
-  const proto =
-    (input.trustProxy ? firstForwardedHeaderValue(input.forwardedProto) : null) ??
-    (input.encrypted ? 'https' : 'http');
+function originFromHost(host: string | null, proto: string): string | null {
+  if (!host || /[\s/\\?#@]/u.test(host)) return null;
   return normalizeOrigin(`${proto}://${host}`);
 }
 
-function firstForwardedHeaderValue(value: HeaderValue): string | null {
-  const firstValue = firstHeaderValue(value);
-  return firstValue?.split(',')[0]?.trim() || null;
-}
-
-function firstHeaderValue(value: HeaderValue): string | null {
-  if (!value) {
-    return null;
-  }
-
-  return Array.isArray(value) ? (value[0]?.trim() ?? null) : value.trim();
-}
-
 function normalizeOrigin(origin: string | null): string | null {
-  if (!origin) {
-    return null;
-  }
-
+  if (!origin || /[\s\\,]/u.test(origin)) return null;
   try {
-    return new URL(origin).origin;
+    const parsed = new URL(origin);
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== '/' ||
+      parsed.search ||
+      parsed.hash
+    )
+      return null;
+    return parsed.origin;
   } catch {
     return null;
   }

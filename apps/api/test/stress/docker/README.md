@@ -4,13 +4,13 @@
 
 ## Runner
 
-| Script                                                     | 용도                                                                                                                                                | 기본 report                                                     |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `pnpm --dir apps/api stress:docker:smoke`                  | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `artifacts/local/stress/api-dockerized-stress-result-*.md`      |
-| `pnpm --dir apps/api stress:docker:production-like`        | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `artifacts/local/stress/api-production-like-stress-result-*.md` |
-| `pnpm --dir apps/api stress:docker:237-ramp`               | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `artifacts/local/stress/api-237-ramp-decision-result-*.md`      |
-| `pnpm --dir apps/api stress:docker:auth-password-capacity` | 19MiB Argon2id login/signup/reset/change endpoint mix를 H1~H9 중 하나로 실행                                                                        | `artifacts/local/stress/api-auth-password-capacity-result-*.md` |
-| `pnpm --dir apps/api stress:local:auth-password`           | 2CPU/4096MiB Docker engine을 강제하고 resource-limited 관측 stack과 H1~H9 profile을 순차 실행                                                       | `artifacts/local/stress/api-auth-password-capacity-result-*.md` |
+| Script                                                     | 용도                                                                                                                                                | 기본 report                                                      |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `pnpm --dir apps/api stress:docker:smoke`                  | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `.artifacts/tools/stress/api-dockerized-stress-result-*.md`      |
+| `pnpm --dir apps/api stress:docker:production-like`        | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `.artifacts/tools/stress/api-production-like-stress-result-*.md` |
+| `pnpm --dir apps/api stress:docker:237-ramp`               | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `.artifacts/tools/stress/api-237-ramp-decision-result-*.md`      |
+| `pnpm --dir apps/api stress:docker:auth-password-capacity` | 19MiB Argon2id login/signup/reset/change endpoint mix를 H1~H9 중 하나로 실행                                                                        | `.artifacts/tools/stress/api-auth-password-capacity-result-*.md` |
+| `pnpm --dir apps/api stress:local:auth-password`           | 2CPU/4096MiB Docker engine을 강제하고 resource-limited 관측 stack과 H1~H9 profile을 순차 실행                                                       | `.artifacts/tools/stress/api-auth-password-capacity-result-*.md` |
 
 ## 공통 실행 대상
 
@@ -79,7 +79,7 @@ pnpm --dir apps/api stress:docker:237-ramp
 
 1. 237명 fixture / largest cohort 237 / token actor 50으로 seed와 token artifact를 생성한다.
 2. VU `25 → 50 → 100 → 237` 순서로 `smoke → authenticated baseline → score-cohort`를 실행한다.
-3. 각 단계마다 별도 report `artifacts/local/stress/api-237-ramp-decision-vu*.md`를 남기고, 최종 누적 decision report를 `artifacts/local/stress/api-237-ramp-decision-result-*.md`에 쓴다.
+3. 각 단계마다 별도 report `.artifacts/tools/stress/api-237-ramp-decision-vu*.md`를 남기고, 최종 누적 decision report를 `.artifacts/tools/stress/api-237-ramp-decision-result-*.md`에 쓴다.
 4. `score p95 >= 300ms` 또는 `score p99 >= 1500ms`가 반복되면 #247 `MATCH_SCORE` bounded cache 승격 후보로 기록한다.
 5. runner 실패, `http_req_failed > 1%`, `checks < 98%`, `p95 >= 500ms`이면 다음 VU 단계로 올리지 않고 stop gate를 report에 남긴다.
 

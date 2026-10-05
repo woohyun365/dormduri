@@ -1,8 +1,11 @@
 import { Catch, type ArgumentsHost, ExceptionFilter } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { HttpAdapterHost, type AbstractHttpAdapter } from '@nestjs/core';
 import { normalizeApiError } from './api-error.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
-import { mapExceptionToLogEvent } from '../observability/logging/exception-log.mapper.js';
+import {
+  mapExceptionToLogEvent,
+  type ExceptionLogRequest,
+} from '../observability/logging/exception-log.mapper.js';
 import { HttpMetricsService } from '../observability/metrics/http-metrics.service.js';
 
 @Catch()
@@ -10,17 +13,19 @@ export class ApiExceptionFilter implements ExceptionFilter {
   constructor(
     private readonly logger: AppLoggerService,
     private readonly metrics: HttpMetricsService,
+    private readonly adapterHost: HttpAdapterHost,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const request = ctx.getRequest<Request>();
-    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<ExceptionLogRequest & { originalUrl?: string; url: string }>();
+    const response = ctx.getResponse<unknown>();
+    const { httpAdapter } = this.adapterHost;
     const normalized = normalizeApiError(exception);
     const path = request.originalUrl ?? request.url;
-    const retryAfterSeconds = resolveRetryAfterSeconds(response, normalized);
+    const retryAfterSeconds = resolveRetryAfterSeconds(httpAdapter, response, normalized);
     if (retryAfterSeconds !== undefined) {
-      setRetryAfterHeader(response, retryAfterSeconds);
+      httpAdapter.setHeader(response, 'Retry-After', String(retryAfterSeconds));
     }
 
     const body = {
@@ -36,10 +41,14 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     this.logException(request, normalized);
     this.recordExceptionMetric(normalized);
-    response.status(normalized.statusCode).json(body);
+    httpAdapter.setHeader(response, 'Content-Type', 'application/json');
+    httpAdapter.reply(response, body, body.statusCode);
   }
 
-  private logException(request: Request, normalized: ReturnType<typeof normalizeApiError>) {
+  private logException(
+    request: ExceptionLogRequest,
+    normalized: ReturnType<typeof normalizeApiError>,
+  ) {
     const { event, level, message } = mapExceptionToLogEvent(request, normalized);
     try {
       this.logger.write(level, event, message);
@@ -62,7 +71,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
 }
 
 function resolveRetryAfterSeconds(
-  response: Response,
+  adapter: AbstractHttpAdapter,
+  response: unknown,
   normalized: ReturnType<typeof normalizeApiError>,
 ): number | undefined {
   if (![429, 503].includes(normalized.statusCode)) return undefined;
@@ -70,23 +80,7 @@ function resolveRetryAfterSeconds(
   const extrasRetryAfter = coercePositiveInteger(normalized.extras.retryAfterSeconds);
   if (extrasRetryAfter !== undefined) return extrasRetryAfter;
 
-  return coercePositiveInteger(getRetryAfterHeader(response));
-}
-
-function getRetryAfterHeader(response: Response): unknown {
-  const readableResponse = response as unknown as { getHeader?: (name: string) => unknown };
-  return typeof readableResponse.getHeader === 'function'
-    ? readableResponse.getHeader('Retry-After')
-    : undefined;
-}
-
-function setRetryAfterHeader(response: Response, retryAfterSeconds: number): void {
-  const writableResponse = response as unknown as {
-    setHeader?: (name: string, value: number) => unknown;
-  };
-  if (typeof writableResponse.setHeader === 'function') {
-    writableResponse.setHeader('Retry-After', retryAfterSeconds);
-  }
+  return coercePositiveInteger(adapter.getHeader(response, 'Retry-After'));
 }
 
 function coercePositiveInteger(value: unknown): number | undefined {

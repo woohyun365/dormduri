@@ -11,9 +11,6 @@ function makeHttpSettings(overrides: Partial<HttpRuntimeSettings> = {}): HttpRun
   return {
     trustProxy: false,
     corsAllowedOrigins: [],
-    cookieSecure: false,
-    cookieSameSite: 'lax',
-    cookieDomain: null,
     ...overrides,
   };
 }
@@ -54,7 +51,7 @@ describe('buildHttpCorsOptions', () => {
 });
 
 describe('configureHttpRuntime', () => {
-  it('registers trust proxy, helmet, cookie parser, and explicit CORS', () => {
+  it('registers trust proxy then helmet then explicit non-cookie CORS without a cookie parser', () => {
     const { app, expressSet, appUse, enableCors } = makeAppMock();
 
     configureHttpRuntime(
@@ -63,7 +60,13 @@ describe('configureHttpRuntime', () => {
     );
 
     expect(expressSet).toHaveBeenCalledWith('trust proxy', 2);
-    expect(appUse).toHaveBeenCalledTimes(2);
+    expect(appUse).toHaveBeenCalledTimes(1);
+    expect(expressSet.mock.invocationCallOrder[0]).toBeLessThan(
+      appUse.mock.invocationCallOrder[0]!,
+    );
+    expect(appUse.mock.invocationCallOrder[0]).toBeLessThan(
+      enableCors.mock.invocationCallOrder[0]!,
+    );
     expect(enableCors).toHaveBeenCalledWith(
       expect.objectContaining({ origin: ['https://app.example.com'], credentials: false }),
     );

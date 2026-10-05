@@ -129,7 +129,13 @@ describe('HomeMatchingSummary', () => {
 
   it('ACTIVE_MATCH에서 매칭 해제 요청을 확인 modal로 보낸다', async () => {
     const user = userEvent.setup();
-    const onRequestUnmatch = vi.fn().mockResolvedValue(undefined);
+    let finishRequest: (() => void) | undefined;
+    const onRequestUnmatch = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRequest = resolve;
+        }),
+    );
     render(
       <HomeMatchingSummary
         {...defaultProps}
@@ -145,6 +151,13 @@ describe('HomeMatchingSummary', () => {
     await user.click(screen.getByRole('button', { name: '해제 요청하기' }));
 
     await waitFor(() => expect(onRequestUnmatch).toHaveBeenCalledWith('active-match-1'));
+    expect(screen.getByRole('button', { name: '처리 중...' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '처리 중...' }));
+    expect(onRequestUnmatch).toHaveBeenCalledTimes(1);
+    finishRequest?.();
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '매칭 해제 요청' })).not.toBeInTheDocument(),
+    );
   });
 
   it('ACTIVE_MATCH에서 상대 해제 요청이 도착하면 내가 해제 요청을 완료할 수 있다', async () => {

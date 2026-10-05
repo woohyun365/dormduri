@@ -1,3 +1,4 @@
+import { readChatRealtimeProxyProfile } from './chat-realtime.config.js';
 import { describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { ChatRealtimeDispatcherService } from './chat-realtime-dispatcher.service.js';
@@ -30,6 +31,7 @@ function createDispatcher(input: {
   queryRows?: unknown[][];
   publisherBound?: boolean;
   publishRejects?: Error;
+  dispatcherEnabled?: boolean;
 }) {
   const prisma = {
     getDatabaseNow: vi.fn().mockResolvedValue(now),
@@ -53,8 +55,8 @@ function createDispatcher(input: {
   const metrics = new ChatRealtimeMetricsService();
   const settings = {
     allowedOrigins: false as const,
-    trustProxy: false,
-    dispatcherEnabled: false,
+    proxyProfile: readChatRealtimeProxyProfile({}),
+    dispatcherEnabled: input.dispatcherEnabled ?? false,
     dispatcherIntervalMs: 1_000,
     dispatcherBatchSize: 50,
     dispatcherClaimLeaseMs: 30_000,
@@ -95,6 +97,70 @@ function createDispatcher(input: {
 }
 
 describe('ChatRealtimeDispatcherService', () => {
+  it.each([true, false])(
+    'enabled=%s에 따라 timer를 등록하고 destroy 뒤에는 실행하지 않는다',
+    async (enabled) => {
+      vi.useFakeTimers();
+      const { dispatcher, prisma } = createDispatcher({
+        dispatcherEnabled: enabled,
+        queryRows: [[], [{ deletedCount: 0 }]],
+      });
+      try {
+        dispatcher.onApplicationBootstrap();
+        expect(vi.getTimerCount()).toBe(enabled ? 1 : 0);
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(enabled ? 1 : 0);
+        expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(enabled ? 2 : 0);
+        dispatcher.onModuleDestroy();
+        expect(vi.getTimerCount()).toBe(0);
+        await vi.advanceTimersByTimeAsync(2_000);
+        expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      } finally {
+        dispatcher.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(['clock', 'claim'] as const)(
+    '%s 초기 실패 뒤 다음 timer tick은 다시 claim/publish한다',
+    async (failurePoint) => {
+      vi.useFakeTimers();
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const { dispatcher, prisma, publisher, metrics } = createDispatcher({
+        dispatcherEnabled: true,
+      });
+      const error = new Error(`${failurePoint} unavailable`);
+      if (failurePoint === 'clock') prisma.getDatabaseNow.mockRejectedValueOnce(error);
+      else prisma.$queryRawTyped.mockRejectedValueOnce(error);
+      prisma.$queryRawTyped
+        .mockResolvedValueOnce([createClaimedEvent()])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ deletedCount: 0 }]);
+      try {
+        dispatcher.onApplicationBootstrap();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(warn).toHaveBeenCalledOnce();
+        expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(failurePoint === 'clock' ? 0 : 1);
+        expect(publisher.publishOutboxEvent).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(prisma.getDatabaseNow).toHaveBeenCalledTimes(2);
+        expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(failurePoint === 'clock' ? 3 : 4);
+        expect(publisher.publishOutboxEvent).toHaveBeenCalledOnce();
+        expect(prisma.chatRealtimeOutboxEvent.update).toHaveBeenCalledOnce();
+        expect(metrics.snapshot().dispatchers.chat.totalPublished).toBe(1);
+        expect(metrics.snapshot().outboxPrune.totalFailures).toBe(0);
+        expect(warn).toHaveBeenCalledOnce();
+      } finally {
+        dispatcher.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        warn.mockRestore();
+      }
+    },
+  );
+
   it('publisher가 아직 bind되지 않았으면 claim하지 않고 skip한다', async () => {
     const { dispatcher, prisma, metrics } = createDispatcher({
       publisherBound: false,
@@ -252,7 +318,7 @@ describe('ChatRealtimeDispatcherService', () => {
     };
     const settings = {
       allowedOrigins: false as const,
-      trustProxy: false,
+      proxyProfile: readChatRealtimeProxyProfile({}),
       dispatcherEnabled: false,
       dispatcherIntervalMs: 1_000,
       dispatcherBatchSize: 50,

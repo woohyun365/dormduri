@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-next-
 
       - name: Install dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=install -- pnpm install --frozen-lockfile
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=install -- pnpm install --frozen-lockfile
 
       - name: Restore Web TypeScript build info
         id: web-tsc-cache
@@ -71,12 +71,12 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-web-tsc-${{ hashFiles('pnpm-lock.yaml', 'packages/tsconfig/**', 'apps/web/tsconfig*.json') }}-
 
       - name: Prepare Web dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=prepare -- pnpm web:prepare
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=prepare -- pnpm web:prepare
 
       - name: Web static checks
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=static -- sh -c 'pnpm web:lint:prepared && pnpm web:typecheck:prepared'
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=static -- sh -c 'pnpm web:lint:prepared && pnpm web:typecheck:prepared'
 
       - name: Save Web TypeScript build info
         if: ${{ steps.web-tsc-cache.outputs.cache-hit != 'true' }}
@@ -88,22 +88,22 @@ jobs:
       - name: Web production build
         env:
           SENTRY_AUTH_TOKEN: sentry-ci-secret-must-not-ship
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=build -- pnpm web:build:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=build -- pnpm web:build:prepared
 
       - name: Verify account-free Sentry artifact boundary
         env:
           SENTRY_ARTIFACT_SECRET_SENTINEL: sentry-ci-secret-must-not-ship
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=sentry-artifact -- pnpm web:sentry:verify-build
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=sentry-artifact -- pnpm web:sentry:verify-build
 
       - name: Build Storybook surface
         if: ${{ inputs.run_storybook }}
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=storybook -- pnpm --dir apps/web ci:storybook:build
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=storybook -- pnpm --dir apps/web ci:storybook:build
 
       - name: Install Playwright Chromium
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=browser-install -- pnpm --dir apps/web exec playwright install --with-deps chromium
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=browser-install -- pnpm --dir apps/web exec playwright install --with-deps chromium
 
       - name: Web browser smoke with prebuilt standalone artifact
-        run: node scripts/ci/run-timed-command.mjs --scope=Web --stage=browser -- pnpm web:e2e:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=browser -- pnpm web:e2e:prepared
 
       - name: Upload Playwright report
         if: ${{ failure() && !cancelled() }}
@@ -171,13 +171,13 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=Web-unit --stage=install -- pnpm install --frozen-lockfile
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web-unit --stage=install -- pnpm install --frozen-lockfile
 
       - name: Prepare Web dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=Web-unit --stage=prepare -- pnpm web:prepare
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web-unit --stage=prepare -- pnpm web:prepare
 
       - name: Web unit tests
-        run: node scripts/ci/run-timed-command.mjs --scope=Web-unit --stage=unit -- pnpm web:test:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web-unit --stage=unit -- pnpm web:test:prepared
 
       - name: Summarize Web unit duration
         if: ${{ always() && !cancelled() }}

@@ -10,6 +10,9 @@
 - Plan은 `produce-plan`만 승인하며 product code mutation을 승인하지 않습니다.
 - 모호함과 외부 결정은 [Ambiguity and authority](../request-intake/ambiguity-and-authority.md)를 따릅니다.
 
+계획 저장·발견·재개·완료/취소 보관은 [공통 lifecycle](../session-continuity.md#active-plan-lifecycle)이 소유합니다.
+Native plan mode의 초안과 repository canonical 계획을 구분하며 local 파일만으로 portable 인계를 완료하지 않습니다.
+
 ## 2. Source of truth and freshness
 
 다음 순서를 유지합니다.
@@ -61,6 +64,10 @@ revisit trigger
 ```
 
 현재 evidence로 결정 가능한 것은 OQ로 미루지 않습니다.
+
+Owner와 중요한 선택을 협의할 때는 이 Decision/OQ의 내용을
+[짧은 decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)으로 제시합니다. 새 ledger/schema나
+모든 기술 선택의 재승인이 아니며, 유효한 유지안과 권장안의 반론을 현재 evidence에 맞게 포함합니다.
 
 ### Open Question
 
@@ -132,6 +139,38 @@ uses deep reasoning, or touches many files. 반대로 짧은 문서라도 독립
 A long conversation or higher reasoning effort is not scope authority. 분석 깊이는 evidence coverage를 늘릴 수 있지만 plan의
 owner, acceptance, write boundary를 자동으로 넓히지 않습니다.
 
+### Supporting detail and bounded plans
+
+Supporting은 기본 분할 전략이 아니라 필요한 부분만 상세화하는 선택적 수단입니다. 한 Phase의 절차가 비대해지거나,
+진행 중 troubleshooting·추가 설계/구현·readiness 발견사항에 별도 조사와 검증이 필요할 때 사용합니다. 먼저 위 follow-up
+classification으로 범위와 권한을 확인하며, 문서 길이만으로 새 plan·Phase·PR을 만들지 않습니다.
+
+| 사례                                                           | 배치와 완료 책임                                     |
+| -------------------------------------------------------------- | ---------------------------------------------------- |
+| 기존 Phase의 짧은 수정·검증                                    | 부모에 inline으로 유지                               |
+| 같은 outcome·owner·완료 기준의 복잡한 troubleshooting 절차     | Supporting 상세 문서로 추출하고 부모 lifecycle 공유  |
+| Readiness 발견사항에 독립 수정 owner·검증·rollback 경계가 필요 | 위 plan-graph 규칙에 따라 별도 bounded plan으로 연결 |
+
+Supporting은 계획 문서(Markdown)만 소유합니다. 계획을 진행하며 만든 script·log·JSON·diff·screenshot·review 입력은 실행
+증거이므로 [Artifact 배치 규칙](../../../../.artifacts/README.md#배치-규칙)에 따라 `.artifacts/plans/` 아래 Plan ID 경로에 둡니다.
+작업별 상세 문서의 로컬 배치는 아래 Session continuity를 따릅니다. 디렉터리 위치는 문서 유형이나 승인 상태를
+결정하지 않습니다. 단순 상세 문서는 별도 completion clock을 만들지 않고, 독립 plan은 자신의 Plan ID·status·
+readiness·acceptance·rollback을 소유합니다. 독립 작업의 실행 순서는 실제 dependency로 정하며 모두 successor로 간주하지
+않습니다. 파일 하나가 PR 하나나 subagent 하나를 요구하지 않습니다.
+
+- 부모는 발생 이유, 영향받는 Phase, dependency 순서, 현재 disposition과 상세 문서 링크를 유지합니다.
+- Supporting은 부모 backlink, 문서 유형, 범위/owner, current baseline, 실행 전제·권한, 절차·검증·종료 조건을 명시합니다.
+  비실행 상세는 첫 `## ` heading 전 header에 `- Document Type: reference`를 선언하고 독립 lifecycle을 만들지 않습니다.
+  독립 plan은 이 선언으로 제외하지 않고 자신의 canonical `- Plan ID:`·`- Status:`를 유지합니다. 단순 위치/본문에서
+  유형·ID·상태를 추론하거나 malformed 과거 계획을 참고 자료로 재분류하여 재개 차단을 우회하지 않습니다.
+  Reference에 실제 Plan ID를 선언했다면 archive/navigation과 마찬가지로 전역 중복 검사 대상입니다.
+  독립 plan의 세부 계약은 그 plan이 소유하고 부모는 상태 요약과 근거 링크만 유지하여 이중 갱신을 줄입니다.
+- 발견사항이나 문서 생성 자체는 구현 승인이나 scope 확장이 아닙니다. 부모의 readiness가 독립 plan으로 전파되지 않으며,
+  같은 outcome의 상세화도 실제 scope/assumption이 달라졌다면 영향 범위의 readiness를 다시 확인합니다.
+- 이 tracked guide가 재사용 규칙의 owner입니다. `.plans` lifecycle 디렉터리의 README는 용도 요약과 원본 링크만 가진 안내이며
+  규칙의 원본이나 사본이 아닙니다.
+  재개·portable handoff·완료 후 발견 가능성은 [Session continuity](../session-continuity.md#supporting-문서-재개와-인계)를 따릅니다.
+
 ### Future option boundary
 
 현재 채택하지 않는 technology, provider, service split 또는 operational capability는 장문의 speculative registry 대신
@@ -162,6 +201,34 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 빈 heading을 채우기 위해 내용을 발명하지 않습니다. 적용되지 않는 항목은 이유와 함께 생략합니다.
 
+### Structural change impact inventory
+
+여러 파일의 계약을 함께 바꾸는 구조 변경 plan(모듈 처분, 역할·profile 개편, 문서 구조 분리 등)은 source inventory에 다음
+네 가지를 남깁니다. 손으로 만든 영향 줄 목록은 완전성을 재현할 수 없으므로 근거로 쓰지 않습니다.
+
+1. **기준 표:** 결정마다 단일 원본 한 곳. 다른 절은 이 표를 참조만 합니다.
+2. **영향 목록:** 두 층으로 만듭니다.
+   - 줄 층(증거): 식별자 패턴, import 그래프, 문서 anchor 링크로 scan한 모든 줄을 "PR X 변경" 또는 "영향 없음(이유)"으로
+     분류합니다. 미분류는 0건이어야 합니다.
+   - 블록 층(완전성 단위): 코드 top-level 문장, 문서 절, JSON root 자식을 블록으로 나눕니다. 블록은 그 안의 줄 행 class,
+     계약 대상(PR Work가 지목한 파일·범위·절), consumer 전파(파일 단위 처분 대상의 이름·경로·export를 담은 블록)의
+     합집합으로 표시합니다. 블록을 나누는 universe는 영향 분석 glob, 계약 대상 파일, 줄 행이 있는 파일(영향 없음 규칙
+     파일과 다른 owner class 행만 있는 파일 제외)이며, 다른 owner의 규칙이 적용되는 파일은 뺍니다.
+   - 회귀 목록: 리뷰가 지적한 줄과 결정 문서가 PR에 직접 인용한 범위를 기대 class와 함께 누적합니다. 모두 그 class
+     블록 안에 있어야 합니다.
+3. **PR 경계 상태표:** 기능 × 각 PR merge 직후의 동작·중단·대체. 빈 칸이 없어야 합니다.
+4. **의미 검토 범위:** 도구가 좁힌 범위(표시되지 않은 블록)와 남은 공백을 적습니다.
+
+영향 목록은 `pnpm plan:impact -- --spec <dir>`로 생성하고 검사합니다. 미분류 줄, stale 분류, override 없는 불일치, 블록과
+겹치지 않는 계약 selector, 블록 밖 행, universe 밖 active 행, 회귀 목록 미포괄 등은 exit 1입니다(전체 실패 조건은
+[plan 영향 목록 누락](../../troubleshooting/tooling/agent-plan-impact-inventory-misses.md#script-사용)). 리뷰 acceptance는 "목록이
+완전하다"가 아니라 "분류가 정확하고, 표시되지 않은 블록 중 바뀌어야 하는 블록이 0이며, 상태표 빈 칸이 0"으로 씁니다.
+
+미정 결정(채택 여부, 처분, 위치)에 따라 바뀌는 블록은 조건부로 보수적으로 표시합니다. 각 PR은 plan을 개정할 때 결정이 정해진
+상태로 영향 목록을 다시 생성하고 그 PR 범위를 블록 단위로 리뷰합니다. 의미 단위 누락은 도구로 완전히 막을 수 없으므로, 도구는
+의미 검토의 범위를 좁히는 데 씁니다. 사례와 도구표는
+[plan 영향 목록 누락](../../troubleshooting/tooling/agent-plan-impact-inventory-misses.md)에 있습니다.
+
 ## 7. Implementation readiness promotion
 
 계획이 상세하다는 사실과 바로 구현할 수 있다는 판정은 분리합니다. Canonical status lifecycle은 다음과 같습니다.
@@ -187,19 +254,22 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
    - `deterministic-static`: test, schema 또는 script가 같은 입력에 기계적으로 판정
    - `advisory-policy`: 문서 지침이며 runtime 강제가 아님
    - `model-mediated`: agent가 evidence를 바탕으로 판단
-   - `native-runtime`: Codex·OMX·provider가 실행 시 강제
+   - `native-runtime`: 현재 host/runtime/provider가 실행 시 강제 (Codex·OMX는 해당 adapter의 예)
 6. proposed 계획의 미실행 acceptance는 unchecked `required`로 유지합니다. Evidence가 없는 항목을 passed 또는 완료
    checkbox로 표현하지 않습니다.
 7. tracked source를 수정하는 단계는 complete Phase contract를 가지거나 같은 계획의 explicit shared owner table을
    참조해야 합니다.
 8. 구현 결과를 바꾸는 blocking OQ가 없고, 비차단 gap은 owner·필요 evidence·revisit trigger를 가집니다.
+9. 새로 작성하는 계획은 [Plan references](./references.md) 검사 위반이 0입니다. 이 문법 전부터 있던 계획은
+   `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer가 검사 출력으로 확인합니다
+   (`model-mediated`).
 
 계획이 커질 때 invariant는 durable owner에 once 기록하고 plan에서는 link합니다. 같은 결정·행렬을 여러 Phase에
 복사하지 않으며, current code와 drift가 발견되면 구현 전에 baseline과 영향받는 Phase만 갱신합니다.
 
 ### Normalized readiness evidence
 
-[Readiness policy](../../../../scripts/agents/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
+[Readiness policy](../../../../scripts/agents/common/plan-readiness-policy.mjs)는 Markdown 계획을 직접 파싱하거나 구현을 실행하지
 않는 read-only advisory validator입니다. Reviewer는 계획과 repository evidence를 다음 입력으로 명시적으로 매핑합니다.
 
 | Plan evidence                         | Normalized input            |
@@ -271,6 +341,16 @@ checkpoint fields
 | release ready                             | target-specific evidence, not local rehearsal alone |
 
 Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, build, static analysis, E2E를 확장합니다.
+
+효과가 불확실한 사용자-facing 결과는 구현 verification과 value validation을 나눕니다. 기존 Outcome·Acceptance·Evidence에
+가설, 적절한 관찰 방법, keep/change/stop 판단 owner를 연결합니다. 미래 사용자/production 관찰은 owner·trigger·필요 근거가
+있는 handoff로 분리하고, 미관측 이익을 완료 근거로 쓰지 않습니다. 기술 변경마다 analytics나 실험을 강제하지 않습니다.
+여러 owner를 잇거나 중요한 결정·학습이 있는 경우에만 짧은 evidence map을 사용합니다. 예시와 완료 주장의 구분은
+[Development lifecycle](../development-lifecycle.md)이 소유합니다.
+
+구현 후 독립 검토가 필요한지는 [QA workflow](../qa.md)의 의미 기반 trigger와 snapshot-bound packet/result를 따릅니다.
+필수 검토/runner가 없으면 safe local work와 merge readiness를 분리하고 gap을 남깁니다. 이는 위 implementation-readiness
+review를 없애거나 두 검토를 하나의 PASS로 합치는 규칙이 아닙니다. QA matrix를 계획마다 복제하지 않습니다.
 
 ## 11. AI-readable architecture without AI-specific layers
 

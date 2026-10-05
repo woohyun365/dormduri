@@ -96,8 +96,8 @@ test('active local, CI and rehearsal surfaces share one PostgreSQL patch and dig
 
 test('local artifact contract has a schema, builder and verifier', () => {
   for (const path of [
-    'artifacts/.gitignore',
-    'artifacts/README.md',
+    '.artifacts/.gitignore',
+    '.artifacts/README.md',
     'infra/artifacts/artifact-manifest.schema.json',
     'infra/artifacts/README.md',
     'scripts/infra/artifacts/build.mjs',
@@ -123,5 +123,5 @@ test('local artifact contract has a schema, builder and verifier', () => {
     /resolveArtifactPath\(repoRoot, \['build', 'artifact-manifest\.json'\]\)/u,
   );
   assert.doesNotMatch(verifier, /\.omx\//u);
-  assert.match(artifactPaths, /DEFAULT_ARTIFACTS_DIRECTORY = 'artifacts\/local'/u);
+  assert.match(artifactPaths, /DEFAULT_ARTIFACTS_DIRECTORY = '\.artifacts\/tools'/u);
 });

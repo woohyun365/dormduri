@@ -6,7 +6,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath, resolveArtifactsDirectory } from '../artifacts/paths.mjs';
-import { buildResourceInventory } from '../ci/github-actions-resource-inventory.mjs';
+import { buildResourceInventory } from '../ci/performance/github-actions-resource-inventory.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const policyPath = resolve(import.meta.dirname, 'fixtures/account-evidence-policy.json');

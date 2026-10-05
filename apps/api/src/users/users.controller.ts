@@ -3,12 +3,16 @@ import {
   dismissCurrentUserOnboardingNoticeRequestSchema,
   requestAccountDeletionSchema,
   updateCurrentUserRequestSchema,
+  type UpdateCurrentUserRequest,
+  type DismissCurrentUserOnboardingNoticeRequest,
+  type RequestAccountDeletion,
 } from '@repo/shared/user';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { AUTH_CAPABILITIES } from '../auth/access/auth-capability.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { parseRequestBody } from '../platform/http/zod-request.js';
+import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
 import { UsersService } from './application/users.service.js';
 
 @Controller('api/users')
@@ -26,9 +30,11 @@ export class UsersController {
   @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
   async updateCurrentUser(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) => parseRequestBody(updateCurrentUserRequestSchema, body)),
+    )
+    parsed: UpdateCurrentUserRequest,
   ) {
-    const parsed = parseRequestBody(updateCurrentUserRequestSchema, body);
     return this.usersService.updateCurrentUser(authUser, parsed);
   }
 
@@ -36,9 +42,13 @@ export class UsersController {
   @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
   async dismissCurrentUserOnboardingNotice(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(dismissCurrentUserOnboardingNoticeRequestSchema, body),
+      ),
+    )
+    parsed: DismissCurrentUserOnboardingNoticeRequest,
   ) {
-    const parsed = parseRequestBody(dismissCurrentUserOnboardingNoticeRequestSchema, body);
     return this.usersService.dismissCurrentUserOnboardingNotice(authUser, parsed);
   }
 
@@ -46,9 +56,11 @@ export class UsersController {
   @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
   async requestAccountDeletion(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) => parseRequestBody(requestAccountDeletionSchema, body)),
+    )
+    parsed: RequestAccountDeletion,
   ) {
-    const parsed = parseRequestBody(requestAccountDeletionSchema, body);
     return this.usersService.requestAccountDeletion(authUser, parsed);
   }
 }

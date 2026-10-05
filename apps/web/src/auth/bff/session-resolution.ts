@@ -74,7 +74,7 @@ async function fetchApiSession(
       headers: getForwardHeaders(request, { Authorization: `Bearer ${accessToken}` }),
       signal: request.signal,
     },
-    { responseSchema: apiSessionResponseSchema },
+    { requestHeaders: request.headers, responseSchema: apiSessionResponseSchema },
   );
   const parsed = apiSessionResponseSchema.safeParse(result.json);
   if (result.failureKind || !parsed.success || !result.response.ok) {
@@ -98,7 +98,7 @@ async function renewApiSession(
       headers: getForwardHeaders(request),
       signal: request.signal,
     },
-    { responseSchema: renewSessionResponseSchema },
+    { requestHeaders: request.headers, responseSchema: renewSessionResponseSchema },
   );
   const parsed = renewSessionResponseSchema.safeParse(result.json);
   if (result.failureKind || !parsed.success || !result.response.ok) {

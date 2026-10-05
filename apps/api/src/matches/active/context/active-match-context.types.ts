@@ -15,6 +15,7 @@ export interface ActiveMatchDomainContexts {
 }
 
 export interface ActiveMatchContextRequest extends AuthenticatedRequest {
+  params?: Record<string, unknown>;
   domainContexts?: ActiveMatchDomainContexts;
 }
 

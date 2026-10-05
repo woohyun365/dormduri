@@ -7,19 +7,20 @@ import {
   Param,
   Post,
   Query,
-  Req,
 } from '@nestjs/common';
-import type { Request } from 'express';
-import type { LeaveConversationThreadResponse } from '@repo/shared/chat';
 import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
+  type UpdateChatReadMarkerRequest,
+  type SendConversationMessageRequest,
+  type LeaveConversationThreadResponse,
 } from '@repo/shared/chat';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
 import { parseRequestBody } from '../platform/http/zod-request.js';
+import { ZodRequestPipe } from '../platform/http/zod-request.pipe.js';
 import { ChatThread, RequireChatThreadMember } from './context/chat-thread-context.decorator.js';
 import type { ChatThreadContext } from './context/chat-thread-context.types.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
@@ -28,6 +29,7 @@ import {
   ChatRealtimeRateLimiterService,
   throwChatRealtimeRateLimitError,
 } from './realtime/chat-realtime-rate-limiter.service.js';
+import { ChatRequestIp } from './realtime/chat-request-ip.decorator.js';
 import { ChatService } from './application/chat.service.js';
 
 function parseReplayLimit(rawLimit: string | undefined): number {
@@ -66,6 +68,17 @@ function parseThreadListLimit(rawLimit: string | undefined): number | undefined 
   return limit;
 }
 
+function parseOptionalCursor(value: unknown, field: 'cursor' | 'after'): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new BadRequestException({
+      code: 'INVALID_QUERY',
+      fieldErrors: { [field]: [`${field} must be a single string`] },
+    });
+  }
+  return value.trim() || null;
+}
+
 @Controller('api/chat')
 @RequireCapability()
 export class ChatController {
@@ -80,11 +93,11 @@ export class ChatController {
   async getThreads(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
+    @Query('cursor') cursor?: unknown,
   ) {
     return this.chatService.listThreads(authUser, {
       limit: parseThreadListLimit(limit),
-      cursor: cursor && cursor.trim().length > 0 ? cursor.trim() : null,
+      cursor: parseOptionalCursor(cursor, 'cursor'),
     });
   }
 
@@ -117,11 +130,11 @@ export class ChatController {
   @Get('realtime/replay')
   async replayRealtimeEvents(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Query('after') after?: string,
+    @Query('after') after?: unknown,
     @Query('limit') limit?: string,
   ) {
     const response = await this.chatService.replayRealtimeEvents(authUser, {
-      after: after && after.trim().length > 0 ? after.trim() : null,
+      after: parseOptionalCursor(after, 'after'),
       limit: parseReplayLimit(limit),
     });
     if (!response.ok) {
@@ -134,12 +147,12 @@ export class ChatController {
   @Post('realtime/tickets')
   async issueRealtimeTicket(
     @CurrentUser() authUser: AuthenticatedUserContext,
-    @Headers('authorization') authorization?: string,
-    @Req() request?: Request,
+    @Headers('authorization') authorization: string | undefined,
+    @ChatRequestIp() ip: string,
   ) {
     const rateLimit = this.rateLimiter.consumeRealtimeTicket({
       userId: authUser.id,
-      ip: this.rateLimiter.resolveRequestIp(request),
+      ip,
     });
     if (!rateLimit.allowed) {
       this.metrics.recordRateLimitRejection(rateLimit.scope);
@@ -168,10 +181,14 @@ export class ChatController {
   async updateReadMarker(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
-    @Body() body: unknown,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(updateChatReadMarkerRequestSchema, body),
+      ),
+    )
+    parsed: UpdateChatReadMarkerRequest,
     @ChatThread() chatThread?: ChatThreadContext,
   ) {
-    const parsed = parseRequestBody(updateChatReadMarkerRequestSchema, body);
     return this.chatService.updateReadMarker(
       authUser,
       resolveChatThreadActorThreadId(authUser, threadId, chatThread),
@@ -180,8 +197,15 @@ export class ChatController {
   }
 
   @Post('messages')
-  async sendMessage(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
-    const parsed = parseRequestBody(sendConversationMessageRequestSchema, body);
+  async sendMessage(
+    @CurrentUser() authUser: AuthenticatedUserContext,
+    @Body(
+      new ZodRequestPipe((body: unknown) =>
+        parseRequestBody(sendConversationMessageRequestSchema, body),
+      ),
+    )
+    parsed: SendConversationMessageRequest,
+  ) {
     const rateLimit = this.rateLimiter.consumeMessageSend({
       userId: authUser.id,
       targetUserId: parsed.targetUserId,

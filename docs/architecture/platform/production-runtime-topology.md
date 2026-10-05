@@ -45,6 +45,25 @@ Managed PostgreSQL
 - Observability는 제품 요청을 방해하지 않는 limit와 fail-open 경계를 사용한다.
 - BackOffice Web/API를 배치하지 않는다.
 
+### User public ingress와 BFF trust
+
+초기 User App ingress는 upstream CDN/LB 없이 **containerized Nginx 하나에서 HTTPS/WSS를 종료**한다.
+Public Web/API virtual host는 분리한다. Browser Web `/api/auth/*`는 Web/BFF로, direct API/Socket.IO는
+API host로 들어간다. Web/BFF는 Web transit에만 bind한 Nginx private listener를 거쳐 API로 간다.
+
+Public edge는 caller forwarded identity를 무시하고 원본 socket IP로 XFF를 덮어쓴다. Web은 단일 IP만
+검증해 전달하고 private listener는 exact Web peer ACL 통과 후 그 identity를 유지한다. Private 경유
+scheme/authority는 외부 HTTPS와 canonical API authority이며 내부 HTTP나 임의 Host로 바뀌지 않는다.
+
+API와 Web은 각각 전용 transit만 사용하며 application port를 host에 publish하지 않는다. Nginx만
+public/API/Web/observer network를 연결하고 upstream source를 명시적으로 bind한다. Observer는 exact
+collector peer의 token-protected metrics만 중계하며 API trust CIDR에 observer network를 포함하지 않는다.
+Public IPv6는 explicit dual-stack IPAM/listener로 지원하고 내부 transit은 IPv4를 유지할 수 있다.
+
+구현 owner와 renderer 입력·고정 Compose 순서는 [deploy candidate 계약](../../../infra/deploy/README.md#single-public-ingress-forwarding-trust-target)을
+따른다. 실제 hostname/TLS/peer 관찰·network isolation·distinct-client/transport 검증 및 rollout/rollback
+증거가 없으면 forwarding trust 활성화는 승인되지 않는다. Source/정적 검증은 release evidence를 대신하지 않는다.
+
 ### BackOffice host
 
 - 운영자 Web/API와 제한된 admin ingress만 소유한다.

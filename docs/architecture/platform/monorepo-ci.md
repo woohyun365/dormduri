@@ -47,7 +47,8 @@ classify
   │   ├─ core      # static, build, optional Storybook, browser smoke
   │   └─ unit      # Node/jsdom Vitest projects
   ├─ infra         # infra와 observability 변경
-  ├─ repo-policy   # CI/workflow/root policy와 repository formatting
+  ├─ repo-policy   # CI/workflow/root policy, tree 전체 guard와 repository formatting
+  ├─ agent-workflow # agent workflow test(package install 없음)
   └─ CI summary    # 선택된 모든 lane의 결과를 하나의 required check로 판정
 ```
 
@@ -56,9 +57,18 @@ classify
 - Shared/root toolchain 변경은 Shared, API, Web을 함께 검증한다.
 - Storybook-owned 변경은 Web lane 안에서만 Storybook static build를 추가한다.
 - Docs-only 변경은 product lane을 실행하지 않는다.
+- Agent workflow(host 설정, agent script·test·문서), repository 지원 script·설정, tracked local record 변경도 repo-policy lane과
+  agent-workflow lane만 실행한다. Agent workflow test가 읽는 product 파일을 바꾸면 그 product lane과 함께 agent-workflow lane도
+  실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행한다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
+- Repo-policy lane의 formatting 검사는 formatting 설정이 그대로이고 PR base·push 범위 기준의 변경 목록을 얻은 경우에만
+  변경 파일로 좁히고, 그 밖에는 tree 전체를 검사한다. 판정 규칙은 CI surface ownership의 "Formatting 검사 범위"가 소유한다.
 
-분류 source of truth는 `scripts/ci/classify-changes.mjs`이며 path matrix는 `scripts/ci/fixtures/`와 Node built-in tests가 고정한다.
+경로 family별 표면·lane·owner와 새 경로를 추가하는 절차는
+[CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유한다. 분류 개선의 문제·측정·결정 기록은
+[CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md)에 둔다.
+
+분류 source of truth는 `scripts/ci/lanes/classify-changes.mjs`이며 path matrix는 `scripts/ci/lanes/fixtures/`와 Node built-in tests가 고정한다.
 
 ## Public command와 prepared command
 
@@ -136,7 +146,7 @@ Web unit tests는 전용 Web unit CI job의 한 Vitest process 안에서 두 pro
 - Current inventory: Node 107 files / 621 cases, jsdom 114 files / 611 cases; total 221 files / 1,232 cases
 - Pool: repeated local correctness/timing을 통과한 `threads`; 고정 `maxWorkers`는 사용하지 않음
 
-DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/web-vitest-project-ownership.test.mjs`가 exact-once
+DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/product/web-vitest-project-ownership.test.mjs`가 exact-once
 inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Node/jsdom project를 각각 별도 GitHub
 job이나 artifact로 나누지 않는다. Unit cohort 전체만 static/build/browser core와 병렬화한다.
 
@@ -149,7 +159,7 @@ p95로 승격하지 않는다.
 
 Web unit은 current Web job에서 가장 긴 독립 cohort였고 production build나 browser artifact를 소비하지 않는다. Hosted
 evidence에서 unit만 별도 runner로 이동했을 때 workflow wall은 460s에서 286s로 줄었고 raw compute와 rounded billing은
-bounded하게 증가했다. 상세 수치는 [CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
+bounded하게 증가했다. 상세 수치는 [CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다.
 
 Static, build, Storybook, browser는 core job에 남는다. Static/build/browser를 더 나누는 구조, Web Node/jsdom project별
 shard, API core의 추가 split, 별도 nested summary runner는 duplicated install과 job rounding 대비 추가 acceptance 근거가
@@ -171,11 +181,11 @@ fail-closed summary가 reusable API workflow의 모든 job 결과를 집계한�
 두 hosted 반복에서 느린 shard도 frozen integration p50 대비 acceptance를 넘었고 full-run job rounding 환산은 기존
 baseline의 20% 증가 상한 안에 남았다. API-only run은 15-minute advisory를 초과하므로 duplicated install/prepare와 artifact
 reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
-[CI baseline](../../development/ci/monorepo-ci-baseline.md)이 소유한다.
+[CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다.
 
 ## Stage timing evidence
 
-`scripts/ci/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
+`scripts/ci/lanes/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
 
 Historical pre-optimization evidence와 active post-change measurement epoch는 같은 fixture가 소유하지 않는다.
 `ci-performance-baseline.json`은 비교 denominator를 immutable하게 보존하고, `ci-performance-active-epoch.json`은 current
@@ -216,31 +226,12 @@ Web unit summary 단계:
 
 ## Historical baseline과 performance budget
 
-2026-08-06에 수집한 최근 10개 merged PR은 현재 selective orchestrator가 merge되기 전의 unconditional API/Web workflow 결과다. 따라서 아래 값은 개선 전 기준이며 새 구조의 달성 결과가 아니다.
-
-| 변경 분류   | 표본 | PR wall p50 | PR wall p95 | runner 합계 p50 | runner 합계 p95 |
-| ----------- | ---: | ----------: | ----------: | --------------: | --------------: |
-| Web-only    |    3 |      5m 58s |      6m 00s |         10m 58s |         11m 03s |
-| Shared/root |    7 |      5m 30s |      7m 10s |         10m 27s |         12m 18s |
-| 전체        |   10 |      5m 50s |      7m 01s |         10m 51s |         12m 10s |
-
-최근 10개 표본에는 API-only PR이 없으므로 API-only p50/p95는 미측정 상태다. Selective workflow가 원격에서 실행된 뒤 분류별 성공 run 10개가 쌓이기 전에는 목표 달성을 주장하지 않는다.
-
-개선 전 단계별 p50/p95:
-
-| Lane stage                           |    p50 |    p95 |
-| ------------------------------------ | -----: | -----: |
-| API install                          |    25s |    26s |
-| API Shared build + Prisma generation |     8s |    10s |
-| API public schema migration          |     2s |     3s |
-| API static                           | 1m 23s | 1m 25s |
-| API aggregate tests                  | 2m 01s | 2m 05s |
-| API build                            |    28s |    31s |
-| Web pnpm cache restore               |     7s |     8s |
-| Web install                          |    16s |    19s |
-| Web aggregate static/unit/build      | 3m 47s | 4m 46s |
-| Browser install                      |    27s |    32s |
-| Browser smoke                        |    54s | 1m 00s |
+선택 실행 도입 전에는 모든 PR이 API·Web workflow를 함께 실행했다. 2026-08-06에 수집한 최근 merged PR 10개의 wall p50은
+5m 50s였고, 당시 API job은 unit test만 실행했다. 같은 시기에 API CI가 integration·E2E·stress까지 실행하게 되면서 full
+fan-out의 critical path가 API·Web job으로 바뀌었다. 개선 전 표본, 단계별 p50/p95, 개선별 전후 측정은
+[Monorepo CI restructuring evidence](../../evidence/ci/monorepo-ci-restructuring-evidence.md)와
+[CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다. 아래 budget은 분류별 성공 run이 쌓인 뒤 판정하며,
+개선 전 표본만으로 목표 달성을 주장하지 않는다.
 
 Rollout budget:
 
@@ -250,6 +241,7 @@ Rollout budget:
 | API-only            |     5m 이하 |
 | Shared/root fan-out |     8m 이하 |
 | Docs-only           | 1m 30s 이하 |
+| Agent workflow      |        미정 |
 
 Job-rounded billed-minute advisory budget:
 
@@ -260,8 +252,16 @@ Job-rounded billed-minute advisory budget:
 | Web-only            | 15 minutes |
 | Infra-only          | 10 minutes |
 | Docs/config/tooling |  5 minutes |
+| Agent workflow      |       미정 |
 
-Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 최근 10개 표본과 산출 근거는 `docs/development/ci/monorepo-ci-baseline.md`에 유지한다.
+Product lane이 없는 PR(Docs-only, Docs/config/tooling, Agent workflow)은 모두 `repoPolicy`와 `agentWorkflow`를 선택해
+classify, Repository policy gate, Agent workflow gate, CI summary를 실행한다. Lane 선택이 같으므로 Agent workflow 분류는 변경
+경로로 고른다: agent 지침·adapter·script·test·host 설정을 바꾼 PR이다. 성능 collector의 surface는 lane 기준이라 이 셋을
+`docs-config-tooling-only`로 묶는다. Agent workflow 목표는 표본 10개로 p95를 낸 뒤 정한다.
+Job 분리 전 agent-only 표본 5개의 wall p50은 3m 01s, job 분 올림 합 p50은 5분이고, 분리 뒤 표본 5개는 2m 39s, 6분이다(CI change
+classification evidence §6).
+
+Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
 비용 budget은 초기에는 advisory다. 표준 private-repository Linux 2-core list rate는 2026-08-26 공식 문서 기준
 `$0.006/min`이며, 포함 minutes 할인 전 gross estimate에만 사용한다. 표본 5개 전에는 p50, 10개 전에는 p95를 게시하지
@@ -272,11 +272,11 @@ discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않�
 ## Verification과 revisit trigger
 
 - `pnpm ci:performance:collect`는 run identity, changed paths, expected/observed lane, stage, cache, tests, artifact, retry/waste와
-  list-price gross estimate를 `artifacts/local/ci-performance/`에 저장한다.
+  list-price gross estimate를 `.artifacts/tools/ci-performance/`에 저장한다.
 - `pnpm ci:performance:resources`는 cache family와 artifact/Packages visibility를 별도 snapshot으로 수집한다.
 - `pnpm ci:performance:report`는 dependency fingerprint가 같은 자연 발생 PR만 cohort 통계로 집계한다.
 - `pnpm github:account:evidence`는 billing token을 daily gh와 분리하고 account usage·repository resource의 sanitized
-  snapshot만 `artifacts/local/github/`에 기록한다.
+  snapshot만 `.artifacts/tools/github/`에 기록한다.
 - Concurrent contributor, stale-base failure, p95 budget 초과, cache 80% 이상 churn, test inventory drift 또는 default-branch
   검증 공백이 관측되면 분류·ruleset·job graph를 재검토한다.
 - Repository 분리는 독립 release/data/ownership boundary가 실제로 생겼을 때, Turborepo/remote cache는 native 개선 후에도
@@ -300,7 +300,7 @@ source merge로 완료됐다고 주장하지 않고 `remote-repository-settings.
 ## 변경 시 검증
 
 ```bash
-node --test scripts/ci/*.test.mjs
+node --test scripts/ci/{lanes,performance,contracts,product}/*.test.mjs
 pnpm api:check
 pnpm api:test:ci
 pnpm api:build

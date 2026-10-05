@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     {
       headers: getForwardHeaders(request),
     },
-    { responseSchema: verifyResetCodeTransportResponseSchema },
+    { requestHeaders: request.headers, responseSchema: verifyResetCodeTransportResponseSchema },
   );
 
   if (failureKind) {

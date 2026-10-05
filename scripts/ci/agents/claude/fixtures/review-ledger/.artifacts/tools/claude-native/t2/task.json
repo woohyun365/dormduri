@@ -1,0 +1,18 @@
+{
+  "record": {
+    "version": 1,
+    "taskId": "t2",
+    "input": {
+      "request": "Review t2",
+      "nativeRequest": {
+        "issuedAt": "2026-10-02T00:00:00.000Z",
+        "selectionBasisRef": "abc1234",
+        "task": {
+          "role": "knu_reviewer"
+        }
+      }
+    },
+    "prompt": "KNU review snapshot sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "independentReview": null
+  }
+}

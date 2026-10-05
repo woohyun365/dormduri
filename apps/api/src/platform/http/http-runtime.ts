@@ -1,6 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import cookieParser from 'cookie-parser';
 import type { Express } from 'express';
 import helmet from 'helmet';
 import type httpConfig from './http.config.js';
@@ -23,7 +22,6 @@ export function configureHttpRuntime(
   const expressApp = app.getHttpAdapter().getInstance() as Express;
   expressApp.set('trust proxy', httpSettings.trustProxy);
   app.use(helmet());
-  app.use(cookieParser());
 
   const corsOptions = buildHttpCorsOptions(httpSettings.corsAllowedOrigins);
   if (corsOptions !== null) {

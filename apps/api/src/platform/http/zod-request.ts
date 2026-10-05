@@ -1,5 +1,6 @@
 import { badRequestError } from './api-error.js';
 import { toSchemaErrorExtras } from './zod-request-error-extras.js';
+import { toParseIssueMessage } from './zod-request-issues.js';
 import type { ParseSource, SchemaParser } from './zod-request-types.js';
 
 function parseSchemaInput<T>(
@@ -12,7 +13,9 @@ function parseSchemaInput<T>(
     fieldName?: string;
   },
 ): T {
-  const result = schema.safeParse(input);
+  const result = schema.safeParse(input, {
+    error: (issue) => toParseIssueMessage(issue, options.source),
+  });
 
   if (!result.success) {
     throw badRequestError(

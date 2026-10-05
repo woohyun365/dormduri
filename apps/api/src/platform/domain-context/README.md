@@ -7,12 +7,12 @@ Generic metadata primitive for domain context requirements.
 Product domains may use this helper to attach route metadata for domain context guards. The platform helper only provides generic metadata plumbing.
 
 - `DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY`: shared metadata key.
-- `createDomainContextRequirementDecorator`: generic decorator factory.
-- `getDomainContextRequirements`: metadata reader/narrowing helper.
+- `RequireDomainContext`: attaches a copied list of requirements as Nest route/class metadata.
+- `isDomainContextRequirement`: narrows a requirement by its `kind`; it does not read metadata or validate the full runtime shape.
 
 ## Directory responsibilities
 
-- `domain-context.decorator.ts`: generic metadata key, decorator factory, and reader helper.
+- `domain-context.decorator.ts`: generic metadata key, metadata decorator, and kind-narrowing helper.
 - `domain-context.decorator.spec.ts`: metadata behavior regression.
 - `README.md`: generic boundary and product vocabulary ownership rules.
 
@@ -28,6 +28,9 @@ Product domains may use this helper to attach route metadata for domain context 
 - Platform/domain-context replaces old common/domain-context placement.
 - Domain context route matrix specs live under `apps/api/test/architecture/domain-context`.
 - Product domains own requirement literals and fail-closed behavior.
+- Guards read metadata through Nest `Reflector` and own authorization and request-carrier population.
+- `platform/http/domain-context-binding.spec.ts` exercises real Auth/ActiveMatch guards and decorators with fake dependencies,
+  including participant mapping, rejection before service work, and sequential/interleaved request isolation.
 
 ## Where to change
 

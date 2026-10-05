@@ -37,7 +37,7 @@ describe('auth BFF post route helpers', () => {
       method: 'POST',
       headers: {
         Cookie: `auth-token=${CURRENT_ACCESS_TOKEN}`,
-        'x-forwarded-for': '203.0.113.10',
+        'x-forwarded-for': '2001:0DB8:0:0:0:0:0:1',
         'user-agent': 'vitest',
       },
       body: JSON.stringify({
@@ -60,7 +60,7 @@ describe('auth BFF post route helpers', () => {
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${CURRENT_ACCESS_TOKEN}`,
-          'x-forwarded-for': '203.0.113.10',
+          'x-forwarded-for': '2001:db8::1',
           'user-agent': 'vitest',
         }),
       }),

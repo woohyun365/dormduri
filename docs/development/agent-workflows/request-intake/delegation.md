@@ -1,102 +1,41 @@
 # Independent lane and child task contract
 
-Delegation recommendation은 validated `TaskEnvelope`, current `ContextPack`, leader가 제시한 bounded lane
-candidate를 입력으로 받는 advisory 결과입니다. Runtime child lifecycle이나 자동 spawn engine이 아닙니다.
+한 task에는 하나의 write owner만 둡니다. 위임은 선택적·advisory이며 자동 child 생성이 아닙니다. Lead가 배정·scope 변경·통합·최종 QA·중단 판정을 소유합니다. 최초 독립 검토자는 source와 인수 기준을 받되 builder의 reasoning은 받지 않습니다. Finding은 재현 전까지 가설입니다. 통신은 [Owner–Lead collaboration](../owner-lead-collaboration.md)을 따릅니다.
+
+역할·모델·effort·admission·runtime·lifecycle은 [현재 host adapter](../adapters/README.md)를 선택합니다. 기존 `recommendDelegation()` schema와 구현은 [Codex/OMX child policy](../adapters/codex-delegation.md)가 소유하며 Claude나 제3 host의 매개변수가 아닙니다.
 
 ## Single-first gate
 
-다음 중 하나면 child contract를 생성하지 않습니다.
-
-- Answer/direct request
-- unresolved `clarify-now`, OQ 또는 mutation authority
-- Plan primary owner conflict
-- validated Pass 2 semantic evidence가 있는 독립 lane이 없음
-- child 순이익이 low이거나 semantic evidence에 연결되지 않음
-- result dependency 또는 겹치는 write ownership
-
-기본 child 수는 0이며 독립적으로 가치 있는 lane 하나도 허용합니다. Proactive 추천은 보통 0~2개이고, 세 번째는 해당
-lane의 Pass 2 evidence ID에 직접 연결된 high-value benefit이 있을 때만 허용합니다. Native/manual hard limit은 6이며
-owner가 명시적으로 fan-out 한도를 지정하지 않으면 네 번째 lane을 추천하지 않습니다. Runtime role capability는 typed
-contract 생성 조건이 아니라 dispatch 직전 orchestration gate에서 다시 확인합니다.
+직접 답변·deterministic 작업, 미해결 권한·모호함, 의존 작업, 겹친 write ownership 또는 source 기반 독립 검증이 없는 lane에는 child 0을 사용합니다. 독립적이고 bounded된 읽기·검토는 child 하나여도 유용할 수 있습니다. 남는 agent 수를 채우기 위해 fan-out하지 않습니다.
 
 ## Independence predicate
 
-Lane은 다음을 모두 만족할 때만 independent입니다.
-
-1. 다른 lane 결과 없이 완료할 수 있음
-2. write scope가 sibling lane과 겹치지 않음
-3. objective와 question이 bounded함
-4. expected output과 verification이 명시됨
-5. completeness, latency, specialist evidence, risk review 중 실제 순이익이 설명됨
-6. 최종 결정·통합·검증은 leader에게 반환됨
-
-Read-only lane끼리 같은 source를 읽는 것은 허용합니다. 같은 contract/file owner를 수정하거나 policy → contract →
-implementation처럼 결과 dependency가 있으면 sequential path입니다.
+Lane의 bounded objective·read scope·write owner·expected output·verification·stop/handoff가 다른 lane의 결과 없이 충족될 때만 독립적입니다. 읽기 전용 lane은 같은 source를 볼 수 있지만 policy → contract → implementation은 순차입니다. Lead는 dispatch 전에 현재 host capability를 확인합니다.
 
 ## Candidate schema
 
-```text
-id / domain / taskKind / priority / impactRisk
-objective / question
-allowedEvidence[] / allowedTools[]
-readScope[] / writeOwnership[]
-dependencies[]
-nonGoals[] / prohibitedAssumptions[]
-expectedOutputFields[] / verification[]
-stopCondition / handoffCondition
-benefit: kind / rationale / value / evidenceIds
-pass2Evidence: sources / facts / predicateClaims / inferences / gaps / confidence
-```
+공통 task/QA handoff는 objective·source snapshot·허용 evidence/tool·읽기/쓰기 범위·non-goal·금지 assumption·expected result·verification·stop condition·Lead ownership을 식별합니다. 이 필드는 provider role/model을 지정하지 않습니다. Codex-only `modelRequest`·Pass 2·role data는 [Codex candidate schema](../adapters/codex-delegation.md#candidate-schema)를 따릅니다. 검토 packet은 [QA owner](../qa.md#portable-qa-packet)를 재사용합니다.
 
-`scripts/agents/child-task-contract.mjs`는 candidate를 다음 typed handoff로 정규화합니다.
+## Model recommendation
 
-```text
-objective / question
-allowed evidence and tools
-read-only boundary or distinct write ownership
-non-goals / prohibited assumptions
-facts / inferences / gaps / confidence output labels
-verification / stop / handoff condition
-installed role and effort recommendation
-leader-only final decision, response, integration, verification
-```
+공통 모델·effort 기본값은 없습니다. [Codex model recommendation](../adapters/codex-delegation.md#model-recommendation)은 host 정책입니다. Claude·제3 host도 자신의 adapter와 현재 admission 증거로 판정하며, 정적 설정을 실제 적용으로 보고하지 않습니다. 미등록 host에 Codex 기본값을 대입하지 않습니다.
+
+## Context delivery
+
+최소한이되 완전한 source-bound packet을 전달합니다. 알려진 실패·제약은 보존하고 최초 독립 reviewer에게 builder reasoning은 전달하지 않습니다. 재사용에는 최신 snapshot·ownership 확인이 필요합니다. Codex의 fork·reuse·explicit-effort는 [Codex context delivery](../adapters/codex-delegation.md#context-delivery)에서만 적용하며 공통 packet이 그것을 실행하지 않습니다.
 
 ## Role and effort
 
-`scripts/agents/routing-policy.mjs`는 raw prompt나 task label만으로 role/effort를 확정하지 않습니다.
-
-- Pass 1: TaskEnvelope의 intent·authority·impact risk와 candidate task shape를 보존합니다.
-- Pass 2: current ContextPack source에 연결된 stable fact와 semantic predicate claim을 검증합니다.
-- 역할: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, implementation/debug/test는
-  `knu_executor`, review/verification/architecture evidence lane은 `knu_reviewer`입니다.
-- Effort: complete positive boundedness evidence는 Medium, mandatory/deep-composite evidence는 XHigh, 나머지 substantial
-  evidence는 High입니다. Low/Max/Ultra는 repository child route가 아닙니다.
-
-Impact risk와 reasoning complexity는 서로 다른 결과입니다. Keyword, path, file count, LOC, task label은 semantic signal을
-대체할 수 없고, 동일 fact를 여러 composite category에 중복 반영하지 않습니다. 이 결과는 dispatch 명령이나 live role
-proof가 아닙니다. Active surface evidence가 없으면 support unknown/applied false 상태로 두고 leader가 dispatch 직전에
-runtime compatibility를 확인합니다. Native는 current-turn host tool schema, OMX는 current-session runtime overlay와
-host-exposed role roster가 함께 있어야 하며 local config나 과거 session 결과는 active authority가 아닙니다. Parent effort는
-이 contract 밖에서 사용자가 선택합니다.
+조사·연구·구현·독립 검토는 공통 책임이고 concrete role ID·설정·effort는 host별입니다. [Codex routing](../adapters/codex-delegation.md#role-and-effort)과 [Claude Code guidance](../adapters/claude-code.md)도 실제 host 지원과 대조해야 합니다. Prompt label은 capability를 부여하지 않습니다.
 
 ## Count와 write policy
 
-- Direct, deterministic, ambiguous, dependent, missing-Pass-2, low-benefit work: 0 child
-- 독립적으로 가치 있는 bounded lane: 1 child 허용
-- 일반 proactive fan-out: 최대 2 child
-- Pass 2 evidence에 연결된 high-value third lane: 최대 3 child
-- 명시적인 owner-directed fan-out: 최대 6 child
-- 선택 가능한 write-capable child: 최대 1개
-- sibling write scope가 겹치면 해당 lane들은 independent가 아니므로 선택하지 않음
-
-각 `routeRecommendation`은 최종 effort뿐 아니라 validated Pass 2 assessment, evidence ID, confidence와
-`runtime-role-evidence-deferred` gap을 함께 전달합니다. Keyword나 candidate의 legacy `risk` field로 이 근거를 대체할 수
-없습니다.
+Single-first와 one-writer는 공통 제약입니다. 근거 있는 독립 lane만 선택하고 현재 host의 cap을 지킵니다. [Codex fan-out limits](../adapters/codex-delegation.md#count와-write-policy)를 Claude·제3 host에 자동 상속하지 않습니다. 미지원 선택적 위임은 허용된 직접 작업으로 제한하지만 필수 독립 QA·권한 증거 부족은 gap으로 남깁니다.
 
 ## Ownership boundary
 
-- Intake mapper는 child를 생성하지 않습니다.
-- ContextPack registry는 lane을 만들지 않습니다.
-- Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.
-- `orchestration-policy.mjs`는 existing native surface를 사용하기 전 leader가 최종 독립성과 runtime capability를
-  다시 확인할 수 있는 advisory result를 제공합니다.
+Child는 evidence·gap·blocker를 Lead에게 반환하며 배정·승인·write scope를 변경하거나 최종 완료를 판정하지 않습니다. Intake·공통 packet 검증·host recommendation은 advisory로서 child를 실행하거나 provider 권한을 부여하지 않습니다.
+
+### Recovery child context
+
+Recovery에는 새로운 bounded 결정·최신 snapshot·실패 evidence·동일 owner/scope 경계가 필요합니다. [공통 recovery budget](./decisions.md#aipo-010--recovery는-한-번의-alternate-attempt)은 해당 ordinary recovery route에 한정하며 전체 구현의 test-fix 횟수 제한이 아닙니다. [Codex recovery child context](../adapters/codex-delegation.md#recovery-child-context)의 host-only binding을 다른 host 기본값으로 번역하지 않습니다. 권한·scope 거절을 재호출이나 다른 provider로 우회하지 않습니다.

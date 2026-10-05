@@ -27,6 +27,8 @@
 
 ## Accessibility and responsive interaction
 
+- 작은 responsive 수리를 포함해 [표현 책임·device 검증](../visual-design/device-presentation-and-verification.md)에서
+  shared/split/unchanged를 판단합니다. 변경 surface만 적용하며 전체 디자인 탐색이나 기존 화면 선행 분해를 요구하지 않습니다.
 - semantic HTML, label, keyboard order, visible focus, modal focus trap/restore, live status를 acceptance에 포함합니다.
 - 320px mobile, tablet landscape, desktop, zoom/reflow, safe area와 virtual keyboard를 점검합니다.
 - sticky/fixed/portal/scroll lock은 실제 scroll owner와 stacking context를 근거로 설계합니다.
@@ -34,7 +36,15 @@
 
 ## Visual and component boundary
 
-- existing production component, token, layout owner를 먼저 재사용합니다.
+- 승인된 개편은 기존 미감을 자동 상속하지 않되 [assertion 전환](../visual-design/design-review-and-acceptance.md#assertion-transition-before-ui-changes)을
+  UI 변경 전에 설계합니다. 문구 분류·명시적으로 허용된 font/dependency 실험은 [VisualBrief](../visual-design/visual-brief.md)를 소비하며 제품 정책 변경 권한은 별도입니다.
+- token 역할·값·theme·override는 [Web semantic token 계약](../visual-design/web-semantic-token-contract.md)을
+  변경 surface에만 적용합니다. 작은 수리는 직접 판단하고, 지침 채택을 위한 전수 CSS migration은 하지 않습니다.
+- existing production component의 의미·interaction·state owner를 먼저 조사하고 재사용합니다. 시각적 방향은
+  [Visual design workflow](../visual-design/README.md)의 `maintain | reimagine | new-surface`와 surface별 승인 범위로
+  판단하며, 명시적으로 새 방향을 탐색할 때 기존 token/layout의 외형을 의무로 상속하지 않습니다.
+- content/state/action map과 reference aspect를 분리하고 제안·계획·승인된 구현의 권한을 명시합니다. 실제 화면 없이
+  미적 성과를 추측하지 않으며 기능/a11y, reference fidelity, usability, Owner 선호의 acceptance를 나눕니다.
 - 공통화는 외형 유사성이 아니라 semantics, interaction, state contract가 같은 경우에만 수행합니다.
 - page/flow/domain UI/shared primitive의 owner를 구분하고 단순 re-export와 god component를 피합니다.
 - Storybook fixture는 production controller/contract를 우회하는 별도 behavior owner가 되지 않습니다.

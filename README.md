@@ -185,6 +185,23 @@ flowchart TB
 
 ### AI 출력을 통제한 방법
 
+[Owner–Lead 협업 계약](./docs/development/agent-workflows/owner-lead-collaboration.md)은 중요한 제품·비용·위험 선택은 사람에게,
+승인된 범위의 기술 판단·실행·결과 통합은 Parent Agent에게 둡니다. 매번 사람이 함수를 고르거나 고정된 Agent 팀을 가동하는 구조가 아닙니다.
+
+```text
+Human Owner ↔ Parent Agent / Lead
+                ├─ 직접 조사·구현·검증 (기본)
+                └─ 필요할 때 bounded specialist ↔ 결과·blocker 보고
+                   탐색 / 조사 / 구현 / 독립 QA
+```
+
+업무 배정·범위 변경·최종 통합은 Parent가 소유합니다. Specialist 사이에는 Parent가 지정한 사실 확인만 예외적으로 허용하며,
+업무 떠넘기기와 하위 Agent 생성은 금지합니다. 이는 지침 수준의 책임 구조이지 runtime의 강제 통신 차단이나 생산성 향상 측정 결과가 아닙니다.
+
+제한된 synthetic 리허설에서는 직접 수정·중요한 선택의 보류·지정된 사실 교환·범위 밖 요청 거절을 관찰했습니다.
+독립 QA가 찾은 테스트 누락과 보강 결과, 실제로 검증하지 못한 범위는
+[협업 관찰 근거](./docs/development/agent-workflows/agentic-architecture-decisions.md#collaboration-observation--2026-09-10)에 구분했습니다.
+
 1. **정책을 먼저 고정**해 화면이나 agent가 action 가능 여부를 임의로 만들지 못하게 했습니다.
 2. **행동 변경과 구조 변경을 분리**하고, cleanup 전에는 기존 행동을 test로 잠갔습니다.
 3. **결정적 오류는 static guard와 CI로 차단**하고, 의미·경계 문제는 review로 판단했습니다.
@@ -193,7 +210,7 @@ flowchart TB
 
 AI가 실제 팀 협업이나 production 운영 경험을 대신한다고 보지는 않습니다. 아직 실사용자 feedback, 실제 장애 대응과 운영 부하 증거는 없으며, README에서는 이를 구현·리허설 결과와 분리합니다.
 
-SDD, Harness Engineering, Context Engineering, Human-governed Agentic Programming의 선택 이유와 현재 적용 수준은 [Agentic Engineering methodology](./docs/development/agentic-engineering-methodology.md)에 정리했습니다.
+SDD, Harness Engineering, Context Engineering, Human-governed Agentic Programming의 선택 이유와 현재 적용 수준은 [Agentic Engineering methodology](./docs/evidence/agent-workflows/agentic-engineering-methodology.md)에 정리했습니다.
 
 이 접근은 AI 활용 자체보다 검증 체계를 강조하는 [Toss의 agent 품질 관리 사례](https://toss.tech/article/skill-quality-rubric), 변경 전 계획과 test 안전망을 강조하는 [Kakao의 AI 리팩터링 사례](https://tech.kakao.com/posts/729), AI가 기존 개발 체계의 강점과 약점을 증폭한다고 설명하는 [DORA 2025](https://dora.dev/research/2025/dora-report/)의 문제의식과 같은 방향입니다.
 

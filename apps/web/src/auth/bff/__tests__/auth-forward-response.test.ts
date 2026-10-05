@@ -1,4 +1,8 @@
 import { NextRequest } from 'next/server';
+import { GET as getDevUsers } from '@/app/api/auth/dev-users/route';
+import { POST as postLogout } from '@/app/api/auth/logout/route';
+import { firstFetchInit, stubJsonFetch } from '@/test/bff-route';
+import * as reliability from '@/app/api/_bff/reliability';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTH_BFF_DEFAULT_TIMEOUT_MS,
@@ -19,7 +23,132 @@ const RENEWAL_TOKEN = `v1.session-renewal.${'d'.repeat(43)}`;
 describe('auth BFF shared helpers', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it.each(['record', 'tuples', 'Headers'] as const)(
+    '최종 fetch는 %s init/extra/correlation의 reserved header를 모두 제거하고 원본 IP만 전달한다',
+    async (shape) => {
+      const fetchMock = stubJsonFetch({ success: true });
+      const request = new NextRequest('http://localhost/api/auth/login', {
+        headers: { 'X-Forwarded-For': '2001:0DB8:0:0:0:0:0:1', 'user-agent': 'vitest' },
+      });
+      const forged = {
+        'x-forwarded-for': '198.51.100.1',
+        'X-Forwarded-For': '198.51.100.2',
+        'X-Real-IP': '198.51.100.3',
+        Forwarded: 'for=198.51.100.4',
+        'X-Forwarded-Host': 'forged.example',
+        'X-Forwarded-Proto': 'https',
+      };
+      vi.spyOn(reliability, 'startBffReliabilityMeasurement').mockReturnValue({
+        requestId: 'request-1',
+        correlationHeaders: { 'x-request-id': 'request-1', ...forged },
+        complete: vi.fn(),
+      });
+      const record = {
+        ...getForwardHeaders(request, {
+          ...forged,
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          'X-Auth-Verification-Grant': 'cookie-grant',
+        }),
+        ...forged,
+      };
+      const initHeaders =
+        shape === 'record'
+          ? record
+          : shape === 'tuples'
+            ? Object.entries(record)
+            : new Headers(record);
+
+      await forwardAuthRequest(
+        'POST',
+        '/auth/login',
+        {},
+        { headers: initHeaders },
+        {
+          requestHeaders: request.headers,
+        },
+      );
+
+      const headers = new Headers(firstFetchInit(fetchMock).headers);
+      expect(headers.get('x-forwarded-for')).toBe('2001:db8::1');
+      for (const name of ['x-real-ip', 'forwarded', 'x-forwarded-host', 'x-forwarded-proto']) {
+        expect(headers.has(name)).toBe(false);
+      }
+      expect(headers.get('authorization')).toBe(`Bearer ${ACCESS_TOKEN}`);
+      expect(headers.get('x-auth-verification-grant')).toBe('cookie-grant');
+      expect(headers.get('user-agent')).toBe('vitest');
+      expect(headers.get('content-type')).toBe('application/json');
+      expect(headers.get('x-request-id')).toBe('request-1');
+    },
+  );
+
+  it.each([
+    ['203.0.113.30', '203.0.113.30'],
+    ['203.0.113.31', '203.0.113.31'],
+    ['::ffff:cb00:711e', '203.0.113.30'],
+    ['198.51.100.99, 203.0.113.30', null],
+    ['invalid', null],
+    ['203.0.113.30:443', null],
+    ['fe80::1%eth0', null],
+    [null, null],
+    [['203.0.113.30'], null],
+  ])('최종 fetch는 별도 requestHeaders의 XFF %j만 사용한다', async (input, expected) => {
+    const fetchMock = stubJsonFetch({ success: true });
+    await forwardAuthRequest(
+      'GET',
+      '/auth/session',
+      undefined,
+      {
+        headers: { 'x-forwarded-for': '198.51.100.1', 'x-real-ip': '198.51.100.2' },
+      },
+      {
+        requestHeaders: { get: () => input as string | null },
+      },
+    );
+    const headers = new Headers(firstFetchInit(fetchMock).headers);
+    expect(headers.get('x-forwarded-for')).toBe(expected);
+    expect(headers.has('x-real-ip')).toBe(false);
+  });
+
+  it('requestHeaders가 없으면 init.headers가 단일 valid IP여도 전달하지 않는다', async () => {
+    const fetchMock = stubJsonFetch({ success: true });
+    await forwardAuthRequest('GET', '/auth/session', undefined, {
+      headers: { 'x-forwarded-for': '203.0.113.30', 'X-Real-IP': '203.0.113.30' },
+    });
+    expect(new Headers(firstFetchInit(fetchMock).headers).has('x-forwarded-for')).toBe(false);
+  });
+
+  it('원본 requestHeaders의 duplicate spelling은 동일 IP라도 생략한다', async () => {
+    const fetchMock = stubJsonFetch({ success: true });
+    await forwardAuthRequest('GET', '/auth/session', undefined, undefined, {
+      requestHeaders: new Headers([
+        ['x-forwarded-for', '203.0.113.30'],
+        ['X-Forwarded-For', '203.0.113.30'],
+      ]),
+    });
+    expect(new Headers(firstFetchInit(fetchMock).headers).has('x-forwarded-for')).toBe(false);
+  });
+
+  it.each([
+    { path: 'dev-users', method: 'GET', handler: getDevUsers },
+    { path: 'logout', method: 'POST', handler: postLogout },
+  ])('$path caller도 원본 request header를 별도 전달한다', async ({ path, method, handler }) => {
+    const fetchMock = stubJsonFetch({ success: true });
+    await handler(
+      new NextRequest(`http://localhost/api/auth/${path}`, {
+        method,
+        headers: {
+          'X-Forwarded-For': '2001:0DB8:0:0:0:0:0:1',
+          Cookie: `auth-token=${ACCESS_TOKEN}`,
+        },
+      }),
+    );
+    expect(new Headers(firstFetchInit(fetchMock).headers).get('x-forwarded-for')).toBe(
+      '2001:db8::1',
+    );
   });
 
   it('upstream status를 보존한다', async () => {
@@ -96,27 +225,30 @@ describe('auth BFF shared helpers', () => {
     expect(
       getForwardHeaders(request, {
         Authorization: `Bearer ${ACCESS_TOKEN}`,
+        'x-forwarded-for': '198.51.100.1',
+        'X-Forwarded-For': '198.51.100.2',
+        'X-Real-IP': '198.51.100.3',
+        Forwarded: 'for=198.51.100.4',
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Host': 'forged.example',
         Cookie: 'must-not-forward',
         'x-api-key': 'must-not-forward',
       }),
     ).toEqual({
       Authorization: `Bearer ${ACCESS_TOKEN}`,
-      'x-forwarded-for': '203.0.113.30',
       'user-agent': 'vitest',
     });
   });
 
-  it('spoof 가능한 X-Forwarded-For 선행 값은 버리고 trusted edge가 추가한 마지막 IP만 전달한다', () => {
+  it('X-Forwarded-For chain은 마지막 IP도 신뢰하지 않고 생략한다', () => {
     const request = new NextRequest('http://localhost/api/auth/session', {
       headers: {
         'x-forwarded-for': '198.51.100.99, 203.0.113.30',
       },
     });
 
-    expect(resolveTrustedForwardedFor(request)).toBe('203.0.113.30');
-    expect(getForwardHeaders(request)).toEqual({
-      'x-forwarded-for': '203.0.113.30',
-    });
+    expect(resolveTrustedForwardedFor(request)).toBeUndefined();
+    expect(getForwardHeaders(request)).toEqual({});
   });
 
   it('buildJsonResponse는 token-like fields를 response body에서 제거한다', async () => {

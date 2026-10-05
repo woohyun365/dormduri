@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     '/auth/send-signup-code',
     parsed.data,
     { headers: getForwardHeaders(request) },
+    { requestHeaders: request.headers },
   );
   const nextResponse = buildJsonResponse(response, pickAuthMutationResponseBody(json));
   clearVerificationGrantCookie(nextResponse, 'signup');

@@ -1,0 +1,54 @@
+✖ reports the missing citation (1ms)
+✖ reads the fixture (1ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1
+
+✖ failing tests:
+
+test at mixed.test.mjs:4:1
+✖ reports the missing citation (1ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   {
+  -     kind: 'unresolved'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///tmp/red-fixture/mixed.test.mjs:4:53)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ { kind: 'unresolved' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at mixed.test.mjs:5:1
+✖ reads the fixture (1ms)
+  Error: ENOENT: no such file or directory, open 'fixtures/absent.md'
+      at readFileSync (node:fs:441:20)
+      at TestContext.<anonymous> (file:///tmp/red-fixture/mixed.test.mjs:5:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'fixtures/absent.md'
+  }

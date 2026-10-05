@@ -153,3 +153,79 @@ Candidate smoke 종료 시에는 다음 명령으로 해당 Compose resource만 
 ```bash
 pnpm infra:compose -- api-base down
 ```
+
+## Single-public-ingress forwarding trust target
+
+`ingress-trust`는 한 Nginx에서 public API/Web virtual host와 **서로 다른 address-bound private
+BFF/observer listener**를 분리하는 후보다. 초기 target은 upstream CDN/LB 없이 Nginx가 TLS를 종료한다.
+API/Web의 application port는 host에 publish하지 않으며 API는 `ingress-api`, Web은 `ingress-web`에만
+참여한다. Nginx만 public/API/Web/observer 네 network를 연결한다. Bridge egress는 외부 DB/provider
+호출을 위해 유지하며, workload에 Docker socket이나 host-network 권한을 주지 않는다.
+
+- Public API/Web는 caller XFF를 `$remote_addr`로 덮어쓴다. `Forwarded`, X-Real-IP는 제거하고
+  Host/XFH/proto는 canonical public authority와 선택한 외부 scheme으로 만든다.
+- Private BFF는 Web network의 **8081**에만 bind하고 각 `/api/`, `/auth/` location에서 exact Web
+  peer를 allow한 뒤 deny-all한다. 이미 Web에서 검증한 단일 XFF는 append 없이 유지한다.
+  Web의 server-only `API_URL`은 이 private address다. Browser `/api/auth/*`와 legal BFF는 public Web로 간다.
+- Nginx는 API/Web upstream destination 및 `proxy_bind` source를 명시한다. API trusted sender는
+  Nginx API-transit peer의 `/32` 하나이며 hop-count와 broad observability subnet을 신뢰하지 않는다.
+- Observer **9091**은 exact collector peer에게 `/internal/metrics`만 제공하고 API bearer token
+  검증을 유지한다. Collector XFF는 제거한다. Public API metrics의 기존 allowlist/token 정책은
+  유지하되 Web/private BFF에는 metrics를 노출하지 않는다.
+- Public IPv6는 `publicIpv6Address`와 `networks.publicIpv6`를 함께 지정할 때만 활성화한다.
+  Public listener/IPAM은 dual-stack이고 내부 transit은 IPv4다. IPv6 client identity를 단일 XFF로 보존한다.
+
+### Renderer와 고정 Compose 순서
+
+`node scripts/infra/ingress/render.mjs <input.json> [output-name]`은 명시적 입력만 검증하고
+`resolveArtifactPath()` 아래 `infra/ingress-trust/<output-name>/`에 conf.d 및
+`compose.networks.yml`을 쓴다. Container는 렌더된 conf.d를 read-only mount하며 시작 시 치환하지 않는다.
+
+입력 필드:
+
+- `mode`: `fixture-http` 또는 `production-https` (기본값 없음)
+- `apiAuthority`, `webAuthority`: 서로 다른 lowercase DNS authority; port를 쓰면 선택한 public 80/443과 일치
+- `publicAddress`, `privateAddress`, `apiSourceAddress`, `observerAddress`: Nginx의 네 IPv4 interface
+- `apiAddress`, `apiPort`, `webAddress`, `webPort`: 각 transit의 application endpoint
+- `webPeers`, `nginxPeers`: 각각 위 Web endpoint/Nginx API source 하나만 담는 exact IP 배열
+- `collectorPeers`: observer subnet 내의 중복 없는 exact collector IP 배열
+- `networks`: 겹치지 않는 canonical `public`, `api`, `web`, `observer` IPv4 CIDR
+- optional IPv6 pair: `publicIpv6Address`, `networks.publicIpv6`
+- HTTPS 필수 `tls.api`/`tls.web`: 각각 `certificatePath`, `keyPath`; container의
+  `/etc/nginx/ingress-tls/` 아래 파일 경로. 실제 인증서 내용은 renderer가 읽거나 생성하지 않는다.
+
+Unknown key, injection, unresolved token, wildcard/zone address, subnet overlap, gateway/다른 subnet의
+peer와 불일치 profile은 거절한다. `.1`은 각 bridge gateway를 위해 예약한다. 입력 subnet의 **실제 host
+route/Docker network 충돌 및 실제 참여 container inventory**는 별도 runtime/release preflight가 확인한다.
+
+고정 순서는 다음과 같다.
+
+1. `infra/deploy/compose.api.yml`
+2. `infra/rehearsal/compose.web.yml` (기존 Web service 재사용)
+3. `infra/deploy/compose.ingress-trust.yml` (ports/network/volume 명시적 reset/replace)
+4. renderer가 반환한 `composeOverridePath` (`compose.networks.yml`, 필수)
+5. account-free 검증에서만 `infra/rehearsal/compose.ingress-trust.fixture.yml`
+
+`buildIngressComposeArgs(composeOverridePath, composeArgs, { projectName, fixture })`가 이 순서를
+강제한다. `writeIngressConfig(input, { outputName })`의 `composeEnvironment`를 명령 환경에 적용한다.
+HTTPS에서는 별도로 승인된 host 인증서 디렉터리를 `INGRESS_TLS_DIRECTORY`에 지정한다. HTTP fixture만
+빈 TLS mount 디렉터리를 만든다. Publish는 기본 loopback이며 `INGRESS_PUBLIC_BIND`,
+`INGRESS_PUBLISHED_PORT`는 release/fixture operator 입력이다.
+
+Generated network overlay를 빼면 undefined network로 `docker compose config`가 실패한다. 일반
+profile helper의 고정 세 파일만으로 시작하지 않는다. IPv4-only output에는 빈 IPAM 항목이 없고,
+dual-stack public IPAM에는 지정한 IPv4/IPv6 CIDR만 들어간다. Legacy DB/runtime/stress/standalone
+Web-upstream overlay는 이 target에 합성하지 않는다. Compose의 `!override` 지원 버전은
+[공식 merge 규칙](https://docs.docker.com/reference/compose-file/merge/)을 따른다.
+
+### Release readiness와 rollback
+
+로컬 renderer/Compose 검증은 배포 승인이나 관찰된 isolation 증거가 아니다. Release 전에 실제
+hostname/certificate, ingress source address, public/private/observer ACL, API/Web 비노출, IPv4/IPv6
+client 분리, spoof-prefix 불변 bucket, direct/BFF/WS transport 및 cleanup 증거를 수집한다.
+승인되지 않은 peer/network member나 CDN/LB·host 분할이 있으면 forwarding trust 활성화는 NO-GO다.
+Host/root/network-admin compromise까지 bridge 격리가 방어한다고 주장하지 않는다.
+
+이 trust profile은 API/Web/Nginx를 함께 일치시켜 rollout/rollback한다. 안전한 이전 candidate로
+돌아갈 때는 Web private URL과 API HTTP/chat trust 설정도 함께 복구한다. Source-only 수정으로 실제
+rollout이 완료됐다고 기록하지 않으며 secret/DB/state를 이 경계의 rollback 대상으로 삼지 않는다.

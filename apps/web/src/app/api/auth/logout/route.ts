@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     {
       headers: getForwardHeaders(request, token ? { Authorization: `Bearer ${token}` } : undefined),
     },
+    { requestHeaders: request.headers },
   );
 
   const nextResponse = buildJsonResponse(response, json);

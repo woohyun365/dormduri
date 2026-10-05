@@ -44,6 +44,23 @@ test('keeps the verdict stable when only commit-count context changes', () => {
   assert.equal(oneCommit.decisionSource, manyCommits.decisionSource);
 });
 
+test('treats the agent workflow lane as a policy lane, not a second product lane', () => {
+  const assessment = assessBranchReadiness({
+    declaration: {
+      outcome: '한 화면 문서를 고친다',
+      acceptance: ['web test'],
+      nonScope: ['독립 기능'],
+      semantic: { independentOutcomes: 1 },
+    },
+    evidence: {
+      changedPaths: ['apps/web/src/legal/components/LegalDocumentLayout.tsx'],
+      selectedLanes: ['web', 'agentWorkflow'],
+    },
+  });
+
+  assert.ok(!assessment.reasons.some((reason) => reason.code === 'MULTI_LANE_ACCEPTANCE_REVIEW'));
+});
+
 test('requires a model-mediated audit when several product lanes lack shared acceptance', () => {
   const assessment = assessBranchReadiness({
     evidence: {

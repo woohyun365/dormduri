@@ -25,7 +25,10 @@ jobs:
       storybook: ${{ steps.changes.outputs.storybook }}
       infra: ${{ steps.changes.outputs.infra }}
       repo_policy: ${{ steps.changes.outputs.repoPolicy }}
+      agent_workflow: ${{ steps.changes.outputs.agentWorkflow }}
       classification_failed: ${{ steps.changes.outputs.classification_failed }}
+      formatting_scope: ${{ steps.changes.outputs.formatting_scope }}
+      formatting_paths: ${{ steps.changes.outputs.formatting_paths_json }}
     steps:
       - name: Checkout full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,7 +43,7 @@ jobs:
 
       - name: Classify changes
         id: changes
-        run: node scripts/ci/classify-changes.mjs
+        run: node scripts/ci/lanes/classify-changes.mjs
 
       - name: Summarize classification
         env:
@@ -51,10 +54,12 @@ jobs:
           COMPARISON_HEAD: ${{ steps.changes.outputs.comparison_head }}
           COMPARISON_STRATEGY: ${{ steps.changes.outputs.comparison_strategy }}
           CLASSIFICATION_FAILED: ${{ steps.changes.outputs.classification_failed }}
+          FORMATTING_SCOPE: ${{ steps.changes.outputs.formatting_scope }}
         run: |
           echo "### Change classification" >> "$GITHUB_STEP_SUMMARY"
           echo "- comparison: ${COMPARISON_BASE}..${COMPARISON_HEAD} (${COMPARISON_STRATEGY})" >> "$GITHUB_STEP_SUMMARY"
           echo "- fallback_to_all_lanes: ${CLASSIFICATION_FAILED}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- formatting_scope: ${FORMATTING_SCOPE}" >> "$GITHUB_STEP_SUMMARY"
           echo "- changed_path_count: ${CHANGED_PATH_COUNT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- changed_paths_sample_truncated: ${CHANGED_PATHS_TRUNCATED}" >> "$GITHUB_STEP_SUMMARY"
           echo "- changed_paths_sample: \`${CHANGED_PATHS}\`" >> "$GITHUB_STEP_SUMMARY"
@@ -143,10 +148,34 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify repository policy scripts
-        run: node scripts/ci/run-repo-policy.mjs
+        run: node scripts/ci/lanes/run-repo-policy.mjs --suite repo-policy
 
       - name: Verify repository formatting
-        run: pnpm exec prettier . -c
+        env:
+          FORMATTING_SCOPE: ${{ needs.classify.outputs.formatting_scope }}
+          FORMATTING_PATHS: ${{ needs.classify.outputs.formatting_paths }}
+        run: node scripts/ci/lanes/check-formatting.mjs
+
+  agent_workflow:
+    name: Agent workflow gate
+    needs: classify
+    if: ${{ needs.classify.outputs.agent_workflow == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The agent workflow suite imports no installed package, so this job installs no dependencies.
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Verify agent workflow scripts
+        run: node scripts/ci/lanes/run-repo-policy.mjs --suite agent-workflow
 
   ci-summary:
     name: CI summary
@@ -157,6 +186,7 @@ jobs:
       - web
       - infra
       - repo_policy
+      - agent_workflow
     if: ${{ always() }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -174,6 +204,8 @@ jobs:
           INFRA_RESULT: ${{ needs.infra.result }}
           REPO_POLICY_SELECTED: ${{ needs.classify.outputs.repo_policy }}
           REPO_POLICY_RESULT: ${{ needs.repo_policy.result }}
+          AGENT_WORKFLOW_SELECTED: ${{ needs.classify.outputs.agent_workflow }}
+          AGENT_WORKFLOW_RESULT: ${{ needs.agent_workflow.result }}
           CLASSIFICATION_FAILED: ${{ needs.classify.outputs.classification_failed }}
         run: |
           failed=0
@@ -204,6 +236,7 @@ jobs:
           require_selected_lane "web" "$WEB_SELECTED" "$WEB_RESULT"
           require_selected_lane "infra" "$INFRA_SELECTED" "$INFRA_RESULT"
           require_selected_lane "repo-policy" "$REPO_POLICY_SELECTED" "$REPO_POLICY_RESULT"
+          require_selected_lane "agent-workflow" "$AGENT_WORKFLOW_SELECTED" "$AGENT_WORKFLOW_RESULT"
 
           {
             echo "### Monorepo CI summary"
@@ -215,6 +248,7 @@ jobs:
             echo "| web | ${WEB_SELECTED} | ${WEB_RESULT} |"
             echo "| infra | ${INFRA_SELECTED} | ${INFRA_RESULT} |"
             echo "| repo-policy | ${REPO_POLICY_SELECTED} | ${REPO_POLICY_RESULT} |"
+            echo "| agent-workflow | ${AGENT_WORKFLOW_SELECTED} | ${AGENT_WORKFLOW_RESULT} |"
             echo "| classifier fail-open | ${CLASSIFICATION_FAILED} | n/a |"
           } >> "$GITHUB_STEP_SUMMARY"
 

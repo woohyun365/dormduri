@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { discoverScriptTests } from '../../ci/repo-policy-test-files.mjs';
+import { discoverScriptTests } from '../../ci/lanes/repo-policy-test-files.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const selectedMode = process.argv[2];

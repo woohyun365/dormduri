@@ -4,11 +4,11 @@ import {
   type ExecutionContext,
   type NestInterceptor,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { ServerResponse } from 'node:http';
 import type { Observable } from 'rxjs';
 import { AppLoggerService } from './app-logger.service.js';
 import { statusClassFromStatusCode } from './log-event.js';
-import { resolveRequestRouteTemplate } from './request-route.js';
+import { resolveRequestRouteTemplate, type RequestRouteShape } from './request-route.js';
 
 @Injectable()
 export class RequestLoggingInterceptor implements NestInterceptor {
@@ -20,8 +20,8 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     }
 
     const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
-    const response = http.getResponse<Response>();
+    const request = http.getRequest<RequestRouteShape & { method: string }>();
+    const response = http.getResponse<Pick<ServerResponse, 'once' | 'statusCode'>>();
     const startedAt = process.hrtime.bigint();
 
     response.once('finish', () => {

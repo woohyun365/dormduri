@@ -37,7 +37,7 @@
 | BFF proxy/security helper                | `apps/web/src/app/api/_bff/security.ts`, `apps/web/src/app/api/_bff/forward.ts`       |
 | Web test helpers                         | `apps/web/src/test/*`                                                                 |
 | Web Vitals seam                          | `apps/web/src/observability/*`                                                        |
-| generated Figma reference                | `references/figma/web/`                                                               |
+| generated Figma reference                | `.artifacts/references/<source>/`                                                     |
 
 ## Local gate matrix
 

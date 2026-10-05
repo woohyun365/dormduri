@@ -30,6 +30,8 @@ export function SeasonMatchingState({
   onNavigateChat,
   onRefreshOverview,
   initialRequestTab,
+  selectedRequestTab,
+  onSelectRequestTab,
 }: {
   readonly current: CurrentMatchingView;
   readonly requestCommands: MatchingRequestCommands;
@@ -41,6 +43,8 @@ export function SeasonMatchingState({
   readonly onNavigateChat?: () => void;
   readonly onRefreshOverview?: () => Promise<void>;
   readonly initialRequestTab?: MatchingRequestTab;
+  readonly selectedRequestTab?: MatchingRequestTab;
+  readonly onSelectRequestTab?: (tab: MatchingRequestTab) => void;
 }) {
   const detail = useMatchingRequestProfileDetail();
   const safetyActions = useRoommateActions({
@@ -114,6 +118,8 @@ export function SeasonMatchingState({
                   commands={requestCommands}
                   onOpenProfile={detail.open}
                   initialTab={initialRequestTab}
+                  selectedTab={selectedRequestTab}
+                  onSelectTab={onSelectRequestTab}
                 />
               ) : null}
               <CurrentMatchActivitySection items={current.activity} />

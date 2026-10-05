@@ -48,5 +48,10 @@ describe('useMatchingOverview identity boundary', () => {
       resolvers[1]?.(overview('season-2'));
     });
     await waitFor(() => expect(result.current.data?.season.id).toBe('season-2'));
+
+    await act(async () => {
+      resolvers[0]?.(overview('season-1'));
+    });
+    expect(result.current.data?.season.id).toBe('season-2');
   });
 });

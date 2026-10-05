@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 import test from 'node:test';
 
 import { cleanupRehearsal } from './cleanup.mjs';
 import { verifyResourceBudget } from './resource-budget.mjs';
-import { createRuntimeSecrets, resolveDatabaseUrls } from './runtime-inputs.mjs';
+import {
+  createRuntimeSecrets,
+  resolveDatabaseUrls,
+  writeApiRuntimeInputs,
+} from './runtime-inputs.mjs';
 
 const assertGate = (condition, message) => assert.ok(condition, message);
 
@@ -115,4 +122,33 @@ test('cleanup repeats the same boundary and records idempotent completion', () =
   assert.equal(inspections, 2);
   assert.equal(evidence.cleanup.secondPass, true);
   assert.equal(scenarios[0]?.[0], 'cleanup-idempotency');
+});
+
+test('legacy runtime file disables forwarding trust without changing its DB URLs', () => {
+  const directory = mkdtempSync(resolve(tmpdir(), 'knu-full-stack-inputs-'));
+  try {
+    const secrets = createRuntimeSecrets();
+    const urls = resolveDatabaseUrls({
+      databaseMode: 'local',
+      ports: { postgres: 55432 },
+      secrets,
+      environment: {},
+      assert: assertGate,
+    });
+    const runtimeEnvPath = resolve(directory, 'runtime.env');
+    writeApiRuntimeInputs({
+      runtimeEnvPath,
+      metricsTokenPath: resolve(directory, 'metrics-token'),
+      urls,
+      secrets,
+    });
+    const source = readFileSync(runtimeEnvPath, 'utf8');
+    assert.match(source, /^HTTP_TRUST_PROXY_HOPS=0$/mu);
+    assert.match(source, /^HTTP_TRUST_PROXY_CIDRS=$/mu);
+    assert.match(source, /^CHAT_REALTIME_TRUST_PROXY=false$/mu);
+    assert.ok(source.includes(`DATABASE_URL=${urls.container.runtime}`));
+    assert.ok(source.includes(`MIGRATION_DATABASE_URL=${urls.container.migration}`));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

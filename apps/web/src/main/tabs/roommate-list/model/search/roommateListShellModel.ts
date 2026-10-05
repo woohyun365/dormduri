@@ -129,7 +129,7 @@ export function getInitialRoommateSearchQuery(
 
 export function getSearchSummaryContextLabel(
   search: UseRoommateSearchResult,
-  user: UserProfile,
+  user: Pick<UserProfile, 'campus' | 'gender'>,
   assignedDormitoryName: string | null,
 ): string | null {
   const scope = search.response?.scope ?? search.query.scope;

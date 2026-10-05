@@ -86,3 +86,25 @@ describe('useMainSocialState — 신고', () => {
     expect(toasts.filter((t) => t === '이미 신고한 사용자예요')).toHaveLength(1);
   });
 });
+
+describe('useMainSocialState scope', () => {
+  it('same non-Home scope preserves state; Home/season/viewer changes clear private state', () => {
+    const { result, rerender } = renderHook(
+      ({ scope }) => useMainSocialState(() => undefined, scope),
+      { initialProps: { scope: 'viewer:season:nonhome' } },
+    );
+    act(() => result.current.handleBlockUser('private', 'old viewer'));
+    act(() => result.current.handleToggleBookmark('bookmark'));
+    rerender({ scope: 'viewer:season:nonhome' });
+    expect(result.current.blockedUsers).toHaveLength(1);
+    rerender({ scope: 'viewer:season:home' });
+    expect(result.current.blockedUsers).toEqual([]);
+    expect(result.current.bookmarkedUserIds.size).toBe(0);
+    act(() => result.current.handleBlockUser('private', 'old season'));
+    rerender({ scope: 'viewer:nextseason:nonhome' });
+    expect(result.current.blockedUsers).toEqual([]);
+    act(() => result.current.handleBlockUser('private', 'old viewer'));
+    rerender({ scope: 'nextviewer:nextseason:nonhome' });
+    expect(result.current.blockedUsers).toEqual([]);
+  });
+});

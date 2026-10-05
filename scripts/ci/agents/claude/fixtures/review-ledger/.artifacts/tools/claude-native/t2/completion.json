@@ -1,0 +1,12 @@
+{
+  "valid": true,
+  "response": {
+    "status": "completed",
+    "content": [
+      {
+        "type": "text",
+        "text": "not json at all"
+      }
+    ]
+  }
+}

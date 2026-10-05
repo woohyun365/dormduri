@@ -45,7 +45,7 @@ gh issue view 353
 gh pr list --author app/renovate --state open
 ```
 
-Raw provider log는 `artifacts/local/dependency-automation/`에 두고 tracked troubleshooting 문서에는 credential, raw config
+Raw provider log는 `.artifacts/tools/dependency-automation/`에 두고 tracked troubleshooting 문서에는 credential, raw config
 dump, 개인 billing/account 정보를 복사하지 않는다.
 
 ## 복구

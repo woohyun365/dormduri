@@ -24,7 +24,7 @@ Coding agent를 사용한다면 root [`AGENTS.md`](../../../AGENTS.md)와 필요
 
 ## Local Git hook
 
-- `pre-commit`: `pnpm check:fast`로 staged file의 formatter를 빠르게 확인합니다.
+- `pre-commit`: `pnpm check:fast`로 staged file의 formatter와 local 작업 공간 배치(root 밖 `.omc`·`.omx`, 옛 root 이름)를 빠르게 확인합니다.
 - `commit-msg`: repository 제목 구조와 literal `\\n` 오염을 확인합니다.
 - hook은 `--no-verify`로 우회할 수 있으므로 merge correctness의 source of truth가 아닙니다.
 - 전체 lint, typecheck, build, test는 hook에 추가하지 않고 변경 범위의 local verification과 CI가 담당합니다.

@@ -25,12 +25,18 @@ export async function POST(request: NextRequest) {
     return parsed.response;
   }
 
-  const { response, json } = await forwardAuthRequest('POST', '/auth/reset-password', parsed.data, {
-    headers: getForwardHeaders(request, {
-      [AUTH_VERIFICATION_GRANT_HEADER]:
-        getVerificationGrantCookie(request, 'password-reset') ?? undefined,
-    }),
-  });
+  const { response, json } = await forwardAuthRequest(
+    'POST',
+    '/auth/reset-password',
+    parsed.data,
+    {
+      headers: getForwardHeaders(request, {
+        [AUTH_VERIFICATION_GRANT_HEADER]:
+          getVerificationGrantCookie(request, 'password-reset') ?? undefined,
+      }),
+    },
+    { requestHeaders: request.headers },
+  );
 
   const nextResponse = buildJsonResponse(response, pickAuthMutationResponseBody(json));
   if (json.success === true) {

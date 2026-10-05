@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     {
       headers: getForwardHeaders(request),
     },
-    { responseSchema: renewSessionResponseSchema },
+    { requestHeaders: request.headers, responseSchema: renewSessionResponseSchema },
   );
 
   const nextResponse = buildJsonResponse(response, {

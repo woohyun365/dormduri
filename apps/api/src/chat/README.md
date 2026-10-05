@@ -76,6 +76,7 @@
 ## Where to change
 
 - HTTP route delegation: `chat.controller.ts`.
+- HTTP ticket IP binding: `realtime/chat-request-ip.decorator.ts`. 기본 scope Pipe가 주입된 realtime limiter의 기존 IP 해석을 재사용하고 handler에는 문자열만 전달한다. `CHAT_REALTIME_TRUST_PROXY`와 HTTP runtime의 trust-proxy 설정은 별개이며, gateway/allow-request IP 경로와 ticket 소비 순서는 유지한다.
 - Controller/Gateway-facing facade delegation: `application/chat.service.ts`.
 - Send/leave/read-marker write behavior: `commands/`.
 - Thread list/detail/subscription query behavior: `queries/`.
@@ -102,3 +103,24 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
 pnpm api:typecheck
 git diff --check
 ```
+
+## Realtime forwarding trust
+
+Chat IP attribution starts from the transport peer: HTTP and Engine.IO use the request socket,
+while the gateway uses the cached Engine.IO connection address. Derived Express IP and X-Real-IP
+are not fallbacks. A forwarded client IP is accepted only when chat forwarding is explicitly enabled,
+the peer matches configured literal HTTP proxy IP/CIDRs, and XFF contains exactly one valid IP.
+Invalid/missing/chain/duplicate headers fall back to the canonical peer; absent peers use `unknown`.
+IPv4-mapped IPv6 and alternate IPv6 spellings share their canonical bucket.
+
+`CHAT_REALTIME_TRUST_PROXY=true` requires nonempty explicit `HTTP_TRUST_PROXY_CIDRS` and
+`HTTP_TRUST_PROXY_HOPS=0`; presets and catch-all CIDRs are not a supported chat profile.
+HTTP-only hop/preset configurations remain independent. Default examples keep forwarding inactive.
+The DI configuration snapshot also initializes the root Socket.IO server through `ChatRealtimeIoAdapter`;
+gateway imports do not capture live forwarding/origin/rate settings. Invalid profiles fail before hooks
+or listeners start. The current one-root/gateway assumption must be revisited when adding a gateway.
+Forwarded same-origin metadata requires the same trusted peer and a valid host/protocol pair.
+
+Counters, per-user budgets, windows, scopes, authentication order and 429/Retry-After contracts are
+unchanged. These controls require the supported public-edge/private-BFF ingress and non-bypassable
+network topology; local tests and a code merge do not authorize production forwarding activation.

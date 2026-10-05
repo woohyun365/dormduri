@@ -4,6 +4,7 @@
 
 ## 실행 경계
 
+- [Local environment selector](../../../infra/runbooks/rehearsal/local-environments.md)의 full-stack 4608MiB와 이 문서의 strict 4096MiB는 별도 profile이다. 기존 결과·workload를 바꾸거나 전역 engine을 자동 재설정하지 않는다.
 - Docker engine 전체를 2 CPU / 4096MiB로 제한한다. 더 큰 개발 머신에서 container limit만 설정한 결과는 이 분류로 기록하지 않는다.
 - API/nginx는 `infra/rehearsal/compose.api.runtime.yml`의 resource budget을 사용한다.
 - 관측 stack은 production과 rehearsal이 공유하는 `infra/observability/compose.resources.yml`의 resource budget을 사용한다.
@@ -61,7 +62,7 @@ pnpm --dir apps/api stress:local:auth-password
 5. 실제 login/signup/reset/change endpoint mix 실행
 6. health/readiness/metrics, Docker stats, PostgreSQL 상태 수집
 7. fixture와 raw artifact 정리 및 compose 종료
-8. `artifacts/local/stress/api-auth-password-capacity-result-*.md` 작성
+8. `.artifacts/tools/stress/api-auth-password-capacity-result-*.md` 작성
 
 ## 4. Profile 실행
 

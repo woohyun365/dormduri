@@ -3,6 +3,42 @@ import type { DomainMetricsPort } from '../../platform/observability/metrics/dom
 import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
 
 describe('ChatRealtimeMetricsService', () => {
+  it('socket gauge/counter 이름과 instance-local accounting을 유지한다', () => {
+    const bridge = makeDomainMetrics();
+    const a = new ChatRealtimeMetricsService(bridge);
+    const b = new ChatRealtimeMetricsService();
+    a.recordSocketConnected();
+    a.recordSocketConnected();
+    b.recordSocketConnected();
+    a.recordSocketDisconnected();
+    a.recordSocketDisconnected();
+    a.recordSocketDisconnected();
+    expect(a.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 2 });
+    expect(b.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+    expect(bridge.setGauge.mock.calls).toEqual(
+      [1, 2, 1, 0, 0].map((value) => [{ name: 'api_chat_realtime_connected_sockets', value }]),
+    );
+    expect(bridge.incrementCounter.mock.calls).toEqual([
+      [{ name: 'api_chat_realtime_connections_total' }],
+      [{ name: 'api_chat_realtime_connections_total' }],
+    ]);
+  });
+
+  it.each(['setGauge', 'incrementCounter'] as const)(
+    '%s bridge 실패는 socket의 local gauge/counter를 깨지 않는다',
+    (method) => {
+      const bridge = makeDomainMetrics();
+      bridge[method].mockImplementation(() => {
+        throw new Error('metric rejected');
+      });
+      const metrics = new ChatRealtimeMetricsService(bridge);
+      expect(() => metrics.recordSocketConnected()).not.toThrow();
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 1, totalConnections: 1 });
+      expect(() => metrics.recordSocketDisconnected()).not.toThrow();
+      expect(metrics.snapshot()).toMatchObject({ connectedSockets: 0, totalConnections: 1 });
+    },
+  );
+
   it('dispatcher, replay resync, prune, rate-limit failure를 이유별 snapshot으로 구분한다', () => {
     const domainMetrics = makeDomainMetrics();
     const metrics = new ChatRealtimeMetricsService(domainMetrics);

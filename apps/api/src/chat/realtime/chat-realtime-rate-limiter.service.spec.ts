@@ -1,3 +1,4 @@
+import { readChatRealtimeProxyProfile } from './chat-realtime.config.js';
 import { describe, expect, it } from 'vitest';
 import {
   ChatRealtimeRateLimiterService,
@@ -7,7 +8,7 @@ import {
 function createSettings(overrides: Record<string, unknown> = {}) {
   return {
     allowedOrigins: false as const,
-    trustProxy: false,
+    proxyProfile: readChatRealtimeProxyProfile({}),
     dispatcherEnabled: false,
     dispatcherIntervalMs: 1_000,
     dispatcherBatchSize: 50,
@@ -51,6 +52,98 @@ function createLimiter(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ChatRealtimeRateLimiterService', () => {
+  it('후순위 IP bucket 거절은 새 user bucket을 소비하지 않고 허용된 요청만 함께 소비한다', () => {
+    const { limiter } = createLimiter({ ticketUserLimit: 1, ticketIpLimit: 1 });
+    expect(limiter.consumeRealtimeTicket({ userId: 'A', ip: 'X' }).allowed).toBe(true);
+    expect(limiter.consumeRealtimeTicket({ userId: 'B', ip: 'X' })).toMatchObject({
+      allowed: false,
+      scope: 'chat:ticket:ip',
+    });
+    expect(limiter.consumeRealtimeTicket({ userId: 'B', ip: 'Y' }).allowed).toBe(true);
+    expect(limiter.consumeRealtimeTicket({ userId: 'B', ip: 'Z' })).toMatchObject({
+      allowed: false,
+      scope: 'chat:ticket:user',
+    });
+  });
+
+  it('socket count는 2→1→0으로 감소하고 zero/unknown 해제는 다른 user에 영향을 주지 않는다', () => {
+    const { limiter } = createLimiter({ wsConcurrentUserLimit: 2 });
+    const user = { userId: 'user-1' };
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(true);
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(true);
+    expect(limiter.tryRegisterUserSocket({ userId: 'user-2' }).allowed).toBe(true);
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(false);
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(2);
+
+    limiter.unregisterUserSocket(user);
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(1);
+    limiter.unregisterUserSocket(user);
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(0);
+    limiter.unregisterUserSocket(user);
+    limiter.unregisterUserSocket({ userId: 'unknown' });
+    expect(limiter.getUserSocketCountForTest(user.userId)).toBe(0);
+    expect(limiter.getUserSocketCountForTest('unknown')).toBe(0);
+    expect(limiter.getUserSocketCountForTest('user-2')).toBe(1);
+    expect(limiter.tryRegisterUserSocket(user).allowed).toBe(true);
+  });
+
+  const trusted = readChatRealtimeProxyProfile({
+    CHAT_REALTIME_TRUST_PROXY: 'true',
+    HTTP_TRUST_PROXY_CIDRS: '10.0.0.2',
+  });
+  it.each([
+    [undefined, 'unknown'],
+    [{}, 'unknown'],
+    [{ peerAddress: ' 127.0.0.2 ' }, '127.0.0.2'],
+    [{ peerAddress: '::ffff:127.0.0.2' }, '127.0.0.2'],
+    [{ peerAddress: '10.0.0.99', headers: { 'x-forwarded-for': '203.0.113.1' } }, '10.0.0.99'],
+    [{ peerAddress: '10.0.0.2', headers: { 'X-Forwarded-For': '203.0.113.1' } }, '203.0.113.1'],
+    [{ peerAddress: '10.0.0.2', headers: { 'x-forwarded-for': ['203.0.113.1'] } }, '10.0.0.2'],
+    [
+      {
+        peerAddress: '10.0.0.2',
+        headers: { 'x-forwarded-for': '203.0.113.1, 10.0.0.1', 'x-real-ip': '203.0.113.2' },
+      },
+      '10.0.0.2',
+    ],
+    [
+      {
+        peerAddress: '10.0.0.2',
+        headers: { 'x-forwarded-for': '203.0.113.1', 'X-Forwarded-For': '203.0.113.2' },
+      },
+      '10.0.0.2',
+    ],
+    [{ peerAddress: null, headers: { 'x-forwarded-for': '203.0.113.1' } }, 'unknown'],
+    [{ peerAddress: 'invalid', headers: { 'x-forwarded-for': '203.0.113.1' } }, 'unknown'],
+  ] as const)('raw-peer-first extraction %j -> %s', (source, expected) => {
+    expect(
+      resolveChatRealtimeRequestIp(
+        source as Parameters<typeof resolveChatRealtimeRequestIp>[0],
+        trusted,
+      ),
+    ).toBe(expected);
+  });
+  it('ignores derived Express identity when chat forwarding is disabled', () => {
+    const source = {
+      ip: '203.0.113.10',
+      peerAddress: '10.0.0.99',
+      headers: { 'x-real-ip': '203.0.113.1' },
+    };
+    expect(resolveChatRealtimeRequestIp(source)).toBe('10.0.0.99');
+  });
+  it('same untrusted peer cannot rotate ticket buckets; trusted distinct clients remain separate', () => {
+    const { limiter } = createLimiter({ proxyProfile: trusted, ticketIpLimit: 1 });
+    const consume = (peerAddress: string, forwarded: string, userId: string) =>
+      limiter.consumeRealtimeTicket({
+        userId,
+        ip: limiter.resolveRequestIp({ peerAddress, headers: { 'x-forwarded-for': forwarded } }),
+      }).allowed;
+    expect(consume('10.0.0.99', '203.0.113.1', 'u1')).toBe(true);
+    expect(consume('10.0.0.99', '203.0.113.2', 'u2')).toBe(false);
+    expect(consume('10.0.0.2', '203.0.113.1', 'u3')).toBe(true);
+    expect(consume('10.0.0.2', '203.0.113.2', 'u4')).toBe(true);
+  });
+
   it('message send는 user/pair/burst dimension을 모두 검사하고 window reset 후 허용한다', () => {
     const { limiter, advance } = createLimiter();
 
@@ -112,47 +205,5 @@ describe('ChatRealtimeRateLimiterService', () => {
         scope: 'chat:ws:subscribe:failure',
       },
     );
-  });
-
-  it('request ip는 기본적으로 forwarded header를 신뢰하지 않고 socket address로 fallback한다', () => {
-    expect(
-      resolveChatRealtimeRequestIp({
-        headers: {
-          'x-forwarded-for': '203.0.113.10, 10.0.0.1',
-        },
-        ip: '127.0.0.1',
-      }),
-    ).toBe('127.0.0.1');
-    expect(
-      resolveChatRealtimeRequestIp(
-        {
-          headers: {
-            'x-forwarded-for': '203.0.113.10, 10.0.0.1',
-          },
-          ip: '127.0.0.1',
-        },
-        { trustProxy: true },
-      ),
-    ).toBe('203.0.113.10');
-    expect(
-      resolveChatRealtimeRequestIp({
-        headers: {},
-        socket: { remoteAddress: '127.0.0.2' },
-      }),
-    ).toBe('127.0.0.2');
-  });
-
-  it('trusted proxy 설정이 켜진 limiter instance만 forwarded header를 rate-limit key로 사용한다', () => {
-    const { limiter: untrustedLimiter } = createLimiter({ trustProxy: false });
-    const { limiter: trustedLimiter } = createLimiter({ trustProxy: true });
-    const source = {
-      headers: {
-        'x-forwarded-for': '203.0.113.10, 10.0.0.1',
-      },
-      ip: '127.0.0.1',
-    };
-
-    expect(untrustedLimiter.resolveRequestIp(source)).toBe('127.0.0.1');
-    expect(trustedLimiter.resolveRequestIp(source)).toBe('203.0.113.10');
   });
 });

@@ -144,7 +144,8 @@ export const realtimeEnvKeys = defineEnvKeys([
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
     targetRequired: true,
-    description: 'Realtime origin policy forwarded-host trust toggle.',
+    description:
+      'Opt-in realtime forwarding; requires explicit HTTP proxy peer IP/CIDRs and zero hops.',
   },
   ...[
     'CHAT_REALTIME_DISPATCHER_ENABLED',

@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { expireHomeE2eAccessToken } from './support/home-e2e-seed';
+import { resolveAuthCookieNames } from '@/config/auth-cookie.config';
 
 const viewerEmail = 'home-e2e-viewer@kangwon.ac.kr';
 const viewerPassword = '1q2w3e4r';
+const homeE2eRuntimeMode =
+  process.env.HOME_E2E_WEB_RUNTIME_MODE === 'production' ? 'production' : 'development';
+const authCookieNames = resolveAuthCookieNames(homeE2eRuntimeMode);
 
 test.describe('Login/session full-stack boundary', () => {
   test('remember-off session은 access 만료 후 renewal하고 browser-session cookie를 유지한다', async ({
@@ -20,8 +24,8 @@ test.describe('Login/session full-stack boundary', () => {
     expect(loginResponse.ok(), await loginResponse.text()).toBe(true);
 
     const beforeCookies = await page.context().cookies();
-    const beforeAccess = beforeCookies.find((cookie) => cookie.name === 'auth-token');
-    const beforeRenewal = beforeCookies.find((cookie) => cookie.name === 'auth-renewal-token');
+    const beforeAccess = beforeCookies.find((cookie) => cookie.name === authCookieNames.access);
+    const beforeRenewal = beforeCookies.find((cookie) => cookie.name === authCookieNames.renewal);
     expect(beforeAccess).toBeDefined();
     expect(beforeRenewal).toBeDefined();
     expect(beforeAccess?.expires).toBe(-1);
@@ -37,8 +41,8 @@ test.describe('Login/session full-stack boundary', () => {
     });
 
     const renewedCookies = await page.context().cookies();
-    const renewedAccess = renewedCookies.find((cookie) => cookie.name === 'auth-token');
-    const renewedRenewal = renewedCookies.find((cookie) => cookie.name === 'auth-renewal-token');
+    const renewedAccess = renewedCookies.find((cookie) => cookie.name === authCookieNames.access);
+    const renewedRenewal = renewedCookies.find((cookie) => cookie.name === authCookieNames.renewal);
     expect(renewedAccess?.value).not.toBe(beforeAccess?.value);
     expect(renewedRenewal?.value).not.toBe(beforeRenewal?.value);
     expect(renewedAccess?.expires).toBe(-1);

@@ -43,7 +43,21 @@ apps/web/storybook-static/
 # 참고: next-env.d.ts는 타입 선언 파일이므로 버전 관리 포함 권장
 
 ## AI 도구 (Claude Code, Codex, OMC, OMX)
-.claude/
+# 검토한 프로젝트 adapter와 agent만 추적하고 개인 설정·세션·plugin cache는 제외한다.
+.claude/*
+!.claude/settings.json
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/knu_explorer.md
+!.claude/agents/knu_researcher.md
+!.claude/agents/knu_executor.md
+!.claude/agents/knu_executor_xhigh.md
+!.claude/agents/knu_reviewer.md
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/knu-delegate/
+!.claude/skills/knu-review/
+!.claude/skills/knu-settle/
 # Codex는 검토된 프로젝트 child 설정만 추적하고 개인·runtime 상태는 제외한다.
 .codex/*
 !.codex/config.toml
@@ -52,14 +66,16 @@ apps/web/storybook-static/
 !.codex/agents/*.toml
 .omc/
 .omx/
-local-docs/
 
-## Figma 참조 (코드 이식 후 불필요)
-references/figma/web/src/
+## Local 작업 공간: 내용은 추적하지 않고 안내 파일만 추적한다(.artifacts/README.md).
+.local-docs/
+.artifacts/*
+!.artifacts/README.md
+!.artifacts/.gitignore
 
 ## 문서
 # docs/는 repository source of truth로 모두 추적한다.
-# legacy·개인 분석·과거 작업 기록은 local-docs/에 둔다.
+# legacy·개인 분석·과거 작업 기록은 .local-docs/에 둔다.
 
 ## OS/기타
 .DS_Store
@@ -70,3 +86,19 @@ infra/observability/alertmanager/*.local.yml
 # Stress test local artifacts
 apps/api/test/stress/reports/.tmp-*
 apps/api/test/stress/fixtures/.tmp-*
+
+# Host-neutral local authoring plans; runtime state remains host-owned.
+# 계획 문서는 추적하지 않고 lifecycle 디렉터리의 README.md만 추적한다.
+.plans/*
+!.plans/cancelled/
+.plans/cancelled/*
+!.plans/cancelled/README.md
+!.plans/finished/
+.plans/finished/*
+!.plans/finished/README.md
+!.plans/pending/
+.plans/pending/*
+!.plans/pending/README.md
+!.plans/supporting/
+.plans/supporting/*
+!.plans/supporting/README.md

@@ -91,7 +91,14 @@ test('rehearsal documentation separates local evidence from release evidence', (
   const runbook = readRepoFile('infra/runbooks/rehearsal/full-stack.md');
 
   assert.match(readme, /pnpm infra:rehearsal:full-stack/u);
-  assert.match(readme, /artifacts\/local\/infra\/full-stack-rehearsal/u);
+  assert.match(readme, /\.artifacts\/tools\/infra\/full-stack-rehearsal/u);
   assert.match(runbook, /실제[\s\S]*release evidence를 대체하지 않는다/u);
   assert.match(runbook, /FULL_STACK_REHEARSAL_DB_MODE=external/u);
+});
+
+test('legacy DB-backed full-stack is explicitly a no-forwarding-trust fixture', () => {
+  const runtime = readRepoFile('scripts/infra/rehearsal/full-stack/runtime-inputs.mjs');
+  assert.match(runtime, /HTTP_TRUST_PROXY_HOPS=0/u);
+  assert.match(runtime, /HTTP_TRUST_PROXY_CIDRS=/u);
+  assert.match(runtime, /CHAT_REALTIME_TRUST_PROXY=false/u);
 });

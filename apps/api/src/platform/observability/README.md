@@ -34,6 +34,30 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - local/test에서 token이 없으면 scrape를 열어 두지만, production 배포에서는 nginx/private network/allowlist와 token guard를 함께 사용한다.
 - response는 Prometheus text format이고 `@prometheus-io/client` registry가 process/default metrics와 API platform metrics를
   소유한다.
+- controller는 registry 수집이 성공한 뒤 Nest HTTP adapter로 성공 응답의 Content-Type을 지정한다.
+- 수집 실패는 공통 exception filter가 `application/json`으로 응답한다. 성공 응답용 text Content-Type이나 별도 native
+  writer를 재사용하지 않는다. 기존 오류 body/status, no-store 및 Retry-After 동작은 유지한다. 알 수 없는 실패는 500,
+  명시적인 service-unavailable 오류는 503이며 일괄 변환하지 않는다.
+
+## HTTP lifecycle 경계
+
+- request-context middleware는 안전한 inbound request/correlation ID만 수용하고, 없거나 잘못된 request ID는 UUID로
+  대체한다. correlation ID fallback, `X-Request-Id` 응답과 downstream AsyncLocalStorage 전파를 함께 소유한다.
+- request logging interceptor는 native response의 `finish`에만 완료 로그를 기록한다. `close`만 발생한 요청까지
+  완료 로그로 처리하는 정책은 없다.
+- HTTP metrics interceptor는 native response의 `finish`와 `close`를 관찰하되 request metric과 in-flight 감소를
+  한 번만 처리한다. 관측 실패는 request stream으로 전파하지 않는다.
+- route-template 추출과 exception log mapping은 필요한 필드만 가진 structural carrier를 받는다. metrics guard의
+  Authorization 읽기에도 native request 전체를 전달하지 않는다.
+
+Middleware는 Node HTTP headers/setHeader와 no-arg next callback만, 두 interceptor는 기존 RequestRouteShape와 method,
+Node response의 once/statusCode만 타입으로 요구한다. Express 타입 전체를 전달하거나 별도 공통 transport facade를 만들지
+않는다. Node finish/close listener와 AsyncLocalStorage 실행 시점은 그대로 유지한다. Observable 완료나 finish를 client
+수신 완료로 해석하지 않으며, close-only의 기본 statusCode 200도 client 성공을 증명하지 않는다.
+
+Express import 예외는 `test/architecture/platform/http-transport-boundary.spec.ts`가 runtime bootstrap으로 한정한다.
+Express route template과 trust-proxy 동작에 대한 의존성까지 제거됐다는 뜻은 아니다. Middleware/interceptor spec과
+`platform/http/http-response-boundary.spec.ts`가 이벤트 횟수·close-only/실패 정리·response header·요청별 async context를 검증한다.
 
 ## Metrics label policy
 

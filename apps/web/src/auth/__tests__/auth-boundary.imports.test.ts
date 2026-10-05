@@ -7,6 +7,7 @@ const readmePath = join(webSrc, 'auth', 'README.md');
 const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
 const authApiFacadePath = join(webSrc, 'auth', 'api', 'index.ts');
 const authBffFacadePath = join(webSrc, 'auth', 'bff', 'index.ts');
+const authServerFacadePath = join(webSrc, 'auth', 'server', 'index.ts');
 
 const blockedCompatibilityPaths = [
   'api/auth.ts',
@@ -178,6 +179,10 @@ function isAuthBffImport(importPath: string): boolean {
   return importPath === '@/auth/bff' || importPath.startsWith('@/auth/bff/');
 }
 
+function isAuthServerPrivateImport(importPath: string): boolean {
+  return importPath.startsWith('@/auth/server/');
+}
+
 function isForbiddenPrivateAuthImport(relativePath: string, importPath: string): boolean {
   if (isAuthBoundarySource(relativePath)) {
     return false;
@@ -185,6 +190,10 @@ function isForbiddenPrivateAuthImport(relativePath: string, importPath: string):
 
   if (isAuthBffImport(importPath)) {
     return !isAppAuthRouteAdapter(relativePath);
+  }
+
+  if (isAuthServerPrivateImport(importPath)) {
+    return true;
   }
 
   if (isAuthFlowPrivateImport(importPath)) {
@@ -269,10 +278,13 @@ describe('web auth final boundary guard', () => {
   it('keeps auth facades explicit and excludes private transport result types', () => {
     const apiFacade = readFileSync(authApiFacadePath, 'utf8');
     const bffFacade = readFileSync(authBffFacadePath, 'utf8');
+    const serverFacade = readFileSync(authServerFacadePath, 'utf8');
 
     expect(apiFacade).not.toContain('AuthCodeRequestResult');
     expect(bffFacade).not.toMatch(/\bexport\s+\*/);
     expect(bffFacade).not.toContain('createForwardPostHandler');
+    expect(serverFacade).not.toMatch(/\bexport\s+\*/);
+    expect(serverFacade).not.toContain('accessToken');
   });
 
   it('keeps auth session identity separated from profile/main view models', () => {

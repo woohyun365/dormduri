@@ -1,19 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
   PreviousSeasonProfileController,
 } from './current-season-participation.controller.js';
 import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
-
-function getBadRequestResponse(error: unknown) {
-  expect(error).toBeInstanceOf(BadRequestException);
-  if (!(error instanceof BadRequestException)) {
-    throw new Error('Expected BadRequestException');
-  }
-  return error.getResponse() as { code?: string; details?: unknown };
-}
 
 function makeSeasonProfileDraftRequest() {
   return {
@@ -46,7 +38,7 @@ function makeSeasonProfileDraftRequest() {
       grade: '2',
       mbti: 'ISTJ',
     },
-  };
+  } as const;
 }
 
 describe('CurrentSeasonParticipationController', () => {
@@ -123,17 +115,6 @@ describe('CurrentSeasonParticipationController', () => {
 
     expect(seasonParticipantsService.finalizeSeasonRegistration).toHaveBeenCalledWith('user-1');
     expect(seasonParticipantsService.createOrUpdateDormitorySelection).not.toHaveBeenCalled();
-  });
-
-  it('POST registration은 dormitoryId body를 받지 않는다', async () => {
-    try {
-      await participationController.finalizeSeasonRegistration(authUser, { dormitoryId: 'dasan' });
-      throw new Error('Expected BadRequestException');
-    } catch (error) {
-      const response = getBadRequestResponse(error);
-      expect(response.code).toBe('INVALID_REQUEST_BODY');
-      expect(seasonParticipantsService.finalizeSeasonRegistration).not.toHaveBeenCalled();
-    }
   });
 
   it('profile PUT은 season profile draft owner로 위임한다', async () => {

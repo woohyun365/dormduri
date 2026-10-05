@@ -3,8 +3,8 @@
 ## Canonical entry
 
 - Product runtime entry는 `MatchingTab.tsx` 하나다.
-- `Main.tsx`는 `viewerId`, dashboard의 최소 season shell(`id`, `state`), badge callback과 shell
-  navigation command만 전달한다. request/active DTO나 matching domain action은 전달하지 않는다.
+- `main/routes/MatchingRoute.tsx`는 `viewerId`, dashboard의 최소 season shell(`id`, `state`), badge callback과 shell
+  navigation command와 검증된 URL selection을 전달한다. request/active DTO나 matching domain action은 전달하지 않는다.
 - `MatchingTab`은 BFF `/api/matches/overview`를 shared schema로 parse하는 typed client와
   `useMatchingOverview`를 통해 읽는다.
 - view model은 loading/error/public unavailable/four-season state를 분리하고
@@ -19,7 +19,7 @@ partial/error state로 닫는다. 이 경로에서 local season이나 action cap
 
 ## Responsive and accessibility contract
 
-- Main이 page `<main>` landmark를 소유하고 MatchingTab root는 labelled `<section>`을 사용한다.
+- 공통 `MainRuntime`이 page `<main>` landmark를 소유하고 MatchingTab root는 labelled `<section>`을 사용한다.
 - RoommateTab과 MatchingTab은 `MainTabHeaderFrame`을 공유해 sticky header의 상단 경계를 동일하게
   유지한다. MatchingTab의 identity content는 legacy primary-color 표현을 그대로 사용하되 content
   boundary는 HomeTab과 같은 `max-w-md md:max-w-5xl`을 사용한다.

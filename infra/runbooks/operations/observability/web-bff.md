@@ -63,7 +63,7 @@ BFF runner는 다음 순서로 fail-closed 검증한다.
 10. 전용 container/network/volume cleanup
 
 실패 상태를 유지하려면 `WEB_REHEARSAL_KEEP=1`, evidence 파일을 남기려면
-`WEB_REHEARSAL_EVIDENCE_PATH=artifacts/local/observability/web-rehearsal.json`을 사용한다.
+`WEB_REHEARSAL_EVIDENCE_PATH=.artifacts/tools/observability/web-rehearsal.json`을 사용한다.
 
 ## Grafana 조회
 

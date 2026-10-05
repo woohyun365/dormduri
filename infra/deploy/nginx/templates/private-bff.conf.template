@@ -1,0 +1,18 @@
+server {
+  listen __PRIVATE_ADDRESS__:8081 default_server;
+  server_name _;
+  client_max_body_size 1m;
+
+  # ACL is repeated per proxy location; Host and bearer tokens do not identify the Web peer.
+  location /api/ {
+    __WEB_ACL__
+    proxy_pass http://__API_UPSTREAM__;
+    __PRIVATE_HEADERS__
+  }
+  location /auth/ {
+    __WEB_ACL__
+    proxy_pass http://__API_UPSTREAM__;
+    __PRIVATE_HEADERS__
+  }
+  location / { return 404; }
+}

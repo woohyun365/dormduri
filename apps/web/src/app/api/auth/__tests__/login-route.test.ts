@@ -79,6 +79,31 @@ describe('auth login BFF route', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
 
+  it('original XFF chain은 X-Real-IP로 보완하지 않고 login upstream에서 생략한다', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            success: false,
+            code: 'AUTH_INVALID_CREDENTIALS',
+            error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+          }),
+          { headers: { 'Content-Type': 'application/json' } },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await postLogin(
+      request(VALID_LOGIN_BODY, {
+        'x-forwarded-for': '198.51.100.99, 203.0.113.10',
+        'x-real-ip': '203.0.113.10',
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const headers = new Headers(fetchMock.mock.calls[0]![1]?.headers);
+    expect(headers.has('x-forwarded-for')).toBe(false);
+    expect(headers.has('x-real-ip')).toBe(false);
+  });
+
   it('malformed JSON body는 upstream 전송 전에 안전한 invalid request로 거부한다', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

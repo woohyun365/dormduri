@@ -53,37 +53,37 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=install -- pnpm install --frozen-lockfile
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=install -- pnpm install --frozen-lockfile
 
       - name: Prepare CI database schema
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
 
       - name: Prepare API dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=prepare -- pnpm api:prepare
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=prepare -- pnpm api:prepare
 
       - name: API static checks
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=static -- pnpm api:check:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=static -- pnpm api:check:prepared
 
       - name: API runtime boundary contracts
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=runtime-config-health-contract -- pnpm api:test:runtime-config-health-contract:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=runtime-config-health-contract -- pnpm api:test:runtime-config-health-contract:prepared
 
       - name: API unit tests
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=unit -- pnpm api:test:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=unit -- pnpm api:test:prepared
 
       - name: API E2E tests
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=e2e-db -- pnpm api:test:e2e:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=e2e-db -- pnpm api:test:e2e:prepared
 
       - name: API stress harness tests
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=stress-harness -- pnpm api:test:stress:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=stress-harness -- pnpm api:test:stress:prepared
 
       - name: API production build
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=build -- pnpm api:build:prepared
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=build -- pnpm api:build:prepared
 
       - name: Validate API deploy compose
         env:
           API_IMAGE_TAG: ${{ github.sha }}
           API_RUNTIME_ENV_FILE: ../rehearsal/fixtures/empty.runtime-env
-        run: node scripts/ci/run-timed-command.mjs --scope=API --stage=compose -- sh -c 'pnpm infra:compose -- api-base config >"${RUNNER_TEMP}/knu-api-compose.yml"'
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=compose -- sh -c 'pnpm infra:compose -- api-base config >"${RUNNER_TEMP}/knu-api-compose.yml"'
 
       - name: Summarize API CI duration
         if: ${{ always() && !cancelled() }}
@@ -149,16 +149,16 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=install -- pnpm install --frozen-lockfile
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=install -- pnpm install --frozen-lockfile
 
       - name: Prepare CI database schema
-        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
 
       - name: Prepare API dependencies
-        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=prepare -- pnpm api:prepare
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=prepare -- pnpm api:prepare
 
       - name: API integration tests
-        run: node scripts/ci/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=integration-db-${{ matrix.label }} -- pnpm --dir apps/api ci:test:integration:shard
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API-integration-${{ matrix.label }} --stage=integration-db-${{ matrix.label }} -- pnpm --dir apps/api ci:test:integration:shard
 
       - name: Summarize API integration shard duration
         if: ${{ always() && !cancelled() }}

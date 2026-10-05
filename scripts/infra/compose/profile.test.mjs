@@ -113,3 +113,17 @@ test('production render source에는 stress 전용 key가 없고 resource budget
   assert.doesNotMatch(runtime, /AUTH_THROTTLE_LIMIT/u);
   assert.match(stress, /AUTH_THROTTLE_LIMIT/u);
 });
+
+test('ingress-trust owns one project without legacy DB/resource/stress overlays', () => {
+  const inventory = loadComposeInventory(repoRoot);
+  const args = buildComposeArgs(inventory, 'ingress-trust', ['config'], { repoRoot });
+  assert.deepEqual(
+    args.filter((value, index) => args[index - 1] === '-f'),
+    [
+      'infra/deploy/compose.api.yml',
+      'infra/rehearsal/compose.web.yml',
+      'infra/deploy/compose.ingress-trust.yml',
+    ],
+  );
+  assert.deepEqual(resolveManagedNetworks(inventory.profiles['ingress-trust']), []);
+});

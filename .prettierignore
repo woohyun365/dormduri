@@ -5,7 +5,9 @@
 **/coverage/**
 **/*.log
 pnpm-lock.yaml
-artifacts/local/
+.local-docs/
+.artifacts/*
+!.artifacts/README.md
 omx_wiki/
 
 # Generated from the API config registry; preserve generator-owned serialization.
@@ -13,3 +15,18 @@ infra/deploy/api/env.manifest.json
 
 # Next.js generated typing artifact; Next rewrites quote style during build.
 **/next-env.d.ts
+
+# Host-neutral local authoring plans; runtime state remains host-owned.
+.plans/*
+!.plans/cancelled/
+.plans/cancelled/*
+!.plans/cancelled/README.md
+!.plans/finished/
+.plans/finished/*
+!.plans/finished/README.md
+!.plans/pending/
+.plans/pending/*
+!.plans/pending/README.md
+!.plans/supporting/
+.plans/supporting/*
+!.plans/supporting/README.md

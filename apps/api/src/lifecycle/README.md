@@ -36,17 +36,34 @@
 - 새 `forwardRef()`나 business `@Global()` module로 cycle을 숨기지 않는다.
 - User-facing product behavior, response/error code, route policy는 lifecycle refactor로 변경하지 않는다.
 
-## Operational worker count
+## Current combined runtime
 
-- 현재 별도 worker binary는 없고, 같은 Nest app instance가 `LIFECYCLE_SWEEP_ENABLED=true`로 뜨면 lifecycle worker로 동작한다.
-- 따라서 운영상 worker 개수는 `LIFECYCLE_SWEEP_ENABLED=true`인 BE/API docker instance 개수와 같다.
-- 초기 운영은 API serving instance는 `LIFECYCLE_SWEEP_ENABLED=false`, 별도 worker deployment 1개만 `true`로 두는 구성을 우선한다.
-- `ArchiveJob`/`RetentionReviewJob`은 retention TypedSQL claim이 `FOR UPDATE SKIP LOCKED`를 사용하므로 worker instance를 2개 이상으로 늘려도 같은 queue row를 중복 claim하지 않아야 한다.
-- worker instance를 늘릴 때는 `DATABASE_POOL_MAX`, active Prisma role 수, RDS connection/IOPS budget을 함께 계산한다.
+- 현재 하나의 Nest API process가 HTTP·Socket.IO serving과 enabled background 작업을 함께 소유한다. 별도 worker binary,
+  `WorkerModule`, headless entrypoint 또는 worker deployment는 없다. Combined는 현재 구성을 설명하는 말이지 새 runtime-role
+  enum이나 환경변수가 아니다.
+- `LIFECYCLE_SWEEP_ENABLED`는 이 process 안의 자동 sweep 등록 스위치다. 기본값은 test에서 false, 그 외에는 true이며,
+  false로 바꿔도 serving을 분리하거나 다른 process로 sweep을 이전하지 않는다. 별도 worker가 없는 상태에서 끄면 자동
+  lifecycle sweep도 실행되지 않는다.
+- `LifecycleSweepService.running`은 같은 service instance의 scheduled periodic/boundary sweep 중복 진입만 억제한다.
+  Public/manual `runSweep`, `runPeriodicSweep`, `runBoundarySweep`는 이 guard를 거치지 않는다.
+- Destroy는 이 instance를 closing으로 전환하고 현재 periodic interval과 lifecycle boundary cron을 제거한다.
+  Pending schedule refresh와 이후 scheduled entry도 새 timer를 등록하지 않는다. 이미 진입한 sweep의 drain/cancel은
+  보장하지 않으며 public/manual runner의 실행 의미는 바꾸지 않는다.
+- `ArchiveJob`/`RetentionReviewJob`의 `FOR UPDATE SKIP LOCKED` claim은 해당 queue row의 DB 동시성 경계다. 이를 모든
+  lifecycle task의 global single-run 또는 exactly-once 보장으로 확대하지 않는다. `RetentionWorkerPrismaService`도
+  credential boundary이지 별도 worker process의 증거가 아니다.
+- API instance를 늘리면 각 enabled instance에 scheduler가 생긴다. 활성화 전에 workload별 idempotency·lease·retry·
+  shutdown과 `DATABASE_POOL_MAX`, active Prisma role 수, DB connection/IOPS budget을 별도로 검증한다.
+
+상태별 owner·reset·multi-instance 한계와 분리 재검토 조건은
+[Runtime composition and process state](../../../../docs/architecture/backend/runtime-composition-and-process-state.md)가 소유한다.
 
 ## Architecture guard
 
-Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps/api/src/architecture/module-boundary.spec.ts`, `apps/api/src/architecture/cross-domain-chat-boundary.spec.ts`가 고정한다.
+Lifecycle boundary는 `apps/api/test/architecture/platform/module-boundary.spec.ts`,
+`apps/api/test/architecture/cross-domain/chat-boundary.spec.ts`가 고정한다. Combined runtime의 source/documentation 정합성은
+`apps/api/test/architecture/platform/runtime-process-state-boundary.spec.ts`가 검사한다. 정적 guard는 실제 배포나 전체
+concurrency/shutdown 동작의 증거가 아니다.
 
 - `common/lifecycle`은 재생성하지 않는다.
 - `LifecycleModule`은 affected owner modules를 explicit import한다.
@@ -72,11 +89,11 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=2 \
   src/lifecycle \
-  src/architecture/common-boundary.spec.ts \
-  src/architecture/module-boundary.spec.ts \
-  src/architecture/cross-domain-chat-boundary.spec.ts
+  test/architecture/platform/module-boundary.spec.ts \
+  test/architecture/platform/runtime-process-state-boundary.spec.ts \
+  test/architecture/cross-domain/chat-boundary.spec.ts
 pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --maxWorkers=1 \
   test/integration/users/account-deletion.integration.spec.ts \
   test/integration/matches/match-history.integration.spec.ts \

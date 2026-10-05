@@ -162,26 +162,26 @@ test('builds evidence from allowlisted account, repository, and resource fields'
   assert.equal(JSON.stringify(evidence).includes('github_pat_'), false);
 });
 
-test('keeps token arguments and outputs outside artifacts/local out of the CLI', () => {
+test('keeps token arguments and outputs outside .artifacts/tools out of the CLI', () => {
   assert.deepEqual(
     parseAccountEvidenceArgs([
       '--',
       '--repo=woohyun365/knu_roommate',
       '--year=2026',
       '--month=8',
-      '--output=artifacts/local/github/account.json',
+      '--output=.artifacts/tools/github/account.json',
     ]),
     {
       month: 8,
-      output: 'artifacts/local/github/account.json',
+      output: '.artifacts/tools/github/account.json',
       repository: 'woohyun365/knu_roommate',
       year: 2026,
     },
   );
   assert.throws(() => parseAccountEvidenceArgs(['--token=secret']), /unknown argument/u);
   assert.match(
-    resolveAccountEvidenceOutputPath('artifacts/local/github/account.json'),
-    /artifacts\/local\/github\/account\.json$/u,
+    resolveAccountEvidenceOutputPath('.artifacts/tools/github/account.json'),
+    /\.artifacts\/tools\/github\/account\.json$/u,
   );
   assert.throws(
     () => resolveAccountEvidenceOutputPath('docs/account.json'),

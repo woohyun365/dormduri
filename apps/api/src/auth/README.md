@@ -15,6 +15,7 @@
 ## Directory responsibilities
 
 - `access/`: route-level auth access metadata, capability, current user decorator, authenticated user guard. Domain context guard와 합치지 않는다.
+- `access/auth-request-context.decorator.ts`: HTTP IP/UA 추출과 `@AuthRequestMetadata()`를 소유한다. Controller와 guard는 같은 추출 함수를 사용하며, application/domain에는 순수 `AuthRequestContext` 값만 전달한다. `AuthenticatedRequest`는 authorization/actor만 담는 구조적 carrier이며 native request를 상속하지 않는다.
 - `application/`: controller-facing facade와 public actor context resolver/type boundary. Workflow orchestration bucket을 두지 않는다.
 - `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
 - `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.

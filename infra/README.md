@@ -21,6 +21,7 @@ runtime hardening, Compose 합성 순서의 machine-readable source of truth다.
 
 ## 시작 위치
 
+- 로컬 환경 선택·자원·검증 경계: [`runbooks/rehearsal/local-environments.md`](./runbooks/rehearsal/local-environments.md)
 - 로컬 full-stack 검증: [`rehearsal/README.md`](./rehearsal/README.md)
 - runtime candidate 구성: [`deploy/README.md`](./deploy/README.md)
 - 관측 configuration: [`observability/README.md`](./observability/README.md)
@@ -33,4 +34,4 @@ runtime hardening, Compose 합성 순서의 machine-readable source of truth다.
 2. Container startup은 migration, role grant, fixture seed를 실행하지 않는다.
 3. Provider secret과 실제 endpoint를 tracked file이나 evidence template에 기록하지 않는다.
 4. Local evidence를 실제 target release evidence로 승격하지 않는다.
-5. 생성 결과는 `artifacts/local/` 또는 CI artifact storage에 두고 `infra/`에 쓰지 않는다.
+5. 생성 결과는 `.artifacts/` 또는 CI artifact storage에 두고 `infra/`에 쓰지 않는다.

@@ -26,7 +26,7 @@
 `1.2 GB / 15.0 GB`를 기록했다. 따라서 bounded heap guard만으로 Mend-hosted total-memory ceiling을 해소하지 못했다.
 동일 설정 재시도는 여기서 종료하고 exact-candidate local fallback으로 전환했다.
 
-Raw provider log는 credential과 provider metadata를 포함할 수 있으므로 `artifacts/local/dependency-automation/`에만 둔다.
+Raw provider log는 credential과 provider metadata를 포함할 수 있으므로 `.artifacts/tools/dependency-automation/`에만 둔다.
 Tracked 문서는 stable signature와 결정만 소유한다.
 
 ## 원인 분류
@@ -114,7 +114,7 @@ RSS이며 Mend의 Renovate parent process와 container 전체 RSS를 측정한 �
 모두 더 낮았다. 최신 release-age-eligible 11.x인 11.24.0은 fix floor 11.15.1보다도 약 11.4% 낮고 command가 성공했으므로
 repository package-manager/Corepack/CI pin으로 채택했다. 단일 local trial은 provider recovery 증거가 아니며 절대 성능
 benchmark로 일반화하지 않는다. 재현 명령과 raw JSON은 각각 `pnpm dependency:pnpm:cold-benchmark`와
-`artifacts/local/dependency-automation/pnpm-cold-lockfile-benchmark.json`이 소유한다.
+`.artifacts/tools/dependency-automation/pnpm-cold-lockfile-benchmark.json`이 소유한다.
 
 ## Default branch 승격과 hosted disposition
 
@@ -166,7 +166,7 @@ pnpm version 재검토는 warm cache 체감이 아니라 같은 workspace 입력
 ## 검증
 
 ```bash
-node --test scripts/ci/dependency-automation-policy.test.mjs
+node --test scripts/ci/contracts/dependency-automation-policy.test.mjs
 pnpm dependency:renovate:dry-run
 pnpm test:repo-policy
 ```

@@ -11,22 +11,32 @@
 - [Ambiguity and authority](./ambiguity-and-authority.md): 모호함, 사용자 확인, OQ, release handoff,
   mutation 권한 경계
 - [ContextPack](./context-pack.md): repository evidence에서 domain candidate와 최소 tracked guide를 발견하는 계약
-- [Delegation](./delegation.md): independent lane 판별, typed child handoff, role·effort recommendation 계약
-- [Orchestration and recovery](./orchestration-recovery.md): native dispatch gate, one-alternate ceiling,
-  leader-only synthesis 계약
+- [Delegation](./delegation.md): independent lane, one-writer, source-bound handoff 공통 책임
+- [Codex child policy](../adapters/codex-delegation.md): typed child handoff, role·effort·model recommendation
+- [Codex orchestration and recovery](./orchestration-recovery.md): Codex/OMX native dispatch gate, one-alternate ceiling,
+  leader-only synthesis 계약. Claude 기본값이 아님.
+
+공통 문서는 위의 Decisions부터 Delegation까지 필요한 부분만 읽습니다. Codex child policy와 recovery는 **Codex/OMX일 때만**
+조건부로 선택하며 Claude·제3 host의 실행 전제가 아닙니다. 다른 host는 [adapter index](../adapters/README.md)를 사용합니다.
 
 ## Regression surface
 
-- `scripts/ci/fixtures/agent-intake-cases.json`: Analyze, Plan, direct, ambiguity, recovery 대표 입력과 기대 계약
-- `scripts/ci/agent-intake-integration.test.mjs`: intake부터 dispatch 또는 handoff까지의 조합, source freshness,
+- `scripts/ci/agents/common/fixtures/agent-intake-cases.json`: Analyze, Plan, direct, ambiguity, recovery 대표 입력과 기대 계약
+
+### Codex adapter 회귀
+
+다음 조합 smoke와 host-specific fixture는 **Codex/OMX adapter 회귀**입니다. Claude·제3 host의 native 실행 입증이나
+공통 startup 명령으로 사용하지 않습니다.
+
+- `scripts/ci/agents/codex/codex-intake-integration.test.mjs`: intake부터 Codex dispatch 또는 handoff까지의 조합, source freshness,
   no-write 경계
-- `scripts/agents/fresh-session-smoke.mjs`: local session memory 없이 tracked bootstrap과 대표 route를 확인하는
+- `scripts/agents/codex/fresh-session-smoke.mjs`: local session memory 없이 Codex/OMX 대표 route를 확인하는
   read-only smoke
-- `scripts/ci/agent-intake-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
+- `scripts/ci/agents/codex/codex-fresh-session.test.mjs`: generic bootstrap, domain-owner conflict, runtime role-routing fallback,
   stale handoff 참조 방지
 
 ```bash
-node scripts/agents/fresh-session-smoke.mjs --json
+node scripts/agents/codex/fresh-session-smoke.mjs --json
 ```
 
 ## 적용 순서
@@ -40,6 +50,9 @@ current request
 → direct·sequential·clarify·OQ handoff·bounded lane 추천
 ```
 
+- Canonical intent는 `answer/analyze/plan/implement/review/debug`이며 `unknown`은 미확정 상태다.
+  `fresh/resume`은 별도의 continuity 축이다. Debug 분류 자체가 읽기 전용 요청을 수정 승인으로 바꾸지 않는다.
+- ContextPack의 `selectedGuides`는 Plan-only이며 다른 intent의 문서 탐색과 동일하지 않다.
 - `TaskEnvelope`는 advisory다. 자체적으로 tool을 실행하거나 child를 생성하지 않는다.
 - explicit user request와 repository safety rule만 action authority를 부여한다.
 - 분석 요청은 구현이 아니며, 계획 요청은 계획 자료와 구현을 동시에 승인하지 않는다.

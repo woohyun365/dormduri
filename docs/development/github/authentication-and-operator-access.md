@@ -29,8 +29,10 @@ Git commit의 author name/email은 commit metadata이며 GitHub 인증 계정과
 한 명의 GitHub account를 사용하는 기본 workstation에서는 Git HTTPS와 gh browser OAuth를 하나의 credential owner로
 통합합니다.
 
+다음은 최초 연결 또는 확인된 인증 장애의 복구 절차입니다. 새 세션이나 명령 실패만을 이유로 유효한 로그인을 교체하지 않습니다.
+`gh auth logout -h github.com -u <github-user>`는 실제 invalid credential의 교체가 필요한 경우에만 사용합니다.
+
 ```bash
-gh auth logout -h github.com -u <github-user>
 gh auth login -h github.com --web --git-protocol https
 gh auth refresh -h github.com -s workflow
 gh auth setup-git -h github.com
@@ -83,15 +85,21 @@ credential evidence로 남기지 않습니다.
 Git credential, `gh` OAuth, Connector OAuth는 합칠 대상이 아니라 서로 다른 인증 계층입니다. 일관성은 credential을
 복사해서 만드는 것이 아니라, session surface에 따라 **primary control plane과 fallback을 한 번 선택**해서 만듭니다.
 
-| Session surface                   | Primary control plane                           | Git transport                          | Fallback                                          |
-| --------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------------- |
-| Shell-capable local Codex/OMX     | `gh` CLI-first for PR·Issue·Actions·API         | Git credential via `gh auth setup-git` | Connector는 read 또는 이미 승인된 단발 mutation   |
-| ChatGPT Web 또는 shell 없는 agent | GitHub Connector-first                          | local Git transport 없음               | 지원하지 않는 작업은 owner/CLI handoff            |
-| CI workflow                       | checked-in workflow와 run-scoped `GITHUB_TOKEN` | checkout 설정이 명시한 경계            | local `gh`나 Connector credential을 주입하지 않음 |
+| Session surface                  | Primary control plane                           | Git transport                          | Fallback                                          |
+| -------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------------- |
+| Shell-capable local Codex/Claude | `gh` CLI-first for PR·Issue·Actions·API         | Git credential via `gh auth setup-git` | Connector는 read 또는 이미 승인된 단발 mutation   |
+| ChatGPT Web (지원된 Connector)   | GitHub Connector-first                          | local Git transport 없음               | 지원하지 않는 작업은 owner/CLI handoff            |
+| CI workflow                      | checked-in workflow와 run-scoped `GITHUB_TOKEN` | checkout 설정이 명시한 경계            | local `gh`나 Connector credential을 주입하지 않음 |
+
+다른 no-shell host는 실제 지원·승인된 Connector가 있을 때만 사용합니다. 미지원이면 권한 있는 실행자에게
+최소 handoff를 남기며 Codex/ChatGPT의 connector가 존재한다고 가정하지 않습니다.
 
 ### Local session flow
 
 한 remote lifecycle의 첫 작업에서만 secret-free preflight를 실행합니다.
+이 preflight가 실패해도 원인 분류 전에는 invalid credential로 단정하지 않습니다. 업무 승인과 host/provider 권한은
+[Execution authority](../agent-workflows/agent-execution-contract.md#execution-authority)를 따릅니다. `gh api` prefix 허용은
+read-only나 특정 repo 제한이 아니며, 도구가 merge를 지원한다는 이유로 PR 생성 요청을 merge까지 확대하지 않습니다.
 
 ```text
 gh auth status
@@ -123,6 +131,22 @@ git fetch/push
 
 이 선택은 도구 선호가 아니라 재현성, idempotency, credential 최소 권한을 위한 운영 계약입니다. Connector가 더 빠른
 read surface를 제공하더라도 local CLI workflow의 primary owner가 자동으로 바뀌지는 않습니다.
+
+### Failure classification before authentication recovery
+
+실제 실패 결과와 같은 실행 환경의 secret-free 확인을 사용합니다. HTTP 응답을 받지 못한 경우와 서버가 권한을 거절한
+경우를 구분하며, 아래 관측 하나만으로 token 만료 시점이나 근본 원인을 발명하지 않습니다.
+
+| 관측                            | 우선 확인·다음 행동                                                                      | 하지 않을 일                                |
+| ------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
+| sandbox 경로 거절·DNS/연결 실패 | 실제 host/network 제한과 endpoint 확인; 정책이 허용하는 escalation 절차 사용             | 곧바로 logout/login, 무단 sandbox 해제      |
+| HTTP 401 또는 invalid 인증 표시 | 정상 통신 가능한 환경에서 account·선택된 credential의 상태 확인; 확인된 장애만 인증 복구 | token 출력·다른 도구에서 credential 추출    |
+| HTTP 403/404                    | 요청 repo·operation·account scope, endpoint 지원·rate limit·provider 정책 확인           | 만료로 단정, 일괄 권한 확대 또는 반복 write |
+| gh read 성공, Git push 거절     | Git credential·remote·branch protection 확인; 확인된 해당 경계만 복구                    | admin scope 추가·force push로 우회          |
+
+허용된 재시도 전에는 remote state를 읽어 이전 write가 이미 성공했는지 확인합니다. 명시적인 host 거절은 일반 연결 오류와
+다르며 같은 행동을 Connector나 다른 shell로 우회하지 않습니다. 기존 control-plane fallback 계약도 실행 권한을 추가하지
+않습니다. 일상 credential에 billing/admin 권한을 합쳐 해결하지 않습니다.
 
 ## GitHub connector와 Codex/OMX GitHub workflow
 
@@ -190,7 +214,7 @@ pnpm github:account:evidence -- --repo=<owner/repository> --year=<yyyy> --month=
 unset KNU_GITHUB_PLAN_READ_TOKEN
 ```
 
-수집기는 billing child process에만 token을 전달하고 allowlist로 축약한 값을 `artifacts/local/github/`에 기록합니다.
+수집기는 billing child process에만 token을 전달하고 allowlist로 축약한 값을 `.artifacts/tools/github/`에 기록합니다.
 fine-grained token을 daily `gh auth login --with-token` credential이나 shell profile에 저장하지 않습니다. Repository
 administration은 GitHub UI가 기본 owner이며, API 자동화가 반복적으로 필요하다는 근거가 생길 때만 별도
 selected-repository credential을 설계합니다.
@@ -221,20 +245,20 @@ selected-repository credential을 설계합니다.
 
 ## Recovery matrix
 
-| 증상                                        | 우선 확인                                                       | 복구                                                              | 금지                                        |
-| ------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
-| Git fetch는 성공하지만 gh가 실패            | `gh auth status -h github.com`                                  | invalid gh logout → browser login → scope refresh                 | Git credential 값을 gh에 복사               |
-| gh는 성공하지만 Git push가 실패             | remote URL, `gh auth setup-git`, repository write access        | setup-git 재적용 후 `git ls-remote`; branch protection 확인       | force push 또는 admin scope 추가            |
-| Connector에서 repository가 보이지 않음      | ChatGPT Settings → Plugins → GitHub, GitHub installation scope  | selected repository 재확인 후 index 지연 확인                     | All repositories로 무조건 확장              |
-| Connector read는 되지만 write action이 없음 | Permissions가 `Allow read actions`인지와 action catalog         | supported connector action인지 확인하고 gh fallback contract 사용 | local token을 Connector에 전달              |
-| Actions log는 보이나 rerun이 실패           | gh account와 private repo scope, Actions permission             | daily OAuth refresh 또는 owner authority 확인                     | source를 바꿔 새 run을 반복 생성            |
-| Billing endpoint가 404/403                  | enhanced billing availability와 Plan-read token 상태·permission | 전용 token 재발급 또는 Billing UI/CSV sanitized fallback          | daily repo token에 admin/billing scope 추가 |
-| multiple account가 필요                     | active gh account, Git remote owner, SSO                        | `gh auth switch` 또는 account별 SSH host strategy                 | 한 host credential을 암묵적으로 공유        |
+| 증상                                        | 우선 확인                                                                    | 복구                                                               | 금지                                        |
+| ------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------- |
+| Git fetch는 성공하지만 gh가 실패            | `gh auth status -h github.com`                                               | invalid gh logout → browser login → scope refresh                  | Git credential 값을 gh에 복사               |
+| gh는 성공하지만 Git push가 실패             | remote URL, Git credential helper, repository write access·branch protection | helper 설정 문제로 확인된 경우만 setup-git 복구 후 `git ls-remote` | force push 또는 admin scope 추가            |
+| Connector에서 repository가 보이지 않음      | ChatGPT Settings → Plugins → GitHub, GitHub installation scope               | selected repository 재확인 후 index 지연 확인                      | All repositories로 무조건 확장              |
+| Connector read는 되지만 write action이 없음 | Permissions가 `Allow read actions`인지와 action catalog                      | supported connector action인지 확인하고 gh fallback contract 사용  | local token을 Connector에 전달              |
+| Actions log는 보이나 rerun이 실패           | gh account와 private repo scope, Actions permission                          | daily OAuth refresh 또는 owner authority 확인                      | source를 바꿔 새 run을 반복 생성            |
+| Billing endpoint가 404/403                  | enhanced billing availability와 Plan-read token 상태·permission              | 전용 token 재발급 또는 Billing UI/CSV sanitized fallback           | daily repo token에 admin/billing scope 추가 |
+| multiple account가 필요                     | active gh account, Git remote owner, SSO                                     | `gh auth switch` 또는 account별 SSH host strategy                  | 한 host credential을 암묵적으로 공유        |
 
 ## Rotation과 철회
 
 1. Credential 의심·만료 시 `gh auth status`로 상태만 확인하고 token을 출력하지 않습니다.
-2. Daily OAuth는 `gh auth logout` 후 browser login으로 교체합니다.
+2. Daily OAuth의 교체가 필요한 것으로 확인됐을 때만 `gh auth logout` 후 browser login으로 교체합니다.
 3. Connector는 ChatGPT Settings → Plugins와 GitHub Installed Apps 양쪽에서 repository access를 회수할 수 있습니다.
 4. Billing fine-grained token은 목적 종료·2026-09-25 만료·권한 변경 시 GitHub Developer settings에서 revoke합니다.
 5. 회수 뒤 `gh api user`, repository read, Git fetch, connector read가 기대 경계대로 성공/실패하는지 확인합니다.

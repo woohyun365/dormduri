@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BadRequestException, RequestMethod } from '@nestjs/common';
+import { RequestMethod } from '@nestjs/common';
 import {
   AUTH_ACCESS_METADATA_KEY,
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
@@ -22,24 +22,6 @@ function getRouteHandler(handler: keyof SeasonsOperationsController) {
   }
 
   return methodRef;
-}
-
-function getBadRequestResponse(error: unknown) {
-  expect(error).toBeInstanceOf(BadRequestException);
-
-  if (!(error instanceof BadRequestException)) {
-    throw new Error('Expected BadRequestException');
-  }
-
-  const response = error.getResponse();
-  expect(typeof response).toBe('object');
-  expect(response).not.toBeNull();
-
-  if (typeof response !== 'object' || response === null) {
-    throw new Error('Expected object response');
-  }
-
-  return response as { code: string };
 }
 
 describe('SeasonsOperationsController', () => {
@@ -93,16 +75,23 @@ describe('SeasonsOperationsController', () => {
     );
   });
 
-  it('schedule request body를 shared contract로 검증한 뒤 command에 위임한다', async () => {
+  it('schedule request body를 parsed input으로 command에 위임한다', async () => {
     updateSeasonScheduleCommand.execute.mockResolvedValue({ auditEventId: 'audit-1' });
 
     await expect(
-      controller.updateSchedule(actor as never, 'CHUNCHEON', 'season-1', {
-        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
-        preparationStartDate: '2026-02-01',
-        matchingStartDate: '2026-02-10',
-        seasonEndDate: '2026-02-28',
-      }),
+      controller.updateSchedule(
+        actor as never,
+        {
+          campusCode: 'CHUNCHEON',
+          body: {
+            expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+            preparationStartDate: '2026-02-01',
+            matchingStartDate: '2026-02-10',
+            seasonEndDate: '2026-02-28',
+          },
+        },
+        'season-1',
+      ),
     ).resolves.toEqual({ auditEventId: 'audit-1' });
     expect(updateSeasonScheduleCommand.execute).toHaveBeenCalledWith(
       'CHUNCHEON',
@@ -117,46 +106,21 @@ describe('SeasonsOperationsController', () => {
     );
   });
 
-  it('invalid operations request는 field-aware BadRequest로 막는다', () => {
-    try {
-      void controller.updateOverride(actor as never, 'CHUNCHEON', 'season-1', {
-        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
-        state: 'SEASON_MATCHING',
-      });
-      throw new Error('Expected updateOverride to throw');
-    } catch (error) {
-      const response = getBadRequestResponse(error);
-
-      expect(response.code).toBe('INVALID_REQUEST_BODY');
-      expect(updateSeasonOverrideCommand.execute).not.toHaveBeenCalled();
-    }
-  });
-
-  it('invalid campus path param은 command 실행 전에 막는다', () => {
-    try {
-      void controller.updateSchedule(actor as never, 'INVALID', 'season-1', {
-        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
-        preparationStartDate: '2026-02-01',
-        matchingStartDate: '2026-02-10',
-        seasonEndDate: '2026-02-28',
-      });
-      throw new Error('Expected updateSchedule to throw');
-    } catch (error) {
-      const response = getBadRequestResponse(error);
-
-      expect(response.code).toBe('SEASONS_INVALID_CAMPUS_PARAM');
-      expect(updateSeasonScheduleCommand.execute).not.toHaveBeenCalled();
-    }
-  });
-
-  it('clear override는 DELETE body를 shared contract로 검증한다', async () => {
+  it('clear override는 parsed DELETE body를 command에 위임한다', async () => {
     clearSeasonOverrideCommand.execute.mockResolvedValue({ auditEventId: 'audit-2' });
 
     await expect(
-      controller.clearOverride(actor as never, 'CHUNCHEON', 'season-1', {
-        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
-        reason: 'resolved',
-      }),
+      controller.clearOverride(
+        actor as never,
+        {
+          campusCode: 'CHUNCHEON',
+          body: {
+            expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+            reason: 'resolved',
+          },
+        },
+        'season-1',
+      ),
     ).resolves.toEqual({ auditEventId: 'audit-2' });
     expect(clearSeasonOverrideCommand.execute).toHaveBeenCalledWith(
       'CHUNCHEON',

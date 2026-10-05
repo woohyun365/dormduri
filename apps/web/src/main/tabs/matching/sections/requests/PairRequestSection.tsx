@@ -42,6 +42,8 @@ export function PairRequestSection({
   commands,
   onOpenProfile,
   initialTab,
+  selectedTab,
+  onSelectTab,
 }: {
   readonly section: MatchingRequestSectionView;
   readonly serverNow: string;
@@ -49,14 +51,17 @@ export function PairRequestSection({
   readonly commands: MatchingRequestCommands;
   readonly onOpenProfile?: (request: MatchingRequestCardView, trigger: HTMLButtonElement) => void;
   readonly initialTab?: MatchingRequestTab;
+  readonly selectedTab?: MatchingRequestTab;
+  readonly onSelectTab?: (tab: MatchingRequestTab) => void;
 }) {
-  const [selected, setSelected] = useState<MatchingRequestTab>(
+  const [localSelected, setLocalSelected] = useState<MatchingRequestTab>(
     () =>
       initialTab ??
       (section.received.some((request) => request.presentation === 'pending')
         ? 'received'
         : 'sent'),
   );
+  const selected = selectedTab ?? localSelected;
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [receivedOrder, setReceivedOrder] = useState<MatchingReceivedRequestOrder>('expires-soon');
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -121,7 +126,10 @@ export function PairRequestSection({
       <div className="mb-4">
         <MatchingSegmentTabs
           selected={selected}
-          onSelect={setSelected}
+          onSelect={(tab) => {
+            setLocalSelected(tab);
+            onSelectTab?.(tab);
+          }}
           quota={section.quota}
           receivedPendingCount={receivedPendingCount}
         />

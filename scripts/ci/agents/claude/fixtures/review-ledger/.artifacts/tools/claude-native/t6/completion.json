@@ -1,0 +1,12 @@
+{
+  "valid": true,
+  "response": {
+    "status": "completed",
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"schemaVersion\": \"cross-model-handoff/v1\", \"status\": \"complete\", \"verdict\": \"PASS\", \"findings\": [], \"acceptanceCoverage\": []}"
+      }
+    ]
+  }
+}
