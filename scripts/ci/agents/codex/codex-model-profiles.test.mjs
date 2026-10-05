@@ -69,8 +69,8 @@ test('runtime modules take model IDs only from the allowlist owner', () => {
 
 test('finite immutable profiles resolve GPT-6 models independently from semantic effort', () => {
   for (const [id, model, effort] of [
-    ['bounded-read', 'gpt-6-sol', 'xhigh'],
-    ['bounded-build', 'gpt-6-sol', 'xhigh'],
+    ['bounded-read', 'gpt-6.1-sol', 'xhigh'],
+    ['bounded-build', 'gpt-6.1-sol', 'xhigh'],
     ['bounded-extract', 'gpt-6-luna', 'xhigh'],
   ]) {
     const p = getModelProfile(id);
@@ -251,6 +251,50 @@ test('quality-only revision grants do not survive recovery policy activation', (
       policyRevision: '2026-09-24.2',
     });
     assert.throws(() => assertCurrentModelProfileBinding(old), TypeError);
+  }
+});
+
+// GPT-6 Sol to GPT-6.1 Sol: only the model changes, under a new revision.
+const SOL_PROFILES = ['bounded-build', 'bounded-read'];
+const SOL6_REVISION = '2026-09-24.3';
+const STALE_REASON = {
+  name: 'TypeError',
+  message: 'Model profile binding must match the current installed policy.',
+};
+
+test('Sol profiles bind GPT-6.1 Sol at the same effort under a new revision', () => {
+  for (const id of SOL_PROFILES) {
+    const profile = getModelProfile(id);
+    assert.equal(profile.model, 'gpt-6.1-sol');
+    assert.equal(profile.resolvedEffort, 'xhigh');
+    assert.notEqual(profile.policyRevision, SOL6_REVISION);
+  }
+  assert.equal(
+    getModelProfile('bounded-extract').policyRevision,
+    getModelProfile('bounded-read').policyRevision,
+  );
+});
+
+test('the previous revision is stale even when it already names the new model', () => {
+  for (const id of SOL_PROFILES) {
+    const stale = createModelProfileBinding({
+      ...getModelProfile(id),
+      model: 'gpt-6.1-sol',
+      policyRevision: SOL6_REVISION,
+    });
+    assert.throws(() => assertCurrentModelProfileBinding(stale), STALE_REASON);
+  }
+});
+
+test('a reused Sol 6 grant fails like any unlisted model, with no rule naming it', () => {
+  for (const id of SOL_PROFILES) {
+    const old = { ...getModelProfile(id), model: 'gpt-6-sol', policyRevision: SOL6_REVISION };
+    const unlisted = { ...old, model: UNLISTED_MODEL };
+    for (const profile of [old, unlisted])
+      assert.throws(
+        () => assertCurrentModelProfileBinding(createModelProfileBinding(profile)),
+        UNLISTED_REASON,
+      );
   }
 });
 

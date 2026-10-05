@@ -50,7 +50,7 @@ verificationFacts:
 
 [채택 범위와 cold-start 순서](./codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
-GPT-6 Sol은 bounded-build의 구현/test 또는 bounded-read의 lookup/analysis 후보입니다. Researcher는 bounded-read pilot만
+GPT-6.1 Sol은 bounded-build의 구현/test 또는 bounded-read의 lookup/analysis 후보입니다. Researcher는 bounded-read pilot만
 가능하며 routine은 Astra입니다. GPT-6 Luna는 bounded-extract의 low-impact lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
 입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](./codex.md#quality-gated-model-advice)을

@@ -81,8 +81,8 @@ Astra-only compatibility와 출력이 유지됩니다. 결정적인 grep/check/l
 
 | Task profile      | 후보 model / invocation effort | 범위                                                                                |
 | ----------------- | ------------------------------ | ----------------------------------------------------------------------------------- |
-| `bounded-build`   | `gpt-6-sol` / xhigh            | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA                    |
-| `bounded-read`    | `gpt-6-sol` / xhigh            | lookup·analysis read-only, acceptance·독립 검사. Researcher는 pilot-only            |
+| `bounded-build`   | `gpt-6.1-sol` / xhigh          | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA                    |
+| `bounded-read`    | `gpt-6.1-sol` / xhigh          | lookup·analysis read-only, acceptance·독립 검사. Researcher는 pilot-only            |
 | `bounded-extract` | `gpt-6-luna` / xhigh           | 낮은 영향도의 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 |
 
 - Astra: Parent, 최종 QA, architecture/auth/trust/transaction/migration/concurrency, 미해결 실패·위험/품질 gap.
@@ -140,7 +140,7 @@ supported·role model, configuration resolution, hostMetadata)은 거절하지 �
 미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
 갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 승인·사후 보고·recovery binding을 재사용하지 못합니다.
 설치된 registry와 정확히 비교하므로 synthetic hash나 scope digest 재계산만으로 새 모델을 허용할 수 없습니다.
-현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된 GPT-6
+현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된
 profile을 current source/config에 다시 승인해 복귀하며 허용 목록에서 빠진 모델을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
 
 세대교체·철회는 다음 순서로 재현합니다.
@@ -205,6 +205,8 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 [채택 결정과 한정된 실제 관측](../agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
 **개별 task 호출 승인**과 다릅니다. 승인된 일반 업무에서 Parent가 적격 profile을 선택하므로 매번 사용자에게 모델명을
 다시 묻지 않습니다. 그러나 현재 작업 범위·runtime·예산·독립 QA를 생략하거나 과거 pilot grant를 재사용하지 않습니다.
+Profile model이 바뀐 cohort는 native live에서 새 model ID·effort를 관측하기 전까지 Q(routine으로 쓰지 않음)이며, 이전 model의
+관측 행은 historical로 남습니다. 행별 현재 상태는 위 채택 결정의 표가 소유합니다.
 운영 procedure는 model-mediated이며 script/schema만으로 task의 실제 의미나 권한을 인증하지 않습니다.
 
 새 세션/일반 task의 cold-start 순서:

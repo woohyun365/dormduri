@@ -461,8 +461,8 @@ test('failed model resolution and host mismatches are preserved but cannot becom
     assert.throws(() => createModelRunEvidence(bad), UNLISTED_REASON);
   }
   for (const invalid of [
-    { model: 'gpt-6-sol', effort: 'max' },
-    { model: 'gpt-6-sol', effort: 'low' },
+    { model: 'gpt-6.1-sol', effort: 'max' },
+    { model: 'gpt-6.1-sol', effort: 'low' },
     { model: 'gpt-6-astra', effort: 'high', extra: true },
   ]) {
     const bad = structuredClone(blocked);

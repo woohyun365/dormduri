@@ -738,14 +738,14 @@ test('ordinary context and explicit invocation gaps cannot leave a ready descrip
     [
       'Astra not supported',
       (v, c, r) => {
-        r.modelSelection.supportedModels = ['gpt-6-sol'];
+        r.modelSelection.supportedModels = ['gpt-6.1-sol'];
       },
       'runtime-scoped-model-unsupported',
     ],
     [
       'different role pin',
       (v, c, r) => {
-        r.modelSelection.roleModel = 'gpt-6-sol';
+        r.modelSelection.roleModel = 'gpt-6.1-sol';
       },
       'runtime-scoped-model-unsupported',
     ],
@@ -1066,7 +1066,7 @@ test('model pilot advice is separate from adoption, runtime and context confirma
     const before = structuredClone(input);
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'native-bounded-dispatch');
-    assert.equal(result.dispatches[0].requestedModel, 'gpt-6-sol');
+    assert.equal(result.dispatches[0].requestedModel, 'gpt-6.1-sol');
     assert.equal(result.dispatches[0].modelPurpose, purpose);
     assert.equal(result.dispatches[0].requiresLeaderRuntimeConfirmation, true);
     assert.equal(
@@ -1236,16 +1236,16 @@ test('Sol implementation needs its exact write, regression and Astra QA evidence
   model.profileBinding = createModelProfileBinding(getModelProfile('bounded-build'));
   const id = model.request.verificationFacts.acceptance;
   model.request.verificationFacts = { acceptance: id, regression: id, astraQa: id };
-  model.recommendedModel = 'gpt-6-sol';
+  model.recommendedModel = 'gpt-6.1-sol';
   contract.routeRecommendation.role = 'knu_executor';
   contract.boundary.readOnly = false;
   contract.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
   contract.allowed.tools = ['repository-read', 'workspace-edit', 'test-runner'];
   const role = input.reportedRuntimeEvidence.roles[0];
-  Object.assign(role, { agentType: 'knu_executor', effectiveModel: 'gpt-6-sol' });
+  Object.assign(role, { agentType: 'knu_executor', effectiveModel: 'gpt-6.1-sol' });
   Object.assign(modelUse(input).admission, {
     profileBinding: model.profileBinding,
-    model: 'gpt-6-sol',
+    model: 'gpt-6.1-sol',
     role: 'knu_executor',
     cohort: 'bounded-implementation',
   });
@@ -1425,11 +1425,11 @@ function modelDispatchInput(purpose = 'pilot') {
         {
           agentType: 'knu_explorer',
           available: true,
-          effectiveModel: 'gpt-6-sol',
+          effectiveModel: 'gpt-6.1-sol',
           effectiveEffort: 'xhigh',
           explicitEffortSupport: true,
           modelSelection: {
-            supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
+            supportedModels: ['gpt-6-astra', 'gpt-6.1-sol'],
             roleModel: null,
             explicitModelSupport: true,
             reference: 'synthetic-host-model-schema',
@@ -1450,7 +1450,7 @@ function modelDispatchInput(purpose = 'pilot') {
           kind: purpose === 'pilot' ? 'pilot' : 'adoption',
           reference: 'synthetic-owner-authorization',
           quality: purpose === 'pilot' ? 'unadopted' : 'go',
-          model: 'gpt-6-sol',
+          model: 'gpt-6.1-sol',
           role: 'knu_explorer',
           effort: 'xhigh',
           cohort: 'bounded-read-only',
@@ -1690,7 +1690,7 @@ function resolvedDispatchInput(purpose = 'pilot') {
       profileBinding:
         input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation
           .profileBinding,
-      model: 'gpt-6-sol',
+      model: 'gpt-6.1-sol',
       effort: 'xhigh',
       configDigest: modelUse(input).configDigest,
       reference: 'synthetic-current-schema-and-loaded-config',
@@ -1723,11 +1723,11 @@ test('first dispatch uses resolved configuration, not invented effective telemet
   const [dispatch] = result.dispatches;
   assert.equal(dispatch.effectiveModel, null);
   assert.equal(dispatch.effectiveEffort, null);
-  assert.equal(dispatch.resolvedModel, 'gpt-6-sol');
+  assert.equal(dispatch.resolvedModel, 'gpt-6.1-sol');
   assert.equal(dispatch.resolvedEffort, 'xhigh');
   assert.deepEqual(dispatch.spawnArguments, {
     agent_type: 'knu_explorer',
-    model: 'gpt-6-sol',
+    model: 'gpt-6.1-sol',
     reasoning_effort: 'xhigh',
     fork_turns: 'none',
   });
@@ -1797,7 +1797,7 @@ test('routine withdrawal emits no candidate, permits safe direct work and requir
   use.admission.expiresAt = '2026-09-24T12:10:00.000Z';
   const ready = createDispatchRecommendation(renewed);
   assert.equal(ready.execution, 'native-bounded-dispatch');
-  assert.equal(ready.dispatches[0].spawnArguments.model, 'gpt-6-sol');
+  assert.equal(ready.dispatches[0].spawnArguments.model, 'gpt-6.1-sol');
   assert.notEqual(
     contract.modelScopeDigest,
     original.delegation.recommendedChildren[0].modelScopeDigest,
@@ -1906,7 +1906,7 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
       x.hostMetadata = { model: 'gpt-6-astra', effort: 'xhigh' };
     },
     (x) => {
-      x.hostMetadata = { model: 'gpt-6-sol', effort: 'high' };
+      x.hostMetadata = { model: 'gpt-6.1-sol', effort: 'high' };
     },
   ]) {
     const bad = structuredClone(observation);
@@ -1921,7 +1921,7 @@ test('post-dispatch evidence binds child/task/quality without requiring cost tel
       String(mutate),
     );
   }
-  const matching = { ...observation, hostMetadata: { model: 'gpt-6-sol', effort: 'xhigh' } };
+  const matching = { ...observation, hostMetadata: { model: 'gpt-6.1-sol', effort: 'xhigh' } };
   assert.equal(
     modelPolicy.evaluateModelExecution({
       dispatch,
@@ -2024,7 +2024,7 @@ test('post execution revalidates cohort, context and write ownership after a sco
 test('model recovery binds one Astra alternate and waits for writer clearance', () => {
   const primary = {
     ...failedAttempt('lower-primary', 'verification-failed'),
-    model: 'gpt-6-sol',
+    model: 'gpt-6.1-sol',
   };
   const base = {
     laneId: 'legal-repository-map',
@@ -2155,12 +2155,12 @@ test('Luna boundary remains read-only fixed input even with rebound admission', 
 test('legacy pinned compatibility does not promise unsupported explicit invocation arguments', () => {
   const input = modelDispatchInput();
   const role = input.reportedRuntimeEvidence.roles[0];
-  role.modelSelection.roleModel = 'gpt-6-sol';
+  role.modelSelection.roleModel = 'gpt-6.1-sol';
   role.modelSelection.explicitModelSupport = false;
   role.explicitEffortSupport = false;
   const result = createDispatchRecommendation(input);
   assert.equal(result.execution, 'native-bounded-dispatch');
-  assert.equal(result.dispatches[0].effectiveModel, 'gpt-6-sol');
+  assert.equal(result.dispatches[0].effectiveModel, 'gpt-6.1-sol');
   assert.equal(result.dispatches[0].spawnArguments, undefined);
 });
 
@@ -2239,7 +2239,7 @@ test('post execution revalidates recommendation and exact installed binding even
 test('explicit recovery requires a current profile and rejects unlisted or raw-model requests', () => {
   const base = {
     laneId: 'legal-repository-map',
-    attempts: [{ ...failedAttempt('primary', 'verification-failed'), model: 'gpt-6-sol' }],
+    attempts: [{ ...failedAttempt('primary', 'verification-failed'), model: 'gpt-6.1-sol' }],
     modelRecovery: {
       profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
       pendingWriter: 'cleared',
@@ -2315,7 +2315,7 @@ test('old medium/high profile data remains invalid across grant, descriptor, pos
         evaluateRecovery({
           laneId: 'old-profile',
           attempts: [
-            { ...failedAttempt('old-primary', 'verification-failed'), model: 'gpt-6-sol' },
+            { ...failedAttempt('old-primary', 'verification-failed'), model: 'gpt-6.1-sol' },
           ],
           modelRecovery: { profileBinding: oldBinding, pendingWriter: 'cleared' },
         }),
@@ -2336,7 +2336,7 @@ async function recoveryDispatchInput(cause = 'controlled-injection') {
   const sourceDigest = `sha256:${'a'.repeat(64)}`;
   const attempt = {
     ...failedAttempt('primary', 'verification-failed'),
-    model: 'gpt-6-sol',
+    model: 'gpt-6.1-sol',
     effort: 'xhigh',
     executed: true,
     identity: {
@@ -2464,7 +2464,7 @@ test('bound recovery selects low, admits exact new rescue, dispatches and post-v
     recoveryDecisions: [completed],
   });
   assert.deepEqual(synthesis.recoveryDecisions[0].recoveryBinding, d.recoveryBinding);
-  assert.equal(synthesis.recoveryDecisions[0].attempts[0].model, 'gpt-6-sol');
+  assert.equal(synthesis.recoveryDecisions[0].attempts[0].model, 'gpt-6.1-sol');
 });
 
 test('recovery low fails closed for missing grants, drift, pin, permission, budget and malformed post identity', async () => {
@@ -2494,7 +2494,7 @@ test('recovery low fails closed for missing grants, drift, pin, permission, budg
       x.reportedRuntimeEvidence.roles[0].configurationResolution.effort = 'high';
     },
     (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-sol';
+      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6.1-sol';
     },
     (x) => {
       x.reportedRuntimeEvidence.roles[0].explicitEffortSupport = false;
@@ -2616,7 +2616,7 @@ test('recovery descriptor and synthesis resist altered bindings, identity, sourc
       x.contract.contextDelivery.snapshot = 'changed';
     },
     (x) => {
-      x.requestedModel = 'gpt-6-sol';
+      x.requestedModel = 'gpt-6.1-sol';
     },
     (x) => {
       x.recoveryDecision.attempts[0].outcome = 'success';
@@ -2710,7 +2710,7 @@ test('rehashing rescue scope never changes original authorized ownership and mis
   assert.equal(createDispatchRecommendation(input).dispatches.length, 0);
   for (const mutate of [
     (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels = ['gpt-6-sol'];
+      x.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels = ['gpt-6.1-sol'];
     },
     (x) => {
       x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;

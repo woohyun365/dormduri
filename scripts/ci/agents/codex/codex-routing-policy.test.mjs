@@ -26,10 +26,10 @@ const TASK_KINDS = [
 
 test('optional model advice preserves effort and requires bounded semantic quality evidence', () => {
   for (const [taskKind, model, cohort, profileId] of [
-    ['lookup', 'gpt-6-sol', 'bounded-read-only', 'bounded-read'],
-    ['research', 'gpt-6-sol', 'bounded-read-only', 'bounded-read'],
-    ['implementation', 'gpt-6-sol', 'bounded-implementation', 'bounded-build'],
-    ['test', 'gpt-6-sol', 'bounded-implementation', 'bounded-build'],
+    ['lookup', 'gpt-6.1-sol', 'bounded-read-only', 'bounded-read'],
+    ['research', 'gpt-6.1-sol', 'bounded-read-only', 'bounded-read'],
+    ['implementation', 'gpt-6.1-sol', 'bounded-implementation', 'bounded-build'],
+    ['test', 'gpt-6.1-sol', 'bounded-implementation', 'bounded-build'],
   ]) {
     const input = routeInput({ taskKind, impactRisk: 'low', predicateIds: mediumPredicateIds() });
     const legacy = selectAgentRoute(input);

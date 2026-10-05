@@ -17,7 +17,7 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 - exploration log와 중간 결과가 parent context를 오염시키는 문제를 줄이면서도 최종 판단은 한 곳에 남겨야 했습니다.
 
 이를 해결하기 위해 repository는 **Repository-guided parent–subagent orchestration with adaptive child reasoning**을
-구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 GPT-6 Sol/Luna xhigh를 실제 배정**합니다.
+구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 Sol/Luna xhigh profile을 실제 배정**합니다(현재 GPT-6.1 Sol·GPT-6 Luna).
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra xhigh child를 검토합니다.
@@ -315,7 +315,7 @@ controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·exp
 실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
 
 철회는 Parent가 admission을 회수해 candidate dispatch를 멈추고 Astra/direct로 돌아가는 방식입니다. **같은 유효 GO packet을
-재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 GPT-6 binding 또는 Astra-only를
+재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 profile binding 또는 Astra-only를
 **새 revision**으로 발행합니다. Old code와 grant를 함께 복원하면 과거 상태 재사용을 막는 monotonic history 보장은 없습니다.
 완료 child history 복원, 허용 목록에서 빠진 모델 호출 부활, 권한 우회를 rollback으로 취급하지 않습니다.
 

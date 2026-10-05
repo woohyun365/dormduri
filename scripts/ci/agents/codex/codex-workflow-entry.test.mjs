@@ -398,7 +398,7 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   assert.equal(w.requiresAstraReview, true);
   assert.equal(
     w.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.recommendedModel,
-    'gpt-6-sol',
+    'gpt-6.1-sol',
   );
   const leaf = recommendDelegation({
     envelope: w.envelope,

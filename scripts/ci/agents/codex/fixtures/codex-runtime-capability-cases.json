@@ -302,11 +302,11 @@
         {
           "agentType": "knu_researcher",
           "available": true,
-          "effectiveModel": "gpt-6-sol",
+          "effectiveModel": "gpt-6.1-sol",
           "effectiveEffort": "high",
           "explicitEffortSupport": true,
           "modelSelection": {
-            "supportedModels": ["gpt-6-astra", "gpt-6-sol"],
+            "supportedModels": ["gpt-6-astra", "gpt-6.1-sol"],
             "roleModel": null,
             "explicitModelSupport": true,
             "reference": "synthetic-current-host-model-schema"
