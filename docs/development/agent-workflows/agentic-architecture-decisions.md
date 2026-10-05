@@ -115,8 +115,8 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 - **공통 결정**: 기본 child 수는 0이며 독립적인 bounded lane 하나도 허용합니다. 순이익·one-writer·Lead 통합은 모든
   host에 적용하고 수치 cap과 추천 메커니즘은 현재 adapter가 소유합니다.
 - **Codex/OMX 결정**: Proactive 경로는 보통 최대 2개이고 current
-  Pass 2 evidence에 직접 연결된 high-value benefit이 있을 때만 세 번째를 허용합니다. Owner가 명시적으로 확장해도 hard
-  cap은 6이며 write-capable child는 하나만 선택합니다.
+  Pass 2 evidence에 직접 연결된 high-value benefit이 있을 때만 세 번째를 허용합니다. Owner가 명시적으로 확장해도 child
+  hard cap은 6(root 제외)이며 write-capable child는 하나만 선택합니다.
 - **Trigger**: 결과 dependency와 write scope가 분리되고 completeness·latency·specialist evidence·risk review 순이익이
   검증된 lane입니다.
 - **기각**: minimum-two, more-agents-is-better, shared-write fan-out, 모든 작업에 execution graph 생성.
