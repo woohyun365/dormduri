@@ -35,7 +35,7 @@
     "ci:storybook": "STORYBOOK_DISABLE_TELEMETRY=1 storybook dev -p 6006",
     "ci:storybook:build": "STORYBOOK_DISABLE_TELEMETRY=1 storybook build",
     "ci:e2e": "PLAYWRIGHT_PREBUILT=1 playwright test",
-    "ci:standalone:prepare": "node ../../scripts/ci/prepare-next-standalone.mjs --web-root=."
+    "ci:standalone:prepare": "node ../../scripts/ci/product/prepare-next-standalone.mjs --web-root=."
   },
   "dependencies": {
     "@repo/shared": "workspace:*",

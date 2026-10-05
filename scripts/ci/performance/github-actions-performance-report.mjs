@@ -4,10 +4,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { dependencyInputPaths } from './ci-performance-epoch.mjs';
 
-const repoRoot = resolve(import.meta.dirname, '../..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const expectedSurfaces = ['full', 'api-only', 'web-only', 'infra-only', 'docs-config-tooling-only'];
 
 function round(value, places = 6) {
@@ -316,7 +316,7 @@ function readJson(path) {
 
 function main(argv) {
   const options = parseArgs(argv);
-  const policy = readJson('scripts/ci/fixtures/github-actions-performance-policy.json');
+  const policy = readJson('scripts/ci/performance/fixtures/github-actions-performance-policy.json');
   const report = buildPerformanceReport({
     datasets: options.inputs.map(readJson),
     policy,

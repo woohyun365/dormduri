@@ -31,7 +31,7 @@
 - 이 source entry는 generic native support·live qualification·parent model 설정·task authority를 주장하지 않습니다.
   Cross-CLI bridge는 계속 unsupported입니다.
 - `codex/`·`claude/` 안의 `.mjs`는 경로 자체가 host를 구분하므로 파일명에 prefix를 중복하지 않습니다.
-- flat `scripts/ci/`의 host 전용 suite는 `codex-*`·`claude-*`처럼 host를 식별합니다.
+- `scripts/ci/agents/` 아래 host 전용 suite는 `codex-*`·`claude-*`처럼 host를 식별합니다.
   공통 계약 및 여러 host의 경계를 함께 검사하는 suite는 `agent-*`·`cross-host-*` 등 검증 책임을 표시합니다.
 - fixture 이름은 검증하는 동작·계약을 설명합니다. 임시 계획 단계·번호를 directory/file/API 이름으로 사용하지 않습니다.
   과거 시점의 관측 내용·receipt 식별자는 당시 증거로 보존하되 현재 동작의 규범으로 사용하지 않습니다.

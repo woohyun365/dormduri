@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AUTH_FIXTURE_USERS } from '../../apps/api/prisma/seed-data/fixtures/auth-fixture-users.js';
+import { AUTH_FIXTURE_USERS } from '../../../apps/api/prisma/seed-data/fixtures/auth-fixture-users.js';
 
 // Execute the real seed with a query recorder. Real SQL/idempotency is verified by full-stack DB runs.
 async function recordSeed(mode, now = '2026-09-18T03:00:00.000Z') {
@@ -32,7 +32,7 @@ async function recordSeed(mode, now = '2026-09-18T03:00:00.000Z') {
   };
   try {
     const { seedHomeDashboardE2eFixtures } = await import(
-      `../../apps/api/prisma/seed-data/fixtures/home-dashboard-e2e-fixtures.js?mode=${mode}`
+      `../../../apps/api/prisma/seed-data/fixtures/home-dashboard-e2e-fixtures.js?mode=${mode}`
     );
     await seedHomeDashboardE2eFixtures(client);
     return queries;

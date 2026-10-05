@@ -19,7 +19,7 @@ test('includes dependency automation contracts in the canonical policy lane', ()
 });
 
 test('every scripts directory with colocated tests is part of the policy lane discovery', () => {
-  const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+  const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
   const withTests = readdirSync(resolve(repoRoot, 'scripts'), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => `scripts/${entry.name}`)
@@ -51,7 +51,7 @@ test('discovers colocated tests recursively without depending on a flat director
   ]);
 });
 
-const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
 test('every discovered policy test belongs to exactly one CI suite', () => {
   const all = discoverScriptTests(repoRoot);

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-const repoRoot = resolve(import.meta.dirname, '../..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 
 test('docs, infrastructure and repository scripts expose one root responsibility index each', () => {

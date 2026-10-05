@@ -10,104 +10,118 @@ import {
 } from './ci-performance-epoch.mjs';
 
 const epochFixture = JSON.parse(
-  readFileSync(resolve('scripts/ci/fixtures/ci-performance-active-epoch.json'), 'utf8'),
+  readFileSync(resolve('scripts/ci/performance/fixtures/ci-performance-active-epoch.json'), 'utf8'),
 );
 const closedFinalToolingSecurityEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json',
     ),
     'utf8',
   ),
 );
 const closedEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-native-ci-2026-08-28.json'),
+    resolve('scripts/ci/performance/fixtures/ci-performance-epoch-native-ci-2026-08-28.json'),
     'utf8',
   ),
 );
 const closedLintToolchainEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json'),
+    resolve('scripts/ci/performance/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json'),
     'utf8',
   ),
 );
 const closedSupportedLineEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json',
+    ),
     'utf8',
   ),
 );
 const closedLintStagedEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json'),
+    resolve('scripts/ci/performance/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json'),
     'utf8',
   ),
 );
 const closedPnpmMemoryFixedEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json',
+    ),
     'utf8',
   ),
 );
 const closedTransitiveOverrideEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json',
     ),
     'utf8',
   ),
 );
 const closedApiRuntimeSupportedLinesEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json',
+    ),
     'utf8',
   ),
 );
 const closedApiPersistenceSupportedLinesEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json',
     ),
     'utf8',
   ),
 );
 const closedApiObservabilityClientEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json',
+    ),
     'utf8',
   ),
 );
 const closedRepositoryPrettierEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json',
+    ),
     'utf8',
   ),
 );
 const closedApiAwsSdkSupportedLinesEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json',
+    ),
     'utf8',
   ),
 );
 const closedApiSupertestTypesSupportedLineEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json',
     ),
     'utf8',
   ),
 );
 const closedSharedZodSupportedLineEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json',
+    ),
     'utf8',
   ),
 );
 const closedDependencySecurityEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json',
     ),
     'utf8',
   ),
@@ -115,7 +129,7 @@ const closedDependencySecurityEpochFixture = JSON.parse(
 const closedExternalRuntimeImageEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json',
     ),
     'utf8',
   ),
@@ -123,21 +137,23 @@ const closedExternalRuntimeImageEpochFixture = JSON.parse(
 const closedBackendNestjs11SupportedLineEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json',
     ),
     'utf8',
   ),
 );
 const closedApiAwsSdkFollowUpEpochFixture = JSON.parse(
   readFileSync(
-    resolve('scripts/ci/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json'),
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json',
+    ),
     'utf8',
   ),
 );
 const closedRepositoryLintToolingCurrentLineEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json',
     ),
     'utf8',
   ),
@@ -145,7 +161,7 @@ const closedRepositoryLintToolingCurrentLineEpochFixture = JSON.parse(
 const closedRepositoryVitest5EpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json',
     ),
     'utf8',
   ),
@@ -153,7 +169,7 @@ const closedRepositoryVitest5EpochFixture = JSON.parse(
 const closedDependencyHealthEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json',
     ),
     'utf8',
   ),
@@ -161,7 +177,7 @@ const closedDependencyHealthEpochFixture = JSON.parse(
 const closedWebSupportedLineEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json',
     ),
     'utf8',
   ),
@@ -169,7 +185,7 @@ const closedWebSupportedLineEpochFixture = JSON.parse(
 const closedBackendRuntimePersistenceSecurityEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json',
     ),
     'utf8',
   ),
@@ -177,7 +193,7 @@ const closedBackendRuntimePersistenceSecurityEpochFixture = JSON.parse(
 const closedBackendAwsSdkReleaseAgeEpochFixture = JSON.parse(
   readFileSync(
     resolve(
-      'scripts/ci/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json',
+      'scripts/ci/performance/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json',
     ),
     'utf8',
   ),

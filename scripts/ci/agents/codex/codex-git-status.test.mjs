@@ -6,7 +6,7 @@ import {
   expectedPaths,
   statusCases,
 } from '../../../agents/fixtures/codex-preflight/status-cases.mjs';
-import { discoverScriptTests } from '../../repo-policy-test-files.mjs';
+import { discoverScriptTests } from '../../lanes/repo-policy-test-files.mjs';
 
 // Every real-Git oracle also verifies the actual CLI contract and read-only behavior.
 for (const row of statusCases) {

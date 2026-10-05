@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { extname, relative, resolve } from 'node:path';
 import test from 'node:test';
 
-const repoRoot = resolve(import.meta.dirname, '../..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const docsRoot = resolve(repoRoot, 'docs');
 const landingPolicyCopyPath = resolve(
   repoRoot,

@@ -68,7 +68,7 @@ classify
 [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유한다. 분류 개선의 문제·측정·결정 기록은
 [CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md)에 둔다.
 
-분류 source of truth는 `scripts/ci/classify-changes.mjs`이며 path matrix는 `scripts/ci/fixtures/`와 Node built-in tests가 고정한다.
+분류 source of truth는 `scripts/ci/lanes/classify-changes.mjs`이며 path matrix는 `scripts/ci/lanes/fixtures/`와 Node built-in tests가 고정한다.
 
 ## Public command와 prepared command
 
@@ -146,7 +146,7 @@ Web unit tests는 전용 Web unit CI job의 한 Vitest process 안에서 두 pro
 - Current inventory: Node 107 files / 621 cases, jsdom 114 files / 611 cases; total 221 files / 1,232 cases
 - Pool: repeated local correctness/timing을 통과한 `threads`; 고정 `maxWorkers`는 사용하지 않음
 
-DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/web-vitest-project-ownership.test.mjs`가 exact-once
+DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/product/web-vitest-project-ownership.test.mjs`가 exact-once
 inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Node/jsdom project를 각각 별도 GitHub
 job이나 artifact로 나누지 않는다. Unit cohort 전체만 static/build/browser core와 병렬화한다.
 
@@ -185,7 +185,7 @@ reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
 
 ## Stage timing evidence
 
-`scripts/ci/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
+`scripts/ci/lanes/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
 
 Historical pre-optimization evidence와 active post-change measurement epoch는 같은 fixture가 소유하지 않는다.
 `ci-performance-baseline.json`은 비교 denominator를 immutable하게 보존하고, `ci-performance-active-epoch.json`은 current
@@ -300,7 +300,7 @@ source merge로 완료됐다고 주장하지 않고 `remote-repository-settings.
 ## 변경 시 검증
 
 ```bash
-node --test scripts/ci/*.test.mjs
+node --test scripts/ci/{lanes,performance,contracts,product}/*.test.mjs
 pnpm api:check
 pnpm api:test:ci
 pnpm api:build

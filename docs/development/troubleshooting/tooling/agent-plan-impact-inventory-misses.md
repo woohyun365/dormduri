@@ -39,7 +39,7 @@
   전체 policy test가 통과했지만, stage한 뒤 local-plan 경계 guard가 실패했습니다.
 - **누락(실행 경로):** 경로 family의 CI lane을 "그 family를 읽는 test"만으로 정해서, 그 경로를 실행·import하는 lane job을
   놓쳤습니다. `pnpm infra:check`가 import하는 `scripts/artifacts/paths.mjs`, Web·API step wrapper인
-  `scripts/ci/run-timed-command.mjs`, API stress harness가 import하는 script가 그런 예입니다. `pnpm` script를 거친 간접 실행도
+  `scripts/ci/lanes/run-timed-command.mjs`, API stress harness가 import하는 script가 그런 예입니다. `pnpm` script를 거친 간접 실행도
   같은 이유로 빠졌습니다.
 
 ## 해결

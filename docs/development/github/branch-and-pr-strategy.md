@@ -216,7 +216,7 @@ pnpm git:branch-readiness -- \
 ```bash
 node --input-type=module <<'NODE'
 import { execFileSync } from 'node:child_process';
-import { classifyChanges } from './scripts/ci/classify-changes.mjs';
+import { classifyChanges } from './scripts/ci/lanes/classify-changes.mjs';
 
 const paths = execFileSync(
   'git',

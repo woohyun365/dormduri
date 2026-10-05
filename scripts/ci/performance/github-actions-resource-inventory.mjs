@@ -5,9 +5,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 
-const repoRoot = resolve(import.meta.dirname, '../..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const dayMilliseconds = 24 * 60 * 60 * 1_000;
 
 function cacheFamily(key) {

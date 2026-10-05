@@ -421,7 +421,7 @@
   },
   {
     "name": "infra-test-discovery",
-    "paths": ["scripts/ci/repo-policy-test-files.mjs"],
+    "paths": ["scripts/ci/lanes/repo-policy-test-files.mjs"],
     "expected": {
       "web": false,
       "api": false,
@@ -434,7 +434,7 @@
   },
   {
     "name": "lane-command-wrapper",
-    "paths": ["scripts/ci/run-timed-command.mjs"],
+    "paths": ["scripts/ci/lanes/run-timed-command.mjs"],
     "expected": {
       "web": true,
       "api": true,
@@ -447,7 +447,7 @@
   },
   {
     "name": "web-standalone-prepare",
-    "paths": ["scripts/ci/prepare-next-standalone.mjs"],
+    "paths": ["scripts/ci/product/prepare-next-standalone.mjs"],
     "expected": {
       "web": true,
       "api": false,

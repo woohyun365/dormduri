@@ -8,7 +8,7 @@ function requireDirectory(path, label) {
   }
 }
 
-const defaultWebRoot = fileURLToPath(new URL('../../apps/web/', import.meta.url));
+const defaultWebRoot = fileURLToPath(new URL('../../../apps/web/', import.meta.url));
 
 export function prepareNextStandalone(webRoot = defaultWebRoot) {
   const nextRoot = resolve(webRoot, '.next');

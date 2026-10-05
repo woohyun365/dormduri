@@ -5,15 +5,15 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { resolveArtifactPath } from '../artifacts/paths.mjs';
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import {
   buildDependencyFingerprint,
   compareDependencyFingerprint,
   parseMeasurementEpoch,
 } from './ci-performance-epoch.mjs';
-import { classifyChanges } from './classify-changes.mjs';
+import { classifyChanges } from '../lanes/classify-changes.mjs';
 
-const repoRoot = resolve(import.meta.dirname, '../..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const ansiPattern = /\u001b\[[0-9;]*m/gu;
 
 function secondsBetween(start, end) {
@@ -437,14 +437,14 @@ function main(argv) {
   const measurementEpoch = parseMeasurementEpoch(
     JSON.parse(
       readFileSync(
-        resolve(repoRoot, 'scripts/ci/fixtures/ci-performance-active-epoch.json'),
+        resolve(repoRoot, 'scripts/ci/performance/fixtures/ci-performance-active-epoch.json'),
         'utf8',
       ),
     ),
   );
   const policy = JSON.parse(
     readFileSync(
-      resolve(repoRoot, 'scripts/ci/fixtures/github-actions-performance-policy.json'),
+      resolve(repoRoot, 'scripts/ci/performance/fixtures/github-actions-performance-policy.json'),
       'utf8',
     ),
   );

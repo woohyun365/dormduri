@@ -1,8 +1,8 @@
 # CI surface ownership
 
 변경 경로가 어느 표면(surface)에 속하고 어떤 CI lane을 깨우는지, 그 표면의 owner 문서가 무엇인지 정합니다. 이 문서는
-현재 분류 규칙의 책임 표입니다. 분류 동작의 원본은 `scripts/ci/classify-changes.mjs`이고, 아래 표는
-`scripts/ci/classify-changes.test.mjs`가 행마다 대표 경로로 분류기와 대조합니다. 설계 결정과 job graph는
+현재 분류 규칙의 책임 표입니다. 분류 동작의 원본은 `scripts/ci/lanes/classify-changes.mjs`이고, 아래 표는
+`scripts/ci/lanes/classify-changes.test.mjs`가 행마다 대표 경로로 분류기와 대조합니다. 설계 결정과 job graph는
 [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md), 분류별 누적 측정 표본은
 [Monorepo CI baseline](../../evidence/ci/monorepo-ci-baseline.md), 분류 개선의 문제·측정·결정 기록은
 [CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md)가 소유합니다.
@@ -27,7 +27,7 @@
 
 ### Policy test suite와 agent workflow lane
 
-`scripts/ci/run-repo-policy.mjs`는 policy test를 두 suite로 나눠 실행합니다(`scripts/ci/repo-policy-test-files.mjs`).
+`scripts/ci/lanes/run-repo-policy.mjs`는 policy test를 두 suite로 나눠 실행합니다(`scripts/ci/lanes/repo-policy-test-files.mjs`).
 
 - `agent-workflow`: `scripts/ci/agents/**`의 test에서 tree 전체 guard 2개를 뺀 것. 저장소 밖 package를 import하지 않아
   Agent workflow gate는 `pnpm install` 없이 실행합니다.
@@ -93,10 +93,10 @@ fail-open 행이 없습니다. 새 경로 family는 규칙을 정한 뒤 "분류
 | `renovate.json`                                                                                                                                                                                                                                        | Platform          | `repoPolicy`, `agentWorkflow`                            | 분류됨         | `docs/architecture/platform/dependency-automation.md`                                                                         | `renovate.json`                                                                                                                                                                                                                        |
 | `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.node-version`, `.lintstagedrc.mjs`                                                                                                                                                          | Root toolchain    | 전체                                                     | 의도한 fan-out | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.node-version`, `.lintstagedrc.mjs`                                                                                                                                          |
 | `.vscode/**`                                                                                                                                                                                                                                           | Root toolchain    | `repoPolicy`, `agentWorkflow`                            | 분류됨         | `README.md`                                                                                                                   | `.vscode/extensions.json`, `.vscode/settings.json`                                                                                                                                                                                     |
-| `scripts/ci/**`(`scripts/ci/agents/**`와 아래 lane script 제외), `scripts/git/**`, `scripts/github/**`, `.husky/**`                                                                                                                                    | Repository policy | `repoPolicy`, `agentWorkflow`                            | 분류됨         | `docs/architecture/platform/monorepo-ci.md`, `docs/development/github/README.md`                                              | `scripts/ci/classify-changes.mjs`, `scripts/git/validate-commit-message.mjs`, `scripts/github/account-evidence.mjs`, `.husky/pre-commit`                                                                                               |
-| `scripts/ci/run-timed-command.mjs`                                                                                                                                                                                                                     | Repository policy | `web`, `api`, `storybook`, `repoPolicy`, `agentWorkflow` | 분류됨         | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `scripts/ci/run-timed-command.mjs`                                                                                                                                                                                                     |
-| `scripts/ci/repo-policy-test-files.mjs`                                                                                                                                                                                                                | Repository policy | `infra`, `repoPolicy`, `agentWorkflow`                   | 분류됨         | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `scripts/ci/repo-policy-test-files.mjs`                                                                                                                                                                                                |
-| `scripts/ci/prepare-next-standalone.mjs`                                                                                                                                                                                                               | Repository policy | `web`, `repoPolicy`, `agentWorkflow`                     | 분류됨         | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `scripts/ci/prepare-next-standalone.mjs`                                                                                                                                                                                               |
+| `scripts/ci/**`(`scripts/ci/agents/**`와 아래 lane script 제외), `scripts/git/**`, `scripts/github/**`, `.husky/**`                                                                                                                                    | Repository policy | `repoPolicy`, `agentWorkflow`                            | 분류됨         | `docs/architecture/platform/monorepo-ci.md`, `docs/development/github/README.md`                                              | `scripts/ci/lanes/classify-changes.mjs`, `scripts/git/validate-commit-message.mjs`, `scripts/github/account-evidence.mjs`, `.husky/pre-commit`                                                                                         |
+| `scripts/ci/lanes/run-timed-command.mjs`                                                                                                                                                                                                               | Repository policy | `web`, `api`, `storybook`, `repoPolicy`, `agentWorkflow` | 분류됨         | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `scripts/ci/lanes/run-timed-command.mjs`                                                                                                                                                                                               |
+| `scripts/ci/lanes/repo-policy-test-files.mjs`                                                                                                                                                                                                          | Repository policy | `infra`, `repoPolicy`, `agentWorkflow`                   | 분류됨         | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `scripts/ci/lanes/repo-policy-test-files.mjs`                                                                                                                                                                                          |
+| `scripts/ci/product/prepare-next-standalone.mjs`                                                                                                                                                                                                       | Repository policy | `web`, `repoPolicy`, `agentWorkflow`                     | 분류됨         | `docs/architecture/platform/monorepo-ci.md`                                                                                   | `scripts/ci/product/prepare-next-standalone.mjs`                                                                                                                                                                                       |
 | `scripts/artifacts/**`(위 lane script 제외)                                                                                                                                                                                                            | Repository policy | `infra`, `repoPolicy`, `agentWorkflow`                   | 분류됨         | `.artifacts/README.md`                                                                                                        | `scripts/artifacts/paths.test.mjs`                                                                                                                                                                                                     |
 | `scripts/dependencies/**`, `scripts/security/**`                                                                                                                                                                                                       | Repository policy | `repoPolicy`, `agentWorkflow`                            | 분류됨         | `docs/architecture/platform/dependency-automation.md`, `docs/development/github/dependency-updates.md`                        | `scripts/dependencies/dependency-health-contract.mjs`, `scripts/security/dependency-alert-inventory.mjs`                                                                                                                               |
 | `scripts/README.md`                                                                                                                                                                                                                                    | Repository policy | `repoPolicy`, `agentWorkflow`                            | 분류됨         | `scripts/README.md`                                                                                                           | `scripts/README.md`                                                                                                                                                                                                                    |
@@ -110,10 +110,10 @@ Local record 행의 대표 경로에는 `.plans` 디렉터리 파일을 적지 �
 쓰지 않는다는 경계(`scripts/ci/agents/common/agent-guidance-boundary.test.mjs`)를 따르기 때문입니다. 이 디렉터리의 tracked 안내 파일도
 같은 규칙으로 `repoPolicy`와 `agentWorkflow`만 켭니다.
 
-Lane job이 실행하거나 import하는 저장소 script는 그 lane도 켭니다. 예를 들어 `scripts/ci/run-timed-command.mjs`는 Web·API·
+Lane job이 실행하거나 import하는 저장소 script는 그 lane도 켭니다. 예를 들어 `scripts/ci/lanes/run-timed-command.mjs`는 Web·API·
 Storybook workflow step의 wrapper이고, `scripts/observability/sentry/check-build.mjs`는 Web job이 `pnpm web:sentry:verify-build`로,
 `scripts/infra/compose/profile.mjs`는 API job이 `pnpm infra:compose`로 실행합니다. `scripts/artifacts/**`와
-`scripts/ci/repo-policy-test-files.mjs`는 `pnpm infra:check`가 import합니다. Lane package의 파일이 저장소 script를 import하거나
+`scripts/ci/lanes/repo-policy-test-files.mjs`는 `pnpm infra:check`가 import합니다. Lane package의 파일이 저장소 script를 import하거나
 경로로 읽는 경우도 같습니다. API stress harness는 `scripts/artifacts/paths.mjs`를 import하고, API operations test는
 `scripts/observability/rehearsal/web-bff.mjs`를 읽습니다.
 
@@ -144,7 +144,7 @@ Storybook workflow step의 wrapper이고, `scripts/observability/sentry/check-bu
 
 ## Formatting 검사 범위
 
-Repository policy gate의 formatting 검사(`scripts/ci/check-formatting.mjs`)는 분류기의 `formatting_scope` 출력을 따릅니다.
+Repository policy gate의 formatting 검사(`scripts/ci/lanes/check-formatting.mjs`)는 분류기의 `formatting_scope` 출력을 따릅니다.
 Lane 선택과는 별개입니다. 이 출력은 repoPolicy가 켜진 PR과 `main` push에서 검사할 파일만 정합니다.
 
 - `full`: `prettier . -c`로 tree 전체를 검사합니다. 다음 경우입니다.
@@ -199,8 +199,8 @@ Formatting 결과는 파일 내용과 설정·version으로만 정해집니다. 
 
 새 경로 family를 추가하거나 기존 family의 lane을 바꾸는 PR은 다음 세 가지를 같은 PR에서 바꿉니다.
 
-1. `scripts/ci/classify-changes.mjs`의 규칙
-2. `scripts/ci/fixtures/change-impact-cases.json` 또는 `classify-changes.test.mjs`의 기대 결과
+1. `scripts/ci/lanes/classify-changes.mjs`의 규칙
+2. `scripts/ci/lanes/fixtures/change-impact-cases.json` 또는 `classify-changes.test.mjs`의 기대 결과
 3. 이 문서의 경로 family 표 행(대표 경로 포함)
 
 대표 경로는 tracked 파일이어야 합니다. 경로가 옮겨지거나 지워지면 test가 실패하므로 같은 PR에서 행을 고칩니다. 규칙

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { discoverScriptTests } from '../../repo-policy-test-files.mjs';
+import { discoverScriptTests } from '../../lanes/repo-policy-test-files.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -72,8 +72,7 @@ test('Codex regressions remain discoverable under host-explicit filenames', () =
 test('fixture names identify contracts rather than temporary plan stages', () => {
   const paths = [
     ...files('scripts/agents/fixtures'),
-    ...files('scripts/ci/fixtures'),
-    ...files('scripts/ci/agents').filter((path) => path.includes('/fixtures/')),
+    ...files('scripts/ci').filter((path) => path.includes('/fixtures/')),
   ];
   assert.deepEqual(
     paths.filter((path) => /(?:^|[/-])(?:phase\d+|h\d+)(?:[/.\-]|$)/iu.test(path)),

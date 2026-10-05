@@ -15,13 +15,16 @@ import {
 const dependabotConfig = readFileSync(resolve(process.cwd(), '.github/dependabot.yml'), 'utf8');
 const baseline = JSON.parse(
   readFileSync(
-    resolve(process.cwd(), 'scripts/ci/fixtures/dependency-automation-baseline.json'),
+    resolve(process.cwd(), 'scripts/ci/contracts/fixtures/dependency-automation-baseline.json'),
     'utf8',
   ),
 );
 const renovateConfig = JSON.parse(readFileSync(resolve(process.cwd(), 'renovate.json'), 'utf8'));
 const renovateOwnerGroups = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'scripts/ci/fixtures/renovate-owner-groups.json'), 'utf8'),
+  readFileSync(
+    resolve(process.cwd(), 'scripts/ci/contracts/fixtures/renovate-owner-groups.json'),
+    'utf8',
+  ),
 );
 
 function collectDependencyDeclarations() {

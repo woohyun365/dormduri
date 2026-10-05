@@ -9,7 +9,10 @@ import {
   summarizeCiPerformanceEvidence,
 } from './ci-performance-evidence.mjs';
 
-const fixturePath = resolve(process.cwd(), 'scripts/ci/fixtures/ci-performance-baseline.json');
+const fixturePath = resolve(
+  process.cwd(),
+  'scripts/ci/performance/fixtures/ci-performance-baseline.json',
+);
 
 function readBaseline() {
   return JSON.parse(readFileSync(fixturePath, 'utf8'));
@@ -95,7 +98,7 @@ test('historical dependency inputs remain immutable instead of following the cur
 test('prints a stable read-only summary for later baseline comparisons', () => {
   const result = spawnSync(
     process.execPath,
-    [resolve(process.cwd(), 'scripts/ci/ci-performance-evidence.mjs'), fixturePath],
+    [resolve(process.cwd(), 'scripts/ci/performance/ci-performance-evidence.mjs'), fixturePath],
     { encoding: 'utf8' },
   );
 
