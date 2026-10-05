@@ -31,14 +31,18 @@ default_subagent_model = "${BASELINE_CHILD_MODEL}"
 default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 6
 `;
-const readOnlyBoundary = /파일 수정,/u;
+const readOnlyBoundary = /파일 수정, [^.]*하지 않습니다\./u;
 const expectedRoles = [
   {
     file: 'knu_executor.toml',
     name: 'knu_executor',
     sandboxMode: 'workspace-write',
     model: null,
-    boundaries: [/명시된 writeOwnership 안에서 구현합니다\./u, /writeOwnership 밖 편집,/u],
+    boundaries: [
+      /명시된 writeOwnership 안에서 구현합니다\./u,
+      /writeOwnership 밖 편집, [^.]*하지 않습니다\./u,
+      /범위·공유 파일·migration·파괴적 변경이 충돌하거나, ownership이 겹치거나, 권한이 없거나, 요청 경계가 크게 바뀌면 멈추고 Parent에게 돌려줍니다\./u,
+    ],
     handoff: ['changed files', 'rollback note'],
   },
   {
@@ -46,7 +50,11 @@ const expectedRoles = [
     name: 'knu_explorer',
     sandboxMode: 'read-only',
     model: null,
-    boundaries: [readOnlyBoundary],
+    boundaries: [
+      /파일·symbol 관계를 repository 기준 경로로 정확히 보고합니다\./u,
+      readOnlyBoundary,
+      /외부 조사·구현·범위 변경이 필요하면 멈추고 Parent에게 돌려줍니다\./u,
+    ],
     handoff: [],
   },
   {
@@ -54,7 +62,10 @@ const expectedRoles = [
     name: 'knu_researcher',
     sandboxMode: 'read-only',
     model: null,
-    boundaries: [readOnlyBoundary],
+    boundaries: [
+      readOnlyBoundary,
+      /repository explorer·dependency 평가·구현 owner·사람\/provider 권한이 필요하면 멈추고 Parent에게 돌려줍니다\./u,
+    ],
     handoff: ['source URLs'],
   },
   {
@@ -64,6 +75,7 @@ const expectedRoles = [
     model: BASELINE_CHILD_MODEL,
     boundaries: [
       readOnlyBoundary,
+      /구현이나 미해결 owner 결정이 필요하면 멈추고 Parent에게 돌려줍니다\./u,
       /builder와 접촉하기 전에 frozen 요청과 source에서 finding을 먼저 도출/u,
     ],
     handoff: ['verdict', 'severity-ranked'],
@@ -76,11 +88,10 @@ const collaborationGuide = 'docs/development/agent-workflows/owner-lead-collabor
 const qaGuide = 'docs/development/agent-workflows/qa.md';
 const commonBoundaries = [
   /child agent를 만들거나 peer·shell\/subprocess·외부 model\/agent service로 작업을 offload하지 않습니다\./u,
-  /[^.]+면 멈추고 Parent에게 돌려줍니다\./u,
   /통신은 Parent를 거칩니다\./u,
   /Peer에게는 Parent가 지정한 사실 확인만 docs\/development\/agent-workflows\/owner-lead-collaboration\.md에 따라 보냅니다\./u,
   /답이 없으면 기다리지 말고 질문을 Parent에게 돌려줍니다\./u,
-  /QA는 docs\/development\/agent-workflows\/qa\.md를 따라 [^.]*self-PASS[^.]*\./u,
+  /QA는 docs\/development\/agent-workflows\/qa\.md를 따라 [^.]*self-PASS(?:하지 않|를 하지 않)[^.]*\./u,
 ];
 const handoffTerms = [
   'facts',
@@ -207,17 +218,21 @@ function assertRoleContract(source, role) {
   assert.equal(readQuotedField(source, 'model'), role.model ?? undefined, role.file);
   assert.equal(readQuotedField(source, 'sandbox_mode'), role.sandboxMode, role.file);
   assert.ok(instructions?.length > 300, role.file);
+  assert.doesNotMatch(
+    instructions,
+    collaborationToolNames,
+    `${role.file}: collaboration tool name`,
+  );
   assert.ok(
     Buffer.byteLength(instructions, 'utf8') <= INSTRUCTION_BYTE_LIMIT,
     `${role.file}: developer_instructions ${Buffer.byteLength(instructions, 'utf8')} > ${INSTRUCTION_BYTE_LIMIT} bytes`,
   );
   for (const boundary of [...commonBoundaries, ...role.boundaries])
-    assert.match(instructions, boundary, role.file);
+    assert.match(instructions, boundary, `${role.file}: boundary ${boundary}`);
   const handoff = instructions.match(/handoff는 ([^.]+)을 담아 짧게 반환합니다\./u)?.[1];
   assert.ok(handoff, `${role.file}: handoff sentence`);
   for (const term of [...handoffTerms, ...role.handoff])
     assert.ok(handoff.includes(term), `${role.file}: handoff ${term}`);
-  assert.doesNotMatch(instructions, collaborationToolNames, role.file);
   assert.doesNotMatch(source, /^model_reasoning_effort\s*=/mu, role.file);
   assert.doesNotMatch(source, /^skills\.config\s*=/mu, role.file);
   assert.doesNotMatch(source, /\/Users\//u, role.file);
@@ -248,24 +263,43 @@ test('role contract rejects execution repins, reviewer downgrade and permission 
   }
 });
 
-test('role contract rejects dropped boundaries, tool-name procedures and prompt regrowth', () => {
+test('role contract rejects dropped or weakened boundaries, tool-name procedures and prompt regrowth', () => {
   for (const role of expectedRoles) {
     const source = readFileSync(resolve(repoRoot, '.codex/agents', role.file), 'utf8');
     const instructions = roleInstructions(source);
+    const append = (text) => source.replace(instructions, `${instructions}\n${text}`);
+    // [mutated source, expected failure reason]
     const mutations = [
-      source.replace(
-        instructions,
-        `${instructions}\n\n${'진행 상황을 Parent에게 알립니다. '.repeat(20)}`,
-      ),
-      source.replace(instructions, `${instructions}\n지정된 peer에게는 send_message로 연락합니다.`),
+      [append('진행 상황을 Parent에게 알립니다. '.repeat(20)), /bytes/u],
+      [append('지정된 peer에게는 send_message로 연락합니다.'), /collaboration tool name/u],
+      [
+        source.replace(/self-PASS(를)? 하지 않으며|self-PASS하지 않으며/u, 'self-PASS하며'),
+        /boundary/u,
+      ],
     ];
     for (const boundary of [...commonBoundaries, ...role.boundaries]) {
       const sentence = instructions.match(boundary)?.[0];
       assert.ok(sentence, `${role.file}: ${boundary}`);
-      mutations.push(source.replace(sentence, ''));
+      mutations.push([source.replace(sentence, ''), /boundary/u]);
+      // A prohibition that keeps its wording but loses the negation, or a stop rule reduced to a generic condition.
+      if (sentence.endsWith('하지 않습니다.'))
+        mutations.push([
+          source.replace(sentence, sentence.replace(/하지 않습니다\.$/u, '할 수 있습니다.')),
+          /boundary/u,
+        ]);
+      if (sentence.endsWith('면 멈추고 Parent에게 돌려줍니다.'))
+        mutations.push([
+          source.replace(sentence, '필요하면 멈추고 Parent에게 돌려줍니다.'),
+          /boundary/u,
+        ]);
     }
-    for (const mutated of mutations)
-      assert.throws(() => assertRoleContract(mutated, role), assert.AssertionError);
+    for (const [mutated, reason] of mutations) {
+      assert.notEqual(mutated, source, `${role.file}: mutation applied`);
+      assert.throws(() => assertRoleContract(mutated, role), {
+        name: 'AssertionError',
+        message: reason,
+      });
+    }
   }
 });
 
