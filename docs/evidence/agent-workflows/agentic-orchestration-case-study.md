@@ -17,7 +17,8 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 - exploration log와 중간 결과가 parent context를 오염시키는 문제를 줄이면서도 최종 판단은 한 곳에 남겨야 했습니다.
 
 이를 해결하기 위해 repository는 **Repository-guided parent–subagent orchestration with adaptive child reasoning**을
-구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 Sol/Luna xhigh profile을 실제 배정**합니다(현재 GPT-6.1 Sol·GPT-6 Luna).
+구성했습니다. **Astra를 안전한 기본값으로 유지하면서 검증 가능한 한정 작업에는 Sol/Luna xhigh profile을 실제 배정**했습니다(2026-09-24 GPT-6 Sol·Luna 관측).
+현재 Sol profile model인 GPT-6.1 Sol은 품질 근거·독립 QA 전이라 Q(routine으로 쓰지 않음)입니다.
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra xhigh child를 검토합니다.
@@ -308,6 +309,7 @@ completed를 회수했지만 close 미노출·pending/residency 미관측이므�
 [운영 채택 결정](../../development/agent-workflows/agentic-architecture-decisions.md#routine-model-adoption)은 위 세 profile/role과 executor의
 controlled low 복구만 local cohort GO로 제한합니다. Researcher Sol·explorer/researcher low·deep failure·max·저가 reviewer는
 미채택입니다. **Cohort GO ≠ 개별 task 승인 ≠ 모든 host 지원**이며 매번 current packet을 확인합니다.
+2026-10-05 Sol model 교체(`gpt-6.1-sol`) 뒤 bounded-build·bounded-read cohort는 품질 근거·독립 QA 전까지 Q입니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
 허용 목록 밖 model 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
