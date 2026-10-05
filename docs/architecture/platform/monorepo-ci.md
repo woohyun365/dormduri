@@ -258,7 +258,8 @@ Product lane이 없는 PR(Docs-only, Docs/config/tooling, Agent workflow)은 모
 classify, Repository policy gate, Agent workflow gate, CI summary를 실행한다. Lane 선택이 같으므로 Agent workflow 분류는 변경
 경로로 고른다: agent 지침·adapter·script·test·host 설정을 바꾼 PR이다. 성능 collector의 surface는 lane 기준이라 이 셋을
 `docs-config-tooling-only`로 묶는다. Agent workflow 목표는 표본 10개로 p95를 낸 뒤 정한다.
-Job 분리 전 agent-only 표본 5개의 wall p50은 3m 01s, job 분 올림 합 p50은 5분이다(CI change classification evidence §6).
+Job 분리 전 agent-only 표본 5개의 wall p50은 3m 01s, job 분 올림 합 p50은 5분이고, 분리 뒤 표본 5개는 2m 39s, 6분이다(CI change
+classification evidence §6).
 
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
