@@ -1870,9 +1870,10 @@ test('e3 splits the criteria items into contiguous member ranges with nothing mi
   );
   execFileSync('git', ['add', '.'], { cwd: r.root });
   const criteria = ['documents', 'agent-workflow-tooling'];
+  // Assigned ids carry their document name, the same form a finding's criteriaItem takes.
   const all = [
-    ...Array.from({ length: 8 }, (_, i) => `D${i + 1}`),
-    ...Array.from({ length: 8 }, (_, i) => `W${i + 1}`),
+    ...Array.from({ length: 8 }, (_, i) => `documents.md D${i + 1}`),
+    ...Array.from({ length: 8 }, (_, i) => `agent-workflow-tooling.md W${i + 1}`),
   ];
   for (const [reviewers, expected] of [
     [2, [all.slice(0, 8), all.slice(8)]],
