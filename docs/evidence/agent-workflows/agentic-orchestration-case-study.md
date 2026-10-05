@@ -21,6 +21,7 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 현재 Sol profile model인 GPT-6.1 Sol은 2026-10-06 Owner 채택으로 bounded 작업의 routine model입니다. 별도 품질 canary 없이
 채택했으므로 작업별 oracle·독립 QA가 품질 근거입니다.
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
+2026-10-06부터는 semantic 계층이 effort를 고정한 역할 변형을 고르고 profile이 model을 정하며, model recovery는 중단했습니다.
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra XHigh 배정(읽기 xhigh 역할, 구현 `deep-build`)을 검토합니다.
 
