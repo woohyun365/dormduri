@@ -230,8 +230,8 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 | bounded-read / knu_explorer           | gpt-6-sol / xhigh   | 고정된 repository source 4개의 owner/URL semantics map: source oracle·독립 QA PASS. 유한 repo lookup/analysis, 완전한 Medium·독립 확인                                          |
 | bounded-extract / knu_explorer        | gpt-6-luna / xhigh  | 고정 source의 query 변환 8개: executable oracle 8/8·독립 QA PASS. Low impact·단일 semantic extraction·고정 입력/schema, read-only                                               |
 | astra-bounded-recovery / knu_executor | gpt-6-astra / low   | Cleared writer + 새 faulted-source binding의 controlled rescue: RED→GREEN, Parent build/canary 9/9·독립 QA PASS. 원인이 좁혀진 non-high-risk, 같은 owner/tools, alternate 한 번 |
-| bounded-build / knu_executor          | gpt-6.1-sol / xhigh | Revision `2026-10-05.1`, 2026-10-05 native live 1회: child own-turn gpt-6.1-sol·xhigh, profile test 11/11 = Parent oracle. 표본 1회, 채택 상한은 위 행과 같음                   |
-| bounded-read / knu_explorer           | gpt-6.1-sol / xhigh | 같은 live 1회: child own-turn gpt-6.1-sol·xhigh, owner revision·model 조회 = source. 위 `gpt-6-sol` 두 행(revision `2026-09-24.3`)은 historical                                 |
+| bounded-build / knu_executor          | gpt-6.1-sol / xhigh | **Q** — revision `2026-10-05.1` model 교체. Live 1회는 model·effort 적용 관측(read-only, 구현 없음)이며 품질 근거·독립 QA 전이라 routine으로 쓰지 않음                          |
+| bounded-read / knu_explorer           | gpt-6.1-sol / xhigh | **Q** — 위와 같음. 위 `gpt-6-sol` 두 행(revision `2026-09-24.3`)은 historical                                                                                                   |
 
 **미채택**: explorer/researcher의 low recovery는 미채택이며 별도 evidence/권한 전 routine에 확대하지 않습니다. Researcher의
 Sol routine, 다른 role/도구/High·deep cohort, max worker, QA model downgrade도 미채택입니다. Pure helper가 표현할 수 있는
@@ -242,6 +242,9 @@ candidate/recovery 집합과 실제 검증·채택된 집합은 다릅니다. �
   후보 3개, controlled rescue 1개, fresh source-first Astra high QA 1개. 네 결과 모두 독립 QA PASS. Native explicit 호출 인자와
   returned child/task/final을 Parent가 대조했습니다. 보존된 로컬 원본을 확인해 수동 요약한 dated evidence이지 CI 재실행 결과나
   새 clone이 원본 없이 재생할 수 있는 benchmark가 아닙니다. 로컬 원본이 없으면 이 표로 새 host 지원/품질을 증명하지 않습니다.
+  위 provenance·한계는 2026-09-24 표본만 설명합니다. 2026-10-05 revision `2026-10-05.1`은 Sol 두 profile의 model만 바꿨고,
+  revision을 공유하는 Luna·recovery binding은 내용 변경 없이 새로 발행되어 static 회귀로 다시 검증했습니다. 6.1 Sol 두 행은
+  native live에서 child own-turn `gpt-6.1-sol`·xhigh 적용만 관측했으며 품질 근거·독립 QA가 없어 Q입니다.
 - **한계**: 3개 candidate 표본을 일반적 parity/무재작업으로 확대하지 않습니다. Fault는 Parent가 원래 성공 결과를 보존한 뒤
   primary terminal acceptance 전에 주입했으며 모델 자체 miss가 아닙니다. Rescue 성공으로 candidate 실패율을 개선하지 않습니다.
   Provider-effective attestation은 미관측, tokens/cache/credits/USD/weekly 절감은 미측정입니다. 표의 model/effort는
