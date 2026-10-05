@@ -253,7 +253,10 @@ test('role contract rejects dropped boundaries, tool-name procedures and prompt 
     const source = readFileSync(resolve(repoRoot, '.codex/agents', role.file), 'utf8');
     const instructions = roleInstructions(source);
     const mutations = [
-      source.replace(instructions, `${instructions}\n\n${'진행 상황을 Parent에게 알립니다. '.repeat(20)}`),
+      source.replace(
+        instructions,
+        `${instructions}\n\n${'진행 상황을 Parent에게 알립니다. '.repeat(20)}`,
+      ),
       source.replace(instructions, `${instructions}\n지정된 peer에게는 send_message로 연락합니다.`),
     ];
     for (const boundary of [...commonBoundaries, ...role.boundaries]) {
