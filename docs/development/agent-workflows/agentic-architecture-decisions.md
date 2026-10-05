@@ -93,7 +93,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   source/fact/predicate evidence로 child role과 `medium | high | xhigh`를 최종 판정합니다. Medium은 모든 boundedness
   조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
   선택하며 나머지 substantial work는 High입니다. 기본 Child는 GPT-6 Astra이고 선택형 quality-gated model advice는
-  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. GPT-6 Sol/Luna는 중앙 task profile의 검증 가능한 후보이지
+  role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. GPT-6.1 Sol·GPT-6 Luna는 중앙 task profile의 검증 가능한 후보이지
   활성화된 default가 아닙니다. Parent는 일반 bounded 업무에서 적합한 request를 채우고 shell로 충분하면 child를 만들지 않습니다. 검증 fact·exact admission·live compatibility가 필요하고 최종 QA는 Astra를 유지합니다.
 - **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
   repository가 parent effort를 추천하는 방식.
@@ -140,7 +140,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   stale session metadata 재사용.
 - **검증**: Native/OMX success, 허용 목록 밖 model·미허용 Low, fixed-effort conflict, unavailable role, stale/unknown provenance와 permission
   fallback fixture를 보존하고, authorized-pilot/adoption 분리·scope/config·예산/만료·context mismatch를 검사합니다.
-  추가로 finite GPT-6 task profiles, semantic/resolved effort 분리, Luna xhigh·finite read-only, 허용 목록 밖 model 요청과 stale
+  추가로 finite task profiles, semantic/resolved effort 분리, Luna xhigh·finite read-only, 허용 목록 밖 model 요청과 stale
   profile 승인 거절, null usage 비차단, Astra one-alternate와 writer clearance를 검사합니다. 중앙 profile policyRevision/hash는
   계약·승인·설정 해석·사후 보고·복구에 연결되며 hash 자체는 권한을 부여하지 않습니다.
   공식 단가 우위와 실측 절약은 구분하며 usage 미노출만으로 품질 GO를 거절하지 않습니다.
@@ -230,6 +230,8 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 | bounded-read / knu_explorer           | gpt-6-sol / xhigh   | 고정된 repository source 4개의 owner/URL semantics map: source oracle·독립 QA PASS. 유한 repo lookup/analysis, 완전한 Medium·독립 확인                                          |
 | bounded-extract / knu_explorer        | gpt-6-luna / xhigh  | 고정 source의 query 변환 8개: executable oracle 8/8·독립 QA PASS. Low impact·단일 semantic extraction·고정 입력/schema, read-only                                               |
 | astra-bounded-recovery / knu_executor | gpt-6-astra / low   | Cleared writer + 새 faulted-source binding의 controlled rescue: RED→GREEN, Parent build/canary 9/9·독립 QA PASS. 원인이 좁혀진 non-high-risk, 같은 owner/tools, alternate 한 번 |
+| bounded-build / knu_executor          | gpt-6.1-sol / xhigh | **Q** — revision `2026-10-05.1`에서 model만 교체. Native live 관측 전 routine으로 쓰지 않음. 위 `gpt-6-sol` 행은 revision `2026-09-24.3` 관측(historical)                       |
+| bounded-read / knu_explorer           | gpt-6.1-sol / xhigh | **Q** — 위와 같음                                                                                                                                                               |
 
 **미채택**: explorer/researcher의 low recovery는 미채택이며 별도 evidence/권한 전 routine에 확대하지 않습니다. Researcher의
 Sol routine, 다른 role/도구/High·deep cohort, max worker, QA model downgrade도 미채택입니다. Pure helper가 표현할 수 있는

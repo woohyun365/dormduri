@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
+import { getModelProfile } from '../../../agents/codex/model-profiles.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const guidePath = 'docs/development/agent-workflows/subagent-lifecycle.md';
@@ -308,6 +309,8 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   assert.match(orchestration, /rollback.*새 revision/u);
   assert.match(decisions, /id="routine-model-adoption"/u);
   assert.match(decisions, /2026-09-24\.3/u);
+  // The historical revision stays; the installed revision must also be recorded.
+  assert.ok(decisions.includes(getModelProfile('bounded-build').policyRevision));
   assert.match(decisions, /astra-bounded-recovery.*knu_executor.*gpt-6-astra.*low/u);
   assert.match(decisions, /explorer.*researcher.*low.*미채택/u);
   assert.doesNotMatch(decisions, /Luna high/u);
