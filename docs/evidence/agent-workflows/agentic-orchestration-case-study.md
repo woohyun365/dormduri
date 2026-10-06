@@ -155,25 +155,26 @@ Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 
 모순을 검사할 수는 있지만, provider가 서명한 immutable effective metadata는 아닙니다. 조금이라도 불일치하면 role을 prompt
 label로 가장하지 않고 direct/sequential로 돌아갑니다. 2026-10-06부터 child 완료는 leader 보고가 아니라 Codex project hook의
 SubagentStart·SubagentStop 기록(child 역할·model·task path)에 결속되고, 호출 시점 hook이 roster 밖 역할·허용 목록 밖 model·
-model 생략·full-history fork·child 발 spawn을 막습니다. Hook 기록도 provider 서명 metadata는 아니며 hook이 없는 세션에서는
-완료가 거부됩니다.
+model 생략·full-history fork·child 발 spawn을 막습니다. 같은 날 호출 시점 guard에 profile의 (역할, model) 쌍을 더했고,
+완료 판정은 그 허용 기록(bind)과 lane 계약 model·역할 pin effort를 hook 관측과 대조하며 bind 없는 spawn과 lane 아래 descendant를
+거부합니다. Hook 기록도 provider 서명 metadata는 아니며 hook이 없는 세션에서는 완료가 거부됩니다.
 
 ## 대안과 결정
 
-| 대안                                            | 결정        | 근거                                                                                                   |
-| ----------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
-| user/global child config만 유지                 | 기각        | clean clone portability와 reviewable project role contract를 보장하지 못함                             |
-| project child default와 role만 추가             | 불충분      | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                       |
-| 모든 lookup을 Low로 비용 최적화                 | 기각        | repository owner·contract 관계 탐색을 task label 하나로 축소함                                         |
-| 최소 2개 또는 가능한 lane 전부 fan-out          | 기각        | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                               |
-| 0~2개, evidence-backed third, owner max 6 child | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                              |
-| 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                             |
-| parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                            |
-| Astra default + finite task profiles            | 채택        | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 admission gate, model recovery 중단 |
-| boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                               |
-| reported evidence + live reconfirmation         | 조건부 채택 | dispatch 전 보수적 경계. 완료는 2026-10-06부터 hook 기록 결속, 서명 metadata가 생기면 교체             |
-| custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦 |
-| Ultra emulation 또는 autonomous factory         | 기각        | 목표는 Parent autonomy 확대가 아니라 bounded delegation·독립 검증·evidence hygiene임                   |
+| 대안                                            | 결정        | 근거                                                                                                              |
+| ----------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| user/global child config만 유지                 | 기각        | clean clone portability와 reviewable project role contract를 보장하지 못함                                        |
+| project child default와 role만 추가             | 불충분      | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                                  |
+| 모든 lookup을 Low로 비용 최적화                 | 기각        | repository owner·contract 관계 탐색을 task label 하나로 축소함                                                    |
+| 최소 2개 또는 가능한 lane 전부 fan-out          | 기각        | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                                          |
+| 0~2개, evidence-backed third, owner max 6 child | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                                         |
+| 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                                        |
+| parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                                       |
+| Astra default + finite task profiles            | 채택        | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 admission gate, model recovery 중단            |
+| boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                                          |
+| reported evidence + live reconfirmation         | 조건부 채택 | dispatch 전 보수적 경계. 완료는 2026-10-06부터 hook 기록·bind·계약 model/effort 결속, 서명 metadata가 생기면 교체 |
+| custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦            |
+| Ultra emulation 또는 autonomous factory         | 기각        | 목표는 Parent autonomy 확대가 아니라 bounded delegation·독립 검증·evidence hygiene임                              |
 
 ## Decision lineage
 
@@ -241,14 +242,14 @@ Owner가 weekly 한도가 빨리 소모된다고 관찰했지만 원인별 토�
 아니라 **Astra 기본값·독립 QA를 유지하면서 검증 가능한 작업만 낮은 단가의 모델에 맡기는 것**으로 제한했습니다.
 함께 조사한 “완료 child를 항상 close해야 하는가?”도 task 완료와 runtime 자원 반환을 혼동한 문제로 재정의했습니다.
 
-| 대안                                      | 판정과 trade-off                                                                                                |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 모든 child Astra 고정                     | 안전한 fallback으로 유지; 분명한 bounded 작업도 비싼 기본값에 묶이는 비용 기회는 남음                           |
-| Sol/Luna를 전체 기본값으로 변경           | 기각; 미분류·고위험·독립 QA까지 작은 표본을 확대 적용하게 됨                                                    |
-| role × model별 TOML 복제                  | 기각; role 권한과 generation 변경 지점이 중복되어 drift·review 비용 증가                                        |
-| 세 role의 pin 해제 + 중앙 finite profiles | 채택; executor/explorer/researcher의 model pin만 해제, project Astra/high와 reviewer Astra pin·child cap 6 유지 |
-| 별도 provider adapter/자동 scheduler      | 기각; 기존 native contract가 호출 seam이며 새 SDK·실행 엔진이 필요하지 않음                                     |
-| 모든 host에 close 의무/강제 V2 전환       | 기각; live capability별 완료를 판정하고 backend 이름·자동 eviction을 추측하지 않음                              |
+| 대안                                      | 판정과 trade-off                                                                                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 모든 child Astra 고정                     | 안전한 fallback으로 유지; 분명한 bounded 작업도 비싼 기본값에 묶이는 비용 기회는 남음                                                                                   |
+| Sol/Luna를 전체 기본값으로 변경           | 기각; 미분류·고위험·독립 QA까지 작은 표본을 확대 적용하게 됨                                                                                                            |
+| role × model별 TOML 복제                  | 기각; role 권한과 generation 변경 지점이 중복되어 drift·review 비용 증가                                                                                                |
+| 세 role의 pin 해제 + 중앙 finite profiles | 채택; executor/explorer/researcher의 model pin만 해제, project Astra/high와 reviewer Astra pin·child cap 6 유지(reviewer pin은 2026-10-06 해제, `review` profile Astra) |
+| 별도 provider adapter/자동 scheduler      | 기각; 기존 native contract가 호출 seam이며 새 SDK·실행 엔진이 필요하지 않음                                                                                             |
+| 모든 host에 close 의무/강제 V2 전환       | 기각; live capability별 완료를 판정하고 backend 이름·자동 eviction을 추측하지 않음                                                                                      |
 
 ### 구현 경로와 방어선
 
@@ -363,7 +364,7 @@ Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있
 부재만으로 한정 채택을 막지 않되, 실제 이익 검증과 구분합니다.
 
 Reviewer 모델 비교는 Owner가 작성 전제의 착오를 확인해 **미실행 취소**했습니다. 불필요한 계획은 제거했으며,
-위 날짜별 보류 이력은 비교 실험의 성공·실패 근거가 아닙니다. 운영 reviewer의 Astra pin과 독립 QA는 그대로 유지합니다.
+위 날짜별 보류 이력은 비교 실험의 성공·실패 근거가 아닙니다. 운영 reviewer의 Astra 배정(2026-10-06부터 역할 파일 pin 대신 `review` profile)과 독립 QA는 그대로 유지합니다.
 
 ## Parent high 시작과 품질 stop
 

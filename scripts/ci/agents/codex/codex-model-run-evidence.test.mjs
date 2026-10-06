@@ -350,11 +350,18 @@ test('a rescue attempt cannot be recorded while model recovery is suspended', ()
 });
 
 test('failed model resolution and host mismatches are preserved but cannot become success', () => {
+  const sol = getModelProfile('standard-build').model;
   for (const field of ['resolved', 'hostObserved']) {
+    // Observed values are facts: an Astra low, a Sol low or max, or a model outside the allowlist (a Home pin) are
+    // kept. Effort levels depend on the model (config reference), so an observed effort is checked for form only.
     for (const mismatch of [
       { model: 'gpt-6-astra', effort: 'high' },
       { model: 'gpt-6-luna', effort: 'high' },
       { model: 'gpt-6-astra', effort: 'low' },
+      { model: sol, effort: 'low' },
+      { model: sol, effort: 'max' },
+      { model: UNLISTED_MODEL, effort: 'high' },
+      { model: 'unknown', effort: 'minimal' },
     ]) {
       for (const disposition of ['failure', 'blocked']) {
         const x = fixture();
@@ -392,16 +399,18 @@ test('failed model resolution and host mismatches are preserved but cannot becom
   a.checks.forEach((c) => (c.status = 'not-run'));
   blocked.finalDisposition = 'blocked';
   assert.deepEqual(createModelRunEvidence(blocked), blocked);
-  for (const model of ['unknown', UNLISTED_MODEL]) {
-    const bad = structuredClone(blocked);
-    bad.attempts[0].resolved = { model, effort: 'high' };
-    assert.throws(() => createModelRunEvidence(bad), UNLISTED_REASON);
-  }
-  // A listed Sol model keeps these cases about effort, not about the allowlist.
-  const sol = getModelProfile('standard-build').model;
+  // Only the requested pair must be inside the allowlist; an observed pair needs a model name and a known effort.
+  const unlistedRequest = structuredClone(blocked);
+  unlistedRequest.attempts[0].requested = { model: UNLISTED_MODEL, effort: 'high' };
+  assert.throws(() => createModelRunEvidence(unlistedRequest), UNLISTED_REASON);
   for (const invalid of [
-    { model: sol, effort: 'max' },
-    { model: sol, effort: 'low' },
+    { model: sol, effort: '' },
+    { model: sol, effort: 'high ' },
+    { model: sol, effort: null },
+    { model: '', effort: 'high' },
+    { model: 'gpt 6', effort: 'high' },
+    { model: 7, effort: 'high' },
+    { model: 'x'.repeat(81), effort: 'high' },
     { model: 'gpt-6-astra', effort: 'high', extra: true },
   ]) {
     const bad = structuredClone(blocked);

@@ -48,7 +48,6 @@ const baseRoles = [
     name: 'knu_executor',
     effort: 'high',
     sandboxMode: 'workspace-write',
-    model: null,
     boundaries: [
       /명시된 writeOwnership 안에서 구현합니다\./u,
       /writeOwnership 밖 편집, [^.]*하지 않습니다\./u,
@@ -61,7 +60,6 @@ const baseRoles = [
     name: 'knu_explorer',
     effort: 'high',
     sandboxMode: 'read-only',
-    model: null,
     boundaries: [
       /파일·symbol 관계를 repository 기준 경로로 정확히 보고합니다\./u,
       readOnlyBoundary,
@@ -74,7 +72,6 @@ const baseRoles = [
     name: 'knu_researcher',
     effort: 'high',
     sandboxMode: 'read-only',
-    model: null,
     boundaries: [
       readOnlyBoundary,
       /repository explorer·dependency 평가·구현 owner·사람\/provider 권한이 필요하면 멈추고 Parent에게 돌려줍니다\./u,
@@ -86,7 +83,6 @@ const baseRoles = [
     name: 'knu_reviewer',
     effort: 'xhigh',
     sandboxMode: 'read-only',
-    model: BASELINE_CHILD_MODEL,
     boundaries: [
       readOnlyBoundary,
       /구현이나 미해결 owner 결정이 필요하면 멈추고 Parent에게 돌려줍니다\./u,
@@ -122,7 +118,6 @@ const expectedRoles = baseRoles
 const allowedRoleKeys = [
   'description',
   'developer_instructions',
-  'model',
   'model_reasoning_effort',
   'name',
   'sandbox_mode',
@@ -218,7 +213,7 @@ test('project config owns child defaults without pinning parent or provider sett
   );
 });
 
-test('project roles pin effort per role and inherit task models except the Astra reviewer', async () => {
+test('project roles pin effort per role and take every task model from its profile', async () => {
   const agentDirectory = resolve(repoRoot, '.codex/agents');
   const files = readdirSync(agentDirectory)
     .filter((file) => file.endsWith('.toml'))
@@ -305,14 +300,11 @@ function roleInstructions(source) {
 function assertRoleContract(source, role) {
   const instructions = roleInstructions(source);
 
-  assert.deepEqual(
-    topLevelKeys(source),
-    role.model === null ? allowedRoleKeys.filter((key) => key !== 'model') : allowedRoleKeys,
-    role.file,
-  );
+  assert.deepEqual(topLevelKeys(source), allowedRoleKeys, role.file);
   assert.equal(readQuotedField(source, 'name'), role.name, role.file);
   assert.ok(readQuotedField(source, 'description')?.length > 20, role.file);
-  assert.equal(readQuotedField(source, 'model'), role.model ?? undefined, role.file);
+  // No role file pins a model: the profile passes it as spawn_agent.model, the reviewer included.
+  assert.equal(readQuotedField(source, 'model'), undefined, role.file);
   assert.equal(readQuotedField(source, 'sandbox_mode'), role.sandboxMode, role.file);
   assert.equal(
     readQuotedField(source, 'model_reasoning_effort'),
@@ -339,7 +331,7 @@ function assertRoleContract(source, role) {
   assert.doesNotMatch(source, /\/Users\//u, role.file);
 }
 
-test('role contract rejects execution repins, reviewer downgrade and permission or effort drift', () => {
+test('role contract rejects any model pin and permission or effort drift', () => {
   // File contract only, not a simulation of the native configuration resolver.
   for (const role of expectedRoles) {
     const source = readFileSync(resolve(repoRoot, '.codex/agents', role.file), 'utf8');
@@ -352,18 +344,9 @@ test('role contract rejects execution repins, reviewer downgrade and permission 
       ),
       source.replace(`sandbox_mode = "${role.sandboxMode}"`, 'sandbox_mode = "danger-full-access"'),
       source.replace(`name = "${role.name}"`, 'name = "shadow_role"'),
+      source + `\nmodel = "${BASELINE_CHILD_MODEL}"\n`,
+      source + `\nmodel = "${UNLISTED_MODEL}"\n`,
     ];
-    if (role.model === null) {
-      mutations.push(
-        source + `\nmodel = "${BASELINE_CHILD_MODEL}"\n`,
-        source + `\nmodel = "${UNLISTED_MODEL}"\n`,
-      );
-    } else {
-      mutations.push(
-        source.replace(`model = "${role.model}"\n`, ''),
-        source.replace(`model = "${role.model}"`, `model = "${UNLISTED_MODEL}"`),
-      );
-    }
     for (const mutated of mutations)
       assert.throws(() => assertRoleContract(mutated, role), assert.AssertionError);
   }
@@ -418,8 +401,6 @@ test('project Codex model values are bound to the runtime allowlist owner', () =
     for (const [, value] of source.matchAll(/^(?:model|default_subagent_model) = "([^"\n]*)"$/gmu))
       assert.ok(ALLOWED_CHILD_MODELS.includes(value), `${path}: ${value}`);
   }
-  const reviewer = readFileSync(resolve(repoRoot, '.codex/agents/knu_reviewer.toml'), 'utf8');
-  assert.equal(readQuotedField(reviewer, 'model'), BASELINE_CHILD_MODEL);
 });
 
 test('hook policy copy matches the allowlist owner and the installed role files', async () => {
@@ -427,10 +408,17 @@ test('hook policy copy matches the allowlist owner and the installed role files'
   const policy = JSON.parse(
     readFileSync(resolve(repoRoot, '.codex/hooks/knu-hook-policy.json'), 'utf8'),
   );
-  const { ROLE_EFFORTS } = await import('../../../agents/codex/model-profiles.mjs');
-  assert.deepEqual(Object.keys(policy).sort(), ['allowedModels', 'roster', 'schema']);
-  assert.equal(policy.schema, 'knu-codex-hook-policy/v1');
+  const { ROLE_EFFORTS, ALLOWED_ROLE_MODELS } =
+    await import('../../../agents/codex/model-profiles.mjs');
+  assert.deepEqual(Object.keys(policy).sort(), [
+    'allowedModels',
+    'allowedRoleModels',
+    'roster',
+    'schema',
+  ]);
+  assert.equal(policy.schema, 'knu-codex-hook-policy/v2');
   assert.deepEqual(policy.allowedModels, [...ALLOWED_CHILD_MODELS]);
+  assert.deepEqual(policy.allowedRoleModels, ALLOWED_ROLE_MODELS);
   assert.deepEqual(policy.roster, Object.keys(ROLE_EFFORTS));
   assert.deepEqual([...policy.roster].sort(), expectedRoles.map(({ name }) => name).sort());
 });

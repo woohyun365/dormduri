@@ -1,8 +1,9 @@
 // Codex project hook for KNU subagents, registered in `.codex/hooks.json`.
-// PreToolUse allows a spawn only for a repo `knu_*` role with an allowed explicit model and a bounded fork. It denies
-// child spawns and every bare `spawn_agent` (V1 roots and V2 providers without tool namespaces). Follow-up and message
-// calls are recorded only. SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort
-// that completion checks bind to. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`, which
+// PreToolUse allows a spawn only for a repo `knu_*` role with an allowed explicit model that the role has a profile pair
+// for, and a bounded fork. It denies child spawns and every bare `spawn_agent` (V1 roots and V2 providers without tool
+// namespaces). Follow-up and message calls are recorded only. The allow record binds the task name to its role and
+// model; SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort that completion
+// checks compare with that bind. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`, which
 // workspace-write children cannot write. Imports stay inside `node:` so no child-editable module decides a result.
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
@@ -12,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 export const HOOK_RECORD_SCHEMA = 'knu-codex-subagent-hook/v1';
 export const RECORD_DIRECTORY = '.codex/state/knu-subagent-hooks';
 const POLICY_PATH = '.codex/hooks/knu-hook-policy.json';
-const POLICY_SCHEMA = 'knu-codex-hook-policy/v1';
+const POLICY_SCHEMA = 'knu-codex-hook-policy/v2';
 // Codex joins the V2 tool namespace to the name without a separator (`collaborationspawn_agent`).
 const GUARDED_TOOL = /^(.*?)(spawn_agent|followup_task|send_message)$/u;
 const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
@@ -43,8 +44,20 @@ export function decideToolUse(payload, policy) {
   if (typeof input.model !== 'string' || input.model === '')
     return decided('deny', 'model-missing');
   if (!policy.allowedModels.includes(input.model)) return decided('deny', 'model-not-allowed');
+  if (!allowedPair(policy.allowedRoleModels, input.agent_type, input.model))
+    return decided('deny', 'pair-not-allowed');
   if (!boundedFork(input.fork_turns)) return decided('deny', 'full-history-fork');
   return decided('allow');
+}
+
+function allowedPair(pairs, role, model) {
+  return (
+    pairs !== null &&
+    typeof pairs === 'object' &&
+    Object.hasOwn(pairs, role) &&
+    Array.isArray(pairs[role]) &&
+    pairs[role].includes(model)
+  );
 }
 
 // Full-history forks (`fork_turns` omitted or "all") inherit the parent model and ignore overrides.
@@ -157,7 +170,16 @@ function parsePolicy(text) {
   const policy = JSON.parse(text);
   const strings = (value) =>
     Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
-  if (policy?.schema !== POLICY_SCHEMA || !strings(policy.allowedModels) || !strings(policy.roster))
+  const pairs = policy?.allowedRoleModels;
+  if (
+    policy?.schema !== POLICY_SCHEMA ||
+    !strings(policy.allowedModels) ||
+    !strings(policy.roster) ||
+    pairs === null ||
+    typeof pairs !== 'object' ||
+    Array.isArray(pairs) ||
+    !Object.values(pairs).every(strings)
+  )
     throw new TypeError('hook policy is invalid');
   return policy;
 }
@@ -185,8 +207,8 @@ function denyOutput(reason) {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
       permissionDecisionReason:
-        `KNU subagent guard: ${reason}. Spawn only a repo knu_* role with an allowed explicit model ` +
-        'and fork_turns "none" or a positive integer; children may not spawn.',
+        `KNU subagent guard: ${reason}. Spawn only a repo knu_* role with an allowed explicit model that the ` +
+        'role has a profile pair for, and fork_turns "none" or a positive integer; children may not spawn.',
     },
   });
 }
@@ -203,7 +225,8 @@ function main() {
     const event = payload?.hook_event_name;
     if (
       event === 'PreToolUse' &&
-      decideToolUse(payload, { roster: [], allowedModels: [] }).tool === 'spawn_agent'
+      decideToolUse(payload, { roster: [], allowedModels: [], allowedRoleModels: {} }).tool ===
+        'spawn_agent'
     )
       stdout = denyOutput(`guard-error (${error.message})`);
     else stdout = event === 'SubagentStop' ? '{}' : '';

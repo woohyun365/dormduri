@@ -296,6 +296,51 @@ test('profiles own models and roles while each role file owns its effort', async
   assert.equal(ROLE_EFFORTS.knu_reviewer, 'xhigh');
 });
 
+test('allowed (role, model) pairs are the profile roles with their profile model', async () => {
+  const { ALLOWED_ROLE_MODELS, isAllowedRoleModel, ROLE_EFFORTS } =
+    await import('../../../agents/codex/model-profiles.mjs');
+  const astra = BASELINE_CHILD_MODEL;
+  const sol = getModelProfile('standard-read').model;
+  const luna = getModelProfile('extract').model;
+  assert.deepEqual(ALLOWED_ROLE_MODELS, {
+    knu_explorer_medium: [astra],
+    knu_explorer: [astra, sol],
+    knu_explorer_xhigh: [astra, luna, sol],
+    knu_researcher_medium: [astra],
+    knu_researcher: [astra, sol],
+    knu_researcher_xhigh: [astra, sol],
+    knu_executor_medium: [astra],
+    knu_executor: [astra, sol],
+    knu_executor_xhigh: [astra, sol],
+    knu_reviewer: [astra],
+  });
+  assert.deepEqual(Object.keys(ALLOWED_ROLE_MODELS), Object.keys(ROLE_EFFORTS));
+  assert.ok(
+    Object.isFrozen(ALLOWED_ROLE_MODELS) && Object.isFrozen(ALLOWED_ROLE_MODELS.knu_reviewer),
+  );
+  // The promotion ladder (failed row 1 → 6.1 Sol, rows 2~5 → Astra, same role) stays inside these pairs.
+  for (const [profileId, next] of [
+    ['extract', sol],
+    ['standard-read', astra],
+    ['elevated-read', astra],
+    ['standard-build', astra],
+    ['elevated-build', astra],
+  ])
+    for (const role of getModelProfile(profileId).roles)
+      assert.equal(isAllowedRoleModel(role, next), true, `${profileId}:${role}`);
+  for (const [role, model] of [
+    ['knu_reviewer', sol],
+    ['knu_explorer_medium', luna],
+    ['knu_explorer', luna],
+    ['knu_executor_medium', sol],
+    ['knu_explorer', UNLISTED_MODEL],
+    ['default', astra],
+    ['constructor', astra],
+    [undefined, astra],
+  ])
+    assert.equal(isAllowedRoleModel(role, model), false, `${role}:${model}`);
+});
+
 test('model recovery is suspended at its single entry and no recovery binding is current', async () => {
   const { createRecoveryBinding, assertCurrentRecoveryBinding } =
     await import('../../../agents/codex/model-profiles.mjs');

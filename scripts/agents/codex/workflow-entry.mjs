@@ -206,6 +206,7 @@ export function validateCodexWorkflowResults(
         laneId,
         dispatchToken: input?.dispatchToken,
         expectedRole: children.get(laneId).routeRecommendation.role,
+        expectedModel: getModelProfile(children.get(laneId).routeRecommendation.profileId).model,
       }),
     }));
   for (const { laneId, accepted, reason } of completionChecks)

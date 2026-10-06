@@ -1,6 +1,5 @@
 name = "knu_reviewer"
 description = "최종 결정을 소유하지 않고 correctness·보안·architecture·검증 근거를 검토합니다"
-model = "gpt-6-astra"
 sandbox_mode = "read-only"
 model_reasoning_effort = "xhigh"
 developer_instructions = """

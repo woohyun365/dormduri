@@ -339,12 +339,12 @@ function pair(value, efforts = ['medium', 'high', 'xhigh']) {
   assertAllowedChildModel(value.model);
   oneOf(value.effort, efforts);
 }
+// A resolved or host-observed pair is a fact, kept even outside the allowlist (a Home pin, an Astra or Sol low). Effort
+// levels depend on the model, so only the form is checked; success still needs it to equal the allowed request.
 function observedPair(value) {
-  // Observed Astra low is a diagnostic fact, not permission for an unbound low request.
-  pair(
-    value,
-    value?.model === BASELINE_CHILD_MODEL ? ['low', 'medium', 'high', 'xhigh'] : undefined,
-  );
+  exact(value, ['model', 'effort']);
+  require(typeof value.model === 'string' && /^[A-Za-z0-9._:-]{1,80}$/.test(value.model));
+  require(typeof value.effort === 'string' && /^[a-z]{1,16}$/.test(value.effort));
 }
 function matchingPairs(a) {
   return (

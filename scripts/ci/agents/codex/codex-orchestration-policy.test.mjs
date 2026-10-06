@@ -1016,7 +1016,7 @@ test('a leader-reported completed child is refused without its hook observation'
   );
 });
 
-test('hook observations bind each completed lane to its contract role and an allowed model', () => {
+test('hook observations bind each completed lane to its contract role, model and role effort', () => {
   const delegation = legalDelegation();
   const synthesize = (hookObservation, dispatchToken = FIXTURE_DISPATCH_TOKEN) =>
     prepareLeaderSynthesis({
@@ -1026,11 +1026,50 @@ test('hook observations bind each completed lane to its contract role and an all
       dispatchToken,
     });
 
+  // Both lanes are xhigh roles on the Astra assignment profile.
   const observed = synthesize(observedChildren(delegation));
   assert.equal(observed.readyForLeaderDecision, true);
   assert.deepEqual(observed.refusedLaneIds, []);
   assert.ok(
-    observed.completionChecks.every(({ accepted, effort }) => accepted && effort === 'high'),
+    observed.completionChecks.every(({ accepted, effort }) => accepted && effort === 'xhigh'),
+  );
+  // Without the PreToolUse allow record (fail-open guard) nothing bound the spawn.
+  assert.deepEqual(
+    synthesize(observedChildren(delegation, { bind: false })).completionChecks.map(
+      ({ reason }) => reason,
+    ),
+    ['observation-unbound', 'observation-unbound'],
+  );
+  // 6.1 Sol is an allowed pair for both roles, but the contracts asked for Astra.
+  const otherModel = synthesize(observedChildren(delegation, { model: 'gpt-6.1-sol' }));
+  assert.equal(otherModel.readyForLeaderDecision, false);
+  assert.deepEqual(
+    otherModel.completionChecks.map(({ reason }) => reason),
+    ['model-mismatch', 'model-mismatch'],
+  );
+  const lowered = observedChildren(delegation);
+  for (const record of lowered.records)
+    if (record.event === 'SubagentStop') record.ownTurn = { ...record.ownTurn, effort: 'high' };
+  assert.deepEqual(
+    synthesize(lowered).completionChecks.map(({ reason }) => reason),
+    ['effort-mismatch', 'effort-mismatch'],
+  );
+  // A grandchild under the first lane refuses that lane only.
+  const nested = observedChildren(delegation);
+  const firstStart = nested.records.find(({ event }) => event === 'SubagentStart');
+  nested.records.push({
+    ...firstStart,
+    agentId: 'grandchild-0',
+    agentType: 'default',
+    agentPath: `${firstStart.agentPath}/helper`,
+    parentThreadId: firstStart.agentId,
+  });
+  assert.deepEqual(
+    synthesize(nested).completionChecks.map(({ laneId, reason }) => [laneId, reason]),
+    [
+      ['legal-official-evidence', 'observation-foreign'],
+      ['legal-repository-map', null],
+    ],
   );
 
   const unlisted = synthesize(observedChildren(delegation, { model: UNLISTED_MODEL }));
@@ -1099,6 +1138,27 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
   assert.deepEqual(incomplete.missingLaneIds, ['legal-official-evidence']);
   assert.deepEqual(incomplete.pendingRecoveryLaneIds, ['legal-official-evidence']);
   assert.equal(incomplete.conflicts[0].resolution, 'unresolved');
+  // A distinct-approach alternate has no recovery binding, so it names no next model, and synthesis refuses one that does.
+  assert.equal(incomplete.recoveryDecisions[0].nextModel ?? null, null);
+  const unbound = {
+    ...evaluateRecovery({
+      laneId: 'legal-official-evidence',
+      attempts: [failedAttempt('official-api', 'tool-unavailable')],
+    }),
+    nextModel: 'gpt-6-astra',
+  };
+  assert.throws(
+    () =>
+      prepareLeaderSynthesis({
+        delegation,
+        childResults: [successfulLegalResults()[1]],
+        recoveryDecisions: [unbound],
+      }),
+    {
+      name: 'TypeError',
+      message: 'A recovery decision without a binding cannot name a next model.',
+    },
+  );
 });
 
 test('rejects child attempts to claim final decisions or omit contract outputs', () => {

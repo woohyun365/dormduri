@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { recommendDelegation } from '../../../agents/codex/child-task-contract.mjs';
+import { getModelProfile } from '../../../agents/codex/model-profiles.mjs';
 import { createDispatchRecommendation } from '../../../agents/codex/orchestration-policy.mjs';
 import {
   createSemanticSourceId,
@@ -462,6 +463,25 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   assert.deepEqual(
     observed.completionChecks.map(({ laneId, accepted }) => [laneId, accepted]),
     [['legal-test', true]],
+  );
+  // The lane contract asks for 6.1 Sol; an allowed Astra child of the same role does not complete it.
+  const [legalTest] = w.delegation.recommendedChildren;
+  assert.equal(getModelProfile(legalTest.routeRecommendation.profileId).model, 'gpt-6.1-sol');
+  assert.deepEqual(
+    validateCodexWorkflowResults(i, {
+      results: [r],
+      review,
+      hookObservation: observedChildren(w.delegation, { model: 'gpt-6-astra' }),
+    }).errors,
+    ['child lane legal-test completion refused: model-mismatch'],
+  );
+  assert.deepEqual(
+    validateCodexWorkflowResults(i, {
+      results: [r],
+      review,
+      hookObservation: observedChildren(w.delegation, { bind: false }),
+    }).errors,
+    ['child lane legal-test completion refused: observation-unbound'],
   );
   const foreign = observedChildren(w.delegation, { agentType: 'default' });
   assert.deepEqual(
