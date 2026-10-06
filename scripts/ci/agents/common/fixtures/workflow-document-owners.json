@@ -192,7 +192,7 @@
       "path": "docs/development/agent-workflows/request-intake/README.md",
       "owner": "general development workflow owner",
       "kind": "normative",
-      "rationale": "intake→authority→context→output의 공통 의미를 보존한다. Codex recovery와 fresh-session-smoke 명령을 host 조건으로 분리한다."
+      "rationale": "intake→authority→context→output의 공통 의미를 보존한다. Codex recovery와 Codex intake 회귀 test를 host 조건으로 분리한다."
     },
     {
       "path": "docs/development/agent-workflows/request-intake/ambiguity-and-authority.md",

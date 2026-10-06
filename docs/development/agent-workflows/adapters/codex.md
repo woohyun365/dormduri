@@ -20,7 +20,7 @@ pnpm codex:workflow -- --request '지정 작업을 분석해줘.' --mode resume 
 pnpm codex:preflight -- --fresh
 ```
 
-`codex/workflow-entry.mjs`의 `prepareCodexWorkflow`는 공통 intake/context/readset → 기존 Codex delegation/dispatch 추천 → 공통 bounded lane 검증을 연결합니다. `fresh-session-smoke`도 이 caller를 소비합니다. CLI는 현재 요청의 deterministic 진단이며 provider·native agent·OMX를 실행하지 않습니다. 명시한 plan 외에 local memory를 탐색하지 않습니다.
+`codex/workflow-entry.mjs`의 `prepareCodexWorkflow`는 공통 intake/context/readset → 기존 Codex delegation/dispatch 추천 → 공통 bounded lane 검증을 연결합니다. CLI는 현재 요청의 deterministic 진단이며 provider·native agent·OMX를 실행하지 않습니다. 명시한 plan 외에 local memory를 탐색하지 않습니다.
 
 API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnapshot`, `adapterIdentity`는 Parent가 현재 source와 비교해 제공합니다. Missing binding은 gap이며 자동 권한이 아닙니다. `validateCodexWorkflowResults`는 원래 입력에서 계약을 다시 계산하고 common fan-in과 독립 QA exchange를 검사합니다. `reviewDisposition: { required, reason }`에 공통 QA trigger를 검토한 Lead 판단을 명시합니다. 오탈자 등 저위험 direct 작업의 `not-needed` 의미를 보존하고, disposition 누락은 gap입니다. Bounded-build의 필수 Astra QA는 면제하지 않습니다. QA가 필요하면 현재 task/owner/snapshot뿐 아니라 lane acceptance와 read/write scope에 대응하는 완료 PASS를 요구합니다. 제출된 coverage·관측 모델은 Lead가 실제 증거와 다시 대조해야 합니다. 결과 `valid`는 정적 정합성뿐입니다. 실제 호출·model/permission·finding 재현·Astra QA·종료 입증은 계속 Parent와 host의 책임입니다.
 
@@ -107,7 +107,7 @@ admission을 통과하지 못하면 위 Astra 배정이 그대로입니다. 결�
 모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Standard profile은
 complete Medium 계층, elevated profile은 같은 조건의 High 계층입니다(읽기는 XHigh와 impact high 읽기도 포함). Task/cohort/검증 fact와 write/context/runtime/admission gate도 통과해야 합니다.
 6.1 Sol 후보는 Owner 채택(2026-10-06)으로 routine입니다. 별도 품질 canary 없이 채택했으므로 작업마다 oracle·독립 검사,
-구현의 필수 Astra QA와 [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)가 품질을 지킵니다.
+구현의 필수 Astra QA와 [hook 관측](#subagent-hook-guardrail과-완료-관측)(관측 model·effort의 완료 대조)이 품질을 지킵니다.
 Pilot 요청도 그대로 받습니다. Semantic 계층과 후보 역할의
 effort는 별도 축입니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
 
@@ -116,7 +116,7 @@ Parent는 선택 근거를 짧은 sanitized evidence reference로 남깁니다. 
 위험·가역성·쓰기 범위가 적합한지, 해당 profile/role의 승인·실패 이력이 유효한지를 확인합니다.
 파일 수·LOC·keyword 점수로 선택하지 않으며 xhigh가 재작업을 줄였다는 주장은 matched evidence 없이 하지 않습니다.
 Max worker/복구, Parent·운영 reviewer 변경은 허용하지 않습니다.
-[실행 기록과 원인/복구 관측](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)은 선택을 기록할 뿐
+[Hook 기록과 실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)은 실행을 관측할 뿐
 semantic eligibility나 admission을 완화하지 않습니다.
 
 현재 채택 범위와 새 세션의 선택 순서는 [Routine task-model operation](#routine-task-model-operation)을 따릅니다.
@@ -137,7 +137,7 @@ quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니�
 
 Model recovery는 중단되어 있습니다. 실패한 candidate는 Astra alternate를 받지 않고 Parent 판단이나 handoff로 돌아갑니다.
 `createRecoveryBinding()`이 유일한 입구이며 중단 상태에서는 `Model recovery is suspended; a failed candidate returns to the
-Parent or a handoff.`로 거절합니다. 같은 입구를 거치는 binding 검증과 run evidence는 같은 사유로 거절되고, recovery
+Parent or a handoff.`로 거절합니다. 같은 입구를 거치는 binding 검증은 같은 사유로 거절되고, recovery
 dispatch는 `model-recovery-incompatible-or-unadmitted` gap을 남기며 descriptor를 만들지 않습니다.
 `evaluateRecovery()`는 model 경로의 재시도 가능 실패에 `terminal-handoff`와 `model-recovery-suspended`(writer 미회수면
 `model-pending-writer-not-cleared`)를 반환하고, 이미 기록된 Astra alternate는 같은 사유로 거절합니다. 중단 이유는 이전
@@ -154,9 +154,8 @@ Parent는 profileId를 고르고 현재 binding을 request → contract → admi
 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐이고,
 역할별로는 `ALLOWED_ROLE_MODELS`(각 profile의 역할 × 그 profile model)의 쌍만 요청합니다. 승격 사다리의 다음 단(같은 역할,
 다음 model)도 이 쌍 안에 있습니다.
-Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding, attempt, admission, run evidence 요청의 허용 목록 밖
-model은 이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Run evidence의 resolved·hostObserved는
-관측 사실이므로 허용 목록 밖(예: Home pin)이어도 형식만 검사해 failure/blocked로 남기고 성공으로 받지 않습니다. Dispatch 판정이 읽는
+Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding, attempt, admission 요청의 허용 목록 밖
+model은 이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Dispatch 판정이 읽는
 host 관측(effective·supported·role model, configuration resolution, hostMetadata)은 거절하지 않고 gap으로 남깁니다. Host가 확인한
 child model·effort는 [hook 기록](#subagent-hook-guardrail과-완료-관측)이 근거입니다. Codex가 직접 읽는 `.codex` 기본값은 test로
 `BASELINE_CHILD_MODEL`에 결속하고, 역할 파일의 `model` 필드는 test가 금지합니다. Effort 변형 역할은 있지만 모델별 TOML clone이나
@@ -265,7 +264,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    hook 기록이 없거나 bind·계약 model·역할 effort와 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
 7. **실패·기록·cleanup**: [model recovery는 중단](#model-recovery-suspension)되어 있어 실패한 candidate는 writer 회수 뒤
    Parent 판단이나 handoff로 돌아갑니다. Usage가 없으면 null로 남기고
-   [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에 controlled fault와 실제 miss를 구분합니다.
+   [실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에서 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.
 
 ### Suspension and Astra-only rollback

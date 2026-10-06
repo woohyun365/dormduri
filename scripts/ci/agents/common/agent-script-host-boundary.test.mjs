@@ -9,10 +9,10 @@ const codexOwners = [
   'routing-policy',
   'child-task-contract',
   'orchestration-policy',
-  'model-run-evidence',
-  'fresh-session-smoke',
   'session-contract',
 ];
+// Callerless advisory modules stay removed; hook records and the package CLIs carry their observations.
+const removedCodexModules = ['fresh-session-smoke', 'model-run-evidence'];
 
 test('common facade exposes only host-neutral intake, decision, readiness and QA', async () => {
   const common = await import('../../../agents/common/index.mjs');
@@ -93,6 +93,8 @@ test('Codex implementations have one owner and no root compatibility imports rem
     assert.equal(existsSync(resolve(root, `scripts/agents/${name}.mjs`)), false, name);
   }
   assert.equal(existsSync(resolve(root, 'scripts/agents/session-preflight.mjs')), false);
+  for (const name of removedCodexModules)
+    assert.equal(existsSync(resolve(root, `scripts/agents/codex/${name}.mjs`)), false, name);
   const cli = resolve(root, 'scripts/agents/codex/session-preflight.mjs');
   assert.notEqual(statSync(cli).mode & 0o111, 0, 'direct preflight CLI stays executable');
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
