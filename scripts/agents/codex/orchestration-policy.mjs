@@ -807,7 +807,8 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
 }
 
 // A completed child counts only when its own hook records bind it (subagent-hook-records.mjs); a leader report alone
-// is refused. hookObservation = { sessionId, records } from the Parent session; dispatchToken is the dispatch's token.
+// is refused. hookObservation = readHookRecords() of the Parent session ({ sessionId, records, malformed });
+// dispatchToken is the dispatch's token.
 export function prepareLeaderSynthesis({
   delegation,
   childResults = [],
@@ -862,6 +863,7 @@ export function prepareLeaderSynthesis({
         laneId,
         dispatchToken,
         expectedRole: contracts.get(laneId).routeRecommendation.role,
+        expectedModel: getModelProfile(contracts.get(laneId).routeRecommendation.profileId).model,
       }),
     }));
   const refusedLaneIds = completionChecks
@@ -1669,6 +1671,9 @@ function normalizeRecoveryDecision(value) {
     throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
   if (!value.recoveryBinding && attempts.some((attempt) => attempt.recoveryBinding))
     throw new TypeError('Attributed recovery attempts require their decision-level binding.');
+  // Only a current recovery binding names the next model; an unbound decision would carry an unchecked model.
+  if (!value.recoveryBinding && value.nextModel != null)
+    throw new TypeError('A recovery decision without a binding cannot name a next model.');
   if (value.recoveryBinding) {
     assertRecoveryAttempts(attempts, value.recoveryBinding);
     if (

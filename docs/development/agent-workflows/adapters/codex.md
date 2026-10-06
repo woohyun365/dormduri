@@ -124,8 +124,8 @@ semantic eligibility나 admission을 완화하지 않습니다.
 [pilot/adoption·runtime admission](../request-intake/orchestration-recovery.md#model-admission)을 따릅니다.
 별도 허용된 최초 pilot은 adoption GO 전에도 비교할 수 있지만, pilot 허용/PASS는 운영 채택 GO가 아닙니다.
 Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. 자동 keyword classifier나 scheduler는 없습니다.
-기본값/최종 QA는 Astra입니다. 실행·읽기 역할은 model pin 없이 task 선택을 받지만, 실제 loaded role에 pin이 있으면
-lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
+기본값/최종 QA는 Astra입니다. Reviewer를 포함한 모든 `knu_*` 역할은 model pin 없이 profile model을 명시적으로 받지만,
+실제 loaded role에 pin이 있으면 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 지원된 명시적 모델·effort/scoped fork와 source/config/권한을 확인한 descriptor만 실제 native 호출에 전달합니다.
 Lower-model lane도 일반 동시 한도를 따릅니다(같은 role의 다른 model lane 포함). 품질/지원 불일치는 pending writer를 회수한 뒤 Parent 판단이나 handoff로 넘기며,
 quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
@@ -151,11 +151,15 @@ Astra-only rescue가 역할 pin effort와 다른 Low·semantic effort를 기록�
 `scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model·허용 role·계층·task·도구·검증 키와 역할별 effort 표
 `ROLE_EFFORTS`를 소유합니다. Effort 값은 각 역할 파일이 pin하며 test가 두 값을 결속합니다.
 Parent는 profileId를 고르고 현재 binding을 request → contract → admission → config resolution → execution report에
-연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐입니다.
-Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding, attempt, admission, run evidence의 허용 목록 밖 model은
-이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Dispatch 판정이 읽는 host 관측(effective·
-supported·role model, configuration resolution, hostMetadata)은 거절하지 않고 gap으로 남깁니다. Codex가 직접 읽는 `.codex`
-기본값·reviewer pin은 test로 `BASELINE_CHILD_MODEL`에 결속합니다. Effort 변형 역할은 있지만 모델별 TOML clone이나
+연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐이고,
+역할별로는 `ALLOWED_ROLE_MODELS`(각 profile의 역할 × 그 profile model)의 쌍만 요청합니다. 승격 사다리의 다음 단(같은 역할,
+다음 model)도 이 쌍 안에 있습니다.
+Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding, attempt, admission, run evidence 요청의 허용 목록 밖
+model은 이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Run evidence의 resolved·hostObserved는
+관측 사실이므로 허용 목록 밖(예: Home pin)이어도 형식만 검사해 failure/blocked로 남기고 성공으로 받지 않습니다. Dispatch 판정이 읽는
+host 관측(effective·supported·role model, configuration resolution, hostMetadata)은 거절하지 않고 gap으로 남깁니다. Host가 확인한
+child model·effort는 [hook 기록](#subagent-hook-guardrail과-완료-관측)이 근거입니다. Codex가 직접 읽는 `.codex` 기본값은 test로
+`BASELINE_CHILD_MODEL`에 결속하고, 역할 파일의 `model` 필드는 test가 금지합니다. Effort 변형 역할은 있지만 모델별 TOML clone이나
 provider adapter/scheduler는 만들지 않습니다.
 
 미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
@@ -183,13 +187,13 @@ fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/d
 
 ### Task model configuration and fresh loading
 
-| 설정 owner                                                     | 계약                                                                                                      |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                       |
-| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                          |
-| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                    |
-| `knu_reviewer`                                                 | Astra model pin, effort pin xhigh, read-only                                                              |
-| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard·subagent 완료 기록, 허용 model·roster 정책 사본([hook](#subagent-hook-guardrail과-완료-관측)) |
+| 설정 owner                                                     | 계약                                                                                                              |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                               |
+| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                  |
+| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                            |
+| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                               |
+| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard·subagent 완료 기록, 허용 model·역할 쌍·roster 정책 사본([hook](#subagent-hook-guardrail과-완료-관측)) |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 그래서 effort는 역할 pin이 정하고, spawn의 `reasoning_effort`는 그 값과 같을 때만 dispatch descriptor가 됩니다. Model pin이
@@ -200,7 +204,7 @@ Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents 
 설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
 
 1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
-   이름·sandbox·instructions·기본값·reviewer pin·상한은 별도로 대조합니다.
+   이름·sandbox·instructions·기본값·model pin 부재·상한은 별도로 대조합니다.
 2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
    역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.
    파일만 읽고 `configurationResolution`을 만들거나 actual model을 관측했다고 쓰지 않습니다.
@@ -258,7 +262,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `evaluateModelExecution()`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
-   hook 기록이 없거나 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
+   hook 기록이 없거나 bind·계약 model·역할 effort와 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
 7. **실패·기록·cleanup**: [model recovery는 중단](#model-recovery-suspension)되어 있어 실패한 candidate는 writer 회수 뒤
    Parent 판단이나 handoff로 돌아갑니다. Usage가 없으면 null로 남기고
    [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에 controlled fault와 실제 miss를 구분합니다.
@@ -331,8 +335,9 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
 
 - **호출 시점(PreToolUse)**: matcher는 도구 이름 접미 `(spawn_agent|followup_task|send_message)$`입니다. V2 hook 이름은 namespace
   (`features.multi_agent_v2.tool_namespace`, 기본 `collaboration`)와 이름을 구분자 없이 잇기 때문입니다. Spawn은 Parent가 부르고
-  (1) `agent_type`이 `.codex/agents`의 `knu_*` roster (2) 허용 목록 안 explicit `model` (3) `fork_turns`가 `"none"` 또는 양의 정수일
-  때만 허용합니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는 V2 provider)는 전부 deny합니다.
+  (1) `agent_type`이 `.codex/agents`의 `knu_*` roster (2) 허용 목록 안 explicit `model`이고 그 역할의 profile 쌍
+  (`pair-not-allowed`) (3) `fork_turns`가 `"none"` 또는 양의 정수일 때만 허용합니다. 허용 기록은 task name과 역할·model을
+  묶는 bind입니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는 V2 provider)는 전부 deny합니다.
   `followup_task`·`send_message`는 기록만 합니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다.
 - **내장·OMX 역할**: project hook이 로드된 세션에서는 이 repository 안의 내장 역할(`default` 등)·OMX 역할 spawn이 막힙니다.
   Repository 위임은 `knu_*` 역할로 합니다.
@@ -342,25 +347,34 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   저장하지 않고 byte 길이만 남깁니다. `.codex`는 workspace-write child가 쓸 수 없고 hook은 sandbox 밖에서 씁니다.
   Full access 세션과 Parent 권한 상승 쓰기는 막지 못합니다.
 - **완료 판정**: child 결과는 Parent 보고만으로 완료가 아닙니다. `prepareLeaderSynthesis()`와 child lane의
-  `validateCodexWorkflowResults()`는 같은 Parent session의 Start·Stop 기록이 그 dispatch의 task path(`/root/<lane>_<token>`)·계약
-  역할·허용 목록 model·roster를 모두 맞출 때만 완료로 받습니다. 허용 목록·roster는 `model-profiles.mjs`에서 읽고 호출자가 넘긴
-  값은 쓰지 않습니다. Token이 없으면 `dispatch-token-missing`, 같은 task path에 child가 둘 이상이면 `observation-ambiguous`로
+  `validateCodexWorkflowResults()`는 같은 Parent session에서 다음을 모두 만족할 때만 완료로 받습니다. Start·Stop 기록이 그
+  dispatch의 task path(`/root/<lane>_<token>`)·계약 역할·허용 목록 model·roster를 맞추고, 그 task name의 root PreToolUse allow
+  기록(bind)이 같은 역할·model을 묶고, lane 계약 model(route profile의 model)과 역할 쌍이 허용되고, Start `model`·Stop own-turn
+  model이 계약 model과 같고 own-turn effort가 역할 pin(`ROLE_EFFORTS`)과 같으며, 그 child 아래 descendant Start가 없을 때입니다.
+  Hook 기록 입력은 `readHookRecords()` 결과(`sessionId`·`records`·`malformed`)이고, 읽지 못한 줄이 하나라도 있으면(수를 모르는
+  경우 포함) 그 줄이 descendant Start였을 수 있어 `observation-malformed`로 거부합니다.
+  거부 사유는 bind 없음 `observation-unbound`, descendant `observation-foreign`, `pair-not-allowed`, `model-mismatch`,
+  own-turn 없음 `effort-unobserved`, `effort-mismatch`이고 기존 사유(`observation-missing`·`-incomplete`·`-mismatch`,
+  `model-not-allowed`, `role-not-in-roster`)는 그대로입니다. 허용 목록·roster·역할 쌍·역할 effort는 `model-profiles.mjs`에서
+  읽고 호출자가 넘긴 값은 쓰지 않습니다. Token이 없으면 `dispatch-token-missing`, 같은 task path에 child가 둘 이상이면 `observation-ambiguous`로
   거부합니다. Token은 dispatch마다 새로 정하는 소문자·숫자 4~12자이고, 같은 session에서 lane id를 다시 써도 이전 child 기록이
   새 dispatch를 완료시키지 않게 합니다. Token을 일부러 재사용하는 것은 막지 못합니다. Shell에서는
-  `pnpm codex:completion -- --lane <laneId> --token <token> --role <agent_type>`(session은 `CODEX_THREAD_ID`)로 확인합니다.
-  기대 model·effort 대조는 하지 않습니다(effort는 기록만).
+  `pnpm codex:completion -- --lane <laneId> --token <token> --role <agent_type> --model <계약 model>`(session은
+  `CODEX_THREAD_ID`)로 확인합니다. 출력의 `unboundStarts`는 어느 allow 기록과도 짝이 없는 session의 Start 수입니다.
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
   완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
-- **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 완료 판정의 허용 목록·roster 대조는 남지만
-  `knu_*` child가 허용 목록 model로 띄운 grandchild에는 호출·완료 시점 통제가 없고 역할 prompt의 재위임 금지와 V2
-  `<multi_agent_mode>` 지시만 남습니다. Hook 항목 하나만 바뀌어 그 항목만 재검토 대기인 부분 부재도 같습니다.
+- **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이
+  `observation-unbound`로 거부합니다. `knu_*` child가 띄운 grandchild는 호출 시점에 막히지 않지만, 그 Start 기록이 lane task
+  path 아래이거나 lane child를 부모 thread로 가리키면 lane을 `observation-foreign`으로 거부합니다. Hook 항목 하나만 바뀌어 그
+  항목만 재검토 대기인 부분 부재도 같습니다.
 - **완료 거부 뒤 writer 변경**: 거부는 결과 수락만 막습니다. Parent는 이미 실행된 writer child가 바꾼 경로를 확인해 계약 밖
   변경을 되돌리거나 handoff하고, 거부된 결과를 통합 근거로 쓰지 않습니다.
 - **엔진과 허용 목록 범위**: 허용 목록 model은 catalog v2 model입니다. Project hook이 로드된 세션에서는 V1 root의 spawn이 전부
   deny되어 V1 경로의 child가 생기지 않습니다. Hook이 없거나 PreToolUse가 실패하면 V1 child도 실행될 수 있으며, 완료 판정은 그
-  dispatch task path의 기록을 요구합니다.
+  dispatch task path의 기록과 allow 기록을 요구합니다.
 - **정책 사본**: hook은 child가 쓸 수 있는 workspace module을 import하지 않고 `.codex/hooks/knu-hook-policy.json`을 읽습니다. 사본이
-  `model-profiles.mjs` 허용 목록·역할 roster와 같음은 test가 결속합니다. `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
+  `model-profiles.mjs` 허용 목록·역할 쌍·역할 roster와 같음은 test가 결속합니다. 사본 schema가 맞지 않거나 쌍이 없으면 hook은
+  spawn을 deny합니다. `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
 
 ## Diagnostic contract
 

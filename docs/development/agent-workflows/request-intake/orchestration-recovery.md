@@ -56,11 +56,11 @@ roles[]:
 - Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
   permission을 다시 읽고 조금이라도 달라지면 descriptor를 폐기합니다.
 
-Project child 기본값은 `.codex/config.toml`의 Astra이며, `knu_reviewer`만 Astra를 고정합니다. 나머지 아홉 역할(explorer·
-researcher·executor의 `_medium`·기본·`_xhigh`)은 model pin 없이 profile이 정한 명시적 task 모델을 받고, effort는 각 역할
-파일의 pin이 정합니다. Parent model 변경이나 OMX의 기본값
+Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 모두 model pin 없이 profile이 정한 명시적 task 모델을
+받고(`knu_reviewer`는 `review` profile의 Astra), effort는 각 역할 파일의 pin이 정합니다. 호출할 수 있는 (역할, model) 쌍은
+각 profile의 역할과 그 profile model입니다. Parent model 변경이나 OMX의 기본값
 업데이트를 project 역할·설정의 실제 로드 증거로 사용하지 않습니다. Runtime policy의 child 기본값은 허용 목록 owner의
-`BASELINE_CHILD_MODEL`이고, `.codex/config.toml` 기본값과 `knu_reviewer` pin은 test로 이 값에 결속됩니다. 허용 목록 밖 model
+`BASELINE_CHILD_MODEL`이고, `.codex/config.toml` 기본값은 test로 이 값에 결속되며 역할 파일의 `model` 필드는 test가 금지합니다. 허용 목록 밖 model
 거절은 합성 ID 하나로 검증하며, 모델 입력·허용 근거 없는 caller를 막는 negative evidence로 유지합니다.
 이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다. Semantic 계층(`tier`)은 역할 변형을 고를 뿐이며, route effort와 후보 resolved effort는 모두 그 역할의 pin과 대조합니다.
 
@@ -173,7 +173,8 @@ reportedExecution:
 ```
 
 추천 eligibility와 현재 installed binding을 재검증하고 정확한 child/task/scope/profile·실제 accepted/executed 결과·독립 품질 검사가 맞을 때만 `accepted=true`입니다. Host metadata가 있으면
-요청 model/effort와 대조하고, 없으면 `runtime-contract-resolved`로 구분합니다. `host-reported-model`조차 이 helper가
+요청 model/effort와 대조하고, 없으면 `runtime-contract-resolved`로 구분합니다. 이 hostMetadata는 Parent 보고이며, host가 기록한
+child model·effort의 대조는 [Codex 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)이 맡습니다. `host-reported-model`조차 이 helper가
 provider를 인증했다는 뜻은 아니므로 `providerAttested=false`입니다. 자기소개·응답 스타일은 provenance가 아닙니다.
 모든 JSON/reference는 Parent 보고이며 원문 native evidence/권한을 대신하지 않습니다. Output도 `runtimeAction=false`입니다.
 
@@ -195,6 +196,7 @@ handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 
   `disposition=blocker-handoff`, `nextModel=null`을 반환합니다. Blocker는 writer가 회수됐으면 `model-recovery-suspended`,
   pending/unknown이면 `model-pending-writer-not-cleared`입니다. 이미 기록된 Astra alternate도 같은 중단 사유로 거절하며,
   attempt model 순서와 non-retryable 검사는 그 앞에서 그대로 적용됩니다.
+- Binding이 없는 recovery decision은 `nextModel`을 가질 수 없고 synthesis가 거절합니다(검사 없는 model이 출력에 실리지 않게).
 - Recovery decision을 받은 dispatch는 binding을 검증하지 못해 `model-recovery-incompatible-or-unadmitted` gap을 남기고
   descriptor를 만들지 않습니다.
 - Model 필드가 없는 일반 lane의 distinct-approach alternate 한 번은 [Recovery ceiling](#recovery-ceiling) 그대로입니다.
@@ -236,7 +238,8 @@ credentials, PII, hidden reasoning은 넣지 않습니다. Allowlist는 내용�
 Parent의 로컬 저장 절차:
 
 1. 성공·실패·blocked 모두 constructor로 검사합니다. 기존 scope/admission/once recovery 검사를 별도로 유지합니다.
-   허용된 진단 schema 안의 requested/resolved/hostObserved 불일치는 failure/blocked에 그대로 보존합니다. 성공으로
+   Requested는 허용 목록 안이어야 합니다. Resolved/hostObserved는 관측 사실이라 허용 목록 밖 model(예: Home pin)이나 다른
+   effort도 형식(model 이름·effort 단어)만 맞으면 받고, requested와의 불일치는 failure/blocked에 그대로 보존합니다. 성공으로
    승격하거나 미관측 null로 덮지 않으며, mismatch primary 기록만으로 rescue history를 허용하지 않습니다.
 2. `resolveModelRunEvidencePath(repoRoot, date, runId, environment)`로
    `.artifacts/tools/agent-thread-lifecycle/<date>/model-activation/<run-id>/attempts.json`을 구합니다.
@@ -315,7 +318,8 @@ Policy는 child evidence를 정규화하여 leader에게 다음을 제공합니�
 - `readyForLeaderDecision`
 
 Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 dispatch의 lane task path(dispatch token 포함)·
-계약 역할·허용 목록 model·roster와 모두 맞아야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
+계약 역할·허용 목록 model·roster와 맞고, 그 task name의 PreToolUse allow 기록(bind)·계약 model(route profile)·역할 pin
+effort와도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
 refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 경계는 [Codex adapter](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 
 `readyForLeaderDecision=true`도 자동 completion이나 final answer를 의미하지 않습니다. Leader가 repository의 실제

@@ -1,6 +1,18 @@
 {
-  "schema": "knu-codex-hook-policy/v1",
+  "schema": "knu-codex-hook-policy/v2",
   "allowedModels": ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"],
+  "allowedRoleModels": {
+    "knu_explorer_medium": ["gpt-6-astra"],
+    "knu_explorer": ["gpt-6-astra", "gpt-6.1-sol"],
+    "knu_explorer_xhigh": ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"],
+    "knu_researcher_medium": ["gpt-6-astra"],
+    "knu_researcher": ["gpt-6-astra", "gpt-6.1-sol"],
+    "knu_researcher_xhigh": ["gpt-6-astra", "gpt-6.1-sol"],
+    "knu_executor_medium": ["gpt-6-astra"],
+    "knu_executor": ["gpt-6-astra", "gpt-6.1-sol"],
+    "knu_executor_xhigh": ["gpt-6-astra", "gpt-6.1-sol"],
+    "knu_reviewer": ["gpt-6-astra"]
+  },
   "roster": [
     "knu_explorer_medium",
     "knu_explorer",

@@ -136,8 +136,9 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   분리하며 runtime-contract-resolved를 provider attestation으로 오인하지 않습니다. Exact pilot 권한과 운영 adoption GO를 구분하고 profile/config/
   source·scope/time/budget/check mismatch는 Parent fallback입니다. `pilot=true` 또는 pilot PASS는 채택 권한이 아닙니다.
   2026-10-06부터 Codex child 완료는 leader 보고가 아니라 project hook의 SubagentStart·SubagentStop 기록에 결속하고, 호출 시점
-  hook이 roster·허용 목록·bounded fork 밖 spawn과 child 발 spawn을 deny합니다. Hook 기록도 provider attestation이 아니며 hook이
-  없으면 완료를 거부합니다([Codex adapter](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+  hook이 roster·허용 목록·bounded fork 밖 spawn과 child 발 spawn을 deny합니다. 같은 날 호출 시점 guard에 profile의 (역할, model)
+  쌍을 더했고, 완료 판정은 그 allow 기록(bind)과 lane 계약 model·역할 pin effort를 hook 관측과 대조하며 bind 없는 spawn과 lane
+  아래 descendant를 거부합니다. Hook 기록도 provider attestation이 아니며 hook이 없으면 완료를 거부합니다([Codex adapter](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
 - **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.
 - **기각**: boolean capability assertion, local config inspection만으로 active authority 주장, generic role prompt label,
   stale session metadata 재사용.

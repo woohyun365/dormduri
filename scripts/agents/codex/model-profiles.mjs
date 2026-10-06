@@ -147,6 +147,29 @@ export const ALLOWED_CHILD_MODELS = Object.freeze([
   ...new Set([BASELINE_CHILD_MODEL, ...Object.values(PROFILES).map(({ model }) => model)]),
 ]);
 
+// The (agent_type, model) pairs a spawn may request: each profile's roles with that profile's model. The promotion
+// ladder (same role, next model) stays inside these pairs.
+export const ALLOWED_ROLE_MODELS = deepFreeze(
+  Object.fromEntries(
+    Object.keys(ROLE_EFFORTS).map((role) => [
+      role,
+      ALLOWED_CHILD_MODELS.filter((model) =>
+        Object.values(PROFILES).some(
+          (profile) => profile.model === model && profile.roles.includes(role),
+        ),
+      ),
+    ]),
+  ),
+);
+
+export function isAllowedRoleModel(role, model) {
+  return (
+    typeof role === 'string' &&
+    Object.hasOwn(ALLOWED_ROLE_MODELS, role) &&
+    ALLOWED_ROLE_MODELS[role].includes(model)
+  );
+}
+
 export function assertAllowedChildModel(model) {
   if (!ALLOWED_CHILD_MODELS.includes(model))
     throw new TypeError('Model is outside the allowed child model list.');
