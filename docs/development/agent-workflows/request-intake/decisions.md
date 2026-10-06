@@ -41,7 +41,7 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 - **결정**: `AGENTS.md` → request-intake core → primary domain → 필요한 cross-cutting guide 순서로
   최소 context를 읽는다.
 - **기각**: ignored local handoff와 과거 transcript를 항상 startup context에 주입.
-- **재검토**: fresh-session fixture가 tracked docs만으로 domain 관점을 재현하지 못할 때.
+- **재검토**: local memory 없는 새 session이 tracked docs만으로 domain 관점을 재현하지 못할 때.
 
 ## AIPO-006 — Single-first, independent-lane fail-closed
 
@@ -101,7 +101,7 @@ provider 선택이 아니라 authority, evidence, output, recovery의 repository
 상위 근거는 [Agentic architecture decisions](../agentic-architecture-decisions.md)의 official source inventory를 공유한다.
 이 결정은 다음 조건에서 재검토한다.
 
-- fresh-session fixture가 tracked guide만으로 같은 authority/output 결론에 도달하지 못함
+- local memory 없는 새 session이 tracked guide만으로 같은 authority/output 결론에 도달하지 못함
 - direct task에 child·context 비용이 반복적으로 발생함
 - high-risk action이 authority gate 없이 실행됨
 - representative fixture가 현재 bound와 output schema를 반박함

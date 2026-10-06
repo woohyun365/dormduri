@@ -214,8 +214,9 @@ handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 
   Quota·permission·cap 실패는 모델 교체 대신 stop입니다.
 - **집계**: 실행 전 거절, 의도적으로 주입한 실패, approved baseline은 실제 live primary와 따로 셉니다. 미관측 시간·비용·재작업은
   null로 두고 0으로 채우지 않습니다.
-- **기록 경계**: Hook 기록은 identity와 크기만 남기고 message 본문을 넣지 않습니다. Parent의 작업 증거에도 원문 prompt·transcript·
-  credential을 넣지 않고 참조 ID로 연결합니다. 기록 실패는 gap으로 보고하며 실행 권한이나 PASS를 만들지 않습니다.
+- **기록 경계**: Hook 기록은 identity와 크기만 남기고 message 본문을 넣지 않습니다. Parent의 작업 증거에도 [Execution evidence](../qa.md#execution-evidence)가
+  금지한 원문 prompt·transcript·환경 변수·credential·개인 정보와 hidden reasoning을 넣지 않고 참조 ID로 연결하며, 참조 ID에도
+  비밀을 넣지 않습니다. 기록 실패는 gap으로 보고하며 실행 권한이나 PASS를 만들지 않습니다.
 
 ## Recovery ceiling
 
