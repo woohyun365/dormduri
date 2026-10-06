@@ -733,26 +733,34 @@ test('the completion command reports a refusal for the Parent session and reject
   const noSession = run(usage);
   assert.equal(noSession.status, 2);
   assert.match(noSession.stderr, /session id/u);
-  // The command passes the malformed count on: a bad line in the session file refuses an otherwise bound lane.
-  const sessionId = `knu-test-malformed-${process.pid}`;
-  const file = resolve(repoRoot, '.codex/state/knu-subagent-hooks', `${sessionId}.jsonl`);
-  mkdirSync(dirname(file), { recursive: true });
-  const lane = observation({ taskName: 'lane_one_k3x9', parentThreadId: sessionId }).records.map(
-    (r) => JSON.stringify({ ...r, sessionId }),
-  );
+  // The command passes the malformed count on: a bad line in the session file refuses an otherwise bound lane. A copy
+  // under a temporary root keeps the test out of the checkout `.codex`, which workspace-write sandboxes cannot write.
+  const root = mkdtempSync(join(tmpdir(), 'knu-completion-root-'));
   try {
+    const copy = join(root, 'scripts/agents/codex');
+    mkdirSync(copy, { recursive: true });
+    for (const name of ['subagent-hook-records.mjs', 'model-profiles.mjs'])
+      copyFileSync(resolve(repoRoot, 'scripts/agents/codex', name), join(copy, name));
+    const sessionId = 'knu-test-malformed';
+    const file = join(root, '.codex/state/knu-subagent-hooks', `${sessionId}.jsonl`);
+    mkdirSync(dirname(file), { recursive: true });
+    const lane = observation({ taskName: 'lane_one_k3x9', parentThreadId: sessionId }).records.map(
+      (r) => JSON.stringify({ ...r, sessionId }),
+    );
+    const runCopy = () =>
+      spawnSync(process.execPath, [join(copy, 'subagent-hook-records.mjs'), ...usage], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, CODEX_THREAD_ID: sessionId },
+      });
     writeFileSync(file, `${[...lane, '{oops'].join('\n')}\n`);
-    const malformed = run(usage, { CODEX_THREAD_ID: sessionId });
+    const malformed = runCopy();
     assert.equal(malformed.status, 1, malformed.stderr);
     assert.equal(JSON.parse(malformed.stdout).reason, 'observation-malformed');
     writeFileSync(file, `${lane.join('\n')}\n`);
-    assert.equal(
-      run(usage, { CODEX_THREAD_ID: sessionId }).status,
-      0,
-      'the intact file is accepted',
-    );
+    assert.equal(runCopy().status, 0, 'the intact file is accepted');
   } finally {
-    rmSync(file, { force: true });
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
