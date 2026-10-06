@@ -30,7 +30,11 @@ const expectedPortablePaths = [
   '.codex/agents/knu_researcher_xhigh.toml',
   '.codex/agents/knu_executor_medium.toml',
   '.codex/agents/knu_executor_xhigh.toml',
+  '.codex/hooks.json',
+  '.codex/hooks/knu-subagent-hooks.mjs',
+  '.codex/hooks/knu-hook-policy.json',
 ];
+const hookCommand = 'node "$(git rev-parse --show-toplevel)/.codex/hooks/knu-subagent-hooks.mjs"';
 const expectedProjectConfig = `[agents]
 enabled = true
 default_subagent_model = "${BASELINE_CHILD_MODEL}"
@@ -173,6 +177,11 @@ test('project Codex tracking uses a narrow config and top-level agent allowlist'
   assert.match(gitignore, /^!\.codex\/agents\/$/mu);
   assert.match(gitignore, /^\.codex\/agents\/\*$/mu);
   assert.match(gitignore, /^!\.codex\/agents\/\*\.toml$/mu);
+  assert.match(gitignore, /^!\.codex\/hooks\.json$/mu);
+  assert.match(gitignore, /^!\.codex\/hooks\/$/mu);
+  assert.match(gitignore, /^\.codex\/hooks\/\*$/mu);
+  assert.match(gitignore, /^!\.codex\/hooks\/knu-\*\.mjs$/mu);
+  assert.match(gitignore, /^!\.codex\/hooks\/knu-\*\.json$/mu);
 });
 
 test('only portable project Codex candidates are trackable', () => {
@@ -195,7 +204,7 @@ test('portable project Codex configuration is present', () => {
   assert.deepEqual(
     missing,
     [],
-    'The reviewed project config and ten agent files must exist before the project Codex contract can pass',
+    'The reviewed project config, ten agent files and the subagent hook files must exist before the project Codex contract can pass',
   );
 });
 
@@ -411,4 +420,68 @@ test('project Codex model values are bound to the runtime allowlist owner', () =
   }
   const reviewer = readFileSync(resolve(repoRoot, '.codex/agents/knu_reviewer.toml'), 'utf8');
   assert.equal(readQuotedField(reviewer, 'model'), BASELINE_CHILD_MODEL);
+});
+
+test('hook policy copy matches the allowlist owner and the installed role files', async () => {
+  // Hooks read this copy because .codex is read-only to workspace-write children; the test keeps it current.
+  const policy = JSON.parse(
+    readFileSync(resolve(repoRoot, '.codex/hooks/knu-hook-policy.json'), 'utf8'),
+  );
+  const { ROLE_EFFORTS } = await import('../../../agents/codex/model-profiles.mjs');
+  assert.deepEqual(Object.keys(policy).sort(), ['allowedModels', 'roster', 'schema']);
+  assert.equal(policy.schema, 'knu-codex-hook-policy/v1');
+  assert.deepEqual(policy.allowedModels, [...ALLOWED_CHILD_MODELS]);
+  assert.deepEqual(policy.roster, Object.keys(ROLE_EFFORTS));
+  assert.deepEqual([...policy.roster].sort(), expectedRoles.map(({ name }) => name).sort());
+});
+
+test('project hooks register one guard and the subagent recorder from the git root', () => {
+  const config = JSON.parse(readFileSync(resolve(repoRoot, '.codex/hooks.json'), 'utf8'));
+  assert.deepEqual(Object.keys(config.hooks).sort(), [
+    'PreToolUse',
+    'SubagentStart',
+    'SubagentStop',
+  ]);
+  for (const [event, groups] of Object.entries(config.hooks)) {
+    assert.equal(groups.length, 1, event);
+    assert.deepEqual(
+      groups[0].hooks,
+      [{ type: 'command', command: hookCommand, timeout: 10 }],
+      event,
+    );
+    assert.equal(
+      groups[0].matcher,
+      event === 'PreToolUse' ? '(spawn_agent|followup_task|send_message)$' : undefined,
+    );
+  }
+  // Codex joins the V2 namespace to the tool name, so the guard matches the name suffix.
+  const matcher = new RegExp(config.hooks.PreToolUse[0].matcher, 'u');
+  for (const name of [
+    'collaborationspawn_agent',
+    'teamspawn_agent',
+    'spawn_agent',
+    'collaborationfollowup_task',
+    'collaborationsend_message',
+  ])
+    assert.match(name, matcher);
+  for (const name of [
+    'collaborationwait_agent',
+    'multi_agent_v1wait_agent',
+    'collaborationlist_agents',
+    'Bash',
+  ])
+    assert.doesNotMatch(name, matcher);
+  assert.doesNotMatch(
+    readFileSync(resolve(repoRoot, '.codex/config.toml'), 'utf8'),
+    /^\[\[?hooks/mu,
+  );
+  // The hook must not load workspace modules that a workspace-write child could edit.
+  const hook = readFileSync(resolve(repoRoot, '.codex/hooks/knu-subagent-hooks.mjs'), 'utf8');
+  const imports = [...hook.matchAll(/^import [^\n]* from '([^']+)';$/gmu)].map(([, from]) => from);
+  assert.ok(imports.length > 0);
+  assert.ok(
+    imports.every((from) => from.startsWith('node:')),
+    imports.join(', '),
+  );
+  assert.doesNotMatch(hook, /\bimport\(/u);
 });

@@ -1,0 +1,16 @@
+{
+  "schema": "knu-codex-hook-policy/v1",
+  "allowedModels": ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"],
+  "roster": [
+    "knu_explorer_medium",
+    "knu_explorer",
+    "knu_explorer_xhigh",
+    "knu_researcher_medium",
+    "knu_researcher",
+    "knu_researcher_xhigh",
+    "knu_executor_medium",
+    "knu_executor",
+    "knu_executor_xhigh",
+    "knu_reviewer"
+  ]
+}

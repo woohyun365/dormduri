@@ -30,6 +30,7 @@ import {
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../../../agents/codex/orchestration-policy.mjs';
+import { observedChildren } from './fixtures/subagent-hook-observation.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const UNLISTED_MODEL = 'gpt-x-unlisted';
@@ -658,6 +659,7 @@ test('ordinary scoped Astra advice binds exact native arguments without changing
   const result = createDispatchRecommendation(input);
   assert.equal(result.execution, 'native-bounded-dispatch');
   assert.deepEqual(result.dispatches[0].spawnArguments, {
+    task_name: 'legal_repository_map',
     agent_type: 'knu_explorer_xhigh',
     model: 'gpt-6-astra',
     reasoning_effort: 'xhigh',
@@ -953,6 +955,7 @@ test('prepares evidence for leader-only synthesis without granting child final a
     childResults: successfulLegalResults(),
     recoveryDecisions: [],
     conflicts: [],
+    hookObservation: observedChildren(delegation),
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);
@@ -961,6 +964,62 @@ test('prepares evidence for leader-only synthesis without granting child final a
   assert.equal(synthesis.leaderOwnership.finalUserResponse, true);
   assert.equal(synthesis.leaderOwnership.finalVerification, true);
   assert.equal(Object.isFrozen(synthesis), true);
+});
+
+test('a leader-reported completed child is refused without its hook observation', () => {
+  const delegation = legalDelegation();
+  const reportedOnly = prepareLeaderSynthesis({
+    delegation,
+    childResults: successfulLegalResults(),
+  });
+
+  assert.equal(
+    reportedOnly.readyForLeaderDecision,
+    false,
+    'a refused lane blocks leader synthesis',
+  );
+  assert.deepEqual(reportedOnly.refusedLaneIds, [
+    'legal-official-evidence',
+    'legal-repository-map',
+  ]);
+  assert.deepEqual(
+    reportedOnly.completionChecks.map(({ laneId, accepted, reason }) => [laneId, accepted, reason]),
+    [
+      ['legal-official-evidence', false, 'observation-missing'],
+      ['legal-repository-map', false, 'observation-missing'],
+    ],
+  );
+  assert.equal(reportedOnly.completionAuthority, 'codex-subagent-hook');
+});
+
+test('hook observations bind each completed lane to its contract role and an allowed model', () => {
+  const delegation = legalDelegation();
+  const synthesize = (hookObservation) =>
+    prepareLeaderSynthesis({ delegation, childResults: successfulLegalResults(), hookObservation });
+
+  const observed = synthesize(observedChildren(delegation));
+  assert.equal(observed.readyForLeaderDecision, true);
+  assert.deepEqual(observed.refusedLaneIds, []);
+  assert.ok(
+    observed.completionChecks.every(({ accepted, effort }) => accepted && effort === 'high'),
+  );
+
+  const unlisted = synthesize(observedChildren(delegation, { model: UNLISTED_MODEL }));
+  assert.equal(unlisted.readyForLeaderDecision, false);
+  assert.deepEqual(
+    unlisted.completionChecks.map(({ reason }) => reason),
+    ['model-not-allowed', 'model-not-allowed'],
+  );
+  const swapped = synthesize(observedChildren(delegation, { agentType: 'knu_reviewer' }));
+  assert.deepEqual(
+    swapped.completionChecks.map(({ reason }) => reason),
+    ['observation-mismatch', 'observation-mismatch'],
+  );
+  const builtIn = synthesize(observedChildren(delegation, { agentType: 'default' }));
+  assert.deepEqual(
+    builtIn.completionChecks.map(({ reason }) => reason),
+    ['role-not-in-roster', 'role-not-in-roster'],
+  );
 });
 
 test('keeps missing, failed, unverified, recovering, or conflicting evidence from completion', () => {
@@ -1806,6 +1865,7 @@ test('first dispatch uses resolved configuration, not invented effective telemet
   assert.equal(dispatch.resolvedModel, 'gpt-6.1-sol');
   assert.equal(dispatch.resolvedEffort, 'high');
   assert.deepEqual(dispatch.spawnArguments, {
+    task_name: input.delegation.recommendedChildren[0].laneId.replaceAll('-', '_'),
     agent_type: 'knu_explorer',
     model: 'gpt-6.1-sol',
     reasoning_effort: 'high',
@@ -2504,11 +2564,13 @@ test('leader synthesis rejects a model-attributed alternate while model recovery
   // An ordinary distinct-approach alternate without model attribution is unchanged.
   const { model: _m1, effort: _e1, ...ordinaryFailure } = solFailure;
   const { model: _m2, effort: _e2, ...ordinaryAlternate } = astraAlternate;
+  const delegation = legalDelegation();
   assert.equal(
     prepareLeaderSynthesis({
-      delegation: legalDelegation(),
+      delegation,
       childResults: successfulLegalResults(),
       recoveryDecisions: [decision([ordinaryFailure, ordinaryAlternate])],
+      hookObservation: observedChildren(delegation),
     }).readyForLeaderDecision,
     true,
   );

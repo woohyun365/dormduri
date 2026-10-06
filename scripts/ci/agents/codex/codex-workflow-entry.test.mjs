@@ -15,6 +15,7 @@ import {
   prepareCodexWorkflow,
   validateCodexWorkflowResults,
 } from '../../../agents/codex/workflow-entry.mjs';
+import { observedChildren } from './fixtures/subagent-hook-observation.mjs';
 const requests = {
   answer: 'API 코드의 역할을 설명해줘.',
   analyze: 'API 오류 원인을 분석해줘.',
@@ -442,7 +443,27 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   const r = { ...result(prepareCodexWorkflow(i)), sourceSnapshot: i.currentSnapshot };
   assert.equal(validateCodexWorkflowResults(i, { results: [r], review }).valid, false);
   qa.baseResult.identity.observedModel = 'gpt-6-astra';
-  assert.equal(validateCodexWorkflowResults(i, { results: [r], review }).valid, true);
+  // A reported complete child lane is not accepted until its own hook records bind it.
+  const reportedOnly = validateCodexWorkflowResults(i, { results: [r], review });
+  assert.equal(reportedOnly.valid, false, 'a refused child lane invalidates the fan-in');
+  assert.deepEqual(reportedOnly.errors, [
+    'child lane legal-test completion refused: observation-missing',
+  ]);
+  const observed = validateCodexWorkflowResults(i, {
+    results: [r],
+    review,
+    hookObservation: observedChildren(w.delegation, { model: 'gpt-6.1-sol' }),
+  });
+  assert.equal(observed.valid, true, JSON.stringify(observed.errors));
+  assert.deepEqual(
+    observed.completionChecks.map(({ laneId, accepted }) => [laneId, accepted]),
+    [['legal-test', true]],
+  );
+  const foreign = observedChildren(w.delegation, { agentType: 'default' });
+  assert.deepEqual(
+    validateCodexWorkflowResults(i, { results: [r], review, hookObservation: foreign }).errors,
+    ['child lane legal-test completion refused: role-not-in-roster'],
+  );
 });
 
 test('malformed QA coverage returns invalid rather than throwing after structural rejection', () => {

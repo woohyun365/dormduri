@@ -12,6 +12,11 @@ import {
 import { recommendDelegation } from './child-task-contract.mjs';
 import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
+import {
+  COMPLETION_AUTHORITY,
+  evaluateHookCompletion,
+  laneTaskPath,
+} from './subagent-hook-records.mjs';
 
 // Actual deterministic Codex composition, not a native scheduler or permission grant.
 // A caller supplies current evidence; the Lead verifies its authenticity before host use.
@@ -169,8 +174,12 @@ export function prepareCodexWorkflow({
   };
 }
 
-// Recompute the contract from original request/evidence, never trust an edited prepared object.
-export function validateCodexWorkflowResults(input, { results = [], review } = {}) {
+// Recompute the contract from original request/evidence, never trust an edited prepared object. A complete child lane
+// also needs its own hook records (hookObservation); the Parent direct lane has no child to observe.
+export function validateCodexWorkflowResults(
+  input,
+  { results = [], review, hookObservation } = {},
+) {
   const workflow = prepareCodexWorkflow(input);
   const fanIn = validateFanIn({
     envelope: workflow.envelope,
@@ -182,6 +191,26 @@ export function validateCodexWorkflowResults(input, { results = [], review } = {
     results,
   });
   const errors = [...workflow.gaps, ...fanIn.errors];
+  const children = new Map(
+    workflow.delegation.recommendedChildren.map((contract) => [contract.laneId, contract]),
+  );
+  const completionChecks = (Array.isArray(results) ? results : [])
+    .filter(
+      (result) =>
+        result?.status === 'complete' &&
+        children.has(result.laneId) &&
+        workflow.lanes.some(({ id }) => id === result.laneId),
+    )
+    .map(({ laneId }) => ({
+      laneId,
+      ...evaluateHookCompletion({
+        observation: hookObservation,
+        taskPath: laneTaskPath(laneId),
+        expectedRole: children.get(laneId).routeRecommendation.role,
+      }),
+    }));
+  for (const { laneId, accepted, reason } of completionChecks)
+    if (!accepted) errors.push(`child lane ${laneId} completion refused: ${reason}`);
   let qa = null;
   if (review) {
     if (
@@ -230,6 +259,8 @@ export function validateCodexWorkflowResults(input, { results = [], review } = {
     valid: errors.length === 0,
     errors,
     fanIn,
+    completionAuthority: COMPLETION_AUTHORITY,
+    completionChecks,
     qa,
     verificationClass: 'static-contract',
     dispatchAuthorized: false,

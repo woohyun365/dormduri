@@ -10,7 +10,10 @@
     ".codex/agents/knu_researcher_medium.toml",
     ".codex/agents/knu_researcher_xhigh.toml",
     ".codex/agents/knu_executor_medium.toml",
-    ".codex/agents/knu_executor_xhigh.toml"
+    ".codex/agents/knu_executor_xhigh.toml",
+    ".codex/hooks.json",
+    ".codex/hooks/knu-subagent-hooks.mjs",
+    ".codex/hooks/knu-hook-policy.json"
   ],
   "ignored": [
     ".codex/auth.json",
@@ -24,6 +27,10 @@
     ".codex/profiles/personal.toml",
     ".codex/state/session.json",
     ".codex/agents/private/nested.toml",
-    ".codex/agents/README.md"
+    ".codex/agents/README.md",
+    ".codex/state/knu-subagent-hooks/session.jsonl",
+    ".codex/hooks/README.md",
+    ".codex/hooks/private/knu-nested.mjs",
+    ".codex/hooks/other-hook.mjs"
   ]
 }

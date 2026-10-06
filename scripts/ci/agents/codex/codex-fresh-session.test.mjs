@@ -72,6 +72,7 @@ test('fresh smoke reaches ordinary scoped Astra dispatch and rejects context gap
   const { deliveryEvidence, boundaries } = runFreshSessionSmoke();
   const { scoped, unknown, fullHistoryConflict } = deliveryEvidence.ordinaryDispatch;
   assert.deepEqual(scoped.dispatches[0].spawnArguments, {
+    task_name: 'legal_routing_evidence',
     agent_type: 'knu_explorer_xhigh',
     model: 'gpt-6-astra',
     reasoning_effort: 'xhigh',
@@ -294,6 +295,7 @@ test('synthetic model smoke preserves a controlled miss as a suspended-recovery 
   assert.equal(result.modelEvidence.fixtureOnly, true);
   assert.equal(result.boundaries.mutatesWorkspace, false);
   assert.deepEqual(dispatch.dispatches[0].spawnArguments, {
+    task_name: 'legal_routing_evidence',
     agent_type: 'knu_explorer_xhigh',
     model: 'gpt-6-luna',
     reasoning_effort: 'xhigh',

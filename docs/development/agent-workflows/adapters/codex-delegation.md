@@ -120,8 +120,9 @@ deliveryByLane[laneId]
 
 Ordinary Astra의 native + scoped + explicit-effort 경로는 기존 role metadata의 `modelSelection`과
 `explicitEffortSupport`를 확인합니다. Astra 지원, explicit model 지원, 호환 role pin, 기존 role/model/effort/permission
-검사를 모두 통과할 때만 descriptor에 `spawnArguments={agent_type, model: gpt-6-astra, reasoning_effort, fork_turns: none}`을
-연결합니다. Metadata가 없거나 충돌하면 ready descriptor 대신 명시 gap입니다. `failures`는 ordinary 전달에서 보존해야 할
+검사를 모두 통과할 때만 descriptor에 `spawnArguments={task_name, agent_type, model: gpt-6-astra, reasoning_effort, fork_turns: none}`을
+연결합니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이며 hook 완료 기록과 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
+Metadata가 없거나 충돌하면 ready descriptor 대신 명시 gap입니다. `failures`는 ordinary 전달에서 보존해야 할
 근거이며 자동 거절 사유가 아닙니다. Candidate admission의 별도 제한은 바꾸지 않으며 model recovery는 중단되어 있습니다.
 
 Compatible full-history/reuse/inherit 및 OMX advisory 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor에는
@@ -174,7 +175,8 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 - 기본 Parent 경유와 지정된 기존 사실 확인 예외는 [공통 협업 계약](../owner-lead-collaboration.md)을 따릅니다. 참여자·주제·
   read scope·snapshot 지정은 기존 task text/allowedTools/nonGoals로 전달하며 schema나 runtime 권한 필드를 만들지 않습니다.
 - 도구 지원만으로 peer 권한이 생기지 않습니다. 초기 QA 독립성, 보고와 만료 조건을 지키고, 새 업무·상충·반복 의존성은
-  Parent에게 돌려보냅니다. Child의 직접/간접 offload와 sub-child 생성은 허용하지 않습니다.
+  Parent에게 돌려보냅니다. Child의 직접/간접 offload와 sub-child 생성은 허용하지 않으며, project hook이 로드된 세션에서는
+  child가 부른 spawn을 [호출 시점에 deny](./codex.md#subagent-hook-guardrail과-완료-관측)합니다.
 - V2 peer 메시지는 실행 중인 child에만 전달이 관측됐습니다. 완료된 child는 메시지로 turn을 시작하지 않으므로([새 turn 없이
   queue](https://developers.openai.com/api/docs/guides/responses-multi-agent#how-multi-agent-works)) 응답이 필요하면 Parent가
   `followup_task`로 후속을 배정합니다. 재개 뒤 쌓인 메시지가 전달되는지는 관측되지 않았으므로 그 전달에 기대지 않습니다.

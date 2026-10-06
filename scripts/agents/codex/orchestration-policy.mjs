@@ -13,6 +13,12 @@ import {
 import { isDeepStrictEqual } from 'node:util';
 import { assertRecoveryChildContract, createModelScopeDigest } from './child-task-contract.mjs';
 import { recommendModel } from './routing-policy.mjs';
+import {
+  COMPLETION_AUTHORITY,
+  evaluateHookCompletion,
+  laneTaskName,
+  laneTaskPath,
+} from './subagent-hook-records.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
@@ -182,6 +188,7 @@ export function createDispatchRecommendation({
       ...(usesOrdinaryScopedArguments(runtime, contract)
         ? {
             spawnArguments: {
+              task_name: laneTaskName(contract.laneId),
               agent_type: contract.routeRecommendation.role,
               model: getModelProfile(contract.routeRecommendation.profileId).model,
               reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
@@ -203,6 +210,7 @@ export function createDispatchRecommendation({
             reportedRole.configurationResolution
               ? {
                   spawnArguments: {
+                    task_name: laneTaskName(contract.laneId),
                     agent_type: contract.routeRecommendation.role,
                     model: contract.routeRecommendation.modelRecommendation.recommendedModel,
                     reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
@@ -253,6 +261,7 @@ export function evaluateModelExecution({ dispatch, expectedChildId, reportedExec
       dispatch.resolvedEffort !== resolveRouteEffort(contract.routeRecommendation) ||
       contract.modelScopeDigest !== createModelScopeDigest(contract) ||
       !isDeepStrictEqual(dispatch.spawnArguments, {
+        task_name: laneTaskName(contract.laneId),
         agent_type: contract.routeRecommendation.role,
         model: contract.routeRecommendation.modelRecommendation.recommendedModel,
         reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
@@ -791,11 +800,14 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
   });
 }
 
+// A completed child counts only when its own hook records bind it (subagent-hook-records.mjs); a leader report alone
+// is refused. hookObservation = { sessionId, records, allowedModels, roster } from the Parent session.
 export function prepareLeaderSynthesis({
   delegation,
   childResults = [],
   recoveryDecisions = [],
   conflicts = [],
+  hookObservation,
 } = {}) {
   assertDelegationRecommendation(delegation);
   if (delegation.execution !== 'bounded-lanes') {
@@ -834,6 +846,19 @@ export function prepareLeaderSynthesis({
     }
   }
   const normalizedConflicts = normalizeConflicts(conflicts, contracts);
+  const completionChecks = results
+    .filter(({ status }) => status === 'completed')
+    .map(({ laneId }) => ({
+      laneId,
+      ...evaluateHookCompletion({
+        observation: hookObservation,
+        taskPath: laneTaskPath(laneId),
+        expectedRole: contracts.get(laneId).routeRecommendation.role,
+      }),
+    }));
+  const refusedLaneIds = completionChecks
+    .filter(({ accepted }) => !accepted)
+    .map(({ laneId }) => laneId);
 
   const resultByLane = new Map(results.map((result) => [result.laneId, result]));
   const missingLaneIds = [...contracts.keys()].filter((laneId) => !resultByLane.has(laneId));
@@ -853,6 +878,7 @@ export function prepareLeaderSynthesis({
     .filter(
       (result) =>
         result.status !== 'completed' ||
+        refusedLaneIds.includes(result.laneId) ||
         result.gaps.some(({ blocking }) => blocking) ||
         result.verification.some(({ status }) => status !== 'passed'),
     )
@@ -886,6 +912,9 @@ export function prepareLeaderSynthesis({
     })),
     missingLaneIds,
     blockingLaneIds,
+    completionAuthority: COMPLETION_AUTHORITY,
+    completionChecks,
+    refusedLaneIds,
     pendingRecoveryLaneIds,
     recoveryDecisions: normalizedRecoveries,
     leaderOwnership: {
