@@ -109,8 +109,8 @@ test('Legal Analyze stays read-only while discovering repository surfaces and cu
   assert.equal(flow.delegation.execution, 'bounded-lanes');
   assert.equal(flow.dispatch.execution, 'native-bounded-dispatch');
   assert.deepEqual(flow.dispatch.dispatches.map(({ agentType }) => agentType).sort(), [
-    'knu_explorer',
-    'knu_researcher',
+    'knu_explorer_xhigh',
+    'knu_researcher_xhigh',
   ]);
   assert.ok(
     flow.delegation.recommendedChildren.every(
@@ -554,14 +554,14 @@ function completedChildResult(contract, { preserveCurrentSourceGap = false } = {
   };
 }
 
-test('fresh intake consumes Luna resolution, controlled failure and bounded Astra recovery', () => {
+test('fresh intake consumes Luna resolution and hands a controlled failure back while recovery is suspended', () => {
   const { modelEvidence, boundaries } = runFreshSessionSmoke();
   const activation = modelEvidence.activation;
   assert.equal(activation.dispatch.dispatches[0].spawnArguments.model, 'gpt-6-luna');
   assert.equal(activation.dispatch.dispatches[0].effectiveModel, null);
   assert.equal(activation.post.accepted, false);
-  assert.equal(activation.completedRecovery.status, 'complete');
   assert.equal(activation.post.usageReference, null);
-  assert.equal(activation.recovery.nextModel, 'gpt-6-astra');
+  assert.equal(activation.recovery.status, 'handoff-required');
+  assert.equal(activation.recovery.nextModel, null);
   assert.equal(boundaries.invokesChild, false);
 });

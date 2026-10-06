@@ -90,13 +90,14 @@ test('inherited effort must match the selected route and never lowers high-risk 
   const request = deliveryRequest();
   request.effortMode = 'inherit';
   request.runtime.explicitEffort = false;
-  for (const effort of [null, 'medium', 'xhigh']) {
+  // A high-impact analysis routes to the xhigh explorer variant; inheriting any lower effort is incompatible.
+  for (const effort of [null, 'medium', 'high']) {
     request.runtime.effectiveEffort = effort;
     const result = deliveredContract(request);
-    assert.equal(result.routeRecommendation.effort, 'high');
+    assert.equal(result.routeRecommendation.effort, 'xhigh');
     assert.equal(result.contextDelivery.compatible, false);
   }
-  request.runtime.effectiveEffort = 'high';
+  request.runtime.effectiveEffort = 'xhigh';
   assert.equal(deliveredContract(request).contextDelivery.compatible, true);
 });
 
@@ -150,7 +151,7 @@ test('same reviewer delta can reuse only a currently revalidated bounded context
 test('non-review followup can reuse a scoped same-outcome lane without claiming independent QA', () => {
   const request = reuseRequest();
   request.purpose = 'task';
-  request.previous.role = 'knu_explorer';
+  request.previous.role = 'knu_explorer_xhigh';
   request.previous.independentReview = false;
   assert.equal(deliveredContract(request).contextDelivery.compatible, true);
   request.effortMode = 'explicit';
@@ -283,6 +284,8 @@ function reuseRequest() {
   request.purpose = 'review-delta';
   request.mode = 'reuse';
   request.effortMode = 'inherit';
+  // The reviewer and the high-impact explorer variant both pin xhigh, so an inherited context must already run it.
+  request.runtime.effectiveEffort = 'xhigh';
   const { contextPack } = legalFlow();
   request.previous = {
     childId: '/root/reviewer',
@@ -325,8 +328,8 @@ test('permits one independently valuable lane and carries the complete Pass 2 ro
   assert.equal(result.execution, 'bounded-lanes');
   assert.equal(result.recommendedChildren.length, 1);
   const [contract] = result.recommendedChildren;
-  assert.equal(contract.routeRecommendation.role, 'knu_explorer');
-  assert.equal(contract.routeRecommendation.effort, 'high');
+  assert.equal(contract.routeRecommendation.role, 'knu_explorer_xhigh');
+  assert.equal(contract.routeRecommendation.effort, 'xhigh');
   assert.equal(contract.routeRecommendation.pass2Applied, true);
   assert.equal(contract.routeRecommendation.evidenceIds.length, 1);
   assert.equal(contract.routeRecommendation.assessment.reasoningComplexity, 'substantial');
@@ -577,7 +580,7 @@ test('child contracts propagate optional model advice without relaxing write or 
     writeOwnership: ['apps/web/src/legal/example.test.ts'],
     pass2Evidence: evidence,
     modelRequest: {
-      profileId: 'bounded-build',
+      profileId: 'standard-build',
       purpose: 'pilot',
       verificationFacts: {
         acceptance: evidence.facts[0].factId,
@@ -599,7 +602,7 @@ test('child contracts propagate optional model advice without relaxing write or 
     impactRisk: 'low',
     pass2Evidence: evidence,
     modelRequest: {
-      profileId: 'bounded-extract',
+      profileId: 'extract',
       purpose: 'pilot',
       verificationFacts: Object.fromEntries(
         ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'].map(
@@ -618,7 +621,8 @@ test('child contracts propagate optional model advice without relaxing write or 
       laneCandidates: [extraction],
       deliveryByLane: { [extraction.id]: delivery },
     }).recommendedChildren;
-    assert.equal(c.routeRecommendation.effort, 'medium');
+    assert.equal(c.routeRecommendation.role, 'knu_explorer_xhigh');
+    assert.equal(c.routeRecommendation.effort, 'xhigh');
     assert.equal(c.contextDelivery.compatible, effort === 'xhigh');
   }
   assert.throws(

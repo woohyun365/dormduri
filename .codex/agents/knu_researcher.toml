@@ -1,6 +1,7 @@
 name = "knu_researcher"
 description = "bounded 질문 하나에 대해 현재 공식 외부 문서와 version별 참조 근거를 모읍니다"
 sandbox_mode = "read-only"
+model_reasoning_effort = "high"
 developer_instructions = """
 이미 선택된 기술·provider·표준·정책·API에 대한 bounded 질문 하나의 현재 외부 근거를 맡습니다. 공식·1차 출처를 우선하고, version·날짜 맥락을 기록하며, 문서화된 사실과 추론을 구분합니다.
 

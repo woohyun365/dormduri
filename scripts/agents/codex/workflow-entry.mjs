@@ -10,7 +10,7 @@ import {
   validateAdapterReview,
 } from '../common/adapter-contract.mjs';
 import { recommendDelegation } from './child-task-contract.mjs';
-import { BASELINE_CHILD_MODEL } from './model-profiles.mjs';
+import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
 
 // Actual deterministic Codex composition, not a native scheduler or permission grant.
@@ -126,10 +126,12 @@ export function prepareCodexWorkflow({
     throw new TypeError('review disposition requires explicit required and reason');
   // Semantic risk remains a Lead judgement, not an intent/keyword heuristic.
   // Known profile obligations cannot be waived by a not-needed disposition.
-  const mandatoryProfileReview = children.some(
-    (child) =>
-      child.routeRecommendation.modelRecommendation?.profileBinding.profileId === 'bounded-build',
-  );
+  const mandatoryProfileReview = children.some((child) => {
+    const profileId = child.routeRecommendation.modelRecommendation?.profileBinding.profileId;
+    return (
+      profileId !== undefined && getModelProfile(profileId).verificationKeys.includes('astraQa')
+    );
+  });
   const bindingComplete =
     lanes.length > 0 && (!children.length || lanes.length === children.length);
   const gaps = [
@@ -221,7 +223,7 @@ export function validateCodexWorkflowResults(input, { results = [], review } = {
       review.result?.identity?.observedModel !== BASELINE_CHILD_MODEL
     )
       errors.push(
-        'bounded-build requires reported Astra QA; host observation still needs verification',
+        'A build profile requires reported Astra QA; host observation still needs verification',
       );
   } else if (workflow.requiresIndependentReview) errors.push('independent QA exchange required');
   return {

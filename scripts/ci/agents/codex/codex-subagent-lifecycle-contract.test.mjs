@@ -310,7 +310,7 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   assert.match(decisions, /id="routine-model-adoption"/u);
   assert.match(decisions, /2026-09-24\.3/u);
   // The historical revision stays; the installed revision must also be recorded.
-  assert.ok(decisions.includes(getModelProfile('bounded-build').policyRevision));
+  assert.ok(decisions.includes(getModelProfile('standard-build').policyRevision));
   assert.match(decisions, /astra-bounded-recovery.*knu_executor.*gpt-6-astra.*low/u);
   assert.match(decisions, /explorer.*researcher.*low.*미채택/u);
   assert.doesNotMatch(decisions, /Luna high/u);
@@ -328,6 +328,7 @@ test('portfolio current summary distinguishes task profiles from historical Astr
   }
   assert.doesNotMatch(summary, /repository는 Astra child의 Medium\/High\/XHigh만/u);
   const evidence = section(path, '2026-09 task-aware 모델과 lifecycle 검증');
+  // The 2026-09 evidence keeps the profile IDs it was measured under.
   for (const term of [
     'bounded-build',
     'bounded-read',

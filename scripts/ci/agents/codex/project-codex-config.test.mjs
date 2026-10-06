@@ -24,6 +24,12 @@ const expectedPortablePaths = [
   '.codex/agents/knu_researcher.toml',
   '.codex/agents/knu_reviewer.toml',
   '.codex/agents/knu_executor.toml',
+  '.codex/agents/knu_explorer_medium.toml',
+  '.codex/agents/knu_explorer_xhigh.toml',
+  '.codex/agents/knu_researcher_medium.toml',
+  '.codex/agents/knu_researcher_xhigh.toml',
+  '.codex/agents/knu_executor_medium.toml',
+  '.codex/agents/knu_executor_xhigh.toml',
 ];
 const expectedProjectConfig = `[agents]
 enabled = true
@@ -32,10 +38,11 @@ default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 6
 `;
 const readOnlyBoundary = /파일 수정, [^.]*하지 않습니다\./u;
-const expectedRoles = [
+const baseRoles = [
   {
     file: 'knu_executor.toml',
     name: 'knu_executor',
+    effort: 'high',
     sandboxMode: 'workspace-write',
     model: null,
     boundaries: [
@@ -48,6 +55,7 @@ const expectedRoles = [
   {
     file: 'knu_explorer.toml',
     name: 'knu_explorer',
+    effort: 'high',
     sandboxMode: 'read-only',
     model: null,
     boundaries: [
@@ -60,6 +68,7 @@ const expectedRoles = [
   {
     file: 'knu_researcher.toml',
     name: 'knu_researcher',
+    effort: 'high',
     sandboxMode: 'read-only',
     model: null,
     boundaries: [
@@ -71,6 +80,7 @@ const expectedRoles = [
   {
     file: 'knu_reviewer.toml',
     name: 'knu_reviewer',
+    effort: 'xhigh',
     sandboxMode: 'read-only',
     model: BASELINE_CHILD_MODEL,
     boundaries: [
@@ -81,7 +91,38 @@ const expectedRoles = [
     handoff: ['verdict', 'severity-ranked'],
   },
 ];
-const allowedRoleKeys = ['description', 'developer_instructions', 'model', 'name', 'sandbox_mode'];
+// Effort variants keep the base role's prompt, sandbox and boundaries; only the name, description and pinned effort differ.
+const expectedRoles = baseRoles
+  .flatMap((role) =>
+    role.name === 'knu_reviewer'
+      ? [role]
+      : [
+          {
+            ...role,
+            file: `${role.name}_medium.toml`,
+            name: `${role.name}_medium`,
+            effort: 'medium',
+            base: role.name,
+          },
+          role,
+          {
+            ...role,
+            file: `${role.name}_xhigh.toml`,
+            name: `${role.name}_xhigh`,
+            effort: 'xhigh',
+            base: role.name,
+          },
+        ],
+  )
+  .sort((left, right) => left.file.localeCompare(right.file));
+const allowedRoleKeys = [
+  'description',
+  'developer_instructions',
+  'model',
+  'model_reasoning_effort',
+  'name',
+  'sandbox_mode',
+];
 // Per-role UTF-8 budget for the slimmed prompt; shared procedure lives in the linked common documents.
 const INSTRUCTION_BYTE_LIMIT = 1500;
 const collaborationGuide = 'docs/development/agent-workflows/owner-lead-collaboration.md';
@@ -154,7 +195,7 @@ test('portable project Codex configuration is present', () => {
   assert.deepEqual(
     missing,
     [],
-    'The reviewed project config and four agent files must exist before the project Codex contract can pass',
+    'The reviewed project config and ten agent files must exist before the project Codex contract can pass',
   );
 });
 
@@ -168,7 +209,7 @@ test('project config owns child defaults without pinning parent or provider sett
   );
 });
 
-test('project roles inherit task models except the Astra reviewer with unchanged effort and sandboxes', () => {
+test('project roles pin effort per role and inherit task models except the Astra reviewer', async () => {
   const agentDirectory = resolve(repoRoot, '.codex/agents');
   const files = readdirSync(agentDirectory)
     .filter((file) => file.endsWith('.toml'))
@@ -183,7 +224,54 @@ test('project roles inherit task models except the Astra reviewer with unchanged
     const source = readFileSync(resolve(agentDirectory, role.file), 'utf8');
     assertRoleContract(source, role);
   }
+  // The routing owner reads this table; the role files are what Codex actually applies.
+  const { ROLE_EFFORTS } = await import('../../../agents/codex/model-profiles.mjs');
+  assert.deepEqual(
+    ROLE_EFFORTS,
+    Object.fromEntries(expectedRoles.map(({ name, effort }) => [name, effort])),
+  );
 });
+
+test('effort variants share the base role prompt and differ only by name, description and effort', () => {
+  const agentDirectory = resolve(repoRoot, '.codex/agents');
+  for (const role of expectedRoles.filter(({ base }) => base)) {
+    const variant = readFileSync(resolve(agentDirectory, role.file), 'utf8');
+    const base = readFileSync(resolve(agentDirectory, `${role.base}.toml`), 'utf8');
+    assertVariantOf(variant, base, role);
+    const instructions = roleInstructions(variant);
+    for (const [mutated, reason] of [
+      [variant.replace(instructions, `${instructions}\n추가 문장입니다.`), /prompt/u],
+      [
+        variant.replace(
+          readQuotedField(variant, 'description'),
+          readQuotedField(base, 'description'),
+        ),
+        /description/u,
+      ],
+    ]) {
+      assert.notEqual(mutated, variant, `${role.file}: mutation applied`);
+      assert.throws(() => assertVariantOf(mutated, base, role), {
+        name: 'AssertionError',
+        message: reason,
+      });
+    }
+  }
+});
+
+function assertVariantOf(variant, base, role) {
+  assert.equal(roleInstructions(variant), roleInstructions(base), `${role.file}: prompt`);
+  assert.notEqual(
+    readQuotedField(variant, 'description'),
+    readQuotedField(base, 'description'),
+    `${role.file}: description`,
+  );
+  for (const field of ['sandbox_mode', 'model'])
+    assert.equal(
+      readQuotedField(variant, field),
+      readQuotedField(base, field),
+      `${role.file}: ${field}`,
+    );
+}
 
 test('role prompts link the common contracts that own the procedures they leave out', () => {
   // Instruction presence only: actual communication/refusal behavior needs an observed pilot.
@@ -217,6 +305,11 @@ function assertRoleContract(source, role) {
   assert.ok(readQuotedField(source, 'description')?.length > 20, role.file);
   assert.equal(readQuotedField(source, 'model'), role.model ?? undefined, role.file);
   assert.equal(readQuotedField(source, 'sandbox_mode'), role.sandboxMode, role.file);
+  assert.equal(
+    readQuotedField(source, 'model_reasoning_effort'),
+    role.effort,
+    `${role.file}: effort`,
+  );
   assert.ok(instructions?.length > 300, role.file);
   assert.doesNotMatch(
     instructions,
@@ -233,7 +326,6 @@ function assertRoleContract(source, role) {
   assert.ok(handoff, `${role.file}: handoff sentence`);
   for (const term of [...handoffTerms, ...role.handoff])
     assert.ok(handoff.includes(term), `${role.file}: handoff ${term}`);
-  assert.doesNotMatch(source, /^model_reasoning_effort\s*=/mu, role.file);
   assert.doesNotMatch(source, /^skills\.config\s*=/mu, role.file);
   assert.doesNotMatch(source, /\/Users\//u, role.file);
 }
@@ -244,6 +336,11 @@ test('role contract rejects execution repins, reviewer downgrade and permission 
     const source = readFileSync(resolve(repoRoot, '.codex/agents', role.file), 'utf8');
     const mutations = [
       source + '\nmodel_reasoning_effort = "low"\n',
+      source.replace(`model_reasoning_effort = "${role.effort}"\n`, ''),
+      source.replace(
+        `model_reasoning_effort = "${role.effort}"`,
+        `model_reasoning_effort = "${role.effort === 'high' ? 'medium' : 'high'}"`,
+      ),
       source.replace(`sandbox_mode = "${role.sandboxMode}"`, 'sandbox_mode = "danger-full-access"'),
       source.replace(`name = "${role.name}"`, 'name = "shadow_role"'),
     ];

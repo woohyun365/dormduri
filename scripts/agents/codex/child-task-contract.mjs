@@ -350,6 +350,8 @@ function composeChildContract({ lane, route }) {
     routeRecommendation: {
       role: route.role,
       effort: route.effort,
+      tier: route.tier,
+      profileId: route.profileId,
       execution: route.execution,
       reason: route.reason,
       pass2Applied: route.pass2Applied,

@@ -1,5 +1,8 @@
 import {
   BASELINE_CHILD_MODEL,
+  MODEL_RECOVERY_SUSPENDED,
+  MODEL_RECOVERY_SUSPENDED_REASON,
+  ROLE_EFFORTS,
   assertAllowedChildModel,
   getModelProfile,
   assertCurrentModelProfileBinding,
@@ -16,7 +19,7 @@ const DEFAULT_CONCURRENCY_LIMIT = 3;
 const REPOSITORY_CHILD_MODEL = BASELINE_CHILD_MODEL;
 const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
-const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
+const INSTALLED_ROLES = new Set(Object.keys(ROLE_EFFORTS));
 const RUNTIME_SURFACES = new Set(['native', 'omx']);
 const RUNTIME_OBSERVATION_SCOPES = new Set(['current-turn', 'current-session']);
 const RUNTIME_PROVENANCE = new Set(['host-tool-schema', 'omx-runtime-overlay']);
@@ -145,13 +148,10 @@ export function createDispatchRecommendation({
     });
   }
 
-  // The role-keyed roster cannot resolve concurrent same-role/different-model lanes.
-  const hasCandidate = delegation.recommendedChildren.some(
-    (contract) => contract.routeRecommendation.modelRecommendation?.status === 'candidate',
-  );
-  const batchLimit = hasCandidate ? 1 : concurrencyLimit;
-  const selected = delegation.recommendedChildren.slice(0, batchLimit);
-  const deferred = delegation.recommendedChildren.slice(batchLimit);
+  // Same-role lanes on different models run together (native observation, DA-018); the roster resolves each lane by
+  // role and model.
+  const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
+  const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
   const compatibility = assessRuntimeCompatibility(runtime, selected, modelUseByLane);
   if (!compatibility.compatible) {
     return dispatchRecommendation({
@@ -167,7 +167,7 @@ export function createDispatchRecommendation({
   }
 
   const dispatches = selected.map((contract) => {
-    const reportedRole = compatibility.rolesByAgentType.get(contract.routeRecommendation.role);
+    const reportedRole = compatibility.rolesByLane.get(contract.laneId);
     return {
       laneId: contract.laneId,
       agentType: contract.routeRecommendation.role,
@@ -183,7 +183,7 @@ export function createDispatchRecommendation({
         ? {
             spawnArguments: {
               agent_type: contract.routeRecommendation.role,
-              model: REPOSITORY_CHILD_MODEL,
+              model: getModelProfile(contract.routeRecommendation.profileId).model,
               reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
               fork_turns: 'none',
             },
@@ -227,9 +227,7 @@ export function createDispatchRecommendation({
     concurrencyLimit,
     gaps:
       deferred.length > 0
-        ? [
-            `${hasCandidate ? 'model-sequential-rollout' : 'runtime-concurrency-limit'}: ${deferred.length} lane(s) deferred.`,
-          ]
+        ? [`runtime-concurrency-limit: ${deferred.length} lane(s) deferred.`]
         : [],
   });
 }
@@ -625,6 +623,20 @@ export function evaluateRecovery({ laneId, attempts = [], modelRecovery } = {}) 
   if (attempts.length > 1 && NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory))
     throw new TypeError('Model recovery cannot retry a non-retryable failure.');
   const waiting = result.action === 'alternate-once' && modelRecovery.pendingWriter !== 'cleared';
+  // Model recovery is suspended: a failed candidate returns to the Parent or a handoff, never an Astra alternate.
+  if (MODEL_RECOVERY_SUSPENDED && attempts.length > 1)
+    throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
+  if (MODEL_RECOVERY_SUSPENDED && result.action === 'alternate-once')
+    return deepFreeze({
+      ...result,
+      status: 'handoff-required',
+      action: 'terminal-handoff',
+      remainingAlternateAttempts: 0,
+      blocker: waiting ? 'model-pending-writer-not-cleared' : 'model-recovery-suspended',
+      disposition: 'blocker-handoff',
+      nextModel: null,
+      runtimeAction: false,
+    });
   let recoveryBinding;
   if (
     modelRecovery.request !== undefined &&
@@ -1084,7 +1096,10 @@ function normalizeRuntimeRoles(value, gaps) {
       gaps.push(`runtime-role-metadata-invalid:${index}`);
     }
   }
-  if (new Set(roles.map(({ agentType }) => agentType)).size !== roles.length) {
+  // A role may be reported once per model; the same role and model twice is ambiguous.
+  if (
+    new Set(roles.map((role) => `${role.agentType}\0${reportedModel(role)}`)).size !== roles.length
+  ) {
     gaps.push('runtime-role-roster-duplicate');
   }
   return roles;
@@ -1104,7 +1119,7 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   if (runtime.dispatchPermission !== 'allowed') {
     gaps.push(`runtime-dispatch-permission-${runtime.dispatchPermission}`);
   }
-  const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
+  const rolesByLane = new Map();
   for (const contract of contracts) {
     // Omitted optional context preserves legacy advice; supplied gaps must not be
     // lost between the context composer and its dispatch consumer.
@@ -1119,12 +1134,16 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
       gaps.push(`runtime-context-incompatible:${contract.laneId}`);
     const requestedRole = contract.routeRecommendation.role;
     const requestedEffort = resolveRouteEffort(contract.routeRecommendation);
-    const reportedRole = rolesByAgentType.get(requestedRole);
+    const model = contract.routeRecommendation.modelRecommendation;
+    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
+    const reports = runtime.roles.filter(({ agentType }) => agentType === requestedRole);
+    const reportedRole =
+      reports.find((role) => reportedModel(role) === requestedModel) ?? reports[0];
     if (!reportedRole || !reportedRole.available) {
       gaps.push(`runtime-role-unavailable:${requestedRole}`);
       continue;
     }
-    const model = contract.routeRecommendation.modelRecommendation;
+    rolesByLane.set(contract.laneId, reportedRole);
     if (usesOrdinaryScopedArguments(runtime, contract)) {
       const selection = reportedRole.modelSelection;
       if (
@@ -1136,14 +1155,13 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
       if (!reportedRole.explicitEffortSupport)
         gaps.push(`runtime-scoped-effort-unsupported:${requestedRole}`);
     }
-    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
     const resolution = reportedRole.configurationResolution;
     if (
       resolution &&
       (reportedRole.effectiveModel !== null || reportedRole.effectiveEffort !== null)
     )
       gaps.push(`runtime-mixed-resolution-observation:${requestedRole}`);
-    if ((resolution?.model ?? reportedRole.effectiveModel) !== requestedModel) {
+    if (reportedModel(reportedRole) !== requestedModel) {
       gaps.push(`runtime-model-incompatible:${requestedRole}`);
     }
     if (resolution && model?.status !== 'candidate')
@@ -1162,8 +1180,12 @@ function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
   return {
     compatible: gaps.length === 0,
     gaps,
-    rolesByAgentType,
+    rolesByLane,
   };
+}
+
+function reportedModel(role) {
+  return role.configurationResolution?.model ?? role.effectiveModel;
 }
 
 function normalizeConfigurationResolution(value) {
@@ -1300,7 +1322,13 @@ function assessModelContractBoundary(contract) {
   const gaps = [];
   const route = contract.routeRecommendation;
   const profile = getModelProfile(route.modelRecommendation.request.profileId);
-  if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
+  // The candidate's role carries the profile effort; the tier gate itself is recomputed by recommendModel.
+  if (
+    !profile.roles.includes(route.role) ||
+    route.effort !== profile.resolvedEffort ||
+    route.profileId !== profile.profileId
+  )
+    gaps.push('model-effort-eligibility-mismatch');
   const delivery = contract.contextDelivery;
   if (
     !delivery ||
@@ -1595,6 +1623,13 @@ function normalizeRecoveryDecision(value) {
   validateRecoveryShape({ status, action, remainingAlternateAttempts, blocker, disposition });
   const attempts = value.attempts.map(normalizeAttempt);
   validateAttemptSequence(attempts);
+  // Suspended model recovery: a model-attributed decision cannot carry an alternate, bound or not.
+  if (
+    MODEL_RECOVERY_SUSPENDED &&
+    attempts.length > 1 &&
+    attempts.some((attempt) => attempt.model !== undefined)
+  )
+    throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
   if (!value.recoveryBinding && attempts.some((attempt) => attempt.recoveryBinding))
     throw new TypeError('Attributed recovery attempts require their decision-level binding.');
   if (value.recoveryBinding) {
@@ -1720,6 +1755,20 @@ function assertDelegationRecommendation(delegation) {
     const role = requireString(contract.routeRecommendation?.role, 'route role', 80);
     if (!INSTALLED_ROLES.has(role)) throw new TypeError(`Unsupported native role route: ${role}`);
     requireEnum(contract.routeRecommendation?.effort, EFFORTS, 'route effort');
+    if (contract.routeRecommendation.effort !== ROLE_EFFORTS[role])
+      throw new TypeError('Route effort must be the effort its role file pins.');
+    requireEnum(contract.routeRecommendation.tier, EFFORTS, 'route tier');
+    const routeProfile = getModelProfile(contract.routeRecommendation.profileId);
+    if (!routeProfile.roles.includes(role))
+      throw new TypeError('Route profile must list its role.');
+    // Only an admitted candidate may carry a candidate profile; the spawn model comes from this profile.
+    if (
+      contract.routeRecommendation.modelRecommendation?.status !== 'candidate' &&
+      routeProfile.kind !== 'assignment'
+    )
+      throw new TypeError(
+        'A route without an admitted candidate must name an Astra assignment profile.',
+      );
     if (contract.routeRecommendation?.execution !== 'bounded-child') {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }
