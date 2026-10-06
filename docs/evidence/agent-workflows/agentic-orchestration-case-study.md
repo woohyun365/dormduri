@@ -151,9 +151,12 @@ Tracked `.codex`는 portable default와 role contract를 제공하지만 active 
 current host surface의 role availability, explicit model/effort 지원, role pin과 permission을 다시 확인합니다.
 Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 미노출 effective 값은 null입니다.
 
-현재 runtime evidence는 `leader-reported-not-host-authenticated`입니다. 즉 repository validator가 typed input의 모순을
-검사할 수는 있지만, provider가 서명한 immutable effective metadata는 아닙니다. 조금이라도 불일치하면 role을 prompt label로
-가장하지 않고 direct/sequential로 돌아갑니다.
+현재 dispatch 전 runtime evidence는 `leader-reported-not-host-authenticated`입니다. 즉 repository validator가 typed input의
+모순을 검사할 수는 있지만, provider가 서명한 immutable effective metadata는 아닙니다. 조금이라도 불일치하면 role을 prompt
+label로 가장하지 않고 direct/sequential로 돌아갑니다. 2026-10-06부터 child 완료는 leader 보고가 아니라 Codex project hook의
+SubagentStart·SubagentStop 기록(child 역할·model·task path)에 결속되고, 호출 시점 hook이 roster 밖 역할·허용 목록 밖 model·
+model 생략·full-history fork·child 발 spawn을 막습니다. Hook 기록도 provider 서명 metadata는 아니며 hook이 없는 세션에서는
+완료가 거부됩니다.
 
 ## 대안과 결정
 
@@ -168,7 +171,7 @@ Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 
 | parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                            |
 | Astra default + finite task profiles            | 채택        | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 admission gate, model recovery 중단 |
 | boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                               |
-| reported evidence + live reconfirmation         | 조건부 채택 | 현재 surface에서 가능한 보수적 경계이며 immutable host-authenticated metadata가 생기면 교체            |
+| reported evidence + live reconfirmation         | 조건부 채택 | dispatch 전 보수적 경계. 완료는 2026-10-06부터 hook 기록 결속, 서명 metadata가 생기면 교체             |
 | custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦 |
 | Ultra emulation 또는 autonomous factory         | 기각        | 목표는 Parent autonomy 확대가 아니라 bounded delegation·독립 검증·evidence hygiene임                   |
 

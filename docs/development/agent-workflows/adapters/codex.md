@@ -29,7 +29,8 @@ API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnaps
 ## Reasoning effort routing
 
 Reasoning routing은 Parent와 child를 분리합니다. Parent effort는 사용자가 session에서 선택하며 repository는 Parent
-effort를 계산하거나 변경했다고 보고하지 않습니다.
+effort를 계산하거나 변경했다고 보고하지 않습니다. 사용자가 고른 Parent model은 multi-agent 엔진도 정합니다(catalog v2 model은 V2,
+`gpt-5.6-luna` 같은 catalog v1 model은 V1). 위임은 V2 Parent에서만 되며 project hook이 로드된 세션에서는 V1 root의 spawn을 [hook guard](#subagent-hook-guardrail과-완료-관측)가 막습니다.
 
 1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
 2. Direct/deterministic work 또는 Medium child보다 직접 수행이 저렴한 work는 child-free로 유지합니다.
@@ -182,12 +183,13 @@ fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/d
 
 ### Task model configuration and fresh loading
 
-| 설정 owner                                                     | 계약                                                                                |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음 |
-| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner    |
-| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임              |
-| `knu_reviewer`                                                 | Astra model pin, effort pin xhigh, read-only                                        |
+| 설정 owner                                                     | 계약                                                                                                      |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                       |
+| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                          |
+| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                    |
+| `knu_reviewer`                                                 | Astra model pin, effort pin xhigh, read-only                                                              |
+| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard·subagent 완료 기록, 허용 model·roster 정책 사본([hook](#subagent-hook-guardrail과-완료-관측)) |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 그래서 effort는 역할 pin이 정하고, spawn의 `reasoning_effort`는 그 값과 같을 때만 dispatch descriptor가 됩니다. Model pin이
@@ -197,7 +199,7 @@ Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents 
 
 설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
 
-1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
+1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
    이름·sandbox·instructions·기본값·reviewer pin·상한은 별도로 대조합니다.
 2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
    역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.
@@ -249,12 +251,14 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    checks·cleanup을 확인해 새 adoption/go packet을 만듭니다. 원래 권한이 부족하거나 범위를 늘리는 경우에만 해당 경계를
    협의합니다. 고정 과거 pilot 예산이나 영구 grant를 일반 업무 예산으로 쓰지 않습니다.
 5. **Native 확인·실행**: current host schema·loaded role·모델/effort 지원·pin·permission·context를 재확인합니다.
-   `createDispatchRecommendation()`의 supported spawnArguments를 실제 도구에 전달하되 완료 packet도 함께 전달합니다.
+   `createDispatchRecommendation()`에 dispatch마다 새 `dispatchToken`을 주고, supported spawnArguments(lane id와 token으로 만든
+   `task_name` 포함)를 실제 도구에 전달하되 완료 packet도 함께 전달합니다.
    Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따릅니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `evaluateModelExecution()`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
-   `prepareLeaderSynthesis()`로 failed/blocked/conflicting evidence를 보존하고 근거 없는 completed/self-PASS를 수용하지 않습니다.
+   `prepareLeaderSynthesis()`에 Parent session의 hook 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
+   hook 기록이 없거나 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
 7. **실패·기록·cleanup**: [model recovery는 중단](#model-recovery-suspension)되어 있어 실패한 candidate는 writer 회수 뒤
    Parent 판단이나 handoff로 돌아갑니다. Usage가 없으면 null로 남기고
    [run evidence](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에 controlled fault와 실제 miss를 구분합니다.
@@ -318,6 +322,45 @@ Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 
 [`agent-collaboration-cases.json`](../../../../scripts/ci/agents/common/fixtures/agent-collaboration-cases.json)은 보안 판단의 유한 입력 사례입니다.
 정적 검사는 fixture·문서의 정합성만 증명합니다. 실제 Agent의 답변, Auto-review의 허용/거절, 접근 격리는 각각 별도 실행
 evidence가 필요하며 한 종류의 PASS를 다른 종류의 PASS로 보고하지 않습니다.
+
+### Subagent hook guardrail과 완료 관측
+
+Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 호출 시점 guardrail과 child 완료 기록을 맡습니다.
+공식 문서도 tool hook을 완전한 강제 경계가 아닌 guardrail로 한정하므로 아래 범위 밖을 hook 강제로 보고하지 않습니다.
+[공식 hooks 문서](https://learn.chatgpt.com/docs/hooks)
+
+- **호출 시점(PreToolUse)**: matcher는 도구 이름 접미 `(spawn_agent|followup_task|send_message)$`입니다. V2 hook 이름은 namespace
+  (`features.multi_agent_v2.tool_namespace`, 기본 `collaboration`)와 이름을 구분자 없이 잇기 때문입니다. Spawn은 Parent가 부르고
+  (1) `agent_type`이 `.codex/agents`의 `knu_*` roster (2) 허용 목록 안 explicit `model` (3) `fork_turns`가 `"none"` 또는 양의 정수일
+  때만 허용합니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는 V2 provider)는 전부 deny합니다.
+  `followup_task`·`send_message`는 기록만 합니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다.
+- **내장·OMX 역할**: project hook이 로드된 세션에서는 이 repository 안의 내장 역할(`default` 등)·OMX 역할 spawn이 막힙니다.
+  Repository 위임은 `knu_*` 역할로 합니다.
+- **완료 기록**: SubagentStart·SubagentStop은 Parent session별 `.codex/state/knu-subagent-hooks/<session>.jsonl`에 child
+  `agent_id`·`agent_type`·`model`, child rollout의 task path, own-turn model·effort를 남깁니다. SubagentStart의 `model`은
+  child session의 turn에서 만든 값입니다(codex `rust-v0.160.0` `core/src/hook_runtime.rs`의 SubagentStart 요청). Message와 마지막 응답 원문은
+  저장하지 않고 byte 길이만 남깁니다. `.codex`는 workspace-write child가 쓸 수 없고 hook은 sandbox 밖에서 씁니다.
+  Full access 세션과 Parent 권한 상승 쓰기는 막지 못합니다.
+- **완료 판정**: child 결과는 Parent 보고만으로 완료가 아닙니다. `prepareLeaderSynthesis()`와 child lane의
+  `validateCodexWorkflowResults()`는 같은 Parent session의 Start·Stop 기록이 그 dispatch의 task path(`/root/<lane>_<token>`)·계약
+  역할·허용 목록 model·roster를 모두 맞출 때만 완료로 받습니다. 허용 목록·roster는 `model-profiles.mjs`에서 읽고 호출자가 넘긴
+  값은 쓰지 않습니다. Token이 없으면 `dispatch-token-missing`, 같은 task path에 child가 둘 이상이면 `observation-ambiguous`로
+  거부합니다. Token은 dispatch마다 새로 정하는 소문자·숫자 4~12자이고, 같은 session에서 lane id를 다시 써도 이전 child 기록이
+  새 dispatch를 완료시키지 않게 합니다. Token을 일부러 재사용하는 것은 막지 못합니다. Shell에서는
+  `pnpm codex:completion -- --lane <laneId> --token <token> --role <agent_type>`(session은 `CODEX_THREAD_ID`)로 확인합니다.
+  기대 model·effort 대조는 하지 않습니다(effort는 기록만).
+- **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
+  완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
+- **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 완료 판정의 허용 목록·roster 대조는 남지만
+  `knu_*` child가 허용 목록 model로 띄운 grandchild에는 호출·완료 시점 통제가 없고 역할 prompt의 재위임 금지와 V2
+  `<multi_agent_mode>` 지시만 남습니다. Hook 항목 하나만 바뀌어 그 항목만 재검토 대기인 부분 부재도 같습니다.
+- **완료 거부 뒤 writer 변경**: 거부는 결과 수락만 막습니다. Parent는 이미 실행된 writer child가 바꾼 경로를 확인해 계약 밖
+  변경을 되돌리거나 handoff하고, 거부된 결과를 통합 근거로 쓰지 않습니다.
+- **엔진과 허용 목록 범위**: 허용 목록 model은 catalog v2 model입니다. Project hook이 로드된 세션에서는 V1 root의 spawn이 전부
+  deny되어 V1 경로의 child가 생기지 않습니다. Hook이 없거나 PreToolUse가 실패하면 V1 child도 실행될 수 있으며, 완료 판정은 그
+  dispatch task path의 기록을 요구합니다.
+- **정책 사본**: hook은 child가 쓸 수 있는 workspace module을 import하지 않고 `.codex/hooks/knu-hook-policy.json`을 읽습니다. 사본이
+  `model-profiles.mjs` 허용 목록·역할 roster와 같음은 test가 결속합니다. `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
 
 ## Diagnostic contract
 

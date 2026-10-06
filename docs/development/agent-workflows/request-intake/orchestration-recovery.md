@@ -301,7 +301,7 @@ confidence / blocker
 
 `finalDecision`, `finalUserResponse`, `globalPlan`, `finalVerification`처럼 leader authority를 주장하는 field는
 거부합니다. Result가 빠졌거나, verification이 실패·미실행이거나, blocking gap·pending retry·unresolved conflict가
-있으면 synthesis는 ready가 아닙니다.
+있거나, completed lane의 hook 기록 결속이 거부되면 synthesis는 ready가 아닙니다.
 
 ## Leader-only synthesis
 
@@ -311,7 +311,12 @@ Policy는 child evidence를 정규화하여 leader에게 다음을 제공합니�
 - verification evidence
 - missing/blocked/recovering lane
 - unresolved 또는 leader-resolved conflict
+- completed lane별 hook 완료 판정(`completionChecks`·`refusedLaneIds`, `completionAuthority: codex-subagent-hook`)
 - `readyForLeaderDecision`
+
+Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 dispatch의 lane task path(dispatch token 포함)·
+계약 역할·허용 목록 model·roster와 모두 맞아야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
+refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 경계는 [Codex adapter](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 
 `readyForLeaderDecision=true`도 자동 completion이나 final answer를 의미하지 않습니다. Leader가 repository의 실제
 변경, source freshness, conflict, 최종 verification을 확인한 뒤에만 사용자에게 결론을 제공합니다.

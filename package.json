@@ -64,6 +64,7 @@
     "infra:rehearsal:full-stack": "node scripts/infra/rehearsal/full-stack/index.mjs",
     "infra:rehearsal:lightsail-secrets": "pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts test/operations/platform/lightsail-secret-delivery.spec.ts test/operations/platform/mounted-file-secret-reader.spec.ts",
     "codex:workflow": "node scripts/agents/codex/workflow-entry.mjs",
+    "codex:completion": "node scripts/agents/codex/subagent-hook-records.mjs",
     "codex:preflight": "node scripts/agents/codex/session-preflight.mjs --json",
     "claude:workflow": "node scripts/agents/claude/workflow-entry.mjs",
     "claude:preflight": "node scripts/agents/claude/session-preflight.mjs --json",

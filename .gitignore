@@ -58,12 +58,17 @@ apps/web/storybook-static/
 !.claude/skills/knu-delegate/
 !.claude/skills/knu-review/
 !.claude/skills/knu-settle/
-# Codex는 검토된 프로젝트 child 설정만 추적하고 개인·runtime 상태는 제외한다.
+# Codex는 검토된 프로젝트 child 설정과 subagent hook만 추적하고 개인·runtime 상태(hook 기록 포함)는 제외한다.
 .codex/*
 !.codex/config.toml
 !.codex/agents/
 .codex/agents/*
 !.codex/agents/*.toml
+!.codex/hooks.json
+!.codex/hooks/
+.codex/hooks/*
+!.codex/hooks/knu-*.mjs
+!.codex/hooks/knu-*.json
 .omc/
 .omx/
 
