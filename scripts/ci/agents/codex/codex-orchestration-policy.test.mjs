@@ -30,7 +30,7 @@ import {
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../../../agents/codex/orchestration-policy.mjs';
-import { observedChildren } from './fixtures/subagent-hook-observation.mjs';
+import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-hook-observation.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const UNLISTED_MODEL = 'gpt-x-unlisted';
@@ -675,6 +675,18 @@ test('ordinary scoped Astra advice binds exact native arguments without changing
   assert.ok(Object.isFrozen(result.dispatches[0].spawnArguments));
   assert.deepEqual(input, before);
   assert.equal(Object.isFrozen(input.reportedRuntimeEvidence), false);
+  // A dispatch token joins the task name so completion can bind this dispatch's own child.
+  const tokened = createDispatchRecommendation({
+    ...ordinaryScopedDispatchInput(),
+    dispatchToken: 'k3x9',
+  });
+  assert.equal(tokened.dispatches[0].spawnArguments.task_name, 'legal_repository_map_k3x9');
+  assert.equal(tokened.dispatches[0].dispatchToken, 'k3x9');
+  for (const dispatchToken of ['', 'UP', 'a_b1', 'toolongtoken13'])
+    assert.throws(
+      () => createDispatchRecommendation({ ...ordinaryScopedDispatchInput(), dispatchToken }),
+      /dispatch token/u,
+    );
 });
 
 test('ordinary context and explicit invocation gaps cannot leave a ready descriptor', () => {
@@ -956,6 +968,7 @@ test('prepares evidence for leader-only synthesis without granting child final a
     recoveryDecisions: [],
     conflicts: [],
     hookObservation: observedChildren(delegation),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);
@@ -971,6 +984,7 @@ test('a leader-reported completed child is refused without its hook observation'
   const reportedOnly = prepareLeaderSynthesis({
     delegation,
     childResults: successfulLegalResults(),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(
@@ -990,12 +1004,27 @@ test('a leader-reported completed child is refused without its hook observation'
     ],
   );
   assert.equal(reportedOnly.completionAuthority, 'codex-subagent-hook');
+  // Records without the dispatch token cannot name this dispatch's child.
+  const untokened = prepareLeaderSynthesis({
+    delegation,
+    childResults: successfulLegalResults(),
+    hookObservation: observedChildren(delegation),
+  });
+  assert.deepEqual(
+    untokened.completionChecks.map(({ reason }) => reason),
+    ['dispatch-token-missing', 'dispatch-token-missing'],
+  );
 });
 
 test('hook observations bind each completed lane to its contract role and an allowed model', () => {
   const delegation = legalDelegation();
-  const synthesize = (hookObservation) =>
-    prepareLeaderSynthesis({ delegation, childResults: successfulLegalResults(), hookObservation });
+  const synthesize = (hookObservation, dispatchToken = FIXTURE_DISPATCH_TOKEN) =>
+    prepareLeaderSynthesis({
+      delegation,
+      childResults: successfulLegalResults(),
+      hookObservation,
+      dispatchToken,
+    });
 
   const observed = synthesize(observedChildren(delegation));
   assert.equal(observed.readyForLeaderDecision, true);
@@ -1019,6 +1048,29 @@ test('hook observations bind each completed lane to its contract role and an all
   assert.deepEqual(
     builtIn.completionChecks.map(({ reason }) => reason),
     ['role-not-in-roster', 'role-not-in-roster'],
+  );
+  // The allowlist and roster come from their owner, not from the caller's observation.
+  const widened = synthesize({
+    ...observedChildren(delegation, { model: UNLISTED_MODEL }),
+    allowedModels: [UNLISTED_MODEL],
+  });
+  assert.deepEqual(
+    widened.completionChecks.map(({ reason }) => reason),
+    ['model-not-allowed', 'model-not-allowed'],
+  );
+  // An earlier dispatch's child of the same lane does not complete this dispatch.
+  const earlier = synthesize(observedChildren(delegation, { dispatchToken: 'old1' }));
+  assert.deepEqual(
+    earlier.completionChecks.map(({ reason }) => reason),
+    ['observation-missing', 'observation-missing'],
+  );
+  const twice = observedChildren(delegation);
+  twice.records.push(
+    ...twice.records.map((record) => ({ ...record, agentId: `${record.agentId}-b` })),
+  );
+  assert.deepEqual(
+    synthesize(twice).completionChecks.map(({ reason }) => reason),
+    ['observation-ambiguous', 'observation-ambiguous'],
   );
 });
 
@@ -2571,6 +2623,7 @@ test('leader synthesis rejects a model-attributed alternate while model recovery
       childResults: successfulLegalResults(),
       recoveryDecisions: [decision([ordinaryFailure, ordinaryAlternate])],
       hookObservation: observedChildren(delegation),
+      dispatchToken: FIXTURE_DISPATCH_TOKEN,
     }).readyForLeaderDecision,
     true,
   );

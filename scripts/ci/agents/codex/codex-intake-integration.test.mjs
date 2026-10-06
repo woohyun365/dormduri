@@ -17,7 +17,7 @@ import {
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../../../agents/codex/orchestration-policy.mjs';
-import { observedChildren } from './fixtures/subagent-hook-observation.mjs';
+import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-hook-observation.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const fixtures = JSON.parse(
@@ -128,6 +128,7 @@ test('Legal Analyze stays read-only while discovering repository surfaces and cu
       }),
     ),
     hookObservation: observedChildren(flow.delegation),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);
@@ -169,6 +170,7 @@ test('Legal Plan selects tracked authoring guides without granting implementatio
       completedChildResult(contract),
     ),
     hookObservation: observedChildren(flow.delegation),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);

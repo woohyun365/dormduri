@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -374,7 +382,7 @@ test('the completion command reports a refusal for the Parent session and reject
       encoding: 'utf8',
       env: { ...process.env, CODEX_THREAD_ID: '', ...env },
     });
-  const refused = run(['--lane', 'lane-one', '--role', 'knu_explorer'], {
+  const refused = run(['--lane', 'lane-one', '--token', 'k3x9', '--role', 'knu_explorer'], {
     CODEX_THREAD_ID: 'knu-test-session-without-records',
   });
   assert.equal(refused.status, 1, refused.stderr);
@@ -389,13 +397,72 @@ test('the completion command reports a refusal for the Parent session and reject
     {
       completionAuthority: 'codex-subagent-hook',
       sessionId: 'knu-test-session-without-records',
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       accepted: false,
       reason: 'observation-missing',
     },
   );
-  assert.equal(run(['--lane', 'lane-one']).status, 2);
-  const noSession = run(['--lane', 'lane-one', '--role', 'knu_explorer']);
+  assert.equal(run(['--lane', 'lane-one', '--role', 'knu_explorer']).status, 2);
+  // Through a symlinked path the command still decides; a silent exit 0 would read as accepted.
+  const linkDirectory = mkdtempSync(join(tmpdir(), 'knu-completion-link-'));
+  try {
+    const link = join(linkDirectory, 'completion.mjs');
+    symlinkSync(command, link);
+    const linked = spawnSync(
+      process.execPath,
+      [link, '--lane', 'lane-one', '--token', 'k3x9', '--role', 'knu_explorer'],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env: { ...process.env, CODEX_THREAD_ID: 'knu-test-session-without-records' },
+      },
+    );
+    assert.equal(linked.status, 1, 'symlinked completion command must still refuse');
+    assert.equal(JSON.parse(linked.stdout).reason, 'observation-missing');
+  } finally {
+    rmSync(linkDirectory, { recursive: true, force: true });
+  }
+  const noSession = run(['--lane', 'lane-one', '--token', 'k3x9', '--role', 'knu_explorer']);
   assert.equal(noSession.status, 2);
   assert.match(noSession.stderr, /session id/u);
+});
+
+test('dispatch tokens name each dispatch and a missing token or a reused path refuses completion', async () => {
+  const { checkLaneCompletion, laneTaskName, laneTaskPath } = await records();
+  assert.equal(laneTaskName('lane-one', 'k3x9'), 'lane_one_k3x9');
+  assert.equal(laneTaskPath('lane-one', 'k3x9'), '/root/lane_one_k3x9');
+  assert.throws(() => laneTaskName('lane-one', 'Bad'), /dispatch token/u);
+  const tokened = observation({
+    records: observation().records.map((record) => ({
+      ...record,
+      agentPath: '/root/lane_one_k3x9',
+    })),
+  });
+  const check = (obs, dispatchToken = 'k3x9') =>
+    checkLaneCompletion({
+      observation: obs,
+      laneId: 'lane-one',
+      dispatchToken,
+      expectedRole: 'knu_explorer',
+    });
+  assert.equal(check(tokened).accepted, true);
+  assert.equal(check(tokened, null).reason, 'dispatch-token-missing');
+  assert.equal(check(tokened, 'zz99').reason, 'observation-missing');
+  // A widened allowlist in the observation is ignored; the owner allowlist decides.
+  const unlisted = observation({ model: 'gpt-x-unlisted' });
+  unlisted.records = unlisted.records.map((record) => ({
+    ...record,
+    agentPath: '/root/lane_one_k3x9',
+  }));
+  assert.equal(
+    check({ ...unlisted, allowedModels: ['gpt-x-unlisted'] }).reason,
+    'model-not-allowed',
+  );
+  const twice = observation({
+    records: [
+      ...tokened.records,
+      ...tokened.records.map((record) => ({ ...record, agentId: 'second-child' })),
+    ],
+  });
+  assert.equal(check(twice).reason, 'observation-ambiguous');
 });

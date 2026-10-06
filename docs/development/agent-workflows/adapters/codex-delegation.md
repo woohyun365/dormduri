@@ -121,7 +121,8 @@ deliveryByLane[laneId]
 Ordinary Astra의 native + scoped + explicit-effort 경로는 기존 role metadata의 `modelSelection`과
 `explicitEffortSupport`를 확인합니다. Astra 지원, explicit model 지원, 호환 role pin, 기존 role/model/effort/permission
 검사를 모두 통과할 때만 descriptor에 `spawnArguments={task_name, agent_type, model: gpt-6-astra, reasoning_effort, fork_turns: none}`을
-연결합니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이며 hook 완료 기록과 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
+연결합니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
+붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
 Metadata가 없거나 충돌하면 ready descriptor 대신 명시 gap입니다. `failures`는 ordinary 전달에서 보존해야 할
 근거이며 자동 거절 사유가 아닙니다. Candidate admission의 별도 제한은 바꾸지 않으며 model recovery는 중단되어 있습니다.
 

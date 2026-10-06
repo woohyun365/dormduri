@@ -12,11 +12,7 @@ import {
 import { recommendDelegation } from './child-task-contract.mjs';
 import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
-import {
-  COMPLETION_AUTHORITY,
-  evaluateHookCompletion,
-  laneTaskPath,
-} from './subagent-hook-records.mjs';
+import { COMPLETION_AUTHORITY, checkLaneCompletion } from './subagent-hook-records.mjs';
 
 // Actual deterministic Codex composition, not a native scheduler or permission grant.
 // A caller supplies current evidence; the Lead verifies its authenticity before host use.
@@ -30,6 +26,7 @@ export function prepareCodexWorkflow({
   modelUseByLane = {},
   concurrencyLimit,
   ownerDirectedChildLimit,
+  dispatchToken,
   currentSnapshot,
   adapterIdentity,
   assignments = {},
@@ -67,6 +64,7 @@ export function prepareCodexWorkflow({
     reportedRuntimeEvidence,
     modelUseByLane,
     ...(concurrencyLimit === undefined ? {} : { concurrencyLimit }),
+    ...(dispatchToken === undefined ? {} : { dispatchToken }),
   });
   const children = delegation.recommendedChildren;
   if (!assignments || typeof assignments !== 'object' || Array.isArray(assignments))
@@ -203,9 +201,10 @@ export function validateCodexWorkflowResults(
     )
     .map(({ laneId }) => ({
       laneId,
-      ...evaluateHookCompletion({
+      ...checkLaneCompletion({
         observation: hookObservation,
-        taskPath: laneTaskPath(laneId),
+        laneId,
+        dispatchToken: input?.dispatchToken,
         expectedRole: children.get(laneId).routeRecommendation.role,
       }),
     }));

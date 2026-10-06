@@ -477,11 +477,15 @@ test('project hooks register one guard and the subagent recorder from the git ro
   );
   // The hook must not load workspace modules that a workspace-write child could edit.
   const hook = readFileSync(resolve(repoRoot, '.codex/hooks/knu-subagent-hooks.mjs'), 'utf8');
-  const imports = [...hook.matchAll(/^import [^\n]* from '([^']+)';$/gmu)].map(([, from]) => from);
-  assert.ok(imports.length > 0);
+  // Every static specifier: multi-line and side-effect imports, re-exports, either quote style.
+  const specifiers = [
+    ...hook.matchAll(/^\s*import\s*['"]([^'"]+)['"]/gmu),
+    ...hook.matchAll(/^\s*(?:import|export)\s[^;'"]*?\bfrom\s*['"]([^'"]+)['"]/gmu),
+  ].map(([, from]) => from);
+  assert.ok(specifiers.length > 0);
   assert.ok(
-    imports.every((from) => from.startsWith('node:')),
-    imports.join(', '),
+    specifiers.every((from) => from.startsWith('node:')),
+    `hook imports a non-node module: ${specifiers.join(', ')}`,
   );
-  assert.doesNotMatch(hook, /\bimport\(/u);
+  assert.doesNotMatch(hook, /\bimport\s*\(|\brequire\s*\(|\bcreateRequire\b/u);
 });

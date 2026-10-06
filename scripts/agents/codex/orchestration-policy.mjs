@@ -15,9 +15,9 @@ import { assertRecoveryChildContract, createModelScopeDigest } from './child-tas
 import { recommendModel } from './routing-policy.mjs';
 import {
   COMPLETION_AUTHORITY,
-  evaluateHookCompletion,
+  checkLaneCompletion,
+  isDispatchToken,
   laneTaskName,
-  laneTaskPath,
 } from './subagent-hook-records.mjs';
 
 const HARD_CHILD_LIMIT = 6;
@@ -108,13 +108,18 @@ const CHILD_RESULT_FIELDS = new Set([
   'blocker',
 ]);
 
+// dispatchToken (optional, 4-12 lowercase letters or digits) is a fresh per-dispatch value the Parent picks; it joins
+// each spawn task_name so completion can bind this dispatch's own child (subagent-hook-records.mjs).
 export function createDispatchRecommendation({
   delegation,
   reportedRuntimeEvidence = null,
   concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT,
   modelUseByLane = {},
   recoveryDecision,
+  dispatchToken,
 } = {}) {
+  if (dispatchToken !== undefined && !isDispatchToken(dispatchToken))
+    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits');
   if (recoveryDecision !== undefined)
     return createRecoveryDispatch({
       delegation,
@@ -185,10 +190,11 @@ export function createDispatchRecommendation({
       dispatchOwner: 'leader',
       runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
       requiresLeaderRuntimeConfirmation: true,
+      ...(dispatchToken === undefined ? {} : { dispatchToken }),
       ...(usesOrdinaryScopedArguments(runtime, contract)
         ? {
             spawnArguments: {
-              task_name: laneTaskName(contract.laneId),
+              task_name: laneTaskName(contract.laneId, dispatchToken),
               agent_type: contract.routeRecommendation.role,
               model: getModelProfile(contract.routeRecommendation.profileId).model,
               reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
@@ -210,7 +216,7 @@ export function createDispatchRecommendation({
             reportedRole.configurationResolution
               ? {
                   spawnArguments: {
-                    task_name: laneTaskName(contract.laneId),
+                    task_name: laneTaskName(contract.laneId, dispatchToken),
                     agent_type: contract.routeRecommendation.role,
                     model: contract.routeRecommendation.modelRecommendation.recommendedModel,
                     reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
@@ -261,7 +267,7 @@ export function evaluateModelExecution({ dispatch, expectedChildId, reportedExec
       dispatch.resolvedEffort !== resolveRouteEffort(contract.routeRecommendation) ||
       contract.modelScopeDigest !== createModelScopeDigest(contract) ||
       !isDeepStrictEqual(dispatch.spawnArguments, {
-        task_name: laneTaskName(contract.laneId),
+        task_name: laneTaskName(contract.laneId, dispatch.dispatchToken),
         agent_type: contract.routeRecommendation.role,
         model: contract.routeRecommendation.modelRecommendation.recommendedModel,
         reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
@@ -801,13 +807,14 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
 }
 
 // A completed child counts only when its own hook records bind it (subagent-hook-records.mjs); a leader report alone
-// is refused. hookObservation = { sessionId, records, allowedModels, roster } from the Parent session.
+// is refused. hookObservation = { sessionId, records } from the Parent session; dispatchToken is the dispatch's token.
 export function prepareLeaderSynthesis({
   delegation,
   childResults = [],
   recoveryDecisions = [],
   conflicts = [],
   hookObservation,
+  dispatchToken,
 } = {}) {
   assertDelegationRecommendation(delegation);
   if (delegation.execution !== 'bounded-lanes') {
@@ -850,9 +857,10 @@ export function prepareLeaderSynthesis({
     .filter(({ status }) => status === 'completed')
     .map(({ laneId }) => ({
       laneId,
-      ...evaluateHookCompletion({
+      ...checkLaneCompletion({
         observation: hookObservation,
-        taskPath: laneTaskPath(laneId),
+        laneId,
+        dispatchToken,
         expectedRole: contracts.get(laneId).routeRecommendation.role,
       }),
     }));

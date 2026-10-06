@@ -15,7 +15,7 @@ import {
   prepareCodexWorkflow,
   validateCodexWorkflowResults,
 } from '../../../agents/codex/workflow-entry.mjs';
-import { observedChildren } from './fixtures/subagent-hook-observation.mjs';
+import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-hook-observation.mjs';
 const requests = {
   answer: 'API 코드의 역할을 설명해줘.',
   analyze: 'API 오류 원인을 분석해줘.',
@@ -444,6 +444,10 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   assert.equal(validateCodexWorkflowResults(i, { results: [r], review }).valid, false);
   qa.baseResult.identity.observedModel = 'gpt-6-astra';
   // A reported complete child lane is not accepted until its own hook records bind it.
+  assert.deepEqual(validateCodexWorkflowResults(i, { results: [r], review }).errors, [
+    'child lane legal-test completion refused: dispatch-token-missing',
+  ]);
+  i.dispatchToken = FIXTURE_DISPATCH_TOKEN;
   const reportedOnly = validateCodexWorkflowResults(i, { results: [r], review });
   assert.equal(reportedOnly.valid, false, 'a refused child lane invalidates the fan-in');
   assert.deepEqual(reportedOnly.errors, [
