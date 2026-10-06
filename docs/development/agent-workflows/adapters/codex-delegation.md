@@ -130,7 +130,7 @@ Compatible full-history/reuse/inherit 및 OMX advisory 경로를 fresh native sp
 Parent의 live 재확인이 계속 필요하며 실제 실행·provider-effective 설정을 증명하지 않습니다. 기존 source/권한 의미의
 진실성까지 순수 helper가 인증하지 않으므로 Parent는 실제 host와 완전한 packet을 확인한 후에만 호출합니다.
 
-Fixture의 UTF-8 bytes와 중복 전달 감소는 token/weekly 절감이 아니며, 미관측 usage는 `null/unknown`입니다. 실제 fork 설정·사용량 관측은 별도
+중복 전달 감소를 token/weekly 절감으로 해석하지 않으며, 미관측 usage는 `null/unknown`입니다. 실제 fork 설정·사용량 관측은 별도
 native 실행 evidence가 필요합니다. 비용 운영 기준은 [orchestration owner](../orchestration.md#context와-검증-비용)를 따릅니다.
 Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 아닙니다. 실제 consumer 요구 없이 새 전달 모드를 만들지 않으며,
 기존 complete packet·fresh initial QA·role/context 두 gate를 유지합니다. 결과 회수 후에는 [capability별 완료 판정](../subagent-lifecycle.md#capability별-완료-판정)을 따르고, 무관한 재사용이나 close 없는 환경의 실패를 기본값으로 가정하지 않습니다.
