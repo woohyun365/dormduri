@@ -317,8 +317,8 @@ fresh Parent 전체의 준수율·생산성·비용 향상, 모든 공격 입력
 
 Assignment profile은 Astra입니다: 구현 XHigh·impact high의 `deep-build`, 독립 리뷰의 `review`, 그 밖의 Astra 배정
 (admission 밖 Pass 2 결과)인 `astra-fallback`. 6.1 Sol은 Claude의 Sonnet 계층처럼 bounded 작업의 일반 업무 model입니다.
-Owner가 품질 canary 없이 routine으로 채택했으며(2026-10-06), 작업마다의 oracle·독립 검사, 구현의 필수 Astra QA와 run
-evidence가 그 품질을 지킵니다. Model recovery는 중단합니다. 실패한 candidate는
+Owner가 품질 canary 없이 routine으로 채택했으며(2026-10-06), 작업마다의 oracle·독립 검사, 구현의 필수 Astra QA와 hook이
+관측한 model·effort의 완료 대조가 그 품질을 지킵니다. Model recovery는 중단합니다. 실패한 candidate는
 Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올리는 승격 사다리가 정해질 때까지 이 상태를 유지합니다.
 
 - **Trigger / non-trigger**: Pass 2가 판정한 bounded child 배정과 candidate admission / Parent effort, 운영 reviewer model,
