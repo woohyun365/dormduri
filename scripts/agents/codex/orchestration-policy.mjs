@@ -807,7 +807,8 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
 }
 
 // A completed child counts only when its own hook records bind it (subagent-hook-records.mjs); a leader report alone
-// is refused. hookObservation = { sessionId, records } from the Parent session; dispatchToken is the dispatch's token.
+// is refused. hookObservation = readHookRecords() of the Parent session ({ sessionId, records, malformed });
+// dispatchToken is the dispatch's token.
 export function prepareLeaderSynthesis({
   delegation,
   childResults = [],

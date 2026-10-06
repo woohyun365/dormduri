@@ -56,5 +56,5 @@ export function observedChildren(
       },
     ];
   });
-  return { sessionId, records };
+  return { sessionId, records, malformed: 0 };
 }

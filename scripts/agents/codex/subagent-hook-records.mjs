@@ -58,7 +58,8 @@ export function readHookRecords({ root, sessionId }) {
   return { sessionId, records, malformed };
 }
 
-// observation = { sessionId, records, allowedModels, roster, allowedRoleModels, roleEfforts }. Missing, partial, unbound
+// observation = { sessionId, records, malformed, allowedModels, roster, allowedRoleModels, roleEfforts }, where
+// sessionId, records and malformed are the readHookRecords() result. Missing, partial, unbound
 // or mismatched records refuse the completion; the first failing check names the reason.
 export function evaluateHookCompletion({ observation, taskPath, expectedRole, expectedModel }) {
   const refused = (reason, record, effort = null) => ({
@@ -70,6 +71,8 @@ export function evaluateHookCompletion({ observation, taskPath, expectedRole, ex
     effort,
   });
   if (!observation || !Array.isArray(observation.records)) return refused('observation-missing');
+  // A skipped line may have been a descendant start, and its absence is a condition of acceptance.
+  if (observation.malformed !== 0) return refused('observation-malformed');
   const own = ownRecords(observation);
   const stop = own.findLast(
     ({ event, agentPath }) => event === 'SubagentStop' && agentPath === taskPath,
@@ -250,7 +253,7 @@ function main(argv) {
   const { records, malformed } = readHookRecords({ root, sessionId });
   const taskPath = laneTaskPath(options.lane, options.token);
   const verdict = checkLaneCompletion({
-    observation: { sessionId, records },
+    observation: { sessionId, records, malformed },
     laneId: options.lane,
     dispatchToken: options.token,
     expectedRole: options.role,

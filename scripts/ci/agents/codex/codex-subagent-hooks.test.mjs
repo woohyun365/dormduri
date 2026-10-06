@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { ALLOWED_CHILD_MODELS, ROLE_EFFORTS } from '../../../agents/codex/model-profiles.mjs';
@@ -370,6 +370,9 @@ test('completion is refused for missing, partial, mismatched or out-of-policy ob
   assert.equal(refuse(observation({ sessionId: 'another-session' })), 'observation-missing');
   assert.equal(refuse(observation({ drop: 'SubagentStop' })), 'observation-incomplete');
   assert.equal(refuse(observation({ drop: 'SubagentStart' })), 'observation-incomplete');
+  // A skipped line may have been a descendant start, so any malformed line (or an unknown count) refuses the lane.
+  assert.equal(refuse({ ...observation(), malformed: 1 }), 'observation-malformed');
+  assert.equal(refuse({ ...observation(), malformed: undefined }), 'observation-malformed');
   assert.equal(refuse(observation(), 'knu_explorer_xhigh'), 'observation-mismatch');
   assert.equal(refuse(observation({ parentThreadId: 'foreign' })), 'observation-mismatch');
   // A start record without a readable rollout still needs the stop record to name the Parent thread.
@@ -535,8 +538,8 @@ test('completion compares the observed model and own-turn effort with the lane c
   );
 });
 
-test('completion reads only the parent session record file and skips malformed lines', async (t) => {
-  const { readHookRecords, HOOK_RECORD_DIRECTORY } = await records();
+test('completion reads only the parent session record file and refuses a session with malformed lines', async (t) => {
+  const { readHookRecords, checkLaneCompletion, HOOK_RECORD_DIRECTORY } = await records();
   const root = mkdtempSync(join(tmpdir(), 'knu-hook-records-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, HOOK_RECORD_DIRECTORY), { recursive: true });
@@ -547,6 +550,30 @@ test('completion reads only the parent session record file and skips malformed l
   const read = readHookRecords({ root, sessionId: SESSION });
   assert.equal(read.records.length, 1);
   assert.equal(read.malformed, 1);
+  // The read result is the observation: a truncated line may have been a descendant start of this lane.
+  const lane = observation({ taskName: 'lane_one_k3x9' }).records;
+  writeFileSync(
+    join(root, HOOK_RECORD_DIRECTORY, `${SESSION}.jsonl`),
+    [
+      ...lane.map((r) => JSON.stringify(r)),
+      '{"event":"SubagentStart","agentPath":"/root/lane_one_k3x9/x"',
+    ].join('\n'),
+  );
+  const check = (observed) =>
+    checkLaneCompletion({
+      observation: observed,
+      laneId: 'lane-one',
+      dispatchToken: 'k3x9',
+      expectedRole: 'knu_explorer',
+      expectedModel: ASTRA,
+    }).reason;
+  const truncated = readHookRecords({ root, sessionId: SESSION });
+  assert.equal(check(truncated), 'observation-malformed');
+  assert.equal(
+    check({ ...truncated, malformed: 0 }),
+    null,
+    'the same records without the bad line are accepted',
+  );
   assert.deepEqual(readHookRecords({ root, sessionId: 'absent' }).records, []);
   assert.throws(() => readHookRecords({ root, sessionId: '../escape' }), /session id/u);
 });
@@ -614,6 +641,7 @@ function observation({
   return {
     sessionId,
     records: all.filter(({ event }) => event !== drop),
+    malformed: 0,
     allowedModels: POLICY.allowedModels,
     roster: POLICY.roster,
     allowedRoleModels: POLICY.allowedRoleModels,
@@ -705,6 +733,27 @@ test('the completion command reports a refusal for the Parent session and reject
   const noSession = run(usage);
   assert.equal(noSession.status, 2);
   assert.match(noSession.stderr, /session id/u);
+  // The command passes the malformed count on: a bad line in the session file refuses an otherwise bound lane.
+  const sessionId = `knu-test-malformed-${process.pid}`;
+  const file = resolve(repoRoot, '.codex/state/knu-subagent-hooks', `${sessionId}.jsonl`);
+  mkdirSync(dirname(file), { recursive: true });
+  const lane = observation({ taskName: 'lane_one_k3x9', parentThreadId: sessionId }).records.map(
+    (r) => JSON.stringify({ ...r, sessionId }),
+  );
+  try {
+    writeFileSync(file, `${[...lane, '{oops'].join('\n')}\n`);
+    const malformed = run(usage, { CODEX_THREAD_ID: sessionId });
+    assert.equal(malformed.status, 1, malformed.stderr);
+    assert.equal(JSON.parse(malformed.stdout).reason, 'observation-malformed');
+    writeFileSync(file, `${lane.join('\n')}\n`);
+    assert.equal(
+      run(usage, { CODEX_THREAD_ID: sessionId }).status,
+      0,
+      'the intact file is accepted',
+    );
+  } finally {
+    rmSync(file, { force: true });
+  }
 });
 
 test('dispatch tokens name each dispatch and a missing token or a reused path refuses completion', async () => {

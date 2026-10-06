@@ -173,7 +173,8 @@ export function prepareCodexWorkflow({
 }
 
 // Recompute the contract from original request/evidence, never trust an edited prepared object. A complete child lane
-// also needs its own hook records (hookObservation); the Parent direct lane has no child to observe.
+// also needs its own hook records (hookObservation = readHookRecords() result); the Parent direct lane has no child
+// to observe.
 export function validateCodexWorkflowResults(
   input,
   { results = [], review, hookObservation } = {},

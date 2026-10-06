@@ -351,6 +351,8 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   dispatch의 task path(`/root/<lane>_<token>`)·계약 역할·허용 목록 model·roster를 맞추고, 그 task name의 root PreToolUse allow
   기록(bind)이 같은 역할·model을 묶고, lane 계약 model(route profile의 model)과 역할 쌍이 허용되고, Start `model`·Stop own-turn
   model이 계약 model과 같고 own-turn effort가 역할 pin(`ROLE_EFFORTS`)과 같으며, 그 child 아래 descendant Start가 없을 때입니다.
+  Hook 기록 입력은 `readHookRecords()` 결과(`sessionId`·`records`·`malformed`)이고, 읽지 못한 줄이 하나라도 있으면(수를 모르는
+  경우 포함) 그 줄이 descendant Start였을 수 있어 `observation-malformed`로 거부합니다.
   거부 사유는 bind 없음 `observation-unbound`, descendant `observation-foreign`, `pair-not-allowed`, `model-mismatch`,
   own-turn 없음 `effort-unobserved`, `effort-mismatch`이고 기존 사유(`observation-missing`·`-incomplete`·`-mismatch`,
   `model-not-allowed`, `role-not-in-roster`)는 그대로입니다. 허용 목록·roster·역할 쌍·역할 effort는 `model-profiles.mjs`에서
