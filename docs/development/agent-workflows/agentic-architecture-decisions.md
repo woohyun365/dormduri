@@ -215,7 +215,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 - **기각**: 새 scheduler/role TOML, semantic 중복/진실성 점수 엔진, Parent effort 자동 변경, 모든 작업의 xhigh child 강제.
 - **구현 영향**: 기존 dispatch/context schema 재사용, model/effort/permission gate 보존, canonical docs와 finite corpus 연결.
   Ordinary 실패 이력은 보존하고 candidate/recovery의 별도 admission을 완화하지 않습니다.
-- **검증/한계**: 실제 consumer의 positive/negative unit·integration·synthetic smoke와 source-first 독립 QA를 대조합니다.
+- **검증/한계**: 실제 consumer의 positive/negative unit·integration test와 source-first 독립 QA를 대조합니다.
   Fixture 정합성은 live 행동/모델 성능 시험이 아니며 Parent-high 품질 동등성·token/weekly 절감을 주장하지 않습니다.
 - **재검토**: source/host 지원 변화, 반복된 acceptance 누락 또는 유효한 같은 작업 기준 품질·총 비용 관측이 생길 때입니다.
 
