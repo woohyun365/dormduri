@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { extname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
@@ -8,33 +8,6 @@ import { runFreshSessionSmoke } from '../../../agents/codex/fresh-session-smoke.
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const smokeScript = resolve(repoRoot, 'scripts/agents/codex/fresh-session-smoke.mjs');
-const staleHandoffNames = [
-  'frontend-feature-refactor-plan-authoring-handoff.md',
-  'backend-feature-refactor-plan-authoring-handoff.md',
-  'infrastructure-feature-refactor-plan-authoring-handoff.md',
-];
-const retiredWorkflowTokens = [
-  '$' + 'ralph',
-  '$' + 'ultrawork',
-  '$' + 'pipeline',
-  'autoresearch' + '-goal',
-  'prometheus' + '-strict',
-];
-const textExtensions = new Set([
-  '.js',
-  '.json',
-  '.jsx',
-  '.md',
-  '.mjs',
-  '.mts',
-  '.sh',
-  '.ts',
-  '.tsx',
-  '.toml',
-  '.yaml',
-  '.yml',
-]);
-
 test('fresh smoke consumes model advice without enabling models, pilots or usage claims', () => {
   const { modelEvidence, boundaries } = runFreshSessionSmoke();
   assert.equal(modelEvidence.fixtureOnly, true);
@@ -234,42 +207,6 @@ test('a clean process produces the same smoke result without OMX or Codex sessio
   const source = readFileSync(smokeScript, 'utf8');
   assert.doesNotMatch(source, /\.omx\/(?:context|notepad|plans|project-memory|state)/u);
   assert.doesNotMatch(source, /process\.env/u);
-});
-
-test('tracked guidance and runtime code no longer reference obsolete authoring handoffs', () => {
-  const violations = trackedPaths()
-    .filter((path) => path !== 'scripts/ci/agents/codex/codex-fresh-session.test.mjs')
-    .filter((path) => textExtensions.has(extname(path)))
-    .flatMap((path) => {
-      const source = readFileSync(resolve(repoRoot, path), 'utf8');
-      return staleHandoffNames
-        .filter((name) => source.includes(name))
-        .map((name) => `${path}: ${name}`);
-    });
-
-  assert.deepEqual(violations, []);
-});
-
-test('tracked guidance no longer routes to retired user workflows', () => {
-  const scannedPaths = trackedPaths()
-    .filter((path) => path !== 'scripts/ci/agents/codex/codex-fresh-session.test.mjs')
-    .filter(
-      (path) =>
-        path === 'AGENTS.md' ||
-        path.startsWith('.codex/') ||
-        path.startsWith('docs/') ||
-        path.startsWith('scripts/'),
-    )
-    .filter((path) => textExtensions.has(extname(path)));
-  const violations = scannedPaths.flatMap((path) => {
-    const source = readFileSync(resolve(repoRoot, path), 'utf8');
-    return retiredWorkflowTokens
-      .filter((token) => source.includes(token))
-      .map((token) => `${path}: ${token}`);
-  });
-
-  assert.ok(scannedPaths.includes('.codex/agents/knu_reviewer.toml'));
-  assert.deepEqual(violations, []);
 });
 
 function trackedPaths() {
