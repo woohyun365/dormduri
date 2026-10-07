@@ -21,7 +21,7 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 현재 Sol profile model인 GPT-6.1 Sol은 2026-10-06 Owner 채택으로 bounded 작업의 routine model입니다. 별도 품질 canary 없이
 채택했으므로 작업별 oracle·독립 QA가 품질 근거입니다.
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
-2026-10-06부터는 semantic 계층이 effort를 고정한 역할 변형을 고르고 profile이 model을 정하며, model recovery는 중단했습니다.
+2026-10-06부터는 semantic 계층이 effort를 고정한 역할 변형을 고르고 profile이 model을 정하며, model recovery는 중단했습니다(2026-10-07 삭제).
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra XHigh 배정(읽기 xhigh 역할, 구현 `deep-build`)을 검토합니다.
 
@@ -117,7 +117,7 @@ human request and authority
                     → effort-pinned role variant + Astra or admitted Sol/Luna profile model
                       → contract-derived spawn arguments + call-time hook guard
                         ├── compatible → native dispatch → independent quality evidence
-                        └── unsupported / failed → stop and hand back (model recovery suspended)
+                        └── unsupported / failed → stop and hand back (no model change on retry)
                               → leader-only evidence integration and capability-aware cleanup
 ```
 
@@ -169,7 +169,7 @@ model 생략·full-history fork·child 발 spawn을 막습니다. 같은 날 호
 | 0~2개, evidence-backed third, owner max 6 child | 채택   | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                                                                           |
 | 여러 write-capable child                        | 기각   | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                                                                          |
 | parent effort도 repository가 자동 선택          | 기각   | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                                                                         |
-| Astra default + finite task profiles            | 채택   | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 routing 후보 자격(lane별 admission grant는 2026-10-07 삭제), model recovery 중단 |
+| Astra default + finite task profiles            | 채택   | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 routing 후보 자격(lane별 admission grant는 2026-10-07 삭제), model recovery 삭제 |
 | boolean 또는 config 존재를 runtime proof로 사용 | 기각   | current host role/model/effort/permission과 다를 수 있음                                                                                            |
 | reported evidence + live reconfirmation         | 대체됨 | dispatch 전 보수적 경계였음. 2026-10-06부터 완료는 hook 기록·bind·계약 model/effort 결속, 2026-10-07 dispatch 전 계층도 호출 시점 hook guard로 대체 |
 | custom classifier/scheduler/lifecycle engine    | 기각   | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦                                              |
@@ -260,7 +260,7 @@ task / acceptance / source facts
   → scoped child contract + profile 경계·contract snapshot 재확인
   → contract-derived spawn arguments (Parent가 실제 호출, hook이 호출 시점 검사)
   → child/task 귀속 + independent quality check
-  → success 또는 Parent 판단·handoff(model recovery 중단) / stop
+  → success 또는 Parent 판단·handoff(재시도는 같은 contract의 alternate 한 번) / stop
   → sanitized attempt record + capability별 lifecycle disposition
 ```
 
@@ -321,7 +321,7 @@ reviewer는 미채택이었습니다. **Cohort GO ≠ 개별 task 승인 ≠ 모
 2026-10-05 Sol model 교체(`gpt-6.1-sol`) 뒤 bounded-build·bounded-read cohort는 품질 근거·독립 QA 전까지 Q입니다.
 2026-10-06 effort 구조 개편으로 이 둘은 `standard-build`·`standard-read`(high 역할, 읽기는 researcher 포함)가 되었고, 새
 `elevated-*`와 함께 Owner 채택으로 routine입니다(품질 canary 없음).
-같은 개편에서 executor의 controlled low 복구를 포함한 model recovery를 중단했습니다.
+같은 개편에서 executor의 controlled low 복구를 포함한 model recovery를 중단했고, 2026-10-07 그 경로를 삭제했습니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
 허용 목록 밖 model 요청·구 revision/digest binding·route effort와 역할 pin 불일치·contract scope 변경을 거절합니다. 역할 파일의
@@ -354,7 +354,7 @@ Xhigh의 output/reasoning, 재작업과 QA 양은 모델별로 달라질 수 있
 | ---------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | 필요 context만 전달          | scoped packet, source·제약·acceptance·output 지정              | 한 pair 품질 통과; token 감소율·주입된 총 context 크기 미측정                                                        |
 | 중복 primary 분석 축소       | 한 primary owner, source/test 포인터 회수; 필수 독립 QA는 예외 | workflow/회귀로 경계 보호; 실제 운영 시간·재작업 감소 미측정                                                         |
-| 싼 단가를 적절한 작업에 사용 | finite Sol/Luna profiles + 지원·품질 gate(복구는 중단)         | actual sample 가능성 확인; 모델 간 동일 task 비용/품질 비교 없음                                                     |
+| 싼 단가를 적절한 작업에 사용 | finite Sol/Luna profiles + 지원·품질 gate(model 복구는 삭제)   | actual sample 가능성 확인; 모델 간 동일 task 비용/품질 비교 없음                                                     |
 | Cache 활용                   | 안정된 공통 지침·schema를 불필요하게 흔들지 않기               | cache hit·cached/input/output·credits·USD·weekly delta 모두 **null**; API cache knob·padding·warmup·collector 미도입 |
 | 불필요한 child 비용 제거     | 작은 결정적 작업은 child0, 필요한 같은 task만 followup         | idle thread 자체의 token 소비·close의 비용 환급을 가정하지 않음                                                      |
 

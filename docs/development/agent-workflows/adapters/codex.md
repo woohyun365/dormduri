@@ -53,7 +53,7 @@ Child model은 profile이 정합니다. Admission을 통과한 bounded 읽기·�
 기본 역할과 같고 이름·설명·effort만 다르며 test가 이를 결속합니다. Keyword, path, file count, LOC, broad verification
 하나만으로 계층을 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Role 이름 자체는 live runtime
 지원 증거가 아닙니다. 호출 시점의 역할·(역할, model) 쌍·fork는 [hook guard](#subagent-hook-guardrail과-완료-관측)가 검사합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Low 역할도 없습니다.
-Model recovery는 [중단](#model-recovery-suspension)되어 있습니다.
+실패한 lane은 같은 contract에서 approach만 바꿔 한 번 다시 시도하며 다른 model로 옮기지 않습니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
 Role routing을 증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
 
 Dispatch descriptor는 contract에서 `spawnArguments`(역할, profile model, 역할 pin effort, `fork_turns: none`)를 정하고, leader가
@@ -128,19 +128,6 @@ quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니�
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
 아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
 
-### Model recovery suspension
-
-Model recovery는 중단되어 있습니다. 실패한 candidate는 Astra alternate를 받지 않고 Parent 판단이나 handoff로 돌아갑니다.
-`createRecoveryBinding()`이 유일한 입구이며 중단 상태에서는 `Model recovery is suspended; a failed candidate returns to the
-Parent or a handoff.`로 거절합니다. 같은 입구를 거치는 binding 검증은 같은 사유로 거절되고, recovery
-dispatch는 `model-recovery-incompatible-or-unadmitted` gap을 남기며 descriptor를 만들지 않습니다.
-`evaluateRecovery()`는 model 경로의 재시도 가능 실패에 `terminal-handoff`와 `model-recovery-suspended`(writer 미회수면
-`model-pending-writer-not-cleared`)를 반환하고, 이미 기록된 Astra alternate는 같은 사유로 거절합니다. 중단 이유는 이전
-Astra-only rescue가 역할 pin effort와 다른 Low·semantic effort를 기록했기 때문입니다. 역할이 effort를 고정한 뒤에는 그 기록을
-재현할 수 없습니다. 같은 역할로 한 단계씩 올리는 승격 사다리가 이 정책을 대체하기 전까지 중단합니다.
-일반 lane의 distinct-approach alternate 한 번은 그대로입니다.
-[공통 중단 계약](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.
-
 ### Central profile migration boundary
 
 `scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model·허용 role·계층·task·도구·검증 키와 역할별 effort 표
@@ -148,7 +135,7 @@ Astra-only rescue가 역할 pin effort와 다른 Low·semantic effort를 기록�
 Parent는 profileId를 고르고 현재 binding을 request → contract → dispatch `spawnArguments` → hook 완료 대조에 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐이고,
 역할별로는 `ALLOWED_ROLE_MODELS`(각 profile의 역할 × 그 profile model)의 쌍만 요청합니다. 승격 사다리의 다음 단(같은 역할,
 다음 model)도 이 쌍 안에 있습니다.
-Raw model request는 입력 형태 검사로 거절합니다. Profile·recovery binding과 attempt의 허용 목록 밖
+Raw model request는 입력 형태 검사로 거절합니다. Profile의 허용 목록 밖
 model은 이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Host가 확인한
 child model·effort는 [hook 기록](#subagent-hook-guardrail과-완료-관측)이 근거입니다. Codex가 직접 읽는 `.codex` 기본값은 test로
 `BASELINE_CHILD_MODEL`에 결속하고, 역할 파일의 `model` 필드는 test가 금지합니다. Effort 변형 역할은 있지만 모델별 TOML clone이나
@@ -254,8 +241,8 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
    hook 기록이 없거나 bind·계약 model·역할 effort와 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
-7. **실패·기록·cleanup**: [model recovery는 중단](#model-recovery-suspension)되어 있어 실패한 candidate는 writer 회수 뒤
-   Parent 판단이나 handoff로 돌아갑니다. Usage가 없으면 null로 남기고
+7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 Parent 판단이나 handoff로 돌아가며, 재시도는 같은 contract의
+   alternate 한 번뿐이고 다른 model로 옮기지 않습니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)). Usage가 없으면 null로 남기고
    [실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에서 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.
 

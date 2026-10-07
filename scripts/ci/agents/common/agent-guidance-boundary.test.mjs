@@ -277,7 +277,7 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
   assert.match(codexAdapter, /medium/u);
   assert.match(codexAdapter, /high/u);
   assert.match(codexAdapter, /xhigh/u);
-  // Task risk (low-impact) and separately bound recovery are not ordinary effort.
+  // Task risk (low-impact) is not an ordinary effort.
   // Check the declared route contract rather than banning a word across all docs.
   assert.match(codexAdapter, /effort는 `medium \| high \| xhigh`/u);
   assert.match(

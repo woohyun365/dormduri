@@ -1,17 +1,6 @@
-import {
-  BASELINE_CHILD_MODEL,
-  MODEL_RECOVERY_SUSPENDED,
-  MODEL_RECOVERY_SUSPENDED_REASON,
-  ROLE_EFFORTS,
-  assertAllowedChildModel,
-  getModelProfile,
-  assertCurrentModelProfileBinding,
-  resolveRouteEffort,
-  createRecoveryBinding,
-  assertCurrentRecoveryBinding,
-} from './model-profiles.mjs';
+import { ROLE_EFFORTS, getModelProfile, resolveRouteEffort } from './model-profiles.mjs';
 import { isDeepStrictEqual } from 'node:util';
-import { assertRecoveryChildContract, createModelScopeDigest } from './child-task-contract.mjs';
+import { createModelScopeDigest } from './child-task-contract.mjs';
 import { recommendModel } from './routing-policy.mjs';
 import {
   COMPLETION_AUTHORITY,
@@ -22,14 +11,31 @@ import {
 
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
-const REPOSITORY_CHILD_MODEL = BASELINE_CHILD_MODEL;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
 const INSTALLED_ROLES = new Set(Object.keys(ROLE_EFFORTS));
-const DISPATCH_INPUTS = new Set([
-  'delegation',
-  'concurrencyLimit',
-  'dispatchToken',
-  'recoveryDecision',
+const DISPATCH_INPUTS = new Set(['delegation', 'concurrencyLimit', 'dispatchToken']);
+const RECOVERY_INPUTS = new Set(['laneId', 'attempts']);
+// A failed lane's alternate keeps its contract: an attempt records the approach and its outcome, never a model.
+const ATTEMPT_FIELDS = new Set([
+  'number',
+  'approachId',
+  'alternateOf',
+  'outcome',
+  'failureCategory',
+  'evidence',
+]);
+const RECOVERY_DECISION_FIELDS = new Set([
+  'schemaVersion',
+  'laneId',
+  'status',
+  'action',
+  'attempts',
+  'remainingAlternateAttempts',
+  'maxAlternateAttempts',
+  'prohibitedApproachIds',
+  'blocker',
+  'disposition',
+  'confidence',
 ]);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
@@ -98,12 +104,7 @@ const CHILD_RESULT_FIELDS = new Set([
 export function createDispatchRecommendation(input = {}) {
   for (const key of Object.keys(input ?? {}))
     if (!DISPATCH_INPUTS.has(key)) throw new TypeError(`Unsupported dispatch input: ${key}`);
-  const {
-    delegation,
-    concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT,
-    recoveryDecision,
-    dispatchToken,
-  } = input ?? {};
+  const { delegation, concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT, dispatchToken } = input ?? {};
   if (dispatchToken !== undefined && !isDispatchToken(dispatchToken))
     throw new TypeError('dispatch token must be 4-12 lowercase letters or digits');
   assertDelegationRecommendation(delegation);
@@ -118,12 +119,6 @@ export function createDispatchRecommendation(input = {}) {
       concurrencyLimit,
       gaps,
     });
-
-  // Model recovery is suspended (model-profiles.mjs): a recovery decision never yields a rescue descriptor.
-  if (recoveryDecision !== undefined)
-    return sequential('Model recovery is suspended; the lane returns to the Parent or a handoff.', [
-      'model-recovery-incompatible-or-unadmitted',
-    ]);
 
   if (delegation.execution !== 'bounded-lanes' || delegation.recommendedChildren.length < 1) {
     return dispatchRecommendation({
@@ -461,142 +456,12 @@ function requireExactRecord(value, fields, name, optionalFields = []) {
   }
 }
 
-export function evaluateRecovery({ laneId, attempts = [], modelRecovery } = {}) {
-  const result = evaluateAttemptRecovery({ laneId, attempts });
-  if (modelRecovery === undefined) {
-    if (
-      attempts.some(
-        (attempt) =>
-          Object.hasOwn(attempt, 'model') || attempt.recoveryBinding || attempt.effort === 'low',
-      )
-    )
-      throw new TypeError('Explicit model recovery requires a current profile binding.');
-    return result;
-  }
-  requireExactRecord(modelRecovery, ['profileBinding', 'pendingWriter'], 'model recovery', [
-    'request',
-  ]);
-  const binding = assertCurrentModelProfileBinding(modelRecovery.profileBinding);
-  if (
-    modelRecovery.request === undefined &&
-    attempts.some((a) => a.recoveryBinding || a.effort === 'low')
-  )
-    throw new TypeError('Bound invocation recovery requires its original selection request.');
-  requireEnum(
-    modelRecovery.pendingWriter,
-    new Set(['cleared', 'pending', 'unknown']),
-    'pending writer',
-  );
-  for (const [index, attempt] of attempts.entries()) {
-    if (attempt.model !== (index === 0 ? binding.model : REPOSITORY_CHILD_MODEL))
-      throw new TypeError('Model recovery requires the exact primary model then Astra only.');
-  }
-  if (attempts.length > 1 && NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory))
-    throw new TypeError('Model recovery cannot retry a non-retryable failure.');
-  const waiting = result.action === 'alternate-once' && modelRecovery.pendingWriter !== 'cleared';
-  // Model recovery is suspended: a failed candidate returns to the Parent or a handoff, never an Astra alternate.
-  if (MODEL_RECOVERY_SUSPENDED && attempts.length > 1)
-    throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
-  if (MODEL_RECOVERY_SUSPENDED && result.action === 'alternate-once')
-    return deepFreeze({
-      ...result,
-      status: 'handoff-required',
-      action: 'terminal-handoff',
-      remainingAlternateAttempts: 0,
-      blocker: waiting ? 'model-pending-writer-not-cleared' : 'model-recovery-suspended',
-      disposition: 'blocker-handoff',
-      nextModel: null,
-      runtimeAction: false,
-    });
-  let recoveryBinding;
-  if (
-    modelRecovery.request !== undefined &&
-    attempts[0]?.outcome === 'failure' &&
-    !NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory) &&
-    modelRecovery.pendingWriter === 'cleared'
-  ) {
-    const request = modelRecovery.request;
-    requireExactRecord(
-      request,
-      [
-        'primaryContract',
-        'rescueContract',
-        'sourceDigest',
-        'configDigest',
-        'attemptId',
-        'assessment',
-      ],
-      'recovery request',
-    );
-    const { primaryContract: primary, rescueContract: rescue } = request;
-    assertCurrentModelRecommendation(primary);
-    assertSemanticRouteRecommendation(rescue.routeRecommendation);
-    if (
-      !isDeepStrictEqual(primary.routeRecommendation.modelRecommendation.profileBinding, binding) ||
-      primary.laneId !== laneId ||
-      rescue.laneId !== laneId ||
-      primary.routeRecommendation.role !== rescue.routeRecommendation.role ||
-      !isDeepStrictEqual(primary.boundary, rescue.boundary) ||
-      !isDeepStrictEqual(primary.allowed, rescue.allowed)
-    )
-      throw new TypeError('Recovery cannot expand or change the authorized owner/role boundary.');
-    const first = attempts[0];
-    if (
-      !first.executed ||
-      first.effort !== binding.resolvedEffort ||
-      first.identity?.taskId !== primary.modelTaskId ||
-      first.identity.scopeDigest !== primary.modelScopeDigest ||
-      primary.modelScopeDigest !== createModelScopeDigest(primary)
-    )
-      throw new TypeError('Recovery requires an executed, exact failed primary identity.');
-    recoveryBinding = createRecoveryBinding({
-      primary: {
-        profileBinding: binding,
-        failureCategory: first.failureCategory,
-        attemptId: first.approachId,
-        laneId,
-        ...first.identity,
-        ownershipDigest: createModelScopeDigest({
-          boundary: primary.boundary,
-          allowed: primary.allowed,
-        }),
-      },
-      rescue: {
-        attemptId: request.attemptId,
-        taskId: rescue.modelTaskId,
-        laneId,
-        sourceDigest: request.sourceDigest,
-        configDigest: request.configDigest,
-        scopeDigest: createModelScopeDigest(rescue),
-        role: rescue.routeRecommendation.role,
-        semanticEffort: rescue.routeRecommendation.effort,
-        impactRisk: rescue.routeRecommendation.impactRisk,
-      },
-      assessment: request.assessment,
-    });
-    assertRecoveryChildContract(rescue, recoveryBinding);
-    assertRecoveryAttempts(attempts, recoveryBinding);
-  }
-  if (!recoveryBinding && attempts.some((a) => a.recoveryBinding || a.effort === 'low'))
-    throw new TypeError('An attributed alternate requires cleared current recovery selection.');
-  return deepFreeze({
-    ...result,
-    ...(recoveryBinding ? { recoveryBinding } : {}),
-    ...(waiting
-      ? {
-          status: 'handoff-required',
-          action: 'terminal-handoff',
-          remainingAlternateAttempts: 0,
-          blocker: 'model-pending-writer-not-cleared',
-          disposition: 'blocker-handoff',
-        }
-      : {}),
-    nextModel: !waiting && result.action === 'alternate-once' ? REPOSITORY_CHILD_MODEL : null,
-    runtimeAction: false,
-  });
-}
-
-function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
+// One primary attempt and at most one distinct alternate approach, the same for every lane. The alternate keeps the
+// lane's contract (role and profile model): a failed lane is never retried on another model.
+export function evaluateRecovery(input = {}) {
+  for (const key of Object.keys(input ?? {}))
+    if (!RECOVERY_INPUTS.has(key)) throw new TypeError(`Unsupported recovery input: ${key}`);
+  const { laneId, attempts = [] } = input ?? {};
   const normalizedLaneId = requireIdentifier(laneId, 'laneId');
   if (!Array.isArray(attempts)) throw new TypeError('attempts must be an array.');
   if (attempts.length > 2) {
@@ -698,11 +563,6 @@ export function prepareLeaderSynthesis({
   for (const recovery of normalizedRecoveries) {
     if (!contracts.has(recovery.laneId)) {
       throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
-    }
-    if (recovery.recoveryBinding) {
-      if (delegation.requestId !== recovery.recoveryBinding.rescue.taskId)
-        throw new TypeError('Recovery synthesis must match the current delegation task.');
-      assertRecoveryChildContract(contracts.get(recovery.laneId), recovery.recoveryBinding);
     }
     const result = results.find(({ laneId }) => laneId === recovery.laneId);
     if (result?.status === 'completed' && recovery.action !== 'none') {
@@ -879,38 +739,14 @@ function assessModelContractBoundary(contract) {
   return gaps;
 }
 
-function requireDigest(value) {
-  if (typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(value))
-    throw new TypeError('Model snapshot requires a SHA-256 digest.');
-}
-
 function normalizeAttempt(attempt, index) {
   if (!attempt || typeof attempt !== 'object' || Array.isArray(attempt)) {
     throw new TypeError('attempt must be an object.');
   }
+  for (const field of Object.keys(attempt))
+    if (!ATTEMPT_FIELDS.has(field)) throw new TypeError(`Unsupported attempt field: ${field}`);
   const outcome = requireEnum(attempt.outcome, ATTEMPT_OUTCOMES, 'attempt outcome');
   return {
-    ...(attempt.model !== undefined
-      ? { model: assertAllowedChildModel(requireString(attempt.model, 'attempt model', 80)) }
-      : {}),
-    ...(attempt.effort !== undefined
-      ? {
-          effort: requireEnum(
-            attempt.effort,
-            attempt.recoveryBinding ? new Set(['low', ...EFFORTS]) : EFFORTS,
-            'attempt effort',
-          ),
-        }
-      : {}),
-    ...(attempt.executed !== undefined
-      ? { executed: requireBoolean(attempt.executed, 'attempt executed') }
-      : {}),
-    ...(attempt.identity !== undefined
-      ? { identity: normalizeAttemptIdentity(attempt.identity) }
-      : {}),
-    ...(attempt.recoveryBinding !== undefined
-      ? { recoveryBinding: assertCurrentRecoveryBinding(attempt.recoveryBinding) }
-      : {}),
     number: index + 1,
     approachId: requireIdentifier(attempt.approachId, 'approachId'),
     alternateOf:
@@ -1033,6 +869,9 @@ function normalizeRecoveryDecision(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('recovery decision must be an object.');
   }
+  for (const field of Object.keys(value))
+    if (!RECOVERY_DECISION_FIELDS.has(field))
+      throw new TypeError(`Unsupported recovery decision field: ${field}`);
   if (value.schemaVersion !== 1 || value.maxAlternateAttempts !== 1) {
     throw new TypeError('recovery decision must use the bounded schema.');
   }
@@ -1053,42 +892,8 @@ function normalizeRecoveryDecision(value) {
   validateRecoveryShape({ status, action, remainingAlternateAttempts, blocker, disposition });
   const attempts = value.attempts.map(normalizeAttempt);
   validateAttemptSequence(attempts);
-  // Suspended model recovery: a model-attributed decision cannot carry an alternate, bound or not.
-  if (
-    MODEL_RECOVERY_SUSPENDED &&
-    attempts.length > 1 &&
-    attempts.some((attempt) => attempt.model !== undefined)
-  )
-    throw new TypeError(MODEL_RECOVERY_SUSPENDED_REASON);
-  if (!value.recoveryBinding && attempts.some((attempt) => attempt.recoveryBinding))
-    throw new TypeError('Attributed recovery attempts require their decision-level binding.');
-  // Only a current recovery binding names the next model; an unbound decision would carry an unchecked model.
-  if (!value.recoveryBinding && value.nextModel != null)
-    throw new TypeError('A recovery decision without a binding cannot name a next model.');
-  if (value.recoveryBinding) {
-    assertRecoveryAttempts(attempts, value.recoveryBinding);
-    if (
-      value.laneId !== value.recoveryBinding.rescue.laneId ||
-      value.nextModel !== (action === 'alternate-once' ? value.recoveryBinding.model : null)
-    )
-      throw new TypeError('Recovery decision must preserve lane and next-model attribution.');
-    const expected = evaluateAttemptRecovery({ laneId: value.laneId, attempts });
-    for (const field of [
-      'status',
-      'action',
-      'remainingAlternateAttempts',
-      'blocker',
-      'disposition',
-    ])
-      if (value[field] !== expected[field])
-        throw new TypeError('Recovery decision must preserve its attempt outcomes.');
-  }
   return deepFreeze({
     attempts,
-    ...(value.recoveryBinding
-      ? { recoveryBinding: assertCurrentRecoveryBinding(value.recoveryBinding) }
-      : {}),
-    ...(value.nextModel !== undefined ? { nextModel: value.nextModel } : {}),
     laneId: requireIdentifier(value.laneId, 'recovery laneId'),
     status,
     action,
@@ -1404,57 +1209,4 @@ function assertCurrentModelRecommendation(contract) {
     );
   if (model.role !== contract.routeRecommendation.role)
     throw new TypeError('Model task must preserve the semantic role.');
-}
-
-function normalizeAttemptIdentity(value) {
-  requireExactRecord(
-    value,
-    ['taskId', 'childId', 'sourceDigest', 'scopeDigest'],
-    'attempt identity',
-  );
-  requireIdentifier(value.taskId, 'attempt task');
-  requireString(value.childId, 'attempt child', 160);
-  requireDigest(value.sourceDigest);
-  requireDigest(value.scopeDigest);
-  return { ...value };
-}
-
-function assertRecoveryAttempts(attempts, binding) {
-  assertCurrentRecoveryBinding(binding);
-  if (attempts.length < 1 || attempts.length > 2)
-    throw new TypeError('Recovery requires one primary and at most one alternate.');
-  const [first, second] = attempts;
-  const primary = binding.primary;
-  if (
-    first.outcome !== 'failure' ||
-    first.failureCategory !== primary.failureCategory ||
-    NON_RETRYABLE_FAILURES.has(first.failureCategory) ||
-    first.executed !== true ||
-    first.approachId !== primary.attemptId ||
-    first.alternateOf != null ||
-    first.model !== primary.profileBinding.model ||
-    first.effort !== primary.profileBinding.resolvedEffort ||
-    !isDeepStrictEqual(first.identity, {
-      taskId: primary.taskId,
-      childId: primary.childId,
-      sourceDigest: primary.sourceDigest,
-      scopeDigest: primary.scopeDigest,
-    })
-  )
-    throw new TypeError('Recovery selection does not match the exact failed primary.');
-  if (
-    second &&
-    (second.approachId !== binding.rescue.attemptId ||
-      second.alternateOf !== first.approachId ||
-      second.model !== binding.model ||
-      second.effort !== binding.resolvedEffort ||
-      second.executed !== true ||
-      !isDeepStrictEqual(second.recoveryBinding, binding) ||
-      second.identity?.taskId !== binding.rescue.taskId ||
-      second.identity?.scopeDigest !== binding.rescue.scopeDigest ||
-      second.identity?.sourceDigest !== binding.rescue.sourceDigest ||
-      !second.identity?.childId ||
-      second.identity.childId === primary.childId)
-  )
-    throw new TypeError('Only the exact once-bound Astra alternate can complete recovery.');
 }

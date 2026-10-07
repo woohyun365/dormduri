@@ -89,14 +89,13 @@ objective·scope·allowed tools·non-goals·금지 가정·output·검증·stop/
 deliveryByLane[laneId]
   purpose: task | initial-review | review-delta
   mode: scoped | full-history | reuse
-  effortMode: explicit | inherit
   rationale: string | null
   snapshot / evidencePointers[] / findings[] / failures[]
   previous: null | childId / laneId / role / sourceSnapshot / revalidatedForSnapshot
                     / sameOutcome / scopeUnchanged / independentReview
 ```
 
-Runtime 지원 관측 필드는 없습니다. Effort는 역할 파일의 pin이고 fork 허용은 project hook이 호출 시점에 검사합니다.
+Runtime 지원 관측 필드와 effort 필드는 없습니다. Effort는 역할 파일의 pin이고 fork 허용은 project hook이 호출 시점에 검사합니다.
 
 - 독립 작업의 기본은 `scoped`: 필요한 snapshot·evidence pointer·finding/failure만 전달하고 상위 대화는 fork하지 않습니다.
   `AGENTS.md`와 공통 실행 계약·적용되는 하위 지침은 계속 적용됩니다. 전달 추천이 native 상속 지침을 대체하지 않습니다.
@@ -106,8 +105,7 @@ Runtime 지원 관측 필드는 없습니다. Effort는 역할 파일의 pin이�
   정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.
   실제 child 소유·상태·pending·결과 귀속은 [lifecycle 계약](../subagent-lifecycle.md#후속-작업과-fan-in)으로 별도 확인합니다.
 - `full-history`는 사유가 필요하고, project hook이 full-history fork(`fork_turns` 생략·`all`)를 거절하므로 항상
-  `full-history-fork-denied`로 `compatible=false`입니다. `effortMode=inherit`도 역할 pin effort를 바꾸지 않으며, reuse에
-  `explicit` effort를 요청하면 `reuse-effort-override-unsupported`입니다.
+  `full-history-fork-denied`로 `compatible=false`입니다.
 - **모든 결과의 `applied=false`**는 순수 추천이 native 설정을 적용하지 않았다는 뜻입니다. 실제 role/model은 호출 시점에 hook이
   검사합니다. role-compatible 결과만 보고 context gate를 생략하지 않으며 Parent는 delivery `compatible`와 gaps까지 확인한 뒤
   전달합니다.
@@ -124,10 +122,11 @@ PASS로 바꾸지 않습니다.
 Descriptor는 contract에서 `spawnArguments={task_name, agent_type, model, reasoning_effort, fork_turns: none}`를 정합니다.
 `agent_type`은 route 역할, `model`은 route profile의 model(ordinary는 `gpt-6-astra`), `reasoning_effort`는 역할 pin입니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
 붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
-`failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인하며
-model recovery는 중단되어 있습니다.
+`failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인합니다.
+실패한 lane의 재시도는 [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)을 따르며 다른 model로
+다시 시도하지 않습니다.
 
-Reuse·OMX advisory 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor는 실제 실행·provider-effective 설정을
+Reuse 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor는 실제 실행·provider-effective 설정을
 증명하지 않으며, child가 실제로 받은 model·effort는 hook 기록이 근거입니다. 기존 source/권한 의미의
 진실성까지 순수 helper가 인증하지 않으므로 Parent는 실제 host와 완전한 packet을 확인한 후에만 호출합니다.
 
@@ -184,18 +183,3 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.
 - `orchestration-policy.mjs`는 existing native surface를 사용하기 전 leader가 최종 독립성을 확인하고 그대로 전달할
   `spawnArguments`를 담은 advisory result를 제공합니다. Runtime capability는 호출 시점에 hook이 검사합니다.
-
-### Recovery child context
-
-Model recovery는 [중단](./codex.md#model-recovery-suspension)되어 있어 아래 helper는 현재 호출 경로가 없습니다. 중단 해제나
-대체 정책이 정해질 때까지 계약 기록으로만 남습니다.
-
-`createRecoveryChildContract({ primaryContract, sourceSnapshot })`는 기존 primary의 task/lane/role·effort·계층과
-owner/tool/verification 경계를 복제하고 candidate recommendation만 제거합니다. 현재 rescue snapshot으로 scoped explicit
-context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들지 않습니다. 이 helper 자체는 실패·권한을 승인하지 않습니다.
-
-`assertRecoveryChildContract(contract, recoveryBinding)`은 current binding, 원래 boundary/allowed ownership digest,
-rescue task/lane/source scope, semantic risk와 scoped task context를 확인합니다. Recovery invocation의 low는 별도 binding에서만
-해석되며, 중단 상태라 그 binding은 만들어지지 않습니다(recovery resolution·admission 입력은 없음). Ordinary delivery에는 effort
-관측 입력이 없고, inherited/full-history rescue는 계속 거절합니다. `evaluateRecovery`는 원래 primary 실패·현재 contract를 검증하며
-source 변경이 쓰기 범위 확대를 허용하지 않습니다. 중단 계약은 [model recovery suspension](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.

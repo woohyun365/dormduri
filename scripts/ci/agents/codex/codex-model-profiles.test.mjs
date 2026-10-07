@@ -262,11 +262,6 @@ const EXPECTED_PROFILES = {
     null,
   ],
 };
-const RECOVERY_SUSPENDED = {
-  name: 'TypeError',
-  message: 'Model recovery is suspended; a failed candidate returns to the Parent or a handoff.',
-};
-
 test('profiles own models and roles while each role file owns its effort', async () => {
   const { ROLE_EFFORTS, MODEL_PROFILE_IDS } =
     await import('../../../agents/codex/model-profiles.mjs');
@@ -339,47 +334,4 @@ test('allowed (role, model) pairs are the profile roles with their profile model
     [undefined, astra],
   ])
     assert.equal(isAllowedRoleModel(role, model), false, `${role}:${model}`);
-});
-
-test('model recovery is suspended at its single entry and no recovery binding is current', async () => {
-  const { createRecoveryBinding, assertCurrentRecoveryBinding } =
-    await import('../../../agents/codex/model-profiles.mjs');
-  const digest = `sha256:${'a'.repeat(64)}`;
-  const input = {
-    primary: {
-      profileBinding: createModelProfileBinding(getModelProfile('standard-read')),
-      attemptId: 'primary',
-      taskId: 'task-1',
-      laneId: 'lane-1',
-      childId: '/root/primary',
-      sourceDigest: digest,
-      scopeDigest: digest,
-      ownershipDigest: digest,
-      failureCategory: 'verification-failed',
-    },
-    rescue: {
-      attemptId: 'rescue',
-      taskId: 'task-1',
-      laneId: 'lane-1',
-      sourceDigest: digest,
-      scopeDigest: digest,
-      configDigest: digest,
-      role: 'knu_explorer',
-      semanticEffort: 'medium',
-      impactRisk: 'low',
-    },
-    assessment: {
-      cause: 'controlled-injection',
-      bounded: true,
-      contextComplete: true,
-      oracleAvailable: true,
-      identityVerified: true,
-      reasonRefs: ['evidence:known-failure'],
-    },
-  };
-  assert.throws(() => createRecoveryBinding(input), RECOVERY_SUSPENDED);
-  assert.throws(
-    () => assertCurrentRecoveryBinding({ kind: 'model-recovery', ...input }),
-    RECOVERY_SUSPENDED,
-  );
 });

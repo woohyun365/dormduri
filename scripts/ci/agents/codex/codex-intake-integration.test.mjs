@@ -64,7 +64,6 @@ test('supplied incompatible context stops dispatch while preserving the complete
   const request = {
     purpose: 'task',
     mode: 'full-history',
-    effortMode: 'explicit',
     rationale: 'The lane would need the earlier discussion.',
     snapshot: 'integration-fixture-v1',
     evidencePointers: [first.boundary.readScope[0]],
