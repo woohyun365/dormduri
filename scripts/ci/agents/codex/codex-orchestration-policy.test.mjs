@@ -913,6 +913,84 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
   );
 });
 
+test('terminal recovery keeps its disposition per failure category and refuses a primary alternateOf', () => {
+  for (const [failureCategory, disposition] of [
+    ['missing-authority', 'plan-oq'],
+    ['scope-conflict', 'plan-oq'],
+    ['credential-required', 'user-handoff'],
+    ['external-production', 'user-handoff'],
+    ['role-routing-unavailable', 'leader-sequential'],
+    ['quota-exhausted', 'blocker-handoff'],
+  ]) {
+    const result = evaluateRecovery({
+      laneId: 'legal-repository-map',
+      attempts: [failedAttempt('primary', failureCategory)],
+    });
+    assert.equal(result.status, 'handoff-required', failureCategory);
+    assert.equal(result.disposition, disposition, failureCategory);
+  }
+  const unknown = evaluateRecovery({
+    laneId: 'legal-repository-map',
+    attempts: [
+      failedAttempt('primary', 'unknown'),
+      { ...failedAttempt('alternate', 'unknown'), alternateOf: 'primary' },
+    ],
+  });
+  assert.equal(unknown.disposition, 'blocker-handoff');
+  assert.equal(unknown.confidence, 'low');
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: 'legal-repository-map',
+        attempts: [{ ...failedAttempt('primary', 'tool-unavailable'), alternateOf: 'earlier' }],
+      }),
+    { name: 'TypeError', message: 'The primary attempt cannot declare alternateOf.' },
+  );
+});
+
+test('leader synthesis keeps validating ordinary recovery decisions and their lanes', () => {
+  const delegation = legalDelegation();
+  const pending = evaluateRecovery({
+    laneId: 'legal-repository-map',
+    attempts: [failedAttempt('repository-index', 'tool-unavailable')],
+  });
+  const synthesize = (recoveryDecisions, childResults = []) =>
+    prepareLeaderSynthesis({ delegation, childResults, recoveryDecisions });
+  const refuses = (recoveryDecisions, message, childResults) =>
+    assert.throws(() => synthesize(recoveryDecisions, childResults), {
+      name: 'TypeError',
+      message,
+    });
+  refuses(pending, 'recoveryDecisions must be an array.');
+  refuses(
+    [{ ...pending, laneId: 'unknown-lane' }],
+    'Recovery references an unknown lane: unknown-lane',
+  );
+  refuses([pending, pending], 'recovery laneId values must be unique.');
+  refuses([pending], 'A completed child result cannot have a pending or terminal recovery.', [
+    successfulLegalResults()[1],
+  ]);
+  refuses([{ ...pending, schemaVersion: 2 }], 'recovery decision must use the bounded schema.');
+  refuses([{ ...pending, action: 'none' }], 'recovery status and action are inconsistent.');
+  refuses(
+    [{ ...pending, status: 'not-started', action: 'primary-attempt' }],
+    'non-failure recovery states cannot include blocker or disposition.',
+  );
+  refuses([{ ...pending, blocker: null }], 'failure recovery states require a blocker.');
+  refuses(
+    [{ ...pending, status: 'handoff-required', action: 'terminal-handoff' }],
+    'handoff-required recovery requires a disposition.',
+  );
+  refuses(
+    [{ ...pending, remainingAlternateAttempts: 0 }],
+    'recovery remaining attempt count is inconsistent.',
+  );
+  // A pending alternate keeps synthesis from the leader decision.
+  const waiting = synthesize([pending], [successfulLegalResults()[0]]);
+  assert.deepEqual(waiting.pendingRecoveryLaneIds, ['legal-repository-map']);
+  assert.equal(waiting.readyForLeaderDecision, false);
+});
+
 test('prepares evidence for leader-only synthesis without granting child final authority', () => {
   const delegation = legalDelegation();
   const synthesis = prepareLeaderSynthesis({
