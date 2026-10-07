@@ -630,6 +630,55 @@ test('caller-expanded write capability fails closed before dispatch', () => {
   );
 });
 
+test('dispatch re-validates a caller-edited delegation before any spawn advice', () => {
+  const base = legalDelegation();
+  const asWriter = (contract, path) => ({
+    ...contract,
+    allowed: { ...contract.allowed, tools: [...contract.allowed.tools, 'workspace-edit'] },
+    boundary: { ...contract.boundary, writeOwnership: [path], readOnly: false },
+  });
+  const [first, second] = base.recommendedChildren;
+  const cases = [
+    [
+      { ...base, recommendedChildren: [asWriter(first, 'a.ts'), asWriter(second, 'b.ts')] },
+      'delegation can select at most one write-capable child lane.',
+    ],
+    [
+      {
+        ...base,
+        recommendedChildren: Array.from({ length: 7 }, (_, i) => ({
+          ...first,
+          laneId: `lane-${i}`,
+        })),
+      },
+      'delegation exceeds the hard child limit of 6.',
+    ],
+    [
+      { ...base, execution: 'direct' },
+      'delegation execution and recommended child count are inconsistent.',
+    ],
+    [
+      { ...base, leaderOwnership: { ...base.leaderOwnership, finalDecision: false } },
+      'delegation must preserve leader-only ownership.',
+    ],
+    [
+      { ...base, recommendedChildren: [first, { ...second, laneId: first.laneId }] },
+      'contract laneId values must be unique.',
+    ],
+  ];
+  for (const [delegation, message] of cases)
+    assert.throws(() => createDispatchRecommendation({ delegation }), { name: 'TypeError', message });
+  // A recovery decision never yields a descriptor while model recovery is suspended, whatever else is supplied.
+  const refused = createDispatchRecommendation({
+    delegation: legalDelegation({ oneLane: true }),
+    recoveryDecision: { laneId: 'legal-repository-map', action: 'alternate-once' },
+  });
+  assert.equal(refused.execution, 'leader-sequential');
+  assert.deepEqual(refused.dispatches, []);
+  assert.deepEqual(refused.deferredLaneIds, ['legal-repository-map']);
+  assert.deepEqual(refused.gaps, ['model-recovery-incompatible-or-unadmitted']);
+});
+
 test('accepts one validated bounded lane while retaining the runtime capability gate', () => {
   const delegation = legalDelegation({ oneLane: true });
   const ready = createDispatchRecommendation({
