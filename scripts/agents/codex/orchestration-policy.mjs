@@ -745,6 +745,8 @@ function normalizeAttempt(attempt, index) {
   }
   for (const field of Object.keys(attempt))
     if (!ATTEMPT_FIELDS.has(field)) throw new TypeError(`Unsupported attempt field: ${field}`);
+  if (attempt.number !== undefined && attempt.number !== index + 1)
+    throw new TypeError(`Attempt number must equal its position: ${index + 1}.`);
   const outcome = requireEnum(attempt.outcome, ATTEMPT_OUTCOMES, 'attempt outcome');
   return {
     number: index + 1,
@@ -892,9 +894,15 @@ function normalizeRecoveryDecision(value) {
   validateRecoveryShape({ status, action, remainingAlternateAttempts, blocker, disposition });
   const attempts = value.attempts.map(normalizeAttempt);
   validateAttemptSequence(attempts);
+  const laneId = requireIdentifier(value.laneId, 'recovery laneId');
+  // Optional derived fields are checked, not dropped: they must be what the attempts recompute to.
+  const expected = evaluateRecovery({ laneId, attempts: value.attempts });
+  for (const field of ['confidence', 'prohibitedApproachIds'])
+    if (field in value && !isDeepStrictEqual(value[field], expected[field]))
+      throw new TypeError(`Recovery decision ${field} must match its attempts.`);
   return deepFreeze({
     attempts,
-    laneId: requireIdentifier(value.laneId, 'recovery laneId'),
+    laneId,
     status,
     action,
     remainingAlternateAttempts,

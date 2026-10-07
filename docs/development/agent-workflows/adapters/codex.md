@@ -79,8 +79,8 @@ Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작
 - 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 입력 부족·권한 거절·필수 독립 검증 부재를 effort로 우회하지 않습니다.
   기존 retry ceiling·QA gap 처리를 유지하고 해결 불가능하면 근거를 보존해 handoff합니다.
 
-Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합니다. 선택된 lane의 spawn 인자는 context 생략·inherit을
-포함해 contract에서 정해지며, 공급 context의 호환성과 reuse 경계는 [context delivery](./codex-delegation.md#context-delivery)가
+Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합니다. 선택된 lane의 spawn 인자는 context를 생략하든
+scoped로 공급하든 contract에서 정해지며, 공급 context의 호환성과 reuse 경계는 [context delivery](./codex-delegation.md#context-delivery)가
 소유합니다. 이 경계의 회귀
 검사와 실제 Parent-high 품질/사용량 관측은 별개이며, 검증되지 않은 동등 성능·weekly 절감 수치를 보고하지 않습니다.
 

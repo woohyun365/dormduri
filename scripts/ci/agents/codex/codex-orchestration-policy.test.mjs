@@ -30,10 +30,6 @@ import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-ho
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const UNLISTED_MODEL = 'gpt-x-unlisted';
-const UNLISTED_REASON = {
-  name: 'TypeError',
-  message: 'Model is outside the allowed child model list.',
-};
 
 test('lifecycle eligibility is immutable advice, not native close or slot evidence', () => {
   const input = lifecycleEvidence();
@@ -614,6 +610,25 @@ test('model recovery suspension sections are gone and the recovery ceiling keeps
   const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
   assert.match(ceiling, /다른 model로 다시 시도하지 않습니다/u);
   assert.match(ceiling, /`laneId`·`attempts`만/u);
+});
+
+test('deleted delivery effort mode is not prose input and a new contract after handoff is not a retry', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const workflow = 'docs/development/agent-workflows/';
+  for (const path of [
+    'adapters/codex.md',
+    'adapters/codex-delegation.md',
+    'request-intake/orchestration-recovery.md',
+  ])
+    assert.doesNotMatch(read(`${workflow}${path}`), /inherit|explicit-effort/iu, path);
+  assert.doesNotMatch(
+    read(`${workflow}request-intake/delegation.md`),
+    /explicit-effort|effortMode/u,
+  );
+  const recovery = read(`${workflow}request-intake/orchestration-recovery.md`);
+  const start = recovery.indexOf('## Recovery ceiling\n');
+  const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
+  assert.match(ceiling, /새 ordinary contract[^\n]*\n[^\n]*새 위임입니다/u);
 });
 
 test('leader-reported post-execution checks and runtime capability fixtures are gone', () => {
@@ -1902,6 +1917,32 @@ test('a route without an admitted candidate names an Astra assignment profile an
       message: 'A route without an admitted candidate must name an Astra assignment profile.',
     });
   }
+});
+
+test('attempt numbers and decision confidence or prohibited approaches must match the recomputed recovery', () => {
+  const laneId = 'legal-repository-map';
+  const failure = failedAttempt('repository-index', 'tool-unavailable');
+  assert.equal(
+    evaluateRecovery({ laneId, attempts: [{ ...failure, number: 1 }] }).attempts[0].number,
+    1,
+  );
+  assert.throws(() => evaluateRecovery({ laneId, attempts: [{ ...failure, number: 99 }] }), {
+    name: 'TypeError',
+    message: 'Attempt number must equal its position: 1.',
+  });
+  const delegation = legalDelegation();
+  const decision = evaluateRecovery({ laneId, attempts: [failure] });
+  const synthesize = (recoveryDecision) =>
+    prepareLeaderSynthesis({ delegation, recoveryDecisions: [recoveryDecision] });
+  assert.doesNotThrow(() => synthesize(decision));
+  assert.throws(() => synthesize({ ...decision, confidence: 'low' }), {
+    name: 'TypeError',
+    message: 'Recovery decision confidence must match its attempts.',
+  });
+  assert.throws(() => synthesize({ ...decision, prohibitedApproachIds: ['gpt-6-astra'] }), {
+    name: 'TypeError',
+    message: 'Recovery decision prohibitedApproachIds must match its attempts.',
+  });
 });
 
 test('recovery and synthesis refuse model attribution while an ordinary alternate is unchanged', () => {
