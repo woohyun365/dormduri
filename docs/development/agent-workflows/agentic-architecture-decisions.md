@@ -126,6 +126,10 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 
 ## DA-012 — Active runtime은 reported evidence와 live reconfirmation으로 판정
 
+- **상태**: superseded(2026-10-07). 호출 시점 project hook guard(roster·허용 model·(역할, model) 쌍·bounded fork·child 발 spawn
+  deny)와 hook 기록 기반 완료 대조가 leader 보고 runtime evidence·live 재확인·model admission·사후 보고 대조를 대체합니다.
+  Dispatch descriptor는 contract에서 `spawnArguments`를 정합니다([Native dispatch gate](./request-intake/orchestration-recovery.md#native-dispatch-gate)).
+  아래는 그 전 결정의 historical 기록입니다.
 - **문제**: tracked role TOML이나 user config가 존재해도 현재 native/OMX dispatch surface가 그 role·model·effort를 실제로
   제공한다는 뜻은 아닙니다.
 - **결정**: Native는 current-turn host tool schema, OMX는 current-session runtime overlay와 host-exposed role roster를
@@ -228,7 +232,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 - **결정일**: 2026-09-24. Owner의 task-aware 운영 채택 구현 요청과 독립 품질 검증을 근거로 아래 cohort를 **로컬 routine GO**로
   채택합니다. Policy revision `2026-09-24.3`; canonical model/effort/role/tool data는 `scripts/agents/codex/model-profiles.mjs`가 소유합니다.
 - **범위/권한**: 승인된 일반 업무에서 Parent가 이 결정을 소비합니다. 개별 task의 원문 권한·현재 schema·정확한 profile/source/
-  config/scope/time/budget·독립 QA는 [별도 admission](./request-intake/orchestration-recovery.md#model-admission)이 필요합니다.
+  config/scope/time/budget·독립 QA는 당시 별도 admission이 필요했습니다(2026-10-07 [DA-012](#da-012--active-runtime은-reported-evidence와-live-reconfirmation으로-판정) 대체와 함께 삭제).
   문서/table/과거 JSON은 영구 실행 허가가 아닙니다. 전체 변경의 최종 QA·통합과 Parent-high 적용 완료를 뜻하지 않습니다.
 
 | 채택 cohort / 역할                    | 요청 model / effort | 관측한 품질 근거와 채택 상한                                                                                                                                                    |
@@ -259,7 +263,7 @@ candidate/recovery 집합과 실제 검증·채택된 집합은 다릅니다. �
 - **결정의 이유/기각**: 보수적인 적격 작업에 다른 모델을 배정하되 총 작업 품질을 oracle·Astra 독립 QA로 우선합니다. 단가나
   짧은 답변만으로 총 비용 우위를 입증하지 않습니다. 상시 Astra-only, 전면 lower-model 전환, 반복 모델명 확인, 자동 alias 승격,
   새 dispatcher/TOML clone을 채택하지 않습니다. 미해결 gap·지원 불일치는 Astra/direct로 돌아갑니다.
-- **운영/철회**: [cold-start](adapters/codex.md#routine-task-model-operation), [철회와 재승인](./request-intake/orchestration-recovery.md#routine-admission-lifetime),
+- **운영/철회**: [cold-start](adapters/codex.md#routine-task-model-operation), [철회와 재승인](adapters/codex.md#suspension-and-astra-only-rollback),
   [generation seam](adapters/codex.md#central-profile-migration-boundary)이 소유합니다. Revision/eligibility/model/effort/role·host 또는
   품질이 바뀌면 해당 cohort를 중단·재검증합니다. Data rollback에도 새 revision/승인이 필요합니다. 전체 과거 code+grant 복원을
   차단하는 영구 이력 장치를 구현했다는 뜻은 아닙니다.
@@ -327,8 +331,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   Astra low 복구 유지, 품질 canary 통과까지 6.1 Sol을 pilot 전용으로 두는 안(그동안 bounded 작업 전부가 Astra 비용).
   Admission 밖 Pass 2 결과까지 Sol로 보내는 안도 채택하지 않았습니다(그 결과는 Astra 배정 유지).
 - **구현 영향**: 역할 TOML 열 개와 `ROLE_EFFORTS` 결속 test, candidate·assignment profile 구분, route의 `tier`·`profileId`,
-  dispatch의 route effort = 역할 pin 검사와 profile model spawn 인자, recovery 입구 차단. Revision이 바뀌어 이전 grant·binding은
-  재사용하지 않습니다.
+  dispatch의 route effort = 역할 pin 검사와 profile model spawn 인자, recovery 입구 차단. Revision이 바뀌어 이전 binding은
+  재사용하지 않습니다. 2026-10-07부터 spawn 인자는 contract에서 결정되고 admission grant는 없습니다([DA-012](#da-012--active-runtime은-reported-evidence와-live-reconfirmation으로-판정) superseded).
 - **검증/한계**: 정적 회귀(역할 파일·변형 prompt 동일성, profile 표, routing 변형, admission, recovery 차단)는 native 적용
   증거가 아닙니다. Native 관측(2026-10-06, Codex CLI 0.160.0, Parent Astra high, read-only, 각 1회): 역할 pin과 다른 explicit
   effort를 넘긴 세 child(`_medium`+Astra, 기본+6.1 Sol, `_xhigh`+Luna)의 own-turn effort는 역할 pin이고 model은 요청대로였습니다.
@@ -369,7 +373,7 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 | DA-009 | Google scaling agent systems, repository semantic evidence  | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지   | child-only two-pass + optional quality-gated model fixture             | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
 | DA-010 | OpenAI AGENTS.md, repository onboarding evidence            | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지               | getting-started와 execution contract 분리                              | generic agent가 동일 authority로 수렴하지 못할 때                   |
 | DA-011 | Google scaling agent systems, repository lane evidence      | 독립·bounded·positive-benefit lane / dependency·shared write                  | adaptive bounded fan-out과 one-write limit                             | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
-| DA-012 | OpenAI native surface, OMX runtime, repository smoke        | dispatch 직전 fresh reported evidence / config·과거 session만 존재            | dual-runtime + exact model admission과 sequential fallback             | host-authenticated runtime capability contract가 제공될 때          |
+| DA-012 | OpenAI native surface, OMX runtime, repository smoke        | dispatch 직전 fresh reported evidence / config·과거 session만 존재            | dual-runtime + exact model admission과 sequential fallback             | superseded by hook guard·완료 대조(2026-10-07)                      |
 | DA-013 | 실행 계약, 계획 Decision/OQ owner                           | 중요한 제약 변경 / 승인된 통상 작업                                           | 공통 decision rights와 짧은 협의                                       | 과잉 질문 또는 중요한 선택 누락                                     |
 | DA-014 | ContextPack registry, domain authoring guides               | 근거가 요구하는 관점 / 단순 lookup                                            | model-mediated consultation; mapper 유지                               | 문서 과잉 또는 관점 누락                                            |
 | DA-015 | delegation, QA, current runtime 제약                        | 지정된 독립 사실 확인 / offload·초기 QA 설득                                  | 중앙 authority와 제한된 peer 정보 교환                                 | 실제 병목·오염·권한 위반                                            |
