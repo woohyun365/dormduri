@@ -1,6 +1,6 @@
 # Bounded orchestration, recovery, and leader synthesis
 
-이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, model recovery 중단, `scripts/agents/codex/` descriptor는 Codex/OMX 실행 계약입니다.
+이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, recovery 상한, `scripts/agents/codex/` descriptor는 Codex/OMX 실행 계약입니다.
 공통 one-writer·source freshness·authority·QA는 [orchestration](../orchestration.md)과 [execution contract](../agent-execution-contract.md)가 소유합니다.
 Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 이 schema로 Claude model/runtime 지원을 가장하지 않습니다.
 
@@ -11,7 +11,7 @@ Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 �
 ## Native dispatch gate
 
 `scripts/agents/codex/orchestration-policy.mjs`의 `createDispatchRecommendation()`은 `delegation`, `concurrencyLimit`,
-`dispatchToken`, `recoveryDecision`만 받고(그 밖 key는 TypeError), 다음을 모두 확인한 경우에만 typed native dispatch
+`dispatchToken`만 받고(그 밖 key는 TypeError), 다음을 모두 확인한 경우에만 typed native dispatch
 descriptor를 추천합니다.
 
 - delegation 결과가 `bounded-lanes`이며 dispatch가 그 delegation을 다시 검증
@@ -68,25 +68,6 @@ descriptor의 `modelPurpose`로 남을 뿐 호출 허가가 아니며, 채택·�
 [Routine task-model operation](../adapters/codex.md#routine-task-model-operation)이 소유합니다. 이 helper는 project 설정/role
 pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은 실제 모델 사용·품질 동등성·비용 절약 증거가 아닙니다.
 
-## Model recovery suspension
-
-Model recovery는 중단되어 있습니다. 실패한 candidate는 Astra alternate를 받지 않고, pending writer를 회수한 뒤 Parent 판단이나
-handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 pin effort와 다른 Low·semantic effort를 기록했기 때문입니다.
-역할이 effort를 고정한 뒤에는 그 기록을 재현할 수 없습니다. 같은 역할로 한 단계씩 올리는 승격 사다리가 이 정책을 대체하기
-전까지 중단합니다.
-
-- 입구는 `model-profiles.mjs`의 `createRecoveryBinding()` 하나입니다. 중단 상태(`MODEL_RECOVERY_SUSPENDED`)에서는
-  `Model recovery is suspended; a failed candidate returns to the Parent or a handoff.`로 거절합니다.
-  `assertCurrentRecoveryBinding()`도 이 입구를 거치므로 같은 사유로 거절됩니다.
-- `evaluateRecovery()`의 model 경로는 재시도 가능한 primary 실패에 `alternate-once` 대신 `terminal-handoff`,
-  `disposition=blocker-handoff`, `nextModel=null`을 반환합니다. Blocker는 writer가 회수됐으면 `model-recovery-suspended`,
-  pending/unknown이면 `model-pending-writer-not-cleared`입니다. 이미 기록된 Astra alternate도 같은 중단 사유로 거절하며,
-  attempt model 순서와 non-retryable 검사는 그 앞에서 그대로 적용됩니다.
-- Binding이 없는 recovery decision은 `nextModel`을 가질 수 없고 synthesis가 거절합니다(검사 없는 model이 출력에 실리지 않게).
-- Recovery decision을 받은 dispatch는 중단 상태라 `model-recovery-incompatible-or-unadmitted` gap을 남기고 descriptor를
-  만들지 않습니다.
-- Model 필드가 없는 일반 lane의 distinct-approach alternate 한 번은 [Recovery ceiling](#recovery-ceiling) 그대로입니다.
-
 ## Bounded model-run evidence
 
 기록 원칙은 [Execution evidence](../qa.md#execution-evidence)가 소유하며 이 절은 Codex에서 그 원칙을 채우는 관측과 기록을 정합니다.
@@ -107,7 +88,7 @@ handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 
 
 ## Recovery ceiling
 
-공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 approach 식별과 모델 binding을 더합니다.
+공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 approach 식별과 판정 입력을 더합니다.
 
 ```text
 primary attempt
@@ -120,13 +101,12 @@ primary attempt
 
 - alternate attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
 - 세 번째 attempt, 같은 approach 반복, success 이후 retry는 invalid입니다.
-- `evaluateRecovery`의 선택 입력 `modelRecovery={profileBinding,pendingWriter}`는 현재 installed profile의 exact primary 모델과 각 attempt의
-  `model`을 대조하고 두 번째 attempt를 Astra로 제한합니다. Model recovery가 [중단](#model-recovery-suspension)되어 있어 이
-  경로는 alternate를 추천하지 않고 handoff를 반환합니다. Pending/unknown writer는 takeover를 먼저 실행하지 않습니다.
-  명시적 model attempt는 이 binding 없이 처리하지 않습니다. Raw primaryModel, 허용 목록 밖 model, 만료 profile 입력은 거부하며,
-  model 필드가 없는 일반 recovery 계약은 유지합니다.
+- `evaluateRecovery`는 `laneId`·`attempts`만 받고, attempt는 `approachId`·`alternateOf`·`outcome`·`failureCategory`·`evidence`만
+  담습니다(출력은 순번 `number`를 더하며 그 밖 field는 TypeError). Synthesis에 넘기는 recovery decision도 `evaluateRecovery`
+  출력의 field만 받습니다. 상한은 모든 lane에 같습니다.
 - `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다.
-- 모델 후보 실패는 중단 동안 alternate 없이 Parent나 handoff로 갑니다. 자동 Luna→Sol→Astra ladder는 없습니다.
+- Alternate는 같은 contract(역할·profile model)에서 approach만 바꾼 한 번이며, 실패한 lane을 다른 model로 다시 시도하지 않습니다.
+  자동 Luna→Sol→Astra ladder는 없습니다. Pending/unknown writer가 남아 있으면 회수하기 전에 alternate를 시작하지 않습니다.
   Scope/권한 변경을 모델 교체로 우회하지 않습니다.
 - 권한·credential·external production은 기술적 retry로 해결하지 않습니다.
 - official/repository evidence가 계속 없으면 `evidence-gap`, owner 결정이 없으면 `plan-oq`, 외부 권한이 필요하면
