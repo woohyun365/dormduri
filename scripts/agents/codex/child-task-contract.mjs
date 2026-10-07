@@ -1,4 +1,3 @@
-import { assertCurrentRecoveryBinding } from './model-profiles.mjs';
 import { assertValidTaskEnvelope } from '../common/intake-policy.mjs';
 import { createHash } from 'node:crypto';
 import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
@@ -170,52 +169,7 @@ export function assessLaneIndependence({ lane, peerLanes = [], envelope } = {}) 
   return deepFreeze(assessNormalizedLane(normalizedLane, [normalizedLane, ...normalizedPeers]));
 }
 
-// Fresh scoped rescue, preserving semantic risk and all original ownership constraints.
-// Invocation effort is bound separately; ordinary delivery low/inheritance stays unsupported.
-export function createRecoveryChildContract({ primaryContract, sourceSnapshot }) {
-  requireString(sourceSnapshot, 'recovery source snapshot', 300);
-  if (!primaryContract?.routeRecommendation?.modelRecommendation || !primaryContract.modelTaskId)
-    throw new TypeError('Recovery requires a model-bound primary contract.');
-  const contract = structuredClone(primaryContract);
-  delete contract.routeRecommendation.modelRecommendation;
-  if (
-    !contract.contextDelivery ||
-    contract.contextDelivery.mode !== 'scoped' ||
-    contract.contextDelivery.effortMode !== 'explicit'
-  )
-    throw new TypeError('Recovery requires fresh scoped explicit context.');
-  contract.contextDelivery.snapshot = sourceSnapshot;
-  contract.modelScopeDigest = createModelScopeDigest(contract);
-  return contract;
-}
-
-export function assertRecoveryChildContract(contract, recoveryBinding) {
-  const binding = assertCurrentRecoveryBinding(recoveryBinding);
-  const delivery = contract.contextDelivery;
-  if (
-    contract.routeRecommendation.modelRecommendation !== undefined ||
-    contract.routeRecommendation.role !== binding.rescue.role ||
-    contract.routeRecommendation.effort !== binding.rescue.semanticEffort ||
-    contract.routeRecommendation.impactRisk !== binding.rescue.impactRisk ||
-    contract.modelTaskId !== binding.rescue.taskId ||
-    contract.laneId !== binding.rescue.laneId ||
-    contract.modelScopeDigest !== binding.rescue.scopeDigest ||
-    createModelScopeDigest(contract) !== binding.rescue.scopeDigest ||
-    createModelScopeDigest({ boundary: contract.boundary, allowed: contract.allowed }) !==
-      binding.primary.ownershipDigest ||
-    !delivery ||
-    delivery.purpose !== 'task' ||
-    delivery.mode !== 'scoped' ||
-    delivery.effortMode !== 'explicit' ||
-    delivery.compatible !== true ||
-    delivery.applied !== false ||
-    delivery.gaps.length !== 0 ||
-    delivery.failures.length !== 0
-  )
-    throw new TypeError('Recovery contract/context must match its exact selection.');
-}
-
-// Snapshot digest of a model contract for its recovery identity, not authentication or a live filesystem observation.
+// Snapshot digest of a model contract that dispatch recomputes, not authentication or a live filesystem observation.
 export function createModelScopeDigest(contract) {
   const { modelScopeDigest: _digest, ...scope } = contract;
   return `sha256:${createHash('sha256').update(JSON.stringify(scope)).digest('hex')}`;
@@ -373,7 +327,7 @@ function composeChildContract({ lane, route }) {
 
 // Purpose and mode rules only: the role file pins effort, and the project hook denies a full-history fork.
 function composeContextDelivery(contract, request, taskKind) {
-  const { purpose, previous, effortMode } = request;
+  const { purpose, previous } = request;
   const { role } = contract.routeRecommendation;
   const gaps = [];
   let mode = request.mode;
@@ -406,14 +360,12 @@ function composeContextDelivery(contract, request, taskKind) {
     if (!request.rationale) gaps.push('full-history-rationale-required');
     gaps.push('full-history-fork-denied');
   }
-  if (mode === 'reuse' && effortMode === 'explicit') gaps.push('reuse-effort-override-unsupported');
 
   return {
     schemaVersion: 1,
     purpose,
     requestedMode: request.mode,
     mode,
-    effortMode,
     rationale: request.rationale,
     snapshot: request.snapshot,
     instructionSources: [
@@ -445,7 +397,6 @@ function normalizeDeliveryRequests(value, lanes) {
       requireDeliveryRecord(request, [
         'purpose',
         'mode',
-        'effortMode',
         'rationale',
         'snapshot',
         'evidencePointers',
@@ -463,11 +414,6 @@ function normalizeDeliveryRequests(value, lanes) {
           request.mode,
           new Set(['scoped', 'full-history', 'reuse']),
           'delivery mode',
-        ),
-        effortMode: requireEnum(
-          request.effortMode,
-          new Set(['explicit', 'inherit']),
-          'delivery effortMode',
         ),
         rationale:
           request.rationale === null

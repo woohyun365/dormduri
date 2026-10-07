@@ -22,7 +22,7 @@ Lane의 bounded objective·read scope·write owner·expected output·verificatio
 
 ## Context delivery
 
-최소한이되 완전한 source-bound packet을 전달합니다. 알려진 실패·제약은 보존하고 최초 독립 reviewer에게 builder reasoning은 전달하지 않습니다. 재사용에는 최신 snapshot·ownership 확인이 필요합니다. Codex의 fork·reuse·explicit-effort는 [Codex context delivery](../adapters/codex-delegation.md#context-delivery)에서만 적용하며 공통 packet이 그것을 실행하지 않습니다.
+최소한이되 완전한 source-bound packet을 전달합니다. 알려진 실패·제약은 보존하고 최초 독립 reviewer에게 builder reasoning은 전달하지 않습니다. 재사용에는 최신 snapshot·ownership 확인이 필요합니다. Codex의 full-history fork 거절과 reuse 판정은 [Codex context delivery](../adapters/codex-delegation.md#context-delivery)가 소유하며 공통 packet이 그것을 실행하지 않습니다.
 
 ## Role and effort
 
@@ -38,4 +38,4 @@ Child는 evidence·gap·blocker를 Lead에게 반환하며 배정·승인·write
 
 ### Recovery child context
 
-Recovery에는 새로운 bounded 결정·최신 snapshot·실패 evidence·동일 owner/scope 경계가 필요합니다. [공통 recovery budget](./decisions.md#aipo-010--recovery는-한-번의-alternate-attempt)은 해당 ordinary recovery route에 한정하며 전체 구현의 test-fix 횟수 제한이 아닙니다. [Codex recovery child context](../adapters/codex-delegation.md#recovery-child-context)의 host-only binding을 다른 host 기본값으로 번역하지 않습니다. 권한·scope 거절을 재호출이나 다른 provider로 우회하지 않습니다.
+Recovery에는 새로운 bounded 결정·최신 snapshot·실패 evidence·동일 owner/scope 경계가 필요합니다. [공통 recovery budget](./decisions.md#aipo-010--recovery는-한-번의-alternate-attempt)은 해당 ordinary recovery route에 한정하며 전체 구현의 test-fix 횟수 제한이 아닙니다. [Codex recovery 상한](./orchestration-recovery.md#recovery-ceiling)의 host 전용 입력 형식을 다른 host 기본값으로 번역하지 않습니다. 권한·scope 거절을 재호출이나 다른 provider로 우회하지 않습니다.

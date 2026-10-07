@@ -1,10 +1,6 @@
 import {
-  assertCurrentRecoveryBinding,
-  createRecoveryBinding,
   getModelProfile,
   createModelProfileBinding,
-  MODEL_RECOVERY_SUSPENDED,
-  MODEL_RECOVERY_SUSPENDED_REASON,
   ROLE_EFFORTS,
 } from '../../../agents/codex/model-profiles.mjs';
 import * as modelPolicy from '../../../agents/codex/orchestration-policy.mjs';
@@ -34,10 +30,6 @@ import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-ho
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const UNLISTED_MODEL = 'gpt-x-unlisted';
-const UNLISTED_REASON = {
-  name: 'TypeError',
-  message: 'Model is outside the allowed child model list.',
-};
 
 test('lifecycle eligibility is immutable advice, not native close or slot evidence', () => {
   const input = lifecycleEvidence();
@@ -526,9 +518,14 @@ function closedLifecycleEvidence() {
   return input;
 }
 
-test('dispatch accepts only its delegation, concurrency, token and recovery inputs', () => {
+test('dispatch accepts only its delegation, concurrency and token inputs', () => {
   const delegation = legalDelegation();
-  for (const key of ['reportedRuntimeEvidence', 'modelUseByLane', 'hostAuthenticated'])
+  for (const key of [
+    'reportedRuntimeEvidence',
+    'modelUseByLane',
+    'hostAuthenticated',
+    'recoveryDecision',
+  ])
     assert.throws(() => createDispatchRecommendation({ delegation, [key]: {} }), {
       name: 'TypeError',
       message: `Unsupported dispatch input: ${key}`,
@@ -572,6 +569,66 @@ test('contract-derived spawn arguments need no reported runtime evidence', () =>
       'model',
       'spawnArguments',
     ]);
+});
+
+test('suspended model recovery exports are gone from profiles, child contracts and the policy', async () => {
+  const modules = {
+    'model-profiles': await import('../../../agents/codex/model-profiles.mjs'),
+    'child-task-contract': await import('../../../agents/codex/child-task-contract.mjs'),
+    'orchestration-policy': modelPolicy,
+  };
+  for (const [name, exports] of Object.entries(modules))
+    for (const removed of [
+      'MODEL_RECOVERY_SUSPENDED',
+      'MODEL_RECOVERY_SUSPENDED_REASON',
+      'createRecoveryBinding',
+      'assertCurrentRecoveryBinding',
+      'createRecoveryChildContract',
+      'assertRecoveryChildContract',
+    ])
+      assert.equal(Object.hasOwn(exports, removed), false, `${name}: ${removed}`);
+});
+
+test('model recovery suspension sections are gone and the recovery ceiling keeps the contract model', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const workflow = 'docs/development/agent-workflows/';
+  const recovery = read(`${workflow}request-intake/orchestration-recovery.md`);
+  const adapter = read(`${workflow}adapters/codex.md`);
+  const delegation = read(`${workflow}adapters/codex-delegation.md`);
+  assert.doesNotMatch(recovery, /^## Model recovery suspension$/mu);
+  assert.doesNotMatch(adapter, /^### Model recovery suspension$/mu);
+  assert.doesNotMatch(delegation, /^### Recovery child context$/mu);
+  for (const text of [
+    recovery,
+    adapter,
+    delegation,
+    read(`${workflow}agentic-architecture-decisions.md`),
+  ])
+    assert.doesNotMatch(text, /#model-recovery-suspension|recoveryDecision\b|effortMode/u);
+  const start = recovery.indexOf('## Recovery ceiling\n');
+  assert.ok(start >= 0);
+  const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
+  assert.match(ceiling, /다른 model로 다시 시도하지 않습니다/u);
+  assert.match(ceiling, /`laneId`·`attempts`만/u);
+});
+
+test('deleted delivery effort mode is not prose input and a new contract after handoff is not a retry', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const workflow = 'docs/development/agent-workflows/';
+  for (const path of [
+    'adapters/codex.md',
+    'adapters/codex-delegation.md',
+    'request-intake/orchestration-recovery.md',
+  ])
+    assert.doesNotMatch(read(`${workflow}${path}`), /inherit|explicit-effort/iu, path);
+  assert.doesNotMatch(
+    read(`${workflow}request-intake/delegation.md`),
+    /explicit-effort|effortMode/u,
+  );
+  const recovery = read(`${workflow}request-intake/orchestration-recovery.md`);
+  const start = recovery.indexOf('## Recovery ceiling\n');
+  const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
+  assert.match(ceiling, /새 ordinary contract[^\n]*\n[^\n]*새 위임입니다/u);
 });
 
 test('leader-reported post-execution checks and runtime capability fixtures are gone', () => {
@@ -650,15 +707,6 @@ test('dispatch re-validates a caller-edited delegation before any spawn advice',
       name: 'TypeError',
       message,
     });
-  // A recovery decision never yields a descriptor while model recovery is suspended, whatever else is supplied.
-  const refused = createDispatchRecommendation({
-    delegation: legalDelegation({ oneLane: true }),
-    recoveryDecision: { laneId: 'legal-repository-map', action: 'alternate-once' },
-  });
-  assert.equal(refused.execution, 'leader-sequential');
-  assert.deepEqual(refused.dispatches, []);
-  assert.deepEqual(refused.deferredLaneIds, ['legal-repository-map']);
-  assert.deepEqual(refused.gaps, ['model-recovery-incompatible-or-unadmitted']);
 });
 
 test('accepts one validated bounded lane', () => {
@@ -786,20 +834,18 @@ test('composed full-history and review-role conflicts stop ordinary dispatch', (
   }
 });
 
-test('omitted or inherited context spawns fresh, while a compatible reuse continues the earlier child', () => {
+test('omitted or scoped context spawns fresh, while a compatible reuse continues the earlier child', () => {
   const legacy = structuredClone(ordinaryScopedDispatchInput());
   delete legacy.delegation.recommendedChildren[0].contextDelivery;
-  const inherited = ordinaryScopedDispatchInput({ effortMode: 'inherit' });
-  for (const input of [legacy, inherited]) {
+  for (const input of [legacy, ordinaryScopedDispatchInput()]) {
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'native-bounded-dispatch');
     assert.equal(result.dispatches[0].spawnArguments.fork_turns, 'none');
-    // The role file pins the effort whatever the context asked to inherit.
+    // The role file pins the effort; the context delivery carries no effort.
     assert.equal(result.dispatches[0].spawnArguments.reasoning_effort, 'xhigh');
   }
   const reuse = ordinaryScopedDispatchInput({
     mode: 'reuse',
-    effortMode: 'inherit',
     previous: {
       childId: '/root/same-task',
       laneId: 'legal-repository-map',
@@ -818,7 +864,6 @@ test('omitted or inherited context spawns fresh, while a compatible reuse contin
   assert.deepEqual(followup.gaps, ['context-reuse-not-a-spawn:legal-repository-map']);
   const fullHistory = ordinaryScopedDispatchInput({
     mode: 'full-history',
-    effortMode: 'inherit',
     rationale: 'Necessary complete context.',
   });
   assert.ok(
@@ -911,6 +956,84 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
       }),
     /at most one alternate/u,
   );
+});
+
+test('terminal recovery keeps its disposition per failure category and refuses a primary alternateOf', () => {
+  for (const [failureCategory, disposition] of [
+    ['missing-authority', 'plan-oq'],
+    ['scope-conflict', 'plan-oq'],
+    ['credential-required', 'user-handoff'],
+    ['external-production', 'user-handoff'],
+    ['role-routing-unavailable', 'leader-sequential'],
+    ['quota-exhausted', 'blocker-handoff'],
+  ]) {
+    const result = evaluateRecovery({
+      laneId: 'legal-repository-map',
+      attempts: [failedAttempt('primary', failureCategory)],
+    });
+    assert.equal(result.status, 'handoff-required', failureCategory);
+    assert.equal(result.disposition, disposition, failureCategory);
+  }
+  const unknown = evaluateRecovery({
+    laneId: 'legal-repository-map',
+    attempts: [
+      failedAttempt('primary', 'unknown'),
+      { ...failedAttempt('alternate', 'unknown'), alternateOf: 'primary' },
+    ],
+  });
+  assert.equal(unknown.disposition, 'blocker-handoff');
+  assert.equal(unknown.confidence, 'low');
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: 'legal-repository-map',
+        attempts: [{ ...failedAttempt('primary', 'tool-unavailable'), alternateOf: 'earlier' }],
+      }),
+    { name: 'TypeError', message: 'The primary attempt cannot declare alternateOf.' },
+  );
+});
+
+test('leader synthesis keeps validating ordinary recovery decisions and their lanes', () => {
+  const delegation = legalDelegation();
+  const pending = evaluateRecovery({
+    laneId: 'legal-repository-map',
+    attempts: [failedAttempt('repository-index', 'tool-unavailable')],
+  });
+  const synthesize = (recoveryDecisions, childResults = []) =>
+    prepareLeaderSynthesis({ delegation, childResults, recoveryDecisions });
+  const refuses = (recoveryDecisions, message, childResults) =>
+    assert.throws(() => synthesize(recoveryDecisions, childResults), {
+      name: 'TypeError',
+      message,
+    });
+  refuses(pending, 'recoveryDecisions must be an array.');
+  refuses(
+    [{ ...pending, laneId: 'unknown-lane' }],
+    'Recovery references an unknown lane: unknown-lane',
+  );
+  refuses([pending, pending], 'recovery laneId values must be unique.');
+  refuses([pending], 'A completed child result cannot have a pending or terminal recovery.', [
+    successfulLegalResults()[1],
+  ]);
+  refuses([{ ...pending, schemaVersion: 2 }], 'recovery decision must use the bounded schema.');
+  refuses([{ ...pending, action: 'none' }], 'recovery status and action are inconsistent.');
+  refuses(
+    [{ ...pending, status: 'not-started', action: 'primary-attempt' }],
+    'non-failure recovery states cannot include blocker or disposition.',
+  );
+  refuses([{ ...pending, blocker: null }], 'failure recovery states require a blocker.');
+  refuses(
+    [{ ...pending, status: 'handoff-required', action: 'terminal-handoff' }],
+    'handoff-required recovery requires a disposition.',
+  );
+  refuses(
+    [{ ...pending, remainingAlternateAttempts: 0 }],
+    'recovery remaining attempt count is inconsistent.',
+  );
+  // A pending alternate keeps synthesis from the leader decision.
+  const waiting = synthesize([pending], [successfulLegalResults()[0]]);
+  assert.deepEqual(waiting.pendingRecoveryLaneIds, ['legal-repository-map']);
+  assert.equal(waiting.readyForLeaderDecision, false);
 });
 
 test('prepares evidence for leader-only synthesis without granting child final authority', () => {
@@ -1091,27 +1214,21 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
   assert.deepEqual(incomplete.missingLaneIds, ['legal-official-evidence']);
   assert.deepEqual(incomplete.pendingRecoveryLaneIds, ['legal-official-evidence']);
   assert.equal(incomplete.conflicts[0].resolution, 'unresolved');
-  // A distinct-approach alternate has no recovery binding, so it names no next model, and synthesis refuses one that does.
-  assert.equal(incomplete.recoveryDecisions[0].nextModel ?? null, null);
-  const unbound = {
-    ...evaluateRecovery({
-      laneId: 'legal-official-evidence',
-      attempts: [failedAttempt('official-api', 'tool-unavailable')],
-    }),
-    nextModel: 'gpt-6-astra',
-  };
-  assert.throws(
-    () =>
-      prepareLeaderSynthesis({
-        delegation,
-        childResults: [successfulLegalResults()[1]],
-        recoveryDecisions: [unbound],
-      }),
-    {
-      name: 'TypeError',
-      message: 'A recovery decision without a binding cannot name a next model.',
-    },
-  );
+  // A recovery decision names no model: a field outside evaluateRecovery's output is refused, not ignored.
+  const pending = evaluateRecovery({
+    laneId: 'legal-official-evidence',
+    attempts: [failedAttempt('official-api', 'tool-unavailable')],
+  });
+  for (const field of ['nextModel', 'recoveryBinding'])
+    assert.throws(
+      () =>
+        prepareLeaderSynthesis({
+          delegation,
+          childResults: [successfulLegalResults()[1]],
+          recoveryDecisions: [{ ...pending, [field]: 'gpt-6-astra' }],
+        }),
+      { name: 'TypeError', message: `Unsupported recovery decision field: ${field}` },
+    );
 });
 
 test('rejects child attempts to claim final decisions or omit contract outputs', () => {
@@ -1345,26 +1462,6 @@ test('Sol implementation needs its exact write, regression and Astra QA evidence
   assert.throws(() => createDispatchRecommendation(missingQa), TypeError);
 });
 
-test('model rescue shares the existing one-alternate ceiling without a trial ladder', () => {
-  const primary = failedAttempt('terra-pilot', 'verification-failed');
-  const rescue = {
-    ...failedAttempt('astra-rescue', 'verification-failed'),
-    alternateOf: 'terra-pilot',
-  };
-  assert.equal(
-    evaluateRecovery({ laneId: 'legal-repository-map', attempts: [primary, rescue] }).status,
-    'handoff-required',
-  );
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        laneId: 'legal-repository-map',
-        attempts: [primary, rescue, { ...rescue, approachId: 'sol-trial' }],
-      }),
-    /at most one alternate/u,
-  );
-});
-
 function rebindModelScope(input) {
   const contract = input.delegation.recommendedChildren[0];
   contract.modelScopeDigest = createModelScopeDigest(contract);
@@ -1409,7 +1506,6 @@ function modelDispatchInput(purpose = 'pilot', profileId = 'standard-read', extr
   const delivery = {
     purpose: 'task',
     mode: 'scoped',
-    effortMode: 'explicit',
     rationale: null,
     snapshot: 'synthetic-source-v1',
     evidencePointers: ['docs/policies/legal-basis.md'],
@@ -1430,7 +1526,6 @@ function ordinaryDelivery() {
   return {
     purpose: 'task',
     mode: 'scoped',
-    effortMode: 'explicit',
     rationale: null,
     snapshot: 'synthetic-source-v1',
     evidencePointers: ['docs/policies/legal-basis.md'],
@@ -1726,58 +1821,6 @@ test('candidate dispatch revalidates cohort, context and write ownership after a
   }
 });
 
-test('a recorded Astra alternate is rejected while recorded model order and non-retryable checks remain', () => {
-  const primary = {
-    ...failedAttempt('lower-primary', 'verification-failed'),
-    model: 'gpt-6.1-sol',
-  };
-  const base = {
-    laneId: 'legal-repository-map',
-    attempts: [primary],
-    modelRecovery: {
-      profileBinding: createModelProfileBinding(getModelProfile('standard-read')),
-      pendingWriter: 'cleared',
-    },
-  };
-  const rescue = {
-    ...failedAttempt('astra-rescue', 'verification-failed'),
-    alternateOf: 'lower-primary',
-    model: 'gpt-6-astra',
-  };
-  assert.throws(() => evaluateRecovery({ ...base, attempts: [primary, rescue] }), {
-    name: 'TypeError',
-    message: MODEL_RECOVERY_SUSPENDED_REASON,
-  });
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        ...base,
-        attempts: [primary, { ...rescue, model: getModelProfile('extract').model }],
-      }),
-    /Astra/,
-  );
-  assert.throws(
-    () => evaluateRecovery({ ...base, attempts: [primary, { ...rescue, model: UNLISTED_MODEL }] }),
-    UNLISTED_REASON,
-  );
-  for (const category of ['quota-exhausted', 'capacity-denied', 'missing-authority']) {
-    const stopped = evaluateRecovery({
-      ...base,
-      attempts: [{ ...primary, failureCategory: category }],
-    });
-    assert.equal(stopped.action, 'terminal-handoff');
-    assert.equal(stopped.nextModel, null);
-    assert.throws(
-      () =>
-        evaluateRecovery({
-          ...base,
-          attempts: [{ ...primary, failureCategory: category }, rescue],
-        }),
-      /non-retryable/,
-    );
-  }
-});
-
 test('Luna boundary remains read-only fixed input even with a rebound scope', () => {
   const input = modelDispatchInput('pilot', 'extract');
   const dispatch = createDispatchRecommendation(input).dispatches[0];
@@ -1833,44 +1876,7 @@ test('dispatch revalidates the recommendation and exact installed binding even w
     assert.throws(() => createDispatchRecommendation(input), TypeError);
   }
 });
-test('explicit recovery requires a current profile and rejects unlisted or raw-model requests', () => {
-  const base = {
-    laneId: 'legal-repository-map',
-    attempts: [{ ...failedAttempt('primary', 'verification-failed'), model: 'gpt-6.1-sol' }],
-    modelRecovery: {
-      profileBinding: createModelProfileBinding(getModelProfile('standard-read')),
-      pendingWriter: 'cleared',
-    },
-  };
-  assert.throws(() => evaluateRecovery({ ...base, modelRecovery: undefined }), TypeError);
-  for (const model of [UNLISTED_MODEL]) {
-    assert.throws(
-      () => evaluateRecovery({ ...base, attempts: [{ ...base.attempts[0], model }] }),
-      UNLISTED_REASON,
-    );
-    assert.throws(
-      () =>
-        evaluateRecovery({
-          ...base,
-          modelRecovery: { primaryModel: model, pendingWriter: 'cleared' },
-        }),
-      TypeError,
-    );
-  }
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        ...base,
-        modelRecovery: {
-          ...base.modelRecovery,
-          profileBinding: { ...base.modelRecovery.profileBinding, policyRevision: 'old' },
-        },
-      }),
-    TypeError,
-  );
-});
-
-test('old medium/high profile data remains invalid across descriptor and recovery after full rehash', () => {
+test('old medium/high profile data remains invalid in the descriptor after full rehash', () => {
   for (const oldEffort of ['medium', 'high']) {
     const oldBinding = createModelProfileBinding({
       ...getModelProfile('standard-read'),
@@ -1882,39 +1888,7 @@ test('old medium/high profile data remains invalid across descriptor and recover
       oldBinding;
     rebindModelScope(input);
     assert.throws(() => createDispatchRecommendation(input), TypeError);
-    assert.throws(
-      () =>
-        evaluateRecovery({
-          laneId: 'old-profile',
-          attempts: [
-            { ...failedAttempt('old-primary', 'verification-failed'), model: 'gpt-6.1-sol' },
-          ],
-          modelRecovery: { profileBinding: oldBinding, pendingWriter: 'cleared' },
-        }),
-      TypeError,
-    );
   }
-});
-
-test('every recovery binding consumer rejects a forged selection while model recovery is suspended', () => {
-  const forged = { primary: {}, rescue: {}, assessment: {}, model: 'gpt-6-astra' };
-  const suspended = { name: 'TypeError', message: MODEL_RECOVERY_SUSPENDED_REASON };
-  assert.equal(MODEL_RECOVERY_SUSPENDED, true);
-  assert.throws(() => createRecoveryBinding(forged), suspended);
-  assert.throws(() => assertCurrentRecoveryBinding(forged), suspended);
-  const input = modelDispatchInput();
-  const decision = {
-    laneId: input.delegation.recommendedChildren[0].laneId,
-    status: 'retry-alternate',
-    action: 'alternate-once',
-    remainingAlternateAttempts: 1,
-    recoveryBinding: forged,
-  };
-  // The recovery dispatch reports the rejected binding as a gap and never yields a rescue descriptor.
-  const dispatch = createDispatchRecommendation({ ...input, recoveryDecision: decision });
-  assert.equal(dispatch.execution, 'leader-sequential');
-  assert.deepEqual(dispatch.dispatches, []);
-  assert.deepEqual(dispatch.gaps, ['model-recovery-incompatible-or-unadmitted']);
 });
 
 test('runtime-managed no-close permits same-lane continuation without synthetic release evidence', () => {
@@ -1932,36 +1906,6 @@ test('runtime-managed no-close permits same-lane continuation without synthetic 
   assert.equal(createLifecycleRecommendation(input).recommendation, 'wait');
 });
 
-test('a failed candidate gets no Astra alternate while model recovery is suspended', () => {
-  const profileBinding = createModelProfileBinding(getModelProfile('standard-read'));
-  for (const pendingWriter of ['cleared', 'pending', 'unknown']) {
-    const recovery = evaluateRecovery({
-      laneId: 'legal-repository-map',
-      attempts: [
-        { ...failedAttempt('lower-primary', 'verification-failed'), model: 'gpt-6.1-sol' },
-      ],
-      modelRecovery: { profileBinding, pendingWriter },
-    });
-    assert.equal(recovery.action, 'terminal-handoff', pendingWriter);
-    assert.equal(recovery.status, 'handoff-required', pendingWriter);
-    assert.equal(recovery.remainingAlternateAttempts, 0, pendingWriter);
-    assert.equal(recovery.nextModel, null, pendingWriter);
-    assert.equal(
-      recovery.blocker,
-      pendingWriter === 'cleared' ? 'model-recovery-suspended' : 'model-pending-writer-not-cleared',
-      pendingWriter,
-    );
-  }
-  // An ordinary lane still gets its one distinct-approach alternate under the common recovery ceiling.
-  assert.equal(
-    evaluateRecovery({
-      laneId: 'legal-official-evidence',
-      attempts: [failedAttempt('official-api', 'official-source-unavailable')],
-    }).action,
-    'alternate-once',
-  );
-});
-
 test('a route without an admitted candidate names an Astra assignment profile and spawns Astra', () => {
   const ordinary = createDispatchRecommendation(ordinaryScopedDispatchInput());
   assert.equal(ordinary.dispatches[0].spawnArguments.model, 'gpt-6-astra');
@@ -1975,7 +1919,33 @@ test('a route without an admitted candidate names an Astra assignment profile an
   }
 });
 
-test('leader synthesis rejects a model-attributed alternate while model recovery is suspended', () => {
+test('attempt numbers and decision confidence or prohibited approaches must match the recomputed recovery', () => {
+  const laneId = 'legal-repository-map';
+  const failure = failedAttempt('repository-index', 'tool-unavailable');
+  assert.equal(
+    evaluateRecovery({ laneId, attempts: [{ ...failure, number: 1 }] }).attempts[0].number,
+    1,
+  );
+  assert.throws(() => evaluateRecovery({ laneId, attempts: [{ ...failure, number: 99 }] }), {
+    name: 'TypeError',
+    message: 'Attempt number must equal its position: 1.',
+  });
+  const delegation = legalDelegation();
+  const decision = evaluateRecovery({ laneId, attempts: [failure] });
+  const synthesize = (recoveryDecision) =>
+    prepareLeaderSynthesis({ delegation, recoveryDecisions: [recoveryDecision] });
+  assert.doesNotThrow(() => synthesize(decision));
+  assert.throws(() => synthesize({ ...decision, confidence: 'low' }), {
+    name: 'TypeError',
+    message: 'Recovery decision confidence must match its attempts.',
+  });
+  assert.throws(() => synthesize({ ...decision, prohibitedApproachIds: ['gpt-6-astra'] }), {
+    name: 'TypeError',
+    message: 'Recovery decision prohibitedApproachIds must match its attempts.',
+  });
+});
+
+test('recovery and synthesis refuse model attribution while an ordinary alternate is unchanged', () => {
   const laneId = 'legal-official-evidence';
   const decision = (attempts) => ({
     schemaVersion: 1,
@@ -2004,6 +1974,33 @@ test('leader synthesis rejects a model-attributed alternate while model recovery
     model: 'gpt-6-astra',
     effort: 'high',
   };
+  // A failed lane's alternate keeps its contract model, so an attempt carries no model, effort or child identity.
+  const attributed = {
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+    executed: true,
+    identity: { taskId: 'task-1' },
+    recoveryBinding: { model: 'gpt-6-astra' },
+  };
+  for (const [field, value] of Object.entries(attributed))
+    assert.throws(
+      () =>
+        evaluateRecovery({
+          laneId,
+          attempts: [{ ...failedAttempt('primary', 'verification-failed'), [field]: value }],
+        }),
+      { name: 'TypeError', message: `Unsupported attempt field: ${field}` },
+      field,
+    );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        attempts: [failedAttempt('primary', 'verification-failed')],
+        modelRecovery: { pendingWriter: 'cleared' },
+      }),
+    { name: 'TypeError', message: 'Unsupported recovery input: modelRecovery' },
+  );
   assert.throws(
     () =>
       prepareLeaderSynthesis({
@@ -2011,7 +2008,7 @@ test('leader synthesis rejects a model-attributed alternate while model recovery
         childResults: successfulLegalResults(),
         recoveryDecisions: [decision([solFailure, astraAlternate])],
       }),
-    { name: 'TypeError', message: MODEL_RECOVERY_SUSPENDED_REASON },
+    { name: 'TypeError', message: 'Unsupported attempt field: model' },
   );
   // An ordinary distinct-approach alternate without model attribution is unchanged.
   const { model: _m1, effort: _e1, ...ordinaryFailure } = solFailure;

@@ -80,14 +80,17 @@ test('full history needs a reason and is never spawn-compatible', () => {
   assert.equal(deliveredContract(request).contextDelivery.compatible, false);
 });
 
-test('an inherit effort mode keeps the role pin effort for high-risk work', () => {
+test('delivery carries no effort mode and the role pin sets effort for high-risk work', () => {
   const request = deliveryRequest();
-  request.effortMode = 'inherit';
-  // A high-impact analysis routes to the xhigh explorer variant; its role file pins xhigh whatever the context asks.
+  // A high-impact analysis routes to the xhigh explorer variant; its role file pins xhigh.
   const result = deliveredContract(request);
   assert.equal(result.routeRecommendation.effort, 'xhigh');
-  assert.equal(result.contextDelivery.effortMode, 'inherit');
+  assert.equal(Object.hasOwn(result.contextDelivery, 'effortMode'), false);
   assert.equal(result.contextDelivery.compatible, true);
+  assert.throws(() => deliveredContract({ ...request, effortMode: 'inherit' }), {
+    name: 'TypeError',
+    message: /^Delivery record must contain exactly: /u,
+  });
 });
 
 test('initial independent review requires fresh scoped context, not builder history or reuse', () => {
@@ -141,10 +144,6 @@ test('non-review followup can reuse a scoped same-outcome lane without claiming 
   request.previous.role = 'knu_explorer_xhigh';
   request.previous.independentReview = false;
   assert.equal(deliveredContract(request).contextDelivery.compatible, true);
-  request.effortMode = 'explicit';
-  const unsupported = deliveredContract(request).contextDelivery;
-  assert.equal(unsupported.compatible, false);
-  assert.ok(unsupported.gaps.includes('reuse-effort-override-unsupported'));
 });
 
 test('context inputs cannot inject history/tools, widen evidence scope or silently truncate failures', () => {
@@ -241,7 +240,6 @@ function deliveryRequest() {
   return {
     purpose: 'task',
     mode: 'scoped',
-    effortMode: 'explicit',
     rationale: null,
     snapshot: 'current-source-snapshot',
     evidencePointers: ['docs/policies/legal-basis.md'],
@@ -255,7 +253,6 @@ function reuseRequest() {
   const request = deliveryRequest();
   request.purpose = 'review-delta';
   request.mode = 'reuse';
-  request.effortMode = 'inherit';
   const { contextPack } = legalFlow();
   request.previous = {
     childId: '/root/reviewer',
@@ -577,7 +574,6 @@ test('child contracts propagate optional model advice without relaxing write or 
     },
   });
   const delivery = deliveryRequest();
-  delivery.effortMode = 'inherit';
   const [c] = recommendDelegation({
     envelope,
     contextPack,

@@ -211,6 +211,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   spawn 인자 조건(native Astra scoped/explicit 경로만 연결, 생략 legacy는 advisory)과 구현 영향의 model/effort/permission gate는
   [DA-012](#da-012--active-runtime은-reported-evidence와-live-reconfirmation으로-판정) 대체와 함께 바뀌었습니다. 지금은 선택된 모든
   lane이 contract에서 spawn 인자를 받고 model·역할 쌍·fork는 호출 시점 hook이 판정합니다([Native dispatch gate](./request-intake/orchestration-recovery.md#native-dispatch-gate)).
+  구현 영향의 candidate/recovery 별도 gate 중 model recovery 경로는 2026-10-07 삭제되었습니다([DA-018](#task-model-effort-structure)).
 - **문제/근거**: `child-task-contract.mjs`가 표시한 context 불일치를 ordinary dispatch consumer가 무시할 수 있었고,
   role/effort 일치만으로는 scoped explicit 호출 인자가 연결되지 않았습니다. Primary 중복 방지와 전체 acceptance 확인도
   단순 child 수/테스트 개수로 대신할 수 없습니다.
@@ -232,7 +233,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
 ## DA-017 — Evidence-bounded routine task-model adoption
 
 - **상태**: superseded by [DA-018](#task-model-effort-structure)(2026-10-06). 아래 표와 관측은 그 시점의 historical 근거이며,
-  현재 profile·역할·effort와 routine 범위는 DA-018이 소유합니다. Executor low 복구는 DA-018에서 중단했습니다.
+  현재 profile·역할·effort와 routine 범위는 DA-018이 소유합니다. Executor low 복구는 DA-018에서 중단했고 2026-10-07 삭제했습니다.
 - **결정일**: 2026-09-24. Owner의 task-aware 운영 채택 구현 요청과 독립 품질 검증을 근거로 아래 cohort를 **로컬 routine GO**로
   채택합니다. Policy revision `2026-09-24.3`; canonical model/effort/role/tool data는 `scripts/agents/codex/model-profiles.mjs`가 소유합니다.
 - **범위/권한**: 승인된 일반 업무에서 Parent가 이 결정을 소비합니다. 개별 task의 원문 권한·현재 schema·정확한 profile/source/
@@ -307,6 +308,10 @@ fresh Parent 전체의 준수율·생산성·비용 향상, 모든 공격 입력
 
 - **상태/결정일**: accepted, 2026-10-06. [DA-017](#routine-model-adoption)을 대체합니다. Policy revision `2026-10-06.1`;
   canonical data는 `scripts/agents/codex/model-profiles.mjs`(profile·`ROLE_EFFORTS`)와 `.codex/agents` 역할 파일이 소유합니다.
+  부분 superseded(2026-10-07): 역할 effort pin, profile model, routing 변형, candidate·assignment profile은 유효합니다. 아래
+  결정·구현 영향·검증의 model recovery 중단과 recovery 입구 차단은 그 경로의 삭제로 대체되었습니다. 실패한 lane의 재시도는 같은
+  contract에서 approach만 바꾼 한 번이고 다른 model로 옮기지 않습니다([Recovery ceiling](./request-intake/orchestration-recovery.md#recovery-ceiling)).
+  승격 사다리는 별도 결정입니다.
 - **문제/근거**: Custom agent 파일의 `model_reasoning_effort`는 spawn의 explicit effort보다 우선합니다
   ([공식 subagent 설정](https://learn.chatgpt.com/docs/agent-configuration/subagents)). Effort pin이 없는 역할 하나에 호출마다
   effort를 넘기는 구조는 Pass 2 계층과 무관하게 xhigh 호출을 기록했고, 역할 이름으로 effort를 검증할 수 없었습니다.
@@ -384,4 +389,4 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 | DA-015 | delegation, QA, current runtime 제약                        | 지정된 독립 사실 확인 / offload·초기 QA 설득                                | 중앙 authority와 제한된 peer 정보 교환                                 | 실제 병목·오염·권한 위반                                            |
 | DA-016 | Repository context/dispatch consumer와 QA evidence          | 공급 context·criterion gap / advice를 실제 실행으로 간주 금지               | 기존 dispatch 보완·single primary·acceptance-bound QA                  | host 변화 또는 반복 품질 gap·유효한 비용 관측                       |
 | DA-017 | Scoped native task/oracle·독립 QA와 registry/admission 회귀 | 검증된 profile/role의 승인된 bounded task / 미검증 역할·위험·영구 grant     | 기존 schema로 local cohort GO·fresh admission·철회/rollback handoff    | superseded by DA-018                                                |
-| DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀        | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할 | 역할 열 개 effort pin, profile model, route `profileId`, recovery 중단 | 6.1 Sol 품질 canary, 승격 사다리, host 지원 변화                    |
+| DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀        | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할 | 역할 열 개 effort pin, profile model, route `profileId`, recovery 삭제 | 6.1 Sol 품질 canary, 승격 사다리, host 지원 변화                    |
