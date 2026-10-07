@@ -193,11 +193,11 @@ function spawnGaps(contract) {
     (delivery?.compatible !== true ||
       delivery?.applied !== false ||
       !Array.isArray(delivery?.gaps) ||
-      delivery.gaps.length !== 0)
+      delivery.gaps.length !== 0 ||
+      !['scoped', 'reuse'].includes(delivery.mode))
   )
     gaps.push(`context-delivery-incompatible:${contract.laneId}`);
-  else if (delivery !== undefined && delivery.mode !== 'scoped')
-    gaps.push(`context-reuse-not-a-spawn:${contract.laneId}`);
+  else if (delivery?.mode === 'reuse') gaps.push(`context-reuse-not-a-spawn:${contract.laneId}`);
   if (contract.routeRecommendation.modelRecommendation?.status === 'candidate') {
     gaps.push(...assessModelContractBoundary(contract));
     if (contract.modelScopeDigest !== createModelScopeDigest(contract) || !contract.modelTaskId)

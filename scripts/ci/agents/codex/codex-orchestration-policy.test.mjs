@@ -747,6 +747,19 @@ test('ordinary context gaps cannot leave a ready descriptor', () => {
         delete c.gaps;
       },
     ],
+    // A caller-edited mode other than scoped or reuse is incompatible context, not a reuse.
+    [
+      'caller-edited full-history mode',
+      (v, c) => {
+        c.mode = 'full-history';
+      },
+    ],
+    [
+      'unknown mode',
+      (v, c) => {
+        c.mode = 'x';
+      },
+    ],
   ];
   for (const [name, mutate] of cases) {
     const input = structuredClone(ordinaryScopedDispatchInput());
