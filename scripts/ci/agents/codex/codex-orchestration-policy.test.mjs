@@ -1271,6 +1271,10 @@ test('same-role lanes on different models dispatch together under the ordinary c
   // A concurrency limit of one still defers the second lane as an ordinary limit.
   const limited = createDispatchRecommendation({ ...structuredClone(input), concurrencyLimit: 1 });
   assert.deepEqual(limited.deferredLaneIds, ['legal-repository-owners']);
+  assert.deepEqual(
+    limited.dispatches.map(({ laneId }) => laneId),
+    ['legal-repository-map'],
+  );
   assert.deepEqual(limited.gaps, ['runtime-concurrency-limit: 1 lane(s) deferred.']);
 });
 
@@ -1622,6 +1626,10 @@ test('lower model lanes share the ordinary concurrency limit', () => {
   assert.deepEqual(result.deferredLaneIds, []);
   const limited = createDispatchRecommendation({ ...structuredClone(input), concurrencyLimit: 1 });
   assert.deepEqual(limited.deferredLaneIds, ['second-map']);
+  assert.deepEqual(
+    limited.dispatches.map(({ laneId }) => laneId),
+    ['legal-repository-map'],
+  );
   assert.deepEqual(limited.gaps, ['runtime-concurrency-limit: 1 lane(s) deferred.']);
 });
 

@@ -448,6 +448,16 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     'child lane legal-test completion refused: dispatch-token-missing',
   ]);
   i.dispatchToken = FIXTURE_DISPATCH_TOKEN;
+  // The workflow forwards the token, so the spawn name binds this dispatch's own hook records. An ordinary lane shows
+  // it: the candidate above has no supplied scoped context, so its dispatch stays sequential.
+  const ordinary = structuredClone(i);
+  delete ordinary.laneCandidates[0].modelRequest;
+  assert.deepEqual(
+    prepareCodexWorkflow(ordinary).dispatch.dispatches.map(
+      ({ spawnArguments }) => spawnArguments.task_name,
+    ),
+    [`legal_test_${FIXTURE_DISPATCH_TOKEN}`],
+  );
   const reportedOnly = validateCodexWorkflowResults(i, { results: [r], review });
   assert.equal(reportedOnly.valid, false, 'a refused child lane invalidates the fan-in');
   assert.deepEqual(reportedOnly.errors, [
