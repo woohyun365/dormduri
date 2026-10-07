@@ -20,7 +20,7 @@ pnpm codex:workflow -- --request '지정 작업을 분석해줘.' --mode resume 
 pnpm codex:preflight -- --fresh
 ```
 
-`codex/workflow-entry.mjs`의 `prepareCodexWorkflow`는 공통 intake/context/readset → 기존 Codex delegation/dispatch 추천 → 공통 bounded lane 검증을 연결합니다. CLI는 현재 요청의 deterministic 진단이며 provider·native agent·OMX를 실행하지 않습니다. 명시한 plan 외에 local memory를 탐색하지 않습니다.
+`codex/workflow-entry.mjs`의 `prepareCodexWorkflow`는 공통 intake/context/readset → 기존 Codex delegation/dispatch 추천 → 공통 bounded lane 검증을 연결합니다. CLI는 현재 요청의 deterministic 진단이며 provider·native agent·OMX를 실행하지 않습니다. API 입력은 정해진 key만 받고 그 밖 key는 `Unsupported workflow input: <key>` TypeError입니다(삭제된 runtime evidence·admission 입력이 조용히 무시되지 않게). 명시한 plan 외에 local memory를 탐색하지 않습니다.
 
 API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnapshot`, `adapterIdentity`는 Parent가 현재 source와 비교해 제공합니다. Missing binding은 gap이며 자동 권한이 아닙니다. `validateCodexWorkflowResults`는 원래 입력에서 계약을 다시 계산하고 common fan-in과 독립 QA exchange를 검사합니다. `reviewDisposition: { required, reason }`에 공통 QA trigger를 검토한 Lead 판단을 명시합니다. 오탈자 등 저위험 direct 작업의 `not-needed` 의미를 보존하고, disposition 누락은 gap입니다. Bounded-build의 필수 Astra QA는 면제하지 않습니다. QA가 필요하면 현재 task/owner/snapshot뿐 아니라 lane acceptance와 read/write scope에 대응하는 완료 PASS를 요구합니다. 제출된 coverage·관측 모델은 Lead가 실제 증거와 다시 대조해야 합니다. 결과 `valid`는 정적 정합성뿐입니다. 실제 호출·model/permission·finding 재현·Astra QA·종료 입증은 계속 Parent와 host의 책임입니다.
 
@@ -79,8 +79,9 @@ Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작
 - 상향은 원인 입증이나 품질 회복 보장이 아닙니다. 입력 부족·권한 거절·필수 독립 검증 부재를 effort로 우회하지 않습니다.
   기존 retry ceiling·QA gap 처리를 유지하고 해결 불가능하면 근거를 보존해 handoff합니다.
 
-Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합니다. Supported native scoped/explicit 호출의 정확한
-인자와 legacy/reuse 경계는 [context delivery](./codex-delegation.md#context-delivery)가 소유합니다. 이 경계의 회귀
+Ordinary Astra도 공급된 context 불일치를 dispatch consumer가 거절합니다. 선택된 lane의 spawn 인자는 context 생략·inherit을
+포함해 contract에서 정해지며, 공급 context의 호환성과 reuse 경계는 [context delivery](./codex-delegation.md#context-delivery)가
+소유합니다. 이 경계의 회귀
 검사와 실제 Parent-high 품질/사용량 관측은 별개이며, 검증되지 않은 동등 성능·weekly 절감 수치를 보고하지 않습니다.
 
 ### Quality-gated model advice
@@ -172,9 +173,10 @@ profile을 current source/config에 다시 승인해 복귀하며 허용 목록�
    과거 code와 binding을 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 binding이나 허용 목록에서
    빠진 모델을 되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
 
-Reproduction: `scripts/ci/agents/codex/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사와
-`scripts/ci/agents/codex/codex-orchestration-policy.test.mjs`의 후보 없는 Astra 배정·stale binding 회귀. 실제 설정 변경 없이
-fixture로 config drift/pin 복원에 대한 차단을 검증합니다. Parent/default/reviewer generation은 별도 설정·권한 결정입니다.
+Reproduction: `scripts/ci/agents/codex/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사,
+`scripts/ci/agents/codex/codex-orchestration-policy.test.mjs`의 후보 없는 Astra 배정·stale binding 회귀, 역할 파일의 model
+pin·effort drift를 거절하는 `scripts/ci/agents/codex/project-codex-config.test.mjs`. 실제 설정 변경 없이 fixture로 검증합니다.
+Dispatch는 config 입력을 받지 않으므로 loaded config의 drift는 dispatch 회귀가 아니라 이 config test와 hook 관측이 맡습니다. Parent/default/reviewer generation은 별도 설정·권한 결정입니다.
 
 ### Task model configuration and fresh loading
 
@@ -259,7 +261,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 
 ### Suspension and Astra-only rollback
 
-- 품질/지원/scope 변화 시 해당 cohort의 신규 사용을 멈추고 철회를 [채택 결정](../agentic-architecture-decisions.md#routine-model-adoption)에
+- 품질/지원/scope 변화 시 해당 cohort의 신규 사용을 멈추고 철회를 [현재 profile 결정](../agentic-architecture-decisions.md#task-model-effort-structure)에
   기록합니다. **철회는 Parent의 운영 책임**이며 불일치 source/config/role·실패한 checks는 그대로 남깁니다. Scope/권한·보안·허위 완료는 [quality stop](#parent-high-운영과-quality-stop)을 적용합니다.
 - Pending writer의 결과·도구·변경을 먼저 회수합니다. 현재 source로 새 Astra ordinary contract를 판정하거나 Parent가 직접 처리합니다.
   Candidate의 model 필드만 Astra로 바꾸거나 scope를 늘려 재시도하지 않습니다. Quota/cap/permission 거절은 다른 모델로 우회하지 않습니다.

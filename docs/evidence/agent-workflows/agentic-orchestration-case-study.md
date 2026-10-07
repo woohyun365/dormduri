@@ -324,7 +324,9 @@ reviewer는 미채택이었습니다. **Cohort GO ≠ 개별 task 승인 ≠ 모
 같은 개편에서 executor의 controlled low 복구를 포함한 model recovery를 중단했습니다.
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
-허용 목록 밖 model 요청·구 revision/digest 승인·role pin 불일치·scope/config 변경을 거절합니다. 미래 세대는 기존 profile ID를
+허용 목록 밖 model 요청·구 revision/digest binding·route effort와 역할 pin 불일치·contract scope 변경을 거절합니다. 역할 파일의
+model pin·effort drift는 [project config 회귀](../../../scripts/ci/agents/codex/project-codex-config.test.mjs)가 거절합니다(2026-10-07 전에는
+dispatch admission이 config digest 변경도 대조). 미래 세대는 기존 profile ID를
 유지하되 새 revision, 지원 재검증, 해당 cohort 품질 근거·새 승인이 필요합니다. Synthetic next-revision 검증은 **GPT-7 실제
 실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
 

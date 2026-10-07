@@ -195,7 +195,7 @@ owner/tool/verification 경계를 복제하고 candidate recommendation만 제�
 context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들지 않습니다. 이 helper 자체는 실패·권한을 승인하지 않습니다.
 
 `assertRecoveryChildContract(contract, recoveryBinding)`은 current binding, 원래 boundary/allowed ownership digest,
-rescue task/lane/source scope, semantic risk와 scoped task context를 확인합니다. Recovery invocation의 low는 별도 binding과
-runtime resolution에서만 해석됩니다. Ordinary delivery에는 effort 관측 입력이 없고, inherited/full-history rescue는 계속 거절합니다.
-`evaluateRecovery`에서 원래 primary 실패·현재 contract를 검증한 뒤 새 admission을 받아야 하며 source 변경이 쓰기 범위 확대를
-허용하지 않습니다. 중단 계약은 [model recovery suspension](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.
+rescue task/lane/source scope, semantic risk와 scoped task context를 확인합니다. Recovery invocation의 low는 별도 binding에서만
+해석되며, 중단 상태라 그 binding은 만들어지지 않습니다(recovery resolution·admission 입력은 없음). Ordinary delivery에는 effort
+관측 입력이 없고, inherited/full-history rescue는 계속 거절합니다. `evaluateRecovery`는 원래 primary 실패·현재 contract를 검증하며
+source 변경이 쓰기 범위 확대를 허용하지 않습니다. 중단 계약은 [model recovery suspension](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.
