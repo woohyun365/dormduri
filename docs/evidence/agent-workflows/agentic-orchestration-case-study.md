@@ -115,7 +115,7 @@ human request and authority
                 → Pass 2: source / fact / predicate evidence
                   → semantic role / Medium / High / XHigh assessment
                     → effort-pinned role variant + Astra or admitted Sol/Luna profile model
-                      → current task admission + live runtime compatibility
+                      → contract-derived spawn arguments + call-time hook guard
                         ├── compatible → native dispatch → independent quality evidence
                         └── unsupported / failed → stop and hand back (model recovery suspended)
                               → leader-only evidence integration and capability-aware cleanup
@@ -147,13 +147,12 @@ evidence를 이해하고 올바른 결론을 내리는 난이도입니다. 보�
 
 ### Runtime truthfulness
 
-Tracked `.codex`는 portable default와 role contract를 제공하지만 active authority를 만들지 않습니다. Dispatch 직전에는
-current host surface의 role availability, explicit model/effort 지원, role pin과 permission을 다시 확인합니다.
+Tracked `.codex`는 portable default와 role contract를 제공하지만 active authority를 만들지 않습니다.
 Requested/resolved 값과 관측된 provider-effective metadata는 별개이며 미노출 effective 값은 null입니다.
 
-현재 dispatch 전 runtime evidence는 `leader-reported-not-host-authenticated`입니다. 즉 repository validator가 typed input의
-모순을 검사할 수는 있지만, provider가 서명한 immutable effective metadata는 아닙니다. 조금이라도 불일치하면 role을 prompt
-label로 가장하지 않고 direct/sequential로 돌아갑니다. 2026-10-06부터 child 완료는 leader 보고가 아니라 Codex project hook의
+2026-10-07까지는 dispatch 전에 Parent가 보고한 runtime evidence(`leader-reported-not-host-authenticated`)와 lane별 admission을
+검사했습니다. Repository validator가 typed input의 모순을 검사할 수는 있었지만 provider가 서명한 immutable effective metadata는
+아니었고, 그 계층은 아래 hook guard·완료 대조로 대체되어 삭제됐습니다(지금 dispatch는 contract에서 spawn 인자를 정합니다). 2026-10-06부터 child 완료는 leader 보고가 아니라 Codex project hook의
 SubagentStart·SubagentStop 기록(child 역할·model·task path)에 결속되고, 호출 시점 hook이 roster 밖 역할·허용 목록 밖 model·
 model 생략·full-history fork·child 발 spawn을 막습니다. 같은 날 호출 시점 guard에 profile의 (역할, model) 쌍을 더했고,
 완료 판정은 그 허용 기록(bind)과 lane 계약 model·역할 pin effort를 hook 관측과 대조하며 bind 없는 spawn과 lane 아래 descendant를
@@ -258,8 +257,8 @@ Owner가 weekly 한도가 빨리 소모된다고 관찰했지만 원인별 토�
 task / acceptance / source facts
   → semantic role + risk + complexity
   → finite profile binding (revision + digest)
-  → scoped child contract + current source/config + bounded admission
-  → supported native model/effort arguments (Parent가 실제 호출)
+  → scoped child contract + profile 경계·contract snapshot 재확인
+  → contract-derived spawn arguments (Parent가 실제 호출, hook이 호출 시점 검사)
   → child/task 귀속 + independent quality check
   → success 또는 Parent 판단·handoff(model recovery 중단) / stop
   → sanitized attempt record + capability별 lifecycle disposition
@@ -270,8 +269,8 @@ task / acceptance / source facts
   `bounded-build`, `bounded-read`, `bounded-extract`는 호출 effort가 모두 xhigh였고 **대상 난이도는 complete Medium
   evidence**였습니다. 2026-10-06 effort 구조 개편 뒤 Luna `extract`는 `knu_explorer_xhigh`(xhigh), Sol `standard-*`는 high
   역할입니다. xhigh 선택은 품질 우선 owner 정책이지 medium보다 재작업이 적다는 실측 결론이 아닙니다.
-- [호출·결과 정책](../../../scripts/agents/codex/orchestration-policy.mjs): role pin, current scope/config, 승인 기간·예산, context,
-  exact task/profile/child 귀속을 확인합니다. Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
+- [호출·결과 정책](../../../scripts/agents/codex/orchestration-policy.mjs): role pin, context, profile 경계와 contract snapshot을
+  확인해 spawn 인자를 정합니다(2026-10-07 전에는 승인 기간·예산 admission과 사후 귀속 보고도 검사). Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
 - [완료 관측](../../../scripts/agents/codex/subagent-hook-records.mjs): project hook의 spawn 허용·SubagentStart·SubagentStop 기록을 lane
   계약 model·역할 effort와 대조해 완료를 판정합니다. [hook 회귀](../../../scripts/ci/agents/codex/codex-subagent-hooks.test.mjs)는
   미관측·불일치·bind 부재·grandchild를 거절합니다. 기록은 identity와 크기만 남기고 message 본문·secret·hidden reasoning을
@@ -329,9 +328,9 @@ reviewer는 미채택이었습니다. **Cohort GO ≠ 개별 task 승인 ≠ 모
 유지하되 새 revision, 지원 재검증, 해당 cohort 품질 근거·새 승인이 필요합니다. Synthetic next-revision 검증은 **GPT-7 실제
 실행 이력이 아닙니다**. 자동 latest 전환도 아닙니다.
 
-철회는 Parent가 admission을 회수해 candidate dispatch를 멈추고 Astra/direct로 돌아가는 방식입니다. **같은 유효 GO packet을
-재전달하면 통과할 수 있으므로 영구 revocation service가 아닙니다.** Rollback도 마지막 허용 profile binding 또는 Astra-only를
-**새 revision**으로 발행합니다. Old code와 grant를 함께 복원하면 과거 상태 재사용을 막는 monotonic history 보장은 없습니다.
+철회는 Parent가 해당 cohort의 candidate 사용을 멈추고 Astra/direct로 돌아가는 운영 책임이며 영구 revocation service가
+아닙니다(2026-10-07 전에는 lane별 admission을 회수했고, 같은 유효 GO packet을 재전달하면 통과할 수 있었습니다). Rollback도 마지막 허용 profile binding 또는 Astra-only를
+**새 revision**으로 발행합니다. Old code와 binding을 함께 복원하면 과거 상태 재사용을 막는 monotonic history 보장은 없습니다.
 완료 child history 복원, 허용 목록에서 빠진 모델 호출 부활, 권한 우회를 rollback으로 취급하지 않습니다.
 
 ## 비용 가설과 관측 한계
