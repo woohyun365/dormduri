@@ -60,17 +60,17 @@ test('supplied incompatible context stops dispatch while preserving the complete
   };
   const legacy = evaluateFixture(fixture, options);
   const first = legacy.delegation.recommendedChildren[0];
+  // The project hook denies a full-history fork, so this supplied context cannot become a spawn.
   const request = {
     purpose: 'task',
-    mode: 'scoped',
+    mode: 'full-history',
     effortMode: 'explicit',
-    rationale: null,
+    rationale: 'The lane would need the earlier discussion.',
     snapshot: 'integration-fixture-v1',
     evidencePointers: [first.boundary.readScope[0]],
     findings: ['Keep unverified official authority as a gap.'],
     failures: ['Do not lose failed verification evidence.'],
     previous: null,
-    runtime: null,
   };
   const flow = evaluateFixture(fixture, {
     ...options,
@@ -82,13 +82,12 @@ test('supplied incompatible context stops dispatch while preserving the complete
   const { contextDelivery, ...unchanged } = supplied;
   assert.deepEqual(unchanged, first);
   assert.equal(contextDelivery.compatible, false);
+  assert.deepEqual(contextDelivery.gaps, ['full-history-fork-denied']);
   assert.equal(contextDelivery.applied, false);
   assert.deepEqual(contextDelivery.failures, request.failures);
   assert.equal(flow.dispatch.execution, 'leader-sequential');
   assert.deepEqual(flow.dispatch.dispatches, []);
-  assert.ok(flow.dispatch.gaps.includes(`runtime-context-incompatible:${first.laneId}`));
-  assert.equal(flow.dispatch.requiresLeaderRuntimeConfirmation, false);
-  assert.equal(flow.dispatch.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
+  assert.ok(flow.dispatch.gaps.includes(`context-delivery-incompatible:${first.laneId}`));
   assert.deepEqual(flow.delegation.limits, legacy.delegation.limits);
   const later = recommendDelegation({ envelope: flow.envelope, contextPack: flow.contextPack });
   assert.deepEqual(later.recommendedChildren, []);
@@ -295,12 +294,7 @@ test('the integrated intake path remains advisory and cannot write files or invo
 
 function evaluateFixture(
   fixture,
-  {
-    repositoryEvidence = [],
-    laneCandidates = [],
-    reportedRuntimeEvidence,
-    deliveryByLane = {},
-  } = {},
+  { repositoryEvidence = [], laneCandidates = [], deliveryByLane = {} } = {},
 ) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request: fixture.request });
@@ -317,39 +311,9 @@ function evaluateFixture(
       ),
     })),
   });
-  const dispatch = createDispatchRecommendation({
-    delegation,
-    reportedRuntimeEvidence:
-      reportedRuntimeEvidence ?? nativeRuntimeEvidenceFor(delegation.recommendedChildren),
-  });
+  const dispatch = createDispatchRecommendation({ delegation });
 
   return { envelope, contextPack, delegation, dispatch };
-}
-
-function nativeRuntimeEvidenceFor(contracts) {
-  const roles = new Map();
-  for (const contract of contracts) {
-    const { role, effort } = contract.routeRecommendation;
-    if (roles.has(role) && roles.get(role).effectiveEffort !== effort) {
-      throw new Error(`Fixture requires conflicting efforts for runtime role ${role}.`);
-    }
-    roles.set(role, {
-      agentType: role,
-      available: true,
-      effectiveModel: 'gpt-6-astra',
-      effectiveEffort: effort,
-      explicitEffortSupport: true,
-    });
-  }
-  return {
-    schemaVersion: 1,
-    surfaceMode: 'native',
-    observationScope: 'current-turn',
-    freshness: 'current-turn',
-    provenance: ['host-tool-schema'],
-    dispatchPermission: 'allowed',
-    roles: [...roles.values()],
-  };
 }
 
 function fixtureById(id) {

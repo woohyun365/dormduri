@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
-// Bump for eligibility changes outside this data, too. Old grants never migrate implicitly.
+// Bump for eligibility changes outside this data, too. Old bindings never migrate implicitly.
 const POLICY_REVISION = '2026-10-06.1';
 // Role files pin `model_reasoning_effort`, which outranks a spawn's effort; a test binds each `.codex/agents` file here.
 export const ROLE_EFFORTS = deepFreeze({

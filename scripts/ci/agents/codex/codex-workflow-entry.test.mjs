@@ -408,14 +408,13 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     laneCandidates: i.laneCandidates,
   });
   assert.deepEqual(w.delegation, leaf);
-  assert.deepEqual(
-    w.dispatch,
-    createDispatchRecommendation({
-      delegation: leaf,
-      reportedRuntimeEvidence: null,
-      modelUseByLane: {},
-    }),
-  );
+  assert.deepEqual(w.dispatch, createDispatchRecommendation({ delegation: leaf }));
+  // Removed runtime and admission inputs are refused rather than silently ignored.
+  for (const key of ['reportedRuntimeEvidence', 'modelUseByLane'])
+    assert.throws(() => prepareCodexWorkflow({ ...i, [key]: {} }), {
+      name: 'TypeError',
+      message: `Unsupported workflow input: ${key}`,
+    });
   assert.deepEqual(w.lanes[0].writeOwnership, i.laneCandidates[0].writeOwnership);
   assert.equal(validateCodexWorkflowResults(i, { results: [result(w)] }).valid, false);
   assert.ok(prepareCodexWorkflow({ ...i, assignments: {} }).gaps.length);
@@ -449,6 +448,16 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     'child lane legal-test completion refused: dispatch-token-missing',
   ]);
   i.dispatchToken = FIXTURE_DISPATCH_TOKEN;
+  // The workflow forwards the token, so the spawn name binds this dispatch's own hook records. An ordinary lane shows
+  // it: the candidate above has no supplied scoped context, so its dispatch stays sequential.
+  const ordinary = structuredClone(i);
+  delete ordinary.laneCandidates[0].modelRequest;
+  assert.deepEqual(
+    prepareCodexWorkflow(ordinary).dispatch.dispatches.map(
+      ({ spawnArguments }) => spawnArguments.task_name,
+    ),
+    [`legal_test_${FIXTURE_DISPATCH_TOKEN}`],
+  );
   const reportedOnly = validateCodexWorkflowResults(i, { results: [r], review });
   assert.equal(reportedOnly.valid, false, 'a refused child lane invalidates the fan-in');
   assert.deepEqual(reportedOnly.errors, [

@@ -285,15 +285,14 @@ test('lifecycle guides use portable links and do not depend on a local implement
 // Documentation presence/link integrity, not live routing, adoption or model quality.
 test('routine cold start and withdrawal have tracked owners with bounded adoption evidence', () => {
   const orchestration = read(codexAdapterPath);
-  const recovery = read(ownerPaths[5]);
   const decisions = read('docs/development/agent-workflows/agentic-architecture-decisions.md');
   const operation = section(codexAdapterPath, 'Routine task-model operation');
   for (const term of [
     'cohort GO',
     '개별 task',
     'Astra',
-    'modelUseByLane',
-    'evaluateModelExecution',
+    'dispatchToken',
+    'codex:completion',
     'prepareLeaderSynthesis',
     'source',
     'profile',
@@ -303,9 +302,10 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
     assert.ok(operation.includes(term), term);
   assert.match(orchestration, /agentic-architecture-decisions\.md#routine-model-adoption/u);
   assert.match(read(codexDelegationPath), /codex\.md#routine-task-model-operation/u);
-  assert.match(recovery, /## Routine admission lifetime/u);
-  assert.match(recovery, /철회.*Parent.*책임/u);
-  assert.match(recovery, /같은.*GO packet.*다시.*통과/u);
+  // Withdrawal stays a Parent duty without a per-lane admission packet.
+  const withdrawal = section(codexAdapterPath, 'Suspension and Astra-only rollback');
+  assert.match(withdrawal, /철회.*Parent.*운영 책임/u);
+  assert.doesNotMatch(operation, /modelUseByLane|evaluateModelExecution/u);
   assert.match(orchestration, /rollback.*새 revision/u);
   assert.match(decisions, /id="routine-model-adoption"/u);
   assert.match(decisions, /2026-09-24\.3/u);
