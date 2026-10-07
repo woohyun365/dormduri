@@ -206,8 +206,8 @@ function spawnGaps(contract) {
   return gaps;
 }
 
-// Separate from reported role evidence. Every observation remains leader-reported;
-// this evaluator neither authenticates the host nor performs a lifecycle action.
+// Every lifecycle observation remains leader-reported; this evaluator neither authenticates the host nor performs
+// a lifecycle action.
 export function createLifecycleRecommendation(input) {
   validateLifecycleEvidence(input);
   const { intent, observation, target, capabilities, result, retention, close, release } = input;
