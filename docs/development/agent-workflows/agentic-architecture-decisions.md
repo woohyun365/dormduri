@@ -94,7 +94,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   조건의 positive evidence가 있을 때만, XHigh는 mandatory semantic signal 또는 structural deep composite가 있을 때만
   선택하며 나머지 substantial work는 High입니다. 기본 Child는 GPT-6 Astra이고 선택형 quality-gated model advice는
   role/effort 판정 뒤에만 적용합니다. Parent model/effort는 사용자가 session에서 선택합니다. GPT-6.1 Sol·GPT-6 Luna는 중앙 task profile의 검증 가능한 후보이지
-  활성화된 default가 아닙니다. Parent는 일반 bounded 업무에서 적합한 request를 채우고 shell로 충분하면 child를 만들지 않습니다. 검증 fact·exact admission·live compatibility가 필요하고 최종 QA는 Astra를 유지합니다.
+  활성화된 default가 아닙니다. Parent는 일반 bounded 업무에서 적합한 request를 채우고 shell로 충분하면 child를 만들지 않습니다. 검증 fact와 profile 경계가 필요하고(호출 시점은 hook이 검사) 최종 QA는 Astra를 유지합니다.
 - **기각**: lookup Low, taskKind/risk shortcut, leader effort의 무조건 상속, keyword/path/file-count/LOC 기반 XHigh,
   repository가 parent effort를 추천하는 방식.
 - **검증**: stable source/fact/evidence binding, duplicate fact amplification 방지, same-request/different-evidence fixture,
@@ -218,7 +218,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   작은 direct 작업의 상시 fan-out, 비용만을 위한 필수 QA 축소는 선택하지 않습니다.
 - **기각**: 새 scheduler/role TOML, semantic 중복/진실성 점수 엔진, Parent effort 자동 변경, 모든 작업의 xhigh child 강제.
 - **구현 영향**: 기존 dispatch/context schema 재사용, model/effort/permission gate 보존, canonical docs와 finite corpus 연결.
-  Ordinary 실패 이력은 보존하고 candidate/recovery의 별도 admission을 완화하지 않습니다.
+  Ordinary 실패 이력은 보존하고 candidate/recovery의 별도 gate를 완화하지 않습니다.
 - **검증/한계**: 실제 consumer의 positive/negative unit·integration test와 source-first 독립 QA를 대조합니다.
   Fixture 정합성은 live 행동/모델 성능 시험이 아니며 Parent-high 품질 동등성·token/weekly 절감을 주장하지 않습니다.
 - **재검토**: source/host 지원 변화, 반복된 acceptance 누락 또는 유효한 같은 작업 기준 품질·총 비용 관측이 생길 때입니다.
