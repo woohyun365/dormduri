@@ -47,7 +47,6 @@ test('optional model advice keeps the semantic tier and admits a candidate role 
     assert.equal(result.modelRecommendation.recommendedModel, model);
     assert.equal(result.modelRecommendation.status, 'candidate');
     assert.equal(result.modelRecommendation.applied, false);
-    assert.deepEqual(result.runtimeApplication, legacy.runtimeApplication);
   }
 });
 
@@ -194,8 +193,6 @@ test('derives Medium only from complete positive boundedness evidence', () => {
   assert.equal(result.assessment.mediumEligibility, true);
   assert.equal(result.assessment.reasoningComplexity, 'bounded');
   assert.deepEqual(result.assessment.xhighSignals, []);
-  assert.deepEqual(result.runtimeApplication, transitionalRuntimeApplication());
-  assert.match(result.gaps.join(' '), /runtime-role-evidence-deferred/u);
 
   const incomplete = selectAgentRoute(
     routeInput({ predicateIds: mediumPredicateIds().slice(0, -1) }),
@@ -359,7 +356,6 @@ test('maps semantic task kinds to project roles without treating the role as run
       routeInput({ taskKind, predicateIds: ['FE-05-browser-runtime'] }),
     );
     assert.equal(result.role, expected[taskKind], taskKind);
-    assert.deepEqual(result.runtimeApplication, transitionalRuntimeApplication());
     assert.equal(['medium', 'high', 'xhigh'].includes(result.effort), true);
   }
 });
@@ -492,14 +488,17 @@ function mediumPredicateIds() {
   return Array.from({ length: 15 }, (_, index) => `M-${String(index + 1).padStart(2, '0')}`);
 }
 
-function transitionalRuntimeApplication() {
-  return {
-    requested: true,
-    supported: 'unknown',
-    applied: false,
-    evidenceStatus: 'deferred-to-runtime-compatibility',
-  };
-}
+test('routes carry no transitional runtime placeholder', () => {
+  // The project hook and completion check replace the leader-reported runtime confirmation this field deferred to.
+  const result = selectAgentRoute(routeInput({ predicateIds: mediumPredicateIds() }));
+  assert.equal(result.spawn, true);
+  assert.equal('runtimeApplication' in result, false, 'runtimeApplication placeholder');
+  assert.equal(
+    result.gaps.includes('runtime-role-evidence-deferred'),
+    false,
+    'runtime evidence gap',
+  );
+});
 
 function modelVerification(evidence, cohort = 'bounded-read-only') {
   const id = evidence.facts[0].factId;

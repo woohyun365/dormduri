@@ -1,4 +1,4 @@
-import { assertCurrentRecoveryBinding, resolveRouteEffort } from './model-profiles.mjs';
+import { assertCurrentRecoveryBinding } from './model-profiles.mjs';
 import { assertValidTaskEnvelope } from '../common/intake-policy.mjs';
 import { createHash } from 'node:crypto';
 import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
@@ -215,7 +215,7 @@ export function assertRecoveryChildContract(contract, recoveryBinding) {
     throw new TypeError('Recovery contract/context must match its exact selection.');
 }
 
-// Binding for reported admission, not authentication or a live filesystem observation.
+// Snapshot digest of a model contract for its recovery identity, not authentication or a live filesystem observation.
 export function createModelScopeDigest(contract) {
   const { modelScopeDigest: _digest, ...scope } = contract;
   return `sha256:${createHash('sha256').update(JSON.stringify(scope)).digest('hex')}`;
@@ -360,7 +360,6 @@ function composeChildContract({ lane, route }) {
       assessment: route.assessment,
       gaps: route.gaps,
       confidence: route.confidence,
-      runtimeApplication: route.runtimeApplication,
       ...(route.modelRecommendation ? { modelRecommendation: route.modelRecommendation } : {}),
     },
     leaderOwnership: {
@@ -372,10 +371,10 @@ function composeChildContract({ lane, route }) {
   };
 }
 
+// Purpose and mode rules only: the role file pins effort, and the project hook denies a full-history fork.
 function composeContextDelivery(contract, request, taskKind) {
-  const { purpose, runtime, previous, effortMode } = request;
+  const { purpose, previous, effortMode } = request;
   const { role } = contract.routeRecommendation;
-  const effort = resolveRouteEffort(contract.routeRecommendation);
   const gaps = [];
   let mode = request.mode;
   if (['review', 'verification'].includes(taskKind) && purpose === 'task') {
@@ -403,27 +402,11 @@ function composeContextDelivery(contract, request, taskKind) {
     mode = 'scoped';
     gaps.push('reuse-context-incompatible');
   }
-  if (mode === 'full-history' && !request.rationale) gaps.push('full-history-rationale-required');
-  if (!runtime || runtime.freshness !== 'current-turn') {
-    gaps.push('delivery-runtime-unverified');
-  } else {
-    const capability = {
-      scoped: 'scopedFork',
-      'full-history': 'fullHistoryFork',
-      reuse: 'followup',
-    }[mode];
-    if (runtime[capability] !== true)
-      gaps.push(`${mode === 'scoped' ? 'scoped-fork' : mode}-unsupported`);
-    if (effortMode === 'explicit') {
-      if (mode === 'reuse') gaps.push('reuse-effort-override-unsupported');
-      if (runtime.explicitEffort !== true) gaps.push('explicit-effort-unsupported');
-      if (mode === 'full-history' && runtime.fullHistoryWithExplicitEffort !== true) {
-        gaps.push('full-history-explicit-effort-unsupported');
-      }
-    } else if (runtime.effectiveEffort !== effort) {
-      gaps.push('inherited-effort-mismatch');
-    }
+  if (mode === 'full-history') {
+    if (!request.rationale) gaps.push('full-history-rationale-required');
+    gaps.push('full-history-fork-denied');
   }
+  if (mode === 'reuse' && effortMode === 'explicit') gaps.push('reuse-effort-override-unsupported');
 
   return {
     schemaVersion: 1,
@@ -445,7 +428,6 @@ function composeContextDelivery(contract, request, taskKind) {
     // Pure advice cannot assert applied settings, ownership, or native permission.
     applied: false,
     authority: 'leader-reported-not-host-authenticated',
-    requiresLeaderRuntimeConfirmation: true,
     requiresLifecycleConfirmation: mode === 'reuse',
     gaps,
   };
@@ -470,7 +452,6 @@ function normalizeDeliveryRequests(value, lanes) {
         'findings',
         'failures',
         'previous',
-        'runtime',
       ]);
       const normalized = {
         purpose: requireEnum(
@@ -500,7 +481,6 @@ function normalizeDeliveryRequests(value, lanes) {
         findings: normalizeStringArray(request.findings, 'delivery findings', { allowEmpty: true }),
         failures: normalizeStringArray(request.failures, 'delivery failures', { allowEmpty: true }),
         previous: normalizePreviousContext(request.previous),
-        runtime: normalizeDeliveryRuntime(request.runtime),
       };
       for (const pointer of normalized.evidencePointers) {
         if (!lane.readScope.some((scope) => deliveryPointerWithinScope(pointer, scope))) {
@@ -559,40 +539,6 @@ function normalizePreviousContext(value) {
   for (const field of ['sameOutcome', 'scopeUnchanged', 'independentReview']) {
     if (typeof value[field] !== 'boolean')
       throw new TypeError(`delivery previous.${field} must be boolean.`);
-    result[field] = value[field];
-  }
-  return result;
-}
-
-function normalizeDeliveryRuntime(value) {
-  if (value === null) return null;
-  const flags = [
-    'scopedFork',
-    'fullHistoryFork',
-    'followup',
-    'explicitEffort',
-    'fullHistoryWithExplicitEffort',
-  ];
-  requireDeliveryRecord(value, ['freshness', 'effectiveEffort', ...flags]);
-  const result = {
-    freshness: requireEnum(
-      value.freshness,
-      new Set(['current-turn', 'stale', 'unknown']),
-      'delivery freshness',
-    ),
-    effectiveEffort:
-      value.effectiveEffort === null
-        ? null
-        : requireEnum(
-            value.effectiveEffort,
-            new Set(['medium', 'high', 'xhigh']),
-            'delivery effectiveEffort',
-          ),
-  };
-  for (const field of flags) {
-    if (value[field] !== null && typeof value[field] !== 'boolean') {
-      throw new TypeError(`delivery runtime.${field} must be boolean or null.`);
-    }
     result[field] = value[field];
   }
   return result;

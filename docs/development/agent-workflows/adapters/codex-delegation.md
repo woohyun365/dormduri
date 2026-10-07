@@ -65,7 +65,7 @@ reason, `applied=false`, `profileBinding`을 붙이고 route의 `role`·`effort`
 resolvedEffort/cohort이며, digest는 role/task/risk/검증 fact/tool 범위를 포함한 전체 profile data의 canonical hash입니다.
 `routeRecommendation.tier`는 semantic 계층(Medium/High/XHigh)이고, `routeRecommendation.effort`는 선택된 역할 파일의
 pin effort입니다. Candidate의 `resolvedEffort`는 그 역할의 effort와 같습니다(standard high, elevated·extract xhigh).
-Context 상속·runtime·admission·native descriptor·사후 검증은 같은 effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 허용 목록 밖 model을 쓰는 입력,
+Context 전달·native descriptor·hook 완료 대조는 같은 effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 허용 목록 밖 model을 쓰는 입력,
 unknown profile/field/불완전 verification schema는 거부합니다. Astra default는 modelRequest 생략으로 유지합니다.
 
 Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`를 함께 전달합니다. Digest는 source digest에
@@ -73,9 +73,10 @@ Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`�
 전체 contract의 정확한 JSON 표현에 연결됩니다. Field 순서까지 달라진 재직렬화는 재생성/재승인이 필요할 수 있습니다.
 Hash는 무결성 대조값이지 source freshness·권한 증명은 아닙니다. 실제 파일/config 재확인은 Parent 책임입니다.
 
-이 packet은 candidate 제안이지 pilot 허용서/운영 채택 GO가 아닙니다. [별도 model admission](../request-intake/orchestration-recovery.md#model-admission)이
-없거나 불일치하면 dispatch는 Parent로 돌아갑니다. Candidate는 compatible한 fresh scoped context만 지원하며 full-history/reuse의
-모델 변경을 추측하지 않습니다. Context gate와 runtime/model gate는 독립이며 하나의 성공이 다른 쪽을 생략하지 않습니다.
+이 packet은 candidate 제안이지 운영 채택 GO가 아닙니다. Lane별 허가 packet은 없고, dispatch가 contract의 profile 경계와
+snapshot(`modelScopeDigest`)을 다시 계산해 맞지 않으면 Parent로 돌려보냅니다([Native dispatch gate](../request-intake/orchestration-recovery.md#native-dispatch-gate)).
+Candidate는 compatible한 fresh scoped context만 지원하며 full-history/reuse의 모델 변경을 추측하지 않습니다. Context gate와
+profile gate는 독립이며 하나의 성공이 다른 쪽을 생략하지 않습니다.
 
 ## Context delivery
 
@@ -93,9 +94,9 @@ deliveryByLane[laneId]
   snapshot / evidencePointers[] / findings[] / failures[]
   previous: null | childId / laneId / role / sourceSnapshot / revalidatedForSnapshot
                     / sameOutcome / scopeUnchanged / independentReview
-  runtime: null | freshness / scopedFork / fullHistoryFork / followup / explicitEffort
-                   / fullHistoryWithExplicitEffort / effectiveEffort
 ```
+
+Runtime 지원 관측 필드는 없습니다. Effort는 역할 파일의 pin이고 fork 허용은 project hook이 호출 시점에 검사합니다.
 
 - 독립 작업의 기본은 `scoped`: 필요한 snapshot·evidence pointer·finding/failure만 전달하고 상위 대화는 fork하지 않습니다.
   `AGENTS.md`와 공통 실행 계약·적용되는 하위 지침은 계속 적용됩니다. 전달 추천이 native 상속 지침을 대체하지 않습니다.
@@ -104,30 +105,30 @@ deliveryByLane[laneId]
 - `reuse`는 같은 outcome·lane·role·scope와 **이번 snapshot에 대한 재확인**이 필요합니다. 새 snapshot 자체는 delta에서
   정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.
   실제 child 소유·상태·pending·결과 귀속은 [lifecycle 계약](../subagent-lifecycle.md#후속-작업과-fan-in)으로 별도 확인합니다.
-- `full-history`는 사유와 actual schema 지원이 필요합니다. 명시적 effort와 full fork 조합을 지원하지 않으면 통과시키지
-  않습니다. inherited/fixed effort는 이미 선택된 role effort와 같아야 하며 비용 때문에 낮추지 않습니다.
-- 지원 불명·stale 관측은 `compatible=false`; **모든 결과의 `applied=false`**는 순수 추천이 native 설정을 적용하지 않았다는
-  뜻입니다. 실제 role/model/권한은 dispatch gate에서 별도 확인합니다. role-compatible 결과만 보고 context gate를 생략하지
-  않으며 Parent는 delivery `compatible`와 gaps까지 확인한 뒤 실제 schema에 맞춰 전달합니다.
+- `full-history`는 사유가 필요하고, project hook이 full-history fork(`fork_turns` 생략·`all`)를 거절하므로 항상
+  `full-history-fork-denied`로 `compatible=false`입니다. `effortMode=inherit`도 역할 pin effort를 바꾸지 않으며, reuse에
+  `explicit` effort를 요청하면 `reuse-effort-override-unsupported`입니다.
+- **모든 결과의 `applied=false`**는 순수 추천이 native 설정을 적용하지 않았다는 뜻입니다. 실제 role/model은 호출 시점에 hook이
+  검사합니다. role-compatible 결과만 보고 context gate를 생략하지 않으며 Parent는 delivery `compatible`와 gaps까지 확인한 뒤
+  전달합니다.
 - evidence pointer는 기존 read scope 밖으로 확장하지 않습니다. history·allowedTools 같은 임의 필드와 길이 초과 입력은
   거절하며 실패 내용·안전 지침을 조용히 자르지 않습니다. 긴 로그는 허용 scope 안의 원문 pointer와 정확한 실패 요약으로
   전달합니다. 이 전달 요청은 self-attestation이며 새 권한이나 접근 허용 목록을 만들지 않습니다.
 
 `createDispatchRecommendation()`은 **공급된** `contextDelivery`의 `compatible=true`, `applied=false`, 빈 `gaps`를
-확인하고 불일치/unknown이면 ordinary Astra에서도 dispatch 없이 `runtime-context-incompatible:<laneId>`를 반환합니다.
-선택 입력을 **생략**한 legacy caller는 기존 advisory shape를 유지하지만, 이 생략은 실제 호출의 context 확인을 면제하지
-않습니다. 필수 독립 QA가 막힌 경우 sequential disposition을 Parent self-review PASS로 바꾸지 않습니다.
+확인하고 불일치/unknown이면 ordinary Astra에서도 dispatch 없이 `context-delivery-incompatible:<laneId>`를 반환합니다. 호환되는
+`reuse`는 새 spawn이 아니므로 `context-reuse-not-a-spawn:<laneId>`입니다. 선택 입력을 **생략**하면 fresh scoped spawn이지만,
+이 생략은 실제 호출의 context 확인을 면제하지 않습니다. 필수 독립 QA가 막힌 경우 sequential disposition을 Parent self-review
+PASS로 바꾸지 않습니다.
 
-Ordinary Astra의 native + scoped + explicit-effort 경로는 기존 role metadata의 `modelSelection`과
-`explicitEffortSupport`를 확인합니다. Astra 지원, explicit model 지원, 호환 role pin, 기존 role/model/effort/permission
-검사를 모두 통과할 때만 descriptor에 `spawnArguments={task_name, agent_type, model: gpt-6-astra, reasoning_effort, fork_turns: none}`을
-연결합니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
+Descriptor는 contract에서 `spawnArguments={task_name, agent_type, model, reasoning_effort, fork_turns: none}`를 정합니다.
+`agent_type`은 route 역할, `model`은 route profile의 model(ordinary는 `gpt-6-astra`), `reasoning_effort`는 역할 pin입니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
 붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
-Metadata가 없거나 충돌하면 ready descriptor 대신 명시 gap입니다. `failures`는 ordinary 전달에서 보존해야 할
-근거이며 자동 거절 사유가 아닙니다. Candidate admission의 별도 제한은 바꾸지 않으며 model recovery는 중단되어 있습니다.
+`failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인하며
+model recovery는 중단되어 있습니다.
 
-Compatible full-history/reuse/inherit 및 OMX advisory 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor에는
-Parent의 live 재확인이 계속 필요하며 실제 실행·provider-effective 설정을 증명하지 않습니다. 기존 source/권한 의미의
+Reuse·OMX advisory 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor는 실제 실행·provider-effective 설정을
+증명하지 않으며, child가 실제로 받은 model·effort는 hook 기록이 근거입니다. 기존 source/권한 의미의
 진실성까지 순수 helper가 인증하지 않으므로 Parent는 실제 host와 완전한 packet을 확인한 후에만 호출합니다.
 
 중복 전달 감소를 token/weekly 절감으로 해석하지 않으며, 미관측 usage는 `null/unknown`입니다. 실제 fork 설정·사용량 관측은 별도
@@ -150,10 +151,8 @@ Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 �
 
 Impact risk와 reasoning complexity는 서로 다른 결과입니다. Keyword, path, file count, LOC, task label은 semantic signal을
 대체할 수 없고, 동일 fact를 여러 composite category에 중복 반영하지 않습니다. 이 결과는 dispatch 명령이나 live role
-proof가 아닙니다. Active surface evidence가 없으면 support unknown/applied false 상태로 두고 leader가 dispatch 직전에
-runtime compatibility를 확인합니다. Native는 current-turn host tool schema, OMX는 current-session runtime overlay와
-host-exposed role roster가 함께 있어야 하며 local config나 과거 session 결과는 active authority가 아닙니다. Parent effort는
-이 contract 밖에서 사용자가 선택합니다.
+proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [project hook](./codex.md#subagent-hook-guardrail과-완료-관측)이
+검사하며 local config나 과거 session 결과는 active authority가 아닙니다. Parent effort는 이 contract 밖에서 사용자가 선택합니다.
 
 ## Count와 write policy
 
@@ -165,8 +164,8 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 - 선택 가능한 write-capable child: 최대 1개
 - sibling write scope가 겹치면 해당 lane들은 independent가 아니므로 선택하지 않음
 
-각 `routeRecommendation`은 역할 변형·pin effort·계층·`profileId`뿐 아니라 validated Pass 2 assessment, evidence ID, confidence와
-`runtime-role-evidence-deferred` gap을 함께 전달합니다. Keyword나 candidate의 legacy `risk` field로 이 근거를 대체할 수
+각 `routeRecommendation`은 역할 변형·pin effort·계층·`profileId`뿐 아니라 validated Pass 2 assessment, evidence ID와 confidence를
+함께 전달합니다. Keyword나 candidate의 legacy `risk` field로 이 근거를 대체할 수
 없습니다.
 
 ## Ownership boundary
@@ -183,8 +182,8 @@ host-exposed role roster가 함께 있어야 하며 local config나 과거 sessi
 - Intake mapper는 child를 생성하지 않습니다.
 - ContextPack registry는 lane을 만들지 않습니다.
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.
-- `orchestration-policy.mjs`는 existing native surface를 사용하기 전 leader가 최종 독립성과 runtime capability를
-  다시 확인할 수 있는 advisory result를 제공합니다.
+- `orchestration-policy.mjs`는 existing native surface를 사용하기 전 leader가 최종 독립성을 확인하고 그대로 전달할
+  `spawnArguments`를 담은 advisory result를 제공합니다. Runtime capability는 호출 시점에 hook이 검사합니다.
 
 ### Recovery child context
 
@@ -197,6 +196,6 @@ context와 scope digest를 갱신하며 recovery를 가짜 candidate로 만들�
 
 `assertRecoveryChildContract(contract, recoveryBinding)`은 current binding, 원래 boundary/allowed ownership digest,
 rescue task/lane/source scope, semantic risk와 scoped task context를 확인합니다. Recovery invocation의 low는 별도 binding과
-runtime resolution에서만 해석됩니다. Ordinary delivery effectiveEffort의 low/max, inherited/full-history rescue는 계속 거절합니다.
+runtime resolution에서만 해석됩니다. Ordinary delivery에는 effort 관측 입력이 없고, inherited/full-history rescue는 계속 거절합니다.
 `evaluateRecovery`에서 원래 primary 실패·현재 contract를 검증한 뒤 새 admission을 받아야 하며 source 변경이 쓰기 범위 확대를
 허용하지 않습니다. 중단 계약은 [model recovery suspension](../request-intake/orchestration-recovery.md#model-recovery-suspension)을 따릅니다.

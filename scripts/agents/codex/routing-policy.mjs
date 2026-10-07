@@ -140,13 +140,6 @@ const STRUCTURAL_CATEGORIES = new Set([
   'unknown-root-cause',
   'domain-specific-major',
 ]);
-const TRANSITIONAL_RUNTIME_APPLICATION = Object.freeze({
-  requested: true,
-  supported: 'unknown',
-  applied: false,
-  evidenceStatus: 'deferred-to-runtime-compatibility',
-});
-
 export function selectAgentRoute(input = {}) {
   assertRecord(input, 'routing input');
   assertOnlyFields(input, ROUTING_INPUT_FIELDS, 'routing input');
@@ -229,9 +222,8 @@ export function selectAgentRoute(input = {}) {
     impactRisk: pass1.impactRisk,
     evidenceIds: assessment.evidenceIds,
     assessment,
-    gaps: unique([...assessment.gaps, 'runtime-role-evidence-deferred']),
+    gaps: unique(assessment.gaps),
     confidence: assessment.confidence,
-    runtimeApplication: TRANSITIONAL_RUNTIME_APPLICATION,
     ...(modelRecommendation ? { modelRecommendation } : {}),
   });
 }

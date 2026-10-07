@@ -408,14 +408,13 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     laneCandidates: i.laneCandidates,
   });
   assert.deepEqual(w.delegation, leaf);
-  assert.deepEqual(
-    w.dispatch,
-    createDispatchRecommendation({
-      delegation: leaf,
-      reportedRuntimeEvidence: null,
-      modelUseByLane: {},
-    }),
-  );
+  assert.deepEqual(w.dispatch, createDispatchRecommendation({ delegation: leaf }));
+  // Removed runtime and admission inputs are refused rather than silently ignored.
+  for (const key of ['reportedRuntimeEvidence', 'modelUseByLane'])
+    assert.throws(() => prepareCodexWorkflow({ ...i, [key]: {} }), {
+      name: 'TypeError',
+      message: `Unsupported workflow input: ${key}`,
+    });
   assert.deepEqual(w.lanes[0].writeOwnership, i.laneCandidates[0].writeOwnership);
   assert.equal(validateCodexWorkflowResults(i, { results: [result(w)] }).valid, false);
   assert.ok(prepareCodexWorkflow({ ...i, assignments: {} }).gaps.length);

@@ -14,16 +14,40 @@ import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
 import { createDispatchRecommendation } from './orchestration-policy.mjs';
 import { COMPLETION_AUTHORITY, checkLaneCompletion } from './subagent-hook-records.mjs';
 
+const WORKFLOW_INPUTS = new Set([
+  'request',
+  'mode',
+  'repositoryEvidence',
+  'laneCandidates',
+  'deliveryByLane',
+  'concurrencyLimit',
+  'ownerDirectedChildLimit',
+  'dispatchToken',
+  'currentSnapshot',
+  'adapterIdentity',
+  'assignments',
+  'directAssignment',
+  'root',
+  'planPath',
+  'continuation',
+  'planReadiness',
+  'reviewDisposition',
+]);
+
 // Actual deterministic Codex composition, not a native scheduler or permission grant.
 // A caller supplies current evidence; the Lead verifies its authenticity before host use.
-export function prepareCodexWorkflow({
+export function prepareCodexWorkflow(input = {}) {
+  for (const key of Object.keys(input ?? {}))
+    if (!WORKFLOW_INPUTS.has(key)) throw new TypeError(`Unsupported workflow input: ${key}`);
+  return composeCodexWorkflow(input ?? {});
+}
+
+function composeCodexWorkflow({
   request,
   mode,
   repositoryEvidence = [],
   laneCandidates = [],
   deliveryByLane = {},
-  reportedRuntimeEvidence = null,
-  modelUseByLane = {},
   concurrencyLimit,
   ownerDirectedChildLimit,
   dispatchToken,
@@ -36,7 +60,7 @@ export function prepareCodexWorkflow({
   continuation,
   planReadiness,
   reviewDisposition,
-} = {}) {
+}) {
   const envelope = buildTaskEnvelope({ request });
   const contextPack = discoverContextPack({ envelope, repositoryEvidence });
   const route = resolveWorkflowEntry({ envelope, contextPack, host: 'codex', mode });
@@ -61,8 +85,6 @@ export function prepareCodexWorkflow({
   });
   const dispatch = createDispatchRecommendation({
     delegation,
-    reportedRuntimeEvidence,
-    modelUseByLane,
     ...(concurrencyLimit === undefined ? {} : { concurrencyLimit }),
     ...(dispatchToken === undefined ? {} : { dispatchToken }),
   });
