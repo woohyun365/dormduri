@@ -160,20 +160,20 @@ model 생략·full-history fork·child 발 spawn을 막습니다. 같은 날 호
 
 ## 대안과 결정
 
-| 대안                                            | 결정        | 근거                                                                                                              |
-| ----------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
-| user/global child config만 유지                 | 기각        | clean clone portability와 reviewable project role contract를 보장하지 못함                                        |
-| project child default와 role만 추가             | 불충분      | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                                  |
-| 모든 lookup을 Low로 비용 최적화                 | 기각        | repository owner·contract 관계 탐색을 task label 하나로 축소함                                                    |
-| 최소 2개 또는 가능한 lane 전부 fan-out          | 기각        | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                                          |
-| 0~2개, evidence-backed third, owner max 6 child | 채택        | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                                         |
-| 여러 write-capable child                        | 기각        | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                                        |
-| parent effort도 repository가 자동 선택          | 기각        | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                                       |
-| Astra default + finite task profiles            | 채택        | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 admission gate, model recovery 중단            |
-| boolean 또는 config 존재를 runtime proof로 사용 | 기각        | current host role/model/effort/permission과 다를 수 있음                                                          |
-| reported evidence + live reconfirmation         | 조건부 채택 | dispatch 전 보수적 경계. 완료는 2026-10-06부터 hook 기록·bind·계약 model/effort 결속, 서명 metadata가 생기면 교체 |
-| custom classifier/scheduler/lifecycle engine    | 기각        | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦            |
-| Ultra emulation 또는 autonomous factory         | 기각        | 목표는 Parent autonomy 확대가 아니라 bounded delegation·독립 검증·evidence hygiene임                              |
+| 대안                                            | 결정   | 근거                                                                                                                                                |
+| ----------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| user/global child config만 유지                 | 기각   | clean clone portability와 reviewable project role contract를 보장하지 못함                                                                          |
+| project child default와 role만 추가             | 불충분 | lexical routing, count/write conflict, runtime truthfulness 문제를 해결하지 못함                                                                    |
+| 모든 lookup을 Low로 비용 최적화                 | 기각   | repository owner·contract 관계 탐색을 task label 하나로 축소함                                                                                      |
+| 최소 2개 또는 가능한 lane 전부 fan-out          | 기각   | 한 lane의 가치와 direct path를 배제하고 context·coordination 비용을 키움                                                                            |
+| 0~2개, evidence-backed third, owner max 6 child | 채택   | 독립성·semantic benefit과 native capacity를 분리하면서 한 개 child도 허용                                                                           |
+| 여러 write-capable child                        | 기각   | shared contract와 owner conflict 비용이 병렬화 이득보다 큼                                                                                          |
+| parent effort도 repository가 자동 선택          | 기각   | owner session 선택을 침범하고 실제 Parent effort를 repository가 추측하게 됨                                                                         |
+| Astra default + finite task profiles            | 채택   | 2026-10-06부터 역할이 effort를, profile이 model을 고정; Sol/Luna는 admission gate, model recovery 중단                                              |
+| boolean 또는 config 존재를 runtime proof로 사용 | 기각   | current host role/model/effort/permission과 다를 수 있음                                                                                            |
+| reported evidence + live reconfirmation         | 대체됨 | dispatch 전 보수적 경계였음. 2026-10-06부터 완료는 hook 기록·bind·계약 model/effort 결속, 2026-10-07 dispatch 전 계층도 호출 시점 hook guard로 대체 |
+| custom classifier/scheduler/lifecycle engine    | 기각   | Codex native lifecycle과 책임이 중복되고 모든 prompt를 deterministic하게 분류한다는 잘못된 확신을 만듦                                              |
+| Ultra emulation 또는 autonomous factory         | 기각   | 목표는 Parent autonomy 확대가 아니라 bounded delegation·독립 검증·evidence hygiene임                                                                |
 
 ## Decision lineage
 
