@@ -108,8 +108,7 @@ admission: null | {
   Advice는 실제 applied model을 보장하지 않습니다.
 
 이 advisory helper는 project 설정/role pin을 수정하거나 서버/CLI를 시작하지 않습니다. 설정 변경과 loaded-schema 확인은
-[Task model configuration and fresh loading](../adapters/codex.md#task-model-configuration-and-fresh-loading)이 소유합니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
-fixture일 뿐 실제 모델 사용·native 지원·품질 동등성·비용 절약 증거가 아닙니다. Parent/최종 QA/effort/cap/권한 경계는 유지합니다.
+[Task model configuration and fresh loading](../adapters/codex.md#task-model-configuration-and-fresh-loading)이 소유합니다. 후보 판정은 실제 모델 사용·native 지원·품질 동등성·비용 절약 증거가 아닙니다. Parent/최종 QA/effort/cap/권한 경계는 유지합니다.
 
 ## Routine admission lifetime
 
@@ -191,7 +190,7 @@ handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 
 
 - 입구는 `model-profiles.mjs`의 `createRecoveryBinding()` 하나입니다. 중단 상태(`MODEL_RECOVERY_SUSPENDED`)에서는
   `Model recovery is suspended; a failed candidate returns to the Parent or a handoff.`로 거절합니다.
-  `assertCurrentRecoveryBinding()`과 run evidence의 alternate 검증도 이 입구를 거치므로 같은 사유로 거절됩니다.
+  `assertCurrentRecoveryBinding()`도 이 입구를 거치므로 같은 사유로 거절됩니다.
 - `evaluateRecovery()`의 model 경로는 재시도 가능한 primary 실패에 `alternate-once` 대신 `terminal-handoff`,
   `disposition=blocker-handoff`, `nextModel=null`을 반환합니다. Blocker는 writer가 회수됐으면 `model-recovery-suspended`,
   pending/unknown이면 `model-pending-writer-not-cleared`입니다. 이미 기록된 Astra alternate도 같은 중단 사유로 거절하며,
@@ -203,54 +202,21 @@ handoff로 돌아갑니다. 중단 이유는 이전 Astra-only rescue가 역할 
 
 ## Bounded model-run evidence
 
-기록 원칙은 [Execution evidence](../qa.md#execution-evidence)가 소유하며 이 절은 Codex의 schema와 저장 경로를 정합니다.
+기록 원칙은 [Execution evidence](../qa.md#execution-evidence)가 소유하며 이 절은 Codex에서 그 원칙을 채우는 관측과 기록을 정합니다.
 
-`scripts/agents/codex/model-run-evidence.mjs`의 `createModelRunEvidence`/`validateModelRunEvidence`는 작은 순수 계약입니다.
-`evaluateModelExecution`/`evaluateRecovery` 결과와 실제 returned identity를 Parent가 연결하며 logging 자체는
-native 실행·모델 인증·adoption·추가 호출 권한이 아닙니다. Fresh-session smoke는 실제 constructor를 소비하지만
-`fixtureOnly=true`, `mutatesWorkspace=false`인 합성 controlled failure→recovery 중단 handoff 예시입니다.
-
-- Envelope: schemaVersion/runId/taskId/laneId, current profileBinding, source/config/scope digest, selectionRefs,
-  writerClearance, attempts와 finalDisposition. Model recovery 중단 중에는 attempt가 하나이고, alternate나 recoveryBinding이 있는
-  기록은 중단 사유로 거절됩니다. 첫 attempt identity/digest는 envelope와 일치해야 합니다.
-- Attempt: attemptId/alternateOf, task/lane/source/config/scope, requested/resolved model-effort, hostObserved 또는 null,
-  stage/executed/childId, case, disposition/failureCategory, checks, factRefs/hypothesis/remediation, metrics/usage.
-  Generic no-model recovery는 그대로입니다.
-- Case는 live/approved-baseline/controlled-failure로 구분합니다. 미지원·거절은 pre-dispatch,
-  executed=false, childId/hostObserved=null, blocked/not-executed로 남기며 실제 모델 품질 실패로 세지 않습니다.
-- Checks는 acceptance/quality/canary/independent-qa/remediation의 commandRef/resultRef와 passed/failed/not-run입니다.
-  Success는 acceptance·독립 QA와 모든 기록된 검사 PASS를 요구합니다. Controlled failure는 원래 quality/acceptance와
-  별도 실패 canary를 보존하고 candidate가 만든 결함으로 바꾸지 않습니다. 먼저 success로 닫은 뒤 failure로 바꾸지 않습니다.
-- Fact reference와 cause hypothesis를 분리합니다. Cause는 unknown/context-missing/task-model-mismatch/code-defect/
-  host-support/tool-fixture-environment/permission/quota/capacity/reasoning-miss/controlled-injection입니다.
-  Unknown은 기본 원인 미확정이지 reasoning miss가 아닙니다. Non-unknown은 evidenceRefs·confidence를 요구합니다.
-- Remediation은 repair-context/repair-oracle-environment/verify-host/astra-handoff/rescope-task/redesign-task-context/stop과
-  evidenceRefs/checkRefs입니다. Check reference는 같은 attempt의 검사 결과를 가리켜야 합니다. 원인별 조치 뒤 같은 oracle를
-  다시 검증하며 Astra 성공만으로 원래 실패 원인을 확정하지 않습니다. Quota/permission/cap 실패는 모델 교체 대신 stop입니다.
-- Duration/timeSource, corrections/revalidations/scopeViolations/qaFindings와 tokens/cost/reference는 미관측이면 null입니다.
-  측정값 0을 발명하지 않습니다. First-pass acceptance는 실제 live primary 중 최초 oracle·QA PASS 비율로 계산하고,
-  denied/controlled/baseline은 따로 집계합니다. Self-correction 횟수 null을 재작업0으로 해석하지 않습니다.
-
-Reference는 `evidence:opaque-id`, `artifact:opaque-id`, `command:opaque-id`, `source:opaque-id`만 허용합니다.
-Parent가 별도 sanitized summary에서 실제 bounded evidence와 연결합니다. 원문 command/prompt, transcript, 환경변수,
-credentials, PII, hidden reasoning은 넣지 않습니다. Allowlist는 내용의 비밀 여부를 인증하지 않으므로 ID에도 비밀을 넣지 않습니다.
-
-Parent의 로컬 저장 절차:
-
-1. 성공·실패·blocked 모두 constructor로 검사합니다. 기존 scope/admission/once recovery 검사를 별도로 유지합니다.
-   Requested는 허용 목록 안이어야 합니다. Resolved/hostObserved는 관측 사실이라 허용 목록 밖 model(예: Home pin)이나 다른
-   effort도 형식(model 이름·effort 단어)만 맞으면 받고, requested와의 불일치는 failure/blocked에 그대로 보존합니다. 성공으로
-   승격하거나 미관측 null로 덮지 않으며, mismatch primary 기록만으로 rescue history를 허용하지 않습니다.
-2. `resolveModelRunEvidencePath(repoRoot, date, runId, environment)`로
-   `.artifacts/tools/agent-thread-lifecycle/<date>/model-activation/<run-id>/attempts.json`을 구합니다.
-   Canonical `resolveArtifactPath()`를 재사용하되 root 탈출·traversal을 거절합니다. 환경 입력은 명시적이며 기본 `{}`입니다.
-3. Parent가 해당 run directory의 소유권·실제 symlink-free 경로를 확인하고 생성합니다. Pure path 검사는 symlink를 조회하지
-   않습니다. 외부 root로 연결되는 symlink 아래에는 쓰지 않습니다. 다른 run의 artifact를 덮어쓰지 않습니다.
-4. 명시적 `writeModelRunEvidence({ record, repoRoot, date, environment, writeFile })`에 허용된 writer를 주거나,
-   같은 검증 결과를 Parent가 저장합니다. 이 helper는 filesystem을 import하거나 directory/native 호출을 자동 생성하지 않습니다.
-5. Writer rejection은 원문 오류 없이 `observability-gap`/`write-failed`로 반환합니다. Supporting artifact 또는 짧은 sanitized
-   보고에 gap을 남기고 안전한 writer 회수·Parent 반환은 계속합니다. Logging 실패는 recovery gate도 새 실행 권한도 아닙니다.
-   잘못된 schema/path는 쓰기 전 거절하므로 Parent가 바로잡거나 별도 gap으로 보고합니다. 누락 로그를 PASS·비용0으로 채우지 않습니다.
+- **관측**: child가 실제로 받은 model·effort와 시작·종료는 project hook이 Parent session별
+  `.codex/state/knu-subagent-hooks/<session>.jsonl`에 남깁니다. Parent는 `pnpm codex:completion -- --lane <lane> --token <token>
+--role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조합니다. 기록이 없거나 spawn bind·계약 model·역할 effort와
+  맞지 않으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+  허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
+- **원인과 조치**: Hook 기록은 원인을 담지 않습니다. Parent는 확인된 사실과 원인 가설을 나눠 남기며 확정되지 않은 원인은
+  unknown입니다. 원인별 조치 뒤 같은 oracle을 다시 검증하고, Astra 성공만으로 원래 원인을 확정하지 않습니다.
+  Quota·permission·cap 실패는 모델 교체 대신 stop입니다.
+- **집계**: 실행 전 거절, 의도적으로 주입한 실패, approved baseline은 실제 live primary와 따로 셉니다. 미관측 시간·비용·재작업은
+  null로 두고 0으로 채우지 않습니다.
+- **기록 경계**: Hook 기록은 identity와 크기만 남기고 message 본문을 넣지 않습니다. Parent의 작업 증거에도 [Execution evidence](../qa.md#execution-evidence)가
+  금지한 원문 prompt·transcript·환경 변수·credential·개인 정보와 hidden reasoning을 넣지 않고 참조 ID로 연결하며, 참조 ID에도
+  비밀을 넣지 않습니다. 기록 실패는 gap으로 보고하며 실행 권한이나 PASS를 만들지 않습니다.
 
 ## Recovery ceiling
 

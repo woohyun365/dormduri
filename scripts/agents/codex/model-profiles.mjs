@@ -33,7 +33,8 @@ const BUILD = {
 };
 // A profile names the model passed as spawn_agent.model; the chosen role names the effort. Candidate profiles are
 // model requests with a quality gate and one effort; assignment profiles carry the Astra roles of every effort.
-// 6.1 Sol is the routine bounded model (Owner adoption 2026-10-06); its quality rests on the oracle, Astra QA and run evidence.
+// 6.1 Sol is the routine bounded model (Owner adoption 2026-10-06); its quality rests on the oracle, Astra QA and the hook-observed
+// model and effort.
 const PROFILES = deepFreeze({
   extract: {
     profileId: 'extract',

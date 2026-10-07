@@ -356,9 +356,9 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
   assert.doesNotMatch(source, /\.omx\/plans\/|\.?artifacts\/(?:local|plans|tools)\/|\/Users\//u);
   const requiredLinks = [
     '../../../scripts/agents/codex/model-profiles.mjs',
-    '../../../scripts/agents/codex/model-run-evidence.mjs',
+    '../../../scripts/agents/codex/subagent-hook-records.mjs',
     '../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs',
-    '../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs',
+    '../../../scripts/ci/agents/codex/codex-subagent-hooks.test.mjs',
     '../../development/agent-workflows/subagent-lifecycle.md',
     '../../development/agent-workflows/qa.md',
   ];

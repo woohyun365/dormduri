@@ -382,6 +382,11 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
   assert.match(rules.configuration, /실행을 보류하고/u);
 
   const codexRecovery = read(workflow + 'request-intake/orchestration-recovery.md');
+  // Codex execution evidence is the hook record and its completion check, not a separate run-record module.
+  const codexEvidence = section(codexRecovery, '## Bounded model-run evidence');
+  assert.match(codexEvidence, /\.codex\/state\/knu-subagent-hooks/u);
+  assert.match(codexEvidence, /codex:completion/u);
+  assert.doesNotMatch(codexEvidence, /model-run-evidence\.mjs|ModelRunEvidence/u);
   const codexAdapter = read(workflow + 'adapters/codex.md');
   const claudeAdapter = read(workflow + 'adapters/claude-code.md');
   const claudeProfiles = read(workflow + 'adapters/claude-model-profiles.md');

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { runFreshSessionSmoke } from '../../../agents/codex/fresh-session-smoke.mjs';
 
 import { recommendDelegation } from '../../../agents/codex/child-task-contract.mjs';
 import { discoverContextPack } from '../../../agents/common/domain-guide-registry.mjs';
@@ -294,19 +293,6 @@ test('the integrated intake path remains advisory and cannot write files or invo
   }
 });
 
-test('intake model path keeps source-bound advice, context and dispatch as separate gates', () => {
-  const { modelEvidence } = runFreshSessionSmoke();
-  const dispatch = modelEvidence.pilot.dispatches[0];
-  const contract = dispatch.contract;
-  assert.equal(contract.contextDelivery.compatible, true);
-  assert.equal(contract.contextDelivery.applied, false);
-  assert.equal(contract.routeRecommendation.runtimeApplication.applied, false);
-  assert.match(contract.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
-  assert.equal(dispatch.requiresLeaderRuntimeConfirmation, true);
-  assert.equal(modelEvidence.contextConflict.execution, 'leader-sequential');
-  assert.equal(modelEvidence.routineWithPilot.execution, 'leader-sequential');
-});
-
 function evaluateFixture(
   fixture,
   {
@@ -558,15 +544,3 @@ function completedChildResult(contract, { preserveCurrentSourceGap = false } = {
     blocker: null,
   };
 }
-
-test('fresh intake consumes Luna resolution and hands a controlled failure back while recovery is suspended', () => {
-  const { modelEvidence, boundaries } = runFreshSessionSmoke();
-  const activation = modelEvidence.activation;
-  assert.equal(activation.dispatch.dispatches[0].spawnArguments.model, 'gpt-6-luna');
-  assert.equal(activation.dispatch.dispatches[0].effectiveModel, null);
-  assert.equal(activation.post.accepted, false);
-  assert.equal(activation.post.usageReference, null);
-  assert.equal(activation.recovery.status, 'handoff-required');
-  assert.equal(activation.recovery.nextModel, null);
-  assert.equal(boundaries.invokesChild, false);
-});

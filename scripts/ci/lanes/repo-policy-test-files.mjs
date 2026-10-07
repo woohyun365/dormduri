@@ -13,14 +13,11 @@ export const REPO_POLICY_SCRIPT_DIRECTORIES = [
 ];
 
 // CI runs the policy tests as two suites. The agent workflow suite needs no installed packages, so its job skips
-// `pnpm install`. Agent tests that read every tracked path stay in the repo-policy suite: one imports prettier, and both
-// keep guarding the tree wherever the repo-policy job runs.
+// `pnpm install`. Agent tests that read every tracked path stay in the repo-policy suite: the guard imports prettier and
+// keeps guarding the tree wherever the repo-policy job runs.
 export const TEST_SUITES = ['repo-policy', 'agent-workflow'];
 const AGENT_WORKFLOW_TEST_DIRECTORY = 'scripts/ci/agents/';
-export const TREE_WIDE_AGENT_TESTS = [
-  'scripts/ci/agents/codex/codex-fresh-session.test.mjs',
-  'scripts/ci/agents/common/agent-guidance-boundary.test.mjs',
-];
+export const TREE_WIDE_AGENT_TESTS = ['scripts/ci/agents/common/agent-guidance-boundary.test.mjs'];
 
 export function testSuite(path) {
   return path.startsWith(AGENT_WORKFLOW_TEST_DIRECTORY) && !TREE_WIDE_AGENT_TESTS.includes(path)

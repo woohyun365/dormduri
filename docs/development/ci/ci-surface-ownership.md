@@ -29,10 +29,9 @@
 
 `scripts/ci/lanes/run-repo-policy.mjs`는 policy test를 두 suite로 나눠 실행합니다(`scripts/ci/lanes/repo-policy-test-files.mjs`).
 
-- `agent-workflow`: `scripts/ci/agents/**`의 test에서 tree 전체 guard 2개를 뺀 것. 저장소 밖 package를 import하지 않아
+- `agent-workflow`: `scripts/ci/agents/**`의 test에서 tree 전체 guard(`agent-guidance-boundary`)를 뺀 것. 저장소 밖 package를 import하지 않아
   Agent workflow gate는 `pnpm install` 없이 실행합니다.
-- `repo-policy`: 나머지 전부와 tree 전체 guard 2개(`agent-guidance-boundary`, `codex-fresh-session`). 한 guard는 `prettier`를
-  import하고, 둘 다 tracked 경로 전체를 읽습니다.
+- `repo-policy`: 나머지 전부와 tree 전체 guard. 이 guard는 `prettier`를 import하고 tracked 경로 전체를 읽습니다.
 - 인자가 없으면(로컬 `pnpm test:repo-policy`) 두 suite를 모두 실행합니다. Test가 모든 policy test가 정확히 한 suite에 속하는지
   확인합니다.
 

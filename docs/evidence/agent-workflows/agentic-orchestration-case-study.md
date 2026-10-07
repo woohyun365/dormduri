@@ -193,11 +193,11 @@ model 생략·full-history fork·child 발 spawn을 막습니다. 같은 날 호
 
 ## 구현 chronology와 evidence
 
-| Merge                                                                                                                                                                     | 구현 책임                                                                                                                                    | Tracked evidence                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [PR #385](https://github.com/woohyun365/knu_roommate/pull/385) / [`6c9d1a52`](https://github.com/woohyun365/knu_roommate/commit/6c9d1a52153babb5bf4bf5f1b589691d7b5c17de) | project `.codex` allowlist, Sol/High child default, four bounded roles, parent config exclusion                                              | [.codex/config.toml](../../../.codex/config.toml), [.codex/agents](../../../.codex/agents), [project config contract](../../../scripts/ci/agents/codex/project-codex-config.test.mjs), [tracking fixtures](../../../scripts/ci/agents/codex/fixtures/project-codex-tracking-cases.json)                                                                                        |
-| [PR #386](https://github.com/woohyun365/knu_roommate/pull/386) / [`fa819dca`](https://github.com/woohyun365/knu_roommate/commit/fa819dca9e6d8a5e35f0d20263e3cfb20204217e) | Pass 1/Pass 2 separation, semantic effort predicates, one-to-three proactive lanes, owner-directed six, one-writer recommendation            | [routing policy](../../../scripts/agents/codex/routing-policy.mjs), [child contract](../../../scripts/agents/codex/child-task-contract.mjs), [routing regression](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs), [child regression](../../../scripts/ci/agents/codex/codex-child-task-contract.test.mjs)                                                     |
-| [PR #387](https://github.com/woohyun365/knu_roommate/pull/387) / [`24b74185`](https://github.com/woohyun365/knu_roommate/commit/24b74185913580365bf55f82efc0c90271b5f4e4) | bounded reported runtime evidence, model/effort/permission compatibility, live reconfirmation, one alternate recovery, leader-only synthesis | [orchestration policy](../../../scripts/agents/codex/orchestration-policy.mjs), [runtime fixtures](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration regression](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs), [fresh-session regression](../../../scripts/ci/agents/codex/codex-fresh-session.test.mjs) |
+| Merge                                                                                                                                                                     | 구현 책임                                                                                                                                    | Tracked evidence                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PR #385](https://github.com/woohyun365/knu_roommate/pull/385) / [`6c9d1a52`](https://github.com/woohyun365/knu_roommate/commit/6c9d1a52153babb5bf4bf5f1b589691d7b5c17de) | project `.codex` allowlist, Sol/High child default, four bounded roles, parent config exclusion                                              | [.codex/config.toml](../../../.codex/config.toml), [.codex/agents](../../../.codex/agents), [project config contract](../../../scripts/ci/agents/codex/project-codex-config.test.mjs), [tracking fixtures](../../../scripts/ci/agents/codex/fixtures/project-codex-tracking-cases.json)                                                                                                                                                                        |
+| [PR #386](https://github.com/woohyun365/knu_roommate/pull/386) / [`fa819dca`](https://github.com/woohyun365/knu_roommate/commit/fa819dca9e6d8a5e35f0d20263e3cfb20204217e) | Pass 1/Pass 2 separation, semantic effort predicates, one-to-three proactive lanes, owner-directed six, one-writer recommendation            | [routing policy](../../../scripts/agents/codex/routing-policy.mjs), [child contract](../../../scripts/agents/codex/child-task-contract.mjs), [routing regression](../../../scripts/ci/agents/codex/codex-routing-policy.test.mjs), [child regression](../../../scripts/ci/agents/codex/codex-child-task-contract.test.mjs)                                                                                                                                     |
+| [PR #387](https://github.com/woohyun365/knu_roommate/pull/387) / [`24b74185`](https://github.com/woohyun365/knu_roommate/commit/24b74185913580365bf55f82efc0c90271b5f4e4) | bounded reported runtime evidence, model/effort/permission compatibility, live reconfirmation, one alternate recovery, leader-only synthesis | [orchestration policy](../../../scripts/agents/codex/orchestration-policy.mjs), [runtime fixtures](../../../scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json), [orchestration regression](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs), [fresh-session regression](https://github.com/woohyun365/knu_roommate/blob/7f0e65a523884ed3dc39a4f9f185c2883f044a6a/scripts/ci/agents/codex/codex-fresh-session.test.mjs) |
 
 각 PR은 product runtime을 바꾸지 않는 repository agent harness 변경입니다. PR 설명과 merge commit은 검증 command와 결과를
 보존하며, 현재 behavior는 언제나 위 tracked source와 test를 다시 읽어 판정합니다.
@@ -212,10 +212,11 @@ model 생략·full-history fork·child 발 spawn을 막습니다. 같은 날 호
 | 실제 실행은 어떻게 확인했는가?        | 파일·정적 테스트와 fresh native runtime 관찰을 분리                                                                                   | Codex app-server의 loaded thread model/effort, child 응답, hook 완료 이벤트와 owning OMX launch의 doctor를 대조                                                                                |
 
 기존 Sol 구현에 Astra 기대값을 먼저 적용해 실패를 확인한 뒤 config·policy를 전환했습니다. 당시 targeted contract test는
-48개가 통과했습니다. 이 결과는 모델 품질·비용·속도 개선 측정이 아닙니다. 재현 명령은 다음과 같습니다.
+48개가 통과했습니다. 이 결과는 모델 품질·비용·속도 개선 측정이 아닙니다. 재현 명령은 다음과 같습니다. 당시 함께 실행한
+[fresh-session smoke test](https://github.com/woohyun365/knu_roommate/blob/7f0e65a523884ed3dc39a4f9f185c2883f044a6a/scripts/ci/agents/codex/codex-fresh-session.test.mjs)는 caller 없는 smoke와 함께 삭제되어 뺐습니다.
 
 ```sh
-node --test scripts/ci/agents/codex/project-codex-config.test.mjs scripts/ci/agents/codex/codex-orchestration-policy.test.mjs scripts/ci/agents/codex/codex-intake-integration.test.mjs scripts/ci/agents/codex/codex-fresh-session.test.mjs
+node --test scripts/ci/agents/codex/project-codex-config.test.mjs scripts/ci/agents/codex/codex-orchestration-policy.test.mjs scripts/ci/agents/codex/codex-intake-integration.test.mjs
 ```
 
 같은 날짜의 Codex `0.153.4` / OMX `0.21.3` 검증에서는 새 read-only parent가 Astra/XHigh로 로딩되고,
@@ -271,9 +272,10 @@ task / acceptance / source facts
   역할입니다. xhigh 선택은 품질 우선 owner 정책이지 medium보다 재작업이 적다는 실측 결론이 아닙니다.
 - [호출·결과 정책](../../../scripts/agents/codex/orchestration-policy.mjs): role pin, current scope/config, 승인 기간·예산, context,
   exact task/profile/child 귀속을 확인합니다. Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
-- [실행 기록](../../../scripts/agents/codex/model-run-evidence.mjs): 최초 실패·원인 가설·조치·재검증과 recovery를 분리합니다.
-  [기록 회귀](../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)는 진단값과 성공·복구 자격을 분리합니다.
-  원인 confidence와 근거 참조만 보존하며 secret·전체 대화·hidden reasoning을 수집하는 daemon이 아닙니다.
+- [완료 관측](../../../scripts/agents/codex/subagent-hook-records.mjs): project hook의 spawn 허용·SubagentStart·SubagentStop 기록을 lane
+  계약 model·역할 effort와 대조해 완료를 판정합니다. [hook 회귀](../../../scripts/ci/agents/codex/codex-subagent-hooks.test.mjs)는
+  미관측·불일치·bind 부재·grandchild를 거절합니다. 기록은 identity와 크기만 남기고 message 본문·secret·hidden reasoning을
+  수집하지 않습니다. 실패 원인 가설과 조치는 [Execution evidence](../../development/agent-workflows/qa.md#execution-evidence)대로 Parent가 남깁니다.
 - [Lifecycle owner](../../development/agent-workflows/subagent-lifecycle.md): `resultDisposition`, `cleanupDisposition`, `closeDisposition`,
   `releaseDisposition`을 분리합니다. Explicit-close, verified-no-close, unknown을 다르게 처리하며 close 미노출만으로
   managed cleanup을 증명하지 않습니다. 완료·interrupt·archive·빈 roster를 terminate/slot 반환으로 바꾸지 않습니다.
@@ -400,8 +402,8 @@ merge evidence는 targeted agent suite 49/49, repository policy 297/297, clean-c
 
 두 repair의 기존 suite는 새 negative에서 **114 PASS / 3 FAIL → 117 PASS / 0 FAIL**로 전환됐습니다. 이것은 로컬
 deterministic 검증이며, 모델 품질·native authority나 원격 CI 성공을 의미하지 않습니다. 위
-[dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)와 [진단 기록 회귀](../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)가
-재현 owner입니다. 문서의 링크·경계 guard도 실제 관찰의 진실성이나 agent의 지침 준수를 자동 보증하지 않습니다.
+[dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)와 삭제 전 [진단 기록 회귀](https://github.com/woohyun365/knu_roommate/blob/7f0e65a523884ed3dc39a4f9f185c2883f044a6a/scripts/ci/agents/codex/codex-model-run-evidence.test.mjs)가
+재현 owner입니다. 이 기록 모듈은 caller가 없어 hook 기록으로 대체하며 삭제했습니다. 문서의 링크·경계 guard도 실제 관찰의 진실성이나 agent의 지침 준수를 자동 보증하지 않습니다.
 
 현재 checkout에서 최소 재검증은 다음과 같습니다.
 
@@ -412,9 +414,8 @@ node --test \
   scripts/ci/agents/codex/codex-child-task-contract.test.mjs \
   scripts/ci/agents/codex/codex-orchestration-policy.test.mjs \
   scripts/ci/agents/codex/codex-model-profiles.test.mjs \
-  scripts/ci/agents/codex/codex-model-run-evidence.test.mjs \
-  scripts/ci/agents/codex/codex-subagent-lifecycle-contract.test.mjs \
-  scripts/ci/agents/codex/codex-fresh-session.test.mjs
+  scripts/ci/agents/codex/codex-subagent-hooks.test.mjs \
+  scripts/ci/agents/codex/codex-subagent-lifecycle-contract.test.mjs
 pnpm test:repo-policy
 ```
 

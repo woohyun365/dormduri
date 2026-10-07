@@ -139,6 +139,56 @@ test('repository guidance does not depend on retired workflow names or documenta
   assert.deepEqual(forbiddenReferences, []);
 });
 
+// Names are assembled so that this guard never matches its own source.
+const staleHandoffNames = ['frontend', 'backend', 'infrastructure'].map(
+  (area) => `${area}-feature-refactor-plan-authoring-` + 'handoff.md',
+);
+const retiredWorkflowTokens = [
+  '$' + 'ralph',
+  '$' + 'ultrawork',
+  '$' + 'pipeline',
+  'autoresearch' + '-goal',
+  'prometheus' + '-strict',
+];
+const guardExtensions = new Set([...textExtensions, '.toml']);
+const thisTest = 'scripts/ci/agents/common/agent-guidance-boundary.test.mjs';
+
+function existingTrackedText(filter = () => true) {
+  return trackedPaths()
+    .filter((path) => path !== thisTest && guardExtensions.has(extname(path)) && filter(path))
+    .filter((path) => existsSync(resolve(repoRoot, path)));
+}
+
+test('tracked guidance and runtime code no longer reference obsolete authoring handoffs', () => {
+  const violations = existingTrackedText().flatMap((path) => {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    return staleHandoffNames
+      .filter((name) => source.includes(name))
+      .map((name) => `${path}: ${name}`);
+  });
+
+  assert.deepEqual(violations, []);
+});
+
+test('tracked guidance no longer routes to retired user workflows', () => {
+  const scannedPaths = existingTrackedText(
+    (path) =>
+      path === 'AGENTS.md' ||
+      path.startsWith('.codex/') ||
+      path.startsWith('docs/') ||
+      path.startsWith('scripts/'),
+  );
+  const violations = scannedPaths.flatMap((path) => {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    return retiredWorkflowTokens
+      .filter((token) => source.includes(token))
+      .map((token) => `${path}: ${token}`);
+  });
+
+  assert.ok(scannedPaths.includes('.codex/agents/knu_reviewer.toml'));
+  assert.deepEqual(violations, []);
+});
+
 test('root CLAUDE bridge stays small and historical duplicate guidance does not return', () => {
   const gitignore = readFileSync(gitignorePath, 'utf8');
   const ignoredCanonicalFiles = ['AGENTS.md', 'CLAUDE.md', 'QA.md', 'REFACTOR-ANALYZE.md'].filter(
@@ -170,7 +220,9 @@ test('developer and agent workflow entry points stay connected without duplicati
     'utf8',
   );
 
+  assert.match(agents, /agent-workflows\/getting-started\.md/u);
   assert.match(agents, /agent-execution-contract\.md/u);
+  assert.match(agents, /orchestration\.md/u);
   assert.match(agents, /session-continuity\.md/u);
   assert.match(agents, /github\/branch-and-pr-strategy\.md/u);
   assert.match(agents, /`dev`·`main`에서 직접 구현/u);
