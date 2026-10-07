@@ -102,12 +102,15 @@ primary attempt
 - alternate attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
 - 세 번째 attempt, 같은 approach 반복, success 이후 retry는 invalid입니다.
 - `evaluateRecovery`는 `laneId`·`attempts`만 받고, attempt는 `approachId`·`alternateOf`·`outcome`·`failureCategory`·`evidence`만
-  담습니다(출력은 순번 `number`를 더하며 그 밖 field는 TypeError). Synthesis에 넘기는 recovery decision도 `evaluateRecovery`
-  출력의 field만 받습니다. 상한은 모든 lane에 같습니다.
+  담습니다(출력은 순번 `number`를 더하며 그 밖 field는 TypeError). 입력 attempt에 `number`가 있으면 그 위치(1부터)와 같아야
+  합니다. Synthesis에 넘기는 recovery decision도 `evaluateRecovery` 출력의 field만 받고, `confidence`·`prohibitedApproachIds`가
+  있으면 그 attempts로 다시 계산한 값과 같아야 합니다. 상한은 모든 lane에 같습니다.
 - `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다.
 - Alternate는 같은 contract(역할·profile model)에서 approach만 바꾼 한 번이며, 실패한 lane을 다른 model로 다시 시도하지 않습니다.
   자동 Luna→Sol→Astra ladder는 없습니다. Pending/unknown writer가 남아 있으면 회수하기 전에 alternate를 시작하지 않습니다.
   Scope/권한 변경을 모델 교체로 우회하지 않습니다.
+- Terminal handoff 뒤 Parent가 현재 source로 새 ordinary contract(예: Astra)를 판정해 맡기는 것은 이 recovery의 attempt가 아니라
+  새 위임입니다. 실패한 lane의 attempt 이력과 handoff는 그대로 남고, 새 contract의 결과가 그 실패를 성공으로 바꾸지 않습니다.
 - 권한·credential·external production은 기술적 retry로 해결하지 않습니다.
 - official/repository evidence가 계속 없으면 `evidence-gap`, owner 결정이 없으면 `plan-oq`, 외부 권한이 필요하면
   `user-handoff`로 종료합니다.

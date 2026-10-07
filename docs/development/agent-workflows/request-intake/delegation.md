@@ -22,7 +22,7 @@ Lane의 bounded objective·read scope·write owner·expected output·verificatio
 
 ## Context delivery
 
-최소한이되 완전한 source-bound packet을 전달합니다. 알려진 실패·제약은 보존하고 최초 독립 reviewer에게 builder reasoning은 전달하지 않습니다. 재사용에는 최신 snapshot·ownership 확인이 필요합니다. Codex의 fork·reuse·explicit-effort는 [Codex context delivery](../adapters/codex-delegation.md#context-delivery)에서만 적용하며 공통 packet이 그것을 실행하지 않습니다.
+최소한이되 완전한 source-bound packet을 전달합니다. 알려진 실패·제약은 보존하고 최초 독립 reviewer에게 builder reasoning은 전달하지 않습니다. 재사용에는 최신 snapshot·ownership 확인이 필요합니다. Codex의 full-history fork 거절과 reuse 판정은 [Codex context delivery](../adapters/codex-delegation.md#context-delivery)가 소유하며 공통 packet이 그것을 실행하지 않습니다.
 
 ## Role and effort
 
