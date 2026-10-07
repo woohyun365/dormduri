@@ -115,8 +115,8 @@ Runtime 지원 관측 필드는 없습니다. Effort는 역할 파일의 pin이�
   거절하며 실패 내용·안전 지침을 조용히 자르지 않습니다. 긴 로그는 허용 scope 안의 원문 pointer와 정확한 실패 요약으로
   전달합니다. 이 전달 요청은 self-attestation이며 새 권한이나 접근 허용 목록을 만들지 않습니다.
 
-`createDispatchRecommendation()`은 **공급된** `contextDelivery`의 `compatible=true`, `applied=false`, 빈 `gaps`를
-확인하고 불일치/unknown이면 ordinary Astra에서도 dispatch 없이 `context-delivery-incompatible:<laneId>`를 반환합니다. 호환되는
+`createDispatchRecommendation()`은 **공급된** `contextDelivery`의 `compatible=true`, `applied=false`, 빈 `gaps`, `scoped`·`reuse`
+mode를 확인하고 불일치/unknown이면 ordinary Astra에서도 dispatch 없이 `context-delivery-incompatible:<laneId>`를 반환합니다. 호환되는
 `reuse`는 새 spawn이 아니므로 `context-reuse-not-a-spawn:<laneId>`입니다. 선택 입력을 **생략**하면 fresh scoped spawn이지만,
 이 생략은 실제 호출의 context 확인을 면제하지 않습니다. 필수 독립 QA가 막힌 경우 sequential disposition을 Parent self-review
 PASS로 바꾸지 않습니다.
