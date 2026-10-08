@@ -519,6 +519,21 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     recoveryDecisions: [retried],
   });
   assert.equal(retryChecked.valid, true, JSON.stringify(retryChecked.errors));
+  for (const [recoveryDecisions, message] of [
+    [retried, 'recoveryDecisions must be an array.'],
+    [[{ ...retried, laneId: 'missing-lane' }], 'Recovery references an unknown lane: missing-lane'],
+    [[retried, retried], 'recovery laneId values must be unique.'],
+  ])
+    assert.throws(
+      () =>
+        validateCodexWorkflowResults(i, {
+          results: [r],
+          review,
+          hookObservation: onRetry,
+          recoveryDecisions,
+        }),
+      { name: 'TypeError', message },
+    );
   assert.deepEqual(
     validateCodexWorkflowResults(i, { results: [r], review, hookObservation: onRetry }).errors,
     ['child lane legal-test completion refused: observation-missing'],

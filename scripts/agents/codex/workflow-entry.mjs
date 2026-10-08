@@ -223,6 +223,8 @@ export function validateCodexWorkflowResults(
   for (const decision of recoveryDecisions) {
     if (!children.has(decision?.laneId))
       throw new TypeError(`Recovery references an unknown lane: ${String(decision?.laneId)}`);
+    if (recoveries.has(decision.laneId))
+      throw new TypeError('recovery laneId values must be unique.');
     recoveries.set(decision.laneId, decision);
   }
   const completionChecks = (Array.isArray(results) ? results : [])
