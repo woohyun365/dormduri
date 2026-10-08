@@ -631,6 +631,22 @@ test('deleted delivery effort mode is not prose input and a new contract after h
   assert.match(ceiling, /새 ordinary contract[^\n]*\n[^\n]*새 위임입니다/u);
 });
 
+test('the common recovery ceiling the Codex retry relies on keeps one retry and no per-failure model ladder', () => {
+  const orchestration = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
+    'utf8',
+  );
+  const start = orchestration.indexOf('## Recovery ceiling\n');
+  assert.ok(start >= 0);
+  const ceiling = orchestration.slice(start, orchestration.indexOf('\n## ', start + 1));
+  assert.match(ceiling, /모델을 바꾼 시도도 같은 상한을 소비합니다/u);
+  assert.match(ceiling, /실패할 때마다 모델을 차례로 올리는 자동 사다리는 없습니다/u);
+  assert.match(
+    ceiling,
+    /다른 접근의 구체\(모델·effort 상향, 대체 역할, 호출 인자\)는 host adapter가 정합니다/u,
+  );
+});
+
 test('leader-reported post-execution checks and runtime capability fixtures are gone', () => {
   assert.equal('evaluateModelExecution' in modelPolicy, false, 'evaluateModelExecution export');
   assert.equal(
