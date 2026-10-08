@@ -15,7 +15,6 @@ import { ActiveMatchLifecycleEventWriter } from '../../active/lifecycle-events/a
 import { ActiveMatchViewQuery } from '../../active/queries/active-match-view.query.js';
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { matchesErrors } from '../../errors/matches.errors.js';
-import { expireDuePendingRequests } from '../persistence/match-request-locks.js';
 import { MatchRequestAcceptanceRepository } from '../persistence/match-request-acceptance.repository.js';
 import { toMatchRequestSummary } from '../presenters/match-request.presenter.js';
 
@@ -57,7 +56,6 @@ export class AcceptMatchRequestCommand {
     const receiverSeasonContext = receiverContext.seasonContext;
 
     return this.prisma.runSerializableTransaction(async (tx) => {
-      await expireDuePendingRequests(tx, receiverSeasonContext.season.id, now);
       const acceptanceContext = await this.acceptanceRepository.lockAndLoadAcceptableRequest(
         tx,
         requestId,

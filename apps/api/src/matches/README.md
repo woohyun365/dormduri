@@ -70,7 +70,7 @@ Final subdirectory targets:
 - Create/accept/reject/cancel/unmatch paths keep Serializable transaction semantics where the current behavior relies on atomic state convergence.
 - Participant pair, requester/receiver, and active match mutation paths keep advisory lock boundaries to serialize pair/action races.
 - `apps/api/prisma/sql/lockMatchRequestRow.sql` and `apps/api/prisma/sql/lockActiveMatchRow.sql` remain row-lock source-of-truth for request/active-match updates.
-- Accept acquires the sorted participant advisory locks before the request row lock. The winning accept system-cancels the participants' other pending requests, so a transaction that holds one of those request rows while waiting for a participant lock deadlocks.
+- Accept never holds a request row lock while waiting for a participant lock: it acquires the sorted participant advisory locks before the season-wide pending-request expiry sweep and the request `FOR UPDATE`. The winning accept and request creation update pending requests (the participants' other requests and any season-wide overdue ones), so holding one of those rows while waiting for a participant lock deadlocks.
 - Create/accept/unmatch commands recheck stale state inside the transaction after locks are acquired.
 - ActiveMatch lifecycle event append must happen inside the same Prisma transaction as the state mutation it explains.
 - Pending request expiration, room-selection cutoff, hidden/deactivated/withdrawn/expired/deleted/deidentified participant state, active match presence, and target visibility are fail-closed.

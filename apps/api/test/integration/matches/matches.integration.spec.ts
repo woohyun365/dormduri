@@ -228,6 +228,32 @@ describe('MatchesService integration', () => {
     ).resolves.toEqual({ participantStatus: 'MATCHED' });
   });
 
+  it('기한이 지난 pending request를 accept하면 만료 사유로 409를 반환하고 ACTIVE를 만들지 않는다', async () => {
+    const request = await service.createMatchRequest(authContext('user-a'), {
+      targetUserId: 'user-b',
+      note: 'expired',
+    });
+    await prisma.matchRequest.update({
+      where: { id: request.request.id },
+      data: { expiresAt: new Date('2000-01-01T00:00:00.000Z') },
+    });
+
+    await expect(
+      service.acceptMatchRequest(authContext('user-b'), request.request.id),
+    ).rejects.toMatchObject({
+      response: matchesErrors.requestExpired().getResponse(),
+    });
+    await expect(
+      prisma.activeMatch.count({ where: { seasonId: 'season-integration' } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.matchRequest.findUniqueOrThrow({
+        where: { id: request.request.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: 'PENDING' });
+  });
+
   it('pending 생성 후 requester profile snapshot invariant가 깨지면 accept가 system cancel로 fail-closed 된다', async () => {
     const request = await service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',

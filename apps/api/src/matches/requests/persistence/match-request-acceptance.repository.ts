@@ -13,6 +13,7 @@ import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   acquireParticipantLocks,
   assertNoLiveActiveMatchForParticipants,
+  expireDuePendingRequests,
   lockRequestRow,
 } from './match-request-locks.js';
 import { matchRequestSummarySelect, type MatchRequestRecord } from './match-request.select.js';
@@ -51,10 +52,11 @@ export class MatchRequestAcceptanceRepository {
       request.requesterParticipantId,
       request.receiverParticipantId,
     );
-    // Participant locks come before the request row lock. The winning accept cancels the
-    // participants' other pending requests, so a loser holding one of those rows while
+    // Participant locks come before the expiry sweep and the request row lock. The winning
+    // accept and request creation update pending rows, so holding one of those rows while
     // waiting for a participant lock would deadlock.
     await acquireParticipantLocks(tx, request.seasonId, sortedParticipants);
+    await expireDuePendingRequests(tx, request.seasonId, now);
     await lockRequestRow(tx, requestId);
 
     const lockedRequest = await this.loadPendingReceiverRequest(
