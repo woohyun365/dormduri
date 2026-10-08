@@ -1,4 +1,9 @@
-import { ROLE_EFFORTS, getModelProfile, resolveRouteEffort } from './model-profiles.mjs';
+import {
+  ROLE_EFFORTS,
+  getModelProfile,
+  getRecoveryStep,
+  resolveRouteEffort,
+} from './model-profiles.mjs';
 import { isDeepStrictEqual } from 'node:util';
 import { createModelScopeDigest } from './child-task-contract.mjs';
 import { recommendModel } from './routing-policy.mjs';
@@ -14,8 +19,11 @@ const DEFAULT_CONCURRENCY_LIMIT = 3;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
 const INSTALLED_ROLES = new Set(Object.keys(ROLE_EFFORTS));
 const DISPATCH_INPUTS = new Set(['delegation', 'concurrencyLimit', 'dispatchToken']);
-const RECOVERY_INPUTS = new Set(['laneId', 'attempts']);
-// A failed lane's alternate keeps its contract: an attempt records the approach and its outcome, never a model.
+const RECOVERY_INPUTS = new Set(['laneId', 'route', 'attempts']);
+const RECOVERY_ROUTE_FIELDS = new Set(['role', 'profileId']);
+const RETRY_DISPATCH_INPUTS = new Set(['delegation', 'recoveryDecision', 'dispatchToken']);
+// A failed lane's retry route is computed from its contract route and the ladder: an attempt records the approach and
+// its outcome, never a model.
 const ATTEMPT_FIELDS = new Set([
   'number',
   'approachId',
@@ -36,7 +44,11 @@ const RECOVERY_DECISION_FIELDS = new Set([
   'blocker',
   'disposition',
   'confidence',
+  'route',
+  'retryRoute',
 ]);
+// Result-quality failures climb one rung; evidence and tool failures change the approach on the same contract.
+const STEP_UP_FAILURES = new Set(['verification-failed', 'unknown']);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 const VERIFICATION_STATUSES = new Set(['passed', 'failed', 'not-run']);
@@ -456,23 +468,32 @@ function requireExactRecord(value, fields, name, optionalFields = []) {
   }
 }
 
-// One primary attempt and at most one distinct alternate approach, the same for every lane. The alternate keeps the
-// lane's contract (role and profile model): a failed lane is never retried on another model.
+// One primary attempt and at most one retry with a distinct approach, the same ceiling for every lane. The retry route
+// is computed from the lane's contract route, never reported: a result-quality failure retries once one rung up on the
+// same role (RECOVERY_LADDER); evidence and tool failures, and a lane already on the top rung, retry on the contract.
 export function evaluateRecovery(input = {}) {
   for (const key of Object.keys(input ?? {}))
     if (!RECOVERY_INPUTS.has(key)) throw new TypeError(`Unsupported recovery input: ${key}`);
-  const { laneId, attempts = [] } = input ?? {};
+  const { laneId, route, attempts = [] } = input ?? {};
   const normalizedLaneId = requireIdentifier(laneId, 'laneId');
+  const normalizedRoute = normalizeRecoveryRoute(route);
   if (!Array.isArray(attempts)) throw new TypeError('attempts must be an array.');
   if (attempts.length > 2) {
     throw new TypeError('Recovery allows one primary attempt and at most one alternate attempt.');
   }
   const normalizedAttempts = attempts.map((attempt, index) => normalizeAttempt(attempt, index));
   validateAttemptSequence(normalizedAttempts);
+  // A finished retry keeps the route it ran on.
+  const retryRoute =
+    normalizedAttempts.length === 2
+      ? recoveryRetryRoute(normalizedRoute, normalizedAttempts[0].failureCategory)
+      : null;
 
   if (normalizedAttempts.length === 0) {
     return recoveryDecision({
       laneId: normalizedLaneId,
+      route: normalizedRoute,
+      retryRoute,
       attempts: normalizedAttempts,
       status: 'not-started',
       action: 'primary-attempt',
@@ -487,6 +508,8 @@ export function evaluateRecovery(input = {}) {
   if (latest.outcome === 'success') {
     return recoveryDecision({
       laneId: normalizedLaneId,
+      route: normalizedRoute,
+      retryRoute,
       attempts: normalizedAttempts,
       status: 'complete',
       action: 'none',
@@ -500,6 +523,8 @@ export function evaluateRecovery(input = {}) {
   if (normalizedAttempts.length === 1 && !NON_RETRYABLE_FAILURES.has(latest.failureCategory)) {
     return recoveryDecision({
       laneId: normalizedLaneId,
+      route: normalizedRoute,
+      retryRoute: recoveryRetryRoute(normalizedRoute, latest.failureCategory),
       attempts: normalizedAttempts,
       status: 'alternate-available',
       action: 'alternate-once',
@@ -514,6 +539,8 @@ export function evaluateRecovery(input = {}) {
   const disposition = terminalDisposition(latest.failureCategory);
   return recoveryDecision({
     laneId: normalizedLaneId,
+    route: normalizedRoute,
+    retryRoute,
     attempts: normalizedAttempts,
     status: 'handoff-required',
     action:
@@ -564,12 +591,16 @@ export function prepareLeaderSynthesis({
     if (!contracts.has(recovery.laneId)) {
       throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
     }
+    assertRecoveryRoute(contracts.get(recovery.laneId), recovery);
     const result = results.find(({ laneId }) => laneId === recovery.laneId);
     if (result?.status === 'completed' && recovery.action !== 'none') {
       throw new TypeError('A completed child result cannot have a pending or terminal recovery.');
     }
   }
   const normalizedConflicts = normalizeConflicts(conflicts, contracts);
+  const recoveryByLane = new Map(
+    normalizedRecoveries.map((recovery) => [recovery.laneId, recovery]),
+  );
   const completionChecks = results
     .filter(({ status }) => status === 'completed')
     .map(({ laneId }) => ({
@@ -578,8 +609,7 @@ export function prepareLeaderSynthesis({
         observation: hookObservation,
         laneId,
         dispatchToken,
-        expectedRole: contracts.get(laneId).routeRecommendation.role,
-        expectedModel: getModelProfile(contracts.get(laneId).routeRecommendation.profileId).model,
+        ...completionExpectation(contracts.get(laneId), recoveryByLane.get(laneId)),
       }),
     }));
   const refusedLaneIds = completionChecks
@@ -652,6 +682,70 @@ export function prepareLeaderSynthesis({
   });
 }
 
+// The child a completed lane is checked against: its contract route, or the retry route on the retry task path once a
+// recovery retry ran. A caller outside synthesis passes the lane's recovery decision, which is recomputed here.
+export function laneCompletionExpectation({ contract, recoveryDecision }) {
+  if (recoveryDecision === undefined) return completionExpectation(contract);
+  const recovery = normalizeRecoveryDecision(recoveryDecision);
+  if (recovery.laneId !== contract?.laneId)
+    throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
+  assertRecoveryRoute(contract, recovery);
+  return completionExpectation(contract, recovery);
+}
+
+// The retry of one failed lane: spawn arguments from its contract and its pending decision's retry route, under the
+// lane's dispatch token with the `_retry` task name. The decision is recomputed, never trusted as given.
+export function createRetryDispatch(input = {}) {
+  for (const key of Object.keys(input ?? {}))
+    if (!RETRY_DISPATCH_INPUTS.has(key))
+      throw new TypeError(`Unsupported retry dispatch input: ${key}`);
+  const { delegation, recoveryDecision, dispatchToken } = input ?? {};
+  assertDelegationRecommendation(delegation);
+  const recovery = normalizeRecoveryDecision(recoveryDecision);
+  const contract = delegation.recommendedChildren.find(({ laneId }) => laneId === recovery.laneId);
+  if (!contract) throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
+  assertRecoveryRoute(contract, recovery);
+  if (recovery.action !== 'alternate-once')
+    throw new TypeError('A retry dispatch needs a pending alternate decision.');
+  if (dispatchToken === undefined)
+    throw new TypeError('A retry dispatch requires a dispatch token.');
+  const { role, model } = recovery.retryRoute;
+  return deepFreeze({
+    laneId: recovery.laneId,
+    agentType: role,
+    effort: ROLE_EFFORTS[role],
+    model,
+    retryRoute: recovery.retryRoute,
+    retryOf: recovery.attempts[0].approachId,
+    dispatchOwner: 'leader',
+    dispatchToken,
+    spawnArguments: {
+      task_name: laneTaskName(recovery.laneId, dispatchToken, { retry: true }),
+      agent_type: role,
+      model,
+      reasoning_effort: ROLE_EFFORTS[role],
+      fork_turns: 'none',
+    },
+  });
+}
+
+function completionExpectation(contract, recovery) {
+  if (recovery?.attempts.length === 2)
+    return {
+      expectedRole: recovery.retryRoute.role,
+      expectedModel: recovery.retryRoute.model,
+      retry: true,
+    };
+  const { role, profileId } = contract.routeRecommendation;
+  return { expectedRole: role, expectedModel: getModelProfile(profileId).model, retry: false };
+}
+
+function assertRecoveryRoute(contract, recovery) {
+  const { role, profileId } = contract.routeRecommendation;
+  if (recovery.route.role !== role || recovery.route.profileId !== profileId)
+    throw new TypeError('Recovery route must match its lane contract.');
+}
+
 function dispatchRecommendation({
   delegation,
   execution,
@@ -682,6 +776,8 @@ function dispatchRecommendation({
 
 function recoveryDecision({
   laneId,
+  route,
+  retryRoute,
   attempts,
   status,
   action,
@@ -694,6 +790,8 @@ function recoveryDecision({
   return deepFreeze({
     schemaVersion: 1,
     laneId,
+    route,
+    retryRoute,
     status,
     action,
     attempts,
@@ -771,12 +869,40 @@ function validateAttemptSequence(attempts) {
   if (attempts[0].outcome !== 'failure') {
     throw new TypeError('An alternate attempt cannot follow a successful primary attempt.');
   }
+  if (NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory)) {
+    throw new TypeError('A non-retryable failure has no alternate attempt.');
+  }
   if (
     attempts[1].approachId === attempts[0].approachId ||
     attempts[1].alternateOf !== attempts[0].approachId
   ) {
     throw new TypeError('The second attempt must be one distinct alternate approach.');
   }
+}
+
+function normalizeRecoveryRoute(route) {
+  if (!route || typeof route !== 'object' || Array.isArray(route))
+    throw new TypeError('Recovery requires the lane route: role and profileId.');
+  for (const field of Object.keys(route))
+    if (!RECOVERY_ROUTE_FIELDS.has(field))
+      throw new TypeError(`Unsupported recovery route field: ${field}`);
+  // The profile must exist and carry the role; the ladder lookup checks both.
+  getRecoveryStep(route.profileId, route.role);
+  return { role: route.role, profileId: route.profileId };
+}
+
+function recoveryRetryRoute(route, failureCategory) {
+  const step = STEP_UP_FAILURES.has(failureCategory)
+    ? getRecoveryStep(route.profileId, route.role)
+    : null;
+  return step
+    ? { kind: 'ladder', role: route.role, profileId: step.profileId, model: step.model }
+    : {
+        kind: 'same-contract',
+        role: route.role,
+        profileId: route.profileId,
+        model: getModelProfile(route.profileId).model,
+      };
 }
 
 function terminalDisposition(category) {
@@ -895,14 +1021,18 @@ function normalizeRecoveryDecision(value) {
   const attempts = value.attempts.map(normalizeAttempt);
   validateAttemptSequence(attempts);
   const laneId = requireIdentifier(value.laneId, 'recovery laneId');
-  // Optional derived fields are checked, not dropped: they must be what the attempts recompute to.
-  const expected = evaluateRecovery({ laneId, attempts: value.attempts });
+  // Optional derived fields are checked, not dropped: they must be what the route and attempts recompute to.
+  const expected = evaluateRecovery({ laneId, route: value.route, attempts: value.attempts });
   for (const field of ['confidence', 'prohibitedApproachIds'])
     if (field in value && !isDeepStrictEqual(value[field], expected[field]))
       throw new TypeError(`Recovery decision ${field} must match its attempts.`);
+  if ('retryRoute' in value && !isDeepStrictEqual(value.retryRoute, expected.retryRoute))
+    throw new TypeError('Recovery decision retryRoute must match its route and attempts.');
   return deepFreeze({
     attempts,
     laneId,
+    route: expected.route,
+    retryRoute: expected.retryRoute,
     status,
     action,
     remainingAlternateAttempts,

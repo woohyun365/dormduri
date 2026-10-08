@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
 // Bump for eligibility changes outside this data, too. Old bindings never migrate implicitly.
-const POLICY_REVISION = '2026-10-06.1';
+const POLICY_REVISION = '2026-10-09.1';
 // Role files pin `model_reasoning_effort`, which outranks a spawn's effort; a test binds each `.codex/agents` file here.
 export const ROLE_EFFORTS = deepFreeze({
   knu_explorer_medium: 'medium',
@@ -181,6 +181,24 @@ export function getModelProfile(profileId) {
   if (typeof profileId !== 'string' || !Object.hasOwn(PROFILES, profileId))
     throw new TypeError(`Unknown model profile: ${String(profileId)}`);
   return PROFILES[profileId];
+}
+
+// The promotion ladder: a candidate profile's next rung for the same role (Luna → 6.1 Sol, 6.1 Sol → Astra). A failed
+// lane climbs at most one rung, once; assignment profiles are the top rung.
+export const RECOVERY_LADDER = deepFreeze({
+  extract: 'elevated-read',
+  'standard-read': 'astra-fallback',
+  'elevated-read': 'astra-fallback',
+  'standard-build': 'deep-build',
+  'elevated-build': 'deep-build',
+});
+
+export function getRecoveryStep(profileId, role) {
+  if (!getModelProfile(profileId).roles.includes(role))
+    throw new TypeError(`Role ${String(role)} is not in profile ${profileId}.`);
+  if (!Object.hasOwn(RECOVERY_LADDER, profileId)) return null;
+  const next = getModelProfile(RECOVERY_LADDER[profileId]);
+  return deepFreeze({ profileId: next.profileId, model: next.model });
 }
 
 // Pure fingerprint, not registry injection or authority. Runtime always checks installed data.

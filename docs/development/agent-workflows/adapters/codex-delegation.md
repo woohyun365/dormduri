@@ -123,8 +123,8 @@ Descriptor는 contract에서 `spawnArguments={task_name, agent_type, model, reas
 `agent_type`은 route 역할, `model`은 route profile의 model(ordinary는 `gpt-6-astra`), `reasoning_effort`는 역할 pin입니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
 붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
 `failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인합니다.
-실패한 lane의 재시도는 [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)을 따르며 다른 model로
-다시 시도하지 않습니다.
+실패한 lane의 재시도는 [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)을 따릅니다. 재시도 spawn 인자는
+`createRetryDispatch()`가 lane 계약과 기다리는 recovery decision의 `retryRoute`(결과 품질 실패면 같은 역할의 한 단 위 model)에서 정합니다.
 
 Reuse 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor는 실제 실행·provider-effective 설정을
 증명하지 않으며, child가 실제로 받은 model·effort는 hook 기록이 근거입니다. 기존 source/권한 의미의

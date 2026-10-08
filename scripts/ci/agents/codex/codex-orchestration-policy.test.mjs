@@ -1246,7 +1246,7 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
   assert.deepEqual(incomplete.missingLaneIds, ['legal-official-evidence']);
   assert.deepEqual(incomplete.pendingRecoveryLaneIds, ['legal-official-evidence']);
   assert.equal(incomplete.conflicts[0].resolution, 'unresolved');
-  // A recovery decision names no model: a field outside evaluateRecovery's output is refused, not ignored.
+  // A decision names no model beyond its computed retryRoute; a field outside evaluateRecovery's output is refused.
   const pending = evaluateRecovery({
     laneId: 'legal-official-evidence',
     route: laneRoute('legal-official-evidence'),

@@ -22,6 +22,7 @@ test와 policy를 읽고 직접 구현·검증할 수 있는 repository harness�
 채택했으므로 작업별 oracle·독립 QA가 품질 근거입니다.
 Semantic 난이도 판정과 호출 model/effort를 분리하고, 각 task의 지원·권한·독립 검증·한 번의 Astra 복구 조건을 연결했습니다.
 2026-10-06부터는 semantic 계층이 effort를 고정한 역할 변형을 고르고 profile이 model을 정하며, model recovery는 중단했습니다(2026-10-07 삭제).
+2026-10-09부터 결과 품질로 실패한 lane은 같은 역할의 한 단 위 model로 한 번 재시도합니다(승격 사다리, 연쇄 없음).
 Parent Astra high는 owner가 선택한 후속 운영 시작값이며 실제 session 적용·품질 관측은 별도입니다. 어려운 전체 판단은
 Parent xhigh, 좁게 분리 가능한 깊은 문제는 Astra XHigh 배정(읽기 xhigh 역할, 구현 `deep-build`)을 검토합니다.
 
@@ -117,7 +118,7 @@ human request and authority
                     → effort-pinned role variant + Astra or admitted Sol/Luna profile model
                       → contract-derived spawn arguments + call-time hook guard
                         ├── compatible → native dispatch → independent quality evidence
-                        └── unsupported / failed → stop and hand back (no model change on retry)
+                        └── unsupported / failed → one retry (one rung up for result quality) or hand back
                               → leader-only evidence integration and capability-aware cleanup
 ```
 
@@ -260,7 +261,7 @@ task / acceptance / source facts
   → scoped child contract + profile 경계·contract snapshot 재확인
   → contract-derived spawn arguments (Parent가 실제 호출, hook이 호출 시점 검사)
   → child/task 귀속 + independent quality check
-  → success 또는 Parent 판단·handoff(재시도는 같은 contract의 alternate 한 번) / stop
+  → success 또는 Parent 판단·handoff(재시도는 한 번: 결과 품질 실패면 같은 역할의 한 단 위 model, 그 밖은 같은 contract) / stop
   → sanitized attempt record + capability별 lifecycle disposition
 ```
 
@@ -322,6 +323,7 @@ reviewer는 미채택이었습니다. **Cohort GO ≠ 개별 task 승인 ≠ 모
 2026-10-06 effort 구조 개편으로 이 둘은 `standard-build`·`standard-read`(high 역할, 읽기는 researcher 포함)가 되었고, 새
 `elevated-*`와 함께 Owner 채택으로 routine입니다(품질 canary 없음).
 같은 개편에서 executor의 controlled low 복구를 포함한 model recovery를 중단했고, 2026-10-07 그 경로를 삭제했습니다.
+2026-10-09 그 자리를 같은 역할의 한 단 위 model로 한 번 재시도하는 승격 사다리가 맡았습니다(DA-019).
 
 [Profile 회귀](../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs)와 [dispatch 회귀](../../../scripts/ci/agents/codex/codex-orchestration-policy.test.mjs)는
 허용 목록 밖 model 요청·구 revision/digest binding·route effort와 역할 pin 불일치·contract scope 변경을 거절합니다. 역할 파일의

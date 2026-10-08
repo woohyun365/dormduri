@@ -53,7 +53,8 @@ Child model은 profile이 정합니다. Admission을 통과한 bounded 읽기·�
 기본 역할과 같고 이름·설명·effort만 다르며 test가 이를 결속합니다. Keyword, path, file count, LOC, broad verification
 하나만으로 계층을 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Role 이름 자체는 live runtime
 지원 증거가 아닙니다. 호출 시점의 역할·(역할, model) 쌍·fork는 [hook guard](#subagent-hook-guardrail과-완료-관측)가 검사합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Low 역할도 없습니다.
-실패한 lane은 같은 contract에서 approach만 바꿔 한 번 다시 시도하며 다른 model로 옮기지 않습니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
+실패한 lane의 재시도는 한 번입니다. 결과 품질 실패는 같은 역할로 사다리 한 단 위 model(Luna → 6.1 Sol, 6.1 Sol → Astra)에서,
+근거·도구 실패와 Astra lane은 같은 contract에서 approach만 바꿔 실행하며 연쇄 상향은 없습니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
 Role routing을 증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
 
 Dispatch descriptor는 contract에서 `spawnArguments`(역할, profile model, 역할 pin effort, `fork_turns: none`)를 정하고, leader가
@@ -241,8 +242,8 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
    hook 기록이 없거나 bind·계약 model·역할 effort와 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
-7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 Parent 판단이나 handoff로 돌아가며, 재시도는 같은 contract의
-   alternate 한 번뿐이고 다른 model로 옮기지 않습니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)). Usage가 없으면 null로 남기고
+7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
+   결과 품질 실패일 때만 같은 역할의 한 단 위 model로 오릅니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)). Usage가 없으면 null로 남기고
    [실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에서 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.
 
@@ -339,6 +340,8 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   새 dispatch를 완료시키지 않게 합니다. Token을 일부러 재사용하는 것은 막지 못합니다. Shell에서는
   `pnpm codex:completion -- --lane <laneId> --token <token> --role <agent_type> --model <계약 model>`(session은
   `CODEX_THREAD_ID`)로 확인합니다. 출력의 `unboundStarts`는 어느 allow 기록과도 짝이 없는 session의 Start 수입니다.
+  Recovery 재시도 child는 task path `/root/<lane>_<token>_retry`에서 decision의 `retryRoute` model을 계약 model로 삼아 같은 조건으로
+  대조합니다(synthesis·`validateCodexWorkflowResults()`의 `recoveryDecisions`, shell은 `--retry`, [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
   완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
 - **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이
