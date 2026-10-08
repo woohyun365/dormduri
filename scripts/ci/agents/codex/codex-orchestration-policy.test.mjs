@@ -589,7 +589,7 @@ test('suspended model recovery exports are gone from profiles, child contracts a
       assert.equal(Object.hasOwn(exports, removed), false, `${name}: ${removed}`);
 });
 
-test('model recovery suspension sections are gone and the recovery ceiling keeps the contract model', () => {
+test('model recovery suspension sections are gone and the recovery ceiling names the one-rung ladder', () => {
   const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
   const workflow = 'docs/development/agent-workflows/';
   const recovery = read(`${workflow}request-intake/orchestration-recovery.md`);
@@ -608,8 +608,13 @@ test('model recovery suspension sections are gone and the recovery ceiling keeps
   const start = recovery.indexOf('## Recovery ceiling\n');
   assert.ok(start >= 0);
   const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
-  assert.match(ceiling, /다른 model로 다시 시도하지 않습니다/u);
-  assert.match(ceiling, /`laneId`·`attempts`만/u);
+  // A result-quality failure retries once one rung up on its role; the retry never chains.
+  assert.doesNotMatch(ceiling, /다른 model로 다시 시도하지 않습니다|ladder는 없습니다/u);
+  assert.match(ceiling, /`laneId`·`route`·`attempts`만/u);
+  assert.match(ceiling, /같은 역할로 사다리 한 단 위/u);
+  assert.match(ceiling, /재시도의 재시도·연쇄 상향은 없습니다/u);
+  for (const text of [adapter, delegation])
+    assert.doesNotMatch(text, /다른 model로\s*(다시 시도하지|옮기지) 않습니다/u);
 });
 
 test('deleted delivery effort mode is not prose input and a new contract after handoff is not a retry', () => {
@@ -893,10 +898,12 @@ test('omitted or scoped context spawns fresh, while a compatible reuse continues
 test('permits one distinct alternate attempt and then requires a terminal handoff', () => {
   const firstFailure = evaluateRecovery({
     laneId: 'legal-official-evidence',
+    route: laneRoute('legal-official-evidence'),
     attempts: [failedAttempt('official-api', 'official-source-unavailable')],
   });
   const secondFailure = evaluateRecovery({
     laneId: 'legal-official-evidence',
+    route: laneRoute('legal-official-evidence'),
     attempts: [
       failedAttempt('official-api', 'official-source-unavailable'),
       {
@@ -925,6 +932,7 @@ test('does not retry authority, credential, production, scope, or role-routing f
   ]) {
     const result = evaluateRecovery({
       laneId: 'legal-repository-map',
+      route: laneRoute('legal-repository-map'),
       attempts: [failedAttempt('primary', failureCategory)],
     });
     assert.equal(result.action, expectedAction, failureCategory);
@@ -937,6 +945,7 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
     () =>
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [
           failedAttempt('same-approach', 'tool-unavailable'),
           { ...failedAttempt('same-approach', 'tool-unavailable'), alternateOf: 'same-approach' },
@@ -948,6 +957,7 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
     () =>
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [
           { approachId: 'primary', outcome: 'success', evidence: 'Completed.' },
           {
@@ -964,6 +974,7 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
     () =>
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [
           failedAttempt('one', 'tool-unavailable'),
           { ...failedAttempt('two', 'tool-unavailable'), alternateOf: 'one' },
@@ -985,6 +996,7 @@ test('terminal recovery keeps its disposition per failure category and refuses a
   ]) {
     const result = evaluateRecovery({
       laneId: 'legal-repository-map',
+      route: laneRoute('legal-repository-map'),
       attempts: [failedAttempt('primary', failureCategory)],
     });
     assert.equal(result.status, 'handoff-required', failureCategory);
@@ -992,6 +1004,7 @@ test('terminal recovery keeps its disposition per failure category and refuses a
   }
   const unknown = evaluateRecovery({
     laneId: 'legal-repository-map',
+    route: laneRoute('legal-repository-map'),
     attempts: [
       failedAttempt('primary', 'unknown'),
       { ...failedAttempt('alternate', 'unknown'), alternateOf: 'primary' },
@@ -1003,6 +1016,7 @@ test('terminal recovery keeps its disposition per failure category and refuses a
     () =>
       evaluateRecovery({
         laneId: 'legal-repository-map',
+        route: laneRoute('legal-repository-map'),
         attempts: [{ ...failedAttempt('primary', 'tool-unavailable'), alternateOf: 'earlier' }],
       }),
     { name: 'TypeError', message: 'The primary attempt cannot declare alternateOf.' },
@@ -1013,6 +1027,7 @@ test('leader synthesis keeps validating ordinary recovery decisions and their la
   const delegation = legalDelegation();
   const pending = evaluateRecovery({
     laneId: 'legal-repository-map',
+    route: laneRoute('legal-repository-map'),
     attempts: [failedAttempt('repository-index', 'tool-unavailable')],
   });
   const synthesize = (recoveryDecisions, childResults = []) =>
@@ -1213,6 +1228,7 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
     recoveryDecisions: [
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [failedAttempt('official-api', 'tool-unavailable')],
       }),
     ],
@@ -1233,6 +1249,7 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
   // A recovery decision names no model: a field outside evaluateRecovery's output is refused, not ignored.
   const pending = evaluateRecovery({
     laneId: 'legal-official-evidence',
+    route: laneRoute('legal-official-evidence'),
     attempts: [failedAttempt('official-api', 'tool-unavailable')],
   });
   for (const field of ['nextModel', 'recoveryBinding'])
@@ -1280,7 +1297,11 @@ test('rejects child attempts to claim final decisions or omit contract outputs',
         delegation,
         recoveryDecisions: [
           {
-            ...evaluateRecovery({ laneId: 'legal-official-evidence', attempts: [] }),
+            ...evaluateRecovery({
+              laneId: 'legal-official-evidence',
+              route: laneRoute('legal-official-evidence'),
+              attempts: [],
+            }),
             action: 'terminal-handoff',
           },
         ],
@@ -1710,6 +1731,14 @@ function successfulLegalResults() {
   ];
 }
 
+// The lane contract route a recovery decision is computed against.
+function laneRoute(laneId, delegation = legalDelegation()) {
+  const { role, profileId } = delegation.recommendedChildren.find(
+    (contract) => contract.laneId === laneId,
+  ).routeRecommendation;
+  return { role, profileId };
+}
+
 function failedAttempt(approachId, failureCategory) {
   return {
     approachId,
@@ -1939,15 +1968,24 @@ test('attempt numbers and decision confidence or prohibited approaches must matc
   const laneId = 'legal-repository-map';
   const failure = failedAttempt('repository-index', 'tool-unavailable');
   assert.equal(
-    evaluateRecovery({ laneId, attempts: [{ ...failure, number: 1 }] }).attempts[0].number,
+    evaluateRecovery({ laneId, route: laneRoute(laneId), attempts: [{ ...failure, number: 1 }] })
+      .attempts[0].number,
     1,
   );
-  assert.throws(() => evaluateRecovery({ laneId, attempts: [{ ...failure, number: 99 }] }), {
-    name: 'TypeError',
-    message: 'Attempt number must equal its position: 1.',
-  });
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: laneRoute(laneId),
+        attempts: [{ ...failure, number: 99 }],
+      }),
+    {
+      name: 'TypeError',
+      message: 'Attempt number must equal its position: 1.',
+    },
+  );
   const delegation = legalDelegation();
-  const decision = evaluateRecovery({ laneId, attempts: [failure] });
+  const decision = evaluateRecovery({ laneId, route: laneRoute(laneId), attempts: [failure] });
   const synthesize = (recoveryDecision) =>
     prepareLeaderSynthesis({ delegation, recoveryDecisions: [recoveryDecision] });
   assert.doesNotThrow(() => synthesize(decision));
@@ -1961,8 +1999,12 @@ test('attempt numbers and decision confidence or prohibited approaches must matc
   });
 });
 
-test('recovery and synthesis refuse model attribution while an ordinary alternate is unchanged', () => {
+test('recovery and synthesis refuse model attribution because the retry route is computed from the contract', () => {
   const laneId = 'legal-official-evidence';
+  const route = laneRoute(laneId);
+  // The Astra lane has no rung above it, so its retry keeps the contract.
+  assert.equal(getModelProfile(route.profileId).kind, 'assignment');
+  const retryRoute = { kind: 'same-contract', ...route, model: 'gpt-6-astra' };
   const decision = (attempts) => ({
     schemaVersion: 1,
     maxAlternateAttempts: 1,
@@ -1973,6 +2015,8 @@ test('recovery and synthesis refuse model attribution while an ordinary alternat
     blocker: null,
     disposition: null,
     attempts,
+    route,
+    retryRoute,
   });
   const solFailure = {
     approachId: 'sol-primary',
@@ -1990,7 +2034,7 @@ test('recovery and synthesis refuse model attribution while an ordinary alternat
     model: 'gpt-6-astra',
     effort: 'high',
   };
-  // A failed lane's alternate keeps its contract model, so an attempt carries no model, effort or child identity.
+  // The retry model comes from the lane route and the ladder, so an attempt carries no model, effort or child identity.
   const attributed = {
     model: 'gpt-6.1-sol',
     effort: 'high',
@@ -2003,6 +2047,7 @@ test('recovery and synthesis refuse model attribution while an ordinary alternat
       () =>
         evaluateRecovery({
           laneId,
+          route: laneRoute(laneId),
           attempts: [{ ...failedAttempt('primary', 'verification-failed'), [field]: value }],
         }),
       { name: 'TypeError', message: `Unsupported attempt field: ${field}` },
@@ -2012,6 +2057,7 @@ test('recovery and synthesis refuse model attribution while an ordinary alternat
     () =>
       evaluateRecovery({
         laneId,
+        route: laneRoute(laneId),
         attempts: [failedAttempt('primary', 'verification-failed')],
         modelRecovery: { pendingWriter: 'cleared' },
       }),
@@ -2026,7 +2072,7 @@ test('recovery and synthesis refuse model attribution while an ordinary alternat
       }),
     { name: 'TypeError', message: 'Unsupported attempt field: model' },
   );
-  // An ordinary distinct-approach alternate without model attribution is unchanged.
+  // An ordinary distinct-approach retry without model attribution completes on the retry task path.
   const { model: _m1, effort: _e1, ...ordinaryFailure } = solFailure;
   const { model: _m2, effort: _e2, ...ordinaryAlternate } = astraAlternate;
   const delegation = legalDelegation();
@@ -2035,10 +2081,232 @@ test('recovery and synthesis refuse model attribution while an ordinary alternat
       delegation,
       childResults: successfulLegalResults(),
       recoveryDecisions: [decision([ordinaryFailure, ordinaryAlternate])],
-      hookObservation: observedChildren(delegation),
+      hookObservation: observedChildren(delegation, { retryLaneIds: [laneId] }),
       dispatchToken: FIXTURE_DISPATCH_TOKEN,
     }).readyForLeaderDecision,
     true,
+  );
+});
+
+test('a result-quality failure retries once one rung up on its role and other failures keep the contract', () => {
+  const laneId = 'lane-a';
+  const decide = (route, failureCategory) =>
+    evaluateRecovery({ laneId, route, attempts: [failedAttempt('primary', failureCategory)] });
+  const ladder = (role, profileId, model) => ({ kind: 'ladder', role, profileId, model });
+  const same = (role, profileId, model) => ({ kind: 'same-contract', role, profileId, model });
+  const sol = { role: 'knu_researcher', profileId: 'standard-read' };
+  for (const failureCategory of ['verification-failed', 'unknown']) {
+    const pending = decide(sol, failureCategory);
+    assert.equal(pending.action, 'alternate-once', failureCategory);
+    assert.deepEqual(pending.route, sol);
+    assert.deepEqual(
+      pending.retryRoute,
+      ladder('knu_researcher', 'astra-fallback', 'gpt-6-astra'),
+      failureCategory,
+    );
+  }
+  assert.deepEqual(
+    decide({ role: 'knu_explorer_xhigh', profileId: 'extract' }, 'verification-failed').retryRoute,
+    ladder('knu_explorer_xhigh', 'elevated-read', 'gpt-6.1-sol'),
+  );
+  assert.deepEqual(
+    decide({ role: 'knu_executor_xhigh', profileId: 'elevated-build' }, 'unknown').retryRoute,
+    ladder('knu_executor_xhigh', 'deep-build', 'gpt-6-astra'),
+  );
+  // Evidence and tool failures change the approach on the same contract.
+  for (const failureCategory of [
+    'tool-unavailable',
+    'official-source-unavailable',
+    'repository-evidence-missing',
+  ])
+    assert.deepEqual(
+      decide(sol, failureCategory).retryRoute,
+      same('knu_researcher', 'standard-read', 'gpt-6.1-sol'),
+      failureCategory,
+    );
+  // An Astra lane has no rung above it.
+  for (const route of [
+    { role: 'knu_executor', profileId: 'deep-build' },
+    { role: 'knu_reviewer', profileId: 'review' },
+    { role: 'knu_explorer', profileId: 'astra-fallback' },
+  ])
+    assert.deepEqual(
+      decide(route, 'verification-failed').retryRoute,
+      same(route.role, route.profileId, 'gpt-6-astra'),
+      route.profileId,
+    );
+  const quota = decide(sol, 'quota-exhausted');
+  assert.equal(quota.status, 'handoff-required');
+  assert.equal(quota.retryRoute, null);
+  assert.equal(evaluateRecovery({ laneId, route: sol, attempts: [] }).retryRoute, null);
+  // The finished retry keeps the route it ran on; there is no retry of a retry.
+  const retried = evaluateRecovery({
+    laneId,
+    route: sol,
+    attempts: [
+      failedAttempt('primary', 'verification-failed'),
+      { ...failedAttempt('astra-retry', 'verification-failed'), alternateOf: 'primary' },
+    ],
+  });
+  assert.equal(retried.action, 'terminal-handoff');
+  assert.deepEqual(retried.retryRoute, ladder('knu_researcher', 'astra-fallback', 'gpt-6-astra'));
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: sol,
+        attempts: [
+          failedAttempt('primary', 'quota-exhausted'),
+          { ...failedAttempt('retry', 'verification-failed'), alternateOf: 'primary' },
+        ],
+      }),
+    { name: 'TypeError', message: 'A non-retryable failure has no alternate attempt.' },
+  );
+  assert.throws(() => evaluateRecovery({ laneId, attempts: [] }), {
+    name: 'TypeError',
+    message: 'Recovery requires the lane route: role and profileId.',
+  });
+  assert.throws(
+    () => evaluateRecovery({ laneId, route: { ...sol, model: 'gpt-6-astra' }, attempts: [] }),
+    { name: 'TypeError', message: 'Unsupported recovery route field: model' },
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: { role: 'knu_executor', profileId: 'standard-read' },
+        attempts: [],
+      }),
+    { name: 'TypeError', message: 'Role knu_executor is not in profile standard-read.' },
+  );
+});
+
+test('a retried lane completes on its retry route model and task path, and decisions keep their routes', () => {
+  const { delegation } = modelDispatchInput();
+  const contract = delegation.recommendedChildren[0];
+  const laneId = contract.laneId;
+  const route = laneRoute(laneId, delegation);
+  assert.deepEqual(route, { role: contract.routeRecommendation.role, profileId: 'standard-read' });
+  const retried = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [
+      failedAttempt('primary', 'verification-failed'),
+      {
+        approachId: 'astra-retry',
+        alternateOf: 'primary',
+        outcome: 'success',
+        evidence: 'Passed.',
+      },
+    ],
+  });
+  const childResults = successfulLegalResults().filter((result) => result.laneId === laneId);
+  const synthesize = (hookObservation, recoveryDecisions = [retried]) =>
+    prepareLeaderSynthesis({
+      delegation,
+      childResults,
+      recoveryDecisions,
+      hookObservation,
+      dispatchToken: FIXTURE_DISPATCH_TOKEN,
+    });
+  const onRetry = (model) => observedChildren(delegation, { model, retryLaneIds: [laneId] });
+  assert.equal(synthesize(onRetry('gpt-6-astra')).readyForLeaderDecision, true);
+  // The retry ran one rung up, so the contract model on the retry path is refused.
+  assert.equal(synthesize(onRetry('gpt-6.1-sol')).completionChecks[0].reason, 'model-mismatch');
+  // The primary task path is not the retry.
+  assert.equal(
+    synthesize(observedChildren(delegation, { model: 'gpt-6-astra' })).completionChecks[0].reason,
+    'observation-missing',
+  );
+  assert.throws(
+    () =>
+      synthesize(onRetry('gpt-6-astra'), [
+        { ...retried, retryRoute: { ...retried.retryRoute, model: 'gpt-6.1-sol' } },
+      ]),
+    {
+      name: 'TypeError',
+      message: 'Recovery decision retryRoute must match its route and attempts.',
+    },
+  );
+  const otherRoute = { role: 'knu_explorer', profileId: 'astra-fallback' };
+  assert.throws(
+    () =>
+      synthesize(onRetry('gpt-6-astra'), [
+        evaluateRecovery({ laneId, route: otherRoute, attempts: retried.attempts }),
+      ]),
+    { name: 'TypeError', message: 'Recovery route must match its lane contract.' },
+  );
+});
+
+test('a retry dispatch takes its spawn arguments from a pending decision and the ladder', () => {
+  const { delegation } = modelDispatchInput();
+  const laneId = delegation.recommendedChildren[0].laneId;
+  const route = laneRoute(laneId, delegation);
+  const pending = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [failedAttempt('primary', 'verification-failed')],
+  });
+  const retry = modelPolicy.createRetryDispatch({
+    delegation,
+    recoveryDecision: pending,
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
+  });
+  assert.deepEqual(retry.spawnArguments, {
+    task_name: `${laneId.replaceAll('-', '_')}_${FIXTURE_DISPATCH_TOKEN}_retry`,
+    agent_type: route.role,
+    model: 'gpt-6-astra',
+    reasoning_effort: ROLE_EFFORTS[route.role],
+    fork_turns: 'none',
+  });
+  assert.deepEqual(retry.retryRoute, pending.retryRoute);
+  const sameContract = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [failedAttempt('primary', 'tool-unavailable')],
+  });
+  assert.equal(
+    modelPolicy.createRetryDispatch({
+      delegation,
+      recoveryDecision: sameContract,
+      dispatchToken: 'disp2',
+    }).spawnArguments.model,
+    'gpt-6.1-sol',
+  );
+  const finished = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [
+      ...pending.attempts,
+      { approachId: 'retry', alternateOf: 'primary', outcome: 'success', evidence: 'Passed.' },
+    ],
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation,
+        recoveryDecision: finished,
+        dispatchToken: 'disp2',
+      }),
+    { name: 'TypeError', message: 'A retry dispatch needs a pending alternate decision.' },
+  );
+  assert.throws(() => modelPolicy.createRetryDispatch({ delegation, recoveryDecision: pending }), {
+    name: 'TypeError',
+    message: 'A retry dispatch requires a dispatch token.',
+  });
+  const unknownLane = evaluateRecovery({
+    laneId: 'missing-lane',
+    route,
+    attempts: pending.attempts,
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation,
+        recoveryDecision: unknownLane,
+        dispatchToken: 'disp2',
+      }),
+    { name: 'TypeError', message: 'Recovery references an unknown lane: missing-lane' },
   );
 });
 

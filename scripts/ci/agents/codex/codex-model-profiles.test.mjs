@@ -10,8 +10,10 @@ import {
   createModelProfileBinding,
   assertAllowedChildModel,
   assertCurrentModelProfileBinding,
+  isAllowedRoleModel,
   resolveRouteEffort,
 } from '../../../agents/codex/model-profiles.mjs';
+import * as modelProfiles from '../../../agents/codex/model-profiles.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const UNLISTED_MODEL = 'gpt-x-unlisted';
@@ -334,4 +336,39 @@ test('allowed (role, model) pairs are the profile roles with their profile model
     [undefined, astra],
   ])
     assert.equal(isAllowedRoleModel(role, model), false, `${role}:${model}`);
+});
+
+test('the recovery ladder raises a lane one rung on its own role inside the allowed pairs', () => {
+  const { getRecoveryStep, RECOVERY_LADDER } = modelProfiles;
+  const rungs = ['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra'];
+  assert.deepEqual(RECOVERY_LADDER, {
+    extract: 'elevated-read',
+    'standard-read': 'astra-fallback',
+    'elevated-read': 'astra-fallback',
+    'standard-build': 'deep-build',
+    'elevated-build': 'deep-build',
+  });
+  for (const profileId of MODEL_PROFILE_IDS) {
+    const profile = getModelProfile(profileId);
+    for (const role of profile.roles) {
+      const step = getRecoveryStep(profileId, role);
+      if (profile.kind === 'assignment') {
+        assert.equal(step, null, `${profileId} is a top rung`);
+        continue;
+      }
+      assert.deepEqual(step, {
+        profileId: RECOVERY_LADDER[profileId],
+        model: getModelProfile(RECOVERY_LADDER[profileId]).model,
+      });
+      // Same role on the next profile, an existing (role, model) pair, exactly one rung up.
+      assert.ok(getModelProfile(step.profileId).roles.includes(role), `${profileId} ${role}`);
+      assert.equal(isAllowedRoleModel(role, step.model), true, `${role} ${step.model}`);
+      assert.equal(rungs.indexOf(step.model), rungs.indexOf(profile.model) + 1, profileId);
+    }
+  }
+  assert.throws(() => getRecoveryStep('standard-read', 'knu_executor'), {
+    name: 'TypeError',
+    message: 'Role knu_executor is not in profile standard-read.',
+  });
+  assert.throws(() => getRecoveryStep('missing-profile', 'knu_explorer'), TypeError);
 });

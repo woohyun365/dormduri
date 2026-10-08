@@ -231,9 +231,17 @@ test('official-source recovery stops after one distinct alternate and preserves 
     failureCategory: fixture.scenario.firstFailure,
     evidence: 'The direct official source could not be reached.',
   };
-  const firstDecision = evaluateRecovery({ laneId: 'official-evidence', attempts: [primary] });
+  // An official research lane on 6.1 Sol: a source failure changes the approach on the same contract.
+  const route = { role: 'knu_researcher', profileId: 'standard-read' };
+  const firstDecision = evaluateRecovery({
+    laneId: 'official-evidence',
+    route,
+    attempts: [primary],
+  });
 
   assert.equal(firstDecision.action, 'alternate-once');
+  assert.equal(firstDecision.retryRoute.kind, 'same-contract');
+  assert.equal(firstDecision.retryRoute.model, 'gpt-6.1-sol');
   assert.equal(firstDecision.remainingAlternateAttempts, 1);
 
   const alternate = {
@@ -245,6 +253,7 @@ test('official-source recovery stops after one distinct alternate and preserves 
   };
   const terminal = evaluateRecovery({
     laneId: 'official-evidence',
+    route,
     attempts: [primary, alternate],
   });
 
@@ -257,6 +266,7 @@ test('official-source recovery stops after one distinct alternate and preserves 
     () =>
       evaluateRecovery({
         laneId: 'official-evidence',
+        route,
         attempts: [
           primary,
           alternate,
