@@ -41,8 +41,6 @@ export class MatchRequestAcceptanceRepository {
     now: Date,
     seasonContext: CurrentSeasonContext,
   ): Promise<AcceptableMatchRequestLoadResult> {
-    await lockRequestRow(tx, requestId);
-
     const request = await this.loadPendingReceiverRequest(
       tx,
       requestId,
@@ -53,7 +51,11 @@ export class MatchRequestAcceptanceRepository {
       request.requesterParticipantId,
       request.receiverParticipantId,
     );
+    // Participant locks come before the request row lock. The winning accept cancels the
+    // participants' other pending requests, so a loser holding one of those rows while
+    // waiting for a participant lock would deadlock.
     await acquireParticipantLocks(tx, request.seasonId, sortedParticipants);
+    await lockRequestRow(tx, requestId);
 
     const lockedRequest = await this.loadPendingReceiverRequest(
       tx,

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MatchesService } from '../../../src/matches/application/matches.service.js';
+import { matchesErrors } from '../../../src/matches/errors/matches.errors.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from '../_support/integration-app.js';
 import {
@@ -116,7 +117,13 @@ describe('MatchesService integration', () => {
     ]);
 
     expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(settled.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    const rejected = settled.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({
+      response: matchesErrors.requestNotPending().getResponse(),
+    });
 
     const liveActiveMatches = await prisma.activeMatch.findMany({
       where: {
@@ -168,6 +175,57 @@ describe('MatchesService integration', () => {
         where: { activeMatchId: activeMatch.id },
       }),
     ).resolves.toBe(1);
+  });
+
+  it('같은 participant가 걸린 엇갈린 accept도 교착 없이 ACTIVE 하나와 409로 끝난다', async () => {
+    const requestAToB = await service.createMatchRequest(authContext('user-a'), {
+      targetUserId: 'user-b',
+      note: 'a-to-b',
+    });
+    const requestCToA = await service.createMatchRequest(authContext('user-c'), {
+      targetUserId: 'user-a',
+      note: 'c-to-a',
+    });
+
+    const settled = await Promise.allSettled([
+      service.acceptMatchRequest(authContext('user-b'), requestAToB.request.id),
+      service.acceptMatchRequest(authContext('user-a'), requestCToA.request.id),
+    ]);
+
+    expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = settled.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({
+      response: matchesErrors.requestNotPending().getResponse(),
+    });
+
+    const liveActiveMatches = await prisma.activeMatch.findMany({
+      where: { seasonId: 'season-integration', endedAt: null },
+    });
+    expect(liveActiveMatches).toHaveLength(1);
+
+    const requests = await prisma.matchRequest.findMany({
+      where: { id: { in: [requestAToB.request.id, requestCToA.request.id] } },
+      select: { status: true, terminalReason: true, systemCancellationActiveMatchId: true },
+    });
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: 'ACCEPTED', terminalReason: 'ACCEPTED' }),
+        expect.objectContaining({
+          status: 'CANCELLED_BY_SYSTEM',
+          terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+          systemCancellationActiveMatchId: liveActiveMatches[0]?.id,
+        }),
+      ]),
+    );
+    await expect(
+      prisma.seasonParticipant.findUniqueOrThrow({
+        where: { id: 'participant-a' },
+        select: { participantStatus: true },
+      }),
+    ).resolves.toEqual({ participantStatus: 'MATCHED' });
   });
 
   it('pending 생성 후 requester profile snapshot invariant가 깨지면 accept가 system cancel로 fail-closed 된다', async () => {
