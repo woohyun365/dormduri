@@ -51,7 +51,8 @@ Parent가 보고하는 사후 실행 대조는 두지 않습니다. 그 확인�
   full-history 요청은 이 거절을 반영해 `full-history-fork-denied`로 호환되지 않습니다.
 - **완료**: Parent는 `pnpm codex:completion -- --lane <lane> --token <token> --role <agent_type> --model <model>`로 hook 기록을
   lane 계약과 대조합니다. 기록이 없거나 bind·계약 model·역할 effort와 맞지 않으면 완료로 받지 않습니다
-  ([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+  ([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)). Recovery 재시도 child는 `--retry`와
+  decision의 `retryRoute` model로 대조합니다([Recovery ceiling](#recovery-ceiling)).
 
 Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 모두 model pin 없이 profile이 정한 명시적 task 모델을
 받고(`knu_reviewer`는 `review` profile의 Astra), effort는 각 역할 파일의 pin이 정합니다. 호출할 수 있는 (역할, model) 쌍은
@@ -76,7 +77,7 @@ pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은
   `.codex/state/knu-subagent-hooks/<session>.jsonl`에 남깁니다. Parent는 `pnpm codex:completion -- --lane <lane> --token <token>
 --role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조합니다. 기록이 없거나 spawn bind·계약 model·역할 effort와
   맞지 않으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
-  허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
+  재시도 child의 계약 model은 decision의 `retryRoute` model입니다. 허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
 - **원인과 조치**: Hook 기록은 원인을 담지 않습니다. Parent는 확인된 사실과 원인 가설을 나눠 남기며 확정되지 않은 원인은
   unknown입니다. 원인별 조치 뒤 같은 oracle을 다시 검증하고, Astra 성공만으로 원래 원인을 확정하지 않습니다.
   Quota·permission·cap 실패는 모델 교체 대신 stop입니다.
@@ -88,27 +89,40 @@ pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은
 
 ## Recovery ceiling
 
-공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 approach 식별과 판정 입력을 더합니다.
+공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 재시도 route·approach 식별과
+판정 입력을 더합니다.
 
 ```text
 primary attempt
 ├── success → complete
-├── retryable failure → one distinct alternate approach
+├── retryable failure → one retry with a distinct approach on the computed retry route
 │   ├── success → complete
 │   └── failure → terminal handoff
 └── authority/credential/production/scope/role failure → immediate handoff or leader fallback
 ```
 
-- alternate attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
-- 세 번째 attempt, 같은 approach 반복, success 이후 retry는 invalid입니다.
-- `evaluateRecovery`는 `laneId`·`attempts`만 받고, attempt는 `approachId`·`alternateOf`·`outcome`·`failureCategory`·`evidence`만
-  담습니다(출력은 순번 `number`를 더하며 그 밖 field는 TypeError). 입력 attempt에 `number`가 있으면 그 위치(1부터)와 같아야
-  합니다. Synthesis에 넘기는 recovery decision도 `evaluateRecovery` 출력의 field만 받고, `confidence`·`prohibitedApproachIds`가
-  있으면 그 attempts로 다시 계산한 값과 같아야 합니다. 상한은 모든 lane에 같습니다.
-- `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다.
-- Alternate는 같은 contract(역할·profile model)에서 approach만 바꾼 한 번이며, 실패한 lane을 다른 model로 다시 시도하지 않습니다.
-  자동 Luna→Sol→Astra ladder는 없습니다. Pending/unknown writer가 남아 있으면 회수하기 전에 alternate를 시작하지 않습니다.
-  Scope/권한 변경을 모델 교체로 우회하지 않습니다.
+- 재시도 attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
+- 세 번째 attempt, 같은 approach 반복, success 이후 retry, non-retryable failure 뒤 retry는 invalid입니다.
+- 재시도 route는 보고받지 않고 lane 계약에서 계산합니다. 결과 품질 실패(`verification-failed`·`unknown`)는 같은 역할로 사다리 한 단 위
+  profile에서 한 번 실행합니다(`retryRoute.kind` `ladder`): Luna `extract` → 6.1 Sol `elevated-read`, 6.1 Sol 읽기
+  (`standard-read`·`elevated-read`) → Astra `astra-fallback`, 6.1 Sol 구현(`standard-build`·`elevated-build`) → Astra `deep-build`.
+  근거·도구 실패(`tool-unavailable`·`official-source-unavailable`·`repository-evidence-missing`)와 위 단이 없는 Astra lane
+  (`deep-build`·`review`·`astra-fallback`)은 같은 contract에서 approach만 바꿉니다(`same-contract`). 사다리 데이터는
+  `model-profiles.mjs`의 `RECOVERY_LADDER`가 소유하고 모든 단은 기존 (역할, model) 허용 쌍 안입니다.
+- 재시도는 lane당 한 번이며 재시도의 재시도·연쇄 상향은 없습니다. Luna lane의 6.1 Sol 재시도가 실패하면 Astra로 다시 오르지 않고
+  terminal handoff입니다. 이 상한은 Claude 결속 재시도의 상한(세션·사실 묶음마다 한 번)과 같습니다.
+- `evaluateRecovery`는 `laneId`·`route`·`attempts`만 받습니다. `route`는 lane 계약의 `role`·`profileId`이고, attempt는
+  `approachId`·`alternateOf`·`outcome`·`failureCategory`·`evidence`만 담습니다(출력은 순번 `number`를 더하며 그 밖 field는
+  TypeError). 입력 attempt에 `number`가 있으면 그 위치(1부터)와 같아야 합니다. 출력은 `route`와, 재시도를 기다리거나 마친
+  decision이면 계산한 `retryRoute`(`kind`·`role`·`profileId`·`model`)를 담습니다. Synthesis에 넘기는 recovery decision도
+  `evaluateRecovery` 출력의 field만 받고, `confidence`·`prohibitedApproachIds`·`retryRoute`가 있으면 그 route와 attempts로 다시
+  계산한 값과 같아야 하며, `route`는 그 lane 계약과 같아야 합니다.
+- 재시도 spawn 인자는 `createRetryDispatch()`가 계약과 기다리는 decision에서 정합니다. `task_name`은 lane의 dispatch token 뒤에
+  `_retry`를 붙이고, 역할은 그대로, `model`은 `retryRoute` model, `reasoning_effort`는 역할 pin, `fork_turns`는 `none`입니다.
+  재시도한 lane의 완료는 그 재시도 child를 `retryRoute` model로 대조합니다(`codex:completion`의 `--retry`, synthesis와
+  `validateCodexWorkflowResults`의 `recoveryDecisions`).
+- `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다. Pending/unknown writer가
+  남아 있으면 회수하기 전에 재시도를 시작하지 않습니다. Scope/권한 변경을 모델 교체로 우회하지 않습니다.
 - Terminal handoff 뒤 Parent가 현재 source로 새 ordinary contract(예: Astra)를 판정해 맡기는 것은 이 recovery의 attempt가 아니라
   새 위임입니다. 실패한 lane의 attempt 이력과 handoff는 그대로 남고, 새 contract의 결과가 그 실패를 성공으로 바꾸지 않습니다.
 - 권한·credential·external production은 기술적 retry로 해결하지 않습니다.
@@ -156,7 +170,8 @@ Policy는 child evidence를 정규화하여 leader에게 다음을 제공합니�
 Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 dispatch의 lane task path(dispatch token 포함)·
 계약 역할·허용 목록 model·roster와 맞고, 그 task name의 PreToolUse allow 기록(bind)·계약 model(route profile)·역할 pin
 effort와도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
-refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 경계는 [Codex adapter](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
+refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 재시도한 lane은 그 재시도
+child(`_retry` task path)를 decision의 `retryRoute` 역할·model로 같은 조건에 대조합니다. 경계는 [Codex adapter](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 
 `readyForLeaderDecision=true`도 자동 completion이나 final answer를 의미하지 않습니다. Leader가 repository의 실제
 변경, source freshness, conflict, 최종 verification을 확인한 뒤에만 사용자에게 결론을 제공합니다.
