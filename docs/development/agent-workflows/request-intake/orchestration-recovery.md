@@ -77,8 +77,8 @@ pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은
 
 - **관측**: child가 실제로 받은 model·effort와 시작·종료는 project hook이 Parent session별
   `.codex/state/knu-subagent-hooks/<session>.jsonl`에 남깁니다. Parent는 `pnpm codex:completion -- --lane <lane> --token <token>
---role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조합니다. 기록이 없거나 spawn bind·계약 model·역할 effort와
-  맞지 않으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+--role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조하고 `pnpm codex:accept`로 수락합니다. 기록이 없거나 spawn
+  bind·등록 봉인·계약 model·역할 effort와 맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
   재시도 child의 계약 model은 decision의 `retryRoute` model입니다. 허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
 - **원인과 조치**: Hook 기록은 원인을 담지 않습니다. Parent는 확인된 사실과 원인 가설을 나눠 남기며 확정되지 않은 원인은
   unknown입니다. 원인별 조치 뒤 같은 oracle을 다시 검증하고, Astra 성공만으로 원래 원인을 확정하지 않습니다.
