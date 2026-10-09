@@ -594,10 +594,11 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     'child lane legal-test completion refused: acceptance-missing',
     'QA reviewer review_disp1_1 completion refused: acceptance-missing',
   ]);
-  assert.throws(() => validateCodexWorkflowResults(i, settled(solChild, { acceptances: {} })), {
-    name: 'TypeError',
-    message: 'acceptances must be an array.',
-  });
+  for (const options of [settled(solChild, { acceptances: {} }), { results: [], acceptances: {} }])
+    assert.throws(() => validateCodexWorkflowResults(i, options), {
+      name: 'TypeError',
+      message: 'acceptances must be an array.',
+    });
   // A resumed child is no longer the accepted one.
   const resumedStop = (observation, agentPath) => ({
     ...observation,
@@ -678,6 +679,17 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       ),
     ).errors,
     ['QA reviewer review_disp1_1 completion refused: pair-not-allowed'],
+  );
+  // A sealed round that is not a positive integer is refused before its task path is computed.
+  assert.deepEqual(
+    validateCodexWorkflowResults(
+      i,
+      settled(reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], rounds: [0] }))),
+    ).errors,
+    [
+      'QA reviewer review_disp1_0 completion refused: registration-invalid',
+      'QA result must come from the latest registered review round',
+    ],
   );
   // Another token's reviewer does not bind this dispatch's QA.
   assert.deepEqual(

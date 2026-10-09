@@ -1161,6 +1161,10 @@ test('hook observations bind each completed lane to its contract role, model and
     name: 'TypeError',
     message: 'acceptances must be an array.',
   });
+  assert.throws(() => prepareLeaderSynthesis({ delegation, childResults: [], acceptances: {} }), {
+    name: 'TypeError',
+    message: 'acceptances must be an array.',
+  });
   // Without the PreToolUse allow record (fail-open guard) nothing bound the spawn.
   assert.deepEqual(
     synthesize(observedChildren(delegation, { bind: false })).completionChecks.map(

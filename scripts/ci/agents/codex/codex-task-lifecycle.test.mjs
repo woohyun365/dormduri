@@ -284,7 +284,11 @@ test('the installed hook reads registrations and acceptances from the session re
   writeFileSync(join(directory, 'lane_one_disp1.json'), text);
   writeFileSync(join(directory, 'lane_bad_disp1.json'), '{broken');
   assert.match(reason(run(spawnCall({ task_name: 'lane_bad_disp1' }))), /registration-invalid/u);
-  // A task name that is not a V2 name never reaches the file system.
+  // A task name that is not a V2 name never reaches the file system, even where a matching file sits.
+  writeFileSync(
+    join(root, '.artifacts/tools/codex-native/lane_one_disp1.json'),
+    JSON.stringify(laneRegistration({ taskName: '../lane_one_disp1' })),
+  );
   assert.match(reason(run(spawnCall({ task_name: '../lane_one_disp1' }))), /registration-missing/u);
   assert.equal(reason(run(spawnCall())), null);
   assert.match(reason(run(spawnCall())), /registration-used/u);
@@ -293,6 +297,23 @@ test('the installed hook reads registrations and acceptances from the session re
     tool_name: 'collaborationfollowup_task',
     tool_input: { target, message: 'again' },
   });
+  // An acceptance of another session or schema does not settle this session's child.
+  const acceptanceText = (changes) =>
+    JSON.stringify({
+      schema: 'knu-codex-task-acceptance/v1',
+      sessionId: SESSION,
+      taskName: 'lane_one_disp1',
+      agentId: CHILD,
+      ...changes,
+    });
+  writeFileSync(
+    join(directory, 'foreign.accepted.json'),
+    acceptanceText({ sessionId: 'other-session' }),
+  );
+  writeFileSync(
+    join(directory, 'old.accepted.json'),
+    acceptanceText({ schema: 'knu-codex-task-acceptance/v0' }),
+  );
   assert.equal(reason(run(followup('lane_one_disp1'))), null);
   writeFileSync(
     join(directory, 'lane_one_disp1.accepted.json'),
@@ -458,6 +479,10 @@ test('an acceptance binds the accepted stop, so a resumed child no longer comple
     'acceptance-missing',
   );
   assert.equal(
+    check(observation, [{ ...acceptance, schema: 'knu-codex-task-acceptance/v0' }]).reason,
+    'acceptance-missing',
+  );
+  assert.equal(
     check(observation, [{ ...acceptance, agentId: 'child-x' }]).reason,
     'acceptance-mismatch',
   );
@@ -578,7 +603,7 @@ test('registration writes each task once with its spawn arguments and refuses in
     [spawn({ model: 'gpt-6-luna' }), /pair/u],
     [spawn({ fork_turns: 'all' }), /fork/u],
     [spawn({ agent_type: 'default' }), /pair/u],
-    [{ ...spawn({}), dispatchToken: undefined }, /token/u],
+    [{ ...spawn({}), dispatchToken: undefined }, /needs a dispatch token/u],
   ])
     assert.throws(
       () => registerDispatch({ root, sessionId: SESSION, dispatch }),
@@ -649,6 +674,47 @@ test('acceptance writes a record for a completed task once and refuses a retry a
   });
   assert.equal(accept('lane_one_disp1_retry', ASTRA, retry).reason, 'lane-accepted');
   assert.equal(existsSync(join(retryDirectory, 'lane_one_disp1_retry.accepted.json')), false);
+  // A registration file that does not name its own task or lane is not this task's registration.
+  writeFileSync(join(retryDirectory, 'lane_y_disp1.json'), JSON.stringify(laneRegistration()));
+  writeFileSync(
+    join(retryDirectory, 'lane_x_disp1.json'),
+    JSON.stringify(laneRegistration({ taskName: 'lane_x_disp1' })),
+  );
+  writeFileSync(
+    join(retryDirectory, 'lane_z_disp1.json'),
+    JSON.stringify({
+      ...laneRegistration({ taskName: 'lane_z_disp1', laneId: 'lane-z' }),
+      sessionId: 'other',
+    }),
+  );
+  for (const taskName of ['lane_y_disp1', 'lane_x_disp1', 'lane_z_disp1'])
+    assert.equal(accept(taskName).reason, 'registration-invalid', taskName);
+});
+
+test('a reviewer child is accepted on the review role and model of its registration', async (t) => {
+  const { registerDispatch, acceptTask, createReviewDispatch } = await registry();
+  const root = mkdtempSync(join(tmpdir(), 'knu-task-review-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const registration = registerDispatch({
+    root,
+    sessionId: SESSION,
+    dispatch: createReviewDispatch({ laneIds: ['lane-one'], dispatchToken: 'disp1' }),
+  });
+  const observation = sealedObservation({ taskName: 'review_disp1_1', registration });
+  const accept = (expectedRole, expectedModel) =>
+    acceptTask({
+      root,
+      sessionId: SESSION,
+      taskName: 'review_disp1_1',
+      expectedRole,
+      expectedModel,
+      observation,
+    });
+  assert.equal(accept('knu_reviewer', SOL).reason, 'registration-mismatch');
+  assert.equal(accept('knu_executor', ASTRA).reason, 'registration-mismatch');
+  const accepted = accept('knu_reviewer', ASTRA);
+  assert.equal(accepted.accepted, true, JSON.stringify(accepted));
+  assert.equal(accepted.acceptance.kind, 'review');
 });
 
 test('the registry command registers a dispatch file and accepts a task against the session hook records', async (t) => {

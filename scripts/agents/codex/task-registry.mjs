@@ -270,9 +270,8 @@ export function runRegistryCommand(argv, { root, env = process.env }) {
       throw new TypeError(`unexpected ${command} argument: ${key}`);
     options[key.slice(2)] = rest[(index += 1)];
   }
+  // registryDirectory() refuses a missing or unsafe session id before any file is read or written.
   const sessionId = options.session ?? env.CODEX_THREAD_ID;
-  if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId))
-    throw new TypeError('registry session id is invalid');
   if (command === 'register') {
     if (!options.dispatch) throw new TypeError('--dispatch is required');
     const file = JSON.parse(readFileSync(options.dispatch, 'utf8'));
