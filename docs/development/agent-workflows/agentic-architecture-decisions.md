@@ -142,7 +142,7 @@ Astra reviewer를 1:1 대응시키지 않습니다. 공통 위험도·boundednes
   2026-10-06부터 Codex child 완료는 leader 보고가 아니라 project hook의 SubagentStart·SubagentStop 기록에 결속하고, 호출 시점
   hook이 roster·허용 목록·bounded fork 밖 spawn과 child 발 spawn을 deny합니다. 같은 날 호출 시점 guard에 profile의 (역할, model)
   쌍을 더했고, 완료 판정은 그 allow 기록(bind)과 lane 계약 model·역할 pin effort를 hook 관측과 대조하며 bind 없는 spawn과 lane
-  아래 descendant를 거부합니다. Hook 기록도 provider attestation이 아니며 hook이 없으면 완료를 거부합니다([Codex adapter](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+  아래 descendant를 거부합니다. Hook 기록도 provider attestation이 아니며 hook이 없으면 완료를 거부합니다([Codex adapter](./adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 - **Trigger**: validated delegation을 existing native child surface로 전달하려는 순간입니다.
 - **기각**: boolean capability assertion, local config inspection만으로 active authority 주장, generic role prompt label,
   stale session metadata 재사용.
@@ -269,8 +269,8 @@ candidate/recovery 집합과 실제 검증·채택된 집합은 다릅니다. �
 - **결정의 이유/기각**: 보수적인 적격 작업에 다른 모델을 배정하되 총 작업 품질을 oracle·Astra 독립 QA로 우선합니다. 단가나
   짧은 답변만으로 총 비용 우위를 입증하지 않습니다. 상시 Astra-only, 전면 lower-model 전환, 반복 모델명 확인, 자동 alias 승격,
   새 dispatcher/TOML clone을 채택하지 않습니다. 미해결 gap·지원 불일치는 Astra/direct로 돌아갑니다.
-- **운영/철회**: [cold-start](adapters/codex.md#routine-task-model-operation), [철회와 재승인](adapters/codex.md#suspension-and-astra-only-rollback),
-  [generation seam](adapters/codex.md#central-profile-migration-boundary)이 소유합니다. Revision/eligibility/model/effort/role·host 또는
+- **운영/철회**: [cold-start](adapters/codex.md#routine-task-model-operation), [철회와 재승인](adapters/codex-model-profiles.md#suspension-and-astra-only-rollback),
+  [generation seam](adapters/codex-model-profiles.md#central-profile-migration-boundary)이 소유합니다. Revision/eligibility/model/effort/role·host 또는
   품질이 바뀌면 해당 cohort를 중단·재검증합니다. Data rollback에도 새 revision/승인이 필요합니다. 전체 과거 code+grant 복원을
   차단하는 영구 이력 장치를 구현했다는 뜻은 아닙니다.
 - **검증/재검토**: routine→withdrawal→Astra/direct→fresh admission, config pin/drift, stale generation binding 회귀를 사용합니다.
@@ -387,7 +387,7 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 
 - **상태/결정일**: accepted, 2026-10-09(Owner). [DA-012](#da-012--active-runtime은-reported-evidence와-live-reconfirmation으로-판정)를
   대체한 hook guard·완료 대조(2026-10-07)에 spawn 전 등록·수락을 더하며 [DA-019](#recovery-ladder)의 재시도 상한(lane당 한 번)은 그대로입니다.
-  경계는 [Codex 완료 관측](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)이 소유합니다.
+  경계는 [Codex 완료 관측](./adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)이 소유합니다.
 - **문제/근거**: 호출 시점 guard는 정책의 (역할, model) 쌍만 보고 Parent가 계약에서 계산한 lane 인자(task name·effort)와 대조하지
   않았습니다. 판정을 낸 reviewer를 `followup_task`로 재개해도 완료 대조가 마지막 Stop으로 수락해, 재개된 turn의 다른 답이 같은
   lane 완료로 읽혔습니다(codex-cli 0.161.0 관측). Reviewer 결과는 보고된 `observedModel`만으로 PASS에 연결됐습니다. Claude adapter는

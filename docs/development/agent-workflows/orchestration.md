@@ -222,6 +222,6 @@ verification을 확인합니다. Blocking finding이 남으면 완료로 판정�
 Codex/OMX의 machine-checkable native dispatch, one-alternate recovery와 synthesis input validation은
 [Bounded orchestration, recovery, and leader synthesis](./request-intake/orchestration-recovery.md)를 따릅니다. 이
 policy는 child lifecycle을 실행하지 않으며 최종 completion authority를 갖지 않습니다. Codex child의 completed 결과는 leader
-보고만으로 받지 않고 Parent session의 [subagent hook 기록](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)이 호출 시점
+보고만으로 받지 않고 Parent session의 [subagent hook 기록](./adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)이 호출 시점
 bind·등록 봉인과 lane 계약 model·역할 effort에 맞고 그 child의 수락 기록이 있을 때만 synthesis에 들어갑니다.
 Hook 기록이 없으면 완료 거부가 정상 경로입니다.

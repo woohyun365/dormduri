@@ -54,7 +54,7 @@ Parent가 보고하는 사후 실행 대조는 두지 않습니다. 그 확인�
 - **완료**: Parent는 `pnpm codex:completion -- --lane <lane> --token <token> --role <agent_type> --model <model>`로 hook 기록을
   lane 계약과 대조하고, 받을 child는 `pnpm codex:accept`로 수락합니다. 기록이 없거나 bind·등록 봉인·계약 model·역할 effort와
   맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다
-  ([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)). Recovery 재시도 child는 `--retry`와
+  ([hook guardrail과 완료 관측](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)). Recovery 재시도 child는 `--retry`와
   decision의 `retryRoute` model로 대조합니다([Recovery ceiling](#recovery-ceiling)).
 
 Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 모두 model pin 없이 profile이 정한 명시적 task 모델을
@@ -64,7 +64,7 @@ Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 �
 기본값은 test로 이 값에 결속되며 역할 파일의 `model` 필드는 test가 금지합니다. 허용 목록 밖 model 거절은 합성 ID 하나로
 검증합니다. 이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다.
 
-후보 자격은 routing의 Pass 2 계층·profile 판정이 정합니다([quality-gated model advice](../adapters/codex.md#quality-gated-model-advice)).
+후보 자격은 routing의 Pass 2 계층·profile 판정이 정합니다([quality-gated model advice](../adapters/codex-model-profiles.md#quality-gated-model-advice)).
 읽기 profile(`standard-read`·`elevated-read`)은 repository/official read-only 도구만, `extract`는 고정된 repository-read만, 구현
 profile(`standard-build`·`elevated-build`)은 단일 write owner와 workspace-edit/test-runner를 요구합니다. Route의 역할·effort·
 `profileId`가 그 profile의 역할 변형과 effort에 맞지 않으면 `model-effort-eligibility-mismatch`입니다. `purpose`(pilot·routine)는
@@ -79,7 +79,7 @@ pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은
 - **관측**: child가 실제로 받은 model·effort와 시작·종료는 project hook이 Parent session별
   `.codex/state/knu-subagent-hooks/<session>.jsonl`에 남깁니다. Parent는 `pnpm codex:completion -- --lane <lane> --token <token>
 --role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조하고 `pnpm codex:accept`로 수락합니다. 기록이 없거나 spawn
-  bind·등록 봉인·계약 model·역할 effort와 맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+  bind·등록 봉인·계약 model·역할 effort와 맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
   재시도 child의 계약 model은 decision의 `retryRoute` model입니다. 허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
 - **원인과 조치**: Hook 기록은 원인을 담지 않습니다. Parent는 확인된 사실과 원인 가설을 나눠 남기며 확정되지 않은 원인은
   unknown입니다. 원인별 조치 뒤 같은 oracle을 다시 검증하고, Astra 성공만으로 원래 원인을 확정하지 않습니다.
@@ -186,7 +186,7 @@ Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 di
 effort·등록 봉인과도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없고, 그 child의 마지막 Stop을 가리키는 수락 기록
 (`acceptances`)이 있어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
 refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 재시도한 lane은 그 재시도
-child(`_retry` task path)를 decision의 `retryRoute` 역할·model로 같은 조건에 대조합니다. 경계는 [Codex adapter](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
+child(`_retry` task path)를 decision의 `retryRoute` 역할·model로 같은 조건에 대조합니다. 경계는 [Codex adapter](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 
 `readyForLeaderDecision=true`도 자동 completion이나 final answer를 의미하지 않습니다. Leader가 repository의 실제
 변경, source freshness, conflict, 최종 verification을 확인한 뒤에만 사용자에게 결론을 제공합니다.

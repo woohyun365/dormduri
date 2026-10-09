@@ -67,15 +67,15 @@ current schema·pending 작업·정확한 scope를 다시 확인합니다.
 
 ## Diagnostic contract
 
-공통 진단은 요청·source identity·계획 상태·불완전한 evidence를 구별합니다. Codex의 실제 preflight JSON과 OMX priority/context 필드는 [Codex diagnostic contract](./adapters/codex.md#diagnostic-contract)가 소유합니다.
+공통 진단은 요청·source identity·계획 상태·불완전한 evidence를 구별합니다. Codex의 실제 preflight JSON과 OMX priority/context 필드는 [Codex diagnostic contract](./adapters/codex-diagnostics.md#diagnostic-contract)가 소유합니다.
 
 ### Identity and freshness
 
-공통 plan reader의 identity와 source 재확인에 host session metadata를 혼합하지 않습니다. Codex의 `taskMatch`/`freshness` 의미는 [host identity](./adapters/codex.md#identity-and-freshness)를 따릅니다.
+공통 plan reader의 identity와 source 재확인에 host session metadata를 혼합하지 않습니다. Codex의 `taskMatch`/`freshness` 의미는 [host identity](./adapters/codex-diagnostics.md#identity-and-freshness)를 따릅니다.
 
 ### Bounded reads and failure handling
 
-공통 reader의 bounded-path/중복/상태 검사는 아래 lifecycle 계약을 따릅니다. Codex context의 경로·read budget·fallback은 [host bounded reads](./adapters/codex.md#bounded-reads-and-failure-handling)에서 확인합니다.
+공통 reader의 bounded-path/중복/상태 검사는 아래 lifecycle 계약을 따릅니다. Codex context의 경로·read budget·fallback은 [host bounded reads](./adapters/codex-diagnostics.md#bounded-reads-and-failure-handling)에서 확인합니다.
 
 ## Portable handoff
 
