@@ -381,6 +381,37 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   model 재시도가 결과 품질을 회복한다는 근거는 아직 없으며 Astra 재시도도 독립 QA·oracle을 그대로 거칩니다.
 - **재검토**: 사다리 재시도의 반복 실패나 비용 관측, profile·역할 구조 변화, 공통 상한 변경, host의 재시도 기능 변화가 생길 때입니다.
 
+<a id="task-lifecycle"></a>
+
+## DA-020 — 위임 child를 spawn 전에 등록하고, 수락한 child는 재개·재시도하지 않는 수명주기
+
+- **상태/결정일**: accepted, 2026-10-09(Owner). [DA-012](#da-012--active-runtime은-reported-evidence와-live-reconfirmation으로-판정)를
+  대체한 hook guard·완료 대조(2026-10-07)에 spawn 전 등록·수락을 더하며 [DA-019](#recovery-ladder)의 재시도 상한(lane당 한 번)은 그대로입니다.
+  경계는 [Codex 완료 관측](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)이 소유합니다.
+- **문제/근거**: 호출 시점 guard는 정책의 (역할, model) 쌍만 보고 Parent가 계약에서 계산한 lane 인자(task name·effort)와 대조하지
+  않았습니다. 판정을 낸 reviewer를 `followup_task`로 재개해도 완료 대조가 마지막 Stop으로 수락해, 재개된 turn의 다른 답이 같은
+  lane 완료로 읽혔습니다(codex-cli 0.161.0 관측). Reviewer 결과는 보고된 `observedModel`만으로 PASS에 연결됐습니다. Claude adapter는
+  등록·정산된 task만 위임 완료로 받습니다([Claude native registry](./adapters/claude-native-registry.md)).
+- **결정**: (1) Parent는 dispatch가 계산한 spawn 인자를 `codex:register`로 Parent session의 등록 디렉터리에 한 번만 등록하고, hook은
+  평문 인자가 그 미사용 등록과 같을 때만 spawn을 허용하며 등록을 allow 기록에 봉인합니다. (2) 완료 대조는 봉인이 lane 계약(종류·
+  역할·model·역할 pin)과 같아야 하고, fan-in은 `codex:accept`가 쓴 수락 기록이 그 child의 마지막 Stop을 가리켜야 받습니다.
+  (3) Hook은 수락된 child를 target으로 한 `followup_task`·`send_message`를 deny하고, 수락 뒤 같은 child의 Stop이 더 있으면 완료를
+  거절합니다. (4) Primary child가 수락된 lane은 재시도 등록·spawn·수락을 거절합니다. (5) QA는 그 dispatch token 아래 등록·수락되고
+  재개되지 않은 reviewer child(형제 round 포함)에서 와야 하며, 결과 `dispatchId`는 가장 높은 round의 `reviewId`입니다.
+- **Trigger / non-trigger**: Codex 위임 child의 spawn·수락·후속과 hook 기록을 받는 QA / hook 부재·full access 세션, Claude adapter,
+  cross-model handoff 계약, Parent 자신의 파일 쓰기.
+- **기각**: Bash 가로채기로 등록을 보호(`hooks.json` 변경·trust 재승인, code mode 중첩 호출의 hook 발화 미관측), 등록마다 승인
+  상승(사용자 승인 반복), 등록을 `.codex` 아래에 두기(workspace-write에서 Parent도 쓸 수 없음), 재시도 상한을 사실 묶음 단위로
+  기록(DA-019의 lane당 한 번 유지).
+- **구현 영향**: `task-registry.mjs`(`registerDispatch`·`createReviewDispatch`·`acceptTask`, `codex:register`·`codex:accept`), hook의
+  `registration-missing`·`-invalid`·`-mismatch`·`-used`·`lane-accepted`·`settled-child` deny와 봉인, 완료 대조의
+  `registration-unsealed`·`registration-mismatch`·`acceptance-missing`·`acceptance-mismatch`·`resumed-after-acceptance`·`lane-accepted`,
+  synthesis·`validateCodexWorkflowResults`의 `acceptances`와 reviewer 결속. `hooks.json`은 바뀌지 않습니다.
+- **검증/한계**: 등록 디렉터리는 child가 쓸 수 있습니다. 봉인 뒤 변경은 효과가 없고 봉인 전 변경은 완료 거부로 끝나지만, 수락
+  기록을 지운 뒤의 재개는 hook이 막지 못합니다(fan-in이 재수락을 요구). Target이 task name·agent id가 아니면 기록만 합니다. Hook이
+  없거나 PreToolUse가 실패하면 등록 대조도 없고 완료가 봉인 없음으로 거부됩니다. 정적 회귀는 native 실행 증거가 아닙니다.
+- **재검토**: hook 범위·trust 동작·code mode hook 발화의 변화, 등록 우회나 재개 시도의 실제 관측, Claude lifecycle 변경이 생길 때입니다.
+
 ## Evidence inventory
 
 - [OpenAI Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md)
@@ -421,3 +452,4 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 | DA-017 | Scoped native task/oracle·독립 QA와 registry/admission 회귀 | 검증된 profile/role의 승인된 bounded task / 미검증 역할·위험·영구 grant     | 기존 schema로 local cohort GO·fresh admission·철회/rollback handoff    | superseded by DA-018                                                |
 | DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀        | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할 | 역할 열 개 effort pin, profile model, route `profileId`, recovery 삭제 | 6.1 Sol 품질 canary, host 지원 변화. 재시도는 DA-019                |
 | DA-019 | Claude 상향 사다리·공통 Recovery ceiling, recovery 회귀     | 재시도 가능 실패 / non-retryable·성공 뒤 재시도·Claude adapter              | 계산한 `retryRoute`, 재시도 child 대조·dispatch, `--retry`             | 사다리 재시도 반복 실패·비용, 공통 상한 변경                        |
+| DA-020 | Claude 등록·정산 lifecycle, 공식 hook 범위, 재개 관측       | 위임 child spawn·수락·후속 / hook 부재·full access·Claude adapter           | 등록 봉인 hook deny, `codex:accept`, 수락 결속·재개 거절               | hook 범위·trust 변화, 등록 우회·재개 시도 관측                      |
