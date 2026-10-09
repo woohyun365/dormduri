@@ -60,6 +60,8 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 }
 ```
 
+- `repositoryEvidence[].kind`는 `changed-file`·`policy`·`architecture`·`owner-readme`·`contract`·`route`·`controller`·`bff`·
+  `test`·`external-source` 중 하나입니다(`scripts/agents/common/domain-guide-registry.mjs`).
 - `sources[].path`는 `repositoryEvidence`가 context pack에 넣은 경로여야 합니다. Digest는 CLI가 현재 파일 bytes로 계산합니다.
 - `facts[].sources`와 `claims[].facts`는 같은 lane 안의 index입니다.
 - `verifies`는 그 fact가 확인하는 검증 key입니다. 읽기는 `acceptance`·`independentCheck`, 구현은 `acceptance`·`regression`·

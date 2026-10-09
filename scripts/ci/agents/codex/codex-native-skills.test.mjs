@@ -98,6 +98,16 @@ test('the delegation template is a spec the delegate CLI accepts', () => {
   assert.match(spec.dispatchToken, /^<.+>$/u, 'the token is a placeholder the Parent replaces');
   const out = buildDelegation({ ...spec, dispatchToken: 'tmpl1234' }, { root });
   assert.equal(out.dispatches.length, spec.lanes.length);
+  // The evidence kinds the skill lists are the context pack's, read from its source.
+  const kinds = /const EVIDENCE_KINDS = new Set\(\[([\s\S]*?)\]\);/u
+    .exec(read('scripts/agents/common/domain-guide-registry.mjs'))?.[1]
+    .match(/'[^']+'/gu)
+    .map((kind) => kind.slice(1, -1));
+  const listed = /`repositoryEvidence\[\]\.kind`는 ([\s\S]*?) 중 하나입니다/u
+    .exec(read(skillPath('knu-delegate')))?.[1]
+    .match(/`[^`]+`/gu)
+    .map((kind) => kind.slice(1, -1));
+  assert.deepEqual(listed, kinds);
   // Child roles disable every repository skill (the role contract test pins the table form).
   for (const file of readdirSync(resolve(root, '.codex/agents')))
     for (const name of SKILLS)
