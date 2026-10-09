@@ -384,6 +384,7 @@ test('a ladder rung is used only when its next profile admits the lane boundary 
   assert.equal(recoveryRungAdmits('standard-read', 'elevated-read', 'knu_explorer'), false);
   assert.equal(recoveryRungAdmits('standard-read', 'standard-build', 'knu_explorer'), false);
   assert.equal(recoveryRungAdmits('standard-build', 'deep-build', 'knu_executor'), true);
+  assert.equal(recoveryRungAdmits('elevated-build', 'astra-fallback', 'knu_executor_xhigh'), false);
   assert.deepEqual(getRecoveryStep('extract', 'knu_explorer_xhigh'), {
     profileId: 'elevated-read',
     model: 'gpt-6.1-sol',

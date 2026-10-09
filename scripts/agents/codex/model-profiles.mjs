@@ -193,10 +193,29 @@ export const RECOVERY_LADDER = deepFreeze({
   'elevated-build': 'deep-build',
 });
 
+// A rung admits a lane when the next profile takes the same role and, for a candidate, the role's pinned effort, the
+// same read-only boundary and every tool the failed profile allowed. The primary tier gate is not repeated: the rung
+// is a deliberate step above the tier that failed.
+export function recoveryRungAdmits(fromProfileId, toProfileId, role) {
+  const from = getModelProfile(fromProfileId);
+  const to = getModelProfile(toProfileId);
+  if (!from.roles.includes(role) || !to.roles.includes(role)) return false;
+  if (to.kind !== 'candidate') return true;
+  return (
+    to.resolvedEffort === ROLE_EFFORTS[role] &&
+    to.readOnly === from.readOnly &&
+    from.allowedTools.every((tool) => to.allowedTools.includes(tool)) &&
+    to.requiredTools.every((tool) => from.allowedTools.includes(tool))
+  );
+}
+
+// The next rung for a failed lane, or null when the profile is the top rung or the rung does not admit the lane (the
+// retry then stays on the same contract).
 export function getRecoveryStep(profileId, role) {
   if (!getModelProfile(profileId).roles.includes(role))
     throw new TypeError(`Role ${String(role)} is not in profile ${profileId}.`);
   if (!Object.hasOwn(RECOVERY_LADDER, profileId)) return null;
+  if (!recoveryRungAdmits(profileId, RECOVERY_LADDER[profileId], role)) return null;
   const next = getModelProfile(RECOVERY_LADDER[profileId]);
   return deepFreeze({ profileId: next.profileId, model: next.model });
 }

@@ -538,6 +538,7 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       'A completed child result cannot have a pending or terminal recovery.',
     ],
     [[{ laneId: 'legal-test' }], 'recovery decision must use the bounded schema.'],
+    [[null], 'recovery decision must be an object.'],
   ])
     assert.throws(
       () =>
@@ -549,9 +550,19 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
         }),
       { name: 'TypeError', message },
     );
+  assert.throws(
+    () =>
+      validateCodexWorkflowResults(i, {
+        results: [],
+        review,
+        hookObservation: onRetry,
+        recoveryDecisions: [{ laneId: 'legal-test' }],
+      }),
+    { name: 'TypeError', message: 'recovery decision must use the bounded schema.' },
+  );
   assert.deepEqual(
     validateCodexWorkflowResults(i, { results: [r], review, hookObservation: onRetry }).errors,
-    ['child lane legal-test completion refused: observation-missing'],
+    ['child lane legal-test completion refused: retry-unreported'],
   );
   assert.deepEqual(
     validateCodexWorkflowResults(i, {

@@ -221,11 +221,20 @@ export function validateCodexWorkflowResults(
   if (!Array.isArray(recoveryDecisions)) throw new TypeError('recoveryDecisions must be an array.');
   const recoveries = new Map();
   for (const decision of recoveryDecisions) {
-    if (!children.has(decision?.laneId))
-      throw new TypeError(`Recovery references an unknown lane: ${String(decision?.laneId)}`);
+    // Every decision is recomputed against its lane contract (an unknown lane is refused), not only the ones a
+    // complete result uses.
+    laneCompletionExpectation({
+      contract: children.get(decision?.laneId),
+      recoveryDecision: decision ?? null,
+    });
     if (recoveries.has(decision.laneId))
       throw new TypeError('recovery laneId values must be unique.');
     recoveries.set(decision.laneId, decision);
+  }
+  for (const result of Array.isArray(results) ? results : []) {
+    const action = recoveries.get(result?.laneId)?.action;
+    if (result?.status === 'complete' && action !== undefined && action !== 'none')
+      throw new TypeError('A completed child result cannot have a pending or terminal recovery.');
   }
   const completionChecks = (Array.isArray(results) ? results : [])
     .filter(

@@ -844,8 +844,8 @@ test('a recovery retry runs on its own task path and the completion command chec
       retry: retryFlag,
     });
   assert.equal(check(true).accepted, true);
-  // The primary path is a different child; the retry records do not complete it.
-  assert.equal(check(false).reason, 'observation-missing');
+  // The primary path is a different child; while the retry child goes unreported it does not complete the lane.
+  assert.equal(check(false).reason, 'retry-unreported');
   // A primary check refuses the lane while the session holds its unreported retry child.
   const both = observation({ taskName: 'lane_one_k3x9' });
   both.records.push(
@@ -901,7 +901,7 @@ test('a recovery retry runs on its own task path and the completion command chec
     assert.equal(JSON.parse(accepted.stdout).taskPath, '/root/lane_one_k3x9_retry');
     const primary = run(usage);
     assert.equal(primary.status, 1);
-    assert.equal(JSON.parse(primary.stdout).reason, 'observation-missing');
+    assert.equal(JSON.parse(primary.stdout).reason, 'retry-unreported');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

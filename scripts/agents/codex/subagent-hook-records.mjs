@@ -16,8 +16,9 @@ const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
 const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
 const ROOT_PATH = '/root/';
 
+// `retry` is reserved: a lane id ending in a token plus the token `retry` would spell another lane's retry task name.
 export function isDispatchToken(value) {
-  return typeof value === 'string' && DISPATCH_TOKEN.test(value);
+  return typeof value === 'string' && DISPATCH_TOKEN.test(value) && value !== 'retry';
 }
 
 // V2 task names allow lowercase letters, digits and underscores; lane ids are lowercase kebab-case. A lane's recovery
@@ -26,7 +27,7 @@ export function laneTaskName(laneId, dispatchToken, { retry = false } = {}) {
   const name = laneId.replaceAll('-', '_');
   if (dispatchToken === undefined && !retry) return name;
   if (!isDispatchToken(dispatchToken))
-    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits');
+    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits other than retry');
   return `${name}_${dispatchToken}${retry ? '_retry' : ''}`;
 }
 
@@ -152,7 +153,8 @@ export function evaluateHookCompletion({ observation, taskPath, expectedRole, ex
 
 // Completion of one dispatched lane. The allowlist, roster, pairs and role efforts come from their owner
 // (model-profiles.mjs), never from the caller's observation; a missing dispatch token refuses the lane. A recovery
-// retry is checked on its own task path against its retry route's model.
+// retry is checked on its own task path against its retry route's model; a primary check refuses the lane while the
+// session holds the lane's retry child, which only its recovery decision can complete.
 export function checkLaneCompletion({
   observation,
   laneId,
@@ -167,6 +169,21 @@ export function checkLaneCompletion({
     return {
       accepted: false,
       reason: 'dispatch-token-missing',
+      agentId: null,
+      agentType: null,
+      model: null,
+      effort: null,
+    };
+  const retryPath = laneTaskPath(laneId, dispatchToken, { retry: true });
+  if (
+    !retry &&
+    ownRecords(observation).some(
+      ({ event, agentPath }) => event === 'SubagentStart' && agentPath === retryPath,
+    )
+  )
+    return {
+      accepted: false,
+      reason: 'retry-unreported',
       agentId: null,
       agentType: null,
       model: null,

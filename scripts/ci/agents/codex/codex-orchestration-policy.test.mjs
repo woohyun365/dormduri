@@ -2359,9 +2359,9 @@ test('a retry dispatch and synthesis recompute the decision state and keep the p
   // Two failed attempts labeled as done do not let a completed result pass.
   const done = {
     ...finished,
-    status: 'not-started',
+    status: 'complete',
     action: 'none',
-    remainingAlternateAttempts: 1,
+    remainingAlternateAttempts: 0,
     blocker: null,
     disposition: null,
   };

@@ -111,14 +111,14 @@ const CHILD_RESULT_FIELDS = new Set([
 
 // Spawn advice from the contract alone. The project hook re-checks the role roster, the (role, model) pair and the fork at
 // call time, and completion binds the child's own hook records (subagent-hook-records.mjs).
-// dispatchToken (optional, 4-12 lowercase letters or digits) is a fresh per-dispatch value the Parent picks; it joins
-// each spawn task_name so completion can bind this dispatch's own child.
+// dispatchToken (optional, 4-12 lowercase letters or digits, not `retry`) is a fresh per-dispatch value the Parent
+// picks; it joins each spawn task_name so completion can bind this dispatch's own child.
 export function createDispatchRecommendation(input = {}) {
   for (const key of Object.keys(input ?? {}))
     if (!DISPATCH_INPUTS.has(key)) throw new TypeError(`Unsupported dispatch input: ${key}`);
   const { delegation, concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT, dispatchToken } = input ?? {};
   if (dispatchToken !== undefined && !isDispatchToken(dispatchToken))
-    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits');
+    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits other than retry');
   assertDelegationRecommendation(delegation);
   validateConcurrencyLimit(concurrencyLimit);
   const sequential = (reason, gaps) =>
@@ -709,6 +709,11 @@ export function createRetryDispatch(input = {}) {
     throw new TypeError('A retry dispatch needs a pending alternate decision.');
   if (dispatchToken === undefined)
     throw new TypeError('A retry dispatch requires a dispatch token.');
+  // The primary dispatch gates stay: a lane kept out of native spawn (reuse, incompatible delivery, a candidate
+  // boundary or scope snapshot that no longer holds) gets no retry spawn either.
+  const gaps = spawnGaps(contract);
+  if (gaps.length > 0)
+    throw new TypeError(`A retry dispatch needs a dispatchable lane: ${gaps.join(', ')}`);
   const { role, model } = recovery.retryRoute;
   return deepFreeze({
     laneId: recovery.laneId,
@@ -1028,6 +1033,11 @@ function normalizeRecoveryDecision(value) {
       throw new TypeError(`Recovery decision ${field} must match its attempts.`);
   if ('retryRoute' in value && !isDeepStrictEqual(value.retryRoute, expected.retryRoute))
     throw new TypeError('Recovery decision retryRoute must match its route and attempts.');
+  // The state is recomputed too, so a relabeled decision cannot buy a second retry or close a failed lane.
+  const state = { status, action, remainingAlternateAttempts, blocker, disposition };
+  for (const field of Object.keys(state))
+    if (state[field] !== expected[field])
+      throw new TypeError('Recovery decision status and action must match its attempts.');
   return deepFreeze({
     attempts,
     laneId,

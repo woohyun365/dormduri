@@ -342,6 +342,7 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   `CODEX_THREAD_ID`)로 확인합니다. 출력의 `unboundStarts`는 어느 allow 기록과도 짝이 없는 session의 Start 수입니다.
   Recovery 재시도 child는 task path `/root/<lane>_<token>_retry`에서 decision의 `retryRoute` model을 계약 model로 삼아 같은 조건으로
   대조합니다(synthesis·`validateCodexWorkflowResults()`의 `recoveryDecisions`, shell은 `--retry`, [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
+  그 재시도 child가 session에 있는데 decision 없이 primary로 대조하면 `retry-unreported`로 거절합니다. Dispatch token `retry`는 쓰지 않습니다.
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
   완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
 - **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이

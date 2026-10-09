@@ -125,6 +125,8 @@ Descriptor는 contract에서 `spawnArguments={task_name, agent_type, model, reas
 `failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인합니다.
 실패한 lane의 재시도는 [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)을 따릅니다. 재시도 spawn 인자는
 `createRetryDispatch()`가 lane 계약과 기다리는 recovery decision의 `retryRoute`(결과 품질 실패면 같은 역할의 한 단 위 model)에서 정합니다.
+재시도 dispatch도 위 context gate와 candidate profile 경계·snapshot을 다시 계산하며, primary가 Parent로 돌려보내는 lane에는 재시도 spawn
+인자를 내지 않습니다.
 
 Reuse 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor는 실제 실행·provider-effective 설정을
 증명하지 않으며, child가 실제로 받은 model·effort는 hook 기록이 근거입니다. 기존 source/권한 의미의
