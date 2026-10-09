@@ -11,7 +11,10 @@ import {
 } from '../common/adapter-contract.mjs';
 import { recommendDelegation } from './child-task-contract.mjs';
 import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
-import { createDispatchRecommendation } from './orchestration-policy.mjs';
+import {
+  createDispatchRecommendation,
+  laneCompletionExpectation,
+} from './orchestration-policy.mjs';
 import { COMPLETION_AUTHORITY, checkLaneCompletion } from './subagent-hook-records.mjs';
 
 const WORKFLOW_INPUTS = new Set([
@@ -196,10 +199,10 @@ function composeCodexWorkflow({
 
 // Recompute the contract from original request/evidence, never trust an edited prepared object. A complete child lane
 // also needs its own hook records (hookObservation = readHookRecords() result); the Parent direct lane has no child
-// to observe.
+// to observe. A lane that ran its recovery retry passes its decision, which names the retry child to check.
 export function validateCodexWorkflowResults(
   input,
-  { results = [], review, hookObservation } = {},
+  { results = [], review, hookObservation, recoveryDecisions = [] } = {},
 ) {
   const workflow = prepareCodexWorkflow(input);
   const fanIn = validateFanIn({
@@ -215,6 +218,24 @@ export function validateCodexWorkflowResults(
   const children = new Map(
     workflow.delegation.recommendedChildren.map((contract) => [contract.laneId, contract]),
   );
+  if (!Array.isArray(recoveryDecisions)) throw new TypeError('recoveryDecisions must be an array.');
+  const recoveries = new Map();
+  for (const decision of recoveryDecisions) {
+    // Every decision is recomputed against its lane contract (an unknown lane is refused), not only the ones a
+    // complete result uses.
+    laneCompletionExpectation({
+      contract: children.get(decision?.laneId),
+      recoveryDecision: decision ?? null,
+    });
+    if (recoveries.has(decision.laneId))
+      throw new TypeError('recovery laneId values must be unique.');
+    recoveries.set(decision.laneId, decision);
+  }
+  for (const result of Array.isArray(results) ? results : []) {
+    const action = recoveries.get(result?.laneId)?.action;
+    if (result?.status === 'complete' && action !== undefined && action !== 'none')
+      throw new TypeError('A completed child result cannot have a pending or terminal recovery.');
+  }
   const completionChecks = (Array.isArray(results) ? results : [])
     .filter(
       (result) =>
@@ -228,8 +249,10 @@ export function validateCodexWorkflowResults(
         observation: hookObservation,
         laneId,
         dispatchToken: input?.dispatchToken,
-        expectedRole: children.get(laneId).routeRecommendation.role,
-        expectedModel: getModelProfile(children.get(laneId).routeRecommendation.profileId).model,
+        ...laneCompletionExpectation({
+          contract: children.get(laneId),
+          ...(recoveries.has(laneId) ? { recoveryDecision: recoveries.get(laneId) } : {}),
+        }),
       }),
     }));
   for (const { laneId, accepted, reason } of completionChecks)

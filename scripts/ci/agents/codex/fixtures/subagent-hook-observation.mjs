@@ -1,7 +1,7 @@
 // Hook records as `.codex/hooks/knu-subagent-hooks.mjs` writes them: one observed child per selected lane of a
 // delegation, in one Parent session, spawned under one dispatch token. Each child has the root PreToolUse allow record
 // that bound its task name, then SubagentStart and SubagentStop. By default the child runs its contract's profile model
-// at its role's pinned effort.
+// at its role's pinned effort. A lane in retryLaneIds is observed as its recovery retry, on the `_retry` task path.
 import { getModelProfile, ROLE_EFFORTS } from '../../../../agents/codex/model-profiles.mjs';
 
 export const FIXTURE_DISPATCH_TOKEN = 'disp1';
@@ -14,12 +14,15 @@ export function observedChildren(
     sessionId = 'parent-session',
     dispatchToken = FIXTURE_DISPATCH_TOKEN,
     bind = true,
+    retryLaneIds = [],
   } = {},
 ) {
   const records = delegation.recommendedChildren.flatMap((contract, index) => {
     const role = agentType ?? contract.routeRecommendation.role;
     const childModel = model ?? getModelProfile(contract.routeRecommendation.profileId).model;
-    const taskName = `${contract.laneId.replaceAll('-', '_')}_${dispatchToken}`;
+    const taskName = `${contract.laneId.replaceAll('-', '_')}_${dispatchToken}${
+      retryLaneIds.includes(contract.laneId) ? '_retry' : ''
+    }`;
     const base = {
       schema: 'knu-codex-subagent-hook/v1',
       sessionId,

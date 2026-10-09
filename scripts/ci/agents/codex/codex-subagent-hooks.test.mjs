@@ -828,6 +828,85 @@ test('dispatch tokens name each dispatch and a missing token or a reused path re
   assert.equal(check(twice).reason, 'observation-ambiguous');
 });
 
+test('a recovery retry runs on its own task path and the completion command checks it with --retry', async () => {
+  const { checkLaneCompletion, laneTaskName, laneTaskPath } = await records();
+  assert.equal(laneTaskName('lane-one', 'k3x9', { retry: true }), 'lane_one_k3x9_retry');
+  assert.equal(laneTaskPath('lane-one', 'k3x9', { retry: true }), '/root/lane_one_k3x9_retry');
+  assert.throws(() => laneTaskName('lane-one', undefined, { retry: true }), /dispatch token/u);
+  const retry = observation({ taskName: 'lane_one_k3x9_retry' });
+  const check = (retryFlag) =>
+    checkLaneCompletion({
+      observation: retry,
+      laneId: 'lane-one',
+      dispatchToken: 'k3x9',
+      expectedRole: 'knu_explorer',
+      expectedModel: ASTRA,
+      retry: retryFlag,
+    });
+  assert.equal(check(true).accepted, true);
+  // The primary path is a different child; while the retry child goes unreported it does not complete the lane.
+  assert.equal(check(false).reason, 'retry-unreported');
+  // A primary check refuses the lane while the session holds its unreported retry child.
+  const both = observation({ taskName: 'lane_one_k3x9' });
+  both.records.push(
+    ...retry.records.map((r) => (r.agentId ? { ...r, agentId: 'child-retry' } : r)),
+  );
+  assert.equal(
+    checkLaneCompletion({
+      observation: both,
+      laneId: 'lane-one',
+      dispatchToken: 'k3x9',
+      expectedRole: 'knu_explorer',
+      expectedModel: ASTRA,
+    }).reason,
+    'retry-unreported',
+  );
+  // `retry` is reserved, so a lane and token never spell another lane's retry task name.
+  const { isDispatchToken } = await records();
+  assert.equal(isDispatchToken('retry'), false);
+  assert.throws(() => laneTaskName('lane-one-k3x9', 'retry'), /dispatch token/u);
+  const root = mkdtempSync(join(tmpdir(), 'knu-completion-retry-'));
+  try {
+    const copy = join(root, 'scripts/agents/codex');
+    mkdirSync(copy, { recursive: true });
+    for (const name of ['subagent-hook-records.mjs', 'model-profiles.mjs'])
+      copyFileSync(resolve(repoRoot, 'scripts/agents/codex', name), join(copy, name));
+    const sessionId = 'knu-test-retry';
+    const file = join(root, '.codex/state/knu-subagent-hooks', `${sessionId}.jsonl`);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      `${observation({ taskName: 'lane_one_k3x9_retry', parentThreadId: sessionId })
+        .records.map((r) => JSON.stringify({ ...r, sessionId }))
+        .join('\n')}\n`,
+    );
+    const usage = [
+      '--lane',
+      'lane-one',
+      '--token',
+      'k3x9',
+      '--role',
+      'knu_explorer',
+      '--model',
+      ASTRA,
+    ];
+    const run = (args) =>
+      spawnSync(process.execPath, [join(copy, 'subagent-hook-records.mjs'), ...args], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, CODEX_THREAD_ID: sessionId },
+      });
+    const accepted = run([...usage, '--retry']);
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.equal(JSON.parse(accepted.stdout).taskPath, '/root/lane_one_k3x9_retry');
+    const primary = run(usage);
+    assert.equal(primary.status, 1);
+    assert.equal(JSON.parse(primary.stdout).reason, 'retry-unreported');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('the completion report counts session starts that no allow record bound', async () => {
   const { countUnboundStarts } = await records();
   const obs = observation();

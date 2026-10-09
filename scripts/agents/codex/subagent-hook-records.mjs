@@ -16,21 +16,23 @@ const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
 const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
 const ROOT_PATH = '/root/';
 
+// `retry` is reserved: a lane id ending in a token plus the token `retry` would spell another lane's retry task name.
 export function isDispatchToken(value) {
-  return typeof value === 'string' && DISPATCH_TOKEN.test(value);
+  return typeof value === 'string' && DISPATCH_TOKEN.test(value) && value !== 'retry';
 }
 
-// V2 task names allow lowercase letters, digits and underscores; lane ids are lowercase kebab-case.
-export function laneTaskName(laneId, dispatchToken) {
+// V2 task names allow lowercase letters, digits and underscores; lane ids are lowercase kebab-case. A lane's recovery
+// retry is its own child under the same dispatch token, named with a `_retry` suffix.
+export function laneTaskName(laneId, dispatchToken, { retry = false } = {}) {
   const name = laneId.replaceAll('-', '_');
-  if (dispatchToken === undefined) return name;
+  if (dispatchToken === undefined && !retry) return name;
   if (!isDispatchToken(dispatchToken))
-    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits');
-  return `${name}_${dispatchToken}`;
+    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits other than retry');
+  return `${name}_${dispatchToken}${retry ? '_retry' : ''}`;
 }
 
-export function laneTaskPath(laneId, dispatchToken) {
-  return `${ROOT_PATH}${laneTaskName(laneId, dispatchToken)}`;
+export function laneTaskPath(laneId, dispatchToken, { retry = false } = {}) {
+  return `${ROOT_PATH}${laneTaskName(laneId, dispatchToken, { retry })}`;
 }
 
 export function readHookRecords({ root, sessionId }) {
@@ -150,13 +152,16 @@ export function evaluateHookCompletion({ observation, taskPath, expectedRole, ex
 }
 
 // Completion of one dispatched lane. The allowlist, roster, pairs and role efforts come from their owner
-// (model-profiles.mjs), never from the caller's observation; a missing dispatch token refuses the lane.
+// (model-profiles.mjs), never from the caller's observation; a missing dispatch token refuses the lane. A recovery
+// retry is checked on its own task path against its retry route's model; a primary check refuses the lane while the
+// session holds the lane's retry child, which only its recovery decision can complete.
 export function checkLaneCompletion({
   observation,
   laneId,
   dispatchToken,
   expectedRole,
   expectedModel,
+  retry = false,
 }) {
   if (typeof expectedModel !== 'string' || expectedModel === '')
     throw new TypeError('expected model is required: pass the lane contract model');
@@ -164,6 +169,21 @@ export function checkLaneCompletion({
     return {
       accepted: false,
       reason: 'dispatch-token-missing',
+      agentId: null,
+      agentType: null,
+      model: null,
+      effort: null,
+    };
+  const retryPath = laneTaskPath(laneId, dispatchToken, { retry: true });
+  if (
+    !retry &&
+    ownRecords(observation).some(
+      ({ event, agentPath }) => event === 'SubagentStart' && agentPath === retryPath,
+    )
+  )
+    return {
+      accepted: false,
+      reason: 'retry-unreported',
       agentId: null,
       agentType: null,
       model: null,
@@ -177,7 +197,7 @@ export function checkLaneCompletion({
       allowedRoleModels: ALLOWED_ROLE_MODELS,
       roleEfforts: ROLE_EFFORTS,
     },
-    taskPath: laneTaskPath(laneId, dispatchToken),
+    taskPath: laneTaskPath(laneId, dispatchToken, { retry }),
     expectedRole,
     expectedModel,
   });
@@ -229,20 +249,25 @@ function asList(value) {
 }
 
 // pnpm codex:completion -- --lane <laneId> --token <dispatch token> --role <agent_type> --model <contract model>
-//   [--session <parent thread id>]
-// The role and model are the lane contract (route role, profile model). The session defaults to CODEX_THREAD_ID, which
-// Codex sets for the Parent's shell commands.
+//   [--session <parent thread id>] [--retry]
+// The role and model are the lane contract (route role, profile model); with --retry they are the recovery decision's
+// retry route and the check reads the retry task path. The session defaults to CODEX_THREAD_ID, which Codex sets for the
+// Parent's shell commands.
 function main(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === '--') continue;
+    if (key === '--retry') {
+      options.retry = true;
+      continue;
+    }
     if (
       !['--lane', '--token', '--role', '--model', '--session'].includes(key) ||
       argv[index + 1] === undefined
     )
       throw new TypeError(
-        'expected --lane LANE_ID --token DISPATCH_TOKEN --role AGENT_TYPE --model MODEL [--session THREAD_ID]',
+        'expected --lane LANE_ID --token DISPATCH_TOKEN --role AGENT_TYPE --model MODEL [--session THREAD_ID] [--retry]',
       );
     options[key.slice(2)] = argv[(index += 1)];
   }
@@ -251,13 +276,15 @@ function main(argv) {
   const root = resolve(import.meta.dirname, '../../..');
   const sessionId = options.session ?? process.env.CODEX_THREAD_ID;
   const { records, malformed } = readHookRecords({ root, sessionId });
-  const taskPath = laneTaskPath(options.lane, options.token);
+  const retry = options.retry === true;
+  const taskPath = laneTaskPath(options.lane, options.token, { retry });
   const verdict = checkLaneCompletion({
     observation: { sessionId, records, malformed },
     laneId: options.lane,
     dispatchToken: options.token,
     expectedRole: options.role,
     expectedModel: options.model,
+    retry,
   });
   const report = {
     completionAuthority: COMPLETION_AUTHORITY,

@@ -6,7 +6,10 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { recommendDelegation } from '../../../agents/codex/child-task-contract.mjs';
 import { getModelProfile } from '../../../agents/codex/model-profiles.mjs';
-import { createDispatchRecommendation } from '../../../agents/codex/orchestration-policy.mjs';
+import {
+  createDispatchRecommendation,
+  evaluateRecovery,
+} from '../../../agents/codex/orchestration-policy.mjs';
 import {
   createSemanticSourceId,
   createSemanticFactId,
@@ -483,6 +486,83 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       hookObservation: observedChildren(w.delegation, { model: 'gpt-6-astra' }),
     }).errors,
     ['child lane legal-test completion refused: model-mismatch'],
+  );
+  // The 6.1 Sol attempt failed its result quality and retried one rung up: the Astra retry child completes the lane
+  // only with its recovery decision, which names the retry route and task path.
+  const { role, profileId } = legalTest.routeRecommendation;
+  const retried = evaluateRecovery({
+    laneId: 'legal-test',
+    route: { role, profileId },
+    attempts: [
+      {
+        approachId: 'primary',
+        outcome: 'failure',
+        failureCategory: 'verification-failed',
+        evidence: 'The oracle failed.',
+      },
+      {
+        approachId: 'astra-retry',
+        alternateOf: 'primary',
+        outcome: 'success',
+        evidence: 'Passed.',
+      },
+    ],
+  });
+  const onRetry = observedChildren(w.delegation, {
+    model: 'gpt-6-astra',
+    retryLaneIds: ['legal-test'],
+  });
+  const retryChecked = validateCodexWorkflowResults(i, {
+    results: [r],
+    review,
+    hookObservation: onRetry,
+    recoveryDecisions: [retried],
+  });
+  assert.equal(retryChecked.valid, true, JSON.stringify(retryChecked.errors));
+  for (const [recoveryDecisions, message] of [
+    [retried, 'recoveryDecisions must be an array.'],
+    [[{ ...retried, laneId: 'missing-lane' }], 'Recovery references an unknown lane: missing-lane'],
+    [[retried, retried], 'recovery laneId values must be unique.'],
+    // A complete result cannot carry a pending or terminal decision, and every decision is checked.
+    [
+      [
+        evaluateRecovery({
+          laneId: 'legal-test',
+          route: { role, profileId },
+          attempts: [
+            retried.attempts[0],
+            { ...retried.attempts[1], outcome: 'failure', failureCategory: 'verification-failed' },
+          ],
+        }),
+      ],
+      'A completed child result cannot have a pending or terminal recovery.',
+    ],
+    [[{ laneId: 'legal-test' }], 'recovery decision must use the bounded schema.'],
+    [[null], 'recovery decision must be an object.'],
+  ])
+    assert.throws(
+      () =>
+        validateCodexWorkflowResults(i, {
+          results: [r],
+          review,
+          hookObservation: onRetry,
+          recoveryDecisions,
+        }),
+      { name: 'TypeError', message },
+    );
+  assert.throws(
+    () =>
+      validateCodexWorkflowResults(i, {
+        results: [],
+        review,
+        hookObservation: onRetry,
+        recoveryDecisions: [{ laneId: 'legal-test' }],
+      }),
+    { name: 'TypeError', message: 'recovery decision must use the bounded schema.' },
+  );
+  assert.deepEqual(
+    validateCodexWorkflowResults(i, { results: [r], review, hookObservation: onRetry }).errors,
+    ['child lane legal-test completion refused: retry-unreported'],
   );
   assert.deepEqual(
     validateCodexWorkflowResults(i, {

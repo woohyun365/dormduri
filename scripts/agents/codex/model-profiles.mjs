@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
 // Bump for eligibility changes outside this data, too. Old bindings never migrate implicitly.
-const POLICY_REVISION = '2026-10-06.1';
+const POLICY_REVISION = '2026-10-09.1';
 // Role files pin `model_reasoning_effort`, which outranks a spawn's effort; a test binds each `.codex/agents` file here.
 export const ROLE_EFFORTS = deepFreeze({
   knu_explorer_medium: 'medium',
@@ -181,6 +181,44 @@ export function getModelProfile(profileId) {
   if (typeof profileId !== 'string' || !Object.hasOwn(PROFILES, profileId))
     throw new TypeError(`Unknown model profile: ${String(profileId)}`);
   return PROFILES[profileId];
+}
+
+// The promotion ladder: a candidate profile's next rung for the same role (Luna → 6.1 Sol, 6.1 Sol → Astra). A failed
+// lane climbs at most one rung, once; assignment profiles are the top rung.
+export const RECOVERY_LADDER = deepFreeze({
+  extract: 'elevated-read',
+  'standard-read': 'astra-fallback',
+  'elevated-read': 'astra-fallback',
+  'standard-build': 'deep-build',
+  'elevated-build': 'deep-build',
+});
+
+// A rung admits a lane when the next profile takes the same role and, for a candidate, the role's pinned effort, the
+// same read-only boundary and every tool the failed profile allowed. It takes profiles, not ids, so each clause stays
+// testable while no installed rung fails it. The primary tier gate is not repeated: the rung is a deliberate step
+// above the tier that failed.
+export function recoveryRungAdmits(from, to, role) {
+  if (!from.roles.includes(role) || !to.roles.includes(role)) return false;
+  if (to.kind !== 'candidate') return true;
+  return (
+    to.resolvedEffort === ROLE_EFFORTS[role] &&
+    to.readOnly === from.readOnly &&
+    from.allowedTools.every((tool) => to.allowedTools.includes(tool)) &&
+    to.requiredTools.every((tool) => from.allowedTools.includes(tool))
+  );
+}
+
+// The next rung for a failed lane, or null when the profile is the top rung or the rung does not admit the lane (the
+// retry then stays on the same contract). Callers use the installed ladder; a test passes another one to reach the
+// fallback, which no installed rung needs today.
+export function getRecoveryStep(profileId, role, ladder = RECOVERY_LADDER) {
+  const from = getModelProfile(profileId);
+  if (!from.roles.includes(role))
+    throw new TypeError(`Role ${String(role)} is not in profile ${profileId}.`);
+  if (!Object.hasOwn(ladder, profileId)) return null;
+  const next = getModelProfile(ladder[profileId]);
+  if (!recoveryRungAdmits(from, next, role)) return null;
+  return deepFreeze({ profileId: next.profileId, model: next.model });
 }
 
 // Pure fingerprint, not registry injection or authority. Runtime always checks installed data.
