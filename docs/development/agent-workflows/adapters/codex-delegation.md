@@ -121,12 +121,15 @@ PASS로 바꾸지 않습니다.
 
 Descriptor는 contract에서 `spawnArguments={task_name, agent_type, model, reasoning_effort, fork_turns: none}`를 정합니다.
 `agent_type`은 route 역할, `model`은 route profile의 model(ordinary는 `gpt-6-astra`), `reasoning_effort`는 역할 pin입니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
-붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다.
+붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다. Parent는 이 descriptor를
+spawn 전에 `codex:register`로 등록하고, hook은 평문 인자가 그 등록과 같고 task name이 정하는 등록 필드(lane id·token·재시도
+표시)가 그 이름과 맞을 때만 spawn을 허용합니다
+([등록·수락](./codex.md#subagent-hook-guardrail과-완료-관측)).
 `failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인합니다.
 실패한 lane의 재시도는 [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)을 따릅니다. 재시도 spawn 인자는
 `createRetryDispatch()`가 lane 계약과 기다리는 recovery decision의 `retryRoute`(결과 품질 실패면 같은 역할의 한 단 위 model)에서 정합니다.
 재시도 dispatch도 위 context gate와 candidate profile 경계·snapshot을 다시 계산하며, primary가 Parent로 돌려보내는 lane에는 재시도 spawn
-인자를 내지 않습니다.
+인자를 내지 않습니다. Primary child가 수락된 lane은 재시도 등록·spawn·수락이 모두 거절됩니다.
 
 Reuse 경로를 fresh native spawn으로 변환하지 않습니다. Descriptor는 실제 실행·provider-effective 설정을
 증명하지 않으며, child가 실제로 받은 model·effort는 hook 기록이 근거입니다. 기존 source/권한 의미의
@@ -179,7 +182,8 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
   child가 부른 spawn을 [호출 시점에 deny](./codex.md#subagent-hook-guardrail과-완료-관측)합니다.
 - V2 peer 메시지는 실행 중인 child에만 전달이 관측됐습니다. 완료된 child는 메시지로 turn을 시작하지 않으므로([새 turn 없이
   queue](https://developers.openai.com/api/docs/guides/responses-multi-agent#how-multi-agent-works)) 응답이 필요하면 Parent가
-  `followup_task`로 후속을 배정합니다. 재개 뒤 쌓인 메시지가 전달되는지는 관측되지 않았으므로 그 전달에 기대지 않습니다.
+  수락 전 child에 `followup_task`로 후속을 배정합니다. 완료된 child에 보낸 메시지는 그 `followup_task` 재개 turn 입력에 함께
+  전달됐습니다(codex-cli 0.161.0 관측, 2026-10-09). 수락한 child에는 후속·메시지를 보내지 않으며 hook이 `settled-child`로 deny합니다.
 - Intake mapper는 child를 생성하지 않습니다.
 - ContextPack registry는 lane을 만들지 않습니다.
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.

@@ -207,7 +207,8 @@ retained reason+revisit / next action`. task-local artifact/checkpoint에 기록
 남기고 완료라고 하지 않습니다. 검증된 `not-required`는 슬롯 반환 증거가 아닙니다. `cleanup-unavailable`도 “모두 정리됨”이
 아닙니다. 지원·계약이 바뀌면 현재 eligible 대상만 재판정하며 제품 검증·작업 결과·자원 관측의 공백을 분리해 보고합니다.
 결과 회수는 결과 수락과 다릅니다. Codex에서 hook 기록 결속이 거부된 child는 회수·closure를 그대로 기록하되 결과를 완료로
-쓰지 않습니다([Codex 완료 관측](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+쓰지 않습니다. Codex에서 수락한 child는 위 후속 작업의 재사용 대상이 아니며(hook이 후속·메시지를 deny), 보완은 새 dispatch로
+맡깁니다([Codex 완료 관측](./adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
 
 문서 계약 검사는 링크/불변 규칙의 퇴행을 잡을 뿐 native runtime 실행·슬롯 반환·agent의 지침 준수를 강제하지 않습니다.
 진단 예시는 [Thread limit troubleshooting](../troubleshooting/tooling/agent-thread-limit-reached.md)을 참고합니다.

@@ -556,13 +556,15 @@ export function evaluateRecovery(input = {}) {
 
 // A completed child counts only when its own hook records bind it (subagent-hook-records.mjs); a leader report alone
 // is refused. hookObservation = readHookRecords() of the Parent session ({ sessionId, records, malformed });
-// dispatchToken is the dispatch's token.
+// acceptances are the acceptance records `codex:accept` wrote for the accepted children; dispatchToken is the
+// dispatch's token.
 export function prepareLeaderSynthesis({
   delegation,
   childResults = [],
   recoveryDecisions = [],
   conflicts = [],
   hookObservation,
+  acceptances = [],
   dispatchToken,
 } = {}) {
   assertDelegationRecommendation(delegation);
@@ -573,6 +575,7 @@ export function prepareLeaderSynthesis({
   if (!Array.isArray(recoveryDecisions)) {
     throw new TypeError('recoveryDecisions must be an array.');
   }
+  if (!Array.isArray(acceptances)) throw new TypeError('acceptances must be an array.');
 
   const contracts = new Map(
     delegation.recommendedChildren.map((contract) => [contract.laneId, contract]),
@@ -609,6 +612,7 @@ export function prepareLeaderSynthesis({
         observation: hookObservation,
         laneId,
         dispatchToken,
+        acceptances,
         ...completionExpectation(contracts.get(laneId), recoveryByLane.get(laneId)),
       }),
     }));

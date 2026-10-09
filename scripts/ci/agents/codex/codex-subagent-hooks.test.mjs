@@ -9,6 +9,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -40,6 +41,35 @@ const POLICY = {
 const hooks = () => import('../../../../.codex/hooks/knu-subagent-hooks.mjs');
 const records = () => import('../../../agents/codex/subagent-hook-records.mjs');
 
+// A registration whose spawn arguments are the call's plain arguments, as `codex:register` writes it before the spawn.
+function registrationFor(call) {
+  const input = call.tool_input;
+  return {
+    schema: 'knu-codex-task-registration/v1',
+    sessionId: SESSION,
+    taskName: input.task_name,
+    kind: 'lane',
+    laneId: 'lane-one',
+    dispatchToken: 'k3x9',
+    retry: false,
+    spawnArguments: Object.fromEntries(
+      ['task_name', 'agent_type', 'model', 'reasoning_effort', 'fork_turns']
+        .filter((field) => input[field] !== undefined)
+        .map((field) => [field, input[field]]),
+    ),
+  };
+}
+
+function registryFor(call) {
+  const registration = registrationFor(call);
+  const digest = `sha256:${createHash('sha256').update(JSON.stringify(registration)).digest('hex')}`;
+  return {
+    read: (taskName) => (taskName === registration.taskName ? { registration, digest } : null),
+    used: () => false,
+    settled: () => false,
+  };
+}
+
 function spawnCall(input, { toolName = 'collaborationspawn_agent', child = false } = {}) {
   return {
     session_id: SESSION,
@@ -49,7 +79,7 @@ function spawnCall(input, { toolName = 'collaborationspawn_agent', child = false
     tool_name: toolName,
     tool_use_id: 'call_1',
     tool_input: {
-      task_name: 'lane_one',
+      task_name: 'lane_one_k3x9',
       agent_type: 'knu_explorer',
       model: 'gpt-6-astra',
       fork_turns: 'none',
@@ -67,12 +97,12 @@ test('guard allows a repo roster spawn with an allowed explicit model and a boun
     [{ fork_turns: '3' }, 'collaborationspawn_agent'],
     [{ fork_turns: 2 }, 'collaborationspawn_agent'],
     [{ agent_type: 'knu_reviewer' }, 'teamspawn_agent'],
-  ])
-    assert.deepEqual(decideToolUse(spawnCall(input, { toolName }), POLICY), {
-      action: 'allow',
-      tool: 'spawn_agent',
-      caller: 'root',
-    });
+  ]) {
+    const call = spawnCall(input, { toolName });
+    const { registration, ...decision } = decideToolUse(call, POLICY, registryFor(call));
+    assert.deepEqual(decision, { action: 'allow', tool: 'spawn_agent', caller: 'root' });
+    assert.deepEqual(registration.spawnArguments, registrationFor(call).spawnArguments);
+  }
 });
 
 test('guard denies each spawn outside the three conditions with its own reason', async () => {
@@ -111,7 +141,11 @@ test('guard denies an allowed model that the role has no profile pair for', asyn
     { agent_type: 'knu_explorer', model: SOL },
     { agent_type: 'knu_explorer_xhigh', model: LUNA },
   ])
-    assert.equal(decideToolUse(spawnCall(input), POLICY).action, 'allow', JSON.stringify(input));
+    assert.equal(
+      decideToolUse(spawnCall(input), POLICY, registryFor(spawnCall(input))).action,
+      'allow',
+      JSON.stringify(input),
+    );
   // A policy without pairs, or with inherited object keys, allows nothing.
   assert.equal(
     decideToolUse(spawnCall({}), { ...POLICY, allowedRoleModels: undefined }).reason,
@@ -163,13 +197,14 @@ test('hook records keep identities and sizes but never message text', async () =
   const { buildHookRecord } = await hooks();
   const record = buildHookRecord(spawnCall({}), {
     policy: POLICY,
+    registry: registryFor(spawnCall({})),
     now: '2026-10-06T00:00:00Z',
   });
   assert.equal(record.event, 'PreToolUse');
   assert.equal(record.sessionId, SESSION);
   assert.equal(record.decision, 'allow');
   assert.deepEqual(record.input, {
-    task_name: 'lane_one',
+    task_name: 'lane_one_k3x9',
     agent_type: 'knu_explorer',
     model: 'gpt-6-astra',
     fork_turns: 'none',
@@ -262,6 +297,13 @@ test('the installed hook writes session records under .codex/state and prints th
     /pair-not-allowed/u,
   );
 
+  // A spawn needs its registration in the Parent session's registration directory.
+  const registrations = join(root, '.artifacts/tools/codex-native', SESSION);
+  mkdirSync(registrations, { recursive: true });
+  writeFileSync(
+    join(registrations, 'lane_one_k3x9.json'),
+    JSON.stringify(registrationFor(spawnCall({}))),
+  );
   const allowed = run(spawnCall({}));
   assert.equal(allowed.status, 0, allowed.stderr);
   assert.equal(allowed.stdout, '');
@@ -329,8 +371,9 @@ test('a guard failure denies the spawn instead of failing open', (t) => {
 
 test('completion is accepted only when the bound start and stop records match the lane contract', async () => {
   const { evaluateHookCompletion, laneTaskPath } = await records();
-  const taskPath = laneTaskPath('lane-one');
-  assert.equal(taskPath, '/root/lane_one');
+  assert.equal(laneTaskPath('lane-one'), '/root/lane_one');
+  const taskPath = laneTaskPath('lane-one', 'k3x9');
+  assert.equal(taskPath, '/root/lane_one_k3x9');
   const accepted = evaluateHookCompletion({
     observation: observation(),
     taskPath,
@@ -361,7 +404,7 @@ test('completion is accepted only when the bound start and stop records match th
 
 test('completion is refused for missing, partial, mismatched or out-of-policy observations', async () => {
   const { evaluateHookCompletion } = await records();
-  const refuse = (obs, expectedRole = 'knu_explorer', taskPath = '/root/lane_one') =>
+  const refuse = (obs, expectedRole = 'knu_explorer', taskPath = '/root/lane_one_k3x9') =>
     evaluateHookCompletion({ observation: obs, taskPath, expectedRole, expectedModel: ASTRA })
       .reason;
   assert.equal(refuse(undefined), 'observation-missing');
@@ -394,7 +437,7 @@ test('completion needs the root PreToolUse allow record that bound this task nam
   const refuse = (obs) =>
     evaluateHookCompletion({
       observation: obs,
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       expectedRole: 'knu_explorer',
       expectedModel: ASTRA,
     }).reason;
@@ -436,7 +479,7 @@ test('a descendant start under the lane child refuses the lane', async () => {
     obs.records.push(extra);
     return evaluateHookCompletion({
       observation: obs,
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       expectedRole: 'knu_explorer',
       expectedModel: ASTRA,
     }).reason;
@@ -446,7 +489,7 @@ test('a descendant start under the lane child refuses the lane', async () => {
     refuse(
       startRecord({
         agentId: GRANDCHILD,
-        agentPath: '/root/lane_one/helper',
+        agentPath: '/root/lane_one_k3x9/helper',
         parentThreadId: CHILD,
       }),
     ),
@@ -460,7 +503,7 @@ test('a descendant start under the lane child refuses the lane', async () => {
     refuse(
       startRecord({
         agentId: GRANDCHILD,
-        agentPath: '/root/lane_one/helper',
+        agentPath: '/root/lane_one_k3x9/helper',
         parentThreadId: null,
       }),
     ),
@@ -480,7 +523,7 @@ test('completion compares the observed model and own-turn effort with the lane c
   const check = (obs, { expectedRole = 'knu_explorer', expectedModel = ASTRA } = {}) =>
     evaluateHookCompletion({
       observation: obs,
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       expectedRole,
       expectedModel,
     });
@@ -527,7 +570,18 @@ test('completion compares the observed model and own-turn effort with the lane c
       observation({
         agentType: 'knu_explorer_xhigh',
         records: [
-          { ...bind, input: { ...bind.input, agent_type: 'knu_explorer_xhigh' } },
+          {
+            ...bind,
+            input: { ...bind.input, agent_type: 'knu_explorer_xhigh' },
+            registration: {
+              ...bind.registration,
+              spawnArguments: {
+                ...bind.registration.spawnArguments,
+                agent_type: 'knu_explorer_xhigh',
+                reasoning_effort: 'xhigh',
+              },
+            },
+          },
           { ...start, agentType: 'knu_explorer_xhigh' },
           { ...stop, agentType: 'knu_explorer_xhigh', ownTurn: { model: ASTRA, effort: 'xhigh' } },
         ],
@@ -601,8 +655,8 @@ function childRollout({ effort = 'high', model = 'gpt-6.1-sol' } = {}) {
   ];
 }
 
-// One lane child as the hook writes it: the root PreToolUse allow record that bound its task name, then its start and
-// stop. The stop own-turn effort defaults to the role pin.
+// One lane child as the hook writes it: the root PreToolUse allow record that bound its task name and sealed its
+// registration, then its start and stop. The stop own-turn effort defaults to the role pin.
 function observation({
   records: given,
   sessionId = SESSION,
@@ -610,7 +664,7 @@ function observation({
   model = ASTRA,
   agentType = 'knu_explorer',
   parentThreadId = SESSION,
-  taskName = 'lane_one',
+  taskName = 'lane_one_k3x9',
 } = {}) {
   const base = {
     schema: 'knu-codex-subagent-hook/v1',
@@ -627,6 +681,21 @@ function observation({
       caller: 'root',
       decision: 'allow',
       input: { task_name: taskName, agent_type: agentType, model, fork_turns: 'none' },
+      registration: {
+        digest: `sha256:${'0'.repeat(64)}`,
+        taskName,
+        kind: 'lane',
+        laneId: 'lane-one',
+        dispatchToken: 'k3x9',
+        retry: taskName.endsWith('_retry'),
+        spawnArguments: {
+          task_name: taskName,
+          agent_type: agentType,
+          model,
+          reasoning_effort: ROLE_EFFORTS[agentType] ?? 'high',
+          fork_turns: 'none',
+        },
+      },
     },
     { ...base, event: 'SubagentStart', model, agentPath: `/root/${taskName}`, parentThreadId },
     {
@@ -913,7 +982,11 @@ test('the completion report counts session starts that no allow record bound', a
   assert.equal(countUnboundStarts(obs), 0);
   obs.records.push(
     startRecord({ agentId: GRANDCHILD, agentPath: '/root/other_lane' }),
-    startRecord({ agentId: 'grand-2', agentPath: '/root/lane_one/helper', parentThreadId: CHILD }),
+    startRecord({
+      agentId: 'grand-2',
+      agentPath: '/root/lane_one_k3x9/helper',
+      parentThreadId: CHILD,
+    }),
     {
       ...startRecord({ agentId: 'elsewhere', agentPath: '/root/x' }),
       sessionId: 'another-session',

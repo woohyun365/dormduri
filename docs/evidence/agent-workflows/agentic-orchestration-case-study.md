@@ -274,7 +274,8 @@ task / acceptance / source facts
 - [호출·결과 정책](../../../scripts/agents/codex/orchestration-policy.mjs): role pin, context, profile 경계와 contract snapshot을
   확인해 spawn 인자를 정합니다(2026-10-07 전에는 승인 기간·예산 admission과 사후 귀속 보고도 검사). Permission·quota·cap·지원 실패를 모델 교체로 우회하지 않습니다.
 - [완료 관측](../../../scripts/agents/codex/subagent-hook-records.mjs): project hook의 spawn 허용·SubagentStart·SubagentStop 기록을 lane
-  계약 model·역할 effort와 대조해 완료를 판정합니다. [hook 회귀](../../../scripts/ci/agents/codex/codex-subagent-hooks.test.mjs)는
+  계약 model·역할 effort와 대조해 완료를 판정합니다. 2026-10-09부터 spawn은 Parent의 등록과 같아야 허용되고(hook 봉인), fan-in은
+  [수락 기록](../../../scripts/agents/codex/task-registry.mjs)을 요구하며 수락한 child의 재개를 막습니다. [hook 회귀](../../../scripts/ci/agents/codex/codex-subagent-hooks.test.mjs)는
   미관측·불일치·bind 부재·grandchild를 거절합니다. 기록은 identity와 크기만 남기고 message 본문·secret·hidden reasoning을
   수집하지 않습니다. 실패 원인 가설과 조치는 [Execution evidence](../../development/agent-workflows/qa.md#execution-evidence)대로 Parent가 남깁니다.
 - [Lifecycle owner](../../development/agent-workflows/subagent-lifecycle.md): `resultDisposition`, `cleanupDisposition`, `closeDisposition`,

@@ -47,10 +47,13 @@ Leader가 보고하는 runtime evidence(surface·provenance·roster·configurati
 Parent가 보고하는 사후 실행 대조는 두지 않습니다. 그 확인은 host가 직접 남기는 두 계층이 맡습니다.
 
 - **호출 시점**: project hook guard(`.codex/hooks/knu-subagent-hooks.mjs`)가 역할 roster, 허용 model, (역할, model) 쌍,
-  bounded fork(`fork_turns` 생략·`all`은 full-history fork로 거절)를 검사하고 child가 연 spawn을 막습니다. Context delivery의
+  bounded fork(`fork_turns` 생략·`all`은 full-history fork로 거절)와 Parent가 `codex:register`로 남긴 등록과의 평문 인자 일치(task
+  name이 정하는 등록 필드 포함)를
+  검사하고, child가 연 spawn과 수락된 child를 대상으로 한 후속·메시지를 막습니다. Context delivery의
   full-history 요청은 이 거절을 반영해 `full-history-fork-denied`로 호환되지 않습니다.
 - **완료**: Parent는 `pnpm codex:completion -- --lane <lane> --token <token> --role <agent_type> --model <model>`로 hook 기록을
-  lane 계약과 대조합니다. 기록이 없거나 bind·계약 model·역할 effort와 맞지 않으면 완료로 받지 않습니다
+  lane 계약과 대조하고, 받을 child는 `pnpm codex:accept`로 수락합니다. 기록이 없거나 bind·등록 봉인·계약 model·역할 effort와
+  맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다
   ([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)). Recovery 재시도 child는 `--retry`와
   decision의 `retryRoute` model로 대조합니다([Recovery ceiling](#recovery-ceiling)).
 
@@ -75,8 +78,8 @@ pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은
 
 - **관측**: child가 실제로 받은 model·effort와 시작·종료는 project hook이 Parent session별
   `.codex/state/knu-subagent-hooks/<session>.jsonl`에 남깁니다. Parent는 `pnpm codex:completion -- --lane <lane> --token <token>
---role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조합니다. 기록이 없거나 spawn bind·계약 model·역할 effort와
-  맞지 않으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
+--role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조하고 `pnpm codex:accept`로 수락합니다. 기록이 없거나 spawn
+  bind·등록 봉인·계약 model·역할 effort와 맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)).
   재시도 child의 계약 model은 decision의 `retryRoute` model입니다. 허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
 - **원인과 조치**: Hook 기록은 원인을 담지 않습니다. Parent는 확인된 사실과 원인 가설을 나눠 남기며 확정되지 않은 원인은
   unknown입니다. 원인별 조치 뒤 같은 oracle을 다시 검증하고, Astra 성공만으로 원래 원인을 확정하지 않습니다.
@@ -128,7 +131,8 @@ primary attempt
   `validateCodexWorkflowResults`의 `recoveryDecisions`). Primary dispatch가 native spawn에서 빼는 lane(context reuse, 호환되지 않는
   delivery, 맞지 않는 candidate 경계나 scope snapshot)은 재시도 spawn도 거절합니다([Native dispatch gate](#native-dispatch-gate)).
 - Primary 완료 대조는 session에 같은 lane·token의 재시도 child(`_retry`)가 있으면 `retry-unreported`로 거절합니다. 재시도 child는
-  그 recovery decision으로만 완료됩니다. Dispatch token `retry`는 다른 lane의 재시도 task name과 겹치므로 쓰지 않습니다.
+  그 recovery decision으로만 완료됩니다. 반대로 primary child가 수락되면 그 lane은 성공으로 끝나 재시도 등록·spawn·수락과
+  재시도 완료 대조(`lane-accepted`)를 모두 거절합니다. Dispatch token `retry`는 다른 lane의 재시도 task name과 겹치므로 쓰지 않습니다.
   `validateCodexWorkflowResults`도 synthesis처럼 모든 decision을 다시 계산하고, complete 결과에 대기·terminal decision이 함께 오면
   거절합니다.
 - `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다. Pending/unknown writer가
@@ -179,7 +183,8 @@ Policy는 child evidence를 정규화하여 leader에게 다음을 제공합니�
 
 Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 dispatch의 lane task path(dispatch token 포함)·
 계약 역할·허용 목록 model·roster와 맞고, 그 task name의 PreToolUse allow 기록(bind)·계약 model(route profile)·역할 pin
-effort와도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
+effort·등록 봉인과도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없고, 그 child의 마지막 Stop을 가리키는 수락 기록
+(`acceptances`)이 있어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
 refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 재시도한 lane은 그 재시도
 child(`_retry` task path)를 decision의 `retryRoute` 역할·model로 같은 조건에 대조합니다. 경계는 [Codex adapter](../adapters/codex.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 

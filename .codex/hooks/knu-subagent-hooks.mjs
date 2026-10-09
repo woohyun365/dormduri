@@ -1,17 +1,29 @@
 // Codex project hook for KNU subagents, registered in `.codex/hooks.json`.
 // PreToolUse allows a spawn only for a repo `knu_*` role with an allowed explicit model that the role has a profile pair
-// for, and a bounded fork. It denies child spawns and every bare `spawn_agent` (V1 roots and V2 providers without tool
-// namespaces). Follow-up and message calls are recorded only. The allow record binds the task name to its role and
-// model; SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort that completion
-// checks compare with that bind. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`, which
-// workspace-write children cannot write. Imports stay inside `node:` so no child-editable module decides a result.
+// for, and a bounded fork, whose plain arguments equal the unused registration `codex:register` wrote for that task
+// name. It denies child spawns, every bare `spawn_agent` (V1 roots and V2 providers without tool namespaces) and the
+// retry of a lane whose primary child was accepted. Follow-up and message calls are recorded, and denied when they
+// target an accepted child. The allow record binds the task name to its role and model and seals the registration;
+// SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort that completion checks
+// compare with that bind. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`, which workspace-write
+// children cannot write; a child can edit a registration, but the fields the task name spells must spell it and the
+// seal keeps what the guard compared. Imports stay inside `node:` so no child-editable module decides a result.
 import { createHash } from 'node:crypto';
-import { appendFileSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const HOOK_RECORD_SCHEMA = 'knu-codex-subagent-hook/v1';
 export const RECORD_DIRECTORY = '.codex/state/knu-subagent-hooks';
+// task-registry.mjs writes `<task name>.json` and `<task name>.accepted.json` per Parent session here.
+export const REGISTRY_DIRECTORY = '.artifacts/tools/codex-native';
+const REGISTRATION_SCHEMA = 'knu-codex-task-registration/v1';
+const ACCEPTANCE_SCHEMA = 'knu-codex-task-acceptance/v1';
+const TASK_NAME = /^[a-z0-9_]{1,128}$/u;
+const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
+const LANE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const ROOT_PATH = '/root/';
+const SPAWN_FIELDS = ['task_name', 'agent_type', 'model', 'reasoning_effort', 'fork_turns'];
 const POLICY_PATH = '.codex/hooks/knu-hook-policy.json';
 const POLICY_SCHEMA = 'knu-codex-hook-policy/v2';
 // Codex joins the V2 tool namespace to the name without a separator (`collaborationspawn_agent`).
@@ -26,7 +38,8 @@ const INPUT_FIELDS = [
   'target',
 ];
 
-export function decideToolUse(payload, policy) {
+// registry = { read(taskName), used(taskName), settled(target) } over the Parent session's registration directory.
+export function decideToolUse(payload, policy, registry) {
   const name = typeof payload?.tool_name === 'string' ? payload.tool_name : '';
   const match = GUARDED_TOOL.exec(name);
   if (!match) return { action: 'ignore' };
@@ -34,7 +47,14 @@ export function decideToolUse(payload, policy) {
   // Codex adds agent_id and agent_type to tool hooks only when a child makes the call.
   const caller = typeof payload.agent_id === 'string' ? 'child' : 'root';
   const decided = (action, reason) => ({ action, tool, caller, ...(reason ? { reason } : {}) });
-  if (tool !== 'spawn_agent') return decided('record');
+  if (tool !== 'spawn_agent') {
+    // A target is a task name, an agent id or the task path the hook records (`/root/<task name>`).
+    const target = payload.tool_input?.target;
+    return typeof target === 'string' &&
+      registry?.settled(target.startsWith(ROOT_PATH) ? target.slice(ROOT_PATH.length) : target)
+      ? decided('deny', 'settled-child')
+      : decided('record');
+  }
   if (caller === 'child') return decided('deny', 'child-spawn-denied');
   if (namespace === '') return decided('deny', 'unnamespaced-spawn-denied');
   const input = payload.tool_input;
@@ -47,7 +67,69 @@ export function decideToolUse(payload, policy) {
   if (!allowedPair(policy.allowedRoleModels, input.agent_type, input.model))
     return decided('deny', 'pair-not-allowed');
   if (!boundedFork(input.fork_turns)) return decided('deny', 'full-history-fork');
-  return decided('allow');
+  const found = TASK_NAME.test(input.task_name ?? '')
+    ? (registry?.read(input.task_name) ?? null)
+    : null;
+  if (found === null) return decided('deny', 'registration-missing');
+  if (found.invalid || !validRegistration(found.registration, payload.session_id, input.task_name))
+    return decided('deny', 'registration-invalid');
+  const { schema, sessionId, ...sealed } = found.registration;
+  if (SPAWN_FIELDS.some((field) => sealed.spawnArguments[field] !== input[field]))
+    return decided('deny', 'registration-mismatch');
+  if (registry.used(input.task_name)) return decided('deny', 'registration-used');
+  if (
+    sealed.kind === 'lane' &&
+    sealed.retry === true &&
+    registry.settled(input.task_name.replace(/_retry$/u, ''))
+  )
+    return decided('deny', 'lane-accepted');
+  return { ...decided('allow'), registration: { digest: found.digest, ...sealed } };
+}
+
+function validRegistration(registration, sessionId, taskName) {
+  return (
+    registration !== null &&
+    typeof registration === 'object' &&
+    !Array.isArray(registration) &&
+    registration.schema === REGISTRATION_SCHEMA &&
+    registration.sessionId === sessionId &&
+    registration.taskName === taskName &&
+    spellsTask(registration) &&
+    registration.spawnArguments !== null &&
+    typeof registration.spawnArguments === 'object'
+  );
+}
+
+// Copy of registrationSpellsTask (scripts/agents/codex/subagent-hook-records.mjs): the lane, token and retry flag, or the
+// review round, id and reviewed lanes, must spell the task name.
+function spellsTask({
+  taskName,
+  kind,
+  dispatchToken: token,
+  laneId,
+  retry,
+  round,
+  reviewId,
+  reviewOf,
+}) {
+  if (typeof token !== 'string' || !DISPATCH_TOKEN.test(token) || token === 'retry') return false;
+  if (kind === 'lane')
+    return (
+      typeof laneId === 'string' &&
+      LANE_ID.test(laneId) &&
+      typeof retry === 'boolean' &&
+      taskName === `${laneId.replaceAll('-', '_')}_${token}${retry ? '_retry' : ''}`
+    );
+  return (
+    kind === 'review' &&
+    Number.isSafeInteger(round) &&
+    round >= 1 &&
+    taskName === `review_${token}_${round}` &&
+    reviewId === `review-${token}-${round}` &&
+    Array.isArray(reviewOf) &&
+    reviewOf.length > 0 &&
+    reviewOf.every((id) => typeof id === 'string' && LANE_ID.test(id))
+  );
 }
 
 function allowedPair(pairs, role, model) {
@@ -67,7 +149,7 @@ function boundedFork(value) {
   return Number.isInteger(value) && value > 0;
 }
 
-export function buildHookRecord(payload, { policy, now, ...provenance } = {}) {
+export function buildHookRecord(payload, { policy, registry, now, ...provenance } = {}) {
   const event = payload?.hook_event_name;
   const base = {
     schema: HOOK_RECORD_SCHEMA,
@@ -78,7 +160,7 @@ export function buildHookRecord(payload, { policy, now, ...provenance } = {}) {
     ...provenance,
   };
   if (event === 'PreToolUse') {
-    const decision = decideToolUse(payload, policy);
+    const decision = decideToolUse(payload, policy, registry);
     if (decision.action === 'ignore') return null;
     return {
       ...base,
@@ -89,6 +171,7 @@ export function buildHookRecord(payload, { policy, now, ...provenance } = {}) {
       decision: decision.action,
       ...(decision.reason ? { reason: decision.reason } : {}),
       input: summarizeInput(payload.tool_input),
+      ...(decision.registration ? { registration: decision.registration } : {}),
     };
   }
   if (event === 'SubagentStart' || event === 'SubagentStop') {
@@ -157,6 +240,7 @@ export function runHook({ payload, root, now }) {
   const policy = parsePolicy(policyText);
   const record = buildHookRecord(payload, {
     policy,
+    registry: fileRegistry(root, payload?.session_id),
     now,
     policyDigest: digest(policyText),
     scriptDigest: digest(readFileSync(fileURLToPath(import.meta.url))),
@@ -164,6 +248,70 @@ export function runHook({ payload, root, now }) {
   });
   if (record) appendRecord(root, record);
   return { stdout: hookOutput(payload.hook_event_name, record), record };
+}
+
+// A missing registration file is no registration; an unreadable directory fails the guard (a spawn denies).
+function fileRegistry(root, sessionId) {
+  const directory = SESSION_ID.test(sessionId ?? '')
+    ? join(root, REGISTRY_DIRECTORY, sessionId)
+    : null;
+  const readText = (path) => {
+    try {
+      return readFileSync(path, 'utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+  const parse = (text) => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return undefined;
+    }
+  };
+  return {
+    read(taskName) {
+      const text = directory && readText(join(directory, `${taskName}.json`));
+      if (text === null || text === undefined) return null;
+      const registration = parse(text);
+      return registration === undefined
+        ? { invalid: true }
+        : { registration, digest: digest(text) };
+    },
+    used(taskName) {
+      const text = readText(join(root, RECORD_DIRECTORY, `${sessionId}.jsonl`)) ?? '';
+      return text
+        .split(/\r?\n/u)
+        .map(parse)
+        .some(
+          (record) =>
+            record?.event === 'PreToolUse' &&
+            record.caller === 'root' &&
+            record.decision === 'allow' &&
+            record.input?.task_name === taskName,
+        );
+    },
+    settled(target) {
+      if (!directory) return false;
+      let names;
+      try {
+        names = readdirSync(directory);
+      } catch (error) {
+        if (error.code === 'ENOENT') return false;
+        throw error;
+      }
+      return names
+        .filter((name) => name.endsWith('.accepted.json'))
+        .map((name) => parse(readText(join(directory, name)) ?? ''))
+        .some(
+          (acceptance) =>
+            acceptance?.schema === ACCEPTANCE_SCHEMA &&
+            acceptance.sessionId === sessionId &&
+            (acceptance.taskName === target || acceptance.agentId === target),
+        );
+    },
+  };
 }
 
 function parsePolicy(text) {
@@ -207,8 +355,9 @@ function denyOutput(reason) {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
       permissionDecisionReason:
-        `KNU subagent guard: ${reason}. Spawn only a repo knu_* role with an allowed explicit model that the ` +
-        'role has a profile pair for, and fork_turns "none" or a positive integer; children may not spawn.',
+        `KNU subagent guard: ${reason}. Spawn only a registered (codex:register) repo knu_* role with an allowed ` +
+        'explicit model that the role has a profile pair for, and fork_turns "none" or a positive integer; ' +
+        'children may not spawn, and an accepted child is not resumed or retried.',
     },
   });
 }

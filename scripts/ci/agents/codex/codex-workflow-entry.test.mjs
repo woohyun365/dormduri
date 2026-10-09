@@ -19,7 +19,12 @@ import {
   prepareCodexWorkflow,
   validateCodexWorkflowResults,
 } from '../../../agents/codex/workflow-entry.mjs';
-import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-hook-observation.mjs';
+import {
+  acceptedChildren,
+  FIXTURE_DISPATCH_TOKEN,
+  observedChildren,
+  observedReviews,
+} from './fixtures/subagent-hook-observation.mjs';
 const requests = {
   answer: 'API 코드의 역할을 설명해줘.',
   analyze: 'API 오류 원인을 분석해줘.',
@@ -451,6 +456,20 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     'child lane legal-test completion refused: dispatch-token-missing',
   ]);
   i.dispatchToken = FIXTURE_DISPATCH_TOKEN;
+  // With hook records the QA result must come from the registered reviewer child of this dispatch.
+  qa.basePacket.lifecycle.dispatchId = 'review-disp1-1';
+  qa.baseResult.dispatchId = 'review-disp1-1';
+  const reviewed = (observation, reviews = observedReviews({ laneIds: ['legal-test'] })) => ({
+    ...observation,
+    records: [...observation.records, ...reviews.records],
+  });
+  const settled = (observation, extra = {}) => ({
+    results: [r],
+    review,
+    hookObservation: observation,
+    acceptances: acceptedChildren(observation),
+    ...extra,
+  });
   // The workflow forwards the token, so the spawn name binds this dispatch's own hook records. An ordinary lane shows
   // it: the candidate above has no supplied scoped context, so its dispatch stays sequential.
   const ordinary = structuredClone(i);
@@ -466,11 +485,8 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   assert.deepEqual(reportedOnly.errors, [
     'child lane legal-test completion refused: observation-missing',
   ]);
-  const observed = validateCodexWorkflowResults(i, {
-    results: [r],
-    review,
-    hookObservation: observedChildren(w.delegation, { model: 'gpt-6.1-sol' }),
-  });
+  const solChild = reviewed(observedChildren(w.delegation, { model: 'gpt-6.1-sol' }));
+  const observed = validateCodexWorkflowResults(i, settled(solChild));
   assert.equal(observed.valid, true, JSON.stringify(observed.errors));
   assert.deepEqual(
     observed.completionChecks.map(({ laneId, accepted }) => [laneId, accepted]),
@@ -480,11 +496,10 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   const [legalTest] = w.delegation.recommendedChildren;
   assert.equal(getModelProfile(legalTest.routeRecommendation.profileId).model, 'gpt-6.1-sol');
   assert.deepEqual(
-    validateCodexWorkflowResults(i, {
-      results: [r],
-      review,
-      hookObservation: observedChildren(w.delegation, { model: 'gpt-6-astra' }),
-    }).errors,
+    validateCodexWorkflowResults(
+      i,
+      settled(reviewed(observedChildren(w.delegation, { model: 'gpt-6-astra' }))),
+    ).errors,
     ['child lane legal-test completion refused: model-mismatch'],
   );
   // The 6.1 Sol attempt failed its result quality and retried one rung up: the Astra retry child completes the lane
@@ -508,16 +523,16 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       },
     ],
   });
-  const onRetry = observedChildren(w.delegation, {
-    model: 'gpt-6-astra',
-    retryLaneIds: ['legal-test'],
-  });
-  const retryChecked = validateCodexWorkflowResults(i, {
-    results: [r],
-    review,
-    hookObservation: onRetry,
-    recoveryDecisions: [retried],
-  });
+  const onRetry = reviewed(
+    observedChildren(w.delegation, {
+      model: 'gpt-6-astra',
+      retryLaneIds: ['legal-test'],
+    }),
+  );
+  const retryChecked = validateCodexWorkflowResults(
+    i,
+    settled(onRetry, { recoveryDecisions: [retried] }),
+  );
   assert.equal(retryChecked.valid, true, JSON.stringify(retryChecked.errors));
   for (const [recoveryDecisions, message] of [
     [retried, 'recoveryDecisions must be an array.'],
@@ -560,22 +575,192 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       }),
     { name: 'TypeError', message: 'recovery decision must use the bounded schema.' },
   );
+  assert.deepEqual(validateCodexWorkflowResults(i, settled(onRetry)).errors, [
+    'child lane legal-test completion refused: retry-unreported',
+  ]);
   assert.deepEqual(
-    validateCodexWorkflowResults(i, { results: [r], review, hookObservation: onRetry }).errors,
-    ['child lane legal-test completion refused: retry-unreported'],
+    validateCodexWorkflowResults(
+      i,
+      settled(reviewed(observedChildren(w.delegation, { bind: false }))),
+    ).errors,
+    ['child lane legal-test completion refused: observation-unbound'],
+  );
+  const foreign = reviewed(observedChildren(w.delegation, { agentType: 'default' }));
+  assert.deepEqual(validateCodexWorkflowResults(i, settled(foreign)).errors, [
+    'child lane legal-test completion refused: role-not-in-roster',
+  ]);
+  // Acceptance: each complete child lane and every reviewer child under the token needs its acceptance record.
+  assert.deepEqual(validateCodexWorkflowResults(i, settled(solChild, { acceptances: [] })).errors, [
+    'child lane legal-test completion refused: acceptance-missing',
+    'QA reviewer review_disp1_1 completion refused: acceptance-missing',
+  ]);
+  for (const options of [settled(solChild, { acceptances: {} }), { results: [], acceptances: {} }])
+    assert.throws(() => validateCodexWorkflowResults(i, options), {
+      name: 'TypeError',
+      message: 'acceptances must be an array.',
+    });
+  // A resumed child is no longer the accepted one.
+  const resumedStop = (observation, agentPath) => ({
+    ...observation,
+    records: [
+      ...observation.records,
+      {
+        ...observation.records.findLast((record) => record.agentPath === agentPath),
+        lastMessageBytes: 7,
+      },
+    ],
+  });
+  const acceptedSol = acceptedChildren(solChild);
+  assert.deepEqual(
+    validateCodexWorkflowResults(i, {
+      ...settled(resumedStop(solChild, '/root/legal_test_disp1')),
+      acceptances: acceptedSol,
+    }).errors,
+    ['child lane legal-test completion refused: resumed-after-acceptance'],
   );
   assert.deepEqual(
     validateCodexWorkflowResults(i, {
-      results: [r],
-      review,
-      hookObservation: observedChildren(w.delegation, { bind: false }),
+      ...settled(resumedStop(solChild, '/root/review_disp1_1')),
+      acceptances: acceptedSol,
     }).errors,
-    ['child lane legal-test completion refused: observation-unbound'],
+    ['QA reviewer review_disp1_1 completion refused: resumed-after-acceptance'],
   );
-  const foreign = observedChildren(w.delegation, { agentType: 'default' });
+  // Success ends the lane: an accepted primary child refuses the retry child's completion.
   assert.deepEqual(
-    validateCodexWorkflowResults(i, { results: [r], review, hookObservation: foreign }).errors,
-    ['child lane legal-test completion refused: role-not-in-roster'],
+    validateCodexWorkflowResults(
+      i,
+      settled(onRetry, {
+        recoveryDecisions: [retried],
+        acceptances: [
+          ...acceptedChildren(onRetry),
+          ...acceptedChildren(solChild, { only: ['legal_test_disp1'] }),
+        ],
+      }),
+    ).errors,
+    ['child lane legal-test completion refused: lane-accepted'],
+  );
+  // Reviewer binding: a registered reviewer spawn on the review profile, covering every lane, whose latest round
+  // reported the result; an earlier sibling round stays bound by its own acceptance.
+  const lanesOnly = observedChildren(w.delegation, { model: 'gpt-6.1-sol' });
+  assert.deepEqual(validateCodexWorkflowResults(i, settled(lanesOnly)).errors, [
+    'QA review has no registered reviewer spawn under this dispatch token',
+  ]);
+  assert.deepEqual(
+    validateCodexWorkflowResults(
+      i,
+      settled(reviewed(lanesOnly, observedReviews({ laneIds: ['other-lane'] }))),
+    ).errors,
+    ['QA review registration must cover every current lane'],
+  );
+  const twoRounds = reviewed(
+    lanesOnly,
+    observedReviews({ laneIds: ['legal-test'], rounds: [1, 2] }),
+  );
+  assert.deepEqual(validateCodexWorkflowResults(i, settled(twoRounds)).errors, [
+    'QA result must come from the latest registered review round',
+  ]);
+  qa.basePacket.lifecycle.dispatchId = 'review-disp1-2';
+  qa.baseResult.dispatchId = 'review-disp1-2';
+  assert.equal(validateCodexWorkflowResults(i, settled(twoRounds)).valid, true);
+  assert.deepEqual(
+    validateCodexWorkflowResults(i, {
+      ...settled(twoRounds),
+      acceptances: acceptedChildren(twoRounds, { only: ['legal_test_disp1', 'review_disp1_2'] }),
+    }).errors,
+    ['QA reviewer review_disp1_1 completion refused: acceptance-missing'],
+  );
+  // Every reviewer task under the token counts, whatever its seal says: a round sealed with fields that do not spell
+  // its task name, or spawned without an allow record, is refused and still sets the latest round.
+  {
+    const reportRoundOne = (observation, acceptances = acceptedChildren(observation)) => {
+      qa.basePacket.lifecycle.dispatchId = 'review-disp1-1';
+      qa.baseResult.dispatchId = 'review-disp1-1';
+      const verdict = validateCodexWorkflowResults(i, { ...settled(observation), acceptances });
+      qa.basePacket.lifecycle.dispatchId = 'review-disp1-2';
+      qa.baseResult.dispatchId = 'review-disp1-2';
+      return verdict;
+    };
+    const roundTwo = (change) => {
+      const observation = structuredClone(twoRounds);
+      change(observation);
+      return observation;
+    };
+    const sealOf = (observation) =>
+      observation.records.find(({ registration }) => registration?.round === 2).registration;
+    const roundOneAccepted = acceptedChildren(twoRounds, {
+      only: ['legal_test_disp1', 'review_disp1_1'],
+    });
+    for (const [label, observation, reason, acceptances] of [
+      [
+        'kind lane',
+        roundTwo((o) => (sealOf(o).kind = 'lane')),
+        'registration-mismatch',
+        roundOneAccepted,
+      ],
+      [
+        'other token',
+        roundTwo((o) => (sealOf(o).dispatchToken = 'zzzz')),
+        'registration-invalid',
+        roundOneAccepted,
+      ],
+      [
+        'no allow record',
+        roundTwo((o) => {
+          o.records = o.records.filter(({ registration }) => registration?.round !== 2);
+        }),
+        'observation-unbound',
+        roundOneAccepted,
+      ],
+      [
+        'round-one review id',
+        roundTwo((o) => (sealOf(o).reviewId = 'review-disp1-1')),
+        'registration-invalid',
+      ],
+      ['round one', roundTwo((o) => (sealOf(o).round = 1)), 'registration-invalid'],
+    ]) {
+      const verdict = reportRoundOne(observation, acceptances);
+      assert.equal(verdict.valid, false, label);
+      assert.ok(
+        verdict.errors.includes(`QA reviewer review_disp1_2 completion refused: ${reason}`),
+        `${label}: ${JSON.stringify(verdict.errors)}`,
+      );
+      assert.ok(
+        verdict.errors.includes('QA result must come from the latest registered review round'),
+        `${label}: ${JSON.stringify(verdict.errors)}`,
+      );
+    }
+  }
+  qa.basePacket.lifecycle.dispatchId = 'review-disp1-1';
+  qa.baseResult.dispatchId = 'review-disp1-1';
+  assert.deepEqual(
+    validateCodexWorkflowResults(
+      i,
+      settled(
+        reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], model: 'gpt-6.1-sol' })),
+      ),
+    ).errors,
+    ['QA reviewer review_disp1_1 completion refused: pair-not-allowed'],
+  );
+  // A sealed round that is not a positive integer is refused before its task path is computed.
+  assert.deepEqual(
+    validateCodexWorkflowResults(
+      i,
+      settled(reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], rounds: [0] }))),
+    ).errors,
+    [
+      'QA reviewer review_disp1_0 completion refused: registration-invalid',
+      'QA result must come from the latest registered review round',
+    ],
+  );
+  // Another token's reviewer does not bind this dispatch's QA.
+  assert.deepEqual(
+    validateCodexWorkflowResults(
+      i,
+      settled(
+        reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], dispatchToken: 'disp9' })),
+      ),
+    ).errors,
+    ['QA review has no registered reviewer spawn under this dispatch token'],
   );
 });
 

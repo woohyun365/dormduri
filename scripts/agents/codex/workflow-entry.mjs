@@ -15,7 +15,13 @@ import {
   createDispatchRecommendation,
   laneCompletionExpectation,
 } from './orchestration-policy.mjs';
-import { COMPLETION_AUTHORITY, checkLaneCompletion } from './subagent-hook-records.mjs';
+import {
+  COMPLETION_AUTHORITY,
+  checkLaneCompletion,
+  checkReviewCompletion,
+  reviewId,
+  reviewTasks,
+} from './subagent-hook-records.mjs';
 
 const WORKFLOW_INPUTS = new Set([
   'request',
@@ -198,11 +204,13 @@ function composeCodexWorkflow({
 }
 
 // Recompute the contract from original request/evidence, never trust an edited prepared object. A complete child lane
-// also needs its own hook records (hookObservation = readHookRecords() result); the Parent direct lane has no child
-// to observe. A lane that ran its recovery retry passes its decision, which names the retry child to check.
+// also needs its own hook records (hookObservation = readHookRecords() result) and the acceptance record of its
+// accepted child (acceptances); the Parent direct lane has no child to observe. A lane that ran its recovery retry
+// passes its decision, which names the retry child to check. With hook records the QA must also come from accepted
+// reviewer children of this dispatch.
 export function validateCodexWorkflowResults(
   input,
-  { results = [], review, hookObservation, recoveryDecisions = [] } = {},
+  { results = [], review, hookObservation, recoveryDecisions = [], acceptances = [] } = {},
 ) {
   const workflow = prepareCodexWorkflow(input);
   const fanIn = validateFanIn({
@@ -219,6 +227,7 @@ export function validateCodexWorkflowResults(
     workflow.delegation.recommendedChildren.map((contract) => [contract.laneId, contract]),
   );
   if (!Array.isArray(recoveryDecisions)) throw new TypeError('recoveryDecisions must be an array.');
+  if (!Array.isArray(acceptances)) throw new TypeError('acceptances must be an array.');
   const recoveries = new Map();
   for (const decision of recoveryDecisions) {
     // Every decision is recomputed against its lane contract (an unknown lane is refused), not only the ones a
@@ -249,6 +258,7 @@ export function validateCodexWorkflowResults(
         observation: hookObservation,
         laneId,
         dispatchToken: input?.dispatchToken,
+        acceptances,
         ...laneCompletionExpectation({
           contract: children.get(laneId),
           ...(recoveries.has(laneId) ? { recoveryDecision: recoveries.get(laneId) } : {}),
@@ -300,6 +310,16 @@ export function validateCodexWorkflowResults(
       errors.push(
         'A build profile requires reported Astra QA; host observation still needs verification',
       );
+    if (hookObservation !== undefined)
+      errors.push(
+        ...reviewerErrors({
+          observation: hookObservation,
+          dispatchToken: input?.dispatchToken,
+          acceptances,
+          laneIds: workflow.lanes.map(({ id }) => id),
+          dispatchId: review.result?.dispatchId,
+        }),
+      );
   } else if (workflow.requiresIndependentReview) errors.push('independent QA exchange required');
   return {
     valid: errors.length === 0,
@@ -313,6 +333,41 @@ export function validateCodexWorkflowResults(
     runtimeQualified: false,
     liveChecks: [...workflow.liveChecks, 'parent-reproduces-findings-and-verifies-actual-changes'],
   };
+}
+
+// Every reviewer task under this dispatch token (allowed, started or claimed by a review seal) is accepted and not
+// resumed, so a sibling round cannot be left out, and each runs the review role on its review profile model under a seal
+// that spells its task name. The reported result comes from the latest round the task names spell, whose registration
+// covers every current lane.
+function reviewerErrors({ observation, dispatchToken, acceptances, laneIds, dispatchId }) {
+  const reviews = reviewTasks(observation, dispatchToken);
+  if (reviews.length === 0)
+    return ['QA review has no registered reviewer spawn under this dispatch token'];
+  const errors = [];
+  for (const { taskName, round } of reviews) {
+    if (round === null) {
+      errors.push(`QA reviewer ${taskName} completion refused: registration-invalid`);
+      continue;
+    }
+    const { accepted, reason } = checkReviewCompletion({
+      observation,
+      dispatchToken,
+      round,
+      acceptances,
+    });
+    if (!accepted) errors.push(`QA reviewer ${taskName} completion refused: ${reason}`);
+  }
+  const latest = reviews
+    .filter(({ round }) => round !== null)
+    .reduce((last, review) => (last === null || review.round > last.round ? review : last), null);
+  if (latest === null || dispatchId !== reviewId(dispatchToken, latest.round)) {
+    errors.push('QA result must come from the latest registered review round');
+    if (latest === null) return errors;
+  }
+  const reviewOf = latest.registration?.reviewOf;
+  if (!Array.isArray(reviewOf) || laneIds.some((id) => !reviewOf.includes(id)))
+    errors.push('QA review registration must cover every current lane');
+  return errors;
 }
 
 function main(args) {
