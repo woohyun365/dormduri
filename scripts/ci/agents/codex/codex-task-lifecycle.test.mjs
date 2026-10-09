@@ -162,6 +162,10 @@ test('guard denies a spawn without a matching unused registration with its own r
   for (const registration of [
     { ...laneRegistration(), sessionId: 'other-session' },
     { ...laneRegistration(), taskName: 'lane_two_disp1' },
+    {
+      ...laneRegistration({ taskName: 'lane_two_disp1', laneId: 'lane-two' }),
+      spawnArguments: laneRegistration().spawnArguments,
+    },
     { ...laneRegistration(), kind: 'other' },
     { ...laneRegistration(), schema: 'knu-codex-task-registration/v0' },
     { ...laneRegistration(), spawnArguments: null },
