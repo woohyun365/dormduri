@@ -9,6 +9,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -40,6 +41,34 @@ const POLICY = {
 const hooks = () => import('../../../../.codex/hooks/knu-subagent-hooks.mjs');
 const records = () => import('../../../agents/codex/subagent-hook-records.mjs');
 
+// A registration whose spawn arguments are the call's plain arguments, as `codex:register` writes it before the spawn.
+function registrationFor(call) {
+  const input = call.tool_input;
+  return {
+    schema: 'knu-codex-task-registration/v1',
+    sessionId: SESSION,
+    taskName: input.task_name,
+    kind: 'lane',
+    laneId: 'lane-one',
+    retry: false,
+    spawnArguments: Object.fromEntries(
+      ['task_name', 'agent_type', 'model', 'reasoning_effort', 'fork_turns']
+        .filter((field) => input[field] !== undefined)
+        .map((field) => [field, input[field]]),
+    ),
+  };
+}
+
+function registryFor(call) {
+  const registration = registrationFor(call);
+  const digest = `sha256:${createHash('sha256').update(JSON.stringify(registration)).digest('hex')}`;
+  return {
+    read: (taskName) => (taskName === registration.taskName ? { registration, digest } : null),
+    used: () => false,
+    settled: () => false,
+  };
+}
+
 function spawnCall(input, { toolName = 'collaborationspawn_agent', child = false } = {}) {
   return {
     session_id: SESSION,
@@ -67,12 +96,12 @@ test('guard allows a repo roster spawn with an allowed explicit model and a boun
     [{ fork_turns: '3' }, 'collaborationspawn_agent'],
     [{ fork_turns: 2 }, 'collaborationspawn_agent'],
     [{ agent_type: 'knu_reviewer' }, 'teamspawn_agent'],
-  ])
-    assert.deepEqual(decideToolUse(spawnCall(input, { toolName }), POLICY), {
-      action: 'allow',
-      tool: 'spawn_agent',
-      caller: 'root',
-    });
+  ]) {
+    const call = spawnCall(input, { toolName });
+    const { registration, ...decision } = decideToolUse(call, POLICY, registryFor(call));
+    assert.deepEqual(decision, { action: 'allow', tool: 'spawn_agent', caller: 'root' });
+    assert.deepEqual(registration.spawnArguments, registrationFor(call).spawnArguments);
+  }
 });
 
 test('guard denies each spawn outside the three conditions with its own reason', async () => {
@@ -111,7 +140,11 @@ test('guard denies an allowed model that the role has no profile pair for', asyn
     { agent_type: 'knu_explorer', model: SOL },
     { agent_type: 'knu_explorer_xhigh', model: LUNA },
   ])
-    assert.equal(decideToolUse(spawnCall(input), POLICY).action, 'allow', JSON.stringify(input));
+    assert.equal(
+      decideToolUse(spawnCall(input), POLICY, registryFor(spawnCall(input))).action,
+      'allow',
+      JSON.stringify(input),
+    );
   // A policy without pairs, or with inherited object keys, allows nothing.
   assert.equal(
     decideToolUse(spawnCall({}), { ...POLICY, allowedRoleModels: undefined }).reason,
@@ -163,6 +196,7 @@ test('hook records keep identities and sizes but never message text', async () =
   const { buildHookRecord } = await hooks();
   const record = buildHookRecord(spawnCall({}), {
     policy: POLICY,
+    registry: registryFor(spawnCall({})),
     now: '2026-10-06T00:00:00Z',
   });
   assert.equal(record.event, 'PreToolUse');
@@ -262,6 +296,10 @@ test('the installed hook writes session records under .codex/state and prints th
     /pair-not-allowed/u,
   );
 
+  // A spawn needs its registration in the Parent session's registration directory.
+  const registrations = join(root, '.artifacts/tools/codex-native', SESSION);
+  mkdirSync(registrations, { recursive: true });
+  writeFileSync(join(registrations, 'lane_one.json'), JSON.stringify(registrationFor(spawnCall({}))));
   const allowed = run(spawnCall({}));
   assert.equal(allowed.status, 0, allowed.stderr);
   assert.equal(allowed.stdout, '');
@@ -601,8 +639,8 @@ function childRollout({ effort = 'high', model = 'gpt-6.1-sol' } = {}) {
   ];
 }
 
-// One lane child as the hook writes it: the root PreToolUse allow record that bound its task name, then its start and
-// stop. The stop own-turn effort defaults to the role pin.
+// One lane child as the hook writes it: the root PreToolUse allow record that bound its task name and sealed its
+// registration, then its start and stop. The stop own-turn effort defaults to the role pin.
 function observation({
   records: given,
   sessionId = SESSION,
@@ -627,6 +665,20 @@ function observation({
       caller: 'root',
       decision: 'allow',
       input: { task_name: taskName, agent_type: agentType, model, fork_turns: 'none' },
+      registration: {
+        digest: `sha256:${'0'.repeat(64)}`,
+        taskName,
+        kind: 'lane',
+        laneId: 'lane-one',
+        retry: taskName.endsWith('_retry'),
+        spawnArguments: {
+          task_name: taskName,
+          agent_type: agentType,
+          model,
+          reasoning_effort: ROLE_EFFORTS[agentType] ?? 'high',
+          fork_turns: 'none',
+        },
+      },
     },
     { ...base, event: 'SubagentStart', model, agentPath: `/root/${taskName}`, parentThreadId },
     {

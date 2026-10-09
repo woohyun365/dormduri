@@ -26,7 +26,11 @@ import {
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../../../agents/codex/orchestration-policy.mjs';
-import { FIXTURE_DISPATCH_TOKEN, observedChildren } from './fixtures/subagent-hook-observation.mjs';
+import {
+  acceptedChildren,
+  FIXTURE_DISPATCH_TOKEN,
+  observedChildren,
+} from './fixtures/subagent-hook-observation.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const UNLISTED_MODEL = 'gpt-x-unlisted';
@@ -1075,6 +1079,7 @@ test('prepares evidence for leader-only synthesis without granting child final a
     recoveryDecisions: [],
     conflicts: [],
     hookObservation: observedChildren(delegation),
+    acceptances: acceptedChildren(observedChildren(delegation)),
     dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
@@ -1125,11 +1130,16 @@ test('a leader-reported completed child is refused without its hook observation'
 
 test('hook observations bind each completed lane to its contract role, model and role effort', () => {
   const delegation = legalDelegation();
-  const synthesize = (hookObservation, dispatchToken = FIXTURE_DISPATCH_TOKEN) =>
+  const synthesize = (
+    hookObservation,
+    dispatchToken = FIXTURE_DISPATCH_TOKEN,
+    acceptances = acceptedChildren(hookObservation),
+  ) =>
     prepareLeaderSynthesis({
       delegation,
       childResults: successfulLegalResults(),
       hookObservation,
+      acceptances,
       dispatchToken,
     });
 
@@ -1139,6 +1149,17 @@ test('hook observations bind each completed lane to its contract role, model and
   assert.deepEqual(observed.refusedLaneIds, []);
   assert.ok(
     observed.completionChecks.every(({ accepted, effort }) => accepted && effort === 'xhigh'),
+  );
+  // A completed lane also needs the acceptance record of its accepted child; a list without it refuses the lane.
+  const unaccepted = synthesize(observedChildren(delegation), FIXTURE_DISPATCH_TOKEN, []);
+  assert.equal(unaccepted.readyForLeaderDecision, false);
+  assert.deepEqual(
+    unaccepted.completionChecks.map(({ reason }) => reason),
+    ['acceptance-missing', 'acceptance-missing'],
+  );
+  assert.throws(
+    () => synthesize(observedChildren(delegation), FIXTURE_DISPATCH_TOKEN, {}),
+    { name: 'TypeError', message: 'acceptances must be an array.' },
   );
   // Without the PreToolUse allow record (fail-open guard) nothing bound the spawn.
   assert.deepEqual(
@@ -2082,6 +2103,7 @@ test('recovery and synthesis refuse model attribution because the retry route is
       childResults: successfulLegalResults(),
       recoveryDecisions: [decision([ordinaryFailure, ordinaryAlternate])],
       hookObservation: observedChildren(delegation, { retryLaneIds: [laneId] }),
+      acceptances: acceptedChildren(observedChildren(delegation, { retryLaneIds: [laneId] })),
       dispatchToken: FIXTURE_DISPATCH_TOKEN,
     }).readyForLeaderDecision,
     true,
@@ -2207,6 +2229,7 @@ test('a retried lane completes on its retry route model and task path, and decis
       childResults,
       recoveryDecisions,
       hookObservation,
+      acceptances: acceptedChildren(hookObservation),
       dispatchToken: FIXTURE_DISPATCH_TOKEN,
     });
   const onRetry = (model) => observedChildren(delegation, { model, retryLaneIds: [laneId] });
