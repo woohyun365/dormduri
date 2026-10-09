@@ -5,12 +5,14 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
-import * as delegateSpec from '../../../agents/codex/delegate-spec.mjs';
 import {
   createSemanticFactId,
   createSemanticSourceId,
 } from '../../../agents/codex/routing-policy.mjs';
 import { createReviewDispatch, registerDispatch } from '../../../agents/codex/task-registry.mjs';
+
+// Loaded dynamically so a missing module fails each test with its own reason, not the whole file at import.
+const delegateSpec = await import('../../../agents/codex/delegate-spec.mjs').catch(() => ({}));
 
 const root = resolve(import.meta.dirname, '../../../..');
 const TOKEN = 'n4bspec1';

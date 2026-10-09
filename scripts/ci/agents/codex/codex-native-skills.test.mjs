@@ -3,7 +3,10 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
-import { buildDelegation } from '../../../agents/codex/delegate-spec.mjs';
+// Loaded dynamically so a missing module fails only the test that uses it, with its own reason.
+const { buildDelegation } = await import('../../../agents/codex/delegate-spec.mjs').catch(
+  () => ({}),
+);
 
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -86,7 +89,7 @@ test('the Codex entry routes the repeated procedures to the four skills', () => 
   for (const name of SKILLS)
     assert.ok(
       routing.split('\n').some((line) => line.startsWith('- ') && line.endsWith(`: \`$${name}\``)),
-      name,
+      `${name} in the Codex entry skill routing`,
     );
   assert.match(entry, /repository skill\(`\.agents\/skills`\)로 호출합니다/u);
 });
