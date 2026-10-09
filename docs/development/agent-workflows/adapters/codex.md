@@ -336,13 +336,13 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   own-turn 없음 `effort-unobserved`, `effort-mismatch`이고 기존 사유(`observation-missing`·`-incomplete`·`-mismatch`,
   `model-not-allowed`, `role-not-in-roster`)는 그대로입니다. 허용 목록·roster·역할 쌍·역할 effort는 `model-profiles.mjs`에서
   읽고 호출자가 넘긴 값은 쓰지 않습니다. Token이 없으면 `dispatch-token-missing`, 같은 task path에 child가 둘 이상이면 `observation-ambiguous`로
-  거부합니다. Token은 dispatch마다 새로 정하는 소문자·숫자 4~12자이고, 같은 session에서 lane id를 다시 써도 이전 child 기록이
+  거부합니다. Token은 dispatch마다 새로 정하는 소문자·숫자 4~12자(`retry` 제외)이고, 같은 session에서 lane id를 다시 써도 이전 child 기록이
   새 dispatch를 완료시키지 않게 합니다. Token을 일부러 재사용하는 것은 막지 못합니다. Shell에서는
   `pnpm codex:completion -- --lane <laneId> --token <token> --role <agent_type> --model <계약 model>`(session은
   `CODEX_THREAD_ID`)로 확인합니다. 출력의 `unboundStarts`는 어느 allow 기록과도 짝이 없는 session의 Start 수입니다.
   Recovery 재시도 child는 task path `/root/<lane>_<token>_retry`에서 decision의 `retryRoute` model을 계약 model로 삼아 같은 조건으로
   대조합니다(synthesis·`validateCodexWorkflowResults()`의 `recoveryDecisions`, shell은 `--retry`, [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
-  그 재시도 child가 session에 있는데 decision 없이 primary로 대조하면 `retry-unreported`로 거절합니다. Dispatch token `retry`는 쓰지 않습니다.
+  그 재시도 child가 session에 있는데 decision 없이 primary로 대조하면 `retry-unreported`로 거절합니다.
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
   완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
 - **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이
