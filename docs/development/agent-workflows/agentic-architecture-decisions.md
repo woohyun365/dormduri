@@ -399,8 +399,9 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   거절합니다. (4) Primary child가 수락된 lane은 재시도 등록·spawn·수락을 거절합니다. (5) QA는 그 dispatch token 아래 등록·수락되고
   재개되지 않은 reviewer child(형제 round 포함)에서 와야 하며, 결과 `dispatchId`는 가장 높은 round의 `reviewId`입니다.
 - **Trigger / non-trigger**: Codex 위임 child의 spawn·수락·후속과 hook 기록을 받는 QA / hook 부재·full access 세션, Claude adapter,
-  cross-model handoff 계약, Parent 자신의 파일 쓰기.
-- **기각**: Bash 가로채기로 등록을 보호(`hooks.json` 변경·trust 재승인, code mode 중첩 호출의 hook 발화 미관측), 등록마다 승인
+  cross-model handoff 계약, Parent 자신의 파일 쓰기(hook 강제는 Owner 2026-10-09 결정으로 후속 변경이 맡음).
+- **기각**: Bash 가로채기로 등록을 보호(`hooks.json` 변경·trust 재승인. 결정 당시 미관측이던 code mode 중첩 `apply_patch`·
+  `exec_command`의 PreToolUse 발화는 같은 날 codex-cli 0.161.0에서 관측됨), 등록마다 승인
   상승(사용자 승인 반복), 등록을 `.codex` 아래에 두기(workspace-write에서 Parent도 쓸 수 없음), 재시도 상한을 사실 묶음 단위로
   기록(DA-019의 lane당 한 번 유지).
 - **구현 영향**: `task-registry.mjs`(`registerDispatch`·`createReviewDispatch`·`acceptTask`, `codex:register`·`codex:accept`), hook의
@@ -409,7 +410,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   synthesis·`validateCodexWorkflowResults`의 `acceptances`와 reviewer 결속. `hooks.json`은 바뀌지 않습니다.
 - **검증/한계**: 등록 디렉터리는 child가 쓸 수 있습니다. 봉인 뒤 변경은 효과가 없고 봉인 전 변경은 완료 거부로 끝나지만, 수락
   기록을 지운 뒤의 재개는 hook이 막지 못합니다(fan-in이 재수락을 요구). Target이 task name·agent id가 아니면 기록만 합니다. Hook이
-  없거나 PreToolUse가 실패하면 등록 대조도 없고 완료가 봉인 없음으로 거부됩니다. 정적 회귀는 native 실행 증거가 아닙니다.
+  없거나 PreToolUse가 실패하면 등록 대조도 없고 완료가 봉인 없음으로 거부됩니다. 정적 회귀는 native 실행 증거가 아니며, native 실행은
+  codex-cli 0.161.0 한 세션(등록 전·인자 불일치 spawn deny, 수락 뒤 후속·메시지 deny, 수락 뒤 재시도 등록 거절, reviewer 수락)만 관측했습니다.
 - **재검토**: hook 범위·trust 동작·code mode hook 발화의 변화, 등록 우회나 재개 시도의 실제 관측, Claude lifecycle 변경이 생길 때입니다.
 
 ## Evidence inventory
