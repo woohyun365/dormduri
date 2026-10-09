@@ -69,7 +69,7 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 - `claims`는 [Reasoning effort routing](../../../docs/development/agent-workflows/adapters/codex.md#reasoning-effort-routing)의
   계층 판정을 predicate로 적습니다. Medium은 `M-01`부터 `M-15`까지 모두 confirmed로 적을 때만 성립합니다. Mandatory signal은
   `X-01`부터 `X-10`까지 또는 domain predicate 이름(`BE-01-concurrency-transaction` 등)이고, 같은 fact를 여러 composite category로
-  세지 않습니다. 숫자 predicate ID별 정의는 아직 없습니다(#608). Rationale에 판정 근거를 적습니다.
+  세지 않습니다. 숫자 predicate ID별 정의는 아직 없습니다(#608). Rationale에 판정 근거를 적습니다. Confirmed claim이 하나도 없는 lane은 위임 단계에서 보류됩니다.
 - `delivery`는 fresh child가 받는 scoped packet입니다. Candidate model lane은 이것이 없으면 보류됩니다.
 - `modelRequest`를 생략하면 CLI가 Pass 2 결과와 `verifies` 태그에 맞는
   [후보 profile](../../../docs/development/agent-workflows/adapters/codex-model-profiles.md#quality-gated-model-advice)을
@@ -79,6 +79,7 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 
 1. `pnpm -s codex:delegate -- lanes --spec <spec> --out <delegation.json>`을 실행합니다. 출력 `lanes`에서 lane마다
    `modelRequest`(`default`·`omitted`·`explicit`·`astra`), 역할·effort·model과 보류 사유(`deferred`)를 확인합니다.
+   `deferred.stage`가 `delegation`이면 그 lane의 route·선택 사유(`reasons`), `dispatch`면 dispatch 사유와 `gaps`입니다.
    보류된 lane은 사유를 고치거나 Parent가 직접 합니다.
 2. `pnpm -s codex:register -- --dispatch <delegation.json>`으로 등록합니다. 출력의 `digest`는 수락 때 대조하므로 기록합니다.
 3. 출력의 `spawnArguments`를 바꾸지 않고 spawn 도구에 그대로 넘깁니다. 메시지에는 delegation 파일의 그 dispatch `contract`

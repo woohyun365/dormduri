@@ -172,9 +172,32 @@ test('a candidate without a scoped packet is deferred with the context gap', () 
   const out = delegateSpec.buildDelegation(spec({ lane: { delivery: undefined } }), { root });
   assert.equal(out.dispatches.length, 0);
   assert.equal(out.lanes[0].modelRequest, 'default');
+  assert.equal(out.lanes[0].deferred.stage, 'dispatch');
   assert.ok(
     out.lanes[0].deferred.gaps.includes('model-context-incompatible'),
     JSON.stringify(out.lanes[0]),
+  );
+});
+
+// Live N4b: a lane without a confirmed claim beside a dispatched lane showed the dispatch-wide reason and no gap.
+test('a lane the delegation defers names its own reason, not the dispatch of the other lanes', () => {
+  const ready = spec().lanes[0];
+  const bare = {
+    ...ready,
+    id: 'bare-lane',
+    writeOwnership: ['apps/web/src/legal/other.test.ts'],
+    evidence: { ...ready.evidence, claims: [] },
+  };
+  const out = delegateSpec.buildDelegation(spec({ top: { lanes: [ready, bare] } }), { root });
+  assert.deepEqual(
+    out.dispatches.map(({ laneId }) => laneId),
+    ['legal-test'],
+  );
+  const deferred = out.lanes.find(({ laneId }) => laneId === 'bare-lane').deferred;
+  assert.equal(deferred.stage, 'delegation', JSON.stringify(deferred));
+  assert.ok(
+    deferred.reasons.some((reason) => /Pass 2 evidence is incomplete/u.test(reason)),
+    JSON.stringify(deferred),
   );
 });
 

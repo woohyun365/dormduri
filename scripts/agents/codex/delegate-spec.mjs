@@ -63,11 +63,7 @@ export function buildDelegation(spec, { root }) {
     lanes: lanes.map(({ candidate, modelRequest }) => {
       const dispatch = dispatches.find(({ laneId }) => laneId === candidate.id);
       if (!dispatch)
-        return {
-          laneId: candidate.id,
-          modelRequest,
-          deferred: { reason: workflow.dispatch.reason, gaps: workflow.dispatch.gaps },
-        };
+        return { laneId: candidate.id, modelRequest, deferred: deferral(workflow, candidate.id) };
       return {
         laneId: candidate.id,
         modelRequest,
@@ -79,6 +75,14 @@ export function buildDelegation(spec, { root }) {
     }),
     dispatches,
   };
+}
+
+// Why a lane has no dispatch: the delegation deferred it (its route or selection reasons), or the dispatch of the
+// recommended lanes stopped (that dispatch's reason and gaps).
+function deferral(workflow, laneId) {
+  const deferred = workflow.delegation.deferredLanes.find((lane) => lane.laneId === laneId);
+  if (deferred) return { stage: 'delegation', reasons: deferred.reasons };
+  return { stage: 'dispatch', reason: workflow.dispatch.reason, gaps: workflow.dispatch.gaps };
 }
 
 // `modelRequest` in the summary: default (filled), omitted (nothing admitted), explicit (the Parent's), astra (opt-out).
