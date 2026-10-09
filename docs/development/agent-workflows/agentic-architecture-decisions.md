@@ -393,11 +393,13 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   lane 완료로 읽혔습니다(codex-cli 0.161.0 관측). Reviewer 결과는 보고된 `observedModel`만으로 PASS에 연결됐습니다. Claude adapter는
   등록·정산된 task만 위임 완료로 받습니다([Claude native registry](./adapters/claude-native-registry.md)).
 - **결정**: (1) Parent는 dispatch가 계산한 spawn 인자를 `codex:register`로 Parent session의 등록 디렉터리에 한 번만 등록하고, hook은
-  평문 인자가 그 미사용 등록과 같을 때만 spawn을 허용하며 등록을 allow 기록에 봉인합니다. (2) 완료 대조는 봉인이 lane 계약(종류·
-  역할·model·역할 pin)과 같아야 하고, fan-in은 `codex:accept`가 쓴 수락 기록이 그 child의 마지막 Stop을 가리켜야 받습니다.
+  평문 인자가 그 미사용 등록과 같고 task name이 정하는 등록 필드(lane id·token·재시도 표시, reviewer round·`reviewId`)가 그 이름과
+  맞을 때만 spawn을 허용하며 등록을 allow 기록에 봉인합니다. (2) 완료 대조는 봉인이 lane 계약(종류·역할·model·역할 pin)과 task
+  name에 맞아야 하고, fan-in은 `codex:accept`가 쓴 수락 기록이 그 child의 마지막 Stop을 가리켜야 받습니다.
   (3) Hook은 수락된 child를 target으로 한 `followup_task`·`send_message`를 deny하고, 수락 뒤 같은 child의 Stop이 더 있으면 완료를
   거절합니다. (4) Primary child가 수락된 lane은 재시도 등록·spawn·수락을 거절합니다. (5) QA는 그 dispatch token 아래 등록·수락되고
-  재개되지 않은 reviewer child(형제 round 포함)에서 와야 하며, 결과 `dispatchId`는 가장 높은 round의 `reviewId`입니다.
+  재개되지 않은 reviewer child(형제 round 포함, 봉인이 어긋나거나 allow 기록이 없는 round도 이름으로 셈)에서 와야 하며, 결과
+  `dispatchId`는 task name이 정하는 가장 높은 round의 `reviewId`입니다.
 - **Trigger / non-trigger**: Codex 위임 child의 spawn·수락·후속과 hook 기록을 받는 QA / hook 부재·full access 세션, Claude adapter,
   cross-model handoff 계약, Parent 자신의 파일 쓰기(hook 강제는 Owner 2026-10-09 결정으로 후속 변경이 맡음).
 - **기각**: Bash 가로채기로 등록을 보호(`hooks.json` 변경·trust 재승인. 결정 당시 미관측이던 code mode 중첩 `apply_patch`·
@@ -406,11 +408,13 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   기록(DA-019의 lane당 한 번 유지).
 - **구현 영향**: `task-registry.mjs`(`registerDispatch`·`createReviewDispatch`·`acceptTask`, `codex:register`·`codex:accept`), hook의
   `registration-missing`·`-invalid`·`-mismatch`·`-used`·`lane-accepted`·`settled-child` deny와 봉인, 완료 대조의
-  `registration-unsealed`·`registration-mismatch`·`acceptance-missing`·`acceptance-mismatch`·`resumed-after-acceptance`·`lane-accepted`,
+  `registration-unsealed`·`registration-mismatch`·`registration-invalid`·`acceptance-missing`·`acceptance-mismatch`·`resumed-after-acceptance`·`lane-accepted`,
   synthesis·`validateCodexWorkflowResults`의 `acceptances`와 reviewer 결속. `hooks.json`은 바뀌지 않습니다.
-- **검증/한계**: 등록 디렉터리는 child가 쓸 수 있습니다. 봉인 뒤 변경은 효과가 없고 봉인 전 변경은 완료 거부로 끝나지만, 수락
-  기록을 지운 뒤의 재개는 hook이 막지 못합니다(fan-in이 재수락을 요구). Target이 task name·agent id가 아니면 기록만 합니다. Hook이
-  없거나 PreToolUse가 실패하면 등록 대조도 없고 완료가 봉인 없음으로 거부됩니다. 정적 회귀는 native 실행 증거가 아니며, native 실행은
+- **검증/한계**: 등록 디렉터리는 child가 쓸 수 있습니다. 봉인 뒤 변경은 효과가 없고, 봉인 전 task name·spawn 인자 필드 변경은
+  hook deny와 완료 거부로 끝나며, task name으로 다시 계산할 수 없는 `reviewOf` 내용은 Parent가 등록 digest와 수락 기록을 대조해
+  확인합니다. 수락 기록을 지운 뒤의 재개는 hook이 막지 못합니다(fan-in이 재수락을 요구). Target이 task name·agent id·
+  `/root/<task name>`이 아니면 기록만 합니다. Hook이 없으면 기록이 없어 `observation-missing`, PreToolUse가 실패하면 allow 기록이 없어
+  `observation-unbound`로 완료가 거부되고 등록 대조도 없습니다. 정적 회귀는 native 실행 증거가 아니며, native 실행은
   codex-cli 0.161.0 한 세션(등록 전·인자 불일치 spawn deny, 수락 뒤 후속·메시지 deny, 수락 뒤 재시도 등록 거절, reviewer 수락)만 관측했습니다.
 - **재검토**: hook 범위·trust 동작·code mode hook 발화의 변화, 등록 우회나 재개 시도의 실제 관측, Claude lifecycle 변경이 생길 때입니다.
 
