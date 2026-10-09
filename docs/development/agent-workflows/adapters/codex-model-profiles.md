@@ -7,7 +7,7 @@ routine 위임 순서는 진입 문서의 [Reasoning effort routing](./codex.md#
 ## Quality-gated model advice
 
 Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없거나 후보가
-admission을 통과하지 못하면 위 Astra 배정이 그대로입니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
+admission을 통과하지 못하면 [Astra 배정](./codex.md#reasoning-effort-routing)이 그대로입니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
 후보는 자기 역할 변형을 가지며, 그 역할의 pin effort가 곧 호출 effort입니다.
 
 | Candidate profile | model / 역할(effort)                                  | 계층·impact                      | 범위                                                                  | 운영    |

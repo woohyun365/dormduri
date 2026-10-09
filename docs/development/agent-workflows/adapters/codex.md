@@ -135,7 +135,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    작은 deterministic 작업·단일 chain은 child0입니다. 분리 가능한 미해결 질문 하나에 primary owner를 배정하고
    [불필요한 중복과 독립 QA](../orchestration.md#primary-작업과-증거-재사용)를 구별합니다.
 2. **Task→profile**: current Pass 2 사실에서 complete boundedness·빈 gap과 실제 oracle/검증 계획을 확인하고, 계층·impact가
-   위 표의 한 행에 맞는지 봅니다. Medium 읽기는 `standard-read`, High·XHigh·impact high 읽기는 `elevated-read`, Medium 구현은
+   [후보 표](./codex-model-profiles.md#quality-gated-model-advice)의 한 행에 맞는지 봅니다. Medium 읽기는 `standard-read`, High·XHigh·impact high 읽기는 `elevated-read`, Medium 구현은
    `standard-build`, High(non-deep)·low·medium impact 구현은 `elevated-build`, 고정 입력의 low-impact 단일 추출은 `extract`입니다.
    Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 [Astra 배정](#reasoning-effort-routing)입니다.
 3. **완전한 packet**: [request/context 계약](./codex-delegation.md#model-recommendation)의 `purpose=routine`, 현재
