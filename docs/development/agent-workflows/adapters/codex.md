@@ -336,6 +336,9 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   못하고, spawn 전에 바뀐 등록은 봉인된 값이 lane 계약과 달라 완료가 거부됩니다. 수락 기록이 지워지면 fan-in이 그 lane을
   `acceptance-missing`으로 거부하지만, 지운 뒤의 재개는 hook이 막지 못하므로 다시 수락해야 합니다(재개된 Stop은 원래 수락과
   맞지 않음). Target이 task name이나 agent id가 아닌 형식이면 수락 여부를 알 수 없어 기록만 합니다.
+- **Parent 쓰기**: code mode `exec` 안에서 중첩 호출한 `apply_patch`·`exec_command`도 PreToolUse를 거칩니다(codex-cli 0.161.0 관측,
+  `apply_patch`·`Bash` tool_name). Repository hook의 matcher는 이 도구를 넣지 않으므로 Parent 쓰기는 막지 않습니다. 그 강제는
+  `hooks.json` 변경과 trust 재승인을 함께 다루는 후속 결정입니다.
 - **내장·OMX 역할**: project hook이 로드된 세션에서는 이 repository 안의 내장 역할(`default` 등)·OMX 역할 spawn이 막힙니다.
   Repository 위임은 `knu_*` 역할로 합니다.
 - **완료 기록**: SubagentStart·SubagentStop은 Parent session별 `.codex/state/knu-subagent-hooks/<session>.jsonl`에 child
