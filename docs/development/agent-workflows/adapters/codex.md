@@ -168,13 +168,13 @@ Dispatch는 config 입력을 받지 않으므로 loaded config의 drift는 dispa
 
 ### Task model configuration and fresh loading
 
-| 설정 owner                                                     | 계약                                                                                                              |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                               |
-| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                  |
-| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                            |
-| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                               |
-| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard·subagent 완료 기록, 허용 model·역할 쌍·roster 정책 사본([hook](#subagent-hook-guardrail과-완료-관측)) |
+| 설정 owner                                                     | 계약                                                                                                                                                   |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                                                                    |
+| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                                                       |
+| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                                                                 |
+| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                                                                    |
+| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard(등록 대조·봉인)·수락 child 후속 deny·subagent 완료 기록, 허용 model·역할 쌍·roster 정책 사본([hook](#subagent-hook-guardrail과-완료-관측)) |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 그래서 effort는 역할 pin이 정하고, dispatch descriptor는 spawn의 `reasoning_effort`를 그 값으로 채웁니다. Model pin이
@@ -377,8 +377,9 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
 - **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이
   `observation-unbound`로 거부합니다. `knu_*` child가 띄운 grandchild는 호출 시점에 막히지 않지만, 그 Start 기록이 lane task
-  path 아래이거나 lane child를 부모 thread로 가리키면 lane을 `observation-foreign`으로 거부합니다. Hook 항목 하나만 바뀌어 그
-  항목만 재검토 대기인 부분 부재도 같습니다.
+  path 아래이거나 lane child를 부모 thread로 가리키면 lane을 `observation-foreign`으로 거부합니다. 수락된 child를 target으로 한
+  후속·메시지도 이때 막히지 않지만, 재개된 turn의 Stop이 수락 기록과 맞지 않아 완료는 `resumed-after-acceptance`로 거부됩니다.
+  Hook 항목 하나만 바뀌어 그 항목만 재검토 대기인 부분 부재도 같습니다.
 - **완료 거부 뒤 writer 변경**: 거부는 결과 수락만 막습니다. Parent는 이미 실행된 writer child가 바꾼 경로를 확인해 계약 밖
   변경을 되돌리거나 handoff하고, 거부된 결과를 통합 근거로 쓰지 않습니다.
 - **엔진과 허용 목록 범위**: 허용 목록 model은 catalog v2 model입니다. Project hook이 로드된 세션에서는 V1 root의 spawn이 전부
