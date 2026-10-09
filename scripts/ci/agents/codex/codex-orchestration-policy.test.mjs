@@ -2325,3 +2325,98 @@ test('installed roles are the ten effort-pinned role files and a route effort mu
     message: 'Route effort must be the effort its role file pins.',
   });
 });
+
+test('a retry dispatch and synthesis recompute the decision state and keep the primary dispatch gates', () => {
+  const { delegation } = modelDispatchInput();
+  const laneId = delegation.recommendedChildren[0].laneId;
+  const route = laneRoute(laneId, delegation);
+  const finished = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [
+      failedAttempt('primary', 'verification-failed'),
+      { ...failedAttempt('retry', 'verification-failed'), alternateOf: 'primary' },
+    ],
+  });
+  // A finished decision relabeled as pending does not buy a second retry.
+  const relabeled = {
+    ...finished,
+    status: 'alternate-available',
+    action: 'alternate-once',
+    remainingAlternateAttempts: 1,
+    disposition: null,
+  };
+  const stateMessage = 'Recovery decision status and action must match its attempts.';
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation,
+        recoveryDecision: relabeled,
+        dispatchToken: 'disp9',
+      }),
+    { name: 'TypeError', message: stateMessage },
+  );
+  // Two failed attempts labeled as done do not let a completed result pass.
+  const done = {
+    ...finished,
+    status: 'not-started',
+    action: 'none',
+    remainingAlternateAttempts: 1,
+    blocker: null,
+    disposition: null,
+  };
+  delete done.prohibitedApproachIds;
+  assert.throws(() => prepareLeaderSynthesis({ delegation, recoveryDecisions: [done] }), {
+    name: 'TypeError',
+    message: stateMessage,
+  });
+  // A lane the primary dispatch keeps out of native spawn gets no retry spawn either.
+  const reuse = ordinaryScopedDispatchInput({
+    mode: 'reuse',
+    previous: {
+      childId: '/root/same-task',
+      laneId: 'legal-repository-map',
+      role: 'knu_explorer_xhigh',
+      sameOutcome: true,
+      scopeUnchanged: true,
+      sourceSnapshot: 'synthetic-source-v1',
+      revalidatedForSnapshot: 'synthetic-source-v1',
+      independentReview: false,
+    },
+  });
+  const [reused] = reuse.delegation.recommendedChildren;
+  const pending = evaluateRecovery({
+    laneId: reused.laneId,
+    route: laneRoute(reused.laneId, reuse.delegation),
+    attempts: [failedAttempt('primary', 'tool-unavailable')],
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation: reuse.delegation,
+        recoveryDecision: pending,
+        dispatchToken: 'disp9',
+      }),
+    {
+      name: 'TypeError',
+      message:
+        'A retry dispatch needs a dispatchable lane: context-reuse-not-a-spawn:legal-repository-map',
+    },
+  );
+  const drifted = structuredClone(delegation);
+  drifted.recommendedChildren[0].objective = 'A changed objective after registration.';
+  const driftedPending = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [failedAttempt('primary', 'verification-failed')],
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation: drifted,
+        recoveryDecision: driftedPending,
+        dispatchToken: 'disp9',
+      }),
+    /A retry dispatch needs a dispatchable lane: .*model-contract-snapshot-changed/u,
+  );
+});

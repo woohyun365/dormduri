@@ -523,6 +523,21 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     [retried, 'recoveryDecisions must be an array.'],
     [[{ ...retried, laneId: 'missing-lane' }], 'Recovery references an unknown lane: missing-lane'],
     [[retried, retried], 'recovery laneId values must be unique.'],
+    // A complete result cannot carry a pending or terminal decision, and every decision is checked.
+    [
+      [
+        evaluateRecovery({
+          laneId: 'legal-test',
+          route: { role, profileId },
+          attempts: [
+            retried.attempts[0],
+            { ...retried.attempts[1], outcome: 'failure', failureCategory: 'verification-failed' },
+          ],
+        }),
+      ],
+      'A completed child result cannot have a pending or terminal recovery.',
+    ],
+    [[{ laneId: 'legal-test' }], 'recovery decision must use the bounded schema.'],
   ])
     assert.throws(
       () =>

@@ -846,6 +846,25 @@ test('a recovery retry runs on its own task path and the completion command chec
   assert.equal(check(true).accepted, true);
   // The primary path is a different child; the retry records do not complete it.
   assert.equal(check(false).reason, 'observation-missing');
+  // A primary check refuses the lane while the session holds its unreported retry child.
+  const both = observation({ taskName: 'lane_one_k3x9' });
+  both.records.push(
+    ...retry.records.map((r) => (r.agentId ? { ...r, agentId: 'child-retry' } : r)),
+  );
+  assert.equal(
+    checkLaneCompletion({
+      observation: both,
+      laneId: 'lane-one',
+      dispatchToken: 'k3x9',
+      expectedRole: 'knu_explorer',
+      expectedModel: ASTRA,
+    }).reason,
+    'retry-unreported',
+  );
+  // `retry` is reserved, so a lane and token never spell another lane's retry task name.
+  const { isDispatchToken } = await records();
+  assert.equal(isDispatchToken('retry'), false);
+  assert.throws(() => laneTaskName('lane-one-k3x9', 'retry'), /dispatch token/u);
   const root = mkdtempSync(join(tmpdir(), 'knu-completion-retry-'));
   try {
     const copy = join(root, 'scripts/agents/codex');

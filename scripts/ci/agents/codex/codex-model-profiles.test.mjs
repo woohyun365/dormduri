@@ -372,3 +372,20 @@ test('the recovery ladder raises a lane one rung on its own role inside the allo
   });
   assert.throws(() => getRecoveryStep('missing-profile', 'knu_explorer'), TypeError);
 });
+
+test('a ladder rung is used only when its next profile admits the lane boundary of the failed profile', () => {
+  const { recoveryRungAdmits, getRecoveryStep, RECOVERY_LADDER } = modelProfiles;
+  // Every rung in the ladder admits each role of its source profile.
+  for (const [from, to] of Object.entries(RECOVERY_LADDER))
+    for (const role of getModelProfile(from).roles)
+      assert.equal(recoveryRungAdmits(from, to, role), true, `${from}->${to}:${role}`);
+  // A next profile without the role, with another effort or a wider tool boundary does not admit the lane.
+  assert.equal(recoveryRungAdmits('extract', 'standard-read', 'knu_explorer_xhigh'), false);
+  assert.equal(recoveryRungAdmits('standard-read', 'elevated-read', 'knu_explorer'), false);
+  assert.equal(recoveryRungAdmits('standard-read', 'standard-build', 'knu_explorer'), false);
+  assert.equal(recoveryRungAdmits('standard-build', 'deep-build', 'knu_executor'), true);
+  assert.deepEqual(getRecoveryStep('extract', 'knu_explorer_xhigh'), {
+    profileId: 'elevated-read',
+    model: 'gpt-6.1-sol',
+  });
+});
