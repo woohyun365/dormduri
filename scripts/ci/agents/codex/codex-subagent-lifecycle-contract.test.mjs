@@ -16,6 +16,7 @@ const ownerPaths = [
   'docs/development/agent-workflows/request-intake/orchestration-recovery.md',
 ];
 const codexAdapterPath = 'docs/development/agent-workflows/adapters/codex.md';
+const codexProfilesPath = 'docs/development/agent-workflows/adapters/codex-model-profiles.md';
 const codexDelegationPath = 'docs/development/agent-workflows/adapters/codex-delegation.md';
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const compact = (source) => source.replace(/\s+/gu, ' ');
@@ -97,7 +98,7 @@ test('troubleshooting links the canonical procedure and states runtime verificat
   for (const owner of [
     'docs/development/agent-workflows/subagent-lifecycle.md',
     'docs/development/agent-workflows/session-continuity.md',
-    'docs/development/agent-workflows/adapters/codex.md',
+    codexProfilesPath,
   ])
     assert.match(read(owner), /troubleshooting\/tooling\/agent-thread-limit-reached\.md/u, owner);
   assert.match(source, /정적.*실제.*슬롯.*증명하지/u);
@@ -303,10 +304,10 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   assert.match(orchestration, /agentic-architecture-decisions\.md#routine-model-adoption/u);
   assert.match(read(codexDelegationPath), /codex\.md#routine-task-model-operation/u);
   // Withdrawal stays a Parent duty without a per-lane admission packet.
-  const withdrawal = section(codexAdapterPath, 'Suspension and Astra-only rollback');
+  const withdrawal = section(codexProfilesPath, 'Suspension and Astra-only rollback');
   assert.match(withdrawal, /철회.*Parent.*운영 책임/u);
   assert.doesNotMatch(operation, /modelUseByLane|evaluateModelExecution/u);
-  assert.match(orchestration, /rollback.*새 revision/u);
+  assert.match(read(codexProfilesPath), /rollback.*새 revision/u);
   assert.match(decisions, /id="routine-model-adoption"/u);
   assert.match(decisions, /2026-09-24\.3/u);
   // The historical revision stays; the installed revision must also be recorded.

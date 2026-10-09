@@ -4,11 +4,11 @@
 [Orchestration](../orchestration.md), [QA](../qa.md), [위임](../request-intake/delegation.md)이 책임·인수 기준을 소유하며,
 adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결합니다. 모든 adapter를 기본 입력으로 읽지 않습니다.
 
-| Host        | Entry                     | 프로젝트 역할          | 조건부 실행 계약                                                                                   |
-| ----------- | ------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| Codex/OMX   | `AGENTS.md`               | `.codex/agents/*.toml` | [Codex](./codex.md): model/effort, native routing, sandbox, OMX                                    |
-| Claude Code | `CLAUDE.md` → `AGENTS.md` | `.claude/agents/*.md`  | [Claude Code](./claude-code.md): 진입 절차와 reference 4개(registry, review, model, qualification) |
-| 향후 host   | 승인된 adapter entry      | 해당 host 정의         | 같은 공통 계약과 적합성 검사; 등록 전 Codex fallback 없음                                          |
+| Host        | Entry                     | 프로젝트 역할          | 조건부 실행 계약                                                                                       |
+| ----------- | ------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| Codex/OMX   | `AGENTS.md`               | `.codex/agents/*.toml` | [Codex](./codex.md): 진입 절차, reference 4개(model, registry, diagnostics, qualification)와 위임 계약 |
+| Claude Code | `CLAUDE.md` → `AGENTS.md` | `.claude/agents/*.md`  | [Claude Code](./claude-code.md): 진입 절차와 reference 4개(registry, review, model, qualification)     |
+| 향후 host   | 승인된 adapter entry      | 해당 host 정의         | 같은 공통 계약과 적합성 검사; 등록 전 Codex fallback 없음                                              |
 
 같은 역할 이름·packet은 capability 동등성의 증거가 아닙니다. Lead는 현재 loaded instructions·role/tool·권한·source를
 확인합니다. 지원이 없으면 허용된 direct/sequential 작업 또는 bounded blocker를 선택합니다. Prompt로 다른 host의
