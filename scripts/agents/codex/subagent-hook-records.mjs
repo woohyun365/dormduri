@@ -23,6 +23,7 @@ const HOOK_RECORD_SCHEMA = 'knu-codex-subagent-hook/v1';
 const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
 // The Parent picks a fresh token per dispatch so a lane id reused in one session never matches an earlier child.
 const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
+const LANE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const ROOT_PATH = '/root/';
 
 // `retry` is reserved: a lane id ending in a token plus the token `retry` would spell another lane's retry task name.
@@ -56,6 +57,34 @@ export function reviewId(dispatchToken, round) {
 
 export function reviewTaskName(dispatchToken, round) {
   return reviewId(dispatchToken, round).replaceAll('-', '_');
+}
+
+export function isLaneId(value) {
+  return typeof value === 'string' && LANE_ID.test(value);
+}
+
+// A registration's lane, token, retry flag or review round, id and reviewed lanes are Parent inputs that a child can
+// edit in the file before the spawn; the fields the task name spells must spell it. The hook keeps its own copy of
+// this rule (it imports only `node:` modules).
+export function registrationSpellsTask(registration) {
+  const { taskName, kind, dispatchToken } = registration ?? {};
+  if (typeof taskName !== 'string' || !isDispatchToken(dispatchToken)) return false;
+  if (kind === 'lane')
+    return (
+      isLaneId(registration.laneId) &&
+      typeof registration.retry === 'boolean' &&
+      laneTaskName(registration.laneId, dispatchToken, { retry: registration.retry }) === taskName
+    );
+  return (
+    kind === 'review' &&
+    Number.isSafeInteger(registration.round) &&
+    registration.round >= 1 &&
+    reviewTaskName(dispatchToken, registration.round) === taskName &&
+    registration.reviewId === reviewId(dispatchToken, registration.round) &&
+    Array.isArray(registration.reviewOf) &&
+    registration.reviewOf.length > 0 &&
+    registration.reviewOf.every(isLaneId)
+  );
 }
 
 // The hook appends each record as JSON.stringify(record); an acceptance names the stop it accepted by this digest.
@@ -143,7 +172,8 @@ export function evaluateHookCompletion({
   )
     return refused('observation-mismatch', start);
   // The guard writes the bind before the spawn runs; without it PreToolUse failed open or never saw the spawn.
-  const binds = allowRecords(own, taskPath.slice(ROOT_PATH.length));
+  const taskName = taskPath.slice(ROOT_PATH.length);
+  const binds = allowRecords(own, taskName);
   if (binds.length === 0) return refused('observation-unbound', start);
   if (binds.some(({ input }) => input.agent_type !== start.agentType))
     return refused('observation-mismatch', start);
@@ -190,6 +220,13 @@ export function evaluateHookCompletion({
     )
   )
     return refused('registration-mismatch', start, turn.effort);
+  if (
+    binds.some(
+      ({ registration }) =>
+        registration.taskName !== taskName || !registrationSpellsTask(registration),
+    )
+  )
+    return refused('registration-invalid', start, turn.effort);
   if (acceptance === null) return refused('acceptance-missing', start, turn.effort);
   if (acceptance !== undefined) {
     // A later stop of the accepted child means it ran again after acceptance (a resumed turn).
@@ -268,20 +305,43 @@ export function checkReviewCompletion({ observation, dispatchToken, round, accep
   });
 }
 
-// The registrations the guard sealed for reviewer spawns under a dispatch token, one per task name.
-export function sealedReviews(observation, dispatchToken) {
-  const byTask = new Map();
-  for (const { registration } of ownRecords(observation).filter(
-    ({ event, caller, decision }) =>
-      event === 'PreToolUse' && caller === 'root' && decision === 'allow',
-  ))
+// Every reviewer task under a dispatch token, whatever its seal says: each `review_<token>_<round>` name the session's
+// root allowed or started, and each name a review seal under the token claims. The round comes from the name (null when
+// the name spells none); the registration is the name's last seal, if any.
+export function reviewTasks(observation, dispatchToken) {
+  if (!isDispatchToken(dispatchToken)) return [];
+  const own = ownRecords(observation);
+  const spelled = new RegExp(`^review_${dispatchToken}_([1-9]\\d*)$`, 'u');
+  const names = new Set();
+  for (const { event, caller, decision, input, registration, agentPath } of own) {
+    if (event === 'PreToolUse' && caller === 'root' && decision === 'allow') {
+      if (spelled.test(input?.task_name ?? '')) names.add(input.task_name);
+      if (
+        registration?.kind === 'review' &&
+        registration.dispatchToken === dispatchToken &&
+        typeof registration.taskName === 'string'
+      )
+        names.add(registration.taskName);
+    }
     if (
-      registration?.kind === 'review' &&
-      registration.dispatchToken === dispatchToken &&
-      typeof registration.taskName === 'string'
-    )
-      byTask.set(registration.taskName, registration);
-  return [...byTask.values()];
+      event === 'SubagentStart' &&
+      typeof agentPath === 'string' &&
+      agentPath.startsWith(ROOT_PATH)
+    ) {
+      const name = agentPath.slice(ROOT_PATH.length);
+      if (spelled.test(name)) names.add(name);
+    }
+  }
+  return [...names].map((taskName) => {
+    const match = spelled.exec(taskName);
+    return {
+      taskName,
+      round: match ? Number(match[1]) : null,
+      registration:
+        allowRecords(own, taskName).findLast(({ registration }) => registration)?.registration ??
+        null,
+    };
+  });
 }
 
 function unchecked(reason) {

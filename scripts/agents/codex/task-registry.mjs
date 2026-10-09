@@ -3,8 +3,9 @@
 // project hook allows the spawn only when its plain arguments equal that unused registration and seals it into the
 // allow record. After the child stops, acceptance runs the completion check and records the accepted stop; the hook
 // then denies follow-up and message calls to that child, and a lane's retry after its primary was accepted. Files live
-// under `.artifacts/tools/codex-native/<Parent session>/`, which children can write: the seal and the completion check
-// read the protected hook records, so an edited file refuses rather than accepts.
+// under `.artifacts/tools/codex-native/<Parent session>/`, which children can write: the hook and the completion check
+// require the fields a task name spells to spell it and read the seal from the protected hook records, so an edited file
+// refuses rather than accepts. The Parent compares the rest (`reviewOf`) through the digest `codex:register` prints.
 import { readFileSync, realpathSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -17,8 +18,10 @@ import {
   checkReviewCompletion,
   hookRecordDigest,
   isDispatchToken,
+  isLaneId,
   laneTaskName,
   readHookRecords,
+  registrationSpellsTask,
   reviewId,
   reviewTaskName,
 } from './subagent-hook-records.mjs';
@@ -27,7 +30,8 @@ export const REGISTRY_SEGMENT = 'codex-native';
 export const REGISTRATION_SCHEMA = 'knu-codex-task-registration/v1';
 const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
 const REVIEW_DISPATCH_INPUTS = new Set(['laneIds', 'dispatchToken', 'round']);
-const LANE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+// The hook reads only task names in this form.
+const TASK_NAME = /^[a-z0-9_]{1,128}$/u;
 
 // The hook reads this directory from its own constant and cannot see the Parent's environment, so a configured
 // artifact directory does not move it.
@@ -43,7 +47,7 @@ export function createReviewDispatch(input = {}) {
     if (!REVIEW_DISPATCH_INPUTS.has(key))
       throw new TypeError(`Unsupported review dispatch input: ${key}`);
   const { laneIds, dispatchToken, round = 1 } = input ?? {};
-  if (!Array.isArray(laneIds) || laneIds.length === 0 || !laneIds.every((id) => LANE_ID.test(id)))
+  if (!Array.isArray(laneIds) || laneIds.length === 0 || !laneIds.every(isLaneId))
     throw new TypeError('A review dispatch names the lane ids it reviews.');
   const profile = getModelProfile('review');
   const [role] = profile.roles;
@@ -98,6 +102,10 @@ function describe(dispatch) {
   const { dispatchToken } = dispatch;
   if (!isDispatchToken(dispatchToken))
     throw new TypeError('A registration needs a dispatch token.');
+  if (
+    dispatch.kind === 'review' ? !dispatch.reviewOf?.every?.(isLaneId) : !isLaneId(dispatch.laneId)
+  )
+    throw new TypeError('A registration needs lowercase kebab-case lane ids.');
   const base =
     dispatch.kind === 'review'
       ? {
@@ -141,11 +149,13 @@ function describe(dispatch) {
 }
 
 export function readRegistration({ root, sessionId, taskName }) {
+  checkTaskName(taskName);
   const text = readTask(root, sessionId, `${taskName}.json`);
   return text === null ? null : { registration: JSON.parse(text), digest: digest(text) };
 }
 
 export function readAcceptance({ root, sessionId, taskName }) {
+  checkTaskName(taskName);
   const text = readTask(root, sessionId, `${taskName}.accepted.json`);
   return text === null ? null : JSON.parse(text);
 }
@@ -172,7 +182,11 @@ export function acceptTask({
   });
   if (found === null) return refused('registration-missing');
   const { registration } = found;
-  if (registration?.taskName !== taskName || registration.sessionId !== sessionId)
+  if (
+    registration?.taskName !== taskName ||
+    registration.sessionId !== sessionId ||
+    !registrationSpellsTask(registration)
+  )
     return refused('registration-invalid');
   let verdict;
   if (registration.kind === 'review') {
@@ -184,9 +198,7 @@ export function acceptTask({
     if (verdict.accepted && (verdict.agentType !== expectedRole || verdict.model !== expectedModel))
       return refused('registration-mismatch');
   } else {
-    const retry = registration.retry === true;
-    if (laneTaskName(registration.laneId, registration.dispatchToken, { retry }) !== taskName)
-      return refused('registration-invalid');
+    const { retry } = registration;
     if (
       retry &&
       readAcceptance({
@@ -240,6 +252,11 @@ export function acceptTask({
   return { ...verdict, acceptance };
 }
 
+function checkTaskName(taskName) {
+  if (typeof taskName !== 'string' || !TASK_NAME.test(taskName))
+    throw new TypeError(`task name is invalid: ${taskName}`);
+}
+
 function readTask(root, sessionId, name) {
   try {
     return readFileSync(join(registryDirectory(root, sessionId), name), 'utf8');
@@ -276,9 +293,11 @@ export function runRegistryCommand(argv, { root, env = process.env }) {
     if (!options.dispatch) throw new TypeError('--dispatch is required');
     const file = JSON.parse(readFileSync(options.dispatch, 'utf8'));
     const dispatches = Array.isArray(file?.dispatches) ? file.dispatches : [file];
+    // The digest is what the hook seals and the acceptance records, so the Parent can compare both with it.
     const registered = dispatches.map((dispatch) => {
       const { taskName, spawnArguments } = registerDispatch({ root, sessionId, dispatch });
-      return { taskName, spawnArguments };
+      const { digest } = readRegistration({ root, sessionId, taskName });
+      return { taskName, digest, spawnArguments };
     });
     return { exitCode: 0, stdout: `${JSON.stringify({ sessionId, registered }, null, 2)}\n` };
   }

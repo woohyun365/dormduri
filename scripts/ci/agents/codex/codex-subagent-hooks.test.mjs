@@ -50,6 +50,7 @@ function registrationFor(call) {
     taskName: input.task_name,
     kind: 'lane',
     laneId: 'lane-one',
+    dispatchToken: 'k3x9',
     retry: false,
     spawnArguments: Object.fromEntries(
       ['task_name', 'agent_type', 'model', 'reasoning_effort', 'fork_turns']
@@ -78,7 +79,7 @@ function spawnCall(input, { toolName = 'collaborationspawn_agent', child = false
     tool_name: toolName,
     tool_use_id: 'call_1',
     tool_input: {
-      task_name: 'lane_one',
+      task_name: 'lane_one_k3x9',
       agent_type: 'knu_explorer',
       model: 'gpt-6-astra',
       fork_turns: 'none',
@@ -203,7 +204,7 @@ test('hook records keep identities and sizes but never message text', async () =
   assert.equal(record.sessionId, SESSION);
   assert.equal(record.decision, 'allow');
   assert.deepEqual(record.input, {
-    task_name: 'lane_one',
+    task_name: 'lane_one_k3x9',
     agent_type: 'knu_explorer',
     model: 'gpt-6-astra',
     fork_turns: 'none',
@@ -300,7 +301,7 @@ test('the installed hook writes session records under .codex/state and prints th
   const registrations = join(root, '.artifacts/tools/codex-native', SESSION);
   mkdirSync(registrations, { recursive: true });
   writeFileSync(
-    join(registrations, 'lane_one.json'),
+    join(registrations, 'lane_one_k3x9.json'),
     JSON.stringify(registrationFor(spawnCall({}))),
   );
   const allowed = run(spawnCall({}));
@@ -370,8 +371,9 @@ test('a guard failure denies the spawn instead of failing open', (t) => {
 
 test('completion is accepted only when the bound start and stop records match the lane contract', async () => {
   const { evaluateHookCompletion, laneTaskPath } = await records();
-  const taskPath = laneTaskPath('lane-one');
-  assert.equal(taskPath, '/root/lane_one');
+  assert.equal(laneTaskPath('lane-one'), '/root/lane_one');
+  const taskPath = laneTaskPath('lane-one', 'k3x9');
+  assert.equal(taskPath, '/root/lane_one_k3x9');
   const accepted = evaluateHookCompletion({
     observation: observation(),
     taskPath,
@@ -402,7 +404,7 @@ test('completion is accepted only when the bound start and stop records match th
 
 test('completion is refused for missing, partial, mismatched or out-of-policy observations', async () => {
   const { evaluateHookCompletion } = await records();
-  const refuse = (obs, expectedRole = 'knu_explorer', taskPath = '/root/lane_one') =>
+  const refuse = (obs, expectedRole = 'knu_explorer', taskPath = '/root/lane_one_k3x9') =>
     evaluateHookCompletion({ observation: obs, taskPath, expectedRole, expectedModel: ASTRA })
       .reason;
   assert.equal(refuse(undefined), 'observation-missing');
@@ -435,7 +437,7 @@ test('completion needs the root PreToolUse allow record that bound this task nam
   const refuse = (obs) =>
     evaluateHookCompletion({
       observation: obs,
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       expectedRole: 'knu_explorer',
       expectedModel: ASTRA,
     }).reason;
@@ -477,7 +479,7 @@ test('a descendant start under the lane child refuses the lane', async () => {
     obs.records.push(extra);
     return evaluateHookCompletion({
       observation: obs,
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       expectedRole: 'knu_explorer',
       expectedModel: ASTRA,
     }).reason;
@@ -487,7 +489,7 @@ test('a descendant start under the lane child refuses the lane', async () => {
     refuse(
       startRecord({
         agentId: GRANDCHILD,
-        agentPath: '/root/lane_one/helper',
+        agentPath: '/root/lane_one_k3x9/helper',
         parentThreadId: CHILD,
       }),
     ),
@@ -501,7 +503,7 @@ test('a descendant start under the lane child refuses the lane', async () => {
     refuse(
       startRecord({
         agentId: GRANDCHILD,
-        agentPath: '/root/lane_one/helper',
+        agentPath: '/root/lane_one_k3x9/helper',
         parentThreadId: null,
       }),
     ),
@@ -521,7 +523,7 @@ test('completion compares the observed model and own-turn effort with the lane c
   const check = (obs, { expectedRole = 'knu_explorer', expectedModel = ASTRA } = {}) =>
     evaluateHookCompletion({
       observation: obs,
-      taskPath: '/root/lane_one',
+      taskPath: '/root/lane_one_k3x9',
       expectedRole,
       expectedModel,
     });
@@ -662,7 +664,7 @@ function observation({
   model = ASTRA,
   agentType = 'knu_explorer',
   parentThreadId = SESSION,
-  taskName = 'lane_one',
+  taskName = 'lane_one_k3x9',
 } = {}) {
   const base = {
     schema: 'knu-codex-subagent-hook/v1',
@@ -684,6 +686,7 @@ function observation({
         taskName,
         kind: 'lane',
         laneId: 'lane-one',
+        dispatchToken: 'k3x9',
         retry: taskName.endsWith('_retry'),
         spawnArguments: {
           task_name: taskName,
@@ -979,7 +982,7 @@ test('the completion report counts session starts that no allow record bound', a
   assert.equal(countUnboundStarts(obs), 0);
   obs.records.push(
     startRecord({ agentId: GRANDCHILD, agentPath: '/root/other_lane' }),
-    startRecord({ agentId: 'grand-2', agentPath: '/root/lane_one/helper', parentThreadId: CHILD }),
+    startRecord({ agentId: 'grand-2', agentPath: '/root/lane_one_k3x9/helper', parentThreadId: CHILD }),
     {
       ...startRecord({ agentId: 'elsewhere', agentPath: '/root/x' }),
       sessionId: 'another-session',

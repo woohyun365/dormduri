@@ -524,6 +524,8 @@ test('completion refuses an allow record without a registration seal or with a s
     { dispatchToken: 'disp2' },
     { retry: true },
     { taskName: 'lane_two_disp1' },
+    // A seal that spells another lane is not this lane's registration either.
+    { laneId: 'lane-two', taskName: 'lane_two_disp1' },
   ])
     assert.equal(
       check(sealedWith(changes)).reason,

@@ -19,7 +19,8 @@ import {
   COMPLETION_AUTHORITY,
   checkLaneCompletion,
   checkReviewCompletion,
-  sealedReviews,
+  reviewId,
+  reviewTasks,
 } from './subagent-hook-records.mjs';
 
 const WORKFLOW_INPUTS = new Set([
@@ -334,16 +335,17 @@ export function validateCodexWorkflowResults(
   };
 }
 
-// Every reviewer child the guard allowed under this dispatch token is accepted and not resumed (a sibling round cannot
-// be left out), each runs the review role on its review profile model, and the reported result comes from the latest
-// round, whose registration covers every current lane.
+// Every reviewer task under this dispatch token (allowed, started or claimed by a review seal) is accepted and not
+// resumed, so a sibling round cannot be left out, and each runs the review role on its review profile model under a seal
+// that spells its task name. The reported result comes from the latest round the task names spell, whose registration
+// covers every current lane.
 function reviewerErrors({ observation, dispatchToken, acceptances, laneIds, dispatchId }) {
-  const reviews = sealedReviews(observation, dispatchToken);
+  const reviews = reviewTasks(observation, dispatchToken);
   if (reviews.length === 0)
     return ['QA review has no registered reviewer spawn under this dispatch token'];
   const errors = [];
   for (const { taskName, round } of reviews) {
-    if (!Number.isSafeInteger(round) || round < 1) {
+    if (round === null) {
       errors.push(`QA reviewer ${taskName} completion refused: registration-invalid`);
       continue;
     }
@@ -355,10 +357,15 @@ function reviewerErrors({ observation, dispatchToken, acceptances, laneIds, disp
     });
     if (!accepted) errors.push(`QA reviewer ${taskName} completion refused: ${reason}`);
   }
-  const latest = reviews.reduce((last, review) => (review.round > last.round ? review : last));
-  if (dispatchId !== latest.reviewId)
+  const latest = reviews
+    .filter(({ round }) => round !== null)
+    .reduce((last, review) => (last === null || review.round > last.round ? review : last), null);
+  if (latest === null || dispatchId !== reviewId(dispatchToken, latest.round)) {
     errors.push('QA result must come from the latest registered review round');
-  if (!Array.isArray(latest.reviewOf) || laneIds.some((id) => !latest.reviewOf.includes(id)))
+    if (latest === null) return errors;
+  }
+  const reviewOf = latest.registration?.reviewOf;
+  if (!Array.isArray(reviewOf) || laneIds.some((id) => !reviewOf.includes(id)))
     errors.push('QA review registration must cover every current lane');
   return errors;
 }

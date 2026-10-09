@@ -122,7 +122,8 @@ PASS로 바꾸지 않습니다.
 Descriptor는 contract에서 `spawnArguments={task_name, agent_type, model, reasoning_effort, fork_turns: none}`를 정합니다.
 `agent_type`은 route 역할, `model`은 route profile의 model(ordinary는 `gpt-6-astra`), `reasoning_effort`는 역할 pin입니다. `task_name`은 lane id의 `-`를 `_`로 바꾼 값이고, Parent가 dispatch마다 준 `dispatchToken`이 있으면 `_<token>`을
 붙입니다. 이 이름이 hook 완료 기록과 그 dispatch의 lane을 잇습니다. `fork_turns`는 V2 인자입니다. Parent는 이 descriptor를
-spawn 전에 `codex:register`로 등록하고, hook은 평문 인자가 그 등록과 같을 때만 spawn을 허용합니다
+spawn 전에 `codex:register`로 등록하고, hook은 평문 인자가 그 등록과 같고 task name이 정하는 등록 필드(lane id·token·재시도
+표시)가 그 이름과 맞을 때만 spawn을 허용합니다
 ([등록·수락](./codex.md#subagent-hook-guardrail과-완료-관측)).
 `failures`는 ordinary 전달에서 보존해야 할 근거이며 자동 거절 사유가 아닙니다. Candidate의 profile 경계는 별도로 확인합니다.
 실패한 lane의 재시도는 [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)을 따릅니다. 재시도 spawn 인자는

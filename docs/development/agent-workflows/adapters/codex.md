@@ -235,15 +235,16 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    해당 경계를 협의합니다. Lane별 허가 packet은 없습니다. 후보 자격은 routing이, 호출 시점의 (역할, model) 쌍은 hook이,
    완료는 hook 기록 대조가 확인합니다.
 5. **Native 실행**: `createDispatchRecommendation()`에 dispatch마다 새 `dispatchToken`을 주고, descriptor를
-   `pnpm codex:register -- --dispatch <descriptor JSON>`으로 등록한 뒤 출력된 `spawnArguments`(lane id와 token으로 만든
-   `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
+   JSON 파일(descriptor 하나 또는 `{dispatches}` 묶음)로 써서 `pnpm codex:register -- --dispatch <파일>`로 등록한 뒤 출력된
+   `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
+   출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
    deny합니다([등록·수락](#subagent-hook-guardrail과-완료-관측)).
    Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따릅니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `codex:completion`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
-   완료로 받을 child는 `pnpm codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로 수락하고, 수락한 child는
-   후속 작업을 주지 않습니다. Reviewer는 `createReviewDispatch()`로 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
+   완료로 받을 child는 `pnpm codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로 수락하고 출력의
+   `registrationDigest`가 등록 때의 `digest`와 같은지 확인하며, 수락한 child는 후속 작업을 주지 않습니다. Reviewer는 `createReviewDispatch()`로 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록·수락 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
    hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort·수락 기록과 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
 7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
@@ -321,21 +322,26 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   (1) `agent_type`이 `.codex/agents`의 `knu_*` roster (2) 허용 목록 안 explicit `model`이고 그 역할의 profile 쌍
   (`pair-not-allowed`) (3) `fork_turns`가 `"none"` 또는 양의 정수 (4) 아래 등록의 평문 인자와 같을 때만 허용합니다. 허용 기록은
   task name과 역할·model을 묶는 bind이고 등록을 봉인합니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는
-  V2 provider)는 전부 deny합니다. `followup_task`·`send_message`는 기록하되, 수락된 child(task name 또는 agent id)를 target으로 하면
-  `settled-child`로 deny합니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다.
+  V2 provider)는 전부 deny합니다. `followup_task`·`send_message`는 기록하되, 수락된 child(task name, agent id 또는
+  `/root/<task name>`)를 target으로 하면 `settled-child`로 deny합니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다.
 - **등록·수락**: Parent는 spawn 전에 dispatch가 계산한 spawn 인자를 `codex:register`(`task-registry.mjs`의 `registerDispatch()`)로
   `.artifacts/tools/codex-native/<Parent session>/<task_name>.json`에 한 번만 씁니다(같은 이름의 두 번째 등록은 거절). 등록은
   `task_name`이 lane id·token(재시도는 `_retry`)이나 reviewer round와 맞고, (역할, model)이 허용 쌍이고, effort가 역할 pin이고,
-  `fork_turns`가 `"none"`일 때만 됩니다. Hook은 그 파일이 없으면 `registration-missing`, 형식이 틀리면 `registration-invalid`,
+  `fork_turns`가 `"none"`일 때만 됩니다. Hook은 그 파일이 없으면 `registration-missing`, 형식이 틀리거나 task name이 정하는 필드(lane
+  id·token·재시도 표시, reviewer round·`reviewId`)가 task name과 맞지 않거나 `reviewOf`가 lane id 목록이 아니면 `registration-invalid`,
   `task_name`·`agent_type`·`model`·`reasoning_effort`·`fork_turns` 중 하나라도 다르면 `registration-mismatch`, 같은 task name의 allow가
   이미 있으면 `registration-used`, primary child가 수락된 lane의 재시도면 `lane-accepted`로 deny합니다. 허용하면 등록 파일의
   digest와 내용을 allow 기록의 `registration`에 봉인합니다. Child가 끝나면 `codex:accept`(`acceptTask()`)가 완료 대조를 통과한
   child의 마지막 Stop 기록 digest를 `<task_name>.accepted.json`에 한 번만 씁니다. Primary가 수락된 lane은 재시도 등록·재시도
   수락도 거절합니다(성공 뒤 재시도 없음). `hooks.json`은 바뀌지 않으며 등록 읽기는 hook script 안에서 합니다.
 - **등록 파일의 경계**: 등록 디렉터리는 workspace 안이라 child가 쓸 수 있습니다. Spawn 뒤 바뀐 등록은 이미 봉인된 값을 바꾸지
-  못하고, spawn 전에 바뀐 등록은 봉인된 값이 lane 계약과 달라 완료가 거부됩니다. 수락 기록이 지워지면 fan-in이 그 lane을
-  `acceptance-missing`으로 거부하지만, 지운 뒤의 재개는 hook이 막지 못하므로 다시 수락해야 합니다(재개된 Stop은 원래 수락과
-  맞지 않음). Target이 task name이나 agent id가 아닌 형식이면 수락 여부를 알 수 없어 기록만 합니다.
+  못합니다. Spawn 전에 task name이 정하는 필드나 spawn 인자를 바꾼 등록은 hook이 deny하고, 봉인이 task name과 맞지 않으면 완료
+  대조도 `registration-invalid`로 거부합니다. Task name으로 다시 계산할 수 없는 `reviewOf` 내용은 Parent가 등록 출력의 `digest`와
+  수락 기록의 `registrationDigest`를 대조해 확인합니다. 수락 기록이 지워지면 fan-in이 그 lane을 `acceptance-missing`으로 거부하지만,
+  지운 뒤의 재개는 hook이 막지 못하므로 다시 수락해야 합니다(재개된 Stop은 원래 수락과 맞지 않음). Target이 task name·agent id·
+  `/root/<task name>`이 아닌 형식이면 수락 여부를 알 수 없어 기록만 합니다. Allow 뒤 도구가 실패해 child가 생기지 않아도 그 task
+  name은 쓰인 것(`registration-used`)으로 남고, 수락한 child의 보완도 후속·재시도가 모두 막힙니다. 이때는 새 `dispatchToken`으로
+  dispatch를 다시 계산해 등록·spawn합니다. 결과 대조는 dispatch token 하나만 받으므로 그 dispatch 전체를 새 token으로 엽니다.
 - **Parent 쓰기**: code mode `exec` 안에서 중첩 호출한 `apply_patch`·`exec_command`도 PreToolUse를 거칩니다(codex-cli 0.161.0 관측,
   `apply_patch`·`Bash` tool_name). Repository hook의 matcher는 이 도구를 넣지 않으므로 Parent 쓰기는 막지 않습니다. 그 강제는
   `hooks.json` 변경과 trust 재승인을 함께 다루는 후속 결정입니다.
@@ -351,11 +357,12 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   dispatch의 task path(`/root/<lane>_<token>`)·계약 역할·허용 목록 model·roster를 맞추고, 그 task name의 root PreToolUse allow
   기록(bind)이 같은 역할·model을 묶고, lane 계약 model(route profile의 model)과 역할 쌍이 허용되고, Start `model`·Stop own-turn
   model이 계약 model과 같고 own-turn effort가 역할 pin(`ROLE_EFFORTS`)과 같으며, 그 child 아래 descendant Start가 없고, allow
-  기록의 봉인이 같은 종류(lane·review)·역할·계약 model·역할 pin을 담고, 그 child의 수락 기록(`acceptances`)이 마지막 Stop을 가리킬 때입니다.
+  기록의 봉인이 같은 종류(lane·review)·역할·계약 model·역할 pin을 담고 그 필드가 task name과 맞으며, 그 child의 수락 기록(`acceptances`)이 마지막 Stop을 가리킬 때입니다.
   Hook 기록 입력은 `readHookRecords()` 결과(`sessionId`·`records`·`malformed`)이고, 읽지 못한 줄이 하나라도 있으면(수를 모르는
   경우 포함) 그 줄이 descendant Start였을 수 있어 `observation-malformed`로 거부합니다.
   거부 사유는 bind 없음 `observation-unbound`, descendant `observation-foreign`, `pair-not-allowed`, `model-mismatch`,
   own-turn 없음 `effort-unobserved`, `effort-mismatch`, 봉인 없음 `registration-unsealed`, 봉인 불일치 `registration-mismatch`,
+  task name과 맞지 않는 봉인 `registration-invalid`,
   수락 기록 없음 `acceptance-missing`, 다른 child·Stop을 가리키는 수락 `acceptance-mismatch`, 수락 뒤 같은 child의 Stop이 더 있음
   `resumed-after-acceptance`(재개된 turn)이고 기존 사유(`observation-missing`·`-incomplete`·`-mismatch`,
   `model-not-allowed`, `role-not-in-roster`)는 그대로입니다. 허용 목록·roster·역할 쌍·역할 effort는 `model-profiles.mjs`에서
@@ -369,8 +376,9 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   그 재시도 child가 session에 있는데 decision 없이 primary로 대조하면 `retry-unreported`, primary child의 수락 기록이 있는데 재시도를
   대조하면 `lane-accepted`로 거절합니다.
 - **Reviewer 결속**: `validateCodexWorkflowResults()`에 hook 기록을 주면 QA는 그 dispatch token 아래 등록·spawn된 reviewer child에서
-  와야 합니다. 그 token의 모든 reviewer child(형제 round 포함)가 `knu_reviewer`·review profile model·역할 pin으로 수락되고 재개되지
-  않았고, 보고된 결과의 `dispatchId`가 가장 높은 round의 `reviewId`(`review-<token>-<round>`, task name은 `review_<token>_<round>`)이며,
+  와야 합니다. 그 token의 모든 reviewer task(allow·Start 기록의 `review_<token>_<round>` 이름과 그 token을 적은 review 봉인의 이름,
+  봉인이 어긋나거나 allow 기록이 없는 round 포함)가 `knu_reviewer`·review profile model·역할 pin과 task name에 맞는 봉인으로
+  수락되고 재개되지 않았고, 보고된 결과의 `dispatchId`가 task name이 정하는 가장 높은 round의 `reviewId`(`review-<token>-<round>`)이며,
   그 등록의 `reviewOf`가 현재 lane을 모두 담아야 합니다. 보고된 `observedModel`만으로는 PASS를 연결하지 않습니다. Cross-model handoff
   계약 자체는 바뀌지 않습니다.
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로

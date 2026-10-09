@@ -6,8 +6,8 @@
 // target an accepted child. The allow record binds the task name to its role and model and seals the registration;
 // SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort that completion checks
 // compare with that bind. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`, which workspace-write
-// children cannot write; a child can edit a registration, but the seal keeps what the guard compared. Imports stay
-// inside `node:` so no child-editable module decides a result.
+// children cannot write; a child can edit a registration, but the fields the task name spells must spell it and the
+// seal keeps what the guard compared. Imports stay inside `node:` so no child-editable module decides a result.
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -20,6 +20,9 @@ export const REGISTRY_DIRECTORY = '.artifacts/tools/codex-native';
 const REGISTRATION_SCHEMA = 'knu-codex-task-registration/v1';
 const ACCEPTANCE_SCHEMA = 'knu-codex-task-acceptance/v1';
 const TASK_NAME = /^[a-z0-9_]{1,128}$/u;
+const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
+const LANE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const ROOT_PATH = '/root/';
 const SPAWN_FIELDS = ['task_name', 'agent_type', 'model', 'reasoning_effort', 'fork_turns'];
 const POLICY_PATH = '.codex/hooks/knu-hook-policy.json';
 const POLICY_SCHEMA = 'knu-codex-hook-policy/v2';
@@ -45,8 +48,10 @@ export function decideToolUse(payload, policy, registry) {
   const caller = typeof payload.agent_id === 'string' ? 'child' : 'root';
   const decided = (action, reason) => ({ action, tool, caller, ...(reason ? { reason } : {}) });
   if (tool !== 'spawn_agent') {
+    // A target is a task name, an agent id or the task path the hook records (`/root/<task name>`).
     const target = payload.tool_input?.target;
-    return typeof target === 'string' && registry?.settled(target)
+    return typeof target === 'string' &&
+      registry?.settled(target.startsWith(ROOT_PATH) ? target.slice(ROOT_PATH.length) : target)
       ? decided('deny', 'settled-child')
       : decided('record');
   }
@@ -89,9 +94,41 @@ function validRegistration(registration, sessionId, taskName) {
     registration.schema === REGISTRATION_SCHEMA &&
     registration.sessionId === sessionId &&
     registration.taskName === taskName &&
-    ['lane', 'review'].includes(registration.kind) &&
+    spellsTask(registration) &&
     registration.spawnArguments !== null &&
     typeof registration.spawnArguments === 'object'
+  );
+}
+
+// Copy of registrationSpellsTask (scripts/agents/codex/subagent-hook-records.mjs): the lane, token and retry flag, or the
+// review round, id and reviewed lanes, must spell the task name.
+function spellsTask({
+  taskName,
+  kind,
+  dispatchToken: token,
+  laneId,
+  retry,
+  round,
+  reviewId,
+  reviewOf,
+}) {
+  if (typeof token !== 'string' || !DISPATCH_TOKEN.test(token) || token === 'retry') return false;
+  if (kind === 'lane')
+    return (
+      typeof laneId === 'string' &&
+      LANE_ID.test(laneId) &&
+      typeof retry === 'boolean' &&
+      taskName === `${laneId.replaceAll('-', '_')}_${token}${retry ? '_retry' : ''}`
+    );
+  return (
+    kind === 'review' &&
+    Number.isSafeInteger(round) &&
+    round >= 1 &&
+    taskName === `review_${token}_${round}` &&
+    reviewId === `review-${token}-${round}` &&
+    Array.isArray(reviewOf) &&
+    reviewOf.length > 0 &&
+    reviewOf.every((id) => typeof id === 'string' && LANE_ID.test(id))
   );
 }
 
