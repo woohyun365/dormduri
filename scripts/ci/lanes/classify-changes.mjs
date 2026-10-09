@@ -113,6 +113,7 @@ const REPO_POLICY_PREFIXES = [
   'scripts/git/',
   'scripts/github/',
   'scripts/security/',
+  '.agents/',
   '.claude/',
   '.codex/',
   '.github/ISSUE_TEMPLATE/',

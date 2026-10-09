@@ -11,3 +11,19 @@ writeOwnership 밖 편집, 전체 plan 재작성, production·credential 결정,
 
 handoff는 changed files, facts, inferences, gaps, confidence, verification performed와 결과, blocker, rollback note, safest next action을 담아 짧게 반환합니다.
 """
+
+[[skills.config]]
+path = "../../.agents/skills/knu-delegate/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-review/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-settle/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-workflow/SKILL.md"
+enabled = false

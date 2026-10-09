@@ -38,7 +38,8 @@ semantic eligibility나 admission을 완화하지 않습니다.
 현재 채택 범위와 새 세션의 선택 순서는 [Routine task-model operation](./codex.md#routine-task-model-operation)을 따릅니다.
 추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./codex-delegation.md#model-recommendation)을 따르며 lane별
 허가 packet은 없습니다. Pilot PASS는 운영 채택 GO가 아닙니다.
-Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. 자동 keyword classifier나 scheduler는 없습니다.
+Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. `codex:delegate`는 요청을 생략한 lane에
+Parent가 태그한 검증 fact와 Pass 2 결과로 맞는 행을 채웁니다(`defaultModelRequest()`). 자동 keyword classifier나 scheduler는 없습니다.
 기본값/최종 QA는 Astra입니다. Reviewer를 포함한 모든 `knu_*` 역할은 model pin 없이 profile model을 명시적으로 받지만,
 실제 loaded role에 pin이 있으면 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 Descriptor의 `spawnArguments`를 그대로 native 호출에 전달하고, 호출 시점의 (역할, model) 쌍·fork는 hook이 다시 검사합니다.

@@ -11,3 +11,19 @@ bounded 변경 또는 결정 하나를 현재 요청·repository contract·test�
 
 handoff는 verdict, severity-ranked facts, inferences, gaps, confidence, verification performed, blocker, safest next action을 담아 짧게 반환합니다.
 """
+
+[[skills.config]]
+path = "../../.agents/skills/knu-delegate/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-review/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-settle/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-workflow/SKILL.md"
+enabled = false

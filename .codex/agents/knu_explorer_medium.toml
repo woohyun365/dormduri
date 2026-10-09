@@ -11,3 +11,19 @@ bounded 질문 하나의 repository 내부 조사를 맡습니다. 결론 전에
 
 handoff는 facts, inferences, gaps, confidence, verification performed, blocker, safest next action을 담아 짧게 반환합니다.
 """
+
+[[skills.config]]
+path = "../../.agents/skills/knu-delegate/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-review/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-settle/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-workflow/SKILL.md"
+enabled = false

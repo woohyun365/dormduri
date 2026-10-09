@@ -11,3 +11,19 @@ developer_instructions = """
 
 handoff는 facts와 source URLs, inferences, gaps, confidence, verification performed, blocker, safest next action을 담아 짧게 반환합니다.
 """
+
+[[skills.config]]
+path = "../../.agents/skills/knu-delegate/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-review/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-settle/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "../../.agents/skills/knu-workflow/SKILL.md"
+enabled = false
