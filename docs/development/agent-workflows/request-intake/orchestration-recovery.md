@@ -116,11 +116,21 @@ primary attempt
   TypeError). 입력 attempt에 `number`가 있으면 그 위치(1부터)와 같아야 합니다. 출력은 `route`와, 재시도를 기다리거나 마친
   decision이면 계산한 `retryRoute`(`kind`·`role`·`profileId`·`model`)를 담습니다. Synthesis에 넘기는 recovery decision도
   `evaluateRecovery` 출력의 field만 받고, `confidence`·`prohibitedApproachIds`·`retryRoute`가 있으면 그 route와 attempts로 다시
-  계산한 값과 같아야 하며, `route`는 그 lane 계약과 같아야 합니다.
+  계산한 값과 같아야 하며, `route`는 그 lane 계약과 같아야 합니다. `status`·`action`·`remainingAlternateAttempts`·`blocker`·
+  `disposition`도 다시 계산한 값과 같아야 하므로, 끝난 decision을 대기 중으로 바꿔 써서 재시도를 한 번 더 얻거나 실패한 lane을
+  완료로 닫을 수 없습니다.
+- 사다리 단은 다음 profile이 실패한 profile의 lane 경계를 받을 때만 씁니다. 같은 역할을 받고, candidate면 역할 pin effort·같은
+  read-only 경계·실패한 profile이 허용한 도구를 모두 받아야 합니다. 받지 못하면 같은 contract에서 approach만 바꿉니다. Primary의
+  tier gate는 다시 적용하지 않습니다. 사다리는 실패한 tier보다 한 단 위로 의도해서 오르는 것이기 때문입니다.
 - 재시도 spawn 인자는 `createRetryDispatch()`가 계약과 기다리는 decision에서 정합니다. `task_name`은 lane의 dispatch token 뒤에
   `_retry`를 붙이고, 역할은 그대로, `model`은 `retryRoute` model, `reasoning_effort`는 역할 pin, `fork_turns`는 `none`입니다.
   재시도한 lane의 완료는 그 재시도 child를 `retryRoute` model로 대조합니다(`codex:completion`의 `--retry`, synthesis와
-  `validateCodexWorkflowResults`의 `recoveryDecisions`).
+  `validateCodexWorkflowResults`의 `recoveryDecisions`). Primary dispatch가 native spawn에서 빼는 lane(context reuse, 호환되지 않는
+  delivery, 맞지 않는 candidate 경계나 scope snapshot)은 재시도 spawn도 거절합니다([Native dispatch gate](#native-dispatch-gate)).
+- Primary 완료 대조는 session에 같은 lane·token의 재시도 child(`_retry`)가 있으면 `retry-unreported`로 거절합니다. 재시도 child는
+  그 recovery decision으로만 완료됩니다. Dispatch token `retry`는 다른 lane의 재시도 task name과 겹치므로 쓰지 않습니다.
+  `validateCodexWorkflowResults`도 synthesis처럼 모든 decision을 다시 계산하고, complete 결과에 대기·terminal decision이 함께 오면
+  거절합니다.
 - `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다. Pending/unknown writer가
   남아 있으면 회수하기 전에 재시도를 시작하지 않습니다. Scope/권한 변경을 모델 교체로 우회하지 않습니다.
 - Terminal handoff 뒤 Parent가 현재 source로 새 ordinary contract(예: Astra)를 판정해 맡기는 것은 이 recovery의 attempt가 아니라

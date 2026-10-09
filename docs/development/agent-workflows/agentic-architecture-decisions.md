@@ -355,7 +355,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 
 ## DA-019 — 실패한 lane을 같은 역할의 한 단 위 model로 한 번 재시도하는 승격 사다리
 
-- **상태/결정일**: accepted, 2026-10-09. [DA-018](#task-model-effort-structure)의 "다른 model로 옮기지 않는 재시도"를 대체합니다.
+- **상태/결정일**: accepted, 2026-10-09. [DA-018](#task-model-effort-structure) 부분 superseded(2026-10-07) 뒤의 재시도 규칙(같은 contract에서
+  approach만 바꾼 한 번)을 대체합니다.
   Policy revision `2026-10-09.1`; 사다리 데이터는 `scripts/agents/codex/model-profiles.mjs`의 `RECOVERY_LADDER`, 재시도 판정은
   [Recovery ceiling](./request-intake/orchestration-recovery.md#recovery-ceiling)이 소유합니다.
 - **문제/근거**: 6.1 Sol·Luna lane이 결과 품질로 실패하면 같은 model에서 approach만 바꾼 재시도가 유일한 경로였고, 한 단 위 model로
@@ -365,14 +366,17 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 - **결정**: 재시도는 lane당 한 번이고 그 route는 lane 계약에서 계산합니다. 결과 품질 실패(`verification-failed`·`unknown`)는 같은
   역할로 한 단 위 profile(Luna `extract` → 6.1 Sol `elevated-read`, 6.1 Sol 읽기 → Astra `astra-fallback`, 6.1 Sol 구현 → Astra
   `deep-build`)에서, 근거·도구 실패와 위 단이 없는 Astra lane은 같은 contract에서 approach만 바꿔 실행합니다. 연쇄 상향은 없습니다.
-  모든 단은 기존 (역할, model) 허용 쌍 안이라 hook guard는 그대로입니다. Attempt는 model을 담지 않습니다.
+  모든 단은 기존 (역할, model) 허용 쌍 안이라 hook guard는 그대로입니다. Attempt는 model을 담지 않습니다. 단은 다음 profile이 실패한
+  profile의 lane 경계(역할, candidate면 effort·read-only·도구)를 받을 때만 쓰고, 받지 못하면 같은 contract입니다. Primary tier gate는
+  다시 적용하지 않습니다(Owner 2026-10-09, 재판정 뒤 같은 contract). 재시도 dispatch는 primary dispatch gate를 그대로 거칩니다.
 - **Trigger / non-trigger**: Codex child lane의 재시도 가능 실패 / non-retryable 실패, 성공 뒤 재시도, Parent 설정, Claude adapter.
 - **기각**: 실패마다 한 단씩 오르는 연쇄(Luna → 6.1 Sol → Astra, 공통 상한·Claude 상한과 어긋남), 모든 재시도 가능 실패의 상향
   (model로 고쳐지지 않는 근거·도구 실패까지 상위 model 사용), Astra lane 재시도 금지(같은 contract의 다른 approach까지 막음),
   attempt에 실행 model을 기록하는 방식(보고된 model을 믿게 됨, DA-018에서 삭제한 귀속 field).
-- **구현 영향**: `evaluateRecovery` 필수 `route`와 계산한 `retryRoute`, decision 재계산 대조, synthesis·`validateCodexWorkflowResults`의
-  재시도 child 대조(`/root/<lane>_<token>_retry`, `retryRoute` model), `createRetryDispatch`, `codex:completion --retry`, non-retryable
-  실패 뒤 재시도 거부.
+- **구현 영향**: `evaluateRecovery` 필수 `route`와 계산한 `retryRoute`, decision의 route·상태 재계산 대조, synthesis·
+  `validateCodexWorkflowResults`의 재시도 child 대조(`/root/<lane>_<token>_retry`, `retryRoute` model)와 보고되지 않은 재시도 child의
+  primary 완료 거절, `recoveryRungAdmits`, primary gate를 거치는 `createRetryDispatch`, `codex:completion --retry`, 예약 token
+  `retry`, non-retryable 실패 뒤 재시도 거부.
 - **검증/한계**: 정적 회귀(사다리 단·쌍, 원인 분기, route 대조, 재시도 path·dispatch)는 native 재시도 실행 증거가 아닙니다. 상위
   model 재시도가 결과 품질을 회복한다는 근거는 아직 없으며 Astra 재시도도 독립 QA·oracle을 그대로 거칩니다.
 - **재검토**: 사다리 재시도의 반복 실패나 비용 관측, profile·역할 구조 변화, 공통 상한 변경, host의 재시도 기능 변화가 생길 때입니다.
