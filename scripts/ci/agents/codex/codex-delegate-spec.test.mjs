@@ -1,0 +1,278 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import test from 'node:test';
+
+import * as delegateSpec from '../../../agents/codex/delegate-spec.mjs';
+import {
+  createSemanticFactId,
+  createSemanticSourceId,
+} from '../../../agents/codex/routing-policy.mjs';
+import { createReviewDispatch, registerDispatch } from '../../../agents/codex/task-registry.mjs';
+
+const root = resolve(import.meta.dirname, '../../../..');
+const TOKEN = 'n4bspec1';
+const SOURCE = 'docs/policies/legal-basis.md';
+
+// A spec the Parent writes by hand: indices instead of ids, `verifies` tags instead of a verificationFacts map.
+function spec(patch = {}) {
+  const facts = [
+    {
+      statement: 'The policy names the legal basis owner.',
+      sources: [0],
+      confidence: 'high',
+      verifies: ['acceptance'],
+    },
+    {
+      statement: 'The owner test covers the current wording.',
+      sources: [0],
+      confidence: 'high',
+      verifies: ['regression'],
+    },
+    {
+      statement: 'An Astra reviewer reads the change.',
+      sources: [0],
+      confidence: 'high',
+      verifies: ['astraQa'],
+    },
+  ];
+  const claims = Array.from({ length: 15 }, (_, index) => ({
+    predicateId: `M-${String(index + 1).padStart(2, '0')}`,
+    outcome: 'confirmed',
+    facts: [index % 3],
+    rationale: 'The inspected policy section supports this boundedness predicate.',
+  }));
+  const lane = {
+    id: 'legal-test',
+    domain: 'legal-policy',
+    taskKind: 'implementation',
+    priority: 'medium',
+    impactRisk: 'low',
+    objective: 'Implement bounded legal test.',
+    question: 'Which assertion locks current behavior?',
+    allowedEvidence: ['repo', 'test'],
+    allowedTools: ['repository-read', 'workspace-edit', 'test-runner'],
+    readScope: ['docs/policies'],
+    writeOwnership: ['apps/web/src/legal/example.test.ts'],
+    dependencies: [],
+    expectedOutputFields: ['changedFiles', 'behavior'],
+    verification: ['Run the closest owner tests.'],
+    benefit: {
+      kind: 'latency',
+      rationale: 'The write lane has bounded ownership and no result dependency.',
+    },
+    delivery: {
+      snapshot: 'current-source-snapshot',
+      evidencePointers: [SOURCE],
+      findings: ['The legal basis owner is named in the policy.'],
+      failures: [],
+    },
+    evidence: {
+      sources: [{ path: SOURCE, locator: 'legal basis section' }],
+      facts,
+      claims,
+      confidence: 'high',
+    },
+    ...patch.lane,
+  };
+  if (patch.evidence) Object.assign(lane.evidence, patch.evidence);
+  return {
+    request: '법적 근거 test를 추가해줘.',
+    mode: 'fresh',
+    repositoryEvidence: [{ path: SOURCE, kind: 'policy' }],
+    dispatchToken: TOKEN,
+    lanes: [lane],
+    ...patch.top,
+  };
+}
+
+test('an eligible lane without a request gets the routine candidate and a registrable dispatch', () => {
+  const out = delegateSpec.buildDelegation(spec(), { root });
+  assert.equal(out.schema, 'knu-codex-delegation/v1');
+  assert.equal(out.dispatchToken, TOKEN);
+  assert.deepEqual(out.lanes, [
+    {
+      laneId: 'legal-test',
+      modelRequest: 'default',
+      profileId: 'standard-build',
+      role: 'knu_executor',
+      effort: 'high',
+      model: 'gpt-6.1-sol',
+    },
+  ]);
+  assert.equal(out.dispatches.length, 1);
+  assert.deepEqual(out.dispatches[0].spawnArguments, {
+    task_name: `legal_test_${TOKEN}`,
+    agent_type: 'knu_executor',
+    model: 'gpt-6.1-sol',
+    reasoning_effort: 'high',
+    fork_turns: 'none',
+  });
+  // The computed request names the facts the spec tagged, by their stable ids.
+  const request = out.dispatches[0].contract.routeRecommendation.modelRecommendation.request;
+  assert.deepEqual(request.purpose, 'routine');
+  assert.deepEqual(Object.keys(request.verificationFacts), ['acceptance', 'regression', 'astraQa']);
+  // Recomputed here from the file bytes: the source digest and every id derived from it.
+  const source = {
+    path: SOURCE,
+    locator: 'legal basis section',
+    kind: 'policy',
+    observedAt: 'current-working-tree',
+    contentDigest: `sha256:${createHash('sha256')
+      .update(readFileSync(resolve(root, SOURCE)))
+      .digest('hex')}`,
+  };
+  const sourceIds = [createSemanticSourceId(source)];
+  const [acceptance, regression, astraQa] = spec().lanes[0].evidence.facts.map(({ statement }) =>
+    createSemanticFactId({ statement, sourceIds, confidence: 'high' }),
+  );
+  assert.deepEqual(request.verificationFacts, { acceptance, regression, astraQa });
+  // The output file is what codex:register reads.
+  const temp = mkdtempSync(join(tmpdir(), 'knu-delegate-'));
+  try {
+    const registered = registerDispatch({
+      root: temp,
+      sessionId: 'n4b-test',
+      dispatch: out.dispatches[0],
+    });
+    assert.equal(registered.taskName, `legal_test_${TOKEN}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test('an ineligible or opted-out lane keeps the request omitted and goes to the Astra assignment', () => {
+  for (const [label, patch, modelRequest] of [
+    ['gap', { evidence: { gaps: ['unknown owner'] } }, 'omitted'],
+    ['medium confidence', { evidence: { confidence: 'medium' } }, 'omitted'],
+    ['high impact', { lane: { impactRisk: 'high' } }, 'omitted'],
+    [
+      'untagged facts',
+      { evidence: { facts: spec().lanes[0].evidence.facts.map(({ verifies, ...fact }) => fact) } },
+      'omitted',
+    ],
+    ['opt-out', { lane: { modelRequest: false } }, 'astra'],
+  ]) {
+    const out = delegateSpec.buildDelegation(spec(patch), { root });
+    const [lane] = out.lanes;
+    assert.equal(lane.modelRequest, modelRequest, label);
+    assert.equal(lane.model, 'gpt-6-astra', label);
+    assert.equal(out.dispatches[0].spawnArguments.model, 'gpt-6-astra', label);
+    assert.equal(
+      out.dispatches[0].contract.routeRecommendation.modelRecommendation,
+      undefined,
+      label,
+    );
+  }
+});
+
+test('a candidate without a scoped packet is deferred with the context gap', () => {
+  const out = delegateSpec.buildDelegation(spec({ lane: { delivery: undefined } }), { root });
+  assert.equal(out.dispatches.length, 0);
+  assert.equal(out.lanes[0].modelRequest, 'default');
+  assert.ok(
+    out.lanes[0].deferred.gaps.includes('model-context-incompatible'),
+    JSON.stringify(out.lanes[0]),
+  );
+});
+
+test('an explicit request is kept as the Parent wrote it, with facts from the tags', () => {
+  const out = delegateSpec.buildDelegation(
+    spec({ lane: { modelRequest: { profileId: 'standard-build', purpose: 'pilot' } } }),
+    { root },
+  );
+  assert.equal(out.lanes[0].modelRequest, 'explicit');
+  const { request } = out.dispatches[0].contract.routeRecommendation.modelRecommendation;
+  assert.equal(request.purpose, 'pilot');
+  assert.equal(out.lanes[0].model, 'gpt-6.1-sol');
+});
+
+test('the spec is strict and refuses evidence the context pack cannot bind', () => {
+  for (const [label, value, message] of [
+    [
+      'unknown top field',
+      spec({ top: { laneCandidates: [] } }),
+      /Unsupported delegation spec field: laneCandidates/u,
+    ],
+    [
+      'unknown evidence field',
+      spec({ evidence: { predicateClaims: [] } }),
+      /Unsupported lane evidence field: predicateClaims/u,
+    ],
+    [
+      'source outside the pack',
+      spec({ evidence: { sources: [{ path: 'docs/README.md', locator: 'x' }] } }),
+      /not in the context pack: docs\/README\.md/u,
+    ],
+    [
+      'fact source index',
+      spec({ evidence: { facts: [{ statement: 's', sources: [3], confidence: 'high' }] } }),
+      /fact 0 names source 3/u,
+    ],
+    [
+      'claim fact index',
+      spec({
+        evidence: {
+          claims: [{ predicateId: 'M-01', outcome: 'confirmed', facts: [9], rationale: 'r' }],
+        },
+      }),
+      /claim 0 names fact 9/u,
+    ],
+    [
+      'verification key',
+      spec({
+        evidence: {
+          facts: [{ statement: 's', sources: [0], confidence: 'high', verifies: ['oracle'] }],
+        },
+      }),
+      /unknown verification key: oracle/u,
+    ],
+    ['bad token', spec({ top: { dispatchToken: 'Bad' } }), /dispatchToken/u],
+  ])
+    assert.throws(
+      () => delegateSpec.buildDelegation(value, { root }),
+      { name: 'TypeError', message },
+      label,
+    );
+});
+
+test('the CLI writes the delegation and the review dispatch files codex:register reads', () => {
+  const temp = mkdtempSync(join(tmpdir(), 'knu-delegate-cli-'));
+  try {
+    const specPath = join(temp, 'spec.json');
+    const outPath = join(temp, 'delegation.json');
+    writeFileSync(specPath, `${JSON.stringify(spec(), null, 2)}\n`);
+    const lanes = delegateSpec.runDelegateCommand(['lanes', '--spec', specPath, '--out', outPath], {
+      root,
+    });
+    assert.equal(lanes.exitCode, 0);
+    const written = JSON.parse(readFileSync(outPath, 'utf8'));
+    assert.equal(written.dispatches[0].spawnArguments.task_name, `legal_test_${TOKEN}`);
+    assert.deepEqual(JSON.parse(lanes.stdout).lanes, written.lanes);
+
+    const reviewPath = join(temp, 'review.json');
+    const review = delegateSpec.runDelegateCommand(
+      ['review', '--lanes', 'legal-test', '--token', TOKEN, '--round', '2', '--out', reviewPath],
+      { root },
+    );
+    assert.equal(review.exitCode, 0);
+    assert.deepEqual(
+      JSON.parse(readFileSync(reviewPath, 'utf8')),
+      createReviewDispatch({ laneIds: ['legal-test'], dispatchToken: TOKEN, round: 2 }),
+    );
+    for (const argv of [
+      ['lanes', '--spec', specPath],
+      ['review', '--lanes', 'legal-test', '--token', TOKEN, '--out', reviewPath, '--model', 'x'],
+      ['delegate'],
+    ])
+      assert.throws(
+        () => delegateSpec.runDelegateCommand(argv, { root }),
+        { name: 'TypeError' },
+        argv.join(' '),
+      );
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});

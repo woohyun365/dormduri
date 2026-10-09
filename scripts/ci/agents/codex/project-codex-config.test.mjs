@@ -122,6 +122,9 @@ const allowedRoleKeys = [
   'name',
   'sandbox_mode',
 ];
+// The repository skills under .agents/skills are Parent procedures. Every child role turns them off; Codex applies a
+// role file's skills.config only for enabled = false and resolves its path against the role file's directory.
+const PARENT_SKILLS = ['knu-delegate', 'knu-review', 'knu-settle', 'knu-workflow'];
 // Per-role UTF-8 budget for the slimmed prompt; shared procedure lives in the linked common documents.
 const INSTRUCTION_BYTE_LIMIT = 1500;
 const collaborationGuide = 'docs/development/agent-workflows/owner-lead-collaboration.md';
@@ -157,8 +160,9 @@ function readQuotedField(source, field) {
   return source.match(new RegExp(`^${field} = "([^"\\n]+)"$`, 'mu'))?.[1];
 }
 
+// Keys before the first table header; the skills.config tables follow them.
 function topLevelKeys(source) {
-  return [...source.matchAll(/^([A-Za-z0-9_.-]+)\s*=/gmu)]
+  return [...source.split(/^\[/mu)[0].matchAll(/^([A-Za-z0-9_.-]+)\s*=/gmu)]
     .map(([, key]) => key)
     .sort((left, right) => left.localeCompare(right));
 }
@@ -293,6 +297,17 @@ test('role prompts link the common contracts that own the procedures they leave 
     assert.match(collaboration, owned, collaborationGuide);
 });
 
+// Each [[skills.config]] table holds exactly a quoted path and enabled = false, in that order.
+function skillConfigTables(source) {
+  return source
+    .split(/^\[\[skills\.config\]\]\n/mu)
+    .slice(1)
+    .map((table) => {
+      const match = table.match(/^path = "([^"\n]+)"\nenabled = (true|false)\n*$/u);
+      return match ? { path: match[1], enabled: match[2] === 'true' } : { malformed: table };
+    });
+}
+
 function roleInstructions(source) {
   return source.match(/developer_instructions\s*=\s*"""([\s\S]*?)"""/u)?.[1].trim();
 }
@@ -327,7 +342,19 @@ function assertRoleContract(source, role) {
   assert.ok(handoff, `${role.file}: handoff sentence`);
   for (const term of [...handoffTerms, ...role.handoff])
     assert.ok(handoff.includes(term), `${role.file}: handoff ${term}`);
-  assert.doesNotMatch(source, /^skills\.config\s*=/mu, role.file);
+  assert.deepEqual(
+    skillConfigTables(source),
+    PARENT_SKILLS.map((name) => ({
+      path: `../../.agents/skills/${name}/SKILL.md`,
+      enabled: false,
+    })),
+    `${role.file}: skills.config`,
+  );
+  assert.doesNotMatch(
+    source,
+    /^\[(?!\[skills\.config\]\]$)/mu,
+    `${role.file}: only skills.config tables`,
+  );
   assert.doesNotMatch(source, /\/Users\//u, role.file);
 }
 
