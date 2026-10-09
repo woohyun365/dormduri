@@ -982,7 +982,11 @@ test('the completion report counts session starts that no allow record bound', a
   assert.equal(countUnboundStarts(obs), 0);
   obs.records.push(
     startRecord({ agentId: GRANDCHILD, agentPath: '/root/other_lane' }),
-    startRecord({ agentId: 'grand-2', agentPath: '/root/lane_one_k3x9/helper', parentThreadId: CHILD }),
+    startRecord({
+      agentId: 'grand-2',
+      agentPath: '/root/lane_one_k3x9/helper',
+      parentThreadId: CHILD,
+    }),
     {
       ...startRecord({ agentId: 'elsewhere', agentPath: '/root/x' }),
       sessionId: 'another-session',
