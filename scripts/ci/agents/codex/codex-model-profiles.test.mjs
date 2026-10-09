@@ -375,18 +375,65 @@ test('the recovery ladder raises a lane one rung on its own role inside the allo
 
 test('a ladder rung is used only when its next profile admits the lane boundary of the failed profile', () => {
   const { recoveryRungAdmits, getRecoveryStep, RECOVERY_LADDER } = modelProfiles;
+  const profile = (id, change = {}) => ({ ...getModelProfile(id), ...change });
   // Every rung in the ladder admits each role of its source profile.
   for (const [from, to] of Object.entries(RECOVERY_LADDER))
     for (const role of getModelProfile(from).roles)
-      assert.equal(recoveryRungAdmits(from, to, role), true, `${from}->${to}:${role}`);
-  // A next profile without the role, with another effort or a wider tool boundary does not admit the lane.
-  assert.equal(recoveryRungAdmits('extract', 'standard-read', 'knu_explorer_xhigh'), false);
-  assert.equal(recoveryRungAdmits('standard-read', 'elevated-read', 'knu_explorer'), false);
-  assert.equal(recoveryRungAdmits('standard-read', 'standard-build', 'knu_explorer'), false);
-  assert.equal(recoveryRungAdmits('standard-build', 'deep-build', 'knu_executor'), true);
-  assert.equal(recoveryRungAdmits('elevated-build', 'astra-fallback', 'knu_executor_xhigh'), false);
+      assert.equal(
+        recoveryRungAdmits(getModelProfile(from), getModelProfile(to), role),
+        true,
+        `${from}->${to}:${role}`,
+      );
+  // Installed data: a next profile without the role, a failed profile without the role, or a next candidate that
+  // drops a tool the failed profile allowed does not admit the lane; an assignment rung with the role does.
+  assert.equal(
+    recoveryRungAdmits(profile('extract'), profile('standard-read'), 'knu_explorer_xhigh'),
+    false,
+  );
+  assert.equal(
+    recoveryRungAdmits(profile('standard-read'), profile('standard-build'), 'knu_explorer'),
+    false,
+  );
+  assert.equal(
+    recoveryRungAdmits(profile('elevated-build'), profile('astra-fallback'), 'knu_executor_xhigh'),
+    false,
+  );
+  assert.equal(
+    recoveryRungAdmits(profile('standard-build'), profile('deep-build'), 'knu_executor_xhigh'),
+    false,
+  );
+  assert.equal(
+    recoveryRungAdmits(profile('standard-build'), profile('deep-build'), 'knu_executor'),
+    true,
+  );
+  assert.equal(
+    recoveryRungAdmits(profile('elevated-read'), profile('extract'), 'knu_explorer_xhigh'),
+    false,
+  );
+  // Synthetic candidates reach the clauses no installed rung fails today: effort, read-only and required tools.
+  const from = profile('extract');
+  const to = profile('elevated-read');
+  assert.equal(recoveryRungAdmits(from, to, 'knu_explorer_xhigh'), true);
+  assert.equal(
+    recoveryRungAdmits(from, { ...to, resolvedEffort: 'high' }, 'knu_explorer_xhigh'),
+    false,
+  );
+  assert.equal(recoveryRungAdmits(from, { ...to, readOnly: false }, 'knu_explorer_xhigh'), false);
+  assert.equal(
+    recoveryRungAdmits(from, { ...to, requiredTools: ['official-web-read'] }, 'knu_explorer_xhigh'),
+    false,
+  );
   assert.deepEqual(getRecoveryStep('extract', 'knu_explorer_xhigh'), {
     profileId: 'elevated-read',
     model: 'gpt-6.1-sol',
   });
+  // A rung that does not admit the lane leaves the retry on the same contract (no step).
+  assert.equal(
+    getRecoveryStep('elevated-read', 'knu_explorer_xhigh', { 'elevated-read': 'extract' }),
+    null,
+  );
+  assert.equal(
+    getRecoveryStep('standard-read', 'knu_explorer', { 'standard-read': 'elevated-read' }),
+    null,
+  );
 });
