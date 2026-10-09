@@ -46,9 +46,13 @@ export function observedChildren(
 }
 
 // One reviewer child per round under the dispatch token, on the review profile model unless given.
-export function observedReviews(
-  { sessionId = 'parent-session', dispatchToken = FIXTURE_DISPATCH_TOKEN, laneIds, rounds = [1], model } = {},
-) {
+export function observedReviews({
+  sessionId = 'parent-session',
+  dispatchToken = FIXTURE_DISPATCH_TOKEN,
+  laneIds,
+  rounds = [1],
+  model,
+} = {}) {
   const reviewModel = model ?? getModelProfile('review').model;
   const records = rounds.flatMap((round) => {
     const taskName = `review_${dispatchToken}_${round}`;
@@ -78,7 +82,8 @@ export function acceptedChildren(observation, { only } = {}) {
     .filter(({ registration }) => only === undefined || only.includes(registration.taskName))
     .map(({ registration }) => {
       const stop = observation.records.findLast(
-        ({ event, agentPath }) => event === 'SubagentStop' && agentPath === `/root/${registration.taskName}`,
+        ({ event, agentPath }) =>
+          event === 'SubagentStop' && agentPath === `/root/${registration.taskName}`,
       );
       return {
         schema: 'knu-codex-task-acceptance/v1',
@@ -104,8 +109,12 @@ function spawnArguments(taskName, role, model) {
 }
 
 function childRecords({ sessionId, agentId, registration, bind, seal }) {
-  const { task_name: taskName, agent_type: role, model, reasoning_effort: effort } =
-    registration.spawnArguments;
+  const {
+    task_name: taskName,
+    agent_type: role,
+    model,
+    reasoning_effort: effort,
+  } = registration.spawnArguments;
   const file = { schema: 'knu-codex-task-registration/v1', sessionId, ...registration };
   const base = {
     schema: RECORD_SCHEMA,
@@ -126,8 +135,16 @@ function childRecords({ sessionId, agentId, registration, bind, seal }) {
             toolName: 'collaborationspawn_agent',
             caller: 'root',
             decision: 'allow',
-            input: { task_name: taskName, agent_type: role, model, reasoning_effort: effort, fork_turns: 'none' },
-            ...(seal ? { registration: { digest: digest(JSON.stringify(file)), ...registration } } : {}),
+            input: {
+              task_name: taskName,
+              agent_type: role,
+              model,
+              reasoning_effort: effort,
+              fork_turns: 'none',
+            },
+            ...(seal
+              ? { registration: { digest: digest(JSON.stringify(file)), ...registration } }
+              : {}),
           },
         ]
       : []),

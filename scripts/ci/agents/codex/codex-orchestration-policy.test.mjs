@@ -1157,10 +1157,10 @@ test('hook observations bind each completed lane to its contract role, model and
     unaccepted.completionChecks.map(({ reason }) => reason),
     ['acceptance-missing', 'acceptance-missing'],
   );
-  assert.throws(
-    () => synthesize(observedChildren(delegation), FIXTURE_DISPATCH_TOKEN, {}),
-    { name: 'TypeError', message: 'acceptances must be an array.' },
-  );
+  assert.throws(() => synthesize(observedChildren(delegation), FIXTURE_DISPATCH_TOKEN, {}), {
+    name: 'TypeError',
+    message: 'acceptances must be an array.',
+  });
   // Without the PreToolUse allow record (fail-open guard) nothing bound the spawn.
   assert.deepEqual(
     synthesize(observedChildren(delegation, { bind: false })).completionChecks.map(
@@ -2223,24 +2223,30 @@ test('a retried lane completes on its retry route model and task path, and decis
     ],
   });
   const childResults = successfulLegalResults().filter((result) => result.laneId === laneId);
-  const synthesize = (hookObservation, recoveryDecisions = [retried]) =>
+  const synthesize = (
+    hookObservation,
+    recoveryDecisions = [retried],
+    acceptances = acceptedChildren(hookObservation),
+  ) =>
     prepareLeaderSynthesis({
       delegation,
       childResults,
       recoveryDecisions,
       hookObservation,
-      acceptances: acceptedChildren(hookObservation),
+      acceptances,
       dispatchToken: FIXTURE_DISPATCH_TOKEN,
     });
   const onRetry = (model) => observedChildren(delegation, { model, retryLaneIds: [laneId] });
   assert.equal(synthesize(onRetry('gpt-6-astra')).readyForLeaderDecision, true);
   // The retry ran one rung up, so the contract model on the retry path is refused.
   assert.equal(synthesize(onRetry('gpt-6.1-sol')).completionChecks[0].reason, 'model-mismatch');
-  // The primary task path is not the retry.
+  // The primary task path is not the retry, and an accepted primary child ends the lane before its retry.
+  const primaryOnly = observedChildren(delegation, { model: 'gpt-6-astra' });
   assert.equal(
-    synthesize(observedChildren(delegation, { model: 'gpt-6-astra' })).completionChecks[0].reason,
+    synthesize(primaryOnly, [retried], []).completionChecks[0].reason,
     'observation-missing',
   );
+  assert.equal(synthesize(primaryOnly).completionChecks[0].reason, 'lane-accepted');
   assert.throws(
     () =>
       synthesize(onRetry('gpt-6-astra'), [

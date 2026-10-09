@@ -575,13 +575,14 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       }),
     { name: 'TypeError', message: 'recovery decision must use the bounded schema.' },
   );
+  assert.deepEqual(validateCodexWorkflowResults(i, settled(onRetry)).errors, [
+    'child lane legal-test completion refused: retry-unreported',
+  ]);
   assert.deepEqual(
-    validateCodexWorkflowResults(i, settled(onRetry)).errors,
-    ['child lane legal-test completion refused: retry-unreported'],
-  );
-  assert.deepEqual(
-    validateCodexWorkflowResults(i, settled(reviewed(observedChildren(w.delegation, { bind: false }))))
-      .errors,
+    validateCodexWorkflowResults(
+      i,
+      settled(reviewed(observedChildren(w.delegation, { bind: false }))),
+    ).errors,
     ['child lane legal-test completion refused: observation-unbound'],
   );
   const foreign = reviewed(observedChildren(w.delegation, { agentType: 'default' }));
@@ -593,16 +594,19 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     'child lane legal-test completion refused: acceptance-missing',
     'QA reviewer review_disp1_1 completion refused: acceptance-missing',
   ]);
-  assert.throws(
-    () => validateCodexWorkflowResults(i, settled(solChild, { acceptances: {} })),
-    { name: 'TypeError', message: 'acceptances must be an array.' },
-  );
+  assert.throws(() => validateCodexWorkflowResults(i, settled(solChild, { acceptances: {} })), {
+    name: 'TypeError',
+    message: 'acceptances must be an array.',
+  });
   // A resumed child is no longer the accepted one.
   const resumedStop = (observation, agentPath) => ({
     ...observation,
     records: [
       ...observation.records,
-      { ...observation.records.findLast((record) => record.agentPath === agentPath), lastMessageBytes: 7 },
+      {
+        ...observation.records.findLast((record) => record.agentPath === agentPath),
+        lastMessageBytes: 7,
+      },
     ],
   });
   const acceptedSol = acceptedChildren(solChild);
@@ -626,7 +630,10 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
       i,
       settled(onRetry, {
         recoveryDecisions: [retried],
-        acceptances: [...acceptedChildren(onRetry), ...acceptedChildren(solChild, { only: ['legal_test_disp1'] })],
+        acceptances: [
+          ...acceptedChildren(onRetry),
+          ...acceptedChildren(solChild, { only: ['legal_test_disp1'] }),
+        ],
       }),
     ).errors,
     ['child lane legal-test completion refused: lane-accepted'],
@@ -644,7 +651,10 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     ).errors,
     ['QA review registration must cover every current lane'],
   );
-  const twoRounds = reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], rounds: [1, 2] }));
+  const twoRounds = reviewed(
+    lanesOnly,
+    observedReviews({ laneIds: ['legal-test'], rounds: [1, 2] }),
+  );
   assert.deepEqual(validateCodexWorkflowResults(i, settled(twoRounds)).errors, [
     'QA result must come from the latest registered review round',
   ]);
@@ -663,7 +673,9 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   assert.deepEqual(
     validateCodexWorkflowResults(
       i,
-      settled(reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], model: 'gpt-6.1-sol' }))),
+      settled(
+        reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], model: 'gpt-6.1-sol' })),
+      ),
     ).errors,
     ['QA reviewer review_disp1_1 completion refused: pair-not-allowed'],
   );
@@ -671,7 +683,9 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
   assert.deepEqual(
     validateCodexWorkflowResults(
       i,
-      settled(reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], dispatchToken: 'disp9' }))),
+      settled(
+        reviewed(lanesOnly, observedReviews({ laneIds: ['legal-test'], dispatchToken: 'disp9' })),
+      ),
     ).errors,
     ['QA review has no registered reviewer spawn under this dispatch token'],
   );

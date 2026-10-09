@@ -30,6 +30,7 @@ const POLICY = {
   allowedRoleModels: {
     ...Object.fromEntries(Object.keys(ROLE_EFFORTS).map((role) => [role, [ASTRA]])),
     knu_executor: [ASTRA, SOL],
+    knu_executor_medium: [ASTRA, SOL],
   },
   roleEfforts: ROLE_EFFORTS,
 };
@@ -128,7 +129,10 @@ test('guard denies a spawn without a matching unused registration with its own r
   const registered = (registration) =>
     memoryRegistry({ registrations: { lane_one_disp1: registration } });
   assert.deepEqual(decideToolUse(spawnCall(), POLICY), deny('registration-missing'));
-  assert.deepEqual(decideToolUse(spawnCall(), POLICY, memoryRegistry()), deny('registration-missing'));
+  assert.deepEqual(
+    decideToolUse(spawnCall(), POLICY, memoryRegistry()),
+    deny('registration-missing'),
+  );
   assert.deepEqual(
     decideToolUse(spawnCall(), POLICY, registered('invalid')),
     deny('registration-invalid'),
@@ -225,11 +229,14 @@ test('guard denies follow-up and message calls to an accepted child and records 
       },
       `${toolName} ${target}`,
     );
-  assert.deepEqual(decideToolUse(call('collaborationfollowup_task', 'lane_two_disp1'), POLICY, settled), {
-    action: 'record',
-    tool: 'followup_task',
-    caller: 'root',
-  });
+  assert.deepEqual(
+    decideToolUse(call('collaborationfollowup_task', 'lane_two_disp1'), POLICY, settled),
+    {
+      action: 'record',
+      tool: 'followup_task',
+      caller: 'root',
+    },
+  );
   assert.deepEqual(decideToolUse(call('collaborationfollowup_task', 'lane_one_disp1'), POLICY), {
     action: 'record',
     tool: 'followup_task',
@@ -240,10 +247,7 @@ test('guard denies follow-up and message calls to an accepted child and records 
 test('the hook and the registry module name the same registration directory', async () => {
   const { REGISTRY_DIRECTORY } = await hooks();
   const { registryDirectory } = await registry();
-  const expected = relative(
-    repoRoot,
-    resolveArtifactPath(repoRoot, ['codex-native', SESSION], {}),
-  );
+  const expected = relative(repoRoot, resolveArtifactPath(repoRoot, ['codex-native', SESSION], {}));
   assert.equal(`${REGISTRY_DIRECTORY}/${SESSION}`, expected);
   assert.equal(relative(repoRoot, registryDirectory(repoRoot, SESSION)), expected);
   // The module ignores a configured artifact directory: the hook cannot read the Parent's environment.
@@ -302,7 +306,10 @@ test('the installed hook reads registrations and acceptances from the session re
   assert.match(reason(run(followup('lane_one_disp1'))), /settled-child/u);
   assert.match(reason(run(followup(CHILD))), /settled-child/u);
 
-  const lines = readFileSync(join(root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`), 'utf8')
+  const lines = readFileSync(
+    join(root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`),
+    'utf8',
+  )
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line));
@@ -356,10 +363,17 @@ function sealedObservation({
         caller: 'root',
         decision: 'allow',
         input: { ...registration.spawnArguments, task_name: taskName },
-        ...(seal ? { registration: { digest: sha256(JSON.stringify(registration)), ...sealed } } : {}),
+        ...(seal
+          ? { registration: { digest: sha256(JSON.stringify(registration)), ...sealed } }
+          : {}),
       },
       { ...base, event: 'SubagentStart' },
-      { ...base, event: 'SubagentStop', at: 'stop-1', ownTurn: { model, effort: ROLE_EFFORTS[agentType] } },
+      {
+        ...base,
+        event: 'SubagentStop',
+        at: 'stop-1',
+        ownTurn: { model, effort: ROLE_EFFORTS[agentType] },
+      },
       ...extra,
     ],
   };
@@ -375,7 +389,11 @@ test('completion refuses an allow record without a registration seal or with a s
       expectedRole: 'knu_executor',
       expectedModel,
     });
-  assert.equal(check(sealedObservation()).accepted, true, JSON.stringify(check(sealedObservation())));
+  assert.equal(
+    check(sealedObservation()).accepted,
+    true,
+    JSON.stringify(check(sealedObservation())),
+  );
   assert.equal(check(sealedObservation({ seal: false })).reason, 'registration-unsealed');
   const sealedWith = (changes, spawn = {}) => {
     const observation = sealedObservation();
@@ -426,7 +444,10 @@ test('an acceptance binds the accepted stop, so a resumed child no longer comple
       acceptances,
     });
   const observation = sealedObservation();
-  assert.equal(hookRecordDigest(observation.records[2]), sha256(JSON.stringify(observation.records[2])));
+  assert.equal(
+    hookRecordDigest(observation.records[2]),
+    sha256(JSON.stringify(observation.records[2])),
+  );
   const acceptance = acceptanceOf(observation);
   assert.equal(check(observation, [acceptance]).accepted, true);
   // Without acceptances the check is the pre-acceptance check; an empty list asks for one.
@@ -436,7 +457,10 @@ test('an acceptance binds the accepted stop, so a resumed child no longer comple
     check(observation, [{ ...acceptance, sessionId: 'other-session' }]).reason,
     'acceptance-missing',
   );
-  assert.equal(check(observation, [{ ...acceptance, agentId: 'child-x' }]).reason, 'acceptance-mismatch');
+  assert.equal(
+    check(observation, [{ ...acceptance, agentId: 'child-x' }]).reason,
+    'acceptance-mismatch',
+  );
   assert.equal(
     check(observation, [{ ...acceptance, stopDigest: sha256('forged') }]).reason,
     'acceptance-mismatch',
@@ -602,7 +626,10 @@ test('acceptance writes a record for a completed task once and refuses a retry a
     registrationDigest: observation.records[0].registration.digest,
     acceptedAt: '2026-10-09T00:00:00Z',
   });
-  assert.deepEqual(verdict.acceptance, readAcceptance({ root, sessionId: SESSION, taskName: 'lane_one_disp1' }));
+  assert.deepEqual(
+    verdict.acceptance,
+    readAcceptance({ root, sessionId: SESSION, taskName: 'lane_one_disp1' }),
+  );
   assert.throws(() => accept('lane_one_disp1'), /already accepted/u);
   // Success ends the lane: no retry registration and no retry acceptance after it.
   assert.throws(
@@ -612,7 +639,9 @@ test('acceptance writes a record for a completed task once and refuses a retry a
   const retryDirectory = join(root, '.artifacts/tools/codex-native', SESSION);
   writeFileSync(
     join(retryDirectory, 'lane_one_disp1_retry.json'),
-    JSON.stringify(laneRegistration({ taskName: 'lane_one_disp1_retry', retry: true, model: ASTRA })),
+    JSON.stringify(
+      laneRegistration({ taskName: 'lane_one_disp1_retry', retry: true, model: ASTRA }),
+    ),
   );
   const retry = sealedObservation({
     taskName: 'lane_one_disp1_retry',

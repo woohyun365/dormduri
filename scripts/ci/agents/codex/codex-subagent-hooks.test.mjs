@@ -299,7 +299,10 @@ test('the installed hook writes session records under .codex/state and prints th
   // A spawn needs its registration in the Parent session's registration directory.
   const registrations = join(root, '.artifacts/tools/codex-native', SESSION);
   mkdirSync(registrations, { recursive: true });
-  writeFileSync(join(registrations, 'lane_one.json'), JSON.stringify(registrationFor(spawnCall({}))));
+  writeFileSync(
+    join(registrations, 'lane_one.json'),
+    JSON.stringify(registrationFor(spawnCall({}))),
+  );
   const allowed = run(spawnCall({}));
   assert.equal(allowed.status, 0, allowed.stderr);
   assert.equal(allowed.stdout, '');
@@ -565,7 +568,18 @@ test('completion compares the observed model and own-turn effort with the lane c
       observation({
         agentType: 'knu_explorer_xhigh',
         records: [
-          { ...bind, input: { ...bind.input, agent_type: 'knu_explorer_xhigh' } },
+          {
+            ...bind,
+            input: { ...bind.input, agent_type: 'knu_explorer_xhigh' },
+            registration: {
+              ...bind.registration,
+              spawnArguments: {
+                ...bind.registration.spawnArguments,
+                agent_type: 'knu_explorer_xhigh',
+                reasoning_effort: 'xhigh',
+              },
+            },
+          },
           { ...start, agentType: 'knu_explorer_xhigh' },
           { ...stop, agentType: 'knu_explorer_xhigh', ownTurn: { model: ASTRA, effort: 'xhigh' } },
         ],
