@@ -669,6 +669,67 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     }).errors,
     ['QA reviewer review_disp1_1 completion refused: acceptance-missing'],
   );
+  // Every reviewer task under the token counts, whatever its seal says: a round sealed with fields that do not spell
+  // its task name, or spawned without an allow record, is refused and still sets the latest round.
+  {
+    const reportRoundOne = (observation, acceptances = acceptedChildren(observation)) => {
+      qa.basePacket.lifecycle.dispatchId = 'review-disp1-1';
+      qa.baseResult.dispatchId = 'review-disp1-1';
+      const verdict = validateCodexWorkflowResults(i, { ...settled(observation), acceptances });
+      qa.basePacket.lifecycle.dispatchId = 'review-disp1-2';
+      qa.baseResult.dispatchId = 'review-disp1-2';
+      return verdict;
+    };
+    const roundTwo = (change) => {
+      const observation = structuredClone(twoRounds);
+      change(observation);
+      return observation;
+    };
+    const sealOf = (observation) =>
+      observation.records.find(({ registration }) => registration?.round === 2).registration;
+    const roundOneAccepted = acceptedChildren(twoRounds, {
+      only: ['legal_test_disp1', 'review_disp1_1'],
+    });
+    for (const [label, observation, reason, acceptances] of [
+      [
+        'kind lane',
+        roundTwo((o) => (sealOf(o).kind = 'lane')),
+        'registration-mismatch',
+        roundOneAccepted,
+      ],
+      [
+        'other token',
+        roundTwo((o) => (sealOf(o).dispatchToken = 'zzzz')),
+        'registration-invalid',
+        roundOneAccepted,
+      ],
+      [
+        'no allow record',
+        roundTwo((o) => {
+          o.records = o.records.filter(({ registration }) => registration?.round !== 2);
+        }),
+        'observation-unbound',
+        roundOneAccepted,
+      ],
+      [
+        'round-one review id',
+        roundTwo((o) => (sealOf(o).reviewId = 'review-disp1-1')),
+        'registration-invalid',
+      ],
+      ['round one', roundTwo((o) => (sealOf(o).round = 1)), 'registration-invalid'],
+    ]) {
+      const verdict = reportRoundOne(observation, acceptances);
+      assert.equal(verdict.valid, false, label);
+      assert.ok(
+        verdict.errors.includes(`QA reviewer review_disp1_2 completion refused: ${reason}`),
+        `${label}: ${JSON.stringify(verdict.errors)}`,
+      );
+      assert.ok(
+        verdict.errors.includes('QA result must come from the latest registered review round'),
+        `${label}: ${JSON.stringify(verdict.errors)}`,
+      );
+    }
+  }
   qa.basePacket.lifecycle.dispatchId = 'review-disp1-1';
   qa.baseResult.dispatchId = 'review-disp1-1';
   assert.deepEqual(

@@ -68,6 +68,27 @@ function laneRegistration({
   };
 }
 
+function reviewRegistration({ round = 1, dispatchToken = 'disp1', reviewOf = ['lane-one'] } = {}) {
+  const taskName = `review_${dispatchToken}_${round}`;
+  return {
+    schema: 'knu-codex-task-registration/v1',
+    sessionId: SESSION,
+    taskName,
+    kind: 'review',
+    reviewId: `review-${dispatchToken}-${round}`,
+    dispatchToken,
+    round,
+    reviewOf,
+    spawnArguments: {
+      task_name: taskName,
+      agent_type: 'knu_reviewer',
+      model: ASTRA,
+      reasoning_effort: 'xhigh',
+      fork_turns: 'none',
+    },
+  };
+}
+
 function spawnCall(input = {}, { child = false } = {}) {
   return {
     session_id: SESSION,
@@ -206,6 +227,62 @@ test('guard denies the retry spawn of a lane whose primary child was accepted', 
   );
 });
 
+test('guard refuses a registration whose own fields do not spell its task name', async () => {
+  const { decideToolUse } = await hooks();
+  const deny = {
+    action: 'deny',
+    tool: 'spawn_agent',
+    caller: 'root',
+    reason: 'registration-invalid',
+  };
+  // A child can edit a registration before the spawn; fields the task name spells are compared with it.
+  const retryCall = spawnCall({ task_name: 'lane_one_disp1_retry', model: ASTRA });
+  const retry = laneRegistration({ taskName: 'lane_one_disp1_retry', retry: true, model: ASTRA });
+  for (const registration of [
+    { ...retry, retry: false },
+    { ...retry, retry: 'yes' },
+    { ...retry, laneId: 'lane-two' },
+    { ...retry, dispatchToken: 'disp2' },
+    { ...retry, kind: 'review' },
+  ])
+    assert.deepEqual(
+      decideToolUse(
+        retryCall,
+        POLICY,
+        memoryRegistry({
+          registrations: { lane_one_disp1_retry: registration },
+          settled: ['lane_one_disp1'],
+        }),
+      ),
+      deny,
+      JSON.stringify(registration),
+    );
+  const reviewCall = spawnCall({
+    task_name: 'review_disp1_2',
+    agent_type: 'knu_reviewer',
+    model: ASTRA,
+    reasoning_effort: 'xhigh',
+  });
+  const review = reviewRegistration({ round: 2 });
+  const decide = (registration) =>
+    decideToolUse(
+      reviewCall,
+      POLICY,
+      memoryRegistry({ registrations: { review_disp1_2: registration } }),
+    );
+  assert.equal(decide(review).action, 'allow');
+  for (const registration of [
+    { ...review, kind: 'lane' },
+    { ...review, round: 1 },
+    { ...review, round: '2' },
+    { ...review, reviewId: 'review-disp1-1' },
+    { ...review, dispatchToken: 'zzzz' },
+    { ...review, reviewOf: [] },
+    { ...review, reviewOf: 'lane-one' },
+  ])
+    assert.deepEqual(decide(registration), deny, JSON.stringify(registration));
+});
+
 test('guard denies follow-up and message calls to an accepted child and records the others', async () => {
   const { decideToolUse } = await hooks();
   const call = (toolName, target, child = false) => ({
@@ -218,6 +295,9 @@ test('guard denies follow-up and message calls to an accepted child and records 
     ['collaborationfollowup_task', 'lane_one_disp1', false, 'followup_task'],
     ['collaborationsend_message', 'lane_one_disp1', false, 'send_message'],
     ['collaborationsend_message', CHILD, true, 'send_message'],
+    // The task path the hook records (`/root/<task name>`) names the same child.
+    ['collaborationfollowup_task', '/root/lane_one_disp1', false, 'followup_task'],
+    ['collaborationsend_message', '/root/lane_one_disp1', false, 'send_message'],
   ])
     assert.deepEqual(
       decideToolUse(call(toolName, target, child), POLICY, settled),
@@ -438,6 +518,18 @@ test('completion refuses an allow record without a registration seal or with a s
       JSON.stringify([changes, spawn]),
     );
   assert.equal(check(sealedWith({ digest: undefined })).reason, 'registration-unsealed');
+  // A seal whose own fields do not spell the checked task name is not a registration for it.
+  for (const changes of [
+    { laneId: 'lane-two' },
+    { dispatchToken: 'disp2' },
+    { retry: true },
+    { taskName: 'lane_two_disp1' },
+  ])
+    assert.equal(
+      check(sealedWith(changes)).reason,
+      'registration-invalid',
+      JSON.stringify(changes),
+    );
 });
 
 function acceptanceOf(observation, { taskName = 'lane_one_disp1', stopIndex = 2 } = {}) {
@@ -614,6 +706,29 @@ test('registration writes each task once with its spawn arguments and refuses in
     () => registerDispatch({ root, sessionId: '../x', dispatch: laneDispatch() }),
     /session id/u,
   );
+  // A lane id outside lowercase kebab-case would write a file the hook never reads (or outside the directory).
+  for (const laneId of ['../x', 'Lane-One', 'lane_one'])
+    assert.throws(
+      () =>
+        registerDispatch({
+          root,
+          sessionId: SESSION,
+          dispatch: {
+            ...laneDispatch(),
+            laneId,
+            spawnArguments: {
+              ...laneDispatch().spawnArguments,
+              task_name: `${laneId.replaceAll('-', '_')}_disp1`,
+            },
+          },
+        }),
+      /lane id/u,
+      laneId,
+    );
+  assert.throws(
+    () => readRegistration({ root, sessionId: SESSION, taskName: '../lane_one_disp1' }),
+    /task name/u,
+  );
 });
 
 test('acceptance writes a record for a completed task once and refuses a retry after the primary', async (t) => {
@@ -691,6 +806,40 @@ test('acceptance writes a record for a completed task once and refuses a retry a
     assert.equal(accept(taskName).reason, 'registration-invalid', taskName);
 });
 
+test('acceptance names the last stop of a child that took a follow-up before it was accepted', async (t) => {
+  const { registerDispatch, acceptTask } = await registry();
+  const { checkLaneCompletion, hookRecordDigest } = await records();
+  const root = mkdtempSync(join(tmpdir(), 'knu-task-followup-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  registerDispatch({ root, sessionId: SESSION, dispatch: laneDispatch() });
+  const first = sealedObservation();
+  const observation = {
+    ...first,
+    records: [...first.records, { ...first.records[2], at: 'stop-2' }],
+  };
+  const verdict = acceptTask({
+    root,
+    sessionId: SESSION,
+    taskName: 'lane_one_disp1',
+    expectedRole: 'knu_executor',
+    expectedModel: SOL,
+    observation,
+  });
+  assert.equal(verdict.accepted, true, JSON.stringify(verdict));
+  assert.equal(verdict.acceptance.stopDigest, hookRecordDigest(observation.records[3]));
+  assert.equal(
+    checkLaneCompletion({
+      observation,
+      laneId: 'lane-one',
+      dispatchToken: 'disp1',
+      expectedRole: 'knu_executor',
+      expectedModel: SOL,
+      acceptances: [verdict.acceptance],
+    }).accepted,
+    true,
+  );
+});
+
 test('a reviewer child is accepted on the review role and model of its registration', async (t) => {
   const { registerDispatch, acceptTask, createReviewDispatch } = await registry();
   const root = mkdtempSync(join(tmpdir(), 'knu-task-review-'));
@@ -715,6 +864,26 @@ test('a reviewer child is accepted on the review role and model of its registrat
   const accepted = accept('knu_reviewer', ASTRA);
   assert.equal(accepted.accepted, true, JSON.stringify(accepted));
   assert.equal(accepted.acceptance.kind, 'review');
+  // A review registration file whose fields do not spell its task name is not that reviewer's registration.
+  const directory = join(root, '.artifacts/tools/codex-native', SESSION);
+  for (const [taskName, registration] of [
+    ['review_disp1_2', { ...reviewRegistration({ round: 2 }), reviewId: 'review-disp1-1' }],
+    ['review_disp1_3', { ...reviewRegistration({ round: 3 }), round: 1 }],
+  ]) {
+    writeFileSync(join(directory, `${taskName}.json`), JSON.stringify(registration));
+    assert.equal(
+      acceptTask({
+        root,
+        sessionId: SESSION,
+        taskName,
+        expectedRole: 'knu_reviewer',
+        expectedModel: ASTRA,
+        observation: sealedObservation({ taskName, registration }),
+      }).reason,
+      'registration-invalid',
+      taskName,
+    );
+  }
 });
 
 test('the registry command registers a dispatch file and accepts a task against the session hook records', async (t) => {
@@ -726,9 +895,20 @@ test('the registry command registers a dispatch file and accepts a task against 
   writeFileSync(dispatchFile, JSON.stringify({ dispatches: [laneDispatch()] }));
   const registered = runRegistryCommand(['register', '--dispatch', dispatchFile], { root, env });
   assert.equal(registered.exitCode, 0, registered.stdout);
+  // The digest lets the Parent compare the seal and the acceptance with what it registered.
+  const registeredText = readFileSync(
+    join(root, '.artifacts/tools/codex-native', SESSION, 'lane_one_disp1.json'),
+    'utf8',
+  );
   assert.deepEqual(JSON.parse(registered.stdout), {
     sessionId: SESSION,
-    registered: [{ taskName: 'lane_one_disp1', spawnArguments: laneDispatch().spawnArguments }],
+    registered: [
+      {
+        taskName: 'lane_one_disp1',
+        digest: sha256(registeredText),
+        spawnArguments: laneDispatch().spawnArguments,
+      },
+    ],
   });
   const hookDirectory = join(root, '.codex/state/knu-subagent-hooks');
   mkdirSync(hookDirectory, { recursive: true });
