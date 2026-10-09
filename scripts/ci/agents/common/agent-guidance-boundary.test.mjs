@@ -126,10 +126,11 @@ test('repository guidance is available to clean clones and remains within the st
     'AGENTS.md must stay below the default 32 KiB Codex project guidance limit',
   );
   // Codex joins one instruction file per directory from the root to the working directory under the same limit, so
-  // nested AGENTS.md or AGENTS.override.md files would share and silently truncate it.
+  // nested AGENTS.md or AGENTS.override.md files would share and silently truncate it. Case-insensitive file systems
+  // also resolve differently cased names, so the match ignores case and only the exact root file is excluded.
   assert.deepEqual(
     trackedPaths().filter(
-      (path) => path !== 'AGENTS.md' && /(?:^|\/)AGENTS(?:\.override)?\.md$/u.test(path),
+      (path) => path !== 'AGENTS.md' && /(?:^|\/)agents(?:\.override)?\.md$/iu.test(path),
     ),
     [],
   );

@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import test from 'node:test';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const ADAPTERS = 'docs/development/agent-workflows/adapters/';
 const ENTRY = `${ADAPTERS}codex.md`;
 const ENTRY_BUDGET = 24_000;
-// Agent documents that may link the Codex adapter. The tree-wide link guard is agent-document-graph (docs/development);
-// this suite does not list the tracked tree, so it reads these two directories only.
+// Agent documents that may link the Codex adapter. This suite does not list the tracked tree, so it reads these two
+// directories only; agent-document-graph resolves every link and anchor under docs/development, and the runner sweeps
+// the whole tree for links to moved anchors.
 const LINKING_DIRECTORIES = ['docs/development/agent-workflows', 'docs/evidence/agent-workflows'];
 // Each reference owns the headings moved out of the entry; the entry keeps the routine headings. Moved headings keep
 // their wording so inbound anchors only change the file name.
@@ -102,7 +103,7 @@ test('moved Codex headings live only in their reference and kept headings only i
   }
 });
 
-test('no tracked document links a moved Codex heading through the entry', () => {
+test('no agent workflow or evidence document links a moved Codex heading through the entry', () => {
   const moved = Object.values(REFERENCES)
     .flat()
     .map((heading) =>
@@ -115,16 +116,16 @@ test('no tracked document links a moved Codex heading through the entry', () => 
   const files = LINKING_DIRECTORIES.flatMap((dir) =>
     readdirSync(resolve(root, dir), { recursive: true })
       .filter((name) => name.endsWith('.md'))
-      .map((name) => join(dir, name)),
+      .map((name) => `${dir}/${name.split(sep).join('/')}`),
   );
   const stale = [];
   for (const path of files) {
     const text = read(path);
-    for (const match of text.matchAll(/(?:^|[(/])codex\.md#([^)\s]+)/gmu))
-      if (moved.includes(match[1])) stale.push(`${path}: codex.md#${match[1]}`);
+    for (const match of text.matchAll(/(?:^|[(/\s])codex\.md#([^)\s]+)/gmu))
+      if (moved.includes(decodeURIComponent(match[1]))) stale.push(`${path}: codex.md#${match[1]}`);
     if (path === ENTRY)
       for (const match of text.matchAll(/\]\(#([^)\s]+)\)/gu))
-        if (moved.includes(match[1])) stale.push(`${path}: #${match[1]}`);
+        if (moved.includes(decodeURIComponent(match[1]))) stale.push(`${path}: #${match[1]}`);
   }
   assert.deepEqual(stale, []);
 });
