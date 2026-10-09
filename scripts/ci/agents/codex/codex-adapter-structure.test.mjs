@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const ADAPTERS = 'docs/development/agent-workflows/adapters/';
 const ENTRY = `${ADAPTERS}codex.md`;
 const ENTRY_BUDGET = 24_000;
-// Codex stops adding project instructions once their combined size reaches project_doc_max_bytes (default 32 KiB).
-const PROJECT_DOC_MAX_BYTES = 32 * 1024;
+// Agent documents that may link the Codex adapter. The tree-wide link guard is agent-document-graph (docs/development);
+// this suite does not list the tracked tree, so it reads these two directories only.
+const LINKING_DIRECTORIES = ['docs/development/agent-workflows', 'docs/evidence/agent-workflows'];
 // Each reference owns the headings moved out of the entry; the entry keeps the routine headings. Moved headings keep
 // their wording so inbound anchors only change the file name.
 const REFERENCES = {
@@ -39,7 +39,7 @@ const KEPT = [
   '## Routine task-model operation',
   '## Skill과 workflow routing',
   '## Visual skill scope',
-  '## 저장소 root와 runtime state 위치',
+  '### 저장소 root와 runtime state 위치',
   '## OMX 종료 기록 경계',
 ];
 
@@ -112,9 +112,11 @@ test('no tracked document links a moved Codex heading through the entry', () => 
         .replace(/[^\p{L}\p{N}\s-]/gu, '')
         .replace(/\s/gu, '-'),
     );
-  const files = execFileSync('git', ['ls-files', '*.md'], { cwd: root, encoding: 'utf8' })
-    .split('\n')
-    .filter(Boolean);
+  const files = LINKING_DIRECTORIES.flatMap((dir) =>
+    readdirSync(resolve(root, dir), { recursive: true })
+      .filter((name) => name.endsWith('.md'))
+      .map((name) => join(dir, name)),
+  );
   const stale = [];
   for (const path of files) {
     const text = read(path);
@@ -125,18 +127,4 @@ test('no tracked document links a moved Codex heading through the entry', () => 
         if (moved.includes(match[1])) stale.push(`${path}: #${match[1]}`);
   }
   assert.deepEqual(stale, []);
-});
-
-test('the root AGENTS.md fits the Codex project-doc limit without nested instruction files', () => {
-  const size = Buffer.byteLength(read('AGENTS.md'));
-  assert.ok(size <= PROJECT_DOC_MAX_BYTES, `AGENTS.md: ${size} bytes > ${PROJECT_DOC_MAX_BYTES}`);
-  // Codex concatenates one instruction file per directory from the root to the working directory, so a nested file
-  // would share the same limit.
-  const nested = execFileSync('git', ['ls-files', '*AGENTS.md', '*AGENTS.override.md'], {
-    cwd: root,
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter((path) => path && path !== 'AGENTS.md');
-  assert.deepEqual(nested, []);
 });

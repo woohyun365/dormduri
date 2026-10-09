@@ -25,6 +25,7 @@ const textExtensions = new Set([
 const localPlanBoundaryAllowlist = new Set([
   '.artifacts/README.md',
   'docs/development/agent-workflows/session-continuity.md',
+  'docs/development/agent-workflows/adapters/codex-diagnostics.md',
   'docs/development/agent-workflows/adapters/codex.md',
   // Host lifecycle examples and disposable fixtures, never active-plan authority.
   'docs/development/agent-workflows/adapters/claude-code.md',
@@ -123,6 +124,14 @@ test('repository guidance is available to clean clones and remains within the st
   assert.ok(
     Buffer.byteLength(source) <= 32 * 1024,
     'AGENTS.md must stay below the default 32 KiB Codex project guidance limit',
+  );
+  // Codex joins one instruction file per directory from the root to the working directory under the same limit, so
+  // nested AGENTS.md or AGENTS.override.md files would share and silently truncate it.
+  assert.deepEqual(
+    trackedPaths().filter(
+      (path) => path !== 'AGENTS.md' && /(?:^|\/)AGENTS(?:\.override)?\.md$/u.test(path),
+    ),
+    [],
   );
 });
 
@@ -411,6 +420,7 @@ test('tracked workspace guides link only to tracked sources and defer lifecycle 
 // Plans moved to the shared .plans root; .omx/plans remains only as explicit legacy read compatibility.
 const legacyPlanRootFiles = new Set([
   'docs/development/agent-workflows/adapters/README.md',
+  'docs/development/agent-workflows/adapters/codex-diagnostics.md',
   'docs/development/agent-workflows/adapters/codex.md',
   'scripts/agents/codex/session-preflight.mjs',
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',

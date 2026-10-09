@@ -1,16 +1,38 @@
 # Codex and OMX execution adapter
 
-## Cross-host direct CLI reviewer (static boundary)
-
-[Codex-target bridge policy](../../../../scripts/agents/codex/review-bridge.mjs)는 승인된 Claude Lead의 추가 읽기 전용 검토를 위한 **top-level** `codex exec` 계약입니다. `gpt-6-astra`, `--sandbox read-only`, 비대화식 승인 거부와 source/config/role digest를 사용합니다. 이 프로세스가 `.codex/agents/knu_reviewer.toml`을 로드하거나 별도 필수 Astra QA를 충족했다고 주장하지 않습니다. 명령은 `enabled:false`이며 현재 bridge는 실행하지 않습니다. auth·실제 모델·sandbox·role 입증은 별도입니다. [교차 인계](./cross-model-handoff.md#direct-cli-review-bridge-static-preparation-only)를 따르며 `omx ask`로 자동 우회하지 않습니다.
-
 이 문서는 공통 [orchestration](../orchestration.md)·[execution](../agent-execution-contract.md)·[QA](../qa.md)를 소비하는 Codex/OMX 전용 모델·effort·dispatch·복구 owner입니다. 다른 host에 자동 적용하지 않습니다. 기존 finite cohort(routing 후보 자격)와 필수 Astra QA는 유지합니다. Lane별 model admission grant는 2026-10-07 삭제됐습니다.
 
 Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. Child 상한은 6(root 제외, V2가 표시하는 slot 7은 root 포함)이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. V2 runtime-managed에서는 같은 lane 후속에 `followup_task`를 우선하되(수락 전 child만, 수락한 child는 hook이 deny하고 보완은 새 dispatch) 최초 독립 QA는 fresh scoped context를 유지합니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
 
-## Visual skill scope
+## 구조
 
-Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **Codex-only** task-fit 도구이며 공통 필수 skill이나 Claude 이식 대상이 아닙니다. 기존 personal Codex 설치는 보존하고 [선택·설치 경계](../visual-design/design-task-orchestration.md#task-fit-skills)를 따릅니다. 각 skill의 discovery/qualification은 별개이고 모델의 디자인 우열을 주장하지 않습니다.
+Codex 실행 접점은 다섯 층입니다. 각 층은 다른 층의 보장을 대신하지 않습니다.
+
+- `AGENTS.md`: 세션 시작 때 읽히는 저장소 규칙과 진입점입니다. Codex는 root부터 작업 디렉터리까지 디렉터리마다 instruction
+  파일 하나를 이어 붙이고, 합친 크기가 `project_doc_max_bytes`(기본 32 KiB)에 닿으면 더 붙이지 않습니다. 그래서 루트
+  `AGENTS.md`는 이 한도 안에 두고 하위 `AGENTS.md`·`AGENTS.override.md`를 두지 않습니다(`agent-guidance-boundary.test.mjs`).
+  [공식 AGENTS.md 문서](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+- 이 문서: 위임·리뷰·완료 판정의 routine 규칙입니다. 세부는 아래 reference를 필요할 때 읽습니다.
+- 역할: `.codex/agents/knu_*.toml`이 역할별 sandbox·effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
+- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail과 child 완료 기록을 맡습니다. Hook 부재·실패에서는 호출이 막히지
+  않으므로 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
+- Sandbox·approval: 사용자와 세션이 정합니다. 저장소는 project 기본값과 실행 규칙(`.codex/rules`)을 두지 않고 역할 파일의
+  `sandbox_mode`만 둡니다([permission mechanism](./codex-native-registry.md#codexomx-permission-mechanism)).
+
+## Reference 문서
+
+Routine 절차에 필요한 내용은 이 문서에 있습니다. 다음 세부는 필요할 때만 읽습니다.
+
+- [Model profiles](./codex-model-profiles.md): 후보 profile 표와 admission, profile 세대교체, 역할 설정과 fresh loading, cohort
+  철회입니다. 모델·profile을 고르거나 바꿀 때 읽습니다.
+- [Native registry](./codex-native-registry.md): spawn 등록·hook guardrail·완료 관측·수락과 Codex/OMX 권한 수단입니다. 등록·완료
+  거부 사유나 hook 동작을 확인할 때 읽습니다.
+- [Diagnostics](./codex-diagnostics.md): `codex:preflight` resume 진단의 필드·identity·freshness·bounded read입니다. 계획 재개
+  진단을 해석할 때 읽습니다.
+- [Qualification](./codex-qualification.md): Claude Lead를 위한 top-level `codex exec` 교차 reviewer의 정적 경계입니다. Bridge를
+  다룰 때 읽습니다.
+- [Codex delegation](./codex-delegation.md): candidate schema·`modelRequest`·context delivery·count와 write policy입니다. Lane
+  입력을 만들 때 읽습니다.
 
 ## Repository workflow entry
 
@@ -26,11 +48,20 @@ API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnaps
 
 `codex:preflight`는 Codex Git/OMX snapshot 명령이며 request CLI의 alias가 아닙니다. 기본 계획 탐색은 `.plans`, 명시적 legacy `.omx/plans` 읽기만 과도기 호환입니다. `planDiscovery.complete/issues` 및 선택된 `planBinding`으로 불완전한 inventory와 잘못된 상태를 드러냅니다. Legacy reader 제거 조건은 필요한 callers와 owner-local 계획 migration 완료입니다. 파일을 자동 생성·이동하거나 runtime `.omx/context`를 옮기지 않습니다.
 
+### 저장소 root와 runtime state 위치
+
+- Codex와 OMX는 저장소 root에서 시작합니다. OMX 0.21.6은 `OMX_ROOT`·`OMX_STATE_ROOT`가 없으면 현재 작업 디렉터리의
+  `.omx`를 state root로 쓰고 OMC 같은 위치 표식을 지원하지 않습니다. 하위 디렉터리에서 시작하면 그 아래에 `.omx`가 생깁니다.
+- Agent가 만든 screenshot·dev server log·검증 출력은 `.omx/`나 app 하위 디렉터리가 아니라
+  [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다. repository script는 `resolveArtifactPath()`를 씁니다.
+- `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omx`·`.omc`와 옛 root 이름을 탐지해
+  commit을 멈춥니다. 탐지이지 차단 장치가 아니므로 발견하면 내용을 옮기고 시작 위치를 바로잡습니다.
+
 ## Reasoning effort routing
 
 Reasoning routing은 Parent와 child를 분리합니다. Parent effort는 사용자가 session에서 선택하며 repository는 Parent
 effort를 계산하거나 변경했다고 보고하지 않습니다. 사용자가 고른 Parent model은 multi-agent 엔진도 정합니다(catalog v2 model은 V2,
-`gpt-5.6-luna` 같은 catalog v1 model은 V1). 위임은 V2 Parent에서만 되며 project hook이 로드된 세션에서는 V1 root의 spawn을 [hook guard](#subagent-hook-guardrail과-완료-관측)가 막습니다.
+`gpt-5.6-luna` 같은 catalog v1 model은 V1). 위임은 V2 Parent에서만 되며 project hook이 로드된 세션에서는 V1 root의 spawn을 [hook guard](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)가 막습니다.
 
 1. Pass 1은 intent, authority, impact risk, candidate shape만 정합니다.
 2. Direct/deterministic work 또는 Medium child보다 직접 수행이 저렴한 work는 child-free로 유지합니다.
@@ -39,7 +70,7 @@ effort를 계산하거나 변경했다고 보고하지 않습니다. 사용자�
    structural deep composite가 확인되면 XHigh, 그 외 substantial work는 High입니다.
 
 Child model은 profile이 정합니다. Admission을 통과한 bounded 읽기·구현은 GPT-6.1 Sol, 고정 입력 추출은 GPT-6 Luna이고
-([후보 표](#quality-gated-model-advice)), 그 밖의 child와 독립 리뷰는 GPT-6 Astra입니다. Child effort는 `medium | high | xhigh`이고 역할 파일이 정합니다.
+([후보 표](./codex-model-profiles.md#quality-gated-model-advice)), 그 밖의 child와 독립 리뷰는 GPT-6 Astra입니다. Child effort는 `medium | high | xhigh`이고 역할 파일이 정합니다.
 각 `.codex/agents` 역할은 `model_reasoning_effort`를 pin하고 이 값이 spawn의 explicit effort보다 우선하므로, Parent는 effort
 인자가 아니라 역할을 골라 effort를 정합니다. Routing은 Pass 2 계층과 impact로 역할 변형과 `profileId`를 함께 출력합니다.
 `effort`는 그 역할이 pin한 값이고 spawn model은 profile의 model입니다. Candidate가 없을 때의 배정은 다음과 같습니다.
@@ -52,7 +83,7 @@ Child model은 profile이 정합니다. Admission을 통과한 bounded 읽기·�
 독립 리뷰는 계층과 무관하게 `knu_reviewer`(xhigh)와 `review`입니다. 표에서 profile을 적지 않은 칸은 `astra-fallback`입니다. 세 profile 모두 Astra입니다. `_medium`·`_xhigh` 변형의 prompt·sandbox는
 기본 역할과 같고 이름·설명·effort만 다르며 test가 이를 결속합니다. Keyword, path, file count, LOC, broad verification
 하나만으로 계층을 올리지 않으며 같은 fact를 여러 composite category로 중복 계산하지 않습니다. Role 이름 자체는 live runtime
-지원 증거가 아닙니다. 호출 시점의 역할·(역할, model) 쌍·fork는 [hook guard](#subagent-hook-guardrail과-완료-관측)가 검사합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Low 역할도 없습니다.
+지원 증거가 아닙니다. 호출 시점의 역할·(역할, model) 쌍·fork는 [hook guard](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)가 검사합니다. Low와 `max/ultra`는 일반 repository child route에 사용하지 않습니다. Low 역할도 없습니다.
 실패한 lane의 재시도는 한 번입니다. 결과 품질 실패는 같은 역할로 사다리 한 단 위 model(Luna → 6.1 Sol, 6.1 Sol → Astra)에서,
 근거·도구 실패와 Astra lane은 같은 contract에서 approach만 바꿔 실행하며 연쇄 상향은 없습니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
 Role routing을 증명하지 못하면 역할을 prompt label로 가장하지 않고 single/sequential fallback을 사용합니다.
@@ -85,127 +116,6 @@ scoped로 공급하든 contract에서 정해지며, 공급 context의 호환성�
 소유합니다. 이 경계의 회귀
 검사와 실제 Parent-high 품질/사용량 관측은 별개이며, 검증되지 않은 동등 성능·weekly 절감 수치를 보고하지 않습니다.
 
-### Quality-gated model advice
-
-Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없거나 후보가
-admission을 통과하지 못하면 위 Astra 배정이 그대로입니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
-후보는 자기 역할 변형을 가지며, 그 역할의 pin effort가 곧 호출 effort입니다.
-
-| Candidate profile | model / 역할(effort)                                  | 계층·impact                      | 범위                                                                  | 운영    |
-| ----------------- | ----------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- | ------- |
-| `extract`         | `gpt-6-luna` / `knu_explorer_xhigh`(xhigh)            | Medium, low                      | 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 | routine |
-| `standard-read`   | `gpt-6.1-sol` / `knu_explorer`·`knu_researcher`(high) | Medium, low·medium               | lookup·analysis·research read-only, acceptance·독립 검사              | routine |
-| `elevated-read`   | `gpt-6.1-sol` / `_xhigh` 읽기 역할(xhigh)             | High·XHigh 또는 impact high 읽기 | 위와 같음                                                             | routine |
-| `standard-build`  | `gpt-6.1-sol` / `knu_executor`(high)                  | Medium, low·medium               | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA      | routine |
-| `elevated-build`  | `gpt-6.1-sol` / `knu_executor_xhigh`(xhigh)           | High(non-deep), low·medium       | 위와 같음                                                             | routine |
-
-- Astra: Parent, 최종 QA, 구현의 XHigh·impact high(`deep-build`), 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
-
-모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Standard profile은
-complete Medium 계층, elevated profile은 같은 조건의 High 계층입니다(읽기는 XHigh와 impact high 읽기도 포함). Task/cohort/검증 fact와 write/context gate도 통과해야 합니다.
-6.1 Sol 후보는 Owner 채택(2026-10-06)으로 routine입니다. 별도 품질 canary 없이 채택했으므로 작업마다 oracle·독립 검사,
-구현의 필수 Astra QA와 [hook 관측](#subagent-hook-guardrail과-완료-관측)(관측 model·effort의 완료 대조)이 품질을 지킵니다.
-Pilot 요청도 그대로 받습니다. Semantic 계층과 후보 역할의
-effort는 별도 축입니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
-
-Parent는 선택 근거를 짧은 sanitized evidence reference로 남깁니다. 결정적 도구로 충분한지, semantic 작업의
-목표·acceptance·입력·context가 완전한지, dependency/owner/검증 경계가 유한한지, 직접 oracle·독립 검사가 있는지,
-위험·가역성·쓰기 범위가 적합한지, 해당 profile/role의 승인·실패 이력이 유효한지를 확인합니다.
-파일 수·LOC·keyword 점수로 선택하지 않으며 xhigh가 재작업을 줄였다는 주장은 matched evidence 없이 하지 않습니다.
-Max worker/복구, Parent·운영 reviewer 변경은 허용하지 않습니다.
-[Hook 기록과 실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)은 실행을 관측할 뿐
-semantic eligibility나 admission을 완화하지 않습니다.
-
-현재 채택 범위와 새 세션의 선택 순서는 [Routine task-model operation](#routine-task-model-operation)을 따릅니다.
-추천은 `applied=false`입니다. [정확한 request/검증 fact 계약](./codex-delegation.md#model-recommendation)을 따르며 lane별
-허가 packet은 없습니다. Pilot PASS는 운영 채택 GO가 아닙니다.
-Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. 자동 keyword classifier나 scheduler는 없습니다.
-기본값/최종 QA는 Astra입니다. Reviewer를 포함한 모든 `knu_*` 역할은 model pin 없이 profile model을 명시적으로 받지만,
-실제 loaded role에 pin이 있으면 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
-Descriptor의 `spawnArguments`를 그대로 native 호출에 전달하고, 호출 시점의 (역할, model) 쌍·fork는 hook이 다시 검사합니다.
-Lower-model lane도 일반 동시 한도를 따릅니다(같은 role의 다른 model lane 포함). 품질/지원 불일치는 pending writer를 회수한 뒤 [재시도 한 번](../request-intake/orchestration-recovery.md#recovery-ceiling) 또는 Parent 판단·handoff로 넘기며,
-quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
-
-공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
-아니지만, 총 task 비용·weekly 절약을 측정했다고 주장할 수는 없습니다. 정적 테스트 성공도 실제 모델 사용의 증거가 아닙니다.
-
-### Central profile migration boundary
-
-`scripts/agents/codex/model-profiles.mjs`가 finite task profile의 model·허용 role·계층·task·도구·검증 키와 역할별 effort 표
-`ROLE_EFFORTS`를 소유합니다. Effort 값은 각 역할 파일이 pin하며 test가 두 값을 결속합니다.
-Parent는 profileId를 고르고 현재 binding을 request → contract → dispatch `spawnArguments` → hook 완료 대조에 연결합니다. Repository가 요청하는 child model은 `ALLOWED_CHILD_MODELS`(`BASELINE_CHILD_MODEL`과 profile model)뿐이고,
-역할별로는 `ALLOWED_ROLE_MODELS`(각 profile의 역할 × 그 profile model)의 쌍만 요청합니다. 승격 사다리의 다음 단(같은 역할,
-다음 model)도 이 쌍 안에 있습니다.
-Raw model request는 입력 형태 검사로 거절합니다. Profile의 허용 목록 밖
-model은 이름과 무관하게 `Model is outside the allowed child model list.` 하나로 거절합니다. Host가 확인한
-child model·effort는 [hook 기록](#subagent-hook-guardrail과-완료-관측)이 근거입니다. Codex가 직접 읽는 `.codex` 기본값은 test로
-`BASELINE_CHILD_MODEL`에 결속하고, 역할 파일의 `model` 필드는 test가 금지합니다. Effort 변형 역할은 있지만 모델별 TOML clone이나
-provider adapter/scheduler는 만들지 않습니다.
-
-미래 세대 변경은 해당 중앙 데이터와 가까운 회귀 테스트를 바꾸고 `policyRevision`을 갱신합니다. Eligibility 코드 변경도 revision을
-갱신해야 합니다. Profile 전체 hash가 변경되면 source/config가 같아도 기존 binding을 재사용하지 못합니다.
-설치된 registry와 정확히 비교하므로 synthetic hash나 scope digest 재계산만으로 새 모델을 허용할 수 없습니다.
-현재 host/loaded role 확인 → 필요한 새 pilot·품질 GO/범위 승인 순서는 그대로입니다. 실패 시 Astra-only 또는 마지막 승인된
-profile을 current source/config에 다시 승인해 복귀하며 허용 목록에서 빠진 모델을 자동 복구하지 않습니다. Hash는 native 실행·권한 인증이 아닙니다.
-
-세대교체·철회는 다음 순서로 재현합니다.
-
-1. 변경 profile의 신규 dispatch를 중단하고 current registry/binding·source/config·채택 결정·미완료 writer를 확인합니다.
-2. 선택된 실제 모델의 exact ID/effort/지원·품질 근거를 확인한 뒤 **중앙 profile data + 새 policyRevision**으로 변경합니다.
-   Eligibility를 바꾸면 그 알고리즘도 owner이며 revision이 필요합니다. 역할별 TOML 복제나 `latest` alias로 넘기지 않습니다.
-3. 기존 static/integration 회귀로 새 binding과 stale binding 거절을 검증합니다. 검증되지 않은 미래 ID를
-   실제 registry에 등록하지 않습니다. 새 모델 canary는 별도 bounded 권한·환경·독립 QA 후 채택합니다.
-4. 새 채택 결정을 기록하고 live host에서 hook 관측(실제 model·effort)을 다시 확인합니다.
-   테스트의 synthetic revision은 데이터 seam 검사이지 새 모델 실행·품질 증거가 아닙니다.
-5. **Data rollback도 새 revision**으로 게시하고 새 승인으로 연결합니다. 현재 validator가 installed data와 비교하는 것이지,
-   과거 code와 binding을 함께 복원하는 운영자를 막는 monotonic history store는 아닙니다. Git revert만으로 옛 binding이나 허용 목록에서
-   빠진 모델을 되살리지 않습니다. 급한 중단은 registry/config를 바꾸기보다 아래 Astra-only 철회를 우선합니다.
-
-Reproduction: `scripts/ci/agents/codex/codex-model-profiles.test.mjs`의 revision/rollback fingerprint 검사,
-`scripts/ci/agents/codex/codex-orchestration-policy.test.mjs`의 후보 없는 Astra 배정·stale binding 회귀, 역할 파일의 model
-pin·effort drift를 거절하는 `scripts/ci/agents/codex/project-codex-config.test.mjs`. 실제 설정 변경 없이 fixture로 검증합니다.
-Dispatch는 config 입력을 받지 않으므로 loaded config의 drift는 dispatch 회귀가 아니라 이 config test와 hook 관측이 맡습니다. Parent/default/reviewer generation은 별도 설정·권한 결정입니다.
-
-### Task model configuration and fresh loading
-
-| 설정 owner                                                     | 계약                                                                                                                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                                                                    |
-| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                                                       |
-| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                                                                 |
-| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                                                                    |
-| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard(등록 대조·봉인)·수락 child 후속 deny·subagent 완료 기록, 허용 model·역할 쌍·roster 정책 사본([hook](#subagent-hook-guardrail과-완료-관측)) |
-
-Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
-그래서 effort는 역할 pin이 정하고, dispatch descriptor는 spawn의 `reasoning_effort`를 그 값으로 채웁니다. Model pin이
-없는 역할은 **명시적 모델 선택을 받을 수 있는 설정**이지 기본값을 Sol로 바꾸는 조치가 아닙니다. Parent는 profile의 model을
-명시하며, 미분류/무요청 경로는 Astra 기본값을 유지합니다.
-[공식 subagent 설정](https://learn.chatgpt.com/docs/agent-configuration/subagents)
-
-설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
-
-1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
-   이름·sandbox·instructions·기본값·model pin 부재·상한은 별도로 대조합니다.
-2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
-   역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.
-   파일만 읽고 actual model을 관측했다고 쓰지 않습니다(실제 model·effort는 hook 기록이 근거).
-3. 현재 host에서 지원되는 refresh/loaded-config 확인 수단이 있으면 사용합니다. 없다면 정확한 config SHA·검증·현재 schema·
-   남은 gap을 handoff하고 정상적인 새 repository process/conversation에서 다시 확인합니다. 공식 문서에 custom-agent hot
-   reload 보장이 없다는 사실은 모든 host에서 restart가 필수라는 뜻도 아닙니다. MCP reload를 role reload로 대체하지 않습니다.
-4. `codex resume`은 이전 대화를 재개하면서 override를 받을 수 있지만 custom-role 재발견을 증명하지 않습니다. 새 conversation이
-   필요한 경우 [정상 exit/resume와 소유 경계](../../troubleshooting/tooling/agent-thread-limit-reached.md#선택적-agents-운영과-정상-exitresume)를
-   따릅니다. Parent가 현재 root를 임의 종료하거나 `/agents` 서버·별도 유료 CLI trial을 시작하지 않습니다.
-5. 새 session에서도 actual native schema/설정 출처가 맞지 않으면 해당 모델 dispatch를 보류하고 Astra로 유지합니다.
-   generic role·새 alias·전역 pin 변경으로 우회하지 않습니다. 지원 계약 확인과 실제 모델별 실행·독립 품질 검증은 별도 gate입니다.
-
-[공식 설정 precedence](https://learn.chatgpt.com/docs/config-file/config-basic),
-[CLI launch/resume](https://learn.chatgpt.com/docs/developer-commands?surface=cli).
-Fresh-load handoff는 source/config/현재 host 근거를 넘기는 절차이며 기존 child의 결과 회수·pending·residency를 대신하지 않습니다.
-상세 자원 처리는 [Subagent lifecycle](../subagent-lifecycle.md)을 따릅니다.
-
-Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/docs 복원으로 한정합니다. 이전 source 구현이나 다른 owner
-변경을 reset하지 않습니다. 이미 시작한 child는 설정 원복으로 종료/재설정됐다고 가정하지 않고 별도 lifecycle을 확인합니다.
-
 ## Routine task-model operation
 
 공통 채택·철회 원칙은 [Routine adoption](../orchestration.md#routine-adoption)을 따르며, 이 절은 Codex cohort와 호출 절차를 정합니다.
@@ -213,7 +123,7 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 [현재 profile 결정](../agentic-architecture-decisions.md#task-model-effort-structure)과 [한정된 실제 관측](../agentic-architecture-decisions.md#routine-model-adoption)의 **cohort GO**는
 **개별 task 호출 승인**과 다릅니다. 승인된 일반 업무에서 Parent가 적격 profile을 선택하므로 매번 사용자에게 모델명을
 다시 묻지 않습니다. 그러나 현재 작업 범위·독립 QA를 생략하거나 과거 pilot PASS를 채택 근거로 재사용하지 않습니다.
-Profile model이 바뀐 cohort는 새 model ID·effort의 native live 관측과 [세대교체 절차](#central-profile-migration-boundary)의
+Profile model이 바뀐 cohort는 새 model ID·effort의 native live 관측과 [세대교체 절차](./codex-model-profiles.md#central-profile-migration-boundary)의
 cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않음)이며, 이전 model의 관측 행은 historical로 남습니다.
 예외는 Owner가 품질 근거 전에 routine으로 채택한 경우이며 결정에 그 사실과 대신 지키는 gate를 기록합니다(6.1 Sol, DA-018).
 행별 현재 상태는 위 채택 결정의 표가 소유합니다.
@@ -238,7 +148,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    JSON 파일(descriptor 하나 또는 `{dispatches}` 묶음)로 써서 `pnpm codex:register -- --dispatch <파일>`로 등록한 뒤 출력된
    `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
    출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
-   deny합니다([등록·수락](#subagent-hook-guardrail과-완료-관측)).
+   deny합니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
    Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따릅니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `codex:completion`과
@@ -246,21 +156,11 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    완료로 받을 child는 `pnpm codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로 수락하고 출력의
    `registrationDigest`가 등록 때의 `digest`와 같은지 확인하며, 수락한 child는 후속 작업을 주지 않습니다. Reviewer는 `createReviewDispatch()`로 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록·수락 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
-   hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort·수락 기록과 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](#subagent-hook-guardrail과-완료-관측)).
+   hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort·수락 기록과 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
    결과 품질 실패일 때만 같은 역할의 한 단 위 model로 오릅니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)). Usage가 없으면 null로 남기고
    [실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에서 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.
-
-### Suspension and Astra-only rollback
-
-- 품질/지원/scope 변화 시 해당 cohort의 신규 사용을 멈추고 철회를 [현재 profile 결정](../agentic-architecture-decisions.md#task-model-effort-structure)에
-  기록합니다. **철회는 Parent의 운영 책임**이며 불일치 source/config/role·실패한 checks는 그대로 남깁니다. Scope/권한·보안·허위 완료는 [quality stop](#parent-high-운영과-quality-stop)을 적용합니다.
-- Pending writer의 결과·도구·변경을 먼저 회수합니다. 현재 source로 새 Astra ordinary contract를 판정하거나 Parent가 직접 처리합니다.
-  Candidate의 model 필드만 Astra로 바꾸거나 scope를 늘려 재시도하지 않습니다. Quota/cap/permission 거절은 다른 모델로 우회하지 않습니다.
-- 재채택은 문제 원인과 required checks·독립 QA, current profile/host/source/config를 다시 확인한 **새** 채택 결정입니다.
-  단순한 config 복원이 adoption GO를 복구하지 않습니다. 설정 rollback이 정말 필요하면 정확한 권한·diff로 수행하며 현재 child가
-  자동 종료/재설정되었다고 가정하지 않습니다. 여기서는 TOML을 변경하는 자동 rollback command를 만들지 않습니다.
 
 최종 whole-change QA/통합 증거와 **Parent-high** 시작은 별도 gate입니다. 이 routine cohort 결정은 Parent 설정을 바꾸지
 않으며 [Parent-high 준비·품질 stop](#parent-high-운영과-quality-stop)을 대체하지 않습니다. 단가·cache는 선택의 입력일 뿐
@@ -282,204 +182,9 @@ Parent+child+QA+수정/복구 총 비용의 절감 실측이 아닙니다. Token
 
 Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 않습니다.
 
-## Codex/OMX permission mechanism
+## Visual skill scope
 
-이 절의 `workspace-write`, Auto-review, `on-request`, `madmax` 및 실행 규칙은 **Codex/OMX host 전용**입니다.
-공통 권한 원칙은 위의 source·scope·authority 계약이며, Claude Code의 native 도구/permission 검증은
-[Claude Code adapter](./claude-code.md)를 따릅니다. Codex 권한 모드를 다른 host의 실제 격리로 추정하지 않습니다.
-
-기본 권장 조합은 **workspace-write + 필요한 범위만 좁게 허용 + 지원되는 Auto-review**입니다. Auto-review는 기존
-승인 요청의 검토자를 바꾸는 native 기능이지 모든 명령의 보안 검사나 업무 승인자가 아닙니다. 이미 허용된 작업은 검토를
-거치지 않을 수 있고 `never`는 자동 검토 모드가 아닙니다. 지원되지 않으면 `on-request` 대안을 확인하며 몰래 full access로
-전환하지 않습니다. [공식 Auto-review 문서](https://learn.chatgpt.com/docs/sandboxing/auto-review)
-
-- 기존 broad allow가 적용되면 좁은 allow 추가만으로 그 범위가 줄지 않습니다. 예를 들어 `gh api` prefix는 repo·HTTP method를
-  제한하지 않습니다. 실제 loaded scope·규칙 우선순위를 확인하고 잘못된 repo/method/host·추가 인자에 대한 negative case로
-  평가합니다. 전역 shell/interpreter 허용이나 홈 전체 writable을 편의상 기본값으로 추가하지 않습니다.
-  [공식 실행 규칙](https://learn.chatgpt.com/docs/agent-configuration/rules)
-- 기본 reviewer policy는 유지합니다. `[auto_review].policy`는 추가 병합이 아닌 교체이므로 짧은 repository 지침을 넣어
-  기존 보호를 덮어쓰지 않습니다. 개인 실행값은 로컬 설정이고, 업무 안전 계약은 이 문서가 소유합니다.
-- `madmax`/sandbox bypass에서도 업무·비밀·소유권 지침은 유지되지만 Codex shell sandbox와 승인 검토가 유지된다고
-  보고하지 않습니다. OS/managed policy/provider 제한은 별개입니다. 전면 접근이 불가피하면 최소 credential의 별도 격리
-  환경을 검토하며, worktree를 보안 sandbox로 간주하지 않습니다.
-  [공식 승인·보안 문서](https://learn.chatgpt.com/docs/agent-approvals-security)
-- 문서는 `advisory-policy`, Lead/Auto-review 판단은 `model-mediated`, fixture·정적 규칙 검사는 `deterministic-static`,
-  실제 host/provider 강제는 `native-runtime`으로 구분합니다. 설정 파일·parent 실행 옵션만으로 child effective permission이나
-  runtime 활성화를 단정하지 않습니다. 지침·모델 reviewer 하나만으로 기술적 접근 제한을 대체하지 않습니다.
-
-[`agent-collaboration-cases.json`](../../../../scripts/ci/agents/common/fixtures/agent-collaboration-cases.json)은 보안 판단의 유한 입력 사례입니다.
-정적 검사는 fixture·문서의 정합성만 증명합니다. 실제 Agent의 답변, Auto-review의 허용/거절, 접근 격리는 각각 별도 실행
-evidence가 필요하며 한 종류의 PASS를 다른 종류의 PASS로 보고하지 않습니다.
-
-### Subagent hook guardrail과 완료 관측
-
-Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 호출 시점 guardrail과 child 완료 기록을 맡습니다.
-공식 문서도 tool hook을 완전한 강제 경계가 아닌 guardrail로 한정하므로 아래 범위 밖을 hook 강제로 보고하지 않습니다.
-[공식 hooks 문서](https://learn.chatgpt.com/docs/hooks)
-
-- **호출 시점(PreToolUse)**: matcher는 도구 이름 접미 `(spawn_agent|followup_task|send_message)$`입니다. V2 hook 이름은 namespace
-  (`features.multi_agent_v2.tool_namespace`, 기본 `collaboration`)와 이름을 구분자 없이 잇기 때문입니다. Spawn은 Parent가 부르고
-  (1) `agent_type`이 `.codex/agents`의 `knu_*` roster (2) 허용 목록 안 explicit `model`이고 그 역할의 profile 쌍
-  (`pair-not-allowed`) (3) `fork_turns`가 `"none"` 또는 양의 정수 (4) 아래 등록의 평문 인자와 같을 때만 허용합니다. 허용 기록은
-  task name과 역할·model을 묶는 bind이고 등록을 봉인합니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는
-  V2 provider)는 전부 deny합니다. `followup_task`·`send_message`는 기록하되, 수락된 child(task name, agent id 또는
-  `/root/<task name>`)를 target으로 하면 `settled-child`로 deny합니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다.
-- **등록·수락**: Parent는 spawn 전에 dispatch가 계산한 spawn 인자를 `codex:register`(`task-registry.mjs`의 `registerDispatch()`)로
-  `.artifacts/tools/codex-native/<Parent session>/<task_name>.json`에 한 번만 씁니다(같은 이름의 두 번째 등록은 거절). 등록은
-  `task_name`이 lane id·token(재시도는 `_retry`)이나 reviewer round와 맞고, (역할, model)이 허용 쌍이고, effort가 역할 pin이고,
-  `fork_turns`가 `"none"`일 때만 됩니다. Hook은 그 파일이 없으면 `registration-missing`, 형식이 틀리거나 task name이 정하는 필드(lane
-  id·token·재시도 표시, reviewer round·`reviewId`)가 task name과 맞지 않거나 `reviewOf`가 lane id 목록이 아니면 `registration-invalid`,
-  `task_name`·`agent_type`·`model`·`reasoning_effort`·`fork_turns` 중 하나라도 다르면 `registration-mismatch`, 같은 task name의 allow가
-  이미 있으면 `registration-used`, primary child가 수락된 lane의 재시도면 `lane-accepted`로 deny합니다. 허용하면 등록 파일의
-  digest와 내용을 allow 기록의 `registration`에 봉인합니다. Child가 끝나면 `codex:accept`(`acceptTask()`)가 완료 대조를 통과한
-  child의 마지막 Stop 기록 digest를 `<task_name>.accepted.json`에 한 번만 씁니다. Primary가 수락된 lane은 재시도 등록·재시도
-  수락도 거절합니다(성공 뒤 재시도 없음). `hooks.json`은 바뀌지 않으며 등록 읽기는 hook script 안에서 합니다.
-- **등록 파일의 경계**: 등록 디렉터리는 workspace 안이라 child가 쓸 수 있습니다. Spawn 뒤 바뀐 등록은 이미 봉인된 값을 바꾸지
-  못합니다. Spawn 전에 task name이 정하는 필드나 spawn 인자를 바꾼 등록은 hook이 deny하고, 봉인이 task name과 맞지 않으면 완료
-  대조도 `registration-invalid`로 거부합니다. Task name으로 다시 계산할 수 없는 `reviewOf` 내용은 Parent가 등록 출력의 `digest`와
-  수락 기록의 `registrationDigest`를 대조해 확인합니다. 수락 기록이 지워지면 fan-in이 그 lane을 `acceptance-missing`으로 거부하지만,
-  지운 뒤의 재개는 hook이 막지 못하므로 다시 수락해야 합니다(재개된 Stop은 원래 수락과 맞지 않음). Target이 task name·agent id·
-  `/root/<task name>`이 아닌 형식이면 수락 여부를 알 수 없어 기록만 합니다. Allow 뒤 도구가 실패해 child가 생기지 않아도 그 task
-  name은 쓰인 것(`registration-used`)으로 남고, 수락한 child의 보완도 후속·재시도가 모두 막힙니다. 이때는 새 `dispatchToken`으로
-  dispatch를 다시 계산해 등록·spawn합니다. 결과 대조는 dispatch token 하나만 받으므로 그 dispatch 전체를 새 token으로 엽니다.
-- **Parent 쓰기**: code mode `exec` 안에서 중첩 호출한 `apply_patch`·`exec_command`도 PreToolUse를 거칩니다(codex-cli 0.161.0 관측,
-  `apply_patch`·`Bash` tool_name). Repository hook의 matcher는 이 도구를 넣지 않으므로 Parent 쓰기는 막지 않습니다. 그 강제는
-  `hooks.json` 변경과 trust 재승인을 함께 다루는 후속 결정입니다.
-- **내장·OMX 역할**: project hook이 로드된 세션에서는 이 repository 안의 내장 역할(`default` 등)·OMX 역할 spawn이 막힙니다.
-  Repository 위임은 `knu_*` 역할로 합니다.
-- **완료 기록**: SubagentStart·SubagentStop은 Parent session별 `.codex/state/knu-subagent-hooks/<session>.jsonl`에 child
-  `agent_id`·`agent_type`·`model`, child rollout의 task path, own-turn model·effort를 남깁니다. SubagentStart의 `model`은
-  child session의 turn에서 만든 값입니다(codex `rust-v0.160.0` `core/src/hook_runtime.rs`의 SubagentStart 요청). Message와 마지막 응답 원문은
-  저장하지 않고 byte 길이만 남깁니다. `.codex`는 workspace-write child가 쓸 수 없고 hook은 sandbox 밖에서 씁니다.
-  Full access 세션과 Parent 권한 상승 쓰기는 막지 못합니다.
-- **완료 판정**: child 결과는 Parent 보고만으로 완료가 아닙니다. `prepareLeaderSynthesis()`와 child lane의
-  `validateCodexWorkflowResults()`는 같은 Parent session에서 다음을 모두 만족할 때만 완료로 받습니다. Start·Stop 기록이 그
-  dispatch의 task path(`/root/<lane>_<token>`)·계약 역할·허용 목록 model·roster를 맞추고, 그 task name의 root PreToolUse allow
-  기록(bind)이 같은 역할·model을 묶고, lane 계약 model(route profile의 model)과 역할 쌍이 허용되고, Start `model`·Stop own-turn
-  model이 계약 model과 같고 own-turn effort가 역할 pin(`ROLE_EFFORTS`)과 같으며, 그 child 아래 descendant Start가 없고, allow
-  기록의 봉인이 같은 종류(lane·review)·역할·계약 model·역할 pin을 담고 그 필드가 task name과 맞으며, 그 child의 수락 기록(`acceptances`)이 마지막 Stop을 가리킬 때입니다.
-  Hook 기록 입력은 `readHookRecords()` 결과(`sessionId`·`records`·`malformed`)이고, 읽지 못한 줄이 하나라도 있으면(수를 모르는
-  경우 포함) 그 줄이 descendant Start였을 수 있어 `observation-malformed`로 거부합니다.
-  거부 사유는 bind 없음 `observation-unbound`, descendant `observation-foreign`, `pair-not-allowed`, `model-mismatch`,
-  own-turn 없음 `effort-unobserved`, `effort-mismatch`, 봉인 없음 `registration-unsealed`, 봉인 불일치 `registration-mismatch`,
-  task name과 맞지 않는 봉인 `registration-invalid`,
-  수락 기록 없음 `acceptance-missing`, 다른 child·Stop을 가리키는 수락 `acceptance-mismatch`, 수락 뒤 같은 child의 Stop이 더 있음
-  `resumed-after-acceptance`(재개된 turn)이고 기존 사유(`observation-missing`·`-incomplete`·`-mismatch`,
-  `model-not-allowed`, `role-not-in-roster`)는 그대로입니다. 허용 목록·roster·역할 쌍·역할 effort는 `model-profiles.mjs`에서
-  읽고 호출자가 넘긴 값은 쓰지 않습니다. Token이 없으면 `dispatch-token-missing`, 같은 task path에 child가 둘 이상이면 `observation-ambiguous`로
-  거부합니다. Token은 dispatch마다 새로 정하는 소문자·숫자 4~12자(`retry` 제외)이고, 같은 session에서 lane id를 다시 써도 이전 child 기록이
-  새 dispatch를 완료시키지 않게 합니다. Token을 일부러 재사용하는 것은 막지 못합니다. Shell에서는
-  `pnpm codex:completion -- --lane <laneId> --token <token> --role <agent_type> --model <계약 model>`(session은
-  `CODEX_THREAD_ID`)로 수락 전 대조를 확인합니다. 출력의 `unboundStarts`는 어느 allow 기록과도 짝이 없는 session의 Start 수입니다.
-  Recovery 재시도 child는 task path `/root/<lane>_<token>_retry`에서 decision의 `retryRoute` model을 계약 model로 삼아 같은 조건으로
-  대조합니다(synthesis·`validateCodexWorkflowResults()`의 `recoveryDecisions`, shell은 `--retry`, [Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)).
-  그 재시도 child가 session에 있는데 decision 없이 primary로 대조하면 `retry-unreported`, primary child의 수락 기록이 있는데 재시도를
-  대조하면 `lane-accepted`로 거절합니다.
-- **Reviewer 결속**: `validateCodexWorkflowResults()`에 hook 기록을 주면 QA는 그 dispatch token 아래 등록·spawn된 reviewer child에서
-  와야 합니다. 그 token의 모든 reviewer task(allow·Start 기록의 `review_<token>_<round>` 이름과 그 token을 적은 review 봉인의 이름,
-  봉인이 어긋나거나 allow 기록이 없는 round 포함)가 `knu_reviewer`·review profile model·역할 pin과 task name에 맞는 봉인으로
-  수락되고 재개되지 않았고, 보고된 결과의 `dispatchId`가 task name이 정하는 가장 높은 round의 `reviewId`(`review-<token>-<round>`)이며,
-  그 등록의 `reviewOf`가 현재 lane을 모두 담아야 합니다. 보고된 `observedModel`만으로는 PASS를 연결하지 않습니다. Cross-model handoff
-  계약 자체는 바뀌지 않습니다.
-- **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
-  완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
-- **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이
-  `observation-unbound`로 거부합니다. `knu_*` child가 띄운 grandchild는 호출 시점에 막히지 않지만, 그 Start 기록이 lane task
-  path 아래이거나 lane child를 부모 thread로 가리키면 lane을 `observation-foreign`으로 거부합니다. 수락된 child를 target으로 한
-  후속·메시지도 이때 막히지 않지만, 재개된 turn의 Stop이 수락 기록과 맞지 않아 완료는 `resumed-after-acceptance`로 거부됩니다.
-  Hook 항목 하나만 바뀌어 그 항목만 재검토 대기인 부분 부재도 같습니다.
-- **완료 거부 뒤 writer 변경**: 거부는 결과 수락만 막습니다. Parent는 이미 실행된 writer child가 바꾼 경로를 확인해 계약 밖
-  변경을 되돌리거나 handoff하고, 거부된 결과를 통합 근거로 쓰지 않습니다.
-- **엔진과 허용 목록 범위**: 허용 목록 model은 catalog v2 model입니다. Project hook이 로드된 세션에서는 V1 root의 spawn이 전부
-  deny되어 V1 경로의 child가 생기지 않습니다. Hook이 없거나 PreToolUse가 실패하면 V1 child도 실행될 수 있으며, 완료 판정은 그
-  dispatch task path의 기록과 allow 기록을 요구합니다.
-- **정책 사본**: hook은 child가 쓸 수 있는 workspace module을 import하지 않고 `.codex/hooks/knu-hook-policy.json`을 읽습니다. 사본이
-  `model-profiles.mjs` 허용 목록·역할 쌍·역할 roster와 같음은 test가 결속합니다. 사본 schema가 맞지 않거나 쌍이 없으면 hook은
-  spawn을 deny합니다. `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
-
-## Diagnostic contract
-
-**Codex/OMX 전용 호환 계약**입니다. 다른 host에 이 필드·CLI·OMX 설치를 요구하지 않습니다.
-`pnpm codex:preflight` 또는
-`node scripts/agents/codex/session-preflight.mjs --resume --plan <repository-relative-plan> --json`이 소비합니다.
-기본 탐색은 공통 reader의 `.plans`이고 자동 legacy fallback은 없습니다. 명시적 `.omx/plans/...` 선택만 과도기 읽기를 지원합니다.
-Source caller 전환은 local plan 파일 이동의 완료 증거가 아니며, 이동은 별도 owner receipt로 확인합니다.
-
-기존 CLI 옵션, `schemaVersion: 1`, `resume.plan.{path,exists}`, `contextSnapshots: string[]`와 priority 출력은 유지합니다.
-Fresh 모드의 `resume`은 `null`이며 notepad나 context 본문을 읽지 않습니다. `activePlans`는 canonical `.plans`의
-active 상태만 포함합니다. `planDiscovery.complete/issues`는 불완전한 탐색을 드러내며, unknown·duplicate ID·종료 상태를 active로 추천하지 않습니다.
-선택한 canonical 계획은 `resume.planBinding`으로 공통 lifecycle 결과를 제공합니다. 명시적 legacy read의 binding은 null이고 불명확한 metadata는 `unknown`입니다. 과거 inventory용 `unspecified`는 더 이상 출력하지 않습니다.
-
-Resume의 추가 필드는 다음과 같습니다.
-
-```text
-resume.diagnostics
-  taskId / taskIdSource: plan-id | filename-hint | unknown
-  planStatus
-  priority: taskMatch / freshness / reasons[]
-  snapshots[]: path / taskMatch / freshness / reasons[]
-  recommendedContextPath: path | null
-  limitations[]
-```
-
-`snapshots`는 `contextSnapshots`와 같은 경로·순서이며 최대 5개입니다. 출력은 포인터와 고정 진단 코드만 담고
-checkpoint의 objective, 요청 본문, nextAction 또는 raw notepad/JSON을 복제하지 않습니다.
-
-| 진단                     | 의미                                                                                           | 후속 행동                                                         |
-| ------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| priority `valid`         | 기존 priority JSON 구조가 파싱됨; 빈 priority의 기존 `valid: true`도 유지                      | taskMatch/freshness와 별개로 해석                                 |
-| context parser `valid`   | 필수 구조·타입·금지 필드·절대 만료 검사를 통과                                                 | 현재 요청과의 동일성이나 live phase 증명은 아님                   |
-| `taskMatch: matched`     | 선택한 계획 경로와 task metadata가 충돌 없이 일치                                              | 현재 code/test evidence 추가 확인                                 |
-| `mismatched` / `unknown` | 서로 다른 작업 / 비교할 충분한 근거 없음                                                       | 과거 작업을 임의로 이어가지 않음                                  |
-| `freshness: current`     | 알려진 비종료 계획, 절대 만료 전, 유효한 시각, 같은 branch/HEAD, clean tree와 관련 경로를 확인 | 선택 후보일 뿐 실행 허가나 정확성 보장은 아님                     |
-| `needs-review`           | branch/HEAD 변경, dirty tree 또는 archived plan                                                | 관련 변경을 확인; HEAD가 다르다는 이유만으로 기억을 삭제하지 않음 |
-| `expired`                | 절대 기한 도달 또는 선택한 계획이 명확히 completed/cancelled                                   | active continuation으로 추천하지 않음                             |
-| `unknown`                | 잘못된/누락된 identity·시각·경로·SHA, 불명확한 계획/만료 등                                    | 부족한 정보를 재조사하고 중요한 결정만 재확인                     |
-
-여러 사유가 있으면 `expired > unknown > needs-review > current` 순으로 판정하며 사유들은 함께 남깁니다.
-`recommendedContextPath`는 검사한 후보 중 가장 최신의 `matched/current` 경로입니다. 해당 후보가 없으면 `null`이고,
-priority가 항상 추천되는 것은 아닙니다. 실패한 priority와 별개의 정상 후보는 독립적으로 검사하되, 동일 경로에 대한
-priority/checkpoint 충돌을 중복 제거로 숨기지 않습니다.
-
-### Identity and freshness
-
-- 첫 level-two section 전, fenced block 밖의 top-level `- Status:` / `- 상태:`와 `- Plan ID:`만 metadata로 읽습니다.
-  상태값의 plain/backtick 표기와 세미콜론 뒤 설명을 지원합니다. `done/완료`, `진행 중`, `취소` 등의 동등 상태를
-  정규화하지만 서로 충돌하거나 알 수 없는 선언은 unknown입니다. 본문/체크박스의 완료 단어로 추측하지 않습니다.
-- 명시한 계획 경로가 anchor입니다. 유효한 단일 kebab-case Plan ID가 있으면 context의 `taskSlug`도 일치해야 합니다.
-  Canonical `.plans`는 명시적 ID가 필요합니다. Legacy 읽기에서만 Plan ID가 없을 때 파일명에서 `.md`와 말미 `-plan`을 뺀 값을 검색 힌트로 사용합니다. 잘못되거나 충돌하는 ID를
-  filename fallback으로 덮지 않습니다. `activePlan` 경로는 항상 일치해야 하며, priority `task`와 context task의 충돌도
-  다른 일치값보다 우선합니다. `--plan`이 없으면 저장된 기억에서 현재 작업을 추론하거나 추천하지 않습니다.
-- 이동/삭제된 계획은 missing으로 남깁니다. 전역 archive 검색, 자동 경로 재작성이나 task alias를 만들지 않습니다.
-  명시적으로 선택한 `finished/` 경로는 읽을 수 있지만 active context로 추천하지 않습니다.
-- `createdAt`은 파일명 UTC 초와 일치하고 미래가 아니어야 합니다. 잘못된 달력 날짜/시각 불일치는 진단합니다.
-  축약 SHA는 로컬에서 유일한 commit으로 해석할 수 있어야 하며 이를 위해 fetch하지 않습니다.
-- `expiresAt: on-phase-completion`에는 live phase oracle이 없습니다. 저장된 `currentPhase`, `completed`, `planStatus`나
-  OMX mode만으로 현재 phase 종료 여부를 확정하지 않습니다. 선택한 계획의 명확한 종료는 expired, 그렇지 않으면
-  `expiry-unknown`입니다. 동일 `workingTreeSummary`도 diff hash가 아니므로 dirty tree는 항상 재검토 대상입니다.
-
-### Bounded reads and failure handling
-
-- `.omx/context`는 filename만 비재귀적으로 열거합니다. 계약에 맞는 파일명과 유효한 시각을 가진 관련 task를 우선합니다.
-  안전하고 구조적으로 유효한 priority 대상에 한 슬롯을 배정한 뒤, 관련 후보를 filename 시각 내림차순·동률 경로
-  오름차순으로 채웁니다. 누락된 priority 경로도 진단하며, 본문은 총 5개 이내로 검사하고 실패 슬롯을 재충전하지 않습니다.
-- 검증된 `createdAt` 내림차순으로 결과를 정렬하고 유효하지 않은 시각은 뒤에 둡니다. 관련 없는 검색 후보의 본문은
-  읽지 않습니다. `candidate-limit`은 검색이 부분적임을 뜻하며 과거 기억 전체를 조사했다고 주장하지 않습니다.
-- Plan/context는 lexical 및 realpath containment, symlink·owner-directory·일반 파일 여부를 확인하고 파일당 64 KiB까지만
-  읽습니다. 관련 파일은 경로/존재만 확인합니다. 안전하지 않은 `--plan`은 CLI 오류, 선택적 context 문제는 진단 gap입니다.
-- 선택적 OMX 호출은 각각 5초·64 KiB로 제한합니다. 실패·malformed·oversized 결과는 `omx-unavailable` 등으로 표시하며
-  정상적인 fresh 조사 자체를 차단하지 않습니다. `plan-metadata-unknown`, `identity-conflict`, `context-invalid`,
-  `unsafe-path`, `head-changed`, `dirty-tree` 등은 조사 이유이지 state 변경 명령이 아닙니다.
-- Preflight는 `.omx/state`, notepad, checkpoint, 전역 설정을 쓰거나 정리하지 않습니다. 자동 실행/dispatch 권한도 없습니다.
-
-### 저장소 root와 runtime state 위치
-
-- Codex와 OMX는 저장소 root에서 시작합니다. OMX 0.21.6은 `OMX_ROOT`·`OMX_STATE_ROOT`가 없으면 현재 작업 디렉터리의
-  `.omx`를 state root로 쓰고 OMC 같은 위치 표식을 지원하지 않습니다. 하위 디렉터리에서 시작하면 그 아래에 `.omx`가 생깁니다.
-- Agent가 만든 screenshot·dev server log·검증 출력은 `.omx/`나 app 하위 디렉터리가 아니라
-  [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다. repository script는 `resolveArtifactPath()`를 씁니다.
-- `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omx`·`.omc`와 옛 root 이름을 탐지해
-  commit을 멈춥니다. 탐지이지 차단 장치가 아니므로 발견하면 내용을 옮기고 시작 위치를 바로잡습니다.
+Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **Codex-only** task-fit 도구이며 공통 필수 skill이나 Claude 이식 대상이 아닙니다. 기존 personal Codex 설치는 보존하고 [선택·설치 경계](../visual-design/design-task-orchestration.md#task-fit-skills)를 따릅니다. 각 skill의 discovery/qualification은 별개이고 모델의 디자인 우열을 주장하지 않습니다.
 
 ## OMX 종료 기록 경계
 

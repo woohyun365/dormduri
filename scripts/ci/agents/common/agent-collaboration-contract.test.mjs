@@ -284,8 +284,8 @@ test('execution security has one document owner and distinguishes guidance from 
   for (const term of ['업무 권한', 'host 승인', 'provider 권한', 'model-mediated']) {
     assert.ok(execution.includes(term), term);
   }
-  const codex = read(workflow + 'adapters/codex.md');
-  assert.match(execution, /adapters\/codex\.md#codexomx-permission-mechanism/u);
+  const codex = read(workflow + 'adapters/codex-native-registry.md');
+  assert.match(execution, /adapters\/codex-native-registry\.md#codexomx-permission-mechanism/u);
   for (const term of ['madmax', 'on-request']) assert.ok(codex.includes(term), term);
   assert.match(codex, /agent-collaboration-cases\.json/u);
   assert.match(codex, /fixture.*정합성/u);
@@ -389,14 +389,15 @@ test('recovery, quality stop, adoption, run evidence and configuration rules are
   assert.doesNotMatch(codexEvidence, /model-run-evidence\.mjs|ModelRunEvidence/u);
   const codexAdapter = read(workflow + 'adapters/codex.md');
   const claudeAdapter = read(workflow + 'adapters/claude-code.md');
+  const codexProfiles = read(workflow + 'adapters/codex-model-profiles.md');
   const claudeProfiles = read(workflow + 'adapters/claude-model-profiles.md');
   const links = [
     [codexRecovery, '## Recovery ceiling', '../orchestration.md#recovery-ceiling'],
     [codexRecovery, '## Bounded model-run evidence', '../qa.md#execution-evidence'],
     [codexAdapter, '### Parent-high 운영과 quality stop', '../orchestration.md#quality-stop'],
     [
-      codexAdapter,
-      '### Task model configuration and fresh loading',
+      codexProfiles,
+      '## Task model configuration and fresh loading',
       '../agent-execution-contract.md#configuration-changes',
     ],
     [codexAdapter, '## Routine task-model operation', '../orchestration.md#routine-adoption'],

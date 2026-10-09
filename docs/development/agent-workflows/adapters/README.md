@@ -6,7 +6,7 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 
 | Host        | Entry                     | 프로젝트 역할          | 조건부 실행 계약                                                                                   |
 | ----------- | ------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| Codex/OMX   | `AGENTS.md`               | `.codex/agents/*.toml` | [Codex](./codex.md): model/effort, native routing, sandbox, OMX                                    |
+| Codex/OMX   | `AGENTS.md`               | `.codex/agents/*.toml` | [Codex](./codex.md): 진입 절차와 reference 4개(model, registry, diagnostics, qualification)        |
 | Claude Code | `CLAUDE.md` → `AGENTS.md` | `.claude/agents/*.md`  | [Claude Code](./claude-code.md): 진입 절차와 reference 4개(registry, review, model, qualification) |
 | 향후 host   | 승인된 adapter entry      | 해당 host 정의         | 같은 공통 계약과 적합성 검사; 등록 전 Codex fallback 없음                                          |
 
