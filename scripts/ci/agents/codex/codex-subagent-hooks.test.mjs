@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -67,6 +68,20 @@ function registryFor(call) {
     read: (taskName) => (taskName === registration.taskName ? { registration, digest } : null),
     used: () => false,
     settled: () => false,
+  };
+}
+
+// A Parent (or, with child, a child) apply_patch call as code mode sends it: the patch text is tool_input.command.
+function patchCall(patch, { child = false } = {}) {
+  return {
+    session_id: SESSION,
+    turn_id: 'turn-1',
+    hook_event_name: 'PreToolUse',
+    model: 'gpt-6-astra',
+    tool_name: 'apply_patch',
+    tool_use_id: 'exec-1',
+    tool_input: { command: `*** Begin Patch\n${patch}\n*** End Patch` },
+    ...(child ? { agent_id: CHILD, agent_type: 'knu_executor' } : {}),
   };
 }
 
@@ -191,6 +206,32 @@ test('guard only records follow-up and message tools and ignores unrelated tools
   assert.deepEqual(decideToolUse({ ...call('Bash'), tool_name: 'Bash' }, POLICY), {
     action: 'ignore',
   });
+  // A child writes its own lane: its apply_patch is never guarded or recorded.
+  assert.deepEqual(
+    decideToolUse(patchCall('*** Add File: README.md\n+x', { child: true }), POLICY),
+    {
+      action: 'ignore',
+    },
+  );
+});
+
+test('a root apply_patch with no writer running prints nothing and writes no record', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'knu-hook-patch-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.codex/hooks'), { recursive: true });
+  copyFileSync(hookPath, join(root, '.codex/hooks/knu-subagent-hooks.mjs'));
+  copyFileSync(policyPath, join(root, '.codex/hooks/knu-hook-policy.json'));
+  const result = spawnSync(process.execPath, [join(root, '.codex/hooks/knu-subagent-hooks.mjs')], {
+    cwd: root,
+    input: JSON.stringify({ ...patchCall('*** Update File: README.md\n+x'), cwd: root }),
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  assert.equal(
+    existsSync(join(root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`)),
+    false,
+  );
 });
 
 test('hook records keep identities and sizes but never message text', async () => {
@@ -470,6 +511,29 @@ test('completion needs the root PreToolUse allow record that bound this task nam
     ),
     'model-mismatch',
   );
+});
+
+test('a root PreToolUse record that names no task never binds or blocks a child', async () => {
+  const { evaluateHookCompletion, reviewTasks } = await records();
+  const [bind, start, stop] = observation().records;
+  // Parent write records carry paths, not a task name, whatever their decision.
+  const writes = ['allow', 'deny', 'record'].map((decision) => ({
+    ...bind,
+    toolName: 'apply_patch',
+    decision,
+    input: { paths: ['README.md'] },
+    registration: undefined,
+  }));
+  const verdict = (records) =>
+    evaluateHookCompletion({
+      observation: observation({ records }),
+      taskPath: '/root/lane_one_k3x9',
+      expectedRole: 'knu_explorer',
+      expectedModel: ASTRA,
+    });
+  assert.equal(verdict([...writes, start, stop]).reason, 'observation-unbound');
+  assert.equal(verdict([...writes, bind, start, ...writes, stop]).accepted, true);
+  assert.deepEqual(reviewTasks(observation({ records: writes }), 'k3x9'), []);
 });
 
 test('a descendant start under the lane child refuses the lane', async () => {
