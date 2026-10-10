@@ -6,13 +6,15 @@ Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagen
 
 ## 구조
 
-Codex 실행 접점은 다섯 층입니다. 각 층은 다른 층의 보장을 대신하지 않습니다.
+Codex 실행 접점은 여섯 층입니다. 각 층은 다른 층의 보장을 대신하지 않습니다.
 
 - `AGENTS.md`: 세션 시작 때 읽히는 저장소 규칙과 진입점입니다. Codex는 root부터 작업 디렉터리까지 디렉터리마다 instruction
   파일 하나를 이어 붙이고, 합친 크기가 `project_doc_max_bytes`(기본 32 KiB)에 닿으면 더 붙이지 않습니다. 그래서 루트
   `AGENTS.md`는 이 한도 안에 두고 하위 `AGENTS.md`·`AGENTS.override.md`를 두지 않습니다(`agent-guidance-boundary.test.mjs`).
   [공식 AGENTS.md 문서](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
 - 이 문서: 위임·리뷰·완료 판정의 routine 규칙입니다. 세부는 아래 reference를 필요할 때 읽습니다.
+- Skills: `.agents/skills`의 Parent 반복 절차입니다. Package script 호출 순서를 안내하며 권한을 부여하지 않습니다
+  ([Routine task-model operation](#routine-task-model-operation)).
 - 역할: `.codex/agents/knu_*.toml`이 역할별 sandbox·effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
 - Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail과 child 완료 기록을 맡습니다. Hook 부재·실패에서는 호출이 막히지
   않으므로 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
@@ -129,6 +131,10 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 행별 현재 상태는 위 채택 결정의 표가 소유합니다.
 운영 procedure는 model-mediated이며 script/schema만으로 task의 실제 의미나 권한을 인증하지 않습니다.
 
+아래 반복 절차는 repository skill(`.agents/skills`)로 호출합니다. 진입은 `$knu-workflow`, 위임(2·3·5단계)은 `$knu-delegate`,
+독립 리뷰는 `$knu-review`, 수락·정산(6·7단계)은 `$knu-settle`입니다. Skill은 이 문서가 안내하는 `package.json` script(진입은
+[Repository workflow entry](#repository-workflow-entry))만 호출하고 규칙은 이 문서와 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
+
 새 세션/일반 task의 cold-start 순서:
 
 1. **현재 작업부터**: request → AGENTS → 이 owner와 현재 source/test. Branch/HEAD/diff·변경 owner·acceptance를 확인합니다.
@@ -138,14 +144,17 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    [후보 표](./codex-model-profiles.md#quality-gated-model-advice)의 한 행에 맞는지 봅니다. Medium 읽기는 `standard-read`, High·XHigh·impact high 읽기는 `elevated-read`, Medium 구현은
    `standard-build`, High(non-deep)·low·medium impact 구현은 `elevated-build`, 고정 입력의 low-impact 단일 추출은 `extract`입니다.
    Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 [Astra 배정](#reasoning-effort-routing)입니다.
+   `modelRequest`를 생략한 lane은 `codex:delegate`가 Parent가 태그한 검증 fact로 맞는 행의 요청(`purpose=routine`)을
+   채우고(`defaultModelRequest()`), 맞는 행이 없으면 생략해 Astra 배정으로 둡니다.
 3. **완전한 packet**: [request/context 계약](./codex-delegation.md#model-recommendation)의 `purpose=routine`, 현재
    profileBinding, scope/도구/쓰기 owner·사실/실패·acceptance·stop/return을 작성합니다. 최초 QA는 fresh source-first context입니다.
    Full history를 복사하지 않되 필요한 실패·제약을 생략하지 않습니다. Candidate의 미해결 실패는 새 lower-model task로 숨기지 않습니다.
 4. **권한 확인**: 이 cohort 결정과 현재 사용자 업무 권한을 함께 확인합니다. 원래 권한이 부족하거나 범위를 늘리는 경우에만
    해당 경계를 협의합니다. Lane별 허가 packet은 없습니다. 후보 자격은 routing이, 호출 시점의 (역할, model) 쌍은 hook이,
    완료는 hook 기록 대조가 확인합니다.
-5. **Native 실행**: `createDispatchRecommendation()`에 dispatch마다 새 `dispatchToken`을 주고, descriptor를
-   JSON 파일(descriptor 하나 또는 `{dispatches}` 묶음)로 써서 `pnpm codex:register -- --dispatch <파일>`로 등록한 뒤 출력된
+5. **Native 실행**: `pnpm codex:delegate -- lanes --spec <spec> --out <파일>`이 spec의 Pass 2 ID·digest를 계산해
+   `prepareCodexWorkflow()`·`createDispatchRecommendation()`으로 `{schema, dispatchToken, lanes, dispatches}` 파일을 씁니다.
+   `dispatchToken`은 Parent가 spec에 위임마다 새로 정하며 CLI는 형식만 검사합니다. 그 파일을 `pnpm codex:register -- --dispatch <파일>`로 등록한 뒤 출력된
    `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
    출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
    deny합니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
@@ -154,7 +163,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `codex:completion`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
    완료로 받을 child는 `pnpm codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로 수락하고 출력의
-   `registrationDigest`가 등록 때의 `digest`와 같은지 확인하며, 수락한 child는 후속 작업을 주지 않습니다. Reviewer는 `createReviewDispatch()`로 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
+   `registrationDigest`가 등록 때의 `digest`와 같은지 확인하며, 수락한 child는 후속 작업을 주지 않습니다. Reviewer는 `codex:delegate -- review`(`createReviewDispatch()`)로 만든 dispatch를 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록·수락 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
    hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort·수락 기록과 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
@@ -169,6 +178,10 @@ Parent+child+QA+수정/복구 총 비용의 절감 실측이 아닙니다. Token
 
 ## Skill과 workflow routing
 
+- 저장소 workflow 진입: `$knu-workflow`
+- bounded child 위임: `$knu-delegate`
+- 위임·변경의 독립 리뷰: `$knu-review`
+- child·reviewer 완료 수락: `$knu-settle`
 - read-only 원인/책임 분석: `$analyze`
 - 공식 최신 근거 조사: `$best-practice-research`
 - 요구가 모호하고 가정 금지: `$deep-interview`

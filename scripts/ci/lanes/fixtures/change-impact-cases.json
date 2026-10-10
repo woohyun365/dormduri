@@ -316,6 +316,7 @@
     "paths": [
       ".claude/settings.json",
       ".claude/skills/knu-review/SKILL.md",
+      ".agents/skills/knu-delegate/SKILL.md",
       ".claude/agents/knu_executor_xhigh.md",
       ".codex/config.toml",
       ".codex/agents/knu_reviewer.toml",

@@ -67,6 +67,7 @@
     "codex:completion": "node scripts/agents/codex/subagent-hook-records.mjs",
     "codex:register": "node scripts/agents/codex/task-registry.mjs register",
     "codex:accept": "node scripts/agents/codex/task-registry.mjs accept",
+    "codex:delegate": "node scripts/agents/codex/delegate-spec.mjs",
     "codex:preflight": "node scripts/agents/codex/session-preflight.mjs --json",
     "claude:workflow": "node scripts/agents/claude/workflow-entry.mjs",
     "claude:preflight": "node scripts/agents/claude/session-preflight.mjs --json",

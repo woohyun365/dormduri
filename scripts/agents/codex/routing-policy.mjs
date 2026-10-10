@@ -1,5 +1,6 @@
 import {
   BASELINE_CHILD_MODEL,
+  MODEL_PROFILE_IDS,
   ROLE_EFFORTS,
   getModelProfile,
   createModelProfileBinding,
@@ -314,6 +315,40 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
     reason: eligible ? 'bounded-quality-evidence-candidate-only' : 'baseline-risk-or-quality-gate',
     applied: false,
   };
+}
+
+// Routine default for a lane the Parent sent without a request. The Parent names which current Pass 2 facts verify
+// which key; the first candidate profile (table order: extract, standard-read, elevated-read, standard-build,
+// elevated-build) whose keys are all named and whose recommendation is a candidate becomes the request. Nothing
+// admitted returns undefined, so the lane keeps the Astra assignment. An explicit request stays the Parent's choice.
+export function defaultModelRequest(input, verificationFacts) {
+  assertRecord(input, 'routing input');
+  if (input.modelRequest !== undefined)
+    throw new TypeError('The lane already has an explicit model request.');
+  if (verificationFacts === undefined) return undefined;
+  assertRecord(verificationFacts, 'default verificationFacts');
+  const route = selectAgentRoute(input);
+  if (!route.spawn) return undefined;
+  for (const profileId of MODEL_PROFILE_IDS) {
+    const profile = getModelProfile(profileId);
+    if (profile.kind !== 'candidate') continue;
+    if (!profile.verificationKeys.every((key) => Object.hasOwn(verificationFacts, key))) continue;
+    const request = {
+      profileId,
+      purpose: 'routine',
+      verificationFacts: Object.fromEntries(
+        profile.verificationKeys.map((key) => [key, verificationFacts[key]]),
+      ),
+    };
+    const recommendation = recommendModel({
+      modelRequest: request,
+      taskKind: input.pass1.taskKind,
+      impactRisk: input.pass1.impactRisk,
+      assessment: route.assessment,
+    });
+    if (recommendation.status === 'candidate') return request;
+  }
+  return undefined;
 }
 
 export function createSemanticSourceId(source) {

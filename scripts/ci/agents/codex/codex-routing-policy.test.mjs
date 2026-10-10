@@ -8,6 +8,7 @@ import {
   selectAgentRoute,
   normalizeModelRequest,
 } from '../../../agents/codex/routing-policy.mjs';
+import * as routingPolicy from '../../../agents/codex/routing-policy.mjs';
 import { ALLOWED_CHILD_MODELS } from '../../../agents/codex/model-profiles.mjs';
 
 const UNLISTED_MODEL = 'gpt-x-unlisted';
@@ -108,6 +109,166 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
     mutate(input);
     assert.equal(selectAgentRoute(input).modelRecommendation.status, 'baseline');
   }
+});
+
+// A lane without an explicit request: the Parent names which Pass 2 facts verify which key; the function picks the
+// candidate profile the route admits (routing table rows 1-5) or returns nothing, which keeps the Astra assignment.
+test('a lane without a model request gets the candidate its Pass 2 result admits and nothing otherwise', () => {
+  const READ_KEYS = ['acceptance', 'independentCheck'];
+  const BUILD_KEYS = ['acceptance', 'regression', 'astraQa'];
+  const EXTRACT_KEYS = [
+    'acceptance',
+    'fixedInput',
+    'outputSchema',
+    'singleStep',
+    'independentCheck',
+  ];
+  const facts = (input, keys) =>
+    Object.fromEntries(keys.map((key) => [key, input.pass2Evidence.facts[0].factId]));
+  for (const [taskKind, impactRisk, predicateIds, keys, profileId, model, role] of [
+    [
+      'lookup',
+      'low',
+      mediumPredicateIds(),
+      EXTRACT_KEYS,
+      'extract',
+      'gpt-6-luna',
+      'knu_explorer_xhigh',
+    ],
+    [
+      'lookup',
+      'low',
+      mediumPredicateIds(),
+      READ_KEYS,
+      'standard-read',
+      'gpt-6.1-sol',
+      'knu_explorer',
+    ],
+    [
+      'research',
+      'medium',
+      mediumPredicateIds(),
+      READ_KEYS,
+      'standard-read',
+      'gpt-6.1-sol',
+      'knu_researcher',
+    ],
+    [
+      'analysis',
+      'high',
+      mediumPredicateIds(),
+      READ_KEYS,
+      'elevated-read',
+      'gpt-6.1-sol',
+      'knu_explorer_xhigh',
+    ],
+    ['lookup', 'low', ['M-01'], READ_KEYS, 'elevated-read', 'gpt-6.1-sol', 'knu_explorer_xhigh'],
+    [
+      'implementation',
+      'low',
+      mediumPredicateIds(),
+      BUILD_KEYS,
+      'standard-build',
+      'gpt-6.1-sol',
+      'knu_executor',
+    ],
+    ['test', 'medium', ['M-01'], BUILD_KEYS, 'elevated-build', 'gpt-6.1-sol', 'knu_executor_xhigh'],
+  ]) {
+    const input = routeInput({ taskKind, impactRisk, predicateIds });
+    const verificationFacts = facts(input, keys);
+    const request = routingPolicy.defaultModelRequest(input, verificationFacts);
+    const label = `${taskKind}/${impactRisk}/${predicateIds.length}`;
+    assert.deepEqual(request, { profileId, purpose: 'routine', verificationFacts }, label);
+    const route = selectAgentRoute({ ...input, modelRequest: request });
+    assert.equal(route.modelRecommendation.status, 'candidate', label);
+    assert.equal(route.modelRecommendation.recommendedModel, model, label);
+    assert.equal(route.role, role, label);
+  }
+  // Extra keys beyond the chosen profile are not carried into its request.
+  const read = routeInput({
+    taskKind: 'lookup',
+    impactRisk: 'medium',
+    predicateIds: mediumPredicateIds(),
+  });
+  assert.deepEqual(
+    Object.keys(
+      routingPolicy.defaultModelRequest(read, facts(read, [...EXTRACT_KEYS, 'regression']))
+        .verificationFacts,
+    ),
+    READ_KEYS,
+  );
+
+  const ineligible = [
+    ['no verification facts', (input) => [input, undefined]],
+    ['missing key', (input) => [input, { acceptance: input.pass2Evidence.facts[0].factId }]],
+    [
+      'absent fact',
+      (input) => [
+        input,
+        { acceptance: 'fact-absent', regression: 'fact-absent', astraQa: 'fact-absent' },
+      ],
+    ],
+    [
+      'gap',
+      (input) => (
+        input.pass2Evidence.gaps.push('unknown owner'),
+        [input, facts(input, BUILD_KEYS)]
+      ),
+    ],
+    [
+      'medium confidence',
+      (input) => ((input.pass2Evidence.confidence = 'medium'), [input, facts(input, BUILD_KEYS)]),
+    ],
+    [
+      'high impact build',
+      (input) => ((input.pass1.impactRisk = 'high'), [input, facts(input, BUILD_KEYS)]),
+    ],
+    [
+      'debugging',
+      (input) => ((input.pass1.taskKind = 'debugging'), [input, facts(input, BUILD_KEYS)]),
+    ],
+    [
+      'direct shape',
+      (input) => ((input.pass1.executionShape = 'direct'), [input, facts(input, BUILD_KEYS)]),
+    ],
+  ];
+  for (const [label, make] of ineligible) {
+    const [input, verificationFacts] = make(
+      routeInput({
+        taskKind: 'implementation',
+        impactRisk: 'low',
+        predicateIds: mediumPredicateIds(),
+      }),
+    );
+    assert.equal(routingPolicy.defaultModelRequest(input, verificationFacts), undefined, label);
+  }
+  for (const predicate of ['X-01', 'BE-01-concurrency-transaction', 'FE-05-browser-runtime']) {
+    const input = routeInput({
+      taskKind: 'implementation',
+      impactRisk: 'low',
+      predicateIds: [...mediumPredicateIds(), predicate],
+    });
+    assert.equal(
+      routingPolicy.defaultModelRequest(input, facts(input, BUILD_KEYS)),
+      undefined,
+      predicate,
+    );
+  }
+  // An explicit request is the Parent's choice; the default never overrides it.
+  const explicit = routeInput({
+    taskKind: 'lookup',
+    impactRisk: 'low',
+    predicateIds: mediumPredicateIds(),
+  });
+  explicit.modelRequest = {
+    profileId: 'standard-read',
+    purpose: 'routine',
+    verificationFacts: facts(explicit, READ_KEYS),
+  };
+  assert.throws(() => routingPolicy.defaultModelRequest(explicit, facts(explicit, READ_KEYS)), {
+    name: 'TypeError',
+    message: /explicit model request/u,
+  });
 });
 
 test('model request is strict and cannot create children for deterministic work', () => {

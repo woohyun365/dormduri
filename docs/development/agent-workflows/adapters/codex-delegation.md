@@ -50,13 +50,15 @@ Assignment profile(`deep-build`·`review`·`astra-fallback`)은 routing이 정�
 구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
 실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
 
-[채택 범위와 cold-start 순서](./codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 직접 채웁니다.
+[채택 범위와 cold-start 순서](./codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 채웁니다.
+`codex:delegate`는 spec에서 `modelRequest`를 생략한 lane에 Parent가 태그한 검증 fact와 Pass 2 결과로 맞는 profile을
+`purpose=routine`으로 채우고(`defaultModelRequest()`), 맞는 profile이 없으면 생략합니다. `false`는 Astra를 고정합니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
 GPT-6.1 Sol은 `standard-build`·`elevated-build`의 구현/test 또는 `standard-read`·`elevated-read`의 lookup/analysis/research
 후보이며 routine과 pilot 모두 받습니다. GPT-6 Luna는 `extract`의 low-impact
 lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
-입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](./codex-model-profiles.md#quality-gated-model-advice)을
+API(`selectAgentRoute()`·`prepareCodexWorkflow()`)의 입력 누락은 기존 default Astra 동작을 유지합니다. [Orchestration의 보수적 후보 조건](./codex-model-profiles.md#quality-gated-model-advice)을
 충족하면 `routeRecommendation.modelRecommendation`에 request/taskKind/role, recommendedModel, candidate/baseline,
 reason, `applied=false`, `profileBinding`을 붙이고 route의 `role`·`effort`·`profileId`를 후보 역할 변형으로 정합니다.
 부적합 task·위험·품질 gap이나 routine 미채택 profile은 Astra baseline이며 route는 [Astra 배정](./codex.md#reasoning-effort-routing)입니다.
@@ -66,7 +68,8 @@ resolvedEffort/cohort이며, digest는 role/task/risk/검증 fact/tool 범위를
 `routeRecommendation.tier`는 semantic 계층(Medium/High/XHigh)이고, `routeRecommendation.effort`는 선택된 역할 파일의
 pin effort입니다. Candidate의 `resolvedEffort`는 그 역할의 effort와 같습니다(standard high, elevated·extract xhigh).
 Context 전달·native descriptor·hook 완료 대조는 같은 effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 허용 목록 밖 model을 쓰는 입력,
-unknown profile/field/불완전 verification schema는 거부합니다. Astra default는 modelRequest 생략으로 유지합니다.
+unknown profile/field/불완전 verification schema는 거부합니다. API 입력의 `modelRequest` 생략은 Astra default이고,
+`codex:delegate`에서 Astra를 고정하려면 `false`를 씁니다.
 
 Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`를 함께 전달합니다. Digest는 source digest에
 연결된 semantic facts, 전체 profileBinding, 목적·role/effort/cohort, read/tool/write 범위, output/verification/stop/handoff, context delivery를 포함한
