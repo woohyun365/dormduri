@@ -434,7 +434,7 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   못하면 쓰기를 막지 않고 기록합니다. (4) Spawn guard는 `fork_turns` `"none"`만 허용합니다.
 - **Trigger / non-trigger**: writer lane 실행 중 Parent `apply_patch` / Bash 쓰기, child 쓰기, writer 없는 세션, Claude adapter.
 - **기각**: Bash 쓰기 판정(명령이 쓰는지 알 수 없고 모든 shell 호출에 hook 비용), writer 소유 경로만 deny(등록 schema 변경, 범위 밖
-  Parent 쓰기도 구분 불가), child 실행 중(Start~~Stop)만 적용(재개는 Start를 남기지 않고 Stop~~수락의 QA 기간이 빔), 해제 없이 수락까지
+  Parent 쓰기도 구분 불가), child 실행 중(Start부터 Stop까지)만 적용(재개는 Start를 남기지 않고 Stop부터 수락까지의 QA 기간이 빔), 해제 없이 수락까지
   적용(실패한 writer가 세션 끝까지 Parent 편집을 막음), 판정 오류 시 deny(기록 손상이 위임과 무관한 세션의 편집을 막음), child의 등록
   디렉터리 쓰기 deny.
 - **구현 영향**: hook의 `apply_patch` 분기(`parent-write-during-writer` deny, `write-target-unknown`·`guard-error` 기록),
@@ -442,7 +442,7 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 - **검증/한계**: hook test(기간·경로·link·이동·`cwd`·오류 통과)와 해제 test, 정책 사본과 역할 파일의 결속. Hook 부재·실패·trust 전,
   full access 세션, Bash 쓰기는 막지 못하고 남는 보장은 운영 규칙과 완료 판정 거부입니다. 완료 판정은 Parent 쓰기 자체를 탐지하지
   않습니다. 정적 회귀는 native 실행 증거가 아닙니다. Native live(codex-cli 0.162.1, trust 재승인 뒤 1회)에서 writer 기간 code mode
-  중첩 `apply_patch`는 tracked 새 경로에서 deny, ignored 경로에서 기록만 되었고, 수락 뒤 같은 경로는 허용되었습니다. `fork_turns` `"2"`도 deny였습니다.
+  중첩 `apply_patch`는 비ignored 새 파일(untracked)에서 deny, ignored 경로에서 기록만 되었고, 수락 뒤 같은 경로는 허용되었습니다. `fork_turns` `"2"`도 deny였습니다.
 - **재검토**: hook 범위·matcher alias·trust 동작 변화, code mode의 hook 우회 관측, Claude file guard 변경이 생길 때입니다.
 
 ## Evidence inventory
