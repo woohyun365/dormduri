@@ -1,24 +1,26 @@
 # Codex native registry, hooks and permissions
 
-[Codex adapter](./codex.md)의 reference입니다. Spawn 등록·hook guardrail·완료 관측·수락의 원문과 Codex/OMX 권한 수단을 담습니다.
+[Codex adapter](./codex.md)의 reference입니다. Spawn 등록·hook guardrail(Parent 쓰기 guard 포함)·완료 관측·수락·해제의 원문과 Codex/OMX 권한 수단을 담습니다.
 등록·완료 거부 사유, hook 동작이나 권한 모드를 확인할 때 읽습니다. 위임 순서는 진입 문서의
 [Routine task-model operation](./codex.md#routine-task-model-operation)이 소유합니다.
 
 ## Subagent hook guardrail과 완료 관측
 
-Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 호출 시점 guardrail과 child 완료 기록을 맡습니다.
+Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 호출 시점 guardrail(spawn guard, Parent 쓰기 guard)과 child 완료
+기록을 맡습니다.
 공식 문서도 tool hook을 완전한 강제 경계가 아닌 guardrail로 한정하므로 아래 범위 밖을 hook 강제로 보고하지 않습니다.
 [공식 hooks 문서](https://learn.chatgpt.com/docs/hooks)
 
-- **호출 시점(PreToolUse)**: matcher는 도구 이름 접미 `(spawn_agent|followup_task|send_message)$`입니다. V2 hook 이름은 namespace
+- **호출 시점(PreToolUse)**: matcher group은 둘입니다. Spawn guard는 도구 이름 접미 `(spawn_agent|followup_task|send_message)$`입니다. V2 hook 이름은 namespace
   (`features.multi_agent_v2.tool_namespace`, 기본 `collaboration`)와 이름을 구분자 없이 잇기 때문입니다. Spawn은 Parent가 부르고
   (1) `agent_type`이 `.codex/agents`의 `knu_*` roster (2) 허용 목록 안 explicit `model`이고 그 역할의 profile 쌍
-  (`pair-not-allowed`) (3) `fork_turns`가 `"none"` 또는 양의 정수 (4) 아래 등록의 평문 인자와 같을 때만 허용합니다. 허용 기록은
+  (`pair-not-allowed`) (3) `fork_turns`가 `"none"` (4) 아래 등록의 평문 인자와 같을 때만 허용합니다. 허용 기록은
   task name과 역할·model을 묶는 bind이고 등록을 봉인합니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는
   V2 provider)는 전부 deny합니다. `followup_task`·`send_message`는 기록하되, 수락된 child(task name, agent id 또는
-  `/root/<task name>`)를 target으로 하면 `settled-child`로 deny합니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다.
-  codex-cli 0.162.0부터 `fork_turns` 양의 정수는 full-history fork로 해석됩니다(`rust-v0.162.0` #51329). (3)은 정수를 아직 받지만
-  등록은 `"none"`만 받으므로 정수 spawn은 (4)에서 `registration-mismatch`(등록 있음)·`registration-missing`(없음)으로 막힙니다.
+  `/root/<task name>`)를 target으로 하면 `settled-child`, 해제한 child면 `released-child`로 deny합니다. Hook이 판정하지 못하면(정책
+  파일 오류 등) spawn을 deny합니다. codex-cli 0.162.0부터 `fork_turns` 양의 정수는 full-history fork로 해석되므로(`rust-v0.162.0`
+  #51329) 생략·`"all"`과 같이 `full-history-fork`로 deny합니다. 등록도 `"none"`만 받습니다. 두 번째 group `^apply_patch$`는 아래
+  **Parent 쓰기** guard입니다.
 - **등록·수락**: Parent는 spawn 전에 dispatch가 계산한 spawn 인자를 `codex:register`(`task-registry.mjs`의 `registerDispatch()`)로
   `.artifacts/tools/codex-native/<Parent session>/<task_name>.json`에 한 번만 씁니다(같은 이름의 두 번째 등록은 거절). 등록은
   `task_name`이 lane id·token(재시도는 `_retry`)이나 reviewer round와 맞고, (역할, model)이 허용 쌍이고, effort가 역할 pin이고,
@@ -28,18 +30,34 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   이미 있으면 `registration-used`, primary child가 수락된 lane의 재시도면 `lane-accepted`로 deny합니다. 허용하면 등록 파일의
   digest와 내용을 allow 기록의 `registration`에 봉인합니다. Child가 끝나면 `codex:accept`(`acceptTask()`)가 완료 대조를 통과한
   child의 마지막 Stop 기록 digest를 `<task_name>.accepted.json`에 한 번만 씁니다. Primary가 수락된 lane은 재시도 등록·재시도
-  수락도 거절합니다(성공 뒤 재시도 없음). `hooks.json`은 바뀌지 않으며 등록 읽기는 hook script 안에서 합니다.
+  수락도 거절합니다(성공 뒤 재시도 없음). 수락하지 않고 포기하는 writer는 child가 끝난 뒤 `codex:release -- --task <task_name> --ended`
+  (`releaseTask()`)로 `<task_name>.released.json`을 한 번 씁니다. 등록과 root allow가 있고 수락되지 않았으며, hook 기록에서 그
+  child가 실행 중이 아닐 때(마지막 Start나 통과한 `followup_task` 뒤에 Stop)만 됩니다. 재개는 Start 없이 Stop만 남기기 때문입니다.
+  거부 사유는 `registration-missing`·`registration-invalid`·`task-accepted`·`ended-required`·`observation-malformed`·`spawn-missing`·
+  `child-running`이고, Start 없는 allow(도구 실패)는 `--ended` 단언이 유일한 근거입니다. Start 뒤 Stop 기록이 없으면(interrupt·crash로
+  Stop이 나지 않았거나 SubagentStop hook 실패) 해제는 계속 `child-running`이고 그 Parent session의 guard는 열린 채입니다. 이때는 새
+  Parent session에서 새 `dispatchToken`으로 다시 시작합니다(guard는 Parent session별 기록만 읽음). 등록·수락·해제 기록 읽기는 hook script 안에서 합니다.
 - **등록 파일의 경계**: 등록 디렉터리는 workspace 안이라 child가 쓸 수 있습니다. Spawn 뒤 바뀐 등록은 이미 봉인된 값을 바꾸지
   못합니다. Spawn 전에 task name이 정하는 필드나 spawn 인자를 바꾼 등록은 hook이 deny하고, 봉인이 task name과 맞지 않으면 완료
   대조도 `registration-invalid`로 거부합니다. Task name으로 다시 계산할 수 없는 `reviewOf` 내용은 Parent가 등록 출력의 `digest`와
   수락 기록의 `registrationDigest`를 대조해 확인합니다. 수락 기록이 지워지면 fan-in이 그 lane을 `acceptance-missing`으로 거부하지만,
   지운 뒤의 재개는 hook이 막지 못하므로 다시 수락해야 합니다(재개된 Stop은 원래 수락과 맞지 않음). Target이 task name·agent id·
   `/root/<task name>`이 아닌 형식이면 수락 여부를 알 수 없어 기록만 합니다. Allow 뒤 도구가 실패해 child가 생기지 않아도 그 task
-  name은 쓰인 것(`registration-used`)으로 남고, 수락한 child의 보완도 후속·재시도가 모두 막힙니다. 이때는 새 `dispatchToken`으로
+  name은 쓰인 것(`registration-used`)으로 남고(writer면 해제 전까지 Parent 쓰기 guard도 열려 있음), 수락한 child의 보완도 후속·재시도가 모두 막힙니다. 이때는 새 `dispatchToken`으로
   dispatch를 다시 계산해 등록·spawn합니다. 결과 대조는 dispatch token 하나만 받으므로 그 dispatch 전체를 새 token으로 엽니다.
-- **Parent 쓰기**: code mode `exec` 안에서 중첩 호출한 `apply_patch`·`exec_command`도 PreToolUse를 거칩니다(codex-cli 0.161.0 관측,
-  `apply_patch`·`Bash` tool_name). Repository hook의 matcher는 이 도구를 넣지 않으므로 Parent 쓰기는 막지 않습니다. 그 강제는
-  `hooks.json` 변경과 trust 재승인을 함께 다루는 후속 결정입니다.
+  수락·해제 기록도 같은 디렉터리라 child(또는 Bash로 쓰는 Parent)가 schema·session·task name이 맞는 파일을 쓰면 Parent 쓰기 guard가
+  닫힙니다. Hook은 그 파일의 전제(완료 대조·child 종료)를 다시 보지 않으므로 이 경로는 막지 못합니다.
+- **Parent 쓰기**: writer lane(정책 사본 `writerRoles`, 역할 파일 `sandbox_mode = "workspace-write"`인 `knu_executor*`)을 root가
+  spawn한 allow 기록부터 그 task의 수락 또는 해제 기록까지, Parent의 `apply_patch`(code mode `exec` 안 중첩 호출 포함, codex-cli
+  0.161.0·0.162.1 관측)가 저장소 안 tracked·비ignored 경로를 하나라도 쓰면 `parent-write-during-writer`로 deny합니다. Patch 머리(`Add`·
+  `Update`·`Delete File`, `Move to`, 들여쓴 머리 포함)의 경로를 `cwd` 기준 실제 경로로 풀어 `git check-ignore`로 판정합니다. Ignored 경로
+  (`.artifacts/`·`.plans/`)와 저장소 밖은 허용하고, ignored 디렉터리 안 link가 tracked 파일을 가리키면 막습니다. 기간 안 Parent
+  `apply_patch`는 decision(`deny`·`record`)과 `write`(저장소 상대 경로·판정, 열린 writer task name)를 기록하고 patch 본문은 남기지
+  않습니다. 기간 밖과 child의 `apply_patch`는 기록하지 않습니다(판정 오류의 `guard-error`는 예외). 쓰기 기록은 task name이 없어 완료 대조의 bind로 세지 않습니다.
+  판정하지 못하면(git·기록·정책 오류, 기록 파일의 손상 줄) 쓰기를 막지 않고 가능하면 `guard-error`를 기록합니다. 경로를 읽지 못한
+  머리가 있으면 읽은 경로가 막히지 않는 한 `write-target-unknown`으로 기록하고 통과합니다. Bash(`exec_command`) 쓰기는 hook 대상이 아니고 운영 규칙(writer 기간에 Parent는
+  tracked·비ignored 경로를 쓰지 않음)으로 막습니다. Deny를 받으면 writer를 정산(`codex:completion` → 독립 QA → `codex:accept`)하거나,
+  child가 끝났고 수락하지 않을 writer면 `codex:release`로 해제합니다.
 - **내장·OMX 역할**: project hook이 로드된 세션에서는 이 repository 안의 내장 역할(`default` 등)·OMX 역할 spawn이 막힙니다.
   Repository 위임은 `knu_*` 역할로 합니다.
 - **완료 기록**: SubagentStart·SubagentStop은 Parent session별 `.codex/state/knu-subagent-hooks/<session>.jsonl`에 child
@@ -77,20 +95,26 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   그 등록의 `reviewOf`가 현재 lane을 모두 담아야 합니다. 보고된 `observedModel`만으로는 PASS를 연결하지 않습니다. Cross-model handoff
   계약 자체는 바뀌지 않습니다.
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
-  완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있습니다.
+  완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있고, writer 기간의
+  Parent 쓰기도 막히지 않습니다.
 - **PreToolUse만 실패**: callback 오류·timeout은 tool을 막지 않습니다(fail-open). 그 spawn에는 allow 기록이 없어 완료 판정이
   `observation-unbound`로 거부합니다. `knu_*` child가 띄운 grandchild는 호출 시점에 막히지 않지만, 그 Start 기록이 lane task
   path 아래이거나 lane child를 부모 thread로 가리키면 lane을 `observation-foreign`으로 거부합니다. 수락된 child를 target으로 한
   후속·메시지도 이때 막히지 않지만, 재개된 turn의 Stop이 수락 기록과 맞지 않아 완료는 `resumed-after-acceptance`로 거부됩니다.
-  Hook 항목 하나만 바뀌어 그 항목만 재검토 대기인 부분 부재도 같습니다.
+  Parent 쓰기 guard의 callback 오류·timeout도 쓰기를 막지 않습니다. Hook 항목 하나만 바뀌어 그 항목만 재검토 대기인 부분 부재도 같습니다.
+- **Parent 쓰기의 남는 보장**: hook 부재·실패·trust 전, full access 세션, Bash 쓰기에서는 호출 시점 deny가 없습니다. 남는 것은 운영
+  규칙과 완료 판정 거부입니다. Allow 기록이 없으면 writer를 수락하지 못합니다(`observation-missing`·`observation-unbound`). 완료
+  판정은 Parent 쓰기 자체를 탐지하지 않습니다. 그래서 writer 결과 대조·독립 QA는 diff를 그 writer의 변경으로 읽으며, 같은 경로에 섞인
+  Parent 쓰기를 구분하지 못합니다.
 - **완료 거부 뒤 writer 변경**: 거부는 결과 수락만 막습니다. Parent는 이미 실행된 writer child가 바꾼 경로를 확인해 계약 밖
   변경을 되돌리거나 handoff하고, 거부된 결과를 통합 근거로 쓰지 않습니다.
 - **엔진과 허용 목록 범위**: 허용 목록 model은 catalog v2 model입니다. Project hook이 로드된 세션에서는 V1 root의 spawn이 전부
   deny되어 V1 경로의 child가 생기지 않습니다. Hook이 없거나 PreToolUse가 실패하면 V1 child도 실행될 수 있으며, 완료 판정은 그
   dispatch task path의 기록과 allow 기록을 요구합니다.
 - **정책 사본**: hook은 child가 쓸 수 있는 workspace module을 import하지 않고 `.codex/hooks/knu-hook-policy.json`을 읽습니다. 사본이
-  `model-profiles.mjs` 허용 목록·역할 쌍·역할 roster와 같음은 test가 결속합니다. 사본 schema가 맞지 않거나 쌍이 없으면 hook은
-  spawn을 deny합니다. `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
+  `model-profiles.mjs` 허용 목록·역할 쌍·역할 roster와 같고 `writerRoles`가 역할 파일의 `sandbox_mode = "workspace-write"` 역할과 같음은
+  test가 결속합니다. 사본 schema(v3)가 맞지 않거나 쌍·`writerRoles`가 없으면 hook은 spawn을 deny하고 `apply_patch`는 막지 않습니다
+  (`guard-error` 기록). `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
 
 ## Codex/OMX permission mechanism
 

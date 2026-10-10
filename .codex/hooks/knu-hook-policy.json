@@ -1,5 +1,5 @@
 {
-  "schema": "knu-codex-hook-policy/v2",
+  "schema": "knu-codex-hook-policy/v3",
   "allowedModels": ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"],
   "allowedRoleModels": {
     "knu_explorer_medium": ["gpt-6-astra"],
@@ -24,5 +24,6 @@
     "knu_executor",
     "knu_executor_xhigh",
     "knu_reviewer"
-  ]
+  ],
+  "writerRoles": ["knu_executor_medium", "knu_executor", "knu_executor_xhigh"]
 }

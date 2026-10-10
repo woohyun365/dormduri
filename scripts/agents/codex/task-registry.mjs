@@ -2,10 +2,12 @@
 // arguments its dispatch computed (`createDispatchRecommendation`, `createRetryDispatch`, `createReviewDispatch`); the
 // project hook allows the spawn only when its plain arguments equal that unused registration and seals it into the
 // allow record. After the child stops, acceptance runs the completion check and records the accepted stop; the hook
-// then denies follow-up and message calls to that child, and a lane's retry after its primary was accepted. Files live
-// under `.artifacts/tools/codex-native/<Parent session>/`, which children can write: the hook and the completion check
-// require the fields a task name spells to spell it and read the seal from the protected hook records, so an edited file
-// refuses rather than accepts. The Parent compares the rest (`reviewOf`) through the digest `codex:register` prints.
+// then denies follow-up and message calls to that child, and a lane's retry after its primary was accepted. A writer the
+// Parent gives up after its child ended is released instead, which closes the hook's Parent write guard and denies
+// resuming that child. Files live under `.artifacts/tools/codex-native/<Parent session>/`, which children can write: the
+// hook and the completion check require the fields a task name spells to spell it and read the seal from the protected
+// hook records, so an edited file refuses rather than accepts. The Parent compares the rest (`reviewOf`) through the
+// digest `codex:register` prints.
 import { readFileSync, realpathSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -28,6 +30,7 @@ import {
 
 export const REGISTRY_SEGMENT = 'codex-native';
 export const REGISTRATION_SCHEMA = 'knu-codex-task-registration/v1';
+export const RELEASE_SCHEMA = 'knu-codex-task-release/v1';
 const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
 const REVIEW_DISPATCH_INPUTS = new Set(['laneIds', 'dispatchToken', 'round']);
 // The hook reads only task names in this form.
@@ -160,6 +163,12 @@ export function readAcceptance({ root, sessionId, taskName }) {
   return text === null ? null : JSON.parse(text);
 }
 
+export function readRelease({ root, sessionId, taskName }) {
+  checkTaskName(taskName);
+  const text = readTask(root, sessionId, `${taskName}.released.json`);
+  return text === null ? null : JSON.parse(text);
+}
+
 // Accepts a stopped child once: its registration exists, its completion check passes against the caller's contract
 // role and model, and (for a lane retry) the primary child was not accepted. The record names the accepted stop.
 export function acceptTask({
@@ -252,6 +261,80 @@ export function acceptTask({
   return { ...verdict, acceptance };
 }
 
+// Releases a task the root spawned and never accepted, once, when the Parent states its child ended (`ended`) and the
+// session records do not show the child running: no start, follow-up or resume after its last stop. A spawn whose tool
+// failed after the allow has no child, so the statement is the only evidence. The hook then treats the task as closed:
+// the Parent write guard stops counting it and follow-up or message calls to it are denied.
+export function releaseTask({ root, sessionId, taskName, ended, observation, now }) {
+  const refused = (reason) => ({ released: false, reason });
+  const found = readRegistration({ root, sessionId, taskName });
+  if (found === null) return refused('registration-missing');
+  const { registration } = found;
+  if (
+    registration?.taskName !== taskName ||
+    registration.sessionId !== sessionId ||
+    !registrationSpellsTask(registration)
+  )
+    return refused('registration-invalid');
+  if (readAcceptance({ root, sessionId, taskName })) return refused('task-accepted');
+  if (ended !== true) return refused('ended-required');
+  if (observation?.malformed !== 0 || !Array.isArray(observation.records))
+    return refused('observation-malformed');
+  const own = observation.records.filter((record) => record?.sessionId === sessionId);
+  if (
+    !own.some(
+      (record) =>
+        record.event === 'PreToolUse' &&
+        record.caller === 'root' &&
+        record.decision === 'allow' &&
+        record.input?.task_name === taskName,
+    )
+  )
+    return refused('spawn-missing');
+  const taskPath = `/root/${taskName}`;
+  const agentIds = [
+    ...new Set(
+      own
+        .filter(({ event, agentPath }) => event === 'SubagentStart' && agentPath === taskPath)
+        .map(({ agentId }) => agentId),
+    ),
+  ];
+  // A resumed child gets no new start, only the next stop, so a follow-up the hook let through (from any caller)
+  // reopens it.
+  const names = new Set([taskName, taskPath, ...agentIds]);
+  let running = false;
+  for (const record of own) {
+    if (record.event === 'SubagentStart' && record.agentPath === taskPath) running = true;
+    else if (record.event === 'SubagentStop' && agentIds.includes(record.agentId)) running = false;
+    else if (
+      record.event === 'PreToolUse' &&
+      record.decision !== 'deny' &&
+      /followup_task$/u.test(record.toolName ?? '') &&
+      names.has(record.input?.target)
+    )
+      running = true;
+  }
+  if (running) return refused('child-running');
+  const release = {
+    schema: RELEASE_SCHEMA,
+    sessionId,
+    taskName,
+    agentIds,
+    releasedAt: now ?? new Date().toISOString(),
+  };
+  try {
+    writeFileSync(
+      join(registryDirectory(root, sessionId), `${taskName}.released.json`),
+      JSON.stringify(release),
+      { flag: 'wx' },
+    );
+  } catch (error) {
+    if (error.code === 'EEXIST') throw new TypeError(`task already released: ${taskName}`);
+    throw error;
+  }
+  return { released: true, release };
+}
+
 function checkTaskName(taskName) {
   if (typeof taskName !== 'string' || !TASK_NAME.test(taskName))
     throw new TypeError(`task name is invalid: ${taskName}`);
@@ -272,17 +355,25 @@ function digest(text) {
 
 // pnpm codex:register -- --dispatch <descriptor or {dispatches} JSON file> [--session <parent thread id>]
 // pnpm codex:accept -- --task <task name> --role <agent_type> --model <contract model> [--session <parent thread id>]
+// pnpm codex:release -- --task <task name> --ended [--session <parent thread id>]
 // The session defaults to CODEX_THREAD_ID, which Codex sets for the Parent's shell commands.
 export function runRegistryCommand(argv, { root, env = process.env }) {
   const [command, ...rest] = argv.filter((arg, index) => !(arg === '--' && index <= 1));
   const keys = {
     register: ['--dispatch', '--session'],
     accept: ['--task', '--role', '--model', '--session'],
+    release: ['--task', '--ended', '--session'],
   };
-  if (!Object.hasOwn(keys, command)) throw new TypeError('expected register or accept');
+  // Flags that take no value.
+  const flags = new Set(['--ended']);
+  if (!Object.hasOwn(keys, command)) throw new TypeError('expected register, accept or release');
   const options = {};
   for (let index = 0; index < rest.length; index += 1) {
     const key = rest[index];
+    if (keys[command].includes(key) && flags.has(key)) {
+      options[key.slice(2)] = true;
+      continue;
+    }
     if (!keys[command].includes(key) || rest[index + 1] === undefined)
       throw new TypeError(`unexpected ${command} argument: ${key}`);
     options[key.slice(2)] = rest[(index += 1)];
@@ -300,6 +391,21 @@ export function runRegistryCommand(argv, { root, env = process.env }) {
       return { taskName, digest, spawnArguments };
     });
     return { exitCode: 0, stdout: `${JSON.stringify({ sessionId, registered }, null, 2)}\n` };
+  }
+  if (command === 'release') {
+    if (!options.task) throw new TypeError('--task is required');
+    const { records, malformed } = readHookRecords({ root, sessionId });
+    const verdict = releaseTask({
+      root,
+      sessionId,
+      taskName: options.task,
+      ended: options.ended === true,
+      observation: { sessionId, records, malformed },
+    });
+    return {
+      exitCode: verdict.released ? 0 : 1,
+      stdout: `${JSON.stringify({ sessionId, taskName: options.task, ...verdict }, null, 2)}\n`,
+    };
   }
   if (!options.task || !options.role || !options.model)
     throw new TypeError('--task, --role and --model are required');

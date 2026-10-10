@@ -442,33 +442,55 @@ test('hook policy copy matches the allowlist owner and the installed role files'
     'allowedRoleModels',
     'roster',
     'schema',
+    'writerRoles',
   ]);
-  assert.equal(policy.schema, 'knu-codex-hook-policy/v2');
+  assert.equal(policy.schema, 'knu-codex-hook-policy/v3');
   assert.deepEqual(policy.allowedModels, [...ALLOWED_CHILD_MODELS]);
   assert.deepEqual(policy.allowedRoleModels, ALLOWED_ROLE_MODELS);
   assert.deepEqual(policy.roster, Object.keys(ROLE_EFFORTS));
   assert.deepEqual([...policy.roster].sort(), expectedRoles.map(({ name }) => name).sort());
+  // The Parent write guard runs while a writer lane is open: the roles whose installed file can write the workspace.
+  const writers = Object.keys(ROLE_EFFORTS).filter(
+    (name) =>
+      readQuotedField(
+        readFileSync(resolve(repoRoot, '.codex/agents', `${name}.toml`), 'utf8'),
+        'sandbox_mode',
+      ) === 'workspace-write',
+  );
+  assert.deepEqual(writers, ['knu_executor_medium', 'knu_executor', 'knu_executor_xhigh']);
+  assert.deepEqual(policy.writerRoles, writers);
 });
 
-test('project hooks register one guard and the subagent recorder from the git root', () => {
+test('project hooks register the spawn guard, the Parent write guard and the subagent recorder from the git root', () => {
   const config = JSON.parse(readFileSync(resolve(repoRoot, '.codex/hooks.json'), 'utf8'));
   assert.deepEqual(Object.keys(config.hooks).sort(), [
     'PreToolUse',
     'SubagentStart',
     'SubagentStop',
   ]);
+  const matchers = {
+    PreToolUse: ['(spawn_agent|followup_task|send_message)$', '^apply_patch$'],
+    SubagentStart: [undefined],
+    SubagentStop: [undefined],
+  };
   for (const [event, groups] of Object.entries(config.hooks)) {
-    assert.equal(groups.length, 1, event);
     assert.deepEqual(
-      groups[0].hooks,
-      [{ type: 'command', command: hookCommand, timeout: 10 }],
+      groups.map(({ matcher }) => matcher),
+      matchers[event],
       event,
     );
-    assert.equal(
-      groups[0].matcher,
-      event === 'PreToolUse' ? '(spawn_agent|followup_task|send_message)$' : undefined,
-    );
+    for (const group of groups)
+      assert.deepEqual(
+        group.hooks,
+        [{ type: 'command', command: hookCommand, timeout: 10 }],
+        event,
+      );
   }
+  // Codex reports file edits as apply_patch (matcher aliases Edit and Write); shell writes stay outside the guard.
+  const patchMatcher = new RegExp(config.hooks.PreToolUse[1]?.matcher ?? '(?!)', 'u');
+  assert.match('apply_patch', patchMatcher);
+  for (const name of ['Bash', 'collaborationspawn_agent', 'apply_patch_v2', 'Edit'])
+    assert.doesNotMatch(name, patchMatcher);
   // Codex joins the V2 namespace to the tool name, so the guard matches the name suffix.
   const matcher = new RegExp(config.hooks.PreToolUse[0].matcher, 'u');
   for (const name of [

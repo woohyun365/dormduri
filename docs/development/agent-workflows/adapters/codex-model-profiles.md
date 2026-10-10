@@ -89,13 +89,13 @@ Dispatch는 config 입력을 받지 않으므로 loaded config의 drift는 dispa
 
 ## Task model configuration and fresh loading
 
-| 설정 owner                                                     | 계약                                                                                                                                                                             |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                                                                                              |
-| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                                                                                 |
-| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                                                                                           |
-| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                                                                                              |
-| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard(등록 대조·봉인)·수락 child 후속 deny·subagent 완료 기록, 허용 model·역할 쌍·roster 정책 사본([hook](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)) |
+| 설정 owner                                                     | 계약                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                                                                                                                                                                 |
+| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                                                                                                                                                    |
+| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                                                                                                                                                              |
+| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                                                                                                                                                                 |
+| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard(등록 대조·봉인)·수락·해제 child 후속 deny·writer 실행 중 Parent 쓰기 guard(`apply_patch`)·subagent 완료 기록, 허용 model·역할 쌍·roster·`writerRoles` 정책 사본([hook](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)) |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 그래서 effort는 역할 pin이 정하고, dispatch descriptor는 spawn의 `reasoning_effort`를 그 값으로 채웁니다. Model pin이

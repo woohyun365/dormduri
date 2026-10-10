@@ -110,7 +110,7 @@ Runtime 지원 관측 필드와 effort 필드는 없습니다. Effort는 역할 
 - `reuse`는 같은 outcome·lane·role·scope와 **이번 snapshot에 대한 재확인**이 필요합니다. 새 snapshot 자체는 delta에서
   정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.
   실제 child 소유·상태·pending·결과 귀속은 [lifecycle 계약](../subagent-lifecycle.md#후속-작업과-fan-in)으로 별도 확인합니다.
-- `full-history`는 사유가 필요하고, project hook이 full-history fork(`fork_turns` 생략·`all`)를 거절하므로 항상
+- `full-history`는 사유가 필요하고, project hook이 full-history fork(`fork_turns` 생략·`all`·양의 정수, codex-cli 0.162.0)를 거절하므로 항상
   `full-history-fork-denied`로 `compatible=false`입니다.
 - **모든 결과의 `applied=false`**는 순수 추천이 native 설정을 적용하지 않았다는 뜻입니다. 실제 role/model은 호출 시점에 hook이
   검사합니다. role-compatible 결과만 보고 context gate를 생략하지 않으며 Parent는 delivery `compatible`와 gaps까지 확인한 뒤
@@ -188,8 +188,8 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
   child가 부른 spawn을 [호출 시점에 deny](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)합니다.
 - V2 peer 메시지는 실행 중인 child에만 전달이 관측됐습니다. 완료된 child는 메시지로 turn을 시작하지 않으므로([새 turn 없이
   queue](https://developers.openai.com/api/docs/guides/responses-multi-agent#how-multi-agent-works)) 응답이 필요하면 Parent가
-  수락 전 child에 `followup_task`로 후속을 배정합니다. 완료된 child에 보낸 메시지는 그 `followup_task` 재개 turn 입력에 함께
-  전달됐습니다(codex-cli 0.161.0 관측, 2026-10-09). 수락한 child에는 후속·메시지를 보내지 않으며 hook이 `settled-child`로 deny합니다.
+  수락·해제 전 child에 `followup_task`로 후속을 배정합니다. 완료된 child에 보낸 메시지는 그 `followup_task` 재개 turn 입력에 함께
+  전달됐습니다(codex-cli 0.161.0 관측, 2026-10-09). 수락·해제한 child에는 후속·메시지를 보내지 않으며 hook이 `settled-child`·`released-child`로 deny합니다.
 - Intake mapper는 child를 생성하지 않습니다.
 - ContextPack registry는 lane을 만들지 않습니다.
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.

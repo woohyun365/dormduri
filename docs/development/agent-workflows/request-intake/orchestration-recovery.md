@@ -47,9 +47,9 @@ Leader가 보고하는 runtime evidence(surface·provenance·roster·configurati
 Parent가 보고하는 사후 실행 대조는 두지 않습니다. 그 확인은 host가 직접 남기는 두 계층이 맡습니다.
 
 - **호출 시점**: project hook guard(`.codex/hooks/knu-subagent-hooks.mjs`)가 역할 roster, 허용 model, (역할, model) 쌍,
-  bounded fork(`fork_turns` 생략·`all`은 full-history fork로 거절)와 Parent가 `codex:register`로 남긴 등록과의 평문 인자 일치(task
+  bounded fork(`fork_turns` 생략·`all`·양의 정수는 full-history fork로 거절, `none`만 허용)와 Parent가 `codex:register`로 남긴 등록과의 평문 인자 일치(task
   name이 정하는 등록 필드 포함)를
-  검사하고, child가 연 spawn과 수락된 child를 대상으로 한 후속·메시지를 막습니다. Context delivery의
+  검사하고, child가 연 spawn과 수락·해제된 child를 대상으로 한 후속·메시지를 막습니다. Context delivery의
   full-history 요청은 이 거절을 반영해 `full-history-fork-denied`로 호환되지 않습니다.
 - **완료**: Parent는 `pnpm codex:completion -- --lane <lane> --token <token> --role <agent_type> --model <model>`로 hook 기록을
   lane 계약과 대조하고, 받을 child는 `pnpm codex:accept`로 수락합니다. 기록이 없거나 bind·등록 봉인·계약 model·역할 effort와

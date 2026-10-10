@@ -401,7 +401,7 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   재개되지 않은 reviewer child(형제 round 포함, 봉인이 어긋나거나 allow 기록이 없는 round도 이름으로 셈)에서 와야 하며, 결과
   `dispatchId`는 task name이 정하는 가장 높은 round의 `reviewId`입니다.
 - **Trigger / non-trigger**: Codex 위임 child의 spawn·수락·후속과 hook 기록을 받는 QA / hook 부재·full access 세션, Claude adapter,
-  cross-model handoff 계약, Parent 자신의 파일 쓰기(hook 강제는 Owner 2026-10-09 결정으로 후속 변경이 맡음).
+  cross-model handoff 계약, Parent 자신의 파일 쓰기(hook 강제는 [DA-021](#da-021--writer-실행-중-parent의-추적-파일-쓰기를-hook으로-막는-guard)).
 - **기각**: Bash 가로채기로 등록을 보호(`hooks.json` 변경·trust 재승인. 결정 당시 미관측이던 code mode 중첩 `apply_patch`·
   `exec_command`의 PreToolUse 발화는 같은 날 codex-cli 0.161.0에서 관측됨), 등록마다 승인
   상승(사용자 승인 반복), 등록을 `.codex` 아래에 두기(workspace-write에서 Parent도 쓸 수 없음), 재시도 상한을 사실 묶음 단위로
@@ -409,7 +409,7 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 - **구현 영향**: `task-registry.mjs`(`registerDispatch`·`createReviewDispatch`·`acceptTask`, `codex:register`·`codex:accept`), hook의
   `registration-missing`·`-invalid`·`-mismatch`·`-used`·`lane-accepted`·`settled-child` deny와 봉인, 완료 대조의
   `registration-unsealed`·`registration-mismatch`·`registration-invalid`·`acceptance-missing`·`acceptance-mismatch`·`resumed-after-acceptance`·`lane-accepted`,
-  synthesis·`validateCodexWorkflowResults`의 `acceptances`와 reviewer 결속. `hooks.json`은 바뀌지 않습니다.
+  synthesis·`validateCodexWorkflowResults`의 `acceptances`와 reviewer 결속. `hooks.json`은 바뀌지 않습니다(`apply_patch` group은 DA-021).
 - **검증/한계**: 등록 디렉터리는 child가 쓸 수 있습니다. 봉인 뒤 변경은 효과가 없고, 봉인 전 task name·spawn 인자 필드 변경은
   hook deny와 완료 거부로 끝나며, task name으로 다시 계산할 수 없는 `reviewOf` 내용은 Parent가 등록 digest와 수락 기록을 대조해
   확인합니다. 수락 기록을 지운 뒤의 재개는 hook이 막지 못합니다(fan-in이 재수락을 요구). Target이 task name·agent id·
@@ -417,6 +417,33 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   `observation-unbound`로 완료가 거부되고 등록 대조도 없습니다. 정적 회귀는 native 실행 증거가 아니며, native 실행은
   codex-cli 0.161.0 한 세션(등록 전·인자 불일치 spawn deny, 수락 뒤 후속·메시지 deny, 수락 뒤 재시도 등록 거절, reviewer 수락)만 관측했습니다.
 - **재검토**: hook 범위·trust 동작·code mode hook 발화의 변화, 등록 우회나 재개 시도의 실제 관측, Claude lifecycle 변경이 생길 때입니다.
+
+## DA-021 — writer 실행 중 Parent의 추적 파일 쓰기를 hook으로 막는 guard
+
+- **상태/결정일**: accepted, 2026-10-10(Owner). [DA-020](#da-020--위임-child를-spawn-전에-등록하고-수락한-child는-재개재시도하지-않는-수명주기)의
+  수명주기에 writer 기간의 Parent 쓰기 deny와 해제를 더하고, spawn guard의 `fork_turns` 검사를 등록과 같은 `"none"`으로 맞춥니다.
+  경계는 [Codex 완료 관측](./adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)이 소유합니다.
+- **문제/근거**: 같은 checkout에서 writer child와 Parent가 쓰면 결과 대조·독립 QA는 diff를 writer 변경으로 읽어 Parent 쓰기를
+  구분하지 못합니다. Codex 정산에는 파일 목록 비교(collector)가 없습니다. Code mode `exec` 안 중첩 `apply_patch`·`exec_command`도
+  PreToolUse를 `apply_patch`·`Bash`로 거칩니다(codex-cli 0.161.0 관측). Claude adapter는 writer task 중 Parent의
+  `Edit|Write|NotebookEdit`를 deny합니다([Claude native registry](./adapters/claude-native-registry.md)). codex-cli 0.162.0은 `fork_turns`
+  양의 정수를 full-history fork로 바꿨습니다(#51329).
+- **결정**: (1) `hooks.json` PreToolUse에 `^apply_patch$` group을 더하고, root가 spawn한 writer(정책 사본 `writerRoles`) task가
+  수락·해제되지 않은 동안 Parent `apply_patch`가 tracked·비ignored 경로를 쓰면 deny합니다. Ignored 경로와 저장소 밖은 허용합니다.
+  (2) 끝난 writer를 수락하지 않으면 `codex:release --ended`로 해제하고, 해제한 child의 후속·메시지는 deny합니다. (3) Guard가 판정하지
+  못하면 쓰기를 막지 않고 기록합니다. (4) Spawn guard는 `fork_turns` `"none"`만 허용합니다.
+- **Trigger / non-trigger**: writer lane 실행 중 Parent `apply_patch` / Bash 쓰기, child 쓰기, writer 없는 세션, Claude adapter.
+- **기각**: Bash 쓰기 판정(명령이 쓰는지 알 수 없고 모든 shell 호출에 hook 비용), writer 소유 경로만 deny(등록 schema 변경, 범위 밖
+  Parent 쓰기도 구분 불가), child 실행 중(Start부터 Stop까지)만 적용(재개는 Start를 남기지 않고 Stop부터 수락까지의 QA 기간이 빔), 해제 없이 수락까지
+  적용(실패한 writer가 세션 끝까지 Parent 편집을 막음), 판정 오류 시 deny(기록 손상이 위임과 무관한 세션의 편집을 막음), child의 등록
+  디렉터리 쓰기 deny.
+- **구현 영향**: hook의 `apply_patch` 분기(`parent-write-during-writer` deny, `write-target-unknown`·`guard-error` 기록),
+  `released-child` deny, 정책 사본 v3 `writerRoles`, `task-registry.mjs`의 `releaseTask`·`readRelease`·`codex:release`, `$knu-settle` 해제 단계.
+- **검증/한계**: hook test(기간·경로·link·이동·`cwd`·오류 통과)와 해제 test, 정책 사본과 역할 파일의 결속. Hook 부재·실패·trust 전,
+  full access 세션, Bash 쓰기는 막지 못하고 남는 보장은 운영 규칙과 완료 판정 거부입니다. 완료 판정은 Parent 쓰기 자체를 탐지하지
+  않습니다. 정적 회귀는 native 실행 증거가 아닙니다. Native live(codex-cli 0.162.1, trust 재승인 뒤 1회)에서 writer 기간 code mode
+  중첩 `apply_patch`는 비ignored 새 파일(untracked)에서 deny, ignored 경로에서 기록만 되었고, 수락 뒤 같은 경로는 허용되었습니다. `fork_turns` `"2"`도 deny였습니다.
+- **재검토**: hook 범위·matcher alias·trust 동작 변화, code mode의 hook 우회 관측, Claude file guard 변경이 생길 때입니다.
 
 ## Evidence inventory
 
@@ -437,25 +464,26 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 
 각 Decision의 짧은 본문은 읽기 흐름을 유지하고, 구현 영향과 재검토 기준은 아래 표에서 빠짐없이 추적합니다.
 
-| ID     | 근거                                                        | Trigger / non-trigger                                                       | 구현 영향                                                              | 재검토 조건                                                         |
-| ------ | ----------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| DA-001 | OpenAI practical guide, Anthropic effective agents          | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행         | direct-first routing과 child 생성 억제                                 | 반복 측정된 context·처리량 병목                                     |
-| DA-002 | Google scaling agent systems, Anthropic effective agents    | 독립 evidence lane / dependency chain                                       | sequential dependency, bounded fan-out                                 | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때         |
-| DA-003 | OpenAI practical guide, Anthropic context engineering       | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                | leader synthesis와 one-write-owner                                     | 분산 merge가 더 낮은 충돌률로 검증될 때                             |
-| DA-004 | Anthropic demystifying evals, OpenAI best practices         | 검증 가능한 environment outcome / self report만 존재                        | command·test·diff 기반 완료 판정                                       | 더 강한 자동 acceptance surface가 생길 때                           |
-| DA-005 | Anthropic context engineering                               | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지           | bounded checkpoint와 progressive disclosure                            | startup context가 필수 규칙을 누락하거나 budget을 초과할 때         |
-| DA-006 | Anthropic writing tools, OpenAI agent guide                 | 명확한 owner/action/schema / 중복 tool buffet                               | 좁은 tool contract와 bounded output                                    | tool 선택 오류나 context 비용이 다시 증가할 때                      |
-| DA-007 | DeepMind agent security, OpenAI running Codex safely        | deterministic guard 위 reviewer / reviewer-only guard 금지                  | static·type·sandbox·test 우선                                          | model verifier가 독립적 강제력을 제공할 때                          |
-| DA-008 | DeepMind agent security, OpenAI running Codex safely        | destructive·credential·production action / reversible local work            | authority gate와 safe auto-continue                                    | 권한 또는 rollback model이 바뀔 때                                  |
-| DA-009 | Google scaling agent systems, repository semantic evidence  | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지 | child-only two-pass + optional quality-gated model fixture             | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
-| DA-010 | OpenAI AGENTS.md, repository onboarding evidence            | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지             | getting-started와 execution contract 분리                              | generic agent가 동일 authority로 수렴하지 못할 때                   |
-| DA-011 | Google scaling agent systems, repository lane evidence      | 독립·bounded·positive-benefit lane / dependency·shared write                | adaptive bounded fan-out과 one-write limit                             | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
-| DA-012 | OpenAI native surface, OMX runtime, repository smoke        | dispatch 직전 fresh reported evidence / config·과거 session만 존재          | dual-runtime + exact model admission과 sequential fallback             | superseded by hook guard·완료 대조(2026-10-07)                      |
-| DA-013 | 실행 계약, 계획 Decision/OQ owner                           | 중요한 제약 변경 / 승인된 통상 작업                                         | 공통 decision rights와 짧은 협의                                       | 과잉 질문 또는 중요한 선택 누락                                     |
-| DA-014 | ContextPack registry, domain authoring guides               | 근거가 요구하는 관점 / 단순 lookup                                          | model-mediated consultation; mapper 유지                               | 문서 과잉 또는 관점 누락                                            |
-| DA-015 | delegation, QA, current runtime 제약                        | 지정된 독립 사실 확인 / offload·초기 QA 설득                                | 중앙 authority와 제한된 peer 정보 교환                                 | 실제 병목·오염·권한 위반                                            |
-| DA-016 | Repository context/dispatch consumer와 QA evidence          | 공급 context·criterion gap / advice를 실제 실행으로 간주 금지               | 기존 dispatch 보완·single primary·acceptance-bound QA                  | host 변화 또는 반복 품질 gap·유효한 비용 관측                       |
-| DA-017 | Scoped native task/oracle·독립 QA와 registry/admission 회귀 | 검증된 profile/role의 승인된 bounded task / 미검증 역할·위험·영구 grant     | 기존 schema로 local cohort GO·fresh admission·철회/rollback handoff    | superseded by DA-018                                                |
-| DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀        | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할 | 역할 열 개 effort pin, profile model, route `profileId`, recovery 삭제 | 6.1 Sol 품질 canary, host 지원 변화. 재시도는 DA-019                |
-| DA-019 | Claude 상향 사다리·공통 Recovery ceiling, recovery 회귀     | 재시도 가능 실패 / non-retryable·성공 뒤 재시도·Claude adapter              | 계산한 `retryRoute`, 재시도 child 대조·dispatch, `--retry`             | 사다리 재시도 반복 실패·비용, 공통 상한 변경                        |
-| DA-020 | Claude 등록·정산 lifecycle, 공식 hook 범위, 재개 관측       | 위임 child spawn·수락·후속 / hook 부재·full access·Claude adapter           | 등록 봉인 hook deny, `codex:accept`, 수락 결속·재개 거절               | hook 범위·trust 변화, 등록 우회·재개 시도 관측                      |
+| ID     | 근거                                                                | Trigger / non-trigger                                                            | 구현 영향                                                              | 재검토 조건                                                         |
+| ------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| DA-001 | OpenAI practical guide, Anthropic effective agents                  | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행              | direct-first routing과 child 생성 억제                                 | 반복 측정된 context·처리량 병목                                     |
+| DA-002 | Google scaling agent systems, Anthropic effective agents            | 독립 evidence lane / dependency chain                                            | sequential dependency, bounded fan-out                                 | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때         |
+| DA-003 | OpenAI practical guide, Anthropic context engineering               | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                     | leader synthesis와 one-write-owner                                     | 분산 merge가 더 낮은 충돌률로 검증될 때                             |
+| DA-004 | Anthropic demystifying evals, OpenAI best practices                 | 검증 가능한 environment outcome / self report만 존재                             | command·test·diff 기반 완료 판정                                       | 더 강한 자동 acceptance surface가 생길 때                           |
+| DA-005 | Anthropic context engineering                                       | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지                | bounded checkpoint와 progressive disclosure                            | startup context가 필수 규칙을 누락하거나 budget을 초과할 때         |
+| DA-006 | Anthropic writing tools, OpenAI agent guide                         | 명확한 owner/action/schema / 중복 tool buffet                                    | 좁은 tool contract와 bounded output                                    | tool 선택 오류나 context 비용이 다시 증가할 때                      |
+| DA-007 | DeepMind agent security, OpenAI running Codex safely                | deterministic guard 위 reviewer / reviewer-only guard 금지                       | static·type·sandbox·test 우선                                          | model verifier가 독립적 강제력을 제공할 때                          |
+| DA-008 | DeepMind agent security, OpenAI running Codex safely                | destructive·credential·production action / reversible local work                 | authority gate와 safe auto-continue                                    | 권한 또는 rollback model이 바뀔 때                                  |
+| DA-009 | Google scaling agent systems, repository semantic evidence          | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지      | child-only two-pass + optional quality-gated model fixture             | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
+| DA-010 | OpenAI AGENTS.md, repository onboarding evidence                    | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지                  | getting-started와 execution contract 분리                              | generic agent가 동일 authority로 수렴하지 못할 때                   |
+| DA-011 | Google scaling agent systems, repository lane evidence              | 독립·bounded·positive-benefit lane / dependency·shared write                     | adaptive bounded fan-out과 one-write limit                             | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
+| DA-012 | OpenAI native surface, OMX runtime, repository smoke                | dispatch 직전 fresh reported evidence / config·과거 session만 존재               | dual-runtime + exact model admission과 sequential fallback             | superseded by hook guard·완료 대조(2026-10-07)                      |
+| DA-013 | 실행 계약, 계획 Decision/OQ owner                                   | 중요한 제약 변경 / 승인된 통상 작업                                              | 공통 decision rights와 짧은 협의                                       | 과잉 질문 또는 중요한 선택 누락                                     |
+| DA-014 | ContextPack registry, domain authoring guides                       | 근거가 요구하는 관점 / 단순 lookup                                               | model-mediated consultation; mapper 유지                               | 문서 과잉 또는 관점 누락                                            |
+| DA-015 | delegation, QA, current runtime 제약                                | 지정된 독립 사실 확인 / offload·초기 QA 설득                                     | 중앙 authority와 제한된 peer 정보 교환                                 | 실제 병목·오염·권한 위반                                            |
+| DA-016 | Repository context/dispatch consumer와 QA evidence                  | 공급 context·criterion gap / advice를 실제 실행으로 간주 금지                    | 기존 dispatch 보완·single primary·acceptance-bound QA                  | host 변화 또는 반복 품질 gap·유효한 비용 관측                       |
+| DA-017 | Scoped native task/oracle·독립 QA와 registry/admission 회귀         | 검증된 profile/role의 승인된 bounded task / 미검증 역할·위험·영구 grant          | 기존 schema로 local cohort GO·fresh admission·철회/rollback handoff    | superseded by DA-018                                                |
+| DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀                | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할      | 역할 열 개 effort pin, profile model, route `profileId`, recovery 삭제 | 6.1 Sol 품질 canary, host 지원 변화. 재시도는 DA-019                |
+| DA-019 | Claude 상향 사다리·공통 Recovery ceiling, recovery 회귀             | 재시도 가능 실패 / non-retryable·성공 뒤 재시도·Claude adapter                   | 계산한 `retryRoute`, 재시도 child 대조·dispatch, `--retry`             | 사다리 재시도 반복 실패·비용, 공통 상한 변경                        |
+| DA-020 | Claude 등록·정산 lifecycle, 공식 hook 범위, 재개 관측               | 위임 child spawn·수락·후속 / hook 부재·full access·Claude adapter                | 등록 봉인 hook deny, `codex:accept`, 수락 결속·재개 거절               | hook 범위·trust 변화, 등록 우회·재개 시도 관측                      |
+| DA-021 | Claude file guard, 공식 hook matcher·실패 동작, code mode 발화 관측 | writer 실행 중 Parent `apply_patch` / Bash·child 쓰기·writer 없음·Claude adapter | `apply_patch` group·writer 기간 deny·`codex:release`·`fork_turns` none | hook 범위·trust 변화, hook 우회 관측                                |
