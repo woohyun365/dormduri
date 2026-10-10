@@ -45,7 +45,7 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   dispatch를 다시 계산해 등록·spawn합니다. 결과 대조는 dispatch token 하나만 받으므로 그 dispatch 전체를 새 token으로 엽니다.
 - **Parent 쓰기**: writer lane(정책 사본 `writerRoles`, 역할 파일 `sandbox_mode = "workspace-write"`인 `knu_executor*`)을 root가
   spawn한 allow 기록부터 그 task의 수락 또는 해제 기록까지, Parent의 `apply_patch`(code mode `exec` 안 중첩 호출 포함, codex-cli
-  0.161.0 관측)가 저장소 안 tracked·비ignored 경로를 하나라도 쓰면 `parent-write-during-writer`로 deny합니다. Patch 머리(`Add`·
+  0.161.0·0.162.1 관측)가 저장소 안 tracked·비ignored 경로를 하나라도 쓰면 `parent-write-during-writer`로 deny합니다. Patch 머리(`Add`·
   `Update`·`Delete File`, `Move to`)의 경로를 `cwd` 기준 실제 경로로 풀어 `git check-ignore`로 판정합니다. Ignored 경로
   (`.artifacts/`·`.plans/`)와 저장소 밖은 허용하고, ignored 디렉터리 안 link가 tracked 파일을 가리키면 막습니다. 기간 안 Parent
   `apply_patch`는 decision(`deny`·`record`)과 `write`(저장소 상대 경로·판정, 열린 writer task name)를 기록하고 patch 본문은 남기지
