@@ -1446,7 +1446,11 @@ test('a Parent write guard that cannot decide lets the write through and records
   assert.equal(torn.reason(torn.run(writerSpawn)), null);
   const tornFile = join(torn.root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`);
   writeFileSync(tornFile, `{"torn\n${readFileSync(tornFile, 'utf8')}`);
-  assert.equal(torn.reason(torn.run(patchCall('*** Update File: README.md\n+x'))), null);
+  assert.equal(
+    torn.reason(torn.run(patchCall('*** Update File: README.md\n+x'))),
+    null,
+    'a torn record line is a guard-error that lets the edit through',
+  );
   const tornLast = JSON.parse(readFileSync(tornFile, 'utf8').trim().split('\n').at(-1));
   assert.deepEqual(
     [tornLast.toolName, tornLast.reason],
