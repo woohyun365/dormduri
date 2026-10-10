@@ -362,12 +362,7 @@ function fileRegistry(root, sessionId) {
     // Writer tasks the root spawned (the sealed role is a writer role) that are neither accepted nor released.
     writers(roles) {
       const names = rootAllows()
-        .filter(
-          (record) =>
-            record.sessionId === sessionId &&
-            roles.includes(record.registration?.spawnArguments?.agent_type) &&
-            record.registration.taskName === record.input?.task_name,
-        )
+        .filter((record) => roles.includes(record.registration?.spawnArguments?.agent_type))
         .map((record) => record.input.task_name);
       return [...new Set(names)].filter((name) => !settled(name) && !released(name));
     },
