@@ -188,8 +188,8 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
   child가 부른 spawn을 [호출 시점에 deny](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)합니다.
 - V2 peer 메시지는 실행 중인 child에만 전달이 관측됐습니다. 완료된 child는 메시지로 turn을 시작하지 않으므로([새 turn 없이
   queue](https://developers.openai.com/api/docs/guides/responses-multi-agent#how-multi-agent-works)) 응답이 필요하면 Parent가
-  수락 전 child에 `followup_task`로 후속을 배정합니다. 완료된 child에 보낸 메시지는 그 `followup_task` 재개 turn 입력에 함께
-  전달됐습니다(codex-cli 0.161.0 관측, 2026-10-09). 수락한 child에는 후속·메시지를 보내지 않으며 hook이 `settled-child`로 deny합니다.
+  수락·해제 전 child에 `followup_task`로 후속을 배정합니다. 완료된 child에 보낸 메시지는 그 `followup_task` 재개 turn 입력에 함께
+  전달됐습니다(codex-cli 0.161.0 관측, 2026-10-09). 수락·해제한 child에는 후속·메시지를 보내지 않으며 hook이 `settled-child`·`released-child`로 deny합니다.
 - Intake mapper는 child를 생성하지 않습니다.
 - ContextPack registry는 lane을 만들지 않습니다.
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.

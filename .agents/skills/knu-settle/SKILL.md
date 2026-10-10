@@ -13,7 +13,7 @@ description: 이 저장소에서 Codex Parent가 위임한 child나 reviewer가 
 2. 반환 결과를 실제 source·oracle·회귀 결과와 대조합니다. Failed·blocked·conflicting evidence는 지우지 않고 보존하며,
    hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort와 맞지 않는 completed와 self-PASS는 받지 않습니다.
 3. 수락 전에 독립 QA를 받습니다. 구현 lane은 필수 Astra QA를 `$knu-review`로 받고, 그 밖의 lane은 QA trigger를 따릅니다.
-   대조나 QA가 찾은 결함은 아직 수락하지 않은 같은 child에 `followup_task`로 돌려줍니다.
+   대조나 QA가 찾은 결함은 아직 수락·해제하지 않은 같은 child에 `followup_task`로 돌려줍니다.
 4. 대조와 QA를 통과해 완료로 받을 child와, 끝난 reviewer는 `pnpm -s codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로
    수락하고, 출력의 `registrationDigest`가 등록 때의 `digest`와 같은지 확인합니다. 수락한 child에는 후속 작업을 주지 않으며
    보완은 새 dispatch입니다.
