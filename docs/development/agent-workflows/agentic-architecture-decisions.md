@@ -441,7 +441,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   `released-child` deny, 정책 사본 v3 `writerRoles`, `task-registry.mjs`의 `releaseTask`·`readRelease`·`codex:release`, `$knu-settle` 해제 단계.
 - **검증/한계**: hook test(기간·경로·link·이동·`cwd`·오류 통과)와 해제 test, 정책 사본과 역할 파일의 결속. Hook 부재·실패·trust 전,
   full access 세션, Bash 쓰기는 막지 못하고 남는 보장은 운영 규칙과 완료 판정 거부입니다. 완료 판정은 Parent 쓰기 자체를 탐지하지
-  않습니다. 정적 회귀는 native 실행 증거가 아닙니다.
+  않습니다. 정적 회귀는 native 실행 증거가 아닙니다. Native live(codex-cli 0.162.1, trust 재승인 뒤 1회)에서 writer 기간 code mode
+  중첩 `apply_patch`는 tracked 새 경로에서 deny, ignored 경로에서 기록만 되었고, 수락 뒤 같은 경로는 허용되었습니다. `fork_turns` `"2"`도 deny였습니다.
 - **재검토**: hook 범위·matcher alias·trust 동작 변화, code mode의 hook 우회 관측, Claude file guard 변경이 생길 때입니다.
 
 ## Evidence inventory
