@@ -67,8 +67,9 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 - `verifies`는 그 fact가 확인하는 검증 key입니다. 읽기는 `acceptance`·`independentCheck`, 구현은 `acceptance`·`regression`·
   `astraQa`, 고정 입력 추출은 여기에 `fixedInput`·`outputSchema`·`singleStep`을 더합니다. 실제 source 근거가 있는 fact에만 붙입니다.
 - `claims`는 [Reasoning effort routing](../../../docs/development/agent-workflows/adapters/codex.md#reasoning-effort-routing)의
-  계층 판정을 predicate로 적습니다. Medium은 `M-01`부터 `M-15`까지 모두 confirmed로 적을 때만 성립합니다. Mandatory signal은
-  `X-01`부터 `X-10`까지 또는 domain predicate 이름(`BE-01-concurrency-transaction` 등)이고, 같은 fact를 여러 composite category로
+  계층 판정을 predicate로 적습니다. Medium은 `M-01`부터 `M-15`까지 모두 confirmed로 적을 때만 성립합니다. XHigh로 올리는
+  mandatory signal은 `X-01`부터 `X-10`까지와 직접 XHigh domain predicate(`BE-01-concurrency-transaction` 등, `routing-policy.mjs`의
+  `DIRECT_XHIGH_DOMAIN_PREDICATES`)입니다. 그 밖의 domain predicate는 후보를 막지만 계층을 올리지 않습니다. 같은 fact를 여러 composite category로
   세지 않습니다. 숫자 predicate ID별 정의는 아직 없습니다(#608). Rationale에 판정 근거를 적습니다. Confirmed claim이 하나도 없는 lane은 위임 단계에서 보류됩니다.
 - `delivery`는 fresh child가 받는 scoped packet입니다. Candidate model lane은 이것이 없으면 보류됩니다.
 - `modelRequest`를 생략하면 CLI가 Pass 2 결과와 `verifies` 태그에 맞는
@@ -85,6 +86,6 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 3. 출력의 `spawnArguments`를 바꾸지 않고 spawn 도구에 그대로 넘깁니다. 메시지에는 delegation 파일의 그 dispatch `contract`
    (objective, 범위, acceptance, stop·handoff 조건)를 담습니다. 등록이 없거나 인자가 다르면 hook이 spawn을 거부합니다
    ([등록·수락](../../../docs/development/agent-workflows/adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-4. Child 완료 뒤 `$knu-settle`로 정산하고, 독립 QA가 필요하면 `$knu-review`를 씁니다.
+4. Child 완료 뒤 `$knu-settle`로 정산합니다. 결과 대조와 독립 QA(구현 lane은 필수 Astra QA, `$knu-review`)가 수락보다 먼저입니다.
 
 후보 자격은 routing이, 호출 시점의 (역할, model) 쌍은 hook이 확인합니다. 이 skill의 출력은 업무 권한 승인이 아닙니다.

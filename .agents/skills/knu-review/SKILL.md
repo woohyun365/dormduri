@@ -15,5 +15,5 @@ description: 이 저장소에서 Codex Parent가 위임한 lane이나 자신의 
 2. `pnpm -s codex:register -- --dispatch <review.json>`으로 등록하고 출력의 `digest`를 기록합니다.
 3. 출력의 `spawnArguments`를 그대로 spawn 도구에 넘깁니다. 메시지는 QA packet입니다. Frozen source 기준(HEAD·변경 파일),
    lane acceptance, 리뷰 기준, 읽기 범위를 담고, 2회차부터는 이전 finding과 처분만 delta로 줍니다.
-4. Reviewer 완료 뒤 `$knu-settle`로 수락합니다. 결과의 `dispatchId`는 그 회차의 `reviewId`입니다. Parent가 finding을
+4. Reviewer 완료 뒤 `$knu-settle`로 reviewer를 수락합니다. 리뷰 대상 lane은 결과를 반영한 뒤 수락합니다. 결과의 `dispatchId`는 그 회차의 `reviewId`입니다. Parent가 finding을
    재현하거나 기각 근거를 남기며, 구현자 자신의 PASS는 독립 리뷰가 아닙니다.

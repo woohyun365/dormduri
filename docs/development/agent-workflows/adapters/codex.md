@@ -6,13 +6,15 @@ Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagen
 
 ## 구조
 
-Codex 실행 접점은 다섯 층입니다. 각 층은 다른 층의 보장을 대신하지 않습니다.
+Codex 실행 접점은 여섯 층입니다. 각 층은 다른 층의 보장을 대신하지 않습니다.
 
 - `AGENTS.md`: 세션 시작 때 읽히는 저장소 규칙과 진입점입니다. Codex는 root부터 작업 디렉터리까지 디렉터리마다 instruction
   파일 하나를 이어 붙이고, 합친 크기가 `project_doc_max_bytes`(기본 32 KiB)에 닿으면 더 붙이지 않습니다. 그래서 루트
   `AGENTS.md`는 이 한도 안에 두고 하위 `AGENTS.md`·`AGENTS.override.md`를 두지 않습니다(`agent-guidance-boundary.test.mjs`).
   [공식 AGENTS.md 문서](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
 - 이 문서: 위임·리뷰·완료 판정의 routine 규칙입니다. 세부는 아래 reference를 필요할 때 읽습니다.
+- Skills: `.agents/skills`의 Parent 반복 절차입니다. Package script 호출 순서를 안내하며 권한을 부여하지 않습니다
+  ([Routine task-model operation](#routine-task-model-operation)).
 - 역할: `.codex/agents/knu_*.toml`이 역할별 sandbox·effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
 - Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail과 child 완료 기록을 맡습니다. Hook 부재·실패에서는 호출이 막히지
   않으므로 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
@@ -130,8 +132,8 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 운영 procedure는 model-mediated이며 script/schema만으로 task의 실제 의미나 권한을 인증하지 않습니다.
 
 아래 반복 절차는 repository skill(`.agents/skills`)로 호출합니다. 진입은 `$knu-workflow`, 위임(2·3·5단계)은 `$knu-delegate`,
-독립 리뷰는 `$knu-review`, 수락·정산(6·7단계)은 `$knu-settle`입니다. Skill은 이 절의 `package.json` script만 호출하고 규칙은 이
-절과 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
+독립 리뷰는 `$knu-review`, 수락·정산(6·7단계)은 `$knu-settle`입니다. Skill은 이 문서가 안내하는 `package.json` script(진입은
+[Repository workflow entry](#repository-workflow-entry))만 호출하고 규칙은 이 문서와 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
 
 새 세션/일반 task의 cold-start 순서:
 
@@ -151,8 +153,8 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    해당 경계를 협의합니다. Lane별 허가 packet은 없습니다. 후보 자격은 routing이, 호출 시점의 (역할, model) 쌍은 hook이,
    완료는 hook 기록 대조가 확인합니다.
 5. **Native 실행**: `pnpm codex:delegate -- lanes --spec <spec> --out <파일>`이 spec의 Pass 2 ID·digest를 계산해
-   `prepareCodexWorkflow()`·`createDispatchRecommendation()`으로 dispatch마다 새 `dispatchToken`을 준 `{dispatches}` 묶음을
-   씁니다. 그 파일을 `pnpm codex:register -- --dispatch <파일>`로 등록한 뒤 출력된
+   `prepareCodexWorkflow()`·`createDispatchRecommendation()`으로 `{schema, dispatchToken, lanes, dispatches}` 파일을 씁니다.
+   `dispatchToken`은 Parent가 spec에 위임마다 새로 정하며 CLI는 형식만 검사합니다. 그 파일을 `pnpm codex:register -- --dispatch <파일>`로 등록한 뒤 출력된
    `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
    출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
    deny합니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).

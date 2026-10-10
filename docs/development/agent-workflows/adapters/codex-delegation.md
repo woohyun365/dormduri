@@ -68,7 +68,8 @@ resolvedEffort/cohort이며, digest는 role/task/risk/검증 fact/tool 범위를
 `routeRecommendation.tier`는 semantic 계층(Medium/High/XHigh)이고, `routeRecommendation.effort`는 선택된 역할 파일의
 pin effort입니다. Candidate의 `resolvedEffort`는 그 역할의 effort와 같습니다(standard high, elevated·extract xhigh).
 Context 전달·native descriptor·hook 완료 대조는 같은 effort를 사용합니다. Caller가 raw model/cohort를 주입하거나 허용 목록 밖 model을 쓰는 입력,
-unknown profile/field/불완전 verification schema는 거부합니다. Astra default는 modelRequest 생략으로 유지합니다.
+unknown profile/field/불완전 verification schema는 거부합니다. API 입력의 `modelRequest` 생략은 Astra default이고,
+`codex:delegate`에서 Astra를 고정하려면 `false`를 씁니다.
 
 Child contract는 original task identity인 `modelTaskId`와 `modelScopeDigest`를 함께 전달합니다. Digest는 source digest에
 연결된 semantic facts, 전체 profileBinding, 목적·role/effort/cohort, read/tool/write 범위, output/verification/stop/handoff, context delivery를 포함한

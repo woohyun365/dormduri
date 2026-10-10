@@ -6,8 +6,9 @@ routine 위임 순서는 진입 문서의 [Reasoning effort routing](./codex.md#
 
 ## Quality-gated model advice
 
-Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. 입력이 없거나 후보가
-admission을 통과하지 못하면 [Astra 배정](./codex.md#reasoning-effort-routing)이 그대로입니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
+Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때만 finite model 후보를 추천합니다. API 입력에 요청이 없거나
+후보가 admission을 통과하지 못하면 [Astra 배정](./codex.md#reasoning-effort-routing)이 그대로입니다. `codex:delegate`는 요청을
+생략한 lane을 아래 표의 맞는 행으로 채우고, `false`면 Astra를 고정합니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
 후보는 자기 역할 변형을 가지며, 그 역할의 pin effort가 곧 호출 effort입니다.
 
 | Candidate profile | model / 역할(effort)                                  | 계층·impact                      | 범위                                                                  | 운영    |
@@ -40,7 +41,7 @@ semantic eligibility나 admission을 완화하지 않습니다.
 허가 packet은 없습니다. Pilot PASS는 운영 채택 GO가 아닙니다.
 Parent는 일반 bounded task에서 이 표를 소비해 적합한 modelRequest를 채웁니다. `codex:delegate`는 요청을 생략한 lane에
 Parent가 태그한 검증 fact와 Pass 2 결과로 맞는 행을 채웁니다(`defaultModelRequest()`). 자동 keyword classifier나 scheduler는 없습니다.
-기본값/최종 QA는 Astra입니다. Reviewer를 포함한 모든 `knu_*` 역할은 model pin 없이 profile model을 명시적으로 받지만,
+맞는 행이 없는 lane·`false` lane과 최종 QA는 Astra입니다. Reviewer를 포함한 모든 `knu_*` 역할은 model pin 없이 profile model을 명시적으로 받지만,
 실제 loaded role에 pin이 있으면 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 Descriptor의 `spawnArguments`를 그대로 native 호출에 전달하고, 호출 시점의 (역할, model) 쌍·fork는 hook이 다시 검사합니다.
 Lower-model lane도 일반 동시 한도를 따릅니다(같은 role의 다른 model lane 포함). 품질/지원 불일치는 pending writer를 회수한 뒤 [재시도 한 번](../request-intake/orchestration-recovery.md#recovery-ceiling) 또는 Parent 판단·handoff로 넘기며,
@@ -99,7 +100,7 @@ Dispatch는 config 입력을 받지 않으므로 loaded config의 drift는 dispa
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 그래서 effort는 역할 pin이 정하고, dispatch descriptor는 spawn의 `reasoning_effort`를 그 값으로 채웁니다. Model pin이
 없는 역할은 **명시적 모델 선택을 받을 수 있는 설정**이지 기본값을 Sol로 바꾸는 조치가 아닙니다. Parent는 profile의 model을
-명시하며, 미분류/무요청 경로는 Astra 기본값을 유지합니다.
+명시하며, 미분류 경로·맞는 행이 없는 무요청 lane·`false` lane은 Astra 기본값을 유지합니다.
 [공식 subagent 설정](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 
 설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):

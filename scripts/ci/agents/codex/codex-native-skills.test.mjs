@@ -48,6 +48,18 @@ test('the repository skills are the four Parent procedures with Codex frontmatte
   }
 });
 
+// The flags a command accepts: a CLI with subcommands lists each one's flags on its own `<subcommand>: [` or `{` line.
+function acceptedFlags(script, rest) {
+  const [, file, fixed] = /node (\S+\.mjs)(?: ([a-z]+))?/u.exec(scripts[script]);
+  const source = read(file);
+  const subcommand = fixed ?? /^ -- ([a-z]+)\b/u.exec(rest)?.[1];
+  if (subcommand === undefined) return source;
+  const flagLine = new RegExp(`^\\s*${subcommand}: [[{].*'--`, 'u');
+  const line = source.split('\n').find((text) => flagLine.test(text));
+  assert.ok(line, `${script}: subcommand ${subcommand}`);
+  return line;
+}
+
 test('skills call only package scripts, with flags their command source accepts', () => {
   for (const name of SKILLS) {
     const text = read(skillPath(name));
@@ -55,11 +67,22 @@ test('skills call only package scripts, with flags their command source accepts'
     assert.ok(commands.length > 0, `${name}: commands`);
     for (const [command, script, rest] of commands) {
       assert.ok(scripts[script], `${name}: ${script} is a package script`);
-      const source = read(/node (\S+\.mjs)/u.exec(scripts[script])[1]);
+      const accepted = acceptedFlags(script, rest);
       for (const [flag] of rest.matchAll(/--[a-z]+/gu))
-        assert.ok(source.includes(`'${flag}'`), `${name}: ${command} flag ${flag}`);
+        assert.ok(accepted.includes(`'${flag}'`), `${name}: ${command} flag ${flag}`);
     }
   }
+});
+
+// codex.md step 6: compare and run independent QA first, then accept; an accepted child gets no followup.
+test('settling compares the result and runs independent QA before it accepts', () => {
+  const steps = read(skillPath('knu-settle')).split(/\n(?=\d+\. )/u);
+  const at = (pattern) => steps.findIndex((step) => pattern.test(step));
+  const accept = at(/codex:accept/u);
+  for (const before of [/codex:completion/u, /oracle/u, /\$knu-review/u])
+    assert.ok(at(before) >= 0 && at(before) < accept, `knu-settle: ${before} before codex:accept`);
+  const entry = read('docs/development/agent-workflows/adapters/codex.md');
+  assert.ok(entry.indexOf('oracle/회귀·독립 결과를 대조') < entry.indexOf('pnpm codex:accept'));
 });
 
 test('skills link the single source documents, and every link resolves', () => {
@@ -111,6 +134,12 @@ test('the delegation template is a spec the delegate CLI accepts', () => {
     .match(/`[^`]+`/gu)
     .map((kind) => kind.slice(1, -1));
   assert.deepEqual(listed, kinds);
+  // The XHigh signals the skill names are the routing ones.
+  assert.match(
+    read('scripts/agents/codex/routing-policy.mjs'),
+    /const DIRECT_XHIGH_DOMAIN_PREDICATES = /u,
+  );
+  assert.match(read(skillPath('knu-delegate')), /`DIRECT_XHIGH_DOMAIN_PREDICATES`/u);
   // Child roles disable every repository skill (the role contract test pins the table form).
   for (const file of readdirSync(resolve(root, '.codex/agents')))
     for (const name of SKILLS)

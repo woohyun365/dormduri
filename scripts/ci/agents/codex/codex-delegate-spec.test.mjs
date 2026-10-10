@@ -9,7 +9,11 @@ import {
   createSemanticFactId,
   createSemanticSourceId,
 } from '../../../agents/codex/routing-policy.mjs';
-import { createReviewDispatch, registerDispatch } from '../../../agents/codex/task-registry.mjs';
+import {
+  createReviewDispatch,
+  registerDispatch,
+  runRegistryCommand,
+} from '../../../agents/codex/task-registry.mjs';
 
 // Loaded dynamically so a missing module fails each test with its own reason, not the whole file at import.
 const delegateSpec = await import('../../../agents/codex/delegate-spec.mjs').catch(() => ({}));
@@ -287,6 +291,24 @@ test('the CLI writes the delegation and the review dispatch files codex:register
       JSON.parse(readFileSync(reviewPath, 'utf8')),
       createReviewDispatch({ laneIds: ['legal-test'], dispatchToken: TOKEN, round: 2 }),
     );
+    // Both written files go through the codex:register command as they are.
+    const registryRoot = join(temp, 'registry-root');
+    for (const [file, taskName] of [
+      [outPath, `legal_test_${TOKEN}`],
+      [reviewPath, `review_${TOKEN}_2`],
+    ]) {
+      const registered = runRegistryCommand(
+        ['register', '--dispatch', file, '--session', 'n4b-cli'],
+        {
+          root: registryRoot,
+        },
+      );
+      assert.equal(registered.exitCode, 0);
+      assert.deepEqual(
+        JSON.parse(registered.stdout).registered.map((entry) => entry.taskName),
+        [taskName],
+      );
+    }
     for (const argv of [
       ['lanes', '--spec', specPath],
       ['review', '--lanes', 'legal-test', '--token', TOKEN, '--out', reviewPath, '--model', 'x'],
