@@ -19,14 +19,17 @@ import { fileURLToPath } from 'node:url';
 
 export const HOOK_RECORD_SCHEMA = 'knu-codex-subagent-hook/v1';
 export const RECORD_DIRECTORY = '.codex/state/knu-subagent-hooks';
-// task-registry.mjs writes `<task name>.json` and `<task name>.accepted.json` per Parent session here.
+// task-registry.mjs writes `<task name>.json`, `<task name>.accepted.json` and `<task name>.released.json` per Parent
+// session here.
 export const REGISTRY_DIRECTORY = '.artifacts/tools/codex-native';
 const REGISTRATION_SCHEMA = 'knu-codex-task-registration/v1';
 const ACCEPTANCE_SCHEMA = 'knu-codex-task-acceptance/v1';
 const RELEASE_SCHEMA = 'knu-codex-task-release/v1';
 const PATCH_TOOL = 'apply_patch';
-// apply_patch file headers; a move writes its destination as well as its source.
-const PATCH_TARGET = /^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$/u;
+// apply_patch file headers, indented or not; a move writes its destination as well as its source. A line that starts
+// like a file header but has no readable path is a target the guard cannot name.
+const PATCH_TARGET = /^\s*\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$/u;
+const PATCH_HEADER = /^\s*\*\*\*\s*(?:Add|Update|Delete|Move)\b/u;
 const TASK_NAME = /^[a-z0-9_]{1,128}$/u;
 const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
 const LANE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -109,18 +112,21 @@ function decideParentWrite(payload, policy, registry, workspace) {
     ...(reason ? { reason } : {}),
     write: { writers, paths },
   });
-  const targets = patchTargets(payload.tool_input?.command);
+  const { targets, unread } = patchTargets(payload.tool_input?.command);
   // apply_patch refuses a patch without a file header itself.
   if (targets.length === 0) return decided('record', 'write-target-unknown', []);
   const paths = workspace.classify(targets, payload.cwd);
-  return paths.some(({ verdict }) => verdict === 'guarded')
-    ? decided('deny', 'parent-write-during-writer', paths)
-    : decided('record', null, paths);
+  if (paths.some(({ verdict }) => verdict === 'guarded'))
+    return decided('deny', 'parent-write-during-writer', paths);
+  return decided('record', unread ? 'write-target-unknown' : null, paths);
 }
 
 function patchTargets(patch) {
-  if (typeof patch !== 'string') return [];
-  return patch.split(/\r?\n/u).flatMap((line) => PATCH_TARGET.exec(line)?.slice(1, 2) ?? []);
+  if (typeof patch !== 'string') return { targets: [], unread: false };
+  const lines = patch.split(/\r?\n/u);
+  const targets = lines.flatMap((line) => PATCH_TARGET.exec(line)?.slice(1, 2) ?? []);
+  const headers = lines.filter((line) => PATCH_HEADER.test(line)).length;
+  return { targets, unread: headers > targets.length };
 }
 
 function validRegistration(registration, sessionId, taskName) {
@@ -311,7 +317,10 @@ function fileRegistry(root, sessionId) {
     }
   };
   const records = () =>
-    (readText(join(root, RECORD_DIRECTORY, `${sessionId}.jsonl`)) ?? '').split(/\r?\n/u).map(parse);
+    (readText(join(root, RECORD_DIRECTORY, `${sessionId}.jsonl`)) ?? '')
+      .split(/\r?\n/u)
+      .filter(Boolean)
+      .map(parse);
   const rootAllows = () =>
     records().filter(
       (record) =>
@@ -361,6 +370,9 @@ function fileRegistry(root, sessionId) {
     released,
     // Writer tasks the root spawned (the sealed role is a writer role) that are neither accepted nor released.
     writers(roles) {
+      // A torn line may be the allow record of an open writer, so the guard cannot decide.
+      if (records().some((record) => record === undefined))
+        throw new Error('hook record file has malformed lines');
       const names = rootAllows()
         .filter((record) => roles.includes(record.registration?.spawnArguments?.agent_type))
         .map((record) => record.input.task_name);

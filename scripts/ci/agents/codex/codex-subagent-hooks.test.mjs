@@ -1179,6 +1179,38 @@ test('every patch target counts: added, updated, deleted and the destination of 
   );
 });
 
+test('indented file headers count, and a file header the guard cannot read is recorded', async () => {
+  const { decideToolUse } = await hooks();
+  const classified = [];
+  const registry = writeRegistry(['lane_one_k3x9']);
+  const indented = decideToolUse(
+    patchCall('*** Begin Patch\n  *** Update File: README.md\n@@\n-a\n+b\n*** End Patch'),
+    WRITER_POLICY,
+    registry,
+    workspaceOf({}, classified),
+  );
+  assert.deepEqual(classified[0]?.targets, ['README.md'], 'an indented header is a target');
+  assert.equal(indented.action, 'deny');
+  // A header line without a readable path next to an ignored target: recorded with the reason, never silent.
+  const unread = decideToolUse(
+    patchCall('*** Add File: .artifacts/a.md\n+x\n*** Update File:\n@@\n-a\n+b\n*** End of File'),
+    WRITER_POLICY,
+    registry,
+    workspaceOf({ '.artifacts/a.md': 'ignored' }),
+  );
+  assert.equal(unread.action, 'record');
+  assert.equal(unread.reason, 'write-target-unknown', 'an unreadable file header is recorded');
+  assert.deepEqual(unread.write.paths, [{ path: '.artifacts/a.md', verdict: 'ignored' }]);
+  // Other patch markers are not file headers.
+  const plain = decideToolUse(
+    patchCall('*** Begin Patch\n*** Add File: .artifacts/a.md\n+x\n*** End of File\n*** End Patch'),
+    WRITER_POLICY,
+    registry,
+    workspaceOf({ '.artifacts/a.md': 'ignored' }),
+  );
+  assert.equal(plain.reason, undefined);
+});
+
 test('no open writer, a child caller or an unreadable patch leaves the write unguarded', async () => {
   const { decideToolUse } = await hooks();
   const untouched = {
@@ -1406,6 +1438,20 @@ test('a Parent write guard that cannot decide lets the write through and records
   assert.deepEqual(
     broken.lines().map(({ toolName, reason: why }) => [toolName, why]),
     [['apply_patch', 'guard-error']],
+  );
+
+  // A torn record line hides whether a writer is open: the guard records the error and lets the edit through.
+  const torn = writerRoot(t);
+  torn.register(writerSpawn);
+  assert.equal(torn.reason(torn.run(writerSpawn)), null);
+  const tornFile = join(torn.root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`);
+  writeFileSync(tornFile, `{"torn\n${readFileSync(tornFile, 'utf8')}`);
+  assert.equal(torn.reason(torn.run(patchCall('*** Update File: README.md\n+x'))), null);
+  const tornLast = JSON.parse(readFileSync(tornFile, 'utf8').trim().split('\n').at(-1));
+  assert.deepEqual(
+    [tornLast.toolName, tornLast.reason],
+    ['apply_patch', 'guard-error'],
+    'a torn record line is a guard-error, not a closed guard',
   );
 
   // An unreadable record file fails the guard too; the edit still goes through.

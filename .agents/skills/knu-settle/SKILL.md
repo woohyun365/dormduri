@@ -19,5 +19,6 @@ description: 이 저장소에서 Codex Parent가 위임한 child나 reviewer가 
    보완은 새 dispatch입니다.
 5. 실패한 lane은 pending writer를 회수하고, child가 끝났는데 수락하지 않을 writer는
    `pnpm -s codex:release -- --task <task_name> --ended`로 해제한 뒤(Parent 쓰기 guard가 닫힘) [Recovery ceiling](../../../docs/development/agent-workflows/request-intake/orchestration-recovery.md#recovery-ceiling)에
-   따라 재시도 한 번 또는 Parent 판단·handoff로 갑니다. 이 skill은 재시도 dispatch를 만들지 않습니다.
+   따라 재시도 한 번 또는 Parent 판단·handoff로 갑니다. Stop 기록 없이 끝난 writer는 해제가 `child-running`으로 거부되므로 새 Parent
+   session에서 다시 시작합니다. 이 skill은 재시도 dispatch를 만들지 않습니다.
 6. 결과 회수·pending·cleanup은 [subagent lifecycle](../../../docs/development/agent-workflows/subagent-lifecycle.md)로 따로 판정합니다.

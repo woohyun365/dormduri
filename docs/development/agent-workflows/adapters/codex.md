@@ -2,7 +2,7 @@
 
 이 문서는 공통 [orchestration](../orchestration.md)·[execution](../agent-execution-contract.md)·[QA](../qa.md)를 소비하는 Codex/OMX 전용 모델·effort·dispatch·복구 owner입니다. 다른 host에 자동 적용하지 않습니다. 기존 finite cohort(routing 후보 자격)와 필수 Astra QA는 유지합니다. Lane별 model admission grant는 2026-10-07 삭제됐습니다.
 
-Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. Child 상한은 6(root 제외, V2가 표시하는 slot 7은 root 포함)이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. V2 runtime-managed에서는 같은 lane 후속에 `followup_task`를 우선하되(수락 전 child만, 수락한 child는 hook이 deny하고 보완은 새 dispatch) 최초 독립 QA는 fresh scoped context를 유지합니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
+Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. Child 상한은 6(root 제외, V2가 표시하는 slot 7은 root 포함)이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. V2 runtime-managed에서는 같은 lane 후속에 `followup_task`를 우선하되(수락·해제 전 child만, 수락·해제한 child는 hook이 deny하고 보완은 새 dispatch) 최초 독립 QA는 fresh scoped context를 유지합니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
 
 ## 구조
 
@@ -16,8 +16,8 @@ Codex 실행 접점은 여섯 층입니다. 각 층은 다른 층의 보장을 �
 - Skills: `.agents/skills`의 Parent 반복 절차입니다. Package script 호출 순서를 안내하며 권한을 부여하지 않습니다
   ([Routine task-model operation](#routine-task-model-operation)).
 - 역할: `.codex/agents/knu_*.toml`이 역할별 sandbox·effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
-- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail(writer 실행 중 Parent의 tracked 경로 `apply_patch` deny 포함)과 child 완료 기록을
-  맡습니다. Hook 부재·실패에서는 호출이 막히지 않으므로 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
+- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail(writer 실행 중 Parent의 tracked·비ignored 경로 `apply_patch` deny 포함)과 child 완료 기록을
+  맡습니다. Hook 부재·실패에서는 호출이 막히지 않습니다. Spawn의 남는 보장은 완료 판정 거부이고 Parent 쓰기는 운영 규칙만 남습니다(완료 판정은 Parent 쓰기를 탐지하지 않음, [Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 - Sandbox·approval: 사용자와 세션이 정합니다. 저장소는 project 기본값과 실행 규칙(`.codex/rules`)을 두지 않고 역할 파일의
   `sandbox_mode`만 둡니다([permission mechanism](./codex-native-registry.md#codexomx-permission-mechanism)).
 
@@ -158,7 +158,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
    출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
    deny합니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따르고, writer 실행 중 Parent는 tracked 경로를 쓰지 않습니다.
+   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따르고, writer 실행 중 Parent는 tracked·비ignored 경로를 쓰지 않습니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `codex:completion`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.

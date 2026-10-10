@@ -34,7 +34,9 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   (`releaseTask()`)로 `<task_name>.released.json`을 한 번 씁니다. 등록과 root allow가 있고 수락되지 않았으며, hook 기록에서 그
   child가 실행 중이 아닐 때(마지막 Start나 통과한 `followup_task` 뒤에 Stop)만 됩니다. 재개는 Start 없이 Stop만 남기기 때문입니다.
   거부 사유는 `registration-missing`·`registration-invalid`·`task-accepted`·`ended-required`·`observation-malformed`·`spawn-missing`·
-  `child-running`이고, Start 없는 allow(도구 실패)는 `--ended` 단언이 유일한 근거입니다. 등록·수락·해제 기록 읽기는 hook script 안에서 합니다.
+  `child-running`이고, Start 없는 allow(도구 실패)는 `--ended` 단언이 유일한 근거입니다. Start 뒤 Stop 기록이 없으면(interrupt·crash로
+  Stop이 나지 않았거나 SubagentStop hook 실패) 해제는 계속 `child-running`이고 그 Parent session의 guard는 열린 채입니다. 이때는 새
+  Parent session에서 새 `dispatchToken`으로 다시 시작합니다(guard는 Parent session별 기록만 읽음). 등록·수락·해제 기록 읽기는 hook script 안에서 합니다.
 - **등록 파일의 경계**: 등록 디렉터리는 workspace 안이라 child가 쓸 수 있습니다. Spawn 뒤 바뀐 등록은 이미 봉인된 값을 바꾸지
   못합니다. Spawn 전에 task name이 정하는 필드나 spawn 인자를 바꾼 등록은 hook이 deny하고, 봉인이 task name과 맞지 않으면 완료
   대조도 `registration-invalid`로 거부합니다. Task name으로 다시 계산할 수 없는 `reviewOf` 내용은 Parent가 등록 출력의 `digest`와
@@ -43,15 +45,17 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   `/root/<task name>`이 아닌 형식이면 수락 여부를 알 수 없어 기록만 합니다. Allow 뒤 도구가 실패해 child가 생기지 않아도 그 task
   name은 쓰인 것(`registration-used`)으로 남고(writer면 해제 전까지 Parent 쓰기 guard도 열려 있음), 수락한 child의 보완도 후속·재시도가 모두 막힙니다. 이때는 새 `dispatchToken`으로
   dispatch를 다시 계산해 등록·spawn합니다. 결과 대조는 dispatch token 하나만 받으므로 그 dispatch 전체를 새 token으로 엽니다.
+  수락·해제 기록도 같은 디렉터리라 child(또는 Bash로 쓰는 Parent)가 schema·session·task name이 맞는 파일을 쓰면 Parent 쓰기 guard가
+  닫힙니다. Hook은 그 파일의 전제(완료 대조·child 종료)를 다시 보지 않으므로 이 경로는 막지 못합니다.
 - **Parent 쓰기**: writer lane(정책 사본 `writerRoles`, 역할 파일 `sandbox_mode = "workspace-write"`인 `knu_executor*`)을 root가
   spawn한 allow 기록부터 그 task의 수락 또는 해제 기록까지, Parent의 `apply_patch`(code mode `exec` 안 중첩 호출 포함, codex-cli
   0.161.0·0.162.1 관측)가 저장소 안 tracked·비ignored 경로를 하나라도 쓰면 `parent-write-during-writer`로 deny합니다. Patch 머리(`Add`·
-  `Update`·`Delete File`, `Move to`)의 경로를 `cwd` 기준 실제 경로로 풀어 `git check-ignore`로 판정합니다. Ignored 경로
+  `Update`·`Delete File`, `Move to`, 들여쓴 머리 포함)의 경로를 `cwd` 기준 실제 경로로 풀어 `git check-ignore`로 판정합니다. Ignored 경로
   (`.artifacts/`·`.plans/`)와 저장소 밖은 허용하고, ignored 디렉터리 안 link가 tracked 파일을 가리키면 막습니다. 기간 안 Parent
   `apply_patch`는 decision(`deny`·`record`)과 `write`(저장소 상대 경로·판정, 열린 writer task name)를 기록하고 patch 본문은 남기지
-  않습니다. 기간 밖과 child의 `apply_patch`는 기록하지 않습니다. 쓰기 기록은 task name이 없어 완료 대조의 bind로 세지 않습니다.
-  판정하지 못하면(git·기록·정책 오류) 쓰기를 막지 않고 가능하면 `guard-error`를 기록하며, 경로를 읽지 못한 patch는
-  `write-target-unknown`으로 기록하고 통과합니다. Bash(`exec_command`) 쓰기는 hook 대상이 아니고 운영 규칙(writer 기간에 Parent는
+  않습니다. 기간 밖과 child의 `apply_patch`는 기록하지 않습니다(판정 오류의 `guard-error`는 예외). 쓰기 기록은 task name이 없어 완료 대조의 bind로 세지 않습니다.
+  판정하지 못하면(git·기록·정책 오류, 기록 파일의 손상 줄) 쓰기를 막지 않고 가능하면 `guard-error`를 기록합니다. 경로를 읽지 못한
+  머리가 있으면 읽은 경로가 막히지 않는 한 `write-target-unknown`으로 기록하고 통과합니다. Bash(`exec_command`) 쓰기는 hook 대상이 아니고 운영 규칙(writer 기간에 Parent는
   tracked·비ignored 경로를 쓰지 않음)으로 막습니다. Deny를 받으면 writer를 정산(`codex:completion` → 독립 QA → `codex:accept`)하거나,
   child가 끝났고 수락하지 않을 writer면 `codex:release`로 해제합니다.
 - **내장·OMX 역할**: project hook이 로드된 세션에서는 이 repository 안의 내장 역할(`default` 등)·OMX 역할 spawn이 막힙니다.
