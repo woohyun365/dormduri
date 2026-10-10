@@ -1,9 +1,19 @@
 {
-  "description": "KNU subagent spawn guard and completion records (.codex/hooks/knu-subagent-hooks.mjs)",
+  "description": "KNU subagent spawn guard, Parent write guard and completion records (.codex/hooks/knu-subagent-hooks.mjs)",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "(spawn_agent|followup_task|send_message)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/knu-subagent-hooks.mjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^apply_patch$",
         "hooks": [
           {
             "type": "command",

@@ -16,8 +16,8 @@ Codex 실행 접점은 여섯 층입니다. 각 층은 다른 층의 보장을 �
 - Skills: `.agents/skills`의 Parent 반복 절차입니다. Package script 호출 순서를 안내하며 권한을 부여하지 않습니다
   ([Routine task-model operation](#routine-task-model-operation)).
 - 역할: `.codex/agents/knu_*.toml`이 역할별 sandbox·effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
-- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail과 child 완료 기록을 맡습니다. Hook 부재·실패에서는 호출이 막히지
-  않으므로 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
+- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail(writer 실행 중 Parent의 tracked 경로 `apply_patch` deny 포함)과 child 완료 기록을
+  맡습니다. Hook 부재·실패에서는 호출이 막히지 않으므로 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 - Sandbox·approval: 사용자와 세션이 정합니다. 저장소는 project 기본값과 실행 규칙(`.codex/rules`)을 두지 않고 역할 파일의
   `sandbox_mode`만 둡니다([permission mechanism](./codex-native-registry.md#codexomx-permission-mechanism)).
 
@@ -158,7 +158,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
    출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
    deny합니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따릅니다.
+   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따르고, writer 실행 중 Parent는 tracked 경로를 쓰지 않습니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `codex:completion`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
@@ -166,7 +166,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    `registrationDigest`가 등록 때의 `digest`와 같은지 확인하며, 수락한 child는 후속 작업을 주지 않습니다. Reviewer는 `codex:delegate -- review`(`createReviewDispatch()`)로 만든 dispatch를 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록·수락 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
    hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort·수락 기록과 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
+7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수(끝난 writer는 `codex:release -- --task <task_name> --ended`) 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
    결과 품질 실패일 때만 같은 역할의 한 단 위 model로 오릅니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)). Usage가 없으면 null로 남기고
    [실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에서 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.

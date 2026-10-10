@@ -111,7 +111,7 @@ function spawnCall(input = {}, { child = false } = {}) {
 }
 
 // An in-memory registry with the lookups the hook makes against the session's registration directory.
-function memoryRegistry({ registrations = {}, used = [], settled = [] } = {}) {
+function memoryRegistry({ registrations = {}, used = [], settled = [], released = [] } = {}) {
   return {
     read: (taskName) => {
       if (!Object.hasOwn(registrations, taskName)) return null;
@@ -122,6 +122,7 @@ function memoryRegistry({ registrations = {}, used = [], settled = [] } = {}) {
     },
     used: (taskName) => used.includes(taskName),
     settled: (target) => settled.includes(target),
+    released: (target) => released.includes(target),
   };
 }
 
@@ -180,12 +181,18 @@ test('guard denies a spawn without a matching unused registration with its own r
     { agent_type: 'knu_executor_medium', reasoning_effort: 'medium' },
     { model: ASTRA },
     { reasoning_effort: 'xhigh' },
-    { fork_turns: '2' },
   ])
     assert.deepEqual(
       decideToolUse(spawnCall(input), POLICY, registered(laneRegistration())),
       deny('registration-mismatch'),
       JSON.stringify(input),
+    );
+  // A positive integer fork is a full-history fork (codex-cli 0.162.0), refused before the registration is read.
+  for (const fork_turns of ['2', 2])
+    assert.deepEqual(
+      decideToolUse(spawnCall({ fork_turns }), POLICY, registered(laneRegistration())),
+      deny('full-history-fork'),
+      JSON.stringify(fork_turns),
     );
   // The policy checks run first, so a spawn outside the policy keeps its own reason.
   assert.equal(
@@ -326,6 +333,30 @@ test('guard denies follow-up and message calls to an accepted child and records 
     tool: 'followup_task',
     caller: 'root',
   });
+});
+
+test('guard denies follow-up and message calls to a released child', async () => {
+  const { decideToolUse } = await hooks();
+  const call = (toolName, target) => ({
+    ...spawnCall(),
+    tool_name: toolName,
+    tool_input: { target, message: 'x' },
+  });
+  const released = memoryRegistry({ released: ['lane_one_disp1', CHILD] });
+  for (const [toolName, target, tool] of [
+    ['collaborationfollowup_task', 'lane_one_disp1', 'followup_task'],
+    ['collaborationsend_message', CHILD, 'send_message'],
+    ['collaborationfollowup_task', '/root/lane_one_disp1', 'followup_task'],
+  ])
+    assert.deepEqual(
+      decideToolUse(call(toolName, target), POLICY, released),
+      { action: 'deny', tool, caller: 'root', reason: 'released-child' },
+      `${toolName} ${target}`,
+    );
+  assert.equal(
+    decideToolUse(call('collaborationfollowup_task', 'lane_two_disp1'), POLICY, released).action,
+    'record',
+  );
 });
 
 test('the hook and the registry module name the same registration directory', async () => {
@@ -936,4 +967,170 @@ test('the registry command registers a dispatch file and accepts a task against 
     () => runRegistryCommand(['register', '--dispatch', dispatchFile], { root, env: {} }),
     /session id/u,
   );
+});
+
+// A root follow-up record that resumes the child: no SubagentStart follows, only the next stop (N2 live).
+const followupRecord = (target = 'lane_one_disp1') => ({
+  schema: 'knu-codex-subagent-hook/v1',
+  sessionId: SESSION,
+  event: 'PreToolUse',
+  toolName: 'collaborationfollowup_task',
+  caller: 'root',
+  decision: 'record',
+  input: { target, messageBytes: 5 },
+});
+
+test('a release records an ended writer once, so the Parent write guard closes without an acceptance', async (t) => {
+  const { registerDispatch, releaseTask, readRelease, acceptTask } = await registry();
+  assert.equal(typeof releaseTask, 'function', 'task-registry must export releaseTask');
+  assert.equal(typeof readRelease, 'function', 'task-registry must export readRelease');
+  const root = mkdtempSync(join(tmpdir(), 'knu-task-release-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const release = (observation, { taskName = 'lane_one_disp1', ended = true } = {}) =>
+    releaseTask({
+      root,
+      sessionId: SESSION,
+      taskName,
+      ended,
+      observation,
+      now: '2026-10-10T00:00:00Z',
+    });
+  const reason = (...args) => {
+    const verdict = release(...args);
+    assert.equal(verdict.released, false, JSON.stringify(verdict));
+    return verdict.reason;
+  };
+  assert.equal(reason(sealedObservation()), 'registration-missing');
+  registerDispatch({ root, sessionId: SESSION, dispatch: laneDispatch() });
+  const observation = sealedObservation();
+  const [allow, start, stop] = observation.records;
+  // The Parent states the child ended; the records must not show it running.
+  assert.equal(reason(observation, { ended: false }), 'ended-required');
+  assert.equal(reason({ ...observation, records: [start, stop] }), 'spawn-missing');
+  assert.equal(reason({ ...observation, records: [allow, start] }), 'child-running');
+  assert.equal(
+    reason({ ...observation, records: [allow, start, stop, followupRecord()] }),
+    'child-running',
+  );
+  assert.equal(
+    reason({ ...observation, records: [allow, start, stop, followupRecord(CHILD)] }),
+    'child-running',
+  );
+  assert.equal(reason({ ...observation, malformed: 1 }), 'observation-malformed');
+  assert.equal(readRelease({ root, sessionId: SESSION, taskName: 'lane_one_disp1' }), null);
+
+  // A follow-up from a child reopens the child too; a denied follow-up never ran.
+  assert.equal(
+    reason({
+      ...observation,
+      records: [allow, start, stop, { ...followupRecord(), caller: 'child', agentId: CHILD }],
+    }),
+    'child-running',
+  );
+  const denied = { ...followupRecord(), decision: 'deny', reason: 'settled-child' };
+  const resumed = { ...observation, records: [allow, start, stop, followupRecord(), stop, denied] };
+  const verdict = release(resumed);
+  assert.deepEqual(verdict, {
+    released: true,
+    release: {
+      schema: 'knu-codex-task-release/v1',
+      sessionId: SESSION,
+      taskName: 'lane_one_disp1',
+      agentIds: [CHILD],
+      releasedAt: '2026-10-10T00:00:00Z',
+    },
+  });
+  assert.deepEqual(
+    readRelease({ root, sessionId: SESSION, taskName: 'lane_one_disp1' }),
+    verdict.release,
+  );
+  assert.throws(() => release(resumed), /already released/u);
+
+  // A spawn whose tool failed after the allow has no child: the Parent's --ended is the only evidence.
+  registerDispatch({
+    root,
+    sessionId: SESSION,
+    dispatch: {
+      ...laneDispatch(),
+      dispatchToken: 'disp2',
+      spawnArguments: { ...laneDispatch().spawnArguments, task_name: 'lane_one_disp2' },
+    },
+  });
+  const lone = { ...allow, input: { ...allow.input, task_name: 'lane_one_disp2' } };
+  assert.deepEqual(
+    release({ ...observation, records: [lone] }, { taskName: 'lane_one_disp2' }).release.agentIds,
+    [],
+  );
+
+  // An accepted task needs no release.
+  registerDispatch({
+    root,
+    sessionId: SESSION,
+    dispatch: {
+      ...laneDispatch(),
+      dispatchToken: 'disp3',
+      spawnArguments: { ...laneDispatch().spawnArguments, task_name: 'lane_one_disp3' },
+    },
+  });
+  const third = sealedObservation({
+    taskName: 'lane_one_disp3',
+    registration: laneRegistration({ taskName: 'lane_one_disp3' }),
+  });
+  third.records[0].registration.dispatchToken = 'disp3';
+  const accepted = acceptTask({
+    root,
+    sessionId: SESSION,
+    taskName: 'lane_one_disp3',
+    expectedRole: 'knu_executor',
+    expectedModel: SOL,
+    observation: third,
+  });
+  assert.equal(accepted.accepted, true, JSON.stringify(accepted));
+  assert.equal(reason(third, { taskName: 'lane_one_disp3' }), 'task-accepted');
+});
+
+test('the registry command releases an ended task against the session hook records', async (t) => {
+  const { runRegistryCommand } = await registry();
+  const root = mkdtempSync(join(tmpdir(), 'knu-task-release-command-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const env = { CODEX_THREAD_ID: SESSION };
+  const dispatchFile = join(root, 'dispatch.json');
+  writeFileSync(dispatchFile, JSON.stringify({ dispatches: [laneDispatch()] }));
+  assert.equal(
+    runRegistryCommand(['register', '--dispatch', dispatchFile], { root, env }).exitCode,
+    0,
+  );
+  const hookDirectory = join(root, '.codex/state/knu-subagent-hooks');
+  mkdirSync(hookDirectory, { recursive: true });
+  writeFileSync(
+    join(hookDirectory, `${SESSION}.jsonl`),
+    sealedObservation()
+      .records.map((record) => JSON.stringify(record))
+      .join('\n') + '\n',
+  );
+  let refused;
+  assert.doesNotThrow(() => {
+    refused = runRegistryCommand(['release', '--task', 'lane_one_disp1'], { root, env });
+  }, 'the registry command must take release');
+  assert.equal(refused.exitCode, 1);
+  assert.equal(JSON.parse(refused.stdout).reason, 'ended-required');
+  // pnpm passes `--` after the script's own argument.
+  const released = runRegistryCommand(['release', '--', '--task', 'lane_one_disp1', '--ended'], {
+    root,
+    env,
+  });
+  assert.equal(released.exitCode, 0, released.stdout);
+  assert.equal(JSON.parse(released.stdout).released, true);
+  assert.ok(
+    existsSync(
+      join(root, '.artifacts/tools/codex-native', SESSION, 'lane_one_disp1.released.json'),
+    ),
+  );
+  for (const bad of [
+    ['release'],
+    ['release', '--ended'],
+    ['release', '--task', 'lane_one_disp1', '--ended', 'yes'],
+    ['release', '--task', 'lane_one_disp1', '--role', 'knu_executor'],
+  ])
+    assert.throws(() => runRegistryCommand(bad, { root, env }), TypeError, JSON.stringify(bad));
 });

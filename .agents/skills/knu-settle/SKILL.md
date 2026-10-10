@@ -17,6 +17,7 @@ description: 이 저장소에서 Codex Parent가 위임한 child나 reviewer가 
 4. 대조와 QA를 통과해 완료로 받을 child와, 끝난 reviewer는 `pnpm -s codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로
    수락하고, 출력의 `registrationDigest`가 등록 때의 `digest`와 같은지 확인합니다. 수락한 child에는 후속 작업을 주지 않으며
    보완은 새 dispatch입니다.
-5. 실패한 lane은 pending writer를 회수한 뒤 [Recovery ceiling](../../../docs/development/agent-workflows/request-intake/orchestration-recovery.md#recovery-ceiling)에
+5. 실패한 lane은 pending writer를 회수하고, child가 끝났는데 수락하지 않을 writer는
+   `pnpm -s codex:release -- --task <task_name> --ended`로 해제한 뒤(Parent 쓰기 guard가 닫힘) [Recovery ceiling](../../../docs/development/agent-workflows/request-intake/orchestration-recovery.md#recovery-ceiling)에
    따라 재시도 한 번 또는 Parent 판단·handoff로 갑니다. 이 skill은 재시도 dispatch를 만들지 않습니다.
 6. 결과 회수·pending·cleanup은 [subagent lifecycle](../../../docs/development/agent-workflows/subagent-lifecycle.md)로 따로 판정합니다.

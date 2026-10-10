@@ -110,7 +110,7 @@ Runtime 지원 관측 필드와 effort 필드는 없습니다. Effort는 역할 
 - `reuse`는 같은 outcome·lane·role·scope와 **이번 snapshot에 대한 재확인**이 필요합니다. 새 snapshot 자체는 delta에서
   정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.
   실제 child 소유·상태·pending·결과 귀속은 [lifecycle 계약](../subagent-lifecycle.md#후속-작업과-fan-in)으로 별도 확인합니다.
-- `full-history`는 사유가 필요하고, project hook이 full-history fork(`fork_turns` 생략·`all`)를 거절하므로 항상
+- `full-history`는 사유가 필요하고, project hook이 full-history fork(`fork_turns` 생략·`all`·양의 정수, codex-cli 0.162.0)를 거절하므로 항상
   `full-history-fork-denied`로 `compatible=false`입니다.
 - **모든 결과의 `applied=false`**는 순수 추천이 native 설정을 적용하지 않았다는 뜻입니다. 실제 role/model은 호출 시점에 hook이
   검사합니다. role-compatible 결과만 보고 context gate를 생략하지 않으며 Parent는 delivery `compatible`와 gaps까지 확인한 뒤
