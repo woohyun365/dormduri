@@ -31,8 +31,8 @@ Routine 절차에 필요한 내용은 이 문서에 있습니다. 다음 세부�
   거부 사유나 hook 동작을 확인할 때 읽습니다.
 - [Diagnostics](./codex-diagnostics.md): `codex:preflight` resume 진단의 필드·identity·freshness·bounded read입니다. 계획 재개
   진단을 해석할 때 읽습니다.
-- [Qualification](./codex-qualification.md): Claude Lead를 위한 top-level `codex exec` 교차 reviewer의 정적 경계입니다. Bridge를
-  다룰 때 읽습니다.
+- [Qualification](./codex-qualification.md): Claude Lead를 위한 top-level `codex exec` 교차 reviewer의 정적 경계와 native live
+  pilot 절차입니다. Bridge나 live pilot을 다룰 때 읽습니다.
 - [Codex delegation](./codex-delegation.md): candidate schema·`modelRequest`·context delivery·count와 write policy입니다. Lane
   입력을 만들 때 읽습니다.
 
@@ -97,6 +97,7 @@ lane 계약과 대조합니다([Native dispatch gate](../request-intake/orchestr
 ### Parent-high 운영과 quality stop
 
 공통 조건은 [Quality stop](../orchestration.md#quality-stop)을 따르며, 이 절은 Codex Parent Astra high·xhigh 운영을 더합니다.
+연속 non-PASS 회차와 finding의 Parent 처분은 [리뷰 회차](../qa.md#리뷰-회차)를 따릅니다.
 
 Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작업은 직접 처리합니다. 분리 가능한 깊은 미해결 문제만
 기존 semantic evidence와 active schema 확인을 거쳐 **Astra XHigh 배정**(읽기는 `_xhigh` 역할 xhigh, 구현은

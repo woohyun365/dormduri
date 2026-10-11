@@ -11,15 +11,19 @@ Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때
 생략한 lane을 아래 표의 맞는 행으로 채우고, `false`면 Astra를 고정합니다. 결정적인 grep/check/list는 child 없이 도구로 처리합니다.
 후보는 자기 역할 변형을 가지며, 그 역할의 pin effort가 곧 호출 effort입니다.
 
-| Candidate profile | model / 역할(effort)                                  | 계층·impact                      | 범위                                                                  | 운영    |
-| ----------------- | ----------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- | ------- |
-| `extract`         | `gpt-6-luna` / `knu_explorer_xhigh`(xhigh)            | Medium, low                      | 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 | routine |
-| `standard-read`   | `gpt-6.1-sol` / `knu_explorer`·`knu_researcher`(high) | Medium, low·medium               | lookup·analysis·research read-only, acceptance·독립 검사              | routine |
-| `elevated-read`   | `gpt-6.1-sol` / `_xhigh` 읽기 역할(xhigh)             | High·XHigh 또는 impact high 읽기 | 위와 같음                                                             | routine |
-| `standard-build`  | `gpt-6.1-sol` / `knu_executor`(high)                  | Medium, low·medium               | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA      | routine |
-| `elevated-build`  | `gpt-6.1-sol` / `knu_executor_xhigh`(xhigh)           | High(non-deep), low·medium       | 위와 같음                                                             | routine |
+| Candidate profile | model / 역할(effort)                                  | 계층·impact                      | 범위                                                                  | 운영    | 관측(own-turn)                                                              |
+| ----------------- | ----------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------- |
+| `extract`         | `gpt-6-luna` / `knu_explorer_xhigh`(xhigh)            | Medium, low                      | 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 | routine | `knu_explorer_xhigh` `gpt-6-luna`/xhigh(0.160.0)                            |
+| `standard-read`   | `gpt-6.1-sol` / `knu_explorer`·`knu_researcher`(high) | Medium, low·medium               | lookup·analysis·research read-only, acceptance·독립 검사              | routine | `knu_explorer` `gpt-6.1-sol`/high(0.160.0·0.162.0), `knu_researcher` 미관측 |
+| `elevated-read`   | `gpt-6.1-sol` / `_xhigh` 읽기 역할(xhigh)             | High·XHigh 또는 impact high 읽기 | 위와 같음                                                             | routine | 미관측                                                                      |
+| `standard-build`  | `gpt-6.1-sol` / `knu_executor`(high)                  | Medium, low·medium               | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA      | routine | `knu_executor` `gpt-6.1-sol`/high(0.161.0)                                  |
+| `elevated-build`  | `gpt-6.1-sol` / `knu_executor_xhigh`(xhigh)           | High(non-deep), low·medium       | 위와 같음                                                             | routine | `knu_executor_xhigh` `gpt-6.1-sol`/xhigh(0.162.1)                           |
 
 - Astra: Parent, 최종 QA, 구현의 XHigh·impact high(`deep-build`), 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
+
+관측 열은 native live에서 child own-turn(hook Stop 기록·rollout `turn_context`)으로 본 역할·model/effort와 그때의 codex-cli 버전이며
+routine 상태를 바꾸지 않습니다. 관측은 model·effort 적용의 증거이지 품질 근거가 아닙니다. 미관측 조합도 아래 채택으로 routine이고, 그 조합의 첫 위임 완료 대조가 첫 관측입니다. 역할 분리 전
+`knu_explorer`에 explicit xhigh로 본 6.1 Sol(0.160.0)은 `_xhigh` 역할의 관측이 아닙니다.
 
 모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Standard profile은
 complete Medium 계층, elevated profile은 같은 조건의 High 계층입니다(읽기는 XHigh와 impact high 읽기도 포함). Task/cohort/검증 fact와 write/context gate도 통과해야 합니다.
