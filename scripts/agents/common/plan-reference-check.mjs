@@ -167,10 +167,20 @@ export function checkPlanReferences({ root, files }) {
     targetUnavailable: 0,
   };
   const violations = [];
+  // Ignored targets that are absent here are not violations, but each is listed so the author can check it.
+  const unavailable = [];
   for (const { path, display, text } of files) {
     const own = definitions(text);
     cache.set(path, own);
     const found = [];
+    const missing = (line, kind, ref, target) =>
+      unavailable.push({
+        file: display,
+        line,
+        kind,
+        ref,
+        detail: `${relative(root, target)} is ignored and absent`,
+      });
     for (const { line, number } of proseLines(text)) {
       let masked = line;
       for (const span of codeSpans(line))
@@ -200,7 +210,7 @@ export function checkPlanReferences({ root, files }) {
         if (target) {
           summary.crossDocument += 1;
           if (!present(root, target) || !isFile(target)) {
-            if (isIgnored(root, target)) summary.targetUnavailable += 1;
+            if (isIgnored(root, target)) missing(number, 'unavailable-target', ref, target);
             else
               found.push({
                 line: number,
@@ -238,7 +248,7 @@ export function checkPlanReferences({ root, files }) {
           if (!anchors(text).has(link.fragment))
             found.push({ line: number, kind: 'broken-link', ref: shown, detail: 'no such anchor' });
         } else if (!present(root, absolute)) {
-          if (isIgnored(root, absolute)) summary.targetUnavailable += 1;
+          if (isIgnored(root, absolute)) missing(number, 'unavailable-link', shown, absolute);
           else
             found.push({ line: number, kind: 'broken-link', ref: shown, detail: 'no such file' });
         } else if (
@@ -255,7 +265,8 @@ export function checkPlanReferences({ root, files }) {
     violations.push(...found.map((violation) => ({ file: display, ...violation })));
   }
   summary.violations = violations.length;
-  return { summary, violations };
+  summary.targetUnavailable = unavailable.length;
+  return { summary, violations, unavailable };
 }
 
 function gitRoot(cwd) {
@@ -304,7 +315,7 @@ function readInputs(cwd, root, paths) {
 }
 
 function format(result) {
-  const lines = result.violations.map(
+  const lines = [...result.violations, ...result.unavailable].map(
     ({ file, line, kind, ref, detail }) => `${file}:${line}\t${kind}\t${ref}\t${detail}`,
   );
   lines.push(

@@ -86,6 +86,14 @@ test('unresolved references, duplicate definitions and broken links are violatio
   // another document matches this document's own §3) and cannot be told apart, so it resolves.
   assert.equal(result.summary.targetUnavailable, 2);
   assert.ok(!result.violations.some(({ line }) => line === 15 || line === 16));
+  // Each unavailable target is listed so the author can check it; the count alone hides which reference it was.
+  assert.deepEqual(
+    result.unavailable.map(({ file, line, kind, ref }) => [file, line, kind, ref]),
+    [
+      ['.plans/y-plan.md', 15, 'unavailable-target', '§2'],
+      ['.plans/y-plan.md', 15, 'unavailable-link', 'local/notes.md'],
+    ],
+  );
 });
 
 // Plans live in an ignored directory. A relative link there to a missing file cannot be told apart from another
@@ -108,6 +116,27 @@ test('inside an ignored plan, a missing backtick path is unresolved and a missin
   );
   // A root path inside the ignored plan directory has the same limit as a relative link.
   assert.equal(result.summary.targetUnavailable, 3);
+  assert.deepEqual(
+    result.unavailable.map(({ line, kind, ref, detail }) => [line, kind, ref, detail]),
+    [
+      [5, 'unavailable-target', '§1', '.plans/local/gone.md is ignored and absent'],
+      [5, 'unavailable-link', '.plans/local/gone.md', '.plans/local/gone.md is ignored and absent'],
+      [6, 'unavailable-target', '§1', '.plans/local/gone.md is ignored and absent'],
+    ],
+  );
+  // The text output lists them too, without turning them into violations.
+  const text = run(['.plans/local/z-plan.md'], root).out;
+  assert.match(
+    text,
+    /^\.plans\/local\/z-plan\.md:5\tunavailable-link\t\.plans\/local\/gone\.md\t/mu,
+  );
+  assert.match(text, /violations 1 targetUnavailable 3$/u);
+});
+
+test('a resolved plan lists no unavailable target', () => {
+  const root = fixture();
+  const { out } = run(['--json', '.plans/x-plan.md'], root);
+  assert.deepEqual(json(out).unavailable, []);
 });
 
 test('report-only counts violations but exits 0', () => {
