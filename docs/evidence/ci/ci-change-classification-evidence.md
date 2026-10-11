@@ -8,7 +8,8 @@
 > [Monorepo CI baseline](./monorepo-ci-baseline.md)에 둡니다. 이 개선의 개선 전 표본(agent PR 9개)은 §3에 둡니다.
 
 이 문서는 변경 분류 개선의 문제, 측정 방법, 개선 전 baseline, 원인, 대안과 개선별 전후 측정을 기록합니다. 회고가
-아니라 측정 기록이며, 모든 수치는 run ID·commit·명령 중 하나로 다시 산출할 수 있습니다.
+아니라 측정 기록이며, 모든 수치는 run ID·commit·명령 중 하나로 산출했습니다. 2026-10-11 기준 GitHub에서 더 조회되지 않는
+run은 §7에 적습니다.
 
 ## 1. 문제와 관측 증상
 
@@ -177,20 +178,23 @@ Agent 파일 변경도 repository policy gate를 실행합니다. 이 job의 시
 4. Agent test lane 분리: agent workflow test를 package install 없는 job으로 나눠 agent-only PR의 critical path를 줄입니다.
    개선 전 측정과 예상치로 채택했고, merge 뒤 표본으로 효과를 확인합니다(§6).
 5. Formatting 검사 범위: formatting 설정이 바뀌지 않은 PR은 변경 파일만 검사합니다.
-6. Policy script test critical path: 가장 긴 test 파일의 시간을 줄입니다.
+6. Policy script test critical path: 가장 긴 test 파일의 시간을 줄입니다. 측정과 분할은 이 문서 밖의 별도 작업으로 넘겼고,
+   §6의 Agent workflow gate 시간은 그 작업의 입력입니다.
 
 ## 6. 개선별 전후 측정
 
 | 개선 항목                        | PR   | 표본 수 | Wall p50 | Wall p95 | 분 올림 합 p50 | 상태                             |
 | -------------------------------- | ---- | ------: | -------: | -------: | -------------: | -------------------------------- |
-| 분류 완전성                      | #537 |     5/5 |     181s |        - |            5분 | 표본 5/5                         |
+| 분류 완전성                      | #537 |     5/5 |     181s |        - |            5분 | 표본 종료, p95 산출 불가         |
 | Agent workflow 분류 출력         | #553 |       - |        - |        - |              - | Agent test lane 분리와 함께 측정 |
 | Agent test 배치                  | #543 |       - |        - |        - |              - | 시간 측정 대상 아님              |
-| Agent test lane 분리             | #553 |     5/5 |     159s |        - |            6분 | 표본 5/5                         |
-| Formatting 검사 범위             | #545 |     5/5 |        - |        - |              - | 표본 5/5, step p50 1s            |
-| Policy script test critical path | -    |       - |        - |        - |              - | 미측정                           |
+| Agent test lane 분리             | #553 |      14 |     187s |     212s |            6분 | 확정, 분 올림 합 p95 7분         |
+| Formatting 검사 범위             | #545 |      14 |        - |        - |              - | 확정, step p50 1.5s·p95 2s       |
+| Policy script test critical path | -    |       - |        - |        - |              - | 미측정, 이 문서 밖 별도 작업     |
 
-p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다(Monorepo CI architecture의 표본 규칙).
+p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다
+([Monorepo CI restructuring evidence의 표본 규칙](./monorepo-ci-restructuring-evidence.md#표본-규칙)). 표본이 10개 이상이면 표본 수만
+적습니다.
 
 표본은 해당 PR merge 뒤 자연 발생한 agent-only PR의 `Monorepo CI` workflow run입니다. Agent-only PR은 agent 표면 경로를 바꾸고
 product lane 없이 실행한 PR입니다. #553 전에는 classify·repository policy·summary job 3개, #553 뒤에는 Agent workflow gate가 더해진
@@ -228,7 +232,8 @@ job 4개를 실행합니다. 개선 전 값은 §3입니다. 시간을 바꾸지
 
 - 다섯 run 모두 job 3개(classify, repository policy, summary)만 실행했습니다. 개선 전 agent PR 9개 중 8개는 job 11개, wall
   274–555s, 분 올림 합 33–39분이었습니다(§1).
-- 표본 5개의 wall p50은 181s, raw p50은 177s, 분 올림 합은 5개 모두 5분입니다. p95는 표본 10개 뒤에 적습니다.
+- 표본 5개의 wall p50은 181s, raw p50은 177s, 분 올림 합은 5개 모두 5분입니다. #553 merge 뒤에는 job 3개 구성의 agent-only run이
+  더 생기지 않으므로 p95는 산출하지 않습니다.
 
 ### Agent test lane 분리(#553) 개선 전 기준과 예상
 
@@ -258,7 +263,7 @@ step 시간 명령으로 이 job을 나누면 다음과 같습니다.
 - 비교한 대안(같은 방식의 추정): 두 job 모두 install하면 #545 뒤 표본에서 wall이 6–8s 줄고 raw가 54–56s(두 번째 job의 install
   포함 test 밖 시간) 늘어납니다. Agent job 하나로 합치면 기존 Repository policy gate와 같은 일을 한 job에서 하므로 wall·raw
   변화가 거의 없습니다. 둘 다 critical path를 줄이지 못해 채택하지 않았습니다.
-- 개선 뒤 표본은 #553 merge 뒤 agent-only PR의 run이고, 표본 5/5입니다(아래 절).
+- 개선 뒤 표본은 #553 merge 뒤 agent-only PR의 run입니다. 첫 5개는 아래 "시간 표본" 절, p95까지 확정한 14개는 그다음 절입니다.
 
 ### Agent test lane 분리(#553) 시간 표본
 
@@ -287,7 +292,7 @@ step 시간 명령으로 이 job을 나누면 다음과 같습니다.
   7s·5s·5s·8s·6s, formatting step 1s·1s·2s·2s·1s입니다. 개선 전 표본에서는 이 job이 148–171s였습니다.
 - Agent workflow gate: install 없이 test step 62s·112s·132s·117s·160s, 그 밖의 시간 7s·10s·7s·7s·6s입니다. 예상한 test 밖 시간
   5–19s 안입니다.
-- 표본 5개의 wall p50은 159s, raw p50은 216s, 분 올림 합 p50은 6분입니다(5개 중 4개 6분, 1개 7분). p95는 표본 10개 뒤에 적습니다.
+- 표본 5개의 wall p50은 159s, raw p50은 216s, 분 올림 합 p50은 6분입니다(5개 중 4개 6분, 1개 7분). p95는 다음 절의 14개로 적습니다.
 - 위 예상과 비교: wall p50은 개선 전 p50 181s보다 22s(12%) 짧아 예상(42–73s 감소)에 못 미칩니다. Raw p50은 39s 길어 예상(5–19s
   증가)을 넘습니다. 분 올림 합 p50은 개선 전 5분보다 1분 많고 예상(5–7분) 안입니다.
 - #555·#557의 wall은 개선 전 p50보다 89s·32s 짧았습니다. 그 뒤 run에서는 critical path인 Agent workflow gate의 test step이 길어져
@@ -314,6 +319,44 @@ step 시간 명령으로 이 job을 나누면 다음과 같습니다.
 
 - #560 run에서는 Agent workflow gate가 classify 종료 38s 뒤에 시작했습니다(Repository policy gate는 2s 뒤). 이 대기가 wall에
   들어가 wall 212s가 job 시간 경로(classify 28s + Agent workflow gate 139s + summary 4s)보다 깁니다(§7 대기열 한계).
+
+### Agent test lane 분리(#553) 표본 14개
+
+#553 merge 뒤 2026-10-11까지의 agent-only PR 가운데 GitHub에서 run을 조회할 수 있고 재실행하지 않은 14개입니다. 앞 절의 5개 중
+#560·#562·#564가 겹치고, #555·#557은 run을 조회할 수 없어 뺐습니다(§7). 분류 기준, 표본에서 뺀 run과 다른 분류의 표본은
+[Monorepo CI baseline의 "Agent workflow lane 뒤 분류별 표본"](./monorepo-ci-baseline.md#agent-workflow-lane-뒤-분류별-표본)이
+소유합니다. 시간은 §2의 run 단위 시간 명령과 step 시간 명령(Formatting step은 Repository policy gate의
+`Verify repository formatting` step), test 수는 Agent workflow gate 출력의 `ℹ tests` 줄입니다.
+
+| Run ID        | PR   | Head SHA   | Wall |  Raw | 분 올림 합 | Classify | Repository policy gate | Formatting step | Agent workflow gate | Agent workflow test 수 |
+| ------------- | ---- | ---------- | ---: | ---: | ---------: | -------: | ---------------------: | --------------: | ------------------: | ---------------------: |
+| `37203421633` | #560 | `cfff1090` | 212s | 221s |        6분 |      28s |                    50s |              2s |                139s |                    945 |
+| `37217559889` | #562 | `72adbef8` | 159s | 216s |        7분 |      23s |                    64s |              2s |                124s |                    966 |
+| `37225167311` | #564 | `4f9bca0e` | 190s | 242s |        6분 |      15s |                    58s |              1s |                166s |                    967 |
+| `37280516235` | #573 | `a286f3ca` | 186s | 233s |        6분 |      17s |                    52s |              2s |                160s |                    969 |
+| `37288006656` | #575 | `531c2d25` | 203s | 254s |        6분 |      29s |                    56s |              2s |                166s |                    969 |
+| `37305748669` | #577 | `7c6e7212` | 171s | 218s |        6분 |      19s |                    53s |              2s |                143s |                    972 |
+| `37322987369` | #579 | `09981b4e` | 178s | 221s |        6분 |      20s |                    50s |              1s |                148s |                    973 |
+| `37486145339` | #587 | `b84a51e2` | 198s | 241s |        6분 |      27s |                    49s |              1s |                161s |                  1,001 |
+| `37579828318` | #591 | `2ed11cb6` | 202s | 254s |        7분 |      30s |                    64s |              2s |                154s |                    962 |
+| `37597055126` | #593 | `068fd63c` | 168s | 210s |        6분 |      24s |                    48s |              1s |                133s |                    962 |
+| `37873968429` | #602 | `9706cf0e` | 188s | 231s |        6분 |      19s |                    51s |              2s |                158s |                    970 |
+| `37953869099` | #606 | `2ff5c9fb` | 196s | 230s |        6분 |      17s |                    49s |              1s |                158s |                    988 |
+| `38119122000` | #613 | `0f73ed43` | 184s | 227s |        6분 |      15s |                    47s |              1s |                162s |                  1,016 |
+| `38126301073` | #615 | `88ac68ec` | 143s | 187s |        5분 |      15s |                    49s |              1s |                118s |                  1,023 |
+
+- 14개 모두 job 4개입니다. Wall p50 187s·p95 212s, raw p50 228.5s·p95 254s, 분 올림 합 p50 6분·p95 7분입니다.
+- 개선 전(#537 표본 5개: wall p50 181s, raw p50 177s, 분 올림 합 5분)과 비교하면 wall p50은 6s 길고, raw p50은 51.5s 길고, 분
+  올림 합 p50은 1분 많습니다. 첫 5개에서 보인 wall 감소(p50 159s)는 14개에서는 남지 않았습니다.
+- Critical path는 Agent workflow gate입니다(p50 156s·p95 166s). Repository policy gate는 47–64s입니다.
+- Agent workflow test 수는 945–1,023개이고, Agent workflow gate 시간은 test 수 순서를 따르지 않습니다(#564 967개 166s, #615
+  1,023개 118s). 개선 전 표본은 이보다 적은 agent test를 실행했으므로, 이 비교에는 job 분리 효과와 test 증가·변동이 섞여 있습니다. 이
+  시간은 §5 개선 항목 6(Policy script test critical path)의 입력입니다.
+- Product lane이 없는 PR 15개(이 14개와 agent 표면을 바꾸지 않은 #565)의 분 올림 합 p95는 7분으로, Monorepo CI architecture의
+  Docs/config/tooling billed budget(p95 5분)을 넘습니다. Docs-only rollout budget(wall p95 1m 30s)은 docs 경로만 바꾼 PR의
+  표본이 #565(wall 192s) 1개라 판정하지 않습니다.
+- Agent workflow 예산은 이 14개의 p95에서 정했습니다. Wall은 p95 212s(3m 32s)를 올린 4m 이하, 분 올림 합은 p95와 같은
+  7분입니다.
 
 ### 분류 완전성(#537) 리뷰에서 찾은 under-selection
 
@@ -372,7 +415,8 @@ step의 시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에
 | `37017495949` | #535 | `564eb0bd` |   3 |             35s |
 
 - 개선 전 5개의 step 시간은 20–35s이고 중앙값은 25s입니다. §3의 두 run(34s, 33s)도 같은 범위입니다.
-- 개선 뒤 표본은 #545 merge 뒤 formatting 설정을 바꾸지 않은 agent-only PR의 run입니다. 표본 5/5입니다.
+- 개선 뒤 표본은 #545 merge 뒤 formatting 설정을 바꾸지 않은 agent-only PR의 run입니다. 아래 표는 첫 5개이고, §6 표의 확정 값은
+  아래 마지막 bullet의 14개입니다.
 
 | Run ID        | PR   | Head SHA   | Formatting scope     | Formatting step |
 | ------------- | ---- | ---------- | -------------------- | --------------: |
@@ -385,6 +429,8 @@ step의 시간을 §2의 step 시간 명령으로 비교합니다. 개선 전에
 - 개선 뒤 run에서는 step 출력의 `Formatting scope:` 줄로 검사 범위(`full`·`changed`)와 검사한 파일 수를 확인합니다.
 - 개선 뒤 5개의 step 시간은 1–2s이고 p50은 1s입니다(개선 전 중앙값 25s). #555·#557은 job이 4개인 run이라(#553 뒤) run 전체
   시간은 비교하지 않고 이 step만 비교합니다.
+- #553 표본 14개(위 절 표의 Formatting step 열)도 step 출력이 모두 `Formatting scope: changed`이고 step 시간 1s 7개·2s 7개,
+  p50 1.5s·p95 2s입니다. §6 표의 이 행은 이 14개로 확정했습니다.
 
 #545 자신의 run과 로컬 측정은 표본이 아니라 동작 확인입니다. #545는 `.github/workflows/ci.yml`을 바꿔 전체 lane을 실행하므로
 agent-only 표본에 넣지 않습니다.
@@ -410,13 +456,25 @@ agent-only 표본에 넣지 않습니다.
 - 시간 해상도는 1초입니다. 첫 job 전의 runner 대기열은 wall에서 빠지지만, 그 뒤 job의 대기열은 wall에 포함될 수 있습니다.
   Raw에는 대기열이 들어가지 않습니다.
 - Runner 사양(CPU 수)이나 Node.js 기본 병렬도가 바뀌면 §4의 병렬도 판단과 §3 step 시간을 다시 측정합니다.
+- 2026-10-11 기준, 2026-10-01T15:47Z(`36887031039`) 뒤 2026-10-04T12:49Z(`37203421633`) 전에 생성된 run은 저장소의 모든
+  workflow에서 GitHub API가 찾지 못합니다(HTTP 404, 원인 미확인). §3의 #532 run과 §6의 #535–#557 run이 여기에 들어갑니다. 이
+  값들은 그 전에 같은 명령으로 산출한 값이며, 지금은 run ID로 다시 산출할 수 없습니다. #553 표본
+  14개에 #555·#557이 없는 것도 이 때문입니다.
+- 재실행한 run은 attempt 사이 대기가 wall에 들어가므로 시간 표본에서 뺍니다(#553 뒤 #581·#583). Run별 표의 raw·분 올림 합은
+  마지막 attempt의 job 목록 기준이라, 다시 실행해 교체된 job의 시간은 들어가지 않습니다.
+- #553 뒤 Docs/config/tooling, full fan-out, API-only, Infra-only, Web-only 분류는 표본이 5개 미만이라 p50·p95를 적지 않습니다. 표본이 쌓이면
+  Monorepo CI baseline의 같은 표에 더합니다.
+- `pnpm ci:performance:report`의 wall은 workflow 생성부터 갱신까지라 queue를 포함합니다. 이 문서의 wall(§2)과 정의가 달라
+  직접 비교하지 않습니다.
 
 ## 8. Interview evidence map
 
-| 질문                                  | 근거 절 |
-| ------------------------------------- | ------- |
-| 어떤 문제를 어떤 수치로 확인했는가    | §1, §3  |
-| 원인을 어떻게 좁혔는가                | §2, §4  |
-| 왜 다른 방법을 쓰지 않았는가          | §5      |
-| 개선 효과를 어떻게 검증하는가         | §2, §6  |
-| 검증 중 발견한 공백을 어떻게 다뤘는가 | §6      |
+| 질문                                       | 근거 절 |
+| ------------------------------------------ | ------- |
+| 어떤 문제를 어떤 수치로 확인했는가         | §1, §3  |
+| 원인을 어떻게 좁혔는가                     | §2, §4  |
+| 왜 다른 방법을 쓰지 않았는가               | §5      |
+| 개선 효과를 어떻게 검증하는가              | §2, §6  |
+| 검증 중 발견한 공백을 어떻게 다뤘는가      | §6      |
+| 효과가 예상에 못 미친 것을 어떻게 다뤘는가 | §6      |
+| 측정의 한계와 다시 측정할 조건은 무엇인가  | §7      |

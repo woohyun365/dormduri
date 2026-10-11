@@ -52,14 +52,14 @@ Current collection uses `scripts/ci/performance/fixtures/ci-performance-active-e
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                                                |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| Epoch                  | `api-http-cookie-surface-removal-2026-09-12` / `collecting`                                  |
-| Base                   | `5aa10390c64e671c4f50db736926b896d0fd6902`                                                   |
-| Dependency fingerprint | lock `93362f97...`, workspace `4b334572...`, image inventory `f684f83d...`                   |
-| Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11 |
-| Compatible samples     | none yet; direct API cookie-parser/type removal changes the dependency fingerprint           |
-| Confidence             | below the five-run provisional p50 and ten-run p95 thresholds                                |
+| Boundary               | Current value                                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| Epoch                  | `api-http-cookie-surface-removal-2026-09-12` / `collecting`                                    |
+| Base                   | `5aa10390c64e671c4f50db736926b896d0fd6902`                                                     |
+| Dependency fingerprint | lock `93362f97...`, workspace `4b334572...`, image inventory `f684f83d...`                     |
+| Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11   |
+| Compatible samples     | 2026-10-11 collection: all 23 PR runs from 2026-10-04 to 2026-10-11 match this fingerprint     |
+| Confidence             | `docs-config-tooling-only` 15 runs (p95); full 4, API-only 1, infra-only 1, Web-only 0 (below) |
 
 직접 API의 사용하지 않는 cookie 의존성 제거로 lockfile만 바뀌며 package version, workspace 설정과 runtime image는
 유지됩니다. Base는 이 변경 전 integration 기준점이고 fingerprint는 변경 후 candidate input을 식별합니다. 새 hosted
@@ -155,6 +155,77 @@ pnpm ci:performance:report -- \
 Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본, active epoch input을 변경한 run, run head SHA와
 fingerprint source SHA가 다른 schema 3 evidence를 거부합니다. 주요 성능 cohort는 `pull_request` event만 사용하며, 과거
 `dev` push처럼 다른 event는 별도 event cohort로 남겨 섞인 통계를 만들지 않습니다.
+
+### Agent workflow lane 뒤 분류별 표본
+
+Agent workflow gate가 생긴 #553 merge(2026-10-04) 뒤 2026-10-11까지 `dev`에 merge된 PR 27개(#553–#615)에서, PR마다 merge된
+head SHA의 `Monorepo CI` `pull_request` run을 모았습니다. 지표는
+[CI change classification evidence §2](./ci-change-classification-evidence.md#2-측정-방법과-재현-명령)의 run 단위 시간입니다
+(wall은 첫 job 시작부터 마지막 job 종료까지, skipped job 제외). p50·p95 규칙은
+[Monorepo CI restructuring evidence의 표본 규칙](./monorepo-ci-restructuring-evidence.md#표본-규칙)을 따릅니다.
+
+분류는 실행한 job의 lane과 변경 경로로 정합니다. Product lane이 없는 PR 가운데
+[CI surface ownership](../../development/ci/ci-surface-ownership.md)의 Agent workflow 표면 경로를 바꾼 PR이 agent-only이고,
+그 밖은 Docs/config/tooling입니다(docs·repository 지원 script·설정·tracked local record). Product lane이 있는 PR은 collector의
+surface 규칙(Shared 또는 product lane 2개 이상이면 full)을 따릅니다.
+
+| 분류                | 표본(p50·p95 기준) | Wall p50 | Wall p95 | Raw p50 | Raw p95 | 분 올림 합 p50 | 분 올림 합 p95 |
+| ------------------- | -----------------: | -------: | -------: | ------: | ------: | -------------: | -------------: |
+| Agent-only          |           14(5·10) |     187s |     212s |  228.5s |    254s |            6분 |            7분 |
+| Docs/config/tooling |                1/5 |   미측정 |   미측정 |  미측정 |  미측정 |         미측정 |         미측정 |
+| Full fan-out        |                4/5 |   미측정 |   미측정 |  미측정 |  미측정 |         미측정 |         미측정 |
+| API-only            |                1/5 |   미측정 |   미측정 |  미측정 |  미측정 |         미측정 |         미측정 |
+| Infra-only          |                1/5 |   미측정 |   미측정 |  미측정 |  미측정 |         미측정 |         미측정 |
+| Web-only            |                0/5 |   미측정 |   미측정 |  미측정 |  미측정 |         미측정 |         미측정 |
+
+- Product lane이 없는 PR 15개(agent-only 14, Docs/config/tooling 1)를 합치면 wall p50 188s·p95 212s, 분 올림 합 p50 6분·p95 7분입니다.
+- 표본에서 뺀 run: 재실행 run 2개(attempt 사이 대기가 wall에 들어감)와 2026-10-11 기준 GitHub에서 조회되지 않는 run 4개입니다(아래 표).
+  조회되지 않는 범위는 [CI change classification evidence §7](./ci-change-classification-evidence.md#7-한계와-재측정-조건)에 적습니다.
+- 같은 23개 run을 `pnpm ci:performance:collect`·`pnpm ci:performance:report`로 집계하면 `docs-config-tooling-only` cohort 15개가
+  `decision-quality`이고 advisory budget(wall p95 90s, billed p95 5분)을 넘습니다(`exceeded`). Collector의 wall은 workflow 생성부터
+  갱신까지라 queue를 포함하고(p95 219s), 위 표의 wall과 정의가 다릅니다.
+
+| Run ID        | PR   | Head SHA   | 분류                | Job | Wall |    Raw | 분 올림 합 | 비고                                 |
+| ------------- | ---- | ---------- | ------------------- | --: | ---: | -----: | ---------: | ------------------------------------ |
+| -             | #553 | `574e23c3` | full                |   - |    - |      - |          - | run 조회 불가, 분류는 변경 경로 기준 |
+| -             | #555 | `526f9872` | agent-only          |   - |    - |      - |          - | run 조회 불가, 분류는 변경 경로 기준 |
+| -             | #557 | `d3080a59` | agent-only          |   - |    - |      - |          - | run 조회 불가, 분류는 변경 경로 기준 |
+| -             | #558 | `b4806922` | Docs/config/tooling |   - |    - |      - |          - | run 조회 불가, 분류는 변경 경로 기준 |
+| `37203421633` | #560 | `cfff1090` | agent-only          |   4 | 212s |   221s |        6분 |                                      |
+| `37217559889` | #562 | `72adbef8` | agent-only          |   4 | 159s |   216s |        7분 |                                      |
+| `37225167311` | #564 | `4f9bca0e` | agent-only          |   4 | 190s |   242s |        6분 |                                      |
+| `37252625675` | #565 | `a80dc72e` | Docs/config/tooling |   4 | 192s |   226s |        6분 | docs 경로만 변경                     |
+| `37260274792` | #567 | `0dc615f7` | full                |  12 | 385s | 1,667s |       33분 |                                      |
+| `37280516235` | #573 | `a286f3ca` | agent-only          |   4 | 186s |   233s |        6분 |                                      |
+| `37288006656` | #575 | `531c2d25` | agent-only          |   4 | 203s |   254s |        6분 |                                      |
+| `37305748669` | #577 | `7c6e7212` | agent-only          |   4 | 171s |   218s |        6분 |                                      |
+| `37322987369` | #579 | `09981b4e` | agent-only          |   4 | 178s |   221s |        6분 |                                      |
+| `37363185230` | #581 | `07b206c3` | agent-only          |   4 |    - |   205s |        6분 | attempt 4, 표본 제외                 |
+| `37423970632` | #583 | `28ef7da4` | full                |  12 |    - | 1,528s |       34분 | attempt 2, 표본 제외                 |
+| `37486145339` | #587 | `b84a51e2` | agent-only          |   4 | 198s |   241s |        6분 |                                      |
+| `37513652294` | #589 | `f4b4696d` | infra-only          |   6 | 176s |   369s |       10분 |                                      |
+| `37579828318` | #591 | `2ed11cb6` | agent-only          |   4 | 202s |   254s |        7분 |                                      |
+| `37597055126` | #593 | `068fd63c` | agent-only          |   4 | 168s |   210s |        6분 |                                      |
+| `37735532503` | #598 | `18acd61f` | API-only            |   7 | 398s |   986s |       19분 |                                      |
+| `37873968429` | #602 | `9706cf0e` | agent-only          |   4 | 188s |   231s |        6분 |                                      |
+| `37898180539` | #604 | `53be927d` | full                |  12 | 345s | 1,518s |       33분 |                                      |
+| `37953869099` | #606 | `2ff5c9fb` | agent-only          |   4 | 196s |   230s |        6분 |                                      |
+| `38023165837` | #609 | `01101179` | full                |  12 | 339s | 1,574s |       35분 |                                      |
+| `38046563472` | #611 | `fa2d84c8` | full                |  12 | 270s | 1,482s |       32분 |                                      |
+| `38119122000` | #613 | `0f73ed43` | agent-only          |   4 | 184s |   227s |        6분 |                                      |
+| `38126301073` | #615 | `88ac68ec` | agent-only          |   4 | 143s |   187s |        5분 |                                      |
+
+- #581·#583의 Raw와 분 올림 합은 마지막 attempt의 job 목록 기준입니다. #581은 attempt 1–3의 Agent workflow gate가 runner를 받지 못한 채(step 0)
+  15분 timeout으로 취소됐고, #583은 attempt 1의 API integration shard 2가 실패해 그 job만 다시 실행했습니다.
+- Agent workflow 표면 경로를 바꾸고 product lane도 실행한 PR은 6개입니다. 각 PR의 변경 파일을 그 merge head의
+  `classifyChanges`로 경로마다 replay하면, product lane을 켠 경로는 #583·#604·#609·#611이 root `package.json`(의도한 fan-out),
+  #567이 `.github/workflows/ci.yml`·root `package.json`(의도한 fan-out)과 product lane script, #589가
+  `scripts/ci/lanes/repo-policy-test-files.mjs`(Infra lane이 import하는 script)입니다. Replay 결과는 6개 모두 실행한 job의 lane과
+  같습니다.
+- PR 번호와 head SHA는 `gh pr list --state merged --base dev --search "merged:>=2026-10-04" --json number,headRefOid`, 변경
+  경로는 `gh pr view <번호> --json files`, run은
+  `gh run list --commit <headSha> --workflow 'Monorepo CI' --json databaseId,event,attempt`, job 시간은
+  `gh run view <run-id> --json jobs`로 다시 얻습니다.
 
 ## Historical frozen-input cohort
 
