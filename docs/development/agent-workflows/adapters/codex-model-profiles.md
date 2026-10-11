@@ -21,8 +21,9 @@ Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때
 
 - Astra: Parent, 최종 QA, 구현의 XHigh·impact high(`deep-build`), 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
 
-관측 열은 native live에서 child own-turn(hook Stop 기록·rollout `turn_context`)으로 본 역할·model/effort와 그때의 codex-cli 버전이며
-routine 상태를 바꾸지 않습니다. 관측은 model·effort 적용의 증거이지 품질 근거가 아닙니다. 미관측 조합도 아래 채택으로 routine이고, 그 조합의 첫 위임 완료 대조가 첫 관측입니다. 역할 분리 전
+관측 열은 native live에서 child own-turn(hook Stop 기록·rollout `turn_context`)으로 본 역할·model/effort와 그때의 codex-cli 버전이며 routine 상태를 바꾸지 않습니다.
+관측 열은 조합별 model·effort 적용 이력이지 품질 근거가 아니며, 작업마다의 품질 gate는 아래 완료 대조와 독립 검사입니다. 미관측은 역할 변형 단위의 표시이고 그 행의 routine 상태는 아래 Owner 채택이 정하며, 그
+역할의 첫 위임 완료 대조가 첫 관측입니다. 관측 열은 codex-cli 0.162.1(2026-10-11) 기준이며, 새 조합이나 CLI 버전을 관측하면 Parent가 그 receipt를 근거로 관측 열을 갱신합니다. 역할 분리 전
 `knu_explorer`에 explicit xhigh로 본 6.1 Sol(0.160.0)은 `_xhigh` 역할의 관측이 아닙니다.
 
 모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Standard profile은
