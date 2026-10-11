@@ -56,7 +56,6 @@ const LANE_SCRIPT_PATHS = new Map([
 export const AGENT_TEST_PRODUCT_INPUTS = {
   files: [
     'apps/api/src/auth/auth.module.ts',
-    'apps/api/src/legal/README.md',
     'apps/api/src/legal/contracts/legal-public-api.spec.ts',
     'apps/api/src/legal/legal.controller.ts',
     'apps/web/.storybook/preview.tsx',
@@ -114,6 +113,7 @@ const REPO_POLICY_PREFIXES = [
   'scripts/git/',
   'scripts/github/',
   'scripts/security/',
+  '.agents/',
   '.claude/',
   '.codex/',
   '.github/ISSUE_TEMPLATE/',

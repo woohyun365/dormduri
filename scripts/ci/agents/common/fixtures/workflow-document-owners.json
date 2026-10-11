@@ -57,10 +57,34 @@
       "rationale": "Codex cap·effort·cohort 및 typed child mapping이 이미 명시적으로 scoped되어 있다. 공통 packet과 혼합하지 않고 기존 회귀 oracle을 보존한다."
     },
     {
+      "path": "docs/development/agent-workflows/adapters/codex-diagnostics.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "codex:preflight resume 진단 필드와 identity·freshness·bounded read 규칙의 reference다. 계획 재개 진단을 해석할 때만 읽는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/codex-model-profiles.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "후보 profile 표·admission, profile 세대교체, 역할 설정과 fresh loading, cohort 철회의 reference다. 모델·profile을 고르거나 바꿀 때만 읽는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/codex-native-registry.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "spawn 등록·hook guardrail·완료 관측·수락의 원문과 Codex/OMX 권한 수단 reference다. 진입 문서가 필요할 때만 연결한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/codex-qualification.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "Claude Lead를 위한 top-level codex exec 교차 reviewer의 정적 경계와 native codex 세션의 live pilot 절차 reference다. 교차 reviewer를 live qualification으로 승격하지 않는다."
+    },
+    {
       "path": "docs/development/agent-workflows/adapters/codex.md",
       "owner": "Codex adapter/history owner",
       "kind": "adapter",
-      "rationale": "Codex model·QA·권한·runtime의 canonical destination을 유지한다. 공통 문서에서 추출하는 절차를 수용하고 한국어 설명을 강화하되 Astra QA/cohort 의미는 바꾸지 않는다."
+      "rationale": "Codex 위임·리뷰·완료 판정의 routine 규칙과 reference 목록을 담는 진입 문서다. 모델 profile·native registry·preflight 진단·교차 reviewer 세부는 reference가 소유하고 Astra QA/cohort 의미는 바꾸지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/cross-model-handoff.md",
@@ -192,7 +216,7 @@
       "path": "docs/development/agent-workflows/request-intake/README.md",
       "owner": "general development workflow owner",
       "kind": "normative",
-      "rationale": "intake→authority→context→output의 공통 의미를 보존한다. Codex recovery와 fresh-session-smoke 명령을 host 조건으로 분리한다."
+      "rationale": "intake→authority→context→output의 공통 의미를 보존한다. Codex recovery와 Codex intake 회귀 test를 host 조건으로 분리한다."
     },
     {
       "path": "docs/development/agent-workflows/request-intake/ambiguity-and-authority.md",

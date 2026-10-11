@@ -1,43 +1,54 @@
 import {
-  BASELINE_CHILD_MODEL,
+  ROLE_EFFORTS,
   getModelProfile,
-  assertCurrentModelProfileBinding,
+  getRecoveryStep,
   resolveRouteEffort,
-  createRecoveryBinding,
-  assertCurrentRecoveryBinding,
 } from './model-profiles.mjs';
 import { isDeepStrictEqual } from 'node:util';
-import { assertRecoveryChildContract, createModelScopeDigest } from './child-task-contract.mjs';
+import { createModelScopeDigest } from './child-task-contract.mjs';
 import { recommendModel } from './routing-policy.mjs';
+import {
+  COMPLETION_AUTHORITY,
+  checkLaneCompletion,
+  isDispatchToken,
+  laneTaskName,
+} from './subagent-hook-records.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const DEFAULT_CONCURRENCY_LIMIT = 3;
-const REPOSITORY_CHILD_MODEL = BASELINE_CHILD_MODEL;
-const MAX_REPORTED_ROLES = 24;
 const EFFORTS = new Set(['medium', 'high', 'xhigh']);
-const INSTALLED_ROLES = new Set(['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_reviewer']);
-const RUNTIME_SURFACES = new Set(['native', 'omx']);
-const RUNTIME_OBSERVATION_SCOPES = new Set(['current-turn', 'current-session']);
-const RUNTIME_PROVENANCE = new Set(['host-tool-schema', 'omx-runtime-overlay']);
-const RUNTIME_DISPATCH_PERMISSIONS = new Set(['allowed', 'denied', 'unknown']);
-const RUNTIME_EVIDENCE_FIELDS = new Set([
+const INSTALLED_ROLES = new Set(Object.keys(ROLE_EFFORTS));
+const DISPATCH_INPUTS = new Set(['delegation', 'concurrencyLimit', 'dispatchToken']);
+const RECOVERY_INPUTS = new Set(['laneId', 'route', 'attempts']);
+const RECOVERY_ROUTE_FIELDS = new Set(['role', 'profileId']);
+const RETRY_DISPATCH_INPUTS = new Set(['delegation', 'recoveryDecision', 'dispatchToken']);
+// A failed lane's retry route is computed from its contract route and the ladder: an attempt records the approach and
+// its outcome, never a model.
+const ATTEMPT_FIELDS = new Set([
+  'number',
+  'approachId',
+  'alternateOf',
+  'outcome',
+  'failureCategory',
+  'evidence',
+]);
+const RECOVERY_DECISION_FIELDS = new Set([
   'schemaVersion',
-  'surfaceMode',
-  'observationScope',
-  'freshness',
-  'provenance',
-  'dispatchPermission',
-  'roles',
+  'laneId',
+  'status',
+  'action',
+  'attempts',
+  'remainingAlternateAttempts',
+  'maxAlternateAttempts',
+  'prohibitedApproachIds',
+  'blocker',
+  'disposition',
+  'confidence',
+  'route',
+  'retryRoute',
 ]);
-const RUNTIME_ROLE_FIELDS = new Set([
-  'agentType',
-  'available',
-  'effectiveModel',
-  'effectiveEffort',
-  'explicitEffortSupport',
-  'modelSelection',
-  'configurationResolution',
-]);
+// Result-quality failures climb one rung; evidence and tool failures change the approach on the same contract.
+const STEP_UP_FAILURES = new Set(['verification-failed', 'unknown']);
 const RESULT_STATUSES = new Set(['completed', 'blocked', 'failed']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 const VERIFICATION_STATUSES = new Set(['passed', 'failed', 'not-run']);
@@ -98,25 +109,28 @@ const CHILD_RESULT_FIELDS = new Set([
   'blocker',
 ]);
 
-export function createDispatchRecommendation({
-  delegation,
-  reportedRuntimeEvidence = null,
-  concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT,
-  modelUseByLane = {},
-  recoveryDecision,
-} = {}) {
-  if (recoveryDecision !== undefined)
-    return createRecoveryDispatch({
-      delegation,
-      reportedRuntimeEvidence,
-      concurrencyLimit,
-      modelUseByLane,
-      recoveryDecision,
-    });
+// Spawn advice from the contract alone. The project hook re-checks the role roster, the (role, model) pair and the fork at
+// call time, and completion binds the child's own hook records (subagent-hook-records.mjs).
+// dispatchToken (optional, 4-12 lowercase letters or digits, not `retry`) is a fresh per-dispatch value the Parent
+// picks; it joins each spawn task_name so completion can bind this dispatch's own child.
+export function createDispatchRecommendation(input = {}) {
+  for (const key of Object.keys(input ?? {}))
+    if (!DISPATCH_INPUTS.has(key)) throw new TypeError(`Unsupported dispatch input: ${key}`);
+  const { delegation, concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT, dispatchToken } = input ?? {};
+  if (dispatchToken !== undefined && !isDispatchToken(dispatchToken))
+    throw new TypeError('dispatch token must be 4-12 lowercase letters or digits other than retry');
   assertDelegationRecommendation(delegation);
-  validateModelUses(modelUseByLane, delegation.recommendedChildren);
-  const runtime = normalizeReportedRuntimeEvidence(reportedRuntimeEvidence);
   validateConcurrencyLimit(concurrencyLimit);
+  const sequential = (reason, gaps) =>
+    dispatchRecommendation({
+      delegation,
+      execution: 'leader-sequential',
+      reason,
+      dispatches: [],
+      deferredLaneIds: delegation.recommendedChildren.map(({ laneId }) => laneId),
+      concurrencyLimit,
+      gaps,
+    });
 
   if (delegation.execution !== 'bounded-lanes' || delegation.recommendedChildren.length < 1) {
     return dispatchRecommendation({
@@ -125,94 +139,39 @@ export function createDispatchRecommendation({
       reason: 'The delegation recommendation does not authorize bounded child lanes.',
       dispatches: [],
       deferredLaneIds: delegation.recommendedChildren.map(({ laneId }) => laneId),
-      runtime,
       concurrencyLimit,
       gaps: [],
     });
   }
 
-  if (runtime.evidenceStatus !== 'accepted') {
-    return dispatchRecommendation({
-      delegation,
-      execution: 'leader-sequential',
-      reason: 'The reported runtime evidence is missing, stale, or incompatible with this policy.',
-      dispatches: [],
-      deferredLaneIds: delegation.recommendedChildren.map(({ laneId }) => laneId),
-      runtime,
-      concurrencyLimit,
-      gaps: unique(['runtime-capability-fallback', ...runtime.gaps]),
-    });
-  }
-
-  // The role-keyed roster cannot resolve concurrent same-role/different-model lanes.
-  const hasCandidate = delegation.recommendedChildren.some(
-    (contract) => contract.routeRecommendation.modelRecommendation?.status === 'candidate',
-  );
-  const batchLimit = hasCandidate ? 1 : concurrencyLimit;
-  const selected = delegation.recommendedChildren.slice(0, batchLimit);
-  const deferred = delegation.recommendedChildren.slice(batchLimit);
-  const compatibility = assessRuntimeCompatibility(runtime, selected, modelUseByLane);
-  if (!compatibility.compatible) {
-    return dispatchRecommendation({
-      delegation,
-      execution: 'leader-sequential',
-      reason: 'The current reported runtime cannot honor every selected child route safely.',
-      dispatches: [],
-      deferredLaneIds: delegation.recommendedChildren.map(({ laneId }) => laneId),
-      runtime,
-      concurrencyLimit,
-      gaps: unique(['runtime-capability-fallback', ...compatibility.gaps]),
-    });
-  }
+  // Same-role lanes on different models run together (native observation, DA-018).
+  const selected = delegation.recommendedChildren.slice(0, concurrencyLimit);
+  const deferred = delegation.recommendedChildren.slice(concurrencyLimit);
+  const gaps = selected.flatMap(spawnGaps);
+  if (gaps.length > 0)
+    return sequential('A selected lane cannot be spawned from its contract.', unique(gaps));
 
   const dispatches = selected.map((contract) => {
-    const reportedRole = compatibility.rolesByAgentType.get(contract.routeRecommendation.role);
+    const route = contract.routeRecommendation;
+    const model = getModelProfile(route.profileId).model;
     return {
       laneId: contract.laneId,
-      agentType: contract.routeRecommendation.role,
-      effort: contract.routeRecommendation.effort,
-      effectiveModel: reportedRole.effectiveModel,
-      effectiveEffort: reportedRole.effectiveEffort,
-      explicitEffortSupport: reportedRole.explicitEffortSupport,
+      agentType: route.role,
+      effort: route.effort,
+      model,
+      ...(route.modelRecommendation?.status === 'candidate'
+        ? { modelPurpose: route.modelRecommendation.request.purpose }
+        : {}),
       contract,
       dispatchOwner: 'leader',
-      runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
-      requiresLeaderRuntimeConfirmation: true,
-      ...(usesOrdinaryScopedArguments(runtime, contract)
-        ? {
-            spawnArguments: {
-              agent_type: contract.routeRecommendation.role,
-              model: REPOSITORY_CHILD_MODEL,
-              reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
-              fork_turns: 'none',
-            },
-            runtimeAction: false,
-          }
-        : {}),
-      ...(contract.routeRecommendation.modelRecommendation
-        ? {
-            requestedModel: contract.routeRecommendation.modelRecommendation.profileBinding.model,
-            recommendedModel: contract.routeRecommendation.modelRecommendation.recommendedModel,
-            modelPurpose: contract.routeRecommendation.modelRecommendation.request.purpose,
-            resolvedModel:
-              reportedRole.configurationResolution?.model ?? reportedRole.effectiveModel,
-            resolvedEffort:
-              reportedRole.configurationResolution?.effort ?? reportedRole.effectiveEffort,
-            ...(contract.routeRecommendation.modelRecommendation.status === 'candidate' &&
-            reportedRole.configurationResolution
-              ? {
-                  spawnArguments: {
-                    agent_type: contract.routeRecommendation.role,
-                    model: contract.routeRecommendation.modelRecommendation.recommendedModel,
-                    reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
-                    fork_turns: 'none',
-                  },
-                  configurationResolution: reportedRole.configurationResolution,
-                }
-              : {}),
-            runtimeAction: false,
-          }
-        : {}),
+      ...(dispatchToken === undefined ? {} : { dispatchToken }),
+      spawnArguments: {
+        task_name: laneTaskName(contract.laneId, dispatchToken),
+        agent_type: route.role,
+        model,
+        reasoning_effort: resolveRouteEffort(route),
+        fork_turns: 'none',
+      },
     };
   });
 
@@ -222,122 +181,40 @@ export function createDispatchRecommendation({
     reason: `${dispatches.length} typed lane(s) are ready for leader-controlled native dispatch.`,
     dispatches,
     deferredLaneIds: deferred.map(({ laneId }) => laneId),
-    runtime,
     concurrencyLimit,
     gaps:
       deferred.length > 0
-        ? [
-            `${hasCandidate ? 'model-sequential-rollout' : 'runtime-concurrency-limit'}: ${deferred.length} lane(s) deferred.`,
-          ]
+        ? [`runtime-concurrency-limit: ${deferred.length} lane(s) deferred.`]
         : [],
   });
 }
 
-// Reports are caller-supplied evidence, never authenticated execution or authority.
-export function evaluateModelExecution({ dispatch, expectedChildId, reportedExecution } = {}) {
-  if (dispatch?.kind === 'model-recovery')
-    return evaluateRecoveryExecution({ dispatch, expectedChildId, reportedExecution });
+// A spawn is fresh and scoped (`fork_turns: none`). Omitted context keeps that; a supplied one must be compatible
+// advice, and a compatible reuse continues an earlier child rather than spawning one. A candidate keeps its profile's
+// cohort boundary and the contract snapshot it was recommended with.
+function spawnGaps(contract) {
+  const delivery = contract.contextDelivery;
   const gaps = [];
-  let observation = null;
-  try {
-    requireString(expectedChildId, 'returned child identity', 160);
-    const contract = dispatch.contract;
-    assertSemanticRouteRecommendation(contract.routeRecommendation);
-    assertCurrentModelRecommendation(contract);
+  if (
+    delivery !== undefined &&
+    (delivery?.compatible !== true ||
+      delivery?.applied !== false ||
+      !Array.isArray(delivery?.gaps) ||
+      delivery.gaps.length !== 0 ||
+      !['scoped', 'reuse'].includes(delivery.mode))
+  )
+    gaps.push(`context-delivery-incompatible:${contract.laneId}`);
+  else if (delivery?.mode === 'reuse') gaps.push(`context-reuse-not-a-spawn:${contract.laneId}`);
+  if (contract.routeRecommendation.modelRecommendation?.status === 'candidate') {
     gaps.push(...assessModelContractBoundary(contract));
-    normalizeConfigurationResolution(dispatch.configurationResolution);
-    if (
-      dispatch.runtimeAction !== false ||
-      contract.routeRecommendation.modelRecommendation.status !== 'candidate' ||
-      dispatch.resolvedModel !==
-        contract.routeRecommendation.modelRecommendation.recommendedModel ||
-      dispatch.resolvedEffort !== resolveRouteEffort(contract.routeRecommendation) ||
-      contract.modelScopeDigest !== createModelScopeDigest(contract) ||
-      !isDeepStrictEqual(dispatch.spawnArguments, {
-        agent_type: contract.routeRecommendation.role,
-        model: contract.routeRecommendation.modelRecommendation.recommendedModel,
-        reasoning_effort: resolveRouteEffort(contract.routeRecommendation),
-        fork_turns: 'none',
-      }) ||
-      dispatch.resolvedModel !== dispatch.configurationResolution.model ||
-      dispatch.resolvedEffort !== dispatch.configurationResolution.effort
-    )
-      gaps.push('model-dispatch-resolution-invalid');
-    requireExactRecord(
-      reportedExecution,
-      [
-        'childId',
-        'profileBinding',
-        'taskId',
-        'scopeDigest',
-        'provenance',
-        'accepted',
-        'executed',
-        'resultReference',
-        'independentCheck',
-        'hostMetadata',
-        'usageReference',
-      ],
-      'model execution',
-    );
-    observation = reportedExecution;
-    const profileBinding = assertCurrentModelProfileBinding(observation.profileBinding);
-    if (
-      !isDeepStrictEqual(
-        profileBinding,
-        contract.routeRecommendation.modelRecommendation.profileBinding,
-      ) ||
-      !isDeepStrictEqual(profileBinding, dispatch.configurationResolution.profileBinding)
-    )
-      gaps.push('model-execution-profile-mismatch');
-    if (
-      observation.childId !== expectedChildId ||
-      observation.taskId !== contract.modelTaskId ||
-      observation.scopeDigest !== contract.modelScopeDigest
-    )
-      gaps.push('model-execution-identity-mismatch');
-    if (
-      observation.provenance !== 'native-tool-result' ||
-      observation.accepted !== true ||
-      observation.executed !== true
-    )
-      gaps.push('model-execution-unverified');
-    requireString(observation.resultReference, 'native result reference', 300);
-    requireExactRecord(observation.independentCheck, ['status', 'reference'], 'independent check');
-    requireString(observation.independentCheck.reference, 'independent check reference', 300);
-    if (observation.independentCheck.status !== 'passed')
-      gaps.push('model-independent-quality-not-passed');
-    if (observation.hostMetadata !== null) {
-      requireExactRecord(observation.hostMetadata, ['model', 'effort'], 'host model metadata');
-      if (
-        observation.hostMetadata.model !== dispatch.resolvedModel ||
-        observation.hostMetadata.effort !== dispatch.resolvedEffort
-      )
-        gaps.push('model-host-metadata-mismatch');
-    }
-    if (observation.usageReference !== null)
-      requireString(observation.usageReference, 'usage reference', 300);
-  } catch {
-    gaps.push('model-execution-evidence-invalid');
+    if (contract.modelScopeDigest !== createModelScopeDigest(contract) || !contract.modelTaskId)
+      gaps.push('model-contract-snapshot-changed');
   }
-  return deepFreeze({
-    accepted: gaps.length === 0,
-    evidenceKind: gaps.length
-      ? 'unverified'
-      : observation.hostMetadata
-        ? 'host-reported-model'
-        : 'runtime-contract-resolved',
-    providerAttested: false,
-    usageReference: gaps.length ? null : observation.usageReference,
-    authority: 'leader-reported-not-host-authenticated',
-    requiresLeaderRuntimeConfirmation: true,
-    runtimeAction: false,
-    gaps,
-  });
+  return gaps;
 }
 
-// Separate from reported role evidence. Every observation remains leader-reported;
-// this evaluator neither authenticates the host nor performs a lifecycle action.
+// Every lifecycle observation remains leader-reported; this evaluator neither authenticates the host nor performs
+// a lifecycle action.
 export function createLifecycleRecommendation(input) {
   validateLifecycleEvidence(input);
   const { intent, observation, target, capabilities, result, retention, close, release } = input;
@@ -591,139 +468,32 @@ function requireExactRecord(value, fields, name, optionalFields = []) {
   }
 }
 
-export function evaluateRecovery({ laneId, attempts = [], modelRecovery } = {}) {
-  const result = evaluateAttemptRecovery({ laneId, attempts });
-  if (modelRecovery === undefined) {
-    if (
-      attempts.some(
-        (attempt) =>
-          Object.hasOwn(attempt, 'model') || attempt.recoveryBinding || attempt.effort === 'low',
-      )
-    )
-      throw new TypeError('Explicit model recovery requires a current profile binding.');
-    return result;
-  }
-  requireExactRecord(modelRecovery, ['profileBinding', 'pendingWriter'], 'model recovery', [
-    'request',
-  ]);
-  const binding = assertCurrentModelProfileBinding(modelRecovery.profileBinding);
-  if (
-    modelRecovery.request === undefined &&
-    attempts.some((a) => a.recoveryBinding || a.effort === 'low')
-  )
-    throw new TypeError('Bound invocation recovery requires its original selection request.');
-  requireEnum(
-    modelRecovery.pendingWriter,
-    new Set(['cleared', 'pending', 'unknown']),
-    'pending writer',
-  );
-  for (const [index, attempt] of attempts.entries()) {
-    if (attempt.model !== (index === 0 ? binding.model : REPOSITORY_CHILD_MODEL))
-      throw new TypeError('Model recovery requires the exact primary model then Astra only.');
-  }
-  if (attempts.length > 1 && NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory))
-    throw new TypeError('Model recovery cannot retry a non-retryable failure.');
-  const waiting = result.action === 'alternate-once' && modelRecovery.pendingWriter !== 'cleared';
-  let recoveryBinding;
-  if (
-    modelRecovery.request !== undefined &&
-    attempts[0]?.outcome === 'failure' &&
-    !NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory) &&
-    modelRecovery.pendingWriter === 'cleared'
-  ) {
-    const request = modelRecovery.request;
-    requireExactRecord(
-      request,
-      [
-        'primaryContract',
-        'rescueContract',
-        'sourceDigest',
-        'configDigest',
-        'attemptId',
-        'assessment',
-      ],
-      'recovery request',
-    );
-    const { primaryContract: primary, rescueContract: rescue } = request;
-    assertCurrentModelRecommendation(primary);
-    assertSemanticRouteRecommendation(rescue.routeRecommendation);
-    if (
-      !isDeepStrictEqual(primary.routeRecommendation.modelRecommendation.profileBinding, binding) ||
-      primary.laneId !== laneId ||
-      rescue.laneId !== laneId ||
-      primary.routeRecommendation.role !== rescue.routeRecommendation.role ||
-      !isDeepStrictEqual(primary.boundary, rescue.boundary) ||
-      !isDeepStrictEqual(primary.allowed, rescue.allowed)
-    )
-      throw new TypeError('Recovery cannot expand or change the authorized owner/role boundary.');
-    const first = attempts[0];
-    if (
-      !first.executed ||
-      first.effort !== binding.resolvedEffort ||
-      first.identity?.taskId !== primary.modelTaskId ||
-      first.identity.scopeDigest !== primary.modelScopeDigest ||
-      primary.modelScopeDigest !== createModelScopeDigest(primary)
-    )
-      throw new TypeError('Recovery requires an executed, exact failed primary identity.');
-    recoveryBinding = createRecoveryBinding({
-      primary: {
-        profileBinding: binding,
-        failureCategory: first.failureCategory,
-        attemptId: first.approachId,
-        laneId,
-        ...first.identity,
-        ownershipDigest: createModelScopeDigest({
-          boundary: primary.boundary,
-          allowed: primary.allowed,
-        }),
-      },
-      rescue: {
-        attemptId: request.attemptId,
-        taskId: rescue.modelTaskId,
-        laneId,
-        sourceDigest: request.sourceDigest,
-        configDigest: request.configDigest,
-        scopeDigest: createModelScopeDigest(rescue),
-        role: rescue.routeRecommendation.role,
-        semanticEffort: rescue.routeRecommendation.effort,
-        impactRisk: rescue.routeRecommendation.impactRisk,
-      },
-      assessment: request.assessment,
-    });
-    assertRecoveryChildContract(rescue, recoveryBinding);
-    assertRecoveryAttempts(attempts, recoveryBinding);
-  }
-  if (!recoveryBinding && attempts.some((a) => a.recoveryBinding || a.effort === 'low'))
-    throw new TypeError('An attributed alternate requires cleared current recovery selection.');
-  return deepFreeze({
-    ...result,
-    ...(recoveryBinding ? { recoveryBinding } : {}),
-    ...(waiting
-      ? {
-          status: 'handoff-required',
-          action: 'terminal-handoff',
-          remainingAlternateAttempts: 0,
-          blocker: 'model-pending-writer-not-cleared',
-          disposition: 'blocker-handoff',
-        }
-      : {}),
-    nextModel: !waiting && result.action === 'alternate-once' ? REPOSITORY_CHILD_MODEL : null,
-    runtimeAction: false,
-  });
-}
-
-function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
+// One primary attempt and at most one retry with a distinct approach, the same ceiling for every lane. The retry route
+// is computed from the lane's contract route, never reported: a result-quality failure retries once one rung up on the
+// same role (RECOVERY_LADDER); evidence and tool failures, and a lane already on the top rung, retry on the contract.
+export function evaluateRecovery(input = {}) {
+  for (const key of Object.keys(input ?? {}))
+    if (!RECOVERY_INPUTS.has(key)) throw new TypeError(`Unsupported recovery input: ${key}`);
+  const { laneId, route, attempts = [] } = input ?? {};
   const normalizedLaneId = requireIdentifier(laneId, 'laneId');
+  const normalizedRoute = normalizeRecoveryRoute(route);
   if (!Array.isArray(attempts)) throw new TypeError('attempts must be an array.');
   if (attempts.length > 2) {
     throw new TypeError('Recovery allows one primary attempt and at most one alternate attempt.');
   }
   const normalizedAttempts = attempts.map((attempt, index) => normalizeAttempt(attempt, index));
   validateAttemptSequence(normalizedAttempts);
+  // A finished retry keeps the route it ran on.
+  const retryRoute =
+    normalizedAttempts.length === 2
+      ? recoveryRetryRoute(normalizedRoute, normalizedAttempts[0].failureCategory)
+      : null;
 
   if (normalizedAttempts.length === 0) {
     return recoveryDecision({
       laneId: normalizedLaneId,
+      route: normalizedRoute,
+      retryRoute,
       attempts: normalizedAttempts,
       status: 'not-started',
       action: 'primary-attempt',
@@ -738,6 +508,8 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
   if (latest.outcome === 'success') {
     return recoveryDecision({
       laneId: normalizedLaneId,
+      route: normalizedRoute,
+      retryRoute,
       attempts: normalizedAttempts,
       status: 'complete',
       action: 'none',
@@ -751,6 +523,8 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
   if (normalizedAttempts.length === 1 && !NON_RETRYABLE_FAILURES.has(latest.failureCategory)) {
     return recoveryDecision({
       laneId: normalizedLaneId,
+      route: normalizedRoute,
+      retryRoute: recoveryRetryRoute(normalizedRoute, latest.failureCategory),
       attempts: normalizedAttempts,
       status: 'alternate-available',
       action: 'alternate-once',
@@ -765,6 +539,8 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
   const disposition = terminalDisposition(latest.failureCategory);
   return recoveryDecision({
     laneId: normalizedLaneId,
+    route: normalizedRoute,
+    retryRoute,
     attempts: normalizedAttempts,
     status: 'handoff-required',
     action:
@@ -778,11 +554,18 @@ function evaluateAttemptRecovery({ laneId, attempts = [] } = {}) {
   });
 }
 
+// A completed child counts only when its own hook records bind it (subagent-hook-records.mjs); a leader report alone
+// is refused. hookObservation = readHookRecords() of the Parent session ({ sessionId, records, malformed });
+// acceptances are the acceptance records `codex:accept` wrote for the accepted children; dispatchToken is the
+// dispatch's token.
 export function prepareLeaderSynthesis({
   delegation,
   childResults = [],
   recoveryDecisions = [],
   conflicts = [],
+  hookObservation,
+  acceptances = [],
+  dispatchToken,
 } = {}) {
   assertDelegationRecommendation(delegation);
   if (delegation.execution !== 'bounded-lanes') {
@@ -792,6 +575,7 @@ export function prepareLeaderSynthesis({
   if (!Array.isArray(recoveryDecisions)) {
     throw new TypeError('recoveryDecisions must be an array.');
   }
+  if (!Array.isArray(acceptances)) throw new TypeError('acceptances must be an array.');
 
   const contracts = new Map(
     delegation.recommendedChildren.map((contract) => [contract.laneId, contract]),
@@ -810,17 +594,31 @@ export function prepareLeaderSynthesis({
     if (!contracts.has(recovery.laneId)) {
       throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
     }
-    if (recovery.recoveryBinding) {
-      if (delegation.requestId !== recovery.recoveryBinding.rescue.taskId)
-        throw new TypeError('Recovery synthesis must match the current delegation task.');
-      assertRecoveryChildContract(contracts.get(recovery.laneId), recovery.recoveryBinding);
-    }
+    assertRecoveryRoute(contracts.get(recovery.laneId), recovery);
     const result = results.find(({ laneId }) => laneId === recovery.laneId);
     if (result?.status === 'completed' && recovery.action !== 'none') {
       throw new TypeError('A completed child result cannot have a pending or terminal recovery.');
     }
   }
   const normalizedConflicts = normalizeConflicts(conflicts, contracts);
+  const recoveryByLane = new Map(
+    normalizedRecoveries.map((recovery) => [recovery.laneId, recovery]),
+  );
+  const completionChecks = results
+    .filter(({ status }) => status === 'completed')
+    .map(({ laneId }) => ({
+      laneId,
+      ...checkLaneCompletion({
+        observation: hookObservation,
+        laneId,
+        dispatchToken,
+        acceptances,
+        ...completionExpectation(contracts.get(laneId), recoveryByLane.get(laneId)),
+      }),
+    }));
+  const refusedLaneIds = completionChecks
+    .filter(({ accepted }) => !accepted)
+    .map(({ laneId }) => laneId);
 
   const resultByLane = new Map(results.map((result) => [result.laneId, result]));
   const missingLaneIds = [...contracts.keys()].filter((laneId) => !resultByLane.has(laneId));
@@ -840,6 +638,7 @@ export function prepareLeaderSynthesis({
     .filter(
       (result) =>
         result.status !== 'completed' ||
+        refusedLaneIds.includes(result.laneId) ||
         result.gaps.some(({ blocking }) => blocking) ||
         result.verification.some(({ status }) => status !== 'passed'),
     )
@@ -873,6 +672,9 @@ export function prepareLeaderSynthesis({
     })),
     missingLaneIds,
     blockingLaneIds,
+    completionAuthority: COMPLETION_AUTHORITY,
+    completionChecks,
+    refusedLaneIds,
     pendingRecoveryLaneIds,
     recoveryDecisions: normalizedRecoveries,
     leaderOwnership: {
@@ -884,13 +686,81 @@ export function prepareLeaderSynthesis({
   });
 }
 
+// The child a completed lane is checked against: its contract route, or the retry route on the retry task path once a
+// recovery retry ran. A caller outside synthesis passes the lane's recovery decision, which is recomputed here.
+export function laneCompletionExpectation({ contract, recoveryDecision }) {
+  if (recoveryDecision === undefined) return completionExpectation(contract);
+  const recovery = normalizeRecoveryDecision(recoveryDecision);
+  if (recovery.laneId !== contract?.laneId)
+    throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
+  assertRecoveryRoute(contract, recovery);
+  return completionExpectation(contract, recovery);
+}
+
+// The retry of one failed lane: spawn arguments from its contract and its pending decision's retry route, under the
+// lane's dispatch token with the `_retry` task name. The decision is recomputed, never trusted as given.
+export function createRetryDispatch(input = {}) {
+  for (const key of Object.keys(input ?? {}))
+    if (!RETRY_DISPATCH_INPUTS.has(key))
+      throw new TypeError(`Unsupported retry dispatch input: ${key}`);
+  const { delegation, recoveryDecision, dispatchToken } = input ?? {};
+  assertDelegationRecommendation(delegation);
+  const recovery = normalizeRecoveryDecision(recoveryDecision);
+  const contract = delegation.recommendedChildren.find(({ laneId }) => laneId === recovery.laneId);
+  if (!contract) throw new TypeError(`Recovery references an unknown lane: ${recovery.laneId}`);
+  assertRecoveryRoute(contract, recovery);
+  if (recovery.action !== 'alternate-once')
+    throw new TypeError('A retry dispatch needs a pending alternate decision.');
+  if (dispatchToken === undefined)
+    throw new TypeError('A retry dispatch requires a dispatch token.');
+  // The primary dispatch gates stay: a lane kept out of native spawn (reuse, incompatible delivery, a candidate
+  // boundary or scope snapshot that no longer holds) gets no retry spawn either.
+  const gaps = spawnGaps(contract);
+  if (gaps.length > 0)
+    throw new TypeError(`A retry dispatch needs a dispatchable lane: ${gaps.join(', ')}`);
+  const { role, model } = recovery.retryRoute;
+  return deepFreeze({
+    laneId: recovery.laneId,
+    agentType: role,
+    effort: ROLE_EFFORTS[role],
+    model,
+    retryRoute: recovery.retryRoute,
+    retryOf: recovery.attempts[0].approachId,
+    dispatchOwner: 'leader',
+    dispatchToken,
+    spawnArguments: {
+      task_name: laneTaskName(recovery.laneId, dispatchToken, { retry: true }),
+      agent_type: role,
+      model,
+      reasoning_effort: ROLE_EFFORTS[role],
+      fork_turns: 'none',
+    },
+  });
+}
+
+function completionExpectation(contract, recovery) {
+  if (recovery?.attempts.length === 2)
+    return {
+      expectedRole: recovery.retryRoute.role,
+      expectedModel: recovery.retryRoute.model,
+      retry: true,
+    };
+  const { role, profileId } = contract.routeRecommendation;
+  return { expectedRole: role, expectedModel: getModelProfile(profileId).model, retry: false };
+}
+
+function assertRecoveryRoute(contract, recovery) {
+  const { role, profileId } = contract.routeRecommendation;
+  if (recovery.route.role !== role || recovery.route.profileId !== profileId)
+    throw new TypeError('Recovery route must match its lane contract.');
+}
+
 function dispatchRecommendation({
   delegation,
   execution,
   reason,
   dispatches,
   deferredLaneIds,
-  runtime,
   concurrencyLimit,
   gaps,
 }) {
@@ -902,9 +772,6 @@ function dispatchRecommendation({
     dispatches,
     deferredLaneIds,
     gaps,
-    reportedRuntimeEvidence: runtime,
-    runtimeEvidenceAuthority: 'leader-reported-not-host-authenticated',
-    requiresLeaderRuntimeConfirmation: dispatches.length > 0,
     limits: { hardMax: HARD_CHILD_LIMIT, appliedConcurrency: concurrencyLimit },
     leaderOwnership: {
       dispatchDecision: true,
@@ -918,6 +785,8 @@ function dispatchRecommendation({
 
 function recoveryDecision({
   laneId,
+  route,
+  retryRoute,
   attempts,
   status,
   action,
@@ -930,6 +799,8 @@ function recoveryDecision({
   return deepFreeze({
     schemaVersion: 1,
     laneId,
+    route,
+    retryRoute,
     status,
     action,
     attempts,
@@ -942,363 +813,20 @@ function recoveryDecision({
   });
 }
 
-function normalizeReportedRuntimeEvidence(value) {
-  const gaps = [];
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return rejectedRuntimeEvidence(['runtime-evidence-missing']);
-  }
-
-  for (const field of Object.keys(value)) {
-    if (!RUNTIME_EVIDENCE_FIELDS.has(field))
-      gaps.push(`runtime-evidence-field-unsupported:${field}`);
-  }
-
-  if (value.schemaVersion !== 1) gaps.push('runtime-evidence-schema-unsupported');
-  const surfaceMode = optionalEnum(value.surfaceMode, RUNTIME_SURFACES);
-  if (surfaceMode === null) gaps.push('runtime-surface-unrecognized');
-  const observationScope = optionalEnum(value.observationScope, RUNTIME_OBSERVATION_SCOPES);
-  if (observationScope === null) gaps.push('runtime-observation-scope-unrecognized');
-  const freshness = optionalEnum(value.freshness, RUNTIME_OBSERVATION_SCOPES);
-  if (freshness === null) gaps.push('runtime-freshness-unrecognized');
-  const dispatchPermission = optionalEnum(value.dispatchPermission, RUNTIME_DISPATCH_PERMISSIONS);
-  if (dispatchPermission === null) gaps.push('runtime-dispatch-permission-unrecognized');
-
-  const provenance = normalizeRuntimeProvenance(value.provenance, gaps);
-  validateRuntimeEvidenceOrigin({ surfaceMode, observationScope, freshness, provenance, gaps });
-  const roles = normalizeRuntimeRoles(value.roles, gaps);
-
-  if (gaps.length > 0) {
-    return rejectedRuntimeEvidence(gaps, {
-      surfaceMode,
-      observationScope,
-      freshness,
-      provenance,
-      dispatchPermission,
-      roles,
-    });
-  }
-
-  return deepFreeze({
-    schemaVersion: 1,
-    evidenceStatus: 'accepted',
-    authority: 'leader-reported-not-host-authenticated',
-    surfaceMode,
-    observationScope,
-    freshness,
-    provenance,
-    dispatchPermission,
-    roles,
-    gaps: [],
-  });
-}
-
-function normalizeRuntimeProvenance(value, gaps) {
-  if (!Array.isArray(value) || value.length === 0) {
-    gaps.push('runtime-provenance-missing');
-    return [];
-  }
-  const provenance = [];
-  for (const entry of value) {
-    if (typeof entry !== 'string' || !RUNTIME_PROVENANCE.has(entry)) {
-      gaps.push('runtime-provenance-unrecognized');
-      continue;
-    }
-    provenance.push(entry);
-  }
-  if (new Set(provenance).size !== provenance.length) gaps.push('runtime-provenance-duplicate');
-  return [...new Set(provenance)].sort();
-}
-
-function validateRuntimeEvidenceOrigin({
-  surfaceMode,
-  observationScope,
-  freshness,
-  provenance,
-  gaps,
-}) {
-  if (surfaceMode === 'native') {
-    if (observationScope !== 'current-turn' || freshness !== 'current-turn') {
-      gaps.push('runtime-evidence-stale');
-    }
-    if (provenance.length !== 1 || provenance[0] !== 'host-tool-schema') {
-      gaps.push('runtime-native-provenance-incomplete');
-    }
-  }
-  if (surfaceMode === 'omx') {
-    if (observationScope !== 'current-session' || freshness !== 'current-session') {
-      gaps.push('runtime-evidence-stale');
-    }
-    if (
-      provenance.length !== 2 ||
-      !provenance.includes('host-tool-schema') ||
-      !provenance.includes('omx-runtime-overlay')
-    ) {
-      gaps.push('runtime-omx-provenance-incomplete');
-    }
-  }
-}
-
-function normalizeRuntimeRoles(value, gaps) {
-  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_REPORTED_ROLES) {
-    gaps.push('runtime-role-roster-invalid');
-    return [];
-  }
-  const roles = [];
-  for (const [index, role] of value.entries()) {
-    if (!role || typeof role !== 'object' || Array.isArray(role)) {
-      gaps.push(`runtime-role-record-invalid:${index}`);
-      continue;
-    }
-    for (const field of Object.keys(role)) {
-      if (!RUNTIME_ROLE_FIELDS.has(field)) gaps.push(`runtime-role-field-unsupported:${field}`);
-    }
-    try {
-      roles.push({
-        agentType: requireRuntimeRole(role.agentType),
-        available: requireBoolean(role.available, 'runtime role available'),
-        effectiveModel:
-          role.configurationResolution !== undefined && role.effectiveModel === null
-            ? null
-            : requireString(role.effectiveModel, 'runtime role effectiveModel', 80),
-        effectiveEffort:
-          role.configurationResolution !== undefined && role.effectiveEffort === null
-            ? null
-            : requireEnum(role.effectiveEffort, EFFORTS, 'runtime role effectiveEffort'),
-        ...(role.configurationResolution !== undefined
-          ? {
-              configurationResolution: normalizeConfigurationResolution(
-                role.configurationResolution,
-              ),
-            }
-          : {}),
-        explicitEffortSupport: requireBoolean(
-          role.explicitEffortSupport,
-          'runtime role explicitEffortSupport',
-        ),
-        ...(role.modelSelection !== undefined
-          ? { modelSelection: normalizeModelSelection(role.modelSelection) }
-          : {}),
-      });
-    } catch {
-      gaps.push(`runtime-role-metadata-invalid:${index}`);
-    }
-  }
-  if (new Set(roles.map(({ agentType }) => agentType)).size !== roles.length) {
-    gaps.push('runtime-role-roster-duplicate');
-  }
-  return roles;
-}
-
-function usesOrdinaryScopedArguments(runtime, contract) {
-  return (
-    !contract.routeRecommendation.modelRecommendation &&
-    runtime.surfaceMode === 'native' &&
-    contract.contextDelivery?.mode === 'scoped' &&
-    contract.contextDelivery?.effortMode === 'explicit'
-  );
-}
-
-function assessRuntimeCompatibility(runtime, contracts, modelUseByLane) {
-  const gaps = [];
-  if (runtime.dispatchPermission !== 'allowed') {
-    gaps.push(`runtime-dispatch-permission-${runtime.dispatchPermission}`);
-  }
-  const rolesByAgentType = new Map(runtime.roles.map((role) => [role.agentType, role]));
-  for (const contract of contracts) {
-    // Omitted optional context preserves legacy advice; supplied gaps must not be
-    // lost between the context composer and its dispatch consumer.
-    const delivery = contract.contextDelivery;
-    if (
-      delivery !== undefined &&
-      (delivery?.compatible !== true ||
-        delivery?.applied !== false ||
-        !Array.isArray(delivery?.gaps) ||
-        delivery.gaps.length !== 0)
-    )
-      gaps.push(`runtime-context-incompatible:${contract.laneId}`);
-    const requestedRole = contract.routeRecommendation.role;
-    const requestedEffort = resolveRouteEffort(contract.routeRecommendation);
-    const reportedRole = rolesByAgentType.get(requestedRole);
-    if (!reportedRole || !reportedRole.available) {
-      gaps.push(`runtime-role-unavailable:${requestedRole}`);
-      continue;
-    }
-    const model = contract.routeRecommendation.modelRecommendation;
-    if (usesOrdinaryScopedArguments(runtime, contract)) {
-      const selection = reportedRole.modelSelection;
-      if (
-        !selection?.explicitModelSupport ||
-        !selection.supportedModels.includes(REPOSITORY_CHILD_MODEL) ||
-        (selection.roleModel !== null && selection.roleModel !== REPOSITORY_CHILD_MODEL)
-      )
-        gaps.push(`runtime-scoped-model-unsupported:${requestedRole}`);
-      if (!reportedRole.explicitEffortSupport)
-        gaps.push(`runtime-scoped-effort-unsupported:${requestedRole}`);
-    }
-    const requestedModel = model?.recommendedModel ?? REPOSITORY_CHILD_MODEL;
-    const resolution = reportedRole.configurationResolution;
-    if (
-      resolution &&
-      (reportedRole.effectiveModel !== null || reportedRole.effectiveEffort !== null)
-    )
-      gaps.push(`runtime-mixed-resolution-observation:${requestedRole}`);
-    if ((resolution?.model ?? reportedRole.effectiveModel) !== requestedModel) {
-      gaps.push(`runtime-model-incompatible:${requestedRole}`);
-    }
-    if (resolution && model?.status !== 'candidate')
-      gaps.push('model-resolution-requires-candidate');
-    if (model?.status === 'candidate') {
-      gaps.push(...assessModelUse(contract, reportedRole, modelUseByLane[contract.laneId]));
-    }
-    if ((resolution?.effort ?? reportedRole.effectiveEffort) !== requestedEffort) {
-      gaps.push(
-        reportedRole.explicitEffortSupport
-          ? `runtime-effective-effort-mismatch:${requestedRole}`
-          : `runtime-fixed-effort-conflict:${requestedRole}`,
-      );
-    }
-  }
-  return {
-    compatible: gaps.length === 0,
-    gaps,
-    rolesByAgentType,
-  };
-}
-
-function normalizeConfigurationResolution(value) {
-  if (value?.kind === 'recovery') {
-    requireExactRecord(
-      value,
-      ['kind', 'recoveryBinding', 'model', 'effort', 'configDigest', 'reference'],
-      'recovery resolution',
-    );
-    const binding = assertCurrentRecoveryBinding(value.recoveryBinding);
-    requireString(value.reference, 'recovery resolution reference', 300);
-    if (
-      value.model !== binding.model ||
-      value.effort !== binding.resolvedEffort ||
-      value.configDigest !== binding.rescue.configDigest
-    )
-      throw new TypeError('Recovery resolution must exactly match its selection.');
-    return { ...value, recoveryBinding: binding };
-  }
-
-  requireExactRecord(
-    value,
-    ['profileBinding', 'model', 'effort', 'configDigest', 'reference'],
-    'configuration resolution',
-  );
-  requireDigest(value.configDigest);
-  return {
-    profileBinding: assertCurrentModelProfileBinding(value.profileBinding),
-    model: requireString(value.model, 'resolved model', 80),
-    effort: requireEnum(value.effort, EFFORTS, 'resolved effort'),
-    configDigest: value.configDigest,
-    reference: requireString(value.reference, 'resolution reference', 300),
-  };
-}
-
-function normalizeModelSelection(value) {
-  requireExactRecord(
-    value,
-    ['supportedModels', 'roleModel', 'explicitModelSupport', 'reference'],
-    'modelSelection',
-  );
-  if (
-    !Array.isArray(value.supportedModels) ||
-    value.supportedModels.length < 1 ||
-    value.supportedModels.length > 24
-  ) {
-    throw new TypeError('modelSelection requires a bounded supportedModels roster.');
-  }
-  const supportedModels = value.supportedModels.map((model) =>
-    requireString(model, 'supported model', 80),
-  );
-  assertUnique(supportedModels, 'supported model');
-  return {
-    supportedModels,
-    roleModel:
-      value.roleModel === null ? null : requireString(value.roleModel, 'role model pin', 80),
-    explicitModelSupport: requireBoolean(value.explicitModelSupport, 'explicit model support'),
-    reference: requireString(value.reference, 'model capability reference', 300),
-  };
-}
-
-// Caller-reported observations are not authority. Native dispatch still needs the
-// Parent to verify the original authorization, current bytes/config and budget.
-function validateModelUses(value, contracts) {
-  if (!value || Object.getPrototypeOf(value) !== Object.prototype)
-    throw new TypeError('modelUseByLane must be an object.');
-  const ids = new Set(contracts.map((contract) => contract.laneId));
-  for (const [id, use] of Object.entries(value)) {
-    if (!ids.has(id)) throw new TypeError(`Unknown model use lane: ${id}`);
-    requireExactRecord(
-      use,
-      [
-        'observedAt',
-        'configDigest',
-        'scopeDigest',
-        'scopeStatus',
-        'checks',
-        'remainingBudget',
-        'admission',
-      ],
-      'model use',
-    );
-    requireTimestamp(use.observedAt);
-    requireDigest(use.configDigest);
-    requireDigest(use.scopeDigest);
-    requireEnum(use.scopeStatus, new Set(['current', 'changed', 'unknown']), 'model scope status');
-    requireEnum(use.checks, new Set(['passed', 'failed', 'unknown']), 'model required checks');
-    requireExactRecord(use.remainingBudget, ['children', 'minutes'], 'remaining model budget');
-    requireBoundedInteger(use.remainingBudget.children, 'remaining children', 0, HARD_CHILD_LIMIT);
-    requireBoundedInteger(use.remainingBudget.minutes, 'remaining minutes', 0, 60);
-    const grant = use.admission;
-    if (grant === null) continue;
-    requireExactRecord(
-      grant,
-      [
-        'kind',
-        'reference',
-        'quality',
-        'model',
-        'role',
-        'effort',
-        'cohort',
-        'scopeDigest',
-        'configDigest',
-        'notBefore',
-        'expiresAt',
-        'budget',
-        'cleanupReference',
-        'profileBinding',
-      ],
-      'model admission',
-    );
-    assertCurrentModelProfileBinding(grant.profileBinding);
-    requireEnum(grant.kind, new Set(['pilot', 'adoption']), 'admission kind');
-    requireEnum(grant.quality, new Set(['unadopted', 'go', 'no-go']), 'quality decision');
-    for (const field of ['reference', 'model', 'role', 'cohort', 'cleanupReference'])
-      requireString(grant[field], field, 300);
-    requireEnum(grant.effort, EFFORTS, 'admission effort');
-    requireDigest(grant.scopeDigest);
-    requireDigest(grant.configDigest);
-    requireTimestamp(grant.notBefore);
-    requireTimestamp(grant.expiresAt);
-    requireExactRecord(grant.budget, ['maxChildren', 'maxMinutes'], 'model budget');
-    requireBoundedInteger(grant.budget.maxChildren, 'model maxChildren', 1, HARD_CHILD_LIMIT);
-    requireBoundedInteger(grant.budget.maxMinutes, 'model maxMinutes', 1, 60);
-  }
-}
-
-// Same static cohort boundary before dispatch and after attributed execution.
-// Rehashing a caller-supplied contract must not make an invalid profile valid.
+// A candidate's profile cohort boundary, recomputed from the contract at dispatch; a refreshed scope digest does not
+// make an invalid profile valid.
 function assessModelContractBoundary(contract) {
   assertChildWriteBoundary(contract);
   const gaps = [];
   const route = contract.routeRecommendation;
   const profile = getModelProfile(route.modelRecommendation.request.profileId);
-  if (route.effort !== 'medium') gaps.push('model-effort-eligibility-mismatch');
+  // The candidate's role carries the profile effort; the tier gate itself is recomputed by recommendModel.
+  if (
+    !profile.roles.includes(route.role) ||
+    route.effort !== profile.resolvedEffort ||
+    route.profileId !== profile.profileId
+  )
+    gaps.push('model-effort-eligibility-mismatch');
   const delivery = contract.contextDelivery;
   if (
     !delivery ||
@@ -1318,139 +846,16 @@ function assessModelContractBoundary(contract) {
   return gaps;
 }
 
-function assessModelUse(contract, reportedRole, use) {
-  const gaps = assessModelContractBoundary(contract);
-  const route = contract.routeRecommendation;
-  const { request, profileBinding } = route.modelRecommendation;
-  const selection = reportedRole.modelSelection;
-  if (
-    !selection ||
-    !selection.supportedModels.includes(profileBinding.model) ||
-    (selection.roleModel !== profileBinding.model &&
-      !(selection.roleModel === null && selection.explicitModelSupport))
-  ) {
-    gaps.push('model-pin-or-override-unverified');
-  }
-  const resolution = reportedRole.configurationResolution;
-  if (
-    resolution &&
-    (!reportedRole.explicitEffortSupport ||
-      !selection?.explicitModelSupport ||
-      resolution.configDigest !== use?.configDigest ||
-      !isDeepStrictEqual(resolution.profileBinding, profileBinding))
-  )
-    gaps.push('model-resolution-unverified');
-  const digest = createModelScopeDigest(contract);
-  if (contract.modelScopeDigest !== digest || !contract.modelTaskId)
-    gaps.push('model-contract-snapshot-changed');
-  if (!use || !use.admission) return [...gaps, 'model-admission-missing'];
-  const grant = use.admission;
-  if (
-    use.remainingBudget.children < 1 ||
-    use.remainingBudget.minutes < 1 ||
-    use.remainingBudget.children > grant.budget.maxChildren ||
-    use.remainingBudget.minutes > grant.budget.maxMinutes
-  )
-    gaps.push('model-budget-exhausted-or-incompatible');
-  if (
-    use.scopeStatus !== 'current' ||
-    use.checks !== 'passed' ||
-    use.scopeDigest !== digest ||
-    grant.scopeDigest !== digest ||
-    grant.configDigest !== use.configDigest
-  ) {
-    gaps.push('model-scope-config-or-checks-changed');
-  }
-  if (
-    grant.model !== profileBinding.model ||
-    grant.role !== route.role ||
-    grant.effort !== resolveRouteEffort(route) ||
-    grant.cohort !== profileBinding.cohort ||
-    !isDeepStrictEqual(grant.profileBinding, profileBinding)
-  )
-    gaps.push('model-admission-route-mismatch');
-  if (
-    Date.parse(grant.notBefore) > Date.parse(use.observedAt) ||
-    Date.parse(use.observedAt) >= Date.parse(grant.expiresAt)
-  )
-    gaps.push('model-admission-expired-or-not-started');
-  if (
-    request.purpose === 'pilot'
-      ? grant.kind !== 'pilot' || grant.quality === 'no-go'
-      : grant.kind !== 'adoption' || grant.quality !== 'go'
-  )
-    gaps.push('model-pilot-adoption-boundary');
-  return gaps;
-}
-
-function requireTimestamp(value) {
-  if (
-    typeof value !== 'string' ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
-    throw new TypeError('Model observation requires an exact ISO timestamp.');
-}
-
-function requireDigest(value) {
-  if (typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(value))
-    throw new TypeError('Model snapshot requires a SHA-256 digest.');
-}
-
-function rejectedRuntimeEvidence(gaps, partial = {}) {
-  return deepFreeze({
-    schemaVersion: 1,
-    evidenceStatus: 'rejected',
-    authority: 'leader-reported-not-host-authenticated',
-    surfaceMode: partial.surfaceMode ?? null,
-    observationScope: partial.observationScope ?? null,
-    freshness: partial.freshness ?? null,
-    provenance: partial.provenance ?? [],
-    dispatchPermission: partial.dispatchPermission ?? null,
-    roles: partial.roles ?? [],
-    gaps: unique(gaps),
-  });
-}
-
-function optionalEnum(value, allowed) {
-  return typeof value === 'string' && allowed.has(value) ? value : null;
-}
-
-function requireRuntimeRole(value) {
-  const normalized = requireString(value, 'runtime role agentType', 80);
-  if (!/^[a-z][a-z\d_-]*$/u.test(normalized)) {
-    throw new TypeError('runtime role agentType must use lowercase identifier syntax.');
-  }
-  return normalized;
-}
-
 function normalizeAttempt(attempt, index) {
   if (!attempt || typeof attempt !== 'object' || Array.isArray(attempt)) {
     throw new TypeError('attempt must be an object.');
   }
+  for (const field of Object.keys(attempt))
+    if (!ATTEMPT_FIELDS.has(field)) throw new TypeError(`Unsupported attempt field: ${field}`);
+  if (attempt.number !== undefined && attempt.number !== index + 1)
+    throw new TypeError(`Attempt number must equal its position: ${index + 1}.`);
   const outcome = requireEnum(attempt.outcome, ATTEMPT_OUTCOMES, 'attempt outcome');
   return {
-    ...(attempt.model !== undefined
-      ? { model: requireString(attempt.model, 'attempt model', 80) }
-      : {}),
-    ...(attempt.effort !== undefined
-      ? {
-          effort: requireEnum(
-            attempt.effort,
-            attempt.recoveryBinding ? new Set(['low', ...EFFORTS]) : EFFORTS,
-            'attempt effort',
-          ),
-        }
-      : {}),
-    ...(attempt.executed !== undefined
-      ? { executed: requireBoolean(attempt.executed, 'attempt executed') }
-      : {}),
-    ...(attempt.identity !== undefined
-      ? { identity: normalizeAttemptIdentity(attempt.identity) }
-      : {}),
-    ...(attempt.recoveryBinding !== undefined
-      ? { recoveryBinding: assertCurrentRecoveryBinding(attempt.recoveryBinding) }
-      : {}),
     number: index + 1,
     approachId: requireIdentifier(attempt.approachId, 'approachId'),
     alternateOf:
@@ -1473,12 +878,40 @@ function validateAttemptSequence(attempts) {
   if (attempts[0].outcome !== 'failure') {
     throw new TypeError('An alternate attempt cannot follow a successful primary attempt.');
   }
+  if (NON_RETRYABLE_FAILURES.has(attempts[0].failureCategory)) {
+    throw new TypeError('A non-retryable failure has no alternate attempt.');
+  }
   if (
     attempts[1].approachId === attempts[0].approachId ||
     attempts[1].alternateOf !== attempts[0].approachId
   ) {
     throw new TypeError('The second attempt must be one distinct alternate approach.');
   }
+}
+
+function normalizeRecoveryRoute(route) {
+  if (!route || typeof route !== 'object' || Array.isArray(route))
+    throw new TypeError('Recovery requires the lane route: role and profileId.');
+  for (const field of Object.keys(route))
+    if (!RECOVERY_ROUTE_FIELDS.has(field))
+      throw new TypeError(`Unsupported recovery route field: ${field}`);
+  // The profile must exist and carry the role; the ladder lookup checks both.
+  getRecoveryStep(route.profileId, route.role);
+  return { role: route.role, profileId: route.profileId };
+}
+
+function recoveryRetryRoute(route, failureCategory) {
+  const step = STEP_UP_FAILURES.has(failureCategory)
+    ? getRecoveryStep(route.profileId, route.role)
+    : null;
+  return step
+    ? { kind: 'ladder', role: route.role, profileId: step.profileId, model: step.model }
+    : {
+        kind: 'same-contract',
+        role: route.role,
+        profileId: route.profileId,
+        model: getModelProfile(route.profileId).model,
+      };
 }
 
 function terminalDisposition(category) {
@@ -1573,6 +1006,9 @@ function normalizeRecoveryDecision(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('recovery decision must be an object.');
   }
+  for (const field of Object.keys(value))
+    if (!RECOVERY_DECISION_FIELDS.has(field))
+      throw new TypeError(`Unsupported recovery decision field: ${field}`);
   if (value.schemaVersion !== 1 || value.maxAlternateAttempts !== 1) {
     throw new TypeError('recovery decision must use the bounded schema.');
   }
@@ -1593,33 +1029,24 @@ function normalizeRecoveryDecision(value) {
   validateRecoveryShape({ status, action, remainingAlternateAttempts, blocker, disposition });
   const attempts = value.attempts.map(normalizeAttempt);
   validateAttemptSequence(attempts);
-  if (!value.recoveryBinding && attempts.some((attempt) => attempt.recoveryBinding))
-    throw new TypeError('Attributed recovery attempts require their decision-level binding.');
-  if (value.recoveryBinding) {
-    assertRecoveryAttempts(attempts, value.recoveryBinding);
-    if (
-      value.laneId !== value.recoveryBinding.rescue.laneId ||
-      value.nextModel !== (action === 'alternate-once' ? value.recoveryBinding.model : null)
-    )
-      throw new TypeError('Recovery decision must preserve lane and next-model attribution.');
-    const expected = evaluateAttemptRecovery({ laneId: value.laneId, attempts });
-    for (const field of [
-      'status',
-      'action',
-      'remainingAlternateAttempts',
-      'blocker',
-      'disposition',
-    ])
-      if (value[field] !== expected[field])
-        throw new TypeError('Recovery decision must preserve its attempt outcomes.');
-  }
+  const laneId = requireIdentifier(value.laneId, 'recovery laneId');
+  // Optional derived fields are checked, not dropped: they must be what the route and attempts recompute to.
+  const expected = evaluateRecovery({ laneId, route: value.route, attempts: value.attempts });
+  for (const field of ['confidence', 'prohibitedApproachIds'])
+    if (field in value && !isDeepStrictEqual(value[field], expected[field]))
+      throw new TypeError(`Recovery decision ${field} must match its attempts.`);
+  if ('retryRoute' in value && !isDeepStrictEqual(value.retryRoute, expected.retryRoute))
+    throw new TypeError('Recovery decision retryRoute must match its route and attempts.');
+  // The state is recomputed too, so a relabeled decision cannot buy a second retry or close a failed lane.
+  const state = { status, action, remainingAlternateAttempts, blocker, disposition };
+  for (const field of Object.keys(state))
+    if (state[field] !== expected[field])
+      throw new TypeError('Recovery decision status and action must match its attempts.');
   return deepFreeze({
     attempts,
-    ...(value.recoveryBinding
-      ? { recoveryBinding: assertCurrentRecoveryBinding(value.recoveryBinding) }
-      : {}),
-    ...(value.nextModel !== undefined ? { nextModel: value.nextModel } : {}),
-    laneId: requireIdentifier(value.laneId, 'recovery laneId'),
+    laneId,
+    route: expected.route,
+    retryRoute: expected.retryRoute,
     status,
     action,
     remainingAlternateAttempts,
@@ -1718,6 +1145,20 @@ function assertDelegationRecommendation(delegation) {
     const role = requireString(contract.routeRecommendation?.role, 'route role', 80);
     if (!INSTALLED_ROLES.has(role)) throw new TypeError(`Unsupported native role route: ${role}`);
     requireEnum(contract.routeRecommendation?.effort, EFFORTS, 'route effort');
+    if (contract.routeRecommendation.effort !== ROLE_EFFORTS[role])
+      throw new TypeError('Route effort must be the effort its role file pins.');
+    requireEnum(contract.routeRecommendation.tier, EFFORTS, 'route tier');
+    const routeProfile = getModelProfile(contract.routeRecommendation.profileId);
+    if (!routeProfile.roles.includes(role))
+      throw new TypeError('Route profile must list its role.');
+    // Only an admitted candidate may carry a candidate profile; the spawn model comes from this profile.
+    if (
+      contract.routeRecommendation.modelRecommendation?.status !== 'candidate' &&
+      routeProfile.kind !== 'assignment'
+    )
+      throw new TypeError(
+        'A route without an admitted candidate must name an Astra assignment profile.',
+      );
     if (contract.routeRecommendation?.execution !== 'bounded-child') {
       throw new TypeError('child route recommendation must use bounded-child execution.');
     }
@@ -1794,19 +1235,6 @@ function assertSemanticRouteRecommendation(route) {
   }
   requireEnum(route.impactRisk, new Set(['low', 'medium', 'high']), 'route impact risk');
   requireEnum(route.confidence, CONFIDENCE, 'route confidence');
-  if (!Array.isArray(route.gaps) || !route.gaps.includes('runtime-role-evidence-deferred')) {
-    throw new TypeError('child route recommendation must preserve the runtime evidence gap.');
-  }
-  const runtime = route.runtimeApplication;
-  if (
-    !runtime ||
-    runtime.requested !== true ||
-    runtime.supported !== 'unknown' ||
-    runtime.applied !== false ||
-    runtime.evidenceStatus !== 'deferred-to-runtime-compatibility'
-  ) {
-    throw new TypeError('child route recommendation has invalid transitional runtime evidence.');
-  }
 }
 
 function normalizeObjectArray(values, field, mapper) {
@@ -1933,307 +1361,4 @@ function assertCurrentModelRecommendation(contract) {
     );
   if (model.role !== contract.routeRecommendation.role)
     throw new TypeError('Model task must preserve the semantic role.');
-}
-
-function normalizeAttemptIdentity(value) {
-  requireExactRecord(
-    value,
-    ['taskId', 'childId', 'sourceDigest', 'scopeDigest'],
-    'attempt identity',
-  );
-  requireIdentifier(value.taskId, 'attempt task');
-  requireString(value.childId, 'attempt child', 160);
-  requireDigest(value.sourceDigest);
-  requireDigest(value.scopeDigest);
-  return { ...value };
-}
-
-function assertRecoveryAttempts(attempts, binding) {
-  assertCurrentRecoveryBinding(binding);
-  if (attempts.length < 1 || attempts.length > 2)
-    throw new TypeError('Recovery requires one primary and at most one alternate.');
-  const [first, second] = attempts;
-  const primary = binding.primary;
-  if (
-    first.outcome !== 'failure' ||
-    first.failureCategory !== primary.failureCategory ||
-    NON_RETRYABLE_FAILURES.has(first.failureCategory) ||
-    first.executed !== true ||
-    first.approachId !== primary.attemptId ||
-    first.alternateOf != null ||
-    first.model !== primary.profileBinding.model ||
-    first.effort !== primary.profileBinding.resolvedEffort ||
-    !isDeepStrictEqual(first.identity, {
-      taskId: primary.taskId,
-      childId: primary.childId,
-      sourceDigest: primary.sourceDigest,
-      scopeDigest: primary.scopeDigest,
-    })
-  )
-    throw new TypeError('Recovery selection does not match the exact failed primary.');
-  if (
-    second &&
-    (second.approachId !== binding.rescue.attemptId ||
-      second.alternateOf !== first.approachId ||
-      second.model !== binding.model ||
-      second.effort !== binding.resolvedEffort ||
-      second.executed !== true ||
-      !isDeepStrictEqual(second.recoveryBinding, binding) ||
-      second.identity?.taskId !== binding.rescue.taskId ||
-      second.identity?.scopeDigest !== binding.rescue.scopeDigest ||
-      second.identity?.sourceDigest !== binding.rescue.sourceDigest ||
-      !second.identity?.childId ||
-      second.identity.childId === primary.childId)
-  )
-    throw new TypeError('Only the exact once-bound Astra alternate can complete recovery.');
-}
-
-function assertRecoveryAdmission(use, binding) {
-  requireExactRecord(
-    use,
-    [
-      'observedAt',
-      'configDigest',
-      'scopeDigest',
-      'scopeStatus',
-      'checks',
-      'remainingBudget',
-      'admission',
-    ],
-    'recovery use',
-  );
-  requireTimestamp(use.observedAt);
-  const grant = use.admission;
-  requireExactRecord(
-    grant,
-    [
-      'kind',
-      'reference',
-      'recoveryBinding',
-      'notBefore',
-      'expiresAt',
-      'budget',
-      'cleanupReference',
-    ],
-    'recovery admission',
-  );
-  assertCurrentRecoveryBinding(grant.recoveryBinding);
-  for (const key of ['reference', 'cleanupReference']) requireString(grant[key], key, 300);
-  requireTimestamp(grant.notBefore);
-  requireTimestamp(grant.expiresAt);
-  requireExactRecord(grant.budget, ['maxChildren', 'maxMinutes'], 'recovery budget');
-  requireExactRecord(use.remainingBudget, ['children', 'minutes'], 'remaining recovery budget');
-  requireBoundedInteger(grant.budget.maxMinutes, 'recovery minutes', 1, 60);
-  requireBoundedInteger(
-    use.remainingBudget.minutes,
-    'remaining recovery minutes',
-    1,
-    grant.budget.maxMinutes,
-  );
-  if (
-    grant.kind !== 'recovery' ||
-    !isDeepStrictEqual(grant.recoveryBinding, binding) ||
-    grant.budget.maxChildren !== 1 ||
-    use.remainingBudget.children !== 1 ||
-    use.configDigest !== binding.rescue.configDigest ||
-    use.scopeDigest !== binding.rescue.scopeDigest ||
-    use.scopeStatus !== 'current' ||
-    use.checks !== 'passed' ||
-    Date.parse(grant.notBefore) > Date.parse(use.observedAt) ||
-    Date.parse(use.observedAt) >= Date.parse(grant.expiresAt)
-  )
-    throw new TypeError('A fresh exact once-only recovery admission is required.');
-}
-
-function createRecoveryDispatch({
-  delegation,
-  reportedRuntimeEvidence,
-  concurrencyLimit,
-  modelUseByLane,
-  recoveryDecision: decision,
-}) {
-  assertDelegationRecommendation(delegation);
-  validateConcurrencyLimit(concurrencyLimit);
-  const runtime = normalizeReportedRuntimeEvidence(reportedRuntimeEvidence);
-  const gaps = [];
-  let dispatch;
-  try {
-    const binding = assertCurrentRecoveryBinding(decision.recoveryBinding);
-    const contract = delegation.recommendedChildren[0];
-    const normalized = normalizeRecoveryDecision(decision);
-    if (
-      delegation.recommendedChildren.length !== 1 ||
-      delegation.requestId !== binding.rescue.taskId ||
-      normalized.action !== 'alternate-once' ||
-      normalized.attempts.length !== 1 ||
-      decision.nextModel !== binding.model ||
-      decision.laneId !== binding.rescue.laneId ||
-      runtime.evidenceStatus !== 'accepted' ||
-      runtime.dispatchPermission !== 'allowed'
-    )
-      throw new TypeError('Recovery is not dispatchable.');
-    assertRecoveryChildContract(contract, binding);
-    if (Object.keys(modelUseByLane).length !== 1)
-      throw new TypeError('Recovery is one exact lane.');
-    const use = modelUseByLane[contract.laneId];
-    assertRecoveryAdmission(use, binding);
-    const role = runtime.roles.find((r) => r.agentType === binding.rescue.role);
-    const resolution = role?.configurationResolution;
-    if (
-      !role?.available ||
-      role.effectiveModel !== null ||
-      role.effectiveEffort !== null ||
-      !role.explicitEffortSupport ||
-      !role.modelSelection?.explicitModelSupport ||
-      !role.modelSelection.supportedModels.includes(binding.model) ||
-      ![null, binding.model].includes(role.modelSelection.roleModel) ||
-      resolution?.kind !== 'recovery' ||
-      !isDeepStrictEqual(resolution.recoveryBinding, binding)
-    )
-      throw new TypeError('Current host cannot resolve the exact recovery invocation.');
-    dispatch = {
-      kind: 'model-recovery',
-      laneId: contract.laneId,
-      agentType: binding.rescue.role,
-      effort: contract.routeRecommendation.effort,
-      effectiveModel: null,
-      effectiveEffort: null,
-      requestedModel: binding.model,
-      resolvedModel: binding.model,
-      resolvedEffort: binding.resolvedEffort,
-      explicitEffortSupport: true,
-      contract,
-      recoveryBinding: binding,
-      recoveryDecision: decision,
-      recoveryUse: use,
-      configurationResolution: resolution,
-      spawnArguments: {
-        agent_type: binding.rescue.role,
-        model: binding.model,
-        reasoning_effort: binding.resolvedEffort,
-        fork_turns: 'none',
-      },
-      dispatchOwner: 'leader',
-      runtimeSurface: runtime.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
-      requiresLeaderRuntimeConfirmation: true,
-      runtimeAction: false,
-    };
-  } catch {
-    gaps.push('model-recovery-incompatible-or-unadmitted');
-  }
-  return dispatchRecommendation({
-    delegation,
-    runtime,
-    concurrencyLimit,
-    execution: dispatch ? 'native-bounded-dispatch' : 'leader-sequential',
-    reason: dispatch
-      ? 'One exact recovery is ready for leader-controlled native dispatch.'
-      : 'Recovery requires current selection, host and authorization evidence.',
-    dispatches: dispatch ? [dispatch] : [],
-    deferredLaneIds: dispatch ? [] : delegation.recommendedChildren.map((c) => c.laneId),
-    gaps,
-  });
-}
-
-function evaluateRecoveryExecution({ dispatch, expectedChildId, reportedExecution: observation }) {
-  const gaps = [];
-  try {
-    const binding = assertCurrentRecoveryBinding(dispatch.recoveryBinding);
-    assertRecoveryChildContract(dispatch.contract, binding);
-    assertSemanticRouteRecommendation(dispatch.contract.routeRecommendation);
-    assertRecoveryAdmission(dispatch.recoveryUse, binding);
-    const decision = normalizeRecoveryDecision(dispatch.recoveryDecision);
-    if (
-      decision.action !== 'alternate-once' ||
-      decision.attempts.length !== 1 ||
-      !isDeepStrictEqual(decision.recoveryBinding, binding)
-    )
-      throw new TypeError('Recovery dispatch no longer matches the decision.');
-    const resolution = normalizeConfigurationResolution(dispatch.configurationResolution);
-    if (
-      !isDeepStrictEqual(resolution.recoveryBinding, binding) ||
-      dispatch.runtimeAction !== false ||
-      dispatch.kind !== 'model-recovery' ||
-      dispatch.agentType !== binding.rescue.role ||
-      dispatch.requestedModel !== binding.model ||
-      dispatch.effort !== binding.rescue.semanticEffort ||
-      dispatch.resolvedModel !== binding.model ||
-      dispatch.resolvedEffort !== binding.resolvedEffort ||
-      !isDeepStrictEqual(dispatch.spawnArguments, {
-        agent_type: binding.rescue.role,
-        model: binding.model,
-        reasoning_effort: binding.resolvedEffort,
-        fork_turns: 'none',
-      })
-    )
-      throw new TypeError('Recovery descriptor mismatch.');
-    requireString(expectedChildId, 'actual returned rescue child', 160);
-    requireExactRecord(
-      observation,
-      [
-        'recoveryBinding',
-        'childId',
-        'taskId',
-        'scopeDigest',
-        'provenance',
-        'accepted',
-        'executed',
-        'resultReference',
-        'independentCheck',
-        'hostMetadata',
-        'usageReference',
-      ],
-      'recovery execution',
-    );
-    if (
-      !isDeepStrictEqual(observation.recoveryBinding, binding) ||
-      observation.childId !== expectedChildId ||
-      observation.childId === binding.primary.childId ||
-      observation.taskId !== binding.rescue.taskId ||
-      observation.scopeDigest !== binding.rescue.scopeDigest ||
-      observation.provenance !== 'native-tool-result' ||
-      observation.accepted !== true ||
-      observation.executed !== true
-    )
-      throw new TypeError('Recovery execution identity mismatch.');
-    requireString(observation.resultReference, 'rescue result reference', 300);
-    requireExactRecord(
-      observation.independentCheck,
-      ['status', 'reference'],
-      'rescue independent check',
-    );
-    requireString(
-      observation.independentCheck.reference,
-      'rescue independent check reference',
-      300,
-    );
-    if (observation.independentCheck.status !== 'passed')
-      gaps.push('model-independent-quality-not-passed');
-    if (
-      observation.hostMetadata !== null &&
-      !isDeepStrictEqual(observation.hostMetadata, {
-        model: binding.model,
-        effort: binding.resolvedEffort,
-      })
-    )
-      gaps.push('model-host-metadata-mismatch');
-    if (observation.usageReference !== null)
-      requireString(observation.usageReference, 'usage reference', 300);
-  } catch {
-    gaps.push('model-recovery-execution-evidence-invalid');
-  }
-  return deepFreeze({
-    accepted: gaps.length === 0,
-    evidenceKind: gaps.length
-      ? 'unverified'
-      : observation.hostMetadata
-        ? 'host-reported-model'
-        : 'runtime-contract-resolved',
-    providerAttested: false,
-    usageReference: gaps.length ? null : observation.usageReference,
-    authority: 'leader-reported-not-host-authenticated',
-    requiresLeaderRuntimeConfirmation: true,
-    runtimeAction: false,
-    gaps,
-  });
 }

@@ -43,61 +43,54 @@ test('scoped delivery preserves every original child contract field and safety b
   assert.equal(contextDelivery.compatible, true);
   assert.equal(contextDelivery.applied, false);
   assert.equal(contextDelivery.authority, 'leader-reported-not-host-authenticated');
-  assert.equal(contextDelivery.requiresLeaderRuntimeConfirmation, true);
   assert.ok(contextDelivery.instructionSources.includes('AGENTS.md'));
   assert.deepEqual(contextDelivery.findings, request.findings);
   assert.deepEqual(contextDelivery.failures, request.failures);
   assert.deepEqual(request, before);
-  assert.equal(Object.isFrozen(request.runtime), false);
+  assert.equal(Object.isFrozen(request), false);
   assert.equal(Object.isFrozen(contextDelivery), true);
   assert.equal('contextDelivery' in legacy.recommendedChildren[0], false);
 });
 
-for (const [name, patch, gap] of [
-  ['unknown runtime', null, 'delivery-runtime-unverified'],
-  ['stale runtime', { freshness: 'stale' }, 'delivery-runtime-unverified'],
-  ['unknown fork', { scopedFork: null }, 'scoped-fork-unsupported'],
-  ['missing fork', { scopedFork: false }, 'scoped-fork-unsupported'],
-  ['unknown effort', { explicitEffort: null }, 'explicit-effort-unsupported'],
-  ['fixed effort', { explicitEffort: false }, 'explicit-effort-unsupported'],
-]) {
-  test(`delivery never claims native application: ${name}`, () => {
-    const request = deliveryRequest();
-    request.runtime = patch === null ? null : { ...request.runtime, ...patch };
-    const result = deliveredContract(request).contextDelivery;
-    assert.equal(result.compatible, false);
-    assert.equal(result.applied, false);
-    assert.ok(result.gaps.includes(gap));
+test('delivery takes no runtime record and the project hook denies a full-history fork', () => {
+  const request = deliveryRequest();
+  const scoped = deliveredContract(request).contextDelivery;
+  assert.equal(scoped.compatible, true);
+  assert.equal('requiresLeaderRuntimeConfirmation' in scoped, false);
+  assert.throws(() => deliveredContract({ ...request, runtime: null }), {
+    name: 'TypeError',
+    message: /Delivery record must contain exactly/u,
   });
-}
+  const full = deliveredContract({
+    ...request,
+    mode: 'full-history',
+    rationale: 'This bounded task requires the current design discussion.',
+  }).contextDelivery;
+  assert.equal(full.compatible, false);
+  assert.deepEqual(full.gaps, ['full-history-fork-denied']);
+});
 
-test('full history needs a reason and supported explicit effort combination', () => {
+test('full history needs a reason and is never spawn-compatible', () => {
   const request = deliveryRequest();
   request.mode = 'full-history';
   const noReason = deliveredContract(request).contextDelivery;
   assert.equal(noReason.compatible, false);
-  assert.ok(noReason.gaps.includes('full-history-rationale-required'));
+  assert.deepEqual(noReason.gaps, ['full-history-rationale-required', 'full-history-fork-denied']);
   request.rationale = 'This bounded task requires the current design discussion.';
-  request.runtime.fullHistoryWithExplicitEffort = false;
-  assert.equal(deliveredContract(request).contextDelivery.compatible, false);
-  request.runtime.fullHistoryWithExplicitEffort = true;
-  assert.equal(deliveredContract(request).contextDelivery.compatible, true);
-  request.runtime.fullHistoryFork = null;
   assert.equal(deliveredContract(request).contextDelivery.compatible, false);
 });
 
-test('inherited effort must match the selected route and never lowers high-risk work', () => {
+test('delivery carries no effort mode and the role pin sets effort for high-risk work', () => {
   const request = deliveryRequest();
-  request.effortMode = 'inherit';
-  request.runtime.explicitEffort = false;
-  for (const effort of [null, 'medium', 'xhigh']) {
-    request.runtime.effectiveEffort = effort;
-    const result = deliveredContract(request);
-    assert.equal(result.routeRecommendation.effort, 'high');
-    assert.equal(result.contextDelivery.compatible, false);
-  }
-  request.runtime.effectiveEffort = 'high';
-  assert.equal(deliveredContract(request).contextDelivery.compatible, true);
+  // A high-impact analysis routes to the xhigh explorer variant; its role file pins xhigh.
+  const result = deliveredContract(request);
+  assert.equal(result.routeRecommendation.effort, 'xhigh');
+  assert.equal(Object.hasOwn(result.contextDelivery, 'effortMode'), false);
+  assert.equal(result.contextDelivery.compatible, true);
+  assert.throws(() => deliveredContract({ ...request, effortMode: 'inherit' }), {
+    name: 'TypeError',
+    message: /^Delivery record must contain exactly: /u,
+  });
 });
 
 test('initial independent review requires fresh scoped context, not builder history or reuse', () => {
@@ -140,8 +133,6 @@ test('same reviewer delta can reuse only a currently revalidated bounded context
     assert.equal(recommendation.mode, 'scoped');
     assert.equal(recommendation.reuseTarget, null);
   }
-  request.runtime.followup = false;
-  assert.equal(deliveredContract(request, 'review').contextDelivery.compatible, false);
   request.mode = 'full-history';
   request.rationale = 'Do not substitute builder history for a review delta.';
   assert.equal(deliveredContract(request, 'review').contextDelivery.compatible, false);
@@ -150,13 +141,9 @@ test('same reviewer delta can reuse only a currently revalidated bounded context
 test('non-review followup can reuse a scoped same-outcome lane without claiming independent QA', () => {
   const request = reuseRequest();
   request.purpose = 'task';
-  request.previous.role = 'knu_explorer';
+  request.previous.role = 'knu_explorer_xhigh';
   request.previous.independentReview = false;
   assert.equal(deliveredContract(request).contextDelivery.compatible, true);
-  request.effortMode = 'explicit';
-  const unsupported = deliveredContract(request).contextDelivery;
-  assert.equal(unsupported.compatible, false);
-  assert.ok(unsupported.gaps.includes('reuse-effort-override-unsupported'));
 });
 
 test('context inputs cannot inject history/tools, widen evidence scope or silently truncate failures', () => {
@@ -177,13 +164,7 @@ test('context inputs cannot inject history/tools, widen evidence scope or silent
       v.evidencePointers = ['apps/api/src/auth'];
     },
     (v) => {
-      v.runtime.scopedFork = 'true';
-    },
-    (v) => {
-      v.runtime.effectiveEffort = 'low';
-    },
-    (v) => {
-      v.runtime.hostAuthenticated = true;
+      v.runtime = { freshness: 'current-turn', scopedFork: true };
     },
     (v) => {
       v.previous = { childId: '/unknown' };
@@ -259,22 +240,12 @@ function deliveryRequest() {
   return {
     purpose: 'task',
     mode: 'scoped',
-    effortMode: 'explicit',
     rationale: null,
     snapshot: 'current-source-snapshot',
     evidencePointers: ['docs/policies/legal-basis.md'],
     findings: ['Keep the source ownership finding.'],
     failures: ['Prior check failed; inspect the bounded evidence log.'],
     previous: null,
-    runtime: {
-      freshness: 'current-turn',
-      scopedFork: true,
-      fullHistoryFork: true,
-      followup: true,
-      explicitEffort: true,
-      fullHistoryWithExplicitEffort: false,
-      effectiveEffort: 'high',
-    },
   };
 }
 
@@ -282,7 +253,6 @@ function reuseRequest() {
   const request = deliveryRequest();
   request.purpose = 'review-delta';
   request.mode = 'reuse';
-  request.effortMode = 'inherit';
   const { contextPack } = legalFlow();
   request.previous = {
     childId: '/root/reviewer',
@@ -325,16 +295,11 @@ test('permits one independently valuable lane and carries the complete Pass 2 ro
   assert.equal(result.execution, 'bounded-lanes');
   assert.equal(result.recommendedChildren.length, 1);
   const [contract] = result.recommendedChildren;
-  assert.equal(contract.routeRecommendation.role, 'knu_explorer');
-  assert.equal(contract.routeRecommendation.effort, 'high');
+  assert.equal(contract.routeRecommendation.role, 'knu_explorer_xhigh');
+  assert.equal(contract.routeRecommendation.effort, 'xhigh');
   assert.equal(contract.routeRecommendation.pass2Applied, true);
   assert.equal(contract.routeRecommendation.evidenceIds.length, 1);
   assert.equal(contract.routeRecommendation.assessment.reasoningComplexity, 'substantial');
-  assert.deepEqual(
-    contract.routeRecommendation.runtimeApplication,
-    transitionalRuntimeApplication(),
-  );
-  assert.match(contract.routeRecommendation.gaps.join(' '), /runtime-role-evidence-deferred/u);
   assert.equal(contract.leaderOwnership.finalDecision, true);
   assert.equal(contract.leaderOwnership.finalUserResponse, true);
   assert.equal(contract.leaderOwnership.integration, true);
@@ -577,7 +542,7 @@ test('child contracts propagate optional model advice without relaxing write or 
     writeOwnership: ['apps/web/src/legal/example.test.ts'],
     pass2Evidence: evidence,
     modelRequest: {
-      profileId: 'bounded-build',
+      profileId: 'standard-build',
       purpose: 'pilot',
       verificationFacts: {
         acceptance: evidence.facts[0].factId,
@@ -588,7 +553,7 @@ test('child contracts propagate optional model advice without relaxing write or 
   });
   const result = recommendDelegation({ envelope, contextPack, laneCandidates: [lane] });
   const [child] = result.recommendedChildren;
-  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-6-sol');
+  assert.equal(child.routeRecommendation.modelRecommendation.recommendedModel, 'gpt-6.1-sol');
   assert.match(child.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
   assert.equal(child.leaderOwnership.finalVerification, true);
   const changed = structuredClone(child);
@@ -599,7 +564,7 @@ test('child contracts propagate optional model advice without relaxing write or 
     impactRisk: 'low',
     pass2Evidence: evidence,
     modelRequest: {
-      profileId: 'bounded-extract',
+      profileId: 'extract',
       purpose: 'pilot',
       verificationFacts: Object.fromEntries(
         ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'].map(
@@ -608,19 +573,17 @@ test('child contracts propagate optional model advice without relaxing write or 
       ),
     },
   });
-  for (const effort of ['medium', 'high', 'xhigh']) {
-    const delivery = deliveryRequest();
-    delivery.effortMode = 'inherit';
-    delivery.runtime.effectiveEffort = effort;
-    const [c] = recommendDelegation({
-      envelope,
-      contextPack,
-      laneCandidates: [extraction],
-      deliveryByLane: { [extraction.id]: delivery },
-    }).recommendedChildren;
-    assert.equal(c.routeRecommendation.effort, 'medium');
-    assert.equal(c.contextDelivery.compatible, effort === 'xhigh');
-  }
+  const delivery = deliveryRequest();
+  const [c] = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [extraction],
+    deliveryByLane: { [extraction.id]: delivery },
+  }).recommendedChildren;
+  // The extraction role is the xhigh explorer variant; its role file pins the effort.
+  assert.equal(c.routeRecommendation.role, 'knu_explorer_xhigh');
+  assert.equal(c.routeRecommendation.effort, 'xhigh');
+  assert.equal(c.contextDelivery.compatible, true);
   assert.throws(
     () =>
       recommendDelegation({
@@ -720,31 +683,3 @@ function semanticEvidence(
     confidence: 'high',
   };
 }
-
-function transitionalRuntimeApplication() {
-  return {
-    requested: true,
-    supported: 'unknown',
-    applied: false,
-    evidenceStatus: 'deferred-to-runtime-compatibility',
-  };
-}
-
-test('ordinary child delivery still rejects low and max invocation claims', () => {
-  const { envelope, contextPack } = legalFlow();
-  const lane = repositoryLane(contextPack);
-  for (const effort of ['low', 'max']) {
-    const delivery = deliveryRequest();
-    delivery.runtime.effectiveEffort = effort;
-    assert.throws(
-      () =>
-        recommendDelegation({
-          envelope,
-          contextPack,
-          laneCandidates: [lane],
-          deliveryByLane: { [lane.id]: delivery },
-        }),
-      TypeError,
-    );
-  }
-});

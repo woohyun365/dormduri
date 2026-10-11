@@ -1,6 +1,6 @@
 # Bounded orchestration, recovery, and leader synthesis
 
-이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, Astra recovery, `scripts/agents/codex/` descriptor와 admission은 Codex/OMX 실행 계약입니다.
+이 문서는 Codex adapter가 소유하는 reference입니다. Model profile, recovery 상한, `scripts/agents/codex/` descriptor는 Codex/OMX 실행 계약입니다.
 공통 one-writer·source freshness·authority·QA는 [orchestration](../orchestration.md)과 [execution contract](../agent-execution-contract.md)가 소유합니다.
 Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 이 schema로 Claude model/runtime 지원을 가장하지 않습니다.
 
@@ -10,311 +10,135 @@ Claude Code에는 [native adapter](../adapters/claude-code.md)를 사용하며 �
 
 ## Native dispatch gate
 
-`scripts/agents/codex/orchestration-policy.mjs`는 다음을 모두 확인한 경우에만 typed native dispatch descriptor를
-추천합니다.
+`scripts/agents/codex/orchestration-policy.mjs`의 `createDispatchRecommendation()`은 `delegation`, `concurrencyLimit`,
+`dispatchToken`만 받고(그 밖 key는 TypeError), 다음을 모두 확인한 경우에만 typed native dispatch
+descriptor를 추천합니다.
 
-- delegation 결과가 `bounded-lanes`
+- delegation 결과가 `bounded-lanes`이며 dispatch가 그 delegation을 다시 검증
 - 추천 child contract가 1개 이상, repository hard cap 6 이하
-- 각 contract가 validated Pass 2 assessment, evidence ID와 transitional runtime gap을 보존
+- 각 contract가 validated Pass 2 assessment와 evidence ID를 보존
 - 선택된 write-capable child가 최대 1개
-- native surface는 current-turn `host-tool-schema`, OMX surface는 current-session `host-tool-schema`와
-  `omx-runtime-overlay`를 provenance로 보고
-- 선택된 각 project role이 fresh roster에 available 상태이며 model 해석이 기본 `gpt-6-astra` 또는 아래 exact admission 후보와 일치
-- 해석된 effort가 requested `medium | high | xhigh`와 일치하고 fixed-effort conflict가 없음
-- higher-priority runtime permission이 dispatch를 허용
+- 공급된 context delivery가 compatible·미적용·gap 없음이고 scoped(호환되는 reuse는 새 spawn이 아니라 이전 child의 후속)
+- 후보 lane은 profile의 역할·effort·cohort 도구·쓰기 경계와 scoped·실패 없는 context, 추천 당시 contract snapshot
+  (`modelScopeDigest`)을 유지
 - leader-only dispatch, decision, response, integration, verification ownership 유지
 
 조건을 충족하지 않으면 child를 생성하지 않고 leader direct 또는 single-sequential fallback을 반환합니다.
-Descriptor는 `spawn_agent`, tmux, tool command를 실행하지 않습니다. 실제 dispatch 여부는 current leader와 native
-runtime이 결정합니다.
-
-## Reported runtime evidence
-
-Runtime evidence는 다음 bounded field만 사용합니다.
-
-```text
-surfaceMode: native | omx
-observationScope / freshness: current-turn | current-session
-provenance: host-tool-schema | omx-runtime-overlay
-dispatchPermission: allowed | denied | unknown
-roles[]:
-  agentType / available
-  effectiveModel / effectiveEffort
-  explicitEffortSupport
-  modelSelection?: supportedModels[] / roleModel / explicitModelSupport / reference
-  configurationResolution?: profileBinding / model / effort / configDigest / reference
-```
-
-- Native evidence는 current-turn `host-tool-schema`만 허용합니다.
-- OMX evidence는 current-session `host-tool-schema + omx-runtime-overlay`를 모두 요구합니다.
-- local CLI/config inspection과 과거 session 결과는 supporting evidence일 뿐 active dispatch surface의 증명이 아닙니다.
-- missing/stale/unknown/caller-invented provenance, generic `explore`로 project `knu_explorer`를 대신하는 mapping, Low,
-  미채택/미허용 Sol·Luna 또는 구형 GPT-5.6, unavailable role, fixed-effort mismatch는 모두 sequential fallback입니다.
-- Policy는 이 descriptor를 검증하지만 host event를 인증할 수 없으므로 결과를
-  `leader-reported-not-host-authenticated`로 표시합니다.
-- Dispatch descriptor는 `requiresLeaderRuntimeConfirmation=true`입니다. Leader는 실제 호출 직전에 live host roster와
-  permission을 다시 읽고 조금이라도 달라지면 descriptor를 폐기합니다.
-
-Project child 기본값은 `.codex/config.toml`의 Astra이며, `knu_reviewer`만 Astra를 고정합니다. 나머지 세 역할은
-model/effort pin 없이 지원되는 명시적 task 모델과 기존 effort 판정을 받습니다. Parent model 변경이나 OMX의 기본값
-업데이트를 project 역할·설정의 실제 로드 증거로 사용하지 않습니다. Runtime policy의 `REPOSITORY_CHILD_MODEL`은 현재
-`gpt-6-astra`이며, 기존 fixture의 Sol/Terra/Luna 거절은 모델 입력·허용 근거 없는 caller를 검증하는 negative evidence로 유지합니다.
-이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다. Semantic effort와 후보 resolved effort는 별도 대조합니다.
-
-## Model admission
-
-Candidate descriptor는 추가적인 `modelUseByLane[laneId]`를 요구합니다. 모든 값은 **Parent가 보고한 evidence**이며
-boolean/JSON packet만으로 사용자 허용·host 권한·품질 GO가 생기지 않습니다. Unknown field/누락 schema는 TypeError,
-없거나 불일치한 evidence는 sequential fallback입니다.
-
-```text
-observedAt: exact ISO timestamp
-configDigest / scopeDigest: sha256:<64 hex>
-scopeStatus: current | changed | unknown
-checks: passed | failed | unknown
-remainingBudget: children / minutes
-admission: null | {
-  kind: pilot | adoption
-  reference: original owner authorization/evidence reference
-  quality: unadopted | go | no-go
-  profileBinding: profileId / policyRevision / profileDigest / model / resolvedEffort / cohort
-  model / role / effort / cohort
-  scopeDigest / configDigest
-  notBefore / expiresAt: exact ISO timestamps
-  budget: maxChildren (1..6) / maxMinutes (1..60)
-  cleanupReference: exact supported cleanup contract/reference
-}
-```
-
-- `purpose=pilot`는 **별도 exact pilot 허용**과 `kind=pilot`, quality가 no-go가 아닐 때만 허용 후보입니다. 아직 adoption GO가
-  없는 최초 비교를 막지 않습니다. `purpose=routine`은 `kind=adoption` 및 quality GO가 필요합니다. Pilot packet/PASS는
-  routine에서 재사용할 수 없고, 결과가 좋더라도 별도 채택 결정이 필요합니다.
-- Grant와 현재 installed profileBinding, contract의 task/cohort/model/role/resolved effort/tool/write/source snapshot, 현재 config digest가 일치해야 합니다.
-  Profile revision/hash가 바뀌면 scope digest 재계산으로 구형 승인을 살릴 수 없습니다.
-  Parent는 원래 허용에 이 정확한 대상이 연결되는지 다시 확인합니다. Current-turn/runtime flag와 해시만으로 실제 freshness나
-  권한을 입증했다고 주장하지 않습니다. 보고 observedAt에 대한 유효기간과 남은 budget을 검사하며 집행/계수기는 아닙니다.
-- Permission denied/unknown, scope 변경, required checks failure, 만료, 예산 소진, snapshot/config mismatch는 candidate를
-  철회하고 Parent로 반환합니다. Parent가 실제 현재 시각·잔여 허용·source/config bytes·pending 작업을 다시 확인합니다.
-- `modelSelection`은 현재 runtime provenance 아래 지원 모델 roster·실제 role pin·explicit override 지원·원문 reference를
-  보고합니다. `roleModel=null`은 확인된 unpinned이지 unknown이 아닙니다. Requested model이 지원되고 model 해석과
-  일치해야 하며, candidate pin 또는 확인된 unpinned+explicit support가 필요합니다. Astra pin은 인자만으로 우회하지 않습니다.
-- Candidate는 `contextDelivery.compatible=true`, scoped, 실패 evidence 없음이 별도로 필요합니다. bounded-read는 repository/official
-  read-only 도구만, bounded-extract는 고정된 repository-read만, bounded-build는 단일 write owner와 workspace-edit/test-runner를 요구합니다.
-  Advice는 실제 applied model을 보장하지 않습니다.
-
-이 advisory helper는 project 설정/role pin을 수정하거나 서버/CLI를 시작하지 않습니다. 설정 변경과 loaded-schema 확인은
-[Task model configuration and fresh loading](../adapters/codex.md#task-model-configuration-and-fresh-loading)이 소유합니다. `fresh-session-smoke`의 후보 성공은 synthetic reported
-fixture일 뿐 실제 모델 사용·native 지원·품질 동등성·비용 절약 증거가 아닙니다. Parent/최종 QA/effort/cap/권한 경계는 유지합니다.
-
-## Routine admission lifetime
-
-[운영 cohort 결정과 cold-start](../adapters/codex.md#routine-task-model-operation)를 먼저 확인합니다. 그 결정의 reference는
-profile/role/범위의 채택 근거이지 이 호출의 scope/config/time/budget 승인 JSON이 아닙니다. Parent는 현재 승인된 사용자
-업무를 원문으로 확인하고 양쪽 reference를 연결해 새 packet을 작성합니다. 별도 모델명 재승인을 매번 요구하지 않지만
-동일한 source/권한·risk로 확인하지 않은 scope 확대를 일반 업무로 위장하지 않습니다.
-
-**철회는 Parent의 운영 책임**입니다. 새 dispatch를 멈추고 관련 admission을 `null` 또는 `quality=no-go`로 폐기/갱신하며
-불일치 source/config/role·실패한 checks는 그대로 남깁니다. 과거 grant의 만료 시간만 바꾸거나 scope hash만 재계산해
-재사용하지 않습니다. Routine은 pilot/PASS를 adoption GO로 대체할 수 없습니다.
-
-이 helper에는 외부 revoked-state lookup이나 영구 취소 목록이 없습니다. **같은 유효한 GO packet을 다시 넣으면 통과할 수
-있습니다.** 따라서 철회 기록·사용 중단·원래 권한 재확인과 재채택은 Parent가 수행해야 하며 boolean/해시로 강제했다고
-주장하지 않습니다. Code/registry 전체를 과거 버전으로 되돌려 옛 grant를 살리는 것도 보호하는 엔진이 아닙니다.
-
-재채택할 때는 필요한 품질·독립 검사 후 현재 contract/profileBinding과 config/scope bytes, 새 bounded validity window,
-잔여 budget, cleanup reference를 다시 연결합니다. 이미 실행된 실패는 exact recovery identity에 남기고 성공으로 재명명하지
-않습니다. 아직 실행하지 않은 지원 불일치는 pre-dispatch gap이지 candidate 품질 실패가 아닙니다. 운영 철회와 설정 rollback의
-순서는 [Astra-only rollback](../adapters/codex.md#suspension-and-astra-only-rollback)을 따릅니다.
-
-## First dispatch and post-execution evidence
-
-첫 실행 전에는 `configurationResolution`으로 현재 host schema·loaded config의 해석과 정확한 digest/reference를 보고하고
-`effectiveModel=null`, `effectiveEffort=null`을 사용합니다. 두 방식을 혼합하면 거절합니다. Resolution digest는 현재
-model-use config digest와 같고 profileBinding도 현재 contract와 일치해야 하며 explicit model/effort와 scoped fork 지원이 필요합니다. File-only/unknown/stale
-provenance는 여전히 거절합니다. 기존 effective 필드 형식의 compatibility caller는 유지하지만 이를 최초 실행의 증명으로
-쓰거나 새 activation post-report를 대신하게 하지 않습니다.
-
-승인 후보 descriptor의 `spawnArguments`는 다음처럼 role·모델·effort·context를 명시합니다.
+Descriptor는 `spawn_agent`, tmux, tool command를 실행하지 않습니다. Parent가 descriptor의 `spawnArguments`를 native tool에
+그대로 전달합니다.
 
 ```json
 {
-  "agent_type": "knu_explorer",
+  "task_name": "legal_repository_map_k3x9",
+  "agent_type": "knu_explorer_xhigh",
   "model": "gpt-6-luna",
   "reasoning_effort": "xhigh",
   "fork_turns": "none"
 }
 ```
 
-`dispatch.effort`는 semantic 판정이며 `spawnArguments.reasoning_effort`는 후보의 실제 요청 effort입니다.
-`resolvedModel/resolvedEffort`는 해석 결과, `runtimeAction=false`는 미실행을 뜻합니다. Parent가 실제 source/config/scope/
-시간·예산·권한을 재확인하고 지원되는 native tool의 `task_name/message`와 bounded contract를 구성해 호출합니다.
-순수 helper는 spawn을 수행하지 않습니다. 역할별 roster가 동일 role의 다른 모델을 표현하지 못하므로 candidate가 포함된
-추천 batch는 한 lane만 내보내고 나머지를 defer합니다. Duplicate role rows로 이를 우회하지 않습니다.
+`spawnArguments`는 contract에서 결정됩니다. `task_name`은 lane id와 dispatch token, `agent_type`은 route 역할, `model`은 route
+profile의 model(후보가 없으면 `gpt-6-astra`), `reasoning_effort`는 그 역할 파일의 pin effort, `fork_turns`는 `none`입니다.
+`dispatch.effort`도 같은 pin이고 semantic 계층은 contract의 `routeRecommendation.tier`에 남습니다. 같은 role의 다른 model
+lane(2026-10-06 native 관측)도 candidate를 포함해 일반 동시 한도 안에서 함께 나가며, 한도를 넘는 lane은
+`runtime-concurrency-limit` gap으로 미룹니다.
 
-`evaluateModelExecution({ dispatch, expectedChildId, reportedExecution })`은 별도 사후 보고를 검사합니다.
+Leader가 보고하는 runtime evidence(surface·provenance·roster·configuration resolution), lane별 model admission grant,
+Parent가 보고하는 사후 실행 대조는 두지 않습니다. 그 확인은 host가 직접 남기는 두 계층이 맡습니다.
 
-```text
-expectedChildId: actual native spawn return에서 회수한 ID
-reportedExecution:
-  childId / taskId / scopeDigest / profileBinding
-  provenance: native-tool-result
-  accepted / executed: true
-  resultReference: native final/result 원문
-  independentCheck: status=passed / reference
-  hostMetadata: null | { model / effort }
-  usageReference: null | 측정 artifact reference
-```
+- **호출 시점**: project hook guard(`.codex/hooks/knu-subagent-hooks.mjs`)가 역할 roster, 허용 model, (역할, model) 쌍,
+  bounded fork(`fork_turns` 생략·`all`·양의 정수는 full-history fork로 거절, `none`만 허용)와 Parent가 `codex:register`로 남긴 등록과의 평문 인자 일치(task
+  name이 정하는 등록 필드 포함)를
+  검사하고, child가 연 spawn과 수락·해제된 child를 대상으로 한 후속·메시지를 막습니다. Context delivery의
+  full-history 요청은 이 거절을 반영해 `full-history-fork-denied`로 호환되지 않습니다.
+- **완료**: Parent는 `pnpm codex:completion -- --lane <lane> --token <token> --role <agent_type> --model <model>`로 hook 기록을
+  lane 계약과 대조하고, 받을 child는 `pnpm codex:accept`로 수락합니다. 기록이 없거나 bind·등록 봉인·계약 model·역할 effort와
+  맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다
+  ([hook guardrail과 완료 관측](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)). Recovery 재시도 child는 `--retry`와
+  decision의 `retryRoute` model로 대조합니다([Recovery ceiling](#recovery-ceiling)).
 
-추천 eligibility와 현재 installed binding을 재검증하고 정확한 child/task/scope/profile·실제 accepted/executed 결과·독립 품질 검사가 맞을 때만 `accepted=true`입니다. Host metadata가 있으면
-요청 model/effort와 대조하고, 없으면 `runtime-contract-resolved`로 구분합니다. `host-reported-model`조차 이 helper가
-provider를 인증했다는 뜻은 아니므로 `providerAttested=false`입니다. 자기소개·응답 스타일은 provenance가 아닙니다.
-모든 JSON/reference는 Parent 보고이며 원문 native evidence/권한을 대신하지 않습니다. Output도 `runtimeAction=false`입니다.
+Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 모두 model pin 없이 profile이 정한 명시적 task 모델을
+받고(`knu_reviewer`는 `review` profile의 Astra), effort는 각 역할 파일의 pin이 정합니다. 호출할 수 있는 (역할, model) 쌍은
+각 profile의 역할과 그 profile model입니다. Parent model 변경이나 OMX의 기본값 업데이트를 project 역할·설정의 실제 로드
+증거로 사용하지 않습니다. Runtime policy의 child 기본값은 허용 목록 owner의 `BASELINE_CHILD_MODEL`이고, `.codex/config.toml`
+기본값은 test로 이 값에 결속되며 역할 파일의 `model` 필드는 test가 금지합니다. 허용 목록 밖 model 거절은 합성 ID 하나로
+검증합니다. 이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다.
 
-`usageReference=null`은 비용 미측정이지 실패가 아닙니다. 채택된 cohort의 일반 업무도 권한·범위·품질 재확인은 필요하지만
-매번 사용자에게 모델명 또는 새 pilot을 요구하지 않습니다. 범위/품질/지원 변화만 재평가하며 cost telemetry를 필수 승인서로
-추가하지 않습니다.
-
-## Bound recovery selection and admission
-
-일반 candidate profile과 구분되는 `kind=model-recovery` binding은 `model-profiles.mjs`가 소유합니다.
-`createRecoveryBinding`은 finite policy를 계산하고 `assertCurrentRecoveryBinding`은 current revision과 canonical digest를
-검증합니다. Caller의 임의 effort/model override가 아닙니다. Registry revision 변경은 primary/recovery의 이전 승인 모두를
-무효화하며 raw hash 재계산은 재승인이 아닙니다. Parent/default/운영 reviewer·TOML effort pin 규칙은 변경하지 않습니다.
-
-선택 규칙:
-
-- 동일 역할·owner/tool 범위, identity 확인, writer cleared, 충분한 현재 context와 독립 oracle를 먼저 요구합니다.
-- controlled-injection/code-defect/context-missing/tool-fixture-environment 원인이 evidence로 좁혀졌고 bounded,
-  semantic Medium, non-high impact이면 `astra-bounded-recovery` / Astra **low**입니다.
-- unknown/reasoning-miss/task-model-mismatch, bounded 미충족 또는 semantic High/XHigh·high impact이면
-  `astra-standard-recovery` / 기존 semantic medium/high/xhigh입니다. Context/oracle 부족은 먼저 보완하거나 handoff합니다.
-- QA/reviewer, 미실행·identity mismatch, 이미 성공한 primary, quota/capacity/권한/범위 실패는 Low로 우회하지 않습니다.
-  단순 deterministic repair는 도구 우선이며 본 경로는 새 native 권한을 만들지 않습니다.
-
-Parent의 호출 순서와 최소 입력:
-
-```text
-rescueContract = createRecoveryChildContract({ primaryContract, sourceSnapshot })
-primaryAttempt:
-  approachId / outcome=failure / failureCategory / evidence / model / effort / executed=true
-  identity: taskId / childId / sourceDigest / scopeDigest
-modelRecovery:
-  profileBinding / pendingWriter=cleared
-  request:
-    primaryContract / rescueContract / sourceDigest / configDigest / attemptId
-    assessment: cause / bounded / contextComplete / oracleAvailable / identityVerified / reasonRefs
-recoveryDecision = evaluateRecovery({ laneId, attempts: [primaryAttempt], modelRecovery })
-```
-
-`request.sourceDigest/configDigest`는 **rescue의 현재** 값입니다. 원래 primary identity·source·scope·profile과 원래
-boundary/allowed ownership digest, rescue task/attempt/source/config/scope/role·semantic risk, 선택 assessment/reasonRefs가
-하나의 recoveryBinding에 연결됩니다. Source가 바뀌어도 원래 write/read/tool ownership은 같아야 합니다.
-Binding은 보고된 근거의 일관성 검사이며 provider 또는 권한 인증이 아닙니다.
-
-`createDispatchRecommendation`에는 primary delegation의 해당 contract를 rescueContract로 바꾼 단일-lane delegation과
-`recoveryDecision`을 넘깁니다. `modelUseByLane`은 기존 observedAt/configDigest/scopeDigest/scopeStatus/checks/remainingBudget를
-유지하되 admission만 다음 discriminated 형식으로 새로 받습니다. Primary pilot/adoption grant를 재활용하지 않습니다.
-
-```text
-admission:
-  kind: recovery
-  reference / recoveryBinding / notBefore / expiresAt
-  budget: maxChildren=1 / maxMinutes
-  cleanupReference
-role.configurationResolution:
-  kind: recovery
-  recoveryBinding / model=gpt-6-astra / effort=선택된 effort / configDigest / reference
-```
-
-Current runtime은 기존 freshness/provenance/dispatch permission을 충족하고 role availability, Astra 지원, model pin 정합성,
-explicit model/effort 지원을 보여야 합니다. Effective model/effort는 최초 dispatch 전 null입니다. 낮은 effort 지원 근거를
-configuration resolution에 반영하며 unsupported/fixed pin이면 호출하지 않습니다. Low는 이 exact recovery resolution에서만
-허용되고 ordinary route/delivery/admission enum은 여전히 medium/high/xhigh입니다. 결과 descriptor는
-`{agent_type, model: gpt-6-astra, reasoning_effort: 선택된 effort, fork_turns: none}`입니다. 순수 helper는 호출하지 않습니다.
-
-`evaluateModelExecution`의 recovery 보고는 primary profileBinding 대신 exact **recoveryBinding**을 받고 나머지
-childId/taskId/scopeDigest/provenance/accepted/executed/resultReference/independentCheck/hostMetadata/usageReference는 같습니다.
-실제 returned child와 일치해야 하며 primary child 재사용은 거절합니다. Parent는 이 post 결과와 oracle/QA로 alternate의
-outcome을 판정합니다. 실패를 성공으로 꾸미거나 host 미관측 값을 채우지 않습니다.
-
-완료 시 같은 `modelRecovery`와 두 attempts로 `evaluateRecovery`를 호출합니다. Alternate에는 model/effort/executed/identity와
-recoveryBinding을 보존합니다. 두 번째 attempt만 첫 attempt의 approachId를 alternateOf로 지정합니다.
-`prepareLeaderSynthesis`는 primary 실패와 rescue 선택/model/effort/identity를 버리지 않고 보존하며 결과와 decision의
-정합성을 재검사합니다. Low→High 세 번째 호출이나 성공 뒤 alternate는 불가합니다. 기존 generic no-model recovery는 유지하지만
-그 경로로 bound low invocation을 표현하거나 허용할 수 없습니다. 최종 검증·dispatch·integration은 Parent 소유입니다.
+후보 자격은 routing의 Pass 2 계층·profile 판정이 정합니다([quality-gated model advice](../adapters/codex-model-profiles.md#quality-gated-model-advice)).
+읽기 profile(`standard-read`·`elevated-read`)은 repository/official read-only 도구만, `extract`는 고정된 repository-read만, 구현
+profile(`standard-build`·`elevated-build`)은 단일 write owner와 workspace-edit/test-runner를 요구합니다. Route의 역할·effort·
+`profileId`가 그 profile의 역할 변형과 effort에 맞지 않으면 `model-effort-eligibility-mismatch`입니다. `purpose`(pilot·routine)는
+descriptor의 `modelPurpose`로 남을 뿐 호출 허가가 아니며, 채택·철회는
+[Routine task-model operation](../adapters/codex.md#routine-task-model-operation)이 소유합니다. 이 helper는 project 설정/role
+pin을 수정하거나 서버/CLI를 시작하지 않습니다. 후보 판정은 실제 모델 사용·품질 동등성·비용 절약 증거가 아닙니다.
 
 ## Bounded model-run evidence
 
-기록 원칙은 [Execution evidence](../qa.md#execution-evidence)가 소유하며 이 절은 Codex의 schema와 저장 경로를 정합니다.
+기록 원칙은 [Execution evidence](../qa.md#execution-evidence)가 소유하며 이 절은 Codex에서 그 원칙을 채우는 관측과 기록을 정합니다.
 
-`scripts/agents/codex/model-run-evidence.mjs`의 `createModelRunEvidence`/`validateModelRunEvidence`는 작은 순수 계약입니다.
-`evaluateModelExecution`/`evaluateRecovery` 결과와 실제 returned identity를 Parent가 연결하며 logging 자체는
-native 실행·모델 인증·adoption·추가 호출 권한이 아닙니다. Fresh-session smoke는 실제 constructor를 소비하지만
-`fixtureOnly=true`, `mutatesWorkspace=false`인 합성 controlled failure→bound Astra low once→재검증 예시입니다.
-
-- Envelope: schemaVersion/runId/taskId/laneId, current profileBinding, source/config/scope digest, selectionRefs,
-  writerClearance, 최대 두 attempts와 finalDisposition. Alternate가 있으면 recoveryBinding도 필수입니다. 첫 attempt identity/digest는 envelope와 일치해야 합니다.
-- Attempt: attemptId/alternateOf, task/lane/source/config/scope, requested/resolved model-effort, hostObserved 또는 null,
-  stage/executed/childId, case, disposition/failureCategory, checks, factRefs/hypothesis/remediation, metrics/usage.
-  Rescue의 source/config/scope·model/effort·attempt identity는 recoveryBinding과 일치해야 하며 새 admission을 대신하지 않습니다. Generic no-model recovery는 그대로입니다.
-- Case는 live/approved-baseline/controlled-failure로 구분합니다. 미지원·거절은 pre-dispatch,
-  executed=false, childId/hostObserved=null, blocked/not-executed로 남기며 실제 모델 품질 실패로 세지 않습니다.
-- Checks는 acceptance/quality/canary/independent-qa/remediation의 commandRef/resultRef와 passed/failed/not-run입니다.
-  Success는 acceptance·독립 QA와 모든 기록된 검사 PASS를 요구합니다. Controlled failure는 원래 quality/acceptance와
-  별도 실패 canary를 보존하고 candidate가 만든 결함으로 바꾸지 않습니다. 먼저 success로 닫은 뒤 failure로 바꾸지 않습니다.
-- Fact reference와 cause hypothesis를 분리합니다. Cause는 unknown/context-missing/task-model-mismatch/code-defect/
-  host-support/tool-fixture-environment/permission/quota/capacity/reasoning-miss/controlled-injection입니다.
-  Unknown은 기본 원인 미확정이지 reasoning miss가 아닙니다. Non-unknown은 evidenceRefs·confidence를 요구합니다.
-- Remediation은 repair-context/repair-oracle-environment/verify-host/astra-handoff/rescope-task/redesign-task-context/stop과
-  evidenceRefs/checkRefs입니다. Check reference는 같은 attempt의 검사 결과를 가리켜야 합니다. 원인별 조치 뒤 같은 oracle를
-  다시 검증하며 Astra 성공만으로 원래 실패 원인을 확정하지 않습니다. Quota/permission/cap 실패는 모델 교체 대신 stop입니다.
-- Duration/timeSource, corrections/revalidations/scopeViolations/qaFindings와 tokens/cost/reference는 미관측이면 null입니다.
-  측정값 0을 발명하지 않습니다. First-pass acceptance는 실제 live primary 중 최초 oracle·QA PASS 비율로 계산하고,
-  denied/controlled/baseline은 따로 집계합니다. Self-correction 횟수 null을 재작업0으로 해석하지 않습니다.
-
-Reference는 `evidence:opaque-id`, `artifact:opaque-id`, `command:opaque-id`, `source:opaque-id`만 허용합니다.
-Parent가 별도 sanitized summary에서 실제 bounded evidence와 연결합니다. 원문 command/prompt, transcript, 환경변수,
-credentials, PII, hidden reasoning은 넣지 않습니다. Allowlist는 내용의 비밀 여부를 인증하지 않으므로 ID에도 비밀을 넣지 않습니다.
-
-Parent의 로컬 저장 절차:
-
-1. 성공·실패·blocked 모두 constructor로 검사합니다. 기존 scope/admission/once recovery 검사를 별도로 유지합니다.
-   허용된 진단 schema 안의 requested/resolved/hostObserved 불일치는 failure/blocked에 그대로 보존합니다. 성공으로
-   승격하거나 미관측 null로 덮지 않으며, mismatch primary 기록만으로 rescue history를 허용하지 않습니다.
-2. `resolveModelRunEvidencePath(repoRoot, date, runId, environment)`로
-   `.artifacts/tools/agent-thread-lifecycle/<date>/model-activation/<run-id>/attempts.json`을 구합니다.
-   Canonical `resolveArtifactPath()`를 재사용하되 root 탈출·traversal을 거절합니다. 환경 입력은 명시적이며 기본 `{}`입니다.
-3. Parent가 해당 run directory의 소유권·실제 symlink-free 경로를 확인하고 생성합니다. Pure path 검사는 symlink를 조회하지
-   않습니다. 외부 root로 연결되는 symlink 아래에는 쓰지 않습니다. 다른 run의 artifact를 덮어쓰지 않습니다.
-4. 명시적 `writeModelRunEvidence({ record, repoRoot, date, environment, writeFile })`에 허용된 writer를 주거나,
-   같은 검증 결과를 Parent가 저장합니다. 이 helper는 filesystem을 import하거나 directory/native 호출을 자동 생성하지 않습니다.
-5. Writer rejection은 원문 오류 없이 `observability-gap`/`write-failed`로 반환합니다. Supporting artifact 또는 짧은 sanitized
-   보고에 gap을 남기고 안전한 writer 회수·Astra 복귀는 계속합니다. Logging 실패는 recovery gate도 새 실행 권한도 아닙니다.
-   잘못된 schema/path는 쓰기 전 거절하므로 Parent가 바로잡거나 별도 gap으로 보고합니다. 누락 로그를 PASS·비용0으로 채우지 않습니다.
+- **관측**: child가 실제로 받은 model·effort와 시작·종료는 project hook이 Parent session별
+  `.codex/state/knu-subagent-hooks/<session>.jsonl`에 남깁니다. Parent는 `pnpm codex:completion -- --lane <lane> --token <token>
+--role <agent_type> --model <model>`로 그 기록을 lane 계약과 대조하고 `pnpm codex:accept`로 수락합니다. 기록이 없거나 spawn
+  bind·등록 봉인·계약 model·역할 effort와 맞지 않거나 수락 기록이 없으면 완료로 받지 않습니다([hook guardrail과 완료 관측](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
+  재시도 child의 계약 model은 decision의 `retryRoute` model입니다. 허용 목록 밖 관측 값(예: Home pin)도 실패 사실로 남고 성공으로 바뀌지 않습니다.
+- **원인과 조치**: Hook 기록은 원인을 담지 않습니다. Parent는 확인된 사실과 원인 가설을 나눠 남기며 확정되지 않은 원인은
+  unknown입니다. 원인별 조치 뒤 같은 oracle을 다시 검증하고, Astra 성공만으로 원래 원인을 확정하지 않습니다.
+  Quota·permission·cap 실패는 모델 교체 대신 stop입니다.
+- **집계**: 실행 전 거절, 의도적으로 주입한 실패, approved baseline은 실제 live primary와 따로 셉니다. 미관측 시간·비용·재작업은
+  null로 두고 0으로 채우지 않습니다.
+- **기록 경계**: Hook 기록은 identity와 크기만 남기고 message 본문을 넣지 않습니다. Parent의 작업 증거에도 [Execution evidence](../qa.md#execution-evidence)가
+  금지한 원문 prompt·transcript·환경 변수·credential·개인 정보와 hidden reasoning을 넣지 않고 참조 ID로 연결하며, 참조 ID에도
+  비밀을 넣지 않습니다. 기록 실패는 gap으로 보고하며 실행 권한이나 PASS를 만들지 않습니다.
 
 ## Recovery ceiling
 
-공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 approach 식별과 모델 binding을 더합니다.
+공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유합니다. 이 절은 Codex의 재시도 route·approach 식별과
+판정 입력을 더합니다.
 
 ```text
 primary attempt
 ├── success → complete
-├── retryable failure → one distinct alternate approach
+├── retryable failure → one retry with a distinct approach on the computed retry route
 │   ├── success → complete
 │   └── failure → terminal handoff
 └── authority/credential/production/scope/role failure → immediate handoff or leader fallback
 ```
 
-- alternate attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
-- 세 번째 attempt, 같은 approach 반복, success 이후 retry는 invalid입니다.
-- `evaluateRecovery`의 선택 입력 `modelRecovery={profileBinding,pendingWriter}`는 현재 installed profile의 exact primary 모델과 각 attempt의
-  `model`을 대조하고 두 번째 attempt를 Astra로 제한합니다. `pendingWriter=cleared`일 때만 `nextModel=gpt-6-astra`인
-  `alternate-once`를 추천합니다. pending/unknown은 handoff이며 takeover를 먼저 실행하지 않습니다.
-  명시적 model attempt는 이 binding 없이 처리하지 않습니다. Raw primaryModel/구형 GPT-5.6/만료 profile 입력은 거부하며,
-  model 필드가 없는 일반 recovery 계약은 유지합니다.
-- `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다.
-- 모델 후보 실패도 같은 ceiling을 소비합니다. 같은 write owner·snapshot·남은 권한을 재확인한 Astra rescue를 최대 한 번
-  검토할 수 있으나 자동 Luna→Sol→Astra ladder는 없습니다. Scope/권한 변경을 모델 교체로 우회하지 않습니다.
+- 재시도 attempt는 primary와 다른 `approachId`를 사용하고 `alternateOf`를 명시합니다.
+- 세 번째 attempt, 같은 approach 반복, success 이후 retry, non-retryable failure 뒤 retry는 invalid입니다.
+- 재시도 route는 보고받지 않고 lane 계약에서 계산합니다. 결과 품질 실패(`verification-failed`·`unknown`)는 같은 역할로 사다리 한 단 위
+  profile에서 한 번 실행합니다(`retryRoute.kind` `ladder`): Luna `extract` → 6.1 Sol `elevated-read`, 6.1 Sol 읽기
+  (`standard-read`·`elevated-read`) → Astra `astra-fallback`, 6.1 Sol 구현(`standard-build`·`elevated-build`) → Astra `deep-build`.
+  근거·도구 실패(`tool-unavailable`·`official-source-unavailable`·`repository-evidence-missing`)와 위 단이 없는 Astra lane
+  (`deep-build`·`review`·`astra-fallback`)은 같은 contract에서 approach만 바꿉니다(`same-contract`). 사다리 데이터는
+  `model-profiles.mjs`의 `RECOVERY_LADDER`가 소유하고 모든 단은 기존 (역할, model) 허용 쌍 안입니다.
+- 재시도는 lane당 한 번이며 재시도의 재시도·연쇄 상향은 없습니다. Luna lane의 6.1 Sol 재시도가 실패하면 Astra로 다시 오르지 않고
+  terminal handoff입니다. 이 상한은 Claude 결속 재시도의 상한(세션·사실 묶음마다 한 번)과 같습니다.
+- `evaluateRecovery`는 `laneId`·`route`·`attempts`만 받습니다. `route`는 lane 계약의 `role`·`profileId`이고, attempt는
+  `approachId`·`alternateOf`·`outcome`·`failureCategory`·`evidence`만 담습니다(출력은 순번 `number`를 더하며 그 밖 field는
+  TypeError). 입력 attempt에 `number`가 있으면 그 위치(1부터)와 같아야 합니다. 출력은 `route`와, 재시도를 기다리거나 마친
+  decision이면 계산한 `retryRoute`(`kind`·`role`·`profileId`·`model`)를 담습니다. Synthesis에 넘기는 recovery decision도
+  `evaluateRecovery` 출력의 field만 받고, `confidence`·`prohibitedApproachIds`·`retryRoute`가 있으면 그 route와 attempts로 다시
+  계산한 값과 같아야 하며, `route`는 그 lane 계약과 같아야 합니다. `status`·`action`·`remainingAlternateAttempts`·`blocker`·
+  `disposition`도 다시 계산한 값과 같아야 하므로, 끝난 decision을 대기 중으로 바꿔 써서 재시도를 한 번 더 얻거나 실패한 lane을
+  완료로 닫을 수 없습니다.
+- 사다리 단은 다음 profile이 실패한 profile의 lane 경계를 받을 때만 씁니다. 같은 역할을 받고, candidate면 역할 pin effort·같은
+  read-only 경계·실패한 profile이 허용한 도구를 모두 받아야 합니다. 받지 못하면 같은 contract에서 approach만 바꿉니다. Primary의
+  tier gate는 다시 적용하지 않습니다. 사다리는 실패한 tier보다 한 단 위로 의도해서 오르는 것이기 때문입니다.
+- 재시도 spawn 인자는 `createRetryDispatch()`가 계약과 기다리는 decision에서 정합니다. `task_name`은 lane의 dispatch token 뒤에
+  `_retry`를 붙이고, 역할은 그대로, `model`은 `retryRoute` model, `reasoning_effort`는 역할 pin, `fork_turns`는 `none`입니다.
+  재시도한 lane의 완료는 그 재시도 child를 `retryRoute` model로 대조합니다(`codex:completion`의 `--retry`, synthesis와
+  `validateCodexWorkflowResults`의 `recoveryDecisions`). Primary dispatch가 native spawn에서 빼는 lane(context reuse, 호환되지 않는
+  delivery, 맞지 않는 candidate 경계나 scope snapshot)은 재시도 spawn도 거절합니다([Native dispatch gate](#native-dispatch-gate)).
+- Primary 완료 대조는 session에 같은 lane·token의 재시도 child(`_retry`)가 있으면 `retry-unreported`로 거절합니다. 재시도 child는
+  그 recovery decision으로만 완료됩니다. 반대로 primary child가 수락되면 그 lane은 성공으로 끝나 재시도 등록·spawn·수락과
+  재시도 완료 대조(`lane-accepted`)를 모두 거절합니다. Dispatch token `retry`는 다른 lane의 재시도 task name과 겹치므로 쓰지 않습니다.
+  `validateCodexWorkflowResults`도 synthesis처럼 모든 decision을 다시 계산하고, complete 결과에 대기·terminal decision이 함께 오면
+  거절합니다.
+- `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다. Pending/unknown writer가
+  남아 있으면 회수하기 전에 재시도를 시작하지 않습니다. Scope/권한 변경을 모델 교체로 우회하지 않습니다.
+- Terminal handoff 뒤 Parent가 현재 source로 새 ordinary contract(예: Astra)를 판정해 맡기는 것은 이 recovery의 attempt가 아니라
+  새 위임입니다. 실패한 lane의 attempt 이력과 handoff는 그대로 남고, 새 contract의 결과가 그 실패를 성공으로 바꾸지 않습니다.
 - 권한·credential·external production은 기술적 retry로 해결하지 않습니다.
 - official/repository evidence가 계속 없으면 `evidence-gap`, owner 결정이 없으면 `plan-oq`, 외부 권한이 필요하면
   `user-handoff`로 종료합니다.
@@ -344,7 +168,7 @@ confidence / blocker
 
 `finalDecision`, `finalUserResponse`, `globalPlan`, `finalVerification`처럼 leader authority를 주장하는 field는
 거부합니다. Result가 빠졌거나, verification이 실패·미실행이거나, blocking gap·pending retry·unresolved conflict가
-있으면 synthesis는 ready가 아닙니다.
+있거나, completed lane의 hook 기록 결속이 거부되면 synthesis는 ready가 아닙니다.
 
 ## Leader-only synthesis
 
@@ -354,7 +178,15 @@ Policy는 child evidence를 정규화하여 leader에게 다음을 제공합니�
 - verification evidence
 - missing/blocked/recovering lane
 - unresolved 또는 leader-resolved conflict
+- completed lane별 hook 완료 판정(`completionChecks`·`refusedLaneIds`, `completionAuthority: codex-subagent-hook`)
 - `readyForLeaderDecision`
+
+Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 dispatch의 lane task path(dispatch token 포함)·
+계약 역할·허용 목록 model·roster와 맞고, 그 task name의 PreToolUse allow 기록(bind)·계약 model(route profile)·역할 pin
+effort·등록 봉인과도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없고, 그 child의 마지막 Stop을 가리키는 수락 기록
+(`acceptances`)이 있어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
+refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 재시도한 lane은 그 재시도
+child(`_retry` task path)를 decision의 `retryRoute` 역할·model로 같은 조건에 대조합니다. 경계는 [Codex adapter](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 
 `readyForLeaderDecision=true`도 자동 completion이나 final answer를 의미하지 않습니다. Leader가 repository의 실제
 변경, source freshness, conflict, 최종 verification을 확인한 뒤에만 사용자에게 결론을 제공합니다.

@@ -4,11 +4,11 @@
 [Orchestration](../orchestration.md), [QA](../qa.md), [위임](../request-intake/delegation.md)이 책임·인수 기준을 소유하며,
 adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결합니다. 모든 adapter를 기본 입력으로 읽지 않습니다.
 
-| Host        | Entry                     | 프로젝트 역할          | 조건부 실행 계약                                                                                   |
-| ----------- | ------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| Codex/OMX   | `AGENTS.md`               | `.codex/agents/*.toml` | [Codex](./codex.md): model/effort, native routing, sandbox, OMX                                    |
-| Claude Code | `CLAUDE.md` → `AGENTS.md` | `.claude/agents/*.md`  | [Claude Code](./claude-code.md): 진입 절차와 reference 4개(registry, review, model, qualification) |
-| 향후 host   | 승인된 adapter entry      | 해당 host 정의         | 같은 공통 계약과 적합성 검사; 등록 전 Codex fallback 없음                                          |
+| Host        | Entry                     | 프로젝트 역할          | 조건부 실행 계약                                                                                       |
+| ----------- | ------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| Codex/OMX   | `AGENTS.md`               | `.codex/agents/*.toml` | [Codex](./codex.md): 진입 절차, reference 4개(model, registry, diagnostics, qualification)와 위임 계약 |
+| Claude Code | `CLAUDE.md` → `AGENTS.md` | `.claude/agents/*.md`  | [Claude Code](./claude-code.md): 진입 절차와 reference 4개(registry, review, model, qualification)     |
+| 향후 host   | 승인된 adapter entry      | 해당 host 정의         | 같은 공통 계약과 적합성 검사; 등록 전 Codex fallback 없음                                              |
 
 같은 역할 이름·packet은 capability 동등성의 증거가 아닙니다. Lead는 현재 loaded instructions·role/tool·권한·source를
 확인합니다. 지원이 없으면 허용된 direct/sequential 작업 또는 bounded blocker를 선택합니다. Prompt로 다른 host의
@@ -23,11 +23,11 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 | `common/plan-store.mjs`       | 공통 authoring root의 bounded metadata·discovery·resume 후보                             | 공통 CLI와 tests; host memory/state를 읽거나 쓰지 않음                                |
 | `common/adapter-contract.mjs` | descriptor/capability, bounded lanes·receipt/fan-in, 독립 QA 입력 적합성                 | static conformance tests와 명시적 API 소비자; scheduler·provider launcher 아님        |
 | `common/index.mjs`            | 위 공통 API의 공개 facade                                                                | export만으로 host admission/invocation을 입증하지 않음                                |
-| `codex/`                      | profiles·routing·child/orchestration·model evidence·smoke·session parser/preflight       | 기존 Codex tests/CLI 유지, 모델·effort·상한은 공통 기본값이 아님                      |
+| `codex/`                      | profiles·routing·child/orchestration·hook 기록 판정·session parser/preflight             | 기존 Codex tests/CLI 유지, 모델·effort·상한은 공통 기본값이 아님                      |
 | `claude/`                     | Git/계획 preflight·direct workflow·finite model policy·native session coordination       | 공통 계약과 project hook이 manifest/Agent input/receipt를 연결; 인증·전역 지원 아님   |
 | `bridge/`                     | static one-shot packet와 고정 fake process                                               | 실제 provider launcher가 아님; live 기본 비활성 유지                                  |
 
-`codex/workflow-entry.mjs`는 공통 route·lane/result/QA contract와 기존 Codex policy의 실제 composition입니다. `codex:workflow`와 smoke가 이를 소비하며 native/provider 실행은 하지 않습니다.
+`codex/workflow-entry.mjs`는 공통 route·lane/result/QA contract와 기존 Codex policy의 실제 composition입니다. `codex:workflow`가 이를 소비하며 native/provider 실행은 하지 않습니다.
 
 `codex/session-contract`와 `codex/session-preflight`는 Codex/OMX 소유입니다. `pnpm codex:preflight`는 해당 owner를 직접
 호출하며 Claude용 명령이 아닙니다. 기존 caller의 기본 authoring 탐색은 공통 `.plans` reader를 소비하며 legacy `.omx/plans`는 명시적 읽기만 유지합니다. native/plugin 출력 설정이나 실제 local 파일 이동까지 완료됐다는 뜻은 아닙니다.

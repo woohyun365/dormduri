@@ -39,7 +39,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    이때 writer task의 lease가 남으면 child 종료를 확인한 뒤 `pnpm claude:native release --task <taskId> --ended`로 해제합니다.
    관측 범위(Claude Code 2.1.285): background 호출에서 10,910자 invocation prompt가 그대로 주입됐습니다. Foreground 호출과
    linked reviewer invocation(12,000자 prompt와 review packet)의 주입은 관측하지 않았습니다. 주입이 적용되지 않은 task는 검증 실패로 끝나고
-   같은 task는 다시 호출할 수 없습니다(`task already attempted`). Child 종료를 확인하고 필요하면 lease를 해제한 뒤 새로 `prepare`한 task를
+   같은 task는 다시 호출할 수 없습니다(`task already attempted`). Hook이 attempt를 먼저 기록하므로 hook 뒤에 호출이 거부된 task(auto
+   classifier 판정 누락 등)도 같습니다. Child 종료를 확인하고 필요하면 lease를 해제한 뒤 새로 `prepare`한 task를
    전체 `invocation`으로 호출합니다.
 5. 정상 PreToolUse는 `allow`를 반환하지 않습니다(주입도 결정 없는 `updatedInput`). 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
    KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.

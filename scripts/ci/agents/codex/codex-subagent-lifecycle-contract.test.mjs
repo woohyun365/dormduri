@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
+import { getModelProfile } from '../../../agents/codex/model-profiles.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const guidePath = 'docs/development/agent-workflows/subagent-lifecycle.md';
@@ -15,6 +16,7 @@ const ownerPaths = [
   'docs/development/agent-workflows/request-intake/orchestration-recovery.md',
 ];
 const codexAdapterPath = 'docs/development/agent-workflows/adapters/codex.md';
+const codexProfilesPath = 'docs/development/agent-workflows/adapters/codex-model-profiles.md';
 const codexDelegationPath = 'docs/development/agent-workflows/adapters/codex-delegation.md';
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const compact = (source) => source.replace(/\s+/gu, ' ');
@@ -96,7 +98,7 @@ test('troubleshooting links the canonical procedure and states runtime verificat
   for (const owner of [
     'docs/development/agent-workflows/subagent-lifecycle.md',
     'docs/development/agent-workflows/session-continuity.md',
-    'docs/development/agent-workflows/adapters/codex.md',
+    codexProfilesPath,
   ])
     assert.match(read(owner), /troubleshooting\/tooling\/agent-thread-limit-reached\.md/u, owner);
   assert.match(source, /정적.*실제.*슬롯.*증명하지/u);
@@ -284,15 +286,14 @@ test('lifecycle guides use portable links and do not depend on a local implement
 // Documentation presence/link integrity, not live routing, adoption or model quality.
 test('routine cold start and withdrawal have tracked owners with bounded adoption evidence', () => {
   const orchestration = read(codexAdapterPath);
-  const recovery = read(ownerPaths[5]);
   const decisions = read('docs/development/agent-workflows/agentic-architecture-decisions.md');
   const operation = section(codexAdapterPath, 'Routine task-model operation');
   for (const term of [
     'cohort GO',
     '개별 task',
     'Astra',
-    'modelUseByLane',
-    'evaluateModelExecution',
+    'dispatchToken',
+    'codex:completion',
     'prepareLeaderSynthesis',
     'source',
     'profile',
@@ -302,12 +303,15 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
     assert.ok(operation.includes(term), term);
   assert.match(orchestration, /agentic-architecture-decisions\.md#routine-model-adoption/u);
   assert.match(read(codexDelegationPath), /codex\.md#routine-task-model-operation/u);
-  assert.match(recovery, /## Routine admission lifetime/u);
-  assert.match(recovery, /철회.*Parent.*책임/u);
-  assert.match(recovery, /같은.*GO packet.*다시.*통과/u);
-  assert.match(orchestration, /rollback.*새 revision/u);
+  // Withdrawal stays a Parent duty without a per-lane admission packet.
+  const withdrawal = section(codexProfilesPath, 'Suspension and Astra-only rollback');
+  assert.match(withdrawal, /철회.*Parent.*운영 책임/u);
+  assert.doesNotMatch(operation, /modelUseByLane|evaluateModelExecution/u);
+  assert.match(read(codexProfilesPath), /rollback.*새 revision/u);
   assert.match(decisions, /id="routine-model-adoption"/u);
   assert.match(decisions, /2026-09-24\.3/u);
+  // The historical revision stays; the installed revision must also be recorded.
+  assert.ok(decisions.includes(getModelProfile('standard-build').policyRevision));
   assert.match(decisions, /astra-bounded-recovery.*knu_executor.*gpt-6-astra.*low/u);
   assert.match(decisions, /explorer.*researcher.*low.*미채택/u);
   assert.doesNotMatch(decisions, /Luna high/u);
@@ -325,6 +329,7 @@ test('portfolio current summary distinguishes task profiles from historical Astr
   }
   assert.doesNotMatch(summary, /repository는 Astra child의 Medium\/High\/XHigh만/u);
   const evidence = section(path, '2026-09 task-aware 모델과 lifecycle 검증');
+  // The 2026-09 evidence keeps the profile IDs it was measured under.
   for (const term of [
     'bounded-build',
     'bounded-read',
@@ -352,9 +357,9 @@ test('portfolio preserves unmeasured cost and session-owned Parent choice with p
   assert.doesNotMatch(source, /\.omx\/plans\/|\.?artifacts\/(?:local|plans|tools)\/|\/Users\//u);
   const requiredLinks = [
     '../../../scripts/agents/codex/model-profiles.mjs',
-    '../../../scripts/agents/codex/model-run-evidence.mjs',
+    '../../../scripts/agents/codex/subagent-hook-records.mjs',
     '../../../scripts/ci/agents/codex/codex-model-profiles.test.mjs',
-    '../../../scripts/ci/agents/codex/codex-model-run-evidence.test.mjs',
+    '../../../scripts/ci/agents/codex/codex-subagent-hooks.test.mjs',
     '../../development/agent-workflows/subagent-lifecycle.md',
     '../../development/agent-workflows/qa.md',
   ];

@@ -25,7 +25,7 @@ Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함
 [review criteria](../review-criteria/README.md) id이며, 해당 문서가 packet `sources.owners`와 read path에 들어갑니다. 직전 result도
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
-문서가 있으면 미충족 항목 id와 기본 severity를 쓰게 합니다.
+문서가 있으면 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다.
 
 1회차에는 `--composition e2|e3 --reviewers 2|3`으로 같은 snapshot의 reviewer 그룹을 만들 수 있습니다. 1회차가 아니면
 `composition-round-1-only`, 인원이 2·3이 아니면 `reviewers-invalid`, 둘 중 하나만 주거나 모르는 구성이면 `composition-invalid`로
@@ -34,8 +34,8 @@ read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Rev
 구성원마다 자기 packet 파일만 다릅니다. 각 prompt 둘째 줄은 `KNU review group <groupId> <i>/<N> <e2|e3>`이고 등록 digest로
 결속됩니다. Prompt는 finding id를 `m<i>-`로 시작하고, 결과가 PASS가 아니면 각 coverage gap과 `knownGaps` 항목에 원인 finding id를
 적게 합니다. `e3`는 `--criteria`가 필요하고(`composition-e3-criteria-required`) 고른 기준 문서의 `### <문자><번호>.` 항목을 순서대로
-이어 구성원 수만큼 연속 구간으로 나눕니다. 항목이 구성원보다 적으면 `criteria-items-too-few`입니다. 구성원은 배정 항목을 빠짐없이
-판정하고 다른 항목의 blocking 결함도 보고합니다. Acceptance coverage는 구성원 모두 전체를 채웁니다. 모든 prompt가 상한 안에
+이어 구성원 수만큼 연속 구간으로 나누고, 배정 항목은 finding `criteriaItem`과 같은 형식(`documents.md D2`)으로 적습니다. 항목이
+구성원보다 적으면 `criteria-items-too-few`입니다. 구성원은 배정 항목을 빠짐없이 판정하고 다른 항목의 blocking 결함도 보고합니다. Acceptance coverage는 구성원 모두 전체를 채웁니다. 모든 prompt가 상한 안에
 들어온 뒤에만 packet 파일을 씁니다. 계획 readiness 리뷰는 단일 reviewer입니다.
 
 그룹 뒤 2회차는 단일 reviewer이며 `--previous-result`에 Parent의 `review-adjudication/v1` 처분 기록을 줄 수 있습니다. Helper는
@@ -131,8 +131,9 @@ Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 
 
 1. 처분 기록이 있습니다(`review-adjudication-required`).
 2. 같은 subject에 dispatch된 모든 reviewer가 연결한 reviewer와 같은 group id·인원·구성의 그룹 줄을 갖고, 번호가 인원 이하입니다
-   (`review-group-mismatch`). 그룹 밖 reviewer는 PASS여도 거부합니다. 결과 없이 실패한 Agent 호출을 뺀 구성원의 번호는 서로 다릅니다
-   (`review-group-duplicate-member`). 결과가 JSON result 객체가 아니거나 receipt를 읽을 수 없는 non-PASS 구성원은 처분 대상에서
+   (`review-group-mismatch`). 그룹 밖 reviewer는 PASS여도 거부합니다. 실패가 기록된 Agent 호출(PostToolUseFailure)을 뺀 구성원의
+   번호는 서로 다릅니다(`review-group-duplicate-member`). Hook 뒤에 거부되어 Post 이벤트가 없는 호출은 completion이 없어 빠지지
+   않습니다. 결과가 JSON result 객체가 아니거나 receipt를 읽을 수 없는 non-PASS 구성원은 처분 대상에서
    빠지지 않고 완료를 막습니다(`review-group-unreadable-member`). 그룹 줄이 없는 단일 reviewer의 FAIL은 처분 기록으로 마감하지 않습니다.
 3. 처분 기록이 validator 위반 없이 round 1이고, `reviews`가 결과를 전달한 구성원 전부를 가리키며, 각 `resultPath`가 그 구성원이 전달한
    result와 구조적으로 같습니다(`review-adjudication-invalid`, `review-adjudication-result-mismatch`). 기록과 result는 root 안 일반

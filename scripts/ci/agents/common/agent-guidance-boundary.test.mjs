@@ -25,6 +25,7 @@ const textExtensions = new Set([
 const localPlanBoundaryAllowlist = new Set([
   '.artifacts/README.md',
   'docs/development/agent-workflows/session-continuity.md',
+  'docs/development/agent-workflows/adapters/codex-diagnostics.md',
   'docs/development/agent-workflows/adapters/codex.md',
   // Host lifecycle examples and disposable fixtures, never active-plan authority.
   'docs/development/agent-workflows/adapters/claude-code.md',
@@ -124,6 +125,15 @@ test('repository guidance is available to clean clones and remains within the st
     Buffer.byteLength(source) <= 32 * 1024,
     'AGENTS.md must stay below the default 32 KiB Codex project guidance limit',
   );
+  // Codex joins one instruction file per directory from the root to the working directory under the same limit, so
+  // nested AGENTS.md or AGENTS.override.md files would share and silently truncate it. Case-insensitive file systems
+  // also resolve differently cased names, so the match ignores case and only the exact root file is excluded.
+  assert.deepEqual(
+    trackedPaths().filter(
+      (path) => path !== 'AGENTS.md' && /(?:^|\/)agents(?:\.override)?\.md$/iu.test(path),
+    ),
+    [],
+  );
 });
 
 test('repository guidance does not depend on retired workflow names or documentation paths', () => {
@@ -137,6 +147,56 @@ test('repository guidance does not depend on retired workflow names or documenta
   ].filter((reference) => source.includes(reference));
 
   assert.deepEqual(forbiddenReferences, []);
+});
+
+// Names are assembled so that this guard never matches its own source.
+const staleHandoffNames = ['frontend', 'backend', 'infrastructure'].map(
+  (area) => `${area}-feature-refactor-plan-authoring-` + 'handoff.md',
+);
+const retiredWorkflowTokens = [
+  '$' + 'ralph',
+  '$' + 'ultrawork',
+  '$' + 'pipeline',
+  'autoresearch' + '-goal',
+  'prometheus' + '-strict',
+];
+const guardExtensions = new Set([...textExtensions, '.toml']);
+const thisTest = 'scripts/ci/agents/common/agent-guidance-boundary.test.mjs';
+
+function existingTrackedText(filter = () => true) {
+  return trackedPaths()
+    .filter((path) => path !== thisTest && guardExtensions.has(extname(path)) && filter(path))
+    .filter((path) => existsSync(resolve(repoRoot, path)));
+}
+
+test('tracked guidance and runtime code no longer reference obsolete authoring handoffs', () => {
+  const violations = existingTrackedText().flatMap((path) => {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    return staleHandoffNames
+      .filter((name) => source.includes(name))
+      .map((name) => `${path}: ${name}`);
+  });
+
+  assert.deepEqual(violations, []);
+});
+
+test('tracked guidance no longer routes to retired user workflows', () => {
+  const scannedPaths = existingTrackedText(
+    (path) =>
+      path === 'AGENTS.md' ||
+      path.startsWith('.codex/') ||
+      path.startsWith('docs/') ||
+      path.startsWith('scripts/'),
+  );
+  const violations = scannedPaths.flatMap((path) => {
+    const source = readFileSync(resolve(repoRoot, path), 'utf8');
+    return retiredWorkflowTokens
+      .filter((token) => source.includes(token))
+      .map((token) => `${path}: ${token}`);
+  });
+
+  assert.ok(scannedPaths.includes('.codex/agents/knu_reviewer.toml'));
+  assert.deepEqual(violations, []);
 });
 
 test('root CLAUDE bridge stays small and historical duplicate guidance does not return', () => {
@@ -170,7 +230,9 @@ test('developer and agent workflow entry points stay connected without duplicati
     'utf8',
   );
 
+  assert.match(agents, /agent-workflows\/getting-started\.md/u);
   assert.match(agents, /agent-execution-contract\.md/u);
+  assert.match(agents, /orchestration\.md/u);
   assert.match(agents, /session-continuity\.md/u);
   assert.match(agents, /github\/branch-and-pr-strategy\.md/u);
   assert.match(agents, /`dev`·`main`에서 직접 구현/u);
@@ -225,7 +287,7 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
   assert.match(codexAdapter, /medium/u);
   assert.match(codexAdapter, /high/u);
   assert.match(codexAdapter, /xhigh/u);
-  // Task risk (low-impact) and separately bound recovery are not ordinary effort.
+  // Task risk (low-impact) is not an ordinary effort.
   // Check the declared route contract rather than banning a word across all docs.
   assert.match(codexAdapter, /effort는 `medium \| high \| xhigh`/u);
   assert.match(
@@ -359,6 +421,7 @@ test('tracked workspace guides link only to tracked sources and defer lifecycle 
 // Plans moved to the shared .plans root; .omx/plans remains only as explicit legacy read compatibility.
 const legacyPlanRootFiles = new Set([
   'docs/development/agent-workflows/adapters/README.md',
+  'docs/development/agent-workflows/adapters/codex-diagnostics.md',
   'docs/development/agent-workflows/adapters/codex.md',
   'scripts/agents/codex/session-preflight.mjs',
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',

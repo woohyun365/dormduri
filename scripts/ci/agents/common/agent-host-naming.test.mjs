@@ -17,7 +17,6 @@ const neutral = [
 const codexTests = [
   'child-task-contract',
   'model-profiles',
-  'model-run-evidence',
   'orchestration-policy',
   'routing-policy',
   'session-contract',
@@ -25,7 +24,6 @@ const codexTests = [
   'subagent-lifecycle-contract',
   'intake-baseline',
   'intake-integration',
-  'fresh-session',
   'git-status',
 ];
 function files(directory) {

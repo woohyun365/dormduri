@@ -241,7 +241,7 @@ Rollout budget:
 | API-only            |     5m 이하 |
 | Shared/root fan-out |     8m 이하 |
 | Docs-only           | 1m 30s 이하 |
-| Agent workflow      |        미정 |
+| Agent workflow      |     4m 이하 |
 
 Job-rounded billed-minute advisory budget:
 
@@ -252,14 +252,18 @@ Job-rounded billed-minute advisory budget:
 | Web-only            | 15 minutes |
 | Infra-only          | 10 minutes |
 | Docs/config/tooling |  5 minutes |
-| Agent workflow      |       미정 |
+| Agent workflow      |  7 minutes |
 
 Product lane이 없는 PR(Docs-only, Docs/config/tooling, Agent workflow)은 모두 `repoPolicy`와 `agentWorkflow`를 선택해
 classify, Repository policy gate, Agent workflow gate, CI summary를 실행한다. Lane 선택이 같으므로 Agent workflow 분류는 변경
 경로로 고른다: agent 지침·adapter·script·test·host 설정을 바꾼 PR이다. 성능 collector의 surface는 lane 기준이라 이 셋을
-`docs-config-tooling-only`로 묶는다. Agent workflow 목표는 표본 10개로 p95를 낸 뒤 정한다.
-Job 분리 전 agent-only 표본 5개의 wall p50은 3m 01s, job 분 올림 합 p50은 5분이고, 분리 뒤 표본 5개는 2m 39s, 6분이다(CI change
-classification evidence §6).
+`docs-config-tooling-only`로 묶는다. 그래서 Agent workflow 예산은 collector의 advisory budget fixture에 두지 않고
+[CI baseline](../../evidence/ci/monorepo-ci-baseline.md)의 분류별 표본으로 판정한다.
+Agent workflow 목표는 job 분리 뒤 agent-only 표본 14개의 p95에서 정한 회귀 방지선이다. Wall은 p95 3m 32s를 올린 4m, job 분
+올림 합은 p95와 같은 7분이다. Docs-only와 Docs/config/tooling 목표는 Agent workflow gate가 생기기 전부터 있던 값이다. 지금 product
+lane이 없는 PR은 Agent workflow gate가 critical path이고, 이런 PR 15개(agent-only 14, Docs/config/tooling 1)의 job 분 올림 합 p95
+7분이 Docs/config/tooling 목표를 넘는다. Docs 경로만 바꾼 PR의 표본은 1개라 Docs-only 목표는 아직 판정하지 않는다
+([CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md) §6).
 
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 

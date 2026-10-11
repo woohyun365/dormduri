@@ -1,10 +1,13 @@
 import {
   BASELINE_CHILD_MODEL,
+  MODEL_PROFILE_IDS,
+  ROLE_EFFORTS,
   getModelProfile,
   createModelProfileBinding,
 } from './model-profiles.mjs';
 import { createHash } from 'node:crypto';
 
+// Task kind → role family. Pass 2 then picks the family's effort variant (see assignRole).
 const TASK_ROLES = new Map([
   ['lookup', 'knu_explorer'],
   ['analysis', 'knu_explorer'],
@@ -138,13 +141,6 @@ const STRUCTURAL_CATEGORIES = new Set([
   'unknown-root-cause',
   'domain-specific-major',
 ]);
-const TRANSITIONAL_RUNTIME_APPLICATION = Object.freeze({
-  requested: true,
-  supported: 'unknown',
-  applied: false,
-  evidenceStatus: 'deferred-to-runtime-compatibility',
-});
-
 export function selectAgentRoute(input = {}) {
   assertRecord(input, 'routing input');
   assertOnlyFields(input, ROUTING_INPUT_FIELDS, 'routing input');
@@ -201,46 +197,76 @@ export function selectAgentRoute(input = {}) {
   }
 
   const assessment = deriveAssessment(validation, input.pass2Evidence);
-  const effort =
-    assessment.reasoningComplexity === 'deep'
-      ? 'xhigh'
-      : assessment.mediumEligibility
-        ? 'medium'
-        : 'high';
+  const tier = routeTier(assessment);
+  const modelRecommendation = modelRequest
+    ? recommendModel({
+        modelRequest,
+        taskKind: pass1.taskKind,
+        impactRisk: pass1.impactRisk,
+        assessment,
+      })
+    : undefined;
+  const assigned = assignRole({ taskKind: pass1.taskKind, impactRisk: pass1.impactRisk, tier });
+  const candidate = modelRecommendation?.status === 'candidate';
+  const role = modelRecommendation?.role ?? assigned.role;
 
   return deepFreeze({
     spawn: true,
-    role: TASK_ROLES.get(pass1.taskKind),
-    effort,
+    role,
+    // The role file pins this effort; the spawn argument repeats it for the record only.
+    effort: ROLE_EFFORTS[role],
+    tier,
+    profileId: candidate ? modelRecommendation.request.profileId : assigned.profileId,
     execution: 'bounded-child',
-    reason: routeReason(effort),
+    reason: routeReason(tier),
     pass2Applied: true,
     impactRisk: pass1.impactRisk,
     evidenceIds: assessment.evidenceIds,
     assessment,
-    gaps: unique([...assessment.gaps, 'runtime-role-evidence-deferred']),
+    gaps: unique(assessment.gaps),
     confidence: assessment.confidence,
-    runtimeApplication: TRANSITIONAL_RUNTIME_APPLICATION,
-    ...(modelRequest
-      ? {
-          modelRecommendation: recommendModel({
-            modelRequest,
-            taskKind: pass1.taskKind,
-            impactRisk: pass1.impactRisk,
-            assessment,
-          }),
-        }
-      : {}),
+    ...(modelRecommendation ? { modelRecommendation } : {}),
   });
 }
 
-// Model advice follows (and never changes) the semantic role/effort decision.
+// Semantic tier from Pass 2; it classifies the work, the role variant then fixes invocation effort.
+function routeTier(assessment) {
+  if (assessment.reasoningComplexity === 'deep') return 'xhigh';
+  return assessment.mediumEligibility ? 'medium' : 'high';
+}
+
+// Astra assignment when no candidate profile is admitted. Reads treat high impact like XHigh; builds send high impact
+// and XHigh to deep-build, the rest to astra-fallback; review always uses the xhigh reviewer.
+function assignRole({ taskKind, impactRisk, tier }) {
+  const family = TASK_ROLES.get(taskKind);
+  if (family === 'knu_reviewer') return { role: family, profileId: 'review' };
+  if (family === 'knu_executor') {
+    if (impactRisk === 'high') return { role: 'knu_executor_xhigh', profileId: 'deep-build' };
+    if (tier === 'xhigh') return { role: family, profileId: 'deep-build' };
+    return { role: variant(family, tier), profileId: 'astra-fallback' };
+  }
+  return {
+    role: variant(family, impactRisk === 'high' ? 'xhigh' : tier),
+    profileId: 'astra-fallback',
+  };
+}
+
+function variant(family, tier) {
+  return tier === 'high' ? family : `${family}_${tier}`;
+}
+
+function familyOf(role) {
+  return role.replace(/_(?:medium|xhigh)$/u, '');
+}
+
+// Model advice follows the semantic tier and never changes it; an admitted candidate names its own role variant.
 // These are finite experimental cohorts, not a price-based classifier or authorization.
 export function normalizeModelRequest(value) {
   if (value === undefined) return undefined;
   assertRecord(value, 'modelRequest');
   assertOnlyFields(value, new Set(['profileId', 'purpose', 'verificationFacts']), 'modelRequest');
   const profile = getModelProfile(value.profileId);
+  if (profile.kind !== 'candidate') throw new TypeError('Model request needs a candidate profile.');
   assertEnum(value.purpose, new Set(['pilot', 'routine']), 'model purpose');
   const keys = profile.verificationKeys;
   assertRecord(value.verificationFacts, 'model verificationFacts');
@@ -258,22 +284,23 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
   const request = normalizeModelRequest(modelRequest);
   if (!TASK_ROLES.has(taskKind)) throw new TypeError('Unknown model task kind.');
   const profile = getModelProfile(request.profileId);
-  const role = TASK_ROLES.get(taskKind);
+  const family = TASK_ROLES.get(taskKind);
+  const role = profile.roles.find((candidate) => familyOf(candidate) === family);
+  const tier = routeTier(assessment);
+  // Reads take high impact as XHigh; a build with high impact never reaches a candidate profile.
+  const admissionTier = family !== 'knu_executor' && impactRisk === 'high' ? 'xhigh' : tier;
   const cohortMatches =
+    role !== undefined &&
     profile.taskKinds.includes(taskKind) &&
-    profile.roles.includes(role) &&
     profile.impactRisks.includes(impactRisk) &&
+    profile.tiers.includes(admissionTier) &&
     (request.purpose === 'pilot' || profile.routineRoles.includes(role));
   const bounded =
-    assessment.mediumEligibility === true &&
-    assessment.reasoningComplexity === 'bounded' &&
-    assessment.xhighSignals.length === 0 &&
     assessment.domainSignals.length === 0 &&
     assessment.compositeCategories.length === 0 &&
     assessment.gaps.length === 0 &&
     assessment.confidence === 'high' &&
-    assessment.facts.every((fact) => fact.confidence === 'high') &&
-    impactRisk !== 'high';
+    assessment.facts.every((fact) => fact.confidence === 'high');
   const verified = Object.values(request.verificationFacts).every((id) =>
     assessment.facts.some((fact) => fact.factId === id && fact.confidence === 'high'),
   );
@@ -281,13 +308,47 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
   return {
     request,
     taskKind,
-    role: TASK_ROLES.get(taskKind),
+    role: eligible ? role : assignRole({ taskKind, impactRisk, tier }).role,
     profileBinding: createModelProfileBinding(profile),
     recommendedModel: eligible ? profile.model : BASELINE_CHILD_MODEL,
     status: eligible ? 'candidate' : 'baseline',
     reason: eligible ? 'bounded-quality-evidence-candidate-only' : 'baseline-risk-or-quality-gate',
     applied: false,
   };
+}
+
+// Routine default for a lane the Parent sent without a request. The Parent names which current Pass 2 facts verify
+// which key; the first candidate profile (table order: extract, standard-read, elevated-read, standard-build,
+// elevated-build) whose keys are all named and whose recommendation is a candidate becomes the request. Nothing
+// admitted returns undefined, so the lane keeps the Astra assignment. An explicit request stays the Parent's choice.
+export function defaultModelRequest(input, verificationFacts) {
+  assertRecord(input, 'routing input');
+  if (input.modelRequest !== undefined)
+    throw new TypeError('The lane already has an explicit model request.');
+  if (verificationFacts === undefined) return undefined;
+  assertRecord(verificationFacts, 'default verificationFacts');
+  const route = selectAgentRoute(input);
+  if (!route.spawn) return undefined;
+  for (const profileId of MODEL_PROFILE_IDS) {
+    const profile = getModelProfile(profileId);
+    if (profile.kind !== 'candidate') continue;
+    if (!profile.verificationKeys.every((key) => Object.hasOwn(verificationFacts, key))) continue;
+    const request = {
+      profileId,
+      purpose: 'routine',
+      verificationFacts: Object.fromEntries(
+        profile.verificationKeys.map((key) => [key, verificationFacts[key]]),
+      ),
+    };
+    const recommendation = recommendModel({
+      modelRequest: request,
+      taskKind: input.pass1.taskKind,
+      impactRisk: input.pass1.impactRisk,
+      assessment: route.assessment,
+    });
+    if (recommendation.status === 'candidate') return request;
+  }
+  return undefined;
 }
 
 export function createSemanticSourceId(source) {
@@ -573,11 +634,11 @@ function deriveAssessment(validation, evidence) {
   };
 }
 
-function routeReason(effort) {
-  if (effort === 'medium') {
+function routeReason(tier) {
+  if (tier === 'medium') {
     return 'Complete positive boundedness evidence supports a Medium child recommendation.';
   }
-  if (effort === 'xhigh') {
+  if (tier === 'xhigh') {
     return 'A mandatory or deep-composite semantic signal supports an XHigh child recommendation.';
   }
   return 'Validated Pass 2 evidence requires substantial reasoning without an XHigh predicate.';

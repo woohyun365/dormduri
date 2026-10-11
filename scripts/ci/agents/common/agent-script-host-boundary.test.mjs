@@ -9,10 +9,10 @@ const codexOwners = [
   'routing-policy',
   'child-task-contract',
   'orchestration-policy',
-  'model-run-evidence',
-  'fresh-session-smoke',
   'session-contract',
 ];
+// Callerless advisory modules stay removed; hook records and the package CLIs carry their observations.
+const removedCodexModules = ['fresh-session-smoke', 'model-run-evidence'];
 
 test('common facade exposes only host-neutral intake, decision, readiness and QA', async () => {
   const common = await import('../../../agents/common/index.mjs');
@@ -69,7 +69,7 @@ test('common QA packet cannot grant Claude runtime or accept Codex-only defaults
   });
   assert.equal(validation.decision, 'accept');
   assert.equal(validation.verificationClass, 'runner-live-required');
-  packet.modelRequest = { profileId: 'bounded-build' };
+  packet.modelRequest = { profileId: 'standard-build' };
   assert.equal(common.validateCrossModelPacket(packet).decision, 'reject');
 });
 
@@ -93,6 +93,8 @@ test('Codex implementations have one owner and no root compatibility imports rem
     assert.equal(existsSync(resolve(root, `scripts/agents/${name}.mjs`)), false, name);
   }
   assert.equal(existsSync(resolve(root, 'scripts/agents/session-preflight.mjs')), false);
+  for (const name of removedCodexModules)
+    assert.equal(existsSync(resolve(root, `scripts/agents/codex/${name}.mjs`)), false, name);
   const cli = resolve(root, 'scripts/agents/codex/session-preflight.mjs');
   assert.notEqual(statSync(cli).mode & 0o111, 0, 'direct preflight CLI stays executable');
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
@@ -120,7 +122,7 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
       /(?:from|import)\s*['"][^'"]*(?:\/codex\/|\/claude\/|model-profiles|routing-policy|child-task-contract|orchestration-policy|session-contract|session-preflight)/u,
       file,
     );
-    assert.doesNotMatch(source, /gpt-6-|reasoning_effort|\.omx\//u, file);
+    assert.doesNotMatch(source, /gpt-\d|reasoning_effort|\.omx\//iu, file);
   }
 });
 
@@ -134,7 +136,7 @@ test('common delegation guidance links to host policy without inheriting Codex d
     'utf8',
   );
   assert.match(common, /codex-delegation\.md#model-recommendation/u);
-  assert.doesNotMatch(common, /gpt-6-|reasoning_effort|profileBinding|spawnArguments/u);
+  assert.doesNotMatch(common, /gpt-\d|reasoning_effort|profileBinding|spawnArguments/iu);
   assert.match(codex, /modelRequest/u);
   assert.match(codex, /profileBinding/u);
   assert.match(codex, /applied=false/u);

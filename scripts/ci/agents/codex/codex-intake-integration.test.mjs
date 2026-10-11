@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { runFreshSessionSmoke } from '../../../agents/codex/fresh-session-smoke.mjs';
 
 import { recommendDelegation } from '../../../agents/codex/child-task-contract.mjs';
 import { discoverContextPack } from '../../../agents/common/domain-guide-registry.mjs';
@@ -17,6 +16,11 @@ import {
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../../../agents/codex/orchestration-policy.mjs';
+import {
+  acceptedChildren,
+  FIXTURE_DISPATCH_TOKEN,
+  observedChildren,
+} from './fixtures/subagent-hook-observation.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const fixtures = JSON.parse(
@@ -60,17 +64,16 @@ test('supplied incompatible context stops dispatch while preserving the complete
   };
   const legacy = evaluateFixture(fixture, options);
   const first = legacy.delegation.recommendedChildren[0];
+  // The project hook denies a full-history fork, so this supplied context cannot become a spawn.
   const request = {
     purpose: 'task',
-    mode: 'scoped',
-    effortMode: 'explicit',
-    rationale: null,
+    mode: 'full-history',
+    rationale: 'The lane would need the earlier discussion.',
     snapshot: 'integration-fixture-v1',
     evidencePointers: [first.boundary.readScope[0]],
     findings: ['Keep unverified official authority as a gap.'],
     failures: ['Do not lose failed verification evidence.'],
     previous: null,
-    runtime: null,
   };
   const flow = evaluateFixture(fixture, {
     ...options,
@@ -82,13 +85,12 @@ test('supplied incompatible context stops dispatch while preserving the complete
   const { contextDelivery, ...unchanged } = supplied;
   assert.deepEqual(unchanged, first);
   assert.equal(contextDelivery.compatible, false);
+  assert.deepEqual(contextDelivery.gaps, ['full-history-fork-denied']);
   assert.equal(contextDelivery.applied, false);
   assert.deepEqual(contextDelivery.failures, request.failures);
   assert.equal(flow.dispatch.execution, 'leader-sequential');
   assert.deepEqual(flow.dispatch.dispatches, []);
-  assert.ok(flow.dispatch.gaps.includes(`runtime-context-incompatible:${first.laneId}`));
-  assert.equal(flow.dispatch.requiresLeaderRuntimeConfirmation, false);
-  assert.equal(flow.dispatch.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
+  assert.ok(flow.dispatch.gaps.includes(`context-delivery-incompatible:${first.laneId}`));
   assert.deepEqual(flow.delegation.limits, legacy.delegation.limits);
   const later = recommendDelegation({ envelope: flow.envelope, contextPack: flow.contextPack });
   assert.deepEqual(later.recommendedChildren, []);
@@ -109,8 +111,8 @@ test('Legal Analyze stays read-only while discovering repository surfaces and cu
   assert.equal(flow.delegation.execution, 'bounded-lanes');
   assert.equal(flow.dispatch.execution, 'native-bounded-dispatch');
   assert.deepEqual(flow.dispatch.dispatches.map(({ agentType }) => agentType).sort(), [
-    'knu_explorer',
-    'knu_researcher',
+    'knu_explorer_xhigh',
+    'knu_researcher_xhigh',
   ]);
   assert.ok(
     flow.delegation.recommendedChildren.every(
@@ -126,6 +128,9 @@ test('Legal Analyze stays read-only while discovering repository surfaces and cu
         preserveCurrentSourceGap: contract.laneId === 'legal-current-authority',
       }),
     ),
+    hookObservation: observedChildren(flow.delegation),
+    acceptances: acceptedChildren(observedChildren(flow.delegation)),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);
@@ -166,6 +171,9 @@ test('Legal Plan selects tracked authoring guides without granting implementatio
     childResults: flow.delegation.recommendedChildren.map((contract) =>
       completedChildResult(contract),
     ),
+    hookObservation: observedChildren(flow.delegation),
+    acceptances: acceptedChildren(observedChildren(flow.delegation)),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);
@@ -229,9 +237,17 @@ test('official-source recovery stops after one distinct alternate and preserves 
     failureCategory: fixture.scenario.firstFailure,
     evidence: 'The direct official source could not be reached.',
   };
-  const firstDecision = evaluateRecovery({ laneId: 'official-evidence', attempts: [primary] });
+  // An official research lane on 6.1 Sol: a source failure changes the approach on the same contract.
+  const route = { role: 'knu_researcher', profileId: 'standard-read' };
+  const firstDecision = evaluateRecovery({
+    laneId: 'official-evidence',
+    route,
+    attempts: [primary],
+  });
 
   assert.equal(firstDecision.action, 'alternate-once');
+  assert.equal(firstDecision.retryRoute.kind, 'same-contract');
+  assert.equal(firstDecision.retryRoute.model, 'gpt-6.1-sol');
   assert.equal(firstDecision.remainingAlternateAttempts, 1);
 
   const alternate = {
@@ -243,6 +259,7 @@ test('official-source recovery stops after one distinct alternate and preserves 
   };
   const terminal = evaluateRecovery({
     laneId: 'official-evidence',
+    route,
     attempts: [primary, alternate],
   });
 
@@ -255,6 +272,7 @@ test('official-source recovery stops after one distinct alternate and preserves 
     () =>
       evaluateRecovery({
         laneId: 'official-evidence',
+        route,
         attempts: [
           primary,
           alternate,
@@ -289,27 +307,9 @@ test('the integrated intake path remains advisory and cannot write files or invo
   }
 });
 
-test('intake model path keeps source-bound advice, context and dispatch as separate gates', () => {
-  const { modelEvidence } = runFreshSessionSmoke();
-  const dispatch = modelEvidence.pilot.dispatches[0];
-  const contract = dispatch.contract;
-  assert.equal(contract.contextDelivery.compatible, true);
-  assert.equal(contract.contextDelivery.applied, false);
-  assert.equal(contract.routeRecommendation.runtimeApplication.applied, false);
-  assert.match(contract.modelScopeDigest, /^sha256:[a-f0-9]{64}$/u);
-  assert.equal(dispatch.requiresLeaderRuntimeConfirmation, true);
-  assert.equal(modelEvidence.contextConflict.execution, 'leader-sequential');
-  assert.equal(modelEvidence.routineWithPilot.execution, 'leader-sequential');
-});
-
 function evaluateFixture(
   fixture,
-  {
-    repositoryEvidence = [],
-    laneCandidates = [],
-    reportedRuntimeEvidence,
-    deliveryByLane = {},
-  } = {},
+  { repositoryEvidence = [], laneCandidates = [], deliveryByLane = {} } = {},
 ) {
   assertRepositoryEvidenceExists(repositoryEvidence);
   const envelope = buildTaskEnvelope({ request: fixture.request });
@@ -326,39 +326,9 @@ function evaluateFixture(
       ),
     })),
   });
-  const dispatch = createDispatchRecommendation({
-    delegation,
-    reportedRuntimeEvidence:
-      reportedRuntimeEvidence ?? nativeRuntimeEvidenceFor(delegation.recommendedChildren),
-  });
+  const dispatch = createDispatchRecommendation({ delegation });
 
   return { envelope, contextPack, delegation, dispatch };
-}
-
-function nativeRuntimeEvidenceFor(contracts) {
-  const roles = new Map();
-  for (const contract of contracts) {
-    const { role, effort } = contract.routeRecommendation;
-    if (roles.has(role) && roles.get(role).effectiveEffort !== effort) {
-      throw new Error(`Fixture requires conflicting efforts for runtime role ${role}.`);
-    }
-    roles.set(role, {
-      agentType: role,
-      available: true,
-      effectiveModel: 'gpt-6-astra',
-      effectiveEffort: effort,
-      explicitEffortSupport: true,
-    });
-  }
-  return {
-    schemaVersion: 1,
-    surfaceMode: 'native',
-    observationScope: 'current-turn',
-    freshness: 'current-turn',
-    provenance: ['host-tool-schema'],
-    dispatchPermission: 'allowed',
-    roles: [...roles.values()],
-  };
 }
 
 function fixtureById(id) {
@@ -553,15 +523,3 @@ function completedChildResult(contract, { preserveCurrentSourceGap = false } = {
     blocker: null,
   };
 }
-
-test('fresh intake consumes Luna resolution, controlled failure and bounded Astra recovery', () => {
-  const { modelEvidence, boundaries } = runFreshSessionSmoke();
-  const activation = modelEvidence.activation;
-  assert.equal(activation.dispatch.dispatches[0].spawnArguments.model, 'gpt-6-luna');
-  assert.equal(activation.dispatch.dispatches[0].effectiveModel, null);
-  assert.equal(activation.post.accepted, false);
-  assert.equal(activation.completedRecovery.status, 'complete');
-  assert.equal(activation.post.usageReference, null);
-  assert.equal(activation.recovery.nextModel, 'gpt-6-astra');
-  assert.equal(boundaries.invokesChild, false);
-});

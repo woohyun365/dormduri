@@ -7,7 +7,7 @@
 | 경로                          | 책임                                                                                                                 |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `common/`                     | host-neutral intake·context·plan readiness/storage·workflow graph·QA packet·adapter conformance·review 증거 검사     |
-| `codex/`                      | Codex 모델/effort·위임·복구·결과·Git/OMX preflight와 workflow composition                                            |
+| `codex/`                      | Codex 모델/effort·위임·복구·결과(subagent hook 기록 대조)·Git/OMX preflight와 workflow composition                   |
 | `claude/`                     | Claude Git/계획 preflight·direct workflow·finite model 정책·same-session native task coordination·reviewer 기록 측정 |
 | `bridge/`                     | 교차-host static 계약과 fake process 검증; real provider 기본 비활성                                                 |
 | `fixtures/workflow-contract/` | 공통 intake·synthetic graph fixture; 실제 host/runtime 증거가 아님                                                   |
@@ -16,7 +16,7 @@
 
 ## 명명과 호출
 
-- host 명령은 `<host>:<operation>`: `pnpm codex:preflight`, `pnpm codex:workflow`.
+- host 명령은 `<host>:<operation>`: `pnpm codex:preflight`, `pnpm codex:workflow`, `pnpm codex:completion`.
   Claude는 `pnpm claude:preflight`·`pnpm claude:workflow`를 사용하고, 같은 interactive session의 bounded Agent task만
   `pnpm claude:native register --input <JSON-file>`로 등록합니다. Registry는 dispatcher·인증·업무 승인 수단이 아니며
   Codex 명령으로 대체하지 않습니다.

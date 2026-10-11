@@ -8,6 +8,10 @@ import {
   selectAgentRoute,
   normalizeModelRequest,
 } from '../../../agents/codex/routing-policy.mjs';
+import * as routingPolicy from '../../../agents/codex/routing-policy.mjs';
+import { ALLOWED_CHILD_MODELS } from '../../../agents/codex/model-profiles.mjs';
+
+const UNLISTED_MODEL = 'gpt-x-unlisted';
 
 const TASK_KINDS = [
   'lookup',
@@ -21,12 +25,12 @@ const TASK_KINDS = [
   'review',
 ];
 
-test('optional model advice preserves effort and requires bounded semantic quality evidence', () => {
-  for (const [taskKind, model, cohort, profileId] of [
-    ['lookup', 'gpt-6-sol', 'bounded-read-only', 'bounded-read'],
-    ['research', 'gpt-6-sol', 'bounded-read-only', 'bounded-read'],
-    ['implementation', 'gpt-6-sol', 'bounded-implementation', 'bounded-build'],
-    ['test', 'gpt-6-sol', 'bounded-implementation', 'bounded-build'],
+test('optional model advice keeps the semantic tier and admits a candidate role only with quality evidence', () => {
+  for (const [taskKind, model, cohort, profileId, role] of [
+    ['lookup', 'gpt-6.1-sol', 'bounded-read-only', 'standard-read', 'knu_explorer'],
+    ['research', 'gpt-6.1-sol', 'bounded-read-only', 'standard-read', 'knu_researcher'],
+    ['implementation', 'gpt-6.1-sol', 'bounded-implementation', 'standard-build', 'knu_executor'],
+    ['test', 'gpt-6.1-sol', 'bounded-implementation', 'standard-build', 'knu_executor'],
   ]) {
     const input = routeInput({ taskKind, impactRisk: 'low', predicateIds: mediumPredicateIds() });
     const legacy = selectAgentRoute(input);
@@ -37,12 +41,13 @@ test('optional model advice preserves effort and requires bounded semantic quali
     };
     const result = selectAgentRoute(input);
     assert.equal(legacy.modelRecommendation, undefined);
-    assert.equal(result.effort, legacy.effort);
-    assert.equal(result.role, legacy.role);
+    assert.equal(result.tier, legacy.tier);
+    assert.equal(legacy.role, `${role}_medium`);
+    assert.equal(result.role, role);
+    assert.equal(result.effort, 'high');
     assert.equal(result.modelRecommendation.recommendedModel, model);
     assert.equal(result.modelRecommendation.status, 'candidate');
     assert.equal(result.modelRecommendation.applied, false);
-    assert.deepEqual(result.runtimeApplication, legacy.runtimeApplication);
   }
 });
 
@@ -70,7 +75,7 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
       ...patch,
     });
     input.modelRequest = {
-      profileId: 'bounded-read',
+      profileId: 'standard-read',
       purpose: 'pilot',
       verificationFacts: modelVerification(input.pass2Evidence),
     };
@@ -97,8 +102,8 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
       predicateIds: mediumPredicateIds(),
     });
     input.modelRequest = {
-      profileId: 'bounded-read',
-      purpose: 'routine',
+      profileId: 'standard-read',
+      purpose: 'pilot',
       verificationFacts: modelVerification(input.pass2Evidence),
     };
     mutate(input);
@@ -106,11 +111,171 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
   }
 });
 
+// A lane without an explicit request: the Parent names which Pass 2 facts verify which key; the function picks the
+// candidate profile the route admits (routing table rows 1-5) or returns nothing, which keeps the Astra assignment.
+test('a lane without a model request gets the candidate its Pass 2 result admits and nothing otherwise', () => {
+  const READ_KEYS = ['acceptance', 'independentCheck'];
+  const BUILD_KEYS = ['acceptance', 'regression', 'astraQa'];
+  const EXTRACT_KEYS = [
+    'acceptance',
+    'fixedInput',
+    'outputSchema',
+    'singleStep',
+    'independentCheck',
+  ];
+  const facts = (input, keys) =>
+    Object.fromEntries(keys.map((key) => [key, input.pass2Evidence.facts[0].factId]));
+  for (const [taskKind, impactRisk, predicateIds, keys, profileId, model, role] of [
+    [
+      'lookup',
+      'low',
+      mediumPredicateIds(),
+      EXTRACT_KEYS,
+      'extract',
+      'gpt-6-luna',
+      'knu_explorer_xhigh',
+    ],
+    [
+      'lookup',
+      'low',
+      mediumPredicateIds(),
+      READ_KEYS,
+      'standard-read',
+      'gpt-6.1-sol',
+      'knu_explorer',
+    ],
+    [
+      'research',
+      'medium',
+      mediumPredicateIds(),
+      READ_KEYS,
+      'standard-read',
+      'gpt-6.1-sol',
+      'knu_researcher',
+    ],
+    [
+      'analysis',
+      'high',
+      mediumPredicateIds(),
+      READ_KEYS,
+      'elevated-read',
+      'gpt-6.1-sol',
+      'knu_explorer_xhigh',
+    ],
+    ['lookup', 'low', ['M-01'], READ_KEYS, 'elevated-read', 'gpt-6.1-sol', 'knu_explorer_xhigh'],
+    [
+      'implementation',
+      'low',
+      mediumPredicateIds(),
+      BUILD_KEYS,
+      'standard-build',
+      'gpt-6.1-sol',
+      'knu_executor',
+    ],
+    ['test', 'medium', ['M-01'], BUILD_KEYS, 'elevated-build', 'gpt-6.1-sol', 'knu_executor_xhigh'],
+  ]) {
+    const input = routeInput({ taskKind, impactRisk, predicateIds });
+    const verificationFacts = facts(input, keys);
+    const request = routingPolicy.defaultModelRequest(input, verificationFacts);
+    const label = `${taskKind}/${impactRisk}/${predicateIds.length}`;
+    assert.deepEqual(request, { profileId, purpose: 'routine', verificationFacts }, label);
+    const route = selectAgentRoute({ ...input, modelRequest: request });
+    assert.equal(route.modelRecommendation.status, 'candidate', label);
+    assert.equal(route.modelRecommendation.recommendedModel, model, label);
+    assert.equal(route.role, role, label);
+  }
+  // Extra keys beyond the chosen profile are not carried into its request.
+  const read = routeInput({
+    taskKind: 'lookup',
+    impactRisk: 'medium',
+    predicateIds: mediumPredicateIds(),
+  });
+  assert.deepEqual(
+    Object.keys(
+      routingPolicy.defaultModelRequest(read, facts(read, [...EXTRACT_KEYS, 'regression']))
+        .verificationFacts,
+    ),
+    READ_KEYS,
+  );
+
+  const ineligible = [
+    ['no verification facts', (input) => [input, undefined]],
+    ['missing key', (input) => [input, { acceptance: input.pass2Evidence.facts[0].factId }]],
+    [
+      'absent fact',
+      (input) => [
+        input,
+        { acceptance: 'fact-absent', regression: 'fact-absent', astraQa: 'fact-absent' },
+      ],
+    ],
+    [
+      'gap',
+      (input) => (
+        input.pass2Evidence.gaps.push('unknown owner'),
+        [input, facts(input, BUILD_KEYS)]
+      ),
+    ],
+    [
+      'medium confidence',
+      (input) => ((input.pass2Evidence.confidence = 'medium'), [input, facts(input, BUILD_KEYS)]),
+    ],
+    [
+      'high impact build',
+      (input) => ((input.pass1.impactRisk = 'high'), [input, facts(input, BUILD_KEYS)]),
+    ],
+    [
+      'debugging',
+      (input) => ((input.pass1.taskKind = 'debugging'), [input, facts(input, BUILD_KEYS)]),
+    ],
+    [
+      'direct shape',
+      (input) => ((input.pass1.executionShape = 'direct'), [input, facts(input, BUILD_KEYS)]),
+    ],
+  ];
+  for (const [label, make] of ineligible) {
+    const [input, verificationFacts] = make(
+      routeInput({
+        taskKind: 'implementation',
+        impactRisk: 'low',
+        predicateIds: mediumPredicateIds(),
+      }),
+    );
+    assert.equal(routingPolicy.defaultModelRequest(input, verificationFacts), undefined, label);
+  }
+  for (const predicate of ['X-01', 'BE-01-concurrency-transaction', 'FE-05-browser-runtime']) {
+    const input = routeInput({
+      taskKind: 'implementation',
+      impactRisk: 'low',
+      predicateIds: [...mediumPredicateIds(), predicate],
+    });
+    assert.equal(
+      routingPolicy.defaultModelRequest(input, facts(input, BUILD_KEYS)),
+      undefined,
+      predicate,
+    );
+  }
+  // An explicit request is the Parent's choice; the default never overrides it.
+  const explicit = routeInput({
+    taskKind: 'lookup',
+    impactRisk: 'low',
+    predicateIds: mediumPredicateIds(),
+  });
+  explicit.modelRequest = {
+    profileId: 'standard-read',
+    purpose: 'routine',
+    verificationFacts: facts(explicit, READ_KEYS),
+  };
+  assert.throws(() => routingPolicy.defaultModelRequest(explicit, facts(explicit, READ_KEYS)), {
+    name: 'TypeError',
+    message: /explicit model request/u,
+  });
+});
+
 test('model request is strict and cannot create children for deterministic work', () => {
   for (const [model, cohort] of [
-    ['gpt-5.6-sol', 'bounded-implementation'],
-    ['gpt-5.6-terra', 'bounded-read-only'],
-    ['gpt-5.6-luna', 'bounded-extraction'],
+    [UNLISTED_MODEL, 'bounded-implementation'],
+    [UNLISTED_MODEL, 'bounded-read-only'],
+    [UNLISTED_MODEL, 'bounded-extraction'],
   ]) {
     const keys =
       cohort === 'bounded-implementation'
@@ -131,13 +296,14 @@ test('model request is strict and cannot create children for deterministic work'
   }
   const input = routeInput({ predicateIds: mediumPredicateIds() });
   const request = {
-    profileId: 'bounded-build',
+    profileId: 'standard-build',
     purpose: 'pilot',
     verificationFacts: modelVerification(input.pass2Evidence, 'bounded-implementation'),
   };
   for (const patch of [
     { model: 'unknown-model' },
-    ...['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6-sol'].map((model) => ({ model })),
+    // Raw models are never request input, whether or not the allowlist holds them.
+    ...[UNLISTED_MODEL, ...ALLOWED_CHILD_MODELS].map((model) => ({ model })),
     { profileId: 'unknown-profile' },
     { cohort: 'bounded-implementation' },
     { pilot: true },
@@ -182,18 +348,17 @@ test('derives Medium only from complete positive boundedness evidence', () => {
   const result = selectAgentRoute(routeInput({ predicateIds: mediumPredicateIds() }));
 
   assert.equal(result.spawn, true);
-  assert.equal(result.role, 'knu_executor');
+  assert.equal(result.role, 'knu_executor_medium');
+  assert.equal(result.tier, 'medium');
   assert.equal(result.effort, 'medium');
   assert.equal(result.assessment.mediumEligibility, true);
   assert.equal(result.assessment.reasoningComplexity, 'bounded');
   assert.deepEqual(result.assessment.xhighSignals, []);
-  assert.deepEqual(result.runtimeApplication, transitionalRuntimeApplication());
-  assert.match(result.gaps.join(' '), /runtime-role-evidence-deferred/u);
 
   const incomplete = selectAgentRoute(
     routeInput({ predicateIds: mediumPredicateIds().slice(0, -1) }),
   );
-  assert.equal(incomplete.effort, 'high');
+  assert.equal(incomplete.tier, 'high');
   assert.equal(incomplete.assessment.mediumEligibility, false);
   assert.equal(incomplete.assessment.reasoningComplexity, 'substantial');
 });
@@ -208,7 +373,7 @@ test('selects XHigh from semantic concurrency evidence regardless of task label 
       }),
     );
 
-    assert.equal(result.effort, 'xhigh', taskKind);
+    assert.equal(result.tier, 'xhigh', taskKind);
     assert.equal(result.assessment.reasoningComplexity, 'deep', taskKind);
     assert.equal(result.assessment.xhighSignals.includes('X-02'), true, taskKind);
   }
@@ -220,7 +385,7 @@ test('selects XHigh from semantic concurrency evidence regardless of task label 
       statement: 'The request text mentions transaction migration critical xhigh.',
     }),
   );
-  assert.equal(lexicalOnly.effort, 'high');
+  assert.equal(lexicalOnly.tier, 'high');
   assert.deepEqual(lexicalOnly.assessment.xhighSignals, []);
 });
 
@@ -236,7 +401,7 @@ test('covers migration, lifecycle, auth, persisted contract, CI control-plane, a
 
   for (const [taskKind, predicateId] of cases) {
     const result = selectAgentRoute(routeInput({ taskKind, predicateIds: [predicateId] }));
-    assert.equal(result.effort, 'xhigh', `${taskKind}:${predicateId}`);
+    assert.equal(result.tier, 'xhigh', `${taskKind}:${predicateId}`);
     assert.equal(result.assessment.xhighSignals.includes(predicateId), true, predicateId);
   }
 
@@ -245,7 +410,7 @@ test('covers migration, lifecycle, auth, persisted contract, CI control-plane, a
       claims: [claimSpec('INF-07-ci-performance', 'broad-verification')],
     }),
   );
-  assert.equal(broadVerificationOnly.effort, 'high');
+  assert.equal(broadVerificationOnly.tier, 'high');
   assert.equal(broadVerificationOnly.assessment.deepComposite, false);
 });
 
@@ -259,7 +424,9 @@ test('the same Pass 1 request can resolve to Medium, High, or XHigh from current
     routeInput({ ...common, predicateIds: ['X-07', 'BE-01-concurrency-transaction'] }),
   );
 
-  assert.deepEqual([medium.effort, high.effort, xhigh.effort], ['medium', 'high', 'xhigh']);
+  assert.deepEqual([medium.tier, high.tier, xhigh.tier], ['medium', 'high', 'xhigh']);
+  // Debugging is a build: XHigh without high impact runs on the high executor (deep-build).
+  assert.deepEqual([medium.effort, high.effort, xhigh.effort], ['medium', 'high', 'high']);
   assert.deepEqual(
     [medium.impactRisk, high.impactRisk, xhigh.impactRisk],
     ['medium', 'medium', 'medium'],
@@ -277,7 +444,7 @@ test('derives DeepComposite from unique fact/category assignments with a structu
     }),
   );
 
-  assert.equal(result.effort, 'xhigh');
+  assert.equal(result.tier, 'xhigh');
   assert.equal(result.assessment.deepComposite, true);
   assert.deepEqual(result.assessment.compositeCategories, [
     'cross-owner',
@@ -350,7 +517,6 @@ test('maps semantic task kinds to project roles without treating the role as run
       routeInput({ taskKind, predicateIds: ['FE-05-browser-runtime'] }),
     );
     assert.equal(result.role, expected[taskKind], taskKind);
-    assert.deepEqual(result.runtimeApplication, transitionalRuntimeApplication());
     assert.equal(['medium', 'high', 'xhigh'].includes(result.effort), true);
   }
 });
@@ -363,15 +529,17 @@ test('keeps impact risk separate and rejects legacy critical/role-availability s
     routeInput({ impactRisk: 'high', predicateIds: mediumPredicateIds() }),
   );
 
-  assert.equal(lowRisk.effort, 'medium');
-  assert.equal(highRisk.effort, 'medium');
+  // Impact never changes the semantic tier; it selects the variant (a high-impact build is the xhigh executor).
+  assert.equal(lowRisk.tier, 'medium');
+  assert.equal(highRisk.tier, 'medium');
+  assert.equal(lowRisk.role, 'knu_executor_medium');
+  assert.equal(highRisk.role, 'knu_executor_xhigh');
   assert.notEqual(lowRisk.impactRisk, highRisk.impactRisk);
-  assert.equal(
-    selectAgentRoute(
-      routeInput({ taskKind: 'architecture', predicateIds: ['FE-05-browser-runtime'] }),
-    ).effort,
-    'high',
+  const architecture = selectAgentRoute(
+    routeInput({ taskKind: 'architecture', predicateIds: ['FE-05-browser-runtime'] }),
   );
+  assert.equal(architecture.tier, 'high');
+  assert.equal(architecture.effort, 'xhigh');
   assert.throws(
     () => selectAgentRoute({ pass1: pass1({ impactRisk: 'critical' }) }),
     /Unsupported impact risk/u,
@@ -481,14 +649,17 @@ function mediumPredicateIds() {
   return Array.from({ length: 15 }, (_, index) => `M-${String(index + 1).padStart(2, '0')}`);
 }
 
-function transitionalRuntimeApplication() {
-  return {
-    requested: true,
-    supported: 'unknown',
-    applied: false,
-    evidenceStatus: 'deferred-to-runtime-compatibility',
-  };
-}
+test('routes carry no transitional runtime placeholder', () => {
+  // The project hook and completion check replace the leader-reported runtime confirmation this field deferred to.
+  const result = selectAgentRoute(routeInput({ predicateIds: mediumPredicateIds() }));
+  assert.equal(result.spawn, true);
+  assert.equal('runtimeApplication' in result, false, 'runtimeApplication placeholder');
+  assert.equal(
+    result.gaps.includes('runtime-role-evidence-deferred'),
+    false,
+    'runtime evidence gap',
+  );
+});
 
 function modelVerification(evidence, cohort = 'bounded-read-only') {
   const id = evidence.facts[0].factId;
@@ -507,7 +678,7 @@ test('Luna extraction requires low-impact finite semantic work and never replace
     });
     const ids = input.pass2Evidence.facts.map(({ factId }) => factId);
     input.modelRequest = {
-      profileId: 'bounded-extract',
+      profileId: 'extract',
       purpose: 'routine',
       verificationFacts: Object.fromEntries(
         ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'].map(
@@ -519,8 +690,9 @@ test('Luna extraction requires low-impact finite semantic work and never replace
   };
   const result = selectAgentRoute(make());
   assert.equal(result.modelRecommendation.recommendedModel, 'gpt-6-luna');
-  assert.equal(result.role, 'knu_explorer');
-  assert.equal(result.effort, 'medium');
+  assert.equal(result.role, 'knu_explorer_xhigh');
+  assert.equal(result.tier, 'medium');
+  assert.equal(result.effort, 'xhigh');
   assert.equal(result.modelRecommendation.profileBinding.resolvedEffort, 'xhigh');
   for (const patch of [
     { impactRisk: 'medium' },
@@ -551,18 +723,167 @@ test('Luna extraction requires low-impact finite semantic work and never replace
   assert.equal(selectAgentRoute({ ...make(), childBenefit: false }).spawn, false);
 });
 
-test('researcher routine remains Astra even when the read profile is eligible for a pilot', () => {
+test('researcher and explorer routine requests get the 6.1 Sol read profile like a pilot', () => {
   const input = routeInput({
     taskKind: 'research',
     impactRisk: 'low',
     predicateIds: mediumPredicateIds(),
   });
   input.modelRequest = {
-    profileId: 'bounded-read',
+    profileId: 'standard-read',
     purpose: 'routine',
     verificationFacts: modelVerification(input.pass2Evidence),
   };
-  assert.equal(selectAgentRoute(input).modelRecommendation.status, 'baseline');
-  input.modelRequest.purpose = 'pilot';
   assert.equal(selectAgentRoute(input).modelRecommendation.status, 'candidate');
+  assert.equal(selectAgentRoute(input).role, 'knu_researcher');
+  const explorer = structuredClone(input);
+  explorer.pass1.taskKind = 'lookup';
+  assert.equal(selectAgentRoute(explorer).modelRecommendation.status, 'candidate');
+  assert.equal(selectAgentRoute(explorer).role, 'knu_explorer');
+  // Admission conditions still bind a routine request: an incomplete Medium falls back to the Astra assignment.
+  const uncertain = structuredClone(input);
+  uncertain.pass2Evidence.gaps.push('incomplete input set');
+  assert.equal(selectAgentRoute(uncertain).modelRecommendation.status, 'baseline');
+  assert.equal(selectAgentRoute(uncertain).profileId, 'astra-fallback');
+});
+
+// Effort structure: Pass 2 picks a role variant whose file pins effort, and a profile that names the model.
+const HIGH_PREDICATES = mediumPredicateIds().slice(0, -1);
+const XHIGH_PREDICATES = ['X-02'];
+
+test('Pass 2 tier, task family and impact select the role variant, its pinned effort and the Astra profile', async () => {
+  const { ROLE_EFFORTS } = await import('../../../agents/codex/model-profiles.mjs');
+  // [taskKind, impactRisk, predicates, tier, role, profileId]
+  for (const [taskKind, impactRisk, predicateIds, tier, role, profileId] of [
+    ['lookup', 'low', mediumPredicateIds(), 'medium', 'knu_explorer_medium', 'astra-fallback'],
+    ['research', 'medium', HIGH_PREDICATES, 'high', 'knu_researcher', 'astra-fallback'],
+    ['analysis', 'low', XHIGH_PREDICATES, 'xhigh', 'knu_explorer_xhigh', 'astra-fallback'],
+    ['lookup', 'high', mediumPredicateIds(), 'medium', 'knu_explorer_xhigh', 'astra-fallback'],
+    [
+      'implementation',
+      'low',
+      mediumPredicateIds(),
+      'medium',
+      'knu_executor_medium',
+      'astra-fallback',
+    ],
+    ['debugging', 'medium', HIGH_PREDICATES, 'high', 'knu_executor', 'astra-fallback'],
+    ['test', 'medium', XHIGH_PREDICATES, 'xhigh', 'knu_executor', 'deep-build'],
+    ['implementation', 'high', mediumPredicateIds(), 'medium', 'knu_executor_xhigh', 'deep-build'],
+    ['implementation', 'high', XHIGH_PREDICATES, 'xhigh', 'knu_executor_xhigh', 'deep-build'],
+    ['review', 'low', mediumPredicateIds(), 'medium', 'knu_reviewer', 'review'],
+    ['architecture', 'high', XHIGH_PREDICATES, 'xhigh', 'knu_reviewer', 'review'],
+  ]) {
+    const label = `${taskKind}/${impactRisk}/${tier}`;
+    const result = selectAgentRoute(routeInput({ taskKind, impactRisk, predicateIds }));
+    assert.equal(result.tier, tier, label);
+    assert.equal(result.role, role, label);
+    assert.equal(result.effort, ROLE_EFFORTS[role], label);
+    assert.equal(result.profileId, profileId, label);
+    assert.equal(result.modelRecommendation, undefined, label);
+  }
+});
+
+test('6.1 Sol profiles admit pilot and routine requests on their own role variants', () => {
+  for (const [taskKind, profileId, predicateIds, role, cohort] of [
+    ['lookup', 'standard-read', mediumPredicateIds(), 'knu_explorer', 'bounded-read-only'],
+    [
+      'implementation',
+      'standard-build',
+      mediumPredicateIds(),
+      'knu_executor',
+      'bounded-implementation',
+    ],
+    ['research', 'elevated-read', HIGH_PREDICATES, 'knu_researcher_xhigh', 'bounded-read-only'],
+    ['analysis', 'elevated-read', XHIGH_PREDICATES, 'knu_explorer_xhigh', 'bounded-read-only'],
+    [
+      'implementation',
+      'elevated-build',
+      HIGH_PREDICATES,
+      'knu_executor_xhigh',
+      'bounded-implementation',
+    ],
+  ]) {
+    const label = `${profileId}/${taskKind}`;
+    const input = routeInput({ taskKind, impactRisk: 'low', predicateIds });
+    const verificationFacts = modelVerification(input.pass2Evidence, cohort);
+    for (const purpose of ['pilot', 'routine']) {
+      const route = selectAgentRoute({
+        ...input,
+        modelRequest: { profileId, purpose, verificationFacts },
+      });
+      assert.equal(route.modelRecommendation.status, 'candidate', `${label}/${purpose}`);
+      assert.equal(
+        route.modelRecommendation.recommendedModel,
+        'gpt-6.1-sol',
+        `${label}/${purpose}`,
+      );
+      assert.equal(route.role, role, `${label}/${purpose}`);
+      assert.equal(route.modelRecommendation.role, role, `${label}/${purpose}`);
+      assert.equal(route.profileId, profileId, `${label}/${purpose}`);
+    }
+  }
+});
+
+test('elevated pilots keep the bounded quality conditions and exclude deep or high-impact builds', () => {
+  const pilot = (taskKind, impactRisk, predicateIds, profileId, cohort, mutate = () => {}) => {
+    const input = routeInput({ taskKind, impactRisk, predicateIds });
+    mutate(input);
+    return selectAgentRoute({
+      ...input,
+      modelRequest: {
+        profileId,
+        purpose: 'pilot',
+        verificationFacts: modelVerification(input.pass2Evidence, cohort),
+      },
+    });
+  };
+  const read = 'bounded-read-only';
+  const build = 'bounded-implementation';
+  assert.equal(
+    pilot('lookup', 'high', mediumPredicateIds(), 'elevated-read', read).modelRecommendation.status,
+    'candidate',
+  );
+  for (const result of [
+    pilot('lookup', 'low', mediumPredicateIds(), 'elevated-read', read),
+    pilot('lookup', 'low', HIGH_PREDICATES, 'standard-read', read),
+    pilot('lookup', 'low', ['FE-08-performance-causal'], 'elevated-read', read),
+    pilot('lookup', 'low', HIGH_PREDICATES, 'elevated-read', read, (input) => {
+      input.pass2Evidence.gaps = ['missing owner'];
+    }),
+    pilot('implementation', 'low', XHIGH_PREDICATES, 'elevated-build', build),
+    pilot('implementation', 'high', HIGH_PREDICATES, 'elevated-build', build),
+    pilot('implementation', 'low', mediumPredicateIds(), 'elevated-build', build),
+  ])
+    assert.equal(result.modelRecommendation.status, 'baseline');
+});
+
+test('Luna extraction stays routine on the xhigh explorer and model requests need a candidate profile', () => {
+  const input = routeInput({
+    taskKind: 'lookup',
+    impactRisk: 'low',
+    predicateIds: mediumPredicateIds(),
+  });
+  const id = input.pass2Evidence.facts[0].factId;
+  const verificationFacts = {
+    acceptance: id,
+    fixedInput: id,
+    outputSchema: id,
+    singleStep: id,
+    independentCheck: id,
+  };
+  const result = selectAgentRoute({
+    ...input,
+    modelRequest: { profileId: 'extract', purpose: 'routine', verificationFacts },
+  });
+  assert.equal(result.modelRecommendation.status, 'candidate');
+  assert.equal(result.modelRecommendation.recommendedModel, 'gpt-6-luna');
+  assert.equal(result.role, 'knu_explorer_xhigh');
+  assert.equal(result.effort, 'xhigh');
+  assert.equal(result.profileId, 'extract');
+  for (const profileId of ['deep-build', 'review', 'astra-fallback'])
+    assert.throws(
+      () => normalizeModelRequest({ profileId, purpose: 'pilot', verificationFacts: {} }),
+      { name: 'TypeError', message: 'Model request needs a candidate profile.' },
+    );
 });

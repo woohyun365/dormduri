@@ -67,15 +67,15 @@ current schema·pending 작업·정확한 scope를 다시 확인합니다.
 
 ## Diagnostic contract
 
-공통 진단은 요청·source identity·계획 상태·불완전한 evidence를 구별합니다. Codex의 실제 preflight JSON과 OMX priority/context 필드는 [Codex diagnostic contract](./adapters/codex.md#diagnostic-contract)가 소유합니다.
+공통 진단은 요청·source identity·계획 상태·불완전한 evidence를 구별합니다. Codex의 실제 preflight JSON과 OMX priority/context 필드는 [Codex diagnostic contract](./adapters/codex-diagnostics.md#diagnostic-contract)가 소유합니다.
 
 ### Identity and freshness
 
-공통 plan reader의 identity와 source 재확인에 host session metadata를 혼합하지 않습니다. Codex의 `taskMatch`/`freshness` 의미는 [host identity](./adapters/codex.md#identity-and-freshness)를 따릅니다.
+공통 plan reader의 identity와 source 재확인에 host session metadata를 혼합하지 않습니다. Codex의 `taskMatch`/`freshness` 의미는 [host identity](./adapters/codex-diagnostics.md#identity-and-freshness)를 따릅니다.
 
 ### Bounded reads and failure handling
 
-공통 reader의 bounded-path/중복/상태 검사는 아래 lifecycle 계약을 따릅니다. Codex context의 경로·read budget·fallback은 [host bounded reads](./adapters/codex.md#bounded-reads-and-failure-handling)에서 확인합니다.
+공통 reader의 bounded-path/중복/상태 검사는 아래 lifecycle 계약을 따릅니다. Codex context의 경로·read budget·fallback은 [host bounded reads](./adapters/codex-diagnostics.md#bounded-reads-and-failure-handling)에서 확인합니다.
 
 ## Portable handoff
 
@@ -172,6 +172,45 @@ Checkpoint는 다음 경우에만 만듭니다.
   남은 미완료/NO-GO 경계를 적습니다. 과거 Authority·lease·next action을 현재 실행 승인으로 재사용하지 않습니다.
 - 추적하는 파일은 `supporting`·`pending`·`finished`·`cancelled`의 `README.md` 네 개뿐입니다. 이 README는 용도 요약과 이
   절로 가는 링크만 담고, 로컬 목록과 링크는 비추적 root `README.md`가 소유합니다.
+
+### 계획 초안 staging과 promote
+
+새 계획을 만들거나 여러 계획 문서의 내용을 함께 고칠 때는 `.plans`를 직접 고치지 않습니다. 초안을 staging에서 완성하고
+독립 리뷰를 받은 뒤 승격합니다. 리뷰가 필요 없는 다음 갱신은 직접 고치고, 고친 뒤 아래 3의 검사만 실행합니다: 문서 하나의
+상태 정정, 여러 문서에 걸친 링크·anchor만의 기계적 수정, Owner가 확인한 lifecycle 이동과 그에 따른 링크 보정.
+경로는 모두 저장소 root 기준(`.plans/x-plan.md`)으로 적습니다.
+
+1. **Staging**: `.artifacts/plans/<umbrella>/<bounded>/<phase|YYYY-MM-DD>/` 아래에 둡니다. 주제가 여럿이면 `<topic>/`을
+   한 단 더 둡니다. 그 아래 `plan-drafts/.plans/`에 `.plans`와 같은 상대 경로로 초안을 둡니다. 기존 문서는 원본을
+   복사해서 시작합니다.
+2. **원본 manifest**: `plan-drafts/SOURCE-MANIFEST.tsv`의 첫 줄은 `sha256	source	destination` header입니다. 그 아래에
+   고치거나 옮기는 원본마다 복사 시점의 sha256, 원본 경로, 승격 경로를 한 줄씩 적습니다. 새 문서는 줄이 없습니다.
+   옮기는 문서는 source와 destination이 다르고, 이동은 리뷰 PASS와 별개로 위 이동 규칙의 Owner 확인을 받습니다.
+3. **검사**: 승격 view를 만듭니다. 현재 `.plans` 전체 사본에 staged 파일을 덮고, 옮기는 문서의 원본을 지운 것입니다.
+   같은 staging 디렉터리 아래(예: `review/promote-view/`)에 두고, view의 모든 계획 파일에
+   `plan-reference-check.mjs --root <view>`를 실행합니다. 다른 계획에서 들어오는 링크도 함께 검사하기 위해서입니다.
+   view는 ignored 위치라, view 안에서 없는 대상은 위반이 아니라 `unavailable-target`·`unavailable-link` 목록으로
+   나옵니다. 이 목록은 PASS가 아닙니다. 항목마다 의도한 local 파일인지 확인하고, 오타나 이동 누락이면 고칩니다.
+   승격한 뒤에는 승격한 파일과 그 파일을 가리키는 계획에 저장소 root 기준(`--root .`)으로 다시 실행합니다. 이때
+   `.plans` 밖 대상은 위반으로 판정되고, `.plans` 안 대상은 여전히 목록으로 나오므로 같은 방식으로 확인합니다.
+   근거 문서가 있으면 `citation-check.mjs`도 실행합니다.
+4. **리뷰**: staged 파일과 manifest의 원본을 파일 단위 read path로 주고 [독립 리뷰](./qa.md#리뷰-회차)를 받습니다.
+   `plan-drafts/`는 정산 뒤 receipt를 쓰는 곳이므로 디렉터리 read path로 주지 않습니다. runner 로그에는 staged
+   파일의 sha256을 남깁니다.
+5. **Promote**: PASS한 reviewer를 정산한 뒤 합니다. 먼저 세 가지를 확인하고, 하나라도 어긋나면 멈추고 다시 staging합니다.
+   - 원본 sha256이 manifest와 같은가
+   - 새 문서와 이동 destination 경로가 아직 비어 있는가(덮어쓰지 않습니다)
+   - staged sha256이 리뷰한 값과 같은가
+
+   확인이 끝나면 복사하고, 옮긴 원본을 지우고, 들어오는 링크를 3의 root 기준 검사로 확인합니다. 그리고
+   `plan-drafts/promote-receipt.json`을 남깁니다. 필드는 다음과 같습니다.
+   - `schema`: `plan-promote-receipt/v1`
+   - `promotedAt`: ISO 8601 시각
+   - `staging`·`sourceManifest`: root 기준 경로
+   - `sourceShaCheck`: `all-match`
+   - `copied[]`: `path`(승격 경로), `sha256`(복사 뒤 값), `existed`(복사 전에 있었는지. 기존 문서를 고친 경우만 true)
+   - `removedMovedOriginals`: 지운 원본 경로 목록
+   - `dryRun`: 시험 실행은 `true`로 `promote-receipt.dry-run.json`에 따로 남깁니다.
 
 ### Supporting 문서 재개와 인계
 

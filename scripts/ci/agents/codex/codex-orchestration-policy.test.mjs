@@ -1,10 +1,11 @@
 import {
   getModelProfile,
   createModelProfileBinding,
+  ROLE_EFFORTS,
 } from '../../../agents/codex/model-profiles.mjs';
 import * as modelPolicy from '../../../agents/codex/orchestration-policy.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -25,14 +26,14 @@ import {
   evaluateRecovery,
   prepareLeaderSynthesis,
 } from '../../../agents/codex/orchestration-policy.mjs';
+import {
+  acceptedChildren,
+  FIXTURE_DISPATCH_TOKEN,
+  observedChildren,
+} from './fixtures/subagent-hook-observation.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
-const runtimeCapabilityCases = JSON.parse(
-  readFileSync(
-    resolve(repoRoot, 'scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json'),
-    'utf8',
-  ),
-);
+const UNLISTED_MODEL = 'gpt-x-unlisted';
 
 test('lifecycle eligibility is immutable advice, not native close or slot evidence', () => {
   const input = lifecycleEvidence();
@@ -283,19 +284,17 @@ test('ordinary role dispatch remains valid without any close capability envelope
     }).recommendation,
     'unsupported',
   );
-  const result = createDispatchRecommendation({
-    delegation: legalDelegation(),
-    reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
-  });
+  const result = createDispatchRecommendation({ delegation: legalDelegation() });
   assert.equal(result.execution, 'native-bounded-dispatch');
-  const expanded = createDispatchRecommendation({
-    delegation: legalDelegation(),
-    reportedRuntimeEvidence: {
-      ...runtimeFixture('native-project-role-success').evidence,
-      lifecycle: lifecycleEvidence(),
-    },
-  });
-  assert.equal(expanded.execution, 'leader-sequential');
+  // Lifecycle evidence is not a dispatch input.
+  assert.throws(
+    () =>
+      createDispatchRecommendation({
+        delegation: legalDelegation(),
+        lifecycle: lifecycleEvidence(),
+      }),
+    { name: 'TypeError', message: 'Unsupported dispatch input: lifecycle' },
+  );
 });
 
 test('verified no-close separates task collection and cleanup from unobserved release', () => {
@@ -523,72 +522,149 @@ function closedLifecycleEvidence() {
   return input;
 }
 
-for (const fixture of runtimeCapabilityCases) {
-  test(`runtime evidence: ${fixture.id}`, () => {
-    const result = createDispatchRecommendation({
-      delegation: legalDelegation(),
-      reportedRuntimeEvidence: fixture.evidence,
-    });
-
-    assert.equal(result.execution, fixture.expectedExecution);
-    assert.equal(result.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
-    assert.equal(Object.isFrozen(result.reportedRuntimeEvidence), true);
-    if (fixture.expectedExecution === 'native-bounded-dispatch') {
-      assert.equal(result.dispatches.length, 2);
-      assert.equal(result.requiresLeaderRuntimeConfirmation, true);
-      assert.ok(
-        result.dispatches.every(
-          ({ effectiveModel, effort, effectiveEffort, requiresLeaderRuntimeConfirmation }) =>
-            effectiveModel === 'gpt-6-astra' &&
-            effort === effectiveEffort &&
-            requiresLeaderRuntimeConfirmation,
-        ),
-      );
-      assert.equal(
-        result.dispatches[0].runtimeSurface,
-        fixture.evidence.surfaceMode === 'omx' ? 'omx-native-child' : 'native-child',
-      );
-    } else {
-      assert.deepEqual(result.dispatches, []);
-      assert.equal(result.requiresLeaderRuntimeConfirmation, false);
-      assert.ok(
-        result.gaps.some((gap) => gap.includes(fixture.expectedGap)),
-        `${fixture.id}: ${result.gaps.join(', ')}`,
-      );
-    }
-  });
-}
-
-for (const effort of ['none', 'minimal', 'low', 'max', 'ultra']) {
-  test(`Astra runtime evidence rejects unsupported child effort: ${effort}`, () => {
-    const evidence = structuredClone(runtimeFixture('native-project-role-success').evidence);
-    evidence.roles[0].effectiveEffort = effort;
-    const result = createDispatchRecommendation({
-      delegation: legalDelegation(),
-      reportedRuntimeEvidence: evidence,
-    });
-
-    assert.equal(result.execution, 'leader-sequential');
-    assert.deepEqual(result.dispatches, []);
-    assert.ok(result.gaps.some((gap) => gap.includes('runtime-role-metadata-invalid')));
-  });
-}
-
-test('missing or caller-expanded runtime evidence fails closed instead of fabricating authority', () => {
+test('dispatch accepts only its delegation, concurrency and token inputs', () => {
   const delegation = legalDelegation();
-  const missing = createDispatchRecommendation({ delegation });
-  const expanded = createDispatchRecommendation({
-    delegation,
-    reportedRuntimeEvidence: {
-      ...runtimeFixture('native-project-role-success').evidence,
-      hostAuthenticated: true,
-    },
-  });
+  for (const key of [
+    'reportedRuntimeEvidence',
+    'modelUseByLane',
+    'hostAuthenticated',
+    'recoveryDecision',
+  ])
+    assert.throws(() => createDispatchRecommendation({ delegation, [key]: {} }), {
+      name: 'TypeError',
+      message: `Unsupported dispatch input: ${key}`,
+    });
+});
 
-  assert.equal(missing.execution, 'leader-sequential');
-  assert.match(missing.gaps.join(' '), /runtime-evidence-missing/u);
-  assert.equal(expanded.execution, 'leader-sequential');
-  assert.match(expanded.gaps.join(' '), /runtime-evidence-field-unsupported/u);
+test('contract-derived spawn arguments need no reported runtime evidence', () => {
+  const delegation = legalDelegation();
+  const result = createDispatchRecommendation({ delegation, dispatchToken: 'k3x9' });
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  assert.deepEqual(
+    result.dispatches.map(({ spawnArguments }) => spawnArguments),
+    delegation.recommendedChildren.map(({ laneId, routeRecommendation }) => ({
+      task_name: `${laneId.replaceAll('-', '_')}_k3x9`,
+      agent_type: routeRecommendation.role,
+      model: 'gpt-6-astra',
+      reasoning_effort: ROLE_EFFORTS[routeRecommendation.role],
+      fork_turns: 'none',
+    })),
+  );
+  // No leader-reported runtime, admission or post-execution field remains on the advice.
+  assert.deepEqual(Object.keys(result).sort(), [
+    'deferredLaneIds',
+    'dispatches',
+    'execution',
+    'gaps',
+    'leaderOwnership',
+    'limits',
+    'reason',
+    'requestId',
+    'schemaVersion',
+  ]);
+  for (const dispatch of result.dispatches)
+    assert.deepEqual(Object.keys(dispatch).sort(), [
+      'agentType',
+      'contract',
+      'dispatchOwner',
+      'dispatchToken',
+      'effort',
+      'laneId',
+      'model',
+      'spawnArguments',
+    ]);
+});
+
+test('suspended model recovery exports are gone from profiles, child contracts and the policy', async () => {
+  const modules = {
+    'model-profiles': await import('../../../agents/codex/model-profiles.mjs'),
+    'child-task-contract': await import('../../../agents/codex/child-task-contract.mjs'),
+    'orchestration-policy': modelPolicy,
+  };
+  for (const [name, exports] of Object.entries(modules))
+    for (const removed of [
+      'MODEL_RECOVERY_SUSPENDED',
+      'MODEL_RECOVERY_SUSPENDED_REASON',
+      'createRecoveryBinding',
+      'assertCurrentRecoveryBinding',
+      'createRecoveryChildContract',
+      'assertRecoveryChildContract',
+    ])
+      assert.equal(Object.hasOwn(exports, removed), false, `${name}: ${removed}`);
+});
+
+test('model recovery suspension sections are gone and the recovery ceiling names the one-rung ladder', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const workflow = 'docs/development/agent-workflows/';
+  const recovery = read(`${workflow}request-intake/orchestration-recovery.md`);
+  const adapter = read(`${workflow}adapters/codex.md`);
+  const delegation = read(`${workflow}adapters/codex-delegation.md`);
+  assert.doesNotMatch(recovery, /^## Model recovery suspension$/mu);
+  assert.doesNotMatch(adapter, /^### Model recovery suspension$/mu);
+  assert.doesNotMatch(delegation, /^### Recovery child context$/mu);
+  for (const text of [
+    recovery,
+    adapter,
+    delegation,
+    read(`${workflow}agentic-architecture-decisions.md`),
+  ])
+    assert.doesNotMatch(text, /#model-recovery-suspension|recoveryDecision\b|effortMode/u);
+  const start = recovery.indexOf('## Recovery ceiling\n');
+  assert.ok(start >= 0);
+  const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
+  // A result-quality failure retries once one rung up on its role; the retry never chains.
+  assert.doesNotMatch(ceiling, /다른 model로 다시 시도하지 않습니다|ladder는 없습니다/u);
+  assert.match(ceiling, /`laneId`·`route`·`attempts`만/u);
+  assert.match(ceiling, /같은 역할로 사다리 한 단 위/u);
+  assert.match(ceiling, /재시도의 재시도·연쇄 상향은 없습니다/u);
+  for (const text of [adapter, delegation])
+    assert.doesNotMatch(text, /다른 model로\s*(다시 시도하지|옮기지) 않습니다/u);
+});
+
+test('deleted delivery effort mode is not prose input and a new contract after handoff is not a retry', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const workflow = 'docs/development/agent-workflows/';
+  for (const path of [
+    'adapters/codex.md',
+    'adapters/codex-delegation.md',
+    'request-intake/orchestration-recovery.md',
+  ])
+    assert.doesNotMatch(read(`${workflow}${path}`), /inherit|explicit-effort/iu, path);
+  assert.doesNotMatch(
+    read(`${workflow}request-intake/delegation.md`),
+    /explicit-effort|effortMode/u,
+  );
+  const recovery = read(`${workflow}request-intake/orchestration-recovery.md`);
+  const start = recovery.indexOf('## Recovery ceiling\n');
+  const ceiling = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
+  assert.match(ceiling, /새 ordinary contract[^\n]*\n[^\n]*새 위임입니다/u);
+});
+
+test('the common recovery ceiling the Codex retry relies on keeps one retry and no per-failure model ladder', () => {
+  const orchestration = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
+    'utf8',
+  );
+  const start = orchestration.indexOf('## Recovery ceiling\n');
+  assert.ok(start >= 0);
+  const ceiling = orchestration.slice(start, orchestration.indexOf('\n## ', start + 1));
+  assert.match(ceiling, /모델을 바꾼 시도도 같은 상한을 소비합니다/u);
+  assert.match(ceiling, /실패할 때마다 모델을 차례로 올리는 자동 사다리는 없습니다/u);
+  assert.match(
+    ceiling,
+    /다른 접근의 구체\(모델·effort 상향, 대체 역할, 호출 인자\)는 host adapter가 정합니다/u,
+  );
+});
+
+test('leader-reported post-execution checks and runtime capability fixtures are gone', () => {
+  assert.equal('evaluateModelExecution' in modelPolicy, false, 'evaluateModelExecution export');
+  assert.equal(
+    existsSync(
+      resolve(repoRoot, 'scripts/ci/agents/codex/fixtures/codex-runtime-capability-cases.json'),
+    ),
+    false,
+    'runtime capability fixture',
+  );
 });
 
 test('caller-expanded write capability fails closed before dispatch', () => {
@@ -610,36 +686,62 @@ test('caller-expanded write capability fails closed before dispatch', () => {
   };
 
   assert.throws(
-    () =>
-      createDispatchRecommendation({
-        delegation: expanded,
-        reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
-      }),
+    () => createDispatchRecommendation({ delegation: expanded }),
     /write capability requires explicit write ownership/u,
   );
 });
 
-test('accepts one validated bounded lane while retaining the runtime capability gate', () => {
+test('dispatch re-validates a caller-edited delegation before any spawn advice', () => {
+  const base = legalDelegation();
+  const asWriter = (contract, path) => ({
+    ...contract,
+    allowed: { ...contract.allowed, tools: [...contract.allowed.tools, 'workspace-edit'] },
+    boundary: { ...contract.boundary, writeOwnership: [path], readOnly: false },
+  });
+  const [first, second] = base.recommendedChildren;
+  const cases = [
+    [
+      { ...base, recommendedChildren: [asWriter(first, 'a.ts'), asWriter(second, 'b.ts')] },
+      'delegation can select at most one write-capable child lane.',
+    ],
+    [
+      {
+        ...base,
+        recommendedChildren: Array.from({ length: 7 }, (_, i) => ({
+          ...first,
+          laneId: `lane-${i}`,
+        })),
+      },
+      'delegation exceeds the hard child limit of 6.',
+    ],
+    [
+      { ...base, execution: 'direct' },
+      'delegation execution and recommended child count are inconsistent.',
+    ],
+    [
+      { ...base, leaderOwnership: { ...base.leaderOwnership, finalDecision: false } },
+      'delegation must preserve leader-only ownership.',
+    ],
+    [
+      { ...base, recommendedChildren: [first, { ...second, laneId: first.laneId }] },
+      'contract laneId values must be unique.',
+    ],
+  ];
+  for (const [delegation, message] of cases)
+    assert.throws(() => createDispatchRecommendation({ delegation }), {
+      name: 'TypeError',
+      message,
+    });
+});
+
+test('accepts one validated bounded lane', () => {
   const delegation = legalDelegation({ oneLane: true });
-  const ready = createDispatchRecommendation({
-    delegation,
-    reportedRuntimeEvidence: runtimeFixture('native-project-role-success').evidence,
-  });
-  const unsupported = createDispatchRecommendation({
-    delegation,
-    reportedRuntimeEvidence: {
-      ...runtimeFixture('native-project-role-success').evidence,
-      dispatchPermission: 'unknown',
-    },
-  });
+  const ready = createDispatchRecommendation({ delegation });
 
   assert.equal(delegation.recommendedChildren.length, 1);
   assert.equal(ready.execution, 'native-bounded-dispatch');
   assert.equal(ready.dispatches.length, 1);
-  assert.equal(ready.dispatches[0].agentType, 'knu_explorer');
-  assert.equal(ready.dispatches[0].requiresLeaderRuntimeConfirmation, true);
-  assert.equal(unsupported.execution, 'leader-sequential');
-  assert.deepEqual(unsupported.dispatches, []);
+  assert.equal(ready.dispatches[0].agentType, 'knu_explorer_xhigh');
 });
 
 test('ordinary scoped Astra advice binds exact native arguments without changing input or Parent', () => {
@@ -648,181 +750,131 @@ test('ordinary scoped Astra advice binds exact native arguments without changing
   const result = createDispatchRecommendation(input);
   assert.equal(result.execution, 'native-bounded-dispatch');
   assert.deepEqual(result.dispatches[0].spawnArguments, {
-    agent_type: 'knu_explorer',
+    task_name: 'legal_repository_map',
+    agent_type: 'knu_explorer_xhigh',
     model: 'gpt-6-astra',
     reasoning_effort: 'xhigh',
     fork_turns: 'none',
   });
-  assert.equal(result.dispatches[0].runtimeAction, false);
-  assert.equal(result.requiresLeaderRuntimeConfirmation, true);
-  assert.equal(result.runtimeEvidenceAuthority, 'leader-reported-not-host-authenticated');
   assert.equal(result.dispatches[0].contract.contextDelivery.applied, false);
   assert.deepEqual(result.dispatches[0].contract.contextDelivery.failures, [
     'Preserve the earlier failed verification as evidence.',
   ]);
   assert.ok(Object.isFrozen(result.dispatches[0].spawnArguments));
   assert.deepEqual(input, before);
-  assert.equal(Object.isFrozen(input.reportedRuntimeEvidence), false);
+  // A dispatch token joins the task name so completion can bind this dispatch's own child.
+  const tokened = createDispatchRecommendation({
+    ...ordinaryScopedDispatchInput(),
+    dispatchToken: 'k3x9',
+  });
+  assert.equal(tokened.dispatches[0].spawnArguments.task_name, 'legal_repository_map_k3x9');
+  assert.equal(tokened.dispatches[0].dispatchToken, 'k3x9');
+  for (const dispatchToken of ['', 'UP', 'a_b1', 'toolongtoken13'])
+    assert.throws(
+      () => createDispatchRecommendation({ ...ordinaryScopedDispatchInput(), dispatchToken }),
+      /dispatch token/u,
+    );
 });
 
-test('ordinary context and explicit invocation gaps cannot leave a ready descriptor', () => {
+test('ordinary context gaps cannot leave a ready descriptor', () => {
   const cases = [
     [
       'null context',
       (v) => {
         v.delegation.recommendedChildren[0].contextDelivery = null;
       },
-      'runtime-context-incompatible',
     ],
     [
       'incompatible context',
       (v, c) => {
         c.compatible = false;
       },
-      'runtime-context-incompatible',
     ],
     [
       'unknown compatibility',
       (v, c) => {
         delete c.compatible;
       },
-      'runtime-context-incompatible',
     ],
     [
       'already applied claim',
       (v, c) => {
         c.applied = true;
       },
-      'runtime-context-incompatible',
     ],
     [
       'unknown application',
       (v, c) => {
         delete c.applied;
       },
-      'runtime-context-incompatible',
     ],
     [
       'contradictory gap',
       (v, c) => {
-        c.gaps = ['delivery-runtime-unverified'];
+        c.gaps = ['full-history-fork-denied'];
       },
-      'runtime-context-incompatible',
     ],
     [
       'unknown gaps',
       (v, c) => {
         delete c.gaps;
       },
-      'runtime-context-incompatible',
+    ],
+    // A caller-edited mode other than scoped or reuse is incompatible context, not a reuse.
+    [
+      'caller-edited full-history mode',
+      (v, c) => {
+        c.mode = 'full-history';
+      },
     ],
     [
-      'no model metadata',
-      (v, c, r) => {
-        delete r.modelSelection;
+      'unknown mode',
+      (v, c) => {
+        c.mode = 'x';
       },
-      'runtime-scoped-model-unsupported',
-    ],
-    [
-      'explicit model unsupported',
-      (v, c, r) => {
-        r.modelSelection.explicitModelSupport = false;
-      },
-      'runtime-scoped-model-unsupported',
-    ],
-    [
-      'Astra not supported',
-      (v, c, r) => {
-        r.modelSelection.supportedModels = ['gpt-6-sol'];
-      },
-      'runtime-scoped-model-unsupported',
-    ],
-    [
-      'different role pin',
-      (v, c, r) => {
-        r.modelSelection.roleModel = 'gpt-6-sol';
-      },
-      'runtime-scoped-model-unsupported',
-    ],
-    [
-      'explicit effort unsupported',
-      (v, c, r) => {
-        r.explicitEffortSupport = false;
-      },
-      'runtime-scoped-effort-unsupported',
-    ],
-    [
-      'reported effort mismatch',
-      (v, c, r) => {
-        r.effectiveEffort = 'high';
-      },
-      'runtime-effective-effort-mismatch',
-    ],
-    [
-      'denied runtime',
-      (v) => {
-        v.reportedRuntimeEvidence.dispatchPermission = 'denied';
-      },
-      'runtime-dispatch-permission-denied',
-    ],
-    [
-      'stale runtime',
-      (v) => {
-        v.reportedRuntimeEvidence.freshness = 'stale';
-      },
-      'runtime',
     ],
   ];
-  for (const [name, mutate, gap] of cases) {
+  for (const [name, mutate] of cases) {
     const input = structuredClone(ordinaryScopedDispatchInput());
-    mutate(
-      input,
-      input.delegation.recommendedChildren[0].contextDelivery,
-      input.reportedRuntimeEvidence.roles[0],
-    );
+    mutate(input, input.delegation.recommendedChildren[0].contextDelivery);
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'leader-sequential', name);
     assert.deepEqual(result.dispatches, [], name);
-    assert.ok(
-      result.gaps.some((item) => item.startsWith(gap)),
-      name,
-    );
-    assert.equal(result.requiresLeaderRuntimeConfirmation, false, name);
+    assert.deepEqual(result.gaps, ['context-delivery-incompatible:legal-repository-map'], name);
   }
 });
 
-test('composed unknown, stale, unsupported fork and full-history conflicts stop ordinary dispatch', () => {
+test('composed full-history and review-role conflicts stop ordinary dispatch', () => {
   for (const change of [
-    { runtime: null },
-    { runtime: { ...ordinaryDelivery().runtime, freshness: 'stale' } },
-    { runtime: { ...ordinaryDelivery().runtime, scopedFork: false } },
     { mode: 'full-history', rationale: 'Synthetic history conflict.' },
+    { mode: 'full-history', rationale: null },
+    { purpose: 'initial-review' },
   ]) {
     const input = ordinaryScopedDispatchInput(change);
     assert.equal(input.delegation.recommendedChildren[0].contextDelivery.compatible, false);
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'leader-sequential');
     assert.deepEqual(result.dispatches, []);
-    assert.ok(result.gaps.includes('runtime-context-incompatible:legal-repository-map'));
+    assert.ok(result.gaps.includes('context-delivery-incompatible:legal-repository-map'));
   }
 });
 
-test('legacy and compatible non-explicit contexts are not silently converted to fresh scoped calls', () => {
+test('omitted or scoped context spawns fresh, while a compatible reuse continues the earlier child', () => {
   const legacy = structuredClone(ordinaryScopedDispatchInput());
   delete legacy.delegation.recommendedChildren[0].contextDelivery;
-  delete legacy.reportedRuntimeEvidence.roles[0].modelSelection;
-  const fullHistory = ordinaryScopedDispatchInput({
-    mode: 'full-history',
-    effortMode: 'inherit',
-    rationale: 'Necessary complete context.',
-  });
+  for (const input of [legacy, ordinaryScopedDispatchInput()]) {
+    const result = createDispatchRecommendation(input);
+    assert.equal(result.execution, 'native-bounded-dispatch');
+    assert.equal(result.dispatches[0].spawnArguments.fork_turns, 'none');
+    // The role file pins the effort; the context delivery carries no effort.
+    assert.equal(result.dispatches[0].spawnArguments.reasoning_effort, 'xhigh');
+  }
   const reuse = ordinaryScopedDispatchInput({
     mode: 'reuse',
-    effortMode: 'inherit',
     previous: {
       childId: '/root/same-task',
       laneId: 'legal-repository-map',
-      role: 'knu_explorer',
+      role: 'knu_explorer_xhigh',
       sameOutcome: true,
       scopeUnchanged: true,
       sourceSnapshot: 'synthetic-source-v1',
@@ -830,35 +882,32 @@ test('legacy and compatible non-explicit contexts are not silently converted to 
       independentReview: false,
     },
   });
-  const inherited = ordinaryScopedDispatchInput({ effortMode: 'inherit' });
-  const omx = ordinaryScopedDispatchInput();
-  Object.assign(omx.reportedRuntimeEvidence, {
-    surfaceMode: 'omx',
-    observationScope: 'current-session',
-    freshness: 'current-session',
-    provenance: ['host-tool-schema', 'omx-runtime-overlay'],
+  assert.equal(reuse.delegation.recommendedChildren[0].contextDelivery.compatible, true);
+  const followup = createDispatchRecommendation(reuse);
+  assert.equal(followup.execution, 'leader-sequential');
+  assert.deepEqual(followup.dispatches, []);
+  assert.deepEqual(followup.gaps, ['context-reuse-not-a-spawn:legal-repository-map']);
+  const fullHistory = ordinaryScopedDispatchInput({
+    mode: 'full-history',
+    rationale: 'Necessary complete context.',
   });
-  for (const input of [legacy, fullHistory, reuse, inherited, omx]) {
-    const result = createDispatchRecommendation(input);
-    assert.equal(result.execution, 'native-bounded-dispatch');
-    assert.equal(result.dispatches[0].spawnArguments, undefined);
-    assert.equal(result.requiresLeaderRuntimeConfirmation, true);
-  }
-  const pinned = ordinaryScopedDispatchInput();
-  pinned.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
-  assert.equal(
-    createDispatchRecommendation(pinned).dispatches[0].spawnArguments.model,
-    'gpt-6-astra',
+  assert.ok(
+    fullHistory.delegation.recommendedChildren[0].contextDelivery.gaps.includes(
+      'full-history-fork-denied',
+    ),
   );
+  assert.equal(createDispatchRecommendation(fullHistory).execution, 'leader-sequential');
 });
 
 test('permits one distinct alternate attempt and then requires a terminal handoff', () => {
   const firstFailure = evaluateRecovery({
     laneId: 'legal-official-evidence',
+    route: laneRoute('legal-official-evidence'),
     attempts: [failedAttempt('official-api', 'official-source-unavailable')],
   });
   const secondFailure = evaluateRecovery({
     laneId: 'legal-official-evidence',
+    route: laneRoute('legal-official-evidence'),
     attempts: [
       failedAttempt('official-api', 'official-source-unavailable'),
       {
@@ -887,6 +936,7 @@ test('does not retry authority, credential, production, scope, or role-routing f
   ]) {
     const result = evaluateRecovery({
       laneId: 'legal-repository-map',
+      route: laneRoute('legal-repository-map'),
       attempts: [failedAttempt('primary', failureCategory)],
     });
     assert.equal(result.action, expectedAction, failureCategory);
@@ -899,6 +949,7 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
     () =>
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [
           failedAttempt('same-approach', 'tool-unavailable'),
           { ...failedAttempt('same-approach', 'tool-unavailable'), alternateOf: 'same-approach' },
@@ -910,6 +961,7 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
     () =>
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [
           { approachId: 'primary', outcome: 'success', evidence: 'Completed.' },
           {
@@ -926,6 +978,7 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
     () =>
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [
           failedAttempt('one', 'tool-unavailable'),
           { ...failedAttempt('two', 'tool-unavailable'), alternateOf: 'one' },
@@ -936,6 +989,88 @@ test('rejects repeat attempts, post-success retries, and more than one alternate
   );
 });
 
+test('terminal recovery keeps its disposition per failure category and refuses a primary alternateOf', () => {
+  for (const [failureCategory, disposition] of [
+    ['missing-authority', 'plan-oq'],
+    ['scope-conflict', 'plan-oq'],
+    ['credential-required', 'user-handoff'],
+    ['external-production', 'user-handoff'],
+    ['role-routing-unavailable', 'leader-sequential'],
+    ['quota-exhausted', 'blocker-handoff'],
+  ]) {
+    const result = evaluateRecovery({
+      laneId: 'legal-repository-map',
+      route: laneRoute('legal-repository-map'),
+      attempts: [failedAttempt('primary', failureCategory)],
+    });
+    assert.equal(result.status, 'handoff-required', failureCategory);
+    assert.equal(result.disposition, disposition, failureCategory);
+  }
+  const unknown = evaluateRecovery({
+    laneId: 'legal-repository-map',
+    route: laneRoute('legal-repository-map'),
+    attempts: [
+      failedAttempt('primary', 'unknown'),
+      { ...failedAttempt('alternate', 'unknown'), alternateOf: 'primary' },
+    ],
+  });
+  assert.equal(unknown.disposition, 'blocker-handoff');
+  assert.equal(unknown.confidence, 'low');
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId: 'legal-repository-map',
+        route: laneRoute('legal-repository-map'),
+        attempts: [{ ...failedAttempt('primary', 'tool-unavailable'), alternateOf: 'earlier' }],
+      }),
+    { name: 'TypeError', message: 'The primary attempt cannot declare alternateOf.' },
+  );
+});
+
+test('leader synthesis keeps validating ordinary recovery decisions and their lanes', () => {
+  const delegation = legalDelegation();
+  const pending = evaluateRecovery({
+    laneId: 'legal-repository-map',
+    route: laneRoute('legal-repository-map'),
+    attempts: [failedAttempt('repository-index', 'tool-unavailable')],
+  });
+  const synthesize = (recoveryDecisions, childResults = []) =>
+    prepareLeaderSynthesis({ delegation, childResults, recoveryDecisions });
+  const refuses = (recoveryDecisions, message, childResults) =>
+    assert.throws(() => synthesize(recoveryDecisions, childResults), {
+      name: 'TypeError',
+      message,
+    });
+  refuses(pending, 'recoveryDecisions must be an array.');
+  refuses(
+    [{ ...pending, laneId: 'unknown-lane' }],
+    'Recovery references an unknown lane: unknown-lane',
+  );
+  refuses([pending, pending], 'recovery laneId values must be unique.');
+  refuses([pending], 'A completed child result cannot have a pending or terminal recovery.', [
+    successfulLegalResults()[1],
+  ]);
+  refuses([{ ...pending, schemaVersion: 2 }], 'recovery decision must use the bounded schema.');
+  refuses([{ ...pending, action: 'none' }], 'recovery status and action are inconsistent.');
+  refuses(
+    [{ ...pending, status: 'not-started', action: 'primary-attempt' }],
+    'non-failure recovery states cannot include blocker or disposition.',
+  );
+  refuses([{ ...pending, blocker: null }], 'failure recovery states require a blocker.');
+  refuses(
+    [{ ...pending, status: 'handoff-required', action: 'terminal-handoff' }],
+    'handoff-required recovery requires a disposition.',
+  );
+  refuses(
+    [{ ...pending, remainingAlternateAttempts: 0 }],
+    'recovery remaining attempt count is inconsistent.',
+  );
+  // A pending alternate keeps synthesis from the leader decision.
+  const waiting = synthesize([pending], [successfulLegalResults()[0]]);
+  assert.deepEqual(waiting.pendingRecoveryLaneIds, ['legal-repository-map']);
+  assert.equal(waiting.readyForLeaderDecision, false);
+});
+
 test('prepares evidence for leader-only synthesis without granting child final authority', () => {
   const delegation = legalDelegation();
   const synthesis = prepareLeaderSynthesis({
@@ -943,6 +1078,9 @@ test('prepares evidence for leader-only synthesis without granting child final a
     childResults: successfulLegalResults(),
     recoveryDecisions: [],
     conflicts: [],
+    hookObservation: observedChildren(delegation),
+    acceptances: acceptedChildren(observedChildren(delegation)),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
   });
 
   assert.equal(synthesis.readyForLeaderDecision, true);
@@ -953,6 +1091,160 @@ test('prepares evidence for leader-only synthesis without granting child final a
   assert.equal(Object.isFrozen(synthesis), true);
 });
 
+test('a leader-reported completed child is refused without its hook observation', () => {
+  const delegation = legalDelegation();
+  const reportedOnly = prepareLeaderSynthesis({
+    delegation,
+    childResults: successfulLegalResults(),
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
+  });
+
+  assert.equal(
+    reportedOnly.readyForLeaderDecision,
+    false,
+    'a refused lane blocks leader synthesis',
+  );
+  assert.deepEqual(reportedOnly.refusedLaneIds, [
+    'legal-official-evidence',
+    'legal-repository-map',
+  ]);
+  assert.deepEqual(
+    reportedOnly.completionChecks.map(({ laneId, accepted, reason }) => [laneId, accepted, reason]),
+    [
+      ['legal-official-evidence', false, 'observation-missing'],
+      ['legal-repository-map', false, 'observation-missing'],
+    ],
+  );
+  assert.equal(reportedOnly.completionAuthority, 'codex-subagent-hook');
+  // Records without the dispatch token cannot name this dispatch's child.
+  const untokened = prepareLeaderSynthesis({
+    delegation,
+    childResults: successfulLegalResults(),
+    hookObservation: observedChildren(delegation),
+  });
+  assert.deepEqual(
+    untokened.completionChecks.map(({ reason }) => reason),
+    ['dispatch-token-missing', 'dispatch-token-missing'],
+  );
+});
+
+test('hook observations bind each completed lane to its contract role, model and role effort', () => {
+  const delegation = legalDelegation();
+  const synthesize = (
+    hookObservation,
+    dispatchToken = FIXTURE_DISPATCH_TOKEN,
+    acceptances = acceptedChildren(hookObservation),
+  ) =>
+    prepareLeaderSynthesis({
+      delegation,
+      childResults: successfulLegalResults(),
+      hookObservation,
+      acceptances,
+      dispatchToken,
+    });
+
+  // Both lanes are xhigh roles on the Astra assignment profile.
+  const observed = synthesize(observedChildren(delegation));
+  assert.equal(observed.readyForLeaderDecision, true);
+  assert.deepEqual(observed.refusedLaneIds, []);
+  assert.ok(
+    observed.completionChecks.every(({ accepted, effort }) => accepted && effort === 'xhigh'),
+  );
+  // A completed lane also needs the acceptance record of its accepted child; a list without it refuses the lane.
+  const unaccepted = synthesize(observedChildren(delegation), FIXTURE_DISPATCH_TOKEN, []);
+  assert.equal(unaccepted.readyForLeaderDecision, false);
+  assert.deepEqual(
+    unaccepted.completionChecks.map(({ reason }) => reason),
+    ['acceptance-missing', 'acceptance-missing'],
+  );
+  assert.throws(() => synthesize(observedChildren(delegation), FIXTURE_DISPATCH_TOKEN, {}), {
+    name: 'TypeError',
+    message: 'acceptances must be an array.',
+  });
+  assert.throws(() => prepareLeaderSynthesis({ delegation, childResults: [], acceptances: {} }), {
+    name: 'TypeError',
+    message: 'acceptances must be an array.',
+  });
+  // Without the PreToolUse allow record (fail-open guard) nothing bound the spawn.
+  assert.deepEqual(
+    synthesize(observedChildren(delegation, { bind: false })).completionChecks.map(
+      ({ reason }) => reason,
+    ),
+    ['observation-unbound', 'observation-unbound'],
+  );
+  // 6.1 Sol is an allowed pair for both roles, but the contracts asked for Astra.
+  const otherModel = synthesize(observedChildren(delegation, { model: 'gpt-6.1-sol' }));
+  assert.equal(otherModel.readyForLeaderDecision, false);
+  assert.deepEqual(
+    otherModel.completionChecks.map(({ reason }) => reason),
+    ['model-mismatch', 'model-mismatch'],
+  );
+  const lowered = observedChildren(delegation);
+  for (const record of lowered.records)
+    if (record.event === 'SubagentStop') record.ownTurn = { ...record.ownTurn, effort: 'high' };
+  assert.deepEqual(
+    synthesize(lowered).completionChecks.map(({ reason }) => reason),
+    ['effort-mismatch', 'effort-mismatch'],
+  );
+  // A grandchild under the first lane refuses that lane only.
+  const nested = observedChildren(delegation);
+  const firstStart = nested.records.find(({ event }) => event === 'SubagentStart');
+  nested.records.push({
+    ...firstStart,
+    agentId: 'grandchild-0',
+    agentType: 'default',
+    agentPath: `${firstStart.agentPath}/helper`,
+    parentThreadId: firstStart.agentId,
+  });
+  assert.deepEqual(
+    synthesize(nested).completionChecks.map(({ laneId, reason }) => [laneId, reason]),
+    [
+      ['legal-official-evidence', 'observation-foreign'],
+      ['legal-repository-map', null],
+    ],
+  );
+
+  const unlisted = synthesize(observedChildren(delegation, { model: UNLISTED_MODEL }));
+  assert.equal(unlisted.readyForLeaderDecision, false);
+  assert.deepEqual(
+    unlisted.completionChecks.map(({ reason }) => reason),
+    ['model-not-allowed', 'model-not-allowed'],
+  );
+  const swapped = synthesize(observedChildren(delegation, { agentType: 'knu_reviewer' }));
+  assert.deepEqual(
+    swapped.completionChecks.map(({ reason }) => reason),
+    ['observation-mismatch', 'observation-mismatch'],
+  );
+  const builtIn = synthesize(observedChildren(delegation, { agentType: 'default' }));
+  assert.deepEqual(
+    builtIn.completionChecks.map(({ reason }) => reason),
+    ['role-not-in-roster', 'role-not-in-roster'],
+  );
+  // The allowlist and roster come from their owner, not from the caller's observation.
+  const widened = synthesize({
+    ...observedChildren(delegation, { model: UNLISTED_MODEL }),
+    allowedModels: [UNLISTED_MODEL],
+  });
+  assert.deepEqual(
+    widened.completionChecks.map(({ reason }) => reason),
+    ['model-not-allowed', 'model-not-allowed'],
+  );
+  // An earlier dispatch's child of the same lane does not complete this dispatch.
+  const earlier = synthesize(observedChildren(delegation, { dispatchToken: 'old1' }));
+  assert.deepEqual(
+    earlier.completionChecks.map(({ reason }) => reason),
+    ['observation-missing', 'observation-missing'],
+  );
+  const twice = observedChildren(delegation);
+  twice.records.push(
+    ...twice.records.map((record) => ({ ...record, agentId: `${record.agentId}-b` })),
+  );
+  assert.deepEqual(
+    synthesize(twice).completionChecks.map(({ reason }) => reason),
+    ['observation-ambiguous', 'observation-ambiguous'],
+  );
+});
+
 test('keeps missing, failed, unverified, recovering, or conflicting evidence from completion', () => {
   const delegation = legalDelegation();
   const incomplete = prepareLeaderSynthesis({
@@ -961,6 +1253,7 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
     recoveryDecisions: [
       evaluateRecovery({
         laneId: 'legal-official-evidence',
+        route: laneRoute('legal-official-evidence'),
         attempts: [failedAttempt('official-api', 'tool-unavailable')],
       }),
     ],
@@ -978,6 +1271,22 @@ test('keeps missing, failed, unverified, recovering, or conflicting evidence fro
   assert.deepEqual(incomplete.missingLaneIds, ['legal-official-evidence']);
   assert.deepEqual(incomplete.pendingRecoveryLaneIds, ['legal-official-evidence']);
   assert.equal(incomplete.conflicts[0].resolution, 'unresolved');
+  // A decision names no model beyond its computed retryRoute; a field outside evaluateRecovery's output is refused.
+  const pending = evaluateRecovery({
+    laneId: 'legal-official-evidence',
+    route: laneRoute('legal-official-evidence'),
+    attempts: [failedAttempt('official-api', 'tool-unavailable')],
+  });
+  for (const field of ['nextModel', 'recoveryBinding'])
+    assert.throws(
+      () =>
+        prepareLeaderSynthesis({
+          delegation,
+          childResults: [successfulLegalResults()[1]],
+          recoveryDecisions: [{ ...pending, [field]: 'gpt-6-astra' }],
+        }),
+      { name: 'TypeError', message: `Unsupported recovery decision field: ${field}` },
+    );
 });
 
 test('rejects child attempts to claim final decisions or omit contract outputs', () => {
@@ -1013,7 +1322,11 @@ test('rejects child attempts to claim final decisions or omit contract outputs',
         delegation,
         recoveryDecisions: [
           {
-            ...evaluateRecovery({ laneId: 'legal-official-evidence', attempts: [] }),
+            ...evaluateRecovery({
+              laneId: 'legal-official-evidence',
+              route: laneRoute('legal-official-evidence'),
+              attempts: [],
+            }),
             action: 'terminal-handoff',
           },
         ],
@@ -1034,7 +1347,7 @@ test('orchestration policy is pure advisory and does not implement a child lifec
   assert.match(source, /requiresLeaderRuntimeConfirmation/u);
 });
 
-test('tracked guidance preserves the reported-evidence trust boundary and live reconfirmation', () => {
+test('dispatch gate guidance names the hook guard and completion check, not leader-reported runtime evidence', () => {
   const orchestration = readFileSync(
     resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
     'utf8',
@@ -1043,112 +1356,45 @@ test('tracked guidance preserves the reported-evidence trust boundary and live r
     resolve(repoRoot, 'docs/development/agent-workflows/request-intake/orchestration-recovery.md'),
     'utf8',
   );
-
-  for (const required of [
-    'leader-reported-not-host-authenticated',
-    'requiresLeaderRuntimeConfirmation=true',
-    'host-tool-schema',
-    'omx-runtime-overlay',
-    'gpt-6-astra',
-  ]) {
-    assert.ok(`${orchestration}\n${recovery}`.includes(required), required);
-  }
+  for (const heading of [
+    '## Reported runtime evidence',
+    '## Model admission',
+    '## Routine admission lifetime',
+    '## First dispatch and post-execution evidence',
+  ])
+    assert.doesNotMatch(recovery, new RegExp(`^${heading}$`, 'mu'), heading);
+  const start = recovery.indexOf('## Native dispatch gate\n');
+  assert.ok(start >= 0);
+  const gate = recovery.slice(start, recovery.indexOf('\n## ', start + 1));
+  for (const pointer of [/knu-subagent-hooks\.mjs/u, /codex:completion/u, /gpt-6-astra/u])
+    assert.match(gate, pointer);
+  assert.doesNotMatch(
+    `${orchestration}\n${recovery}`,
+    /host-tool-schema|omx-runtime-overlay|requiresLeaderRuntimeConfirmation|modelUseByLane/u,
+  );
 });
 
-test('model pilot advice is separate from adoption, runtime and context confirmation', () => {
+test('model candidates spawn their profile model with the role pin effort for pilot and routine', () => {
   for (const purpose of ['pilot', 'routine']) {
     const input = modelDispatchInput(purpose);
     const before = structuredClone(input);
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'native-bounded-dispatch');
-    assert.equal(result.dispatches[0].requestedModel, 'gpt-6-sol');
+    assert.equal(result.dispatches[0].model, 'gpt-6.1-sol');
     assert.equal(result.dispatches[0].modelPurpose, purpose);
-    assert.equal(result.dispatches[0].requiresLeaderRuntimeConfirmation, true);
-    assert.equal(
-      result.dispatches[0].contract.routeRecommendation.runtimeApplication.applied,
-      false,
-    );
+    assert.deepEqual(result.dispatches[0].spawnArguments, {
+      task_name: 'legal_repository_map',
+      agent_type: 'knu_explorer',
+      model: 'gpt-6.1-sol',
+      reasoning_effort: 'high',
+      fork_turns: 'none',
+    });
     assert.deepEqual(input, before);
   }
 });
 
-test('model candidates fail closed without exact live admission and compatible runtime', () => {
+test('model candidates fail closed when their context, snapshot or cohort changes', () => {
   const mutations = [
-    (x) => {
-      modelUse(x).remainingBudget.children = 0;
-    },
-    (x) => {
-      modelUse(x).remainingBudget.minutes = 0;
-    },
-    (x) => {
-      delete x.modelUseByLane;
-    },
-    (x) => {
-      modelUse(x).admission = null;
-    },
-    (x) => {
-      modelUse(x).admission.reference = '';
-    },
-    (x) => {
-      modelUse(x).admission.expiresAt = '2026-09-19T10:00:00.000Z';
-    },
-    (x) => {
-      modelUse(x).admission.notBefore = '2026-09-21T10:00:00.000Z';
-    },
-    (x) => {
-      modelUse(x).admission.scopeDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      modelUse(x).configDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      modelUse(x).admission.model = 'gpt-5.6-sol';
-    },
-    (x) => {
-      modelUse(x).admission.role = 'knu_executor';
-    },
-    (x) => {
-      modelUse(x).admission.cohort = 'bounded-implementation';
-    },
-    (x) => {
-      modelUse(x).admission.effort = 'high';
-    },
-    (x) => {
-      modelUse(x).admission.budget.maxChildren = 0;
-    },
-    (x) => {
-      modelUse(x).admission.cleanupReference = '';
-    },
-    (x) => {
-      modelUse(x).scopeStatus = 'changed';
-    },
-    (x) => {
-      modelUse(x).checks = 'failed';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.dispatchPermission = 'denied';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.freshness = 'stale';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].effectiveModel = 'gpt-6-astra';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].effectiveEffort = 'high';
-    },
-    (x) => {
-      delete x.reportedRuntimeEvidence.roles[0].modelSelection;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels = ['gpt-6-astra'];
-    },
     (x) => {
       delete x.delegation.recommendedChildren[0].contextDelivery;
     },
@@ -1160,6 +1406,9 @@ test('model candidates fail closed without exact live admission and compatible r
     },
     (x) => {
       x.delegation.recommendedChildren[0].boundary.readScope.push('apps/api');
+    },
+    (x) => {
+      x.delegation.recommendedChildren[0].allowed.tools.push('test-runner');
     },
   ];
   for (const mutate of mutations) {
@@ -1177,17 +1426,48 @@ test('model candidates fail closed without exact live admission and compatible r
   }
 });
 
-test('pilot permission and pilot PASS never substitute for routine adoption GO', () => {
-  for (const [purpose, kind, quality] of [
-    ['routine', 'pilot', 'go'],
-    ['routine', 'adoption', 'unadopted'],
-    ['pilot', 'adoption', 'go'],
-    ['pilot', 'pilot', 'no-go'],
-  ]) {
-    const input = modelDispatchInput(purpose);
-    Object.assign(modelUse(input).admission, { kind, quality });
-    assert.equal(createDispatchRecommendation(input).execution, 'leader-sequential');
-  }
+test('same-role lanes on different models dispatch together under the ordinary concurrency limit', () => {
+  // Native observation (DA-018): two concurrent knu_explorer children ran on gpt-6.1-sol and gpt-6-astra as requested.
+  const ordinaryLane = (contextPack) => ({
+    ...repositoryLane(contextPack),
+    id: 'legal-repository-owners',
+    impactRisk: 'medium',
+  });
+  const input = modelDispatchInput('routine', 'standard-read', [ordinaryLane]);
+  const routes = input.delegation.recommendedChildren.map(({ laneId, routeRecommendation }) => [
+    laneId,
+    routeRecommendation.role,
+    routeRecommendation.profileId,
+  ]);
+  assert.deepEqual(routes, [
+    ['legal-repository-map', 'knu_explorer', 'standard-read'],
+    ['legal-repository-owners', 'knu_explorer', 'astra-fallback'],
+  ]);
+
+  const result = createDispatchRecommendation(input);
+  assert.equal(result.execution, 'native-bounded-dispatch');
+  assert.deepEqual(result.deferredLaneIds, []);
+  assert.deepEqual(result.gaps, []);
+  assert.deepEqual(
+    result.dispatches.map(({ laneId, agentType, spawnArguments }) => [
+      laneId,
+      agentType,
+      spawnArguments.model,
+    ]),
+    [
+      ['legal-repository-map', 'knu_explorer', 'gpt-6.1-sol'],
+      ['legal-repository-owners', 'knu_explorer', 'gpt-6-astra'],
+    ],
+  );
+
+  // A concurrency limit of one still defers the second lane as an ordinary limit.
+  const limited = createDispatchRecommendation({ ...structuredClone(input), concurrencyLimit: 1 });
+  assert.deepEqual(limited.deferredLaneIds, ['legal-repository-owners']);
+  assert.deepEqual(
+    limited.dispatches.map(({ laneId }) => laneId),
+    ['legal-repository-map'],
+  );
+  assert.deepEqual(limited.gaps, ['runtime-concurrency-limit: 1 lane(s) deferred.']);
 });
 
 test('model context and cohort checks cannot be bypassed by refreshing the scope digest', () => {
@@ -1205,7 +1485,8 @@ test('model context and cohort checks cannot be bypassed by refreshing the scope
       contract.allowed.tools.push('test-runner');
     },
     (contract) => {
-      contract.routeRecommendation.effort = 'high';
+      // Same role and effort under an assignment profile: the candidate's profile no longer owns the route.
+      contract.routeRecommendation.profileId = 'astra-fallback';
     },
   ]) {
     const input = modelDispatchInput();
@@ -1214,9 +1495,7 @@ test('model context and cohort checks cannot be bypassed by refreshing the scope
     const result = createDispatchRecommendation(input);
     assert.equal(result.execution, 'leader-sequential');
     assert.ok(
-      result.gaps.some((gap) =>
-        /model-context|model-cohort|model-role|runtime-role|model-effort/.test(gap),
-      ),
+      result.gaps.some((gap) => /model-context|model-cohort|model-effort|context-/.test(gap)),
     );
   }
 });
@@ -1227,23 +1506,16 @@ test('Sol implementation needs its exact write, regression and Astra QA evidence
   const model = contract.routeRecommendation.modelRecommendation;
   model.taskKind = 'implementation';
   model.role = 'knu_executor';
-  model.request.profileId = 'bounded-build';
-  model.profileBinding = createModelProfileBinding(getModelProfile('bounded-build'));
+  model.request.profileId = 'standard-build';
+  model.profileBinding = createModelProfileBinding(getModelProfile('standard-build'));
   const id = model.request.verificationFacts.acceptance;
   model.request.verificationFacts = { acceptance: id, regression: id, astraQa: id };
-  model.recommendedModel = 'gpt-6-sol';
+  model.recommendedModel = 'gpt-6.1-sol';
   contract.routeRecommendation.role = 'knu_executor';
+  contract.routeRecommendation.profileId = 'standard-build';
   contract.boundary.readOnly = false;
   contract.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
   contract.allowed.tools = ['repository-read', 'workspace-edit', 'test-runner'];
-  const role = input.reportedRuntimeEvidence.roles[0];
-  Object.assign(role, { agentType: 'knu_executor', effectiveModel: 'gpt-6-sol' });
-  Object.assign(modelUse(input).admission, {
-    profileBinding: model.profileBinding,
-    model: 'gpt-6-sol',
-    role: 'knu_executor',
-    cohort: 'bounded-implementation',
-  });
   rebindModelScope(input);
   assert.equal(createDispatchRecommendation(input).execution, 'native-bounded-dispatch');
   const missingQa = structuredClone(input);
@@ -1252,71 +1524,13 @@ test('Sol implementation needs its exact write, regression and Astra QA evidence
   assert.throws(() => createDispatchRecommendation(missingQa), TypeError);
 });
 
-test('model rescue shares the existing one-alternate ceiling without a trial ladder', () => {
-  const primary = failedAttempt('terra-pilot', 'verification-failed');
-  const rescue = {
-    ...failedAttempt('astra-rescue', 'verification-failed'),
-    alternateOf: 'terra-pilot',
-  };
-  assert.equal(
-    evaluateRecovery({ laneId: 'legal-repository-map', attempts: [primary, rescue] }).status,
-    'handoff-required',
-  );
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        laneId: 'legal-repository-map',
-        attempts: [primary, rescue, { ...rescue, approachId: 'sol-trial' }],
-      }),
-    /at most one alternate/u,
-  );
-});
-
 function rebindModelScope(input) {
   const contract = input.delegation.recommendedChildren[0];
   contract.modelScopeDigest = createModelScopeDigest(contract);
-  modelUse(input).scopeDigest = contract.modelScopeDigest;
-  modelUse(input).admission.scopeDigest = contract.modelScopeDigest;
 }
 
-test('model evidence rejects unknown schema and preserves legacy mismatched-model rejection', () => {
-  for (const mutate of [
-    (x) => {
-      modelUse(x).pilot = true;
-    },
-    (x) => {
-      modelUse(x).admission.adopted = true;
-    },
-    (x) => {
-      modelUse(x).admission.budget.unlimited = true;
-    },
-    (x) => {
-      x.modelUseByLane.unknown = modelUse(x);
-    },
-  ]) {
-    const input = modelDispatchInput();
-    mutate(input);
-    assert.throws(() => createDispatchRecommendation(input), TypeError);
-  }
-  for (const id of ['terra-rejected', 'luna-rejected']) {
-    assert.equal(
-      createDispatchRecommendation({
-        delegation: legalDelegation(),
-        reportedRuntimeEvidence: runtimeFixture(id).evidence,
-      }).execution,
-      'leader-sequential',
-    );
-  }
-  const invalid = modelDispatchInput();
-  invalid.reportedRuntimeEvidence.roles[0].modelSelection.magicOverride = true;
-  assert.equal(createDispatchRecommendation(invalid).execution, 'leader-sequential');
-});
-
-function modelUse(input) {
-  return input.modelUseByLane['legal-repository-map'];
-}
-
-function modelDispatchInput(purpose = 'pilot') {
+function modelDispatchInput(purpose = 'pilot', profileId = 'standard-read', extraLanes = []) {
+  const profile = getModelProfile(profileId);
   const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
   const contextPack = discoverContextPack({
     envelope,
@@ -1336,153 +1550,62 @@ function modelDispatchInput(purpose = 'pilot') {
     impactRisk: 'low',
     pass2Evidence,
     modelRequest: {
-      profileId: 'bounded-read',
+      profileId,
       purpose,
       verificationFacts: {
         acceptance: parts[0].facts[0].factId,
         independentCheck: parts[1].facts[0].factId,
+        ...(profile.verificationKeys.includes('fixedInput')
+          ? {
+              fixedInput: parts[2].facts[0].factId,
+              outputSchema: parts[3].facts[0].factId,
+              singleStep: parts[4].facts[0].factId,
+            }
+          : {}),
       },
     },
   };
   const delivery = {
     purpose: 'task',
     mode: 'scoped',
-    effortMode: 'explicit',
     rationale: null,
     snapshot: 'synthetic-source-v1',
     evidencePointers: ['docs/policies/legal-basis.md'],
     findings: [],
     failures: [],
     previous: null,
-    runtime: {
-      freshness: 'current-turn',
-      scopedFork: true,
-      fullHistoryFork: true,
-      followup: true,
-      explicitEffort: true,
-      fullHistoryWithExplicitEffort: false,
-      effectiveEffort: 'xhigh',
-    },
   };
   const delegation = recommendDelegation({
     envelope,
     contextPack,
-    laneCandidates: [lane],
+    laneCandidates: [lane, ...extraLanes.map((extra) => extra(contextPack))],
     deliveryByLane: { [lane.id]: delivery },
   });
-  const [contract] = delegation.recommendedChildren;
-  const digest = createModelScopeDigest(contract);
-  const configDigest = `sha256:${'c'.repeat(64)}`;
-  return structuredClone({
-    delegation,
-    reportedRuntimeEvidence: {
-      schemaVersion: 1,
-      surfaceMode: 'native',
-      observationScope: 'current-turn',
-      freshness: 'current-turn',
-      provenance: ['host-tool-schema'],
-      dispatchPermission: 'allowed',
-      roles: [
-        {
-          agentType: 'knu_explorer',
-          available: true,
-          effectiveModel: 'gpt-6-sol',
-          effectiveEffort: 'xhigh',
-          explicitEffortSupport: true,
-          modelSelection: {
-            supportedModels: ['gpt-6-astra', 'gpt-6-sol'],
-            roleModel: null,
-            explicitModelSupport: true,
-            reference: 'synthetic-host-model-schema',
-          },
-        },
-      ],
-    },
-    modelUseByLane: {
-      [lane.id]: {
-        observedAt: '2026-09-20T10:00:00.000Z',
-        configDigest,
-        scopeDigest: digest,
-        scopeStatus: 'current',
-        checks: 'passed',
-        remainingBudget: { children: 1, minutes: 10 },
-        admission: {
-          profileBinding: contract.routeRecommendation.modelRecommendation.profileBinding,
-          kind: purpose === 'pilot' ? 'pilot' : 'adoption',
-          reference: 'synthetic-owner-authorization',
-          quality: purpose === 'pilot' ? 'unadopted' : 'go',
-          model: 'gpt-6-sol',
-          role: 'knu_explorer',
-          effort: 'xhigh',
-          cohort: 'bounded-read-only',
-          scopeDigest: digest,
-          configDigest,
-          notBefore: '2026-09-20T09:00:00.000Z',
-          expiresAt: '2026-09-20T11:00:00.000Z',
-          budget: { maxChildren: 1, maxMinutes: 10 },
-          cleanupReference: 'synthetic-supported-cleanup-contract',
-        },
-      },
-    },
-  });
+  return structuredClone({ delegation });
 }
 
 function ordinaryDelivery() {
   return {
     purpose: 'task',
     mode: 'scoped',
-    effortMode: 'explicit',
     rationale: null,
     snapshot: 'synthetic-source-v1',
     evidencePointers: ['docs/policies/legal-basis.md'],
     findings: ['One unresolved, bounded deep analysis question.'],
     failures: ['Preserve the earlier failed verification as evidence.'],
     previous: null,
-    runtime: {
-      freshness: 'current-turn',
-      scopedFork: true,
-      fullHistoryFork: true,
-      followup: true,
-      explicitEffort: true,
-      fullHistoryWithExplicitEffort: false,
-      effectiveEffort: 'xhigh',
-    },
   };
 }
 
+// A concurrency/transaction question is an XHigh read: the xhigh explorer variant on Astra.
 function ordinaryScopedDispatchInput(change = {}) {
-  const reportedRuntimeEvidence = structuredClone(
-    runtimeFixture('native-project-role-success').evidence,
-  );
-  reportedRuntimeEvidence.roles = [
-    {
-      agentType: 'knu_explorer',
-      available: true,
-      effectiveModel: 'gpt-6-astra',
-      effectiveEffort: 'xhigh',
-      explicitEffortSupport: true,
-      modelSelection: {
-        supportedModels: ['gpt-6-astra'],
-        roleModel: null,
-        explicitModelSupport: true,
-        reference: 'synthetic-current-native-schema',
-      },
-    },
-  ];
   return {
     delegation: legalDelegation({
       oneLane: true,
       predicateId: 'BE-01-concurrency-transaction',
       delivery: { ...ordinaryDelivery(), ...change },
     }),
-    reportedRuntimeEvidence,
   };
-}
-
-function runtimeFixture(id) {
-  const fixture = runtimeCapabilityCases.find((candidate) => candidate.id === id);
-  assert.ok(fixture, `Missing runtime capability fixture: ${id}`);
-  return fixture;
 }
 
 function legalDelegation({ oneLane = false, delivery, predicateId } = {}) {
@@ -1633,6 +1756,14 @@ function successfulLegalResults() {
   ];
 }
 
+// The lane contract route a recovery decision is computed against.
+function laneRoute(laneId, delegation = legalDelegation()) {
+  const { role, profileId } = delegation.recommendedChildren.find(
+    (contract) => contract.laneId === laneId,
+  ).routeRecommendation;
+  return { role, profileId };
+}
+
 function failedAttempt(approachId, failureCategory) {
   return {
     approachId,
@@ -1642,90 +1773,7 @@ function failedAttempt(approachId, failureCategory) {
   };
 }
 
-function resolvedDispatchInput(purpose = 'pilot') {
-  const input = modelDispatchInput(purpose);
-  Object.assign(input.reportedRuntimeEvidence.roles[0], {
-    effectiveModel: null,
-    effectiveEffort: null,
-    configurationResolution: {
-      profileBinding:
-        input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation
-          .profileBinding,
-      model: 'gpt-6-sol',
-      effort: 'xhigh',
-      configDigest: modelUse(input).configDigest,
-      reference: 'synthetic-current-schema-and-loaded-config',
-    },
-  });
-  return input;
-}
-
-function executionObservation(dispatch) {
-  return {
-    profileBinding: dispatch.contract.routeRecommendation.modelRecommendation.profileBinding,
-    childId: '/root/bounded-task',
-    taskId: dispatch.contract.modelTaskId,
-    scopeDigest: dispatch.contract.modelScopeDigest,
-    provenance: 'native-tool-result',
-    accepted: true,
-    executed: true,
-    resultReference: 'synthetic-native-final',
-    independentCheck: { status: 'passed', reference: 'synthetic-independent-check' },
-    hostMetadata: null,
-    usageReference: null,
-  };
-}
-
-test('first dispatch uses resolved configuration, not invented effective telemetry', () => {
-  const input = resolvedDispatchInput('routine');
-  const before = structuredClone(input);
-  const result = createDispatchRecommendation(input);
-  assert.equal(result.execution, 'native-bounded-dispatch');
-  const [dispatch] = result.dispatches;
-  assert.equal(dispatch.effectiveModel, null);
-  assert.equal(dispatch.effectiveEffort, null);
-  assert.equal(dispatch.resolvedModel, 'gpt-6-sol');
-  assert.equal(dispatch.resolvedEffort, 'xhigh');
-  assert.deepEqual(dispatch.spawnArguments, {
-    agent_type: 'knu_explorer',
-    model: 'gpt-6-sol',
-    reasoning_effort: 'xhigh',
-    fork_turns: 'none',
-  });
-  assert.equal(dispatch.runtimeAction, false);
-  assert.deepEqual(input, before);
-});
-
-test('routine withdrawal emits no candidate, permits safe direct work and requires fresh re-admission', () => {
-  const original = resolvedDispatchInput('routine');
-  assert.equal(createDispatchRecommendation(original).dispatches.length, 1);
-  for (const withdraw of [
-    (x) => {
-      modelUse(x).admission = null;
-    },
-    (x) => {
-      modelUse(x).admission.quality = 'no-go';
-    },
-    (x) => {
-      modelUse(x).checks = 'failed';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
-    },
-    (x) => {
-      modelUse(x).configDigest = `sha256:${'e'.repeat(64)}`;
-      x.reportedRuntimeEvidence.roles[0].configurationResolution.configDigest =
-        modelUse(x).configDigest;
-    },
-  ]) {
-    const input = structuredClone(original);
-    withdraw(input);
-    const blocked = createDispatchRecommendation(input);
-    assert.equal(blocked.execution, 'leader-sequential');
-    assert.deepEqual(blocked.dispatches, []);
-    assert.ok(blocked.gaps.length > 0);
-  }
-
+test('without a candidate the Parent keeps direct work and Astra lanes', () => {
   // Rebuild from current task evidence, not by relabeling a candidate contract.
   const envelope = buildTaskEnvelope({ request: 'Legal 개선 지점 분석해줘.' });
   const contextPack = discoverContextPack({
@@ -1740,165 +1788,36 @@ test('routine withdrawal emits no candidate, permits safe direct work and requir
   const astra = createDispatchRecommendation(ordinaryScopedDispatchInput());
   assert.equal(astra.dispatches[0].spawnArguments.model, 'gpt-6-astra');
   assert.equal(astra.dispatches[0].contract.routeRecommendation.modelRecommendation, undefined);
-
-  // New current bytes/config + fresh bounded GO. A restored config or old packet
-  // alone is not a revocation service; the Parent owns this re-authorization.
-  const renewed = structuredClone(original);
-  const contract = renewed.delegation.recommendedChildren[0];
-  contract.contextDelivery.snapshot = 'synthetic-new-authorized-source';
-  rebindModelScope(renewed);
-  const use = modelUse(renewed);
-  use.configDigest = `sha256:${'e'.repeat(64)}`;
-  renewed.reportedRuntimeEvidence.roles[0].configurationResolution.configDigest = use.configDigest;
-  assert.deepEqual(createDispatchRecommendation(renewed).dispatches, []);
-  use.admission.configDigest = use.configDigest;
-  use.admission.reference = 'synthetic-new-owner-task-and-cohort-decision';
-  use.observedAt = '2026-09-24T12:00:00.000Z';
-  use.admission.notBefore = '2026-09-24T11:59:00.000Z';
-  use.admission.expiresAt = '2026-09-24T12:10:00.000Z';
-  const ready = createDispatchRecommendation(renewed);
-  assert.equal(ready.execution, 'native-bounded-dispatch');
-  assert.equal(ready.dispatches[0].spawnArguments.model, 'gpt-6-sol');
-  assert.notEqual(
-    contract.modelScopeDigest,
-    original.delegation.recommendedChildren[0].modelScopeDigest,
-  );
-  assert.equal(modelUse(original).admission.reference, 'synthetic-owner-authorization');
 });
 
-test('pre-dispatch resolution rejects file-only, stale, pin, digest, effort and mixed evidence', () => {
-  for (const mutate of [
-    (x) => {
-      x.reportedRuntimeEvidence.provenance = ['config-file'];
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.freshness = 'stale';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-astra';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].configurationResolution.configDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].configurationResolution.effort = 'high';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].effectiveModel = 'gpt-6-astra';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].explicitEffortSupport = false;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].configurationResolution.reference = '';
-    },
-    (x) => {
-      x.delegation.recommendedChildren[0].contextDelivery.mode = 'full-history';
-      rebindModelScope(x);
-    },
-  ]) {
-    const input = resolvedDispatchInput();
-    mutate(input);
-    assert.equal(
-      createDispatchRecommendation(input).execution,
-      'leader-sequential',
-      String(mutate),
-    );
-  }
-});
-
-test('lower model dispatch is sequential without duplicate role roster tricks', () => {
-  const input = resolvedDispatchInput();
+test('lower model lanes share the ordinary concurrency limit', () => {
+  const input = modelDispatchInput();
   const second = structuredClone(input.delegation.recommendedChildren[0]);
   second.laneId = 'second-map';
   second.modelScopeDigest = createModelScopeDigest(second);
   input.delegation.recommendedChildren.push(second);
-  input.modelUseByLane[second.laneId] = structuredClone(modelUse(input));
-  input.modelUseByLane[second.laneId].scopeDigest = second.modelScopeDigest;
-  input.modelUseByLane[second.laneId].admission.scopeDigest = second.modelScopeDigest;
   const result = createDispatchRecommendation(input);
-  assert.equal(result.dispatches.length, 1);
-  assert.deepEqual(result.deferredLaneIds, ['second-map']);
-});
-
-test('post-dispatch evidence binds child/task/quality without requiring cost telemetry', () => {
-  const dispatch = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
-  assert.ok(dispatch);
-  const observation = executionObservation(dispatch);
-  const report = modelPolicy.evaluateModelExecution({
-    dispatch,
-    expectedChildId: observation.childId,
-    reportedExecution: observation,
-  });
-  assert.equal(report.accepted, true);
-  assert.equal(report.evidenceKind, 'runtime-contract-resolved');
-  assert.equal(report.providerAttested, false);
-  assert.equal(report.usageReference, null);
-  assert.equal(report.runtimeAction, false);
-  for (const mutate of [
-    (x) => {
-      x.childId = '/root/other';
-    },
-    (x) => {
-      x.taskId = 'other-task';
-    },
-    (x) => {
-      x.scopeDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      x.provenance = 'child-self-report';
-    },
-    (x) => {
-      x.accepted = false;
-    },
-    (x) => {
-      x.executed = false;
-    },
-    (x) => {
-      x.resultReference = '';
-    },
-    (x) => {
-      x.independentCheck.status = 'failed';
-    },
-    (x) => {
-      x.hostMetadata = { model: 'gpt-6-astra', effort: 'xhigh' };
-    },
-    (x) => {
-      x.hostMetadata = { model: 'gpt-6-sol', effort: 'high' };
-    },
-  ]) {
-    const bad = structuredClone(observation);
-    mutate(bad);
-    assert.equal(
-      modelPolicy.evaluateModelExecution({
-        dispatch,
-        expectedChildId: observation.childId,
-        reportedExecution: bad,
-      }).accepted,
-      false,
-      String(mutate),
-    );
-  }
-  const matching = { ...observation, hostMetadata: { model: 'gpt-6-sol', effort: 'xhigh' } };
-  assert.equal(
-    modelPolicy.evaluateModelExecution({
-      dispatch,
-      expectedChildId: observation.childId,
-      reportedExecution: matching,
-    }).evidenceKind,
-    'host-reported-model',
+  assert.deepEqual(
+    result.dispatches.map(({ laneId }) => laneId),
+    ['legal-repository-map', 'second-map'],
   );
+  assert.deepEqual(result.deferredLaneIds, []);
+  const limited = createDispatchRecommendation({ ...structuredClone(input), concurrencyLimit: 1 });
+  assert.deepEqual(limited.deferredLaneIds, ['second-map']);
+  assert.deepEqual(
+    limited.dispatches.map(({ laneId }) => laneId),
+    ['legal-repository-map'],
+  );
+  assert.deepEqual(limited.gaps, ['runtime-concurrency-limit: 1 lane(s) deferred.']);
 });
 
-test('post execution revalidates cohort, context and write ownership after a scope rehash', () => {
-  for (const profileId of ['bounded-read', 'bounded-extract', 'bounded-build']) {
-    const input = resolvedDispatchInput();
+test('candidate dispatch revalidates cohort, context and write ownership after a scope rehash', () => {
+  for (const profileId of ['standard-read', 'extract', 'standard-build']) {
+    const profile = getModelProfile(profileId);
+    // A build candidate cannot come from a read lane's evidence, so it is converted from the read contract below.
+    const input = modelDispatchInput('pilot', profile.readOnly ? profileId : 'standard-read');
     const c = input.delegation.recommendedChildren[0];
     const model = c.routeRecommendation.modelRecommendation;
-    const profile = getModelProfile(profileId);
     model.request.profileId = profileId;
     model.profileBinding = createModelProfileBinding(profile);
     model.recommendedModel = profile.model;
@@ -1909,194 +1828,77 @@ test('post execution revalidates cohort, context and write ownership after a sco
     if (!profile.readOnly) {
       model.taskKind = 'implementation';
       model.role = c.routeRecommendation.role = 'knu_executor';
+      c.routeRecommendation.profileId = profileId;
       c.boundary.readOnly = false;
       c.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
     }
     c.allowed.tools = [...profile.allowedTools];
-    const role = input.reportedRuntimeEvidence.roles[0];
-    role.agentType = c.routeRecommendation.role;
-    role.modelSelection.supportedModels = [profile.model];
-    Object.assign(role.configurationResolution, {
-      profileBinding: model.profileBinding,
-      model: profile.model,
-    });
-    Object.assign(modelUse(input).admission, {
-      profileBinding: model.profileBinding,
-      role: role.agentType,
-      model: profile.model,
-      cohort: profile.cohort,
-    });
     rebindModelScope(input);
-    const original = createDispatchRecommendation(input).dispatches[0];
-    assert.ok(original, profileId);
-    const check = (d) =>
-      modelPolicy.evaluateModelExecution({
-        dispatch: d,
-        expectedChildId: '/root/bounded-task',
-        reportedExecution: executionObservation(d),
-      });
-    assert.equal(check(original).accepted, true, profileId);
+    const original = createDispatchRecommendation(input);
+    assert.equal(original.execution, 'native-bounded-dispatch', profileId);
+    assert.equal(original.dispatches[0].spawnArguments.model, profile.model, profileId);
     for (const mutate of [
       (d) => {
-        d.contract.contextDelivery.mode = 'full-history';
+        d.contextDelivery.mode = 'full-history';
       },
       (d) => {
-        d.contract.contextDelivery.mode = 'reuse';
+        d.contextDelivery.mode = 'reuse';
       },
       (d) => {
-        d.contract.contextDelivery.compatible = false;
+        d.contextDelivery.compatible = false;
       },
       (d) => {
-        d.contract.contextDelivery.applied = true;
+        d.contextDelivery.applied = true;
       },
       (d) => {
-        d.contract.contextDelivery.gaps.push('missing input');
+        d.contextDelivery.gaps.push('missing input');
       },
       (d) => {
-        d.contract.contextDelivery.failures.push('failed validation');
+        d.contextDelivery.failures.push('failed validation');
       },
       (d) => {
-        d.contract.contextDelivery = null;
+        d.contextDelivery = null;
       },
       (d) => {
-        d.contract.allowed.tools.push('unapproved-tool');
+        d.allowed.tools.push('unapproved-tool');
       },
       (d) => {
-        d.contract.boundary.writeOwnership = profile.readOnly ? ['outside.ts'] : [];
+        d.boundary.writeOwnership = profile.readOnly ? ['outside.ts'] : [];
       },
       (d) => {
         if (profile.readOnly) {
-          d.contract.boundary.readOnly = false;
-          d.contract.boundary.writeOwnership = ['outside.ts'];
-          d.contract.allowed.tools.push('workspace-edit');
-        } else d.contract.allowed.tools = ['repository-read'];
+          d.boundary.readOnly = false;
+          d.boundary.writeOwnership = ['outside.ts'];
+          d.allowed.tools.push('workspace-edit');
+        } else d.allowed.tools = ['repository-read'];
       },
     ]) {
-      const d = structuredClone(original);
-      mutate(d);
-      d.contract.modelScopeDigest = createModelScopeDigest(d.contract);
-      const before = structuredClone(d);
-      assert.equal(check(d).accepted, false, `${profileId}: ${mutate}`);
-      assert.deepEqual(d, before);
+      const bad = structuredClone(input);
+      const contract = bad.delegation.recommendedChildren[0];
+      mutate(contract);
+      contract.modelScopeDigest = createModelScopeDigest(contract);
+      const before = structuredClone(bad);
+      let result;
+      try {
+        result = createDispatchRecommendation(bad);
+      } catch (error) {
+        assert.ok(error instanceof TypeError, `${profileId}: ${mutate}`);
+        continue;
+      }
+      assert.equal(result.execution, 'leader-sequential', `${profileId}: ${mutate}`);
+      assert.deepEqual(bad, before);
     }
   }
 });
 
-test('model recovery binds one Astra alternate and waits for writer clearance', () => {
-  const primary = {
-    ...failedAttempt('lower-primary', 'verification-failed'),
-    model: 'gpt-6-sol',
-  };
-  const base = {
-    laneId: 'legal-repository-map',
-    attempts: [primary],
-    modelRecovery: {
-      profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
-      pendingWriter: 'cleared',
-    },
-  };
-  const recovery = evaluateRecovery(base);
-  assert.equal(recovery.action, 'alternate-once');
-  assert.equal(recovery.nextModel, 'gpt-6-astra');
-  for (const state of ['pending', 'unknown']) {
-    assert.equal(
-      evaluateRecovery({ ...base, modelRecovery: { ...base.modelRecovery, pendingWriter: state } })
-        .action,
-      'terminal-handoff',
-    );
-  }
-  const rescue = {
-    ...failedAttempt('astra-rescue', 'verification-failed'),
-    alternateOf: 'lower-primary',
-    model: 'gpt-6-astra',
-  };
-  assert.equal(evaluateRecovery({ ...base, attempts: [primary, rescue] }).nextModel, null);
-  assert.throws(
-    () => evaluateRecovery({ ...base, attempts: [primary, { ...rescue, model: 'gpt-5.6-sol' }] }),
-    /Astra/,
-  );
-  for (const category of ['quota-exhausted', 'capacity-denied', 'missing-authority']) {
-    assert.equal(
-      evaluateRecovery({ ...base, attempts: [{ ...primary, failureCategory: category }] }).action,
-      'terminal-handoff',
-    );
-    assert.throws(
-      () =>
-        evaluateRecovery({
-          ...base,
-          attempts: [{ ...primary, failureCategory: category }, rescue],
-        }),
-      /non-retryable/,
-    );
-  }
-});
-
-test('post evidence cannot promote contradictory or malformed resolution descriptors', () => {
-  const dispatch = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
-  const observation = executionObservation(dispatch);
-  for (const mutate of [
-    (d) => {
-      d.resolvedModel = 'gpt-6-astra';
-      d.configurationResolution.model = 'gpt-6-astra';
-    },
-    (d) => {
-      d.configurationResolution.reference = '';
-    },
-    (d) => {
-      d.configurationResolution.configDigest = 'unbound-config';
-    },
-    (d) => {
-      d.spawnArguments.fork_turns = 'all';
-    },
-    (d) => {
-      d.contract.boundary.readScope.push('apps/api');
-    },
-  ]) {
-    const bad = structuredClone(dispatch);
-    mutate(bad);
-    assert.equal(
-      modelPolicy.evaluateModelExecution({
-        dispatch: bad,
-        expectedChildId: observation.childId,
-        reportedExecution: observation,
-      }).accepted,
-      false,
-      String(mutate),
-    );
-  }
-});
-
-test('Luna boundary remains read-only fixed input even with rebound admission', () => {
-  const input = resolvedDispatchInput();
-  const contract = input.delegation.recommendedChildren[0];
-  const model = contract.routeRecommendation.modelRecommendation;
-  model.recommendedModel = 'gpt-6-luna';
-  model.request.profileId = 'bounded-extract';
-  model.profileBinding = createModelProfileBinding(getModelProfile('bounded-extract'));
-  const id = model.request.verificationFacts.acceptance;
-  Object.assign(model.request.verificationFacts, {
-    fixedInput: id,
-    outputSchema: id,
-    singleStep: id,
-  });
-  const role = input.reportedRuntimeEvidence.roles[0];
-  Object.assign(role.configurationResolution, {
-    model: 'gpt-6-luna',
-    effort: 'xhigh',
-    profileBinding: model.profileBinding,
-  });
-  role.modelSelection.supportedModels.push('gpt-6-luna');
-  Object.assign(modelUse(input).admission, {
-    model: 'gpt-6-luna',
-    effort: 'xhigh',
-    profileBinding: model.profileBinding,
-    cohort: 'bounded-extraction',
-  });
-  rebindModelScope(input);
+test('Luna boundary remains read-only fixed input even with a rebound scope', () => {
+  const input = modelDispatchInput('pilot', 'extract');
   const dispatch = createDispatchRecommendation(input).dispatches[0];
-  assert.equal(dispatch.contract.routeRecommendation.effort, 'medium');
+  // The Luna role is the xhigh explorer variant: route and spawn effort are the same pinned value.
+  assert.equal(dispatch.contract.routeRecommendation.role, 'knu_explorer_xhigh');
+  assert.equal(dispatch.contract.routeRecommendation.effort, 'xhigh');
   assert.equal(dispatch.spawnArguments.reasoning_effort, 'xhigh');
-  assert.equal(dispatch.resolvedEffort, 'xhigh');
+  assert.equal(dispatch.spawnArguments.model, 'gpt-6-luna');
   for (const tool of ['official-web-read', 'test-runner']) {
     const bad = structuredClone(input);
     bad.delegation.recommendedChildren[0].allowed.tools.push(tool);
@@ -2105,689 +1907,57 @@ test('Luna boundary remains read-only fixed input even with rebound admission', 
   }
 });
 
-test('legacy pinned compatibility does not promise unsupported explicit invocation arguments', () => {
-  const input = modelDispatchInput();
-  const role = input.reportedRuntimeEvidence.roles[0];
-  role.modelSelection.roleModel = 'gpt-6-sol';
-  role.modelSelection.explicitModelSupport = false;
-  role.explicitEffortSupport = false;
-  const result = createDispatchRecommendation(input);
-  assert.equal(result.execution, 'native-bounded-dispatch');
-  assert.equal(result.dispatches[0].effectiveModel, 'gpt-6-sol');
-  assert.equal(result.dispatches[0].spawnArguments, undefined);
-});
-
-test('stale profile grants and resolution cannot be revived by rebinding scope', () => {
-  for (const target of ['admission', 'configuration', 'recommendation']) {
-    for (const patch of [
-      { policyRevision: 'old' },
-      { profileDigest: `sha256:${'0'.repeat(64)}` },
-      { model: 'gpt-5.6-sol' },
-      { resolvedEffort: 'medium' },
-      { cohort: 'bounded-extraction' },
-      { profileId: 'future' },
-    ]) {
-      const input = resolvedDispatchInput();
-      const binding =
-        target === 'admission'
-          ? modelUse(input).admission.profileBinding
-          : target === 'configuration'
-            ? input.reportedRuntimeEvidence.roles[0].configurationResolution.profileBinding
-            : input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation
-                .profileBinding;
-      // Clone each boundary independently; shared fixture references are not authority.
-      const bad = { ...binding, ...patch };
-      if (target === 'admission') modelUse(input).admission.profileBinding = bad;
-      else if (target === 'configuration')
-        input.reportedRuntimeEvidence.roles[0].configurationResolution.profileBinding = bad;
-      else
-        input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.profileBinding =
-          bad;
-      rebindModelScope(input);
-      try {
-        assert.equal(createDispatchRecommendation(input).dispatches.length, 0);
-      } catch (e) {
-        if (!(e instanceof TypeError)) throw e;
-      }
+test('stale profile bindings cannot be revived by rebinding scope', () => {
+  for (const patch of [
+    { policyRevision: 'old' },
+    { profileDigest: `sha256:${'0'.repeat(64)}` },
+    { model: UNLISTED_MODEL },
+    { resolvedEffort: 'medium' },
+    { cohort: 'bounded-extraction' },
+    { profileId: 'future' },
+  ]) {
+    const input = modelDispatchInput();
+    const model = input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation;
+    // Clone the boundary; shared fixture references are not authority.
+    model.profileBinding = { ...model.profileBinding, ...patch };
+    rebindModelScope(input);
+    try {
+      assert.equal(createDispatchRecommendation(input).dispatches.length, 0);
+    } catch (e) {
+      if (!(e instanceof TypeError)) throw e;
     }
   }
 });
-test('post execution revalidates recommendation and exact installed binding even with a refreshed scope', () => {
-  const original = createDispatchRecommendation(resolvedDispatchInput()).dispatches[0];
+test('dispatch revalidates the recommendation and exact installed binding even with a refreshed scope', () => {
   for (const mutate of [
-    (d) => {
-      d.contract.routeRecommendation.modelRecommendation.request.profileId = 'future';
+    (c) => {
+      c.routeRecommendation.modelRecommendation.request.profileId = 'future';
     },
-    (d) => {
-      d.contract.routeRecommendation.impactRisk = 'high';
+    (c) => {
+      c.routeRecommendation.impactRisk = 'high';
     },
-    (d) => {
-      d.contract.routeRecommendation.modelRecommendation.profileBinding.policyRevision = 'stale';
+    (c) => {
+      c.routeRecommendation.modelRecommendation.profileBinding.policyRevision = 'stale';
     },
   ]) {
-    const d = structuredClone(original);
-    mutate(d);
-    d.contract.modelScopeDigest = createModelScopeDigest(d.contract);
-    const observation = executionObservation(d);
-    assert.equal(
-      modelPolicy.evaluateModelExecution({
-        dispatch: d,
-        expectedChildId: observation.childId,
-        reportedExecution: observation,
-      }).accepted,
-      false,
-    );
+    const input = modelDispatchInput();
+    mutate(input.delegation.recommendedChildren[0]);
+    rebindModelScope(input);
+    assert.throws(() => createDispatchRecommendation(input), TypeError);
   }
-  const observation = executionObservation(original);
-  observation.profileBinding = { ...observation.profileBinding, policyRevision: 'old' };
-  assert.equal(
-    modelPolicy.evaluateModelExecution({
-      dispatch: original,
-      expectedChildId: observation.childId,
-      reportedExecution: observation,
-    }).accepted,
-    false,
-  );
 });
-test('explicit recovery requires a current profile and rejects retired raw-model requests', () => {
-  const base = {
-    laneId: 'legal-repository-map',
-    attempts: [{ ...failedAttempt('primary', 'verification-failed'), model: 'gpt-6-sol' }],
-    modelRecovery: {
-      profileBinding: createModelProfileBinding(getModelProfile('bounded-read')),
-      pendingWriter: 'cleared',
-    },
-  };
-  assert.throws(() => evaluateRecovery({ ...base, modelRecovery: undefined }), TypeError);
-  for (const model of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
-    assert.throws(
-      () => evaluateRecovery({ ...base, attempts: [{ ...base.attempts[0], model }] }),
-      TypeError,
-    );
-    assert.throws(
-      () =>
-        evaluateRecovery({
-          ...base,
-          modelRecovery: { primaryModel: model, pendingWriter: 'cleared' },
-        }),
-      TypeError,
-    );
-  }
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        ...base,
-        modelRecovery: {
-          ...base.modelRecovery,
-          profileBinding: { ...base.modelRecovery.profileBinding, policyRevision: 'old' },
-        },
-      }),
-    TypeError,
-  );
-});
-
-test('old medium/high profile data remains invalid across grant, descriptor, post and recovery after full rehash', () => {
+test('old medium/high profile data remains invalid in the descriptor after full rehash', () => {
   for (const oldEffort of ['medium', 'high']) {
     const oldBinding = createModelProfileBinding({
-      ...getModelProfile('bounded-read'),
+      ...getModelProfile('standard-read'),
       policyRevision: '2026-09-24.1',
       resolvedEffort: oldEffort,
     });
-    const input = resolvedDispatchInput();
+    const input = modelDispatchInput();
     input.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.profileBinding =
       oldBinding;
-    Object.assign(input.reportedRuntimeEvidence.roles[0].configurationResolution, {
-      profileBinding: oldBinding,
-      effort: oldEffort,
-    });
-    Object.assign(modelUse(input).admission, { profileBinding: oldBinding, effort: oldEffort });
     rebindModelScope(input);
     assert.throws(() => createDispatchRecommendation(input), TypeError);
-    const dispatch = structuredClone(
-      createDispatchRecommendation(resolvedDispatchInput()).dispatches[0],
-    );
-    dispatch.contract.routeRecommendation.modelRecommendation.profileBinding = oldBinding;
-    dispatch.contract.modelScopeDigest = createModelScopeDigest(dispatch.contract);
-    Object.assign(dispatch.configurationResolution, {
-      profileBinding: oldBinding,
-      effort: oldEffort,
-    });
-    dispatch.resolvedEffort = oldEffort;
-    dispatch.spawnArguments.reasoning_effort = oldEffort;
-    const reportedExecution = executionObservation(dispatch);
-    assert.equal(
-      modelPolicy.evaluateModelExecution({
-        dispatch,
-        expectedChildId: reportedExecution.childId,
-        reportedExecution,
-      }).accepted,
-      false,
-    );
-    assert.throws(
-      () =>
-        evaluateRecovery({
-          laneId: 'old-profile',
-          attempts: [
-            { ...failedAttempt('old-primary', 'verification-failed'), model: 'gpt-6-sol' },
-          ],
-          modelRecovery: { profileBinding: oldBinding, pendingWriter: 'cleared' },
-        }),
-      TypeError,
-    );
-  }
-});
-
-async function recoveryDispatchInput(cause = 'controlled-injection') {
-  const { createRecoveryChildContract } =
-    await import('../../../agents/codex/child-task-contract.mjs');
-  const primaryInput = resolvedDispatchInput();
-  const primaryContract = primaryInput.delegation.recommendedChildren[0];
-  const rescueContract = createRecoveryChildContract({
-    primaryContract,
-    sourceSnapshot: 'synthetic-rescue-source',
-  });
-  const sourceDigest = `sha256:${'a'.repeat(64)}`;
-  const attempt = {
-    ...failedAttempt('primary', 'verification-failed'),
-    model: 'gpt-6-sol',
-    effort: 'xhigh',
-    executed: true,
-    identity: {
-      taskId: primaryContract.modelTaskId,
-      childId: '/root/primary',
-      sourceDigest,
-      scopeDigest: primaryContract.modelScopeDigest,
-    },
-  };
-  const modelRecovery = {
-    profileBinding: primaryContract.routeRecommendation.modelRecommendation.profileBinding,
-    pendingWriter: 'cleared',
-    request: {
-      primaryContract,
-      rescueContract,
-      sourceDigest: `sha256:${'b'.repeat(64)}`,
-      configDigest: modelUse(primaryInput).configDigest,
-      attemptId: 'rescue',
-      assessment: {
-        cause,
-        bounded: true,
-        contextComplete: true,
-        oracleAvailable: true,
-        identityVerified: true,
-        reasonRefs: ['evidence:known-failure'],
-      },
-    },
-  };
-  const recoveryDecision = evaluateRecovery({
-    laneId: primaryContract.laneId,
-    attempts: [attempt],
-    modelRecovery,
-  });
-  const binding = recoveryDecision.recoveryBinding;
-  const input = structuredClone(primaryInput);
-  input.delegation.recommendedChildren = [rescueContract];
-  input.recoveryDecision = recoveryDecision;
-  const role = input.reportedRuntimeEvidence.roles[0];
-  role.configurationResolution = {
-    kind: 'recovery',
-    recoveryBinding: binding,
-    model: binding.model,
-    effort: binding.resolvedEffort,
-    configDigest: binding.rescue.configDigest,
-    reference: 'synthetic-current-recovery-resolution',
-  };
-  const use = modelUse(input);
-  use.scopeDigest = rescueContract.modelScopeDigest;
-  use.admission = {
-    kind: 'recovery',
-    reference: 'synthetic-exact-rescue-permission',
-    recoveryBinding: binding,
-    notBefore: '2026-09-20T09:00:00.000Z',
-    expiresAt: '2026-09-20T11:00:00.000Z',
-    budget: { maxChildren: 1, maxMinutes: 10 },
-    cleanupReference: 'synthetic-rescue-cleanup',
-  };
-  return { input, modelRecovery, attempt };
-}
-function rescueObservation(dispatch) {
-  return {
-    recoveryBinding: dispatch.recoveryBinding,
-    childId: '/root/rescue',
-    taskId: dispatch.contract.modelTaskId,
-    scopeDigest: dispatch.contract.modelScopeDigest,
-    provenance: 'native-tool-result',
-    accepted: true,
-    executed: true,
-    resultReference: 'synthetic-rescue-result',
-    independentCheck: { status: 'passed', reference: 'synthetic-rescue-oracle' },
-    hostMetadata: null,
-    usageReference: null,
-  };
-}
-
-test('bound recovery selects low, admits exact new rescue, dispatches and post-validates without fake candidate', async () => {
-  const { input, modelRecovery, attempt } = await recoveryDispatchInput();
-  const output = createDispatchRecommendation(input);
-  assert.equal(output.execution, 'native-bounded-dispatch');
-  const d = output.dispatches[0];
-  assert.equal(d.contract.routeRecommendation.modelRecommendation, undefined);
-  assert.equal(d.contract.routeRecommendation.effort, 'medium');
-  assert.deepEqual(d.spawnArguments, {
-    agent_type: 'knu_explorer',
-    model: 'gpt-6-astra',
-    reasoning_effort: 'low',
-    fork_turns: 'none',
-  });
-  const reportedExecution = rescueObservation(d);
-  assert.equal(
-    modelPolicy.evaluateModelExecution({
-      dispatch: d,
-      expectedChildId: '/root/rescue',
-      reportedExecution,
-    }).accepted,
-    true,
-  );
-  const completed = evaluateRecovery({
-    laneId: d.laneId,
-    attempts: [
-      attempt,
-      {
-        approachId: 'rescue',
-        alternateOf: 'primary',
-        outcome: 'success',
-        evidence: 'synthetic-rescue-oracle',
-        model: 'gpt-6-astra',
-        effort: 'low',
-        executed: true,
-        recoveryBinding: d.recoveryBinding,
-        identity: {
-          taskId: d.contract.modelTaskId,
-          childId: '/root/rescue',
-          sourceDigest: d.recoveryBinding.rescue.sourceDigest,
-          scopeDigest: d.contract.modelScopeDigest,
-        },
-      },
-    ],
-    modelRecovery,
-  });
-  assert.equal(completed.status, 'complete');
-  assert.equal(completed.attempts[1].effort, 'low');
-  const synthesis = prepareLeaderSynthesis({
-    delegation: input.delegation,
-    recoveryDecisions: [completed],
-  });
-  assert.deepEqual(synthesis.recoveryDecisions[0].recoveryBinding, d.recoveryBinding);
-  assert.equal(synthesis.recoveryDecisions[0].attempts[0].model, 'gpt-6-sol');
-});
-
-test('recovery low fails closed for missing grants, drift, pin, permission, budget and malformed post identity', async () => {
-  for (const mutate of [
-    (x) => {
-      delete x.recoveryDecision;
-    },
-    (x) => {
-      modelUse(x).admission = null;
-    },
-    (x) => {
-      modelUse(x).admission.kind = 'pilot';
-    },
-    (x) => {
-      modelUse(x).remainingBudget.children = 0;
-    },
-    (x) => {
-      modelUse(x).admission.expiresAt = '2026-09-20T09:30:00.000Z';
-    },
-    (x) => {
-      modelUse(x).admission.recoveryBinding = {
-        ...modelUse(x).admission.recoveryBinding,
-        resolvedEffort: 'high',
-      };
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].configurationResolution.effort = 'high';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.roleModel = 'gpt-6-sol';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].explicitEffortSupport = false;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.dispatchPermission = 'denied';
-    },
-    (x) => {
-      x.delegation.recommendedChildren[0].boundary.writeOwnership.push('outside');
-    },
-  ]) {
-    const { input } = await recoveryDispatchInput();
-    mutate(input);
-    try {
-      assert.equal(createDispatchRecommendation(input).dispatches.length, 0, String(mutate));
-    } catch (e) {
-      if (!(e instanceof TypeError)) throw e;
-    }
-  }
-  const { input } = await recoveryDispatchInput();
-  const dispatch = createDispatchRecommendation(input).dispatches[0];
-  for (const mutate of [
-    (x) => {
-      x.childId = '/root/other';
-    },
-    (x) => {
-      x.taskId = 'other-task';
-    },
-    (x) => {
-      x.scopeDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      x.recoveryBinding.resolvedEffort = 'high';
-    },
-    (x) => {
-      x.hostMetadata = { model: 'gpt-6-astra', effort: 'high' };
-    },
-  ]) {
-    const observation = structuredClone(rescueObservation(dispatch));
-    mutate(observation);
-    assert.equal(
-      modelPolicy.evaluateModelExecution({
-        dispatch,
-        expectedChildId: '/root/rescue',
-        reportedExecution: observation,
-      }).accepted,
-      false,
-    );
-  }
-});
-
-test('bound recovery denies success, pending writers, nonretryable/identity failures and ownership expansion', async () => {
-  for (const mutate of [
-    (x) => {
-      x.attempt.outcome = 'success';
-    },
-    (x) => {
-      x.modelRecovery.pendingWriter = 'pending';
-    },
-    (x) => {
-      x.attempt.failureCategory = 'quota-exhausted';
-    },
-    (x) => {
-      x.attempt.failureCategory = 'capacity-denied';
-    },
-    (x) => {
-      x.attempt.failureCategory = 'missing-authority';
-    },
-    (x) => {
-      x.attempt.identity.taskId = 'other';
-    },
-    (x) => {
-      x.modelRecovery.request.assessment.identityVerified = false;
-    },
-    (x) => {
-      x.modelRecovery.request.rescueContract.boundary.readScope.push('outside');
-    },
-  ]) {
-    const x = await recoveryDispatchInput();
-    mutate(x);
-    try {
-      assert.equal(
-        evaluateRecovery({
-          laneId:
-            x.attempt.identity.taskId === 'other'
-              ? 'legal-repository-map'
-              : x.input.recoveryDecision.laneId,
-          attempts: [x.attempt],
-          modelRecovery: x.modelRecovery,
-        }).recoveryBinding,
-        undefined,
-        String(mutate),
-      );
-    } catch (e) {
-      if (!(e instanceof TypeError)) throw e;
-    }
-  }
-  const { input } = await recoveryDispatchInput('unknown');
-  assert.equal(createDispatchRecommendation(input).dispatches[0].resolvedEffort, 'medium');
-});
-
-test('recovery descriptor and synthesis resist altered bindings, identity, source and outcome replay', async () => {
-  const { input, attempt, modelRecovery } = await recoveryDispatchInput();
-  const d = createDispatchRecommendation(input).dispatches[0];
-  for (const mutate of [
-    (x) => {
-      x.recoveryBinding.policyRevision = '2026-09-24.2';
-    },
-    (x) => {
-      x.recoveryUse.admission.recoveryBinding.selectionDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      x.spawnArguments.reasoning_effort = 'high';
-    },
-    (x) => {
-      x.configurationResolution.configDigest = `sha256:${'0'.repeat(64)}`;
-    },
-    (x) => {
-      x.contract.contextDelivery.snapshot = 'changed';
-    },
-    (x) => {
-      x.requestedModel = 'gpt-6-sol';
-    },
-    (x) => {
-      x.recoveryDecision.attempts[0].outcome = 'success';
-    },
-  ]) {
-    const bad = structuredClone(d);
-    mutate(bad);
-    assert.equal(
-      modelPolicy.evaluateModelExecution({
-        dispatch: bad,
-        expectedChildId: '/root/rescue',
-        reportedExecution: rescueObservation(d),
-      }).accepted,
-      false,
-    );
-  }
-  const altered = structuredClone(input.recoveryDecision);
-  altered.status = 'complete';
-  altered.action = 'none';
-  altered.remainingAlternateAttempts = 0;
-  assert.throws(
-    () => prepareLeaderSynthesis({ delegation: input.delegation, recoveryDecisions: [altered] }),
-    TypeError,
-  );
-  const rescue = {
-    approachId: 'rescue',
-    alternateOf: 'primary',
-    outcome: 'failure',
-    failureCategory: 'verification-failed',
-    evidence: 'synthetic-second-miss',
-    model: 'gpt-6-astra',
-    effort: 'low',
-    executed: true,
-    recoveryBinding: d.recoveryBinding,
-    identity: {
-      taskId: d.contract.modelTaskId,
-      childId: '/root/rescue',
-      sourceDigest: d.recoveryBinding.rescue.sourceDigest,
-      scopeDigest: d.contract.modelScopeDigest,
-    },
-  };
-  assert.equal(
-    evaluateRecovery({ laneId: d.laneId, attempts: [attempt, rescue], modelRecovery }).nextModel,
-    null,
-  );
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        laneId: d.laneId,
-        attempts: [attempt, rescue, { ...rescue, approachId: 'third' }],
-        modelRecovery,
-      }),
-    TypeError,
-  );
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        laneId: d.laneId,
-        attempts: [attempt, rescue],
-        modelRecovery: { ...modelRecovery, pendingWriter: 'unknown' },
-      }),
-    TypeError,
-  );
-  assert.throws(
-    () =>
-      evaluateRecovery({
-        laneId: d.laneId,
-        attempts: [attempt, rescue],
-        modelRecovery: { profileBinding: modelRecovery.profileBinding, pendingWriter: 'cleared' },
-      }),
-    TypeError,
-  );
-});
-
-test('rehashing rescue scope never changes original authorized ownership and missing low host support is denied', async () => {
-  const { createRecoveryBinding } = await import('../../../agents/codex/model-profiles.mjs');
-  const { input } = await recoveryDispatchInput();
-  const contract = input.delegation.recommendedChildren[0];
-  contract.boundary.readScope.push('outside-original-owner');
-  contract.modelScopeDigest = createModelScopeDigest(contract);
-  const old = input.recoveryDecision.recoveryBinding;
-  const rebound = createRecoveryBinding({
-    primary: old.primary,
-    rescue: { ...old.rescue, scopeDigest: contract.modelScopeDigest },
-    assessment: old.assessment,
-  });
-  input.recoveryDecision = { ...input.recoveryDecision, recoveryBinding: rebound };
-  modelUse(input).scopeDigest = contract.modelScopeDigest;
-  modelUse(input).admission.recoveryBinding = rebound;
-  input.reportedRuntimeEvidence.roles[0].configurationResolution.recoveryBinding = rebound;
-  assert.equal(createDispatchRecommendation(input).dispatches.length, 0);
-  for (const mutate of [
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.supportedModels = ['gpt-6-sol'];
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].modelSelection.explicitModelSupport = false;
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.freshness = 'stale';
-    },
-    (x) => {
-      x.reportedRuntimeEvidence.roles[0].available = false;
-    },
-  ]) {
-    const { input: x } = await recoveryDispatchInput();
-    mutate(x);
-    assert.equal(createDispatchRecommendation(x).dispatches.length, 0);
-  }
-});
-
-async function completedRecoverySynthesisInput() {
-  const { input, modelRecovery, attempt } = await recoveryDispatchInput();
-  const dispatch = createDispatchRecommendation(input).dispatches[0];
-  const post = modelPolicy.evaluateModelExecution({
-    dispatch,
-    expectedChildId: '/root/rescue',
-    reportedExecution: rescueObservation(dispatch),
-  });
-  assert.equal(post.accepted, true);
-  const recovery = evaluateRecovery({
-    laneId: dispatch.laneId,
-    attempts: [
-      attempt,
-      {
-        approachId: 'rescue',
-        alternateOf: attempt.approachId,
-        outcome: post.accepted ? 'success' : 'failure',
-        evidence: 'synthetic-rescue-oracle',
-        model: dispatch.resolvedModel,
-        effort: dispatch.resolvedEffort,
-        executed: true,
-        recoveryBinding: dispatch.recoveryBinding,
-        identity: {
-          taskId: dispatch.contract.modelTaskId,
-          childId: '/root/rescue',
-          sourceDigest: dispatch.recoveryBinding.rescue.sourceDigest,
-          scopeDigest: dispatch.contract.modelScopeDigest,
-        },
-      },
-    ],
-    modelRecovery,
-  });
-  return structuredClone({
-    delegation: input.delegation,
-    recoveryDecisions: [recovery],
-    childResults: [
-      {
-        laneId: dispatch.laneId,
-        status: 'completed',
-        outputs: Object.fromEntries(
-          dispatch.contract.expectedOutputSchema.required
-            .filter((key) => !['facts', 'inferences', 'gaps', 'confidence'].includes(key))
-            .map((key) => [key, ['synthetic-validated-result']]),
-        ),
-        facts: [
-          { statement: 'Synthetic rescue oracle passed.', source: 'synthetic-rescue-oracle' },
-        ],
-        inferences: [],
-        gaps: [],
-        confidence: 'high',
-        verification: [
-          {
-            claim: 'Synthetic rescue result',
-            evidence: 'synthetic-rescue-oracle',
-            status: 'passed',
-          },
-        ],
-        blocker: null,
-      },
-    ],
-  });
-}
-
-test('synthesis cannot drop the decision binding and reinterpret attributed rescue attempts as legacy', async () => {
-  const original = await completedRecoverySynthesisInput();
-  assert.equal(prepareLeaderSynthesis(original).readyForLeaderDecision, true);
-  for (const outcome of ['failure', 'success']) {
-    const input = structuredClone(original);
-    const decision = input.recoveryDecisions[0];
-    delete decision.recoveryBinding;
-    decision.attempts[1].outcome = outcome;
-    decision.attempts[1].failureCategory = outcome === 'failure' ? 'verification-failed' : null;
-    assert.throws(() => prepareLeaderSynthesis(input), TypeError, outcome);
-  }
-});
-
-test('synthesis binds recovery to the exact current delegation task and rescue contract, not just lane', async () => {
-  const original = await completedRecoverySynthesisInput();
-  assert.equal(prepareLeaderSynthesis(original).readyForLeaderDecision, true);
-  for (const mutate of [
-    (x) => {
-      x.delegation.requestId = 'different-task';
-      x.delegation.recommendedChildren[0].modelTaskId = 'different-task';
-      x.delegation.recommendedChildren[0].contextDelivery.snapshot = 'different-source';
-    },
-    (x) => {
-      x.delegation.requestId = 'different-task';
-    },
-    (x) => {
-      x.delegation.requestId = 'different-task';
-      x.delegation.recommendedChildren[0].modelTaskId = 'different-task';
-    },
-    (x) => {
-      x.delegation.recommendedChildren[0].contextDelivery.snapshot = 'different-source';
-    },
-    (x) => {
-      x.delegation.recommendedChildren[0].boundary.readScope.push('outside-original-owner');
-    },
-    (x) => {
-      x.delegation.recommendedChildren[0].routeRecommendation.role = 'knu_researcher';
-    },
-  ]) {
-    const input = structuredClone(original);
-    mutate(input);
-    const contract = input.delegation.recommendedChildren[0];
-    contract.modelScopeDigest = createModelScopeDigest(contract);
-    assert.throws(() => prepareLeaderSynthesis(input), TypeError, String(mutate));
   }
 });
 
@@ -2804,4 +1974,482 @@ test('runtime-managed no-close permits same-lane continuation without synthetic 
   assert.equal(continuation.requiresLeaderRuntimeConfirmation, true);
   input.target.pendingTasks = 1;
   assert.equal(createLifecycleRecommendation(input).recommendation, 'wait');
+});
+
+test('a route without an admitted candidate names an Astra assignment profile and spawns Astra', () => {
+  const ordinary = createDispatchRecommendation(ordinaryScopedDispatchInput());
+  assert.equal(ordinary.dispatches[0].spawnArguments.model, 'gpt-6-astra');
+  for (const profileId of ['extract', 'elevated-read']) {
+    const input = structuredClone(ordinaryScopedDispatchInput());
+    input.delegation.recommendedChildren[0].routeRecommendation.profileId = profileId;
+    assert.throws(() => createDispatchRecommendation(input), {
+      name: 'TypeError',
+      message: 'A route without an admitted candidate must name an Astra assignment profile.',
+    });
+  }
+});
+
+test('attempt numbers and decision confidence or prohibited approaches must match the recomputed recovery', () => {
+  const laneId = 'legal-repository-map';
+  const failure = failedAttempt('repository-index', 'tool-unavailable');
+  assert.equal(
+    evaluateRecovery({ laneId, route: laneRoute(laneId), attempts: [{ ...failure, number: 1 }] })
+      .attempts[0].number,
+    1,
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: laneRoute(laneId),
+        attempts: [{ ...failure, number: 99 }],
+      }),
+    {
+      name: 'TypeError',
+      message: 'Attempt number must equal its position: 1.',
+    },
+  );
+  const delegation = legalDelegation();
+  const decision = evaluateRecovery({ laneId, route: laneRoute(laneId), attempts: [failure] });
+  const synthesize = (recoveryDecision) =>
+    prepareLeaderSynthesis({ delegation, recoveryDecisions: [recoveryDecision] });
+  assert.doesNotThrow(() => synthesize(decision));
+  assert.throws(() => synthesize({ ...decision, confidence: 'low' }), {
+    name: 'TypeError',
+    message: 'Recovery decision confidence must match its attempts.',
+  });
+  assert.throws(() => synthesize({ ...decision, prohibitedApproachIds: ['gpt-6-astra'] }), {
+    name: 'TypeError',
+    message: 'Recovery decision prohibitedApproachIds must match its attempts.',
+  });
+});
+
+test('recovery and synthesis refuse model attribution because the retry route is computed from the contract', () => {
+  const laneId = 'legal-official-evidence';
+  const route = laneRoute(laneId);
+  // The Astra lane has no rung above it, so its retry keeps the contract.
+  assert.equal(getModelProfile(route.profileId).kind, 'assignment');
+  const retryRoute = { kind: 'same-contract', ...route, model: 'gpt-6-astra' };
+  const decision = (attempts) => ({
+    schemaVersion: 1,
+    maxAlternateAttempts: 1,
+    laneId,
+    status: 'complete',
+    action: 'none',
+    remainingAlternateAttempts: 0,
+    blocker: null,
+    disposition: null,
+    attempts,
+    route,
+    retryRoute,
+  });
+  const solFailure = {
+    approachId: 'sol-primary',
+    outcome: 'failure',
+    failureCategory: 'verification-failed',
+    evidence: 'The Sol attempt failed its oracle.',
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+  };
+  const astraAlternate = {
+    approachId: 'astra-rescue',
+    alternateOf: 'sol-primary',
+    outcome: 'success',
+    evidence: 'The Astra alternate passed.',
+    model: 'gpt-6-astra',
+    effort: 'high',
+  };
+  // The retry model comes from the lane route and the ladder, so an attempt carries no model, effort or child identity.
+  const attributed = {
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+    executed: true,
+    identity: { taskId: 'task-1' },
+    recoveryBinding: { model: 'gpt-6-astra' },
+  };
+  for (const [field, value] of Object.entries(attributed))
+    assert.throws(
+      () =>
+        evaluateRecovery({
+          laneId,
+          route: laneRoute(laneId),
+          attempts: [{ ...failedAttempt('primary', 'verification-failed'), [field]: value }],
+        }),
+      { name: 'TypeError', message: `Unsupported attempt field: ${field}` },
+      field,
+    );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: laneRoute(laneId),
+        attempts: [failedAttempt('primary', 'verification-failed')],
+        modelRecovery: { pendingWriter: 'cleared' },
+      }),
+    { name: 'TypeError', message: 'Unsupported recovery input: modelRecovery' },
+  );
+  assert.throws(
+    () =>
+      prepareLeaderSynthesis({
+        delegation: legalDelegation(),
+        childResults: successfulLegalResults(),
+        recoveryDecisions: [decision([solFailure, astraAlternate])],
+      }),
+    { name: 'TypeError', message: 'Unsupported attempt field: model' },
+  );
+  // An ordinary distinct-approach retry without model attribution completes on the retry task path.
+  const { model: _m1, effort: _e1, ...ordinaryFailure } = solFailure;
+  const { model: _m2, effort: _e2, ...ordinaryAlternate } = astraAlternate;
+  const delegation = legalDelegation();
+  assert.equal(
+    prepareLeaderSynthesis({
+      delegation,
+      childResults: successfulLegalResults(),
+      recoveryDecisions: [decision([ordinaryFailure, ordinaryAlternate])],
+      hookObservation: observedChildren(delegation, { retryLaneIds: [laneId] }),
+      acceptances: acceptedChildren(observedChildren(delegation, { retryLaneIds: [laneId] })),
+      dispatchToken: FIXTURE_DISPATCH_TOKEN,
+    }).readyForLeaderDecision,
+    true,
+  );
+});
+
+test('a result-quality failure retries once one rung up on its role and other failures keep the contract', () => {
+  const laneId = 'lane-a';
+  const decide = (route, failureCategory) =>
+    evaluateRecovery({ laneId, route, attempts: [failedAttempt('primary', failureCategory)] });
+  const ladder = (role, profileId, model) => ({ kind: 'ladder', role, profileId, model });
+  const same = (role, profileId, model) => ({ kind: 'same-contract', role, profileId, model });
+  const sol = { role: 'knu_researcher', profileId: 'standard-read' };
+  for (const failureCategory of ['verification-failed', 'unknown']) {
+    const pending = decide(sol, failureCategory);
+    assert.equal(pending.action, 'alternate-once', failureCategory);
+    assert.deepEqual(pending.route, sol);
+    assert.deepEqual(
+      pending.retryRoute,
+      ladder('knu_researcher', 'astra-fallback', 'gpt-6-astra'),
+      failureCategory,
+    );
+  }
+  assert.deepEqual(
+    decide({ role: 'knu_explorer_xhigh', profileId: 'extract' }, 'verification-failed').retryRoute,
+    ladder('knu_explorer_xhigh', 'elevated-read', 'gpt-6.1-sol'),
+  );
+  assert.deepEqual(
+    decide({ role: 'knu_executor_xhigh', profileId: 'elevated-build' }, 'unknown').retryRoute,
+    ladder('knu_executor_xhigh', 'deep-build', 'gpt-6-astra'),
+  );
+  // Evidence and tool failures change the approach on the same contract.
+  for (const failureCategory of [
+    'tool-unavailable',
+    'official-source-unavailable',
+    'repository-evidence-missing',
+  ])
+    assert.deepEqual(
+      decide(sol, failureCategory).retryRoute,
+      same('knu_researcher', 'standard-read', 'gpt-6.1-sol'),
+      failureCategory,
+    );
+  // An Astra lane has no rung above it.
+  for (const route of [
+    { role: 'knu_executor', profileId: 'deep-build' },
+    { role: 'knu_reviewer', profileId: 'review' },
+    { role: 'knu_explorer', profileId: 'astra-fallback' },
+  ])
+    assert.deepEqual(
+      decide(route, 'verification-failed').retryRoute,
+      same(route.role, route.profileId, 'gpt-6-astra'),
+      route.profileId,
+    );
+  const quota = decide(sol, 'quota-exhausted');
+  assert.equal(quota.status, 'handoff-required');
+  assert.equal(quota.retryRoute, null);
+  assert.equal(evaluateRecovery({ laneId, route: sol, attempts: [] }).retryRoute, null);
+  // The finished retry keeps the route it ran on; there is no retry of a retry.
+  const retried = evaluateRecovery({
+    laneId,
+    route: sol,
+    attempts: [
+      failedAttempt('primary', 'verification-failed'),
+      { ...failedAttempt('astra-retry', 'verification-failed'), alternateOf: 'primary' },
+    ],
+  });
+  assert.equal(retried.action, 'terminal-handoff');
+  assert.deepEqual(retried.retryRoute, ladder('knu_researcher', 'astra-fallback', 'gpt-6-astra'));
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: sol,
+        attempts: [
+          failedAttempt('primary', 'quota-exhausted'),
+          { ...failedAttempt('retry', 'verification-failed'), alternateOf: 'primary' },
+        ],
+      }),
+    { name: 'TypeError', message: 'A non-retryable failure has no alternate attempt.' },
+  );
+  assert.throws(() => evaluateRecovery({ laneId, attempts: [] }), {
+    name: 'TypeError',
+    message: 'Recovery requires the lane route: role and profileId.',
+  });
+  assert.throws(
+    () => evaluateRecovery({ laneId, route: { ...sol, model: 'gpt-6-astra' }, attempts: [] }),
+    { name: 'TypeError', message: 'Unsupported recovery route field: model' },
+  );
+  assert.throws(
+    () =>
+      evaluateRecovery({
+        laneId,
+        route: { role: 'knu_executor', profileId: 'standard-read' },
+        attempts: [],
+      }),
+    { name: 'TypeError', message: 'Role knu_executor is not in profile standard-read.' },
+  );
+});
+
+test('a retried lane completes on its retry route model and task path, and decisions keep their routes', () => {
+  const { delegation } = modelDispatchInput();
+  const contract = delegation.recommendedChildren[0];
+  const laneId = contract.laneId;
+  const route = laneRoute(laneId, delegation);
+  assert.deepEqual(route, { role: contract.routeRecommendation.role, profileId: 'standard-read' });
+  const retried = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [
+      failedAttempt('primary', 'verification-failed'),
+      {
+        approachId: 'astra-retry',
+        alternateOf: 'primary',
+        outcome: 'success',
+        evidence: 'Passed.',
+      },
+    ],
+  });
+  const childResults = successfulLegalResults().filter((result) => result.laneId === laneId);
+  const synthesize = (
+    hookObservation,
+    recoveryDecisions = [retried],
+    acceptances = acceptedChildren(hookObservation),
+  ) =>
+    prepareLeaderSynthesis({
+      delegation,
+      childResults,
+      recoveryDecisions,
+      hookObservation,
+      acceptances,
+      dispatchToken: FIXTURE_DISPATCH_TOKEN,
+    });
+  const onRetry = (model) => observedChildren(delegation, { model, retryLaneIds: [laneId] });
+  assert.equal(synthesize(onRetry('gpt-6-astra')).readyForLeaderDecision, true);
+  // The retry ran one rung up, so the contract model on the retry path is refused.
+  assert.equal(synthesize(onRetry('gpt-6.1-sol')).completionChecks[0].reason, 'model-mismatch');
+  // The primary task path is not the retry, and an accepted primary child ends the lane before its retry.
+  const primaryOnly = observedChildren(delegation, { model: 'gpt-6-astra' });
+  assert.equal(
+    synthesize(primaryOnly, [retried], []).completionChecks[0].reason,
+    'observation-missing',
+  );
+  assert.equal(synthesize(primaryOnly).completionChecks[0].reason, 'lane-accepted');
+  assert.throws(
+    () =>
+      synthesize(onRetry('gpt-6-astra'), [
+        { ...retried, retryRoute: { ...retried.retryRoute, model: 'gpt-6.1-sol' } },
+      ]),
+    {
+      name: 'TypeError',
+      message: 'Recovery decision retryRoute must match its route and attempts.',
+    },
+  );
+  const otherRoute = { role: 'knu_explorer', profileId: 'astra-fallback' };
+  assert.throws(
+    () =>
+      synthesize(onRetry('gpt-6-astra'), [
+        evaluateRecovery({ laneId, route: otherRoute, attempts: retried.attempts }),
+      ]),
+    { name: 'TypeError', message: 'Recovery route must match its lane contract.' },
+  );
+});
+
+test('a retry dispatch takes its spawn arguments from a pending decision and the ladder', () => {
+  const { delegation } = modelDispatchInput();
+  const laneId = delegation.recommendedChildren[0].laneId;
+  const route = laneRoute(laneId, delegation);
+  const pending = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [failedAttempt('primary', 'verification-failed')],
+  });
+  const retry = modelPolicy.createRetryDispatch({
+    delegation,
+    recoveryDecision: pending,
+    dispatchToken: FIXTURE_DISPATCH_TOKEN,
+  });
+  assert.deepEqual(retry.spawnArguments, {
+    task_name: `${laneId.replaceAll('-', '_')}_${FIXTURE_DISPATCH_TOKEN}_retry`,
+    agent_type: route.role,
+    model: 'gpt-6-astra',
+    reasoning_effort: ROLE_EFFORTS[route.role],
+    fork_turns: 'none',
+  });
+  assert.deepEqual(retry.retryRoute, pending.retryRoute);
+  const sameContract = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [failedAttempt('primary', 'tool-unavailable')],
+  });
+  assert.equal(
+    modelPolicy.createRetryDispatch({
+      delegation,
+      recoveryDecision: sameContract,
+      dispatchToken: 'disp2',
+    }).spawnArguments.model,
+    'gpt-6.1-sol',
+  );
+  const finished = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [
+      ...pending.attempts,
+      { approachId: 'retry', alternateOf: 'primary', outcome: 'success', evidence: 'Passed.' },
+    ],
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation,
+        recoveryDecision: finished,
+        dispatchToken: 'disp2',
+      }),
+    { name: 'TypeError', message: 'A retry dispatch needs a pending alternate decision.' },
+  );
+  assert.throws(() => modelPolicy.createRetryDispatch({ delegation, recoveryDecision: pending }), {
+    name: 'TypeError',
+    message: 'A retry dispatch requires a dispatch token.',
+  });
+  const unknownLane = evaluateRecovery({
+    laneId: 'missing-lane',
+    route,
+    attempts: pending.attempts,
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation,
+        recoveryDecision: unknownLane,
+        dispatchToken: 'disp2',
+      }),
+    { name: 'TypeError', message: 'Recovery references an unknown lane: missing-lane' },
+  );
+});
+
+test('installed roles are the ten effort-pinned role files and a route effort must match its role', () => {
+  const input = modelDispatchInput();
+  const contract = input.delegation.recommendedChildren[0];
+  assert.equal(
+    contract.routeRecommendation.effort,
+    ROLE_EFFORTS[contract.routeRecommendation.role],
+  );
+  const drifted = structuredClone(input);
+  drifted.delegation.recommendedChildren[0].routeRecommendation.effort =
+    contract.routeRecommendation.effort === 'high' ? 'medium' : 'high';
+  assert.throws(() => createDispatchRecommendation(drifted), {
+    name: 'TypeError',
+    message: 'Route effort must be the effort its role file pins.',
+  });
+});
+
+test('a retry dispatch and synthesis recompute the decision state and keep the primary dispatch gates', () => {
+  const { delegation } = modelDispatchInput();
+  const laneId = delegation.recommendedChildren[0].laneId;
+  const route = laneRoute(laneId, delegation);
+  const finished = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [
+      failedAttempt('primary', 'verification-failed'),
+      { ...failedAttempt('retry', 'verification-failed'), alternateOf: 'primary' },
+    ],
+  });
+  // A finished decision relabeled as pending does not buy a second retry.
+  const relabeled = {
+    ...finished,
+    status: 'alternate-available',
+    action: 'alternate-once',
+    remainingAlternateAttempts: 1,
+    disposition: null,
+  };
+  const stateMessage = 'Recovery decision status and action must match its attempts.';
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation,
+        recoveryDecision: relabeled,
+        dispatchToken: 'disp9',
+      }),
+    { name: 'TypeError', message: stateMessage },
+  );
+  // Two failed attempts labeled as done do not let a completed result pass.
+  const done = {
+    ...finished,
+    status: 'complete',
+    action: 'none',
+    remainingAlternateAttempts: 0,
+    blocker: null,
+    disposition: null,
+  };
+  delete done.prohibitedApproachIds;
+  assert.throws(() => prepareLeaderSynthesis({ delegation, recoveryDecisions: [done] }), {
+    name: 'TypeError',
+    message: stateMessage,
+  });
+  // A lane the primary dispatch keeps out of native spawn gets no retry spawn either.
+  const reuse = ordinaryScopedDispatchInput({
+    mode: 'reuse',
+    previous: {
+      childId: '/root/same-task',
+      laneId: 'legal-repository-map',
+      role: 'knu_explorer_xhigh',
+      sameOutcome: true,
+      scopeUnchanged: true,
+      sourceSnapshot: 'synthetic-source-v1',
+      revalidatedForSnapshot: 'synthetic-source-v1',
+      independentReview: false,
+    },
+  });
+  const [reused] = reuse.delegation.recommendedChildren;
+  const pending = evaluateRecovery({
+    laneId: reused.laneId,
+    route: laneRoute(reused.laneId, reuse.delegation),
+    attempts: [failedAttempt('primary', 'tool-unavailable')],
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation: reuse.delegation,
+        recoveryDecision: pending,
+        dispatchToken: 'disp9',
+      }),
+    {
+      name: 'TypeError',
+      message:
+        'A retry dispatch needs a dispatchable lane: context-reuse-not-a-spawn:legal-repository-map',
+    },
+  );
+  const drifted = structuredClone(delegation);
+  drifted.recommendedChildren[0].objective = 'A changed objective after registration.';
+  const driftedPending = evaluateRecovery({
+    laneId,
+    route,
+    attempts: [failedAttempt('primary', 'verification-failed')],
+  });
+  assert.throws(
+    () =>
+      modelPolicy.createRetryDispatch({
+        delegation: drifted,
+        recoveryDecision: driftedPending,
+        dispatchToken: 'disp9',
+      }),
+    /A retry dispatch needs a dispatchable lane: .*model-contract-snapshot-changed/u,
+  );
 });

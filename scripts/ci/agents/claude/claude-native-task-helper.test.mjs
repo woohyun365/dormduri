@@ -1708,7 +1708,11 @@ test('selected criteria documents join the packet owners and read paths; unknown
     assert.ok(review.reviewerSpec.readScope.includes(path), path);
     assert.ok(review.reviewerPrompt.includes(path), path);
   }
-  assert.match(review.reviewerPrompt, /names the item id/u);
+  // The ledger counts criteria items only from this one field (review-ledger-source.mjs), so the prompt names it.
+  assert.match(
+    review.reviewerPrompt,
+    /`criteriaItem` field holds exactly one item id such as `documents\.md D2`/u,
+  );
   const plain = roundReview(r, { reviewRound: 1 });
   assert.deepEqual(plain.packet.sources.owners, review.packet.sources.owners.slice(0, 2));
   assert.doesNotMatch(plain.reviewerPrompt, /Criteria documents/u);
@@ -1866,9 +1870,10 @@ test('e3 splits the criteria items into contiguous member ranges with nothing mi
   );
   execFileSync('git', ['add', '.'], { cwd: r.root });
   const criteria = ['documents', 'agent-workflow-tooling'];
+  // Assigned ids carry their document name, the same form a finding's criteriaItem takes.
   const all = [
-    ...Array.from({ length: 8 }, (_, i) => `D${i + 1}`),
-    ...Array.from({ length: 8 }, (_, i) => `W${i + 1}`),
+    ...Array.from({ length: 8 }, (_, i) => `documents.md D${i + 1}`),
+    ...Array.from({ length: 8 }, (_, i) => `agent-workflow-tooling.md W${i + 1}`),
   ];
   for (const [reviewers, expected] of [
     [2, [all.slice(0, 8), all.slice(8)]],
