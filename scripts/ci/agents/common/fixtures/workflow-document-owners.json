@@ -78,7 +78,7 @@
       "path": "docs/development/agent-workflows/adapters/codex-qualification.md",
       "owner": "Codex adapter/history owner",
       "kind": "adapter",
-      "rationale": "Claude Lead를 위한 top-level codex exec 교차 reviewer의 정적 경계 reference다. live qualification으로 승격하지 않는다."
+      "rationale": "Claude Lead를 위한 top-level codex exec 교차 reviewer의 정적 경계와 native codex 세션의 live pilot 절차 reference다. 교차 reviewer를 live qualification으로 승격하지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/codex.md",

@@ -93,7 +93,10 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   봉인이 어긋나거나 allow 기록이 없는 round 포함)가 `knu_reviewer`·review profile model·역할 pin과 task name에 맞는 봉인으로
   수락되고 재개되지 않았고, 보고된 결과의 `dispatchId`가 task name이 정하는 가장 높은 round의 `reviewId`(`review-<token>-<round>`)이며,
   그 등록의 `reviewOf`가 현재 lane을 모두 담아야 합니다. 보고된 `observedModel`만으로는 PASS를 연결하지 않습니다. Cross-model handoff
-  계약 자체는 바뀌지 않습니다.
+  계약 자체는 바뀌지 않습니다. Claude의 `parent-adjudication`·terminal reviewer 구분은 두지 않습니다. 그 구분은 Claude registry가
+  builder task 완료를 reviewer task에 연결할 때 Parent subject와 reviewer 자신의 정산을 가르는 장치인데, Codex의 결속은 위처럼 dispatch
+  token 단위이고 Parent가 쓴 변경도 같은 `codex:delegate -- review`로 reviewer를 등록·수락합니다. Finding의 Parent 재현·처분과
+  연속 non-PASS quality stop은 [리뷰 회차](../qa.md#리뷰-회차)를 따릅니다.
 - **Hook 전체 부재**: linked git worktree(codex-cli 0.160.0 관측: main 경로를 trust해도 project hook이 `/hooks`에 나타나지 않음), untrusted project, hook trust 전·재검토 대기에서는 기록이 없으므로
   완료 거부가 정상 경로입니다. 이때 호출 시점 deny도 없어 child가 허용 목록 밖 model이나 roster 밖 역할로 실행될 수 있고, writer 기간의
   Parent 쓰기도 막히지 않습니다.
