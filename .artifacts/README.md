@@ -19,6 +19,13 @@ production runtime에서는 사용하지 않는다. 내용은 Git에서 제외�
 - **Plan ID 두 단.** 첫 단은 가장 위 active index(umbrella)의 Plan ID, 둘째 단은 증거를 소유한 bounded plan의
   Plan ID다. umbrella 자신의 증거는 `plans/<umbrella>/<umbrella>/`, umbrella가 없는 단독 계획은
   `plans/<Plan ID>/<Plan ID>/`에 둔다. 더 깊은 계획 계층은 bounded 단으로 평탄화하고 그 아래는 phase나 날짜로 나눈다.
+- **계획 작업 하위 구조.** `<phase|YYYY-MM-DD>/` 아래 주제가 여럿이면 `<topic>/`을 한 단 더 둡니다. 그 아래는 다음 이름을 씁니다.
+  - `research/`: 근거 snapshot. 사실마다 출처를 달고, 확인하지 못한 것은 미검증으로 표시합니다.
+  - `plan-drafts/`: 계획 초안 staging, `SOURCE-MANIFEST.tsv`, 정산 뒤 쓰는 `promote-receipt.json`입니다. 절차는
+    [Session continuity](../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)가 소유합니다.
+  - `review/`: 리뷰 입력이 들어갑니다. subject, runner script·로그, runner evidence입니다.
+  - `review-results/`: 회차별 `r<N>-result.json`, `r<N>-adjudication.json`, 재현 로그입니다. 정산 뒤에 쓰는 파일이므로
+    리뷰 read path 밖에 둡니다.
 - **script 출력.** repository script는 `scripts/artifacts/paths.mjs`의 `resolveArtifactPath()`로 `tools/<kind>/`에
   쓴다. `KNU_ARTIFACTS_DIR`은 이 `tools` 기본 위치를 대체하며, 각 command의 명시적 `--output`·전용 환경변수도
   사용할 수 있다.
