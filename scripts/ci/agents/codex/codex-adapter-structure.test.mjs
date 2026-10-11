@@ -38,7 +38,13 @@ const REFERENCES = {
 // observation column records evidence only; routine status stays with the profile decision.
 const OBSERVED = {
   extract: ['`knu_explorer_xhigh`', '`gpt-6-luna`/xhigh', '0.160.0'],
-  'standard-read': ['`knu_explorer`', '`gpt-6.1-sol`/high', '0.162.0', '`knu_researcher` 미관측'],
+  'standard-read': [
+    '`knu_explorer`',
+    '`gpt-6.1-sol`/high',
+    '0.160.0',
+    '0.162.0',
+    '`knu_researcher` 미관측',
+  ],
   'elevated-read': ['미관측'],
   'standard-build': ['`knu_executor`', '`gpt-6.1-sol`/high', '0.161.0'],
   'elevated-build': ['`knu_executor_xhigh`', '`gpt-6.1-sol`/xhigh', '0.162.1'],
@@ -111,6 +117,8 @@ test('the candidate profile table records each row own-turn observation without 
     const cell = row.split('|')[column].trim();
     for (const token of tokens)
       assert.ok(cell.includes(token), `${profile} observation lacks ${token}`);
+    if (profile === 'elevated-read')
+      assert.equal(cell, '미관측', 'elevated-read observation must stay 미관측 alone');
   }
   assert.match(
     advice,
@@ -148,6 +156,63 @@ test('the native live pilot fixes the start, the scratch home and the receipt ru
   ])
     assert.match(pilot, rule, `pilot lacks ${rule}`);
   assert.ok(pilot.includes('](./codex.md'), 'pilot section must link the entry');
+});
+
+test('the observation column names the version it stands at and who updates it', () => {
+  const advice = section(reference('codex-model-profiles.md'), '## Quality-gated model advice');
+  assert.match(
+    advice,
+    /관측 열[^.]*0\.162\.1[^.]*기준/u,
+    'observation column must name its as-of version',
+  );
+  assert.match(
+    advice,
+    /Parent가[^.]*관측 열을[^.]*갱신/u,
+    'observation column must name who updates it',
+  );
+});
+
+const pilotBullet = (title) => {
+  const pilot = section(reference('codex-qualification.md'), '## Native live pilot');
+  const start = pilot.indexOf(`- **${title}**`);
+  if (start < 0) return '';
+  const end = pilot.indexOf('\n- **', start + 1);
+  return pilot.slice(start, end < 0 ? undefined : end);
+};
+
+test('the pilot tells role effort apart only by a role pin that differs from the Parent effort', () => {
+  const bullet = pilotBullet('판별 가능한 조건');
+  assert.doesNotMatch(
+    bullet,
+    /역할 pin과 다른[^.]*spawn effort로 관측/u,
+    'pilot must not offer a spawn effort route',
+  );
+  assert.match(
+    bullet,
+    /registration-mismatch/u,
+    'pilot must say the spawn effort is fixed by registration',
+  );
+});
+
+test('hook trust in a scratch home is approved by the Owner, not answered by the Parent', () => {
+  const bullet = pilotBullet('시작 위치와 trust');
+  assert.match(bullet, /trust[^.]*Owner|Owner[^.]*trust/u, 'trust re-approval must name the Owner');
+});
+
+test('the pilot receipt keeps the session hook records and marks version-bound observations', () => {
+  assert.ok(
+    pilotBullet('Receipt').includes('.codex/state/knu-subagent-hooks/'),
+    'receipt must copy the session hook records',
+  );
+  assert.ok(
+    pilotBullet('시작 위치와 trust').includes('0.160.0 관측'),
+    'linked worktree claim must name its version',
+  );
+  assert.match(
+    pilotBullet('별도 home'),
+    /세션 시작만으로[^.]*관측/u,
+    'Home write must read as an observation',
+  );
 });
 
 test('Parent judgment and quality stop follow the common review rounds without a parent-adjudication split', () => {
