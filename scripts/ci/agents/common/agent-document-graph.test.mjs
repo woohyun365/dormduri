@@ -60,15 +60,32 @@ test('actual document links/anchors resolve and every development owner is index
 });
 // Review criteria documents follow one item format under the common QA owner; a capped list keeps
 // them from growing into a ritual checklist, and tracked criteria never cite ignored local evidence.
+// An item holds the review view and the implementation view (지침·피함) in one block, in this order.
 const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
 const CRITERIA_ITEM_CAP = 8;
+const CRITERIA_FIELDS = [
+  /^- 질문: \S/mu,
+  /^- 기본 severity: `(?:critical|high|medium|low)`/mu,
+  /^- 적용 조건: \S/mu,
+  /^- 결함 패턴: \S/mu,
+  /^- PASS 근거: \S/mu,
+  /^- 지침: \S/mu,
+  /^- 피함: \S/mu,
+];
+const CRITERIA_LABELS = CRITERIA_FIELDS.map((field) => field.source.match(/^\^- ([^:]+):/u)[1]);
+const criteriaDocuments = () =>
+  markdownFiles(CRITERIA_DIR)
+    .filter((path) => path !== `${CRITERIA_DIR}/README.md`)
+    .sort();
 test('review criteria documents are registered owners with capped, complete items', () => {
   const readme = `${CRITERIA_DIR}/README.md`;
   // Every criteria document the helper can select is checked, not only the ones that exist today.
-  const criteria = markdownFiles(CRITERIA_DIR)
-    .filter((path) => path !== readme)
-    .sort();
-  for (const path of [`${CRITERIA_DIR}/agent-workflow-tooling.md`, `${CRITERIA_DIR}/documents.md`])
+  const criteria = criteriaDocuments();
+  for (const path of [
+    `${CRITERIA_DIR}/agent-workflow-tooling.md`,
+    `${CRITERIA_DIR}/documents.md`,
+    `${CRITERIA_DIR}/swe.md`,
+  ])
     assert.ok(criteria.includes(path), path);
   const paths = corpus.documents.map((x) => x.path);
   for (const path of [readme, ...criteria]) {
@@ -93,6 +110,9 @@ test('review criteria documents are registered owners with capped, complete item
       `${readme} -> ${path}`,
     );
     const text = readFileSync(resolve(root, path), 'utf8');
+    // A malformed item heading would otherwise merge into the previous item and skip every check.
+    for (const heading of prose(text).match(/^#{3,} .*$/gmu) ?? [])
+      assert.match(heading, /^### [A-Z]\d+\. \S/u, `${path}: malformed item heading ${heading}`);
     const items = prose(text)
       .split(/^(?=### [A-Z]\d+\. )/mu)
       .slice(1);
@@ -102,20 +122,70 @@ test('review criteria documents are registered owners with capped, complete item
     );
     const ids = items.map((item) => item.match(/^### ([A-Z]\d+)\. /u)[1]);
     assert.equal(new Set(ids).size, ids.length, `${path}: duplicate item id`);
-    for (const item of items)
-      for (const field of [
-        /^- 질문: \S/mu,
-        /^- 기본 severity: `(?:critical|high|medium|low)`/mu,
-        /^- 적용 조건: \S/mu,
-        /^- 결함 패턴: \S/mu,
-      ])
-        assert.match(item, field, `${path} ${item.split('\n')[0]}`);
+    for (const item of items) {
+      const at = CRITERIA_FIELDS.map((field) => item.search(field));
+      for (const [i, field] of CRITERIA_FIELDS.entries()) {
+        assert.ok(at[i] >= 0, `${path} ${item.split('\n')[0]}: missing ${field.source}`);
+        assert.ok(
+          i === 0 || at[i] > at[i - 1],
+          `${path} ${item.split('\n')[0]}: ${field.source} out of order`,
+        );
+      }
+      // Exactly the seven fields: no unknown or repeated field line. Indented lines continue a field.
+      const fieldLines = item
+        .split('\n')
+        .slice(1)
+        .filter((line) => line.trim() && !/^\s/u.test(line));
+      assert.deepEqual(
+        fieldLines.map((line) => line.match(/^- ([^:]+):/u)?.[1] ?? line),
+        CRITERIA_LABELS,
+        `${path} ${item.split('\n')[0]}: fields must be exactly the seven lines`,
+      );
+    }
     assert.doesNotMatch(
       text,
       /\.artifacts\/|\.plans\/|\.local-docs\//u,
       `${path} cites ignored evidence`,
     );
   }
+});
+// Plan-authoring guides cite criteria items by link and item anchor, so implementation and review
+// read the same item. Every item must be cited by a guide, except in repository-only documents that
+// no implementation guide owns.
+const GUIDE_DIR = 'docs/development/agent-workflows/plan-authoring';
+const UNCITED_CRITERIA = new Map([
+  [
+    `${CRITERIA_DIR}/agent-workflow-tooling.md`,
+    'repository tooling criteria have no implementation guide',
+  ],
+  [`${CRITERIA_DIR}/documents.md`, 'repository document criteria have no implementation guide'],
+]);
+test('plan-authoring guides cite criteria items that resolve, and every guided item is cited', () => {
+  const criteria = criteriaDocuments();
+  for (const path of UNCITED_CRITERIA.keys())
+    assert.ok(criteria.includes(path), `stale uncited exemption ${path}`);
+  const items = new Map(
+    criteria.map((path) => [
+      path,
+      [
+        ...prose(readFileSync(resolve(root, path), 'utf8')).matchAll(/^### ([A-Z]\d+)\. .*$/gmu),
+      ].map((match) => ({ id: match[1], anchor: [...anchors(`${match[0]}\n`)][0] })),
+    ]),
+  );
+  const cited = new Set();
+  for (const guide of markdownFiles(GUIDE_DIR))
+    for (const target of markdownLinks(root, guide).filter((x) => items.has(x.path))) {
+      const item = items.get(target.path).find((x) => x.anchor === target.fragment);
+      assert.ok(item, `${guide} -> ${target.path}#${target.fragment ?? ''} is not a criteria item`);
+      cited.add(`${target.path} ${item.id}`);
+    }
+  for (const [path, list] of items)
+    if (!UNCITED_CRITERIA.has(path))
+      for (const { id } of list)
+        assert.ok(
+          cited.has(`${path} ${id}`),
+          `${path} ${id} is not cited by a plan-authoring guide`,
+        );
 });
 test('production workflow graph has real discoverable owners and required DAG without banning backlinks', () => {
   assert.deepEqual(validateWorkflowGraph(workflowGraph), []);

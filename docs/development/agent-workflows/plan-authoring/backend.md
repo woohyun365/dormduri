@@ -10,12 +10,16 @@
 - aggregate state와 partial draft를 혼동하지 않고 action capability가 transaction precondition을 충분히 투영하는지 확인합니다.
 - auth가 호출하는 다른 domain의 invariant를 auth 내부에 복제하지 않습니다.
 
+구현·리뷰 기준: [swe.md S1](../review-criteria/swe.md#s1-요구사항intentinvariant-부합)
+
 ## Public contract and error semantics
 
 - request/response schema, status/error code, presenter, de-identification, compatibility를 producer/consumer 관점에서 봅니다.
 - public contract는 shared package가 실제 FE/BE 의미를 공유할 때만 소유합니다.
 - internal DTO, Prisma row, provider payload를 public type처럼 노출하지 않습니다.
 - validation, authorization, not-found, conflict, throttle, provider failure를 사용자·운영 의미에 맞게 구분합니다.
+
+구현·리뷰 기준: [swe.md S3](../review-criteria/swe.md#s3-정확성과-오류-경로), [swe.md S5](../review-criteria/swe.md#s5-계약-호환성)
 
 ## Transaction, concurrency, and idempotency
 
@@ -43,6 +47,8 @@
 - metric은 owner-local operational question에 연결하고 product data analytics와 혼동하지 않습니다.
 - health/readiness는 operator action에 필요한 bounded signal만 노출하며 alert 판정은 observability owner에 둡니다.
 - migration, rollout, provider 또는 production target이 포함되면 [Operations and release](./cross-cutting/operations-release.md)를 추가합니다.
+
+구현·리뷰 기준: [swe.md S8](../review-criteria/swe.md#s8-측정-근거-있는-성능)
 
 ## Background work and integration
 
@@ -79,6 +85,8 @@
 - raw re-export, catch-all utils/types, unused abstraction, runtime-unconnected code를 계획에 남기지 않습니다.
 - cross-domain call은 public service/contract를 사용하고 내부 persistence를 우회하지 않습니다.
 
+구현·리뷰 기준: [swe.md S4](../review-criteria/swe.md#s4-책임-경계와-결합도)
+
 ## Backend verification
 
 - invariant/policy: unit test
@@ -92,3 +100,5 @@
 
 Plan은 owner/invariant, state/capability matrix, public contract, transaction boundary, persistence lifecycle, security,
 background work, operations, integration caller와 verification evidence를 명시합니다.
+
+구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test)

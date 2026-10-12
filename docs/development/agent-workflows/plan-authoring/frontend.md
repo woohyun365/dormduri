@@ -10,6 +10,8 @@
 - UI gating은 UX 표현이며 최종 action precondition은 API owner가 검증하도록 분리합니다.
 - policy copy, shared contract, BFF mapper, API response가 같은 의미를 사용하는지 확인합니다.
 
+구현·리뷰 기준: [swe.md S1](../review-criteria/swe.md#s1-요구사항intentinvariant-부합), [swe.md S2](../review-criteria/swe.md#s2-제품-정책-부합)
+
 ## Next.js, React, and BFF boundary
 
 - current lockfile과 Next.js/React 공식 문서로 실제 version behavior를 확인합니다.
@@ -18,12 +20,16 @@
 - Server Action, Route Handler, client fetch 중 선택은 auth, CSRF, cache, rate limit, error semantics를 비교합니다.
 - server/client module graph, serialization, hydration, navigation과 modal/scroll ownership을 명시합니다.
 
+구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입)
+
 ## State, form, mutation, and cache
 
 - source state, derived state, URL state, server cache, ephemeral UI state를 구분합니다.
 - form은 validation, pending, duplicate submit, retry, focus, error announcement, browser autofill을 포함합니다.
 - optimistic update는 rollback과 server conflict semantics가 명확할 때만 사용합니다.
 - invalidation, refresh, back/forward, stale response, abort/race가 user-visible state와 일치하는지 확인합니다.
+
+구현·리뷰 기준: [swe.md S3](../review-criteria/swe.md#s3-정확성과-오류-경로)
 
 ## Accessibility and responsive interaction
 
@@ -55,6 +61,8 @@
 - error boundary, browser runtime error, Web Vitals, BFF failure telemetry의 현재 owner와 개인정보 경계를 확인합니다.
 - 성능 최적화는 측정 가능한 bottleneck 또는 target budget에 연결하며 유행성 library를 먼저 도입하지 않습니다.
 
+구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입), [swe.md S8](../review-criteria/swe.md#s8-측정-근거-있는-성능)
+
 ## Security and privacy
 
 - XSS, open redirect, cookie/token exposure, sensitive payload logging, enumeration copy를 점검합니다.
@@ -73,3 +81,5 @@
 
 Plan은 target component tree, server/client/BFF boundary, UI state matrix, responsive/a11y behavior, contract mapper,
 test ownership과 rollout risk를 명시합니다.
+
+구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test)

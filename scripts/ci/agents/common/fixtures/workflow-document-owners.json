@@ -192,7 +192,7 @@
       "path": "docs/development/agent-workflows/review-criteria/README.md",
       "owner": "general development workflow owner",
       "kind": "normative",
-      "rationale": "변경 유형별 기준 문서 선택과 항목 형식(문서당 8개 이하, 질문·기본 severity·적용 조건·결함 패턴)을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
+      "rationale": "변경 유형별 기준 문서 선택, 항목 형식(문서당 8개 이하, 질문·기본 severity·적용 조건·결함 패턴·PASS 근거·지침·피함)과 guide 인용 규칙을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/review-criteria/documents.md",
@@ -205,6 +205,12 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "agent workflow script·검사·helper·skill 리뷰의 기준 항목(조용한 통과 금지, 보고와 실행의 일치, 대조군, 입력 결속 등)을 소유한다. host 실행은 adapter가 소유한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/swe.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "모든 영역에 공통인 SWE code 기준 항목(요구사항·정책 부합, 정확성, 책임 경계, 계약 호환성, 보호 test, dependency 도입, 성능)과 각 항목의 구현 보기를 소유한다. 보안·동시성·영역 고유 규칙은 영역 기준이 소유한다."
     },
     {
       "path": "docs/development/agent-workflows/refactor-analysis.md",

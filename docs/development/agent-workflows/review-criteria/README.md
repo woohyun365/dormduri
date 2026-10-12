@@ -11,29 +11,42 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 | ------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------- |
 | `documents`              | [Document review criteria](./documents.md)                     | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경         |
 | `agent-workflow-tooling` | [Agent workflow tooling criteria](./agent-workflow-tooling.md) | agent workflow script·검사·helper·skill·역할 파일의 동작 변경 |
+| `swe`                    | [SWE common criteria](./swe.md)                                | 제품 code·공유 contract와 그 test·설정의 동작·구조 변경       |
 
 - 변경 유형으로 고릅니다. 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의 독립 리뷰 trigger가 없는
   변경에는 기준 문서를 고르지 않습니다.
 - 계획 readiness 리뷰는 `documents`를 쓰고, readiness 자체의 판정 항목은
   [Plan authoring core의 promotion gate](../plan-authoring/core.md#7-implementation-readiness-promotion)가 소유합니다.
-- 제품 영역(FE·BE·infra) 기준 문서는 영역 owner와 함께 이 형식으로 추가합니다. 그 전에는 영역 plan-authoring guide와
-  [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존 owner 문서를 acceptance 근거로 씁니다.
+- `swe`는 모든 영역에 공통인 SWE 기준을 소유합니다. Agent workflow script는 `swe` 대신 `agent-workflow-tooling`을 고르고,
+  문서만 바꾸는 변경에는 `swe`를 고르지 않습니다. `swe.md` S2의 정책 원본은 그 도메인의 [정책 문서](../../../policies/README.md)이고, S7의 dependency 정책 원본은
+  [AGENTS.md 5절](../../../../AGENTS.md#5-implementation-agreements)과 [dependency security policy](../../../policies/dependency-security.md)입니다.
+- 제품 영역(FE·BFF·BE·DB·infra·security) 기준 문서는 영역 owner와 함께 이 형식으로 추가합니다. 그 전에는 영역
+  plan-authoring guide와 [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존 owner 문서를
+  acceptance 근거로 씁니다.
 
 ## 항목 형식
 
 문서마다 항목은 **8개 이하**입니다. 상한은 기준이 의례적 checklist로 길어지는 것을 막기 위한 값이며, 새 항목이 필요하면 가장
-적게 걸린 항목을 합치거나 교체합니다. 각 항목은 `### <문자><번호>. <이름>` 제목과 아래 네 줄을 가집니다.
+적게 걸린 항목을 합치거나 교체합니다. 각 항목은 `### <문자><번호>. <이름>` 제목과 아래 일곱 줄을 이 순서로 가집니다.
 
 ```text
 - 질문: reviewer가 판정할 한 문장 질문
 - 기본 severity: `critical` | `high` | `medium` | `low` (QA severity 정의)
 - 적용 조건: 이 항목을 판정하는 변경의 범위
 - 결함 패턴: 이 항목이 실제로 잡아야 했던 결함 유형의 요약
+- PASS 근거: 충족을 보이는 관측(test·runner 기록·source 위치)
+- 지침: 구현할 때 해야 할 것
+- 피함: 구현할 때 피할 것
 ```
 
+- 한 항목이 두 보기를 함께 가집니다. 지침·피함은 구현할 때 보는 구현 보기이고, 질문·기본 severity·결함 패턴·PASS 근거는 리뷰할
+  때 보는 리뷰 보기입니다. 적용 조건은 두 보기가 함께 씁니다. 두 보기를 같은 블록에 두어 한쪽만 바뀌는 일이 diff에 보이게 합니다.
+- 구현 지침 문서(plan-authoring guide)는 항목 문장을 다시 쓰지 않고 `[swe.md S4](./swe.md#s4-책임-경계와-결합도)`처럼 항목 제목
+  anchor로 인용합니다. 구현 guide가 없는 저장소 전용 기준(`documents`·`agent-workflow-tooling`)을 뺀 모든 항목은 guide 하나 이상이
+  인용해야 합니다.
 - 결함 패턴은 유형 요약입니다. Local 증거 경로, plan 파일명, 작업 단계 이름을 근거로 인용하지 않습니다.
 - Reviewer는 적용 조건에 맞는 항목을 판정합니다. 미충족 항목은 `criteriaItem` 필드에 항목 id 하나(예: `documents.md D2`)만 적은
-  finding이 되고 기본 severity에서 시작합니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 다르게 매기면 finding에 이유를 적습니다. 충족한 항목은 finding이 아니라 acceptance coverage의 근거로 씁니다.
+  finding이 되고 기본 severity에서 시작하며, 다르게 매기면 finding에 이유를 적습니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 충족한 항목은 finding이 아니라 그 항목의 PASS 근거에 해당하는 관측으로 acceptance coverage에 씁니다.
 - 결정적 검사가 이미 판정하는 내용(Markdown link·anchor 해석 등)은 항목으로 두지 않습니다.
 
 ## 결정적 검사
@@ -168,4 +181,4 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 ## 갱신
 
 리뷰가 놓쳐 merge 뒤 발견된 결함과 Parent가 재현으로 기각한 finding은 기준 항목 갱신의 입력입니다. 갱신은 이 디렉터리의 문서
-변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 형식과 상한을 검사합니다.
+변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음)·상한과 guide 인용(해석, 인용되지 않은 항목)을 검사합니다.
