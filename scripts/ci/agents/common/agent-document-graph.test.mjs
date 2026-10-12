@@ -72,6 +72,7 @@ const CRITERIA_FIELDS = [
   /^- 지침: \S/mu,
   /^- 피함: \S/mu,
 ];
+const CRITERIA_LABELS = CRITERIA_FIELDS.map((field) => field.source.match(/^\^- ([^:]+):/u)[1]);
 const criteriaDocuments = () =>
   markdownFiles(CRITERIA_DIR)
     .filter((path) => path !== `${CRITERIA_DIR}/README.md`)
@@ -109,6 +110,9 @@ test('review criteria documents are registered owners with capped, complete item
       `${readme} -> ${path}`,
     );
     const text = readFileSync(resolve(root, path), 'utf8');
+    // A malformed item heading would otherwise merge into the previous item and skip every check.
+    for (const heading of prose(text).match(/^#{3,} .*$/gmu) ?? [])
+      assert.match(heading, /^### [A-Z]\d+\. \S/u, `${path}: malformed item heading ${heading}`);
     const items = prose(text)
       .split(/^(?=### [A-Z]\d+\. )/mu)
       .slice(1);
@@ -127,6 +131,16 @@ test('review criteria documents are registered owners with capped, complete item
           `${path} ${item.split('\n')[0]}: ${field.source} out of order`,
         );
       }
+      // Exactly the seven fields: no unknown or repeated field line. Indented lines continue a field.
+      const fieldLines = item
+        .split('\n')
+        .slice(1)
+        .filter((line) => line.trim() && !/^\s/u.test(line));
+      assert.deepEqual(
+        fieldLines.map((line) => line.match(/^- ([^:]+):/u)?.[1] ?? line),
+        CRITERIA_LABELS,
+        `${path} ${item.split('\n')[0]}: fields must be exactly the seven lines`,
+      );
     }
     assert.doesNotMatch(
       text,

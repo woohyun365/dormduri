@@ -17,7 +17,7 @@
 5. cleanup/refactor 검증은 [Refactor analysis](../refactor-analysis.md), 완료 판정은 [QA](../qa.md)를 링크합니다.
 
 Guide 절 끝의 `구현·리뷰 기준` 링크는 [review criteria](../review-criteria/README.md) 항목을 가리킵니다. 구현할 때는 그 항목의
-지침·피함을 따르고, 독립 리뷰는 같은 항목의 질문과 PASS 근거로 판정합니다.
+지침·피함을 따르고, 독립 리뷰는 같은 항목의 리뷰 보기(질문·기본 severity·결함 패턴·PASS 근거)로 판정합니다.
 
 domain 수가 많다는 이유만으로 guide나 child lane을 늘리지 않습니다. Primary owner가 불명확하면 read-only
 inspection으로 owner를 찾고, 결과를 바꾸는 모호함은 OQ 또는 사용자 확인으로 남깁니다.

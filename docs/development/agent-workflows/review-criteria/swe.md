@@ -8,11 +8,11 @@
 
 ### S1. 요구사항·intent·invariant 부합
 
-- 질문: 변경이 요청·acceptance·invariant를 충족하고, 요청 밖 동작을 더하지 않는가?
+- 질문: 변경이 요청·acceptance·invariant와 기록된 의도·결정을 충족하고, 요청 밖 동작을 더하지 않는가?
 - 기본 severity: `high`
 - 적용 조건: 동작·구조를 바꾸는 모든 code 변경
 - 결함 패턴: acceptance 일부만 구현하고 완료로 보고함, 요청에 없는 동작·설정·refactor를 같은 변경에 섞음, invariant(금지 전이·불변 값)를 깨는 경로가 남음, 그럴듯하지만 기록된 의도·결정과 다른 해법을 고름
-- PASS 근거: acceptance·invariant마다 그것을 보이는 test·runner 기록·source 위치가 있고, diff의 모든 변경이 요청이나 acceptance 하나로 설명된다
+- PASS 근거: acceptance·invariant마다 그것을 보이는 test·runner 기록·source 위치가 있고, 의도·결정 기록이 있으면 해법이 그 기록과 맞는다는 대조가 있으며, diff의 모든 변경이 요청이나 acceptance 하나로 설명된다
 - 지침: 착수 전에 acceptance·invariant와, 있으면 의도·결정 기록을 목록으로 만들고 변경마다 어느 항목을 위한 것인지 연결한다. 범위를 바꿔야 하면 구현 전에 요청자와 정한다
 - 피함: 요청 밖 개선을 같은 변경에 넣기, acceptance를 구현에 맞춰 줄이기, invariant 위반을 후속 작업으로 미루고 완료로 보고하기
 
