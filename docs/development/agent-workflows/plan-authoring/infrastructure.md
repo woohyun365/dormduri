@@ -64,6 +64,8 @@
 - dead compose override, stale runbook, unused script와 target 없는 speculative infrastructure는 caller/evidence를
   확인한 뒤 정리합니다.
 
+구현·리뷰 기준: [swe.md S4](../review-criteria/swe.md#s4-책임-경계와-결합도)
+
 ## Infrastructure verification
 
 - config/schema/static policy tests
@@ -77,3 +79,5 @@
 
 Plan은 current/target topology, environment/config/secret model, data durability, capacity/cost, failure matrix,
 IaC/drift, lifecycle, rehearsal boundary, release evidence와 operator handoff를 명시합니다.
+
+구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test)
