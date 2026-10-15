@@ -58,11 +58,11 @@ test('actual document links/anchors resolve and every development owner is index
     [],
   );
 });
-// Review criteria documents follow one item format under the common QA owner; a capped list keeps
-// them from growing into a ritual checklist, and tracked criteria never cite ignored local evidence.
+// Review criteria documents follow one item format under the common QA owner, and tracked criteria
+// never cite ignored local evidence. There is no per-document item cap: items with different
+// application conditions go to separate documents instead (the README keeps only that rule).
 // An item holds the review view and the implementation view (지침·피함) in one block, in this order.
 const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
-const CRITERIA_ITEM_CAP = 8;
 const CRITERIA_FIELDS = [
   /^- 질문: \S/mu,
   /^- 기본 severity: `(?:critical|high|medium|low)`/mu,
@@ -77,7 +77,7 @@ const criteriaDocuments = () =>
   markdownFiles(CRITERIA_DIR)
     .filter((path) => path !== `${CRITERIA_DIR}/README.md`)
     .sort();
-test('review criteria documents are registered owners with capped, complete items', () => {
+test('review criteria documents are registered owners with complete items and no item cap', () => {
   const readme = `${CRITERIA_DIR}/README.md`;
   // Every criteria document the helper can select is checked, not only the ones that exist today.
   const criteria = criteriaDocuments();
@@ -98,7 +98,12 @@ test('review criteria documents are registered owners with capped, complete item
   );
   assert.match(qa, /^### Severity$/mu);
   const readmeText = readFileSync(resolve(root, readme), 'utf8');
-  assert.match(readmeText, new RegExp(`${CRITERIA_ITEM_CAP}개`, 'u'));
+  const format = readmeText
+    .split(/^(?=## )/mu)
+    .find((section) => section.startsWith('## 항목 형식'));
+  assert.ok(format, `${readme}: 항목 형식 section`);
+  assert.doesNotMatch(format, /\d+\s*개\s*이하/u, `${readme} keeps a per-document item cap`);
+  assert.match(format, /적용 조건이 다른 항목이 섞이면 문서를 나눕니다/u);
   assert.doesNotMatch(
     readmeText,
     /\.artifacts\/|\.plans\/|\.local-docs\//u,
@@ -116,10 +121,7 @@ test('review criteria documents are registered owners with capped, complete item
     const items = prose(text)
       .split(/^(?=### [A-Z]\d+\. )/mu)
       .slice(1);
-    assert.ok(
-      items.length > 0 && items.length <= CRITERIA_ITEM_CAP,
-      `${path}: ${items.length} items`,
-    );
+    assert.ok(items.length > 0, `${path}: no items`);
     const ids = items.map((item) => item.match(/^### ([A-Z]\d+)\. /u)[1]);
     assert.equal(new Set(ids).size, ids.length, `${path}: duplicate item id`);
     for (const item of items) {
