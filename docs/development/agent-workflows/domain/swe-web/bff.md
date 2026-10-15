@@ -35,7 +35,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
 - 선택지:
   - route별 명시 allowlist: route마다 넘길 method·path·query·header·body schema를 적는다. 의도하지 않은 upstream 기능이 열리지 않지만 route마다 규칙을 써야 한다
   - path를 그대로 넘기는 공통 proxy(요청을 다른 server로 그대로 넘기는 중계기): 한 곳에서 모든 요청을 넘긴다. 빠르지만 upstream의 모든 기능과 header가 browser에 열린다. 연결된 기준 항목 `web-bff-gateway-forwarding.md B1`이 결함으로 본다
-  - route별 수동 처리: route마다 직접 넘긴다. 자유롭지만 검사가 route마다 갈린다
+  - route별 수동 처리: route마다 직접 넘긴다. 자유롭지만 검사가 route마다 갈린다. route마다 허용 schema를 적지 않으면 연결된 기준 항목 `web-bff-gateway-forwarding.md B1`이 결함으로 본다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `costly`. route마다 전달 규칙을 다시 쓴다
 - 기본값: route별 명시 allowlist. 의도하지 않은 upstream 기능이 열리지 않는다. 이 기본값은 버리지 않는다. 그대로 열어도 되는 공개 API라면 allowlist를 버리는 대신 BFF를 거칠지(`bff.gw.need-bff`)를 다시 정한다
@@ -123,7 +123,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
 - 선택지:
   - 요청 진입 middleware(요청이 route에 닿기 전에 모두 지나는 공통 code)·route: 요청이 들어올 때 갱신한다. 화면과 cookie가 어긋나지 않지만 진입 지점에 갱신 실패 처리를 둬야 한다
   - 화면 render 중: 그리면서 갱신한다. code가 가깝지만 render 결과와 cookie가 어긋나고 framework가 막기도 한다. 연결된 기준 항목 `web-bff-session-cookie-auth.md B2`이 결함으로 본다
-  - browser: browser가 주기적으로 갱신 요청을 보낸다. server가 단순하지만 여러 tab이 동시에 갱신해 token이 덮인다
+  - browser: browser가 주기적으로 갱신 요청을 보낸다. server가 단순하지만 여러 tab이 동시에 갱신해 token이 덮인다. 연결된 기준 항목 `web-bff-session-cookie-auth.md B2`이 결함으로 본다
 - 먼저 정할 결정: `bff.session.cookie-attributes`
 - 되돌림: `costly`. 갱신 흐름과 실패 처리를 옮긴다
 - 기본값: 요청 진입 middleware·route. 화면을 그리는 중에 cookie를 쓰지 않아 첫 화면과 cookie가 어긋나지 않는다. 이 기본값은 버리지 않는다. BFF가 있으면 요청 진입 지점이 있으므로 갱신은 그곳 한 곳에 둔다(`web-bff-session-cookie-auth.md B2`)
@@ -197,7 +197,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
 - 선택지:
   - route별 필요 필드 projection: route마다 화면에 필요한 필드만 고른다. 개인정보·내부 값이 나가지 않지만 projection과 test를 써야 한다
   - upstream 응답 그대로: 받은 응답을 넘긴다. 빠르지만 필요 없는 필드가 browser에 간다. 연결된 기준 항목 `web-bff-server-read-error-privacy-shaping.md B3`이 결함으로 본다
-  - 공통 filter: 위험한 필드만 공통으로 지운다. 한 곳에서 관리하지만 새 필드가 생기면 그대로 새어 나간다
+  - 공통 filter: 위험한 필드만 공통으로 지운다. 한 곳에서 관리하지만 새 필드가 생기면 그대로 새어 나간다. 연결된 기준 항목 `web-bff-server-read-error-privacy-shaping.md B3`이 결함으로 본다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `costly`. 화면이 받는 contract가 바뀐다
 - 기본값: route별 필요 필드 projection. 화면에 필요 없는 개인정보·내부 값이 나가지 않는다. 숨긴 값은 숨긴 채로 둔다. 이 기본값은 버리지 않는다. upstream이 화면용 contract를 주더라도 route마다 projection과 '필요 없는 field 없음' test를 둔다(`web-bff-server-read-error-privacy-shaping.md B3`)

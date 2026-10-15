@@ -19,11 +19,11 @@
 - 질문: 화면을 server가 만든 HTML 중심으로 할까, browser에서 돌아가는 앱(single-page app) 중심으로 할까?
 - 선택지:
   - server-rendered: server가 화면을 만들어 보낸다. 첫 화면이 빠르고 비밀값이 server에 남지만, 상호작용이 많은 부분은 따로 client로 나눠야 한다
-  - browser app: browser가 화면 전체를 그린다. 상호작용과 offline 동작이 쉽지만, 첫 화면이 늦고 data 경로와 인증을 browser에서 다뤄야 한다
+  - browser app: browser가 화면 전체를 그린다. 상호작용과 offline 동작이 쉽지만, 첫 화면이 늦고 data 경로와 인증을 browser에서 다뤄야 한다. 상호작용이 없는 화면까지 browser에서 그리므로 연결된 기준 항목 `web-fe-rendering-boundary.md F1`이 결함으로 본다
   - route별 혼합: 화면마다 고른다. 유연하지만 경계 규칙이 늘어 팀이 일관되게 지키기 어렵다
 - 먼저 정할 결정: 없음
 - 되돌림: `one-way`. rendering 방식과 data 경로 전체를 다시 쓴다
-- 기본값: server-rendered. 첫 화면이 빠르고 비밀값이 browser로 새지 않는다. offline·상호작용 위주 도구라면 browser app을 고른다
+- 기본값: server-rendered. 첫 화면이 빠르고 비밀값이 browser로 새지 않는다. 이 기본값은 버리지 않는다. 상호작용이 많은 화면도 상호작용이 필요한 부분만 client로 나눈다(`web-fe-rendering-boundary.md F1`)
 - 확인 단서: `{{binding:stack.fe-framework}}`, `{{binding:repo-structure.fe-routes}}`의 route 파일 구조
 - 기준 항목: [web-fe-rendering-boundary.md F1](../../review-criteria/web-fe-rendering-boundary.md#f1-serverclient-경계)
 
@@ -33,11 +33,11 @@
 - 질문: 화면 부품의 기본 render 위치를 server로 둘까, browser로 둘까?
 - 선택지:
   - server-first: 기본은 server에서 그리고 상호작용 부분만 client로 둔다. bundle(browser가 내려받는 code 묶음)이 작고 비밀값이 안전하지만, 경계를 의식하며 부품을 나눠야 한다
-  - client-first: 기본은 browser에서 그린다. 익숙하고 상호작용이 쉽지만, bundle이 커지고 server 전용 값이 새기 쉽다
+  - client-first: 기본은 browser에서 그린다. 익숙하고 상호작용이 쉽지만, bundle이 커지고 server 전용 값이 새기 쉽다. 상호작용이 없는 화면까지 browser에서 그리므로 연결된 기준 항목 `web-fe-rendering-boundary.md F1`이 결함으로 본다
   - route별: route마다 기본을 정한다. 유연하지만 규칙을 문서로 따로 관리해야 한다
 - 먼저 정할 결정: `fe.arch.rendering-style`
 - 되돌림: `costly`. 경계를 옮기고 data 경로를 고친다
-- 기본값: server-first. 첫 화면이 빠르고 비밀값이 browser로 새지 않는다. 상호작용이 대부분인 화면이면 그 화면에서 버린다
+- 기본값: server-first. 첫 화면이 빠르고 비밀값이 browser로 새지 않는다. 상호작용이 대부분인 화면이면 그 화면만 client로 두고 상위 layout은 server에 둔다(`web-fe-rendering-boundary.md F1`)
 - 확인 단서: `{{binding:stack.fe-framework}}`의 version, route 파일에서 client 경계 지시문(파일을 browser 쪽 code로 표시하는 선언)을 쓴 비율
 - 기준 항목: [web-fe-rendering-boundary.md F1](../../review-criteria/web-fe-rendering-boundary.md#f1-serverclient-경계), [web-fe-rendering-boundary.md F2](../../review-criteria/web-fe-rendering-boundary.md#f2-render-일치와-navigationscroll-소유)
 
@@ -46,9 +46,9 @@
 - 수준: `code-pattern`
 - 질문: 화면 일부가 실패할 때 어디까지 대체 화면으로 바꿀까?
 - 선택지:
-  - route 단위: route마다 대체 화면 하나. 단순하지만 한 영역 실패가 route 전체를 가린다
+  - route 단위: route마다 대체 화면 하나. 단순하지만 한 영역 실패가 route 전체를 가린다. 따로 실패할 수 있는 영역이 있는 화면이면 연결된 기준 항목 `web-fe-rendering-boundary.md F4`이 결함으로 본다
   - 독립 영역 단위: 따로 실패할 수 있는 영역마다 경계를 둔다. 나머지 화면이 살아 있지만 경계와 test가 늘어난다
-  - 전역 하나: 앱 전체에 하나. 가장 단순하지만 작은 실패도 앱 전체를 멈춘다
+  - 전역 하나: 앱 전체에 하나. 가장 단순하지만 작은 실패도 앱 전체를 멈춘다. 연결된 기준 항목 `web-fe-rendering-boundary.md F4`이 결함으로 본다
 - 먼저 정할 결정: `fe.render.server-client-default`
 - 되돌림: `easy`. 경계를 더하거나 옮긴다
 - 기본값: route 단위 + 독립적으로 실패할 수 있는 영역. 한 부분의 오류가 화면 전체를 지우지 않는다. 화면이 작고 영역이 하나면 route 단위만 둔다
@@ -96,7 +96,7 @@
 - 선택지:
   - framework fetch cache: framework가 주는 data cache를 쓴다. dependency가 늘지 않지만 무효화 기능이 framework 범위로 제한된다
   - client query library: browser용 data cache library를 쓴다. 자동 갱신·무효화가 풍부하지만 dependency와 학습 비용이 늘어난다
-  - 화면별 수동: 화면마다 직접 관리한다. 시작은 쉽지만 같은 data가 화면마다 어긋난다
+  - 화면별 수동: 화면마다 직접 관리한다. 시작은 쉽지만 같은 data가 화면마다 어긋난다. 연결된 기준 항목 `web-fe-state-data-cache.md F4`이 결함으로 본다
 - 먼저 정할 결정: `fe.render.server-client-default`
 - 되돌림: `costly`. 조회 hook(화면 부품이 data를 가져다 쓰는 함수)과 무효화 경로를 바꾼다
 - 기본값: framework fetch cache. dependency를 늘리지 않는다. 여러 화면이 같은 data를 자주 갱신하면 library를 검토한다(새 dependency는 [swe.md S7](../../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작))
@@ -177,7 +177,7 @@
 - 선택지:
   - 두 화면 이상 재사용: 두 곳 이상에서 같은 의미로 쓰일 때 올린다. 성급한 공통화를 막지만 잠시 비슷한 부품이 공존한다
   - 처음부터 공통: 만들 때부터 공통에 둔다. 재사용은 쉽지만 한 화면 요구가 공통 부품에 option으로 쌓인다. 연결된 기준 항목 `web-fe-design-system.md F2`이 결함으로 본다
-  - 올리지 않음: 기능 안에만 둔다. 독립적이지만 같은 부품이 여러 벌 생긴다
+  - 올리지 않음: 기능 안에만 둔다. 독립적이지만 같은 부품이 여러 벌 생긴다. 연결된 기준 항목 `web-fe-component-architecture.md F1`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 파일을 옮기고 import를 고친다
 - 기본값: 두 화면 이상에서 의미·상호작용·상태 계약이 같을 때. 겉모양만 같은 부품을 묶으면 나중에 다시 쪼갠다. 공통 부품 원본이 이미 같은 역할의 부품을 정해 두었으면 한 화면에서 처음 쓰여도 그 부품을 쓴다
@@ -190,11 +190,11 @@
 - 질문: code를 기능 단위로 모을까, 종류(부품·hook·utility)별로 모을까?
 - 선택지:
   - 기능 단위: 한 기능의 파일을 한 디렉터리에 둔다. 함께 바뀌는 파일이 가깝지만 기능 경계를 정해야 한다
-  - 종류별: 부품·hook·utility를 종류별 디렉터리에 둔다. 처음엔 단순하지만 한 기능 수정이 여러 디렉터리에 걸친다
+  - 종류별: 부품·hook·utility를 종류별 디렉터리에 둔다. 처음엔 단순하지만 한 기능 수정이 여러 디렉터리에 걸친다. 연결된 기준 항목 `web-fe-component-architecture.md F4`이 결함으로 본다
   - 기능 단위 + 앱 공통만 종류별: 기능은 모으고 공통만 종류별로 둔다. 두 장점을 섞지만 공통의 기준이 필요하다
 - 먼저 정할 결정: 없음
 - 되돌림: `costly`. 많은 파일을 옮기고 import·test 경로를 고친다
-- 기본값: 기능 단위 + 앱 공통만 종류별. 함께 바뀌는 파일이 한곳에 있다. 기능이 아주 적은 앱이면 종류별도 충분하다
+- 기본값: 기능 단위 + 앱 공통만 종류별. 함께 바뀌는 파일이 한곳에 있다. 이 기본값은 버리지 않는다. 기능이 적어도 기능 디렉터리로 시작한다
 - 확인 단서: `{{binding:repo-structure.fe-features}}`의 구조, 다른 기능의 내부 파일을 import하는 곳이 있는지
 - 기준 항목: [web-fe-component-architecture.md F4](../../review-criteria/web-fe-component-architecture.md#f4-기능-단위-배치와-공개-entry)
 
@@ -204,8 +204,8 @@
 - 질문: 화면 규칙과 data model을 다른 화면 기술(native app 등)과 함께 쓸 수 있게 나눌까?
 - 선택지:
   - renderer 중립 model로 나눔: 규칙과 model을 화면 기술과 무관한 module에 둔다. 규칙을 한 번만 쓰지만 경계 설계가 필요하다
-  - 표현과 logic만 분리: 같은 앱 안에서 표시와 logic을 나눈다. 비용이 작지만 다른 renderer는 규칙을 다시 쓴다
-  - 나누지 않음: 표시 부품에 규칙을 둔다. 빠르지만 규칙이 화면마다 흩어진다
+  - 표현과 logic만 분리: 같은 앱 안에서 표시와 logic을 나눈다. 비용이 작지만 다른 renderer는 규칙을 다시 쓴다. 다른 renderer와 규칙을 공유하면 연결된 기준 항목 `web-fe-component-architecture.md F6`이 결함으로 본다
+  - 나누지 않음: 표시 부품에 규칙을 둔다. 빠르지만 규칙이 화면마다 흩어진다. 다른 renderer와 규칙을 공유하면 연결된 기준 항목 `web-fe-component-architecture.md F6`이 결함으로 본다
 - 먼저 정할 결정: `fe.arch.rendering-style`
 - 되돌림: `costly`. model과 contract를 옮긴다
 - 기본값: 다른 renderer 계획이 있으면 나눈다. 규칙을 한 번만 쓴다. 계획이 없으면 표현과 logic 분리까지만 한다
@@ -333,11 +333,11 @@
 - 질문: 기기 차이를 화면 폭(CSS)으로 처리할까, server에서 기기를 판별할까?
 - 선택지:
   - viewport·CSS 우선: 화면 폭 조건으로 처리한다. 같은 URL의 첫 화면이 기기와 무관하게 같지만 기기별로 전혀 다른 기능은 어렵다
-  - server 기기 판별: 요청 header로 기기를 보고 다른 화면을 보낸다. 기기별 기능이 쉽지만 cache와 첫 render 일치를 따로 설계해야 한다
-  - browser 판별 뒤 전환: 그린 뒤 browser에서 판별해 바꾼다. 구현은 쉽지만 깜빡임과 불일치가 생긴다
+  - server 기기 판별: 요청 header로 기기를 보고 다른 화면을 보낸다. 기기별 첫 화면이 쉽지만 cache와 첫 render 일치를 따로 설계해야 한다
+  - browser 판별 뒤 전환: 그린 뒤 browser에서 판별해 바꾼다. 구현은 쉽지만 깜빡임과 불일치가 생긴다. 연결된 기준 항목 `web-fe-layout-responsive-device.md F2`이 결함으로 본다
 - 먼저 정할 결정: `fe.render.server-client-default`
 - 되돌림: `costly`. 첫 render와 cache 경로를 고친다
-- 기본값: viewport·CSS 우선. 같은 URL의 첫 화면이 기기와 상관없이 같다. 기기마다 전혀 다른 기능을 줘야 할 때만 server 판별을 쓴다
+- 기본값: viewport·CSS 우선. 같은 URL의 첫 화면이 기기와 상관없이 같다. 첫 화면 data·크기가 기기별로 크게 달라야 할 때만 server 판별을 쓴다. 같은 URL의 기능은 같게 두고 판별 값을 cache key에 넣는다. 기기별 기능이 필요하면 URL을 나눈다
 - 확인 단서: user-agent 판별 code가 있는지, responsive style
 - 기준 항목: [web-fe-layout-responsive-device.md F1](../../review-criteria/web-fe-layout-responsive-device.md#f1-표현-책임-판정), [web-fe-layout-responsive-device.md F2](../../review-criteria/web-fe-layout-responsive-device.md#f2-같은-url과-render-안전)
 
@@ -379,8 +379,8 @@
 - 선택지:
   - 새·바뀐 화면 전체 WCAG 2.2 AA: 새로 만들거나 바꾸는 화면은 모두 국제 접근성 지침 AA 수준을 맞추고, 기존 화면은 바꿀 때 맞춘다. 만들 때 넣으므로 비용이 작지만 기존 화면은 차례로 좋아진다
   - 기존 화면까지 즉시 전체 AA: 지금 있는 화면도 바로 고친다. 가장 넓게 보호하지만 첫 비용이 크다
-  - 핵심 흐름만 AA: 가입·핵심 작업 흐름만 맞춘다. 처음 비용은 작지만 나머지 화면을 나중에 고치는 비용이 크다
-  - 자동 검사만: 도구가 잡는 것만 지킨다. 싸지만 keyboard·focus 문제 대부분을 놓친다
+  - 핵심 흐름만 AA: 가입·핵심 작업 흐름만 맞춘다. 처음 비용은 작지만 나머지 화면을 나중에 고치는 비용이 크다. 핵심 흐름 밖의 새·바뀐 화면은 연결된 기준 항목 `web-fe-accessibility.md F1~F3`이 결함으로 본다
+  - 자동 검사만: 도구가 잡는 것만 지킨다. 싸지만 keyboard·focus 문제 대부분을 놓친다. 도구가 못 잡는 keyboard·focus·상태 알림 문제는 연결된 기준 항목 `web-fe-accessibility.md F2·F3`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 기준을 낮추면 검사 범위만 줄어든다
 - 기본값: 새·바뀐 화면 전체 WCAG 2.2 AA(기존 화면은 바꿀 때 맞춤). keyboard·focus·label은 만들 때 넣으면 비용이 작고 나중에 고치면 비싸다. 기존 화면을 즉시 고치는 것은 첫 비용이 커서 기본값에서 뺀다. 수준 값은 정책이 소유한다. 법·계약이 더 높은 기준(기존 화면까지 즉시 맞춤 등)을 요구하면 그 기준을 따른다
