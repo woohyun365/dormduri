@@ -168,8 +168,10 @@ test('review criteria documents are registered owners with complete items and no
 });
 // Plan-authoring guides cite criteria items by link and item anchor, so implementation and review
 // read the same item. Every item must be cited by a guide, except in repository-only documents that
-// no implementation guide owns.
+// no implementation guide owns. Domain pack documents cite items too; their citations must resolve,
+// but they do not stand in for a guide citation.
 const GUIDE_DIR = 'docs/development/agent-workflows/plan-authoring';
+const PACK_DIR = 'docs/development/agent-workflows/domain/swe-web';
 const UNCITED_CRITERIA = new Map([
   [
     `${CRITERIA_DIR}/agent-workflow-tooling.md`,
@@ -177,24 +179,30 @@ const UNCITED_CRITERIA = new Map([
   ],
   [`${CRITERIA_DIR}/documents.md`, 'repository document criteria have no implementation guide'],
 ]);
-test('plan-authoring guides cite criteria items that resolve, and every guided item is cited', () => {
-  const criteria = criteriaDocuments();
-  for (const path of UNCITED_CRITERIA.keys())
-    assert.ok(criteria.includes(path), `stale uncited exemption ${path}`);
-  const items = new Map(
-    criteria.map((path) => [
+const criteriaItems = () =>
+  new Map(
+    criteriaDocuments().map((path) => [
       path,
       [
         ...prose(readFileSync(resolve(root, path), 'utf8')).matchAll(/^### ([A-Z]\d+)\. .*$/gmu),
       ].map((match) => ({ id: match[1], anchor: [...anchors(`${match[0]}\n`)][0] })),
     ]),
   );
+test('plan-authoring guides cite criteria items that resolve, and every guided item is cited', () => {
+  const criteria = criteriaDocuments();
+  for (const path of UNCITED_CRITERIA.keys())
+    assert.ok(criteria.includes(path), `stale uncited exemption ${path}`);
+  const items = criteriaItems();
   const cited = new Set();
-  for (const guide of markdownFiles(GUIDE_DIR))
-    for (const target of markdownLinks(root, guide).filter((x) => items.has(x.path))) {
+  assert.ok(existsSync(resolve(root, PACK_DIR)), `${PACK_DIR} is missing`);
+  for (const source of [...markdownFiles(GUIDE_DIR), ...markdownFiles(PACK_DIR)])
+    for (const target of markdownLinks(root, source).filter((x) => items.has(x.path))) {
       const item = items.get(target.path).find((x) => x.anchor === target.fragment);
-      assert.ok(item, `${guide} -> ${target.path}#${target.fragment ?? ''} is not a criteria item`);
-      cited.add(`${target.path} ${item.id}`);
+      assert.ok(
+        item,
+        `${source} -> ${target.path}#${target.fragment ?? ''} is not a criteria item`,
+      );
+      if (source.startsWith(`${GUIDE_DIR}/`)) cited.add(`${target.path} ${item.id}`);
     }
   for (const [path, list] of items)
     if (!UNCITED_CRITERIA.has(path))
@@ -203,6 +211,85 @@ test('plan-authoring guides cite criteria items that resolve, and every guided i
           cited.has(`${path} ${id}`),
           `${path} ${id} is not cited by a plan-authoring guide`,
         );
+});
+// The domain pack lists every sublayer of a layer as one section with the same subsections. The
+// guidance subsection links every item of that sublayer's criteria document, the criteria subsection
+// lists the same item ids, and every decision a decision depends on is a decision of the pack.
+const PACK_LAYERS = new Map([
+  [
+    'fe.md',
+    {
+      prefix: 'web-fe-',
+      sublayers: [
+        'rendering-boundary',
+        'state-data-cache',
+        'component-architecture',
+        'design-system',
+        'layout-responsive-device',
+        'accessibility',
+      ],
+    },
+  ],
+  [
+    'bff.md',
+    {
+      prefix: 'web-bff-',
+      sublayers: ['gateway-forwarding', 'session-cookie-auth', 'server-read-error-privacy-shaping'],
+    },
+  ],
+]);
+const PACK_SECTIONS = ['상속', '결정 목록', '구현 지침', '검증 기준', '위험', 'binding 키'];
+test('domain pack layer documents hold every sublayer with the required sections and its items', () => {
+  for (const name of ['README.md', ...PACK_LAYERS.keys()])
+    assert.ok(existsSync(resolve(root, `${PACK_DIR}/${name}`)), `${PACK_DIR}/${name}`);
+  const items = criteriaItems();
+  const decisions = new Set(),
+    dependsOn = [];
+  for (const [name, layer] of PACK_LAYERS) {
+    const path = `${PACK_DIR}/${name}`;
+    const text = prose(readFileSync(resolve(root, path), 'utf8'));
+    for (const match of text.matchAll(/^#### (\S+)$/gmu)) decisions.add(match[1]);
+    for (const match of text.matchAll(/^- 먼저 정할 결정: (.+)$/gmu))
+      dependsOn.push(...[...match[1].matchAll(/`([^`]+)`/gu)].map((ref) => `${path} ${ref[1]}`));
+    const sections = text.split(/^(?=## )/mu).slice(1);
+    const names = sections.map((section) => section.match(/^## (.+)$/mu)[1].trim());
+    assert.deepEqual(names, layer.sublayers, `${path}: sublayer sections`);
+    for (const [i, section] of sections.entries()) {
+      assert.deepEqual(
+        (section.match(/^### .+$/gmu) ?? []).map((heading) => heading.slice(4).trim()),
+        PACK_SECTIONS,
+        `${path} ${names[i]}: subsections`,
+      );
+      const doc = `${CRITERIA_DIR}/${layer.prefix}${names[i]}.md`;
+      assert.ok(items.has(doc), `${path} ${names[i]}: ${doc} is not a criteria document`);
+      const part = (title) =>
+        section.split(/^(?=### )/mu).find((block) => block.startsWith(`### ${title}\n`));
+      const linked = new Set(
+        markdownLinks(root, path, part('구현 지침'))
+          .filter((x) => x.path === doc)
+          .map((x) => x.fragment),
+      );
+      const file = doc.split('/').at(-1);
+      assert.deepEqual(
+        items
+          .get(doc)
+          .filter((item) => !linked.has(item.anchor))
+          .map((item) => item.id),
+        [],
+        `${path} ${names[i]}: 구현 지침 must link every item of ${doc}`,
+      );
+      assert.deepEqual(
+        [...part('검증 기준').matchAll(/`([a-z0-9-]+\.md [A-Z]\d+)`/gu)].map((x) => x[1]).sort(),
+        items
+          .get(doc)
+          .map((item) => `${file} ${item.id}`)
+          .sort(),
+        `${path} ${names[i]}: 검증 기준 must list the item ids of ${doc}`,
+      );
+    }
+  }
+  for (const reference of dependsOn)
+    assert.ok(decisions.has(reference.split(' ')[1]), `${reference} is not a decision of the pack`);
 });
 test('production workflow graph has real discoverable owners and required DAG without banning backlinks', () => {
   assert.deepEqual(validateWorkflowGraph(workflowGraph), []);
