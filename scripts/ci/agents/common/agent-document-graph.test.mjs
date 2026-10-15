@@ -63,6 +63,20 @@ test('actual document links/anchors resolve and every development owner is index
 // application conditions go to separate documents instead (the README keeps only that rule).
 // An item holds the review view and the implementation view (지침·피함) in one block, in this order.
 const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
+// Web domain criteria documents (`web-<layer>-<sublayer>`) that the domain pack sublayers cite.
+const WEB_CRITERIA = [
+  'web-fe-rendering-boundary',
+  'web-fe-state-data-cache',
+  'web-fe-component-architecture',
+  'web-fe-design-system',
+  'web-fe-layout-responsive-device',
+  'web-fe-accessibility',
+  'web-bff-gateway-forwarding',
+  'web-bff-session-cookie-auth',
+  'web-bff-server-read-error-privacy-shaping',
+  'web-security-privacy-trust-authz-model',
+  'web-security-privacy-data-privacy-secret',
+].map((id) => `${CRITERIA_DIR}/${id}.md`);
 const CRITERIA_FIELDS = [
   /^- 질문: \S/mu,
   /^- 기본 severity: `(?:critical|high|medium|low)`/mu,
@@ -85,6 +99,7 @@ test('review criteria documents are registered owners with complete items and no
     `${CRITERIA_DIR}/agent-workflow-tooling.md`,
     `${CRITERIA_DIR}/documents.md`,
     `${CRITERIA_DIR}/swe.md`,
+    ...WEB_CRITERIA,
   ])
     assert.ok(criteria.includes(path), path);
   const paths = corpus.documents.map((x) => x.path);
