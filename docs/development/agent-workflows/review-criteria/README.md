@@ -37,6 +37,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   나머지)은 영역 plan-authoring guide와 [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존
   owner 문서를 acceptance 근거로 씁니다. 시각 값과 미감은 FE 기준 문서가 아니라 visual design 문서가 소유합니다.
 - 영역 기준 문서의 항목은 [Domain/SWE/Web pack](../domain/swe-web/README.md)의 하위 layer 절이 결정 목록·위험과 함께 인용합니다.
+  기준·pack 문서는 저장소 값(경로·명령·stack 이름)을 쓰지 않고 binding 키로 가리키며, 이 저장소의 값은
+  [KNU domain binding](../domain/knu-binding.md)에 있습니다.
 
 ## 항목 형식
 
@@ -199,4 +201,4 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 리뷰가 놓쳐 merge 뒤 발견된 결함과 Parent가 재현으로 기각한 finding은 기준 항목 갱신의 입력입니다. 갱신은 이 디렉터리의 문서
 변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음),
 README에 항목 수 상한이 없음, guide·pack 인용(해석, 인용되지 않은 항목, pack 하위 layer 절의 항목
-인용과 id 목록)을 검사합니다.
+인용과 id 목록), binding 키 해석과 저장소 값 이름 목록 부재를 검사합니다.
