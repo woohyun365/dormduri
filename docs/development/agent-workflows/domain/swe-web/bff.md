@@ -38,7 +38,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
   - route별 수동 처리: route마다 직접 넘긴다. 자유롭지만 검사가 route마다 갈린다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `costly`. route마다 전달 규칙을 다시 쓴다
-- 기본값: route별 명시 allowlist. 의도하지 않은 upstream 기능이 열리지 않는다 이 기본값은 버리지 않는다. 그대로 열어도 되는 공개 API라면 allowlist를 버리는 대신 BFF를 거칠지(`bff.gw.need-bff`)를 다시 정한다
+- 기본값: route별 명시 allowlist. 의도하지 않은 upstream 기능이 열리지 않는다. 이 기본값은 버리지 않는다. 그대로 열어도 되는 공개 API라면 allowlist를 버리는 대신 BFF를 거칠지(`bff.gw.need-bff`)를 다시 정한다
 - 확인 단서: `{{binding:repo-structure.bff-helpers}}`의 전달 helper와 그 test
 - 기준 항목: [web-bff-gateway-forwarding.md B1](../../review-criteria/web-bff-gateway-forwarding.md#b1-bff를-둘-조건과-upstream-allowlist)
 
@@ -98,7 +98,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
   - token을 script가 보관: browser 저장소에 token을 둔다. 구현이 쉽지만 script 주입 한 번에 token이 새어 나간다. 연결된 기준 항목 `web-bff-session-cookie-auth.md B1`이 결함으로 본다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `costly`. login cookie를 다시 발급하고 cross-site 동작이 바뀐다
-- 기본값: `__Host-` 이름과 Secure·HttpOnly·SameSite=Lax. script가 token을 읽지 못해 script 주입 피해가 줄고 일반 link 이동은 된다. 값은 정책 문서가 소유한다 다른 site가 POST로 되돌아오는 흐름(외부 결제 복귀 등)이 있으면 그 cookie만 SameSite 값을 따로 검토하고 위조 방어를 함께 둔다. Secure·HttpOnly는 버리지 않는다
+- 기본값: `__Host-` 이름과 Secure·HttpOnly·SameSite=Lax. script가 token을 읽지 못해 script 주입 피해가 줄고 일반 link 이동은 된다. 값은 정책 문서가 소유한다. 다른 site가 POST로 되돌아오는 흐름(외부 결제 복귀 등)이 있으면 그 cookie의 SameSite 값만 따로 검토하고(속성은 빼지 않는다) 위조 방어를 함께 둔다. `__Host-` 이름과 Secure·HttpOnly는 버리지 않는다
 - 확인 단서: `{{binding:policy.account-authentication}}`, cookie를 발급하는 helper
 - 기준 항목: [web-bff-session-cookie-auth.md B1](../../review-criteria/web-bff-session-cookie-auth.md#b1-cookie-속성과-token-보관)
 
@@ -126,7 +126,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
   - browser: browser가 주기적으로 갱신 요청을 보낸다. server가 단순하지만 여러 tab이 동시에 갱신해 token이 덮인다
 - 먼저 정할 결정: `bff.session.cookie-attributes`
 - 되돌림: `costly`. 갱신 흐름과 실패 처리를 옮긴다
-- 기본값: 요청 진입 middleware·route. 화면을 그리는 중에 cookie를 쓰지 않아 첫 화면과 cookie가 어긋나지 않는다 요청 진입 지점을 둘 수 없는 구조(정적 hosting 등)면 browser 갱신을 쓰고 여러 tab이 동시에 갱신하지 않게 막는다
+- 기본값: 요청 진입 middleware·route. 화면을 그리는 중에 cookie를 쓰지 않아 첫 화면과 cookie가 어긋나지 않는다. 이 기본값은 버리지 않는다. BFF가 있으면 요청 진입 지점이 있으므로 갱신은 그곳 한 곳에 둔다(`web-bff-session-cookie-auth.md B2`)
 - 확인 단서: `{{binding:repo-structure.server-session}}`, 요청 진입 middleware 파일
 - 기준 항목: [web-bff-session-cookie-auth.md B2](../../review-criteria/web-bff-session-cookie-auth.md#b2-session-갱신-위치)
 
@@ -172,7 +172,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
   - route별: route마다 정한다. 자유롭지만 화면이 route마다 다르게 처리해야 한다. 연결된 기준 항목 `web-bff-server-read-error-privacy-shaping.md B2`이 결함으로 본다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `easy`. helper를 바꾼다
-- 기본값: 안전한 공통 오류 형식으로 번역. 내부 오류·개인정보가 새지 않고 화면이 한 방식으로 처리한다 이 기본값은 버리지 않는다. 개발 중에 자세한 오류가 필요하면 server log에서 보고 browser 응답은 같은 형식을 쓴다
+- 기본값: 안전한 공통 오류 형식으로 번역. 내부 오류·개인정보가 새지 않고 화면이 한 방식으로 처리한다. 이 기본값은 버리지 않는다. 개발 중에 자세한 오류가 필요하면 server log에서 보고 browser 응답은 같은 형식을 쓴다
 - 확인 단서: `{{binding:repo-structure.bff-helpers}}`의 오류 helper와 그 test
 - 기준 항목: [web-bff-server-read-error-privacy-shaping.md B2](../../review-criteria/web-bff-server-read-error-privacy-shaping.md#b2-오류-번역)
 
@@ -186,7 +186,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
   - browser에서 읽기: 화면을 그린 뒤 browser가 읽는다. server가 단순하지만 첫 화면에 data가 늦게 나온다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `easy`. reader를 바꾼다
-- 기본값: upstream 직접 호출. 불필요한 왕복과 cookie 재전달이 없다. 같은 응답 정리 규칙은 공유 helper로 재사용한다 첫 화면에 없어도 되는 보조 data는 browser에서 읽어도 된다. 자기 route를 다시 부르는 loopback은 `web-bff-server-read-error-privacy-shaping.md B1`이 결함으로 본다
+- 기본값: upstream 직접 호출. 불필요한 왕복과 cookie 재전달이 없다. 같은 응답 정리 규칙은 공유 helper로 재사용한다. 첫 화면에 없어도 되는 보조 data는 browser에서 읽어도 된다. 자기 route를 다시 부르는 loopback은 `web-bff-server-read-error-privacy-shaping.md B1`이 결함으로 본다
 - 확인 단서: `{{binding:repo-structure.bff-helpers}}`의 server reader, loopback 호출이 있는지
 - 기준 항목: [web-bff-server-read-error-privacy-shaping.md B1](../../review-criteria/web-bff-server-read-error-privacy-shaping.md#b1-server-read-경로)
 
@@ -200,7 +200,7 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
   - 공통 filter: 위험한 필드만 공통으로 지운다. 한 곳에서 관리하지만 새 필드가 생기면 그대로 새어 나간다
 - 먼저 정할 결정: `bff.gw.need-bff`
 - 되돌림: `costly`. 화면이 받는 contract가 바뀐다
-- 기본값: route별 필요 필드 projection. 화면에 필요 없는 개인정보·내부 값이 나가지 않는다. 숨긴 값은 숨긴 채로 둔다 이 기본값은 버리지 않는다. upstream이 이미 화면에 필요한 field만 주는 contract면 projection을 그 contract 검증으로 대신할 수 있다
+- 기본값: route별 필요 필드 projection. 화면에 필요 없는 개인정보·내부 값이 나가지 않는다. 숨긴 값은 숨긴 채로 둔다. 이 기본값은 버리지 않는다. upstream이 화면용 contract를 주더라도 route마다 projection과 '필요 없는 field 없음' test를 둔다(`web-bff-server-read-error-privacy-shaping.md B3`)
 - 확인 단서: BFF mapper와 그 test, `{{binding:repo-structure.shared-contract}}`의 공유 contract
 - 기준 항목: [web-bff-server-read-error-privacy-shaping.md B3](../../review-criteria/web-bff-server-read-error-privacy-shaping.md#b3-응답-최소화와-upstream-검증), [web-security-privacy-data-privacy-secret.md P1](../../review-criteria/web-security-privacy-data-privacy-secret.md#p1-숨긴-신원비공개-필드의-공개-범위-유지)
 

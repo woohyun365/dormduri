@@ -180,7 +180,7 @@
   - 올리지 않음: 기능 안에만 둔다. 독립적이지만 같은 부품이 여러 벌 생긴다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 파일을 옮기고 import를 고친다
-- 기본값: 두 화면 이상에서 의미·상호작용·상태 계약이 같을 때. 겉모양만 같은 부품을 묶으면 나중에 다시 쪼갠다 공통 부품 원본이 이미 같은 역할의 부품을 정해 두었으면 한 화면에서 처음 쓰여도 그 부품을 쓴다
+- 기본값: 두 화면 이상에서 의미·상호작용·상태 계약이 같을 때. 겉모양만 같은 부품을 묶으면 나중에 다시 쪼갠다. 공통 부품 원본이 이미 같은 역할의 부품을 정해 두었으면 한 화면에서 처음 쓰여도 그 부품을 쓴다
 - 확인 단서: `{{binding:repo-structure.fe-shared-ui}}`의 부품 수와 사용처
 - 기준 항목: [web-fe-component-architecture.md F1](../../review-criteria/web-fe-component-architecture.md#f1-owner-구분과-공통화-기준), [web-fe-design-system.md F2](../../review-criteria/web-fe-design-system.md#f2-부품-재사용과-승격)
 
@@ -263,7 +263,7 @@
   - 화면별 값: 화면마다 값을 쓴다. 빠르지만 값이 흩어져 일관성이 깨진다. 연결된 기준 항목 `web-fe-design-system.md F1`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `costly`. 모든 style 참조를 바꾼다
-- 기본값: semantic token 파일. 값을 바꿀 때 한 곳만 고친다. 값 자체는 시각 기준이 정한다 이 기본값은 버리지 않는다. 화면에 값을 직접 쓰면 `web-fe-design-system.md F1`이 결함으로 본다. style 도구가 theme 설정을 요구하면 그 설정이 semantic token 파일을 읽게 한다
+- 기본값: semantic token 파일. 값을 바꿀 때 한 곳만 고친다. 값 자체는 시각 기준이 정한다. 이 기본값은 버리지 않는다. 화면에 값을 직접 쓰면 `web-fe-design-system.md F1`이 결함으로 본다. style 도구가 theme 설정을 요구하면 그 설정이 semantic token 파일을 읽게 한다
 - 확인 단서: `{{binding:repo-structure.fe-styles}}`의 token 파일과 theme 연결
 - 기준 항목: [web-fe-design-system.md F1](../../review-criteria/web-fe-design-system.md#f1-semantic-token만-사용)
 
@@ -277,7 +277,7 @@
   - code 안에 직접: 개발자가 쓴다. 빠르지만 정책과 어긋나도 알기 어렵다. 연결된 기준 항목 `web-fe-design-system.md F3`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 문구 출처를 표시하고 옮긴다
-- 기본값: 정책·법적 사실은 정책 원본, 나머지는 승인된 content 원본. 화면이 정책과 다른 말을 하지 않는다. 문구의 값은 정책이 소유한다 이 기본값은 버리지 않는다. 원본이 없는 문구는 지어내지 않고 승인을 받는다(`web-fe-design-system.md F3`)
+- 기본값: 정책·법적 사실은 정책 원본, 나머지는 승인된 content 원본. 화면이 정책과 다른 말을 하지 않는다. 문구의 값은 정책이 소유한다. 이 기본값은 버리지 않는다. 원본이 없는 문구는 지어내지 않고 승인을 받는다(`web-fe-design-system.md F3`)
 - 확인 단서: `{{binding:policy.index}}`의 정책 문서, 문구 상수의 위치
 - 기준 항목: [web-fe-design-system.md F3](../../review-criteria/web-fe-design-system.md#f3-사용자-문구-권한)
 
@@ -383,7 +383,7 @@
   - 자동 검사만: 도구가 잡는 것만 지킨다. 싸지만 keyboard·focus 문제 대부분을 놓친다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 기준을 낮추면 검사 범위만 줄어든다
-- 기본값: 새·바뀐 화면 전체 WCAG 2.2 AA(기존 화면은 바꿀 때 맞춤). keyboard·focus·label은 만들 때 넣으면 비용이 작고 나중에 고치면 비싸다. 기존 화면을 즉시 고치는 것은 첫 비용이 커서 기본값에서 뺀다. 수준 값은 정책이 소유한다 법·계약이 더 높은 기준(기존 화면까지 즉시 맞춤 등)을 요구하면 그 기준을 따른다
+- 기본값: 새·바뀐 화면 전체 WCAG 2.2 AA(기존 화면은 바꿀 때 맞춤). keyboard·focus·label은 만들 때 넣으면 비용이 작고 나중에 고치면 비싸다. 기존 화면을 즉시 고치는 것은 첫 비용이 커서 기본값에서 뺀다. 수준 값은 정책이 소유한다. 법·계약이 더 높은 기준(기존 화면까지 즉시 맞춤 등)을 요구하면 그 기준을 따른다
 - 확인 단서: `{{binding:tool.lint}}`의 접근성 규칙, keyboard·focus test의 존재
 - 기준 항목: [web-fe-accessibility.md F1](../../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [web-fe-accessibility.md F2](../../review-criteria/web-fe-accessibility.md#f2-keyboard와-focus), [web-fe-accessibility.md F3](../../review-criteria/web-fe-accessibility.md#f3-상태-알림과-비활성-이유)
 
@@ -397,7 +397,7 @@
   - 위 둘 + 주기적 수동 점검: 사람이 보조기술로 확인한다. 가장 정확하지만 사람 시간이 든다
 - 먼저 정할 결정: `fe.a11y.baseline`
 - 되돌림: `easy`. 검사 단계를 더한다
-- 기본값: lint + 바뀐 화면 render 검사. 사람이 보기 전에 기계가 흔한 실수를 잡는다. 검사 도구 추가는 dependency 승인을 거친다([swe.md S7](../../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작)) render 검사 도구를 아직 들일 수 없으면 lint 규칙과 keyboard·focus 수동 확인으로 시작하고 도구 승인 뒤 render 검사를 더한다
+- 기본값: lint + 바뀐 화면 render 검사. 사람이 보기 전에 기계가 흔한 실수를 잡는다. 검사 도구 추가는 dependency 승인을 거친다([swe.md S7](../../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작)). render 검사 도구를 아직 들일 수 없으면 lint 규칙으로 시작하고, keyboard·focus는 이미 있는 browser test로 확인한다(`web-fe-accessibility.md F2`). 도구 승인 뒤 render 검사를 더한다
 - 확인 단서: `{{binding:tool.lint}}`, `{{binding:tool.component-workshop}}`·`{{binding:tool.e2e}}`의 접근성 검사
 - 기준 항목: [web-fe-accessibility.md F1](../../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [web-fe-accessibility.md F2](../../review-criteria/web-fe-accessibility.md#f2-keyboard와-focus)
 
