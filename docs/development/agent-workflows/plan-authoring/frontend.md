@@ -20,7 +20,7 @@
 - Server Action, Route Handler, client fetch 중 선택은 auth, CSRF, cache, rate limit, error semantics를 비교합니다.
 - server/client module graph, serialization, hydration, navigation과 modal/scroll ownership을 명시합니다.
 
-구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입)
+구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작)
 
 ## State, form, mutation, and cache
 
@@ -61,7 +61,7 @@
 - error boundary, browser runtime error, Web Vitals, BFF failure telemetry의 현재 owner와 개인정보 경계를 확인합니다.
 - 성능 최적화는 측정 가능한 bottleneck 또는 target budget에 연결하며 유행성 library를 먼저 도입하지 않습니다.
 
-구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입), [swe.md S8](../review-criteria/swe.md#s8-측정-근거-있는-성능)
+구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작), [swe.md S8](../review-criteria/swe.md#s8-측정-근거-있는-성능)
 
 ## Security and privacy
 
