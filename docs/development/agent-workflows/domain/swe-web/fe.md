@@ -360,6 +360,10 @@
 
 ### binding 키
 
+- `{{binding:repo-structure.fe-routes}}`: route·layout 파일의 위치
+- `{{binding:repo-structure.fe-features}}`: 기능별 화면 부품의 위치
+- `{{binding:repo-structure.fe-shared-ui}}`: 앱 공통 UI 부품의 위치
+- `{{binding:repo-structure.fe-styles}}`: 화면 폭 조건(breakpoint)과 전역 style의 위치
 - `{{binding:tool.e2e}}`: 기기별 화면을 실행하는 browser test 도구
 
 ## accessibility
@@ -420,6 +424,10 @@
 
 ### binding 키
 
+- `{{binding:repo-structure.fe-routes}}`: route·layout 파일(heading·landmark 구조)의 위치
+- `{{binding:repo-structure.fe-features}}`: 기능별 화면 부품의 위치
+- `{{binding:repo-structure.fe-shared-ui}}`: 앱 공통 UI 부품(control·overlay)의 위치
+- `{{binding:repo-structure.fe-styles}}`: focus 표시와 상태 색 같은 전역 style의 위치
 - `{{binding:tool.lint}}`: code 규칙 검사 도구와 설정
 - `{{binding:tool.component-workshop}}`: 부품 예시를 render하는 도구
 - `{{binding:tool.e2e}}`: browser test 도구
