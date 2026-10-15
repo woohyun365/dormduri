@@ -319,7 +319,7 @@
 - 질문: mobile과 desktop 화면을 한 부품으로 만들까, 나눌까?
 - 선택지:
   - shared-responsive: 한 부품이 화면 폭에 맞춰 바뀐다. 유지가 싸지만 정보 위계가 크게 다르면 조건이 복잡해진다
-  - split-presentation: 기기별 표현 부품을 나누고 data·action은 공유한다. 기기별 위계를 살리지만 표현이 두 벌이 된다
+  - split-presentation: 기기별 표현 부품을 나누고 data·action은 공유한다. 기기별 위계를 살리지만 표현이 두 벌이 된다. 정보 위계·탐색이 같은 화면까지 나누면 연결된 기준 항목 `web-fe-layout-responsive-device.md F1`이 결함으로 본다
   - 바꾸지 않음: 지금 구조를 유지한다. 비용이 없지만 새 기기 요구를 반영하지 못한다
 - 먼저 정할 결정: `fe.comp.primitive-promotion`
 - 되돌림: `easy`. 표현 부품을 나누거나 합친다
