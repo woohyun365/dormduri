@@ -192,7 +192,7 @@
       "path": "docs/development/agent-workflows/review-criteria/README.md",
       "owner": "general development workflow owner",
       "kind": "normative",
-      "rationale": "변경 유형별 기준 문서 선택, 항목 형식(문서당 상한 없음·적용 조건이 다른 항목은 문서 분할, 질문·기본 severity·적용 조건·결함 패턴·PASS 근거·지침·피함)과 guide 인용 규칙을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
+      "rationale": "변경 유형별 기준 문서 선택, 항목 형식(문서당 상한 없음·적용 조건이 다른 항목은 문서 분할, 질문·기본 severity·적용 조건·결함 패턴·PASS 근거·지침·피함)과 guide·pack 인용 규칙을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/review-criteria/documents.md",
@@ -277,6 +277,24 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "web security-privacy data-privacy-secret 기준 항목을 소유한다. 지금은 숨긴 신원·비공개 필드의 공개 범위 하나이고 나머지는 이 영역을 바꾸는 변경 전에 더한다. swe를 상속하고 강화만 하며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/README.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "Domain/SWE/Web pack의 계층·node 필드(pack 수준 skillOutputs 포함)·결정 목록 형식·binding 참조 형식·상속 규칙을 소유한다. 저장소 값과 binding 문서를 참조하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/fe.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "FE 하위 layer 6개의 결정 목록과 기준 항목 인용·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/bff.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "BFF 하위 layer 3개의 결정 목록과 기준 항목 인용·상속·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/refactor-analysis.md",

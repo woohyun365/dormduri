@@ -36,6 +36,7 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   하위 layer 3개, BFF가 상속하는 security-privacy 항목 2개의 문서가 있습니다. 기준 문서가 없는 영역(BE·DB·infra와 security-privacy의
   나머지)은 영역 plan-authoring guide와 [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존
   owner 문서를 acceptance 근거로 씁니다. 시각 값과 미감은 FE 기준 문서가 아니라 visual design 문서가 소유합니다.
+- 영역 기준 문서의 항목은 [Domain/SWE/Web pack](../domain/swe-web/README.md)의 하위 layer 절이 결정 목록·위험과 함께 인용합니다.
 
 ## 항목 형식
 
@@ -58,7 +59,7 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   `P`). 영역 문서는 첫 항목 앞 머리말에 상속하는 문서·항목과 강화 관계를 적고, 그 항목은 상속한 항목을 강화만 합니다.
 - 구현 지침 문서(plan-authoring guide)는 항목 문장을 다시 쓰지 않고 `[swe.md S4](./swe.md#s4-책임-경계와-결합도)`처럼 항목 제목
   anchor로 인용합니다. 구현 guide가 없는 저장소 전용 기준(`documents`·`agent-workflow-tooling`)을 뺀 모든 항목은 guide 하나 이상이
-  인용해야 합니다.
+  인용해야 합니다. pack 하위 layer 절도 같은 방식으로 인용하지만 guide 인용을 대신하지 않습니다.
 - 결함 패턴은 유형 요약입니다. Local 증거 경로, plan 파일명, 작업 단계 이름을 근거로 인용하지 않습니다.
 - Reviewer는 적용 조건에 맞는 항목을 판정합니다. 미충족 항목은 `criteriaItem` 필드에 항목 id 하나(예: `documents.md D2`)만 적은
   finding이 되고 기본 severity에서 시작하며, 다르게 매기면 finding에 이유를 적습니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 충족한 항목은 finding이 아니라 그 항목의 PASS 근거에 해당하는 관측으로 acceptance coverage에 씁니다.
@@ -197,4 +198,5 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 
 리뷰가 놓쳐 merge 뒤 발견된 결함과 Parent가 재현으로 기각한 finding은 기준 항목 갱신의 입력입니다. 갱신은 이 디렉터리의 문서
 변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음),
-README에 항목 수 상한이 없음, guide 인용(해석, 인용되지 않은 항목)을 검사합니다.
+README에 항목 수 상한이 없음, guide·pack 인용(해석, 인용되지 않은 항목, pack 하위 layer 절의 항목
+인용과 id 목록)을 검사합니다.
