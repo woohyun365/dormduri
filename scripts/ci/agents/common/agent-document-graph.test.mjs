@@ -63,6 +63,8 @@ test('actual document links/anchors resolve and every development owner is index
 // application conditions go to separate documents instead (the README keeps only that rule).
 // An item holds the review view and the implementation view (지침·피함) in one block, in this order.
 const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
+// Common phrasings of a numeric item cap ("N개 이하", "최대 N"); the README keeps none of them.
+const ITEM_CAP = /\d+\s*\**\s*개\s*\**\s*(?:이하|까지|를\s*넘지)|(?:최대|많아야)\s*\**\s*\d+/u;
 // Web domain criteria documents (`web-<layer>-<sublayer>`) that the domain pack sublayers cite.
 const WEB_CRITERIA = [
   'web-fe-rendering-boundary',
@@ -117,7 +119,7 @@ test('review criteria documents are registered owners with complete items and no
     .split(/^(?=## )/mu)
     .find((section) => section.startsWith('## 항목 형식'));
   assert.ok(format, `${readme}: 항목 형식 section`);
-  assert.doesNotMatch(format, /\d+\s*개\s*이하/u, `${readme} keeps a per-document item cap`);
+  assert.doesNotMatch(prose(readmeText), ITEM_CAP, `${readme} keeps a per-document item cap`);
   assert.match(format, /적용 조건이 다른 항목이 섞이면 문서를 나눕니다/u);
   assert.doesNotMatch(
     readmeText,
@@ -239,6 +241,22 @@ const PACK_LAYERS = new Map([
   ],
 ]);
 const PACK_SECTIONS = ['상속', '결정 목록', '구현 지침', '검증 기준', '위험', 'binding 키'];
+// Every decision block carries the README field lines in order; its depends-on value is `없음` or
+// backticked decision ids, so a mistyped or missing dependency cannot pass unseen.
+const DECISION_FIELDS = [
+  '수준',
+  '질문',
+  '선택지',
+  '먼저 정할 결정',
+  '되돌림',
+  '기본값',
+  '확인 단서',
+  '기준 항목',
+];
+const DECISION_LEVEL =
+  /^- 수준: `(?:architecture-style|framework-pattern|code-pattern|policy|operational)`$/mu;
+const DECISION_REVERSIBLE = /^- 되돌림: `(?:easy|costly|one-way)`\. \S/mu;
+const DECISION_DEPENDS = /^- 먼저 정할 결정: (없음|`[a-z0-9.-]+`(?:, `[a-z0-9.-]+`)*)$/mu;
 test('domain pack layer documents hold every sublayer with the required sections and its items', () => {
   for (const name of ['README.md', ...PACK_LAYERS.keys()])
     assert.ok(existsSync(resolve(root, `${PACK_DIR}/${name}`)), `${PACK_DIR}/${name}`);
@@ -248,9 +266,25 @@ test('domain pack layer documents hold every sublayer with the required sections
   for (const [name, layer] of PACK_LAYERS) {
     const path = `${PACK_DIR}/${name}`;
     const text = prose(readFileSync(resolve(root, path), 'utf8'));
-    for (const match of text.matchAll(/^#### (\S+)$/gmu)) decisions.add(match[1]);
-    for (const match of text.matchAll(/^- 먼저 정할 결정: (.+)$/gmu))
-      dependsOn.push(...[...match[1].matchAll(/`([^`]+)`/gu)].map((ref) => `${path} ${ref[1]}`));
+    for (const block of text.split(/^(?=#### )/mu).slice(1)) {
+      const id = block.match(/^#### (\S+)$/mu)[1];
+      const body = block.split(/^(?=#{2,3} )/mu)[0];
+      decisions.add(id);
+      assert.deepEqual(
+        [...body.matchAll(/^- ([^:\n]+):/gmu)].map((match) => match[1]),
+        DECISION_FIELDS,
+        `${path} ${id}: decision fields`,
+      );
+      assert.match(body, DECISION_LEVEL, `${path} ${id}: 수준 must be one of the five levels`);
+      assert.match(
+        body,
+        DECISION_REVERSIBLE,
+        `${path} ${id}: 되돌림 must be easy, costly or one-way`,
+      );
+      const depends = body.match(DECISION_DEPENDS);
+      assert.ok(depends, `${path} ${id}: 먼저 정할 결정 must be 없음 or backticked decision ids`);
+      dependsOn.push(...[...depends[1].matchAll(/`([^`]+)`/gu)].map((ref) => `${path} ${ref[1]}`));
+    }
     const sections = text.split(/^(?=## )/mu).slice(1);
     const names = sections.map((section) => section.match(/^## (.+)$/mu)[1].trim());
     assert.deepEqual(names, layer.sublayers, `${path}: sublayer sections`);
@@ -319,6 +353,11 @@ test('pack and criteria documents reference repository values only through resol
   ];
   for (const path of documents) {
     const text = prose(readFileSync(resolve(root, path), 'utf8'));
+    assert.doesNotMatch(
+      text.replace(/\{\{binding:[a-z-]+\.[a-z0-9-]+\}\}/gu, ''),
+      /\{\{|\}\}|\bbindings?\s*:/u,
+      `${path}: malformed binding reference`,
+    );
     for (const [reference, key] of text.matchAll(/\{\{binding:([^}]*)\}\}/gu)) {
       const kind = key.match(/^([a-z-]+)\.[a-z0-9-]+$/u)?.[1];
       assert.ok(kind && BINDING_KINDS.has(kind), `${path}: malformed binding ${reference}`);
