@@ -10,7 +10,7 @@
 - UI gating은 UX 표현이며 최종 action precondition은 API owner가 검증하도록 분리합니다.
 - policy copy, shared contract, BFF mapper, API response가 같은 의미를 사용하는지 확인합니다.
 
-구현·리뷰 기준: [swe.md S1](../review-criteria/swe.md#s1-요구사항intentinvariant-부합), [swe.md S2](../review-criteria/swe.md#s2-제품-정책-부합)
+구현·리뷰 기준: [swe.md S1](../review-criteria/swe.md#s1-요구사항intentinvariant-부합), [swe.md S2](../review-criteria/swe.md#s2-제품-정책-부합), [web-fe-state-data-cache.md F2](../review-criteria/web-fe-state-data-cache.md#f2-모든-ui-상태), [web-fe-state-data-cache.md F6](../review-criteria/web-fe-state-data-cache.md#f6-외부-입력-신뢰-경계와-client-판단의-한계)
 
 ## Next.js, React, and BFF boundary
 
@@ -20,7 +20,7 @@
 - Server Action, Route Handler, client fetch 중 선택은 auth, CSRF, cache, rate limit, error semantics를 비교합니다.
 - server/client module graph, serialization, hydration, navigation과 modal/scroll ownership을 명시합니다.
 
-구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입)
+구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작), [web-fe-rendering-boundary.md F1](../review-criteria/web-fe-rendering-boundary.md#f1-serverclient-경계), [web-fe-rendering-boundary.md F2](../review-criteria/web-fe-rendering-boundary.md#f2-render-일치와-navigationscroll-소유), [web-bff-gateway-forwarding.md B1](../review-criteria/web-bff-gateway-forwarding.md#b1-bff를-둘-조건과-upstream-allowlist), [web-bff-gateway-forwarding.md B2](../review-criteria/web-bff-gateway-forwarding.md#b2-mutation-진입점-선택), [web-bff-session-cookie-auth.md B1](../review-criteria/web-bff-session-cookie-auth.md#b1-cookie-속성과-token-보관), [web-bff-session-cookie-auth.md B2](../review-criteria/web-bff-session-cookie-auth.md#b2-session-갱신-위치), [web-bff-server-read-error-privacy-shaping.md B1](../review-criteria/web-bff-server-read-error-privacy-shaping.md#b1-server-read-경로), [web-bff-server-read-error-privacy-shaping.md B2](../review-criteria/web-bff-server-read-error-privacy-shaping.md#b2-오류-번역), [web-bff-server-read-error-privacy-shaping.md B3](../review-criteria/web-bff-server-read-error-privacy-shaping.md#b3-응답-최소화와-upstream-검증)
 
 ## State, form, mutation, and cache
 
@@ -29,7 +29,7 @@
 - optimistic update는 rollback과 server conflict semantics가 명확할 때만 사용합니다.
 - invalidation, refresh, back/forward, stale response, abort/race가 user-visible state와 일치하는지 확인합니다.
 
-구현·리뷰 기준: [swe.md S3](../review-criteria/swe.md#s3-정확성과-오류-경로)
+구현·리뷰 기준: [swe.md S3](../review-criteria/swe.md#s3-정확성과-오류-경로), [web-fe-state-data-cache.md F1](../review-criteria/web-fe-state-data-cache.md#f1-상태-종류와-단일-원천), [web-fe-state-data-cache.md F3](../review-criteria/web-fe-state-data-cache.md#f3-formmutation과-optimistic-반영), [web-fe-state-data-cache.md F4](../review-criteria/web-fe-state-data-cache.md#f4-무효화경쟁identity-전환), [web-fe-state-data-cache.md F5](../review-criteria/web-fe-state-data-cache.md#f5-같은-종류-조회-hook의-계약)
 
 ## Accessibility and responsive interaction
 
@@ -39,6 +39,8 @@
 - 320px mobile, tablet landscape, desktop, zoom/reflow, safe area와 virtual keyboard를 점검합니다.
 - sticky/fixed/portal/scroll lock은 실제 scroll owner와 stacking context를 근거로 설계합니다.
 - disabled action은 이유를 전달하고, information card를 disabled button처럼 오해하게 만들지 않습니다.
+
+구현·리뷰 기준: [web-fe-layout-responsive-device.md F1](../review-criteria/web-fe-layout-responsive-device.md#f1-표현-책임-판정), [web-fe-layout-responsive-device.md F2](../review-criteria/web-fe-layout-responsive-device.md#f2-같은-url과-render-안전), [web-fe-layout-responsive-device.md F3](../review-criteria/web-fe-layout-responsive-device.md#f3-viewportscroll-검증), [web-fe-accessibility.md F1](../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [web-fe-accessibility.md F2](../review-criteria/web-fe-accessibility.md#f2-keyboard와-focus), [web-fe-accessibility.md F3](../review-criteria/web-fe-accessibility.md#f3-상태-알림과-비활성-이유)
 
 ## Visual and component boundary
 
@@ -55,19 +57,23 @@
 - page/flow/domain UI/shared primitive의 owner를 구분하고 단순 re-export와 god component를 피합니다.
 - Storybook fixture는 production controller/contract를 우회하는 별도 behavior owner가 되지 않습니다.
 
+구현·리뷰 기준: [web-fe-design-system.md F1](../review-criteria/web-fe-design-system.md#f1-semantic-token만-사용), [web-fe-design-system.md F2](../review-criteria/web-fe-design-system.md#f2-부품-재사용과-승격), [web-fe-design-system.md F3](../review-criteria/web-fe-design-system.md#f3-사용자-문구-권한), [web-fe-component-architecture.md F1](../review-criteria/web-fe-component-architecture.md#f1-owner-구분과-공통화-기준), [web-fe-component-architecture.md F2](../review-criteria/web-fe-component-architecture.md#f2-합성-먼저와-작은-component-api), [web-fe-component-architecture.md F3](../review-criteria/web-fe-component-architecture.md#f3-같이-실행되지-않는-분기-분리), [web-fe-component-architecture.md F4](../review-criteria/web-fe-component-architecture.md#f4-기능-단위-배치와-공개-entry), [web-fe-component-architecture.md F5](../review-criteria/web-fe-component-architecture.md#f5-예시-렌더-표면의-우회-금지), [web-fe-component-architecture.md F6](../review-criteria/web-fe-component-architecture.md#f6-renderer-중립-경계)
+
 ## Performance and browser reliability
 
 - LCP, INP, CLS, hydration cost, route transition, bundle/image/font/CSS loading 후보를 점검합니다.
 - error boundary, browser runtime error, Web Vitals, BFF failure telemetry의 현재 owner와 개인정보 경계를 확인합니다.
 - 성능 최적화는 측정 가능한 bottleneck 또는 target budget에 연결하며 유행성 library를 먼저 도입하지 않습니다.
 
-구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입), [swe.md S8](../review-criteria/swe.md#s8-측정-근거-있는-성능)
+구현·리뷰 기준: [swe.md S7](../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작), [swe.md S8](../review-criteria/swe.md#s8-측정-근거-있는-성능), [web-fe-rendering-boundary.md F3](../review-criteria/web-fe-rendering-boundary.md#f3-체감-성능-budget), [web-fe-rendering-boundary.md F4](../review-criteria/web-fe-rendering-boundary.md#f4-부분-실패-격리와-browser-오류-관측)
 
 ## Security and privacy
 
 - XSS, open redirect, cookie/token exposure, sensitive payload logging, enumeration copy를 점검합니다.
 - profile/chat/analytics/observability payload는 공개 범위와 최소 수집 원칙을 유지합니다.
 - auth, PII, moderation, legal surface이면 [Security and privacy](./cross-cutting/security-privacy.md)를 추가합니다.
+
+구현·리뷰 기준: [web-security-privacy-data-privacy-secret.md P1](../review-criteria/web-security-privacy-data-privacy-secret.md#p1-숨긴-신원비공개-필드의-공개-범위-유지)
 
 ## Frontend verification
 

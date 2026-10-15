@@ -26,7 +26,7 @@ Native plan mode의 초안과 repository canonical 계획을 구분하며 local 
 package, framework, provider, 법·정책처럼 변할 수 있는 사실은 current version과 공식 primary source를 확인합니다.
 외부 근거가 없으면 추측하지 않고 `gap`으로 남깁니다.
 
-구현·리뷰 기준: [swe.md S2](../review-criteria/swe.md#s2-제품-정책-부합), [swe.md S7](../review-criteria/swe.md#s7-dependency-도입)
+구현·리뷰 기준: [swe.md S2](../review-criteria/swe.md#s2-제품-정책-부합), [swe.md S7](../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작)
 
 ## 3. Baseline and ownership
 
@@ -377,7 +377,7 @@ review를 없애거나 두 검토를 하나의 PASS로 합치는 규칙이 아�
 - 여러 child가 같은 파일이나 global plan을 소유
 - 긴 transcript와 raw prompt를 durable context로 저장
 
-구현·리뷰 기준: [swe.md S4](../review-criteria/swe.md#s4-책임-경계와-결합도)
+구현·리뷰 기준: [swe.md S4](../review-criteria/swe.md#s4-책임-경계와-결합도), [swe.md S9](../review-criteria/swe.md#s9-가독성), [swe.md S10](../review-criteria/swe.md#s10-예측-가능성), [swe.md S11](../review-criteria/swe.md#s11-응집도와-중복-trade-off)
 
 ## 12. Checkpoint and final report
 

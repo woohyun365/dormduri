@@ -7,11 +7,22 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 
 ## 기준 문서
 
-| id                       | 문서                                                           | 적용하는 변경                                                 |
-| ------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------- |
-| `documents`              | [Document review criteria](./documents.md)                     | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경         |
-| `agent-workflow-tooling` | [Agent workflow tooling criteria](./agent-workflow-tooling.md) | agent workflow script·검사·helper·skill·역할 파일의 동작 변경 |
-| `swe`                    | [SWE common criteria](./swe.md)                                | 제품 code·공유 contract와 그 test·설정의 동작·구조 변경       |
+| id                                          | 문서                                                                                                       | 적용하는 변경                                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `documents`                                 | [Document review criteria](./documents.md)                                                                 | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경                                     |
+| `agent-workflow-tooling`                    | [Agent workflow tooling criteria](./agent-workflow-tooling.md)                                             | agent workflow script·검사·helper·skill·역할 파일의 동작 변경                             |
+| `swe`                                       | [SWE common criteria](./swe.md)                                                                            | 제품 code·공유 contract와 그 test·설정의 동작·구조 변경                                   |
+| `web-fe-rendering-boundary`                 | [Web FE rendering boundary criteria](./web-fe-rendering-boundary.md)                                       | web frontend의 render 위치·server·client 경계·첫 render·체감 성능·부분 실패 변경          |
+| `web-fe-state-data-cache`                   | [Web FE state, data, and cache criteria](./web-fe-state-data-cache.md)                                     | web frontend의 상태·server data·form·mutation·cache·외부 입력 검증 변경                   |
+| `web-fe-component-architecture`             | [Web FE component architecture criteria](./web-fe-component-architecture.md)                               | web frontend의 component owner·API·분기·파일 배치·예시 fixture·공유 model 변경            |
+| `web-fe-design-system`                      | [Web FE design system criteria](./web-fe-design-system.md)                                                 | web frontend의 design token·공통 UI 부품·화면 문구 원본 변경(시각 값·미감 제외)           |
+| `web-fe-layout-responsive-device`           | [Web FE layout, responsive, and device criteria](./web-fe-layout-responsive-device.md)                     | web frontend의 viewport·기기별 표현·layout·overlay·scroll 변경                            |
+| `web-fe-accessibility`                      | [Web FE accessibility criteria](./web-fe-accessibility.md)                                                 | web frontend의 상호작용 요소·keyboard·focus·상태 알림 변경                                |
+| `web-bff-gateway-forwarding`                | [Web BFF gateway and forwarding criteria](./web-bff-gateway-forwarding.md)                                 | BFF route·upstream 전달·상태 변경 진입점 변경                                             |
+| `web-bff-session-cookie-auth`               | [Web BFF session and cookie auth criteria](./web-bff-session-cookie-auth.md)                               | BFF session·token cookie 발급·갱신·삭제 변경                                              |
+| `web-bff-server-read-error-privacy-shaping` | [Web BFF server read, error, and privacy shaping criteria](./web-bff-server-read-error-privacy-shaping.md) | server render data 읽기·upstream 오류 번역·응답 형태 변경                                 |
+| `web-security-privacy-trust-authz-model`    | [Web security-privacy trust and authorization model criteria](./web-security-privacy-trust-authz-model.md) | 요청 신뢰 경계·권한 판정 변경(지금은 cookie 인증 상태 변경의 위조 방지)                   |
+| `web-security-privacy-data-privacy-secret`  | [Web security-privacy data privacy and secret criteria](./web-security-privacy-data-privacy-secret.md)     | 개인정보·비공개 필드·비밀값의 표시·전달·저장·기록 변경(지금은 숨긴 신원·필드의 공개 범위) |
 
 - 변경 유형으로 고릅니다. 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의 독립 리뷰 trigger가 없는
   변경에는 기준 문서를 고르지 않습니다.
@@ -20,14 +31,19 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 - `swe`는 모든 영역에 공통인 SWE 기준을 소유합니다. Agent workflow script는 `swe` 대신 `agent-workflow-tooling`을 고르고,
   문서만 바꾸는 변경에는 `swe`를 고르지 않습니다. `swe.md` S2의 정책 원본은 그 도메인의 [정책 문서](../../../policies/README.md)이고, S7의 dependency 정책 원본은
   [AGENTS.md 5절](../../../../AGENTS.md#5-implementation-agreements)과 [dependency security policy](../../../policies/dependency-security.md)입니다.
-- 제품 영역(FE·BFF·BE·DB·infra·security) 기준 문서는 영역 owner와 함께 이 형식으로 추가합니다. 그 전에는 영역
-  plan-authoring guide와 [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존 owner 문서를
-  acceptance 근거로 씁니다.
+- 영역 기준 문서(`web-<layer>-<하위 layer>`)를 고르면 `swe`와, 그 문서 머리말이 상속한다고 적은 문서도 함께 고릅니다.
+- 제품 영역(FE·BFF·BE·DB·infra·security) 기준 문서는 영역 owner와 함께 이 형식으로 추가합니다. 지금은 FE 하위 layer 6개, BFF
+  하위 layer 3개, BFF가 상속하는 security-privacy 항목 2개의 문서가 있습니다. 기준 문서가 없는 영역(BE·DB·infra와 security-privacy의
+  나머지)은 영역 plan-authoring guide와 [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존
+  owner 문서를 acceptance 근거로 씁니다. 시각 값과 미감은 FE 기준 문서가 아니라 visual design 문서가 소유합니다.
+- 영역 기준 문서의 항목은 [Domain/SWE/Web pack](../domain/swe-web/README.md)의 하위 layer 절이 결정 목록·위험과 함께 인용합니다.
+  기준·pack 문서는 저장소 값(경로·명령·stack 이름)을 쓰지 않고 binding 키로 가리키며, 이 저장소의 값은
+  [KNU domain binding](../domain/knu-binding.md)에 있습니다.
 
 ## 항목 형식
 
-문서마다 항목은 **8개 이하**입니다. 상한은 기준이 의례적 checklist로 길어지는 것을 막기 위한 값이며, 새 항목이 필요하면 가장
-적게 걸린 항목을 합치거나 교체합니다. 각 항목은 `### <문자><번호>. <이름>` 제목과 아래 일곱 줄을 이 순서로 가집니다.
+문서당 항목 수 상한은 두지 않습니다. 적용 조건이 다른 항목이 섞이면 문서를 나눕니다. 각 항목은 `### <문자><번호>. <이름>`
+제목과 아래 일곱 줄을 이 순서로 가집니다.
 
 ```text
 - 질문: reviewer가 판정할 한 문장 질문
@@ -41,9 +57,14 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 
 - 한 항목이 두 보기를 함께 가집니다. 지침·피함은 구현할 때 보는 구현 보기이고, 질문·기본 severity·결함 패턴·PASS 근거는 리뷰할
   때 보는 리뷰 보기입니다. 적용 조건은 두 보기가 함께 씁니다. 두 보기를 같은 블록에 두어 한쪽만 바뀌는 일이 diff에 보이게 합니다.
+- 문서마다 항목 문자 하나를 씁니다(`documents` D, `agent-workflow-tooling` W, `swe` S, 영역 문서는 FE `F`·BFF `B`·security-privacy
+  `P`). 영역 문서는 첫 항목 앞 머리말에 상속하는 문서·항목과 강화 관계를 적습니다. 영역 문서의 항목은 상속한 항목보다
+  좁은 조건을 더 보는 별도 항목이고 기본 severity는 자기 값입니다. 상속한 항목은 영역 문서를 골라도 자기 기본 severity로
+  그대로 적용되고 영역 문서가 끄거나 낮추지 못합니다. 같은 결함이 두 항목에 함께 맞으면 기본 severity가 높은 항목으로
+  판정합니다.
 - 구현 지침 문서(plan-authoring guide)는 항목 문장을 다시 쓰지 않고 `[swe.md S4](./swe.md#s4-책임-경계와-결합도)`처럼 항목 제목
   anchor로 인용합니다. 구현 guide가 없는 저장소 전용 기준(`documents`·`agent-workflow-tooling`)을 뺀 모든 항목은 guide 하나 이상이
-  인용해야 합니다.
+  인용해야 합니다. pack 하위 layer 절도 같은 방식으로 인용하지만 guide 인용을 대신하지 않습니다.
 - 결함 패턴은 유형 요약입니다. Local 증거 경로, plan 파일명, 작업 단계 이름을 근거로 인용하지 않습니다.
 - Reviewer는 적용 조건에 맞는 항목을 판정합니다. 미충족 항목은 `criteriaItem` 필드에 항목 id 하나(예: `documents.md D2`)만 적은
   finding이 되고 기본 severity에서 시작하며, 다르게 매기면 finding에 이유를 적습니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 충족한 항목은 finding이 아니라 그 항목의 PASS 근거에 해당하는 관측으로 acceptance coverage에 씁니다.
@@ -181,4 +202,7 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 ## 갱신
 
 리뷰가 놓쳐 merge 뒤 발견된 결함과 Parent가 재현으로 기각한 finding은 기준 항목 갱신의 입력입니다. 갱신은 이 디렉터리의 문서
-변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음)·상한과 guide 인용(해석, 인용되지 않은 항목)을 검사합니다.
+변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음),
+README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·pack 인용(해석, 인용되지 않은 항목, pack 하위 layer 절의 항목
+인용과 id 목록), pack 결정의 필드 순서와 먼저 정할 결정 해석, binding 키의 표기와 해석, 저장소 값 이름 목록 부재를
+검사합니다.
