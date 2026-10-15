@@ -14,6 +14,8 @@ guide와 함께 읽습니다. 일반 기능마다 자동 선택하지 않습니�
 - legal or policy freshness that requires official-current evidence
 - provider processing region, DPA, retention and operator access when applicable
 
+구현·리뷰 기준: [web-security-privacy-trust-authz-model.md P1](../../review-criteria/web-security-privacy-trust-authz-model.md#p1-cookie-인증-상태-변경-요청의-cross-site-위조-방지), [web-security-privacy-data-privacy-secret.md P1](../../review-criteria/web-security-privacy-data-privacy-secret.md#p1-숨긴-신원비공개-필드의-공개-범위-유지)
+
 ## Plan additions
 
 - threat/abuse cases and prohibited outcomes
