@@ -291,6 +291,42 @@ test('domain pack layer documents hold every sublayer with the required sections
   for (const reference of dependsOn)
     assert.ok(decisions.has(reference.split(' ')[1]), `${reference} is not a decision of the pack`);
 });
+// Pack and criteria documents name repository values only through binding keys that the repository
+// binding document resolves. The name list catches common leaks only; other values are a review item.
+const BINDING_DOC = 'docs/development/agent-workflows/domain/knu-binding.md';
+const BINDING_KINDS = new Set([
+  'scope',
+  'stack',
+  'tool',
+  'repo-structure',
+  'product',
+  'command',
+  'policy',
+]);
+const REPOSITORY_VALUE =
+  /apps\/|packages\/|\bpnpm\b|Next\.js|\bReact\b|NestJS|Prisma|Tailwind|Storybook|Vitest|Playwright|Sentry|\bKNU\b/u;
+test('pack and criteria documents reference repository values only through resolvable binding keys', () => {
+  assert.ok(existsSync(resolve(root, BINDING_DOC)), `${BINDING_DOC} is missing`);
+  const keys = new Set(
+    [...readFileSync(resolve(root, BINDING_DOC), 'utf8').matchAll(/^\| `([^`]+)` +\|/gmu)].map(
+      (match) => match[1],
+    ),
+  );
+  const documents = [
+    `${CRITERIA_DIR}/swe.md`,
+    ...criteriaDocuments().filter((path) => path.startsWith(`${CRITERIA_DIR}/web-`)),
+    ...markdownFiles(PACK_DIR),
+  ];
+  for (const path of documents) {
+    const text = prose(readFileSync(resolve(root, path), 'utf8'));
+    for (const [reference, key] of text.matchAll(/\{\{binding:([^}]*)\}\}/gu)) {
+      const kind = key.match(/^([a-z-]+)\.[a-z0-9-]+$/u)?.[1];
+      assert.ok(kind && BINDING_KINDS.has(kind), `${path}: malformed binding ${reference}`);
+      assert.ok(keys.has(key), `${path}: ${reference} is not in ${BINDING_DOC}`);
+    }
+    assert.doesNotMatch(text, REPOSITORY_VALUE, `${path} names a repository value`);
+  }
+});
 test('production workflow graph has real discoverable owners and required DAG without banning backlinks', () => {
   assert.deepEqual(validateWorkflowGraph(workflowGraph), []);
   for (const node of workflowGraph.nodes)
