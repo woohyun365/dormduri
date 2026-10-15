@@ -3,9 +3,11 @@
 [Review criteria](./README.md)의 `web-fe-state-data-cache` 기준입니다. Web frontend에서 화면 상태·server data·URL 상태,
 form·mutation, cache 무효화와 identity 전환, data hook, 외부 입력 검증을 바꾸는 변경에 적용합니다.
 
-이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 강화만 합니다. 강화 관계는 F1 →
+이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 그보다 좁은 조건을 더 봅니다. 강화 관계는 F1 →
 [swe.md S11](./swe.md#s11-응집도와-중복-trade-off), F2·F3·F4·F6 → [swe.md S3](./swe.md#s3-정확성과-오류-경로), F5 →
 [swe.md S10](./swe.md#s10-예측-가능성)입니다.
+상속한 항목은 이 문서를 골라도 자기 기본 severity로 그대로 적용되고, 같은 결함이 두 항목에 함께 맞으면 기본
+severity가 높은 항목으로 판정합니다.
 
 각 항목의 지침·피함은 구현할 때 보는 보기이고, 나머지 줄은 리뷰할 때 보는 보기입니다. 적용 조건은 두 보기가 함께 씁니다.
 
@@ -53,7 +55,7 @@ form·mutation, cache 무효화와 identity 전환, data hook, 외부 입력 검
 
 - 질문: 같은 종류의 data 조회·변경 hook이 같은 반환 형태와 오류 표현을 쓰는가?
 - 기본 severity: `low`
-- 적용 조건: data 조회·변경 hook을 더하거나 반환 형태를 바꾸는 변경
+- 적용 조건: data 조회·변경 hook을 더하거나 반환 형태·오류 표현을 바꾸는 변경
 - 결함 패턴: 어떤 hook은 상태 객체를, 어떤 hook은 data만 돌려줘 호출부가 hook마다 다르게 다룸, 오류를 hook마다 다른 방식(throw·반환·무시)으로 표현함
 - PASS 근거: 새·바뀐 hook이 같은 종류 기존 hook과 같은 반환 형태·오류 표현을 쓰거나, 다르게 둔 이유가 변경 설명에 있다
 - 지침: 같은 종류 hook의 반환 형태와 오류 표현을 하나로 정하고 새 hook을 그 형태에 맞춘다

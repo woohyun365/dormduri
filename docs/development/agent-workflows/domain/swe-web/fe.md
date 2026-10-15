@@ -32,13 +32,13 @@
 - 수준: `framework-pattern`
 - 질문: 화면 부품의 기본 render 위치를 server로 둘까, browser로 둘까?
 - 선택지:
-  - server-first: 기본은 server에서 그리고 상호작용 부분만 client로 둔다. bundle이 작고 비밀값이 안전하지만, 경계를 의식하며 부품을 나눠야 한다
+  - server-first: 기본은 server에서 그리고 상호작용 부분만 client로 둔다. bundle(browser가 내려받는 code 묶음)이 작고 비밀값이 안전하지만, 경계를 의식하며 부품을 나눠야 한다
   - client-first: 기본은 browser에서 그린다. 익숙하고 상호작용이 쉽지만, bundle이 커지고 server 전용 값이 새기 쉽다
   - route별: route마다 기본을 정한다. 유연하지만 규칙을 문서로 따로 관리해야 한다
 - 먼저 정할 결정: `fe.arch.rendering-style`
 - 되돌림: `costly`. 경계를 옮기고 data 경로를 고친다
 - 기본값: server-first. 첫 화면이 빠르고 비밀값이 browser로 새지 않는다. 상호작용이 대부분인 화면이면 그 화면에서 버린다
-- 확인 단서: `{{binding:stack.fe-framework}}`의 version, route 파일에서 client 경계 지시문을 쓴 비율
+- 확인 단서: `{{binding:stack.fe-framework}}`의 version, route 파일에서 client 경계 지시문(파일을 browser 쪽 code로 표시하는 선언)을 쓴 비율
 - 기준 항목: [web-fe-rendering-boundary.md F1](../../review-criteria/web-fe-rendering-boundary.md#f1-serverclient-경계), [web-fe-rendering-boundary.md F2](../../review-criteria/web-fe-rendering-boundary.md#f2-render-일치와-navigationscroll-소유)
 
 #### fe.render.error-boundary-unit
@@ -98,9 +98,9 @@
   - client query library: browser용 data cache library를 쓴다. 자동 갱신·무효화가 풍부하지만 dependency와 학습 비용이 늘어난다
   - 화면별 수동: 화면마다 직접 관리한다. 시작은 쉽지만 같은 data가 화면마다 어긋난다
 - 먼저 정할 결정: `fe.render.server-client-default`
-- 되돌림: `costly`. 조회 hook과 무효화 경로를 바꾼다
+- 되돌림: `costly`. 조회 hook(화면 부품이 data를 가져다 쓰는 함수)과 무효화 경로를 바꾼다
 - 기본값: framework fetch cache. dependency를 늘리지 않는다. 여러 화면이 같은 data를 자주 갱신하면 library를 검토한다(새 dependency는 [swe.md S7](../../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작))
-- 확인 단서: `{{binding:repo-structure.fe-features}}`의 조회 hook, lockfile에 data cache library가 있는지
+- 확인 단서: `{{binding:repo-structure.fe-features}}`의 조회 hook, lockfile(설치한 package version을 고정한 파일)에 data cache library가 있는지
 - 기준 항목: [web-fe-state-data-cache.md F1](../../review-criteria/web-fe-state-data-cache.md#f1-상태-종류와-단일-원천), [web-fe-state-data-cache.md F4](../../review-criteria/web-fe-state-data-cache.md#f4-무효화경쟁identity-전환)
 
 #### fe.state.mutation-feedback
@@ -123,8 +123,8 @@
 - 질문: 밖에서 들어온 data(API 응답·URL·browser 저장소)를 어디서 확인할까?
 - 선택지:
   - 경계에서 공유 schema로 검증: 들어오는 곳 한 군데에서 걸러 낸다. 화면 code가 단순해지지만 schema를 관리해야 한다
-  - 쓰는 곳마다 검증: 필요한 곳에서 확인한다. 빠르게 시작하지만 검증이 흩어지고 빠지기 쉽다
-  - type 선언만: 실행 중 확인 없이 type만 믿는다. 비용이 없지만 잘못된 data가 화면 깊이 들어온다
+  - 쓰는 곳마다 검증: 필요한 곳에서 확인한다. 빠르게 시작하지만 검증이 흩어지고 빠지기 쉽다. 연결된 기준 항목 `web-fe-state-data-cache.md F6`이 결함으로 본다
+  - type 선언만: 실행 중 확인 없이 type만 믿는다. 비용이 없지만 잘못된 data가 화면 깊이 들어온다. 연결된 기준 항목 `web-fe-state-data-cache.md F6`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 경계 helper를 더한다
 - 기본값: 경계에서 공유 schema로 검증. 한 곳에서 걸러 화면 code가 단순해진다. 생성된 type이 실행 중 검증을 함께 주면 그것을 쓴다
@@ -176,11 +176,11 @@
 - 질문: 기능 안에서 만든 부품을 언제 앱 공통 부품으로 올릴까?
 - 선택지:
   - 두 화면 이상 재사용: 두 곳 이상에서 같은 의미로 쓰일 때 올린다. 성급한 공통화를 막지만 잠시 비슷한 부품이 공존한다
-  - 처음부터 공통: 만들 때부터 공통에 둔다. 재사용은 쉽지만 한 화면 요구가 공통 부품에 option으로 쌓인다
+  - 처음부터 공통: 만들 때부터 공통에 둔다. 재사용은 쉽지만 한 화면 요구가 공통 부품에 option으로 쌓인다. 연결된 기준 항목 `web-fe-design-system.md F2`이 결함으로 본다
   - 올리지 않음: 기능 안에만 둔다. 독립적이지만 같은 부품이 여러 벌 생긴다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 파일을 옮기고 import를 고친다
-- 기본값: 두 화면 이상에서 의미·상호작용·상태 계약이 같을 때. 겉모양만 같은 부품을 묶으면 나중에 다시 쪼갠다
+- 기본값: 두 화면 이상에서 의미·상호작용·상태 계약이 같을 때. 겉모양만 같은 부품을 묶으면 나중에 다시 쪼갠다 공통 부품 원본이 이미 같은 역할의 부품을 정해 두었으면 한 화면에서 처음 쓰여도 그 부품을 쓴다
 - 확인 단서: `{{binding:repo-structure.fe-shared-ui}}`의 부품 수와 사용처
 - 기준 항목: [web-fe-component-architecture.md F1](../../review-criteria/web-fe-component-architecture.md#f1-owner-구분과-공통화-기준), [web-fe-design-system.md F2](../../review-criteria/web-fe-design-system.md#f2-부품-재사용과-승격)
 
@@ -260,10 +260,10 @@
 - 선택지:
   - semantic token 파일: 의미 이름(본문 글자색 등)의 token을 한 파일에 둔다. 값을 바꿀 때 한 곳만 고치지만 이름 체계가 필요하다
   - framework theme 설정: style 도구의 theme 설정에 둔다. 도구와 잘 맞지만 도구를 바꾸면 함께 옮겨야 한다
-  - 화면별 값: 화면마다 값을 쓴다. 빠르지만 값이 흩어져 일관성이 깨진다
+  - 화면별 값: 화면마다 값을 쓴다. 빠르지만 값이 흩어져 일관성이 깨진다. 연결된 기준 항목 `web-fe-design-system.md F1`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `costly`. 모든 style 참조를 바꾼다
-- 기본값: semantic token 파일. 값을 바꿀 때 한 곳만 고친다. 값 자체는 시각 기준이 정한다
+- 기본값: semantic token 파일. 값을 바꿀 때 한 곳만 고친다. 값 자체는 시각 기준이 정한다 이 기본값은 버리지 않는다. 화면에 값을 직접 쓰면 `web-fe-design-system.md F1`이 결함으로 본다. style 도구가 theme 설정을 요구하면 그 설정이 semantic token 파일을 읽게 한다
 - 확인 단서: `{{binding:repo-structure.fe-styles}}`의 token 파일과 theme 연결
 - 기준 항목: [web-fe-design-system.md F1](../../review-criteria/web-fe-design-system.md#f1-semantic-token만-사용)
 
@@ -273,11 +273,11 @@
 - 질문: 화면 문구의 원본을 어디에 둘까?
 - 선택지:
   - 정책·승인된 content 원본: 정책 사실은 정책 문서에서, 나머지는 승인된 content 원본에서 가져온다. 화면이 정책과 어긋나지 않지만 원본 관리가 필요하다
-  - design 초안: design 도구의 문구를 그대로 쓴다. 빠르지만 예시 문구가 제품 사실처럼 굳는다
-  - code 안에 직접: 개발자가 쓴다. 빠르지만 정책과 어긋나도 알기 어렵다
+  - design 초안: design 도구의 문구를 그대로 쓴다. 빠르지만 예시 문구가 제품 사실처럼 굳는다. 연결된 기준 항목 `web-fe-design-system.md F3`이 결함으로 본다
+  - code 안에 직접: 개발자가 쓴다. 빠르지만 정책과 어긋나도 알기 어렵다. 연결된 기준 항목 `web-fe-design-system.md F3`이 결함으로 본다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 문구 출처를 표시하고 옮긴다
-- 기본값: 정책·법적 사실은 정책 원본, 나머지는 승인된 content 원본. 화면이 정책과 다른 말을 하지 않는다. 문구의 값은 정책이 소유한다
+- 기본값: 정책·법적 사실은 정책 원본, 나머지는 승인된 content 원본. 화면이 정책과 다른 말을 하지 않는다. 문구의 값은 정책이 소유한다 이 기본값은 버리지 않는다. 원본이 없는 문구는 지어내지 않고 승인을 받는다(`web-fe-design-system.md F3`)
 - 확인 단서: `{{binding:policy.index}}`의 정책 문서, 문구 상수의 위치
 - 기준 항목: [web-fe-design-system.md F3](../../review-criteria/web-fe-design-system.md#f3-사용자-문구-권한)
 
@@ -383,7 +383,7 @@
   - 자동 검사만: 도구가 잡는 것만 지킨다. 싸지만 keyboard·focus 문제 대부분을 놓친다
 - 먼저 정할 결정: 없음
 - 되돌림: `easy`. 기준을 낮추면 검사 범위만 줄어든다
-- 기본값: 새·바뀐 화면 전체 WCAG 2.2 AA(기존 화면은 바꿀 때 맞춤). keyboard·focus·label은 만들 때 넣으면 비용이 작고 나중에 고치면 비싸다. 기존 화면을 즉시 고치는 것은 첫 비용이 커서 기본값에서 뺀다. 수준 값은 정책이 소유한다
+- 기본값: 새·바뀐 화면 전체 WCAG 2.2 AA(기존 화면은 바꿀 때 맞춤). keyboard·focus·label은 만들 때 넣으면 비용이 작고 나중에 고치면 비싸다. 기존 화면을 즉시 고치는 것은 첫 비용이 커서 기본값에서 뺀다. 수준 값은 정책이 소유한다 법·계약이 더 높은 기준(기존 화면까지 즉시 맞춤 등)을 요구하면 그 기준을 따른다
 - 확인 단서: `{{binding:tool.lint}}`의 접근성 규칙, keyboard·focus test의 존재
 - 기준 항목: [web-fe-accessibility.md F1](../../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [web-fe-accessibility.md F2](../../review-criteria/web-fe-accessibility.md#f2-keyboard와-focus), [web-fe-accessibility.md F3](../../review-criteria/web-fe-accessibility.md#f3-상태-알림과-비활성-이유)
 
@@ -397,7 +397,7 @@
   - 위 둘 + 주기적 수동 점검: 사람이 보조기술로 확인한다. 가장 정확하지만 사람 시간이 든다
 - 먼저 정할 결정: `fe.a11y.baseline`
 - 되돌림: `easy`. 검사 단계를 더한다
-- 기본값: lint + 바뀐 화면 render 검사. 사람이 보기 전에 기계가 흔한 실수를 잡는다. 검사 도구 추가는 dependency 승인을 거친다([swe.md S7](../../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작))
+- 기본값: lint + 바뀐 화면 render 검사. 사람이 보기 전에 기계가 흔한 실수를 잡는다. 검사 도구 추가는 dependency 승인을 거친다([swe.md S7](../../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작)) render 검사 도구를 아직 들일 수 없으면 lint 규칙과 keyboard·focus 수동 확인으로 시작하고 도구 승인 뒤 render 검사를 더한다
 - 확인 단서: `{{binding:tool.lint}}`, `{{binding:tool.component-workshop}}`·`{{binding:tool.e2e}}`의 접근성 검사
 - 기준 항목: [web-fe-accessibility.md F1](../../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [web-fe-accessibility.md F2](../../review-criteria/web-fe-accessibility.md#f2-keyboard와-focus)
 

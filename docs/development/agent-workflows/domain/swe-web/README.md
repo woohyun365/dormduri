@@ -19,8 +19,10 @@ Domain/<field>/<subdomain>/<layer>/<하위 layer>
 
 - BE·DB·infra layer와 cross-cutting(security-privacy·operations-release)의 하위 layer 절은 그 영역의 기준 문서와 함께 더합니다.
   지금 있는 security-privacy 항목은 BFF 하위 layer가 상속하는 두 항목입니다.
-- **상속**: 하위 node는 상위·cross-cutting node의 항목을 `inherits`로 인용합니다. 하위는 상속한 항목을 강화(조건 추가,
-  severity 상향)만 하고 약화(조건 삭제, severity 하향, 제외)하지 않습니다. 모든 하위 layer는 SWE 공통 기준을 상속합니다.
+- **상속**: 하위 node는 상위·cross-cutting node의 항목을 `inherits`로 인용합니다. 상속한 항목은 하위 node를 골라도 자기
+  기본 severity로 그대로 적용되고, 하위 node가 끄거나 조건을 지우거나 severity를 낮추지 못합니다. 하위 node의 항목은 상속한
+  항목보다 좁은 조건을 더 보는 별도 항목이고 기본 severity는 자기 값입니다. 같은 결함이 상속 항목과 하위 항목에 함께
+  맞으면 기본 severity가 높은 항목으로 판정합니다. 모든 하위 layer는 SWE 공통 기준을 상속합니다.
 
 ## Node 필드
 
@@ -43,7 +45,8 @@ Domain/<field>/<subdomain>/<layer>/<하위 layer>
 
 ## 결정 목록 형식
 
-결정은 `#### <결정 id>` 제목과 아래 필드 줄로 씁니다. 결정 id는 `<layer>.<하위 layer 약칭>.<결정 이름>`입니다.
+결정은 `#### <결정 id>` 제목과 아래 필드 줄로 씁니다. 결정 id는 `<layer>.<영역 약칭>.<결정 이름>`입니다. 영역 약칭은 보통 하위 layer
+약칭이고, layer 전체 구조를 정하는 결정은 `arch`를 씁니다.
 
 | 필드           | 내용                                                                               |
 | -------------- | ---------------------------------------------------------------------------------- |

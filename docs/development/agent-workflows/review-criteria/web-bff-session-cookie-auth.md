@@ -5,8 +5,10 @@ browser의 token 보관을 바꾸는 변경에 적용합니다.
 
 이 문서를 고르면 [`swe`](./swe.md)와 상속하는 security-privacy 항목
 [web-security-privacy-trust-authz-model.md P1](./web-security-privacy-trust-authz-model.md#p1-cookie-인증-상태-변경-요청의-cross-site-위조-방지)도
-함께 고릅니다. 이 문서의 항목은 상속 항목을 강화만 합니다. 강화 관계는 B1 → [swe.md S2](./swe.md#s2-제품-정책-부합), B2 →
+함께 고릅니다. 이 문서의 항목은 상속 항목보다 좁은 조건을 더 봅니다. 강화 관계는 B1 → [swe.md S2](./swe.md#s2-제품-정책-부합), B2 →
 [swe.md S3](./swe.md#s3-정확성과-오류-경로)입니다.
+상속한 항목은 이 문서를 골라도 자기 기본 severity로 그대로 적용되고, 같은 결함이 두 항목에 함께 맞으면 기본
+severity가 높은 항목으로 판정합니다.
 
 각 항목의 지침·피함은 구현할 때 보는 보기이고, 나머지 줄은 리뷰할 때 보는 보기입니다. 적용 조건은 두 보기가 함께 씁니다.
 

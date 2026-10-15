@@ -4,8 +4,10 @@
 전달, 저장, 기록을 바꾸는 변경에 적용합니다. 지금은 숨긴 신원·비공개 필드의 공개 범위 항목만 있고, 나머지 항목은 이 영역을
 바꾸는 변경 전에 더합니다.
 
-이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 강화만 합니다. 강화 관계는 P1 →
-[swe.md S2](./swe.md#s2-제품-정책-부합)입니다. [web-bff-server-read-error-privacy-shaping](./web-bff-server-read-error-privacy-shaping.md)이
+이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 그보다 좁은 조건을 더 봅니다. 강화 관계는 P1 →
+[swe.md S2](./swe.md#s2-제품-정책-부합)입니다.
+상속한 항목은 이 문서를 골라도 자기 기본 severity로 그대로 적용되고, 같은 결함이 두 항목에 함께 맞으면 기본
+severity가 높은 항목으로 판정합니다. [web-bff-server-read-error-privacy-shaping](./web-bff-server-read-error-privacy-shaping.md)이
 P1을 상속합니다.
 
 각 항목의 지침·피함은 구현할 때 보는 보기이고, 나머지 줄은 리뷰할 때 보는 보기입니다. 적용 조건은 두 보기가 함께 씁니다.

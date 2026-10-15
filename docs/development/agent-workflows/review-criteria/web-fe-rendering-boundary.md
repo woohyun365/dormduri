@@ -3,9 +3,11 @@
 [Review criteria](./README.md)의 `web-fe-rendering-boundary` 기준입니다. Web frontend에서 render 위치, server·client 경계,
 첫 render와 navigation, 체감 성능, 부분 실패와 browser 오류 관측을 바꾸는 변경에 적용합니다.
 
-이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 강화만 합니다. 강화 관계는 F1 →
+이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 그보다 좁은 조건을 더 봅니다. 강화 관계는 F1 →
 [swe.md S4](./swe.md#s4-책임-경계와-결합도), F2·F4 → [swe.md S3](./swe.md#s3-정확성과-오류-경로), F3 →
 [swe.md S8](./swe.md#s8-측정-근거-있는-성능)입니다.
+상속한 항목은 이 문서를 골라도 자기 기본 severity로 그대로 적용되고, 같은 결함이 두 항목에 함께 맞으면 기본
+severity가 높은 항목으로 판정합니다.
 
 각 항목의 지침·피함은 구현할 때 보는 보기이고, 나머지 줄은 리뷰할 때 보는 보기입니다. 적용 조건은 두 보기가 함께 씁니다.
 

@@ -3,10 +3,12 @@
 [Review criteria](./README.md)의 `web-fe-component-architecture` 기준입니다. Web frontend에서 component의 owner·공통화,
 component API, 분기 구조, 파일 배치와 import 경계, 부품 예시 fixture, renderer 중립 model을 바꾸는 변경에 적용합니다.
 
-이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 강화만 합니다. 강화 관계는 F1·F4 →
+이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 그보다 좁은 조건을 더 봅니다. 강화 관계는 F1·F4 →
 [swe.md S4](./swe.md#s4-책임-경계와-결합도)·[swe.md S11](./swe.md#s11-응집도와-중복-trade-off), F2·F6 →
 [swe.md S4](./swe.md#s4-책임-경계와-결합도), F3 → [swe.md S9](./swe.md#s9-가독성), F5 →
 [swe.md S6](./swe.md#s6-보호-test)입니다.
+상속한 항목은 이 문서를 골라도 자기 기본 severity로 그대로 적용되고, 같은 결함이 두 항목에 함께 맞으면 기본
+severity가 높은 항목으로 판정합니다.
 
 각 항목의 지침·피함은 구현할 때 보는 보기이고, 나머지 줄은 리뷰할 때 보는 보기입니다. 적용 조건은 두 보기가 함께 씁니다.
 

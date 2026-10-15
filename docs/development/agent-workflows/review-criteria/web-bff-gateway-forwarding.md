@@ -3,9 +3,11 @@
 [Review criteria](./README.md)의 `web-bff-gateway-forwarding` 기준입니다. Browser와 upstream API 사이의 BFF(backend for
 frontend) route를 두거나 upstream 전달 규칙, 상태 변경 요청의 진입 방식을 바꾸는 변경에 적용합니다.
 
-이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 강화만 합니다. 강화 관계는 B1 →
+이 문서를 고르면 [`swe`](./swe.md)도 함께 고릅니다. 이 문서의 항목은 `swe` 항목을 상속하고 그보다 좁은 조건을 더 봅니다. 강화 관계는 B1 →
 [swe.md S4](./swe.md#s4-책임-경계와-결합도)·[swe.md S5](./swe.md#s5-계약-호환성), B2 →
-[swe.md S11](./swe.md#s11-응집도와-중복-trade-off)입니다. cookie로 인증하는 상태 변경 진입점을 바꾸면
+[swe.md S11](./swe.md#s11-응집도와-중복-trade-off)입니다.
+상속한 항목은 이 문서를 골라도 자기 기본 severity로 그대로 적용되고, 같은 결함이 두 항목에 함께 맞으면 기본
+severity가 높은 항목으로 판정합니다. cookie로 인증하는 상태 변경 진입점을 바꾸면
 [web-security-privacy-trust-authz-model.md P1](./web-security-privacy-trust-authz-model.md#p1-cookie-인증-상태-변경-요청의-cross-site-위조-방지)도
 고릅니다.
 
