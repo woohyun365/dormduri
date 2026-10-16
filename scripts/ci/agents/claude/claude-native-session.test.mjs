@@ -12,7 +12,7 @@ import {
   existsSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -379,13 +379,16 @@ function writer(t) {
   };
 }
 
+// The helper names a native review packet review-<reviewId>; the registry finds the reviewer's
+// prompt record by that id.
+const REVIEW_PACKET_ID = 'review-natrev00-0000beef';
 function reviewPacket(subject, snapshot) {
   const { basePacket } = JSON.parse(
     readFileSync(join(import.meta.dirname, '../common/fixtures/cross-model-handoff-cases.json')),
   );
   return {
     ...structuredClone(basePacket),
-    packetId: 'native-review-packet',
+    packetId: REVIEW_PACKET_ID,
     objective: subject.registered.workflow.envelope.requestSummary,
     snapshot,
     authority: {
@@ -441,6 +444,20 @@ function reviewResult(packet, model, verdict = 'PASS') {
   };
 }
 
+const PROMPT_RECORD_DIR = '.artifacts/tools/claude-review-packets';
+const sha256 = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+function writePromptRecord(root, packet, prompt) {
+  const reviewId = /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(packet?.packetId ?? '')?.[1];
+  if (reviewId === undefined) return;
+  const path = join(root, PROMPT_RECORD_DIR, `${reviewId}.prompt.json`);
+  rmSync(path, { force: true });
+  if (prompt === null) return;
+  mkdirSync(join(root, PROMPT_RECORD_DIR), { recursive: true });
+  writeFileSync(
+    path,
+    `${JSON.stringify({ schema: 'claude-review-prompt/v1', reviewId, promptDigest: sha256(prompt) })}\n`,
+  );
+}
 function reviewer(t, subject, packet, options = {}) {
   const input = structuredClone(subject.input);
   input.request = 'sample.txt 변경을 독립 검토해줘.';
@@ -476,18 +493,27 @@ function reviewer(t, subject, packet, options = {}) {
     ].map((key) => ({ key, sourceRef: 'fixture', confidence: 'high' })),
   });
   const expectedResolvedModel = 'claude-opus-4-6';
+  const prompt = options.prompt ?? 'Review the frozen subject packet only.';
+  const independentReview = {
+    subjectTaskId: subject.registered.taskId,
+    reviewerId: 'reviewer',
+    builderIds: ['builder'],
+    packet,
+    ...options.independentReview,
+  };
+  // `review` records the digest of the prompt it built; promptRecord null leaves no record and a
+  // string records another prompt.
+  writePromptRecord(
+    subject.root,
+    independentReview.packet,
+    options.promptRecord === undefined ? prompt : options.promptRecord,
+  );
   const registered = registerClaudeNativeTask({
     workflowInput: input,
     sessionId: options.sessionId ?? subject.event.session_id,
-    prompt: options.prompt ?? 'Review the frozen subject packet only.',
+    prompt,
     expectedResolvedModel,
-    independentReview: {
-      subjectTaskId: subject.registered.taskId,
-      reviewerId: 'reviewer',
-      builderIds: ['builder'],
-      packet,
-      ...options.independentReview,
-    },
+    independentReview,
   });
   return {
     ...subject,
@@ -514,7 +540,7 @@ test('terminal native reviewer receipt completes its subject without recursive Q
   const packet = reviewPacket(subject, subjectObservation.finalSnapshot);
   const qa = reviewer(t, subject, packet);
   const result = reviewResult(packet, qa.options.expectedResolvedModel);
-  assert.match(qa.registered.invocation.prompt, /native-review-packet/);
+  assert.match(qa.registered.invocation.prompt, new RegExp(REVIEW_PACKET_ID, 'u'));
   handle(qa);
   finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
   const qaSemantic = semanticResult(qa);
@@ -551,6 +577,26 @@ test('terminal native reviewer receipt completes its subject without recursive Q
       .valid,
     false,
   );
+});
+
+// register --input reaches the registry without prepare, so the registry itself compares the prompt
+// with the digest `review` recorded under the packet's review id.
+test('a native reviewer registers only with the prompt its review recorded', (t) => {
+  const { subject, packet } = reviewedSubject(t);
+  assert.throws(
+    () => reviewer(t, subject, packet, { promptRecord: null }),
+    /review-prompt-unbound/u,
+  );
+  assert.throws(
+    () => reviewer(t, subject, packet, { promptRecord: 'Review the frozen subject packet only!' }),
+    /review-prompt-changed/u,
+  );
+  // A packet id that names no review has no record to compare with.
+  assert.throws(
+    () => reviewer(t, subject, { ...packet, packetId: 'native-review-packet' }),
+    /review-prompt-unbound/u,
+  );
+  assert.equal(reviewer(t, subject, packet).registered.invocation.subagent_type, 'knu_reviewer');
 });
 
 test('terminal reviewer rejects self, stale packet, missing observation and raw review override', (t) => {
