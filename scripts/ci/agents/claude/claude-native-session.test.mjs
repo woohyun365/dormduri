@@ -1538,7 +1538,10 @@ test('ordinary executor new files are fingerprinted without staging, then common
   input.results[0].changedPaths = ['new.txt'];
   const checked = completeClaudeNativeTask(r.taskId, input, { root: f.root });
   assert.equal(checked.observation.valid, true, JSON.stringify(checked.errors));
-  assert.equal(checked.observation.finalSnapshot.untrackedInputDigests[0].path, 'new.txt');
+  // Against HEAD the fixture's staged role files are new too; new.txt is fingerprinted among them.
+  assert.ok(
+    checked.observation.finalSnapshot.untrackedInputDigests.some(({ path }) => path === 'new.txt'),
+  );
   assert.deepEqual(checked.errors, [
     'native required QA requires linked reviewerTaskId',
     'independent QA exchange required',

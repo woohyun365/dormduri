@@ -575,7 +575,7 @@ function bindRecovery(root, sessionId, workflowInput, recovery) {
   const superseded = existsSync(join(dir, 'recovery.json'));
   const marker = recoveryMarkerPath(root, sessionId, facts);
   check(!superseded, 'recovery-used: this work item already used its one bound retry');
-  const state = currentObservation(first);
+  const state = currentObservation(first, { dependency: false });
   const errors = state.errors;
   check(
     existsSync(join(dir, 'attempt.json')) &&
@@ -894,7 +894,129 @@ function childTranscriptDrifted(dir, observation) {
     return true;
   }
 }
-function currentObservation(task) {
+// A read-only task (empty write scope) depends only on what it was given or seen reading: its read
+// scope, a native packet's read paths, the ignored inputs its prompt binds and the Read, Grep and Glob
+// targets in its child transcript. Its settlement refuses only changes inside that set; a change
+// elsewhere and a HEAD change (another session's edit or commit) are recorded in the judgment. A
+// transcript that cannot be read, a search without a path or of the whole repository and any other
+// tool fall back to the repository-wide judgment, as does every writer.
+const DEPENDENCY_IGNORED_TOOLS = new Set(['SubagentHandback', 'WebSearch', 'WebFetch']);
+const DEPENDENCY_SOURCE_GAPS = [
+  'current-source-head-mismatch',
+  'current-source-diff-mismatch',
+  'current-untracked-input-mismatch',
+];
+// A tool path as a repository path (repositoryPath below), or '' for the repository itself or a
+// directory above it, which covers every file; null for a path elsewhere.
+function dependencyPath(root, path) {
+  const absolute = resolve(root, path);
+  const inside = repositoryPath(root, absolute);
+  if (inside !== null) return inside;
+  let real = absolute;
+  try {
+    real = realpathSync(absolute);
+  } catch {
+    real = absolute;
+  }
+  const up = relative(real, root);
+  return up === '..' || up.startsWith('../') || isAbsolute(up) ? null : '';
+}
+function transcriptDependencies(root, dir, record, observation) {
+  const path = childTranscriptOf(dir, observation);
+  if (
+    typeof path !== 'string' ||
+    !path.endsWith(`/${record.sessionId}/subagents/agent-${observation.agentId}.jsonl`)
+  )
+    return { reason: 'child-transcript-unbound' };
+  let rows;
+  try {
+    const stat = lstatSync(path);
+    check(realpathSync(path) === path && stat.isFile(), 'child transcript path');
+    if (stat.size > CHILD_TRANSCRIPT_BYTE_LIMIT)
+      return { reason: childTranscriptLimitReason(stat.size) };
+    rows = readFileSync(path, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch {
+    return { reason: 'child-transcript-unreadable' };
+  }
+  const paths = [];
+  for (const row of rows) {
+    if (row?.type !== 'assistant' || !Array.isArray(row.message?.content)) continue;
+    for (const use of row.message.content) {
+      if (use?.type !== 'tool_use' || DEPENDENCY_IGNORED_TOOLS.has(use.name)) continue;
+      if (!['Read', 'Grep', 'Glob'].includes(use.name))
+        return { reason: `unattributable-tool:${use.name}` };
+      const target = use.name === 'Read' ? use.input?.file_path : use.input?.path;
+      if (typeof target !== 'string' || !target) return { reason: `without-path:${use.name}` };
+      const repository = dependencyPath(root, target);
+      if (repository === '') return { reason: `whole-repository:${use.name}` };
+      if (repository !== null) paths.push(repository);
+    }
+  }
+  return { paths };
+}
+// The ignored files a reviewer prompt binds in its inputs manifest; claudeReviewInputErrors judges them.
+function boundInputFiles(root, prompt) {
+  const line = String(prompt)
+    .split('\n')
+    .find((l) => l.startsWith(REVIEW_INPUTS_LINE));
+  if (line === undefined) return [];
+  try {
+    const manifest = JSON.parse(
+      readFileSync(join(root, line.slice(REVIEW_INPUTS_LINE.length).split(' ')[0])),
+    );
+    return Object.keys(manifest?.files ?? {});
+  } catch {
+    return [];
+  }
+}
+function dependencyJudgment({ dir, record, invocation }, observation, finalFiles, current) {
+  const changed = [
+    ...new Set([
+      ...delta(record.initialFiles, finalFiles),
+      ...delta(observation.finalFiles ?? {}, finalFiles),
+      ...(observation.errors ?? [])
+        .filter((error) => error.startsWith('unattributable-change:'))
+        .map((error) => error.slice('unattributable-change:'.length)),
+    ]),
+  ].sort();
+  const headChanged =
+    current.headSHA !== (record.input.currentSnapshot ?? observation.finalSnapshot)?.headSHA;
+  const repository = (reason) => ({
+    basis: 'repository',
+    reason,
+    scope: null,
+    inside: changed,
+    outside: [],
+    headChanged,
+  });
+  if (record.input.directAssignment.writeOwnership.length) return repository('write-scope');
+  const observed = transcriptDependencies(record.root, dir, record, observation);
+  if (observed.reason) return repository(observed.reason);
+  const scope = [
+    ...new Set(
+      [
+        ...record.input.nativeRequest.task.readScope,
+        ...(record.independentReview?.packet?.boundaries?.allowedReadPaths ?? []),
+        ...boundInputFiles(record.root, invocation.prompt),
+        ...observed.paths,
+      ].map((path) => path.replace(/\/+$/u, '')),
+    ),
+  ].sort();
+  return {
+    basis: 'dependency',
+    reason: null,
+    scope,
+    inside: changed.filter((path) => covered(path, scope)),
+    outside: changed.filter((path) => !covered(path, scope)),
+    headChanged,
+  };
+}
+// Settlement judges a read-only task over its dependencies; a recovery binding passes
+// dependency: false and keeps the repository-wide judgment.
+function currentObservation(task, { dependency = true } = {}) {
   const { dir, record, invocation } = task;
   const errors = [];
   let observation;
@@ -905,9 +1027,19 @@ function currentObservation(task) {
       observation: { valid: false, errors: ['no-completion-observation'] },
       actualPaths: [],
       errors: ['no-completion-observation'],
+      dependencyJudgment: null,
     };
   }
-  errors.push(...(observation.errors ?? []));
+  const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
+  const current = baseline(record.root);
+  const judgment = dependency ? dependencyJudgment(task, observation, finalFiles, current) : null;
+  const filtering = judgment?.basis === 'dependency';
+  const outside = (path) => filtering && !covered(path, judgment.scope);
+  const unattributed = (error) =>
+    error.startsWith('unattributable-change:') &&
+    outside(error.slice('unattributable-change:'.length));
+  const stored = (observation.errors ?? []).filter((error) => !unattributed(error));
+  errors.push(...stored);
   if (existsSync(join(dir, 'observation-error.json'))) errors.push('observation-error');
   if (childTranscriptDrifted(dir, observation)) errors.push('child-transcript-drift-or-missing');
   let attempt;
@@ -929,15 +1061,19 @@ function currentObservation(task) {
   errors.push(...responseErrors(record, observation.response));
   if (observation.responseDigest !== hash(observation.response ?? null))
     errors.push('response-digest-mismatch');
-  const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
   const { changedPaths: actualPaths, unattributable } = attributeChanges(
     delta(record.initialFiles, finalFiles),
     record.input.directAssignment.writeOwnership,
   );
-  if (!isDeepStrictEqual(finalFiles, observation.finalFiles))
+  if (
+    filtering
+      ? delta(observation.finalFiles ?? {}, finalFiles).some((path) => !outside(path))
+      : !isDeepStrictEqual(finalFiles, observation.finalFiles)
+  )
     errors.push('post-completion-file-drift');
-  errors.push(...unattributable);
-  if (!observation.valid) errors.push('native-observation-required');
+  errors.push(...unattributable.filter((error) => !unattributed(error)));
+  const valid = filtering ? stored.length === 0 : observation.valid;
+  if (!valid) errors.push('native-observation-required');
   if (
     !isDeepStrictEqual(
       localIdentity(record.root, invocation.subagent_type),
@@ -945,7 +1081,10 @@ function currentObservation(task) {
     )
   )
     errors.push('adapter/role/settings drift');
-  if (!isDeepStrictEqual(baseline(record.root), observation.finalSnapshot))
+  if (
+    !isDeepStrictEqual(current, observation.finalSnapshot) &&
+    !(filtering && judgment.inside.length === 0)
+  )
     errors.push('post-completion-source-drift');
   if (record.input.nativeRequest.task.role === 'knu_reviewer')
     errors.push(
@@ -955,13 +1094,14 @@ function currentObservation(task) {
         record.input.nativeRequest.task.readScope,
       ),
     );
-  const effort = effortObservation(task, observation);
+  const effort = effortObservation(task, { ...observation, valid });
   errors.push(...effort.errors);
   return {
     observation,
     actualPaths,
     errors: [...new Set(errors)],
     observedEfforts: effort.observedEfforts,
+    dependencyJudgment: judgment,
   };
 }
 // The settled background transcript, or the location a foreground completion recorded.
@@ -1757,6 +1897,10 @@ export function completeClaudeNativeTask(
   const currentState = currentObservation(task);
   const observation = currentState.observation;
   const errors = [...currentState.errors, ...settlement];
+  // A read-only task with no change among its dependencies is compared with the source it was
+  // registered for, not with a final snapshot that another session's edit or commit moved.
+  const judgment = currentState.dependencyJudgment;
+  const dependencyClean = judgment?.basis === 'dependency' && judgment.inside.length === 0;
   const actualPaths = currentState.actualPaths;
   const reported = [...new Set(results.flatMap((r) => r.changedPaths ?? []))].sort();
   if (!isDeepStrictEqual(actualPaths, reported)) errors.push('reported-change-path-mismatch');
@@ -1818,7 +1962,9 @@ export function completeClaudeNativeTask(
         builderIds: record.independentReview.builderIds,
         packet: record.independentReview.packet,
         result: verifiedResult,
-        currentSnapshot: observation.finalSnapshot,
+        currentSnapshot: dependencyClean
+          ? record.independentReview.packet.snapshot
+          : observation.finalSnapshot,
       });
       errors.push(...qa.errors);
       if (delivered.status !== 'complete' || !['PASS', 'FAIL'].includes(delivered.verdict))
@@ -2064,7 +2210,12 @@ export function completeClaudeNativeTask(
     { ...record.input, currentSnapshot: observation.finalSnapshot ?? record.input.currentSnapshot },
     { results, review: linkedReview },
   );
-  errors.push(...common.errors);
+  // Only these three source reasons are judged by the dependency set instead; every other fan-in
+  // gap stays, and the replaced ones are recorded with the judgment.
+  const replacedSourceGaps = dependencyClean
+    ? common.errors.filter((error) => DEPENDENCY_SOURCE_GAPS.includes(error))
+    : [];
+  errors.push(...common.errors.filter((error) => !replacedSourceGaps.includes(error)));
   if (pendingReviewReceipt && errors.length === 0) {
     const receiptPath = join(dir, 'review-receipt.json');
     if (existsSync(receiptPath)) {
@@ -2077,12 +2228,18 @@ export function completeClaudeNativeTask(
       });
     }
   }
-  // A valid completion is the Parent's acceptance; a bound retry of this task is then refused.
+  // A valid completion is the Parent's acceptance; a bound retry of this task is then refused. It
+  // keeps the dependency judgment, so changes a read-only task did not depend on stay on record.
+  const dependencyRecord = judgment && { ...judgment, replacedSourceGaps };
   if (errors.length === 0) {
     try {
       writeFileSync(
         join(dir, 'accepted.json'),
-        JSON.stringify({ taskId: record.taskId, responseDigest: observation.responseDigest }),
+        JSON.stringify({
+          taskId: record.taskId,
+          responseDigest: observation.responseDigest,
+          ...(dependencyRecord ? { dependencyJudgment: dependencyRecord } : {}),
+        }),
         { flag: 'wx', mode: 0o600 },
       );
     } catch (error) {
@@ -2094,6 +2251,7 @@ export function completeClaudeNativeTask(
     errors,
     observation,
     observedEfforts: currentState.observedEfforts,
+    dependencyJudgment: dependencyRecord,
     common,
     verificationClass: 'local-evidence-and-static-contract',
     dispatchAuthorized: false,
@@ -2113,6 +2271,7 @@ export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
     observation: state.observation,
     changedPaths: state.actualPaths,
     observedEfforts: state.observedEfforts,
+    dependencyJudgment: state.dependencyJudgment,
     errors: [...state.errors, ...settlement],
     evidenceDirectory: task.dir,
   };

@@ -20,6 +20,7 @@ const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
 const PACK_DIR = 'docs/development/agent-workflows/domain/swe-web';
 const BINDING = 'docs/development/agent-workflows/domain/knu-binding.md';
 
+// Paths are untracked examples: selection matches names only and reads no product file.
 // A small catalog in the repository's layout: one binding table, pack sublayer sections that name
 // their path keys, and criteria documents whose header says what they select along.
 const FIXTURE_BINDING = [
@@ -29,7 +30,7 @@ const FIXTURE_BINDING = [
   ['repo-structure.bff-helpers', '`apps/web/src/app/api/_bff/`'],
   [
     'repo-structure.server-session',
-    '`apps/web/src/auth/server/`(session facade), `apps/web/src/proxy.ts`',
+    '`apps/web/src/auth/server/`(session facade), `apps/web/src/example.ts`',
   ],
   ['repo-structure.be-src', '`apps/api/src/**`'],
   ['repo-structure.be-auth', '`apps/api/src/auth/**`'],
@@ -106,7 +107,7 @@ const areaIds = (record) => ids(record).filter((id) => id.startsWith('web-'));
 
 test('a path selects the criteria documents whose binding path keys match it', (t) => {
   const catalog = loadReviewCriteriaCatalog(catalogFixture(t));
-  const record = selectReviewCriteria({ paths: ['apps/web/src/app/page.tsx'], catalog });
+  const record = selectReviewCriteria({ paths: ['apps/web/src/app/example/page.tsx'], catalog });
   assert.equal(record.schema, REVIEW_CRITERIA_SELECTION_SCHEMA);
   assert.equal(record.override, false);
   assert.deepEqual(ids(record), ['swe', 'web-fe-rendering-boundary', 'web-fe-state-data-cache']);
@@ -122,7 +123,7 @@ test('a path selects the criteria documents whose binding path keys match it', (
   assert.deepEqual(rendering.reasons, [
     {
       rule: 'path-key',
-      path: 'apps/web/src/app/page.tsx',
+      path: 'apps/web/src/app/example/page.tsx',
       key: 'repo-structure.fe-routes',
       glob: 'apps/web/src/app/**',
       specificity: 4,
@@ -154,7 +155,7 @@ test('between layers only the more specific path key selects; a layer keeps all,
   );
   // A document that names the more specific key itself stays (a tie keeps both layers).
   const helper = selectReviewCriteria({
-    paths: ['apps/web/src/app/api/_bff/forward.ts'],
+    paths: ['apps/web/src/app/api/_bff/example.ts'],
     catalog,
   });
   assert.deepEqual(areaIds(helper), ['web-bff-gateway-forwarding', 'web-fe-state-data-cache']);
@@ -200,8 +201,8 @@ test('binding values are read as path globs only inside backticks', () => {
     exclude: [],
   });
   assert.deepEqual(
-    bindingPathGlobs('`apps/web/src/app/**`의 route 파일, `apps/web/src/proxy.ts`, `apps/api/*`'),
-    { include: ['apps/web/src/app/**', 'apps/web/src/proxy.ts', 'apps/api/*'], exclude: [] },
+    bindingPathGlobs('`apps/web/src/app/**`의 route 파일, `apps/web/src/example.ts`, `apps/api/*`'),
+    { include: ['apps/web/src/app/**', 'apps/web/src/example.ts', 'apps/api/*'], exclude: [] },
   );
   assert.deepEqual(
     bindingPathGlobs('`apps/**`, `*`(root 파일). 제외: `!scripts/agents/**`, `!**/*.md`'),
@@ -215,12 +216,12 @@ test('binding values are read as path globs only inside backticks', () => {
     exclude: [],
   });
   for (const [path, glob, expected] of [
-    ['apps/web/src/app/page.tsx', 'apps/web/src/app/**', true],
+    ['apps/web/src/app/example/page.tsx', 'apps/web/src/app/**', true],
     ['apps/web/src/main/a/b.tsx', 'apps/web/src/*/**', true],
-    ['apps/web/src/proxy.ts', 'apps/web/src/*/**', false],
-    ['apps/web/src/proxy.ts', 'apps/web/src/proxy.ts', true],
-    ['apps/api/package.json', 'apps/api/*', true],
-    ['apps/api/src/main.ts', 'apps/api/*', false],
+    ['apps/web/src/example.ts', 'apps/web/src/*/**', false],
+    ['apps/web/src/example.ts', 'apps/web/src/example.ts', true],
+    ['apps/api/example.json', 'apps/api/*', true],
+    ['apps/api/src/example.ts', 'apps/api/*', false],
     ['README.md', '**/*.md', true],
     ['docs/a/b.md', '**/*.md', true],
     ['docs/a/b.mdx', '**/*.md', false],
@@ -234,7 +235,7 @@ test('binding values are read as path globs only inside backticks', () => {
     ['apps/web/src/*/**', 3],
     ['apps/web/src/app/**', 4],
     ['apps/web/src/app/api/_bff/**', 6],
-    ['apps/web/src/proxy.ts', 4],
+    ['apps/web/src/example.ts', 4],
     ['**/*.md', 0],
     ['*', 0],
     ['infra/*.json', 1],
@@ -244,7 +245,7 @@ test('binding values are read as path globs only inside backticks', () => {
 
 test('a path key exclusion removes its paths; documents only of Markdown select no swe', (t) => {
   const catalog = loadReviewCriteriaCatalog(catalogFixture(t));
-  assert.deepEqual(ids(selectReviewCriteria({ paths: ['apps/api/README.md'], catalog })), [
+  assert.deepEqual(ids(selectReviewCriteria({ paths: ['apps/api/example/README.md'], catalog })), [
     'documents',
   ]);
   const plain = selectReviewCriteria({ paths: ['docs/guide.md'], catalog });
@@ -257,7 +258,7 @@ test('a path key exclusion removes its paths; documents only of Markdown select 
 test('given criteria override the automatic choice, which stays on record', (t) => {
   const catalog = loadReviewCriteriaCatalog(catalogFixture(t));
   const record = selectReviewCriteria({
-    paths: ['apps/web/src/app/page.tsx'],
+    paths: ['apps/web/src/app/example/page.tsx'],
     catalog,
     criteria: ['documents'],
   });
@@ -307,11 +308,11 @@ test('a catalog whose sublayer has no path key, an unknown key or no document is
   const bare = mkdtempSync(join(tmpdir(), 'criteria-selection-bare-'));
   t.after(() => rmSync(bare, { recursive: true, force: true }));
   const empty = selectReviewCriteria({
-    paths: ['apps/web/src/app/page.tsx'],
+    paths: ['apps/web/src/app/example/page.tsx'],
     catalog: loadReviewCriteriaCatalog(bare),
   });
   assert.deepEqual(empty.documents, []);
-  assert.deepEqual(empty.unmatchedPaths, ['apps/web/src/app/page.tsx']);
+  assert.deepEqual(empty.unmatchedPaths, ['apps/web/src/app/example/page.tsx']);
 });
 
 test('the repository catalog loads and picks documents by the Owner overlap rule', () => {
@@ -335,11 +336,11 @@ test('the repository catalog loads and picks documents by the Owner overlap rule
   const route = pick('apps/web/src/app/api/chat/route.ts');
   assert.ok(route.includes('web-bff-gateway-forwarding'), route.join());
   assert.ok(!route.some((id) => id.startsWith('web-fe-')), route.join());
-  const session = pick('apps/web/src/auth/server/index.ts');
+  const session = pick('apps/web/src/auth/server/example.ts');
   assert.ok(session.includes('web-bff-session-cookie-auth'), session.join());
   assert.ok(session.includes('web-security-privacy-trust-authz-model'), session.join());
   assert.ok(!session.some((id) => id.startsWith('web-fe-')), session.join());
-  const page = pick('apps/web/src/app/page.tsx');
+  const page = pick('apps/web/src/app/example/page.tsx');
   for (const id of [
     'swe',
     'web-fe-rendering-boundary',
@@ -348,7 +349,7 @@ test('the repository catalog loads and picks documents by the Owner overlap rule
   ])
     assert.ok(page.includes(id), `${id}: ${page.join()}`);
   assert.ok(!page.some((id) => id.startsWith('web-bff-')), page.join());
-  assert.deepEqual(pick('apps/web/README.md'), ['documents']);
+  assert.deepEqual(pick('apps/web/example/README.md'), ['documents']);
 });
 
 test('the CLI prints the selection record for paths and honours --criteria', (t) => {
@@ -359,7 +360,7 @@ test('the CLI prints the selection record for paths and honours --criteria', (t)
   assert.equal(auto.status, 0, auto.stderr);
   const record = JSON.parse(auto.stdout);
   assert.deepEqual(ids(record), ['documents', 'swe', 'web-bff-gateway-forwarding']);
-  const given = run('--criteria', 'documents', '--', 'apps/web/src/app/page.tsx');
+  const given = run('--criteria', 'documents', '--', 'apps/web/src/app/example/page.tsx');
   assert.equal(given.status, 0, given.stderr);
   assert.equal(JSON.parse(given.stdout).override, true);
   assert.equal(run().status, 2);

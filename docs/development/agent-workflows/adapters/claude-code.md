@@ -21,8 +21,10 @@ pnpm claude:workflow -- --mode resume --plan .plans/example-plan.md --request '�
 ignored 입력은 Git fingerprint 밖입니다. Native task가 명시한 ignored 파일은 별도 inventory로 결합하지만 ignored 디렉터리 전체를 자동 조사하지 않습니다. 리뷰 task는 예외로, helper가 reviewer read path 중 ignored read path 아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored 파일을 manifest로 결속하고 등록·정산·builder 완료에서 다시 대조합니다([same-host 독립 review](./claude-same-host-review.md)). Codex 전용 `codex:preflight`를 대신 호출하지 않습니다.
 현재 설정·loaded roles·실제 permissions는 별도 관측이 필요하고 Git hash가 이를 인증하지 않습니다.
 Git filter의 설정 key만 bounded 조회해 clean/process·fsmonitor를 해당 명령에서 비활성화합니다. Submodule gitlink는
-미점검 nested 설정을 실행하지 않도록 worktree 조회 전에 차단합니다. Snapshot은 비원자적 local 진단이며
-`claude-git-baseline/v3`의 length-framed raw status/index stage records/HEAD binary diff/미추적 파일 digest를 SHA-256으로 결합합니다.
+미점검 nested 설정을 실행하지 않도록 worktree 조회 전에 차단합니다. Snapshot은 비원자적 local 진단이며 실제 index를 읽기만 하고,
+HEAD tree를 읽은 저장소 밖 임시 index(끝나면 삭제)로 계산한 `claude-git-baseline/v4`의 length-framed raw status/HEAD index stage
+records/HEAD binary diff/미추적 파일 digest를 SHA-256으로 결합합니다. 그래서 같은 내용이면 stage(`git add`·`git add -N`)와 무관하게
+digest가 같습니다. 호출 환경의 `GIT_INDEX_FILE`은 따르지 않습니다.
 Dirty `currentSnapshot.dirtyDiffDigest`는 `sha256:`을 붙인 실제 fingerprint와 일치해야 합니다.
 
 `claude/workflow-entry.mjs`의 `prepareClaudeWorkflow`는 공통 intake/context/문서 경로·명시 direct assignment·계획
@@ -176,6 +178,8 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
   Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다. Lead 직접 구현은 그대로 허용됩니다.
 - KNU hook은 KNU 역할·marker 호출에만 적용되어 OMC 사용을 막지 않습니다(hook 자체 오류의 남는 한계는 [운영 보장과 제한](./claude-native-registry.md#운영-보장과-제한)).
   이 규칙은 runtime 차단이 아니라 운영 규칙입니다.
+- OMC code reviewer와 host 자체 리뷰(built-in `/code-review`, Ultracode·Workflow 리뷰, fork 자식)의 결과는 보조 의견이고 필수 독립
+  review를 대신하지 않습니다([same-host 독립 review](./claude-same-host-review.md#same-host-independent-review)).
 
 | OMC 요청·skill                          | 저장소 workflow owner                                                                                      |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |

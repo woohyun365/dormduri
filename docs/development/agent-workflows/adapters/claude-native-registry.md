@@ -78,7 +78,11 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    원인을 구분합니다. Stop이 기록됐는데 정산되지 않으면 `stopped-task-settlement-failed: <사유>`가 함께 나옵니다.
 8. 등록부터 정산까지 Parent는 tracked·비ignored 경로를 수정하지 않습니다. Collector는 등록·정산 시점 파일 목록의 차이 중
    child write 범위 안의 변경만 child 변경으로 기록하고, 범위 밖 변경은 누가 바꿨는지 알 수 없으므로
-   `unattributable-change:<path>`로 거부합니다. Write 범위 안의 Parent 수정은 구분할 수 없습니다. 그래서 이 세션의 writer
+   `unattributable-change:<path>`로 거부합니다. Write 범위가 빈 task는 정산 때 의존 집합(등록 read 범위, native packet read path,
+   결속한 ignored 입력, child transcript가 보인 Read·Grep·Glob 대상) 안의 변경만 거부하고, 집합 밖 변경과 HEAD 변경은 결과
+   `dependencyJudgment`와 `accepted.json`에 기록만 남깁니다. Transcript를 읽지 못하거나 경로 없는 검색·그 밖 도구가 보이면 저장소
+   전체로 판정합니다. 저장된 `completion.json`과 아래 recovery 결속은 저장소 전체 판정 그대로입니다. Write 범위 안의 Parent
+   수정은 구분할 수 없습니다. 그래서 이 세션의 writer
    task가 실행되는 동안 file guard(PreToolUse `Edit|Write|NotebookEdit`)가 Parent의 tracked·비ignored 경로 쓰기를 deny합니다.
    Bash·기타 도구 쓰기와 hook이 실행되지 않은 경우는 이 운영 규칙으로 막습니다
    ([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)). 같은 guard는 subagent가 native

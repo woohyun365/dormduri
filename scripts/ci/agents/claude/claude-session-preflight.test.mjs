@@ -90,7 +90,8 @@ test('raw porcelain preserves spaces, newlines and quotes and reads the worktree
   assert.match(untracked.baseline.diffHash, /^[a-f0-9]{64}$/);
   assert.ok(untracked.snapshot);
   assert.deepEqual(untracked.diagnostics, []);
-  assert.equal(untracked.baseline.untrackedInputDigests.length, 1);
+  // Against HEAD the renamed file is new as well, so both new names carry a content digest.
+  assert.equal(untracked.baseline.untrackedInputDigests.length, 2);
   writeFileSync(join(root, 'untracked\n file.txt'), 'different content');
   const changed = runClaudePreflight({ root });
   assert.notEqual(changed.baseline.diffHash, untracked.baseline.diffHash);
