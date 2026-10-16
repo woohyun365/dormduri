@@ -80,6 +80,7 @@
   invalid parentSubject: requirement-heading-missing: .plans/<plan>.md § <heading>
   invalid parentSubject: requirement-heading-duplicate: .plans/<plan>.md § <heading>
   invalid parentSubject: requirement-path-unreadable: .plans/<plan>.md
+  invalid parentSubject: requirement-path-in-paths: .plans/<plan>.md
   invalid parentSubject: requirementSections-invalid: [{"path": "<plan path>", "headings": ["<heading text>", ...]}]
   ```
 
@@ -189,11 +190,12 @@
 - Parent subject 입력: `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로는 host·세션
   상태라 `local-state-path:<path>`로 거부합니다. 추적 `.claude/` 설정·skill·역할 파일은 해당하지 않습니다. `request`에 완료형 구현
   서술 문장(`고쳤다`·`구현했다` 등)이 있으면 `request-implementation-marker` 경고와 packet `evidence.environment`의 문장 수만 남고
-  리뷰는 진행됩니다.
+  리뷰는 진행됩니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남습니다.
 - `requirementSections`: plan의 지정 절만 `<reviewId>.requirements.md`로 잘라 reviewer read path에 넣습니다. Heading은 `#`를 뺀
   정확한 문자열이며 code fence 안 줄은 heading이 아닙니다. 없으면 `requirement-heading-missing`, 두 번 이상이면
   `requirement-heading-duplicate`, root 안의 일반 파일이 아니면 `requirement-path-unreadable`, 형식이 `[{path, headings}]`가 아니면
-  `requirementSections-invalid`입니다. 정산은 추출이 prompt 기록의 digest와 다르거나 기록이 없으면 `review-requirements-changed`입니다.
+  `requirementSections-invalid`, `paths`가 그 plan이나 그 위 디렉터리를 가리키면 `requirement-path-in-paths`입니다. 정산은 등록한 prompt나
+  read 범위가 추출을 가리킬 때 추출이 prompt 기록의 digest와 다르거나 기록이 없으면 `review-requirements-changed`입니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
@@ -248,7 +250,8 @@
   구성원 각자의 spec)을 그대로 `prepare`하고, 바꿀 것이 있으면 `review`를 다시 만듭니다.
 - `local-state-path`는 그 경로를 `paths`에서 빼고 리뷰 대상인 추적 파일만 줍니다. `request-implementation-marker` 경고는 `request`를
   요구사항 문장(사용자 요청·issue·plan acceptance)으로 고쳐 `review`를 다시 실행합니다. `requirement-heading-*`는 plan의 heading을
-  `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다.
+  `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다. `requirement-path-in-paths`는 그
+  plan이나 디렉터리를 `paths`에서 빼고 판정 원본 절은 `requirementSections`로만 줍니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
@@ -406,6 +409,7 @@ prompt 기록과 Parent subject 입력은 `registration refuses a reviewer promp
 `a native reviewer registers only with the prompt its review recorded`, `each first-round group member registers only with its own recorded prompt`,
 `a Parent subject path into local state is refused`, `a request that narrates the implementation warns`,
 `requirementSections hands the reviewer only the named plan sections`, `requirementSections refuses a missing or repeated heading`,
+`a Parent subject path naming the extracted plan or a directory above it is refused`,
 `a requirement extract changed after the review` 테스트가 고정합니다.
 
 ## 참고

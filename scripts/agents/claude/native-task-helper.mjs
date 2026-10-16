@@ -468,6 +468,21 @@ const REQUEST_MARKER =
 const SENTENCE_END = /(?<=[다요])\.\s+|(?<=\))\.\s+/u;
 const requestMarkerCount = (request) =>
   request.split(SENTENCE_END).filter((sentence) => REQUEST_MARKER.test(sentence)).length;
+// A plan whose sections are extracted stays out of the read paths (G10): paths may name neither the
+// plan nor a directory above it.
+const pathKey = (path) => normalize(path).replace(/\/+$/u, '');
+const requirementPathIssues = (paths, sections) => {
+  if (!Array.isArray(sections)) return [];
+  const plans = sections
+    .filter((entry) => typeof entry?.path === 'string')
+    .map((entry) => pathKey(entry.path));
+  return paths
+    .filter((path) => {
+      const key = pathKey(path);
+      return plans.some((plan) => plan === key || plan.startsWith(`${key}/`));
+    })
+    .map((path) => `requirement-path-in-paths: ${path}`);
+};
 // ATX headings outside code fences, with their 0-based line, level and text without the # marks.
 function markdownHeadings(lines) {
   const headings = [];
@@ -592,7 +607,11 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
     ...(typeof owner === 'string' && ID.test(owner) ? [] : ['owner identifier required']),
     ...(textList(acceptance) && acceptance.length ? [] : ['acceptance required']),
     ...(textList(paths) && paths.length
-      ? [...localStateIssues(paths), ...nativeEvidenceIssues(root, paths)]
+      ? [
+          ...localStateIssues(paths),
+          ...nativeEvidenceIssues(root, paths),
+          ...requirementPathIssues(paths, requirementSections),
+        ]
       : ['paths required']),
     ...(requirements?.issues ?? []),
   ]);
@@ -1204,14 +1223,16 @@ function reviewPacketStatus(state, root) {
   };
 }
 // For a review with a requirement extract: is the extract the one its prompt record binds? The
-// registered read scope says whether the review has one, so a lost record cannot skip the check.
+// registered prompt (bound to the record at registration) or read scope says whether the review has
+// one, so neither a lost record nor a narrowed read scope can skip the check.
 function reviewRequirementsStatus(state, root) {
   // The caller prompt as registered; the invocation prompt also carries the registry marker.
   const { prompt } = state.record;
   const reviewId = claudeReviewPromptId(root, prompt);
   if (reviewId === undefined) return null;
   const { path } = reviewPacketPath(root, reviewId, '.requirements.md');
-  if (!state.record.input.nativeRequest.task.readScope.includes(path)) return null;
+  if (!prompt.includes(path) && !state.record.input.nativeRequest.task.readScope.includes(path))
+    return null;
   const record = claudeReviewPromptRecord(root, reviewId);
   const expectedDigest =
     record?.promptDigest === packetDigest(Buffer.from(prompt)) && record.requirements?.path === path

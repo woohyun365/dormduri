@@ -29,13 +29,14 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    요청·issue·plan acceptance를 옮긴 문장)이고 구현 설명·추론·자기평가는 넣지 않습니다. `owner`는 작성자 식별자, `acceptance`는 판정
    기준 문장, `paths`는 리뷰 대상 파일입니다(native task 기록과 local state는 넣을 수 없음). 선택 필드
    `requirementSections: [{"path": "<plan 경로>", "headings": ["<절 heading>"]}]`는 plan의 판정 원본 절(acceptance·invariant·Owner 결정
-   기록)만 helper가 잘라 reviewer 입력으로 주고, plan 파일은 read path에 넣지 않습니다. Heading은 `#`를 뺀 정확한 문자열이고 plan 안에
-   한 번만 있어야 합니다. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
+   기록)만 helper가 잘라 reviewer 입력으로 주고, plan 파일은 read path에 넣지 않습니다(`paths`에 그 plan이나 그 위 디렉터리를 함께 주면
+   `requirement-path-in-paths`로 거부). Heading은 `#`를 뺀 정확한 문자열이고 plan 안에 한 번만 있어야 합니다. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
    `logHeader`를 받습니다.
    - `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로는
      `local-state-path:<path>`로 거부됩니다. 추적 `.claude/` 설정·skill·역할 파일은 해당하지 않습니다.
    - `request`에 완료형 구현 서술(`고쳤다`·`구현했다` 등)이 있으면 출력 `warnings`에 `request-implementation-marker`가 나오고 packet
-     `evidence.environment`에 그 문장 수가 남습니다. 리뷰를 막지는 않으니 `request`를 요구사항 문장으로 고쳐 다시 `review`합니다.
+     `evidence.environment`에 그 문장 수가 남습니다. 리뷰를 막지는 않지만 걸린 문장은 packet `objective`에 그대로 남으니 `request`를
+     요구사항 문장으로 고쳐 다시 `review`합니다.
 2. 그 digest로 runner evidence를 만듭니다.
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --session ${CLAUDE_SESSION_ID}`
 4. 출력 `reviewerSpec`으로 `prepare --spec`하고 `agentInput`으로 Agent를 호출합니다. Packet은 prompt에 싣지 않고

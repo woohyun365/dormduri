@@ -23,13 +23,15 @@ Parent subject의 `request`는 요구사항(사용자 요청·issue·plan accept
 `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로를 `local-state-path:<path>`로
 거부합니다. 추적 `.claude/` 설정·skill·역할 파일은 local state가 아닙니다. `request`에 완료형 구현 서술 문장(`고쳤다`·`구현했다` 등
 16개 동사)이 있으면 거부하지 않고 출력 `warnings`에 `request-implementation-marker`를 내고 packet `evidence.environment`에
-`request-implementation-marker=<문장 수>`를 덧붙입니다. 걸린 문장은 packet에 넣지 않고 `knownGaps`도 쓰지 않아 PASS를 막지 않습니다.
+`request-implementation-marker=<문장 수>`를 덧붙입니다. `evidence.environment`에는 걸린 문장을 넣지 않고 `knownGaps`도 쓰지 않아 PASS를
+막지 않습니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남으므로 경고를 받으면 `request`를 고쳐 다시 `review`합니다.
 선택 필드 `requirementSections`(`[{"path", "headings"}]`)는 plan의 판정 원본 절만 reviewer에게 넘깁니다. Heading은 `#`를 뺀 정확한
 문자열로 찾고, 절은 그 heading부터 같은 수준 이하의 다음 heading 전까지입니다(code fence 안 줄은 heading이 아님). 없으면
 `requirement-heading-missing`, 두 번 이상이면 `requirement-heading-duplicate`, 읽을 수 없는 파일은 `requirement-path-unreadable`, 형식
 오류는 `requirementSections-invalid`로 거부합니다. Helper는 추출을 `.artifacts/tools/claude-review-packets/<reviewId>.requirements.md`에
-한 번 쓰고 그 경로만 read path에 넣으며 plan 파일은 넣지 않습니다. Packet `sources.requirements`는 acceptance 그대로입니다. Plan
-자체가 `paths`에 있는 readiness 리뷰는 이 필드를 쓰지 않습니다.
+한 번 쓰고 그 경로만 read path에 넣으며 plan 파일은 넣지 않습니다. `paths`가 그 plan이나 그 위 디렉터리를 가리키면
+`requirement-path-in-paths: <path>`로 거부합니다. Packet `sources.requirements`는 acceptance 그대로입니다. Plan 자체가 `paths`에 있는
+readiness 리뷰는 이 필드를 쓰지 않습니다.
 
 Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
 sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(추출이 있으면 그 digest도 함께), registry는
@@ -119,7 +121,7 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 경로가 reviewer read 범위에 들어갑니다. `settle --task`는 `reviewPacket`(경로, 기대·현재 digest, 성공한 `Read` 관측)을 더하고,
 읽지 않았으면 `review-packet-unread`, 파일이 바뀌었으면 `review-packet-changed`, Parent reviewer prompt에 packet 파일 줄이
 없으면 `review-packet-missing`을 `observationErrors`에 넣습니다(그런 prompt는 등록부터 `review-prompt-unbound`로 거부됩니다).
-`requirementSections` 추출이 read 범위에 있으면 `reviewRequirements`(경로, 기록·현재 digest)를 더하고, 추출이 prompt 기록의 digest와
+등록한 prompt나 read 범위가 `requirementSections` 추출을 가리키면 `reviewRequirements`(경로, 기록·현재 digest)를 더하고, 추출이 prompt 기록의 digest와
 다르거나 기록이 없으면 `review-requirements-changed`를 넣습니다. 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지

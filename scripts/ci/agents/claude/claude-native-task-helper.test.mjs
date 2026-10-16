@@ -1848,6 +1848,36 @@ test('requirementSections refuses a missing or repeated heading and a malformed 
   assert.deepEqual(reviewFiles(r), []);
 });
 
+test('a Parent subject path naming the extracted plan or a directory above it is refused', (t) => {
+  const r = requirementRepo(t);
+  for (const path of [REQ_PLAN, `./${REQ_PLAN}`, REQ_DIR, `${REQ_DIR}/`])
+    assert.throws(
+      () =>
+        buildClaudeNativeReview(
+          {
+            parentSubject: { ...withSections(['2. Acceptance']), paths: ['sample.txt', path] },
+          },
+          { root: r.root },
+        ),
+      (error) => error.message.includes(`requirement-path-in-paths: ${path}`),
+      path,
+    );
+  assert.deepEqual(reviewFiles(r), []);
+  // A sibling path that only shares the prefix is not the plan.
+  writeFileSync(join(r.root, `${REQ_DIR}/p.md.notes`), 'notes\n');
+  assert.doesNotThrow(() =>
+    buildClaudeNativeReview(
+      {
+        parentSubject: {
+          ...withSections(['2. Acceptance']),
+          paths: ['sample.txt', `${REQ_DIR}/p.md.notes`],
+        },
+      },
+      { root: r.root },
+    ),
+  );
+});
+
 test('a requirement extract changed after the review, or a lost record, fails settle', (t) => {
   const r = requirementRepo(t);
   assert.deepEqual(
@@ -1867,6 +1897,26 @@ test('a requirement extract changed after the review, or a lost record, fails se
       status.observationErrors.join(','),
     );
   }
+  // A read scope narrowed before registration does not skip the check: the bound prompt names the
+  // extract.
+  const s = requirementRepo(t);
+  const review = parentReview(s, withSections(['2. Acceptance']));
+  const narrowed = {
+    ...review,
+    reviewerSpec: {
+      ...review.reviewerSpec,
+      readScope: review.reviewerSpec.readScope.filter(
+        (path) => path !== review.requirementsFile.path,
+      ),
+    },
+  };
+  const status = reviewedWhile(s, narrowed, () =>
+    writeFileSync(join(s.root, review.requirementsFile.path), 'other\n'),
+  );
+  assert.ok(
+    status.observationErrors.includes('review-requirements-changed'),
+    `narrowed read scope: ${status.observationErrors.join(',')}`,
+  );
 });
 
 // A review round is a review input: round 1 reports broadly, later rounds report only blocking
