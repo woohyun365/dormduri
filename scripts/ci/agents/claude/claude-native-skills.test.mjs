@@ -451,6 +451,33 @@ test('settle documents keep the hand-back turn alive until the completion notifi
   assert.ok(!/\bE[0-9]\b/u.test(flat), 'no plan phase label in a tracked doc');
 });
 
+// The review entry takes code review requests and picks criteria from the changed paths. A host's
+// own review (built-in /code-review, Ultracode, Workflow, fork, Codex Ultra) is an advisory opinion;
+// the review evidence is the registered reviewer's observation only. The snapshot ignores the stage,
+// so no skill asks for `git add -N` before a review.
+test('knu-review is the code review entry with automatic criteria and advisory host reviews', () => {
+  const review = skill('knu-review');
+  const { description } = frontmatter(review);
+  for (const phrase of ['code review', '리뷰해줘']) assert.ok(description.includes(phrase), phrase);
+  const flat = review.replace(/\s+/gu, ' ');
+  for (const host of ['`/code-review`', 'Ultracode', 'Workflow', 'fork', 'Codex Ultra'])
+    assert.ok(flat.includes(host), `host review: ${host}`);
+  assert.ok(flat.includes('보조 의견'), 'host review results are advisory');
+  assert.ok(flat.includes('등록한 reviewer task의 관측'), 'evidence is the registered reviewer');
+  assert.ok(flat.includes('<reviewId>.criteria.json'), 'names the selection record');
+  assert.ok(flat.includes('--criteria'), 'names the override');
+  for (const name of ['knu-review', 'knu-delegate'])
+    assert.ok(!skill(name).includes('git add -N'), `${name}: git add -N instruction remains`);
+  for (const path of [
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+  ])
+    assert.ok(read(path).includes('`review-snapshot-mismatch`'), `${path}: logHeader comparison`);
+  const adapter = read('docs/development/agent-workflows/adapters/claude-code.md');
+  assert.ok(adapter.includes('`claude-git-baseline/v4`'), 'digest version');
+  assert.ok(!adapter.includes('`claude-git-baseline/v3`'), 'old digest version');
+});
+
 test('the delegate skill routine table matches the adapter routine rows one to one', () => {
   const cells = (line) =>
     line

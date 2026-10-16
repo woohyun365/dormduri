@@ -167,8 +167,9 @@ function dispatch(r, prepared, toolUseId, response, effort) {
     { root: r.root },
   );
 }
-function settledBuilder(t) {
+function settledBuilder(t, before = () => {}) {
   const r = repo(t);
+  before(r);
   const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
   dispatch(r, subject, 'build-1');
   writeFileSync(join(r.root, 'sample.txt'), 'updated');
@@ -2118,6 +2119,227 @@ test('CLI review takes the round, previous result and criteria inputs', (t) => {
   assert.ok(review.reviewerSpec.readScope.includes(previous));
   assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/documents.md`));
   assert.match(review.reviewerPrompt, /Review round 2:/u);
+});
+
+// Without --criteria, review picks the criteria documents from the subject paths through the
+// repository binding (review-criteria-selection.mjs) and records the choice beside the packet; a
+// given --criteria overrides it and the automatic choice stays on record.
+const BINDING_PATH = 'docs/development/agent-workflows/domain/knu-binding.md';
+function writeCatalog(r) {
+  mkdirSync(join(r.root, 'docs/development/agent-workflows/domain'), { recursive: true });
+  writeFileSync(
+    join(r.root, BINDING_PATH),
+    [
+      '# binding',
+      '',
+      '| 키 | 값 |',
+      '| --- | --- |',
+      '| `repo-structure.review-swe` | `*`(root 파일). 제외: `!**/*.md` |',
+      '| `repo-structure.review-documents` | `**/*.md` |',
+      '',
+    ].join('\n'),
+  );
+  writeCriteriaItems(r, 'swe', 'S', 2);
+  writeFileSync(
+    join(r.root, CRITERIA_DIR, 'documents.md'),
+    '# documents\n\n### D1. item\n\nbody\n',
+  );
+  execFileSync('git', ['add', '.'], { cwd: r.root });
+}
+const criteriaRecordOf = (r, review) =>
+  JSON.parse(readFileSync(join(r.root, PACKET_DIR, `${reviewIdOf(review)}.criteria.json`), 'utf8'));
+
+test('review selects criteria from the Parent subject paths and records the choice beside the packet', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const status = buildClaudeNativeReview({ parentSubject: SMALL_PARENT_SUBJECT }, { root: r.root });
+  assert.deepEqual(status.criteriaSelection, {
+    override: false,
+    documents: ['swe'],
+    documentCount: 1,
+    itemCount: 2,
+  });
+  const review = roundReview(r, { reviewRound: 1 });
+  assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/swe.md`));
+  assert.ok(review.reviewerPrompt.includes(`Criteria documents: ${CRITERIA_DIR}/swe.md.`));
+  assert.ok(review.criteriaFile, 'review returns criteriaFile');
+  const path = `${PACKET_DIR}/${reviewIdOf(review)}.criteria.json`;
+  assert.equal(review.criteriaFile.path, path);
+  assert.equal(review.criteriaFile.digest, sha256(readFileSync(join(r.root, path))));
+  assert.equal(statSync(join(r.root, path)).mode & 0o777, 0o600);
+  assert.ok(!review.reviewerSpec.readScope.includes(path));
+  execFileSync('git', ['check-ignore', '-q', path], { cwd: r.root });
+  const record = criteriaRecordOf(r, review);
+  assert.equal(record.reviewId, reviewIdOf(review));
+  assert.deepEqual(record.paths, ['sample.txt']);
+  assert.equal(record.override, false);
+  assert.deepEqual(
+    record.documents.map((document) => document.id),
+    ['swe'],
+  );
+  assert.deepEqual(record.documents[0].items, ['swe.md S1', 'swe.md S2']);
+  assert.equal(record.documents[0].reasons[0].path, 'sample.txt');
+  assert.equal(record.itemCount, 2);
+  // A Markdown-only subject takes documents, not swe.
+  const docs = buildClaudeNativeReview(
+    { parentSubject: { ...SMALL_PARENT_SUBJECT, paths: [`${CRITERIA_DIR}/swe.md`] } },
+    { root: r.root },
+  );
+  assert.deepEqual(docs.criteriaSelection.documents, ['documents']);
+  // --criteria overrides the choice; the record keeps what would have been chosen.
+  const given = roundReview(r, { reviewRound: 1, criteria: ['documents'] });
+  assert.ok(!given.packet.sources.owners.includes(`${CRITERIA_DIR}/swe.md`));
+  const overridden = criteriaRecordOf(r, given);
+  assert.equal(overridden.override, true);
+  assert.deepEqual(overridden.requested, ['documents']);
+  assert.deepEqual(overridden.automatic.documents, ['swe']);
+  assert.deepEqual(given.criteriaSelection.documents, ['documents']);
+  assert.equal(given.criteriaSelection.override, true);
+});
+
+test('a native subject review selects criteria from the observed changed paths', (t) => {
+  const r = settledBuilder(t, writeCatalog);
+  const review = reviewOf(r);
+  assert.deepEqual(review.criteriaSelection.documents, ['swe']);
+  assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/swe.md`));
+  assert.deepEqual(criteriaRecordOf(r, review).paths, ['sample.txt']);
+});
+
+test('a group review records the selection once per member', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const built = roundReview(r, { reviewRound: 1, composition: 'e2', reviewers: 2 });
+  for (const member of built.reviewers) {
+    assert.ok(member.criteriaFile, 'member criteriaFile');
+    assert.ok(existsSync(join(r.root, member.criteriaFile.path)));
+  }
+  assert.notEqual(built.reviewers[0].criteriaFile.path, built.reviewers[1].criteriaFile.path);
+});
+
+// The snapshot digest is read over the HEAD tree, so the user's stage never changes it: a review
+// built before `git add -N` or `git add` still prepares, and no command writes the real index.
+test('review and prepare ignore the stage and leave the index bytes unchanged', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  writeFileSync(join(r.root, 'new-file.txt'), 'new file');
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', 'new-file.txt'] };
+  const index = () => sha256(readFileSync(join(r.root, '.git/index')));
+  const before = index();
+  const { snapshotDigest } = buildClaudeNativeReview({ parentSubject: subject }, { root: r.root });
+  assert.equal(index(), before);
+  const review = parentReview(r, subject);
+  assert.equal(index(), before);
+  execFileSync('git', ['add', '-N', 'new-file.txt'], { cwd: r.root });
+  assert.equal(
+    buildClaudeNativeReview({ parentSubject: subject }, { root: r.root }).snapshotDigest,
+    snapshotDigest,
+  );
+  execFileSync('git', ['add', 'sample.txt', 'new-file.txt'], { cwd: r.root });
+  assert.equal(
+    buildClaudeNativeReview({ parentSubject: subject }, { root: r.root }).snapshotDigest,
+    snapshotDigest,
+  );
+  const staged = index();
+  prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  assert.equal(index(), staged);
+  // The content still counts.
+  writeFileSync(join(r.root, 'new-file.txt'), 'other content');
+  assert.notEqual(
+    buildClaudeNativeReview({ parentSubject: subject }, { root: r.root }).snapshotDigest,
+    snapshotDigest,
+  );
+});
+
+// Settle compares a Parent reviewer's prompt logHeader with its source. For a read-only reviewer
+// only a change among its dependencies (read paths, bound inputs, what its transcript shows it
+// reading) counts; another session's edit or commit elsewhere is recorded, not refused.
+function parentReviewRun(t, change, { read = true } = {}) {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  dispatch(r, reviewer, 'review-1');
+  change?.(r.root);
+  const result = structuredClone(review.resultTemplate);
+  result.verdict = 'PASS';
+  handleClaudeNativeSessionEvent(
+    {
+      hook_event_name: 'PostToolUse',
+      session_id: r.sessionId,
+      cwd: r.root,
+      permission_mode: 'auto',
+      tool_name: 'Agent',
+      tool_use_id: 'review-1',
+      tool_input: reviewer.invocation,
+      transcript_path: read
+        ? writeChildTranscript(r.root, {
+            sessionId: r.sessionId,
+            agentId: 'review-1-agent',
+            prompt: reviewer.invocation.prompt,
+            model: 'claude-opus-4-6',
+            effort: ROLE_EFFORT.knu_reviewer,
+            tools: [{ name: 'Read', input: { file_path: join(r.root, review.packetFile.path) } }],
+          })
+        : join(r.root, '.artifacts/transcripts', `${r.sessionId}.jsonl`),
+      tool_response: {
+        status: 'completed',
+        agentId: 'review-1-agent',
+        resolvedModel: 'claude-opus-4-6',
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+      },
+    },
+    { root: r.root },
+  );
+  return settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+}
+const commitFile = (root, path) => {
+  writeFileSync(join(root, path), 'committed by another session');
+  execFileSync('git', ['add', '--', path], { cwd: root });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'c', '--', path],
+    { cwd: root },
+  );
+};
+
+test('settle compares the Parent reviewer logHeader over its dependencies', (t) => {
+  for (const [kind, change, mismatch] of [
+    ['no change', null, false],
+    [
+      'a new file outside its reads',
+      (root) => writeFileSync(join(root, 'outside.txt'), 'x'),
+      false,
+    ],
+    ['a commit outside its reads', (root) => commitFile(root, 'outside.txt'), false],
+    [
+      'an edit to its read path',
+      (root) => writeFileSync(join(root, 'sample.txt'), 'changed'),
+      true,
+    ],
+  ]) {
+    const status = parentReviewRun(t, change);
+    assert.equal(
+      status.observationErrors.includes('review-snapshot-mismatch'),
+      mismatch,
+      `${kind}: ${status.observationErrors.join()}`,
+    );
+    if (!mismatch) assert.deepEqual(status.observationErrors, [], kind);
+    assert.equal(status.dependencyJudgment.basis, 'dependency', kind);
+  }
+  const committed = parentReviewRun(t, (root) => commitFile(root, 'outside.txt'));
+  assert.deepEqual(committed.dependencyJudgment.outside, ['outside.txt']);
+  assert.equal(committed.dependencyJudgment.headChanged, true);
+});
+
+test('without its transcript a Parent reviewer logHeader is compared over the whole repository', (t) => {
+  const status = parentReviewRun(t, (root) => writeFileSync(join(root, 'outside.txt'), 'x'), {
+    read: false,
+  });
+  assert.equal(status.dependencyJudgment.basis, 'repository');
+  assert.ok(status.observationErrors.includes('review-snapshot-mismatch'));
+  assert.ok(status.observationErrors.includes('unattributable-change:outside.txt'));
 });
 
 // A first-round composition (V1c) builds one frozen review per member. The members share the

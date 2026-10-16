@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  readFileSync,
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -26,6 +35,26 @@ function fixture(t) {
   );
   return { root, git };
 }
+// The worktree status against HEAD whatever the user staged: Git status over a fresh index read
+// from the HEAD tree, the view the snapshot digest takes.
+function headIndexStatus(root, encoding = 'utf8') {
+  const dir = mkdtempSync(join(tmpdir(), 'head-index-'));
+  try {
+    const env = { ...process.env, GIT_INDEX_FILE: join(dir, 'index') };
+    execFileSync('git', ['read-tree', 'HEAD'], { cwd: root, env });
+    return execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
+      cwd: root,
+      env,
+      encoding,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const indexDigest = (root) =>
+  createHash('sha256')
+    .update(readFileSync(join(root, '.git/index')))
+    .digest('hex');
 test('preflight reads actual raw Git baseline, never model/runtime evidence', (t) => {
   const { root, git } = fixture(t);
   const output = runClaudePreflight({ root, mode: 'fresh' });
@@ -41,13 +70,15 @@ test('preflight reads actual raw Git baseline, never model/runtime evidence', (t
   assert.equal(output.native.status, 'not-ready');
   assert.equal(output.identityEvidence, 'local-git-diagnostic-only');
 });
-test('raw porcelain preserves rename, spaces, newlines, quotes and staged/worktree edits', (t) => {
+test('raw porcelain preserves spaces, newlines and quotes and reads the worktree against HEAD', (t) => {
   const { root, git } = fixture(t);
   const original = runClaudePreflight({ root }).baseline.diffHash;
   git('mv', 'source.txt', 'new "name\nfile.txt');
   writeFileSync(join(root, 'new "name\nfile.txt'), 'changed\n');
   const output = runClaudePreflight({ root });
-  assert.equal(
+  // The staged rename is not part of the view: the status is the one over the HEAD tree.
+  assert.equal(output.baseline.rawStatus, headIndexStatus(root));
+  assert.notEqual(
     output.baseline.rawStatus,
     git('status', '--porcelain=v1', '-z', '--untracked-files=all'),
   );
@@ -165,11 +196,7 @@ test('base64 raw status preserves path bytes and digest uses exact bounded Git b
   const filename = join(root, '한글😀-file');
   writeFileSync(filename, 'odd path\n');
   git('add', '.');
-  const expected = execFileSync(
-    'git',
-    ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-    { cwd: root },
-  );
+  const expected = headIndexStatus(root, 'buffer');
   const output = runClaudePreflight({ root });
   assert.equal(output.baseline.rawStatusBase64, expected.toString('base64'));
   assert.equal(output.baseline.clean, false);
@@ -233,30 +260,75 @@ test('package-runner separator after default --json reaches actual preflight', (
   assert.equal(repeated.status, 1);
 });
 
-test('fingerprint binds staged blobs even when porcelain and worktree HEAD diff are identical', (t) => {
+// The snapshot binds the worktree and HEAD, never the user's stage: the digest is read through a
+// temporary index from the HEAD tree, so staging (git add, git add -N) changes nothing.
+test('fingerprint ignores the stage: the same worktree content gives one digest', (t) => {
   const { root, git } = fixture(t);
   mkdirSync(join(root, '.plans'));
   writeFileSync(join(root, '.plans/selected.md'), '- Plan ID: selected\n- Status: active\n');
+  const clean = runClaudePreflight({ root });
   writeFileSync(join(root, 'source.txt'), 'staged A\n');
   git('add', 'source.txt');
   writeFileSync(join(root, 'source.txt'), 'baseline\n');
   const first = runClaudePreflight({ root });
-  assert.equal(git('diff', 'HEAD', '--'), '');
+  assert.equal(first.baseline.diffHash, clean.baseline.diffHash);
+  assert.equal(first.baseline.clean, true);
   writeFileSync(join(root, 'source.txt'), 'staged B\n');
   git('add', 'source.txt');
   writeFileSync(join(root, 'source.txt'), 'baseline\n');
-  const second = runClaudePreflight({ root });
-  assert.equal(second.baseline.rawStatus, first.baseline.rawStatus);
-  assert.equal(git('diff', 'HEAD', '--'), '');
-  assert.notEqual(second.baseline.diffHash, first.baseline.diffHash);
-  assert.ok(
+  assert.equal(runClaudePreflight({ root }).baseline.diffHash, clean.baseline.diffHash);
+  assert.equal(
     runClaudePreflight({
       root,
       mode: 'resume',
       planPath: '.plans/selected.md',
-      continuation: { expectedPlanId: 'selected', checkpointSnapshot: first.snapshot },
-    }).continuation.reasons.includes('source-changed'),
+      continuation: { expectedPlanId: 'selected', checkpointSnapshot: clean.snapshot },
+    }).continuation.decision,
+    'candidate',
   );
+  // A new file gives one digest whether untracked, intent-to-add or staged; its content still counts.
+  git('reset', '-q');
+  writeFileSync(join(root, 'new.txt'), 'new file\n');
+  const untracked = runClaudePreflight({ root }).baseline.diffHash;
+  git('add', '-N', 'new.txt');
+  assert.equal(runClaudePreflight({ root }).baseline.diffHash, untracked);
+  git('add', 'new.txt');
+  assert.equal(runClaudePreflight({ root }).baseline.diffHash, untracked);
+  writeFileSync(join(root, 'new.txt'), 'other content\n');
+  assert.notEqual(runClaudePreflight({ root }).baseline.diffHash, untracked);
+  // A tracked edit staged or not is the same edit.
+  git('reset', '-q');
+  rmSync(join(root, 'new.txt'));
+  writeFileSync(join(root, 'source.txt'), 'edited\n');
+  const unstaged = runClaudePreflight({ root }).baseline.diffHash;
+  git('add', 'source.txt');
+  assert.equal(runClaudePreflight({ root }).baseline.diffHash, unstaged);
+  assert.notEqual(unstaged, clean.baseline.diffHash);
+});
+
+test('preflight leaves the real index bytes unchanged and ignores an ambient GIT_INDEX_FILE', (t) => {
+  const { root, git } = fixture(t);
+  writeFileSync(join(root, 'source.txt'), 'staged\n');
+  git('add', 'source.txt');
+  writeFileSync(join(root, 'source.txt'), 'worktree\n');
+  writeFileSync(join(root, 'intent.txt'), 'intent\n');
+  git('add', '-N', 'intent.txt');
+  writeFileSync(join(root, 'untracked.txt'), 'untracked\n');
+  const before = indexDigest(root);
+  const first = runClaudePreflight({ root });
+  assert.deepEqual(first.diagnostics, []);
+  assert.equal(indexDigest(root), before);
+  // A hook or caller environment that names another index is not inherited.
+  const ambient = process.env.GIT_INDEX_FILE;
+  process.env.GIT_INDEX_FILE = join(root, '.git/missing-index');
+  try {
+    assert.equal(runClaudePreflight({ root }).baseline.diffHash, first.baseline.diffHash);
+  } finally {
+    if (ambient === undefined) delete process.env.GIT_INDEX_FILE;
+    else process.env.GIT_INDEX_FILE = ambient;
+  }
+  assert.equal(indexDigest(root), before);
+  assert.ok(!existsSync(join(root, '.git/missing-index')));
 });
 
 for (const filters of [['clean'], ['process'], ['clean', 'process']])
