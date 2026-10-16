@@ -897,9 +897,11 @@ function childTranscriptDrifted(dir, observation) {
 // A read-only task (empty write scope) depends only on what it was given or seen reading: its read
 // scope, a native packet's read paths, the ignored inputs its prompt binds and the Read, Grep and Glob
 // targets in its child transcript. Its settlement refuses only changes inside that set; a change
-// elsewhere and a HEAD change (another session's edit or commit) are recorded in the judgment. A
-// transcript that cannot be read, a search without a path or of the whole repository and any other
-// tool fall back to the repository-wide judgment, as does every writer.
+// elsewhere and a HEAD change (another session's edit or commit) are recorded in the judgment. The
+// hand-back and web tools read nothing in the repository and are passed over. A transcript that cannot
+// be read, a search without a path or of the repository root or a directory above it, a target not
+// named in its stored case and any other tool fall back to the repository-wide judgment, as does
+// every writer.
 const DEPENDENCY_IGNORED_TOOLS = new Set(['SubagentHandback', 'WebSearch', 'WebFetch']);
 const DEPENDENCY_SOURCE_GAPS = [
   'current-source-head-mismatch',
@@ -952,6 +954,9 @@ function transcriptDependencies(root, dir, record, observation) {
       if (typeof target !== 'string' || !target) return { reason: `without-path:${use.name}` };
       const repository = dependencyPath(root, target);
       if (repository === '') return { reason: `whole-repository:${use.name}` };
+      // On a case-insensitive filesystem a variant reads the file but matches no inventory path.
+      if (repository !== null && caseVariantOf(root, repository) !== null)
+        return { reason: `case-variant:${use.name}` };
       if (repository !== null) paths.push(repository);
     }
   }

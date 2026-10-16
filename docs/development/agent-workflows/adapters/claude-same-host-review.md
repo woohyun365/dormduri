@@ -47,7 +47,7 @@ Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함
 `--previous-result <file>`로 직전 회차 result JSON(verdict·findings가 있는 파일, native task 기록 경로 제외)이 필요합니다. 1회차에
 직전 result를 주거나 2회차부터 빠뜨리면 거부합니다. 기준 문서는 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경
 경로)로 [자동 선택](../review-criteria/README.md#자동-선택)하고, `--criteria <id,id>`를 주면 그 id로 override합니다. 고른 문서가
-packet `sources.owners`와 read path에 들어가고, 출력 `criteriaSelection`이 문서·항목 수를, helper 디렉터리의
+packet `sources.owners`와 read path에 들어가고, 출력 `criteriaSelection`이 문서·항목 수와 경로 키가 맞지 않은 경로를, helper 디렉터리의
 `<reviewId>.criteria.json`(read path 아님)이 선택 이유와 override 때의 자동 선택 결과를 남깁니다. 직전 result도
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
@@ -99,7 +99,7 @@ Reviewer는 write 범위가 비어 있으므로 정산 drift를 의존 집합으
 `current-source-head-mismatch`·`current-source-diff-mismatch`·`current-untracked-input-mismatch`는 판정으로 대신해
 `dependencyJudgment.replacedSourceGaps`에 남깁니다. 그래서 다른 세션의 집합 밖 편집·commit은 reviewer 결과를 무효로 만들지
 않습니다. Fan-in의 다른 gap, adapter identity drift, 등록 전 `stale workflow`·`review-snapshot-stale`, builder 완료의 `review snapshot
-mismatch` 대조는 그대로입니다. Transcript를 읽지 못하거나 경로 없는 검색·그 밖 도구가 보이면 저장소 전체로 판정합니다.
+mismatch` 대조는 그대로입니다. 저장소 전체로 판정하는 조건은 [registry 8단계](./claude-native-registry.md)를 따릅니다.
 
 Read-only reviewer는 명령을 실행하지 않습니다. Packet `authority.runnerOwner`가 실행하고 evidence로 제공한 검증은 result의
 `commandsActuallyRun`에 그 runner·exit·관측 결과·환경으로 기록하며 reviewer가 실행했다고 쓰지 않습니다. `notRun`은 누구도

@@ -352,6 +352,20 @@ test('the repository catalog loads and picks documents by the Owner overlap rule
   assert.deepEqual(pick('apps/web/example/README.md'), ['documents']);
 });
 
+test('a path the registry cannot judge is recorded apart from a missing layer signal', () => {
+  const catalog = loadReviewCriteriaCatalog(root);
+  // The registry refuses a path with a parent segment; the path key still matches.
+  const record = selectReviewCriteria({ paths: ['apps/web/src/app/../app/x/page.tsx'], catalog });
+  const area = record.documents.filter((document) => document.layer);
+  assert.ok(area.length > 0);
+  for (const document of area)
+    assert.deepEqual(
+      document.reasons.map((reason) => reason.layerSignal),
+      ['unavailable'],
+      document.id,
+    );
+});
+
 test('the CLI prints the selection record for paths and honours --criteria', (t) => {
   const base = catalogFixture(t);
   const run = (...args) =>

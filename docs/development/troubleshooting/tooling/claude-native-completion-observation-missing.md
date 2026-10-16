@@ -20,7 +20,8 @@ cannot settle yet (no-completion-observation): wait for the completed task-notif
 
 `no-completion-observation`과 함께 `stopped-task-settlement-failed: <사유>`가 나오면 Stop은 기록됐지만 정산이 그 사유로
 거부된 것입니다. Observation이 invalid이고 `unattributable-change:<path>`나 `post-completion-*-drift`가 나올 수도 있습니다.
-Write 범위가 빈 task는 의존 집합 밖 변경으로는 이 사유가 나오지 않고 결과 `dependencyJudgment`에 기록만 남습니다.
+Write 범위가 빈 task는 의존 집합 밖 변경으로는 이 사유가 나오지 않고 결과 `dependencyJudgment`에 기록만 남습니다(저장소 전체
+판정이면 나옵니다).
 
 ## 원인
 
@@ -32,7 +33,7 @@ Write 범위가 빈 task는 의존 집합 밖 변경으로는 이 사유가 나�
 | `attempt.json`은 있고 `launch.json` 없음  | 비동기 시작이 거부됐습니다. Hook 문구가 `async launch model mismatch: expected <A>, observed <B>`이면 등록한 `expectedResolvedModel`이 현재 CLI의 alias 해석과 다릅니다. 실제 child 종료를 확인해 `release --task <taskId> --ended`로 해제하고, 관측된 모델 ID로 새로 등록합니다.                                                              |
 | `launch.json`은 있고 `stop.json` 없음     | Child가 아직 실행 중이거나 SubagentStop이 오지 않았습니다.                                                                                                                                                                                                                                                                                     |
 | `stop.json`은 있고 `completion.json` 없음 | 부모 transcript에 같은 child·tool의 `task-notification completed`가 아직 없거나 부모 transcript를 읽을 수 없습니다. Child transcript가 32 MiB를 넘거나(`transcript byte limit: <bytes> > <limit>`), 기대와 다른 모델·prompt이거나, 아직 flush되지 않은 경우도 같습니다. `complete`는 이 사유를 `stopped-task-settlement-failed`로 보여 줍니다. |
-| `completion.json`이 있지만 invalid        | 등록부터 정산 사이에 child write 범위 밖 파일이 바뀌면 `unattributable-change:<path>`입니다. Parent 수정인지 구분할 수 없어 거부합니다([Parent 동시 쓰기](./claude-native-parent-concurrent-write.md)). Write 범위가 빈 task는 저장된 기록이 invalid여도 정산이 의존 집합 안 변경만 거부합니다.                                                |
+| `completion.json`이 있지만 invalid        | 등록부터 정산 사이에 child write 범위 밖 파일이 바뀌면 `unattributable-change:<path>`입니다. Parent 수정인지 구분할 수 없어 거부합니다([Parent 동시 쓰기](./claude-native-parent-concurrent-write.md)). Write 범위가 빈 task는 의존 집합 밖 경로의 `unattributable-change`만 정산에서 빠집니다.                                                |
 
 비동기 Agent는 PostToolUse의 `async_launched`만으로 완료되지 않습니다. 완료 알림 전에 complete를 호출하면 관측이 없습니다.
 부모 transcript는 child ID와 task marker가 있는 행만 파싱하며 128MiB를 넘으면 정산하지 않습니다(gap).

@@ -858,11 +858,14 @@ function reviewCriteriaSelection(root, subject, criteria) {
     ...(criteria === undefined ? {} : { criteria }),
   });
 }
+// The paths no path key matched are shown here too, so a path reviewed without criteria is visible
+// before dispatch and not only in the record.
 const criteriaSummary = (selection) => ({
   override: selection.override,
   documents: selection.documents.map((document) => document.id),
   documentCount: selection.documentCount,
   itemCount: selection.itemCount,
+  unmatchedPaths: selection.unmatchedPaths,
 });
 
 function reviewerPrompt(logHeader, subject, packet, template, packetFile, member, inputsFile) {

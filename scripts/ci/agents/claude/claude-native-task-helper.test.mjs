@@ -2159,6 +2159,7 @@ test('review selects criteria from the Parent subject paths and records the choi
     documents: ['swe'],
     documentCount: 1,
     itemCount: 2,
+    unmatchedPaths: [],
   });
   const review = roundReview(r, { reviewRound: 1 });
   assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/swe.md`));
@@ -2196,6 +2197,25 @@ test('review selects criteria from the Parent subject paths and records the choi
   assert.deepEqual(overridden.automatic.documents, ['swe']);
   assert.deepEqual(given.criteriaSelection.documents, ['documents']);
   assert.equal(given.criteriaSelection.override, true);
+});
+
+test('review output names the subject paths no path key matched', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  mkdirSync(join(r.root, 'tools'));
+  writeFileSync(join(r.root, 'tools/run.sh'), 'echo');
+  const status = buildClaudeNativeReview(
+    { parentSubject: { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', 'tools/run.sh'] } },
+    { root: r.root },
+  );
+  assert.deepEqual(status.criteriaSelection.documents, ['swe']);
+  assert.deepEqual(status.criteriaSelection.unmatchedPaths, ['tools/run.sh']);
+  const none = buildClaudeNativeReview(
+    { parentSubject: { ...SMALL_PARENT_SUBJECT, paths: ['tools/run.sh'] } },
+    { root: r.root },
+  );
+  assert.equal(none.criteriaSelection.documentCount, 0);
+  assert.deepEqual(none.criteriaSelection.unmatchedPaths, ['tools/run.sh']);
 });
 
 test('a native subject review selects criteria from the observed changed paths', (t) => {

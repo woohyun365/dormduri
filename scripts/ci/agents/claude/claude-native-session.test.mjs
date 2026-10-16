@@ -11,7 +11,7 @@ import {
   truncateSync,
   existsSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -2040,6 +2040,68 @@ test('a file beside a searched directory stays outside the dependencies', (t) =>
   assert.equal(checked.valid, true, checked.errors.join());
   assert.deepEqual(checked.dependencyJudgment.outside, ['other.txt']);
 });
+
+// A hand-back (how a live child delivers its answer) and web tools read no repository file, so the
+// dependency judgment holds with them; a live read-only settlement depends on this.
+test('a read-only task with a hand-back and web tools keeps the dependency judgment', (t) => {
+  const f = readOnlyWithOtherFile(t);
+  handle(f);
+  writeFileSync(join(f.root, 'other.txt'), 'changed');
+  finish(
+    f,
+    {},
+    {
+      tools: [
+        { name: 'WebSearch', input: { query: 'oracle' } },
+        { name: 'WebFetch', input: { url: 'https://example.invalid/', prompt: 'read' } },
+        { name: 'SubagentHandback', input: { message: 'oracle' } },
+      ],
+    },
+  );
+  const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+    root: f.root,
+  });
+  assert.equal(checked.valid, true, checked.errors.join());
+  assert.equal(checked.dependencyJudgment.basis, 'dependency');
+  assert.deepEqual(checked.dependencyJudgment.outside, ['other.txt']);
+});
+
+for (const [kind, child, reason] of [
+  [
+    'a search of the repository root',
+    { tools: (root) => [{ name: 'Grep', input: { pattern: 'a', path: realpathSync(root) } }] },
+    'whole-repository:Grep',
+  ],
+  [
+    'a search of a directory above the repository',
+    {
+      tools: (root) => [
+        { name: 'Glob', input: { pattern: '*', path: dirname(realpathSync(root)) } },
+      ],
+    },
+    'whole-repository:Glob',
+  ],
+  [
+    'a read of a case variant of a file name',
+    { tools: (root) => [{ name: 'Read', input: { file_path: join(root, 'OTHER.txt') } }] },
+    'case-variant:Read',
+  ],
+])
+  test(`a read-only task with ${kind} is judged over the whole repository`, (t) => {
+    const f = readOnlyWithOtherFile(t);
+    handle(f);
+    writeFileSync(join(f.root, 'other.txt'), 'changed');
+    finish(f, {}, { tools: child.tools(f.root) });
+    const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+      root: f.root,
+    });
+    assert.equal(checked.valid, false);
+    assert.ok(checked.errors.includes('unattributable-change:other.txt'), checked.errors.join());
+    assert.deepEqual(
+      [checked.dependencyJudgment.basis, checked.dependencyJudgment.reason],
+      ['repository', reason],
+    );
+  });
 
 for (const [kind, child] of [
   ['a search without a path', { tools: [{ name: 'Glob', input: { pattern: '**/*.txt' } }] }],

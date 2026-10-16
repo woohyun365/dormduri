@@ -237,7 +237,8 @@ export function matchReviewCriteriaPath(path, catalog) {
 }
 
 let neutralEnvelope = null;
-// The registry's domains for one changed path, from its own path rules only.
+// The registry's domains for one changed path, from its own path rules only; null when the registry
+// cannot judge the path (an input it refuses or its own error), which is recorded apart from a miss.
 function registryDomains(path) {
   try {
     neutralEnvelope ??= buildTaskEnvelope({ request: '리뷰 대상 경로의 기준 문서를 고른다.' });
@@ -251,7 +252,7 @@ function registryDomains(path) {
         .map((candidate) => candidate.domain),
     );
   } catch {
-    return new Set();
+    return null;
   }
 }
 const countOf = (documents) => ({
@@ -289,7 +290,7 @@ export function selectReviewCriteria({ paths, catalog, criteria } = {}) {
     const judged = matchReviewCriteriaPath(path, catalog);
     suppressed.push(...judged.suppressed);
     if (!judged.matches.length && !judged.suppressed.length) unmatchedPaths.push(path);
-    let domains = null;
+    let domains;
     for (const match of judged.matches) {
       const reason = {
         rule: 'path-key',
@@ -299,13 +300,15 @@ export function selectReviewCriteria({ paths, catalog, criteria } = {}) {
         specificity: match.specificity,
       };
       if (match.layer !== null) {
-        domains ??= registryDomains(path);
+        if (domains === undefined) domains = registryDomains(path);
         const signals = LAYER_SIGNALS[match.layer];
         reason.layerSignal = !signals
           ? 'unknown'
-          : signals.some((domain) => domains.has(domain))
-            ? 'present'
-            : 'missing';
+          : domains === null
+            ? 'unavailable'
+            : signals.some((domain) => domains.has(domain))
+              ? 'present'
+              : 'missing';
       }
       if (!reasons.has(match.id)) reasons.set(match.id, { direct: [], inherited: [] });
       reasons.get(match.id).direct.push(reason);

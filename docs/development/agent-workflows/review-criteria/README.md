@@ -59,7 +59,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   없는 문서는 맞으면 모두 고릅니다.
 - 상속: 고른 문서의 머리말("이 문서를 고르면 … 함께 고릅니다")이 가리키는 문서를 함께 고르고, 그 문서의 머리말도 따라갑니다.
 - Layer 신호: 영역 문서의 선택 이유에 [domain guide registry](../../../../scripts/agents/common/domain-guide-registry.mjs)가 그
-  경로에 layer 신호를 주는지(`present`·`missing`)를 적습니다. 신호가 없어도 경로 키가 맞으면 고르고, 그 기록은 registry 정렬의 입력입니다.
+  경로에 layer 신호를 주는지(`present`·`missing`, registry가 그 경로를 판정하지 못하면 `unavailable`)를 적습니다. 신호가 없어도
+  경로 키가 맞으면 고르고, 그 기록은 registry 정렬의 입력입니다.
 - 기록: 리뷰마다 고른 문서, 문서별 항목 id(`<file> <문자><번호>`), 선택 이유(맞은 경로·키·glob·구체성, 상속 출처), 겹침으로 뺀
   문서, 문서·항목 수, 맞은 키가 없는 경로를 helper 디렉터리의 `<reviewId>.criteria.json`에 남깁니다. Reviewer read path는 아닙니다.
 - Override: 기준 id를 직접 주면(Claude `--criteria`) 그 문서만 쓰고 기록에 `override`와 자동 선택 결과를 함께 남깁니다.

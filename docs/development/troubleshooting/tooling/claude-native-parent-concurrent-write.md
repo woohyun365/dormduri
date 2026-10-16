@@ -32,7 +32,8 @@ Collector는 등록 시점과 정산 시점의 파일 목록을 비교합니다.
   해당하며 writer는 read 범위 안팎을 가리지 않습니다. 읽기 전용 child는 정산 때 의존 집합(read 범위, packet read path, 결속
   입력, transcript가 보인 읽기) 안 변경만 거부하고 밖 변경은 `dependencyJudgment`에 기록만 남깁니다
   ([registry 8단계](../../agent-workflows/adapters/claude-native-registry.md)).
-- Child가 멈춘 뒤의 변경은 `post-completion-file-drift`·`post-completion-source-drift`로도 나타납니다.
+- Child가 멈춘 뒤의 변경은 `post-completion-file-drift`·`post-completion-source-drift`로도 나타납니다. 읽기 전용 child는 의존 집합
+  안 변경이 있을 때만 나타납니다.
 - Write 범위 **안**의 Parent 수정은 child 변경과 구분할 수 없어 탐지하지 못합니다. Hook이 실행되면 file guard가
   Edit·Write·NotebookEdit를 막고, 그 밖은 운영 규칙으로 막습니다.
 
