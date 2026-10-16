@@ -227,7 +227,8 @@ export const claudeReviewInputsDirectory = (root) =>
 // The bound ignored files under readPaths and their digests, inventory's format. A symlink is bound
 // by its link text and not followed. Too many or too large inputs are refused, not truncated. The
 // helper directory is left out: a packet file and a manifest are each bound by their own prompt line
-// (a lost packet line is review-packet-missing, not a missing manifest).
+// and a requirement extract by the prompt record (a lost packet line is refused at registration as
+// review-prompt-unbound, not as a missing manifest).
 export function claudeReviewInputs(root, readPaths) {
   const helperDir = `${claudeReviewInputsDirectory(root)}/`;
   const paths = new Set();
@@ -337,6 +338,49 @@ export function claudeReviewInputErrors(root, prompt, readScope) {
   ].sort())
     if (manifest.files[path] !== expected[path]) errors.push(`review-input-changed:${path}`);
   return errors;
+}
+// Reviewer prompt records (G11). review writes the sha256 of each reviewer prompt it builds to
+// <reviewId>.prompt.json in the helper directory, and every knu_reviewer registration takes only that
+// prompt. A native subject's review id comes from its packet id (review-<reviewId>), a Parent
+// subject's from the packet file its prompt names. A record also binds a requirement extract's digest.
+export const REVIEW_PACKET_LINE = 'KNU_REVIEW_PACKET_FILE:';
+export const REVIEW_PROMPT_SCHEMA = 'claude-review-prompt/v1';
+const REVIEW_ID = /^[a-z0-9]{8}-[a-f0-9]{8}$/u;
+export function claudeReviewPromptRecord(root, reviewId) {
+  if (typeof reviewId !== 'string' || !REVIEW_ID.test(reviewId)) return null;
+  const path = join(root, claudeReviewInputsDirectory(root), `${reviewId}.prompt.json`);
+  try {
+    if (!lstatSync(path).isFile() || realpathSync(path) !== path) return null;
+    const record = JSON.parse(readFileSync(path, 'utf8'));
+    return record?.schema === REVIEW_PROMPT_SCHEMA &&
+      record.reviewId === reviewId &&
+      /^sha256:[a-f0-9]{64}$/u.test(record.promptDigest)
+      ? record
+      : null;
+  } catch {
+    return null;
+  }
+}
+export function claudeReviewPromptId(root, prompt) {
+  const line = String(prompt)
+    .split('\n')
+    .find((l) => l.startsWith(REVIEW_PACKET_LINE));
+  const [path] = (line ?? '').slice(REVIEW_PACKET_LINE.length).split(' ');
+  const dir = `${claudeReviewInputsDirectory(root)}/`;
+  return path.startsWith(dir)
+    ? /^([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(path.slice(dir.length))?.[1]
+    : undefined;
+}
+function checkReviewPrompt(root, prompt, reviewId) {
+  const record = claudeReviewPromptRecord(root, reviewId);
+  check(
+    record !== null,
+    `review-prompt-unbound: no prompt record for review ${reviewId ?? '(none named)'}; build the reviewer with review`,
+  );
+  check(
+    record.promptDigest === hash(prompt),
+    'review-prompt-changed: the prompt differs from the one review built; register the reviewerSpec prompt unchanged',
+  );
 }
 function markInvalid(dir, reason) {
   try {
@@ -725,6 +769,7 @@ export function registerClaudeNativeTask({
       ].every((path) => covered(path, allowedReadPaths)),
       'review packet does not cover subject changes',
     );
+    checkReviewPrompt(root, prompt, /^review-(.+)$/u.exec(packet.packetId)?.[1]);
     reviewBinding = deepFreeze({
       subjectTaskId: subject.record.taskId,
       reviewerId: independentReview.reviewerId,
@@ -762,6 +807,9 @@ export function registerClaudeNativeTask({
     boundedExtraction || input.reviewDisposition.required === true || Boolean(reviewBinding),
     'independent QA required for this profile',
   );
+  // A reviewer without a native subject names its packet file, and so its review, in the prompt.
+  if (role === 'knu_reviewer' && reviewBinding === null)
+    checkReviewPrompt(root, prompt, claudeReviewPromptId(root, prompt));
   const taskId = randomUUID();
   const record = {
     version: 1,

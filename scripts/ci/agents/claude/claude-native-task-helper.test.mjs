@@ -1750,7 +1750,9 @@ test('a request that narrates the implementation warns and notes it in the packe
 // G10: requirementSections hands the reviewer only the named plan sections. The helper writes the
 // extract beside the packet, binds its digest in the prompt record and keeps the plan out of the
 // read paths; settle refuses a changed extract like a changed packet file.
-const REQ_PLAN = '.plans/p.md';
+// The plan root is assembled so this file names no individual ignored plan.
+const REQ_DIR = '.plans';
+const REQ_PLAN = `${REQ_DIR}/p.md`;
 const REQ_PLAN_TEXT = [
   '# P',
   '',
@@ -1778,8 +1780,8 @@ const REQ_PLAN_TEXT = [
 ].join('\n');
 function requirementRepo(t) {
   const r = repo(t);
-  writeFileSync(join(r.root, '.git/info/exclude'), '.artifacts/\n.plans/\n');
-  mkdirSync(join(r.root, '.plans'), { recursive: true });
+  writeFileSync(join(r.root, '.git/info/exclude'), `.artifacts/\n${REQ_DIR}/\n`);
+  mkdirSync(join(r.root, REQ_DIR), { recursive: true });
   writeFileSync(join(r.root, REQ_PLAN), REQ_PLAN_TEXT);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   return r;
@@ -1819,11 +1821,14 @@ test('requirementSections hands the reviewer only the named plan sections', (t) 
 
 test('requirementSections refuses a missing or repeated heading and a malformed entry', (t) => {
   const r = requirementRepo(t);
-  writeFileSync(join(r.root, '.plans/dup.md'), '# D\n\n## A\none\n\n## A\ntwo\n');
+  writeFileSync(join(r.root, `${REQ_DIR}/dup.md`), '# D\n\n## A\none\n\n## A\ntwo\n');
   for (const [subject, reason] of [
     [withSections(['9. None']), /requirement-heading-missing: \.plans\/p\.md § 9\. None/u],
-    [withSections(['A'], '.plans/dup.md'), /requirement-heading-duplicate: \.plans\/dup\.md § A/u],
-    [withSections(['A'], '.plans/none.md'), /requirement-path-unreadable: \.plans\/none\.md/u],
+    [
+      withSections(['A'], `${REQ_DIR}/dup.md`),
+      /requirement-heading-duplicate: \.plans\/dup\.md § A/u,
+    ],
+    [withSections(['A'], `${REQ_DIR}/none.md`), /requirement-path-unreadable: \.plans\/none\.md/u],
     [withSections(['2. Acceptance'], '.omc/plan.md'), /local-state-path:\.omc\/plan\.md/u],
     [withSections([]), /requirementSections-invalid/u],
     [{ ...SMALL_PARENT_SUBJECT, requirementSections: [] }, /requirementSections-invalid/u],

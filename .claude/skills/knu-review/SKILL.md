@@ -25,10 +25,17 @@ Reviewer에게 기대 결론을 전달하거나 PASS로 유도하지 않습니�
 
 Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerTaskId`를 대신할 수 없습니다.
 
-1. Subject 파일은 `{"request": "...", "owner": "parent", "acceptance": ["..."], "paths": ["..."]}` JSON입니다. `request`는 검토할
-   변경의 설명, `owner`는 작성자 식별자, `acceptance`는 판정 기준 문장, `paths`는 리뷰 대상 파일입니다(native task 기록은 넣을 수
-   없음). `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
+1. Subject 파일은 `{"request": "...", "owner": "parent", "acceptance": ["..."], "paths": ["..."]}` JSON입니다. `request`는 요구사항(사용자
+   요청·issue·plan acceptance를 옮긴 문장)이고 구현 설명·추론·자기평가는 넣지 않습니다. `owner`는 작성자 식별자, `acceptance`는 판정
+   기준 문장, `paths`는 리뷰 대상 파일입니다(native task 기록과 local state는 넣을 수 없음). 선택 필드
+   `requirementSections: [{"path": "<plan 경로>", "headings": ["<절 heading>"]}]`는 plan의 판정 원본 절(acceptance·invariant·Owner 결정
+   기록)만 helper가 잘라 reviewer 입력으로 주고, plan 파일은 read path에 넣지 않습니다. Heading은 `#`를 뺀 정확한 문자열이고 plan 안에
+   한 번만 있어야 합니다. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
    `logHeader`를 받습니다.
+   - `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로는
+     `local-state-path:<path>`로 거부됩니다. 추적 `.claude/` 설정·skill·역할 파일은 해당하지 않습니다.
+   - `request`에 완료형 구현 서술(`고쳤다`·`구현했다` 등)이 있으면 출력 `warnings`에 `request-implementation-marker`가 나오고 packet
+     `evidence.environment`에 그 문장 수가 남습니다. 리뷰를 막지는 않으니 `request`를 요구사항 문장으로 고쳐 다시 `review`합니다.
 2. 그 digest로 runner evidence를 만듭니다.
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --session ${CLAUDE_SESSION_ID}`
 4. 출력 `reviewerSpec`으로 `prepare --spec`하고 `agentInput`으로 Agent를 호출합니다. Packet은 prompt에 싣지 않고
@@ -75,6 +82,10 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.
+- `reviewerSpec`의 prompt는 고치지 않고 등록합니다. `review`가 reviewer마다 prompt digest를
+  `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 남기고, 등록은 다른 prompt를 `review-prompt-changed`로, 기록이
+  없거나 packet 파일 줄이 빠진 prompt를 `review-prompt-unbound`로 거부합니다(registry 직접 등록도 같음). 바꿀 것이 있으면 `review`를
+  다시 만듭니다.
 - Reviewer가 실행 중일 때 read 범위의 입력(계획·증거 포함)을 수정하지 않습니다. Helper가 ignored 리뷰 입력(ignored read path
   아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored 파일)을 `KNU_REVIEW_INPUTS_FILE:` manifest로 결속하므로 `review` 생성부터
   그 reviewer 정산과 연결 builder 완료까지 그 파일을 바꾸면 `review-input-stale`·`review-input-changed`로 거부됩니다.
