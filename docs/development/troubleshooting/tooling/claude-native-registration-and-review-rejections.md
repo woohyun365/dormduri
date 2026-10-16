@@ -27,6 +27,13 @@
   invalid prepare spec: review-input-manifest-missing
   ```
 
+- Reviewer 등록(`prepare`·`register --input`)이 prompt 기록 대조로 거부됩니다.
+
+  ```text
+  review-prompt-changed: the prompt differs from the one review built; register the reviewerSpec prompt unchanged
+  review-prompt-unbound: no prompt record for review <reviewId>; build the reviewer with review
+  ```
+
 - 역할·effort·QA 조건으로 등록이 거부됩니다.
 
   ```text
@@ -65,6 +72,18 @@
   invalid review request: unsafe-reference:selectionBasisRef
   ```
 
+- `review --parent-subject`가 subject의 경로나 `requirementSections`를 거부하거나, 출력 `warnings`에
+  `request-implementation-marker`가 나옵니다.
+
+  ```text
+  invalid parentSubject: local-state-path:.omc/notepad.md
+  invalid parentSubject: requirement-heading-missing: .plans/<plan>.md § <heading>
+  invalid parentSubject: requirement-heading-duplicate: .plans/<plan>.md § <heading>
+  invalid parentSubject: requirement-path-unreadable: .plans/<plan>.md
+  invalid parentSubject: requirement-path-in-paths: .plans/<plan>.md
+  invalid parentSubject: requirementSections-invalid: [{"path": "<plan path>", "headings": ["<heading text>", ...]}]
+  ```
+
 - 1회차 그룹의 PASS 구성원을 연결한 builder 완료가 `review-adjudication-required`, `review-group-mismatch`,
   `review-group-duplicate-member`, `review-group-unreadable-member`, `review-adjudication-invalid`,
   `review-adjudication-result-mismatch`, `review-not-run-not-rejectable`, `review-gap-not-rejectable`,
@@ -74,6 +93,7 @@
 - Reviewer의 `settle --task` `observationErrors`나 그 reviewer를 연결한 builder 완료에 `review-input-changed:<path>`,
   `review-input-manifest-changed`, `review-input-manifest-missing`, `review-input-manifest-invalid` 중 하나가 있습니다. 그룹
   구성원이면 사유 뒤에 구성원 task id가 괄호로 붙습니다.
+- Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`가 있습니다.
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
 
   ```text
@@ -160,6 +180,22 @@
     Git은 아무것도 내지 않아 결속이 비게 되므로 거부합니다.
   - 그 밖의 비ignored 디렉터리 안 ignored 파일(package 의존성·build 산출물), symlink가 가리키는 파일의 내용(링크 문자열만 결속),
     runner가 실행된 시점의 입력은 결속하지 않습니다.
+- Reviewer prompt 기록: `review`는 reviewer마다 prompt의 sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에
+  한 번 쓰고, registry는 모든 `knu_reviewer` 등록에서 그 기록과 prompt를 대조합니다. Review id는 native subject면 packet id
+  `review-<reviewId>`, Parent subject면 prompt의 `KNU_REVIEW_PACKET_FILE:` 경로에서 얻습니다.
+  - `review-prompt-changed`: 등록한 prompt가 `review`가 만든 prompt와 한 글자라도 다릅니다. Spec의 prompt를 손으로 고쳤거나 다른
+    구성원의 기록과 섞인 것입니다.
+  - `review-prompt-unbound`: 기록이 없거나 review id를 얻을 수 없습니다. Prompt에서 packet 파일 줄을 지웠거나, 기록 파일을 지웠거나,
+    `review` 없이 만든 prompt를 직접 등록한 것입니다.
+- Parent subject 입력: `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로는 host·세션
+  상태라 `local-state-path:<path>`로 거부합니다. 추적 `.claude/` 설정·skill·역할 파일은 해당하지 않습니다. `request`에 완료형 구현
+  서술 문장(`고쳤다`·`구현했다` 등)이 있으면 `request-implementation-marker` 경고와 packet `evidence.environment`의 문장 수만 남고
+  리뷰는 진행됩니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남습니다.
+- `requirementSections`: plan의 지정 절만 `<reviewId>.requirements.md`로 잘라 reviewer read path에 넣습니다. Heading은 `#`를 뺀
+  정확한 문자열이며 code fence 안 줄은 heading이 아닙니다. 없으면 `requirement-heading-missing`, 두 번 이상이면
+  `requirement-heading-duplicate`, root 안의 일반 파일이 아니면 `requirement-path-unreadable`, 형식이 `[{path, headings}]`가 아니면
+  `requirementSections-invalid`, `paths`가 그 plan이나 그 위 디렉터리를 가리키면 `requirement-path-in-paths`입니다. 정산은 등록한 prompt나
+  read 범위가 추출을 가리킬 때 추출이 prompt 기록의 digest와 다르거나 기록이 없으면 `review-requirements-changed`입니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
@@ -207,8 +243,15 @@
   판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
-  prompt에서 packet 파일 줄이 빠진 것입니다. Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산해도 이 사유입니다. 세 사유 모두 결과를 쓰지 말고 파일을
-  고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다.
+  prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을
+  고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다. `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
+  바뀌거나 사라짐)도 같습니다.
+- `review-prompt-changed`·`review-prompt-unbound`는 prompt나 기록을 고쳐 맞추지 않습니다. `review` 출력의 `reviewerSpec`(그룹이면
+  구성원 각자의 spec)을 그대로 `prepare`하고, 바꿀 것이 있으면 `review`를 다시 만듭니다.
+- `local-state-path`는 그 경로를 `paths`에서 빼고 리뷰 대상인 추적 파일만 줍니다. `request-implementation-marker` 경고는 `request`를
+  요구사항 문장(사용자 요청·issue·plan acceptance)으로 고쳐 `review`를 다시 실행합니다. `requirement-heading-*`는 plan의 heading을
+  `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다. `requirement-path-in-paths`는 그
+  plan이나 디렉터리를 `paths`에서 빼고 판정 원본 절은 `requirementSections`로만 줍니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
@@ -361,7 +404,13 @@ reproduction log`, `only the members of one first-round group`, `a first-round c
 `other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
 테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,
 `each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed`,
-`a task copied from another checkout blocks a linked builder only when it may be its review` 테스트가 고정합니다.
+`a task copied from another checkout blocks a linked builder only when it may be its review` 테스트가 고정합니다. Reviewer
+prompt 기록과 Parent subject 입력은 `registration refuses a reviewer prompt that is not the one review recorded`,
+`a native reviewer registers only with the prompt its review recorded`, `each first-round group member registers only with its own recorded prompt`,
+`a Parent subject path into local state is refused`, `a request that narrates the implementation warns`,
+`requirementSections hands the reviewer only the named plan sections`, `requirementSections refuses a missing or repeated heading`,
+`a Parent subject path naming the extracted plan or a directory above it is refused`,
+`a requirement extract changed after the review` 테스트가 고정합니다.
 
 ## 참고
 

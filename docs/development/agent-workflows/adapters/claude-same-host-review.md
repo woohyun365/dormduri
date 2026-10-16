@@ -19,6 +19,26 @@ RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실�
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
 알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 
+Parent subject의 `request`는 요구사항(사용자 요청·issue·plan acceptance)이고 구현 설명·추론·자기평가를 넣지 않습니다. `review`는
+`paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로를 `local-state-path:<path>`로
+거부합니다. 추적 `.claude/` 설정·skill·역할 파일은 local state가 아닙니다. `request`에 완료형 구현 서술 문장(`고쳤다`·`구현했다` 등
+16개 동사)이 있으면 거부하지 않고 출력 `warnings`에 `request-implementation-marker`를 내고 packet `evidence.environment`에
+`request-implementation-marker=<문장 수>`를 덧붙입니다. `evidence.environment`에는 걸린 문장을 넣지 않고 `knownGaps`도 쓰지 않아 PASS를
+막지 않습니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남으므로 경고를 받으면 `request`를 고쳐 다시 `review`합니다.
+선택 필드 `requirementSections`(`[{"path", "headings"}]`)는 plan의 판정 원본 절만 reviewer에게 넘깁니다. Heading은 `#`를 뺀 정확한
+문자열로 찾고, 절은 그 heading부터 같은 수준 이하의 다음 heading 전까지입니다(code fence 안 줄은 heading이 아님). 없으면
+`requirement-heading-missing`, 두 번 이상이면 `requirement-heading-duplicate`, 읽을 수 없는 파일은 `requirement-path-unreadable`, 형식
+오류는 `requirementSections-invalid`로 거부합니다. Helper는 추출을 `.artifacts/tools/claude-review-packets/<reviewId>.requirements.md`에
+한 번 쓰고 그 경로만 read path에 넣으며 plan 파일은 넣지 않습니다. `paths`가 그 plan이나 그 위 디렉터리를 가리키면
+`requirement-path-in-paths: <path>`로 거부합니다. Packet `sources.requirements`는 acceptance 그대로입니다. Plan 자체가 `paths`에 있는
+readiness 리뷰는 이 필드를 쓰지 않습니다.
+
+Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
+sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(추출이 있으면 그 digest도 함께), registry는
+모든 `knu_reviewer` 등록(`prepare`와 `register --input`)에서 그 기록과 prompt를 대조합니다. Review id는 native subject면 packet id
+`review-<reviewId>`, Parent subject면 prompt의 `KNU_REVIEW_PACKET_FILE:` 경로에서 얻고, 1회차 그룹은 구성원마다 대조합니다. 기록이
+없거나 review id를 얻을 수 없으면 `review-prompt-unbound`, prompt가 다르면 `review-prompt-changed`로 등록을 거부합니다.
+
 Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함께 줍니다. `--round N`(1부터)은 항상 필요하고, 2회차부터는
 `--previous-result <file>`로 직전 회차 result JSON(verdict·findings가 있는 파일, native task 기록 경로 제외)이 필요합니다. 1회차에
 직전 result를 주거나 2회차부터 빠뜨리면 거부합니다. `--criteria <id,id>`는 변경 유형으로 고른
@@ -100,7 +120,9 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 경로 아님)에 상한 검사를 통과한 뒤 한 번 씁니다. Prompt에는 `KNU_REVIEW_PACKET_FILE:<경로> <sha256 digest>` 한 줄이 남고, 그
 경로가 reviewer read 범위에 들어갑니다. `settle --task`는 `reviewPacket`(경로, 기대·현재 digest, 성공한 `Read` 관측)을 더하고,
 읽지 않았으면 `review-packet-unread`, 파일이 바뀌었으면 `review-packet-changed`, Parent reviewer prompt에 packet 파일 줄이
-없으면 `review-packet-missing`을 `observationErrors`에 넣습니다. 그 reviewer는
+없으면 `review-packet-missing`을 `observationErrors`에 넣습니다(그런 prompt는 등록부터 `review-prompt-unbound`로 거부됩니다).
+등록한 prompt나 read 범위가 `requirementSections` 추출을 가리키면 `reviewRequirements`(경로, 기록·현재 digest)를 더하고, 추출이 prompt 기록의 digest와
+다르거나 기록이 없으면 `review-requirements-changed`를 넣습니다. 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지
 확인합니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
@@ -108,7 +130,8 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 
 Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가
 따로 결속합니다. 대상은 reviewer read path 중 ignored read path 아래 파일과, 어느 read path든 그 아래 `.plans/`·`.artifacts/`·
-`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 packet·manifest와 native task 기록은 빠지고, 그 밖의 비ignored
+`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 파일(packet·manifest는 prompt 줄이, requirement 추출은 prompt
+기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
 디렉터리 안 ignored 파일(package 의존성·build 산출물)은 결속하지 않습니다(known limit). Helper는 파일마다 digest(mode·bytes, symlink는
 링크 문자열)를 `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 한 번 쓰고 prompt 마지막 줄에
 `KNU_REVIEW_INPUTS_FILE:<경로> <sha256 digest>`를 둡니다. 대상이 없으면 줄도 없습니다. 2,000개·파일 8 MiB·합계 32 MiB를 넘으면

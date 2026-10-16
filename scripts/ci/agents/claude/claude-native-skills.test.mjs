@@ -391,6 +391,21 @@ test('settle, registry and qualification documents carry the E2 recovery and pil
   }
 });
 
+// G8: a Parent subject request carries requirements, never the change description, and the skill
+// names the input checks review and registration apply to it.
+test('knu-review asks for requirements in request and names the Parent subject input checks', () => {
+  const text = skill('knu-review').replace(/\s+/gu, ' ');
+  assert.ok(!text.includes('`request`는 검토할 변경의 설명'), 'request as change description');
+  assert.match(text, /`request`는 요구사항/u);
+  for (const term of [
+    'requirementSections',
+    'local-state-path',
+    'request-implementation-marker',
+    'review-prompt-changed',
+  ])
+    assert.ok(text.includes(term), term);
+});
+
 test('review and settle documents carry the E3 packet file and its settle reasons', () => {
   const review = skill('knu-review');
   assert.ok(review.includes('KNU_REVIEW_PACKET_FILE'), 'knu-review names the packet file line');
