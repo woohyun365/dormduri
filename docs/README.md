@@ -3,6 +3,7 @@
 `docs/`는 Git으로 추적되는 현재 source of truth만 소유합니다. 모든 clone, CI, review 환경에서 같은 문서 집합을 볼 수 있어야 합니다.
 
 - [`policies/`](./policies/): 제품·운영 정책과 책임 경계
+- [`product/`](./product/README.md): 제품 요구(PRD) 묶음과 산출물 추적 대응 기록
 - [`architecture/`](./architecture/): 장기 유지하는 기술 결정과 설계 근거
 - [`runbooks/`](./runbooks/): 반복 가능한 운영·복구 절차
 - [`development/`](./development/): 개발·CI·협업 기준과 재사용 가능한 개발·테스트 troubleshooting

@@ -1,0 +1,177 @@
+{
+  "schema": "lifecycle-artifact-map/v1",
+  "confirmedBy": {
+    "status": "owner-confirmed",
+    "date": "2026-10-17",
+    "basis": "#634"
+  },
+  "artifacts": [
+    {
+      "artifact": "prd-overview",
+      "mapping": "legacy",
+      "sources": ["README.md", "docs/policies/README.md"],
+      "note": "소급하지 않는다. 다음에 구현하는 제품 영역부터 기능 영역 문서를 쓴다"
+    },
+    {
+      "artifact": "policy:legal-basis",
+      "level": "cross-cutting",
+      "mapping": "doc",
+      "sources": ["docs/policies/legal-basis.md"]
+    },
+    {
+      "artifact": "policy:data-retention",
+      "level": "cross-cutting",
+      "mapping": "doc",
+      "sources": ["docs/policies/data-retention.md"]
+    },
+    {
+      "artifact": "policy:account-authentication",
+      "level": "cross-cutting",
+      "mapping": "doc",
+      "sources": ["docs/policies/account-authentication.md"]
+    },
+    {
+      "artifact": "policy:access-eligibility",
+      "level": "cross-cutting",
+      "mapping": "doc",
+      "sources": ["docs/policies/access-eligibility.md"]
+    },
+    {
+      "artifact": "policy:service-boundary",
+      "level": "cross-cutting-recommended",
+      "mapping": "doc",
+      "sources": ["docs/policies/service-boundary.md"]
+    },
+    {
+      "artifact": "policy:production-runtime-safety",
+      "level": "cross-cutting-recommended",
+      "mapping": "doc",
+      "sources": ["docs/policies/production-runtime-safety.md"]
+    },
+    {
+      "artifact": "policy:operational-observability",
+      "level": "cross-cutting-recommended",
+      "mapping": "doc",
+      "sources": ["docs/policies/operational-observability.md"]
+    },
+    {
+      "artifact": "policy:dependency-security",
+      "level": "cross-cutting-recommended",
+      "mapping": "doc",
+      "sources": ["docs/policies/dependency-security.md"]
+    },
+    {
+      "artifact": "policy:season-lifecycle",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/season-lifecycle.md"]
+    },
+    {
+      "artifact": "policy:season-participation",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/season-participation.md"]
+    },
+    {
+      "artifact": "policy:profile-model",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/profile-model.md"]
+    },
+    {
+      "artifact": "policy:matching-lifecycle",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/matching-lifecycle.md"]
+    },
+    {
+      "artifact": "policy:matching-algorithm",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/matching-algorithm.md"]
+    },
+    {
+      "artifact": "policy:chat-lifecycle",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/chat-lifecycle.md"]
+    },
+    {
+      "artifact": "policy:roommate-searching",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/roommate-searching.md"]
+    },
+    {
+      "artifact": "policy:community-safety",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/community-safety.md"]
+    },
+    {
+      "artifact": "policy:incident-enforcement",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/incident-enforcement.md"]
+    },
+    {
+      "artifact": "policy:support-communication",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/support-communication.md"]
+    },
+    {
+      "artifact": "policy:notification-inbox",
+      "level": "domain",
+      "mapping": "doc",
+      "sources": ["docs/policies/notification-inbox.md"]
+    },
+    {
+      "artifact": "l1",
+      "mapping": "composite",
+      "sources": [
+        "docs/architecture/README.md",
+        "docs/architecture/platform/production-runtime-topology.md",
+        "docs/architecture/platform/observability-topology.md",
+        "docs/architecture/backend/runtime-composition-and-process-state.md",
+        "docs/architecture/backend/domain-data-ownership.md"
+      ],
+      "gaps": ["C4 diagram 없음: legacy"]
+    },
+    {
+      "artifact": "l2:docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/backend/auth/auth-reset-timing-defense.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/backend/auth/auth-reset-timing-defense.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/backend/business/auth-business-failure-monitoring-strategy.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/backend/business/auth-business-failure-monitoring-strategy.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/data/campus-season-and-dormitory-operation-schema.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/data/campus-season-and-dormitory-operation-schema.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/monorepo/lifestyle-contract-sharing.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/monorepo/lifestyle-contract-sharing.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/platform/dependency-automation.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/platform/dependency-automation.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/platform/monorepo-ci.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/platform/monorepo-ci.md"]
+    }
+  ]
+}

@@ -12,6 +12,8 @@ host 공통 `.plans/`, 실행 증거는 `.artifacts/`, 과거 구현 기록과 �
 - [비밀번호 재설정 시작 경로 timing 방어](./backend/auth/auth-reset-timing-defense.md)
 - [Opaque session transport 결정](./backend/auth/jwt-vs-opaque-session-transport-decision.md)
 - [Auth business failure 응답·관측 경계](./backend/business/auth-business-failure-monitoring-strategy.md)
+- [Backend domain data ownership](./backend/domain-data-ownership.md)
+- [Runtime composition and process state](./backend/runtime-composition-and-process-state.md)
 
 ## Data
 
@@ -22,6 +24,7 @@ host 공통 `.plans/`, 실행 증거는 `.artifacts/`, 과거 구현 기록과 �
 
 - [Action capability source of truth](./frontend/action-capability-source-of-truth.md)
 - [Web infra·CI·test config 경계](./frontend/web-infra-ci-test-config.md)
+- [Web 운영 관측성 경계](./frontend/web-observability.md)
 
 ## Monorepo
 
