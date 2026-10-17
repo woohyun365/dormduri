@@ -132,7 +132,7 @@ test('the gate diffs from the merge-base, reads the current body and fails on a 
   assert.match(summary, new RegExp(`merge-base \`${repo.forkPoint.slice(0, 12)}`, 'u'));
 });
 
-test('RED 9: a pull request body API error fails the job closed', async (t) => {
+test('a pull request body API error fails the job closed', async (t) => {
   const repo = fixtureRepository(t, {
     head: { 'apps/api/src/matches/matches.service.ts': '// x\n' },
   });
@@ -148,7 +148,7 @@ test('RED 9: a pull request body API error fails the job closed', async (t) => {
   assert.match(readFileSync(summaryPath, 'utf8'), /job 실패: PR 본문을 읽지 못함: HTTP 401/u);
 });
 
-test('RED 9: a malformed path table or tracking record fails the job closed', async (t) => {
+test('a malformed path table or tracking record fails the job closed', async (t) => {
   for (const [path, text, reason] of [
     [
       'docs/policies/path-domains.json',
@@ -178,7 +178,7 @@ test('RED 9: a malformed path table or tracking record fails the job closed', as
   }
 });
 
-test('RED 9: an unknown base commit fails the job closed instead of falling back', async (t) => {
+test('an unknown base commit fails the job closed instead of falling back', async (t) => {
   const repo = fixtureRepository(t);
   const { env, summaryPath } = pullRequestEnv(t, repo, { baseSha: 'f'.repeat(40) });
 

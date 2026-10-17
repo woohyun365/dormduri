@@ -1,7 +1,8 @@
-// Policy-first checks of the Lifecycle gate (OSS-LIFE P2a). Pure functions over the context run.mjs builds: the parsed
+// Policy-first checks of the Lifecycle gate. Pure functions over the context run.mjs builds: the parsed
 // `Lifecycle` section, the PR diff, and file reads at the head, base and merge-base revisions. Every check returns
 // findings `{ check, level: 'fail' | 'warn' | 'pass', reason }`; run.mjs applies override lines and the bot·main
-// downgrade. Contract (check table, grades, Owner decisions): OSS-LIFE plan 5.3절.
+// downgrade. Authoring rules: docs/development/github/collaboration.md (`Lifecycle` 절); rule ids, citation form and
+// the path table: docs/policies/README.md.
 
 import { POLICY_GRADES } from './lifecycle-section.mjs';
 
@@ -197,7 +198,7 @@ export function policyPrefixes(readme) {
   return prefixes;
 }
 
-// Document status header (plan 4.4절): consecutive `**key**: value` lines right under the title.
+// Document status header: consecutive `**key**: value` lines right under the title; `**상태**` is the status.
 export function headerStatus(text) {
   const lines = text.split('\n');
   let index = lines.findIndex((line) => line.startsWith('# '));

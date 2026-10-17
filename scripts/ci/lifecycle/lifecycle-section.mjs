@@ -1,4 +1,4 @@
-// Parser for the pull request body `## Lifecycle` section (OSS-LIFE P2a). Pure: the caller passes the body text.
+// Parser for the pull request body `## Lifecycle` section. Pure: the caller passes the body text.
 // The section is every `- <name>: <value>` line from `## Lifecycle` to the next `## ` heading; HTML comments are ignored.
 // A body without the section, or a section without a known grade, counts as feature.
 

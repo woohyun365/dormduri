@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lifecycle gate entry (OSS-LIFE P2a, `ci.yml` job `lifecycle_gate`). Reads the pull request body through the REST API
+// Lifecycle gate entry (`ci.yml` job `lifecycle_gate`). Reads the pull request body through the REST API
 // at run time (a re-run reads the edited body), diffs the PR from the merge-base of the event's base and head shas,
 // runs the registered checks and writes every result to the job summary.
 // Exit 0 = no fail, 1 = a check failed, 2 = an input could not be read (fail-closed).
@@ -31,7 +31,7 @@ export const LIFECYCLE_CHECKS = [
   { name: 'policy-first', evaluate: evaluatePolicyFirst, nonOverridable: ['L-CONFIRM'] },
 ];
 
-// GitHub-assigned authors whose PRs, like PRs into main, only warn (Owner 2026-10-16 P2a 2.4).
+// GitHub-assigned authors whose PRs, like PRs into main, only warn (docs/development/github/collaboration.md).
 export const EXEMPT_AUTHORS = ['renovate[bot]', 'dependabot[bot]'];
 
 // Context every registered check receives. reader: { readFile(revision, path) → text | null, listFiles(revision) }.

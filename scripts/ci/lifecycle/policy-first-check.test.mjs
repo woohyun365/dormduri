@@ -16,10 +16,19 @@ import { buildLifecycleContext, evaluateLifecycle } from './run.mjs';
 const MATCHES = 'apps/api/src/matches/matches.service.ts';
 const MIGRATION = 'apps/api/prisma/migrations/20261017000000_fix/migration.sql';
 const PATH_TABLE = 'docs/policies/path-domains.json';
+const ARTIFACT_MAP = 'docs/product/artifact-map.json';
 const CONFIRMED = { status: 'owner-confirmed', date: '2026-10-17', basis: '#634' };
 
-function evaluate({ body, changedPaths, head, mergeBase, author = 'woohyun365', baseRef = 'dev' }) {
-  const reader = repository({ head, mergeBase });
+function evaluate({
+  body,
+  changedPaths,
+  head,
+  mergeBase,
+  base,
+  author = 'woohyun365',
+  baseRef = 'dev',
+}) {
+  const reader = repository({ head, mergeBase, base });
   const context = buildLifecycleContext({
     body,
     author,
@@ -69,7 +78,7 @@ test('the policy-first module names the five check ids', () => {
   ]);
 });
 
-test('RED 1: a product diff without a Lifecycle section counts as feature and fails scope and citation', () => {
+test('a product diff without a Lifecycle section counts as feature and fails scope and citation', () => {
   const result = evaluate({ body: prBody(), changedPaths: [MATCHES] });
 
   assertFinding(
@@ -84,7 +93,7 @@ test('RED 1: a product diff without a Lifecycle section counts as feature and fa
   assert.equal(result.failed, true);
 });
 
-test('RED 1: the same diff with only a bugfix grade line warns and exits cleanly', () => {
+test('the same diff with only a bugfix grade line warns and exits cleanly', () => {
   const result = evaluate({
     body: prBody({ lifecycle: [['변경 등급', 'bugfix']] }),
     changedPaths: [MATCHES],
@@ -96,7 +105,7 @@ test('RED 1: the same diff with only a bugfix grade line warns and exits cleanly
   assertNoFail(result);
 });
 
-test('RED 2: a fully grounded bugfix that changes a migration fails the irreversible path check', () => {
+test('a fully grounded bugfix that changes a migration fails the irreversible path check', () => {
   const result = evaluate({
     body: prBody({ lifecycle: declaredBugfix() }),
     changedPaths: [MIGRATION],
@@ -110,7 +119,7 @@ test('RED 2: a fully grounded bugfix that changes a migration fails the irrevers
   assert.equal(result.failed, true);
 });
 
-test('RED 2: a trivial grade does not escape the irreversible path check', () => {
+test('a trivial grade does not escape the irreversible path check', () => {
   const lifecycle = declaredBugfix().map(([name, value]) => [
     name,
     name === '변경 등급' ? 'trivial' : value,
@@ -124,7 +133,7 @@ test('RED 2: a trivial grade does not escape the irreversible path check', () =>
   assert.equal(result.failed, true);
 });
 
-test('RED 3: an override line turns the irreversible path fail into a warning', () => {
+test('an override line turns the irreversible path fail into a warning', () => {
   const lifecycle = declaredBugfix([
     ['override', 'W-IRREV — migration 오탈자 수정 — 다음 migration PR'],
   ]);
@@ -134,7 +143,7 @@ test('RED 3: an override line turns the irreversible path fail into a warning', 
   assertNoFail(result);
 });
 
-test('RED 4: an expression-only feature passes with a no-impact line per judged domain', () => {
+test('an expression-only feature passes with a no-impact line per judged domain', () => {
   const lifecycle = [
     ['변경 등급', 'feature'],
     ['등급 근거', '표현만 바꾼다'],
@@ -150,7 +159,7 @@ test('RED 4: an expression-only feature passes with a no-impact line per judged 
     assert.ok(findings(result, check, 'pass').length > 0, check);
 });
 
-test('RED 4: a citation of a missing id or a foreign prefix fails the citation check', () => {
+test('a citation of a missing id or a foreign prefix fails the citation check', () => {
   const base = [
     ['변경 등급', 'feature'],
     ['등급 근거', '동작을 바꾼다'],
@@ -181,7 +190,7 @@ test('RED 4: a citation of a missing id or a foreign prefix fails the citation c
   );
 });
 
-test('RED 5: an extra declared domain with a no-impact line only warns about scope', () => {
+test('an extra declared domain with a no-impact line only warns about scope', () => {
   const lifecycle = [
     ['변경 등급', 'feature'],
     ['등급 근거', '동작을 바꾼다'],
@@ -207,7 +216,7 @@ test('RED 5: an extra declared domain with a no-impact line only warns about sco
   );
 });
 
-test('RED 5: a judged domain missing from the declaration fails the scope check', () => {
+test('a judged domain missing from the declaration fails the scope check', () => {
   const lifecycle = [
     ['변경 등급', 'feature'],
     ['등급 근거', '동작을 바꾼다'],
@@ -238,14 +247,14 @@ const tableChange = ({
   head: { [PATH_TABLE]: json(pathDomains({ confirmedBy })) },
 });
 
-test('RED 6: a confirmed path table change passes the Owner confirmation check', () => {
+test('a confirmed path table change passes the Owner confirmation check', () => {
   const result = evaluate(tableChange());
 
   assertFinding(result, 'L-CONFIRM', 'pass', /docs\/policies\/path-domains\.json/u);
   assertNoFail(result);
 });
 
-test('RED 6: each missing or stale Owner confirmation of a path table change fails', () => {
+test('each missing or stale Owner confirmation of a path table change fails', () => {
   assertFinding(
     evaluate(tableChange({ ownerLine: null })),
     'L-CONFIRM',
@@ -282,7 +291,82 @@ test('RED 6: each missing or stale Owner confirmation of a path table change fai
   );
 });
 
-test('RED 6: an override line does not lower an Owner confirmation fail', () => {
+test('the Owner confirmation compares confirmedBy with the merge-base, not a base that moved on', () => {
+  const old = { status: 'owner-confirmed', date: '2026-10-01', basis: '#634' };
+  const movedOn = { status: 'owner-confirmed', date: '2026-10-20', basis: '#700' };
+
+  // dev confirmed the table again after the branch point; the PR edits the table and keeps the branch-point value.
+  assertFinding(
+    evaluate({
+      ...tableChange({ confirmedBy: old, ownerLine: `${PATH_TABLE} 2026-10-01` }),
+      mergeBase: { [PATH_TABLE]: json(pathDomains({ confirmedBy: old })) },
+      base: { [PATH_TABLE]: json(pathDomains({ confirmedBy: movedOn })) },
+    }),
+    'L-CONFIRM',
+    'fail',
+    /이 PR이 confirmedBy를 바꾸지 않음: docs\/policies\/path-domains\.json\(merge-base와 같음\)/u,
+  );
+  // The PR's own confirmation passes even when dev later wrote the same value.
+  const result = evaluate({
+    ...tableChange(),
+    mergeBase: { [PATH_TABLE]: json(pathDomains({ confirmedBy: old })) },
+    base: { [PATH_TABLE]: json(pathDomains({ confirmedBy: CONFIRMED })) },
+  });
+  assertFinding(
+    result,
+    'L-CONFIRM',
+    'pass',
+    /Owner 확인 대조 통과: docs\/policies\/path-domains\.json/u,
+  );
+  assertNoFail(result);
+});
+
+const recordChange = ({
+  confirmedBy = CONFIRMED,
+  ownerLine = `${ARTIFACT_MAP} 2026-10-17`,
+} = {}) => ({
+  body: prBody({
+    lifecycle: [
+      ['변경 등급', 'trivial'],
+      ['등급 근거', '대응 기록 출처 정정'],
+      ...(ownerLine ? [['Owner 확인', ownerLine]] : []),
+    ],
+  }),
+  changedPaths: [ARTIFACT_MAP],
+  head: { [ARTIFACT_MAP]: json(artifactMap({ confirmedBy })) },
+});
+
+test('a tracking record change needs the same Owner confirmation as the path table', () => {
+  const confirmed = evaluate(recordChange());
+  assertFinding(
+    confirmed,
+    'L-CONFIRM',
+    'pass',
+    /Owner 확인 대조 통과: docs\/product\/artifact-map\.json/u,
+  );
+  assertNoFail(confirmed);
+
+  assertFinding(
+    evaluate(recordChange({ ownerLine: null })),
+    'L-CONFIRM',
+    'fail',
+    /Owner 확인 줄 없음: docs\/product\/artifact-map\.json/u,
+  );
+  assertFinding(
+    evaluate(recordChange({ ownerLine: `${ARTIFACT_MAP} 2026-10-16` })),
+    'L-CONFIRM',
+    'fail',
+    /Owner 확인 줄 날짜와 confirmedBy\.date가 다름: docs\/product\/artifact-map\.json/u,
+  );
+  assertFinding(
+    evaluate({ ...recordChange({ ownerLine: `${ARTIFACT_MAP} 2026-10-01` }), head: {} }),
+    'L-CONFIRM',
+    'fail',
+    /이 PR이 confirmedBy를 바꾸지 않음: docs\/product\/artifact-map\.json/u,
+  );
+});
+
+test('an override line does not lower an Owner confirmation fail', () => {
   const result = evaluate(
     tableChange({ ownerLine: null, extra: [['override', 'L-CONFIRM — 급함 — 다음 PR']] }),
   );
@@ -292,7 +376,7 @@ test('RED 6: an override line does not lower an Owner confirmation fail', () => 
   assert.equal(result.failed, true);
 });
 
-test('RED 6: a policy document change needs an Owner line for feature and warns for trivial', () => {
+test('a policy document change needs an Owner line for feature and warns for trivial', () => {
   const policy = 'docs/policies/chat-lifecycle.md';
   const change = (grade) => ({
     body: prBody({
@@ -325,7 +409,7 @@ test('RED 6: a policy document change needs an Owner line for feature and warns 
   assertNoFail(trivial);
 });
 
-test('RED 7: a draft tracking record leaves the judged domains without an owner-confirmed basis', () => {
+test('a draft tracking record leaves the judged domains without an owner-confirmed basis', () => {
   const lifecycle = [
     ['변경 등급', 'feature'],
     ['등급 근거', '동작을 바꾼다'],
@@ -344,7 +428,78 @@ test('RED 7: a draft tracking record leaves the judged domains without an owner-
   assertFinding(result, 'W-POLICY', 'fail', /owner-confirmed 근거 없음: matching-lifecycle/u);
 });
 
-test('RED 8: a bot author or a main base lowers every fail to a warning', () => {
+const matchingFeature = (domains = 'matching-lifecycle, matching-algorithm') => [
+  ['변경 등급', 'feature'],
+  ['등급 근거', '동작을 바꾼다'],
+  ['정책 도메인', domains],
+  ['인용 규칙', `${cite('matching-lifecycle', 'ML-R1')}, ${cite('matching-algorithm', 'MA-R1')}`],
+];
+const withHeader = (status) =>
+  `# 매칭 상태\n\n**상태**: ${status}\n**소유**: 매칭\n\n- **ML-R1** 만료된 요청은 수락하지 않는다.\n`;
+
+test('a policy status header decides the owner-confirmed basis before the tracking record', () => {
+  const draft = { status: 'draft', date: null, basis: null };
+  const draftRecord = json(artifactMap({ confirmedBy: draft }));
+  const confirmedHeader = evaluate({
+    body: prBody({ lifecycle: matchingFeature() }),
+    changedPaths: [MATCHES],
+    head: {
+      'docs/policies/matching-lifecycle.md': withHeader('owner-confirmed'),
+      [ARTIFACT_MAP]: draftRecord,
+    },
+    mergeBase: { [ARTIFACT_MAP]: draftRecord },
+  });
+  assert.deepEqual(
+    findings(confirmedHeader, 'W-POLICY', 'fail').map((finding) => finding.reason),
+    ['owner-confirmed 근거 없음: matching-algorithm(대응 기록 확인 draft)'],
+  );
+
+  const draftHeader = evaluate({
+    body: prBody({ lifecycle: matchingFeature() }),
+    changedPaths: [MATCHES],
+    head: { 'docs/policies/matching-lifecycle.md': withHeader('draft') },
+  });
+  assertFinding(
+    draftHeader,
+    'W-POLICY',
+    'fail',
+    /^owner-confirmed 근거 없음: matching-lifecycle\(header 상태 draft\)$/u,
+  );
+});
+
+test('a domain without a policy document or a tracking record item has no owner-confirmed basis', () => {
+  const missingDocument = evaluate({
+    body: prBody({ lifecycle: matchingFeature() }),
+    changedPaths: [MATCHES],
+    head: { 'docs/policies/matching-algorithm.md': null },
+  });
+  assertFinding(
+    missingDocument,
+    'W-POLICY',
+    'fail',
+    /^owner-confirmed 근거 없음: matching-algorithm\(정책 문서 없음\)$/u,
+  );
+
+  const withoutItem = artifactMap({
+    artifacts: artifactMap().artifacts.filter(
+      (item) => item.artifact !== 'policy:matching-lifecycle',
+    ),
+  });
+  const missingItem = evaluate({
+    body: prBody({ lifecycle: matchingFeature() }),
+    changedPaths: [MATCHES],
+    head: { [ARTIFACT_MAP]: json(withoutItem) },
+    mergeBase: { [ARTIFACT_MAP]: json(withoutItem) },
+  });
+  assertFinding(
+    missingItem,
+    'W-POLICY',
+    'fail',
+    /^owner-confirmed 근거 없음: matching-lifecycle\(대응 기록 항목 없음\)$/u,
+  );
+});
+
+test('a bot author or a main base lowers every fail to a warning', () => {
   for (const options of [
     { author: 'dependabot[bot]' },
     { author: 'renovate[bot]' },
@@ -358,7 +513,7 @@ test('RED 8: a bot author or a main base lowers every fail to a warning', () => 
   }
 });
 
-test('RED 8: an unclassified product path only warns', () => {
+test('an unclassified product path only warns', () => {
   const result = evaluate({
     body: prBody({
       lifecycle: [
