@@ -309,6 +309,18 @@
       "rationale": "BFF 하위 layer 3개의 결정 목록과 기준 항목 인용·상속·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
+      "path": "docs/development/agent-workflows/domain/swe-web/security-privacy.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "cross-cutting security-privacy 하위 layer 2개의 결정 목록과 기준 항목 인용·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/operations-release.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "cross-cutting operations-release 하위 layer 2개의 결정 목록과 기준 항목 인용·위험(비가역 운영 적용의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
       "path": "docs/development/agent-workflows/domain/knu-binding.md",
       "owner": "general development workflow owner",
       "kind": "domain",
