@@ -235,18 +235,99 @@ test('the agent workflow gate runs the agent suite without installing packages',
     assert.ok(!agentJob.includes(installStep), `agent workflow gate must not use ${installStep}`);
 });
 
+const PULL_REQUEST_CONDITION = "${{ github.event_name == 'pull_request' }}";
+
+function workflowSources() {
+  return readdirSync(resolve(repoRoot, '.github/workflows'))
+    .filter((fileName) => fileName.endsWith('.yml') || fileName.endsWith('.yaml'))
+    .map((fileName) => read(`.github/workflows/${fileName}`))
+    .join('\n');
+}
+
+test('the lifecycle gate reads every pull request without waiting for classification', () => {
+  const lifecycleJob = workflowJob(read('.github/workflows/ci.yml'), 'lifecycle_gate');
+
+  assertIncludesAll(lifecycleJob, [
+    'name: Lifecycle gate',
+    `if: ${PULL_REQUEST_CONDITION}`,
+    'pull-requests: read',
+    'fetch-depth: 0',
+    "node-version: '24'",
+    'node scripts/ci/lifecycle/run.mjs',
+  ]);
+  assert.doesNotMatch(
+    lifecycleJob,
+    /^ {4}needs:/mu,
+    'the lifecycle gate must not wait for classify',
+  );
+  assert.ok(
+    !lifecycleJob.includes('needs.classify'),
+    'the lifecycle gate must not read classify outputs',
+  );
+  for (const installStep of ['pnpm install', 'pnpm/action-setup', 'cache: pnpm'])
+    assert.ok(!lifecycleJob.includes(installStep), `lifecycle gate must not use ${installStep}`);
+  assert.ok(
+    !workflowSources().includes('github.event.pull_request.body'),
+    'workflows must read the pull request body through the API, not an expression',
+  );
+});
+
+// A summary need is selected by its classify output or, for a job that runs on every pull request, by that job's own
+// event condition. Any other source would let a failed need pass as unselected.
+function selectionSource(ci, summary, job) {
+  const selected = summary.match(new RegExp(`^ +${job.toUpperCase()}_SELECTED: (.+)$`, 'mu'))?.[1];
+  if (selected === `\${{ needs.classify.outputs.${job} }}`) return 'classify';
+  const condition = workflowJob(ci, job).match(/^ {4}if: (.+)$/mu)?.[1];
+  return selected === PULL_REQUEST_CONDITION && condition === PULL_REQUEST_CONDITION
+    ? 'event'
+    : null;
+}
+
 test('the CI summary fails closed for every lane job it waits for', () => {
-  const summary = workflowJob(read('.github/workflows/ci.yml'), 'ci-summary');
+  const ci = read('.github/workflows/ci.yml');
+  const summary = workflowJob(ci, 'ci-summary');
   const needs = [...summary.matchAll(/^      - ([a-z_]+)$/gmu)].map((match) => match[1]);
   assert.ok(needs.includes('agent_workflow'), 'ci-summary must wait for agent_workflow');
+  assert.ok(needs.includes('lifecycle_gate'), 'ci-summary must wait for lifecycle_gate');
   for (const job of needs.filter((name) => name !== 'classify')) {
     const env = job.toUpperCase();
+    assert.ok(
+      selectionSource(ci, summary, job),
+      `${job} must be selected by a classify output or its own event condition`,
+    );
     assertIncludesAll(summary, [
-      `${env}_SELECTED: \${{ needs.classify.outputs.${job} }}`,
       `${env}_RESULT: \${{ needs.${job}.result }}`,
       `"$${env}_SELECTED" "$${env}_RESULT"`,
     ]);
   }
+  assert.equal(selectionSource(ci, summary, 'lifecycle_gate'), 'event');
+});
+
+test('the summary selection check rejects a need without a classify output or its own event condition', () => {
+  const ci = [
+    'jobs:',
+    '  constant:',
+    '    runs-on: ubuntu-slim',
+    '  push_only:',
+    "    if: ${{ github.event_name == 'push' }}",
+    '  classified:',
+    "    if: ${{ needs.classify.outputs.web == 'true' }}",
+    '  ci-summary:',
+    '    needs:',
+    '      - constant',
+    '      - push_only',
+    '      - classified',
+    '    steps:',
+    '      - env:',
+    "          CONSTANT_SELECTED: 'true'",
+    `          PUSH_ONLY_SELECTED: ${PULL_REQUEST_CONDITION}`,
+    `          CLASSIFIED_SELECTED: ${PULL_REQUEST_CONDITION}`,
+    '',
+  ].join('\n');
+  const summary = workflowJob(ci, 'ci-summary');
+
+  for (const job of ['constant', 'push_only', 'classified'])
+    assert.equal(selectionSource(ci, summary, job), null, job);
 });
 
 test('infrastructure CI separates static and container-backed validation', () => {
@@ -338,7 +419,7 @@ test('compiler cache stays small, architecture-aware, and owner-local', () => {
   const apiWorkflow = read('.github/workflows/api-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
 
-  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 2);
+  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 3);
   assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 3);
   assert.ok(!apiWorkflow.includes('API TypeScript build info'));
   assert.ok(!apiWorkflow.includes('apps/api/dist/.tsbuildinfo'));

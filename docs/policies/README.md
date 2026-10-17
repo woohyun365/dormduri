@@ -8,26 +8,55 @@
 
 ## 문서 구성
 
-| 문서                                                           | 도메인           | 최종 소유 규칙                                                                                           |
-| -------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------- |
-| [account-authentication.md](./account-authentication.md)       | 계정/인증        | id 체계, 이메일 인증, 로그인, 세션, 비밀번호, 회원가입 기본 단계                                         |
-| [access-eligibility.md](./access-eligibility.md)               | 이용 자격        | 누가 가입/매칭 참여 가능한지, 건물 배정 입력 의미, 건물/캠퍼스 변경 원칙                                 |
-| [season-lifecycle.md](./season-lifecycle.md)                   | 시즌 운영        | 시즌 기간, 지원 건물, 시즌별 기능 on/off, 시즌 전환 데이터 처리                                          |
-| [season-participation.md](./season-participation.md)           | 시즌 참여        | 시즌 참여자 등록의 의미, `SeasonParticipantProfile` draft/final, registration 완료 조건, capability 용어 |
-| [profile-model.md](./profile-model.md)                         | 프로필 구조      | `UserDisplayIdentity`, `SeasonParticipantProfile`, profile history, 필드 레벨 노출                       |
-| [matching-lifecycle.md](./matching-lifecycle.md)               | 매칭 상태        | 2인(pair) 매칭 호환도, 신청/대화/확정 상태 전이, 북마크, 리스트 표현, group matching 비지원 경계         |
-| [chat-lifecycle.md](./chat-lifecycle.md)                       | 채팅 상태        | 1:1 chat thread 생성/쓰기/read-only/archive, block/report/realtime/retention 경계                        |
-| [roommate-searching.md](./roommate-searching.md)               | 룸메이트 찾기 UX | 검색 scope, summary/detail/action capability, manifest/filter/sort/cursor 계약                           |
-| [service-boundary.md](./service-boundary.md)                   | 서비스 책임 범위 | 채팅 포함 범위, 시스템 보장 한계, 면책, 분쟁 시 서비스 역할                                              |
-| [community-safety.md](./community-safety.md)                   | 커뮤니티 안전    | 비속어/혐오 표현 필터, 개인정보 노출 가이드, 소수자 포용 원칙                                            |
-| [incident-enforcement.md](./incident-enforcement.md)           | 신고/제재 운영   | 신고 카테고리, 제재 사다리, 즉시 분리 트리거, 임시조치, 증거 판단, 고지 원칙                             |
-| [support-communication.md](./support-communication.md)         | 지원/문의        | support ticket, appeal, FAQ, email optional consent, support notification handoff                        |
-| [operational-observability.md](./operational-observability.md) | 운영 관측        | 수집 목적, 로그·메트릭 개인정보, 접근, 보존, fail-open과 stress 실행 안전 경계                           |
-| [production-runtime-safety.md](./production-runtime-safety.md) | Production 안전  | secret, DB, migration, ingress, health, rollback과 release blocker 불변 조건                             |
-| [notification-inbox.md](./notification-inbox.md)               | 알림함           | in-app notification, writer/outbox, payload privacy, delivery channel 경계                               |
-| [data-retention.md](./data-retention.md)                       | 데이터 보유기간  | 데이터 분류별 보유기간, 파기 절차, 탈퇴 시 처리, 법적 근거                                               |
-| [legal-basis.md](./legal-basis.md)                             | 법적 근거        | 적용 법령 계층 구조, 서비스 행위별 법령 매핑, 접속기록 규율 대상 구분                                    |
-| [dependency-security.md](./dependency-security.md)             | Dependency 보안  | 취약점 reachability, remediation, exception, dismissal과 release NO-GO                                   |
+| 문서                                                           | 도메인           | 규칙 id 접두어 | 최종 소유 규칙                                                                                           |
+| -------------------------------------------------------------- | ---------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
+| [account-authentication.md](./account-authentication.md)       | 계정/인증        | AU             | id 체계, 이메일 인증, 로그인, 세션, 비밀번호, 회원가입 기본 단계                                         |
+| [access-eligibility.md](./access-eligibility.md)               | 이용 자격        | AE             | 누가 가입/매칭 참여 가능한지, 건물 배정 입력 의미, 건물/캠퍼스 변경 원칙                                 |
+| [season-lifecycle.md](./season-lifecycle.md)                   | 시즌 운영        | SL             | 시즌 기간, 지원 건물, 시즌별 기능 on/off, 시즌 전환 데이터 처리                                          |
+| [season-participation.md](./season-participation.md)           | 시즌 참여        | SP             | 시즌 참여자 등록의 의미, `SeasonParticipantProfile` draft/final, registration 완료 조건, capability 용어 |
+| [profile-model.md](./profile-model.md)                         | 프로필 구조      | PM             | `UserDisplayIdentity`, `SeasonParticipantProfile`, profile history, 필드 레벨 노출                       |
+| [matching-lifecycle.md](./matching-lifecycle.md)               | 매칭 상태        | ML             | 2인(pair) 매칭 호환도, 신청/대화/확정 상태 전이, 북마크, 리스트 표현, group matching 비지원 경계         |
+| [matching-algorithm.md](./matching-algorithm.md)               | 매칭 알고리즘    | MA             | 호환도 점수 행렬, 정규화 공식, 관점별 점수와 예외 처리                                                   |
+| [chat-lifecycle.md](./chat-lifecycle.md)                       | 채팅 상태        | CH             | 1:1 chat thread 생성/쓰기/read-only/archive, block/report/realtime/retention 경계                        |
+| [roommate-searching.md](./roommate-searching.md)               | 룸메이트 찾기 UX | RS             | 검색 scope, summary/detail/action capability, manifest/filter/sort/cursor 계약                           |
+| [service-boundary.md](./service-boundary.md)                   | 서비스 책임 범위 | SB             | 채팅 포함 범위, 시스템 보장 한계, 면책, 분쟁 시 서비스 역할                                              |
+| [community-safety.md](./community-safety.md)                   | 커뮤니티 안전    | CS             | 비속어/혐오 표현 필터, 개인정보 노출 가이드, 소수자 포용 원칙                                            |
+| [incident-enforcement.md](./incident-enforcement.md)           | 신고/제재 운영   | IE             | 신고 카테고리, 제재 사다리, 즉시 분리 트리거, 임시조치, 증거 판단, 고지 원칙                             |
+| [support-communication.md](./support-communication.md)         | 지원/문의        | SC             | support ticket, appeal, FAQ, email optional consent, support notification handoff                        |
+| [operational-observability.md](./operational-observability.md) | 운영 관측        | OO             | 수집 목적, 로그·메트릭 개인정보, 접근, 보존, fail-open과 stress 실행 안전 경계                           |
+| [production-runtime-safety.md](./production-runtime-safety.md) | Production 안전  | PRS            | secret, DB, migration, ingress, health, rollback과 release blocker 불변 조건                             |
+| [notification-inbox.md](./notification-inbox.md)               | 알림함           | NI             | in-app notification, writer/outbox, payload privacy, delivery channel 경계                               |
+| [data-retention.md](./data-retention.md)                       | 데이터 보유기간  | DR             | 데이터 분류별 보유기간, 파기 절차, 탈퇴 시 처리, 법적 근거                                               |
+| [legal-basis.md](./legal-basis.md)                             | 법적 근거        | LB             | 적용 법령 계층 구조, 서비스 행위별 법령 매핑, 접속기록 규율 대상 구분                                    |
+| [dependency-security.md](./dependency-security.md)             | Dependency 보안  | DS             | 취약점 reachability, remediation, exception, dismissal과 release NO-GO                                   |
+
+## 규칙 id와 인용
+
+정책 규칙은 규칙 문장이나 표 행 앞에 `**<접두어>-R<번호>**` 형식의 id를 둡니다(예: `**DR-R3**`). 접두어는 위 표의 값이고
+번호는 문서 안에서 늘기만 합니다. 아직 id가 없는 도메인은 그 도메인 동작을 바꾸는 첫 PR이 id를 붙이고, 그 PR은 정책 문서를
+바꾸므로 PR 본문에 그 문서의 Owner 확인 줄을 둡니다.
+
+인용은 파일 링크 + id입니다: `[data-retention.md DR-R3](./data-retention.md)`(경로는 인용하는 문서 기준이고, PR 본문
+`Lifecycle` 절의 `인용 규칙`은 저장소 root 기준 `docs/policies/<문서>.md`). CI `Lifecycle gate`의 `W-CITE`는 인용한 id가 링크한
+문서에 `**ID**`로 있는지와 접두어가 위 표의 값인지 확인합니다.
+
+## 경로 → 정책 도메인 표
+
+[`path-domains.json`](./path-domains.json)은 제품 경로가 어느 정책 도메인을 바꾸는지 정하는 표입니다. CI `Lifecycle gate`가
+PR diff에 적용하며, 기술 layer 영역(FE·BFF·BE) 판정과는 다른 축입니다.
+
+| 필드                | 내용                                                                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `productRoots`      | 표를 적용하는 제품 경로                                                                                                     |
+| `entries`           | `globs`에 맞는 경로의 `domains`(정책 문서 이름). 한 경로가 여러 행에 맞으면 도메인을 합치고, `except` glob은 그 행에서 뺀다 |
+| `noDomain`          | 정책 도메인이 없는 제품 경로와 이유. 미분류 경고만 끈다                                                                     |
+| `irreversiblePaths` | 되돌리기 어려운 경로와 근거 정책. trivial·bugfix·hotfix가 바꾸면 `W-IRREV` fail이다                                         |
+| `confirmedBy`       | 표 전체의 Owner 확인(`status`·`date`·`basis` = 그 변경 작업의 GitHub issue 번호)                                            |
+
+- glob은 `**`(여러 단계)와 `*`(한 단계)만 씁니다. 행과 `noDomain`에 모두 맞지 않는 제품 경로는 미분류 경고, 추적 파일에 하나도
+  맞지 않는 glob은 stale 경고입니다.
+- 이 파일을 바꾸는 PR은 변경 등급과 무관하게 `confirmedBy`를 그 PR의 Owner 확인으로 바꾸고 PR 본문에
+  `Owner 확인: docs/policies/path-domains.json <날짜>` 줄을 둡니다(`L-CONFIRM`, override로 낮출 수 없음).
 
 ## 정리 원칙
 
@@ -88,6 +117,7 @@
 | 2026-06-17 | Production 배포 준비 정책을 official policy set에 추가하고 BE API/RDS release safety owner 경계를 정리했다.                                         | production deployment readiness         |
 | 2026-08-11 | 배포·관측 정책에서 topology, provider 가격, resource 값과 rehearsal 절차를 architecture/release owner로 분리했다.                                   | documentation responsibility            |
 | 2026-08-24 | Dependency vulnerability triage, exception, dismissal과 release blocker 정책을 추가했다.                                                            | GitHub Security baseline                |
+| 2026-10-17 | `matching-algorithm.md` 색인 행, 규칙 id 접두어 열, 규칙 id·인용 형식과 경로 → 정책 도메인 표(`path-domains.json`)를 추가했다                       | #634                                    |
 
 ## 사용 순서
 
