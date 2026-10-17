@@ -177,6 +177,34 @@ jobs:
       - name: Verify agent workflow scripts
         run: node scripts/ci/lanes/run-repo-policy.mjs --suite agent-workflow
 
+  # Runs on every pull request regardless of classification. The PR body is read through the API at run time, so
+  # re-running this failed job after a body edit checks the edited body; it is never interpolated into a step.
+  lifecycle_gate:
+    name: Lifecycle gate
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The lifecycle gate imports no installed package, so this job installs no dependencies.
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Check lifecycle policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/lifecycle/run.mjs
+
   ci-summary:
     name: CI summary
     needs:
@@ -187,6 +215,7 @@ jobs:
       - infra
       - repo_policy
       - agent_workflow
+      - lifecycle_gate
     if: ${{ always() }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -206,6 +235,9 @@ jobs:
           REPO_POLICY_RESULT: ${{ needs.repo_policy.result }}
           AGENT_WORKFLOW_SELECTED: ${{ needs.classify.outputs.agent_workflow }}
           AGENT_WORKFLOW_RESULT: ${{ needs.agent_workflow.result }}
+          # Selected by the job's own event condition, not by classification.
+          LIFECYCLE_GATE_SELECTED: ${{ github.event_name == 'pull_request' }}
+          LIFECYCLE_GATE_RESULT: ${{ needs.lifecycle_gate.result }}
           CLASSIFICATION_FAILED: ${{ needs.classify.outputs.classification_failed }}
         run: |
           failed=0
@@ -237,6 +269,7 @@ jobs:
           require_selected_lane "infra" "$INFRA_SELECTED" "$INFRA_RESULT"
           require_selected_lane "repo-policy" "$REPO_POLICY_SELECTED" "$REPO_POLICY_RESULT"
           require_selected_lane "agent-workflow" "$AGENT_WORKFLOW_SELECTED" "$AGENT_WORKFLOW_RESULT"
+          require_selected_lane "lifecycle-gate" "$LIFECYCLE_GATE_SELECTED" "$LIFECYCLE_GATE_RESULT"
 
           {
             echo "### Monorepo CI summary"
@@ -249,6 +282,7 @@ jobs:
             echo "| infra | ${INFRA_SELECTED} | ${INFRA_RESULT} |"
             echo "| repo-policy | ${REPO_POLICY_SELECTED} | ${REPO_POLICY_RESULT} |"
             echo "| agent-workflow | ${AGENT_WORKFLOW_SELECTED} | ${AGENT_WORKFLOW_RESULT} |"
+            echo "| lifecycle-gate | ${LIFECYCLE_GATE_SELECTED} | ${LIFECYCLE_GATE_RESULT} |"
             echo "| classifier fail-open | ${CLASSIFICATION_FAILED} | n/a |"
           } >> "$GITHUB_STEP_SUMMARY"
 
