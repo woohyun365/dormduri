@@ -11,7 +11,7 @@ import {
   truncateSync,
   existsSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -1538,7 +1538,10 @@ test('ordinary executor new files are fingerprinted without staging, then common
   input.results[0].changedPaths = ['new.txt'];
   const checked = completeClaudeNativeTask(r.taskId, input, { root: f.root });
   assert.equal(checked.observation.valid, true, JSON.stringify(checked.errors));
-  assert.equal(checked.observation.finalSnapshot.untrackedInputDigests[0].path, 'new.txt');
+  // Against HEAD the fixture's staged role files are new too; new.txt is fingerprinted among them.
+  assert.ok(
+    checked.observation.finalSnapshot.untrackedInputDigests.some(({ path }) => path === 'new.txt'),
+  );
   assert.deepEqual(checked.errors, [
     'native required QA requires linked reviewerTaskId',
     'independent QA exchange required',
@@ -1773,12 +1776,16 @@ test('registration names the concrete policy reason instead of only the generic 
 });
 
 // Registration-to-settlement changes outside the child's write scope cannot be told apart from a
-// Parent edit, so they are refused as unattributable instead of being recorded as child changes.
+// Parent edit. A writer's are refused as unattributable. A read-only task depends only on the files
+// it was given or seen reading, so a change elsewhere (another session's edit or commit) is recorded
+// in its dependency judgment instead; the stored completion stays repository-wide.
 function readOnlyWithOtherFile(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
   writeFileSync(join(f.root, 'other.txt'), 'outside read scope');
-  execFileSync('git', ['add', 'other.txt'], { cwd: f.root });
+  mkdirSync(join(f.root, 'dir'));
+  writeFileSync(join(f.root, 'dir/a.txt'), 'under a searched directory');
+  execFileSync('git', ['add', 'other.txt', 'dir/a.txt'], { cwd: f.root });
   execFileSync(
     'git',
     ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'other'],
@@ -1803,13 +1810,28 @@ function readOnlyWithOtherFile(t) {
     },
   };
 }
+const commitIn = (root, ...paths) => {
+  execFileSync('git', ['add', '--', ...paths], { cwd: root });
+  execFileSync(
+    'git',
+    [
+      '-c',
+      'user.name=T',
+      '-c',
+      'user.email=t@example.invalid',
+      'commit',
+      '-qm',
+      'c',
+      '--',
+      ...paths,
+    ],
+    { cwd: root },
+  );
+};
 for (const [kind, path, change] of [
   ['tracked edit in read scope', 'sample.txt', (p) => writeFileSync(p, 'parent edit')],
-  ['tracked edit outside read scope', 'other.txt', (p) => writeFileSync(p, 'parent edit')],
   ['new file in read scope', 'in-scope-new.txt', (p) => writeFileSync(p, 'new')],
-  ['new file outside read scope', 'outside-new.txt', (p) => writeFileSync(p, 'new')],
   ['deletion in read scope', 'sample.txt', (p) => rmSync(p)],
-  ['deletion outside read scope', 'other.txt', (p) => rmSync(p)],
 ])
   test(`unattributable change: ${kind}`, (t) => {
     const f = readOnlyWithOtherFile(t);
@@ -1828,6 +1850,31 @@ for (const [kind, path, change] of [
     assert.ok(checked.errors.includes(`unattributable-change:${path}`), checked.errors.join());
     assert.ok(!checked.errors.includes('reported-change-path-mismatch'), checked.errors.join());
     assert.ok(!checked.errors.some((e) => e.startsWith('outside-write')), checked.errors.join());
+    assert.deepEqual(checked.dependencyJudgment.inside, [path]);
+  });
+for (const [kind, path, change] of [
+  ['tracked edit outside its reads', 'other.txt', (p) => writeFileSync(p, 'parent edit')],
+  ['new file outside its reads', 'outside-new.txt', (p) => writeFileSync(p, 'new')],
+  ['deletion outside its reads', 'other.txt', (p) => rmSync(p)],
+])
+  test(`a read-only task records a ${kind} and settles`, (t) => {
+    const f = readOnlyWithOtherFile(t);
+    handle(f);
+    change(join(f.root, path));
+    finish(f);
+    const observed = JSON.parse(
+      readFileSync(join(f.registered.evidenceDirectory, 'completion.json')),
+    );
+    // The stored observation stays repository-wide; a recovery binding still reads it.
+    assert.deepEqual(observed.errors, [`unattributable-change:${path}`]);
+    const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+      root: f.root,
+    });
+    assert.equal(checked.valid, true, checked.errors.join());
+    assert.equal(checked.dependencyJudgment.basis, 'dependency');
+    assert.deepEqual(checked.dependencyJudgment.inside, []);
+    assert.deepEqual(checked.dependencyJudgment.outside, [path]);
+    assert.equal(checked.dependencyJudgment.headChanged, false);
   });
 
 test('a writer changing only its write scope has no unattributable change at either point', (t) => {
@@ -1850,21 +1897,304 @@ test('a writer changing only its write scope has no unattributable change at eit
   assert.ok(!checked.errors.includes('reported-change-path-mismatch'), checked.errors.join());
 });
 
-test('an edit after the child stopped is post-completion drift, not a child change', (t) => {
+test('a writer still refuses a change outside its write scope as unattributable', (t) => {
+  const f = writer(t);
+  handle(f);
+  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+  writeFileSync(join(f.root, 'outside-new.txt'), 'another session');
+  finish(f);
+  const input = semanticResult(f);
+  input.results[0].changedPaths = ['sample.txt'];
+  const checked = completeClaudeNativeTask(f.registered.taskId, input, { root: f.root });
+  assert.equal(checked.valid, false);
+  assert.ok(
+    checked.errors.includes('unattributable-change:outside-new.txt'),
+    checked.errors.join(),
+  );
+  assert.equal(checked.dependencyJudgment.basis, 'repository');
+});
+
+// After the child stopped, settle --judgment and complete both judge drift over the dependencies.
+const explorerJudgment = (f) => ({
+  responseDigest: JSON.parse(readFileSync(join(f.registered.evidenceDirectory, 'completion.json')))
+    .responseDigest,
+  acceptance: [
+    {
+      criterion: f.registered.workflow.lanes[0].acceptance[0],
+      passed: true,
+      evidenceRef: 'fixture:independent-oracle',
+    },
+  ],
+  checks: ['independent oracle compared'],
+});
+for (const via of ['complete', 'settle --judgment'])
+  for (const [kind, path, change, inside] of [
+    [
+      'an edit outside its reads',
+      'other.txt',
+      (p) => writeFileSync(p, 'parent edit after stop'),
+      false,
+    ],
+    ['a new file outside its reads', 'outside-new.txt', (p) => writeFileSync(p, 'new'), false],
+    [
+      'an edit in its read scope',
+      'sample.txt',
+      (p) => writeFileSync(p, 'parent edit after stop'),
+      true,
+    ],
+  ])
+    test(`after a read-only child stopped, ${kind} through ${via}`, (t) => {
+      const f = readOnlyWithOtherFile(t);
+      handle(f);
+      finish(f);
+      change(join(f.root, path));
+      const checked =
+        via === 'complete'
+          ? completeClaudeNativeTask(f.registered.taskId, semanticResult(f), { root: f.root })
+          : settleClaudeNativeTask(f.registered.taskId, explorerJudgment(f), { root: f.root });
+      assert.deepEqual(
+        JSON.parse(readFileSync(join(f.registered.evidenceDirectory, 'completion.json'))).errors,
+        [],
+      );
+      if (inside) {
+        assert.equal(checked.valid, false);
+        assert.ok(checked.errors.includes('post-completion-file-drift'), checked.errors.join());
+        assert.deepEqual(checked.dependencyJudgment.inside, [path]);
+        return;
+      }
+      assert.equal(checked.valid, true, checked.errors.join());
+      assert.deepEqual(checked.dependencyJudgment.outside, [path]);
+      // The fan-in source reasons this change raised are replaced by the judgment and recorded.
+      assert.ok(checked.dependencyJudgment.replacedSourceGaps.length > 0);
+      for (const gap of checked.dependencyJudgment.replacedSourceGaps)
+        assert.match(
+          gap,
+          /^(?:current-source-head-mismatch|current-source-diff-mismatch|current-untracked-input-mismatch)$/u,
+        );
+    });
+
+for (const [kind, path, inside] of [
+  ['outside its reads', 'other.txt', false],
+  ['in its read scope', 'sample.txt', true],
+])
+  test(`a commit ${kind} after a read-only child stopped`, (t) => {
+    const f = readOnlyWithOtherFile(t);
+    handle(f);
+    finish(f);
+    writeFileSync(join(f.root, path), 'committed by another session');
+    commitIn(f.root, path);
+    const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+      root: f.root,
+    });
+    assert.equal(checked.dependencyJudgment.headChanged, true);
+    assert.equal(checked.valid, !inside, checked.errors.join());
+    if (!inside)
+      assert.ok(
+        checked.dependencyJudgment.replacedSourceGaps.includes('current-source-head-mismatch'),
+      );
+  });
+
+// What the child's transcript shows it reading joins the dependencies: a Read file, everything under
+// a Grep or Glob directory. A search without a path or another tool falls back to the repository.
+const readOnlyTools = {
+  'a file it read': (root) => [{ name: 'Read', input: { file_path: join(root, 'other.txt') } }],
+  'a directory it searched': (root) => [
+    { name: 'Grep', input: { pattern: 'a', path: join(realpathSync(root), 'dir') } },
+  ],
+};
+for (const [kind, path] of [
+  ['a file it read', 'other.txt'],
+  ['a directory it searched', 'dir/a.txt'],
+])
+  for (const when of ['during the run', 'after it stopped'])
+    test(`a read-only task refuses a change to ${kind} ${when}`, (t) => {
+      const f = readOnlyWithOtherFile(t);
+      handle(f);
+      if (when === 'during the run') writeFileSync(join(f.root, path), 'changed');
+      finish(f, {}, { tools: readOnlyTools[kind](f.root) });
+      if (when === 'after it stopped') writeFileSync(join(f.root, path), 'changed');
+      const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+        root: f.root,
+      });
+      assert.equal(checked.valid, false);
+      assert.ok(
+        checked.errors.includes(
+          when === 'during the run'
+            ? `unattributable-change:${path}`
+            : 'post-completion-file-drift',
+        ),
+        checked.errors.join(),
+      );
+      assert.equal(checked.dependencyJudgment.basis, 'dependency');
+      assert.deepEqual(checked.dependencyJudgment.inside, [path]);
+    });
+
+test('a file beside a searched directory stays outside the dependencies', (t) => {
+  const f = readOnlyWithOtherFile(t);
+  handle(f);
+  writeFileSync(join(f.root, 'other.txt'), 'changed');
+  finish(f, {}, { tools: readOnlyTools['a directory it searched'](f.root) });
+  const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+    root: f.root,
+  });
+  assert.equal(checked.valid, true, checked.errors.join());
+  assert.deepEqual(checked.dependencyJudgment.outside, ['other.txt']);
+});
+
+// A hand-back (how a live child delivers its answer) and web tools read no repository file, so the
+// dependency judgment holds with them; a live read-only settlement depends on this.
+test('a read-only task with a hand-back and web tools keeps the dependency judgment', (t) => {
+  const f = readOnlyWithOtherFile(t);
+  handle(f);
+  writeFileSync(join(f.root, 'other.txt'), 'changed');
+  finish(
+    f,
+    {},
+    {
+      tools: [
+        { name: 'WebSearch', input: { query: 'oracle' } },
+        { name: 'WebFetch', input: { url: 'https://example.invalid/', prompt: 'read' } },
+        { name: 'SubagentHandback', input: { message: 'oracle' } },
+      ],
+    },
+  );
+  const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+    root: f.root,
+  });
+  assert.equal(checked.valid, true, checked.errors.join());
+  assert.equal(checked.dependencyJudgment.basis, 'dependency');
+  assert.deepEqual(checked.dependencyJudgment.outside, ['other.txt']);
+});
+
+for (const [kind, child, reason] of [
+  [
+    'a search of the repository root',
+    { tools: (root) => [{ name: 'Grep', input: { pattern: 'a', path: realpathSync(root) } }] },
+    'whole-repository:Grep',
+  ],
+  [
+    'a search of a directory above the repository',
+    {
+      tools: (root) => [
+        { name: 'Glob', input: { pattern: '*', path: dirname(realpathSync(root)) } },
+      ],
+    },
+    'whole-repository:Glob',
+  ],
+  [
+    'a read of a case variant of a file name',
+    { tools: (root) => [{ name: 'Read', input: { file_path: join(root, 'OTHER.txt') } }] },
+    'case-variant:Read',
+  ],
+])
+  test(`a read-only task with ${kind} is judged over the whole repository`, (t) => {
+    const f = readOnlyWithOtherFile(t);
+    handle(f);
+    writeFileSync(join(f.root, 'other.txt'), 'changed');
+    finish(f, {}, { tools: child.tools(f.root) });
+    const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+      root: f.root,
+    });
+    assert.equal(checked.valid, false);
+    assert.ok(checked.errors.includes('unattributable-change:other.txt'), checked.errors.join());
+    assert.deepEqual(
+      [checked.dependencyJudgment.basis, checked.dependencyJudgment.reason],
+      ['repository', reason],
+    );
+  });
+
+for (const [kind, child] of [
+  ['a search without a path', { tools: [{ name: 'Glob', input: { pattern: '**/*.txt' } }] }],
+  [
+    'a tool it cannot attribute',
+    { tools: [{ name: 'Bash', input: { command: 'cat other.txt' } }] },
+  ],
+  ['no child transcript', { write: false }],
+])
+  test(`a read-only task with ${kind} is judged over the whole repository`, (t) => {
+    const f = readOnlyWithOtherFile(t);
+    handle(f);
+    writeFileSync(join(f.root, 'other.txt'), 'changed');
+    finish(f, {}, child);
+    const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
+      root: f.root,
+    });
+    assert.equal(checked.valid, false);
+    assert.ok(checked.errors.includes('unattributable-change:other.txt'), checked.errors.join());
+    assert.equal(checked.dependencyJudgment.basis, 'repository');
+    assert.equal(typeof checked.dependencyJudgment.reason, 'string');
+  });
+
+test('a change outside a read-only task before its call still makes the workflow stale', (t) => {
+  const f = readOnlyWithOtherFile(t);
+  writeFileSync(join(f.root, 'other.txt'), 'another session');
+  const out = handle(f);
+  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /stale workflow/u);
+});
+
+test('a read-only task still refuses adapter identity drift outside its reads', (t) => {
   const f = readOnlyWithOtherFile(t);
   handle(f);
   finish(f);
-  writeFileSync(join(f.root, 'other.txt'), 'parent edit after stop');
+  writeRole(f.root, 'knu_explorer', 'Read, Grep, Glob', 'Changed after the child stopped.');
   const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
     root: f.root,
   });
   assert.equal(checked.valid, false);
-  assert.ok(checked.errors.includes('post-completion-file-drift'), checked.errors.join());
-  assert.deepEqual(
-    JSON.parse(readFileSync(join(f.registered.evidenceDirectory, 'completion.json'))).errors,
-    [],
+  assert.ok(checked.errors.includes('adapter/role/settings drift'), checked.errors.join());
+});
+
+test('a read-only fan-in keeps its other gaps', (t) => {
+  const f = readOnlyWithOtherFile(t);
+  handle(f);
+  finish(f);
+  writeFileSync(join(f.root, 'other.txt'), 'parent edit after stop');
+  const input = semanticResult(f);
+  input.results[0].laneId = 'another-lane';
+  const checked = completeClaudeNativeTask(f.registered.taskId, input, { root: f.root });
+  assert.equal(checked.valid, false);
+  assert.ok(
+    !checked.errors.some((e) => /^current-(?:source|untracked)-/u.test(e)),
+    checked.errors.join(),
   );
 });
+
+// A native reviewer's result is compared with its packet snapshot: a change outside the reviewer's
+// dependencies (during its run or after it stopped, an edit or a commit) does not void it; a change
+// to a file it reads does. The builder's own completion check stays repository-wide.
+for (const [kind, path, change, inside] of [
+  ['a new file outside its reads during the run', 'outside-new.txt', 'during', false],
+  ['a new file outside its reads after it stopped', 'outside-new.txt', 'after', false],
+  ['a commit outside its reads after it stopped', 'outside-new.txt', 'commit', false],
+  ['an edit to its read path during the run', 'sample.txt', 'during', true],
+  ['an edit to its read path after it stopped', 'sample.txt', 'after', true],
+])
+  test(`native reviewer complete with ${kind}`, (t) => {
+    const { subject, packet, builderLinkedTo } = reviewedSubject(t);
+    const qa = reviewer(t, subject, packet);
+    const result = reviewResult(packet, qa.options.expectedResolvedModel);
+    handle(qa);
+    if (change === 'during') writeFileSync(join(qa.root, path), 'changed');
+    finish(qa, { content: [{ type: 'text', text: JSON.stringify(result) }] });
+    if (change === 'after') writeFileSync(join(qa.root, path), 'changed');
+    if (change === 'commit') {
+      writeFileSync(join(qa.root, path), 'committed');
+      commitIn(qa.root, path);
+    }
+    const semantic = semanticResult(qa);
+    semantic.reviewResult = result;
+    const checked = completeClaudeNativeTask(qa.registered.taskId, semantic, { root: qa.root });
+    assert.equal(checked.valid, !inside, checked.errors.join());
+    if (inside) return;
+    assert.deepEqual(checked.dependencyJudgment.outside, [path]);
+    assert.equal(checked.dependencyJudgment.headChanged, change === 'commit');
+    if (change === 'during')
+      assert.ok(
+        builderLinkedTo(qa).errors.includes('review snapshot mismatch'),
+        'the builder still compares the review receipt with its own final snapshot',
+      );
+  });
 
 function asyncStopped(t, notificationRow) {
   const f = setup(t);
@@ -3298,6 +3628,32 @@ test('a working-tree change after the first task completes forfeits its bound re
         recovery: { of: a.registered.taskId, cause: 'result-error' },
       }),
     /recovery-not-ran: .*post-completion/u,
+  );
+  assert.equal(markerFiles(f).length, 0);
+});
+
+// Settlement judges a read-only task over its dependencies, but a recovery binding keeps the
+// repository-wide observation: a change anywhere during the first task forfeits its retry.
+test('a read-only first task with a change outside its reads still forfeits its bound retry', (t) => {
+  const f = ladder(t);
+  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' });
+  assert.deepEqual(handle(a), {});
+  writeFileSync(join(f.root, 'outside.txt'), 'another session');
+  finish(a);
+  rmSync(join(f.root, 'outside.txt'));
+  const r = semanticResult(a);
+  r.acceptance[0].passed = false;
+  const settled = completeClaudeNativeTask(a.registered.taskId, r, { root: f.root });
+  assert.deepEqual(settled.dependencyJudgment.outside, ['outside.txt']);
+  assert.ok(!settled.errors.some((e) => e.includes('outside.txt')), settled.errors.join());
+  assert.throws(
+    () =>
+      registerAs(f, {
+        profileId: 'complex-critical',
+        role: 'knu_explorer',
+        recovery: { of: a.registered.taskId, cause: 'result-error' },
+      }),
+    /recovery-not-ran: .*unattributable-change:outside\.txt/u,
   );
   assert.equal(markerFiles(f).length, 0);
 });

@@ -1,7 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { realpathSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readPlan, assessPlanContinuation } from '../common/plan-store.mjs';
 
@@ -32,13 +42,27 @@ export function runClaudePreflight({
 
   const diagnostics = [];
   const overrides = ['-c', 'core.fsmonitor=false'];
-  const git = (label, args, { noMatch = false, maxBuffer = 1024 * 1024 } = {}) => {
+  // The worktree is read against a temporary index made from the HEAD tree, so the user's stage
+  // (git add, git add -N) never changes the snapshot and the real index is only ever read. A caller's
+  // GIT_INDEX_FILE (a hook environment) is not inherited.
+  const { GIT_INDEX_FILE: _ambientIndex, ...ambient } = process.env;
+  let headIndex = null;
+  const git = (
+    label,
+    args,
+    { noMatch = false, maxBuffer = 1024 * 1024, index = headIndex, quiet = false } = {},
+  ) => {
     try {
       return execFileSync('git', [...overrides, ...args], {
         cwd: root,
         timeout: 5000,
         maxBuffer,
-        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1' },
+        env: {
+          ...ambient,
+          ...(index ? { GIT_INDEX_FILE: index } : {}),
+          GIT_OPTIONAL_LOCKS: '0',
+          GIT_NO_LAZY_FETCH: '1',
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (error) {
@@ -51,7 +75,7 @@ export function runClaudePreflight({
         !error.stderr?.length
       )
         return Buffer.alloc(0);
-      diagnostics.push(`git-${label}-unavailable`);
+      if (!quiet) diagnostics.push(`git-${label}-unavailable`);
       return null;
     }
   };
@@ -118,11 +142,35 @@ export function runClaudePreflight({
     ? (git('head', ['rev-parse', '--verify', 'HEAD'])?.toString('utf8').trim() ?? null)
     : null;
   const safeToInspect = rootMatches && disableFilters();
-  const indexBytes = safeToInspect ? git('index', ['ls-files', '--stage', '-z']) : null;
-  const hasGitlinks = indexBytes
-    ?.toString('utf8')
-    .split('\0')
-    .some((entry) => entry.startsWith('160000 '));
+  // A staged gitlink is refused like a committed one, so the real index is read for it first.
+  const stagedBytes = safeToInspect ? git('stage', ['ls-files', '--stage', '-z']) : null;
+  let tempDirectory = null;
+  if (stagedBytes !== null && head) {
+    try {
+      tempDirectory = mkdtempSync(join(tmpdir(), 'claude-preflight-index-'));
+      const index = join(tempDirectory, 'index');
+      const real = git('index-path', ['rev-parse', '--git-path', 'index']);
+      const realPath = real === null ? null : resolve(root, real.toString('utf8').trim());
+      // A copy keeps the cached file stat data, so unchanged files are not hashed again; an index
+      // the copy cannot reset (an extension it depends on) falls back to a fresh one.
+      const readTree = (copy) => {
+        rmSync(index, { force: true });
+        if (copy && realPath && existsSync(realPath)) copyFileSync(realPath, index);
+        return git('head-index', ['read-tree', '--reset', 'HEAD'], { index, quiet: true });
+      };
+      if (readTree(true) !== null || readTree(false) !== null) headIndex = index;
+      else diagnostics.push('git-head-index-unavailable');
+    } catch {
+      diagnostics.push('git-head-index-unavailable');
+    }
+  }
+  const indexBytes = headIndex ? git('index', ['ls-files', '--stage', '-z']) : null;
+  const hasGitlinks = [stagedBytes, indexBytes].some((bytes) =>
+    bytes
+      ?.toString('utf8')
+      .split('\0')
+      .some((entry) => entry.startsWith('160000 ')),
+  );
   if (hasGitlinks) diagnostics.push('submodule-content-not-supported');
   // Do not traverse repositories whose nested filter configuration was not inspected.
   const inspectWorktree = safeToInspect && indexBytes !== null && !hasGitlinks;
@@ -136,6 +184,7 @@ export function runClaudePreflight({
   const untracked = inspectWorktree
     ? git('untracked', ['ls-files', '--others', '--exclude-standard', '-z'])
     : null;
+  if (tempDirectory !== null) rmSync(tempDirectory, { recursive: true, force: true });
   if (
     rootMatches &&
     (!branch ||
@@ -170,12 +219,13 @@ export function runClaudePreflight({
     diagnostics.push('untracked-content-unobservable');
   }
   const gitComplete = diagnostics.length === 0;
-  // Length-framed raw status/index/diff plus bounded new-file digests. Ignored inputs remain outside Git.
+  // Length-framed raw status/HEAD index/diff plus bounded new-file digests, all read against the
+  // HEAD index. Ignored inputs remain outside Git.
   const diffHash = gitComplete
     ? [statusBytes, indexBytes, diff, Buffer.from(JSON.stringify(untrackedInputDigests))]
         .reduce(
           (hash, bytes) => hash.update(`${bytes.length}\n`).update(bytes),
-          createHash('sha256').update('claude-git-baseline/v3\n'),
+          createHash('sha256').update('claude-git-baseline/v4\n'),
         )
         .digest('hex')
     : null;

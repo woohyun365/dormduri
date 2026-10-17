@@ -1,6 +1,6 @@
 ---
 name: knu-review
-description: 이 저장소에서 위임 결과나 Parent가 작성한 변경을 같은 host의 독립 knu_reviewer로 검토받을 때 review packet을 만들고 reviewer를 등록하는 절차입니다.
+description: 이 저장소에서 code review·"리뷰해줘" 요청이나 위임 결과·Parent가 작성한 변경을 같은 host의 독립 knu_reviewer로 검토받을 때 review packet을 만들고 기준 문서를 고르고 reviewer를 등록하는 절차입니다.
 ---
 
 # KNU 독립 리뷰
@@ -9,9 +9,13 @@ description: 이 저장소에서 위임 결과나 Parent가 작성한 변경을 
 [Same-host independent review](../../../docs/development/agent-workflows/adapters/claude-same-host-review.md#same-host-independent-review)입니다.
 Reviewer에게 기대 결론을 전달하거나 PASS로 유도하지 않습니다.
 
+리뷰 근거는 이 절차로 등록한 reviewer task의 관측뿐입니다. Host 자체 리뷰(built-in `/code-review`, Ultracode·Workflow 리뷰, fork
+자식, Codex Ultra 자식)의 결과는 OMC code-reviewer와 같은 보조 의견으로 표시하고 PASS·완료 근거나 finding 처분 근거로 쓰지
+않습니다. 보조 의견이 결함을 가리키면 Parent가 재현해 다음 회차 입력으로 씁니다.
+
 ## Native subject 경로 (위임한 task의 QA)
 
-독립 QA가 필요한 builder는 이 경로의 reviewer만 `reviewerTaskId`로 연결할 수 있습니다.
+Builder 판정에 reviewer를 연결하는 규칙은 [`/knu-settle`](../knu-settle/SKILL.md)의 3단계입니다.
 
 1. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --subject <taskId>`로 이번 회차 `logHeader`와 digest를 받습니다.
 2. Runner(Parent)가 `logHeader`를 첫 줄에 둔 검증 로그를 남기고 runner evidence JSON을 만듭니다. 각 기록은
@@ -19,7 +23,7 @@ Reviewer에게 기대 결론을 전달하거나 PASS로 유도하지 않습니�
    `purpose:"red"`·`expectedExit`를 더합니다. Exit를 뒤집어 기록하지 않습니다.
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --subject <taskId> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --session ${CLAUDE_SESSION_ID}`
 4. 출력 `reviewerSpec`을 확인해 파일로 저장하고 `prepare --spec`으로 등록한 뒤 `agentInput`으로 Agent를 호출합니다.
-5. 알림 뒤 `/knu-settle`로 reviewer를 정산하고, builder judgment의 `reviewerTaskId`에 reviewer task id를 적습니다.
+5. 알림 뒤 `/knu-settle`로 reviewer를 정산합니다.
 
 ## Parent 작성 diff 경로
 
@@ -51,9 +55,9 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 1. 자체 정합 점검: 수정이 규칙·수치·범위를 바꾸면 같은 유형의 서술(같은 문서의 다른 절·표, 다른 owner 문서, 개수·합계)을 전 범위에서
    검색합니다. 로그에는 검색마다 명령과 exit 줄(`rg exit=1`은 0건)을 남기고, record는 검색을 모두 실행한 묶음의 exit 0과
    조각(`` `rg exit=1` `` 등)으로 씁니다. 0건 검색을 실패 record로 남기지 않고 exit를 뒤집는 명령(`|| true`, `!`)도 쓰지 않습니다.
-2. 새 파일이 있으면 `logHeader`를 받기 **전에** 그 파일을 만든 쪽이 `git add -N <새 파일>`을 하고, 그 snapshot에서
-   `pnpm test:repo-policy`를 record로 남깁니다. Native subject는 builder가 hand-back 전에 합니다. `logHeader`를 받은 뒤의
-   `git add -N`은 snapshot digest를 바꿔 runner 기록과 native reviewer 등록을 무효로 만듭니다.
+2. 새 파일: snapshot은 HEAD 기준이라 stage와 무관하고 새 파일은 내용 digest로 들어가므로 stage하지 않습니다. Tracked 파일만
+   보는 검사(`pnpm test:repo-policy`)가 새 파일을 보게 하려면 commit한 snapshot에서 실행하고, commit 전이면 저장소 밖 독립
+   clone에서 새 파일을 add한 뒤 실행해 record로 남깁니다. 메인 checkout의 stage를 바꾸지 않습니다.
 3. RED 기록이 있으면 `red-reason-check.mjs`로 실패 사유를 대조합니다.
 4. 리뷰 입력에 계획·증거·readiness Markdown이 있으면 `citation-check.mjs`를 실행합니다.
 5. 계획 readiness 리뷰면 `plan-reference-check.mjs`를 실행합니다.
@@ -64,7 +68,7 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 ## 1회차 다중 reviewer
 
 - Owner가 정한 변경의 1회차에만 `--composition e2|e3 --reviewers 2|3`을 더합니다. 계획 readiness 리뷰는 단일입니다. `e3`는
-  `--criteria`가 필요하고 기준 항목을 구성원에게 연속 구간으로 나눕니다. 2회차부터는 단일 reviewer입니다.
+  기준 문서(자동 선택이나 `--criteria`)가 필요하고 기준 항목을 구성원에게 연속 구간으로 나눕니다. 2회차부터는 단일 reviewer입니다.
 - 출력은 `reviewerSpec` 대신 `reviewers[]`(구성원마다 `reviewerSpec`·`packet`·`reviewerPrompt`)와 `group`입니다. 구성원 spec을 각각
   `prepare`하고, Agent 호출 N개를 한 메시지에서 background로 보냅니다. 같은 구성원 spec을 다시 `prepare`해 보내지 않습니다.
   예외는 Parent 작성 diff 경로에서 hook 뒤 거부(auto classifier 판정 누락 등)로 결과 없이 실행되지 못해 `task already attempted`가 된
@@ -77,9 +81,13 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 ## 공통
 
 - 회차 입력: `--round <N>`은 항상 줍니다. 2회차부터 `--previous-result <absolute-result-path>`(직전 회차 result JSON을
-  계획 증거 위치에 저장한 파일, 1회차가 그룹이었으면 그 회차의 `review-adjudication/v1` 처분 기록)를 더합니다. 변경 유형에 맞는 기준 문서 id를 `--criteria documents,agent-workflow-tooling`처럼
-  더합니다([review criteria](../../../docs/development/agent-workflows/review-criteria/README.md)). 회차와 처분 규칙은
+  계획 증거 위치에 저장한 파일, 1회차가 그룹이었으면 그 회차의 `review-adjudication/v1` 처분 기록)를 더합니다. 회차와 처분 규칙은
   [QA 리뷰 회차](../../../docs/development/agent-workflows/qa.md#리뷰-회차)입니다.
+- 기준 문서: `review`가 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경 경로)로 고르고
+  ([자동 선택](../../../docs/development/agent-workflows/review-criteria/README.md#자동-선택)) 출력 `criteriaSelection`에 문서·
+  항목 수와 경로 키가 맞지 않은 경로(`unmatchedPaths`)를, `.artifacts/tools/claude-review-packets/<reviewId>.criteria.json`에
+  선택 이유를 남깁니다. `unmatchedPaths`의 경로는 기준 없이 리뷰되므로 dispatch 전에 확인합니다. 다른 문서가 필요하면
+  `--criteria documents,agent-workflow-tooling`처럼 id를 줘 override하고, 기록에는 자동 선택 결과도 남습니다.
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.

@@ -69,8 +69,8 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 
 - `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native prepare --spec <absolute-spec-path>`
 - 출력의 `agentInput`을 **그대로** Agent 도구 입력으로 씁니다. Hook이 등록된 prompt를 주입합니다. 등록은 권한 승인이 아닙니다.
-- 새 파일을 만드는 writer의 prompt에는 hand-back 전에 `git add -N <새 파일>`을 하라는 줄을 넣습니다. 리뷰 snapshot을 잡은 뒤의
-  `git add -N`은 snapshot을 바꿉니다(`/knu-review` dispatch 전 단계 2).
+- 새 파일을 만드는 writer에게 stage를 시키지 않습니다. 리뷰 snapshot은 stage와 무관하고, 새 파일 검사는
+  [`/knu-review` dispatch 전 단계 2](../knu-review/SKILL.md#dispatch-전-단계)(commit 먼저, commit 전이면 저장소 밖 clone)를 따릅니다.
 - Writer task가 실행되는 동안 Parent는 tracked·비ignored 파일을 수정하지 않습니다. File guard가 Edit·Write를 거부해도 우회하지
   않습니다.
 - 완료 알림을 받으면 `/knu-settle`로 정산합니다. 독립 QA가 필요하면 `/knu-review`를 먼저 따릅니다.

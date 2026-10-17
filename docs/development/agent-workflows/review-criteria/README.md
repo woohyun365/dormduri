@@ -11,7 +11,7 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `documents`                                 | [Document review criteria](./documents.md)                                                                 | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경                                     |
 | `agent-workflow-tooling`                    | [Agent workflow tooling criteria](./agent-workflow-tooling.md)                                             | agent workflow script·검사·helper·skill·역할 파일의 동작 변경                             |
-| `swe`                                       | [SWE common criteria](./swe.md)                                                                            | 제품 code·공유 contract와 그 test·설정의 동작·구조 변경                                   |
+| `swe`                                       | [SWE common criteria](./swe.md)                                                                            | 제품 code·공유 contract·infra·저장소 script와 그 test·설정의 동작·구조 변경               |
 | `web-fe-rendering-boundary`                 | [Web FE rendering boundary criteria](./web-fe-rendering-boundary.md)                                       | web frontend의 render 위치·server·client 경계·첫 render·체감 성능·부분 실패 변경          |
 | `web-fe-state-data-cache`                   | [Web FE state, data, and cache criteria](./web-fe-state-data-cache.md)                                     | web frontend의 상태·server data·form·mutation·cache·외부 입력 검증 변경                   |
 | `web-fe-component-architecture`             | [Web FE component architecture criteria](./web-fe-component-architecture.md)                               | web frontend의 component owner·API·분기·파일 배치·예시 fixture·공유 model 변경            |
@@ -24,8 +24,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 | `web-security-privacy-trust-authz-model`    | [Web security-privacy trust and authorization model criteria](./web-security-privacy-trust-authz-model.md) | 요청 신뢰 경계·권한 판정 변경(지금은 cookie 인증 상태 변경의 위조 방지)                   |
 | `web-security-privacy-data-privacy-secret`  | [Web security-privacy data privacy and secret criteria](./web-security-privacy-data-privacy-secret.md)     | 개인정보·비공개 필드·비밀값의 표시·전달·저장·기록 변경(지금은 숨긴 신원·필드의 공개 범위) |
 
-- 변경 유형으로 고릅니다. 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의 독립 리뷰 trigger가 없는
-  변경에는 기준 문서를 고르지 않습니다.
+- 리뷰 대상 경로로 고릅니다([자동 선택](#자동-선택)). 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의
+  독립 리뷰 trigger가 없는 변경에는 리뷰를 만들지 않으므로 기준 문서도 고르지 않습니다.
 - 계획 readiness 리뷰는 `documents`를 쓰고, readiness 자체의 판정 항목은
   [Plan authoring core의 promotion gate](../plan-authoring/core.md#7-implementation-readiness-promotion)가 소유합니다.
 - `swe`는 모든 영역에 공통인 SWE 기준을 소유합니다. Agent workflow script는 `swe` 대신 `agent-workflow-tooling`을 고르고,
@@ -39,6 +39,32 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 - 영역 기준 문서의 항목은 [Domain/SWE/Web pack](../domain/swe-web/README.md)의 하위 layer 절이 결정 목록·위험과 함께 인용합니다.
   기준·pack 문서는 저장소 값(경로·명령·stack 이름)을 쓰지 않고 binding 키로 가리키며, 이 저장소의 값은
   [KNU domain binding](../domain/knu-binding.md)에 있습니다.
+
+## 자동 선택
+
+리뷰를 만들 때 기준 id를 주지 않으면 리뷰 대상 경로로 기준 문서를 고릅니다. 선택 module은
+[`review-criteria-selection.mjs`](../../../../scripts/agents/common/review-criteria-selection.mjs)이고 host 정책을 import하지
+않습니다. Host가 넘기는 대상 경로는 Parent 작성 변경이면 subject 경로(디렉터리는 그 아래 tracked·비ignored 파일), 위임한 task면
+관측한 변경 경로입니다.
+
+- 경로 키: [KNU domain binding](../domain/knu-binding.md)의 `repo-structure.*` 값이 경로 glob입니다. 영역 기준 문서
+  `web-<layer>-<하위 layer>`는 [pack](../domain/swe-web/README.md) 하위 layer 절의 `### binding 키`에 적힌 경로 키로, layer 없는
+  `swe`·`documents`·`agent-workflow-tooling`은 `repo-structure.review-<id>` 키로 대상 경로와 맞춥니다. 경로 키가 하나도 없는 하위
+  layer 절, 표에 없는 키, 기준 문서가 없는 절은 선택을 거부합니다.
+- Glob 해석: backtick 안 경로만 glob입니다. 끝 `/`는 그 아래 전체, `<이름>`은 한 segment, `**`는 0개 이상 segment(끝에 오면 그
+  아래 1개 이상), `/*`는 바로 아래 파일만, `*`만 있으면 root 파일이고 그 밖은 정확한 경로입니다. `!`를 앞에 붙인 glob은 그 키에서
+  뺍니다. `/`·`*`도 확장자도 없는 backtick 단어(예시 이름)와 backtick 밖 설명은 범위를 좁히지 않습니다.
+- 겹침: 다른 layer(FE·BFF·BE·DB·infra)의 문서가 같은 경로에 맞으면 더 구체적인 키로 맞은 문서만 고릅니다. 구체성은 맞은 glob의
+  wildcard 앞 고정 segment 수이고 같으면 둘 다 고릅니다. 같은 layer 안, cross-cutting(security-privacy·operations-release), layer
+  없는 문서는 맞으면 모두 고릅니다.
+- 상속: 고른 문서의 머리말("이 문서를 고르면 … 함께 고릅니다")이 가리키는 문서를 함께 고르고, 그 문서의 머리말도 따라갑니다.
+- Layer 신호: 영역 문서의 선택 이유에 [domain guide registry](../../../../scripts/agents/common/domain-guide-registry.mjs)가 그
+  경로에 layer 신호를 주는지(`present`·`missing`, registry가 그 경로를 판정하지 못하면 `unavailable`)를 적습니다. 신호가 없어도
+  경로 키가 맞으면 고르고, 그 기록은 registry 정렬의 입력입니다.
+- 기록: 리뷰마다 고른 문서, 문서별 항목 id(`<file> <문자><번호>`), 선택 이유(맞은 경로·키·glob·구체성, 상속 출처), 겹침으로 뺀
+  문서, 문서·항목 수, 맞은 키가 없는 경로를 helper 디렉터리의 `<reviewId>.criteria.json`에 남깁니다. Reviewer read path는 아닙니다.
+- Override: 기준 id를 직접 주면(Claude `--criteria`) 그 문서만 쓰고 기록에 `override`와 자동 선택 결과를 함께 남깁니다.
+- 영역 판정: `matchReviewCriteriaPath(path, catalog)`는 경로 하나에 겹침 규칙까지 적용한 문서와 그 layer(`areas`)를 냅니다.
 
 ## 항목 형식
 

@@ -4,6 +4,7 @@
 // The reviewer spec from review is a draft with the only reviewer role/profile (knu_reviewer,
 // complex-critical) and review facts citing the Lead's --basis; the Lead reviews it before prepare.
 import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
@@ -16,6 +17,10 @@ import { basename, dirname, isAbsolute, join, normalize, relative, resolve } fro
 import { isDeepStrictEqual } from 'node:util';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { validateCrossModelPacket } from '../common/index.mjs';
+import {
+  loadReviewCriteriaCatalog,
+  selectReviewCriteria,
+} from '../common/review-criteria-selection.mjs';
 import {
   SCHEMA as ADJUDICATION_SCHEMA,
   validateAdjudication,
@@ -596,6 +601,7 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
       ],
       impactRisk: record.input.nativeRequest.task.impactRisk,
       snapshot: state.observation.finalSnapshot,
+      selectionPaths: state.changedPaths,
     };
   }
   const { request, owner, acceptance, paths, requirementSections, ...extra } = parentSubject ?? {};
@@ -623,6 +629,7 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
     owner,
     acceptance,
     readPaths: [...new Set(paths)],
+    selectionPaths: [...new Set(paths)],
     impactRisk: 'medium',
     snapshot: currentClaudeNativeSnapshot(root),
     requestMarkers: requestMarkerCount(request),
@@ -808,6 +815,59 @@ export function writeClaudeReviewPacket(root, reviewId, bytes, suffix = '.json')
   return { path, digest: packetDigest(bytes) };
 }
 
+// The criteria choice of one review (review-criteria-selection.mjs). A directory path stands for the
+// tracked and non-ignored files under it; an ignored directory stays one path. Given criteria
+// override the automatic choice, which the record keeps.
+function criteriaSelectionPaths(root, paths) {
+  const listed = [];
+  for (const path of paths) {
+    let directory = false;
+    try {
+      directory = lstatSync(join(root, path)).isDirectory();
+    } catch {
+      directory = false;
+    }
+    const files = directory
+      ? execFileSync(
+          'git',
+          [
+            '-c',
+            'core.fsmonitor=false',
+            'ls-files',
+            '-z',
+            '--cached',
+            '--others',
+            '--exclude-standard',
+            '--',
+            path,
+          ],
+          { cwd: root, maxBuffer: 64 * 1024 * 1024, timeout: 10000 },
+        )
+          .toString()
+          .split('\0')
+          .filter(Boolean)
+      : [];
+    listed.push(...(files.length ? files : [path]));
+  }
+  return [...new Set(listed)];
+}
+function reviewCriteriaSelection(root, subject, criteria) {
+  return selectReviewCriteria({
+    paths: criteriaSelectionPaths(root, subject.selectionPaths),
+    catalog: loadReviewCriteriaCatalog(root),
+    ...(criteria === undefined ? {} : { criteria }),
+  });
+}
+// The paths no path key matched are shown here too, so a path reviewed without criteria is visible
+// before dispatch and not only in the record.
+const criteriaSummary = (selection) => ({
+  override: selection.override,
+  documents: selection.documents.map((document) => document.id),
+  documentCount: selection.documentCount,
+  itemCount: selection.itemCount,
+  unmatchedPaths: selection.unmatchedPaths,
+});
+
 function reviewerPrompt(logHeader, subject, packet, template, packetFile, member, inputsFile) {
   return [
     logHeader,
@@ -899,11 +959,19 @@ export function buildClaudeNativeReview(
   const subject = subjectOf({ subjectTaskId, parentSubject }, root);
   const snapshotDigest = claudeNativeSnapshotDigest(subject.snapshot);
   const logHeader = `KNU review snapshot ${snapshotDigest}`;
+  // Invalid given criteria are reported with the other review inputs below.
+  let selection = null;
+  try {
+    selection = reviewCriteriaSelection(root, subject, criteria);
+  } catch (error) {
+    if (criteria === undefined) throw error;
+  }
   const status = {
     settlement: subject.settlement,
     subjectTaskId: subject.taskId,
     snapshotDigest,
     logHeader,
+    ...(selection ? { criteriaSelection: criteriaSummary(selection) } : {}),
     dispatchAuthorized: false,
     ...(subject.requestMarkers
       ? {
@@ -927,7 +995,19 @@ export function buildClaudeNativeReview(
       ? []
       : ['reviewer must be an identifier distinct from the subject owner']),
   ]);
-  Object.assign(subject, reviewRoundInputs({ reviewRound, previousResult, criteria }, root));
+  const automatic = selection?.documents.map((document) => document.id) ?? [];
+  Object.assign(
+    subject,
+    reviewRoundInputs(
+      {
+        reviewRound,
+        previousResult,
+        criteria: criteria ?? (automatic.length ? automatic : undefined),
+      },
+      root,
+    ),
+  );
+  selection ??= reviewCriteriaSelection(root, subject, criteria);
   const group = reviewComposition(
     { composition, reviewers, round: subject.round, criteriaPaths: subject.criteriaPaths },
     root,
@@ -1084,8 +1164,16 @@ export function buildClaudeNativeReview(
       path: reviewPacketPath(root, reviewId, '.prompt.json').path,
       digest: packetDigest(promptBytes),
     };
+    // The record a later review ledger reads as "this item was put before this review".
+    const criteriaBytes = Buffer.from(`${JSON.stringify({ ...selection, reviewId })}\n`);
+    const criteriaFile = {
+      path: reviewPacketPath(root, reviewId, '.criteria.json').path,
+      digest: packetDigest(criteriaBytes),
+    };
     return {
       reviewId,
+      criteriaBytes,
+      criteriaFile,
       packetBytes,
       packet,
       packetFile,
@@ -1108,6 +1196,7 @@ export function buildClaudeNativeReview(
     if (member.inputsFile)
       writeClaudeReviewPacket(root, member.reviewId, member.inputsBytes, '.inputs.json');
     writeClaudeReviewPacket(root, member.reviewId, member.promptBytes, '.prompt.json');
+    writeClaudeReviewPacket(root, member.reviewId, member.criteriaBytes, '.criteria.json');
   }
   const output = (member) => ({
     packet: member.packet,
@@ -1115,6 +1204,7 @@ export function buildClaudeNativeReview(
     ...(member.inputsFile ? { inputsFile: member.inputsFile } : {}),
     ...(member.requirementsFile ? { requirementsFile: member.requirementsFile } : {}),
     promptFile: member.promptFile,
+    criteriaFile: member.criteriaFile,
     resultTemplate: member.template,
     reviewerPrompt: member.prompt,
     reviewerSpec: member.reviewerSpec,
@@ -1264,8 +1354,23 @@ function settlementStatus(taskId, root) {
       reviewRequirements.currentDigest !== reviewRequirements.expectedDigest)
   )
     state.errors.push('review-requirements-changed');
-  const content = state.observation.response?.content;
   const { record } = state;
+  // A Parent reviewer's prompt starts with the snapshot its runner logs name. A read-only reviewer
+  // with no change among its dependencies is compared with the source it was registered for;
+  // otherwise with the source it finished on.
+  const judged = state.dependencyJudgment;
+  if (record.input.nativeRequest.task.role === 'knu_reviewer' && !record.independentReview) {
+    const header = /^KNU review snapshot (sha256:[a-f0-9]{64})$/u.exec(
+      record.prompt.split('\n')[0],
+    )?.[1];
+    const source =
+      judged?.basis === 'dependency' && judged.inside.length === 0
+        ? record.input.currentSnapshot
+        : state.observation.finalSnapshot;
+    if (header === undefined || !source || header !== claudeNativeSnapshotDigest(source))
+      state.errors.push('review-snapshot-mismatch');
+  }
+  const content = state.observation.response?.content;
   let judgmentTemplatePath = null;
   // A reviewer without a native subject is judged by the Parent from this settle observation.
   if (record.input.nativeRequest.task.role !== 'knu_reviewer' || record.independentReview) {
@@ -1301,6 +1406,7 @@ function settlementStatus(taskId, root) {
     observedEfforts: state.observedEfforts,
     acceptance: state.record.input.directAssignment.acceptance,
     observationErrors: state.errors,
+    dependencyJudgment: judged,
     ...(reviewPacket ? { reviewPacket } : {}),
     ...(reviewRequirements ? { reviewRequirements } : {}),
     judgmentTemplatePath,
