@@ -30,8 +30,9 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   독립 리뷰 trigger가 없는 변경에는 리뷰를 만들지 않으므로 기준 문서도 고르지 않습니다.
 - 계획 readiness 리뷰는 `documents`를 쓰고, readiness 자체의 판정 항목은
   [Plan authoring core의 promotion gate](../plan-authoring/core.md#7-implementation-readiness-promotion)가 소유합니다.
-- `swe`는 모든 영역에 공통인 SWE 기준을 소유합니다. Agent workflow script는 `swe` 대신 `agent-workflow-tooling`을 고르고,
-  문서만 바꾸는 변경에는 `swe`를 고르지 않습니다. `swe.md` S2의 정책 원본은 그 도메인의 [정책 문서](../../../policies/README.md)이고, S7의 dependency 정책 원본은
+- `swe`는 모든 영역에 공통인 SWE 기준을 소유합니다. `swe`의 경로 키는 agent workflow script와 문서를 빼므로 script에는 `swe` 대신
+  `agent-workflow-tooling`을 고르고, 문서만 바꾸는 변경에는 그 경로 키로 `swe`를 고르지 않습니다. 영역 경로 키가 문서 경로(영역
+  owner 문서·운영 절차 문서)에도 맞으면 아래 상속 규칙으로 `swe`도 함께 고릅니다. `swe.md` S2의 정책 원본은 그 도메인의 [정책 문서](../../../policies/README.md)이고, S7의 dependency 정책 원본은
   [AGENTS.md 5절](../../../../AGENTS.md#5-implementation-agreements)과 [dependency security policy](../../../policies/dependency-security.md)입니다.
 - 영역 기준 문서(`web-<layer>-<하위 layer>`)를 고르면 `swe`와, 그 문서 머리말이 상속한다고 적은 문서도 함께 고릅니다.
 - 제품 영역(FE·BFF·BE·DB·infra와 cross-cutting security-privacy·operations-release) 기준 문서는 영역 owner와 함께 이 형식으로

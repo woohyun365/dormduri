@@ -13,12 +13,12 @@ severity가 높은 항목으로 판정합니다. 이 문서의 항목을 상속�
 
 ### O1. health·readiness 신호 범위
 
-- 질문: health 진입점이 살아 있음(liveness)과 요청을 받을 준비(readiness)를 나눠 알리고, 내부 상세를 드러내지 않으며, 종료 신호를 받으면 진행 중 요청을 정리하는가?
+- 질문: health 진입점이 내부 상세를 드러내지 않고, orchestrator·load balancer가 재시작·traffic 판단에 쓰면 살아 있음(liveness)과 요청을 받을 준비(readiness)를 나눠 알리며, 종료 신호를 받으면 진행 중 요청을 정리하는가?
 - 기본 severity: `medium`
 - 적용 조건: health·readiness 진입점과 그 응답, 종료 처리를 더하거나 바꾸는 변경
 - 결함 패턴: liveness와 readiness를 구분하지 않음, health 응답이 내부 상세(version·연결 문자열·오류 원문)를 드러냄, 의존 서비스의 일시 장애로 모든 instance가 재시작되게 함, 종료 신호에서 진행 중 요청을 정리하지 않음
-- PASS 근거: liveness는 process 자신만 보고 readiness는 요청 처리에 필요한 의존 상태를 본다는 test가 있고, 밖에 보이는 health 응답에 내부 상세가 없으며, 종료 신호 뒤 새 요청을 받지 않고 진행 중 요청을 마친다는 test나 확인 기록이 있다
-- 지침: liveness는 process가 스스로 회복할 수 없는 상태만 보고, readiness는 요청을 받을 준비(의존 연결 포함)를 본다. 밖에 보이는 응답은 상태만 알린다. 종료 신호를 받으면 readiness를 내리고 진행 중 요청을 마친 뒤 끝낸다
+- PASS 근거: 밖에 보이는 health 응답에 내부 상세가 없고, orchestrator·load balancer가 재시작·traffic 판단에 쓰는 health면 liveness는 process 자신만 보고 readiness는 요청 처리에 필요한 의존 상태를 본다는 test가 있으며, 종료 신호 뒤 새 요청을 받지 않고 진행 중 요청을 마친다는 test나 확인 기록이 있다
+- 지침: orchestrator·load balancer가 재시작·traffic 판단에 쓰는 health는 liveness와 readiness로 나눠, liveness는 process가 스스로 회복할 수 없는 상태만 보고 readiness는 요청을 받을 준비(의존 연결 포함)를 본다. 밖에 보이는 응답은 상태만 알린다. 종료 신호를 받으면 readiness를 내리고 진행 중 요청을 마친 뒤 끝낸다
 - 피함: liveness 확인에 의존 서비스 확인 넣기, health 응답에 내부 상세 담기, 종료 신호에 진행 중 요청을 바로 끊기
 
 ### O2. 운영 신호·alert·runbook 연결

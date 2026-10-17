@@ -119,7 +119,7 @@
 
 ### 위험
 
-- 나누지 않은 liveness·readiness와 liveness에 넣은 의존 서비스 확인, 내부 상세를 드러내는 health 응답(O1), 대응 행동·runbook 없는 alert와 운영 질문 없는 metric(O2), 목표·측정 없는 성능·가용성 주장(O3)
+- 재시작·traffic 판단에 쓰는 health에서 나누지 않은 liveness·readiness와 liveness에 넣은 의존 서비스 확인, 내부 상세를 드러내는 health 응답(O1), 대응 행동·runbook 없는 alert와 운영 질문 없는 metric(O2), 목표·측정 없는 성능·가용성 주장(O3)
 - 비가역 선택: 없음
 
 ### binding 키
