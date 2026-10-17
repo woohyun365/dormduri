@@ -21,6 +21,13 @@ binding 키에 주는 값입니다. pack과 기준 문서는 저장소 값을 �
 | `repo-structure.bff-routes`                    | `apps/web/src/app/api/**`                                                                                                                         |
 | `repo-structure.bff-helpers`                   | `apps/web/src/app/api/_bff/`                                                                                                                      |
 | `repo-structure.server-session`                | `apps/web/src/auth/server/`(server render용 read-only session facade), `apps/web/src/proxy.ts`                                                    |
+| `repo-structure.be-auth`                       | `apps/api/src/auth/**`, `apps/api/src/platform/security/**`(인증·권한 판정과 보안 공통 code)                                                      |
+| `repo-structure.be-privacy`                    | `apps/api/src/privacy/**`, `apps/api/src/retention/**`, `apps/api/src/platform/observability/**`(개인정보 처리·보존 실행과 관측 정제)             |
+| `repo-structure.secret-delivery`               | `infra/deploy/scripts/**`, `infra/deploy/api/**`(배포 때 비밀값·설정 주입)                                                                        |
+| `repo-structure.release-runbooks`              | `infra/runbooks/**`, `docs/runbooks/**`                                                                                                           |
+| `repo-structure.release-artifacts`             | `infra/artifacts/**`, `scripts/infra/artifacts/**`                                                                                                |
+| `repo-structure.be-health`                     | `apps/api/src/health/**`                                                                                                                          |
+| `repo-structure.obs-config`                    | `infra/observability/**`, `scripts/observability/**`                                                                                              |
 | `repo-structure.review-swe`                    | `apps/**`, `packages/**`, `infra/**`, `scripts/**`, `.github/**`, `*`(root 파일). 제외: `!scripts/agents/**`, `!scripts/ci/agents/**`, `!**/*.md` |
 | `repo-structure.review-agent-workflow-tooling` | `scripts/agents/**`, `scripts/ci/agents/**`, `.claude/**`, `.codex/**`, `.agents/**`                                                              |
 | `repo-structure.review-documents`              | `**/*.md`, `docs/**`, `.plans/`, `.artifacts/`                                                                                                    |
@@ -29,3 +36,6 @@ binding 키에 주는 값입니다. pack과 기준 문서는 저장소 값을 �
 | `tool.e2e`                                     | Playwright `desktop-chromium`·`mobile-chromium` project                                                                                           |
 | `policy.index`                                 | [정책 문서 색인](../../../policies/README.md)                                                                                                     |
 | `policy.account-authentication`                | [계정·인증 정책](../../../policies/account-authentication.md)                                                                                     |
+| `policy.data-retention`                        | [데이터 보유기간 정책](../../../policies/data-retention.md)                                                                                       |
+| `policy.production-runtime-safety`             | [Production runtime safety 정책](../../../policies/production-runtime-safety.md)                                                                  |
+| `policy.operational-observability`             | [운영 관측 정책](../../../policies/operational-observability.md)                                                                                  |

@@ -78,6 +78,8 @@ const WEB_CRITERIA = [
   'web-bff-server-read-error-privacy-shaping',
   'web-security-privacy-trust-authz-model',
   'web-security-privacy-data-privacy-secret',
+  'web-operations-release-release-gate',
+  'web-operations-release-slo-signal',
 ].map((id) => `${CRITERIA_DIR}/${id}.md`);
 const CRITERIA_FIELDS = [
   /^- 질문: \S/mu,
@@ -239,6 +241,20 @@ const PACK_LAYERS = new Map([
       sublayers: ['gateway-forwarding', 'session-cookie-auth', 'server-read-error-privacy-shaping'],
     },
   ],
+  [
+    'security-privacy.md',
+    {
+      prefix: 'web-security-privacy-',
+      sublayers: ['trust-authz-model', 'data-privacy-secret'],
+    },
+  ],
+  [
+    'operations-release.md',
+    {
+      prefix: 'web-operations-release-',
+      sublayers: ['release-gate', 'slo-signal'],
+    },
+  ],
 ]);
 const PACK_SECTIONS = ['상속', '결정 목록', '구현 지침', '검증 기준', '위험', 'binding 키'];
 // Every decision block carries the README field lines in order; its depends-on value is `없음` or
@@ -338,7 +354,7 @@ const BINDING_KINDS = new Set([
   'policy',
 ]);
 const REPOSITORY_VALUE =
-  /apps\/|packages\/|\bpnpm\b|Next\.js|\bReact\b|NestJS|Prisma|Tailwind|Storybook|Vitest|Playwright|Sentry|\bKNU\b/u;
+  /apps\/|packages\/|\bpnpm\b|Next\.js|\bReact\b|NestJS|Prisma|Tailwind|Storybook|Vitest|Playwright|Sentry|\bKNU\b|PostgreSQL|Postgres|Docker|\bnginx\b|Lightsail|GitHub Actions|Grafana|Prometheus|\bLoki\b|\bAlloy\b|Alertmanager|\bk6\b|\bZod\b|TypedSQL|Dependabot|Renovate/u;
 test('pack and criteria documents reference repository values only through resolvable binding keys', () => {
   assert.ok(existsSync(resolve(root, BINDING_DOC)), `${BINDING_DOC} is missing`);
   const keys = new Set(
