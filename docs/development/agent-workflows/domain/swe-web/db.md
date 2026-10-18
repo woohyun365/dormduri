@@ -147,7 +147,7 @@ index·query와 raw SQL, DB 수준 무결성·보존 기한 삭제·DB 계정을
 
 - 옛 app과 새 app이 함께 도는 배포에서 한 번에 하는 열 삭제·이름 변경, data가 있는 table의 기본값 없는 필수 열, 서비스 중에 table을 오래 잠그는 migration(T1), 빈 DB에서만 한 확인과 배포된 migration의 수정(T2), 두 번 실행하면 중복되는 seed와 운영 환경의 시험 data(T3), 되돌림 경로 없는 release(상속한 release-gate O2)
 - 비가역 선택: `db.migration.change-strategy`(`costly`, 다른 결정이 먼저 정할 결정으로 가리킴). `db.migration.rollback-path`는 `costly`이지만 다른 결정이 먼저 정할 결정으로 가리키지 않는다
-- 사람 승인 지점: 열·table 삭제 같은 파괴적 DDL은 agent가 계획·diff까지 만들고 사람이 backup을 확인해 승인한 뒤 실행한다(T1)
+- 사람 승인 지점: 열·table 삭제 같은 파괴적 DDL은 agent가 계획·diff까지 만들고 사람이 backup을 확인해 승인한 뒤 실행한다(T1). 그 밖의 되돌릴 수 없는 운영 적용(data 삭제 등)도 agent가 계획·diff까지 만들고 사람이 승인한 뒤 실행한다(상속한 release-gate O2)
 
 ### binding 키
 
@@ -282,7 +282,7 @@ index·query와 raw SQL, DB 수준 무결성·보존 기한 삭제·DB 계정을
 
 - application 검사로만 막은 경쟁과 경로마다 다른 잠금 순서(T1), 관련 table을 남기는 삭제와 다시 식별되는 익명화, 기록 없는 삭제(T2), schema 변경 권한으로 접속하는 app과 agent·개발 환경의 운영 쓰기 자격 증명(T3), 기한이 지나도 남는 개인정보(상속한 data-privacy-secret P3)
 - 비가역 선택: 없음. `db.integrity.role-separation`은 `costly`이지만 다른 결정이 먼저 정할 결정으로 가리키지 않는다
-- 사람 승인 지점: 운영 DB의 grant·data를 바꾸는 작업은 agent가 계획·diff까지 만들고, 운영 쓰기 자격 증명을 가진 사람이 승인해 실행한다(T3). 운영 data에 되돌릴 수 없는 보존 기한 삭제·익명화는 사람이 대상 범위를 승인한 뒤 실행한다(상속한 data-privacy-secret P3)
+- 사람 승인 지점: 운영 DB의 grant·data를 바꾸는 작업은 agent가 계획·diff까지 만들고, 운영 쓰기 자격 증명을 가진 사람이 승인해 실행한다(T3). 운영 data에 되돌릴 수 없는 보존 기한 삭제·익명화는 그 실행 경로(일회성 실행이나 주기 작업의 대상 규칙)를 만들거나 바꿀 때 사람이 대상 범위를 승인하고, 승인된 대상 규칙의 주기 실행은 실행 기록을 남긴다(상속한 data-privacy-secret P3)
 
 ### binding 키
 

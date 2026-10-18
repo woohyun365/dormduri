@@ -44,10 +44,10 @@ severity가 높은 항목으로 판정합니다.
 
 ### E4. process 상태와 설정 주입
 
-- 질문: instance가 둘 이상이거나 늘 수 있을 때 정확성을 process 메모리 상태(잠금·nonce·counter)에 기대지 않고, 새 공유 저장소·cache는 여러 instance가 함께 쓰는 상태나 측정으로 확인한 DB 부하 같은 실제 요구가 있을 때만 들이며, 설정·URL·자격 증명을 code에 고정하지 않고 실행 환경에서 주입하는가?
+- 질문: instance가 둘 이상이거나 늘 수 있을 때 정확성을 process 메모리 상태(잠금·nonce·counter)에 기대지 않고, 여러 instance가 함께 써야 하는 실제 요구(그 공유 상태를 DB에 둔 부하가 측정으로 문제가 되는 경우 포함) 없이 범용 분산 저장소·cache port를 만들지 않으며, 설정·URL·자격 증명을 code에 고정하지 않고 실행 환경에서 주입하는가?
 - 기본 severity: `medium`
 - 적용 조건: process 메모리 상태, 설정·비밀값 읽기를 더하거나 바꾸는 변경
 - 결함 패턴: instance가 늘면 틀리는 process 메모리 상태(잠금·nonce·counter)를 정확성 근거로 씀, 실제 요구 없이 범용 분산 저장소·cache port를 만듦, 설정·URL·자격 증명을 code에 고정함
 - PASS 근거: process 메모리 상태마다 목적(잠금·nonce 소비·정리 lease 등)과 정확성 경계가 변경 설명에 있고, instance가 둘 이상이거나 늘 수 있으면 그 판정을 instance가 함께 쓰는 저장소에서 하는 test가 있으며, 설정은 실행 환경에서 읽고 예시 설정에는 자리표시 값만 있다
-- 지침: process 메모리 상태는 자료 구조 이름보다 목적(잠금·nonce 소비·정리 lease)과 정확성 경계를 먼저 정한다. instance가 둘 이상이거나 늘 수 있으면 그 판정을 instance가 함께 쓰는 저장소로 옮기고, 새 공유 저장소·cache는 여러 instance가 함께 쓰는 상태나 측정으로 확인한 DB 부하 같은 실제 요구가 있을 때만 들인다(dependency 도입은 `swe.md` S7). 설정·URL·자격 증명은 실행 환경에서 주입한다
+- 지침: process 메모리 상태는 자료 구조 이름보다 목적(잠금·nonce 소비·정리 lease)과 정확성 경계를 먼저 정한다. instance가 둘 이상이거나 늘 수 있으면 그 판정을 instance가 함께 쓰는 저장소로 옮기고, 새 공유 저장소·cache는 여러 instance가 함께 써야 하는 실제 요구(그 공유 상태를 DB에 둔 부하가 측정으로 문제가 되는 경우 포함)가 있을 때 들이고 범용 port로 미리 만들지 않는다(dependency 도입은 `swe.md` S7). 설정·URL·자격 증명은 실행 환경에서 주입한다
 - 피함: instance가 늘 수 있는데 메모리 counter·잠금을 정확성 근거로 쓰기, 실제 요구 없이 범용 분산 저장소·cache port 만들기, code에 URL·자격 증명 고정하기
