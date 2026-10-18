@@ -7,24 +7,34 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 
 ## 기준 문서
 
-| id                                          | 문서                                                                                                       | 적용하는 변경                                                                                 |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `documents`                                 | [Document review criteria](./documents.md)                                                                 | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경                                         |
-| `agent-workflow-tooling`                    | [Agent workflow tooling criteria](./agent-workflow-tooling.md)                                             | agent workflow script·검사·helper·skill·역할 파일의 동작 변경                                 |
-| `swe`                                       | [SWE common criteria](./swe.md)                                                                            | 제품 code·공유 contract·infra·저장소 script와 그 test·설정의 동작·구조 변경                   |
-| `web-fe-rendering-boundary`                 | [Web FE rendering boundary criteria](./web-fe-rendering-boundary.md)                                       | web frontend의 render 위치·server·client 경계·첫 render·체감 성능·부분 실패 변경              |
-| `web-fe-state-data-cache`                   | [Web FE state, data, and cache criteria](./web-fe-state-data-cache.md)                                     | web frontend의 상태·server data·form·mutation·cache·외부 입력 검증 변경                       |
-| `web-fe-component-architecture`             | [Web FE component architecture criteria](./web-fe-component-architecture.md)                               | web frontend의 component owner·API·분기·파일 배치·예시 fixture·공유 model 변경                |
-| `web-fe-design-system`                      | [Web FE design system criteria](./web-fe-design-system.md)                                                 | web frontend의 design token·공통 UI 부품·화면 문구 원본 변경(시각 값·미감 제외)               |
-| `web-fe-layout-responsive-device`           | [Web FE layout, responsive, and device criteria](./web-fe-layout-responsive-device.md)                     | web frontend의 viewport·기기별 표현·layout·overlay·scroll 변경                                |
-| `web-fe-accessibility`                      | [Web FE accessibility criteria](./web-fe-accessibility.md)                                                 | web frontend의 상호작용 요소·keyboard·focus·상태 알림 변경                                    |
-| `web-bff-gateway-forwarding`                | [Web BFF gateway and forwarding criteria](./web-bff-gateway-forwarding.md)                                 | BFF route·upstream 전달·상태 변경 진입점 변경                                                 |
-| `web-bff-session-cookie-auth`               | [Web BFF session and cookie auth criteria](./web-bff-session-cookie-auth.md)                               | BFF session·token cookie 발급·갱신·삭제 변경                                                  |
-| `web-bff-server-read-error-privacy-shaping` | [Web BFF server read, error, and privacy shaping criteria](./web-bff-server-read-error-privacy-shaping.md) | server render data 읽기·upstream 오류 번역·응답 형태 변경                                     |
-| `web-security-privacy-trust-authz-model`    | [Web security-privacy trust and authorization model criteria](./web-security-privacy-trust-authz-model.md) | 요청 신뢰 경계·권한 판정·반복과 추측 요청의 남용 방어·입력 주입 방어·신고와 제재 변경         |
-| `web-security-privacy-data-privacy-secret`  | [Web security-privacy data privacy and secret criteria](./web-security-privacy-data-privacy-secret.md)     | 개인정보·비공개 필드·비밀값의 분류·표시·전달·저장·보존·기록과 외부 처리자 전달 변경           |
-| `web-operations-release-release-gate`       | [Web operations-release release gate criteria](./web-operations-release-release-gate.md)                   | release 대상·절차·증거, 배포 순서·되돌림·운영 적용 권한, 완료 보고 변경                       |
-| `web-operations-release-slo-signal`         | [Web operations-release SLO and signal criteria](./web-operations-release-slo-signal.md)                   | health·readiness 신호, 운영 신호·alert·runbook, 의존 서비스 실패 동작과 성능·가용성 목표 변경 |
+| id                                           | 문서                                                                                                            | 적용하는 변경                                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `documents`                                  | [Document review criteria](./documents.md)                                                                      | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경                                         |
+| `agent-workflow-tooling`                     | [Agent workflow tooling criteria](./agent-workflow-tooling.md)                                                  | agent workflow script·검사·helper·skill·역할 파일의 동작 변경                                 |
+| `swe`                                        | [SWE common criteria](./swe.md)                                                                                 | 제품 code·공유 contract·infra·저장소 script와 그 test·설정의 동작·구조 변경                   |
+| `web-fe-rendering-boundary`                  | [Web FE rendering boundary criteria](./web-fe-rendering-boundary.md)                                            | web frontend의 render 위치·server·client 경계·첫 render·체감 성능·부분 실패 변경              |
+| `web-fe-state-data-cache`                    | [Web FE state, data, and cache criteria](./web-fe-state-data-cache.md)                                          | web frontend의 상태·server data·form·mutation·cache·외부 입력 검증 변경                       |
+| `web-fe-component-architecture`              | [Web FE component architecture criteria](./web-fe-component-architecture.md)                                    | web frontend의 component owner·API·분기·파일 배치·예시 fixture·공유 model 변경                |
+| `web-fe-design-system`                       | [Web FE design system criteria](./web-fe-design-system.md)                                                      | web frontend의 design token·공통 UI 부품·화면 문구 원본 변경(시각 값·미감 제외)               |
+| `web-fe-layout-responsive-device`            | [Web FE layout, responsive, and device criteria](./web-fe-layout-responsive-device.md)                          | web frontend의 viewport·기기별 표현·layout·overlay·scroll 변경                                |
+| `web-fe-accessibility`                       | [Web FE accessibility criteria](./web-fe-accessibility.md)                                                      | web frontend의 상호작용 요소·keyboard·focus·상태 알림 변경                                    |
+| `web-bff-gateway-forwarding`                 | [Web BFF gateway and forwarding criteria](./web-bff-gateway-forwarding.md)                                      | BFF route·upstream 전달·상태 변경 진입점 변경                                                 |
+| `web-bff-session-cookie-auth`                | [Web BFF session and cookie auth criteria](./web-bff-session-cookie-auth.md)                                    | BFF session·token cookie 발급·갱신·삭제 변경                                                  |
+| `web-bff-server-read-error-privacy-shaping`  | [Web BFF server read, error, and privacy shaping criteria](./web-bff-server-read-error-privacy-shaping.md)      | server render data 읽기·upstream 오류 번역·응답 형태 변경                                     |
+| `web-be-domain-model-invariant`              | [Web BE domain model and invariant criteria](./web-be-domain-model-invariant.md)                                | server 업무 규칙의 owner·상태 전이·선행 조건·종료 상태 변경                                   |
+| `web-be-api-design-contract`                 | [Web BE API design and contract criteria](./web-be-api-design-contract.md)                                      | server API의 요청·응답 schema·오류·목록 조회·공유 contract 변경                               |
+| `web-be-authn-authz`                         | [Web BE authentication and authorization criteria](./web-be-authn-authz.md)                                     | server 진입점의 기본 인증·판정 위치, role·capability·운영자 권한 변경                         |
+| `web-be-application-architecture`            | [Web BE application architecture criteria](./web-be-application-architecture.md)                                | server code의 층 흐름·module 구조·domain 사이 호출·process 상태와 설정 주입 변경              |
+| `web-be-transaction-concurrency-idempotency` | [Web BE transaction, concurrency, and idempotency criteria](./web-be-transaction-concurrency-idempotency.md)    | server의 read-check-write 보호·중복과 재시도·commit 뒤 부수효과·격리와 잠금 변경              |
+| `web-be-background-integration-performance`  | [Web BE background work, integration, and performance criteria](./web-be-background-integration-performance.md) | server의 background 작업·외부 호출과 실패 동작·조회와 pool 포화·운영 신호 변경                |
+| `web-db-schema-modeling`                     | [Web DB schema modeling criteria](./web-db-schema-modeling.md)                                                  | DB model·relation·제약·삭제 동작·이력·명명과 type 변경                                        |
+| `web-db-migration-seed-compatibility`        | [Web DB migration, seed, and compatibility criteria](./web-db-migration-seed-compatibility.md)                  | DB migration·seed와 그 적용·되돌림 경로 변경                                                  |
+| `web-db-index-query`                         | [Web DB index and query criteria](./web-db-index-query.md)                                                      | DB 조회 pattern·index·raw SQL 변경                                                            |
+| `web-db-integrity-retention-lifecycle`       | [Web DB integrity, retention, and lifecycle criteria](./web-db-integrity-retention-lifecycle.md)                | DB 수준 무결성·잠금, 보존 기한 삭제·익명화, DB 계정·grant 변경                                |
+| `web-security-privacy-trust-authz-model`     | [Web security-privacy trust and authorization model criteria](./web-security-privacy-trust-authz-model.md)      | 요청 신뢰 경계·권한 판정·반복과 추측 요청의 남용 방어·입력 주입 방어·신고와 제재 변경         |
+| `web-security-privacy-data-privacy-secret`   | [Web security-privacy data privacy and secret criteria](./web-security-privacy-data-privacy-secret.md)          | 개인정보·비공개 필드·비밀값의 분류·표시·전달·저장·보존·기록과 외부 처리자 전달 변경           |
+| `web-operations-release-release-gate`        | [Web operations-release release gate criteria](./web-operations-release-release-gate.md)                        | release 대상·절차·증거, 배포 순서·되돌림·운영 적용 권한, 완료 보고 변경                       |
+| `web-operations-release-slo-signal`          | [Web operations-release SLO and signal criteria](./web-operations-release-slo-signal.md)                        | health·readiness 신호, 운영 신호·alert·runbook, 의존 서비스 실패 동작과 성능·가용성 목표 변경 |
 
 - 리뷰 대상 경로로 고릅니다([자동 선택](#자동-선택)). 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의
   독립 리뷰 trigger가 없는 변경에는 리뷰를 만들지 않으므로 기준 문서도 고르지 않습니다.
@@ -36,8 +46,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   [AGENTS.md 5절](../../../../AGENTS.md#5-implementation-agreements)과 [dependency security policy](../../../policies/dependency-security.md)입니다.
 - 영역 기준 문서(`web-<layer>-<하위 layer>`)를 고르면 `swe`와, 그 문서 머리말이 상속한다고 적은 문서도 함께 고릅니다.
 - 제품 영역(FE·BFF·BE·DB·infra와 cross-cutting security-privacy·operations-release) 기준 문서는 영역 owner와 함께 이 형식으로
-  추가합니다. 지금은 FE 하위 layer 6개, BFF 하위 layer 3개, security-privacy 하위 layer 2개, operations-release 하위 layer 2개의
-  문서가 있습니다. 기준 문서가 없는 영역(BE·DB·infra)은 영역 plan-authoring guide와
+  추가합니다. 지금은 FE 하위 layer 6개, BFF 하위 layer 3개, BE 하위 layer 6개, DB 하위 layer 4개, security-privacy 하위 layer
+  2개, operations-release 하위 layer 2개의 문서가 있습니다. 기준 문서가 없는 영역(infra)은 영역 plan-authoring guide와
   [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존 owner 문서를 acceptance 근거로
   씁니다. 시각 값과 미감은 FE 기준 문서가 아니라 visual design 문서가 소유합니다.
 - 영역 기준 문서의 항목은 [Domain/SWE/Web pack](../domain/swe-web/README.md)의 하위 layer 절이 결정 목록·위험과 함께 인용합니다.
@@ -87,8 +97,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 
 - 한 항목이 두 보기를 함께 가집니다. 지침·피함은 구현할 때 보는 구현 보기이고, 질문·기본 severity·결함 패턴·PASS 근거는 리뷰할
   때 보는 리뷰 보기입니다. 적용 조건은 두 보기가 함께 씁니다. 두 보기를 같은 블록에 두어 한쪽만 바뀌는 일이 diff에 보이게 합니다.
-- 문서마다 항목 문자 하나를 씁니다(`documents` D, `agent-workflow-tooling` W, `swe` S, 영역 문서는 FE `F`·BFF `B`·security-privacy
-  `P`·operations-release `O`). 영역 문서는 첫 항목 앞 머리말에 상속하는 문서·항목과 강화 관계를 적습니다. 영역 문서의 항목은
+- 문서마다 항목 문자 하나를 씁니다(`documents` D, `agent-workflow-tooling` W, `swe` S, 영역 문서는 FE `F`·BFF `B`·BE `E`·DB
+  `T`·security-privacy `P`·operations-release `O`). 영역 문서는 첫 항목 앞 머리말에 상속하는 문서·항목과 강화 관계를 적습니다. 영역 문서의 항목은
   상속한 항목보다 좁은 조건을 더 보는 별도 항목이고 기본 severity는 자기 값입니다. 상속한 항목은 영역 문서를 골라도 자기 기본
   severity로 그대로 적용되고 영역 문서가 끄거나 낮추지 못합니다. 같은 결함이 두 항목에 함께 맞으면 기본 severity가 높은
   항목으로 판정합니다.

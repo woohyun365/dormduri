@@ -267,6 +267,66 @@
       "rationale": "web BFF server-read-error-privacy-shaping 하위 layer의 기준 항목(server read 경로, 오류 번역, 응답 최소화)을 소유한다. data-privacy-secret P1을 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
     },
     {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-domain-model-invariant.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE domain-model-invariant 하위 layer의 기준 항목(capability·aggregate owner, 상태 전이·선행 조건·종료 상태의 server 강제)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-api-design-contract.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE api-design-contract 하위 layer의 기준 항목(경계 schema 검증과 내부 type 비노출, 오류 의미 구분, 목록 상한·pagination·resource 명명, 공유 contract owner·호환성·deprecation)을 소유한다. data-privacy-secret P1·P2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-authn-authz.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE authn-authz 하위 layer의 기준 항목(기본 인증과 공통 판정 위치, capability·role 판정과 진입점별 인가 표)을 소유한다. trust-authz-model P2·P3를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-application-architecture.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE application-architecture 하위 layer의 기준 항목(layer 흐름과 transport 누수, flat 우선과 불필요 추상화 금지, domain 간 공개 contract 호출과 table 공유 금지, process 상태와 설정 주입)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-transaction-concurrency-idempotency.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE transaction-concurrency-idempotency 하위 layer의 기준 항목(read-check-write 보호, 중복·재시도 멱등성, 부수효과와 commit 경계, 격리 수준·lock 선택과 재시도)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-background-integration-performance.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE background-integration-performance 하위 layer의 기준 항목(background 작업 trigger·owner·중복 실행, 외부 호출 timeout·retry·fail-open/closed, query·pool·quota 포화 후보, code가 내는 운영 신호)을 소유한다. data-privacy-secret P4와 slo-signal O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-schema-modeling.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB schema-modeling 하위 layer의 기준 항목(model owner·제약·삭제 동작, snapshot·history와 현재 row 분리, 명명·type 규약)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-migration-seed-compatibility.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB migration-seed-compatibility 하위 layer의 기준 항목(위험 migration 패턴과 사람 승인, fresh·현재 DB 적용과 되돌림 경로, seed 멱등·결정적 key·production 안전)을 소유한다. release-gate O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-index-query.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB index-query 하위 layer의 기준 항목(query shape과 index·실행 계획 확인, raw SQL 위치와 parameter binding)을 소유한다. trust-authz-model P4를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-integrity-retention-lifecycle.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB integrity-retention-lifecycle 하위 layer의 기준 항목(DB 제약·lock helper·lock 순서, 보존 기한 삭제·비식별 실행, DB 계정 분리와 최소 grant)을 소유한다. data-privacy-secret P3를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
       "path": "docs/development/agent-workflows/review-criteria/web-security-privacy-trust-authz-model.md",
       "owner": "general development workflow owner",
       "kind": "domain",
@@ -307,6 +367,18 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "BFF 하위 layer 3개의 결정 목록과 기준 항목 인용·상속·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/be.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "BE 하위 layer 6개의 결정 목록과 기준 항목 인용·상속·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/db.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "DB 하위 layer 4개의 결정 목록과 기준 항목 인용·상속·위험(파괴적 DDL과 운영 DB 변경의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/domain/swe-web/security-privacy.md",

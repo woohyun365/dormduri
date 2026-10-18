@@ -76,6 +76,16 @@ const WEB_CRITERIA = [
   'web-bff-gateway-forwarding',
   'web-bff-session-cookie-auth',
   'web-bff-server-read-error-privacy-shaping',
+  'web-be-domain-model-invariant',
+  'web-be-api-design-contract',
+  'web-be-authn-authz',
+  'web-be-application-architecture',
+  'web-be-transaction-concurrency-idempotency',
+  'web-be-background-integration-performance',
+  'web-db-schema-modeling',
+  'web-db-migration-seed-compatibility',
+  'web-db-index-query',
+  'web-db-integrity-retention-lifecycle',
   'web-security-privacy-trust-authz-model',
   'web-security-privacy-data-privacy-secret',
   'web-operations-release-release-gate',
@@ -239,6 +249,32 @@ const PACK_LAYERS = new Map([
     {
       prefix: 'web-bff-',
       sublayers: ['gateway-forwarding', 'session-cookie-auth', 'server-read-error-privacy-shaping'],
+    },
+  ],
+  [
+    'be.md',
+    {
+      prefix: 'web-be-',
+      sublayers: [
+        'domain-model-invariant',
+        'api-design-contract',
+        'authn-authz',
+        'application-architecture',
+        'transaction-concurrency-idempotency',
+        'background-integration-performance',
+      ],
+    },
+  ],
+  [
+    'db.md',
+    {
+      prefix: 'web-db-',
+      sublayers: [
+        'schema-modeling',
+        'migration-seed-compatibility',
+        'index-query',
+        'integrity-retention-lifecycle',
+      ],
     },
   ],
   [

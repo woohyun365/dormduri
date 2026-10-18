@@ -12,14 +12,16 @@ Domain/<field>/<subdomain>/<layer>/<하위 layer>
 이 pack: Domain/SWE/Web/<layer>/<하위 layer>
 ```
 
-| layer                             | 문서                                          | 하위 layer                                                                                                                       |
-| --------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| FE                                | [FE](./fe.md)                                 | `rendering-boundary`, `state-data-cache`, `component-architecture`, `design-system`, `layout-responsive-device`, `accessibility` |
-| BFF                               | [BFF](./bff.md)                               | `gateway-forwarding`, `session-cookie-auth`, `server-read-error-privacy-shaping`                                                 |
-| security-privacy(cross-cutting)   | [security-privacy](./security-privacy.md)     | `trust-authz-model`, `data-privacy-secret`                                                                                       |
-| operations-release(cross-cutting) | [operations-release](./operations-release.md) | `release-gate`, `slo-signal`                                                                                                     |
+| layer                             | 문서                                          | 하위 layer                                                                                                                                                              |
+| --------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FE                                | [FE](./fe.md)                                 | `rendering-boundary`, `state-data-cache`, `component-architecture`, `design-system`, `layout-responsive-device`, `accessibility`                                        |
+| BFF                               | [BFF](./bff.md)                               | `gateway-forwarding`, `session-cookie-auth`, `server-read-error-privacy-shaping`                                                                                        |
+| BE                                | [BE](./be.md)                                 | `domain-model-invariant`, `api-design-contract`, `authn-authz`, `application-architecture`, `transaction-concurrency-idempotency`, `background-integration-performance` |
+| DB                                | [DB](./db.md)                                 | `schema-modeling`, `migration-seed-compatibility`, `index-query`, `integrity-retention-lifecycle`                                                                       |
+| security-privacy(cross-cutting)   | [security-privacy](./security-privacy.md)     | `trust-authz-model`, `data-privacy-secret`                                                                                                                              |
+| operations-release(cross-cutting) | [operations-release](./operations-release.md) | `release-gate`, `slo-signal`                                                                                                                                            |
 
-- BE·DB·infra layer의 하위 layer 절은 그 영역의 기준 문서와 함께 더합니다.
+- infra layer의 하위 layer 절은 그 영역의 기준 문서와 함께 더합니다.
 - **상속**: 하위 node는 상위·cross-cutting node의 항목을 `inherits`로 인용합니다. 상속한 항목은 하위 node를 골라도 자기
   기본 severity로 그대로 적용되고, 하위 node가 끄거나 조건을 지우거나 severity를 낮추지 못합니다. 하위 node의 항목은 상속한
   항목보다 좁은 조건을 더 보는 별도 항목이고 기본 severity는 자기 값입니다. 같은 결함이 상속 항목과 하위 항목에 함께
