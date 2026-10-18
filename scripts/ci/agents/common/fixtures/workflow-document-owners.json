@@ -327,6 +327,36 @@
       "rationale": "web DB integrity-retention-lifecycle 하위 layer의 기준 항목(DB 제약·lock helper·lock 순서, 보존 기한 삭제·비식별 실행, DB 계정 분리와 최소 grant)을 소유한다. data-privacy-secret P3를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
     },
     {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-topology-runtime-config.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra topology-runtime-config 하위 layer의 기준 항목(현재·목표 topology와 환경 차이 구분, 불변 artifact와 config·secret 주입 흐름, runtime 강화, network·identity 최소 권한과 운영자 접근, 선언형 config·IaC owner와 drift)을 소유한다. data-privacy-secret P4를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-ci-cd.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra ci-cd 하위 layer의 기준 항목(변경 경로 분류·cache·lane, 검증·배포 권한 분리와 사람 승인 지점, target 없는 CD 금지와 owner 하나)을 소유한다. release-gate O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-observability.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra observability 하위 layer의 기준 항목(수집·저장·질의·alert·privacy 경계, 관측 UI와 제품 운영 화면 분리)을 소유한다. data-privacy-secret P4와 slo-signal O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-data-durability-recovery.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra data-durability-recovery 하위 layer의 기준 항목(restore 증거로 증명하는 backup·RPO/RTO, disposable DB와 운영 유사 endpoint 안전 gate, stateful 변경과 rollout 호환 구간)을 소유한다. release-gate O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-capacity-cost-supply-chain.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra capacity-cost-supply-chain 하위 layer의 기준 항목(첫 포화 지점과 degradation matrix, 확장 도입 근거와 비용 가정 출처, 공급망 갱신·출처·SBOM·취약점 정책, upgrade·deprecation owner)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
       "path": "docs/development/agent-workflows/review-criteria/web-security-privacy-trust-authz-model.md",
       "owner": "general development workflow owner",
       "kind": "domain",
@@ -379,6 +409,12 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "DB 하위 layer 4개의 결정 목록과 기준 항목 인용·상속·위험(파괴적 DDL과 운영 DB 변경의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/infra.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "infra 하위 layer 5개의 결정 목록과 기준 항목 인용·상속·위험(운영 배포·적용과 운영 DB 쓰기의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/domain/swe-web/security-privacy.md",
