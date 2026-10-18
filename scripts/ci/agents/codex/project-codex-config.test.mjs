@@ -231,8 +231,14 @@ test('the adapter reports role sandbox_mode as a writer mark and names what an u
     ['codex-native-registry.md', registryDoc],
     ['codex.md', entry],
   ]) {
-    assert.ok(!text.includes('공식 역할 필드이므로 역할마다 둡니다'), `${path}: role sandbox as a field`);
-    assert.ok(!text.includes('역할별 sandbox·effort pin·지시를 정합니다'), `${path}: role sets sandbox`);
+    assert.ok(
+      !text.includes('공식 역할 필드이므로 역할마다 둡니다'),
+      `${path}: role sandbox as a field`,
+    );
+    assert.ok(
+      !text.includes('역할별 sandbox·effort pin·지시를 정합니다'),
+      `${path}: role sets sandbox`,
+    );
     assert.match(text, /역할 파일의 `sandbox_mode`[^.]*override하지 않/u, `${path}: no override`);
   }
   assert.match(

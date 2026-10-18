@@ -97,7 +97,10 @@ test('knu-review is the code review entry with automatic criteria and advisory h
   for (const host of ['`/review`', 'Codex Ultra', 'fork'])
     assert.ok(flat.includes(host), `host review: ${host}`);
   assert.ok(flat.includes('보조 의견'), 'host review results are advisory');
-  assert.ok(flat.includes('등록·spawn한 reviewer child의 관측'), 'evidence is the registered reviewer');
+  assert.ok(
+    flat.includes('등록·spawn한 reviewer child의 관측'),
+    'evidence is the registered reviewer',
+  );
   assert.ok(flat.includes('review-criteria/README.md#자동-선택'), 'the selection rule source');
   assert.ok(flat.includes('<reviewId>.criteria.json'), 'names the selection record');
   assert.ok(flat.includes('--criteria'), 'names the override');
