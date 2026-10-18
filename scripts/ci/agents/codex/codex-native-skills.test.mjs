@@ -116,6 +116,20 @@ test('knu-review is the code review entry with automatic criteria and advisory h
     for (const [flag] of rest.matchAll(/--[a-z]+/gu))
       assert.ok(read(file).includes(`'${flag}'`), `${command} flag ${flag}`);
   }
+  // The CLI reads every argument after `--` as a path, so the override shows --criteria before it.
+  const selection = commands.filter(
+    ([, file]) => file === 'scripts/agents/common/review-criteria-selection.mjs',
+  );
+  for (const [command, , rest] of selection)
+    assert.ok(!/(^|\s)--[a-z]/u.test(rest.split(' -- ')[1] ?? ''), `${command}: flag after --`);
+  assert.ok(
+    selection.some(([, , rest]) => rest.split(' -- ')[0].includes('--criteria')),
+    'override command puts --criteria before --',
+  );
+  assert.ok(
+    /`registered\[\]`의 `spawnArguments`/u.test(flat),
+    'spawn arguments come from the register output',
+  );
   for (const path of [
     'docs/development/agent-workflows/adapters/codex-native-registry.md',
     'docs/development/agent-workflows/adapters/codex-delegation.md',
