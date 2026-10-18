@@ -60,7 +60,13 @@ function acceptedFlags(script, rest) {
   return line;
 }
 
-test('skills call only package scripts, with flags their command source accepts', () => {
+// codex.md owns the skill call rule: package scripts, plus the repository CLIs it names in that rule.
+test('skills call only package scripts and the CLIs codex.md names, with flags their command source accepts', () => {
+  const callRule =
+    read('docs/development/agent-workflows/adapters/codex.md')
+      .replace(/\s+/gu, ' ')
+      .match(/Skill은 이 문서가 안내하는 .*?만 호출하고/u)?.[0] ?? '';
+  assert.ok(callRule, 'codex.md skill call rule');
   for (const name of SKILLS) {
     const text = read(skillPath(name));
     const commands = [...text.matchAll(/pnpm -s ([a-z]+:[a-z]+)([^`\n]*)/gu)];
@@ -71,6 +77,11 @@ test('skills call only package scripts, with flags their command source accepts'
       for (const [flag] of rest.matchAll(/--[a-z]+/gu))
         assert.ok(accepted.includes(`'${flag}'`), `${name}: ${command} flag ${flag}`);
     }
+    for (const [, file] of text.matchAll(/`node (scripts\/[^\s`]+\.mjs)/gu))
+      assert.ok(
+        callRule.includes(`\`${file}\``),
+        `${name}: ${file} is not in the codex.md call rule`,
+      );
   }
 });
 
