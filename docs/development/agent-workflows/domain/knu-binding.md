@@ -28,6 +28,14 @@ binding 키에 주는 값입니다. pack과 기준 문서는 저장소 값을 �
 | `repo-structure.release-artifacts`             | `infra/artifacts/**`, `scripts/infra/artifacts/**`                                                                                                |
 | `repo-structure.be-health`                     | `apps/api/src/health/**`                                                                                                                          |
 | `repo-structure.obs-config`                    | `infra/observability/**`, `scripts/observability/**`                                                                                              |
+| `repo-structure.be-src`                        | `apps/api/src/**`(API server code 전체)                                                                                                           |
+| `repo-structure.be-tests`                      | `apps/api/test/**`(API server의 integration·e2e·stress test)                                                                                      |
+| `repo-structure.be-config`                     | `apps/api/*`(최상위 파일만: package·tsconfig·test 설정 등)                                                                                        |
+| `repo-structure.db-schema`                     | `apps/api/prisma/schema.prisma`                                                                                                                   |
+| `repo-structure.db-migrations`                 | `apps/api/prisma/migrations/**`                                                                                                                   |
+| `repo-structure.db-seed`                       | `apps/api/prisma/seed.js`, `apps/api/prisma/seed-data/**`, `apps/api/prisma/seeds/**`                                                             |
+| `repo-structure.db-sql`                        | `apps/api/prisma/sql/**`(raw SQL 파일)                                                                                                            |
+| `repo-structure.db-role-grants`                | `apps/api/prisma/role-grants/**`(DB 역할·grant 정의)                                                                                              |
 | `repo-structure.review-swe`                    | `apps/**`, `packages/**`, `infra/**`, `scripts/**`, `.github/**`, `*`(root 파일). 제외: `!scripts/agents/**`, `!scripts/ci/agents/**`, `!**/*.md` |
 | `repo-structure.review-agent-workflow-tooling` | `scripts/agents/**`, `scripts/ci/agents/**`, `.claude/**`, `.codex/**`, `.agents/**`                                                              |
 | `repo-structure.review-documents`              | `**/*.md`, `docs/**`, `.plans/`, `.artifacts/`                                                                                                    |
