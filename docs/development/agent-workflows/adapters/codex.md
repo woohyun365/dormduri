@@ -13,8 +13,7 @@ Codex 실행 접점은 여섯 층입니다. 각 층은 다른 층의 보장을 �
   `AGENTS.md`는 이 한도 안에 두고 하위 `AGENTS.md`·`AGENTS.override.md`를 두지 않습니다(`agent-guidance-boundary.test.mjs`).
   [공식 AGENTS.md 문서](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
 - 이 문서: 위임·리뷰·완료 판정의 routine 규칙입니다. 세부는 아래 reference를 필요할 때 읽습니다.
-- Skills: `.agents/skills`의 Parent 반복 절차입니다. Package script 호출 순서를 안내하며 권한을 부여하지 않습니다
-  ([Routine task-model operation](#routine-task-model-operation)).
+- Skills: `.agents/skills`의 Parent 반복 절차이며 권한을 부여하지 않습니다([호출 규칙](#routine-task-model-operation)).
 - 역할: `.codex/agents/knu_*.toml`이 역할별 effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
 - Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail(writer 실행 중 Parent의 tracked·비ignored 경로 `apply_patch` deny 포함)과 child 완료 기록을
   맡습니다. Hook 부재·실패에서는 호출이 막히지 않습니다. Spawn의 남는 보장은 완료 판정 거부이고 Parent 쓰기는 운영 규칙만 남습니다(완료 판정은 Parent 쓰기를 탐지하지 않음, [Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
@@ -134,7 +133,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 
 아래 반복 절차는 repository skill(`.agents/skills`)로 호출합니다. 진입은 `$knu-workflow`, 위임(2·3·5단계)은 `$knu-delegate`,
 독립 리뷰는 `$knu-review`, 수락·정산(6·7단계)은 `$knu-settle`입니다. Skill은 이 문서가 안내하는 `package.json` script(진입은
-[Repository workflow entry](#repository-workflow-entry))만 호출하고 규칙은 이 문서와 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
+[Repository workflow entry](#repository-workflow-entry))와 `scripts/agents/common/review-criteria-selection.mjs`만 호출하고 규칙은 이 문서와 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
 
 새 세션/일반 task의 cold-start 순서:
 
