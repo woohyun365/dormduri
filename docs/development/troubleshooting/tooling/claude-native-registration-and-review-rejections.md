@@ -64,6 +64,7 @@
   invalid review request: previous-result-invalid: <result path> is not a review result JSON with verdict and findings
   invalid review request: previous-result-invalid: adjudication record <kind> <id>
   invalid review request: criteria-invalid: no docs/development/agent-workflows/review-criteria/<id>.md
+  invalid review request: criteria-invalid: none cannot be combined with criteria ids
   invalid review request: review-input-too-large: 2400 files > 2000; give narrower read paths
   invalid review request: review-input-path-case: .Plans differs from the stored name; use its exact case
   invalid review request: composition-round-1-only
@@ -134,20 +135,23 @@
 
 - Effort는 역할 파일의 `effort`가 정합니다. 등록은 그 값(`medium`·`high`·`xhigh`)을 기대값으로 기록하고, 없거나 다른 값이면
   `invalid-role-effort`입니다. Model policy는 impact `high` build에 `complex-critical`의 `knu_executor_xhigh`만 허용하고,
-  `knu_executor_xhigh`는 `complex-critical` build에서만 허용합니다. 어긋나면 `effort-tier`입니다.
+  `knu_executor_xhigh`는 `complex-critical` build에서만 허용합니다. `knu_explorer_xhigh`는 `bounded-extraction`과 거기서 결속한
+  1단계 재시도(`bounded-standard`)에서만 허용합니다. 어긋나면 `effort-tier`입니다. `bounded-extraction`은 `knu_explorer_xhigh`만
+  받아 `knu_explorer`는 `role`이고, `knu_explorer_xhigh`는 kind `extract`만 받아 그 밖은 `kind-role`입니다.
 - 추출(kind `extract`)은 impact `low`·complexity `bounded`·uncertainty `resolved`일 때만 독립 QA 없이 등록됩니다. 어느 profile이든
   그 밖의 추출과 다른 kind는 `reviewDisposition.required:true`나 연결된 review가 없으면 `independent QA required for this profile`입니다.
 - Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
   합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
   - `effort-transcript-pending`: transcript가 없거나 마지막 행이 미완성이거나 assistant 행이 아직 없습니다. Host가 transcript를
-    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 Haiku를 포함해
+    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 effort 미지원 모델을 포함해
     `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
     한 번 수명 만료 판정을 받은 task의 결과는 쓰지 않습니다.
   - `effort-transcript-foreign`: 경로·세션·child·prompt·모델이 등록과 맞지 않습니다.
   - `effort-transcript-too-large`: child transcript가 한도(`CHILD_TRANSCRIPT_BYTE_LIMIT`, 32 MiB)를 넘습니다. 한도는 메모리
     보호이며, 그 아래에서는 크기와 관계없이 모든 행을 검사합니다.
   - `effort-unobserved`: assistant 행에 `effort`가 없습니다. 이미 기록된 행은 바뀌지 않습니다.
-  - `effort-mismatch`: 관측 effort가 역할 파일의 기대값과 다릅니다. Haiku 기대 모델은 effort를 지원하지 않아 transcript를
+  - `effort-mismatch`: 관측 effort가 역할 파일의 기대값과 다릅니다. 모델 능력표 `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로
+    둔 기대 모델(exact ID)만 transcript를
     읽은 뒤의 `effort-unobserved`와 이 사유를 판정하지 않고 관측값만 남깁니다.
 - 공통 intake가 모든 한국어 조사 표현을 읽기 intent로 분류하지는 않습니다. `조사해줘`·문장 끝 `조사`는 `analyze`지만
   `살펴봐줘`·`확인해줘`, `원인` 없이 쓴 `파악해줘`처럼 인식하지 않는 표현은 `unknown`으로 남습니다.
@@ -164,7 +168,8 @@
 - 리뷰 회차 입력: `--round`는 양의 정수이고, 2회차부터 `--previous-result`가 필요하며 1회차에는 줄 수 없습니다. 직전 결과는
   root 안의 일반 파일로 native task 기록이 아니며, verdict·findings가 있는 result JSON이거나 1회차 그룹의 `review-adjudication/v1`
   처분 기록입니다. 처분 기록이면 기록이 가리키는 result마다 같은 조건을 보고, 기록 자체가 validator 규칙을 어기면
-  `previous-result-invalid: adjudication record <kind> <id>`입니다. `--criteria`는 `review-criteria/` 아래 있는 기준 문서 id 목록입니다.
+  `previous-result-invalid: adjudication record <kind> <id>`입니다. `--criteria`는 `review-criteria/` 아래 있는 기준 문서 id 목록이거나
+  `none` 하나입니다. `none`은 기준 문서 없이 리뷰하는 비교 측정(교정·baseline) 전용 값이고 필수 리뷰에는 쓰지 않습니다.
 - Ignored 리뷰 입력: review snapshot은 tracked·비ignored 파일만 결속합니다. 그래서 helper는 reviewer read path 중 ignored read path
   아래 파일과 기록 위치(`.plans/`·`.artifacts/`·`.local-docs/`) 아래 ignored 파일(runner 출력, 2회차 직전 결과 포함)의 digest를
   `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 쓰고 prompt 마지막 줄 `KNU_REVIEW_INPUTS_FILE:<path> <sha256>`로
@@ -216,8 +221,9 @@
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
 - `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
 - `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
-- `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. Effort 변형은 Opus build에만
-  있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
+- `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. `knu_explorer_xhigh`의
+  `effort-tier`는 Haiku 추출이면 `bounded-extraction`으로, Sonnet 추출·읽기면 `knu_explorer`로 다시 prepare합니다. Effort 변형은
+  Opus build(`knu_executor_xhigh`)와 추출(`knu_explorer_xhigh`)에만 있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
 - `independent QA required for this profile`은 task 사실을 바꾸지 말고 `reviewDisposition.required:true`로 두고 review를 연결합니다.
 - `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유(`effort-transcript-too-large` 포함)는
   그 결과를 쓰지 않고 새 task로 다시 위임합니다. `effort-transcript-too-large`는 task를 나눠 다시 위임하고 transcript를 손으로
@@ -264,13 +270,14 @@
 - FAIL은 review 완료입니다. Finding을 판정하고 수정한 뒤 새 builder task와 새 review로 해소합니다. 다른 reviewer의 PASS를
   연결해 FAIL을 덮을 수 없습니다. 예외는 1회차 그룹에서 Parent가 재현해 기각한 non-PASS 구성원뿐입니다.
 - 회차 입력 거부: `--round <N>`을 줍니다. 2회차부터는 직전 회차 result 파일이나 처분 기록을 `--previous-result`로 주고,
-  1회차에는 빼고 `--criteria`의 빈 목록·중복·없는 id를 고칩니다. 처분 기록이 가리키는 result 파일을 고쳐 맞추지 말고 기록의 경로를
+  1회차에는 빼고 `--criteria`의 빈 목록·중복·없는 id와 `none`을 다른 id와 섞은 목록을 고칩니다. 처분 기록이 가리키는 result 파일을 고쳐 맞추지 말고 기록의 경로를
   고칩니다.
 - `review-input-*`는 입력을 되돌려 맞추지 않습니다. 그 reviewer 결과를 쓰지 말고 `review`를 다시 만들어 새 reviewer로 재리뷰합니다.
   이전 helper로 만든 reviewer의 `review-input-manifest-missing`도 같습니다. 재발을 막으려면 `review` 생성부터 그 reviewer 정산과
   연결 builder 완료까지 리뷰 입력인 ignored 경로를 바꾸지 않고, 정산 뒤 쓰는 result·처분 기록·재현 로그는 리뷰 read path 밖에
   둡니다. `review-input-too-large`는 read path를 좁히고, `review-input-path-case`는 read path를 저장된 대소문자로 고칩니다.
 - 1회차 그룹 입력 거부: 구성은 1회차에만, 인원은 2·3명, `--composition`과 `--reviewers`는 함께, `e3`는 `--criteria`와 함께 줍니다.
+  `e3`는 기준 항목을 나누므로 `--criteria none`과 함께 쓸 수 없습니다(`composition-e3-criteria-required`).
   `criteria-items-too-few`는 고른 기준 문서의 항목이 인원보다 적은 것이므로 인원을 줄이거나 `e2`를 씁니다.
   `unsafe-reference:selectionBasisRef`는 `--basis`를 `plan:<Plan ID>/<절>`처럼 영문자로 시작하는 형식으로 고칩니다.
 - `review-adjudication-required`·`review-adjudication-invalid`·`review-adjudication-result-mismatch`는 처분 기록을 고칩니다. 기록은
@@ -303,7 +310,8 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 - `result-error`와 `omission`은 사다리를 한 단계 올립니다. `context-missing`은 같은 profile과 role로 다시 등록하고(0단계)
   prompt에만 맥락을 더할 수 있습니다.
 - 1단계는 `bounded-standard` + role R(Sonnet high)에서 `complex-critical` + 같은 R(Opus high)로 올립니다. R은 `knu_explorer`,
-  `knu_researcher`, `knu_executor`입니다.
+  `knu_researcher`, `knu_executor`입니다. 추출은 `bounded-extraction` + `knu_explorer_xhigh`(Haiku xhigh)에서 `bounded-standard` +
+  같은 역할(Sonnet xhigh)로 올리는 1단계도 있습니다(kind `extract`).
 - 2단계는 `complex-critical`의 `knu_executor`(Opus high)에서 `complex-critical`의 `knu_executor_xhigh`(Opus xhigh)로 올립니다.
   build에만 씁니다.
 - 1·2단계 retry만 `critical-signal` 요건을 면제받습니다. 다른 admission 검사는 모든 등록에 그대로 적용됩니다.
@@ -329,12 +337,14 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 4. `recovery-step`
    - 원인: 요청한 profile·role이 첫 task에서 올라가는 사다리 단계와 다릅니다. 단계를 건너뛰거나 그대로 두는 경우와
      `context-missing`인데 profile이나 role을 바꾼 경우가 해당합니다. `result-error`·`omission`은 올릴 단계가 없는 첫 task에서도
-     이 사유입니다. `bounded-extraction` task, `knu_reviewer`, `knu_executor_xhigh`, `complex-critical`의
-     `knu_explorer`·`knu_researcher`, build가 아닌 `complex-critical`의 `knu_executor`에는 올릴 단계가 없습니다.
+     이 사유입니다. `knu_reviewer`, `knu_executor_xhigh`, `bounded-standard`의
+     `knu_explorer_xhigh`(결속 재시도), `complex-critical`의 `knu_explorer`·`knu_researcher`, build가 아닌 `complex-critical`의
+     `knu_executor`에는 올릴 단계가 없습니다.
    - 다음 행동: 사다리 단계에 맞춰 spec의 profile·role을 고칩니다. 올릴 단계가 없으면 멈추고 Owner에게 묻습니다.
 5. `recovery-not-ran`
    - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
-     않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. Haiku는 effort 검사에서 제외됩니다. 괄호 안에
+     않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. 모델 능력표가 effort 미지원으로 둔 exact ID만 effort
+     검사에서 제외됩니다. 괄호 안에
      관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
      사유가 됩니다.
    - 다음 행동: 첫 task 완료부터 retry 등록까지 working tree를 바꾸지 않습니다. 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
@@ -397,6 +407,10 @@ reproduction log`, `only the members of one first-round group`, `a first-round c
 `builder completion judges the manifest of every delivered group member`
 테스트가 고정합니다. Effort·QA 규칙은
 `high-risk builds require the xhigh executor`, `extract QA exemption keeps the low, bounded, resolved range`,
+`the capability table lists effortless exact IDs`, `a Haiku ID with effort support is held to the role effort`,
+`a Haiku first task with effort support binds a retry only after running at the role effort`,
+`bounded-extraction takes only the xhigh explorer`, `the xhigh explorer works in bounded-standard only as a bound extraction retry`,
+`the xhigh explorer never takes a repository read`, `a bound extraction retry climbs to bounded-standard in the same role`,
 `registration binds the role effort`, `foreground effort matches, mismatches or stays unobserved`,
 `a foreground transcript written after PostToolUse is pending`, `a Parent-judged reviewer whose effort differs`,
 `a child transcript over the limit is refused` 테스트가 고정합니다. Read-only subject와 RED 기록은

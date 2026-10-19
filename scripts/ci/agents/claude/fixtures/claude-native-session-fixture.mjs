@@ -5,6 +5,7 @@ import { join } from 'node:path';
 // The effort each tracked role file declares; fixture roles mirror it so registration binds it.
 export const ROLE_EFFORT = {
   knu_explorer: 'high',
+  knu_explorer_xhigh: 'xhigh',
   knu_researcher: 'high',
   knu_executor: 'high',
   knu_executor_xhigh: 'xhigh',
@@ -55,6 +56,7 @@ export function fixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.claude/agents'), { recursive: true });
   writeRole(root, 'knu_explorer', 'Read, Grep, Glob', 'Read only.');
+  writeRole(root, 'knu_explorer_xhigh', 'Read, Grep, Glob', 'Read only.');
   writeFileSync(join(root, 'sample.txt'), 'oracle');
   const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
   git('init', '-q');
@@ -94,7 +96,7 @@ export function fixture(t) {
         impactRisk: 'low',
         complexity: 'bounded',
         uncertainty: 'resolved',
-        role: 'knu_explorer',
+        role: 'knu_explorer_xhigh',
         allowedTools: ['Read', 'Grep', 'Glob'],
         readScope: ['sample.txt'],
         writeScope: [],

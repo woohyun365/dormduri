@@ -57,6 +57,7 @@ const DELIVERY_RULE =
   'Your delivered report (the SubagentHandback message when that tool is available, otherwise your final reply) is the only text the Parent receives. Put the complete result in it without summarizing; it may be long (the record limit is 1 MB).';
 const KNU_ROLES = [
   'knu_explorer',
+  'knu_explorer_xhigh',
   'knu_researcher',
   'knu_executor',
   'knu_executor_xhigh',

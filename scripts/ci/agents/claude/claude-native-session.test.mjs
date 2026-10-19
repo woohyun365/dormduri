@@ -1612,7 +1612,7 @@ for (const stopFirst of [false, true])
       session_id: f.event.session_id,
       cwd: f.root,
       agent_id: agentId,
-      agent_type: 'knu_explorer',
+      agent_type: f.registered.invocation.subagent_type,
       agent_transcript_path: childPath,
       transcript_path: parentPath,
     };
@@ -1705,7 +1705,7 @@ for (const damage of ['intact', 'oversized', 'malformed'])
       session_id: f.event.session_id,
       cwd: f.root,
       agent_id: agentId,
-      agent_type: 'knu_explorer',
+      agent_type: f.registered.invocation.subagent_type,
       agent_transcript_path: childPath,
       transcript_path: parentPath,
     });
@@ -2138,7 +2138,12 @@ test('a read-only task still refuses adapter identity drift outside its reads', 
   const f = readOnlyWithOtherFile(t);
   handle(f);
   finish(f);
-  writeRole(f.root, 'knu_explorer', 'Read, Grep, Glob', 'Changed after the child stopped.');
+  writeRole(
+    f.root,
+    f.registered.invocation.subagent_type,
+    'Read, Grep, Glob',
+    'Changed after the child stopped.',
+  );
   const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
     root: f.root,
   });
@@ -2244,7 +2249,7 @@ function asyncStopped(t, notificationRow) {
     session_id: f.event.session_id,
     cwd: f.root,
     agent_id: agentId,
-    agent_type: 'knu_explorer',
+    agent_type: f.registered.invocation.subagent_type,
     agent_transcript_path: childPath,
     transcript_path: parentPath,
   });
@@ -2393,7 +2398,7 @@ function launchedChild(t, agentId = 'async-child', preInput) {
     session_id: f.event.session_id,
     cwd: realpathSync(f.root),
     agent_id: agentId,
-    agent_type: 'knu_explorer',
+    agent_type: f.registered.invocation.subagent_type,
     agent_transcript_path: childPath,
     transcript_path: parentPath,
     stop_hook_active: false,
@@ -2593,7 +2598,11 @@ const gates = [
   [
     'adapter drift',
     /adapter\/role\/settings drift/u,
-    (e, f) => writeFileSync(join(f.root, '.claude/agents/knu_explorer.md'), 'changed role\n'),
+    (e, f) =>
+      writeFileSync(
+        join(f.root, '.claude/agents', `${f.registered.invocation.subagent_type}.md`),
+        'changed role\n',
+      ),
   ],
   [
     'expired binding',
@@ -2983,13 +2992,14 @@ const childPathOf = (f, agentId = agentIdOf(f)) =>
 
 test('registration binds the role effort and refuses a role without a supported one', (t) => {
   const f = setup(t);
-  assert.equal(recordOf(f).expectedEffort, 'high');
+  const role = f.registered.invocation.subagent_type;
+  assert.equal(recordOf(f).expectedEffort, ROLE_EFFORT[role]);
   for (const header of ['', 'effort: max\n', 'effort: low\n']) {
     const g = fixture(t);
     delete g.input.currentSnapshot;
     writeFileSync(
-      join(g.root, '.claude/agents/knu_explorer.md'),
-      `---\nname: knu_explorer\ntools: Read, Grep, Glob\n${header}---\nRead only.\n`,
+      join(g.root, '.claude/agents', `${role}.md`),
+      `---\nname: ${role}\ntools: Read, Grep, Glob\n${header}---\nRead only.\n`,
     );
     assert.throws(
       () =>
@@ -3154,11 +3164,12 @@ test('background completion judges effort from the settled child transcript', (t
 });
 
 // Extraction skips review only in the bounded-extraction risk range, whichever profile runs it.
+// Sonnet and Opus extract with knu_explorer; the xhigh explorer is the Haiku extraction role.
 function extraction(t, profileId, model, patch = {}) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
   f.input.nativeRequest.profileId = profileId;
-  Object.assign(f.input.nativeRequest.task, patch);
+  Object.assign(f.input.nativeRequest.task, { role: 'knu_explorer', ...patch });
   f.options.expectedResolvedModel = model;
   return (required) => {
     const input = structuredClone(f.input);

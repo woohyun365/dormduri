@@ -22,6 +22,7 @@ const configDigest = `sha256:${'2'.repeat(64)}`;
 const now = '2026-09-26T12:00:00.000Z';
 const roles = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
+  knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
   knu_researcher: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
   knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_executor_xhigh: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
@@ -87,8 +88,8 @@ function inputFor(profileId = 'bounded-standard', kind = 'build') {
   if (profileId === 'bounded-extraction') {
     task.kind = 'extract';
     task.impactRisk = 'low';
-    task.role = 'knu_explorer';
-    task.allowedTools = [...roles.knu_explorer];
+    task.role = 'knu_explorer_xhigh';
+    task.allowedTools = [...roles.knu_explorer_xhigh];
     task.writeScope = [];
     task.writeOwner = null;
     task.facts = facts(
@@ -351,6 +352,7 @@ test('Sonnet bounded-standard admits the same fixed extraction as the Haiku prof
   const extraction = inputFor('bounded-extraction');
   extraction.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
   extraction.profileId = 'bounded-standard';
+  extraction.task.role = 'knu_explorer';
   assert.deepEqual(evaluateClaudeProfileEligibility(extraction), { eligible: true, reasons: [] });
   assert.equal(createClaudeSubagentBinding(extraction).requestedModelAlias, 'sonnet');
   const missing = structuredClone(extraction);

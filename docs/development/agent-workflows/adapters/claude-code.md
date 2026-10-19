@@ -111,19 +111,22 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 `prepare`의 `expectedResolvedModel`에 exact ID를 두고 관측값이 다르면 거부합니다. 아래 관측 ID 밖의 exact 모델로 해석되는
 조합은 관측 전까지 routine이 아닙니다.
 
-| 역할                 | Profile              | Alias    | Effort    | 관측된 모델 ID               | 작업                 | 상태                                  |
-| -------------------- | -------------------- | -------- | --------- | ---------------------------- | -------------------- | ------------------------------------- |
-| `knu_explorer`       | `bounded-extraction` | `haiku`  | —(미지원) | `claude-haiku-4-5-20251001`  | 고정 입력 추출       | 미사용(Haiku 5.5 migration plan 대기) |
-| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 고정 입력 추출       | 관측                                  |
-| `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측                                  |
-| `knu_researcher`     | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 공식 근거 읽기       | 관측                                  |
-| `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 독립 source review   | 관측                                  |
-| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | repository 읽기 조사 | 관측                                  |
-| `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)   | 복잡한 구현          | 관측                                  |
-| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 고위험 구현          | 관측                                  |
+| 역할                 | Profile              | Alias    | Effort    | 관측된 모델 ID               | 작업                 | 상태              |
+| -------------------- | -------------------- | -------- | --------- | ---------------------------- | -------------------- | ----------------- |
+| `knu_explorer_xhigh` | `bounded-extraction` | `haiku`  | xhigh     | `claude-haiku-5-5`(2.1.296)  | 고정 입력 추출       | Q                 |
+| `knu_explorer`       | `bounded-extraction` | `haiku`  | —(미지원) | `claude-haiku-4-5-20251001`  | 고정 입력 추출       | 대체됨(등록 거부) |
+| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 고정 입력 추출       | 관측              |
+| `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측              |
+| `knu_researcher`     | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 공식 근거 읽기       | 관측              |
+| `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 독립 source review   | 관측              |
+| `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | repository 읽기 조사 | 관측              |
+| `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)   | 복잡한 구현          | 관측              |
+| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 고위험 구현          | 관측              |
 
-Effort 열은 역할 파일의 설정값이고(Haiku는 effort를 지원하지 않아 역할 값을 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
+Effort 열은 역할 파일의 설정값이고(모델 능력표 `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로 둔 exact ID는 역할 값을 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
 대조합니다([Model profiles](./claude-model-profiles.md#역할-effort와-executor-단계)).
+`bounded-extraction`의 `knu_explorer_xhigh` 행 관측 ID는 `haiku` alias의 해석 관측(CLI 2.1.296)이고 이 역할×profile 조합의 live 관측은 없어 Q입니다.
+"대체됨(등록 거부)" 행은 과거 조합의 기록이며 `bounded-extraction`은 `knu_explorer`를 `role`로 거부합니다.
 
 ## Recovery
 
