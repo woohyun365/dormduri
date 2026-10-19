@@ -143,7 +143,7 @@
 - Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
   합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
   - `effort-transcript-pending`: transcript가 없거나 마지막 행이 미완성이거나 assistant 행이 아직 없습니다. Host가 transcript를
-    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 effort 미지원 모델을 포함해
+    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 Haiku를 포함해
     `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
     한 번 수명 만료 판정을 받은 task의 결과는 쓰지 않습니다.
   - `effort-transcript-foreign`: 경로·세션·child·prompt·모델이 등록과 맞지 않습니다.

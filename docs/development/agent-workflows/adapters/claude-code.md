@@ -123,10 +123,8 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 | `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)   | 복잡한 구현          | 관측              |
 | `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 고위험 구현          | 관측              |
 
-Effort 열은 역할 파일의 설정값이고(모델 능력표 `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로 둔 exact ID는 역할 값을 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
+Effort 열은 역할 파일의 설정값이고(모델 능력표가 effort 미지원으로 둔 ID는 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
 대조합니다([Model profiles](./claude-model-profiles.md#역할-effort와-executor-단계)).
-`bounded-extraction`의 `knu_explorer_xhigh` 행 관측 ID는 `haiku` alias의 해석 관측(CLI 2.1.296)이고 이 역할×profile 조합의 live 관측은 없어 Q입니다.
-"대체됨(등록 거부)" 행은 과거 조합의 기록이며 `bounded-extraction`은 `knu_explorer`를 `role`로 거부합니다.
 
 ## Recovery
 

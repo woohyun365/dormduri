@@ -7,11 +7,11 @@
 [Claude model policy](../../../../scripts/agents/claude/model-policy.mjs)는 공통 risk/complexity·task authority를 소비합니다.
 Lead가 현재 facts를 근거로 선택하며 role 이름·토큰 잔량만으로 자동 결정하지 않습니다.
 
-| Task profile         | 요청 family alias | 조건                                                                              |
-| -------------------- | ----------------- | --------------------------------------------------------------------------------- |
-| `bounded-extraction` | `haiku`           | 낮은 위험·고정 입력·단일 추출·명시 oracle, `knu_explorer_xhigh`만(routine 미사용) |
-| `bounded-standard`   | `sonnet`          | bounded extract/read/build·scope·검증·독립 QA                                     |
-| `complex-critical`   | `opus`            | 복잡/고위험 또는 독립 review                                                      |
+| Task profile         | 요청 family alias | 조건                                                      |
+| -------------------- | ----------------- | --------------------------------------------------------- |
+| `bounded-extraction` | `haiku`           | 낮은 위험·고정 입력·단일 추출·명시 oracle(routine 미사용) |
+| `bounded-standard`   | `sonnet`          | bounded extract/read/build·scope·검증·독립 QA             |
+| `complex-critical`   | `opus`            | 복잡/고위험 또는 독립 review                              |
 
 이는 finite 후보이지 가용성·동등 품질·routine admission 보장이 아닙니다. `selectedBy/approvedBy` 문자열과 caller가
 공급한 runtime report는 인증된 host grant가 아닙니다. 현재 static descriptor는 `dispatchAllowed:false`, `applied:false`,
@@ -23,21 +23,23 @@ runtime·unapproved fallback은 거부합니다. Source가 바뀌면 이전 bind
 Effort는 역할 파일의 `effort`가 정하고 Parent 세션 effort를 상속하지 않습니다([subagent 설정](https://code.claude.com/docs/en/sub-agents)).
 Agent 호출에는 effort 입력이 없으므로 같은 책임의 effort 변형은 별도 역할로 둡니다.
 
-| 역할                 | Effort  | 쓰는 곳                                                                                       |
-| -------------------- | ------- | --------------------------------------------------------------------------------------------- |
-| `knu_explorer`       | `high`  | 고정 입력 추출·repository 읽기(`bounded-standard` Sonnet)                                     |
-| `knu_explorer_xhigh` | `xhigh` | 고정 입력 추출(`bounded-extraction` Haiku), 그 결속 1단계 재시도(`bounded-standard` Sonnet)만 |
-| `knu_researcher`     | `high`  | 공식 근거 조사                                                                                |
-| `knu_executor`       | `high`  | bounded build(`bounded-standard` Sonnet), 복잡한 build(`complex-critical` Opus)               |
-| `knu_executor_xhigh` | `xhigh` | impact `high` build(강제), Recovery 상향(`complex-critical` Opus만)                           |
-| `knu_reviewer`       | `xhigh` | 독립 review(`complex-critical` Opus)                                                          |
+| 역할                 | Effort  | 쓰는 곳                                                                         |
+| -------------------- | ------- | ------------------------------------------------------------------------------- |
+| `knu_explorer`       | `high`  | 고정 입력 추출·repository 읽기(`bounded-standard` Sonnet)                       |
+| `knu_explorer_xhigh` | `xhigh` | 고정 입력 추출(`bounded-extraction` Haiku)과 그 1단계 재시도(Sonnet)만          |
+| `knu_researcher`     | `high`  | 공식 근거 조사                                                                  |
+| `knu_executor`       | `high`  | bounded build(`bounded-standard` Sonnet), 복잡한 build(`complex-critical` Opus) |
+| `knu_executor_xhigh` | `xhigh` | impact `high` build(강제), Recovery 상향(`complex-critical` Opus만)             |
+| `knu_reviewer`       | `xhigh` | 독립 review(`complex-critical` Opus)                                            |
 
 Model policy는 impact `high` build를 `knu_executor_xhigh`·`complex-critical`로만 받고, 그 역할을 `complex-critical` build
 밖에서는 거부합니다(`effort-tier`). `bounded-extraction`은 `knu_explorer_xhigh`만 받고(`knu_explorer`는 `role`), 그 역할은
 `bounded-extraction`과 거기서 결속한 1단계 재시도 밖에서 같은 `effort-tier`로, kind `extract` 밖에서 `kind-role`로 거부합니다. 등록은 역할 effort를 기대값으로 기록하고, `settle`·`complete`가 관측할 때마다 child
 transcript의 assistant 행 `effort`와 대조합니다. SubagentStop의 `effort.level`은 child 값과 세션 값을 구별하지 못한
 관측(CLI 2.1.286)이 있어 쓰지 않습니다. Routine 추출은 `bounded-standard`(Sonnet)입니다. `bounded-extraction`은 등록할 수
-있게 남지만 routine 표의 Q 행이라 채택 결정 전에는 routine에서 쓰지 않습니다.
+있게 남지만 routine 표의 Q 행이라 채택 결정 전에는 routine에서 쓰지 않습니다. 그 행의 관측 ID는 `haiku` alias의 해석
+관측(CLI 2.1.296)이고 이 역할×profile 조합의 live 관측은 없습니다. "대체됨(등록 거부)" 행은 과거 조합(`knu_explorer`·Haiku 4.5)의
+기록입니다.
 Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agents/claude/model-policy.mjs)의 exact ID 능력표
 `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로 둔 ID뿐입니다. 표에 없는 exact ID는 family와 무관하게 역할 effort와 대조합니다.
 
