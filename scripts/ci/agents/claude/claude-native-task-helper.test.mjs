@@ -2238,6 +2238,134 @@ test('a group review records the selection once per member', (t) => {
   assert.notEqual(built.reviewers[0].criteriaFile.path, built.reviewers[1].criteriaFile.path);
 });
 
+// `--criteria none` turns the automatic choice off for a comparison measurement (calibration,
+// baseline): no criteria document reaches the reviewer and the record keeps override `none` beside
+// the automatic choice, so the review stays auditable.
+test('--criteria none reviews without criteria documents and records the automatic choice', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const status = buildClaudeNativeReview(
+    { parentSubject: SMALL_PARENT_SUBJECT, criteria: ['none'] },
+    { root: r.root },
+  );
+  assert.deepEqual(status.criteriaSelection, {
+    override: true,
+    documents: [],
+    documentCount: 0,
+    itemCount: 0,
+    unmatchedPaths: [],
+  });
+  const review = roundReview(r, { reviewRound: 1, criteria: ['none'] });
+  assert.doesNotMatch(review.reviewerPrompt, /Criteria documents|criteriaItem/u);
+  assert.ok(!review.reviewerSpec.readScope.some((path) => path.startsWith(`${CRITERIA_DIR}/`)));
+  assert.deepEqual(review.packet.sources.owners, [
+    'docs/development/agent-workflows/qa.md',
+    'docs/development/agent-workflows/adapters/claude-code.md',
+  ]);
+  const record = criteriaRecordOf(r, review);
+  assert.equal(record.override, true);
+  assert.deepEqual(record.requested, ['none']);
+  assert.deepEqual(record.documents, []);
+  assert.equal(record.itemCount, 0);
+  assert.deepEqual(record.automatic, { documents: ['swe'], documentCount: 1, itemCount: 2 });
+  assert.deepEqual(record.paths, ['sample.txt']);
+  prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+});
+
+test('--criteria none gives no e2 member a criteria line', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const built = roundReview(r, {
+    reviewRound: 1,
+    criteria: ['none'],
+    composition: 'e2',
+    reviewers: 2,
+  });
+  assert.equal(built.reviewers.length, 2);
+  for (const member of built.reviewers) {
+    assert.doesNotMatch(member.reviewerPrompt, /Criteria documents|Assigned criteria items/u);
+    assert.deepEqual(criteriaRecordOf(r, member).requested, ['none']);
+    assert.deepEqual(criteriaRecordOf(r, member).automatic.documents, ['swe']);
+  }
+});
+
+test('--criteria none cannot split items for e3', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  assert.throws(
+    () => roundReview(r, { reviewRound: 1, criteria: ['none'], composition: 'e3', reviewers: 2 }),
+    /composition-e3-criteria-required/u,
+  );
+  assert.deepEqual(packetFiles(r), []);
+});
+
+test('--criteria none cannot be combined with criteria ids', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  for (const criteria of [
+    ['none', 'swe'],
+    ['swe', 'none'],
+    ['none', 'none'],
+  ])
+    assert.throws(
+      () => roundReview(r, { reviewRound: 1, criteria }),
+      /criteria-invalid: none cannot be combined with criteria ids/u,
+      JSON.stringify(criteria),
+    );
+  // Without --criteria the paths still choose, and an empty list is still refused.
+  assert.deepEqual(roundReview(r, { reviewRound: 1 }).criteriaSelection.documents, ['swe']);
+  assert.throws(() => roundReview(r, { reviewRound: 1, criteria: [] }), /criteria-invalid/u);
+  assert.deepEqual(packetFiles(r).length, 1);
+});
+
+test('CLI review --criteria none reaches the helper as the one id none', (t) => {
+  const r = repo(t);
+  writeCatalog(r);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  mkdirSync(join(r.root, '.artifacts/plans/helper-test'), { recursive: true });
+  const write = (name, value) => {
+    const path = join(r.root, '.artifacts/plans/helper-test', name);
+    writeFileSync(path, JSON.stringify(value));
+    return path;
+  };
+  const run = (...args) =>
+    spawnSync(process.execPath, [cliPath, ...args], { cwd: r.root, encoding: 'utf8' });
+  const subjectPath = write('subject.json', SMALL_PARENT_SUBJECT);
+  const status = JSON.parse(
+    run('review', '--parent-subject', subjectPath, '--criteria', 'none').stdout,
+  );
+  assert.equal(status.criteriaSelection.override, true);
+  const evidencePath = write('evidence.json', {
+    ...runnerEvidence(status.snapshotDigest),
+    runner: 'lead-runner',
+  });
+  const ok = run(
+    'review',
+    '--parent-subject',
+    subjectPath,
+    '--runner-evidence',
+    evidencePath,
+    '--basis',
+    'plan:helper-test/cli-none',
+    '--reviewer-model',
+    'claude-opus-4-6',
+    '--session',
+    r.sessionId,
+    '--round',
+    '1',
+    '--criteria',
+    'none',
+  );
+  assert.equal(ok.status, 0, ok.stderr);
+  const review = JSON.parse(ok.stdout);
+  assert.doesNotMatch(review.reviewerPrompt, /Criteria documents/u);
+  assert.deepEqual(criteriaRecordOf(r, review).requested, ['none']);
+});
+
 // The snapshot digest is read over the HEAD tree, so the user's stage never changes it: a review
 // built before `git add -N` or `git add` still prepares, and no command writes the real index.
 test('review and prepare ignore the stage and leave the index bytes unchanged', (t) => {
