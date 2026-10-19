@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+import * as policy from '../../../agents/claude/model-policy.mjs';
+
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 
@@ -73,6 +75,21 @@ test('five project Claude agents declare bounded native tools and a fixed effort
     roleBody(roleSource('knu_executor_xhigh')),
     roleBody(roleSource('knu_executor')),
     'the xhigh variant differs from knu_executor only in its frontmatter',
+  );
+});
+
+test('the xhigh explorer is a tracked role that differs from knu_explorer only in its frontmatter', () => {
+  const path = '.claude/agents/knu_explorer_xhigh.md';
+  assert.equal(isIgnored(path), false, `${path}: project role must be portable`);
+  assert.ok(existsSync(resolve(root, path)), `${path}: role file`);
+  const frontmatter = /^---\n([\s\S]*?)\n---/u.exec(roleSource('knu_explorer_xhigh'))?.[1] ?? '';
+  assert.match(frontmatter, /^name: knu_explorer_xhigh$/mu);
+  assert.match(frontmatter, /^tools: Read, Grep, Glob$/mu);
+  assert.match(frontmatter, /^effort: xhigh$/mu);
+  assert.equal(
+    roleBody(roleSource('knu_explorer_xhigh')),
+    roleBody(roleSource('knu_explorer')),
+    'the xhigh explorer differs from knu_explorer only in its frontmatter',
   );
 });
 
@@ -387,10 +404,15 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     ],
     'routine table keeps only live-observed rows adopted by the Owner',
   );
+  // The capability table, not the alias, decides which rows have no effort to compare.
   for (const row of rows) {
     const cells = row.split('|').map((cell) => cell.trim());
     const role = cells[1].replaceAll('`', '');
-    if (cells[3] !== '`haiku`') assert.equal(cells[4], ROLE_EFFORT[role], `${role}: effort column`);
+    const model = /^`(claude-[^`]+)`/u.exec(cells[5])?.[1];
+    assert.ok(model, `${role}: observed model cell`);
+    if (policy.claudeModelSupportsEffort(model))
+      assert.equal(cells[4], ROLE_EFFORT[role], `${role}: effort column`);
+    else assert.equal(cells[4], '—(미지원)', `${role} ${model}: no effort to compare`);
   }
   assert.ok(
     routine.replace(/\s+/gu, ' ').includes('Effort 열은 역할 파일의 설정값이고'),

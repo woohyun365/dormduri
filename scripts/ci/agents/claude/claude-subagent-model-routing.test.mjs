@@ -14,6 +14,7 @@ import {
   evaluateClaudeProfileEligibility,
   listClaudeSubagentProfiles,
 } from '../../../agents/claude/index.mjs';
+import * as policy from '../../../agents/claude/model-policy.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const snapshotDigest = `sha256:${'1'.repeat(64)}`;
@@ -355,6 +356,85 @@ test('Sonnet bounded-standard admits the same fixed extraction as the Haiku prof
   const missing = structuredClone(extraction);
   missing.task.facts = missing.task.facts.filter(({ key }) => key !== 'independent-check');
   assert.ok(evaluateClaudeProfileEligibility(missing).reasons.includes('required-facts'));
+});
+
+// The capability table is the one place that knows which exact IDs lack effort. An ID it does not
+// list supports effort and is compared with the role effort; a family prefix is not enough.
+test('the capability table lists effortless exact IDs and holds any other ID to effort', () => {
+  assert.equal(policy.claudeModelSupportsEffort('claude-haiku-synthetic-effort'), true);
+  assert.equal(policy.claudeModelSupportsEffort('claude-sonnet-synthetic'), true);
+  const table = policy.CLAUDE_MODEL_CAPABILITIES;
+  assert.equal(Object.isFrozen(table), true);
+  const effortless = Object.keys(table).filter((id) => table[id].effort === false);
+  assert.ok(effortless.length > 0, 'the table lists an effortless exact ID');
+  for (const id of effortless) {
+    assert.equal(Object.isFrozen(table[id]), true, id);
+    assert.equal(policy.claudeModelSupportsEffort(id), false, id);
+    const sibling = id.replace(/-[^-]+$/u, '-synthetic');
+    assert.equal(policy.claudeModelSupportsEffort(sibling), true, `${sibling}: same family`);
+  }
+});
+
+// The xhigh explorer is the only extraction role. Outside a bound retry from bounded-extraction it
+// is refused like the xhigh executor, and it never takes a repository read.
+function explorerTask(profileId, role, kind = 'extract') {
+  const input = inputFor('bounded-extraction');
+  input.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
+  input.profileId = profileId;
+  Object.assign(input.task, { kind, role, allowedTools: ['Read', 'Grep', 'Glob'] });
+  if (kind === 'read')
+    input.task.facts = facts(
+      'source-bound',
+      'bounded-scope',
+      'acceptance',
+      'oracle',
+      'independent-qa',
+    );
+  return input;
+}
+const EXTRACTION_RETRY = {
+  of: '00000000-0000-4000-8000-000000000002',
+  cause: 'result-error',
+  step: 1,
+  fromProfileId: 'bounded-extraction',
+  fromRole: 'knu_explorer_xhigh',
+};
+
+test('bounded-extraction takes only the xhigh explorer', () => {
+  const reasons = (role) =>
+    evaluateClaudeProfileEligibility(explorerTask('bounded-extraction', role)).reasons;
+  assert.deepEqual(reasons('knu_explorer'), ['role']);
+  assert.deepEqual(reasons('knu_explorer_xhigh'), []);
+});
+
+test('the xhigh explorer works in bounded-standard only as a bound extraction retry', () => {
+  const standard = explorerTask('bounded-standard', 'knu_explorer_xhigh');
+  assert.deepEqual(evaluateClaudeProfileEligibility(standard).reasons, ['effort-tier']);
+  standard.task.recovery = EXTRACTION_RETRY;
+  assert.deepEqual(evaluateClaudeProfileEligibility(standard).reasons, []);
+  for (const recovery of [
+    { ...EXTRACTION_RETRY, fromRole: 'knu_explorer' },
+    { ...EXTRACTION_RETRY, fromProfileId: 'bounded-standard' },
+  ]) {
+    standard.task.recovery = recovery;
+    assert.deepEqual(
+      evaluateClaudeProfileEligibility(standard).reasons,
+      ['effort-tier'],
+      JSON.stringify(recovery),
+    );
+  }
+  assert.deepEqual(
+    evaluateClaudeProfileEligibility(explorerTask('bounded-standard', 'knu_explorer')).reasons,
+    [],
+  );
+});
+
+test('the xhigh explorer never takes a repository read', () => {
+  const read = explorerTask('bounded-standard', 'knu_explorer_xhigh', 'read');
+  const { reasons } = evaluateClaudeProfileEligibility(read);
+  assert.ok(reasons.includes('kind-role'), `reasons: ${reasons.join(',')}`);
+  read.task.role = 'knu_explorer';
+  assert.deepEqual(evaluateClaudeProfileEligibility(read).reasons, []);
 });
 
 test('Opus admits explicit bounded independent review without fabricated critical risk', () => {

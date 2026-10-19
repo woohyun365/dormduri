@@ -37,6 +37,7 @@ import {
   settleClaudeNativeTask,
   writeClaudeReviewPacket,
 } from '../../../agents/claude/native-task-helper.mjs';
+import * as policy from '../../../agents/claude/model-policy.mjs';
 
 function setup(t) {
   const f = fixture(t);
@@ -3107,6 +3108,11 @@ test('foreground child identity is checked before its transcript is trusted', (t
 
 test('Haiku is not held to an effort it does not support, but its transcript identity still is', (t) => {
   const f = setup(t);
+  assert.equal(
+    policy.claudeModelSupportsEffort(f.options.expectedResolvedModel),
+    false,
+    'the capability table lists the fixture Haiku ID without effort',
+  );
   handle(f);
   finish(f, {}, { effort: undefined });
   assert.deepEqual(effortErrors(f), []);
@@ -3372,6 +3378,73 @@ test('step 0 re-registers the same profile and role for missing context', (t) =>
     completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root }).valid,
     true,
   );
+});
+
+// Only an exact ID the capability table lists without effort skips the effort comparison. Any other
+// Haiku ID is held to the role effort, so a child at another effort is refused at settlement and
+// cannot bind a retry. The profile and role come from the fixture extraction task.
+const EFFORT_HAIKU = 'claude-haiku-synthetic-effort';
+const otherEffort = (role) => (ROLE_EFFORT[role] === 'high' ? 'xhigh' : 'high');
+const extractionTask = (f) => ({
+  profileId: f.input.nativeRequest.profileId,
+  role: f.input.nativeRequest.task.role,
+});
+
+test('a Haiku ID with effort support is held to the role effort at settlement', (t) => {
+  const f = ladder(t);
+  const task = extractionTask(f);
+  const matched = registerAs(f, { ...task, model: EFFORT_HAIKU });
+  assert.deepEqual(handle(matched), {});
+  finish(matched);
+  assert.deepEqual(effortErrors(matched), []);
+  const other = registerAs(f, { ...task, model: EFFORT_HAIKU });
+  assert.deepEqual(handle(other), {});
+  finish(other, {}, { effort: otherEffort(task.role) });
+  assert.deepEqual(effortErrors(other), ['effort-mismatch']);
+});
+
+test('a Haiku first task with effort support binds a retry only after running at the role effort', (t) => {
+  const f = ladder(t);
+  const task = extractionTask(f);
+  const a = ranUnaccepted(registerAs(f, { ...task, model: EFFORT_HAIKU }), {
+    effort: otherEffort(task.role),
+  });
+  assert.throws(
+    () =>
+      registerAs(f, {
+        ...task,
+        model: EFFORT_HAIKU,
+        recovery: { of: a.registered.taskId, cause: 'context-missing' },
+      }),
+    /recovery-not-ran/u,
+    'the first Haiku task ran at another effort',
+  );
+});
+
+// An extraction that ran climbs one step to Sonnet in the same role and effort. It never skips to
+// Opus, and the retry is not retried again.
+test('a bound extraction retry climbs to bounded-standard in the same role and no further', (t) => {
+  const f = ladder(t);
+  const task = extractionTask(f);
+  const a = ranUnaccepted(registerAs(f, { ...task, model: f.options.expectedResolvedModel }));
+  const up = (of, profileId) =>
+    registerAs(f, { profileId, role: task.role, recovery: { of, cause: 'result-error' } });
+  assert.throws(() => up(a.registered.taskId, 'complex-critical'), /recovery-step/u, 'skip');
+  const b = up(a.registered.taskId, 'bounded-standard');
+  assert.deepEqual(taskInputOf(b).recovery, {
+    of: a.registered.taskId,
+    cause: 'result-error',
+    step: 1,
+    fromProfileId: task.profileId,
+    fromRole: task.role,
+  });
+  assert.equal(b.registered.invocation.model, 'sonnet');
+  assert.equal(recordOf(b).expectedEffort, ROLE_EFFORT[task.role]);
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
+  assert.equal(done.valid, true, JSON.stringify(done.errors));
+  assert.throws(() => up(b.registered.taskId, 'complex-critical'), /recovery-chain/u, 'chain');
 });
 
 test('recovery reasons are judged in a fixed order and each refuses on its own', (t) => {
