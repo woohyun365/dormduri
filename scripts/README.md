@@ -5,7 +5,7 @@
 ## 디렉터리 책임
 
 - `artifacts/`: 로컬·CI 산출물 경로 계약처럼 여러 실행 영역이 공유하는 작은 capability
-- `ci/`: CI 검증 script를 책임별 하위 디렉터리에 둔다. `lanes/`(변경 분류·lane 선택·policy test 실행·formatting·step 시간 측정), `performance/`(GitHub Actions 성능·자원 측정), `contracts/`(workflow·GitHub·toolchain·dependency automation·문서 경로 계약 test), `product/`(Web standalone 준비와 product test 배치·fixture 계약), `agents/`(agent workflow test), `lifecycle/`(PR 본문 `Lifecycle` 절과 정책 우선 검사, `Lifecycle gate` job 진입점)
+- `ci/`: CI 검증 script를 책임별 하위 디렉터리에 둔다. `lanes/`(변경 분류·lane 선택·policy test 실행·formatting·step 시간 측정), `performance/`(GitHub Actions 성능·자원 측정), `contracts/`(workflow·GitHub·toolchain·dependency automation·문서 경로 계약 test), `product/`(Web standalone 준비와 product test 배치·fixture 계약), `agents/`(agent workflow test), `lifecycle/`(PR 본문 `Lifecycle` 절과 정책 우선·영역 기준 존재 검사, `Lifecycle gate` job 진입점)
 - `dependencies/`: provider 계정 없이 dependency update 정책과 package-manager artifact 변경을 검증하는 bounded rehearsal
 - `git/`: commit message처럼 local Git hook과 CI가 공유하는 경량 repository contract
 - `github/`: account/repository control-plane을 mutate하지 않고 sanitized owner evidence만 수집하는 capability

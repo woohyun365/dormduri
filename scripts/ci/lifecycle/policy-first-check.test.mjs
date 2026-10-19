@@ -11,7 +11,7 @@ import {
   repository,
 } from './fixtures/policy-repo.mjs';
 import { POLICY_FIRST_CHECK_IDS } from './policy-first-check.mjs';
-import { buildLifecycleContext, evaluateLifecycle } from './run.mjs';
+import { buildLifecycleContext, evaluateLifecycle, LIFECYCLE_CHECKS } from './run.mjs';
 
 const MATCHES = 'apps/api/src/matches/matches.service.ts';
 const MIGRATION = 'apps/api/prisma/migrations/20261017000000_fix/migration.sql';
@@ -37,7 +37,10 @@ function evaluate({
     changedPaths,
     reader,
   });
-  return evaluateLifecycle(context);
+  return evaluateLifecycle(
+    context,
+    LIFECYCLE_CHECKS.filter((check) => check.name === 'policy-first'),
+  );
 }
 
 const findings = (result, check, level) =>

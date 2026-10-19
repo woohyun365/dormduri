@@ -14,6 +14,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { changedPathsForComparison } from '../lanes/classify-changes.mjs';
+import { evaluateAreaCriteria } from './area-criteria-check.mjs';
 import { parseLifecycleSection, referencedIssues } from './lifecycle-section.mjs';
 import {
   ARTIFACT_MAP_FILE,
@@ -29,6 +30,7 @@ import {
 // line lowers a check's fail to a warning unless the check id is listed in nonOverridable.
 export const LIFECYCLE_CHECKS = [
   { name: 'policy-first', evaluate: evaluatePolicyFirst, nonOverridable: ['L-CONFIRM'] },
+  { name: 'area-criteria', evaluate: evaluateAreaCriteria },
 ];
 
 // GitHub-assigned authors whose PRs, like PRs into main, only warn (docs/development/github/collaboration.md).

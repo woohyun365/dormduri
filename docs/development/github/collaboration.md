@@ -54,11 +54,11 @@ PR 본문은 다음 질문에 답해야 합니다.
 ### Lifecycle 절
 
 PR template의 `Lifecycle` 절은 CI `Lifecycle gate` job이 읽는 입력입니다. Job은 변경 분류와 무관하게 모든 pull request에서
-실행되고 `CI summary`가 그 결과를 판정합니다. 검사 id(`W-SCOPE`·`W-POLICY`·`W-CITE`·`W-IRREV`·`L-CONFIRM`)별 결과와 이유는
-job summary에 남고, 판정 원본은 `scripts/ci/lifecycle/`입니다.
+실행되고 `CI summary`가 그 결과를 판정합니다. 검사 id(`W-SCOPE`·`W-POLICY`·`W-CITE`·`W-IRREV`·`L-CONFIRM`·`W-AREA`)별 결과와
+이유는 job summary에 남고, 판정 원본은 `scripts/ci/lifecycle/`입니다.
 
 - 절이나 `변경 등급` 줄이 없거나 모르는 값이면 feature로 계산합니다. 제품 경로를 바꾸는 bugfix·hotfix도 등급 줄을 써야 아래
-  정책 근거 누락이 fail이 아닌 경고가 됩니다. trivial은 비가역 경로와 Owner 확인만 계산합니다.
+  정책 근거 누락이 fail이 아닌 경고가 됩니다. 정책 우선 검사에서 trivial은 비가역 경로와 Owner 확인만 계산합니다.
 - `정책 도메인`에는 [경로 → 정책 도메인 표](../../policies/README.md#경로--정책-도메인-표)가 diff에서 판정한 도메인을 모두
   적습니다. 판정·선언한 도메인마다 그 정책의 규칙 id를 `인용 규칙`으로 인용하거나 `정책 영향 없음: <도메인> — <이유>` 줄을
   둡니다. id·접두어·인용 형식은 [정책 README](../../policies/README.md#규칙-id와-인용)가 소유합니다.
@@ -68,6 +68,12 @@ job summary에 남고, 판정 원본은 `scripts/ci/lifecycle/`입니다.
   override로 낮출 수 없습니다.
 - trivial·bugfix·hotfix가 비가역 경로(path-domains.json의 `irreversiblePaths`: DB migration, 배포 설정)를 바꾸면 fail입니다.
   필요하면 `override: W-IRREV — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가 그 근거를 봅니다.
+- 제품 경로(path-domains.json의 `productRoots`)를 바꾸면 경로마다 영역 리뷰 기준이 있어야 합니다(`W-AREA`). 영역은
+  [KNU domain binding](../agent-workflows/domain/knu-binding.md#영역-검사)의 경로 키로 판정합니다. 영역이 없는 경로는 PR base의
+  제외 표 행에 맞으면 경고이고, 아니면 feature·policy-change에서 fail, trivial·bugfix·hotfix에서 경고입니다. 영역 키와 pack 절은
+  PR head로 판정해 같은 PR에서 더해도 되지만, PR이 더한 제외 행은 그 PR에 적용되지 않습니다. 그래서 새 제품 디렉터리는 같은 PR에
+  영역 키와 pack 절을 더하거나, 제외 행을 먼저 merge하거나, `override: W-AREA — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가
+  그 근거를 봅니다. 분기 뒤 base가 제외 행을 지우고 영역 키를 더했으면 branch를 base로 갱신합니다.
 - author가 `renovate[bot]`·`dependabot[bot]`이거나 base가 `main`이면 모든 fail이 경고입니다.
 - Job은 실행될 때 PR 본문을 REST API로 읽습니다. 본문을 고친 뒤에는 push 없이 실패한 `Lifecycle gate` job을 re-run합니다.
   `gh pr create --body`처럼 본문을 직접 넘겨 PR을 만들 때도 template의 `Lifecycle` 절을 넣습니다.

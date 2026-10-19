@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { AREA_PRODUCT_FILES, catalogFiles } from './fixtures/area/catalog-repo.mjs';
 import { defaultFiles, prBody } from './fixtures/policy-repo.mjs';
 import { LIFECYCLE_CHECKS, renderSummary, runLifecycleGate } from './run.mjs';
 
@@ -29,14 +30,15 @@ function writeFiles(root, files) {
 }
 
 // base: dev before the branch, head: the PR branch, moved: dev after the branch point (its paths are not the PR's).
-function fixtureRepository(t, { head = {}, moved = {} } = {}) {
+// initial: files added to the fork point next to the policy fixture.
+function fixtureRepository(t, { initial = {}, head = {}, moved = {} } = {}) {
   const root = mkdtempSync(resolve(tmpdir(), 'knu-lifecycle-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   git(root, 'init', '-q', '-b', 'dev');
   git(root, 'config', 'user.email', 'fixture@example.invalid');
   git(root, 'config', 'user.name', 'fixture');
   git(root, 'config', 'commit.gpgsign', 'false');
-  writeFiles(root, defaultFiles());
+  writeFiles(root, { ...defaultFiles(), ...initial });
   git(root, 'add', '-A');
   git(root, 'commit', '-q', '-m', 'base');
   const forkPoint = git(root, 'rev-parse', 'HEAD');
@@ -95,10 +97,13 @@ const pullRequestResponse =
     });
   };
 
-test('run.mjs registers the policy-first check and leaves L-CONFIRM out of overrides', () => {
+test('run.mjs registers the policy-first and area criteria checks and leaves only L-CONFIRM out of overrides', () => {
   assert.deepEqual(
-    LIFECYCLE_CHECKS.map((check) => [check.name, check.nonOverridable]),
-    [['policy-first', ['L-CONFIRM']]],
+    LIFECYCLE_CHECKS.map((check) => [check.name, check.nonOverridable ?? []]),
+    [
+      ['policy-first', ['L-CONFIRM']],
+      ['area-criteria', []],
+    ],
   );
 });
 
@@ -276,4 +281,44 @@ test('local mode reads a body file and explicit revisions', async (t) => {
     withoutSection.stdout,
     /\| W-SCOPE \| fail \| 판정 도메인이 선언에 없음: production-runtime-safety \|/u,
   );
+});
+
+test('local mode writes the area criteria rows to the summary', (t) => {
+  const initial = {
+    ...catalogFiles(),
+    ...Object.fromEntries(AREA_PRODUCT_FILES.map((path) => [path, `// ${path}\n`])),
+  };
+  const local = (repo) =>
+    spawnSync(
+      process.execPath,
+      [
+        runScript,
+        '--body-file',
+        bodyFixture('without-section.md'),
+        '--base',
+        repo.baseSha,
+        '--head',
+        repo.headSha,
+      ],
+      { cwd: repo.root, encoding: 'utf8' },
+    );
+
+  const product = local(
+    fixtureRepository(t, {
+      initial,
+      head: { 'apps/web/src/app/page.tsx': '// changed\n', 'apps/mobile/src/Home.tsx': '// new\n' },
+    }),
+  );
+  assert.match(product.stdout, /^\| W-AREA \| pass \| 제품 경로 1개, 영역 fe \|$/mu);
+  assert.match(
+    product.stdout,
+    /^\| W-AREA \| fail \| 영역 기준 없는 제품 경로: apps\/mobile\/src\/Home\.tsx\(맞은 키 repo-structure\.mobile-app에 pack 절 없음\) \|$/mu,
+  );
+  assert.equal(product.status, 1, product.stderr);
+
+  const outside = local(
+    fixtureRepository(t, { initial, head: { 'scripts/ci/example.mjs': '// changed\n' } }),
+  );
+  assert.match(outside.stdout, /^\| W-AREA \| pass \| 제품 경로 없음 \|$/mu);
+  assert.equal(outside.status, 0, outside.stderr);
 });
