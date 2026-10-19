@@ -3430,17 +3430,29 @@ test('a Haiku first task with effort support binds a retry only after running at
     /recovery-not-ran/u,
     'the first Haiku task ran at another effort',
   );
+  const b = ranUnaccepted(registerAs(f, { ...task, model: EFFORT_HAIKU }));
+  const retry = registerAs(f, {
+    ...task,
+    model: EFFORT_HAIKU,
+    recovery: { of: b.registered.taskId, cause: 'context-missing' },
+  });
+  assert.equal(taskInputOf(retry).recovery.step, 0, 'the first Haiku task ran at the role effort');
 });
 
 // An extraction that ran climbs one step to Sonnet in the same role and effort. It never skips to
-// Opus, and the retry is not retried again.
+// Opus or changes role, and the retry is not retried again.
 test('a bound extraction retry climbs to bounded-standard in the same role and no further', (t) => {
   const f = ladder(t);
   const task = extractionTask(f);
   const a = ranUnaccepted(registerAs(f, { ...task, model: f.options.expectedResolvedModel }));
-  const up = (of, profileId) =>
-    registerAs(f, { profileId, role: task.role, recovery: { of, cause: 'result-error' } });
+  const up = (of, profileId, role = task.role) =>
+    registerAs(f, { profileId, role, recovery: { of, cause: 'result-error' } });
   assert.throws(() => up(a.registered.taskId, 'complex-critical'), /recovery-step/u, 'skip');
+  assert.throws(
+    () => up(a.registered.taskId, 'bounded-standard', 'knu_explorer'),
+    /recovery-step/u,
+    'another role',
+  );
   const b = up(a.registered.taskId, 'bounded-standard');
   assert.deepEqual(taskInputOf(b).recovery, {
     of: a.registered.taskId,

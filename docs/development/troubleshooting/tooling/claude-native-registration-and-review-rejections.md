@@ -143,8 +143,8 @@
 - Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
   합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
   - `effort-transcript-pending`: transcript가 없거나 마지막 행이 미완성이거나 assistant 행이 아직 없습니다. Host가 transcript를
-    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 Haiku를 포함해
-    `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
+    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 모델 능력표가
+    effort 미지원으로 둔 ID를 포함해 `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
     한 번 수명 만료 판정을 받은 task의 결과는 쓰지 않습니다.
   - `effort-transcript-foreign`: 경로·세션·child·prompt·모델이 등록과 맞지 않습니다.
   - `effort-transcript-too-large`: child transcript가 한도(`CHILD_TRANSCRIPT_BYTE_LIMIT`, 32 MiB)를 넘습니다. 한도는 메모리
@@ -331,14 +331,14 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
    - 다음 행동: spec을 고칩니다. `of`를 현재 session의 첫 `taskId`로 맞추고 위 사실을 첫 task와 같게 둡니다. 사실을 바꿔야 하면
      그것은 복구가 아니므로 `recovery` 없이 일반 등록으로 하고, 이름만 바꿔 상한을 초기화하지 않습니다.
 3. `recovery-chain`
-   - 원인: 첫 task가 이미 bound retry입니다. Retry의 retry는 없습니다.
+   - 원인: 첫 task가 이미 bound retry입니다. Retry의 retry는 없습니다. `bounded-standard`의 `knu_explorer_xhigh`는 결속
+     재시도로만 생기므로 그 task의 재시도는 이 사유입니다.
    - 다음 행동: 멈추고 Owner에게 묻습니다.
 4. `recovery-step`
    - 원인: 요청한 profile·role이 첫 task에서 올라가는 사다리 단계와 다릅니다. 단계를 건너뛰거나 그대로 두는 경우와
      `context-missing`인데 profile이나 role을 바꾼 경우가 해당합니다. `result-error`·`omission`은 올릴 단계가 없는 첫 task에서도
-     이 사유입니다. `knu_reviewer`, `knu_executor_xhigh`, `bounded-standard`의
-     `knu_explorer_xhigh`(결속 재시도), `complex-critical`의 `knu_explorer`·`knu_researcher`, build가 아닌 `complex-critical`의
-     `knu_executor`에는 올릴 단계가 없습니다.
+     이 사유입니다. `knu_reviewer`, `knu_executor_xhigh`, `complex-critical`의 `knu_explorer`·`knu_researcher`, build가 아닌
+     `complex-critical`의 `knu_executor`에는 올릴 단계가 없습니다.
    - 다음 행동: 사다리 단계에 맞춰 spec의 profile·role을 고칩니다. 올릴 단계가 없으면 멈추고 Owner에게 묻습니다.
 5. `recovery-not-ran`
    - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
