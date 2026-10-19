@@ -190,6 +190,7 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
   queue](https://developers.openai.com/api/docs/guides/responses-multi-agent#how-multi-agent-works)) 응답이 필요하면 Parent가
   수락·해제 전 child에 `followup_task`로 후속을 배정합니다. 완료된 child에 보낸 메시지는 그 `followup_task` 재개 turn 입력에 함께
   전달됐습니다(codex-cli 0.161.0 관측, 2026-10-09). 수락·해제한 child에는 후속·메시지를 보내지 않으며 hook이 `settled-child`·`released-child`로 deny합니다.
+  Review child는 수락 전(실행 중 포함)에도 hook이 `review-child`로 deny하므로 reviewer에 더할 질문은 새 회차로 보냅니다.
 - Intake mapper는 child를 생성하지 않습니다.
 - ContextPack registry는 lane을 만들지 않습니다.
 - Child contract policy는 spawn, retry, reallocation, tmux 또는 workflow state를 실행하지 않습니다.
