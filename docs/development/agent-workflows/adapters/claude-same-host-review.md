@@ -46,7 +46,10 @@ sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한
 Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함께 줍니다. `--round N`(1부터)은 항상 필요하고, 2회차부터는
 `--previous-result <file>`로 직전 회차 result JSON(verdict·findings가 있는 파일, native task 기록 경로 제외)이 필요합니다. 1회차에
 직전 result를 주거나 2회차부터 빠뜨리면 거부합니다. 기준 문서는 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경
-경로)로 [자동 선택](../review-criteria/README.md#자동-선택)하고, `--criteria <id,id>`를 주면 그 id로 override합니다. 고른 문서가
+경로)로 [자동 선택](../review-criteria/README.md#자동-선택)하고, `--criteria <id,id>`를 주면 그 id로 override합니다.
+`--criteria none`은 기준 문서 없이 리뷰합니다. 기준 효과를 재는 비교 측정(교정·baseline)용이고 필수 리뷰에는 쓰지 않으며, helper는
+막지 않고 기록의 override `none`으로 감사합니다. 다른 id와 섞으면 `criteria-invalid`, `e3`와 함께면
+`composition-e3-criteria-required`로 거부합니다. 고른 문서가
 packet `sources.owners`와 read path에 들어가고, 출력 `criteriaSelection`이 문서·항목 수와 경로 키가 맞지 않은 경로를, helper 디렉터리의
 `<reviewId>.criteria.json`(read path 아님)이 선택 이유와 override 때의 자동 선택 결과를 남깁니다. 직전 result도
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.

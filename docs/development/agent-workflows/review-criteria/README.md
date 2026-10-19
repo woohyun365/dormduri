@@ -85,6 +85,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 - 기록: 리뷰마다 고른 문서, 문서별 항목 id(`<file> <문자><번호>`), 선택 이유(맞은 경로·키·glob·구체성, 상속 출처), 겹침으로 뺀
   문서, 문서·항목 수, 맞은 키가 없는 경로를 helper 디렉터리의 `<reviewId>.criteria.json`에 남깁니다. Reviewer read path는 아닙니다.
 - Override: 기준 id를 직접 주면(Claude `--criteria`) 그 문서만 쓰고 기록에 `override`와 자동 선택 결과를 함께 남깁니다.
+  Claude `--criteria none`은 기준 문서 없이 리뷰하고 기록에 override `none`과 자동 선택 결과를 남깁니다. 기준 효과를 재는 비교
+  측정(교정·baseline)용이고 필수 리뷰에는 쓰지 않습니다. 다른 id와 섞거나 `e3`와 함께 주면 거부합니다.
 - 영역 판정: `matchReviewCriteriaPath(path, catalog)`는 경로 하나에 겹침 규칙까지 적용한 문서와 그 layer(`areas`)를 냅니다.
   CI `Lifecycle gate`의 영역 검사(`W-AREA`)가 이 함수로 제품 경로마다 영역이 있는지 봅니다([KNU domain binding의 영역 검사](../domain/knu-binding.md#영역-검사)).
 

@@ -258,6 +258,11 @@ const nativeEvidenceIssues = (root, paths) =>
 // Criteria ids name tracked review-criteria documents; they join the packet owners and read paths.
 const CRITERIA_DIR = 'docs/development/agent-workflows/review-criteria';
 const CRITERIA_ID = /^[a-z0-9][a-z0-9-]{0,63}$/u;
+// `none` alone reviews without criteria documents, for a comparison measurement of what the criteria
+// add (calibration, baseline), not a required review; the record keeps it as an override.
+const NO_CRITERIA = 'none';
+const criteriaOff = (criteria) =>
+  Array.isArray(criteria) && criteria.length === 1 && criteria[0] === NO_CRITERIA;
 const LOW_FINDING_LIMIT = 5;
 const isReviewResult = (value) =>
   Boolean(value) &&
@@ -331,23 +336,26 @@ function reviewRoundInputs({ reviewRound, previousResult, criteria }, root) {
     if (read.issue) issues.push(read.issue);
     else previous = read.previous;
   }
-  const ids = criteria ?? [];
+  const off = criteriaOff(criteria);
+  const ids = off ? [] : (criteria ?? []);
   const criteriaIssue = !Array.isArray(ids)
     ? 'criteria-invalid: a list of review-criteria ids'
-    : criteria !== undefined && !ids.length
+    : criteria !== undefined && !off && !ids.length
       ? 'criteria-invalid: omit criteria instead of an empty list'
-      : new Set(ids).size !== ids.length
-        ? 'criteria-invalid: duplicate id'
-        : ids
-            .filter(
-              (id) =>
-                typeof id !== 'string' ||
-                !CRITERIA_ID.test(id) ||
-                id === 'readme' ||
-                !existsSync(join(root, CRITERIA_DIR, `${id}.md`)) ||
-                !lstatSync(join(root, CRITERIA_DIR, `${id}.md`)).isFile(),
-            )
-            .map((id) => `criteria-invalid: no ${CRITERIA_DIR}/${id}.md`)[0];
+      : ids.includes(NO_CRITERIA)
+        ? `criteria-invalid: ${NO_CRITERIA} cannot be combined with criteria ids`
+        : new Set(ids).size !== ids.length
+          ? 'criteria-invalid: duplicate id'
+          : ids
+              .filter(
+                (id) =>
+                  typeof id !== 'string' ||
+                  !CRITERIA_ID.test(id) ||
+                  id === 'readme' ||
+                  !existsSync(join(root, CRITERIA_DIR, `${id}.md`)) ||
+                  !lstatSync(join(root, CRITERIA_DIR, `${id}.md`)).isFile(),
+              )
+              .map((id) => `criteria-invalid: no ${CRITERIA_DIR}/${id}.md`)[0];
   if (criteriaIssue) issues.push(criteriaIssue);
   fail('invalid review request', issues);
   return {
@@ -852,11 +860,24 @@ function criteriaSelectionPaths(root, paths) {
   return [...new Set(listed)];
 }
 function reviewCriteriaSelection(root, subject, criteria) {
-  return selectReviewCriteria({
+  const off = criteriaOff(criteria);
+  const selection = selectReviewCriteria({
     paths: criteriaSelectionPaths(root, subject.selectionPaths),
     catalog: loadReviewCriteriaCatalog(root),
-    ...(criteria === undefined ? {} : { criteria }),
+    ...(criteria === undefined || off ? {} : { criteria }),
   });
+  if (!off) return selection;
+  // The selection module knows only criteria documents; `none` keeps its override record shape.
+  const { override, documents, documentCount, itemCount, ...base } = selection;
+  return {
+    ...base,
+    override: true,
+    requested: [NO_CRITERIA],
+    documents: [],
+    documentCount: 0,
+    itemCount: 0,
+    automatic: { documents: documents.map((document) => document.id), documentCount, itemCount },
+  };
 }
 // The paths no path key matched are shown here too, so a path reviewed without criteria is visible
 // before dispatch and not only in the record.

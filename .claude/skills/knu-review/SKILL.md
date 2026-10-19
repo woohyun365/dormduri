@@ -88,6 +88,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   항목 수와 경로 키가 맞지 않은 경로(`unmatchedPaths`)를, `.artifacts/tools/claude-review-packets/<reviewId>.criteria.json`에
   선택 이유를 남깁니다. `unmatchedPaths`의 경로는 기준 없이 리뷰되므로 dispatch 전에 확인합니다. 다른 문서가 필요하면
   `--criteria documents,agent-workflow-tooling`처럼 id를 줘 override하고, 기록에는 자동 선택 결과도 남습니다.
+  `--criteria none`(기준 문서 없음)은 기준 효과를 재는 비교 측정(교정·baseline)용이고 필수 리뷰에는 쓰지 않으며, 기록에 override
+  `none`이 남습니다.
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.
