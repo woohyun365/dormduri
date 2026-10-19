@@ -11,7 +11,7 @@
 
 `.github/workflows/ci.yml`은 pull request와 `main` push에서 실행됩니다. 분류기는 비교 범위의 변경 경로마다 아래 출력을
 켜고, workflow는 켜진 출력의 job만 실행합니다. 모든 경우에 `Classify changed surfaces`와 `CI summary` job은 실행됩니다.
-Pull request에서는 분류 출력과 무관하게 `Lifecycle gate` job(PR 본문 `Lifecycle` 절과 정책 우선 검사,
+Pull request에서는 분류 출력과 무관하게 `Lifecycle gate` job(PR 본문 `Lifecycle` 절과 정책 우선·영역 기준 존재 검사,
 [작성법](../github/collaboration.md#lifecycle-절))도 실행되고 `CI summary`가 그 결과를 판정합니다. 이 job은 분류 출력이 아니므로
 아래 표에 없습니다.
 변경 경로가 하나도 없으면 `repoPolicy`와 `agentWorkflow`만 켭니다.

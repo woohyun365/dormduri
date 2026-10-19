@@ -72,8 +72,9 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   `swe`·`documents`·`agent-workflow-tooling`은 `repo-structure.review-<id>` 키로 대상 경로와 맞춥니다. 경로 키가 하나도 없는 하위
   layer 절, 표에 없는 키, 기준 문서가 없는 절은 선택을 거부합니다.
 - Glob 해석: backtick 안 경로만 glob입니다. 끝 `/`는 그 아래 전체, `<이름>`은 한 segment, `**`는 0개 이상 segment(끝에 오면 그
-  아래 1개 이상), `/*`는 바로 아래 파일만, `*`만 있으면 root 파일이고 그 밖은 정확한 경로입니다. `!`를 앞에 붙인 glob은 그 키에서
-  뺍니다. `/`·`*`도 확장자도 없는 backtick 단어(예시 이름)와 backtick 밖 설명은 범위를 좁히지 않습니다.
+  아래 1개 이상), `/*`는 바로 아래 파일만, `*`만 있으면 root 파일입니다. segment 안의 `*`(예: `*.json`·`tsconfig*.json`)는 `/`를 뺀
+  0개 이상 글자이고, wildcard가 없는 glob은 정확한 경로입니다. `!`를 앞에 붙인 glob은 그 키에서 뺍니다. `/`·`*`도 확장자도 없는
+  backtick 단어(예시 이름)와 backtick 밖 설명은 범위를 좁히지 않습니다.
 - 겹침: 다른 layer(FE·BFF·BE·DB·infra)의 문서가 같은 경로에 맞으면 더 구체적인 키로 맞은 문서만 고릅니다. 구체성은 맞은 glob의
   wildcard 앞 고정 segment 수이고 같으면 둘 다 고릅니다. 같은 layer 안, cross-cutting(security-privacy·operations-release), layer
   없는 문서는 맞으면 모두 고릅니다.
@@ -85,6 +86,7 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   문서, 문서·항목 수, 맞은 키가 없는 경로를 helper 디렉터리의 `<reviewId>.criteria.json`에 남깁니다. Reviewer read path는 아닙니다.
 - Override: 기준 id를 직접 주면(Claude `--criteria`) 그 문서만 쓰고 기록에 `override`와 자동 선택 결과를 함께 남깁니다.
 - 영역 판정: `matchReviewCriteriaPath(path, catalog)`는 경로 하나에 겹침 규칙까지 적용한 문서와 그 layer(`areas`)를 냅니다.
+  CI `Lifecycle gate`의 영역 검사(`W-AREA`)가 이 함수로 제품 경로마다 영역이 있는지 봅니다([KNU domain binding의 영역 검사](../domain/knu-binding.md#영역-검사)).
 
 ## 항목 형식
 
