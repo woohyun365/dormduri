@@ -13,7 +13,7 @@
 
 - 영역 기준 문서(공통 `swe`, `documents`와 FE·BFF·BE·DB·infra·security-privacy·operations-release layer 문서)를 merge했지만,
   reviewer에게 기준을 주는 것이 결함 발견에 도움이 되는지는 잰 적이 없었습니다.
-- 기준을 주면 reviewer prompt와 판정량이 늘어납니다. 이번 표본에서 run 하나가 고른 기준은 문서 5~~16개, 항목 26~~61개였습니다.
+- 기준을 주면 reviewer prompt와 판정량이 늘어납니다. 이번 표본에서 run 하나가 고른 기준은 문서 5–16개, 항목 26–61개였습니다.
 - 그래서 네 가지를 같은 표본으로 쟀습니다.
   1. 같은 reviewer 수에서 기준을 준 구성과 주지 않은 구성의 재발견률
   2. 정답에 없는 blocking finding의 처분(실제 결함·오탐·판정 불가)
@@ -83,6 +83,8 @@ pnpm claude:native review --parent-subject <subject> --criteria none --compositi
   - subject별 짝 차이: 같은 subject에서 이 체계 − 기준 없음 재발견 수
   - bootstrap: 11 subject를 복원 재표집해 재발견률 짝 차이의 95% 구간을 구했습니다. 10,000회, seed `20261019`, mulberry32 난수입니다.
   - 반복 일관성: 구성마다 두 반복 모두 재발견(2/2)·한 번(1/2)·0번(0/2)인 결함 수
+- 채점 줄마다 인용한 finding을 reviewer 원결과와 대조했습니다. 재발견 줄은 모두 정답 파일을 짚은 `medium` 이상 finding을 인용하고,
+  부분 줄은 모두 `low`만 인용합니다. 부분 줄마다 같은 run에서 정답 파일을 짚은 `medium` 이상 finding은 모두 다른 원인이었습니다.
 - 채점·재현 분류·오염 판정은 Parent 판단이고, 이 문서를 담은 PR의 독립 리뷰가 원자료와 대조했습니다.
 
 ## 3. Baseline
@@ -150,7 +152,7 @@ pnpm claude:native review --parent-subject <subject> --criteria none --compositi
 
 | 대안                                               | 판정      | 근거                                                                                                     |
 | -------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| snapshot branch를 바꿔 메인 checkout에서 리뷰      | 기각      | checkout의 HEAD·branch·tree를 바꾸지 않는 사본 subject로 같은 입력을 줄 수 있음                          |
+| snapshot branch를 바꿔 메인 checkout에서 리뷰      | 기각      | checkout을 바꾸지 않는 사본 subject로 같은 판의 파일과 diff를 줄 수 있음(경로는 사본 경로, 7절 한계)     |
 | OMC를 채택 판정에 넣음                             | 기각      | reviewer 수가 달라 같은 수 비교가 아님. 기록만 함                                                        |
 | 구성원당 항목 수 상한                              | 두지 않음 | 놓침 원인을 먼저 기록하고, "배정했는데 판정하지 않음"이 놓침의 절반 이상일 때만 다시 묻기로 함(이번 0건) |
 | 결함 없는 snapshot replay 추가                     | 기각      | 결함 subject의 정답에 없는 finding을 재현해 나누는 것으로 오탐을 잼(reviewer 회수 절약)                  |
@@ -169,6 +171,7 @@ pnpm claude:native review --parent-subject <subject> --criteria none --compositi
 - 규칙 판정: 채택(35/36 ≥ 32/36)
 - held-out 합계: 이 체계 10/10, 기준 없음 10/10, OMC 5/5
 - held-out 밖: 이 체계 25/26, 기준 없음 22/26, OMC 13/13
+- OMC의 재발견 18 가운데 E1 1건은 OMC가 자기 판정에서 뺀 미결 질문(severity `high`, 확신도 낮음)을 severity 표기대로 센 것입니다.
 
 저장소 owner 확인(2026-10-19) 원문입니다.
 
@@ -255,11 +258,15 @@ merge 전 row는 대부분 subject key가 commit 기준(`basis:`)이라 수정 c
 - 표본이 작습니다(subject 11개, 결함 18개). 대부분의 결함을 모든 구성이 찾아 천장 효과가 있고, bootstrap 구간이 0을 포함합니다.
   "이 체계 ≥ 기준 없음" 채택은 비열등 판정이 아니며, 공개 주장에 쓸 비열등 margin은 평가 harness의 외부 조사로 정합니다.
 - 결함을 심은 사람(Parent)은 기준 문서를 알고 있었고, 심은 결함마다 기준 항목 하나에 대응시켰습니다. 기준 항목이 겨냥하는 결함 쪽으로
-  표본이 기울었을 수 있습니다. 놓친 결함 4개는 이 편향이 없지만, 넷 모두 diff가 여러 commit(2~18개)을 묶습니다.
+  표본이 기울었을 수 있습니다. 놓친 결함 4개는 이 편향이 없지만, 넷 모두 diff가 여러 commit(2–18개)을 묶습니다.
 - subject가 원본 commit 파일의 일부라서 연결·삭제·다른 파일의 test에 관한 오탐이 생겼습니다. 실제 PR 리뷰의 오탐 비율로 옮겨 쓰지 않습니다.
+- reviewer는 원본 판 파일을 사본 경로로만 봤고, 저장소의 실제 경로와 그 주변 파일·문서는 읽지 않았습니다(모든 구성 같음). 기준 선택은
+  실제 경로로 계산해 넣었습니다. 그래서 재발견률과 오탐 수는 저장소 맥락을 읽는 실제 PR 리뷰의 값과 다를 수 있습니다.
+- reviewer의 읽기는 막지 않았습니다. run마다 transcript의 읽기 입력을 사후 감사해 오염과 입력 밖 읽기가 없음을 확인했습니다.
 - 진입점은 Claude 하나이고 모델은 Claude Opus 5.5 하나입니다. Codex 진입점은 같은 기준 원본과 선택 module을 쓰지만 측정하지 않았습니다.
 - 같은 원인 판정, 재현 분류, 오염 판정은 Parent 판단입니다. reviewer transcript·사본·정답·채점 기록은 공개하지 않는 로컬 교정 기록입니다.
-  원본 commit과 fix commit은 공개 history에 있어 같은 subject를 다시 만들 수 있습니다.
+  놓친 결함 subject는 공개 history의 원본 commit과 fix commit으로 다시 만들 수 있습니다. 심은 결함 subject는 결함 편집이 공개하지 않는
+  로컬 정답에만 있어 이 문서만으로는 다시 만들 수 없습니다.
 - 재측정 조건: 기준 문서 문구, reviewer prompt·구성, 모델을 바꾸면 held-out 3 subject를 같은 사본·구성으로 다시 돌려 이 합계와 비교합니다.
   held-out은 기준 수정의 근거로 쓰지 않습니다.
 
