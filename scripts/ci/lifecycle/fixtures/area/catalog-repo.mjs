@@ -53,11 +53,12 @@ export function bindingText({ exemptions = BASE_EXEMPTIONS } = {}) {
 }
 
 export const criteriaPath = (id) => `${CRITERIA_DIR}/${id}.md`;
+export const packPath = (layer) => `${PACK_DIR}/${layer}.md`;
 
 export function catalogFiles({ exemptions } = {}) {
   const files = { [BINDING_FILE]: bindingText({ exemptions }) };
   for (const [layer, [section, key]] of Object.entries(PACKS)) {
-    files[`${PACK_DIR}/${layer}.md`] =
+    files[packPath(layer)] =
       `# ${layer} pack\n\n## ${section}\n\n### binding 키\n\n- {{binding:${key}}}\n`;
     files[criteriaPath(`web-${layer}-${section}`)] = `# web-${layer}-${section}\n\n### A1. 항목\n`;
   }

@@ -8,7 +8,9 @@ import {
   areaRepository,
   BASE_EXEMPTIONS,
   BINDING_FILE,
+  bindingText,
   criteriaPath,
+  packPath,
   REVISIONS,
 } from './fixtures/area/catalog-repo.mjs';
 import { prBody } from './fixtures/policy-repo.mjs';
@@ -146,7 +148,7 @@ test('an exemption added only at head does not exempt the same pull request; an 
   assertFinding(
     result,
     'fail',
-    /^영역 기준 없는 제품 경로: apps\/web\/vitest\.config\.ts\(영역 키 없음\) — head 제외 표에만 있는 행은 이 PR에 적용하지 않음$/u,
+    /^영역 기준 없는 제품 경로: apps\/web\/vitest\.config\.ts\(영역 키 없음\) — head 제외 표에만 있는 행은 적용하지 않음\(이 PR이 더했거나 분기 뒤 base에서 지운 행\)$/u,
   );
   assert.equal(result.failed, true);
 
@@ -167,6 +169,35 @@ test('an exemption added only at head does not exempt the same pull request; an 
     /apps\/web\/vitest\.config\.ts.* — override: 제외 행을 같은 PR에서 더함 — 재검토: 다음 영역 키 PR$/u,
   );
   assert.equal(overridden.failed, false);
+});
+
+test('a branch older than a base that replaced a row with an area key fails until it takes the base', () => {
+  const base = {
+    [BINDING_FILE]: bindingText().replace(
+      '| `repo-structure.mobile-app` |',
+      `| \`repo-structure.test-config\` | \`${VITEST_CONFIG}\` |\n| \`repo-structure.mobile-app\` |`,
+    ),
+    [packPath('fe')]:
+      '# fe pack\n\n## routing\n\n### binding 키\n\n- {{binding:repo-structure.fe-routes}}\n\n' +
+      '## test-config\n\n### binding 키\n\n- {{binding:repo-structure.test-config}}\n',
+    [criteriaPath('web-fe-test-config')]: '# web-fe-test-config\n\n### A1. 항목\n',
+  };
+  const headExemptions = [
+    ...BASE_EXEMPTIONS,
+    [`\`${VITEST_CONFIG}\``, 'test 설정. 현재 기준 없음'],
+  ];
+
+  const stale = evaluate({ changedPaths: [VITEST_CONFIG], base, headExemptions });
+  assertFinding(
+    stale,
+    'fail',
+    /vitest\.config\.ts\(영역 키 없음\) — head 제외 표에만 있는 행은 적용하지 않음/u,
+  );
+
+  const updated = evaluate({ changedPaths: [VITEST_CONFIG], base, head: base });
+  assert.deepEqual(areaFindings(updated), [
+    { check: 'W-AREA', level: 'pass', reason: '제품 경로 1개, 영역 fe' },
+  ]);
 });
 
 test('a bot author or a main base lowers the fail to a warning', () => {
@@ -260,7 +291,6 @@ test('the repository exemption table has a glob and a reason in every row', () =
   const table = parseExemptionTable(binding, BINDING_FILE);
 
   assert.notEqual(table, null, `${BINDING_FILE}에 '## 영역 검사' 절 없음`);
-  assert.ok(table.length > 0, `${BINDING_FILE} 영역 검사 표에 행 없음`);
   for (const row of table) {
     assert.ok(row.include.length > 0, JSON.stringify(row));
     assert.match(row.reason, /\S/u, JSON.stringify(row));

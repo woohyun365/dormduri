@@ -66,10 +66,11 @@ CI `Lifecycle gate`의 검사 `W-AREA`는 PR이 바꾼 제품 경로마다 영�
   layer입니다(cross-cutting 포함). layer 없는 기준 문서의 키에만 맞는 경로와 pack 절이 쓰지 않는 키에만 맞는 경로는 영역이 없습니다.
 - 제외 표: 영역이 없는 경로가 아래 표의 행에 맞으면 fail 대신 경고입니다. 첫 칸은 backtick glob 목록(해석은
   [자동 선택](../review-criteria/README.md#자동-선택)과 같고 앞에 `!`를 붙인 glob은 그 행에서 뺍니다), 둘째 칸은 "현재 기준 없음"과
-  이유입니다. glob이나 이유가 없는 행은 형식 오류이고, 이 표를 고친 PR은 repo-policy test에서, 제품 경로를 바꾸는 PR은
-  `Lifecycle gate` job에서 실패합니다.
-- 판정 시점: PR base의 표로 판정하므로 PR이 더한 행은 그 PR의 경로에 적용되지 않습니다. 같은 PR에서 넘기려면 PR 본문
-  `Lifecycle` 절에 `override: W-AREA — <이유> — <재검토 조건>` 줄을 둡니다.
+  이유입니다. `| 제외 경로 | 이유 |` 표나 구분 행이 없거나, 칸이 둘이 아니거나 glob·이유가 없는 행이 있으면 형식 오류이고(행이 0개인
+  표는 됩니다), 이 표를 고친 PR은 repo-policy test에서, 제품 경로를 바꾸는 PR은 `Lifecycle gate` job에서 실패합니다.
+- 판정 시점: 제외 표는 PR base로, 영역 키와 pack 절은 PR head로 판정합니다. PR이 더한 행은 그 PR의 경로에 적용되지 않으므로
+  같은 PR에서 넘기려면 PR 본문 `Lifecycle` 절에 `override: W-AREA — <이유> — <재검토 조건>` 줄을 둡니다. 분기 뒤 base가 행을
+  지우고 영역 키를 더했으면 그 행은 head 표에만 남아 fail이므로 branch를 base로 갱신합니다.
 - 행의 경로에 영역 키가 생기면 그 PR이 행을 지웁니다. 제품 경로를 바꾸는 PR에서 `W-AREA`는 추적 파일에 맞지 않는 glob과 영역 있는
   경로도 덮는 glob을 경고합니다.
 

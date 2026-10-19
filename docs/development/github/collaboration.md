@@ -70,9 +70,10 @@ PR template의 `Lifecycle` 절은 CI `Lifecycle gate` job이 읽는 입력입니
   필요하면 `override: W-IRREV — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가 그 근거를 봅니다.
 - 제품 경로(path-domains.json의 `productRoots`)를 바꾸면 경로마다 영역 리뷰 기준이 있어야 합니다(`W-AREA`). 영역은
   [KNU domain binding](../agent-workflows/domain/knu-binding.md#영역-검사)의 경로 키로 판정합니다. 영역이 없는 경로는 PR base의
-  제외 표 행에 맞으면 경고이고, 아니면 feature·policy-change에서 fail, trivial·bugfix·hotfix에서 경고입니다. PR이 더한 제외 행은
-  그 PR에 적용되지 않으므로, 새 제품 디렉터리는 영역 키나 제외 행을 먼저 merge하거나 같은 PR에서
-  `override: W-AREA — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가 그 근거를 봅니다.
+  제외 표 행에 맞으면 경고이고, 아니면 feature·policy-change에서 fail, trivial·bugfix·hotfix에서 경고입니다. 영역 키와 pack 절은
+  PR head로 판정해 같은 PR에서 더해도 되지만, PR이 더한 제외 행은 그 PR에 적용되지 않습니다. 그래서 새 제품 디렉터리는 같은 PR에
+  영역 키와 pack 절을 더하거나, 제외 행을 먼저 merge하거나, `override: W-AREA — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가
+  그 근거를 봅니다. 분기 뒤 base가 제외 행을 지우고 영역 키를 더했으면 branch를 base로 갱신합니다.
 - author가 `renovate[bot]`·`dependabot[bot]`이거나 base가 `main`이면 모든 fail이 경고입니다.
 - Job은 실행될 때 PR 본문을 REST API로 읽습니다. 본문을 고친 뒤에는 push 없이 실패한 `Lifecycle gate` job을 re-run합니다.
   `gh pr create --body`처럼 본문을 직접 넘겨 PR을 만들 때도 template의 `Lifecycle` 절을 넣습니다.

@@ -129,7 +129,8 @@ export function evaluateAreaCriteria(context, { loadCatalog = loadHeadCatalog } 
       context.readFile(revision, REVIEW_BINDING_PATH),
       `${label} ${REVIEW_BINDING_PATH}`,
     );
-  // The base table judges, so a row the PR adds does not exempt the PR's own paths.
+  // The base table judges, so a row the PR adds does not exempt the PR's own paths. A branch older than a base that
+  // dropped a row also has that row only at head; taking the base brings the area key that replaced it.
   const base = exemptions(revisions.base, 'base') ?? [];
   const head = exemptions(revisions.head, 'head');
   const groundLevel = POLICY_GRADES.includes(grade) ? 'fail' : 'warn';
@@ -152,7 +153,8 @@ export function evaluateAreaCriteria(context, { loadCatalog = loadHeadCatalog } 
     const keys = keysWithoutCriteria(path, catalog);
     let reason = `영역 기준 없는 제품 경로: ${path}(${keys.length ? `맞은 키 ${keys.join(', ')}에 pack 절 없음` : '영역 키 없음'})`;
     if ((head ?? []).some((candidate) => matchesGlobs(path, candidate)))
-      reason += ' — head 제외 표에만 있는 행은 이 PR에 적용하지 않음';
+      reason +=
+        ' — head 제외 표에만 있는 행은 적용하지 않음(이 PR이 더했거나 분기 뒤 base에서 지운 행)';
     if (groundLevel === 'warn') reason += ` — ${grade}는 경고`;
     uncovered.push([groundLevel, reason]);
   }
