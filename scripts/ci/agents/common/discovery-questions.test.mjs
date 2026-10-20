@@ -97,7 +97,9 @@ test('decisions come in dependency order, and a selection names prerequisites ou
     ['Fixture/Pack/Alpha/two'],
   );
   assert.deepEqual(two.order, ['alpha.two.cache', 'alpha.two.naming']);
+  // Prerequisites outside the selection include the ones reached through another prerequisite (style via layout).
   assert.deepEqual(two.outsidePrerequisites, [
+    'alpha.one.style',
     'alpha.one.layout',
     'alpha.one.copy',
     'beta.three.retention',
@@ -188,6 +190,30 @@ test('a malformed pack or selection fails instead of returning a partial questio
       ),
       {},
       /Fixture\/Pack\/beta\/three: malformed 비가역 선택/u,
+    ],
+    [
+      'risk list item without backticks',
+      changed('alpha.md', '가리킴)\n', '가리킴), alpha.one.copy(one-way)\n'),
+      {},
+      /Fixture\/Pack\/Alpha\/one: malformed 비가역 선택/u,
+    ],
+    [
+      'risk list reversal outside one-way and costly',
+      changed('alpha.md', '가리킴)\n', '가리킴), `alpha.one.copy`(`easy`)\n'),
+      {},
+      /Fixture\/Pack\/Alpha\/one: malformed 비가역 선택/u,
+    ],
+    [
+      'risk list reversal differs from the decision',
+      changed('alpha.md', '`alpha.one.style`(`one-way`)', '`alpha.one.style`(`costly`)'),
+      {},
+      /Alpha\/one: 비가역 선택 marks alpha\.one\.style as costly, but its reversal is one-way/u,
+    ],
+    [
+      'risk list names a decision of another sublayer',
+      changed('beta.md', '`beta.three.retention`(`costly`', '`alpha.one.layout`(`costly`'),
+      {},
+      /beta\/three: 비가역 선택 lists alpha\.one\.layout, which is not a decision of this sublayer/u,
     ],
     [
       'layer table mismatch',

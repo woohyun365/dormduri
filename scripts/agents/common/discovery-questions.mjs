@@ -59,16 +59,20 @@ export function analyzeDomainPack(pack, { sublayers: selection } = {}) {
     decision.irreversible =
       decision.reversal === 'one-way' ||
       (decision.reversal === 'costly' && dependedOn.has(decision.id));
-  for (const sublayer of sublayers)
-    for (const id of sublayer.irreversibleListed)
-      if (!decisions.has(id)) fail(`${sublayer.id}: unknown decision ${id} in 비가역 선택`);
 
   const order = dependencyOrder(decisions);
   const chosen = selectSublayers(sublayers, selection);
   const selected = new Set(chosen.flatMap((sublayer) => sublayer.decisions.map(({ id }) => id)));
-  const outside = new Set(
-    [...selected].flatMap((id) => decisions.get(id).dependsOn).filter((id) => !selected.has(id)),
-  );
+  // Every decision to settle first, directly or through another one, that lies outside the selection.
+  const outside = new Set();
+  const visit = (id) => {
+    for (const dependency of decisions.get(id).dependsOn)
+      if (!selected.has(dependency) && !outside.has(dependency)) {
+        outside.add(dependency);
+        visit(dependency);
+      }
+  };
+  for (const id of selected) visit(id);
   return {
     schemaVersion: 1,
     pack: pack.path,
@@ -189,7 +193,8 @@ function parseLayerDocument(row, text) {
       continue;
     }
     if (section === '위험' && line.startsWith(RISK_LINE)) {
-      sublayer.irreversibleListed = riskList(sublayer, line.slice(RISK_LINE.length).trim());
+      sublayer.risks = riskList(sublayer, line.slice(RISK_LINE.length).trim());
+      sublayer.irreversibleListed = sublayer.risks.map(([id]) => id);
       continue;
     }
     if (!decision) continue;
@@ -206,13 +211,24 @@ function parseLayerDocument(row, text) {
   return sublayers.map((current) => finishSublayer(row, current));
 }
 
-function finishSublayer(row, { risk, ...sublayer }) {
+function finishSublayer(row, { risk, risks = [], ...sublayer }) {
   const where = sublayer.id ?? `${row.document} ## ${sublayer.name}`;
   if (!sublayer.id?.endsWith(`/${sublayer.name}`)) fail(`${where}: missing sublayer id line`);
   if (!sublayer.decisions.length) fail(`${where}: no decisions`);
   if (!risk) fail(`${where}: missing ### 위험`);
   if (sublayer.irreversibleListed === null) fail(`${where}: missing 비가역 선택 line`);
-  return { ...sublayer, decisions: sublayer.decisions.map(finishDecision) };
+  const decisions = sublayer.decisions.map(finishDecision);
+  // Each listed decision belongs to this sublayer and carries its own reversal.
+  for (const [id, reversal] of risks) {
+    const listed = decisions.find((decision) => decision.id === id);
+    if (!listed)
+      fail(`${where}: 비가역 선택 lists ${id}, which is not a decision of this sublayer`);
+    if (listed.reversal !== reversal)
+      fail(
+        `${where}: 비가역 선택 marks ${id} as ${reversal}, but its reversal is ${listed.reversal}`,
+      );
+  }
+  return { ...sublayer, decisions };
 }
 
 function finishDecision({ id, fields }) {
@@ -240,14 +256,21 @@ function finishDecision({ id, fields }) {
   };
 }
 
-// `없음` (optionally followed by a note) or backticked ids each followed by their reversal in parentheses.
+// `없음`, or backticked ids each followed by their reversal (and an optional note) in parentheses and separated by
+// commas; either may end with a note sentence. Returns [id, reversal] pairs; any other shape fails.
+const RISK_ITEM = '`([a-z0-9][a-z0-9.-]*)`\\(`(one-way|costly)`(?:[,.] [^()]+)?\\)';
+const RISK_TEXT = new RegExp(`^(?:없음|${RISK_ITEM}(?:, ${RISK_ITEM})*)(?:\\. .+)?$`, 'u');
 function riskList(sublayer, text) {
-  if (text.startsWith('없음')) return [];
-  const ids = [...text.matchAll(/`([a-z0-9][a-z0-9.-]*)`\(`(?:one-way|costly)`/gu)].map(
-    (match) => match[1],
-  );
-  if (!ids.length) fail(`${sublayer.id ?? sublayer.name}: malformed 비가역 선택 line`);
-  return ids;
+  if (!RISK_TEXT.test(text)) fail(`${sublayer.id ?? sublayer.name}: malformed 비가역 선택 line`);
+  const risks = [];
+  const item = new RegExp(`^${RISK_ITEM}`, 'u');
+  for (let rest = text; !rest.startsWith('없음'); rest = rest.slice(2)) {
+    const match = item.exec(rest);
+    risks.push([match[1], match[2]]);
+    rest = rest.slice(match[0].length);
+    if (!rest.startsWith(', ')) break;
+  }
+  return risks;
 }
 
 // Decisions to settle first come first; ties keep document order.

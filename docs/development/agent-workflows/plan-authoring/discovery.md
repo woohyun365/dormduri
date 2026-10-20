@@ -14,11 +14,13 @@
   [Domain/SWE/Web pack](../domain/swe-web/README.md)의 결정 목록을 working tree에서 읽어 JSON으로 냅니다. 하위 layer id는
   `Domain/SWE/Web/FE/rendering-boundary` 형식이고, 생략하면 모든 하위 layer를 냅니다.
   - 결정마다 수준·질문·선택지·먼저 정할 결정·되돌림·기본값·확인 단서·기준 항목과 pack 규칙으로 계산한 `irreversible`
-  - `order`: 먼저 정할 결정이 앞에 오는 순서. `outsidePrerequisites`: 고른 하위 layer 밖에서 먼저 정할 결정
+  - `order`: 먼저 정할 결정이 앞에 오는 순서. `outsidePrerequisites`: 고른 하위 layer 밖에서 먼저 정할 결정(다른 결정을 거쳐
+    이어지는 것 포함)
   - `--skeleton`: 아래 결정 기록의 항목 골격(Markdown)
 - 질문은 이 목록에서 고릅니다. 목록에 없는 결정은 기록에 `pack 결정: 없음`과 gap으로 표시하고 질문을 지어내지 않습니다.
 - Helper는 결정 기록 본문을 읽지 않고 파일을 쓰지 않습니다. Pack이 형식에 맞지 않으면(모르는 하위 layer·먼저 정할 결정,
-  순환, 필드 누락, 세 값 밖의 되돌림, `### 위험`이나 그 `비가역 선택` 줄의 누락·형식 오류) 실패합니다.
+  순환, 필드 누락, 세 값 밖의 되돌림, `### 위험`이나 그 `비가역 선택` 줄의 누락·형식 오류, 그 줄이 다른 하위 layer의 결정이나
+  결정과 다른 되돌림을 적음) 실패합니다.
 
 ## 판정
 

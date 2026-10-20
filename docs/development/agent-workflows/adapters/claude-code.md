@@ -165,8 +165,7 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 묻는 형식은 [Discovery 질문 형식](../plan-authoring/discovery.md#질문-형식)과
 [decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)이 정하고, 이 절은 Claude의 수단만 정합니다.
 
-- 질문 도구 `AskUserQuestion`으로 묻고 권장안을 첫 선택지로 둡니다. 선택지마다 무엇이 바뀌는지와 되돌릴 수 있는지를 적고,
-  의존 순서 앞의 질문부터 한 번에 3개까지 묶습니다.
+- 질문 도구 `AskUserQuestion`으로 묻고 권장안을 첫 선택지로 둡니다.
 
 ## Plan continuity
 

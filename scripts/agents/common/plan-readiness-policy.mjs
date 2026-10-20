@@ -216,18 +216,22 @@ export function assessPlanReadiness(input) {
 
   // Irreversible decisions the plan fixes need an explicit Owner confirmation (plan-authoring core §7). Decisions the
   // repository already holds (known), this work does not fix (deferred) or no longer uses (superseded) do not block.
-  for (const [index, decision] of (decisions ?? []).entries()) {
-    if (
-      decision.irreversible &&
-      (['unknown', 'provisional'].includes(decision.status) ||
-        (decision.status === 'validated' && decision.ownerConfirmation === null))
-    ) {
-      addBlocking(
-        'irreversible-decision-unconfirmed',
-        `decisions[${index}]`,
-        `Irreversible decision ${decision.id} is ${decision.status} without an Owner confirmation.`,
-      );
-    }
+  // One finding names every unconfirmed decision, so a reviewer sees them all in one run.
+  const unconfirmed = (decisions ?? []).flatMap((decision, index) =>
+    decision.irreversible &&
+    (['unknown', 'provisional'].includes(decision.status) ||
+      (decision.status === 'validated' && decision.ownerConfirmation === null))
+      ? [
+          `decisions[${index}] ${decision.id} (${decision.status === 'validated' ? 'validated without an Owner confirmation' : decision.status})`,
+        ]
+      : [],
+  );
+  if (unconfirmed.length) {
+    addBlocking(
+      'irreversible-decision-unconfirmed',
+      unconfirmed[0].split(' ')[0],
+      `Irreversible decisions need status validated with an Owner confirmation: ${unconfirmed.join(', ')}.`,
+    );
   }
 
   return deepFreeze({

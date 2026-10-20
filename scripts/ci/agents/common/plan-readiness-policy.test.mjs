@@ -143,6 +143,29 @@ test('blocks an irreversible decision left unknown or provisional', () => {
   }
 });
 
+test('one finding names every unconfirmed irreversible decision with its own reason', () => {
+  const report = assessPlanReadiness(
+    withDecisions([
+      {
+        id: 'fe.arch.rendering-style',
+        irreversible: true,
+        status: 'provisional',
+        ownerConfirmation: confirmed,
+      },
+      { id: 'fe.a11y.baseline', irreversible: false, status: 'unknown', ownerConfirmation: null },
+      { id: 'be.api.style', irreversible: true, status: 'validated', ownerConfirmation: null },
+    ]),
+  );
+  assert.equal(report.blockingFindings.length, 1);
+  assert.equal(report.blockingFindings[0].path, 'decisions[0]');
+  assert.equal(
+    report.blockingFindings[0].message,
+    'Irreversible decisions need status validated with an Owner confirmation: ' +
+      'decisions[0] fe.arch.rendering-style (provisional), ' +
+      'decisions[2] be.api.style (validated without an Owner confirmation).',
+  );
+});
+
 test('an irreversible validated decision needs the Owner confirmation record', () => {
   const passed = assessPlanReadiness(
     withDecisions([
