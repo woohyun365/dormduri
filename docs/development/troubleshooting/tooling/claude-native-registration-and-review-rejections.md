@@ -27,6 +27,13 @@
   invalid prepare spec: review-input-manifest-missing
   ```
 
+- Reviewer 등록(`prepare`·`register --input`)이 prompt 기록 대조로 거부됩니다.
+
+  ```text
+  review-prompt-changed: the prompt differs from the one review built; register the reviewerSpec prompt unchanged
+  review-prompt-unbound: no prompt record for review <reviewId>; build the reviewer with review
+  ```
+
 - 역할·effort·QA 조건으로 등록이 거부됩니다.
 
   ```text
@@ -57,12 +64,25 @@
   invalid review request: previous-result-invalid: <result path> is not a review result JSON with verdict and findings
   invalid review request: previous-result-invalid: adjudication record <kind> <id>
   invalid review request: criteria-invalid: no docs/development/agent-workflows/review-criteria/<id>.md
+  invalid review request: criteria-invalid: none cannot be combined with criteria ids
   invalid review request: review-input-too-large: 2400 files > 2000; give narrower read paths
   invalid review request: review-input-path-case: .Plans differs from the stored name; use its exact case
   invalid review request: composition-round-1-only
   invalid review request: reviewers-invalid: 2 or 3
   invalid review request: composition-e3-criteria-required: give --criteria
   invalid review request: unsafe-reference:selectionBasisRef
+  ```
+
+- `review --parent-subject`가 subject의 경로나 `requirementSections`를 거부하거나, 출력 `warnings`에
+  `request-implementation-marker`가 나옵니다.
+
+  ```text
+  invalid parentSubject: local-state-path:.omc/notepad.md
+  invalid parentSubject: requirement-heading-missing: .plans/<plan>.md § <heading>
+  invalid parentSubject: requirement-heading-duplicate: .plans/<plan>.md § <heading>
+  invalid parentSubject: requirement-path-unreadable: .plans/<plan>.md
+  invalid parentSubject: requirement-path-in-paths: .plans/<plan>.md
+  invalid parentSubject: requirementSections-invalid: [{"path": "<plan path>", "headings": ["<heading text>", ...]}]
   ```
 
 - 1회차 그룹의 PASS 구성원을 연결한 builder 완료가 `review-adjudication-required`, `review-group-mismatch`,
@@ -74,6 +94,7 @@
 - Reviewer의 `settle --task` `observationErrors`나 그 reviewer를 연결한 builder 완료에 `review-input-changed:<path>`,
   `review-input-manifest-changed`, `review-input-manifest-missing`, `review-input-manifest-invalid` 중 하나가 있습니다. 그룹
   구성원이면 사유 뒤에 구성원 task id가 괄호로 붙습니다.
+- Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`가 있습니다.
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
 
   ```text
@@ -114,21 +135,23 @@
 
 - Effort는 역할 파일의 `effort`가 정합니다. 등록은 그 값(`medium`·`high`·`xhigh`)을 기대값으로 기록하고, 없거나 다른 값이면
   `invalid-role-effort`입니다. Model policy는 impact `high` build에 `complex-critical`의 `knu_executor_xhigh`만 허용하고,
-  `knu_executor_xhigh`는 `complex-critical` build에서만 허용합니다. 어긋나면 `effort-tier`입니다.
+  `knu_executor_xhigh`는 `complex-critical` build에서만 허용합니다. `knu_explorer_xhigh`는 `bounded-extraction`과 거기서 결속한
+  1단계 재시도(`bounded-standard`)에서만 허용합니다. 어긋나면 `effort-tier`입니다. `bounded-extraction`은 `knu_explorer_xhigh`만
+  받아 `knu_explorer`는 `role`이고, `knu_explorer_xhigh`는 kind `extract`만 받아 그 밖은 `kind-role`입니다.
 - 추출(kind `extract`)은 impact `low`·complexity `bounded`·uncertainty `resolved`일 때만 독립 QA 없이 등록됩니다. 어느 profile이든
   그 밖의 추출과 다른 kind는 `reviewDisposition.required:true`나 연결된 review가 없으면 `independent QA required for this profile`입니다.
 - Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
   합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
   - `effort-transcript-pending`: transcript가 없거나 마지막 행이 미완성이거나 assistant 행이 아직 없습니다. Host가 transcript를
-    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 Haiku를 포함해
-    `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
+    비동기로 기록하므로 완료 직후에 나올 수 있습니다. Task 수명(`expiresAt`)이 지나도 그대로면 모델 능력표가
+    effort 미지원으로 둔 ID를 포함해 `effort-unobserved`가 됩니다. 판정은 기록되지 않고 관측마다 다시 계산되므로, 그 뒤 transcript가 나타나 오류가 사라져도
     한 번 수명 만료 판정을 받은 task의 결과는 쓰지 않습니다.
   - `effort-transcript-foreign`: 경로·세션·child·prompt·모델이 등록과 맞지 않습니다.
   - `effort-transcript-too-large`: child transcript가 한도(`CHILD_TRANSCRIPT_BYTE_LIMIT`, 32 MiB)를 넘습니다. 한도는 메모리
     보호이며, 그 아래에서는 크기와 관계없이 모든 행을 검사합니다.
   - `effort-unobserved`: assistant 행에 `effort`가 없습니다. 이미 기록된 행은 바뀌지 않습니다.
-  - `effort-mismatch`: 관측 effort가 역할 파일의 기대값과 다릅니다. Haiku 기대 모델은 effort를 지원하지 않아 transcript를
-    읽은 뒤의 `effort-unobserved`와 이 사유를 판정하지 않고 관측값만 남깁니다.
+  - `effort-mismatch`: 관측 effort가 역할 파일의 기대값과 다릅니다. 모델 능력표 `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로
+    둔 기대 모델(exact ID)만 transcript를 읽은 뒤의 `effort-unobserved`와 이 사유를 판정하지 않고 관측값만 남깁니다.
 - 공통 intake가 모든 한국어 조사 표현을 읽기 intent로 분류하지는 않습니다. `조사해줘`·문장 끝 `조사`는 `analyze`지만
   `살펴봐줘`·`확인해줘`, `원인` 없이 쓴 `파악해줘`처럼 인식하지 않는 표현은 `unknown`으로 남습니다.
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
@@ -144,7 +167,8 @@
 - 리뷰 회차 입력: `--round`는 양의 정수이고, 2회차부터 `--previous-result`가 필요하며 1회차에는 줄 수 없습니다. 직전 결과는
   root 안의 일반 파일로 native task 기록이 아니며, verdict·findings가 있는 result JSON이거나 1회차 그룹의 `review-adjudication/v1`
   처분 기록입니다. 처분 기록이면 기록이 가리키는 result마다 같은 조건을 보고, 기록 자체가 validator 규칙을 어기면
-  `previous-result-invalid: adjudication record <kind> <id>`입니다. `--criteria`는 `review-criteria/` 아래 있는 기준 문서 id 목록입니다.
+  `previous-result-invalid: adjudication record <kind> <id>`입니다. `--criteria`는 `review-criteria/` 아래 있는 기준 문서 id 목록이거나
+  `none` 하나입니다. `none`은 기준 문서 없이 리뷰하는 비교 측정(교정·baseline) 전용 값이고 필수 리뷰에는 쓰지 않습니다.
 - Ignored 리뷰 입력: review snapshot은 tracked·비ignored 파일만 결속합니다. 그래서 helper는 reviewer read path 중 ignored read path
   아래 파일과 기록 위치(`.plans/`·`.artifacts/`·`.local-docs/`) 아래 ignored 파일(runner 출력, 2회차 직전 결과 포함)의 digest를
   `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 쓰고 prompt 마지막 줄 `KNU_REVIEW_INPUTS_FILE:<path> <sha256>`로
@@ -160,6 +184,22 @@
     Git은 아무것도 내지 않아 결속이 비게 되므로 거부합니다.
   - 그 밖의 비ignored 디렉터리 안 ignored 파일(package 의존성·build 산출물), symlink가 가리키는 파일의 내용(링크 문자열만 결속),
     runner가 실행된 시점의 입력은 결속하지 않습니다.
+- Reviewer prompt 기록: `review`는 reviewer마다 prompt의 sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에
+  한 번 쓰고, registry는 모든 `knu_reviewer` 등록에서 그 기록과 prompt를 대조합니다. Review id는 native subject면 packet id
+  `review-<reviewId>`, Parent subject면 prompt의 `KNU_REVIEW_PACKET_FILE:` 경로에서 얻습니다.
+  - `review-prompt-changed`: 등록한 prompt가 `review`가 만든 prompt와 한 글자라도 다릅니다. Spec의 prompt를 손으로 고쳤거나 다른
+    구성원의 기록과 섞인 것입니다.
+  - `review-prompt-unbound`: 기록이 없거나 review id를 얻을 수 없습니다. Prompt에서 packet 파일 줄을 지웠거나, 기록 파일을 지웠거나,
+    `review` 없이 만든 prompt를 직접 등록한 것입니다.
+- Parent subject 입력: `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로는 host·세션
+  상태라 `local-state-path:<path>`로 거부합니다. 추적 `.claude/` 설정·skill·역할 파일은 해당하지 않습니다. `request`에 완료형 구현
+  서술 문장(`고쳤다`·`구현했다` 등)이 있으면 `request-implementation-marker` 경고와 packet `evidence.environment`의 문장 수만 남고
+  리뷰는 진행됩니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남습니다.
+- `requirementSections`: plan의 지정 절만 `<reviewId>.requirements.md`로 잘라 reviewer read path에 넣습니다. Heading은 `#`를 뺀
+  정확한 문자열이며 code fence 안 줄은 heading이 아닙니다. 없으면 `requirement-heading-missing`, 두 번 이상이면
+  `requirement-heading-duplicate`, root 안의 일반 파일이 아니면 `requirement-path-unreadable`, 형식이 `[{path, headings}]`가 아니면
+  `requirementSections-invalid`, `paths`가 그 plan이나 그 위 디렉터리를 가리키면 `requirement-path-in-paths`입니다. 정산은 등록한 prompt나
+  read 범위가 추출을 가리킬 때 추출이 prompt 기록의 digest와 다르거나 기록이 없으면 `review-requirements-changed`입니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
@@ -180,8 +220,9 @@
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
 - `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
 - `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
-- `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. Effort 변형은 Opus build에만
-  있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
+- `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. `knu_explorer_xhigh`의
+  `effort-tier`는 Haiku 추출이면 `bounded-extraction`으로, Sonnet 추출·읽기면 `knu_explorer`로 다시 prepare합니다. Effort 변형은
+  Opus build(`knu_executor_xhigh`)와 추출(`knu_explorer_xhigh`)에만 있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
 - `independent QA required for this profile`은 task 사실을 바꾸지 말고 `reviewDisposition.required:true`로 두고 review를 연결합니다.
 - `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유(`effort-transcript-too-large` 포함)는
   그 결과를 쓰지 않고 새 task로 다시 위임합니다. `effort-transcript-too-large`는 task를 나눠 다시 위임하고 transcript를 손으로
@@ -207,8 +248,15 @@
   판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
-  prompt에서 packet 파일 줄이 빠진 것입니다. Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산해도 이 사유입니다. 세 사유 모두 결과를 쓰지 말고 파일을
-  고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다.
+  prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을
+  고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다. `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
+  바뀌거나 사라짐)도 같습니다.
+- `review-prompt-changed`·`review-prompt-unbound`는 prompt나 기록을 고쳐 맞추지 않습니다. `review` 출력의 `reviewerSpec`(그룹이면
+  구성원 각자의 spec)을 그대로 `prepare`하고, 바꿀 것이 있으면 `review`를 다시 만듭니다.
+- `local-state-path`는 그 경로를 `paths`에서 빼고 리뷰 대상인 추적 파일만 줍니다. `request-implementation-marker` 경고는 `request`를
+  요구사항 문장(사용자 요청·issue·plan acceptance)으로 고쳐 `review`를 다시 실행합니다. `requirement-heading-*`는 plan의 heading을
+  `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다. `requirement-path-in-paths`는 그
+  plan이나 디렉터리를 `paths`에서 빼고 판정 원본 절은 `requirementSections`로만 줍니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.
@@ -221,13 +269,14 @@
 - FAIL은 review 완료입니다. Finding을 판정하고 수정한 뒤 새 builder task와 새 review로 해소합니다. 다른 reviewer의 PASS를
   연결해 FAIL을 덮을 수 없습니다. 예외는 1회차 그룹에서 Parent가 재현해 기각한 non-PASS 구성원뿐입니다.
 - 회차 입력 거부: `--round <N>`을 줍니다. 2회차부터는 직전 회차 result 파일이나 처분 기록을 `--previous-result`로 주고,
-  1회차에는 빼고 `--criteria`의 빈 목록·중복·없는 id를 고칩니다. 처분 기록이 가리키는 result 파일을 고쳐 맞추지 말고 기록의 경로를
+  1회차에는 빼고 `--criteria`의 빈 목록·중복·없는 id와 `none`을 다른 id와 섞은 목록을 고칩니다. 처분 기록이 가리키는 result 파일을 고쳐 맞추지 말고 기록의 경로를
   고칩니다.
 - `review-input-*`는 입력을 되돌려 맞추지 않습니다. 그 reviewer 결과를 쓰지 말고 `review`를 다시 만들어 새 reviewer로 재리뷰합니다.
   이전 helper로 만든 reviewer의 `review-input-manifest-missing`도 같습니다. 재발을 막으려면 `review` 생성부터 그 reviewer 정산과
   연결 builder 완료까지 리뷰 입력인 ignored 경로를 바꾸지 않고, 정산 뒤 쓰는 result·처분 기록·재현 로그는 리뷰 read path 밖에
   둡니다. `review-input-too-large`는 read path를 좁히고, `review-input-path-case`는 read path를 저장된 대소문자로 고칩니다.
 - 1회차 그룹 입력 거부: 구성은 1회차에만, 인원은 2·3명, `--composition`과 `--reviewers`는 함께, `e3`는 `--criteria`와 함께 줍니다.
+  `e3`는 기준 항목을 나누므로 `--criteria none`과 함께 쓸 수 없습니다(`composition-e3-criteria-required`).
   `criteria-items-too-few`는 고른 기준 문서의 항목이 인원보다 적은 것이므로 인원을 줄이거나 `e2`를 씁니다.
   `unsafe-reference:selectionBasisRef`는 `--basis`를 `plan:<Plan ID>/<절>`처럼 영문자로 시작하는 형식으로 고칩니다.
 - `review-adjudication-required`·`review-adjudication-invalid`·`review-adjudication-result-mismatch`는 처분 기록을 고칩니다. 기록은
@@ -260,7 +309,8 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 - `result-error`와 `omission`은 사다리를 한 단계 올립니다. `context-missing`은 같은 profile과 role로 다시 등록하고(0단계)
   prompt에만 맥락을 더할 수 있습니다.
 - 1단계는 `bounded-standard` + role R(Sonnet high)에서 `complex-critical` + 같은 R(Opus high)로 올립니다. R은 `knu_explorer`,
-  `knu_researcher`, `knu_executor`입니다.
+  `knu_researcher`, `knu_executor`입니다. 추출은 `bounded-extraction` + `knu_explorer_xhigh`(Haiku xhigh)에서 `bounded-standard` +
+  같은 역할(Sonnet xhigh)로 올리는 1단계도 있습니다(kind `extract`).
 - 2단계는 `complex-critical`의 `knu_executor`(Opus high)에서 `complex-critical`의 `knu_executor_xhigh`(Opus xhigh)로 올립니다.
   build에만 씁니다.
 - 1·2단계 retry만 `critical-signal` 요건을 면제받습니다. 다른 admission 검사는 모든 등록에 그대로 적용됩니다.
@@ -281,18 +331,19 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
    - 다음 행동: spec을 고칩니다. `of`를 현재 session의 첫 `taskId`로 맞추고 위 사실을 첫 task와 같게 둡니다. 사실을 바꿔야 하면
      그것은 복구가 아니므로 `recovery` 없이 일반 등록으로 하고, 이름만 바꿔 상한을 초기화하지 않습니다.
 3. `recovery-chain`
-   - 원인: 첫 task가 이미 bound retry입니다. Retry의 retry는 없습니다.
+   - 원인: 첫 task가 이미 bound retry입니다. Retry의 retry는 없습니다. `bounded-standard`의 `knu_explorer_xhigh`는 결속
+     재시도로만 생기므로 그 task의 재시도는 이 사유입니다.
    - 다음 행동: 멈추고 Owner에게 묻습니다.
 4. `recovery-step`
    - 원인: 요청한 profile·role이 첫 task에서 올라가는 사다리 단계와 다릅니다. 단계를 건너뛰거나 그대로 두는 경우와
      `context-missing`인데 profile이나 role을 바꾼 경우가 해당합니다. `result-error`·`omission`은 올릴 단계가 없는 첫 task에서도
-     이 사유입니다. `bounded-extraction` task, `knu_reviewer`, `knu_executor_xhigh`, `complex-critical`의
-     `knu_explorer`·`knu_researcher`, build가 아닌 `complex-critical`의 `knu_executor`에는 올릴 단계가 없습니다.
+     이 사유입니다. `knu_reviewer`, `knu_executor_xhigh`, `complex-critical`의 `knu_explorer`·`knu_researcher`, build가 아닌
+     `complex-critical`의 `knu_executor`에는 올릴 단계가 없습니다.
    - 다음 행동: 사다리 단계에 맞춰 spec의 profile·role을 고칩니다. 올릴 단계가 없으면 멈추고 Owner에게 묻습니다.
 5. `recovery-not-ran`
    - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
-     않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. Haiku는 effort 검사에서 제외됩니다. 괄호 안에
-     관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
+     않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. 모델 능력표가 effort 미지원으로 둔 exact ID만 effort
+     검사에서 제외됩니다. 괄호 안에 관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
      사유가 됩니다.
    - 다음 행동: 첫 task 완료부터 retry 등록까지 working tree를 바꾸지 않습니다. 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
      `effort-transcript-pending`이면 잠시 뒤 다시 정산합니다. 정산 뒤에도 오류가 남으면 첫 task는 복구 대상이 아닙니다. 위
@@ -354,6 +405,10 @@ reproduction log`, `only the members of one first-round group`, `a first-round c
 `builder completion judges the manifest of every delivered group member`
 테스트가 고정합니다. Effort·QA 규칙은
 `high-risk builds require the xhigh executor`, `extract QA exemption keeps the low, bounded, resolved range`,
+`the capability table lists effortless exact IDs`, `a Haiku ID with effort support is held to the role effort`,
+`a Haiku first task with effort support binds a retry only after running at the role effort`,
+`bounded-extraction takes only the xhigh explorer`, `the xhigh explorer works in bounded-standard only as a bound extraction retry`,
+`the xhigh explorer never takes a repository read`, `a bound extraction retry climbs to bounded-standard in the same role`,
 `registration binds the role effort`, `foreground effort matches, mismatches or stays unobserved`,
 `a foreground transcript written after PostToolUse is pending`, `a Parent-judged reviewer whose effort differs`,
 `a child transcript over the limit is refused` 테스트가 고정합니다. Read-only subject와 RED 기록은
@@ -361,7 +416,13 @@ reproduction log`, `only the members of one first-round group`, `a first-round c
 `other native task evidence never enters a review read path`, `a RED record passes only at its declared expected exit`
 테스트가 고정합니다. Builder 연결 거부는 `hook-less retry`,
 `each reviewer session transcript`, `settled sibling review resumed`, `foreground-completed reviewer cannot be resumed`,
-`a task copied from another checkout blocks a linked builder only when it may be its review` 테스트가 고정합니다.
+`a task copied from another checkout blocks a linked builder only when it may be its review` 테스트가 고정합니다. Reviewer
+prompt 기록과 Parent subject 입력은 `registration refuses a reviewer prompt that is not the one review recorded`,
+`a native reviewer registers only with the prompt its review recorded`, `each first-round group member registers only with its own recorded prompt`,
+`a Parent subject path into local state is refused`, `a request that narrates the implementation warns`,
+`requirementSections hands the reviewer only the named plan sections`, `requirementSections refuses a missing or repeated heading`,
+`a Parent subject path naming the extracted plan or a directory above it is refused`,
+`a requirement extract changed after the review` 테스트가 고정합니다.
 
 ## 참고
 

@@ -26,24 +26,33 @@ Agent 호출에는 effort 입력이 없으므로 같은 책임의 effort 변형�
 | 역할                 | Effort  | 쓰는 곳                                                                         |
 | -------------------- | ------- | ------------------------------------------------------------------------------- |
 | `knu_explorer`       | `high`  | 고정 입력 추출·repository 읽기(`bounded-standard` Sonnet)                       |
+| `knu_explorer_xhigh` | `xhigh` | 고정 입력 추출(`bounded-extraction` Haiku)과 그 1단계 재시도(Sonnet)만          |
 | `knu_researcher`     | `high`  | 공식 근거 조사                                                                  |
 | `knu_executor`       | `high`  | bounded build(`bounded-standard` Sonnet), 복잡한 build(`complex-critical` Opus) |
 | `knu_executor_xhigh` | `xhigh` | impact `high` build(강제), Recovery 상향(`complex-critical` Opus만)             |
 | `knu_reviewer`       | `xhigh` | 독립 review(`complex-critical` Opus)                                            |
 
 Model policy는 impact `high` build를 `knu_executor_xhigh`·`complex-critical`로만 받고, 그 역할을 `complex-critical` build
-밖에서는 거부합니다(`effort-tier`). 등록은 역할 effort를 기대값으로 기록하고, `settle`·`complete`가 관측할 때마다 child
+밖에서는 거부합니다(`effort-tier`). `bounded-extraction`은 `knu_explorer_xhigh`만 받고(`knu_explorer`는 `role`), 그 역할은
+`bounded-extraction`과 거기서 결속한 1단계 재시도 밖에서 같은 `effort-tier`로, kind `extract` 밖에서 `kind-role`로 거부합니다. 등록은 역할 effort를 기대값으로 기록하고, `settle`·`complete`가 관측할 때마다 child
 transcript의 assistant 행 `effort`와 대조합니다. SubagentStop의 `effort.level`은 child 값과 세션 값을 구별하지 못한
 관측(CLI 2.1.286)이 있어 쓰지 않습니다. Routine 추출은 `bounded-standard`(Sonnet)입니다. `bounded-extraction`은 등록할 수
-있게 남지만 routine에서 쓰지 않습니다.
+있게 남지만 routine 표의 Q 행이라 채택 결정 전에는 routine에서 쓰지 않습니다. 그 행의 관측 ID는 `haiku` alias의 해석
+관측(CLI 2.1.296)이고 이 역할×profile 조합의 live 관측은 없습니다. "대체됨(등록 거부)" 행은 과거 조합(`knu_explorer`·Haiku 4.5)의
+기록입니다.
+Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agents/claude/model-policy.mjs)의 exact ID 능력표
+`CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로 둔 ID뿐입니다. 표에 없는 exact ID는 family와 무관하게 역할 effort와 대조합니다.
 
 공개하는 한계:
 
 - Intake가 보안·인증·migration·삭제 같은 keyword로 요청 risk를 `high`로 정하면 task impact를 낮출 수 없어 그 build는 xhigh가
   됩니다. Codex는 keyword 하나로 effort를 올리지 않습니다. 이 차이는 Owner의 성능 우선 결정(2026-10-01)으로 받아들입니다.
 - 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer와 high-risk build의 xhigh는 같은 결정으로 측정 전에
-  채택했고 high 대비 향상은 측정하지 않았습니다.
-- Effort가 있는 역할로 Haiku를 부를 때의 동작은 관측하지 않았습니다. Haiku를 다시 routine으로 쓰기 전에 관측합니다.
+  채택했고 high 대비 향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
+  둔 Owner 결정(2026-10-12)이고 역시 high 대비 향상은 측정하지 않았습니다.
+- CLI 2.1.296(Anthropic API)에서 `haiku`는 `claude-haiku-5-5`로 해석됐고 그 child transcript의 effort는 `high`였습니다(live 1회).
+  역할·세션 effort가 모두 high라 역할 effort 적용과 세션 상속을 구별하지 못했습니다. 세션 effort와 다른 `knu_explorer_xhigh`의
+  관측으로 구별하기 전에는 Haiku를 routine으로 쓰지 않습니다.
 - Foreground 완료의 child transcript 위치(부모 transcript 옆 `<session>/subagents/`)는 background child에서만 관측했습니다.
   위치가 다르면 foreground task는 수명이 끝난 뒤 `effort-unobserved`로 거부되며, 통과로 남지 않습니다.
 - 역할 effort를 덮어쓰는 설정(effort 환경변수·상한)이 있으면 관측이 `effort-mismatch`로 드러납니다.
@@ -54,25 +63,28 @@ transcript의 assistant 행 `effort`와 대조합니다. SubagentStop의 `effort
 [Recovery ceiling](../orchestration.md#recovery-ceiling) 하나입니다. 공통 원칙은 다른 접근의 구체를 host adapter에 맡기고,
 이 표가 Claude의 구체입니다.
 
-| 단계 | 1차 profile·역할·모델·effort                    | 재시도 profile·역할·모델·effort                    | Kind              |
-| ---- | ----------------------------------------------- | -------------------------------------------------- | ----------------- |
-| 0    | 1차 task와 같음                                 | 1차 task와 같음                                    | 1차 task의 kind   |
-| 1    | `bounded-standard`·`knu_explorer`·Sonnet high   | `complex-critical`·`knu_explorer`·Opus high        | `extract`, `read` |
-| 1    | `bounded-standard`·`knu_researcher`·Sonnet high | `complex-critical`·`knu_researcher`·Opus high      | `read`            |
-| 1    | `bounded-standard`·`knu_executor`·Sonnet high   | `complex-critical`·`knu_executor`·Opus high        | `build`           |
-| 2    | `complex-critical`·`knu_executor`·Opus high     | `complex-critical`·`knu_executor_xhigh`·Opus xhigh | `build`           |
+| 단계 | 1차 profile·역할·모델·effort                          | 재시도 profile·역할·모델·effort                      | Kind              |
+| ---- | ----------------------------------------------------- | ---------------------------------------------------- | ----------------- |
+| 0    | 1차 task와 같음                                       | 1차 task와 같음                                      | 1차 task의 kind   |
+| 1    | `bounded-extraction`·`knu_explorer_xhigh`·Haiku xhigh | `bounded-standard`·`knu_explorer_xhigh`·Sonnet xhigh | `extract`         |
+| 1    | `bounded-standard`·`knu_explorer`·Sonnet high         | `complex-critical`·`knu_explorer`·Opus high          | `extract`, `read` |
+| 1    | `bounded-standard`·`knu_researcher`·Sonnet high       | `complex-critical`·`knu_researcher`·Opus high        | `read`            |
+| 1    | `bounded-standard`·`knu_executor`·Sonnet high         | `complex-critical`·`knu_executor`·Opus high          | `build`           |
+| 2    | `complex-critical`·`knu_executor`·Opus high           | `complex-critical`·`knu_executor_xhigh`·Opus xhigh   | `build`           |
 
 - `result-error`와 `omission`은 다음 단계 하나로 오릅니다. `context-missing`은 단계 0이며 prompt에만 context를 보탭니다.
 - Kind는 1차 task와 같아야 합니다. 표 밖의 이동은 단계가 아니며 `recovery-step`으로 거부됩니다.
 - 단계 1·2만 `complex-critical`의 critical signal 요구를 면제합니다. 1차 task의 사실을 그대로 두기 때문입니다.
-- 단계 0은 1차 profile의 조건을 그대로 따릅니다. `bounded-extraction`(Haiku)과 `knu_reviewer`는 단계 0만 받습니다.
+- 단계 0은 1차 profile의 조건을 그대로 따릅니다. `knu_reviewer`는 단계 0만 받습니다. `bounded-standard`의 `knu_explorer_xhigh`는
+  결속 재시도로만 생기므로 더 오르지 않습니다(재시도의 재시도 없음).
 
 Claude에서만 쓰는 해석은 다음과 같습니다.
 
 - Executor 역할 묶음(`knu_executor`·`knu_executor_xhigh`)은 한 역할의 effort 변형으로 봅니다. Agent 호출에 effort 입력이
-  없어 별도 역할로 두었을 뿐입니다.
-- `result-error`와 `omission`은 원인과 무관하게 다음 단계로 오릅니다. Sonnet에는 effort 변형이 없고 Opus에는 위 모델이
-  없기 때문입니다. 이 선택은 Owner의 성능 우선 결정입니다.
+  없어 별도 역할로 두었을 뿐입니다. `knu_explorer_xhigh`도 `knu_explorer`의 effort 변형이고 추출에만 씁니다.
+- `result-error`와 `omission`은 원인과 무관하게 다음 단계로 오릅니다. Sonnet high 역할에는 effort 변형이 없고(Sonnet xhigh는
+  추출 재시도의 `knu_explorer_xhigh`뿐입니다) Opus에는 위 모델이 없기 때문입니다. 추출 재시도는 역할·effort를 그대로 두고
+  model만 Haiku에서 Sonnet으로 올립니다. 이 선택은 Owner의 성능 우선 결정입니다.
 - 공통 원천은 `orchestration.md`뿐입니다. `request-intake/orchestration-recovery.md`는 Codex reference이며 Claude 규칙의
   근거로 인용하지 않습니다.
 

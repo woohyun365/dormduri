@@ -1,0 +1,463 @@
+{
+  "schema": "lifecycle-path-domains/v1",
+  "confirmedBy": {
+    "status": "owner-confirmed",
+    "date": "2026-10-17",
+    "basis": "#634"
+  },
+  "productRoots": [
+    "apps/**",
+    "packages/shared/**",
+    "infra/**",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ],
+  "entries": [
+    {
+      "globs": ["apps/api/src/auth/**", "apps/api/src/identity/**", "apps/api/src/users/**"],
+      "domains": ["account-authentication", "access-eligibility"]
+    },
+    {
+      "globs": [
+        "apps/api/src/seasons/**",
+        "apps/api/src/dormitories/**",
+        "apps/api/src/lifecycle/**"
+      ],
+      "domains": ["season-lifecycle"]
+    },
+    {
+      "globs": ["apps/api/src/season-participants/**"],
+      "domains": ["season-participation", "profile-model"]
+    },
+    {
+      "globs": ["apps/api/src/profiles/**"],
+      "domains": ["profile-model"]
+    },
+    {
+      "globs": ["apps/api/src/matches/**"],
+      "domains": ["matching-lifecycle", "matching-algorithm"]
+    },
+    {
+      "globs": ["apps/api/src/roommate-search/**"],
+      "domains": ["roommate-searching"]
+    },
+    {
+      "globs": ["apps/api/src/chat/**", "apps/api/src/realtime/**"],
+      "domains": ["chat-lifecycle"]
+    },
+    {
+      "globs": ["apps/api/src/moderation/**", "apps/api/src/social-safety/**"],
+      "domains": ["community-safety", "incident-enforcement"]
+    },
+    {
+      "globs": ["apps/api/src/support/**"],
+      "domains": ["support-communication"]
+    },
+    {
+      "globs": ["apps/api/src/notifications/**", "apps/api/src/notices/**"],
+      "domains": ["notification-inbox"]
+    },
+    {
+      "globs": ["apps/api/src/retention/**", "apps/api/src/privacy/**"],
+      "domains": ["data-retention", "legal-basis"]
+    },
+    {
+      "globs": ["apps/api/src/legal/**"],
+      "domains": ["legal-basis", "service-boundary"]
+    },
+    {
+      "globs": ["apps/api/src/home-dashboard/**"],
+      "domains": ["season-participation", "matching-lifecycle"]
+    },
+    {
+      "globs": ["apps/api/src/platform/observability/**"],
+      "domains": ["operational-observability"]
+    },
+    {
+      "globs": [
+        "apps/api/src/platform/**",
+        "apps/api/src/config/**",
+        "apps/api/src/health/**",
+        "apps/api/prisma/migrations/**"
+      ],
+      "except": ["apps/api/src/platform/observability/**"],
+      "domains": ["production-runtime-safety"]
+    },
+    {
+      "globs": [
+        "apps/api/src/app.module.ts",
+        "apps/api/src/main.ts",
+        "apps/api/prisma/schema.prisma",
+        "apps/api/prisma/role-grants/**",
+        "apps/api/prisma.config.ts"
+      ],
+      "domains": ["production-runtime-safety"]
+    },
+    {
+      "globs": ["apps/api/prisma/sql/*Chat*.sql"],
+      "domains": ["chat-lifecycle"]
+    },
+    {
+      "globs": ["apps/api/prisma/sql/*Match*.sql"],
+      "domains": ["matching-lifecycle"]
+    },
+    {
+      "globs": ["apps/api/prisma/sql/*Notification*.sql"],
+      "domains": ["notification-inbox"]
+    },
+    {
+      "globs": [
+        "apps/api/prisma/sql/*Auth*.sql",
+        "apps/api/prisma/sql/*Login*.sql",
+        "apps/api/prisma/sql/*Verification*.sql"
+      ],
+      "domains": ["account-authentication"]
+    },
+    {
+      "globs": ["apps/api/prisma/sql/*Retention*.sql", "apps/api/prisma/sql/prune*.sql"],
+      "domains": ["data-retention"]
+    },
+    {
+      "globs": [
+        "apps/api/prisma/sql/acquireTransactionAdvisoryLock.sql",
+        "apps/api/prisma/sql/getCurrentTimestamp.sql",
+        "apps/api/prisma/sql/getDatabaseReadiness.sql"
+      ],
+      "domains": ["production-runtime-safety"]
+    },
+    {
+      "globs": [
+        "apps/api/prisma/seeds/reference/common/**",
+        "apps/api/prisma/seeds/reference/colleges/**"
+      ],
+      "domains": ["access-eligibility"]
+    },
+    {
+      "globs": [
+        "apps/api/prisma/seeds/reference/dormitories/**",
+        "apps/api/prisma/seed-data/reference/dormitory-seed-data.js"
+      ],
+      "domains": ["season-lifecycle", "access-eligibility"]
+    },
+    {
+      "globs": ["apps/api/prisma/seeds/reference/moderation/**"],
+      "domains": ["community-safety"]
+    },
+    {
+      "globs": ["apps/api/prisma/seed-data/reference/legal-document-seed-data.js"],
+      "domains": ["legal-basis", "service-boundary"]
+    },
+    {
+      "globs": ["apps/api/prisma/seed-data/reference/support-faq-seed-data.js"],
+      "domains": ["support-communication"]
+    },
+    {
+      "globs": ["pnpm-lock.yaml", "**/package.json", "pnpm-workspace.yaml"],
+      "domains": ["dependency-security"]
+    },
+    {
+      "globs": [
+        "apps/web/src/auth/**",
+        "apps/web/src/app/login/**",
+        "apps/web/src/app/signup/**",
+        "apps/web/src/app/password-reset/**",
+        "apps/web/src/proxy.ts",
+        "apps/web/src/config/auth-cookie.config.ts"
+      ],
+      "domains": ["account-authentication"]
+    },
+    {
+      "globs": [
+        "apps/web/src/main/tabs/chat/**",
+        "apps/web/src/main/routes/ChatRoute.tsx",
+        "apps/web/src/app/main/chat/**"
+      ],
+      "domains": ["chat-lifecycle"]
+    },
+    {
+      "globs": [
+        "apps/web/src/main/tabs/matching/**",
+        "apps/web/src/main/routes/MatchingRoute.tsx",
+        "apps/web/src/app/main/matching/**"
+      ],
+      "domains": ["matching-lifecycle"]
+    },
+    {
+      "globs": [
+        "apps/web/src/main/tabs/profile/**",
+        "apps/web/src/main/routes/ProfileRoute.tsx",
+        "apps/web/src/app/main/profile/**"
+      ],
+      "domains": ["profile-model", "season-participation"]
+    },
+    {
+      "globs": [
+        "apps/web/src/main/tabs/roommate-list/**",
+        "apps/web/src/main/routes/RoommatesRoute.tsx",
+        "apps/web/src/app/main/roommates/**"
+      ],
+      "domains": ["roommate-searching"]
+    },
+    {
+      "globs": [
+        "apps/web/src/main/tabs/home/**",
+        "apps/web/src/main/routes/HomeRoute.tsx",
+        "apps/web/src/app/main/page.tsx"
+      ],
+      "domains": ["season-participation", "matching-lifecycle"]
+    },
+    {
+      "globs": ["apps/web/src/support/**", "apps/web/src/app/support/**"],
+      "domains": ["support-communication"]
+    },
+    {
+      "globs": [
+        "apps/web/src/notifications/**",
+        "apps/web/src/notices/**",
+        "apps/web/src/app/notifications/**",
+        "apps/web/src/app/notices/**"
+      ],
+      "domains": ["notification-inbox"]
+    },
+    {
+      "globs": ["apps/web/src/social-safety/**"],
+      "domains": ["community-safety", "incident-enforcement"]
+    },
+    {
+      "globs": [
+        "apps/web/src/legal/**",
+        "apps/web/src/app/privacy/**",
+        "apps/web/src/app/terms/**"
+      ],
+      "domains": ["legal-basis", "service-boundary"]
+    },
+    {
+      "globs": ["apps/web/src/observability/**", "apps/web/src/instrumentation*.ts"],
+      "domains": ["operational-observability"]
+    },
+    {
+      "globs": ["apps/web/src/profile-summary/**"],
+      "domains": ["profile-model"]
+    },
+    {
+      "globs": ["apps/web/src/landing/**"],
+      "domains": ["service-boundary", "season-lifecycle"]
+    },
+    {
+      "globs": ["apps/web/src/config/env*.ts", "apps/web/next.config.ts"],
+      "domains": ["production-runtime-safety"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/auth/**", "apps/web/src/app/api/users/**"],
+      "domains": ["account-authentication", "access-eligibility"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/_bff/**"],
+      "domains": ["account-authentication", "production-runtime-safety"]
+    },
+    {
+      "globs": [
+        "apps/web/src/app/api/blocks/**",
+        "apps/web/src/app/api/reports/**",
+        "apps/web/src/app/api/enforcements/**"
+      ],
+      "domains": ["community-safety", "incident-enforcement"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/matches/**"],
+      "domains": ["matching-lifecycle", "matching-algorithm"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/bookmarks/**"],
+      "domains": ["matching-lifecycle"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/chat/**"],
+      "domains": ["chat-lifecycle"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/dormitories/**", "apps/web/src/app/api/seasons/**"],
+      "domains": ["season-lifecycle"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/home/**"],
+      "domains": ["season-participation", "matching-lifecycle"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/legal/**"],
+      "domains": ["legal-basis", "service-boundary"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/notices/**", "apps/web/src/app/api/notifications/**"],
+      "domains": ["notification-inbox"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/profiles/**"],
+      "domains": ["profile-model"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/roommate-search/**"],
+      "domains": ["roommate-searching"]
+    },
+    {
+      "globs": ["apps/web/src/app/api/support/**"],
+      "domains": ["support-communication"]
+    },
+    {
+      "globs": [
+        "packages/shared/src/auth/**",
+        "packages/shared/src/identity/**",
+        "packages/shared/src/user/**"
+      ],
+      "domains": ["account-authentication", "access-eligibility"]
+    },
+    {
+      "globs": ["packages/shared/src/campus/**", "packages/shared/src/college/**"],
+      "domains": ["access-eligibility"]
+    },
+    {
+      "globs": ["packages/shared/src/dormitory/**"],
+      "domains": ["season-lifecycle", "access-eligibility"]
+    },
+    {
+      "globs": ["packages/shared/src/season/**"],
+      "domains": ["season-lifecycle", "season-participation"]
+    },
+    {
+      "globs": ["packages/shared/src/chat/**"],
+      "domains": ["chat-lifecycle"]
+    },
+    {
+      "globs": ["packages/shared/src/home/**"],
+      "domains": ["season-participation", "matching-lifecycle"]
+    },
+    {
+      "globs": ["packages/shared/src/legal/**"],
+      "domains": ["legal-basis", "service-boundary"]
+    },
+    {
+      "globs": ["packages/shared/src/lifestyle/**", "packages/shared/src/profile/**"],
+      "domains": ["profile-model"]
+    },
+    {
+      "globs": ["packages/shared/src/match/**"],
+      "domains": ["matching-lifecycle"]
+    },
+    {
+      "globs": ["packages/shared/src/notices/**", "packages/shared/src/notifications/**"],
+      "domains": ["notification-inbox"]
+    },
+    {
+      "globs": ["packages/shared/src/roommate-search/**"],
+      "domains": ["roommate-searching"]
+    },
+    {
+      "globs": ["packages/shared/src/social-safety/**"],
+      "domains": ["community-safety", "incident-enforcement"]
+    },
+    {
+      "globs": ["packages/shared/src/support/**"],
+      "domains": ["support-communication"]
+    },
+    {
+      "globs": [
+        "infra/deploy/**",
+        "infra/db/**",
+        "infra/aws/**",
+        "infra/runbooks/**",
+        "infra/runtime-hardening.json",
+        "infra/compose-profiles.json"
+      ],
+      "domains": ["production-runtime-safety"]
+    },
+    {
+      "globs": ["infra/image-inventory.json"],
+      "domains": ["production-runtime-safety", "dependency-security"]
+    },
+    {
+      "globs": ["infra/observability/**"],
+      "domains": ["operational-observability"]
+    }
+  ],
+  "noDomain": [
+    {
+      "globs": [
+        "apps/api/test/**",
+        "apps/web/e2e/**",
+        "apps/web/src/test/**",
+        "apps/web/src/test-setup.ts",
+        "apps/web/src/test-support/**",
+        "apps/web/src/**/__tests__/**",
+        "apps/web/src/proxy.test.ts",
+        "packages/shared/test/**",
+        "apps/web/type-tests/**"
+      ],
+      "reason": "검증 코드. 도메인은 같은 변경의 제품 code가 정한다"
+    },
+    {
+      "globs": [
+        "apps/*/tsconfig*.json",
+        "apps/api/test/tsconfig.json",
+        "packages/shared/tsconfig.json",
+        "apps/*/eslint.config.mjs",
+        "packages/shared/eslint.config.mjs",
+        "apps/*/vitest.config*.ts",
+        "packages/shared/vitest.config.ts",
+        "apps/web/playwright*.ts",
+        "apps/web/postcss.config.mjs",
+        "apps/api/nest-cli.json",
+        "apps/api/.swcrc",
+        "apps/web/.env.example",
+        "apps/web/.storybook/**"
+      ],
+      "reason": "build·lint·test 설정"
+    },
+    {
+      "globs": ["apps/*/README.md", "infra/README.md", "infra/artifacts/**", "infra/rehearsal/**"],
+      "reason": "안내 문서·artifact schema·로컬 rehearsal 환경"
+    },
+    {
+      "globs": [
+        "apps/web/src/components/**",
+        "apps/web/src/hooks/**",
+        "apps/web/src/styles/**",
+        "apps/web/public/**",
+        "apps/web/src/app/layout.tsx",
+        "apps/web/src/app/page.tsx",
+        "apps/web/src/app/error.tsx",
+        "apps/web/src/app/global-error.tsx",
+        "apps/web/src/app/globals.css",
+        "apps/web/src/app/metadata.ts",
+        "apps/web/src/app/robots.ts",
+        "apps/web/src/app/sitemap.ts"
+      ],
+      "reason": "도메인 밖 공통 UI·app shell"
+    },
+    {
+      "globs": [
+        "apps/api/prisma/seed.js",
+        "apps/api/prisma/seed-data/fixtures/**",
+        "apps/api/prisma/seeds/reference/run.js",
+        "apps/api/prisma/seeds/reference/README.md"
+      ],
+      "reason": "개발·e2e fixture와 seed 실행 배선"
+    },
+    {
+      "globs": ["packages/shared/src/date/**"],
+      "reason": "날짜 정규화는 architecture L3 규칙이고 정책 도메인이 아니다"
+    }
+  ],
+  "irreversiblePaths": [
+    {
+      "glob": "apps/api/prisma/migrations/**",
+      "policy": "docs/policies/production-runtime-safety.md",
+      "reason": "적용된 migration은 자동 down migration 없이 backup/PITR restore로만 되돌린다"
+    },
+    {
+      "glob": "infra/deploy/**",
+      "policy": "docs/policies/production-runtime-safety.md",
+      "reason": "ingress·TLS·secret mount·image 실행 경계. 잘못 적용하면 공개 노출·운영 중단이 생긴다"
+    }
+  ]
+}

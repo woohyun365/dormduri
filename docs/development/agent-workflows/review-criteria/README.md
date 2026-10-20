@@ -7,33 +7,117 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 
 ## 기준 문서
 
-| id                       | 문서                                                           | 적용하는 변경                                                 |
-| ------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------- |
-| `documents`              | [Document review criteria](./documents.md)                     | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경         |
-| `agent-workflow-tooling` | [Agent workflow tooling criteria](./agent-workflow-tooling.md) | agent workflow script·검사·helper·skill·역할 파일의 동작 변경 |
+| id                                           | 문서                                                                                                            | 적용하는 변경                                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `documents`                                  | [Document review criteria](./documents.md)                                                                      | tracked 문서·plan·evidence의 규칙·사실·수치·근거 변경                                         |
+| `agent-workflow-tooling`                     | [Agent workflow tooling criteria](./agent-workflow-tooling.md)                                                  | agent workflow script·검사·helper·skill·역할 파일의 동작 변경                                 |
+| `swe`                                        | [SWE common criteria](./swe.md)                                                                                 | 제품 code·공유 contract·infra·저장소 script와 그 test·설정의 동작·구조 변경                   |
+| `web-fe-rendering-boundary`                  | [Web FE rendering boundary criteria](./web-fe-rendering-boundary.md)                                            | web frontend의 render 위치·server·client 경계·첫 render·체감 성능·부분 실패 변경              |
+| `web-fe-state-data-cache`                    | [Web FE state, data, and cache criteria](./web-fe-state-data-cache.md)                                          | web frontend의 상태·server data·form·mutation·cache·외부 입력 검증 변경                       |
+| `web-fe-component-architecture`              | [Web FE component architecture criteria](./web-fe-component-architecture.md)                                    | web frontend의 component owner·API·분기·파일 배치·예시 fixture·공유 model 변경                |
+| `web-fe-design-system`                       | [Web FE design system criteria](./web-fe-design-system.md)                                                      | web frontend의 design token·공통 UI 부품·화면 문구 원본 변경(시각 값·미감 제외)               |
+| `web-fe-layout-responsive-device`            | [Web FE layout, responsive, and device criteria](./web-fe-layout-responsive-device.md)                          | web frontend의 viewport·기기별 표현·layout·overlay·scroll 변경                                |
+| `web-fe-accessibility`                       | [Web FE accessibility criteria](./web-fe-accessibility.md)                                                      | web frontend의 상호작용 요소·keyboard·focus·상태 알림 변경                                    |
+| `web-bff-gateway-forwarding`                 | [Web BFF gateway and forwarding criteria](./web-bff-gateway-forwarding.md)                                      | BFF route·upstream 전달·상태 변경 진입점 변경                                                 |
+| `web-bff-session-cookie-auth`                | [Web BFF session and cookie auth criteria](./web-bff-session-cookie-auth.md)                                    | BFF session·token cookie 발급·갱신·삭제 변경                                                  |
+| `web-bff-server-read-error-privacy-shaping`  | [Web BFF server read, error, and privacy shaping criteria](./web-bff-server-read-error-privacy-shaping.md)      | server render data 읽기·upstream 오류 번역·응답 형태 변경                                     |
+| `web-be-domain-model-invariant`              | [Web BE domain model and invariant criteria](./web-be-domain-model-invariant.md)                                | server 업무 규칙의 owner·상태 전이·선행 조건·종료 상태 변경                                   |
+| `web-be-api-design-contract`                 | [Web BE API design and contract criteria](./web-be-api-design-contract.md)                                      | server API의 요청·응답 schema·오류·목록 조회·공유 contract 변경                               |
+| `web-be-authn-authz`                         | [Web BE authentication and authorization criteria](./web-be-authn-authz.md)                                     | server 진입점의 기본 인증·판정 위치, role·capability·운영자 권한 변경                         |
+| `web-be-application-architecture`            | [Web BE application architecture criteria](./web-be-application-architecture.md)                                | server code의 층 흐름·module 구조·domain 사이 호출·process 상태와 설정 주입 변경              |
+| `web-be-transaction-concurrency-idempotency` | [Web BE transaction, concurrency, and idempotency criteria](./web-be-transaction-concurrency-idempotency.md)    | server의 read-check-write 보호·중복과 재시도·commit 뒤 부수효과·격리와 잠금 변경              |
+| `web-be-background-integration-performance`  | [Web BE background work, integration, and performance criteria](./web-be-background-integration-performance.md) | server의 background 작업·외부 호출과 실패 동작·조회와 pool 포화·운영 신호 변경                |
+| `web-db-schema-modeling`                     | [Web DB schema modeling criteria](./web-db-schema-modeling.md)                                                  | DB model·relation·제약·삭제 동작·이력·명명과 type 변경                                        |
+| `web-db-migration-seed-compatibility`        | [Web DB migration, seed, and compatibility criteria](./web-db-migration-seed-compatibility.md)                  | DB migration·seed와 그 적용·되돌림 경로 변경                                                  |
+| `web-db-index-query`                         | [Web DB index and query criteria](./web-db-index-query.md)                                                      | DB 조회 pattern·index·raw SQL 변경                                                            |
+| `web-db-integrity-retention-lifecycle`       | [Web DB integrity, retention, and lifecycle criteria](./web-db-integrity-retention-lifecycle.md)                | DB 수준 무결성·잠금, 보존 기한 삭제·익명화, DB 계정·grant 변경                                |
+| `web-infra-topology-runtime-config`          | [Web infra topology, runtime, and configuration criteria](./web-infra-topology-runtime-config.md)               | 배포 구성·환경 차이, artifact·설정·secret 주입, 실행 설정, 노출 port·권한, 선언형 설정 변경   |
+| `web-infra-ci-cd`                            | [Web infra CI/CD criteria](./web-infra-ci-cd.md)                                                                | CI workflow·lane·cache·경로 분류, 검증·배포 권한과 사람 승인, 배포 pipeline·절차 owner 변경   |
+| `web-infra-observability`                    | [Web infra observability criteria](./web-infra-observability.md)                                                | 관측 data의 수집·저장·보존·접근·alert 경계와 관측 UI·운영 화면 책임 변경                      |
+| `web-infra-data-durability-recovery`         | [Web infra data durability and recovery criteria](./web-infra-data-durability-recovery.md)                      | backup·restore·RPO/RTO, DB 접속 script의 안전 gate, stateful 변경과 rollout 호환 구간 변경    |
+| `web-infra-capacity-cost-supply-chain`       | [Web infra capacity, cost, and supply chain criteria](./web-infra-capacity-cost-supply-chain.md)                | 자원 한도·장애 동작, 확장·비용 가정, dependency·image 갱신과 공급망, upgrade·지원 종료 변경   |
+| `web-security-privacy-trust-authz-model`     | [Web security-privacy trust and authorization model criteria](./web-security-privacy-trust-authz-model.md)      | 요청 신뢰 경계·권한 판정·반복과 추측 요청의 남용 방어·입력 주입 방어·신고와 제재 변경         |
+| `web-security-privacy-data-privacy-secret`   | [Web security-privacy data privacy and secret criteria](./web-security-privacy-data-privacy-secret.md)          | 개인정보·비공개 필드·비밀값의 분류·표시·전달·저장·보존·기록과 외부 처리자 전달 변경           |
+| `web-operations-release-release-gate`        | [Web operations-release release gate criteria](./web-operations-release-release-gate.md)                        | release 대상·절차·증거, 배포 순서·되돌림·운영 적용 권한, 완료 보고 변경                       |
+| `web-operations-release-slo-signal`          | [Web operations-release SLO and signal criteria](./web-operations-release-slo-signal.md)                        | health·readiness 신호, 운영 신호·alert·runbook, 의존 서비스 실패 동작과 성능·가용성 목표 변경 |
 
-- 변경 유형으로 고릅니다. 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의 독립 리뷰 trigger가 없는
-  변경에는 기준 문서를 고르지 않습니다.
+- 리뷰 대상 경로로 고릅니다([자동 선택](#자동-선택)). 문서와 script를 함께 바꾸면 두 문서를 모두 고릅니다. 오탈자·포맷처럼 QA의
+  독립 리뷰 trigger가 없는 변경에는 리뷰를 만들지 않으므로 기준 문서도 고르지 않습니다.
 - 계획 readiness 리뷰는 `documents`를 쓰고, readiness 자체의 판정 항목은
   [Plan authoring core의 promotion gate](../plan-authoring/core.md#7-implementation-readiness-promotion)가 소유합니다.
-- 제품 영역(FE·BE·infra) 기준 문서는 영역 owner와 함께 이 형식으로 추가합니다. 그 전에는 영역 plan-authoring guide와
-  [visual design review contract](../visual-design/design-review-and-acceptance.md) 같은 기존 owner 문서를 acceptance 근거로 씁니다.
+- `swe`는 모든 영역에 공통인 SWE 기준을 소유합니다. `swe`의 경로 키는 agent workflow script와 문서를 빼므로 script에는 `swe` 대신
+  `agent-workflow-tooling`을 고르고, 문서만 바꾸는 변경에는 그 경로 키로 `swe`를 고르지 않습니다. 영역 경로 키가 문서 경로(영역
+  owner 문서·운영 절차 문서)에도 맞으면 아래 상속 규칙으로 `swe`도 함께 고릅니다. `swe.md` S2의 정책 원본은 그 도메인의 [정책 문서](../../../policies/README.md)이고, S7의 dependency 정책 원본은
+  [AGENTS.md 5절](../../../../AGENTS.md#5-implementation-agreements)과 [dependency security policy](../../../policies/dependency-security.md)입니다.
+- 영역 기준 문서(`web-<layer>-<하위 layer>`)를 고르면 `swe`와, 그 문서 머리말이 상속한다고 적은 문서도 함께 고릅니다.
+- 제품 영역(FE·BFF·BE·DB·infra와 cross-cutting security-privacy·operations-release) 기준 문서는 영역 owner와 함께 이 형식으로
+  추가합니다. 지금은 FE 하위 layer 6개, BFF 하위 layer 3개, BE 하위 layer 6개, DB 하위 layer 4개, infra 하위 layer 5개,
+  security-privacy 하위 layer 2개, operations-release 하위 layer 2개의 문서가 있습니다. 기준 문서 대신 기존 owner 문서를
+  acceptance 근거로 쓸 때(대체)는 영역 plan-authoring guide와
+  [visual design review contract](../visual-design/design-review-and-acceptance.md)를 씁니다. 시각 값과 미감은 FE 기준 문서가
+  아니라 visual design 문서가 소유합니다.
+- 영역 기준 문서의 항목은 [Domain/SWE/Web pack](../domain/swe-web/README.md)의 하위 layer 절이 결정 목록·위험과 함께 인용합니다.
+  기준·pack 문서는 저장소 값(경로·명령·stack 이름)을 쓰지 않고 binding 키로 가리키며, 이 저장소의 값은
+  [KNU domain binding](../domain/knu-binding.md)에 있습니다.
+
+## 자동 선택
+
+리뷰를 만들 때 기준 id를 주지 않으면 리뷰 대상 경로로 기준 문서를 고릅니다. 선택 module은
+[`review-criteria-selection.mjs`](../../../../scripts/agents/common/review-criteria-selection.mjs)이고 host 정책을 import하지
+않습니다. Host가 넘기는 대상 경로는 Parent 작성 변경이면 subject 경로(디렉터리는 그 아래 tracked·비ignored 파일), 위임한 task면
+관측한 변경 경로입니다.
+
+- 경로 키: [KNU domain binding](../domain/knu-binding.md)의 `repo-structure.*` 값이 경로 glob입니다. 영역 기준 문서
+  `web-<layer>-<하위 layer>`는 [pack](../domain/swe-web/README.md) 하위 layer 절의 `### binding 키`에 적힌 경로 키로, layer 없는
+  `swe`·`documents`·`agent-workflow-tooling`은 `repo-structure.review-<id>` 키로 대상 경로와 맞춥니다. 경로 키가 하나도 없는 하위
+  layer 절, 표에 없는 키, 기준 문서가 없는 절은 선택을 거부합니다.
+- Glob 해석: backtick 안 경로만 glob입니다. 끝 `/`는 그 아래 전체, `<이름>`은 한 segment, `**`는 0개 이상 segment(끝에 오면 그
+  아래 1개 이상), `/*`는 바로 아래 파일만, `*`만 있으면 root 파일입니다. segment 안의 `*`(예: `*.json`·`tsconfig*.json`)는 `/`를 뺀
+  0개 이상 글자이고, wildcard가 없는 glob은 정확한 경로입니다. `!`를 앞에 붙인 glob은 그 키에서 뺍니다. `/`·`*`도 확장자도 없는
+  backtick 단어(예시 이름)와 backtick 밖 설명은 범위를 좁히지 않습니다.
+- 겹침: 다른 layer(FE·BFF·BE·DB·infra)의 문서가 같은 경로에 맞으면 더 구체적인 키로 맞은 문서만 고릅니다. 구체성은 맞은 glob의
+  wildcard 앞 고정 segment 수이고 같으면 둘 다 고릅니다. 같은 layer 안, cross-cutting(security-privacy·operations-release), layer
+  없는 문서는 맞으면 모두 고릅니다.
+- 상속: 고른 문서의 머리말("이 문서를 고르면 … 함께 고릅니다")이 가리키는 문서를 함께 고르고, 그 문서의 머리말도 따라갑니다.
+- Layer 신호: 영역 문서의 선택 이유에 [domain guide registry](../../../../scripts/agents/common/domain-guide-registry.mjs)가 그
+  경로에 layer 신호를 주는지(`present`·`missing`, registry가 그 경로를 판정하지 못하면 `unavailable`)를 적습니다. 신호가 없어도
+  경로 키가 맞으면 고르고, 그 기록은 registry 정렬의 입력입니다.
+- 기록: 리뷰마다 고른 문서, 문서별 항목 id(`<file> <문자><번호>`), 선택 이유(맞은 경로·키·glob·구체성, 상속 출처), 겹침으로 뺀
+  문서, 문서·항목 수, 맞은 키가 없는 경로를 helper 디렉터리의 `<reviewId>.criteria.json`에 남깁니다. Reviewer read path는 아닙니다.
+- Override: 기준 id를 직접 주면(Claude `--criteria`) 그 문서만 쓰고 기록에 `override`와 자동 선택 결과를 함께 남깁니다.
+  Claude `--criteria none`은 기준 문서 없이 리뷰하고 기록에 override `none`과 자동 선택 결과를 남깁니다. 기준 효과를 재는 비교
+  측정(교정·baseline)용이고 필수 리뷰에는 쓰지 않습니다. 다른 id와 섞거나 `e3`와 함께 주면 거부합니다.
+- 영역 판정: `matchReviewCriteriaPath(path, catalog)`는 경로 하나에 겹침 규칙까지 적용한 문서와 그 layer(`areas`)를 냅니다.
+  CI `Lifecycle gate`의 영역 검사(`W-AREA`)가 이 함수로 제품 경로마다 영역이 있는지 봅니다([KNU domain binding의 영역 검사](../domain/knu-binding.md#영역-검사)).
 
 ## 항목 형식
 
-문서마다 항목은 **8개 이하**입니다. 상한은 기준이 의례적 checklist로 길어지는 것을 막기 위한 값이며, 새 항목이 필요하면 가장
-적게 걸린 항목을 합치거나 교체합니다. 각 항목은 `### <문자><번호>. <이름>` 제목과 아래 네 줄을 가집니다.
+문서당 항목 수 상한은 두지 않습니다. 적용 조건이 다른 항목이 섞이면 문서를 나눕니다. 각 항목은 `### <문자><번호>. <이름>`
+제목과 아래 일곱 줄을 이 순서로 가집니다.
 
 ```text
 - 질문: reviewer가 판정할 한 문장 질문
 - 기본 severity: `critical` | `high` | `medium` | `low` (QA severity 정의)
 - 적용 조건: 이 항목을 판정하는 변경의 범위
 - 결함 패턴: 이 항목이 실제로 잡아야 했던 결함 유형의 요약
+- PASS 근거: 충족을 보이는 관측(test·runner 기록·source 위치)
+- 지침: 구현할 때 해야 할 것
+- 피함: 구현할 때 피할 것
 ```
 
+- 한 항목이 두 보기를 함께 가집니다. 지침·피함은 구현할 때 보는 구현 보기이고, 질문·기본 severity·결함 패턴·PASS 근거는 리뷰할
+  때 보는 리뷰 보기입니다. 적용 조건은 두 보기가 함께 씁니다. 두 보기를 같은 블록에 두어 한쪽만 바뀌는 일이 diff에 보이게 합니다.
+- 문서마다 항목 문자 하나를 씁니다(`documents` D, `agent-workflow-tooling` W, `swe` S, 영역 문서는 FE `F`·BFF `B`·BE `E`·DB
+  `T`·infra `I`·security-privacy `P`·operations-release `O`). 영역 문서는 첫 항목 앞 머리말에 상속하는 문서·항목과 강화 관계를 적습니다. 영역 문서의 항목은
+  상속한 항목보다 좁은 조건을 더 보는 별도 항목이고 기본 severity는 자기 값입니다. 상속한 항목은 영역 문서를 골라도 자기 기본
+  severity로 그대로 적용되고 영역 문서가 끄거나 낮추지 못합니다. 같은 결함이 두 항목에 함께 맞으면 기본 severity가 높은
+  항목으로 판정합니다.
+- 구현 지침 문서(plan-authoring guide)는 항목 문장을 다시 쓰지 않고 `[swe.md S4](./swe.md#s4-책임-경계와-결합도)`처럼 항목 제목
+  anchor로 인용합니다. 구현 guide가 없는 저장소 전용 기준(`documents`·`agent-workflow-tooling`)을 뺀 모든 항목은 guide 하나 이상이
+  인용해야 합니다. pack 하위 layer 절도 같은 방식으로 인용하지만 guide 인용을 대신하지 않습니다.
 - 결함 패턴은 유형 요약입니다. Local 증거 경로, plan 파일명, 작업 단계 이름을 근거로 인용하지 않습니다.
 - Reviewer는 적용 조건에 맞는 항목을 판정합니다. 미충족 항목은 `criteriaItem` 필드에 항목 id 하나(예: `documents.md D2`)만 적은
-  finding이 되고 기본 severity에서 시작합니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 다르게 매기면 finding에 이유를 적습니다. 충족한 항목은 finding이 아니라 acceptance coverage의 근거로 씁니다.
+  finding이 되고 기본 severity에서 시작하며, 다르게 매기면 finding에 이유를 적습니다. 관련 항목과 이유는 finding 본문에 적습니다. 리뷰 기록 측정은 이 필드로 항목을 셉니다. 충족한 항목은 finding이 아니라 그 항목의 PASS 근거에 해당하는 관측으로 acceptance coverage에 씁니다.
 - 결정적 검사가 이미 판정하는 내용(Markdown link·anchor 해석 등)은 항목으로 두지 않습니다.
 
 ## 결정적 검사
@@ -168,4 +252,7 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 ## 갱신
 
 리뷰가 놓쳐 merge 뒤 발견된 결함과 Parent가 재현으로 기각한 finding은 기준 항목 갱신의 입력입니다. 갱신은 이 디렉터리의 문서
-변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 형식과 상한을 검사합니다.
+변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음),
+README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·pack 인용(해석, 인용되지 않은 항목, pack 하위 layer 절의 항목
+인용과 id 목록), pack 결정의 필드 순서와 먼저 정할 결정 해석, binding 키의 표기와 해석, 저장소 값 이름 목록 부재를
+검사합니다.

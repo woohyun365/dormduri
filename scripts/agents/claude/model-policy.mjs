@@ -2,15 +2,27 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-10-01.2';
+const POLICY_REVISION = '2026-10-19.1';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
 const EXACT_MODEL_ID = /^claude-(?:haiku|sonnet|opus)-[a-zA-Z0-9][a-zA-Z0-9._-]{0,119}$/u;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
+// Exact model ID to capabilities. An ID listed without effort has no effort to compare with the role
+// effort; any other exact ID supports effort and is held to the role effort.
+export const CLAUDE_MODEL_CAPABILITIES = deepFreeze({
+  'claude-haiku-4-5-20251001': { effort: false },
+});
+export function claudeModelSupportsEffort(modelId) {
+  return (
+    !Object.hasOwn(CLAUDE_MODEL_CAPABILITIES, modelId) || CLAUDE_MODEL_CAPABILITIES[modelId].effort
+  );
+}
+
 const ROLE_TOOLS = deepFreeze({
   knu_explorer: ['Read', 'Grep', 'Glob'],
+  knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
   knu_researcher: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
   knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_executor_xhigh: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
@@ -26,7 +38,7 @@ const PROFILES = deepFreeze([
     kinds: ['extract'],
     impactRisks: ['low'],
     complexities: ['bounded'],
-    roles: ['knu_explorer'],
+    roles: ['knu_explorer_xhigh'],
     allowedTools: ['Read', 'Grep', 'Glob'],
     requiredFacts: [
       'source-bound',
@@ -44,7 +56,7 @@ const PROFILES = deepFreeze([
     kinds: ['extract', 'read', 'build'],
     impactRisks: ['low', 'medium'],
     complexities: ['bounded'],
-    roles: ['knu_explorer', 'knu_researcher', 'knu_executor'],
+    roles: ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher', 'knu_executor'],
     allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Edit', 'Write', 'Bash'],
     requiredFacts: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
     readOnly: false,
@@ -486,11 +498,20 @@ function validateRecovery(recovery) {
   require(Object.hasOwn(ROLE_TOOLS, recovery.fromRole));
 }
 
-// The Owner ladder: 1 Sonnet high to Opus high in the same role, 2 Opus high executor to the Opus
-// xhigh executor (build only), 0 the same profile and role. Any other move is no ladder step.
+// The Owner ladder: 1 Haiku xhigh extraction to Sonnet xhigh, or Sonnet high to Opus high, in the
+// same role, 2 Opus high executor to the Opus xhigh executor (build only), 0 the same profile and
+// role. Any other move is no ladder step.
 export function claudeRecoveryStep(from, to) {
   if (from.kind !== to.kind) return null;
   if (from.profileId === to.profileId && from.role === to.role) return 0;
+  if (
+    from.profileId === 'bounded-extraction' &&
+    to.profileId === 'bounded-standard' &&
+    from.role === 'knu_explorer_xhigh' &&
+    to.role === 'knu_explorer_xhigh' &&
+    to.kind === 'extract'
+  )
+    return 1;
   if (
     from.profileId === 'bounded-standard' &&
     to.profileId === 'complex-critical' &&
@@ -562,10 +583,13 @@ function eligibilityReasons(profile, task) {
     reasons.push('write-owner');
   }
   // A high-risk build runs at xhigh; the xhigh executor is an Opus build role, also reachable by a
-  // Recovery escalation of a non-high-risk complex build.
+  // Recovery escalation of a non-high-risk complex build. The xhigh explorer is the extraction role
+  // and reaches bounded-standard only as the bound one-step retry of an extraction.
   const xhighBuild = profile.id === 'complex-critical' && task.kind === 'build';
+  const xhighExtraction = profile.id === 'bounded-extraction' || ladderRetry(profile, task);
   if (
     (task.role === 'knu_executor_xhigh' && !xhighBuild) ||
+    (task.role === 'knu_explorer_xhigh' && !xhighExtraction) ||
     (task.kind === 'build' && task.impactRisk === 'high' && task.role !== 'knu_executor_xhigh')
   ) {
     reasons.push('effort-tier');
@@ -623,7 +647,7 @@ function envelopeReasons(envelope, task) {
 function rolesForKind(kind) {
   return (
     {
-      extract: ['knu_explorer'],
+      extract: ['knu_explorer', 'knu_explorer_xhigh'],
       read: ['knu_explorer', 'knu_researcher'],
       build: [...EXECUTORS],
       review: ['knu_reviewer'],

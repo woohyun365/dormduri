@@ -40,7 +40,8 @@ apps/web/storybook-static/
 ## TypeScript
 # 증분 빌드 캐시 파일
 *.tsbuildinfo
-# 참고: next-env.d.ts는 타입 선언 파일이므로 버전 관리 포함 권장
+# Next.js가 next dev·build·typegen 때 다시 만드는 타입 참조 파일. 공식 TypeScript 문서 권장대로 추적하지 않는다.
+next-env.d.ts
 
 ## AI 도구 (Claude Code, Codex, OMC, OMX)
 # 검토한 프로젝트 adapter와 agent만 추적하고 개인 설정·세션·plugin cache는 제외한다.
@@ -49,6 +50,7 @@ apps/web/storybook-static/
 !.claude/agents/
 .claude/agents/*
 !.claude/agents/knu_explorer.md
+!.claude/agents/knu_explorer_xhigh.md
 !.claude/agents/knu_researcher.md
 !.claude/agents/knu_executor.md
 !.claude/agents/knu_executor_xhigh.md

@@ -192,7 +192,7 @@
       "path": "docs/development/agent-workflows/review-criteria/README.md",
       "owner": "general development workflow owner",
       "kind": "normative",
-      "rationale": "변경 유형별 기준 문서 선택과 항목 형식(문서당 8개 이하, 질문·기본 severity·적용 조건·결함 패턴)을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
+      "rationale": "변경 유형별 기준 문서 선택, 항목 형식(문서당 상한 없음·적용 조건이 다른 항목은 문서 분할, 질문·기본 severity·적용 조건·결함 패턴·PASS 근거·지침·피함)과 guide·pack 인용 규칙을 소유한다. severity·gate·회차 규칙은 qa.md가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/review-criteria/documents.md",
@@ -205,6 +205,234 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "agent workflow script·검사·helper·skill 리뷰의 기준 항목(조용한 통과 금지, 보고와 실행의 일치, 대조군, 입력 결속 등)을 소유한다. host 실행은 adapter가 소유한다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/swe.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "모든 영역에 공통인 SWE code 기준 항목(요구사항·정책 부합, 정확성, 책임 경계, 계약 호환성, 보호 test, dependency 도입과 version 의존 동작, 성능, 가독성, 예측 가능성, 응집도와 중복 trade-off)과 각 항목의 구현 보기를 소유한다. 보안·동시성·영역 고유 규칙은 영역 기준이 소유하고 영역 기준이 이 항목을 상속해도 이 항목은 자기 severity로 적용된다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-fe-rendering-boundary.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web FE rendering-boundary 하위 layer의 기준 항목(server·client 경계, render 일치와 navigation, 체감 성능, 부분 실패와 browser 오류 관측)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-fe-state-data-cache.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web FE state-data-cache 하위 layer의 기준 항목(상태 원천, UI 상태, form·mutation, 무효화·identity 전환, data hook 계약, 외부 입력 검증)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-fe-component-architecture.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web FE component-architecture 하위 layer의 기준 항목(owner·공통화, 합성, 분기 분리, 기능 단위 배치, 예시 fixture, renderer 중립 경계)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-fe-design-system.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web FE design-system 하위 layer의 기준 항목(semantic token, 공통 부품 승격, 문구 원본)을 소유한다. 시각 값과 미감 판정은 두지 않는다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-fe-layout-responsive-device.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web FE layout-responsive-device 하위 layer의 기준 항목(표현 판정, 같은 URL의 render 안전, viewport·scroll 검증)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-fe-accessibility.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web FE accessibility 하위 layer의 기준 항목(의미 있는 요소와 이름, keyboard·focus, 상태 알림과 비활성 이유)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-bff-gateway-forwarding.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BFF gateway-forwarding 하위 layer의 기준 항목(BFF를 둘 조건과 upstream allowlist, 상태 변경 진입점)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-bff-session-cookie-auth.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BFF session-cookie-auth 하위 layer의 기준 항목(cookie 속성과 token 보관, session 갱신 위치)을 소유한다. trust-authz-model P1을 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-bff-server-read-error-privacy-shaping.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BFF server-read-error-privacy-shaping 하위 layer의 기준 항목(server read 경로, 오류 번역, 응답 최소화)을 소유한다. data-privacy-secret P1을 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-domain-model-invariant.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE domain-model-invariant 하위 layer의 기준 항목(capability·aggregate owner, 상태 전이·선행 조건·종료 상태의 server 강제)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-api-design-contract.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE api-design-contract 하위 layer의 기준 항목(경계 schema 검증과 내부 type 비노출, 오류 의미 구분, 목록 상한·pagination·resource 명명, 공유 contract owner·호환성·deprecation)을 소유한다. data-privacy-secret P1·P2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-authn-authz.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE authn-authz 하위 layer의 기준 항목(기본 인증과 공통 판정 위치, capability·role 판정과 진입점별 인가 표)을 소유한다. trust-authz-model P2·P3를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-application-architecture.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE application-architecture 하위 layer의 기준 항목(layer 흐름과 transport 누수, flat 우선과 불필요 추상화 금지, domain 간 공개 contract 호출과 table 공유 금지, process 상태와 설정 주입)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-transaction-concurrency-idempotency.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE transaction-concurrency-idempotency 하위 layer의 기준 항목(read-check-write 보호, 중복·재시도 멱등성, 부수효과와 commit 경계, 격리 수준·lock 선택과 재시도)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-be-background-integration-performance.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web BE background-integration-performance 하위 layer의 기준 항목(background 작업 trigger·owner·중복 실행, 외부 호출 timeout·retry·fail-open/closed, query·pool·quota 포화 후보, code가 내는 운영 신호)을 소유한다. data-privacy-secret P4와 slo-signal O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-schema-modeling.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB schema-modeling 하위 layer의 기준 항목(model owner·제약·삭제 동작, snapshot·history와 현재 row 분리, 명명·type 규약)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-migration-seed-compatibility.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB migration-seed-compatibility 하위 layer의 기준 항목(위험 migration 패턴과 사람 승인, fresh·현재 DB 적용과 되돌림 경로, seed 멱등·결정적 key·production 안전)을 소유한다. release-gate O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-index-query.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB index-query 하위 layer의 기준 항목(query shape과 index·실행 계획 확인, raw SQL 위치와 parameter binding)을 소유한다. trust-authz-model P4를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-db-integrity-retention-lifecycle.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web DB integrity-retention-lifecycle 하위 layer의 기준 항목(DB 제약·lock helper·lock 순서, 보존 기한 삭제·비식별 실행, DB 계정 분리와 최소 grant)을 소유한다. data-privacy-secret P3를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-topology-runtime-config.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra topology-runtime-config 하위 layer의 기준 항목(현재·목표 topology와 환경 차이 구분, 불변 artifact와 config·secret 주입 흐름, runtime 강화, network·identity 최소 권한과 운영자 접근, 선언형 config·IaC owner와 drift)을 소유한다. data-privacy-secret P4를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-ci-cd.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra ci-cd 하위 layer의 기준 항목(변경 경로 분류·cache·lane, 검증·배포 권한 분리와 사람 승인 지점, target 없는 CD 금지와 owner 하나)을 소유한다. release-gate O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-observability.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra observability 하위 layer의 기준 항목(수집·저장·질의·alert·privacy 경계, 관측 UI와 제품 운영 화면 분리)을 소유한다. data-privacy-secret P4와 slo-signal O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-data-durability-recovery.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra data-durability-recovery 하위 layer의 기준 항목(restore 증거로 증명하는 backup·RPO/RTO, disposable DB와 운영 유사 endpoint 안전 gate, stateful 변경과 rollout 호환 구간)을 소유한다. release-gate O2를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-capacity-cost-supply-chain.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra capacity-cost-supply-chain 하위 layer의 기준 항목(첫 포화 지점과 degradation matrix, 확장 도입 근거와 비용 가정 출처, 공급망 갱신·출처·SBOM·취약점 정책, upgrade·deprecation owner)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-security-privacy-trust-authz-model.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web security-privacy trust-authz-model 하위 layer의 기준 항목(cookie 인증 상태 변경 위조 방지, 서버 쪽 인가와 객체 단위 권한, 열거·추측·재전송·빈도 남용 방어, 주입·XSS·open redirect, 신고·차단·제재의 오탐과 이의)을 소유한다. 이 항목을 상속하는 영역 문서는 그 문서 머리말에 적는다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-security-privacy-data-privacy-secret.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web security-privacy data-privacy-secret 하위 layer의 기준 항목(숨긴 신원·비공개 필드의 공개 범위, 데이터 분류와 수집·전달 최소화, 보존 목적·기한·삭제·비식별, 비밀값과 log·telemetry 정제, 외부 처리자와 법적 근거의 현재성)을 소유한다. 이 항목을 상속하는 영역 문서는 그 문서 머리말에 적는다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-operations-release-release-gate.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web operations-release release-gate 하위 layer의 기준 항목(release handoff와 증거 없는 GO 금지, rollout 순서·호환 구간·되돌림·사람 승인, 완료 시계 구분과 provider 값 추측 금지)을 소유한다. 이 항목을 상속하는 영역 문서는 그 문서 머리말에 적는다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/review-criteria/web-operations-release-slo-signal.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web operations-release slo-signal 하위 layer의 기준 항목(health·readiness 신호 범위, 운영 신호·alert·runbook 연결, 실패 동작과 성능·가용성 budget)을 소유한다. 이 항목을 상속하는 영역 문서는 그 문서 머리말에 적는다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/README.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "Domain/SWE/Web pack의 계층·node 필드(pack 수준 skillOutputs 포함)·결정 목록 형식·binding 참조 형식·상속 규칙을 소유한다. 저장소 값과 binding 문서를 참조하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/fe.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "FE 하위 layer 6개의 결정 목록과 기준 항목 인용·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/bff.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "BFF 하위 layer 3개의 결정 목록과 기준 항목 인용·상속·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/be.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "BE 하위 layer 6개의 결정 목록과 기준 항목 인용·상속·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/db.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "DB 하위 layer 4개의 결정 목록과 기준 항목 인용·상속·위험(파괴적 DDL과 운영 DB 변경의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/infra.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "infra 하위 layer 5개의 결정 목록과 기준 항목 인용·상속·위험(운영 배포·적용과 운영 DB 쓰기의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/security-privacy.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "cross-cutting security-privacy 하위 layer 2개의 결정 목록과 기준 항목 인용·위험·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/swe-web/operations-release.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "cross-cutting operations-release 하위 layer 2개의 결정 목록과 기준 항목 인용·위험(비가역 운영 적용의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/domain/knu-binding.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "이 저장소가 pack·기준 문서의 binding 키에 주는 값(경로·도구·정책 원본 위치)을 소유한다. 각 결정에서 고른 값의 기록은 아직 두지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/refactor-analysis.md",

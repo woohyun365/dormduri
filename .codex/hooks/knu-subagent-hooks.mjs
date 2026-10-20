@@ -3,7 +3,8 @@
 // for, and a fresh fork (`fork_turns` "none"), whose plain arguments equal the unused registration `codex:register`
 // wrote for that task name. It denies child spawns, every bare `spawn_agent` (V1 roots and V2 providers without tool
 // namespaces) and the retry of a lane whose primary child was accepted. Follow-up and message calls are recorded, and
-// denied when they target an accepted or released child. The allow record binds the task name to its role and model and
+// denied when they target an accepted or released child, or a reviewer child (a root allow sealed a review registration
+// for it) running or not. The allow record binds the task name to its role and model and
 // seals the registration; SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort
 // that completion checks compare with that bind. While a writer lane the root spawned is neither accepted nor released,
 // a root apply_patch that writes a tracked or unignored path is denied (Parent write guard); a guard that cannot decide
@@ -49,8 +50,9 @@ const INPUT_FIELDS = [
   'target',
 ];
 
-// registry = { read(taskName), used(taskName), settled(target), released(target), writers(roles) } over the Parent
-// session's registration directory and hook records; workspace = { classify(targets, cwd) } for apply_patch targets.
+// registry = { read(taskName), used(taskName), settled(target), released(target), review(target), writers(roles) } over
+// the Parent session's registration directory and hook records; workspace = { classify(targets, cwd) } for apply_patch
+// targets.
 export function decideToolUse(payload, policy, registry, workspace) {
   const name = typeof payload?.tool_name === 'string' ? payload.tool_name : '';
   if (name === PATCH_TOOL) return decideParentWrite(payload, policy, registry, workspace);
@@ -67,6 +69,8 @@ export function decideToolUse(payload, policy, registry, workspace) {
     const child = target.startsWith(ROOT_PATH) ? target.slice(ROOT_PATH.length) : target;
     if (registry?.settled(child)) return decided('deny', 'settled-child');
     if (registry?.released?.(child)) return decided('deny', 'released-child');
+    // A reviewer judges only its packet: a further question is a new review round, not a message mid-review.
+    if (registry?.review?.(child)) return decided('deny', 'review-child');
     return decided('record');
   }
   if (caller === 'child') return decided('deny', 'child-spawn-denied');
@@ -321,8 +325,8 @@ function fileRegistry(root, sessionId) {
       .split(/\r?\n/u)
       .filter(Boolean)
       .map(parse);
-  const rootAllows = () =>
-    records().filter(
+  const rootAllows = (own = records()) =>
+    own.filter(
       (record) =>
         record?.event === 'PreToolUse' && record.caller === 'root' && record.decision === 'allow',
     );
@@ -368,6 +372,28 @@ function fileRegistry(root, sessionId) {
     },
     settled,
     released,
+    // A child the root spawned on a sealed review registration, named by task name or by the agent id its start
+    // recorded on that task path. Registration files are child-writable, so only the seal in the allow record counts.
+    review(target) {
+      const own = records();
+      const names = new Set(
+        rootAllows(own)
+          .filter((record) => record.registration?.kind === 'review')
+          .map((record) => record.input?.task_name)
+          .filter((name) => typeof name === 'string'),
+      );
+      return (
+        names.has(target) ||
+        own.some(
+          (record) =>
+            record?.event === 'SubagentStart' &&
+            record.agentId === target &&
+            typeof record.agentPath === 'string' &&
+            record.agentPath.startsWith(ROOT_PATH) &&
+            names.has(record.agentPath.slice(ROOT_PATH.length)),
+        )
+      );
+    },
     // Writer tasks the root spawned (the sealed role is a writer role) that are neither accepted nor released.
     writers(roles) {
       // A torn line may be the allow record of an open writer, so the guard cannot decide.
@@ -470,8 +496,9 @@ function hookOutput(event, record) {
 function denyOutput(reason) {
   return decisionOutput(
     `KNU subagent guard: ${reason}. Spawn only a registered (codex:register) repo knu_* role with an allowed ` +
-      'explicit model that the role has a profile pair for, and fork_turns "none"; children may not spawn, and an ' +
-      'accepted or released child is not resumed or retried.',
+      'explicit model that the role has a profile pair for, and fork_turns "none"; children may not spawn, an ' +
+      'accepted or released child is not resumed or retried, and a reviewer child takes no follow-up or message ' +
+      '(ask in a new review round).',
   );
 }
 

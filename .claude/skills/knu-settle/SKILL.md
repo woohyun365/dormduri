@@ -23,8 +23,10 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
 - Native subject reviewer: 위와 같이 template을 채워 `--judgment`로 정산합니다. 결과 JSON은
   `.artifacts/tools/claude-native/<taskId>/completion.json`의 응답에서 읽습니다.
 - `parent-adjudication` reviewer: template이 없고 `--judgment`는 거부됩니다. Parent가 settle 결과의 `observationErrors`가
-  비었는지(모델·변경 경로 포함)와 finding 재현으로 판정하고, `finalSnapshot` digest가 review `logHeader`와 같은지 확인합니다.
-  Packet 파일 review는 settle 결과의 `reviewPacket`을 함께 봅니다. Reviewer가 packet 파일을 성공적으로 읽지 않았으면
+  비었는지(모델·변경 경로 포함)와 finding 재현으로 판정합니다. Helper가 reviewer prompt 첫 줄 `logHeader`의 snapshot을 대조해
+  다르면 `review-snapshot-mismatch`를 넣습니다. 읽기 전용 reviewer는 의존 집합(read path·결속 입력·transcript가 보인 읽기)
+  안 변경이 없으면 등록 snapshot과, 있으면 `finalSnapshot`과 대조하므로 다른 세션의 집합 밖 편집·commit은 settle 결과
+  `dependencyJudgment`에 기록만 남습니다. Packet 파일 review는 settle 결과의 `reviewPacket`을 함께 봅니다. Reviewer가 packet 파일을 성공적으로 읽지 않았으면
   `review-packet-unread`, 파일이 prompt의 digest와 다르면 `review-packet-changed`, prompt에서 packet 파일 줄이 빠졌으면
   `review-packet-missing`이 `observationErrors`에 들어가므로 재리뷰합니다. 리뷰 입력인 ignored 파일이나 그 manifest가 바뀌었거나
   빠졌으면 `review-input-*`가 들어가므로 역시 결과를 쓰지 않고 `review`를 다시 만들어 재리뷰합니다.

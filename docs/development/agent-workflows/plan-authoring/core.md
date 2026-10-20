@@ -26,6 +26,8 @@ Native plan mode의 초안과 repository canonical 계획을 구분하며 local 
 package, framework, provider, 법·정책처럼 변할 수 있는 사실은 current version과 공식 primary source를 확인합니다.
 외부 근거가 없으면 추측하지 않고 `gap`으로 남깁니다.
 
+구현·리뷰 기준: [swe.md S2](../review-criteria/swe.md#s2-제품-정책-부합), [swe.md S7](../review-criteria/swe.md#s7-dependency-도입과-version-의존-동작)
+
 ## 3. Baseline and ownership
 
 계획 시작 시 다음을 bounded baseline으로 기록합니다.
@@ -201,6 +203,8 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 빈 heading을 채우기 위해 내용을 발명하지 않습니다. 적용되지 않는 항목은 이유와 함께 생략합니다.
 
+구현·리뷰 기준: [swe.md S1](../review-criteria/swe.md#s1-요구사항intentinvariant-부합)
+
 ### Structural change impact inventory
 
 여러 파일의 계약을 함께 바꾸는 구조 변경 plan(모듈 처분, 역할·profile 개편, 문서 구조 분리 등)은 source inventory에 다음
@@ -352,6 +356,8 @@ Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, bu
 필수 검토/runner가 없으면 safe local work와 merge readiness를 분리하고 gap을 남깁니다. 이는 위 implementation-readiness
 review를 없애거나 두 검토를 하나의 PASS로 합치는 규칙이 아닙니다. QA matrix를 계획마다 복제하지 않습니다.
 
+구현·리뷰 기준: [swe.md S5](../review-criteria/swe.md#s5-계약-호환성), [swe.md S6](../review-criteria/swe.md#s6-보호-test)
+
 ## 11. AI-readable architecture without AI-specific layers
 
 계획은 다음을 선호합니다.
@@ -370,6 +376,8 @@ review를 없애거나 두 검토를 하나의 PASS로 합치는 규칙이 아�
 - 호출부 없는 미래 확장 layer
 - 여러 child가 같은 파일이나 global plan을 소유
 - 긴 transcript와 raw prompt를 durable context로 저장
+
+구현·리뷰 기준: [swe.md S4](../review-criteria/swe.md#s4-책임-경계와-결합도), [swe.md S9](../review-criteria/swe.md#s9-가독성), [swe.md S10](../review-criteria/swe.md#s10-예측-가능성), [swe.md S11](../review-criteria/swe.md#s11-응집도와-중복-trade-off)
 
 ## 12. Checkpoint and final report
 

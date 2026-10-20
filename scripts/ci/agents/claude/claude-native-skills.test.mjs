@@ -101,13 +101,14 @@ function documentedFacts() {
   );
 }
 const KIND_PROBE = {
-  extract: { profileId: 'bounded-extraction', role: 'knu_explorer', request: '분석해줘' },
+  extract: { profileId: 'bounded-extraction', role: 'knu_explorer_xhigh', request: '분석해줘' },
   read: { profileId: 'bounded-standard', role: 'knu_explorer', request: '분석해줘' },
   build: { profileId: 'bounded-standard', role: 'knu_executor', request: '구현해줘' },
   review: { profileId: 'complex-critical', role: 'knu_reviewer', request: '리뷰해줘' },
 };
 const TOOLS = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
+  knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
   knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 };
@@ -391,6 +392,21 @@ test('settle, registry and qualification documents carry the E2 recovery and pil
   }
 });
 
+// G8: a Parent subject request carries requirements, never the change description, and the skill
+// names the input checks review and registration apply to it.
+test('knu-review asks for requirements in request and names the Parent subject input checks', () => {
+  const text = skill('knu-review').replace(/\s+/gu, ' ');
+  assert.ok(!text.includes('`request`는 검토할 변경의 설명'), 'request as change description');
+  assert.match(text, /`request`는 요구사항/u);
+  for (const term of [
+    'requirementSections',
+    'local-state-path',
+    'request-implementation-marker',
+    'review-prompt-changed',
+  ])
+    assert.ok(text.includes(term), term);
+});
+
 test('review and settle documents carry the E3 packet file and its settle reasons', () => {
   const review = skill('knu-review');
   assert.ok(review.includes('KNU_REVIEW_PACKET_FILE'), 'knu-review names the packet file line');
@@ -436,6 +452,33 @@ test('settle documents keep the hand-back turn alive until the completion notifi
   assert.ok(!/\bE[0-9]\b/u.test(flat), 'no plan phase label in a tracked doc');
 });
 
+// The review entry takes code review requests and picks criteria from the changed paths. A host's
+// own review (built-in /code-review, Ultracode, Workflow, fork, Codex Ultra) is an advisory opinion;
+// the review evidence is the registered reviewer's observation only. The snapshot ignores the stage,
+// so no skill asks for `git add -N` before a review.
+test('knu-review is the code review entry with automatic criteria and advisory host reviews', () => {
+  const review = skill('knu-review');
+  const { description } = frontmatter(review);
+  for (const phrase of ['code review', '리뷰해줘']) assert.ok(description.includes(phrase), phrase);
+  const flat = review.replace(/\s+/gu, ' ');
+  for (const host of ['`/code-review`', 'Ultracode', 'Workflow', 'fork', 'Codex Ultra'])
+    assert.ok(flat.includes(host), `host review: ${host}`);
+  assert.ok(flat.includes('보조 의견'), 'host review results are advisory');
+  assert.ok(flat.includes('등록한 reviewer task의 관측'), 'evidence is the registered reviewer');
+  assert.ok(flat.includes('<reviewId>.criteria.json'), 'names the selection record');
+  assert.ok(flat.includes('--criteria'), 'names the override');
+  for (const name of ['knu-review', 'knu-delegate'])
+    assert.ok(!skill(name).includes('git add -N'), `${name}: git add -N instruction remains`);
+  for (const path of [
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+  ])
+    assert.ok(read(path).includes('`review-snapshot-mismatch`'), `${path}: logHeader comparison`);
+  const adapter = read('docs/development/agent-workflows/adapters/claude-code.md');
+  assert.ok(adapter.includes('`claude-git-baseline/v4`'), 'digest version');
+  assert.ok(!adapter.includes('`claude-git-baseline/v3`'), 'old digest version');
+});
+
 test('the delegate skill routine table matches the adapter routine rows one to one', () => {
   const cells = (line) =>
     line
@@ -462,11 +505,16 @@ test('the delegate skill routine table matches the adapter routine rows one to o
     ['impact `high` 구현', '고위험 구현'],
   ]);
   const status = (value) => (value.startsWith('Q') ? 'Q' : value);
-  const alias = { '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
+  const alias = { '`haiku`': 'Haiku', '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
   const adapterRows = tableRows(routine, /^\| `knu_/u)
-    // knu_reviewer is dispatched by /knu-review, not copied into the delegate skill.
+    // knu_reviewer is dispatched by /knu-review, and a replaced row is refused at registration, so
+    // neither is copied into the delegate skill.
     .filter(
-      (row) => row[6] !== undefined && !row[6].startsWith('미사용') && row[0] !== '`knu_reviewer`',
+      (row) =>
+        row[6] !== undefined &&
+        !row[6].startsWith('미사용') &&
+        !row[6].startsWith('대체됨') &&
+        row[0] !== '`knu_reviewer`',
     )
     .map(([role, profile, model, effort, , work, state]) => [
       `${role} ${profile} ${work}`,

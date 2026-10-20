@@ -1,6 +1,6 @@
 ---
 name: knu-delegate
-description: 이 저장소에서 bounded 작업을 KNU 역할(knu_explorer·knu_researcher·knu_executor·knu_executor_xhigh)에 위임할 때 native task를 등록하고 호출하는 절차입니다.
+description: 이 저장소에서 bounded 작업을 KNU 역할(knu_explorer·knu_explorer_xhigh·knu_researcher·knu_executor·knu_executor_xhigh)에 위임할 때 native task를 등록하고 호출하는 절차입니다.
 ---
 
 # KNU native 위임
@@ -49,14 +49,15 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 
 - 역할·profile·모델 조합은 adapter의 routine 표에서 `관측` 행만 고릅니다. Effort는 역할 파일이 정하므로 역할로 고릅니다.
 
-  | 작업               | 역할                 | Profile            | 모델·effort | 상태 |
-  | ------------------ | -------------------- | ------------------ | ----------- | ---- |
-  | 고정 입력 추출     | `knu_explorer`       | `bounded-standard` | Sonnet high | 관측 |
-  | 공식 근거 조사     | `knu_researcher`     | `bounded-standard` | Sonnet high | 관측 |
-  | bounded 구현       | `knu_executor`       | `bounded-standard` | Sonnet high | 관측 |
-  | repository 읽기    | `knu_explorer`       | `bounded-standard` | Sonnet high | 관측 |
-  | 복잡한 구현        | `knu_executor`       | `complex-critical` | Opus high   | 관측 |
-  | impact `high` 구현 | `knu_executor_xhigh` | `complex-critical` | Opus xhigh  | 관측 |
+  | 작업               | 역할                 | Profile              | 모델·effort | 상태 |
+  | ------------------ | -------------------- | -------------------- | ----------- | ---- |
+  | 고정 입력 추출     | `knu_explorer`       | `bounded-standard`   | Sonnet high | 관측 |
+  | 고정 입력 추출     | `knu_explorer_xhigh` | `bounded-extraction` | Haiku xhigh | Q    |
+  | 공식 근거 조사     | `knu_researcher`     | `bounded-standard`   | Sonnet high | 관측 |
+  | bounded 구현       | `knu_executor`       | `bounded-standard`   | Sonnet high | 관측 |
+  | repository 읽기    | `knu_explorer`       | `bounded-standard`   | Sonnet high | 관측 |
+  | 복잡한 구현        | `knu_executor`       | `complex-critical`   | Opus high   | 관측 |
+  | impact `high` 구현 | `knu_executor_xhigh` | `complex-critical`   | Opus xhigh  | 관측 |
 
   상태는 adapter의 routine 표가 원본입니다. Adapter 표에서 Q인 조합은 routine 위임에 쓰지 않습니다.
 
@@ -69,8 +70,8 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 
 - `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native prepare --spec <absolute-spec-path>`
 - 출력의 `agentInput`을 **그대로** Agent 도구 입력으로 씁니다. Hook이 등록된 prompt를 주입합니다. 등록은 권한 승인이 아닙니다.
-- 새 파일을 만드는 writer의 prompt에는 hand-back 전에 `git add -N <새 파일>`을 하라는 줄을 넣습니다. 리뷰 snapshot을 잡은 뒤의
-  `git add -N`은 snapshot을 바꿉니다(`/knu-review` dispatch 전 단계 2).
+- 새 파일을 만드는 writer에게 stage를 시키지 않습니다. 리뷰 snapshot은 stage와 무관하고, 새 파일 검사는
+  [`/knu-review` dispatch 전 단계 2](../knu-review/SKILL.md#dispatch-전-단계)(commit 먼저, commit 전이면 저장소 밖 clone)를 따릅니다.
 - Writer task가 실행되는 동안 Parent는 tracked·비ignored 파일을 수정하지 않습니다. File guard가 Edit·Write를 거부해도 우회하지
   않습니다.
 - 완료 알림을 받으면 `/knu-settle`로 정산합니다. 독립 QA가 필요하면 `/knu-review`를 먼저 따릅니다.
@@ -94,7 +95,8 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 5. `prepare`합니다. 재시도는 한 번뿐입니다. Registry는 이 밖의 재시도를 모두 거부합니다.
 
 아래는 1단계 재시도(Sonnet high → Opus high)에서 위 template에 덮어쓸 필드만 보인 예입니다. 2단계는 `profileId`가 이미
-`complex-critical`이므로 `role`만 `knu_executor_xhigh`로 바꿉니다.
+`complex-critical`이므로 `role`만 `knu_executor_xhigh`로 바꿉니다. `bounded-extraction`(`knu_explorer_xhigh`, Haiku xhigh)의
+1단계는 `profileId`를 `bounded-standard`로, `expectedResolvedModel`을 Sonnet ID로 바꾸고 `role`은 그대로 둡니다(Sonnet xhigh).
 
 ```json
 {

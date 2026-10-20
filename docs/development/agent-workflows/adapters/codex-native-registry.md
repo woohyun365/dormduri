@@ -17,10 +17,13 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   (`pair-not-allowed`) (3) `fork_turns`가 `"none"` (4) 아래 등록의 평문 인자와 같을 때만 허용합니다. 허용 기록은
   task name과 역할·model을 묶는 bind이고 등록을 봉인합니다. Child가 부른 spawn과 접두사 없는 `spawn_agent`(V1 root, namespace 없는
   V2 provider)는 전부 deny합니다. `followup_task`·`send_message`는 기록하되, 수락된 child(task name, agent id 또는
-  `/root/<task name>`)를 target으로 하면 `settled-child`, 해제한 child면 `released-child`로 deny합니다. Hook이 판정하지 못하면(정책
-  파일 오류 등) spawn을 deny합니다. codex-cli 0.162.0부터 `fork_turns` 양의 정수는 full-history fork로 해석되므로(`rust-v0.162.0`
-  #51329) 생략·`"all"`과 같이 `full-history-fork`로 deny합니다. 등록도 `"none"`만 받습니다. 두 번째 group `^apply_patch$`는 아래
-  **Parent 쓰기** guard입니다.
+  `/root/<task name>`)를 target으로 하면 `settled-child`, 해제한 child면 `released-child`, 그 밖의 review child면 실행 중이든 멈춘
+  뒤든 호출자(root·다른 child)와 무관하게 `review-child`로 deny합니다. Review child는 root allow 기록이 review 등록을 봉인한 task
+  name과 그 task path의 Start 기록 agent id이고, 등록 파일은 child가 쓸 수 있어 판정에 쓰지 않습니다(기록 파일의 손상 줄은 읽지
+  않음). Reviewer에 더할 질문은 새 회차로 보냅니다([리뷰 회차](../qa.md#리뷰-회차)). Hook이 없거나 PreToolUse가 실패하면 이 deny와
+  기록도 없습니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다. codex-cli 0.162.0부터 `fork_turns` 양의 정수는
+  full-history fork로 해석되므로(`rust-v0.162.0` #51329) 생략·`"all"`과 같이 `full-history-fork`로 deny합니다. 등록도 `"none"`만
+  받습니다. 두 번째 group `^apply_patch$`는 아래 **Parent 쓰기** guard입니다.
 - **등록·수락**: Parent는 spawn 전에 dispatch가 계산한 spawn 인자를 `codex:register`(`task-registry.mjs`의 `registerDispatch()`)로
   `.artifacts/tools/codex-native/<Parent session>/<task_name>.json`에 한 번만 씁니다(같은 이름의 두 번째 등록은 거절). 등록은
   `task_name`이 lane id·token(재시도는 `_retry`)이나 reviewer round와 맞고, (역할, model)이 허용 쌍이고, effort가 역할 pin이고,
@@ -149,7 +152,13 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
 evidence가 필요하며 한 종류의 PASS를 다른 종류의 PASS로 보고하지 않습니다.
 
 저장소는 project `.codex/config.toml`에 `sandbox_mode`·`approval_policy` 기본값을 두지 않고 `.codex/rules` 실행 규칙도 만들지
-않습니다. 두 값은 사용자·세션의 선택이고, untrusted project에서는 project config와 rules가 함께 건너뛰어져 저장소 보장이 되지
-못하며, prefix rule은 위 `gh api` 예처럼 인자·repository·method를 제한하지 않습니다. 역할 파일의 `sandbox_mode`는 공식 역할
-필드이므로 역할마다 둡니다. Project config에 approval·model 등 Parent 소유 키가 없음은 `project-codex-config.test.mjs`가 검사합니다.
-[공식 rules 문서](https://learn.chatgpt.com/docs/agent-configuration/rules)
+않습니다. 두 값은 사용자·세션의 선택이고, untrusted project에서는 project config·hooks·rules를 건너뛰고 project `AGENTS.md`도
+주지 않아(codex-cli 0.150.0부터) 저장소 보장이 되지 못하며, prefix rule은 위 `gh api` 예처럼 인자·repository·method를 제한하지
+않습니다. 역할 파일의 `sandbox_mode`도 parent 설정을 override하지 않습니다. Child는 Parent turn의 sandbox·approval을 물려받고 역할
+지시는 별도 read-only sandbox를 만들지 않으므로, 역할 파일의 값은 writer 역할 표시(`workspace-write`인 역할이 정책 사본 `writerRoles`,
+위 **Parent 쓰기**)로만 쓰고 read-only 역할의 쓰기가 sandbox로 막힌다고 보고하지 않습니다. Project config에 approval·model 등 Parent
+소유 키가 없음은 `project-codex-config.test.mjs`가 검사합니다.
+[공식 rules 문서](https://learn.chatgpt.com/docs/agent-configuration/rules) ·
+[공식 subagents 문서](https://learn.chatgpt.com/codex/agent-configuration/subagents) ·
+[공식 config 문서](https://learn.chatgpt.com/codex/config-file/config-basic) ·
+[rust-v0.150.0 release](https://github.com/openai/codex/releases/tag/rust-v0.150.0)

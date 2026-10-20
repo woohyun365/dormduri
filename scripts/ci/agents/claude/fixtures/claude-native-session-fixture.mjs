@@ -5,6 +5,7 @@ import { join } from 'node:path';
 // The effort each tracked role file declares; fixture roles mirror it so registration binds it.
 export const ROLE_EFFORT = {
   knu_explorer: 'high',
+  knu_explorer_xhigh: 'xhigh',
   knu_researcher: 'high',
   knu_executor: 'high',
   knu_executor_xhigh: 'xhigh',
@@ -18,9 +19,10 @@ export function writeRole(root, role, tools, body = 'Bounded fixture role.') {
 }
 // Writes a finished child transcript where Claude Code keeps it: beside the parent session
 // transcript, under <session>/subagents/. Returns the parent transcript path a hook event names.
+// Each `tools` entry ({ name, input }) adds a tool call and its successful result before the answer.
 export function writeChildTranscript(
   root,
-  { sessionId, agentId, prompt, model, effort, text = 'done' },
+  { sessionId, agentId, prompt, model, effort, text = 'done', tools = [] },
 ) {
   const base = join(realpathSync(root), '.artifacts/transcripts');
   mkdirSync(join(base, sessionId, 'subagents'), { recursive: true });
@@ -28,9 +30,24 @@ export function writeChildTranscript(
   if (!existsSync(parentPath)) writeFileSync(parentPath, '');
   const row = (type, message, extra = {}) =>
     JSON.stringify({ type, sessionId, agentId, ...extra, message });
+  const efforts = effort === undefined ? {} : { effort };
+  const calls = tools.flatMap(({ name, input }, index) => [
+    row(
+      'assistant',
+      { model, content: [{ type: 'tool_use', id: `toolu_${index}`, name, input }] },
+      efforts,
+    ),
+    row('user', {
+      content: [{ type: 'tool_result', tool_use_id: `toolu_${index}`, content: 'ok' }],
+    }),
+  ]);
   writeFileSync(
     join(base, sessionId, 'subagents', `agent-${agentId}.jsonl`),
-    `${row('user', { content: prompt })}\n${row('assistant', { model, content: [{ type: 'text', text }] }, effort === undefined ? {} : { effort })}\n`,
+    [
+      row('user', { content: prompt }),
+      ...calls,
+      row('assistant', { model, content: [{ type: 'text', text }] }, efforts),
+    ].join('\n') + '\n',
   );
   return parentPath;
 }
@@ -39,6 +56,7 @@ export function fixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.claude/agents'), { recursive: true });
   writeRole(root, 'knu_explorer', 'Read, Grep, Glob', 'Read only.');
+  writeRole(root, 'knu_explorer_xhigh', 'Read, Grep, Glob', 'Read only.');
   writeFileSync(join(root, 'sample.txt'), 'oracle');
   const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
   git('init', '-q');
@@ -78,7 +96,7 @@ export function fixture(t) {
         impactRisk: 'low',
         complexity: 'bounded',
         uncertainty: 'resolved',
-        role: 'knu_explorer',
+        role: 'knu_explorer_xhigh',
         allowedTools: ['Read', 'Grep', 'Glob'],
         readScope: ['sample.txt'],
         writeScope: [],

@@ -19,10 +19,39 @@ RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실�
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. `--parent-subject`는 등록할 세션을
 알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 
+독립 리뷰의 근거는 이 절차로 등록한 `knu_reviewer` task의 관측뿐입니다. Host 자체 리뷰(built-in `/code-review`, Ultracode·Workflow
+리뷰, fork 자식, Codex Ultra 자식)의 결과는 OMC code-reviewer와 같은 보조 의견이며 PASS·builder 완료·finding 처분의 근거가
+아닙니다.
+
+Parent subject의 `request`는 요구사항(사용자 요청·issue·plan acceptance)이고 구현 설명·추론·자기평가를 넣지 않습니다. `review`는
+`paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로를 `local-state-path:<path>`로
+거부합니다. 추적 `.claude/` 설정·skill·역할 파일은 local state가 아닙니다. `request`에 완료형 구현 서술 문장(`고쳤다`·`구현했다` 등
+16개 동사)이 있으면 거부하지 않고 출력 `warnings`에 `request-implementation-marker`를 내고 packet `evidence.environment`에
+`request-implementation-marker=<문장 수>`를 덧붙입니다. `evidence.environment`에는 걸린 문장을 넣지 않고 `knownGaps`도 쓰지 않아 PASS를
+막지 않습니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남으므로 경고를 받으면 `request`를 고쳐 다시 `review`합니다.
+선택 필드 `requirementSections`(`[{"path", "headings"}]`)는 plan의 판정 원본 절만 reviewer에게 넘깁니다. Heading은 `#`를 뺀 정확한
+문자열로 찾고, 절은 그 heading부터 같은 수준 이하의 다음 heading 전까지입니다(code fence 안 줄은 heading이 아님). 없으면
+`requirement-heading-missing`, 두 번 이상이면 `requirement-heading-duplicate`, 읽을 수 없는 파일은 `requirement-path-unreadable`, 형식
+오류는 `requirementSections-invalid`로 거부합니다. Helper는 추출을 `.artifacts/tools/claude-review-packets/<reviewId>.requirements.md`에
+한 번 쓰고 그 경로만 read path에 넣으며 plan 파일은 넣지 않습니다. `paths`가 그 plan이나 그 위 디렉터리를 가리키면
+`requirement-path-in-paths: <path>`로 거부합니다. Packet `sources.requirements`는 acceptance 그대로입니다. Plan 자체가 `paths`에 있는
+readiness 리뷰는 이 필드를 쓰지 않습니다.
+
+Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
+sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(추출이 있으면 그 digest도 함께), registry는
+모든 `knu_reviewer` 등록(`prepare`와 `register --input`)에서 그 기록과 prompt를 대조합니다. Review id는 native subject면 packet id
+`review-<reviewId>`, Parent subject면 prompt의 `KNU_REVIEW_PACKET_FILE:` 경로에서 얻고, 1회차 그룹은 구성원마다 대조합니다. 기록이
+없거나 review id를 얻을 수 없으면 `review-prompt-unbound`, prompt가 다르면 `review-prompt-changed`로 등록을 거부합니다.
+
 Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함께 줍니다. `--round N`(1부터)은 항상 필요하고, 2회차부터는
 `--previous-result <file>`로 직전 회차 result JSON(verdict·findings가 있는 파일, native task 기록 경로 제외)이 필요합니다. 1회차에
-직전 result를 주거나 2회차부터 빠뜨리면 거부합니다. `--criteria <id,id>`는 변경 유형으로 고른
-[review criteria](../review-criteria/README.md) id이며, 해당 문서가 packet `sources.owners`와 read path에 들어갑니다. 직전 result도
+직전 result를 주거나 2회차부터 빠뜨리면 거부합니다. 기준 문서는 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경
+경로)로 [자동 선택](../review-criteria/README.md#자동-선택)하고, `--criteria <id,id>`를 주면 그 id로 override합니다.
+`--criteria none`은 기준 문서 없이 리뷰합니다. 기준 효과를 재는 비교 측정(교정·baseline)용이고 필수 리뷰에는 쓰지 않으며, helper는
+막지 않고 기록의 override `none`으로 감사합니다. 다른 id와 섞으면 `criteria-invalid`, `e3`와 함께면
+`composition-e3-criteria-required`로 거부합니다. 고른 문서가
+packet `sources.owners`와 read path에 들어가고, 출력 `criteriaSelection`이 문서·항목 수와 경로 키가 맞지 않은 경로를, helper 디렉터리의
+`<reviewId>.criteria.json`(read path 아님)이 선택 이유와 override 때의 자동 선택 결과를 남깁니다. 직전 result도
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
 문서가 있으면 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다.
@@ -33,7 +62,7 @@ read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Rev
 같고 `packetId`·`dispatchId`가 다르며 reviewer id는 `reviewer-<i>`입니다. Native subject는 read path가 같고, Parent subject는
 구성원마다 자기 packet 파일만 다릅니다. 각 prompt 둘째 줄은 `KNU review group <groupId> <i>/<N> <e2|e3>`이고 등록 digest로
 결속됩니다. Prompt는 finding id를 `m<i>-`로 시작하고, 결과가 PASS가 아니면 각 coverage gap과 `knownGaps` 항목에 원인 finding id를
-적게 합니다. `e3`는 `--criteria`가 필요하고(`composition-e3-criteria-required`) 고른 기준 문서의 `### <문자><번호>.` 항목을 순서대로
+적게 합니다. `e3`는 기준 문서(자동 선택이나 `--criteria`)가 필요하고(`composition-e3-criteria-required`) 고른 기준 문서의 `### <문자><번호>.` 항목을 순서대로
 이어 구성원 수만큼 연속 구간으로 나누고, 배정 항목은 finding `criteriaItem`과 같은 형식(`documents.md D2`)으로 적습니다. 항목이
 구성원보다 적으면 `criteria-items-too-few`입니다. 구성원은 배정 항목을 빠짐없이 판정하고 다른 항목의 blocking 결함도 보고합니다. Acceptance coverage는 구성원 모두 전체를 채웁니다. 모든 prompt가 상한 안에
 들어온 뒤에만 packet 파일을 씁니다. 계획 readiness 리뷰는 단일 reviewer입니다.
@@ -66,6 +95,14 @@ Native 관측 model의 일치를 별도로 확인한 뒤 공통 `validateAdapter
 reviewer/builder identity와 acceptance coverage를 검사합니다. `complete + PASS`와 `complete + FAIL`은 reviewer task의
 terminal 결과가 될 수 있지만 FAIL은 builder PASS가 아닙니다. `partial`·`denied`·`timed-out`·`cancelled` 또는
 `BLOCKED`는 reviewer completion이 아닙니다.
+
+Reviewer는 write 범위가 비어 있으므로 정산 drift를 의존 집합으로 판정합니다([registry 8단계](./claude-native-registry.md)). 의존
+집합은 등록 read 범위, packet `allowedReadPaths`, inputs manifest의 파일, child transcript의 Read 파일과 Grep·Glob 디렉터리입니다. 집합
+안 변경이 없으면 `validateAdapterReview`의 current snapshot은 packet snapshot이고, complete 끝 fan-in의
+`current-source-head-mismatch`·`current-source-diff-mismatch`·`current-untracked-input-mismatch`는 판정으로 대신해
+`dependencyJudgment.replacedSourceGaps`에 남깁니다. 그래서 다른 세션의 집합 밖 편집·commit은 reviewer 결과를 무효로 만들지
+않습니다. Fan-in의 다른 gap, adapter identity drift, 등록 전 `stale workflow`·`review-snapshot-stale`, builder 완료의 `review snapshot
+mismatch` 대조는 그대로입니다. 저장소 전체로 판정하는 조건은 [registry 8단계](./claude-native-registry.md)를 따릅니다.
 
 Read-only reviewer는 명령을 실행하지 않습니다. Packet `authority.runnerOwner`가 실행하고 evidence로 제공한 검증은 result의
 `commandsActuallyRun`에 그 runner·exit·관측 결과·환경으로 기록하며 reviewer가 실행했다고 쓰지 않습니다. `notRun`은 누구도
@@ -100,15 +137,19 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 경로 아님)에 상한 검사를 통과한 뒤 한 번 씁니다. Prompt에는 `KNU_REVIEW_PACKET_FILE:<경로> <sha256 digest>` 한 줄이 남고, 그
 경로가 reviewer read 범위에 들어갑니다. `settle --task`는 `reviewPacket`(경로, 기대·현재 digest, 성공한 `Read` 관측)을 더하고,
 읽지 않았으면 `review-packet-unread`, 파일이 바뀌었으면 `review-packet-changed`, Parent reviewer prompt에 packet 파일 줄이
-없으면 `review-packet-missing`을 `observationErrors`에 넣습니다. 그 reviewer는
+없으면 `review-packet-missing`을 `observationErrors`에 넣습니다(그런 prompt는 등록부터 `review-prompt-unbound`로 거부됩니다).
+등록한 prompt나 read 범위가 `requirementSections` 추출을 가리키면 `reviewRequirements`(경로, 기록·현재 digest)를 더하고, 추출이 prompt 기록의 digest와
+다르거나 기록이 없으면 `review-requirements-changed`를 넣습니다. 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
-비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정하고 `finalSnapshot` digest가 review `logHeader`와 같은지
-확인합니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
+비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정합니다. Settle은 prompt 첫 줄 `logHeader`의 snapshot을 의존 집합
+안 변경이 없으면 등록 snapshot과, 있거나 저장소 전체 판정이면 `finalSnapshot`과 대조해 다르면 `review-snapshot-mismatch`를 넣고,
+판정을 `dependencyJudgment`로 냅니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
 현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
 
 Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가
 따로 결속합니다. 대상은 reviewer read path 중 ignored read path 아래 파일과, 어느 read path든 그 아래 `.plans/`·`.artifacts/`·
-`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 packet·manifest와 native task 기록은 빠지고, 그 밖의 비ignored
+`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 파일(packet·manifest는 prompt 줄이, requirement 추출은 prompt
+기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
 디렉터리 안 ignored 파일(package 의존성·build 산출물)은 결속하지 않습니다(known limit). Helper는 파일마다 digest(mode·bytes, symlink는
 링크 문자열)를 `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 한 번 쓰고 prompt 마지막 줄에
 `KNU_REVIEW_INPUTS_FILE:<경로> <sha256 digest>`를 둡니다. 대상이 없으면 줄도 없습니다. 2,000개·파일 8 MiB·합계 32 MiB를 넘으면

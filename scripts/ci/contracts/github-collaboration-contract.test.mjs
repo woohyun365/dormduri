@@ -15,6 +15,7 @@ test('pull request input asks for current risk and verification evidence', () =>
   for (const heading of [
     '## Summary',
     '## Related',
+    '## Lifecycle',
     '## Changes',
     '## Risk / Migration / Operations',
     '## Verification',
@@ -35,6 +36,20 @@ test('pull request input asks for current risk and verification evidence', () =>
   ]) {
     assert.ok(template.includes(currentInput), `missing current PR input: ${currentInput}`);
   }
+});
+
+test('the collaboration guide explains how the Lifecycle section is read', () => {
+  const collaboration = read('docs/development/github/collaboration.md');
+  const pullRequest = collaboration.slice(
+    collaboration.indexOf('## Pull request'),
+    collaboration.indexOf('\n## ', collaboration.indexOf('## Pull request') + 1),
+  );
+
+  assert.match(pullRequest, /`Lifecycle` 절/u);
+  assert.match(pullRequest, /feature로 계산/u);
+  assert.match(pullRequest, /Lifecycle gate/u);
+  assert.match(pullRequest, /re-run/u);
+  assert.match(pullRequest, /본문을 직접 넘겨/u);
 });
 
 test('developer documentation separates local feedback, CI, and remote settings', () => {

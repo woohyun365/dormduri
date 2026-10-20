@@ -26,6 +26,7 @@ const ASTRA = 'gpt-6-astra';
 const SOL = 'gpt-6.1-sol';
 const LUNA = 'gpt-6-luna';
 const GRANDCHILD = '01a10cfd-5d1e-7a40-9c0b-0f3b8e2a1c77';
+const REVIEWER = '01a10cfd-7e2b-7c31-8d4a-2f6b9e0c4d11';
 // Guard and completion cases need a few pairs only; project-codex-config binds the installed copy to the owner.
 const POLICY = {
   allowedModels: [...ALLOWED_CHILD_MODELS],
@@ -214,6 +215,57 @@ test('guard only records follow-up and message tools and ignores unrelated tools
     {
       action: 'ignore',
     },
+  );
+});
+
+// A reviewer child takes no follow-up or message, running or stopped, from the root or a peer: a further question is a
+// new review round. An accepted or released reviewer keeps its own reason; a lane child is still only recorded.
+test('guard denies follow-up and message calls to a review child and keeps the lane and settled reasons', async () => {
+  const { decideToolUse } = await hooks();
+  const call = (toolName, target, child = false) => ({
+    ...spawnCall({}, { child }),
+    tool_name: toolName,
+    tool_input: { target, message: 'x' },
+  });
+  const registry = ({ settled = [], released = [] } = {}) => ({
+    review: (target) => ['review_k3x9_1', REVIEWER].includes(target),
+    settled: (target) => settled.includes(target),
+    released: (target) => released.includes(target),
+  });
+  for (const [toolName, target, child, tool] of [
+    ['collaborationfollowup_task', 'review_k3x9_1', false, 'followup_task'],
+    ['collaborationsend_message', 'review_k3x9_1', false, 'send_message'],
+    ['collaborationfollowup_task', REVIEWER, false, 'followup_task'],
+    ['collaborationsend_message', '/root/review_k3x9_1', false, 'send_message'],
+    // A peer lane child may not brief the reviewer either.
+    ['collaborationsend_message', 'review_k3x9_1', true, 'send_message'],
+  ])
+    assert.deepEqual(
+      decideToolUse(call(toolName, target, child), POLICY, registry()),
+      { action: 'deny', tool, caller: child ? 'child' : 'root', reason: 'review-child' },
+      `${toolName} ${target}`,
+    );
+  assert.deepEqual(
+    decideToolUse(call('collaborationfollowup_task', 'lane_one_k3x9'), POLICY, registry()),
+    { action: 'record', tool: 'followup_task', caller: 'root' },
+  );
+  for (const target of ['review_k3x9_1', REVIEWER])
+    assert.equal(
+      decideToolUse(
+        call('collaborationfollowup_task', target),
+        POLICY,
+        registry({ settled: [target] }),
+      ).reason,
+      'settled-child',
+      target,
+    );
+  assert.equal(
+    decideToolUse(
+      call('collaborationfollowup_task', 'review_k3x9_1'),
+      POLICY,
+      registry({ released: ['review_k3x9_1'] }),
+    ).reason,
+    'released-child',
   );
 });
 
@@ -1416,6 +1468,123 @@ test('a release record of this session closes the guard; another session or sche
       /released-child/u,
       target,
     );
+});
+
+// Registrations are child-writable, so the review mark is the root allow record's seal; the agent id is the one the
+// reviewer's start recorded on its task path.
+test('the installed hook reads the review seal from its own records, not from the registration file', (t) => {
+  const { root, registrations, register, run, reason, lines } = writerRoot(t);
+  const reviewer = spawnCall({
+    task_name: 'review_k3x9_1',
+    agent_type: 'knu_reviewer',
+    reasoning_effort: 'xhigh',
+  });
+  writeFileSync(
+    join(registrations, 'review_k3x9_1.json'),
+    JSON.stringify({
+      ...registrationFor(reviewer),
+      kind: 'review',
+      reviewId: 'review-k3x9-1',
+      round: 1,
+      reviewOf: ['lane-one'],
+      laneId: undefined,
+      retry: undefined,
+    }),
+  );
+  const lane = spawnCall({});
+  register(lane);
+  const followup = (target) => ({
+    ...spawnCall({}),
+    tool_name: 'collaborationfollowup_task',
+    tool_input: { target, message: 'one more thing' },
+  });
+  const message = (target, options) => ({
+    ...spawnCall({}, options),
+    tool_name: 'collaborationsend_message',
+    tool_input: { target, message: 'one more thing' },
+  });
+
+  // A registration file alone is no reviewer child: nothing is sealed before the spawn.
+  assert.equal(reason(run(followup('review_k3x9_1'))), null);
+  assert.equal(reason(run(reviewer)), null);
+  assert.equal(reason(run(lane)), null);
+  const rollout = join(root, '.artifacts/reviewer-rollout.jsonl');
+  writeFileSync(
+    rollout,
+    JSON.stringify({
+      type: 'session_meta',
+      payload: {
+        id: REVIEWER,
+        source: {
+          subagent: {
+            thread_spawn: {
+              parent_thread_id: SESSION,
+              depth: 1,
+              agent_path: '/root/review_k3x9_1',
+              agent_role: 'knu_reviewer',
+            },
+          },
+        },
+      },
+    }),
+  );
+  const subagent = (event) =>
+    run({
+      session_id: SESSION,
+      hook_event_name: event,
+      model: ASTRA,
+      agent_id: REVIEWER,
+      agent_type: 'knu_reviewer',
+      ...(event === 'SubagentStart'
+        ? { transcript_path: rollout }
+        : { agent_transcript_path: rollout }),
+    });
+  assert.equal(subagent('SubagentStart').status, 0);
+
+  for (const target of ['review_k3x9_1', '/root/review_k3x9_1', REVIEWER]) {
+    assert.match(reason(run(followup(target))) ?? '', /review-child/u, `followup ${target}`);
+    assert.match(reason(run(message(target))) ?? '', /review-child/u, `message ${target}`);
+  }
+  assert.match(reason(run(message('review_k3x9_1', { child: true }))) ?? '', /review-child/u);
+  assert.match(reason(run(followup('review_k3x9_1'))) ?? '', /new review round/u);
+  // The lane stays a lane even when its registration file is edited to say review.
+  assert.equal(reason(run(followup('lane_one_k3x9'))), null);
+  writeFileSync(
+    join(registrations, 'lane_one_k3x9.json'),
+    JSON.stringify({ ...registrationFor(lane), kind: 'review' }),
+  );
+  assert.equal(reason(run(followup('lane_one_k3x9'))), null);
+  // A stopped reviewer is still a reviewer; an accepted one keeps settled-child.
+  assert.equal(subagent('SubagentStop').status, 0);
+  assert.match(reason(run(followup(REVIEWER))) ?? '', /review-child/u);
+  writeFileSync(
+    join(registrations, 'review_k3x9_1.accepted.json'),
+    JSON.stringify({
+      schema: 'knu-codex-task-acceptance/v1',
+      sessionId: SESSION,
+      taskName: 'review_k3x9_1',
+      agentId: REVIEWER,
+    }),
+  );
+  assert.match(reason(run(followup('review_k3x9_1'))) ?? '', /settled-child/u);
+  assert.match(reason(run(followup(REVIEWER))) ?? '', /settled-child/u);
+
+  const calls = lines().filter(({ toolName }) => /(?:followup_task|send_message)$/u.test(toolName));
+  assert.deepEqual(
+    calls.map(({ decision, reason: why, caller }) => [decision, why ?? null, caller]),
+    [
+      ['record', null, 'root'],
+      ...Array.from({ length: 6 }, () => ['deny', 'review-child', 'root']),
+      ['deny', 'review-child', 'child'],
+      ['deny', 'review-child', 'root'],
+      ['record', null, 'root'],
+      ['record', null, 'root'],
+      ['deny', 'review-child', 'root'],
+      ['deny', 'settled-child', 'root'],
+      ['deny', 'settled-child', 'root'],
+    ],
+  );
+  assert.doesNotMatch(JSON.stringify(lines()), /one more thing/u);
 });
 
 test('a Parent write guard that cannot decide lets the write through and records the error', (t) => {

@@ -60,7 +60,13 @@ function acceptedFlags(script, rest) {
   return line;
 }
 
-test('skills call only package scripts, with flags their command source accepts', () => {
+// codex.md owns the skill call rule: package scripts, plus the repository CLIs it names in that rule.
+test('skills call only package scripts and the CLIs codex.md names, with flags their command source accepts', () => {
+  const callRule =
+    read('docs/development/agent-workflows/adapters/codex.md')
+      .replace(/\s+/gu, ' ')
+      .match(/Skill은 이 문서가 안내하는 .*?만 호출하고/u)?.[0] ?? '';
+  assert.ok(callRule, 'codex.md skill call rule');
   for (const name of SKILLS) {
     const text = read(skillPath(name));
     const commands = [...text.matchAll(/pnpm -s ([a-z]+:[a-z]+)([^`\n]*)/gu)];
@@ -71,6 +77,11 @@ test('skills call only package scripts, with flags their command source accepts'
       for (const [flag] of rest.matchAll(/--[a-z]+/gu))
         assert.ok(accepted.includes(`'${flag}'`), `${name}: ${command} flag ${flag}`);
     }
+    for (const [, file] of text.matchAll(/`node (scripts\/[^\s`]+\.mjs)/gu))
+      assert.ok(
+        callRule.includes(`\`${file}\``),
+        `${name}: ${file} is not in the codex.md call rule`,
+      );
   }
 });
 
@@ -83,6 +94,58 @@ test('settling compares the result and runs independent QA before it accepts', (
     assert.ok(at(before) >= 0 && at(before) < accept, `knu-settle: ${before} before codex:accept`);
   const entry = read('docs/development/agent-workflows/adapters/codex.md');
   assert.ok(entry.indexOf('oracle/회귀·독립 결과를 대조') < entry.indexOf('pnpm codex:accept'));
+});
+
+// The review entry takes code review requests and picks criteria from the changed paths with the shared selection CLI
+// (the Claude entry's rule source), recording each review's choice. A host's own review (built-in /review, Codex Ultra
+// or fork children) is an advisory opinion; the evidence is the registered reviewer child's observation only. The hook
+// denies a follow-up or message to a reviewer (review-child), so a further question is a new round.
+test('knu-review is the code review entry with automatic criteria and advisory host reviews', () => {
+  const review = read(skillPath('knu-review'));
+  const { description } = frontmatter(review);
+  for (const phrase of ['code review', '리뷰해줘']) assert.ok(description.includes(phrase), phrase);
+  const flat = review.replace(/\s+/gu, ' ');
+  for (const host of ['`/review`', 'Codex Ultra', 'fork'])
+    assert.ok(flat.includes(host), `host review: ${host}`);
+  assert.ok(flat.includes('보조 의견'), 'host review results are advisory');
+  assert.ok(
+    flat.includes('등록·spawn한 reviewer child의 관측'),
+    'evidence is the registered reviewer',
+  );
+  assert.ok(flat.includes('review-criteria/README.md#자동-선택'), 'the selection rule source');
+  assert.ok(flat.includes('<reviewId>.criteria.json'), 'names the selection record');
+  assert.ok(flat.includes('--criteria'), 'names the override');
+  assert.ok(flat.includes('`review-child`'), 'a reviewer takes no follow-up');
+  // The selection runs the shared CLI with flags its source accepts.
+  const commands = [...review.matchAll(/`node (scripts\/agents\/common\/[^\s`]+\.mjs)([^`]*)`/gu)];
+  assert.ok(
+    commands.some(([, file]) => file === 'scripts/agents/common/review-criteria-selection.mjs'),
+    'the shared selection CLI',
+  );
+  for (const [command, file, rest] of commands) {
+    assert.ok(existsSync(resolve(root, file)), file);
+    for (const [flag] of rest.matchAll(/--[a-z]+/gu))
+      assert.ok(read(file).includes(`'${flag}'`), `${command} flag ${flag}`);
+  }
+  // The CLI reads every argument after `--` as a path, so the override shows --criteria before it.
+  const selection = commands.filter(
+    ([, file]) => file === 'scripts/agents/common/review-criteria-selection.mjs',
+  );
+  for (const [command, , rest] of selection)
+    assert.ok(!/(^|\s)--[a-z]/u.test(rest.split(' -- ')[1] ?? ''), `${command}: flag after --`);
+  assert.ok(
+    selection.some(([, , rest]) => rest.split(' -- ')[0].includes('--criteria')),
+    'override command puts --criteria before --',
+  );
+  assert.ok(
+    /`registered\[\]`의 `spawnArguments`/u.test(flat),
+    'spawn arguments come from the register output',
+  );
+  for (const path of [
+    'docs/development/agent-workflows/adapters/codex-native-registry.md',
+    'docs/development/agent-workflows/adapters/codex-delegation.md',
+  ])
+    assert.ok(read(path).includes('`review-child`'), `${path}: review-child`);
 });
 
 test('skills link the single source documents, and every link resolves', () => {

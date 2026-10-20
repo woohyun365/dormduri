@@ -2,7 +2,7 @@
 
 ## 책임
 
-KNU Roommate의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한 뒤, 항상 존재하는 `CI summary` job에서 선택된 lane의 성공 여부를 fail-closed로 판정한다.
+KNU Roommate의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한다. Pull request에서는 분류와 무관하게 `Lifecycle gate`도 실행하고, 항상 존재하는 `CI summary` job에서 선택된 lane과 `Lifecycle gate`의 성공 여부를 fail-closed로 판정한다.
 
 현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/development/future-production-deployment-inputs.md`가 소유한다.
 
@@ -48,8 +48,9 @@ classify
   │   └─ unit      # Node/jsdom Vitest projects
   ├─ infra         # infra와 observability 변경
   ├─ repo-policy   # CI/workflow/root policy, tree 전체 guard와 repository formatting
-  ├─ agent-workflow # agent workflow test(package install 없음)
-  └─ CI summary    # 선택된 모든 lane의 결과를 하나의 required check로 판정
+  └─ agent-workflow # agent workflow test(package install 없음)
+lifecycle-gate     # 모든 pull request(분류와 무관): PR 본문 Lifecycle 절과 정책 우선·영역 기준 존재 검사
+CI summary         # 선택된 모든 lane과 pull request의 lifecycle-gate 결과를 하나의 required check로 판정
 ```
 
 - Web-only 변경은 API/PostgreSQL lane을 실행하지 않는다.
@@ -61,6 +62,12 @@ classify
   agent-workflow lane만 실행한다. Agent workflow test가 읽는 product 파일을 바꾸면 그 product lane과 함께 agent-workflow lane도
   실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행한다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
+- `Lifecycle gate`는 `pull_request` event 조건으로만 실행되고 `CI summary`도 같은 조건으로 선택 여부를 정한다. Job은 실행 시점의
+  PR 본문을 REST API로 읽고(`pull-requests: read`는 이 job에만), event의 base·head merge-base부터 head까지의 diff에 정책 우선
+  검사와 영역 기준 존재 검사를 적용한다. 본문 API·경로 표 JSON·merge-base 오류와, 제품 경로를 바꾼 PR의 리뷰 기준 catalog·영역
+  검사 제외 표 형식 오류는 job 실패다. Push에서는 건너뛰고 `CI summary`는 그 `skipped`를 통과로
+  본다. 검사 판정은 `scripts/ci/lifecycle/`, PR 작성법은 [GitHub collaboration guide](../../development/github/collaboration.md#lifecycle-절)가
+  소유한다.
 - Repo-policy lane의 formatting 검사는 formatting 설정이 그대로이고 PR base·push 범위 기준의 변경 목록을 얻은 경우에만
   변경 파일로 좁히고, 그 밖에는 tree 전체를 검사한다. 판정 규칙은 CI surface ownership의 "Formatting 검사 범위"가 소유한다.
 
@@ -131,7 +138,7 @@ Next 16은 Turbopack을 기본 bundler로 사용하고 repository에 Babel fallb
 제거한 hosted A/B에서 production build가 cached 10s에서 cold 43s로 증가했으므로 cache는 retained decision이다. Build cache
 flag를 별도로 강제하지 않고 current Next default/config compatibility를 lockfile upgrade 때 재검증한다.
 
-Classify와 CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를 사용한다.
+Classify, Lifecycle gate, CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를 사용한다.
 Repository policy는 slim에서 docs/config feedback budget을 넘겨 standard `ubuntu-24.04`로 복구했다. Shared/API/Web/Infra도
 standard x64에 남는다. Product arm64는 Prisma, SWC, Argon2, Playwright, Docker와 cache architecture parity를 증명하기
 전에는 사용하지 않는다. Larger runner는 personal repository의 current owner surface가 아니며 cost-neutral evidence도 없어
@@ -255,7 +262,7 @@ Job-rounded billed-minute advisory budget:
 | Agent workflow      |  7 minutes |
 
 Product lane이 없는 PR(Docs-only, Docs/config/tooling, Agent workflow)은 모두 `repoPolicy`와 `agentWorkflow`를 선택해
-classify, Repository policy gate, Agent workflow gate, CI summary를 실행한다. Lane 선택이 같으므로 Agent workflow 분류는 변경
+classify, Repository policy gate, Agent workflow gate, CI summary를 실행한다(pull request에서는 Lifecycle gate도). Lane 선택이 같으므로 Agent workflow 분류는 변경
 경로로 고른다: agent 지침·adapter·script·test·host 설정을 바꾼 PR이다. 성능 collector의 surface는 lane 기준이라 이 셋을
 `docs-config-tooling-only`로 묶는다. 그래서 Agent workflow 예산은 collector의 advisory budget fixture에 두지 않고
 [CI baseline](../../evidence/ci/monorepo-ci-baseline.md)의 분류별 표본으로 판정한다.
@@ -264,6 +271,7 @@ Agent workflow 목표는 job 분리 뒤 agent-only 표본 14개의 p95에서 정
 lane이 없는 PR은 Agent workflow gate가 critical path이고, 이런 PR 15개(agent-only 14, Docs/config/tooling 1)의 job 분 올림 합 p95
 7분이 Docs/config/tooling 목표를 넘는다. Docs 경로만 바꾼 PR의 표본은 1개라 Docs-only 목표는 아직 판정하지 않는다
 ([CI change classification evidence](../../evidence/ci/ci-change-classification-evidence.md) §6).
+`Lifecycle gate`는 이 표본 뒤에 더해진 job이라 위 job 분 올림 합에 들어 있지 않고, 모든 pull request에 `ubuntu-slim` job 하나를 더한다.
 
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
@@ -304,7 +312,7 @@ source merge로 완료됐다고 주장하지 않고 `remote-repository-settings.
 ## 변경 시 검증
 
 ```bash
-node --test scripts/ci/{lanes,performance,contracts,product}/*.test.mjs
+node --test scripts/ci/{lanes,performance,contracts,product,lifecycle}/*.test.mjs
 pnpm api:check
 pnpm api:test:ci
 pnpm api:build
