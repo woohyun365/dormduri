@@ -234,6 +234,29 @@ test('the summary escapes table separators and never starts a line with a workfl
   for (const line of summary.split('\n')) assert.doesNotMatch(line, /^::/u, line);
 });
 
+test('the summary escapes backslashes before table separators so a cell cannot unescape its own pipe', () => {
+  const summary = renderSummary({
+    meta: {
+      number: 7,
+      author: 'a',
+      baseRef: 'dev',
+      revisions: { base: 'a'.repeat(40), mergeBase: 'b'.repeat(40), head: 'c'.repeat(40) },
+      changedPaths: [],
+      grade: { declared: null, effective: 'feature' },
+    },
+    evaluation: {
+      failed: false,
+      downgrade: null,
+      findings: [{ check: 'x\\', level: 'warn', reason: 'a\\| b \\\\' }],
+    },
+  });
+  const row = summary.split('\n').find((line) => line.startsWith('| x'));
+
+  assert.equal(row, '| x\\\\ | warn | a\\\\\\| b \\\\\\\\ |');
+  // A pipe is a column separator only when an even number of backslashes precedes it.
+  assert.equal(row.match(/(?<!\\)(?:\\\\)*\|/gu).length, 4, row);
+});
+
 test('local mode reads a body file and explicit revisions', async (t) => {
   const repo = fixtureRepository(t, {
     head: { 'apps/api/prisma/migrations/20261017000000_fix/migration.sql': '-- fix\n' },
