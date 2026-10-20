@@ -29,6 +29,7 @@ const localPlanBoundaryAllowlist = new Set([
   'docs/development/agent-workflows/adapters/codex.md',
   // Host lifecycle examples and disposable fixtures, never active-plan authority.
   'docs/development/agent-workflows/adapters/claude-code.md',
+  'docs/development/agent-workflows/adapters/claude-workflow-entry.md',
   'scripts/ci/agents/claude/claude-session-preflight.test.mjs',
   'scripts/ci/agents/claude/claude-workflow-entry.test.mjs',
   'scripts/ci/agents/common/agent-native-adapter-contract.test.mjs',
@@ -271,8 +272,9 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
     resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
     'utf8',
   );
-  const codexAdapter = readFileSync(
-    resolve(repoRoot, 'docs/development/agent-workflows/adapters/codex.md'),
+  // The Codex effort routing detail moved from the adapter entry to its reference.
+  const codexEffortRouting = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/adapters/codex-effort-routing.md'),
     'utf8',
   );
 
@@ -282,20 +284,20 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
   assert.match(orchestration, /single agent/u);
   assert.match(orchestration, /Codex\/OMX adapter/u);
   assert.match(orchestration, /Claude Code adapter/u);
-  assert.match(codexAdapter, /Pass 1/u);
-  assert.match(codexAdapter, /Pass 2/u);
-  assert.match(codexAdapter, /medium/u);
-  assert.match(codexAdapter, /high/u);
-  assert.match(codexAdapter, /xhigh/u);
+  assert.match(codexEffortRouting, /Pass 1/u);
+  assert.match(codexEffortRouting, /Pass 2/u);
+  assert.match(codexEffortRouting, /medium/u);
+  assert.match(codexEffortRouting, /high/u);
+  assert.match(codexEffortRouting, /xhigh/u);
   // Task risk (low-impact) is not an ordinary effort.
   // Check the declared route contract rather than banning a word across all docs.
-  assert.match(codexAdapter, /effort는 `medium \| high \| xhigh`/u);
+  assert.match(codexEffortRouting, /effort는 `medium \| high \| xhigh`/u);
   assert.match(
-    codexAdapter,
+    codexEffortRouting,
     /Low와 `max\/ultra`는 일반 repository child route에 사용하지 않습니다/u,
   );
-  assert.match(codexAdapter, /`max\/ultra`.*사용하지/u);
-  assert.match(codexAdapter, /역할을 prompt label로 가장하지 않고/u);
+  assert.match(codexEffortRouting, /`max\/ultra`.*사용하지/u);
+  assert.match(codexEffortRouting, /역할을 prompt label로 가장하지 않고/u);
 });
 
 test('runtime code and scripts do not use retired OMX directories as output owners', () => {
